@@ -1,0 +1,118 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>assetsBrowser</class>
+ <widget class="QWidget" name="assetsBrowser">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>811</width>
+    <height>656</height>
+   </rect>
+  </property>
+  <property name="windowTitle">
+   <string>Form</string>
+  </property>
+  <layout class="QGridLayout" name="gridLayout">
+   <item row="0" column="0">
+    <widget class="QTreeWidget" name="treeWidget">
+     <property name="sizePolicy">
+      <sizepolicy hsizetype="Minimum" vsizetype="Minimum">
+       <horstretch>0</horstretch>
+       <verstretch>0</verstretch>
+      </sizepolicy>
+     </property>
+     <property name="minimumSize">
+      <size>
+       <width>180</width>
+       <height>0</height>
+      </size>
+     </property>
+     <property name="maximumSize">
+      <size>
+       <width>180</width>
+       <height>16777215</height>
+      </size>
+     </property>
+     <attribute name="headerVisible">
+      <bool>false</bool>
+     </attribute>
+     <column>
+      <property name="text">
+       <string>all</string>
+      </property>
+     </column>
+     <item>
+      <property name="text">
+       <string>Assets</string>
+      </property>
+      <item>
+       <property name="text">
+        <string>Sets</string>
+       </property>
+      </item>
+      <item>
+       <property name="text">
+        <string>Scenes</string>
+       </property>
+      </item>
+      <item>
+       <property name="text">
+        <string>Characters</string>
+       </property>
+      </item>
+      <item>
+       <property name="text">
+        <string>Props</string>
+       </property>
+      </item>
+     </item>
+     <item>
+      <property name="text">
+       <string>Vfx</string>
+      </property>
+      <item>
+       <property name="text">
+        <string>VFX</string>
+       </property>
+      </item>
+      <item>
+       <property name="text">
+        <string>Dynamics</string>
+       </property>
+      </item>
+      <item>
+       <property name="text">
+        <string>Fluids</string>
+       </property>
+      </item>
+      <item>
+       <property name="text">
+        <string>Cloth</string>
+       </property>
+      </item>
+     </item>
+    </widget>
+   </item>
+   <item row="0" column="1">
+    <layout class="QVBoxLayout" name="verticalLayout">
+     <item>
+      <spacer name="horizontalSpacer">
+       <property name="orientation">
+        <enum>Qt::Horizontal</enum>
+       </property>
+       <property name="sizeHint" stdset="0">
+        <size>
+         <width>40</width>
+         <height>20</height>
+        </size>
+       </property>
+      </spacer>
+     </item>
+    </layout>
+   </item>
+  </layout>
+ </widget>
+ <resources/>
+ <connections/>
+</ui>

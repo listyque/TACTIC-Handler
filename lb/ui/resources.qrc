@@ -1,0 +1,35 @@
+<RCC>
+  <qresource prefix="ui_check">
+    <file>gliph/search_16.png</file>
+    <file>gliph/searchHover_16.png</file>
+  </qresource>
+  <qresource prefix="ui_main">
+    <file>gliph/tactic_favicon.ico</file>
+  </qresource>
+  <qresource prefix="ui_richedit">
+    <file>gliph/richedit/cut_red.png</file>
+    <file>gliph/richedit/color_wheel.png</file>
+    <file>gliph/richedit/font.png</file>
+    <file>gliph/richedit/link_add.png</file>
+    <file>gliph/richedit/page_white_copy.png</file>
+    <file>gliph/richedit/page_white_paste.png</file>
+    <file>gliph/richedit/picture_add.png</file>
+    <file>gliph/richedit/text_align_center.png</file>
+    <file>gliph/richedit/text_align_justify.png</file>
+    <file>gliph/richedit/text_align_left.png</file>
+    <file>gliph/richedit/text_align_right.png</file>
+    <file>gliph/richedit/text_allcaps.png</file>
+    <file>gliph/richedit/text_bold.png</file>
+    <file>gliph/richedit/text_italic.png</file>
+    <file>gliph/richedit/text_list_bullets.png</file>
+    <file>gliph/richedit/text_allcaps.png</file>
+    <file>gliph/richedit/text_smallcaps.png</file>
+    <file>gliph/richedit/text_list_numbers.png</file>
+    <file>gliph/richedit/text_smallcaps.png</file>
+    <file>gliph/richedit/folder_add.png</file>
+    <file>gliph/richedit/text_strikethrough.png</file>
+    <file>gliph/richedit/text_subscript.png</file>
+    <file>gliph/richedit/text_superscript.png</file>
+    <file>gliph/richedit/text_underline.png</file>
+  </qresource>
+</RCC>
