@@ -94,12 +94,13 @@ class Ui_configuration_dialogWidget(QtGui.QDialog, ui_conf.Ui_configuration_dial
                                                  QtGui.QMessageBox.Yes | QtGui.QMessageBox.No)
         if ask_restart == QtGui.QMessageBox.Yes:
             self.close()
-            if env.Mode().get == 'maya':
-                reload(ui_maya_dock)
-                ui_maya_dock.startup(restart=True)
-            else:
-                self.parent().close()
-                self.parent().deleteLater()
+            # if env.Mode().get == 'maya':
+            #     reload(ui_maya_dock)
+            #     ui_maya_dock.startup(restart=True)
+            # else:
+            self.parent().close()
+            self.parent().create_ui_main()
+            self.parent().show()
 
     def readSettings(self):
         """

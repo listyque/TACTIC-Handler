@@ -84,10 +84,11 @@ class Ui_notesWidget(QtGui.QWidget, ui_notes.Ui_notes):
         search_type = self.task_item.info['__search_key__']
         process = self.task_item.info['process']
         context = self.task_item.info['context']
-        note = gf.simplify_html(self.replyTextEdit.toHtml())
+        note = self.replyTextEdit.toPlainText()
+        note_html = self.replyTextEdit.toHtml()
         login = self.current_user
 
-        tc.add_note(search_type, process, context, note, login)
+        tc.add_note(search_type, process, context, note, note_html, login)
         self.fill_notes()
 
     def closeEvent(self, event):
@@ -107,21 +108,16 @@ class Ui_incomWidget(QtGui.QWidget, ui_incom.Ui_incom):
         self.initial_fill()
 
     def initial_fill(self):
-        self.authorLabel.setText(self.note.info['login'] + ':')
-        self.commentLabel.setText(self.note.info['note'])
-        self.dateLabel.setText(self.note.info['timestamp'])
-        # print(self.note.info)
 
-        # textBrowser->setHtml(noteContent.text);
-        # textBrowser->setWordWrapMode(QTextOption::WrapAtWordBoundaryOrAnywhere);
-        #
-        # int textHeight;
-        # textBrowser->document()->setTextWidth(width());
-        # if (textBrowser->toPlainText().isEmpty())
-        #     textHeight = 0;
-        # else
-        #     textHeight = textBrowser->document()->size().height() + 5;
-        # textBrowser->setFixedHeight(textHeight);
+        self.authorLabel.setText(self.note.info['login'] + ':')
+        if self.note.info['note_html']:
+            note_text = gf.hex_to_html(self.note.info['note_html'])
+            self.commentLabel.setTextFormat(QtCore.Qt.RichText)
+        else:
+            note_text = self.note.info['note']
+            self.commentLabel.setTextFormat(QtCore.Qt.PlainText)
+        self.commentLabel.setText(note_text)
+        self.dateLabel.setText(self.note.info['timestamp'])
 
 
 class Ui_outcomWidget(QtGui.QWidget, ui_outcom.Ui_outcom):
@@ -136,5 +132,11 @@ class Ui_outcomWidget(QtGui.QWidget, ui_outcom.Ui_outcom):
 
     def initial_fill(self):
         self.authorLabel.setText(self.note.info['login'] + ':')
-        self.commentLabel.setText(self.note.info['note'])
+        if self.note.info['note_html']:
+            note_text = gf.hex_to_html(self.note.info['note_html'])
+            self.commentLabel.setTextFormat(QtCore.Qt.RichText)
+        else:
+            note_text = self.note.info['note']
+            self.commentLabel.setTextFormat(QtCore.Qt.PlainText)
+        self.commentLabel.setText(note_text)
         self.dateLabel.setText(self.note.info['timestamp'])

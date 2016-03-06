@@ -2,6 +2,7 @@
 # Maya Functions Module
 
 import PySide.QtGui as QtGui
+import PySide.QtCore as QtCore
 import uuid
 import maya.OpenMayaUI as omui
 import maya.cmds as cmds
@@ -49,6 +50,11 @@ def import_scene(file_path):
 def reference_scene(file_path):
     print('Referencing: ' + file_path)
     cmds.file(file_path, r=True)
+
+
+def get_skey_from_scene():
+    skey = cmds.getAttr('defaultObjectSet.tacticHandler_skey')
+    return skey
 
 
 def save_scene(search_key, context, description, all_process):
@@ -103,18 +109,21 @@ def save_scene(search_key, context, description, all_process):
     # make proper file path, and dir path to set workspace
     new_file = '{0}/{1}/{2}'.format(asset_dir, relative_dir, file_name)
     split_path = relative_dir.split('/')
-    dir_path = '{0}/{1}'.format(asset_dir, '{0}/{1}/{2}'.format(*split_path))
+
+    dir_path = '{0}/{1}'.format(asset_dir, '/'.join(split_path[:-3]))
+
+    # set proper scene name
+    cmds.file(rename=new_file)
+
     set_workspace(dir_path, all_process)
 
     # check in playblast
     tc.checkin_playblast(snapshot['code'], temp_playblast)
 
-    # set proper scene name
-    cmds.file(rename=new_file)
-
-    # print(new_file)
-    # tc.create_snapshot()
-    # tc.checkin_file()
+    # playblast = tc.ServerThread()
+    # playblast.kwargs = dict(snapshot_code=snapshot['code'], file_name=temp_playblast)
+    # playblast.routine = tc.checkin_playblast
+    # playblast.start()
 
 
 def create_workspace(dir_path, all_process):

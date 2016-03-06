@@ -40,6 +40,7 @@ class Ui_iconsWidget(QtGui.QWidget, ui_icons.Ui_icons):
             self.versions_icons = self.nested_item.sobject.process['icon'].contexts['icon'].versions
 
         self.main_list = []
+        self.playblast_list = []
         self.icon_list = []
         self.web_list = []
         self.filter_icons_types()
@@ -79,18 +80,23 @@ class Ui_iconsWidget(QtGui.QWidget, ui_icons.Ui_icons):
         self.add_new_image = QtGui.QAction("Add new Image", self.previewGraphicsView)
         self.add_new_image.triggered.connect(lambda: self.open_ext(self.imagesSlider.value()))
 
+        self.add_new_playblast = QtGui.QAction("Capture new playblast", self.previewGraphicsView)
+        self.add_new_playblast.triggered.connect(lambda: self.open_ext(self.imagesSlider.value()))
+
         self.open_external = QtGui.QAction("Open External", self.previewGraphicsView)
         self.open_external.triggered.connect(lambda: self.open_ext(self.imagesSlider.value()))
 
+        if self.external:
+            self.menu_actions.append(self.open_bigger)
+        self.menu_actions.append(self.copy_path)
+        self.menu_actions.append(self.previews_maya)
         if not self.playblast:
-            if self.external:
-                self.menu_actions.append(self.open_bigger)
-            self.menu_actions.append(self.copy_path)
-            self.menu_actions.append(self.previews_maya)
             self.menu_actions.append(self.add_imageplane)
             self.menu_actions.append(self.previews_sep)
             self.menu_actions.append(self.add_new_image)
-            self.menu_actions.append(self.open_external)
+        else:
+            self.menu_actions.append(self.add_new_playblast)
+        self.menu_actions.append(self.open_external)
 
         self.previewGraphicsView.addActions(self.menu_actions)
 
@@ -102,6 +108,7 @@ class Ui_iconsWidget(QtGui.QWidget, ui_icons.Ui_icons):
 
     def open_ext(self, value):
         # print(self.main_list)
+        print(self.slide_images(value))
         gf.open_file_associated(self.slide_images(value))
 
     def copy_pth(self, value):
@@ -111,11 +118,17 @@ class Ui_iconsWidget(QtGui.QWidget, ui_icons.Ui_icons):
         pprint(upload)
 
     def open_big(self, value):
-        self.external_self_widget = Ui_iconsWidget(self.nested_item)
+        if self.playblast:
+            self.external_self_widget = Ui_iconsWidget(self.nested_item, playblast=True)
+        else:
+            self.external_self_widget = Ui_iconsWidget(self.nested_item)
         self.ext_window = QtGui.QMainWindow(self)
         self.ext_window.setContentsMargins(9, 9, 9, 9)
         item_name = self.nested_item.sobject.info['name']
-        self.ext_window.setWindowTitle('Bigger view ' + item_name)
+        if self.playblast:
+            self.ext_window.setWindowTitle('Bigger playblast view ' + item_name)
+        else:
+            self.ext_window.setWindowTitle('Bigger view ' + item_name)
         self.ext_window.setCentralWidget(self.external_self_widget)
         self.ext_window.closeEvent = self.closeEventExt
         self.ext_window.show()
@@ -128,6 +141,10 @@ class Ui_iconsWidget(QtGui.QWidget, ui_icons.Ui_icons):
         for snapshot in self.versions_icons.itervalues():
             if self.playblast:
                 if snapshot[0]['type'] == 'playblast':
+                    self.playblast_list.append(snapshot[0])
+                if snapshot[0]['type'] == 'web':
+                    self.web_list.append(snapshot[0])
+                if snapshot[0]['type'] == 'icon':
                     self.icon_list.append(snapshot[0])
             else:
                 for t, f in snapshot.files.iteritems():
@@ -147,11 +164,18 @@ class Ui_iconsWidget(QtGui.QWidget, ui_icons.Ui_icons):
         self.previewGraphicsView.fitInView(self.scene.sceneRect(), QtCore.Qt.KeepAspectRatio)
 
     def slide_images(self, value):
-        image_path_icon = '{0}/{1}/{2}'.format(env.Env().get_asset_dir(), self.icon_list[value - 1]['relative_dir'],
-                                               self.icon_list[value - 1]['file_name'])
-        if not self.playblast:
-            image_path_big = '{0}/{1}/{2}'.format(env.Env().get_asset_dir(), self.main_list[value - 1]['relative_dir'],
-                                                  self.main_list[value - 1]['file_name'])
+        image_path_icon = u'{0}/{1}/{2}'.format(env.Env().get_asset_dir(),
+                                                self.web_list[value - 1]['relative_dir'],
+                                                self.web_list[value - 1]['file_name'])
+
+        if self.playblast:
+            image_path_big = u'{0}/{1}/{2}'.format(env.Env().get_asset_dir(),
+                                                   self.playblast_list[value - 1]['relative_dir'],
+                                                   self.playblast_list[value - 1]['file_name'])
+        else:
+            image_path_big = u'{0}/{1}/{2}'.format(env.Env().get_asset_dir(),
+                                                   self.main_list[value - 1]['relative_dir'],
+                                                   self.main_list[value - 1]['file_name'])
 
         self.preview_image = QtGui.QImage(0, 0, QtGui.QImage.Format_ARGB32)
         if not self.external:
@@ -166,11 +190,10 @@ class Ui_iconsWidget(QtGui.QWidget, ui_icons.Ui_icons):
         self.scene.addPixmap(self.preview_pixmap)
 
         self.previewGraphicsView.setScene(self.scene)
+
         self.previewGraphicsView.fitInView(self.scene.sceneRect(), QtCore.Qt.KeepAspectRatio)
-        if self.playblast:
-            return image_path_icon
-        else:
-            return image_path_big
+
+        return image_path_big
 
     def closeEvent(self, event):
         # print('Save Ui_iconsWidget')

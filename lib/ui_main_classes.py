@@ -6,6 +6,7 @@ import PySide.QtCore as QtCore
 import PySide.QtGui as QtGui
 import environment as env
 import tactic_classes as tc
+
 if env.Mode().get == 'maya':
     import maya_functions as mf
 import lib.ui.ui_main as ui_main
@@ -25,6 +26,11 @@ reload(ui_assets_browser_classes)
 class Ui_Main(QtGui.QMainWindow, ui_main.Ui_MainWindow):
     def __init__(self, parent=None):
         super(self.__class__, self).__init__(parent=parent)
+
+        self.create_ui_main()
+
+    def create_ui_main(self):
+
         env.Inst().ui_main = self
 
         self.setupUi(self)
@@ -37,6 +43,7 @@ class Ui_Main(QtGui.QMainWindow, ui_main.Ui_MainWindow):
         # instance attributes
 
         self.tabs_items, self.context_items = self.query_tabs()
+
         self.create_ui_checkout()
 
         self.create_ui_checkin()
@@ -55,16 +62,21 @@ class Ui_Main(QtGui.QMainWindow, ui_main.Ui_MainWindow):
 
         self.setIcon()
 
+        self.setProjectInfo()
+
     def setIcon(self):
         icon = QtGui.QIcon(':/ui_main/gliph/tactic_favicon.ico')
         self.setWindowIcon(icon)
+
+    def setProjectInfo(self):
+        self.currentProjectLabel.setText('Current Porject: <b>{0}</b> '.format(env.Env().get_project().replace('_', ' ').capitalize()))
 
     def click_on_skeyLineEdit(self, event):
         self.skeyLineEdit.selectAll()
 
     def skeyLineEdit_actions(self):
         self.skeyLineEdit.mousePressEvent = self.click_on_skeyLineEdit
-        self.skeyLineEdit.returnPressed.connect(lambda: tc.parce_skey(self.skeyLineEdit.text()))
+        self.skeyLineEdit.returnPressed.connect(self.go_by_skey)
 
     def menu_bar_actions(self):
         """
@@ -91,6 +103,74 @@ class Ui_Main(QtGui.QMainWindow, ui_main.Ui_MainWindow):
         self.menu.triggered.connect(
             lambda: self.copy_current_tab(self.main_tabWidget.currentIndex()))
         self.main_tabWidget.addAction(self.menu)
+
+    def go_by_skey(self, skey_in=None, relates_to=None):
+        if relates_to:
+            self.relates_to = relates_to
+        else:
+            self.relates_to = None
+            if self.main_tabWidget.currentWidget().objectName() == 'checkOutTab':
+                self.relates_to = 'checkout'
+            if self.main_tabWidget.currentWidget().objectName() == 'checkInTab':
+                self.relates_to = 'checkin'
+
+        print(self.relates_to)
+
+        if skey_in:
+            skey = tc.parce_skey(skey_in)
+        else:
+            skey = tc.parce_skey(self.skeyLineEdit.text())
+
+        print(skey)
+
+        common_pipeline_codes = ['snapshot', 'task']
+        pipeline_code = None
+        if skey:
+            if skey.get('pipeline_code') and skey.get('project'):
+                if skey.get('project') == env.Env().get_project():
+                    if skey['pipeline_code'] not in common_pipeline_codes:
+                        pipeline_code = u'{namespace}/{pipeline_code}'.format(**skey)
+                else:
+                    self.wrong_project_message(skey)
+
+        if pipeline_code and self.relates_to in ['checkin', 'checkout']:
+            tab_wdg = env.Inst().ui_check_tabs[self.relates_to].sObjTabWidget
+            for i in range(tab_wdg.count()):
+                if tab_wdg.widget(i).objectName() == pipeline_code:
+                    tab_wdg.setCurrentIndex(i)
+
+            tree_wdg = tab_wdg.currentWidget()
+            tree_wdg.go_by_skey[0] = True
+
+            if skey.get('context'):
+                tree_wdg.go_by_skey[1] = skey
+
+            search_code = skey.get('code')
+            tree_wdg.searchLineEdit.setText(search_code)
+            tree_wdg.searchOptionsGroupBox.searchCodeRadioButton.setChecked(True)
+            tree_wdg.add_items_to_results(search_code)
+
+    def wrong_project_message(self, skey):
+        print(skey)
+        msb = QtGui.QMessageBox(QtGui.QMessageBox.Question,
+                                'Item {code}, not belongs to current project!'.format(**skey),
+                                '<p>Current project is <b>{0}</b>, switch to <b>{project}</b> related to this item?</p>'.format(
+                                    env.Env().get_project(), **skey) + '<p>This will restart TACTIC Handler!</p>',
+                                QtGui.QMessageBox.NoButton, env.Inst().ui_main)
+        msb.addButton("Switch to Project", QtGui.QMessageBox.YesRole)
+        msb.addButton("Cancel", QtGui.QMessageBox.NoRole)
+        msb.exec_()
+
+        reply = msb.buttonRole(msb.clickedButton())
+
+        if reply == QtGui.QMessageBox.YesRole:
+            env.Env().set_project(skey['project'])
+            skey_link = self.skeyLineEdit.text()
+            self.close()
+            self.create_ui_main()
+            self.show()
+            self.skeyLineEdit.setText(skey_link)
+            self.go_by_skey()
 
     def apply_current_view(self):
         if self.main_tabWidget.currentIndex() == 0:
@@ -123,19 +203,23 @@ class Ui_Main(QtGui.QMainWindow, ui_main.Ui_MainWindow):
         """
         Create Check Out Tab
         """
-        self.ui_checkout = ui_checkin_out_tabs_classes.Ui_checkOutTabWidget(self.context_items, self.tabs_items, self)
         if ext:
             return ui_checkin_out_tabs_classes.Ui_checkOutTabWidget(self.context_items, self.tabs_items, self)
-        self.checkOutLayout.addWidget(self.ui_checkout)
+        else:
+            self.ui_checkout = ui_checkin_out_tabs_classes.Ui_checkOutTabWidget(self.context_items, self.tabs_items,
+                                                                                self)
+            self.checkOutLayout.addWidget(self.ui_checkout)
 
     def create_ui_checkin(self, ext=False):
         """
         Create Check In Tab
         """
-        self.ui_checkin = ui_checkin_out_tabs_classes.Ui_checkInTabWidget(self.context_items, self.tabs_items, self)
+
         if ext:
             return ui_checkin_out_tabs_classes.Ui_checkInTabWidget(self.context_items, self.tabs_items, self)
-        self.checkInLayout.addWidget(self.ui_checkin)
+        else:
+            self.ui_checkin = ui_checkin_out_tabs_classes.Ui_checkInTabWidget(self.context_items, self.tabs_items, self)
+            self.checkInLayout.addWidget(self.ui_checkin)
 
     def create_ui_my_tactic(self):
         """
@@ -169,7 +253,6 @@ class Ui_Main(QtGui.QMainWindow, ui_main.Ui_MainWindow):
         self.resize(self.settings.value('size', self.size()))
         state = str(self.settings.value("windowState"))
         if state == 'true':
-            print('maximized')
             self.setWindowState(QtCore.Qt.WindowMaximized)
         self.main_tabWidget.setCurrentIndex(self.settings.value('main_tabWidget_currentIndex', 0))
         self.settings.endGroup()

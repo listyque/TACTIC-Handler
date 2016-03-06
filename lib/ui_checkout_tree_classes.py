@@ -34,13 +34,27 @@ class Ui_checkOutTreeWidget(QtGui.QWidget, ui_checkout_tree.Ui_checkOutTree):
         # self vars
         self.tab_name, self.tab_index, self.context_items = name_index_context
         self.toggle = False
+        self.go_by_skey = [False, None]
 
         self.setupUi(self)
+
+        # Query Threads
+        self.names_query = tc.ServerThread(self)
+        self.sobjects_query = tc.ServerThread(self)
+
+        effect = QtGui.QGraphicsDropShadowEffect(self.searchLineEdit)
+        effect.setOffset(2, 2)
+        effect.setColor(QtGui.QColor(0, 0, 0, 96))
+        effect.setBlurRadius(5)
+        self.searchLineEdit.setGraphicsEffect(effect)
+
         self.setObjectName(self.tab_name)
-        env.Inst().ui_checkout_tree.setdefault(self.tab_name, self)
+        self.relates_to = 'checkout'
+        env.Inst().ui_check_tree['checkout'][self.tab_name] = self
         self.add_items_to_context_combo_box()
         self.create_search_group_box()
         self.create_refresh_popup()
+        self.create_progress_bar()
 
         self.controls_actions()
 
@@ -51,6 +65,12 @@ class Ui_checkOutTreeWidget(QtGui.QWidget, ui_checkout_tree.Ui_checkOutTree):
         # self.readSettings()
         self.saverole = QtCore.Qt.UserRole
         self.expanded = []
+
+    def create_progress_bar(self):
+        self.progres_bar = QtGui.QProgressBar()
+        self.progres_bar.setMaximum(100)
+        self.progres_bar.hide()
+        self.resultsLayout.addWidget(self.progres_bar)
 
     def create_refresh_popup(self):
         self.refresh_results = QtGui.QAction('Refresh results', self.refreshToolButton)
@@ -72,35 +92,72 @@ class Ui_checkOutTreeWidget(QtGui.QWidget, ui_checkout_tree.Ui_checkOutTree):
         self.contextComboBox.addItems(self.context_items)
         self.contextComboBox.setCurrentIndex(0)
 
-    def add_items_to_results(self, query=None, refresh=False):
+    def search_mode_state(self):
+        if self.searchOptionsGroupBox.searchNameRadioButton.isChecked():
+            return 0
+        if self.searchOptionsGroupBox.searchCodeRadioButton.isChecked():
+            return 1
+        if self.searchOptionsGroupBox.searchParentCodeRadioButton.isChecked():
+            return 2
+        if self.searchOptionsGroupBox.searchDescriptionRadioButton.isChecked():
+            return 3
+        if self.searchOptionsGroupBox.searchKeywordsRadioButton.isChecked():
+            return 4
+
+    def add_items_to_results(self, query=None, refresh=False, revert=None):
         """
         Adding queried items to results tree widget
+        :param query:
+        :param refresh:
+        :param revert:
+        :return:
         """
+        query_tuple = query, self.search_mode_state()
+        self.refresh = refresh
         if self.contextComboBox.currentIndex() == 0:
             self.process = self.context_items
         else:
             self.process = [self.context_items[self.contextComboBox.currentIndex() - 1]]
 
-        if query:
-            items_count = self.resultsTreeWidget.topLevelItemCount()
+        if query_tuple[0]:
+
+            # Run first thread
+            if not self.names_query.isRunning():
+                self.names_query.kwargs = dict(query=query_tuple, process=self.tab_name, raw=True)
+                self.names_query.routine = tc.assets_query
+                self.names_query.start()
+
             # save current state
-            selected_state = gf.expanded_state(self.resultsTreeWidget, is_selected=True)
-            expanded_state = gf.expanded_state(self.resultsTreeWidget, is_expanded=True)
+            if revert:
+                self.expanded_state, self.selected_state = revert
+            else:
+                self.expanded_state = gf.expanded_state(self.resultsTreeWidget, is_expanded=True)
+                self.selected_state = gf.expanded_state(self.resultsTreeWidget, is_selected=True)
 
-            # database query
-            assets_names = tc.assets_query(query, self.tab_name, True)
-            self.sobjects = tc.get_sobjects(self.process, assets_names)
+    def fill_items(self):
+        self.sobjects = self.sobjects_query.result
+        gf.add_items_to_tree(self, self.resultsTreeWidget, item_widget, self.sobjects, self.process,
+                             self.searchOptionsGroupBox.showAllProcessCheckBox.isChecked(), snapshots=False)
 
-            # clear previous results
-            self.resultsTreeWidget.clear()
-            # TODO make loading items dinamically on expand http://stackoverflow.com/questions/11996756/qtreewidget-select-first-item
-            gf.add_items_to_tree(self, self.resultsTreeWidget, item_widget, self.sobjects, self.process,
-                                 self.searchOptionsGroupBox.showAllProcessCheckBox.isChecked(), snapshots=False)
+        if self.go_by_skey[0]:
+            gf.expand_to_snapshot(self, self.resultsTreeWidget)
+            self.go_by_skey[0] = False
+            self.go_by_skey[1] = ''
 
-            if refresh:
-                if items_count:
-                    gf.revert_expanded_state(self.resultsTreeWidget, expanded_state, expand=True)
-                    gf.revert_expanded_state(self.resultsTreeWidget, selected_state, select=True)
+        if self.refresh:
+            try:
+                gf.revert_expanded_state(self.resultsTreeWidget, self.expanded_state, expand=True)
+                gf.revert_expanded_state(self.resultsTreeWidget, self.selected_state, select=True)
+            except:
+                pass
+
+    def assets_names(self):
+        names = self.names_query.result
+
+        if not self.sobjects_query.isRunning():
+            self.sobjects_query.kwargs = dict(process_list=self.process, sobjects_list=names)
+            self.sobjects_query.routine = tc.get_sobjects
+            self.sobjects_query.start()
 
     def load_images(self, nested_item, icon=False, playblast=False):
         if icon:
@@ -130,7 +187,7 @@ class Ui_checkOutTreeWidget(QtGui.QWidget, ui_checkout_tree.Ui_checkOutTree):
     def searchLineDoubleClick(self, event):
         if not self.toggle:
             self.toggle = True
-            self.searchOptionsGroupBox.setMinimumHeight(55)
+            self.searchOptionsGroupBox.setMinimumHeight(130)
         else:
             self.toggle = False
             self.searchOptionsGroupBox.setMinimumHeight(0)
@@ -148,6 +205,9 @@ class Ui_checkOutTreeWidget(QtGui.QWidget, ui_checkout_tree.Ui_checkOutTree):
         self.searchLineEdit.mouseDoubleClickEvent = self.searchLineDoubleClick
         self.searchLineEdit.mousePressEvent = self.searchLineSingleClick
         self.contextComboBox.activated.connect(lambda: self.add_items_to_results(self.searchLineEdit.text()))
+        if env.Mode().get == 'standalone':
+            self.findOpenedPushButton.setVisible(False)
+        self.findOpenedPushButton.clicked.connect(self.find_opened_sobject)
 
         # Tree widget actions
         self.resultsTreeWidget.itemPressed.connect(self.load_preview)
@@ -157,14 +217,28 @@ class Ui_checkOutTreeWidget(QtGui.QWidget, ui_checkout_tree.Ui_checkOutTree):
         self.saveDescriprionButton.clicked.connect(self.update_desctiption)
         self.resultsTreeWidget.itemExpanded.connect(self.fill_notes_count)
 
+        # Threads Actions
+        self.names_query.finished.connect(self.assets_names)
+        self.sobjects_query.finished.connect(self.fill_items)
+
+    def find_opened_sobject(self):
+        skey = mf.get_skey_from_scene()
+        env.Inst().ui_main.go_by_skey(skey, self.relates_to)
+
     def update_desctiption(self):
         nested_item = self.resultsTreeWidget.itemWidget(self.resultsTreeWidget.currentItem(), 0)
         if nested_item and nested_item.type in ['snapshot', 'sobject']:
-            tc.update_description(nested_item.get_skey(only=True), gf.simplify_html(self.descriptionTextEdit.toHtml()))
+            # tc.update_description(nested_item.get_skey(only=True), gf.simplify_html(self.descriptionTextEdit.toHtml()))
+
+            thread_update = tc.ServerThread(self)
+
+            thread_update.kwargs = dict(search_key=nested_item.get_skey(only=True),
+                                        description=gf.simplify_html(self.descriptionTextEdit.toHtml()))
+            thread_update.routine = tc.update_description
+            thread_update.start()
             nested_item.update_description(self.descriptionTextEdit.toPlainText())
 
     def fill_notes_count(self, widget):
-
         parent_widget = self.resultsTreeWidget.itemWidget(widget, 0)
         process = []
         if self.searchOptionsGroupBox.showAllProcessCheckBox.isChecked():
@@ -177,13 +251,20 @@ class Ui_checkOutTreeWidget(QtGui.QWidget, ui_checkout_tree.Ui_checkOutTree):
 
             gf.add_snapshots_items_to_tree(self, self.resultsTreeWidget, widget, item_widget, parent_widget, process)
 
-            notes_counts = tc.get_notes_count(parent_widget.sobject, process)
+            def notes_fill():
+                notes_counts = notes_counts_query.result
+                for i in range(widget.childCount()):
+                    process_widget = self.resultsTreeWidget.itemWidget(widget.child(i), 0)
 
-            for i in range(widget.childCount()):
-                process_widget = self.resultsTreeWidget.itemWidget(widget.child(i), 0)
+                    if process_widget.type == 'process':
+                        process_widget.notesToolButton.setText('Notes ({0})'.format(notes_counts[i]))
 
-                if process_widget.type == 'process':
-                    process_widget.notesToolButton.setText('Notes ({0})'.format(notes_counts[i]))
+            notes_counts_query = tc.ServerThread(self)
+            notes_counts_query.kwargs = dict(sobject=parent_widget.sobject, process=process)
+            notes_counts_query.routine = tc.get_notes_count
+            notes_counts_query.start()
+
+            notes_counts_query.finished.connect(notes_fill)
 
     def load_preview(self, position):
         # loading preview image
@@ -328,21 +409,16 @@ class Ui_checkOutTreeWidget(QtGui.QWidget, ui_checkout_tree.Ui_checkOutTree):
         """
         self.settings.beginGroup(env.Mode().get + '/ui_checkout')
         tab_name = self.objectName().split('/')
-        group_path = '{0}/{1}/{2}'.format(tab_name[0], env.Env().get_project(), tab_name[1])
+        group_path = '{0}/{1}/{2}'.format(env.Env().get_namespace(), env.Env().get_project(), tab_name[1])
         self.settings.beginGroup(group_path)
         self.commentsSplitter.restoreState(self.settings.value('commentsSplitter'))
         self.descriptionSplitter.restoreState(self.settings.value('descriptionSplitter'))
         self.imagesSplitter.restoreState(self.settings.value('imagesSplitter'))
         self.searchLineEdit.setText(self.settings.value('searchLineEdit_text', ''))
         self.contextComboBox.setCurrentIndex(self.settings.value('contextComboBox', 0))
-        self.add_items_to_results(self.searchLineEdit.text())
-        try:
-            gf.revert_expanded_state(self.resultsTreeWidget,
-                                     self.settings.value('resultsTreeWidget_isExpanded', None), expand=True)
-            gf.revert_expanded_state(self.resultsTreeWidget,
-                                     self.settings.value('resultsTreeWidget_isSelected', None), select=True)
-        except:
-            pass
+        revert = self.settings.value('resultsTreeWidget_isExpanded', None), \
+                 self.settings.value('resultsTreeWidget_isSelected', None)
+        self.add_items_to_results(self.searchLineEdit.text(), refresh=True, revert=revert)
         self.settings.endGroup()
         self.settings.endGroup()
 
@@ -352,7 +428,7 @@ class Ui_checkOutTreeWidget(QtGui.QWidget, ui_checkout_tree.Ui_checkOutTree):
         """
         self.settings.beginGroup(env.Mode().get + '/ui_checkout')
         tab_name = self.objectName().split('/')
-        group_path = '{0}/{1}/{2}'.format(tab_name[0], env.Env().get_project(), tab_name[1])
+        group_path = '{0}/{1}/{2}'.format(env.Env().get_namespace(), env.Env().get_project(), tab_name[1])
         self.settings.beginGroup(group_path)
         self.settings.setValue('commentsSplitter', self.commentsSplitter.saveState())
         self.settings.setValue('descriptionSplitter', self.descriptionSplitter.saveState())
@@ -360,16 +436,16 @@ class Ui_checkOutTreeWidget(QtGui.QWidget, ui_checkout_tree.Ui_checkOutTree):
         self.settings.setValue('searchLineEdit_text', self.searchLineEdit.text())
         self.settings.setValue('contextComboBox', self.contextComboBox.currentIndex())
         self.settings.setValue('searchOptionsSplitter', self.searchOptionsSplitter.saveState())
-        self.settings.setValue('searchByCodeRadioButton', self.searchOptionsGroupBox.byCodeRadioButton.isChecked())
-        self.settings.setValue('searchByNameRadioButton', self.searchOptionsGroupBox.byNameRadioButton.isChecked())
+        self.settings.setValue('searchByCodeRadioButton', self.searchOptionsGroupBox.searchCodeRadioButton.isChecked())
+        self.settings.setValue('searchByNameRadioButton', self.searchOptionsGroupBox.searchNameRadioButton.isChecked())
         self.settings.setValue('searchAllProcessCheckBox',
                                self.searchOptionsGroupBox.showAllProcessCheckBox.isChecked())
         # print(gf.save(self.resultsTreeWidget))
-        if self.resultsTreeWidget.topLevelItemCount() > 0:
-            self.settings.setValue('resultsTreeWidget_isSelected',
-                                   gf.expanded_state(self.resultsTreeWidget, is_selected=True))
-            self.settings.setValue('resultsTreeWidget_isExpanded',
-                                   gf.expanded_state(self.resultsTreeWidget, is_expanded=True))
+        # if self.resultsTreeWidget.topLevelItemCount() > 0:
+        self.settings.setValue('resultsTreeWidget_isSelected',
+                               gf.expanded_state(self.resultsTreeWidget, is_selected=True))
+        self.settings.setValue('resultsTreeWidget_isExpanded',
+                               gf.expanded_state(self.resultsTreeWidget, is_expanded=True))
         print('Done ui_checkout_tree ' + self.objectName() + ' settings write')
         self.settings.endGroup()
         self.settings.endGroup()

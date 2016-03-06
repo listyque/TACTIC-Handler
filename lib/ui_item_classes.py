@@ -3,8 +3,7 @@
 # Main Item for TreeWidget
 
 import PySide.QtGui as QtGui
-import PySide.QtCore as QtCore
-# import environment as env
+import environment as env
 import global_functions as gf
 import lib.ui.ui_item
 import lib.ui.ui_item_process
@@ -20,14 +19,15 @@ reload(notes_widget)
 
 
 class Ui_itemWidget(QtGui.QWidget, lib.ui.ui_item.Ui_item):
-    def __init__(self, row, sobject, parent=None):
+    def __init__(self, row, sobject, tree_item, parent=None):
         super(self.__class__, self).__init__(parent=parent)
 
         self.setupUi(self)
         self.type = 'sobject'
+        self.relates_to = parent.relates_to
         self.row = row
-        self.tree_item = None
-        self.item_info = {}
+        self.tree_item = tree_item
+        # self.item_info = {}
         self.sobject = sobject
 
         self.fileNameLabel.setText(self.sobject.info['name'])
@@ -37,9 +37,27 @@ class Ui_itemWidget(QtGui.QWidget, lib.ui.ui_item.Ui_item):
         self.dateLabel.setText(self.sobject.info['timestamp'])
 
         self.tasksToolButton.clicked.connect(lambda: self.create_tasks_window())
+        self.childrenToolButton.clicked.connect(lambda: self.prnt())
 
         # fill item info
-        self.item_info['description'] = self.sobject.info['description']
+        # self.item_info['description'] = self.sobject.info['description']
+
+    def prnt(self):
+        # shot_tab = env.Inst().ui_check_tree[self.relates_to]['cgshort/shot']
+        print(env.Inst().ui_check_tabs[self.relates_to].sObjTabWidget.count())
+        tab_wdg = env.Inst().ui_check_tabs[self.relates_to].sObjTabWidget
+        for i in range(tab_wdg.count()):
+            if tab_wdg.widget(i).objectName() == 'cgshort/shot':
+                tab_wdg.setCurrentIndex(i)
+
+        tree_wdg = tab_wdg.currentWidget()
+
+        tree_wdg.searchLineEdit.setText('SCENES00001')
+        tree_wdg.searchOptionsGroupBox.searchParentCodeRadioButton.setChecked(True)
+        tree_wdg.add_items_to_results('SCENES00001')
+
+    def check_for_children(self):
+        pass
 
     def create_tasks_window(self):
         try:
@@ -70,23 +88,24 @@ class Ui_itemWidget(QtGui.QWidget, lib.ui.ui_item.Ui_item):
 
 
 class Ui_processItemWidget(QtGui.QWidget, lib.ui.ui_item_process.Ui_processItem):
-    def __init__(self, row, process, sobject, parent=None):
+    def __init__(self, row, process, sobject, tree_item, parent=None):
         super(self.__class__, self).__init__(parent=parent)
 
         self.setupUi(self)
         self.type = 'process'
-        self.tree_item = None
+        self.tree_item = tree_item
         # print(tree_item.text(0))
-        self.item_info = {}
+        # self.item_info = {}
         self.sobject = sobject
         self.process = process
+
         self.row = row
 
         self.notesToolButton.clicked.connect(lambda: self.create_notes_widget())
 
-        self.item_info[
-            'description'] = 'This is {0} process item, there is no description, better click on Notes button'.format(
-            self.process)
+        # self.item_info[
+        #     'description'] = 'This is {0} process item, there is no description, better click on Notes button'.format(
+        #     self.process)
 
     def create_notes_widget(self):
         self.note_widget = notes_widget.Ui_notesOwnWidget(self)
@@ -128,14 +147,15 @@ class Ui_processItemWidget(QtGui.QWidget, lib.ui.ui_item_process.Ui_processItem)
 
 
 class Ui_snapshotItemWidget(QtGui.QWidget, lib.ui.ui_item_snapshot.Ui_snapshotItem):
-    def __init__(self, row, snapshot, sobject, parent=None):
+    def __init__(self, row, snapshot, sobject, tree_item, parent=None):
         super(self.__class__, self).__init__(parent=parent)
 
         self.setupUi(self)
         self.type = 'snapshot'
-        self.tree_item = None
-        self.item_info = {}
+        self.tree_item = tree_item
+        # self.item_info = {}
         self.sobject = sobject
+
         self.snapshot = None
         self.row = row
         self.files = {}
@@ -160,8 +180,8 @@ class Ui_snapshotItemWidget(QtGui.QWidget, lib.ui.ui_item_snapshot.Ui_snapshotIt
             self.sizeLabel.deleteLater()
             self.authorLabel.deleteLater()
 
-        if snapshot:
-            self.item_info = self.snapshot
+        # if snapshot:
+        #     self.item_info = self.snapshot
 
     def get_context(self, process=False, custom=None):
         if process:

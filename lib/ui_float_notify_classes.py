@@ -67,7 +67,6 @@ class Ui_floatNotifyWidget(QtGui.QDialog, ui_notifications.Ui_floatNotify):
         self.trayIcon = QtGui.QSystemTrayIcon(self)
         self.trayIcon.setContextMenu(self.trayIconMenu)
 
-
     def manual_update(self):
         print "performing update!"
         now = QtCore.QDateTime.currentDateTimeUtc()

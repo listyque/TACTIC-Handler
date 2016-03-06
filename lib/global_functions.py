@@ -3,6 +3,9 @@
 import subprocess
 import os
 import sys
+import zlib
+import binascii
+
 import PySide.QtGui as QtGui
 import tactic_classes as tc
 
@@ -42,6 +45,26 @@ def sizes(size, precision=2):
     return '{1:.{0}f} {2}'.format(precision, size, suffixes[suffix_index])
 
 
+def html_to_hex(text_html):
+    text_html_cmp = zlib.compress(text_html.encode('utf-8'), 9)
+    text_html_hex = 'zlib:' + binascii.b2a_hex(text_html_cmp)
+    if len(text_html_hex) > len(text_html):
+        text_html_hex = text_html
+
+    return text_html_hex
+
+
+def hex_to_html(text_hex):
+    if text_hex:
+        detect_zlib = text_hex.rfind('zlib:')
+        if detect_zlib == 0:
+            hex_to_text = zlib.decompress(binascii.a2b_hex(text_hex[5:]))
+        else:
+            hex_to_text = text_hex
+
+        return hex_to_text
+
+
 # QTreeWidget func
 def add_items_to_tree(parent, tree_widget, item_widget, sobjects, process,
                       searh_all=False, row=0, snapshots=True):
@@ -52,12 +75,19 @@ def add_items_to_tree(parent, tree_widget, item_widget, sobjects, process,
         widget.tree_item = tree_item
         tree_widget.setItemWidget(tree_item, 0, widget)
 
+    parent.progres_bar.show()
+    tree_widget.clear()
+
     # top level items routine
     for i, (sobject_code, sobject) in enumerate(sobjects.iteritems(), start=row):
-        tree_widget.insertTopLevelItem(i, QtGui.QTreeWidgetItem())
-        main_widget_items = item_widget.Ui_itemWidget(i, sobject, parent)
+        main_item = QtGui.QTreeWidgetItem()
+        tree_widget.insertTopLevelItem(i, main_item)
+        main_widget_items = item_widget.Ui_itemWidget(i, sobject, main_item, parent)
         tree_widget.setItemWidget(
             tree_widget.topLevelItem(i), 0, main_widget_items)
+
+        current_progress = 100 * i / len(sobjects)
+        parent.progres_bar.setValue(current_progress)
 
         # allowing to show all process, or particular
         if searh_all:
@@ -65,10 +95,11 @@ def add_items_to_tree(parent, tree_widget, item_widget, sobjects, process,
         else:
             iter_process = sobject.process.iterkeys()
 
+        # QtGui.qApp.processEvents()
         # second level, items with items process
         for j, p in enumerate(iter_process):
             process_item = tree_widget.topLevelItem(i)
-            process_widget = item_widget.Ui_processItemWidget(i, p, sobject, parent)
+            process_widget = item_widget.Ui_processItemWidget(i, p, sobject, process_item, parent)
             add_items_and_widgets(process_item, process_widget, p)
 
             # third level, items with items context, and versionless
@@ -85,6 +116,9 @@ def add_items_to_tree(parent, tree_widget, item_widget, sobjects, process,
                         item_vs_widget = item_widget.Ui_snapshotItemWidget(i, dict(key=context2), sobject, parent)
                         add_items_and_widgets(tree_vs_item, item_vs_widget)
 
+    parent.progres_bar.setValue(100)
+    parent.progres_bar.hide()
+
 
 def add_snapshots_items_to_tree(parent, tree_widget, child_widget, item_widget, parent_widget, process):
     def add_items_and_widgets(item=None, widget=None, text=''):
@@ -94,19 +128,15 @@ def add_snapshots_items_to_tree(parent, tree_widget, child_widget, item_widget, 
         widget.tree_item = tree_item
         tree_widget.setItemWidget(tree_item, 0, widget)
 
-    # print(parent)
-    # print(tree_widget)
-    # print(child_widget)
-    # print(item_widget)
-    # print(sobject)
-    # print(process)
     for j, p in enumerate(process):
+
         # third level, items with items context, and versionless
         if parent_widget.sobject.process.get(p):
+            child_widget.child(j).takeChildren()
             for k, (key1, context1) in enumerate(parent_widget.sobject.process[p].contexts.iteritems()):
                 tree_v_item = child_widget.child(j)
                 item_v_widget = item_widget.Ui_snapshotItemWidget(parent_widget.row, context1.versionless,
-                                                                  parent_widget.sobject, parent)
+                                                                  parent_widget.sobject, tree_v_item, parent)
                 add_items_and_widgets(tree_v_item, item_v_widget)
 
                 # fourth level, versions of items by each versionless, and context
@@ -114,8 +144,37 @@ def add_snapshots_items_to_tree(parent, tree_widget, child_widget, item_widget, 
                         parent_widget.sobject.process[p].contexts[key1].versions.iteritems()):
                     tree_vs_item = child_widget.child(j).child(k)
                     item_vs_widget = item_widget.Ui_snapshotItemWidget(parent_widget.row, dict(key=context2),
-                                                                       parent_widget.sobject, parent)
+                                                                       parent_widget.sobject, tree_vs_item, parent)
                     add_items_and_widgets(tree_vs_item, item_vs_widget)
+
+
+def expand_to_snapshot(parent, tree_widget):
+    top_item = tree_widget.topLevelItem(0)
+    skey_context = parent.go_by_skey[1]['context']
+    skey_process = skey_context.split('/')[0]
+    skey_code = parent.go_by_skey[1].get('item_code')
+
+    if skey_context and top_item:
+        top_item.setExpanded(True)
+
+        for i in range(top_item.childCount()):
+            process_title = top_item.child(i).text(0)
+            if process_title == skey_process:
+                process_item = top_item.child(i)
+                process_item.setExpanded(True)
+                for j in range(process_item.childCount()):
+                    child_item = process_item.child(j)
+                    child_widget = tree_widget.itemWidget(child_item, 0)
+                    if child_widget.snapshot['context'] == skey_context:
+                        child_item.setExpanded(True)
+                        child_item.setSelected(True)
+                        for k in range(child_item.childCount()):
+                            last_item = child_item.child(k)
+                            last_widget = tree_widget.itemWidget(last_item, 0)
+                            if last_widget.snapshot['code'] == skey_code:
+                                child_item.setSelected(False)
+                                last_item.setSelected(True)
+                                tree_widget.scrollToItem(child_item)
 
 
 def revert_expanded_state(tree, state, select=False, expand=False):

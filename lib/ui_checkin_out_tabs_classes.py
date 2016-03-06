@@ -16,6 +16,7 @@ reload(checkout_tree_widget)
 class Ui_checkInTabWidget(QtGui.QWidget, sobj_tabs.Ui_sObjTabs):
     def __init__(self, context_items, tabs_items,  parent=None):
         super(self.__class__, self).__init__(parent=parent)
+        env.Inst().ui_check_tabs['checkin'] = self
 
         self.settings = QtCore.QSettings('TACTIC Handler', 'TACTIC Handling Tool')
 
@@ -47,8 +48,6 @@ class Ui_checkInTabWidget(QtGui.QWidget, sobj_tabs.Ui_sObjTabs):
         """
         Adding process tabs marked for Maya
         """
-        # tabs_items = tc.query_tab_names()
-        # context_items = tc.context_query(tabs_items['codes'])
 
         for i, (key, val) in enumerate(self.context_items.iteritems()):
             name_index_context = (key, i, val)
@@ -89,6 +88,7 @@ class Ui_checkInTabWidget(QtGui.QWidget, sobj_tabs.Ui_sObjTabs):
 class Ui_checkOutTabWidget(QtGui.QWidget, sobj_tabs.Ui_sObjTabs):
     def __init__(self, context_items, tabs_items, parent=None):
         super(self.__class__, self).__init__(parent=parent)
+        env.Inst().ui_check_tabs['checkout'] = self
 
         self.settings = QtCore.QSettings('TACTIC Handler', 'TACTIC Handling Tool')
 
@@ -118,8 +118,6 @@ class Ui_checkOutTabWidget(QtGui.QWidget, sobj_tabs.Ui_sObjTabs):
         """
         Adding process tabs marked for Maya
         """
-        # tabs_items = tc.query_tab_names()
-        # context_items = tc.context_query(tabs_items['codes'])
 
         for i, (key, val) in enumerate(self.context_items.iteritems()):
             name_index_context = (key, i, val)

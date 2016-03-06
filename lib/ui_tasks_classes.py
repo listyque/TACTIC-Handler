@@ -184,7 +184,7 @@ class Ui_tasksWidget(QtGui.QWidget, ui_tasks.Ui_tasks):
             self.showNotesButton.setText(show_notes_text)
 
     def add_process_items(self):
-
+        # print(self.sobject.tasks)
         # Top level, process of tasks
         for process in self.sobject.all_process:
 

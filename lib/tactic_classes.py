@@ -5,10 +5,14 @@
 import os
 import sys
 import time
-import collections
+import errno
 import urlparse
+import collections
+from pprint import pprint
 import PySide.QtGui as QtGui
+import PySide.QtCore as QtCore
 import environment as env
+import global_functions as gf
 import lib.client.tactic_client_lib as tactic_client_lib
 import xml.etree.ElementTree as Et
 import ui_conf_classes
@@ -16,11 +20,24 @@ import ui_conf_classes
 if env.Mode().get == 'maya':
     import ui_maya_dock
     import maya.cmds as cmds
-    import maya_functions as mf
+
+
+class ServerThread(QtCore.QThread):
+    def __init__(self, parent=None):
+        QtCore.QThread.__init__(self, parent)
+
+        self.kwargs = None
+        self.result = None
+
+    def routine(self, **kwargs):
+        pass
+
+    def run(self):
+        self.result = self.routine(**(self.kwargs or {}))
 
 
 # server functions
-def server_auth(host, project, login, password):
+def server_auth(host, project, login, password, new_ticket=False):
     tactic_srv = tactic_client_lib.TacticServerStub.get(setup=False)
     srv = host
     prj = project
@@ -32,12 +49,21 @@ def server_auth(host, project, login, password):
     if not ticket:
         ticket = tactic_srv.get_ticket(log, psw)
         env.Env().set_ticket(ticket)
+    if new_ticket:
+        ticket = tactic_srv.get_ticket(log, psw)
+        env.Env().set_ticket(ticket)
     tactic_srv.set_ticket(ticket)
     return tactic_srv
 
 
-def get_server():
-    return server_auth(env.Env().get_server(), env.Env().get_project(), env.Env().get_user(), env.Env().get_pass())
+def get_server(new_ticket=False):
+    return server_auth(
+        env.Env().get_server(),
+        env.Env().get_project(),
+        env.Env().get_user(),
+        env.Env().get_pass(),
+        new_ticket,
+    )
 
 
 def server_start(first_run=False):
@@ -45,8 +71,8 @@ def server_start(first_run=False):
         server = get_server()
         return server
     except Exception as expected:
-        print("Can't connect to TACTIC Server: " + str(expected))
-        server_restart(first_run)
+        if expected.errno == errno.ECONNREFUSED:
+            server_restart(first_run)
 
 
 def server_restart(first_run=False):
@@ -67,6 +93,7 @@ def server_restart(first_run=False):
                             "<p>Looks like TACTIC Server isn't running!</p> <p>Start Server?</p>",
                             QtGui.QMessageBox.NoButton, env.Inst().ui_main)
     msb.addButton("Yes", QtGui.QMessageBox.YesRole)
+    msb.addButton("Retry", QtGui.QMessageBox.ApplyRole)
     msb.addButton("Open config", QtGui.QMessageBox.AcceptRole)
     msb.addButton("No", QtGui.QMessageBox.NoRole)
     msb.exec_()
@@ -75,12 +102,13 @@ def server_restart(first_run=False):
     if reply == QtGui.QMessageBox.YesRole:
         run_bat()
     if reply == QtGui.QMessageBox.AcceptRole:
+        # print('OPEN CONFIG')
         conf_dialog = ui_conf_classes.Ui_configuration_dialogWidget()
         conf_dialog.configToolBox.setCurrentIndex(1)
         try_run = conf_dialog.buttonBox.addButton("Try Run", QtGui.QDialogButtonBox.YesRole)
         try_run.clicked.connect(lambda: run_bat(True))
         conf_dialog.show()
-        sys.exit()
+
     if reply == QtGui.QMessageBox.NoRole:
         if env.Mode().get == 'maya':
             cmds.warning('Failed to run TACTIC Handler. TACTIC Server not running!')
@@ -98,9 +126,21 @@ def server_restart(first_run=False):
             sys.exit()
 
 
+def ping_srv():
+    try:
+        result = server_start(True).fast_ping()
+        print('TACTIC Server Ping: ' + result)
+    except Exception as expected:
+        result = False
+        print(expected)
+        server_restart(True)
+
+    return result
+
+
 # Query functions
 
-def server_query(search_type, filters, limit=0):
+def server_query(search_type, filters):
     """
     Server start and query
     :param search_type: query search type
@@ -108,32 +148,54 @@ def server_query(search_type, filters, limit=0):
     :return: dictionary
     """
     assets = None
+    server = server_start()
     try:
-        server = server_start()
-    except Exception as expected:
-        print(str(expected) + '1')
-    try:
-        assets = server.query(search_type, filters, limit)
-    except Exception as expected:
-        print(str(expected) + '2')
-        try:
-            assets = server_start().query(search_type, filters, limit)
-        except Exception as expected:
-            print(str(expected) + '3')
+        assets = server.query(search_type, filters)
+    except Exception as exception:
+
+        # Catch xmlrpc exception, ticket error
+        if str(type(exception)) == "<class 'xmlrpclib.Fault'>":
+            if exception.faultCode == 1:
+                get_server(True)
+                assets = server.query(search_type, filters)
+
+        # Catch socket exception, connection error
+        if str(type(exception)) == "<class 'socket.error'>":
             server_restart(False)
 
     return assets
 
 
-def query_tab_names():
+def query_assets_names():
+    search_type = 'sthpw/search_object'
+    namespace = [env.Env().get_namespace(), env.Env().get_project()]
+
+    filters = [('namespace', namespace)]
+
+    assets = server_query(search_type, filters)
+
+    result_tree = collections.defaultdict(list)
+
+    for asset in assets:
+        result_tree[asset['type']].append(asset)
+
+    return result_tree
+
+
+def query_tab_names(full_list=False):
     """
     Create Tabs from maya-type sTypes
     """
     search_type = 'sthpw/search_object'
+    namespace = [env.Env().get_namespace(), env.Env().get_project()]
+
     if env.Mode().get == 'standalone':
-        filters = [('type', env.Env().get_types_list()), ('namespace', env.Env().get_namespace())]
+        filters = [('type', env.Env().get_types_list()), ('namespace', namespace)]
     else:
-        filters = [('type', env.Mode().get), ('namespace', env.Env().get_namespace())]
+        filters = [('type', env.Mode().get), ('namespace', namespace)]
+
+    if full_list:
+        filters = [('namespace', namespace)]
 
     assets = server_query(search_type, filters)
 
@@ -217,7 +279,6 @@ class SObject(object):
         :param user: Optional users names
         :return:
         """
-        # TODO Per users query
 
         if process:
             filters = [('search_code', s_code), ('process', process), ('project_code', env.Env().get_project())]
@@ -236,7 +297,6 @@ class SObject(object):
         :param user: Optional users names
         :return:
         """
-        # TODO Per users query
 
         search_type = 'sthpw/task'
         if process:
@@ -357,30 +417,35 @@ class Snapshot(SObject, object):
         del self.snapshot['__files__'], self.snapshot['snapshot']
 
 
-def get_sobjects(process_list, sobjects_list):
+def get_sobjects(process_list=None, sobjects_list=None, get_snapshots=True):
     """
     Filters snapshot by search codes, and sobjects codes
     :param sobjects_list: full list of stypes
-    :param snapshots_list: full list of related snapshots
+    :param get_snapshots: query for snapshots per sobject or not
     :return: dict of sObjects objects
     """
-    s_code = [s['code'] for s in sobjects_list]
-    snapshots_list = query_snapshots(process_list, s_code)
-    snapshots = collections.defaultdict(list)
     sobjects = {}
+    if get_snapshots:
+        s_code = [s['code'] for s in sobjects_list]
+        snapshots_list = query_snapshots(process_list, s_code)
+        snapshots = collections.defaultdict(list)
 
-    # filter snapshots by search_code
-    for snapshot in snapshots_list:
-        snapshots[snapshot['search_code']].append(snapshot)
+        # filter snapshots by search_code
+        for snapshot in snapshots_list:
+            snapshots[snapshot['search_code']].append(snapshot)
 
-    # append sObject info to the end of each search_code filtered list
-    for sobject in sobjects_list:
-        snapshots[sobject['code']].append(sobject)
+        # append sObject info to the end of each search_code filtered list
+        for sobject in sobjects_list:
+            snapshots[sobject['code']].append(sobject)
 
-    # creating dict or ready SObjects
-    for k, v in snapshots.iteritems():
-        sobjects[k] = SObject(v[-1], process_list)
-        sobjects[k].init_snapshots(v[:-1])
+        # creating dict or ready SObjects
+        for k, v in snapshots.iteritems():
+            sobjects[k] = SObject(v[-1], process_list)
+            sobjects[k].init_snapshots(v[:-1])
+    else:
+        # Create list of Sobjects
+        for sobject in sobjects_list:
+            sobjects[sobject['code']] = SObject(sobject)
 
     return sobjects
 
@@ -406,9 +471,27 @@ def assets_query(query, process, raw=False):
     """
     Query for searching assets
     """
-    # filters = [('name', 'like', '%' + query + '%')]
-    filters = [('name', 'EQI', query)]
-    assets = server_query(process, filters)
+    filters = []
+    expr = ''
+    if query[1] == 0:
+        filters = [('name', 'EQI', query[0])]
+    if query[1] == 1:
+        filters = [('code', query[0])]
+    if query[1] == 2:
+        filters = None
+        parents_codes = ['scenes_code', 'sets_code']
+        for parent in parents_codes:
+            expr += '@SOBJECT(cgshort/shot["{0}", "{1}"]), '.format(parent, query[0])
+    if query[1] == 3:
+        filters = [('description', 'EQI', query[0])]
+    if query[1] == 4:
+        filters = [('keywords', 'EQI', query[0])]
+
+    if filters:
+        assets = server_query(process, filters)
+    else:
+        assets = server_start().eval(expr)
+
     if raw:
         return assets
     out_assets = {
@@ -431,16 +514,16 @@ def assets_query(query, process, raw=False):
 
 
 def get_notes_count(sobject, process):
-
     expr = ''
 
     code = sobject.info['code']
-    search_type = server_start().build_search_type(sobject.info['__search_key__'].split('?')[0])
+    stub = server_start()
+    search_type = stub.build_search_type(sobject.info['__search_key__'].split('?')[0])
     for proc in process:
-        expr += '{' +\
-                "@COUNT(sthpw/note['process','{0}']['search_type', '{2}']['search_code', '{1}'])".format(proc, code, search_type) +\
-                '},'
-    counts = server_start().eval(expr)
+        expr += '{' + "@COUNT(sthpw/note['process','{0}']['search_type', '{2}']['search_code', '{1}'])".format(proc,
+                                                                                                               code,
+                                                                                                               search_type) + '},'
+    counts = stub.eval(expr)
     return counts
 
 
@@ -456,23 +539,38 @@ def context_query(process):
     filters = [('search_type', process), ('project_code', env.Env().get_project())]
     assets = server_query(search_type, filters)
 
+    from lib.bs4 import BeautifulSoup
+
     if assets:
         # TODO may be worth it to simplify this
-        contexts = collections.OrderedDict()
+        # contexts = collections.OrderedDict()
+        #
+        # for proc in process:
+        #     contexts[proc] = []
+        #
+        # items = contexts.copy()
+        # for context in contexts:
+        #     for asset in assets:
+        #         if context == asset['search_type']:
+        #             contexts[context] = Et.fromstring(asset['pipeline'].encode('utf-8'))
+        #
+        # for key, val in contexts.iteritems():
+        #     if len(val):
+        #         for element in val.iter('process'):
+        #             items[key].append(element.attrib['name'])
+
+        items = collections.OrderedDict()
 
         for proc in process:
-            contexts[proc] = []
-        items = contexts.copy()
+            items[proc] = []
 
-        for context in contexts:
-            for asset in assets:
-                if context == asset['search_type']:
-                    contexts[context] = Et.fromstring(asset['pipeline'].encode('utf-8'))
-
-        for key, val in contexts.iteritems():
-            if len(val):
-                for element in val.iter('process'):
-                    items[key].append(element.attrib['name'])
+        for asset in assets:
+            if asset['search_type'] in process:
+                pipeline = BeautifulSoup(asset['pipeline'], 'html.parser')
+                all_pipeline = []
+                for pipe in pipeline.find_all('process'):
+                    all_pipeline.append(pipe['name'])
+                items[asset['search_type']] = all_pipeline
 
         return items
 
@@ -589,24 +687,22 @@ def checkin_file():
 
 
 def update_description(search_key, description):
-    # print(search_key)
-    # print(description)
-
     data = {
         'description': description
     }
     transaction = server_start().update(search_key, data)
-    # print(transaction)
+
     return transaction
 
 
-def add_note(search_key, process, context, note, login):
+def add_note(search_key, process, context, note, note_html, login):
     search_type = "sthpw/note"
 
     data = {
         'process': process,
         'context': context,
         'note': note,
+        'note_html': gf.html_to_hex(note_html),
         'login': login,
     }
 
@@ -617,7 +713,7 @@ def add_note(search_key, process, context, note, login):
 
 def task_process_query(seach_key):
     # TODO Query task process per process
-
+    from pprint import pprint
     processes = {}
     default_processes = ['Assignment', 'Pending', 'In Progress', 'Waiting', 'Need Assistance', 'Revise', 'Reject',
                          'Complete', 'Approved']
@@ -628,15 +724,50 @@ def task_process_query(seach_key):
 
     # process_expr = "@SOBJECT(sthpw/pipeline['search_type', 'sthpw/task'].config/process)"
     # process_expr = "@SOBJECT(sthpw/pipeline['code', 'the_pirate/Concept'].config/process)"
-    process_expr = "@SOBJECT(sthpw/pipeline['code', 'cgshort/props'].config/process)"
-    process_list = server_start().eval(process_expr)
+    # process_expr = "@SOBJECT(sthpw/pipeline['code', 'cgshort/props'].config/process)"
+    # process_expr = "@SOBJECT(sthpw/subscription['login','{0}'])".format('admin')
+    # process_expr = "@SOBJECT(sthpw/message_log['message_code','cgshort/characters?project=the_pirate&code=CHARACTERS00001'])"
+    # process_list = server_start().eval(process_expr)
+    # print(dir(thread_server_start()))
+    # thr = ServerThread()
+    # print(ServerThread().isRunning())
 
+    # def rt():
+    #
+    #     filters = [('search_code', ['PROPS00001', 'PROPS00002', 'PROPS00003', 'PROPS00004','PROPS00005','PROPS00006','PROPS00007','PROPS00008','PROPS00009','PROPS00010','PROPS00011','PROPS00012','PROPS00013','PROPS00014','PROPS00015','PROPS00016','PROPS00017','PROPS00018','PROPS00019','PROPS00021']), ('project_code', 'the_pirate')]
+    #     return thr.server.query_snapshots(filters=filters, include_files=True)
+    # return thr.server.get_all_children('cgshort/props?project=the_pirate&code=PROPS00001', 'sthpw/snapshot')
+    # return asd
+    # thr.routine = rt
+    # print(thr.isRunning())
+    # thr.start()
+    # print(thr.isRunning())
+    #
+    # def print_result():
+    #     print(thr.result)
+    #
+    # thr.finished.connect(print_result)
+    # pprint(asd)
+
+
+    code = [('message_code', 'cgshort/characters?project=the_pirate&code=CHARACTERS00001')]
+    search_type = 'sthpw/message_log'
+
+    message = server_query(search_type, code)
+
+    # from pprint import pprint
+    print('from task_process_query!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!')
+    # pprint(message)
+    print(message[0])
+    import json
+    data = json.loads(message[0]['message'])
+    pprint(data)
     # if (len(process_list) == 0):
     #     process_list = default_processes
 
-    from pprint import pprint
-    print('from task_process_query')
-    pprint(process_list)
+
+    # print('from task_process_query!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!')
+    # pprint(process_list)
 
     return processes
 
@@ -683,12 +814,27 @@ def task_priority_query(seach_key):
 # Skey funtions
 
 def parce_skey(skey):
-    skey_splitted = urlparse.urlsplit(skey)
+    skey_splitted = urlparse.urlparse(skey)
     skey_dict = dict(urlparse.parse_qsl(skey_splitted.query))
     skey_dict['namespace'] = skey_splitted.netloc
     skey_dict['pipeline_code'] = skey_splitted.path[1:]
 
     if skey_splitted.scheme == 'skey':
+        if skey_dict['pipeline_code'] == 'snapshot':
+            skey_dict['type'] = 'snapshot'
+            snapshot = server_query('sthpw/snapshot', [('code', skey_dict.get('code'))])
+            if snapshot:
+                snapshot = snapshot[0]
+                skey_dict['pipeline_code'] = snapshot['search_type'].split('/')[-1].split('?')[0]
+                skey_dict['namespace'] = snapshot['search_type'].split('/')[0]
+                skey_dict['project'] = snapshot['project_code']
+                skey_dict['context'] = snapshot['context']
+                skey_dict['code'] = snapshot['search_code']
+                skey_dict['item_code'] = snapshot['code']
+        else:
+            skey_dict['type'] = 'sobject'
+            if not skey_dict.get('context'):
+                skey_dict['context'] = '_no_context_'
         return skey_dict
     else:
         return None

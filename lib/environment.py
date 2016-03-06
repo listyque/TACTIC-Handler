@@ -29,8 +29,11 @@ class Inst(object):
     ui_tasks = None
     ui_notes = None
     ui_conf = None
-    ui_checkout_tree = {}
-    ui_checkout_tabs = None
+    ui_check_tree = {
+        'checkin': {},
+        'checkout': {},
+    }
+    ui_check_tabs = {}
     ui_addsobject = None
 
 
@@ -73,7 +76,7 @@ class Env(object):
             'install_dir': str(os.environ['TACTIC_INSTALL_DIR'] + '/src/client').replace('\\', '/'),
             'asset_dir': str(os.environ['TACTIC_ASSET_DIR']).replace('\\', '/'),
             'temp_dir': tempfile.gettempdir(),
-            'types_list': ['maya', 'houdini', '3dsmax', 'nuke'],
+            'types_list': ['maya', 'houdini', '3dsmax', 'nuke', ''],
         }
 
         self.settings = QtCore.QSettings('TACTIC Handler', 'TACTIC Handling Tool')
