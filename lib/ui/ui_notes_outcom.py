@@ -2,7 +2,7 @@
 
 # Form implementation generated from reading ui file './ui_notes_outcom.ui'
 #
-# Created: Tue Feb 09 11:06:11 2016
+# Created: Mon Feb 15 17:50:19 2016
 #      by: pyside-uic 0.2.15 running on PySide 1.2.4
 #
 # WARNING! All changes made in this file will be lost!
@@ -65,7 +65,6 @@ class Ui_outcom(object):
         self.authorFullLabel.setObjectName("authorFullLabel")
         self.gridLayout_5.addWidget(self.authorFullLabel, 2, 0, 1, 1)
         self.commentLabel = QtGui.QLabel(self.groupBox_2)
-        self.commentLabel.setText("")
         self.commentLabel.setTextFormat(QtCore.Qt.RichText)
         self.commentLabel.setScaledContents(True)
         self.commentLabel.setAlignment(QtCore.Qt.AlignLeading|QtCore.Qt.AlignLeft|QtCore.Qt.AlignTop)
@@ -108,5 +107,5 @@ class Ui_outcom(object):
         outcom.setWindowTitle(QtGui.QApplication.translate("outcom", "Form", None, QtGui.QApplication.UnicodeUTF8))
         self.authorFullLabel.setText(QtGui.QApplication.translate("outcom", "Алексей Мерзкий\n"
 "listy@live.ru", None, QtGui.QApplication.UnicodeUTF8))
-        self.authorPicLabel.setText(QtGui.QApplication.translate("outcom", "<img src=\"D:/Alexey/onedrive/Exam_(work_title)/root/admin/login/listy/icon/listy_icon_icon.png\">", None, QtGui.QApplication.UnicodeUTF8))
+        self.authorPicLabel.setText(QtGui.QApplication.translate("outcom", "<img src=\"D:/APS/OneDrive/Exam_(work_title)/root/admin/login/listy/icon/listy_icon_icon.png\">", None, QtGui.QApplication.UnicodeUTF8))
 

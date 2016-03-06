@@ -5,14 +5,6 @@
   <property name="windowModality">
    <enum>Qt::ApplicationModal</enum>
   </property>
-  <property name="geometry">
-   <rect>
-    <x>0</x>
-    <y>0</y>
-    <width>427</width>
-    <height>276</height>
-   </rect>
-  </property>
   <property name="minimumSize">
    <size>
     <width>427</width>
@@ -62,10 +54,7 @@ QTreeView::item:selected{
    <string notr="true"/>
   </property>
   <widget class="QWidget" name="mainwidget">
-   <layout class="QVBoxLayout" name="main_layout">
-    <property name="spacing">
-     <number>0</number>
-    </property>
+   <layout class="QGridLayout" name="main_layout">
     <property name="leftMargin">
      <number>2</number>
     </property>
@@ -78,7 +67,10 @@ QTreeView::item:selected{
     <property name="bottomMargin">
      <number>3</number>
     </property>
-    <item>
+    <property name="spacing">
+     <number>0</number>
+    </property>
+    <item row="0" column="0" colspan="3">
      <widget class="QTabWidget" name="main_tabWidget">
       <property name="tabPosition">
        <enum>QTabWidget::South</enum>
@@ -143,7 +135,17 @@ QTreeView::item:selected{
       </widget>
      </widget>
     </item>
-    <item>
+    <item row="1" column="1">
+     <widget class="QLabel" name="currentProjectLabel">
+      <property name="text">
+       <string>Current Project:</string>
+      </property>
+      <property name="indent">
+       <number>4</number>
+      </property>
+     </widget>
+    </item>
+    <item row="1" column="0">
      <widget class="QLineEdit" name="skeyLineEdit">
       <property name="text">
        <string>skey://</string>

@@ -65,7 +65,7 @@
            <property name="flat">
             <bool>true</bool>
            </property>
-           <layout class="QVBoxLayout" name="verticalLayout">
+           <layout class="QVBoxLayout" name="resultsLayout">
             <property name="spacing">
              <number>0</number>
             </property>

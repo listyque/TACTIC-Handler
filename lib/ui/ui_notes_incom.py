@@ -2,7 +2,7 @@
 
 # Form implementation generated from reading ui file './ui_notes_incom.ui'
 #
-# Created: Tue Feb 09 11:06:11 2016
+# Created: Mon Feb 15 17:50:19 2016
 #      by: pyside-uic 0.2.15 running on PySide 1.2.4
 #
 # WARNING! All changes made in this file will be lost!
@@ -69,7 +69,7 @@ class Ui_incom(object):
         self.commentLabel.setAlignment(QtCore.Qt.AlignLeading|QtCore.Qt.AlignLeft|QtCore.Qt.AlignTop)
         self.commentLabel.setWordWrap(True)
         self.commentLabel.setOpenExternalLinks(True)
-        self.commentLabel.setTextInteractionFlags(QtCore.Qt.LinksAccessibleByKeyboard|QtCore.Qt.LinksAccessibleByMouse|QtCore.Qt.TextBrowserInteraction|QtCore.Qt.TextSelectableByKeyboard|QtCore.Qt.TextSelectableByMouse)
+        self.commentLabel.setTextInteractionFlags(QtCore.Qt.LinksAccessibleByMouse|QtCore.Qt.TextSelectableByKeyboard|QtCore.Qt.TextSelectableByMouse)
         self.commentLabel.setObjectName("commentLabel")
         self.gridLayout_3.addWidget(self.commentLabel, 1, 1, 2, 1)
         self.authorPicLabel = QtGui.QLabel(self.groupBox)
@@ -109,4 +109,5 @@ class Ui_incom(object):
         incom.setWindowTitle(QtGui.QApplication.translate("incom", "Form", None, QtGui.QApplication.UnicodeUTF8))
         self.authorFullLabel.setText(QtGui.QApplication.translate("incom", "Алексей Мерзкий\n"
 "listy@live.ru", None, QtGui.QApplication.UnicodeUTF8))
-        self.authorPicLabel.setText(QtGui.QApplication.translate("incom", "<img src=\"D:/Alexey/onedrive/Exam_(work_title)/root/admin/login/admin/icon/admin_icon_icon.png\">", None, QtGui.QApplication.UnicodeUTF8))
+        self.authorPicLabel.setText(QtGui.QApplication.translate("incom", "<img src=\"D:/APS/OneDrive/Exam_(work_title)/root/admin/login/admin/icon/admin_icon_icon.png\">", None, QtGui.QApplication.UnicodeUTF8))
+

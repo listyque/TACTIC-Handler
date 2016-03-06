@@ -1,13 +1,13 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <ui version="4.0">
- <class>Form</class>
- <widget class="QWidget" name="Form">
+ <class>myNotifications</class>
+ <widget class="QWidget" name="myNotifications">
   <property name="geometry">
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>1107</width>
-    <height>760</height>
+    <width>561</width>
+    <height>373</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -29,12 +29,9 @@
       <layout class="QVBoxLayout" name="verticalLayout">
        <item>
         <widget class="QTreeWidget" name="treeWidget">
-         <attribute name="headerVisible">
-          <bool>false</bool>
-         </attribute>
          <column>
           <property name="text">
-           <string>1</string>
+           <string>Subscriptions:</string>
           </property>
          </column>
          <item>
@@ -44,28 +41,38 @@
          </item>
          <item>
           <property name="text">
-           <string>Props</string>
+           <string>SObjects</string>
           </property>
           <item>
            <property name="text">
-            <string>PROPS00001</string>
+            <string>Characters</string>
            </property>
+           <item>
+            <property name="text">
+             <string>CHARACTER00001</string>
+            </property>
+           </item>
           </item>
           <item>
            <property name="text">
-            <string>PROPS00002</string>
+            <string>Props</string>
            </property>
+           <item>
+            <property name="text">
+             <string>PROPS00001</string>
+            </property>
+           </item>
+           <item>
+            <property name="text">
+             <string>PROPS00002</string>
+            </property>
+           </item>
           </item>
          </item>
          <item>
           <property name="text">
-           <string>Characters</string>
+           <string>Tasks</string>
           </property>
-          <item>
-           <property name="text">
-            <string>CHARACTER00001</string>
-           </property>
-          </item>
          </item>
         </widget>
        </item>

@@ -2,7 +2,7 @@
 
 # Form implementation generated from reading ui file './ui_main.ui'
 #
-# Created: Sat Jan 30 22:31:44 2016
+# Created: Fri Mar 04 23:06:28 2016
 #      by: pyside-uic 0.2.15 running on PySide 1.2.4
 #
 # WARNING! All changes made in this file will be lost!
@@ -13,7 +13,6 @@ class Ui_MainWindow(object):
     def setupUi(self, MainWindow):
         MainWindow.setObjectName("MainWindow")
         MainWindow.setWindowModality(QtCore.Qt.ApplicationModal)
-        MainWindow.resize(427, 276)
         MainWindow.setMinimumSize(QtCore.QSize(427, 276))
         MainWindow.setStyleSheet("QTreeView {\n"
 "    show-decoration-selected: 1;\n"
@@ -50,7 +49,7 @@ class Ui_MainWindow(object):
         MainWindow.setWindowFilePath("")
         self.mainwidget = QtGui.QWidget(MainWindow)
         self.mainwidget.setObjectName("mainwidget")
-        self.main_layout = QtGui.QVBoxLayout(self.mainwidget)
+        self.main_layout = QtGui.QGridLayout(self.mainwidget)
         self.main_layout.setSpacing(0)
         self.main_layout.setContentsMargins(2, 0, 2, 3)
         self.main_layout.setObjectName("main_layout")
@@ -86,10 +85,14 @@ class Ui_MainWindow(object):
         self.assetsBrowserLayout.setContentsMargins(0, 0, 0, 0)
         self.assetsBrowserLayout.setObjectName("assetsBrowserLayout")
         self.main_tabWidget.addTab(self.assetsBrowserTab, "")
-        self.main_layout.addWidget(self.main_tabWidget)
+        self.main_layout.addWidget(self.main_tabWidget, 0, 0, 1, 3)
+        self.currentProjectLabel = QtGui.QLabel(self.mainwidget)
+        self.currentProjectLabel.setIndent(4)
+        self.currentProjectLabel.setObjectName("currentProjectLabel")
+        self.main_layout.addWidget(self.currentProjectLabel, 1, 1, 1, 1)
         self.skeyLineEdit = QtGui.QLineEdit(self.mainwidget)
         self.skeyLineEdit.setObjectName("skeyLineEdit")
-        self.main_layout.addWidget(self.skeyLineEdit)
+        self.main_layout.addWidget(self.skeyLineEdit, 1, 0, 1, 1)
         MainWindow.setCentralWidget(self.mainwidget)
         self.menubar = QtGui.QMenuBar(MainWindow)
         self.menubar.setGeometry(QtCore.QRect(0, 0, 427, 21))
@@ -127,6 +130,7 @@ class Ui_MainWindow(object):
         self.main_tabWidget.setTabText(self.main_tabWidget.indexOf(self.checkInTab), QtGui.QApplication.translate("MainWindow", "Checkin", None, QtGui.QApplication.UnicodeUTF8))
         self.main_tabWidget.setTabText(self.main_tabWidget.indexOf(self.myTacticTab), QtGui.QApplication.translate("MainWindow", "My Tactic", None, QtGui.QApplication.UnicodeUTF8))
         self.main_tabWidget.setTabText(self.main_tabWidget.indexOf(self.assetsBrowserTab), QtGui.QApplication.translate("MainWindow", "Assets browser", None, QtGui.QApplication.UnicodeUTF8))
+        self.currentProjectLabel.setText(QtGui.QApplication.translate("MainWindow", "Current Project:", None, QtGui.QApplication.UnicodeUTF8))
         self.skeyLineEdit.setText(QtGui.QApplication.translate("MainWindow", "skey://", None, QtGui.QApplication.UnicodeUTF8))
         self.menuConfig.setTitle(QtGui.QApplication.translate("MainWindow", "Menu", None, QtGui.QApplication.UnicodeUTF8))
         self.actionConfiguration.setText(QtGui.QApplication.translate("MainWindow", "Configuration", None, QtGui.QApplication.UnicodeUTF8))

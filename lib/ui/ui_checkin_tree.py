@@ -2,7 +2,7 @@
 
 # Form implementation generated from reading ui file './ui_checkin_tree.ui'
 #
-# Created: Wed Feb 03 16:14:00 2016
+# Created: Sun Feb 14 23:31:44 2016
 #      by: pyside-uic 0.2.15 running on PySide 1.2.4
 #
 # WARNING! All changes made in this file will be lost!
@@ -48,10 +48,10 @@ class Ui_checkInTree(object):
         self.resultsGroupBox.setSizePolicy(sizePolicy)
         self.resultsGroupBox.setFlat(True)
         self.resultsGroupBox.setObjectName("resultsGroupBox")
-        self.verticalLayout = QtGui.QVBoxLayout(self.resultsGroupBox)
-        self.verticalLayout.setSpacing(0)
-        self.verticalLayout.setContentsMargins(0, 0, 0, 0)
-        self.verticalLayout.setObjectName("verticalLayout")
+        self.resultsLayout = QtGui.QVBoxLayout(self.resultsGroupBox)
+        self.resultsLayout.setSpacing(0)
+        self.resultsLayout.setContentsMargins(0, 0, 0, 0)
+        self.resultsLayout.setObjectName("resultsLayout")
         self.resultsTreeWidget = QtGui.QTreeWidget(self.resultsGroupBox)
         self.resultsTreeWidget.setTabKeyNavigation(True)
         self.resultsTreeWidget.setVerticalScrollMode(QtGui.QAbstractItemView.ScrollPerPixel)
@@ -59,7 +59,7 @@ class Ui_checkInTree(object):
         self.resultsTreeWidget.setHeaderHidden(True)
         self.resultsTreeWidget.setObjectName("resultsTreeWidget")
         self.resultsTreeWidget.headerItem().setText(0, "1")
-        self.verticalLayout.addWidget(self.resultsTreeWidget)
+        self.resultsLayout.addWidget(self.resultsTreeWidget)
         self.gridLayout.addWidget(self.searchOptionsSplitter, 1, 0, 1, 7)
         self.searchLineEdit = QtGui.QLineEdit(self.layoutWidget)
         font = QtGui.QFont()

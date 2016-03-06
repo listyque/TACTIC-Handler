@@ -2,7 +2,7 @@
 
 # Form implementation generated from reading ui file './ui_checkout_tree.ui'
 #
-# Created: Thu Feb 04 11:47:30 2016
+# Created: Sat Mar 05 23:30:32 2016
 #      by: pyside-uic 0.2.15 running on PySide 1.2.4
 #
 # WARNING! All changes made in this file will be lost!
@@ -40,10 +40,10 @@ class Ui_checkOutTree(object):
         self.resultsGroupBox = QtGui.QGroupBox(self.searchOptionsSplitter)
         self.resultsGroupBox.setFlat(True)
         self.resultsGroupBox.setObjectName("resultsGroupBox")
-        self.verticalLayout = QtGui.QVBoxLayout(self.resultsGroupBox)
-        self.verticalLayout.setSpacing(0)
-        self.verticalLayout.setContentsMargins(0, 0, 0, 0)
-        self.verticalLayout.setObjectName("verticalLayout")
+        self.resultsLayout = QtGui.QVBoxLayout(self.resultsGroupBox)
+        self.resultsLayout.setSpacing(0)
+        self.resultsLayout.setContentsMargins(0, 0, 0, 0)
+        self.resultsLayout.setObjectName("resultsLayout")
         self.resultsTreeWidget = QtGui.QTreeWidget(self.resultsGroupBox)
         self.resultsTreeWidget.setTabKeyNavigation(True)
         self.resultsTreeWidget.setVerticalScrollMode(QtGui.QAbstractItemView.ScrollPerPixel)
@@ -51,7 +51,7 @@ class Ui_checkOutTree(object):
         self.resultsTreeWidget.setHeaderHidden(True)
         self.resultsTreeWidget.setObjectName("resultsTreeWidget")
         self.resultsTreeWidget.headerItem().setText(0, "1")
-        self.verticalLayout.addWidget(self.resultsTreeWidget)
+        self.resultsLayout.addWidget(self.resultsTreeWidget)
         self.gridLayout.addWidget(self.searchOptionsSplitter, 1, 0, 1, 5)
         self.searchLineEdit = QtGui.QLineEdit(self.layoutWidget)
         font = QtGui.QFont()
@@ -84,16 +84,16 @@ class Ui_checkOutTree(object):
         self.refreshToolButton.setArrowType(QtCore.Qt.RightArrow)
         self.refreshToolButton.setObjectName("refreshToolButton")
         self.gridLayout.addWidget(self.refreshToolButton, 0, 1, 1, 1)
-        self.pushButton = QtGui.QPushButton(self.layoutWidget)
+        self.findOpenedPushButton = QtGui.QPushButton(self.layoutWidget)
         sizePolicy = QtGui.QSizePolicy(QtGui.QSizePolicy.Preferred, QtGui.QSizePolicy.Minimum)
         sizePolicy.setHorizontalStretch(0)
         sizePolicy.setVerticalStretch(0)
-        sizePolicy.setHeightForWidth(self.pushButton.sizePolicy().hasHeightForWidth())
-        self.pushButton.setSizePolicy(sizePolicy)
-        self.pushButton.setMinimumSize(QtCore.QSize(75, 0))
-        self.pushButton.setMaximumSize(QtCore.QSize(16777215, 20))
-        self.pushButton.setObjectName("pushButton")
-        self.gridLayout.addWidget(self.pushButton, 0, 3, 1, 1)
+        sizePolicy.setHeightForWidth(self.findOpenedPushButton.sizePolicy().hasHeightForWidth())
+        self.findOpenedPushButton.setSizePolicy(sizePolicy)
+        self.findOpenedPushButton.setMinimumSize(QtCore.QSize(75, 0))
+        self.findOpenedPushButton.setMaximumSize(QtCore.QSize(16777215, 20))
+        self.findOpenedPushButton.setObjectName("findOpenedPushButton")
+        self.gridLayout.addWidget(self.findOpenedPushButton, 0, 3, 1, 1)
         self.contextComboBox = QtGui.QComboBox(self.layoutWidget)
         self.contextComboBox.setMinimumSize(QtCore.QSize(80, 0))
         self.contextComboBox.setEditable(True)
@@ -175,14 +175,14 @@ class Ui_checkOutTree(object):
     def retranslateUi(self, checkOutTree):
         self.resultsGroupBox.setTitle(QtGui.QApplication.translate("checkOutTree", "Results:", None, QtGui.QApplication.UnicodeUTF8))
         self.refreshToolButton.setText(QtGui.QApplication.translate("checkOutTree", "...", None, QtGui.QApplication.UnicodeUTF8))
-        self.pushButton.setText(QtGui.QApplication.translate("checkOutTree", "Find Opened", None, QtGui.QApplication.UnicodeUTF8))
+        self.findOpenedPushButton.setText(QtGui.QApplication.translate("checkOutTree", "Find Opened", None, QtGui.QApplication.UnicodeUTF8))
         self.playblastGroupBox.setTitle(QtGui.QApplication.translate("checkOutTree", "Preview images:", None, QtGui.QApplication.UnicodeUTF8))
         self.commentsGroupBox.setTitle(QtGui.QApplication.translate("checkOutTree", "Description:", None, QtGui.QApplication.UnicodeUTF8))
         self.descriptionTextEdit.setHtml(QtGui.QApplication.translate("checkOutTree", "<!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 4.0//EN\" \"http://www.w3.org/TR/REC-html40/strict.dtd\">\n"
 "<html><head><meta name=\"qrichtext\" content=\"1\" /><style type=\"text/css\">\n"
 "p, li { white-space: pre-wrap; }\n"
 "</style></head><body style=\" font-family:\'MS Shell Dlg 2\'; font-size:8.25pt; font-weight:400; font-style:normal;\">\n"
-"<p style=\" margin-top:12px; margin-bottom:12px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;\"><br /></p></body></html>", None, QtGui.QApplication.UnicodeUTF8))
+"<p style=\" margin-top:12px; margin-bottom:12px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;\"><span style=\" font-size:8pt;\"><br /></span></p></body></html>", None, QtGui.QApplication.UnicodeUTF8))
         self.saveDescriprionButton.setText(QtGui.QApplication.translate("checkOutTree", "Save description", None, QtGui.QApplication.UnicodeUTF8))
 
 import resources_rc

@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>655</width>
-    <height>550</height>
+    <width>206</width>
+    <height>43</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -21,27 +21,38 @@
     <number>0</number>
    </property>
    <item>
-    <widget class="QTabWidget" name="tabWidget">
+    <widget class="QTabWidget" name="mainTab">
      <property name="currentIndex">
-      <number>0</number>
+      <number>1</number>
      </property>
      <property name="documentMode">
       <bool>true</bool>
      </property>
-     <widget class="QWidget" name="tab">
+     <widget class="QWidget" name="tasksTab">
       <attribute name="title">
        <string>Tasks</string>
       </attribute>
+      <layout class="QVBoxLayout" name="tasksTabLayout">
+       <property name="spacing">
+        <number>0</number>
+       </property>
+       <property name="margin">
+        <number>0</number>
+       </property>
+      </layout>
      </widget>
-     <widget class="QWidget" name="tab_2">
+     <widget class="QWidget" name="notificationsTab">
       <attribute name="title">
        <string>Notifications</string>
       </attribute>
-     </widget>
-     <widget class="QWidget" name="tab_5">
-      <attribute name="title">
-       <string>Schedule</string>
-      </attribute>
+      <layout class="QVBoxLayout" name="notificationsTabLayout">
+       <property name="spacing">
+        <number>0</number>
+       </property>
+       <property name="margin">
+        <number>0</number>
+       </property>
+      </layout>
      </widget>
     </widget>
    </item>
