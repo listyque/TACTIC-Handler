@@ -8,7 +8,9 @@ import lib.environment as env
 import lib.tactic_classes as tc
 env.Mode().set_mode('standalone')
 import lib.ui_main_classes
-DATA_DIR = os.environ['TACTIC_DATA_DIR'] + '/TACTIC_handler'
+
+DATA_DIR = '/mnt/drive_d/Alexey/Dropbox/Work/CGProjects/tacticbase_dev/TACTIC-handler'
+#DATA_DIR = os.environ['TACTIC_DATA_DIR'] + '/TACTIC-handler'
 sys.path.append(DATA_DIR)
 
 groups = ['Disabled', 'Active', 'Inactive', 'Normal']
@@ -69,18 +71,21 @@ palette = {
     }
 
 
-def startup(restart=False):
+def startup():
     app = QtGui.QApplication(sys.argv)
     app.setStyle("plastique")
     setPaletteFromDct(palette)
 
     if tc.ping_srv():
+
         window = lib.ui_main_classes.Ui_Main()
         env.Inst.ui_standalone = window
         window.main_layout.setSpacing(6)
         window.main_layout.setContentsMargins(9, 9, 9, 0)
         window.statusBar()
-        window.show()
+
+        if not env.Env().get_first_run():
+            window.show()
     sys.exit(app.exec_())
 
 

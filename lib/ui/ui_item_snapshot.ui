@@ -20,14 +20,14 @@
 	padding: 3px;
 }</string>
   </property>
-  <layout class="QGridLayout" name="versionedLayout" columnstretch="0,1,0">
+  <layout class="QGridLayout" name="versionedLayout" columnstretch="0,1,0,0">
    <property name="margin">
     <number>0</number>
    </property>
    <property name="spacing">
     <number>0</number>
    </property>
-   <item row="0" column="2">
+   <item row="0" column="3">
     <widget class="QLabel" name="sizeLabel">
      <property name="toolTip">
       <string notr="true"/>
@@ -91,7 +91,7 @@
      </property>
     </widget>
    </item>
-   <item row="1" column="2">
+   <item row="1" column="3">
     <widget class="QLabel" name="dateLabel">
      <property name="minimumSize">
       <size>
@@ -126,6 +126,13 @@
      </property>
      <property name="textFormat">
       <enum>Qt::PlainText</enum>
+     </property>
+    </widget>
+   </item>
+   <item row="0" column="2">
+    <widget class="QLabel" name="verRevLabel">
+     <property name="textFormat">
+      <enum>Qt::RichText</enum>
      </property>
     </widget>
    </item>

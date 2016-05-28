@@ -2,6 +2,14 @@
 <ui version="4.0">
  <class>searchOptionsGroupBox</class>
  <widget class="QGroupBox" name="searchOptionsGroupBox">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>539</width>
+    <height>180</height>
+   </rect>
+  </property>
   <property name="sizePolicy">
    <sizepolicy hsizetype="Preferred" vsizetype="Ignored">
     <horstretch>0</horstretch>
@@ -62,21 +70,21 @@
        <number>0</number>
       </property>
       <item>
-       <widget class="QRadioButton" name="radioButton">
+       <widget class="QRadioButton" name="sortNameRadioButton">
         <property name="text">
          <string>Name</string>
         </property>
        </widget>
       </item>
       <item>
-       <widget class="QRadioButton" name="radioButton_2">
+       <widget class="QRadioButton" name="sortCodeRadioButton">
         <property name="text">
          <string>Search Code</string>
         </property>
        </widget>
       </item>
       <item>
-       <widget class="QRadioButton" name="radioButton_4">
+       <widget class="QRadioButton" name="sortTimestampRadioButton">
         <property name="text">
          <string>Timestamp</string>
         </property>
@@ -86,7 +94,7 @@
        </widget>
       </item>
       <item>
-       <widget class="QRadioButton" name="radioButton_3">
+       <widget class="QRadioButton" name="sortNothingRadioButton">
         <property name="text">
          <string>Nothing</string>
         </property>
@@ -218,12 +226,9 @@
        <number>0</number>
       </property>
       <item>
-       <widget class="QToolButton" name="saveAsDefaultToolButton">
+       <widget class="QPushButton" name="saveAsDefaultsPushButton">
         <property name="text">
-         <string>Save as Default</string>
-        </property>
-        <property name="autoRaise">
-         <bool>true</bool>
+         <string>Save as Defaults</string>
         </property>
        </widget>
       </item>
@@ -248,7 +253,7 @@
        </widget>
       </item>
       <item>
-       <widget class="QSpinBox" name="spinBox">
+       <widget class="QSpinBox" name="displayLimitSpinBox">
         <property name="minimum">
          <number>5</number>
         </property>
@@ -280,13 +285,13 @@
   <tabstop>searchCodeRadioButton</tabstop>
   <tabstop>searchDescriptionRadioButton</tabstop>
   <tabstop>searchKeywordsRadioButton</tabstop>
-  <tabstop>radioButton</tabstop>
-  <tabstop>radioButton_2</tabstop>
-  <tabstop>radioButton_4</tabstop>
-  <tabstop>radioButton_3</tabstop>
+  <tabstop>sortNameRadioButton</tabstop>
+  <tabstop>sortCodeRadioButton</tabstop>
+  <tabstop>sortTimestampRadioButton</tabstop>
+  <tabstop>sortNothingRadioButton</tabstop>
   <tabstop>showAllProcessCheckBox</tabstop>
-  <tabstop>spinBox</tabstop>
-  <tabstop>saveAsDefaultToolButton</tabstop>
+  <tabstop>displayLimitSpinBox</tabstop>
+  <tabstop>saveAsDefaultsPushButton</tabstop>
  </tabstops>
  <resources/>
  <connections/>

@@ -155,6 +155,7 @@ class Ui_snapshotItemWidget(QtGui.QWidget, lib.ui.ui_item_snapshot.Ui_snapshotIt
         self.tree_item = tree_item
         # self.item_info = {}
         self.sobject = sobject
+        # print self.sobject.process
 
         self.snapshot = None
         self.row = row
@@ -169,6 +170,8 @@ class Ui_snapshotItemWidget(QtGui.QWidget, lib.ui.ui_item_snapshot.Ui_snapshotIt
             self.commentLabel.setText(gf.to_plain_text(self.snapshot['description'], 80))
             self.dateLabel.setText(self.snapshot['timestamp'])
             self.authorLabel.setText(self.snapshot['login'] + ':')
+            self.verRevLabel.setText(gf.get_ver_rev(self.snapshot['version'], self.snapshot['revision']))
+
             for key, fl in self.files.iteritems():
                 if key not in hidden:
                     self.fileNameLabel.setText(fl[0]['file_name'])

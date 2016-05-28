@@ -8,13 +8,13 @@ import time
 import errno
 import urlparse
 import collections
-from pprint import pprint
+# from pprint import pprint
 import PySide.QtGui as QtGui
 import PySide.QtCore as QtCore
 import environment as env
 import global_functions as gf
 import lib.client.tactic_client_lib as tactic_client_lib
-import xml.etree.ElementTree as Et
+# import xml.etree.ElementTree as Et
 import ui_conf_classes
 
 if env.Mode().get == 'maya':
@@ -46,11 +46,18 @@ def server_auth(host, project, login, password, new_ticket=False):
     log = login
     psw = password
     ticket = env.Env().get_ticket()
+
     if not ticket:
         ticket = tactic_srv.get_ticket(log, psw)
         env.Env().set_ticket(ticket)
+
     if new_ticket:
-        ticket = tactic_srv.get_ticket(log, psw)
+        try:
+            ticket = tactic_srv.get_ticket(log, psw)
+        except Exception as expected:
+            if expected.faultCode == 1:
+                print('login/password is wrong, open config...')
+
         env.Env().set_ticket(ticket)
     tactic_srv.set_ticket(ticket)
     return tactic_srv
@@ -71,8 +78,18 @@ def server_start(first_run=False):
         server = get_server()
         return server
     except Exception as expected:
+        print('server_start error')
         if expected.errno == errno.ECONNREFUSED:
             server_restart(first_run)
+
+
+def open_config():
+    conf_dialog = ui_conf_classes.Ui_configuration_dialogWidget()
+    conf_dialog.configToolBox.setCurrentIndex(1)
+    try_run = conf_dialog.buttonBox.addButton("Try Run", QtGui.QDialogButtonBox.YesRole)
+    try_run.clicked.connect(lambda: run_bat(True))
+
+    return conf_dialog
 
 
 def server_restart(first_run=False):
@@ -103,10 +120,7 @@ def server_restart(first_run=False):
         run_bat()
     if reply == QtGui.QMessageBox.AcceptRole:
         # print('OPEN CONFIG')
-        conf_dialog = ui_conf_classes.Ui_configuration_dialogWidget()
-        conf_dialog.configToolBox.setCurrentIndex(1)
-        try_run = conf_dialog.buttonBox.addButton("Try Run", QtGui.QDialogButtonBox.YesRole)
-        try_run.clicked.connect(lambda: run_bat(True))
+        conf_dialog = open_config()
         conf_dialog.show()
 
     if reply == QtGui.QMessageBox.NoRole:
@@ -124,6 +138,8 @@ def server_restart(first_run=False):
             print('Failed to run TACTIC Handler. TACTIC Server not running!')
         if first_run:
             sys.exit()
+    if reply == QtGui.QMessageBox.ApplyRole:
+        server_restart()
 
 
 def ping_srv():
@@ -132,7 +148,7 @@ def ping_srv():
         print('TACTIC Server Ping: ' + result)
     except Exception as expected:
         result = False
-        print(expected)
+        print(expected, 'ping_srv')
         server_restart(True)
 
     return result
@@ -152,18 +168,36 @@ def server_query(search_type, filters):
     try:
         assets = server.query(search_type, filters)
     except Exception as exception:
+        error = catch_error_type(exception)
 
-        # Catch xmlrpc exception, ticket error
-        if str(type(exception)) == "<class 'xmlrpclib.Fault'>":
-            if exception.faultCode == 1:
-                get_server(True)
-                assets = server.query(search_type, filters)
+        if error == 'no_project_error':
+            env.Env().set_project('sthpw')
+            env.Env().set_namespace('')
 
-        # Catch socket exception, connection error
-        if str(type(exception)) == "<class 'socket.error'>":
+        if error == 'ticket_error':
+            get_server(True)
+            assets = server.query(search_type, filters)
+
+        if error == 'socket_error':
             server_restart(False)
 
     return assets
+
+
+def catch_error_type(exception):
+    print('Some exception appeared')
+
+    # Catch project existance
+    if str(exception).find('No project') != -1:
+        return 'no_project_error'
+
+    # Catch ticket error
+    if str(exception).find('Cannot login with key') != -1:
+        return 'ticket_error'
+
+    # Catch socket exception, connection error
+    if str(type(exception)) == "<class 'socket.error'>":
+        return 'socket_error'
 
 
 def query_assets_names():
@@ -186,6 +220,25 @@ def query_tab_names(full_list=False):
     """
     Create Tabs from maya-type sTypes
     """
+
+    empty_tab = [{'__search_key__': u'sthpw/search_object?code=empty/empty',
+                  'class_name': u'pyasm.search.SObject',
+                  'code': u'empty/empty',
+                  'color': None,
+                  'database': u'{project}',
+                  'default_layout': u'table',
+                  'description': None,
+                  'id': 84,
+                  'id_column': None,
+                  'message_event': None,
+                  'metadata_parser': None,
+                  'namespace': u'empty',
+                  'schema': u'public',
+                  'search_type': u'empty/empty',
+                  'table_name': u'characters',
+                  'title': u'empty',
+                  'type': None}, ]
+
     search_type = 'sthpw/search_object'
     namespace = [env.Env().get_namespace(), env.Env().get_project()]
 
@@ -198,6 +251,11 @@ def query_tab_names(full_list=False):
         filters = [('namespace', namespace)]
 
     assets = server_query(search_type, filters)
+
+    if not assets:
+        assets = server_query(search_type, [('namespace', namespace)])
+        if not assets:
+            assets = empty_tab
 
     out_tabs = {
         'names': [],
@@ -214,6 +272,22 @@ def query_tab_names(full_list=False):
             out_tabs['colors'].append(asset_get('color'))
 
     return out_tabs
+
+
+def query_projects():
+    search_type = 'sthpw/project'
+    filters = []
+    projects = server_query(search_type, filters)
+
+    exclude_list = ['sthpw', 'unittest', 'admin']
+
+    projects_by_category = collections.defaultdict(list)
+
+    for project in projects:
+        if project['code'] not in exclude_list:
+            projects_by_category[project['category']].append(project)
+
+    return projects_by_category
 
 
 # SObject class
@@ -378,9 +452,9 @@ class Process(object):
             versionless = collections.defaultdict(list)
 
             for snapshot in in_dict:
-                if snapshot['process'] == process and snapshot['version'] == -1:
+                if snapshot['process'] == process and (snapshot['version'] == -1 or snapshot['version'] == 0):
                     versionless[snapshot['context']].append(snapshot)
-                elif snapshot['process'] == process and snapshot['version'] != -1:
+                elif snapshot['process'] == process and (snapshot['version'] != -1 or snapshot['version'] != 0):
                     versions[snapshot['context']].append(snapshot)
                 if snapshot['process'] == process:
                     contexts.add(snapshot['context'])
@@ -533,7 +607,7 @@ def context_query(process):
     Creating one list of lists, to reduce count of queries to the server
     :param process - list of tab names (vfx/asset)
     """
-
+    empty_item = {'empty/empty': ['empty']}
     search_type = 'sthpw/pipeline'
 
     filters = [('search_type', process), ('project_code', env.Env().get_project())]
@@ -573,6 +647,8 @@ def context_query(process):
                 items[asset['search_type']] = all_pipeline
 
         return items
+    else:
+        return empty_item
 
 
 def users_query():
@@ -604,7 +680,17 @@ def create_sobject(name, description, keywords, search_type):
     return sobject
 
 
-def checkin_playblast(snapshot_code, file_name):
+def delete_sobject_snapshot(sobject, delete_files=False):
+
+    server_start().delete_sobject(sobject, delete_files)
+
+
+def delete_sobject_item(skey, delete_files=False):
+
+    server_start().delete_sobject(skey, delete_files)
+
+
+def checkin_playblast(snapshot_code, file_name, custom_repo_path):
     """
     :return:
     """
@@ -630,9 +716,18 @@ def checkin_playblast(snapshot_code, file_name):
     # snapshot_code = 'SNAPSHOT00000213'
     # path = 'D:/mountain.jpg'
 
-    playblast = server_start().add_file(snapshot_code, file_name, file_type='playblast', mode='move', create_icon=True,
-                                        file_naming='{sobject.name}_{snapshot.context}_{file.type}_v{version}.{ext}',
-                                        checkin_type='auto')
+    playblast = server_start().add_file(
+        snapshot_code,
+        file_name,
+        file_type='playblast',
+        mode='preallocate',
+        create_icon=True,
+        # dir_naming='{project.code}/{search_type.table_name}/{sobject.name}/work/{snapshot.process}/versions/asd',
+        # file_naming='{sobject.name}_{snapshot.context}_{file.type}_v{version}.{ext}',
+        checkin_type='auto',
+        custom_repo_path=custom_repo_path,
+        do_update_versionless=True,
+    )
     return playblast
 
 
@@ -655,35 +750,124 @@ def create_snapshot(search_key, context):
     return snapshot
 
 
-def checkin_snapshot(search_key, context, file_path, file_type='main', is_current=True, description='', mode='move'):
-    """
-    :return:
-    """
+def delete_confirm(paths, repo, delete_files=True):
+    if delete_files:
+        update_vs = '<p>Versionless will be <span style="color:#00aa00;"><b>Updated</b></span></p>'
+    else:
+        update_vs = '<p>Versionless will <span style="color:#aa0000;"><b>not be</b></span> Updated</p>'
 
-    snapshot = server_start().simple_checkin(
-        search_key=search_key,
-        context=context,
-        file_path=file_path,
-        description=description,
-        file_type=file_type,
-        is_current=is_current,
-        mode=mode,
-        create_icon=True,
-    )
+    full_path = env.Env().rep_dirs[repo][0] + '/' + paths['relative_path']
 
-    return snapshot
+    msb = QtGui.QMessageBox(QtGui.QMessageBox.Question, 'Confirm saving',
+                            '<p><p>Files will be saved to:</p>{0}<p>Filename: {1}</p>{2}Continue?</p>'.format(full_path, paths['file_name'], update_vs),
+                            QtGui.QMessageBox.NoButton, env.Inst().ui_main)
+
+    msb.addButton("Yes", QtGui.QMessageBox.YesRole)
+    msb.addButton("No", QtGui.QMessageBox.NoRole)
+    msb.exec_()
+    reply = msb.buttonRole(msb.clickedButton())
+
+    if reply == QtGui.QMessageBox.YesRole:
+        return True
+    else:
+        return False
 
 
-def checkin_file():
-    """
-    :return:
-    """
+def save_confirm(paths, repo, update_versionless=True):
+    if update_versionless:
+        update_vs = '<p>Versionless will be <span style="color:#00aa00;"><b>Updated</b></span></p>'
+    else:
+        update_vs = '<p>Versionless will <span style="color:#aa0000;"><b>not be</b></span> Updated</p>'
 
-    snapshot_code = 'SNAPSHOT00000213'
-    path = 'D:/empty.ma'
-    playblast = server_start().add_file(snapshot_code, path, file_type='maya', mode='copy', create_icon=False,
-                                        checkin_type='auto')
-    return playblast
+    full_path = env.Env().rep_dirs[repo][0] + '/' + paths['relative_path']
+
+    msb = QtGui.QMessageBox(QtGui.QMessageBox.Question, 'Confirm saving',
+                            '<p><p>Files will be saved to:</p>{0}<p>Filename: {1}</p>{2}Continue?</p>'.format(full_path, paths['file_name'], update_vs),
+                            QtGui.QMessageBox.NoButton, env.Inst().ui_main)
+
+    msb.addButton("Yes", QtGui.QMessageBox.YesRole)
+    msb.addButton("No", QtGui.QMessageBox.NoRole)
+    msb.exec_()
+    reply = msb.buttonRole(msb.clickedButton())
+
+    if reply == QtGui.QMessageBox.YesRole:
+        return True
+    else:
+        return False
+
+
+def checkin_virtual_snapshot(search_key, context, ext='', file_type='main', is_revision=False, repo=None, update_versionless=True, version=None):
+    # print repo
+
+    if repo == 'asset_base_dir' or 'win32_local_repo_dir':
+        virtual_snapshot = server_start().get_virtual_snapshot_extended(
+            search_key,
+            context,
+            checkin_type='auto',
+            is_revision=is_revision,
+            ext=ext,
+            file_type=file_type,
+            mkdirs=False,
+            protocol=None,
+            version=version,
+        )
+
+        # print virtual_snapshot
+
+        if save_confirm(virtual_snapshot, repo, update_versionless):
+            return True
+        else:
+            return False
+
+
+def add_repo_info(search_key, context, snapshot, repo):
+
+    # adding repository info
+    splitted_skey = server_start().split_search_key(search_key)
+    filters_snapshots = [
+        ('context', context),
+        ('search_code', splitted_skey[1]),
+        ('search_type', splitted_skey[0]),
+        ('version', -1),
+    ]
+    parent = server_start().query_snapshots(filters=filters_snapshots, include_files=False)[0]
+
+    data = {
+        snapshot.get('__search_key__'): {'repo': repo['name']},
+        parent.get('__search_key__'): {'repo': repo['name']},
+    }
+    server_start().update_multiple(data, False)
+
+
+def new_checkin_snapshot(search_key, context, ext='', file_type='main', is_current=True, is_revision=False, description=None, repo=None, version=None):
+
+    if repo['name'] == 'asset_base_dir' or 'win32_local_repo_dir':
+
+        # creating virtual snapshot
+        virtual_snapshot = server_start().get_virtual_snapshot_extended(
+            search_key,
+            context,
+            checkin_type='auto',
+            is_revision=is_revision,
+            ext=ext,
+            file_type=file_type,
+            mkdirs=False,
+            protocol=None,
+            version=version,
+        )
+
+        # creating snapshot
+        snapshot = server_start().create_snapshot(
+            search_key=search_key,
+            context=context,
+            description=description,
+            is_current=is_current,
+            is_revision=is_revision,
+            snapshot_type='file',
+            version=version,
+        )
+
+        return virtual_snapshot, snapshot
 
 
 def update_description(search_key, description):
@@ -713,7 +897,7 @@ def add_note(search_key, process, context, note, note_html, login):
 
 def task_process_query(seach_key):
     # TODO Query task process per process
-    from pprint import pprint
+    # from pprint import pprint
     processes = {}
     default_processes = ['Assignment', 'Pending', 'In Progress', 'Waiting', 'Need Assistance', 'Revise', 'Reject',
                          'Complete', 'Approved']
@@ -758,10 +942,10 @@ def task_process_query(seach_key):
     # from pprint import pprint
     print('from task_process_query!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!')
     # pprint(message)
-    print(message[0])
-    import json
-    data = json.loads(message[0]['message'])
-    pprint(data)
+    # print(message[0])
+    # import json
+    # data = json.loads(message[0]['message'])
+    # pprint(data)
     # if (len(process_list) == 0):
     #     process_list = default_processes
 

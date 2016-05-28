@@ -26,7 +26,7 @@
    <enum>Qt::ClickFocus</enum>
   </property>
   <property name="styleSheet">
-   <string notr="true">QGroupBox {
+   <string notr="true">#sobjectGroupBox {
 	background: qlineargradient(x1: 0, y1: 0, x2: 0, y2: 1, stop: 0 rgba(175, 175, 175, 75), stop: 1 rgba(0, 0, 0, 30));
     border: 1px solid rgb(96, 96, 96);
     border-radius: 1px;
@@ -34,7 +34,7 @@
 	margin-top: 5ex;
 }
 
-QGroupBox::title {
+#sobjectGroupBox::title {
     subcontrol-origin: margin;
     subcontrol-position: top center;
     padding: 0 3px;

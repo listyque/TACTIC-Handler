@@ -27,7 +27,13 @@ class Ui_Main(QtGui.QMainWindow, ui_main.Ui_MainWindow):
     def __init__(self, parent=None):
         super(self.__class__, self).__init__(parent=parent)
 
-        self.create_ui_main()
+        env.Env().get_default_dirs()
+
+        if env.Env().get_first_run():
+            self.setupUi(self)
+            ui_conf_classes.Ui_configuration_dialogWidget(self).show()
+        else:
+            self.create_ui_main()
 
     def create_ui_main(self):
 
@@ -251,10 +257,10 @@ class Ui_Main(QtGui.QMainWindow, ui_main.Ui_MainWindow):
         self.settings.beginGroup(env.Mode().get + '/ui_main')
         self.move(self.settings.value('pos', self.pos()))
         self.resize(self.settings.value('size', self.size()))
-        state = str(self.settings.value("windowState"))
-        if state == 'true':
-            self.setWindowState(QtCore.Qt.WindowMaximized)
-        self.main_tabWidget.setCurrentIndex(self.settings.value('main_tabWidget_currentIndex', 0))
+        if self.settings.value("windowState"):
+            if bool(int(self.settings.value("windowState"))):
+                self.setWindowState(QtCore.Qt.WindowMaximized)
+        self.main_tabWidget.setCurrentIndex(int(self.settings.value('main_tabWidget_currentIndex', 0)))
         self.settings.endGroup()
 
     def writeSettings(self):
@@ -268,7 +274,7 @@ class Ui_Main(QtGui.QMainWindow, ui_main.Ui_MainWindow):
             state = False
             self.settings.setValue('pos', self.pos())
             self.settings.setValue('size', self.size())
-        self.settings.setValue("windowState", state)
+        self.settings.setValue("windowState", int(state))
         self.settings.setValue('main_tabWidget_currentIndex', self.main_tabWidget.currentIndex())
         print('Done main_ui settings write')
         self.settings.endGroup()

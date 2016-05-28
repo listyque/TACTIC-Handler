@@ -2,7 +2,7 @@
 
 # Form implementation generated from reading ui file './ui_sobject.ui'
 #
-# Created: Fri Feb 12 23:45:03 2016
+# Created: Wed Mar 16 10:50:39 2016
 #      by: pyside-uic 0.2.15 running on PySide 1.2.4
 #
 # WARNING! All changes made in this file will be lost!
@@ -20,7 +20,7 @@ class Ui_sobjectGroupBox(object):
         sobjectGroupBox.setSizePolicy(sizePolicy)
         sobjectGroupBox.setMinimumSize(QtCore.QSize(150, 150))
         sobjectGroupBox.setFocusPolicy(QtCore.Qt.ClickFocus)
-        sobjectGroupBox.setStyleSheet("QGroupBox {\n"
+        sobjectGroupBox.setStyleSheet("#sobjectGroupBox {\n"
 "    background: qlineargradient(x1: 0, y1: 0, x2: 0, y2: 1, stop: 0 rgba(175, 175, 175, 75), stop: 1 rgba(0, 0, 0, 30));\n"
 "    border: 1px solid rgb(96, 96, 96);\n"
 "    border-radius: 1px;\n"
@@ -28,7 +28,7 @@ class Ui_sobjectGroupBox(object):
 "    margin-top: 5ex;\n"
 "}\n"
 "\n"
-"QGroupBox::title {\n"
+"#sobjectGroupBox::title {\n"
 "    subcontrol-origin: margin;\n"
 "    subcontrol-position: top center;\n"
 "    padding: 0 3px;\n"

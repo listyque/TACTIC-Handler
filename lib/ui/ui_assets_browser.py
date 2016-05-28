@@ -2,7 +2,7 @@
 
 # Form implementation generated from reading ui file './ui_assets_browser.ui'
 #
-# Created: Fri Feb 12 18:50:49 2016
+# Created: Tue Mar 15 19:26:12 2016
 #      by: pyside-uic 0.2.15 running on PySide 1.2.4
 #
 # WARNING! All changes made in this file will be lost!
@@ -62,6 +62,10 @@ class Ui_assetsBrowser(object):
         self.searchLineEdit.setFrame(False)
         self.searchLineEdit.setObjectName("searchLineEdit")
         self.verticalLayout_2.addWidget(self.searchLineEdit)
+        self.searchOptionsLayout = QtGui.QVBoxLayout()
+        self.searchOptionsLayout.setSpacing(0)
+        self.searchOptionsLayout.setObjectName("searchOptionsLayout")
+        self.verticalLayout_2.addLayout(self.searchOptionsLayout)
         self.sobjectScrollLayout = QtGui.QVBoxLayout()
         self.sobjectScrollLayout.setSpacing(0)
         self.sobjectScrollLayout.setObjectName("sobjectScrollLayout")
@@ -95,7 +99,7 @@ class Ui_assetsBrowser(object):
         self.zoomSpinBox.setObjectName("zoomSpinBox")
         self.horizontalLayout.addWidget(self.zoomSpinBox)
         self.verticalLayout_2.addLayout(self.horizontalLayout)
-        self.verticalLayout_2.setStretch(1, 1)
+        self.verticalLayout_2.setStretch(2, 1)
         self.verticalLayout.addWidget(self.splitter)
 
         self.retranslateUi(assetsBrowser)

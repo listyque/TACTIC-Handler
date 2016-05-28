@@ -4,7 +4,7 @@
 import os
 import sys
 
-DATA_DIR = os.environ['TACTIC_DATA_DIR'] + '/TACTIC_handler'
+DATA_DIR = os.environ['TACTIC_DATA_DIR'] + '/TACTIC-handler'
 sys.path.append(DATA_DIR)
 import lib.environment as env
 env.Mode().set_mode('maya')

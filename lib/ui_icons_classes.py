@@ -18,7 +18,68 @@ class Ui_searchOptionsWidget(QtGui.QGroupBox, ui_search_options.Ui_searchOptions
     def __init__(self, parent=None):
         super(self.__class__, self).__init__(parent=parent)
 
+        self.settings = QtCore.QSettings('TACTIC Handler', 'TACTIC Handling Tool')
+
         self.setupUi(self)
+        self.tab_name = self.parent().objectName()
+        self.tab_related_to = self.parent().relates_to
+
+    def readSettings(self):
+        """
+        Reading Settings
+        """
+        self.settings.beginGroup(env.Mode().get + '/ui_' + self.tab_related_to)
+        tab_name = self.tab_name.split('/')
+        if len(tab_name) > 1:
+            tab_name = tab_name[1]
+        else:
+            tab_name = tab_name[0]
+        group_path = '{0}/{1}/{2}'.format(env.Env().get_namespace(), env.Env().get_project(), tab_name)
+        self.settings.beginGroup(group_path)
+
+        self.settings.endGroup()
+        self.settings.endGroup()
+
+    def writeSettings(self):
+        """
+        Writing Settings
+        """
+        self.settings.beginGroup(env.Mode().get + '/ui_' + self.tab_related_to)
+        tab_name = self.tab_name.split('/')
+        if len(tab_name) > 1:
+            tab_name = tab_name[1]
+        else:
+            tab_name = tab_name[0]
+        group_path = '{0}/{1}/{2}'.format(env.Env().get_namespace(), env.Env().get_project(), tab_name)
+        self.settings.beginGroup(group_path)
+
+        self.settings.setValue('searchNameRadioButton', int(self.searchNameRadioButton.isChecked()))
+        self.settings.setValue('searchCodeRadioButton', int(self.searchCodeRadioButton.isChecked()))
+        self.settings.setValue('searchDescriptionRadioButton', int(self.searchDescriptionRadioButton.isChecked()))
+        self.settings.setValue('searchKeywordsRadioButton', int(self.searchKeywordsRadioButton.isChecked()))
+
+        self.settings.setValue('sortNameRadioButton', int(self.sortNameRadioButton.isChecked()))
+        self.settings.setValue('sortCodeRadioButton', int(self.sortCodeRadioButton.isChecked()))
+        self.settings.setValue('sortTimestampRadioButton', int(self.sortTimestampRadioButton.isChecked()))
+        self.settings.setValue('sortNothingRadioButton', int(self.sortNothingRadioButton.isChecked()))
+
+        self.settings.setValue('showAllProcessCheckBox', int(self.showAllProcessCheckBox.isChecked()))
+
+        self.settings.setValue('displayLimitSpinBox', int(self.displayLimitSpinBox.value()))
+
+        print('Done ui_' + self.tab_related_to + ' search options ' + tab_name + ' settings write')
+        self.settings.endGroup()
+        self.settings.endGroup()
+
+    def showEvent(self, event):
+        self.readSettings()
+
+    # def hideEvent(self, event):
+    #     self.writeSettings()
+
+    def closeEvent(self, event):
+        self.writeSettings()
+        event.accept()
 
 
 class Ui_iconsWidget(QtGui.QWidget, ui_icons.Ui_icons):
@@ -164,16 +225,25 @@ class Ui_iconsWidget(QtGui.QWidget, ui_icons.Ui_icons):
         self.previewGraphicsView.fitInView(self.scene.sceneRect(), QtCore.Qt.KeepAspectRatio)
 
     def slide_images(self, value):
-        image_path_icon = u'{0}/{1}/{2}'.format(env.Env().get_asset_dir(),
+        # if self.nested_item.type == 'snapshot':
+
+        if self.nested_item.snapshot.get('repo'):
+            asset_dir = env.Env().rep_dirs[self.nested_item.snapshot.get('repo')][0]
+        else:
+            asset_dir = env.Env().rep_dirs['asset_base_dir'][0]
+            print asset_dir
+
+        # asset_dir = env.Env().rep_dirs[self.nested_item.snapshot.get('repo')][0]
+        image_path_icon = u'{0}/{1}/{2}'.format(asset_dir,
                                                 self.web_list[value - 1]['relative_dir'],
                                                 self.web_list[value - 1]['file_name'])
 
         if self.playblast:
-            image_path_big = u'{0}/{1}/{2}'.format(env.Env().get_asset_dir(),
+            image_path_big = u'{0}/{1}/{2}'.format(asset_dir,
                                                    self.playblast_list[value - 1]['relative_dir'],
                                                    self.playblast_list[value - 1]['file_name'])
         else:
-            image_path_big = u'{0}/{1}/{2}'.format(env.Env().get_asset_dir(),
+            image_path_big = u'{0}/{1}/{2}'.format(asset_dir,
                                                    self.main_list[value - 1]['relative_dir'],
                                                    self.main_list[value - 1]['file_name'])
 

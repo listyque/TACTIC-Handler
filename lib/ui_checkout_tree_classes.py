@@ -2,15 +2,16 @@
 
 import PySide.QtCore as QtCore
 import PySide.QtGui as QtGui
+
 import environment as env
-import tactic_classes as tc
 import global_functions as gf
 import lib.ui.ui_checkout_tree as ui_checkout_tree
-import ui_item_classes as item_widget
+import tactic_classes as tc
 import ui_icons_classes as icons_widget
-import ui_richedit_classes as richedit_widget
-import ui_menu_classes as menu_widget
+import ui_item_classes as item_widget
 import ui_maya_dialogs_classes as maya_dialogs
+import ui_menu_classes as menu_widget
+import ui_richedit_classes as richedit_widget
 
 if env.Mode().get == 'maya':
     import maya_functions as mf
@@ -30,6 +31,8 @@ class Ui_checkOutTreeWidget(QtGui.QWidget, ui_checkout_tree.Ui_checkOutTree):
         super(self.__class__, self).__init__(parent=parent)
 
         self.settings = QtCore.QSettings('TACTIC Handler', 'TACTIC Handling Tool')
+        self.current_project = env.Env().get_project()
+        self.current_namespace = env.Env().get_namespace()
 
         # self vars
         self.tab_name, self.tab_index, self.context_items = name_index_context
@@ -214,6 +217,7 @@ class Ui_checkOutTreeWidget(QtGui.QWidget, ui_checkout_tree.Ui_checkOutTree):
         # self.resultsTreeWidget.itemSelectionChanged.connect(self.load_preview)
         self.resultsTreeWidget.setContextMenuPolicy(QtCore.Qt.CustomContextMenu)
         self.resultsTreeWidget.customContextMenuRequested.connect(self.open_menu)
+        self.resultsTreeWidget.doubleClicked.connect(self.double_click_snapshot)
         self.saveDescriprionButton.clicked.connect(self.update_desctiption)
         self.resultsTreeWidget.itemExpanded.connect(self.fill_notes_count)
 
@@ -332,6 +336,16 @@ class Ui_checkOutTreeWidget(QtGui.QWidget, ui_checkout_tree.Ui_checkOutTree):
                 self.custom_menu.addAction(import_action)
             self.custom_menu.exec_(self.resultsTreeWidget.viewport().mapToGlobal(position))
 
+    def double_click_snapshot(self, index):
+
+        level = 0
+        while index.parent().isValid():
+            index = index.parent()
+            level += 1
+
+        if level > 1:
+            self.open_file()
+
     def reference_file_options(self):
         file_path = self.get_current_item_paths()[0]
         nested_item = self.resultsTreeWidget.itemWidget(self.resultsTreeWidget.currentItem(), 0)
@@ -389,10 +403,20 @@ class Ui_checkOutTreeWidget(QtGui.QWidget, ui_checkout_tree.Ui_checkOutTree):
 
         modes = env.Mode().mods
         modes.append('main')
+        # from pprint import pprint
+        # pprint(dict(nested_item.files))
+        # pprint(nested_item.snapshot)
         for mode in modes:
             if nested_item.files.get(mode):
                 main_file = nested_item.files[mode][0]
-                asset_dir = env.Env().get_asset_dir()
+                # asset_dir = env.Env().rep_dirs['asset_base_dir'][0]
+                print nested_item.snapshot
+                if nested_item.snapshot.get('repo'):
+                    asset_dir = env.Env().rep_dirs[nested_item.snapshot.get('repo')][0]
+                else:
+                    asset_dir = env.Env().rep_dirs['asset_base_dir'][0]
+                    print asset_dir
+
                 file_path = '{0}/{1}/{2}'.format(asset_dir, main_file['relative_dir'], main_file['file_name'])
                 split_path = main_file['relative_dir'].split('/')
                 dir_path = '{0}/{1}'.format(asset_dir, '{0}/{1}/{2}'.format(*split_path))
@@ -403,7 +427,7 @@ class Ui_checkOutTreeWidget(QtGui.QWidget, ui_checkout_tree.Ui_checkOutTree):
     def prnt(self, idx):
         print('Current index: ' + str(idx))
 
-    def readSettings(self):
+    def readSettings(self, update_tree=False):
         """
         Reading Settings
         """
@@ -415,10 +439,11 @@ class Ui_checkOutTreeWidget(QtGui.QWidget, ui_checkout_tree.Ui_checkOutTree):
         self.descriptionSplitter.restoreState(self.settings.value('descriptionSplitter'))
         self.imagesSplitter.restoreState(self.settings.value('imagesSplitter'))
         self.searchLineEdit.setText(self.settings.value('searchLineEdit_text', ''))
-        self.contextComboBox.setCurrentIndex(self.settings.value('contextComboBox', 0))
-        revert = self.settings.value('resultsTreeWidget_isExpanded', None), \
-                 self.settings.value('resultsTreeWidget_isSelected', None)
-        self.add_items_to_results(self.searchLineEdit.text(), refresh=True, revert=revert)
+        self.contextComboBox.setCurrentIndex(int(self.settings.value('contextComboBox', 0)))
+        if update_tree:
+            revert = self.settings.value('resultsTreeWidget_isExpanded', None), \
+                     self.settings.value('resultsTreeWidget_isSelected', None)
+            self.add_items_to_results(self.searchLineEdit.text(), refresh=True, revert=revert)
         self.settings.endGroup()
         self.settings.endGroup()
 
@@ -428,7 +453,7 @@ class Ui_checkOutTreeWidget(QtGui.QWidget, ui_checkout_tree.Ui_checkOutTree):
         """
         self.settings.beginGroup(env.Mode().get + '/ui_checkout')
         tab_name = self.objectName().split('/')
-        group_path = '{0}/{1}/{2}'.format(env.Env().get_namespace(), env.Env().get_project(), tab_name[1])
+        group_path = '{0}/{1}/{2}'.format(self.current_namespace, self.current_project, tab_name[1])
         self.settings.beginGroup(group_path)
         self.settings.setValue('commentsSplitter', self.commentsSplitter.saveState())
         self.settings.setValue('descriptionSplitter', self.descriptionSplitter.saveState())
@@ -450,9 +475,15 @@ class Ui_checkOutTreeWidget(QtGui.QWidget, ui_checkout_tree.Ui_checkOutTree):
         self.settings.endGroup()
         self.settings.endGroup()
 
+        # additional settings write
+        self.searchOptionsGroupBox.writeSettings()
+
     def showEvent(self, event):
         if self.resultsTreeWidget.topLevelItemCount() == 0:
-            self.readSettings()
+            self.readSettings(update_tree=True)
+        else:
+            self.readSettings(update_tree=False)
 
     def closeEvent(self, event):
+        # self.searchOptionsGroupBox.close()
         event.accept()

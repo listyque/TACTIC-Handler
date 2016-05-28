@@ -10,7 +10,6 @@
 #
 #
 
-
 __all__ = ['Pipeline']
 
 IMPORT_ERROR = None

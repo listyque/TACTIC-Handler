@@ -5,6 +5,7 @@ import os
 import sys
 import zlib
 import binascii
+import collections
 
 import PySide.QtGui as QtGui
 import tactic_classes as tc
@@ -40,6 +41,8 @@ def sizes(size, precision=2):
 
     while size > 1024 and suffix_index < 4:
         suffix_index += 1
+        if not size:
+            size = 0
         size = size / 1024.0
 
     return '{1:.{0}f} {2}'.format(precision, size, suffixes[suffix_index])
@@ -63,6 +66,18 @@ def hex_to_html(text_hex):
             hex_to_text = text_hex
 
         return hex_to_text
+
+
+def get_ver_rev(ver, rev):
+    if ver > 0 and rev > 0:
+        result = '<span style="color:#008498;">Ver: {0:03d};</span><span style="color:#0a9800;"> Rev: {1:03d}</span>'.format(ver,
+                                                                                                                rev)
+    elif ver > 0 and rev == 0:
+        result = '<span style="color:#008498;">Ver: {0:03d}</span>'.format(ver, rev)
+    else:
+        result = ''
+
+    return result
 
 
 # QTreeWidget func
@@ -140,12 +155,21 @@ def add_snapshots_items_to_tree(parent, tree_widget, child_widget, item_widget, 
                 add_items_and_widgets(tree_v_item, item_v_widget)
 
                 # fourth level, versions of items by each versionless, and context
+                # TODO: make versions collapsable by revisions
+                # snapshots = {
+                #     'versions': collections.defaultdict(list),
+                #     'revisions': collections.defaultdict(list),
+                # }
                 for l, (key2, context2) in enumerate(
                         parent_widget.sobject.process[p].contexts[key1].versions.iteritems()):
+                    # snapshots[context2.snapshot['version']].append(context2)
+
                     tree_vs_item = child_widget.child(j).child(k)
                     item_vs_widget = item_widget.Ui_snapshotItemWidget(parent_widget.row, dict(key=context2),
                                                                        parent_widget.sobject, tree_vs_item, parent)
                     add_items_and_widgets(tree_vs_item, item_vs_widget)
+
+                # print revisions
 
 
 def expand_to_snapshot(parent, tree_widget):

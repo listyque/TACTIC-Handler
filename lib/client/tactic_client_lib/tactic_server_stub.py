@@ -1838,7 +1838,7 @@ class TacticServerStub(object):
     #
     def create_snapshot(my, search_key, context, snapshot_type="file",
             description="No description", is_current=True, level_key=None,
-            is_revision=False, triggers=True):
+            is_revision=False, triggers=True, version=None):
         '''API Function: create_snapshot(search_key, context, snapshot_type="file", description="No description", is_current=True, level_key=None, is_revision=False, triggers=True )
         Create an empty snapshot
         
@@ -1862,7 +1862,7 @@ class TacticServerStub(object):
         '''
         return my.server.create_snapshot(my.ticket, search_key, context,
                                          snapshot_type, description, is_current,
-                                         level_key, is_revision, triggers)
+                                         level_key, is_revision, triggers, version)
         
 
 
@@ -2273,7 +2273,7 @@ class TacticServerStub(object):
 
     def add_file(my, snapshot_code, file_path, file_type='main',
                  use_handoff_dir=False, mode=None, create_icon=False,
-                 dir_naming='', file_naming='', checkin_type='strict'):
+                 dir_naming='', file_naming='', checkin_type='strict', custom_repo_path=None, do_update_versionless=True):
         '''API Function: add_file(snapshot_code, file_path, file_type='main', use_handoff_dir=False, mode=None, create_icon=False)
         Add a file to an already existing snapshot.  This method is used in
         piecewise checkins.  A blank snapshot can be created using
@@ -2411,7 +2411,7 @@ class TacticServerStub(object):
         return my.server.add_file(my.ticket, snapshot_code, file_paths,
                                   file_types, use_handoff_dir, mode,
                                   create_icon, dir_naming, file_naming,
-                                  checkin_type)
+                                  checkin_type, custom_repo_path, do_update_versionless)
 
 
     def remove_file(my, snapshot_code, file_type):
@@ -3409,7 +3409,7 @@ class TacticServerStub(object):
 
 
 
-    def get_virtual_snapshot_path(my, search_key, context="publish", snapshot_type="file", level_key=None, file_type='main', file_name='', mkdirs=False, protocol='client_repo', ext='', checkin_type='strict'):
+    def get_virtual_snapshot_path(my, search_key, context="publish", snapshot_type="file", is_revision=False, level_key=None, file_type='main', file_name='', mkdirs=False, protocol='client_repo', ext='', checkin_type='strict'):
         '''API Function: get_virtual_snapshot_path(search_key, context, snapshot_type="file", level_key=None, file_type='main', file_name='', mkdirs=False, protocol='client_repo', ext='', checkin_type='strict')
         Create a virtual snapshot and returns a path that this snapshot
         would generate through the naming conventions.  This is most useful
@@ -3451,7 +3451,56 @@ class TacticServerStub(object):
         @return:
             string - path as determined by the naming conventions
         '''
-        return my.server.get_virtual_snapshot_path(my.ticket, search_key, context, snapshot_type, level_key, file_type, file_name, mkdirs, protocol, ext, checkin_type)
+        return my.server.get_virtual_snapshot_path(my.ticket, search_key, context, snapshot_type, is_revision, level_key, file_type, file_name, mkdirs, protocol, ext, checkin_type)
+
+
+
+    def get_virtual_snapshot_extended(my, search_key, context="publish", snapshot_type="file", is_revision=False, level_key=None,
+                                  file_type='main', file_name='', mkdirs=False, protocol='client_repo', ext='',
+                                  checkin_type='strict', version=None):
+        '''API Function: get_virtual_snapshot_path(search_key, context, snapshot_type="file", is_revision=False, level_key=None, file_type='main', file_name='', mkdirs=False, protocol='client_repo', ext='', checkin_type='strict')
+        Create a virtual snapshot and returns a path that this snapshot
+        would generate through the naming conventions.  This is most useful
+        testing naming conventions.
+
+        @param:
+        snapshot creation:
+        -----------------
+            search_key - a unique identifier key representing an sobject
+            context - the context of the checkin
+
+        @keyparam:
+            snapshot_type - [optional] descibes what kind of a snapshot this is.
+                More information about a snapshot type can be found in the
+                prod/snapshot_type sobject
+            description - [optional] optional description for this checkin
+            level_key - the unique identifier of the level that this
+                is to be checked into
+
+        @keyparam:
+        path creation:
+        --------------
+            file_type - the type of file that will be checked in.  Some naming
+                conventions make use of this information to separate directories
+                for different file types
+            file_name - the desired file name of the preallocation.  This information
+                may be ignored by the naming convention or it may use this as a
+                base for the final file name
+            mkdir - an option which determines whether the directory of the
+                preallocation should be created
+            protocol - It's either client_repo, sandbox, or None. It determines whether the
+                path is from a client or server perspective
+            ext - force the extension of the file name returned
+
+            checkin_type - strict, auto, '' can be used to preset the checkin_type
+
+
+
+        @return:
+            string - path as determined by the naming conventions
+        '''
+        return my.server.get_virtual_snapshot_extended(my.ticket, search_key, context, snapshot_type, is_revision, level_key, file_type,
+                                                   file_name, mkdirs, protocol, ext, checkin_type, version)
 
 
 

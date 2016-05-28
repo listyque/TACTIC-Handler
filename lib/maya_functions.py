@@ -1,6 +1,7 @@
 # file maya_functions.py
 # Maya Functions Module
 
+import os
 import PySide.QtGui as QtGui
 import PySide.QtCore as QtCore
 import uuid
@@ -57,7 +58,116 @@ def get_skey_from_scene():
     return skey
 
 
-def save_scene(search_key, context, description, all_process):
+def new_save_scene(search_key, context, description, all_process, repo, update_versionless, version, ext, is_current, is_revision, create_playblast=True):
+
+    # print repo
+
+    types = {
+        'mayaBinary': 'mb',
+        'mayaAscii': 'ma',
+    }
+
+    # ask user to confirm saving
+    save_confirm = tc.checkin_virtual_snapshot(
+        search_key,
+        context,
+        is_revision=is_revision,
+        ext=types[ext],
+        repo=repo['name'],
+        update_versionless=update_versionless,
+        version=version,
+        file_type='main'
+    )
+
+    # print save_confirm
+
+    if save_confirm:
+
+        virtual_snapshot, snapshot = tc.new_checkin_snapshot(
+            search_key,
+            context,
+            is_current=is_current,
+            is_revision=is_revision,
+            ext='',
+            description=description,
+            repo=repo,
+            version=version,
+        )
+
+        dest_file = repo['value'][0] + '/' + virtual_snapshot['relative_path'] + '/' + virtual_snapshot['file_name'] + '.' + types[ext]
+        dest_path = repo['value'][0] + '/' + virtual_snapshot['relative_path']
+
+        # create dest dirs
+        if not os.path.exists(dest_path):
+            os.makedirs(dest_path)
+
+        # add info about particular scene
+        skey_link = 'skey://{0}&context={1}'.format(search_key, context)
+        if not cmds.attributeQuery('tacticHandler_skey', node='defaultObjectSet', exists=True):
+            cmds.addAttr('defaultObjectSet', longName='tacticHandler_skey', dataType='string')
+        cmds.setAttr('defaultObjectSet.tacticHandler_skey', skey_link, type='string')
+
+        # saving maya scene
+        cmds.file(rename=dest_file)
+        cmds.file(save=True, type=ext)
+
+        # make proper file path, and dir path to set workspace TODO: make it proper, to work with naming
+        # new_file = '{0}/{1}/{2}'.format(asset_dir, relative_dir, file_name)
+        split_path = dest_path.split('/')
+
+        dir_path = '/'.join(split_path[:-3])
+        # print dir_path
+        set_workspace(dir_path, all_process)
+
+        dest_playblast = '{0}/{1}.jpg'.format(dest_path, virtual_snapshot['file_name'])
+
+        if create_playblast:
+
+            current_frame = cmds.currentTime(query=True)
+            cmds.playblast(
+                forceOverwrite=True,
+                format='image',
+                completeFilename=dest_playblast,
+                showOrnaments=False,
+                widthHeight=[960, 540],
+                sequenceTime=False,
+                frame=[current_frame],
+                compression='jpg',
+                offScreen=True,
+                viewer=False,
+                percent=100
+            )
+
+        # tc.server_start().simple_checkin(search_key=search_key, context=context, file_path=dest_file, description=description, file_type='maya', mode='inplace')
+
+        # print dest_file
+
+        # checkin saved scene to dest path
+        tc.server_start().add_file(
+            snapshot.get('code'),
+            dest_file,
+            file_type='maya',
+            create_icon=False,
+            checkin_type='auto',
+            mode='preallocate',
+            custom_repo_path=repo['value'][0],
+            do_update_versionless=update_versionless,
+        )
+        if create_playblast:
+            # check in playblast
+            tc.checkin_playblast(snapshot['code'], dest_playblast, repo['value'][0])
+
+        # adding info about repository to snapshots
+        tc.add_repo_info(search_key, context, snapshot, repo)
+
+        return True
+    else:
+        return False
+
+# deprecated
+"""
+def save_scene(search_key, context, description, all_process, repo):
+    print repo
 
     # add info about particular scene
     skey_link = 'skey://{0}&context={1}'.format(search_key, context)
@@ -124,9 +234,11 @@ def save_scene(search_key, context, description, all_process):
     # playblast.kwargs = dict(snapshot_code=snapshot['code'], file_name=temp_playblast)
     # playblast.routine = tc.checkin_playblast
     # playblast.start()
+"""
 
 
 def create_workspace(dir_path, all_process):
+    # TODO create maya definition editor, with presets
     workspace = ['//Maya 2016 Project Definition\n\n']
     consts_list = {
         'fluidCache': '',
@@ -178,22 +290,7 @@ def create_workspace(dir_path, all_process):
 
 
 def set_workspace(dir_path, all_process):
-    # TODO https://groups.google.com/forum/?utm_medium=email&utm_source=footer#!msg/python_inside_maya/GYWCJFcf1mo/P1dgGBFHkY0J
-    # http://forums.cgsociety.org/archive/index.php?t-968015.html
-    # cmds.workspace(q=True, dir=True)
     create_workspace(dir_path, all_process)
     # print('Setting Workspace: {0}'.format(dir_path))
     mel.eval('setProject "{0}";'.format(dir_path))
     mel.eval('projectWindow;np_editCurrentProjectCallback;')
-    # cmds.workspace(dir=dir_path)
-    # cmds.workspace(q=True, dir=True)
-
-
-def make_playblast():
-    pass
-
-
-def scene_info():
-    if not cmds.attributeQuery('scene_info', n='particleCloud1', exists=True):
-        cmds.addAttr('particleCloud1', longName='scene_info', dataType='string')
-    cmds.setAttr('particleCloud1.scene_info', 'MAZAZasdasdA', type='string')

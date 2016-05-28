@@ -4,7 +4,7 @@
 import os
 import sys
 
-DATA_DIR = os.environ['TACTIC_DATA_DIR'] + '/TACTIC_handler'
+DATA_DIR = os.environ['TACTIC_DATA_DIR'] + '/TACTIC-handler'
 nuke.pluginAddPath(DATA_DIR)
 
 import PySide.QtGui as QtGui

@@ -185,6 +185,7 @@ class Ui_tasksWidget(QtGui.QWidget, ui_tasks.Ui_tasks):
 
     def add_process_items(self):
         # print(self.sobject.tasks)
+        # print(self.sobject.all_process)
         # Top level, process of tasks
         for process in self.sobject.all_process:
 

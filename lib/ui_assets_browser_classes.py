@@ -8,20 +8,95 @@ from pprint import pprint
 import tactic_classes as tc
 import lib.ui.ui_assets_browser as ui_assets_browser
 import lib.ui.ui_sobject as ui_sobject
+import lib.ui.ui_sobject_info as ui_sobject_info
+import ui_tasks_classes
+import ui_addsobject_classes as addsobject_widget
+import ui_icons_classes as icons_widget
 import environment as env
 
 reload(ui_assets_browser)
 
 
-class Ui_sobjectWidget(QtGui.QGroupBox, ui_sobject.Ui_sobjectGroupBox):
-    def __init__(self, parent=None):
+class Ui_sobjectInfoWidget(QtGui.QMainWindow, ui_sobject_info.Ui_sobjectInfo):
+    def __init__(self, sobject, parent=None):
         super(self.__class__, self).__init__(parent=parent)
+
+        # self.statusBar()
 
         self.setupUi(self)
 
+        self.sobject = sobject
+
+        self.create_tasks_widget()
+        self.create_edit_widget()
+
+    def create_tasks_widget(self):
+        tasks_wdg = ui_tasks_classes.Ui_tasksWidgetMain(self.sobject, self)
+        tasks_wdg.statusBar().hide()
+
+        self.tasksLayout.addWidget(tasks_wdg)
+
+    def create_edit_widget(self):
+        edit_wdg = addsobject_widget.Ui_addSObjectFormWidget(self)
+        edit_wdg.setSizeGripEnabled(False)
+        self.editLayout.addWidget(edit_wdg)
+
+
+class Ui_sobjectWidget(QtGui.QGroupBox, ui_sobject.Ui_sobjectGroupBox):
+    def __init__(self, sobject, parent=None):
+        super(self.__class__, self).__init__(parent=parent)
+
+        self.setupUi(self)
+        self.sobject = sobject
+
+        self.picLabel.mousePressEvent = self.mousePressEvent
+        self.picLabel.mouseReleaseEvent = self.mouseReleaseEvent
+        self.picLabel.mouseDoubleClickEvent = self.mouseDoubleClickEvent
+
+    def mouseDoubleClickEvent(self, *args, **kwargs):
+        self.mousePressEvent()
+        self.sobject_info = Ui_sobjectInfoWidget(self.sobject, self)
+        self.sobject_info.show()
+
+    def mousePressEvent(self, *args, **kwargs):
+        self.setStyleSheet("""
+        #sobjectGroupBox {
+            background: qlineargradient(x1: 0, y1: 0, x2: 0, y2: 1, stop: 0 rgba(128, 128, 128, 150), stop: 1 rgba(175, 175, 175, 60));
+            border: 1px solid rgb(192, 192, 192);
+            border-radius: 2px;
+            padding: 0px 0px;
+            margin-top: 5ex;
+        }
+
+        #sobjectGroupBox::title {
+            subcontrol-origin: margin;
+            subcontrol-position: top center;
+            padding: 0 3px;
+            background-color: transparent;
+        }
+        """)
+
+    def mouseReleaseEvent(self, *args, **kwargs):
+        self.setStyleSheet("""
+        #sobjectGroupBox {
+            background: qlineargradient(x1: 0, y1: 0, x2: 0, y2: 1, stop: 0 rgba(175, 175, 175, 150), stop: 1 rgba(128, 128, 128, 30));
+            border: 1px solid rgb(150, 150, 150);
+            border-radius: 2px;
+            padding: 0px 0px;
+            margin-top: 5ex;
+        }
+
+        #sobjectGroupBox::title {
+            subcontrol-origin: margin;
+            subcontrol-position: top center;
+            padding: 0 3px;
+            background-color: transparent;
+        }
+        """)
+
     def leaveEvent(self, *args, **kwargs):
         self.setStyleSheet("""
-        QGroupBox {
+        #sobjectGroupBox {
             background: qlineargradient(x1: 0, y1: 0, x2: 0, y2: 1, stop: 0 rgba(175, 175, 175, 75), stop: 1 rgba(0, 0, 0, 30));
             border: 1px solid rgb(96, 96, 96);
             border-radius: 2px;
@@ -29,7 +104,7 @@ class Ui_sobjectWidget(QtGui.QGroupBox, ui_sobject.Ui_sobjectGroupBox):
             margin-top: 5ex;
         }
 
-        QGroupBox::title {
+        #sobjectGroupBox::title {
             subcontrol-origin: margin;
             subcontrol-position: top center;
             padding: 0 3px;
@@ -39,7 +114,7 @@ class Ui_sobjectWidget(QtGui.QGroupBox, ui_sobject.Ui_sobjectGroupBox):
 
     def enterEvent(self, *args, **kwargs):
         self.setStyleSheet("""
-        QGroupBox {
+        #sobjectGroupBox {
             background: qlineargradient(x1: 0, y1: 0, x2: 0, y2: 1, stop: 0 rgba(175, 175, 175, 150), stop: 1 rgba(128, 128, 128, 30));
             border: 1px solid rgb(150, 150, 150);
             border-radius: 2px;
@@ -47,7 +122,7 @@ class Ui_sobjectWidget(QtGui.QGroupBox, ui_sobject.Ui_sobjectGroupBox):
             margin-top: 5ex;
         }
 
-        QGroupBox::title {
+        #sobjectGroupBox::title {
             subcontrol-origin: margin;
             subcontrol-position: top center;
             padding: 0 3px;
@@ -62,18 +137,44 @@ class Ui_assetsBrowserWidget(QtGui.QWidget, ui_assets_browser.Ui_assetsBrowser):
 
         self.setupUi(self)
 
+        self.relates_to = 'assets_browser'
+
         self.asstes_tree = None
         self.dyn_list = []
+        self.tabs_items, self.context_items = self.query_tabs()
+        self.toggle = False
         self.current_stype = None
 
         self.create_scroll_layout()
 
         self.controls_actions()
+
+        self.create_search_group_box()
+
         # self.subscriptions_query()
+
+    def create_search_group_box(self):
+        self.searchOptionsGroupBox = icons_widget.Ui_searchOptionsWidget(self)
+        self.searchOptionsLayout.addWidget(self.searchOptionsGroupBox)
+        self.searchOptionsGroupBox.miscGroupBox.hide()
+
+    def searchLineDoubleClick(self, event):
+        if not self.toggle:
+            self.toggle = True
+            self.searchOptionsGroupBox.setMinimumHeight(95)
+        else:
+            self.toggle = False
+            self.searchOptionsGroupBox.setMinimumHeight(0)
+
+    def searchLineSingleClick(self, event):
+        self.searchLineEdit.selectAll()
 
     def controls_actions(self):
         self.zoomSpinBox.valueChanged.connect(self.sobject_widget_zoom)
         self.assetsTreeWidget.itemClicked.connect(self.load_results)
+
+        self.searchLineEdit.mouseDoubleClickEvent = self.searchLineDoubleClick
+        self.searchLineEdit.mousePressEvent = self.searchLineSingleClick
 
     def sobject_widget_zoom(self, value):
         for sobj_widget in self.sobjects_widgets:
@@ -91,8 +192,8 @@ class Ui_assetsBrowserWidget(QtGui.QWidget, ui_assets_browser.Ui_assetsBrowser):
         order_bys = ['timestamp desc']
         columns = []
         sobjects_list = tc.server_start().query(self.current_stype, filters, columns, order_bys, limit=limit, offset=offset)
-
-        sobjects = tc.get_sobjects([], sobjects_list)
+        all_process = self.context_items[self.current_stype]
+        sobjects = tc.get_sobjects(all_process, sobjects_list)
 
         return sobjects
 
@@ -140,9 +241,9 @@ class Ui_assetsBrowserWidget(QtGui.QWidget, ui_assets_browser.Ui_assetsBrowser):
         self.dyn_list = self.dynamic_query(self.limitSpinBox.value(), self.scroller.flowLayout.count())
         for i in range(len(self.dyn_list)):
             QtGui.qApp.processEvents()
-            sobj_widget = Ui_sobjectWidget()
-            sobj_widget.setMinimumWidth(150 * self.zoomSpinBox.value() / 100)
-            sobj_widget.setMinimumHeight(150 * self.zoomSpinBox.value() / 100)
+            self.sobj_widget = Ui_sobjectWidget(self.dyn_list.values()[i], self)
+            self.sobj_widget.setMinimumWidth(150 * self.zoomSpinBox.value() / 100)
+            self.sobj_widget.setMinimumHeight(150 * self.zoomSpinBox.value() / 100)
             image_size = 140 * self.zoomSpinBox.value() / 100
 
             effect = QtGui.QGraphicsDropShadowEffect(self.assetsTreeWidget)
@@ -150,17 +251,17 @@ class Ui_assetsBrowserWidget(QtGui.QWidget, ui_assets_browser.Ui_assetsBrowser):
             effect.setColor(QtGui.QColor(0, 0, 0, 160))
             effect.setBlurRadius(30)
 
-            sobj_widget.setGraphicsEffect(effect)
-            sobj_widget.setTitle(self.dyn_list.values()[i].info['name'])
+            self.sobj_widget.setGraphicsEffect(effect)
+            self.sobj_widget.setTitle(self.dyn_list.values()[i].info['name'])
             try:
                 web_file = self.dyn_list.values()[i].process['icon'].contexts['icon'].versionless.values()[0].files['web']
                 web_full_path = '{0}/{1}/{2}'.format(env.Env().get_asset_dir(), web_file[0]['relative_dir'], web_file[0]['file_name'])
-                sobj_widget.picLabel.setText("<img src=\"{0}\" width=\"{1}\" ".format(web_full_path, image_size))
+                self.sobj_widget.picLabel.setText("<img src=\"{0}\" width=\"{1}\" ".format(web_full_path, image_size))
             except:
-                sobj_widget.picLabel.setText('No preview')
+                self.sobj_widget.picLabel.setText('No preview')
 
-            self.scroller.addWidget(sobj_widget)
-            self.sobjects_widgets.append(sobj_widget)
+            self.scroller.addWidget(self.sobj_widget)
+            self.sobjects_widgets.append(self.sobj_widget)
 
     def wheelEvent(self, QWheelEvent):
         if QWheelEvent.delta() < 0 and self.current_stype:
@@ -177,7 +278,11 @@ class Ui_assetsBrowserWidget(QtGui.QWidget, ui_assets_browser.Ui_assetsBrowser):
             for item in value:
                 # print(item)
                 self.child_item = QtGui.QTreeWidgetItem()
-                self.child_item.setText(0, item['title'].capitalize())
+                if item['title']:
+                    item_title = item['title'].capitalize()
+                else:
+                    item_title = 'Unnamed'
+                self.child_item.setText(0, item_title)
                 self.child_item.setData(0, QtCore.Qt.UserRole, item)
                 self.top_item.addChild(self.child_item)
 
@@ -207,3 +312,7 @@ class Ui_assetsBrowserWidget(QtGui.QWidget, ui_assets_browser.Ui_assetsBrowser):
         if self.assetsTreeWidget.topLevelItemCount() == 0:
             self.create_assets_tree()
 
+    @staticmethod
+    def query_tabs():
+        tab_names = tc.query_tab_names()
+        return tab_names, tc.context_query(tab_names['codes'])
