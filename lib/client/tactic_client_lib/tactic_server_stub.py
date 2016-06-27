@@ -17,6 +17,7 @@
 import datetime
 import re
 import xmlrpclib, os, getpass, shutil, httplib, sys, urllib, types, hashlib
+# import lib.stub_exceptions
 
 class TacticApiException(Exception):
     pass
@@ -28,6 +29,8 @@ class TacticServerStub(object):
     '''
         Constructor: TacticServerStub
     '''
+    # __metaclass__ = lib.stub_exceptions.MetaClass
+
     def __init__(my, login=None, setup=True, protocol=None, server=None,
                  project=None, ticket=None, user=None, password="", site=None):
         '''Function: __init__(login=None, setup=True, protocol=None, server=None, project=None, ticket=None, user=None, password="")
@@ -1417,7 +1420,7 @@ class TacticServerStub(object):
 
 
 
-    def delete_sobject(my, search_key, include_dependencies=False):
+    def delete_sobject(my, search_key, include_dependencies=False, list_dependencies=None):
         '''API Function: delete_sobject(search_key, include_dependencies=False)
         Invoke the delete method.  Note: this function may fail due
         to dependencies.  Tactic will not cascade delete.  This function
@@ -1427,6 +1430,10 @@ class TacticServerStub(object):
         @param:
             search_key - a unique identifier key representing an sobject.
             Note: this can also be an array.
+            list_dependencies - dependency dict {
+                'related_types': ["sthpw/note", "sthpw/file"],
+                'files_list': [''],
+            } etc...
 
         @keyparam:
             include_dependencies - True/False
@@ -1437,7 +1444,7 @@ class TacticServerStub(object):
         '''
 
         return my.server.delete_sobject(my.ticket, search_key,
-                                        include_dependencies)
+                                        include_dependencies, list_dependencies)
 
 
 

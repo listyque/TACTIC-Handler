@@ -24,6 +24,7 @@ reload(icons_widget)
 reload(richedit_widget)
 reload(menu_widget)
 reload(maya_dialogs)
+reload(gf)
 
 
 class Ui_checkOutTreeWidget(QtGui.QWidget, ui_checkout_tree.Ui_checkOutTree):
@@ -38,42 +39,56 @@ class Ui_checkOutTreeWidget(QtGui.QWidget, ui_checkout_tree.Ui_checkOutTree):
         self.tab_name, self.tab_index, self.context_items = name_index_context
         self.toggle = False
         self.go_by_skey = [False, None]
+        self.relates_to = 'checkout'
+
+        self.create_ui_checkout()
+
+    def create_ui_checkout(self):
 
         self.setupUi(self)
+        self.setObjectName(self.tab_name)
+        env.Inst().ui_check_tree['checkout'][self.tab_name] = self
 
         # Query Threads
-        self.names_query = tc.ServerThread(self)
-        self.sobjects_query = tc.ServerThread(self)
+        self.names_query_thread = tc.ServerThread(self)
+        self.sobjects_query_thread = tc.ServerThread(self)
+        self.update_desctiption_thread = tc.ServerThread(self)
+        self.notes_counts_query_thread = tc.ServerThread(self)
 
+        self.add_items_to_context_combo_box()
+        self.create_search_group_box()
+        self.create_refresh_popup()
+        self.create_progress_bar()
+        self.create_separate_versions_tree()
+
+        self.controls_actions()
+
+        self.create_ui_richedit()
+
+        self.saverole = QtCore.Qt.UserRole
+        self.expanded = []
+
+    def create_serach_line(self):
         effect = QtGui.QGraphicsDropShadowEffect(self.searchLineEdit)
         effect.setOffset(2, 2)
         effect.setColor(QtGui.QColor(0, 0, 0, 96))
         effect.setBlurRadius(5)
         self.searchLineEdit.setGraphicsEffect(effect)
 
-        self.setObjectName(self.tab_name)
-        self.relates_to = 'checkout'
-        env.Inst().ui_check_tree['checkout'][self.tab_name] = self
-        self.add_items_to_context_combo_box()
-        self.create_search_group_box()
-        self.create_refresh_popup()
-        self.create_progress_bar()
-
-        self.controls_actions()
-
+    def create_ui_richedit(self):
         self.ui_richedit = richedit_widget.Ui_richeditWidget(self.descriptionTextEdit)
-
         self.editorLayout.addWidget(self.ui_richedit)
-
-        # self.readSettings()
-        self.saverole = QtCore.Qt.UserRole
-        self.expanded = []
 
     def create_progress_bar(self):
         self.progres_bar = QtGui.QProgressBar()
         self.progres_bar.setMaximum(100)
         self.progres_bar.hide()
         self.resultsLayout.addWidget(self.progres_bar)
+
+    def create_separate_versions_tree(self):
+        self.sep_versions = False
+        if not self.sep_versions:
+            self.resultsVersionsTreeWidget.setVisible(False)
 
     def create_refresh_popup(self):
         self.refresh_results = QtGui.QAction('Refresh results', self.refreshToolButton)
@@ -125,10 +140,10 @@ class Ui_checkOutTreeWidget(QtGui.QWidget, ui_checkout_tree.Ui_checkOutTree):
         if query_tuple[0]:
 
             # Run first thread
-            if not self.names_query.isRunning():
-                self.names_query.kwargs = dict(query=query_tuple, process=self.tab_name, raw=True)
-                self.names_query.routine = tc.assets_query
-                self.names_query.start()
+            if not self.names_query_thread.isRunning():
+                self.names_query_thread.kwargs = dict(query=query_tuple, process=self.tab_name, raw=True)
+                self.names_query_thread.routine = tc.assets_query
+                self.names_query_thread.start()
 
             # save current state
             if revert:
@@ -138,9 +153,17 @@ class Ui_checkOutTreeWidget(QtGui.QWidget, ui_checkout_tree.Ui_checkOutTree):
                 self.selected_state = gf.expanded_state(self.resultsTreeWidget, is_selected=True)
 
     def fill_items(self):
-        self.sobjects = self.sobjects_query.result
-        gf.add_items_to_tree(self, self.resultsTreeWidget, item_widget, self.sobjects, self.process,
-                             self.searchOptionsGroupBox.showAllProcessCheckBox.isChecked(), snapshots=False)
+        self.sobjects = self.sobjects_query_thread.result
+        self.root_snapshots_items_count = gf.add_items_to_tree(
+            self,
+            self.resultsTreeWidget,
+            item_widget,
+            self.sobjects,
+            self.process,
+            self.searchOptionsGroupBox.showAllProcessCheckBox.isChecked(),
+            snapshots=False,
+            sep_versions=self.sep_versions,
+        )
 
         if self.go_by_skey[0]:
             gf.expand_to_snapshot(self, self.resultsTreeWidget)
@@ -155,12 +178,20 @@ class Ui_checkOutTreeWidget(QtGui.QWidget, ui_checkout_tree.Ui_checkOutTree):
                 pass
 
     def assets_names(self):
-        names = self.names_query.result
+        names = tc.threat_result(self.names_query_thread)
+        if names.isFailed():
+            if names.result == QtGui.QMessageBox.ApplyRole:
+                names.run()
+                self.assets_names()
+            elif names.result == QtGui.QMessageBox.ActionRole:
+                env.Inst().ui_main.offline = True
+                self.open_config_dialog()
 
-        if not self.sobjects_query.isRunning():
-            self.sobjects_query.kwargs = dict(process_list=self.process, sobjects_list=names)
-            self.sobjects_query.routine = tc.get_sobjects
-            self.sobjects_query.start()
+        if not names.isFailed():
+            if not self.sobjects_query_thread.isRunning():
+                self.sobjects_query_thread.kwargs = dict(process_list=self.process, sobjects_list=names.result)
+                self.sobjects_query_thread.routine = tc.get_sobjects
+                self.sobjects_query_thread.start()
 
     def load_images(self, nested_item, icon=False, playblast=False):
         if icon:
@@ -214,6 +245,7 @@ class Ui_checkOutTreeWidget(QtGui.QWidget, ui_checkout_tree.Ui_checkOutTree):
 
         # Tree widget actions
         self.resultsTreeWidget.itemPressed.connect(self.load_preview)
+        self.resultsTreeWidget.itemPressed.connect(self.fill_versions_items)
         # self.resultsTreeWidget.itemSelectionChanged.connect(self.load_preview)
         self.resultsTreeWidget.setContextMenuPolicy(QtCore.Qt.CustomContextMenu)
         self.resultsTreeWidget.customContextMenuRequested.connect(self.open_menu)
@@ -222,8 +254,8 @@ class Ui_checkOutTreeWidget(QtGui.QWidget, ui_checkout_tree.Ui_checkOutTree):
         self.resultsTreeWidget.itemExpanded.connect(self.fill_notes_count)
 
         # Threads Actions
-        self.names_query.finished.connect(self.assets_names)
-        self.sobjects_query.finished.connect(self.fill_items)
+        self.names_query_thread.finished.connect(self.assets_names)
+        self.sobjects_query_thread.finished.connect(self.fill_items)
 
     def find_opened_sobject(self):
         skey = mf.get_skey_from_scene()
@@ -253,12 +285,24 @@ class Ui_checkOutTreeWidget(QtGui.QWidget, ui_checkout_tree.Ui_checkOutTree):
 
         if parent_widget.type == 'sobject':
 
-            gf.add_snapshots_items_to_tree(self, self.resultsTreeWidget, widget, item_widget, parent_widget, process)
+            root_item_count = self.root_snapshots_items_count[self.resultsTreeWidget.indexOfTopLevelItem(widget)]
+
+            gf.add_snapshots_items_to_tree(
+                self,
+                self.resultsTreeWidget,
+                widget,
+                item_widget,
+                parent_widget,
+                process,
+                root_item_count,
+                self.sep_versions,
+            )
 
             def notes_fill():
                 notes_counts = notes_counts_query.result
-                for i in range(widget.childCount()):
-                    process_widget = self.resultsTreeWidget.itemWidget(widget.child(i), 0)
+                for i in range(widget.childCount() - root_item_count):
+
+                    process_widget = self.resultsTreeWidget.itemWidget(widget.child(i + root_item_count), 0)
 
                     if process_widget.type == 'process':
                         process_widget.notesToolButton.setText('Notes ({0})'.format(notes_counts[i]))
@@ -269,6 +313,24 @@ class Ui_checkOutTreeWidget(QtGui.QWidget, ui_checkout_tree.Ui_checkOutTree):
             notes_counts_query.start()
 
             notes_counts_query.finished.connect(notes_fill)
+
+    def fill_versions_items(self, widget):
+
+        if self.resultsVersionsTreeWidget.isVisible():
+
+            parent_widget = self.resultsTreeWidget.itemWidget(widget, 0)
+
+            if parent_widget.type == 'snapshot':
+                process = parent_widget.snapshot['process']
+                context = parent_widget.snapshot['context']
+                gf.add_versions_items_to_tree(
+                    self,
+                    self.resultsVersionsTreeWidget,
+                    item_widget,
+                    parent_widget,
+                    process,
+                    context,
+                )
 
     def load_preview(self, position):
         # loading preview image
@@ -410,16 +472,19 @@ class Ui_checkOutTreeWidget(QtGui.QWidget, ui_checkout_tree.Ui_checkOutTree):
             if nested_item.files.get(mode):
                 main_file = nested_item.files[mode][0]
                 # asset_dir = env.Env().rep_dirs['asset_base_dir'][0]
-                print nested_item.snapshot
+                print nested_item.snapshot, 'snapshot'
                 if nested_item.snapshot.get('repo'):
                     asset_dir = env.Env().rep_dirs[nested_item.snapshot.get('repo')][0]
                 else:
                     asset_dir = env.Env().rep_dirs['asset_base_dir'][0]
                     print asset_dir
 
-                file_path = '{0}/{1}/{2}'.format(asset_dir, main_file['relative_dir'], main_file['file_name'])
+                file_path = gf.form_path(
+                    '{0}/{1}/{2}'.format(asset_dir, main_file['relative_dir'], main_file['file_name']))
+
+                # print file_path
                 split_path = main_file['relative_dir'].split('/')
-                dir_path = '{0}/{1}'.format(asset_dir, '{0}/{1}/{2}'.format(*split_path))
+                dir_path = gf.form_path('{0}/{1}'.format(asset_dir, '{0}/{1}/{2}'.format(*split_path)))
                 all_process = nested_item.sobject.all_process
 
         return file_path, dir_path, all_process
@@ -478,7 +543,17 @@ class Ui_checkOutTreeWidget(QtGui.QWidget, ui_checkout_tree.Ui_checkOutTree):
         # additional settings write
         self.searchOptionsGroupBox.writeSettings()
 
+    # def treeWidgetEventFilter(self, widget, event):
+    #
+    #     if event.type() == QtCore.QEvent.KeyPress and type(widget) == QtGui.QTreeWidget:
+    #         if event.key() == 16777248:
+    #             self.resultsTreeWidget.expandAll()
+
     def showEvent(self, event):
+
+        # self.resultsTreeWidget.installEventFilter(self.resultsTreeWidget)
+        # self.resultsTreeWidget.eventFilter = self.treeWidgetEventFilter
+
         if self.resultsTreeWidget.topLevelItemCount() == 0:
             self.readSettings(update_tree=True)
         else:

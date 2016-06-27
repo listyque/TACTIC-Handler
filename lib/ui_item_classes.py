@@ -167,7 +167,9 @@ class Ui_snapshotItemWidget(QtGui.QWidget, lib.ui.ui_item_snapshot.Ui_snapshotIt
         hidden = ['icon', 'web', 'playblast']
 
         if self.snapshot:
+            print self.snapshot['description']
             self.commentLabel.setText(gf.to_plain_text(self.snapshot['description'], 80))
+            print gf.to_plain_text(self.snapshot['description'], 80)
             self.dateLabel.setText(self.snapshot['timestamp'])
             self.authorLabel.setText(self.snapshot['login'] + ':')
             self.verRevLabel.setText(gf.get_ver_rev(self.snapshot['version'], self.snapshot['revision']))

@@ -192,6 +192,9 @@ class Ui_assetsBrowserWidget(QtGui.QWidget, ui_assets_browser.Ui_assetsBrowser):
         order_bys = ['timestamp desc']
         columns = []
         sobjects_list = tc.server_start().query(self.current_stype, filters, columns, order_bys, limit=limit, offset=offset)
+        print self.current_stype
+        print sobjects_list
+        print filters
         all_process = self.context_items[self.current_stype]
         sobjects = tc.get_sobjects(all_process, sobjects_list)
 

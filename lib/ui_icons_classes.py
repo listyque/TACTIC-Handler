@@ -226,12 +226,22 @@ class Ui_iconsWidget(QtGui.QWidget, ui_icons.Ui_icons):
 
     def slide_images(self, value):
         # if self.nested_item.type == 'snapshot':
+        #     print('this is snapshot', self.slide_images.__func__)
+
+        # print self.nested_item.type
+        #
+        # print self.nested_item.sobject.process['icon']
+        # print self.nested_item.sobject.process['icon'].contexts['icon']
+        # print self.nested_item.sobject.process['icon'].contexts['icon'].versions.values()[0].snapshot
+
+        # print self.versions_icons
+
+        # print value - 1
 
         if self.nested_item.snapshot.get('repo'):
-            asset_dir = env.Env().rep_dirs[self.nested_item.snapshot.get('repo')][0]
+            asset_dir = gf.form_path(env.Env().rep_dirs[self.nested_item.snapshot.get('repo')][0])
         else:
-            asset_dir = env.Env().rep_dirs['asset_base_dir'][0]
-            print asset_dir
+            asset_dir = gf.form_path(env.Env().rep_dirs['asset_base_dir'][0])
 
         # asset_dir = env.Env().rep_dirs[self.nested_item.snapshot.get('repo')][0]
         image_path_icon = u'{0}/{1}/{2}'.format(asset_dir,

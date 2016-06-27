@@ -71,21 +71,39 @@ palette = {
     }
 
 
+def create_ui(thread):
+    thread = tc.threat_result(thread)
+    if thread.result == QtGui.QMessageBox.ApplyRole:
+        retry_startup(thread)
+    else:
+        if thread.isFailed():
+            window = lib.ui_main_classes.Ui_Main(parent=None, offline=True)
+        else:
+            window = lib.ui_main_classes.Ui_Main(parent=None, offline=False)
+
+        env.Inst().ui_main = window
+        window.main_layout.setSpacing(6)
+        window.main_layout.setContentsMargins(9, 9, 9, 0)
+        window.statusBar()
+        window.show()
+
+        if thread.result == QtGui.QMessageBox.ActionRole:
+            window.open_config_dialog()
+
+
+def retry_startup(thread):
+    thread.run()
+    create_ui(thread)
+
+
 def startup():
     app = QtGui.QApplication(sys.argv)
     app.setStyle("plastique")
     setPaletteFromDct(palette)
 
-    if tc.ping_srv():
+    ping_thread = tc.get_server_thread(dict(), tc.server_ping, lambda: create_ui(ping_thread), parent=app)
+    ping_thread.start()
 
-        window = lib.ui_main_classes.Ui_Main()
-        env.Inst.ui_standalone = window
-        window.main_layout.setSpacing(6)
-        window.main_layout.setContentsMargins(9, 9, 9, 0)
-        window.statusBar()
-
-        if not env.Env().get_first_run():
-            window.show()
     sys.exit(app.exec_())
 
 

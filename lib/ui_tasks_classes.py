@@ -138,8 +138,8 @@ class Ui_tasksWidget(QtGui.QWidget, ui_tasks.Ui_tasks):
         self.endDateTimeEdit.setDateTime(current_datetime)
 
         for user in self.users.itervalues():
-            self.assignedToComboBox.addItem(u'{last_name} {first_name}, {login}'.format(**user))
-            self.superviserComboBox.addItem(u'{last_name} {first_name}, {login}'.format(**user))
+            self.assignedToComboBox.addItem('{last_name} {first_name}, {login}'.format(**user).decode('utf-8'))
+            self.superviserComboBox.addItem('{last_name} {first_name}, {login}'.format(**user).decode('utf-8'))
 
     def fill_tasks_info(self):
         current_item = self.processTreeWidget.currentItem().data(0, QtCore.Qt.UserRole)

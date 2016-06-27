@@ -3,6 +3,7 @@
 # Global constants with defaults
 
 import os
+import platform
 import tempfile
 
 import PySide.QtCore as QtCore
@@ -24,7 +25,7 @@ class Inst(object):
     """
     This class stores all instances of interfaces classes
     """
-    ui_standalone = None
+    ui_super = None
     ui_maya_dock = None
     ui_main = None
     ui_tasks = None
@@ -53,9 +54,107 @@ class Mode(object):
 
 
 @singleton
+class Conf(object):
+    def __init__(self):
+        self.settings = QtCore.QSettings('TACTIC Handler', 'TACTIC Handling Tool')
+        # self.defaults = None
+        self.server = None
+        self.project = None
+        self.checkin = None
+        self.checkout = None
+        self.checkin_out = None
+        self.checkin = None
+        self.maya_scene = None
+        # self.get_defaults()
+
+    # def get_defaults(self):
+    #     self.settings.beginGroup('config')
+    #     self.defaults = self.settings.value('TACTIC_DEFAULTS', None)
+    #     self.settings.endGroup()
+    #
+    #     if self.defaults is None:
+    #         self.defaults = {
+    #             'def': 'def',
+    #         }
+    #         self.set_defaults()
+    #
+    # def set_defaults(self):
+    #     self.settings.beginGroup('config')
+    #     self.settings.setValue('TACTIC_DEFAULTS', self.defaults)
+    #     print('Done set_defaults settings write')
+    #     self.settings.endGroup()
+
+    def get_server(self):
+        self.settings.beginGroup('config')
+        self.server = self.settings.value('server', None)
+        self.settings.endGroup()
+        return self.server
+
+    def set_server(self, server):
+        self.settings.beginGroup('config')
+        self.settings.setValue('server', server)
+        self.settings.endGroup()
+
+    def get_project(self):
+        self.settings.beginGroup('config')
+        self.project = self.settings.value('project', None)
+        self.settings.endGroup()
+        return self.project
+
+    def set_project(self, project):
+        self.settings.beginGroup('config')
+        self.settings.setValue('project', project)
+        self.settings.endGroup()
+
+    def get_checkout(self):
+        self.settings.beginGroup('config')
+        self.checkout = self.settings.value('checkout', None)
+        self.settings.endGroup()
+        return self.checkout
+
+    def set_checkout(self, checkout):
+        self.settings.beginGroup('config')
+        self.settings.setValue('checkout', checkout)
+        self.settings.endGroup()
+
+    def get_checkin(self):
+        self.settings.beginGroup('config')
+        self.checkin = self.settings.value('checkin', None)
+        self.settings.endGroup()
+        return self.checkin
+
+    def set_checkin(self, checkin):
+        self.settings.beginGroup('config')
+        self.settings.setValue('checkin', checkin)
+        self.settings.endGroup()
+
+    def get_checkin_out(self):
+        self.settings.beginGroup('config')
+        self.checkin_out = self.settings.value('checkin_out', None)
+        self.settings.endGroup()
+        return self.checkin_out
+
+    def set_checkin_out(self, checkin_out):
+        self.settings.beginGroup('config')
+        self.settings.setValue('checkin_out', checkin_out)
+        self.settings.endGroup()
+
+    def get_maya_scene(self):
+        self.settings.beginGroup('config')
+        self.maya_scene = self.settings.value('maya_scene', None)
+        self.settings.endGroup()
+        return self.maya_scene
+
+    def set_maya_scene(self, maya_scene):
+        self.settings.beginGroup('config')
+        self.settings.setValue('maya_scene', maya_scene)
+        self.settings.endGroup()
+
+@singleton
 class Env(object):
     def __init__(self):
         self.settings = QtCore.QSettings('TACTIC Handler', 'TACTIC Handling Tool')
+        self.platform = platform.system()
         self.defaults = None
         self.rep_dirs = None
         self.get_defaults()
@@ -68,20 +167,19 @@ class Env(object):
         self.ticket = None
         self.data_dir = None
         self.install_dir = None
-        self.asset_dir = None
-        self.temp_dir = None
         self.types_list = None
-        self.first_run = None
 
     def get_defaults(self):
         self.settings.beginGroup('environment')
         self.defaults = self.settings.value('TACTIC_DEFAULTS', None)
         self.settings.endGroup()
 
-        data_dir = str(os.environ['TACTIC_DATA_DIR'] + '/TACTIC_handler').replace('\\', '/')
-        # data_dir = '/mnt/drive_d/Alexey/Dropbox/Work/CGProjects/tacticbase_dev/TACTIC-handler'
-        install_dir = str(os.environ['TACTIC_INSTALL_DIR'] + '/src/client').replace('\\', '/')
-        # install_dir = '/mnt/drive_d/Alexey/Dropbox/Work/CGProjects/tacticbase_dev/TACTIC-handler'
+        if self.platform == 'Linux':
+            data_dir = '/mnt/drive_d/Alexey/Dropbox/Work/CGProjects/tacticbase_dev/TACTIC-handler'
+            install_dir = '/mnt/drive_d/Alexey/Dropbox/Work/CGProjects/tacticbase_dev/TACTIC-handler'
+        else:
+            data_dir = str(os.environ['TACTIC_DATA_DIR'] + '/TACTIC_handler').replace('\\', '/')
+            install_dir = str(os.environ['TACTIC_INSTALL_DIR'] + '/src/client').replace('\\', '/')
 
         if self.defaults is None:
             self.defaults = {
@@ -93,10 +191,8 @@ class Env(object):
                 'ticket': None,
                 'data_dir': data_dir,
                 'install_dir': install_dir,
-                # 'asset_dir': str(os.environ['TACTIC_ASSET_DIR']).replace('\\', '/'),
                 'temp_dir': tempfile.gettempdir(),
                 'types_list': ['maya', 'houdini', '3dsmax', 'nuke', ''],
-                'first_run': True,
             }
             self.set_defaults()
 
@@ -113,9 +209,10 @@ class Env(object):
 
         if self.rep_dirs is None:
             import tactic_classes as tc
+            # print tc.server_start()
             base_dirs = tc.server_start().get_base_dirs()
-            from pprint import pprint
-            pprint(base_dirs)
+            # from pprint import pprint
+            # pprint(base_dirs)
             #if os.environ['TACTIC_ASSET_DIR']:
             #    base_dirs['asset_base_dir'] = str(os.environ['TACTIC_ASSET_DIR']).replace('\\', '/')
 
@@ -150,42 +247,24 @@ class Env(object):
         self.settings.endGroup()
 
     def get_project(self):
-        """
-        Getting Project name from settings
-        :return: project name
-        """
         self.settings.beginGroup('environment')
         self.project = self.settings.value('TACTIC_PROJECT', self.defaults['project'])
         self.settings.endGroup()
         return self.project
 
     def set_project(self, project_name):
-        """
-        Saving project name settings
-        :param project_name: Name of the Project
-        :return: None
-        """
         self.settings.beginGroup('environment')
         self.settings.setValue('TACTIC_PROJECT', project_name)
         print('Done set_project settings write')
         self.settings.endGroup()
 
     def get_namespace(self):
-        """
-        Getting Namespace name from settings
-        :return: namespace name
-        """
         self.settings.beginGroup('environment')
         self.namespace = self.settings.value('TACTIC_NAMESPACE', self.defaults['namespace'])
         self.settings.endGroup()
         return self.namespace
 
     def set_namespace(self, namespace_name):
-        """
-        Saving namespace name settings
-        :param namespace_name: Name of the Project's namespace
-        :return: None
-        """
         self.settings.beginGroup('environment')
         self.settings.setValue('TACTIC_NAMESPACE', namespace_name)
         print('Done set_namespace settings write')
@@ -263,30 +342,6 @@ class Env(object):
         print('Done set_install_dir settings write')
         self.settings.endGroup()
 
-    # def get_asset_dir(self):
-    #     self.settings.beginGroup('environment')
-    #     self.asset_dir = self.settings.value('TACTIC_ASSET_DIR', self.defaults['asset_dir'])
-    #     self.settings.endGroup()
-    #     return self.asset_dir
-    #
-    # def set_asset_dir(self, asset_dir_name):
-    #     self.settings.beginGroup('environment')
-    #     self.settings.setValue('TACTIC_ASSET_DIR', asset_dir_name)
-    #     print('Done set_asset_dir settings write')
-    #     self.settings.endGroup()
-
-    def get_temp_dir(self):
-        self.settings.beginGroup('environment')
-        self.temp_dir = self.settings.value('TACTIC_TEMP_DIR', self.defaults['temp_dir'])
-        self.settings.endGroup()
-        return self.temp_dir
-
-    def set_temp_dir(self, temp_dir_name):
-        self.settings.beginGroup('environment')
-        self.settings.setValue('TACTIC_TEMP_DIR', temp_dir_name)
-        print('Done set_temp_dir settings write')
-        self.settings.endGroup()
-
     def get_types_list(self):
         self.settings.beginGroup('environment')
         self.types_list = self.settings.value('TACTIC_TYPES_LIST', self.defaults['types_list'])
@@ -297,17 +352,4 @@ class Env(object):
         self.settings.beginGroup('environment')
         self.settings.setValue('TACTIC_TYPES_LIST', types_list_name)
         print('Done set_types_list settings write')
-        self.settings.endGroup()
-
-    def get_first_run(self):
-        self.settings.beginGroup('environment')
-        self.first_run = bool(int(self.settings.value('TACTIC_FIRST_RUN', self.defaults['first_run'])))
-
-        self.settings.endGroup()
-        return self.first_run
-
-    def set_first_run(self, first_run_name):
-        self.settings.beginGroup('environment')
-        self.settings.setValue('TACTIC_FIRST_RUN', int(first_run_name))
-        print('Done set_first_run settings write')
         self.settings.endGroup()

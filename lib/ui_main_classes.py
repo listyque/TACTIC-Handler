@@ -24,58 +24,92 @@ reload(ui_assets_browser_classes)
 
 
 class Ui_Main(QtGui.QMainWindow, ui_main.Ui_MainWindow):
-    def __init__(self, parent=None):
+    def __init__(self, offline=False, parent=None):
         super(self.__class__, self).__init__(parent=parent)
 
-        env.Env().get_default_dirs()
+        self.offline = offline
+        if not self.offline:
+            env.Env().get_default_dirs()
 
-        if env.Env().get_first_run():
-            self.setupUi(self)
-            ui_conf_classes.Ui_configuration_dialogWidget(self).show()
+        # if env.Env().get_first_run():
+        #     self.create_ui_main_offline()
+        #     ui_conf_classes.Ui_configuration_dialogWidget(offline=True, parent=self).show()
+        if self.offline:
+            self.create_ui_main_offline()
         else:
             self.create_ui_main()
 
-    def create_ui_main(self):
+    def create_ui_main_offline(self):
 
         env.Inst().ui_main = self
-
         self.setupUi(self)
-
+        self.setWindowTitle('TACTIC handler (OFFLINE)')
         # instance attributes
         self.menu = None
         self.ui_checkout = None
         self.ui_checkin = None
         self.settings = None
-        # instance attributes
-
-        self.tabs_items, self.context_items = self.query_tabs()
-
-        self.create_ui_checkout()
-
-        self.create_ui_checkin()
-
-        self.create_ui_my_tactic()
-
-        self.create_ui_assets_browser()
-
+        # self.tabs_items, self.context_items = self.query_tabs()
+        # self.create_ui_checkout()
+        # self.create_ui_checkin()
+        # self.create_ui_my_tactic()
+        # self.create_ui_assets_browser()
         # self.create_ui_float_notify()
-
         self.menu_bar_actions()
-
-        self.skeyLineEdit_actions()
-
+        # self.skeyLineEdit_actions()
         self.readSettings()
-
         self.setIcon()
+        # self.setProjectInfo()
 
+    def create_ui_main(self):
+
+        env.Inst().ui_main = self
+        self.setupUi(self)
+        self.setWindowTitle('TACTIC handler')
+        # instance attributes
+        self.menu = None
+        self.ui_checkout = None
+        self.ui_checkin = None
+        self.settings = None
+
+        # Server Threads
+        self.tabs_items_thread = tc.ServerThread(self)
+        self.context_items_thread = tc.ServerThread(self)
+
+        self.threadsActions()
+
+        self.query_tabs()
+
+        # self.tabs_items = self.tabs_items_thread.result
+        # self.context_items = self.context_items_thread.result
+
+        # self.tabs_items, self.context_items = self.query_tabs()
+
+        # self.create_ui_checkout()
+        # self.create_ui_checkin()
+        # self.create_ui_my_tactic()
+        # self.create_ui_assets_browser()
+        # self.create_ui_float_notify()
+        self.menu_bar_actions()
+        self.skeyLineEdit_actions()
+        self.readSettings()
+        self.setIcon()
         self.setProjectInfo()
+
+    def threadsActions(self):
+
+        self.tabs_items_thread.finished.connect(self.query_contexts)
+
+        self.context_items_thread.finished.connect(self.create_ui_checkout)
+        self.context_items_thread.finished.connect(self.create_ui_checkin)
 
     def setIcon(self):
         icon = QtGui.QIcon(':/ui_main/gliph/tactic_favicon.ico')
         self.setWindowIcon(icon)
 
     def setProjectInfo(self):
-        self.currentProjectLabel.setText('Current Porject: <b>{0}</b> '.format(env.Env().get_project().replace('_', ' ').capitalize()))
+        self.currentProjectLabel.setText(
+            'Current Porject: <b>{0}</b> '.format(env.Env().get_project().replace('_', ' ').capitalize()))
 
     def click_on_skeyLineEdit(self, event):
         self.skeyLineEdit.selectAll()
@@ -100,7 +134,7 @@ class Ui_Main(QtGui.QMainWindow, ui_main.Ui_MainWindow):
 
         self.actionExit.triggered.connect(close_routine)
 
-        self.actionConfiguration.triggered.connect(lambda: ui_conf_classes.Ui_configuration_dialogWidget(self).show())
+        self.actionConfiguration.triggered.connect(self.open_config_dialog)
 
         self.actionApply_to_all_Tabs.triggered.connect(lambda: self.apply_current_view())
 
@@ -109,6 +143,13 @@ class Ui_Main(QtGui.QMainWindow, ui_main.Ui_MainWindow):
         self.menu.triggered.connect(
             lambda: self.copy_current_tab(self.main_tabWidget.currentIndex()))
         self.main_tabWidget.addAction(self.menu)
+
+    def open_config_dialog(self):
+        if self.offline:
+            conf_dialog = ui_conf_classes.Ui_configuration_dialogWidget(offline=True, parent=self)
+        else:
+            conf_dialog = ui_conf_classes.Ui_configuration_dialogWidget(offline=False, parent=self)
+        conf_dialog.show()
 
     def go_by_skey(self, skey_in=None, relates_to=None):
         if relates_to:
@@ -178,11 +219,18 @@ class Ui_Main(QtGui.QMainWindow, ui_main.Ui_MainWindow):
             self.skeyLineEdit.setText(skey_link)
             self.go_by_skey()
 
+    def restart_ui_main(self):
+        self.close()
+        self.create_ui_main()
+        self.show()
+
     def apply_current_view(self):
         if self.main_tabWidget.currentIndex() == 0:
-            self.ui_checkout.apply_current_view_to_all()
+            if self.ui_checkout:
+                self.ui_checkout.apply_current_view_to_all()
         if self.main_tabWidget.currentIndex() == 1:
-            self.ui_checkin.apply_current_view_to_all()
+            if self.ui_checkin:
+                self.ui_checkin.apply_current_view_to_all()
 
     def copy_current_tab(self, current_index):
 
@@ -209,23 +257,58 @@ class Ui_Main(QtGui.QMainWindow, ui_main.Ui_MainWindow):
         """
         Create Check Out Tab
         """
-        if ext:
-            return ui_checkin_out_tabs_classes.Ui_checkOutTabWidget(self.context_items, self.tabs_items, self)
-        else:
-            self.ui_checkout = ui_checkin_out_tabs_classes.Ui_checkOutTabWidget(self.context_items, self.tabs_items,
-                                                                                self)
-            self.checkOutLayout.addWidget(self.ui_checkout)
+        self.context_items = tc.threat_result(self.context_items_thread)
+        if self.context_items.isFailed():
+            if self.context_items.result == QtGui.QMessageBox.ApplyRole:
+                self.context_items.run()
+                self.create_ui_checkout()
+            elif self.context_items.result == QtGui.QMessageBox.ActionRole:
+                self.offline = True
+                self.open_config_dialog()
+
+        if not self.context_items.isFailed():
+            if ext:
+                return ui_checkin_out_tabs_classes.Ui_checkOutTabWidget(
+                    self.context_items.result,
+                    self.tabs_items.result,
+                    self
+                )
+            else:
+                self.ui_checkout = ui_checkin_out_tabs_classes.Ui_checkOutTabWidget(
+                    self.context_items.result,
+                    self.tabs_items.result,
+                    self
+                )
+                self.checkOutLayout.addWidget(self.ui_checkout)
 
     def create_ui_checkin(self, ext=False):
         """
         Create Check In Tab
         """
 
-        if ext:
-            return ui_checkin_out_tabs_classes.Ui_checkInTabWidget(self.context_items, self.tabs_items, self)
-        else:
-            self.ui_checkin = ui_checkin_out_tabs_classes.Ui_checkInTabWidget(self.context_items, self.tabs_items, self)
-            self.checkInLayout.addWidget(self.ui_checkin)
+        self.context_items = tc.threat_result(self.context_items_thread)
+        if self.context_items.isFailed():
+            if self.context_items.result == QtGui.QMessageBox.ApplyRole:
+                self.context_items.run()
+                self.create_ui_checkin()
+            elif self.context_items.result == QtGui.QMessageBox.ActionRole:
+                self.offline = True
+                self.open_config_dialog()
+
+        if not self.context_items.isFailed():
+            if ext:
+                return ui_checkin_out_tabs_classes.Ui_checkInTabWidget(
+                    self.context_items.result,
+                    self.tabs_items.result,
+                    self
+                )
+            else:
+                self.ui_checkin = ui_checkin_out_tabs_classes.Ui_checkInTabWidget(
+                    self.context_items.result,
+                    self.tabs_items.result,
+                    self
+                )
+                self.checkInLayout.addWidget(self.ui_checkin)
 
     def create_ui_my_tactic(self):
         """
@@ -281,16 +364,35 @@ class Ui_Main(QtGui.QMainWindow, ui_main.Ui_MainWindow):
 
     def closeEvent(self, event):
         # event.ignore()
-        self.ui_checkout.close()
-        self.ui_checkin.close()
+        if self.ui_checkout:
+            self.ui_checkout.close()
+        if self.ui_checkin:
+            self.ui_checkin.close()
         # self.float_notify.close()
         self.writeSettings()
         event.accept()
 
-    @staticmethod
-    def query_tabs():
-        tab_names = tc.query_tab_names()
-        return tab_names, tc.context_query(tab_names['codes'])
+    def query_tabs(self):
+        if not self.tabs_items_thread.isRunning():
+            self.tabs_items_thread.kwargs = dict()
+            self.tabs_items_thread.routine = tc.query_tab_names
+            self.tabs_items_thread.start()
+
+    def query_contexts(self):
+        self.tabs_items = tc.threat_result(self.tabs_items_thread)
+        if self.tabs_items.isFailed():
+            if self.tabs_items.result == QtGui.QMessageBox.ApplyRole:
+                self.tabs_items.run()
+                self.query_contexts()
+            elif self.tabs_items.result == QtGui.QMessageBox.ActionRole:
+                self.offline = True
+                self.open_config_dialog()
+
+        if not self.tabs_items.isFailed():
+            if not self.context_items_thread.isRunning():
+                self.context_items_thread.kwargs = dict(process=self.tabs_items.result['codes'])
+                self.context_items_thread.routine = tc.context_query
+                self.context_items_thread.start()
 
     def closeEventExt(self, event):
         self.ext_window.deleteLater()

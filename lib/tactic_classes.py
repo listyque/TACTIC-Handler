@@ -2,10 +2,13 @@
 # file tactic_classes.py
 # Global TACTIC Functions Module
 
-import os
+# import os
 import sys
-import time
-import errno
+# import time
+# import inspect
+# import errno
+# from functools import wraps
+import traceback
 import urlparse
 import collections
 # from pprint import pprint
@@ -14,8 +17,9 @@ import PySide.QtCore as QtCore
 import environment as env
 import global_functions as gf
 import lib.client.tactic_client_lib as tactic_client_lib
+
 # import xml.etree.ElementTree as Et
-import ui_conf_classes
+# import ui_conf_classes
 
 if env.Mode().get == 'maya':
     import ui_maya_dock
@@ -24,189 +28,406 @@ if env.Mode().get == 'maya':
 
 class ServerThread(QtCore.QThread):
     def __init__(self, parent=None):
-        QtCore.QThread.__init__(self, parent)
+        QtCore.QThread.__init__(self, parent=parent)
 
         self.kwargs = None
         self.result = None
+        self.connected = False
+        self.failed = False
+
+    def isConnected(self):
+        return self.connected
+
+    def setConnected(self, boolean):
+        self.connected = boolean
+
+    def isFailed(self):
+        return self.failed
+
+    def setFailed(self, boolean):
+        self.failed = boolean
 
     def routine(self, **kwargs):
         pass
 
     def run(self):
-        self.result = self.routine(**(self.kwargs or {}))
-
-
-# server functions
-def server_auth(host, project, login, password, new_ticket=False):
-    tactic_srv = tactic_client_lib.TacticServerStub.get(setup=False)
-    srv = host
-    prj = project
-    tactic_srv.set_server(srv)
-    tactic_srv.set_project(prj)
-    log = login
-    psw = password
-    ticket = env.Env().get_ticket()
-
-    if not ticket:
-        ticket = tactic_srv.get_ticket(log, psw)
-        env.Env().set_ticket(ticket)
-
-    if new_ticket:
         try:
-            ticket = tactic_srv.get_ticket(log, psw)
+            self.result = self.routine(**(self.kwargs or {}))
+            self.setFailed(False)
         except Exception as expected:
-            if expected.faultCode == 1:
-                print('login/password is wrong, open config...')
+            self.setFailed(True)
 
-        env.Env().set_ticket(ticket)
-    tactic_srv.set_ticket(ticket)
-    return tactic_srv
+            traceback.print_exc(file=sys.stdout)
+            stacktrace = traceback.format_exc()
+
+            exception = {
+                'exception': expected,
+                'stacktrace': stacktrace,
+            }
+            self.result = exception
 
 
-def get_server(new_ticket=False):
-    return server_auth(
+def get_server_thread(kwargs_dict, runnable_func, connected_func, parent=None):
+    thread = ServerThread(parent)
+
+    if not thread.isRunning():
+        thread.kwargs = kwargs_dict
+        thread.routine = runnable_func
+
+        if not thread.isConnected():
+            thread.finished.connect(connected_func)
+            thread.setConnected(True)
+            # thread.start()
+
+    return thread
+
+
+def threat_result(thread):
+    if thread.isFailed():
+        return error_handle(thread)
+    else:
+        return thread
+
+
+def server_auth(host, project, login, password, get_ticket=False):
+    server = tactic_client_lib.TacticServerStub.get(protocol='xmlrpc', setup=False)
+    server.set_server(host)
+    server.set_project(project)
+    ticket = env.Env().get_ticket()
+    if not ticket or get_ticket:
+        ticket = server.get_ticket(login, password)
+        if type(ticket) == dict:
+            if ticket.get('exception'):
+                return server
+        else:
+            env.Env().set_ticket(ticket)
+
+    server.set_ticket(ticket)
+
+    return server
+
+
+def server_start(get_ticket=False):
+    server = server_auth(
         env.Env().get_server(),
         env.Env().get_project(),
         env.Env().get_user(),
         env.Env().get_pass(),
-        new_ticket,
+        get_ticket=get_ticket,
+    )
+    return server
+
+
+def show_message_predefined(title, message, stacktrace=None, buttons=None, parent=None, message_type='question'):
+    """
+    Showing message with title, text and returns pressed button
+    :param title: 'Message Title'
+    :param message: 'Message Text'
+    :param message_type: 'question', 'warning', etc...
+    :param buttons: tuple of buttons: (('Yes', QtGui.QMessageBox.YesRole), ('No', QtGui.QMessageBox.NoRole)), etc...
+    :return: button role
+    """
+    if not buttons:
+        buttons = (('Yes', QtGui.QMessageBox.YesRole), ('No', QtGui.QMessageBox.NoRole))
+
+    if message_type == 'warning':
+        msb_type = QtGui.QMessageBox.Warning
+    elif message_type == 'information':
+        msb_type = QtGui.QMessageBox.Information
+    elif message_type == 'critical':
+        msb_type = QtGui.QMessageBox.Critical
+    else:
+        msb_type = QtGui.QMessageBox.Question
+
+    message_box = QtGui.QMessageBox(
+        msb_type,
+        title,
+        message,
+        QtGui.QMessageBox.NoButton,
+        parent,
     )
 
+    if stacktrace:
+        layout = QtGui.QVBoxLayout()
 
-def server_start(first_run=False):
-    try:
-        server = get_server()
-        return server
-    except Exception as expected:
-        print('server_start error')
-        if expected.errno == errno.ECONNREFUSED:
-            server_restart(first_run)
+        wdg = QtGui.QWidget()
+        wdg.setLayout(layout)
 
+        msb_layot = message_box.layout()
+        msb_layot.addWidget(wdg, 1, 1)
 
-def open_config():
-    conf_dialog = ui_conf_classes.Ui_configuration_dialogWidget()
-    conf_dialog.configToolBox.setCurrentIndex(1)
-    try_run = conf_dialog.buttonBox.addButton("Try Run", QtGui.QDialogButtonBox.YesRole)
-    try_run.clicked.connect(lambda: run_bat(True))
+        text_edit = QtGui.QPlainTextEdit()
+        text_edit.setMinimumWidth(600)
+        text_edit.setPlainText(stacktrace)
 
-    return conf_dialog
+        layout.addWidget(text_edit)
 
+    for title, role in buttons:
+        message_box.addButton(title, role)
 
-def server_restart(first_run=False):
-    def run_bat(restart=False):
-        path = os.path.normpath(os.environ['TACTIC_INSTALL_DIR'] + os.sep + os.pardir)
-        print('Starting TACTIC Server...')
-        os.system(path + '/ServerRun.bat')
-        print('Hold on for 3 seconds until server start...')
-        time.sleep(3)
-        server = get_server()
-
-        if restart:
-            ui_maya_dock.startup()
-            conf_dialog.close()
-        return server
-
-    msb = QtGui.QMessageBox(QtGui.QMessageBox.Question, 'TACTIC Server not running!',
-                            "<p>Looks like TACTIC Server isn't running!</p> <p>Start Server?</p>",
-                            QtGui.QMessageBox.NoButton, env.Inst().ui_main)
-    msb.addButton("Yes", QtGui.QMessageBox.YesRole)
-    msb.addButton("Retry", QtGui.QMessageBox.ApplyRole)
-    msb.addButton("Open config", QtGui.QMessageBox.AcceptRole)
-    msb.addButton("No", QtGui.QMessageBox.NoRole)
-    msb.exec_()
-    reply = msb.buttonRole(msb.clickedButton())
-
-    if reply == QtGui.QMessageBox.YesRole:
-        run_bat()
-    if reply == QtGui.QMessageBox.AcceptRole:
-        # print('OPEN CONFIG')
-        conf_dialog = open_config()
-        conf_dialog.show()
-
-    if reply == QtGui.QMessageBox.NoRole:
-        if env.Mode().get == 'maya':
-            cmds.warning('Failed to run TACTIC Handler. TACTIC Server not running!')
-        elif env.Mode().get == 'standalone':
-            msg = QtGui.QMessageBox(QtGui.QMessageBox.Warning, 'Failed to run TACTIC Handler',
-                                    'TACTIC Server not running!', QtGui.QMessageBox.NoButton, env.Inst().ui_main)
-            msg.addButton("Close", QtGui.QMessageBox.AcceptRole)
-            msg.exec_()
-            rpl = msg.buttonRole(msg.clickedButton())
-            if rpl == QtGui.QMessageBox.AcceptRole:
-                sys.exit()
-        else:
-            print('Failed to run TACTIC Handler. TACTIC Server not running!')
-        if first_run:
-            sys.exit()
-    if reply == QtGui.QMessageBox.ApplyRole:
-        server_restart()
-
-
-def ping_srv():
-    try:
-        result = server_start(True).fast_ping()
-        print('TACTIC Server Ping: ' + result)
-    except Exception as expected:
-        result = False
-        print(expected, 'ping_srv')
-        server_restart(True)
-
-    return result
-
-
-# Query functions
-
-def server_query(search_type, filters):
-    """
-    Server start and query
-    :param search_type: query search type
-    :param filters: query filters
-    :return: dictionary
-    """
-    assets = None
-    server = server_start()
-    try:
-        assets = server.query(search_type, filters)
-    except Exception as exception:
-        error = catch_error_type(exception)
-
-        if error == 'no_project_error':
-            env.Env().set_project('sthpw')
-            env.Env().set_namespace('')
-
-        if error == 'ticket_error':
-            get_server(True)
-            assets = server.query(search_type, filters)
-
-        if error == 'socket_error':
-            server_restart(False)
-
-    return assets
+    message_box.exec_()
+    return message_box.buttonRole(message_box.clickedButton())
 
 
 def catch_error_type(exception):
-    print('Some exception appeared')
+    print('Some exception appeared!', str(type(exception)), str(exception))
+
+    error = 'unknown_error'
 
     # Catch project existance
     if str(exception).find('No project') != -1:
-        return 'no_project_error'
+        error = 'no_project_error'
 
     # Catch ticket error
-    if str(exception).find('Cannot login with key') != -1:
-        return 'ticket_error'
+    if str(exception).find('Cannot login with key:') != -1:
+        error = 'ticket_error'
 
     # Catch socket exception, connection error
-    if str(type(exception)) == "<class 'socket.error'>":
-        return 'socket_error'
+    if str(exception).find(
+            'A connection attempt failed because the connected party did not properly respond after a period of time') != -1:
+        error = 'connection_timeout'
+
+    # Catch Connection refused
+    if str(exception).find('No connection could be made because the target machine actively refused it') != -1:
+        error = 'connection_refused'
+
+    if str(exception).find('Connection refused') != -1:
+        error = 'connection_refused'
+
+    if str(exception).find('Login/Password combination incorrect') != -1:
+        error = 'login_pass_error'
+
+    if str(exception).find('connect to MySQL server') != -1:
+        error = 'sql_connection_error'
+
+    if str(exception).find('ProtocolError') != -1:
+        error = 'protocol_error'
+
+    return error
+
+
+def error_handle(thread):
+    expected = thread.result['exception']
+
+    error = catch_error_type(expected)
+
+    exception_text = 'Exception type: {0},<p>{1}</p><p><b>Catched Error: {2}</b></p>'.format(str(type(expected)),
+                                                                                             str(expected), str(error))
+    if (error == 'connection_refused') or (error == 'connection_timeout'):
+        title = '{0}, {1}'.format("Cannot connect to TACTIC Server!", error)
+        message = '{0}<p>{1}</p>'.format(
+            "<p>Looks like TACTIC Server isn't running! May be You need to set up Right Server port and address</p> <p>Start Server? (Only TACTIC Team)</p>",
+            exception_text)
+        buttons = (('Yes', QtGui.QMessageBox.YesRole),
+                   ('No', QtGui.QMessageBox.NoRole),
+                   ('Open Config', QtGui.QMessageBox.ActionRole),
+                   ('Retry', QtGui.QMessageBox.ApplyRole))
+
+        reply = show_message_predefined(
+            title=title,
+            message=message,
+            stacktrace=thread.result['stacktrace'],
+            buttons=buttons,
+            parent=None,
+            message_type='critical',
+        )
+        if reply == QtGui.QMessageBox.ApplyRole:
+            thread.result = reply
+        if reply == QtGui.QMessageBox.ActionRole:
+            thread.result = reply
+
+        return thread
+
+    if error == 'unknown_error':
+        title = '{0}, {1}'.format("Unknown Error!", error)
+        message = '{0}<p>{1}</p>'.format(
+            "<p>This is no usual type of Exception! See stacktrace for information</p> <p>Open config?</p>",
+            exception_text)
+        buttons = (('Ok', QtGui.QMessageBox.NoRole),
+                   ('Open Config', QtGui.QMessageBox.ActionRole),
+                   ('Retry', QtGui.QMessageBox.ApplyRole))
+
+        reply = show_message_predefined(
+            title=title,
+            message=message,
+            stacktrace=thread.result['stacktrace'],
+            buttons=buttons,
+            parent=None,
+            message_type='question',
+        )
+        if reply == QtGui.QMessageBox.ApplyRole:
+            thread.result = reply
+        if reply == QtGui.QMessageBox.ActionRole:
+            thread.result = reply
+
+        return thread
+
+    if error == 'ticket_error':
+        title = '{0}, {1}'.format("Ticket Error!", error)
+        message = '{0}<p>{1}</p>'.format(
+            "<p>Wrong ticket, or session may have expired!</p> <p>Generate new ticket?</p>",
+            exception_text)
+        buttons = (('Yes', QtGui.QMessageBox.YesRole),
+                   ('No', QtGui.QMessageBox.NoRole),
+                   ('Open Config', QtGui.QMessageBox.ActionRole))
+
+        reply = show_message_predefined(
+            title=title,
+            message=message,
+            stacktrace=thread.result['stacktrace'],
+            buttons=buttons,
+            parent=None,
+            message_type='question',
+        )
+        if reply == QtGui.QMessageBox.YesRole:
+            server_start(True)
+            thread.result = QtGui.QMessageBox.ApplyRole
+        if reply == QtGui.QMessageBox.ActionRole:
+            thread.result = reply
+
+        return thread
+
+    if error == 'no_project_error':
+        title = '{0}, {1}'.format("This Project not exist!", error)
+        message = '{0}<p>{1}</p>'.format(
+            "<p>You set up wrong Porject Name, or Project not exist!</p> <p>Reset Project to \"sthpw\"?</p>",
+            exception_text)
+        buttons = (('Yes', QtGui.QMessageBox.YesRole),
+                   ('No', QtGui.QMessageBox.NoRole),
+                   ('Open Config', QtGui.QMessageBox.ActionRole))
+
+        reply = show_message_predefined(
+            title=title,
+            message=message,
+            stacktrace=thread.result['stacktrace'],
+            buttons=buttons,
+            parent=None,
+            message_type='critical',
+        )
+        if reply == QtGui.QMessageBox.YesRole:
+            env.Env().set_project('sthpw')
+            env.Inst().ui_main.restart_ui_main()
+        if reply == QtGui.QMessageBox.ActionRole:
+            thread.result = reply
+
+        return thread
+
+    if error == 'login_pass_error':
+        title = '{0}, {1}'.format("Wrong user Login or Password for TACTIC Server!", error)
+        message = '{0}<p>{1}</p>'.format(
+            "<p>You need to open config, and type correct Login and Password!</p> <p>Open Config?</p>",
+            exception_text)
+        buttons = (('No', QtGui.QMessageBox.NoRole),
+                   ('Open Config', QtGui.QMessageBox.ActionRole))
+
+        reply = show_message_predefined(
+            title=title,
+            message=message,
+            stacktrace=thread.result['stacktrace'],
+            buttons=buttons,
+            parent=None,
+            message_type='critical',
+        )
+        if reply == QtGui.QMessageBox.ActionRole:
+            thread.result = reply
+
+        return thread
+
+    if error == 'sql_connection_error':
+        title = '{0}, {1}'.format("SQL Server Error!", error)
+        message = '{0}<p>{1}</p>'.format(
+            "<p>TACTIC Server can't connect to SQL server, may be SQL Server Down! Or wrong server port/ip </p> <p>Open Config?</p>",
+            exception_text)
+        buttons = (('No', QtGui.QMessageBox.NoRole),
+                   ('Open Config', QtGui.QMessageBox.ActionRole))
+
+        reply = show_message_predefined(
+            title=title,
+            message=message,
+            stacktrace=thread.result['stacktrace'],
+            buttons=buttons,
+            parent=None,
+            message_type='critical',
+        )
+        if reply == QtGui.QMessageBox.ActionRole:
+            thread.result = reply
+
+        return thread
+
+    if error == 'protocol_error':
+        title = '{0}, {1}'.format("Error with the Protocol!", error)
+        message = '{0}<p>{1}</p>'.format("<p>Something wrong!</p> <p>Open Config?</p>", exception_text)
+        buttons = (('No', QtGui.QMessageBox.NoRole),
+                   ('Open Config', QtGui.QMessageBox.ActionRole),
+                   ('Retry', QtGui.QMessageBox.ApplyRole))
+
+        reply = show_message_predefined(
+            title=title,
+            message=message,
+            stacktrace=thread.result['stacktrace'],
+            buttons=buttons,
+            parent=None,
+            message_type='critical',
+        )
+        if reply == QtGui.QMessageBox.ActionRole:
+            thread.result = reply
+        if reply == QtGui.QMessageBox.ApplyRole:
+            thread.result = reply
+
+        return thread
+
+
+def server_ping():
+    if server_start():
+        if server_start().fast_ping() == 'OK':
+            return True
+        else:
+            return False
+    else:
+        return False
+
+
+# Query functions
+#
+# def server_query(search_type, filters):
+#     """
+#     Server start and query
+#     :param search_type: query search type
+#     :param filters: query filters
+#     :return: dictionary
+#     """
+#     assets = None
+#     server = server_start()
+#     try:
+#         assets = server.query(search_type, filters)
+#     except Exception as exception:
+#         error = catch_error_type(exception)
+#
+#         if error == 'no_project_error':
+#             env.Env().set_project('sthpw')
+#             env.Env().set_namespace('')
+#
+#         if error == 'ticket_error':
+#             get_server(True)
+#             assets = server.query(search_type, filters)
+#
+#         if error == 'socket_error':
+#             server_restart(False)
+#
+#         if error == 'login_pass_error':
+#             print 'Need to open config window!'
+#
+#     return assets
 
 
 def query_assets_names():
+    server = server_start()
     search_type = 'sthpw/search_object'
     namespace = [env.Env().get_namespace(), env.Env().get_project()]
 
     filters = [('namespace', namespace)]
 
-    assets = server_query(search_type, filters)
+    assets = server.query(search_type, filters)
 
     result_tree = collections.defaultdict(list)
 
@@ -220,7 +441,7 @@ def query_tab_names(full_list=False):
     """
     Create Tabs from maya-type sTypes
     """
-
+    server = server_start()
     empty_tab = [{'__search_key__': u'sthpw/search_object?code=empty/empty',
                   'class_name': u'pyasm.search.SObject',
                   'code': u'empty/empty',
@@ -250,10 +471,13 @@ def query_tab_names(full_list=False):
     if full_list:
         filters = [('namespace', namespace)]
 
-    assets = server_query(search_type, filters)
+    if server:
+        assets = server.query(search_type, filters)
+    else:
+        assets = None
 
     if not assets:
-        assets = server_query(search_type, [('namespace', namespace)])
+        assets = server.query(search_type, [('namespace', namespace)])
         if not assets:
             assets = empty_tab
 
@@ -275,9 +499,10 @@ def query_tab_names(full_list=False):
 
 
 def query_projects():
+    server = server_start()
     search_type = 'sthpw/project'
     filters = []
-    projects = server_query(search_type, filters)
+    projects = server.query(search_type, filters)
 
     exclude_list = ['sthpw', 'unittest', 'admin']
 
@@ -371,6 +596,7 @@ class SObject(object):
         :param user: Optional users names
         :return:
         """
+        server = server_start()
 
         search_type = 'sthpw/task'
         if process:
@@ -378,7 +604,7 @@ class SObject(object):
         else:
             filters = [('search_code', s_code), ('project_code', env.Env().get_project())]
 
-        return server_query(search_type, filters)
+        return server.query(search_type, filters)
 
     # Notes by search code
     @staticmethod
@@ -389,13 +615,15 @@ class SObject(object):
         :param process: Process code
         :return:
         """
+        server = server_start()
+
         search_type = 'sthpw/note'
         if process:
             filters = [('search_code', s_code), ('process', process), ('project_code', env.Env().get_project())]
         else:
             filters = [('search_code', s_code), ('project_code', env.Env().get_project())]
 
-        return server_query(search_type, filters)
+        return server.query(search_type, filters)
 
     # Query snapshots to update current
     def update_snapshots(self):
@@ -541,10 +769,13 @@ def query_snapshots(process_list=None, s_code=None):
     return server_start().query_snapshots(filters=filters_snapshots, include_files=True)
 
 
-def assets_query(query, process, raw=False):
+def assets_query_new(query, process, limit=0, offset=0, order_bys='timestamp desc'):
     """
     Query for searching assets
     """
+    columns = []
+
+    server = server_start()
     filters = []
     expr = ''
     if query[1] == 0:
@@ -561,10 +792,45 @@ def assets_query(query, process, raw=False):
     if query[1] == 4:
         filters = [('keywords', 'EQI', query[0])]
 
+    if query[0] == '*':
+        filters = []
+
+    assets_list = server.query(process, filters, columns, order_bys, limit=limit, offset=offset)
+
+    # print assets_list
+    return assets_list
+
+
+def assets_query(query, process, raw=False):
+    """
+    Query for searching assets
+    """
+    server = server_start()
+    filters = []
+    expr = ''
+    if query[1] == 0:
+        filters = [('name', 'EQI', query[0])]
+    if query[1] == 1:
+        filters = [('code', query[0])]
+    if query[1] == 2:
+        filters = None
+        parents_codes = ['scenes_code', 'sets_code']
+        for parent in parents_codes:
+            expr += '@SOBJECT(cgshort/shot["{0}", "{1}"]), '.format(parent, query[0])
+    if query[1] == 3:
+        filters = [('description', 'EQI', query[0])]
+    if query[1] == 4:
+        filters = [('keywords', 'EQI', query[0])]
+
+    if query[0] == '*':
+        filters = [[]]
+
     if filters:
-        assets = server_query(process, filters)
+        assets = server.query(process, filters)
+    elif expr:
+        assets = server.eval(expr)
     else:
-        assets = server_start().eval(expr)
+        assets = {}
 
     if raw:
         return assets
@@ -607,11 +873,13 @@ def context_query(process):
     Creating one list of lists, to reduce count of queries to the server
     :param process - list of tab names (vfx/asset)
     """
+
+    server = server_start()
     empty_item = {'empty/empty': ['empty']}
     search_type = 'sthpw/pipeline'
 
     filters = [('search_type', process), ('project_code', env.Env().get_project())]
-    assets = server_query(search_type, filters)
+    assets = server.query(search_type, filters)
 
     from lib.bs4 import BeautifulSoup
 
@@ -658,9 +926,10 @@ def users_query():
     :param user: Optional users names
     :return:
     """
+    server = server_start()
     search_type = 'sthpw/login'
     filters = []
-    logins = server_query(search_type, filters)
+    logins = server.query(search_type, filters)
 
     result = collections.OrderedDict()
     for login in logins:
@@ -680,13 +949,23 @@ def create_sobject(name, description, keywords, search_type):
     return sobject
 
 
-def delete_sobject_snapshot(sobject, delete_files=False):
-
-    server_start().delete_sobject(sobject, delete_files)
+def delete_sobject_snapshot(sobject, delete_snapshot=True, search_keys=None, files_paths=None):
+    dep_list = {
+        'related_types': ['sthpw/file'],
+        'files_list': {'search_key': search_keys,
+                       'file_path': files_paths,
+                       'delete_snapshot': delete_snapshot,
+                       },
+    }
+    try:
+        server_start().delete_sobject(sobject, list_dependencies=dep_list), 'delete_sobject_snapshot'
+        return True
+    except Exception as err:
+        print(err, 'delete_sobject_snapshot')
+        return False
 
 
 def delete_sobject_item(skey, delete_files=False):
-
     server_start().delete_sobject(skey, delete_files)
 
 
@@ -750,39 +1029,75 @@ def create_snapshot(search_key, context):
     return snapshot
 
 
-def delete_confirm(paths, repo, delete_files=True):
-    if delete_files:
-        update_vs = '<p>Versionless will be <span style="color:#00aa00;"><b>Updated</b></span></p>'
-    else:
-        update_vs = '<p>Versionless will <span style="color:#aa0000;"><b>not be</b></span> Updated</p>'
+def snapshot_delete_confirm(snapshot, files):
+    ver_rev = gf.get_ver_rev(snapshot['version'], snapshot['revision'])
 
-    full_path = env.Env().rep_dirs[repo][0] + '/' + paths['relative_path']
-
-    msb = QtGui.QMessageBox(QtGui.QMessageBox.Question, 'Confirm saving',
-                            '<p><p>Files will be saved to:</p>{0}<p>Filename: {1}</p>{2}Continue?</p>'.format(full_path, paths['file_name'], update_vs),
+    msb = QtGui.QMessageBox(QtGui.QMessageBox.Question, 'Confirm deleting',
+                            '<p><p>Do you really want to delete snapshot, with context:</p>{0}<p>Version: {1}</p>Also remove selected Files?</p>'.format(
+                                snapshot['context'], ver_rev),
                             QtGui.QMessageBox.NoButton, env.Inst().ui_main)
 
-    msb.addButton("Yes", QtGui.QMessageBox.YesRole)
-    msb.addButton("No", QtGui.QMessageBox.NoRole)
+    msb.addButton("Delete", QtGui.QMessageBox.YesRole)
+    msb.addButton("Cancel", QtGui.QMessageBox.NoRole)
+
+    layout = QtGui.QVBoxLayout()
+
+    wdg = QtGui.QWidget()
+    wdg.setLayout(layout)
+
+    msb_layot = msb.layout()
+    msb_layot.addWidget(wdg, 1, 1)
+
+    checkboxes = []
+    files_list = []
+    files_filtered_search_keys = []
+    files_filtered_file_paths = []
+
+    delete_snapshot_checkbox = QtGui.QCheckBox('Delete snapshot')
+    delete_snapshot_checkbox.setChecked(True)
+    layout.addWidget(delete_snapshot_checkbox)
+
+    for i, fl in enumerate(files.itervalues()):
+        checkboxes.append(QtGui.QCheckBox(fl[0]['file_name']))
+        files_list.append(fl[0])
+        checkboxes[i].setChecked(True)
+        layout.addWidget(checkboxes[i])
+
     msb.exec_()
     reply = msb.buttonRole(msb.clickedButton())
 
     if reply == QtGui.QMessageBox.YesRole:
-        return True
+
+        if snapshot.get('repo'):
+            asset_dir = env.Env().rep_dirs[snapshot.get('repo')][0]
+        else:
+            asset_dir = env.Env().rep_dirs['asset_base_dir'][0]
+
+        for i, checkbox in enumerate(checkboxes):
+            if checkbox.isChecked():
+                files_filtered_search_keys.append(files_list[i]['__search_key__'])
+                files_filtered_file_paths.append(
+                    gf.form_path(
+                        '{0}/{1}/{2}'.format(asset_dir, files_list[i]['relative_dir'], files_list[i]['file_name'])))
+
+        return True, files_filtered_search_keys, files_filtered_file_paths, delete_snapshot_checkbox.isChecked()
     else:
-        return False
+        return False, None
 
 
-def save_confirm(paths, repo, update_versionless=True):
+def save_confirm(paths, visible_ext, repo, update_versionless=True):
     if update_versionless:
         update_vs = '<p>Versionless will be <span style="color:#00aa00;"><b>Updated</b></span></p>'
     else:
         update_vs = '<p>Versionless will <span style="color:#aa0000;"><b>not be</b></span> Updated</p>'
 
-    full_path = env.Env().rep_dirs[repo][0] + '/' + paths['relative_path']
+    full_path = gf.form_path(env.Env().rep_dirs[repo][0] + '/' + paths['relative_path'])
 
     msb = QtGui.QMessageBox(QtGui.QMessageBox.Question, 'Confirm saving',
-                            '<p><p>Files will be saved to:</p>{0}<p>Filename: {1}</p>{2}Continue?</p>'.format(full_path, paths['file_name'], update_vs),
+                            '<p><p>Files will be saved to:</p>{0}<p>Filename: {1}</p>{2}Continue?</p>'.format(full_path,
+                                                                                                              paths[
+                                                                                                                  'file_name'] + '.' + visible_ext,
+                                                                                                              update_vs),
                             QtGui.QMessageBox.NoButton, env.Inst().ui_main)
 
     msb.addButton("Yes", QtGui.QMessageBox.YesRole)
@@ -796,7 +1111,8 @@ def save_confirm(paths, repo, update_versionless=True):
         return False
 
 
-def checkin_virtual_snapshot(search_key, context, ext='', file_type='main', is_revision=False, repo=None, update_versionless=True, version=None):
+def checkin_virtual_snapshot(search_key, context, ext='', visible_ext='', file_type='main', is_revision=False,
+                             repo=None, update_versionless=True, version=None):
     # print repo
 
     if repo == 'asset_base_dir' or 'win32_local_repo_dir':
@@ -814,14 +1130,13 @@ def checkin_virtual_snapshot(search_key, context, ext='', file_type='main', is_r
 
         # print virtual_snapshot
 
-        if save_confirm(virtual_snapshot, repo, update_versionless):
-            return True
+        if save_confirm(virtual_snapshot, visible_ext, repo, update_versionless):
+            return True, virtual_snapshot
         else:
-            return False
+            return False, None
 
 
 def add_repo_info(search_key, context, snapshot, repo):
-
     # adding repository info
     splitted_skey = server_start().split_search_key(search_key)
     filters_snapshots = [
@@ -839,23 +1154,9 @@ def add_repo_info(search_key, context, snapshot, repo):
     server_start().update_multiple(data, False)
 
 
-def new_checkin_snapshot(search_key, context, ext='', file_type='main', is_current=True, is_revision=False, description=None, repo=None, version=None):
-
+def new_checkin_snapshot(search_key, context, ext='', file_type='main', is_current=True, is_revision=False,
+                         description=None, repo=None, version=None):
     if repo['name'] == 'asset_base_dir' or 'win32_local_repo_dir':
-
-        # creating virtual snapshot
-        virtual_snapshot = server_start().get_virtual_snapshot_extended(
-            search_key,
-            context,
-            checkin_type='auto',
-            is_revision=is_revision,
-            ext=ext,
-            file_type=file_type,
-            mkdirs=False,
-            protocol=None,
-            version=version,
-        )
-
         # creating snapshot
         snapshot = server_start().create_snapshot(
             search_key=search_key,
@@ -867,7 +1168,7 @@ def new_checkin_snapshot(search_key, context, ext='', file_type='main', is_curre
             version=version,
         )
 
-        return virtual_snapshot, snapshot
+        return snapshot
 
 
 def update_description(search_key, description):
@@ -898,6 +1199,7 @@ def add_note(search_key, process, context, note, note_html, login):
 def task_process_query(seach_key):
     # TODO Query task process per process
     # from pprint import pprint
+    server = server_start()
     processes = {}
     default_processes = ['Assignment', 'Pending', 'In Progress', 'Waiting', 'Need Assistance', 'Revise', 'Reject',
                          'Complete', 'Approved']
@@ -937,7 +1239,7 @@ def task_process_query(seach_key):
     code = [('message_code', 'cgshort/characters?project=the_pirate&code=CHARACTERS00001')]
     search_type = 'sthpw/message_log'
 
-    message = server_query(search_type, code)
+    message = server.query(search_type, code)
 
     # from pprint import pprint
     print('from task_process_query!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!')
@@ -998,6 +1300,7 @@ def task_priority_query(seach_key):
 # Skey funtions
 
 def parce_skey(skey):
+    server = server_start()
     skey_splitted = urlparse.urlparse(skey)
     skey_dict = dict(urlparse.parse_qsl(skey_splitted.query))
     skey_dict['namespace'] = skey_splitted.netloc
@@ -1006,7 +1309,7 @@ def parce_skey(skey):
     if skey_splitted.scheme == 'skey':
         if skey_dict['pipeline_code'] == 'snapshot':
             skey_dict['type'] = 'snapshot'
-            snapshot = server_query('sthpw/snapshot', [('code', skey_dict.get('code'))])
+            snapshot = server.query('sthpw/snapshot', [('code', skey_dict.get('code'))])
             if snapshot:
                 snapshot = snapshot[0]
                 skey_dict['pipeline_code'] = snapshot['search_type'].split('/')[-1].split('?')[0]

@@ -255,9 +255,16 @@ class Ui_checkInTreeWidget(QtGui.QWidget, ui_checkin_tree.Ui_checkInTree):
             self.resultsTreeWidget.takeTopLevelItem(update[0])
 
             sobject = {update[1]: self.sobjects[update[1]]}
-            gf.add_items_to_tree(self, self.resultsTreeWidget, item_widget, sobject, self.process,
-                                 self.searchOptionsGroupBox.showAllProcessCheckBox.isChecked(), update[0],
-                                 snapshots=False)
+            self.root_snapshots_items_count = gf.add_items_to_tree(
+                self,
+                self.resultsTreeWidget,
+                item_widget,
+                sobject,
+                self.process,
+                self.searchOptionsGroupBox.showAllProcessCheckBox.isChecked(),
+                update[0],
+                snapshots=False
+            )
 
             try:
                 gf.revert_expanded_state(self.resultsTreeWidget, expanded_state, expand=True)
@@ -268,8 +275,15 @@ class Ui_checkInTreeWidget(QtGui.QWidget, ui_checkin_tree.Ui_checkInTree):
     def fill_items(self):
         self.sobjects = self.sobjects_query.result
 
-        gf.add_items_to_tree(self, self.resultsTreeWidget, item_widget, self.sobjects, self.process,
-                             self.searchOptionsGroupBox.showAllProcessCheckBox.isChecked(), snapshots=False)
+        self.root_snapshots_items_count = gf.add_items_to_tree(
+            self,
+            self.resultsTreeWidget,
+            item_widget,
+            self.sobjects,
+            self.process,
+            self.searchOptionsGroupBox.showAllProcessCheckBox.isChecked(),
+            snapshots=False
+        )
 
         if self.go_by_skey[0]:
             gf.expand_to_snapshot(self, self.resultsTreeWidget)
@@ -333,6 +347,7 @@ class Ui_checkInTreeWidget(QtGui.QWidget, ui_checkin_tree.Ui_checkInTree):
         self.checkin_options.triggered.connect(self.toggle_checkin_options_group_box)
 
         snapshot_menu = QtGui.QMenu()
+
         if not tool_button:
             snapshot_menu.addAction(self.save_snapshot)
         snapshot_menu.addAction(self.save_selected_snapshot)
@@ -431,15 +446,32 @@ class Ui_checkInTreeWidget(QtGui.QWidget, ui_checkin_tree.Ui_checkInTree):
 
         if parent_widget.type == 'sobject':
 
-            gf.add_snapshots_items_to_tree(self, self.resultsTreeWidget, widget, item_widget, parent_widget, process)
+            root_item_count = self.root_snapshots_items_count[self.resultsTreeWidget.indexOfTopLevelItem(widget)]
+
+            gf.add_snapshots_items_to_tree(
+                self,
+                self.resultsTreeWidget,
+                widget,
+                item_widget,
+                parent_widget,
+                process,
+                root_item_count
+            )
 
             notes_counts = tc.get_notes_count(parent_widget.sobject, process)
 
-            for i in range(widget.childCount()):
-                process_widget = self.resultsTreeWidget.itemWidget(widget.child(i), 0)
+            for i in range(widget.childCount() - root_item_count):
+                process_widget = self.resultsTreeWidget.itemWidget(widget.child(i + root_item_count), 0)
 
                 if process_widget.type == 'process':
                     process_widget.notesToolButton.setText('Notes ({0})'.format(notes_counts[i]))
+
+    def update_snapshot_tree(self, item):
+        # update current tree item to see saving results
+        item.sobject.update_snapshots()
+        update = item.row, item.sobject.info['code']
+
+        self.add_items_to_results(update=update)
 
     def save_file(self):
         nested_item = self.resultsTreeWidget.itemWidget(self.resultsTreeWidget.currentItem(), 0)
@@ -452,8 +484,6 @@ class Ui_checkInTreeWidget(QtGui.QWidget, ui_checkin_tree.Ui_checkInTree):
                 description = gf.simplify_html(self.descriptionTextEdit.toHtml())
             else:
                 description = 'No Description'
-
-            self.descriptionTextEdit.clear()
 
             if env.Mode().get == 'maya':
                 version = None
@@ -473,11 +503,8 @@ class Ui_checkInTreeWidget(QtGui.QWidget, ui_checkin_tree.Ui_checkInTree):
                     False,
                 )
                 if scene_saved:
-                    # update current tree item to see saving results
-                    nested_item.sobject.update_snapshots()
-                    update = nested_item.row, nested_item.sobject.info['code']
-
-                    self.add_items_to_results(update=update)
+                    self.descriptionTextEdit.clear()
+                    self.update_snapshot_tree(nested_item)
 
             if env.Mode().get == 'standalone':
                 print(env.Mode().get)
@@ -493,10 +520,7 @@ class Ui_checkInTreeWidget(QtGui.QWidget, ui_checkin_tree.Ui_checkInTree):
                     version=None,
                 )
 
-                nested_item.sobject.update_snapshots()
-                update = nested_item.row, nested_item.sobject.info['code']
-
-                self.add_items_to_results(update=update)
+                self.update_snapshot_tree(nested_item)
 
         else:
             self.savePushButton.setEnabled(False)
@@ -529,7 +553,16 @@ class Ui_checkInTreeWidget(QtGui.QWidget, ui_checkin_tree.Ui_checkInTree):
 
             print(search_key, 'deleting...')
 
-            print tc.delete_sobject_snapshot(sobject=search_key, delete_files=False)
+            snapshot_del_confirm = tc.snapshot_delete_confirm(snapshot=nested_item.snapshot, files=nested_item.files)
+
+            if snapshot_del_confirm[0]:
+                if tc.delete_sobject_snapshot(
+                    sobject=search_key,
+                    delete_snapshot=snapshot_del_confirm[3],
+                    search_keys=snapshot_del_confirm[1],
+                    files_paths=snapshot_del_confirm[2]
+                ):
+                    self.update_snapshot_tree(nested_item)
 
     def delete_sobject(self):
 
@@ -587,6 +620,7 @@ class Ui_checkInTreeWidget(QtGui.QWidget, ui_checkin_tree.Ui_checkInTree):
             self.contextLineEdit.setEnabled(True)
 
         env.Inst().ui_main.skeyLineEdit.setText(nested_item.get_skey(skey=True))
+        print nested_item.get_context(process=True)
         self.contextLineEdit.setText(nested_item.get_context())
         # self.descriptionTextEdit.setText(nested_item.get_description())
 

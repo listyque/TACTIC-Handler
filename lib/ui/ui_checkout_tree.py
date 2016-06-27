@@ -1,9 +1,9 @@
 # -*- coding: utf-8 -*-
 
-# Form implementation generated from reading ui file './ui_checkout_tree.ui'
+# Form implementation generated from reading ui file '/mnt/drive_d/Alexey/Dropbox/Work/CGProjects/tacticbase_dev/TACTIC-handler/lib/ui/ui_checkout_tree.ui'
 #
-# Created: Sat Mar 05 23:30:32 2016
-#      by: pyside-uic 0.2.15 running on PySide 1.2.4
+# Created: Thu Jun  9 12:07:02 2016
+#      by: pyside-uic 0.2.14 running on PySide 1.2.0
 #
 # WARNING! All changes made in this file will be lost!
 
@@ -12,12 +12,10 @@ from PySide import QtCore, QtGui
 class Ui_checkOutTree(object):
     def setupUi(self, checkOutTree):
         checkOutTree.setObjectName("checkOutTree")
-        checkOutTree.resize(681, 655)
         checkOutTree.setMinimumSize(QtCore.QSize(400, 250))
-        self.verticalLayout_6 = QtGui.QVBoxLayout(checkOutTree)
-        self.verticalLayout_6.setSpacing(0)
-        self.verticalLayout_6.setContentsMargins(0, 0, 0, 0)
-        self.verticalLayout_6.setObjectName("verticalLayout_6")
+        self.verticalLayout = QtGui.QVBoxLayout(checkOutTree)
+        self.verticalLayout.setContentsMargins(0, 0, 0, 0)
+        self.verticalLayout.setObjectName("verticalLayout")
         self.commentsSplitter = QtGui.QSplitter(checkOutTree)
         self.commentsSplitter.setOrientation(QtCore.Qt.Horizontal)
         self.commentsSplitter.setObjectName("commentsSplitter")
@@ -44,14 +42,30 @@ class Ui_checkOutTree(object):
         self.resultsLayout.setSpacing(0)
         self.resultsLayout.setContentsMargins(0, 0, 0, 0)
         self.resultsLayout.setObjectName("resultsLayout")
-        self.resultsTreeWidget = QtGui.QTreeWidget(self.resultsGroupBox)
+        self.resultsSplitter = QtGui.QSplitter(self.resultsGroupBox)
+        self.resultsSplitter.setOrientation(QtCore.Qt.Vertical)
+        self.resultsSplitter.setObjectName("resultsSplitter")
+        self.resultsTreeWidget = QtGui.QTreeWidget(self.resultsSplitter)
         self.resultsTreeWidget.setTabKeyNavigation(True)
         self.resultsTreeWidget.setVerticalScrollMode(QtGui.QAbstractItemView.ScrollPerPixel)
         self.resultsTreeWidget.setAllColumnsShowFocus(True)
         self.resultsTreeWidget.setHeaderHidden(True)
         self.resultsTreeWidget.setObjectName("resultsTreeWidget")
         self.resultsTreeWidget.headerItem().setText(0, "1")
-        self.resultsLayout.addWidget(self.resultsTreeWidget)
+        self.verticalLayoutWidget_3 = QtGui.QWidget(self.resultsSplitter)
+        self.verticalLayoutWidget_3.setObjectName("verticalLayoutWidget_3")
+        self.versionsLayout = QtGui.QVBoxLayout(self.verticalLayoutWidget_3)
+        self.versionsLayout.setContentsMargins(0, 0, 0, 0)
+        self.versionsLayout.setObjectName("versionsLayout")
+        self.resultsVersionsTreeWidget = QtGui.QTreeWidget(self.verticalLayoutWidget_3)
+        self.resultsVersionsTreeWidget.setTabKeyNavigation(True)
+        self.resultsVersionsTreeWidget.setVerticalScrollMode(QtGui.QAbstractItemView.ScrollPerPixel)
+        self.resultsVersionsTreeWidget.setAllColumnsShowFocus(True)
+        self.resultsVersionsTreeWidget.setHeaderHidden(True)
+        self.resultsVersionsTreeWidget.setObjectName("resultsVersionsTreeWidget")
+        self.resultsVersionsTreeWidget.headerItem().setText(0, "1")
+        self.versionsLayout.addWidget(self.resultsVersionsTreeWidget)
+        self.resultsLayout.addWidget(self.resultsSplitter)
         self.gridLayout.addWidget(self.searchOptionsSplitter, 1, 0, 1, 5)
         self.searchLineEdit = QtGui.QLineEdit(self.layoutWidget)
         font = QtGui.QFont()
@@ -164,12 +178,11 @@ class Ui_checkOutTree(object):
         self.saveDescriprionButton.setObjectName("saveDescriprionButton")
         self.verticalLayout_2.addWidget(self.saveDescriprionButton)
         self.commentsLayout.addWidget(self.descriptionSplitter, 0, 0, 1, 1)
-        self.verticalLayout_6.addWidget(self.commentsSplitter)
+        self.verticalLayout.addWidget(self.commentsSplitter)
 
         self.retranslateUi(checkOutTree)
         QtCore.QMetaObject.connectSlotsByName(checkOutTree)
-        checkOutTree.setTabOrder(self.searchLineEdit, self.resultsTreeWidget)
-        checkOutTree.setTabOrder(self.resultsTreeWidget, self.saveDescriprionButton)
+        checkOutTree.setTabOrder(self.searchLineEdit, self.saveDescriprionButton)
         checkOutTree.setTabOrder(self.saveDescriprionButton, self.descriptionTextEdit)
 
     def retranslateUi(self, checkOutTree):
@@ -181,8 +194,11 @@ class Ui_checkOutTree(object):
         self.descriptionTextEdit.setHtml(QtGui.QApplication.translate("checkOutTree", "<!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 4.0//EN\" \"http://www.w3.org/TR/REC-html40/strict.dtd\">\n"
 "<html><head><meta name=\"qrichtext\" content=\"1\" /><style type=\"text/css\">\n"
 "p, li { white-space: pre-wrap; }\n"
-"</style></head><body style=\" font-family:\'MS Shell Dlg 2\'; font-size:8.25pt; font-weight:400; font-style:normal;\">\n"
-"<p style=\" margin-top:12px; margin-bottom:12px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;\"><span style=\" font-size:8pt;\"><br /></span></p></body></html>", None, QtGui.QApplication.UnicodeUTF8))
+"</style></head><body style=\" font-family:\'Sans Serif\'; font-size:10pt; font-weight:400; font-style:normal;\">\n"
+"<table style=\"-qt-table-type: root; margin-top:4px; margin-bottom:4px; margin-left:4px; margin-right:4px;\">\n"
+"<tr>\n"
+"<td style=\"border: none;\">\n"
+"<p style=\" margin-top:12px; margin-bottom:12px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;\"><span style=\" font-family:\'MS Shell Dlg 2\'; font-size:8pt;\"><br /></span></p></td></tr></table></body></html>", None, QtGui.QApplication.UnicodeUTF8))
         self.saveDescriprionButton.setText(QtGui.QApplication.translate("checkOutTree", "Save description", None, QtGui.QApplication.UnicodeUTF8))
 
 import resources_rc

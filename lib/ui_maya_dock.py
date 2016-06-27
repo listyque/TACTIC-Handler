@@ -16,7 +16,7 @@ reload(ui_main_classes)
 
 
 class Ui_DockMain(MayaQWidgetDockableMixin, QtGui.QMainWindow):
-    def __init__(self, tab_index=None, parent=None):
+    def __init__(self, tab_index=None, offline=False, parent=None):
         super(self.__class__, self).__init__(parent=parent)
         env.Inst.ui_maya_dock = self
 
@@ -24,8 +24,9 @@ class Ui_DockMain(MayaQWidgetDockableMixin, QtGui.QMainWindow):
 
         self.settings = QtCore.QSettings('TACTIC Handler', 'TACTIC Handling Tool')
 
-        self.ui_main_window = ui_main_classes.Ui_Main(self.parent())
+        self.ui_main_window = ui_main_classes.Ui_Main(offline, self.parent())
         self.setCentralWidget(self.ui_main_window)
+        env.Inst.ui_main = self.ui_main_window
 
         self.setObjectName('TacticDockWindow')
 
@@ -110,10 +111,38 @@ class Ui_DockMain(MayaQWidgetDockableMixin, QtGui.QMainWindow):
         self.writeSettings()
 
 
+def create_ui(thread, tab_index):
+    thread = tc.threat_result(thread)
+    if thread.result == QtGui.QMessageBox.ApplyRole:
+        retry_startup(thread, tab_index)
+    else:
+        if thread.isFailed():
+            print 'OPENING OFFLINE'
+            main_tab = Ui_DockMain(tab_index=tab_index, offline=True)
+        else:
+            main_tab = Ui_DockMain(tab_index=tab_index, offline=False)
+
+        env.Inst().ui_maya_dock = main_tab
+        main_tab.switch_tab(tab_index)
+        main_tab.show()
+        main_tab.raise_()
+
+        if thread.result == QtGui.QMessageBox.ActionRole:
+            print 'OPENING CONFIG'
+            env.Inst.ui_main.open_config_dialog()
+
+
+def retry_startup(thread, tab_index):
+    thread.run()
+    create_ui(thread, tab_index)
+
+
 def startup(tab_index=None, restart=False):
     if restart:
-        if tc.ping_srv():
-            Ui_DockMain.restarting(tab_index)
+        # if tc.ping_srv():
+        Ui_DockMain.restarting(tab_index)
+
+    env.Inst().ui_super = mf.get_maya_window()
 
     try:
         main_tab = mf.get_maya_dock_window()[0]
@@ -121,10 +150,16 @@ def startup(tab_index=None, restart=False):
         main_tab.show()
         main_tab.raise_()
     except:
-        if tc.ping_srv():
-            main_tab = Ui_DockMain(tab_index)
-            main_tab.switch_tab(tab_index)
-            main_tab.show()
-            main_tab.raise_()
+        ping_thread = tc.get_server_thread(dict(), tc.server_ping, lambda: create_ui(ping_thread, tab_index), parent=env.Inst().ui_super)
+        ping_thread.start()
 
-
+        # if tc.server_ping():
+        #     main_tab = Ui_DockMain(tab_index=tab_index, offline=False)
+        #     main_tab.switch_tab(tab_index)
+        #     main_tab.show()
+        #     main_tab.raise_()
+        # else:
+        #     main_tab = Ui_DockMain(tab_index=tab_index, offline=True)
+        #     main_tab.switch_tab(tab_index)
+        #     main_tab.show()
+        #     main_tab.raise_()

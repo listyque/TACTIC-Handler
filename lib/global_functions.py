@@ -5,10 +5,9 @@ import os
 import sys
 import zlib
 import binascii
-import collections
 
 import PySide.QtGui as QtGui
-import tactic_classes as tc
+import environment as env
 
 
 def hex_to_rgb(hex_v, alpha=None, tuple=False):
@@ -36,6 +35,10 @@ def hex_to_rgb(hex_v, alpha=None, tuple=False):
 
 
 def sizes(size, precision=2):
+    if size != '':
+        size = int(size)
+    else:
+        size = 0
     suffixes = [' b', ' Kb', ' Mb', ' Gb', ' Tb']
     suffix_index = 0
 
@@ -43,7 +46,8 @@ def sizes(size, precision=2):
         suffix_index += 1
         if not size:
             size = 0
-        size = size / 1024.0
+        size /= 1024.0
+        # size = size / 1024.0
 
     return '{1:.{0}f} {2}'.format(precision, size, suffixes[suffix_index])
 
@@ -68,6 +72,15 @@ def hex_to_html(text_hex):
         return hex_to_text
 
 
+def form_path(path):
+    if env.Env().platform == 'Linux':
+        formed_path = path.replace('\\', '/').replace('\\\\', '/').replace('//', '/')
+        return formed_path
+    else:
+        formed_path = path.replace('\\', '/')
+        return formed_path
+
+
 def get_ver_rev(ver, rev):
     if ver > 0 and rev > 0:
         result = '<span style="color:#008498;">Ver: {0:03d};</span><span style="color:#0a9800;"> Rev: {1:03d}</span>'.format(ver,
@@ -82,7 +95,7 @@ def get_ver_rev(ver, rev):
 
 # QTreeWidget func
 def add_items_to_tree(parent, tree_widget, item_widget, sobjects, process,
-                      searh_all=False, row=0, snapshots=True):
+                      searh_all=False, row=0, snapshots=True, sep_versions=False):
     def add_items_and_widgets(item=None, widget=None, text=''):
         tree_item = QtGui.QTreeWidgetItem()
         tree_item.setText(0, text)
@@ -93,8 +106,11 @@ def add_items_to_tree(parent, tree_widget, item_widget, sobjects, process,
     parent.progres_bar.show()
     tree_widget.clear()
 
+    root_items_count = []
+
     # top level items routine
     for i, (sobject_code, sobject) in enumerate(sobjects.iteritems(), start=row):
+
         main_item = QtGui.QTreeWidgetItem()
         tree_widget.insertTopLevelItem(i, main_item)
         main_widget_items = item_widget.Ui_itemWidget(i, sobject, main_item, parent)
@@ -110,7 +126,18 @@ def add_items_to_tree(parent, tree_widget, item_widget, sobjects, process,
         else:
             iter_process = sobject.process.iterkeys()
 
-        # QtGui.qApp.processEvents()
+        # adds top level root snapshot items, returns count of them
+        # if process == 'publish':
+        # print iter_process
+
+        if main_widget_items.sobject.process.get('publish'):
+            root_items_count.append(add_root_items_to_tree(parent, tree_widget, main_item, item_widget, main_widget_items, 'publish', sep_versions) + 1)
+            print root_items_count
+        else:
+            # root_items_count = [0]
+            # print 'Nope'
+            root_items_count.append(0)
+
         # second level, items with items process
         for j, p in enumerate(iter_process):
             process_item = tree_widget.topLevelItem(i)
@@ -133,9 +160,10 @@ def add_items_to_tree(parent, tree_widget, item_widget, sobjects, process,
 
     parent.progres_bar.setValue(100)
     parent.progres_bar.hide()
+    return root_items_count
 
 
-def add_snapshots_items_to_tree(parent, tree_widget, child_widget, item_widget, parent_widget, process):
+def add_snapshots_items_to_tree(parent, tree_widget, child_widget, item_widget, parent_widget, process, offset=0, sep_versions=False):
     def add_items_and_widgets(item=None, widget=None, text=''):
         tree_item = QtGui.QTreeWidgetItem()
         tree_item.setText(0, text)
@@ -144,12 +172,13 @@ def add_snapshots_items_to_tree(parent, tree_widget, child_widget, item_widget, 
         tree_widget.setItemWidget(tree_item, 0, widget)
 
     for j, p in enumerate(process):
+        pos = j + offset
 
         # third level, items with items context, and versionless
         if parent_widget.sobject.process.get(p):
-            child_widget.child(j).takeChildren()
+            child_widget.child(pos).takeChildren()
             for k, (key1, context1) in enumerate(parent_widget.sobject.process[p].contexts.iteritems()):
-                tree_v_item = child_widget.child(j)
+                tree_v_item = child_widget.child(pos)
                 item_v_widget = item_widget.Ui_snapshotItemWidget(parent_widget.row, context1.versionless,
                                                                   parent_widget.sobject, tree_v_item, parent)
                 add_items_and_widgets(tree_v_item, item_v_widget)
@@ -160,16 +189,55 @@ def add_snapshots_items_to_tree(parent, tree_widget, child_widget, item_widget, 
                 #     'versions': collections.defaultdict(list),
                 #     'revisions': collections.defaultdict(list),
                 # }
-                for l, (key2, context2) in enumerate(
-                        parent_widget.sobject.process[p].contexts[key1].versions.iteritems()):
-                    # snapshots[context2.snapshot['version']].append(context2)
+                if not sep_versions:
+                    for l, (key2, context2) in enumerate(
+                            parent_widget.sobject.process[p].contexts[key1].versions.iteritems()):
+                        # snapshots[context2.snapshot['version']].append(context2)
 
-                    tree_vs_item = child_widget.child(j).child(k)
-                    item_vs_widget = item_widget.Ui_snapshotItemWidget(parent_widget.row, dict(key=context2),
-                                                                       parent_widget.sobject, tree_vs_item, parent)
-                    add_items_and_widgets(tree_vs_item, item_vs_widget)
+                        tree_vs_item = child_widget.child(pos).child(k)
+                        item_vs_widget = item_widget.Ui_snapshotItemWidget(parent_widget.row, dict(key=context2),
+                                                                           parent_widget.sobject, tree_vs_item, parent)
+                        add_items_and_widgets(tree_vs_item, item_vs_widget)
 
                 # print revisions
+
+
+def add_root_items_to_tree(parent, tree_widget, child_widget, item_widget, parent_widget, process, sep_versions=False):
+    def add_items_and_widgets(item=None, widget=None, text=''):
+        tree_item = QtGui.QTreeWidgetItem()
+        tree_item.setText(0, text)
+        item.addChild(tree_item)
+        widget.tree_item = tree_item
+        tree_widget.setItemWidget(tree_item, 0, widget)
+
+    i = 0
+
+    for i, (key1, context1) in enumerate(parent_widget.sobject.process[process].contexts.iteritems()):
+        print i, key1, context1
+        item_v_widget = item_widget.Ui_snapshotItemWidget(parent_widget.row, context1.versionless,
+                                                          parent_widget.sobject, child_widget, parent)
+        add_items_and_widgets(child_widget, item_v_widget)
+        if not sep_versions:
+            for j, (key2, context2) in enumerate(parent_widget.sobject.process[process].contexts[key1].versions.iteritems()):
+                print j, key2, context2
+                tree_vs_item = child_widget.child(i)
+                item_vs_widget = item_widget.Ui_snapshotItemWidget(parent_widget.row, dict(key=context2),
+                                                                   parent_widget.sobject, tree_vs_item, parent)
+                add_items_and_widgets(tree_vs_item, item_vs_widget)
+
+    return i
+
+
+def add_versions_items_to_tree(parent, tree_widget, item_widget, parent_widget, process, context):
+    tree_widget.clear()
+    for i, (key, context) in enumerate(parent_widget.sobject.process[process].contexts[context].versions.iteritems()):
+        tree_vs_item = QtGui.QTreeWidgetItem()
+        tree_widget.insertTopLevelItem(i, tree_vs_item)
+        item_vs_widget = item_widget.Ui_snapshotItemWidget(parent_widget.row, dict(key=context),
+                                                           parent_widget.sobject, tree_vs_item, parent)
+
+        tree_widget.setItemWidget(tree_widget.topLevelItem(i), 0, item_vs_widget)
+        tree_widget.setRootIsDecorated(False)
 
 
 def expand_to_snapshot(parent, tree_widget):
@@ -339,6 +407,6 @@ def to_plain_text(html, strip=80):
     text_doc.setHtml(html)
     plain_text = text_doc.toPlainText()[:strip]
     if len(plain_text) > strip - 1:
-        plain_text += plain_text + ' ...'
+        plain_text += ' ...'
 
     return plain_text
