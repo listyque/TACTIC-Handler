@@ -207,7 +207,7 @@ class Ui_assetsBrowserWidget(QtGui.QWidget, ui_assets_browser.Ui_assetsBrowser):
 
         all_sobjects = tc.query_tab_names(True)
 
-        filters = [('login', env.Env().get_user()), ('project_code', env.Env().get_project())]
+        filters = [('login', env.Env.get_user()), ('project_code', env.Env.get_project())]
 
         subscriptions = stub.query('sthpw/subscription', filters)
 
@@ -258,7 +258,7 @@ class Ui_assetsBrowserWidget(QtGui.QWidget, ui_assets_browser.Ui_assetsBrowser):
             self.sobj_widget.setTitle(self.dyn_list.values()[i].info['name'])
             try:
                 web_file = self.dyn_list.values()[i].process['icon'].contexts['icon'].versionless.values()[0].files['web']
-                web_full_path = '{0}/{1}/{2}'.format(env.Env().get_asset_dir(), web_file[0]['relative_dir'], web_file[0]['file_name'])
+                web_full_path = '{0}/{1}/{2}'.format(env.Env.get_asset_dir(), web_file[0]['relative_dir'], web_file[0]['file_name'])
                 self.sobj_widget.picLabel.setText("<img src=\"{0}\" width=\"{1}\" ".format(web_full_path, image_size))
             except:
                 self.sobj_widget.picLabel.setText('No preview')

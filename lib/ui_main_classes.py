@@ -7,7 +7,7 @@ import PySide.QtGui as QtGui
 import environment as env
 import tactic_classes as tc
 
-if env.Mode().get == 'maya':
+if env.Mode.get == 'maya':
     import maya_functions as mf
 import lib.ui.ui_main as ui_main
 import ui_checkin_out_tabs_classes
@@ -24,26 +24,21 @@ reload(ui_assets_browser_classes)
 
 
 class Ui_Main(QtGui.QMainWindow, ui_main.Ui_MainWindow):
-    def __init__(self, offline=False, parent=None):
+    def __init__(self, parent=None):
         super(self.__class__, self).__init__(parent=parent)
 
-        self.offline = offline
-        if not self.offline:
-            env.Env().get_default_dirs()
-
-        # if env.Env().get_first_run():
-        #     self.create_ui_main_offline()
-        #     ui_conf_classes.Ui_configuration_dialogWidget(offline=True, parent=self).show()
-        if self.offline:
+        if env.Inst.offline:
             self.create_ui_main_offline()
         else:
+            env.Env.get_default_dirs()
             self.create_ui_main()
 
     def create_ui_main_offline(self):
 
-        env.Inst().ui_main = self
+        env.Inst.ui_main = self
         self.setupUi(self)
         self.setWindowTitle('TACTIC handler (OFFLINE)')
+
         # instance attributes
         self.menu = None
         self.ui_checkout = None
@@ -63,19 +58,21 @@ class Ui_Main(QtGui.QMainWindow, ui_main.Ui_MainWindow):
 
     def create_ui_main(self):
 
-        env.Inst().ui_main = self
+        env.Inst.ui_main = self
         self.setupUi(self)
         self.setWindowTitle('TACTIC handler')
+
         # instance attributes
         self.menu = None
         self.ui_checkout = None
         self.ui_checkin = None
         self.settings = None
+        self.create_loading_label()
+        self.toggle_loading_label()
 
         # Server Threads
         self.tabs_items_thread = tc.ServerThread(self)
         self.context_items_thread = tc.ServerThread(self)
-
         self.threadsActions()
 
         self.query_tabs()
@@ -102,6 +99,7 @@ class Ui_Main(QtGui.QMainWindow, ui_main.Ui_MainWindow):
 
         self.context_items_thread.finished.connect(self.create_ui_checkout)
         self.context_items_thread.finished.connect(self.create_ui_checkin)
+        self.context_items_thread.finished.connect(self.toggle_loading_label)
 
     def setIcon(self):
         icon = QtGui.QIcon(':/ui_main/gliph/tactic_favicon.ico')
@@ -109,7 +107,20 @@ class Ui_Main(QtGui.QMainWindow, ui_main.Ui_MainWindow):
 
     def setProjectInfo(self):
         self.currentProjectLabel.setText(
-            'Current Porject: <b>{0}</b> '.format(env.Env().get_project().replace('_', ' ').capitalize()))
+            'Current Porject: <b>{0}</b> '.format(env.Env.get_project().replace('_', ' ').capitalize()))
+
+    def create_loading_label(self):
+        self.loading_label = QtGui.QLabel()
+        self.loading_label.setText('Loading...')
+        self.loading_label.setAlignment(QtCore.Qt.AlignHCenter | QtCore.Qt.AlignVCenter)
+        self.loading_label.setVisible(False)
+        self.main_layout.addWidget(self.loading_label, 0, 0, 1, 3)
+
+    def toggle_loading_label(self):
+        if self.loading_label.isVisible():
+            self.loading_label.setVisible(False)
+        else:
+            self.loading_label.setVisible(True)
 
     def click_on_skeyLineEdit(self, event):
         self.skeyLineEdit.selectAll()
@@ -124,12 +135,12 @@ class Ui_Main(QtGui.QMainWindow, ui_main.Ui_MainWindow):
         """
 
         def close_routine():
-            if env.Mode().get == 'maya':
+            if env.Mode.get == 'maya':
                 maya_dock_instances = mf.get_maya_dock_window()
                 for maya_dock_instance in maya_dock_instances:
                     maya_dock_instance.close()
                     maya_dock_instance.deleteLater()
-            if env.Mode().get == 'standalone':
+            if env.Mode.get == 'standalone':
                 self.close()
 
         self.actionExit.triggered.connect(close_routine)
@@ -145,10 +156,7 @@ class Ui_Main(QtGui.QMainWindow, ui_main.Ui_MainWindow):
         self.main_tabWidget.addAction(self.menu)
 
     def open_config_dialog(self):
-        if self.offline:
-            conf_dialog = ui_conf_classes.Ui_configuration_dialogWidget(offline=True, parent=self)
-        else:
-            conf_dialog = ui_conf_classes.Ui_configuration_dialogWidget(offline=False, parent=self)
+        conf_dialog = ui_conf_classes.Ui_configuration_dialogWidget(parent=self)
         conf_dialog.show()
 
     def go_by_skey(self, skey_in=None, relates_to=None):
@@ -174,14 +182,14 @@ class Ui_Main(QtGui.QMainWindow, ui_main.Ui_MainWindow):
         pipeline_code = None
         if skey:
             if skey.get('pipeline_code') and skey.get('project'):
-                if skey.get('project') == env.Env().get_project():
+                if skey.get('project') == env.Env.get_project():
                     if skey['pipeline_code'] not in common_pipeline_codes:
                         pipeline_code = u'{namespace}/{pipeline_code}'.format(**skey)
                 else:
                     self.wrong_project_message(skey)
 
         if pipeline_code and self.relates_to in ['checkin', 'checkout']:
-            tab_wdg = env.Inst().ui_check_tabs[self.relates_to].sObjTabWidget
+            tab_wdg = env.Inst.ui_check_tabs[self.relates_to].sObjTabWidget
             for i in range(tab_wdg.count()):
                 if tab_wdg.widget(i).objectName() == pipeline_code:
                     tab_wdg.setCurrentIndex(i)
@@ -202,8 +210,8 @@ class Ui_Main(QtGui.QMainWindow, ui_main.Ui_MainWindow):
         msb = QtGui.QMessageBox(QtGui.QMessageBox.Question,
                                 'Item {code}, not belongs to current project!'.format(**skey),
                                 '<p>Current project is <b>{0}</b>, switch to <b>{project}</b> related to this item?</p>'.format(
-                                    env.Env().get_project(), **skey) + '<p>This will restart TACTIC Handler!</p>',
-                                QtGui.QMessageBox.NoButton, env.Inst().ui_main)
+                                    env.Env.get_project(), **skey) + '<p>This will restart TACTIC Handler!</p>',
+                                QtGui.QMessageBox.NoButton, env.Inst.ui_main)
         msb.addButton("Switch to Project", QtGui.QMessageBox.YesRole)
         msb.addButton("Cancel", QtGui.QMessageBox.NoRole)
         msb.exec_()
@@ -211,7 +219,7 @@ class Ui_Main(QtGui.QMainWindow, ui_main.Ui_MainWindow):
         reply = msb.buttonRole(msb.clickedButton())
 
         if reply == QtGui.QMessageBox.YesRole:
-            env.Env().set_project(skey['project'])
+            env.Env.set_project(skey['project'])
             skey_link = self.skeyLineEdit.text()
             self.close()
             self.create_ui_main()
@@ -337,7 +345,7 @@ class Ui_Main(QtGui.QMainWindow, ui_main.Ui_MainWindow):
         Reading Settings
         """
         self.settings = QtCore.QSettings('TACTIC Handler', 'TACTIC Handling Tool')
-        self.settings.beginGroup(env.Mode().get + '/ui_main')
+        self.settings.beginGroup(env.Mode.get + '/ui_main')
         self.move(self.settings.value('pos', self.pos()))
         self.resize(self.settings.value('size', self.size()))
         if self.settings.value("windowState"):
@@ -350,7 +358,7 @@ class Ui_Main(QtGui.QMainWindow, ui_main.Ui_MainWindow):
         """
         Writing Settings
         """
-        self.settings.beginGroup(env.Mode().get + '/ui_main')
+        self.settings.beginGroup(env.Mode.get + '/ui_main')
         if self.windowState() == QtCore.Qt.WindowMaximized:
             state = True
         else:

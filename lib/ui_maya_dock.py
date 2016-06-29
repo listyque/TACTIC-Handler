@@ -64,7 +64,7 @@ class Ui_DockMain(MayaQWidgetDockableMixin, QtGui.QMainWindow):
         Reading Settings
         """
         self.setWindowTitle(self.ui_main_window.windowTitle())
-        self.settings.beginGroup(env.Mode().get + '/ui_maya_dock')
+        self.settings.beginGroup(env.Mode.get + '/ui_maya_dock')
         is_floating = self.settings.value('isFloating', 'false') == 'true' and True or False
         self.move(self.settings.value('pos', QtCore.QPoint(200, 200)))
         size = self.settings.value('size', QtCore.QSize(427, 690))
@@ -86,7 +86,7 @@ class Ui_DockMain(MayaQWidgetDockableMixin, QtGui.QMainWindow):
         """
         Writing Settings
         """
-        self.settings.beginGroup(env.Mode().get + '/ui_maya_dock')
+        self.settings.beginGroup(env.Mode.get + '/ui_maya_dock')
         self.settings.setValue('pos', self.parent().pos())
         self.settings.setValue('size', self.size())
         self.settings.setValue('isFloating', self.isFloating())
@@ -122,7 +122,7 @@ def create_ui(thread, tab_index):
         else:
             main_tab = Ui_DockMain(tab_index=tab_index, offline=False)
 
-        env.Inst().ui_maya_dock = main_tab
+        env.Inst.ui_maya_dock = main_tab
         main_tab.switch_tab(tab_index)
         main_tab.show()
         main_tab.raise_()
@@ -142,7 +142,7 @@ def startup(tab_index=None, restart=False):
         # if tc.ping_srv():
         Ui_DockMain.restarting(tab_index)
 
-    env.Inst().ui_super = mf.get_maya_window()
+    env.Inst.ui_super = mf.get_maya_window()
 
     try:
         main_tab = mf.get_maya_dock_window()[0]
@@ -150,7 +150,7 @@ def startup(tab_index=None, restart=False):
         main_tab.show()
         main_tab.raise_()
     except:
-        ping_thread = tc.get_server_thread(dict(), tc.server_ping, lambda: create_ui(ping_thread, tab_index), parent=env.Inst().ui_super)
+        ping_thread = tc.get_server_thread(dict(), tc.server_ping, lambda: create_ui(ping_thread, tab_index), parent=env.Inst.ui_super)
         ping_thread.start()
 
         # if tc.server_ping():

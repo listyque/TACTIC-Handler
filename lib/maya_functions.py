@@ -185,7 +185,7 @@ def save_scene(search_key, context, description, all_process, repo):
     cmds.setAttr('defaultObjectSet.tacticHandler_skey', skey_link, type='string')
 
     # get template names for scene and playblast image
-    temp_dir = env.Env().get_temp_dir()
+    temp_dir = env.Env.get_temp_dir()
     random_uuid = uuid.uuid4()
 
     types = {
@@ -220,7 +220,7 @@ def save_scene(search_key, context, description, all_process, repo):
     # from pprint import pprint
     # pprint(snapshot)
     # retrieve checked in snapshot file info
-    asset_dir = env.Env().get_asset_dir()
+    asset_dir = env.Env.get_asset_dir()
     file_sobject = snapshot['__file_sobjects__'][0]
     relative_dir = file_sobject['relative_dir']
     file_name = file_sobject['file_name']

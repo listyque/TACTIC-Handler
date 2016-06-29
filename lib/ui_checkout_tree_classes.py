@@ -13,7 +13,7 @@ import ui_maya_dialogs_classes as maya_dialogs
 import ui_menu_classes as menu_widget
 import ui_richedit_classes as richedit_widget
 
-if env.Mode().get == 'maya':
+if env.Mode.get == 'maya':
     import maya_functions as mf
 
     reload(mf)
@@ -32,8 +32,8 @@ class Ui_checkOutTreeWidget(QtGui.QWidget, ui_checkout_tree.Ui_checkOutTree):
         super(self.__class__, self).__init__(parent=parent)
 
         self.settings = QtCore.QSettings('TACTIC Handler', 'TACTIC Handling Tool')
-        self.current_project = env.Env().get_project()
-        self.current_namespace = env.Env().get_namespace()
+        self.current_project = env.Env.get_project()
+        self.current_namespace = env.Env.get_namespace()
 
         # self vars
         self.tab_name, self.tab_index, self.context_items = name_index_context
@@ -47,7 +47,7 @@ class Ui_checkOutTreeWidget(QtGui.QWidget, ui_checkout_tree.Ui_checkOutTree):
 
         self.setupUi(self)
         self.setObjectName(self.tab_name)
-        env.Inst().ui_check_tree['checkout'][self.tab_name] = self
+        env.Inst.ui_check_tree['checkout'][self.tab_name] = self
 
         # Query Threads
         self.names_query_thread = tc.ServerThread(self)
@@ -184,7 +184,7 @@ class Ui_checkOutTreeWidget(QtGui.QWidget, ui_checkout_tree.Ui_checkOutTree):
                 names.run()
                 self.assets_names()
             elif names.result == QtGui.QMessageBox.ActionRole:
-                env.Inst().ui_main.offline = True
+                env.Inst.ui_main.offline = True
                 self.open_config_dialog()
 
         if not names.isFailed():
@@ -239,7 +239,7 @@ class Ui_checkOutTreeWidget(QtGui.QWidget, ui_checkout_tree.Ui_checkOutTree):
         self.searchLineEdit.mouseDoubleClickEvent = self.searchLineDoubleClick
         self.searchLineEdit.mousePressEvent = self.searchLineSingleClick
         self.contextComboBox.activated.connect(lambda: self.add_items_to_results(self.searchLineEdit.text()))
-        if env.Mode().get == 'standalone':
+        if env.Mode.get == 'standalone':
             self.findOpenedPushButton.setVisible(False)
         self.findOpenedPushButton.clicked.connect(self.find_opened_sobject)
 
@@ -259,7 +259,7 @@ class Ui_checkOutTreeWidget(QtGui.QWidget, ui_checkout_tree.Ui_checkOutTree):
 
     def find_opened_sobject(self):
         skey = mf.get_skey_from_scene()
-        env.Inst().ui_main.go_by_skey(skey, self.relates_to)
+        env.Inst.ui_main.go_by_skey(skey, self.relates_to)
 
     def update_desctiption(self):
         nested_item = self.resultsTreeWidget.itemWidget(self.resultsTreeWidget.currentItem(), 0)
@@ -350,7 +350,7 @@ class Ui_checkOutTreeWidget(QtGui.QWidget, ui_checkout_tree.Ui_checkOutTree):
         if level > 1 and nested_item.files.get('playblast'):
             self.load_images(nested_item, False, True)
 
-        env.Inst().ui_main.skeyLineEdit.setText(nested_item.get_skey(skey=True))
+        env.Inst.ui_main.skeyLineEdit.setText(nested_item.get_skey(skey=True))
         self.descriptionTextEdit.setText(nested_item.get_description())
 
     def open_menu(self, position):
@@ -393,7 +393,7 @@ class Ui_checkOutTreeWidget(QtGui.QWidget, ui_checkout_tree.Ui_checkOutTree):
             import_widget.toolButton.clicked.connect(self.import_file_options)
 
             self.custom_menu.addAction(open_action)
-            if env.Mode().get == 'maya':
+            if env.Mode.get == 'maya':
                 self.custom_menu.addAction(reference_action)
                 self.custom_menu.addAction(import_action)
             self.custom_menu.exec_(self.resultsTreeWidget.viewport().mapToGlobal(position))
@@ -412,7 +412,7 @@ class Ui_checkOutTreeWidget(QtGui.QWidget, ui_checkout_tree.Ui_checkOutTree):
         file_path = self.get_current_item_paths()[0]
         nested_item = self.resultsTreeWidget.itemWidget(self.resultsTreeWidget.currentItem(), 0)
 
-        if env.Mode().get == 'maya':
+        if env.Mode.get == 'maya':
             self.reference_dialog = maya_dialogs.Ui_referenceOptionsWidget(file_path, nested_item)
             self.reference_dialog.show()
 
@@ -420,7 +420,7 @@ class Ui_checkOutTreeWidget(QtGui.QWidget, ui_checkout_tree.Ui_checkOutTree):
         file_path = self.get_current_item_paths()[0]
         nested_item = self.resultsTreeWidget.itemWidget(self.resultsTreeWidget.currentItem(), 0)
 
-        if env.Mode().get == 'maya':
+        if env.Mode.get == 'maya':
             self.open_dialog = maya_dialogs.Ui_openOptionsWidget(file_path, nested_item)
             self.open_dialog.show()
 
@@ -428,7 +428,7 @@ class Ui_checkOutTreeWidget(QtGui.QWidget, ui_checkout_tree.Ui_checkOutTree):
         file_path = self.get_current_item_paths()[0]
         nested_item = self.resultsTreeWidget.itemWidget(self.resultsTreeWidget.currentItem(), 0)
 
-        if env.Mode().get == 'maya':
+        if env.Mode.get == 'maya':
             self.import_dialog = maya_dialogs.Ui_importOptionsWidget(file_path, nested_item)
             self.import_dialog.show()
 
@@ -436,7 +436,7 @@ class Ui_checkOutTreeWidget(QtGui.QWidget, ui_checkout_tree.Ui_checkOutTree):
 
         file_path, dir_path, all_process = self.get_current_item_paths()
 
-        if env.Mode().get == 'maya':
+        if env.Mode.get == 'maya':
             mf.open_scene(file_path, dir_path, all_process)
         else:
             gf.open_file_associated(file_path)
@@ -444,7 +444,7 @@ class Ui_checkOutTreeWidget(QtGui.QWidget, ui_checkout_tree.Ui_checkOutTree):
     def import_file(self):
         file_path = self.get_current_item_paths()[0]
 
-        if env.Mode().get == 'maya':
+        if env.Mode.get == 'maya':
             mf.import_scene(file_path)
         else:
             pass
@@ -452,7 +452,7 @@ class Ui_checkOutTreeWidget(QtGui.QWidget, ui_checkout_tree.Ui_checkOutTree):
     def reference_file(self):
         file_path = self.get_current_item_paths()[0]
 
-        if env.Mode().get == 'maya':
+        if env.Mode.get == 'maya':
             mf.reference_scene(file_path)
         else:
             pass
@@ -463,7 +463,7 @@ class Ui_checkOutTreeWidget(QtGui.QWidget, ui_checkout_tree.Ui_checkOutTree):
         dir_path = None
         all_process = None
 
-        modes = env.Mode().mods
+        modes = env.Mode.mods
         modes.append('main')
         # from pprint import pprint
         # pprint(dict(nested_item.files))
@@ -471,12 +471,12 @@ class Ui_checkOutTreeWidget(QtGui.QWidget, ui_checkout_tree.Ui_checkOutTree):
         for mode in modes:
             if nested_item.files.get(mode):
                 main_file = nested_item.files[mode][0]
-                # asset_dir = env.Env().rep_dirs['asset_base_dir'][0]
+                # asset_dir = env.Env.rep_dirs['asset_base_dir'][0]
                 print nested_item.snapshot, 'snapshot'
                 if nested_item.snapshot.get('repo'):
-                    asset_dir = env.Env().rep_dirs[nested_item.snapshot.get('repo')][0]
+                    asset_dir = env.Env.rep_dirs[nested_item.snapshot.get('repo')][0]
                 else:
-                    asset_dir = env.Env().rep_dirs['asset_base_dir'][0]
+                    asset_dir = env.Env.rep_dirs['asset_base_dir'][0]
                     print asset_dir
 
                 file_path = gf.form_path(
@@ -496,9 +496,9 @@ class Ui_checkOutTreeWidget(QtGui.QWidget, ui_checkout_tree.Ui_checkOutTree):
         """
         Reading Settings
         """
-        self.settings.beginGroup(env.Mode().get + '/ui_checkout')
+        self.settings.beginGroup(env.Mode.get + '/ui_checkout')
         tab_name = self.objectName().split('/')
-        group_path = '{0}/{1}/{2}'.format(env.Env().get_namespace(), env.Env().get_project(), tab_name[1])
+        group_path = '{0}/{1}/{2}'.format(env.Env.get_namespace(), env.Env.get_project(), tab_name[1])
         self.settings.beginGroup(group_path)
         self.commentsSplitter.restoreState(self.settings.value('commentsSplitter'))
         self.descriptionSplitter.restoreState(self.settings.value('descriptionSplitter'))
@@ -516,7 +516,7 @@ class Ui_checkOutTreeWidget(QtGui.QWidget, ui_checkout_tree.Ui_checkOutTree):
         """
         Writing Settings
         """
-        self.settings.beginGroup(env.Mode().get + '/ui_checkout')
+        self.settings.beginGroup(env.Mode.get + '/ui_checkout')
         tab_name = self.objectName().split('/')
         group_path = '{0}/{1}/{2}'.format(self.current_namespace, self.current_project, tab_name[1])
         self.settings.beginGroup(group_path)

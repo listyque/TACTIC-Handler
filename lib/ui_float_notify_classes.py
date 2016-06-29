@@ -97,7 +97,7 @@ class Ui_floatNotifyWidget(QtGui.QDialog, ui_notifications.Ui_floatNotify):
         """
         Reading Settings
         """
-        self.settings.beginGroup(env.Mode().get + '/ui_main')
+        self.settings.beginGroup(env.Mode.get + '/ui_main')
         self.move(self.settings.value('float_notify_pos', self.pos()))
         self.resize(self.settings.value('float_notify_size', self.size()))
 
@@ -123,7 +123,7 @@ class Ui_floatNotifyWidget(QtGui.QDialog, ui_notifications.Ui_floatNotify):
         """
         Writing Settings
         """
-        self.settings.beginGroup(env.Mode().get + '/ui_main')
+        self.settings.beginGroup(env.Mode.get + '/ui_main')
         self.settings.setValue('float_notify_pos', self.pos())
         self.settings.setValue('float_notify_size', self.size())
         print('Done ui_float_notify settings write')

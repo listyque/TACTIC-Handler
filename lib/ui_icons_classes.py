@@ -28,13 +28,13 @@ class Ui_searchOptionsWidget(QtGui.QGroupBox, ui_search_options.Ui_searchOptions
         """
         Reading Settings
         """
-        self.settings.beginGroup(env.Mode().get + '/ui_' + self.tab_related_to)
+        self.settings.beginGroup(env.Mode.get + '/ui_' + self.tab_related_to)
         tab_name = self.tab_name.split('/')
         if len(tab_name) > 1:
             tab_name = tab_name[1]
         else:
             tab_name = tab_name[0]
-        group_path = '{0}/{1}/{2}'.format(env.Env().get_namespace(), env.Env().get_project(), tab_name)
+        group_path = '{0}/{1}/{2}'.format(env.Env.get_namespace(), env.Env.get_project(), tab_name)
         self.settings.beginGroup(group_path)
 
         self.settings.endGroup()
@@ -44,13 +44,13 @@ class Ui_searchOptionsWidget(QtGui.QGroupBox, ui_search_options.Ui_searchOptions
         """
         Writing Settings
         """
-        self.settings.beginGroup(env.Mode().get + '/ui_' + self.tab_related_to)
+        self.settings.beginGroup(env.Mode.get + '/ui_' + self.tab_related_to)
         tab_name = self.tab_name.split('/')
         if len(tab_name) > 1:
             tab_name = tab_name[1]
         else:
             tab_name = tab_name[0]
-        group_path = '{0}/{1}/{2}'.format(env.Env().get_namespace(), env.Env().get_project(), tab_name)
+        group_path = '{0}/{1}/{2}'.format(env.Env.get_namespace(), env.Env.get_project(), tab_name)
         self.settings.beginGroup(group_path)
 
         self.settings.setValue('searchNameRadioButton', int(self.searchNameRadioButton.isChecked()))
@@ -239,11 +239,11 @@ class Ui_iconsWidget(QtGui.QWidget, ui_icons.Ui_icons):
         # print value - 1
 
         if self.nested_item.snapshot.get('repo'):
-            asset_dir = gf.form_path(env.Env().rep_dirs[self.nested_item.snapshot.get('repo')][0])
+            asset_dir = gf.form_path(env.Env.rep_dirs[self.nested_item.snapshot.get('repo')][0])
         else:
-            asset_dir = gf.form_path(env.Env().rep_dirs['asset_base_dir'][0])
+            asset_dir = gf.form_path(env.Env.rep_dirs['asset_base_dir'][0])
 
-        # asset_dir = env.Env().rep_dirs[self.nested_item.snapshot.get('repo')][0]
+        # asset_dir = env.Env.rep_dirs[self.nested_item.snapshot.get('repo')][0]
         image_path_icon = u'{0}/{1}/{2}'.format(asset_dir,
                                                 self.web_list[value - 1]['relative_dir'],
                                                 self.web_list[value - 1]['file_name'])

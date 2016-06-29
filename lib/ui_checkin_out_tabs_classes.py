@@ -16,7 +16,7 @@ reload(checkout_tree_widget)
 class Ui_checkInTabWidget(QtGui.QWidget, sobj_tabs.Ui_sObjTabs):
     def __init__(self, context_items, tabs_items,  parent=None):
         super(self.__class__, self).__init__(parent=parent)
-        env.Inst().ui_check_tabs['checkin'] = self
+        env.Inst.ui_check_tabs['checkin'] = self
 
         self.settings = QtCore.QSettings('TACTIC Handler', 'TACTIC Handling Tool')
 
@@ -64,7 +64,7 @@ class Ui_checkInTabWidget(QtGui.QWidget, sobj_tabs.Ui_sObjTabs):
         """
         Reading Settings
         """
-        self.settings.beginGroup(env.Mode().get + '/ui_checkin')
+        self.settings.beginGroup(env.Mode.get + '/ui_checkin')
         self.sObjTabWidget.setCurrentIndex(int(self.settings.value('sObjTabWidget', 0)))
         self.settings.endGroup()
 
@@ -72,7 +72,7 @@ class Ui_checkInTabWidget(QtGui.QWidget, sobj_tabs.Ui_sObjTabs):
         """
         Writing Settings
         """
-        self.settings.beginGroup(env.Mode().get + '/ui_checkin')
+        self.settings.beginGroup(env.Mode.get + '/ui_checkin')
         self.settings.setValue('sObjTabWidget', self.sObjTabWidget.currentIndex())
         print('Done ui_checkout_tab settings write')
         self.settings.endGroup()
@@ -89,7 +89,7 @@ class Ui_checkInTabWidget(QtGui.QWidget, sobj_tabs.Ui_sObjTabs):
 class Ui_checkOutTabWidget(QtGui.QWidget, sobj_tabs.Ui_sObjTabs):
     def __init__(self, context_items, tabs_items, parent=None):
         super(self.__class__, self).__init__(parent=parent)
-        env.Inst().ui_check_tabs['checkout'] = self
+        env.Inst.ui_check_tabs['checkout'] = self
 
         self.settings = QtCore.QSettings('TACTIC Handler', 'TACTIC Handling Tool')
 
@@ -135,7 +135,7 @@ class Ui_checkOutTabWidget(QtGui.QWidget, sobj_tabs.Ui_sObjTabs):
         """
         Reading Settings
         """
-        self.settings.beginGroup(env.Mode().get + '/ui_checkout')
+        self.settings.beginGroup(env.Mode.get + '/ui_checkout')
         self.sObjTabWidget.setCurrentIndex(int(self.settings.value('sObjTabWidget', 0)))
         self.settings.endGroup()
 
@@ -143,7 +143,7 @@ class Ui_checkOutTabWidget(QtGui.QWidget, sobj_tabs.Ui_sObjTabs):
         """
         Writing Settings
         """
-        self.settings.beginGroup(env.Mode().get + '/ui_checkout')
+        self.settings.beginGroup(env.Mode.get + '/ui_checkout')
         self.settings.setValue('sObjTabWidget', self.sObjTabWidget.currentIndex())
         print('Done ui_checkout_tab settings write')
         self.settings.endGroup()

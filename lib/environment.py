@@ -17,7 +17,7 @@ def singleton(cls):
             instances[cls] = cls()
         return instances[cls]
 
-    return getinstance
+    return getinstance()
 
 
 @singleton
@@ -25,6 +25,7 @@ class Inst(object):
     """
     This class stores all instances of interfaces classes
     """
+    offline = False
     ui_super = None
     ui_maya_dock = None
     ui_main = None

@@ -43,9 +43,9 @@ class Ui_itemWidget(QtGui.QWidget, lib.ui.ui_item.Ui_item):
         # self.item_info['description'] = self.sobject.info['description']
 
     def prnt(self):
-        # shot_tab = env.Inst().ui_check_tree[self.relates_to]['cgshort/shot']
-        print(env.Inst().ui_check_tabs[self.relates_to].sObjTabWidget.count())
-        tab_wdg = env.Inst().ui_check_tabs[self.relates_to].sObjTabWidget
+        # shot_tab = env.Inst.ui_check_tree[self.relates_to]['cgshort/shot']
+        print(env.Inst.ui_check_tabs[self.relates_to].sObjTabWidget.count())
+        tab_wdg = env.Inst.ui_check_tabs[self.relates_to].sObjTabWidget
         for i in range(tab_wdg.count()):
             if tab_wdg.widget(i).objectName() == 'cgshort/shot':
                 tab_wdg.setCurrentIndex(i)
@@ -64,8 +64,8 @@ class Ui_itemWidget(QtGui.QWidget, lib.ui.ui_item.Ui_item):
             self.tasks_widget.show()
         except:
             # print(self.item_info)
-            # current_tab_context = env.Inst().ui_checkout_tree[self.sobject.info['pipeline_code']].context_items
-            # print(env.Inst().ui_checkout_tree)
+            # current_tab_context = env.Inst.ui_checkout_tree[self.sobject.info['pipeline_code']].context_items
+            # print(env.Inst.ui_checkout_tree)
             self.tasks_widget = tasks_widget.Ui_tasksWidgetMain(self.sobject, self)
             self.tasks_widget.show()
 
@@ -167,9 +167,7 @@ class Ui_snapshotItemWidget(QtGui.QWidget, lib.ui.ui_item_snapshot.Ui_snapshotIt
         hidden = ['icon', 'web', 'playblast']
 
         if self.snapshot:
-            print self.snapshot['description']
             self.commentLabel.setText(gf.to_plain_text(self.snapshot['description'], 80))
-            print gf.to_plain_text(self.snapshot['description'], 80)
             self.dateLabel.setText(self.snapshot['timestamp'])
             self.authorLabel.setText(self.snapshot['login'] + ':')
             self.verRevLabel.setText(gf.get_ver_rev(self.snapshot['version'], self.snapshot['revision']))

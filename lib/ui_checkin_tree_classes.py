@@ -13,7 +13,7 @@ import ui_richedit_classes as richedit_widget
 import ui_addsobject_classes as addsobject_widget
 import ui_drop_plate_classes as drop_plate_widget
 
-if env.Mode().get == 'maya':
+if env.Mode.get == 'maya':
     import maya_functions as mf
 
 reload(ui_checkin_tree)
@@ -36,7 +36,7 @@ class Ui_checkInOptionsWidget(QtGui.QGroupBox, ui_checkin_options.Ui_checkinOpti
         self.create_checkin_options()
 
     def create_checkin_options(self):
-        rep_dirs = env.Env().rep_dirs
+        rep_dirs = env.Env.rep_dirs
 
         # Default repo states
         for name, value in rep_dirs.iteritems():
@@ -61,9 +61,9 @@ class Ui_checkInOptionsWidget(QtGui.QGroupBox, ui_checkin_options.Ui_checkinOpti
         """
         Reading Settings
         """
-        self.settings.beginGroup(env.Mode().get + '/ui_checkin')
+        self.settings.beginGroup(env.Mode.get + '/ui_checkin')
         tab_name = self.tab_name.split('/')
-        group_path = '{0}/{1}/{2}'.format(env.Env().get_namespace(), env.Env().get_project(), tab_name[1])
+        group_path = '{0}/{1}/{2}'.format(env.Env.get_namespace(), env.Env.get_project(), tab_name[1])
         self.settings.beginGroup(group_path)
         self.repositoryComboBox.setCurrentIndex(int(self.settings.value('default_repo', 0)))
         self.createMayaDirsCheckBox.setChecked(bool(self.settings.value('createMayaDirsCheckBox', False)))
@@ -78,9 +78,9 @@ class Ui_checkInOptionsWidget(QtGui.QGroupBox, ui_checkin_options.Ui_checkinOpti
         """
         Writing Settings
         """
-        self.settings.beginGroup(env.Mode().get + '/ui_checkin')
+        self.settings.beginGroup(env.Mode.get + '/ui_checkin')
         tab_name = self.tab_name.split('/')
-        group_path = '{0}/{1}/{2}'.format(env.Env().get_namespace(), env.Env().get_project(), tab_name[1])
+        group_path = '{0}/{1}/{2}'.format(env.Env.get_namespace(), env.Env.get_project(), tab_name[1])
         self.settings.beginGroup(group_path)
         self.settings.setValue('default_repo', int(self.repositoryComboBox.currentIndex()))
         self.settings.setValue('createMayaDirsCheckBox', int(self.createMayaDirsCheckBox.isChecked()))
@@ -108,8 +108,8 @@ class Ui_checkInTreeWidget(QtGui.QWidget, ui_checkin_tree.Ui_checkInTree):
         super(self.__class__, self).__init__(parent=parent)
 
         self.settings = QtCore.QSettings('TACTIC Handler', 'TACTIC Handling Tool')
-        self.current_project = env.Env().get_project()
-        self.current_namespace = env.Env().get_namespace()
+        self.current_project = env.Env.get_project()
+        self.current_namespace = env.Env.get_namespace()
 
         self.setAcceptDrops(True)
 
@@ -126,7 +126,7 @@ class Ui_checkInTreeWidget(QtGui.QWidget, ui_checkin_tree.Ui_checkInTree):
 
         self.setObjectName(self.tab_name)
         self.relates_to = 'checkin'
-        env.Inst().ui_check_tree['checkin'][self.tab_name] = self
+        env.Inst.ui_check_tree['checkin'][self.tab_name] = self
         self.add_items_to_context_combo_box()
 
         self.create_serachline()
@@ -157,7 +157,7 @@ class Ui_checkInTreeWidget(QtGui.QWidget, ui_checkin_tree.Ui_checkInTree):
             self.ui_drop_plate.setMinimumWidth(0)
 
     def add_items_to_formats_combo(self):
-        if env.Mode().get == 'maya':
+        if env.Mode.get == 'maya':
             self.formatTypeComboBox.addItem('mayaAscii')
             self.formatTypeComboBox.addItem('mayaBinary')
         else:
@@ -409,7 +409,7 @@ class Ui_checkInTreeWidget(QtGui.QWidget, ui_checkin_tree.Ui_checkInTree):
         self.searchLineEdit.mouseDoubleClickEvent = self.searchLineDoubleClick
         self.searchLineEdit.mousePressEvent = self.searchLineSingleClick
         self.contextComboBox.activated.connect(lambda: self.add_items_to_results(self.searchLineEdit.text()))
-        if env.Mode().get == 'standalone':
+        if env.Mode.get == 'standalone':
             self.findOpenedPushButton.setVisible(False)
         self.findOpenedPushButton.clicked.connect(self.find_opened_sobject)
 
@@ -432,7 +432,7 @@ class Ui_checkInTreeWidget(QtGui.QWidget, ui_checkin_tree.Ui_checkInTree):
 
     def find_opened_sobject(self):
         skey = mf.get_skey_from_scene()
-        env.Inst().ui_main.go_by_skey(skey, 'checkin')
+        env.Inst.ui_main.go_by_skey(skey, 'checkin')
 
     def fill_notes_count(self, widget):
 
@@ -485,7 +485,7 @@ class Ui_checkInTreeWidget(QtGui.QWidget, ui_checkin_tree.Ui_checkInTree):
             else:
                 description = 'No Description'
 
-            if env.Mode().get == 'maya':
+            if env.Mode.get == 'maya':
                 version = None
                 # print self.formatTypeComboBox.currentText()
                 ext = self.formatTypeComboBox.currentText()
@@ -506,8 +506,8 @@ class Ui_checkInTreeWidget(QtGui.QWidget, ui_checkin_tree.Ui_checkInTree):
                     self.descriptionTextEdit.clear()
                     self.update_snapshot_tree(nested_item)
 
-            if env.Mode().get == 'standalone':
-                print(env.Mode().get)
+            if env.Mode.get == 'standalone':
+                print(env.Mode.get)
                 # self.get_current_repo()
                 tc.new_checkin_snapshot(
                     search_key,
@@ -619,7 +619,7 @@ class Ui_checkInTreeWidget(QtGui.QWidget, ui_checkin_tree.Ui_checkInTree):
             self.savePushButton.setEnabled(True)
             self.contextLineEdit.setEnabled(True)
 
-        env.Inst().ui_main.skeyLineEdit.setText(nested_item.get_skey(skey=True))
+        env.Inst.ui_main.skeyLineEdit.setText(nested_item.get_skey(skey=True))
         print nested_item.get_context(process=True)
         self.contextLineEdit.setText(nested_item.get_context())
         # self.descriptionTextEdit.setText(nested_item.get_description())
@@ -668,9 +668,9 @@ class Ui_checkInTreeWidget(QtGui.QWidget, ui_checkin_tree.Ui_checkInTree):
         Reading Settings
         """
 
-        self.settings.beginGroup(env.Mode().get + '/ui_checkin')
+        self.settings.beginGroup(env.Mode.get + '/ui_checkin')
         tab_name = self.objectName().split('/')
-        group_path = '{0}/{1}/{2}'.format(env.Env().get_namespace(), env.Env().get_project(), tab_name[1])
+        group_path = '{0}/{1}/{2}'.format(env.Env.get_namespace(), env.Env.get_project(), tab_name[1])
         self.settings.beginGroup(group_path)
         # self.toggle_checkin_options_group_box(self.settings.value('checkinOptionsToggle', True))
         # self.checkin_options_widget.setVisible(self.settings.value('checkinOptionsToggle', True))
@@ -695,7 +695,7 @@ class Ui_checkInTreeWidget(QtGui.QWidget, ui_checkin_tree.Ui_checkInTree):
         """
         Writing Settings
         """
-        self.settings.beginGroup(env.Mode().get + '/ui_checkin')
+        self.settings.beginGroup(env.Mode.get + '/ui_checkin')
         tab_name = self.objectName().split('/')
         group_path = '{0}/{1}/{2}'.format(self.current_namespace, self.current_project, tab_name[1])
         self.settings.beginGroup(group_path)

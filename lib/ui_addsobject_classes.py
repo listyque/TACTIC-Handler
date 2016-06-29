@@ -82,7 +82,7 @@ class Ui_addSObjectFormWidget(QtGui.QDialog, ui_addsobject.Ui_addSObjectForm):
         """
         Reading Settings
         """
-        self.settings.beginGroup(env.Mode().get + '/ui_addsobject')
+        self.settings.beginGroup(env.Mode.get + '/ui_addsobject')
         self.setGeometry(self.settings.value('geometry', QtCore.QRect(500, 400, 500, 350)))
         self.settings.endGroup()
 
@@ -90,7 +90,7 @@ class Ui_addSObjectFormWidget(QtGui.QDialog, ui_addsobject.Ui_addSObjectForm):
         """
         Writing Settings
         """
-        self.settings.beginGroup(env.Mode().get + '/ui_addsobject')
+        self.settings.beginGroup(env.Mode.get + '/ui_addsobject')
         self.settings.setValue('geometry', self.geometry())
         print('Done ui_addsobject settings write')
         self.settings.endGroup()

@@ -9,7 +9,7 @@ import environment as env
 import lib.ui.ui_conf as ui_conf
 import tactic_classes as tc
 
-if env.Mode().get == 'maya':
+if env.Mode.get == 'maya':
     # import ui_maya_dock
     import maya.cmds as cmds
 
@@ -17,24 +17,25 @@ reload(ui_conf)
 
 
 class Ui_configuration_dialogWidget(QtGui.QDialog, ui_conf.Ui_configuration_dialog):
-    def __init__(self, offline=False, parent=None):
+    def __init__(self, parent=None):
         super(self.__class__, self).__init__(parent=parent)
-        env.Inst().ui_conf = self
+        env.Inst.ui_conf = self
 
         self.settings = QtCore.QSettings('TACTIC Handler', 'TACTIC Handling Tool')
-        print '1'
-        self.offline = offline
-        print '2 offline: ', self.offline
-        if not self.offline:
-            env.Env().get_default_dirs()
-        print '3'
+        self.current_project = env.Env.get_project()
+        self.current_namespace = env.Env.get_namespace()
 
-        self.current_project = env.Env().get_project()
-        self.current_namespace = env.Env().get_namespace()
-        print '5'
-        if self.offline:
+        # Server Threads
+        self.query_projects_thread = tc.ServerThread(self)
+        self.query_assets_names_thread = tc.ServerThread(self)
+        self.server_ping_thread = tc.ServerThread(self)
+        self.generate_ticket_thread = tc.ServerThread(self)
+        self.threadsActions()
+
+        if env.Inst.offline:
             self.create_ui_conf_offline()
         else:
+            env.Env.get_default_dirs()
             self.create_ui_conf()
 
         self.controls_dict = {
@@ -43,32 +44,30 @@ class Ui_configuration_dialogWidget(QtGui.QDialog, ui_conf.Ui_configuration_dial
             'QComboBox': {'obj_name': [], 'value': []},
             'QTreeWidget': {'obj_name': [], 'value': []},
         }
-        print '9'
         # Load saved configs
-        self.server_page_init = env.Conf().get_server()
+        self.server_page_init = env.Conf.get_server()
         self.server_page_defaults = None
-        self.project_page_init = env.Conf().get_project()
+        self.project_page_init = env.Conf.get_project()
         self.project_page_defaults = None
-        self.checkout_page_init = env.Conf().get_checkout()
+        self.checkout_page_init = env.Conf.get_checkout()
         self.checkout_page_defaults = None
-        if env.Env().rep_dirs:
-            self.custom_repo_item_init = env.Env().rep_dirs['custom_asset_dir']
+        if env.Env.rep_dirs:
+            self.custom_repo_item_init = env.Env.rep_dirs['custom_asset_dir']
         else:
             self.custom_repo_item_init = None
         self.custom_repo_item_defaults = None
-        self.checkin_page_init = env.Conf().get_checkin()
+        self.checkin_page_init = env.Conf.get_checkin()
         self.checkin_page_defaults = None
-        self.checkinOut_page_init = env.Conf().get_checkin_out()
+        self.checkinOut_page_init = env.Conf.get_checkin_out()
         self.checkinOut_page_defaults = None
-        self.maya_scene_page_init = env.Conf().get_maya_scene()
+        self.maya_scene_page_init = env.Conf.get_maya_scene()
         self.maya_scene_page_defaults = None
 
     def create_ui_conf_offline(self):
         self.setupUi(self)
+
         self.create_custom_controls()
-        print '6'
         self.readSettings()
-        print '7'
         self.pages_actions()
         self.create_server_page()
 
@@ -81,29 +80,15 @@ class Ui_configuration_dialogWidget(QtGui.QDialog, ui_conf.Ui_configuration_dial
     def create_ui_conf(self):
 
         self.setupUi(self)
-        self.create_custom_controls()
-        print '6'
-        self.readSettings()
-        print '7'
-        self.pages_actions()
-        print '8'
-        self.create_server_page()
 
-    # collect defaults for individual pages wrap functions
-    def collect_server_defaults(self, get_values=False, apply_values=False, store_defaults=False, undo_changes=False):
-        self.server_page_defaults, self.server_page_init = self.collect_defaults(
-            self.server_page_defaults,
-            self.server_page_init,
-            [self.serverOptionsLayout],
-            get_values=get_values,
-            apply_values=apply_values,
-            store_defaults=store_defaults,
-            undo_changes=undo_changes,
-        )
+        self.create_custom_controls()
+        self.readSettings()
+        self.pages_actions()
+        self.create_server_page()
 
     def switch_to_online_status(self, online=None):
         if online:
-            self.offline = False
+            env.Inst.offline = False
             self.create_server_page()
             self.configToolBox.setItemEnabled(1, True)
             self.configToolBox.setItemEnabled(2, True)
@@ -111,13 +96,25 @@ class Ui_configuration_dialogWidget(QtGui.QDialog, ui_conf.Ui_configuration_dial
             self.configToolBox.setItemEnabled(4, True)
             self.configToolBox.setItemEnabled(5, True)
         else:
-            self.offline = True
+            env.Inst.offline = True
             self.create_server_page()
             self.configToolBox.setItemEnabled(1, False)
             self.configToolBox.setItemEnabled(2, False)
             self.configToolBox.setItemEnabled(3, False)
             self.configToolBox.setItemEnabled(4, False)
             self.configToolBox.setItemEnabled(5, False)
+
+    # collect defaults for individual pages wrap functions
+    def collect_server_defaults(self, get_values=False, apply_values=False, store_defaults=False, undo_changes=False):
+        self.server_page_defaults, self.server_page_init = self.collect_defaults(
+            self.server_page_defaults,
+            self.server_page_init,
+            [self.authorizationLayout, self.environmentLayout],
+            get_values=get_values,
+            apply_values=apply_values,
+            store_defaults=store_defaults,
+            undo_changes=undo_changes,
+        )
 
     def collect_checkout_defaults(self, get_values=False, apply_values=False, store_defaults=False, undo_changes=False):
         self.checkout_page_defaults, self.checkout_page_init = self.collect_defaults(
@@ -148,8 +145,8 @@ class Ui_configuration_dialogWidget(QtGui.QDialog, ui_conf.Ui_configuration_dial
             self.fill_custom_repo_dir(self.custom_repo_item_defaults)
             self.custom_repo_item_init = copy.deepcopy(self.custom_repo_item_defaults)
 
-            print self.custom_repo_item_defaults
-            print self.custom_repo_item_init
+            # print self.custom_repo_item_defaults
+            # print self.custom_repo_item_init
 
             self.addCustomRepoToListPushButton.show()
             self.saveCustomRepoToListPushButton.hide()
@@ -163,13 +160,13 @@ class Ui_configuration_dialogWidget(QtGui.QDialog, ui_conf.Ui_configuration_dial
 
     def create_server_page(self):
 
-        if self.offline:
+        if env.Inst.offline:
             self.tacticStatusLable.setText('Status: <b><span style="color:#ff4646;">Unknown</span></b>')
             self.loginStatusLable.setText('Status: <b><span style="color:#ff4646;">Unknown</span></b>')
         else:
             self.tacticStatusLable.setText('Status: <b><span style="color:#a5af19;">Online</span></b>')
             current_ticket = tc.server_start().get_login_ticket()
-            if env.Env().get_ticket() == current_ticket:
+            if env.Env.get_ticket() == current_ticket:
                 self.loginStatusLable.setText('Status: <b><span style="color:#a5af19;">Match</span></b>')
             else:
                 self.loginStatusLable.setText('Status: <b><span style="color:#ff4646;">Not Match</span></b>')
@@ -179,16 +176,40 @@ class Ui_configuration_dialogWidget(QtGui.QDialog, ui_conf.Ui_configuration_dial
         if event.type() == QtCore.QEvent.KeyPress and isinstance(widget, QtGui.QLineEdit):
             self.save_button.setEnabled(True)
             self.reset_button.setEnabled(True)
+            current_item = self.configToolBox.currentIndex()
+            current_item_text = self.configToolBox.itemText(current_item)
+            if current_item_text.find('(changed)') == -1:
+                self.configToolBox.setItemText(current_item, '{0}, (changed)'.format(current_item_text))
+            if current_item_text.find('(saved)') != -1:
+                self.configToolBox.setItemText(current_item, current_item_text.replace(', (saved)', ''))
 
         if event.type() == QtCore.QEvent.MouseButtonPress and isinstance(widget, QtGui.QCheckBox):
             self.save_button.setEnabled(True)
             self.reset_button.setEnabled(True)
+            current_item = self.configToolBox.currentIndex()
+            current_item_text = self.configToolBox.itemText(current_item)
+            if current_item_text.find('(changed)') == -1:
+                self.configToolBox.setItemText(current_item, '{0}, (changed)'.format(current_item_text))
+            if current_item_text.find('(saved)') != -1:
+                self.configToolBox.setItemText(current_item, current_item_text.replace(', (saved)', ''))
 
         if event.type() == QtCore.QEvent.FocusIn and isinstance(widget, QtGui.QTreeWidget):
             self.save_button.setEnabled(True)
             self.reset_button.setEnabled(True)
+            current_item = self.configToolBox.currentIndex()
+            current_item_text = self.configToolBox.itemText(current_item)
+            if current_item_text.find('(changed)') == -1:
+                self.configToolBox.setItemText(current_item, '{0}, (changed)'.format(current_item_text))
+            if current_item_text.find('(saved)') != -1:
+                self.configToolBox.setItemText(current_item, current_item_text.replace(', (saved)', ''))
 
         return QtGui.QWidget.eventFilter(self, widget, event)
+
+    def threadsActions(self):
+        self.query_projects_thread.finished.connect(lambda: self.add_projects_items(1))
+        self.query_assets_names_thread.finished.connect(self.create_assets_tree)
+        self.server_ping_thread.finished.connect(lambda: self.try_connect_to_server(try_connect=True))
+        self.generate_ticket_thread.finished.connect(lambda: self.generate_ticket(generate_ticket=True))
 
     def pages_actions(self):
         """
@@ -196,7 +217,8 @@ class Ui_configuration_dialogWidget(QtGui.QDialog, ui_conf.Ui_configuration_dial
         """
 
         # server page actions
-        self.connectToServerButton.clicked.connect(self.try_connect_to_server)
+        self.connectToServerButton.clicked.connect(lambda: self.try_connect_to_server(run_thread=True))
+        self.generateTicketButton.clicked.connect(lambda: self.generate_ticket(run_thread=True))
 
         self.buttonBox.button(QtGui.QDialogButtonBox.Close).clicked.connect(lambda: self.close())
 
@@ -212,13 +234,6 @@ class Ui_configuration_dialogWidget(QtGui.QDialog, ui_conf.Ui_configuration_dial
 
         self.projectsTreeWidget.setContextMenuPolicy(QtCore.Qt.CustomContextMenu)
         self.projectsTreeWidget.customContextMenuRequested.connect(self.open_menu)
-
-        self.generateTicketButton.clicked.connect(self.generate_ticket)
-
-        if self.configToolBox.currentIndex() == 1:
-            print 'add projects_items'
-            self.add_projects_items(1)
-
 
         # server page events
         self.serverPage.showEvent = self.serverPage_showEvent
@@ -237,48 +252,92 @@ class Ui_configuration_dialogWidget(QtGui.QDialog, ui_conf.Ui_configuration_dial
         self.editCustomRepoPushButton.clicked.connect(self.edit_custom_repo_dir)
         self.customRepoTreeWidget.clicked.connect(self.custom_repo_items_visibility)
 
-        self.configToolBox.currentChanged.connect(self.add_projects_items)
-
         # checkinOut page events
         self.checkinOutPage.showEvent = self.checkinOutPage_showEvent
 
         # scenePage page events
         self.scenePage.showEvent = self.scenePage_showEvent
 
-    def generate_ticket(self):
-        login = self.userNameLineEdit.text()
-        password = self.passwordLineEdit.text()
-        host = env.Env().get_server()
-        project = env.Env().get_project()
+    def generate_ticket(self, run_thread=False, generate_ticket=False):
 
-        print tc.server_start().ping()
+        if self.passwordLineEdit.text() == self.userNameLineEdit.text():
+            generate_ticket = False
+            run_thread = False
+            msb = QtGui.QMessageBox(
+                QtGui.QMessageBox.Information,
+                'Generating Ticket',
+                'Please enter Password to generate new Ticket',
+                QtGui.QMessageBox.NoButton,
+                self,
+            )
+            msb.show()
 
-        print tc.server_auth(host, project, login, password, True)
+        if run_thread:
+            login = str(self.userNameLineEdit.text())
+            password = str(self.passwordLineEdit.text())
+            host = str(self.tacticServerLineEdit.text())
+            project = env.Env.get_project()
 
-        env.Env().set_project(project)
-        env.Env().set_first_run(False)
-        env.Env().set_user(login)
+            # print tc.server_auth(host, project, login, password, True)
 
-    def try_connect_to_server(self):
+            if not self.generate_ticket_thread.isRunning():
+                self.generate_ticket_thread.kwargs = dict(
+                    host=host,
+                    project=project,
+                    login=login,
+                    password=password,
+                    get_ticket=True
+                )
+                self.generate_ticket_thread.routine = tc.server_auth
+                self.generate_ticket_thread.start()
 
-        # server = tc.ser()
-        #
-        # print server
-        #
-        env.Env().set_server(str(self.tacticServerLineEdit.text()))
-        connect = tc.server_ping()
+        if generate_ticket:
+            ticket = tc.threat_result(self.generate_ticket_thread)
 
-        if connect:
-            self.switch_to_online_status(True)
-            env.Env().get_default_dirs()
-            self.tacticAssetDirLineEdit.setText(env.Env().rep_dirs['asset_base_dir'][0])
-        else:
-            tc.show_message('Connection to Server Failed', 'May be server address wrong, or wrong user/password.', buttons=[0, 0, 0, 0, 1])
-            self.switch_to_online_status(False)
+            if ticket.isFailed():
+                if ticket.result == QtGui.QMessageBox.ApplyRole:
+                    ticket.run()
+                    self.generate_ticket(generate_ticket=True)
+                self.switch_to_online_status(False)
+
+            if not ticket.isFailed():
+                self.switch_to_online_status(True)
+                self.loginStatusLable.setText('Status: <b><span style="color:#a5af19;">Updated</span></b>')
+                env.Env.set_project(env.Env.get_project())
+                env.Env.set_server(self.tacticServerLineEdit.text())
+                env.Env.set_user(self.userNameLineEdit.text())
+                env.Env.get_default_dirs()
+                self.custom_repo_item_init = env.Env.rep_dirs['custom_asset_dir']
+
+    def try_connect_to_server(self, run_thread=False, try_connect=False):
+        if run_thread:
+            env.Env.set_server(str(self.tacticServerLineEdit.text()))
+            if not self.server_ping_thread.isRunning():
+                self.server_ping_thread.kwargs = dict()
+                self.server_ping_thread.routine = tc.server_ping
+                self.server_ping_thread.start()
+
+        if try_connect:
+            connect = tc.threat_result(self.server_ping_thread)
+
+            if connect.isFailed():
+                if connect.result == QtGui.QMessageBox.ApplyRole:
+                    connect.run()
+                    self.try_connect_to_server(try_connect=True)
+                self.switch_to_online_status(False)
+
+            if not connect.isFailed():
+                self.switch_to_online_status(True)
+                env.Env.get_default_dirs()
+                self.custom_repo_item_init = env.Env.rep_dirs['custom_asset_dir']
+
 
     def create_assets_tree(self):
-        self.asstes_tree = tc.query_assets_names()
-        for name, value in self.asstes_tree.iteritems():
+
+        self.processTreeWidget.clear()
+
+        self.assets_names = tc.threat_result(self.query_assets_names_thread)
+        for name, value in self.assets_names.result.iteritems():
             self.top_item = QtGui.QTreeWidgetItem()
             self.top_item.setCheckState(0, QtCore.Qt.Unchecked)
             if not name:
@@ -306,6 +365,12 @@ class Ui_configuration_dialogWidget(QtGui.QDialog, ui_conf.Ui_configuration_dial
         self.collect_server_defaults()
 
     def projectPage_showEvent(self, *args, **kwargs):
+        print 'add projects_items'
+        if not self.query_projects_thread.isRunning():
+            self.query_projects_thread.kwargs = dict()
+            self.query_projects_thread.routine = tc.query_projects
+            self.query_projects_thread.start()
+
         print 'projectPage'
 
     def checkoutPage_showEvent(self, *args, **kwargs):
@@ -322,15 +387,15 @@ class Ui_configuration_dialogWidget(QtGui.QDialog, ui_conf.Ui_configuration_dial
         :return:
         """
         print 'checkinPage'
-        # env.Env().get_default_dirs()
-        rep_dirs = env.Env().rep_dirs
+        # env.Env.get_default_dirs()
+        rep_dirs = env.Env.rep_dirs
 
         self.assetBaseDirPathLineEdit.setText(rep_dirs['asset_base_dir'][0])
         self.assetBaseDirNameLineEdit.setText(rep_dirs['asset_base_dir'][1])
         self.assetBaseDirCheckBox.setChecked(rep_dirs['asset_base_dir'][2])
 
-        if env.Env().platform == 'Linux':
-            print env.Env().platform
+        if env.Env.platform == 'Linux':
+            print env.Env.platform
         else:
             self.sandboxDirPathLineEdit.setText(rep_dirs['win32_sandbox_dir'][0])
             self.sandboxDirNameLineEdit.setText(rep_dirs['win32_sandbox_dir'][1])
@@ -356,8 +421,12 @@ class Ui_configuration_dialogWidget(QtGui.QDialog, ui_conf.Ui_configuration_dial
 
     def checkinOutPage_showEvent(self, *args, **kwargs):
         print 'checkinOutPage'
-        if self.processTreeWidget.topLevelItemCount() == 0:
-            self.create_assets_tree()
+        if not self.query_assets_names_thread.isRunning():
+            self.query_assets_names_thread.kwargs = dict()
+            self.query_assets_names_thread.routine = tc.query_assets_names
+            self.query_assets_names_thread.start()
+        # if self.processTreeWidget.topLevelItemCount() == 0:
+        #     self.create_assets_tree()
 
     def scenePage_showEvent(self, *args, **kwargs):
         print 'scenePage'
@@ -457,7 +526,7 @@ class Ui_configuration_dialogWidget(QtGui.QDialog, ui_conf.Ui_configuration_dial
 
         msb = QtGui.QMessageBox(QtGui.QMessageBox.Question, 'Save preferences to {0}?'.format(page),
                                 "<p>Looks like You've made some changes!</p> <p>Perform save?</p>",
-                                QtGui.QMessageBox.NoButton, env.Inst().ui_main)
+                                QtGui.QMessageBox.NoButton, env.Inst.ui_main)
 
         msb.addButton("Yes", QtGui.QMessageBox.YesRole)
         msb.addButton("Undo changes", QtGui.QMessageBox.ResetRole)
@@ -621,12 +690,32 @@ class Ui_configuration_dialogWidget(QtGui.QDialog, ui_conf.Ui_configuration_dial
             current_page = page
 
         if current_page == 'serverPage':
+            current_item_text = self.configToolBox.itemText(0)
+            if current_item_text.find('(changed)') != -1:
+                self.configToolBox.setItemText(0, current_item_text.replace(', (changed)', ''))
+
             self.collect_server_defaults(undo_changes=True)
 
+        if current_page == 'projectPage':
+            current_item_text = self.configToolBox.itemText(1)
+            if current_item_text.find('(changed)') != -1:
+                self.configToolBox.setItemText(1, current_item_text.replace(', (changed)', ''))
+
+            self.add_projects_items(1)
+            # self.collect_server_defaults(undo_changes=True)
+
         if current_page == 'checkoutPage':
+            current_item_text = self.configToolBox.itemText(2)
+            if current_item_text.find('(changed)') != -1:
+                self.configToolBox.setItemText(2, current_item_text.replace(', (changed)', ''))
+
             self.collect_checkout_defaults(undo_changes=True)
 
         if current_page == 'checkinPage':
+            current_item_text = self.configToolBox.itemText(3)
+            if current_item_text.find('(changed)') != -1:
+                self.configToolBox.setItemText(3, current_item_text.replace(', (changed)', ''))
+
             self.collect_checkin_defaults(undo_changes=True)
 
 
@@ -660,14 +749,36 @@ class Ui_configuration_dialogWidget(QtGui.QDialog, ui_conf.Ui_configuration_dial
         else:
             current_page = page
 
+        if current_page == 'serverPage':
+            self.collect_server_defaults(get_values=True)
+            env.Conf.set_server(self.server_page_init)
+            self.collect_server_defaults(store_defaults=True)
+
+            current_item_text = self.configToolBox.itemText(0)
+            if current_item_text.find('(changed)') != -1:
+                self.configToolBox.setItemText(0, current_item_text.replace(', (changed)', ', (saved)'))
+
         if current_page == 'checkoutPage':
             self.collect_checkout_defaults(get_values=True)
-            env.Conf().set_checkout(self.checkout_page_init)
+            env.Conf.set_checkout(self.checkout_page_init)
             self.collect_checkout_defaults(store_defaults=True)
+
+            current_item_text = self.configToolBox.itemText(2)
+            if current_item_text.find('(changed)') != -1:
+                self.configToolBox.setItemText(2, current_item_text.replace(', (changed)', ', (saved)'))
+
+        if current_page == 'checkinPage':
+            self.collect_checkin_defaults(get_values=True)
+            env.Conf.set_checkin(self.checkin_page_init)
+            self.collect_checkin_defaults(store_defaults=True)
+
+            current_item_text = self.configToolBox.itemText(3)
+            if current_item_text.find('(changed)') != -1:
+                self.configToolBox.setItemText(3, current_item_text.replace(', (changed)', ', (saved)'))
 
         # Checkin page save
         # if self.campare_changes('checkinPage'):
-        #     rep_dirs = env.Env().rep_dirs
+        #     rep_dirs = env.Env.rep_dirs
         #     rep_dirs['custom_asset_dir'] = self.custom_repo_item
         #     rep_dirs['custom_asset_dir']['enabled'] = self.customRepoCheckBox.checkState()
         #
@@ -690,12 +801,12 @@ class Ui_configuration_dialogWidget(QtGui.QDialog, ui_conf.Ui_configuration_dial
         #     rep_dirs['win32_client_handoff_dir'][0] = self.handoffDirPathLineEdit.text()
         #     rep_dirs['win32_client_handoff_dir'][2] = self.handoffCheckBox.checkState()
         #
-        #     env.Env().set_default_dirs()
+        #     env.Env.set_default_dirs()
         #     self.collect_defaults('checkinPage')
         #
-        if self.current_project != env.Env().get_project():
-            env.Env().set_project(self.current_project)
-            env.Env().set_namespace(self.current_namespace)
+        if self.current_project != env.Env.get_project():
+            env.Env.set_project(self.current_project)
+            env.Env.set_namespace(self.current_namespace)
             self.restart()
 
     def open_menu(self, position):
@@ -726,17 +837,24 @@ class Ui_configuration_dialogWidget(QtGui.QDialog, ui_conf.Ui_configuration_dial
         self.save_button.setEnabled(True)
         self.reset_button.setEnabled(True)
 
+        current_item_text = self.configToolBox.itemText(1)
+        if current_item_text.find('(changed)') == -1:
+            self.configToolBox.setItemText(1, '{0}, (changed)'.format(current_item_text))
+        if current_item_text.find('(saved)') != -1:
+            self.configToolBox.setItemText(1, current_item_text.replace(', (saved)', ''))
+
     def add_projects_items(self, event):
 
         self.projectsTreeWidget.clear()
 
-        if event == 1 and self.projectsTreeWidget.topLevelItemCount() == 0:
-            projects = tc.query_projects()
+        if (event == 1) and (self.projectsTreeWidget.topLevelItemCount() == 0):
+            projects = tc.threat_result(self.query_projects_thread)
+
         else:
             projects = None
 
         if projects:
-            for key, value in projects.iteritems():
+            for key, value in projects.result.iteritems():
                 top_item = QtGui.QTreeWidgetItem()
                 if key:
                     title = key.replace('_', ' ').capitalize()
@@ -775,13 +893,13 @@ class Ui_configuration_dialogWidget(QtGui.QDialog, ui_conf.Ui_configuration_dial
                                                  QtGui.QMessageBox.Yes | QtGui.QMessageBox.No)
         if ask_restart == QtGui.QMessageBox.Yes:
             self.close()
-            # if env.Mode().get == 'maya':
+            # if env.Mode.get == 'maya':
             #     reload(ui_maya_dock)
             #     ui_maya_dock.startup(restart=True)
             # else:
             # print(self.parent())
-            if not self.first_run:
-                self.parent().close()
+            # if env.Inst.offline:
+            #     self.parent().close()
             self.parent().create_ui_main()
             self.parent().show()
 
@@ -789,28 +907,39 @@ class Ui_configuration_dialogWidget(QtGui.QDialog, ui_conf.Ui_configuration_dial
         """
         Reading Settings
         """
-        self.userNameLineEdit.setText(env.Env().get_user())
-        self.passwordLineEdit.setText(env.Env().get_user())
-        self.tacticEnvLineEdit.setText(env.Env().get_data_dir())
-        # self.tacticAssetDirLineEdit.setText(env.Env().rep_dirs['asset_base_dir'][0])
-        self.tacticInstallDirLineEdit.setText(env.Env().get_install_dir())
-        self.tacticServerLineEdit.setText(env.Env().get_server())
-        if env.Mode().get == 'maya':
+        self.userNameLineEdit.setText(env.Env.get_user())
+        self.passwordLineEdit.setText(env.Env.get_user())
+        self.tacticEnvLineEdit.setText(env.Env.get_data_dir())
+        self.tacticInstallDirLineEdit.setText(env.Env.get_install_dir())
+        self.tacticServerLineEdit.setText(env.Env.get_server())
+        if env.Mode.get == 'maya':
             self.currentWorkdirLineEdit.setText(cmds.workspace(q=True, dir=True))
 
-        self.settings.beginGroup(env.Mode().get + '/ui_conf')
-        if self.offline:
+        self.settings.beginGroup(env.Mode.get + '/ui_conf')
+        if env.Inst.offline:
             self.configToolBox.setCurrentIndex(0)
         else:
             self.configToolBox.setCurrentIndex(int(self.settings.value('configToolBox', 0)))
+        self.move(self.settings.value('pos', self.pos()))
+        self.resize(self.settings.value('size', self.size()))
+        if self.settings.value("windowState"):
+            if bool(int(self.settings.value("windowState"))):
+                self.setWindowState(QtCore.Qt.WindowMaximized)
         self.settings.endGroup()
 
     def writeSettings(self):
         """
         Writing Settings
         """
-        self.settings.beginGroup(env.Mode().get + '/ui_conf')
+        self.settings.beginGroup(env.Mode.get + '/ui_conf')
         self.settings.setValue('configToolBox', self.configToolBox.currentIndex())
+        if self.windowState() == QtCore.Qt.WindowMaximized:
+            state = True
+        else:
+            state = False
+            self.settings.setValue('pos', self.pos())
+            self.settings.setValue('size', self.size())
+        self.settings.setValue("windowState", int(state))
         print('Done ui_conf settings write')
         self.settings.endGroup()
 

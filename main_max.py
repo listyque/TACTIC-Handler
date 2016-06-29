@@ -5,7 +5,7 @@ import os
 import sys
 import PySide.QtGui as QtGui
 import lib.environment as env
-env.Mode().set_mode('standalone')
+env.Mode.set_mode('standalone')
 import lib.ui_main_classes
 DATA_DIR = os.environ['TACTIC_DATA_DIR'] + '/TACTIC-handler'
 sys.path.append(DATA_DIR)

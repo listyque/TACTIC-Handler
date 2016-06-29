@@ -73,7 +73,7 @@ def hex_to_html(text_hex):
 
 
 def form_path(path):
-    if env.Env().platform == 'Linux':
+    if env.Env.platform == 'Linux':
         formed_path = path.replace('\\', '/').replace('\\\\', '/').replace('//', '/')
         return formed_path
     else:

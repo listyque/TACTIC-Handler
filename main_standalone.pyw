@@ -6,7 +6,7 @@ import sys
 import PySide.QtGui as QtGui
 import lib.environment as env
 import lib.tactic_classes as tc
-env.Mode().set_mode('standalone')
+env.Mode.set_mode('standalone')
 import lib.ui_main_classes
 
 DATA_DIR = '/mnt/drive_d/Alexey/Dropbox/Work/CGProjects/tacticbase_dev/TACTIC-handler'
@@ -77,11 +77,13 @@ def create_ui(thread):
         retry_startup(thread)
     else:
         if thread.isFailed():
-            window = lib.ui_main_classes.Ui_Main(parent=None, offline=True)
+            env.Inst.offline = True
+            window = lib.ui_main_classes.Ui_Main(parent=None)
         else:
-            window = lib.ui_main_classes.Ui_Main(parent=None, offline=False)
+            env.Inst.offline = False
+            window = lib.ui_main_classes.Ui_Main(parent=None)
 
-        env.Inst().ui_main = window
+        env.Inst.ui_main = window
         window.main_layout.setSpacing(6)
         window.main_layout.setContentsMargins(9, 9, 9, 0)
         window.statusBar()

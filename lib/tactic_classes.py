@@ -21,7 +21,7 @@ import lib.client.tactic_client_lib as tactic_client_lib
 # import xml.etree.ElementTree as Et
 # import ui_conf_classes
 
-if env.Mode().get == 'maya':
+if env.Mode.get == 'maya':
     import ui_maya_dock
     import maya.cmds as cmds
 
@@ -93,14 +93,14 @@ def server_auth(host, project, login, password, get_ticket=False):
     server = tactic_client_lib.TacticServerStub.get(protocol='xmlrpc', setup=False)
     server.set_server(host)
     server.set_project(project)
-    ticket = env.Env().get_ticket()
+    ticket = env.Env.get_ticket()
     if not ticket or get_ticket:
         ticket = server.get_ticket(login, password)
         if type(ticket) == dict:
             if ticket.get('exception'):
                 return server
         else:
-            env.Env().set_ticket(ticket)
+            env.Env.set_ticket(ticket)
 
     server.set_ticket(ticket)
 
@@ -109,10 +109,10 @@ def server_auth(host, project, login, password, get_ticket=False):
 
 def server_start(get_ticket=False):
     server = server_auth(
-        env.Env().get_server(),
-        env.Env().get_project(),
-        env.Env().get_user(),
-        env.Env().get_pass(),
+        env.Env.get_server(),
+        env.Env.get_project(),
+        env.Env.get_user(),
+        env.Env.get_pass(),
         get_ticket=get_ticket,
     )
     return server
@@ -206,6 +206,51 @@ def catch_error_type(exception):
     return error
 
 
+def generate_new_ticket():
+    login_pass_dlg = QtGui.QMessageBox(
+        QtGui.QMessageBox.Question,
+        'Updating ticket',
+        'Enter Your Login and Password.',
+        QtGui.QMessageBox.NoButton,
+        None,
+    )
+    layout = QtGui.QGridLayout()
+
+    wdg = QtGui.QWidget()
+    wdg.setLayout(layout)
+
+    msb_layot = login_pass_dlg.layout()
+    msb_layot.addWidget(wdg, 1, 1)
+
+    # Labels
+    login_label = QtGui.QLabel('Login: ')
+    pass_label = QtGui.QLabel('Password: ')
+
+    # Line Edits
+    login_line_edit = QtGui.QLineEdit()
+    login_line_edit.setText(env.Env.get_user())
+    pass_line_edit = QtGui.QLineEdit()
+
+    layout.addWidget(login_label, 0, 0)
+    layout.addWidget(login_line_edit, 0, 1)
+    layout.addWidget(pass_label, 1, 0)
+    layout.addWidget(pass_line_edit, 1, 1)
+
+    pass_line_edit.setFocus()
+
+    login_pass_dlg.exec_()
+
+    host = env.Env.get_server()
+    project = env.Env.get_project()
+    login = login_line_edit.text()
+    password = pass_line_edit.text()
+
+    thread = get_server_thread(dict(), lambda: server_auth(host, project, login, password, get_ticket=True), server_ping)
+    thread.start()
+    threat_result(thread)
+    thread.wait()
+
+
 def error_handle(thread):
     expected = thread.result['exception']
 
@@ -218,10 +263,12 @@ def error_handle(thread):
         message = '{0}<p>{1}</p>'.format(
             "<p>Looks like TACTIC Server isn't running! May be You need to set up Right Server port and address</p> <p>Start Server? (Only TACTIC Team)</p>",
             exception_text)
-        buttons = (('Yes', QtGui.QMessageBox.YesRole),
+        buttons = [('Yes', QtGui.QMessageBox.YesRole),
                    ('No', QtGui.QMessageBox.NoRole),
-                   ('Open Config', QtGui.QMessageBox.ActionRole),
-                   ('Retry', QtGui.QMessageBox.ApplyRole))
+                   ('Retry', QtGui.QMessageBox.ApplyRole)]
+
+        if not env.Inst.ui_conf:
+            buttons.append(('Open Config', QtGui.QMessageBox.ActionRole))
 
         reply = show_message_predefined(
             title=title,
@@ -241,11 +288,13 @@ def error_handle(thread):
     if error == 'unknown_error':
         title = '{0}, {1}'.format("Unknown Error!", error)
         message = '{0}<p>{1}</p>'.format(
-            "<p>This is no usual type of Exception! See stacktrace for information</p> <p>Open config?</p>",
+            "<p>This is no usual type of Exception! See stacktrace for information</p>",
             exception_text)
-        buttons = (('Ok', QtGui.QMessageBox.NoRole),
-                   ('Open Config', QtGui.QMessageBox.ActionRole),
-                   ('Retry', QtGui.QMessageBox.ApplyRole))
+        buttons = [('Ok', QtGui.QMessageBox.NoRole),
+                   ('Retry', QtGui.QMessageBox.ApplyRole)]
+
+        if not env.Inst.ui_conf:
+            buttons.append(('Open Config', QtGui.QMessageBox.ActionRole))
 
         reply = show_message_predefined(
             title=title,
@@ -267,9 +316,11 @@ def error_handle(thread):
         message = '{0}<p>{1}</p>'.format(
             "<p>Wrong ticket, or session may have expired!</p> <p>Generate new ticket?</p>",
             exception_text)
-        buttons = (('Yes', QtGui.QMessageBox.YesRole),
-                   ('No', QtGui.QMessageBox.NoRole),
-                   ('Open Config', QtGui.QMessageBox.ActionRole))
+        buttons = [('Yes', QtGui.QMessageBox.YesRole),
+                   ('No', QtGui.QMessageBox.NoRole)]
+
+        if not env.Inst.ui_conf:
+            buttons.append(('Open Config', QtGui.QMessageBox.ActionRole))
 
         reply = show_message_predefined(
             title=title,
@@ -280,7 +331,7 @@ def error_handle(thread):
             message_type='question',
         )
         if reply == QtGui.QMessageBox.YesRole:
-            server_start(True)
+            generate_new_ticket()
             thread.result = QtGui.QMessageBox.ApplyRole
         if reply == QtGui.QMessageBox.ActionRole:
             thread.result = reply
@@ -292,9 +343,11 @@ def error_handle(thread):
         message = '{0}<p>{1}</p>'.format(
             "<p>You set up wrong Porject Name, or Project not exist!</p> <p>Reset Project to \"sthpw\"?</p>",
             exception_text)
-        buttons = (('Yes', QtGui.QMessageBox.YesRole),
-                   ('No', QtGui.QMessageBox.NoRole),
-                   ('Open Config', QtGui.QMessageBox.ActionRole))
+        buttons = [('Yes', QtGui.QMessageBox.YesRole),
+                   ('No', QtGui.QMessageBox.NoRole)]
+
+        if not env.Inst.ui_conf:
+            buttons.append(('Open Config', QtGui.QMessageBox.ActionRole))
 
         reply = show_message_predefined(
             title=title,
@@ -305,8 +358,8 @@ def error_handle(thread):
             message_type='critical',
         )
         if reply == QtGui.QMessageBox.YesRole:
-            env.Env().set_project('sthpw')
-            env.Inst().ui_main.restart_ui_main()
+            env.Env.set_project('sthpw')
+            env.Inst.ui_main.restart_ui_main()
         if reply == QtGui.QMessageBox.ActionRole:
             thread.result = reply
 
@@ -315,10 +368,12 @@ def error_handle(thread):
     if error == 'login_pass_error':
         title = '{0}, {1}'.format("Wrong user Login or Password for TACTIC Server!", error)
         message = '{0}<p>{1}</p>'.format(
-            "<p>You need to open config, and type correct Login and Password!</p> <p>Open Config?</p>",
+            "<p>You need to open config, and type correct Login and Password!</p>",
             exception_text)
-        buttons = (('No', QtGui.QMessageBox.NoRole),
-                   ('Open Config', QtGui.QMessageBox.ActionRole))
+        buttons = [('Ok', QtGui.QMessageBox.NoRole)]
+
+        if not env.Inst.ui_conf:
+            buttons.append(('Open Config', QtGui.QMessageBox.ActionRole))
 
         reply = show_message_predefined(
             title=title,
@@ -336,10 +391,12 @@ def error_handle(thread):
     if error == 'sql_connection_error':
         title = '{0}, {1}'.format("SQL Server Error!", error)
         message = '{0}<p>{1}</p>'.format(
-            "<p>TACTIC Server can't connect to SQL server, may be SQL Server Down! Or wrong server port/ip </p> <p>Open Config?</p>",
+            "<p>TACTIC Server can't connect to SQL server, may be SQL Server Down! Or wrong server port/ip </p>",
             exception_text)
-        buttons = (('No', QtGui.QMessageBox.NoRole),
-                   ('Open Config', QtGui.QMessageBox.ActionRole))
+        buttons = [('Ok', QtGui.QMessageBox.NoRole)]
+
+        if not env.Inst.ui_conf:
+            buttons.append(('Open Config', QtGui.QMessageBox.ActionRole))
 
         reply = show_message_predefined(
             title=title,
@@ -356,10 +413,12 @@ def error_handle(thread):
 
     if error == 'protocol_error':
         title = '{0}, {1}'.format("Error with the Protocol!", error)
-        message = '{0}<p>{1}</p>'.format("<p>Something wrong!</p> <p>Open Config?</p>", exception_text)
-        buttons = (('No', QtGui.QMessageBox.NoRole),
-                   ('Open Config', QtGui.QMessageBox.ActionRole),
-                   ('Retry', QtGui.QMessageBox.ApplyRole))
+        message = '{0}<p>{1}</p>'.format("<p>Something wrong!</p>", exception_text)
+        buttons = [('Ok', QtGui.QMessageBox.NoRole),
+                   ('Retry', QtGui.QMessageBox.ApplyRole)]
+
+        if not env.Inst.ui_conf:
+            buttons.append(('Open Config', QtGui.QMessageBox.ActionRole))
 
         reply = show_message_predefined(
             title=title,
@@ -404,8 +463,8 @@ def server_ping():
 #         error = catch_error_type(exception)
 #
 #         if error == 'no_project_error':
-#             env.Env().set_project('sthpw')
-#             env.Env().set_namespace('')
+#             env.Env.set_project('sthpw')
+#             env.Env.set_namespace('')
 #
 #         if error == 'ticket_error':
 #             get_server(True)
@@ -423,7 +482,7 @@ def server_ping():
 def query_assets_names():
     server = server_start()
     search_type = 'sthpw/search_object'
-    namespace = [env.Env().get_namespace(), env.Env().get_project()]
+    namespace = [env.Env.get_namespace(), env.Env.get_project()]
 
     filters = [('namespace', namespace)]
 
@@ -461,12 +520,12 @@ def query_tab_names(full_list=False):
                   'type': None}, ]
 
     search_type = 'sthpw/search_object'
-    namespace = [env.Env().get_namespace(), env.Env().get_project()]
+    namespace = [env.Env.get_namespace(), env.Env.get_project()]
 
-    if env.Mode().get == 'standalone':
-        filters = [('type', env.Env().get_types_list()), ('namespace', namespace)]
+    if env.Mode.get == 'standalone':
+        filters = [('type', env.Env.get_types_list()), ('namespace', namespace)]
     else:
-        filters = [('type', env.Mode().get), ('namespace', namespace)]
+        filters = [('type', env.Mode.get), ('namespace', namespace)]
 
     if full_list:
         filters = [('namespace', namespace)]
@@ -580,9 +639,9 @@ class SObject(object):
         """
 
         if process:
-            filters = [('search_code', s_code), ('process', process), ('project_code', env.Env().get_project())]
+            filters = [('search_code', s_code), ('process', process), ('project_code', env.Env.get_project())]
         else:
-            filters = [('search_code', s_code), ('project_code', env.Env().get_project())]
+            filters = [('search_code', s_code), ('project_code', env.Env.get_project())]
 
         return server_start().query_snapshots(filters=filters, include_files=True)
 
@@ -600,9 +659,9 @@ class SObject(object):
 
         search_type = 'sthpw/task'
         if process:
-            filters = [('search_code', s_code), ('process', process), ('project_code', env.Env().get_project())]
+            filters = [('search_code', s_code), ('process', process), ('project_code', env.Env.get_project())]
         else:
-            filters = [('search_code', s_code), ('project_code', env.Env().get_project())]
+            filters = [('search_code', s_code), ('project_code', env.Env.get_project())]
 
         return server.query(search_type, filters)
 
@@ -619,9 +678,9 @@ class SObject(object):
 
         search_type = 'sthpw/note'
         if process:
-            filters = [('search_code', s_code), ('process', process), ('project_code', env.Env().get_project())]
+            filters = [('search_code', s_code), ('process', process), ('project_code', env.Env.get_project())]
         else:
-            filters = [('search_code', s_code), ('project_code', env.Env().get_project())]
+            filters = [('search_code', s_code), ('project_code', env.Env.get_project())]
 
         return server.query(search_type, filters)
 
@@ -762,7 +821,7 @@ def query_snapshots(process_list=None, s_code=None):
 
     filters_snapshots = [
         ('process', process_codes),
-        ('project_code', env.Env().get_project()),
+        ('project_code', env.Env.get_project()),
         ('search_code', s_code),
     ]
 
@@ -878,7 +937,7 @@ def context_query(process):
     empty_item = {'empty/empty': ['empty']}
     search_type = 'sthpw/pipeline'
 
-    filters = [('search_type', process), ('project_code', env.Env().get_project())]
+    filters = [('search_type', process), ('project_code', env.Env.get_project())]
     assets = server.query(search_type, filters)
 
     from lib.bs4 import BeautifulSoup
@@ -1035,7 +1094,7 @@ def snapshot_delete_confirm(snapshot, files):
     msb = QtGui.QMessageBox(QtGui.QMessageBox.Question, 'Confirm deleting',
                             '<p><p>Do you really want to delete snapshot, with context:</p>{0}<p>Version: {1}</p>Also remove selected Files?</p>'.format(
                                 snapshot['context'], ver_rev),
-                            QtGui.QMessageBox.NoButton, env.Inst().ui_main)
+                            QtGui.QMessageBox.NoButton, env.Inst.ui_main)
 
     msb.addButton("Delete", QtGui.QMessageBox.YesRole)
     msb.addButton("Cancel", QtGui.QMessageBox.NoRole)
@@ -1069,9 +1128,9 @@ def snapshot_delete_confirm(snapshot, files):
     if reply == QtGui.QMessageBox.YesRole:
 
         if snapshot.get('repo'):
-            asset_dir = env.Env().rep_dirs[snapshot.get('repo')][0]
+            asset_dir = env.Env.rep_dirs[snapshot.get('repo')][0]
         else:
-            asset_dir = env.Env().rep_dirs['asset_base_dir'][0]
+            asset_dir = env.Env.rep_dirs['asset_base_dir'][0]
 
         for i, checkbox in enumerate(checkboxes):
             if checkbox.isChecked():
@@ -1091,14 +1150,14 @@ def save_confirm(paths, visible_ext, repo, update_versionless=True):
     else:
         update_vs = '<p>Versionless will <span style="color:#aa0000;"><b>not be</b></span> Updated</p>'
 
-    full_path = gf.form_path(env.Env().rep_dirs[repo][0] + '/' + paths['relative_path'])
+    full_path = gf.form_path(env.Env.rep_dirs[repo][0] + '/' + paths['relative_path'])
 
     msb = QtGui.QMessageBox(QtGui.QMessageBox.Question, 'Confirm saving',
                             '<p><p>Files will be saved to:</p>{0}<p>Filename: {1}</p>{2}Continue?</p>'.format(full_path,
                                                                                                               paths[
                                                                                                                   'file_name'] + '.' + visible_ext,
                                                                                                               update_vs),
-                            QtGui.QMessageBox.NoButton, env.Inst().ui_main)
+                            QtGui.QMessageBox.NoButton, env.Inst.ui_main)
 
     msb.addButton("Yes", QtGui.QMessageBox.YesRole)
     msb.addButton("No", QtGui.QMessageBox.NoRole)
@@ -1328,9 +1387,9 @@ def parce_skey(skey):
 
 
 def generate_skey(pipeline_code=None, code=None):
-    skey = 'skey://{0}/{1}?project={2}&code={3}'.format(env.Env().get_namespace(),
+    skey = 'skey://{0}/{1}?project={2}&code={3}'.format(env.Env.get_namespace(),
                                                         pipeline_code,
-                                                        env.Env().get_project(),
+                                                        env.Env.get_project(),
                                                         code)
 
     return skey
