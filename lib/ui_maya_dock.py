@@ -24,7 +24,7 @@ class Ui_DockMain(MayaQWidgetDockableMixin, QtGui.QMainWindow):
 
         self.settings = QtCore.QSettings('TACTIC Handler', 'TACTIC Handling Tool')
 
-        self.ui_main_window = ui_main_classes.Ui_Main(offline, self.parent())
+        self.ui_main_window = ui_main_classes.Ui_Main(self.parent())
         self.setCentralWidget(self.ui_main_window)
         env.Inst.ui_main = self.ui_main_window
 
@@ -91,7 +91,7 @@ class Ui_DockMain(MayaQWidgetDockableMixin, QtGui.QMainWindow):
         self.settings.setValue('size', self.size())
         self.settings.setValue('isFloating', self.isFloating())
         self.settings.setValue('tabArea', self.parent().parent().dockWidgetArea(self.parent()))
-        print('Done general_ui settings write')
+        print('Done ui_maya_dock settings write')
         self.settings.endGroup()
         self.deleteLater()
 
@@ -112,15 +112,16 @@ class Ui_DockMain(MayaQWidgetDockableMixin, QtGui.QMainWindow):
 
 
 def create_ui(thread, tab_index):
-    thread = tc.threat_result(thread)
+    thread = tc.treat_result(thread)
     if thread.result == QtGui.QMessageBox.ApplyRole:
         retry_startup(thread, tab_index)
     else:
         if thread.isFailed():
-            print 'OPENING OFFLINE'
-            main_tab = Ui_DockMain(tab_index=tab_index, offline=True)
+            env.Inst.offline = True
+            main_tab = Ui_DockMain(tab_index=tab_index)
         else:
-            main_tab = Ui_DockMain(tab_index=tab_index, offline=False)
+            env.Inst.offline = False
+            main_tab = Ui_DockMain(tab_index=tab_index)
 
         env.Inst.ui_maya_dock = main_tab
         main_tab.switch_tab(tab_index)

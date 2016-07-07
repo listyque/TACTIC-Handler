@@ -237,6 +237,7 @@ class Ui_iconsWidget(QtGui.QWidget, ui_icons.Ui_icons):
         # print self.versions_icons
 
         # print value - 1
+        # print self.nested_item.snapshot
 
         if self.nested_item.snapshot.get('repo'):
             asset_dir = gf.form_path(env.Env.rep_dirs[self.nested_item.snapshot.get('repo')][0])

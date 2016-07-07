@@ -43,6 +43,7 @@ class Ui_configuration_dialogWidget(QtGui.QDialog, ui_conf.Ui_configuration_dial
             'QCheckBox': {'obj_name': [], 'value': []},
             'QComboBox': {'obj_name': [], 'value': []},
             'QTreeWidget': {'obj_name': [], 'value': []},
+            'QToolButton': {'obj_name': [], 'value': []},
         }
         # Load saved configs
         self.server_page_init = env.Conf.get_server()
@@ -220,17 +221,17 @@ class Ui_configuration_dialogWidget(QtGui.QDialog, ui_conf.Ui_configuration_dial
         self.connectToServerButton.clicked.connect(lambda: self.try_connect_to_server(run_thread=True))
         self.generateTicketButton.clicked.connect(lambda: self.generate_ticket(run_thread=True))
 
-        self.buttonBox.button(QtGui.QDialogButtonBox.Close).clicked.connect(lambda: self.close())
+        self.buttonBox.button(QtGui.QDialogButtonBox.Close).clicked.connect(self.close)
 
         self.reset_button = self.buttonBox.button(QtGui.QDialogButtonBox.Reset)
         self.reset_button.setEnabled(False)
-        self.reset_button.clicked.connect(lambda: self.undo_changes())
+        self.reset_button.clicked.connect(self.undo_changes)
 
-        self.buttonBox.button(QtGui.QDialogButtonBox.RestoreDefaults).clicked.connect(lambda: self.restore_defaults())
+        self.buttonBox.button(QtGui.QDialogButtonBox.RestoreDefaults).clicked.connect(self.restore_defaults)
 
         self.save_button = self.buttonBox.button(QtGui.QDialogButtonBox.Save)
         self.save_button.setEnabled(False)
-        self.save_button.clicked.connect(lambda: self.perform_save())
+        self.save_button.clicked.connect(self.perform_save)
 
         self.projectsTreeWidget.setContextMenuPolicy(QtCore.Qt.CustomContextMenu)
         self.projectsTreeWidget.customContextMenuRequested.connect(self.open_menu)
@@ -292,7 +293,7 @@ class Ui_configuration_dialogWidget(QtGui.QDialog, ui_conf.Ui_configuration_dial
                 self.generate_ticket_thread.start()
 
         if generate_ticket:
-            ticket = tc.threat_result(self.generate_ticket_thread)
+            ticket = tc.treat_result(self.generate_ticket_thread)
 
             if ticket.isFailed():
                 if ticket.result == QtGui.QMessageBox.ApplyRole:
@@ -318,7 +319,7 @@ class Ui_configuration_dialogWidget(QtGui.QDialog, ui_conf.Ui_configuration_dial
                 self.server_ping_thread.start()
 
         if try_connect:
-            connect = tc.threat_result(self.server_ping_thread)
+            connect = tc.treat_result(self.server_ping_thread)
 
             if connect.isFailed():
                 if connect.result == QtGui.QMessageBox.ApplyRole:
@@ -336,7 +337,7 @@ class Ui_configuration_dialogWidget(QtGui.QDialog, ui_conf.Ui_configuration_dial
 
         self.processTreeWidget.clear()
 
-        self.assets_names = tc.threat_result(self.query_assets_names_thread)
+        self.assets_names = tc.treat_result(self.query_assets_names_thread)
         for name, value in self.assets_names.result.iteritems():
             self.top_item = QtGui.QTreeWidgetItem()
             self.top_item.setCheckState(0, QtCore.Qt.Unchecked)
@@ -633,6 +634,10 @@ class Ui_configuration_dialogWidget(QtGui.QDialog, ui_conf.Ui_configuration_dial
             in_dict['QTreeWidget']['value'].append(int(widget.topLevelItemCount()))
             in_dict['QTreeWidget']['obj_name'].append(widget.objectName())
 
+        if isinstance(widget, QtGui.QToolButton):
+            in_dict['QToolButton']['value'].append(str(widget.styleSheet()))
+            in_dict['QToolButton']['obj_name'].append(widget.objectName())
+
     @staticmethod
     def change_property_by_widget_type(widget, in_dict):
 
@@ -649,13 +654,13 @@ class Ui_configuration_dialogWidget(QtGui.QDialog, ui_conf.Ui_configuration_dial
     def store_dict_values(self, widgets, out_dict):
         self.clear_property_dict(out_dict)
         for widget in widgets:
-            if isinstance(widget, (QtGui.QLineEdit, QtGui.QCheckBox, QtGui.QComboBox, QtGui.QTreeWidget)):
+            if isinstance(widget, (QtGui.QLineEdit, QtGui.QCheckBox, QtGui.QComboBox, QtGui.QTreeWidget, QtGui.QToolButton)):
                 self.store_property_by_widget_type(widget, out_dict)
                 widget.installEventFilter(self)
 
     def apply_dict_values(self, widgets, in_dict):
         for widget in widgets:
-            if isinstance(widget, (QtGui.QLineEdit, QtGui.QCheckBox, QtGui.QComboBox, QtGui.QTreeWidget)):
+            if isinstance(widget, (QtGui.QLineEdit, QtGui.QCheckBox, QtGui.QComboBox, QtGui.QTreeWidget, QtGui.QToolButton)):
                 self.change_property_by_widget_type(widget, in_dict)
 
     def collect_defaults(self, defaults_dict=None, init_dict=None, layouts_list=None, get_values=False, apply_values=False, store_defaults=False, undo_changes=False):
@@ -767,6 +772,8 @@ class Ui_configuration_dialogWidget(QtGui.QDialog, ui_conf.Ui_configuration_dial
             if current_item_text.find('(changed)') != -1:
                 self.configToolBox.setItemText(2, current_item_text.replace(', (changed)', ', (saved)'))
 
+            self.restart()
+
         if current_page == 'checkinPage':
             self.collect_checkin_defaults(get_values=True)
             env.Conf.set_checkin(self.checkin_page_init)
@@ -776,34 +783,48 @@ class Ui_configuration_dialogWidget(QtGui.QDialog, ui_conf.Ui_configuration_dial
             if current_item_text.find('(changed)') != -1:
                 self.configToolBox.setItemText(3, current_item_text.replace(', (changed)', ', (saved)'))
 
-        # Checkin page save
-        # if self.campare_changes('checkinPage'):
-        #     rep_dirs = env.Env.rep_dirs
-        #     rep_dirs['custom_asset_dir'] = self.custom_repo_item
-        #     rep_dirs['custom_asset_dir']['enabled'] = self.customRepoCheckBox.checkState()
-        #
-        #     rep_dirs['asset_base_dir'][0] = self.assetBaseDirPathLineEdit.text()
-        #     rep_dirs['asset_base_dir'][1] = self.assetBaseDirNameLineEdit.text()
-        #     rep_dirs['asset_base_dir'][2] = self.assetBaseDirCheckBox.checkState()
-        #
-        #     rep_dirs['win32_sandbox_dir'][0] = self.sandboxDirPathLineEdit.text()
-        #     rep_dirs['win32_sandbox_dir'][1] = self.sandboxDirNameLineEdit.text()
-        #     rep_dirs['win32_sandbox_dir'][2] = self.sandboxCheckBox.checkState()
-        #
-        #     rep_dirs['win32_client_repo_dir'][0] = self.clientRepoDirPathLineEdit.text()
-        #     rep_dirs['win32_client_repo_dir'][1] = self.clientRepoDirNameLineEdit.text()
-        #     rep_dirs['win32_client_repo_dir'][2] = self.clientRepoCheckBox.checkState()
-        #
-        #     rep_dirs['win32_local_repo_dir'][0] = self.localRepoDirPathLineEdit.text()
-        #     rep_dirs['win32_local_repo_dir'][1] = self.localRepoDirNameLineEdit.text()
-        #     rep_dirs['win32_local_repo_dir'][2] = self.localRepoCheckBox.checkState()
-        #
-        #     rep_dirs['win32_client_handoff_dir'][0] = self.handoffDirPathLineEdit.text()
-        #     rep_dirs['win32_client_handoff_dir'][2] = self.handoffCheckBox.checkState()
-        #
-        #     env.Env.set_default_dirs()
-        #     self.collect_defaults('checkinPage')
-        #
+            # begin filling env dirs
+            rep_dirs = env.Env.rep_dirs
+            rep_dirs['custom_asset_dir'] = self.custom_repo_item_init
+            rep_dirs['custom_asset_dir']['enabled'] = self.customRepoCheckBox.checkState()
+            rep_dirs['asset_base_dir'][0] = self.assetBaseDirPathLineEdit.text()
+            rep_dirs['asset_base_dir'][1] = self.assetBaseDirNameLineEdit.text()
+            rep_dirs['asset_base_dir'][2] = self.assetBaseDirCheckBox.checkState()
+
+            if env.Env.platform == 'Linux':
+                rep_dirs['linux_sandbox_dir'][0] = self.sandboxDirPathLineEdit.text()
+                rep_dirs['linux_sandbox_dir'][1] = self.sandboxDirNameLineEdit.text()
+                rep_dirs['linux_sandbox_dir'][2] = self.sandboxCheckBox.checkState()
+
+                rep_dirs['linux_client_repo_dir'][0] = self.clientRepoDirPathLineEdit.text()
+                rep_dirs['linux_client_repo_dir'][1] = self.clientRepoDirNameLineEdit.text()
+                rep_dirs['linux_client_repo_dir'][2] = self.clientRepoCheckBox.checkState()
+
+                rep_dirs['linux_local_repo_dir'][0] = self.localRepoDirPathLineEdit.text()
+                rep_dirs['linux_local_repo_dir'][1] = self.localRepoDirNameLineEdit.text()
+                rep_dirs['linux_local_repo_dir'][2] = self.localRepoCheckBox.checkState()
+
+                rep_dirs['linux_client_handoff_dir'][0] = self.handoffDirPathLineEdit.text()
+                rep_dirs['linux_client_handoff_dir'][2] = self.handoffCheckBox.checkState()
+            else:
+                rep_dirs['win32_sandbox_dir'][0] = self.sandboxDirPathLineEdit.text()
+                rep_dirs['win32_sandbox_dir'][1] = self.sandboxDirNameLineEdit.text()
+                rep_dirs['win32_sandbox_dir'][2] = self.sandboxCheckBox.checkState()
+
+                rep_dirs['win32_client_repo_dir'][0] = self.clientRepoDirPathLineEdit.text()
+                rep_dirs['win32_client_repo_dir'][1] = self.clientRepoDirNameLineEdit.text()
+                rep_dirs['win32_client_repo_dir'][2] = self.clientRepoCheckBox.checkState()
+
+                rep_dirs['win32_local_repo_dir'][0] = self.localRepoDirPathLineEdit.text()
+                rep_dirs['win32_local_repo_dir'][1] = self.localRepoDirNameLineEdit.text()
+                rep_dirs['win32_local_repo_dir'][2] = self.localRepoCheckBox.checkState()
+
+                rep_dirs['win32_client_handoff_dir'][0] = self.handoffDirPathLineEdit.text()
+                rep_dirs['win32_client_handoff_dir'][2] = self.handoffCheckBox.checkState()
+
+            env.Env.set_default_dirs()
+            self.restart()
+
         if self.current_project != env.Env.get_project():
             env.Env.set_project(self.current_project)
             env.Env.set_namespace(self.current_namespace)
@@ -848,7 +869,7 @@ class Ui_configuration_dialogWidget(QtGui.QDialog, ui_conf.Ui_configuration_dial
         self.projectsTreeWidget.clear()
 
         if (event == 1) and (self.projectsTreeWidget.topLevelItemCount() == 0):
-            projects = tc.threat_result(self.query_projects_thread)
+            projects = tc.treat_result(self.query_projects_thread)
 
         else:
             projects = None
@@ -946,6 +967,7 @@ class Ui_configuration_dialogWidget(QtGui.QDialog, ui_conf.Ui_configuration_dial
     def closeEvent(self, event):
         if self.compare_all_changes():
             self.writeSettings()
+            env.Inst.ui_conf = None
             event.accept()
         else:
             event.ignore()

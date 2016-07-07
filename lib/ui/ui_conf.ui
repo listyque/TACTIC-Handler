@@ -5,6 +5,14 @@
   <property name="windowModality">
    <enum>Qt::ApplicationModal</enum>
   </property>
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>469</width>
+    <height>734</height>
+   </rect>
+  </property>
   <property name="windowTitle">
    <string>TACTIC Handler configuration</string>
   </property>
@@ -15,6 +23,16 @@
    <bool>true</bool>
   </property>
   <layout class="QGridLayout" name="gridLayout_6">
+   <item row="1" column="0">
+    <widget class="QDialogButtonBox" name="buttonBox">
+     <property name="standardButtons">
+      <set>QDialogButtonBox::Close|QDialogButtonBox::Reset|QDialogButtonBox::RestoreDefaults|QDialogButtonBox::Save</set>
+     </property>
+     <property name="centerButtons">
+      <bool>false</bool>
+     </property>
+    </widget>
+   </item>
    <item row="0" column="0">
     <widget class="QToolBox" name="configToolBox">
      <property name="styleSheet">
@@ -40,7 +58,7 @@ QToolBox::tab:selected {
 }</string>
      </property>
      <property name="currentIndex">
-      <number>0</number>
+      <number>4</number>
      </property>
      <property name="tabSpacing">
       <number>6</number>
@@ -50,14 +68,17 @@ QToolBox::tab:selected {
        <rect>
         <x>0</x>
         <y>0</y>
-        <width>470</width>
-        <height>400</height>
+        <width>451</width>
+        <height>525</height>
        </rect>
       </property>
       <attribute name="label">
        <string>TACTIC Server</string>
       </attribute>
       <layout class="QGridLayout" name="serverOptionsLayout">
+       <property name="margin">
+        <number>6</number>
+       </property>
        <item row="1" column="0">
         <widget class="QGroupBox" name="environmentsGroupBox">
          <property name="title">
@@ -233,17 +254,14 @@ QToolBox::tab:selected {
        <rect>
         <x>0</x>
         <y>0</y>
-        <width>470</width>
-        <height>400</height>
+        <width>451</width>
+        <height>525</height>
        </rect>
       </property>
       <attribute name="label">
        <string>Project (restart required to apply)</string>
       </attribute>
       <layout class="QVBoxLayout" name="verticalLayout_3">
-       <property name="spacing">
-        <number>6</number>
-       </property>
        <property name="margin">
         <number>6</number>
        </property>
@@ -354,17 +372,14 @@ QToolBox::tab:selected {
        <rect>
         <x>0</x>
         <y>0</y>
-        <width>470</width>
-        <height>400</height>
+        <width>451</width>
+        <height>525</height>
        </rect>
       </property>
       <attribute name="label">
        <string>Checkout</string>
       </attribute>
       <layout class="QVBoxLayout" name="verticalLayout_6">
-       <property name="spacing">
-        <number>6</number>
-       </property>
        <property name="margin">
         <number>6</number>
        </property>
@@ -423,8 +438,8 @@ QToolBox::tab:selected {
        <rect>
         <x>0</x>
         <y>0</y>
-        <width>470</width>
-        <height>400</height>
+        <width>451</width>
+        <height>525</height>
        </rect>
       </property>
       <attribute name="label">
@@ -436,103 +451,6 @@ QToolBox::tab:selected {
        </property>
        <item>
         <layout class="QGridLayout" name="checkinPageLayout">
-         <item row="0" column="0">
-          <widget class="QGroupBox" name="customRepoPathsGroupBox">
-           <property name="title">
-            <string>Custom repository path:</string>
-           </property>
-           <property name="flat">
-            <bool>true</bool>
-           </property>
-           <layout class="QGridLayout" name="customRepoPathsLayout" columnstretch="0,0,0,0,0,0,0">
-            <property name="leftMargin">
-             <number>0</number>
-            </property>
-            <property name="rightMargin">
-             <number>0</number>
-            </property>
-            <property name="bottomMargin">
-             <number>0</number>
-            </property>
-            <item row="0" column="0">
-             <widget class="QCheckBox" name="customRepoCheckBox">
-              <property name="text">
-               <string>Show custom repos</string>
-              </property>
-             </widget>
-            </item>
-            <item row="1" column="0">
-             <widget class="QLabel" name="label_7">
-              <property name="text">
-               <string>Repo name:</string>
-              </property>
-             </widget>
-            </item>
-            <item row="1" column="1">
-             <widget class="QLineEdit" name="customRepoDirNameLineEdit"/>
-            </item>
-            <item row="1" column="2">
-             <widget class="QLabel" name="label_8">
-              <property name="text">
-               <string>Repo path:</string>
-              </property>
-             </widget>
-            </item>
-            <item row="1" column="3" colspan="3">
-             <widget class="QLineEdit" name="customRepoDirPathLineEdit"/>
-            </item>
-            <item row="1" column="6">
-             <widget class="QPushButton" name="addCustomRepoToListPushButton">
-              <property name="text">
-               <string>Add</string>
-              </property>
-             </widget>
-            </item>
-            <item row="2" column="0" colspan="7">
-             <widget class="QTreeWidget" name="customRepoTreeWidget">
-              <property name="indentation">
-               <number>0</number>
-              </property>
-              <property name="rootIsDecorated">
-               <bool>false</bool>
-              </property>
-              <column>
-               <property name="text">
-                <string>Visible</string>
-               </property>
-              </column>
-              <column>
-               <property name="text">
-                <string>Custom repo name</string>
-               </property>
-              </column>
-              <column>
-               <property name="text">
-                <string>Path</string>
-               </property>
-              </column>
-             </widget>
-            </item>
-            <item row="0" column="6">
-             <widget class="QPushButton" name="deleteCustomRepoPushButton">
-              <property name="text">
-               <string>Delete</string>
-              </property>
-             </widget>
-            </item>
-            <item row="0" column="5">
-             <widget class="QPushButton" name="editCustomRepoPushButton">
-              <property name="text">
-               <string>Edit</string>
-              </property>
-             </widget>
-            </item>
-            <item row="0" column="1" colspan="4">
-             <widget class="QComboBox" name="customRepoComboBox"/>
-            </item>
-           </layout>
-          </widget>
-         </item>
          <item row="2" column="0">
           <widget class="QGroupBox" name="checkinMiscOpitionsGroupBox">
            <property name="title">
@@ -576,7 +494,7 @@ QToolBox::tab:selected {
            <property name="flat">
             <bool>true</bool>
            </property>
-           <layout class="QGridLayout" name="defaultRepoPathsLayout" columnstretch="0,0,1">
+           <layout class="QGridLayout" name="defaultRepoPathsLayout" columnstretch="0,0,0,0">
             <property name="leftMargin">
              <number>0</number>
             </property>
@@ -592,19 +510,19 @@ QToolBox::tab:selected {
             <property name="spacing">
              <number>6</number>
             </property>
-            <item row="0" column="2">
+            <item row="0" column="3">
              <widget class="QLineEdit" name="assetBaseDirPathLineEdit"/>
             </item>
-            <item row="4" column="1" colspan="2">
+            <item row="4" column="2" colspan="2">
              <widget class="QLineEdit" name="handoffDirPathLineEdit"/>
             </item>
-            <item row="1" column="2">
+            <item row="1" column="3">
              <widget class="QLineEdit" name="sandboxDirPathLineEdit"/>
             </item>
-            <item row="2" column="2">
+            <item row="2" column="3">
              <widget class="QLineEdit" name="localRepoDirPathLineEdit"/>
             </item>
-            <item row="3" column="2">
+            <item row="3" column="3">
              <widget class="QLineEdit" name="clientRepoDirPathLineEdit"/>
             </item>
             <item row="0" column="0">
@@ -648,17 +566,199 @@ QToolBox::tab:selected {
               </property>
              </widget>
             </item>
-            <item row="0" column="1">
+            <item row="0" column="2">
              <widget class="QLineEdit" name="assetBaseDirNameLineEdit"/>
             </item>
-            <item row="1" column="1">
+            <item row="1" column="2">
              <widget class="QLineEdit" name="sandboxDirNameLineEdit"/>
             </item>
-            <item row="2" column="1">
+            <item row="2" column="2">
              <widget class="QLineEdit" name="localRepoDirNameLineEdit"/>
             </item>
-            <item row="3" column="1">
+            <item row="3" column="2">
              <widget class="QLineEdit" name="clientRepoDirNameLineEdit"/>
+            </item>
+            <item row="0" column="1">
+             <widget class="QToolButton" name="assetBaseDirColorToolButton">
+              <property name="maximumSize">
+               <size>
+                <width>20</width>
+                <height>20</height>
+               </size>
+              </property>
+              <property name="styleSheet">
+               <string notr="true">background-color:rgb(64, 64, 64)</string>
+              </property>
+              <property name="checked">
+               <bool>false</bool>
+              </property>
+             </widget>
+            </item>
+            <item row="1" column="1">
+             <widget class="QToolButton" name="sandboxDirColorToolButton">
+              <property name="maximumSize">
+               <size>
+                <width>20</width>
+                <height>20</height>
+               </size>
+              </property>
+              <property name="styleSheet">
+               <string notr="true">background-color:rgb(128, 64, 64)</string>
+              </property>
+              <property name="checked">
+               <bool>false</bool>
+              </property>
+             </widget>
+            </item>
+            <item row="2" column="1">
+             <widget class="QToolButton" name="localRepoDirColorToolButton">
+              <property name="maximumSize">
+               <size>
+                <width>20</width>
+                <height>20</height>
+               </size>
+              </property>
+              <property name="styleSheet">
+               <string notr="true">background-color:rgb(255, 140, 40)</string>
+              </property>
+              <property name="checked">
+               <bool>false</bool>
+              </property>
+             </widget>
+            </item>
+            <item row="3" column="1">
+             <widget class="QToolButton" name="clientRepoDirColorToolButton">
+              <property name="maximumSize">
+               <size>
+                <width>20</width>
+                <height>20</height>
+               </size>
+              </property>
+              <property name="styleSheet">
+               <string notr="true">background-color:rgb(31, 143, 0)</string>
+              </property>
+              <property name="checked">
+               <bool>false</bool>
+              </property>
+             </widget>
+            </item>
+           </layout>
+          </widget>
+         </item>
+         <item row="0" column="0">
+          <widget class="QGroupBox" name="customRepoPathsGroupBox">
+           <property name="title">
+            <string>Custom repository path:</string>
+           </property>
+           <property name="flat">
+            <bool>true</bool>
+           </property>
+           <layout class="QGridLayout" name="customRepoPathsLayout">
+            <property name="leftMargin">
+             <number>0</number>
+            </property>
+            <property name="rightMargin">
+             <number>0</number>
+            </property>
+            <property name="spacing">
+             <number>6</number>
+            </property>
+            <item row="0" column="0">
+             <widget class="QLabel" name="label_7">
+              <property name="text">
+               <string>Custom Repo name:</string>
+              </property>
+             </widget>
+            </item>
+            <item row="0" column="1">
+             <widget class="QToolButton" name="customRepoDirColorToolButton">
+              <property name="maximumSize">
+               <size>
+                <width>20</width>
+                <height>20</height>
+               </size>
+              </property>
+              <property name="styleSheet">
+               <string notr="true">background-color:rgb(64, 64, 64)</string>
+              </property>
+              <property name="checked">
+               <bool>false</bool>
+              </property>
+             </widget>
+            </item>
+            <item row="0" column="2" colspan="3">
+             <widget class="QLineEdit" name="customRepoDirNameLineEdit"/>
+            </item>
+            <item row="1" column="0">
+             <widget class="QLabel" name="label_8">
+              <property name="text">
+               <string>Repo path:</string>
+              </property>
+             </widget>
+            </item>
+            <item row="1" column="1" colspan="4">
+             <widget class="QLineEdit" name="customRepoDirPathLineEdit"/>
+            </item>
+            <item row="2" column="0">
+             <widget class="QComboBox" name="customRepoComboBox"/>
+            </item>
+            <item row="2" column="1" colspan="2">
+             <widget class="QPushButton" name="addCustomRepoToListPushButton">
+              <property name="text">
+               <string>Add</string>
+              </property>
+             </widget>
+            </item>
+            <item row="2" column="3">
+             <widget class="QPushButton" name="editCustomRepoPushButton">
+              <property name="text">
+               <string>Edit</string>
+              </property>
+             </widget>
+            </item>
+            <item row="2" column="4">
+             <widget class="QPushButton" name="deleteCustomRepoPushButton">
+              <property name="text">
+               <string>Delete</string>
+              </property>
+             </widget>
+            </item>
+            <item row="3" column="0">
+             <widget class="QCheckBox" name="customRepoCheckBox">
+              <property name="text">
+               <string>Show custom repos</string>
+              </property>
+             </widget>
+            </item>
+            <item row="4" column="0" colspan="5">
+             <widget class="QTreeWidget" name="customRepoTreeWidget">
+              <property name="indentation">
+               <number>0</number>
+              </property>
+              <property name="rootIsDecorated">
+               <bool>false</bool>
+              </property>
+              <column>
+               <property name="text">
+                <string>Visible</string>
+               </property>
+              </column>
+              <column>
+               <property name="text">
+                <string>Color</string>
+               </property>
+              </column>
+              <column>
+               <property name="text">
+                <string>Name</string>
+               </property>
+              </column>
+              <column>
+               <property name="text">
+                <string>Path</string>
+               </property>
+              </column>
+             </widget>
             </item>
            </layout>
           </widget>
@@ -672,46 +772,189 @@ QToolBox::tab:selected {
        <rect>
         <x>0</x>
         <y>0</y>
-        <width>470</width>
-        <height>400</height>
+        <width>451</width>
+        <height>525</height>
        </rect>
       </property>
       <attribute name="label">
        <string>Checkin/Checkout display (for current Project and environment)</string>
       </attribute>
-      <layout class="QVBoxLayout" name="verticalLayout_5">
-       <property name="spacing">
-        <number>0</number>
-       </property>
-       <property name="margin">
-        <number>6</number>
-       </property>
+      <layout class="QVBoxLayout" name="verticalLayout_2">
        <item>
-        <layout class="QGridLayout" name="gridLayout_4">
+        <layout class="QGridLayout" name="gridLayout_3" rowstretch="0,1,1">
+         <item row="2" column="0">
+          <widget class="QGroupBox" name="processTabsFilterGroupBox">
+           <property name="title">
+            <string>Filter Process Tabs</string>
+           </property>
+           <property name="flat">
+            <bool>true</bool>
+           </property>
+           <property name="checkable">
+            <bool>true</bool>
+           </property>
+           <layout class="QGridLayout" name="gridLayout_4">
+            <property name="leftMargin">
+             <number>0</number>
+            </property>
+            <property name="rightMargin">
+             <number>0</number>
+            </property>
+            <property name="spacing">
+             <number>6</number>
+            </property>
+            <item row="0" column="0" rowspan="3">
+             <widget class="QTreeWidget" name="processTreeWidget">
+              <property name="horizontalScrollBarPolicy">
+               <enum>Qt::ScrollBarAlwaysOff</enum>
+              </property>
+              <property name="verticalScrollMode">
+               <enum>QAbstractItemView::ScrollPerPixel</enum>
+              </property>
+              <attribute name="headerDefaultSectionSize">
+               <number>240</number>
+              </attribute>
+              <attribute name="headerMinimumSectionSize">
+               <number>170</number>
+              </attribute>
+              <column>
+               <property name="text">
+                <string>Category/Title</string>
+               </property>
+              </column>
+              <column>
+               <property name="text">
+                <string>Code</string>
+               </property>
+              </column>
+             </widget>
+            </item>
+            <item row="0" column="1">
+             <widget class="QToolButton" name="toolButton_3">
+              <property name="text">
+               <string>...</string>
+              </property>
+              <property name="arrowType">
+               <enum>Qt::UpArrow</enum>
+              </property>
+             </widget>
+            </item>
+            <item row="1" column="1">
+             <widget class="QToolButton" name="toolButton_4">
+              <property name="text">
+               <string>...</string>
+              </property>
+              <property name="arrowType">
+               <enum>Qt::UpArrow</enum>
+              </property>
+             </widget>
+            </item>
+           </layout>
+          </widget>
+         </item>
          <item row="0" column="0">
-          <widget class="QTreeWidget" name="processTreeWidget">
-           <property name="horizontalScrollBarPolicy">
-            <enum>Qt::ScrollBarAlwaysOff</enum>
+          <widget class="QGroupBox" name="snapshotDisplayOptionsGroupBox">
+           <property name="title">
+            <string>Snapshots display options:</string>
            </property>
-           <property name="verticalScrollMode">
-            <enum>QAbstractItemView::ScrollPerPixel</enum>
+           <property name="flat">
+            <bool>true</bool>
            </property>
-           <attribute name="headerDefaultSectionSize">
-            <number>240</number>
-           </attribute>
-           <attribute name="headerMinimumSectionSize">
-            <number>170</number>
-           </attribute>
-           <column>
-            <property name="text">
-             <string>Category/Title</string>
+           <layout class="QHBoxLayout" name="snapshotDisplayOptionsLayout">
+            <property name="spacing">
+             <number>6</number>
             </property>
-           </column>
-           <column>
-            <property name="text">
-             <string>Code</string>
+            <property name="leftMargin">
+             <number>0</number>
             </property>
-           </column>
+            <property name="rightMargin">
+             <number>0</number>
+            </property>
+            <item>
+             <widget class="QCheckBox" name="snapshotDescriptionLimitCheckBox">
+              <property name="text">
+               <string>Limit snapshot description preview (symbols)</string>
+              </property>
+              <property name="checked">
+               <bool>true</bool>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QSpinBox" name="snapshotDescriptionLimitSpinBox">
+              <property name="minimum">
+               <number>20</number>
+              </property>
+              <property name="maximum">
+               <number>50000</number>
+              </property>
+              <property name="singleStep">
+               <number>5</number>
+              </property>
+              <property name="value">
+               <number>80</number>
+              </property>
+             </widget>
+            </item>
+           </layout>
+          </widget>
+         </item>
+         <item row="1" column="0">
+          <widget class="QGroupBox" name="controlsTabsFilterGroupBox">
+           <property name="title">
+            <string>Filter Control Tabs</string>
+           </property>
+           <property name="flat">
+            <bool>true</bool>
+           </property>
+           <property name="checkable">
+            <bool>true</bool>
+           </property>
+           <layout class="QGridLayout" name="controlsTabsFilterLayout">
+            <property name="leftMargin">
+             <number>0</number>
+            </property>
+            <property name="rightMargin">
+             <number>0</number>
+            </property>
+            <property name="spacing">
+             <number>6</number>
+            </property>
+            <item row="0" column="1">
+             <widget class="QToolButton" name="toolButton">
+              <property name="text">
+               <string>...</string>
+              </property>
+              <property name="arrowType">
+               <enum>Qt::UpArrow</enum>
+              </property>
+             </widget>
+            </item>
+            <item row="0" column="0" rowspan="3">
+             <widget class="QTreeWidget" name="controlsTabsTreeWidget">
+              <column>
+               <property name="text">
+                <string>Tab Name</string>
+               </property>
+              </column>
+              <column>
+               <property name="text">
+                <string>Tab Label</string>
+               </property>
+              </column>
+             </widget>
+            </item>
+            <item row="1" column="1">
+             <widget class="QToolButton" name="toolButton_2">
+              <property name="text">
+               <string>...</string>
+              </property>
+              <property name="arrowType">
+               <enum>Qt::DownArrow</enum>
+              </property>
+             </widget>
+            </item>
+           </layout>
           </widget>
          </item>
         </layout>
@@ -723,8 +966,8 @@ QToolBox::tab:selected {
        <rect>
         <x>0</x>
         <y>0</y>
-        <width>470</width>
-        <height>400</height>
+        <width>451</width>
+        <height>525</height>
        </rect>
       </property>
       <attribute name="label">
@@ -769,16 +1012,6 @@ QToolBox::tab:selected {
      </widget>
     </widget>
    </item>
-   <item row="1" column="0">
-    <widget class="QDialogButtonBox" name="buttonBox">
-     <property name="standardButtons">
-      <set>QDialogButtonBox::Close|QDialogButtonBox::Reset|QDialogButtonBox::RestoreDefaults|QDialogButtonBox::Save</set>
-     </property>
-     <property name="centerButtons">
-      <bool>false</bool>
-     </property>
-    </widget>
-   </item>
   </layout>
  </widget>
  <tabstops>
@@ -791,5 +1024,22 @@ QToolBox::tab:selected {
   <tabstop>currentWorkdirLineEdit</tabstop>
  </tabstops>
  <resources/>
- <connections/>
+ <connections>
+  <connection>
+   <sender>snapshotDescriptionLimitCheckBox</sender>
+   <signal>toggled(bool)</signal>
+   <receiver>snapshotDescriptionLimitSpinBox</receiver>
+   <slot>setEnabled(bool)</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>315</x>
+     <y>688</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>399</x>
+     <y>688</y>
+    </hint>
+   </hints>
+  </connection>
+ </connections>
 </ui>

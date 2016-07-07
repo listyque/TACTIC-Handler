@@ -118,7 +118,7 @@ class Ui_checkOutTabWidget(QtGui.QWidget, sobj_tabs.Ui_sObjTabs):
         """
         Adding process tabs marked for Maya
         """
-
+        checkout_config = env.Conf.get_checkout()
         for i, (key, val) in enumerate(self.context_items.iteritems()):
             name_index_context = (key, i, val)
             self.ui_tree.append(checkout_tree_widget.Ui_checkOutTreeWidget(name_index_context, self))

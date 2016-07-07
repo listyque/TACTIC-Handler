@@ -40,6 +40,8 @@ class Ui_checkOutTreeWidget(QtGui.QWidget, ui_checkout_tree.Ui_checkOutTree):
         self.toggle = False
         self.go_by_skey = [False, None]
         self.relates_to = 'checkout'
+        self.checkut_config = env.Conf.get_checkout()
+        self.current_tree_item_widget = None
 
         self.create_ui_checkout()
 
@@ -53,7 +55,6 @@ class Ui_checkOutTreeWidget(QtGui.QWidget, ui_checkout_tree.Ui_checkOutTree):
         self.names_query_thread = tc.ServerThread(self)
         self.sobjects_query_thread = tc.ServerThread(self)
         self.update_desctiption_thread = tc.ServerThread(self)
-        self.notes_counts_query_thread = tc.ServerThread(self)
 
         self.add_items_to_context_combo_box()
         self.create_search_group_box()
@@ -62,6 +63,7 @@ class Ui_checkOutTreeWidget(QtGui.QWidget, ui_checkout_tree.Ui_checkOutTree):
         self.create_separate_versions_tree()
 
         self.controls_actions()
+        self.threads_actions()
 
         self.create_ui_richedit()
 
@@ -86,7 +88,12 @@ class Ui_checkOutTreeWidget(QtGui.QWidget, ui_checkout_tree.Ui_checkOutTree):
         self.resultsLayout.addWidget(self.progres_bar)
 
     def create_separate_versions_tree(self):
-        self.sep_versions = False
+        if self.checkut_config:
+            self.sep_versions = bool(int(
+                gf.get_value_from_config(self.checkut_config, 'versionsSeparateCheckoutCheckBox', 'QCheckBox')
+            ))
+        else:
+            self.sep_versions = False
         if not self.sep_versions:
             self.resultsVersionsTreeWidget.setVisible(False)
 
@@ -178,14 +185,14 @@ class Ui_checkOutTreeWidget(QtGui.QWidget, ui_checkout_tree.Ui_checkOutTree):
                 pass
 
     def assets_names(self):
-        names = tc.threat_result(self.names_query_thread)
+        names = tc.treat_result(self.names_query_thread)
         if names.isFailed():
             if names.result == QtGui.QMessageBox.ApplyRole:
                 names.run()
                 self.assets_names()
             elif names.result == QtGui.QMessageBox.ActionRole:
-                env.Inst.ui_main.offline = True
-                self.open_config_dialog()
+                env.Inst.offline = True
+                env.Inst.ui_main.open_config_dialog()
 
         if not names.isFailed():
             if not self.sobjects_query_thread.isRunning():
@@ -230,6 +237,9 @@ class Ui_checkOutTreeWidget(QtGui.QWidget, ui_checkout_tree.Ui_checkOutTree):
     def searchLineSingleClick(self, event):
         self.searchLineEdit.selectAll()
 
+    def set_current_tree_item_widget(self, tree_widget):
+        self.current_tree_item_widget = tree_widget.itemWidget(tree_widget.currentItem(), 0)
+
     def controls_actions(self):
         """
         Actions for the check tab
@@ -241,38 +251,60 @@ class Ui_checkOutTreeWidget(QtGui.QWidget, ui_checkout_tree.Ui_checkOutTree):
         self.contextComboBox.activated.connect(lambda: self.add_items_to_results(self.searchLineEdit.text()))
         if env.Mode.get == 'standalone':
             self.findOpenedPushButton.setVisible(False)
+
         self.findOpenedPushButton.clicked.connect(self.find_opened_sobject)
+        self.saveDescriprionButton.clicked.connect(lambda: self.update_desctiption(run_thread=True))
 
         # Tree widget actions
+        self.resultsTreeWidget.itemPressed.connect(lambda:  self.set_current_tree_item_widget(self.resultsTreeWidget))
         self.resultsTreeWidget.itemPressed.connect(self.load_preview)
         self.resultsTreeWidget.itemPressed.connect(self.fill_versions_items)
-        # self.resultsTreeWidget.itemSelectionChanged.connect(self.load_preview)
         self.resultsTreeWidget.setContextMenuPolicy(QtCore.Qt.CustomContextMenu)
         self.resultsTreeWidget.customContextMenuRequested.connect(self.open_menu)
         self.resultsTreeWidget.doubleClicked.connect(self.double_click_snapshot)
-        self.saveDescriprionButton.clicked.connect(self.update_desctiption)
         self.resultsTreeWidget.itemExpanded.connect(self.fill_notes_count)
 
+        # Separate Snapshots tree widget actions
+        self.resultsVersionsTreeWidget.itemPressed.connect(lambda: self.set_current_tree_item_widget(self.resultsVersionsTreeWidget))
+        self.resultsVersionsTreeWidget.itemPressed.connect(self.load_preview)
+        self.resultsVersionsTreeWidget.setContextMenuPolicy(QtCore.Qt.CustomContextMenu)
+        self.resultsVersionsTreeWidget.customContextMenuRequested.connect(self.open_menu)
+        self.resultsVersionsTreeWidget.doubleClicked.connect(self.double_click_snapshot)
+
+    def threads_actions(self):
         # Threads Actions
         self.names_query_thread.finished.connect(self.assets_names)
         self.sobjects_query_thread.finished.connect(self.fill_items)
+        self.update_desctiption_thread.finished.connect(lambda: self.update_desctiption(update_description=True))
 
     def find_opened_sobject(self):
         skey = mf.get_skey_from_scene()
         env.Inst.ui_main.go_by_skey(skey, self.relates_to)
 
-    def update_desctiption(self):
-        nested_item = self.resultsTreeWidget.itemWidget(self.resultsTreeWidget.currentItem(), 0)
-        if nested_item and nested_item.type in ['snapshot', 'sobject']:
-            # tc.update_description(nested_item.get_skey(only=True), gf.simplify_html(self.descriptionTextEdit.toHtml()))
+    def update_desctiption(self, run_thread=False, update_description=False):
+        nested_item = self.current_tree_item_widget
 
-            thread_update = tc.ServerThread(self)
+        if run_thread:
+            if nested_item and nested_item.type in ['snapshot', 'sobject']:
+                self.update_desctiption_thread.kwargs = dict(
+                    search_key=nested_item.get_skey(only=True),
+                    description=gf.simplify_html(self.descriptionTextEdit.toHtml())
+                )
+                self.update_desctiption_thread.routine = tc.update_description
+                self.update_desctiption_thread.start()
 
-            thread_update.kwargs = dict(search_key=nested_item.get_skey(only=True),
-                                        description=gf.simplify_html(self.descriptionTextEdit.toHtml()))
-            thread_update.routine = tc.update_description
-            thread_update.start()
-            nested_item.update_description(self.descriptionTextEdit.toPlainText())
+        if update_description:
+            update = tc.treat_result(self.update_desctiption_thread)
+            if update.isFailed():
+                if update.result == QtGui.QMessageBox.ApplyRole:
+                    update.run()
+                    self.update_desctiption(update_description=True)
+                elif update.result == QtGui.QMessageBox.ActionRole:
+                    env.Inst.offline = True
+                    env.Inst.ui_main.open_config_dialog()
+
+            if not update.isFailed():
+                nested_item.update_description(self.descriptionTextEdit.toPlainText())
 
     def fill_notes_count(self, widget):
         parent_widget = self.resultsTreeWidget.itemWidget(widget, 0)
@@ -332,43 +364,22 @@ class Ui_checkOutTreeWidget(QtGui.QWidget, ui_checkout_tree.Ui_checkOutTree):
                     context,
                 )
 
-    def load_preview(self, position):
+    def load_preview(self):
         # loading preview image
-        nested_item = self.resultsTreeWidget.itemWidget(self.resultsTreeWidget.currentItem(), 0)
-        indexes = self.resultsTreeWidget.selectedIndexes()
-        level = None
+        nested_item = self.current_tree_item_widget
 
-        if len(indexes) > 0:
-            level = 0
-            index = indexes[0]
-            while index.parent().isValid():
-                index = index.parent()
-                level += 1
-        if level == 0 and nested_item.sobject.process.get('icon'):
+        if nested_item.type == 'sobject' and nested_item.sobject.process.get('icon'):
             self.load_images(nested_item, True, False)
 
-        if level > 1 and nested_item.files.get('playblast'):
+        if nested_item.type == 'snapshot' and nested_item.files.get('playblast'):
             self.load_images(nested_item, False, True)
 
         env.Inst.ui_main.skeyLineEdit.setText(nested_item.get_skey(skey=True))
         self.descriptionTextEdit.setText(nested_item.get_description())
 
-    def open_menu(self, position):
-        nested_item = self.resultsTreeWidget.itemWidget(self.resultsTreeWidget.currentItem(), 0)
-        indexes = self.resultsTreeWidget.selectedIndexes()
-        # if self.resultsTreeWidget.currentItem().isExpanded():
-        #     print('EXPANDED')
-        level = None
-        if len(indexes) > 0:
-
-            level = 0
-            index = indexes[0]
-            while index.parent().isValid():
-                index = index.parent()
-                level += 1
-
-        if level > 1 and nested_item.files:
-            print(level)
+    def open_menu(self):
+        nested_item = self.current_tree_item_widget
+        if nested_item.type == 'snapshot' and nested_item.files:
             self.custom_menu = QtGui.QMenu()
 
             open_action = QtGui.QWidgetAction(self)
@@ -396,21 +407,23 @@ class Ui_checkOutTreeWidget(QtGui.QWidget, ui_checkout_tree.Ui_checkOutTree):
             if env.Mode.get == 'maya':
                 self.custom_menu.addAction(reference_action)
                 self.custom_menu.addAction(import_action)
-            self.custom_menu.exec_(self.resultsTreeWidget.viewport().mapToGlobal(position))
+            self.custom_menu.exec_(QtGui.QCursor.pos())
 
-    def double_click_snapshot(self, index):
-
-        level = 0
-        while index.parent().isValid():
-            index = index.parent()
-            level += 1
-
-        if level > 1:
-            self.open_file()
+    def double_click_snapshot(self):
+        if self.checkut_config:
+            double_click = bool(int(
+                gf.get_value_from_config(self.checkut_config, 'doubleClickOpenCheckBox', 'QCheckBox')
+            ))
+        else:
+            double_click = False
+        if double_click:
+            nested_item = self.current_tree_item_widget
+            if nested_item.type == 'snapshot' and nested_item.files:
+                self.open_file()
 
     def reference_file_options(self):
         file_path = self.get_current_item_paths()[0]
-        nested_item = self.resultsTreeWidget.itemWidget(self.resultsTreeWidget.currentItem(), 0)
+        nested_item = self.current_tree_item_widget
 
         if env.Mode.get == 'maya':
             self.reference_dialog = maya_dialogs.Ui_referenceOptionsWidget(file_path, nested_item)
@@ -418,7 +431,7 @@ class Ui_checkOutTreeWidget(QtGui.QWidget, ui_checkout_tree.Ui_checkOutTree):
 
     def open_file_options(self):
         file_path = self.get_current_item_paths()[0]
-        nested_item = self.resultsTreeWidget.itemWidget(self.resultsTreeWidget.currentItem(), 0)
+        nested_item = self.current_tree_item_widget
 
         if env.Mode.get == 'maya':
             self.open_dialog = maya_dialogs.Ui_openOptionsWidget(file_path, nested_item)
@@ -426,7 +439,7 @@ class Ui_checkOutTreeWidget(QtGui.QWidget, ui_checkout_tree.Ui_checkOutTree):
 
     def import_file_options(self):
         file_path = self.get_current_item_paths()[0]
-        nested_item = self.resultsTreeWidget.itemWidget(self.resultsTreeWidget.currentItem(), 0)
+        nested_item = self.current_tree_item_widget
 
         if env.Mode.get == 'maya':
             self.import_dialog = maya_dialogs.Ui_importOptionsWidget(file_path, nested_item)
@@ -458,7 +471,7 @@ class Ui_checkOutTreeWidget(QtGui.QWidget, ui_checkout_tree.Ui_checkOutTree):
             pass
 
     def get_current_item_paths(self):
-        nested_item = self.resultsTreeWidget.itemWidget(self.resultsTreeWidget.currentItem(), 0)
+        nested_item = self.current_tree_item_widget
         file_path = None
         dir_path = None
         all_process = None
@@ -472,12 +485,12 @@ class Ui_checkOutTreeWidget(QtGui.QWidget, ui_checkout_tree.Ui_checkOutTree):
             if nested_item.files.get(mode):
                 main_file = nested_item.files[mode][0]
                 # asset_dir = env.Env.rep_dirs['asset_base_dir'][0]
-                print nested_item.snapshot, 'snapshot'
+                # print nested_item.snapshot, 'snapshot'
                 if nested_item.snapshot.get('repo'):
                     asset_dir = env.Env.rep_dirs[nested_item.snapshot.get('repo')][0]
                 else:
                     asset_dir = env.Env.rep_dirs['asset_base_dir'][0]
-                    print asset_dir
+                    # print asset_dir
 
                 file_path = gf.form_path(
                     '{0}/{1}/{2}'.format(asset_dir, main_file['relative_dir'], main_file['file_name']))
@@ -487,7 +500,13 @@ class Ui_checkOutTreeWidget(QtGui.QWidget, ui_checkout_tree.Ui_checkOutTree):
                 dir_path = gf.form_path('{0}/{1}'.format(asset_dir, '{0}/{1}/{2}'.format(*split_path)))
                 all_process = nested_item.sobject.all_process
 
+        # print file_path
+        # print dir_path
+        # print all_process
+
         return file_path, dir_path, all_process
+
+    # def get_current_item(self):
 
     def prnt(self, idx):
         print('Current index: ' + str(idx))

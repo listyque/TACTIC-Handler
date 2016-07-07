@@ -5,7 +5,8 @@ import os
 import sys
 
 DATA_DIR = os.environ['TACTIC_DATA_DIR'] + '/TACTIC-handler'
-sys.path.append(DATA_DIR)
+if DATA_DIR not in sys.path:
+    sys.path.append(DATA_DIR)
 import lib.environment as env
 env.Mode.set_mode('maya')
 import lib.ui_maya_dock as main

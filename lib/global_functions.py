@@ -72,15 +72,6 @@ def hex_to_html(text_hex):
         return hex_to_text
 
 
-def form_path(path):
-    if env.Env.platform == 'Linux':
-        formed_path = path.replace('\\', '/').replace('\\\\', '/').replace('//', '/')
-        return formed_path
-    else:
-        formed_path = path.replace('\\', '/')
-        return formed_path
-
-
 def get_ver_rev(ver, rev):
     if ver > 0 and rev > 0:
         result = '<span style="color:#008498;">Ver: {0:03d};</span><span style="color:#0a9800;"> Rev: {1:03d}</span>'.format(ver,
@@ -91,6 +82,15 @@ def get_ver_rev(ver, rev):
         result = ''
 
     return result
+
+
+def get_value_from_config(config_dict, control, control_type=None):
+    if control_type:
+        config_dict = dict(key=config_dict[control_type])
+    for all_values in config_dict.itervalues():
+        for obj_name, value in zip(all_values['obj_name'], all_values['value']):
+            if control == obj_name:
+                return value
 
 
 # QTreeWidget func
@@ -381,12 +381,48 @@ def save(tree):
 
 # files etc routine
 def open_file_associated(filepath):
+    # TODO message if file not exists
     if sys.platform.startswith('darwin'):
         subprocess.call(('open', filepath))
     elif os.name == 'nt':
         os.startfile(filepath)
     elif os.name == 'posix':
         subprocess.call(('xdg-open', filepath))
+
+
+def form_path(path):
+    if env.Env.platform == 'Linux':
+        formed_path = path.replace('\\', '/').replace('\\\\', '/').replace('//', '/')
+        return formed_path
+    else:
+        formed_path = path.replace('\\', '/')
+        return formed_path
+
+
+def get_file_asset_dir(item):
+    if item.snapshot.get('repo'):
+        asset_dir = env.Env.rep_dirs[item.snapshot.get('repo')][0]
+    else:
+        asset_dir = env.Env.rep_dirs['asset_base_dir'][0]
+
+    return asset_dir
+
+
+def get_abs_path(item, file_type=None):
+    if file_type:
+        modes = file_type
+    else:
+        modes = env.Mode.mods
+    modes.append('main')
+
+    for mode in modes:
+        if item.files.get(mode):
+            main_file = item.files[mode][0]
+            asset_dir = get_file_asset_dir(item)
+            file_path = form_path(
+                '{0}/{1}/{2}'.format(asset_dir, main_file['relative_dir'], main_file['file_name']))
+
+            return file_path
 
 
 def version(major=0, minor=0, build=0, revision=0):

@@ -2,6 +2,7 @@
 # file ui_item_classes.py
 # Main Item for TreeWidget
 
+import os
 import PySide.QtGui as QtGui
 import environment as env
 import global_functions as gf
@@ -118,7 +119,8 @@ class Ui_processItemWidget(QtGui.QWidget, lib.ui.ui_item_process.Ui_processItem)
             self.note_widget.ui_notes.task_item = self.sobject
             self.note_widget.ui_notes.fill_notes()
         self.note_widget.show()
-        self.note_widget.ui_notes.conversationScrollArea.verticalScrollBar().setValue(self.note_widget.ui_notes.conversationScrollArea.verticalScrollBar().maximum())
+        self.note_widget.ui_notes.conversationScrollArea.verticalScrollBar().setValue(
+            self.note_widget.ui_notes.conversationScrollArea.verticalScrollBar().maximum())
 
     def prnt(self):
         # print(str(self.item_index))
@@ -156,7 +158,6 @@ class Ui_snapshotItemWidget(QtGui.QWidget, lib.ui.ui_item_snapshot.Ui_snapshotIt
         # self.item_info = {}
         self.sobject = sobject
         # print self.sobject.process
-
         self.snapshot = None
         self.row = row
         self.files = {}
@@ -167,6 +168,10 @@ class Ui_snapshotItemWidget(QtGui.QWidget, lib.ui.ui_item_snapshot.Ui_snapshotIt
         hidden = ['icon', 'web', 'playblast']
 
         if self.snapshot:
+
+            if not os.path.exists(gf.get_abs_path(self)):
+                self.setDisabled(True)
+
             self.commentLabel.setText(gf.to_plain_text(self.snapshot['description'], 80))
             self.dateLabel.setText(self.snapshot['timestamp'])
             self.authorLabel.setText(self.snapshot['login'] + ':')
@@ -174,6 +179,8 @@ class Ui_snapshotItemWidget(QtGui.QWidget, lib.ui.ui_item_snapshot.Ui_snapshotIt
 
             for key, fl in self.files.iteritems():
                 if key not in hidden:
+                    if self.snapshot.get('repo'):
+                        self.sizeLabel.setStyleSheet(self.get_repo_color())
                     self.fileNameLabel.setText(fl[0]['file_name'])
                     self.sizeLabel.setText(gf.sizes(fl[0]['st_size']))
         else:
@@ -183,8 +190,28 @@ class Ui_snapshotItemWidget(QtGui.QWidget, lib.ui.ui_item_snapshot.Ui_snapshotIt
             self.sizeLabel.deleteLater()
             self.authorLabel.deleteLater()
 
-        # if snapshot:
-        #     self.item_info = self.snapshot
+            # if snapshot:
+            #     self.item_info = self.snapshot
+
+    def get_repo_color(self):
+        config = env.Conf.get_checkin()
+        if self.snapshot['repo'] == 'asset_base_dir':
+            repo = gf.get_value_from_config(config, 'assetBaseDirColorToolButton', 'QToolButton')
+        if self.snapshot['repo'] == 'win32_local_repo_dir':
+            repo = gf.get_value_from_config(config, 'localRepoDirColorToolButton', 'QToolButton')
+        if self.snapshot['repo'] == 'win32_sandbox_dir':
+            repo = gf.get_value_from_config(config, 'sandboxDirColorToolButton', 'QToolButton')
+        if self.snapshot['repo'] == 'win32_client_repo_dir':
+            repo = gf.get_value_from_config(config, 'clientRepoDirColorToolButton', 'QToolButton')
+        if self.snapshot['repo'] == 'custom_asset_dir':
+            repo = gf.get_value_from_config(config, 'customRepoDirColorToolButton', 'QToolButton')
+
+        repo_colors = repo.replace('background-color:rgb(', '').replace(')', '').split(',')
+        stylesheet = 'QLabel{background: qlineargradient(spread:pad, x1:0, y1:0, x2:1, y2:0, stop:0 rgba(255, 255, 255, 0), stop:1 rgba(%s, %s, %s, 96));' \
+                           'border - bottom: 2px solid qlineargradient(spread:pad, x1:0, y1:0, x2:1, y2:0, stop:0 rgba(255, 255, 255, 0), stop:1 rgba(128, 128, 128, 175));' \
+                           'padding: 0px;}' % tuple(repo_colors)
+
+        return stylesheet
 
     def get_context(self, process=False, custom=None):
         if process:

@@ -72,7 +72,7 @@ palette = {
 
 
 def create_ui(thread):
-    thread = tc.threat_result(thread)
+    thread = tc.treat_result(thread)
     if thread.result == QtGui.QMessageBox.ApplyRole:
         retry_startup(thread)
     else:

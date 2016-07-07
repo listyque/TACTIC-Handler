@@ -147,12 +147,11 @@ class Ui_Main(QtGui.QMainWindow, ui_main.Ui_MainWindow):
 
         self.actionConfiguration.triggered.connect(self.open_config_dialog)
 
-        self.actionApply_to_all_Tabs.triggered.connect(lambda: self.apply_current_view())
+        self.actionApply_to_all_Tabs.triggered.connect(self.apply_current_view)
 
         self.main_tabWidget.setContextMenuPolicy(QtCore.Qt.ActionsContextMenu)
         self.menu = QtGui.QAction("Copy Tab", self.main_tabWidget)
-        self.menu.triggered.connect(
-            lambda: self.copy_current_tab(self.main_tabWidget.currentIndex()))
+        self.menu.triggered.connect(self.copy_current_tab)
         self.main_tabWidget.addAction(self.menu)
 
     def open_config_dialog(self):
@@ -240,7 +239,8 @@ class Ui_Main(QtGui.QMainWindow, ui_main.Ui_MainWindow):
             if self.ui_checkin:
                 self.ui_checkin.apply_current_view_to_all()
 
-    def copy_current_tab(self, current_index):
+    def copy_current_tab(self):
+        current_index = self.main_tabWidget.currentIndex()
 
         if current_index == 0:
             self.ext_window = QtGui.QMainWindow(self)
@@ -265,13 +265,13 @@ class Ui_Main(QtGui.QMainWindow, ui_main.Ui_MainWindow):
         """
         Create Check Out Tab
         """
-        self.context_items = tc.threat_result(self.context_items_thread)
+        self.context_items = tc.treat_result(self.context_items_thread)
         if self.context_items.isFailed():
             if self.context_items.result == QtGui.QMessageBox.ApplyRole:
                 self.context_items.run()
                 self.create_ui_checkout()
             elif self.context_items.result == QtGui.QMessageBox.ActionRole:
-                self.offline = True
+                env.Inst.offline = True
                 self.open_config_dialog()
 
         if not self.context_items.isFailed():
@@ -294,13 +294,13 @@ class Ui_Main(QtGui.QMainWindow, ui_main.Ui_MainWindow):
         Create Check In Tab
         """
 
-        self.context_items = tc.threat_result(self.context_items_thread)
+        self.context_items = tc.treat_result(self.context_items_thread)
         if self.context_items.isFailed():
             if self.context_items.result == QtGui.QMessageBox.ApplyRole:
                 self.context_items.run()
                 self.create_ui_checkin()
             elif self.context_items.result == QtGui.QMessageBox.ActionRole:
-                self.offline = True
+                env.Inst.offline = True
                 self.open_config_dialog()
 
         if not self.context_items.isFailed():
@@ -387,13 +387,13 @@ class Ui_Main(QtGui.QMainWindow, ui_main.Ui_MainWindow):
             self.tabs_items_thread.start()
 
     def query_contexts(self):
-        self.tabs_items = tc.threat_result(self.tabs_items_thread)
+        self.tabs_items = tc.treat_result(self.tabs_items_thread)
         if self.tabs_items.isFailed():
             if self.tabs_items.result == QtGui.QMessageBox.ApplyRole:
                 self.tabs_items.run()
                 self.query_contexts()
             elif self.tabs_items.result == QtGui.QMessageBox.ActionRole:
-                self.offline = True
+                env.Inst.offline = True
                 self.open_config_dialog()
 
         if not self.tabs_items.isFailed():

@@ -108,10 +108,13 @@ class Conf(object):
         self.settings.endGroup()
 
     def get_checkout(self):
-        self.settings.beginGroup('config')
-        self.checkout = self.settings.value('checkout', None)
-        self.settings.endGroup()
-        return self.checkout
+        if self.checkout:
+            return self.checkout
+        else:
+            self.settings.beginGroup('config')
+            self.checkout = self.settings.value('checkout', None)
+            self.settings.endGroup()
+            return self.checkout
 
     def set_checkout(self, checkout):
         self.settings.beginGroup('config')
@@ -119,10 +122,13 @@ class Conf(object):
         self.settings.endGroup()
 
     def get_checkin(self):
-        self.settings.beginGroup('config')
-        self.checkin = self.settings.value('checkin', None)
-        self.settings.endGroup()
-        return self.checkin
+        if self.checkin:
+            return self.checkin
+        else:
+            self.settings.beginGroup('config')
+            self.checkin = self.settings.value('checkin', None)
+            self.settings.endGroup()
+            return self.checkin
 
     def set_checkin(self, checkin):
         self.settings.beginGroup('config')
@@ -179,8 +185,8 @@ class Env(object):
             data_dir = '/mnt/drive_d/Alexey/Dropbox/Work/CGProjects/tacticbase_dev/TACTIC-handler'
             install_dir = '/mnt/drive_d/Alexey/Dropbox/Work/CGProjects/tacticbase_dev/TACTIC-handler'
         else:
-            data_dir = str(os.environ['TACTIC_DATA_DIR'] + '/TACTIC_handler').replace('\\', '/')
-            install_dir = str(os.environ['TACTIC_INSTALL_DIR'] + '/src/client').replace('\\', '/')
+            data_dir = str(os.environ['TACTIC_DATA_DIR']).replace('\\', '/')
+            install_dir = str(os.environ['TACTIC_INSTALL_DIR']).replace('\\', '/')
 
         if self.defaults is None:
             self.defaults = {

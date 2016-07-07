@@ -2,7 +2,7 @@
 # file tactic_classes.py
 # Global TACTIC Functions Module
 
-# import os
+import os
 import sys
 # import time
 # import inspect
@@ -82,7 +82,7 @@ def get_server_thread(kwargs_dict, runnable_func, connected_func, parent=None):
     return thread
 
 
-def threat_result(thread):
+def treat_result(thread):
     if thread.isFailed():
         return error_handle(thread)
     else:
@@ -247,8 +247,15 @@ def generate_new_ticket():
 
     thread = get_server_thread(dict(), lambda: server_auth(host, project, login, password, get_ticket=True), server_ping)
     thread.start()
-    threat_result(thread)
+    treat_result(thread)
     thread.wait()
+
+
+def run_tactic_team_server():
+
+    path = os.path.normpath(env.Env.get_install_dir() + os.sep + os.pardir)
+    print('Starting TACTIC Server... Press Retry after server started!', path)
+    os.system(path + '/ServerRun.bat')
 
 
 def error_handle(thread):
@@ -278,6 +285,9 @@ def error_handle(thread):
             parent=None,
             message_type='critical',
         )
+        if reply == QtGui.QMessageBox.YesRole:
+            run_tactic_team_server()
+            thread.result = QtGui.QMessageBox.ApplyRole
         if reply == QtGui.QMessageBox.ApplyRole:
             thread.result = reply
         if reply == QtGui.QMessageBox.ActionRole:
@@ -824,7 +834,6 @@ def query_snapshots(process_list=None, s_code=None):
         ('project_code', env.Env.get_project()),
         ('search_code', s_code),
     ]
-
     return server_start().query_snapshots(filters=filters_snapshots, include_files=True)
 
 
@@ -1153,11 +1162,14 @@ def save_confirm(paths, visible_ext, repo, update_versionless=True):
     full_path = gf.form_path(env.Env.rep_dirs[repo][0] + '/' + paths['relative_path'])
 
     msb = QtGui.QMessageBox(QtGui.QMessageBox.Question, 'Confirm saving',
-                            '<p><p>Files will be saved to:</p>{0}<p>Filename: {1}</p>{2}Continue?</p>'.format(full_path,
-                                                                                                              paths[
-                                                                                                                  'file_name'] + '.' + visible_ext,
-                                                                                                              update_vs),
-                            QtGui.QMessageBox.NoButton, env.Inst.ui_main)
+                            '<p><p>Files will be saved to:</p>{0}<p>Filename: {1}</p>{2}Continue?</p>'.format(
+                                full_path,
+                                paths['file_name'] + '.' + visible_ext,
+                                update_vs
+                                ),
+                            QtGui.QMessageBox.NoButton,
+                            env.Inst.ui_main
+                            )
 
     msb.addButton("Yes", QtGui.QMessageBox.YesRole)
     msb.addButton("No", QtGui.QMessageBox.NoRole)
@@ -1356,8 +1368,7 @@ def task_priority_query(seach_key):
     return result
 
 
-# Skey funtions
-
+# Skey functions
 def parce_skey(skey):
     server = server_start()
     skey_splitted = urlparse.urlparse(skey)
@@ -1387,9 +1398,11 @@ def parce_skey(skey):
 
 
 def generate_skey(pipeline_code=None, code=None):
-    skey = 'skey://{0}/{1}?project={2}&code={3}'.format(env.Env.get_namespace(),
-                                                        pipeline_code,
-                                                        env.Env.get_project(),
-                                                        code)
+    skey = 'skey://{0}/{1}?project={2}&code={3}'.format(
+        env.Env.get_namespace(),
+        pipeline_code,
+        env.Env.get_project(),
+        code
+    )
 
     return skey
