@@ -2,7 +2,7 @@
 
 # Form implementation generated from reading ui file './ui_item.ui'
 #
-# Created: Fri Feb 19 11:52:47 2016
+# Created: Fri Jul 08 22:42:59 2016
 #      by: pyside-uic 0.2.15 running on PySide 1.2.4
 #
 # WARNING! All changes made in this file will be lost!
@@ -71,6 +71,7 @@ class Ui_item(object):
         self.dateLabel.setObjectName("dateLabel")
         self.gridLayout.addWidget(self.dateLabel, 1, 2, 1, 1)
         self.gridLayout.setColumnStretch(0, 1)
+        self.gridLayout.setRowStretch(1, 1)
 
         self.retranslateUi(item)
         QtCore.QMetaObject.connectSlotsByName(item)

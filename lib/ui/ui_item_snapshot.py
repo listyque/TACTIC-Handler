@@ -2,7 +2,7 @@
 
 # Form implementation generated from reading ui file './ui_item_snapshot.ui'
 #
-# Created: Tue May 10 14:03:34 2016
+# Created: Fri Jul 08 22:42:59 2016
 #      by: pyside-uic 0.2.15 running on PySide 1.2.4
 #
 # WARNING! All changes made in this file will be lost!
@@ -74,6 +74,7 @@ class Ui_snapshotItem(object):
         self.verRevLabel.setObjectName("verRevLabel")
         self.versionedLayout.addWidget(self.verRevLabel, 0, 2, 1, 1)
         self.versionedLayout.setColumnStretch(1, 1)
+        self.versionedLayout.setRowStretch(1, 1)
 
         self.retranslateUi(snapshotItem)
         QtCore.QMetaObject.connectSlotsByName(snapshotItem)

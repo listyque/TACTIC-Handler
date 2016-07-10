@@ -425,10 +425,6 @@ def get_abs_path(item, file_type=None):
             return file_path
 
 
-def version(major=0, minor=0, build=0, revision=0):
-    return str(str(major) + '.' + str(minor) + '.' + str(build) + '.' + str(revision))
-
-
 def simplify_html(html, pretty=False):
     from bs4 import BeautifulSoup
     soup = BeautifulSoup(html, "html.parser")

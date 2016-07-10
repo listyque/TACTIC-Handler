@@ -12,12 +12,12 @@ import PySide.QtCore as QtCore
 def singleton(cls):
     instances = {}
 
-    def getinstance():
+    def get_instance():
         if cls not in instances:
             instances[cls] = cls()
         return instances[cls]
 
-    return getinstance()
+    return get_instance()
 
 
 @singleton
@@ -117,6 +117,7 @@ class Conf(object):
             return self.checkout
 
     def set_checkout(self, checkout):
+        self.checkout = checkout
         self.settings.beginGroup('config')
         self.settings.setValue('checkout', checkout)
         self.settings.endGroup()
@@ -131,6 +132,7 @@ class Conf(object):
             return self.checkin
 
     def set_checkin(self, checkin):
+        self.checkin = checkin
         self.settings.beginGroup('config')
         self.settings.setValue('checkin', checkin)
         self.settings.endGroup()
@@ -254,34 +256,45 @@ class Env(object):
         self.settings.endGroup()
 
     def get_project(self):
-        self.settings.beginGroup('environment')
-        self.project = self.settings.value('TACTIC_PROJECT', self.defaults['project'])
-        self.settings.endGroup()
-        return self.project
+        if self.project:
+            return self.project
+        else:
+            self.settings.beginGroup('environment')
+            self.project = self.settings.value('TACTIC_PROJECT', self.defaults['project'])
+            self.settings.endGroup()
+            return self.project
 
     def set_project(self, project_name):
+        self.project = project_name
         self.settings.beginGroup('environment')
         self.settings.setValue('TACTIC_PROJECT', project_name)
         print('Done set_project settings write')
         self.settings.endGroup()
 
     def get_namespace(self):
-        self.settings.beginGroup('environment')
-        self.namespace = self.settings.value('TACTIC_NAMESPACE', self.defaults['namespace'])
-        self.settings.endGroup()
-        return self.namespace
+        if self.namespace:
+            return self.namespace
+        else:
+            self.settings.beginGroup('environment')
+            self.namespace = self.settings.value('TACTIC_NAMESPACE', self.defaults['namespace'])
+            self.settings.endGroup()
+            return self.namespace
 
     def set_namespace(self, namespace_name):
+        self.namespace = namespace_name
         self.settings.beginGroup('environment')
         self.settings.setValue('TACTIC_NAMESPACE', namespace_name)
         print('Done set_namespace settings write')
         self.settings.endGroup()
 
     def get_user(self):
-        self.settings.beginGroup('environment')
-        self.user = self.settings.value('TACTIC_USER', self.defaults['user'])
-        self.settings.endGroup()
-        return self.user
+        if self.user:
+            return self.user
+        else:
+            self.settings.beginGroup('environment')
+            self.user = self.settings.value('TACTIC_USER', self.defaults['user'])
+            self.settings.endGroup()
+            return self.user
 
     def set_user(self, user_name):
         self.settings.beginGroup('environment')
@@ -302,10 +315,13 @@ class Env(object):
         self.settings.endGroup()
 
     def get_server(self):
-        self.settings.beginGroup('environment')
-        self.server = self.settings.value('TACTIC_SERVER', self.defaults['server'])
-        self.settings.endGroup()
-        return self.server
+        if self.server:
+            return self.server
+        else:
+            self.settings.beginGroup('environment')
+            self.server = self.settings.value('TACTIC_SERVER', self.defaults['server'])
+            self.settings.endGroup()
+            return self.server
 
     def set_server(self, server_name):
         self.settings.beginGroup('environment')
@@ -314,10 +330,13 @@ class Env(object):
         self.settings.endGroup()
 
     def get_ticket(self):
-        self.settings.beginGroup('environment')
-        self.ticket = self.settings.value('TACTIC_TICKET', self.defaults['ticket'])
-        self.settings.endGroup()
-        return self.ticket
+        if self.ticket:
+            return self.ticket
+        else:
+            self.settings.beginGroup('environment')
+            self.ticket = self.settings.value('TACTIC_TICKET', self.defaults['ticket'])
+            self.settings.endGroup()
+            return self.ticket
 
     def set_ticket(self, ticket_name):
         self.settings.beginGroup('environment')
@@ -326,10 +345,13 @@ class Env(object):
         self.settings.endGroup()
 
     def get_data_dir(self):
-        self.settings.beginGroup('environment')
-        self.data_dir = self.settings.value('TACTIC_DATA_DIR', self.defaults['data_dir'])
-        self.settings.endGroup()
-        return self.data_dir
+        if self.data_dir:
+            return self.data_dir
+        else:
+            self.settings.beginGroup('environment')
+            self.data_dir = self.settings.value('TACTIC_DATA_DIR', self.defaults['data_dir'])
+            self.settings.endGroup()
+            return self.data_dir
 
     def set_data_dir(self, data_dir_name):
         self.settings.beginGroup('environment')
@@ -338,10 +360,13 @@ class Env(object):
         self.settings.endGroup()
 
     def get_install_dir(self):
-        self.settings.beginGroup('environment')
-        self.install_dir = self.settings.value('TACTIC_INSTALL_DIR', self.defaults['install_dir'])
-        self.settings.endGroup()
-        return self.install_dir
+        if self.install_dir:
+            return self.install_dir
+        else:
+            self.settings.beginGroup('environment')
+            self.install_dir = self.settings.value('TACTIC_INSTALL_DIR', self.defaults['install_dir'])
+            self.settings.endGroup()
+            return self.install_dir
 
     def set_install_dir(self, install_dir_name):
         self.settings.beginGroup('environment')
@@ -350,10 +375,13 @@ class Env(object):
         self.settings.endGroup()
 
     def get_types_list(self):
-        self.settings.beginGroup('environment')
-        self.types_list = self.settings.value('TACTIC_TYPES_LIST', self.defaults['types_list'])
-        self.settings.endGroup()
-        return self.types_list
+        if self.types_list:
+            return self.types_list
+        else:
+            self.settings.beginGroup('environment')
+            self.types_list = self.settings.value('TACTIC_TYPES_LIST', self.defaults['types_list'])
+            self.settings.endGroup()
+            return self.types_list
 
     def set_types_list(self, types_list_name):
         self.settings.beginGroup('environment')

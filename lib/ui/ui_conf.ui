@@ -9,8 +9,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>469</width>
-    <height>734</height>
+    <width>482</width>
+    <height>744</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -58,7 +58,7 @@ QToolBox::tab:selected {
 }</string>
      </property>
      <property name="currentIndex">
-      <number>4</number>
+      <number>0</number>
      </property>
      <property name="tabSpacing">
       <number>6</number>
@@ -68,8 +68,8 @@ QToolBox::tab:selected {
        <rect>
         <x>0</x>
         <y>0</y>
-        <width>451</width>
-        <height>525</height>
+        <width>464</width>
+        <height>508</height>
        </rect>
       </property>
       <attribute name="label">
@@ -254,8 +254,8 @@ QToolBox::tab:selected {
        <rect>
         <x>0</x>
         <y>0</y>
-        <width>451</width>
-        <height>525</height>
+        <width>464</width>
+        <height>508</height>
        </rect>
       </property>
       <attribute name="label">
@@ -372,8 +372,8 @@ QToolBox::tab:selected {
        <rect>
         <x>0</x>
         <y>0</y>
-        <width>451</width>
-        <height>525</height>
+        <width>464</width>
+        <height>508</height>
        </rect>
       </property>
       <attribute name="label">
@@ -438,8 +438,8 @@ QToolBox::tab:selected {
        <rect>
         <x>0</x>
         <y>0</y>
-        <width>451</width>
-        <height>525</height>
+        <width>464</width>
+        <height>508</height>
        </rect>
       </property>
       <attribute name="label">
@@ -772,8 +772,8 @@ QToolBox::tab:selected {
        <rect>
         <x>0</x>
         <y>0</y>
-        <width>451</width>
-        <height>525</height>
+        <width>464</width>
+        <height>508</height>
        </rect>
       </property>
       <attribute name="label">
@@ -781,77 +781,7 @@ QToolBox::tab:selected {
       </attribute>
       <layout class="QVBoxLayout" name="verticalLayout_2">
        <item>
-        <layout class="QGridLayout" name="gridLayout_3" rowstretch="0,1,1">
-         <item row="2" column="0">
-          <widget class="QGroupBox" name="processTabsFilterGroupBox">
-           <property name="title">
-            <string>Filter Process Tabs</string>
-           </property>
-           <property name="flat">
-            <bool>true</bool>
-           </property>
-           <property name="checkable">
-            <bool>true</bool>
-           </property>
-           <layout class="QGridLayout" name="gridLayout_4">
-            <property name="leftMargin">
-             <number>0</number>
-            </property>
-            <property name="rightMargin">
-             <number>0</number>
-            </property>
-            <property name="spacing">
-             <number>6</number>
-            </property>
-            <item row="0" column="0" rowspan="3">
-             <widget class="QTreeWidget" name="processTreeWidget">
-              <property name="horizontalScrollBarPolicy">
-               <enum>Qt::ScrollBarAlwaysOff</enum>
-              </property>
-              <property name="verticalScrollMode">
-               <enum>QAbstractItemView::ScrollPerPixel</enum>
-              </property>
-              <attribute name="headerDefaultSectionSize">
-               <number>240</number>
-              </attribute>
-              <attribute name="headerMinimumSectionSize">
-               <number>170</number>
-              </attribute>
-              <column>
-               <property name="text">
-                <string>Category/Title</string>
-               </property>
-              </column>
-              <column>
-               <property name="text">
-                <string>Code</string>
-               </property>
-              </column>
-             </widget>
-            </item>
-            <item row="0" column="1">
-             <widget class="QToolButton" name="toolButton_3">
-              <property name="text">
-               <string>...</string>
-              </property>
-              <property name="arrowType">
-               <enum>Qt::UpArrow</enum>
-              </property>
-             </widget>
-            </item>
-            <item row="1" column="1">
-             <widget class="QToolButton" name="toolButton_4">
-              <property name="text">
-               <string>...</string>
-              </property>
-              <property name="arrowType">
-               <enum>Qt::UpArrow</enum>
-              </property>
-             </widget>
-            </item>
-           </layout>
-          </widget>
-         </item>
+        <layout class="QGridLayout" name="gridLayout_3" rowstretch="0,0,1">
          <item row="0" column="0">
           <widget class="QGroupBox" name="snapshotDisplayOptionsGroupBox">
            <property name="title">
@@ -899,6 +829,90 @@ QToolBox::tab:selected {
            </layout>
           </widget>
          </item>
+         <item row="2" column="0">
+          <widget class="QGroupBox" name="processTabsFilterGroupBox">
+           <property name="title">
+            <string>Filter Process Tabs</string>
+           </property>
+           <property name="flat">
+            <bool>true</bool>
+           </property>
+           <property name="checkable">
+            <bool>true</bool>
+           </property>
+           <layout class="QGridLayout" name="gridLayout_4" columnstretch="1,0,0">
+            <property name="leftMargin">
+             <number>0</number>
+            </property>
+            <property name="rightMargin">
+             <number>0</number>
+            </property>
+            <property name="spacing">
+             <number>6</number>
+            </property>
+            <item row="5" column="1">
+             <widget class="QPushButton" name="flushTabsCachePushButton">
+              <property name="text">
+               <string>Flush Tabs cache</string>
+              </property>
+             </widget>
+            </item>
+            <item row="0" column="0" rowspan="4" colspan="2">
+             <widget class="QTreeWidget" name="processTreeWidget">
+              <property name="horizontalScrollBarPolicy">
+               <enum>Qt::ScrollBarAlwaysOff</enum>
+              </property>
+              <property name="verticalScrollMode">
+               <enum>QAbstractItemView::ScrollPerPixel</enum>
+              </property>
+              <attribute name="headerDefaultSectionSize">
+               <number>240</number>
+              </attribute>
+              <attribute name="headerMinimumSectionSize">
+               <number>170</number>
+              </attribute>
+              <column>
+               <property name="text">
+                <string>Category/Title</string>
+               </property>
+              </column>
+              <column>
+               <property name="text">
+                <string>Code</string>
+               </property>
+              </column>
+             </widget>
+            </item>
+            <item row="0" column="2">
+             <widget class="QToolButton" name="processTabsMoveUpToolButton">
+              <property name="text">
+               <string>...</string>
+              </property>
+              <property name="arrowType">
+               <enum>Qt::UpArrow</enum>
+              </property>
+             </widget>
+            </item>
+            <item row="1" column="2">
+             <widget class="QToolButton" name="processTabsMoveDownToolButton">
+              <property name="text">
+               <string>...</string>
+              </property>
+              <property name="arrowType">
+               <enum>Qt::DownArrow</enum>
+              </property>
+             </widget>
+            </item>
+            <item row="5" column="0">
+             <widget class="QCheckBox" name="cacheProcessTabsCheckBox">
+              <property name="text">
+               <string>Cache Tabs (faster launch)</string>
+              </property>
+             </widget>
+            </item>
+           </layout>
+          </widget>
+         </item>
          <item row="1" column="0">
           <widget class="QGroupBox" name="controlsTabsFilterGroupBox">
            <property name="title">
@@ -921,7 +935,7 @@ QToolBox::tab:selected {
              <number>6</number>
             </property>
             <item row="0" column="1">
-             <widget class="QToolButton" name="toolButton">
+             <widget class="QToolButton" name="controlsTabsMoveUpToolButton">
               <property name="text">
                <string>...</string>
               </property>
@@ -932,6 +946,33 @@ QToolBox::tab:selected {
             </item>
             <item row="0" column="0" rowspan="3">
              <widget class="QTreeWidget" name="controlsTabsTreeWidget">
+              <property name="tabKeyNavigation">
+               <bool>true</bool>
+              </property>
+              <property name="alternatingRowColors">
+               <bool>true</bool>
+              </property>
+              <property name="rootIsDecorated">
+               <bool>false</bool>
+              </property>
+              <property name="uniformRowHeights">
+               <bool>true</bool>
+              </property>
+              <property name="itemsExpandable">
+               <bool>false</bool>
+              </property>
+              <property name="animated">
+               <bool>true</bool>
+              </property>
+              <property name="expandsOnDoubleClick">
+               <bool>false</bool>
+              </property>
+              <attribute name="headerDefaultSectionSize">
+               <number>240</number>
+              </attribute>
+              <attribute name="headerMinimumSectionSize">
+               <number>170</number>
+              </attribute>
               <column>
                <property name="text">
                 <string>Tab Name</string>
@@ -945,7 +986,7 @@ QToolBox::tab:selected {
              </widget>
             </item>
             <item row="1" column="1">
-             <widget class="QToolButton" name="toolButton_2">
+             <widget class="QToolButton" name="controlsTabsMoveDownToolButton">
               <property name="text">
                <string>...</string>
               </property>
@@ -961,17 +1002,22 @@ QToolBox::tab:selected {
        </item>
       </layout>
      </widget>
-     <widget class="QWidget" name="scenePage">
+     <widget class="QWidget" name="globalCofigPage">
+      <attribute name="label">
+       <string>Global Config</string>
+      </attribute>
+     </widget>
+     <widget class="QWidget" name="currentEnvironmentPage">
       <property name="geometry">
        <rect>
         <x>0</x>
         <y>0</y>
-        <width>451</width>
-        <height>525</height>
+        <width>464</width>
+        <height>508</height>
        </rect>
       </property>
       <attribute name="label">
-       <string>Maya Scene</string>
+       <string>Current Environment Options</string>
       </attribute>
       <layout class="QVBoxLayout" name="verticalLayout">
        <property name="margin">

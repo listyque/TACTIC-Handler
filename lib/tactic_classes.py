@@ -16,13 +16,13 @@ import PySide.QtGui as QtGui
 import PySide.QtCore as QtCore
 import environment as env
 import global_functions as gf
-import lib.client.tactic_client_lib as tactic_client_lib
+import side.client.tactic_client_lib as tactic_client_lib
+# import lib.client.tactic_client_lib as tactic_client_lib
 
 # import xml.etree.ElementTree as Et
 # import ui_conf_classes
 
 if env.Mode.get == 'maya':
-    import ui_maya_dock
     import maya.cmds as cmds
 
 
@@ -949,7 +949,7 @@ def context_query(process):
     filters = [('search_type', process), ('project_code', env.Env.get_project())]
     assets = server.query(search_type, filters)
 
-    from lib.bs4 import BeautifulSoup
+    from lib.side.bs4 import BeautifulSoup
 
     if assets:
         # TODO may be worth it to simplify this

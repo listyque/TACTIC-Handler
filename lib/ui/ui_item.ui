@@ -20,7 +20,7 @@
 	padding: 3px;
 }</string>
   </property>
-  <layout class="QGridLayout" name="gridLayout" columnstretch="1,0,0">
+  <layout class="QGridLayout" name="gridLayout" rowstretch="0,1" columnstretch="1,0,0">
    <property name="margin">
     <number>0</number>
    </property>
