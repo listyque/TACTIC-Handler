@@ -4,23 +4,17 @@
 
 import os
 import sys
-# import time
-# import inspect
-# import errno
-# from functools import wraps
 import traceback
 import urlparse
 import collections
-# from pprint import pprint
+from lib.side.bs4 import BeautifulSoup
 import PySide.QtGui as QtGui
 import PySide.QtCore as QtCore
 import environment as env
 import global_functions as gf
+import lib.ui_classes.ui_misc_classes as ui_misc_classes
 import side.client.tactic_client_lib as tactic_client_lib
-# import lib.client.tactic_client_lib as tactic_client_lib
 
-# import xml.etree.ElementTree as Et
-# import ui_conf_classes
 
 if env.Mode.get == 'maya':
     import maya.cmds as cmds
@@ -84,6 +78,7 @@ def get_server_thread(kwargs_dict, runnable_func, connected_func, parent=None):
 
 def treat_result(thread):
     if thread.isFailed():
+        print 'ERROR TREATING'
         return error_handle(thread)
     else:
         return thread
@@ -110,9 +105,9 @@ def server_auth(host, project, login, password, get_ticket=False):
 def server_start(get_ticket=False):
     server = server_auth(
         env.Env.get_server(),
-        env.Env.get_project(),
+        env.Inst.current_project,
         env.Env.get_user(),
-        env.Env.get_pass(),
+        '',
         get_ticket=get_ticket,
     )
     return server
@@ -150,11 +145,14 @@ def show_message_predefined(title, message, stacktrace=None, buttons=None, paren
     if stacktrace:
         layout = QtGui.QVBoxLayout()
 
-        wdg = QtGui.QWidget()
-        wdg.setLayout(layout)
+        collapse_wdg = ui_misc_classes.Ui_collapsableWidget()
+        collapse_wdg.setLayout(layout)
+        collapse_wdg.setText('Hide Stacktrace')
+        collapse_wdg.setCollapsedText('Show Stacktrace')
+        collapse_wdg.setCollapsed(True)
 
         msb_layot = message_box.layout()
-        msb_layot.addWidget(wdg, 1, 1)
+        msb_layot.addWidget(collapse_wdg, 1, 1)
 
         text_edit = QtGui.QPlainTextEdit()
         text_edit.setMinimumWidth(600)
@@ -206,7 +204,7 @@ def catch_error_type(exception):
     return error
 
 
-def generate_new_ticket():
+def generate_new_ticket(explicit_username=None):
     login_pass_dlg = QtGui.QMessageBox(
         QtGui.QMessageBox.Question,
         'Updating ticket',
@@ -228,7 +226,10 @@ def generate_new_ticket():
 
     # Line Edits
     login_line_edit = QtGui.QLineEdit()
-    login_line_edit.setText(env.Env.get_user())
+    if explicit_username:
+        login_line_edit.setText(explicit_username)
+    else:
+        login_line_edit.setText(env.Env.get_user())
     pass_line_edit = QtGui.QLineEdit()
 
     layout.addWidget(login_label, 0, 0)
@@ -241,7 +242,8 @@ def generate_new_ticket():
     login_pass_dlg.exec_()
 
     host = env.Env.get_server()
-    project = env.Env.get_project()
+    #TODO SOMETHING
+    project = 'sthpw'
     login = login_line_edit.text()
     password = pass_line_edit.text()
 
@@ -249,6 +251,7 @@ def generate_new_ticket():
     thread.start()
     treat_result(thread)
     thread.wait()
+    return thread
 
 
 def run_tactic_team_server():
@@ -268,7 +271,8 @@ def error_handle(thread):
     if (error == 'connection_refused') or (error == 'connection_timeout'):
         title = '{0}, {1}'.format("Cannot connect to TACTIC Server!", error)
         message = '{0}<p>{1}</p>'.format(
-            "<p>Looks like TACTIC Server isn't running! May be You need to set up Right Server port and address</p> <p>Start Server? (Only TACTIC Team)</p>",
+            "<p>Looks like TACTIC Server isn't running! May be You need to set up Right Server port and address</p>"
+            "<p>Start Server? (Only TACTIC Team)</p>",
             exception_text)
         buttons = [('Yes', QtGui.QMessageBox.YesRole),
                    ('No', QtGui.QMessageBox.NoRole),
@@ -349,7 +353,7 @@ def error_handle(thread):
         return thread
 
     if error == 'no_project_error':
-        title = '{0}, {1}'.format("This Project not exist!", error)
+        title = '{0}, {1}'.format("This Project does not exists!", error)
         message = '{0}<p>{1}</p>'.format(
             "<p>You set up wrong Porject Name, or Project not exist!</p> <p>Reset Project to \"sthpw\"?</p>",
             exception_text)
@@ -456,132 +460,210 @@ def server_ping():
         return False
 
 
-# Query functions
-#
-# def server_query(search_type, filters):
-#     """
-#     Server start and query
-#     :param search_type: query search type
-#     :param filters: query filters
-#     :return: dictionary
-#     """
-#     assets = None
-#     server = server_start()
-#     try:
-#         assets = server.query(search_type, filters)
-#     except Exception as exception:
-#         error = catch_error_type(exception)
-#
-#         if error == 'no_project_error':
-#             env.Env.set_project('sthpw')
-#             env.Env.set_namespace('')
-#
-#         if error == 'ticket_error':
-#             get_server(True)
-#             assets = server.query(search_type, filters)
-#
-#         if error == 'socket_error':
-#             server_restart(False)
-#
-#         if error == 'login_pass_error':
-#             print 'Need to open config window!'
-#
-#     return assets
+# Projects related classes
+class Project(object):
+    def __init__(self, project):
 
+        self.info = project
+        self.stypes = None
 
-def query_assets_names():
-    server = server_start()
-    search_type = 'sthpw/search_object'
-    namespace = [env.Env.get_namespace(), env.Env.get_project()]
+    def get_stypes(self):
 
-    filters = [('namespace', namespace)]
+        self.stypes = self.query_search_types()
+        return self.stypes
 
-    assets = server.query(search_type, filters)
+    def query_search_types(self):
+        # getting all stypes
 
-    result_tree = collections.defaultdict(list)
+        # import time
+        #
+        # start = time.time()
+        # print("start")
+        #
+        # for i in range(20):
+        #     server_start().query('sthpw/schema', [('code', 'the_pirate')])
+        #
+        # end = time.time()
+        # print(end - start)
 
-    for asset in assets:
-        result_tree[asset['type']].append(asset)
+        empty_tab = [{'__search_key__': u'sthpw/search_object?code=empty/empty',
+                      'class_name': u'pyasm.search.SObject',
+                      'code': u'empty/empty',
+                      'color': None,
+                      'database': u'{project}',
+                      'default_layout': u'table',
+                      'description': None,
+                      'id': 84,
+                      'id_column': None,
+                      'message_event': None,
+                      'metadata_parser': None,
+                      'namespace': u'empty',
+                      'schema': u'public',
+                      'search_type': u'empty/empty',
+                      'table_name': u'characters',
+                      'title': u'empty',
+                      'type': None}, ]
 
-    return result_tree
+        search_type = 'sthpw/search_object'
+        project_code = self.info.get('code')
+        namespace = [self.info.get('type'), project_code]
 
-
-def query_tab_names(full_list=False):
-    """
-    Create Tabs from maya-type sTypes
-    """
-    server = server_start()
-    empty_tab = [{'__search_key__': u'sthpw/search_object?code=empty/empty',
-                  'class_name': u'pyasm.search.SObject',
-                  'code': u'empty/empty',
-                  'color': None,
-                  'database': u'{project}',
-                  'default_layout': u'table',
-                  'description': None,
-                  'id': 84,
-                  'id_column': None,
-                  'message_event': None,
-                  'metadata_parser': None,
-                  'namespace': u'empty',
-                  'schema': u'public',
-                  'search_type': u'empty/empty',
-                  'table_name': u'characters',
-                  'title': u'empty',
-                  'type': None}, ]
-
-    search_type = 'sthpw/search_object'
-    namespace = [env.Env.get_namespace(), env.Env.get_project()]
-
-    if env.Mode.get == 'standalone':
-        filters = [('type', env.Env.get_types_list()), ('namespace', namespace)]
-    else:
-        filters = [('type', env.Mode.get), ('namespace', namespace)]
-
-    if full_list:
         filters = [('namespace', namespace)]
 
-    if server:
-        assets = server.query(search_type, filters)
-    else:
-        assets = None
+        # if server:
+        all_stypes = server_start().query(search_type, filters)
 
-    if not assets:
-        assets = server.query(search_type, [('namespace', namespace)])
-        if not assets:
-            assets = empty_tab
+        if not all_stypes:
+            all_stypes = server_start().query(search_type, filters)
+            if not all_stypes:
+                all_stypes = empty_tab
 
-    out_tabs = {
-        'names': [],
-        'codes': [],
-        'layouts': [],
-        'colors': [],
-    }
-    if assets:
-        for asset in assets:
-            asset_get = asset.get
-            out_tabs['names'].append(asset_get('title'))
-            out_tabs['codes'].append(asset_get('code'))
-            out_tabs['layouts'].append(asset_get('layout'))
-            out_tabs['colors'].append(asset_get('color'))
+        # getting pipeline process
+        stypes_codes = []
+        for stype in all_stypes:
+            stypes_codes.append(stype['code'])
 
-    return out_tabs
+        search_type = 'sthpw/pipeline'
+
+        filters = [('search_type', stypes_codes), ('project_code', project_code)]
+        stypes_pipelines = server_start().query(search_type, filters)
+
+        # getting project schema
+        schema = server_start().query('sthpw/schema', [('code', project_code)])
+
+        if schema:
+            prj_schema = schema[0]['schema']
+        else:
+            prj_schema = None
+
+        if not (stypes_pipelines or schema):
+            return None
+        else:
+            return self.get_all_search_types(all_stypes, stypes_pipelines, prj_schema)
+
+    @staticmethod
+    def get_all_search_types(stype_list, process_list, schema):
+
+        pipeline = BeautifulSoup(schema, 'html.parser')
+        all_connectionslist = []
+        dct = collections.defaultdict(list)
+
+        for pipe in pipeline.find_all(name='connect'):
+            all_connectionslist.append(pipe.attrs)
+
+        for pipe in pipeline.find_all(name='search_type'):
+            dct[pipe.attrs['name']].append({'search_type': pipe.attrs})
+
+            conn = {
+                'children': [],
+                'parents': [],
+            }
+            for connect in all_connectionslist:
+                if pipe.attrs['name'] == connect['from']:
+                    conn['parents'].append(connect)
+                if pipe.attrs['name'] == connect['to']:
+                    conn['children'].append(connect)
+
+            dct[pipe.attrs['name']].append(conn)
+
+        stypes_objects = collections.OrderedDict()
+
+        for stype in stype_list:
+            stype_process = None
+            stype_schema = dct.get(stype['code'])
+
+            for process in process_list:
+                if dct.get(stype['code']):
+                    if process['search_type'] == dct.get(stype['code'])[0]['search_type']['name']:
+                        stype_process = process
+
+            stype_obj = SType(stype, stype_schema, stype_process)
+            stypes_objects[stype['code']] = stype_obj
+
+        return stypes_objects
 
 
-def query_projects():
-    server = server_start()
-    search_type = 'sthpw/project'
-    filters = []
-    projects = server.query(search_type, filters)
+# sTypes related classes
+class SType(object):
+    """
 
-    exclude_list = ['sthpw', 'unittest', 'admin']
+    .schema.info
+    .schema.parents
+    .schema.children
 
-    projects_by_category = collections.defaultdict(list)
+    .pipeline.info
+    .pipeline.process
+    .pipeline.process['Blocking'].get('parents')
+    .pipeline.process['Blocking'].get('children')
 
-    for project in projects:
-        if project['code'] not in exclude_list:
-            projects_by_category[project['category']].append(project)
+    """
+    def __init__(self, stype, schema=None, process=None):
 
-    return projects_by_category
+        self.info = stype
+
+        if process:
+            self.pipeline = Pipeline(process)
+        else:
+            self.pipeline = None
+
+        if schema:
+            self.schema = Schema(schema)
+        else:
+            self.schema = None
+
+
+class Schema(object):
+    def __init__(self, schema_dict):
+
+        self.__schema_dict = schema_dict
+        self.info = self.get_info()
+
+        self.parents = self.get_parents()
+        self.children = self.get_children()
+
+    def get_info(self):
+        return self.__schema_dict[0]['search_type']
+
+    def get_parents(self):
+        return self.__schema_dict[1].get('parents')
+
+    def get_children(self):
+        return self.__schema_dict[1].get('children')
+
+
+class Pipeline(object):
+    def __init__(self, process):
+
+        self.__process_dict = process
+
+        self.process = collections.defaultdict(list)
+
+        self.get_pipeline()
+        self.info = self.get_info()
+
+    def get_info(self):
+        info = self.__process_dict
+        del info['pipeline']
+        return info
+
+    def get_pipeline(self):
+
+        all_connectionslist = []
+        pipeline = BeautifulSoup(self.__process_dict['pipeline'], 'html.parser')
+
+        for pipe in pipeline.find_all(name='connect'):
+            all_connectionslist.append(pipe.attrs)
+
+        for pipe in pipeline.find_all(name='process'):
+            self.process[pipe.attrs.get('name')] = pipe.attrs
+
+            # print pipe
+
+            for connect in all_connectionslist:
+                if pipe.attrs['name'] == connect['from']:
+                    self.process[pipe.attrs.get('name')]['parents'] = connect
+                if pipe.attrs['name'] == connect['to']:
+                    self.process[pipe.attrs.get('name')]['children'] = connect
 
 
 # SObject class
@@ -620,7 +702,7 @@ class SObject(object):
     # .notes['sculpt'].notes()
     """
 
-    def __init__(self, in_sobj=None, in_process=None):
+    def __init__(self, in_sobj=None, in_process=None, project=None):
         """
         :param in_sobj: input list with info on particular sobject
         :param in_process: list of current sobject possible process, need to query tasks per process
@@ -630,6 +712,7 @@ class SObject(object):
         # INPUT VARS
         self.info = in_sobj
         self.all_process = in_process
+        self.project = project
 
         # OUTPUT VARS
         self.process = {}
@@ -638,8 +721,7 @@ class SObject(object):
         self.snapshots = {}
 
     # Snapshots by search code
-    @staticmethod
-    def query_snapshots(s_code, process=None, user=None):
+    def query_snapshots(self, s_code, process=None, user=None):
         """
         Query for Snapshots
         :param s_code: Code of asset related to snapshot
@@ -649,15 +731,14 @@ class SObject(object):
         """
 
         if process:
-            filters = [('search_code', s_code), ('process', process), ('project_code', env.Env.get_project())]
+            filters = [('search_code', s_code), ('process', process), ('project_code', self.project.info['code'])]
         else:
-            filters = [('search_code', s_code), ('project_code', env.Env.get_project())]
+            filters = [('search_code', s_code), ('project_code', self.project.info['code'])]
 
         return server_start().query_snapshots(filters=filters, include_files=True)
 
     # Tasks by search code
-    @staticmethod
-    def query_tasks(s_code, process=None, user=None):
+    def query_tasks(self, s_code, process=None, user=None):
         """
         Query for Task
         :param s_code: Code of asset related to task
@@ -669,15 +750,14 @@ class SObject(object):
 
         search_type = 'sthpw/task'
         if process:
-            filters = [('search_code', s_code), ('process', process), ('project_code', env.Env.get_project())]
+            filters = [('search_code', s_code), ('process', process), ('project_code', self.project.info['code'])]
         else:
-            filters = [('search_code', s_code), ('project_code', env.Env.get_project())]
+            filters = [('search_code', s_code), ('project_code', self.project.info['code'])]
 
         return server.query(search_type, filters)
 
     # Notes by search code
-    @staticmethod
-    def query_notes(s_code, process=None):
+    def query_notes(self, s_code, process=None):
         """
         Query for Notes
         :param s_code: Code of asset related to note
@@ -688,9 +768,9 @@ class SObject(object):
 
         search_type = 'sthpw/note'
         if process:
-            filters = [('search_code', s_code), ('process', process), ('project_code', env.Env.get_project())]
+            filters = [('search_code', s_code), ('process', process), ('project_code', self.project.info['code'])]
         else:
-            filters = [('search_code', s_code), ('project_code', env.Env.get_project())]
+            filters = [('search_code', s_code), ('project_code', self.project.info['code'])]
 
         return server.query(search_type, filters)
 
@@ -787,18 +867,63 @@ class Snapshot(SObject, object):
         # delete unused big entries
         del self.snapshot['__files__'], self.snapshot['snapshot']
 
+# End of SObject Class
 
-def get_sobjects(process_list=None, sobjects_list=None, get_snapshots=True):
+
+def query_projects():
+    server = server_start()
+    search_type = 'sthpw/project'
+    filters = []
+    projects = server.query(search_type, filters)
+
+    exclude_list = ['sthpw', 'unittest', 'admin']
+
+    projects_by_category = collections.defaultdict(list)
+
+    for project in projects:
+        if project['code'] not in exclude_list:
+            projects_by_category[project['category']].append(project)
+
+    return projects_by_category
+
+
+def query_all_projects():
+    server = server_start()
+    search_type = 'sthpw/project'
+    filters = []
+    projects = server.query(search_type, filters)
+
+    return projects
+
+
+def get_all_projects():
+
+    projects_list = query_all_projects()
+    dct = collections.defaultdict(list)
+
+    exclude_list = ['sthpw', 'unittest', 'admin']
+
+    for project in projects_list:
+        if project.get('code') not in exclude_list:
+            dct[project.get('code')] = Project(project)
+
+    return dct
+
+
+def get_sobjects(process_list=None, sobjects_list=None, get_snapshots=True, project_code=None):
     """
     Filters snapshot by search codes, and sobjects codes
     :param sobjects_list: full list of stypes
     :param get_snapshots: query for snapshots per sobject or not
+    :param project_code: assign project class to particular sObject
     :return: dict of sObjects objects
     """
     sobjects = {}
     if get_snapshots:
+        process_codes = list(process_list)
+        process_codes.extend(['icon', 'attachment', 'publish'])
         s_code = [s['code'] for s in sobjects_list]
-        snapshots_list = query_snapshots(process_list, s_code)
+        snapshots_list = query_snapshots(process_codes, s_code, project_code)
         snapshots = collections.defaultdict(list)
 
         # filter snapshots by search_code
@@ -811,7 +936,7 @@ def get_sobjects(process_list=None, sobjects_list=None, get_snapshots=True):
 
         # creating dict or ready SObjects
         for k, v in snapshots.iteritems():
-            sobjects[k] = SObject(v[-1], process_list)
+            sobjects[k] = SObject(v[-1], process_codes, env.Inst.projects[project_code])
             sobjects[k].init_snapshots(v[:-1])
     else:
         # Create list of Sobjects
@@ -821,27 +946,26 @@ def get_sobjects(process_list=None, sobjects_list=None, get_snapshots=True):
     return sobjects
 
 
-def query_snapshots(process_list=None, s_code=None):
+def query_snapshots(process_list=None, s_code=None, project_code=None):
     """
     Query for snapshots belongs to asset
     :return: list of snapshots
     """
-    process_codes = list(process_list)
-    process_codes.extend(['icon', 'attachment', 'publish'])
 
     filters_snapshots = [
-        ('process', process_codes),
-        ('project_code', env.Env.get_project()),
+        ('process', process_list),
+        ('project_code', project_code),
         ('search_code', s_code),
     ]
     return server_start().query_snapshots(filters=filters_snapshots, include_files=True)
 
 
-def assets_query_new(query, process, limit=0, offset=0, order_bys='timestamp desc'):
+def assets_query_new(query, stype, columns=None, project=None, limit=0, offset=0, order_bys='timestamp desc'):
     """
     Query for searching assets
     """
-    columns = []
+    if not columns:
+        columns = []
 
     server = server_start()
     filters = []
@@ -863,128 +987,78 @@ def assets_query_new(query, process, limit=0, offset=0, order_bys='timestamp des
     if query[0] == '*':
         filters = []
 
-    assets_list = server.query(process, filters, columns, order_bys, limit=limit, offset=offset)
+    built_process = server.build_search_type(stype, project)
+
+    assets_list = server.query(built_process, filters, columns, order_bys, limit=limit, offset=offset)
 
     # print assets_list
     return assets_list
 
 
-def assets_query(query, process, raw=False):
-    """
-    Query for searching assets
-    """
-    server = server_start()
-    filters = []
-    expr = ''
-    if query[1] == 0:
-        filters = [('name', 'EQI', query[0])]
-    if query[1] == 1:
-        filters = [('code', query[0])]
-    if query[1] == 2:
-        filters = None
-        parents_codes = ['scenes_code', 'sets_code']
-        for parent in parents_codes:
-            expr += '@SOBJECT(cgshort/shot["{0}", "{1}"]), '.format(parent, query[0])
-    if query[1] == 3:
-        filters = [('description', 'EQI', query[0])]
-    if query[1] == 4:
-        filters = [('keywords', 'EQI', query[0])]
-
-    if query[0] == '*':
-        filters = [[]]
-
-    if filters:
-        assets = server.query(process, filters)
-    elif expr:
-        assets = server.eval(expr)
-    else:
-        assets = {}
-
-    if raw:
-        return assets
-    out_assets = {
-        'names': [],
-        'codes': [],
-        'description': [],
-        'timestamp': [],
-        'pipeline_code': [],
-    }
-    for asset in assets:
-        # pprint(asset)
-        asset_get = asset.get
-        out_assets['names'].append(asset_get('name'))
-        out_assets['codes'].append(asset_get('code'))
-        out_assets['description'].append(asset_get('description'))
-        out_assets['timestamp'].append(asset_get('timestamp'))
-        out_assets['pipeline_code'].append(asset_get('pipeline_code'))
-
-    return out_assets
+# def assets_query(query, process, raw=False, project=None):
+#     """
+#     Query for searching assets
+#     """
+#     server = server_start()
+#     filters = []
+#     expr = ''
+#     if query[1] == 0:
+#         filters = [('name', 'EQI', query[0])]
+#     if query[1] == 1:
+#         filters = [('code', query[0])]
+#     if query[1] == 2:
+#         filters = None
+#         parents_codes = ['scenes_code', 'sets_code']
+#         for parent in parents_codes:
+#             expr += '@SOBJECT(cgshort/shot["{0}", "{1}"]), '.format(parent, query[0])
+#     if query[1] == 3:
+#         filters = [('description', 'EQI', query[0])]
+#     if query[1] == 4:
+#         filters = [('keywords', 'EQI', query[0])]
+#
+#     if query[0] == '*':
+#         filters = [[]]
+#
+#     builded_process = server.build_search_type(process, project)
+#
+#     if filters:
+#         assets = server.query(builded_process, filters)
+#     elif expr:
+#         assets = server.eval(expr)
+#     else:
+#         assets = {}
+#
+#     if raw:
+#         return assets
+#     out_assets = {
+#         'names': [],
+#         'codes': [],
+#         'description': [],
+#         'timestamp': [],
+#         'pipeline_code': [],
+#     }
+#     for asset in assets:
+#         # pprint(asset)
+#         asset_get = asset.get
+#         out_assets['names'].append(asset_get('name'))
+#         out_assets['codes'].append(asset_get('code'))
+#         out_assets['description'].append(asset_get('description'))
+#         out_assets['timestamp'].append(asset_get('timestamp'))
+#         out_assets['pipeline_code'].append(asset_get('pipeline_code'))
+#
+#     return out_assets
 
 
 def get_notes_count(sobject, process):
     expr = ''
 
-    code = sobject.info['code']
     stub = server_start()
-    search_type = stub.build_search_type(sobject.info['__search_key__'].split('?')[0])
     for proc in process:
-        expr += '{' + "@COUNT(sthpw/note['process','{0}']['search_type', '{2}']['search_code', '{1}'])".format(proc,
-                                                                                                               code,
-                                                                                                               search_type) + '},'
-    counts = stub.eval(expr)
+        expr += '{' + "@COUNT(sthpw/note['process','{0}'])".format(proc) + '},'
+
+    counts = stub.eval(expr, sobject.info['__search_key__'])
+
     return counts
-
-
-def context_query(process):
-    """
-    Query for Context elements
-    Creating one list of lists, to reduce count of queries to the server
-    :param process - list of tab names (vfx/asset)
-    """
-
-    server = server_start()
-    empty_item = {'empty/empty': ['empty']}
-    search_type = 'sthpw/pipeline'
-
-    filters = [('search_type', process), ('project_code', env.Env.get_project())]
-    assets = server.query(search_type, filters)
-
-    from lib.side.bs4 import BeautifulSoup
-
-    if assets:
-        # TODO may be worth it to simplify this
-        # contexts = collections.OrderedDict()
-        #
-        # for proc in process:
-        #     contexts[proc] = []
-        #
-        # items = contexts.copy()
-        # for context in contexts:
-        #     for asset in assets:
-        #         if context == asset['search_type']:
-        #             contexts[context] = Et.fromstring(asset['pipeline'].encode('utf-8'))
-        #
-        # for key, val in contexts.iteritems():
-        #     if len(val):
-        #         for element in val.iter('process'):
-        #             items[key].append(element.attrib['name'])
-
-        items = collections.OrderedDict()
-
-        for proc in process:
-            items[proc] = []
-
-        for asset in assets:
-            if asset['search_type'] in process:
-                pipeline = BeautifulSoup(asset['pipeline'], 'html.parser')
-                all_pipeline = []
-                for pipe in pipeline.find_all('process'):
-                    all_pipeline.append(pipe['name'])
-                items[asset['search_type']] = all_pipeline
-
-        return items
-    else:
-        return empty_item
 
 
 def users_query():
@@ -1184,7 +1258,6 @@ def save_confirm(paths, visible_ext, repo, update_versionless=True):
 
 def checkin_virtual_snapshot(search_key, context, ext='', visible_ext='', file_type='main', is_revision=False,
                              repo=None, update_versionless=True, version=None):
-    # print repo
 
     if repo == 'asset_base_dir' or 'win32_local_repo_dir':
         virtual_snapshot = server_start().get_virtual_snapshot_extended(
@@ -1199,12 +1272,10 @@ def checkin_virtual_snapshot(search_key, context, ext='', visible_ext='', file_t
             version=version,
         )
 
-        # print virtual_snapshot
-
         if save_confirm(virtual_snapshot, visible_ext, repo, update_versionless):
-            return True, virtual_snapshot
+            return virtual_snapshot
         else:
-            return False, None
+            return None
 
 
 def add_repo_info(search_key, context, snapshot, repo):

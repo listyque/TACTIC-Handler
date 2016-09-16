@@ -3,9 +3,9 @@
 
 import PySide.QtGui as QtGui
 
-import lib.ui.ui_my_tactic as ui_my_tactic
-import lib.ui.ui_my_notifications as ui_my_notifications
-import lib.ui.ui_my_tasks as ui_my_tasks
+import lib.ui.tactic.ui_my_tactic as ui_my_tactic
+import lib.ui.tactic.ui_my_notifications as ui_my_notifications
+import lib.ui.tactic.ui_my_tasks as ui_my_tasks
 
 reload(ui_my_tactic)
 reload(ui_my_notifications)

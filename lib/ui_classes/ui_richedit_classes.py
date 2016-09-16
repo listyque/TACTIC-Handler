@@ -3,7 +3,7 @@
 
 import PySide.QtGui as QtGui
 
-import lib.ui.ui_richedit as ui_richedit
+import lib.ui.misc.ui_richedit as ui_richedit
 
 reload(ui_richedit)
 

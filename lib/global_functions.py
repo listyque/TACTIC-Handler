@@ -3,10 +3,14 @@
 import subprocess
 import os
 import sys
+import copy
 import zlib
 import binascii
+import collections
+from lib.side.bs4 import BeautifulSoup
 
 import PySide.QtGui as QtGui
+import PySide.QtCore as QtCore
 import environment as env
 
 
@@ -74,14 +78,53 @@ def hex_to_html(text_hex):
 
 def get_ver_rev(ver, rev):
     if ver > 0 and rev > 0:
-        result = '<span style="color:#008498;">Ver: {0:03d};</span><span style="color:#0a9800;"> Rev: {1:03d}</span>'.format(ver,
-                                                                                                                rev)
+        result = '<span style="color:#008498;">Ver: {0:03d};</span><span style="color:#0a9800;"> Rev: {1:03d}</span>'.format(
+            ver,
+            rev)
     elif ver > 0 and rev == 0:
         result = '<span style="color:#008498;">Ver: {0:03d}</span>'.format(ver, rev)
     else:
         result = ''
 
     return result
+
+
+def group_dict_by(dicts_list, group_by):
+    grouped = collections.defaultdict(list)
+    for dic in dicts_list:
+        grouped[dic.get(group_by)].append(dic)
+
+    return grouped
+
+
+def get_controls_dict(ignore_list=None):
+    controls_dict = {
+        'QLineEdit': {'obj_name': [], 'value': []},
+        'QCheckBox': {'obj_name': [], 'value': []},
+        'QComboBox': {'obj_name': [], 'value': []},
+        'QTreeWidget': {'obj_name': [], 'value': []},
+        'QToolButton': {'obj_name': [], 'value': []},
+        'QRadioButton': {'obj_name': [], 'value': []},
+        'QGroupBox': {'obj_name': [], 'value': []},
+    }
+    if ignore_list:
+        for item in ignore_list:
+            if item == QtGui.QLineEdit:
+                controls_dict.pop('QLineEdit')
+            if item == QtGui.QCheckBox:
+                controls_dict.pop('QCheckBox')
+            if item == QtGui.QComboBox:
+                controls_dict.pop('QComboBox')
+            if item == QtGui.QTreeWidget:
+                controls_dict.pop('QTreeWidget')
+            if item == QtGui.QToolButton:
+                controls_dict.pop('QToolButton')
+            if item == QtGui.QRadioButton:
+                controls_dict.pop('QRadioButton')
+            if item == QtGui.QGroupBox:
+                controls_dict.pop('QGroupBox')
+
+    return copy.deepcopy(controls_dict)
 
 
 def get_value_from_config(config_dict, control, control_type=None):
@@ -93,151 +136,342 @@ def get_value_from_config(config_dict, control, control_type=None):
                 return value
 
 
-# QTreeWidget func
-def add_items_to_tree(parent, tree_widget, item_widget, sobjects, process,
-                      searh_all=False, row=0, snapshots=True, sep_versions=False):
-    def add_items_and_widgets(item=None, widget=None, text=''):
-        tree_item = QtGui.QTreeWidgetItem()
-        tree_item.setText(0, text)
-        item.addChild(tree_item)
-        widget.tree_item = tree_item
-        tree_widget.setItemWidget(tree_item, 0, widget)
+def walk_through_layouts(args=None, ignore_list=None):
+    all_widgets = []
+    if not ignore_list:
+        ignore_list = []
+    for layout in args:
+        for i in range(layout.count()):
+            widget = layout.itemAt(i).widget()
+            if type(widget) not in ignore_list:
+                all_widgets.append(layout.itemAt(i).widget())
 
-    parent.progres_bar.show()
-    tree_widget.clear()
+    return all_widgets
 
-    root_items_count = []
 
-    # top level items routine
-    for i, (sobject_code, sobject) in enumerate(sobjects.iteritems(), start=row):
+def clear_property_dict(in_dict):
+    # clearing all dict
+    for i in in_dict.itervalues():
+        for val in i.itervalues():
+            val[:] = []
 
-        main_item = QtGui.QTreeWidgetItem()
-        tree_widget.insertTopLevelItem(i, main_item)
-        main_widget_items = item_widget.Ui_itemWidget(i, sobject, main_item, parent)
-        tree_widget.setItemWidget(
-            tree_widget.topLevelItem(i), 0, main_widget_items)
 
-        current_progress = 100 * i / len(sobjects)
-        parent.progres_bar.setValue(current_progress)
+def campare_dicts(dict_one, dict_two):
+    result = True
 
-        # allowing to show all process, or particular
-        if searh_all:
-            iter_process = process
+    for key, val in dict_one.iteritems():
+        for key1, val1 in dict_two.iteritems():
+            if key == key1:
+                for i, j in enumerate(val['value']):
+                    if j != val1['value'][i]:
+                        result = False
+                        break
+
+    return result
+
+
+def store_property_by_widget_type(widget, in_dict):
+    if isinstance(widget, QtGui.QLineEdit):
+        in_dict['QLineEdit']['value'].append(str(widget.text()))
+        in_dict['QLineEdit']['obj_name'].append(widget.objectName())
+
+    if isinstance(widget, QtGui.QCheckBox):
+        in_dict['QCheckBox']['value'].append(int(bool(widget.checkState())))
+        in_dict['QCheckBox']['obj_name'].append(widget.objectName())
+
+    if isinstance(widget, QtGui.QComboBox):
+        in_dict['QComboBox']['value'].append(int(widget.count()))
+        in_dict['QComboBox']['obj_name'].append(widget.objectName())
+
+    if isinstance(widget, QtGui.QTreeWidget):
+        in_dict['QTreeWidget']['value'].append(int(widget.topLevelItemCount()))
+        in_dict['QTreeWidget']['obj_name'].append(widget.objectName())
+
+    if isinstance(widget, QtGui.QToolButton):
+        in_dict['QToolButton']['value'].append(str(widget.styleSheet()))
+        in_dict['QToolButton']['obj_name'].append(widget.objectName())
+
+    if isinstance(widget, QtGui.QGroupBox):
+        in_dict['QGroupBox']['value'].append(int(bool(widget.isChecked())))
+        in_dict['QGroupBox']['obj_name'].append(widget.objectName())
+
+    if isinstance(widget, QtGui.QRadioButton):
+        in_dict['QRadioButton']['value'].append(int(bool(widget.isChecked())))
+        in_dict['QRadioButton']['obj_name'].append(widget.objectName())
+
+
+def change_property_by_widget_type(widget, in_dict):
+    if isinstance(widget, QtGui.QLineEdit):
+        for name, val in zip(in_dict['QLineEdit']['obj_name'], in_dict['QLineEdit']['value']):
+            if widget.objectName() == name:
+                widget.setText(val)
+
+    if isinstance(widget, QtGui.QCheckBox):
+        for name, val in zip(in_dict['QCheckBox']['obj_name'], in_dict['QCheckBox']['value']):
+            if widget.objectName() == name:
+                widget.setChecked(val)
+
+    if isinstance(widget, QtGui.QGroupBox):
+        for name, val in zip(in_dict['QGroupBox']['obj_name'], in_dict['QGroupBox']['value']):
+            if widget.objectName() == name:
+                widget.setChecked(val)
+
+    if isinstance(widget, QtGui.QRadioButton):
+        for name, val in zip(in_dict['QRadioButton']['obj_name'], in_dict['QRadioButton']['value']):
+            if widget.objectName() == name:
+                widget.setChecked(val)
+
+
+def store_dict_values(widgets, out_dict, parent):
+    clear_property_dict(out_dict)
+    for widget in widgets:
+        if isinstance(widget,
+                      (QtGui.QLineEdit,
+                       QtGui.QCheckBox,
+                       QtGui.QComboBox,
+                       QtGui.QTreeWidget,
+                       QtGui.QToolButton,
+                       QtGui.QRadioButton,
+                       QtGui.QGroupBox)):
+            store_property_by_widget_type(widget, out_dict)
+            widget.installEventFilter(parent)
+
+
+def apply_dict_values(widgets, in_dict):
+    for widget in widgets:
+        # print widget
+        # print isinstance(widget, QtGui.QToolButton)
+        if isinstance(widget,
+                      (QtGui.QLineEdit,
+                       QtGui.QCheckBox,
+                       QtGui.QComboBox,
+                       QtGui.QTreeWidget,
+                       QtGui.QToolButton,
+                       QtGui.QRadioButton,
+                       QtGui.QGroupBox)):
+            change_property_by_widget_type(widget, in_dict)
+
+
+def collect_defaults(defaults_dict=None, init_dict=None, layouts_list=None, get_values=False, apply_values=False,
+                     store_defaults=False, undo_changes=False, parent=None, ignore_list=None):
+    widgets = walk_through_layouts(layouts_list, ignore_list)
+
+    if undo_changes:
+        apply_dict_values(widgets, defaults_dict)
+
+    if apply_values:
+        apply_dict_values(widgets, init_dict)
+
+    if get_values:
+        store_dict_values(widgets, init_dict, parent)
+
+    if store_defaults:
+        store_dict_values(widgets, defaults_dict, parent)
+
+    if not defaults_dict:
+        # defaults_dict = copy.deepcopy(controls_dict)
+        defaults_dict = get_controls_dict(ignore_list)
+        store_dict_values(widgets, defaults_dict, parent)
+
+    if not init_dict:
+        # init_dict = copy.deepcopy(controls_dict)
+        init_dict = get_controls_dict(ignore_list)
+
+    return defaults_dict, init_dict
+
+
+def create_tab_label(tab_name, stype):
+    tab_label = QtGui.QLabel(tab_name)
+    tab_label.setAlignment(QtCore.Qt.AlignCenter)
+    tab_color = stype.info['color']
+    if tab_color:
+        effect = QtGui.QGraphicsDropShadowEffect(tab_label)
+        t_c = hex_to_rgb(tab_color, alpha=255, tuple=True)
+        effect.setOffset(1, 1)
+        effect.setColor(QtGui.QColor(t_c[0], t_c[1], t_c[2], t_c[3]))
+        effect.setBlurRadius(20)
+        tab_label.setGraphicsEffect(effect)
+
+        tab_color_rgb = hex_to_rgb(tab_color, alpha=8)
+        tab_label.setStyleSheet('QLabel {' +
+                                'background-color: qlineargradient(spread:pad, x1:0, y1:0, x2:1, y2:0, stop:0 rgba(0, 0, 0, 0), stop:0.2 {0}, stop:0.8 {0}, stop:1 rgba(0, 0, 0, 0));'.format(
+                                    tab_color_rgb) +
+                                '}')
+    return tab_label
+
+
+# New QTreeWidget funcs
+
+def add_item_to_tree(tree_widget, tree_item, tree_item_widget=None, insert_pos=None):
+    if type(tree_widget) == QtGui.QTreeWidget:
+        if insert_pos is not None:
+            tree_widget.insertTopLevelItem(insert_pos, tree_item)
         else:
-            iter_process = sobject.process.iterkeys()
-
-        # adds top level root snapshot items, returns count of them
-        # if process == 'publish':
-        # print iter_process
-
-        if main_widget_items.sobject.process.get('publish'):
-            root_items_count.append(add_root_items_to_tree(parent, tree_widget, main_item, item_widget, main_widget_items, 'publish', sep_versions) + 1)
-            print root_items_count
+            tree_widget.addTopLevelItem(tree_item)
+        if tree_item_widget:
+            tree_widget.setItemWidget(tree_item, 0, tree_item_widget)
+    else:
+        if insert_pos is not None:
+            tree_widget.insertChild(insert_pos, tree_item)
         else:
-            # root_items_count = [0]
-            # print 'Nope'
-            root_items_count.append(0)
-
-        # second level, items with items process
-        for j, p in enumerate(iter_process):
-            process_item = tree_widget.topLevelItem(i)
-            process_widget = item_widget.Ui_processItemWidget(i, p, sobject, process_item, parent)
-            add_items_and_widgets(process_item, process_widget, p)
-
-            # third level, items with items context, and versionless
-            if sobject.process.get(p) and snapshots:
-                for k, (key1, context1) in enumerate(sobject.process[p].contexts.iteritems()):
-                    tree_v_item = tree_widget.topLevelItem(i).child(j)
-                    item_v_widget = item_widget.Ui_snapshotItemWidget(i, context1.versionless, sobject, parent)
-                    add_items_and_widgets(tree_v_item, item_v_widget)
-
-                    # fourth level, versions of items by each versionless, and context
-                    for l, (key2, context2) in enumerate(
-                            sobject.process[p].contexts[key1].versions.iteritems()):
-                        tree_vs_item = tree_widget.topLevelItem(i).child(j).child(k)
-                        item_vs_widget = item_widget.Ui_snapshotItemWidget(i, dict(key=context2), sobject, parent)
-                        add_items_and_widgets(tree_vs_item, item_vs_widget)
-
-    parent.progres_bar.setValue(100)
-    parent.progres_bar.hide()
-    return root_items_count
+            tree_widget.addChild(tree_item)
+        if tree_item_widget:
+            tree_widget.treeWidget().setItemWidget(tree_item, 0, tree_item_widget)
 
 
-def add_snapshots_items_to_tree(parent, tree_widget, child_widget, item_widget, parent_widget, process, offset=0, sep_versions=False):
-    def add_items_and_widgets(item=None, widget=None, text=''):
+def add_sobject_item(parent_item, parent_widget, sobject, stype, process, item_info):
+    from lib.ui_classes.ui_item_classes import Ui_itemWidget
+
+    tree_item = QtGui.QTreeWidgetItem()
+    tree_item_widget = Ui_itemWidget(sobject, stype, item_info, tree_item, parent_widget)
+
+    add_item_to_tree(parent_item, tree_item, tree_item_widget)
+
+    # adding child items
+    child_items = []
+    if tree_item_widget.children_stypes:
+        for child in tree_item_widget.children_stypes:
+            child_stype = parent_widget.project.stypes[child.get('from')]
+            child_items.append(add_child_item(
+                tree_item_widget.tree_item,
+                parent_widget,
+                sobject,
+                child_stype,
+                child,
+                item_info
+            ))
+    tree_item_widget.child_items = child_items
+
+    # adding process items
+    process_items = []
+    if process:
+        process_keys = process
+    elif stype.pipeline:
+        process_keys = stype.pipeline.process.iterkeys()
+    else:
+        process_keys = []
+
+    for process in process_keys:
+        process_items.append(add_process_item(
+            tree_item_widget.tree_item,
+            parent_widget,
+            sobject,
+            stype,
+            process,
+            item_info
+        ))
+
+    tree_item_widget.process_items = process_items
+
+    return tree_item_widget
+
+
+def add_process_item(tree_widget, parent_widget, sobject, stype, process, item_info):
+    from lib.ui_classes.ui_item_classes import Ui_processItemWidget
+
+    tree_item = QtGui.QTreeWidgetItem()
+    item_info = {
+        'relates_to': item_info['relates_to'],
+        'is_expanded': False,
+    }
+    tree_item_widget = Ui_processItemWidget(sobject, stype, process, item_info, tree_item, parent_widget)
+
+    add_item_to_tree(tree_widget, tree_item, tree_item_widget)
+
+    return tree_item_widget
+
+
+def add_snapshot_item(tree_widget, parent_widget, sobject, stype, process, snapshots, item_info, sep_versions=False,
+                      insert_at_top=True):
+    from lib.ui_classes.ui_item_classes import Ui_snapshotItemWidget
+    # print id(item_info)
+
+    snapshots_items = []
+
+    for key, context in snapshots.contexts.iteritems():
         tree_item = QtGui.QTreeWidgetItem()
-        tree_item.setText(0, text)
-        item.addChild(tree_item)
-        widget.tree_item = tree_item
-        tree_widget.setItemWidget(tree_item, 0, widget)
+        item_info = {
+            'relates_to': item_info['relates_to'],
+            'is_expanded': False,
+        }
+        snapshot_item = Ui_snapshotItemWidget(
+            sobject,
+            stype,
+            process,
+            key,
+            context.versionless.values(),
+            item_info,
+            tree_item,
+            parent_widget
+        )
 
-    for j, p in enumerate(process):
-        pos = j + offset
+        insert_pos = 0
+        if insert_at_top:
+            add_item_to_tree(tree_widget, snapshot_item.tree_item, snapshot_item, insert_pos)
+        else:
+            add_item_to_tree(tree_widget, snapshot_item.tree_item, snapshot_item)
 
-        # third level, items with items context, and versionless
-        if parent_widget.sobject.process.get(p):
-            child_widget.child(pos).takeChildren()
-            for k, (key1, context1) in enumerate(parent_widget.sobject.process[p].contexts.iteritems()):
-                tree_v_item = child_widget.child(pos)
-                item_v_widget = item_widget.Ui_snapshotItemWidget(parent_widget.row, context1.versionless,
-                                                                  parent_widget.sobject, tree_v_item, parent)
-                add_items_and_widgets(tree_v_item, item_v_widget)
+        snapshots_items.append(snapshot_item)
 
-                # fourth level, versions of items by each versionless, and context
-                # TODO: make versions collapsable by revisions
-                # snapshots = {
-                #     'versions': collections.defaultdict(list),
-                #     'revisions': collections.defaultdict(list),
-                # }
-                if not sep_versions:
-                    for l, (key2, context2) in enumerate(
-                            parent_widget.sobject.process[p].contexts[key1].versions.iteritems()):
-                        # snapshots[context2.snapshot['version']].append(context2)
-
-                        tree_vs_item = child_widget.child(pos).child(k)
-                        item_vs_widget = item_widget.Ui_snapshotItemWidget(parent_widget.row, dict(key=context2),
-                                                                           parent_widget.sobject, tree_vs_item, parent)
-                        add_items_and_widgets(tree_vs_item, item_vs_widget)
-
-                # print revisions
-
-
-def add_root_items_to_tree(parent, tree_widget, child_widget, item_widget, parent_widget, process, sep_versions=False):
-    def add_items_and_widgets(item=None, widget=None, text=''):
-        tree_item = QtGui.QTreeWidgetItem()
-        tree_item.setText(0, text)
-        item.addChild(tree_item)
-        widget.tree_item = tree_item
-        tree_widget.setItemWidget(tree_item, 0, widget)
-
-    i = 0
-
-    for i, (key1, context1) in enumerate(parent_widget.sobject.process[process].contexts.iteritems()):
-        print i, key1, context1
-        item_v_widget = item_widget.Ui_snapshotItemWidget(parent_widget.row, context1.versionless,
-                                                          parent_widget.sobject, child_widget, parent)
-        add_items_and_widgets(child_widget, item_v_widget)
         if not sep_versions:
-            for j, (key2, context2) in enumerate(parent_widget.sobject.process[process].contexts[key1].versions.iteritems()):
-                print j, key2, context2
-                tree_vs_item = child_widget.child(i)
-                item_vs_widget = item_widget.Ui_snapshotItemWidget(parent_widget.row, dict(key=context2),
-                                                                   parent_widget.sobject, tree_vs_item, parent)
-                add_items_and_widgets(tree_vs_item, item_vs_widget)
+            for versions in context.versions.itervalues():
+                tree_item_versions = QtGui.QTreeWidgetItem()
+                item_info = {
+                    'relates_to': item_info['relates_to'],
+                    'is_expanded': False,
+                }
+                snapshot_item_versions = Ui_snapshotItemWidget(
+                    sobject,
+                    stype,
+                    process,
+                    key,
+                    [versions],
+                    item_info,
+                    tree_item_versions,
+                    parent_widget
+                )
+                add_item_to_tree(snapshot_item.tree_item, snapshot_item_versions.tree_item, snapshot_item_versions)
 
-    return i
+    return snapshots_items
 
 
-def add_versions_items_to_tree(parent, tree_widget, item_widget, parent_widget, process, context):
-    tree_widget.clear()
-    for i, (key, context) in enumerate(parent_widget.sobject.process[process].contexts[context].versions.iteritems()):
-        tree_vs_item = QtGui.QTreeWidgetItem()
-        tree_widget.insertTopLevelItem(i, tree_vs_item)
-        item_vs_widget = item_widget.Ui_snapshotItemWidget(parent_widget.row, dict(key=context),
-                                                           parent_widget.sobject, tree_vs_item, parent)
+def add_versions_snapshot_item(tree_widget, parent_widget, sobject, stype, process, context, snapshots, item_info):
 
-        tree_widget.setItemWidget(tree_widget.topLevelItem(i), 0, item_vs_widget)
-        tree_widget.setRootIsDecorated(False)
+    from lib.ui_classes.ui_item_classes import Ui_snapshotItemWidget
+
+    for key, snapshot in snapshots.iteritems():
+        tree_item = QtGui.QTreeWidgetItem()
+        item_info = {
+            'relates_to': item_info['relates_to'],
+            'is_expanded': False,
+        }
+        snapshot_item = Ui_snapshotItemWidget(
+            sobject,
+            stype,
+            process,
+            context,
+            [snapshot],
+            item_info,
+            tree_item,
+            parent_widget
+        )
+
+        add_item_to_tree(tree_widget, snapshot_item.tree_item, snapshot_item)
+
+
+def add_child_item(tree_widget, parent_widget, sobject, stype, child, item_info):
+    from lib.ui_classes.ui_item_classes import Ui_childrenItemWidget
+
+    tree_item = QtGui.QTreeWidgetItem()
+    item_info = {
+        'relates_to': item_info['relates_to'],
+        'is_expanded': False,
+    }
+    tree_item_widget = Ui_childrenItemWidget(sobject, stype, child, item_info, tree_item, parent_widget)
+
+    add_item_to_tree(tree_widget, tree_item, tree_item_widget)
+
+    return tree_item_widget
 
 
 def expand_to_snapshot(parent, tree_widget):
@@ -269,114 +503,65 @@ def expand_to_snapshot(parent, tree_widget):
                                 tree_widget.scrollToItem(child_item)
 
 
-def revert_expanded_state(tree, state, select=False, expand=False):
-    """
-    Self explanatory
-    :param tree: treeWidget
-    :param state: dict of true or false
-    """
-    lv = tree.topLevelItemCount()
+def tree_state(wdg, state_dict):
+    """ Recursive getting data from each tree item"""
 
-    for i in range(lv):
+    if type(wdg) == QtGui.QTreeWidget:
+        lv = wdg.topLevelItemCount()
+        for i in range(lv):
+            item = wdg.topLevelItem(i)
+            d = {
+                'd': {'s': item.isSelected(), 'e': item.isExpanded()},
+                's': {}
+            }
+            if item.childCount() > 0:
+                tree_state(item, d)
+            state_dict[i] = d
+    else:
+        lv = wdg.childCount()
+        for i in range(lv):
+            item = wdg.child(i)
+            d = {
+                'd': {'s': item.isSelected(), 'e': item.isExpanded()},
+                's': {}
+            }
+            if item.childCount() > 0:
+                tree_state(item, d)
+            state_dict['s'][i] = d
 
-        t = tree.topLevelItem(i).childCount()
-        if state['lv'][lv + i][0]:
-            if expand:
-                tree.expandItem(tree.topLevelItem(i))
-            if select:
-                tree.topLevelItem(i).setSelected(True)
-                tree.scrollToItem(tree.topLevelItem(i))
-
-        for j in range(t):
-
-            l = tree.topLevelItem(i).child(j).childCount()
-            if state['lv'][i]['t'][t + j]:
-                if expand:
-                    tree.expandItem(tree.topLevelItem(i).child(j))
-                if select:
-                    tree.topLevelItem(i).child(j).setSelected(True)
-                    tree.scrollToItem(tree.topLevelItem(i).child(j))
-
-            for x in range(l):
-
-                s = tree.topLevelItem(i).child(j).child(x).childCount()
-                if state['lv'][i]['t'][j]['l'][l + x]:
-                    if expand:
-                        tree.expandItem(tree.topLevelItem(i).child(j).child(x))
-                    if select:
-                        tree.topLevelItem(i).child(j).child(x).setSelected(True)
-                        tree.scrollToItem(tree.topLevelItem(i).child(j).child(x))
-
-                for y in range(s):
-                    if select:
-                        if state['lv'][i]['t'][j]['l'][x]['s'][y]:
-                            tree.topLevelItem(i).child(j).child(x).child(y).setSelected(True)
-                            tree.scrollToItem(tree.topLevelItem(i).child(j).child(x).child(y))
+    return state_dict
 
 
-def expanded_state(tree, is_expanded=False, is_selected=False):
-    """
-    Saving full tree of Tree Widget
-    :param tree: treeWidget
-    :return: dict of true/false
-    """
-    # TODO Make it recursive
+def tree_state_revert(wdg, state_dict):
+    """ Recursive setting data to each tree item"""
+    if type(wdg) == QtGui.QTreeWidget:
+        lv = wdg.topLevelItemCount()
+        for i in range(lv):
+            if state_dict.get(i):
+                item = wdg.topLevelItem(i)
+                item.setExpanded(state_dict[i]['d']['e'])
+                item.setSelected(state_dict[i]['d']['s'])
+                if item.childCount() > 0:
+                    tree_state_revert(item, state_dict[i]['s'])
+                # Scrolling to item
+                if item.isSelected():
+                    item_tree_widget = item.treeWidget()
+                    item_tree_widget.scrollToItem(item)
+    else:
+        lv = wdg.childCount()
+        for i in range(lv):
+            item = wdg.child(i)
+            if state_dict:
+                if state_dict.get(i):
+                    item.setExpanded(state_dict[i]['d']['e'])
+                    item.setSelected(state_dict[i]['d']['s'])
 
-    lv = tree.topLevelItemCount()
-
-    results = dict(
-        lv=[
-            {'t': [{'l': [{'s': []}
-                          for c in range(tree.topLevelItem(a).child(b).childCount())]}
-                   for b in range(tree.topLevelItem(a).childCount())]}
-            for a in range(tree.topLevelItemCount())],
-    )
-
-    for i in range(lv):
-        if is_expanded:
-            results['lv'].append([tree.isItemExpanded(tree.topLevelItem(i))])
-        if is_selected:
-            results['lv'].append([tree.isItemSelected(tree.topLevelItem(i))])
-
-        t = tree.topLevelItem(i).childCount()
-        for j in range(t):
-            if is_expanded:
-                results['lv'][i]['t'].append(tree.isItemExpanded(tree.topLevelItem(i).child(j)))
-            if is_selected:
-                results['lv'][i]['t'].append(tree.isItemSelected(tree.topLevelItem(i).child(j)))
-
-            l = tree.topLevelItem(i).child(j).childCount()
-            for x in range(l):
-                if is_expanded:
-                    results['lv'][i]['t'][j]['l'].append(
-                        tree.isItemExpanded(tree.topLevelItem(i).child(j).child(x)))
-                if is_selected:
-                    results['lv'][i]['t'][j]['l'].append(
-                        tree.isItemSelected(tree.topLevelItem(i).child(j).child(x)))
-
-                s = tree.topLevelItem(i).child(j).child(x).childCount()
-                for y in range(s):
-                    if is_selected:
-                        results['lv'][i]['t'][j]['l'][x]['s'].append(
-                            tree.isItemSelected(tree.topLevelItem(i).child(j).child(x).child(y)))
-
-    return results
-
-
-def save(tree):
-    cache = []
-    expanded = []
-    for i in range(tree.topLevelItemCount()):
-        cache.append(tree.topLevelItem(i))
-    while cache:
-        item = cache.pop()
-        if item.isExpanded():
-            expanded.append(hash('asd'))
-        for row in range(item.childCount()):
-            child = item.child(row)
-            cache.append(child)
-
-    return expanded
+                    if item.childCount() > 0:
+                        tree_state_revert(item, state_dict[i]['s'])
+            # Scrolling to item
+            if item.isSelected():
+                item_tree_widget = item.treeWidget()
+                item_tree_widget.scrollToItem(item)
 
 
 # files etc routine
@@ -426,7 +611,6 @@ def get_abs_path(item, file_type=None):
 
 
 def simplify_html(html, pretty=False):
-    from bs4 import BeautifulSoup
     soup = BeautifulSoup(html, "html.parser")
     if pretty:
         return unicode(soup.body.prettify())

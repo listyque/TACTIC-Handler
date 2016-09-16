@@ -4,10 +4,10 @@
 import PySide.QtGui as QtGui
 import PySide.QtCore as QtCore
 import lib.environment as env
-import lib.ui.ui_notes as ui_notes
+import lib.ui.misc.ui_notes as ui_notes
 import ui_richedit_classes as richedit_widget
-import lib.ui.ui_notes_incom as ui_incom
-import lib.ui.ui_notes_outcom as ui_outcom
+import lib.ui.items.ui_notes_incom as ui_incom
+import lib.ui.items.ui_notes_outcom as ui_outcom
 import lib.tactic_classes as tc
 import lib.global_functions as gf
 

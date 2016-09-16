@@ -3,7 +3,7 @@
 
 import PySide.QtGui as QtGui
 import PySide.QtCore as QtCore
-import lib.ui.ui_tasks as ui_tasks
+import lib.ui.tasks.ui_tasks as ui_tasks
 import ui_richedit_classes as richedit_widget
 import ui_notes_classes as notes_widget
 import ui_item_task_classes as task_item_widget

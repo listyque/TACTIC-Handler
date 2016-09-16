@@ -3,15 +3,19 @@
 # Main Window interface
 
 import collections
+from functools import partial
 import PySide.QtCore as QtCore
 import PySide.QtGui as QtGui
 import lib.environment as env
+import lib.configuration as cfg
 import lib.tactic_classes as tc
 import lib.update_functions as uf
+import lib.global_functions as gf
 
 if env.Mode.get == 'maya':
     import lib.maya_functions as mf
 import lib.ui.ui_main as ui_main
+import lib.ui.ui_main_tabs as ui_main_tabs
 import ui_checkin_out_tabs_classes
 import ui_conf_classes
 import ui_my_tactic_classes
@@ -25,105 +29,144 @@ reload(ui_my_tactic_classes)
 reload(ui_assets_browser_classes)
 
 
-class Ui_Main(QtGui.QMainWindow, ui_main.Ui_MainWindow):
-    def __init__(self, parent=None):
+class Ui_mainTabs(QtGui.QWidget, ui_main_tabs.Ui_mainTabsForm):
+    def __init__(self, project_code, parent=None):
         super(self.__class__, self).__init__(parent=parent)
 
-        if env.Inst.offline:
-            self.create_ui_main_offline()
-        else:
-            env.Env.get_default_dirs()
-            self.create_ui_main()
+        env.Inst.ui_main_tabs[project_code] = self
 
-    def create_ui_main_offline(self):
+        self.settings = QtCore.QSettings('settings/{0}/main_ui_config.ini'.format(env.Mode.get), QtCore.QSettings.IniFormat)
 
-        env.Inst.ui_main = self
         self.setupUi(self)
-        self.setWindowTitle('TACTIC handler (OFFLINE)')
+        self.checkin_out_config_projects = cfg.Controls.get_checkin_out_projects()
+        self.checkin_out_config = cfg.Controls.get_checkin_out()
+        self.isCreated = False
 
-        # instance attributes
-        self.menu = None
+        self.project = env.Inst.projects.get(project_code)
+        self.current_project = self.project.info['code']
+        self.current_namespace = self.project.info['type']
+
+        if self.checkin_out_config_projects and self.checkin_out_config:
+            self.customize_controls_tabs()
+
+        self.create_ui_main_tabs()
+
+    def customize_controls_tabs(self):
+        if self.checkin_out_config_projects.get(self.current_project):
+            config = self.checkin_out_config_projects[self.current_project]['tabs_list']
+            for i, tab in enumerate(config):
+                if tab[0] == 'Checkout':
+                    if not tab[2]:
+                        self.main_tabWidget.removeTab(self.main_tabWidget.indexOf(self.checkOutTab))
+                    else:
+                        self.main_tabWidget.insertTab(i, self.checkOutTab, tab[1])
+                if tab[0] == 'Checkin':
+                    if not tab[2]:
+                        self.main_tabWidget.removeTab(self.main_tabWidget.indexOf(self.checkInTab))
+                    else:
+                        self.main_tabWidget.insertTab(i, self.checkInTab, tab[1])
+                if tab[0] == 'My Tactic':
+                    if not tab[2]:
+                        self.main_tabWidget.removeTab(self.main_tabWidget.indexOf(self.myTacticTab))
+                    else:
+                        self.main_tabWidget.insertTab(i, self.myTacticTab, tab[1])
+                if tab[0] == 'Assets Browser':
+                    if not tab[2]:
+                        self.main_tabWidget.removeTab(self.main_tabWidget.indexOf(self.assetsBrowserTab))
+                    else:
+                        self.main_tabWidget.insertTab(i, self.assetsBrowserTab, tab[1])
+
+    def create_ui_main_tabs(self):
+
         self.ui_checkout = None
         self.ui_checkin = None
-        self.settings = None
-        # self.tabs_items, self.context_items = self.query_tabs()
-        # self.create_ui_checkout()
-        # self.create_ui_checkin()
-        # self.create_ui_my_tactic()
-        # self.create_ui_assets_browser()
-        # self.create_ui_float_notify()
-        self.menu_bar_actions()
-        # self.skeyLineEdit_actions()
-        self.readSettings()
-        self.setIcon()
-        # self.setProjectInfo()
 
-    def create_ui_main(self):
-
-        env.Inst.ui_main = self
-        self.setupUi(self)
-        self.setWindowTitle('TACTIC handler')
-
-        # instance attributes
-        self.menu = None
-        self.ui_checkout = None
-        self.ui_checkin = None
-        self.settings = None
-        self.create_loading_label()
-        self.toggle_loading_label()
-
-        # Server Threads
-        self.tabs_items_thread = tc.ServerThread(self)
-        self.context_items_thread = tc.ServerThread(self)
-        self.update_thread = tc.ServerThread(self)
+        self.stypes_items_thread = tc.ServerThread(self)
         self.threadsActions()
-
-        self.query_tabs()
-
-        # self.tabs_items = self.tabs_items_thread.result
-        # self.context_items = self.context_items_thread.result
-
-        # self.tabs_items, self.context_items = self.query_tabs()
-
-        # self.create_ui_checkout()
-        # self.create_ui_checkin()
-        # self.create_ui_my_tactic()
-        # self.create_ui_assets_browser()
-        # self.create_ui_float_notify()
-        self.menu_bar_actions()
+        # self.get_stypes(run_thread=True)
         self.skeyLineEdit_actions()
         self.readSettings()
-        self.setIcon()
-        self.setProjectInfo()
 
     def threadsActions(self):
+        self.stypes_items_thread.finished.connect(lambda:  self.get_stypes(finish_thread=True))
 
-        self.tabs_items_thread.finished.connect(self.query_contexts)
+    def get_stypes(self, run_thread=False, finish_thread=False):
 
-        self.context_items_thread.finished.connect(self.create_ui_checkout)
-        self.context_items_thread.finished.connect(self.create_ui_checkin)
-        self.context_items_thread.finished.connect(self.toggle_loading_label)
+        if finish_thread:
+            self.stypes_items = tc.treat_result(self.stypes_items_thread)
 
-    def setIcon(self):
-        icon = QtGui.QIcon(':/ui_main/gliph/tactic_favicon.ico')
-        self.setWindowIcon(icon)
+            if self.stypes_items.isFailed():
+                if self.stypes_items.result == QtGui.QMessageBox.ApplyRole:
+                    self.stypes_items.run()
+                    self.query_stypes(run_thread=True)
+                elif self.stypes_items.result == QtGui.QMessageBox.ActionRole:
+                    env.Inst.offline = True
+                    self.parent().self.open_config_dialog()
+            else:
+                # self.save_object('stypes_items', self.stypes_items.result)
+                # env.Inst.project_stypes = self.stypes_items.result
+                self.create_ui_checkout()
+                self.create_ui_checkin()
+                self.toggle_loading_label()
 
-    def setProjectInfo(self):
-        self.currentProjectLabel.setText(
-            'Current Porject: <b>{0}</b> '.format(env.Env.get_project().replace('_', ' ').capitalize()))
+        if run_thread:
+            stypes_cache = None
+            # stypes_cache = self.load_object('stypes_items')
+            if stypes_cache:
+                self.stypes_items = stypes_cache
+                if not self.stypes_items_thread.isRunning():
+                    self.stypes_items_thread.kwargs = dict(result=self.stypes_items)
+                    self.stypes_items_thread.routine = self.empty_return
+                    self.stypes_items_thread.start()
+            else:
+                if not self.stypes_items_thread.isRunning():
+                    self.stypes_items_thread.kwargs = dict()
+                    self.stypes_items_thread.routine = self.project.get_stypes
+                    self.stypes_items_thread.start()
 
-    def create_loading_label(self):
-        self.loading_label = QtGui.QLabel()
-        self.loading_label.setText('Loading...')
-        self.loading_label.setAlignment(QtCore.Qt.AlignHCenter | QtCore.Qt.AlignVCenter)
-        self.loading_label.setVisible(False)
-        self.main_layout.addWidget(self.loading_label, 0, 0, 1, 3)
+    def create_ui_checkout(self):
+        """
+        Create Check Out Tab
+        """
+        if not self.stypes_items.isFailed():
+            self.ui_checkout = ui_checkin_out_tabs_classes.Ui_checkOutTabWidget(
+                self.project,
+                parent=self
+            )
+            self.checkOutLayout.addWidget(self.ui_checkout)
 
-    def toggle_loading_label(self):
-        if self.loading_label.isVisible():
-            self.loading_label.setVisible(False)
-        else:
-            self.loading_label.setVisible(True)
+    def create_ui_checkin(self, ext=False):
+        """
+        Create Check In Tab
+        """
+        if not self.stypes_items.isFailed():
+            self.ui_checkin = ui_checkin_out_tabs_classes.Ui_checkInTabWidget(
+                self.project,
+                parent=self
+            )
+            self.checkInLayout.addWidget(self.ui_checkin)
+
+    def create_ui_my_tactic(self):
+        """
+        Create My Tactic Tab
+        """
+        self.ui_my_tactic = ui_my_tactic_classes.Ui_myTacticWidget(self)
+        self.myTacticLayout.addWidget(self.ui_my_tactic)
+
+    def create_ui_float_notify(self):
+        """
+        Create My Tactic Tab
+        """
+        self.float_notify = ui_float_notify_classes.Ui_floatNotifyWidget(self)
+        self.float_notify.show()
+        self.float_notify.setSizeGripEnabled(True)
+
+    def create_ui_assets_browser(self):
+        """
+        Create Assets Browser Tab
+        """
+        self.ui_assets_browser = ui_assets_browser_classes.Ui_assetsBrowserWidget(self)
+        self.assetsBrowserLayout.addWidget(self.ui_assets_browser)
 
     def click_on_skeyLineEdit(self, event):
         self.skeyLineEdit.selectAll()
@@ -131,41 +174,6 @@ class Ui_Main(QtGui.QMainWindow, ui_main.Ui_MainWindow):
     def skeyLineEdit_actions(self):
         self.skeyLineEdit.mousePressEvent = self.click_on_skeyLineEdit
         self.skeyLineEdit.returnPressed.connect(self.go_by_skey)
-
-    def menu_bar_actions(self):
-        """
-        Actions for the main menu bar
-        """
-
-        def close_routine():
-            if env.Mode.get == 'maya':
-                maya_dock_instances = mf.get_maya_dock_window()
-                for maya_dock_instance in maya_dock_instances:
-                    maya_dock_instance.close()
-                    maya_dock_instance.deleteLater()
-            if env.Mode.get == 'standalone':
-                self.close()
-
-        self.actionExit.triggered.connect(close_routine)
-
-        self.actionConfiguration.triggered.connect(self.open_config_dialog)
-
-        self.actionApply_to_all_Tabs.triggered.connect(self.apply_current_view)
-
-        self.actionUpdate.triggered.connect(lambda: self.update_self(thread_start=True))
-
-        self.main_tabWidget.setContextMenuPolicy(QtCore.Qt.ActionsContextMenu)
-        self.menu = QtGui.QAction("Copy Tab", self.main_tabWidget)
-        self.menu.triggered.connect(self.copy_current_tab)
-        self.main_tabWidget.addAction(self.menu)
-
-    def update_self(self, thread_start=False, update=False):
-        uf.check_update()
-
-
-    def open_config_dialog(self):
-        conf_dialog = ui_conf_classes.Ui_configuration_dialogWidget(parent=self)
-        conf_dialog.show()
 
     def go_by_skey(self, skey_in=None, relates_to=None):
         if relates_to:
@@ -235,141 +243,267 @@ class Ui_Main(QtGui.QMainWindow, ui_main.Ui_MainWindow):
             self.skeyLineEdit.setText(skey_link)
             self.go_by_skey()
 
-    def restart_ui_main(self):
-        self.close()
-        self.create_ui_main()
-        self.show()
+    def create_loading_label(self):
+        self.loading_label = QtGui.QLabel()
+        self.loading_label.setText('Loading...')
+        self.loading_label.setAlignment(QtCore.Qt.AlignHCenter | QtCore.Qt.AlignVCenter)
+        self.loading_label.setVisible(False)
 
-    def apply_current_view(self):
-        if self.main_tabWidget.currentIndex() == 0:
-            if self.ui_checkout:
-                self.ui_checkout.apply_current_view_to_all()
-        if self.main_tabWidget.currentIndex() == 1:
-            if self.ui_checkin:
-                self.ui_checkin.apply_current_view_to_all()
+        self.mainTabsLayout.addWidget(self.loading_label, 0, 0)
 
-    def copy_current_tab(self):
-        current_index = self.main_tabWidget.currentIndex()
-
-        if current_index == 0:
-            self.ext_window = QtGui.QMainWindow(self)
-            self.ext_window.setContentsMargins(9, 9, 9, 9)
-            self.ext_window.closeEvent = self.closeEventExt
-            self.ui_checkout.writeSettings()
-            self.ext_window.setWindowTitle('Check Out Tab')
-            self.ext_window.resize(self.size())
-            self.ext_window.setCentralWidget(self.create_ui_checkout(True))
-            self.ext_window.show()
+    def toggle_loading_label(self):
+        if self.loading_label.isVisible():
+            self.loading_label.setVisible(False)
+            self.main_tabWidget.setVisible(True)
+            self.skeyLineEdit.setVisible(True)
         else:
-            self.ext_window = QtGui.QMainWindow(self)
-            self.ext_window.setContentsMargins(9, 9, 9, 9)
-            self.ext_window.closeEvent = self.closeEventExt
-            self.ui_checkin.writeSettings()
-            self.ext_window.setWindowTitle('Check In Tab')
-            self.ext_window.resize(self.size())
-            self.ext_window.setCentralWidget(self.create_ui_checkin(True))
-            self.ext_window.show()
-
-    def create_ui_checkout(self, ext=False):
-        """
-        Create Check Out Tab
-        """
-        self.context_items = tc.treat_result(self.context_items_thread)
-        if self.context_items.isFailed():
-            if self.context_items.result == QtGui.QMessageBox.ApplyRole:
-                self.context_items.run()
-                self.create_ui_checkout()
-            elif self.context_items.result == QtGui.QMessageBox.ActionRole:
-                env.Inst.offline = True
-                self.open_config_dialog()
-
-        if not self.context_items.isFailed():
-            if ext:
-                return ui_checkin_out_tabs_classes.Ui_checkOutTabWidget(
-                    self.context_items.result,
-                    self.tabs_items.result,
-                    self
-                )
-            else:
-                self.ui_checkout = ui_checkin_out_tabs_classes.Ui_checkOutTabWidget(
-                    self.context_items.result,
-                    self.tabs_items.result,
-                    self
-                )
-                self.checkOutLayout.addWidget(self.ui_checkout)
-
-    def create_ui_checkin(self, ext=False):
-        """
-        Create Check In Tab
-        """
-        self.context_items = tc.treat_result(self.context_items_thread)
-
-        self.save_object('context_items', self.context_items.result.items())
-
-        if self.context_items.isFailed():
-            if self.context_items.result == QtGui.QMessageBox.ApplyRole:
-                self.context_items.run()
-                self.create_ui_checkin()
-            elif self.context_items.result == QtGui.QMessageBox.ActionRole:
-                env.Inst.offline = True
-                self.open_config_dialog()
-
-        if not self.context_items.isFailed():
-            if ext:
-                return ui_checkin_out_tabs_classes.Ui_checkInTabWidget(
-                    self.context_items.result,
-                    self.tabs_items.result,
-                    self
-                )
-            else:
-                self.ui_checkin = ui_checkin_out_tabs_classes.Ui_checkInTabWidget(
-                    self.context_items.result,
-                    self.tabs_items.result,
-                    self
-                )
-                self.checkInLayout.addWidget(self.ui_checkin)
-
-    def create_ui_my_tactic(self):
-        """
-        Create My Tactic Tab
-        """
-        self.ui_my_tactic = ui_my_tactic_classes.Ui_myTacticWidget(self)
-        self.myTacticLayout.addWidget(self.ui_my_tactic)
-
-    def create_ui_float_notify(self):
-        """
-        Create My Tactic Tab
-        """
-        self.float_notify = ui_float_notify_classes.Ui_floatNotifyWidget(self)
-        self.float_notify.show()
-        self.float_notify.setSizeGripEnabled(True)
-
-    def create_ui_assets_browser(self):
-        """
-        Create Assets Browser Tab
-        """
-        self.ui_assets_browser = ui_assets_browser_classes.Ui_assetsBrowserWidget(self)
-        self.assetsBrowserLayout.addWidget(self.ui_assets_browser)
+            self.loading_label.setVisible(True)
+            self.main_tabWidget.setVisible(False)
+            self.skeyLineEdit.setVisible(False)
 
     def readSettings(self):
         """
         Reading Settings
         """
-        self.settings = QtCore.QSettings('TACTIC Handler', 'TACTIC Handling Tool')
-        self.settings.beginGroup(env.Mode.get + '/ui_main')
-        self.move(self.settings.value('pos', self.pos()))
-        self.resize(self.settings.value('size', self.size()))
-        if self.settings.value("windowState"):
-            if bool(int(self.settings.value("windowState"))):
-                self.setWindowState(QtCore.Qt.WindowMaximized)
+
+        self.settings.beginGroup('ui_main_tab/{0}/{1}'.format(self.current_namespace, self.current_project))
         self.main_tabWidget.setCurrentIndex(int(self.settings.value('main_tabWidget_currentIndex', 0)))
+        # self.main_tabWidget.tabBar().setTabButton(0, QtGui.QTabBar.LeftSide, QtGui.QWidget())
         self.settings.endGroup()
 
     def writeSettings(self):
         """
         Writing Settings
         """
-        self.settings.beginGroup(env.Mode.get + '/ui_main')
+        self.settings.beginGroup('ui_main_tab/{0}/{1}'.format(self.current_namespace, self.current_project))
+        self.settings.setValue('main_tabWidget_currentIndex', self.main_tabWidget.currentIndex())
+        print('Done ui_main_tab settings write')
+        self.settings.endGroup()
+
+    def paintEvent(self, event):
+        if not self.isCreated:
+            self.create_loading_label()
+            self.toggle_loading_label()
+            self.get_stypes(run_thread=True)
+            # self.
+            self.isCreated = True
+
+        env.Inst.current_project = self.project.info['code']
+
+    def closeEvent(self, event):
+
+        if self.ui_checkout:
+            self.ui_checkout.close()
+        if self.ui_checkin:
+            self.ui_checkin.close()
+
+        self.writeSettings()
+        event.accept()
+
+
+class Ui_Main(QtGui.QMainWindow, ui_main.Ui_MainWindow):
+    def __init__(self, parent=None):
+        super(self.__class__, self).__init__(parent=parent)
+
+        self.settings = QtCore.QSettings('settings/{0}/main_ui_config.ini'.format(env.Mode.get), QtCore.QSettings.IniFormat)
+
+        self.projects_docks = collections.OrderedDict()
+
+        if env.Inst.offline:
+            self.create_ui_main_offline()
+        else:
+            env.Env.get_default_dirs()
+            self.create_ui_main()
+
+    def create_project_dock(self, project_code, toggle_state=False):
+
+        if project_code not in self.projects_docks.keys():
+            project = env.Inst.projects.get(project_code)
+
+            dock_widget = QtGui.QDockWidget(self)
+            dock_widget.setObjectName(project_code)
+            dock_widget.setWindowTitle(project.info['title'].replace('_', ' ').capitalize())
+            dock_widget.setMinimumWidth(200)
+
+            main_tabs_widget = Ui_mainTabs(project_code, dock_widget)
+            dock_widget.setWidget(main_tabs_widget)
+
+            self.addDockWidget(QtCore.Qt.RightDockWidgetArea, dock_widget)
+            for dock in self.projects_docks.values():
+                self.tabifyDockWidget(dock, dock_widget)
+
+            self.projects_docks[project_code] = dock_widget
+
+            dock_widget.show()
+            dock_widget.raise_()
+
+        else:
+            self.projects_docks[project_code].widget().close()
+            self.projects_docks[project_code].close()
+            self.projects_docks[project_code].deleteLater()
+            del self.projects_docks[project_code]
+            del env.Inst.ui_main_tabs[project_code]
+
+    def create_ui_main_offline(self):
+
+        env.Inst.ui_main = self
+        self.setupUi(self)
+        self.setWindowTitle('TACTIC handler (OFFLINE)')
+
+        # instance attributes
+        self.menu = None
+        self.menu_bar_actions()
+        self.readSettings()
+        self.setIcon()
+
+    def create_ui_main(self):
+
+        env.Inst.ui_main = self
+        self.setupUi(self)
+        self.setWindowTitle('TACTIC handler')
+
+        # instance attributes
+        self.menu = None
+        self.mainwidget.deleteLater()
+
+        # Server Threads
+        self.projects_items_thread = tc.ServerThread(self)
+        self.update_thread = tc.ServerThread(self)
+
+        self.threadsActions()
+
+        self.query_projects(run_thread=True)
+
+        self.menu_bar_actions()
+        self.readSettings()
+        self.setIcon()
+
+    def threadsActions(self):
+        self.projects_items_thread.finished.connect(lambda: self.query_projects(finish_thread=True))
+
+    def setIcon(self):
+        icon = QtGui.QIcon(':/ui_main/gliph/tactic_favicon.ico')
+        self.setWindowIcon(icon)
+
+    def menu_bar_actions(self):
+        """
+        Actions for the main menu bar
+        """
+
+        def close_routine():
+            if env.Mode.get == 'maya':
+                maya_dock_instances = mf.get_maya_dock_window()
+                for maya_dock_instance in maya_dock_instances:
+                    maya_dock_instance.close()
+                    maya_dock_instance.deleteLater()
+            if env.Mode.get == 'standalone':
+                self.close()
+
+        self.actionExit.triggered.connect(close_routine)
+
+        self.actionConfiguration.triggered.connect(self.open_config_dialog)
+
+        self.actionApply_to_all_Tabs.triggered.connect(self.apply_current_view)
+
+        self.actionUpdate.triggered.connect(lambda: self.update_self(thread_start=True))
+
+        # deprecated
+        # self.main_tabWidget.setContextMenuPolicy(QtCore.Qt.ActionsContextMenu)
+        # self.menu = QtGui.QAction("Copy Tab", self.main_tabWidget)
+        # self.menu.triggered.connect(self.copy_current_tab)
+        # self.main_tabWidget.addAction(self.menu)
+
+    def update_self(self, thread_start=False, update=False):
+        uf.check_update()
+
+    def open_config_dialog(self):
+        conf_dialog = ui_conf_classes.Ui_configuration_dialogWidget(parent=self)
+        conf_dialog.show()
+
+    def restart_ui_main(self):
+        self.close()
+        self.projects_docks = collections.OrderedDict()
+        self.create_ui_main()
+        self.show()
+
+    def apply_current_view(self):
+        current_project_widget = self.projects_docks[env.Inst.current_project].widget()
+        widget_name = current_project_widget.main_tabWidget.currentWidget().objectName()
+
+        if widget_name == 'checkOutTab':
+            current_project_widget.ui_checkout.apply_current_view_to_all()
+        if widget_name == 'checkInTab':
+            current_project_widget.ui_checkin.apply_current_view_to_all()
+
+    def fill_projects_to_menu(self):
+
+        all_projects = self.projects_items.result
+        all_projects_dicts = []
+
+        for project_name, project in all_projects.iteritems():
+            all_projects_dicts.append(project.info)
+
+        projects_by_categories = gf.group_dict_by(all_projects_dicts, 'category')
+
+        for cat_name, projects in projects_by_categories.iteritems():
+
+            if cat_name:
+                cat_name = cat_name.replace('_', ' ').capitalize()
+            else:
+                cat_name = 'No Category'
+
+            category = self.menuProject.addMenu(cat_name)
+
+            for e, project in enumerate(projects):
+                if not project.get('is_template'):
+                    project_code = project.get('code')
+
+                    menu_action = QtGui.QAction(self)
+                    menu_action.setCheckable(True)
+
+                    if self.opened_projects:
+                        if project_code in self.opened_projects:
+                            menu_action.setChecked(True)
+                    menu_action.setText(project.get('title'))
+                    # Don't know why lambda did not work here
+                    menu_action.toggled.connect(partial(self.create_project_dock, project_code))
+                    category.addAction(menu_action)
+
+    def restore_opened_projects(self):
+        self.settings.beginGroup('ui_main')
+        self.opened_projects = self.settings.value('opened_projects', '')
+        if not isinstance(self.opened_projects, list):
+            if self.opened_projects:
+                self.opened_projects = [self.opened_projects]
+
+        current_project_code = self.settings.value("current_active_project", '')
+        self.settings.endGroup()
+
+        if self.opened_projects:
+            for project in self.opened_projects:
+                if project:
+                    self.create_project_dock(project)
+
+            if current_project_code:
+                self.projects_docks[current_project_code].raise_()
+
+    def readSettings(self):
+        """
+        Reading Settings
+        """
+        self.settings.beginGroup('ui_main')
+        self.move(self.settings.value('pos', self.pos()))
+        self.resize(self.settings.value('size', self.size()))
+        if self.settings.value("windowState"):
+            if bool(int(self.settings.value("windowState"))):
+                self.setWindowState(QtCore.Qt.WindowMaximized)
+        self.settings.endGroup()
+
+    def writeSettings(self):
+        """
+        Writing Settings
+        """
+        self.settings.beginGroup('ui_main')
         if self.windowState() == QtCore.Qt.WindowMaximized:
             state = True
         else:
@@ -377,81 +511,72 @@ class Ui_Main(QtGui.QMainWindow, ui_main.Ui_MainWindow):
             self.settings.setValue('pos', self.pos())
             self.settings.setValue('size', self.size())
         self.settings.setValue("windowState", int(state))
-        self.settings.setValue('main_tabWidget_currentIndex', self.main_tabWidget.currentIndex())
+        self.settings.setValue('opened_projects', self.projects_docks.keys())
+        self.settings.setValue('current_active_project', str(env.Inst.current_project))
+
         print('Done main_ui settings write')
         self.settings.endGroup()
 
     def closeEvent(self, event):
-        # event.ignore()
-        if self.ui_checkout:
-            self.ui_checkout.close()
-        if self.ui_checkin:
-            self.ui_checkin.close()
-        # self.float_notify.close()
+        for dock in self.projects_docks.itervalues():
+            dock.widget().close()
+            dock.close()
+            dock.close()
+            dock.deleteLater()
+            del dock
+
         self.writeSettings()
         event.accept()
 
-    def query_tabs(self):
-        tabs_cache = self.load_object('tabs_items')
-        if tabs_cache:
-            self.tabs_items = tabs_cache
-            if not self.tabs_items_thread.isRunning():
-                self.tabs_items_thread.kwargs = dict(result=self.tabs_items)
-                self.tabs_items_thread.routine = self.empty_return
-                self.tabs_items_thread.start()
-        else:
-            if not self.tabs_items_thread.isRunning():
-                self.tabs_items_thread.kwargs = dict()
-                self.tabs_items_thread.routine = tc.query_tab_names
-                self.tabs_items_thread.start()
+    def query_projects(self, run_thread=False, finish_thread=False):
+
+        if finish_thread:
+            self.projects_items = tc.treat_result(self.projects_items_thread)
+
+            # print self.projects_items.result
+
+            if self.projects_items.isFailed():
+                if self.projects_items.result == QtGui.QMessageBox.ApplyRole:
+                    self.projects_items.run()
+                    self.query_projects(run_thread=True)
+                elif self.projects_items.result == QtGui.QMessageBox.ActionRole:
+                    env.Inst.offline = True
+                    self.open_config_dialog()
+            else:
+                self.save_object('projects_items', self.projects_items.result)
+                env.Inst.projects = self.projects_items.result
+                self.restore_opened_projects()
+                self.fill_projects_to_menu()
+                # self.readSettings(True)
+        if run_thread:
+            projects_cache = self.load_object('projects_items')
+            if projects_cache:
+                self.projects_items = projects_cache
+                if not self.projects_items_thread.isRunning():
+                    self.projects_items_thread.kwargs = dict(result=self.projects_items)
+                    self.projects_items_thread.routine = self.empty_return
+                    self.projects_items_thread.start()
+            else:
+                if not self.projects_items_thread.isRunning():
+                    self.projects_items_thread.kwargs = dict()
+                    self.projects_items_thread.routine = tc.get_all_projects
+                    self.projects_items_thread.start()
 
     def save_object(self, name, obj):
-        settings = QtCore.QSettings('settings/tabs_cache.ini', QtCore.QSettings.IniFormat)
-        settings.beginGroup('{0}/tabs_cache/{1}/{2}'.format(env.Mode.get,
-                                                            env.Env.get_namespace(),
-                                                            env.Env.get_project()))
+        settings = QtCore.QSettings('settings/{0}/tabs_cache.ini'.format(env.Mode.get), QtCore.QSettings.IniFormat)
+        settings.beginGroup('tabs_cache/{0}/{1}'.format('namespace', 'project'))
         settings.setValue(name, obj)
         settings.endGroup()
 
     def load_object(self, name):
-        settings = QtCore.QSettings('settings/tabs_cache.ini', QtCore.QSettings.IniFormat)
+        settings = QtCore.QSettings('settings/{0}/tabs_cache.ini'.format(env.Mode.get), QtCore.QSettings.IniFormat)
         print settings.fileName()
         print env.__file__
-        settings.beginGroup('{0}/tabs_cache/{1}/{2}'.format(env.Mode.get,
-                                                            env.Env.get_namespace(),
-                                                            env.Env.get_project()))
+        settings.beginGroup('tabs_cache/{0}/{1}'.format('namespace', 'project'))
         obj = settings.value(name)
         settings.endGroup()
-        if obj:
-            return collections.OrderedDict(obj)
-        else:
-            return None
 
-    def query_contexts(self):
-        self.tabs_items = tc.treat_result(self.tabs_items_thread)
-        self.save_object('tabs_items', self.tabs_items.result)
-
-        if self.tabs_items.isFailed():
-            if self.tabs_items.result == QtGui.QMessageBox.ApplyRole:
-                self.tabs_items.run()
-                self.query_contexts()
-            elif self.tabs_items.result == QtGui.QMessageBox.ActionRole:
-                env.Inst.offline = True
-                self.open_config_dialog()
-
-        tabs_cache = self.load_object('context_items')
-        if tabs_cache:
-            self.context_items = tabs_cache
-            if not self.context_items_thread.isRunning():
-                self.context_items_thread.kwargs = dict(result=self.context_items)
-                self.context_items_thread.routine = self.empty_return
-                self.context_items_thread.start()
-        else:
-            if not self.tabs_items.isFailed():
-                if not self.context_items_thread.isRunning():
-                    self.context_items_thread.kwargs = dict(process=self.tabs_items.result['codes'])
-                    self.context_items_thread.routine = tc.context_query
-                    self.context_items_thread.start()
+        return None
 
     def empty_return(self, result):
         return result

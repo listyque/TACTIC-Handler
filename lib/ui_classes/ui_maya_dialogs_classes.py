@@ -3,9 +3,9 @@
 # All maya related dialogs
 
 import PySide.QtGui as QtGui
-import lib.ui.ui_maya_import as ui_import
-import lib.ui.ui_maya_open as ui_open
-import lib.ui.ui_maya_reference as ui_reference
+import lib.ui.maya.ui_maya_import as ui_import
+import lib.ui.maya.ui_maya_open as ui_open
+import lib.ui.maya.ui_maya_reference as ui_reference
 
 reload(ui_import)
 reload(ui_open)

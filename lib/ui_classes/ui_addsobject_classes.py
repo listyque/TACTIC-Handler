@@ -4,7 +4,7 @@
 
 import PySide.QtCore as QtCore
 import PySide.QtGui as QtGui
-import lib.ui.ui_addsobject as ui_addsobject
+import lib.ui.misc.ui_addsobject as ui_addsobject
 import lib.environment as env
 import lib.tactic_classes as tc
 
@@ -53,7 +53,7 @@ class Ui_addSObjectFormWidget(QtGui.QDialog, ui_addsobject.Ui_addSObjectForm):
         keywords = self.keywordsTextEdit.toPlainText()
         if name:
             filters = [('name', name)]
-            existing = tc.server_query(self.tab_name, filters)
+            existing = tc.server_start().query(self.tab_name, filters)
             if existing:
                 msb = QtGui.QMessageBox(QtGui.QMessageBox.Question, 'This Name already used!',
                                         "Do you want to use this name anyway?",

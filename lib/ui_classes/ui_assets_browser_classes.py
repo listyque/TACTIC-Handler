@@ -7,9 +7,9 @@ from lib.side.flowlayout import ScrollingFlowWidget
 from pprint import pprint
 import lib.tactic_classes as tc
 import lib.environment as env
-import lib.ui.ui_assets_browser as ui_assets_browser
-import lib.ui.ui_sobject as ui_sobject
-import lib.ui.ui_sobject_info as ui_sobject_info
+import lib.ui.browser.ui_assets_browser as ui_assets_browser
+import lib.ui.browser.ui_sobject as ui_sobject
+import lib.ui.browser.ui_sobject_info as ui_sobject_info
 import ui_tasks_classes
 import ui_addsobject_classes as addsobject_widget
 import ui_icons_classes as icons_widget

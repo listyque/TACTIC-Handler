@@ -1,12 +1,12 @@
 # main_standalone.py
 # Start here to run app standalone
 
-import os
+# import os
 import sys
 import PySide.QtGui as QtGui
 import lib.environment as env
-import lib.tactic_classes as tc
 env.Mode.set_mode('standalone')
+import lib.tactic_classes as tc
 import lib.ui_classes.ui_main_classes as ui_main_classes
 
 DATA_DIR = '/mnt/drive_d/Alexey/Dropbox/Work/CGProjects/tacticbase_dev/TACTIC-handler'
@@ -84,8 +84,8 @@ def create_ui(thread):
             window = ui_main_classes.Ui_Main(parent=None)
 
         env.Inst.ui_main = window
-        window.main_layout.setSpacing(6)
-        window.main_layout.setContentsMargins(9, 9, 9, 0)
+        # window.main_layout.setSpacing(6)
+        # window.main_layout.setContentsMargins(9, 9, 9, 0)
         window.statusBar()
         window.show()
 

@@ -1,0 +1,253 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>checkinOutPageWidget</class>
+ <widget class="QWidget" name="checkinOutPageWidget">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>729</width>
+    <height>471</height>
+   </rect>
+  </property>
+  <layout class="QGridLayout" name="checkinOutPageWidgetLayout" rowstretch="0,1,0" columnstretch="1,0">
+   <property name="margin">
+    <number>0</number>
+   </property>
+   <item row="1" column="1">
+    <widget class="QGroupBox" name="processTabsFilterGroupBox">
+     <property name="title">
+      <string>Filter Process Tabs (Per Project only)</string>
+     </property>
+     <property name="flat">
+      <bool>true</bool>
+     </property>
+     <property name="checkable">
+      <bool>true</bool>
+     </property>
+     <property name="checked">
+      <bool>false</bool>
+     </property>
+     <layout class="QVBoxLayout" name="processTabsFilterLayout">
+      <property name="leftMargin">
+       <number>0</number>
+      </property>
+      <property name="rightMargin">
+       <number>0</number>
+      </property>
+      <item>
+       <widget class="QTreeWidget" name="processTreeWidget">
+        <property name="styleSheet">
+         <string notr="true">QTreeView::item {
+	padding: 2px;
+}</string>
+        </property>
+        <property name="horizontalScrollBarPolicy">
+         <enum>Qt::ScrollBarAlwaysOff</enum>
+        </property>
+        <property name="verticalScrollMode">
+         <enum>QAbstractItemView::ScrollPerPixel</enum>
+        </property>
+        <attribute name="headerDefaultSectionSize">
+         <number>240</number>
+        </attribute>
+        <attribute name="headerMinimumSectionSize">
+         <number>170</number>
+        </attribute>
+        <column>
+         <property name="text">
+          <string>Type/Title</string>
+         </property>
+        </column>
+        <column>
+         <property name="text">
+          <string>Code</string>
+         </property>
+        </column>
+       </widget>
+      </item>
+     </layout>
+    </widget>
+   </item>
+   <item row="0" column="1">
+    <widget class="QGroupBox" name="controlsTabsFilterGroupBox">
+     <property name="title">
+      <string>Filter Control Tabs</string>
+     </property>
+     <property name="flat">
+      <bool>true</bool>
+     </property>
+     <property name="checkable">
+      <bool>true</bool>
+     </property>
+     <property name="checked">
+      <bool>false</bool>
+     </property>
+     <layout class="QGridLayout" name="controlsTabsFilterLayout">
+      <property name="leftMargin">
+       <number>0</number>
+      </property>
+      <property name="rightMargin">
+       <number>0</number>
+      </property>
+      <property name="spacing">
+       <number>6</number>
+      </property>
+      <item row="0" column="0" rowspan="3" colspan="4">
+       <widget class="QTreeWidget" name="controlsTabsTreeWidget">
+        <property name="maximumSize">
+         <size>
+          <width>16777215</width>
+          <height>160</height>
+         </size>
+        </property>
+        <property name="styleSheet">
+         <string notr="true">QTreeView::item {
+	padding: 2px;
+}</string>
+        </property>
+        <property name="tabKeyNavigation">
+         <bool>true</bool>
+        </property>
+        <property name="alternatingRowColors">
+         <bool>true</bool>
+        </property>
+        <property name="rootIsDecorated">
+         <bool>false</bool>
+        </property>
+        <property name="uniformRowHeights">
+         <bool>true</bool>
+        </property>
+        <property name="itemsExpandable">
+         <bool>false</bool>
+        </property>
+        <property name="animated">
+         <bool>true</bool>
+        </property>
+        <property name="expandsOnDoubleClick">
+         <bool>false</bool>
+        </property>
+        <attribute name="headerDefaultSectionSize">
+         <number>240</number>
+        </attribute>
+        <attribute name="headerMinimumSectionSize">
+         <number>170</number>
+        </attribute>
+        <column>
+         <property name="text">
+          <string>Tab Name</string>
+         </property>
+        </column>
+        <column>
+         <property name="text">
+          <string>Tab Label (Dbl click to Edit)</string>
+         </property>
+        </column>
+       </widget>
+      </item>
+      <item row="0" column="4">
+       <widget class="QToolButton" name="controlsTabsMoveUpToolButton">
+        <property name="text">
+         <string>...</string>
+        </property>
+        <property name="arrowType">
+         <enum>Qt::UpArrow</enum>
+        </property>
+       </widget>
+      </item>
+      <item row="3" column="0">
+       <widget class="QRadioButton" name="applyToAllProjectsRadioButton">
+        <property name="text">
+         <string>Choose globally</string>
+        </property>
+        <property name="checked">
+         <bool>true</bool>
+        </property>
+       </widget>
+      </item>
+      <item row="1" column="4">
+       <widget class="QToolButton" name="controlsTabsMoveDownToolButton">
+        <property name="text">
+         <string>...</string>
+        </property>
+        <property name="arrowType">
+         <enum>Qt::DownArrow</enum>
+        </property>
+       </widget>
+      </item>
+      <item row="3" column="2">
+       <widget class="QPushButton" name="applyToAllProjectsPushButton">
+        <property name="enabled">
+         <bool>false</bool>
+        </property>
+        <property name="text">
+         <string>Apply current to All</string>
+        </property>
+       </widget>
+      </item>
+      <item row="3" column="1">
+       <widget class="QRadioButton" name="applyPerProjectsRadioButton">
+        <property name="text">
+         <string>Choose per Project</string>
+        </property>
+       </widget>
+      </item>
+     </layout>
+    </widget>
+   </item>
+   <item row="0" column="0" rowspan="3">
+    <widget class="QTreeWidget" name="projectsDisplayTreeWidget">
+     <property name="maximumSize">
+      <size>
+       <width>300</width>
+       <height>16777215</height>
+      </size>
+     </property>
+     <property name="styleSheet">
+      <string notr="true">QTreeView::item {
+	padding: 2px;
+}</string>
+     </property>
+     <property name="verticalScrollMode">
+      <enum>QAbstractItemView::ScrollPerPixel</enum>
+     </property>
+     <property name="rootIsDecorated">
+      <bool>false</bool>
+     </property>
+     <attribute name="headerDefaultSectionSize">
+      <number>87</number>
+     </attribute>
+     <column>
+      <property name="text">
+       <string>Category/Title</string>
+      </property>
+     </column>
+     <column>
+      <property name="text">
+       <string>Code</string>
+      </property>
+     </column>
+    </widget>
+   </item>
+  </layout>
+ </widget>
+ <resources/>
+ <connections>
+  <connection>
+   <sender>applyPerProjectsRadioButton</sender>
+   <signal>toggled(bool)</signal>
+   <receiver>applyToAllProjectsPushButton</receiver>
+   <slot>setEnabled(bool)</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>371</x>
+     <y>197</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>431</x>
+     <y>201</y>
+    </hint>
+   </hints>
+  </connection>
+ </connections>
+</ui>

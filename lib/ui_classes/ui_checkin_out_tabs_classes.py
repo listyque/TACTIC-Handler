@@ -4,7 +4,9 @@
 import PySide.QtCore as QtCore
 import PySide.QtGui as QtGui
 import lib.environment as env
-import lib.ui.ui_sobj_tabs as sobj_tabs
+import lib.configuration as cfg
+import lib.global_functions as gf
+import lib.ui.misc.ui_sobj_tabs as sobj_tabs
 import ui_checkin_tree_classes as checkin_tree_widget
 import ui_checkout_tree_classes as checkout_tree_widget
 
@@ -14,66 +16,81 @@ reload(checkout_tree_widget)
 
 
 class Ui_checkInTabWidget(QtGui.QWidget, sobj_tabs.Ui_sObjTabs):
-    def __init__(self, context_items, tabs_items,  parent=None):
+    def __init__(self, project, parent=None):
         super(self.__class__, self).__init__(parent=parent)
         env.Inst.ui_check_tabs['checkin'] = self
 
-        self.settings = QtCore.QSettings('TACTIC Handler', 'TACTIC Handling Tool')
+        self.settings = QtCore.QSettings('settings/{0}/checkin_ui_config.ini'.format(env.Mode.get), QtCore.QSettings.IniFormat)
+        self.checkin_out_config_projects = cfg.Controls.get_checkin_out_projects()
+        self.checkin_out_config = cfg.Controls.get_checkin_out()
 
         self.setupUi(self)
         self.ui_tree = []
 
-        self.context_items = context_items
-        self.tabs_items = tabs_items
-        self.add_items_to_tabs()
+        # self.context_items = context_items
+        self.project = project
+        self.current_project = self.project.info['code']
+        self.current_namespace = self.project.info['type']
+        self.stypes_items = project.stypes
+        if self.stypes_items:
+            self.add_items_to_tabs()
 
         self.readSettings()
 
     def apply_current_view_to_all(self):
         current_tab = self.sObjTabWidget.currentWidget()
-        commentsSplitter = current_tab.commentsSplitter.saveState()
-        descriptionSplitter = current_tab.descriptionSplitter.saveState()
-        imagesSplitter = current_tab.imagesSplitter.saveState()
-        dropPlateSplitter = current_tab.dropPlateSplitter.saveState()
+        current_settings = current_tab.get_settings_dict()
 
         for tab in self.ui_tree:
-            tab.commentsSplitter.restoreState(commentsSplitter)
-            tab.descriptionSplitter.restoreState(descriptionSplitter)
-            tab.imagesSplitter.restoreState(imagesSplitter)
-            tab.dropPlateSplitter.restoreState(dropPlateSplitter)
-            tab.writeSettings()
+            tab.set_settings_from_dict(str(current_settings), apply_checkin_options=False, apply_search_options=False)
 
     def add_items_to_tabs(self):
         """
         Adding process tabs marked for Maya
         """
+        self.all_tabs_label = []
 
-        for i, (key, val) in enumerate(self.context_items.iteritems()):
-            name_index_context = (key, i, val)
-            self.ui_tree.append(checkin_tree_widget.Ui_checkInTreeWidget(name_index_context, self))
-            self.sObjTabWidget.addTab(self.ui_tree[i], self.tabs_items['names'][i])
-            if key == 'empty/empty':
-                self.sObjTabWidget.setDisabled(True)
+        if self.checkin_out_config and self.checkin_out_config_projects and self.checkin_out_config_projects.get(self.current_project):
+            ignore_tabs_list = self.checkin_out_config_projects[self.current_project]['stypes_list']
+        else:
+            ignore_tabs_list = []
 
-    def tabActions(self):
-        """
-        Actions for the check_out tab
-        """
+        for i, stype in enumerate(self.stypes_items.itervalues()):
+            self.ui_tree.append(checkin_tree_widget.Ui_checkInTreeWidget(stype, i, self.project, self))
+            if stype.info['title']:
+                tab_name = stype.info['title'].capitalize()
+            else:
+                if stype.info['code']:
+                    tab_name = stype.info['code']
+                else:
+                    tab_name = 'Unnamed'
+            self.sObjTabWidget.addTab(self.ui_tree[i], '')
+
+            tab_label = gf.create_tab_label(tab_name, stype)
+            self.all_tabs_label.append(tab_label)
+            self.sObjTabWidget.tabBar().setTabButton(i, QtGui.QTabBar.LeftSide, tab_label)
+
+        # Remove hidden tabs
+        for tab in self.ui_tree:
+            if tab.tab_name in ignore_tabs_list:
+                self.sObjTabWidget.removeTab(self.sObjTabWidget.indexOf(tab))
 
     def readSettings(self):
         """
         Reading Settings
         """
-        self.settings.beginGroup(env.Mode.get + '/ui_checkin')
-        self.sObjTabWidget.setCurrentIndex(int(self.settings.value('sObjTabWidget', 0)))
+        group_path = '{0}/{1}'.format(self.current_namespace, self.current_project)
+        self.settings.beginGroup(group_path)
+        self.sObjTabWidget.setCurrentIndex(int(self.settings.value('sObjTabWidget_currentIndex', 0)))
         self.settings.endGroup()
 
     def writeSettings(self):
         """
         Writing Settings
         """
-        self.settings.beginGroup(env.Mode.get + '/ui_checkin')
-        self.settings.setValue('sObjTabWidget', self.sObjTabWidget.currentIndex())
+        group_path = '{0}/{1}'.format(self.current_namespace, self.current_project)
+        self.settings.beginGroup(group_path)
+        self.settings.setValue('sObjTabWidget_currentIndex', self.sObjTabWidget.currentIndex())
         print('Done ui_checkout_tab settings write')
         self.settings.endGroup()
         for tab in self.ui_tree:
@@ -87,68 +104,88 @@ class Ui_checkInTabWidget(QtGui.QWidget, sobj_tabs.Ui_sObjTabs):
 
 
 class Ui_checkOutTabWidget(QtGui.QWidget, sobj_tabs.Ui_sObjTabs):
-    def __init__(self, context_items, tabs_items, parent=None):
+    def __init__(self, project, parent=None):
         super(self.__class__, self).__init__(parent=parent)
         env.Inst.ui_check_tabs['checkout'] = self
 
-        self.settings = QtCore.QSettings('TACTIC Handler', 'TACTIC Handling Tool')
+        self.settings = QtCore.QSettings('settings/{0}/checkout_ui_config.ini'.format(env.Mode.get), QtCore.QSettings.IniFormat)
+        self.checkin_out_config_projects = cfg.Controls.get_checkin_out_projects()
+        self.checkin_out_config = cfg.Controls.get_checkin_out()
 
         self.setupUi(self)
         self.ui_tree = []
 
-        self.context_items = context_items
-        self.tabs_items = tabs_items
-        self.add_items_to_tabs()
+        # self.context_items = context_items
+        self.project = project
+        self.current_project = self.project.info['code']
+        self.current_namespace = self.project.info['type']
+        self.stypes_items = project.stypes
+        if self.stypes_items:
+            self.add_items_to_tabs()
 
         self.readSettings()
 
     def apply_current_view_to_all(self):
         current_tab = self.sObjTabWidget.currentWidget()
-        commentsSplitter = current_tab.commentsSplitter.saveState()
-        descriptionSplitter = current_tab.descriptionSplitter.saveState()
-        imagesSplitter = current_tab.imagesSplitter.saveState()
+        current_settings = current_tab.get_settings_dict()
 
         for tab in self.ui_tree:
-            tab.commentsSplitter.restoreState(commentsSplitter)
-            tab.descriptionSplitter.restoreState(descriptionSplitter)
-            tab.imagesSplitter.restoreState(imagesSplitter)
-            tab.writeSettings()
+            tab.set_settings_from_dict(str(current_settings), apply_search_options=False)
 
     def add_items_to_tabs(self):
         """
         Adding process tabs marked for Maya
         """
-        # checkout_config = env.Conf.get_checkout()
-        for i, (key, val) in enumerate(self.context_items.iteritems()):
-            name_index_context = (key, i, val)
-            self.ui_tree.append(checkout_tree_widget.Ui_checkOutTreeWidget(name_index_context, self))
-            self.sObjTabWidget.addTab(self.ui_tree[i], self.tabs_items['names'][i])
-            if key == 'empty/empty':
-                self.sObjTabWidget.setDisabled(True)
+        self.all_tabs_label = []
 
-    def tabActions(self):
-        """
-        Actions for the check_out tab
-        """
+        if self.checkin_out_config and self.checkin_out_config_projects and self.checkin_out_config_projects.get(self.current_project):
+            ignore_tabs_list = self.checkin_out_config_projects[self.current_project]['stypes_list']
+        else:
+            ignore_tabs_list = []
+
+        for i, stype in enumerate(self.stypes_items.itervalues()):
+            self.ui_tree.append(checkout_tree_widget.Ui_checkOutTreeWidget(stype, i, self.project, self))
+            if stype.info['title']:
+                tab_name = stype.info['title'].capitalize()
+            else:
+                if stype.info['code']:
+                    tab_name = stype.info['code']
+                else:
+                    tab_name = 'Unnamed'
+            self.sObjTabWidget.addTab(self.ui_tree[i], '')
+
+            tab_label = gf.create_tab_label(tab_name, stype)
+            self.all_tabs_label.append(tab_label)
+            self.sObjTabWidget.tabBar().setTabButton(i, QtGui.QTabBar.LeftSide, tab_label)
+
+        # Remove hidden tabs
+        for tab in self.ui_tree:
+            if tab.tab_name in ignore_tabs_list:
+                self.sObjTabWidget.removeTab(self.sObjTabWidget.indexOf(tab))
 
     def readSettings(self):
         """
         Reading Settings
         """
-        self.settings.beginGroup(env.Mode.get + '/ui_checkout')
-        self.sObjTabWidget.setCurrentIndex(int(self.settings.value('sObjTabWidget', 0)))
+        group_path = '{0}/{1}'.format(self.current_namespace, self.current_project)
+        self.settings.beginGroup(group_path)
+        self.sObjTabWidget.setCurrentIndex(int(self.settings.value('sObjTabWidget_currentIndex', 0)))
         self.settings.endGroup()
 
     def writeSettings(self):
         """
         Writing Settings
         """
-        self.settings.beginGroup(env.Mode.get + '/ui_checkout')
-        self.settings.setValue('sObjTabWidget', self.sObjTabWidget.currentIndex())
+        group_path = '{0}/{1}'.format(self.current_namespace, self.current_project)
+        self.settings.beginGroup(group_path)
+        self.settings.setValue('sObjTabWidget_currentIndex', self.sObjTabWidget.currentIndex())
         print('Done ui_checkout_tab settings write')
         self.settings.endGroup()
         for tab in self.ui_tree:
             tab.writeSettings()
+
+    # def showEvent(self, event):
+    #     env.Inst.ui_main.projects_docks[self.current_project].setWindowTitle(self.project.info.get('title') + ', (Checkout)')
 
     def closeEvent(self, event):
         self.writeSettings()

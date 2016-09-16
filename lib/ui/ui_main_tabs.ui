@@ -1,0 +1,113 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>mainTabsForm</class>
+ <widget class="QWidget" name="mainTabsForm">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>137</width>
+    <height>229</height>
+   </rect>
+  </property>
+  <property name="windowTitle">
+   <string>Form</string>
+  </property>
+  <layout class="QVBoxLayout" name="mainTabsLayout">
+   <property name="spacing">
+    <number>0</number>
+   </property>
+   <property name="leftMargin">
+    <number>2</number>
+   </property>
+   <property name="topMargin">
+    <number>0</number>
+   </property>
+   <property name="rightMargin">
+    <number>2</number>
+   </property>
+   <property name="bottomMargin">
+    <number>3</number>
+   </property>
+   <item>
+    <widget class="QTabWidget" name="main_tabWidget">
+     <property name="styleSheet">
+      <string notr="true">QTabWidget::pane {
+    border: 0px;
+}
+QTabWidget::tab-bar {
+    alignment: center;
+}</string>
+     </property>
+     <property name="tabPosition">
+      <enum>QTabWidget::West</enum>
+     </property>
+     <property name="currentIndex">
+      <number>0</number>
+     </property>
+     <widget class="QWidget" name="checkOutTab">
+      <attribute name="title">
+       <string>Checkout</string>
+      </attribute>
+      <layout class="QVBoxLayout" name="checkOutLayout">
+       <property name="spacing">
+        <number>0</number>
+       </property>
+       <property name="margin">
+        <number>0</number>
+       </property>
+      </layout>
+     </widget>
+     <widget class="QWidget" name="checkInTab">
+      <attribute name="title">
+       <string>Checkin</string>
+      </attribute>
+      <layout class="QVBoxLayout" name="checkInLayout">
+       <property name="spacing">
+        <number>0</number>
+       </property>
+       <property name="margin">
+        <number>0</number>
+       </property>
+      </layout>
+     </widget>
+     <widget class="QWidget" name="myTacticTab">
+      <attribute name="title">
+       <string>My Tactic</string>
+      </attribute>
+      <layout class="QVBoxLayout" name="myTacticLayout">
+       <property name="spacing">
+        <number>0</number>
+       </property>
+       <property name="margin">
+        <number>0</number>
+       </property>
+      </layout>
+     </widget>
+     <widget class="QWidget" name="assetsBrowserTab">
+      <attribute name="title">
+       <string>Assets browser</string>
+      </attribute>
+      <layout class="QVBoxLayout" name="assetsBrowserLayout">
+       <property name="spacing">
+        <number>0</number>
+       </property>
+       <property name="margin">
+        <number>0</number>
+       </property>
+      </layout>
+     </widget>
+    </widget>
+   </item>
+   <item>
+    <widget class="QLineEdit" name="skeyLineEdit">
+     <property name="text">
+      <string>skey://</string>
+     </property>
+    </widget>
+   </item>
+  </layout>
+ </widget>
+ <resources/>
+ <connections/>
+</ui>

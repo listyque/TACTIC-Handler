@@ -3,7 +3,8 @@
 import os
 import PySide.QtGui as QtGui
 import PySide.QtCore as QtCore
-import lib.ui.ui_drop_plate as ui_drop_plate
+import lib.environment as env
+import lib.ui.checkin.ui_drop_plate as ui_drop_plate
 # TODO create sequences parsing
 # import lib.side.pyseq as pyseq
 
@@ -104,10 +105,31 @@ class Ui_dropPlateWidget(QtGui.QGroupBox, ui_drop_plate.Ui_dropPlateGroupBox):
 
         self.setAcceptDrops(True)
 
+        self.create_drop_plate_ui()
+        self.controls_actions()
+
+    def create_drop_plate_ui(self):
+
+        self.setAcceptDrops(True)
+
+        if env.Mode.get == 'standalone':
+            self.fromDropListCheckBox.setHidden(True)
+            sizePolicy = QtGui.QSizePolicy(QtGui.QSizePolicy.Preferred, QtGui.QSizePolicy.Preferred)
+            self.setSizePolicy(sizePolicy)
+            self.setMinimumWidth(300)
+
+    def controls_actions(self):
+
+        self.clearPushButton.clicked.connect(self.clear_tree_widget)
+
+    def clear_tree_widget(self):
+
+        self.dropTreeWidget.clear()
+
     def append_items_to_tree(self, items):
 
-        file_dir_tuple = split_files_and_dirs(items)
-        print(file_dir_tuple)
+        # file_dir_tuple = split_files_and_dirs(items)
+        # print(file_dir_tuple)
 
         for item in items:
             tree_item = QtGui.QTreeWidgetItem()

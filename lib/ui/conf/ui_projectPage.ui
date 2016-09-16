@@ -1,0 +1,125 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>projectPageWidget</class>
+ <widget class="QWidget" name="projectPageWidget">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>546</width>
+    <height>233</height>
+   </rect>
+  </property>
+  <layout class="QGridLayout" name="projectPageWidgetLayout">
+   <property name="margin">
+    <number>6</number>
+   </property>
+   <item row="0" column="0" colspan="6">
+    <widget class="QTreeWidget" name="projectsTreeWidget">
+     <property name="toolTip">
+      <string>Right click for menu</string>
+     </property>
+     <property name="statusTip">
+      <string>Right click for menu</string>
+     </property>
+     <property name="styleSheet">
+      <string notr="true">QTreeView::item {
+	padding: 2px;
+}</string>
+     </property>
+     <property name="verticalScrollMode">
+      <enum>QAbstractItemView::ScrollPerPixel</enum>
+     </property>
+     <attribute name="headerDefaultSectionSize">
+      <number>87</number>
+     </attribute>
+     <column>
+      <property name="text">
+       <string>Category/Title</string>
+      </property>
+     </column>
+     <column>
+      <property name="text">
+       <string>Code</string>
+      </property>
+     </column>
+     <column>
+      <property name="text">
+       <string>Namespace (template)</string>
+      </property>
+     </column>
+     <column>
+      <property name="text">
+       <string>Status</string>
+      </property>
+     </column>
+    </widget>
+   </item>
+   <item row="1" column="0">
+    <widget class="QLabel" name="createProjectsLable">
+     <property name="text">
+      <string>Create new Project:</string>
+     </property>
+    </widget>
+   </item>
+   <item row="1" column="1">
+    <widget class="QPushButton" name="createProjectPushButton">
+     <property name="enabled">
+      <bool>false</bool>
+     </property>
+     <property name="text">
+      <string>Create</string>
+     </property>
+    </widget>
+   </item>
+   <item row="1" column="2">
+    <spacer name="horizontalSpacer">
+     <property name="orientation">
+      <enum>Qt::Horizontal</enum>
+     </property>
+     <property name="sizeHint" stdset="0">
+      <size>
+       <width>40</width>
+       <height>20</height>
+      </size>
+     </property>
+    </spacer>
+   </item>
+   <item row="1" column="3">
+    <widget class="QLabel" name="colorSchemeHintLabel">
+     <property name="text">
+      <string>Legend: </string>
+     </property>
+    </widget>
+   </item>
+   <item row="1" column="4">
+    <widget class="QLabel" name="currentProjectLabel">
+     <property name="styleSheet">
+      <string notr="true">QLabel {background : rgb(165, 175, 25);}</string>
+     </property>
+     <property name="text">
+      <string> Current Projects </string>
+     </property>
+     <property name="textFormat">
+      <enum>Qt::PlainText</enum>
+     </property>
+    </widget>
+   </item>
+   <item row="1" column="5">
+    <widget class="QLabel" name="templateProjectsLabel">
+     <property name="styleSheet">
+      <string notr="true">QLabel {background :rgb(50, 150, 175)}</string>
+     </property>
+     <property name="text">
+      <string> Template Projects </string>
+     </property>
+     <property name="textFormat">
+      <enum>Qt::PlainText</enum>
+     </property>
+    </widget>
+   </item>
+  </layout>
+ </widget>
+ <resources/>
+ <connections/>
+</ui>

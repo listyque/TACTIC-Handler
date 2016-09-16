@@ -1,7 +1,7 @@
 import PySide.QtGui as QtGui
 import PySide.QtCore as QtCore
 import lib.environment as env
-import lib.ui.ui_float_notify as ui_notifications
+import lib.ui.tasks.ui_float_notify as ui_notifications
 
 reload(ui_notifications)
 

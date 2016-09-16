@@ -5,6 +5,14 @@
   <property name="windowModality">
    <enum>Qt::ApplicationModal</enum>
   </property>
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>427</width>
+    <height>276</height>
+   </rect>
+  </property>
   <property name="minimumSize">
    <size>
     <width>427</width>
@@ -23,7 +31,7 @@ QTreeView::item {
 	border-width: 1px;
 	border-color:  rgba(75, 75, 75, 75);
 	border-radius: 1px;
-	padding: 3px;
+	padding: 0px;
 	background: qlineargradient(x1: 0, y1: 0, x2: 0, y2: 1, stop: 0 rgba(175, 175, 175, 25), stop: 1 rgba(175, 175, 175, 0));
 }
 
@@ -53,107 +61,7 @@ QTreeView::item:selected{
   <property name="windowFilePath">
    <string notr="true"/>
   </property>
-  <widget class="QWidget" name="mainwidget">
-   <layout class="QGridLayout" name="main_layout">
-    <property name="leftMargin">
-     <number>2</number>
-    </property>
-    <property name="topMargin">
-     <number>0</number>
-    </property>
-    <property name="rightMargin">
-     <number>2</number>
-    </property>
-    <property name="bottomMargin">
-     <number>3</number>
-    </property>
-    <property name="spacing">
-     <number>0</number>
-    </property>
-    <item row="0" column="0" colspan="3">
-     <widget class="QTabWidget" name="main_tabWidget">
-      <property name="tabPosition">
-       <enum>QTabWidget::South</enum>
-      </property>
-      <property name="currentIndex">
-       <number>0</number>
-      </property>
-      <property name="documentMode">
-       <bool>true</bool>
-      </property>
-      <widget class="QWidget" name="checkOutTab">
-       <attribute name="title">
-        <string>Checkout</string>
-       </attribute>
-       <layout class="QVBoxLayout" name="checkOutLayout">
-        <property name="spacing">
-         <number>0</number>
-        </property>
-        <property name="margin">
-         <number>0</number>
-        </property>
-       </layout>
-      </widget>
-      <widget class="QWidget" name="checkInTab">
-       <attribute name="title">
-        <string>Checkin</string>
-       </attribute>
-       <layout class="QVBoxLayout" name="checkInLayout">
-        <property name="spacing">
-         <number>0</number>
-        </property>
-        <property name="margin">
-         <number>0</number>
-        </property>
-       </layout>
-      </widget>
-      <widget class="QWidget" name="myTacticTab">
-       <attribute name="title">
-        <string>My Tactic</string>
-       </attribute>
-       <layout class="QVBoxLayout" name="myTacticLayout">
-        <property name="spacing">
-         <number>0</number>
-        </property>
-        <property name="margin">
-         <number>0</number>
-        </property>
-       </layout>
-      </widget>
-      <widget class="QWidget" name="assetsBrowserTab">
-       <attribute name="title">
-        <string>Assets browser</string>
-       </attribute>
-       <layout class="QVBoxLayout" name="assetsBrowserLayout">
-        <property name="spacing">
-         <number>0</number>
-        </property>
-        <property name="margin">
-         <number>0</number>
-        </property>
-       </layout>
-      </widget>
-     </widget>
-    </item>
-    <item row="1" column="1">
-     <widget class="QLabel" name="currentProjectLabel">
-      <property name="text">
-       <string>Current Project:</string>
-      </property>
-      <property name="indent">
-       <number>4</number>
-      </property>
-     </widget>
-    </item>
-    <item row="1" column="0">
-     <widget class="QLineEdit" name="skeyLineEdit">
-      <property name="text">
-       <string>skey://</string>
-      </property>
-     </widget>
-    </item>
-   </layout>
-  </widget>
+  <widget class="QWidget" name="mainwidget"/>
   <widget class="QMenuBar" name="menubar">
    <property name="geometry">
     <rect>
@@ -173,10 +81,19 @@ QTreeView::item:selected{
     <addaction name="actionUpdate"/>
     <addaction name="actionVersion"/>
     <addaction name="separator"/>
-    <addaction name="actionExit"/>
     <addaction name="separator"/>
+    <addaction name="actionExit"/>
+   </widget>
+   <widget class="QMenu" name="menuProject">
+    <property name="tearOffEnabled">
+     <bool>true</bool>
+    </property>
+    <property name="title">
+     <string>Project</string>
+    </property>
    </widget>
    <addaction name="menuConfig"/>
+   <addaction name="menuProject"/>
   </widget>
   <action name="actionConfiguration">
    <property name="text">
@@ -204,9 +121,6 @@ QTreeView::item:selected{
    </property>
   </action>
  </widget>
- <tabstops>
-  <tabstop>main_tabWidget</tabstop>
- </tabstops>
  <resources/>
  <connections/>
 </ui>

@@ -69,7 +69,7 @@ def new_save_scene(search_key, context, description, all_process, repo, update_v
     }
 
     # ask user to confirm saving
-    save_confirm, virtual_snapshot = tc.checkin_virtual_snapshot(
+    virtual_snapshot = tc.checkin_virtual_snapshot(
         search_key,
         context,
         is_revision=is_revision,
@@ -81,7 +81,7 @@ def new_save_scene(search_key, context, description, all_process, repo, update_v
         file_type='main'
     )
 
-    if save_confirm:
+    if virtual_snapshot:
 
         dest_file = gf.form_path(repo['value'][0] + '/' + virtual_snapshot['relative_path'] + '/' + virtual_snapshot['file_name'] + '.' + types[ext])
         dest_path = gf.form_path(repo['value'][0] + '/' + virtual_snapshot['relative_path'])
