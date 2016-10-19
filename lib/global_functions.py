@@ -1,5 +1,6 @@
 # file global_functions.py
 # Global Functions Module
+
 import subprocess
 import os
 import sys
@@ -11,7 +12,8 @@ from lib.side.bs4 import BeautifulSoup
 
 import PySide.QtGui as QtGui
 import PySide.QtCore as QtCore
-import environment as env
+# import environment as env
+from environment import env_mode, env_tactic
 
 
 def hex_to_rgb(hex_v, alpha=None, tuple=False):
@@ -74,6 +76,19 @@ def hex_to_html(text_hex):
             hex_to_text = text_hex
 
         return hex_to_text
+
+
+def minify_code(source, pack=False):
+    import side.pyminifier as pyminifier
+    cleanup_comments = pyminifier.minification.remove_comments_and_docstrings(source)
+    cleanup_blanks = pyminifier.minification.remove_blank_lines(cleanup_comments)
+    multi_line = pyminifier.minification.join_multiline_pairs(cleanup_blanks)
+    dedent = pyminifier.minification.dedent(multi_line)
+    reduce_op = pyminifier.minification.reduce_operators(dedent)
+    if pack:
+        return pyminifier.compression.gz_pack(reduce_op)
+    else:
+        return reduce_op
 
 
 def get_ver_rev(ver, rev):
@@ -319,13 +334,13 @@ def add_item_to_tree(tree_widget, tree_item, tree_item_widget=None, insert_pos=N
             tree_widget.treeWidget().setItemWidget(tree_item, 0, tree_item_widget)
 
 
-def add_sobject_item(parent_item, parent_widget, sobject, stype, process, item_info):
+def add_sobject_item(parent_item, parent_widget, sobject, stype, process, item_info, insert_pos=None):
     from lib.ui_classes.ui_item_classes import Ui_itemWidget
 
     tree_item = QtGui.QTreeWidgetItem()
     tree_item_widget = Ui_itemWidget(sobject, stype, item_info, tree_item, parent_widget)
 
-    add_item_to_tree(parent_item, tree_item, tree_item_widget)
+    add_item_to_tree(parent_item, tree_item, tree_item_widget, insert_pos=insert_pos)
 
     # adding child items
     child_items = []
@@ -346,8 +361,8 @@ def add_sobject_item(parent_item, parent_widget, sobject, stype, process, item_i
     process_items = []
     if process:
         process_keys = process
-    elif stype.pipeline:
-        process_keys = stype.pipeline.process.iterkeys()
+    # elif stype.pipeline:
+    #     process_keys = stype.pipeline.process.iterkeys()
     else:
         process_keys = []
 
@@ -361,7 +376,12 @@ def add_sobject_item(parent_item, parent_widget, sobject, stype, process, item_i
             item_info
         ))
 
-    tree_item_widget.process_items = process_items
+    if process_items:
+        tree_item_widget.process_items = process_items
+    else:
+        # this loads root 'publish' items on expand !my favorite duct tape!
+        tree_item_widget.tree_item.setExpanded(True)
+        tree_item_widget.tree_item.setExpanded(False)
 
     return tree_item_widget
 
@@ -576,20 +596,30 @@ def open_file_associated(filepath):
 
 
 def form_path(path):
-    if env.Env.platform == 'Linux':
-        formed_path = path.replace('\\', '/').replace('\\\\', '/').replace('//', '/')
-        return formed_path
-    else:
-        formed_path = path.replace('\\', '/')
-        return formed_path
+    # if env.Env.platform == 'Linux':
+    formed_path = path.replace('\\', '/').replace('\\\\', '/').replace('//', '/')
+        # return formed_path
+    # else:
+    #     formed_path = path.replace('\\', '/').replace('//', '/')
+    return formed_path
+
+
+def get_st_size(file_path):
+    from stat import ST_SIZE
+    return os.stat(file_path)[ST_SIZE]
 
 
 def get_file_asset_dir(item):
-    if item.snapshot.get('repo'):
-        asset_dir = env.Env.rep_dirs[item.snapshot.get('repo')][0]
+    repo_name = item.snapshot.get('repo')
+    base_dir = env_tactic.get_base_dir('base')
+    if repo_name:
+        current_dir = env_tactic.get_base_dir(repo_name)
+        if current_dir:
+            asset_dir = current_dir.get('value')[0]
+        else:
+            asset_dir = base_dir.get('value')[0]
     else:
-        asset_dir = env.Env.rep_dirs['asset_base_dir'][0]
-
+        asset_dir = base_dir.get('value')[0]
     return asset_dir
 
 
@@ -597,7 +627,7 @@ def get_abs_path(item, file_type=None):
     if file_type:
         modes = file_type
     else:
-        modes = env.Mode.mods
+        modes = env_mode.modes
     modes.append('main')
 
     for mode in modes:

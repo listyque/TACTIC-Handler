@@ -5,7 +5,8 @@
 import PySide.QtCore as QtCore
 import PySide.QtGui as QtGui
 import lib.ui.misc.ui_addsobject as ui_addsobject
-import lib.environment as env
+# import lib.environment as env
+from lib.environment import env_mode
 import lib.tactic_classes as tc
 
 reload(ui_addsobject)
@@ -82,7 +83,7 @@ class Ui_addSObjectFormWidget(QtGui.QDialog, ui_addsobject.Ui_addSObjectForm):
         """
         Reading Settings
         """
-        self.settings.beginGroup(env.Mode.get + '/ui_addsobject')
+        self.settings.beginGroup(env_mode.get_mode() + '/ui_addsobject')
         self.setGeometry(self.settings.value('geometry', QtCore.QRect(500, 400, 500, 350)))
         self.settings.endGroup()
 
@@ -90,7 +91,7 @@ class Ui_addSObjectFormWidget(QtGui.QDialog, ui_addsobject.Ui_addSObjectForm):
         """
         Writing Settings
         """
-        self.settings.beginGroup(env.Mode.get + '/ui_addsobject')
+        self.settings.beginGroup(env_mode.get_mode() + '/ui_addsobject')
         self.settings.setValue('geometry', self.geometry())
         print('Done ui_addsobject settings write')
         self.settings.endGroup()

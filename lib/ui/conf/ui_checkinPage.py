@@ -2,7 +2,7 @@
 
 # Form implementation generated from reading ui file 'conf\ui_checkinPage.ui'
 #
-# Created: Sun Sep 11 00:16:48 2016
+# Created: Fri Oct 14 22:58:49 2016
 #      by: pyside-uic 0.2.15 running on PySide 1.2.4
 #
 # WARNING! All changes made in this file will be lost!
@@ -148,19 +148,6 @@ class Ui_checkinPageWidget(object):
         self.sandboxDirColorToolButton.setChecked(False)
         self.sandboxDirColorToolButton.setObjectName("sandboxDirColorToolButton")
         self.defaultRepoPathsLayout.addWidget(self.sandboxDirColorToolButton, 1, 1, 1, 1)
-        self.localRepoDirColorToolButton = QtGui.QToolButton(self.defaultRepoPathsGroupBox)
-        self.localRepoDirColorToolButton.setMaximumSize(QtCore.QSize(20, 20))
-        self.localRepoDirColorToolButton.setStyleSheet("QToolButton {\n"
-"    border: 1px solid rgb(128, 128, 128);\n"
-"    border-radius: 4px;\n"
-"    background-color:  rgb(255, 140, 40);\n"
-"}\n"
-"QToolButton:pressed {\n"
-"    background-color: rgb(235, 120, 20);\n"
-"}")
-        self.localRepoDirColorToolButton.setChecked(False)
-        self.localRepoDirColorToolButton.setObjectName("localRepoDirColorToolButton")
-        self.defaultRepoPathsLayout.addWidget(self.localRepoDirColorToolButton, 2, 1, 1, 1)
         self.clientRepoDirColorToolButton = QtGui.QToolButton(self.defaultRepoPathsGroupBox)
         self.clientRepoDirColorToolButton.setMaximumSize(QtCore.QSize(20, 20))
         self.clientRepoDirColorToolButton.setStyleSheet("QToolButton {\n"
@@ -174,6 +161,20 @@ class Ui_checkinPageWidget(object):
         self.clientRepoDirColorToolButton.setChecked(False)
         self.clientRepoDirColorToolButton.setObjectName("clientRepoDirColorToolButton")
         self.defaultRepoPathsLayout.addWidget(self.clientRepoDirColorToolButton, 3, 1, 1, 1)
+        self.localRepoDirColorToolButton = QtGui.QToolButton(self.defaultRepoPathsGroupBox)
+        self.localRepoDirColorToolButton.setMaximumSize(QtCore.QSize(20, 20))
+        self.localRepoDirColorToolButton.setStyleSheet("QToolButton {\n"
+"    border: 1px solid rgb(128, 128, 128);\n"
+"    border-radius: 4px;\n"
+"    background-color:  rgb(255, 140, 40);\n"
+"}\n"
+"QToolButton:pressed {\n"
+"    background-color: rgb(235, 120, 20);\n"
+"}")
+        self.localRepoDirColorToolButton.setChecked(False)
+        self.localRepoDirColorToolButton.setObjectName("localRepoDirColorToolButton")
+        self.defaultRepoPathsLayout.addWidget(self.localRepoDirColorToolButton, 2, 1, 1, 1)
+        self.defaultRepoPathsLayout.setColumnStretch(3, 1)
         self.checkinPageWidgetLayout.addWidget(self.defaultRepoPathsGroupBox)
         self.checkinMiscOpitionsGroupBox = QtGui.QGroupBox(checkinPageWidget)
         self.checkinMiscOpitionsGroupBox.setFlat(True)

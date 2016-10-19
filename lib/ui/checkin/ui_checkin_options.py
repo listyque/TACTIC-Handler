@@ -2,7 +2,7 @@
 
 # Form implementation generated from reading ui file 'checkin\ui_checkin_options.ui'
 #
-# Created: Fri Sep 09 23:10:45 2016
+# Created: Thu Sep 22 00:04:23 2016
 #      by: pyside-uic 0.2.15 running on PySide 1.2.4
 #
 # WARNING! All changes made in this file will be lost!
@@ -12,6 +12,7 @@ from PySide import QtCore, QtGui
 class Ui_checkinOptionsGroupBox(object):
     def setupUi(self, checkinOptionsGroupBox):
         checkinOptionsGroupBox.setObjectName("checkinOptionsGroupBox")
+        checkinOptionsGroupBox.resize(537, 129)
         sizePolicy = QtGui.QSizePolicy(QtGui.QSizePolicy.Preferred, QtGui.QSizePolicy.Minimum)
         sizePolicy.setHorizontalStretch(0)
         sizePolicy.setVerticalStretch(0)
@@ -60,12 +61,23 @@ class Ui_checkinOptionsGroupBox(object):
         self.horizontalLayout_3 = QtGui.QHBoxLayout(self.groupBox_2)
         self.horizontalLayout_3.setContentsMargins(-1, 0, 0, 0)
         self.horizontalLayout_3.setObjectName("horizontalLayout_3")
-        self.label = QtGui.QLabel(self.groupBox_2)
-        self.label.setObjectName("label")
-        self.horizontalLayout_3.addWidget(self.label)
+        self.repositoryLabel = QtGui.QLabel(self.groupBox_2)
+        self.repositoryLabel.setObjectName("repositoryLabel")
+        self.horizontalLayout_3.addWidget(self.repositoryLabel)
         self.repositoryComboBox = QtGui.QComboBox(self.groupBox_2)
         self.repositoryComboBox.setObjectName("repositoryComboBox")
         self.horizontalLayout_3.addWidget(self.repositoryComboBox)
+        self.checkinMethodLabel = QtGui.QLabel(self.groupBox_2)
+        self.checkinMethodLabel.setObjectName("checkinMethodLabel")
+        self.horizontalLayout_3.addWidget(self.checkinMethodLabel)
+        self.checkinMethodComboBox = QtGui.QComboBox(self.groupBox_2)
+        self.checkinMethodComboBox.setObjectName("checkinMethodComboBox")
+        self.checkinMethodComboBox.addItem("")
+        self.checkinMethodComboBox.addItem("")
+        self.checkinMethodComboBox.addItem("")
+        self.checkinMethodComboBox.addItem("")
+        self.checkinMethodComboBox.addItem("")
+        self.horizontalLayout_3.addWidget(self.checkinMethodComboBox)
         self.updateVersionlessCheckBox = QtGui.QCheckBox(self.groupBox_2)
         self.updateVersionlessCheckBox.setChecked(True)
         self.updateVersionlessCheckBox.setObjectName("updateVersionlessCheckBox")
@@ -77,7 +89,7 @@ class Ui_checkinOptionsGroupBox(object):
         spacerItem2 = QtGui.QSpacerItem(40, 20, QtGui.QSizePolicy.Expanding, QtGui.QSizePolicy.Minimum)
         self.horizontalLayout_3.addItem(spacerItem2)
         self.horizontalLayout_3.setStretch(1, 1)
-        self.horizontalLayout_3.setStretch(4, 1)
+        self.horizontalLayout_3.setStretch(6, 1)
         self.gridLayout.addWidget(self.groupBox_2, 1, 0, 1, 2)
 
         self.retranslateUi(checkinOptionsGroupBox)
@@ -93,7 +105,13 @@ class Ui_checkinOptionsGroupBox(object):
         self.createMayaDirsCheckBox.setText(QtGui.QApplication.translate("checkinOptionsGroupBox", "Create Maya Dirs (worspace.mel)", None, QtGui.QApplication.UnicodeUTF8))
         self.createPlayblastCheckBox.setText(QtGui.QApplication.translate("checkinOptionsGroupBox", "Create screenshot (playblast)", None, QtGui.QApplication.UnicodeUTF8))
         self.groupBox_2.setTitle(QtGui.QApplication.translate("checkinOptionsGroupBox", "Saving options:", None, QtGui.QApplication.UnicodeUTF8))
-        self.label.setText(QtGui.QApplication.translate("checkinOptionsGroupBox", "Repository:", None, QtGui.QApplication.UnicodeUTF8))
+        self.repositoryLabel.setText(QtGui.QApplication.translate("checkinOptionsGroupBox", "Repository:", None, QtGui.QApplication.UnicodeUTF8))
+        self.checkinMethodLabel.setText(QtGui.QApplication.translate("checkinOptionsGroupBox", "Method:", None, QtGui.QApplication.UnicodeUTF8))
+        self.checkinMethodComboBox.setItemText(0, QtGui.QApplication.translate("checkinOptionsGroupBox", "Preallocate", None, QtGui.QApplication.UnicodeUTF8))
+        self.checkinMethodComboBox.setItemText(1, QtGui.QApplication.translate("checkinOptionsGroupBox", "In-Place", None, QtGui.QApplication.UnicodeUTF8))
+        self.checkinMethodComboBox.setItemText(2, QtGui.QApplication.translate("checkinOptionsGroupBox", "Copy", None, QtGui.QApplication.UnicodeUTF8))
+        self.checkinMethodComboBox.setItemText(3, QtGui.QApplication.translate("checkinOptionsGroupBox", "Move", None, QtGui.QApplication.UnicodeUTF8))
+        self.checkinMethodComboBox.setItemText(4, QtGui.QApplication.translate("checkinOptionsGroupBox", "Upload", None, QtGui.QApplication.UnicodeUTF8))
         self.updateVersionlessCheckBox.setText(QtGui.QApplication.translate("checkinOptionsGroupBox", "Update Versionless", None, QtGui.QApplication.UnicodeUTF8))
         self.askBeforeSaveCheckBox.setText(QtGui.QApplication.translate("checkinOptionsGroupBox", "Ask before save", None, QtGui.QApplication.UnicodeUTF8))
 

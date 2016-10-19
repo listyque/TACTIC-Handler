@@ -2,6 +2,14 @@
 <ui version="4.0">
  <class>serverPageWidget</class>
  <widget class="QWidget" name="serverPageWidget">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>492</width>
+    <height>427</height>
+   </rect>
+  </property>
   <layout class="QVBoxLayout" name="serverPageWidgetLayout">
    <property name="spacing">
     <number>6</number>
@@ -18,14 +26,8 @@
       <bool>true</bool>
      </property>
      <layout class="QGridLayout" name="authorizationLayout">
-      <property name="leftMargin">
-       <number>9</number>
-      </property>
       <property name="rightMargin">
        <number>0</number>
-      </property>
-      <property name="spacing">
-       <number>6</number>
       </property>
       <item row="0" column="1">
        <widget class="QLineEdit" name="userNameLineEdit">
@@ -39,6 +41,12 @@
       </item>
       <item row="0" column="0">
        <widget class="QLabel" name="userNameLable">
+        <property name="minimumSize">
+         <size>
+          <width>120</width>
+          <height>0</height>
+         </size>
+        </property>
         <property name="text">
          <string>User Name:</string>
         </property>
@@ -107,32 +115,100 @@
         </property>
        </widget>
       </item>
-      <item row="2" column="0">
+      <item row="3" column="0">
        <widget class="QLabel" name="savedServerPresetLabel">
-        <property name="enabled">
-         <bool>false</bool>
-        </property>
         <property name="text">
          <string>Server presets:</string>
         </property>
        </widget>
       </item>
-      <item row="2" column="3">
-       <widget class="QPushButton" name="addNewServerPresetPushButton">
-        <property name="enabled">
-         <bool>false</bool>
-        </property>
+      <item row="3" column="3">
+       <widget class="QPushButton" name="editServerPresetsPushButton">
         <property name="text">
-         <string>Add new preset</string>
+         <string>Edit Server Presets</string>
         </property>
        </widget>
       </item>
-      <item row="2" column="1" colspan="2">
-       <widget class="QComboBox" name="serverPresetsComboBox">
+      <item row="3" column="1" colspan="2">
+       <widget class="QComboBox" name="serverPresetsComboBox"/>
+      </item>
+      <item row="2" column="0">
+       <widget class="QLabel" name="portalSiteLabel">
+        <property name="text">
+         <string>Portal Site:</string>
+        </property>
+       </widget>
+      </item>
+      <item row="2" column="1">
+       <widget class="QLineEdit" name="siteLineEdit">
         <property name="enabled">
          <bool>false</bool>
         </property>
        </widget>
+      </item>
+      <item row="2" column="3">
+       <widget class="QCheckBox" name="usePortalSiteCheckBox">
+        <property name="text">
+         <string>Use Portal Site</string>
+        </property>
+       </widget>
+      </item>
+     </layout>
+    </widget>
+   </item>
+   <item>
+    <widget class="QGroupBox" name="proxyGroupBox">
+     <property name="title">
+      <string>Proxy Settings:</string>
+     </property>
+     <property name="flat">
+      <bool>true</bool>
+     </property>
+     <property name="checkable">
+      <bool>true</bool>
+     </property>
+     <property name="checked">
+      <bool>false</bool>
+     </property>
+     <layout class="QGridLayout" name="proxyGridLayout">
+      <property name="rightMargin">
+       <number>0</number>
+      </property>
+      <item row="0" column="0">
+       <widget class="QLabel" name="proxyUserNameLabel">
+        <property name="minimumSize">
+         <size>
+          <width>120</width>
+          <height>0</height>
+         </size>
+        </property>
+        <property name="text">
+         <string>Login:</string>
+        </property>
+       </widget>
+      </item>
+      <item row="1" column="0">
+       <widget class="QLabel" name="proxyPasswordLabel">
+        <property name="text">
+         <string>Password</string>
+        </property>
+       </widget>
+      </item>
+      <item row="2" column="0">
+       <widget class="QLabel" name="proxyServerLabel">
+        <property name="text">
+         <string>Proxy Server:</string>
+        </property>
+       </widget>
+      </item>
+      <item row="0" column="1">
+       <widget class="QLineEdit" name="proxyLoginLineEdit"/>
+      </item>
+      <item row="1" column="1">
+       <widget class="QLineEdit" name="proxyPasswordLineEdit"/>
+      </item>
+      <item row="2" column="1">
+       <widget class="QLineEdit" name="proxyServerLineEdit"/>
       </item>
      </layout>
     </widget>
@@ -146,20 +222,14 @@
       <bool>true</bool>
      </property>
      <layout class="QGridLayout" name="environmentLayout">
-      <property name="leftMargin">
-       <number>9</number>
-      </property>
       <property name="rightMargin">
        <number>0</number>
-      </property>
-      <property name="spacing">
-       <number>6</number>
       </property>
       <item row="0" column="0">
        <widget class="QLabel" name="tacticEnvLable">
         <property name="minimumSize">
          <size>
-          <width>90</width>
+          <width>120</width>
           <height>0</height>
          </size>
         </property>
@@ -207,5 +277,22 @@
   </layout>
  </widget>
  <resources/>
- <connections/>
+ <connections>
+  <connection>
+   <sender>usePortalSiteCheckBox</sender>
+   <signal>toggled(bool)</signal>
+   <receiver>siteLineEdit</receiver>
+   <slot>setEnabled(bool)</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>314</x>
+     <y>98</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>267</x>
+     <y>97</y>
+    </hint>
+   </hints>
+  </connection>
+ </connections>
 </ui>

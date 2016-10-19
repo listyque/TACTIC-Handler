@@ -5,7 +5,8 @@
 import PySide.QtGui as QtGui
 import PySide.QtCore as QtCore
 import lib.ui.misc.ui_icons as ui_icons
-import lib.environment as env
+# import lib.environment as env
+from lib.environment import env_server, env_tactic
 import lib.global_functions as gf
 import lib.tactic_classes as tc
 
@@ -173,12 +174,19 @@ class Ui_iconsWidget(QtGui.QWidget, ui_icons.Ui_icons):
         # print dir(self.nested_item.sobject)
         # print self.nested_item.sobject.process['icon'].contexts['icon'].versions
         if self.nested_item.type == 'snapshot':
-            if self.nested_item.snapshot.get('repo'):
-                asset_dir = gf.form_path(env.Env.rep_dirs[self.nested_item.snapshot.get('repo')][0])
+            snapshot_repo = self.nested_item.snapshot.get('repo')
+            if snapshot_repo:
+                repo = env_tactic.get_base_dir(snapshot_repo)
+                if repo:
+                    asset_dir = gf.form_path(repo['value'][0])
+                else:
+                    asset_dir = gf.form_path(env_tactic.get_base_dir('client')['value'][0])
             else:
-                asset_dir = gf.form_path(env.Env.rep_dirs['asset_base_dir'][0])
+                asset_dir = gf.form_path(env_tactic.get_base_dir('client')['value'][0])
 
-            # asset_dir = env.Env.rep_dirs[self.nested_item.snapshot.get('repo')][0]
+            # asset_dir = env_server.rep_dirs[self.nested_item.snapshot.get('repo')][0]
+            if not self.web_list:
+                self.web_list = self.playblast_list
             image_path_icon = u'{0}/{1}/{2}'.format(asset_dir,
                                                     self.web_list[value - 1]['relative_dir'],
                                                     self.web_list[value - 1]['file_name'])
@@ -197,14 +205,16 @@ class Ui_iconsWidget(QtGui.QWidget, ui_icons.Ui_icons):
                 self.preview_image.load(image_path_big)
             else:
                 self.preview_image.load(image_path_icon)
-            self.preview_pixmap = QtGui.QPixmap.fromImage(self.preview_image).scaled(
-                self.size(), QtCore.Qt.KeepAspectRatio, QtCore.Qt.SmoothTransformation)
 
-            self.scene.addPixmap(self.preview_pixmap)
+            pix_map = QtGui.QPixmap.fromImage(
+                self.preview_image.scaledToWidth(
+                    self.parent().playblastGroupBox.width()-3,
+                    QtCore.Qt.SmoothTransformation
+                )
+            )
+            self.scene.addPixmap(pix_map)
 
             self.previewGraphicsView.setScene(self.scene)
-
-            self.previewGraphicsView.fitInView(self.scene.sceneRect(), QtCore.Qt.KeepAspectRatio)
 
             return image_path_big
 

@@ -2,7 +2,7 @@
 
 # Form implementation generated from reading ui file './ui_main.ui'
 #
-# Created: Mon Sep 05 00:35:38 2016
+# Created: Thu Sep 22 00:06:56 2016
 #      by: pyside-uic 0.2.15 running on PySide 1.2.4
 #
 # WARNING! All changes made in this file will be lost!
@@ -70,8 +70,12 @@ class Ui_MainWindow(object):
         self.actionExit.setObjectName("actionExit")
         self.actionApply_to_all_Tabs = QtGui.QAction(MainWindow)
         self.actionApply_to_all_Tabs.setObjectName("actionApply_to_all_Tabs")
+        self.actionServerside_Script = QtGui.QAction(MainWindow)
+        self.actionServerside_Script.setObjectName("actionServerside_Script")
         self.menuConfig.addAction(self.actionConfiguration)
         self.menuConfig.addAction(self.actionApply_to_all_Tabs)
+        self.menuConfig.addSeparator()
+        self.menuConfig.addAction(self.actionServerside_Script)
         self.menuConfig.addSeparator()
         self.menuConfig.addAction(self.actionUpdate)
         self.menuConfig.addAction(self.actionVersion)
@@ -93,4 +97,5 @@ class Ui_MainWindow(object):
         self.actionVersion.setText(QtGui.QApplication.translate("MainWindow", "Version", None, QtGui.QApplication.UnicodeUTF8))
         self.actionExit.setText(QtGui.QApplication.translate("MainWindow", "Exit", None, QtGui.QApplication.UnicodeUTF8))
         self.actionApply_to_all_Tabs.setText(QtGui.QApplication.translate("MainWindow", "Current view to All Tabs", None, QtGui.QApplication.UnicodeUTF8))
+        self.actionServerside_Script.setText(QtGui.QApplication.translate("MainWindow", "Serverside Script", None, QtGui.QApplication.UnicodeUTF8))
 

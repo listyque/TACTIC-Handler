@@ -3,8 +3,10 @@
 import ast
 import PySide.QtCore as QtCore
 import PySide.QtGui as QtGui
-import lib.environment as env
-import lib.configuration as cfg
+# import lib.environment as env
+from lib.environment import env_mode, env_inst, env_server, env_tactic
+from lib.configuration import cfg_controls
+# import lib.configuration as cfg
 import lib.global_functions as gf
 import lib.tactic_classes as tc
 import lib.ui.checkout.ui_checkout_tree as ui_checkout_tree
@@ -15,7 +17,7 @@ import ui_menu_classes as menu_widget
 import ui_richedit_classes as richedit_widget
 import ui_search_classes as search_classes
 
-if env.Mode.get == 'maya':
+if env_mode.get_mode() == 'maya':
     import lib.maya_functions as mf
 
     reload(mf)
@@ -34,7 +36,12 @@ class Ui_checkOutTreeWidget(QtGui.QWidget, ui_checkout_tree.Ui_checkOutTree):
     def __init__(self, stype, index, project, parent=None):
         super(self.__class__, self).__init__(parent=parent)
 
-        self.settings = QtCore.QSettings('settings/{0}/checkout_ui_config.ini'.format(env.Mode.get), QtCore.QSettings.IniFormat)
+        self.settings = QtCore.QSettings('{0}/settings/{1}/{2}/{3}/checkout_ui_config.ini'.format(
+            env_mode.get_current_path(),
+            env_mode.get_node(),
+            env_server.get_cur_srv_preset(),
+            env_mode.get_mode()),
+            QtCore.QSettings.IniFormat)
 
         # self vars
         self.tab_index = index
@@ -43,15 +50,12 @@ class Ui_checkOutTreeWidget(QtGui.QWidget, ui_checkout_tree.Ui_checkOutTree):
         self.current_project = self.project.info['code']
         self.current_namespace = self.project.info['type']
         self.tab_name = stype.info['code']
-        # if stype.pipeline:
-        #     self.context_items = stype.pipeline.process.keys()
-        # else:
-        #     self.context_items = []
+        self.process_tree_widget = None
 
         self.relates_to = 'checkout'
         self.go_by_skey = [False, None]
 
-        self.checkut_config = cfg.Controls.get_checkout()
+        self.checkut_config = cfg_controls.get_checkout()
         self.create_ui_checkout()
         self.readSettings()
 
@@ -59,7 +63,7 @@ class Ui_checkOutTreeWidget(QtGui.QWidget, ui_checkout_tree.Ui_checkOutTree):
 
         self.setupUi(self)
         self.setObjectName(self.tab_name)
-        env.Inst.ui_check_tree['checkout'][self.tab_name] = self
+        env_inst.ui_check_tree['checkout'][self.tab_name] = self
 
         # Query Threads
         self.update_desctiption_thread = tc.ServerThread(self)
@@ -99,26 +103,49 @@ class Ui_checkOutTreeWidget(QtGui.QWidget, ui_checkout_tree.Ui_checkOutTree):
 
     def create_refresh_popup(self):
 
+        self.switch_to_checkin = QtGui.QAction('Copy tab to checkin', self.refreshToolButton)
+        self.switch_to_checkin.triggered.connect(self.refresh_current_results)
         self.filter_process = QtGui.QAction('Filter Process', self.refreshToolButton)
         self.filter_process.triggered.connect(self.create_process_tree_widget)
-
         self.refresh_results = QtGui.QAction('Refresh results', self.refreshToolButton)
-        self.refresh_results.triggered.connect(lambda: self.add_items_to_results(self.searchLineEdit.text(), True))
-        # self.clear_results = QtGui.QAction('Clear results', self.refreshToolButton)
-        # self.clear_results.triggered.connect(self.resultsTreeWidget.clear)
+        self.refresh_results.triggered.connect(self.refresh_current_results)
+        self.clear_results = QtGui.QAction('Close all Search-Tabs', self.refreshToolButton)
+        self.clear_results.triggered.connect(self.close_all_search_tabs)
         self.search_options = QtGui.QAction('Toggle Search options', self.refreshToolButton)
         self.search_options.triggered.connect(lambda: self.searchLineDoubleClick(event=True))
 
+        self.refreshToolButton.addAction(self.switch_to_checkin)
         self.refreshToolButton.addAction(self.filter_process)
         self.refreshToolButton.addAction(self.refresh_results)
-        # self.refreshToolButton.addAction(self.clear_results)
+        self.refreshToolButton.addAction(self.clear_results)
         self.refreshToolButton.addAction(self.search_options)
 
     def create_process_tree_widget(self):
+        self.process_tree_widget = search_classes.QPopupTreeWidget(
+            parent_ui=self,
+            parent=self,
+            project=self.project,
+            stype=self.stype
+        )
+        self.process_tree_widget.show()
 
-        self.process_tree = search_classes.QPopupTreeWidget(parent_ui=self, parent=self, project=self.project, stype=self.stype)
+    def get_process_ignore_list(self):
+        if self.process_tree_widget:
+            return self.process_tree_widget.get_ignore_list()
+        else:
+            self.process_tree_widget = search_classes.QPopupTreeWidget(
+                parent_ui=self,
+                parent=self,
+                project=self.project,
+                stype=self.stype
+            )
+            return self.process_tree_widget.get_ignore_list()
 
-        self.process_tree.open()
+    def refresh_current_results(self):
+        self.results_group_box.refresh_restults()
+
+    def close_all_search_tabs(self):
+        self.results_group_box.close_all_tabs()
 
     def search_mode_state(self):
         if self.searchOptionsGroupBox.searchNameRadioButton.isChecked():
@@ -160,7 +187,6 @@ class Ui_checkOutTreeWidget(QtGui.QWidget, ui_checkout_tree.Ui_checkOutTree):
     def create_search_results_group_box(self):
         self.results_group_box = search_classes.Ui_resultsGroupBoxWidget(parent_ui=self, parent=self)
         self.searchOptionsSplitter.addWidget(self.results_group_box)
-        # self.results_group_box.add_tab()
 
     def create_search_options_group_box(self):
         self.searchOptionsGroupBox = search_classes.Ui_searchOptionsWidget(parent_ui=self, parent=self)
@@ -195,7 +221,7 @@ class Ui_checkOutTreeWidget(QtGui.QWidget, ui_checkout_tree.Ui_checkOutTree):
         self.searchLineEdit.mouseDoubleClickEvent = self.searchLineDoubleClick
         self.searchLineEdit.mousePressEvent = self.searchLineSingleClick
         self.searchLineEdit.textEdited.connect(self.search_suggestions)
-        if env.Mode.get == 'standalone':
+        if env_mode.get_mode() == 'standalone':
             self.findOpenedPushButton.setVisible(False)
 
         self.findOpenedPushButton.clicked.connect(self.find_opened_sobject)
@@ -208,7 +234,7 @@ class Ui_checkOutTreeWidget(QtGui.QWidget, ui_checkout_tree.Ui_checkOutTree):
 
     def find_opened_sobject(self):
         skey = mf.get_skey_from_scene()
-        env.Inst.ui_main.go_by_skey(skey, self.relates_to)
+        env_inst.ui_main.go_by_skey(skey, self.relates_to)
 
     def search_suggestions(self, key=None, popup_suggestion=False):
         if key:
@@ -235,7 +261,7 @@ class Ui_checkOutTreeWidget(QtGui.QWidget, ui_checkout_tree.Ui_checkOutTree):
             suggestions_list = []
 
             for item in results:
-                suggestions_list.append(item.get('name'))
+                    suggestions_list.append(item.get('name'))
 
             completer = QtGui.QCompleter(suggestions_list, self)
             completer.setCompletionMode(QtGui.QCompleter.PopupCompletion)
@@ -265,8 +291,8 @@ class Ui_checkOutTreeWidget(QtGui.QWidget, ui_checkout_tree.Ui_checkOutTree):
                     update.run()
                     self.update_desctiption(update_description=True)
                 elif update.result == QtGui.QMessageBox.ActionRole:
-                    env.Inst.offline = True
-                    env.Inst.ui_main.open_config_dialog()
+                    env_inst.offline = True
+                    env_inst.ui_main.open_config_dialog()
 
             if not update.isFailed():
                 current_tree_widget_item.update_description(self.descriptionTextEdit.toPlainText())
@@ -300,10 +326,10 @@ class Ui_checkOutTreeWidget(QtGui.QWidget, ui_checkout_tree.Ui_checkOutTree):
             import_widget.toolButton.clicked.connect(self.import_file_options)
 
             self.custom_menu.addAction(open_action)
-            if env.Mode.get == 'maya':
+            if env_mode.get_mode() == 'maya':
                 self.custom_menu.addAction(reference_action)
                 self.custom_menu.addAction(import_action)
-            if env.Mode.get == 'standalone':
+            if env_mode.get_mode() == 'standalone':
                 open_widget.toolButton.setDisabled(True)
 
             self.custom_menu.exec_(QtGui.QCursor.pos())
@@ -325,7 +351,7 @@ class Ui_checkOutTreeWidget(QtGui.QWidget, ui_checkout_tree.Ui_checkOutTree):
         file_path = self.get_current_item_paths()[0]
         nested_item = self.current_tree_item_widget
 
-        if env.Mode.get == 'maya':
+        if env_mode.get_mode() == 'maya':
             self.reference_dialog = maya_dialogs.Ui_referenceOptionsWidget(file_path, nested_item)
             self.reference_dialog.show()
 
@@ -334,7 +360,7 @@ class Ui_checkOutTreeWidget(QtGui.QWidget, ui_checkout_tree.Ui_checkOutTree):
         current_widget = self.results_group_box.get_current_widget()
         current_tree_widget_item = current_widget.get_current_tree_widget_item()
 
-        if env.Mode.get == 'maya':
+        if env_mode.get_mode() == 'maya':
             self.open_dialog = maya_dialogs.Ui_openOptionsWidget(file_path, current_tree_widget_item)
             self.open_dialog.show()
 
@@ -342,7 +368,7 @@ class Ui_checkOutTreeWidget(QtGui.QWidget, ui_checkout_tree.Ui_checkOutTree):
         file_path = self.get_current_item_paths()[0]
         nested_item = self.current_tree_item_widget
 
-        if env.Mode.get == 'maya':
+        if env_mode.get_mode() == 'maya':
             self.import_dialog = maya_dialogs.Ui_importOptionsWidget(file_path, nested_item)
             self.import_dialog.show()
 
@@ -350,7 +376,7 @@ class Ui_checkOutTreeWidget(QtGui.QWidget, ui_checkout_tree.Ui_checkOutTree):
 
         file_path, dir_path, all_process = self.get_current_item_paths()
 
-        if env.Mode.get == 'maya':
+        if env_mode.get_mode() == 'maya':
             mf.open_scene(file_path, dir_path, all_process)
         else:
             gf.open_file_associated(file_path)
@@ -358,7 +384,7 @@ class Ui_checkOutTreeWidget(QtGui.QWidget, ui_checkout_tree.Ui_checkOutTree):
     def import_file(self):
         file_path = self.get_current_item_paths()[0]
 
-        if env.Mode.get == 'maya':
+        if env_mode.get_mode() == 'maya':
             mf.import_scene(file_path)
         else:
             pass
@@ -366,34 +392,30 @@ class Ui_checkOutTreeWidget(QtGui.QWidget, ui_checkout_tree.Ui_checkOutTree):
     def reference_file(self):
         file_path = self.get_current_item_paths()[0]
 
-        if env.Mode.get == 'maya':
+        if env_mode.get_mode() == 'maya':
             mf.reference_scene(file_path)
         else:
             pass
 
     def get_current_item_paths(self):
+        # TODO REWRITE THIS THING with multiple file in one snapshot in mind
+
         current_widget = self.results_group_box.get_current_widget()
         current_tree_widget_item = current_widget.get_current_tree_widget_item()
         file_path = None
         dir_path = None
         all_process = None
 
-        modes = env.Mode.mods
+        modes = env_mode.modes
         modes.append('main')
-        # from pprint import pprint
-        # pprint(dict(nested_item.files))
-        # pprint(nested_item.snapshot)
         for mode in modes:
             if current_tree_widget_item.files.get(mode):
                 main_file = current_tree_widget_item.files[mode][0]
-                # asset_dir = env.Env.rep_dirs['asset_base_dir'][0]
-                # print nested_item.snapshot, 'snapshot'
-                if current_tree_widget_item.snapshot.get('repo'):
-                    asset_dir = env.Env.rep_dirs[current_tree_widget_item.snapshot.get('repo')][0]
+                repo_name = current_tree_widget_item.snapshot.get('repo')
+                if repo_name:
+                    asset_dir = env_tactic.get_base_dir(repo_name)['value'][0]
                 else:
-                    asset_dir = env.Env.rep_dirs['asset_base_dir'][0]
-                    # print asset_dir
-
+                    asset_dir = env_tactic.get_base_dir('client')['value'][0]
                 file_path = gf.form_path(
                     '{0}/{1}/{2}'.format(asset_dir, main_file['relative_dir'], main_file['file_name']))
 
@@ -401,10 +423,6 @@ class Ui_checkOutTreeWidget(QtGui.QWidget, ui_checkout_tree.Ui_checkOutTree):
                 split_path = main_file['relative_dir'].split('/')
                 dir_path = gf.form_path('{0}/{1}'.format(asset_dir, '{0}/{1}/{2}'.format(*split_path)))
                 all_process = current_tree_widget_item.sobject.all_process
-
-        # print file_path
-        # print dir_path
-        # print all_process
 
         return file_path, dir_path, all_process
 

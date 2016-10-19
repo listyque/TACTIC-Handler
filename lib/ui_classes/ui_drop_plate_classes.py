@@ -3,7 +3,8 @@
 import os
 import PySide.QtGui as QtGui
 import PySide.QtCore as QtCore
-import lib.environment as env
+# import lib.environment as env
+from lib.environment import env_mode, env_inst
 import lib.ui.checkin.ui_drop_plate as ui_drop_plate
 # TODO create sequences parsing
 # import lib.side.pyseq as pyseq
@@ -36,7 +37,6 @@ def sequences_from_dirs(files_list):
 
 
 def file_format(ext):
-    ext_only = ext.split('.')[-1]
     formats = {
         'ma': 'mayaAscii',
         'mb': 'mayaBinary',
@@ -66,19 +66,20 @@ def file_format(ext):
         'mov': 'MOV Animation',
         'avi': 'AVI Animation',
     }
-    if ext_only in formats.iterkeys():
-        return formats[ext_only]
+    if ext in formats.iterkeys():
+        return formats[ext]
     else:
         return ext
 
 
 def extract_extension(filename):
-    ext = unicode(os.path.basename(filename)).split('.', 1)
+    # TODO Check for file without EXT
+    ext = unicode(os.path.basename(filename)).split('.', -1)
     if not os.path.isdir(filename):
         if len(ext) > 1:
-            return file_format(ext[1])
+            return ext[-1], file_format(ext[-1])
     elif os.path.isdir(filename):
-        return 'Folder'
+        return filename, 'Folder'
 
 
 def extract_filename(filename):
@@ -111,8 +112,9 @@ class Ui_dropPlateWidget(QtGui.QGroupBox, ui_drop_plate.Ui_dropPlateGroupBox):
     def create_drop_plate_ui(self):
 
         self.setAcceptDrops(True)
+        self.dropTreeWidget.setSelectionMode(QtGui.QAbstractItemView.SingleSelection)
 
-        if env.Mode.get == 'standalone':
+        if env_mode.get_mode() == 'standalone':
             self.fromDropListCheckBox.setHidden(True)
             sizePolicy = QtGui.QSizePolicy(QtGui.QSizePolicy.Preferred, QtGui.QSizePolicy.Preferred)
             self.setSizePolicy(sizePolicy)
@@ -121,6 +123,17 @@ class Ui_dropPlateWidget(QtGui.QGroupBox, ui_drop_plate.Ui_dropPlateGroupBox):
     def controls_actions(self):
 
         self.clearPushButton.clicked.connect(self.clear_tree_widget)
+        self.groupCheckinCheckBox.stateChanged.connect(self.enable_group_checkin)
+
+    def enable_group_checkin(self, state):
+
+        if state:
+            self.dropTreeWidget.setSelectionMode(QtGui.QAbstractItemView.ExtendedSelection)
+            self.keepFileNameCheckBox.setEnabled(False)
+        else:
+            self.dropTreeWidget.setSelectionMode(QtGui.QAbstractItemView.SingleSelection)
+            self.dropTreeWidget.clearSelection()
+            self.keepFileNameCheckBox.setEnabled(True)
 
     def clear_tree_widget(self):
 
@@ -134,9 +147,15 @@ class Ui_dropPlateWidget(QtGui.QGroupBox, ui_drop_plate.Ui_dropPlateGroupBox):
         for item in items:
             tree_item = QtGui.QTreeWidgetItem()
             tree_item.setText(0, extract_filename(item))
-            tree_item.setText(1, extract_extension(item))
+            tree_item.setText(1, extract_extension(item)[1])
+            tree_item.setData(1, QtCore.Qt.UserRole, extract_extension(item)[0])
             tree_item.setText(2, extract_dirname(item))
             self.dropTreeWidget.addTopLevelItem(tree_item)
+
+        self.dropTreeWidget.resizeColumnToContents(0)
+        self.dropTreeWidget.resizeColumnToContents(1)
+        self.dropTreeWidget.resizeColumnToContents(2)
+        self.dropTreeWidget.resizeColumnToContents(3)
 
     def dragEnterEvent(self, event):
         if event.mimeData().hasUrls:

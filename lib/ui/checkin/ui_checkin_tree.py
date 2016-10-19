@@ -2,7 +2,7 @@
 
 # Form implementation generated from reading ui file 'checkin/ui_checkin_tree.ui'
 #
-# Created: Wed Sep 14 18:24:58 2016
+# Created: Tue Sep 27 21:36:49 2016
 #      by: pyside-uic 0.2.13 running on PySide 1.2.2
 #
 # WARNING! All changes made in this file will be lost!
@@ -14,10 +14,10 @@ class Ui_checkInTree(object):
         checkInTree.setObjectName("checkInTree")
         checkInTree.resize(466, 643)
         checkInTree.setMinimumSize(QtCore.QSize(400, 250))
-        self.verticalLayout_7 = QtGui.QVBoxLayout(checkInTree)
-        self.verticalLayout_7.setSpacing(0)
-        self.verticalLayout_7.setContentsMargins(0, 0, 0, 0)
-        self.verticalLayout_7.setObjectName("verticalLayout_7")
+        self.checkinTreeLayout = QtGui.QVBoxLayout(checkInTree)
+        self.checkinTreeLayout.setSpacing(0)
+        self.checkinTreeLayout.setContentsMargins(0, 0, 0, 0)
+        self.checkinTreeLayout.setObjectName("checkinTreeLayout")
         self.descriptionSplitter = QtGui.QSplitter(checkInTree)
         self.descriptionSplitter.setOrientation(QtCore.Qt.Vertical)
         self.descriptionSplitter.setObjectName("descriptionSplitter")
@@ -207,7 +207,7 @@ class Ui_checkInTree(object):
         self.dropPlateLayout.setSpacing(6)
         self.dropPlateLayout.setContentsMargins(0, 1, 0, 8)
         self.dropPlateLayout.setObjectName("dropPlateLayout")
-        self.verticalLayout_7.addWidget(self.descriptionSplitter)
+        self.checkinTreeLayout.addWidget(self.descriptionSplitter)
 
         self.retranslateUi(checkInTree)
         QtCore.QMetaObject.connectSlotsByName(checkInTree)

@@ -78,6 +78,8 @@ QTreeView::item:selected{
     <addaction name="actionConfiguration"/>
     <addaction name="actionApply_to_all_Tabs"/>
     <addaction name="separator"/>
+    <addaction name="actionServerside_Script"/>
+    <addaction name="separator"/>
     <addaction name="actionUpdate"/>
     <addaction name="actionVersion"/>
     <addaction name="separator"/>
@@ -118,6 +120,11 @@ QTreeView::item:selected{
   <action name="actionApply_to_all_Tabs">
    <property name="text">
     <string>Current view to All Tabs</string>
+   </property>
+  </action>
+  <action name="actionServerside_Script">
+   <property name="text">
+    <string>Serverside Script</string>
    </property>
   </action>
  </widget>

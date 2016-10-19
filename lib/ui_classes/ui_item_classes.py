@@ -4,7 +4,8 @@
 
 import os
 import PySide.QtGui as QtGui
-import lib.environment as env
+import PySide.QtCore as QtCore
+# import lib.environment as env
 import lib.configuration as cfg
 import lib.global_functions as gf
 import lib.tactic_classes as tc
@@ -60,7 +61,7 @@ class Ui_itemWidget(QtGui.QWidget, ui_item.Ui_item):
         # self.item_info['description'] = self.sobject.info['description']
 
     def controls_actions(self):
-        self.tasksToolButton.setHidden(True) # Temporaty hide tasks button
+        self.tasksToolButton.setHidden(True)  # Temporaty hide tasks button
         self.tasksToolButton.clicked.connect(lambda: self.create_tasks_window())
         self.relationsToolButton.clicked.connect(self.check_for_children)
 
@@ -75,24 +76,24 @@ class Ui_itemWidget(QtGui.QWidget, ui_item.Ui_item):
 
         self.fileNameLabel.setText(title)
         self.commentLabel.setText(gf.to_plain_text(self.sobject.info.get('description')))
-        # TODO correct date time
-        # dateLabel = QtCore.QDateTime.fromString(self.sobject.info['timestamp'], 'yyyy-MM-dd HH:mm:ss')
-        self.dateLabel.setText(self.sobject.info.get('timestamp'))
+        # timestamp = datetime.strptime(self.sobject.info.get('timestamp').split('.')[0], '%Y-%m-%d %H:%M:%S')
+        date = str(self.sobject.info.get('timestamp')).split('.')[0]
+        self.dateLabel.setText(date)
 
-    def prnt(self):
-        # shot_tab = env.Inst.ui_check_tree[self.relates_to]['cgshort/shot']
-        print(env.Inst.ui_check_tabs[self.relates_to].sObjTabWidget.count())
-        tab_wdg = env.Inst.ui_check_tabs[self.relates_to].sObjTabWidget
-        for i in range(tab_wdg.count()):
-            print tab_wdg.widget(i).objectName()
-            if tab_wdg.widget(i).objectName() == 'cgshort/shot':
-                tab_wdg.setCurrentIndex(i)
-
-        tree_wdg = tab_wdg.currentWidget()
-
-        tree_wdg.searchLineEdit.setText('SCENES00001')
-        tree_wdg.searchOptionsGroupBox.searchParentCodeRadioButton.setChecked(True)
-        tree_wdg.add_items_to_results('SCENES00001')
+    # def prnt(self):
+    #     # shot_tab = env.Inst.ui_check_tree[self.relates_to]['cgshort/shot']
+    #     print(env.Inst.ui_check_tabs[self.relates_to].sObjTabWidget.count())
+    #     tab_wdg = env.Inst.ui_check_tabs[self.relates_to].sObjTabWidget
+    #     for i in range(tab_wdg.count()):
+    #         print tab_wdg.widget(i).objectName()
+    #         if tab_wdg.widget(i).objectName() == 'cgshort/shot':
+    #             tab_wdg.setCurrentIndex(i)
+    #
+    #     tree_wdg = tab_wdg.currentWidget()
+    #
+    #     tree_wdg.searchLineEdit.setText('SCENES00001')
+    #     tree_wdg.searchOptionsGroupBox.searchParentCodeRadioButton.setChecked(True)
+    #     tree_wdg.add_items_to_results('SCENES00001')
 
     def check_for_children(self):
         if self.stype.schema.parents:
@@ -271,14 +272,15 @@ class Ui_snapshotItemWidget(QtGui.QWidget, ui_item_snapshot.Ui_snapshotItem):
                 self.setDisabled(True)
 
             self.commentLabel.setText(gf.to_plain_text(self.snapshot['description'], 80))
-            self.dateLabel.setText(self.snapshot['timestamp'])
+            self.dateLabel.setText(self.snapshot['timestamp'].split('.')[0])
             self.authorLabel.setText(self.snapshot['login'] + ':')
             self.verRevLabel.setText(gf.get_ver_rev(self.snapshot['version'], self.snapshot['revision']))
 
             for key, fl in self.files.iteritems():
                 if key not in hidden:
-                    if self.snapshot.get('repo'):
-                        self.sizeLabel.setStyleSheet(self.get_repo_color())
+                    # TODO Repo color
+                    # if self.snapshot.get('repo'):
+                    #     self.sizeLabel.setStyleSheet(self.get_repo_color())
                     if not self.isEnabled():
                         self.fileNameLabel.setText('{0}, (File Missing)'.format(fl[0]['file_name']))
                     else:
@@ -426,7 +428,12 @@ class Ui_childrenItemWidget(QtGui.QWidget, ui_item_children.Ui_childrenItem):
             server = tc.server_start()
             builded_process = server.build_search_type(self.child.get('from'), self.project.info.get('code'))
 
-            filters = [(self.child.get('from_col'), self.sobject.info.get('code'))]
+            child_code = self.child.get('from_col')
+            if not child_code:
+                # TODO search type relationship, replace this to stype class
+                child_code = '{0}_{1}'.format(self.child.get('to').split('/')[-1], self.child.get('relationship'))
+
+            filters = [(child_code, self.sobject.info.get('code'))]
 
             assets = server.query(builded_process, filters)
 

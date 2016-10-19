@@ -14,10 +14,16 @@
 # scripts using the client api.  Thin wrapper to the client API.  
 # These are meant to be copied to client directories.
 
-import datetime
+import getpass
+import httplib
+import os
 import re
-import xmlrpclib, os, getpass, shutil, httplib, sys, urllib, types, hashlib
-# import lib.stub_exceptions
+import shutil
+import sys
+import types
+import urllib
+import xmlrpclib
+
 
 class TacticApiException(Exception):
     pass
@@ -29,7 +35,6 @@ class TacticServerStub(object):
     '''
         Constructor: TacticServerStub
     '''
-    # __metaclass__ = lib.stub_exceptions.MetaClass
 
     def __init__(my, login=None, setup=True, protocol=None, server=None,
                  project=None, ticket=None, user=None, password="", site=None):
@@ -53,6 +58,7 @@ class TacticServerStub(object):
             login = user
         my.login = login
         my.project_code = None
+        my.transport = None
         my.server = None
         my.has_server = False
         my.server_name = None
@@ -204,7 +210,12 @@ class TacticServerStub(object):
         # TODO: Not implmeneted: This is needed for isolation of transactions
         #if my.transaction_ticket:
         #    url = '%s%s' % (url, my.transaction_ticket)
-        my.server = xmlrpclib.Server(url, allow_none=True)
+
+        if my.transport:
+            my.server = xmlrpclib.Server(url, allow_none=True, transport=my.transport)
+        else:
+            my.server = xmlrpclib.Server(url, allow_none=True)
+
 
         try:
             pass
@@ -250,6 +261,10 @@ class TacticServerStub(object):
            Set the site applicable in a portal setup'''
         my.site = site
         my.set_transaction_ticket(my.transaction_ticket)
+
+    def set_transport(my, transport=None):
+        """Sets the proxy transport"""
+        my.transport = transport
 
     def get_site(my):
         return my.site
@@ -3459,55 +3474,6 @@ class TacticServerStub(object):
             string - path as determined by the naming conventions
         '''
         return my.server.get_virtual_snapshot_path(my.ticket, search_key, context, snapshot_type, is_revision, level_key, file_type, file_name, mkdirs, protocol, ext, checkin_type)
-
-
-
-    def get_virtual_snapshot_extended(my, search_key, context="publish", snapshot_type="file", is_revision=False, level_key=None,
-                                  file_type='main', file_name='', mkdirs=False, protocol='client_repo', ext='',
-                                  checkin_type='strict', version=None):
-        '''API Function: get_virtual_snapshot_path(search_key, context, snapshot_type="file", is_revision=False, level_key=None, file_type='main', file_name='', mkdirs=False, protocol='client_repo', ext='', checkin_type='strict')
-        Create a virtual snapshot and returns a path that this snapshot
-        would generate through the naming conventions.  This is most useful
-        testing naming conventions.
-
-        @param:
-        snapshot creation:
-        -----------------
-            search_key - a unique identifier key representing an sobject
-            context - the context of the checkin
-
-        @keyparam:
-            snapshot_type - [optional] descibes what kind of a snapshot this is.
-                More information about a snapshot type can be found in the
-                prod/snapshot_type sobject
-            description - [optional] optional description for this checkin
-            level_key - the unique identifier of the level that this
-                is to be checked into
-
-        @keyparam:
-        path creation:
-        --------------
-            file_type - the type of file that will be checked in.  Some naming
-                conventions make use of this information to separate directories
-                for different file types
-            file_name - the desired file name of the preallocation.  This information
-                may be ignored by the naming convention or it may use this as a
-                base for the final file name
-            mkdir - an option which determines whether the directory of the
-                preallocation should be created
-            protocol - It's either client_repo, sandbox, or None. It determines whether the
-                path is from a client or server perspective
-            ext - force the extension of the file name returned
-
-            checkin_type - strict, auto, '' can be used to preset the checkin_type
-
-
-
-        @return:
-            string - path as determined by the naming conventions
-        '''
-        return my.server.get_virtual_snapshot_extended(my.ticket, search_key, context, snapshot_type, is_revision, level_key, file_type,
-                                                   file_name, mkdirs, protocol, ext, checkin_type, version)
 
 
 

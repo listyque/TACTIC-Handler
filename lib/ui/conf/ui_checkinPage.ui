@@ -144,7 +144,7 @@ QToolButton:pressed {
      <property name="flat">
       <bool>true</bool>
      </property>
-     <layout class="QGridLayout" name="defaultRepoPathsLayout" columnstretch="0,0,0,0">
+     <layout class="QGridLayout" name="defaultRepoPathsLayout" columnstretch="0,0,0,1">
       <property name="leftMargin">
        <number>0</number>
       </property>
@@ -274,29 +274,6 @@ QToolButton:pressed {
         </property>
        </widget>
       </item>
-      <item row="2" column="1">
-       <widget class="QToolButton" name="localRepoDirColorToolButton">
-        <property name="maximumSize">
-         <size>
-          <width>20</width>
-          <height>20</height>
-         </size>
-        </property>
-        <property name="styleSheet">
-         <string notr="true">QToolButton {
-    border: 1px solid rgb(128, 128, 128);
-    border-radius: 4px;
-    background-color:  rgb(255, 140, 40);
-}
-QToolButton:pressed {
-    background-color: rgb(235, 120, 20);
-}</string>
-        </property>
-        <property name="checked">
-         <bool>false</bool>
-        </property>
-       </widget>
-      </item>
       <item row="3" column="1">
        <widget class="QToolButton" name="clientRepoDirColorToolButton">
         <property name="maximumSize">
@@ -313,6 +290,29 @@ QToolButton:pressed {
 }
 QToolButton:pressed {
     background-color: rgb(11, 123, 0);
+}</string>
+        </property>
+        <property name="checked">
+         <bool>false</bool>
+        </property>
+       </widget>
+      </item>
+      <item row="2" column="1">
+       <widget class="QToolButton" name="localRepoDirColorToolButton">
+        <property name="maximumSize">
+         <size>
+          <width>20</width>
+          <height>20</height>
+         </size>
+        </property>
+        <property name="styleSheet">
+         <string notr="true">QToolButton {
+    border: 1px solid rgb(128, 128, 128);
+    border-radius: 4px;
+    background-color:  rgb(255, 140, 40);
+}
+QToolButton:pressed {
+    background-color: rgb(235, 120, 20);
 }</string>
         </property>
         <property name="checked">

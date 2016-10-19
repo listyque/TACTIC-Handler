@@ -3,7 +3,8 @@
 
 import PySide.QtGui as QtGui
 import PySide.QtCore as QtCore
-import lib.environment as env
+# import lib.environment as env
+from lib.environment import env_server
 import lib.ui.misc.ui_notes as ui_notes
 import ui_richedit_classes as richedit_widget
 import lib.ui.items.ui_notes_incom as ui_incom
@@ -56,7 +57,7 @@ class Ui_notesWidget(QtGui.QWidget, ui_notes.Ui_notes):
     def fill_notes(self):
         self.conversationScrollArea.close()
         self.create_scroll_area()
-        self.current_user = env.Env.get_user()
+        self.current_user = env_server.get_user()
         self.task_item.get_notes()
         self.widgets_list = []
         for proc in self.task_item.notes.itervalues():

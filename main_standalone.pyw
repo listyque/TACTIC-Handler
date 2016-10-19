@@ -1,17 +1,11 @@
 # main_standalone.py
 # Start here to run app standalone
 
-# import os
 import sys
 import PySide.QtGui as QtGui
-import lib.environment as env
-env.Mode.set_mode('standalone')
+from lib.environment import env_mode
 import lib.tactic_classes as tc
 import lib.ui_classes.ui_main_classes as ui_main_classes
-
-DATA_DIR = '/mnt/drive_d/Alexey/Dropbox/Work/CGProjects/tacticbase_dev/TACTIC-handler'
-#DATA_DIR = os.environ['TACTIC_DATA_DIR'] + '/TACTIC-handler'
-sys.path.append(DATA_DIR)
 
 groups = ['Disabled', 'Active', 'Inactive', 'Normal']
 roles = ['Window',
@@ -68,7 +62,7 @@ palette = {
     'Background:Disabled': 4282664004L, 'Button:Normal': 4284308829L, 'ButtonText:Inactive': 4293848814L,
     'Background:Active': 4282664004L, 'ToolTipText:Inactive': 4278190080L, 'ToolTipText:Disabled': 4278190080L,
     'Foreground:Normal': 4290493371L, 'ToolTipText:Active': 4278190080L, 'Foreground:Inactive': 4290493371L
-    }
+}
 
 
 def create_ui(thread):
@@ -77,15 +71,11 @@ def create_ui(thread):
         retry_startup(thread)
     else:
         if thread.isFailed():
-            env.Inst.offline = True
+            env_mode.set_offline()
             window = ui_main_classes.Ui_Main(parent=None)
         else:
-            env.Inst.offline = False
+            env_mode.set_online()
             window = ui_main_classes.Ui_Main(parent=None)
-
-        env.Inst.ui_main = window
-        # window.main_layout.setSpacing(6)
-        # window.main_layout.setContentsMargins(9, 9, 9, 0)
         window.statusBar()
         window.show()
 
@@ -107,7 +97,6 @@ def startup():
     ping_thread.start()
 
     sys.exit(app.exec_())
-
 
 if __name__ == '__main__':
     startup()

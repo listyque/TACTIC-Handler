@@ -3,8 +3,10 @@
 
 import PySide.QtCore as QtCore
 import PySide.QtGui as QtGui
-import lib.environment as env
-import lib.configuration as cfg
+# import lib.environment as env
+from lib.environment import env_mode, env_inst, env_server
+from lib.configuration import cfg_controls
+# import lib.configuration as cfg
 import lib.global_functions as gf
 import lib.ui.misc.ui_sobj_tabs as sobj_tabs
 import ui_checkin_tree_classes as checkin_tree_widget
@@ -18,11 +20,17 @@ reload(checkout_tree_widget)
 class Ui_checkInTabWidget(QtGui.QWidget, sobj_tabs.Ui_sObjTabs):
     def __init__(self, project, parent=None):
         super(self.__class__, self).__init__(parent=parent)
-        env.Inst.ui_check_tabs['checkin'] = self
+        env_inst.ui_check_tabs['checkin'] = self
 
-        self.settings = QtCore.QSettings('settings/{0}/checkin_ui_config.ini'.format(env.Mode.get), QtCore.QSettings.IniFormat)
-        self.checkin_out_config_projects = cfg.Controls.get_checkin_out_projects()
-        self.checkin_out_config = cfg.Controls.get_checkin_out()
+        self.settings = QtCore.QSettings('{0}/settings/{1}/{2}/{3}/checkin_ui_config.ini'.format(
+            env_mode.get_current_path(),
+            env_mode.get_node(),
+            env_server.get_cur_srv_preset(),
+            env_mode.get_mode()),
+            QtCore.QSettings.IniFormat)
+
+        self.checkin_out_config_projects = cfg_controls.get_checkin_out_projects()
+        self.checkin_out_config = cfg_controls.get_checkin_out()
 
         self.setupUi(self)
         self.ui_tree = []
@@ -56,6 +64,7 @@ class Ui_checkInTabWidget(QtGui.QWidget, sobj_tabs.Ui_sObjTabs):
             ignore_tabs_list = []
 
         for i, stype in enumerate(self.stypes_items.itervalues()):
+
             self.ui_tree.append(checkin_tree_widget.Ui_checkInTreeWidget(stype, i, self.project, self))
             if stype.info['title']:
                 tab_name = stype.info['title'].capitalize()
@@ -106,11 +115,17 @@ class Ui_checkInTabWidget(QtGui.QWidget, sobj_tabs.Ui_sObjTabs):
 class Ui_checkOutTabWidget(QtGui.QWidget, sobj_tabs.Ui_sObjTabs):
     def __init__(self, project, parent=None):
         super(self.__class__, self).__init__(parent=parent)
-        env.Inst.ui_check_tabs['checkout'] = self
+        env_inst.ui_check_tabs['checkout'] = self
 
-        self.settings = QtCore.QSettings('settings/{0}/checkout_ui_config.ini'.format(env.Mode.get), QtCore.QSettings.IniFormat)
-        self.checkin_out_config_projects = cfg.Controls.get_checkin_out_projects()
-        self.checkin_out_config = cfg.Controls.get_checkin_out()
+        self.settings = QtCore.QSettings('{0}/settings/{1}/{2}/{3}/checkin_ui_config.ini'.format(
+            env_mode.get_current_path(),
+            env_mode.get_node(),
+            env_server.get_cur_srv_preset(),
+            env_mode.get_mode()),
+            QtCore.QSettings.IniFormat)
+
+        self.checkin_out_config_projects = cfg_controls.get_checkin_out_projects()
+        self.checkin_out_config = cfg_controls.get_checkin_out()
 
         self.setupUi(self)
         self.ui_tree = []
@@ -185,7 +200,7 @@ class Ui_checkOutTabWidget(QtGui.QWidget, sobj_tabs.Ui_sObjTabs):
             tab.writeSettings()
 
     # def showEvent(self, event):
-    #     env.Inst.ui_main.projects_docks[self.current_project].setWindowTitle(self.project.info.get('title') + ', (Checkout)')
+    #     env_inst.ui_main.projects_docks[self.current_project].setWindowTitle(self.project.info.get('title') + ', (Checkout)')
 
     def closeEvent(self, event):
         self.writeSettings()

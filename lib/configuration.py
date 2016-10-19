@@ -1,6 +1,6 @@
 import ast
 import PySide.QtCore as QtCore
-import environment as env
+from environment import env_mode, env_server
 
 
 def singleton(cls):
@@ -8,7 +8,7 @@ def singleton(cls):
 
     def get_instance():
         if cls not in instances:
-            instances[cls] = cls()
+            instances[cls] = cls
         return instances[cls]
 
     return get_instance()
@@ -17,7 +17,12 @@ def singleton(cls):
 @singleton
 class Controls(object):
     def __init__(self):
-        self.settings = QtCore.QSettings('settings/{0}/pages_config.ini'.format(env.Mode.get), QtCore.QSettings.IniFormat)
+        self.settings = QtCore.QSettings('{0}/settings/{1}/{2}/{3}/pages_config.ini'.format(
+            env_mode.get_current_path(),
+            env_mode.get_node(),
+            env_server.get_cur_srv_preset(),
+            env_mode.get_mode()),
+            QtCore.QSettings.IniFormat)
         self.server = None
         self.project = None
         self.checkin = None
@@ -125,3 +130,5 @@ class Controls(object):
         self.settings.beginGroup('config')
         self.settings.setValue('maya_scene', maya_scene)
         self.settings.endGroup()
+
+cfg_controls = Controls()

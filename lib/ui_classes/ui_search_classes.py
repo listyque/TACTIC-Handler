@@ -1,8 +1,10 @@
 import ast
 import PySide.QtGui as QtGui
 import PySide.QtCore as QtCore
-import lib.environment as env
-import lib.configuration as cfg
+# import lib.environment as env
+from lib.environment import env_mode, env_inst, env_server
+from lib.configuration import cfg_controls
+# import lib.configuration as cfg
 import lib.global_functions as gf
 import lib.tactic_classes as tc
 import lib.ui.misc.ui_search_options as ui_search_options
@@ -14,8 +16,14 @@ class QPopupTreeWidget(QtGui.QDialog):
     def __init__(self, parent_ui, project, stype, parent=None):
         super(self.__class__, self).__init__(parent=parent)
 
-        self.settings = QtCore.QSettings('settings/{0}/search_cache.ini'.format(env.Mode.get),
-                                         QtCore.QSettings.IniFormat)
+        self.settings = QtCore.QSettings(
+            '{0}/settings/{1}/{2}/{3}/search_cache.ini'.format(
+                env_mode.get_current_path(),
+                env_mode.get_node(),
+                env_server.get_cur_srv_preset(),
+                env_mode.get_mode()),
+            QtCore.QSettings.IniFormat
+        )
 
         self.setSizeGripEnabled(True)
         self.setWindowFlags(QtCore.Qt.Popup)
@@ -246,7 +254,7 @@ class Ui_searchOptionsWidget(QtGui.QGroupBox, ui_search_options.Ui_searchOptions
 
     def apply_current_to_all_tabs(self):
         current_settings = self.get_settings_dict()
-        for tab in env.Inst.ui_check_tree.get(self.parent_ui.relates_to).itervalues():
+        for tab in env_inst.ui_check_tree.get(self.parent_ui.relates_to).itervalues():
             tab.searchOptionsGroupBox.set_settings_from_dict(current_settings)
 
     def get_custom_process_list(self):
@@ -346,8 +354,8 @@ class Ui_resultsFormWidget(QtGui.QWidget, ui_search_results_tree.Ui_resultsForm)
         self.parent_ui = parent_ui
         self.info = info
 
-        self.checkout_config = cfg.Controls.get_checkout()
-        self.checkin_config = cfg.Controls.get_checkin()
+        self.checkout_config = cfg_controls.get_checkout()
+        self.checkin_config = cfg_controls.get_checkin()
         self.current_tree_widget_item = None
 
         self.create_separate_versions_tree()
@@ -486,8 +494,8 @@ class Ui_resultsFormWidget(QtGui.QWidget, ui_search_results_tree.Ui_resultsForm)
         if nested_item.type == 'snapshot' and nested_item.files.get('playblast'):
             self.parent_ui.load_images(nested_item, False, True)
 
-        env.Inst.ui_main_tabs[self.parent_ui.current_project].skeyLineEdit.setText(nested_item.get_skey(skey=True))
-        # env.Inst.ui_main.skeyLineEdit.setText(nested_item.get_skey(skey=True))
+        env_inst.ui_main_tabs[self.parent_ui.current_project].skeyLineEdit.setText(nested_item.get_skey(skey=True))
+        # env_inst.ui_main.skeyLineEdit.setText(nested_item.get_skey(skey=True))
         if self.parent_ui.relates_to == 'checkout':
             self.parent_ui.descriptionTextEdit.setText(nested_item.get_description())
 
@@ -518,24 +526,30 @@ class Ui_resultsFormWidget(QtGui.QWidget, ui_search_results_tree.Ui_resultsForm)
             # current_widget.verticalLayoutWidget_3.close()
 
     def create_progress_bar(self):
-        self.progres_bar = QtGui.QProgressBar()
-        self.progres_bar.setMaximum(100)
-        self.progres_bar.hide()
-        self.resultsLayout.addWidget(self.progres_bar)
+        self.progress_bar = QtGui.QProgressBar()
+        self.progress_bar.setMaximum(100)
+        self.progress_bar.hide()
+        self.resultsLayout.addWidget(self.progress_bar)
 
     def showEvent(self, event):
         # self.parent_ui.searchOptionsGroupBox.set_search_options(self.info['options'])
-        # self.parent_ui.searchLineEdit.setText(self.info)
+        # self.info['options'] = self.parent_ui.searchOptionsGroupBox.get_search_options()
         if self.resultsTreeWidget.topLevelItemCount() == 0:
-            self.parent_ui.results_group_box.add_items_to_results(self.info['title'], refresh=True)
+            self.parent_ui.results_group_box.add_items_to_results(self.info['title'], refresh=False, revert=True)
 
 
 class Ui_resultsGroupBoxWidget(QtGui.QGroupBox, ui_search_results.Ui_resultsGroupBox):
     def __init__(self, parent_ui, parent=None):
         super(self.__class__, self).__init__(parent=parent)
 
-        self.settings = QtCore.QSettings('settings/{0}/search_cache.ini'.format(env.Mode.get),
-                                         QtCore.QSettings.IniFormat)
+        self.settings = QtCore.QSettings(
+            '{0}/settings/{1}/{2}/{3}/search_cache.ini'.format(
+                env_mode.get_current_path(),
+                env_mode.get_node(),
+                env_server.get_cur_srv_preset(),
+                env_mode.get_mode()),
+            QtCore.QSettings.IniFormat
+        )
 
         self.setupUi(self)
         self.create_ui_search_results()
@@ -565,6 +579,9 @@ class Ui_resultsGroupBoxWidget(QtGui.QGroupBox, ui_search_results.Ui_resultsGrou
     def get_current_widget(self):
         return self.resultsTabWidget.currentWidget()
 
+    def get_current_tab_text(self):
+        return self.resultsTabWidget.tabText(self.resultsTabWidget.currentIndex())
+
     def set_current_tab_text(self):
         self.resultsTabWidget.setTabText(
             self.resultsTabWidget.currentIndex(),
@@ -572,17 +589,46 @@ class Ui_resultsGroupBoxWidget(QtGui.QGroupBox, ui_search_results.Ui_resultsGrou
         )
 
     def get_process_list(self):
+        # get process list from pipeline
         if self.parent_ui.stype.pipeline:
             process = self.parent_ui.stype.pipeline.process.keys()
         else:
             process = []
 
+        # Add builting process
         if self.parent_ui.searchOptionsGroupBox.showAllProcessCheckBox.isChecked():
             process.extend((['icon', 'attachment', 'publish']))
 
-        return process
+        # Filter ignored process
+        ignore_list = self.parent_ui.get_process_ignore_list()
+        process_list = [x for x in process if x not in ignore_list]
 
-    def add_items_to_results(self, query=None, refresh=False):
+        return process_list
+
+    def refresh_restults(self):
+        self.add_items_to_results(self.get_current_tab_text(), refresh=True)
+
+    def close_all_tabs(self):
+
+        # while self.resultsTabWidget.count() == 0:
+        #     self.resultsTabWidget.count() - 1
+        #     print self.resultsTabWidget.tabBar().removeTab()
+            # QtGui.QTabBar
+        print self.resultsTabWidget.clear()
+        self.add_tab()
+
+        # print self.resultsTabWidget.count(), 'FIRST COUNT'
+        # for i in range(self.resultsTabWidget.count()+1):
+        #     # print 'delete ', i
+        #     # print self.resultsTabWidget.widget(i).close()
+        #     # self.resultsTabWidget.removeTab(i)
+        #     print self.resultsTabWidget.tabBar().removeTab(i)
+        #     # self.close_tab(tab_index=i, self_close=False)
+        #
+        # print self.resultsTabWidget.count(), 'END COUNT'
+        # self.add_tab()
+
+    def add_items_to_results(self, query=None, refresh=False, revert=False):
         """
         Adding queried items to results tree widget
         :param query:
@@ -590,10 +636,15 @@ class Ui_resultsGroupBoxWidget(QtGui.QGroupBox, ui_search_results.Ui_resultsGrou
         :param revert:
         :return:
         """
+        # TODO What is revert??
+        current_widget = self.get_current_widget()
 
-        if not refresh:
-            current_widget = self.get_current_widget()
+        if refresh:
+            current_widget.info['state'] = gf.tree_state(current_widget.resultsTreeWidget, {})
+        elif not revert:
             current_widget.info['state'] = None
+        # else:
+        #     current_widget.info['state'] =
 
         query_tuple = query, self.parent_ui.search_mode_state()
 
@@ -623,8 +674,8 @@ class Ui_resultsGroupBoxWidget(QtGui.QGroupBox, ui_search_results.Ui_resultsGrou
                 names.run()
                 self.assets_names()
             elif names.result == QtGui.QMessageBox.ActionRole:
-                env.Inst.offline = True
-                env.Inst.ui_main.open_config_dialog()
+                env_inst.offline = True
+                env_inst.ui_main.open_config_dialog()
 
         if not names.isFailed():
             if not self.sobjects_query_thread.isRunning():
@@ -639,11 +690,15 @@ class Ui_resultsGroupBoxWidget(QtGui.QGroupBox, ui_search_results.Ui_resultsGrou
         current_tree_widget = current_widget.resultsTreeWidget
         current_tree_widget.clear()
 
-        for sobject in self.sobjects.itervalues():
+        current_widget.progress_bar.setVisible(True)
+        total_sobjects = len(self.sobjects.keys()) - 1
+
+        for p, sobject in enumerate(self.sobjects.itervalues()):
             item_info = {
                 'relates_to': self.parent_ui.relates_to,
                 'is_expanded': False,
             }
+
             gf.add_sobject_item(
                 current_tree_widget,
                 self.parent_ui,
@@ -653,9 +708,13 @@ class Ui_resultsGroupBoxWidget(QtGui.QGroupBox, ui_search_results.Ui_resultsGrou
                 item_info
             )
 
-        # print current_widget.info['state']
+            if total_sobjects:
+                current_widget.progress_bar.setValue(int(p * 100 / total_sobjects))
+
         if current_widget.info['state']:
             gf.tree_state_revert(current_tree_widget, current_widget.info['state'])
+
+        current_widget.progress_bar.setVisible(False)
 
         # if self.go_by_skey[0]:
         #     gf.expand_to_snapshot(self, self.resultsTreeWidget)
@@ -669,7 +728,51 @@ class Ui_resultsGroupBoxWidget(QtGui.QGroupBox, ui_search_results.Ui_resultsGrou
         #     except:
         #         pass
 
+    def update_item(self, item):
+
+        item.sobject.update_snapshots()
+
+        current_widget = self.get_current_widget()
+        current_tree_widget = current_widget.resultsTreeWidget
+
+        current_widget.info['state'] = gf.tree_state(current_tree_widget, {})
+
+        # find top item belong to sobject
+        root_item = None
+        for i in range(current_tree_widget.topLevelItemCount()):
+            top_item = current_tree_widget.topLevelItem(i)
+
+            top_item_widget = current_tree_widget.itemWidget(top_item, 0)
+
+            if top_item_widget.sobject == item.sobject:
+                root_item = top_item
+
+        insert_pos = current_tree_widget.indexOfTopLevelItem(root_item)
+        current_tree_widget.takeTopLevelItem(insert_pos)
+        current_widget.progress_bar.setVisible(True)
+
+        item_info = {
+            'relates_to': self.parent_ui.relates_to,
+            'is_expanded': False,
+        }
+
+        gf.add_sobject_item(
+            current_tree_widget,
+            self.parent_ui,
+            item.sobject,
+            self.parent_ui.stype,
+            self.get_process_list(),
+            item_info,
+            insert_pos=insert_pos,
+        )
+
+        if current_widget.info['state']:
+            gf.tree_state_revert(current_tree_widget, current_widget.info['state'])
+
+        current_widget.progress_bar.setVisible(False)
+
     def add_to_history_list(self, tab_title, widget):
+        #TODO remove cleared widgets to resolve memory leak
         if tab_title:
             filter_process = QtGui.QAction(tab_title, self.history_tab_button)
             filter_process.triggered.connect(lambda: self.restore_tab_from_history(filter_process, widget))
@@ -699,7 +802,6 @@ class Ui_resultsGroupBoxWidget(QtGui.QGroupBox, ui_search_results.Ui_resultsGrou
         self.history_tab_button.removeAction(action)
 
     def close_tab(self, tab_index):
-
         if self.resultsTabWidget.count() > 1:
             self.add_to_history_list(self.resultsTabWidget.tabText(tab_index), self.resultsTabWidget.widget(tab_index))
             self.resultsTabWidget.removeTab(tab_index)

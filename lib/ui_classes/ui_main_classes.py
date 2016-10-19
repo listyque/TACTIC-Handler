@@ -6,16 +6,19 @@ import collections
 from functools import partial
 import PySide.QtCore as QtCore
 import PySide.QtGui as QtGui
-import lib.environment as env
-import lib.configuration as cfg
+# import lib.environment as env
+from lib.environment import env_mode, env_inst, env_server
+from lib.configuration import cfg_controls
+# import lib.configuration as cfg
 import lib.tactic_classes as tc
 import lib.update_functions as uf
 import lib.global_functions as gf
 
-if env.Mode.get == 'maya':
+if env_mode.get_mode() == 'maya':
     import lib.maya_functions as mf
 import lib.ui.ui_main as ui_main
 import lib.ui.ui_main_tabs as ui_main_tabs
+import lib.ui.misc.ui_serverside as ui_serverside
 import ui_checkin_out_tabs_classes
 import ui_conf_classes
 import ui_my_tactic_classes
@@ -27,22 +30,56 @@ reload(ui_checkin_out_tabs_classes)
 reload(ui_conf_classes)
 reload(ui_my_tactic_classes)
 reload(ui_assets_browser_classes)
+reload(ui_serverside)
+
+
+class Ui_serverScriptEditForm(QtGui.QDialog, ui_serverside.Ui_scriptEditForm):
+    def __init__(self, parent=None):
+        super(self.__class__, self).__init__(parent=parent)
+
+        self.setupUi(self)
+
+        self.controls_actions()
+
+    def controls_actions(self):
+        self.runScriptPushButton.clicked.connect(self.run_script)
+
+    def run_script(self):
+
+        code = self.scriptTextEdit.toPlainText()
+        code_dict = {
+            'code': code
+        }
+
+        result = tc.server_start().execute_python_script('', kwargs=code_dict)
+        import pprint
+        if not result['info']['spt_ret_val']:
+            self.stackTraceTextEdit.setText(str(result['status']))
+        else:
+            self.stackTraceTextEdit.setText(pprint.pformat(result['info']['spt_ret_val']))
+
+        # self.scriptTextEdit.setText('AZZZAZAZA')
 
 
 class Ui_mainTabs(QtGui.QWidget, ui_main_tabs.Ui_mainTabsForm):
     def __init__(self, project_code, parent=None):
         super(self.__class__, self).__init__(parent=parent)
 
-        env.Inst.ui_main_tabs[project_code] = self
+        env_inst.ui_main_tabs[project_code] = self
 
-        self.settings = QtCore.QSettings('settings/{0}/main_ui_config.ini'.format(env.Mode.get), QtCore.QSettings.IniFormat)
+        self.settings = QtCore.QSettings('{0}/settings/{1}/{2}/{3}/main_ui_config.ini'.format(
+            env_mode.get_current_path(),
+            env_mode.get_node(),
+            env_server.get_cur_srv_preset(),
+            env_mode.get_mode()),
+            QtCore.QSettings.IniFormat)
 
         self.setupUi(self)
-        self.checkin_out_config_projects = cfg.Controls.get_checkin_out_projects()
-        self.checkin_out_config = cfg.Controls.get_checkin_out()
+        self.checkin_out_config_projects = cfg_controls.get_checkin_out_projects()
+        self.checkin_out_config = cfg_controls.get_checkin_out()
         self.isCreated = False
 
-        self.project = env.Inst.projects.get(project_code)
+        self.project = env_inst.projects.get(project_code)
         self.current_project = self.project.info['code']
         self.current_namespace = self.project.info['type']
 
@@ -83,7 +120,6 @@ class Ui_mainTabs(QtGui.QWidget, ui_main_tabs.Ui_mainTabsForm):
 
         self.stypes_items_thread = tc.ServerThread(self)
         self.threadsActions()
-        # self.get_stypes(run_thread=True)
         self.skeyLineEdit_actions()
         self.readSettings()
 
@@ -100,11 +136,9 @@ class Ui_mainTabs(QtGui.QWidget, ui_main_tabs.Ui_mainTabsForm):
                     self.stypes_items.run()
                     self.query_stypes(run_thread=True)
                 elif self.stypes_items.result == QtGui.QMessageBox.ActionRole:
-                    env.Inst.offline = True
+                    env_inst.offline = True
                     self.parent().self.open_config_dialog()
             else:
-                # self.save_object('stypes_items', self.stypes_items.result)
-                # env.Inst.project_stypes = self.stypes_items.result
                 self.create_ui_checkout()
                 self.create_ui_checkin()
                 self.toggle_loading_label()
@@ -198,14 +232,14 @@ class Ui_mainTabs(QtGui.QWidget, ui_main_tabs.Ui_mainTabsForm):
         pipeline_code = None
         if skey:
             if skey.get('pipeline_code') and skey.get('project'):
-                if skey.get('project') == env.Env.get_project():
+                if skey.get('project') == env_server.get_project():
                     if skey['pipeline_code'] not in common_pipeline_codes:
                         pipeline_code = u'{namespace}/{pipeline_code}'.format(**skey)
                 else:
                     self.wrong_project_message(skey)
 
         if pipeline_code and self.relates_to in ['checkin', 'checkout']:
-            tab_wdg = env.Inst.ui_check_tabs[self.relates_to].sObjTabWidget
+            tab_wdg = env_inst.ui_check_tabs[self.relates_to].sObjTabWidget
             for i in range(tab_wdg.count()):
                 if tab_wdg.widget(i).objectName() == pipeline_code:
                     tab_wdg.setCurrentIndex(i)
@@ -226,8 +260,8 @@ class Ui_mainTabs(QtGui.QWidget, ui_main_tabs.Ui_mainTabsForm):
         msb = QtGui.QMessageBox(QtGui.QMessageBox.Question,
                                 'Item {code}, not belongs to current project!'.format(**skey),
                                 '<p>Current project is <b>{0}</b>, switch to <b>{project}</b> related to this item?</p>'.format(
-                                    env.Env.get_project(), **skey) + '<p>This will restart TACTIC Handler!</p>',
-                                QtGui.QMessageBox.NoButton, env.Inst.ui_main)
+                                    env_server.get_project(), **skey) + '<p>This will restart TACTIC Handler!</p>',
+                                QtGui.QMessageBox.NoButton, env_inst.ui_main)
         msb.addButton("Switch to Project", QtGui.QMessageBox.YesRole)
         msb.addButton("Cancel", QtGui.QMessageBox.NoRole)
         msb.exec_()
@@ -235,7 +269,7 @@ class Ui_mainTabs(QtGui.QWidget, ui_main_tabs.Ui_mainTabsForm):
         reply = msb.buttonRole(msb.clickedButton())
 
         if reply == QtGui.QMessageBox.YesRole:
-            env.Env.set_project(skey['project'])
+            env_server.set_project(skey['project'])
             skey_link = self.skeyLineEdit.text()
             self.close()
             self.create_ui_main()
@@ -288,7 +322,7 @@ class Ui_mainTabs(QtGui.QWidget, ui_main_tabs.Ui_mainTabsForm):
             # self.
             self.isCreated = True
 
-        env.Inst.current_project = self.project.info['code']
+        env_inst.current_project = self.project.info['code']
 
     def closeEvent(self, event):
 
@@ -305,20 +339,27 @@ class Ui_Main(QtGui.QMainWindow, ui_main.Ui_MainWindow):
     def __init__(self, parent=None):
         super(self.__class__, self).__init__(parent=parent)
 
-        self.settings = QtCore.QSettings('settings/{0}/main_ui_config.ini'.format(env.Mode.get), QtCore.QSettings.IniFormat)
+        env_inst.ui_main = self
+
+        self.settings = QtCore.QSettings('{0}/settings/{1}/{2}/{3}/main_ui_config.ini'.format(
+            env_mode.get_current_path(),
+            env_mode.get_node(),
+            env_server.get_cur_srv_preset(),
+            env_mode.get_mode()),
+            QtCore.QSettings.IniFormat)
 
         self.projects_docks = collections.OrderedDict()
 
-        if env.Inst.offline:
+        if env_mode.is_offline():
             self.create_ui_main_offline()
         else:
-            env.Env.get_default_dirs()
+            # env_server.get_default_dirs()
             self.create_ui_main()
 
     def create_project_dock(self, project_code, toggle_state=False):
 
         if project_code not in self.projects_docks.keys():
-            project = env.Inst.projects.get(project_code)
+            project = env_inst.projects.get(project_code)
 
             dock_widget = QtGui.QDockWidget(self)
             dock_widget.setObjectName(project_code)
@@ -342,11 +383,11 @@ class Ui_Main(QtGui.QMainWindow, ui_main.Ui_MainWindow):
             self.projects_docks[project_code].close()
             self.projects_docks[project_code].deleteLater()
             del self.projects_docks[project_code]
-            del env.Inst.ui_main_tabs[project_code]
+            del env_inst.ui_main_tabs[project_code]
 
     def create_ui_main_offline(self):
 
-        env.Inst.ui_main = self
+        env_inst.ui_main = self
         self.setupUi(self)
         self.setWindowTitle('TACTIC handler (OFFLINE)')
 
@@ -358,7 +399,7 @@ class Ui_Main(QtGui.QMainWindow, ui_main.Ui_MainWindow):
 
     def create_ui_main(self):
 
-        env.Inst.ui_main = self
+        env_inst.ui_main = self
         self.setupUi(self)
         self.setWindowTitle('TACTIC handler')
 
@@ -391,12 +432,12 @@ class Ui_Main(QtGui.QMainWindow, ui_main.Ui_MainWindow):
         """
 
         def close_routine():
-            if env.Mode.get == 'maya':
+            if env_mode.get_mode() == 'maya':
                 maya_dock_instances = mf.get_maya_dock_window()
                 for maya_dock_instance in maya_dock_instances:
                     maya_dock_instance.close()
                     maya_dock_instance.deleteLater()
-            if env.Mode.get == 'standalone':
+            if env_mode.get_mode() == 'standalone':
                 self.close()
 
         self.actionExit.triggered.connect(close_routine)
@@ -406,12 +447,18 @@ class Ui_Main(QtGui.QMainWindow, ui_main.Ui_MainWindow):
         self.actionApply_to_all_Tabs.triggered.connect(self.apply_current_view)
 
         self.actionUpdate.triggered.connect(lambda: self.update_self(thread_start=True))
+        self.actionServerside_Script.triggered.connect(self.create_server_side_script_editor)
 
         # deprecated
         # self.main_tabWidget.setContextMenuPolicy(QtCore.Qt.ActionsContextMenu)
         # self.menu = QtGui.QAction("Copy Tab", self.main_tabWidget)
         # self.menu.triggered.connect(self.copy_current_tab)
         # self.main_tabWidget.addAction(self.menu)
+
+    def create_server_side_script_editor(self):
+
+        self.serverside_script_editor = Ui_serverScriptEditForm(self)
+        self.serverside_script_editor.show()
 
     def update_self(self, thread_start=False, update=False):
         uf.check_update()
@@ -423,11 +470,14 @@ class Ui_Main(QtGui.QMainWindow, ui_main.Ui_MainWindow):
     def restart_ui_main(self):
         self.close()
         self.projects_docks = collections.OrderedDict()
-        self.create_ui_main()
+        if env_mode.is_online():
+            self.create_ui_main()
+        else:
+            self.create_ui_main_offline()
         self.show()
 
     def apply_current_view(self):
-        current_project_widget = self.projects_docks[env.Inst.current_project].widget()
+        current_project_widget = self.projects_docks[env_inst.current_project].widget()
         widget_name = current_project_widget.main_tabWidget.currentWidget().objectName()
 
         if widget_name == 'checkOutTab':
@@ -512,7 +562,7 @@ class Ui_Main(QtGui.QMainWindow, ui_main.Ui_MainWindow):
             self.settings.setValue('size', self.size())
         self.settings.setValue("windowState", int(state))
         self.settings.setValue('opened_projects', self.projects_docks.keys())
-        self.settings.setValue('current_active_project', str(env.Inst.current_project))
+        self.settings.setValue('current_active_project', str(env_inst.current_project))
 
         print('Done main_ui settings write')
         self.settings.endGroup()
@@ -533,18 +583,20 @@ class Ui_Main(QtGui.QMainWindow, ui_main.Ui_MainWindow):
         if finish_thread:
             self.projects_items = tc.treat_result(self.projects_items_thread)
 
-            # print self.projects_items.result
-
             if self.projects_items.isFailed():
                 if self.projects_items.result == QtGui.QMessageBox.ApplyRole:
                     self.projects_items.run()
                     self.query_projects(run_thread=True)
                 elif self.projects_items.result == QtGui.QMessageBox.ActionRole:
-                    env.Inst.offline = True
+                    env_mode.set_offline()
+                    self.restart_ui_main()
                     self.open_config_dialog()
+                else:
+                    env_mode.set_offline()
+                    self.restart_ui_main()
             else:
                 self.save_object('projects_items', self.projects_items.result)
-                env.Inst.projects = self.projects_items.result
+                env_inst.projects = self.projects_items.result
                 self.restore_opened_projects()
                 self.fill_projects_to_menu()
                 # self.readSettings(True)
@@ -563,15 +615,23 @@ class Ui_Main(QtGui.QMainWindow, ui_main.Ui_MainWindow):
                     self.projects_items_thread.start()
 
     def save_object(self, name, obj):
-        settings = QtCore.QSettings('settings/{0}/tabs_cache.ini'.format(env.Mode.get), QtCore.QSettings.IniFormat)
+        settings = QtCore.QSettings('{0}/settings/{1}/{2}/{3}/tabs_cache.ini'.format(
+            env_mode.get_current_path(),
+            env_mode.get_node(),
+            env_server.get_cur_srv_preset(),
+            env_mode.get_mode()),
+            QtCore.QSettings.IniFormat)
         settings.beginGroup('tabs_cache/{0}/{1}'.format('namespace', 'project'))
         settings.setValue(name, obj)
         settings.endGroup()
 
     def load_object(self, name):
-        settings = QtCore.QSettings('settings/{0}/tabs_cache.ini'.format(env.Mode.get), QtCore.QSettings.IniFormat)
-        print settings.fileName()
-        print env.__file__
+        settings = QtCore.QSettings('{0}/settings/{1}/{2}/{3}/tabs_cache.ini'.format(
+            env_mode.get_current_path(),
+            env_mode.get_node(),
+            env_server.get_cur_srv_preset(),
+            env_mode.get_mode()),
+            QtCore.QSettings.IniFormat)
         settings.beginGroup('tabs_cache/{0}/{1}'.format('namespace', 'project'))
         obj = settings.value(name)
         settings.endGroup()
