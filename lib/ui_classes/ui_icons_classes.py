@@ -206,15 +206,15 @@ class Ui_iconsWidget(QtGui.QWidget, ui_icons.Ui_icons):
             else:
                 self.preview_image.load(image_path_icon)
 
-            pix_map = QtGui.QPixmap.fromImage(
-                self.preview_image.scaledToWidth(
-                    self.parent().playblastGroupBox.width()-3,
-                    QtCore.Qt.SmoothTransformation
+            if not self.preview_image.isNull():
+                pix_map = QtGui.QPixmap.fromImage(
+                    self.preview_image.scaledToWidth(
+                        self.parent().playblastGroupBox.width()-3,
+                        QtCore.Qt.SmoothTransformation
+                    )
                 )
-            )
-            self.scene.addPixmap(pix_map)
-
-            self.previewGraphicsView.setScene(self.scene)
+                self.scene.addPixmap(pix_map)
+                self.previewGraphicsView.setScene(self.scene)
 
             return image_path_big
 

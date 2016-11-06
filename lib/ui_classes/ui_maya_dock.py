@@ -5,7 +5,7 @@
 import PySide.QtCore as QtCore
 import PySide.QtGui as QtGui
 # import lib.environment as env
-from lib.environment import env_inst, env_mode
+from lib.environment import env_inst, env_mode, env_server
 import lib.maya_functions as mf
 import lib.tactic_classes as tc
 from maya.app.general.mayaMixin import MayaQWidgetDockableMixin
@@ -23,7 +23,12 @@ class Ui_DockMain(MayaQWidgetDockableMixin, QtGui.QMainWindow):
 
         self.tab_index = tab_index
 
-        self.settings = QtCore.QSettings('TACTIC Handler', 'TACTIC Handling Tool')
+        self.settings = QtCore.QSettings('{0}/settings/{1}/{2}/{3}/main_ui_config.ini'.format(
+            env_mode.get_current_path(),
+            env_mode.get_node(),
+            env_server.get_cur_srv_preset(),
+            env_mode.get_mode()),
+            QtCore.QSettings.IniFormat)
 
         self.ui_main_window = ui_main_classes.Ui_Main(self.parent())
         self.setCentralWidget(self.ui_main_window)
@@ -65,7 +70,7 @@ class Ui_DockMain(MayaQWidgetDockableMixin, QtGui.QMainWindow):
         Reading Settings
         """
         self.setWindowTitle(self.ui_main_window.windowTitle())
-        self.settings.beginGroup(env_mode.get_mode() + '/ui_maya_dock')
+        self.settings.beginGroup('ui_maya_dock')
         is_floating = self.settings.value('isFloating', 'false') == 'true' and True or False
         self.move(self.settings.value('pos', QtCore.QPoint(200, 200)))
         size = self.settings.value('size', QtCore.QSize(427, 690))
@@ -87,7 +92,7 @@ class Ui_DockMain(MayaQWidgetDockableMixin, QtGui.QMainWindow):
         """
         Writing Settings
         """
-        self.settings.beginGroup(env_mode.get_mode() + '/ui_maya_dock')
+        self.settings.beginGroup('ui_maya_dock')
         self.settings.setValue('pos', self.parent().pos())
         self.settings.setValue('size', self.size())
         self.settings.setValue('isFloating', self.isFloating())

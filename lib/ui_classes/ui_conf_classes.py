@@ -634,7 +634,6 @@ class Ui_checkinOutPageWidget(QtGui.QWidget, ui_checkinOutPage.Ui_checkinOutPage
         self.create_checkin_out_page()
 
     def create_checkin_out_page(self):
-        self.load_to_controls_tabs_tree_widget()
         self.add_projects_items(1)
         self.controls_actions()
 
@@ -655,7 +654,6 @@ class Ui_checkinOutPageWidget(QtGui.QWidget, ui_checkinOutPage.Ui_checkinOutPage
 
     @staticmethod
     def get_tabs_list():
-
         return [
             ['Checkout', 'Checkout', True],
             ['Checkin', 'Checkin', True],
@@ -665,8 +663,10 @@ class Ui_checkinOutPageWidget(QtGui.QWidget, ui_checkinOutPage.Ui_checkinOutPage
 
     def apply_current_controls_to_all(self):
         for key, val in self.page_init_projects.iteritems():
-            if key != 'tabs_list':
+            if key != '!tabs_list!':
                 self.page_init_projects[key]['tabs_list'] = self.collect_controls_tree_values()
+
+        cfg_controls.set_checkin_out_projects(self.page_init_projects)
 
     def init_per_projects_config_dict(self):
         projects_dict = {}
@@ -677,25 +677,24 @@ class Ui_checkinOutPageWidget(QtGui.QWidget, ui_checkinOutPage.Ui_checkinOutPage
             projects_dict[project]['tabs_list'] = tabs_list
             projects_dict[project]['stypes_list'] = None
 
-        projects_dict['tabs_list'] = self.get_tabs_list()
+        projects_dict['!tabs_list!'] = self.get_tabs_list()
         self.page_init_projects = projects_dict
 
     def switch_controls_per_project(self, state):
         if state:
-            self.load_to_controls_tabs_tree_widget(self.page_init_projects['tabs_list'])
+            self.load_to_controls_tabs_tree_widget(self.page_init_projects['!tabs_list!'])
         elif self.selected_project:
             self.load_to_controls_tabs_tree_widget(self.page_init_projects[self.selected_project]['tabs_list'])
 
     def projects_tree_widget_click(self, item):
         project_code = item.text(1)
-
-        # check if we have current project
-        if not self.page_init_projects.get(project_code):
-            self.init_per_projects_config_dict()
-
         if project_code:
+            # check if we have current project
+            if not self.page_init_projects.get(project_code):
+                self.init_per_projects_config_dict()
+
             if self.applyToAllProjectsRadioButton.isChecked():
-                self.load_to_controls_tabs_tree_widget(self.page_init_projects['tabs_list'])
+                self.load_to_controls_tabs_tree_widget(self.page_init_projects['!tabs_list!'])
             else:
                 self.load_to_controls_tabs_tree_widget(self.page_init_projects[project_code]['tabs_list'])
             self.load_project_stypes(project_code)
@@ -722,9 +721,8 @@ class Ui_checkinOutPageWidget(QtGui.QWidget, ui_checkinOutPage.Ui_checkinOutPage
                 self.create_process_tree_widget(project_code, exclude_list)
 
     def controls_tree_changed(self):
-
         if self.applyToAllProjectsRadioButton.isChecked():
-            self.page_init_projects['tabs_list'] = self.collect_controls_tree_values()
+            self.page_init_projects['!tabs_list!'] = self.collect_controls_tree_values()
         elif self.selected_project:
             self.page_init_projects[self.selected_project]['tabs_list'] = self.collect_controls_tree_values()
 
@@ -742,7 +740,6 @@ class Ui_checkinOutPageWidget(QtGui.QWidget, ui_checkinOutPage.Ui_checkinOutPage
         return tabs_list
 
     def process_tree_changed(self, item):
-
         # Mass unchecking by top item
         if item.childCount() > 0:
             for i in range(item.childCount()):
@@ -755,7 +752,6 @@ class Ui_checkinOutPageWidget(QtGui.QWidget, ui_checkinOutPage.Ui_checkinOutPage
         env_inst.ui_conf.set_page_status()
 
     def collect_process_tree_values(self):
-
         exclude_list = []
         for i in range(self.processTreeWidget.topLevelItemCount()):
             top_item = self.processTreeWidget.topLevelItem(i)
@@ -785,7 +781,7 @@ class Ui_checkinOutPageWidget(QtGui.QWidget, ui_checkinOutPage.Ui_checkinOutPage
             self.processTreeWidget.addTopLevelItem(self.top_item)
             for item in value:
                 self.child_item = QtGui.QTreeWidgetItem()
-                if item['title']:
+                if item.get('title'):
                     item_title = item['title'].capitalize()
                 else:
                     item_title = 'Unnamed'
@@ -802,6 +798,8 @@ class Ui_checkinOutPageWidget(QtGui.QWidget, ui_checkinOutPage.Ui_checkinOutPage
             self.top_item.setExpanded(True)
 
     def load_to_controls_tabs_tree_widget(self, tabs_list=None):
+        print tabs_list, 'TABSLIST'
+
         self.controlsTabsTreeWidget.clear()
 
         if not tabs_list:
@@ -920,7 +918,9 @@ class Ui_checkinOutPageWidget(QtGui.QWidget, ui_checkinOutPage.Ui_checkinOutPage
             self.collect_defaults(apply_values=True)
         self.collect_defaults()
 
+        print self.page_defaults
         print self.page_defaults_projects
+        print self.page_init
         print self.page_init_projects
 
         # if not self.page_defaults_projects and self.page_init_projects:
@@ -929,7 +929,19 @@ class Ui_checkinOutPageWidget(QtGui.QWidget, ui_checkinOutPage.Ui_checkinOutPage
         if not self.page_init_projects:
             self.init_per_projects_config_dict()
 
+        if self.applyToAllProjectsRadioButton.isChecked():
+            tabs_list = self.page_init_projects.get('!tabs_list!')
+        else:
+            if self.page_init_projects.get(env_inst.current_project):
+                tabs_list = self.page_init_projects.get(env_inst.current_project)['tabs_list']
+            else:
+                tabs_list = None
+
+        self.load_to_controls_tabs_tree_widget(tabs_list)
+
+        print self.page_defaults
         print self.page_defaults_projects
+        print self.page_init
         print self.page_init_projects
 
 
@@ -1025,12 +1037,10 @@ class Ui_configuration_dialogWidget(QtGui.QDialog, ui_conf.Ui_configuration_dial
 
     def create_checkin_page(self):
         self.checkinPageWidget = Ui_checkinPageWidget(self)
-
         self.checkinPageLayout.addWidget(self.checkinPageWidget)
 
     def create_checkin_out_page(self):
         self.checkinOutPageWidget = Ui_checkinOutPageWidget(self)
-
         self.checkinOutPageLayout.addWidget(self.checkinOutPageWidget)
 
     def create_global_config_page(self):
@@ -1046,7 +1056,7 @@ class Ui_configuration_dialogWidget(QtGui.QDialog, ui_conf.Ui_configuration_dial
         self.currentEnvironmentPageLayout.addWidget(self.currentEnvironmentPageWidget)
 
     def set_page_status(self):
-        self.save_button.setEnabled(True)
+        self.apply_button.setEnabled(True)
         self.reset_button.setEnabled(True)
         current_item = self.configToolBox.currentIndex()
         current_item_text = self.configToolBox.itemText(current_item)
@@ -1083,9 +1093,9 @@ class Ui_configuration_dialogWidget(QtGui.QDialog, ui_conf.Ui_configuration_dial
 
         self.buttonBox.button(QtGui.QDialogButtonBox.RestoreDefaults).clicked.connect(self.restore_defaults)
 
-        self.save_button = self.buttonBox.button(QtGui.QDialogButtonBox.Save)
-        self.save_button.setEnabled(False)
-        self.save_button.clicked.connect(self.perform_save)
+        self.apply_button = self.buttonBox.button(QtGui.QDialogButtonBox.Apply)
+        self.apply_button.setEnabled(False)
+        self.apply_button.clicked.connect(self.perform_save)
 
     def restore_defaults(self):
         print('Restore default changes')
@@ -1229,12 +1239,12 @@ class Ui_configuration_dialogWidget(QtGui.QDialog, ui_conf.Ui_configuration_dial
                 self.configToolBox.setItemText(0, current_item_text.replace(', (changed)', ', (saved)'))
 
             if env_mode.is_online():
-                self.restart()
+                self.restart(force=True)
 
         if current_page == 'projectPage':
             self.projectPageWidget.save_config()
 
-            self.restart()
+            self.restart(force=True)
 
         if current_page == 'checkoutPage':
             self.checkoutPageWidget.save_config()
@@ -1243,7 +1253,7 @@ class Ui_configuration_dialogWidget(QtGui.QDialog, ui_conf.Ui_configuration_dial
             if current_item_text.find('(changed)') != -1:
                 self.configToolBox.setItemText(2, current_item_text.replace(', (changed)', ', (saved)'))
 
-            self.restart()
+            self.restart(force=True)
 
         if current_page == 'checkinPage':
             self.checkinPageWidget.save_config()
@@ -1252,7 +1262,7 @@ class Ui_configuration_dialogWidget(QtGui.QDialog, ui_conf.Ui_configuration_dial
             if current_item_text.find('(changed)') != -1:
                 self.configToolBox.setItemText(3, current_item_text.replace(', (changed)', ', (saved)'))
 
-            self.restart()
+            self.restart(force=True)
 
         if current_page == 'checkinOutPage':
             self.checkinOutPageWidget.save_config()
@@ -1261,21 +1271,23 @@ class Ui_configuration_dialogWidget(QtGui.QDialog, ui_conf.Ui_configuration_dial
             if current_item_text.find('(changed)') != -1:
                 self.configToolBox.setItemText(4, current_item_text.replace(', (changed)', ', (saved)'))
 
-            self.restart()
+            self.restart(force=True)
 
     def restart(self, force=False):
         if force:
             main_window = env_inst.ui_main
-            main_window.restart_ui_main()
+            new_main_window = main_window.restart_ui_main()
+            self.setParent(new_main_window)
         else:
             ask_restart = QtGui.QMessageBox.question(self, 'Restart TACTIC Handler?',
                                                      "<p>Looks like You have made changes which require restarting</p>"
                                                      "<p>Perform restart?</p>",
                                                      QtGui.QMessageBox.Yes | QtGui.QMessageBox.No)
             if ask_restart == QtGui.QMessageBox.Yes:
-                self.close()
+                # self.close()
                 main_window = env_inst.ui_main
-                main_window.restart_ui_main()
+                new_main_window = main_window.restart_ui_main()
+                self.setParent(new_main_window)
 
     def readSettings(self):
         """

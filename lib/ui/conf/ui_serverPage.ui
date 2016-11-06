@@ -2,14 +2,6 @@
 <ui version="4.0">
  <class>serverPageWidget</class>
  <widget class="QWidget" name="serverPageWidget">
-  <property name="geometry">
-   <rect>
-    <x>0</x>
-    <y>0</y>
-    <width>492</width>
-    <height>427</height>
-   </rect>
-  </property>
   <layout class="QVBoxLayout" name="serverPageWidgetLayout">
    <property name="spacing">
     <number>6</number>
@@ -205,7 +197,11 @@
        <widget class="QLineEdit" name="proxyLoginLineEdit"/>
       </item>
       <item row="1" column="1">
-       <widget class="QLineEdit" name="proxyPasswordLineEdit"/>
+       <widget class="QLineEdit" name="proxyPasswordLineEdit">
+        <property name="echoMode">
+         <enum>QLineEdit::Password</enum>
+        </property>
+       </widget>
       </item>
       <item row="2" column="1">
        <widget class="QLineEdit" name="proxyServerLineEdit"/>

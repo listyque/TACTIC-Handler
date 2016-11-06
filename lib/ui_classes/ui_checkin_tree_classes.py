@@ -281,44 +281,96 @@ class Ui_checkInTreeWidget(QtGui.QWidget, ui_checkin_tree.Ui_checkInTree):
 
             self.playblastLayout.addWidget(self.playblast_widget)
 
-    def checkin_context_menu(self, tool_button=True):
-        self.save_snapshot = QtGui.QAction('Save', self.savePushButton)
-        self.save_snapshot.triggered.connect(self.save_file)
-        self.save_selected_snapshot = QtGui.QAction('Save selected', self.savePushButton)
-        self.save_selected_snapshot.triggered.connect(lambda: self.prnt(0))
-        self.save_snapshot_revision = QtGui.QAction('Save revision', self.savePushButton)
-        self.save_snapshot_revision.triggered.connect(lambda: self.prnt(0))
-        self.save_selected_snapshot_revision = QtGui.QAction('Save selected revision', self.savePushButton)
-        self.save_selected_snapshot_revision.triggered.connect(lambda: self.prnt(0))
-        self.update_snapshot = QtGui.QAction('Update', self.savePushButton)
-        self.update_snapshot.triggered.connect(lambda: self.prnt(0))
-        self.update_selected_snapshot = QtGui.QAction('Update selected', self.savePushButton)
-        self.update_selected_snapshot.triggered.connect(lambda: self.prnt(0))
-        self.update_playblast = QtGui.QAction('Update Playblast', self.savePushButton)
-        self.update_playblast.triggered.connect(lambda: self.prnt(0))
-        self.delete_snapshot = QtGui.QAction('Delete', self.savePushButton)
-        self.delete_snapshot.triggered.connect(self.delete_snapshot_sobject)
-        self.checkin_options = QtGui.QAction('Checkin Options toggle', self.savePushButton)
-        self.checkin_options.triggered.connect(self.toggle_checkin_options_group_box)
+    def checkin_context_menu(self, tool_button=True, mode=None):
 
-        snapshot_menu = QtGui.QMenu()
 
-        if not tool_button:
-            snapshot_menu.addAction(self.save_snapshot)
-        snapshot_menu.addAction(self.save_selected_snapshot)
-        snapshot_menu.addSeparator()
-        snapshot_menu.addAction(self.save_snapshot_revision)
-        snapshot_menu.addAction(self.save_selected_snapshot_revision)
-        snapshot_menu.addSeparator()
-        snapshot_menu.addAction(self.update_snapshot)
-        snapshot_menu.addAction(self.update_selected_snapshot)
-        snapshot_menu.addAction(self.update_playblast)
-        snapshot_menu.addSeparator()
-        snapshot_menu.addAction(self.delete_snapshot)
-        snapshot_menu.addSeparator()
-        snapshot_menu.addAction(self.checkin_options)
+        edit_info = QtGui.QAction('Edit Info', self.savePushButton)
+        edit_info.triggered.connect(lambda: self.edit_existing_sobject())
 
-        return snapshot_menu
+        delete_sobject = QtGui.QAction('Delete', self.savePushButton)
+        delete_sobject.triggered.connect(self.delete_sobject)
+
+        save_snapshot = QtGui.QAction('Save', self.savePushButton)
+        save_snapshot.triggered.connect(self.save_file)
+
+        save_selected_snapshot = QtGui.QAction('Save selected', self.savePushButton)
+        save_selected_snapshot.triggered.connect(lambda: self.prnt(0))
+
+        save_snapshot_revision = QtGui.QAction('Save revision', self.savePushButton)
+        save_snapshot_revision.triggered.connect(lambda: self.prnt(0))
+
+        save_selected_snapshot_revision = QtGui.QAction('Save selected revision', self.savePushButton)
+        save_selected_snapshot_revision.triggered.connect(lambda: self.prnt(0))
+
+        update_snapshot = QtGui.QAction('Update', self.savePushButton)
+        update_snapshot.triggered.connect(lambda: self.prnt(0))
+
+        update_selected_snapshot = QtGui.QAction('Update selected', self.savePushButton)
+        update_selected_snapshot.triggered.connect(lambda: self.prnt(0))
+
+        update_playblast = QtGui.QAction('Update Playblast', self.savePushButton)
+        update_playblast.triggered.connect(lambda: self.prnt(0))
+
+        delete_snapshot = QtGui.QAction('Delete', self.savePushButton)
+        delete_snapshot.triggered.connect(self.delete_snapshot_sobject)
+
+        checkin_options = QtGui.QAction('Checkin Options toggle', self.savePushButton)
+        checkin_options.triggered.connect(self.toggle_checkin_options_group_box)
+
+        menu = QtGui.QMenu()
+
+        # if not tool_button:
+        if mode == 'sobject':
+            menu.addAction(save_snapshot)
+            menu.addAction(save_selected_snapshot)
+            menu.addSeparator()
+            menu.addAction(save_snapshot_revision)
+            menu.addAction(save_selected_snapshot_revision)
+            menu.addSeparator()
+            menu.addAction(update_snapshot)
+            menu.addAction(update_selected_snapshot)
+            menu.addAction(update_playblast)
+            menu.addSeparator()
+            menu.addAction(edit_info)
+            menu.addSeparator()
+            menu.addAction(delete_sobject)
+            menu.addSeparator()
+            menu.addAction(checkin_options)
+
+        if mode == 'snapshot':
+            menu.addAction(save_snapshot)
+            menu.addAction(save_selected_snapshot)
+            menu.addSeparator()
+            menu.addAction(save_snapshot_revision)
+            menu.addAction(save_selected_snapshot_revision)
+            menu.addSeparator()
+            menu.addAction(update_snapshot)
+            menu.addAction(update_selected_snapshot)
+            menu.addAction(update_playblast)
+            menu.addSeparator()
+            menu.addAction(edit_info)
+            menu.addSeparator()
+            menu.addAction(delete_snapshot)
+            menu.addSeparator()
+            menu.addAction(checkin_options)
+
+        if mode == 'process':
+            menu.addAction(save_snapshot)
+            menu.addAction(save_selected_snapshot)
+            menu.addSeparator()
+            menu.addAction(save_snapshot_revision)
+            menu.addAction(save_selected_snapshot_revision)
+            menu.addSeparator()
+            menu.addAction(update_snapshot)
+            menu.addAction(update_selected_snapshot)
+            menu.addAction(update_playblast)
+            menu.addSeparator()
+            menu.addAction(checkin_options)
+
+        if mode == 'child':
+            menu.addAction(checkin_options)
+
+        return menu
 
     def create_search_results_group_box(self):
         self.results_group_box = search_classes.Ui_resultsGroupBoxWidget(parent_ui=self, parent=self)
@@ -530,27 +582,28 @@ class Ui_checkInTreeWidget(QtGui.QWidget, ui_checkin_tree.Ui_checkInTree):
         """
         Open window for adding new sobject
         """
+        stype_tytle = self.stype.info.get('title')
+        if stype_tytle:
+            title = stype_tytle.capitalize()
+        else:
+            title = 'Unknown'
 
-        self.add_sobject = addsobject_widget.Ui_addSObjectFormWidget(self)
-        if self.searchLineEdit.text():
-            self.add_sobject.nameLineEdit.setText(self.searchLineEdit.text())
-        self.add_sobject.descriptionTextEdit.appendHtml(self.descriptionTextEdit.toPlainText())
-        self.add_sobject.setWindowTitle(self.add_sobject.windowTitle() + self.tab_name)
-
-        self.add_sobject.tab_name = self.tab_name
-
+        self.add_sobject = addsobject_widget.Ui_addTacticSobjectWidget(stype=self.stype, parent=self)
+        self.add_sobject.setWindowTitle('Adding new SObject {0} ({1})'.format(title, self.tab_name))
         self.add_sobject.show()
 
     def delete_snapshot_sobject(self):
 
-        nested_item = self.resultsTreeWidget.itemWidget(self.resultsTreeWidget.currentItem(), 0)
-        if nested_item:
+        current_widget = self.results_group_box.get_current_widget()
+        current_tree_widget_item = current_widget.get_current_tree_widget_item()
+
+        if current_tree_widget_item:
             self.savePushButton.setEnabled(False)
-            search_key = nested_item.get_skey(only=True)
+            search_key = current_tree_widget_item.get_skey(only=True)
 
             print(search_key, 'deleting...')
 
-            snapshot_del_confirm = tc.snapshot_delete_confirm(snapshot=nested_item.snapshot, files=nested_item.files)
+            snapshot_del_confirm = tc.snapshot_delete_confirm(snapshot=current_tree_widget_item.snapshot, files=current_tree_widget_item.files)
 
             if snapshot_del_confirm[0]:
                 if tc.delete_sobject_snapshot(
@@ -559,14 +612,16 @@ class Ui_checkInTreeWidget(QtGui.QWidget, ui_checkin_tree.Ui_checkInTree):
                         search_keys=snapshot_del_confirm[1],
                         files_paths=snapshot_del_confirm[2]
                 ):
-                    self.update_snapshot_tree(nested_item)
+                    self.update_snapshot_tree(current_tree_widget_item)
 
     def delete_sobject(self):
 
-        nested_item = self.resultsTreeWidget.itemWidget(self.resultsTreeWidget.currentItem(), 0)
-        if nested_item:
+        current_widget = self.results_group_box.get_current_widget()
+        current_tree_widget_item = current_widget.get_current_tree_widget_item()
+
+        if current_tree_widget_item:
             self.savePushButton.setEnabled(False)
-            search_key = nested_item.get_skey(parent=True)
+            search_key = current_tree_widget_item.get_skey(parent=True)
 
             # tc.delete_sobject(skey=search_key)
 
@@ -576,79 +631,64 @@ class Ui_checkInTreeWidget(QtGui.QWidget, ui_checkin_tree.Ui_checkInTree):
         """
         Open window for Editing sobject
         """
-        nested_item = self.resultsTreeWidget.itemWidget(self.resultsTreeWidget.currentItem(), 0)
-
-        self.edit_sobject = addsobject_widget.Ui_addSObjectFormWidget(self)
-        self.edit_sobject.setWindowTitle('Edit info for ' + nested_item.sobject.info['name'])
-        self.edit_sobject.nameLineEdit.setText(nested_item.sobject.info['name'])
-        self.edit_sobject.descriptionTextEdit.appendHtml(nested_item.sobject.info['description'])
-        self.edit_sobject.keywordsTextEdit.setPlainText(nested_item.sobject.info['keywords'])
-        self.edit_sobject.addNewButton.setText('Save changes')
-        self.edit_sobject.tab_name = self.tab_name
-
+        current_widget = self.results_group_box.get_current_widget()
+        current_tree_widget_item = current_widget.get_current_tree_widget_item()
+        self.edit_sobject = addsobject_widget.Ui_addTacticSobjectWidget(stype=self.stype, item=current_tree_widget_item, view='edit', parent=self)
+        self.edit_sobject.setWindowTitle('Edit info for ' + current_tree_widget_item.sobject.info['name'])
         self.edit_sobject.show()
 
-    def load_preview(self, position):
-        # loading preview image
-        nested_item = self.resultsTreeWidget.itemWidget(self.resultsTreeWidget.currentItem(), 0)
-        indexes = self.resultsTreeWidget.selectedIndexes()
+    # def load_preview(self, position):
+    #     # loading preview image
+    #     nested_item = self.resultsTreeWidget.itemWidget(self.resultsTreeWidget.currentItem(), 0)
+    #     indexes = self.resultsTreeWidget.selectedIndexes()
+    #
+    #     if len(indexes) > 0:
+    #         level = 0
+    #         index = indexes[0]
+    #         while index.parent().isValid():
+    #             index = index.parent()
+    #             level += 1
+    #     if level == 0 and nested_item.sobject.process.get('icon'):
+    #         self.load_images(nested_item, True, False)
+    #
+    #     if level > 1 and nested_item.files.get('playblast'):
+    #         self.load_images(nested_item, False, True)
+    #
+    #     # enabling/disabling controls...
+    #     if level == 0:
+    #         self.savePushButton.setEnabled(False)
+    #         self.contextLineEdit.setEnabled(False)
+    #     if level == 1:
+    #         self.savePushButton.setEnabled(True)
+    #         self.contextLineEdit.setEnabled(True)
+    #     if level > 1:
+    #         self.savePushButton.setEnabled(True)
+    #         self.contextLineEdit.setEnabled(True)
+    #
+    #     env_inst.ui_main.skeyLineEdit.setText(nested_item.get_skey(skey=True))
+    #     print nested_item.get_context(process=True)
+    #     self.contextLineEdit.setText(nested_item.get_context())
+    #     # self.descriptionTextEdit.setText(nested_item.get_description())
 
-        if len(indexes) > 0:
-            level = 0
-            index = indexes[0]
-            while index.parent().isValid():
-                index = index.parent()
-                level += 1
-        if level == 0 and nested_item.sobject.process.get('icon'):
-            self.load_images(nested_item, True, False)
-
-        if level > 1 and nested_item.files.get('playblast'):
-            self.load_images(nested_item, False, True)
-
-        # enabling/disabling controls...
-        if level == 0:
-            self.savePushButton.setEnabled(False)
-            self.contextLineEdit.setEnabled(False)
-        if level == 1:
-            self.savePushButton.setEnabled(True)
-            self.contextLineEdit.setEnabled(True)
-        if level > 1:
-            self.savePushButton.setEnabled(True)
-            self.contextLineEdit.setEnabled(True)
-
-        env_inst.ui_main.skeyLineEdit.setText(nested_item.get_skey(skey=True))
-        print nested_item.get_context(process=True)
-        self.contextLineEdit.setText(nested_item.get_context())
-        # self.descriptionTextEdit.setText(nested_item.get_description())
-
-    def open_menu(self, position):
-
+    def open_menu(self):
         current_widget = self.results_group_box.get_current_widget()
         current_tree_widget_item = current_widget.get_current_tree_widget_item()
 
-        if current_tree_widget_item.type == 'sobject':
-            sobject_menu = QtGui.QMenu()
-            sobject_menu.addAction('Edit Info')
-            sobject_menu.addSeparator()
-            sobject_menu.addAction('Delete')
-            sobject_menu.actions()[0].triggered.connect(lambda: self.edit_existing_sobject())
-            sobject_menu.actions()[2].triggered.connect(self.delete_sobject)
-            sobject_menu.exec_(QtGui.QCursor.pos())
-
-        if current_tree_widget_item.type == 'snapshot' and current_tree_widget_item.files:
-            snapshot_menu = self.checkin_context_menu(False)
-            snapshot_menu.exec_(QtGui.QCursor.pos())
-
-    def double_click_snapshot(self, index):
-
-        level = 0
-        while index.parent().isValid():
-            index = index.parent()
-            level += 1
-
-        if level > 1:
-            if self.savePushButton.isEnabled():
-                self.save_file()
+        if current_tree_widget_item:
+            menu = self.checkin_context_menu(False, mode=current_tree_widget_item.type)
+            if menu:
+                menu.exec_(QtGui.QCursor.pos())
+    #
+    # def double_click_snapshot(self, index):
+    #
+    #     level = 0
+    #     while index.parent().isValid():
+    #         index = index.parent()
+    #         level += 1
+    #
+    #     if level > 1:
+    #         if self.savePushButton.isEnabled():
+    #             self.save_file()
 
     def set_settings_from_dict(self, settings_dict=None, apply_checkin_options=True, apply_search_options=True):
 

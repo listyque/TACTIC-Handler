@@ -64,7 +64,7 @@ class UrllibTransport(xmlrpclib.Transport, object):
                     puser_pass = base64.encodestring(
                         '%s:%s' % (unquote(self.proxy_user), unquote(self.proxy_pass))).strip()
 
-            proxies = {'http': 'http://%s' % phost}
+            proxies = {'http': 'http://%s' % phost, 'https': None}
 
         host = unquote(host)
         address = "http://%s%s" % (host, handler)
@@ -113,6 +113,6 @@ class UrllibTransport(xmlrpclib.Transport, object):
                                           urllib2.HTTPCookieProcessor(cj))
 
         urllib2.install_opener(opener)
-        response = urllib2.urlopen(request)
+        response = urllib2.urlopen(request, timeout=5)
 
         return self.parse_response(response)

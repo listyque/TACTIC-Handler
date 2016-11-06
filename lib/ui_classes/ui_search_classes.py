@@ -147,23 +147,26 @@ class QPopupTreeWidget(QtGui.QDialog):
         # Children process
         for child in self.stype.schema.children:
             child_stype = self.project.stypes.get(child['from'])
-            stype_title = child_stype.info.get('title')
-            top_item = QtGui.QTreeWidgetItem()
-            top_item.setText(0, stype_title.capitalize() + ' (child)')
-            top_item.setCheckState(0, QtCore.Qt.Checked)
-            top_item.setData(1, 0, child_stype.info.get('code'))
-            self.tree_widget.addTopLevelItem(top_item)
-            self.child_items.append(top_item)
-            if child_stype.pipeline:
-                for key, val in child_stype.pipeline.process.iteritems():
-                    # print key
-                    child_item = QtGui.QTreeWidgetItem()
-                    child_item.setText(0, key.capitalize())
-                    child_item.setCheckState(0, QtCore.Qt.Checked)
-                    child_item.setData(1, 0, key)
-                    top_item.addChild(child_item)
-                    top_item.setExpanded(True)
-                    self.process_items.append(child_item)
+            if child_stype:
+                stype_title = child_stype.info.get('title')
+                if not stype_title:
+                    stype_title = child_stype.info.get('code')
+                top_item = QtGui.QTreeWidgetItem()
+                top_item.setText(0, stype_title.capitalize() + ' (child)')
+                top_item.setCheckState(0, QtCore.Qt.Checked)
+                top_item.setData(1, 0, child_stype.info.get('code'))
+                self.tree_widget.addTopLevelItem(top_item)
+                self.child_items.append(top_item)
+                if child_stype.pipeline:
+                    for key, val in child_stype.pipeline.process.iteritems():
+                        # print key
+                        child_item = QtGui.QTreeWidgetItem()
+                        child_item.setText(0, key.capitalize())
+                        child_item.setCheckState(0, QtCore.Qt.Checked)
+                        child_item.setData(1, 0, key)
+                        top_item.addChild(child_item)
+                        top_item.setExpanded(True)
+                        self.process_items.append(child_item)
 
         # Actual process
         if self.stype.pipeline:
@@ -352,6 +355,7 @@ class Ui_resultsFormWidget(QtGui.QWidget, ui_search_results_tree.Ui_resultsForm)
 
         self.setupUi(self)
         self.parent_ui = parent_ui
+        self.relates_to = self.parent_ui.relates_to
         self.info = info
 
         self.checkout_config = cfg_controls.get_checkout()
@@ -369,7 +373,6 @@ class Ui_resultsFormWidget(QtGui.QWidget, ui_search_results_tree.Ui_resultsForm)
         self.resultsTreeWidget.itemPressed.connect(self.fill_versions_items)
         self.resultsTreeWidget.setContextMenuPolicy(QtCore.Qt.CustomContextMenu)
         self.resultsTreeWidget.customContextMenuRequested.connect(self.parent_ui.open_menu)
-        # self.resultsTreeWidget.doubleClicked.connect(self.double_click_snapshot)
         self.resultsTreeWidget.itemExpanded.connect(self.get_notes_count)
         self.resultsTreeWidget.itemExpanded.connect(self.fill_snapshots_items)
 
@@ -378,7 +381,6 @@ class Ui_resultsFormWidget(QtGui.QWidget, ui_search_results_tree.Ui_resultsForm)
         self.resultsVersionsTreeWidget.itemPressed.connect(self.load_preview)
         self.resultsVersionsTreeWidget.setContextMenuPolicy(QtCore.Qt.CustomContextMenu)
         self.resultsVersionsTreeWidget.customContextMenuRequested.connect(self.parent_ui.open_menu)
-        # self.resultsVersionsTreeWidget.doubleClicked.connect(self.double_click_snapshot)
 
     def set_current_tree_widget_item(self, tree_widget):
         self.current_tree_widget_item = tree_widget.itemWidget(tree_widget.currentItem(), 0)
@@ -569,8 +571,8 @@ class Ui_resultsGroupBoxWidget(QtGui.QGroupBox, ui_search_results.Ui_resultsGrou
 
     def controls_actions(self):
         self.add_new_tab_button.clicked.connect(self.add_tab)
+        self.refresh_tab_button.clicked.connect(self.refresh_restults)
         self.resultsTabWidget.tabCloseRequested.connect(self.close_tab)
-        # self.history_tab_button.clicked.connect(self.show_history_list)
 
     def threads_actions(self):
         self.names_query_thread.finished.connect(self.assets_names)
@@ -607,6 +609,7 @@ class Ui_resultsGroupBoxWidget(QtGui.QGroupBox, ui_search_results.Ui_resultsGrou
 
     def refresh_restults(self):
         self.add_items_to_results(self.get_current_tab_text(), refresh=True)
+        self.animation.start()
 
     def close_all_tabs(self):
 
@@ -816,18 +819,42 @@ class Ui_resultsGroupBoxWidget(QtGui.QGroupBox, ui_search_results.Ui_resultsGrou
         self.history_tab_button = QtGui.QToolButton()
         self.history_tab_button.setAutoRaise(True)
         self.history_tab_button.setPopupMode(QtGui.QToolButton.InstantPopup)
-        add_icon = QtGui.QIcon()
-        add_icon.addPixmap(QtGui.QPixmap(':/ui_search/gliph/history_16.png'), QtGui.QIcon.Normal, QtGui.QIcon.Off)
-        self.history_tab_button.setIcon(add_icon)
+        history_icon = QtGui.QIcon()
+        history_icon.addPixmap(QtGui.QPixmap(':/ui_search/gliph/history_16.png'), QtGui.QIcon.Normal, QtGui.QIcon.Off)
+        self.history_tab_button.setIcon(history_icon)
 
-        self.resultsTabWidget.setCornerWidget(self.history_tab_button, QtCore.Qt.TopRightCorner)
+        self.refresh_tab_button = QtGui.QToolButton()
+        self.refresh_tab_button.setAutoRaise(True)
+        refresh_icon = QtGui.QIcon()
+        refresh_icon.addPixmap(QtGui.QPixmap(':/ui_search/gliph/refresh_16.png'), QtGui.QIcon.Normal, QtGui.QIcon.Off)
+
+        effect = QtGui.QGraphicsColorizeEffect(self.refresh_tab_button)
+        self.animation = QtCore.QPropertyAnimation(effect, "color", self)
+        self.animation.setDuration(500)
+        self.animation.setStartValue(QtGui.QColor(0, 0, 0, 0))
+        self.animation.setEndValue(QtGui.QColor(49, 140, 72, 128))
+        self.animation.start()
+        self.refresh_tab_button.setGraphicsEffect(effect)
+        self.refresh_tab_button.setIcon(refresh_icon)
+
+        self.right_buttons_layout = QtGui.QHBoxLayout()
+        self.right_buttons_layout.setContentsMargins(0, 0, 0, 0)
+        self.right_buttons_layout.setSpacing(2)
+        self.right_buttons_widget= QtGui.QWidget(self)
+        self.right_buttons_widget.setLayout(self.right_buttons_layout)
+        self.right_buttons_layout.addWidget(self.refresh_tab_button)
+        self.right_buttons_layout.addWidget(self.history_tab_button)
+
+        self.resultsTabWidget.setCornerWidget(self.right_buttons_widget, QtCore.Qt.TopRightCorner)
         self.resultsTabWidget.setCornerWidget(self.add_new_tab_button, QtCore.Qt.TopLeftCorner)
 
-    def add_tab(self, search_title='', state=None, options=None):
+    def add_tab(self, search_title='', state=None, options=None, search_column=None, search_text=None):
         info = {
             'title': search_title,
             'state': state,
             'options': options,
+            'search_column': search_column,
+            'search_text': search_text,
         }
         search_results_tree = Ui_resultsFormWidget(parent_ui=self.parent_ui, info=info, parent=self)
         self.resultsTabWidget.addTab(search_results_tree, search_title)

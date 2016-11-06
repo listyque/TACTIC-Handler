@@ -1,4 +1,4 @@
-import ast
+import json
 import PySide.QtCore as QtCore
 from environment import env_mode, env_server
 
@@ -37,14 +37,14 @@ class Controls(object):
             return self.server
         else:
             self.settings.beginGroup('config')
-            self.server = ast.literal_eval(self.settings.value('server', 'None'))
+            self.server = json.loads(self.settings.value('server', 'null'))
             self.settings.endGroup()
             return self.server
 
     def set_server(self, server):
         self.server = server
         self.settings.beginGroup('config')
-        self.settings.setValue('server', str(server))
+        self.settings.setValue('server', json.dumps(server, separators=(',', ':')))
         self.settings.endGroup()
 
     def get_project(self):
@@ -67,14 +67,14 @@ class Controls(object):
             return self.checkout
         else:
             self.settings.beginGroup('config')
-            self.checkout = ast.literal_eval(self.settings.value('checkout', 'None'))
+            self.checkout = json.loads(self.settings.value('checkout', 'null'))
             self.settings.endGroup()
             return self.checkout
 
     def set_checkout(self, checkout):
         self.checkout = checkout
         self.settings.beginGroup('config')
-        self.settings.setValue('checkout', str(checkout))
+        self.settings.setValue('checkout', json.dumps(checkout, separators=(',', ':')))
         self.settings.endGroup()
 
     def get_checkin(self):
@@ -82,14 +82,14 @@ class Controls(object):
             return self.checkin
         else:
             self.settings.beginGroup('config')
-            self.checkin = ast.literal_eval(self.settings.value('checkin', 'None'))
+            self.checkin = json.loads(self.settings.value('checkin', 'null'))
             self.settings.endGroup()
             return self.checkin
 
     def set_checkin(self, checkin):
         self.checkin = checkin
         self.settings.beginGroup('config')
-        self.settings.setValue('checkin', str(checkin))
+        self.settings.setValue('checkin', json.dumps(checkin, separators=(',', ':')))
         self.settings.endGroup()
 
     def get_checkin_out(self):
@@ -97,13 +97,14 @@ class Controls(object):
             return self.checkin_out
         else:
             self.settings.beginGroup('config')
-            self.checkin_out = ast.literal_eval(self.settings.value('checkin_out', 'None'))
+            self.checkin_out = json.loads(self.settings.value('checkin_out', 'null'))
             self.settings.endGroup()
             return self.checkin_out
 
     def set_checkin_out(self, checkin_out):
+        self.checkin_out = checkin_out
         self.settings.beginGroup('config')
-        self.settings.setValue('checkin_out', str(checkin_out))
+        self.settings.setValue('checkin_out', json.dumps(checkin_out, separators=(',', ':')))
         self.settings.endGroup()
 
     def get_checkin_out_projects(self):
@@ -111,13 +112,14 @@ class Controls(object):
             return self.checkin_out_projects
         else:
             self.settings.beginGroup('config')
-            self.checkin_out_projects = ast.literal_eval(self.settings.value('checkin_out_projects', 'None'))
+            self.checkin_out_projects = json.loads(self.settings.value('checkin_out_projects', 'null'))
             self.settings.endGroup()
             return self.checkin_out_projects
 
     def set_checkin_out_projects(self, checkin_out_projects):
+        self.checkin_out_projects = checkin_out_projects
         self.settings.beginGroup('config')
-        self.settings.setValue('checkin_out_projects', str(checkin_out_projects))
+        self.settings.setValue('checkin_out_projects', json.dumps(checkin_out_projects, separators=(',', ':')))
         self.settings.endGroup()
 
     def get_maya_scene(self):
@@ -127,6 +129,7 @@ class Controls(object):
         return self.maya_scene
 
     def set_maya_scene(self, maya_scene):
+        self.maya_scene = maya_scene
         self.settings.beginGroup('config')
         self.settings.setValue('maya_scene', maya_scene)
         self.settings.endGroup()

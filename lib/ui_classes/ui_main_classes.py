@@ -84,14 +84,19 @@ class Ui_mainTabs(QtGui.QWidget, ui_main_tabs.Ui_mainTabsForm):
         self.current_namespace = self.project.info['type']
 
         if self.checkin_out_config_projects and self.checkin_out_config:
-            self.customize_controls_tabs()
+            if gf.get_value_from_config(self.checkin_out_config, 'controlsTabsFilterGroupBox', 'QGroupBox'):
+                self.customize_controls_tabs()
 
         self.create_ui_main_tabs()
 
     def customize_controls_tabs(self):
-        if self.checkin_out_config_projects.get(self.current_project):
-            config = self.checkin_out_config_projects[self.current_project]['tabs_list']
-            for i, tab in enumerate(config):
+        if self.checkin_out_config_projects:
+            project_tabs_list = self.checkin_out_config_projects.get(self.current_project)
+            if gf.get_value_from_config(self.checkin_out_config, 'applyToAllProjectsRadioButton', 'QRadioButton'):
+                tabs_list = self.checkin_out_config_projects.get('!tabs_list!')
+            elif project_tabs_list:
+                tabs_list = project_tabs_list['tabs_list']
+            for i, tab in enumerate(tabs_list):
                 if tab[0] == 'Checkout':
                     if not tab[2]:
                         self.main_tabWidget.removeTab(self.main_tabWidget.indexOf(self.checkOutTab))
@@ -210,6 +215,8 @@ class Ui_mainTabs(QtGui.QWidget, ui_main_tabs.Ui_mainTabsForm):
         self.skeyLineEdit.returnPressed.connect(self.go_by_skey)
 
     def go_by_skey(self, skey_in=None, relates_to=None):
+
+
         if relates_to:
             self.relates_to = relates_to
         else:
@@ -232,7 +239,7 @@ class Ui_mainTabs(QtGui.QWidget, ui_main_tabs.Ui_mainTabsForm):
         pipeline_code = None
         if skey:
             if skey.get('pipeline_code') and skey.get('project'):
-                if skey.get('project') == env_server.get_project():
+                if skey.get('project') == env_inst.current_project:
                     if skey['pipeline_code'] not in common_pipeline_codes:
                         pipeline_code = u'{namespace}/{pipeline_code}'.format(**skey)
                 else:
@@ -253,7 +260,10 @@ class Ui_mainTabs(QtGui.QWidget, ui_main_tabs.Ui_mainTabsForm):
             search_code = skey.get('code')
             tree_wdg.searchLineEdit.setText(search_code)
             tree_wdg.searchOptionsGroupBox.searchCodeRadioButton.setChecked(True)
-            tree_wdg.add_items_to_results(search_code)
+
+            tree_wdg.results_group_box.add_tab(search_code)
+
+            # tree_wdg.add_items_to_results(search_code)
 
     def wrong_project_message(self, skey):
         print(skey)
@@ -409,7 +419,7 @@ class Ui_Main(QtGui.QMainWindow, ui_main.Ui_MainWindow):
 
         # Server Threads
         self.projects_items_thread = tc.ServerThread(self)
-        self.update_thread = tc.ServerThread(self)
+        # self.update_thread = tc.ServerThread(self)
 
         self.threadsActions()
 
@@ -475,6 +485,7 @@ class Ui_Main(QtGui.QMainWindow, ui_main.Ui_MainWindow):
         else:
             self.create_ui_main_offline()
         self.show()
+        return self
 
     def apply_current_view(self):
         current_project_widget = self.projects_docks[env_inst.current_project].widget()
@@ -505,6 +516,9 @@ class Ui_Main(QtGui.QMainWindow, ui_main.Ui_MainWindow):
             category = self.menuProject.addMenu(cat_name)
 
             for e, project in enumerate(projects):
+                # TEMPORARY
+                project['is_template'] = False
+                # TEMPORARY
                 if not project.get('is_template'):
                     project_code = project.get('code')
 

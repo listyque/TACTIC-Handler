@@ -9,8 +9,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>412</width>
-    <height>348</height>
+    <width>600</width>
+    <height>500</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -58,8 +58,8 @@ QToolBox::tab:selected {
        <rect>
         <x>0</x>
         <y>0</y>
-        <width>394</width>
-        <height>90</height>
+        <width>582</width>
+        <height>242</height>
        </rect>
       </property>
       <attribute name="label">
@@ -76,8 +76,8 @@ QToolBox::tab:selected {
        <rect>
         <x>0</x>
         <y>0</y>
-        <width>100</width>
-        <height>30</height>
+        <width>582</width>
+        <height>242</height>
        </rect>
       </property>
       <attribute name="label">
@@ -94,8 +94,8 @@ QToolBox::tab:selected {
        <rect>
         <x>0</x>
         <y>0</y>
-        <width>100</width>
-        <height>30</height>
+        <width>582</width>
+        <height>242</height>
        </rect>
       </property>
       <attribute name="label">
@@ -112,8 +112,8 @@ QToolBox::tab:selected {
        <rect>
         <x>0</x>
         <y>0</y>
-        <width>100</width>
-        <height>30</height>
+        <width>582</width>
+        <height>242</height>
        </rect>
       </property>
       <attribute name="label">
@@ -130,8 +130,8 @@ QToolBox::tab:selected {
        <rect>
         <x>0</x>
         <y>0</y>
-        <width>100</width>
-        <height>30</height>
+        <width>582</width>
+        <height>242</height>
        </rect>
       </property>
       <attribute name="label">
@@ -148,8 +148,8 @@ QToolBox::tab:selected {
        <rect>
         <x>0</x>
         <y>0</y>
-        <width>100</width>
-        <height>30</height>
+        <width>582</width>
+        <height>242</height>
        </rect>
       </property>
       <attribute name="label">
@@ -166,8 +166,8 @@ QToolBox::tab:selected {
        <rect>
         <x>0</x>
         <y>0</y>
-        <width>100</width>
-        <height>30</height>
+        <width>582</width>
+        <height>242</height>
        </rect>
       </property>
       <attribute name="label">
@@ -183,11 +183,11 @@ QToolBox::tab:selected {
    </item>
    <item row="1" column="0">
     <widget class="QDialogButtonBox" name="buttonBox">
-     <property name="standardButtons">
-      <set>QDialogButtonBox::Close|QDialogButtonBox::Reset|QDialogButtonBox::RestoreDefaults|QDialogButtonBox::Save</set>
+     <property name="orientation">
+      <enum>Qt::Horizontal</enum>
      </property>
-     <property name="centerButtons">
-      <bool>false</bool>
+     <property name="standardButtons">
+      <set>QDialogButtonBox::Apply|QDialogButtonBox::Close|QDialogButtonBox::Reset|QDialogButtonBox::RestoreDefaults|QDialogButtonBox::SaveAll</set>
      </property>
     </widget>
    </item>

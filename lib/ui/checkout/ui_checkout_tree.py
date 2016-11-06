@@ -1,9 +1,9 @@
 # -*- coding: utf-8 -*-
 
-# Form implementation generated from reading ui file 'checkout/ui_checkout_tree.ui'
+# Form implementation generated from reading ui file 'checkout\ui_checkout_tree.ui'
 #
-# Created: Wed Sep 14 18:24:57 2016
-#      by: pyside-uic 0.2.13 running on PySide 1.2.2
+# Created: Sat Nov 05 23:30:01 2016
+#      by: pyside-uic 0.2.15 running on PySide 1.2.4
 #
 # WARNING! All changes made in this file will be lost!
 
@@ -55,9 +55,11 @@ class Ui_checkOutTree(object):
         self.gridLayout.addWidget(self.searchLineEdit, 0, 0, 1, 1)
         self.refreshToolButton = QtGui.QToolButton(self.layoutWidget)
         self.refreshToolButton.setMaximumSize(QtCore.QSize(16777215, 20))
+        icon = QtGui.QIcon()
+        icon.addPixmap(QtGui.QPixmap(":/ui_main/gliph/gear_16.png"), QtGui.QIcon.Normal, QtGui.QIcon.Off)
+        self.refreshToolButton.setIcon(icon)
         self.refreshToolButton.setPopupMode(QtGui.QToolButton.InstantPopup)
         self.refreshToolButton.setAutoRaise(True)
-        self.refreshToolButton.setArrowType(QtCore.Qt.RightArrow)
         self.refreshToolButton.setObjectName("refreshToolButton")
         self.gridLayout.addWidget(self.refreshToolButton, 0, 1, 1, 1)
         self.findOpenedPushButton = QtGui.QPushButton(self.layoutWidget)
@@ -142,7 +144,6 @@ class Ui_checkOutTree(object):
         checkOutTree.setTabOrder(self.saveDescriprionButton, self.descriptionTextEdit)
 
     def retranslateUi(self, checkOutTree):
-        self.refreshToolButton.setText(QtGui.QApplication.translate("checkOutTree", "...", None, QtGui.QApplication.UnicodeUTF8))
         self.findOpenedPushButton.setText(QtGui.QApplication.translate("checkOutTree", "Find Opened", None, QtGui.QApplication.UnicodeUTF8))
         self.playblastGroupBox.setTitle(QtGui.QApplication.translate("checkOutTree", "Preview images:", None, QtGui.QApplication.UnicodeUTF8))
         self.commentsGroupBox.setTitle(QtGui.QApplication.translate("checkOutTree", "Description:", None, QtGui.QApplication.UnicodeUTF8))

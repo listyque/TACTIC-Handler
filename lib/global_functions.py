@@ -143,9 +143,11 @@ def get_controls_dict(ignore_list=None):
 
 
 def get_value_from_config(config_dict, control, control_type=None):
-    if control_type:
-        config_dict = dict(key=config_dict[control_type])
+    # if control_type:
+    #     config_dict = {'key': config_dict[control_type]}
+    # print config_dict
     for all_values in config_dict.itervalues():
+        # print all_values
         for obj_name, value in zip(all_values['obj_name'], all_values['value']):
             if control == obj_name:
                 return value
@@ -594,10 +596,11 @@ def open_file_associated(filepath):
     elif os.name == 'posix':
         subprocess.call(('xdg-open', filepath))
 
-
 def form_path(path):
-    # if env.Env.platform == 'Linux':
-    formed_path = path.replace('\\', '/').replace('\\\\', '/').replace('//', '/')
+    if env_mode.get_platform() == 'Linux':
+        formed_path = path.replace('\\', '/').replace('\\\\', '/').replace('//', '/')
+    else:
+        formed_path = path
         # return formed_path
     # else:
     #     formed_path = path.replace('\\', '/').replace('//', '/')

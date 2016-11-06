@@ -92,10 +92,8 @@ def startup():
     app = QtGui.QApplication(sys.argv)
     app.setStyle("plastique")
     setPaletteFromDct(palette)
-
     ping_thread = tc.get_server_thread(dict(), tc.server_ping, lambda: create_ui(ping_thread), parent=app)
     ping_thread.start()
-
     sys.exit(app.exec_())
 
 if __name__ == '__main__':

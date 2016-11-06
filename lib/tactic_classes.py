@@ -8,6 +8,7 @@ import shutil
 import traceback
 import urlparse
 import collections
+import json
 from lib.side.bs4 import BeautifulSoup
 import PySide.QtGui as QtGui
 import PySide.QtCore as QtCore
@@ -25,7 +26,7 @@ if env_mode.get_mode() == 'maya':
 
 class ServerThread(QtCore.QThread):
     def __init__(self, parent=None):
-        QtCore.QThread.__init__(self, parent=parent)
+        super(ServerThread, self).__init__(parent=parent)
 
         self.kwargs = None
         self.result = None
@@ -96,6 +97,7 @@ def server_auth(host, project=None, login=None, password=None, site=None, get_ti
         if server.transport:
             server.transport.update_proxy()
         server.set_transport(None)
+
     server.set_server(host)
     server.set_project(project)
     server.set_site(site)
@@ -244,6 +246,7 @@ def generate_new_ticket(explicit_username=None, parent=None):
     else:
         login_line_edit.setText(env_server.get_user())
     pass_line_edit = QtGui.QLineEdit()
+    pass_line_edit.setEchoMode(QtGui.QLineEdit.Password)
 
     layout.addWidget(login_label, 0, 0)
     layout.addWidget(login_line_edit, 0, 1)
@@ -519,139 +522,20 @@ class Project(object):
 
         return self.stypes
 
-    def query_search_types_eval(self):
-        """
-        This crazy stuff made to execute queries on server
-        All needed info is getting almost half time faster
-        :return:
-        """
-        return """        empty_tab = [{'__search_key__': u'sthpw/search_object?code=empty/empty',
-            'class_name': u'pyasm.search.SObject',
-            'code': u'empty/empty',
-            'color': None,
-            'database': u'{project}',
-            'default_layout': u'table',
-            'description': None,
-            'id': 84,
-            'id_column': None,
-            'message_event': None,
-            'metadata_parser': None,
-            'namespace': u'empty',
-            'schema': u'public',
-            'search_type': u'empty/empty',
-            'table_name': u'characters',
-            'title': u'empty',
-            'type': None}, ]
-
-        search_type = 'sthpw/search_object'\n        """ + \
-        """project_code = '{0}'\n        """.format(self.info.get('code')) + \
-        """namespace = ['{0}', project_code]\n        """.format(self.info.get('type')) + \
-        """filters = [('namespace', namespace)]
-
-        all_stypes = server.query(search_type, filters)
-
-        if not all_stypes:
-            all_stypes = server.query(search_type, filters)
-            if not all_stypes:
-                all_stypes = empty_tab
-
-        # getting pipeline process
-        stypes_codes = []
-        for stype in all_stypes:
-            stypes_codes.append(stype['code'])
-
-        search_type = 'sthpw/pipeline'
-
-        filters = [('search_type', stypes_codes), ('project_code', project_code)]
-        stypes_pipelines = server.query(search_type, filters)
-
-        # getting project schema
-        schema = server.query('sthpw/schema', [('code', project_code)])
-
-        result = {'schema': str(schema), 'stypes_pipelines': str(stypes_pipelines), 'all_stypes': str(all_stypes),}
-
-        return str(result)"""
-
     def query_search_types(self):
-        # getting all stypes
 
-        # import time
-        #
-        # start = time.time()
-        # print("start")
-        #
-        # for i in range(20):
-        #     server_start().query('sthpw/schema', [('code', 'the_pirate')])
-        #
-        # end = time.time()
-        # print(end - start)
-
-        # kwargs = {
-        #     'code': self.query_search_types_eval(),
-        # }
-        #
-        # result = eval(server_start().execute_python_script('', kwargs)['info']['spt_ret_val'])
         kwargs = {
             'project_code': self.info.get('code'),
             'namespace': self.info.get('type'),
         }
-        code = prepare_serverside_script(query_search_types_eval, kwargs, return_dict=True)
-        # print code
+        code = prepare_serverside_script(query_search_types_extended, kwargs, return_dict=True)
+
         result = server_start().execute_python_script('', kwargs=code)
 
-        stypes = eval(result['info']['spt_ret_val'])
-
-        # print snapshot
-
-        schema = eval(stypes.get('schema'))
-        stypes_pipelines = eval(stypes.get('stypes_pipelines'))
-        all_stypes = eval(stypes.get('all_stypes'))
-
-
-        # empty_tab = [{'__search_key__': u'sthpw/search_object?code=empty/empty',
-        #               'class_name': u'pyasm.search.SObject',
-        #               'code': u'empty/empty',
-        #               'color': None,
-        #               'database': u'{project}',
-        #               'default_layout': u'table',
-        #               'description': None,
-        #               'id': 84,
-        #               'id_column': None,
-        #               'message_event': None,
-        #               'metadata_parser': None,
-        #               'namespace': u'empty',
-        #               'schema': u'public',
-        #               'search_type': u'empty/empty',
-        #               'table_name': u'characters',
-        #               'title': u'empty',
-        #               'type': None}, ]
-        #
-        # search_type = 'sthpw/search_object'
-        # project_code = self.info.get('code')
-        # namespace = [self.info.get('type'), project_code]
-        #
-        # filters = [('namespace', namespace)]
-        #
-        # # if server:
-        # all_stypes = server_start().query(search_type, filters)
-        #
-        # if not all_stypes:
-        #     all_stypes = server_start().query(search_type, filters)
-        #     if not all_stypes:
-        #         all_stypes = empty_tab
-        #
-        # # getting pipeline process
-        # stypes_codes = []
-        # for stype in all_stypes:
-        #     stypes_codes.append(stype['code'])
-        #
-        # search_type = 'sthpw/pipeline'
-        #
-        # filters = [('search_type', stypes_codes), ('project_code', project_code)]
-        # stypes_pipelines = server_start().query(search_type, filters)
-        #
-        # # getting project schema
-        # schema = server_start().query('sthpw/schema', [('code', project_code)])
+        stypes = json.loads(result['info']['spt_ret_val'])
+        schema = stypes.get('schema')
+        stypes_pipelines = stypes.get('stypes_pipelines')
+        all_stypes = stypes.get('all_stypes')
 
         if schema:
             prj_schema = schema[0]['schema']
@@ -663,8 +547,7 @@ class Project(object):
         else:
             return self.get_all_search_types(all_stypes, stypes_pipelines, prj_schema)
 
-    @staticmethod
-    def get_all_search_types(stype_list, process_list, schema):
+    def get_all_search_types(self, stype_list, process_list, schema):
 
         pipeline = BeautifulSoup(schema, 'html.parser')
         all_connectionslist = []
@@ -699,7 +582,7 @@ class Project(object):
                     if process['search_type'] == dct.get(stype['code'])[0]['search_type']['name']:
                         stype_process = process
 
-            stype_obj = SType(stype, stype_schema, stype_process)
+            stype_obj = SType(stype, stype_schema, stype_process, project=self)
             stypes_objects[stype['code']] = stype_obj
 
         return stypes_objects
@@ -719,9 +602,10 @@ class SType(object):
     .pipeline.process['Blocking'].get('children')
 
     """
-    def __init__(self, stype, schema=None, process=None):
+    def __init__(self, stype, schema=None, process=None, project=None):
 
         self.info = stype
+        self.project = project
 
         if process:
             self.pipeline = Pipeline(process)
@@ -989,22 +873,22 @@ class Snapshot(SObject, object):
 
 # End of SObject Class
 
-
-def query_projects():
-    server = server_start()
-    search_type = 'sthpw/project'
-    filters = []
-    projects = server.query(search_type, filters)
-
-    exclude_list = ['sthpw', 'unittest', 'admin']
-
-    projects_by_category = collections.defaultdict(list)
-
-    for project in projects:
-        if project['code'] not in exclude_list:
-            projects_by_category[project['category']].append(project)
-
-    return projects_by_category
+#DEPRECATED
+# def query_projects():
+#     server = server_start()
+#     search_type = 'sthpw/project'
+#     filters = []
+#     projects = server.query(search_type, filters)
+#
+#     exclude_list = ['sthpw', 'unittest', 'admin']
+#
+#     projects_by_category = collections.defaultdict(list)
+#
+#     for project in projects:
+#         if project['code'] not in exclude_list:
+#             projects_by_category[project['category']].append(project)
+#
+#     return projects_by_category
 
 
 def query_all_projects():
@@ -1019,9 +903,12 @@ def query_all_projects():
 def get_all_projects():
 
     projects_list = query_all_projects()
+
     dct = collections.defaultdict(list)
 
     exclude_list = ['sthpw', 'unittest', 'admin']
+    if len(projects_list) == 2:
+        exclude_list = []
 
     for project in projects_list:
         if project.get('code') not in exclude_list:
@@ -1433,7 +1320,7 @@ def checkin_virtual_snapshot(search_key, context, snapshot_type='file', ext=None
     code = prepare_serverside_script(get_virtual_snapshot_extended, kwargs, return_dict=True)
 
     result = server_start().execute_python_script('', kwargs=code)
-    virtual_snapshot = eval(result['info']['spt_ret_val'])
+    virtual_snapshot = json.loads(result['info']['spt_ret_val'])
 
     if save_confirm(virtual_snapshot, repo, update_versionless):
         return virtual_snapshot
@@ -1760,7 +1647,7 @@ def checkin_file(search_key, context, snapshot_type='file', is_revision=False, d
 
     progres_bar.setVisible(False)
 
-    return check_ok
+    return virtual_snapshot
 
     # DEPRECATED
     # dest_file = gf.form_path(repo['value'][0] + '/' + virtual_snapshot['relative_path'] + '/' + virtual_snapshot['file_name'] + '.' + ext)
@@ -1954,12 +1841,24 @@ def get_notes_counts(process, search_type, search_code):
     return cnt
 
 
-def query_search_types_eval(project_code, namespace):
+def query_search_types_extended(project_code, namespace):
     """
     This crazy stuff made to execute queries on server
     All needed info is getting almost half time faster
     :return:
     """
+    # TODO remove query, and dig deeper to get more info about pipelines, processes, stypes
+    # from pyasm.search import Search
+    # from pyasm.biz import Pipeline
+    #
+    # search_type = 'cgshort/scenes'
+    # search = Search("sthpw/pipeline")
+    # search.add_filter("search_type", search_type)
+    # pipelines = search.get_sobjects()
+    #
+    # return str(pipelines)
+    import json
+
     empty_tab = [{'__search_key__': u'sthpw/search_object?code=empty/empty',
         'class_name': u'pyasm.search.SObject',
         'code': u'empty/empty',
@@ -2001,9 +1900,9 @@ def query_search_types_eval(project_code, namespace):
     # getting project schema
     schema = server.query('sthpw/schema', [('code', project_code)])
 
-    result = {'schema': str(schema), 'stypes_pipelines': str(stypes_pipelines), 'all_stypes': str(all_stypes),}
+    result = {'schema': schema, 'stypes_pipelines': stypes_pipelines, 'all_stypes': all_stypes}
 
-    return str(result)
+    return json.dumps(result, separators=(',', ':'))
 
 
 def get_virtual_snapshot_extended(search_key, context, snapshot_type="file", is_revision=False, level_key=None, file_type=['main'], file_name=[''], postfixes=None, subfolders=None, keep_file_name=False, ext=[''], version=None):
@@ -2036,6 +1935,7 @@ def get_virtual_snapshot_extended(search_key, context, snapshot_type="file", is_
     '''
 
     # getting virtual snapshots
+    import json
     from pyasm.biz import Snapshot
     from pyasm.biz import Project
     from pyasm.search import SearchType
@@ -2126,7 +2026,7 @@ def get_virtual_snapshot_extended(search_key, context, snapshot_type="file", is_
         result_dict['versionless']['paths'].append(prepare_folder(snapshot_versionless.get_dir('relative', file_type=file_type[i]), subfolders[i]))
         result_dict['versionless']['names'].append(prepare_filename(file_naming, fl, ext[i], postfixes[i]))
 
-    return str(result_dict)
+    return json.dumps(result_dict, separators=(',', ':'))
 
 
 def create_snapshot_extended(search_key, context, snapshot_type=None, is_revision=False, is_latest=True, is_current=False, description=None, version=None, level_key=None, update_versionless=True, file_types=None, file_names=None, file_paths=None, relative_paths=None, source_paths=None, file_sizes=None, exts=None, keep_file_name=True, repo_name=None, virtual_snapshot=None, mode=None, create_icon=False):
@@ -2237,7 +2137,6 @@ def create_snapshot_extended(search_key, context, snapshot_type=None, is_revisio
             fl_versionless.commit()
 
     return str('OKEEDOKEE')
-# return create_snapshot_extended(search_key=u'cgshort/characters?project=new&code=CHARACTERS00001', context=u'Concept', snapshot_type='file', is_revision=False, file_type='main', file_name='', ext=u'ini', version=None)
 
 # ['lib', 'client_repo', 'sandbox', 'local_repo', 'web', 'relative', 'custom_blabla']
 """
@@ -2315,3 +2214,106 @@ return snapshots_def.values()
 # end = time.time()
 # return(end - start)
 # 13.653764963150024 CHERRYPY
+
+
+# class_name = 'tactic.ui.manager.EditElementDefinitionWdg'
+#
+# args = {
+# 	'config_xml': '',
+# 	'element_name': 'priority',
+# 	'path': '/Edit/priority',
+# 	'search_type': 'sthpw/task',
+# 	'view': 'edit_definition',
+# }
+# args_array = []
+# from pyasm.common import Common
+# from pyasm.common import Container
+# widget = Common.create_from_class_path(class_name, args_array, args)
+#
+# Container.put("request_top_wdg", widget)
+# html = widget.get_buffer_display()
+# m = Container.get_instance()
+# print m.get('WidgetConfigView:display_options_cache')
+# return str(m.info)
+#
+# #widget_html = server.get_widget(class_name, args, [])
+# #return widget_html
+
+# class_name = 'tactic.ui.panel.EditWdg'
+#
+# args = {
+# 	'input_prefix': 'edit',
+# 	'search_key': 'cgshort/scenes?project=the_pirate&id=2',
+# 	'view': 'edit',
+# }
+# args_array = []
+# from pyasm.common import Common
+# from pyasm.common import Container
+# widget = Common.create_from_class_path(class_name, args_array, args)
+#
+# Container.put("request_top_wdg", widget)
+# html = widget.get_buffer_display()
+# m = Container.get_instance()
+# #print m.get('WidgetConfigView:display_options_cache')
+# return str(m.get_data())
+#
+# #widget_html = server.get_widget(class_name, args, [])
+# #return widget_html
+
+
+# class_name = 'tactic.ui.panel.EditWdg'
+#
+# args = {
+# 	'input_prefix': 'edit',
+# 	'search_key': 'cgshort/textures?project=the_pirate&id=1',
+# 	'view': 'edit',
+# }
+# args_array = []
+# from pyasm.common import Common
+# from pyasm.common import Container
+# widget = Common.create_from_class_path(class_name, args_array, args)
+#
+# Container.put("request_top_wdg", widget)
+# #widget.get_buffer_display()
+# widget.explicit_display()
+# m = Container.get_instance()
+# return m.get_data().keys()
+# #return (m.get('WidgetConfigView:display_options_cache'))
+# return str(m.get("Expression:@GET(cgshort/props.name)|['cgshort/props']|[]"))
+# return str(m.get("Expression:@GET(cgshort/applications_list.name)|['cgshort/applications_list']|[]"))
+# return str(m.get("Expression:@GET(cgshort/applications_list.code)|['cgshort/applications_list']|[]"))
+# return str(m.get("Expression:@GET(cgshort/props.name)|['cgshort/props']|[]"))
+# return str(m.get("Expression:@GET(cgshort/props.code)|['cgshort/props']|[]"))
+#
+# widget_html = server.get_widget(class_name, args, [])
+# return widget_html
+
+
+# class_name = 'tactic.ui.panel.EditWdg'
+#
+# args = {
+# 	'input_prefix': 'edit',
+# 	'search_key': 'cgshort/textures?project=the_pirate&id=1',
+# 	'view': 'edit',
+# }
+# args_array = []
+# from pyasm.common import Common
+# from pyasm.common import Container
+# widget = Common.create_from_class_path(class_name, args_array, args)
+#
+# Container.put("request_top_wdg", widget)
+# #widget.get_buffer_display()
+# widget.explicit_display()
+# edit_widgets = widget.get_widgets()
+# return (edit_widgets[5].values)
+# m = Container.get_instance()
+# return m.get_data().keys()
+# return (m.get('WidgetConfigView:display_options_cache'))
+# return str(m.get("Expression:@GET(cgshort/props.name)|['cgshort/props']|[]"))
+# return str(m.get("Expression:@GET(cgshort/applications_list.name)|['cgshort/applications_list']|[]"))
+# return str(m.get("Expression:@GET(cgshort/applications_list.code)|['cgshort/applications_list']|[]"))
+# return str(m.get("Expression:@GET(cgshort/props.name)|['cgshort/props']|[]"))
+# return str(m.get("Expression:@GET(cgshort/props.code)|['cgshort/props']|[]"))
+#
+# widget_html = server.get_widget(class_name, args, [])
+# return widget_html

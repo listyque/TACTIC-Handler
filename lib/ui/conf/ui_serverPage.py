@@ -1,9 +1,9 @@
 # -*- coding: utf-8 -*-
 
-# Form implementation generated from reading ui file 'conf\ui_serverPage.ui'
+# Form implementation generated from reading ui file 'conf/ui_serverPage.ui'
 #
-# Created: Sun Oct 16 14:06:15 2016
-#      by: pyside-uic 0.2.15 running on PySide 1.2.4
+# Created: Thu Oct 27 12:56:41 2016
+#      by: pyside-uic 0.2.13 running on PySide 1.2.2
 #
 # WARNING! All changes made in this file will be lost!
 
@@ -12,7 +12,6 @@ from PySide import QtCore, QtGui
 class Ui_serverPageWidget(object):
     def setupUi(self, serverPageWidget):
         serverPageWidget.setObjectName("serverPageWidget")
-        serverPageWidget.resize(492, 427)
         self.serverPageWidgetLayout = QtGui.QVBoxLayout(serverPageWidget)
         self.serverPageWidgetLayout.setSpacing(6)
         self.serverPageWidgetLayout.setContentsMargins(0, 0, 0, 0)
@@ -95,6 +94,7 @@ class Ui_serverPageWidget(object):
         self.proxyLoginLineEdit.setObjectName("proxyLoginLineEdit")
         self.proxyGridLayout.addWidget(self.proxyLoginLineEdit, 0, 1, 1, 1)
         self.proxyPasswordLineEdit = QtGui.QLineEdit(self.proxyGroupBox)
+        self.proxyPasswordLineEdit.setEchoMode(QtGui.QLineEdit.Password)
         self.proxyPasswordLineEdit.setObjectName("proxyPasswordLineEdit")
         self.proxyGridLayout.addWidget(self.proxyPasswordLineEdit, 1, 1, 1, 1)
         self.proxyServerLineEdit = QtGui.QLineEdit(self.proxyGroupBox)

@@ -58,10 +58,12 @@ class Ui_checkInTabWidget(QtGui.QWidget, sobj_tabs.Ui_sObjTabs):
         """
         self.all_tabs_label = []
 
+        ignore_tabs_list = []
         if self.checkin_out_config and self.checkin_out_config_projects and self.checkin_out_config_projects.get(self.current_project):
-            ignore_tabs_list = self.checkin_out_config_projects[self.current_project]['stypes_list']
-        else:
-            ignore_tabs_list = []
+            if not gf.get_value_from_config(self.checkin_out_config, 'processTabsFilterGroupBox', 'QGroupBox'):
+                ignore_tabs_list = []
+            else:
+                ignore_tabs_list = self.checkin_out_config_projects[self.current_project]['stypes_list']
 
         for i, stype in enumerate(self.stypes_items.itervalues()):
 
@@ -80,9 +82,10 @@ class Ui_checkInTabWidget(QtGui.QWidget, sobj_tabs.Ui_sObjTabs):
             self.sObjTabWidget.tabBar().setTabButton(i, QtGui.QTabBar.LeftSide, tab_label)
 
         # Remove hidden tabs
-        for tab in self.ui_tree:
-            if tab.tab_name in ignore_tabs_list:
-                self.sObjTabWidget.removeTab(self.sObjTabWidget.indexOf(tab))
+        if ignore_tabs_list:
+            for tab in self.ui_tree:
+                if tab.tab_name in ignore_tabs_list:
+                    self.sObjTabWidget.removeTab(self.sObjTabWidget.indexOf(tab))
 
     def readSettings(self):
         """
@@ -153,10 +156,12 @@ class Ui_checkOutTabWidget(QtGui.QWidget, sobj_tabs.Ui_sObjTabs):
         """
         self.all_tabs_label = []
 
+        ignore_tabs_list = []
         if self.checkin_out_config and self.checkin_out_config_projects and self.checkin_out_config_projects.get(self.current_project):
-            ignore_tabs_list = self.checkin_out_config_projects[self.current_project]['stypes_list']
-        else:
-            ignore_tabs_list = []
+            if not gf.get_value_from_config(self.checkin_out_config, 'processTabsFilterGroupBox', 'QGroupBox'):
+                ignore_tabs_list = []
+            else:
+                ignore_tabs_list = self.checkin_out_config_projects[self.current_project]['stypes_list']
 
         for i, stype in enumerate(self.stypes_items.itervalues()):
             self.ui_tree.append(checkout_tree_widget.Ui_checkOutTreeWidget(stype, i, self.project, self))
@@ -174,9 +179,10 @@ class Ui_checkOutTabWidget(QtGui.QWidget, sobj_tabs.Ui_sObjTabs):
             self.sObjTabWidget.tabBar().setTabButton(i, QtGui.QTabBar.LeftSide, tab_label)
 
         # Remove hidden tabs
-        for tab in self.ui_tree:
-            if tab.tab_name in ignore_tabs_list:
-                self.sObjTabWidget.removeTab(self.sObjTabWidget.indexOf(tab))
+        if ignore_tabs_list:
+            for tab in self.ui_tree:
+                if tab.tab_name in ignore_tabs_list:
+                    self.sObjTabWidget.removeTab(self.sObjTabWidget.indexOf(tab))
 
     def readSettings(self):
         """

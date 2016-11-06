@@ -178,7 +178,6 @@ class Ui_checkOutTreeWidget(QtGui.QWidget, ui_checkout_tree.Ui_checkOutTree):
             self.playblast_widget = icons_widget.Ui_iconsWidget(nested_item, True, True, self)
             self.imagesSplitter.resize(self.imagesSplitter.width() + 1,
                                        self.imagesSplitter.height())  # duct tape
-
             for i in range(self.playblastLayout.count()):
                 self.playblastLayout.itemAt(i).widget().close()
 
@@ -301,7 +300,7 @@ class Ui_checkOutTreeWidget(QtGui.QWidget, ui_checkout_tree.Ui_checkOutTree):
         current_widget = self.results_group_box.get_current_widget()
         current_tree_widget_item = current_widget.get_current_tree_widget_item()
 
-        if current_tree_widget_item.type == 'snapshot' and current_tree_widget_item.files:
+        if current_tree_widget_item and current_tree_widget_item.type == 'snapshot' and current_tree_widget_item.files:
             self.custom_menu = QtGui.QMenu()
 
             open_action = QtGui.QWidgetAction(self)

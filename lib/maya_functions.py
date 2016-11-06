@@ -72,6 +72,12 @@ def new_save_scene(search_key, context, description, snapshot_type='file', all_p
     postfixes = ['']
     subfolders = ['']
 
+    print exts, 'exts'
+    print file_types, ''
+    print file_names, ''
+    print postfixes, ''
+    print subfolders, ''
+
     if create_playblast:
         exts.extend(['jpg', 'jpg', 'png'])
         file_types.extend(['playblast', 'web', 'icon'])

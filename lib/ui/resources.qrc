@@ -4,8 +4,12 @@
     <file>gliph/searchHover_16.png</file>
   </qresource>
   <qresource prefix="ui_search">
+    <file>gliph/refresh_16.png</file>
     <file>gliph/history_16.png</file>
     <file>gliph/add_16.png</file>
+  </qresource>
+  <qresource prefix="ui_main">
+    <file>gliph/gear_16.png</file>
   </qresource>
   <qresource prefix="ui_main">
     <file>gliph/tactic_favicon.ico</file>
