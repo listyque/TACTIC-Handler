@@ -1,0 +1,97 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>createUpdateDialog</class>
+ <widget class="QDialog" name="createUpdateDialog">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>473</width>
+    <height>396</height>
+   </rect>
+  </property>
+  <property name="windowTitle">
+   <string>Creating new Update</string>
+  </property>
+  <property name="sizeGripEnabled">
+   <bool>true</bool>
+  </property>
+  <property name="modal">
+   <bool>true</bool>
+  </property>
+  <layout class="QFormLayout" name="formLayout">
+   <property name="fieldGrowthPolicy">
+    <enum>QFormLayout::AllNonFixedFieldsGrow</enum>
+   </property>
+   <item row="0" column="0">
+    <widget class="QLabel" name="versionLabel">
+     <property name="text">
+      <string>Version:</string>
+     </property>
+    </widget>
+   </item>
+   <item row="0" column="1">
+    <layout class="QHBoxLayout" name="horizontalLayout">
+     <item>
+      <widget class="QSpinBox" name="majorSpinBox"/>
+     </item>
+     <item>
+      <widget class="QSpinBox" name="minorSpinBox"/>
+     </item>
+     <item>
+      <widget class="QSpinBox" name="buildSpinBox"/>
+     </item>
+     <item>
+      <widget class="QSpinBox" name="revisionSpinBox"/>
+     </item>
+    </layout>
+   </item>
+   <item row="1" column="0">
+    <widget class="QLabel" name="dateLabel">
+     <property name="text">
+      <string>Date:</string>
+     </property>
+    </widget>
+   </item>
+   <item row="2" column="0">
+    <widget class="QLabel" name="changesLabel">
+     <property name="text">
+      <string>Changes:</string>
+     </property>
+    </widget>
+   </item>
+   <item row="2" column="1">
+    <widget class="QPlainTextEdit" name="changesPlainTextEdit"/>
+   </item>
+   <item row="3" column="0">
+    <widget class="QLabel" name="miscLabel">
+     <property name="text">
+      <string>Misc:</string>
+     </property>
+    </widget>
+   </item>
+   <item row="3" column="1">
+    <widget class="QPlainTextEdit" name="miscPlainTextEdit"/>
+   </item>
+   <item row="4" column="0" colspan="2">
+    <widget class="QPushButton" name="createUpdatePushButton">
+     <property name="text">
+      <string>Create Update</string>
+     </property>
+    </widget>
+   </item>
+   <item row="1" column="1">
+    <widget class="QDateEdit" name="dateEdit">
+     <property name="displayFormat">
+      <string>MM.dd.yyyy</string>
+     </property>
+     <property name="calendarPopup">
+      <bool>true</bool>
+     </property>
+    </widget>
+   </item>
+  </layout>
+ </widget>
+ <resources/>
+ <connections/>
+</ui>

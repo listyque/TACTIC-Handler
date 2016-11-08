@@ -2,8 +2,8 @@
 
 # Form implementation generated from reading ui file './ui_main.ui'
 #
-# Created: Thu Sep 22 00:06:56 2016
-#      by: pyside-uic 0.2.15 running on PySide 1.2.4
+# Created: Tue Nov  8 19:25:21 2016
+#      by: pyside-uic 0.2.13 running on PySide 1.2.2
 #
 # WARNING! All changes made in this file will be lost!
 
@@ -13,7 +13,6 @@ class Ui_MainWindow(object):
     def setupUi(self, MainWindow):
         MainWindow.setObjectName("MainWindow")
         MainWindow.setWindowModality(QtCore.Qt.ApplicationModal)
-        MainWindow.resize(427, 276)
         MainWindow.setMinimumSize(QtCore.QSize(427, 276))
         MainWindow.setStyleSheet("QTreeView {\n"
 "    show-decoration-selected: 1;\n"
@@ -52,7 +51,6 @@ class Ui_MainWindow(object):
         self.mainwidget.setObjectName("mainwidget")
         MainWindow.setCentralWidget(self.mainwidget)
         self.menubar = QtGui.QMenuBar(MainWindow)
-        self.menubar.setGeometry(QtCore.QRect(0, 0, 427, 21))
         self.menubar.setObjectName("menubar")
         self.menuConfig = QtGui.QMenu(self.menubar)
         self.menuConfig.setObjectName("menuConfig")
@@ -78,7 +76,6 @@ class Ui_MainWindow(object):
         self.menuConfig.addAction(self.actionServerside_Script)
         self.menuConfig.addSeparator()
         self.menuConfig.addAction(self.actionUpdate)
-        self.menuConfig.addAction(self.actionVersion)
         self.menuConfig.addSeparator()
         self.menuConfig.addSeparator()
         self.menuConfig.addAction(self.actionExit)

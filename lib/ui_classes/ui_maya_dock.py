@@ -4,15 +4,12 @@
 
 import PySide.QtCore as QtCore
 import PySide.QtGui as QtGui
-# import lib.environment as env
 from lib.environment import env_inst, env_mode, env_server
 import lib.maya_functions as mf
 import lib.tactic_classes as tc
 from maya.app.general.mayaMixin import MayaQWidgetDockableMixin
 import ui_main_classes
 
-reload(mf)
-reload(tc)
 reload(ui_main_classes)
 
 
@@ -101,12 +98,12 @@ class Ui_DockMain(MayaQWidgetDockableMixin, QtGui.QMainWindow):
         self.settings.endGroup()
         self.deleteLater()
 
+    def exiting(self):
+        self.close()
+
     def catch_maya_closing(self):
 
-        def exiting():
-            self.close()
-
-        QtGui.QApplication.instance().aboutToQuit.connect(exiting)
+        QtGui.QApplication.instance().aboutToQuit.connect(self.exiting)
 
     def closeEvent(self, event):
         event.accept()

@@ -9,16 +9,18 @@ import PySide.QtGui as QtGui
 # import lib.environment as env
 from lib.environment import env_mode, env_inst, env_server
 from lib.configuration import cfg_controls
-# import lib.configuration as cfg
 import lib.tactic_classes as tc
 import lib.update_functions as uf
 import lib.global_functions as gf
 
 if env_mode.get_mode() == 'maya':
     import lib.maya_functions as mf
+    reload(mf)
 import lib.ui.ui_main as ui_main
 import lib.ui.ui_main_tabs as ui_main_tabs
 import lib.ui.misc.ui_serverside as ui_serverside
+import lib.ui.misc.ui_update as ui_update
+import lib.ui.misc.ui_create_update as ui_create_update
 import ui_checkin_out_tabs_classes
 import ui_conf_classes
 import ui_my_tactic_classes
@@ -26,11 +28,143 @@ import ui_assets_browser_classes
 import ui_float_notify_classes
 
 reload(ui_main)
+reload(ui_main_tabs)
+reload(ui_serverside)
+reload(ui_update)
+reload(ui_create_update)
 reload(ui_checkin_out_tabs_classes)
 reload(ui_conf_classes)
 reload(ui_my_tactic_classes)
 reload(ui_assets_browser_classes)
-reload(ui_serverside)
+reload(ui_float_notify_classes)
+reload(tc)
+reload(uf)
+reload(gf)
+
+
+class Ui_updateDialog(QtGui.QDialog, ui_update.Ui_updateDialog):
+    def __init__(self, parent=None):
+        super(self.__class__, self).__init__(parent=parent)
+
+        self.setupUi(self)
+
+        uf.get_updates_from_server()
+
+        self.updates = uf.get_info_from_updates_folder()
+
+        self.last_version = None
+        self.current_version = uf.get_current_version()
+
+        self.load_local_updates()
+        self.check_current_version()
+
+        self.controls_actions()
+
+        self.commitPushButton.setHidden(True)
+
+    def load_local_updates(self):
+
+        for update in self.updates:
+            update_get = update.get
+            item = QtGui.QTreeWidgetItem()
+            item.setText(0, uf.get_version(string=True, **update_get('version')).replace('_', '.'))
+            item.setText(1, update_get('date'))
+            item.setText(2, update_get('changes'))
+            item.setText(3, update_get('misc'))
+            self.versionsTreeWidget.addTopLevelItem(item)
+        if self.updates:
+            self.last_version = self.updates[-1].get('version')
+
+        self.versionsTreeWidget.scrollToBottom()
+
+    def check_current_version(self):
+        current_version = uf.get_version(string=True, **self.current_version)
+        if self.last_version:
+            last_version = uf.get_version(string=True, **self.last_version)
+        else:
+            last_version = current_version
+
+        if current_version == last_version:
+            self.updateToLastPushButton.setEnabled(False)
+            self.currentVersionlabel.setText('<span style=" color:#00ff00;">{0} (up to date)</span>'.format(
+                current_version.replace('_', '.')))
+        else:
+            self.updateToLastPushButton.setEnabled(True)
+            self.currentVersionlabel.setText('<span style=" color:#ff0000;">{0} (new version available)</span>'.format(
+                current_version.replace('_', '.')))
+
+    def controls_actions(self):
+        self.commitPushButton.clicked.connect(self.create_new_update)
+        self.updateToLastPushButton.clicked.connect(self.update_to_last_version)
+        self.updateToSelectedPushButton.clicked.connect(self.update_to_selected_version)
+        self.currentVersionlabel.mouseDoubleClickEvent = self.currentVersionlabel_double_click
+
+    def currentVersionlabel_double_click(self, event):
+        modifiers = QtGui.QApplication.keyboardModifiers()
+        if modifiers == QtCore.Qt.ControlModifier:
+            self.commitPushButton.setHidden(False)
+
+    def update_to_last_version(self):
+        uf.save_current_version(self.last_version)
+        self.current_version = uf.get_current_version()
+        self.check_current_version()
+        archive_path = uf.get_update_archive_from_server(self.updates[-1].get('update_archive'))
+        uf.update_from_archive(archive_path)
+        env_inst.ui_main.restart_ui_main()
+
+    def update_to_selected_version(self):
+        pass
+
+    def create_new_update(self):
+        self.create_new_update_dialog = Ui_createUpdateDialog(self)
+        self.create_new_update_dialog.show()
+
+
+class Ui_createUpdateDialog(QtGui.QDialog, ui_create_update.Ui_createUpdateDialog):
+    def __init__(self, parent=None):
+        super(self.__class__, self).__init__(parent=parent)
+
+        self.setupUi(self)
+
+        current_datetime = QtCore.QDateTime.currentDateTime()
+        self.dateEdit.setDateTime(current_datetime)
+        self.initial_fill_version_spinbox()
+
+        self.controls_actions()
+
+    def initial_fill_version_spinbox(self):
+        version_dict = uf.get_current_version()
+        self.majorSpinBox.setValue(int(version_dict['major']))
+        self.minorSpinBox.setValue(int(version_dict['minor']))
+        self.buildSpinBox.setValue(int(version_dict['build']))
+        self.revisionSpinBox.setValue(int(version_dict['revision']))
+
+    def controls_actions(self):
+        self.createUpdatePushButton.clicked.connect(self.commit_update_to_json)
+
+    def commit_update_to_json(self):
+        args = self.majorSpinBox.text(),\
+               self.minorSpinBox.text(),\
+               self.buildSpinBox.text(),\
+               self.revisionSpinBox.text()
+        current_ver_dict = uf.get_version(*args)
+        current_ver_str = uf.get_version(*args, string=True)
+        data_dict = {
+            'version': current_ver_dict,
+            'date': self.dateEdit.text(),
+            'changes': self.changesPlainTextEdit.toPlainText(),
+            'misc': self.miscPlainTextEdit.toPlainText(),
+            'remove_list': [],
+            'update_archive': '{0}.tar.gz'.format(current_ver_str)
+        }
+        uf.save_json_to_path('{0}/updates/{1}.json'.format(env_mode.get_current_path(), current_ver_str), data_dict)
+        uf.create_updates_list()
+        uf.save_current_version(current_ver_dict)
+
+        self.close()
+
+    def create_tar_gz_archive(self):
+        pass
 
 
 class Ui_serverScriptEditForm(QtGui.QDialog, ui_serverside.Ui_scriptEditForm):
@@ -429,6 +563,18 @@ class Ui_Main(QtGui.QMainWindow, ui_main.Ui_MainWindow):
         self.readSettings()
         self.setIcon()
 
+        self.check_for_update()
+
+    def check_for_update(self):
+        if uf.check_need_update():
+            self.label_layout = QtGui.QVBoxLayout(self.menubar)
+            self.label_layout.setContentsMargins(0, 0, 6, 0)
+
+            update_label = QtGui.QLabel()
+            update_label.setAlignment(QtCore.Qt.AlignRight|QtCore.Qt.AlignVCenter)
+            update_label.setText('<span style=" font-size:8pt; color:#ff0000;">Need update</span>')
+            self.label_layout.addWidget(update_label)
+
     def threadsActions(self):
         self.projects_items_thread.finished.connect(lambda: self.query_projects(finish_thread=True))
 
@@ -456,7 +602,7 @@ class Ui_Main(QtGui.QMainWindow, ui_main.Ui_MainWindow):
 
         self.actionApply_to_all_Tabs.triggered.connect(self.apply_current_view)
 
-        self.actionUpdate.triggered.connect(lambda: self.update_self(thread_start=True))
+        self.actionUpdate.triggered.connect(self.update_self)
         self.actionServerside_Script.triggered.connect(self.create_server_side_script_editor)
 
         # deprecated
@@ -470,8 +616,10 @@ class Ui_Main(QtGui.QMainWindow, ui_main.Ui_MainWindow):
         self.serverside_script_editor = Ui_serverScriptEditForm(self)
         self.serverside_script_editor.show()
 
-    def update_self(self, thread_start=False, update=False):
-        uf.check_update()
+    def update_self(self):
+        self.update_dialog = Ui_updateDialog(self)
+
+        self.update_dialog.show()
 
     def open_config_dialog(self):
         conf_dialog = ui_conf_classes.Ui_configuration_dialogWidget(parent=self)

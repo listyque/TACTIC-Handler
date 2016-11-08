@@ -5,10 +5,8 @@ import copy
 import collections
 import PySide.QtCore as QtCore
 import PySide.QtGui as QtGui
-# import lib.environment as env
 from lib.environment import env_mode, env_inst, env_server, env_tactic
 from lib.configuration import cfg_controls
-# import lib.configuration as cfg
 import lib.tactic_classes as tc
 import lib.global_functions as gf
 import lib.ui.conf.ui_conf as ui_conf
@@ -21,7 +19,6 @@ import lib.ui.conf.ui_globalPage as ui_globalPage
 import lib.ui.conf.ui_mayaPage as ui_mayaPage
 
 if env_mode.get_mode() == 'maya':
-    # import ui_maya_dock
     import maya.cmds as cmds
 
 reload(ui_conf)
