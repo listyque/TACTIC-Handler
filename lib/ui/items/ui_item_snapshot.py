@@ -2,7 +2,7 @@
 
 # Form implementation generated from reading ui file 'items/ui_item_snapshot.ui'
 #
-# Created: Wed Sep 14 12:51:00 2016
+# Created: Wed Nov 16 15:37:48 2016
 #      by: pyside-uic 0.2.13 running on PySide 1.2.2
 #
 # WARNING! All changes made in this file will be lost!
@@ -19,6 +19,7 @@ class Ui_snapshotItem(object):
 "    padding: 3px;\n"
 "}")
         self.versionedLayout = QtGui.QGridLayout(snapshotItem)
+        self.versionedLayout.setSizeConstraint(QtGui.QLayout.SetNoConstraint)
         self.versionedLayout.setContentsMargins(0, 0, 0, 0)
         self.versionedLayout.setSpacing(0)
         self.versionedLayout.setObjectName("versionedLayout")
@@ -50,15 +51,12 @@ class Ui_snapshotItem(object):
         self.commentLabel.setWordWrap(True)
         self.commentLabel.setMargin(2)
         self.commentLabel.setObjectName("commentLabel")
-        self.versionedLayout.addWidget(self.commentLabel, 1, 1, 1, 1)
+        self.versionedLayout.addWidget(self.commentLabel, 1, 1, 1, 2)
         self.dateLabel = QtGui.QLabel(snapshotItem)
         self.dateLabel.setMinimumSize(QtCore.QSize(0, 25))
-        self.dateLabel.setAccessibleDescription("")
-        self.dateLabel.setStyleSheet("QLabel {\n"
-"    padding: 4px;\n"
-"}")
         self.dateLabel.setTextFormat(QtCore.Qt.PlainText)
         self.dateLabel.setAlignment(QtCore.Qt.AlignBottom|QtCore.Qt.AlignRight|QtCore.Qt.AlignTrailing)
+        self.dateLabel.setMargin(2)
         self.dateLabel.setObjectName("dateLabel")
         self.versionedLayout.addWidget(self.dateLabel, 1, 3, 1, 1)
         self.fileNameLabel = QtGui.QLabel(snapshotItem)
@@ -78,8 +76,10 @@ class Ui_snapshotItem(object):
         self.verRevLabel.setTextFormat(QtCore.Qt.RichText)
         self.verRevLabel.setObjectName("verRevLabel")
         self.versionedLayout.addWidget(self.verRevLabel, 0, 2, 1, 1)
+        spacerItem = QtGui.QSpacerItem(0, 0, QtGui.QSizePolicy.Minimum, QtGui.QSizePolicy.Expanding)
+        self.versionedLayout.addItem(spacerItem, 2, 1, 1, 1)
         self.versionedLayout.setColumnStretch(1, 1)
-        self.versionedLayout.setRowStretch(1, 1)
+        self.versionedLayout.setRowStretch(2, 1)
 
         self.retranslateUi(snapshotItem)
         QtCore.QMetaObject.connectSlotsByName(snapshotItem)

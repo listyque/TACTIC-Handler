@@ -5,14 +5,15 @@ import subprocess
 import os
 import sys
 import copy
+import json
 import zlib
 import binascii
 import collections
+import side.qtawesome as qta
 from lib.side.bs4 import BeautifulSoup
-
 import PySide.QtGui as QtGui
 import PySide.QtCore as QtCore
-# import environment as env
+from PySide import QtSvg
 from environment import env_mode, env_tactic
 
 
@@ -76,6 +77,102 @@ def hex_to_html(text_hex):
             hex_to_text = text_hex
 
         return hex_to_text
+
+
+def to_json(obj, pretty=False):
+    indent = None
+    separators = (',', ':')
+    if pretty:
+        indent = 4
+        separators = (', ', ': ')
+    return json.dumps(obj, indent=indent, separators=separators)
+
+
+def from_json(obj):
+    if obj:
+        return json.loads(obj)
+
+
+def split_files_and_dirs(filename):
+    dirs_list = []
+    files_list = []
+    for single in filename:
+        if os.path.isdir(single):
+            dirs_list.append(single)
+        else:
+            files_list.append(extract_filename(single))
+
+    return dirs_list, files_list
+
+
+def sequences_from_files(files_list):
+    print(files_list)
+
+
+def sequences_from_dirs(files_list):
+    print(files_list)
+
+
+def file_format(ext):
+    formats = {
+        'ma': 'mayaAscii',
+        'mb': 'mayaBinary',
+        'hip': 'Houdini',
+        '3b': '3D-Coat',
+        'max': '3DSMax scene',
+        'scn': 'Softimage XSI',
+        'mud': 'Mudbox',
+        'abc': 'Alembic',
+        'obj': 'OBJ',
+        '3ds': '3DSMax model',
+        'nk': 'Nuke',
+        'fbx': 'FBX',
+        'dae': 'COLLADA',
+        'rs': 'Redshift Proxy',
+        'vdb': 'Open VDB',
+        'jpg': 'JPEG Image',
+        'jpeg': 'JPEG Image',
+        'psd': 'Photoshop PSD',
+        'tif': 'TIFF Image',
+        'tiff': 'TIFF Image',
+        'png': 'PNG Image',
+        'tga': 'TARGA Image',
+        'exr': 'EXR Image',
+        'hdr': 'HDR Image',
+        'dpx': 'DPX Image',
+        'mov': 'MOV Animation',
+        'avi': 'AVI Animation',
+    }
+    if ext in formats.iterkeys():
+        return formats[ext]
+    else:
+        return ext
+
+
+def extract_extension(filename):
+    # TODO Check for file without EXT
+    ext = unicode(os.path.basename(filename)).split('.', -1)
+    if not os.path.isdir(filename):
+        if len(ext) > 1:
+            return ext[-1], file_format(ext[-1])
+    elif os.path.isdir(filename):
+        return filename, 'Folder'
+
+
+def extract_filename(filename):
+    name = unicode(os.path.basename(filename)).split('.', 1)
+    if len(name) > 1:
+        return name[0] + '.' + name[1]
+    else:
+        return name[0]
+
+
+def extract_dirname(filename):
+    dir = unicode(os.path.realpath(filename)).split('.', 1)
+    if len(dir) == 1 and not os.path.isdir(filename):
+        return dir[0]
+    else:
+        return os.path.dirname(filename)
 
 
 def minify_code(source, pack=False):
@@ -146,11 +243,12 @@ def get_value_from_config(config_dict, control, control_type=None):
     # if control_type:
     #     config_dict = {'key': config_dict[control_type]}
     # print config_dict
-    for all_values in config_dict.itervalues():
-        # print all_values
-        for obj_name, value in zip(all_values['obj_name'], all_values['value']):
-            if control == obj_name:
-                return value
+    if config_dict:
+        for all_values in config_dict.itervalues():
+            # print all_values
+            for obj_name, value in zip(all_values['obj_name'], all_values['value']):
+                if control == obj_name:
+                    return value
 
 
 def walk_through_layouts(args=None, ignore_list=None):
@@ -303,18 +401,35 @@ def create_tab_label(tab_name, stype):
     tab_color = stype.info['color']
     if tab_color:
         effect = QtGui.QGraphicsDropShadowEffect(tab_label)
-        t_c = hex_to_rgb(tab_color, alpha=255, tuple=True)
-        effect.setOffset(1, 1)
+        t_c = hex_to_rgb(tab_color, alpha=8, tuple=True)
+        effect.setOffset(2, 2)
         effect.setColor(QtGui.QColor(t_c[0], t_c[1], t_c[2], t_c[3]))
-        effect.setBlurRadius(20)
+        effect.setBlurRadius(8)
         tab_label.setGraphicsEffect(effect)
 
-        tab_color_rgb = hex_to_rgb(tab_color, alpha=8)
+        tab_color_rgb = hex_to_rgb(tab_color, alpha=20)
         tab_label.setStyleSheet('QLabel {' +
-                                'background-color: qlineargradient(spread:pad, x1:0, y1:0, x2:1, y2:0, stop:0 rgba(0, 0, 0, 0), stop:0.2 {0}, stop:0.8 {0}, stop:1 rgba(0, 0, 0, 0));'.format(
+                                'background: qlineargradient(spread:pad, x1:0, y1:0, x2:1, y2:0, stop:0 rgba(0, 0, 0, 0), stop:0.2 {0}, stop:0.8 {0}, stop:1 rgba(0, 0, 0, 0));'.format(
                                     tab_color_rgb) +
                                 '}')
     return tab_label
+
+
+def get_icon(icon_name, icon_name_activ=None, color=None, color_active=None):
+
+    if not color:
+        color = QtGui.QColor(200, 200, 200)
+    if not color_active:
+        color_active = QtGui.QColor(240, 240, 240)
+    if not icon_name_activ:
+        icon_name_activ = icon_name
+    styling_icon = qta.icon(
+        'fa.{0}'.format(icon_name),
+        active='fa.{0}'.format(icon_name_activ),
+        color=color,
+        color_active=color_active)
+
+    return styling_icon
 
 
 # New QTreeWidget funcs
@@ -336,59 +451,60 @@ def add_item_to_tree(tree_widget, tree_item, tree_item_widget=None, insert_pos=N
             tree_widget.treeWidget().setItemWidget(tree_item, 0, tree_item_widget)
 
 
-def add_sobject_item(parent_item, parent_widget, sobject, stype, process, item_info, insert_pos=None):
+def add_sobject_item(parent_item, parent_widget, sobject, stype, item_info, insert_pos=None, ignore_dict=None):
     from lib.ui_classes.ui_item_classes import Ui_itemWidget
 
     tree_item = QtGui.QTreeWidgetItem()
-    tree_item_widget = Ui_itemWidget(sobject, stype, item_info, tree_item, parent_widget)
+    tree_item.setChildIndicatorPolicy(QtGui.QTreeWidgetItem.ShowIndicator)
+    tree_item_widget = Ui_itemWidget(sobject, stype, item_info, tree_item, ignore_dict, parent_widget)
 
     add_item_to_tree(parent_item, tree_item, tree_item_widget, insert_pos=insert_pos)
 
-    # adding child items
-    child_items = []
-    if tree_item_widget.children_stypes:
-        for child in tree_item_widget.children_stypes:
-            child_stype = parent_widget.project.stypes[child.get('from')]
-            child_items.append(add_child_item(
-                tree_item_widget.tree_item,
-                parent_widget,
-                sobject,
-                child_stype,
-                child,
-                item_info
-            ))
-    tree_item_widget.child_items = child_items
+    # ALL MOVED TO SOBJECT ITEM
+    # # adding child items
+    # child_items = []
+    # if tree_item_widget.children_stypes:
+    #     for child in tree_item_widget.children_stypes:
+    #         child_stype = parent_widget.project.stypes[child.get('from')]
+    #         child_items.append(add_child_item(
+    #             tree_item_widget.tree_item,
+    #             parent_widget,
+    #             sobject,
+    #             child_stype,
+    #             child,
+    #             item_info
+    #         ))
+    # tree_item_widget.child_items = child_items
 
-    # adding process items
-    process_items = []
-    if process:
-        process_keys = process
-    # elif stype.pipeline:
-    #     process_keys = stype.pipeline.process.iterkeys()
-    else:
-        process_keys = []
-
-    for process in process_keys:
-        process_items.append(add_process_item(
-            tree_item_widget.tree_item,
-            parent_widget,
-            sobject,
-            stype,
-            process,
-            item_info
-        ))
-
-    if process_items:
-        tree_item_widget.process_items = process_items
-    else:
-        # this loads root 'publish' items on expand !my favorite duct tape!
-        tree_item_widget.tree_item.setExpanded(True)
-        tree_item_widget.tree_item.setExpanded(False)
+    # # adding process items
+    # process_items = []
+    # if process:
+    #     process_keys = process
+    # # elif stype.pipeline:
+    # #     process_keys = stype.pipeline.process.iterkeys()
+    # else:
+    #     process_keys = []
+    #
+    # for process in process_keys:
+    #     process_items.append(add_process_item(
+    #         tree_item_widget.tree_item,
+    #         parent_widget,
+    #         sobject,
+    #         stype,
+    #         process,
+    #         item_info
+    #     ))
+    #
+    # if process_items:
+    #     tree_item_widget.process_items = process_items
+    # else:
+    #     # this loads root 'publish' items on expand !my favorite duct tape!
+    #     tree_item_widget.tree_item.setChildIndicatorPolicy(QtGui.QTreeWidgetItem.ShowIndicator)
 
     return tree_item_widget
 
 
-def add_process_item(tree_widget, parent_widget, sobject, stype, process, item_info):
+def add_process_item(tree_widget, parent_widget, sobject, stype, process, item_info, insert_pos=None, pipeline=None):
     from lib.ui_classes.ui_item_classes import Ui_processItemWidget
 
     tree_item = QtGui.QTreeWidgetItem()
@@ -396,9 +512,9 @@ def add_process_item(tree_widget, parent_widget, sobject, stype, process, item_i
         'relates_to': item_info['relates_to'],
         'is_expanded': False,
     }
-    tree_item_widget = Ui_processItemWidget(sobject, stype, process, item_info, tree_item, parent_widget)
+    tree_item_widget = Ui_processItemWidget(sobject, stype, process, item_info, tree_item, pipeline, parent_widget)
 
-    add_item_to_tree(tree_widget, tree_item, tree_item_widget)
+    add_item_to_tree(tree_widget, tree_item, tree_item_widget, insert_pos=insert_pos)
 
     return tree_item_widget
 

@@ -1,9 +1,9 @@
 # -*- coding: utf-8 -*-
 
-# Form implementation generated from reading ui file 'checkin\ui_checkin_options.ui'
+# Form implementation generated from reading ui file 'checkin/ui_checkin_options.ui'
 #
-# Created: Thu Sep 22 00:04:23 2016
-#      by: pyside-uic 0.2.15 running on PySide 1.2.4
+# Created: Fri Nov 25 18:02:57 2016
+#      by: pyside-uic 0.2.13 running on PySide 1.2.2
 #
 # WARNING! All changes made in this file will be lost!
 
@@ -12,7 +12,6 @@ from PySide import QtCore, QtGui
 class Ui_checkinOptionsGroupBox(object):
     def setupUi(self, checkinOptionsGroupBox):
         checkinOptionsGroupBox.setObjectName("checkinOptionsGroupBox")
-        checkinOptionsGroupBox.resize(537, 129)
         sizePolicy = QtGui.QSizePolicy(QtGui.QSizePolicy.Preferred, QtGui.QSizePolicy.Minimum)
         sizePolicy.setHorizontalStretch(0)
         sizePolicy.setVerticalStretch(0)
@@ -112,6 +111,6 @@ class Ui_checkinOptionsGroupBox(object):
         self.checkinMethodComboBox.setItemText(2, QtGui.QApplication.translate("checkinOptionsGroupBox", "Copy", None, QtGui.QApplication.UnicodeUTF8))
         self.checkinMethodComboBox.setItemText(3, QtGui.QApplication.translate("checkinOptionsGroupBox", "Move", None, QtGui.QApplication.UnicodeUTF8))
         self.checkinMethodComboBox.setItemText(4, QtGui.QApplication.translate("checkinOptionsGroupBox", "Upload", None, QtGui.QApplication.UnicodeUTF8))
-        self.updateVersionlessCheckBox.setText(QtGui.QApplication.translate("checkinOptionsGroupBox", "Update Versionless", None, QtGui.QApplication.UnicodeUTF8))
+        self.updateVersionlessCheckBox.setText(QtGui.QApplication.translate("checkinOptionsGroupBox", "Update versionless", None, QtGui.QApplication.UnicodeUTF8))
         self.askBeforeSaveCheckBox.setText(QtGui.QApplication.translate("checkinOptionsGroupBox", "Ask before save", None, QtGui.QApplication.UnicodeUTF8))
 

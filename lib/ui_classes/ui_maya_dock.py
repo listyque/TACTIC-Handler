@@ -14,11 +14,13 @@ reload(ui_main_classes)
 
 
 class Ui_DockMain(MayaQWidgetDockableMixin, QtGui.QMainWindow):
-    def __init__(self, tab_index=None, parent=None):
+    def __init__(self, hotkeys=None, parent=None):
         super(self.__class__, self).__init__(parent=parent)
         env_inst.ui_maya_dock = self
+        self.setObjectName('TacticHandlerDock')
+        self.maya_window = self.parent()
 
-        self.tab_index = tab_index
+        self.hotkeys_dict = hotkeys
 
         self.settings = QtCore.QSettings('{0}/settings/{1}/{2}/{3}/main_ui_config.ini'.format(
             env_mode.get_current_path(),
@@ -27,106 +29,173 @@ class Ui_DockMain(MayaQWidgetDockableMixin, QtGui.QMainWindow):
             env_mode.get_mode()),
             QtCore.QSettings.IniFormat)
 
-        self.ui_main_window = ui_main_classes.Ui_Main(self.parent())
-        self.setCentralWidget(self.ui_main_window)
-        env_inst.ui_main = self.ui_main_window
-
-        self.setObjectName('TacticDockWindow')
+        self.docked = None
+        self.dock_pos = None
+        self.dock_area = None
+        self.dock_size = None
+        self.dock_is_floating = None
 
         self.readSettings()
 
-        # overriding QMayaDockWidget buggy resize event
-        self.parent().resizeEvent = self.resizeEvent
+        self.toggle_dock = None
+        self.maya_dock = None
+        self.status_bar = None
 
-        self.switch_tab()
+        self.create_ui_main()
+
+        self.create_ui()
+
+        # overriding QMayaDockWidget buggy resize event
+        self.maya_window.resizeEvent = self.resizeEvent
+
+        # self.switch_tab()
+        # self.handle_hotkey()
 
         self.catch_maya_closing()
 
-    @staticmethod
-    def restarting(tab_index):
-        try:
-            main_dock = mf.get_maya_dock_window()
-            for i in range(len(main_dock)):
-                main_dock[i].close()
-                print('TACTIC Handler is already running! Restarting...')
-        except:
-            raise
+    def create_ui(self):
+        if self.docked:
+            self.set_docked()
+        else:
+            self.set_undocked()
 
-        Ui_DockMain(tab_index)
+    def toggle_docking(self):
+        if self.toggle_dock:
+            self.set_undocked()
+        else:
+            self.set_docked()
 
-    def switch_tab(self, tab_index=None):
-        # Open current tab when app starting
-        if self.tab_index is not None:
-            self.ui_main_window.main_tabWidget.setCurrentIndex(self.tab_index)
+    def create_ui_main(self):
+        env_inst.ui_main = ui_main_classes.Ui_Main(self.maya_window)
+        self.setCentralWidget(env_inst.ui_main)
+        self.setWindowTitle(env_inst.ui_main.windowTitle())
+        self.move(self.dock_pos)
 
-        if tab_index is not None:
-            self.ui_main_window.main_tabWidget.setCurrentIndex(tab_index)
+    # def switch_tab(self, tab_index=None):
+    #     # Open current tab when app starting
+    #     if self.tab_index is not None:
+    #         self.ui_main_window.main_tabWidget.setCurrentIndex(self.tab_index)
+    #
+    #     if tab_index is not None:
+    #         self.ui_main_window.main_tabWidget.setCurrentIndex(tab_index)
+
+    def handle_hotkeys(self):
+        print(self.hotkeys_dict)
+        project_code = self.hotkeys_dict.get('project')
+        if project_code:
+            env_inst.ui_main.create_project_dock(project_code)
+
+
+    def set_docked(self):
+        if self.status_bar:
+            self.status_bar.hide()
+
+        self.toggle_dock = True
+        self.setDockableParameters(
+            dockable=True,
+            floating=self.dock_is_floating,
+            area=self.dock_area,
+            width=self.dock_size.width(),
+            height=self.dock_size.height()
+        )
+        self.maya_dock = self.parent()
+        self.maya_dock.setAllowedAreas(
+            QtCore.Qt.DockWidgetArea.RightDockWidgetArea |
+            QtCore.Qt.DockWidgetArea.LeftDockWidgetArea
+        )
+        self.show()
+        self.raise_()
+        self.docked = True
+
+    def set_undocked(self):
+        self.toggle_dock = False
+        self.setDockableParameters(
+            dockable=False,
+            floating=self.dock_is_floating,
+            area=self.dock_area,
+            width=self.dock_size.width(),
+            height=self.dock_size.height()
+        )
+        if self.maya_dock:
+            self.removeDockWidget(self.maya_dock)
+            self.maya_dock.close()
+            self.maya_dock.deleteLater()
+        self.docked = False
+        self.status_bar = env_inst.ui_main.statusBar()
+        self.status_bar.show()
 
     def readSettings(self):
         """
         Reading Settings
         """
-        self.setWindowTitle(self.ui_main_window.windowTitle())
         self.settings.beginGroup('ui_maya_dock')
-        is_floating = self.settings.value('isFloating', 'false') == 'true' and True or False
-        self.move(self.settings.value('pos', QtCore.QPoint(200, 200)))
-        size = self.settings.value('size', QtCore.QSize(427, 690))
-        if self.settings.value('tabArea', self) == 2:
-            area = 'right'
+        self.docked = bool(int(self.settings.value('docked', 1)))
+        self.dock_pos = self.settings.value('dock_pos', QtCore.QPoint(200, 200))
+        if self.docked:
+            self.move(self.dock_pos)
+        self.dock_is_floating = bool(int(self.settings.value('dock_isFloating', 0)))
+        self.dock_size = self.settings.value('dock_size', QtCore.QSize(427, 690))
+        if int(self.settings.value('dock_tabArea', 1)) == 2:
+            self.dock_area = 'right'
         else:
-            area = 'left'
+            self.dock_area = 'left'
+
         self.settings.endGroup()
-
-        self.setDockableParameters(dockable=True, floating=is_floating, area=area, width=size.width(),
-                                   height=size.height())
-        self.parent().setAllowedAreas(
-            QtCore.Qt.DockWidgetArea.RightDockWidgetArea | QtCore.Qt.DockWidgetArea.LeftDockWidgetArea)
-
-        self.show()
-        self.raise_()
 
     def writeSettings(self):
         """
         Writing Settings
         """
         self.settings.beginGroup('ui_maya_dock')
-        self.settings.setValue('pos', self.parent().pos())
-        self.settings.setValue('size', self.size())
-        self.settings.setValue('isFloating', self.isFloating())
-        self.settings.setValue('tabArea', self.parent().parent().dockWidgetArea(self.parent()))
+        if self.docked:
+            self.settings.setValue('dock_pos', self.maya_dock.pos())
+            self.settings.setValue('dock_size', self.maya_dock.size())
+            self.settings.setValue('dock_isFloating', int(bool(self.isFloating())))
+            self.settings.setValue('dock_tabArea', int(self.maya_window.dockWidgetArea(self.maya_dock)))
+        else:
+            self.settings.setValue('dock_pos', self.pos())
+            self.settings.setValue('dock_size', self.size())
+        self.settings.setValue('docked', int(self.docked))
         print('Done ui_maya_dock settings write')
         self.settings.endGroup()
-        self.deleteLater()
-
-    def exiting(self):
-        self.close()
 
     def catch_maya_closing(self):
-
-        QtGui.QApplication.instance().aboutToQuit.connect(self.exiting)
+        QtGui.QApplication.instance().aboutToQuit.connect(self.close)
 
     def closeEvent(self, event):
         event.accept()
-        self.parent().close()
-        self.parent().deleteLater()
-        self.ui_main_window.close()
+        self.removeDockWidget(self.maya_dock)
+        self.maya_dock.close()
+        self.maya_dock.deleteLater()
         self.writeSettings()
 
 
-def create_ui(thread, tab_index):
+def close_all_instances():
+    try:
+        main_docks = mf.get_maya_dock_window()
+        for dock in main_docks:
+            dock.close()
+            if env_inst.ui_main:
+                env_inst.ui_main.close()
+    except:
+        raise
+
+
+def create_ui(thread, hotkeys=None):
     thread = tc.treat_result(thread)
     if thread.result == QtGui.QMessageBox.ApplyRole:
-        retry_startup(thread, tab_index)
+        retry_startup(thread)
     else:
         if thread.isFailed():
             env_mode.set_offline()
-            main_tab = Ui_DockMain(tab_index=tab_index)
+            main_tab = Ui_DockMain()
         else:
             env_mode.set_online()
-            main_tab = Ui_DockMain(tab_index=tab_index)
+            main_tab = Ui_DockMain(hotkeys=hotkeys)
 
         env_inst.ui_maya_dock = main_tab
-        main_tab.switch_tab(tab_index)
+        if hotkeys:
+            main_tab.handle_hotkeys()
         main_tab.show()
         main_tab.raise_()
 
@@ -134,22 +203,30 @@ def create_ui(thread, tab_index):
             env_inst.ui_main.open_config_dialog()
 
 
-def retry_startup(thread, tab_index):
+def retry_startup(thread):
     thread.run()
-    create_ui(thread, tab_index)
+    create_ui(thread)
 
 
-def startup(tab_index=None, restart=False):
+def restart():
+    reload(ui_main_classes)
+    ping_thread = tc.get_server_thread(dict(), tc.server_ping, lambda: create_ui(ping_thread), parent=env_inst.ui_super)
+    ping_thread.start()
+    return ping_thread
+
+
+def startup(restart=False, hotkeys=None):
     if restart:
-        Ui_DockMain.restarting(tab_index)
+        close_all_instances()
 
     env_inst.ui_super = mf.get_maya_window()
 
     try:
         main_tab = mf.get_maya_dock_window()[0]
-        main_tab.switch_tab(tab_index)
+        main_tab.hotkeys_dict = hotkeys
+        main_tab.handle_hotkeys()
         main_tab.show()
         main_tab.raise_()
     except:
-        ping_thread = tc.get_server_thread(dict(), tc.server_ping, lambda: create_ui(ping_thread, tab_index), parent=env_inst.ui_super)
+        ping_thread = tc.get_server_thread(dict(), tc.server_ping, lambda: create_ui(ping_thread, hotkeys), parent=env_inst.ui_super)
         ping_thread.start()

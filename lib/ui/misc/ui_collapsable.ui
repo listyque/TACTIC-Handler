@@ -2,14 +2,6 @@
 <ui version="4.0">
  <class>collapsableWidget</class>
  <widget class="QWidget" name="collapsableWidget">
-  <property name="geometry">
-   <rect>
-    <x>0</x>
-    <y>0</y>
-    <width>177</width>
-    <height>25</height>
-   </rect>
-  </property>
   <layout class="QVBoxLayout" name="verticalLayout" stretch="0,1">
    <property name="spacing">
     <number>0</number>
@@ -39,9 +31,6 @@
      </property>
      <property name="autoRaise">
       <bool>true</bool>
-     </property>
-     <property name="arrowType">
-      <enum>Qt::UpArrow</enum>
      </property>
     </widget>
    </item>

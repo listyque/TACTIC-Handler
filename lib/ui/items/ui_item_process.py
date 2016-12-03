@@ -2,7 +2,7 @@
 
 # Form implementation generated from reading ui file 'items/ui_item_process.ui'
 #
-# Created: Wed Sep 14 12:54:56 2016
+# Created: Thu Dec  1 18:35:07 2016
 #      by: pyside-uic 0.2.13 running on PySide 1.2.2
 #
 # WARNING! All changes made in this file will be lost!
@@ -22,7 +22,7 @@ class Ui_processItem(object):
         self.notesToolButton.setMaximumSize(QtCore.QSize(16777215, 20))
         self.notesToolButton.setToolButtonStyle(QtCore.Qt.ToolButtonTextBesideIcon)
         self.notesToolButton.setAutoRaise(True)
-        self.notesToolButton.setArrowType(QtCore.Qt.UpArrow)
+        self.notesToolButton.setArrowType(QtCore.Qt.NoArrow)
         self.notesToolButton.setObjectName("notesToolButton")
         self.versionlessLayout.addWidget(self.notesToolButton, 0, 1, 1, 1)
         self.label = QtGui.QLabel(processItem)
@@ -41,5 +41,5 @@ class Ui_processItem(object):
         QtCore.QMetaObject.connectSlotsByName(processItem)
 
     def retranslateUi(self, processItem):
-        self.notesToolButton.setText(QtGui.QApplication.translate("processItem", "Notes", None, QtGui.QApplication.UnicodeUTF8))
+        pass
 

@@ -247,7 +247,7 @@ class Env(object):
         print('Done set_server_presets settings write')
         self.settings.endGroup()
 
-    def set_cur_srv_idx(self, current_idx):
+    def set_cur_srv_preset(self, current_idx):
         self.set_server_presets(self.server_presets['presets_list'], current_idx)
 
     def get_cur_srv_preset(self):

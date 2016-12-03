@@ -10,12 +10,12 @@ import urlparse
 import collections
 import json
 from lib.side.bs4 import BeautifulSoup
-import PySide.QtGui as QtGui
-import PySide.QtCore as QtCore
+from lib.side.Qt import QtGui
+from lib.side.Qt import QtCore
 import lib.proxy as proxy
-# import environment as env
 from lib.environment import env_mode, env_server, env_inst
 import global_functions as gf
+import tactic_query as tq
 import lib.ui_classes.ui_misc_classes as ui_misc_classes
 import side.client.tactic_client_lib as tactic_client_lib
 
@@ -80,7 +80,9 @@ def get_server_thread(kwargs_dict, runnable_func, connected_func, parent=None):
     return thread
 
 
-def treat_result(thread):
+def treat_result(thread, silent=False):
+    if silent:
+        return thread
     if thread.isFailed():
         print 'ERROR TREATING'
         return error_handle(thread)
@@ -508,6 +510,7 @@ class Project(object):
 
         self.info = project
         self.stypes = None
+        self.workflow = None
 
     def get_stypes(self):
         # import time
@@ -526,26 +529,27 @@ class Project(object):
 
         kwargs = {
             'project_code': self.info.get('code'),
-            'namespace': self.info.get('type'),
+            'namespace': self.info.get('type')
         }
-        code = prepare_serverside_script(query_search_types_extended, kwargs, return_dict=True)
+        code = tq.prepare_serverside_script(tq.query_search_types_extended, kwargs, return_dict=True)
 
         result = server_start().execute_python_script('', kwargs=code)
 
         stypes = json.loads(result['info']['spt_ret_val'])
+
         schema = stypes.get('schema')
-        stypes_pipelines = stypes.get('stypes_pipelines')
-        all_stypes = stypes.get('all_stypes')
+        pipelines = stypes.get('pipelines')
+        stypes = stypes.get('stypes')
 
         if schema:
             prj_schema = schema[0]['schema']
         else:
             prj_schema = None
 
-        if not (stypes_pipelines or schema):
+        if not (pipelines or schema):
             return None
         else:
-            return self.get_all_search_types(all_stypes, stypes_pipelines, prj_schema)
+            return self.get_all_search_types(stypes, pipelines, prj_schema)
 
     def get_all_search_types(self, stype_list, process_list, schema):
 
@@ -571,17 +575,21 @@ class Project(object):
 
             dct[pipe.attrs['name']].append(conn)
 
-        stypes_objects = collections.OrderedDict()
+        # getting workflow here
+        self.workflow = Workflow(process_list)
 
+        # getting stypes processes here
+        stypes_objects = collections.OrderedDict()
         for stype in stype_list:
-            stype_process = None
+            stype_process = collections.OrderedDict()
             stype_schema = dct.get(stype['code'])
 
             for process in process_list:
+                # print process
                 if dct.get(stype['code']):
                     if process['search_type'] == dct.get(stype['code'])[0]['search_type']['name']:
-                        stype_process = process
-
+                        stype_process[process['code']] = process
+            # print stype_process
             stype_obj = SType(stype, stype_schema, stype_process, project=self)
             stypes_objects[stype['code']] = stype_obj
 
@@ -602,20 +610,26 @@ class SType(object):
     .pipeline.process['Blocking'].get('children')
 
     """
-    def __init__(self, stype, schema=None, process=None, project=None):
+    def __init__(self, stype, schema=None, pipelines=None, project=None):
 
         self.info = stype
         self.project = project
-
-        if process:
-            self.pipeline = Pipeline(process)
-        else:
-            self.pipeline = None
+        self.schema = None
+        self.pipeline = self.get_pipelines(pipelines)
 
         if schema:
             self.schema = Schema(schema)
-        else:
-            self.schema = None
+
+    @staticmethod
+    def get_pipelines(pipelines):
+
+        ready_pipeline = collections.OrderedDict()
+        if pipelines:
+            for key, pipeline in pipelines.iteritems():
+                ready_pipeline[key] = Pipeline(pipeline)
+
+        if ready_pipeline:
+            return ready_pipeline
 
 
 class Schema(object):
@@ -637,20 +651,54 @@ class Schema(object):
         return self.__schema_dict[1].get('children')
 
 
+class Workflow(object):
+    def __init__(self, pipeline):
+
+        self.__pipeline_list = pipeline
+
+    def get_child_pipeline_by_process_code(self, parent_pipeline, process):
+        parent_process = None
+        if parent_pipeline.processes:
+            for proc in parent_pipeline.processes:
+                if proc['process'] == process:
+                    parent_process = proc
+
+        return self.get_pipeline_by_parent(parent_process)
+
+    def get_pipeline_by_parent(self, parent_process):
+        for pipe in self.__pipeline_list:
+            if pipe['parent_process'] == parent_process['code']:
+                return Pipeline(pipe)
+
+    def get_by_stype(self):
+        pass
+
+    def get_pipeline(self):
+
+        from pprint import pprint
+
+        for pipe in self.__pipeline_list:
+            pprint(pipe)
+
+        return self.__pipeline_list
+
+
 class Pipeline(object):
     def __init__(self, process):
 
         self.__process_dict = process
 
-        self.process = collections.defaultdict(list)
+        self.process = collections.OrderedDict()
 
         self.get_pipeline()
+        self.processes = self.get_processes()
         self.info = self.get_info()
 
+    def get_processes(self):
+        return self.__process_dict['stypes_processes']
+
     def get_info(self):
-        info = self.__process_dict
-        del info['pipeline']
-        return info
+        return self.__process_dict
 
     def get_pipeline(self):
 
@@ -978,7 +1026,6 @@ def query_snapshots(process_list=None, s_code=None, project_code=None):
         ('project_code', project_code),
         ('search_code', s_code),
     ]
-
     return server_start().query_snapshots(filters=filters_snapshots, include_files=True)
 
 
@@ -1017,79 +1064,14 @@ def assets_query_new(query, stype, columns=None, project=None, limit=0, offset=0
     return assets_list
 
 
-# def assets_query(query, process, raw=False, project=None):
-#     """
-#     Query for searching assets
-#     """
-#     server = server_start()
-#     filters = []
-#     expr = ''
-#     if query[1] == 0:
-#         filters = [('name', 'EQI', query[0])]
-#     if query[1] == 1:
-#         filters = [('code', query[0])]
-#     if query[1] == 2:
-#         filters = None
-#         parents_codes = ['scenes_code', 'sets_code']
-#         for parent in parents_codes:
-#             expr += '@SOBJECT(cgshort/shot["{0}", "{1}"]), '.format(parent, query[0])
-#     if query[1] == 3:
-#         filters = [('description', 'EQI', query[0])]
-#     if query[1] == 4:
-#         filters = [('keywords', 'EQI', query[0])]
-#
-#     if query[0] == '*':
-#         filters = [[]]
-#
-#     builded_process = server.build_search_type(process, project)
-#
-#     if filters:
-#         assets = server.query(builded_process, filters)
-#     elif expr:
-#         assets = server.eval(expr)
-#     else:
-#         assets = {}
-#
-#     if raw:
-#         return assets
-#     out_assets = {
-#         'names': [],
-#         'codes': [],
-#         'description': [],
-#         'timestamp': [],
-#         'pipeline_code': [],
-#     }
-#     for asset in assets:
-#         # pprint(asset)
-#         asset_get = asset.get
-#         out_assets['names'].append(asset_get('name'))
-#         out_assets['codes'].append(asset_get('code'))
-#         out_assets['description'].append(asset_get('description'))
-#         out_assets['timestamp'].append(asset_get('timestamp'))
-#         out_assets['pipeline_code'].append(asset_get('pipeline_code'))
-#
-#     return out_assets
-
-
-def get_notes_count(sobject, process):
-    # Deprecated expression method
-    # expr = ''
-    #
-    # stub = server_start()
-    # for proc in process:
-    #     expr += '{' + "@COUNT(sthpw/note['process','{0}'])".format(proc) + '},'
-    #
-    # counts = stub.eval(expr, sobject.info['__search_key__'])
-
-    server = server_start()
-    search_type, search_code = server.split_search_key(sobject.info['__search_key__'])
+def get_notes_count(sobject, process, children_stypes):
     kwargs = {
         'process': process,
-        'search_type': search_type,
-        'search_code': search_code,
+        'search_key': sobject.info['__search_key__'],
+        'stypes_list': children_stypes
     }
-    code = prepare_serverside_script(get_notes_counts, kwargs, return_dict=True)
-    result = server.execute_python_script('', kwargs=code)
+    code = tq.prepare_serverside_script(tq.get_notes_and_stypes_counts, kwargs, return_dict=True)
+    result = server_start().execute_python_script('', kwargs=code)
 
     return result['info']['spt_ret_val']
 
@@ -1113,17 +1095,6 @@ def users_query():
     return result
 
 
-def create_sobject(name, description, keywords, search_type):
-    data = {
-        'name': name,
-        'description': description,
-        'keywords': keywords,
-    }
-    sobject = server_start().insert(search_type, data)
-
-    return sobject
-
-
 def delete_sobject_snapshot(sobject, delete_snapshot=True, search_keys=None, files_paths=None):
     dep_list = {
         'related_types': ['sthpw/file'],
@@ -1142,14 +1113,6 @@ def delete_sobject_snapshot(sobject, delete_snapshot=True, search_keys=None, fil
 
 def delete_sobject_item(skey, delete_files=False):
     server_start().delete_sobject(skey, delete_files)
-
-
-# def create_snapshot(search_key, context):
-#     """
-#     :return:
-#     """
-#     snapshot = server_start().create_snapshot(search_key, context)
-#     return snapshot
 
 
 def snapshot_delete_confirm(snapshot, files):
@@ -1317,9 +1280,9 @@ def checkin_virtual_snapshot(search_key, context, snapshot_type='file', ext=None
         'version': version,
     }
 
-    code = prepare_serverside_script(get_virtual_snapshot_extended, kwargs, return_dict=True)
-
+    code = tq.prepare_serverside_script(tq.get_virtual_snapshot_extended, kwargs, return_dict=True)
     result = server_start().execute_python_script('', kwargs=code)
+
     virtual_snapshot = json.loads(result['info']['spt_ret_val'])
 
     if save_confirm(virtual_snapshot, repo, update_versionless):
@@ -1356,7 +1319,7 @@ def checkin_snapshot(search_key, context, snapshot_type=None, is_revision=False,
 
     # print kwargs
 
-    code = prepare_serverside_script(create_snapshot_extended, kwargs, return_dict=True)
+    code = tq.prepare_serverside_script(tq.create_snapshot_extended, kwargs, return_dict=True)
     # # print code
     result = server_start().execute_python_script('', kwargs=code)
     # # snapshot = eval(result['info']['spt_ret_val'])
@@ -1415,7 +1378,7 @@ def add_note(search_key, process, context, note, note_html, login):
         'process': process,
         'context': context,
         'note': note,
-        'note_html': gf.html_to_hex(note_html),
+        # 'note_html': gf.html_to_hex(note_html),
         'login': login,
     }
 
@@ -1592,6 +1555,11 @@ def checkin_file(search_key, context, snapshot_type='file', is_revision=False, d
                  update_versionless=True, file_types='main', file_names=None, file_paths=None, file_sizes=None,
                  exts=None, keep_file_name=False, repo_name=None, mode=None, create_icon=False):
 
+    if create_icon:
+        exts.extend(['jpg', 'png'])
+        file_types.extend(['web', 'icon'])
+        file_names.extend(['', ''])
+
     virtual_snapshot = checkin_virtual_snapshot(
         search_key,
         context,
@@ -1607,8 +1575,9 @@ def checkin_file(search_key, context, snapshot_type='file', is_revision=False, d
     )
 
     progres_bar = env_inst.ui_check_tree['checkin'][search_key.split('?')[0]].progres_bar
-    check_ok = True
+    check_ok = False
     if virtual_snapshot:
+        check_ok = True
         progres_bar.setVisible(True)
 
         # for in-place checkin
@@ -1621,8 +1590,31 @@ def checkin_file(search_key, context, snapshot_type='file', is_revision=False, d
             check_ok
         )
 
-        relative_paths = []
+        if create_icon:
+            dest_path = gf.form_path(repo_name['value'][0] + '/' + virtual_snapshot['versioned']['paths'][0])
+            dest_playblast_ver = dest_path + '/' + virtual_snapshot['versioned']['names'][0]
+            dest_web_ver = dest_path + '/' + virtual_snapshot['versioned']['names'][1]
+            dest_icon_ver = dest_path + '/' + virtual_snapshot['versioned']['names'][2]
+
+            file_paths = [dest_playblast_ver, dest_web_ver, dest_icon_ver]
+            generate_web_and_icon(dest_playblast_ver, dest_web_ver, dest_icon_ver)
+
+            # copy newly generated icons
+            check_ok = inplace_checkin(
+                file_paths,
+                progres_bar,
+                virtual_snapshot,
+                repo_name,
+                update_versionless,
+                check_ok
+            )
+
         if check_ok:
+            relative_paths = []
+            file_sizes = []
+            for fp in file_paths:
+                file_sizes.append(gf.get_st_size(fp))
+
             checkin_snapshot(
                 search_key,
                 context,
@@ -1647,7 +1639,7 @@ def checkin_file(search_key, context, snapshot_type='file', is_revision=False, d
 
     progres_bar.setVisible(False)
 
-    return virtual_snapshot
+    return check_ok
 
     # DEPRECATED
     # dest_file = gf.form_path(repo['value'][0] + '/' + virtual_snapshot['relative_path'] + '/' + virtual_snapshot['file_name'] + '.' + ext)
@@ -1729,6 +1721,7 @@ def checkin_playblast(snapshot_code, file_name, custom_repo_path):
     )
     return playblast
 
+
 def checkin_icon(snapshot_code, file_name):
     """
     :return:
@@ -1779,541 +1772,3 @@ def generate_skey(pipeline_code=None, code=None):
 
     return skey
 
-
-# Internal server-side sctipts
-
-def prepare_serverside_script(func, kwargs, return_dict=True, has_return=True, shrink=True):
-    import inspect
-    func_lines = inspect.getsourcelines(func)
-    if has_return:
-        run_command = func_lines[0][0].replace('def ', 'return ')[:-2]
-    else:
-        run_command = func_lines[0][0].replace('def ', '')[:-2]
-
-    # i don't want 're' here, so try to understand logic, with love to future me :-*
-    # TODO multiline bug
-    val_split = run_command.split(',')
-    left_part = val_split[0].split('(')
-    right_part = val_split[-1][:-1]
-    full_list = [left_part[1]] + val_split[1:-1] + [right_part]
-
-    all_vars = []
-    for split in full_list:
-        # split keys and values, and add to list keys which values need update
-        fltr = split.split('=')[0].replace(' ', '')
-        if fltr in kwargs.keys():
-            all_vars.append(fltr)
-
-    for i, k in enumerate(all_vars):
-        for key, val in kwargs.items():
-            if k == key:
-                all_vars[i] = '{0}={1}'.format(key, repr(val))
-
-    var_stitch = ', '.join(all_vars)
-    ready_run_command = '{0}({1})'.format(run_command[:run_command.find('(')], var_stitch)
-
-    code = ''.join(func_lines[0]) + ready_run_command
-
-    # print code
-
-    if shrink:
-        code = gf.minify_code(source=code, pack=False)
-
-    # print code
-
-    if return_dict:
-        code_dict = {
-            'code': code
-        }
-        return code_dict
-    else:
-        return code
-
-
-def get_notes_counts(process, search_type, search_code):
-    # getting notes by search_type process
-    from pyasm.search import Search
-    cnt = []
-    for p in process:
-        search = Search('sthpw/note')
-        search.add_op_filters([('process', p), ('search_type', search_type), ('search_code', search_code)])
-        cnt.append(search.get_count())
-    return cnt
-
-
-def query_search_types_extended(project_code, namespace):
-    """
-    This crazy stuff made to execute queries on server
-    All needed info is getting almost half time faster
-    :return:
-    """
-    # TODO remove query, and dig deeper to get more info about pipelines, processes, stypes
-    # from pyasm.search import Search
-    # from pyasm.biz import Pipeline
-    #
-    # search_type = 'cgshort/scenes'
-    # search = Search("sthpw/pipeline")
-    # search.add_filter("search_type", search_type)
-    # pipelines = search.get_sobjects()
-    #
-    # return str(pipelines)
-    import json
-
-    empty_tab = [{'__search_key__': u'sthpw/search_object?code=empty/empty',
-        'class_name': u'pyasm.search.SObject',
-        'code': u'empty/empty',
-        'color': None,
-        'database': u'{project}',
-        'default_layout': u'table',
-        'description': None,
-        'id': 84,
-        'id_column': None,
-        'message_event': None,
-        'metadata_parser': None,
-        'namespace': u'empty',
-        'schema': u'public',
-        'search_type': u'empty/empty',
-        'table_name': u'characters',
-        'title': u'empty',
-        'type': None}, ]
-
-    search_type = 'sthpw/search_object'
-    filters = [('namespace', [namespace, project_code, 'workflow'])]
-
-    all_stypes = server.query(search_type, filters)
-
-    if not all_stypes:
-        all_stypes = server.query(search_type, filters)
-        if not all_stypes:
-            all_stypes = empty_tab
-
-    # getting pipeline process
-    stypes_codes = []
-    for stype in all_stypes:
-        stypes_codes.append(stype['code'])
-
-    search_type = 'sthpw/pipeline'
-
-    filters = [('search_type', stypes_codes), ('project_code', project_code)]
-    stypes_pipelines = server.query(search_type, filters)
-
-    # getting project schema
-    schema = server.query('sthpw/schema', [('code', project_code)])
-
-    result = {'schema': schema, 'stypes_pipelines': stypes_pipelines, 'all_stypes': all_stypes}
-
-    return json.dumps(result, separators=(',', ':'))
-
-
-def get_virtual_snapshot_extended(search_key, context, snapshot_type="file", is_revision=False, level_key=None, file_type=['main'], file_name=[''], postfixes=None, subfolders=None, keep_file_name=False, ext=[''], version=None):
-    '''creates a virtual snapshot and returns a path that this snapshot
-    would generate through the naming conventions''
-
-    @params
-    snapshot creation:
-    -----------------
-    search_key - a unique identifier key representing an sobject
-    context - the context of the checkin
-    snapshot_type - [optional] descibes what kind of a snapshot this is.
-        More information about a snapshot type can be found in the
-        prod/snapshot_type sobject
-    level_key - the unique identifier of the level that this
-        is to be checked into
-
-    path creation:
-    --------------
-    file_type: the type of file that will be checked in.  Some naming
-        conventions make use of this information to separate directories
-        for different file types
-    file_name: the desired file name of the preallocation.  This information
-        may be ignored by the naming convention or it may use this as a
-        base for the final file name
-    ext: force the extension of the file name returned
-
-    @return
-    path as determined by the naming conventions
-    '''
-
-    # getting virtual snapshots
-    import json
-    from pyasm.biz import Snapshot
-    from pyasm.biz import Project
-    from pyasm.search import SearchType
-    api = server.server
-
-    sobjects = api._get_sobjects(search_key)
-    sobject = sobjects[0]
-
-    result_dict = {'versionless': {'paths': [], 'names': []}, 'versioned': {'paths': [], 'names': []}}
-
-    # get the level object
-    if level_key:
-        levels = api._get_sobjects(level_key)
-        level = levels[0]
-        level_type = level.get_search_type()
-        level_id = level.get_id()
-    else:
-        level_type = None
-        level_id = None
-
-    description = "No description"
-
-    if len(file_name) > 1:
-        keep_file_name = True
-    if len(set(file_type)) != 1:
-        keep_file_name = False
-
-    if not postfixes:
-        postfixes = []
-        for fn in range(len(file_name)):
-            postfixes.append('')
-
-    if not subfolders:
-        subfolders = []
-        for fn in range(len(file_name)):
-            subfolders.append('')
-
-    def prepare_filename(filenaming, f_l, ex, postfix):
-        if keep_file_name:
-            if postfix:
-                result_file_name = f_l + '_' + postfix + '.' + ex
-            else:
-                result_file_name = f_l + '.' + ex
-        else:
-            name_ext = filenaming.get_file_name()
-            if postfix:
-                result_file_name = name_ext.replace('.' + ex, '_' + postfix + '.' + ex)
-            else:
-                result_file_name = name_ext
-        return result_file_name
-
-    def prepare_folder(d, sub):
-        if sub:
-            return d + '/' + sub
-        else:
-            return d
-
-    for i, fl in enumerate(file_name):
-        if not fl:
-            fl = sobject.get_code()
-            if not fl:
-                fl = sobject.get_name()
-            if not fl:
-                fl = "unknown"
-
-        file_object = SearchType.create("sthpw/file")
-        file_object.set_value("file_name", fl)
-        file_object.set_value("type", file_type[i])
-        file_naming = Project.get_file_naming()
-        file_naming.set_sobject(sobject)
-        if not version:
-            ver = server.eval("@MAX(sthpw/snapshot['context', '{0}'].version)".format(context), search_keys=[search_key])
-            if ver:
-                version = int(ver) + 1
-            else:
-                version = 1
-        snapshot_versioned = Snapshot.create(sobject, snapshot_type=snapshot_type, context=context, description=description, is_revision=is_revision, level_type=level_type, level_id=level_id, commit=False, version=version)
-        file_naming.set_snapshot(snapshot_versioned)
-        file_naming.set_ext(ext[i])
-        file_naming.set_file_object(file_object)
-        result_dict['versioned']['paths'].append(prepare_folder(snapshot_versioned.get_dir('relative', file_type=file_type[i]), subfolders[i]))
-        result_dict['versioned']['names'].append(prepare_filename(file_naming, fl, ext[i], postfixes[i]))
-
-        snapshot_versionless = Snapshot.create(sobject, snapshot_type=snapshot_type, context=context, description=description, is_revision=False, level_type=level_type, level_id=level_id, commit=False, version=-1)
-        file_naming.set_snapshot(snapshot_versionless)
-        file_naming.set_file_object(file_object)
-        file_naming.set_ext(ext[i])
-        result_dict['versionless']['paths'].append(prepare_folder(snapshot_versionless.get_dir('relative', file_type=file_type[i]), subfolders[i]))
-        result_dict['versionless']['names'].append(prepare_filename(file_naming, fl, ext[i], postfixes[i]))
-
-    return json.dumps(result_dict, separators=(',', ':'))
-
-
-def create_snapshot_extended(search_key, context, snapshot_type=None, is_revision=False, is_latest=True, is_current=False, description=None, version=None, level_key=None, update_versionless=True, file_types=None, file_names=None, file_paths=None, relative_paths=None, source_paths=None, file_sizes=None, exts=None, keep_file_name=True, repo_name=None, virtual_snapshot=None, mode=None, create_icon=False):
-    from pyasm.biz import Snapshot
-    from pyasm.checkin import FileAppendCheckin
-    from pyasm.search import Search
-
-    api = server.server
-
-    sobjects = api._get_sobjects(search_key)
-    sobject = sobjects[0]
-
-    # get the level object
-    if level_key:
-        levels = api._get_sobjects(level_key)
-        level = levels[0]
-        level_type = level.get_search_type()
-        level_id = level.get_id()
-    else:
-        level_type = None
-        level_id = None
-
-    if not description:
-        description = 'No description'
-    if not snapshot_type:
-        snapshot_type = 'file'
-
-    if mode == 'inplace':
-        version_file_paths = []
-        versionless_file_paths = []
-        version_relative_paths = []
-        versionless_relative_paths = []
-        for p, fn in zip(virtual_snapshot['versioned']['paths'], virtual_snapshot['versioned']['names']):
-            version_file_paths.append('{0}/{1}'.format(p, fn))
-            version_relative_paths.append(p)
-        for p, fn in zip(virtual_snapshot['versionless']['paths'], virtual_snapshot['versionless']['names']):
-            versionless_file_paths.append('{0}/{1}'.format(p, fn))
-            versionless_relative_paths.append(p)
-    if not version:
-        ver = server.eval("@MAX(sthpw/snapshot['context', '{0}'].version)".format(context), search_keys=[search_key])
-        if ver:
-            version = int(ver) + 1
-        else:
-            version = 1
-    snapshot = Snapshot.create(sobject, snapshot_type=snapshot_type, context=context, description=description, is_revision=is_revision, is_latest=is_latest, is_current=is_current, level_type=level_type, level_id=level_id, commit=False, version=version)
-
-    if repo_name:
-        snapshot.set_value('repo', repo_name)
-    if is_latest:
-        snapshot.set_value('is_latest', 1)
-    if is_current:
-        snapshot.set_value('is_current', 1)
-
-    snapshot.commit(triggers=True, log_transaction=True)
-
-    dir_naming = None
-    file_naming = None
-
-    checkin = FileAppendCheckin(snapshot.get_code(), version_file_paths, file_types, keep_file_name=keep_file_name, mode=mode,
-                                source_paths=source_paths, dir_naming=dir_naming, file_naming=file_naming,
-                                checkin_type='auto', do_update_versionless=False)
-    checkin.execute()
-
-    files_list = checkin.get_file_objects()
-    for i, fl in enumerate(files_list):
-        fl.set_value(name='st_size', value=file_sizes[i])
-        fl.set_value(name='relative_dir', value=version_relative_paths[i])
-        fl.commit()
-
-    # update_versionless = False
-
-    if update_versionless:
-        # snapshot.update_versionless(snapshot_mode='latest', sobject=sobject, checkin_type='auto')
-        versionless_snapshot = snapshot.get_by_sobjects([sobject], context, version=-1)
-        if not versionless_snapshot:
-            versionless_snapshot = [
-                Snapshot.create(sobject, snapshot_type=snapshot_type, context=context, description=description,
-                                is_revision=False, is_latest=is_latest, level_type=level_type, level_id=level_id,
-                                commit=False, version=-1)]
-        if repo_name:
-            versionless_snapshot[0].set_value('repo', repo_name)
-
-        # file_objects = versionless_snapshot[0].get_all_file_objects()
-        # for file_object in file_objects:
-        #     file_object.delete(triggers=False)
-
-        search = Search('sthpw/file')
-        search.add_op_filters([('snapshot_code', versionless_snapshot[0].get_code())])
-        file_objects = search.get_sobjects()
-        for file_object in file_objects:
-            file_object.delete(triggers=False)
-
-        versionless_snapshot[0].set_value('snapshot', '<snapshot/>')
-        versionless_snapshot[0].set_value('login', snapshot.get_attr_value('login'))
-        versionless_snapshot[0].set_value('timestamp', snapshot.get_attr_value('timestamp'))
-        versionless_snapshot[0].commit(triggers=True, log_transaction=True)
-        #snapshot.update_versionless(snapshot_mode='latest', sobject=sobject, checkin_type='auto')
-
-        checkin_versionless = FileAppendCheckin(versionless_snapshot[0].get_code(), versionless_file_paths, file_types, keep_file_name=keep_file_name, mode=mode,
-                                    source_paths=source_paths, dir_naming=dir_naming, file_naming=file_naming,
-                                    checkin_type='auto', do_update_versionless=False)
-        checkin_versionless.execute()
-
-        versionless_files_list = checkin_versionless.get_file_objects()
-        for i, fl_versionless in enumerate(versionless_files_list):
-            fl_versionless.set_value(name='st_size', value=file_sizes[i])
-            fl_versionless.set_value(name='relative_dir', value=versionless_relative_paths[i])
-            fl_versionless.commit()
-
-    return str('OKEEDOKEE')
-
-# ['lib', 'client_repo', 'sandbox', 'local_repo', 'web', 'relative', 'custom_blabla']
-"""
-
-# get all snapshots dicts with files dicts ver 1
-
-import collections
-from pyasm.search import Search
-from pyasm.prod.service import ApiXMLRPC
-xml_api = ApiXMLRPC()
-search = Search('sthpw/snapshot')
-filters = [('process', [u'Concept', u'Sculpt', u'Rigging', u'Hairs', u'Texturing', u'Final', u'Modeling', u'Dynamics', u'Blocking', 'icon', 'attachment', 'publish']), ('project_code', u'the_pirate'), ('search_code', [u'CHARACTERS00003', u'CHARACTERS00002', u'CHARACTERS00001'])]
-search.add_op_filters(filters)
-snapshots_sobjects = search.get_sobjects()
-
-snapshots_def = collections.defaultdict(list)
-files_def = collections.defaultdict(list)
-
-for snapshot in snapshots_sobjects:
-   snapshot_dict = xml_api.get_sobject_dict(snapshot)
-   snapshot_files = snapshot.get_files_by_snapshots([snapshot])
-   files_list = []
-   for file in snapshot_files:
-      files_list.append(xml_api.get_sobject_dict(file))
-   snapshots_def[snapshot_dict['code']].append(snapshot_dict)
-   files_def[snapshot_dict['code']].append(files_list)
-
-return 'OK'
-
-
-# get all snapshots dicts with files dicts ver 2 (Faster)
-
-import collections
-from pyasm.search import Search
-from pyasm.biz import Snapshot
-from pyasm.prod.service import ApiXMLRPC
-
-xml_api = ApiXMLRPC()
-search = Search('sthpw/snapshot')
-filters = [('process',
-            [u'Concept', u'Sculpt', u'Rigging', u'Hairs', u'Texturing', u'Final', u'Modeling', u'Dynamics',
-             u'Blocking', 'icon', 'attachment', 'publish']), ('project_code', u'the_pirate'),
-           ('search_code', [u'CHARACTERS00003', u'CHARACTERS00002', u'CHARACTERS00001'])]
-search.add_op_filters(filters)
-snapshots_sobjects = search.get_sobjects()
-snapshots_files = Snapshot.get_files_dict_by_snapshots(snapshots_sobjects)
-
-snapshots_def = collections.defaultdict(list)
-
-for snapshot in snapshots_sobjects:
-    snapshot_dict = xml_api.get_sobject_dict(snapshot, use_id=True)
-    snapshot_files = snapshots_files.get(snapshot_dict['code'])
-    files_list = []
-    if snapshot_files:
-        for file in snapshot_files:
-            files_list.append(xml_api.get_sobject_dict(file, use_id=True))
-    snapshot_dict['files'] = files_list
-    snapshots_def[snapshot_dict['code']].append(snapshot_dict)
-
-return snapshots_def.values()
-
-"""
-
-# from pyasm.biz import Snapshot
-# import time
-# start = time.time()
-# api = server.server
-# search_key = 'cgshort/props?project=portfolio&code=PROPS00012'
-#
-# for i in range(100):
-#     sobjects = api._get_sobjects(search_key)
-#     sobject = sobjects[0]
-#     Snapshot.create(sobject, snapshot_type='file', context='publish', description='', is_revision=False, level_type=None, level_id=None, commit=False, version=None)
-#
-# end = time.time()
-# return(end - start)
-# 13.653764963150024 CHERRYPY
-
-
-# class_name = 'tactic.ui.manager.EditElementDefinitionWdg'
-#
-# args = {
-# 	'config_xml': '',
-# 	'element_name': 'priority',
-# 	'path': '/Edit/priority',
-# 	'search_type': 'sthpw/task',
-# 	'view': 'edit_definition',
-# }
-# args_array = []
-# from pyasm.common import Common
-# from pyasm.common import Container
-# widget = Common.create_from_class_path(class_name, args_array, args)
-#
-# Container.put("request_top_wdg", widget)
-# html = widget.get_buffer_display()
-# m = Container.get_instance()
-# print m.get('WidgetConfigView:display_options_cache')
-# return str(m.info)
-#
-# #widget_html = server.get_widget(class_name, args, [])
-# #return widget_html
-
-# class_name = 'tactic.ui.panel.EditWdg'
-#
-# args = {
-# 	'input_prefix': 'edit',
-# 	'search_key': 'cgshort/scenes?project=the_pirate&id=2',
-# 	'view': 'edit',
-# }
-# args_array = []
-# from pyasm.common import Common
-# from pyasm.common import Container
-# widget = Common.create_from_class_path(class_name, args_array, args)
-#
-# Container.put("request_top_wdg", widget)
-# html = widget.get_buffer_display()
-# m = Container.get_instance()
-# #print m.get('WidgetConfigView:display_options_cache')
-# return str(m.get_data())
-#
-# #widget_html = server.get_widget(class_name, args, [])
-# #return widget_html
-
-
-# class_name = 'tactic.ui.panel.EditWdg'
-#
-# args = {
-# 	'input_prefix': 'edit',
-# 	'search_key': 'cgshort/textures?project=the_pirate&id=1',
-# 	'view': 'edit',
-# }
-# args_array = []
-# from pyasm.common import Common
-# from pyasm.common import Container
-# widget = Common.create_from_class_path(class_name, args_array, args)
-#
-# Container.put("request_top_wdg", widget)
-# #widget.get_buffer_display()
-# widget.explicit_display()
-# m = Container.get_instance()
-# return m.get_data().keys()
-# #return (m.get('WidgetConfigView:display_options_cache'))
-# return str(m.get("Expression:@GET(cgshort/props.name)|['cgshort/props']|[]"))
-# return str(m.get("Expression:@GET(cgshort/applications_list.name)|['cgshort/applications_list']|[]"))
-# return str(m.get("Expression:@GET(cgshort/applications_list.code)|['cgshort/applications_list']|[]"))
-# return str(m.get("Expression:@GET(cgshort/props.name)|['cgshort/props']|[]"))
-# return str(m.get("Expression:@GET(cgshort/props.code)|['cgshort/props']|[]"))
-#
-# widget_html = server.get_widget(class_name, args, [])
-# return widget_html
-
-
-# class_name = 'tactic.ui.panel.EditWdg'
-#
-# args = {
-# 	'input_prefix': 'edit',
-# 	'search_key': 'cgshort/textures?project=the_pirate&id=1',
-# 	'view': 'edit',
-# }
-# args_array = []
-# from pyasm.common import Common
-# from pyasm.common import Container
-# widget = Common.create_from_class_path(class_name, args_array, args)
-#
-# Container.put("request_top_wdg", widget)
-# #widget.get_buffer_display()
-# widget.explicit_display()
-# edit_widgets = widget.get_widgets()
-# return (edit_widgets[5].values)
-# m = Container.get_instance()
-# return m.get_data().keys()
-# return (m.get('WidgetConfigView:display_options_cache'))
-# return str(m.get("Expression:@GET(cgshort/props.name)|['cgshort/props']|[]"))
-# return str(m.get("Expression:@GET(cgshort/applications_list.name)|['cgshort/applications_list']|[]"))
-# return str(m.get("Expression:@GET(cgshort/applications_list.code)|['cgshort/applications_list']|[]"))
-# return str(m.get("Expression:@GET(cgshort/props.name)|['cgshort/props']|[]"))
-# return str(m.get("Expression:@GET(cgshort/props.code)|['cgshort/props']|[]"))
-#
-# widget_html = server.get_widget(class_name, args, [])
-# return widget_html

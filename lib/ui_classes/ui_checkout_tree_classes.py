@@ -3,13 +3,12 @@
 import ast
 import PySide.QtCore as QtCore
 import PySide.QtGui as QtGui
-# import lib.environment as env
 from lib.environment import env_mode, env_inst, env_server, env_tactic
 from lib.configuration import cfg_controls
-# import lib.configuration as cfg
 import lib.global_functions as gf
 import lib.tactic_classes as tc
 import lib.ui.checkout.ui_checkout_tree as ui_checkout_tree
+import lib.ui_classes.ui_misc_classes as ui_misc_classes
 import ui_icons_classes as icons_widget
 import ui_item_classes as item_widget
 import ui_maya_dialogs_classes as maya_dialogs
@@ -80,8 +79,10 @@ class Ui_checkOutTreeWidget(QtGui.QWidget, ui_checkout_tree.Ui_checkOutTree):
 
         self.create_ui_richedit()
 
-        self.saverole = QtCore.Qt.UserRole
-        self.expanded = []
+        self.customize_ui()
+
+        # self.saverole = QtCore.Qt.UserRole
+        # self.expanded = []
 
     def create_searchline(self):
         effect = QtGui.QGraphicsDropShadowEffect(self.searchLineEdit)
@@ -89,7 +90,7 @@ class Ui_checkOutTreeWidget(QtGui.QWidget, ui_checkout_tree.Ui_checkOutTree):
 
         tab_color = self.stype.info['color']
         if tab_color:
-            t_c = gf.hex_to_rgb(tab_color, alpha=64, tuple=True)
+            t_c = gf.hex_to_rgb(tab_color, alpha=128, tuple=True)
             effect.setColor(QtGui.QColor(t_c[0], t_c[1], t_c[2], t_c[3]))
             effect.setBlurRadius(15)
         else:
@@ -102,6 +103,8 @@ class Ui_checkOutTreeWidget(QtGui.QWidget, ui_checkout_tree.Ui_checkOutTree):
         self.editorLayout.addWidget(self.ui_richedit)
 
     def create_refresh_popup(self):
+        self.refreshToolButton.setIcon(gf.get_icon('cog'))
+        self.refreshToolButton.setMinimumSize(22, 22)
 
         self.switch_to_checkin = QtGui.QAction('Copy tab to checkin', self.refreshToolButton)
         self.switch_to_checkin.triggered.connect(self.refresh_current_results)
@@ -121,17 +124,20 @@ class Ui_checkOutTreeWidget(QtGui.QWidget, ui_checkout_tree.Ui_checkOutTree):
         self.refreshToolButton.addAction(self.search_options)
 
     def create_process_tree_widget(self):
-        self.process_tree_widget = search_classes.QPopupTreeWidget(
-            parent_ui=self,
-            parent=self,
-            project=self.project,
-            stype=self.stype
-        )
-        self.process_tree_widget.show()
+        if not self.process_tree_widget:
+            self.process_tree_widget = search_classes.QPopupTreeWidget(
+                parent_ui=self,
+                parent=self,
+                project=self.project,
+                stype=self.stype
+            )
+            self.process_tree_widget.show()
+        else:
+            self.process_tree_widget.show()
 
     def get_process_ignore_list(self):
         if self.process_tree_widget:
-            return self.process_tree_widget.get_ignore_list()
+            return self.process_tree_widget.get_ignore_dict()
         else:
             self.process_tree_widget = search_classes.QPopupTreeWidget(
                 parent_ui=self,
@@ -139,13 +145,20 @@ class Ui_checkOutTreeWidget(QtGui.QWidget, ui_checkout_tree.Ui_checkOutTree):
                 project=self.project,
                 stype=self.stype
             )
-            return self.process_tree_widget.get_ignore_list()
+            return self.process_tree_widget.get_ignore_dict()
+
+    def get_current_tree_widget(self):
+        return self.search_results_widget.get_current_widget()
+
+    def get_is_separate_versions(self):
+        current_tabbed_widget = self.search_results_widget.get_current_widget()
+        return current_tabbed_widget.get_is_separate_versions()
 
     def refresh_current_results(self):
-        self.results_group_box.refresh_restults()
+        self.search_results_widget.refresh_restults()
 
     def close_all_search_tabs(self):
-        self.results_group_box.close_all_tabs()
+        self.search_results_widget.close_all_tabs()
 
     def search_mode_state(self):
         if self.searchOptionsGroupBox.searchNameRadioButton.isChecked():
@@ -184,8 +197,8 @@ class Ui_checkOutTreeWidget(QtGui.QWidget, ui_checkout_tree.Ui_checkOutTree):
             self.playblastLayout.addWidget(self.playblast_widget)
 
     def create_search_results_group_box(self):
-        self.results_group_box = search_classes.Ui_resultsGroupBoxWidget(parent_ui=self, parent=self)
-        self.searchOptionsSplitter.addWidget(self.results_group_box)
+        self.search_results_widget = search_classes.Ui_resultsGroupBoxWidget(parent_ui=self, parent=self)
+        self.searchOptionsSplitter.addWidget(self.search_results_widget)
 
     def create_search_options_group_box(self):
         self.searchOptionsGroupBox = search_classes.Ui_searchOptionsWidget(parent_ui=self, parent=self)
@@ -214,22 +227,73 @@ class Ui_checkOutTreeWidget(QtGui.QWidget, ui_checkout_tree.Ui_checkOutTree):
         Actions for the check tab
         """
         # Search line, and combo box with context
-        self.searchLineEdit.returnPressed.connect(
-            lambda: self.results_group_box.add_items_to_results(self.searchLineEdit.text()))
-        self.searchLineEdit.returnPressed.connect(self.results_group_box.set_current_tab_text)
-        self.searchLineEdit.mouseDoubleClickEvent = self.searchLineDoubleClick
+        self.searchLineEdit.returnPressed.connect(self.do_search)
+        # self.searchLineEdit.mouseDoubleClickEvent = self.searchLineDoubleClick
         self.searchLineEdit.mousePressEvent = self.searchLineSingleClick
         self.searchLineEdit.textEdited.connect(self.search_suggestions)
-        if env_mode.get_mode() == 'standalone':
-            self.findOpenedPushButton.setVisible(False)
+        # if env_mode.get_mode() == 'standalone':
+        #     self.findOpenedPushButton.setVisible(False)
 
-        self.findOpenedPushButton.clicked.connect(self.find_opened_sobject)
+        # self.findOpenedPushButton.clicked.connect(self.find_opened_sobject)
         self.saveDescriprionButton.clicked.connect(lambda: self.update_desctiption(run_thread=True))
+
+    def customize_ui(self):
+        # if env_mode.get_mode() == 'standalone':
+        # self.findOpenedPushButton.setVisible(False)
+        # self.addNewtButton.setIcon(gf.get_icon('plus-square-o'))
+        self.create_collapsable_toolbar()
+
+    def create_collapsable_toolbar(self):
+        self.collap = ui_misc_classes.Ui_horizontalCollapsableWidget()
+
+        self.buttons_layout = QtGui.QHBoxLayout()
+        self.buttons_layout.setSpacing(0)
+        self.buttons_layout.setContentsMargins(0, 0, 0, 0)
+        self.filter_process_button = QtGui.QToolButton()
+        self.filter_process_button.setMaximumSize(22, 22)
+        self.filter_process_button.setAutoRaise(True)
+        self.filter_process_button.setIcon(gf.get_icon('filter'))
+        self.filter_process_button.clicked.connect(self.create_process_tree_widget)
+
+        self.toggle_search_options_button = QtGui.QToolButton()
+        self.toggle_search_options_button.setMaximumSize(22, 22)
+        self.toggle_search_options_button.setAutoRaise(True)
+        self.toggle_search_options_button.setIcon(gf.get_icon('sliders'))
+        self.toggle_search_options_button.clicked.connect(self.toggle_search_group_box)
+
+        self.find_opened_sobject_button = QtGui.QToolButton()
+        self.find_opened_sobject_button.setMaximumSize(22, 22)
+        self.find_opened_sobject_button.setAutoRaise(True)
+        self.find_opened_sobject_button.setIcon(gf.get_icon('bolt'))
+        self.find_opened_sobject_button.clicked.connect(self.find_opened_sobject)
+
+        self.buttons_layout.addWidget(self.filter_process_button)
+        self.buttons_layout.addWidget(self.toggle_search_options_button)
+        if env_mode.get_mode() == 'maya':
+            self.buttons_layout.addWidget(self.find_opened_sobject_button)
+
+        self.collap.setLayout(self.buttons_layout)
+        self.collap.setCollapsed(True)
+
+        self.expandingLayout.addWidget(self.collap)
 
     def threads_actions(self):
         # Threads Actions
         self.update_desctiption_thread.finished.connect(lambda: self.update_desctiption(update_description=True))
         self.search_suggestions_thread.finished.connect(lambda: self.search_suggestions(popup_suggestion=True))
+
+    def get_search_query_text(self):
+        return self.searchLineEdit.text()
+
+    def get_search_options_widget(self):
+        return self.searchOptionsGroupBox
+
+    def do_search(self, search_query=None, search_by=None, new_tab=False):
+        self.search_results_widget.do_search(
+            search_query=search_query,
+            search_by=search_by,
+            new_tab=new_tab
+        )
 
     def find_opened_sobject(self):
         skey = mf.get_skey_from_scene()
@@ -271,7 +335,7 @@ class Ui_checkOutTreeWidget(QtGui.QWidget, ui_checkout_tree.Ui_checkOutTree):
             completer.complete()
 
     def update_desctiption(self, run_thread=False, update_description=False):
-        current_widget = self.results_group_box.get_current_widget()
+        current_widget = self.search_results_widget.get_current_widget()
         current_tree_widget_item = current_widget.get_current_tree_widget_item()
 
         if run_thread:
@@ -297,7 +361,7 @@ class Ui_checkOutTreeWidget(QtGui.QWidget, ui_checkout_tree.Ui_checkOutTree):
                 current_tree_widget_item.update_description(self.descriptionTextEdit.toPlainText())
 
     def open_menu(self):
-        current_widget = self.results_group_box.get_current_widget()
+        current_widget = self.search_results_widget.get_current_widget()
         current_tree_widget_item = current_widget.get_current_tree_widget_item()
 
         if current_tree_widget_item and current_tree_widget_item.type == 'snapshot' and current_tree_widget_item.files:
@@ -341,7 +405,7 @@ class Ui_checkOutTreeWidget(QtGui.QWidget, ui_checkout_tree.Ui_checkOutTree):
         else:
             double_click = False
         if double_click:
-            current_widget = self.results_group_box.get_current_widget()
+            current_widget = self.search_results_widget.get_current_widget()
             current_tree_widget_item = current_widget.get_current_tree_widget_item()
             if current_tree_widget_item.type == 'snapshot' and current_tree_widget_item.files:
                 self.open_file()
@@ -356,7 +420,7 @@ class Ui_checkOutTreeWidget(QtGui.QWidget, ui_checkout_tree.Ui_checkOutTree):
 
     def open_file_options(self):
         file_path = self.get_current_item_paths()[0]
-        current_widget = self.results_group_box.get_current_widget()
+        current_widget = self.search_results_widget.get_current_widget()
         current_tree_widget_item = current_widget.get_current_tree_widget_item()
 
         if env_mode.get_mode() == 'maya':
@@ -399,7 +463,7 @@ class Ui_checkOutTreeWidget(QtGui.QWidget, ui_checkout_tree.Ui_checkOutTree):
     def get_current_item_paths(self):
         # TODO REWRITE THIS THING with multiple file in one snapshot in mind
 
-        current_widget = self.results_group_box.get_current_widget()
+        current_widget = self.search_results_widget.get_current_widget()
         current_tree_widget_item = current_widget.get_current_tree_widget_item()
         file_path = None
         dir_path = None
@@ -442,7 +506,7 @@ class Ui_checkOutTreeWidget(QtGui.QWidget, ui_checkout_tree.Ui_checkOutTree):
         self.descriptionSplitter.restoreState(QtCore.QByteArray.fromHex(settings_dict.get('descriptionSplitter')))
         self.imagesSplitter.restoreState(QtCore.QByteArray.fromHex(settings_dict.get('imagesSplitter')))
         # print self.tab_name, ': '
-        self.results_group_box.get_current_widget().resultsSplitter.restoreState(
+        self.search_results_widget.get_current_widget().resultsSplitter.restoreState(
             QtCore.QByteArray.fromHex(settings_dict.get('resultsSplitter')))
 
         if apply_search_options:
@@ -459,7 +523,7 @@ class Ui_checkOutTreeWidget(QtGui.QWidget, ui_checkout_tree.Ui_checkOutTree):
             'commentsSplitter': str(self.commentsSplitter.saveState().toHex()),
             'descriptionSplitter': str(self.descriptionSplitter.saveState().toHex()),
             'imagesSplitter': str(self.imagesSplitter.saveState().toHex()),
-            'resultsSplitter': str(self.results_group_box.get_current_widget().resultsSplitter.saveState().toHex()),
+            'resultsSplitter': str(self.search_results_widget.get_current_widget().resultsSplitter.saveState().toHex()),
             'search_options_settings_dict': str(self.searchOptionsGroupBox.get_settings_dict()),
         }
         return settings_dict
@@ -500,7 +564,7 @@ class Ui_checkOutTreeWidget(QtGui.QWidget, ui_checkout_tree.Ui_checkOutTree):
         self.settings.endGroup()
 
         # additional settings write
-        self.results_group_box.writeSettings()
+        self.search_results_widget.writeSettings()
 
     def closeEvent(self, event):
         event.accept()

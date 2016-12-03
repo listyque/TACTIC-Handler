@@ -2,14 +2,6 @@
 <ui version="4.0">
  <class>resultsGroupBox</class>
  <widget class="QGroupBox" name="resultsGroupBox">
-  <property name="geometry">
-   <rect>
-    <x>0</x>
-    <y>0</y>
-    <width>774</width>
-    <height>461</height>
-   </rect>
-  </property>
   <property name="windowTitle">
    <string>GroupBox</string>
   </property>
@@ -35,6 +27,9 @@
 QTabWidget::tab-bar {
     alignment: left;
 }</string>
+     </property>
+     <property name="movable">
+      <bool>true</bool>
      </property>
     </widget>
    </item>

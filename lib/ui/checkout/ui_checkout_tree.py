@@ -2,7 +2,7 @@
 
 # Form implementation generated from reading ui file 'checkout\ui_checkout_tree.ui'
 #
-# Created: Sat Nov 05 23:30:01 2016
+# Created: Sat Dec 03 13:16:29 2016
 #      by: pyside-uic 0.2.15 running on PySide 1.2.4
 #
 # WARNING! All changes made in this file will be lost!
@@ -12,7 +12,6 @@ from PySide import QtCore, QtGui
 class Ui_checkOutTree(object):
     def setupUi(self, checkOutTree):
         checkOutTree.setObjectName("checkOutTree")
-        checkOutTree.resize(616, 635)
         checkOutTree.setMinimumSize(QtCore.QSize(400, 250))
         self.verticalLayout = QtGui.QVBoxLayout(checkOutTree)
         self.verticalLayout.setContentsMargins(0, 0, 0, 0)
@@ -26,10 +25,6 @@ class Ui_checkOutTree(object):
         self.gridLayout.setSpacing(0)
         self.gridLayout.setContentsMargins(0, 0, 0, 0)
         self.gridLayout.setObjectName("gridLayout")
-        self.searchOptionsSplitter = QtGui.QSplitter(self.layoutWidget)
-        self.searchOptionsSplitter.setOrientation(QtCore.Qt.Vertical)
-        self.searchOptionsSplitter.setObjectName("searchOptionsSplitter")
-        self.gridLayout.addWidget(self.searchOptionsSplitter, 1, 0, 1, 3)
         self.searchLineEdit = QtGui.QLineEdit(self.layoutWidget)
         font = QtGui.QFont()
         font.setPointSize(9)
@@ -54,24 +49,20 @@ class Ui_checkOutTree(object):
         self.searchLineEdit.setObjectName("searchLineEdit")
         self.gridLayout.addWidget(self.searchLineEdit, 0, 0, 1, 1)
         self.refreshToolButton = QtGui.QToolButton(self.layoutWidget)
-        self.refreshToolButton.setMaximumSize(QtCore.QSize(16777215, 20))
-        icon = QtGui.QIcon()
-        icon.addPixmap(QtGui.QPixmap(":/ui_main/gliph/gear_16.png"), QtGui.QIcon.Normal, QtGui.QIcon.Off)
-        self.refreshToolButton.setIcon(icon)
+        self.refreshToolButton.setMaximumSize(QtCore.QSize(22, 22))
         self.refreshToolButton.setPopupMode(QtGui.QToolButton.InstantPopup)
         self.refreshToolButton.setAutoRaise(True)
         self.refreshToolButton.setObjectName("refreshToolButton")
-        self.gridLayout.addWidget(self.refreshToolButton, 0, 1, 1, 1)
-        self.findOpenedPushButton = QtGui.QPushButton(self.layoutWidget)
-        sizePolicy = QtGui.QSizePolicy(QtGui.QSizePolicy.Preferred, QtGui.QSizePolicy.Minimum)
-        sizePolicy.setHorizontalStretch(0)
-        sizePolicy.setVerticalStretch(0)
-        sizePolicy.setHeightForWidth(self.findOpenedPushButton.sizePolicy().hasHeightForWidth())
-        self.findOpenedPushButton.setSizePolicy(sizePolicy)
-        self.findOpenedPushButton.setMinimumSize(QtCore.QSize(75, 0))
-        self.findOpenedPushButton.setMaximumSize(QtCore.QSize(16777215, 20))
-        self.findOpenedPushButton.setObjectName("findOpenedPushButton")
-        self.gridLayout.addWidget(self.findOpenedPushButton, 0, 2, 1, 1)
+        self.gridLayout.addWidget(self.refreshToolButton, 0, 2, 1, 1)
+        self.searchOptionsSplitter = QtGui.QSplitter(self.layoutWidget)
+        self.searchOptionsSplitter.setOrientation(QtCore.Qt.Vertical)
+        self.searchOptionsSplitter.setObjectName("searchOptionsSplitter")
+        self.gridLayout.addWidget(self.searchOptionsSplitter, 1, 0, 1, 4)
+        self.expandingLayout = QtGui.QVBoxLayout()
+        self.expandingLayout.setSpacing(0)
+        self.expandingLayout.setObjectName("expandingLayout")
+        self.gridLayout.addLayout(self.expandingLayout, 0, 1, 1, 1)
+        self.gridLayout.setColumnStretch(0, 1)
         self.gridLayoutWidget_2 = QtGui.QWidget(self.commentsSplitter)
         self.gridLayoutWidget_2.setObjectName("gridLayoutWidget_2")
         self.commentsLayout = QtGui.QGridLayout(self.gridLayoutWidget_2)
@@ -144,7 +135,6 @@ class Ui_checkOutTree(object):
         checkOutTree.setTabOrder(self.saveDescriprionButton, self.descriptionTextEdit)
 
     def retranslateUi(self, checkOutTree):
-        self.findOpenedPushButton.setText(QtGui.QApplication.translate("checkOutTree", "Find Opened", None, QtGui.QApplication.UnicodeUTF8))
         self.playblastGroupBox.setTitle(QtGui.QApplication.translate("checkOutTree", "Preview images:", None, QtGui.QApplication.UnicodeUTF8))
         self.commentsGroupBox.setTitle(QtGui.QApplication.translate("checkOutTree", "Description:", None, QtGui.QApplication.UnicodeUTF8))
         self.descriptionTextEdit.setHtml(QtGui.QApplication.translate("checkOutTree", "", None, QtGui.QApplication.UnicodeUTF8))

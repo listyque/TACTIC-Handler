@@ -1,9 +1,9 @@
 # -*- coding: utf-8 -*-
 
-# Form implementation generated from reading ui file 'misc\ui_search_results.ui'
+# Form implementation generated from reading ui file 'misc/ui_search_results.ui'
 #
-# Created: Mon Sep 05 00:36:45 2016
-#      by: pyside-uic 0.2.15 running on PySide 1.2.4
+# Created: Sat Nov 19 16:15:34 2016
+#      by: pyside-uic 0.2.13 running on PySide 1.2.2
 #
 # WARNING! All changes made in this file will be lost!
 
@@ -12,7 +12,6 @@ from PySide import QtCore, QtGui
 class Ui_resultsGroupBox(object):
     def setupUi(self, resultsGroupBox):
         resultsGroupBox.setObjectName("resultsGroupBox")
-        resultsGroupBox.resize(774, 461)
         resultsGroupBox.setFlat(True)
         self.resultsLayout = QtGui.QVBoxLayout(resultsGroupBox)
         self.resultsLayout.setSpacing(0)
@@ -25,6 +24,7 @@ class Ui_resultsGroupBox(object):
 "QTabWidget::tab-bar {\n"
 "    alignment: left;\n"
 "}")
+        self.resultsTabWidget.setMovable(True)
         self.resultsTabWidget.setObjectName("resultsTabWidget")
         self.resultsLayout.addWidget(self.resultsTabWidget)
 

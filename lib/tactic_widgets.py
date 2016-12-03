@@ -9,6 +9,7 @@ input_classes = {
         'pyasm.widget.input_wdg.TextAreaWdg',
         'pyasm.widget.input_wdg.SelectWdg',
         'pyasm.prod.web.prod_input_wdg.CurrentCheckboxWdg',
+        'tactic.ui.input.task_input_wdg.TaskSObjectInputWdg',
     ],
     'handler': [
         'TacticSimpleUploadWdg',
@@ -16,6 +17,7 @@ input_classes = {
         'TacticTextAreaWdg',
         'TacticSelectWdg',
         'TacticCurrentCheckboxWdg',
+        'TacticTaskSObjectInputWdg',
     ],
 }
 
@@ -23,20 +25,21 @@ panel_classes = ['tactic.ui.panel.edit_wdg.EditWdg']
 
 
 class TacticBaseWidget(object):
-    def __init__(self, options_dict=None):
+    def __init__(self, options_dict=None, parent=None):
         # basic properties
 
-        # from pprint import pprint
-        # pprint(options_dict)
-        self.parent_widget = None
+        self.parent_widget = parent
 
         self.project = None
         self.stype = None
         self.sobject = None
+        self.parent_sobject = None
         self.sobjects = None
 
         self.search_type = None
         self.search_key = None
+
+        self.parent_key = None
 
         self.type = None
         self.current_index = None
@@ -68,6 +71,30 @@ class TacticBaseWidget(object):
     def get_class_name(self):
         return self.class_name
 
+    def set_stype(self, stype):
+        self.stype = stype
+
+    def get_stype(self):
+        return self.stype
+
+    def set_sobject(self, sobject):
+        self.sobject = sobject
+
+    def get_sobject(self):
+        return self.sobject
+
+    def set_parent_sobject(self, parent_sobject):
+        self.parent_sobject = parent_sobject
+
+    def get_parent_sobject(self):
+        return self.parent_sobject
+
+    def set_parent_widget(self, parent_widget):
+        self.parent_widget = parent_widget
+
+    def get_parent_widget(self):
+        return self.parent_widget
+
     def set_label(self, label):
         self.label = label
 
@@ -91,6 +118,12 @@ class TacticBaseWidget(object):
 
     def get_values(self):
         return self.values
+
+    def set_parent_search_key(self, parent_key):
+        self.parent_key = parent_key
+
+    def get_parent_search_key(self):
+        return self.parent_key
 
     def set_search_key(self, search_key):
         self.search_key = search_key
@@ -117,6 +150,10 @@ class TacticBaseWidget(object):
         options_dict_get = options_dict.get
         self.options_dict = options_dict
 
+        self.set_parent_sobject(options_dict_get('parent_sobject'))
+        self.set_sobject(options_dict_get('sobject'))
+        self.set_stype(options_dict_get('stype'))
+
         self.kwargs = options_dict_get('kwargs')
         self.set_current_index(options_dict_get('current_index'))
         self.set_label(options_dict_get('label'))
@@ -127,8 +164,9 @@ class TacticBaseWidget(object):
         self.set_action_options(options_dict_get('action_options'))
 
         if self.kwargs:
-            self.set_search_key(self.kwargs.get('search_key'))
             self.set_search_type(self.kwargs.get('search_type'))
+            self.set_search_key(self.kwargs.get('search_key'))
+            self.set_parent_search_key(self.kwargs.get('parent_key'))
 
 
 class TacticEditWdg(TacticBaseWidget):
@@ -145,9 +183,9 @@ class TacticEditWdg(TacticBaseWidget):
     def commit(self, data):
         # TODO make with threads
         if self.view == 'edit':
-            tc.server_start().update(self.get_search_key(), data)
+            return tc.server_start().update(self.get_search_key(), data)
         else:
-            tc.server_start().insert(self.get_search_type(), data)
+            return tc.server_start().insert(self.get_search_type(), data, parent_key=self.get_parent_search_key())
 
     def set_base_edit_options(self, options_dict):
         options_dict_get = options_dict.get
@@ -238,6 +276,13 @@ class TacticCurrentCheckboxWdg(TacticBaseInputWdg):
         super(self.__class__, self).__init__(options_dict=options_dict)
 
         self.set_class_name('pyasm.prod.web.prod_input_wdg.CurrentCheckboxWdg')
+
+
+class TacticTaskSObjectInputWdg(TacticBaseInputWdg):
+    def __init__(self, options_dict=None):
+        super(self.__class__, self).__init__(options_dict=options_dict)
+
+        self.set_class_name('tactic.ui.input.task_input_wdg.TaskSObjectInputWdg')
 
 
 def get_widget_name(tactic_class='', type=''):

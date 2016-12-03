@@ -24,6 +24,9 @@
       <property name="allColumnsShowFocus">
        <bool>true</bool>
       </property>
+      <property name="wordWrap">
+       <bool>true</bool>
+      </property>
       <property name="headerHidden">
        <bool>true</bool>
       </property>
@@ -47,6 +50,9 @@
           <bool>false</bool>
          </property>
          <property name="allColumnsShowFocus">
+          <bool>true</bool>
+         </property>
+         <property name="wordWrap">
           <bool>true</bool>
          </property>
          <property name="headerHidden">

@@ -2,10 +2,14 @@
 # Start here to run app standalone
 
 import sys
-import PySide.QtGui as QtGui
-from lib.environment import env_mode
+from lib.side.Qt import QtGui
+from lib.environment import env_mode, env_inst
 import lib.tactic_classes as tc
 import lib.ui_classes.ui_main_classes as ui_main_classes
+
+
+def reload_modules():
+    reload(ui_main_classes)
 
 groups = ['Disabled', 'Active', 'Inactive', 'Normal']
 roles = ['Window',
@@ -42,7 +46,7 @@ def setPaletteFromDct(dct):
             qGrp = getattr(QtGui.QPalette, group)
             qRl = getattr(QtGui.QPalette, role)
             palette.setColor(qGrp, qRl, color)
-    QtGui.QApplication.setPalette(palette)
+            QtGui.QApplication.setPalette(palette)
 
 
 palette = {
@@ -88,14 +92,21 @@ def retry_startup(thread):
     create_ui(thread)
 
 
+def restart():
+    reload(ui_main_classes)
+    ping_thread = tc.get_server_thread(dict(), tc.server_ping, lambda: create_ui(ping_thread), parent=env_inst.ui_super)
+    ping_thread.start()
+    return ping_thread
+
+
 def startup():
     app = QtGui.QApplication(sys.argv)
+    env_inst.ui_super = app
     app.setStyle("plastique")
     setPaletteFromDct(palette)
 
     ping_thread = tc.get_server_thread(dict(), tc.server_ping, lambda: create_ui(ping_thread), parent=app)
     ping_thread.start()
-
     sys.exit(app.exec_())
 
 if __name__ == '__main__':

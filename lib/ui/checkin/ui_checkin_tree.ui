@@ -8,23 +8,62 @@
     <height>250</height>
    </size>
   </property>
-  <layout class="QGridLayout" name="checkinTreeLayout" columnstretch="0,0,0,1,0,1" columnminimumwidth="0,0,0,0,0,100">
-   <property name="leftMargin">
+  <layout class="QGridLayout" name="checkinTreeLayout" columnstretch="0,0,0,1,0,0,1">
+   <property name="margin">
     <number>0</number>
-   </property>
-   <property name="topMargin">
-    <number>0</number>
-   </property>
-   <property name="rightMargin">
-    <number>0</number>
-   </property>
-   <property name="bottomMargin">
-    <number>8</number>
    </property>
    <property name="spacing">
     <number>0</number>
    </property>
-   <item row="0" column="0" colspan="6">
+   <item row="1" column="0">
+    <widget class="QToolButton" name="toggleSaveOptionsToolButton">
+     <property name="minimumSize">
+      <size>
+       <width>0</width>
+       <height>22</height>
+      </size>
+     </property>
+     <property name="maximumSize">
+      <size>
+       <width>16777215</width>
+       <height>22</height>
+      </size>
+     </property>
+     <property name="autoRaise">
+      <bool>true</bool>
+     </property>
+    </widget>
+   </item>
+   <item row="1" column="5">
+    <widget class="QLabel" name="contextLabel">
+     <property name="minimumSize">
+      <size>
+       <width>50</width>
+       <height>0</height>
+      </size>
+     </property>
+     <property name="text">
+      <string>Context:</string>
+     </property>
+    </widget>
+   </item>
+   <item row="1" column="4">
+    <spacer name="horizontalSpacer_2">
+     <property name="orientation">
+      <enum>Qt::Horizontal</enum>
+     </property>
+     <property name="sizeType">
+      <enum>QSizePolicy::Preferred</enum>
+     </property>
+     <property name="sizeHint" stdset="0">
+      <size>
+       <width>40</width>
+       <height>20</height>
+      </size>
+     </property>
+    </spacer>
+   </item>
+   <item row="0" column="0" colspan="7">
     <widget class="QSplitter" name="descriptionSplitter">
      <property name="orientation">
       <enum>Qt::Vertical</enum>
@@ -34,17 +73,10 @@
        <enum>Qt::Horizontal</enum>
       </property>
       <widget class="QWidget" name="layoutWidget">
-       <layout class="QGridLayout" name="gridLayout">
+       <layout class="QGridLayout" name="gridLayout" columnstretch="1,0,0,0,0">
         <property name="spacing">
          <number>0</number>
         </property>
-        <item row="1" column="0" colspan="6">
-         <widget class="QSplitter" name="searchOptionsSplitter">
-          <property name="orientation">
-           <enum>Qt::Vertical</enum>
-          </property>
-         </widget>
-        </item>
         <item row="0" column="0">
          <widget class="QLineEdit" name="searchLineEdit">
           <property name="font">
@@ -75,67 +107,13 @@ QLineEdit:hover{
           </property>
          </widget>
         </item>
-        <item row="0" column="3">
-         <widget class="QPushButton" name="findOpenedPushButton">
-          <property name="sizePolicy">
-           <sizepolicy hsizetype="Preferred" vsizetype="Minimum">
-            <horstretch>0</horstretch>
-            <verstretch>0</verstretch>
-           </sizepolicy>
-          </property>
-          <property name="minimumSize">
-           <size>
-            <width>75</width>
-            <height>0</height>
-           </size>
-          </property>
-          <property name="maximumSize">
-           <size>
-            <width>16777215</width>
-            <height>20</height>
-           </size>
-          </property>
-          <property name="text">
-           <string>Find Opened</string>
-          </property>
-         </widget>
-        </item>
         <item row="0" column="2">
-         <widget class="QPushButton" name="addNewtButton">
-          <property name="sizePolicy">
-           <sizepolicy hsizetype="Preferred" vsizetype="Minimum">
-            <horstretch>0</horstretch>
-            <verstretch>0</verstretch>
-           </sizepolicy>
-          </property>
-          <property name="minimumSize">
-           <size>
-            <width>75</width>
-            <height>0</height>
-           </size>
-          </property>
-          <property name="maximumSize">
-           <size>
-            <width>16777215</width>
-            <height>20</height>
-           </size>
-          </property>
-          <property name="text">
-           <string>Add New</string>
-          </property>
-         </widget>
-        </item>
-        <item row="0" column="1">
          <widget class="QToolButton" name="refreshToolButton">
           <property name="maximumSize">
            <size>
-            <width>16777215</width>
-            <height>20</height>
+            <width>22</width>
+            <height>22</height>
            </size>
-          </property>
-          <property name="icon">
-           <iconset resource="../resources.qrc">
-            <normaloff>:/ui_main/gliph/gear_16.png</normaloff>:/ui_main/gliph/gear_16.png</iconset>
           </property>
           <property name="popupMode">
            <enum>QToolButton::InstantPopup</enum>
@@ -145,6 +123,20 @@ QLineEdit:hover{
           </property>
           <property name="arrowType">
            <enum>Qt::NoArrow</enum>
+          </property>
+         </widget>
+        </item>
+        <item row="0" column="1">
+         <layout class="QVBoxLayout" name="expandingLayout">
+          <property name="spacing">
+           <number>0</number>
+          </property>
+         </layout>
+        </item>
+        <item row="1" column="0" colspan="5">
+         <widget class="QSplitter" name="searchOptionsSplitter">
+          <property name="orientation">
+           <enum>Qt::Vertical</enum>
           </property>
          </widget>
         </item>
@@ -279,13 +271,8 @@ p, li { white-space: pre-wrap; }
 &lt;tr&gt;
 &lt;td style=&quot;border: none;&quot;&gt;
 &lt;p style=&quot;-qt-paragraph-type:empty; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px; font-size:8pt;&quot;&gt;&lt;br /&gt;&lt;/p&gt;
-&lt;p style=&quot;-qt-paragraph-type:empty; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px; font-family:'Sans Serif'; font-size:10pt;&quot;&gt;&lt;br /&gt;&lt;/p&gt;
-&lt;p style=&quot;-qt-paragraph-type:empty; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px; font-family:'Sans Serif'; font-size:10pt;&quot;&gt;&lt;br /&gt;&lt;/p&gt;
-&lt;p style=&quot;-qt-paragraph-type:empty; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px; font-family:'Sans Serif'; font-size:10pt;&quot;&gt;&lt;br /&gt;&lt;/p&gt;
-&lt;p style=&quot;-qt-paragraph-type:empty; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px; font-family:'Sans Serif'; font-size:10pt;&quot;&gt;&lt;br /&gt;&lt;/p&gt;
-&lt;p style=&quot;-qt-paragraph-type:empty; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px; font-family:'Sans Serif'; font-size:10pt;&quot;&gt;&lt;br /&gt;&lt;/p&gt;
-&lt;p style=&quot;-qt-paragraph-type:empty; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px; font-family:'Sans Serif'; font-size:10pt;&quot;&gt;&lt;br /&gt;&lt;/p&gt;
-&lt;p style=&quot;-qt-paragraph-type:empty; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px; font-family:'Sans Serif'; font-size:10pt;&quot;&gt;&lt;br /&gt;&lt;/p&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/body&gt;&lt;/html&gt;</string>
+&lt;p style=&quot;-qt-paragraph-type:empty; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px; font-size:8pt;&quot;&gt;&lt;br /&gt;&lt;/p&gt;
+&lt;p style=&quot;-qt-paragraph-type:empty; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px; font-size:8pt;&quot;&gt;&lt;br /&gt;&lt;/p&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/body&gt;&lt;/html&gt;</string>
               </property>
              </widget>
             </widget>
@@ -298,57 +285,33 @@ p, li { white-space: pre-wrap; }
       <widget class="QWidget" name="gridLayoutWidget">
        <layout class="QVBoxLayout" name="dropPlateLayout">
         <property name="spacing">
-         <number>6</number>
-        </property>
-        <property name="leftMargin">
          <number>0</number>
         </property>
-        <property name="topMargin">
-         <number>1</number>
-        </property>
-        <property name="rightMargin">
+        <property name="margin">
          <number>0</number>
-        </property>
-        <property name="bottomMargin">
-         <number>8</number>
         </property>
        </layout>
       </widget>
      </widget>
     </widget>
    </item>
-   <item row="1" column="0">
-    <widget class="QToolButton" name="toggleSaveOptionsToolButton">
-     <property name="minimumSize">
-      <size>
-       <width>0</width>
-       <height>22</height>
-      </size>
+   <item row="1" column="2">
+    <widget class="QComboBox" name="formatTypeComboBox"/>
+   </item>
+   <item row="1" column="6">
+    <widget class="QLineEdit" name="contextLineEdit">
+     <property name="enabled">
+      <bool>false</bool>
      </property>
-     <property name="maximumSize">
-      <size>
-       <width>16777215</width>
-       <height>22</height>
-      </size>
-     </property>
-     <property name="checkable">
-      <bool>true</bool>
-     </property>
-     <property name="checked">
-      <bool>true</bool>
-     </property>
-     <property name="autoRaise">
-      <bool>true</bool>
-     </property>
-     <property name="arrowType">
-      <enum>Qt::UpArrow</enum>
+     <property name="sizePolicy">
+      <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+       <horstretch>0</horstretch>
+       <verstretch>0</verstretch>
+      </sizepolicy>
      </property>
     </widget>
    </item>
    <item row="1" column="1">
-    <widget class="QComboBox" name="formatTypeComboBox"/>
-   </item>
-   <item row="1" column="2">
     <widget class="QToolButton" name="savePushButton">
      <property name="enabled">
       <bool>false</bool>
@@ -372,52 +335,13 @@ p, li { white-space: pre-wrap; }
       <bool>false</bool>
      </property>
      <property name="popupMode">
-      <enum>QToolButton::DelayedPopup</enum>
+      <enum>QToolButton::MenuButtonPopup</enum>
+     </property>
+     <property name="toolButtonStyle">
+      <enum>Qt::ToolButtonTextBesideIcon</enum>
      </property>
      <property name="autoRaise">
       <bool>true</bool>
-     </property>
-    </widget>
-   </item>
-   <item row="1" column="3">
-    <spacer name="horizontalSpacer_2">
-     <property name="orientation">
-      <enum>Qt::Horizontal</enum>
-     </property>
-     <property name="sizeType">
-      <enum>QSizePolicy::Preferred</enum>
-     </property>
-     <property name="sizeHint" stdset="0">
-      <size>
-       <width>40</width>
-       <height>20</height>
-      </size>
-     </property>
-    </spacer>
-   </item>
-   <item row="1" column="4">
-    <widget class="QLabel" name="contextLabel">
-     <property name="minimumSize">
-      <size>
-       <width>50</width>
-       <height>0</height>
-      </size>
-     </property>
-     <property name="text">
-      <string>Context:</string>
-     </property>
-    </widget>
-   </item>
-   <item row="1" column="5">
-    <widget class="QLineEdit" name="contextLineEdit">
-     <property name="enabled">
-      <bool>false</bool>
-     </property>
-     <property name="sizePolicy">
-      <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
-       <horstretch>0</horstretch>
-       <verstretch>0</verstretch>
-      </sizepolicy>
      </property>
     </widget>
    </item>

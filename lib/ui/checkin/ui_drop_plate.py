@@ -2,7 +2,7 @@
 
 # Form implementation generated from reading ui file 'checkin/ui_drop_plate.ui'
 #
-# Created: Tue Sep 27 13:07:02 2016
+# Created: Fri Dec  2 18:46:18 2016
 #      by: pyside-uic 0.2.13 running on PySide 1.2.2
 #
 # WARNING! All changes made in this file will be lost!
@@ -12,11 +12,6 @@ from PySide import QtCore, QtGui
 class Ui_dropPlateGroupBox(object):
     def setupUi(self, dropPlateGroupBox):
         dropPlateGroupBox.setObjectName("dropPlateGroupBox")
-        sizePolicy = QtGui.QSizePolicy(QtGui.QSizePolicy.Ignored, QtGui.QSizePolicy.Preferred)
-        sizePolicy.setHorizontalStretch(0)
-        sizePolicy.setVerticalStretch(0)
-        sizePolicy.setHeightForWidth(dropPlateGroupBox.sizePolicy().hasHeightForWidth())
-        dropPlateGroupBox.setSizePolicy(sizePolicy)
         dropPlateGroupBox.setAlignment(QtCore.Qt.AlignCenter)
         dropPlateGroupBox.setFlat(True)
         self.gridLayout = QtGui.QGridLayout(dropPlateGroupBox)
@@ -24,10 +19,6 @@ class Ui_dropPlateGroupBox(object):
         self.gridLayout.setHorizontalSpacing(6)
         self.gridLayout.setVerticalSpacing(0)
         self.gridLayout.setObjectName("gridLayout")
-        self.clearPushButton = QtGui.QPushButton(dropPlateGroupBox)
-        self.clearPushButton.setMinimumSize(QtCore.QSize(75, 0))
-        self.clearPushButton.setObjectName("clearPushButton")
-        self.gridLayout.addWidget(self.clearPushButton, 2, 4, 1, 1)
         spacerItem = QtGui.QSpacerItem(40, 20, QtGui.QSizePolicy.Expanding, QtGui.QSizePolicy.Minimum)
         self.gridLayout.addItem(spacerItem, 2, 3, 1, 1)
         self.dropTreeWidget = QtGui.QTreeWidget(dropPlateGroupBox)
@@ -38,7 +29,17 @@ class Ui_dropPlateGroupBox(object):
         self.dropTreeWidget.setSizePolicy(sizePolicy)
         self.dropTreeWidget.setStyleSheet("QTreeView::item {\n"
 "    padding: 2px;\n"
-"}")
+"}\n"
+"\n"
+"QTreeView::item:selected:active{\n"
+"    background: qlineargradient(spread:pad, x1:0, y1:0, x2:1, y2:0, stop:0 rgba(82, 133, 166, 255), stop:1 rgba(82, 133, 166, 255));\n"
+"    border: 1px solid transparent;\n"
+"}\n"
+"QTreeView::item:selected:!active {\n"
+"    background: qlineargradient(spread:pad, x1:0, y1:0, x2:1, y2:0, stop:0 rgba(82, 133, 166, 255), stop:1 rgba(82, 133, 166, 255));\n"
+"    border: 1px solid transparent;\n"
+"}\n"
+"")
         self.dropTreeWidget.setTabKeyNavigation(True)
         self.dropTreeWidget.setAlternatingRowColors(True)
         self.dropTreeWidget.setSelectionMode(QtGui.QAbstractItemView.ExtendedSelection)
@@ -63,14 +64,19 @@ class Ui_dropPlateGroupBox(object):
         self.keepFileNameCheckBox = QtGui.QCheckBox(dropPlateGroupBox)
         self.keepFileNameCheckBox.setObjectName("keepFileNameCheckBox")
         self.gridLayout.addWidget(self.keepFileNameCheckBox, 2, 2, 1, 1)
+        self.clearPushButton = QtGui.QToolButton(dropPlateGroupBox)
+        self.clearPushButton.setMinimumSize(QtCore.QSize(75, 0))
+        self.clearPushButton.setToolButtonStyle(QtCore.Qt.ToolButtonTextBesideIcon)
+        self.clearPushButton.setAutoRaise(True)
+        self.clearPushButton.setObjectName("clearPushButton")
+        self.gridLayout.addWidget(self.clearPushButton, 2, 4, 1, 1)
 
         self.retranslateUi(dropPlateGroupBox)
         QtCore.QMetaObject.connectSlotsByName(dropPlateGroupBox)
 
     def retranslateUi(self, dropPlateGroupBox):
-        dropPlateGroupBox.setWindowTitle(QtGui.QApplication.translate("dropPlateGroupBox", "GroupBox", None, QtGui.QApplication.UnicodeUTF8))
+        dropPlateGroupBox.setWindowTitle(QtGui.QApplication.translate("dropPlateGroupBox", "DropPlate", None, QtGui.QApplication.UnicodeUTF8))
         dropPlateGroupBox.setTitle(QtGui.QApplication.translate("dropPlateGroupBox", "Drop Files/Folders/Sequences Here:", None, QtGui.QApplication.UnicodeUTF8))
-        self.clearPushButton.setText(QtGui.QApplication.translate("dropPlateGroupBox", "Clear", None, QtGui.QApplication.UnicodeUTF8))
         self.dropTreeWidget.setSortingEnabled(True)
         self.dropTreeWidget.headerItem().setText(0, QtGui.QApplication.translate("dropPlateGroupBox", "File Name", None, QtGui.QApplication.UnicodeUTF8))
         self.dropTreeWidget.headerItem().setText(1, QtGui.QApplication.translate("dropPlateGroupBox", "Class/Ext", None, QtGui.QApplication.UnicodeUTF8))
@@ -79,4 +85,5 @@ class Ui_dropPlateGroupBox(object):
         self.fromDropListCheckBox.setText(QtGui.QApplication.translate("dropPlateGroupBox", "From Droplist", None, QtGui.QApplication.UnicodeUTF8))
         self.groupCheckinCheckBox.setText(QtGui.QApplication.translate("dropPlateGroupBox", "Group Checkin", None, QtGui.QApplication.UnicodeUTF8))
         self.keepFileNameCheckBox.setText(QtGui.QApplication.translate("dropPlateGroupBox", "Keep Filename", None, QtGui.QApplication.UnicodeUTF8))
+        self.clearPushButton.setText(QtGui.QApplication.translate("dropPlateGroupBox", "Clear", None, QtGui.QApplication.UnicodeUTF8))
 

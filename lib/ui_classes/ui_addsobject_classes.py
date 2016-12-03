@@ -5,7 +5,6 @@
 import PySide.QtCore as QtCore
 import PySide.QtGui as QtGui
 import json
-# import lib.environment as env
 from lib.environment import env_mode, env_server
 import lib.tactic_classes as tc
 import lib.tactic_widgets as tw
@@ -107,18 +106,18 @@ class Ui_addTacticSobjectWidget(QtGui.QDialog):
         self.search_type = self.stype.info.get('code')
 
         self.view = view
+
+        self.search_key = None
+        self.parent_search_key = None
         if self.item:
-            if self.item.type == 'sobject':
-                skey = self.item.sobject.info['__search_key__']
-            if self.item.type == 'snapshot':
-                skey = self.item.snapshot['__search_key__']
-        else:
-            skey = None
+            self.search_key = self.item.get_search_key()
+            self.parent_search_key = self.item.get_parent_search_key()
 
         kwargs_edit = {
             'args': {
                 'input_prefix': 'edit',
-                'search_key': skey,
+                'search_key': self.search_key,
+                'parent_key': self.parent_search_key,
                 'view': 'edit',
             },
             'search_type': self.search_type,
@@ -126,8 +125,9 @@ class Ui_addTacticSobjectWidget(QtGui.QDialog):
 
         kwargs_insert = {
             'args': {
+                'mode': 'insert',
                 'input_prefix': 'insert',
-                'parent_key': '',
+                'parent_key': self.parent_search_key,
                 'search_type': self.search_type,
                 'view': 'insert',
             },
@@ -139,23 +139,14 @@ class Ui_addTacticSobjectWidget(QtGui.QDialog):
         else:
             kwargs = kwargs_insert
 
-        code = tc.prepare_serverside_script(tq.query_EditWdg, kwargs, return_dict=True)
-
+        code = tq.prepare_serverside_script(tq.query_EditWdg, kwargs, return_dict=True)
         result = tc.server_start().execute_python_script('', kwargs=code)
-
         result_dict = json.loads(result['info']['spt_ret_val'])
 
         input_widgets_list = []
-
-        for widget_dict in result_dict['InputWidgets']:
-            tactic_widget_name = tw.get_widget_name(widget_dict['class_name'], 'input')
-
-            tactic_widget = getattr(tw, tactic_widget_name)
-            qt_widget = getattr(twc, 'Q{0}'.format(tactic_widget_name))
-            tactic_widget_instance = tactic_widget(options_dict=widget_dict)
-            qt_widget_instance = qt_widget(tactic_widget=tactic_widget_instance)
-
-            input_widgets_list.append(qt_widget_instance)
+        if self.item:
+            result_dict['EditWdg']['sobject'] = self.item.get_sobject()
+            result_dict['EditWdg']['parent_sobject'] = self.item.get_parent_sobject()
 
         tactic_edit_widget = tw.TacticEditWdg(result_dict['EditWdg'])
 
@@ -165,13 +156,48 @@ class Ui_addTacticSobjectWidget(QtGui.QDialog):
             parent=self
         )
 
+        for widget_dict in result_dict['InputWidgets']:
+            tactic_widget_name = tw.get_widget_name(widget_dict['class_name'], 'input')
+
+            widget_dict['sobject'] = result_dict['EditWdg'].get('sobject')
+            widget_dict['parent_sobject'] = result_dict['EditWdg'].get('parent_sobject')
+
+            if not tactic_widget_name:
+                tactic_widget_name = 'TacticCurrentCheckboxWdg'
+
+            tactic_widget = getattr(tw, tactic_widget_name)
+            qt_widget = getattr(twc, 'Q{0}'.format(tactic_widget_name))
+
+            widget_dict['stype'] = self.stype
+
+            tactic_widget_instance = tactic_widget(options_dict=widget_dict)
+            qt_widget_instance = qt_widget(tactic_widget=tactic_widget_instance, parent=self.edit_window)
+
+            input_widgets_list.append(qt_widget_instance)
+
         self.grid_layout = QtGui.QGridLayout(self)
-
         self.grid_layout.addWidget(self.edit_window)
-
         self.setSizeGripEnabled(True)
+        self.set_title()
 
         self.readSettings()
+
+    def set_title(self):
+        stype_tytle = self.stype.info.get('title')
+        stype_code = self.stype.info.get('code')
+        if stype_tytle:
+            title = stype_tytle.capitalize()
+        else:
+            title = 'Unknown'
+
+        self.setWindowTitle('Adding new SObject {0} ({1})'.format(title, stype_code))
+
+    def add_new_tab(self, sobject):
+        self.parent_ui.do_search(
+            search_query=sobject.get('code'),
+            search_by=1,
+            new_tab=True
+        )
 
     def refresh_results(self):
         self.parent_ui.refresh_current_results()

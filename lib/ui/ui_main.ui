@@ -55,12 +55,21 @@ QTreeView::item:selected{
   </property>
   <widget class="QWidget" name="mainwidget"/>
   <widget class="QMenuBar" name="menubar">
+   <property name="geometry">
+    <rect>
+     <x>0</x>
+     <y>0</y>
+     <width>427</width>
+     <height>25</height>
+    </rect>
+   </property>
    <widget class="QMenu" name="menuConfig">
     <property name="title">
      <string>Menu</string>
     </property>
     <addaction name="actionConfiguration"/>
     <addaction name="actionApply_to_all_Tabs"/>
+    <addaction name="actionDock_undock"/>
     <addaction name="separator"/>
     <addaction name="actionServerside_Script"/>
     <addaction name="separator"/>
@@ -90,11 +99,6 @@ QTreeView::item:selected{
     <string>Update</string>
    </property>
   </action>
-  <action name="actionVersion">
-   <property name="text">
-    <string>Version</string>
-   </property>
-  </action>
   <action name="actionExit">
    <property name="text">
     <string>Exit</string>
@@ -108,6 +112,11 @@ QTreeView::item:selected{
   <action name="actionServerside_Script">
    <property name="text">
     <string>Serverside Script</string>
+   </property>
+  </action>
+  <action name="actionDock_undock">
+   <property name="text">
+    <string>Dock/undock</string>
    </property>
   </action>
  </widget>

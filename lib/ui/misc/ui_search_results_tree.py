@@ -1,9 +1,9 @@
 # -*- coding: utf-8 -*-
 
-# Form implementation generated from reading ui file 'misc\ui_search_results_tree.ui'
+# Form implementation generated from reading ui file 'misc/ui_search_results_tree.ui'
 #
-# Created: Thu Sep 01 16:22:56 2016
-#      by: pyside-uic 0.2.15 running on PySide 1.2.4
+# Created: Wed Nov 16 13:24:58 2016
+#      by: pyside-uic 0.2.13 running on PySide 1.2.2
 #
 # WARNING! All changes made in this file will be lost!
 
@@ -23,6 +23,7 @@ class Ui_resultsForm(object):
         self.resultsTreeWidget.setTabKeyNavigation(True)
         self.resultsTreeWidget.setVerticalScrollMode(QtGui.QAbstractItemView.ScrollPerPixel)
         self.resultsTreeWidget.setAllColumnsShowFocus(True)
+        self.resultsTreeWidget.setWordWrap(True)
         self.resultsTreeWidget.setHeaderHidden(True)
         self.resultsTreeWidget.setObjectName("resultsTreeWidget")
         self.resultsTreeWidget.headerItem().setText(0, "1")
@@ -36,6 +37,7 @@ class Ui_resultsForm(object):
         self.resultsVersionsTreeWidget.setVerticalScrollMode(QtGui.QAbstractItemView.ScrollPerPixel)
         self.resultsVersionsTreeWidget.setRootIsDecorated(False)
         self.resultsVersionsTreeWidget.setAllColumnsShowFocus(True)
+        self.resultsVersionsTreeWidget.setWordWrap(True)
         self.resultsVersionsTreeWidget.setHeaderHidden(True)
         self.resultsVersionsTreeWidget.setObjectName("resultsVersionsTreeWidget")
         self.resultsVersionsTreeWidget.headerItem().setText(0, "1")

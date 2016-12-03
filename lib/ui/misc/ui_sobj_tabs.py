@@ -1,9 +1,9 @@
 # -*- coding: utf-8 -*-
 
-# Form implementation generated from reading ui file 'misc\ui_sobj_tabs.ui'
+# Form implementation generated from reading ui file 'misc/ui_sobj_tabs.ui'
 #
-# Created: Mon Sep 05 00:35:39 2016
-#      by: pyside-uic 0.2.15 running on PySide 1.2.4
+# Created: Mon Nov 28 11:17:51 2016
+#      by: pyside-uic 0.2.13 running on PySide 1.2.2
 #
 # WARNING! All changes made in this file will be lost!
 
@@ -12,12 +12,26 @@ from PySide import QtCore, QtGui
 class Ui_sObjTabs(object):
     def setupUi(self, sObjTabs):
         sObjTabs.setObjectName("sObjTabs")
-        sObjTabs.resize(400, 250)
-        sObjTabs.setMinimumSize(QtCore.QSize(400, 250))
-        self.verticalLayout = QtGui.QVBoxLayout(sObjTabs)
-        self.verticalLayout.setSpacing(0)
-        self.verticalLayout.setContentsMargins(0, 0, 0, 0)
-        self.verticalLayout.setObjectName("verticalLayout")
+        sObjTabs.resize(131, 192)
+        self.horizontalLayout = QtGui.QHBoxLayout(sObjTabs)
+        self.horizontalLayout.setSpacing(0)
+        self.horizontalLayout.setContentsMargins(0, 0, 0, 0)
+        self.horizontalLayout.setObjectName("horizontalLayout")
+        self.sTypesTreeWidget = QtGui.QTreeWidget(sObjTabs)
+        self.sTypesTreeWidget.setMaximumSize(QtCore.QSize(0, 16777215))
+        self.sTypesTreeWidget.setStyleSheet("QTreeView::item {\n"
+"    padding: 2px;\n"
+"}")
+        self.sTypesTreeWidget.setHorizontalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOff)
+        self.sTypesTreeWidget.setEditTriggers(QtGui.QAbstractItemView.NoEditTriggers)
+        self.sTypesTreeWidget.setProperty("showDropIndicator", False)
+        self.sTypesTreeWidget.setVerticalScrollMode(QtGui.QAbstractItemView.ScrollPerPixel)
+        self.sTypesTreeWidget.setRootIsDecorated(False)
+        self.sTypesTreeWidget.setAnimated(True)
+        self.sTypesTreeWidget.setHeaderHidden(True)
+        self.sTypesTreeWidget.setObjectName("sTypesTreeWidget")
+        self.sTypesTreeWidget.headerItem().setText(0, "1")
+        self.horizontalLayout.addWidget(self.sTypesTreeWidget)
         self.sObjTabWidget = QtGui.QTabWidget(sObjTabs)
         self.sObjTabWidget.setStyleSheet("QTabWidget::pane {\n"
 "    border: 0px;\n"
@@ -25,12 +39,14 @@ class Ui_sObjTabs(object):
 "QTabWidget::tab-bar {\n"
 "    alignment: left;\n"
 "}")
+        self.sObjTabWidget.setMovable(True)
         self.sObjTabWidget.setObjectName("sObjTabWidget")
-        self.verticalLayout.addWidget(self.sObjTabWidget)
+        self.horizontalLayout.addWidget(self.sObjTabWidget)
+        self.horizontalLayout.setStretch(1, 1)
 
         self.retranslateUi(sObjTabs)
         QtCore.QMetaObject.connectSlotsByName(sObjTabs)
 
     def retranslateUi(self, sObjTabs):
-        sObjTabs.setWindowTitle(QtGui.QApplication.translate("sObjTabs", "Checkout", None, QtGui.QApplication.UnicodeUTF8))
+        pass
 

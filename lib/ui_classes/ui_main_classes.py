@@ -6,16 +6,11 @@ import collections
 from functools import partial
 import PySide.QtCore as QtCore
 import PySide.QtGui as QtGui
-# import lib.environment as env
 from lib.environment import env_mode, env_inst, env_server
 from lib.configuration import cfg_controls
 import lib.tactic_classes as tc
 import lib.update_functions as uf
 import lib.global_functions as gf
-
-if env_mode.get_mode() == 'maya':
-    import lib.maya_functions as mf
-    reload(mf)
 import lib.ui.ui_main as ui_main
 import lib.ui.ui_main_tabs as ui_main_tabs
 import lib.ui.misc.ui_serverside as ui_serverside
@@ -26,6 +21,10 @@ import ui_conf_classes
 import ui_my_tactic_classes
 import ui_assets_browser_classes
 import ui_float_notify_classes
+if env_mode.get_mode() == 'maya':
+    import lib.maya_functions as mf
+    reload(mf)
+
 
 reload(ui_main)
 reload(ui_main_tabs)
@@ -110,7 +109,7 @@ class Ui_updateDialog(QtGui.QDialog, ui_update.Ui_updateDialog):
         self.check_current_version()
         archive_path = uf.get_update_archive_from_server(self.updates[-1].get('update_archive'))
         uf.update_from_archive(archive_path)
-        env_inst.ui_main.restart_ui_main()
+        env_inst.ui_main.restart_for_update_ui_main()
 
     def update_to_selected_version(self):
         pass
@@ -158,9 +157,9 @@ class Ui_createUpdateDialog(QtGui.QDialog, ui_create_update.Ui_createUpdateDialo
             'update_archive': '{0}.tar.gz'.format(current_ver_str)
         }
         uf.save_json_to_path('{0}/updates/{1}.json'.format(env_mode.get_current_path(), current_ver_str), data_dict)
-        uf.create_updates_list()
         uf.save_current_version(current_ver_dict)
-
+        uf.create_update_archive('{0}/updates/{1}.tar.gz'.format(env_mode.get_current_path(), current_ver_str))
+        uf.create_updates_list()
         self.close()
 
     def create_tar_gz_archive(self):
@@ -230,27 +229,30 @@ class Ui_mainTabs(QtGui.QWidget, ui_main_tabs.Ui_mainTabsForm):
                 tabs_list = self.checkin_out_config_projects.get('!tabs_list!')
             elif project_tabs_list:
                 tabs_list = project_tabs_list['tabs_list']
-            for i, tab in enumerate(tabs_list):
-                if tab[0] == 'Checkout':
-                    if not tab[2]:
-                        self.main_tabWidget.removeTab(self.main_tabWidget.indexOf(self.checkOutTab))
-                    else:
-                        self.main_tabWidget.insertTab(i, self.checkOutTab, tab[1])
-                if tab[0] == 'Checkin':
-                    if not tab[2]:
-                        self.main_tabWidget.removeTab(self.main_tabWidget.indexOf(self.checkInTab))
-                    else:
-                        self.main_tabWidget.insertTab(i, self.checkInTab, tab[1])
-                if tab[0] == 'My Tactic':
-                    if not tab[2]:
-                        self.main_tabWidget.removeTab(self.main_tabWidget.indexOf(self.myTacticTab))
-                    else:
-                        self.main_tabWidget.insertTab(i, self.myTacticTab, tab[1])
-                if tab[0] == 'Assets Browser':
-                    if not tab[2]:
-                        self.main_tabWidget.removeTab(self.main_tabWidget.indexOf(self.assetsBrowserTab))
-                    else:
-                        self.main_tabWidget.insertTab(i, self.assetsBrowserTab, tab[1])
+            else:
+                tabs_list = None
+            if tabs_list:
+                for i, tab in enumerate(tabs_list):
+                    if tab[0] == 'Checkout':
+                        if not tab[2]:
+                            self.main_tabWidget.removeTab(self.main_tabWidget.indexOf(self.checkOutTab))
+                        else:
+                            self.main_tabWidget.insertTab(i, self.checkOutTab, tab[1])
+                    if tab[0] == 'Checkin':
+                        if not tab[2]:
+                            self.main_tabWidget.removeTab(self.main_tabWidget.indexOf(self.checkInTab))
+                        else:
+                            self.main_tabWidget.insertTab(i, self.checkInTab, tab[1])
+                    if tab[0] == 'My Tactic':
+                        if not tab[2]:
+                            self.main_tabWidget.removeTab(self.main_tabWidget.indexOf(self.myTacticTab))
+                        else:
+                            self.main_tabWidget.insertTab(i, self.myTacticTab, tab[1])
+                    if tab[0] == 'Assets Browser':
+                        if not tab[2]:
+                            self.main_tabWidget.removeTab(self.main_tabWidget.indexOf(self.assetsBrowserTab))
+                        else:
+                            self.main_tabWidget.insertTab(i, self.assetsBrowserTab, tab[1])
 
     def create_ui_main_tabs(self):
 
@@ -273,7 +275,7 @@ class Ui_mainTabs(QtGui.QWidget, ui_main_tabs.Ui_mainTabsForm):
             if self.stypes_items.isFailed():
                 if self.stypes_items.result == QtGui.QMessageBox.ApplyRole:
                     self.stypes_items.run()
-                    self.query_stypes(run_thread=True)
+                    self.get_stypes(run_thread=True)
                 elif self.stypes_items.result == QtGui.QMessageBox.ActionRole:
                     env_inst.offline = True
                     self.parent().self.open_config_dialog()
@@ -395,7 +397,7 @@ class Ui_mainTabs(QtGui.QWidget, ui_main_tabs.Ui_mainTabsForm):
             tree_wdg.searchLineEdit.setText(search_code)
             tree_wdg.searchOptionsGroupBox.searchCodeRadioButton.setChecked(True)
 
-            tree_wdg.results_group_box.add_tab(search_code)
+            tree_wdg.search_results_widget.add_tab(search_code)
 
             # tree_wdg.add_items_to_results(search_code)
 
@@ -454,7 +456,7 @@ class Ui_mainTabs(QtGui.QWidget, ui_main_tabs.Ui_mainTabsForm):
         Writing Settings
         """
         self.settings.beginGroup('ui_main_tab/{0}/{1}'.format(self.current_namespace, self.current_project))
-        self.settings.setValue('main_tabWidget_currentIndex', self.main_tabWidget.currentIndex())
+        self.settings.setValue('main_tabWidget_currentIndex', int(self.main_tabWidget.currentIndex()))
         print('Done ui_main_tab settings write')
         self.settings.endGroup()
 
@@ -483,8 +485,6 @@ class Ui_Main(QtGui.QMainWindow, ui_main.Ui_MainWindow):
     def __init__(self, parent=None):
         super(self.__class__, self).__init__(parent=parent)
 
-        env_inst.ui_main = self
-
         self.settings = QtCore.QSettings('{0}/settings/{1}/{2}/{3}/main_ui_config.ini'.format(
             env_mode.get_current_path(),
             env_mode.get_node(),
@@ -497,11 +497,9 @@ class Ui_Main(QtGui.QMainWindow, ui_main.Ui_MainWindow):
         if env_mode.is_offline():
             self.create_ui_main_offline()
         else:
-            # env_server.get_default_dirs()
             self.create_ui_main()
 
     def create_project_dock(self, project_code, toggle_state=False):
-
         if project_code not in self.projects_docks.keys():
             project = env_inst.projects.get(project_code)
 
@@ -513,7 +511,7 @@ class Ui_Main(QtGui.QMainWindow, ui_main.Ui_MainWindow):
             main_tabs_widget = Ui_mainTabs(project_code, dock_widget)
             dock_widget.setWidget(main_tabs_widget)
 
-            self.addDockWidget(QtCore.Qt.RightDockWidgetArea, dock_widget)
+            self.addDockWidget(QtCore.Qt.LeftDockWidgetArea, dock_widget)
             for dock in self.projects_docks.values():
                 self.tabifyDockWidget(dock, dock_widget)
 
@@ -532,6 +530,7 @@ class Ui_Main(QtGui.QMainWindow, ui_main.Ui_MainWindow):
     def create_ui_main_offline(self):
 
         env_inst.ui_main = self
+
         self.setupUi(self)
         self.setWindowTitle('TACTIC handler (OFFLINE)')
 
@@ -541,9 +540,12 @@ class Ui_Main(QtGui.QMainWindow, ui_main.Ui_MainWindow):
         self.readSettings()
         self.setIcon()
 
+        self.customize_ui()
+
     def create_ui_main(self):
 
         env_inst.ui_main = self
+
         self.setupUi(self)
         self.setWindowTitle('TACTIC handler')
 
@@ -562,6 +564,8 @@ class Ui_Main(QtGui.QMainWindow, ui_main.Ui_MainWindow):
         self.menu_bar_actions()
         self.readSettings()
         self.setIcon()
+
+        self.customize_ui()
 
         self.check_for_update()
 
@@ -582,6 +586,13 @@ class Ui_Main(QtGui.QMainWindow, ui_main.Ui_MainWindow):
         icon = QtGui.QIcon(':/ui_main/gliph/tactic_favicon.ico')
         self.setWindowIcon(icon)
 
+    def customize_ui(self):
+        if env_mode.get_mode() == 'standalone':
+            self.actionDock_undock.setVisible(False)
+
+        self.actionExit.setIcon(gf.get_icon('close'))
+        self.actionConfiguration.setIcon(gf.get_icon('wrench'))
+
     def menu_bar_actions(self):
         """
         Actions for the main menu bar
@@ -593,6 +604,7 @@ class Ui_Main(QtGui.QMainWindow, ui_main.Ui_MainWindow):
                 for maya_dock_instance in maya_dock_instances:
                     maya_dock_instance.close()
                     maya_dock_instance.deleteLater()
+                self.close()
             if env_mode.get_mode() == 'standalone':
                 self.close()
 
@@ -605,11 +617,16 @@ class Ui_Main(QtGui.QMainWindow, ui_main.Ui_MainWindow):
         self.actionUpdate.triggered.connect(self.update_self)
         self.actionServerside_Script.triggered.connect(self.create_server_side_script_editor)
 
+        self.actionDock_undock.triggered.connect(self.undock_window)
+
         # deprecated
         # self.main_tabWidget.setContextMenuPolicy(QtCore.Qt.ActionsContextMenu)
         # self.menu = QtGui.QAction("Copy Tab", self.main_tabWidget)
         # self.menu.triggered.connect(self.copy_current_tab)
         # self.main_tabWidget.addAction(self.menu)
+
+    def undock_window(self):
+        env_inst.ui_maya_dock.toggle_docking()
 
     def create_server_side_script_editor(self):
 
@@ -624,6 +641,17 @@ class Ui_Main(QtGui.QMainWindow, ui_main.Ui_MainWindow):
     def open_config_dialog(self):
         conf_dialog = ui_conf_classes.Ui_configuration_dialogWidget(parent=self)
         conf_dialog.show()
+
+    def restart_for_update_ui_main(self):
+        if env_mode.get_mode() == 'standalone':
+            import main_standalone
+            thread = main_standalone.restart()
+            thread.finished.connect(self.close)
+        if env_mode.get_mode() == 'maya':
+            import main_maya
+            thread = main_maya.main.restart()
+            thread.finished.connect(main_maya.main.close_all_instances)
+            # thread.finished.connect(self.close)
 
     def restart_ui_main(self):
         self.close()
@@ -730,13 +758,11 @@ class Ui_Main(QtGui.QMainWindow, ui_main.Ui_MainWindow):
         self.settings.endGroup()
 
     def closeEvent(self, event):
-        for dock in self.projects_docks.itervalues():
+        for dock in self.projects_docks.values():
             dock.widget().close()
-            dock.close()
             dock.close()
             dock.deleteLater()
             del dock
-
         self.writeSettings()
         event.accept()
 

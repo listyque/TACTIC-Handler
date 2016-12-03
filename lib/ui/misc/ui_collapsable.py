@@ -1,9 +1,9 @@
 # -*- coding: utf-8 -*-
 
-# Form implementation generated from reading ui file 'misc\ui_collapsable.ui'
+# Form implementation generated from reading ui file 'misc/ui_collapsable.ui'
 #
-# Created: Sat Jul 23 00:22:24 2016
-#      by: pyside-uic 0.2.15 running on PySide 1.2.4
+# Created: Mon Nov 28 14:38:55 2016
+#      by: pyside-uic 0.2.13 running on PySide 1.2.2
 #
 # WARNING! All changes made in this file will be lost!
 
@@ -12,7 +12,6 @@ from PySide import QtCore, QtGui
 class Ui_collapsableWidget(object):
     def setupUi(self, collapsableWidget):
         collapsableWidget.setObjectName("collapsableWidget")
-        collapsableWidget.resize(177, 25)
         self.verticalLayout = QtGui.QVBoxLayout(collapsableWidget)
         self.verticalLayout.setSpacing(0)
         self.verticalLayout.setContentsMargins(0, 0, 0, 0)
@@ -27,7 +26,6 @@ class Ui_collapsableWidget(object):
         self.collapseToolButton.setCheckable(True)
         self.collapseToolButton.setToolButtonStyle(QtCore.Qt.ToolButtonTextBesideIcon)
         self.collapseToolButton.setAutoRaise(True)
-        self.collapseToolButton.setArrowType(QtCore.Qt.UpArrow)
         self.collapseToolButton.setObjectName("collapseToolButton")
         self.verticalLayout.addWidget(self.collapseToolButton)
         self.widget = QtGui.QWidget(collapsableWidget)

@@ -20,7 +20,11 @@
       <enum>Qt::Vertical</enum>
      </property>
      <widget class="QTextEdit" name="stackTraceTextEdit"/>
-     <widget class="QTextEdit" name="scriptTextEdit"/>
+     <widget class="QTextEdit" name="scriptTextEdit">
+      <property name="acceptRichText">
+       <bool>false</bool>
+      </property>
+     </widget>
     </widget>
    </item>
    <item>

@@ -5,13 +5,11 @@
 import PySide.QtGui as QtGui
 import PySide.QtCore as QtCore
 import lib.ui.misc.ui_icons as ui_icons
-# import lib.environment as env
-from lib.environment import env_server, env_tactic
+from lib.environment import env_tactic, env_inst
 import lib.global_functions as gf
 import lib.tactic_classes as tc
 
 reload(ui_icons)
-from pprint import pprint
 
 
 class Ui_iconsWidget(QtGui.QWidget, ui_icons.Ui_icons):
@@ -97,26 +95,22 @@ class Ui_iconsWidget(QtGui.QWidget, ui_icons.Ui_icons):
 
     def add_as_image_plane(self, value):
         print('Adding as image plane')
-        print(value)
-        upload = tc.checkin_playblast()
-        pprint(upload)
+        print(self.slide_images(value))
+        # upload = tc.checkin_playblast()
+        # pprint(upload)
 
     def open_ext(self, value):
-        # print(self.main_list)
-        print(self.slide_images(value))
         gf.open_file_associated(self.slide_images(value))
 
     def copy_pth(self, value):
-        print('Copying path')
-        print(value)
-        upload = tc.upload_maya_file()
-        pprint(upload)
+        clipboard = QtGui.QApplication.instance().clipboard()
+        clipboard.setText(self.slide_images(value))
 
     def open_big(self, value):
         if self.playblast:
             self.external_self_widget = Ui_iconsWidget(self.nested_item, playblast=True)
         else:
-            self.external_self_widget = Ui_iconsWidget(self.nested_item)
+            self.external_self_widget = Ui_iconsWidget(self.nested_item, parent=self)
         self.ext_window = QtGui.QMainWindow(self)
         self.ext_window.setContentsMargins(9, 9, 9, 9)
         item_name = self.nested_item.sobject.info['name']
@@ -173,8 +167,12 @@ class Ui_iconsWidget(QtGui.QWidget, ui_icons.Ui_icons):
         # print value - 1
         # print dir(self.nested_item.sobject)
         # print self.nested_item.sobject.process['icon'].contexts['icon'].versions
-        if self.nested_item.type == 'snapshot':
-            snapshot_repo = self.nested_item.snapshot.get('repo')
+        if self.nested_item.type == 'snapshot' or 'sobject':
+            if self.nested_item.type == 'snapshot':
+                snapshot_repo = self.nested_item.snapshot.get('repo')
+            else:
+                snapshot_repo = self.versions_icons.values()[0].snapshot.get('repo')
+
             if snapshot_repo:
                 repo = env_tactic.get_base_dir(snapshot_repo)
                 if repo:
@@ -187,6 +185,10 @@ class Ui_iconsWidget(QtGui.QWidget, ui_icons.Ui_icons):
             # asset_dir = env_server.rep_dirs[self.nested_item.snapshot.get('repo')][0]
             if not self.web_list:
                 self.web_list = self.playblast_list
+            if not self.playblast_list:
+                self.playblast_list = self.main_list
+                self.web_list = self.main_list
+
             image_path_icon = u'{0}/{1}/{2}'.format(asset_dir,
                                                     self.web_list[value - 1]['relative_dir'],
                                                     self.web_list[value - 1]['file_name'])
@@ -207,9 +209,15 @@ class Ui_iconsWidget(QtGui.QWidget, ui_icons.Ui_icons):
                 self.preview_image.load(image_path_icon)
 
             if not self.preview_image.isNull():
+                # TODO TRY to you see yourself what todo...
+                try:
+                    width = self.parent().playblastGroupBox.width()
+                except:
+                    width = self.width()
+
                 pix_map = QtGui.QPixmap.fromImage(
                     self.preview_image.scaledToWidth(
-                        self.parent().playblastGroupBox.width()-3,
+                        width-3,
                         QtCore.Qt.SmoothTransformation
                     )
                 )

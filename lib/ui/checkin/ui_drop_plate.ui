@@ -2,14 +2,8 @@
 <ui version="4.0">
  <class>dropPlateGroupBox</class>
  <widget class="QGroupBox" name="dropPlateGroupBox">
-  <property name="sizePolicy">
-   <sizepolicy hsizetype="Ignored" vsizetype="Preferred">
-    <horstretch>0</horstretch>
-    <verstretch>0</verstretch>
-   </sizepolicy>
-  </property>
   <property name="windowTitle">
-   <string>GroupBox</string>
+   <string>DropPlate</string>
   </property>
   <property name="title">
    <string>Drop Files/Folders/Sequences Here:</string>
@@ -30,19 +24,6 @@
    <property name="margin">
     <number>0</number>
    </property>
-   <item row="2" column="4">
-    <widget class="QPushButton" name="clearPushButton">
-     <property name="minimumSize">
-      <size>
-       <width>75</width>
-       <height>0</height>
-      </size>
-     </property>
-     <property name="text">
-      <string>Clear</string>
-     </property>
-    </widget>
-   </item>
    <item row="2" column="3">
     <spacer name="horizontalSpacer">
      <property name="orientation">
@@ -67,7 +48,17 @@
      <property name="styleSheet">
       <string notr="true">QTreeView::item {
 	padding: 2px;
-}</string>
+}
+
+QTreeView::item:selected:active{
+	background: qlineargradient(spread:pad, x1:0, y1:0, x2:1, y2:0, stop:0 rgba(82, 133, 166, 255), stop:1 rgba(82, 133, 166, 255));
+    border: 1px solid transparent;
+}
+QTreeView::item:selected:!active {
+	background: qlineargradient(spread:pad, x1:0, y1:0, x2:1, y2:0, stop:0 rgba(82, 133, 166, 255), stop:1 rgba(82, 133, 166, 255));
+    border: 1px solid transparent;
+}
+</string>
      </property>
      <property name="tabKeyNavigation">
       <bool>true</bool>
@@ -151,6 +142,25 @@
     <widget class="QCheckBox" name="keepFileNameCheckBox">
      <property name="text">
       <string>Keep Filename</string>
+     </property>
+    </widget>
+   </item>
+   <item row="2" column="4">
+    <widget class="QToolButton" name="clearPushButton">
+     <property name="minimumSize">
+      <size>
+       <width>75</width>
+       <height>0</height>
+      </size>
+     </property>
+     <property name="text">
+      <string>Clear</string>
+     </property>
+     <property name="toolButtonStyle">
+      <enum>Qt::ToolButtonTextBesideIcon</enum>
+     </property>
+     <property name="autoRaise">
+      <bool>true</bool>
      </property>
     </widget>
    </item>

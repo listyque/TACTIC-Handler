@@ -1,10 +1,8 @@
 import ast
 import PySide.QtGui as QtGui
 import PySide.QtCore as QtCore
-# import lib.environment as env
 from lib.environment import env_mode, env_inst, env_server
 from lib.configuration import cfg_controls
-# import lib.configuration as cfg
 import lib.global_functions as gf
 import lib.tactic_classes as tc
 import lib.ui.misc.ui_search_options as ui_search_options
@@ -26,12 +24,26 @@ class QPopupTreeWidget(QtGui.QDialog):
         )
 
         self.setSizeGripEnabled(True)
-        self.setWindowFlags(QtCore.Qt.Popup)
+        # self.setWindowFlags(QtCore.Qt.ToolTip)
+        # self.setWindowFlags(QtCore.Qt.Popup)
         self.setFocusPolicy(QtCore.Qt.StrongFocus)
 
         self.parent_ui = parent_ui
         self.project = project
         self.stype = stype
+        self.all_items_dict = {
+            'children': [],
+            'processes': {},
+            'builtins': [],
+        }
+
+        title = self.stype.info.get('title')
+        if not title:
+            title = self.stype.info.get('name')
+        elif not title:
+            title = self.stype.info.get('code')
+
+        self.setWindowTitle('Pipeline for: {0}'.format(title))
 
         self.create_tree_widget()
         self.fill_tree_widget()
@@ -43,23 +55,62 @@ class QPopupTreeWidget(QtGui.QDialog):
         self.controls_actions()
         self.readSettings()
 
-    def get_ignore_list(self):
-        process_ignore_list = []
+    def get_ignore_dict(self):
+        ignore_dict = {
+            'children': [],
+            'processes': {},
+            'builtins': [],
+            'show_builtins': self.parent_ui.searchOptionsGroupBox.showAllProcessCheckBox.isChecked()
+        }
 
-        for item in self.child_items + self.process_items + self.builtin_items:
-            if item.checkState(0) == QtCore.Qt.Unchecked:
-                process_ignore_list.append(item.data(1, 0))
+        build_dict = False
 
-        if process_ignore_list:
-            return process_ignore_list
+        # get builtins ignore list
+        for builtin in self.all_items_dict['builtins']:
+            if builtin.checkState(0) == QtCore.Qt.Unchecked:
+                build_dict = True
+                ignore_dict['builtins'].append(builtin.data(1, 0))
+
+        # get children ignore list
+        for child in self.all_items_dict['children']:
+            if child.checkState(0) == QtCore.Qt.Unchecked:
+                build_dict = True
+                ignore_dict['children'].append(child.data(1, 0))
+
+        # get processes ignore list
+        for name, processes in self.all_items_dict['processes'].iteritems():
+            ignored_process = []
+            for process in processes:
+                if process.checkState(0) == QtCore.Qt.Unchecked:
+                    build_dict = True
+                    ignored_process.append(process.data(1, 0))
+            ignore_dict['processes'][name] = ignored_process
+
+        if build_dict:
+            return ignore_dict
         else:
             return ''
 
-    def set_from_ignore_list(self, ignore_list):
-        if ignore_list:
-            for item in self.child_items + self.process_items + self.builtin_items:
-                if item.data(1, 0) in ignore_list:
-                    item.setCheckState(0, QtCore.Qt.Unchecked)
+    def set_from_ignore_dict(self, ignore_dict):
+        if ignore_dict:
+            # return from builtins ignore list
+            for builtin in self.all_items_dict['builtins']:
+                if builtin.data(1, 0) in ignore_dict['builtins']:
+                    builtin.setCheckState(0, QtCore.Qt.Unchecked)
+
+            # get children ignore list
+            for child in self.all_items_dict['children']:
+                if child.data(1, 0) in ignore_dict['children']:
+                    child.setCheckState(0, QtCore.Qt.Unchecked)
+
+            # get processes ignore list
+            for name, processes in self.all_items_dict['processes'].iteritems():
+                for process in processes:
+                    ignore_list = ignore_dict['processes'].get(name)
+                    if not ignore_list:
+                        ignore_list = []
+                    if process.data(1, 0) in ignore_list:
+                        process.setCheckState(0, QtCore.Qt.Unchecked)
 
     def controls_actions(self):
 
@@ -68,13 +119,19 @@ class QPopupTreeWidget(QtGui.QDialog):
         self.all_with_builtins_button.clicked.connect(lambda: self.switch_items('builtins'))
         self.all_children_button.clicked.connect(lambda: self.switch_items('children'))
 
+        self.save_button.clicked.connect(self.save_and_refresh)
+        self.save_close_button.clicked.connect(self.close)
+
         self.tree_widget.itemChanged.connect(self.check_tree_items)
 
     def check_tree_items(self, changed_item):
-        for item in self.tree_widget.selectedItems():
-            item.setCheckState(0, changed_item.checkState(0))
+        if len(self.tree_widget.selectedItems()) > 1:
+            for item in self.tree_widget.selectedItems():
+                item.setCheckState(0, changed_item.checkState(0))
 
     def switch_items(self, item_type='none'):
+
+        # TODO Remove this, and make it work through ignore dict
 
         if item_type == 'none':
             for item in self.child_items + self.process_items + self.builtin_items:
@@ -115,10 +172,16 @@ class QPopupTreeWidget(QtGui.QDialog):
         self.all_with_builtins_button = QtGui.QPushButton('All Builtins')
         self.all_children_button = QtGui.QPushButton('All Children')
 
+        self.save_button = QtGui.QPushButton('Save')
+        self.save_close_button = QtGui.QPushButton('Save and close')
+
         self.grid.addWidget(self.none_button, 1, 0, 1, 1)
         self.grid.addWidget(self.all_process_button, 1, 1, 1, 1)
         self.grid.addWidget(self.all_with_builtins_button, 2, 0, 1, 1)
         self.grid.addWidget(self.all_children_button, 2, 1, 1, 1)
+
+        self.grid.addWidget(self.save_button, 3, 0, 1, 1)
+        self.grid.addWidget(self.save_close_button, 3, 1, 1, 1)
 
     def create_tree_widget(self):
 
@@ -135,7 +198,7 @@ class QPopupTreeWidget(QtGui.QDialog):
         self.tree_widget.setHeaderHidden(True)
         self.tree_widget.setObjectName('tree_widget')
         self.tree_widget.setStyleSheet('QTreeView::item {padding: 2px;}')
-        self.tree_widget.setRootIsDecorated(False)
+        # self.tree_widget.setRootIsDecorated(False)
 
         self.grid.addWidget(self.tree_widget, 0, 0, 1, 2)
 
@@ -158,28 +221,58 @@ class QPopupTreeWidget(QtGui.QDialog):
                 self.tree_widget.addTopLevelItem(top_item)
                 self.child_items.append(top_item)
                 if child_stype.pipeline:
-                    for key, val in child_stype.pipeline.process.iteritems():
-                        # print key
-                        child_item = QtGui.QTreeWidgetItem()
-                        child_item.setText(0, key.capitalize())
-                        child_item.setCheckState(0, QtCore.Qt.Checked)
-                        child_item.setData(1, 0, key)
-                        top_item.addChild(child_item)
+                    for pipeline in child_stype.pipeline.itervalues():
+                        title = pipeline.info.get('name')
+                        if not title:
+                            title = pipeline.info.get('code')
+
+                        item = QtGui.QTreeWidgetItem()
+                        item.setText(0, title.capitalize())
+                        item.setData(1, 0, pipeline.info.get('code'))
+                        top_item.addChild(item)
                         top_item.setExpanded(True)
-                        self.process_items.append(child_item)
+                        child_items = []
+                        for key, val in pipeline.process.iteritems():
+                            child_item = QtGui.QTreeWidgetItem()
+                            child_item.setText(0, key.capitalize())
+                            child_item.setCheckState(0, QtCore.Qt.Checked)
+                            child_item.setData(1, 0, key)
+                            item.addChild(child_item)
+                            item.setExpanded(True)
+                            self.process_items.append(child_item)
+                            child_items.append(child_item)
+
+                        self.all_items_dict['processes'][pipeline.info.get('code')] = child_items
+                self.all_items_dict['children'].append(top_item)
 
         # Actual process
         if self.stype.pipeline:
-            for key, val in self.stype.pipeline.process.iteritems():
-                # print key
+
+            for pipeline in self.stype.pipeline.itervalues():
+                title = pipeline.info.get('name')
+                if not title:
+                    title = pipeline.info.get('code')
+
                 top_item = QtGui.QTreeWidgetItem()
-                top_item.setText(0, key.capitalize())
-                top_item.setCheckState(0, QtCore.Qt.Checked)
-                top_item.setData(1, 0, key)
+                top_item.setText(0, title.capitalize())
+                top_item.setData(1, 0, pipeline.info.get('code'))
                 self.tree_widget.addTopLevelItem(top_item)
-                self.process_items.append(top_item)
+
+                child_items = []
+                for key, val in pipeline.process.iteritems():
+                    child_item = QtGui.QTreeWidgetItem()
+                    child_item.setText(0, key.capitalize())
+                    child_item.setCheckState(0, QtCore.Qt.Checked)
+                    child_item.setData(1, 0, key)
+                    top_item.addChild(child_item)
+                    top_item.setExpanded(True)
+                    self.process_items.append(child_item)
+                    child_items.append(child_item)
+
+                self.all_items_dict['processes'][pipeline.info.get('code')] = child_items
 
         # Hidden process
+        builtin_items = []
         for key in ['publish', 'attachment', 'icon']:
             # print key
             top_item = QtGui.QTreeWidgetItem()
@@ -188,6 +281,9 @@ class QPopupTreeWidget(QtGui.QDialog):
             top_item.setData(1, 0, key)
             self.tree_widget.addTopLevelItem(top_item)
             self.builtin_items.append(top_item)
+            builtin_items.append(top_item)
+
+        self.all_items_dict['builtins'] = builtin_items
 
     def fit_to_content_tree_widget(self):
 
@@ -195,7 +291,7 @@ class QPopupTreeWidget(QtGui.QDialog):
         for item in QtGui.QTreeWidgetItemIterator(self.tree_widget):
             items_count += 1
 
-        row_height = items_count * self.tree_widget.sizeHintForRow(0) + 55
+        row_height = items_count * self.tree_widget.sizeHintForRow(0) + 80
         mouse_pos = QtGui.QCursor.pos()
         self.setGeometry(mouse_pos.x(), mouse_pos.y(), 250, row_height)
 
@@ -215,7 +311,7 @@ class QPopupTreeWidget(QtGui.QDialog):
             tab_name[1]
         )
         self.settings.beginGroup(group_path)
-        self.set_from_ignore_list(self.settings.value('process_ignore_list'))
+        self.set_from_ignore_dict(gf.from_json(self.settings.value('process_ignore_dict')))
         self.settings.endGroup()
 
     def writeSettings(self):
@@ -227,11 +323,25 @@ class QPopupTreeWidget(QtGui.QDialog):
             tab_name[1]
         )
         self.settings.beginGroup(group_path)
-        self.settings.setValue('process_ignore_list', self.get_ignore_list())
+        self.settings.setValue('process_ignore_dict', gf.to_json(self.get_ignore_dict()))
         self.settings.endGroup()
 
-    def closeEvent(self, event):
+    def save_and_refresh(self):
         self.writeSettings()
+        self.parent_ui.refresh_current_results()
+
+    # def mousePressEvent(self, event):
+    #     self.offset = event.pos()
+    #
+    # def mouseMoveEvent(self, event):
+    #     x = event.globalX()
+    #     y = event.globalY()
+    #     x_w = self.offset.x()
+    #     y_w = self.offset.y()
+    #     self.move(x - x_w, y - y_w)
+
+    def closeEvent(self, event):
+        self.save_and_refresh()
         event.accept()
 
 
@@ -373,8 +483,9 @@ class Ui_resultsFormWidget(QtGui.QWidget, ui_search_results_tree.Ui_resultsForm)
         self.resultsTreeWidget.itemPressed.connect(self.fill_versions_items)
         self.resultsTreeWidget.setContextMenuPolicy(QtCore.Qt.CustomContextMenu)
         self.resultsTreeWidget.customContextMenuRequested.connect(self.parent_ui.open_menu)
-        self.resultsTreeWidget.itemExpanded.connect(self.get_notes_count)
-        self.resultsTreeWidget.itemExpanded.connect(self.fill_snapshots_items)
+
+        self.resultsTreeWidget.itemCollapsed.connect(self.send_collapse_event_to_item)
+        self.resultsTreeWidget.itemExpanded.connect(self.send_expand_event_to_item)
 
         # Separate Snapshots tree widget actions
         self.resultsVersionsTreeWidget.itemPressed.connect(lambda: self.set_current_tree_widget_item(self.resultsVersionsTreeWidget))
@@ -388,102 +499,65 @@ class Ui_resultsFormWidget(QtGui.QWidget, ui_search_results_tree.Ui_resultsForm)
     def get_current_tree_widget_item(self):
         return self.current_tree_widget_item
 
-    def get_notes_count(self, tree_item):
+    def send_collapse_event_to_item(self, tree_item):
         tree_widget = self.resultsTreeWidget.itemWidget(tree_item, 0)
+        tree_widget.collapse_tree_item()
 
-        if tree_widget.type == 'sobject':
-            process = []
-            for process_widget in tree_widget.process_items:
-                process.append(process_widget.process)
-
-            def notes_fill():
-                notes_counts = notes_counts_query.result
-                for i, process_widget in enumerate(tree_widget.process_items):
-                    process_widget.notesToolButton.setText('Notes ({0})'.format(notes_counts[i]))
-
-            notes_counts_query = tc.ServerThread(self)
-            notes_counts_query.kwargs = dict(sobject=tree_widget.sobject, process=process)
-            notes_counts_query.routine = tc.get_notes_count
-            notes_counts_query.start()
-
-            notes_counts_query.finished.connect(notes_fill)
-
-    def fill_snapshots_items(self, tree_item):
-        # current_widget = self.get_current_widget()
-        # current_tree_widget = current_widget.resultsTreeWidget
-        # print current_tree_widget
+    def send_expand_event_to_item(self, tree_item):
         tree_widget = self.resultsTreeWidget.itemWidget(tree_item, 0)
-
-        # TODO Show All Process
-        # process = []
-        # if self.searchOptionsGroupBox.showAllProcessCheckBox.isChecked():
-        #     process = self.process
-        # else:
-        #     for p in tree_widget.sobject.process.iterkeys():
-        #         process.append(p)
-
-        if tree_widget.type == 'sobject' and not tree_widget.info['is_expanded']:
-            tree_widget.info['is_expanded'] = True
-
-            process_snapshot_items = []
-            for proc in tree_widget.process_items:
-                for key, val in tree_widget.sobject.process.iteritems():
-                    if key == proc.process:
-                        process_snapshot_items.append(gf.add_snapshot_item(
-                            proc.tree_item,
-                            self,
-                            proc.sobject,
-                            proc.stype,
-                            proc.process,
-                            val,
-                            proc.info,
-                            self.sep_versions,
-                            False,
-                        ))
-            tree_widget.snapshot_items = process_snapshot_items
-
-            root_snapshot_items = []
-            for key, val in tree_widget.sobject.process.iteritems():
-                if key == 'publish':
-                    root_snapshot_items.append(gf.add_snapshot_item(
-                            tree_widget.tree_item,
-                            self,
-                            tree_widget.sobject,
-                            tree_widget.stype,
-                            'publish',
-                            val,
-                            tree_widget.info,
-                            self.sep_versions,
-                            True,
-                        ))
-
-            tree_widget.snapshot_items = root_snapshot_items
+        tree_widget.expand_tree_item()
 
     def fill_versions_items(self, widget):
         if self.resultsVersionsTreeWidget.isVisible():
-
             parent_widget = self.resultsTreeWidget.itemWidget(widget, 0)
 
             if parent_widget.type == 'snapshot':
                 process = parent_widget.process
                 context = parent_widget.context
-                # print process
-                # print context
-                # print parent_widget.snapshot['context']
-                # print parent_widget.sobject.process[process].contexts
                 snapshots = parent_widget.sobject.process[process].contexts[context].versions
 
                 self.resultsVersionsTreeWidget.clear()
 
                 gf.add_versions_snapshot_item(
                     self.resultsVersionsTreeWidget,
-                    self,
+                    self.parent_ui,
                     parent_widget.sobject,
                     parent_widget.stype,
                     process,
                     context,
                     snapshots,
                     parent_widget.info,
+                )
+
+            if parent_widget.type == 'sobject':
+                self.resultsVersionsTreeWidget.clear()
+
+            if parent_widget.type == 'process':
+                self.resultsVersionsTreeWidget.clear()
+
+            if parent_widget.type == 'child':
+                self.resultsVersionsTreeWidget.clear()
+
+    def update_versions_items(self, item_widget):
+        if self.resultsVersionsTreeWidget.isVisible():
+
+            if item_widget.type == 'snapshot':
+                process = item_widget.process
+                context = item_widget.context
+
+                snapshots = item_widget.sobject.process[process].contexts[context].versions
+
+                self.resultsVersionsTreeWidget.clear()
+
+                gf.add_versions_snapshot_item(
+                    self.resultsVersionsTreeWidget,
+                    self.parent_ui,
+                    item_widget.sobject,
+                    item_widget.stype,
+                    process,
+                    context,
+                    snapshots,
+                    item_widget.info,
                 )
 
     def load_preview(self):
@@ -510,6 +584,9 @@ class Ui_resultsFormWidget(QtGui.QWidget, ui_search_results_tree.Ui_resultsForm)
                 self.parent_ui.savePushButton.setEnabled(False)
                 self.parent_ui.contextLineEdit.setEnabled(False)
 
+    def get_is_separate_versions(self):
+        return self.sep_versions
+
     def create_separate_versions_tree(self):
         if self.parent_ui.relates_to == 'checkout' and self.checkout_config:
             self.sep_versions = bool(int(
@@ -524,7 +601,7 @@ class Ui_resultsFormWidget(QtGui.QWidget, ui_search_results_tree.Ui_resultsForm)
 
         if not self.sep_versions:
             self.verticalLayoutWidget_3.close()
-            # current_widget = self.results_group_box.get_current_widget()
+            # current_widget = self.search_results_widget.get_current_widget()
             # current_widget.verticalLayoutWidget_3.close()
 
     def create_progress_bar(self):
@@ -537,7 +614,7 @@ class Ui_resultsFormWidget(QtGui.QWidget, ui_search_results_tree.Ui_resultsForm)
         # self.parent_ui.searchOptionsGroupBox.set_search_options(self.info['options'])
         # self.info['options'] = self.parent_ui.searchOptionsGroupBox.get_search_options()
         if self.resultsTreeWidget.topLevelItemCount() == 0:
-            self.parent_ui.results_group_box.add_items_to_results(self.info['title'], refresh=False, revert=True)
+            self.parent_ui.search_results_widget.add_items_to_results(self.info['title'], refresh=False, revert=True)
 
 
 class Ui_resultsGroupBoxWidget(QtGui.QGroupBox, ui_search_results.Ui_resultsGroupBox):
@@ -584,32 +661,46 @@ class Ui_resultsGroupBoxWidget(QtGui.QGroupBox, ui_search_results.Ui_resultsGrou
     def get_current_tab_text(self):
         return self.resultsTabWidget.tabText(self.resultsTabWidget.currentIndex())
 
-    def set_current_tab_text(self):
+    def set_current_tab_text(self, text):
         self.resultsTabWidget.setTabText(
             self.resultsTabWidget.currentIndex(),
-            self.parent_ui.searchLineEdit.text()
+            text
         )
 
     def get_process_list(self):
+        # this only needed to get all snapshots for all processes, when query them
+
         # get process list from pipeline
         if self.parent_ui.stype.pipeline:
-            process = self.parent_ui.stype.pipeline.process.keys()
+            process = []
+            for pipe in self.parent_ui.stype.pipeline.values():
+                process.extend(pipe.process.keys())
         else:
             process = []
 
         # Add builting process
-        if self.parent_ui.searchOptionsGroupBox.showAllProcessCheckBox.isChecked():
-            process.extend((['icon', 'attachment', 'publish']))
+        process.extend((['icon', 'attachment', 'publish']))
 
+        all_ignored_process = []
         # Filter ignored process
         ignore_list = self.parent_ui.get_process_ignore_list()
-        process_list = [x for x in process if x not in ignore_list]
 
-        return process_list
+        if ignore_list:
+            for val in ignore_list['processes'].itervalues():
+                all_ignored_process.extend(val)
+        if all_ignored_process:
+            ready_process_list = [x for x in process if x not in all_ignored_process]
+        else:
+            ready_process_list = process
+
+        if ready_process_list:
+            return set(ready_process_list)
+        else:
+            return []
 
     def refresh_restults(self):
         self.add_items_to_results(self.get_current_tab_text(), refresh=True)
-        self.animation.start()
+        # self.animation.start()
 
     def close_all_tabs(self):
 
@@ -617,7 +708,7 @@ class Ui_resultsGroupBoxWidget(QtGui.QGroupBox, ui_search_results.Ui_resultsGrou
         #     self.resultsTabWidget.count() - 1
         #     print self.resultsTabWidget.tabBar().removeTab()
             # QtGui.QTabBar
-        print self.resultsTabWidget.clear()
+        self.resultsTabWidget.clear()
         self.add_tab()
 
         # print self.resultsTabWidget.count(), 'FIRST COUNT'
@@ -631,12 +722,22 @@ class Ui_resultsGroupBoxWidget(QtGui.QGroupBox, ui_search_results.Ui_resultsGrou
         # print self.resultsTabWidget.count(), 'END COUNT'
         # self.add_tab()
 
-    def add_items_to_results(self, query=None, refresh=False, revert=False):
+    def do_search(self, search_query=None, search_by=None, new_tab=False):
+        if not search_query:
+            search_query = self.parent_ui.get_search_query_text()
+        if new_tab:
+            self.add_tab()
+        self.set_current_tab_text(search_query)
+
+        self.add_items_to_results(search_query, search_by=search_by)
+
+    def add_items_to_results(self, query=None, refresh=False, revert=False, search_by=None):
         """
         Adding queried items to results tree widget
         :param query:
         :param refresh:
         :param revert:
+        :param search_by:
         :return:
         """
         # TODO What is revert??
@@ -648,11 +749,12 @@ class Ui_resultsGroupBoxWidget(QtGui.QGroupBox, ui_search_results.Ui_resultsGrou
             current_widget.info['state'] = None
         # else:
         #     current_widget.info['state'] =
+        if not search_by:
+            search_by = self.parent_ui.search_mode_state()
 
-        query_tuple = query, self.parent_ui.search_mode_state()
+        query_tuple = query, search_by
 
-        if query_tuple[0]:
-
+        if query:
             # Run first thread
             if not self.names_query_thread.isRunning():
                 self.names_query_thread.kwargs = dict(
@@ -662,13 +764,6 @@ class Ui_resultsGroupBoxWidget(QtGui.QGroupBox, ui_search_results.Ui_resultsGrou
                 )
                 self.names_query_thread.routine = tc.assets_query_new
                 self.names_query_thread.start()
-
-            # save current state
-            # if revert:
-            #     self.expanded_state, self.selected_state = revert
-            # else:
-            #     self.expanded_state = gf.expanded_state(self.resultsTreeWidget, is_expanded=True)
-            #     self.selected_state = gf.expanded_state(self.resultsTreeWidget, is_selected=True)
 
     def assets_names(self):
         names = tc.treat_result(self.names_query_thread)
@@ -681,6 +776,12 @@ class Ui_resultsGroupBoxWidget(QtGui.QGroupBox, ui_search_results.Ui_resultsGrou
                 env_inst.ui_main.open_config_dialog()
 
         if not names.isFailed():
+            # pretty name for new single tab
+            if len(names.result) == 1:
+                tab_name = names.result[0].get('name')
+                if tab_name:
+                    self.set_current_tab_text(tab_name)
+
             if not self.sobjects_query_thread.isRunning():
                 self.sobjects_query_thread.kwargs = dict(process_list=self.get_process_list(), sobjects_list=names.result, project_code=self.parent_ui.current_project)
                 self.sobjects_query_thread.routine = tc.get_sobjects
@@ -691,6 +792,7 @@ class Ui_resultsGroupBoxWidget(QtGui.QGroupBox, ui_search_results.Ui_resultsGrou
 
         current_widget = self.get_current_widget()
         current_tree_widget = current_widget.resultsTreeWidget
+
         current_tree_widget.clear()
 
         current_widget.progress_bar.setVisible(True)
@@ -707,8 +809,8 @@ class Ui_resultsGroupBoxWidget(QtGui.QGroupBox, ui_search_results.Ui_resultsGrou
                 self.parent_ui,
                 sobject,
                 self.parent_ui.stype,
-                self.get_process_list(),
-                item_info
+                item_info,
+                ignore_dict=self.parent_ui.get_process_ignore_list()
             )
 
             if total_sobjects:
@@ -719,59 +821,17 @@ class Ui_resultsGroupBoxWidget(QtGui.QGroupBox, ui_search_results.Ui_resultsGrou
 
         current_widget.progress_bar.setVisible(False)
 
-        # if self.go_by_skey[0]:
-        #     gf.expand_to_snapshot(self, self.resultsTreeWidget)
-        #     self.go_by_skey[0] = False
-        #     self.go_by_skey[1] = ''
-        #
-        # if self.refresh:
-        #     try:
-        #         gf.revert_expanded_state(self.resultsTreeWidget, self.expanded_state, expand=True)
-        #         gf.revert_expanded_state(self.resultsTreeWidget, self.selected_state, select=True)
-        #     except:
-        #         pass
-
-    def update_item(self, item):
-
-        item.sobject.update_snapshots()
-
+    def update_item_tree(self, item):
         current_widget = self.get_current_widget()
         current_tree_widget = current_widget.resultsTreeWidget
-
         current_widget.info['state'] = gf.tree_state(current_tree_widget, {})
-
-        # find top item belong to sobject
-        root_item = None
-        for i in range(current_tree_widget.topLevelItemCount()):
-            top_item = current_tree_widget.topLevelItem(i)
-
-            top_item_widget = current_tree_widget.itemWidget(top_item, 0)
-
-            if top_item_widget.sobject == item.sobject:
-                root_item = top_item
-
-        insert_pos = current_tree_widget.indexOfTopLevelItem(root_item)
-        current_tree_widget.takeTopLevelItem(insert_pos)
         current_widget.progress_bar.setVisible(True)
 
-        item_info = {
-            'relates_to': self.parent_ui.relates_to,
-            'is_expanded': False,
-        }
-
-        gf.add_sobject_item(
-            current_tree_widget,
-            self.parent_ui,
-            item.sobject,
-            self.parent_ui.stype,
-            self.get_process_list(),
-            item_info,
-            insert_pos=insert_pos,
-        )
+        item.update_items()
+        current_widget.update_versions_items(item)
 
         if current_widget.info['state']:
             gf.tree_state_revert(current_tree_widget, current_widget.info['state'])
-
         current_widget.progress_bar.setVisible(False)
 
     def add_to_history_list(self, tab_title, widget):
@@ -812,30 +872,30 @@ class Ui_resultsGroupBoxWidget(QtGui.QGroupBox, ui_search_results.Ui_resultsGrou
     def create_new_tab_button(self):
         self.add_new_tab_button = QtGui.QToolButton()
         self.add_new_tab_button.setAutoRaise(True)
-        add_icon = QtGui.QIcon()
-        add_icon.addPixmap(QtGui.QPixmap(':/ui_search/gliph/add_16.png'), QtGui.QIcon.Normal, QtGui.QIcon.Off)
-        self.add_new_tab_button.setIcon(add_icon)
+        self.add_new_tab_button.setMinimumWidth(22)
+        self.add_new_tab_button.setMinimumHeight(22)
+        self.add_new_tab_button.setIcon(gf.get_icon('plus'))
 
         self.history_tab_button = QtGui.QToolButton()
         self.history_tab_button.setAutoRaise(True)
+        self.history_tab_button.setMinimumWidth(22)
+        self.history_tab_button.setMinimumHeight(22)
         self.history_tab_button.setPopupMode(QtGui.QToolButton.InstantPopup)
-        history_icon = QtGui.QIcon()
-        history_icon.addPixmap(QtGui.QPixmap(':/ui_search/gliph/history_16.png'), QtGui.QIcon.Normal, QtGui.QIcon.Off)
-        self.history_tab_button.setIcon(history_icon)
+        self.history_tab_button.setIcon(gf.get_icon('history'))
 
         self.refresh_tab_button = QtGui.QToolButton()
         self.refresh_tab_button.setAutoRaise(True)
-        refresh_icon = QtGui.QIcon()
-        refresh_icon.addPixmap(QtGui.QPixmap(':/ui_search/gliph/refresh_16.png'), QtGui.QIcon.Normal, QtGui.QIcon.Off)
+        self.refresh_tab_button.setMinimumWidth(22)
+        self.refresh_tab_button.setMinimumHeight(22)
 
-        effect = QtGui.QGraphicsColorizeEffect(self.refresh_tab_button)
-        self.animation = QtCore.QPropertyAnimation(effect, "color", self)
-        self.animation.setDuration(500)
-        self.animation.setStartValue(QtGui.QColor(0, 0, 0, 0))
-        self.animation.setEndValue(QtGui.QColor(49, 140, 72, 128))
-        self.animation.start()
-        self.refresh_tab_button.setGraphicsEffect(effect)
-        self.refresh_tab_button.setIcon(refresh_icon)
+        # effect = QtGui.QGraphicsColorizeEffect(self.refresh_tab_button)
+        # self.animation = QtCore.QPropertyAnimation(effect, "color", self)
+        # self.animation.setDuration(500)
+        # self.animation.setStartValue(QtGui.QColor(0, 0, 0, 0))
+        # self.animation.setEndValue(QtGui.QColor(49, 140, 72, 128))
+        # self.animation.start()
+        # self.refresh_tab_button.setGraphicsEffect(effect)
+        self.refresh_tab_button.setIcon(gf.get_icon('refresh'))
 
         self.right_buttons_layout = QtGui.QHBoxLayout()
         self.right_buttons_layout.setContentsMargins(0, 0, 0, 0)

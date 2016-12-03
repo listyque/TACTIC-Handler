@@ -2,14 +2,6 @@
 <ui version="4.0">
  <class>checkinOptionsGroupBox</class>
  <widget class="QGroupBox" name="checkinOptionsGroupBox">
-  <property name="geometry">
-   <rect>
-    <x>0</x>
-    <y>0</y>
-    <width>537</width>
-    <height>129</height>
-   </rect>
-  </property>
   <property name="sizePolicy">
    <sizepolicy hsizetype="Preferred" vsizetype="Minimum">
     <horstretch>0</horstretch>
@@ -210,7 +202,7 @@
       <item>
        <widget class="QCheckBox" name="updateVersionlessCheckBox">
         <property name="text">
-         <string>Update Versionless</string>
+         <string>Update versionless</string>
         </property>
         <property name="checked">
          <bool>true</bool>

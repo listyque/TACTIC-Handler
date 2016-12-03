@@ -26,9 +26,6 @@
        <height>20</height>
       </size>
      </property>
-     <property name="text">
-      <string>Notes</string>
-     </property>
      <property name="toolButtonStyle">
       <enum>Qt::ToolButtonTextBesideIcon</enum>
      </property>
@@ -36,7 +33,7 @@
       <bool>true</bool>
      </property>
      <property name="arrowType">
-      <enum>Qt::UpArrow</enum>
+      <enum>Qt::NoArrow</enum>
      </property>
     </widget>
    </item>

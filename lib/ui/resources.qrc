@@ -3,16 +3,19 @@
     <file>gliph/search_16.png</file>
     <file>gliph/searchHover_16.png</file>
   </qresource>
-  <qresource prefix="ui_search">
-    <file>gliph/refresh_16.png</file>
-    <file>gliph/history_16.png</file>
-    <file>gliph/add_16.png</file>
-  </qresource>
-  <qresource prefix="ui_main">
-    <file>gliph/gear_16.png</file>
-  </qresource>
   <qresource prefix="ui_main">
     <file>gliph/tactic_favicon.ico</file>
+  </qresource>
+  <qresource prefix="global">
+    <file>gliph/fontawesome-webfont.svg</file>
+    <file>gliph/cog_16.png</file>
+    <file>gliph/delete_16.png</file>
+    <file>gliph/hamburger_16.png</file>
+    <file>gliph/history_16.png</file>
+    <file>gliph/next_16.png</file>
+    <file>gliph/notes_16.png</file>
+    <file>gliph/plus_16.png</file>
+    <file>gliph/refresh_16.png</file>
   </qresource>
   <qresource prefix="ui_richedit">
     <file>gliph/richedit/cut_red.png</file>

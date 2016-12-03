@@ -12,7 +12,10 @@
 	padding: 3px;
 }</string>
   </property>
-  <layout class="QGridLayout" name="versionedLayout" rowstretch="0,1" columnstretch="0,1,0,0">
+  <layout class="QGridLayout" name="versionedLayout" rowstretch="0,0,1" columnstretch="0,1,0,0">
+   <property name="sizeConstraint">
+    <enum>QLayout::SetNoConstraint</enum>
+   </property>
    <property name="margin">
     <number>0</number>
    </property>
@@ -73,7 +76,7 @@
      </property>
     </widget>
    </item>
-   <item row="1" column="1">
+   <item row="1" column="1" colspan="2">
     <widget class="QLabel" name="commentLabel">
      <property name="minimumSize">
       <size>
@@ -103,19 +106,14 @@
        <height>25</height>
       </size>
      </property>
-     <property name="accessibleDescription">
-      <string notr="true"/>
-     </property>
-     <property name="styleSheet">
-      <string notr="true">QLabel {
-	padding: 4px;
-}</string>
-     </property>
      <property name="textFormat">
       <enum>Qt::PlainText</enum>
      </property>
      <property name="alignment">
       <set>Qt::AlignBottom|Qt::AlignRight|Qt::AlignTrailing</set>
+     </property>
+     <property name="margin">
+      <number>2</number>
      </property>
     </widget>
    </item>
@@ -163,6 +161,19 @@
       <enum>Qt::RichText</enum>
      </property>
     </widget>
+   </item>
+   <item row="2" column="1">
+    <spacer name="verticalSpacer">
+     <property name="orientation">
+      <enum>Qt::Vertical</enum>
+     </property>
+     <property name="sizeHint" stdset="0">
+      <size>
+       <width>0</width>
+       <height>0</height>
+      </size>
+     </property>
+    </spacer>
    </item>
   </layout>
  </widget>

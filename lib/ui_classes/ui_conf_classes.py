@@ -701,9 +701,7 @@ class Ui_checkinOutPageWidget(QtGui.QWidget, ui_checkinOutPage.Ui_checkinOutPage
     def load_project_stypes(self, project_code):
         project = env_inst.projects[project_code]
         if not project.stypes:
-            print 'getting stypes'
             project.get_stypes()
-            print 'got stypes'
 
         exclude_list = self.page_init_projects[project_code]['stypes_list']
 
@@ -795,7 +793,6 @@ class Ui_checkinOutPageWidget(QtGui.QWidget, ui_checkinOutPage.Ui_checkinOutPage
             self.top_item.setExpanded(True)
 
     def load_to_controls_tabs_tree_widget(self, tabs_list=None):
-        print tabs_list, 'TABSLIST'
 
         self.controlsTabsTreeWidget.clear()
 
@@ -915,14 +912,6 @@ class Ui_checkinOutPageWidget(QtGui.QWidget, ui_checkinOutPage.Ui_checkinOutPage
             self.collect_defaults(apply_values=True)
         self.collect_defaults()
 
-        print self.page_defaults
-        print self.page_defaults_projects
-        print self.page_init
-        print self.page_init_projects
-
-        # if not self.page_defaults_projects and self.page_init_projects:
-        #     print 'APPLY VALUES 2'
-        #     self.init_per_projects_config_dict()
         if not self.page_init_projects:
             self.init_per_projects_config_dict()
 
@@ -935,11 +924,6 @@ class Ui_checkinOutPageWidget(QtGui.QWidget, ui_checkinOutPage.Ui_checkinOutPage
                 tabs_list = None
 
         self.load_to_controls_tabs_tree_widget(tabs_list)
-
-        print self.page_defaults
-        print self.page_defaults_projects
-        print self.page_init
-        print self.page_init_projects
 
 
 class Ui_globalPageWidget(QtGui.QWidget, ui_globalPage.Ui_globalPageWidget):

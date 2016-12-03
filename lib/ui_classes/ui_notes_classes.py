@@ -111,7 +111,7 @@ class Ui_incomWidget(QtGui.QWidget, ui_incom.Ui_incom):
     def initial_fill(self):
 
         self.authorLabel.setText(self.note.info['login'] + ':')
-        if self.note.info['note_html']:
+        if self.note.info.get('note_html'):
             note_text = gf.hex_to_html(self.note.info['note_html'])
             self.commentLabel.setTextFormat(QtCore.Qt.RichText)
         else:
@@ -133,7 +133,7 @@ class Ui_outcomWidget(QtGui.QWidget, ui_outcom.Ui_outcom):
 
     def initial_fill(self):
         self.authorLabel.setText(self.note.info['login'] + ':')
-        if self.note.info['note_html']:
+        if self.note.info.get('note_html'):
             note_text = gf.hex_to_html(self.note.info['note_html'])
             self.commentLabel.setTextFormat(QtCore.Qt.RichText)
         else:

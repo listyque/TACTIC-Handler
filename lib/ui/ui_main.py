@@ -2,7 +2,7 @@
 
 # Form implementation generated from reading ui file './ui_main.ui'
 #
-# Created: Tue Nov  8 19:25:21 2016
+# Created: Mon Nov 28 16:28:40 2016
 #      by: pyside-uic 0.2.13 running on PySide 1.2.2
 #
 # WARNING! All changes made in this file will be lost!
@@ -51,6 +51,7 @@ class Ui_MainWindow(object):
         self.mainwidget.setObjectName("mainwidget")
         MainWindow.setCentralWidget(self.mainwidget)
         self.menubar = QtGui.QMenuBar(MainWindow)
+        self.menubar.setGeometry(QtCore.QRect(0, 0, 427, 25))
         self.menubar.setObjectName("menubar")
         self.menuConfig = QtGui.QMenu(self.menubar)
         self.menuConfig.setObjectName("menuConfig")
@@ -62,16 +63,17 @@ class Ui_MainWindow(object):
         self.actionConfiguration.setObjectName("actionConfiguration")
         self.actionUpdate = QtGui.QAction(MainWindow)
         self.actionUpdate.setObjectName("actionUpdate")
-        self.actionVersion = QtGui.QAction(MainWindow)
-        self.actionVersion.setObjectName("actionVersion")
         self.actionExit = QtGui.QAction(MainWindow)
         self.actionExit.setObjectName("actionExit")
         self.actionApply_to_all_Tabs = QtGui.QAction(MainWindow)
         self.actionApply_to_all_Tabs.setObjectName("actionApply_to_all_Tabs")
         self.actionServerside_Script = QtGui.QAction(MainWindow)
         self.actionServerside_Script.setObjectName("actionServerside_Script")
+        self.actionDock_undock = QtGui.QAction(MainWindow)
+        self.actionDock_undock.setObjectName("actionDock_undock")
         self.menuConfig.addAction(self.actionConfiguration)
         self.menuConfig.addAction(self.actionApply_to_all_Tabs)
+        self.menuConfig.addAction(self.actionDock_undock)
         self.menuConfig.addSeparator()
         self.menuConfig.addAction(self.actionServerside_Script)
         self.menuConfig.addSeparator()
@@ -91,8 +93,8 @@ class Ui_MainWindow(object):
         self.menuProject.setTitle(QtGui.QApplication.translate("MainWindow", "Project", None, QtGui.QApplication.UnicodeUTF8))
         self.actionConfiguration.setText(QtGui.QApplication.translate("MainWindow", "Configuration", None, QtGui.QApplication.UnicodeUTF8))
         self.actionUpdate.setText(QtGui.QApplication.translate("MainWindow", "Update", None, QtGui.QApplication.UnicodeUTF8))
-        self.actionVersion.setText(QtGui.QApplication.translate("MainWindow", "Version", None, QtGui.QApplication.UnicodeUTF8))
         self.actionExit.setText(QtGui.QApplication.translate("MainWindow", "Exit", None, QtGui.QApplication.UnicodeUTF8))
         self.actionApply_to_all_Tabs.setText(QtGui.QApplication.translate("MainWindow", "Current view to All Tabs", None, QtGui.QApplication.UnicodeUTF8))
         self.actionServerside_Script.setText(QtGui.QApplication.translate("MainWindow", "Serverside Script", None, QtGui.QApplication.UnicodeUTF8))
+        self.actionDock_undock.setText(QtGui.QApplication.translate("MainWindow", "Dock/undock", None, QtGui.QApplication.UnicodeUTF8))
 

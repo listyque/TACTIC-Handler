@@ -27,7 +27,7 @@ def get_maya_dock_window():
     Get the Maya dock window instance of Tactic Dock Window
     @return: QMayaDockWidget
     """
-    maya_dock_instances = get_maya_window().findChildren(QtGui.QMainWindow, 'TacticDockWindow')
+    maya_dock_instances = get_maya_window().findChildren(QtGui.QMainWindow, 'TacticHandlerDock')
     return maya_dock_instances
 
 
@@ -36,7 +36,7 @@ def open_scene(file_path, dir_path, all_process):
     new_scene = mel.eval('saveChanges("file -f -new")')
     if new_scene:
         # print('Opening: ' + file_path)
-        set_workspace(dir_path, all_process)
+        # set_workspace(dir_path, all_process)
         cmds.file(file_path, o=True)
 
         # cmds.file(q=True, location=True)  #prtint current scene path
@@ -57,7 +57,7 @@ def get_skey_from_scene():
     return skey
 
 
-def new_save_scene(search_key, context, description, snapshot_type='file', all_process=None, repo=None, update_versionless=True, file_types='maya', postfixes=None, version=None, ext_type=None, is_current=False, is_revision=False, mode=None, create_playblast=True):
+def new_save_scene(search_key, context, description, snapshot_type='file', all_process=None, repo=None, update_versionless=True, file_types='maya', postfixes=None, version=None, ext_type=None, is_current=False, is_revision=False, mode=None, create_playblast=True, selected_objects=False):
 
     types = {
         'mayaBinary': 'mb',

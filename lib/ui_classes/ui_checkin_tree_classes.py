@@ -3,14 +3,13 @@
 import ast
 import PySide.QtCore as QtCore
 import PySide.QtGui as QtGui
-# import lib.environment as env
 from lib.environment import env_mode, env_inst, env_server, env_tactic
 from lib.configuration import cfg_controls
-# import lib.configuration as cfg
 import lib.tactic_classes as tc
 import lib.global_functions as gf
 import lib.ui.checkin.ui_checkin_tree as ui_checkin_tree
 import lib.ui.checkin.ui_checkin_options as ui_checkin_options
+import lib.ui_classes.ui_misc_classes as ui_misc_classes
 import ui_item_classes as item_widget
 import ui_icons_classes as icons_widget
 import ui_richedit_classes as richedit_widget
@@ -155,6 +154,8 @@ class Ui_checkInTreeWidget(QtGui.QWidget, ui_checkin_tree.Ui_checkInTree):
         self.controls_actions()
         self.threads_actions()
 
+        self.customize_ui()
+
     def dragEnterEvent(self, event):
         if event.mimeData().hasUrls:
             event.accept()
@@ -181,7 +182,7 @@ class Ui_checkInTreeWidget(QtGui.QWidget, ui_checkin_tree.Ui_checkInTree):
         effect.setOffset(2, 2)
         tab_color = self.stype.info['color']
         if tab_color:
-            t_c = gf.hex_to_rgb(tab_color, alpha=64, tuple=True)
+            t_c = gf.hex_to_rgb(tab_color, alpha=128, tuple=True)
             effect.setColor(QtGui.QColor(t_c[0], t_c[1], t_c[2], t_c[3]))
             effect.setBlurRadius(15)
         else:
@@ -204,6 +205,9 @@ class Ui_checkInTreeWidget(QtGui.QWidget, ui_checkin_tree.Ui_checkInTree):
         self.checkinTreeLayout.addWidget(self.progres_bar)
 
     def create_refresh_popup(self):
+        self.refreshToolButton.setIcon(gf.get_icon('cog'))
+        self.refreshToolButton.setMinimumSize(22, 22)
+
         self.switch_to_checkout = QtGui.QAction('Copy tab to checkout', self.refreshToolButton)
         self.switch_to_checkout.triggered.connect(self.refresh_current_results)
         self.filter_process = QtGui.QAction('Filter Process', self.refreshToolButton)
@@ -213,7 +217,7 @@ class Ui_checkInTreeWidget(QtGui.QWidget, ui_checkin_tree.Ui_checkInTree):
         self.clear_results = QtGui.QAction('Close all Search-Tabs', self.refreshToolButton)
         self.clear_results.triggered.connect(self.close_all_search_tabs)
         self.search_options = QtGui.QAction('Toggle Search options', self.refreshToolButton)
-        self.search_options.triggered.connect(lambda: self.searchLineDoubleClick(event=True))
+        self.search_options.triggered.connect(self.toggle_search_group_box)
 
         self.refreshToolButton.addAction(self.switch_to_checkout)
         self.refreshToolButton.addAction(self.filter_process)
@@ -222,17 +226,20 @@ class Ui_checkInTreeWidget(QtGui.QWidget, ui_checkin_tree.Ui_checkInTree):
         self.refreshToolButton.addAction(self.search_options)
 
     def create_process_tree_widget(self):
-        self.process_tree_widget = search_classes.QPopupTreeWidget(
-            parent_ui=self,
-            parent=self,
-            project=self.project,
-            stype=self.stype
-        )
-        self.process_tree_widget.show()
+        if not self.process_tree_widget:
+            self.process_tree_widget = search_classes.QPopupTreeWidget(
+                parent_ui=self,
+                parent=self,
+                project=self.project,
+                stype=self.stype
+            )
+            self.process_tree_widget.show()
+        else:
+            self.process_tree_widget.show()
 
     def get_process_ignore_list(self):
         if self.process_tree_widget:
-            return self.process_tree_widget.get_ignore_list()
+            return self.process_tree_widget.get_ignore_dict()
         else:
             self.process_tree_widget = search_classes.QPopupTreeWidget(
                 parent_ui=self,
@@ -240,13 +247,13 @@ class Ui_checkInTreeWidget(QtGui.QWidget, ui_checkin_tree.Ui_checkInTree):
                 project=self.project,
                 stype=self.stype
             )
-            return self.process_tree_widget.get_ignore_list()
+            return self.process_tree_widget.get_ignore_dict()
 
     def refresh_current_results(self):
-        self.results_group_box.refresh_restults()
+        self.search_results_widget.refresh_restults()
 
     def close_all_search_tabs(self):
-        self.results_group_box.close_all_tabs()
+        self.search_results_widget.close_all_tabs()
 
     def search_mode_state(self):
         if self.searchOptionsGroupBox.searchNameRadioButton.isChecked():
@@ -283,39 +290,45 @@ class Ui_checkInTreeWidget(QtGui.QWidget, ui_checkin_tree.Ui_checkInTree):
 
     def checkin_context_menu(self, tool_button=True, mode=None):
 
-
         edit_info = QtGui.QAction('Edit Info', self.savePushButton)
+        edit_info.setIcon(gf.get_icon('edit'))
         edit_info.triggered.connect(lambda: self.edit_existing_sobject())
 
         delete_sobject = QtGui.QAction('Delete', self.savePushButton)
+        delete_sobject.setIcon(gf.get_icon('remove'))
         delete_sobject.triggered.connect(self.delete_sobject)
 
-        save_snapshot = QtGui.QAction('Save', self.savePushButton)
+        save_snapshot = QtGui.QAction('Save snapshot', self.savePushButton)
+        save_snapshot.setIcon(gf.get_icon('save'))
+        # add_icon = QtGui.QIcon()
+        # add_icon.addPixmap(QtGui.QPixmap(':/ui_search/gliph/add_16.png'), QtGui.QIcon.Normal, QtGui.QIcon.Off)
+        # save_snapshot.setIcon(add_icon)
         save_snapshot.triggered.connect(self.save_file)
 
-        save_selected_snapshot = QtGui.QAction('Save selected', self.savePushButton)
-        save_selected_snapshot.triggered.connect(lambda: self.prnt(0))
+        save_selected_snapshot = QtGui.QAction('Save selected objects', self.savePushButton)
+        save_selected_snapshot.triggered.connect(lambda: self.save_file(selected_objects=True))
 
-        save_snapshot_revision = QtGui.QAction('Save revision', self.savePushButton)
-        save_snapshot_revision.triggered.connect(lambda: self.prnt(0))
+        save_snapshot_revision = QtGui.QAction('Add revision (update current file)', self.savePushButton)
+        save_snapshot_revision.triggered.connect(lambda: self.save_file(save_revision=True))
 
-        save_selected_snapshot_revision = QtGui.QAction('Save selected revision', self.savePushButton)
-        save_selected_snapshot_revision.triggered.connect(lambda: self.prnt(0))
+        save_selected_snapshot_revision = QtGui.QAction('Add revision for selected objects', self.savePushButton)
+        save_selected_snapshot_revision.triggered.connect(lambda: self.save_file(selected_objects=True, save_revision=True))
 
-        update_snapshot = QtGui.QAction('Update', self.savePushButton)
-        update_snapshot.triggered.connect(lambda: self.prnt(0))
+        update_snapshot = QtGui.QAction('Update file only (without revision)', self.savePushButton)
+        update_snapshot.triggered.connect(lambda: self.save_file(update_snapshot=True))
 
-        update_selected_snapshot = QtGui.QAction('Update selected', self.savePushButton)
-        update_selected_snapshot.triggered.connect(lambda: self.prnt(0))
+        # update_selected_snapshot = QtGui.QAction('Update selected', self.savePushButton)
+        # update_selected_snapshot.triggered.connect(lambda: self.prnt(0))
 
-        update_playblast = QtGui.QAction('Update Playblast', self.savePushButton)
-        update_playblast.triggered.connect(lambda: self.prnt(0))
+        # update_playblast = QtGui.QAction('Update Playblast', self.savePushButton)
+        # update_playblast.triggered.connect(lambda: self.prnt(0))
 
         delete_snapshot = QtGui.QAction('Delete', self.savePushButton)
+        delete_snapshot.setIcon(gf.get_icon('remove'))
         delete_snapshot.triggered.connect(self.delete_snapshot_sobject)
 
-        checkin_options = QtGui.QAction('Checkin Options toggle', self.savePushButton)
-        checkin_options.triggered.connect(self.toggle_checkin_options_group_box)
+        # checkin_options = QtGui.QAction('Checkin Options toggle', self.savePushButton)
+        # checkin_options.triggered.connect(self.toggle_checkin_options_group_box)
 
         menu = QtGui.QMenu()
 
@@ -328,14 +341,14 @@ class Ui_checkInTreeWidget(QtGui.QWidget, ui_checkin_tree.Ui_checkInTree):
             menu.addAction(save_selected_snapshot_revision)
             menu.addSeparator()
             menu.addAction(update_snapshot)
-            menu.addAction(update_selected_snapshot)
-            menu.addAction(update_playblast)
+            # menu.addAction(update_selected_snapshot)
+            # menu.addAction(update_playblast)
             menu.addSeparator()
             menu.addAction(edit_info)
             menu.addSeparator()
             menu.addAction(delete_sobject)
-            menu.addSeparator()
-            menu.addAction(checkin_options)
+            # menu.addSeparator()
+            # menu.addAction(checkin_options)
 
         if mode == 'snapshot':
             menu.addAction(save_snapshot)
@@ -345,43 +358,44 @@ class Ui_checkInTreeWidget(QtGui.QWidget, ui_checkin_tree.Ui_checkInTree):
             menu.addAction(save_selected_snapshot_revision)
             menu.addSeparator()
             menu.addAction(update_snapshot)
-            menu.addAction(update_selected_snapshot)
-            menu.addAction(update_playblast)
+            # menu.addAction(update_selected_snapshot)
+            # menu.addAction(update_playblast)
             menu.addSeparator()
             menu.addAction(edit_info)
             menu.addSeparator()
             menu.addAction(delete_snapshot)
-            menu.addSeparator()
-            menu.addAction(checkin_options)
+            # menu.addSeparator()
+            # menu.addAction(checkin_options)
 
         if mode == 'process':
             menu.addAction(save_snapshot)
             menu.addAction(save_selected_snapshot)
-            menu.addSeparator()
-            menu.addAction(save_snapshot_revision)
-            menu.addAction(save_selected_snapshot_revision)
-            menu.addSeparator()
-            menu.addAction(update_snapshot)
-            menu.addAction(update_selected_snapshot)
-            menu.addAction(update_playblast)
-            menu.addSeparator()
-            menu.addAction(checkin_options)
+            # menu.addSeparator()
+            # menu.addAction(save_snapshot_revision)
+            # menu.addAction(save_selected_snapshot_revision)
+            # menu.addSeparator()
+            # menu.addAction(update_snapshot)
+            # menu.addAction(update_selected_snapshot)
+            # menu.addAction(update_playblast)
+            # menu.addSeparator()
+            # menu.addAction(checkin_options)
 
-        if mode == 'child':
-            menu.addAction(checkin_options)
+        # if mode == 'child':
+        #     menu.addAction(checkin_options)
 
         return menu
 
     def create_search_results_group_box(self):
-        self.results_group_box = search_classes.Ui_resultsGroupBoxWidget(parent_ui=self, parent=self)
-        self.searchOptionsSplitter.addWidget(self.results_group_box)
-        # self.results_group_box.add_tab()
+        self.search_results_widget = search_classes.Ui_resultsGroupBoxWidget(parent_ui=self, parent=self)
+        self.searchOptionsSplitter.addWidget(self.search_results_widget)
+        # self.search_results_widget.add_tab()
 
     def create_checkin_options_group_box(self):
         self.checkin_options_widget = Ui_checkInOptionsWidget(stype=self.stype, project=self.project, parent=self)
         self.checkinOptionsSplitter.addWidget(self.checkin_options_widget)
         # self.checkinOptionsLayout.addWidget(self.checkin_options_widget)
-        self.toggleSaveOptionsToolButton.setArrowType(QtCore.Qt.DownArrow)
+        # self.toggleSaveOptionsToolButton.setArrowType(QtCore.Qt.DownArrow)
+        self.toggleSaveOptionsToolButton.setIcon(gf.get_icon('toggle-on'))
 
     def toggle_checkin_options_group_box(self):
         if self.checkin_options_widget.isVisible():
@@ -391,13 +405,16 @@ class Ui_checkInTreeWidget(QtGui.QWidget, ui_checkin_tree.Ui_checkInTree):
 
     def set_checkin_options_group_box_state(self, hidden=False):
         if hidden:
-            self.toggleSaveOptionsToolButton.setArrowType(QtCore.Qt.UpArrow)
+            # self.toggleSaveOptionsToolButton.setArrowType(QtCore.Qt.UpArrow)
+            self.toggleSaveOptionsToolButton.setIcon(gf.get_icon('toggle-off'))
             self.checkin_options_widget.hide()
         else:
-            self.toggleSaveOptionsToolButton.setArrowType(QtCore.Qt.DownArrow)
+            # self.toggleSaveOptionsToolButton.setArrowType(QtCore.Qt.DownArrow)
+            self.toggleSaveOptionsToolButton.setIcon(gf.get_icon('toggle-on'))
             self.checkin_options_widget.show()
 
     def create_save_button(self):
+        self.savePushButton.setIcon(gf.get_icon('save'))
         self.savePushButton.setMenu(self.checkin_context_menu())
 
     def create_search_options_group_box(self):
@@ -417,8 +434,8 @@ class Ui_checkInTreeWidget(QtGui.QWidget, ui_checkin_tree.Ui_checkInTree):
         else:
             self.searchOptionsGroupBox.show()
 
-    def searchLineDoubleClick(self, event):
-        self.toggle_search_group_box()
+    # def searchLineDoubleClick(self, event):
+    #     self.toggle_search_group_box()
 
     def searchLineSingleClick(self, event):
         self.searchLineEdit.selectAll()
@@ -428,25 +445,81 @@ class Ui_checkInTreeWidget(QtGui.QWidget, ui_checkin_tree.Ui_checkInTree):
         Actions for the check tab
         """
         # Search line, and combo box with context
-        self.searchLineEdit.returnPressed.connect(
-            lambda: self.results_group_box.add_items_to_results(self.searchLineEdit.text()))
-        self.searchLineEdit.returnPressed.connect(self.results_group_box.set_current_tab_text)
-        self.searchLineEdit.mouseDoubleClickEvent = self.searchLineDoubleClick
+        self.searchLineEdit.returnPressed.connect(self.do_search)
+        # self.searchLineEdit.mouseDoubleClickEvent = self.searchLineDoubleClick
         self.searchLineEdit.mousePressEvent = self.searchLineSingleClick
         self.searchLineEdit.textEdited.connect(self.search_suggestions)
-        if env_mode.get_mode() == 'standalone':
-            self.findOpenedPushButton.setVisible(False)
-        self.findOpenedPushButton.clicked.connect(self.find_opened_sobject)
+        # self.findOpenedPushButton.clicked.connect(self.find_opened_sobject)
 
         # Save, Update, Add New buttons
-        self.addNewtButton.clicked.connect(self.add_new_sobject)
+        # self.addNewtButton.clicked.connect(self.add_new_sobject)
         self.savePushButton.clicked.connect(self.save_file)
 
         self.toggleSaveOptionsToolButton.clicked.connect(self.toggle_checkin_options_group_box)
 
+    def customize_ui(self):
+        # if env_mode.get_mode() == 'standalone':
+        # self.findOpenedPushButton.setVisible(False)
+        # self.addNewtButton.setIcon(gf.get_icon('plus-square-o'))
+        self.create_collapsable_toolbar()
+
+    def create_collapsable_toolbar(self):
+        self.collap = ui_misc_classes.Ui_horizontalCollapsableWidget()
+
+        self.buttons_layout = QtGui.QHBoxLayout()
+        self.buttons_layout.setSpacing(0)
+        self.buttons_layout.setContentsMargins(0, 0, 0, 0)
+        self.filter_process_button = QtGui.QToolButton()
+        self.filter_process_button.setMaximumSize(22, 22)
+        self.filter_process_button.setAutoRaise(True)
+        self.filter_process_button.setIcon(gf.get_icon('filter'))
+        self.filter_process_button.clicked.connect(self.create_process_tree_widget)
+
+        self.toggle_search_options_button = QtGui.QToolButton()
+        self.toggle_search_options_button.setMaximumSize(22, 22)
+        self.toggle_search_options_button.setAutoRaise(True)
+        self.toggle_search_options_button.setIcon(gf.get_icon('sliders'))
+        self.toggle_search_options_button.clicked.connect(self.toggle_search_group_box)
+
+        self.add_new_sobject_button = QtGui.QToolButton()
+        self.add_new_sobject_button.setMaximumSize(22, 22)
+        self.add_new_sobject_button.setAutoRaise(True)
+        self.add_new_sobject_button.setIcon(gf.get_icon('plus-square-o'))
+        self.add_new_sobject_button.clicked.connect(self.add_new_sobject)
+
+        self.find_opened_sobject_button = QtGui.QToolButton()
+        self.find_opened_sobject_button.setMaximumSize(22, 22)
+        self.find_opened_sobject_button.setAutoRaise(True)
+        self.find_opened_sobject_button.setIcon(gf.get_icon('bolt'))
+        self.find_opened_sobject_button.clicked.connect(self.find_opened_sobject)
+
+        self.buttons_layout.addWidget(self.filter_process_button)
+        self.buttons_layout.addWidget(self.toggle_search_options_button)
+        self.buttons_layout.addWidget(self.add_new_sobject_button)
+        if env_mode.get_mode() == 'maya':
+            self.buttons_layout.addWidget(self.find_opened_sobject_button)
+
+        self.collap.setLayout(self.buttons_layout)
+        self.collap.setCollapsed(True)
+
+        self.expandingLayout.addWidget(self.collap)
+
     def threads_actions(self):
         # Threads Actions
         self.search_suggestions_thread.finished.connect(lambda: self.search_suggestions(popup_suggestion=True))
+
+    def get_search_query_text(self):
+        return self.searchLineEdit.text()
+
+    def get_search_options_widget(self):
+        return self.searchOptionsGroupBox
+
+    def do_search(self, search_query=None, search_by=None, new_tab=False):
+        self.search_results_widget.do_search(
+            search_query=search_query,
+            search_by=search_by,
+            new_tab=new_tab
+        )
 
     def find_opened_sobject(self):
         skey = mf.get_skey_from_scene()
@@ -488,8 +561,16 @@ class Ui_checkInTreeWidget(QtGui.QWidget, ui_checkin_tree.Ui_checkInTree):
 
             completer.complete()
 
+    def get_current_tree_widget(self):
+        return self.search_results_widget.get_current_widget()
+
+    def get_is_separate_versions(self):
+        current_tabbed_widget = self.search_results_widget.get_current_widget()
+        return current_tabbed_widget.get_is_separate_versions()
+
     def refresh_current_snapshot_tree(self, item):
-        self.results_group_box.update_item(item)
+        # self.search_results_widget.update_item(item)
+        self.search_results_widget.update_item_tree(item)
 
     def checkin_from_droplist(self, search_key, context, description):
 
@@ -532,12 +613,57 @@ class Ui_checkInTreeWidget(QtGui.QWidget, ui_checkin_tree.Ui_checkInTree):
                 create_icon=False
             )
 
-    def save_file(self):
-        current_widget = self.results_group_box.get_current_widget()
+    def checkin_from_path(self, search_key, context, description, explicit_paths=None):
+
+        if explicit_paths:
+            update_versionless = bool(self.checkin_options_widget.updateVersionlessCheckBox.isChecked())
+
+            repo = self.get_current_repo()
+
+            file_types = []
+            file_names = []
+            file_paths = []
+            exts = []
+            file_sizes = []
+
+            for path in explicit_paths:
+                file_types.append('main')
+                file_names.append(gf.extract_filename(path))
+                exts.append(gf.extract_extension(path)[0])
+                file_path = gf.form_path(path)
+                file_paths.append(file_path)
+                file_sizes.append(gf.get_st_size(file_path))
+
+            mode = 'inplace'
+
+            create_icon = False
+            if context == 'icon':
+                create_icon = True
+
+            return tc.checkin_file(
+                search_key=search_key,
+                context=context,
+                description=description,
+                version=None,
+                update_versionless=update_versionless,
+                file_types=file_types,
+                file_names=file_names,
+                file_paths=file_paths,
+                file_sizes=file_sizes,
+                exts=exts,
+                keep_file_name=False,
+                repo_name=repo,
+                mode=mode,
+                create_icon=create_icon
+            )
+
+    def save_file(self, selected_objects=False, save_revision=False, update_snapshot=False):
+        current_widget = self.get_current_tree_widget()
         current_tree_widget_item = current_widget.get_current_tree_widget_item()
         if current_tree_widget_item:
             self.savePushButton.setEnabled(False)
             search_key = current_tree_widget_item.get_skey(parent=True)
+            print search_key
             context = current_tree_widget_item.get_context(True, self.contextLineEdit.text()).replace(' ', '_')
 
             if self.descriptionTextEdit.toPlainText() != '':
@@ -548,17 +674,29 @@ class Ui_checkInTreeWidget(QtGui.QWidget, ui_checkin_tree.Ui_checkInTree):
 
             postfixes = ['']
 
+            checkin_from_droplist = self.ui_drop_plate.fromDropListCheckBox.isChecked()
+
             if env_mode.get_mode() == 'maya':
+                update_versionless = bool(self.checkin_options_widget.updateVersionlessCheckBox.isChecked())
                 repo = self.get_current_repo()
-                scene_saved = mf.new_save_scene(
-                    search_key,
-                    context,
-                    description,
-                    repo=repo,
-                    ext_type=self.formatTypeComboBox.currentText(),
-                    postfixes=postfixes,
-                )
-                if scene_saved:
+                if checkin_from_droplist:
+                    saved = self.checkin_from_droplist(
+                        search_key=search_key,
+                        context=context,
+                        description=description
+                    )
+                else:
+                    saved = mf.new_save_scene(
+                        search_key,
+                        context,
+                        description,
+                        update_versionless=update_versionless,
+                        repo=repo,
+                        ext_type=self.formatTypeComboBox.currentText(),
+                        postfixes=postfixes,
+                        selected_objects=selected_objects
+                    )
+                if saved:
                     self.descriptionTextEdit.clear()
                     self.refresh_current_snapshot_tree(current_tree_widget_item)
 
@@ -582,19 +720,12 @@ class Ui_checkInTreeWidget(QtGui.QWidget, ui_checkin_tree.Ui_checkInTree):
         """
         Open window for adding new sobject
         """
-        stype_tytle = self.stype.info.get('title')
-        if stype_tytle:
-            title = stype_tytle.capitalize()
-        else:
-            title = 'Unknown'
-
         self.add_sobject = addsobject_widget.Ui_addTacticSobjectWidget(stype=self.stype, parent=self)
-        self.add_sobject.setWindowTitle('Adding new SObject {0} ({1})'.format(title, self.tab_name))
         self.add_sobject.show()
 
     def delete_snapshot_sobject(self):
 
-        current_widget = self.results_group_box.get_current_widget()
+        current_widget = self.get_current_tree_widget()
         current_tree_widget_item = current_widget.get_current_tree_widget_item()
 
         if current_tree_widget_item:
@@ -616,7 +747,7 @@ class Ui_checkInTreeWidget(QtGui.QWidget, ui_checkin_tree.Ui_checkInTree):
 
     def delete_sobject(self):
 
-        current_widget = self.results_group_box.get_current_widget()
+        current_widget = self.get_current_tree_widget()
         current_tree_widget_item = current_widget.get_current_tree_widget_item()
 
         if current_tree_widget_item:
@@ -631,10 +762,16 @@ class Ui_checkInTreeWidget(QtGui.QWidget, ui_checkin_tree.Ui_checkInTree):
         """
         Open window for Editing sobject
         """
-        current_widget = self.results_group_box.get_current_widget()
+        current_widget = self.get_current_tree_widget()
         current_tree_widget_item = current_widget.get_current_tree_widget_item()
-        self.edit_sobject = addsobject_widget.Ui_addTacticSobjectWidget(stype=self.stype, item=current_tree_widget_item, view='edit', parent=self)
-        self.edit_sobject.setWindowTitle('Edit info for ' + current_tree_widget_item.sobject.info['name'])
+        stype = current_tree_widget_item.stype
+        self.edit_sobject = addsobject_widget.Ui_addTacticSobjectWidget(
+            stype=stype,
+            item=current_tree_widget_item,
+            view='edit',
+            parent=self
+        )
+        self.edit_sobject.setWindowTitle('Editing info for {0}'.format(current_tree_widget_item.sobject.info.get('name')))
         self.edit_sobject.show()
 
     # def load_preview(self, position):
@@ -671,7 +808,7 @@ class Ui_checkInTreeWidget(QtGui.QWidget, ui_checkin_tree.Ui_checkInTree):
     #     # self.descriptionTextEdit.setText(nested_item.get_description())
 
     def open_menu(self):
-        current_widget = self.results_group_box.get_current_widget()
+        current_widget = self.get_current_tree_widget()
         current_tree_widget_item = current_widget.get_current_tree_widget_item()
 
         if current_tree_widget_item:
@@ -709,7 +846,7 @@ class Ui_checkInTreeWidget(QtGui.QWidget, ui_checkin_tree.Ui_checkInTree):
         self.descriptionSplitter.restoreState(QtCore.QByteArray.fromHex(settings_dict.get('descriptionSplitter')))
         self.imagesSplitter.restoreState(QtCore.QByteArray.fromHex(settings_dict.get('imagesSplitter')))
         self.dropPlateSplitter.restoreState(QtCore.QByteArray.fromHex(settings_dict.get('dropPlateSplitter')))
-        # self.results_group_box.get_current_widget().resultsSplitter.restoreState(
+        # self.get_current_tree_widget().resultsSplitter.restoreState(
         #     QtCore.QByteArray.fromHex(settings_dict.get('resultsSplitter')))
 
         if apply_checkin_options:
@@ -734,7 +871,7 @@ class Ui_checkInTreeWidget(QtGui.QWidget, ui_checkin_tree.Ui_checkInTree):
             'descriptionSplitter': str(self.descriptionSplitter.saveState().toHex()),
             'imagesSplitter': str(self.imagesSplitter.saveState().toHex()),
             'dropPlateSplitter': str(self.dropPlateSplitter.saveState().toHex()),
-            'resultsSplitter': str(self.results_group_box.get_current_widget().resultsSplitter.saveState().toHex()),
+            'resultsSplitter': str(self.get_current_tree_widget().resultsSplitter.saveState().toHex()),
             'checkin_options_settings_dict': str(self.checkin_options_widget.get_settings_dict()),
             'search_options_settings_dict': str(self.searchOptionsGroupBox.get_settings_dict()),
         }
@@ -777,9 +914,10 @@ class Ui_checkInTreeWidget(QtGui.QWidget, ui_checkin_tree.Ui_checkInTree):
         self.settings.endGroup()
 
         # additional settings write
-        self.results_group_box.writeSettings()
+        self.search_results_widget.writeSettings()
 
         # def showEvent(self, event):
         #
         #     self.create_ui_checkin()
         #     self.readSettings()
+

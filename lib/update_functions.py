@@ -1,4 +1,7 @@
 import os
+import random
+import fnmatch
+import re
 import glob
 import urllib2
 import tarfile
@@ -33,7 +36,7 @@ def save_json_to_path(file_path, data):
     if not os.path.exists(updates_dir):
         os.makedirs(updates_dir)
     json_file = file(file_path, mode='w+')
-    json.dump(data, json_file)
+    json.dump(data, json_file, indent=4)
 
 
 def get_current_version():
@@ -87,10 +90,10 @@ def download_from_url(url):
         urllib2.install_opener(opener)
 
     run_thread = tc.ServerThread(env_inst.ui_main)
-    run_thread.kwargs = dict(url=url)
+    run_thread.kwargs = dict(url=url, timeout=1)
     run_thread.routine = urllib2.urlopen
     run_thread.run()
-    result_thread = tc.treat_result(run_thread)
+    result_thread = tc.treat_result(run_thread, silent=True)
     if result_thread.isFailed():
         return False
     else:
@@ -98,15 +101,14 @@ def download_from_url(url):
 
 
 def check_for_last_version():
-    last_ver = download_from_url('http://tactichandler.tk/th/version.json')
+    last_ver = download_from_url('http://tactichandler.tk/th/version.json?{0}'.format(random.randint(0, 99999)))
     if last_ver:
         update_str = json.loads(last_ver.read())
         return update_str
 
 
 def get_updates_from_server():
-
-    updates_list = download_from_url('http://tactichandler.tk/th/versions.json')
+    updates_list = download_from_url('http://tactichandler.tk/th/versions.json?{0}'.format(random.randint(0, 99999)))
     if updates_list:
         versions_list = json.loads(updates_list.read())
         path_to_save = '{0}/updates'.format(env_mode.get_current_path())
@@ -134,6 +136,69 @@ def get_update_archive_from_server(archive_name):
 
 def delete_files_from_list(files_list):
     print files_list
+
+
+def create_app_update_list():
+    ignore_list = [
+        '.idea',
+        '!not_in_project!',
+        'settings',
+        'screenshots',
+        'updates',
+        'asd.txt',
+        'asd2.txt',
+        'asd4.txt',
+        'backup',
+    ]
+    include_list = [
+        '*.py',
+        '*.pyw',
+        '*.ui',
+        '*.json',
+        '*.png',
+        '*.psd',
+        '*.py',
+        '*.qrc',
+        '*.ico',
+        '*.tga',
+        '*.txt',
+        '*.tif',
+        '*.rgb',
+        '*.j2k',
+        '*.jpg',
+        '*.zip',
+        '*.ttf',
+        '*VERSION*',
+    ]
+
+    include_list = r'|'.join([fnmatch.translate(x) for x in include_list])
+    ignore_list = '|'.join(ignore_list)
+
+    files_list = []
+    for root, dirs, files in os.walk(env_mode.get_current_path()):
+        if not re.search(ignore_list, root):
+            files = [os.path.join(root, f) for f in files]
+            files = [f for f in files if not re.search(ignore_list, f)]
+            files = [f for f in files if re.search(include_list, f)]
+
+            for fl in files:
+                files_list.append(fl)
+
+    return files_list
+
+
+def create_update_archive(archive_path):
+    tar = tarfile.open(archive_path, "w:gz")
+
+    files_list = create_app_update_list()
+
+    abs_path = env_mode.get_current_path()
+
+    for fl in files_list:
+        fl_rep = fl.replace
+        tar.add(fl, arcname=fl_rep(abs_path, ''))
+
+    tar.close()
 
 
 def update_from_archive(archive_path):

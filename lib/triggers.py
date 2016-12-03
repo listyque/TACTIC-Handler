@@ -77,3 +77,94 @@ def get_complex_name():
 if not input['sobject']['name']:
     get_complex_name()
 
+asd = {
+    "trigger_sobject": {
+        "code": "SPT_TRIGGER00001",
+        "description": "",
+        "title": "texture_insert",
+        "class_name": "",
+        "timestamp": "2016-11-22 15:03:01",
+        "trigger_type": "",
+        "s_status": "",
+        "event": "insert|cgshort/textures",
+        "search_type": "cgshort/textures",
+        "process": "",
+        "mode": "same process,same transaction",
+        "__search_key__": "config/trigger?project=new&code=SPT_TRIGGER00001",
+        "script_path": "stypes_triggers/textures_naming",
+        "data": "",
+        "id": 1,
+        "listen_process": ""
+    },
+    "update_data": {
+        "props_code": null,
+        "description": null,
+        "postfix": "bugr",
+        "timestamp": "2016-11-22 15:25:44",
+        "search_type": "cgshort/props?project=new",
+        "characters_code": null,
+        "keywords": null,
+        "search_code": "PROPS00001",
+        "sets_code": null
+    },
+    "search_key": "cgshort/textures?project=new&code=TEXTURES00032",
+    "prev_data": {
+        "description": null,
+        "postfix": null,
+        "timestamp": null,
+        "sets_code": null,
+        "search_type": null,
+        "characters_code": null,
+        "keywords": null,
+        "search_code": null,
+        "props_code": null
+    },
+    "search_type": "cgshort/textures?project=new",
+    "is_insert": true,
+    "mode": "insert",
+    "search_code": "TEXTURES00032",
+    "id": 32,
+    "sobject": {
+        "code": "TEXTURES00032",
+        "description": "",
+        "postfix": "bugr",
+        "timestamp": "2016-11-22 15:25:44",
+        "s_status": "",
+        "sets_code": "",
+        "search_type": "cgshort/props?project=new",
+        "__search_key__": "cgshort/textures?project=new&code=TEXTURES00032",
+        "characters_code": "",
+        "keywords": "",
+        "login": "",
+        "search_code": "PROPS00001",
+        "props_code": "",
+        "id": 32,
+        "name": ""
+    }
+}
+
+
+def apply_texture_naming():
+    # get postfix
+    postfix = input['sobject'].get('postfix')
+    if not postfix:
+        postfix = 'texture_{0:05d}'.format(int(input['id']))  # if no postfix only id number
+
+    # get parent name
+    parent_code = input['sobject']['search_code']
+    search_type = input['sobject']['search_type']
+    search_code = input['sobject']['search_code']
+    filters = [('code', parent_code)]
+    parent_dict = server.query(search_type, filters, single=True, columns=['name'])
+    parent_name = '{0}_texture'.format(search_code)
+    if parent_dict:
+        parent_name = parent_dict['name']
+
+    data = {
+        'name': '{0}_{1}'.format(parent_name, postfix)
+    }
+
+    server.update(input['search_key'], data, triggers=False)
+
+if not input['sobject']['name']:
+    apply_texture_naming()

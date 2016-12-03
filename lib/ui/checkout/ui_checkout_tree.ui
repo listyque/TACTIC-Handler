@@ -2,14 +2,6 @@
 <ui version="4.0">
  <class>checkOutTree</class>
  <widget class="QWidget" name="checkOutTree">
-  <property name="geometry">
-   <rect>
-    <x>0</x>
-    <y>0</y>
-    <width>616</width>
-    <height>635</height>
-   </rect>
-  </property>
   <property name="minimumSize">
    <size>
     <width>400</width>
@@ -26,17 +18,10 @@
       <enum>Qt::Horizontal</enum>
      </property>
      <widget class="QWidget" name="layoutWidget">
-      <layout class="QGridLayout" name="gridLayout">
+      <layout class="QGridLayout" name="gridLayout" columnstretch="1,0,0,0">
        <property name="spacing">
         <number>0</number>
        </property>
-       <item row="1" column="0" colspan="3">
-        <widget class="QSplitter" name="searchOptionsSplitter">
-         <property name="orientation">
-          <enum>Qt::Vertical</enum>
-         </property>
-        </widget>
-       </item>
        <item row="0" column="0">
         <widget class="QLineEdit" name="searchLineEdit">
          <property name="font">
@@ -67,17 +52,13 @@ QLineEdit:hover{
          </property>
         </widget>
        </item>
-       <item row="0" column="1">
+       <item row="0" column="2">
         <widget class="QToolButton" name="refreshToolButton">
          <property name="maximumSize">
           <size>
-           <width>16777215</width>
-           <height>20</height>
+           <width>22</width>
+           <height>22</height>
           </size>
-         </property>
-         <property name="icon">
-          <iconset resource="../resources.qrc">
-           <normaloff>:/ui_main/gliph/gear_16.png</normaloff>:/ui_main/gliph/gear_16.png</iconset>
          </property>
          <property name="popupMode">
           <enum>QToolButton::InstantPopup</enum>
@@ -87,30 +68,19 @@ QLineEdit:hover{
          </property>
         </widget>
        </item>
-       <item row="0" column="2">
-        <widget class="QPushButton" name="findOpenedPushButton">
-         <property name="sizePolicy">
-          <sizepolicy hsizetype="Preferred" vsizetype="Minimum">
-           <horstretch>0</horstretch>
-           <verstretch>0</verstretch>
-          </sizepolicy>
-         </property>
-         <property name="minimumSize">
-          <size>
-           <width>75</width>
-           <height>0</height>
-          </size>
-         </property>
-         <property name="maximumSize">
-          <size>
-           <width>16777215</width>
-           <height>20</height>
-          </size>
-         </property>
-         <property name="text">
-          <string>Find Opened</string>
+       <item row="1" column="0" colspan="4">
+        <widget class="QSplitter" name="searchOptionsSplitter">
+         <property name="orientation">
+          <enum>Qt::Vertical</enum>
          </property>
         </widget>
+       </item>
+       <item row="0" column="1">
+        <layout class="QVBoxLayout" name="expandingLayout">
+         <property name="spacing">
+          <number>0</number>
+         </property>
+        </layout>
        </item>
       </layout>
      </widget>
@@ -225,7 +195,10 @@ p, li { white-space: pre-wrap; }
 &lt;table border=&quot;0&quot; style=&quot;-qt-table-type: root; margin-top:4px; margin-bottom:4px; margin-left:4px; margin-right:4px;&quot;&gt;
 &lt;tr&gt;
 &lt;td style=&quot;border: none;&quot;&gt;
-&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;&lt;span style=&quot; font-size:8pt;&quot;&gt;&lt;br /&gt;&lt;/span&gt;&lt;/p&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/body&gt;&lt;/html&gt;</string>
+&lt;p style=&quot;-qt-paragraph-type:empty; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px; font-size:8pt;&quot;&gt;&lt;br /&gt;&lt;/p&gt;
+&lt;p style=&quot;-qt-paragraph-type:empty; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px; font-size:8pt;&quot;&gt;&lt;br /&gt;&lt;/p&gt;
+&lt;p style=&quot;-qt-paragraph-type:empty; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px; font-size:8pt;&quot;&gt;&lt;br /&gt;&lt;/p&gt;
+&lt;p style=&quot;-qt-paragraph-type:empty; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px; font-size:8pt;&quot;&gt;&lt;br /&gt;&lt;/p&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/body&gt;&lt;/html&gt;</string>
              </property>
             </widget>
            </item>
