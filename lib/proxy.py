@@ -113,6 +113,6 @@ class UrllibTransport(xmlrpclib.Transport, object):
                                           urllib2.HTTPCookieProcessor(cj))
 
         urllib2.install_opener(opener)
-        response = urllib2.urlopen(request, timeout=5)
+        response = urllib2.urlopen(request, timeout=10)
 
         return self.parse_response(response)

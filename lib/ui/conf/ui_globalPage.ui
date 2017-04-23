@@ -7,13 +7,6 @@
   </property>
   <layout class="QVBoxLayout" name="verticalLayout">
    <item>
-    <widget class="QPushButton" name="flushTabsCachePushButton">
-     <property name="text">
-      <string>Flush Tabs cache</string>
-     </property>
-    </widget>
-   </item>
-   <item>
     <widget class="QCheckBox" name="cacheProcessTabsCheckBox">
      <property name="text">
       <string>Cache Tabs (faster launch)</string>
@@ -21,47 +14,10 @@
     </widget>
    </item>
    <item>
-    <widget class="QGroupBox" name="snapshotDisplayOptionsGroupBox">
-     <property name="title">
-      <string>Snapshots display options:</string>
+    <widget class="QPushButton" name="flushTabsCachePushButton">
+     <property name="text">
+      <string>Flush Tabs cache</string>
      </property>
-     <property name="flat">
-      <bool>true</bool>
-     </property>
-     <layout class="QHBoxLayout" name="snapshotDisplayOptionsLayout">
-      <property name="leftMargin">
-       <number>0</number>
-      </property>
-      <property name="rightMargin">
-       <number>0</number>
-      </property>
-      <item>
-       <widget class="QCheckBox" name="snapshotDescriptionLimitCheckBox">
-        <property name="text">
-         <string>Limit snapshot description preview (symbols)</string>
-        </property>
-        <property name="checked">
-         <bool>true</bool>
-        </property>
-       </widget>
-      </item>
-      <item>
-       <widget class="QSpinBox" name="snapshotDescriptionLimitSpinBox">
-        <property name="minimum">
-         <number>20</number>
-        </property>
-        <property name="maximum">
-         <number>50000</number>
-        </property>
-        <property name="singleStep">
-         <number>5</number>
-        </property>
-        <property name="value">
-         <number>80</number>
-        </property>
-       </widget>
-      </item>
-     </layout>
     </widget>
    </item>
    <item>

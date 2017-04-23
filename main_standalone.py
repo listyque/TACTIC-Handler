@@ -80,6 +80,7 @@ def create_ui(thread):
         else:
             env_mode.set_online()
             window = ui_main_classes.Ui_Main(parent=None)
+
         window.statusBar()
         window.show()
 

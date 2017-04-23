@@ -13,9 +13,14 @@ import lib.ui_classes.ui_maya_dock as main
 
 reload(main)
 
-# Set 0 to open first tab at start, set 1 to second. etc...
 # To restart set restart=True; default False;
-# example: main.startup(0, True): run app, open checkout tab and restart if app already started.
-# main.startup(0): just raise and set active tab to checkout
+# hotkeys = {
+#     'project': 'complex_testing_phase_two',
+#     'control_tab': 'checkout'
+# }
+# example: main.startup(restart=True, hotkeys=hotkeys): run app, open complex_testing_phase_two project, checkout tab and restart if app already started.
+# main.startup(hotkeys={'control_tab': 'checkin'}): just raise and set active tab to checkin, tab with current project
 
-main.startup()
+hotkeys = None
+
+main.startup(hotkeys=hotkeys)

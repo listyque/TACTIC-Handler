@@ -9,8 +9,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>600</width>
-    <height>500</height>
+    <width>503</width>
+    <height>319</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -25,8 +25,20 @@
   <layout class="QGridLayout" name="gridLayout_6">
    <item row="0" column="0">
     <widget class="QToolBox" name="configToolBox">
+     <property name="palette">
+      <palette>
+       <active/>
+       <inactive/>
+       <disabled/>
+      </palette>
+     </property>
      <property name="styleSheet">
-      <string notr="true">QToolBox::tab {
+      <string notr="true">QToolBox &gt; *,
+QToolBox &gt; QScrollArea &gt; #qt_scrollarea_viewport &gt; QWidget {
+	background-color: rgba(128, 128, 128, 48);
+}
+
+QToolBox::tab {
 	border-style: outset;
 	border-width: 1px;
 	border-color:  rgba(75, 75, 75, 75);
@@ -58,8 +70,8 @@ QToolBox::tab:selected {
        <rect>
         <x>0</x>
         <y>0</y>
-        <width>582</width>
-        <height>242</height>
+        <width>485</width>
+        <height>90</height>
        </rect>
       </property>
       <attribute name="label">
@@ -76,8 +88,8 @@ QToolBox::tab:selected {
        <rect>
         <x>0</x>
         <y>0</y>
-        <width>582</width>
-        <height>242</height>
+        <width>100</width>
+        <height>30</height>
        </rect>
       </property>
       <attribute name="label">
@@ -89,35 +101,17 @@ QToolBox::tab:selected {
        </property>
       </layout>
      </widget>
-     <widget class="QWidget" name="checkoutPage">
+     <widget class="QWidget" name="checkinOutOptionsPage">
       <property name="geometry">
        <rect>
         <x>0</x>
         <y>0</y>
-        <width>582</width>
-        <height>242</height>
+        <width>100</width>
+        <height>30</height>
        </rect>
       </property>
       <attribute name="label">
-       <string>Checkout</string>
-      </attribute>
-      <layout class="QVBoxLayout" name="checkoutPageLayout">
-       <property name="margin">
-        <number>6</number>
-       </property>
-      </layout>
-     </widget>
-     <widget class="QWidget" name="checkinPage">
-      <property name="geometry">
-       <rect>
-        <x>0</x>
-        <y>0</y>
-        <width>582</width>
-        <height>242</height>
-       </rect>
-      </property>
-      <attribute name="label">
-       <string>Checkin</string>
+       <string>Checkin/Checkout Options</string>
       </attribute>
       <layout class="QVBoxLayout" name="checkinPageLayout">
        <property name="margin">
@@ -125,17 +119,17 @@ QToolBox::tab:selected {
        </property>
       </layout>
      </widget>
-     <widget class="QWidget" name="checkinOutPage">
+     <widget class="QWidget" name="checkinOutAppPage">
       <property name="geometry">
        <rect>
         <x>0</x>
         <y>0</y>
-        <width>582</width>
-        <height>242</height>
+        <width>100</width>
+        <height>30</height>
        </rect>
       </property>
       <attribute name="label">
-       <string>Checkin/Checkout display</string>
+       <string>Checkin/Checkout Appearance</string>
       </attribute>
       <layout class="QVBoxLayout" name="checkinOutPageLayout">
        <property name="margin">
@@ -148,8 +142,8 @@ QToolBox::tab:selected {
        <rect>
         <x>0</x>
         <y>0</y>
-        <width>582</width>
-        <height>242</height>
+        <width>100</width>
+        <height>30</height>
        </rect>
       </property>
       <attribute name="label">
@@ -166,8 +160,8 @@ QToolBox::tab:selected {
        <rect>
         <x>0</x>
         <y>0</y>
-        <width>582</width>
-        <height>242</height>
+        <width>100</width>
+        <height>30</height>
        </rect>
       </property>
       <attribute name="label">

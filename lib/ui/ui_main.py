@@ -2,8 +2,8 @@
 
 # Form implementation generated from reading ui file './ui_main.ui'
 #
-# Created: Mon Nov 28 16:28:40 2016
-#      by: pyside-uic 0.2.13 running on PySide 1.2.2
+# Created: Mon Jan 09 23:30:57 2017
+#      by: pyside-uic 0.2.15 running on PySide 1.2.4
 #
 # WARNING! All changes made in this file will be lost!
 
@@ -44,14 +44,22 @@ class Ui_MainWindow(object):
 "QTreeView::item:selected{\n"
 "    selection-background-color: transparent;\n"
 "    border: 1px solid transparent;\n"
+"}\n"
+"QDockWidget::title{\n"
+"    padding: 0px;\n"
+"}\n"
+"QDockWidget::close-button, QDockWidget::float-button {\n"
+"    padding: 0px;\n"
 "}")
         MainWindow.setLocale(QtCore.QLocale(QtCore.QLocale.English, QtCore.QLocale.UnitedStates))
         MainWindow.setWindowFilePath("")
+        MainWindow.setDockNestingEnabled(True)
+        MainWindow.setDockOptions(QtGui.QMainWindow.AllowNestedDocks|QtGui.QMainWindow.AllowTabbedDocks|QtGui.QMainWindow.AnimatedDocks)
         self.mainwidget = QtGui.QWidget(MainWindow)
         self.mainwidget.setObjectName("mainwidget")
         MainWindow.setCentralWidget(self.mainwidget)
         self.menubar = QtGui.QMenuBar(MainWindow)
-        self.menubar.setGeometry(QtCore.QRect(0, 0, 427, 25))
+        self.menubar.setGeometry(QtCore.QRect(0, 0, 427, 21))
         self.menubar.setObjectName("menubar")
         self.menuConfig = QtGui.QMenu(self.menubar)
         self.menuConfig.setObjectName("menuConfig")

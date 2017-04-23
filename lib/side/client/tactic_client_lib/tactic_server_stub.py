@@ -2295,7 +2295,7 @@ class TacticServerStub(object):
 
     def add_file(my, snapshot_code, file_path, file_type='main',
                  use_handoff_dir=False, mode=None, create_icon=False,
-                 dir_naming='', file_naming='', checkin_type='strict', custom_repo_path=None, do_update_versionless=True):
+                 dir_naming='', file_naming='', checkin_type='strict'):
         '''API Function: add_file(snapshot_code, file_path, file_type='main', use_handoff_dir=False, mode=None, create_icon=False)
         Add a file to an already existing snapshot.  This method is used in
         piecewise checkins.  A blank snapshot can be created using
@@ -2433,7 +2433,7 @@ class TacticServerStub(object):
         return my.server.add_file(my.ticket, snapshot_code, file_paths,
                                   file_types, use_handoff_dir, mode,
                                   create_icon, dir_naming, file_naming,
-                                  checkin_type, custom_repo_path, do_update_versionless)
+                                  checkin_type)
 
 
     def remove_file(my, snapshot_code, file_type):

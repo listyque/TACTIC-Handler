@@ -2,13 +2,14 @@
 # Maya Functions Module
 
 import os
+import collections
 import PySide.QtGui as QtGui
 import maya.OpenMayaUI as omui
 import maya.cmds as cmds
 import maya.mel as mel
 import shiboken
 import tactic_classes as tc
-from lib.environment import env_inst
+#from lib.environment import env_inst
 import global_functions as gf
 
 
@@ -57,7 +58,7 @@ def get_skey_from_scene():
     return skey
 
 
-def new_save_scene(search_key, context, description, snapshot_type='file', all_process=None, repo=None, update_versionless=True, file_types='maya', postfixes=None, version=None, ext_type=None, is_current=False, is_revision=False, mode=None, create_playblast=True, selected_objects=False):
+def new_save_scene(search_key, context, description, snapshot_type='file', all_process=None, repo=None, update_versionless=True, file_types='maya', postfixes=None, version=None, ext_type=None, is_current=False, is_revision=False, mode=None, create_playblast=True, selected_objects=False, parent_wdg=None):
 
     types = {
         'mayaBinary': 'mb',
@@ -72,33 +73,32 @@ def new_save_scene(search_key, context, description, snapshot_type='file', all_p
     postfixes = ['']
     subfolders = ['']
 
-    print exts, 'exts'
-    print file_types, ''
-    print file_names, ''
-    print postfixes, ''
-    print subfolders, ''
+    files_dict = collections.OrderedDict()
 
-    if create_playblast:
-        exts.extend(['jpg', 'jpg', 'png'])
-        file_types.extend(['playblast', 'web', 'icon'])
-        file_names.extend(['', '', ''])
-        postfixes.extend(['playblast', '', ''])
-        subfolders.extend(['__preview', '__preview', '__preview'])
+    for i, fn in enumerate(file_names):
+        file_dict = dict()
+        file_dict['t'] = [file_types[i]]
+        file_dict['p'] = [postfixes[i]]
+        file_dict['s'] = [subfolders[i]]
+        file_dict['e'] = [exts[i]]
 
-    # ask user to confirm saving
+        files_dict[fn] = file_dict
+
+    # extending files which can have thumbnails
+    for key, val in files_dict.items():
+        val['e'].extend(['jpg', 'jpg', 'png'])
+        val['p'].extend(['playblast', '', ''])
+        val['t'].extend(['playblast', 'web', 'icon'])
+        val['s'].extend(['__preview', '__preview/web', '__preview/web'])
+
     virtual_snapshot = tc.checkin_virtual_snapshot(
         search_key,
         context,
         snapshot_type=snapshot_type,
-        ext=exts,
-        file_type=file_types,
-        file_name=file_names,
-        file_postfix=postfixes,
-        subfolders=subfolders,
+        files_dict=files_dict,
         is_revision=is_revision,
         repo=repo,
         update_versionless=update_versionless,
-        keep_file_name=False,
         version=version,
     )
 
@@ -106,17 +106,20 @@ def new_save_scene(search_key, context, description, snapshot_type='file', all_p
         # save maya scene to destined folder
         dest_path_ver = gf.form_path(repo['value'][0] + '/' + virtual_snapshot['versioned']['paths'][0])
         dest_scene_ver = dest_path_ver + '/' + virtual_snapshot['versioned']['names'][0]
-
         dest_path_playblast_ver = gf.form_path(repo['value'][0] + '/' + virtual_snapshot['versioned']['paths'][1])
         dest_playblast_ver = dest_path_playblast_ver + '/' + virtual_snapshot['versioned']['names'][1]
-        dest_web_ver = dest_path_playblast_ver + '/' + virtual_snapshot['versioned']['names'][2]
-        dest_icon_ver = dest_path_playblast_ver + '/' + virtual_snapshot['versioned']['names'][3]
+        dest_path_web_ver = gf.form_path(repo['value'][0] + '/' + virtual_snapshot['versioned']['paths'][2])
+        dest_web_ver = dest_path_web_ver + '/' + virtual_snapshot['versioned']['names'][2]
+        dest_path_icon_ver = gf.form_path(repo['value'][0] + '/' + virtual_snapshot['versioned']['paths'][3])
+        dest_icon_ver = dest_path_icon_ver + '/' + virtual_snapshot['versioned']['names'][3]
 
         # create dest dirs
         if not os.path.exists(dest_path_ver):
             os.makedirs(dest_path_ver)
         if not os.path.exists(dest_path_playblast_ver):
             os.makedirs(dest_path_playblast_ver)
+        if not os.path.exists(dest_path_web_ver):
+            os.makedirs(dest_path_web_ver)
 
         # add info about particular scene
         skey_link = 'skey://{0}&context={1}'.format(search_key, context)
@@ -131,17 +134,26 @@ def new_save_scene(search_key, context, description, snapshot_type='file', all_p
         except:
             renamed = False
         try:
-            cmds.file(save=True, type=ext_type)
+            if selected_objects:
+                cmds.file(exportSelected=selected_objects, type=ext_type, pr=True, eur=True)
+            else:
+                cmds.file(save=True, type=ext_type)
             saved = True
         except:
             saved = False
 
-        progres_bar = env_inst.ui_check_tree['checkin'][search_key.split('?')[0]].progres_bar
+        progress_bar = parent_wdg.search_results_widget.get_progress_bar()
         check_ok = True
 
         if renamed and saved:
             if setting_workspace:
                 set_workspace(dest_scene_ver, all_process)
+
+            # isolate selected to create proper playblast
+            current_panel = cmds.paneLayout('viewPanes', q=True, pane1=True)
+            if selected_objects:
+                cmds.isolateSelect(current_panel, state=True)
+                mel.eval('enableIsolateSelect {0} 1;'.format(current_panel))
 
             current_frame = cmds.currentTime(query=True)
             cmds.playblast(
@@ -153,11 +165,13 @@ def new_save_scene(search_key, context, description, snapshot_type='file', all_p
                 sequenceTime=False,
                 frame=[current_frame],
                 compression='jpg',
-                offScreen=True,
+                offScreen=False,
                 viewer=False,
                 percent=100
             )
-
+            if selected_objects:
+                cmds.isolateSelect(current_panel, state=False)
+                mel.eval('enableIsolateSelect {0} 0;'.format(current_panel))
             mode = 'inplace'
 
             tc.generate_web_and_icon(dest_playblast_ver, dest_web_ver, dest_icon_ver)
@@ -166,7 +180,7 @@ def new_save_scene(search_key, context, description, snapshot_type='file', all_p
 
             check_ok = tc.inplace_checkin(
                 file_paths,
-                progres_bar,
+                progress_bar,
                 virtual_snapshot,
                 repo,
                 update_versionless,
@@ -199,9 +213,9 @@ def new_save_scene(search_key, context, description, snapshot_type='file', all_p
                     mode=mode,
                     create_icon=False
                 )
-            progres_bar.setValue(100)
+            progress_bar.setValue(100)
 
-        progres_bar.setVisible(False)
+        progress_bar.setVisible(False)
 
         if check_ok:
             return True
@@ -209,6 +223,106 @@ def new_save_scene(search_key, context, description, snapshot_type='file', all_p
             return False
     else:
         return False
+
+
+def set_info_to_scene(search_key, context):
+    # add info about particular scene
+    skey_link = 'skey://{0}&context={1}'.format(search_key, context)
+    if not cmds.attributeQuery('tacticHandler_skey', node='defaultObjectSet', exists=True):
+        cmds.addAttr('defaultObjectSet', longName='tacticHandler_skey', dataType='string')
+    cmds.setAttr('defaultObjectSet.tacticHandler_skey', skey_link, type='string')
+
+
+def inplace_checkin(progress_bar, virtual_snapshot, repo_name, update_versionless, generate_icons=True,
+                    selected_objects=False, ext_type='mayaAscii', setting_workspace=False):
+
+    scene_name = None
+    playblast_name = None
+    scene_path = None
+    playblast_path = None
+
+    for snapshot in virtual_snapshot:
+        # pprint(snapshot)
+        if snapshot[0] == 'scene':
+            scene_name = snapshot[1]['versioned']['names'][0]
+            scene_path = gf.form_path(repo_name['value'][0] + '/' + snapshot[1]['versioned']['paths'][0])
+        else:
+            playblast_name = snapshot[1]['versioned']['names'][0]
+            playblast_path = gf.form_path(repo_name['value'][0] + '/' + snapshot[1]['versioned']['paths'][0])
+
+    full_scene_path = scene_path + '/' + scene_name
+    full_playblast_path = playblast_path + '/' + playblast_name
+
+    # create dest dirs
+    if not os.path.exists(scene_path):
+        os.makedirs(scene_path)
+    if not os.path.exists(playblast_path):
+        os.makedirs(playblast_path)
+
+    print ext_type
+    print full_playblast_path
+    print full_scene_path
+
+    # saving maya scene
+    try:
+        cmds.file(rename=full_scene_path)
+        renamed = True
+    except:
+        renamed = False
+    try:
+        if selected_objects:
+            cmds.file(exportSelected=selected_objects, type=ext_type, pr=True, eur=True)
+        else:
+            cmds.file(save=True, type=ext_type)
+        saved = True
+    except:
+        saved = False
+
+    check_ok = True
+
+    if renamed and saved:
+        if setting_workspace:
+            print 'SETTING WORKSPACE'
+            # set_workspace(dest_scene_ver, all_process)
+
+        # isolate selected to create proper playblast
+        current_panel = cmds.paneLayout('viewPanes', q=True, pane1=True)
+        if selected_objects:
+            cmds.isolateSelect(current_panel, state=True)
+            mel.eval('enableIsolateSelect {0} 1;'.format(current_panel))
+
+        current_frame = cmds.currentTime(query=True)
+        cmds.playblast(
+            forceOverwrite=True,
+            format='image',
+            completeFilename=full_playblast_path,
+            showOrnaments=False,
+            widthHeight=[960, 540],
+            sequenceTime=False,
+            frame=[current_frame],
+            compression='jpg',
+            offScreen=False,
+            viewer=False,
+            percent=100
+        )
+        if selected_objects:
+            cmds.isolateSelect(current_panel, state=False)
+            mel.eval('enableIsolateSelect {0} 0;'.format(current_panel))
+
+        # mode = 'inplace'
+
+        file_paths = [full_scene_path, full_playblast_path]
+
+        check_ok = tc.inplace_checkin(
+            file_paths,
+            progress_bar,
+            virtual_snapshot,
+            repo_name,
+            update_versionless,
+            generate_icons,
+        )
+
+    return check_ok
 
 # deprecated
 """

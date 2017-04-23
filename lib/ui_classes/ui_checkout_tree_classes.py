@@ -9,12 +9,13 @@ import lib.global_functions as gf
 import lib.tactic_classes as tc
 import lib.ui.checkout.ui_checkout_tree as ui_checkout_tree
 import lib.ui_classes.ui_misc_classes as ui_misc_classes
-import ui_icons_classes as icons_widget
 import ui_item_classes as item_widget
 import ui_maya_dialogs_classes as maya_dialogs
 import ui_menu_classes as menu_widget
 import ui_richedit_classes as richedit_widget
 import ui_search_classes as search_classes
+import lib.ui_classes.ui_snapshot_browser_classes as snapshot_browser_widget
+
 
 if env_mode.get_mode() == 'maya':
     import lib.maya_functions as mf
@@ -23,12 +24,12 @@ if env_mode.get_mode() == 'maya':
 
 reload(ui_checkout_tree)
 reload(item_widget)
-reload(icons_widget)
 reload(richedit_widget)
 reload(menu_widget)
 reload(maya_dialogs)
 reload(gf)
 reload(search_classes)
+reload(snapshot_browser_widget)
 
 
 class Ui_checkOutTreeWidget(QtGui.QWidget, ui_checkout_tree.Ui_checkOutTree):
@@ -55,14 +56,20 @@ class Ui_checkOutTreeWidget(QtGui.QWidget, ui_checkout_tree.Ui_checkOutTree):
         self.go_by_skey = [False, None]
 
         self.checkut_config = cfg_controls.get_checkout()
-        self.create_ui_checkout()
-        self.readSettings()
 
-    def create_ui_checkout(self):
+        self.is_created = False
 
         self.setupUi(self)
         self.setObjectName(self.tab_name)
-        env_inst.ui_check_tree['checkout'][self.tab_name] = self
+        env_inst.set_check_tree(self.current_project, 'checkout', self.tab_name, self)
+        self.customize_ui()
+
+    def do_creating_ui(self):
+        if not self.is_created:
+            self.create_ui_checkout()
+
+    def create_ui_checkout(self):
+        self.is_created = True
 
         # Query Threads
         self.update_desctiption_thread = tc.ServerThread(self)
@@ -73,13 +80,14 @@ class Ui_checkOutTreeWidget(QtGui.QWidget, ui_checkout_tree.Ui_checkOutTree):
         self.create_search_results_group_box()
         self.create_refresh_popup()
         # self.create_separate_versions_tree()
+        self.create_snapshot_browser()
 
         self.controls_actions()
         self.threads_actions()
 
         self.create_ui_richedit()
 
-        self.customize_ui()
+        self.readSettings()
 
         # self.saverole = QtCore.Qt.UserRole
         # self.expanded = []
@@ -102,6 +110,13 @@ class Ui_checkOutTreeWidget(QtGui.QWidget, ui_checkout_tree.Ui_checkOutTree):
         self.ui_richedit = richedit_widget.Ui_richeditWidget(self.descriptionTextEdit)
         self.editorLayout.addWidget(self.ui_richedit)
 
+    def create_snapshot_browser(self):
+        self.snapshot_browser_widget = snapshot_browser_widget.Ui_snapshotBrowserWidget(self)
+        self.snapshotBrowserLayout.addWidget(self.snapshot_browser_widget)
+
+    def get_snapshot_browser(self):
+        return self.snapshot_browser_widget
+
     def create_refresh_popup(self):
         self.refreshToolButton.setIcon(gf.get_icon('cog'))
         self.refreshToolButton.setMinimumSize(22, 22)
@@ -122,6 +137,10 @@ class Ui_checkOutTreeWidget(QtGui.QWidget, ui_checkout_tree.Ui_checkOutTree):
         self.refreshToolButton.addAction(self.refresh_results)
         self.refreshToolButton.addAction(self.clear_results)
         self.refreshToolButton.addAction(self.search_options)
+
+        # self.custom_action = CustomAction('ZOOM', self.refreshToolButton)
+        # self.refreshToolButton.setMenu(self.custom_action)
+        # self.custom_action.addAction(QtGui.QAction('AZZA', self.refreshToolButton))
 
     def create_process_tree_widget(self):
         if not self.process_tree_widget:
@@ -175,26 +194,6 @@ class Ui_checkOutTreeWidget(QtGui.QWidget, ui_checkout_tree.Ui_checkOutTree):
     def get_search_process_list(self):
 
         return self.searchOptionsGroupBox.get_custom_process_list()
-
-    def load_images(self, nested_item, icon=False, playblast=False):
-        if icon:
-            self.icons_widget = icons_widget.Ui_iconsWidget(nested_item, True, False, self)
-            self.imagesSplitter.resize(self.imagesSplitter.width() + 1,
-                                       self.imagesSplitter.height())  # duct tape
-
-            for i in range(self.iconsLayout.count()):
-                self.iconsLayout.itemAt(i).widget().close()
-
-            self.iconsLayout.addWidget(self.icons_widget)
-
-        if playblast:
-            self.playblast_widget = icons_widget.Ui_iconsWidget(nested_item, True, True, self)
-            self.imagesSplitter.resize(self.imagesSplitter.width() + 1,
-                                       self.imagesSplitter.height())  # duct tape
-            for i in range(self.playblastLayout.count()):
-                self.playblastLayout.itemAt(i).widget().close()
-
-            self.playblastLayout.addWidget(self.playblast_widget)
 
     def create_search_results_group_box(self):
         self.search_results_widget = search_classes.Ui_resultsGroupBoxWidget(parent_ui=self, parent=self)
@@ -490,6 +489,7 @@ class Ui_checkOutTreeWidget(QtGui.QWidget, ui_checkout_tree.Ui_checkOutTree):
         return file_path, dir_path, all_process
 
     def set_settings_from_dict(self, settings_dict=None, apply_search_options=True):
+        self.do_creating_ui()
 
         if not settings_dict:
             settings_dict = {
@@ -504,7 +504,7 @@ class Ui_checkOutTreeWidget(QtGui.QWidget, ui_checkout_tree.Ui_checkOutTree):
         self.set_search_group_box_state((bool(int(settings_dict.get('searchOptionsToggle')))))
         self.commentsSplitter.restoreState(QtCore.QByteArray.fromHex(settings_dict.get('commentsSplitter')))
         self.descriptionSplitter.restoreState(QtCore.QByteArray.fromHex(settings_dict.get('descriptionSplitter')))
-        self.imagesSplitter.restoreState(QtCore.QByteArray.fromHex(settings_dict.get('imagesSplitter')))
+        # self.imagesSplitter.restoreState(QtCore.QByteArray.fromHex(settings_dict.get('imagesSplitter')))
         # print self.tab_name, ': '
         self.search_results_widget.get_current_widget().resultsSplitter.restoreState(
             QtCore.QByteArray.fromHex(settings_dict.get('resultsSplitter')))
@@ -516,13 +516,14 @@ class Ui_checkOutTreeWidget(QtGui.QWidget, ui_checkout_tree.Ui_checkOutTree):
             self.searchOptionsGroupBox.set_settings_from_dict(search_options_settings_dict)
 
     def get_settings_dict(self):
+        self.do_creating_ui()
 
         settings_dict = {
             'searchLineEdit': unicode(self.searchLineEdit.text()),
             'searchOptionsToggle': int(self.searchOptionsGroupBox.isHidden()),
             'commentsSplitter': str(self.commentsSplitter.saveState().toHex()),
             'descriptionSplitter': str(self.descriptionSplitter.saveState().toHex()),
-            'imagesSplitter': str(self.imagesSplitter.saveState().toHex()),
+            # 'imagesSplitter': str(self.imagesSplitter.saveState().toHex()),
             'resultsSplitter': str(self.search_results_widget.get_current_widget().resultsSplitter.saveState().toHex()),
             'search_options_settings_dict': str(self.searchOptionsGroupBox.get_settings_dict()),
         }
@@ -565,6 +566,10 @@ class Ui_checkOutTreeWidget(QtGui.QWidget, ui_checkout_tree.Ui_checkOutTree):
 
         # additional settings write
         self.search_results_widget.writeSettings()
+
+    def showEvent(self, event):
+        self.do_creating_ui()
+        event.accept()
 
     def closeEvent(self, event):
         event.accept()

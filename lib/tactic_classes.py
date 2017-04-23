@@ -13,15 +13,15 @@ from lib.side.bs4 import BeautifulSoup
 from lib.side.Qt import QtGui
 from lib.side.Qt import QtCore
 import lib.proxy as proxy
-from lib.environment import env_mode, env_server, env_inst
+from lib.environment import env_mode, env_server, env_inst, env_tactic
 import global_functions as gf
 import tactic_query as tq
 import lib.ui_classes.ui_misc_classes as ui_misc_classes
 import side.client.tactic_client_lib as tactic_client_lib
 
-
 if env_mode.get_mode() == 'maya':
-    import maya.cmds as cmds
+    import maya_functions as mf
+    reload(mf)
 
 
 class ServerThread(QtCore.QThread):
@@ -121,7 +121,7 @@ def server_auth(host, project=None, login=None, password=None, site=None, get_ti
 def server_start(get_ticket=False):
     server = server_auth(
         env_server.get_server(),
-        env_inst.current_project,
+        env_inst.get_current_project(),
         env_server.get_user(),
         '',
         env_server.get_site()['site_name'],
@@ -531,10 +531,10 @@ class Project(object):
             'project_code': self.info.get('code'),
             'namespace': self.info.get('type')
         }
+
         code = tq.prepare_serverside_script(tq.query_search_types_extended, kwargs, return_dict=True)
 
         result = server_start().execute_python_script('', kwargs=code)
-
         stypes = json.loads(result['info']['spt_ret_val'])
 
         schema = stypes.get('schema')
@@ -615,13 +615,13 @@ class SType(object):
         self.info = stype
         self.project = project
         self.schema = None
-        self.pipeline = self.get_pipelines(pipelines)
+        self.pipeline = self.__init_pipelines(pipelines)
 
         if schema:
             self.schema = Schema(schema)
 
     @staticmethod
-    def get_pipelines(pipelines):
+    def __init_pipelines(pipelines):
 
         ready_pipeline = collections.OrderedDict()
         if pipelines:
@@ -662,7 +662,6 @@ class Workflow(object):
             for proc in parent_pipeline.processes:
                 if proc['process'] == process:
                     parent_process = proc
-
         return self.get_pipeline_by_parent(parent_process)
 
     def get_pipeline_by_parent(self, parent_process):
@@ -699,6 +698,12 @@ class Pipeline(object):
 
     def get_info(self):
         return self.__process_dict
+
+    def get_process(self, process):
+        # what if we have duplicated processes?
+        for proc in self.processes:
+            if proc['process'] == process:
+                return proc
 
     def get_pipeline(self):
 
@@ -828,8 +833,16 @@ class SObject(object):
 
     # Query snapshots to update current
     def update_snapshots(self):
+        import time
+
+        start = time.time()
+        print("start")
+
         snapshot_dict = self.query_snapshots(self.info['code'])
         self.init_snapshots(snapshot_dict)
+
+        end = time.time()
+        print(end - start)
 
     # Initial Snapshots by process without query
     def init_snapshots(self, snapshot_dict):
@@ -911,13 +924,175 @@ class Snapshot(SObject, object):
     def __init__(self, snapshot):
         super(self.__class__, self).__init__(snapshot)
 
-        self.files = collections.defaultdict(list)
-        for fl in snapshot['__files__']:
-            self.files[fl['type']].append(fl)
+        self.__files = snapshot['__files__']
+        self.files = collections.OrderedDict()
+
+        self.files_objects = None
+        self.preview_files_objects = None
+
+        for fl in self.__files:
+            self.files.setdefault(fl['type'], []).append(fl)
 
         self.snapshot = snapshot
         # delete unused big entries
         del self.snapshot['__files__'], self.snapshot['snapshot']
+
+    def get_files(self):
+        return self.files
+
+    def get_search_key(self):
+        return self.snapshot['search_key']
+
+    def get_files_objects(self, group_by=None):
+        if not group_by:
+            # if self.files_objects:
+            #     return self.files_objects
+
+            files_objects = []
+            for fl in self.__files:
+                files_objects.append(File(fl, self))
+        else:
+            files_objects = collections.OrderedDict()
+            for fl in self.__files:
+                files_objects.setdefault(fl[group_by], []).append(File(fl, self))
+
+        self.files_objects = files_objects
+
+        return self.files_objects
+
+    def get_previewable_files_objects(self):
+        if self.preview_files_objects:
+            return self.preview_files_objects
+
+        files_objects = self.get_files_objects()
+        preview_objects = []
+        for fo in files_objects:
+            if fo.get_type() not in ['icon', 'web']:
+                if fo.is_previewable():
+                    preview_objects.append(fo)
+
+        self.preview_files_objects = preview_objects
+        return preview_objects
+
+    def get_snapshot(self):
+        return self.snapshot
+
+
+class File(object):
+    def __init__(self, file_dict, snapshot=None):
+
+        self.__file = file_dict
+        self.__snapshot = snapshot
+        self.previewable = False
+
+    def get_dict(self):
+        return self.__file
+
+    def get_search_key(self):
+        return self.__file['__search_key__']
+
+    def get_file_size(self, check_real_size=False):
+        return self.__file['st_size']
+
+    def get_snapshot(self):
+        return self.__snapshot
+
+    def get_type(self):
+        return self.__file['type']
+
+    def get_base_type(self):
+        return self.__file['base_type']
+
+    def get_ext(self):
+        ext = gf.get_ext(self.__file['file_name'])
+        return ext
+
+    def get_filename_with_ext(self):
+        return self.__file['file_name']
+
+    def get_filename(self):
+        filename = self.__file['file_name']
+        ext = gf.get_ext(filename)
+        if ext:
+            return filename.replace('.' + ext, '')
+        else:
+            return filename
+
+    def get_filename_no_type_prefix(self):
+        # guess right only if type at the end
+        filename = self.get_filename()
+        prefix = self.__file['type']
+        if prefix:
+            if filename.endswith(prefix):
+                no_prefix_name = filename.split('_')
+                return '_'.join(no_prefix_name[:-1])
+            else:
+                return filename
+        else:
+            return filename
+
+    def get_abs_path(self):
+        snapshot = self.__snapshot.get_snapshot()
+        repo_name = snapshot.get('repo')
+        if repo_name:
+            asset_dir = env_tactic.get_base_dir(repo_name)['value'][0]
+        else:
+            asset_dir = env_tactic.get_base_dir('client')['value'][0]
+
+        abs_path = gf.form_path(
+            '{0}/{1}'.format(asset_dir, self.__file['relative_dir']))
+        return abs_path
+
+    def get_full_abs_path(self):
+        return '{0}/{1}'.format(self.get_abs_path(), self.__file['file_name'])
+
+    def is_exists(self):
+        return os.path.exists(self.get_full_abs_path())
+
+    def is_previewable(self):
+        if self.previewable:
+            return True
+
+        previewable = False
+        ext = gf.get_ext(self.__file['file_name'])
+        if self.__file['type'] in ['icon', 'web', 'image', 'playblast']:
+            return True
+        elif gf.file_format(ext)[3] == 'preview':
+            previewable = True
+
+        self.previewable = previewable
+
+        return previewable
+
+    def get_web_preview(self):
+        # return web file object related to this file
+        if self.__file['type'] != 'web':
+            files = self.__snapshot.get_files_objects()
+            filename = self.get_filename_no_type_prefix()
+            for fl in files:
+                if fl.get_type() == 'web':
+                    if filename in fl.get_filename():
+                        return fl
+        else:
+            return self
+
+    def get_icon_preview(self):
+        # return icon file object related to this file
+        if self.__file['type'] != 'icon':
+            files = self.__snapshot.get_files_objects()
+            filename = self.get_filename_no_type_prefix()
+            for fl in files:
+                if fl.get_type() == 'icon':
+                    if filename in fl.get_filename():
+                        return fl
+        else:
+            return self
+
+    def open_file(self):
+        gf.open_file_associated(self.get_full_abs_path())
+
+    def open_folder(self):
+        gf.open_file_associated(self.get_abs_path())
 
 # End of SObject Class
 
@@ -952,7 +1127,7 @@ def get_all_projects():
 
     projects_list = query_all_projects()
 
-    dct = collections.defaultdict(list)
+    dct = collections.OrderedDict()
 
     exclude_list = ['sthpw', 'unittest', 'admin']
     if len(projects_list) == 2:
@@ -991,8 +1166,17 @@ def get_sobjects(process_list=None, sobjects_list=None, get_snapshots=True, proj
         #         search_codes.append(s['name'])
 
         s_code = [s['code'] for s in sobjects_list]
+
         # print s_code
+        import time
+
+        start = time.time()
+        print("start")
+        # process_codes = ['icon']
         snapshots_list = query_snapshots(process_codes, s_code, project_code)
+
+        end = time.time()
+        print(end - start)
 
         snapshots = collections.defaultdict(list)
         # filter snapshots by search_code
@@ -1026,6 +1210,7 @@ def query_snapshots(process_list=None, s_code=None, project_code=None):
         ('project_code', project_code),
         ('search_code', s_code),
     ]
+
     return server_start().query_snapshots(filters=filters_snapshots, include_files=True)
 
 
@@ -1035,7 +1220,7 @@ def assets_query_new(query, stype, columns=None, project=None, limit=0, offset=0
     """
     if not columns:
         columns = []
-
+    # TODO This is old and will be deprecated
     server = server_start()
     filters = []
     expr = ''
@@ -1177,7 +1362,7 @@ def save_confirm(paths, repo, update_versionless=True):
     else:
         update_vs = '<p>Versionless files will <span style="color:#aa0000;"><b>not be</b></span> Updated</p>'
 
-    message = '<p><p>You are about to save {1} file(s).</p><p>{0}</p><p>Continue?</p>'.format(update_vs, len(paths['versioned']['names']))
+    message = '<p><p>You are about to save {1} file(s).</p><p>{0}</p><p>Continue?</p>'.format(update_vs, len(paths))
 
     msb = QtGui.QMessageBox(
         QtGui.QMessageBox.Question,
@@ -1206,7 +1391,8 @@ def save_confirm(paths, repo, update_versionless=True):
     collapse_wdg_vls.setCollapsed(True)
 
     widgets_layout.addWidget(collapse_wdg_vers, 0, 0)
-    widgets_layout.addWidget(collapse_wdg_vls, 1, 0)
+    if update_versionless:
+        widgets_layout.addWidget(collapse_wdg_vls, 1, 0)
 
     msb_layot = msb.layout()
     msb_layot.addWidget(widgets, 1, 1)
@@ -1220,12 +1406,13 @@ def save_confirm(paths, repo, update_versionless=True):
     treeWidget_vers.headerItem().setText(1, "Path")
     treeWidget_vers.setStyleSheet('QTreeView::item {padding: 2px;}')
     layout_vers.addWidget(treeWidget_vers)
-    for i, fl in enumerate(paths['versioned']['names']):
-        full_path = gf.form_path(repo['value'][0] + '/' + paths['versioned']['paths'][i])
-        item = QtGui.QTreeWidgetItem()
-        item.setText(0, fl)
-        item.setText(1, full_path)
-        treeWidget_vers.addTopLevelItem(item)
+    for keys, values in paths:
+        for i, fl in enumerate(values['versioned']['names']):
+            full_path = gf.form_path(repo['value'][0] + '/' + values['versioned']['paths'][i])
+            item = QtGui.QTreeWidgetItem()
+            item.setText(0, fl)
+            item.setText(1, full_path)
+            treeWidget_vers.addTopLevelItem(item)
     treeWidget_vers.setMinimumWidth(treeWidget_vers.columnWidth(0)+treeWidget_vers.columnWidth(1) + 150)
     treeWidget_vers.setMinimumHeight(250)
     treeWidget_vers.resizeColumnToContents(0)
@@ -1239,12 +1426,13 @@ def save_confirm(paths, repo, update_versionless=True):
     treeWidget_vls.headerItem().setText(0, "File")
     treeWidget_vls.headerItem().setText(1, "Path")
     treeWidget_vls.setStyleSheet('QTreeView::item {padding: 2px;}')
-    for i, fl in enumerate(paths['versionless']['names']):
-        full_path = gf.form_path(repo['value'][0] + '/' + paths['versionless']['paths'][i])
-        item = QtGui.QTreeWidgetItem()
-        item.setText(0, fl)
-        item.setText(1, full_path)
-        treeWidget_vls.addTopLevelItem(item)
+    for keys, values in paths:
+        for i, fl in enumerate(values['versionless']['names']):
+            full_path = gf.form_path(repo['value'][0] + '/' + values['versionless']['paths'][i])
+            item = QtGui.QTreeWidgetItem()
+            item.setText(0, fl)
+            item.setText(1, full_path)
+            treeWidget_vls.addTopLevelItem(item)
     treeWidget_vls.setMinimumWidth(treeWidget_vls.columnWidth(0) + treeWidget_vls.columnWidth(1) + 150)
     treeWidget_vls.setMinimumHeight(250)
     treeWidget_vls.resizeColumnToContents(0)
@@ -1263,27 +1451,28 @@ def save_confirm(paths, repo, update_versionless=True):
         return False
 
 
-def checkin_virtual_snapshot(search_key, context, snapshot_type='file', ext=None, file_name=None, file_postfix=None, subfolders=None, file_type='main', is_revision=False,
-                             repo=None, update_versionless=True, keep_file_name=False, version=None):
+def checkin_virtual_snapshot(search_key, context, files_dict, snapshot_type='file', is_revision=False,
+                             repo=None, update_versionless=True, keep_file_name=False, version=None, ignore_keep_file_name=False):
 
     kwargs = {
         'search_key': search_key,
         'context': context,
         'snapshot_type': snapshot_type,
         'is_revision': is_revision,
-        'file_type': file_type,
-        'file_name': file_name,
-        'postfixes': file_postfix,
-        'subfolders': subfolders,
-        'ext': ext,
+        'files_dict': files_dict.items(),
         'keep_file_name': keep_file_name,
         'version': version,
+        'ignore_keep_file_name': ignore_keep_file_name,
     }
 
     code = tq.prepare_serverside_script(tq.get_virtual_snapshot_extended, kwargs, return_dict=True)
     result = server_start().execute_python_script('', kwargs=code)
 
     virtual_snapshot = json.loads(result['info']['spt_ret_val'])
+
+    # from pprint import pprint
+    # pprint(virtual_snapshot)
+    # pprint(files_dict.items())
 
     if save_confirm(virtual_snapshot, repo, update_versionless):
         return virtual_snapshot
@@ -1292,9 +1481,41 @@ def checkin_virtual_snapshot(search_key, context, snapshot_type='file', ext=None
 
 
 def checkin_snapshot(search_key, context, snapshot_type=None, is_revision=False, description=None,
-                     version=None, update_versionless=True, file_types=None, file_names=None,
-                     file_paths=None, relative_paths=None, file_sizes=None, exts=None, keep_file_name=False,
-                     repo_name=None, virtual_snapshot=None, mode=None, create_icon=False):
+                     version=None, update_versionless=True, keep_file_name=False,
+                     repo_name=None, virtual_snapshot=None, files_dict=None, mode=None, create_icon=False):
+
+    # relative_paths = []
+    # file_sizes = []
+    # for fp in files_list:
+    #     file_sizes.append(gf.get_st_size(fp))
+
+    files_info = {
+        'version_files': [],
+        'version_files_paths': [],
+        'versionless_files': [],
+        'versionless_files_paths': [],
+        'files_types': [],
+        'file_sizes': [],
+    }
+
+    repo = repo_name['value'][0]
+
+    for (k1, v1), (k2, v2) in zip(virtual_snapshot, files_dict.items()):
+        for path_v, name_v, path_vs, name_vs, tp in zip(v1['versioned']['paths'],
+                                                        v1['versioned']['names'],
+                                                        v1['versionless']['paths'],
+                                                        v1['versionless']['names'],
+                                                        v2['t']):
+            file_full_path = '{0}/{1}/{2}'.format(repo, path_v, name_v)
+            files_info['version_files'].append(file_full_path)
+            files_info['version_files_paths'].append(path_v)
+            file_full_path_vs = '{0}/{1}/{2}'.format(repo, path_vs, name_vs)
+            files_info['versionless_files'].append(file_full_path_vs)
+            files_info['versionless_files_paths'].append(path_vs)
+            files_info['files_types'].append(tp)
+            files_info['file_sizes'].append(gf.get_st_size(file_full_path))
+
+    print files_info
 
     kwargs = {
         'search_key': search_key,
@@ -1304,15 +1525,9 @@ def checkin_snapshot(search_key, context, snapshot_type=None, is_revision=False,
         'description': description,
         'version': version,
         'update_versionless': update_versionless,
-        'file_types': file_types,
-        'file_names': file_names,
-        'file_paths': file_paths,
-        'relative_paths': relative_paths,
-        'exts': exts,
-        'file_sizes': file_sizes,
         'keep_file_name': keep_file_name,
-        'repo_name': repo_name,
-        'virtual_snapshot': virtual_snapshot,
+        'files_info': files_info,
+        'repo_name': repo_name['value'][3],
         'mode': mode,
         'create_icon': create_icon,
     }
@@ -1320,7 +1535,6 @@ def checkin_snapshot(search_key, context, snapshot_type=None, is_revision=False,
     # print kwargs
 
     code = tq.prepare_serverside_script(tq.create_snapshot_extended, kwargs, return_dict=True)
-    # # print code
     result = server_start().execute_python_script('', kwargs=code)
     # # snapshot = eval(result['info']['spt_ret_val'])
 
@@ -1501,7 +1715,9 @@ def generate_web_and_icon(source_image_path, web_save_path=None, icon_save_path=
         icon.save(icon_save_path)
 
 
-def inplace_checkin(file_paths, progres_bar, virtual_snapshot, repo_name, update_versionless, check_ok=True):
+def inplace_checkin(file_paths, progress_bar, virtual_snapshot, repo_name, update_versionless, generate_icons=True):
+    check_ok = False
+
     def copy_file(dest_path, source_path):
         if dest_path == source_path:
             print('Destination path is equal to source path, skipping...', dest_path)
@@ -1512,109 +1728,139 @@ def inplace_checkin(file_paths, progres_bar, virtual_snapshot, repo_name, update
         else:
             return True
 
-    for i, fl in enumerate(file_paths):
-        progres_bar.setValue(int(i * 100 / len(file_paths)))
-        dest_file_vers = gf.form_path(
-            repo_name['value'][0] + '/' +
-            virtual_snapshot['versioned']['paths'][i] + '/' +
-            virtual_snapshot['versioned']['names'][i]
-        )
-        dest_path_vers = gf.form_path(
-            repo_name['value'][0] + '/' +
-            virtual_snapshot['versioned']['paths'][i]
-        )
+    versions = ['versioned']
+    if update_versionless:
+        versions.extend(['versionless'])
 
-        # create dest dirs
-        if not os.path.exists(dest_path_vers):
-            os.makedirs(dest_path_vers)
+    for i, (key, val) in enumerate(virtual_snapshot):
+        progress_bar.setValue(int(i * 100 / len(file_paths)))
 
-        # copy file to dest dir
-        check_ok = copy_file(dest_file_vers, file_paths[i])
-
-        if update_versionless:
-            dest_file_vls = gf.form_path(
+        for ver in versions:
+            dest_file_vers = gf.form_path(
                 repo_name['value'][0] + '/' +
-                virtual_snapshot['versionless']['paths'][i] + '/' +
-                virtual_snapshot['versionless']['names'][i]
+                val[ver]['paths'][0] + '/' +
+                val[ver]['names'][0]
             )
-            dest_path_vls = gf.form_path(
+            dest_path_vers = gf.form_path(
                 repo_name['value'][0] + '/' +
-                virtual_snapshot['versionless']['paths'][i]
+                val[ver]['paths'][0]
             )
+            # create dest dirs
+            if not os.path.exists(dest_path_vers):
+                os.makedirs(dest_path_vers)
 
-            if not os.path.exists(dest_path_vls):
-                os.makedirs(dest_path_vls)
+            # copy file to dest dir
+            check_ok = copy_file(dest_file_vers, file_paths[i])
 
-            check_ok = copy_file(dest_file_vls, file_paths[i])
+            if generate_icons and len(val[ver]['paths']) > 1:
+                dest_web_file_vers = gf.form_path(
+                    repo_name['value'][0] + '/' +
+                    val[ver]['paths'][1] + '/' +
+                    val[ver]['names'][1]
+                )
+                dest_web_path_vers = gf.form_path(
+                    repo_name['value'][0] + '/' +
+                    val[ver]['paths'][1]
+                )
+                dest_icon_file_vers = gf.form_path(
+                    repo_name['value'][0] + '/' +
+                    val[ver]['paths'][2] + '/' +
+                    val[ver]['names'][2]
+                )
+                dest_icon_path_vers = gf.form_path(
+                    repo_name['value'][0] + '/' +
+                    val[ver]['paths'][2]
+                )
+                if not os.path.exists(dest_web_path_vers):
+                    os.makedirs(dest_web_path_vers)
+                if not os.path.exists(dest_icon_path_vers):
+                    os.makedirs(dest_icon_path_vers)
+
+                # convert original to web and icon format
+                # TODO at this moment it converting twice when doing versionless
+                generate_web_and_icon(file_paths[i], dest_web_file_vers, dest_icon_file_vers)
 
     return check_ok
 
 
 # Checkin functions
 def checkin_file(search_key, context, snapshot_type='file', is_revision=False, description=None, version=None,
-                 update_versionless=True, file_types='main', file_names=None, file_paths=None, file_sizes=None,
-                 exts=None, keep_file_name=False, repo_name=None, mode=None, create_icon=False):
+                 update_versionless=True, file_types=None, file_names=None, file_paths=None, exts=None, subfolders=None,
+                 postfixes=None, keep_file_name=False, repo_name=None, mode=None, create_icon=True, parent_wdg=None,
+                 ignore_keep_file_name=False, checkin_app='standalone', selected_objects=False, ext_type='mayaAscii',
+                 setting_workspace=False):
 
-    if create_icon:
-        exts.extend(['jpg', 'png'])
-        file_types.extend(['web', 'icon'])
-        file_names.extend(['', ''])
+    files_dict = collections.OrderedDict()
+
+    for i, fn in enumerate(file_names):
+        file_dict = dict()
+        file_dict['t'] = [file_types[i]]
+        file_dict['s'] = [subfolders[i]]
+        file_dict['e'] = [exts[i]]
+        file_dict['p'] = [postfixes[i]]
+
+        files_dict[fn] = file_dict
+
+    # extending files which can have thumbnails
+    for key, val in files_dict.items():
+        if gf.file_format(val['e'][0])[3] == 'preview':
+            val['t'].extend(['web', 'icon'])
+            val['s'].extend(['__preview/web', '__preview/icon'])
+            val['e'].extend(['jpg', 'png'])
+            val['p'].extend(['', ''])
 
     virtual_snapshot = checkin_virtual_snapshot(
         search_key,
         context,
         snapshot_type=snapshot_type,
-        ext=exts,
-        file_type=file_types,
-        file_name=file_names,
+        files_dict=files_dict,
         is_revision=is_revision,
         repo=repo_name,
         update_versionless=update_versionless,
         keep_file_name=keep_file_name,
         version=version,
+        ignore_keep_file_name=ignore_keep_file_name,
     )
 
-    progres_bar = env_inst.ui_check_tree['checkin'][search_key.split('?')[0]].progres_bar
+    progress_bar = parent_wdg.search_widget.search_results_widget.get_progress_bar()
+
     check_ok = False
     if virtual_snapshot:
-        check_ok = True
-        progres_bar.setVisible(True)
+        # check_ok = True
+        progress_bar.setVisible(True)
 
-        # for in-place checkin
-        check_ok = inplace_checkin(
-            file_paths,
-            progres_bar,
-            virtual_snapshot,
-            repo_name,
-            update_versionless,
-            check_ok
-        )
-
-        if create_icon:
-            dest_path = gf.form_path(repo_name['value'][0] + '/' + virtual_snapshot['versioned']['paths'][0])
-            dest_playblast_ver = dest_path + '/' + virtual_snapshot['versioned']['names'][0]
-            dest_web_ver = dest_path + '/' + virtual_snapshot['versioned']['names'][1]
-            dest_icon_ver = dest_path + '/' + virtual_snapshot['versioned']['names'][2]
-
-            file_paths = [dest_playblast_ver, dest_web_ver, dest_icon_ver]
-            generate_web_and_icon(dest_playblast_ver, dest_web_ver, dest_icon_ver)
-
-            # copy newly generated icons
+        if checkin_app == 'standalone':
+            # for in-place checkin
             check_ok = inplace_checkin(
                 file_paths,
-                progres_bar,
+                progress_bar,
                 virtual_snapshot,
                 repo_name,
                 update_versionless,
-                check_ok
+                create_icon,
             )
 
-        if check_ok:
-            relative_paths = []
-            file_sizes = []
-            for fp in file_paths:
-                file_sizes.append(gf.get_st_size(fp))
+        if checkin_app == 'maya':
 
+            mf.set_info_to_scene(search_key, context)
+            print 'checkin from maya'
+            # for in-place checkin
+            check_ok = mf.inplace_checkin(
+                progress_bar,
+                virtual_snapshot,
+                repo_name,
+                update_versionless,
+                create_icon,
+                selected_objects=selected_objects,
+                ext_type=ext_type,
+                setting_workspace=setting_workspace,
+            )
+
+        # check_ok = False
+
+        print check_ok
+
+        if check_ok:
             checkin_snapshot(
                 search_key,
                 context,
@@ -1623,21 +1869,16 @@ def checkin_file(search_key, context, snapshot_type='file', is_revision=False, d
                 description=description,
                 version=version,
                 update_versionless=update_versionless,
-                file_types=file_types,
-                file_names=file_names,
-                file_paths=file_paths,
-                relative_paths=relative_paths,
-                file_sizes=file_sizes,
-                exts=exts,
                 keep_file_name=keep_file_name,
-                repo_name=repo_name['value'][3],
+                repo_name=repo_name,
                 virtual_snapshot=virtual_snapshot,
+                files_dict=files_dict,
                 mode=mode,
                 create_icon=create_icon
             )
-            progres_bar.setValue(100)
+            progress_bar.setValue(100)
 
-    progres_bar.setVisible(False)
+    progress_bar.setVisible(False)
 
     return check_ok
 
@@ -1727,7 +1968,7 @@ def checkin_icon(snapshot_code, file_name):
     :return:
     """
 
-    icon = server_start().add_file(snapshot_code, file_name, file_type='main', mode='copy', create_icon=True,
+    icon = server_start().add_file(snapshot_code, file_name, file_type='main', mode='upload', create_icon=True,
                                    file_naming='{sobject.name}_{file.type}_v{version}.{ext}',
                                    checkin_type='auto')
     return icon

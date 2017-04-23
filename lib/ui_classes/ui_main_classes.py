@@ -233,36 +233,41 @@ class Ui_mainTabs(QtGui.QWidget, ui_main_tabs.Ui_mainTabsForm):
                 tabs_list = None
             if tabs_list:
                 for i, tab in enumerate(tabs_list):
-                    if tab[0] == 'Checkout':
+                    if tab[0] == 'Checkin / Checkout':
                         if not tab[2]:
-                            self.main_tabWidget.removeTab(self.main_tabWidget.indexOf(self.checkOutTab))
+                            self.main_tabWidget.removeTab(self.get_tab_index(self.checkInOutTab))
                         else:
-                            self.main_tabWidget.insertTab(i, self.checkOutTab, tab[1])
-                    if tab[0] == 'Checkin':
-                        if not tab[2]:
-                            self.main_tabWidget.removeTab(self.main_tabWidget.indexOf(self.checkInTab))
-                        else:
-                            self.main_tabWidget.insertTab(i, self.checkInTab, tab[1])
+                            self.main_tabWidget.insertTab(i, self.checkInOutTab, tab[1])
+                    # if tab[0] == 'Checkin':
+                    #     if not tab[2]:
+                    #         self.main_tabWidget.removeTab(self.get_tab_index(self.checkInTab))
+                    #     else:
+                    #         self.main_tabWidget.insertTab(i, self.checkInTab, tab[1])
                     if tab[0] == 'My Tactic':
                         if not tab[2]:
-                            self.main_tabWidget.removeTab(self.main_tabWidget.indexOf(self.myTacticTab))
+                            self.main_tabWidget.removeTab(self.get_tab_index(self.myTacticTab))
                         else:
                             self.main_tabWidget.insertTab(i, self.myTacticTab, tab[1])
                     if tab[0] == 'Assets Browser':
                         if not tab[2]:
-                            self.main_tabWidget.removeTab(self.main_tabWidget.indexOf(self.assetsBrowserTab))
+                            self.main_tabWidget.removeTab(self.get_tab_index(self.assetsBrowserTab))
                         else:
                             self.main_tabWidget.insertTab(i, self.assetsBrowserTab, tab[1])
 
     def create_ui_main_tabs(self):
 
-        self.ui_checkout = None
-        self.ui_checkin = None
+        self.ui_checkin_checkout = None
 
         self.stypes_items_thread = tc.ServerThread(self)
         self.threadsActions()
         self.skeyLineEdit_actions()
         self.readSettings()
+
+    def get_tab_index(self, tab_widget):
+        return self.main_tabWidget.indexOf(tab_widget)
+
+    def raise_tab(self, tab_widget):
+        self.main_tabWidget.setCurrentIndex(self.get_tab_index(tab_widget))
 
     def threadsActions(self):
         self.stypes_items_thread.finished.connect(lambda:  self.get_stypes(finish_thread=True))
@@ -280,9 +285,13 @@ class Ui_mainTabs(QtGui.QWidget, ui_main_tabs.Ui_mainTabsForm):
                     env_inst.offline = True
                     self.parent().self.open_config_dialog()
             else:
-                self.create_ui_checkout()
-                self.create_ui_checkin()
+                # self.create_ui_checkout()
+                # self.create_ui_checkin()
+                self.create_checkin_checkout_ui()
                 self.toggle_loading_label()
+                if env_mode.get_mode() == 'maya':
+                    print 'NOW HANDLING HOTKEYS'
+                    env_inst.ui_maya_dock.handle_hotkeys()
 
         if run_thread:
             stypes_cache = None
@@ -299,27 +308,38 @@ class Ui_mainTabs(QtGui.QWidget, ui_main_tabs.Ui_mainTabsForm):
                     self.stypes_items_thread.routine = self.project.get_stypes
                     self.stypes_items_thread.start()
 
-    def create_ui_checkout(self):
-        """
-        Create Check Out Tab
-        """
+    def create_checkin_checkout_ui(self):
         if not self.stypes_items.isFailed():
-            self.ui_checkout = ui_checkin_out_tabs_classes.Ui_checkOutTabWidget(
+            self.ui_checkin_checkout = ui_checkin_out_tabs_classes.Ui_checkInOutTabWidget(
                 self.project,
+                self.checkInOutTab,
                 parent=self
             )
-            self.checkOutLayout.addWidget(self.ui_checkout)
+            self.checkInOutLayout.addWidget(self.ui_checkin_checkout)
 
-    def create_ui_checkin(self, ext=False):
-        """
-        Create Check In Tab
-        """
-        if not self.stypes_items.isFailed():
-            self.ui_checkin = ui_checkin_out_tabs_classes.Ui_checkInTabWidget(
-                self.project,
-                parent=self
-            )
-            self.checkInLayout.addWidget(self.ui_checkin)
+    # def create_ui_checkout(self):
+    #     """
+    #     Create Check Out Tab
+    #     """
+    #     if not self.stypes_items.isFailed():
+    #         self.ui_checkout = ui_checkin_out_tabs_classes.Ui_checkOutTabWidget(
+    #             self.project,
+    #             self.checkOutTab,
+    #             parent=self
+    #         )
+    #         self.checkOutLayout.addWidget(self.ui_checkout)
+    #
+    # def create_ui_checkin(self, ext=False):
+    #     """
+    #     Create Check In Tab
+    #     """
+    #     if not self.stypes_items.isFailed():
+    #         self.ui_checkin = ui_checkin_out_tabs_classes.Ui_checkInTabWidget(
+    #             self.project,
+    #             self.checkInTab,
+    #             parent=self
+    #         )
+    #         self.checkInLayout.addWidget(self.ui_checkin)
 
     def create_ui_my_tactic(self):
         """
@@ -351,7 +371,7 @@ class Ui_mainTabs(QtGui.QWidget, ui_main_tabs.Ui_mainTabsForm):
         self.skeyLineEdit.returnPressed.connect(self.go_by_skey)
 
     def go_by_skey(self, skey_in=None, relates_to=None):
-
+        # TODO Need to rewrite this according to porjects tabs
 
         if relates_to:
             self.relates_to = relates_to
@@ -375,13 +395,14 @@ class Ui_mainTabs(QtGui.QWidget, ui_main_tabs.Ui_mainTabsForm):
         pipeline_code = None
         if skey:
             if skey.get('pipeline_code') and skey.get('project'):
-                if skey.get('project') == env_inst.current_project:
+                if skey.get('project') == env_inst.get_current_project():
                     if skey['pipeline_code'] not in common_pipeline_codes:
                         pipeline_code = u'{namespace}/{pipeline_code}'.format(**skey)
                 else:
                     self.wrong_project_message(skey)
 
         if pipeline_code and self.relates_to in ['checkin', 'checkout']:
+            # TODO BUG WITH env_inst.ui_check_tabs!!!
             tab_wdg = env_inst.ui_check_tabs[self.relates_to].sObjTabWidget
             for i in range(tab_wdg.count()):
                 if tab_wdg.widget(i).objectName() == pipeline_code:
@@ -468,14 +489,14 @@ class Ui_mainTabs(QtGui.QWidget, ui_main_tabs.Ui_mainTabsForm):
             # self.
             self.isCreated = True
 
-        env_inst.current_project = self.project.info['code']
+        env_inst.set_current_project(self.project.info['code'])
 
     def closeEvent(self, event):
 
-        if self.ui_checkout:
-            self.ui_checkout.close()
-        if self.ui_checkin:
-            self.ui_checkin.close()
+        # if self.ui_checkout:
+        #     self.ui_checkout.close()
+        if self.ui_checkin_checkout:
+            self.ui_checkin_checkout.close()
 
         self.writeSettings()
         event.accept()
@@ -499,33 +520,43 @@ class Ui_Main(QtGui.QMainWindow, ui_main.Ui_MainWindow):
         else:
             self.create_ui_main()
 
-    def create_project_dock(self, project_code, toggle_state=False):
+    def create_project_dock(self, project_code, close_project=True, raise_tab=False):
         if project_code not in self.projects_docks.keys():
             project = env_inst.projects.get(project_code)
+            if project:
+                dock_widget = QtGui.QDockWidget(self)
+                dock_widget.setObjectName(project_code)
+                dock_widget.setWindowTitle(project.info['title'].replace('_', ' ').capitalize())
+                dock_widget.setMinimumWidth(200)
+                dock_widget.setFeatures(
+                    QtGui.QDockWidget.DockWidgetMovable | QtGui.QDockWidget.DockWidgetClosable)
 
-            dock_widget = QtGui.QDockWidget(self)
-            dock_widget.setObjectName(project_code)
-            dock_widget.setWindowTitle(project.info['title'].replace('_', ' ').capitalize())
-            dock_widget.setMinimumWidth(200)
+                main_tabs_widget = Ui_mainTabs(project_code, dock_widget)
+                dock_widget.setWidget(main_tabs_widget)
 
-            main_tabs_widget = Ui_mainTabs(project_code, dock_widget)
-            dock_widget.setWidget(main_tabs_widget)
+                self.addDockWidget(QtCore.Qt.LeftDockWidgetArea, dock_widget)
+                for dock in self.projects_docks.values():
+                    self.tabifyDockWidget(dock, dock_widget)
 
-            self.addDockWidget(QtCore.Qt.LeftDockWidgetArea, dock_widget)
-            for dock in self.projects_docks.values():
-                self.tabifyDockWidget(dock, dock_widget)
+                self.projects_docks[project_code] = dock_widget
 
-            self.projects_docks[project_code] = dock_widget
+                dock_widget.show()
+                dock_widget.raise_()
+            else:
+                print('No project with code: {0}'.format(project_code))
 
-            dock_widget.show()
-            dock_widget.raise_()
-
-        else:
+        elif close_project:
             self.projects_docks[project_code].widget().close()
             self.projects_docks[project_code].close()
             self.projects_docks[project_code].deleteLater()
             del self.projects_docks[project_code]
-            del env_inst.ui_main_tabs[project_code]
+            env_inst.cleanup(project_code)
+
+        if raise_tab:
+            project_dock = self.projects_docks.get(project_code)
+            if project_dock:
+                project_dock.show()
+                project_dock.raise_()
 
     def create_ui_main_offline(self):
 
@@ -664,8 +695,14 @@ class Ui_Main(QtGui.QMainWindow, ui_main.Ui_MainWindow):
         return self
 
     def apply_current_view(self):
-        current_project_widget = self.projects_docks[env_inst.current_project].widget()
+        # TODO may be need to be rewriten to use env instance
+        current_project_widget = self.projects_docks[env_inst.get_current_project()].widget()
+
         widget_name = current_project_widget.main_tabWidget.currentWidget().objectName()
+
+        if widget_name == 'checkInOutTab':
+
+            current_project_widget.ui_checkin_checkout.apply_current_view_to_all()
 
         if widget_name == 'checkOutTab':
             current_project_widget.ui_checkout.apply_current_view_to_all()
@@ -706,7 +743,7 @@ class Ui_Main(QtGui.QMainWindow, ui_main.Ui_MainWindow):
                             menu_action.setChecked(True)
                     menu_action.setText(project.get('title'))
                     # Don't know why lambda did not work here
-                    menu_action.toggled.connect(partial(self.create_project_dock, project_code))
+                    menu_action.triggered.connect(partial(self.create_project_dock, project_code))
                     category.addAction(menu_action)
 
     def restore_opened_projects(self):
@@ -752,7 +789,7 @@ class Ui_Main(QtGui.QMainWindow, ui_main.Ui_MainWindow):
             self.settings.setValue('size', self.size())
         self.settings.setValue("windowState", int(state))
         self.settings.setValue('opened_projects', self.projects_docks.keys())
-        self.settings.setValue('current_active_project', str(env_inst.current_project))
+        self.settings.setValue('current_active_project', str(env_inst.get_current_project()))
 
         print('Done main_ui settings write')
         self.settings.endGroup()
@@ -787,7 +824,7 @@ class Ui_Main(QtGui.QMainWindow, ui_main.Ui_MainWindow):
                 env_inst.projects = self.projects_items.result
                 self.restore_opened_projects()
                 self.fill_projects_to_menu()
-                # self.readSettings(True)
+
         if run_thread:
             projects_cache = self.load_object('projects_items')
             if projects_cache:

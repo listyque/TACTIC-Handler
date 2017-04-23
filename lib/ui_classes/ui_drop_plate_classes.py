@@ -4,7 +4,7 @@ import PySide.QtGui as QtGui
 import PySide.QtCore as QtCore
 from lib.environment import env_mode
 import lib.global_functions as gf
-import lib.ui.checkin.ui_drop_plate as ui_drop_plate
+import lib.ui.checkin_out.ui_drop_plate as ui_drop_plate
 # TODO create sequences parsing
 # import lib.side.pyseq as pyseq
 
@@ -15,7 +15,7 @@ reload(ui_drop_plate)
 # print(seqs)
 
 
-class Ui_dropPlateWidget(QtGui.QGroupBox, ui_drop_plate.Ui_dropPlateGroupBox):
+class Ui_dropPlateWidget(QtGui.QWidget, ui_drop_plate.Ui_dropPlate):
     def __init__(self, parent=None):
         super(self.__class__, self).__init__(parent=parent)
 
@@ -57,11 +57,13 @@ class Ui_dropPlateWidget(QtGui.QGroupBox, ui_drop_plate.Ui_dropPlateGroupBox):
     def clear_tree_widget(self):
 
         self.dropTreeWidget.clear()
+        self.fromDropListCheckBox.setChecked(False)
 
     def append_items_to_tree(self, items):
 
         # file_dir_tuple = split_files_and_dirs(items)
         # print(file_dir_tuple)
+        self.fromDropListCheckBox.setChecked(True)
 
         self.dropTreeWidget.clearSelection()
 
@@ -70,12 +72,17 @@ class Ui_dropPlateWidget(QtGui.QGroupBox, ui_drop_plate.Ui_dropPlateGroupBox):
         if len(items) == 1:
             self.groupCheckinCheckBox.setChecked(False)
 
+        extract_ext = gf.extract_extension
+
         for item in items:
+            ext = extract_ext(item)
             tree_item = QtGui.QTreeWidgetItem()
             tree_item.setText(0, gf.extract_filename(item))
-            tree_item.setText(1, gf.extract_extension(item)[1])
-            tree_item.setData(1, QtCore.Qt.UserRole, gf.extract_extension(item)[0])
-            tree_item.setText(2, gf.extract_dirname(item))
+            tree_item.setData(0, QtCore.Qt.UserRole, gf.extract_filename(item, True))
+            tree_item.setText(1, ext[1])
+            tree_item.setData(1, QtCore.Qt.UserRole, ext[0])
+            tree_item.setText(2, ext[2])
+            tree_item.setText(3, gf.extract_dirname(item))
             self.dropTreeWidget.addTopLevelItem(tree_item)
             self.dropTreeWidget.setItemSelected(tree_item, True)
 

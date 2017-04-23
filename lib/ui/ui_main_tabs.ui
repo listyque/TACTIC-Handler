@@ -2,13 +2,11 @@
 <ui version="4.0">
  <class>mainTabsForm</class>
  <widget class="QWidget" name="mainTabsForm">
-  <property name="geometry">
-   <rect>
-    <x>0</x>
-    <y>0</y>
-    <width>137</width>
-    <height>229</height>
-   </rect>
+  <property name="sizePolicy">
+   <sizepolicy hsizetype="Ignored" vsizetype="Ignored">
+    <horstretch>0</horstretch>
+    <verstretch>0</verstretch>
+   </sizepolicy>
   </property>
   <property name="windowTitle">
    <string>Form</string>
@@ -45,24 +43,11 @@ QTabWidget::tab-bar {
      <property name="currentIndex">
       <number>0</number>
      </property>
-     <widget class="QWidget" name="checkOutTab">
+     <widget class="QWidget" name="checkInOutTab">
       <attribute name="title">
-       <string>Checkout</string>
+       <string>Checkin / Checkout</string>
       </attribute>
-      <layout class="QVBoxLayout" name="checkOutLayout">
-       <property name="spacing">
-        <number>0</number>
-       </property>
-       <property name="margin">
-        <number>0</number>
-       </property>
-      </layout>
-     </widget>
-     <widget class="QWidget" name="checkInTab">
-      <attribute name="title">
-       <string>Checkin</string>
-      </attribute>
-      <layout class="QVBoxLayout" name="checkInLayout">
+      <layout class="QVBoxLayout" name="checkInOutLayout">
        <property name="spacing">
         <number>0</number>
        </property>

@@ -2,7 +2,7 @@
 
 # Form implementation generated from reading ui file 'items/ui_item_children.ui'
 #
-# Created: Thu Dec  1 18:35:07 2016
+# Created: Mon Dec  5 19:07:58 2016
 #      by: pyside-uic 0.2.13 running on PySide 1.2.2
 #
 # WARNING! All changes made in this file will be lost!
@@ -12,6 +12,7 @@ from PySide import QtCore, QtGui
 class Ui_childrenItem(object):
     def setupUi(self, childrenItem):
         childrenItem.setObjectName("childrenItem")
+        childrenItem.resize(52, 25)
         childrenItem.setWindowTitle("")
         childrenItem.setStyleSheet("QTreeView::item {border-width: 0px;    border-radius: 0px;padding: 0px;}\n"
 "")
@@ -28,7 +29,7 @@ class Ui_childrenItem(object):
         self.childrenToolButton.setMinimumSize(QtCore.QSize(0, 24))
         self.childrenToolButton.setMaximumSize(QtCore.QSize(16777215, 24))
         self.childrenToolButton.setCheckable(True)
-        self.childrenToolButton.setToolButtonStyle(QtCore.Qt.ToolButtonIconOnly)
+        self.childrenToolButton.setToolButtonStyle(QtCore.Qt.ToolButtonTextBesideIcon)
         self.childrenToolButton.setObjectName("childrenToolButton")
         self.horizontalLayout.addWidget(self.childrenToolButton)
         self.addNewSObjectToolButton = QtGui.QToolButton(childrenItem)

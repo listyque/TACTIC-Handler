@@ -7,130 +7,199 @@
     <number>0</number>
    </property>
    <item>
-    <widget class="QGroupBox" name="customRepoPathsGroupBox">
+    <widget class="QGroupBox" name="checkinMiscOptionsGroupBox">
      <property name="title">
-      <string>Custom repository path:</string>
+      <string>Search Results Options:</string>
      </property>
      <property name="flat">
       <bool>true</bool>
      </property>
-     <layout class="QGridLayout" name="customRepoPathsLayout">
+     <layout class="QGridLayout" name="checkinMiscOptionsLayout" columnstretch="1,0,0">
       <property name="leftMargin">
-       <number>0</number>
+       <number>9</number>
       </property>
       <property name="rightMargin">
        <number>0</number>
       </property>
-      <property name="spacing">
-       <number>6</number>
+      <property name="bottomMargin">
+       <number>0</number>
       </property>
       <item row="0" column="0">
-       <widget class="QLabel" name="label_7">
+       <widget class="QCheckBox" name="doubleClickSaveCheckBox">
         <property name="text">
-         <string>Custom Repo name:</string>
+         <string>DoubleClick for Save</string>
         </property>
        </widget>
-      </item>
-      <item row="0" column="1">
-       <widget class="QToolButton" name="customRepoDirColorToolButton">
-        <property name="maximumSize">
-         <size>
-          <width>20</width>
-          <height>20</height>
-         </size>
-        </property>
-        <property name="styleSheet">
-         <string notr="true">QToolButton {
-    border: 1px solid rgb(128, 128, 128);
-    border-radius: 4px;
-    background-color:  rgb(64, 64, 64);
-}
-QToolButton:pressed {
-    background-color: rgb(44, 44, 44);
-}</string>
-        </property>
-        <property name="checked">
-         <bool>false</bool>
-        </property>
-       </widget>
-      </item>
-      <item row="0" column="2" colspan="3">
-       <widget class="QLineEdit" name="customRepoDirNameLineEdit"/>
-      </item>
-      <item row="1" column="0">
-       <widget class="QLabel" name="label_8">
-        <property name="text">
-         <string>Repo path:</string>
-        </property>
-       </widget>
-      </item>
-      <item row="1" column="1" colspan="4">
-       <widget class="QLineEdit" name="customRepoDirPathLineEdit"/>
       </item>
       <item row="2" column="0">
-       <widget class="QComboBox" name="customRepoComboBox"/>
-      </item>
-      <item row="2" column="1" colspan="2">
-       <widget class="QPushButton" name="addCustomRepoToListPushButton">
+       <widget class="QCheckBox" name="versionsSeparateCheckinCheckBox">
         <property name="text">
-         <string>Add</string>
+         <string>Display Versions separated:</string>
         </property>
        </widget>
       </item>
-      <item row="2" column="3">
-       <widget class="QPushButton" name="editCustomRepoPushButton">
+      <item row="1" column="0">
+       <widget class="QCheckBox" name="doubleClickOpenCheckBox">
         <property name="text">
-         <string>Edit</string>
-        </property>
-       </widget>
-      </item>
-      <item row="2" column="4">
-       <widget class="QPushButton" name="deleteCustomRepoPushButton">
-        <property name="text">
-         <string>Delete</string>
+         <string>Shift + DoubleClick for Open</string>
         </property>
        </widget>
       </item>
       <item row="3" column="0">
-       <widget class="QCheckBox" name="customRepoCheckBox">
+       <widget class="QCheckBox" name="askBeforeSaveCheckBox">
         <property name="text">
-         <string>Show custom repos</string>
+         <string>Confirm Saving</string>
+        </property>
+        <property name="checked">
+         <bool>true</bool>
         </property>
        </widget>
       </item>
-      <item row="4" column="0" colspan="5">
-       <widget class="QTreeWidget" name="customRepoTreeWidget">
-        <property name="styleSheet">
-         <string notr="true">QTreeView::item {
-	padding: 2px;
-}</string>
+      <item row="4" column="0">
+       <widget class="QCheckBox" name="snapshotDescriptionLimitCheckBox">
+        <property name="text">
+         <string>Limit snapshot description preview (symbols):</string>
         </property>
-        <property name="indentation">
-         <number>0</number>
+        <property name="checked">
+         <bool>true</bool>
         </property>
-        <property name="rootIsDecorated">
-         <bool>false</bool>
+       </widget>
+      </item>
+      <item row="4" column="2">
+       <widget class="QSpinBox" name="snapshotDescriptionLimitSpinBox">
+        <property name="minimum">
+         <number>20</number>
         </property>
-        <column>
+        <property name="maximum">
+         <number>50000</number>
+        </property>
+        <property name="singleStep">
+         <number>5</number>
+        </property>
+        <property name="value">
+         <number>80</number>
+        </property>
+       </widget>
+      </item>
+      <item row="2" column="2">
+       <widget class="QRadioButton" name="rightVersionsRadioButton">
+        <property name="text">
+         <string>Right</string>
+        </property>
+        <property name="checked">
+         <bool>true</bool>
+        </property>
+       </widget>
+      </item>
+      <item row="2" column="1">
+       <widget class="QRadioButton" name="bottomVersionsRadioButton">
+        <property name="text">
+         <string>Bottom</string>
+        </property>
+       </widget>
+      </item>
+     </layout>
+    </widget>
+   </item>
+   <item>
+    <widget class="QGroupBox" name="snapshotsSavingOptionsGroupBox">
+     <property name="title">
+      <string>Snapshots Saving Options:</string>
+     </property>
+     <property name="flat">
+      <bool>true</bool>
+     </property>
+     <layout class="QGridLayout" name="snapshotsSavingOptionsLayout" columnstretch="0,0">
+      <property name="leftMargin">
+       <number>9</number>
+      </property>
+      <property name="rightMargin">
+       <number>0</number>
+      </property>
+      <property name="bottomMargin">
+       <number>0</number>
+      </property>
+      <item row="1" column="1">
+       <widget class="QComboBox" name="repositoryComboBox"/>
+      </item>
+      <item row="1" column="0">
+       <widget class="QLabel" name="repositoryLabel">
+        <property name="text">
+         <string>Current Repository:</string>
+        </property>
+       </widget>
+      </item>
+      <item row="2" column="0">
+       <widget class="QLabel" name="checkinMethodLabel">
+        <property name="text">
+         <string>Checkin Method:</string>
+        </property>
+       </widget>
+      </item>
+      <item row="2" column="1">
+       <widget class="QComboBox" name="checkinMethodComboBox">
+        <item>
          <property name="text">
-          <string>Visible</string>
+          <string>Preallocate</string>
          </property>
-        </column>
-        <column>
+        </item>
+        <item>
          <property name="text">
-          <string>Color</string>
+          <string>In-Place</string>
          </property>
-        </column>
-        <column>
+        </item>
+        <item>
          <property name="text">
-          <string>Name</string>
+          <string>Copy</string>
          </property>
-        </column>
-        <column>
+        </item>
+        <item>
          <property name="text">
-          <string>Path</string>
+          <string>Move</string>
          </property>
-        </column>
+        </item>
+        <item>
+         <property name="text">
+          <string>Upload</string>
+         </property>
+        </item>
+       </widget>
+      </item>
+      <item row="3" column="0">
+       <widget class="QCheckBox" name="updateVersionlessCheckBox">
+        <property name="text">
+         <string>Update versionless</string>
+        </property>
+        <property name="checked">
+         <bool>true</bool>
+        </property>
+       </widget>
+      </item>
+      <item row="5" column="0">
+       <widget class="QCheckBox" name="createMayaDirsCheckBox">
+        <property name="text">
+         <string>Create Maya Dirs (worspace.mel)</string>
+        </property>
+       </widget>
+      </item>
+      <item row="6" column="0">
+       <widget class="QCheckBox" name="createPlayblastCheckBox">
+        <property name="text">
+         <string>Create screenshot (playblast)</string>
+        </property>
+        <property name="checked">
+         <bool>true</bool>
+        </property>
+       </widget>
+      </item>
+      <item row="4" column="0">
+       <widget class="QCheckBox" name="generatePreviewsCheckBox">
+        <property name="text">
+         <string>Generate Previews</string>
+        </property>
+        <property name="checked">
+         <bool>true</bool>
+        </property>
        </widget>
       </item>
      </layout>
@@ -139,14 +208,14 @@ QToolButton:pressed {
    <item>
     <widget class="QGroupBox" name="defaultRepoPathsGroupBox">
      <property name="title">
-      <string>Current repository paths:</string>
+      <string>Repository Paths:</string>
      </property>
      <property name="flat">
       <bool>true</bool>
      </property>
      <layout class="QGridLayout" name="defaultRepoPathsLayout" columnstretch="0,0,0,1">
       <property name="leftMargin">
-       <number>0</number>
+       <number>9</number>
       </property>
       <property name="topMargin">
        <number>9</number>
@@ -156,9 +225,6 @@ QToolButton:pressed {
       </property>
       <property name="bottomMargin">
        <number>0</number>
-      </property>
-      <property name="spacing">
-       <number>6</number>
       </property>
       <item row="0" column="3">
        <widget class="QLineEdit" name="assetBaseDirPathLineEdit"/>
@@ -212,7 +278,7 @@ QToolButton:pressed {
       <item row="4" column="0">
        <widget class="QCheckBox" name="handoffCheckBox">
         <property name="text">
-         <string>Handoff dir:</string>
+         <string>Use handoff dir:</string>
         </property>
        </widget>
       </item>
@@ -324,35 +390,129 @@ QToolButton:pressed {
     </widget>
    </item>
    <item>
-    <widget class="QGroupBox" name="checkinMiscOpitionsGroupBox">
+    <widget class="QGroupBox" name="customRepoPathsGroupBox">
+     <property name="enabled">
+      <bool>true</bool>
+     </property>
      <property name="title">
-      <string>Misc:</string>
+      <string>Custom Repository Path:</string>
      </property>
      <property name="flat">
       <bool>true</bool>
      </property>
-     <layout class="QGridLayout" name="checkinMiscOptionsLayout">
+     <property name="checkable">
+      <bool>true</bool>
+     </property>
+     <property name="checked">
+      <bool>false</bool>
+     </property>
+     <layout class="QGridLayout" name="customRepoPathsLayout" columnstretch="0,0,0,0,0">
       <property name="leftMargin">
-       <number>0</number>
+       <number>9</number>
       </property>
       <property name="rightMargin">
        <number>0</number>
       </property>
-      <property name="bottomMargin">
-       <number>0</number>
-      </property>
       <item row="0" column="0">
-       <widget class="QCheckBox" name="doubleClickSaveCheckBox">
+       <widget class="QLabel" name="label_7">
         <property name="text">
-         <string>DoubleClick for Save</string>
+         <string>Custom Repo name:</string>
         </property>
        </widget>
       </item>
-      <item row="1" column="0">
-       <widget class="QCheckBox" name="versionsSeparateCheckinCheckBox">
-        <property name="text">
-         <string>Display versions separate</string>
+      <item row="0" column="1">
+       <widget class="QToolButton" name="customRepoDirColorToolButton">
+        <property name="maximumSize">
+         <size>
+          <width>20</width>
+          <height>20</height>
+         </size>
         </property>
+        <property name="styleSheet">
+         <string notr="true">QToolButton {
+    border: 1px solid rgb(128, 128, 128);
+    border-radius: 4px;
+    background-color:  rgb(64, 64, 64);
+}
+QToolButton:pressed {
+    background-color: rgb(44, 44, 44);
+}</string>
+        </property>
+        <property name="checked">
+         <bool>false</bool>
+        </property>
+       </widget>
+      </item>
+      <item row="0" column="2" colspan="3">
+       <widget class="QLineEdit" name="customRepoDirNameLineEdit"/>
+      </item>
+      <item row="1" column="0">
+       <widget class="QLabel" name="label_8">
+        <property name="text">
+         <string>Repo path:</string>
+        </property>
+       </widget>
+      </item>
+      <item row="1" column="1" colspan="4">
+       <widget class="QLineEdit" name="customRepoDirPathLineEdit"/>
+      </item>
+      <item row="2" column="0">
+       <widget class="QComboBox" name="customRepoComboBox"/>
+      </item>
+      <item row="2" column="1" colspan="2">
+       <widget class="QPushButton" name="addCustomRepoToListPushButton">
+        <property name="text">
+         <string>Add</string>
+        </property>
+       </widget>
+      </item>
+      <item row="2" column="3">
+       <widget class="QPushButton" name="editCustomRepoPushButton">
+        <property name="text">
+         <string>Edit</string>
+        </property>
+       </widget>
+      </item>
+      <item row="2" column="4">
+       <widget class="QPushButton" name="deleteCustomRepoPushButton">
+        <property name="text">
+         <string>Delete</string>
+        </property>
+       </widget>
+      </item>
+      <item row="3" column="0" colspan="5">
+       <widget class="QTreeWidget" name="customRepoTreeWidget">
+        <property name="styleSheet">
+         <string notr="true">QTreeView::item {
+	padding: 2px;
+}</string>
+        </property>
+        <property name="indentation">
+         <number>0</number>
+        </property>
+        <property name="rootIsDecorated">
+         <bool>false</bool>
+        </property>
+        <column>
+         <property name="text">
+          <string>Visible</string>
+         </property>
+        </column>
+        <column>
+         <property name="text">
+          <string>Color</string>
+         </property>
+        </column>
+        <column>
+         <property name="text">
+          <string>Name</string>
+         </property>
+        </column>
+        <column>
+         <property name="text">
+          <string>Path</string>
+         </property>
+        </column>
        </widget>
       </item>
      </layout>

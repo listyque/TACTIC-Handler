@@ -4,7 +4,7 @@
 
 import os
 import platform
-import ast
+import ast  # replace this with json
 
 import PySide.QtCore as QtCore
 
@@ -24,21 +24,73 @@ class Inst(object):
     """
     This class stores all instances of interfaces classes
     """
-    projects = None
-    current_project = None  # only to see which project dock is active
-    ui_super = None
-    ui_maya_dock = None
-    ui_main = None
-    ui_main_tabs = {}
+    projects = None  # all projects Classes
+    current_project = None  # ONLY and ONLY to see which project dock is active
+    ui_super = None  # maya main window, or standalone main window
+    ui_maya_dock = None  # maya docked window
+    ui_main = None  # main widget inside dock, or standalone main window
+    ui_main_tabs = {}  # tabbed widgets, with check-in, checkout etc.
     ui_tasks = None
     ui_notes = None
-    ui_conf = None
-    ui_check_tree = {
-        'checkin': {},
-        'checkout': {},
-    }
-    ui_check_tabs = {}
+    ui_conf = None  # configuration window instance
+    check_tree = {}
+    control_tabs = {}
     ui_addsobject = None
+
+    def get_current_project(self):
+        return self.current_project
+
+    def get_current_stypes(self):
+        return self.projects.get(self.current_project).stypes
+
+    def get_current_stype_by_code(self, code):
+        stypes = self.projects.get(self.current_project).stypes
+        return stypes.get(code)
+
+    def set_current_project(self, project_code):
+        self.current_project = project_code
+
+    def set_control_tab(self, project_code, tab_code, tab_widget):
+        if not self.control_tabs.get(project_code):
+            self.control_tabs[project_code] = {}
+
+        self.control_tabs[project_code][tab_code] = tab_widget
+
+    def get_control_tab(self, project_code=None, tab_code=None):
+        if not project_code:
+            project_code = self.current_project
+
+        all_tabs = self.control_tabs.get(project_code)
+        if tab_code and all_tabs:
+            return all_tabs.get(tab_code)
+        else:
+            return all_tabs
+
+    def set_check_tree(self, project_code, tab_code, wdg_code, widget):
+        if not self.check_tree.get(project_code):
+            self.check_tree[project_code] = {}
+
+        if not self.check_tree[project_code].get(tab_code):
+            self.check_tree[project_code][tab_code] = {}
+
+        self.check_tree[project_code][tab_code][wdg_code] = widget
+
+    def get_check_tree(self, project_code=None, tab_code=None, wdg_code=None):
+        if not project_code:
+            project_code = self.current_project
+        if wdg_code:
+            return self.check_tree[project_code][tab_code][wdg_code]
+        else:
+            return self.check_tree[project_code][tab_code]
+
+    def cleanup(self, project_code=None):
+        if project_code:
+            if self.ui_main_tabs.get(project_code):
+                del self.ui_main_tabs[project_code]
+            if self.check_tree.get(project_code):
+                del self.check_tree[project_code]
+            if self.control_tabs.get(project_code):
+                del self.control_tabs[project_code]
 
 env_inst = Inst()
 

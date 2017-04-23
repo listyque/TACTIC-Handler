@@ -149,6 +149,7 @@ def create_app_update_list():
         'asd2.txt',
         'asd4.txt',
         'backup',
+        'design',
     ]
     include_list = [
         '*.py',
@@ -203,5 +204,9 @@ def create_update_archive(archive_path):
 
 def update_from_archive(archive_path):
     tar = tarfile.open(archive_path, "r:gz")
-    tar.extractall(env_mode.get_current_path())
+    members = []
+    for member in tar.getmembers():
+        member.name = member.name.replace('\\', '/')
+        members.append(member)
+    tar.extractall(env_mode.get_current_path(), members)
     tar.close()

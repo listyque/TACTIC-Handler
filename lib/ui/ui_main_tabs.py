@@ -2,8 +2,8 @@
 
 # Form implementation generated from reading ui file './ui_main_tabs.ui'
 #
-# Created: Mon Sep 05 00:35:39 2016
-#      by: pyside-uic 0.2.15 running on PySide 1.2.4
+# Created: Wed Mar 29 16:40:08 2017
+#      by: pyside-uic 0.2.13 running on PySide 1.2.2
 #
 # WARNING! All changes made in this file will be lost!
 
@@ -12,7 +12,11 @@ from PySide import QtCore, QtGui
 class Ui_mainTabsForm(object):
     def setupUi(self, mainTabsForm):
         mainTabsForm.setObjectName("mainTabsForm")
-        mainTabsForm.resize(137, 229)
+        sizePolicy = QtGui.QSizePolicy(QtGui.QSizePolicy.Ignored, QtGui.QSizePolicy.Ignored)
+        sizePolicy.setHorizontalStretch(0)
+        sizePolicy.setVerticalStretch(0)
+        sizePolicy.setHeightForWidth(mainTabsForm.sizePolicy().hasHeightForWidth())
+        mainTabsForm.setSizePolicy(sizePolicy)
         self.mainTabsLayout = QtGui.QVBoxLayout(mainTabsForm)
         self.mainTabsLayout.setSpacing(0)
         self.mainTabsLayout.setContentsMargins(2, 0, 2, 3)
@@ -26,20 +30,13 @@ class Ui_mainTabsForm(object):
 "}")
         self.main_tabWidget.setTabPosition(QtGui.QTabWidget.West)
         self.main_tabWidget.setObjectName("main_tabWidget")
-        self.checkOutTab = QtGui.QWidget()
-        self.checkOutTab.setObjectName("checkOutTab")
-        self.checkOutLayout = QtGui.QVBoxLayout(self.checkOutTab)
-        self.checkOutLayout.setSpacing(0)
-        self.checkOutLayout.setContentsMargins(0, 0, 0, 0)
-        self.checkOutLayout.setObjectName("checkOutLayout")
-        self.main_tabWidget.addTab(self.checkOutTab, "")
-        self.checkInTab = QtGui.QWidget()
-        self.checkInTab.setObjectName("checkInTab")
-        self.checkInLayout = QtGui.QVBoxLayout(self.checkInTab)
-        self.checkInLayout.setSpacing(0)
-        self.checkInLayout.setContentsMargins(0, 0, 0, 0)
-        self.checkInLayout.setObjectName("checkInLayout")
-        self.main_tabWidget.addTab(self.checkInTab, "")
+        self.checkInOutTab = QtGui.QWidget()
+        self.checkInOutTab.setObjectName("checkInOutTab")
+        self.checkInOutLayout = QtGui.QVBoxLayout(self.checkInOutTab)
+        self.checkInOutLayout.setSpacing(0)
+        self.checkInOutLayout.setContentsMargins(0, 0, 0, 0)
+        self.checkInOutLayout.setObjectName("checkInOutLayout")
+        self.main_tabWidget.addTab(self.checkInOutTab, "")
         self.myTacticTab = QtGui.QWidget()
         self.myTacticTab.setObjectName("myTacticTab")
         self.myTacticLayout = QtGui.QVBoxLayout(self.myTacticTab)
@@ -65,8 +62,7 @@ class Ui_mainTabsForm(object):
 
     def retranslateUi(self, mainTabsForm):
         mainTabsForm.setWindowTitle(QtGui.QApplication.translate("mainTabsForm", "Form", None, QtGui.QApplication.UnicodeUTF8))
-        self.main_tabWidget.setTabText(self.main_tabWidget.indexOf(self.checkOutTab), QtGui.QApplication.translate("mainTabsForm", "Checkout", None, QtGui.QApplication.UnicodeUTF8))
-        self.main_tabWidget.setTabText(self.main_tabWidget.indexOf(self.checkInTab), QtGui.QApplication.translate("mainTabsForm", "Checkin", None, QtGui.QApplication.UnicodeUTF8))
+        self.main_tabWidget.setTabText(self.main_tabWidget.indexOf(self.checkInOutTab), QtGui.QApplication.translate("mainTabsForm", "Checkin / Checkout", None, QtGui.QApplication.UnicodeUTF8))
         self.main_tabWidget.setTabText(self.main_tabWidget.indexOf(self.myTacticTab), QtGui.QApplication.translate("mainTabsForm", "My Tactic", None, QtGui.QApplication.UnicodeUTF8))
         self.main_tabWidget.setTabText(self.main_tabWidget.indexOf(self.assetsBrowserTab), QtGui.QApplication.translate("mainTabsForm", "Assets browser", None, QtGui.QApplication.UnicodeUTF8))
         self.skeyLineEdit.setText(QtGui.QApplication.translate("mainTabsForm", "skey://", None, QtGui.QApplication.UnicodeUTF8))

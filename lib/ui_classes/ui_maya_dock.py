@@ -71,20 +71,22 @@ class Ui_DockMain(MayaQWidgetDockableMixin, QtGui.QMainWindow):
         self.setWindowTitle(env_inst.ui_main.windowTitle())
         self.move(self.dock_pos)
 
-    # def switch_tab(self, tab_index=None):
-    #     # Open current tab when app starting
-    #     if self.tab_index is not None:
-    #         self.ui_main_window.main_tabWidget.setCurrentIndex(self.tab_index)
-    #
-    #     if tab_index is not None:
-    #         self.ui_main_window.main_tabWidget.setCurrentIndex(tab_index)
-
     def handle_hotkeys(self):
-        print(self.hotkeys_dict)
-        project_code = self.hotkeys_dict.get('project')
-        if project_code:
-            env_inst.ui_main.create_project_dock(project_code)
+        if self.hotkeys_dict:
+            project_code = self.hotkeys_dict.get('project')
+            control_tab = self.hotkeys_dict.get('control_tab')
 
+            if project_code:
+                env_inst.ui_main.create_project_dock(project_code, close_project=False, raise_tab=True)
+
+            if control_tab:
+                if control_tab in ['checkin', 'checkout']:
+                    if project_code:
+                        current_control = env_inst.get_control_tab(project_code, tab_code=control_tab)
+                    else:
+                        current_control = env_inst.get_control_tab(tab_code=control_tab)
+                    if current_control:
+                        current_control.raise_tab()
 
     def set_docked(self):
         if self.status_bar:
@@ -160,6 +162,7 @@ class Ui_DockMain(MayaQWidgetDockableMixin, QtGui.QMainWindow):
         self.settings.endGroup()
 
     def catch_maya_closing(self):
+        QtGui.QApplication.instance().aboutToQuit.connect(env_inst.ui_main.close)
         QtGui.QApplication.instance().aboutToQuit.connect(self.close)
 
     def closeEvent(self, event):
@@ -192,10 +195,6 @@ def create_ui(thread, hotkeys=None):
         else:
             env_mode.set_online()
             main_tab = Ui_DockMain(hotkeys=hotkeys)
-
-        env_inst.ui_maya_dock = main_tab
-        if hotkeys:
-            main_tab.handle_hotkeys()
         main_tab.show()
         main_tab.raise_()
 

@@ -3,6 +3,7 @@
 import PySide.QtGui as QtGui
 import PySide.QtCore as QtCore
 import lib.ui.misc.ui_menu as ui_menu
+import lib.global_functions as gf
 
 reload(ui_menu)
 

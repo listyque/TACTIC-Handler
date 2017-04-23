@@ -12,14 +12,14 @@
 	padding: 3px;
 }</string>
   </property>
-  <layout class="QGridLayout" name="gridLayout" rowstretch="0,1" columnstretch="1,0,0">
+  <layout class="QGridLayout" name="gridLayout" rowstretch="0,1" columnstretch="0,1,0,0">
    <property name="margin">
     <number>0</number>
    </property>
    <property name="spacing">
     <number>0</number>
    </property>
-   <item row="0" column="0">
+   <item row="0" column="1">
     <widget class="QLabel" name="fileNameLabel">
      <property name="minimumSize">
       <size>
@@ -45,7 +45,7 @@
      </property>
     </widget>
    </item>
-   <item row="0" column="1">
+   <item row="0" column="2">
     <widget class="QToolButton" name="tasksToolButton">
      <property name="sizePolicy">
       <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
@@ -82,7 +82,7 @@
      </property>
     </widget>
    </item>
-   <item row="0" column="2">
+   <item row="0" column="3">
     <widget class="QToolButton" name="relationsToolButton">
      <property name="minimumSize">
       <size>
@@ -113,7 +113,31 @@
      </property>
     </widget>
    </item>
-   <item row="1" column="0" colspan="2">
+   <item row="1" column="3">
+    <widget class="QLabel" name="dateLabel">
+     <property name="minimumSize">
+      <size>
+       <width>0</width>
+       <height>25</height>
+      </size>
+     </property>
+     <property name="accessibleDescription">
+      <string notr="true"/>
+     </property>
+     <property name="styleSheet">
+      <string notr="true">QLabel {
+	padding: 4px;
+}</string>
+     </property>
+     <property name="textFormat">
+      <enum>Qt::PlainText</enum>
+     </property>
+     <property name="alignment">
+      <set>Qt::AlignBottom|Qt::AlignRight|Qt::AlignTrailing</set>
+     </property>
+    </widget>
+   </item>
+   <item row="1" column="1" colspan="2">
     <widget class="QLabel" name="commentLabel">
      <property name="minimumSize">
       <size>
@@ -135,27 +159,33 @@
      </property>
     </widget>
    </item>
-   <item row="1" column="2">
-    <widget class="QLabel" name="dateLabel">
+   <item row="0" column="0" rowspan="2">
+    <widget class="QLabel" name="previewLabel">
      <property name="minimumSize">
       <size>
-       <width>0</width>
-       <height>25</height>
+       <width>64</width>
+       <height>32</height>
       </size>
      </property>
-     <property name="accessibleDescription">
-      <string notr="true"/>
+     <property name="maximumSize">
+      <size>
+       <width>64</width>
+       <height>64</height>
+      </size>
      </property>
      <property name="styleSheet">
-      <string notr="true">QLabel {
-	padding: 4px;
+      <string notr="true">#label {
+	background: qlineargradient(x1: 0, y1: 0, x2: 0, y2: 1, stop: 0 rgba(175, 175, 175, 40), stop: 1 rgba(0, 0, 0, 30));
+    border: 1px solid rgb(96, 96, 96, 64);
+    border-radius: 1px;
+    padding: 0px 0px;
 }</string>
      </property>
      <property name="textFormat">
-      <enum>Qt::PlainText</enum>
+      <enum>Qt::RichText</enum>
      </property>
      <property name="alignment">
-      <set>Qt::AlignBottom|Qt::AlignRight|Qt::AlignTrailing</set>
+      <set>Qt::AlignCenter</set>
      </property>
     </widget>
    </item>

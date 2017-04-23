@@ -2,7 +2,7 @@
 
 # Form implementation generated from reading ui file 'conf/ui_checkinOutPage.ui'
 #
-# Created: Fri Sep  9 19:16:52 2016
+# Created: Fri Jan  6 12:26:38 2017
 #      by: pyside-uic 0.2.13 running on PySide 1.2.2
 #
 # WARNING! All changes made in this file will be lost!
@@ -12,9 +12,9 @@ from PySide import QtCore, QtGui
 class Ui_checkinOutPageWidget(object):
     def setupUi(self, checkinOutPageWidget):
         checkinOutPageWidget.setObjectName("checkinOutPageWidget")
-        checkinOutPageWidget.resize(729, 471)
         self.checkinOutPageWidgetLayout = QtGui.QGridLayout(checkinOutPageWidget)
-        self.checkinOutPageWidgetLayout.setContentsMargins(0, 0, 0, 0)
+        self.checkinOutPageWidgetLayout.setContentsMargins(0, 0, 0, 9)
+        self.checkinOutPageWidgetLayout.setVerticalSpacing(0)
         self.checkinOutPageWidgetLayout.setObjectName("checkinOutPageWidgetLayout")
         self.processTabsFilterGroupBox = QtGui.QGroupBox(checkinOutPageWidget)
         self.processTabsFilterGroupBox.setFlat(True)
@@ -22,7 +22,7 @@ class Ui_checkinOutPageWidget(object):
         self.processTabsFilterGroupBox.setChecked(False)
         self.processTabsFilterGroupBox.setObjectName("processTabsFilterGroupBox")
         self.processTabsFilterLayout = QtGui.QVBoxLayout(self.processTabsFilterGroupBox)
-        self.processTabsFilterLayout.setContentsMargins(0, -1, 0, -1)
+        self.processTabsFilterLayout.setContentsMargins(9, -1, 0, 0)
         self.processTabsFilterLayout.setObjectName("processTabsFilterLayout")
         self.processTreeWidget = QtGui.QTreeWidget(self.processTabsFilterGroupBox)
         self.processTreeWidget.setStyleSheet("QTreeView::item {\n"
@@ -41,8 +41,7 @@ class Ui_checkinOutPageWidget(object):
         self.controlsTabsFilterGroupBox.setChecked(False)
         self.controlsTabsFilterGroupBox.setObjectName("controlsTabsFilterGroupBox")
         self.controlsTabsFilterLayout = QtGui.QGridLayout(self.controlsTabsFilterGroupBox)
-        self.controlsTabsFilterLayout.setSpacing(6)
-        self.controlsTabsFilterLayout.setContentsMargins(0, -1, 0, -1)
+        self.controlsTabsFilterLayout.setContentsMargins(9, -1, 0, -1)
         self.controlsTabsFilterLayout.setObjectName("controlsTabsFilterLayout")
         self.controlsTabsTreeWidget = QtGui.QTreeWidget(self.controlsTabsFilterGroupBox)
         self.controlsTabsTreeWidget.setMaximumSize(QtCore.QSize(16777215, 160))
@@ -91,7 +90,6 @@ class Ui_checkinOutPageWidget(object):
         self.projectsDisplayTreeWidget.header().setDefaultSectionSize(87)
         self.checkinOutPageWidgetLayout.addWidget(self.projectsDisplayTreeWidget, 0, 0, 3, 1)
         self.checkinOutPageWidgetLayout.setColumnStretch(0, 1)
-        self.checkinOutPageWidgetLayout.setRowStretch(1, 1)
 
         self.retranslateUi(checkinOutPageWidget)
         QtCore.QObject.connect(self.applyPerProjectsRadioButton, QtCore.SIGNAL("toggled(bool)"), self.applyToAllProjectsPushButton.setEnabled)

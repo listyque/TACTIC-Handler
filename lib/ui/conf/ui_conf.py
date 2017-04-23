@@ -2,7 +2,7 @@
 
 # Form implementation generated from reading ui file 'conf/ui_conf.ui'
 #
-# Created: Sun Nov  6 11:24:33 2016
+# Created: Fri Jan  6 18:36:36 2017
 #      by: pyside-uic 0.2.13 running on PySide 1.2.2
 #
 # WARNING! All changes made in this file will be lost!
@@ -13,13 +13,20 @@ class Ui_configuration_dialog(object):
     def setupUi(self, configuration_dialog):
         configuration_dialog.setObjectName("configuration_dialog")
         configuration_dialog.setWindowModality(QtCore.Qt.ApplicationModal)
-        configuration_dialog.resize(600, 500)
+        configuration_dialog.resize(503, 319)
         configuration_dialog.setSizeGripEnabled(True)
         configuration_dialog.setModal(True)
         self.gridLayout_6 = QtGui.QGridLayout(configuration_dialog)
         self.gridLayout_6.setObjectName("gridLayout_6")
         self.configToolBox = QtGui.QToolBox(configuration_dialog)
-        self.configToolBox.setStyleSheet("QToolBox::tab {\n"
+        palette = QtGui.QPalette()
+        self.configToolBox.setPalette(palette)
+        self.configToolBox.setStyleSheet("QToolBox > *,\n"
+"QToolBox > QScrollArea > #qt_scrollarea_viewport > QWidget {\n"
+"    background-color: rgba(128, 128, 128, 48);\n"
+"}\n"
+"\n"
+"QToolBox::tab {\n"
 "    border-style: outset;\n"
 "    border-width: 1px;\n"
 "    border-color:  rgba(75, 75, 75, 75);\n"
@@ -41,49 +48,42 @@ class Ui_configuration_dialog(object):
 "}")
         self.configToolBox.setObjectName("configToolBox")
         self.serverPage = QtGui.QWidget()
-        self.serverPage.setGeometry(QtCore.QRect(0, 0, 582, 242))
+        self.serverPage.setGeometry(QtCore.QRect(0, 0, 485, 90))
         self.serverPage.setObjectName("serverPage")
         self.serverPageLayout = QtGui.QVBoxLayout(self.serverPage)
         self.serverPageLayout.setContentsMargins(6, 6, 6, 6)
         self.serverPageLayout.setObjectName("serverPageLayout")
         self.configToolBox.addItem(self.serverPage, "")
         self.projectPage = QtGui.QWidget()
-        self.projectPage.setGeometry(QtCore.QRect(0, 0, 582, 242))
+        self.projectPage.setGeometry(QtCore.QRect(0, 0, 100, 30))
         self.projectPage.setObjectName("projectPage")
         self.projectPageLayout = QtGui.QVBoxLayout(self.projectPage)
         self.projectPageLayout.setContentsMargins(6, 6, 6, 6)
         self.projectPageLayout.setObjectName("projectPageLayout")
         self.configToolBox.addItem(self.projectPage, "")
-        self.checkoutPage = QtGui.QWidget()
-        self.checkoutPage.setGeometry(QtCore.QRect(0, 0, 582, 242))
-        self.checkoutPage.setObjectName("checkoutPage")
-        self.checkoutPageLayout = QtGui.QVBoxLayout(self.checkoutPage)
-        self.checkoutPageLayout.setContentsMargins(6, 6, 6, 6)
-        self.checkoutPageLayout.setObjectName("checkoutPageLayout")
-        self.configToolBox.addItem(self.checkoutPage, "")
-        self.checkinPage = QtGui.QWidget()
-        self.checkinPage.setGeometry(QtCore.QRect(0, 0, 582, 242))
-        self.checkinPage.setObjectName("checkinPage")
-        self.checkinPageLayout = QtGui.QVBoxLayout(self.checkinPage)
+        self.checkinOutOptionsPage = QtGui.QWidget()
+        self.checkinOutOptionsPage.setGeometry(QtCore.QRect(0, 0, 100, 30))
+        self.checkinOutOptionsPage.setObjectName("checkinOutOptionsPage")
+        self.checkinPageLayout = QtGui.QVBoxLayout(self.checkinOutOptionsPage)
         self.checkinPageLayout.setContentsMargins(6, 6, 6, 6)
         self.checkinPageLayout.setObjectName("checkinPageLayout")
-        self.configToolBox.addItem(self.checkinPage, "")
-        self.checkinOutPage = QtGui.QWidget()
-        self.checkinOutPage.setGeometry(QtCore.QRect(0, 0, 582, 242))
-        self.checkinOutPage.setObjectName("checkinOutPage")
-        self.checkinOutPageLayout = QtGui.QVBoxLayout(self.checkinOutPage)
+        self.configToolBox.addItem(self.checkinOutOptionsPage, "")
+        self.checkinOutAppPage = QtGui.QWidget()
+        self.checkinOutAppPage.setGeometry(QtCore.QRect(0, 0, 100, 30))
+        self.checkinOutAppPage.setObjectName("checkinOutAppPage")
+        self.checkinOutPageLayout = QtGui.QVBoxLayout(self.checkinOutAppPage)
         self.checkinOutPageLayout.setContentsMargins(6, 6, 6, 6)
         self.checkinOutPageLayout.setObjectName("checkinOutPageLayout")
-        self.configToolBox.addItem(self.checkinOutPage, "")
+        self.configToolBox.addItem(self.checkinOutAppPage, "")
         self.globalCofigPage = QtGui.QWidget()
-        self.globalCofigPage.setGeometry(QtCore.QRect(0, 0, 582, 242))
+        self.globalCofigPage.setGeometry(QtCore.QRect(0, 0, 100, 30))
         self.globalCofigPage.setObjectName("globalCofigPage")
         self.globalCofigPageLayout = QtGui.QVBoxLayout(self.globalCofigPage)
         self.globalCofigPageLayout.setContentsMargins(6, 6, 6, 6)
         self.globalCofigPageLayout.setObjectName("globalCofigPageLayout")
         self.configToolBox.addItem(self.globalCofigPage, "")
         self.currentEnvironmentPage = QtGui.QWidget()
-        self.currentEnvironmentPage.setGeometry(QtCore.QRect(0, 0, 582, 242))
+        self.currentEnvironmentPage.setGeometry(QtCore.QRect(0, 0, 100, 30))
         self.currentEnvironmentPage.setObjectName("currentEnvironmentPage")
         self.currentEnvironmentPageLayout = QtGui.QVBoxLayout(self.currentEnvironmentPage)
         self.currentEnvironmentPageLayout.setContentsMargins(6, 6, 6, 6)
@@ -105,9 +105,8 @@ class Ui_configuration_dialog(object):
         configuration_dialog.setWindowTitle(QtGui.QApplication.translate("configuration_dialog", "TACTIC Handler configuration", None, QtGui.QApplication.UnicodeUTF8))
         self.configToolBox.setItemText(self.configToolBox.indexOf(self.serverPage), QtGui.QApplication.translate("configuration_dialog", "TACTIC Server", None, QtGui.QApplication.UnicodeUTF8))
         self.configToolBox.setItemText(self.configToolBox.indexOf(self.projectPage), QtGui.QApplication.translate("configuration_dialog", "Project", None, QtGui.QApplication.UnicodeUTF8))
-        self.configToolBox.setItemText(self.configToolBox.indexOf(self.checkoutPage), QtGui.QApplication.translate("configuration_dialog", "Checkout", None, QtGui.QApplication.UnicodeUTF8))
-        self.configToolBox.setItemText(self.configToolBox.indexOf(self.checkinPage), QtGui.QApplication.translate("configuration_dialog", "Checkin", None, QtGui.QApplication.UnicodeUTF8))
-        self.configToolBox.setItemText(self.configToolBox.indexOf(self.checkinOutPage), QtGui.QApplication.translate("configuration_dialog", "Checkin/Checkout display", None, QtGui.QApplication.UnicodeUTF8))
+        self.configToolBox.setItemText(self.configToolBox.indexOf(self.checkinOutOptionsPage), QtGui.QApplication.translate("configuration_dialog", "Checkin/Checkout Options", None, QtGui.QApplication.UnicodeUTF8))
+        self.configToolBox.setItemText(self.configToolBox.indexOf(self.checkinOutAppPage), QtGui.QApplication.translate("configuration_dialog", "Checkin/Checkout Appearance", None, QtGui.QApplication.UnicodeUTF8))
         self.configToolBox.setItemText(self.configToolBox.indexOf(self.globalCofigPage), QtGui.QApplication.translate("configuration_dialog", "Global Config", None, QtGui.QApplication.UnicodeUTF8))
         self.configToolBox.setItemText(self.configToolBox.indexOf(self.currentEnvironmentPage), QtGui.QApplication.translate("configuration_dialog", "Current Environment Options", None, QtGui.QApplication.UnicodeUTF8))
 

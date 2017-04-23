@@ -89,7 +89,7 @@ class Ui_addSObjectFormWidget(QtGui.QDialog):
 
 
 class Ui_addTacticSobjectWidget(QtGui.QDialog):
-    def __init__(self, stype, item=None, view='insert', parent=None):
+    def __init__(self, stype, item=None, view='insert', search_key=None, parent=None):
         super(self.__class__, self).__init__(parent=parent)
         #TODO get title from within
         self.settings = QtCore.QSettings('{0}/settings/{1}/{2}/{3}/main_ui_config.ini'.format(
@@ -107,10 +107,12 @@ class Ui_addTacticSobjectWidget(QtGui.QDialog):
 
         self.view = view
 
-        self.search_key = None
+        self.search_key = search_key
         self.parent_search_key = None
+
         if self.item:
-            self.search_key = self.item.get_search_key()
+            if not search_key:
+                self.search_key = self.item.get_search_key()
             self.parent_search_key = self.item.get_parent_search_key()
 
         kwargs_edit = {

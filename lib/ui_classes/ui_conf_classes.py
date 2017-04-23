@@ -392,6 +392,9 @@ class Ui_checkinPageWidget(QtGui.QWidget, ui_checkinPage.Ui_checkinPageWidget):
         self.controls_actions()
 
     def create_checkin_page(self):
+
+        self.fill_repos_combo_box()
+
         self.saveCustomRepoToListPushButton = QtGui.QPushButton(self.customRepoPathsGroupBox)
         self.saveCustomRepoToListPushButton.setText('Save')
         self.saveCustomRepoToListPushButton.setObjectName("saveCustomRepoToListPushButton")
@@ -404,6 +407,25 @@ class Ui_checkinPageWidget(QtGui.QWidget, ui_checkinPage.Ui_checkinPageWidget):
         self.deleteCustomRepoPushButton.clicked.connect(self.delete_custom_repo_dir)
         self.editCustomRepoPushButton.clicked.connect(self.edit_custom_repo_dir)
         self.customRepoTreeWidget.clicked.connect(self.custom_repo_items_visibility)
+
+    def fill_repos_combo_box(self):
+        base_dirs = env_tactic.get_all_base_dirs()
+
+        # Default repo states
+        for key, val in base_dirs:
+            if val['value'][4]:
+                self.repositoryComboBox.addItem(val['value'][1])
+                self.repositoryComboBox.setItemData(self.repositoryComboBox.count() - 1, val)
+
+                # Custom repo states
+                # if rep_dirs['custom_asset_dir']['enabled']:
+                #     for i in rep_dirs['custom_asset_dir']['current']:
+                #         if rep_dirs['custom_asset_dir']['visible'][i]:
+                #             self.repositoryComboBox.addItem(rep_dirs['custom_asset_dir']['name'][i])
+                #             val = [rep_dirs['custom_asset_dir']['path'][i], rep_dirs['custom_asset_dir']['name'][i],
+                #                    rep_dirs['custom_asset_dir']['visible'][i]]
+                #             custom_val = {'name': 'custom_asset_dir', 'value': val}
+                #             self.repositoryComboBox.setItemData(self.repositoryComboBox.count() - 1, custom_val)
 
     def add_custom_repo_dir(self):
         print self.custom_repo_item_init
@@ -494,17 +516,21 @@ class Ui_checkinPageWidget(QtGui.QWidget, ui_checkinPage.Ui_checkinPageWidget):
         else:
             self.custom_repo_item_init['visible'][current_row] = False
 
-    def collect_defaults(self, get_values=False, apply_values=False, store_defaults=False, undo_changes=False):
+    def collect_defaults(self, get_values=False, apply_values=False, store_defaults=False, undo_changes=False, custom_parent=None):
+        if not custom_parent:
+            parent = env_inst.ui_conf
+        else:
+            parent = custom_parent
         self.page_defaults, self.page_init = gf.collect_defaults(
             self.page_defaults,
             self.page_init,
-            [self.customRepoPathsLayout, self.defaultRepoPathsLayout, self.checkinMiscOptionsLayout],
+            [self.customRepoPathsLayout, self.defaultRepoPathsLayout, self.checkinMiscOptionsLayout, self.snapshotsSavingOptionsLayout],
             get_values=get_values,
             apply_values=apply_values,
             store_defaults=store_defaults,
             undo_changes=undo_changes,
-            parent=env_inst.ui_conf,
-            ignore_list=[QtGui.QComboBox, QtGui.QRadioButton, QtGui.QGroupBox, QtGui.QTreeWidget]
+            parent=parent,
+            ignore_list=[QtGui.QGroupBox, QtGui.QTreeWidget]
         )
 
         if not self.custom_repo_item_defaults:
@@ -519,6 +545,11 @@ class Ui_checkinPageWidget(QtGui.QWidget, ui_checkinPage.Ui_checkinPageWidget):
 
             self.addCustomRepoToListPushButton.show()
             self.saveCustomRepoToListPushButton.hide()
+
+    def custom_save_config(self, custom_parent=None):
+        self.collect_defaults(get_values=True, custom_parent=custom_parent)
+        cfg_controls.set_checkin(self.page_init)
+        self.collect_defaults(store_defaults=True, custom_parent=custom_parent)
 
     def save_config(self):
         self.collect_defaults(get_values=True)
@@ -583,7 +614,6 @@ class Ui_checkinPageWidget(QtGui.QWidget, ui_checkinPage.Ui_checkinPageWidget):
         self.fill_custom_repo_dir(self.custom_repo_item_init)
         # self.customRepoCheckBox.setChecked(rep_dirs['custom_asset_dir']['enabled'])
 
-        print 'checkinPage'
         if not self.page_defaults and self.page_init:
             self.collect_defaults(apply_values=True)
 
@@ -652,8 +682,8 @@ class Ui_checkinOutPageWidget(QtGui.QWidget, ui_checkinOutPage.Ui_checkinOutPage
     @staticmethod
     def get_tabs_list():
         return [
-            ['Checkout', 'Checkout', True],
-            ['Checkin', 'Checkin', True],
+            ['Checkin / Checkout ', 'Checkin / Checkout', True],
+            # ['Checkin', 'Checkin', True],
             ['My Tactic', 'My Tactic', True],
             ['Assets Browser', 'Assets Browser', True],
         ]
@@ -918,8 +948,9 @@ class Ui_checkinOutPageWidget(QtGui.QWidget, ui_checkinOutPage.Ui_checkinOutPage
         if self.applyToAllProjectsRadioButton.isChecked():
             tabs_list = self.page_init_projects.get('!tabs_list!')
         else:
-            if self.page_init_projects.get(env_inst.current_project):
-                tabs_list = self.page_init_projects.get(env_inst.current_project)['tabs_list']
+            # TODO This is strange part:
+            if self.page_init_projects.get(env_inst.get_current_project()):
+                tabs_list = self.page_init_projects.get(env_inst.get_current_project())['tabs_list']
             else:
                 tabs_list = None
 
@@ -988,7 +1019,7 @@ class Ui_configuration_dialogWidget(QtGui.QDialog, ui_conf.Ui_configuration_dial
 
         self.create_server_page()
         self.create_project_page()
-        self.create_checkout_page()
+        # self.create_checkout_page()
         self.create_checkin_page()
         self.create_checkin_out_page()
         self.create_global_config_page()
@@ -1018,10 +1049,16 @@ class Ui_configuration_dialogWidget(QtGui.QDialog, ui_conf.Ui_configuration_dial
 
     def create_checkin_page(self):
         self.checkinPageWidget = Ui_checkinPageWidget(self)
+
+        print self.checkinPageWidget.objectName(), '!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!'
+
         self.checkinPageLayout.addWidget(self.checkinPageWidget)
 
     def create_checkin_out_page(self):
         self.checkinOutPageWidget = Ui_checkinOutPageWidget(self)
+
+        print self.checkinOutPageWidget.objectName(), '!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!'
+
         self.checkinOutPageLayout.addWidget(self.checkinOutPageWidget)
 
     def create_global_config_page(self):
@@ -1050,10 +1087,12 @@ class Ui_configuration_dialogWidget(QtGui.QDialog, ui_conf.Ui_configuration_dial
         if event.type() == QtCore.QEvent.KeyPress and isinstance(widget, QtGui.QLineEdit):
             self.set_page_status()
 
-        if event.type() == QtCore.QEvent.MouseButtonPress and isinstance(widget, (
-                QtGui.QCheckBox,
-                QtGui.QGroupBox,
-                QtGui.QRadioButton
+        if event.type() in [QtCore.QEvent.MouseButtonRelease, QtCore.QEvent.Wheel] and isinstance(widget, (
+            QtGui.QCheckBox,
+            QtGui.QGroupBox,
+            QtGui.QRadioButton,
+            QtGui.QSpinBox,
+            QtGui.QComboBox,
         )):
             self.set_page_status()
 
@@ -1227,8 +1266,8 @@ class Ui_configuration_dialogWidget(QtGui.QDialog, ui_conf.Ui_configuration_dial
 
             self.restart(force=True)
 
-        if current_page == 'checkoutPage':
-            self.checkoutPageWidget.save_config()
+        if current_page == 'checkinOutOptionsPage':
+            self.checkinPageWidget.save_config()
 
             current_item_text = self.configToolBox.itemText(2)
             if current_item_text.find('(changed)') != -1:
@@ -1236,8 +1275,8 @@ class Ui_configuration_dialogWidget(QtGui.QDialog, ui_conf.Ui_configuration_dial
 
             self.restart(force=True)
 
-        if current_page == 'checkinPage':
-            self.checkinPageWidget.save_config()
+        if current_page == 'checkinOutAppPage':
+            self.checkinOutPageWidget.save_config()
 
             current_item_text = self.configToolBox.itemText(3)
             if current_item_text.find('(changed)') != -1:
@@ -1245,14 +1284,14 @@ class Ui_configuration_dialogWidget(QtGui.QDialog, ui_conf.Ui_configuration_dial
 
             self.restart(force=True)
 
-        if current_page == 'checkinOutPage':
-            self.checkinOutPageWidget.save_config()
-
-            current_item_text = self.configToolBox.itemText(4)
-            if current_item_text.find('(changed)') != -1:
-                self.configToolBox.setItemText(4, current_item_text.replace(', (changed)', ', (saved)'))
-
-            self.restart(force=True)
+        # if current_page == 'globalCofigPage':
+        #     self.checkinOutPageWidget.save_config()
+        #
+        #     current_item_text = self.configToolBox.itemText(4)
+        #     if current_item_text.find('(changed)') != -1:
+        #         self.configToolBox.setItemText(4, current_item_text.replace(', (changed)', ', (saved)'))
+        #
+        #     self.restart(force=True)
 
     def restart(self, force=False):
         if force:

@@ -12,7 +12,7 @@ import lib.ui.browser.ui_sobject as ui_sobject
 import lib.ui.browser.ui_sobject_info as ui_sobject_info
 import ui_tasks_classes
 import ui_addsobject_classes as addsobject_widget
-import ui_icons_classes as icons_widget
+# import ui_icons_classes as icons_widget
 
 reload(ui_assets_browser)
 

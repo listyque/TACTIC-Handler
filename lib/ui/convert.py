@@ -75,7 +75,7 @@ def main(qt_toolkit='pyside'):
     options, args = parser.parse_args()
 
     if not args:
-        args.extend(['./', 'tasks', 'tactic', 'misc', 'maya', 'items', 'conf', 'checkout', 'checkin', 'browser'])
+        args.extend(['./', 'tasks', 'tactic', 'misc', 'maya', 'items', 'conf', 'checkin_out', 'browser', 'search'])
     if options.watch:
         print('Watching for file changes.\nPress CTRL+C to exit...')
     converter = UiConverter(qt_toolkit)

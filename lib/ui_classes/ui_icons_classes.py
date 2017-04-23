@@ -5,9 +5,8 @@
 import PySide.QtGui as QtGui
 import PySide.QtCore as QtCore
 import lib.ui.misc.ui_icons as ui_icons
-from lib.environment import env_tactic, env_inst
+from lib.environment import env_tactic
 import lib.global_functions as gf
-import lib.tactic_classes as tc
 
 reload(ui_icons)
 
@@ -167,7 +166,7 @@ class Ui_iconsWidget(QtGui.QWidget, ui_icons.Ui_icons):
         # print value - 1
         # print dir(self.nested_item.sobject)
         # print self.nested_item.sobject.process['icon'].contexts['icon'].versions
-        if self.nested_item.type == 'snapshot' or 'sobject':
+        if self.nested_item.type in ['snapshot', 'sobject']:
             if self.nested_item.type == 'snapshot':
                 snapshot_repo = self.nested_item.snapshot.get('repo')
             else:

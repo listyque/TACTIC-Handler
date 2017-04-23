@@ -61,8 +61,9 @@ class QtTacticEditWidget(QtGui.QWidget):
 
     def commit_upload_wdg(self, sobject):
         if self.has_upload_wdg:
-            search_key = sobject.get('__search_key__')
-            self.has_upload_wdg.checkin_icon_file(search_key)
+            if self.has_upload_wdg.tactic_widget.get_class_name() == 'tactic.ui.widget.upload_wdg.SimpleUploadWdg':
+                search_key = sobject.get('__search_key__')
+                self.has_upload_wdg.checkin_icon_file(search_key)
 
     def commit_update(self):
         data = self.get_data()
@@ -82,8 +83,9 @@ class QtTacticEditWidget(QtGui.QWidget):
         search_type = self.tactic_widget.get_search_type()
 
         if not search_type and self.sobject:
-            search_type = self.sobject.info.get('pipeline_code')
-            search_type = tc.server_start().build_search_type(search_type)
+            search_key = self.sobject.info.get('__search_key__')
+            search_type = tc.server_start().split_search_key(search_key)
+            search_type = search_type[0]
 
         if name and search_type:
             filters = [('name', name)]
@@ -120,9 +122,11 @@ class QtTacticEditWidget(QtGui.QWidget):
             self.commit_upload_wdg(new_sobject)
             if self.parent_ui.item:
                 if self.parent_ui.item.type == 'child':
-                    self.parent_ui.refresh_results()
+                    print 'FIX REFRESHING ON CHILD ADD !!!!!!!!!!!', 'commit_insert', self.commit_insert
+                    # self.parent_ui.refresh_results()
             else:
-                self.parent_ui.add_new_tab(new_sobject)
+                print 'FIX ADDING NEW TAB!!!!!!!!!!!', 'commit_insert', self.commit_insert
+                # self.parent_ui.add_new_tab(new_sobject)
             self.parent_ui.close()
 
     def create_control_buttons(self):
@@ -335,7 +339,8 @@ class QTacticSimpleUploadWdg(QtGui.QWidget, QTacticBasicInputWdg):
 
     def checkin_icon_file(self, search_key):
         stype = self.tactic_widget.get_stype()
-        checkin_widget = env_inst.ui_check_tree['checkin'].get(stype.info.get('code'))
+
+        checkin_widget = env_inst.get_check_tree(tab_code='checkin_out', wdg_code=stype.info.get('code'))
 
         files_list = self.get_upload_list()
 

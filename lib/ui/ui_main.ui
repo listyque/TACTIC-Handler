@@ -45,6 +45,12 @@ QTreeView::item:selected:!active {
 QTreeView::item:selected{
     selection-background-color: transparent;
     border: 1px solid transparent;
+}
+QDockWidget::title{
+	padding: 0px;
+}
+QDockWidget::close-button, QDockWidget::float-button {
+	padding: 0px;
 }</string>
   </property>
   <property name="locale">
@@ -53,6 +59,12 @@ QTreeView::item:selected{
   <property name="windowFilePath">
    <string notr="true"/>
   </property>
+  <property name="dockNestingEnabled">
+   <bool>true</bool>
+  </property>
+  <property name="dockOptions">
+   <set>QMainWindow::AllowNestedDocks|QMainWindow::AllowTabbedDocks|QMainWindow::AnimatedDocks</set>
+  </property>
   <widget class="QWidget" name="mainwidget"/>
   <widget class="QMenuBar" name="menubar">
    <property name="geometry">
@@ -60,7 +72,7 @@ QTreeView::item:selected{
      <x>0</x>
      <y>0</y>
      <width>427</width>
-     <height>25</height>
+     <height>21</height>
     </rect>
    </property>
    <widget class="QMenu" name="menuConfig">

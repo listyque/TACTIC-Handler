@@ -54,7 +54,6 @@ def sizes(size, precision=2):
         if not size:
             size = 0
         size /= 1024.0
-        # size = size / 1024.0
 
     return '{1:.{0}f} {2}'.format(precision, size, suffixes[suffix_index])
 
@@ -93,6 +92,23 @@ def from_json(obj):
         return json.loads(obj)
 
 
+def gen_acronym(word, length=2):
+    acronym = ''
+    if not word:
+        return 'E'
+    word = word[0].upper() + word[1:]
+
+    for k, v in enumerate(word):
+        if v.isupper() and len(acronym) < length:
+            acronym += v
+            if v == acronym[:-1]:
+                acronym = acronym[:-1]
+
+    if len(acronym) < length:
+        acronym += word[1:length]
+    return acronym
+
+
 def split_files_and_dirs(filename):
     dirs_list = []
     files_list = []
@@ -115,60 +131,73 @@ def sequences_from_dirs(files_list):
 
 def file_format(ext):
     formats = {
-        'ma': 'mayaAscii',
-        'mb': 'mayaBinary',
-        'hip': 'Houdini',
-        '3b': '3D-Coat',
-        'max': '3DSMax scene',
-        'scn': 'Softimage XSI',
-        'mud': 'Mudbox',
-        'abc': 'Alembic',
-        'obj': 'OBJ',
-        '3ds': '3DSMax model',
-        'nk': 'Nuke',
-        'fbx': 'FBX',
-        'dae': 'COLLADA',
-        'rs': 'Redshift Proxy',
-        'vdb': 'Open VDB',
-        'jpg': 'JPEG Image',
-        'jpeg': 'JPEG Image',
-        'psd': 'Photoshop PSD',
-        'tif': 'TIFF Image',
-        'tiff': 'TIFF Image',
-        'png': 'PNG Image',
-        'tga': 'TARGA Image',
-        'exr': 'EXR Image',
-        'hdr': 'HDR Image',
-        'dpx': 'DPX Image',
-        'mov': 'MOV Animation',
-        'avi': 'AVI Animation',
+        'ma': ['ma', 'mayaAscii', 'maya', 'file'],
+        'mb': ['mb', 'mayaBinary', 'maya', 'file'],
+        'hip': ['hip', 'Houdini', 'houdini', 'file'],
+        '3b': ['3b', '3D-Coat', 'coat', 'file'],
+        'max': ['max', '3DSMax scene', 'max', 'file'],
+        'scn': ['scn', 'Softimage XSI', 'xsi', 'file'],
+        'mud': ['mud', 'Mudbox', 'mudbox', 'file'],
+        'abc': ['abc', 'Alembic', 'cache', 'file'],
+        'obj': ['obj', 'OBJ', 'obj', 'file'],
+        '3ds': ['3ds', '3DSMax model', 'obj', 'file'],
+        'nk': ['nk', 'Nuke', 'nuke', 'file'],
+        'fbx': ['fbx', 'FBX', 'obj', 'file'],
+        'dae': ['dae', 'COLLADA', 'cache', 'file'],
+        'rs': ['rs', 'Redshift Proxy', 'cache', 'file'],
+        'vdb': ['vdb', 'Open VDB', 'cache', 'file'],
+        'jpg': ['jpg', 'JPEG Image', 'image', 'preview'],
+        'jpeg': ['jpeg', 'JPEG Image', 'image', 'preview'],
+        'psd': ['psd', 'Photoshop PSD', 'image', 'file'],
+        'tif': ['tif', 'TIFF Image', 'image', 'preview'],
+        'tiff': ['tiff', 'TIFF Image', 'image', 'preview'],
+        'png': ['png', 'PNG Image', 'image', 'preview'],
+        'tga': ['tga', 'TARGA Image', 'image', 'file'],
+        'exr': ['exr', 'EXR Image', 'image', 'file'],
+        'hdr': ['hdr', 'HDR Image', 'image', 'file'],
+        'dpx': ['dpx', 'DPX Image', 'image', 'file'],
+        'mov': ['mov', 'MOV Animation', 'movie', 'file'],
+        'avi': ['avi', 'AVI Animation', 'movie', 'file'],
     }
-    if ext in formats.iterkeys():
-        return formats[ext]
+    low_case_ext = ext.lower()
+    if low_case_ext in formats.keys():
+        return formats[low_case_ext]
     else:
-        return ext
+        return [low_case_ext, low_case_ext, 'main', 'file']
+
+
+def get_ext(file_name):
+    # func for possible future needs
+    return file_name.split('.', -1)[-1]
 
 
 def extract_extension(filename):
-    # TODO Check for file without EXT
-    ext = unicode(os.path.basename(filename)).split('.', -1)
+    base_filename = unicode(os.path.basename(filename))
+    ext = base_filename.split('.', -1)
     if not os.path.isdir(filename):
-        if len(ext) > 1:
-            return ext[-1], file_format(ext[-1])
+        if base_filename == ext[0]:
+            return [filename, 'No Ext', 'main', 'file']
+        elif len(ext) > 1:
+            return file_format(ext[-1])
     elif os.path.isdir(filename):
-        return filename, 'Folder'
+        return [filename, 'Folder', 'folder', 'folder']
 
 
-def extract_filename(filename):
+def extract_filename(filename, no_ext=False):
     name = unicode(os.path.basename(filename)).split('.', 1)
     if len(name) > 1:
-        return name[0] + '.' + name[1]
+        if not no_ext:
+            return name[0] + '.' + name[1]
+        else:
+            return name[0]
     else:
         return name[0]
 
 
 def extract_dirname(filename):
     dir = unicode(os.path.realpath(filename)).split('.', 1)
+    if dir[0] == filename:
+        return os.path.dirname(filename)
     if len(dir) == 1 and not os.path.isdir(filename):
         return dir[0]
     else:
@@ -218,6 +247,7 @@ def get_controls_dict(ignore_list=None):
         'QToolButton': {'obj_name': [], 'value': []},
         'QRadioButton': {'obj_name': [], 'value': []},
         'QGroupBox': {'obj_name': [], 'value': []},
+        'QSpinBox': {'obj_name': [], 'value': []},
     }
     if ignore_list:
         for item in ignore_list:
@@ -235,6 +265,8 @@ def get_controls_dict(ignore_list=None):
                 controls_dict.pop('QRadioButton')
             if item == QtGui.QGroupBox:
                 controls_dict.pop('QGroupBox')
+            if item == QtGui.QGroupBox:
+                controls_dict.pop('QSpinBox')
 
     return copy.deepcopy(controls_dict)
 
@@ -287,54 +319,148 @@ def campare_dicts(dict_one, dict_two):
 
 def store_property_by_widget_type(widget, in_dict):
     if isinstance(widget, QtGui.QLineEdit):
+        if not in_dict.get('QLineEdit'):
+            in_dict['QLineEdit'] = {'value': [], 'obj_name': []}
         in_dict['QLineEdit']['value'].append(str(widget.text()))
         in_dict['QLineEdit']['obj_name'].append(widget.objectName())
 
     if isinstance(widget, QtGui.QCheckBox):
+        if not in_dict.get('QCheckBox'):
+            in_dict['QCheckBox'] = {'value': [], 'obj_name': []}
         in_dict['QCheckBox']['value'].append(int(bool(widget.checkState())))
         in_dict['QCheckBox']['obj_name'].append(widget.objectName())
 
     if isinstance(widget, QtGui.QComboBox):
-        in_dict['QComboBox']['value'].append(int(widget.count()))
+        if not in_dict.get('QComboBox'):
+            in_dict['QComboBox'] = {'value': [], 'obj_name': []}
+        in_dict['QComboBox']['value'].append(int(widget.currentIndex()))
         in_dict['QComboBox']['obj_name'].append(widget.objectName())
 
     if isinstance(widget, QtGui.QTreeWidget):
+        if not in_dict.get('QTreeWidget'):
+            in_dict['QTreeWidget'] = {'value': [], 'obj_name': []}
         in_dict['QTreeWidget']['value'].append(int(widget.topLevelItemCount()))
         in_dict['QTreeWidget']['obj_name'].append(widget.objectName())
 
     if isinstance(widget, QtGui.QToolButton):
+        if not in_dict.get('QToolButton'):
+            in_dict['QToolButton'] = {'value': [], 'obj_name': []}
         in_dict['QToolButton']['value'].append(str(widget.styleSheet()))
         in_dict['QToolButton']['obj_name'].append(widget.objectName())
 
     if isinstance(widget, QtGui.QGroupBox):
+        if not in_dict.get('QGroupBox'):
+            in_dict['QGroupBox'] = {'value': [], 'obj_name': []}
         in_dict['QGroupBox']['value'].append(int(bool(widget.isChecked())))
         in_dict['QGroupBox']['obj_name'].append(widget.objectName())
 
     if isinstance(widget, QtGui.QRadioButton):
+        if not in_dict.get('QRadioButton'):
+            in_dict['QRadioButton'] = {'value': [], 'obj_name': []}
         in_dict['QRadioButton']['value'].append(int(bool(widget.isChecked())))
         in_dict['QRadioButton']['obj_name'].append(widget.objectName())
 
+    if isinstance(widget, QtGui.QSpinBox):
+        if not in_dict.get('QSpinBox'):
+            in_dict['QSpinBox'] = {'value': [], 'obj_name': []}
+        in_dict['QSpinBox']['value'].append(int(widget.value()))
+        in_dict['QSpinBox']['obj_name'].append(widget.objectName())
+
 
 def change_property_by_widget_type(widget, in_dict):
-    if isinstance(widget, QtGui.QLineEdit):
-        for name, val in zip(in_dict['QLineEdit']['obj_name'], in_dict['QLineEdit']['value']):
-            if widget.objectName() == name:
-                widget.setText(val)
+    if isinstance(widget, QtGui.QLineEdit) and in_dict.get('QLineEdit'):
+        if widget.objectName() in in_dict['QLineEdit']['obj_name']:
+            val = in_dict['QLineEdit']['value'][in_dict['QLineEdit']['obj_name'].index(widget.objectName())]
+            widget.setText(val)
+            # for name, val in zip(in_dict['QLineEdit']['obj_name'], in_dict['QLineEdit']['value']):
+            #     if widget.objectName() == name:
+            #         widget.setText(val)
+            #         break
 
-    if isinstance(widget, QtGui.QCheckBox):
-        for name, val in zip(in_dict['QCheckBox']['obj_name'], in_dict['QCheckBox']['value']):
-            if widget.objectName() == name:
-                widget.setChecked(val)
+    elif isinstance(widget, QtGui.QCheckBox) and in_dict.get('QCheckBox'):
+        if widget.objectName() in in_dict['QCheckBox']['obj_name']:
+            val = in_dict['QCheckBox']['value'][in_dict['QCheckBox']['obj_name'].index(widget.objectName())]
+            widget.setChecked(val)
+        # for name, val in zip(in_dict['QCheckBox']['obj_name'], in_dict['QCheckBox']['value']):
+        #     if widget.objectName() == name:
+        #         widget.setChecked(val)
+        #         break
 
-    if isinstance(widget, QtGui.QGroupBox):
-        for name, val in zip(in_dict['QGroupBox']['obj_name'], in_dict['QGroupBox']['value']):
-            if widget.objectName() == name:
-                widget.setChecked(val)
+    elif isinstance(widget, QtGui.QGroupBox) and in_dict.get('QGroupBox'):
+        if widget.objectName() in in_dict['QGroupBox']['obj_name']:
+            val = in_dict['QGroupBox']['value'][in_dict['QGroupBox']['obj_name'].index(widget.objectName())]
+            widget.setChecked(val)
+        # for name, val in zip(in_dict['QGroupBox']['obj_name'], in_dict['QGroupBox']['value']):
+        #     if widget.objectName() == name:
+        #         widget.setChecked(val)
+        #         break
 
-    if isinstance(widget, QtGui.QRadioButton):
-        for name, val in zip(in_dict['QRadioButton']['obj_name'], in_dict['QRadioButton']['value']):
-            if widget.objectName() == name:
-                widget.setChecked(val)
+    elif isinstance(widget, QtGui.QRadioButton) and in_dict.get('QRadioButton'):
+        if widget.objectName() in in_dict['QRadioButton']['obj_name']:
+            val = in_dict['QRadioButton']['value'][in_dict['QRadioButton']['obj_name'].index(widget.objectName())]
+            widget.setChecked(val)
+        # for name, val in zip(in_dict['QRadioButton']['obj_name'], in_dict['QRadioButton']['value']):
+        #     if widget.objectName() == name:
+        #         widget.setChecked(val)
+        #         break
+
+    elif isinstance(widget, QtGui.QSpinBox) and in_dict.get('QSpinBox'):
+        if widget.objectName() in in_dict['QSpinBox']['obj_name']:
+            val = in_dict['QSpinBox']['value'][in_dict['QSpinBox']['obj_name'].index(widget.objectName())]
+            widget.setValue(int(val))
+        # for name, val in zip(in_dict['QSpinBox']['obj_name'], in_dict['QSpinBox']['value']):
+        #     if widget.objectName() == name:
+        #         widget.setValue(int(val))
+        #         break
+
+    elif isinstance(widget, QtGui.QComboBox) and in_dict.get('QComboBox'):
+        if widget.objectName() in in_dict['QComboBox']['obj_name']:
+            val = in_dict['QComboBox']['value'][in_dict['QComboBox']['obj_name'].index(widget.objectName())]
+            widget.setCurrentIndex(int(val))
+
+
+def dockwidget_area_to_str(main_window, dockwidget):
+    if main_window.dockWidgetArea(dockwidget) == QtCore.Qt.TopDockWidgetArea:
+        return 'top'
+    if main_window.dockWidgetArea(dockwidget) == QtCore.Qt.BottomDockWidgetArea:
+        return 'bottom'
+    if main_window.dockWidgetArea(dockwidget) == QtCore.Qt.LeftDockWidgetArea:
+        return 'left'
+    if main_window.dockWidgetArea(dockwidget) == QtCore.Qt.RightDockWidgetArea:
+        return 'right'
+
+
+def str_to_dockwidget_area(area):
+    if area == 'top':
+        return QtCore.Qt.TopDockWidgetArea
+    elif area == 'bottom':
+        return QtCore.Qt.BottomDockWidgetArea
+    elif area == 'left':
+        return QtCore.Qt.LeftDockWidgetArea
+    elif area == 'right':
+        return QtCore.Qt.RightDockWidgetArea
+
+
+def toolbar_area_to_str(main_window, toolbar):
+    if main_window.toolBarArea(toolbar) == QtCore.Qt.TopToolBarArea:
+        return 'top'
+    elif main_window.toolBarArea(toolbar) == QtCore.Qt.BottomToolBarArea:
+        return 'bottom'
+    elif main_window.toolBarArea(toolbar) == QtCore.Qt.LeftToolBarArea:
+        return 'left'
+    elif main_window.toolBarArea(toolbar) == QtCore.Qt.RightToolBarArea:
+        return 'right'
+
+
+def str_to_toolbar_area(area):
+    if area == 'top':
+        return QtCore.Qt.TopToolBarArea
+    elif area == 'bottom':
+        return QtCore.Qt.BottomToolBarArea
+    elif area == 'left':
+        return QtCore.Qt.LeftToolBarArea
+    elif area == 'right':
+        return QtCore.Qt.RightToolBarArea
 
 
 def store_dict_values(widgets, out_dict, parent):
@@ -347,15 +473,14 @@ def store_dict_values(widgets, out_dict, parent):
                        QtGui.QTreeWidget,
                        QtGui.QToolButton,
                        QtGui.QRadioButton,
-                       QtGui.QGroupBox)):
+                       QtGui.QGroupBox,
+                       QtGui.QSpinBox,)):
             store_property_by_widget_type(widget, out_dict)
             widget.installEventFilter(parent)
 
 
 def apply_dict_values(widgets, in_dict):
     for widget in widgets:
-        # print widget
-        # print isinstance(widget, QtGui.QToolButton)
         if isinstance(widget,
                       (QtGui.QLineEdit,
                        QtGui.QCheckBox,
@@ -363,13 +488,17 @@ def apply_dict_values(widgets, in_dict):
                        QtGui.QTreeWidget,
                        QtGui.QToolButton,
                        QtGui.QRadioButton,
-                       QtGui.QGroupBox)):
+                       QtGui.QGroupBox,
+                       QtGui.QSpinBox,)):
             change_property_by_widget_type(widget, in_dict)
 
 
 def collect_defaults(defaults_dict=None, init_dict=None, layouts_list=None, get_values=False, apply_values=False,
                      store_defaults=False, undo_changes=False, parent=None, ignore_list=None):
     widgets = walk_through_layouts(layouts_list, ignore_list)
+
+    if not init_dict:
+        init_dict = get_controls_dict(ignore_list)
 
     if undo_changes:
         apply_dict_values(widgets, defaults_dict)
@@ -384,13 +513,8 @@ def collect_defaults(defaults_dict=None, init_dict=None, layouts_list=None, get_
         store_dict_values(widgets, defaults_dict, parent)
 
     if not defaults_dict:
-        # defaults_dict = copy.deepcopy(controls_dict)
         defaults_dict = get_controls_dict(ignore_list)
         store_dict_values(widgets, defaults_dict, parent)
-
-    if not init_dict:
-        # init_dict = copy.deepcopy(controls_dict)
-        init_dict = get_controls_dict(ignore_list)
 
     return defaults_dict, init_dict
 
@@ -415,19 +539,20 @@ def create_tab_label(tab_name, stype):
     return tab_label
 
 
-def get_icon(icon_name, icon_name_activ=None, color=None, color_active=None):
+def get_icon(icon_name, icon_name_active=None, color=None, color_active=None, icons_set='fa', **kwargs):
 
     if not color:
         color = QtGui.QColor(200, 200, 200)
     if not color_active:
         color_active = QtGui.QColor(240, 240, 240)
-    if not icon_name_activ:
-        icon_name_activ = icon_name
+    if not icon_name_active:
+        icon_name_active = icon_name
     styling_icon = qta.icon(
-        'fa.{0}'.format(icon_name),
-        active='fa.{0}'.format(icon_name_activ),
+        '{0}.{1}'.format(icons_set, icon_name),
+        active='{0}.{1}'.format(icons_set, icon_name_active),
         color=color,
-        color_active=color_active)
+        color_active=color_active,
+        **kwargs)
 
     return styling_icon
 
@@ -455,51 +580,16 @@ def add_sobject_item(parent_item, parent_widget, sobject, stype, item_info, inse
     from lib.ui_classes.ui_item_classes import Ui_itemWidget
 
     tree_item = QtGui.QTreeWidgetItem()
+    item_info = {
+        'relates_to': item_info['relates_to'],
+        'is_expanded': False,
+        'sep_versions': item_info['sep_versions']
+    }
+
     tree_item.setChildIndicatorPolicy(QtGui.QTreeWidgetItem.ShowIndicator)
     tree_item_widget = Ui_itemWidget(sobject, stype, item_info, tree_item, ignore_dict, parent_widget)
 
     add_item_to_tree(parent_item, tree_item, tree_item_widget, insert_pos=insert_pos)
-
-    # ALL MOVED TO SOBJECT ITEM
-    # # adding child items
-    # child_items = []
-    # if tree_item_widget.children_stypes:
-    #     for child in tree_item_widget.children_stypes:
-    #         child_stype = parent_widget.project.stypes[child.get('from')]
-    #         child_items.append(add_child_item(
-    #             tree_item_widget.tree_item,
-    #             parent_widget,
-    #             sobject,
-    #             child_stype,
-    #             child,
-    #             item_info
-    #         ))
-    # tree_item_widget.child_items = child_items
-
-    # # adding process items
-    # process_items = []
-    # if process:
-    #     process_keys = process
-    # # elif stype.pipeline:
-    # #     process_keys = stype.pipeline.process.iterkeys()
-    # else:
-    #     process_keys = []
-    #
-    # for process in process_keys:
-    #     process_items.append(add_process_item(
-    #         tree_item_widget.tree_item,
-    #         parent_widget,
-    #         sobject,
-    #         stype,
-    #         process,
-    #         item_info
-    #     ))
-    #
-    # if process_items:
-    #     tree_item_widget.process_items = process_items
-    # else:
-    #     # this loads root 'publish' items on expand !my favorite duct tape!
-    #     tree_item_widget.tree_item.setChildIndicatorPolicy(QtGui.QTreeWidgetItem.ShowIndicator)
 
     return tree_item_widget
 
@@ -511,7 +601,9 @@ def add_process_item(tree_widget, parent_widget, sobject, stype, process, item_i
     item_info = {
         'relates_to': item_info['relates_to'],
         'is_expanded': False,
+        'sep_versions': item_info['sep_versions']
     }
+
     tree_item_widget = Ui_processItemWidget(sobject, stype, process, item_info, tree_item, pipeline, parent_widget)
 
     add_item_to_tree(tree_widget, tree_item, tree_item_widget, insert_pos=insert_pos)
@@ -522,7 +614,6 @@ def add_process_item(tree_widget, parent_widget, sobject, stype, process, item_i
 def add_snapshot_item(tree_widget, parent_widget, sobject, stype, process, snapshots, item_info, sep_versions=False,
                       insert_at_top=True):
     from lib.ui_classes.ui_item_classes import Ui_snapshotItemWidget
-    # print id(item_info)
 
     snapshots_items = []
 
@@ -531,6 +622,7 @@ def add_snapshot_item(tree_widget, parent_widget, sobject, stype, process, snaps
         item_info = {
             'relates_to': item_info['relates_to'],
             'is_expanded': False,
+            'sep_versions': item_info['sep_versions']
         }
         snapshot_item = Ui_snapshotItemWidget(
             sobject,
@@ -557,6 +649,7 @@ def add_snapshot_item(tree_widget, parent_widget, sobject, stype, process, snaps
                 item_info = {
                     'relates_to': item_info['relates_to'],
                     'is_expanded': False,
+                    'sep_versions': item_info['sep_versions']
                 }
                 snapshot_item_versions = Ui_snapshotItemWidget(
                     sobject,
@@ -582,6 +675,7 @@ def add_versions_snapshot_item(tree_widget, parent_widget, sobject, stype, proce
         item_info = {
             'relates_to': item_info['relates_to'],
             'is_expanded': False,
+            'sep_versions': item_info['sep_versions']
         }
         snapshot_item = Ui_snapshotItemWidget(
             sobject,
@@ -604,6 +698,7 @@ def add_child_item(tree_widget, parent_widget, sobject, stype, child, item_info)
     item_info = {
         'relates_to': item_info['relates_to'],
         'is_expanded': False,
+        'sep_versions': item_info['sep_versions']
     }
     tree_item_widget = Ui_childrenItemWidget(sobject, stype, child, item_info, tree_item, parent_widget)
 
@@ -613,6 +708,7 @@ def add_child_item(tree_widget, parent_widget, sobject, stype, child, item_info)
 
 
 def expand_to_snapshot(parent, tree_widget):
+    # TODO make it infinite
     top_item = tree_widget.topLevelItem(0)
     skey_context = parent.go_by_skey[1]['context']
     skey_process = skey_context.split('/')[0]
@@ -672,51 +768,46 @@ def tree_state(wdg, state_dict):
 
 def tree_state_revert(wdg, state_dict):
     """ Recursive setting data to each tree item"""
+
     if type(wdg) == QtGui.QTreeWidget:
         lv = wdg.topLevelItemCount()
-        for i in range(lv):
-            if state_dict.get(i):
-                item = wdg.topLevelItem(i)
-                item.setExpanded(state_dict[i]['d']['e'])
-                item.setSelected(state_dict[i]['d']['s'])
-                if item.childCount() > 0:
-                    tree_state_revert(item, state_dict[i]['s'])
-                # Scrolling to item
-                if item.isSelected():
-                    item_tree_widget = item.treeWidget()
-                    item_tree_widget.scrollToItem(item)
+        tree_item = wdg.topLevelItem
+        tree_wdg = wdg
     else:
         lv = wdg.childCount()
-        for i in range(lv):
-            item = wdg.child(i)
-            if state_dict:
-                if state_dict.get(i):
-                    item.setExpanded(state_dict[i]['d']['e'])
-                    item.setSelected(state_dict[i]['d']['s'])
+        tree_item = wdg.child
+        tree_wdg = wdg.treeWidget()
 
-                    if item.childCount() > 0:
-                        tree_state_revert(item, state_dict[i]['s'])
+    for i in range(lv):
+        if state_dict.get(i):
+            item = tree_item(i)
+            item_widget = tree_wdg.itemWidget(item, 0)
+            item_widget.set_expand_state(state_dict[i]['d']['e'])
+            item_widget.set_selected_state(state_dict[i]['d']['s'])
+            item_widget.set_children_states(state_dict[i]['s'])
+            if item.childCount() > 0:
+                tree_state_revert(item, state_dict[i]['s'])
             # Scrolling to item
             if item.isSelected():
-                item_tree_widget = item.treeWidget()
-                item_tree_widget.scrollToItem(item)
+                tree_wdg.scrollToItem(item)
 
 
 # files etc routine
 def open_file_associated(filepath):
     # TODO message if file not exists
-    if sys.platform.startswith('darwin'):
-        subprocess.call(('open', filepath))
-    elif os.name == 'nt':
-        os.startfile(filepath)
-    elif os.name == 'posix':
+    # if sys.platform.startswith('darwin'):
+    #     subprocess.call(('open', filepath))
+    if env_mode.get_platform() == 'Linux':
         subprocess.call(('xdg-open', filepath))
+    else:
+        os.startfile(filepath)
+
 
 def form_path(path):
     if env_mode.get_platform() == 'Linux':
         formed_path = path.replace('\\', '/').replace('\\\\', '/').replace('//', '/')
     else:
-        formed_path = path
+        formed_path = path.replace('\\', '/')
         # return formed_path
     # else:
     #     formed_path = path.replace('\\', '/').replace('//', '/')
@@ -757,6 +848,28 @@ def get_abs_path(item, file_type=None):
                 '{0}/{1}/{2}'.format(asset_dir, main_file['relative_dir'], main_file['file_name']))
 
             return file_path
+
+
+def get_snapshot_asset_dir(snapshot_dict):
+    repo_name = snapshot_dict.get('repo')
+    base_dir = env_tactic.get_base_dir('base')
+    if repo_name:
+        current_dir = env_tactic.get_base_dir(repo_name)
+        if current_dir:
+            asset_dir = current_dir.get('value')[0]
+        else:
+            asset_dir = base_dir.get('value')[0]
+    else:
+        asset_dir = base_dir.get('value')[0]
+    return asset_dir
+
+
+def get_abs_file_path_name(snapshot_dict, file_dict):
+    asset_dir = get_snapshot_asset_dir(snapshot_dict)
+    file_path = form_path(
+        '{0}/{1}/{2}'.format(asset_dir, file_dict['relative_dir'], file_dict['file_name']))
+
+    return file_path
 
 
 def simplify_html(html, pretty=False):
