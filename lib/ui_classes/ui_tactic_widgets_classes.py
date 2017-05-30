@@ -1,5 +1,8 @@
-import PySide.QtGui as QtGui
-import PySide.QtCore as QtCore
+# import PySide.QtGui as QtGui
+# import PySide.QtCore as QtCore
+from lib.side.Qt import QtWidgets as QtGui
+from lib.side.Qt import QtCore
+
 import lib.tactic_classes as tc
 from lib.environment import env_inst
 
@@ -123,10 +126,10 @@ class QtTacticEditWidget(QtGui.QWidget):
             if self.parent_ui.item:
                 if self.parent_ui.item.type == 'child':
                     print 'FIX REFRESHING ON CHILD ADD !!!!!!!!!!!', 'commit_insert', self.commit_insert
-                    # self.parent_ui.refresh_results()
+                    print self.parent_ui
+                    self.parent_ui.refresh_results()
             else:
-                print 'FIX ADDING NEW TAB!!!!!!!!!!!', 'commit_insert', self.commit_insert
-                # self.parent_ui.add_new_tab(new_sobject)
+                self.parent_ui.add_new_tab(new_sobject)
             self.parent_ui.close()
 
     def create_control_buttons(self):

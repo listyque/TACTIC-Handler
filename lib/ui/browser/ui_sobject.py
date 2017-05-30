@@ -1,13 +1,14 @@
 # -*- coding: utf-8 -*-
 
-# Form implementation generated from reading ui file './ui_sobject.ui'
+# Form implementation generated from reading ui file 'browser/ui_sobject.ui'
 #
-# Created: Wed Mar 16 10:50:39 2016
-#      by: pyside-uic 0.2.15 running on PySide 1.2.4
+# Created: Thu Apr 27 14:15:17 2017
+#      by: pyside-uic 0.2.13 running on PySide 1.2.2
 #
 # WARNING! All changes made in this file will be lost!
 
-from PySide import QtCore, QtGui
+from lib.side.Qt import QtWidgets as QtGui
+from lib.side.Qt import QtCore
 
 class Ui_sobjectGroupBox(object):
     def setupUi(self, sobjectGroupBox):
@@ -50,5 +51,5 @@ class Ui_sobjectGroupBox(object):
         QtCore.QMetaObject.connectSlotsByName(sobjectGroupBox)
 
     def retranslateUi(self, sobjectGroupBox):
-        self.picLabel.setText(QtGui.QApplication.translate("sobjectGroupBox", "PIC", None, QtGui.QApplication.UnicodeUTF8))
+        self.picLabel.setText(QtGui.QApplication.translate("sobjectGroupBox", "PIC", None))
 

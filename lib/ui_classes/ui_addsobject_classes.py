@@ -2,8 +2,11 @@
 # file ui_addsobject_classes.py
 # Adding new sObject window
 
-import PySide.QtCore as QtCore
-import PySide.QtGui as QtGui
+# import PySide.QtCore as QtCore
+# import PySide.QtGui as QtGui
+from lib.side.Qt import QtWidgets as QtGui
+from lib.side.Qt import QtCore
+
 import json
 from lib.environment import env_mode, env_server
 import lib.tactic_classes as tc
@@ -195,14 +198,19 @@ class Ui_addTacticSobjectWidget(QtGui.QDialog):
         self.setWindowTitle('Adding new SObject {0} ({1})'.format(title, stype_code))
 
     def add_new_tab(self, sobject):
-        self.parent_ui.do_search(
+        search_widget = self.parent_ui.get_search_widget()
+        search_widget.do_search(
             search_query=sobject.get('code'),
             search_by=1,
             new_tab=True
         )
 
     def refresh_results(self):
+        # THERE IS BUG!!!
         self.parent_ui.refresh_current_results()
+
+        current_tree_widget = self.parent_ui.get_current_tree_widget()
+        current_tree_widget.update_current_items_trees()
 
     def readSettings(self):
         """

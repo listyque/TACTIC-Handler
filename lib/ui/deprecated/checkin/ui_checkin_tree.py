@@ -31,7 +31,7 @@ class Ui_checkInOutWidget(object):
         self.searchResultsGridLayout.setContentsMargins(0, 0, 0, 0)
         self.searchResultsGridLayout.setObjectName("searchResultsGridLayout")
         self.searchLineEdit = QtGui.QLineEdit(self.layoutWidget)
-        font = QtGui.QFont()
+        font = Qt4Gui.QFont()
         font.setPointSize(9)
         self.searchLineEdit.setFont(font)
         self.searchLineEdit.setStyleSheet("QLineEdit {\n"
@@ -184,16 +184,16 @@ class Ui_checkInOutWidget(object):
         checkInOutWidget.setTabOrder(self.searchLineEdit, self.descriptionTextEdit)
 
     def retranslateUi(self, checkInOutWidget):
-        self.snapshotBrowserGroupBox.setTitle(QtGui.QApplication.translate("checkInOutWidget", "Snaphsot browser:", None, QtGui.QApplication.UnicodeUTF8))
-        self.descriptionGroupBox.setTitle(QtGui.QApplication.translate("checkInOutWidget", "Description:", None, QtGui.QApplication.UnicodeUTF8))
-        self.savePushButton.setText(QtGui.QApplication.translate("checkInOutWidget", "Save", None, QtGui.QApplication.UnicodeUTF8))
-        self.openPushButton.setText(QtGui.QApplication.translate("checkInOutWidget", "Open", None, QtGui.QApplication.UnicodeUTF8))
-        self.checkinTypeLabel.setText(QtGui.QApplication.translate("checkInOutWidget", "Checkin Type:", None, QtGui.QApplication.UnicodeUTF8))
-        self.checkinTypeComboBox.setItemText(0, QtGui.QApplication.translate("checkInOutWidget", "A File", None, QtGui.QApplication.UnicodeUTF8))
-        self.checkinTypeComboBox.setItemText(1, QtGui.QApplication.translate("checkInOutWidget", "A Sequence", None, QtGui.QApplication.UnicodeUTF8))
-        self.checkinTypeComboBox.setItemText(2, QtGui.QApplication.translate("checkInOutWidget", "A Directory", None, QtGui.QApplication.UnicodeUTF8))
-        self.checkinTypeComboBox.setItemText(3, QtGui.QApplication.translate("checkInOutWidget", "Miltiple Individual Files", None, QtGui.QApplication.UnicodeUTF8))
-        self.checkinTypeComboBox.setItemText(4, QtGui.QApplication.translate("checkInOutWidget", "Work Area", None, QtGui.QApplication.UnicodeUTF8))
-        self.contextLabel.setText(QtGui.QApplication.translate("checkInOutWidget", "Context:", None, QtGui.QApplication.UnicodeUTF8))
+        self.snapshotBrowserGroupBox.setTitle(QtGui.QApplication.translate("checkInOutWidget", "Snaphsot browser:", None))
+        self.descriptionGroupBox.setTitle(QtGui.QApplication.translate("checkInOutWidget", "Description:", None))
+        self.savePushButton.setText(QtGui.QApplication.translate("checkInOutWidget", "Save", None))
+        self.openPushButton.setText(QtGui.QApplication.translate("checkInOutWidget", "Open", None))
+        self.checkinTypeLabel.setText(QtGui.QApplication.translate("checkInOutWidget", "Checkin Type:", None))
+        self.checkinTypeComboBox.setItemText(0, QtGui.QApplication.translate("checkInOutWidget", "A File", None))
+        self.checkinTypeComboBox.setItemText(1, QtGui.QApplication.translate("checkInOutWidget", "A Sequence", None))
+        self.checkinTypeComboBox.setItemText(2, QtGui.QApplication.translate("checkInOutWidget", "A Directory", None))
+        self.checkinTypeComboBox.setItemText(3, QtGui.QApplication.translate("checkInOutWidget", "Miltiple Individual Files", None))
+        self.checkinTypeComboBox.setItemText(4, QtGui.QApplication.translate("checkInOutWidget", "Work Area", None))
+        self.contextLabel.setText(QtGui.QApplication.translate("checkInOutWidget", "Context:", None))
 
 import resources_rc

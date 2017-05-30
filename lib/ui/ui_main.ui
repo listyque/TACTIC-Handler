@@ -51,6 +51,26 @@ QDockWidget::title{
 }
 QDockWidget::close-button, QDockWidget::float-button {
 	padding: 0px;
+}
+
+QTabWidget::pane {
+    border: 0px;
+}
+QTabBar::tab {
+    background: qlineargradient(x1: 0, y1: 0, x2: 0, y2: 1, stop: 0 rgba(175, 175, 175, 16), stop: 1 rgba(175, 175, 175, 0));
+    border: 0px solid transparent;
+    border-top-left-radius: 2px;
+    border-top-right-radius: 2px;
+    padding: 4px;
+}
+QTabBar::tab:selected, QTabBar::tab:hover {
+    background: qlineargradient(x1: 0, y1: 0, x2: 0, y2: 1, stop: 0 rgba(255, 255, 255, 64), stop: 1 rgba(255, 255, 255, 8));
+}
+QTabBar::tab:selected {
+    border-color: transparent;
+}
+QTabBar::tab:!selected {
+    margin-top: 2px;
 }</string>
   </property>
   <property name="locale">
@@ -72,7 +92,7 @@ QDockWidget::close-button, QDockWidget::float-button {
      <x>0</x>
      <y>0</y>
      <width>427</width>
-     <height>21</height>
+     <height>25</height>
     </rect>
    </property>
    <widget class="QMenu" name="menuConfig">

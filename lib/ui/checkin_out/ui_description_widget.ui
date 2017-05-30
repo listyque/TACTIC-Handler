@@ -2,12 +2,6 @@
 <ui version="4.0">
  <class>descriptionWidget</class>
  <widget class="QWidget" name="descriptionWidget">
-  <property name="sizePolicy">
-   <sizepolicy hsizetype="Preferred" vsizetype="Ignored">
-    <horstretch>0</horstretch>
-    <verstretch>0</verstretch>
-   </sizepolicy>
-  </property>
   <property name="windowTitle">
    <string>Form</string>
   </property>

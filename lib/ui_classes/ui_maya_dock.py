@@ -2,8 +2,10 @@
 # file ui_maya_dock.py
 # Main Dock Window interface
 
-import PySide.QtCore as QtCore
-import PySide.QtGui as QtGui
+# import PySide.QtCore as QtCore
+# import PySide.QtGui as QtGui
+from lib.side.Qt import QtWidgets as QtGui
+from lib.side.Qt import QtCore
 from lib.environment import env_inst, env_mode, env_server
 import lib.maya_functions as mf
 import lib.tactic_classes as tc
@@ -19,6 +21,7 @@ class Ui_DockMain(MayaQWidgetDockableMixin, QtGui.QMainWindow):
         env_inst.ui_maya_dock = self
         self.setObjectName('TacticHandlerDock')
         self.maya_window = self.parent()
+        print self.maya_window, 'WINDOW'
 
         self.hotkeys_dict = hotkeys
 
@@ -48,15 +51,12 @@ class Ui_DockMain(MayaQWidgetDockableMixin, QtGui.QMainWindow):
         # overriding QMayaDockWidget buggy resize event
         self.maya_window.resizeEvent = self.resizeEvent
 
-        # self.switch_tab()
-        # self.handle_hotkey()
-
         self.catch_maya_closing()
 
     def create_ui(self):
-        if self.docked:
-            self.set_docked()
-        else:
+        # if self.docked:
+        #     self.set_docked()
+        # else:
             self.set_undocked()
 
     def toggle_docking(self):
@@ -66,7 +66,11 @@ class Ui_DockMain(MayaQWidgetDockableMixin, QtGui.QMainWindow):
             self.set_docked()
 
     def create_ui_main(self):
-        env_inst.ui_main = ui_main_classes.Ui_Main(self.maya_window)
+        env_inst.ui_main = ui_main_classes.Ui_Main()
+        # env_inst.ui_main.show()
+        # asz = QtGui.QPushButton('AASD')
+        # self.setCentralWidget(asz)
+        # print env_inst.ui_main.parent()
         self.setCentralWidget(env_inst.ui_main)
         self.setWindowTitle(env_inst.ui_main.windowTitle())
         self.move(self.dock_pos)
@@ -75,18 +79,24 @@ class Ui_DockMain(MayaQWidgetDockableMixin, QtGui.QMainWindow):
         if self.hotkeys_dict:
             project_code = self.hotkeys_dict.get('project')
             control_tab = self.hotkeys_dict.get('control_tab')
+            action = self.hotkeys_dict.get('action')
 
             if project_code:
                 env_inst.ui_main.create_project_dock(project_code, close_project=False, raise_tab=True)
 
             if control_tab:
-                if control_tab in ['checkin', 'checkout']:
+                if control_tab in ['checkin_out']:
                     if project_code:
                         current_control = env_inst.get_control_tab(project_code, tab_code=control_tab)
                     else:
                         current_control = env_inst.get_control_tab(tab_code=control_tab)
                     if current_control:
                         current_control.raise_tab()
+                        if action:
+                            if action == 'save':
+                                current_control.fast_save()
+
+            self.hotkeys_dict = None
 
     def set_docked(self):
         if self.status_bar:
@@ -167,9 +177,10 @@ class Ui_DockMain(MayaQWidgetDockableMixin, QtGui.QMainWindow):
 
     def closeEvent(self, event):
         event.accept()
-        self.removeDockWidget(self.maya_dock)
-        self.maya_dock.close()
-        self.maya_dock.deleteLater()
+        if self.docked:
+            self.removeDockWidget(self.maya_dock)
+            self.maya_dock.close()
+            self.maya_dock.deleteLater()
         self.writeSettings()
 
 
@@ -186,6 +197,7 @@ def close_all_instances():
 
 def create_ui(thread, hotkeys=None):
     thread = tc.treat_result(thread)
+
     if thread.result == QtGui.QMessageBox.ApplyRole:
         retry_startup(thread)
     else:

@@ -17,12 +17,20 @@ methods returning instances of ``QIcon``.
 from __future__ import print_function
 import json
 import os
+import hashlib
+import warnings
 
 # Third party imports
-from lib.side.Qt.QtCore import QObject, QPoint, QRect, qRound, Qt
+from lib.side.Qt.QtCore import QObject, QPoint, QRect, Qt
 from lib.side.Qt.QtGui import (QColor, QFont, QFontDatabase, QIcon, QIconEngine,
                         QPainter, QPixmap)
+from lib.side.Qt.QtWidgets import QApplication
 # from six import unichr
+
+
+# Linux packagers, please set this to True if you want to make qtawesome
+# use system fonts
+SYSTEM_FONTS = False
 
 
 _default_options = {
@@ -101,7 +109,7 @@ class CharIconPainter:
         # The reason why the glyph size is smaller than the icon size is to
         # account for font bearing.
 
-        draw_size = 0.875 * qRound(rect.height() * options['scale_factor'])
+        draw_size = 0.875 * round(rect.height() * options['scale_factor'])
         prefix = options['prefix']
 
         # Animation setup hook
@@ -119,6 +127,10 @@ class CharIconPainter:
 
         painter.drawText(rect, Qt.AlignCenter | Qt.AlignVCenter, char)
         painter.restore()
+
+
+class FontError(Exception):
+    """Exception for font errors."""
 
 
 class CharIconEngine(QIconEngine):
@@ -194,22 +206,45 @@ class IconicFont(QObject):
             directory = os.path.join(
                 os.path.dirname(os.path.realpath(__file__)), 'fonts')
 
-        with open(os.path.join(directory, charmap_filename), 'r') as codes:
-            self.charmap[prefix] = json.load(codes, object_hook=hook)
+        # Load font
+        if QApplication.instance() is not None:
+            id_ = QFontDatabase.addApplicationFont(os.path.join(directory,
+                                                                ttf_filename))
+            loadedFontFamilies = QFontDatabase.applicationFontFamilies(id_)
+            if(loadedFontFamilies):
+                self.fontname[prefix] = loadedFontFamilies[0]
+            else:
+                raise FontError(u"Font at '{0}' appears to be empty. "
+                                "If you are on Windows 10, please read "
+                                "https://support.microsoft.com/"
+                                "en-us/kb/3053676 "
+                                "to know how to prevent Windows from blocking "
+                                "the fonts that come with QtAwesome.".format(
+                                        os.path.join(directory, ttf_filename)))
 
-        id_ = QFontDatabase.addApplicationFont(os.path.join(directory, ttf_filename))
+            with open(os.path.join(directory, charmap_filename), 'r') as codes:
+                self.charmap[prefix] = json.load(codes, object_hook=hook)
 
-        loadedFontFamilies = QFontDatabase.applicationFontFamilies(id_)
-
-        if(loadedFontFamilies):
-            self.fontname[prefix] = loadedFontFamilies[0]
-        else:
-            print('Font is empty')
+            # Verify that vendorized fonts are not corrupt
+            if not SYSTEM_FONTS:
+                md5_hashes = {'fontawesome-webfont.ttf':
+                              'b06871f281fee6b241d60582ae9369b9',
+                              'elusiveicons-webfont.ttf':
+                              '207966b04c032d5b873fd595a211582e'}
+                ttf_hash = md5_hashes.get(ttf_filename, None)
+                if ttf_hash is not None:
+                    hasher = hashlib.md5()
+                    with open(os.path.join(directory, ttf_filename),
+                              'rb') as f:
+                        content = f.read()
+                        hasher.update(content)
+                    ttf_calculated_hash_code = hasher.hexdigest()
+                    if ttf_calculated_hash_code != ttf_hash:
+                        raise FontError(u"Font is corrupt at: '{0}'".format(
+                                        os.path.join(directory, ttf_filename)))
 
     def icon(self, *names, **kwargs):
-        """
-        Return a QIcon object corresponding to the provided icon name.
-        """
+        """Return a QIcon object corresponding to the provided icon name."""
         options_list = kwargs.pop('options', [{}] * len(names))
         general_options = kwargs
 
@@ -217,17 +252,22 @@ class IconicFont(QObject):
             error = '"options" must be a list of size {0}'.format(len(names))
             raise Exception(error)
 
-        parsed_options = []
-        for i in range(len(options_list)):
-            specific_options = options_list[i]
-            parsed_options.append(self._parse_options(specific_options,
-                                                      general_options,
-                                                      names[i]))
+        if QApplication.instance() is not None:
+            parsed_options = []
+            for i in range(len(options_list)):
+                specific_options = options_list[i]
+                parsed_options.append(self._parse_options(specific_options,
+                                                          general_options,
+                                                          names[i]))
 
-        # Process high level API
-        api_options = parsed_options
+            # Process high level API
+            api_options = parsed_options
 
-        return self._icon_by_painter(self.painter, api_options)
+            return self._icon_by_painter(self.painter, api_options)
+        else:
+            warnings.warn("You need to have a running "
+                          "QApplication to use QtAwesome!")
+            return QIcon()
 
     def _parse_options(self, specific_options, general_options, name):
         options = dict(_default_options, **general_options)

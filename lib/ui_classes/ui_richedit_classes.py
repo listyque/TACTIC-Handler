@@ -1,7 +1,8 @@
 # file ui_richedit_classes.py
 # Rich editor panel
 
-import PySide.QtGui as QtGui
+from lib.side.Qt import QtWidgets as QtGui
+
 
 import lib.ui.misc.ui_richedit as ui_richedit
 

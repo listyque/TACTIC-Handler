@@ -2,12 +2,14 @@
 
 # Form implementation generated from reading ui file 'misc/ui_collapsable.ui'
 #
-# Created: Mon Nov 28 14:38:55 2016
+# Created: Thu Apr 27 14:15:15 2017
 #      by: pyside-uic 0.2.13 running on PySide 1.2.2
 #
 # WARNING! All changes made in this file will be lost!
 
-from PySide import QtCore, QtGui
+from lib.side.Qt import QtWidgets as QtGui
+from lib.side.Qt import QtCore
+
 
 class Ui_collapsableWidget(object):
     def setupUi(self, collapsableWidget):

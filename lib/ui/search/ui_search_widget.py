@@ -1,13 +1,15 @@
 # -*- coding: utf-8 -*-
 
-# Form implementation generated from reading ui file 'search\ui_search_widget.ui'
+# Form implementation generated from reading ui file 'search/ui_search_widget.ui'
 #
-# Created: Sun Jan 08 00:36:57 2017
-#      by: pyside-uic 0.2.15 running on PySide 1.2.4
+# Created: Thu Apr 27 14:15:17 2017
+#      by: pyside-uic 0.2.13 running on PySide 1.2.2
 #
 # WARNING! All changes made in this file will be lost!
 
-from PySide import QtCore, QtGui
+from lib.side.Qt import QtWidgets as QtGui
+from lib.side.Qt import QtGui as Qt4Gui
+from lib.side.Qt import QtCore
 
 class Ui_searchWidget(object):
     def setupUi(self, searchWidget):
@@ -17,7 +19,7 @@ class Ui_searchWidget(object):
         self.searchWidgetGridLayout.setSpacing(0)
         self.searchWidgetGridLayout.setObjectName("searchWidgetGridLayout")
         self.searchLineEdit = QtGui.QLineEdit(searchWidget)
-        font = QtGui.QFont()
+        font = Qt4Gui.QFont()
         font.setPointSize(9)
         self.searchLineEdit.setFont(font)
         self.searchLineEdit.setStyleSheet("QLineEdit {\n"

@@ -1,5 +1,7 @@
 import json
-import PySide.QtCore as QtCore
+# import PySide.QtCore as QtCore
+from lib.side.Qt import QtCore
+
 from environment import env_mode, env_server
 
 

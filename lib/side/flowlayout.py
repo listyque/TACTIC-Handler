@@ -2,8 +2,10 @@
 
 """PyQt4 port of the layouts/flowlayout example from Qt v4.x"""
 
-import PySide.QtGui as QtGui
-import PySide.QtCore as QtCore
+# import PySide.QtGui as QtGui
+# import PySide.QtCore as QtCore
+from lib.side.Qt import QtWidgets as QtGui
+from lib.side.Qt import QtCore
 
 
 # ------------------------------------------------------------------------

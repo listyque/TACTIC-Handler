@@ -2,12 +2,13 @@
 
 # Form implementation generated from reading ui file 'checkin_out/ui_checkin_out_options_dialog.ui'
 #
-# Created: Thu Mar 30 18:32:49 2017
+# Created: Fri Apr 28 14:15:26 2017
 #      by: pyside-uic 0.2.13 running on PySide 1.2.2
 #
 # WARNING! All changes made in this file will be lost!
 
-from PySide import QtCore, QtGui
+from lib.side.Qt import QtWidgets as QtGui
+from lib.side.Qt import QtCore
 
 class Ui_checkinOutOptions(object):
     def setupUi(self, checkinOutOptions):
@@ -31,11 +32,11 @@ class Ui_checkinOutOptions(object):
         self.gridLayout.setRowStretch(0, 1)
 
         self.retranslateUi(checkinOutOptions)
-        QtCore.QObject.connect(self.settingsPerTabCheckBox, QtCore.SIGNAL("clicked(bool)"), self.applyToAllPushButton.setEnabled)
+        QtCore.QObject.connect(self.settingsPerTabCheckBox, QtCore.SIGNAL("toggled(bool)"), self.applyToAllPushButton.setEnabled)
         QtCore.QMetaObject.connectSlotsByName(checkinOutOptions)
 
     def retranslateUi(self, checkinOutOptions):
-        checkinOutOptions.setWindowTitle(QtGui.QApplication.translate("checkinOutOptions", "Form", None, QtGui.QApplication.UnicodeUTF8))
-        self.settingsPerTabCheckBox.setText(QtGui.QApplication.translate("checkinOutOptions", "Only for This Tab", None, QtGui.QApplication.UnicodeUTF8))
-        self.applyToAllPushButton.setText(QtGui.QApplication.translate("checkinOutOptions", "Apply to All Tabs", None, QtGui.QApplication.UnicodeUTF8))
+        checkinOutOptions.setWindowTitle(QtGui.QApplication.translate("checkinOutOptions", "Form", None))
+        self.settingsPerTabCheckBox.setText(QtGui.QApplication.translate("checkinOutOptions", "Only for This Tab", None))
+        self.applyToAllPushButton.setText(QtGui.QApplication.translate("checkinOutOptions", "Apply to All Tabs", None))
 

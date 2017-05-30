@@ -1,13 +1,15 @@
 # -*- coding: utf-8 -*-
 
-# Form implementation generated from reading ui file './ui_item_task_detail.ui'
+# Form implementation generated from reading ui file 'items/ui_item_task_detail.ui'
 #
-# Created: Wed Feb 10 16:53:13 2016
-#      by: pyside-uic 0.2.15 running on PySide 1.2.4
+# Created: Thu Apr 27 14:15:16 2017
+#      by: pyside-uic 0.2.13 running on PySide 1.2.2
 #
 # WARNING! All changes made in this file will be lost!
 
-from PySide import QtCore, QtGui
+from lib.side.Qt import QtWidgets as QtGui
+from lib.side.Qt import QtCore
+
 
 class Ui_taskDetailItem(object):
     def setupUi(self, taskDetailItem):
@@ -72,8 +74,8 @@ class Ui_taskDetailItem(object):
         QtCore.QMetaObject.connectSlotsByName(taskDetailItem)
 
     def retranslateUi(self, taskDetailItem):
-        self.dateFromLabel.setText(QtGui.QApplication.translate("taskDetailItem", "From: 2016.02.07. 16:21:57", None, QtGui.QApplication.UnicodeUTF8))
-        self.dateToLabel.setText(QtGui.QApplication.translate("taskDetailItem", "To: 2016.02.09. 16:21:57", None, QtGui.QApplication.UnicodeUTF8))
-        self.stautsLabel.setText(QtGui.QApplication.translate("taskDetailItem", "Status: Assignment", None, QtGui.QApplication.UnicodeUTF8))
-        self.priorityLabel.setText(QtGui.QApplication.translate("taskDetailItem", "Priority: 5 - Critical", None, QtGui.QApplication.UnicodeUTF8))
+        self.dateFromLabel.setText(QtGui.QApplication.translate("taskDetailItem", "From: 2016.02.07. 16:21:57", None))
+        self.dateToLabel.setText(QtGui.QApplication.translate("taskDetailItem", "To: 2016.02.09. 16:21:57", None))
+        self.stautsLabel.setText(QtGui.QApplication.translate("taskDetailItem", "Status: Assignment", None))
+        self.priorityLabel.setText(QtGui.QApplication.translate("taskDetailItem", "Priority: 5 - Critical", None))
 

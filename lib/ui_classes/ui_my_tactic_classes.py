@@ -1,7 +1,9 @@
 # file ui_my_tactic.py
 # My Tactic
 
-import PySide.QtGui as QtGui
+# import PySide.QtGui as QtGui
+from lib.side.Qt import QtWidgets as QtGui
+
 
 import lib.ui.tactic.ui_my_tactic as ui_my_tactic
 import lib.ui.tactic.ui_my_notifications as ui_my_notifications

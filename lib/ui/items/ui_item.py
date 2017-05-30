@@ -2,12 +2,14 @@
 
 # Form implementation generated from reading ui file 'items/ui_item.ui'
 #
-# Created: Mon Dec 19 15:07:02 2016
+# Created: Thu Apr 27 14:15:16 2017
 #      by: pyside-uic 0.2.13 running on PySide 1.2.2
 #
 # WARNING! All changes made in this file will be lost!
 
-from PySide import QtCore, QtGui
+from lib.side.Qt import QtWidgets as QtGui
+from lib.side.Qt import QtCore
+
 
 class Ui_item(object):
     def setupUi(self, item):
@@ -94,6 +96,6 @@ class Ui_item(object):
         QtCore.QMetaObject.connectSlotsByName(item)
 
     def retranslateUi(self, item):
-        self.tasksToolButton.setText(QtGui.QApplication.translate("item", "Tasks", None, QtGui.QApplication.UnicodeUTF8))
-        self.relationsToolButton.setText(QtGui.QApplication.translate("item", "Relations", None, QtGui.QApplication.UnicodeUTF8))
+        self.tasksToolButton.setText(QtGui.QApplication.translate("item", "Tasks", None))
+        self.relationsToolButton.setText(QtGui.QApplication.translate("item", "Relations", None))
 

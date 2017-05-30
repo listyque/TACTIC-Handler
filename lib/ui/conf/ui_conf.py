@@ -2,12 +2,15 @@
 
 # Form implementation generated from reading ui file 'conf/ui_conf.ui'
 #
-# Created: Fri Jan  6 18:36:36 2017
+# Created: Thu Apr 27 14:15:16 2017
 #      by: pyside-uic 0.2.13 running on PySide 1.2.2
 #
 # WARNING! All changes made in this file will be lost!
 
-from PySide import QtCore, QtGui
+from lib.side.Qt import QtWidgets as QtGui
+from lib.side.Qt import QtGui as Qt4Gui
+from lib.side.Qt import QtCore
+
 
 class Ui_configuration_dialog(object):
     def setupUi(self, configuration_dialog):
@@ -19,7 +22,7 @@ class Ui_configuration_dialog(object):
         self.gridLayout_6 = QtGui.QGridLayout(configuration_dialog)
         self.gridLayout_6.setObjectName("gridLayout_6")
         self.configToolBox = QtGui.QToolBox(configuration_dialog)
-        palette = QtGui.QPalette()
+        palette = Qt4Gui.QPalette()
         self.configToolBox.setPalette(palette)
         self.configToolBox.setStyleSheet("QToolBox > *,\n"
 "QToolBox > QScrollArea > #qt_scrollarea_viewport > QWidget {\n"
@@ -102,11 +105,11 @@ class Ui_configuration_dialog(object):
         QtCore.QMetaObject.connectSlotsByName(configuration_dialog)
 
     def retranslateUi(self, configuration_dialog):
-        configuration_dialog.setWindowTitle(QtGui.QApplication.translate("configuration_dialog", "TACTIC Handler configuration", None, QtGui.QApplication.UnicodeUTF8))
-        self.configToolBox.setItemText(self.configToolBox.indexOf(self.serverPage), QtGui.QApplication.translate("configuration_dialog", "TACTIC Server", None, QtGui.QApplication.UnicodeUTF8))
-        self.configToolBox.setItemText(self.configToolBox.indexOf(self.projectPage), QtGui.QApplication.translate("configuration_dialog", "Project", None, QtGui.QApplication.UnicodeUTF8))
-        self.configToolBox.setItemText(self.configToolBox.indexOf(self.checkinOutOptionsPage), QtGui.QApplication.translate("configuration_dialog", "Checkin/Checkout Options", None, QtGui.QApplication.UnicodeUTF8))
-        self.configToolBox.setItemText(self.configToolBox.indexOf(self.checkinOutAppPage), QtGui.QApplication.translate("configuration_dialog", "Checkin/Checkout Appearance", None, QtGui.QApplication.UnicodeUTF8))
-        self.configToolBox.setItemText(self.configToolBox.indexOf(self.globalCofigPage), QtGui.QApplication.translate("configuration_dialog", "Global Config", None, QtGui.QApplication.UnicodeUTF8))
-        self.configToolBox.setItemText(self.configToolBox.indexOf(self.currentEnvironmentPage), QtGui.QApplication.translate("configuration_dialog", "Current Environment Options", None, QtGui.QApplication.UnicodeUTF8))
+        configuration_dialog.setWindowTitle(QtGui.QApplication.translate("configuration_dialog", "TACTIC Handler configuration", None))
+        self.configToolBox.setItemText(self.configToolBox.indexOf(self.serverPage), QtGui.QApplication.translate("configuration_dialog", "TACTIC Server", None))
+        self.configToolBox.setItemText(self.configToolBox.indexOf(self.projectPage), QtGui.QApplication.translate("configuration_dialog", "Project", None))
+        self.configToolBox.setItemText(self.configToolBox.indexOf(self.checkinOutOptionsPage), QtGui.QApplication.translate("configuration_dialog", "Checkin/Checkout Options", None))
+        self.configToolBox.setItemText(self.configToolBox.indexOf(self.checkinOutAppPage), QtGui.QApplication.translate("configuration_dialog", "Checkin/Checkout Appearance", None))
+        self.configToolBox.setItemText(self.configToolBox.indexOf(self.globalCofigPage), QtGui.QApplication.translate("configuration_dialog", "Global Config", None))
+        self.configToolBox.setItemText(self.configToolBox.indexOf(self.currentEnvironmentPage), QtGui.QApplication.translate("configuration_dialog", "Current Environment Options", None))
 

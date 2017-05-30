@@ -1,5 +1,8 @@
-import PySide.QtGui as QtGui
-import PySide.QtCore as QtCore
+# import PySide.QtGui as QtGui
+# import PySide.QtCore as QtCore
+from lib.side.Qt import QtWidgets as QtGui
+from lib.side.Qt import QtCore
+
 import lib.global_functions as gf
 import lib.ui.misc.ui_collapsable as ui_collapsable
 import lib.ui.misc.ui_horizontal_collapsable as ui_horizontal_collapsable
@@ -96,6 +99,12 @@ class Ui_horizontalCollapsableWidget(QtGui.QWidget, ui_horizontal_collapsable.Ui
             self.collapseToolButton.setIcon(gf.get_icon('angle-right'))
             self.widget.setHidden(False)
             self.setText(self.__text)
+
+    def isCollapsed(self):
+        if self.collapse_state:
+            return True
+        else:
+            return False
 
     def __toggleCollapseState(self):
 

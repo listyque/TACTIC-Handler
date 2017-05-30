@@ -2,8 +2,9 @@
 # Check In Tabs interface
 
 import json
-import PySide.QtCore as QtCore
-import PySide.QtGui as QtGui
+from lib.side.Qt import QtWidgets as QtGui
+from lib.side.Qt import QtGui as Qt4Gui
+from lib.side.Qt import QtCore
 from lib.environment import env_mode, env_inst, env_server
 from lib.configuration import cfg_controls
 import lib.global_functions as gf
@@ -41,14 +42,14 @@ class ColoredTabBar(QtGui.QTabBar):
 
         for i, tab_color in enumerate(self.colors):
             self.initStyleOption(option, i)
-            color = QtGui.QColor(tab_color)
+            color = Qt4Gui.QColor(tab_color)
             color.setAlpha(96)
             linearGrad = QtGui.QLinearGradient(QtCore.QPointF(0, 0), QtCore.QPointF(0, 1))
             linearGrad.setColorAt(0, color)
             linearGrad.setColorAt(1, QtCore.Qt.transparent)
             brush = QtGui.QBrush(linearGrad)
 
-            color_selected = QtGui.QColor(tab_color)
+            color_selected = Qt4Gui.QColor(tab_color)
             color_selected.setAlpha(168)
             linearGrad = QtGui.QLinearGradient(QtCore.QPointF(0, 0), QtCore.QPointF(0, 20))
             linearGrad.setColorAt(0, color_selected)
@@ -56,8 +57,8 @@ class ColoredTabBar(QtGui.QTabBar):
 
             brush_selected = QtGui.QBrush(linearGrad)
 
-            option.palette.setBrush(QtGui.QPalette.Normal, QtGui.QPalette.Button, brush)
-            option.palette.setBrush(QtGui.QPalette.Normal, QtGui.QPalette.Background, brush_selected)
+            option.palette.setBrush(Qt4Gui.QPalette.Normal, Qt4Gui.QPalette.Button, brush)
+            option.palette.setBrush(Qt4Gui.QPalette.Normal, Qt4Gui.QPalette.Background, brush_selected)
 
             painter.setCompositionMode(QtGui.QPainter.CompositionMode_Lighten)
             painter.drawControl(QtGui.QStyle.CE_TabBarTab, option)
@@ -112,6 +113,19 @@ class Ui_checkInOutTabWidget(QtGui.QWidget, checkin_out_tabs.Ui_sObjTabs):
         self.sTypesTreeWidget.itemClicked.connect(self.stypes_tree_item_click)
         self.sTypesTreeWidget.itemChanged.connect(self.stypes_tree_item_change)
 
+        self.sObjTabWidget.mousePressEvent = self.sobj_tab_middle_mouse_event
+
+    def sobj_tab_middle_mouse_event(self, event):
+        if event.button() == QtCore.Qt.MouseButton.MiddleButton:
+            tab_pos = self.sObjTabWidget.tabBar().tabAt(event.pos())
+            print self.sObjTabWidget.widget(tab_pos)
+            print self.visible_search_tabs[tab_pos].tab_widget
+            print self.visible_search_tabs[tab_pos]
+            self.toggle_stype_tab(tab=self.visible_search_tabs[tab_pos], hide=True)
+            self.visible_search_tabs.pop(tab_pos)
+
+        event.accept()
+
     def stypes_tree_item_click(self, item):
         item_data = item.data(0, QtCore.Qt.UserRole)
         if item_data:
@@ -158,27 +172,36 @@ class Ui_checkInOutTabWidget(QtGui.QWidget, checkin_out_tabs.Ui_sObjTabs):
         self.parent_ui.raise_tab(self.layout_widget)  # parent here is widget with layout
 
     def apply_current_view_to_all(self):
-        current_widget = self.sObjTabWidget.currentWidget()
         current_settings = None
-        for tab in self.all_search_tabs:
-            if current_widget == tab.tab_widget:
-                current_tab = tab
-                current_settings = current_tab.get_settings_dict()
+        current_tab = self.get_current_tab_widget()
+        if current_tab:
+            current_settings = current_tab.get_settings_dict()
 
         if current_settings:
             for tab in self.all_search_tabs:
                 tab.set_settings_from_dict(json.dumps(current_settings), apply_checkin_options=False, apply_search_options=False)
 
+    def fast_save(self):
+        current_tab = self.get_current_tab_widget()
+
+        current_tab.fast_save()
+
+    def get_current_tab_widget(self):
+        current_widget = self.sObjTabWidget.currentWidget()
+        for tab in self.all_search_tabs:
+            if current_widget == tab.tab_widget:
+                return tab
+
     def tab_bar_customization(self):
         self.hamburger_tab_button = QtGui.QToolButton()
         self.hamburger_tab_button.setAutoRaise(True)
-        self.hamburger_tab_button.setMinimumWidth(22)
-        self.hamburger_tab_button.setMinimumHeight(22)
+        self.hamburger_tab_button.setMinimumWidth(20)
+        self.hamburger_tab_button.setMinimumHeight(20)
         self.animation_close = QtCore.QPropertyAnimation(self.sTypesTreeWidget, "maximumWidth", self)
         self.animation_open = QtCore.QPropertyAnimation(self.sTypesTreeWidget, "maximumWidth", self)
         self.hamburger_tab_button.setIcon(gf.get_icon('navicon'))
 
-        self.sObjTabWidget.setCornerWidget(self.hamburger_tab_button, QtCore.Qt.TopLeftCorner)
+        self.sObjTabWidget.setCornerWidget(self.hamburger_tab_button, QtCore.Qt.BottomLeftCorner)
 
     def hamburger_button_click(self):
         content_width = self.sTypesTreeWidget.sizeHintForColumn(0) + 40
@@ -213,6 +236,7 @@ class Ui_checkInOutTabWidget(QtGui.QWidget, checkin_out_tabs.Ui_sObjTabs):
             if not name:
                 name = 'Untyped'
             self.top_item.setText(0, name.capitalize())
+            self.top_item.setCheckState(0, QtCore.Qt.Checked)
             self.sTypesTreeWidget.addTopLevelItem(self.top_item)
             for item in value:
                 self.child_item = QtGui.QTreeWidgetItem()
@@ -239,10 +263,13 @@ class Ui_checkInOutTabWidget(QtGui.QWidget, checkin_out_tabs.Ui_sObjTabs):
                 ignore_tabs_list = []
             else:
                 ignore_tabs_list = self.checkin_out_config_projects[self.current_project]['stypes_list']
+                if not ignore_tabs_list:
+                    ignore_tabs_list = []
 
         return ignore_tabs_list
 
     def set_ignore_stypes_list(self, stype_code, hide=False):
+        print self.checkin_out_config_projects
         if self.checkin_out_config_projects:
             stypes_list = self.checkin_out_config_projects[self.current_project]['stypes_list']
             if hide:
@@ -306,6 +333,10 @@ class Ui_checkInOutTabWidget(QtGui.QWidget, checkin_out_tabs.Ui_sObjTabs):
             'checkin_out',
         )
         self.settings.beginGroup(group_path)
+
+        if bool(int(self.settings.value('stypes_tree_visible', 0))):
+            self.hamburger_button_click()
+
         idx = int(self.settings.value('sObjTabWidget_currentIndex', 0))
         # this is needed because of restore setting bug
         if len(self.visible_search_tabs)-1 >= idx:
@@ -325,7 +356,8 @@ class Ui_checkInOutTabWidget(QtGui.QWidget, checkin_out_tabs.Ui_sObjTabs):
             'checkin_out',
         )
         self.settings.beginGroup(group_path)
-        self.settings.setValue('sObjTabWidget_currentIndex', self.sObjTabWidget.currentIndex())
+        self.settings.setValue('sObjTabWidget_currentIndex', int(self.sObjTabWidget.currentIndex()))
+        self.settings.setValue('stypes_tree_visible', int(self.stypes_tree_visible))
         print('Done ui_checkin_out_tab settings write')
         self.settings.endGroup()
         # for tab in self.ui_tree:
@@ -421,8 +453,8 @@ class Ui_checkInOutTabWidget(QtGui.QWidget, checkin_out_tabs.Ui_sObjTabs):
 #             # effect = QtGui.QGraphicsColorizeEffect(self.sObjTabWidget.tabBar())
 #             # self.animation = QtCore.QPropertyAnimation(effect, "color", self)
 #             # self.animation.setDuration(500)
-#             # self.animation.setStartValue(QtGui.QColor(0, 0, 0, 0))
-#             # self.animation.setEndValue(QtGui.QColor(49, 140, 72, 128))
+#             # self.animation.setStartValue(Qt4Gui.QColor(0, 0, 0, 0))
+#             # self.animation.setEndValue(Qt4Gui.QColor(49, 140, 72, 128))
 #             # self.animation.start()
 #             # print effect.boundingRectFor(self.sObjTabWidget.tabBar().tabRect(0))
 #

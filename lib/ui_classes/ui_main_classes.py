@@ -4,8 +4,12 @@
 
 import collections
 from functools import partial
-import PySide.QtCore as QtCore
-import PySide.QtGui as QtGui
+# import PySide.QtCore as QtCore
+# import PySide.QtGui as QtGui
+from lib.side.Qt import QtWidgets as QtGui
+from lib.side.Qt import QtGui as Qt4Gui
+from lib.side.Qt import QtCore
+
 from lib.environment import env_mode, env_inst, env_server
 from lib.configuration import cfg_controls
 import lib.tactic_classes as tc
@@ -154,12 +158,12 @@ class Ui_createUpdateDialog(QtGui.QDialog, ui_create_update.Ui_createUpdateDialo
             'changes': self.changesPlainTextEdit.toPlainText(),
             'misc': self.miscPlainTextEdit.toPlainText(),
             'remove_list': [],
-            'update_archive': '{0}.tar.gz'.format(current_ver_str)
+            'update_archive': '{0}.zip'.format(current_ver_str)
         }
         uf.save_json_to_path('{0}/updates/{1}.json'.format(env_mode.get_current_path(), current_ver_str), data_dict)
-        uf.save_current_version(current_ver_dict)
-        uf.create_update_archive('{0}/updates/{1}.tar.gz'.format(env_mode.get_current_path(), current_ver_str))
         uf.create_updates_list()
+        uf.save_current_version(current_ver_dict)
+        uf.create_update_archive('{0}/updates/{1}.zip'.format(env_mode.get_current_path(), current_ver_str))
         self.close()
 
     def create_tar_gz_archive(self):
@@ -288,6 +292,9 @@ class Ui_mainTabs(QtGui.QWidget, ui_main_tabs.Ui_mainTabsForm):
                 # self.create_ui_checkout()
                 # self.create_ui_checkin()
                 self.create_checkin_checkout_ui()
+                # self.create_ui_my_tactic()
+                # self.create_ui_float_notify()
+                # self.create_ui_assets_browser()
                 self.toggle_loading_label()
                 if env_mode.get_mode() == 'maya':
                     print 'NOW HANDLING HOTKEYS'
@@ -514,7 +521,6 @@ class Ui_Main(QtGui.QMainWindow, ui_main.Ui_MainWindow):
             QtCore.QSettings.IniFormat)
 
         self.projects_docks = collections.OrderedDict()
-
         if env_mode.is_offline():
             self.create_ui_main_offline()
         else:
@@ -579,31 +585,26 @@ class Ui_Main(QtGui.QMainWindow, ui_main.Ui_MainWindow):
 
         self.setupUi(self)
         self.setWindowTitle('TACTIC handler')
-
         # instance attributes
         self.menu = None
         self.mainwidget.deleteLater()
-
         # Server Threads
         self.projects_items_thread = tc.ServerThread(self)
-        # self.update_thread = tc.ServerThread(self)
-
         self.threadsActions()
-
         self.query_projects(run_thread=True)
-
         self.menu_bar_actions()
         self.readSettings()
         self.setIcon()
-
         self.customize_ui()
-
         self.check_for_update()
+
+        print '8'
 
     def check_for_update(self):
         if uf.check_need_update():
             self.label_layout = QtGui.QVBoxLayout(self.menubar)
             self.label_layout.setContentsMargins(0, 0, 6, 0)
+            # self.label_layout.set
 
             update_label = QtGui.QLabel()
             update_label.setAlignment(QtCore.Qt.AlignRight|QtCore.Qt.AlignVCenter)
@@ -614,7 +615,7 @@ class Ui_Main(QtGui.QMainWindow, ui_main.Ui_MainWindow):
         self.projects_items_thread.finished.connect(lambda: self.query_projects(finish_thread=True))
 
     def setIcon(self):
-        icon = QtGui.QIcon(':/ui_main/gliph/tactic_favicon.ico')
+        icon = Qt4Gui.QIcon(':/ui_main/gliph/tactic_favicon.ico')
         self.setWindowIcon(icon)
 
     def customize_ui(self):
@@ -725,12 +726,12 @@ class Ui_Main(QtGui.QMainWindow, ui_main.Ui_MainWindow):
                 cat_name = cat_name.replace('_', ' ').capitalize()
             else:
                 cat_name = 'No Category'
-
-            category = self.menuProject.addMenu(cat_name)
+            if cat_name != 'Template':
+                category = self.menuProject.addMenu(cat_name)
 
             for e, project in enumerate(projects):
                 # TEMPORARY
-                project['is_template'] = False
+                # project['is_template'] = False
                 # TEMPORARY
                 if not project.get('is_template'):
                     project_code = project.get('code')

@@ -1,13 +1,14 @@
 # -*- coding: utf-8 -*-
 
-# Form implementation generated from reading ui file 'misc/ui_search_options.ui'
+# Form implementation generated from reading ui file 'search/ui_search_options.ui'
 #
-# Created: Wed Sep 14 13:35:23 2016
+# Created: Thu Apr 27 14:15:17 2017
 #      by: pyside-uic 0.2.13 running on PySide 1.2.2
 #
 # WARNING! All changes made in this file will be lost!
 
-from PySide import QtCore, QtGui
+from lib.side.Qt import QtWidgets as QtGui
+from lib.side.Qt import QtCore
 
 class Ui_searchOptionsGroupBox(object):
     def setupUi(self, searchOptionsGroupBox):
@@ -115,22 +116,22 @@ class Ui_searchOptionsGroupBox(object):
         searchOptionsGroupBox.setTabOrder(self.displayLimitSpinBox, self.saveAsDefaultsPushButton)
 
     def retranslateUi(self, searchOptionsGroupBox):
-        searchOptionsGroupBox.setWindowTitle(QtGui.QApplication.translate("searchOptionsGroupBox", "GroupBox", None, QtGui.QApplication.UnicodeUTF8))
-        searchOptionsGroupBox.setTitle(QtGui.QApplication.translate("searchOptionsGroupBox", "Options:", None, QtGui.QApplication.UnicodeUTF8))
-        self.searchByGroupBox.setTitle(QtGui.QApplication.translate("searchOptionsGroupBox", "Search by:", None, QtGui.QApplication.UnicodeUTF8))
-        self.searchNameRadioButton.setText(QtGui.QApplication.translate("searchOptionsGroupBox", "Name", None, QtGui.QApplication.UnicodeUTF8))
-        self.searchCodeRadioButton.setText(QtGui.QApplication.translate("searchOptionsGroupBox", "Search Code", None, QtGui.QApplication.UnicodeUTF8))
-        self.searchDescriptionRadioButton.setText(QtGui.QApplication.translate("searchOptionsGroupBox", "Description", None, QtGui.QApplication.UnicodeUTF8))
-        self.searchKeywordsRadioButton.setText(QtGui.QApplication.translate("searchOptionsGroupBox", "Keywords", None, QtGui.QApplication.UnicodeUTF8))
-        self.searchParentCodeRadioButton.setText(QtGui.QApplication.translate("searchOptionsGroupBox", "Parent Code:", None, QtGui.QApplication.UnicodeUTF8))
-        self.parentsComboBox.setItemText(0, QtGui.QApplication.translate("searchOptionsGroupBox", "All", None, QtGui.QApplication.UnicodeUTF8))
-        self.sortByGroupBox.setTitle(QtGui.QApplication.translate("searchOptionsGroupBox", "Sort by:", None, QtGui.QApplication.UnicodeUTF8))
-        self.sortNameRadioButton.setText(QtGui.QApplication.translate("searchOptionsGroupBox", "Name", None, QtGui.QApplication.UnicodeUTF8))
-        self.sortCodeRadioButton.setText(QtGui.QApplication.translate("searchOptionsGroupBox", "Search Code", None, QtGui.QApplication.UnicodeUTF8))
-        self.sortTimestampRadioButton.setText(QtGui.QApplication.translate("searchOptionsGroupBox", "Timestamp", None, QtGui.QApplication.UnicodeUTF8))
-        self.sortNothingRadioButton.setText(QtGui.QApplication.translate("searchOptionsGroupBox", "Nothing", None, QtGui.QApplication.UnicodeUTF8))
-        self.miscGroupBox.setTitle(QtGui.QApplication.translate("searchOptionsGroupBox", "Misc:", None, QtGui.QApplication.UnicodeUTF8))
-        self.saveAsDefaultsPushButton.setText(QtGui.QApplication.translate("searchOptionsGroupBox", "Apply to All Tabs", None, QtGui.QApplication.UnicodeUTF8))
-        self.label.setText(QtGui.QApplication.translate("searchOptionsGroupBox", "Search results limit:", None, QtGui.QApplication.UnicodeUTF8))
-        self.showAllProcessCheckBox.setText(QtGui.QApplication.translate("searchOptionsGroupBox", "Show hidden Processes", None, QtGui.QApplication.UnicodeUTF8))
+        searchOptionsGroupBox.setWindowTitle(QtGui.QApplication.translate("searchOptionsGroupBox", "GroupBox", None))
+        searchOptionsGroupBox.setTitle(QtGui.QApplication.translate("searchOptionsGroupBox", "Options:", None))
+        self.searchByGroupBox.setTitle(QtGui.QApplication.translate("searchOptionsGroupBox", "Search by:", None))
+        self.searchNameRadioButton.setText(QtGui.QApplication.translate("searchOptionsGroupBox", "Name", None))
+        self.searchCodeRadioButton.setText(QtGui.QApplication.translate("searchOptionsGroupBox", "Search Code", None))
+        self.searchDescriptionRadioButton.setText(QtGui.QApplication.translate("searchOptionsGroupBox", "Description", None))
+        self.searchKeywordsRadioButton.setText(QtGui.QApplication.translate("searchOptionsGroupBox", "Keywords", None))
+        self.searchParentCodeRadioButton.setText(QtGui.QApplication.translate("searchOptionsGroupBox", "Parent Code:", None))
+        self.parentsComboBox.setItemText(0, QtGui.QApplication.translate("searchOptionsGroupBox", "All", None))
+        self.sortByGroupBox.setTitle(QtGui.QApplication.translate("searchOptionsGroupBox", "Sort by:", None))
+        self.sortNameRadioButton.setText(QtGui.QApplication.translate("searchOptionsGroupBox", "Name", None))
+        self.sortCodeRadioButton.setText(QtGui.QApplication.translate("searchOptionsGroupBox", "Search Code", None))
+        self.sortTimestampRadioButton.setText(QtGui.QApplication.translate("searchOptionsGroupBox", "Timestamp", None))
+        self.sortNothingRadioButton.setText(QtGui.QApplication.translate("searchOptionsGroupBox", "Nothing", None))
+        self.miscGroupBox.setTitle(QtGui.QApplication.translate("searchOptionsGroupBox", "Misc:", None))
+        self.saveAsDefaultsPushButton.setText(QtGui.QApplication.translate("searchOptionsGroupBox", "Apply to All Tabs", None))
+        self.label.setText(QtGui.QApplication.translate("searchOptionsGroupBox", "Search results limit:", None))
+        self.showAllProcessCheckBox.setText(QtGui.QApplication.translate("searchOptionsGroupBox", "Show hidden Processes", None))
 

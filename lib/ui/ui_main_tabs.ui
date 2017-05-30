@@ -2,12 +2,6 @@
 <ui version="4.0">
  <class>mainTabsForm</class>
  <widget class="QWidget" name="mainTabsForm">
-  <property name="sizePolicy">
-   <sizepolicy hsizetype="Ignored" vsizetype="Ignored">
-    <horstretch>0</horstretch>
-    <verstretch>0</verstretch>
-   </sizepolicy>
-  </property>
   <property name="windowTitle">
    <string>Form</string>
   </property>
@@ -30,11 +24,28 @@
    <item>
     <widget class="QTabWidget" name="main_tabWidget">
      <property name="styleSheet">
-      <string notr="true">QTabWidget::pane {
+      <string notr="true">#main_tabWidget::pane {
     border: 0px;
 }
-QTabWidget::tab-bar {
+#main_tabWidget::tab-bar {
     alignment: center;
+}
+
+#main_tabWidget &gt; QTabBar::tab {
+    background: qlineargradient(x1: 0, y1: 0, x2: 1, y2: 0, stop: 0 rgba(175, 175, 175, 16), stop: 1 rgba(175, 175, 175, 0));
+    border: 0px solid transparent;
+    border-top-left-radius: 2px;
+    border-top-right-radius: 2px;
+    padding: 4px;
+}
+#main_tabWidget &gt; QTabBar::tab:selected, #main_tabWidget &gt; QTabBar::tab:hover {
+    background: qlineargradient(x1: 0, y1: 0, x2: 1, y2: 0, stop: 0 rgba(255, 255, 255, 64), stop: 1 rgba(255, 255, 255, 8));
+}
+#main_tabWidget &gt; QTabBar::tab:selected {
+    border-color: transparent;
+}
+#main_tabWidget &gt; QTabBar::tab:!selected {
+    margin-left: 2px;
 }</string>
      </property>
      <property name="tabPosition">

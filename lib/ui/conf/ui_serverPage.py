@@ -2,12 +2,13 @@
 
 # Form implementation generated from reading ui file 'conf/ui_serverPage.ui'
 #
-# Created: Thu Oct 27 12:56:41 2016
+# Created: Thu Apr 27 14:15:16 2017
 #      by: pyside-uic 0.2.13 running on PySide 1.2.2
 #
 # WARNING! All changes made in this file will be lost!
 
-from PySide import QtCore, QtGui
+from lib.side.Qt import QtWidgets as QtGui
+from lib.side.Qt import QtCore
 
 class Ui_serverPageWidget(object):
     def setupUi(self, serverPageWidget):
@@ -132,23 +133,23 @@ class Ui_serverPageWidget(object):
         QtCore.QMetaObject.connectSlotsByName(serverPageWidget)
 
     def retranslateUi(self, serverPageWidget):
-        self.authorizingGroupBox.setTitle(QtGui.QApplication.translate("serverPageWidget", "Authorization:", None, QtGui.QApplication.UnicodeUTF8))
-        self.userNameLable.setText(QtGui.QApplication.translate("serverPageWidget", "User Name:", None, QtGui.QApplication.UnicodeUTF8))
-        self.loginStatusLable.setText(QtGui.QApplication.translate("serverPageWidget", "Status:", None, QtGui.QApplication.UnicodeUTF8))
-        self.connectToServerButton.setText(QtGui.QApplication.translate("serverPageWidget", "Try to connect", None, QtGui.QApplication.UnicodeUTF8))
-        self.tacticStatusLable.setText(QtGui.QApplication.translate("serverPageWidget", "Status:", None, QtGui.QApplication.UnicodeUTF8))
-        self.tacticServerLable.setText(QtGui.QApplication.translate("serverPageWidget", "Tactic server:", None, QtGui.QApplication.UnicodeUTF8))
-        self.generateTicketButton.setText(QtGui.QApplication.translate("serverPageWidget", "Generate new Ticket", None, QtGui.QApplication.UnicodeUTF8))
-        self.savedServerPresetLabel.setText(QtGui.QApplication.translate("serverPageWidget", "Server presets:", None, QtGui.QApplication.UnicodeUTF8))
-        self.editServerPresetsPushButton.setText(QtGui.QApplication.translate("serverPageWidget", "Edit Server Presets", None, QtGui.QApplication.UnicodeUTF8))
-        self.portalSiteLabel.setText(QtGui.QApplication.translate("serverPageWidget", "Portal Site:", None, QtGui.QApplication.UnicodeUTF8))
-        self.usePortalSiteCheckBox.setText(QtGui.QApplication.translate("serverPageWidget", "Use Portal Site", None, QtGui.QApplication.UnicodeUTF8))
-        self.proxyGroupBox.setTitle(QtGui.QApplication.translate("serverPageWidget", "Proxy Settings:", None, QtGui.QApplication.UnicodeUTF8))
-        self.proxyUserNameLabel.setText(QtGui.QApplication.translate("serverPageWidget", "Login:", None, QtGui.QApplication.UnicodeUTF8))
-        self.proxyPasswordLabel.setText(QtGui.QApplication.translate("serverPageWidget", "Password", None, QtGui.QApplication.UnicodeUTF8))
-        self.proxyServerLabel.setText(QtGui.QApplication.translate("serverPageWidget", "Proxy Server:", None, QtGui.QApplication.UnicodeUTF8))
-        self.environmentsGroupBox.setTitle(QtGui.QApplication.translate("serverPageWidget", "Tactic Environments:", None, QtGui.QApplication.UnicodeUTF8))
-        self.tacticEnvLable.setText(QtGui.QApplication.translate("serverPageWidget", "Tactic Data dir:", None, QtGui.QApplication.UnicodeUTF8))
-        self.tacticInstallDirLable.setText(QtGui.QApplication.translate("serverPageWidget", "Tactic Install dir:", None, QtGui.QApplication.UnicodeUTF8))
-        self.addTacticEnv.setText(QtGui.QApplication.translate("serverPageWidget", "Add Tactic environments to system", None, QtGui.QApplication.UnicodeUTF8))
+        self.authorizingGroupBox.setTitle(QtGui.QApplication.translate("serverPageWidget", "Authorization:", None))
+        self.userNameLable.setText(QtGui.QApplication.translate("serverPageWidget", "User Name:", None))
+        self.loginStatusLable.setText(QtGui.QApplication.translate("serverPageWidget", "Status:", None))
+        self.connectToServerButton.setText(QtGui.QApplication.translate("serverPageWidget", "Try to connect", None))
+        self.tacticStatusLable.setText(QtGui.QApplication.translate("serverPageWidget", "Status:", None))
+        self.tacticServerLable.setText(QtGui.QApplication.translate("serverPageWidget", "Tactic server:", None))
+        self.generateTicketButton.setText(QtGui.QApplication.translate("serverPageWidget", "Generate new Ticket", None))
+        self.savedServerPresetLabel.setText(QtGui.QApplication.translate("serverPageWidget", "Server presets:", None))
+        self.editServerPresetsPushButton.setText(QtGui.QApplication.translate("serverPageWidget", "Edit Server Presets", None))
+        self.portalSiteLabel.setText(QtGui.QApplication.translate("serverPageWidget", "Portal Site:", None))
+        self.usePortalSiteCheckBox.setText(QtGui.QApplication.translate("serverPageWidget", "Use Portal Site", None))
+        self.proxyGroupBox.setTitle(QtGui.QApplication.translate("serverPageWidget", "Proxy Settings:", None))
+        self.proxyUserNameLabel.setText(QtGui.QApplication.translate("serverPageWidget", "Login:", None))
+        self.proxyPasswordLabel.setText(QtGui.QApplication.translate("serverPageWidget", "Password", None))
+        self.proxyServerLabel.setText(QtGui.QApplication.translate("serverPageWidget", "Proxy Server:", None))
+        self.environmentsGroupBox.setTitle(QtGui.QApplication.translate("serverPageWidget", "Tactic Environments:", None))
+        self.tacticEnvLable.setText(QtGui.QApplication.translate("serverPageWidget", "Tactic Data dir:", None))
+        self.tacticInstallDirLable.setText(QtGui.QApplication.translate("serverPageWidget", "Tactic Install dir:", None))
+        self.addTacticEnv.setText(QtGui.QApplication.translate("serverPageWidget", "Add Tactic environments to system", None))
 

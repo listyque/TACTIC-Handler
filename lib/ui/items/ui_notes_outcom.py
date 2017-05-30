@@ -1,13 +1,16 @@
 # -*- coding: utf-8 -*-
 
-# Form implementation generated from reading ui file './ui_notes_outcom.ui'
+# Form implementation generated from reading ui file 'items/ui_notes_outcom.ui'
 #
-# Created: Mon Feb 15 17:50:19 2016
-#      by: pyside-uic 0.2.15 running on PySide 1.2.4
+# Created: Thu Apr 27 14:15:16 2017
+#      by: pyside-uic 0.2.13 running on PySide 1.2.2
 #
 # WARNING! All changes made in this file will be lost!
 
-from PySide import QtCore, QtGui
+from lib.side.Qt import QtWidgets as QtGui
+from lib.side.Qt import QtGui as Qt4Gui
+from lib.side.Qt import QtCore
+
 
 class Ui_outcom(object):
     def setupUi(self, outcom):
@@ -37,7 +40,7 @@ class Ui_outcom(object):
         self.gridLayout_5.setObjectName("gridLayout_5")
         self.dateLabel = QtGui.QLabel(self.groupBox_2)
         self.dateLabel.setMinimumSize(QtCore.QSize(0, 18))
-        font = QtGui.QFont()
+        font = Qt4Gui.QFont()
         font.setPointSize(10)
         self.dateLabel.setFont(font)
         self.dateLabel.setToolTip("")
@@ -53,7 +56,7 @@ class Ui_outcom(object):
         self.gridLayout_5.addWidget(self.dateLabel, 0, 1, 1, 1)
         self.authorFullLabel = QtGui.QLabel(self.groupBox_2)
         self.authorFullLabel.setMinimumSize(QtCore.QSize(0, 50))
-        font = QtGui.QFont()
+        font = Qt4Gui.QFont()
         font.setPointSize(10)
         self.authorFullLabel.setFont(font)
         self.authorFullLabel.setAccessibleDescription("")
@@ -83,7 +86,7 @@ class Ui_outcom(object):
         self.gridLayout_5.addWidget(self.authorPicLabel, 1, 0, 1, 1)
         self.authorLabel = QtGui.QLabel(self.groupBox_2)
         self.authorLabel.setMinimumSize(QtCore.QSize(0, 18))
-        font = QtGui.QFont()
+        font = Qt4Gui.QFont()
         font.setPointSize(10)
         font.setWeight(75)
         font.setBold(True)
@@ -104,8 +107,8 @@ class Ui_outcom(object):
         QtCore.QMetaObject.connectSlotsByName(outcom)
 
     def retranslateUi(self, outcom):
-        outcom.setWindowTitle(QtGui.QApplication.translate("outcom", "Form", None, QtGui.QApplication.UnicodeUTF8))
+        outcom.setWindowTitle(QtGui.QApplication.translate("outcom", "Form", None))
         self.authorFullLabel.setText(QtGui.QApplication.translate("outcom", "Алексей Мерзкий\n"
-"listy@live.ru", None, QtGui.QApplication.UnicodeUTF8))
-        self.authorPicLabel.setText(QtGui.QApplication.translate("outcom", "<img src=\"D:/APS/OneDrive/Exam_(work_title)/root/admin/login/listy/icon/listy_icon_icon.png\">", None, QtGui.QApplication.UnicodeUTF8))
+"listy@live.ru", None))
+        self.authorPicLabel.setText(QtGui.QApplication.translate("outcom", "<img src=\"D:/APS/OneDrive/Exam_(work_title)/root/admin/login/listy/icon/listy_icon_icon.png\">", None))
 

@@ -1,13 +1,14 @@
 # -*- coding: utf-8 -*-
 
-# Form implementation generated from reading ui file './ui_maya_import.ui'
+# Form implementation generated from reading ui file 'maya/ui_maya_import.ui'
 #
-# Created: Fri Jan 22 16:31:59 2016
-#      by: pyside-uic 0.2.15 running on PySide 1.2.4
+# Created: Thu Apr 27 14:15:16 2017
+#      by: pyside-uic 0.2.13 running on PySide 1.2.2
 #
 # WARNING! All changes made in this file will be lost!
 
-from PySide import QtCore, QtGui
+from lib.side.Qt import QtWidgets as QtGui
+from lib.side.Qt import QtCore
 
 class Ui_importOptions(object):
     def setupUi(self, importOptions):
@@ -51,8 +52,8 @@ class Ui_importOptions(object):
         QtCore.QMetaObject.connectSlotsByName(importOptions)
 
     def retranslateUi(self, importOptions):
-        importOptions.setWindowTitle(QtGui.QApplication.translate("importOptions", "Form", None, QtGui.QApplication.UnicodeUTF8))
-        self.optionsImportPushButton.setText(QtGui.QApplication.translate("importOptions", "Importing options", None, QtGui.QApplication.UnicodeUTF8))
-        self.importPushButton.setText(QtGui.QApplication.translate("importOptions", "Import", None, QtGui.QApplication.UnicodeUTF8))
-        self.groupBox.setTitle(QtGui.QApplication.translate("importOptions", "Import count:", None, QtGui.QApplication.UnicodeUTF8))
+        importOptions.setWindowTitle(QtGui.QApplication.translate("importOptions", "Form", None))
+        self.optionsImportPushButton.setText(QtGui.QApplication.translate("importOptions", "Importing options", None))
+        self.importPushButton.setText(QtGui.QApplication.translate("importOptions", "Import", None))
+        self.groupBox.setTitle(QtGui.QApplication.translate("importOptions", "Import count:", None))
 

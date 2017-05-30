@@ -58,5 +58,5 @@ class Ui_icons(object):
         icons.setTabOrder(self.imagesSlider, self.spinBox)
 
     def retranslateUi(self, icons):
-        icons.setWindowTitle(QtGui.QApplication.translate("icons", "Form", None, QtGui.QApplication.UnicodeUTF8))
+        icons.setWindowTitle(QtGui.QApplication.translate("icons", "Form", None))
 

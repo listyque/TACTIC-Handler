@@ -1,13 +1,15 @@
 # -*- coding: utf-8 -*-
 
-# Form implementation generated from reading ui file 'checkin_out\ui_drop_plate.ui'
+# Form implementation generated from reading ui file 'checkin_out/ui_drop_plate.ui'
 #
-# Created: Wed Mar 15 22:25:35 2017
-#      by: pyside-uic 0.2.15 running on PySide 1.2.4
+# Created: Thu Apr 27 14:15:17 2017
+#      by: pyside-uic 0.2.13 running on PySide 1.2.2
 #
 # WARNING! All changes made in this file will be lost!
 
-from PySide import QtCore, QtGui
+from lib.side.Qt import QtWidgets as QtGui
+from lib.side.Qt import QtCore
+
 
 class Ui_dropPlate(object):
     def setupUi(self, dropPlate):
@@ -45,14 +47,14 @@ class Ui_dropPlate(object):
         self.keepFileNameCheckBox.setSizePolicy(sizePolicy)
         self.keepFileNameCheckBox.setObjectName("keepFileNameCheckBox")
         self.dropPlateGridLayout.addWidget(self.keepFileNameCheckBox, 1, 2, 1, 1)
-        self.digSubfoldersCheckBox = QtGui.QCheckBox(dropPlate)
+        self.includeSubfoldersCheckBox = QtGui.QCheckBox(dropPlate)
         sizePolicy = QtGui.QSizePolicy(QtGui.QSizePolicy.Preferred, QtGui.QSizePolicy.Fixed)
         sizePolicy.setHorizontalStretch(0)
         sizePolicy.setVerticalStretch(0)
-        sizePolicy.setHeightForWidth(self.digSubfoldersCheckBox.sizePolicy().hasHeightForWidth())
-        self.digSubfoldersCheckBox.setSizePolicy(sizePolicy)
-        self.digSubfoldersCheckBox.setObjectName("digSubfoldersCheckBox")
-        self.dropPlateGridLayout.addWidget(self.digSubfoldersCheckBox, 1, 3, 1, 1)
+        sizePolicy.setHeightForWidth(self.includeSubfoldersCheckBox.sizePolicy().hasHeightForWidth())
+        self.includeSubfoldersCheckBox.setSizePolicy(sizePolicy)
+        self.includeSubfoldersCheckBox.setObjectName("includeSubfoldersCheckBox")
+        self.dropPlateGridLayout.addWidget(self.includeSubfoldersCheckBox, 1, 3, 1, 1)
         self.checkinTypeLabel = QtGui.QLabel(dropPlate)
         self.checkinTypeLabel.setTextFormat(QtCore.Qt.PlainText)
         self.checkinTypeLabel.setObjectName("checkinTypeLabel")
@@ -118,21 +120,21 @@ class Ui_dropPlate(object):
         QtCore.QMetaObject.connectSlotsByName(dropPlate)
 
     def retranslateUi(self, dropPlate):
-        dropPlate.setWindowTitle(QtGui.QApplication.translate("dropPlate", "Form", None, QtGui.QApplication.UnicodeUTF8))
-        self.fromDropListCheckBox.setText(QtGui.QApplication.translate("dropPlate", "From Droplist", None, QtGui.QApplication.UnicodeUTF8))
-        self.groupCheckinCheckBox.setText(QtGui.QApplication.translate("dropPlate", "Group Checkin", None, QtGui.QApplication.UnicodeUTF8))
-        self.keepFileNameCheckBox.setText(QtGui.QApplication.translate("dropPlate", "Keep Filename", None, QtGui.QApplication.UnicodeUTF8))
-        self.digSubfoldersCheckBox.setText(QtGui.QApplication.translate("dropPlate", "Include Subfolders", None, QtGui.QApplication.UnicodeUTF8))
-        self.checkinTypeLabel.setText(QtGui.QApplication.translate("dropPlate", "Checkin Type:", None, QtGui.QApplication.UnicodeUTF8))
-        self.checkinTypeComboBox.setItemText(0, QtGui.QApplication.translate("dropPlate", "A File", None, QtGui.QApplication.UnicodeUTF8))
-        self.checkinTypeComboBox.setItemText(1, QtGui.QApplication.translate("dropPlate", "A Sequence", None, QtGui.QApplication.UnicodeUTF8))
-        self.checkinTypeComboBox.setItemText(2, QtGui.QApplication.translate("dropPlate", "A Directory", None, QtGui.QApplication.UnicodeUTF8))
-        self.checkinTypeComboBox.setItemText(3, QtGui.QApplication.translate("dropPlate", "Miltiple Individual Files", None, QtGui.QApplication.UnicodeUTF8))
-        self.checkinTypeComboBox.setItemText(4, QtGui.QApplication.translate("dropPlate", "Work Area", None, QtGui.QApplication.UnicodeUTF8))
-        self.clearPushButton.setText(QtGui.QApplication.translate("dropPlate", "Clear", None, QtGui.QApplication.UnicodeUTF8))
+        dropPlate.setWindowTitle(QtGui.QApplication.translate("dropPlate", "Form", None))
+        self.fromDropListCheckBox.setText(QtGui.QApplication.translate("dropPlate", "From Droplist", None))
+        self.groupCheckinCheckBox.setText(QtGui.QApplication.translate("dropPlate", "Group Checkin", None))
+        self.keepFileNameCheckBox.setText(QtGui.QApplication.translate("dropPlate", "Keep Filename", None))
+        self.includeSubfoldersCheckBox.setText(QtGui.QApplication.translate("dropPlate", "Include Subfolders", None))
+        self.checkinTypeLabel.setText(QtGui.QApplication.translate("dropPlate", "Checkin Type:", None))
+        self.checkinTypeComboBox.setItemText(0, QtGui.QApplication.translate("dropPlate", "A File", None))
+        self.checkinTypeComboBox.setItemText(1, QtGui.QApplication.translate("dropPlate", "A Sequence", None))
+        self.checkinTypeComboBox.setItemText(2, QtGui.QApplication.translate("dropPlate", "A Directory", None))
+        self.checkinTypeComboBox.setItemText(3, QtGui.QApplication.translate("dropPlate", "Miltiple Individual Files", None))
+        self.checkinTypeComboBox.setItemText(4, QtGui.QApplication.translate("dropPlate", "Work Area", None))
+        self.clearPushButton.setText(QtGui.QApplication.translate("dropPlate", "Clear", None))
         self.dropTreeWidget.setSortingEnabled(True)
-        self.dropTreeWidget.headerItem().setText(0, QtGui.QApplication.translate("dropPlate", "File Name", None, QtGui.QApplication.UnicodeUTF8))
-        self.dropTreeWidget.headerItem().setText(1, QtGui.QApplication.translate("dropPlate", "Class/Ext", None, QtGui.QApplication.UnicodeUTF8))
-        self.dropTreeWidget.headerItem().setText(2, QtGui.QApplication.translate("dropPlate", "Type", None, QtGui.QApplication.UnicodeUTF8))
-        self.dropTreeWidget.headerItem().setText(3, QtGui.QApplication.translate("dropPlate", "File Path", None, QtGui.QApplication.UnicodeUTF8))
+        self.dropTreeWidget.headerItem().setText(0, QtGui.QApplication.translate("dropPlate", "File Name", None))
+        self.dropTreeWidget.headerItem().setText(1, QtGui.QApplication.translate("dropPlate", "Class/Ext", None))
+        self.dropTreeWidget.headerItem().setText(2, QtGui.QApplication.translate("dropPlate", "Type", None))
+        self.dropTreeWidget.headerItem().setText(3, QtGui.QApplication.translate("dropPlate", "File Path", None))
 

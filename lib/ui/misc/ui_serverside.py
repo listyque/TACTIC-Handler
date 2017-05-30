@@ -2,12 +2,14 @@
 
 # Form implementation generated from reading ui file 'misc/ui_serverside.ui'
 #
-# Created: Mon Nov 28 14:38:55 2016
+# Created: Thu Apr 27 14:15:15 2017
 #      by: pyside-uic 0.2.13 running on PySide 1.2.2
 #
 # WARNING! All changes made in this file will be lost!
 
-from PySide import QtCore, QtGui
+from lib.side.Qt import QtWidgets as QtGui
+from lib.side.Qt import QtCore
+
 
 class Ui_scriptEditForm(object):
     def setupUi(self, scriptEditForm):
@@ -32,6 +34,6 @@ class Ui_scriptEditForm(object):
         QtCore.QMetaObject.connectSlotsByName(scriptEditForm)
 
     def retranslateUi(self, scriptEditForm):
-        scriptEditForm.setWindowTitle(QtGui.QApplication.translate("scriptEditForm", "Server-side Script editor", None, QtGui.QApplication.UnicodeUTF8))
-        self.runScriptPushButton.setText(QtGui.QApplication.translate("scriptEditForm", "Run Script", None, QtGui.QApplication.UnicodeUTF8))
+        scriptEditForm.setWindowTitle(QtGui.QApplication.translate("scriptEditForm", "Server-side Script editor", None))
+        self.runScriptPushButton.setText(QtGui.QApplication.translate("scriptEditForm", "Run Script", None))
 

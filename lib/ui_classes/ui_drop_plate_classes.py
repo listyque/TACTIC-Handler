@@ -1,7 +1,10 @@
 # file ui_drop_plate_classes.py
 
-import PySide.QtGui as QtGui
-import PySide.QtCore as QtCore
+# import PySide.QtGui as QtGui
+# import PySide.QtCore as QtCore
+from lib.side.Qt import QtWidgets as QtGui
+from lib.side.Qt import QtCore
+
 from lib.environment import env_mode
 import lib.global_functions as gf
 import lib.ui.checkin_out.ui_drop_plate as ui_drop_plate
@@ -90,6 +93,54 @@ class Ui_dropPlateWidget(QtGui.QWidget, ui_drop_plate.Ui_dropPlate):
         self.dropTreeWidget.resizeColumnToContents(1)
         self.dropTreeWidget.resizeColumnToContents(2)
         self.dropTreeWidget.resizeColumnToContents(3)
+
+    def set_item_widget(self, item_widget):
+        self.item_widget = item_widget
+        if self.item_widget.type in ['snapshot', 'sobject', 'process']:
+            checkin_mode = self.item_widget.get_checkin_mode_options()
+            self.set_checkin_mode(checkin_mode)
+
+    def set_checkin_mode(self, checkin_mode):
+        if not checkin_mode or checkin_mode == 'file':
+            self.checkinTypeComboBox.setCurrentIndex(0)
+        elif checkin_mode == 'sequence':
+            self.checkinTypeComboBox.setCurrentIndex(1)
+        elif checkin_mode == 'dir':
+            self.checkinTypeComboBox.setCurrentIndex(2)
+        elif checkin_mode == 'multi_file':
+            self.checkinTypeComboBox.setCurrentIndex(3)
+        elif checkin_mode == 'workarea':
+            self.checkinTypeComboBox.setCurrentIndex(4)
+
+    def set_settings_from_dict(self, settings_dict=None):
+
+        if not settings_dict:
+            settings_dict = {
+                'includeSubfoldersCheckBox': False,
+                'keepFileNameCheckBox': False,
+                'fromDropListCheckBox': False,
+                'groupCheckinCheckBox': False,
+                'checkinTypeComboBox': 0
+            }
+
+        self.includeSubfoldersCheckBox.setChecked(settings_dict['includeSubfoldersCheckBox'])
+        self.keepFileNameCheckBox.setChecked(settings_dict['keepFileNameCheckBox'])
+        self.fromDropListCheckBox.setChecked(settings_dict['fromDropListCheckBox'])
+        self.groupCheckinCheckBox.setChecked(settings_dict['groupCheckinCheckBox'])
+        self.checkinTypeComboBox.setCurrentIndex(settings_dict['checkinTypeComboBox'])
+
+    def get_settings_dict(self):
+
+        settings_dict = {
+            'includeSubfoldersCheckBox': int(self.includeSubfoldersCheckBox.isChecked()),
+            'keepFileNameCheckBox': int(self.keepFileNameCheckBox.isChecked()),
+            'fromDropListCheckBox': int(self.fromDropListCheckBox.isChecked()),
+            'groupCheckinCheckBox': int(self.groupCheckinCheckBox.isChecked()),
+            'checkinTypeComboBox': int(self.checkinTypeComboBox.currentIndex())
+
+        }
+
+        return settings_dict
 
     def dragEnterEvent(self, event):
         if event.mimeData().hasUrls:

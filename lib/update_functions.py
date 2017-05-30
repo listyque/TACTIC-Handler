@@ -4,7 +4,7 @@ import fnmatch
 import re
 import glob
 import urllib2
-import tarfile
+import zipfile
 import json
 from lib.environment import env_mode, env_server, env_inst
 import lib.tactic_classes as tc
@@ -67,6 +67,7 @@ def get_info_from_updates_folder(files_list=False):
     updates_list = []
     for jf in json_files:
         if jf != 'versions.json':
+            print '{0}/{1}'.format(updates_dir, jf)
             updates_list.append(read_json_from_path('{0}/{1}'.format(updates_dir, jf)))
 
     return updates_list
@@ -189,24 +190,26 @@ def create_app_update_list():
 
 
 def create_update_archive(archive_path):
-    tar = tarfile.open(archive_path, "w:gz")
-
+    zp = zipfile.ZipFile(archive_path, 'w', compression=zipfile.ZIP_DEFLATED)
     files_list = create_app_update_list()
-
     abs_path = env_mode.get_current_path()
 
     for fl in files_list:
         fl_rep = fl.replace
-        tar.add(fl, arcname=fl_rep(abs_path, ''))
-
-    tar.close()
+        zp.write(fl, arcname=fl_rep(abs_path, ''))
+    zp.close()
 
 
 def update_from_archive(archive_path):
-    tar = tarfile.open(archive_path, "r:gz")
+    zp = zipfile.ZipFile(archive_path, "r")
     members = []
-    for member in tar.getmembers():
-        member.name = member.name.replace('\\', '/')
+    for member in zp.infolist():
+        print member.filename
+        member.filename = member.filename.replace('\\', '/')
         members.append(member)
-    tar.extractall(env_mode.get_current_path(), members)
-    tar.close()
+
+    badpath = 'D:\\OneDrive\\CGProjects\\TACTIC-Handler\\lib\\side\\qtawesome\\fonts\\fontawesome-webfont.ttf'
+    print badpath
+    print zp.namelist()
+    # zp.extractall(env_mode.get_current_path(), members)
+    zp.close()

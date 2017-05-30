@@ -10,7 +10,8 @@ import urlparse
 import collections
 import json
 from lib.side.bs4 import BeautifulSoup
-from lib.side.Qt import QtGui
+from lib.side.Qt import QtWidgets as QtGui
+from lib.side.Qt import QtGui as Qt4Gui
 from lib.side.Qt import QtCore
 import lib.proxy as proxy
 from lib.environment import env_mode, env_server, env_inst, env_tactic
@@ -538,8 +539,15 @@ class Project(object):
         stypes = json.loads(result['info']['spt_ret_val'])
 
         schema = stypes.get('schema')
+        # TODO site-wide pipelines
         pipelines = stypes.get('pipelines')
         stypes = stypes.get('stypes')
+
+        # from pprint import pprint
+
+        # pprint(schema)
+        # pprint(pipelines)
+        # pprint(stypes)
 
         if schema:
             prj_schema = schema[0]['schema']
@@ -585,12 +593,12 @@ class Project(object):
             stype_schema = dct.get(stype['code'])
 
             for process in process_list:
-                # print process
                 if dct.get(stype['code']):
                     if process['search_type'] == dct.get(stype['code'])[0]['search_type']['name']:
                         stype_process[process['code']] = process
             # print stype_process
             stype_obj = SType(stype, stype_schema, stype_process, project=self)
+            # print stype_process
             stypes_objects[stype['code']] = stype_obj
 
         return stypes_objects
@@ -977,6 +985,14 @@ class Snapshot(SObject, object):
     def get_snapshot(self):
         return self.snapshot
 
+    def get_version(self):
+        return self.snapshot.get('version')
+
+    def is_versionless(self):
+        if self.get_version() == -1:
+            return True
+        else:
+            return False
 
 class File(object):
     def __init__(self, file_dict, snapshot=None):
@@ -1391,8 +1407,14 @@ def save_confirm(paths, repo, update_versionless=True):
     collapse_wdg_vls.setCollapsed(True)
 
     widgets_layout.addWidget(collapse_wdg_vers, 0, 0)
+
+    update_versionless_checkbox = QtGui.QCheckBox('Update Versionless Snapshot')
+
     if update_versionless:
         widgets_layout.addWidget(collapse_wdg_vls, 1, 0)
+        update_versionless_checkbox.setChecked(True)
+
+    widgets_layout.addWidget(update_versionless_checkbox, 2, 0)
 
     msb_layot = msb.layout()
     msb_layot.addWidget(widgets, 1, 1)
@@ -1459,7 +1481,7 @@ def checkin_virtual_snapshot(search_key, context, files_dict, snapshot_type='fil
         'context': context,
         'snapshot_type': snapshot_type,
         'is_revision': is_revision,
-        'files_dict': files_dict.items(),
+        'files_dict': files_dict,
         'keep_file_name': keep_file_name,
         'version': version,
         'ignore_keep_file_name': ignore_keep_file_name,
@@ -1500,7 +1522,7 @@ def checkin_snapshot(search_key, context, snapshot_type=None, is_revision=False,
 
     repo = repo_name['value'][0]
 
-    for (k1, v1), (k2, v2) in zip(virtual_snapshot, files_dict.items()):
+    for (k1, v1), (k2, v2) in zip(virtual_snapshot, files_dict):
         for path_v, name_v, path_vs, name_vs, tp in zip(v1['versioned']['paths'],
                                                         v1['versioned']['names'],
                                                         v1['versionless']['paths'],
@@ -1531,8 +1553,8 @@ def checkin_snapshot(search_key, context, snapshot_type=None, is_revision=False,
         'mode': mode,
         'create_icon': create_icon,
     }
-
-    # print kwargs
+    # from pprint import pprint
+    # pprint(kwargs)
 
     code = tq.prepare_serverside_script(tq.create_snapshot_extended, kwargs, return_dict=True)
     result = server_start().execute_python_script('', kwargs=code)
@@ -1704,7 +1726,7 @@ def task_priority_query(seach_key):
 
 def generate_web_and_icon(source_image_path, web_save_path=None, icon_save_path=None):
 
-    image = QtGui.QImage(0, 0, QtGui.QImage.Format_ARGB32)
+    image = Qt4Gui.QImage(0, 0, Qt4Gui.QImage.Format_ARGB32)
 
     image.load(source_image_path)
     if web_save_path:
@@ -1790,7 +1812,7 @@ def checkin_file(search_key, context, snapshot_type='file', is_revision=False, d
                  ignore_keep_file_name=False, checkin_app='standalone', selected_objects=False, ext_type='mayaAscii',
                  setting_workspace=False):
 
-    files_dict = collections.OrderedDict()
+    files_dict = []
 
     for i, fn in enumerate(file_names):
         file_dict = dict()
@@ -1799,10 +1821,10 @@ def checkin_file(search_key, context, snapshot_type='file', is_revision=False, d
         file_dict['e'] = [exts[i]]
         file_dict['p'] = [postfixes[i]]
 
-        files_dict[fn] = file_dict
+        files_dict.append((fn, file_dict))
 
     # extending files which can have thumbnails
-    for key, val in files_dict.items():
+    for key, val in files_dict:
         if gf.file_format(val['e'][0])[3] == 'preview':
             val['t'].extend(['web', 'icon'])
             val['s'].extend(['__preview/web', '__preview/icon'])
@@ -1975,8 +1997,12 @@ def checkin_icon(snapshot_code, file_name):
 
 
 # Skey functions
-def parce_skey(skey):
-    server = server_start()
+def parce_skey(skey, get_skey_and_context=False):
+
+    if get_skey_and_context:
+        skey_list = skey[7:].split('&context=')
+        return {'search_key': skey_list[0], 'context': skey_list[1]}
+
     skey_splitted = urlparse.urlparse(skey)
     skey_dict = dict(urlparse.parse_qsl(skey_splitted.query))
     skey_dict['namespace'] = skey_splitted.netloc
@@ -1985,7 +2011,7 @@ def parce_skey(skey):
     if skey_splitted.scheme == 'skey':
         if skey_dict['pipeline_code'] == 'snapshot':
             skey_dict['type'] = 'snapshot'
-            snapshot = server.query('sthpw/snapshot', [('code', skey_dict.get('code'))])
+            snapshot = server_start().query('sthpw/snapshot', [('code', skey_dict.get('code'))])
             if snapshot:
                 snapshot = snapshot[0]
                 skey_dict['pipeline_code'] = snapshot['search_type'].split('/')[-1].split('?')[0]

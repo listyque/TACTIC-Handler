@@ -2,7 +2,10 @@
 # Start here to run app standalone
 
 import sys
-from lib.side.Qt import QtGui
+
+from lib.side.Qt import QtWidgets as QtGui
+from lib.side.Qt import QtGui as Qt4Gui
+
 from lib.environment import env_mode, env_inst
 import lib.tactic_classes as tc
 import lib.ui_classes.ui_main_classes as ui_main_classes
@@ -39,12 +42,12 @@ def getPaletteInfo():
 
 
 def setPaletteFromDct(dct):
-    palette = QtGui.QPalette()
+    palette = Qt4Gui.QPalette()
     for role in roles:
         for group in groups:
-            color = QtGui.QColor(dct['%s:%s' % (role, group)])
-            qGrp = getattr(QtGui.QPalette, group)
-            qRl = getattr(QtGui.QPalette, role)
+            color = Qt4Gui.QColor(dct['%s:%s' % (role, group)])
+            qGrp = getattr(Qt4Gui.QPalette, group)
+            qRl = getattr(Qt4Gui.QPalette, role)
             palette.setColor(qGrp, qRl, color)
             QtGui.QApplication.setPalette(palette)
 

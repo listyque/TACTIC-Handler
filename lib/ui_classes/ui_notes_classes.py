@@ -1,9 +1,12 @@
 # file ui_notes_classes.py
 # Notes panel
 
-import PySide.QtGui as QtGui
-import PySide.QtCore as QtCore
+# import PySide.QtGui as QtGui
+# import PySide.QtCore as QtCore
 # import lib.environment as env
+from lib.side.Qt import QtWidgets as QtGui
+from lib.side.Qt import QtCore
+
 from lib.environment import env_server
 import lib.ui.misc.ui_notes as ui_notes
 import ui_richedit_classes as richedit_widget

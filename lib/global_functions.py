@@ -3,17 +3,21 @@
 
 import subprocess
 import os
-import sys
 import copy
+import ast
 import json
 import zlib
 import binascii
 import collections
 import side.qtawesome as qta
 from lib.side.bs4 import BeautifulSoup
-import PySide.QtGui as QtGui
-import PySide.QtCore as QtCore
-from PySide import QtSvg
+# import PySide.QtGui as QtGui
+# import PySide.QtCore as QtCore
+from lib.side.Qt import QtWidgets as QtGui
+from lib.side.Qt import QtGui as Qt4Gui
+from lib.side.Qt import QtCore
+
+# from PySide import QtSvg
 from environment import env_mode, env_tactic
 
 
@@ -39,6 +43,10 @@ def hex_to_rgb(hex_v, alpha=None, tuple=False):
             return r, g, b
         else:
             return 'rgb({},{},{})'.format(r, g, b)
+
+
+def get_prc(prc, number):
+    return int(prc * number / 100)
 
 
 def sizes(size, precision=2):
@@ -78,18 +86,25 @@ def hex_to_html(text_hex):
         return hex_to_text
 
 
-def to_json(obj, pretty=False):
-    indent = None
-    separators = (',', ':')
-    if pretty:
-        indent = 4
-        separators = (', ', ': ')
-    return json.dumps(obj, indent=indent, separators=separators)
+def to_json(obj, pretty=False, use_ast=False):
+
+    if use_ast:
+        return str(obj)
+    else:
+        indent = None
+        separators = (',', ':')
+        if pretty:
+            indent = 4
+            separators = (', ', ': ')
+        return json.dumps(obj, indent=indent, separators=separators)
 
 
-def from_json(obj):
+def from_json(obj, use_ast=False):
     if obj:
-        return json.loads(obj)
+        if use_ast:
+            return ast.literal_eval(str(obj))
+        else:
+            return json.loads(obj)
 
 
 def gen_acronym(word, length=2):
@@ -418,6 +433,11 @@ def change_property_by_widget_type(widget, in_dict):
             val = in_dict['QComboBox']['value'][in_dict['QComboBox']['obj_name'].index(widget.objectName())]
             widget.setCurrentIndex(int(val))
 
+    elif isinstance(widget, QtGui.QToolButton) and in_dict.get('QToolButton'):
+        if widget.objectName() in in_dict['QToolButton']['obj_name']:
+            val = in_dict['QToolButton']['value'][in_dict['QToolButton']['obj_name'].index(widget.objectName())]
+            widget.setStyleSheet(val)
+
 
 def dockwidget_area_to_str(main_window, dockwidget):
     if main_window.dockWidgetArea(dockwidget) == QtCore.Qt.TopDockWidgetArea:
@@ -527,7 +547,7 @@ def create_tab_label(tab_name, stype):
         effect = QtGui.QGraphicsDropShadowEffect(tab_label)
         t_c = hex_to_rgb(tab_color, alpha=8, tuple=True)
         effect.setOffset(2, 2)
-        effect.setColor(QtGui.QColor(t_c[0], t_c[1], t_c[2], t_c[3]))
+        effect.setColor(Qt4Gui.QColor(t_c[0], t_c[1], t_c[2], t_c[3]))
         effect.setBlurRadius(8)
         tab_label.setGraphicsEffect(effect)
 
@@ -542,9 +562,9 @@ def create_tab_label(tab_name, stype):
 def get_icon(icon_name, icon_name_active=None, color=None, color_active=None, icons_set='fa', **kwargs):
 
     if not color:
-        color = QtGui.QColor(200, 200, 200)
+        color = Qt4Gui.QColor(200, 200, 200)
     if not color_active:
-        color_active = QtGui.QColor(240, 240, 240)
+        color_active = Qt4Gui.QColor(240, 240, 240)
     if not icon_name_active:
         icon_name_active = icon_name
     styling_icon = qta.icon(
@@ -611,7 +631,7 @@ def add_process_item(tree_widget, parent_widget, sobject, stype, process, item_i
     return tree_item_widget
 
 
-def add_snapshot_item(tree_widget, parent_widget, sobject, stype, process, snapshots, item_info, sep_versions=False,
+def add_snapshot_item(tree_widget, parent_widget, sobject, stype, process, pipeline, snapshots, item_info, sep_versions=False,
                       insert_at_top=True):
     from lib.ui_classes.ui_item_classes import Ui_snapshotItemWidget
 
@@ -628,6 +648,7 @@ def add_snapshot_item(tree_widget, parent_widget, sobject, stype, process, snaps
             sobject,
             stype,
             process,
+            pipeline,
             key,
             context.versionless.values(),
             item_info,
@@ -655,6 +676,7 @@ def add_snapshot_item(tree_widget, parent_widget, sobject, stype, process, snaps
                     sobject,
                     stype,
                     process,
+                    pipeline,
                     key,
                     [versions],
                     item_info,
@@ -666,7 +688,7 @@ def add_snapshot_item(tree_widget, parent_widget, sobject, stype, process, snaps
     return snapshots_items
 
 
-def add_versions_snapshot_item(tree_widget, parent_widget, sobject, stype, process, context, snapshots, item_info):
+def add_versions_snapshot_item(tree_widget, parent_widget, sobject, stype, process, pipeline, context, snapshots, item_info):
 
     from lib.ui_classes.ui_item_classes import Ui_snapshotItemWidget
 
@@ -681,6 +703,7 @@ def add_versions_snapshot_item(tree_widget, parent_widget, sobject, stype, proce
             sobject,
             stype,
             process,
+            pipeline,
             context,
             [snapshot],
             item_info,
@@ -797,10 +820,11 @@ def open_file_associated(filepath):
     # TODO message if file not exists
     # if sys.platform.startswith('darwin'):
     #     subprocess.call(('open', filepath))
-    if env_mode.get_platform() == 'Linux':
-        subprocess.call(('xdg-open', filepath))
-    else:
-        os.startfile(filepath)
+    if filepath:
+        if env_mode.get_platform() == 'Linux':
+            subprocess.call(('xdg-open', filepath))
+        else:
+            os.startfile(filepath)
 
 
 def form_path(path):
@@ -881,7 +905,7 @@ def simplify_html(html, pretty=False):
 
 
 def to_plain_text(html, strip=80):
-    text_doc = QtGui.QTextDocument()
+    text_doc = Qt4Gui.QTextDocument()
     text_doc.setHtml(html)
     plain_text = text_doc.toPlainText()[:strip]
     if len(plain_text) > strip - 1:

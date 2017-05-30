@@ -1,22 +1,19 @@
 # -*- coding: utf-8 -*-
 
-# Form implementation generated from reading ui file 'misc\ui_snapshot_browser.ui'
+# Form implementation generated from reading ui file 'misc/ui_snapshot_browser.ui'
 #
-# Created: Mon Jan 09 23:51:08 2017
-#      by: pyside-uic 0.2.15 running on PySide 1.2.4
+# Created: Fri May 12 15:47:05 2017
+#      by: pyside-uic 0.2.13 running on PySide 1.2.2
 #
 # WARNING! All changes made in this file will be lost!
 
-from PySide import QtCore, QtGui
+from lib.side.Qt import QtWidgets as QtGui
+from lib.side.Qt import QtGui as Qt4Gui
+from lib.side.Qt import QtCore
 
 class Ui_snapshotBrowser(object):
     def setupUi(self, snapshotBrowser):
         snapshotBrowser.setObjectName("snapshotBrowser")
-        sizePolicy = QtGui.QSizePolicy(QtGui.QSizePolicy.Preferred, QtGui.QSizePolicy.Ignored)
-        sizePolicy.setHorizontalStretch(0)
-        sizePolicy.setVerticalStretch(0)
-        sizePolicy.setHeightForWidth(snapshotBrowser.sizePolicy().hasHeightForWidth())
-        snapshotBrowser.setSizePolicy(sizePolicy)
         self.gridLayout = QtGui.QGridLayout(snapshotBrowser)
         self.gridLayout.setContentsMargins(0, 0, 0, 0)
         self.gridLayout.setSpacing(0)
@@ -43,17 +40,17 @@ class Ui_snapshotBrowser(object):
         self.imagesSlider.setTickPosition(QtGui.QSlider.TicksAbove)
         self.imagesSlider.setObjectName("imagesSlider")
         self.gridLayout.addWidget(self.imagesSlider, 0, 0, 1, 2)
-        self.splitter = QtGui.QSplitter(snapshotBrowser)
-        self.splitter.setOrientation(QtCore.Qt.Vertical)
-        self.splitter.setObjectName("splitter")
-        self.previewGraphicsView = QtGui.QGraphicsView(self.splitter)
+        self.browserSplitter = QtGui.QSplitter(snapshotBrowser)
+        self.browserSplitter.setOrientation(QtCore.Qt.Vertical)
+        self.browserSplitter.setObjectName("browserSplitter")
+        self.previewGraphicsView = QtGui.QGraphicsView(self.browserSplitter)
         self.previewGraphicsView.setFrameShape(QtGui.QFrame.NoFrame)
         self.previewGraphicsView.setVerticalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOff)
         self.previewGraphicsView.setHorizontalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOff)
-        self.previewGraphicsView.setRenderHints(QtGui.QPainter.Antialiasing|QtGui.QPainter.HighQualityAntialiasing|QtGui.QPainter.SmoothPixmapTransform|QtGui.QPainter.TextAntialiasing)
+        self.previewGraphicsView.setRenderHints(Qt4Gui.QPainter.Antialiasing|Qt4Gui.QPainter.HighQualityAntialiasing|Qt4Gui.QPainter.SmoothPixmapTransform|Qt4Gui.QPainter.TextAntialiasing)
         self.previewGraphicsView.setOptimizationFlags(QtGui.QGraphicsView.DontAdjustForAntialiasing|QtGui.QGraphicsView.DontSavePainterState)
         self.previewGraphicsView.setObjectName("previewGraphicsView")
-        self.filesTreeWidget = QtGui.QTreeWidget(self.splitter)
+        self.filesTreeWidget = QtGui.QTreeWidget(self.browserSplitter)
         self.filesTreeWidget.setStyleSheet("QTreeView::item {\n"
 "    padding: 2px;\n"
 "}\n"
@@ -70,7 +67,7 @@ class Ui_snapshotBrowser(object):
         self.filesTreeWidget.setHeaderHidden(True)
         self.filesTreeWidget.setObjectName("filesTreeWidget")
         self.filesTreeWidget.headerItem().setText(0, "Snapshot / Type / Name:")
-        self.gridLayout.addWidget(self.splitter, 1, 0, 1, 2)
+        self.gridLayout.addWidget(self.browserSplitter, 1, 0, 1, 2)
         self.showAllCheckBox = QtGui.QCheckBox(snapshotBrowser)
         self.showAllCheckBox.setObjectName("showAllCheckBox")
         self.gridLayout.addWidget(self.showAllCheckBox, 2, 0, 1, 1)
@@ -82,10 +79,10 @@ class Ui_snapshotBrowser(object):
         QtCore.QMetaObject.connectSlotsByName(snapshotBrowser)
 
     def retranslateUi(self, snapshotBrowser):
-        self.filesTreeWidget.headerItem().setText(1, QtGui.QApplication.translate("snapshotBrowser", "Size:", None, QtGui.QApplication.UnicodeUTF8))
-        self.filesTreeWidget.headerItem().setText(2, QtGui.QApplication.translate("snapshotBrowser", "Path:", None, QtGui.QApplication.UnicodeUTF8))
-        self.filesTreeWidget.headerItem().setText(3, QtGui.QApplication.translate("snapshotBrowser", "Repo:", None, QtGui.QApplication.UnicodeUTF8))
-        self.filesTreeWidget.headerItem().setText(4, QtGui.QApplication.translate("snapshotBrowser", "Base Type:", None, QtGui.QApplication.UnicodeUTF8))
-        self.showAllCheckBox.setText(QtGui.QApplication.translate("snapshotBrowser", "Show All Files", None, QtGui.QApplication.UnicodeUTF8))
-        self.showMoreInfoCheckBox.setText(QtGui.QApplication.translate("snapshotBrowser", "Show More Info", None, QtGui.QApplication.UnicodeUTF8))
+        self.filesTreeWidget.headerItem().setText(1, QtGui.QApplication.translate("snapshotBrowser", "Size:", None))
+        self.filesTreeWidget.headerItem().setText(2, QtGui.QApplication.translate("snapshotBrowser", "Path:", None))
+        self.filesTreeWidget.headerItem().setText(3, QtGui.QApplication.translate("snapshotBrowser", "Repo:", None))
+        self.filesTreeWidget.headerItem().setText(4, QtGui.QApplication.translate("snapshotBrowser", "Base Type:", None))
+        self.showAllCheckBox.setText(QtGui.QApplication.translate("snapshotBrowser", "Show All Files", None))
+        self.showMoreInfoCheckBox.setText(QtGui.QApplication.translate("snapshotBrowser", "Show More Info", None))
 

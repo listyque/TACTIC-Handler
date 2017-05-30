@@ -45,5 +45,5 @@ class Ui_menu(object):
         QtCore.QMetaObject.connectSlotsByName(menu)
 
     def retranslateUi(self, menu):
-        self.buttonLabel.setText(QtGui.QApplication.translate("menu", "    ", None, QtGui.QApplication.UnicodeUTF8))
+        self.buttonLabel.setText(QtGui.QApplication.translate("menu", "    ", None))
 

@@ -1,8 +1,12 @@
 # file ui_snapshot_browser_classes.py
 # Snaphsot file manager Widget
 
-import PySide.QtGui as QtGui
-import PySide.QtCore as QtCore
+# import PySide.QtGui as QtGui
+# import PySide.QtCore as QtCore
+from lib.side.Qt import QtWidgets as QtGui
+from lib.side.Qt import QtGui as Qt4Gui
+from lib.side.Qt import QtCore
+
 import lib.ui.misc.ui_snapshot_browser as ui_snapshot_browser
 import ui_addsobject_classes as addsobject_widget
 import lib.global_functions as gf
@@ -135,7 +139,7 @@ class Ui_snapshotBrowserWidget(QtGui.QWidget, ui_snapshot_browser.Ui_snapshotBro
         if item.data(0, QtCore.Qt.UserRole):
             menu = self.file_context_menu()
             if menu:
-                menu.exec_(QtGui.QCursor.pos())
+                menu.exec_(Qt4Gui.QCursor.pos())
 
     def open_file_from_graphics_view(self):
         self.file_list[self.current_pix].open_file()
@@ -305,7 +309,7 @@ class Ui_snapshotBrowserWidget(QtGui.QWidget, ui_snapshot_browser.Ui_snapshotBro
                 web_file_obj = preview_file_obj.get_web_preview()
                 if not web_file_obj:
                     web_file_obj = preview_file_obj
-                pixmap = QtGui.QPixmap(web_file_obj.get_full_abs_path())
+                pixmap = Qt4Gui.QPixmap(web_file_obj.get_full_abs_path())
                 if not pixmap.isNull():
                     self.pix_list.append(pixmap.scaledToWidth(640, QtCore.Qt.SmoothTransformation))
                     self.file_list.append(preview_file_obj)
@@ -496,6 +500,10 @@ class Ui_snapshotBrowserWidget(QtGui.QWidget, ui_snapshot_browser.Ui_snapshotBro
 
         self.imagesSlider.setValue(0)
 
+    def create_ui(self):
+        self.setupUi(self)
+        self.create_preview_widget()
+
     @QtCore.Signal
     def value_increased(self, int):
         return int
@@ -549,9 +557,17 @@ class Ui_snapshotBrowserWidget(QtGui.QWidget, ui_snapshot_browser.Ui_snapshotBro
         self.item_widget = item_widget
 
         if self.item_widget.type == 'snapshot':
-            self.snapshots = self.item_widget.get_snapshot()
+            is_versionless = item_widget.is_versionless()
+            if is_versionless:
+                self.snapshots = self.item_widget.get_all_versions_snapshots()
+            else:
+                self.snapshots = self.item_widget.get_snapshot()
+
             if self.snapshots:
-                self.init_snapshot()
+                if is_versionless:
+                    self.init_snapshot(True)
+                else:
+                    self.init_snapshot(False)
                 self.previewGraphicsView.resizeEvent = self.graphicsSceneResizeEvent
                 self.fill_files_tree()
                 self.do_preview()
@@ -581,9 +597,27 @@ class Ui_snapshotBrowserWidget(QtGui.QWidget, ui_snapshot_browser.Ui_snapshotBro
         self.filesTreeWidget.clear()
         self.scene.clear()
 
-    def create_ui(self):
-        self.setupUi(self)
-        self.create_preview_widget()
+    def set_settings_from_dict(self, settings_dict=None):
+
+        if not settings_dict:
+            settings_dict = {
+                'showAllCheckBox': False,
+                'showMoreInfoCheckBox': False,
+                'browserSplitter': None,
+            }
+
+        self.showAllCheckBox.setChecked(settings_dict['showAllCheckBox'])
+        self.showMoreInfoCheckBox.setChecked(settings_dict['showMoreInfoCheckBox'])
+        if settings_dict.get('browserSplitter'):
+            self.browserSplitter.restoreState(QtCore.QByteArray.fromHex(str(settings_dict.get('browserSplitter'))))
+
+    def get_settings_dict(self):
+        settings_dict = {
+            'showAllCheckBox': int(self.showAllCheckBox.isChecked()),
+            'showMoreInfoCheckBox': int(self.showMoreInfoCheckBox.isChecked()),
+            'browserSplitter': str(self.browserSplitter.saveState().toHex()),
+        }
+        return settings_dict
 
     def graphicsSceneResizeEvent(self, event):
         # TODO Smooth downscaling pixmap

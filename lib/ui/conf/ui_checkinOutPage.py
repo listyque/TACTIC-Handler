@@ -2,12 +2,14 @@
 
 # Form implementation generated from reading ui file 'conf/ui_checkinOutPage.ui'
 #
-# Created: Fri Jan  6 12:26:38 2017
+# Created: Thu Apr 27 14:15:16 2017
 #      by: pyside-uic 0.2.13 running on PySide 1.2.2
 #
 # WARNING! All changes made in this file will be lost!
 
-from PySide import QtCore, QtGui
+from lib.side.Qt import QtWidgets as QtGui
+from lib.side.Qt import QtCore
+
 
 class Ui_checkinOutPageWidget(object):
     def setupUi(self, checkinOutPageWidget):
@@ -96,17 +98,17 @@ class Ui_checkinOutPageWidget(object):
         QtCore.QMetaObject.connectSlotsByName(checkinOutPageWidget)
 
     def retranslateUi(self, checkinOutPageWidget):
-        self.processTabsFilterGroupBox.setTitle(QtGui.QApplication.translate("checkinOutPageWidget", "Filter Process Tabs (Per Project only)", None, QtGui.QApplication.UnicodeUTF8))
-        self.processTreeWidget.headerItem().setText(0, QtGui.QApplication.translate("checkinOutPageWidget", "Type/Title", None, QtGui.QApplication.UnicodeUTF8))
-        self.processTreeWidget.headerItem().setText(1, QtGui.QApplication.translate("checkinOutPageWidget", "Code", None, QtGui.QApplication.UnicodeUTF8))
-        self.controlsTabsFilterGroupBox.setTitle(QtGui.QApplication.translate("checkinOutPageWidget", "Filter Control Tabs", None, QtGui.QApplication.UnicodeUTF8))
-        self.controlsTabsTreeWidget.headerItem().setText(0, QtGui.QApplication.translate("checkinOutPageWidget", "Tab Name", None, QtGui.QApplication.UnicodeUTF8))
-        self.controlsTabsTreeWidget.headerItem().setText(1, QtGui.QApplication.translate("checkinOutPageWidget", "Tab Label (Dbl click to Edit)", None, QtGui.QApplication.UnicodeUTF8))
-        self.controlsTabsMoveUpToolButton.setText(QtGui.QApplication.translate("checkinOutPageWidget", "...", None, QtGui.QApplication.UnicodeUTF8))
-        self.applyToAllProjectsRadioButton.setText(QtGui.QApplication.translate("checkinOutPageWidget", "Choose globally", None, QtGui.QApplication.UnicodeUTF8))
-        self.controlsTabsMoveDownToolButton.setText(QtGui.QApplication.translate("checkinOutPageWidget", "...", None, QtGui.QApplication.UnicodeUTF8))
-        self.applyToAllProjectsPushButton.setText(QtGui.QApplication.translate("checkinOutPageWidget", "Apply current to All", None, QtGui.QApplication.UnicodeUTF8))
-        self.applyPerProjectsRadioButton.setText(QtGui.QApplication.translate("checkinOutPageWidget", "Choose per Project", None, QtGui.QApplication.UnicodeUTF8))
-        self.projectsDisplayTreeWidget.headerItem().setText(0, QtGui.QApplication.translate("checkinOutPageWidget", "Category/Title", None, QtGui.QApplication.UnicodeUTF8))
-        self.projectsDisplayTreeWidget.headerItem().setText(1, QtGui.QApplication.translate("checkinOutPageWidget", "Code", None, QtGui.QApplication.UnicodeUTF8))
+        self.processTabsFilterGroupBox.setTitle(QtGui.QApplication.translate("checkinOutPageWidget", "Filter Process Tabs (Per Project only)", None))
+        self.processTreeWidget.headerItem().setText(0, QtGui.QApplication.translate("checkinOutPageWidget", "Type/Title", None))
+        self.processTreeWidget.headerItem().setText(1, QtGui.QApplication.translate("checkinOutPageWidget", "Code", None))
+        self.controlsTabsFilterGroupBox.setTitle(QtGui.QApplication.translate("checkinOutPageWidget", "Filter Control Tabs", None))
+        self.controlsTabsTreeWidget.headerItem().setText(0, QtGui.QApplication.translate("checkinOutPageWidget", "Tab Name", None))
+        self.controlsTabsTreeWidget.headerItem().setText(1, QtGui.QApplication.translate("checkinOutPageWidget", "Tab Label (Dbl click to Edit)", None))
+        self.controlsTabsMoveUpToolButton.setText(QtGui.QApplication.translate("checkinOutPageWidget", "...", None))
+        self.applyToAllProjectsRadioButton.setText(QtGui.QApplication.translate("checkinOutPageWidget", "Choose globally", None))
+        self.controlsTabsMoveDownToolButton.setText(QtGui.QApplication.translate("checkinOutPageWidget", "...", None))
+        self.applyToAllProjectsPushButton.setText(QtGui.QApplication.translate("checkinOutPageWidget", "Apply current to All", None))
+        self.applyPerProjectsRadioButton.setText(QtGui.QApplication.translate("checkinOutPageWidget", "Choose per Project", None))
+        self.projectsDisplayTreeWidget.headerItem().setText(0, QtGui.QApplication.translate("checkinOutPageWidget", "Category/Title", None))
+        self.projectsDisplayTreeWidget.headerItem().setText(1, QtGui.QApplication.translate("checkinOutPageWidget", "Code", None))
 

@@ -174,8 +174,9 @@ def query_search_types_extended(project_code, namespace):
     #     stypes_codes.append(stype['code'])
     # stypes_codes.append('sthpw/task')
     search_type = 'sthpw/pipeline'
-    # filters = [('search_type', stypes_codes), ('project_code', project_code)]
-    filters = [('project_code', project_code)]
+    # filters = [('search_type', stypes_codes)] - THIS IS VALID CODE
+    # filters = [('project_code', 'is', 'NULL'), ('project_code', 'like', project_code)]
+    filters = [] # temporary
     stypes_pipelines = server.query(search_type, filters, return_sobjects=True)
 
     # getting processes info
@@ -289,7 +290,10 @@ def get_virtual_snapshot_extended(search_key, context, files_dict, snapshot_type
     if not version:
         ver = server.eval("@MAX(sthpw/snapshot['context', '{0}'].version)".format(context), search_keys=[search_key])
         if ver:
-            version = int(ver) + 1
+            if is_revision:
+                version = int(ver)
+            else:
+                version = int(ver) + 1
         else:
             version = 1
 
@@ -372,7 +376,10 @@ def create_snapshot_extended(search_key, context, snapshot_type=None, is_revisio
     if not version:
         ver = server.eval("@MAX(sthpw/snapshot['context', '{0}'].version)".format(context), search_keys=[search_key])
         if ver:
-            version = int(ver) + 1
+            if is_revision:
+                version = int(ver)
+            else:
+                version = int(ver) + 1
         else:
             version = 1
 

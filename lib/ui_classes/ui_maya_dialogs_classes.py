@@ -2,7 +2,9 @@
 # file ui_maya_dialogs_classes.py
 # All maya related dialogs
 
-import PySide.QtGui as QtGui
+# import PySide.QtGui as QtGui
+from lib.side.Qt import QtWidgets as QtGui
+
 import lib.ui.maya.ui_maya_import as ui_import
 import lib.ui.maya.ui_maya_open as ui_open
 import lib.ui.maya.ui_maya_reference as ui_reference

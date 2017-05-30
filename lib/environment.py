@@ -4,9 +4,11 @@
 
 import os
 import platform
-import ast  # replace this with json
+import json
 
-import PySide.QtCore as QtCore
+from lib.side.Qt import QtCore
+
+# import PySide.QtCore as QtCore
 
 
 def singleton(cls):
@@ -17,6 +19,20 @@ def singleton(cls):
             instances[cls] = cls
         return instances[cls]
     return get_instance()
+
+
+def to_json(obj, pretty=False):
+    indent = None
+    separators = (',', ':')
+    if pretty:
+        indent = 4
+        separators = (', ', ': ')
+    return json.dumps(obj, indent=indent, separators=separators)
+
+
+def from_json(obj):
+    if obj:
+        return json.loads(obj)
 
 
 @singleton
@@ -184,7 +200,7 @@ class Env(object):
 
     def get_defaults(self):
         self.settings.beginGroup(env_mode.get_node() + '/server_environment')
-        self.defaults = ast.literal_eval(self.settings.value('TACTIC_DEFAULTS', 'None'))
+        self.defaults = from_json(self.settings.value('TACTIC_DEFAULTS', 'null'))
         self.settings.endGroup()
 
         if self.defaults is None:
@@ -200,7 +216,7 @@ class Env(object):
 
     def set_defaults(self):
         self.settings.beginGroup(env_mode.get_node() + '/server_environment')
-        self.settings.setValue('TACTIC_DEFAULTS', str(self.defaults))
+        self.settings.setValue('TACTIC_DEFAULTS', to_json(self.defaults))
         print('Done set_defaults settings write')
         self.settings.endGroup()
 
@@ -209,7 +225,7 @@ class Env(object):
             return self.proxy
         else:
             self.settings.beginGroup(env_mode.get_node() + '/server_environment')
-            self.proxy = ast.literal_eval(self.settings.value('TACTIC_PROXY', str(self.defaults['proxy'])))
+            self.proxy = from_json(self.settings.value('TACTIC_PROXY', to_json(self.defaults['proxy'])))
             self.settings.endGroup()
             return self.proxy
 
@@ -222,7 +238,7 @@ class Env(object):
         }
         self.proxy = proxy
         self.settings.beginGroup(env_mode.get_node() + '/server_environment')
-        self.settings.setValue('TACTIC_PROXY', str(self.proxy))
+        self.settings.setValue('TACTIC_PROXY', to_json(self.proxy))
         print('Done set_proxy settings write')
         self.settings.endGroup()
 
@@ -247,7 +263,7 @@ class Env(object):
             return self.site
         else:
             self.settings.beginGroup(env_mode.get_node() + '/server_environment/' + self.get_cur_srv_preset())
-            self.site = ast.literal_eval(self.settings.value('TACTIC_SITE', str(self.defaults['site'])))
+            self.site = from_json(self.settings.value('TACTIC_SITE', to_json(self.defaults['site'])))
             self.settings.endGroup()
             return self.site
 
@@ -258,7 +274,7 @@ class Env(object):
         }
         self.site = site
         self.settings.beginGroup(env_mode.get_node() + '/server_environment/' + self.get_cur_srv_preset())
-        self.settings.setValue('TACTIC_SITE', str(self.site))
+        self.settings.setValue('TACTIC_SITE', to_json(self.site))
         print('Done set_site settings write')
         self.settings.endGroup()
 
@@ -283,7 +299,7 @@ class Env(object):
             return self.server_presets
         else:
             self.settings.beginGroup(env_mode.get_node() + '/server_environment')
-            self.server_presets = ast.literal_eval(self.settings.value('SERVER_PRESETS', str(self.defaults['server_presets'])))
+            self.server_presets = from_json(self.settings.value('SERVER_PRESETS', to_json(self.defaults['server_presets'])))
             self.settings.endGroup()
             return self.server_presets
 
@@ -295,7 +311,7 @@ class Env(object):
         self.server_presets = server_presets
 
         self.settings.beginGroup(env_mode.get_node() + '/server_environment')
-        self.settings.setValue('SERVER_PRESETS', str(server_presets))
+        self.settings.setValue('SERVER_PRESETS', to_json(server_presets))
         print('Done set_server_presets settings write')
         self.settings.endGroup()
 
@@ -349,7 +365,7 @@ class Tactic(object):
     def get_default_base_dirs(self, force=False):
         if not self.default_base_dirs:
             self.settings.beginGroup(env_mode.get_node() + '/tactic_environment')
-            self.default_base_dirs = ast.literal_eval(self.settings.value('TACTIC_DEFAULT_DIRS', 'None'))
+            self.default_base_dirs = json.loads(self.settings.value('TACTIC_DEFAULT_DIRS', 'null'))
             self.settings.endGroup()
             if not self.default_base_dirs or force:
                 self.default_base_dirs = self.query_base_dirs()
@@ -360,7 +376,7 @@ class Tactic(object):
     def get_base_dirs(self, force=False):
         if not self.base_dirs:
             self.settings.beginGroup(env_mode.get_node() + '/tactic_environment')
-            self.base_dirs = ast.literal_eval(self.settings.value('TACTIC_BASE_DIRS', 'None'))
+            self.base_dirs = from_json(self.settings.value('TACTIC_BASE_DIRS', 'null'))
             self.settings.endGroup()
 
             if not self.base_dirs or force:
@@ -374,14 +390,14 @@ class Tactic(object):
                     linux_local_dir = 'linux_local_repo_dir'
 
                 self.base_dirs = {
-                        'asset_base_dir': [base_dirs['asset_base_dir'], 'General', 'rgb(128,128,128)', 'base', True],
-                        'web_base_dir': [base_dirs['web_base_dir'], 'Web', 'rgb(128,128,128)', 'web', False],
-                        'win32_sandbox_dir': [base_dirs['win32_sandbox_dir'], 'Sandbox', 'rgb(128,128,128)', 'sandbox', False],
-                        'linux_sandbox_dir': [base_dirs['linux_sandbox_dir'], 'Sandbox', 'rgb(128,128,128)', 'sandbox', False],
-                        'win32_client_repo_dir': [base_dirs['win32_client_repo_dir'], 'Client', 'rgb(128,128,128)', 'client', False],
-                        'linux_client_repo_dir': [base_dirs['linux_client_repo_dir'], 'Client', 'rgb(128,128,128)', 'client', False],
-                        'win32_local_repo_dir': [base_dirs[win32_local_dir], 'Local', 'rgb(128,128,128)', 'local', True],
-                        'linux_local_repo_dir': [base_dirs[linux_local_dir], 'Local', 'rgb(128,128,128)', 'local', True],
+                        'asset_base_dir': [base_dirs['asset_base_dir'], 'General', (128, 128, 128), 'base', True],
+                        'web_base_dir': [base_dirs['web_base_dir'], 'Web', (128, 128, 128), 'web', False],
+                        'win32_sandbox_dir': [base_dirs['win32_sandbox_dir'], 'Sandbox', (128, 64, 64), 'sandbox', False],
+                        'linux_sandbox_dir': [base_dirs['linux_sandbox_dir'], 'Sandbox', (128, 64, 64), 'sandbox', False],
+                        'win32_client_repo_dir': [base_dirs['win32_client_repo_dir'], 'Client', (31, 143, 0), 'client', False],
+                        'linux_client_repo_dir': [base_dirs['linux_client_repo_dir'], 'Client', (31, 143, 0), 'client', False],
+                        'win32_local_repo_dir': [base_dirs[win32_local_dir], 'Local', (255, 140, 40), 'local', True],
+                        'linux_local_repo_dir': [base_dirs[linux_local_dir], 'Local', (255, 140, 40), 'local', True],
                         'win32_client_handoff_dir': [base_dirs['win32_client_handoff_dir'], 'Handoff', '', 'client_handoff', False],
                         'linux_client_handoff_dir': [base_dirs['linux_client_handoff_dir'], 'Handoff', '', 'client_handoff', False],
                         'win32_server_handoff_dir': [base_dirs['win32_server_handoff_dir'], 'Handoff', '', 'server_handoff', False],
@@ -394,7 +410,7 @@ class Tactic(object):
 
     def save_base_dirs(self):
         self.settings.beginGroup(env_mode.get_node() + '/tactic_environment')
-        self.settings.setValue('TACTIC_BASE_DIRS', str(self.base_dirs))
+        self.settings.setValue('TACTIC_BASE_DIRS', to_json(self.base_dirs))
         self.settings.endGroup()
 
     def get_custom_dir(self):
@@ -405,7 +421,7 @@ class Tactic(object):
 
     def get_custom_dirs(self):
         self.settings.beginGroup(env_mode.get_node() + '/tactic_environment')
-        self.custom_dirs = ast.literal_eval(self.settings.value('TACTIC_CUSTOM_DIRS', 'None'))
+        self.custom_dirs = from_json(self.settings.value('TACTIC_CUSTOM_DIRS', 'null'))
         self.settings.endGroup()
 
         if not self.custom_dirs:
@@ -416,7 +432,7 @@ class Tactic(object):
                 }
 
             self.settings.beginGroup(env_mode.get_node() + '/tactic_environment')
-            self.settings.setValue('TACTIC_CUSTOM_DIRS', str(self.custom_dirs))
+            self.settings.setValue('TACTIC_CUSTOM_DIRS', to_json(self.custom_dirs))
             self.settings.endGroup()
 
         return self.custom_dirs
@@ -431,79 +447,89 @@ class Tactic(object):
 
         return all_base_dirs
 
-    def get_base_dir(self, repo_name):
+    def get_base_dir(self, repo_name, override_base_dirs=None):
+
+        base_dirs = self.base_dirs
+        if override_base_dirs:
+            base_dirs = override_base_dirs
+
         if repo_name == 'base':
-            return {'name': 'asset_base_dir', 'value': self.base_dirs['asset_base_dir']}
+            return {'name': 'asset_base_dir', 'value': base_dirs['asset_base_dir']}
 
-        if repo_name == 'web':
-            return {'name': 'web_base_dir', 'value': self.base_dirs['web_base_dir']}
+        elif repo_name == 'web':
+            return {'name': 'web_base_dir', 'value': base_dirs['web_base_dir']}
 
-        if repo_name == 'sandbox':
+        elif repo_name == 'sandbox':
             if env_mode.get_platform() == 'Linux':
-                return {'name': 'linux_sandbox_dir', 'value': self.base_dirs['linux_sandbox_dir']}
+                return {'name': 'linux_sandbox_dir', 'value': base_dirs['linux_sandbox_dir']}
             else:
-                return {'name': 'win32_sandbox_dir', 'value': self.base_dirs['win32_sandbox_dir']}
+                return {'name': 'win32_sandbox_dir', 'value': base_dirs['win32_sandbox_dir']}
 
-        if repo_name == 'client':
+        elif repo_name == 'client':
             if env_mode.get_platform() == 'Linux':
-                return {'name': 'linux_client_repo_dir', 'value': self.base_dirs['linux_client_repo_dir']}
+                return {'name': 'linux_client_repo_dir', 'value': base_dirs['linux_client_repo_dir']}
             else:
-                return {'name': 'win32_client_repo_dir', 'value': self.base_dirs['win32_client_repo_dir']}
+                return {'name': 'win32_client_repo_dir', 'value': base_dirs['win32_client_repo_dir']}
 
-        if repo_name == 'local':
+        elif repo_name == 'local':
             if env_mode.get_platform() == 'Linux':
-                return {'name': 'linux_local_repo_dir', 'value': self.base_dirs['linux_local_repo_dir']}
+                return {'name': 'linux_local_repo_dir', 'value': base_dirs['linux_local_repo_dir']}
             else:
-                return {'name': 'win32_local_repo_dir', 'value': self.base_dirs['win32_local_repo_dir']}
+                return {'name': 'win32_local_repo_dir', 'value': base_dirs['win32_local_repo_dir']}
 
-        if repo_name == 'client_handoff':
+        elif repo_name == 'client_handoff':
             if env_mode.get_platform() == 'Linux':
-                return {'name': 'linux_client_handoff_dir', 'value': self.base_dirs['linux_client_handoff_dir']}
+                return {'name': 'linux_client_handoff_dir', 'value': base_dirs['linux_client_handoff_dir']}
             else:
-                return {'name': 'win32_client_handoff_dir', 'value': self.base_dirs['win32_client_handoff_dir']}
+                return {'name': 'win32_client_handoff_dir', 'value': base_dirs['win32_client_handoff_dir']}
 
-        if repo_name == 'server_handoff':
+        elif repo_name == 'server_handoff':
             if env_mode.get_platform() == 'Linux':
-                return {'name': 'linux_server_handoff_dir', 'value': self.base_dirs['linux_server_handoff_dir']}
+                return {'name': 'linux_server_handoff_dir', 'value': base_dirs['linux_server_handoff_dir']}
             else:
-                return {'name': 'win32_server_handoff_dir', 'value': self.base_dirs['win32_server_handoff_dir']}
+                return {'name': 'win32_server_handoff_dir', 'value': base_dirs['win32_server_handoff_dir']}
 
-    def set_base_dir(self, repo_name, value):
+    def set_base_dir(self, repo_name, value, override_base_dirs=None):
+
+        base_dirs = self.base_dirs
+        if override_base_dirs:
+            base_dirs = override_base_dirs
+
         if repo_name == 'base':
-            self.base_dirs['asset_base_dir'] = value
+            base_dirs['asset_base_dir'] = value
 
-        if repo_name == 'web':
-            self.base_dirs['web_base_dir'] = value
+        elif repo_name == 'web':
+            base_dirs['web_base_dir'] = value
 
-        if repo_name == 'sandbox':
+        elif repo_name == 'sandbox':
             if env_mode.get_platform() == 'Linux':
-                self.base_dirs['linux_sandbox_dir'] = value
+                base_dirs['linux_sandbox_dir'] = value
             else:
-                self.base_dirs['win32_sandbox_dir'] = value
+                base_dirs['win32_sandbox_dir'] = value
 
-        if repo_name == 'client':
+        elif repo_name == 'client':
             if env_mode.get_platform() == 'Linux':
-                self.base_dirs['linux_client_repo_dir'] = value
+                base_dirs['linux_client_repo_dir'] = value
             else:
-                self.base_dirs['win32_client_repo_dir'] = value
+                base_dirs['win32_client_repo_dir'] = value
 
-        if repo_name == 'local':
+        elif repo_name == 'local':
             if env_mode.get_platform() == 'Linux':
-                self.base_dirs['linux_local_repo_dir'] = value
+                base_dirs['linux_local_repo_dir'] = value
             else:
-                self.base_dirs['win32_local_repo_dir'] = value
+                base_dirs['win32_local_repo_dir'] = value
 
-        if repo_name == 'client_handoff':
+        elif repo_name == 'client_handoff':
             if env_mode.get_platform() == 'Linux':
-                self.base_dirs['linux_client_handoff_dir'] = value
+                base_dirs['linux_client_handoff_dir'] = value
             else:
-                self.base_dirs['win32_client_handoff_dir'] = value
+                base_dirs['win32_client_handoff_dir'] = value
 
-        if repo_name == 'server_handoff':
+        elif repo_name == 'server_handoff':
             if env_mode.get_platform() == 'Linux':
-                self.base_dirs['linux_server_handoff_dir'] = value
+                base_dirs['linux_server_handoff_dir'] = value
             else:
-                self.base_dirs['win32_server_handoff_dir'] = value
+                base_dirs['win32_server_handoff_dir'] = value
 
 
 # print 'getting tactic env'

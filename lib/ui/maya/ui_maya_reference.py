@@ -1,13 +1,14 @@
 # -*- coding: utf-8 -*-
 
-# Form implementation generated from reading ui file './ui_maya_reference.ui'
+# Form implementation generated from reading ui file 'maya/ui_maya_reference.ui'
 #
-# Created: Fri Jan 22 16:31:59 2016
-#      by: pyside-uic 0.2.15 running on PySide 1.2.4
+# Created: Thu Apr 27 14:15:16 2017
+#      by: pyside-uic 0.2.13 running on PySide 1.2.2
 #
 # WARNING! All changes made in this file will be lost!
 
-from PySide import QtCore, QtGui
+from lib.side.Qt import QtWidgets as QtGui
+from lib.side.Qt import QtCore
 
 class Ui_referenceOptions(object):
     def setupUi(self, referenceOptions):
@@ -51,8 +52,8 @@ class Ui_referenceOptions(object):
         QtCore.QMetaObject.connectSlotsByName(referenceOptions)
 
     def retranslateUi(self, referenceOptions):
-        referenceOptions.setWindowTitle(QtGui.QApplication.translate("referenceOptions", "Form", None, QtGui.QApplication.UnicodeUTF8))
-        self.optionsReferencePushButton.setText(QtGui.QApplication.translate("referenceOptions", "Referencing options", None, QtGui.QApplication.UnicodeUTF8))
-        self.referencePushButton.setText(QtGui.QApplication.translate("referenceOptions", "Reference", None, QtGui.QApplication.UnicodeUTF8))
-        self.groupBox.setTitle(QtGui.QApplication.translate("referenceOptions", "Reference count:", None, QtGui.QApplication.UnicodeUTF8))
+        referenceOptions.setWindowTitle(QtGui.QApplication.translate("referenceOptions", "Form", None))
+        self.optionsReferencePushButton.setText(QtGui.QApplication.translate("referenceOptions", "Referencing options", None))
+        self.referencePushButton.setText(QtGui.QApplication.translate("referenceOptions", "Reference", None))
+        self.groupBox.setTitle(QtGui.QApplication.translate("referenceOptions", "Reference count:", None))
 

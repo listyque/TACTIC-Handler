@@ -3,8 +3,13 @@
 # Main Item for TreeWidget
 
 import os
-import PySide.QtGui as QtGui
-import PySide.QtCore as QtCore
+# import PySide.QtGui as QtGui
+# import PySide.QtCore as QtCore
+from lib.side.Qt import QtWidgets as QtGui
+from lib.side.Qt import QtGui as Qt4Gui
+from lib.side.Qt import QtCore
+
+from lib.environment import env_tactic
 from lib.configuration import cfg_controls
 import lib.global_functions as gf
 import lib.tactic_classes as tc
@@ -90,7 +95,7 @@ class Ui_itemWidget(QtGui.QWidget, ui_item.Ui_item):
                 icon_previw = preview_files_objects[0].get_icon_preview()
                 if icon_previw:
                     previw_abs_path = icon_previw.get_full_abs_path()
-                    pixmap = QtGui.QPixmap(previw_abs_path)
+                    pixmap = Qt4Gui.QPixmap(previw_abs_path)
                     if not pixmap.isNull():
                         self.previewLabel.setPixmap(pixmap.scaledToHeight(64, QtCore.Qt.SmoothTransformation))
 
@@ -207,7 +212,7 @@ class Ui_itemWidget(QtGui.QWidget, ui_item.Ui_item):
 
         self.fill_child_items()
         self.fill_process_items()
-        self.fill_snapshots_items()
+        self.fill_snapshots_items(publish=True)
 
         self.get_notes_count()
 
@@ -220,18 +225,29 @@ class Ui_itemWidget(QtGui.QWidget, ui_item.Ui_item):
         else:
             return ''
 
-    def get_current_process_info(self):
+    def get_context_options(self):
         pipeline = self.get_current_process_pipeline()
-        process_info = None
-        if pipeline:
-            process_info = pipeline.process.get('publish')
+        process = pipeline.get_process('publish')
+        if process:
+            context_options = process.get('context_options')
+            if context_options:
+                return context_options.split('|')
 
+    def get_checkin_mode_options(self):
+        pipeline = self.get_current_process_pipeline()
+        process = pipeline.get_process('publish')
+        if process:
+            return process.get('checkin_mode')
+
+    @staticmethod
+    def get_current_process_info():
+        process_info = {'name': 'publish'}
         return process_info
 
     def get_current_process_pipeline(self):
 
         search_type = self.stype.info.get('search_type')
-        if search_type:
+        if search_type and self.stype.pipeline:
             return self.stype.pipeline.get(search_type)
 
     def get_skey(self, skey=False, only=False, parent=False):
@@ -326,7 +342,9 @@ class Ui_itemWidget(QtGui.QWidget, ui_item.Ui_item):
         query_thread.start()
         query_thread.setPriority(QtCore.QThread.NormalPriority)
 
-    def fill_snapshots_items(self):
+    def fill_snapshots_items(self, publish=False):
+        # print self.children_states, 'CHILDREN STATES, fill_snapshots_items'
+
         # current_widget = self.get_current_widget()
         # current_tree_widget = current_widget.resultsTreeWidget
         # print current_tree_widget
@@ -346,42 +364,36 @@ class Ui_itemWidget(QtGui.QWidget, ui_item.Ui_item):
 
         # adding snapshots per process
         for proc in self.process_items:
+            if proc.process_items:
+                # may be buggy...
+                proc.info['is_expanded'] = True
+                proc.fill_snapshots_items()
+
             for key, val in self.sobject.process.iteritems():
                 # because it is dict, items could be in any position
                 if key == proc.process:
                     self.process_snapshot_items.append(proc.add_snapshots_items(val))
-                    # MOVED TO PROCESS ITEM
-                    # self.process_snapshot_items.append(gf.add_snapshot_item(
-                    #     proc.tree_item,
-                    #     self.parent_ui,
-                    #     proc.sobject,
-                    #     proc.stype,
-                    #     proc.process,
-                    #     val,
-                    #     proc.info,
-                    #     self.sep_versions,
-                    #     False,
-                    # ))
 
-        # adding snapshots to publish
-        for key, val in self.sobject.process.iteritems():
-            if key == 'publish':
-                self.root_snapshot_items.append(gf.add_snapshot_item(
-                        self.tree_item,
-                        self.parent_ui,
-                        self.sobject,
-                        self.stype,
-                        'publish',
-                        val,
-                        self.info,
-                        self.sep_versions,
-                        True,
-                    ))
+        if publish:
+            # adding snapshots to publish
+            for key, val in self.sobject.process.iteritems():
+                if key == 'publish':
+                    self.root_snapshot_items.append(gf.add_snapshot_item(
+                            self.tree_item,
+                            self.parent_ui,
+                            self.sobject,
+                            self.stype,
+                            'publish',
+                            None,
+                            val,
+                            self.info,
+                            self.sep_versions,
+                            True,
+                        ))
 
     def get_full_process_list(self):
         pipeline = self.get_current_process_pipeline()
         if pipeline:
-            pipeline.process['publish'] = {'name': 'publish'} # may be need to add attachment
             return pipeline.process
 
     def get_process_list(self, include_builtins=False, include_hierarchy=False):
@@ -438,6 +450,7 @@ class Ui_itemWidget(QtGui.QWidget, ui_item.Ui_item):
 
             self.fill_child_items()
             self.fill_process_items()
+            self.fill_snapshots_items(publish=True)
             self.query_snapshots()
 
         self.get_notes_count()
@@ -576,6 +589,8 @@ class Ui_processItemWidget(QtGui.QWidget, ui_item_process.Ui_processItem):
         return process_info
 
     def get_current_process_pipeline(self):
+        # pipeline_code = self.sobject.info.get('pipeline_code')
+        # pipeline = self.stype.pipeline.get(pipeline_code)
         if self.pipeline:
             return self.pipeline
         else:
@@ -587,7 +602,7 @@ class Ui_processItemWidget(QtGui.QWidget, ui_item_process.Ui_processItem):
         self.notesToolButton.clicked.connect(lambda: self.create_notes_widget())
 
     def create_ui(self):
-        item_color = QtGui.QColor(200, 200, 200)
+        item_color = Qt4Gui.QColor(200, 200, 200)
         pipeline = self.get_current_process_pipeline()
         process = pipeline.get_process(self.process)
         if process:
@@ -596,14 +611,14 @@ class Ui_processItemWidget(QtGui.QWidget, ui_item_process.Ui_processItem):
             if hex_color:
                 color = gf.hex_to_rgb(hex_color, tuple=True)
             if color:
-                item_color = QtGui.QColor(*color)
+                item_color = Qt4Gui.QColor(*color)
 
         if self.process:
             title = self.process.capitalize()
         else:
             title = 'Unnamed'
         if self.process_info.get('type') == 'hierarchy':
-            self.tree_item.setIcon(0, gf.get_icon('fork', icons_set='ei', scale_factor=0.9))
+            self.tree_item.setIcon(0, gf.get_icon('fork', icons_set='ei', color=item_color, scale_factor=0.9))
         else:
             self.tree_item.setIcon(0, gf.get_icon('circle', color=item_color, scale_factor=0.55))
 
@@ -713,13 +728,14 @@ class Ui_processItemWidget(QtGui.QWidget, ui_item_process.Ui_processItem):
                 self.process_items.append(process_item)
                 process_item.fill_subprocesses()
 
-    # def fill_snapshots_items(self):
-    #     print self.children_states, 'CHILDREN STATES, fill_snapshots_items'
-    #     for proc in self.process_items:
-    #         for key, val in self.sobject.process.iteritems():
-    #             # because it is dict, items could be in any position
-    #             if key == proc.process:
-    #                 self.process_snapshot_items.append(proc.add_snapshots_items(val))
+    def fill_snapshots_items(self):
+        # print self.children_states, 'CHILDREN STATES, fill_snapshots_items'
+        # adding snapshots per process
+        for proc in self.process_items:
+            for key, val in self.sobject.process.iteritems():
+                # because it is dict, items could be in any position
+                if key == proc.process:
+                    self.process_snapshot_items.append(proc.add_snapshots_items(val))
 
     def add_snapshots_items(self, snapshots):
 
@@ -729,6 +745,7 @@ class Ui_processItemWidget(QtGui.QWidget, ui_item_process.Ui_processItem):
             self.sobject,
             self.stype,
             self.process,
+            self.pipeline,
             snapshots,
             self.info,
             self.sep_versions,
@@ -750,6 +767,7 @@ class Ui_processItemWidget(QtGui.QWidget, ui_item_process.Ui_processItem):
             self.sobject,
             self.stype,
             self.process,
+            self.pipeline,
             self.sobject.process.get(self.process),
             self.info,
             self.sep_versions,
@@ -764,6 +782,13 @@ class Ui_processItemWidget(QtGui.QWidget, ui_item_process.Ui_processItem):
         print(self.sobject.process)
 
     def get_context(self, process=False, custom=None):
+
+        # pipeline = self.get_current_process_pipeline()
+        # print pipeline.get_pipeline()
+        # print pipeline.get_process(self.process)
+        # print pipeline.get_info()
+        # print pipeline.get_processes()
+
         if process:
             if custom:
                 return u'{0}/{1}'.format(self.process, custom)
@@ -771,6 +796,20 @@ class Ui_processItemWidget(QtGui.QWidget, ui_item_process.Ui_processItem):
                 return self.process
                 # else:
                 #     return ''
+
+    def get_context_options(self):
+        pipeline = self.get_current_process_pipeline()
+        process = pipeline.get_process(self.process)
+        if process:
+            context_options = process.get('context_options')
+            if context_options:
+                return context_options.split('|')
+
+    def get_checkin_mode_options(self):
+        pipeline = self.get_current_process_pipeline()
+        process = pipeline.get_process(self.process)
+        if process:
+            return process.get('checkin_mode')
 
     def get_description(self):
         return 'No Description for this item "{0}"'.format(self.process)
@@ -799,7 +838,7 @@ class Ui_processItemWidget(QtGui.QWidget, ui_item_process.Ui_processItem):
         if not self.info['is_expanded']:
             self.info['is_expanded'] = True
 
-            # self.fill_snapshots_items()
+            self.fill_snapshots_items()
 
         self.get_notes_count()
 
@@ -824,7 +863,7 @@ class Ui_processItemWidget(QtGui.QWidget, ui_item_process.Ui_processItem):
 
 
 class Ui_snapshotItemWidget(QtGui.QWidget, ui_item_snapshot.Ui_snapshotItem):
-    def __init__(self, sobject, stype, process, context, snapshot, info, tree_item, parent=None):
+    def __init__(self, sobject, stype, process, pipeline, context, snapshot, info, tree_item, parent=None):
         super(self.__class__, self).__init__(parent=parent)
 
         self.setupUi(self)
@@ -832,6 +871,7 @@ class Ui_snapshotItemWidget(QtGui.QWidget, ui_item_snapshot.Ui_snapshotItem):
         self.sobject = sobject
         self.stype = stype
         self.process = process
+        self.pipeline = pipeline
         self.context = context
         self.snapshot = None
         self.current_snapshot = snapshot
@@ -866,7 +906,6 @@ class Ui_snapshotItemWidget(QtGui.QWidget, ui_item_snapshot.Ui_snapshotItem):
             file_ext = 'err'
             for key, fl in self.files.iteritems():
                 if key not in hidden:
-                    # TODO Repo color
                     if self.snapshot.get('repo'):
                         self.sizeLabel.setStyleSheet(self.get_repo_color())
                     if not self.isEnabled():
@@ -881,13 +920,19 @@ class Ui_snapshotItemWidget(QtGui.QWidget, ui_item_snapshot.Ui_snapshotItem):
                 self.previewLabel.setText(
                     '<span style=" font-size:12pt; font-weight:600; color:#828282;">{0}</span>'.format(file_ext)
                 )
-
         else:
-            self.fileNameLabel.setText('Versionless for {0} not found'.format(self.context))
-            self.commentLabel.setText('Check this snapshot, and update versionless')
-            self.dateLabel.deleteLater()
-            self.sizeLabel.deleteLater()
-            self.authorLabel.deleteLater()
+            if self.get_checkin_mode_options() == 'multi_file':
+                self.set_multiple_files_view()
+            else:
+                self.set_no_versionless_view()
+
+    def is_versionless(self):
+        snapshot = self.get_snapshot()
+        if snapshot:
+            return snapshot.is_versionless()
+        else:
+            # only versionless can be displayed without snapshot!
+            return True
 
     def get_expand_state(self):
         return self.expand_state
@@ -918,6 +963,24 @@ class Ui_snapshotItemWidget(QtGui.QWidget, ui_item_snapshot.Ui_snapshotItem):
                     else:
                         self.setDisabled(True)
 
+    def set_multiple_files_view(self):
+        pixmap = gf.get_icon('folder-sign', icons_set='ei', opacity=0.5, scale_factor=0.5).pixmap(64, Qt4Gui.QIcon.Normal)
+        self.previewLabel.setPixmap(pixmap.scaledToHeight(64, QtCore.Qt.SmoothTransformation))
+        self.fileNameLabel.setText('Multiple checkin: {0} '.format(self.context))
+        self.commentLabel.setText('Total count: {0}'.format(len(self.get_all_versions_snapshots())))
+        self.dateLabel.deleteLater()
+        self.sizeLabel.deleteLater()
+        self.authorLabel.deleteLater()
+
+    def set_no_versionless_view(self):
+        pixmap = gf.get_icon('exclamation-circle', opacity=0.5, scale_factor=0.6).pixmap(64, Qt4Gui.QIcon.Normal)
+        self.previewLabel.setPixmap(pixmap.scaledToHeight(64, QtCore.Qt.SmoothTransformation))
+        self.fileNameLabel.setText('Versionless for {0} not found'.format(self.context))
+        self.commentLabel.setText('Check this snapshot, and update versionless')
+        self.dateLabel.deleteLater()
+        self.sizeLabel.deleteLater()
+        self.authorLabel.deleteLater()
+
     def set_preview(self):
         snapshot = self.get_snapshot()
         if snapshot:
@@ -926,12 +989,19 @@ class Ui_snapshotItemWidget(QtGui.QWidget, ui_item_snapshot.Ui_snapshotItem):
                 icon_previw = preview_files_objects[0].get_icon_preview()
                 if icon_previw:
                     previw_abs_path = icon_previw.get_full_abs_path()
-                    pixmap = QtGui.QPixmap(previw_abs_path)
+                    pixmap = Qt4Gui.QPixmap(previw_abs_path)
                     if not pixmap.isNull():
                         self.previewLabel.setPixmap(pixmap.scaledToHeight(64, QtCore.Qt.SmoothTransformation))
                         return True
                     else:
                         return False
+
+    def get_all_versions_snapshots(self):
+        process = self.sobject.process.get(self.process)
+        context = process.contexts.get(self.context)
+        # print context.versions
+        # print context.versionless
+        return context.versions
 
     def get_snapshot(self):
         if self.current_snapshot:
@@ -979,19 +1049,7 @@ class Ui_snapshotItemWidget(QtGui.QWidget, ui_item_snapshot.Ui_snapshotItem):
     def get_repo_color(self):
         config = cfg_controls.get_checkin()
         if config:
-            if self.snapshot['repo'] == 'base':
-                repo = gf.get_value_from_config(config, 'assetBaseDirColorToolButton', 'QToolButton')
-            if self.snapshot['repo'] == 'local':
-                repo = gf.get_value_from_config(config, 'localRepoDirColorToolButton', 'QToolButton')
-            # if self.snapshot['repo'] == 'win32_sandbox_dir':
-            #     repo = gf.get_value_from_config(config, 'sandboxDirColorToolButton', 'QToolButton')
-            # if self.snapshot['repo'] == 'win32_client_repo_dir':
-            #     repo = gf.get_value_from_config(config, 'clientRepoDirColorToolButton', 'QToolButton')
-            # if self.snapshot['repo'] == 'custom_asset_dir':
-            #     repo = gf.get_value_from_config(config, 'customRepoDirColorToolButton', 'QToolButton')
-
-            color = repo[repo.find('rgb'):repo.find('rgb') + 16]
-            repo_colors = color.replace('rgb(', '').replace(')', '').split(',')
+            repo_colors = env_tactic.get_base_dir(self.snapshot['repo'])['value'][2]
         else:
             repo_colors = [96, 96, 96]
 
@@ -1013,10 +1071,27 @@ class Ui_snapshotItemWidget(QtGui.QWidget, ui_item_snapshot.Ui_snapshotItem):
                 context = ''
             return context
 
+    def get_context_options(self):
+        pipeline = self.get_current_process_pipeline()
+        process = pipeline.get_process(self.process)
+        if process:
+            context_options = process.get('context_options')
+            if context_options:
+                return context_options.split('|')
+
+    def get_checkin_mode_options(self):
+        pipeline = self.get_current_process_pipeline()
+        process = pipeline.get_process(self.process)
+        if process:
+            return process.get('checkin_mode')
+
     def get_current_process_pipeline(self):
-        pipeline_code = self.sobject.info.get('pipeline_code')
-        if pipeline_code and self.stype.pipeline:
-            return self.stype.pipeline.get(pipeline_code)
+        if self.pipeline:
+            return self.pipeline
+        else:
+            pipeline_code = self.sobject.info.get('pipeline_code')
+            if pipeline_code and self.stype.pipeline:
+                return self.stype.pipeline.get(pipeline_code)
 
     def get_current_process_info(self):
         pipeline = self.get_current_process_pipeline()
@@ -1062,10 +1137,10 @@ class Ui_snapshotItemWidget(QtGui.QWidget, ui_item_snapshot.Ui_snapshotItem):
                 return self.snapshot['__search_key__']
             if skey:
                 return 'skey://{0}'.format(self.snapshot['__search_key__'])
-            if parent:
-                return self.sobject.info['__search_key__']
+        if parent:
+            return self.sobject.info['__search_key__']
         else:
-            return 'No skey for this item!'
+            return 'skey://{0}'.format(self.sobject.info['__search_key__'])
 
     def get_description(self):
         if self.snapshot:
@@ -1191,8 +1266,8 @@ class Ui_childrenItemWidget(QtGui.QWidget, ui_item_children.Ui_childrenItem):
             t_c = gf.hex_to_rgb(button_color, alpha=255, tuple=True)
             # print t_c
             effect.setOffset(1, 1)
-            effect.setColor(QtGui.QColor(t_c[0], t_c[1], t_c[2], t_c[3]))
-            # blur.setColor(QtGui.QColor(t_c[0], t_c[1], t_c[2], t_c[3]))
+            effect.setColor(Qt4Gui.QColor(t_c[0], t_c[1], t_c[2], t_c[3]))
+            # blur.setColor(Qt4Gui.QColor(t_c[0], t_c[1], t_c[2], t_c[3]))
             # print blur.strength()
             # blur.setStrength(.5)
             # blur.setBlurRadius()

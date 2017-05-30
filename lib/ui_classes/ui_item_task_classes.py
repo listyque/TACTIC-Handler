@@ -1,7 +1,9 @@
 # file ui_item_task_classes.py
 # Notes panel
 
-import PySide.QtGui as QtGui
+# import PySide.QtGui as QtGui
+from lib.side.Qt import QtWidgets as QtGui
+
 import lib.ui.items.ui_item_task as ui_task
 import lib.ui.items.ui_item_task_detail as ui_task_detail
 

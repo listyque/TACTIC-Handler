@@ -168,7 +168,7 @@
       <item row="3" column="0">
        <widget class="QCheckBox" name="updateVersionlessCheckBox">
         <property name="text">
-         <string>Update versionless</string>
+         <string>Update versionless snapshot</string>
         </property>
         <property name="checked">
          <bool>true</bool>
@@ -182,7 +182,7 @@
         </property>
        </widget>
       </item>
-      <item row="6" column="0">
+      <item row="8" column="0">
        <widget class="QCheckBox" name="createPlayblastCheckBox">
         <property name="text">
          <string>Create screenshot (playblast)</string>
@@ -199,6 +199,20 @@
         </property>
         <property name="checked">
          <bool>true</bool>
+        </property>
+       </widget>
+      </item>
+      <item row="6" column="0">
+       <widget class="QCheckBox" name="uncheckFromDropPlateCheckBox">
+        <property name="text">
+         <string>Uncheck &quot;From DropPlate&quot; after Checkin</string>
+        </property>
+       </widget>
+      </item>
+      <item row="7" column="0">
+       <widget class="QCheckBox" name="clearDropPlateAfterCheckincheckBox">
+        <property name="text">
+         <string>Clear DropPlate after Checkin</string>
         </property>
        </widget>
       </item>

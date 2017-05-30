@@ -1,13 +1,15 @@
 # -*- coding: utf-8 -*-
 
-# Form implementation generated from reading ui file 'misc/ui_search_results.ui'
+# Form implementation generated from reading ui file 'search/ui_search_results.ui'
 #
-# Created: Sat Nov 19 16:15:34 2016
+# Created: Thu Apr 27 14:15:17 2017
 #      by: pyside-uic 0.2.13 running on PySide 1.2.2
 #
 # WARNING! All changes made in this file will be lost!
 
-from PySide import QtCore, QtGui
+from lib.side.Qt import QtWidgets as QtGui
+from lib.side.Qt import QtCore
+
 
 class Ui_resultsGroupBox(object):
     def setupUi(self, resultsGroupBox):
@@ -32,6 +34,6 @@ class Ui_resultsGroupBox(object):
         QtCore.QMetaObject.connectSlotsByName(resultsGroupBox)
 
     def retranslateUi(self, resultsGroupBox):
-        resultsGroupBox.setWindowTitle(QtGui.QApplication.translate("resultsGroupBox", "GroupBox", None, QtGui.QApplication.UnicodeUTF8))
-        resultsGroupBox.setTitle(QtGui.QApplication.translate("resultsGroupBox", "Results:", None, QtGui.QApplication.UnicodeUTF8))
+        resultsGroupBox.setWindowTitle(QtGui.QApplication.translate("resultsGroupBox", "GroupBox", None))
+        resultsGroupBox.setTitle(QtGui.QApplication.translate("resultsGroupBox", "Results:", None))
 

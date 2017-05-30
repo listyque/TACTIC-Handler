@@ -2,12 +2,14 @@
 
 # Form implementation generated from reading ui file 'conf/ui_globalPage.ui'
 #
-# Created: Fri Jan  6 12:26:39 2017
+# Created: Thu Apr 27 14:15:16 2017
 #      by: pyside-uic 0.2.13 running on PySide 1.2.2
 #
 # WARNING! All changes made in this file will be lost!
 
-from PySide import QtCore, QtGui
+from lib.side.Qt import QtWidgets as QtGui
+from lib.side.Qt import QtCore
+
 
 class Ui_globalPageWidget(object):
     def setupUi(self, globalPageWidget):
@@ -40,8 +42,8 @@ class Ui_globalPageWidget(object):
         QtCore.QMetaObject.connectSlotsByName(globalPageWidget)
 
     def retranslateUi(self, globalPageWidget):
-        globalPageWidget.setWindowTitle(QtGui.QApplication.translate("globalPageWidget", "Form", None, QtGui.QApplication.UnicodeUTF8))
-        self.cacheProcessTabsCheckBox.setText(QtGui.QApplication.translate("globalPageWidget", "Cache Tabs (faster launch)", None, QtGui.QApplication.UnicodeUTF8))
-        self.flushTabsCachePushButton.setText(QtGui.QApplication.translate("globalPageWidget", "Flush Tabs cache", None, QtGui.QApplication.UnicodeUTF8))
-        self.configPathGroupBox.setTitle(QtGui.QApplication.translate("globalPageWidget", "Configuration files path:", None, QtGui.QApplication.UnicodeUTF8))
+        globalPageWidget.setWindowTitle(QtGui.QApplication.translate("globalPageWidget", "Form", None))
+        self.cacheProcessTabsCheckBox.setText(QtGui.QApplication.translate("globalPageWidget", "Cache Tabs (faster launch)", None))
+        self.flushTabsCachePushButton.setText(QtGui.QApplication.translate("globalPageWidget", "Flush Tabs cache", None))
+        self.configPathGroupBox.setTitle(QtGui.QApplication.translate("globalPageWidget", "Configuration files path:", None))
 

@@ -1,13 +1,15 @@
 # -*- coding: utf-8 -*-
 
-# Form implementation generated from reading ui file 'search\ui_search_results_tree.ui'
+# Form implementation generated from reading ui file 'search/ui_search_results_tree.ui'
 #
-# Created: Tue Jan 10 21:16:45 2017
-#      by: pyside-uic 0.2.15 running on PySide 1.2.4
+# Created: Thu Apr 27 14:15:17 2017
+#      by: pyside-uic 0.2.13 running on PySide 1.2.2
 #
 # WARNING! All changes made in this file will be lost!
 
-from PySide import QtCore, QtGui
+from lib.side.Qt import QtWidgets as QtGui
+from lib.side.Qt import QtCore
+
 
 class Ui_resultsForm(object):
     def setupUi(self, resultsForm):

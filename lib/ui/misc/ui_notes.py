@@ -1,13 +1,14 @@
 # -*- coding: utf-8 -*-
 
-# Form implementation generated from reading ui file './ui_notes.ui'
+# Form implementation generated from reading ui file 'misc/ui_notes.ui'
 #
-# Created: Tue Feb 09 11:17:44 2016
-#      by: pyside-uic 0.2.15 running on PySide 1.2.4
+# Created: Thu Apr 27 14:15:15 2017
+#      by: pyside-uic 0.2.13 running on PySide 1.2.2
 #
 # WARNING! All changes made in this file will be lost!
 
-from PySide import QtCore, QtGui
+from lib.side.Qt import QtWidgets as QtGui
+from lib.side.Qt import QtCore
 
 class Ui_notes(object):
     def setupUi(self, notes):
@@ -62,8 +63,8 @@ class Ui_notes(object):
         QtCore.QMetaObject.connectSlotsByName(notes)
 
     def retranslateUi(self, notes):
-        notes.setWindowTitle(QtGui.QApplication.translate("notes", "Form", None, QtGui.QApplication.UnicodeUTF8))
-        self.replyPushButton.setText(QtGui.QApplication.translate("notes", "Reply", None, QtGui.QApplication.UnicodeUTF8))
-        self.useFilterCheckBox.setText(QtGui.QApplication.translate("notes", "Filter by users", None, QtGui.QApplication.UnicodeUTF8))
-        self.filterUsersPushButton.setText(QtGui.QApplication.translate("notes", "Pick Users", None, QtGui.QApplication.UnicodeUTF8))
+        notes.setWindowTitle(QtGui.QApplication.translate("notes", "Form", None))
+        self.replyPushButton.setText(QtGui.QApplication.translate("notes", "Reply", None))
+        self.useFilterCheckBox.setText(QtGui.QApplication.translate("notes", "Filter by users", None))
+        self.filterUsersPushButton.setText(QtGui.QApplication.translate("notes", "Pick Users", None))
 

@@ -55,17 +55,17 @@
  <connections>
   <connection>
    <sender>settingsPerTabCheckBox</sender>
-   <signal>clicked(bool)</signal>
+   <signal>toggled(bool)</signal>
    <receiver>applyToAllPushButton</receiver>
    <slot>setEnabled(bool)</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>65</x>
-     <y>359</y>
+     <x>91</x>
+     <y>24</y>
     </hint>
     <hint type="destinationlabel">
-     <x>222</x>
-     <y>362</y>
+     <x>177</x>
+     <y>35</y>
     </hint>
    </hints>
   </connection>

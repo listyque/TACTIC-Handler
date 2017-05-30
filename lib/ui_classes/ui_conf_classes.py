@@ -1,10 +1,15 @@
 # ui_conf_classes.py
 # Configuration window classes
 
-import copy
 import collections
-import PySide.QtCore as QtCore
-import PySide.QtGui as QtGui
+import copy
+
+# import PySide.QtCore as QtCore
+# import PySide.QtGui as QtGui
+from lib.side.Qt import QtWidgets as QtGui
+from lib.side.Qt import QtGui as Qt4Gui
+from lib.side.Qt import QtCore
+
 from lib.environment import env_mode, env_inst, env_server, env_tactic
 from lib.configuration import cfg_controls
 import lib.tactic_classes as tc
@@ -12,19 +17,19 @@ import lib.global_functions as gf
 import lib.ui.conf.ui_conf as ui_conf
 import lib.ui.conf.ui_serverPage as ui_serverPage
 import lib.ui.conf.ui_projectPage as ui_projectPage
-import lib.ui.conf.ui_checkoutPage as ui_checkoutPage
+# import lib.ui.conf.ui_checkoutPage as ui_checkoutPage
 import lib.ui.conf.ui_checkinPage as ui_checkinPage
 import lib.ui.conf.ui_checkinOutPage as ui_checkinOutPage
 import lib.ui.conf.ui_globalPage as ui_globalPage
 import lib.ui.conf.ui_mayaPage as ui_mayaPage
 
-if env_mode.get_mode() == 'maya':
-    import maya.cmds as cmds
+# if env_mode.get_mode() == 'maya':
+#     import maya.cmds as cmds
 
 reload(ui_conf)
 reload(ui_serverPage)
 reload(ui_projectPage)
-reload(ui_checkoutPage)
+# reload(ui_checkoutPage)
 reload(ui_checkinPage)
 reload(ui_checkinOutPage)
 reload(ui_globalPage)
@@ -247,7 +252,7 @@ class Ui_projectPageWidget(QtGui.QWidget, ui_projectPage.Ui_projectPageWidget):
         env_inst.ui_main.create_project_dock(project_code)
 
         self.add_projects_items(1)
-        env_inst.ui_conf.save_button.setEnabled(True)
+        env_inst.ui_conf.apply_button.setEnabled(True)
         env_inst.ui_conf.reset_button.setEnabled(True)
 
         current_item_text = env_inst.ui_conf.configToolBox.itemText(1)
@@ -283,7 +288,7 @@ class Ui_projectPageWidget(QtGui.QWidget, ui_projectPage.Ui_projectPageWidget):
                 top_item.setText(0, title)
                 self.projectsTreeWidget.addTopLevelItem(top_item)
                 self.projectsTreeWidget.header().resizeSection(0, 200)
-                top_item.setForeground(0, QtGui.QBrush(QtGui.QColor(128, 128, 128)))
+                top_item.setForeground(0, Qt4Gui.QBrush(Qt4Gui.QColor(128, 128, 128)))
                 for project in value:
 
                     child_item = QtGui.QTreeWidgetItem()
@@ -291,13 +296,13 @@ class Ui_projectPageWidget(QtGui.QWidget, ui_projectPage.Ui_projectPageWidget):
                     if project['is_template']:
                         child_title = project['title'] + ' (template)'
                         child_item.setDisabled(True)
-                        child_item.setForeground(0, QtGui.QBrush(QtGui.QColor(50, 150, 175)))
+                        child_item.setForeground(0, Qt4Gui.QBrush(Qt4Gui.QColor(50, 150, 175)))
                     else:
                         child_title = project['title']
 
                     if project['code'] in env_inst.ui_main_tabs.keys():
                         child_item.setCheckState(0, QtCore.Qt.Checked)
-                        child_item.setForeground(0, QtGui.QBrush(QtGui.QColor(165, 175, 25)))
+                        child_item.setForeground(0, Qt4Gui.QBrush(Qt4Gui.QColor(165, 175, 25)))
 
                     child_item.setText(0, child_title)
                     child_item.setText(1, project['code'])
@@ -338,43 +343,43 @@ class Ui_projectPageWidget(QtGui.QWidget, ui_projectPage.Ui_projectPageWidget):
         # self.collect_defaults()
 
 
-class Ui_checkoutPageWidget(QtGui.QWidget, ui_checkoutPage.Ui_checkoutPageWidget):
-    def __init__(self, parent=None):
-        super(self.__class__, self).__init__(parent=parent)
-
-        self.setupUi(self)
-
-        self.page_init = cfg_controls.get_checkout()
-        self.page_defaults = None
-
-        self.create_checkout_page()
-
-    def create_checkout_page(self):
-        pass
-
-    def save_config(self):
-        self.collect_defaults(get_values=True)
-        cfg_controls.set_checkout(self.page_init)
-        self.collect_defaults(store_defaults=True)
-
-    def collect_defaults(self, get_values=False, apply_values=False, store_defaults=False, undo_changes=False):
-        self.page_defaults, self.page_init = gf.collect_defaults(
-            self.page_defaults,
-            self.page_init,
-            [self.checkoutMiscOptionsLayout],
-            get_values=get_values,
-            apply_values=apply_values,
-            store_defaults=store_defaults,
-            undo_changes=undo_changes,
-            parent=env_inst.ui_conf,
-            ignore_list=[QtGui.QToolButton, QtGui.QLineEdit, QtGui.QTreeWidget, QtGui.QGroupBox, QtGui.QComboBox, QtGui.QRadioButton]
-        )
-
-    def showEvent(self, *args, **kwargs):
-        print 'checkoutPage'
-        if not self.page_defaults and self.page_init:
-            self.collect_defaults(apply_values=True)
-        self.collect_defaults()
+# class Ui_checkoutPageWidget(QtGui.QWidget, ui_checkoutPage.Ui_checkoutPageWidget):
+#     def __init__(self, parent=None):
+#         super(self.__class__, self).__init__(parent=parent)
+#
+#         self.setupUi(self)
+#
+#         self.page_init = cfg_controls.get_checkout()
+#         self.page_defaults = None
+#
+#         self.create_checkout_page()
+#
+#     def create_checkout_page(self):
+#         pass
+#
+#     def save_config(self):
+#         self.collect_defaults(get_values=True)
+#         cfg_controls.set_checkout(self.page_init)
+#         self.collect_defaults(store_defaults=True)
+#
+#     def collect_defaults(self, get_values=False, apply_values=False, store_defaults=False, undo_changes=False):
+#         self.page_defaults, self.page_init = gf.collect_defaults(
+#             self.page_defaults,
+#             self.page_init,
+#             [self.checkoutMiscOptionsLayout],
+#             get_values=get_values,
+#             apply_values=apply_values,
+#             store_defaults=store_defaults,
+#             undo_changes=undo_changes,
+#             parent=env_inst.ui_conf,
+#             ignore_list=[QtGui.QToolButton, QtGui.QLineEdit, QtGui.QTreeWidget, QtGui.QGroupBox, QtGui.QComboBox, QtGui.QRadioButton]
+#         )
+#
+#     def showEvent(self, *args, **kwargs):
+#         print 'checkoutPage'
+#         if not self.page_defaults and self.page_init:
+#             self.collect_defaults(apply_values=True)
+#         self.collect_defaults()
 
 
 class Ui_checkinPageWidget(QtGui.QWidget, ui_checkinPage.Ui_checkinPageWidget):
@@ -383,9 +388,11 @@ class Ui_checkinPageWidget(QtGui.QWidget, ui_checkinPage.Ui_checkinPageWidget):
 
         self.setupUi(self)
 
-        self.custom_repo_item_init = env_tactic.get_custom_dir()['value']
+        self.custom_repo_item_init = copy.deepcopy(env_tactic.get_custom_dir()['value'])
         self.custom_repo_item_defaults = None
-        self.page_init = cfg_controls.get_checkin()
+        self.repo_item_init = copy.deepcopy(env_tactic.get_base_dirs())
+        self.repo_item_defaults = None
+        self.page_init = copy.deepcopy(cfg_controls.get_checkin())
         self.page_defaults = None
 
         self.create_checkin_page()
@@ -407,6 +414,42 @@ class Ui_checkinPageWidget(QtGui.QWidget, ui_checkinPage.Ui_checkinPageWidget):
         self.deleteCustomRepoPushButton.clicked.connect(self.delete_custom_repo_dir)
         self.editCustomRepoPushButton.clicked.connect(self.edit_custom_repo_dir)
         self.customRepoTreeWidget.clicked.connect(self.custom_repo_items_visibility)
+
+        self.assetBaseDirColorToolButton.clicked.connect(lambda: self.change_repo_color_dialog('base'))
+        self.sandboxDirColorToolButton.clicked.connect(lambda: self.change_repo_color_dialog('sandbox'))
+        self.localRepoDirColorToolButton.clicked.connect(lambda: self.change_repo_color_dialog('local'))
+        self.clientRepoDirColorToolButton.clicked.connect(lambda: self.change_repo_color_dialog('client'))
+
+    def change_repo_color_dialog(self, repo_name):
+
+        value = env_tactic.get_base_dir(repo_name, self.repo_item_init)['value']
+        current_color = Qt4Gui.QColor.fromRgb(value[2][0], value[2][1], value[2][2])
+
+        color_dialog = QtGui.QColorDialog(self)
+        color = color_dialog.getColor(current_color)
+
+        if color.isValid():
+            if repo_name == 'base':
+                self.assetBaseDirColorToolButton.setStyleSheet(self.get_repo_button_stylesheet(color.toTuple()))
+            elif repo_name == 'sandbox':
+                self.sandboxDirColorToolButton.setStyleSheet(self.get_repo_button_stylesheet(color.toTuple()))
+            elif repo_name == 'local':
+                self.localRepoDirColorToolButton.setStyleSheet(self.get_repo_button_stylesheet(color.toTuple()))
+            elif repo_name == 'client':
+                self.clientRepoDirColorToolButton.setStyleSheet(self.get_repo_button_stylesheet(color.toTuple()))
+
+            value[2] = color.toTuple()[:3]
+            env_tactic.set_base_dir(repo_name, value, self.repo_item_init)
+
+    @staticmethod
+    def get_repo_button_stylesheet(rgb_color):
+        style_sheet = 'QToolButton{border:1px solid rgb(128,128,128);border-radius:4px;' + \
+                      'background-color:rgb({0},{1},{2});'.format(rgb_color[0], rgb_color[1], rgb_color[2]) + \
+                      '}QToolButton:pressed{' + \
+                      'background-color:rgb({0},{1},{2});'.format(rgb_color[0]-gf.get_prc(25, rgb_color[0]),
+                                                                  rgb_color[1]-gf.get_prc(25, rgb_color[1]),
+                                                                  rgb_color[2]-gf.get_prc(25, rgb_color[2])) + '}'
+        return style_sheet
 
     def fill_repos_combo_box(self):
         base_dirs = env_tactic.get_all_base_dirs()
@@ -536,9 +579,13 @@ class Ui_checkinPageWidget(QtGui.QWidget, ui_checkinPage.Ui_checkinPageWidget):
         if not self.custom_repo_item_defaults:
             self.custom_repo_item_defaults = copy.deepcopy(self.custom_repo_item_init)
 
+        if not self.repo_item_defaults:
+            self.repo_item_defaults = copy.deepcopy(self.repo_item_init)
+
         if undo_changes:
             self.fill_custom_repo_dir(self.custom_repo_item_defaults)
             self.custom_repo_item_init = copy.deepcopy(self.custom_repo_item_defaults)
+            self.repo_item_init = copy.deepcopy(self.repo_item_defaults)
 
             # print self.custom_repo_item_defaults
             # print self.custom_repo_item_init
@@ -560,7 +607,7 @@ class Ui_checkinPageWidget(QtGui.QWidget, ui_checkinPage.Ui_checkinPageWidget):
         values = [
             self.assetBaseDirPathLineEdit.text(),
             self.assetBaseDirNameLineEdit.text(),
-            'rgb(128,128,128)',
+            env_tactic.get_base_dir('base', self.repo_item_init)['value'][2],
             'base',
             bool(int(self.assetBaseDirCheckBox.checkState()))
         ]
@@ -569,7 +616,7 @@ class Ui_checkinPageWidget(QtGui.QWidget, ui_checkinPage.Ui_checkinPageWidget):
         values = [
             self.sandboxDirPathLineEdit.text(),
             self.sandboxDirNameLineEdit.text(),
-            'rgb(128,128,128)',
+            env_tactic.get_base_dir('sandbox', self.repo_item_init)['value'][2],
             'sandbox',
             bool(int(self.sandboxCheckBox.checkState()))
         ]
@@ -578,7 +625,7 @@ class Ui_checkinPageWidget(QtGui.QWidget, ui_checkinPage.Ui_checkinPageWidget):
         values = [
             self.localRepoDirPathLineEdit.text(),
             self.localRepoDirNameLineEdit.text(),
-            'rgb(128,128,128)',
+            env_tactic.get_base_dir('local', self.repo_item_init)['value'][2],
             'local',
             bool(int(self.localRepoCheckBox.checkState()))
         ]
@@ -587,7 +634,7 @@ class Ui_checkinPageWidget(QtGui.QWidget, ui_checkinPage.Ui_checkinPageWidget):
         values = [
             self.clientRepoDirPathLineEdit.text(),
             self.clientRepoDirNameLineEdit.text(),
-            'rgb(128,128,128)',
+            env_tactic.get_base_dir('client', self.repo_item_init)['value'][2],
             'client',
             bool(int(self.clientRepoCheckBox.checkState()))
         ]
@@ -900,7 +947,7 @@ class Ui_checkinOutPageWidget(QtGui.QWidget, ui_checkinOutPage.Ui_checkinOutPage
                 top_item.setText(0, title)
                 self.projectsDisplayTreeWidget.addTopLevelItem(top_item)
                 self.projectsDisplayTreeWidget.header().resizeSection(0, 150)
-                top_item.setForeground(0, QtGui.QBrush(QtGui.QColor(128, 128, 128)))
+                top_item.setForeground(0, Qt4Gui.QBrush(Qt4Gui.QColor(128, 128, 128)))
                 for project in value:
                     if not project['is_template']:
                         child_item = QtGui.QTreeWidgetItem()
@@ -908,7 +955,7 @@ class Ui_checkinOutPageWidget(QtGui.QWidget, ui_checkinOutPage.Ui_checkinOutPage
 
                         if project['code'] in self.opened_projects:
                             # child_item.setCheckState(0, QtCore.Qt.Checked)
-                            child_item.setForeground(0, QtGui.QBrush(QtGui.QColor(165, 175, 25)))
+                            child_item.setForeground(0, Qt4Gui.QBrush(Qt4Gui.QColor(165, 175, 25)))
 
                         child_item.setText(0, child_title)
                         child_item.setText(1, project['code'])
@@ -1043,9 +1090,9 @@ class Ui_configuration_dialogWidget(QtGui.QDialog, ui_conf.Ui_configuration_dial
         self.projectPageWidget = Ui_projectPageWidget(self)
         self.projectPageLayout.addWidget(self.projectPageWidget)
 
-    def create_checkout_page(self):
-        self.checkoutPageWidget = Ui_checkoutPageWidget(self)
-        self.checkoutPageLayout.addWidget(self.checkoutPageWidget)
+    # def create_checkout_page(self):
+    #     self.checkoutPageWidget = Ui_checkoutPageWidget(self)
+    #     self.checkoutPageLayout.addWidget(self.checkoutPageWidget)
 
     def create_checkin_page(self):
         self.checkinPageWidget = Ui_checkinPageWidget(self)
@@ -1093,6 +1140,7 @@ class Ui_configuration_dialogWidget(QtGui.QDialog, ui_conf.Ui_configuration_dial
             QtGui.QRadioButton,
             QtGui.QSpinBox,
             QtGui.QComboBox,
+            QtGui.QToolButton,
         )):
             self.set_page_status()
 
@@ -1284,6 +1332,10 @@ class Ui_configuration_dialogWidget(QtGui.QDialog, ui_conf.Ui_configuration_dial
 
             self.restart(force=True)
 
+        self.apply_button.setEnabled(False)
+        self.reset_button.setEnabled(False)
+
+
         # if current_page == 'globalCofigPage':
         #     self.checkinOutPageWidget.save_config()
         #
@@ -1343,6 +1395,8 @@ class Ui_configuration_dialogWidget(QtGui.QDialog, ui_conf.Ui_configuration_dial
         self.settings.setValue("windowState", int(state))
         print('Done ui_conf settings write')
         self.settings.endGroup()
+
+        self.checkinPageWidget.close()
 
     def closeEvent(self, event):
 

@@ -1,13 +1,15 @@
 # -*- coding: utf-8 -*-
 
-# Form implementation generated from reading ui file './ui_float_notify.ui'
+# Form implementation generated from reading ui file 'tasks/ui_float_notify.ui'
 #
-# Created: Thu Jan 28 17:06:31 2016
-#      by: pyside-uic 0.2.15 running on PySide 1.2.4
+# Created: Thu Apr 27 14:15:15 2017
+#      by: pyside-uic 0.2.13 running on PySide 1.2.2
 #
 # WARNING! All changes made in this file will be lost!
 
-from PySide import QtCore, QtGui
+from lib.side.Qt import QtWidgets as QtGui
+from lib.side.Qt import QtCore
+
 
 class Ui_floatNotify(object):
     def setupUi(self, floatNotify):
@@ -145,15 +147,15 @@ class Ui_floatNotify(object):
         QtCore.QMetaObject.connectSlotsByName(floatNotify)
 
     def retranslateUi(self, floatNotify):
-        self.viewToolButton.setText(QtGui.QApplication.translate("floatNotify", "View", None, QtGui.QApplication.UnicodeUTF8))
-        self.nextToolButton.setText(QtGui.QApplication.translate("floatNotify", "...", None, QtGui.QApplication.UnicodeUTF8))
-        self.prevToolButton.setText(QtGui.QApplication.translate("floatNotify", "...", None, QtGui.QApplication.UnicodeUTF8))
-        self.skipToolButton.setText(QtGui.QApplication.translate("floatNotify", "Skip", None, QtGui.QApplication.UnicodeUTF8))
-        self.hideToolButton.setText(QtGui.QApplication.translate("floatNotify", "Hide", None, QtGui.QApplication.UnicodeUTF8))
-        self.posLabel.setText(QtGui.QApplication.translate("floatNotify", "5/10", None, QtGui.QApplication.UnicodeUTF8))
-        self.dateLabel.setText(QtGui.QApplication.translate("floatNotify", "2016-01-26 14:19:57", None, QtGui.QApplication.UnicodeUTF8))
-        self.noteNameLabel.setText(QtGui.QApplication.translate("floatNotify", "Task changed in:", None, QtGui.QApplication.UnicodeUTF8))
-        self.notePathLabel.setText(QtGui.QApplication.translate("floatNotify", "Props / Mushroom / The Pirate", None, QtGui.QApplication.UnicodeUTF8))
-        self.authorLabel.setText(QtGui.QApplication.translate("floatNotify", "Author:", None, QtGui.QApplication.UnicodeUTF8))
-        self.commentLabel.setText(QtGui.QApplication.translate("floatNotify", "Comment....", None, QtGui.QApplication.UnicodeUTF8))
+        self.viewToolButton.setText(QtGui.QApplication.translate("floatNotify", "View", None))
+        self.nextToolButton.setText(QtGui.QApplication.translate("floatNotify", "...", None))
+        self.prevToolButton.setText(QtGui.QApplication.translate("floatNotify", "...", None))
+        self.skipToolButton.setText(QtGui.QApplication.translate("floatNotify", "Skip", None))
+        self.hideToolButton.setText(QtGui.QApplication.translate("floatNotify", "Hide", None))
+        self.posLabel.setText(QtGui.QApplication.translate("floatNotify", "5/10", None))
+        self.dateLabel.setText(QtGui.QApplication.translate("floatNotify", "2016-01-26 14:19:57", None))
+        self.noteNameLabel.setText(QtGui.QApplication.translate("floatNotify", "Task changed in:", None))
+        self.notePathLabel.setText(QtGui.QApplication.translate("floatNotify", "Props / Mushroom / The Pirate", None))
+        self.authorLabel.setText(QtGui.QApplication.translate("floatNotify", "Author:", None))
+        self.commentLabel.setText(QtGui.QApplication.translate("floatNotify", "Comment....", None))
 

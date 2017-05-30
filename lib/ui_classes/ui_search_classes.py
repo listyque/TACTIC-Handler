@@ -1,6 +1,9 @@
-import ast
-import PySide.QtGui as QtGui
-import PySide.QtCore as QtCore
+# import PySide.QtGui as QtGui
+# import PySide.QtCore as QtCore
+from lib.side.Qt import QtWidgets as QtGui
+from lib.side.Qt import QtGui as Qt4Gui
+from lib.side.Qt import QtCore
+
 from lib.environment import env_mode, env_inst, env_server
 from lib.configuration import cfg_controls
 import lib.global_functions as gf
@@ -70,10 +73,10 @@ class Ui_searchWidget(QtGui.QWidget, search_widget.Ui_searchWidget):
         tab_color = self.stype.info['color']
         if tab_color:
             t_c = gf.hex_to_rgb(tab_color, alpha=128, tuple=True)
-            effect.setColor(QtGui.QColor(t_c[0], t_c[1], t_c[2], t_c[3]))
+            effect.setColor(Qt4Gui.QColor(t_c[0], t_c[1], t_c[2], t_c[3]))
             effect.setBlurRadius(15)
         else:
-            effect.setColor(QtGui.QColor(0, 0, 0, 96))
+            effect.setColor(Qt4Gui.QColor(0, 0, 0, 96))
             effect.setBlurRadius(5)
         self.searchLineEdit.setGraphicsEffect(effect)
 
@@ -178,6 +181,26 @@ class Ui_searchWidget(QtGui.QWidget, search_widget.Ui_searchWidget):
 
     def add_widget_to_collapsable_toolbar(self, widget):
         self.buttons_layout.addWidget(widget)
+
+    def set_settings_from_dict(self, settings_dict=None):
+
+        if not settings_dict:
+            settings_dict = {
+                'collapsable_toolbar': True,
+                'searchLineEdit_text': ''
+            }
+
+        self.collapsable_toolbar.setCollapsed(settings_dict['collapsable_toolbar'])
+        self.searchLineEdit.setText(settings_dict['searchLineEdit_text'])
+
+    def get_settings_dict(self):
+
+        settings_dict = {
+            'collapsable_toolbar': int(self.collapsable_toolbar.isCollapsed()),
+            'searchLineEdit_text': str(self.searchLineEdit.text())
+        }
+
+        return settings_dict
 
     def closeEvent(self, event):
 
@@ -468,7 +491,7 @@ class QPopupTreeWidget(QtGui.QDialog):
             items_count += 1
 
         row_height = items_count * self.tree_widget.sizeHintForRow(0) + 80
-        mouse_pos = QtGui.QCursor.pos()
+        mouse_pos = Qt4Gui.QCursor.pos()
         self.setGeometry(mouse_pos.x(), mouse_pos.y(), 250, row_height)
 
     # def leaveEvent(self, event):
@@ -504,7 +527,9 @@ class QPopupTreeWidget(QtGui.QDialog):
 
     def save_and_refresh(self):
         self.writeSettings()
-        self.parent_ui.refresh_current_results()
+        search_wdg = self.parent_ui.get_search_widget()
+        search_wdg.search_results_widget.refresh_current_results()
+        # self.parent_ui.refresh_current_results()
 
     # def mousePressEvent(self, event):
     #     self.offset = event.pos()
@@ -533,7 +558,6 @@ class Ui_searchOptionsWidget(QtGui.QGroupBox, ui_search_options.Ui_searchOptions
         self.current_namespace = self.project.info['type']
 
         self.tab_name = self.parent_ui.objectName()
-        print self.tab_name, 'Ui_searchOptionsWidget'
         self.tab_related_to = self.parent_ui.relates_to
 
         self.controls_actions()
@@ -621,7 +645,7 @@ class Ui_searchOptionsWidget(QtGui.QGroupBox, ui_search_options.Ui_searchOptions
                 'displayLimitSpinBox': 10,
             }
 
-        self.set_search_options(ast.literal_eval(str(settings_dict.get('search_options'))))
+        self.set_search_options(gf.from_json(settings_dict.get('search_options')))
         self.showAllProcessCheckBox.setChecked(settings_dict['showAllProcessCheckBox'])
         self.displayLimitSpinBox.setValue(settings_dict['displayLimitSpinBox'])
 
@@ -670,15 +694,34 @@ class Ui_resultsFormWidget(QtGui.QWidget, ui_search_results_tree.Ui_resultsForm)
 
         self.resultsTreeWidget.itemCollapsed.connect(self.send_collapse_event_to_item)
         self.resultsTreeWidget.itemExpanded.connect(self.send_expand_event_to_item)
+        self.resultsTreeWidget.itemDoubleClicked.connect(self.send_item_double_click)
 
         # Separate Snapshots tree widget actions
         self.resultsVersionsTreeWidget.itemPressed.connect(lambda: self.set_current_results_versions_tree_widget_item(self.resultsVersionsTreeWidget))
         self.resultsVersionsTreeWidget.itemPressed.connect(self.load_preview)
         self.resultsVersionsTreeWidget.setContextMenuPolicy(QtCore.Qt.CustomContextMenu)
         self.resultsVersionsTreeWidget.customContextMenuRequested.connect(self.search_widget.open_items_context_menu)
+        self.resultsVersionsTreeWidget.itemDoubleClicked.connect(self.send_item_double_click)
 
     # def set_current_tree_widget_item(self, tree_widget):
     #     self.current_tree_widget_item = tree_widget.itemWidget(tree_widget.currentItem(), 0)
+
+    def send_item_double_click(self, item):
+        modifiers = QtGui.QApplication.keyboardModifiers()
+
+        parent_ui = self.get_parent_ui()
+
+        checkin_options_widget = parent_ui.get_checkin_options_widget_config()
+
+        current_widget = parent_ui.get_current_tree_widget()
+        current_tree_widget_item = current_widget.get_current_tree_widget_item()
+
+        if modifiers == QtCore.Qt.ShiftModifier and checkin_options_widget.doubleClickOpenCheckBox.isChecked():
+            if current_tree_widget_item.type == 'snapshot':
+                parent_ui.open_file()
+        if checkin_options_widget.doubleClickSaveCheckBox.isChecked():
+            if current_tree_widget_item.type in ['process', 'snapshot', 'sobject']:
+                parent_ui.save_file()
 
     def set_current_results_tree_widget_item(self, tree_widget):
         self.current_tree_widget_item = tree_widget.itemWidget(tree_widget.currentItem(), 0)
@@ -688,7 +731,12 @@ class Ui_resultsFormWidget(QtGui.QWidget, ui_search_results_tree.Ui_resultsForm)
         self.current_tree_widget_item = tree_widget.itemWidget(tree_widget.currentItem(), 0)
         self.current_results_versions_tree_widget_item = tree_widget.itemWidget(tree_widget.currentItem(), 0)
 
+    def get_parent_ui(self):
+        return self.search_widget.parent_ui
+
     def get_current_tree_widget_item(self):
+        if not self.current_tree_widget_item:
+            self.set_current_results_tree_widget_item(self.resultsTreeWidget)
         return self.current_tree_widget_item
 
     def get_current_results_tree_widget_item(self):
@@ -722,13 +770,13 @@ class Ui_resultsFormWidget(QtGui.QWidget, ui_search_results_tree.Ui_resultsForm)
                 snapshots = parent_widget.sobject.process[process].contexts[context].versions
 
                 self.resultsVersionsTreeWidget.clear()
-
                 gf.add_versions_snapshot_item(
                     self.resultsVersionsTreeWidget,
                     self.search_widget,
                     parent_widget.sobject,
                     parent_widget.stype,
                     process,
+                    parent_widget.pipeline,
                     context,
                     snapshots,
                     parent_widget.info,
@@ -760,6 +808,7 @@ class Ui_resultsFormWidget(QtGui.QWidget, ui_search_results_tree.Ui_resultsForm)
                     item_widget.sobject,
                     item_widget.stype,
                     process,
+                    item_widget.pipeline,
                     context,
                     snapshots,
                     item_widget.info,
@@ -790,10 +839,16 @@ class Ui_resultsFormWidget(QtGui.QWidget, ui_search_results_tree.Ui_resultsForm)
         #
         #     self.playblastLayout.addWidget(self.playblast_widget)
 
+    def set_snapshot_to_drop_plate(self, item):
+
+        drop_plate_widget = self.search_widget.get_drop_plate_widget()
+        drop_plate_widget.set_item_widget(item)
+
     def load_preview(self):
         # loading preview image and snapshot browser
         nested_item = self.current_tree_widget_item
         self.browse_snapshot(nested_item)
+        self.set_snapshot_to_drop_plate(nested_item)
 
         env_inst.ui_main_tabs[self.search_widget.project.info['code']].skeyLineEdit.setText(nested_item.get_skey(skey=True))
         # env_inst.ui_main.skeyLineEdit.setText(nested_item.get_skey(skey=True))
@@ -832,7 +887,7 @@ class Ui_resultsFormWidget(QtGui.QWidget, ui_search_results_tree.Ui_resultsForm)
 
     def create_separate_versions_tree(self):
 
-        self.sep_versions = gf.get_value_from_config(self.checkin_out_config, 'versionsSeparateCheckinCheckBox', 'QCheckBox')
+        self.sep_versions = gf.get_value_from_config(self.checkin_out_config, 'versionsSeparateCheckinCheckBox')
         if self.sep_versions:
             self.sep_versions = bool(int(self.sep_versions))
 
@@ -840,6 +895,11 @@ class Ui_resultsFormWidget(QtGui.QWidget, ui_search_results_tree.Ui_resultsForm)
             self.verticalLayoutWidget_3.close()
             # current_widget = self.search_results_widget.get_current_widget()
             # current_widget.verticalLayoutWidget_3.close()
+        else:
+            if gf.get_value_from_config(self.checkin_out_config, 'bottomVersionsRadioButton'):
+                self.resultsSplitter.setOrientation(QtCore.Qt.Vertical)
+            else:
+                self.resultsSplitter.setOrientation(QtCore.Qt.Horizontal)
 
     def create_progress_bar(self):
         self.progress_bar = QtGui.QProgressBar()
@@ -899,7 +959,7 @@ class Ui_resultsGroupBoxWidget(QtGui.QGroupBox, ui_search_results.Ui_resultsGrou
 
     def controls_actions(self):
         self.add_new_tab_button.clicked.connect(self.add_tab)
-        self.refresh_tab_button.clicked.connect(self.refresh_restults)
+        self.refresh_tab_button.clicked.connect(self.refresh_current_results)
         self.resultsTabWidget.tabCloseRequested.connect(self.close_tab)
 
     def threads_actions(self):
@@ -953,7 +1013,7 @@ class Ui_resultsGroupBoxWidget(QtGui.QGroupBox, ui_search_results.Ui_resultsGrou
         else:
             return []
 
-    def refresh_restults(self):
+    def refresh_current_results(self):
         self.add_items_to_results(self.get_current_tab_text(), refresh=True)
         # self.animation.start()
 
@@ -1148,27 +1208,27 @@ class Ui_resultsGroupBoxWidget(QtGui.QGroupBox, ui_search_results.Ui_resultsGrou
     def create_new_tab_button(self):
         self.add_new_tab_button = QtGui.QToolButton()
         self.add_new_tab_button.setAutoRaise(True)
-        self.add_new_tab_button.setMinimumWidth(22)
-        self.add_new_tab_button.setMinimumHeight(22)
+        self.add_new_tab_button.setMinimumWidth(20)
+        self.add_new_tab_button.setMinimumHeight(20)
         self.add_new_tab_button.setIcon(gf.get_icon('plus'))
 
         self.history_tab_button = QtGui.QToolButton()
         self.history_tab_button.setAutoRaise(True)
-        self.history_tab_button.setMinimumWidth(22)
-        self.history_tab_button.setMinimumHeight(22)
+        self.history_tab_button.setMinimumWidth(20)
+        self.history_tab_button.setMinimumHeight(20)
         self.history_tab_button.setPopupMode(QtGui.QToolButton.InstantPopup)
         self.history_tab_button.setIcon(gf.get_icon('history'))
 
         self.refresh_tab_button = QtGui.QToolButton()
         self.refresh_tab_button.setAutoRaise(True)
-        self.refresh_tab_button.setMinimumWidth(22)
-        self.refresh_tab_button.setMinimumHeight(22)
+        self.refresh_tab_button.setMinimumWidth(20)
+        self.refresh_tab_button.setMinimumHeight(20)
 
         # effect = QtGui.QGraphicsColorizeEffect(self.refresh_tab_button)
         # self.animation = QtCore.QPropertyAnimation(effect, "color", self)
         # self.animation.setDuration(500)
-        # self.animation.setStartValue(QtGui.QColor(0, 0, 0, 0))
-        # self.animation.setEndValue(QtGui.QColor(49, 140, 72, 128))
+        # self.animation.setStartValue(Qt4Gui.QColor(0, 0, 0, 0))
+        # self.animation.setEndValue(Qt4Gui.QColor(49, 140, 72, 128))
         # self.animation.start()
         # self.refresh_tab_button.setGraphicsEffect(effect)
         self.refresh_tab_button.setIcon(gf.get_icon('refresh'))
@@ -1238,7 +1298,8 @@ class Ui_resultsGroupBoxWidget(QtGui.QGroupBox, ui_search_results.Ui_resultsGrou
         search_cache = gf.hex_to_html(self.settings.value('last_search_tabs'))
 
         if search_cache:
-            search_cache = ast.literal_eval(search_cache)
+            search_cache = gf.from_json(search_cache, use_ast=True)
+
             tab_added = 0
             for tab, state, options in zip(search_cache[0], search_cache[1], search_cache[3]):
                 self.add_tab(tab, state, options)
@@ -1280,11 +1341,10 @@ class Ui_resultsGroupBoxWidget(QtGui.QGroupBox, ui_search_results.Ui_resultsGrou
         search_cache = (tab_names_list, tab_state_list, self.resultsTabWidget.currentIndex(), tab_options_list)
 
         # self.settings.setValue('last_search_tabs', str(search_cache))
-        self.settings.setValue('last_search_tabs', gf.html_to_hex(str(search_cache)))
+        self.settings.setValue('last_search_tabs', gf.html_to_hex(gf.to_json(search_cache, use_ast=True)))
 
         print('Done ui_search ' + self.parent_ui.objectName() + ' settings write')
         self.settings.endGroup()
-
 
     def closeEvent(self, event):
 

@@ -3,13 +3,19 @@
 
 import os
 import collections
-import PySide.QtGui as QtGui
+# import PySide.QtGui as QtGui
+from lib.side.Qt import QtWidgets as QtGui
+
 import maya.OpenMayaUI as omui
 import maya.cmds as cmds
 import maya.mel as mel
-import shiboken
+try:
+    import shiboken as shiboken
+except:
+    import shiboken2 as shiboken
+
 import tactic_classes as tc
-#from lib.environment import env_inst
+from lib.environment import env_inst
 import global_functions as gf
 
 
@@ -35,10 +41,10 @@ def get_maya_dock_window():
 def open_scene(file_path, dir_path, all_process):
     # check if scene need saving
     new_scene = mel.eval('saveChanges("file -f -new")')
-    if new_scene:
-        # print('Opening: ' + file_path)
+    if bool(new_scene):
+        print('Opening: ' + file_path)
         # set_workspace(dir_path, all_process)
-        cmds.file(file_path, o=True)
+        cmds.file(file_path, open=True, force=True)
 
         # cmds.file(q=True, location=True)  #prtint current scene path
 
@@ -56,6 +62,40 @@ def reference_scene(file_path):
 def get_skey_from_scene():
     skey = cmds.getAttr('defaultObjectSet.tacticHandler_skey')
     return skey
+
+
+def export_selected(project_code, tab_code, wdg_code):
+
+    current_type = cmds.optionVar(q='defaultFileExportActiveType')
+    current_ext = cmds.translator(str(current_type), q=True, filter=True)
+    current_ext = current_ext.split(';')[0]
+
+    current_checkin_widget = env_inst.get_check_tree(project_code, tab_code, wdg_code)
+
+    current_checkin_widget.save_file(selected_objects=[True, {current_type: current_ext[2:]}])
+
+
+def save_as(project_code, tab_code, wdg_code):
+
+    current_type = cmds.optionVar(q='defaultFileSaveType')
+    current_ext = cmds.translator(str(current_type), q=True, filter=True)
+    current_ext = current_ext.split(';')[0]
+
+    current_checkin_widget = env_inst.get_check_tree(project_code, tab_code, wdg_code)
+
+    current_checkin_widget.save_file(selected_objects=[False, {current_type: current_ext[2:]}])
+
+
+def wrap_export_selected_options(project_code, tab_code, wdg_code):
+    mel.eval('proc export_selection_maya(){python("' +
+             "main.mf.export_selected('{0}', '{1}', '{2}')".format(project_code, tab_code, wdg_code) +
+             '");}fileOptions "ExportActive" "export_selection_maya";')
+
+
+def wrap_save_options(project_code, tab_code, wdg_code):
+    mel.eval('proc save_as_maya(){python("' +
+             "main.mf.save_as('{0}', '{1}', '{2}')".format(project_code, tab_code, wdg_code) +
+             '");}fileOptions "SaveAs" "save_as_maya";')
 
 
 def new_save_scene(search_key, context, description, snapshot_type='file', all_process=None, repo=None, update_versionless=True, file_types='maya', postfixes=None, version=None, ext_type=None, is_current=False, is_revision=False, mode=None, create_playblast=True, selected_objects=False, parent_wdg=None):
@@ -135,7 +175,7 @@ def new_save_scene(search_key, context, description, snapshot_type='file', all_p
             renamed = False
         try:
             if selected_objects:
-                cmds.file(exportSelected=selected_objects, type=ext_type, pr=True, eur=True)
+                cmds.file(exportSelected=selected_objects, type=ext_type, preserveReferences=True, exportUnloadedReferences=True)
             else:
                 cmds.file(save=True, type=ext_type)
             saved = True

@@ -1,13 +1,15 @@
 # -*- coding: utf-8 -*-
 
-# Form implementation generated from reading ui file './ui_subscription.ui'
+# Form implementation generated from reading ui file 'tasks/ui_subscription.ui'
 #
-# Created: Tue Jan 26 19:37:54 2016
-#      by: pyside-uic 0.2.15 running on PySide 1.2.4
+# Created: Thu Apr 27 14:15:15 2017
+#      by: pyside-uic 0.2.13 running on PySide 1.2.2
 #
 # WARNING! All changes made in this file will be lost!
 
-from PySide import QtCore, QtGui
+from lib.side.Qt import QtWidgets as QtGui
+from lib.side.Qt import QtCore
+
 
 class Ui_subscription(object):
     def setupUi(self, subscription):
@@ -18,5 +20,5 @@ class Ui_subscription(object):
         QtCore.QMetaObject.connectSlotsByName(subscription)
 
     def retranslateUi(self, subscription):
-        subscription.setWindowTitle(QtGui.QApplication.translate("subscription", "Form", None, QtGui.QApplication.UnicodeUTF8))
+        subscription.setWindowTitle(QtGui.QApplication.translate("subscription", "Form", None))
 

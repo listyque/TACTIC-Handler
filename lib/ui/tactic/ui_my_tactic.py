@@ -1,13 +1,15 @@
 # -*- coding: utf-8 -*-
 
-# Form implementation generated from reading ui file './ui_my_tactic.ui'
+# Form implementation generated from reading ui file 'tactic/ui_my_tactic.ui'
 #
-# Created: Tue Feb 16 16:38:41 2016
-#      by: pyside-uic 0.2.15 running on PySide 1.2.4
+# Created: Thu Apr 27 14:15:15 2017
+#      by: pyside-uic 0.2.13 running on PySide 1.2.2
 #
 # WARNING! All changes made in this file will be lost!
 
-from PySide import QtCore, QtGui
+from lib.side.Qt import QtWidgets as QtGui
+from lib.side.Qt import QtCore
+
 
 class Ui_myTactic(object):
     def setupUi(self, myTactic):
@@ -41,7 +43,7 @@ class Ui_myTactic(object):
         QtCore.QMetaObject.connectSlotsByName(myTactic)
 
     def retranslateUi(self, myTactic):
-        myTactic.setWindowTitle(QtGui.QApplication.translate("myTactic", "Form", None, QtGui.QApplication.UnicodeUTF8))
-        self.mainTab.setTabText(self.mainTab.indexOf(self.tasksTab), QtGui.QApplication.translate("myTactic", "Tasks", None, QtGui.QApplication.UnicodeUTF8))
-        self.mainTab.setTabText(self.mainTab.indexOf(self.notificationsTab), QtGui.QApplication.translate("myTactic", "Notifications", None, QtGui.QApplication.UnicodeUTF8))
+        myTactic.setWindowTitle(QtGui.QApplication.translate("myTactic", "Form", None))
+        self.mainTab.setTabText(self.mainTab.indexOf(self.tasksTab), QtGui.QApplication.translate("myTactic", "Tasks", None))
+        self.mainTab.setTabText(self.mainTab.indexOf(self.notificationsTab), QtGui.QApplication.translate("myTactic", "Notifications", None))
 

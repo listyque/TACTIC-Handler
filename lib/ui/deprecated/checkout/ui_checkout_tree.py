@@ -26,7 +26,7 @@ class Ui_checkOutTree(object):
         self.gridLayout.setContentsMargins(0, 0, 0, 0)
         self.gridLayout.setObjectName("gridLayout")
         self.searchLineEdit = QtGui.QLineEdit(self.layoutWidget)
-        font = QtGui.QFont()
+        font = Qt4Gui.QFont()
         font.setPointSize(9)
         self.searchLineEdit.setFont(font)
         self.searchLineEdit.setStyleSheet("QLineEdit {\n"
@@ -107,9 +107,9 @@ class Ui_checkOutTree(object):
         checkOutTree.setTabOrder(self.saveDescriprionButton, self.descriptionTextEdit)
 
     def retranslateUi(self, checkOutTree):
-        self.snapshotBrowserGroupBox.setTitle(QtGui.QApplication.translate("checkOutTree", "Snaphsot browser:", None, QtGui.QApplication.UnicodeUTF8))
-        self.commentsGroupBox.setTitle(QtGui.QApplication.translate("checkOutTree", "Description:", None, QtGui.QApplication.UnicodeUTF8))
-        self.descriptionTextEdit.setHtml(QtGui.QApplication.translate("checkOutTree", "", None, QtGui.QApplication.UnicodeUTF8))
-        self.saveDescriprionButton.setText(QtGui.QApplication.translate("checkOutTree", "Save description", None, QtGui.QApplication.UnicodeUTF8))
+        self.snapshotBrowserGroupBox.setTitle(QtGui.QApplication.translate("checkOutTree", "Snaphsot browser:", None))
+        self.commentsGroupBox.setTitle(QtGui.QApplication.translate("checkOutTree", "Description:", None))
+        self.descriptionTextEdit.setHtml(QtGui.QApplication.translate("checkOutTree", "", None))
+        self.saveDescriprionButton.setText(QtGui.QApplication.translate("checkOutTree", "Save description", None))
 
 import lib.ui.resources_rc

@@ -2,12 +2,14 @@
 
 # Form implementation generated from reading ui file 'conf/ui_mayaPage.ui'
 #
-# Created: Fri Jan  6 12:48:16 2017
+# Created: Thu Apr 27 14:15:16 2017
 #      by: pyside-uic 0.2.13 running on PySide 1.2.2
 #
 # WARNING! All changes made in this file will be lost!
 
-from PySide import QtCore, QtGui
+from lib.side.Qt import QtWidgets as QtGui
+from lib.side.Qt import QtCore
+
 
 class Ui_mayaScenePageWidget(object):
     def setupUi(self, mayaScenePageWidget):
@@ -45,8 +47,8 @@ class Ui_mayaScenePageWidget(object):
         QtCore.QMetaObject.connectSlotsByName(mayaScenePageWidget)
 
     def retranslateUi(self, mayaScenePageWidget):
-        self.currentWorkdirLable.setText(QtGui.QApplication.translate("mayaScenePageWidget", "Current Workdir:", None, QtGui.QApplication.UnicodeUTF8))
-        self.createMayaDirsCheckBox.setText(QtGui.QApplication.translate("mayaScenePageWidget", "Create Maya Dirs (worspace.mel)", None, QtGui.QApplication.UnicodeUTF8))
-        self.createPlayblastCheckBox.setText(QtGui.QApplication.translate("mayaScenePageWidget", "Create screenshot (playblast)", None, QtGui.QApplication.UnicodeUTF8))
-        self.mayaSaveFormatLabel.setText(QtGui.QApplication.translate("mayaScenePageWidget", "Maya Saving Format:", None, QtGui.QApplication.UnicodeUTF8))
+        self.currentWorkdirLable.setText(QtGui.QApplication.translate("mayaScenePageWidget", "Current Workdir:", None))
+        self.createMayaDirsCheckBox.setText(QtGui.QApplication.translate("mayaScenePageWidget", "Create Maya Dirs (worspace.mel)", None))
+        self.createPlayblastCheckBox.setText(QtGui.QApplication.translate("mayaScenePageWidget", "Create screenshot (playblast)", None))
+        self.mayaSaveFormatLabel.setText(QtGui.QApplication.translate("mayaScenePageWidget", "Maya Saving Format:", None))
 

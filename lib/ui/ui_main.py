@@ -2,12 +2,14 @@
 
 # Form implementation generated from reading ui file './ui_main.ui'
 #
-# Created: Mon Jan 09 23:30:57 2017
-#      by: pyside-uic 0.2.15 running on PySide 1.2.4
+# Created: Mon May 29 16:07:24 2017
+#      by: pyside-uic 0.2.13 running on PySide 1.2.2
 #
 # WARNING! All changes made in this file will be lost!
 
-from PySide import QtCore, QtGui
+from lib.side.Qt import QtWidgets as QtGui
+from lib.side.Qt import QtCore
+
 
 class Ui_MainWindow(object):
     def setupUi(self, MainWindow):
@@ -50,6 +52,26 @@ class Ui_MainWindow(object):
 "}\n"
 "QDockWidget::close-button, QDockWidget::float-button {\n"
 "    padding: 0px;\n"
+"}\n"
+"\n"
+"QTabWidget::pane {\n"
+"    border: 0px;\n"
+"}\n"
+"QTabBar::tab {\n"
+"    background: qlineargradient(x1: 0, y1: 0, x2: 0, y2: 1, stop: 0 rgba(175, 175, 175, 16), stop: 1 rgba(175, 175, 175, 0));\n"
+"    border: 0px solid transparent;\n"
+"    border-top-left-radius: 2px;\n"
+"    border-top-right-radius: 2px;\n"
+"    padding: 4px;\n"
+"}\n"
+"QTabBar::tab:selected, QTabBar::tab:hover {\n"
+"    background: qlineargradient(x1: 0, y1: 0, x2: 0, y2: 1, stop: 0 rgba(255, 255, 255, 64), stop: 1 rgba(255, 255, 255, 8));\n"
+"}\n"
+"QTabBar::tab:selected {\n"
+"    border-color: transparent;\n"
+"}\n"
+"QTabBar::tab:!selected {\n"
+"    margin-top: 2px;\n"
 "}")
         MainWindow.setLocale(QtCore.QLocale(QtCore.QLocale.English, QtCore.QLocale.UnitedStates))
         MainWindow.setWindowFilePath("")
@@ -59,7 +81,7 @@ class Ui_MainWindow(object):
         self.mainwidget.setObjectName("mainwidget")
         MainWindow.setCentralWidget(self.mainwidget)
         self.menubar = QtGui.QMenuBar(MainWindow)
-        self.menubar.setGeometry(QtCore.QRect(0, 0, 427, 21))
+        self.menubar.setGeometry(QtCore.QRect(0, 0, 427, 25))
         self.menubar.setObjectName("menubar")
         self.menuConfig = QtGui.QMenu(self.menubar)
         self.menuConfig.setObjectName("menuConfig")
@@ -96,13 +118,13 @@ class Ui_MainWindow(object):
         QtCore.QMetaObject.connectSlotsByName(MainWindow)
 
     def retranslateUi(self, MainWindow):
-        MainWindow.setWindowTitle(QtGui.QApplication.translate("MainWindow", "TACTIC handler", None, QtGui.QApplication.UnicodeUTF8))
-        self.menuConfig.setTitle(QtGui.QApplication.translate("MainWindow", "Menu", None, QtGui.QApplication.UnicodeUTF8))
-        self.menuProject.setTitle(QtGui.QApplication.translate("MainWindow", "Project", None, QtGui.QApplication.UnicodeUTF8))
-        self.actionConfiguration.setText(QtGui.QApplication.translate("MainWindow", "Configuration", None, QtGui.QApplication.UnicodeUTF8))
-        self.actionUpdate.setText(QtGui.QApplication.translate("MainWindow", "Update", None, QtGui.QApplication.UnicodeUTF8))
-        self.actionExit.setText(QtGui.QApplication.translate("MainWindow", "Exit", None, QtGui.QApplication.UnicodeUTF8))
-        self.actionApply_to_all_Tabs.setText(QtGui.QApplication.translate("MainWindow", "Current view to All Tabs", None, QtGui.QApplication.UnicodeUTF8))
-        self.actionServerside_Script.setText(QtGui.QApplication.translate("MainWindow", "Serverside Script", None, QtGui.QApplication.UnicodeUTF8))
-        self.actionDock_undock.setText(QtGui.QApplication.translate("MainWindow", "Dock/undock", None, QtGui.QApplication.UnicodeUTF8))
+        MainWindow.setWindowTitle(QtGui.QApplication.translate("MainWindow", "TACTIC handler", None))
+        self.menuConfig.setTitle(QtGui.QApplication.translate("MainWindow", "Menu", None))
+        self.menuProject.setTitle(QtGui.QApplication.translate("MainWindow", "Project", None))
+        self.actionConfiguration.setText(QtGui.QApplication.translate("MainWindow", "Configuration", None))
+        self.actionUpdate.setText(QtGui.QApplication.translate("MainWindow", "Update", None))
+        self.actionExit.setText(QtGui.QApplication.translate("MainWindow", "Exit", None))
+        self.actionApply_to_all_Tabs.setText(QtGui.QApplication.translate("MainWindow", "Current view to All Tabs", None))
+        self.actionServerside_Script.setText(QtGui.QApplication.translate("MainWindow", "Serverside Script", None))
+        self.actionDock_undock.setText(QtGui.QApplication.translate("MainWindow", "Dock/undock", None))
 
