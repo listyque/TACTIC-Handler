@@ -2,8 +2,8 @@
 
 # Form implementation generated from reading ui file 'checkin_out/ui_drop_plate.ui'
 #
-# Created: Thu Apr 27 14:15:17 2017
-#      by: pyside-uic 0.2.13 running on PySide 1.2.2
+# Created: Mon Oct  2 17:50:46 2017
+#      by: pyside-uic 0.2.15 running on PySide 1.2.2
 #
 # WARNING! All changes made in this file will be lost!
 
@@ -134,7 +134,8 @@ class Ui_dropPlate(object):
         self.clearPushButton.setText(QtGui.QApplication.translate("dropPlate", "Clear", None))
         self.dropTreeWidget.setSortingEnabled(True)
         self.dropTreeWidget.headerItem().setText(0, QtGui.QApplication.translate("dropPlate", "File Name", None))
-        self.dropTreeWidget.headerItem().setText(1, QtGui.QApplication.translate("dropPlate", "Class/Ext", None))
-        self.dropTreeWidget.headerItem().setText(2, QtGui.QApplication.translate("dropPlate", "Type", None))
-        self.dropTreeWidget.headerItem().setText(3, QtGui.QApplication.translate("dropPlate", "File Path", None))
+        self.dropTreeWidget.headerItem().setText(1, QtGui.QApplication.translate("dropPlate", "Range/Tiles", None))
+        self.dropTreeWidget.headerItem().setText(2, QtGui.QApplication.translate("dropPlate", "Class/Ext", None))
+        self.dropTreeWidget.headerItem().setText(3, QtGui.QApplication.translate("dropPlate", "Type", None))
+        self.dropTreeWidget.headerItem().setText(4, QtGui.QApplication.translate("dropPlate", "File Path", None))
 

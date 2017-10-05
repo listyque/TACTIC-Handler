@@ -8,7 +8,7 @@ from lib.side.Qt import QtWidgets as QtGui
 from lib.side.Qt import QtCore
 
 import json
-from lib.environment import env_mode, env_server
+from lib.environment import env_mode, env_server, env_inst
 import lib.tactic_classes as tc
 import lib.tactic_widgets as tw
 import lib.tactic_query as tq
@@ -92,9 +92,10 @@ class Ui_addSObjectFormWidget(QtGui.QDialog):
 
 
 class Ui_addTacticSobjectWidget(QtGui.QDialog):
-    def __init__(self, stype, item=None, view='insert', search_key=None, parent=None):
+    def __init__(self, stype, parent_stype=None, item=None, view='insert', search_key=None, parent=None):
         super(self.__class__, self).__init__(parent=parent)
-        #TODO get title from within
+
+        # TODO get title from within
         self.settings = QtCore.QSettings('{0}/settings/{1}/{2}/{3}/main_ui_config.ini'.format(
             env_mode.get_current_path(),
             env_mode.get_node(),
@@ -102,10 +103,9 @@ class Ui_addTacticSobjectWidget(QtGui.QDialog):
             env_mode.get_mode()),
             QtCore.QSettings.IniFormat)
 
-        self.parent_ui = parent
-
         self.item = item
         self.stype = stype
+        self.parent_stype = parent_stype
         self.search_type = self.stype.info.get('code')
 
         self.view = view
@@ -198,19 +198,28 @@ class Ui_addTacticSobjectWidget(QtGui.QDialog):
         self.setWindowTitle('Adding new SObject {0} ({1})'.format(title, stype_code))
 
     def add_new_tab(self, sobject):
-        search_widget = self.parent_ui.get_search_widget()
+        checkin_out_tab = self.get_checkin_out_tab()
+        search_widget = checkin_out_tab.get_search_widget()
         search_widget.do_search(
             search_query=sobject.get('code'),
             search_by=1,
             new_tab=True
         )
 
-    def refresh_results(self):
-        # THERE IS BUG!!!
-        self.parent_ui.refresh_current_results()
+    def get_checkin_out_tab(self):
 
-        current_tree_widget = self.parent_ui.get_current_tree_widget()
-        current_tree_widget.update_current_items_trees()
+        stype = self.parent_stype
+        if not stype:
+            stype = self.stype
+
+        return env_inst.get_check_tree(
+            project_code=stype.project.info.get('code'),
+            tab_code='checkin_out',
+            wdg_code=stype.info.get('code'))
+
+    def refresh_results(self):
+        checkin_out_tab = self.get_checkin_out_tab()
+        checkin_out_tab.refresh_current_results()
 
     def readSettings(self):
         """

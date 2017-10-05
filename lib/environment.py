@@ -56,15 +56,15 @@ class Inst(object):
     def get_current_project(self):
         return self.current_project
 
+    def set_current_project(self, project_code):
+        self.current_project = project_code
+
     def get_current_stypes(self):
         return self.projects.get(self.current_project).stypes
 
     def get_current_stype_by_code(self, code):
         stypes = self.projects.get(self.current_project).stypes
         return stypes.get(code)
-
-    def set_current_project(self, project_code):
-        self.current_project = project_code
 
     def set_control_tab(self, project_code, tab_code, tab_widget):
         if not self.control_tabs.get(project_code):
@@ -122,7 +122,7 @@ class Mode(object):
         self.status = False
 
         self.current_mode = 'standalone'
-        self.current_project = 'sthpw'
+        # self.current_project = 'sthpw'
         self.current_path = None
         self.get_current_path()
         self.platform = platform.system()
@@ -135,11 +135,11 @@ class Mode(object):
     def get_mode(self):
         return self.current_mode
 
-    def set_current_project(self, project_code):
-        self.current_project = project_code
-
-    def get_current_project(self):
-        return self.current_project
+    # def set_current_project(self, project_code):
+    #     self.current_project = project_code
+    #
+    # def get_current_project(self):
+    #     return self.current_project
 
     def set_current_path(self, current_path):
         self.current_path = current_path

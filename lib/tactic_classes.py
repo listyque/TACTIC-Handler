@@ -18,6 +18,7 @@ from lib.environment import env_mode, env_server, env_inst, env_tactic
 import global_functions as gf
 import tactic_query as tq
 import lib.ui_classes.ui_misc_classes as ui_misc_classes
+import lib.ui_classes.ui_dialogs_classes as ui_dialogs_classes
 import side.client.tactic_client_lib as tactic_client_lib
 
 if env_mode.get_mode() == 'maya':
@@ -170,7 +171,20 @@ def show_message_predefined(title, message, stacktrace=None, buttons=None, paren
         collapse_wdg.setCollapsed(True)
 
         msb_layot = message_box.layout()
+
+        wdg_list = []
+
+        for i in range(msb_layot.count()):
+            wdg = msb_layot.itemAt(i).widget()
+            if wdg:
+                wdg_list.append(wdg)
+
+        msb_layot.addWidget(wdg_list[0], 0, 0)
+        msb_layot.addWidget(wdg_list[1], 0, 1)
+        msb_layot.addWidget(wdg_list[2], 2, 1)
         msb_layot.addWidget(collapse_wdg, 1, 1)
+
+        # msb_layot.addWidget(collapse_wdg, 1, 1)
 
         text_edit = QtGui.QPlainTextEdit()
         text_edit.setMinimumWidth(600)
@@ -232,11 +246,23 @@ def generate_new_ticket(explicit_username=None, parent=None):
     )
     layout = QtGui.QGridLayout()
 
-    wdg = QtGui.QWidget()
-    wdg.setLayout(layout)
+    widget = QtGui.QWidget()
+    widget.setLayout(layout)
 
     msb_layot = login_pass_dlg.layout()
-    msb_layot.addWidget(wdg, 1, 1)
+
+    # workaround for pyside2
+    wdg_list = []
+
+    for i in range(msb_layot.count()):
+        wdg = msb_layot.itemAt(i).widget()
+        if wdg:
+            wdg_list.append(wdg)
+
+    msb_layot.addWidget(wdg_list[0], 0, 0)
+    msb_layot.addWidget(wdg_list[1], 0, 1)
+    msb_layot.addWidget(wdg_list[2], 2, 1)
+    msb_layot.addWidget(widget, 1, 1)
 
     # Labels
     login_label = QtGui.QLabel('Login: ')
@@ -289,13 +315,15 @@ def run_tactic_team_server():
 def error_handle(thread):
     expected = thread.result['exception']
 
-    error = catch_error_type(expected)
+    error_type = catch_error_type(expected)
 
-    exception_text = u'Exception type: {0},<p>{1}</p><p><b>Catched Error: {2}</b></p>'.format(unicode(str(type(expected)), 'utf-8', errors='ignore'),
-                                                                                              unicode(str(expected), 'utf-8', errors='ignore'),
-                                                                                              str(error))
-    if (error == 'connection_refused') or (error == 'connection_timeout'):
-        title = '{0}, {1}'.format("Cannot connect to TACTIC Server!", error)
+    exception_text = u'{0}<p>{1}</p><p><b>Catched Error: {2}</b></p>'.format(
+        unicode(str(expected.__doc__), 'utf-8', errors='ignore'),
+        unicode(str(expected.message), 'utf-8', errors='ignore'),
+        str(error_type))
+
+    if (error_type == 'connection_refused') or (error_type == 'connection_timeout'):
+        title = '{0}, {1}'.format("Cannot connect to TACTIC Server!", error_type)
         message = u'{0}<p>{1}</p>'.format(
             u"<p>Looks like TACTIC Server isn't running! May be You need to set up Right Server port and address</p>"
             u"<p>Start Server? (Only TACTIC Team)</p>",
@@ -325,8 +353,8 @@ def error_handle(thread):
 
         return thread
 
-    if error == 'unknown_error':
-        title = '{0}, {1}'.format("Unknown Error!", error)
+    if error_type == 'unknown_error':
+        title = u'{0}'.format(unicode(str(expected.__doc__), 'utf-8', errors='ignore'))
         message = u'{0}<p>{1}</p>'.format(
             u"<p>This is no usual type of Exception! See stacktrace for information</p>",
             exception_text)
@@ -351,8 +379,8 @@ def error_handle(thread):
 
         return thread
 
-    if error == 'ticket_error':
-        title = '{0}, {1}'.format("Ticket Error!", error)
+    if error_type == 'ticket_error':
+        title = '{0}, {1}'.format("Ticket Error!", error_type)
         message = u'{0}<p>{1}</p>'.format(
             u"<p>Wrong ticket, or session may have expired!</p> <p>Generate new ticket?</p>",
             exception_text)
@@ -378,8 +406,8 @@ def error_handle(thread):
 
         return thread
 
-    if error == 'no_project_error':
-        title = '{0}, {1}'.format("This Project does not exists!", error)
+    if error_type == 'no_project_error':
+        title = '{0}, {1}'.format("This Project does not exists!", error_type)
         message = u'{0}<p>{1}</p>'.format(
             u"<p>You set up wrong Porject Name, or Project not exist!</p> <p>Reset Project to \"sthpw\"?</p>",
             exception_text)
@@ -405,8 +433,8 @@ def error_handle(thread):
 
         return thread
 
-    if error == 'login_pass_error':
-        title = '{0}, {1}'.format("Wrong user Login or Password for TACTIC Server!", error)
+    if error_type == 'login_pass_error':
+        title = '{0}, {1}'.format("Wrong user Login or Password for TACTIC Server!", error_type)
         message = u'{0}<p>{1}</p>'.format(
             u"<p>You need to open config, and type correct Login and Password!</p>",
             exception_text)
@@ -428,8 +456,8 @@ def error_handle(thread):
 
         return thread
 
-    if error == 'sql_connection_error':
-        title = '{0}, {1}'.format("SQL Server Error!", error)
+    if error_type == 'sql_connection_error':
+        title = '{0}, {1}'.format("SQL Server Error!", error_type)
         message = u'{0}<p>{1}</p>'.format(
             u"<p>TACTIC Server can't connect to SQL server, may be SQL Server Down! Or wrong server port/ip </p>",
             exception_text)
@@ -451,8 +479,8 @@ def error_handle(thread):
 
         return thread
 
-    if error == 'protocol_error':
-        title = '{0}, {1}'.format("Error with the Protocol!", error)
+    if error_type == 'protocol_error':
+        title = '{0}, {1}'.format("Error with the Protocol!", error_type)
         message = u'{0}<p>{1}</p>'.format(u"<p>Something wrong!</p>", exception_text)
         buttons = [('Ok', QtGui.QMessageBox.NoRole),
                    ('Retry', QtGui.QMessageBox.ApplyRole)]
@@ -883,6 +911,29 @@ class SObject(object):
         for process in process_set:
             self.notes[process] = Process(notes_list, process, True)
 
+    def get_search_key(self):
+
+        return self.info.get('__search_key__')
+
+    def delete_sobject(self, include_dependencies=False, list_dependencies=None):
+
+        snapshot_del_confirm = sobject_delete_confirm(self.get_search_key())
+        if snapshot_del_confirm:
+            include_dependencies = True
+            list_dependencies = {
+                'related_types': ['sthpw/file']
+            }
+
+            kwargs = {
+                'search_key': self.get_search_key(),
+                'include_dependencies': include_dependencies,
+            }
+            code = tq.prepare_serverside_script(tq.delete_sobject, kwargs, return_dict=True)
+            print code['code']
+            result = server_start().execute_python_script('', kwargs=code)
+
+            return result['info']['spt_ret_val']
+
 
 class Process(object):
     def __init__(self, in_dict, process, single=False):
@@ -949,7 +1000,7 @@ class Snapshot(SObject, object):
         return self.files
 
     def get_search_key(self):
-        return self.snapshot['search_key']
+        return self.snapshot['__search_key__']
 
     def get_files_objects(self, group_by=None):
         if not group_by:
@@ -993,6 +1044,7 @@ class Snapshot(SObject, object):
             return True
         else:
             return False
+
 
 class File(object):
     def __init__(self, file_dict, snapshot=None):
@@ -1305,7 +1357,7 @@ def delete_sobject_snapshot(sobject, delete_snapshot=True, search_keys=None, fil
                        },
     }
     try:
-        server_start().delete_sobject(sobject, list_dependencies=dep_list), 'delete_sobject_snapshot'
+        print server_start().delete_sobject(sobject, list_dependencies=dep_list), 'delete_sobject_snapshot'
         return True
     except Exception as err:
         print(err, 'delete_sobject_snapshot')
@@ -1314,6 +1366,50 @@ def delete_sobject_snapshot(sobject, delete_snapshot=True, search_keys=None, fil
 
 def delete_sobject_item(skey, delete_files=False):
     server_start().delete_sobject(skey, delete_files)
+
+
+def sobject_delete_confirm(sobject):
+    # ver_rev = gf.get_ver_rev(snapshot['version'], snapshot['revision'])
+
+    msb = QtGui.QMessageBox(QtGui.QMessageBox.Question, 'Confirm deleting',
+                            '<p><p>Do you really want to delete sobject:</p>{0}<p>Version: {1}</p>Also remove dependencies?</p>'.format(
+                                sobject, 'VERREV'),
+                            QtGui.QMessageBox.NoButton, env_inst.ui_main)
+
+    msb.addButton("Delete", QtGui.QMessageBox.YesRole)
+    msb.addButton("Cancel", QtGui.QMessageBox.NoRole)
+
+    layout = QtGui.QVBoxLayout()
+
+    widget = QtGui.QWidget()
+    widget.setLayout(layout)
+
+    msb_layot = msb.layout()
+
+    # workaround for pyside2
+    wdg_list = []
+
+    for i in range(msb_layot.count()):
+        wdg = msb_layot.itemAt(i).widget()
+        if wdg:
+            wdg_list.append(wdg)
+
+    msb_layot.addWidget(wdg_list[0], 0, 0)
+    msb_layot.addWidget(wdg_list[1], 0, 1)
+    msb_layot.addWidget(wdg_list[2], 2, 1)
+    msb_layot.addWidget(widget, 1, 1)
+
+    delete_sobj_widget = ui_dialogs_classes.deleteSobjectWidget(sobject=sobject)
+
+    layout.addWidget(delete_sobj_widget)
+
+    msb.exec_()
+    reply = msb.buttonRole(msb.clickedButton())
+
+    if reply == QtGui.QMessageBox.YesRole:
+        return delete_sobj_widget.get_data_dict()
+    else:
+        return None
 
 
 def snapshot_delete_confirm(snapshot, files):
@@ -1329,11 +1425,23 @@ def snapshot_delete_confirm(snapshot, files):
 
     layout = QtGui.QVBoxLayout()
 
-    wdg = QtGui.QWidget()
-    wdg.setLayout(layout)
+    widget = QtGui.QWidget()
+    widget.setLayout(layout)
 
     msb_layot = msb.layout()
-    msb_layot.addWidget(wdg, 1, 1)
+
+    # workaround for pyside2
+    wdg_list = []
+
+    for i in range(msb_layot.count()):
+        wdg = msb_layot.itemAt(i).widget()
+        if wdg:
+            wdg_list.append(wdg)
+
+    msb_layot.addWidget(wdg_list[0], 0, 0)
+    msb_layot.addWidget(wdg_list[1], 0, 1)
+    msb_layot.addWidget(wdg_list[2], 2, 1)
+    msb_layot.addWidget(widget, 1, 1)
 
     checkboxes = []
     files_list = []
@@ -1417,7 +1525,21 @@ def save_confirm(paths, repo, update_versionless=True):
     widgets_layout.addWidget(update_versionless_checkbox, 2, 0)
 
     msb_layot = msb.layout()
+
+    # workaround for pyside2
+    wdg_list = []
+
+    for i in range(msb_layot.count()):
+        wdg = msb_layot.itemAt(i).widget()
+        if wdg:
+            wdg_list.append(wdg)
+
+    msb_layot.addWidget(wdg_list[0], 0, 0)
+    msb_layot.addWidget(wdg_list[1], 0, 1)
+    msb_layot.addWidget(wdg_list[2], 2, 1)
     msb_layot.addWidget(widgets, 1, 1)
+
+    # msb_layot.addWidget(widgets, 1, 1)
 
     treeWidget_vers = QtGui.QTreeWidget()
     treeWidget_vers.setAlternatingRowColors(True)
@@ -1830,6 +1952,10 @@ def checkin_file(search_key, context, snapshot_type='file', is_revision=False, d
             val['s'].extend(['__preview/web', '__preview/icon'])
             val['e'].extend(['jpg', 'png'])
             val['p'].extend(['', ''])
+
+    from pprint import pprint
+
+    pprint(files_dict)
 
     virtual_snapshot = checkin_virtual_snapshot(
         search_key,

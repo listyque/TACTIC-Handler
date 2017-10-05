@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 # ---------------------------------------------------------------------------------------------
-# Copyright (c) 2011-2015, Ryan Galloway (ryan@rsgalloway.com)
+# Copyright (c) 2011-2017, Ryan Galloway (ryan@rsgalloway.com)
 #
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions are met:
@@ -52,13 +52,16 @@ import os
 import re
 import logging
 import warnings
+import functools
 from glob import glob
+from glob import iglob
 from datetime import datetime
 
-__version__ = "0.4.3"
+__version__ = "0.5.0"
 
 # default serialization format string
 global_format = '%4l %h%p%t %R'
+default_format = '%h%r%t'
 
 # regex for matching numerical characters
 digits_re = re.compile(r'\d+')
@@ -79,12 +82,48 @@ log = logging.getLogger('pyseq')
 log.addHandler(logging.StreamHandler())
 log.setLevel(int(os.environ.get('PYSEQ_LOG_LEVEL', logging.INFO)))
 
-# Show DeprecationWarnings in 2.7+
+# show deprecationWarnings in 2.7+
 warnings.simplefilter('always', DeprecationWarning)
+
+# python 3 strings
+try:
+    unicode = unicode
+except NameError:
+    str = str
+    unicode = str
+    bytes = bytes
+    basestring = (str,bytes)
+else:
+    str = str
+    unicode = unicode
+    bytes = str
+    basestring = basestring
 
 
 def _natural_key(x):
+    """ Splits a string into characters and digits.  This helps in sorting file
+    names in a 'natural' way.
+    """
     return [int(c) if c.isdigit() else c.lower() for c in re.split("(\d+)", x)]
+
+
+def _ext_key(x):
+    """ Similar to '_natural_key' except this one uses the file extension at
+    the head of split string.  This fixes issues with files that are named
+    similar but with different file extensions:
+    This example:
+        file.001.jpg
+        file.001.tiff
+        file.002.jpg
+        file.002.tiff
+    Would get properly sorted into:
+        file.001.jpg
+        file.002.jpg
+        file.001.tiff
+        file.002.tiff
+    """
+    name, ext = os.path.splitext(x)
+    return [ext] + _natural_key(name)
 
 
 def natural_sort(items):
@@ -124,20 +163,21 @@ class Item(str):
 
     def __init__(self, item):
         super(Item, self).__init__()
-        log.debug('adding %s' % item)
+        log.debug('adding %s', item)
         self.item = item
-        self.__path = getattr(item, 'path', os.path.abspath(str(item)))
-        self.__dirname = os.path.dirname(self.__path)
-        self.__filename = os.path.basename(str(item))
+        self.__path = getattr(item, 'path', None)
+        if self.__path is None:
+            self.__path = os.path.abspath(str(item))
+        self.__dirname, self.__filename = os.path.split(self.__path)
         self.__digits = digits_re.findall(self.name)
         self.__parts = digits_re.split(self.name)
-        self.__size = os.path.getsize(self.__path) if self.exists else 0
-        self.__mtime = os.path.getmtime(self.__path) if self.exists else 0
+        self.__stat = None
 
         # modified by self.is_sibling()
-        self.frame = ''
+        self.frame = None
         self.head = self.name
         self.tail = ''
+        self.pad = None
 
     def __eq__(self, other):
         return self.path == other.path
@@ -146,16 +186,16 @@ class Item(str):
         return self.path != other.path
 
     def __lt__(self, other):
-        return int(self.frame) < int(other.frame)
+        return self.frame < other.frame
 
     def __gt__(self, other):
-        return int(self.frame) > int(other.frame)
+        return self.frame > other.frame
 
     def __ge__(self, other):
-        return int(self.frame) >= int(other.frame)
+        return self.frame >= other.frame
 
     def __le__(self, other):
-        return int(self.frame) <= int(other.frame)
+        return self.frame <= other.frame
 
     def __str__(self):
         return str(self.name)
@@ -206,13 +246,21 @@ class Item(str):
     def size(self):
         """Returns the size of the Item, reported by os.stat
         """
-        return self.__size
+        return self.stat.st_size
 
     @property
     def mtime(self):
         """Returns the modification time of the Item
         """
-        return self.__mtime
+        return self.stat.st_mtime
+
+    @property
+    def stat(self):
+        """ Returns the os.stat object for this file.
+        """
+        if self.__stat is None:
+            self.__stat = os.stat(self.__path)
+        return self.__stat
 
     @deprecated
     def isSibling(self, item):
@@ -236,10 +284,14 @@ class Item(str):
         # I do not understand why we are updating information
         # while this is a predicate method
         if is_sibling:
-            self.frame = d[0]['frames'][0]
+            frame = d[0]['frames'][0]
+            self.frame = int(frame)
+            self.pad = len(frame)
             self.head = self.name[:d[0]['start']]
             self.tail = self.name[d[0]['end']:]
-            item.frame = d[0]['frames'][1]
+            frame = d[0]['frames'][1]
+            item.frame = int(frame)
+            item.pad = len(frame)
             item.head = item.name[:d[0]['start']]
             item.tail = item.name[d[0]['end']:]
 
@@ -275,9 +327,12 @@ class Sequence(list):
 
         :return: pyseq.Sequence class instance.
         """
+        # otherwise Sequence consumes the list
+        items = items[::]
         super(Sequence, self).__init__([Item(items.pop(0))])
         self.__missing = []
         self.__dirty = False
+        self.__frames = None
 
         while items:
             f = Item(items.pop(0))
@@ -292,23 +347,25 @@ class Sequence(list):
                 break
 
     def __attrs__(self):
-        """Replaces format directives with values."""
+        """Replaces format directives with callables to get their values."""
         return {
-            'l': self.length(),
-            's': self.start(),
-            'e': self.end(),
-            'f': self.frames(),
-            'm': self.missing(),
-            'd': self.size,
-            'p': self._get_padding(),
-            'r': self._get_framerange(missing=False),
-            'R': self._get_framerange(missing=True),
-            'h': self.head(),
-            't': self.tail()
+            'l': self.length,
+            's': self.start,
+            'e': self.end,
+            'f': self.frames,
+            'm': self.missing,
+            'M': functools.partial(self._get_framerange, self.missing(), missing=True),
+            'd': lambda *x: self.size,
+            'D': self.directory,
+            'p': self._get_padding,
+            'r': functools.partial(self._get_framerange, self.frames(), missing=False),
+            'R': functools.partial(self._get_framerange, self.frames(), missing=True),
+            'h': self.head,
+            't': self.tail
         }
 
     def __str__(self):
-        return self.format('%h%r%t')
+        return self.format(default_format)
 
     def __repr__(self):
         return '<pyseq.Sequence "%s">' % str(self)
@@ -370,31 +427,35 @@ class Sequence(list):
         The following directives can be embedded in the format string.
         Format directives support padding, for example: "%04l".
 
-        +-----------+-------------------------------------+
-        | Directive | Meaning                             |
-        +===========+=====================================+
-        | ``%s``    | sequence start                      |
-        +-----------+-------------------------------------+
-        | ``%e``    | sequence end                        |
-        +-----------+-------------------------------------+
-        | ``%l``    | sequence length                     |
-        +-----------+-------------------------------------+
-        | ``%f``    | list of found files                 |
-        +-----------+-------------------------------------+
-        | ``%m``    | list of missing files               |
-        +-----------+-------------------------------------+
-        | ``%p``    | padding, e.g. %06d                  |
-        +-----------+-------------------------------------+
-        | ``%r``    | implied range, start-end            |
-        +-----------+-------------------------------------+
-        | ``%R``    | explicit range, start-end [missing] |
-        +-----------+-------------------------------------+
-        | ``%d``    | disk usage                          |
-        +-----------+-------------------------------------+
-        | ``%h``    | string preceding sequence number    |
-        +-----------+-------------------------------------+
-        | ``%t``    | string after the sequence number    |
-        +-----------+-------------------------------------+
+        +-----------+--------------------------------------+
+        | Directive | Meaning                              |
+        +===========+======================================+
+        | ``%s``    | sequence start                       |
+        +-----------+--------------------------------------+
+        | ``%e``    | sequence end                         |
+        +-----------+--------------------------------------+
+        | ``%l``    | sequence length                      |
+        +-----------+--------------------------------------+
+        | ``%f``    | list of found files                  |
+        +-----------+--------------------------------------+
+        | ``%m``    | list of missing files                |
+        +-----------+--------------------------------------+
+        | ``%M``    | explicit missingfiles [11-14,19-21]  |
+        +-----------+--------------------------------------+
+        | ``%p``    | padding, e.g. %06d                   |
+        +-----------+--------------------------------------+
+        | ``%r``    | implied range, start-end             |
+        +-----------+--------------------------------------+
+        | ``%R``    | explicit broken range, [1-10, 15-20] |
+        +-----------+--------------------------------------+
+        | ``%d``    | disk usage                           |
+        +-----------+--------------------------------------+
+        | ``%D``    | parent directory                     |
+        +-----------+--------------------------------------+
+        | ``%h``    | string preceding sequence number     |
+        +-----------+--------------------------------------+
+        | ``%t``    | string after the sequence number     |
+        +-----------+--------------------------------------+
 
         :param fmt: Format string. Default is '%4l %h%p%t %R'.
 
@@ -406,14 +467,17 @@ class Sequence(list):
             'l': 'i',
             'f': 's',
             'm': 's',
+            'M': 's',
             'p': 's',
             'r': 's',
             'R': 's',
             'd': 's',
+            'D': 's',
             'h': 's',
             't': 's'
         }
 
+        atts = self.__attrs__()
         for m in format_re.finditer(fmt):
             var = m.group('var')
             pad = m.group('pad')
@@ -424,7 +488,13 @@ class Sequence(list):
             _old = '%s%s' % (pad or '', var)
             _new = '(%s)%s%s' % (var, pad or '', fmt_char)
             fmt = fmt.replace(_old, _new)
-        return fmt % self.__attrs__()
+            val = atts[var]
+            # only execute the callable once, just in case
+            if callable(val):
+                val = atts[var]()
+                atts[var] = val
+
+        return fmt % atts
 
     @property
     def mtime(self):
@@ -444,6 +514,9 @@ class Sequence(list):
             tempSize.append(i.size)
         return sum(tempSize)
 
+    def directory(self):
+        return self[0].dirname + os.sep
+
     def length(self):
         """:return: The length of the sequence."""
         return len(self)
@@ -451,7 +524,7 @@ class Sequence(list):
     def frames(self):
         """:return: List of files in sequence."""
         if not hasattr(self, '__frames') or not self.__frames or self.__dirty:
-            self.__frames = list(map(int, self._get_frames()))
+            self.__frames = self._get_frames()
             self.__frames.sort()
         return self.__frames
 
@@ -474,7 +547,7 @@ class Sequence(list):
     def missing(self):
         """:return: List of missing files."""
         if not hasattr(self, '__missing') or not self.__missing:
-            self.__missing = list(map(int, self._get_missing()))
+            self.__missing = self._get_missing()
         return self.__missing
 
     def head(self):
@@ -540,7 +613,7 @@ class Sequence(list):
             if not isinstance(item, Item):
                 item = Item(item)
             return self.includes(item)\
-                and self.end() >= int(item.frame) >= self.start()
+                and self.end() >= item.frame >= self.start()
 
         return False
 
@@ -629,7 +702,7 @@ class Sequence(list):
             else:
                 log.debug('renaming %s %s' % (oldName, newName))
                 self.__dirty = True
-                image.frame = newFrame
+                image.frame = int(newFrame)
 
         else:
             self.frames()
@@ -637,16 +710,19 @@ class Sequence(list):
     def _get_padding(self):
         """:return: padding string, e.g. %07d"""
         try:
-            pad = len(self._get_frames()[0])
+            pad = self[0].pad
+            if pad is None:
+                return ""
             if pad < 2:
                 return '%d'
             return '%%%02dd' % pad
         except IndexError:
             return ''
 
-    def _get_framerange(self, missing=True):
-        """Returns frame range string, e.g. 1-500.
-
+    def _get_framerange(self, frames, missing=True):
+        """Returns frame range string, e.g. [1-500].
+        
+        :param frames: list of ints like [1,4,8,12,15].
         :param missing: Expand sequence to exclude missing sequence indices.
 
         :return: formatted frame range string.
@@ -654,29 +730,28 @@ class Sequence(list):
         frange = []
         start = ''
         end = ''
-
         if not missing:
-            if self.frames():
+            if frames:
                 return '%s-%s' % (self.start(), self.end())
             else:
                 return ''
 
-        if not self.frames():
+        if not frames:
             return ''
 
-        for i in range(0, len(self.frames())):
-            if int(self.frames()[i]) != int(
-                    self.frames()[i - 1]) + 1 and i != 0:
+        for i in range(0, len(frames)):
+            frame = frames[i]
+            if i != 0 and frame != frames[i - 1] + 1:
                 if start != end:
                     frange.append('%s-%s' % (str(start), str(end)))
                 elif start == end:
                     frange.append(str(start))
-                start = end = self.frames()[i]
+                start = end = frame
                 continue
-            if start is '' or int(start) > int(self.frames()[i]):
-                start = self.frames()[i]
-            if end is '' or int(end) < int(self.frames()[i]):
-                end = self.frames()[i]
+            if start is '' or int(start) > frame:
+                start = frame
+            if end is '' or int(end) < frame:
+                end = frame
         if start == end:
             frange.append(str(start))
         else:
@@ -686,27 +761,22 @@ class Sequence(list):
     def _get_frames(self):
         """finds the sequence indexes from item names
         """
-        return [f.frame for f in self if f.frame is not '']
+        return [f.frame for f in self if f.frame is not None]
 
     def _get_missing(self):
         """Looks for missing sequence indexes in sequence
+
+        .. todo:: change this to:
+            r = range(frames[0], frames[-1] + 1)
+            return sorted(list(set(frames).symmetric_difference(r)))
         """
         missing = []
         frames = self.frames()
         if len(frames) == 0:
             return missing
-        prev = frames[0]
-        index = 1
-        while index < len(frames):
-            diff = frames[index] - prev
-            if diff == 1:
-                prev = frames[index]
-                index += 1
-            else:
-                prev += 1
-                missing.append(prev)
 
-        return missing
+        r = range(frames[0], frames[-1] + 1)
+        return sorted(list(set(frames).symmetric_difference(r)))
 
 
 def diff(f1, f2):
@@ -753,46 +823,25 @@ def diff(f1, f2):
 def uncompress(seq_string, fmt=global_format):
     """Basic uncompression or deserialization of a compressed sequence string.
 
-    For example:
+    For example: ::
 
         >>> seq = uncompress('./tests/files/012_vb_110_v001.%04d.png 1-10', fmt='%h%p%t %r')
         >>> print(seq)
         012_vb_110_v001.1-10.png
         >>> len(seq)
         10
-        >>> seq2 = uncompress('./tests/files/a.%03d.tga 1-3 10 12-14', fmt='%h%p%t %R')
+        >>> seq2 = uncompress('./tests/files/a.%03d.tga [1-3, 10, 12-14]', fmt='%h%p%t %R')
         >>> print(seq2)
         a.1-14.tga
         >>> len(seq2)
         7
-        >>> seq3 = uncompress('a.%03d.tga 1-14 (1-3 10 12-14)', fmt='%h%p%t %r (%R)')
+        >>> seq3 = uncompress('a.%03d.tga 1-14 ([1-3, 10, 12-14])', fmt='%h%p%t %r (%R)')
         >>> print(seq3)
         a.1-14.tga
         >>> len(seq3)
         7
-        >>> seq4 = uncompress('a.%03d.tga 1-14 (1-3 10 12-14)', fmt='%h%p%t %s-%e (%R)')
-        >>> print(seq4)
-        a.1-14.tga
-        >>> seq5 = uncompress('a.%03d.tga 1-14 (1 14)', fmt='%h%p%t %r (%R)')
-        >>> print(seq5)
-        a.1-14.tga
-        >>> len(seq5)
-        2
-        >>> seq6 = uncompress('a.%03d.tga 1-14 (1-14)', fmt='%h%p%t %r (%R)')
-        >>> print(seq6)
-        a.1-14.tga
-        >>> len(seq6)
-        14
-        >>> seq7 = uncompress('a.%03d.tga 1-100000 (1-10 100000)', fmt='%h%p%t %r (%R)')
-        >>> print(seq7)
-        a.1-100000.tga
-        >>> len(seq7)
-        11
-        >>> seq8 = uncompress('a.%03d.tga 1-100 ([10, 20, 40, 50])', fmt='%h%p%t %r (%m)')
-        >>> print(seq8)
-        a.1-100.tga
-        >>> len(seq8)
-        96
+
+    See unit tests for more examples.
 
     :param seq_string: Compressed sequence string.
     :param fmt: Format of sequence string.
@@ -800,6 +849,9 @@ def uncompress(seq_string, fmt=global_format):
     :return: :class:`.Sequence` instance.
     """
     dirname = os.path.dirname(seq_string)
+    # remove directory
+    if "%D" in fmt:
+        fmt = fmt.replace("%D", "")
     name = os.path.basename(seq_string)
     log.debug('uncompress: %s' % name)
 
@@ -814,14 +866,14 @@ def uncompress(seq_string, fmt=global_format):
         'R': '\[[\d\s?\-%s?]+\]' % re.escape(range_join),
         'p': '%\d+d',
         'm': '\[.*\]',
-        'f': '\[.*\]'
+        'f': '\[.*\]',
     }
 
     log.debug('fmt in: %s' % fmt)
 
     # escape any re chars in format
     fmt = re.escape(fmt)
-    
+
     # replace \% with % back again
     fmt = fmt.replace('\\%', '%')
 
@@ -861,17 +913,21 @@ def uncompress(seq_string, fmt=global_format):
         R = match.group('R')
         R = R[1:-1]
         number_groups = R.split(range_join)
-
+        pad_len = 0
         for number_group in number_groups:
             if '-' in number_group:
                 splits = number_group.split('-')
+                pad_len = max(pad_len, len(splits[0]), len(splits[1]))
                 start = int(splits[0])
                 end = int(splits[1])
                 frames.extend(range(start, end + 1))
 
             else:
                 end = int(number_group)
+                pad_len = max(pad_len, len(number_group))
                 frames.append(end)
+        if pad == "%d" and pad_len != 0:
+            pad = "%0" + str(pad_len) + "d"
 
     except IndexError:
         try:
@@ -982,7 +1038,7 @@ def get_sequences(source):
     if isinstance(source, list):
         items = sorted(source, key=lambda x: str(x))
 
-    elif isinstance(source, str):
+    elif isinstance(source, basestring):
         if os.path.isdir(source):
             items = sorted(glob(os.path.join(source, '*')))
         else:
@@ -1011,6 +1067,85 @@ def get_sequences(source):
     return list(seqs)
 
 
+def iget_sequences(source):
+    """ Generator version of get_sequences.  Creates Sequences from a various
+    source files.  A notable difference is the sort order of iget_sequences
+    versus get_sequences.  iget_sequences uses an adaption of natural sorting
+    that starts with the file extension.  Because of this, Sequences are
+    returned ordered by their file extension.
+
+    Get sequences in a directory:
+
+        >>> seqs = iget_sequences('./tests/files/')
+        >>> for s in seqs: print(s)
+        ...
+        file01.1-4.j2k
+        fileA.1-3.jpg
+        012_vb_110_v001.1-10.png
+        012_vb_110_v002.1-10.png
+        fileA.1-3.png
+        z1_001_v1.1-4.png
+        z1_002_v1.1-4.png
+        z1_002_v2.1-4.png
+        file1.03.rgb
+        file01_40-43.rgb
+        file2.03.rgb
+        file02_44-47.rgb
+        file3-4.03.rgb
+        file.info.03.rgb
+        a.1-14.tga
+        bnc01_TinkSO_tx_0_ty_0.101-105.tif
+        bnc01_TinkSO_tx_0_ty_1.101-105.tif
+        bnc01_TinkSO_tx_1_ty_0.101-105.tif
+        bnc01_TinkSO_tx_1_ty_1.101-105.tif
+        file.1-2.tif
+        file_02.tif
+        alpha.txt
+
+    Get sequences from a list of file names:
+
+        >>> seqs = iget_sequences(['fileA.1.rgb', 'fileA.2.rgb', 'fileB.1.rgb'])
+        >>> for s in seqs: print(s)
+        ...
+        fileA.1-2.rgb
+        fileB.1.rgb
+
+
+    :param source: Can be directory path, list of strings, or sortable list of objects.
+
+    :return: List of pyseq.Sequence class objects.
+    """
+    start = datetime.now()
+    if isinstance(source, list):
+        items = source
+    elif isinstance(source, str):
+        if os.path.isdir(source):
+            join = os.path.join
+            items = [join(source, x) for x in os.listdir(source)]
+        else:
+            items = iglob(source)
+    else:
+        raise TypeError("Unsupported format for source argument")
+
+    items = sorted(items, key=_ext_key)
+    log.debug("Found %d files", len(items))
+
+    seq = None
+    while items:
+        item = Item(items.pop(0))
+        if seq is None:
+            seq = Sequence([item])
+        elif seq.includes(item):
+            seq.append(item)
+        else:
+            yield seq
+            seq = Sequence([item])
+
+    if seq is not None:
+        yield seq
+    log.debug("time: %s", datetime.now() - start)
+
+
 def walk(source, level=-1, topdown=True, onerror=None, followlinks=False, hidden=False):
     """Generator that traverses a directory structure starting at
     source looking for sequences.
@@ -1033,6 +1168,8 @@ def walk(source, level=-1, topdown=True, onerror=None, followlinks=False, hidden
         if not hidden:
             files = [f for f in files if not f[0] == '.']
             dirs[:] = [d for d in dirs if not d[0] == '.']
+
+        files = [os.path.join(root, f) for f in files]
 
         if topdown is True:
             parts = root.replace(source, "").split(os.sep)

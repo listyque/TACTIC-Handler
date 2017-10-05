@@ -212,7 +212,8 @@ class Ui_checkInOutOptionsWidget(QtGui.QWidget, ui_checkin_out_options_dialog.Ui
         self.current_project = self.project.info['code']
         self.current_namespace = self.project.info['type']
         self.tab_name = self.parent().objectName()
-        self.parent_ui = parent
+
+        # env_inst.get_check_tree(self.current_project, 'checkin_out', self.tab_name)
 
         self.create_ui()
         self.controls_actions()
@@ -254,10 +255,10 @@ class Ui_checkInOutOptionsWidget(QtGui.QWidget, ui_checkin_out_options_dialog.Ui
         # self.applyPushButton.clicked.connect(self.checkinPageWidget.save_config)
         # self.applyToAllPushButton.clicked.connect(self.apply_current_to_all_tabs)
 
-    def apply_current_to_all_tabs(self):
-        current_settings = self.get_settings_dict()
-        for tab in env_inst.ui_check_tree.get(self.parent_ui.relates_to).itervalues():
-            tab.checkin_options_widget.set_settings_from_dict(current_settings)
+    # def apply_current_to_all_tabs(self):
+    #     current_settings = self.get_settings_dict()
+    #     for tab in env_inst.ui_check_tree.get(self.parent_ui.relates_to).itervalues():
+    #         tab.checkin_options_widget.set_settings_from_dict(current_settings)
 
     def set_settings_from_dict(self, settings_dict=None):
 
@@ -809,9 +810,10 @@ class Ui_checkInOutWidget(QtGui.QMainWindow):
     #     self.gearMenuToolButton.addAction(self.clear_results)
     #     self.gearMenuToolButton.addAction(self.search_options)
 
+    @gf.catch_error
     def create_process_tree_widget(self):
         if not self.process_tree_widget:
-            self.process_tree_widget = search_classes.QPopupTreeWidget(
+            self.process_tree_widget = search_classes.Ui_processFilterDialog(
                 parent_ui=self,
                 parent=self,
                 project=self.project,
@@ -825,7 +827,7 @@ class Ui_checkInOutWidget(QtGui.QMainWindow):
         if self.process_tree_widget:
             return self.process_tree_widget.get_ignore_dict()
         else:
-            self.process_tree_widget = search_classes.QPopupTreeWidget(
+            self.process_tree_widget = search_classes.Ui_processFilterDialog(
                 parent_ui=self,
                 parent=self,
                 project=self.project,
@@ -834,7 +836,7 @@ class Ui_checkInOutWidget(QtGui.QMainWindow):
             return self.process_tree_widget.get_ignore_dict()
 
     def refresh_current_results(self):
-        self.search_widget.search_results_widget.refresh_current_results()
+        self.search_widget.refresh_current_results()
 
     # def close_all_search_tabs(self):
     #     self.search_results_widget.close_all_tabs()
@@ -893,20 +895,36 @@ class Ui_checkInOutWidget(QtGui.QMainWindow):
 
         delete_snapshot = QtGui.QAction('Delete', self)
         delete_snapshot.setIcon(gf.get_icon('remove'))
-        delete_snapshot.triggered.connect(self.delete_snapshot_sobject)
+        delete_snapshot.triggered.connect(self.delete_sobject)
 
         # checkin_options = QtGui.QAction('Checkin Options toggle', self.savePushButton)
         # checkin_options.triggered.connect(self.toggle_checkin_options_group_box)
 
         # if not tool_button:
         if mode == 'sobject':
-            menu.addAction(save_snapshot)
-            menu.addAction(save_selected_snapshot)
+            open_snapshot_additional = menu.addAction(open_snapshot, True)
+            open_snapshot_additional.clicked.connect(self.open_file_options)
+
             menu.addSeparator()
-            menu.addAction(save_snapshot_revision)
-            menu.addAction(save_selected_snapshot_revision)
+            save_snapshot_additional = menu.addAction(save_snapshot, True)
+            save_snapshot_additional.clicked.connect(self.save_file_options)
+
+            save_selected_snapshot_additional = menu.addAction(save_selected_snapshot, True)
+            save_selected_snapshot_additional.clicked.connect(self.export_selected_file_options)
+
             menu.addSeparator()
-            menu.addAction(update_snapshot)
+
+            save_snapshot_revision_additional = menu.addAction(save_snapshot_revision, True)
+            save_snapshot_revision_additional.clicked.connect(self.save_file_options)
+
+            save_selected_snapshot_revision_additional = menu.addAction(save_selected_snapshot_revision, True)
+            save_selected_snapshot_revision_additional.clicked.connect(self.export_selected_file_options)
+
+            menu.addSeparator()
+
+            update_snapshot_additional = menu.addAction(update_snapshot, True)
+            update_snapshot_additional.clicked.connect(self.export_selected_file_options)
+
             # menu.addAction(update_selected_snapshot)
             # menu.addAction(update_playblast)
             menu.addSeparator()
@@ -918,24 +936,29 @@ class Ui_checkInOutWidget(QtGui.QMainWindow):
 
         if mode == 'snapshot':
             open_snapshot_additional = menu.addAction(open_snapshot, True)
-            # print open_snapshot_additional
             open_snapshot_additional.clicked.connect(self.open_file_options)
+
             menu.addSeparator()
-            # QtGui.QAction
+
             save_snapshot_additional = menu.addAction(save_snapshot, True)
             save_snapshot_additional.clicked.connect(self.save_file_options)
 
             save_selected_snapshot_additional = menu.addAction(save_selected_snapshot, True)
             save_selected_snapshot_additional.clicked.connect(self.export_selected_file_options)
 
-            menu.addAction(save_selected_snapshot)
             menu.addSeparator()
-            menu.addAction(save_snapshot_revision)
-            menu.addAction(save_selected_snapshot_revision)
+
+            save_snapshot_revision_additional = menu.addAction(save_snapshot_revision, True)
+            save_snapshot_revision_additional.clicked.connect(self.save_file_options)
+
+            save_selected_snapshot_revision_additional = menu.addAction(save_selected_snapshot_revision, True)
+            save_selected_snapshot_revision_additional.clicked.connect(self.export_selected_file_options)
+
             menu.addSeparator()
-            menu.addAction(update_snapshot)
-            # menu.addAction(update_selected_snapshot)
-            # menu.addAction(update_playblast)
+
+            update_snapshot_additional = menu.addAction(update_snapshot, True)
+            update_snapshot_additional.clicked.connect(self.export_selected_file_options)
+
             menu.addSeparator()
             menu.addAction(edit_info)
             menu.addSeparator()
@@ -944,8 +967,14 @@ class Ui_checkInOutWidget(QtGui.QMainWindow):
             # menu.addAction(checkin_options)
 
         if mode == 'process':
-            menu.addAction(save_snapshot)
-            menu.addAction(save_selected_snapshot)
+            save_snapshot_additional = menu.addAction(save_snapshot, True)
+            save_snapshot_additional.clicked.connect(self.save_file_options)
+            # menu.addAction(save_snapshot)
+            save_selected_snapshot_additional = menu.addAction(save_selected_snapshot, True)
+            save_selected_snapshot_additional.clicked.connect(self.export_selected_file_options)
+
+            # menu.addAction(save_selected_snapshot)
+
             # menu.addSeparator()
             # menu.addAction(save_snapshot_revision)
             # menu.addAction(save_selected_snapshot_revision)
@@ -1000,6 +1029,7 @@ class Ui_checkInOutWidget(QtGui.QMainWindow):
         self.searchOptionsSplitter.addWidget(self.searchOptionsGroupBox)
         # self.searchOptionsLayout.addWidget(self.searchOptionsGroupBox)
 
+    @gf.catch_error
     def toggle_search_group_box(self):
         if self.searchOptionsGroupBox.isVisible():
             self.set_search_group_box_state(True)
@@ -1101,6 +1131,7 @@ class Ui_checkInOutWidget(QtGui.QMainWindow):
     #         new_tab=new_tab
     #     )
 
+    @gf.catch_error
     def find_opened_sobject(self):
         skey = mf.get_skey_from_scene()
         env_inst.ui_main.go_by_skey(skey, 'checkin')
@@ -1176,6 +1207,7 @@ class Ui_checkInOutWidget(QtGui.QMainWindow):
         return file_path, dir_path, all_process
 
     # Opening functions
+    @gf.catch_error
     def open_file_options(self):
         file_path = self.get_current_item_paths()[0]
         current_widget = self.search_results_widget.get_current_widget()
@@ -1200,6 +1232,7 @@ class Ui_checkInOutWidget(QtGui.QMainWindow):
             self.reference_dialog = maya_dialogs.Ui_referenceOptionsWidget(file_path, nested_item)
             self.reference_dialog.show()
 
+    @gf.catch_error
     def open_file(self):
         print 'getting paths'
         file_path, dir_path, all_process = self.get_current_item_paths()
@@ -1240,7 +1273,11 @@ class Ui_checkInOutWidget(QtGui.QMainWindow):
     # Saving functions
     def checkin_from_droplist(self, search_key, context, description, save_revision=False, snapshot_version=None, create_icon=True):
 
-        selected_items = self.drop_plate_widget.dropTreeWidget.selectedItems()
+        selected_items = self.drop_plate_widget.get_selected_items()
+
+        print selected_items
+
+        # selected_items = None
         if selected_items:
 
             file_types = []
@@ -1251,13 +1288,17 @@ class Ui_checkInOutWidget(QtGui.QMainWindow):
             postfixes = []
 
             for item in selected_items:
-                file_types.append(item.text(2))
-                exts.append(item.data(1, QtCore.Qt.UserRole))
-                subfolders.append('')
-                postfixes.append('')
-                file_names.append(item.data(0, QtCore.Qt.UserRole))
-                file_path = gf.form_path(item.text(3) + '/' + item.text(0))
-                file_paths.append(file_path)
+                if item.get_type() == 'fl':
+                    postfixes.append('')
+                    subfolders.append('')
+                    exts.append(item.get_file_ext())
+                    file_types.append(item.get_base_file_type())
+                    file_names.append(item.get_file_name())
+                    file_paths.append(gf.form_path(item.get_all_files_list(True)))
+                elif item.get_type() == 'seq':
+                    print 'sequence'
+                elif item.get_type() == 'udim':
+                    print 'UDIM'
 
             mode = 'inplace'
 
@@ -1377,11 +1418,13 @@ class Ui_checkInOutWidget(QtGui.QMainWindow):
             setting_workspace=False
         )
 
+    @gf.catch_error
     def save_file_options(self):
 
         if env_mode.get_mode() == 'maya':
             mf.wrap_save_options(self.project.info['code'], 'checkin_out', self.tab_name)
 
+    @gf.catch_error
     def export_selected_file_options(self):
 
         if env_mode.get_mode() == 'maya':
@@ -1411,6 +1454,7 @@ class Ui_checkInOutWidget(QtGui.QMainWindow):
             current_widget.update_current_items_trees()
             # self.drop_plate_widget.fromDropListCheckBox.setChecked(False)
 
+    @gf.catch_error
     def save_file(self, selected_objects=None, save_revision=False, update_snapshot=False):
         current_widget = self.get_current_tree_widget()
         current_tree_widget_item = current_widget.get_current_tree_widget_item()
@@ -1492,6 +1536,7 @@ class Ui_checkInOutWidget(QtGui.QMainWindow):
         current_idx = self.checkin_options_widget.checkinPageWidget.repositoryComboBox.currentIndex()
         return self.checkin_options_widget.checkinPageWidget.repositoryComboBox.itemData(current_idx, QtCore.Qt.UserRole)
 
+    @gf.catch_error
     def add_new_sobject(self):
         """
         Open window for adding new sobject
@@ -1499,6 +1544,7 @@ class Ui_checkInOutWidget(QtGui.QMainWindow):
         self.add_sobject = addsobject_widget.Ui_addTacticSobjectWidget(stype=self.stype, parent=self)
         self.add_sobject.show()
 
+    @gf.catch_error
     def delete_snapshot_sobject(self):
 
         current_widget = self.get_current_tree_widget()
@@ -1509,7 +1555,8 @@ class Ui_checkInOutWidget(QtGui.QMainWindow):
             search_key = current_tree_widget_item.get_skey(only=True)
 
             print(search_key, 'deleting...')
-
+            print current_tree_widget_item.snapshot
+            print current_tree_widget_item.files
             snapshot_del_confirm = tc.snapshot_delete_confirm(snapshot=current_tree_widget_item.snapshot, files=current_tree_widget_item.files)
 
             if snapshot_del_confirm[0]:
@@ -1521,19 +1568,43 @@ class Ui_checkInOutWidget(QtGui.QMainWindow):
                 ):
                     self.update_snapshot_tree(current_tree_widget_item)
 
+    @gf.catch_error
     def delete_sobject(self):
+
 
         current_widget = self.get_current_tree_widget()
         current_tree_widget_item = current_widget.get_current_tree_widget_item()
+        print current_tree_widget_item
+        current_tree_widget_item.delete_current_sobject()
 
-        if current_tree_widget_item:
-            self.savePushButton.setEnabled(False)
-            search_key = current_tree_widget_item.get_skey(parent=True)
+        stype = current_tree_widget_item.stype
 
-            tc.delete_sobject_item(skey=search_key)
+        print stype
+        print self.stype
 
-            print(search_key, 'deleting...')
+        # self.edit_sobject = addsobject_widget.Ui_addTacticSobjectWidget(
+        #     stype=stype,
+        #     parent_stype=self.stype,
+        #     item=current_tree_widget_item,
+        #     view='edit',
+        #     parent=self,
+        # )
+        # self.edit_sobject.setWindowTitle('Editing info for {0}'.format(current_tree_widget_item.sobject.info.get('name')))
+        # self.edit_sobject.show()
 
+
+        # current_widget = self.get_current_tree_widget()
+        # current_tree_widget_item = current_widget.get_current_tree_widget_item()
+
+        # if current_tree_widget_item:
+        #     # self.savePushButton.setEnabled(False)
+        #     search_key = current_tree_widget_item.get_skey(parent=True)
+        #
+        #     tc.delete_sobject_item(skey=search_key)
+        #
+        #     print(search_key, 'deleting...')
+
+    @gf.catch_error
     def edit_existing_sobject(self):
         """
         Open window for Editing sobject
@@ -1541,11 +1612,16 @@ class Ui_checkInOutWidget(QtGui.QMainWindow):
         current_widget = self.get_current_tree_widget()
         current_tree_widget_item = current_widget.get_current_tree_widget_item()
         stype = current_tree_widget_item.stype
+
+        print stype
+        print self.stype
+
         self.edit_sobject = addsobject_widget.Ui_addTacticSobjectWidget(
             stype=stype,
+            parent_stype=self.stype,
             item=current_tree_widget_item,
             view='edit',
-            parent=self
+            parent=self,
         )
         self.edit_sobject.setWindowTitle('Editing info for {0}'.format(current_tree_widget_item.sobject.info.get('name')))
         self.edit_sobject.show()

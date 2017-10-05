@@ -4,6 +4,7 @@ from lib.side.Qt import QtWidgets as QtGui
 from lib.side.Qt import QtCore
 
 import lib.tactic_classes as tc
+import lib.global_functions as gf
 from lib.environment import env_inst
 
 
@@ -14,7 +15,7 @@ class QtTacticEditWidget(QtGui.QWidget):
 
         self.tactic_widget = tactic_widget
 
-        self.parent_ui = parent
+        self.add_sobj_widget = parent
         self.sobject = self.tactic_widget.get_sobject()
 
         self.qt_widgets = qt_widgets
@@ -42,7 +43,7 @@ class QtTacticEditWidget(QtGui.QWidget):
     def controls_actions(self):
         self.addNewButton.clicked.connect(self.commit_insert)
         self.saveButton.clicked.connect(self.commit_update)
-        self.cancelButton.clicked.connect(lambda: self.parent_ui.close())
+        self.cancelButton.clicked.connect(lambda: self.add_sobj_widget.close())
 
     def get_view(self):
         return self.tactic_widget.view
@@ -68,6 +69,7 @@ class QtTacticEditWidget(QtGui.QWidget):
                 search_key = sobject.get('__search_key__')
                 self.has_upload_wdg.checkin_icon_file(search_key)
 
+    @gf.catch_error
     def commit_update(self):
         data = self.get_data()
 
@@ -76,8 +78,8 @@ class QtTacticEditWidget(QtGui.QWidget):
 
             self.commit_upload_wdg(existing_sobject)
 
-            self.parent_ui.refresh_results()
-            self.parent_ui.close()
+            self.add_sobj_widget.refresh_results()
+            self.add_sobj_widget.close()
 
     def check_name_uniqueness(self, data):
         name = data.get('name')
@@ -115,7 +117,9 @@ class QtTacticEditWidget(QtGui.QWidget):
 
             return True
 
+    @gf.catch_error
     def commit_insert(self):
+
         # TODO Parent key, search key
         data = self.get_data()
 
@@ -123,14 +127,12 @@ class QtTacticEditWidget(QtGui.QWidget):
             new_sobject = self.tactic_widget.commit(data)
 
             self.commit_upload_wdg(new_sobject)
-            if self.parent_ui.item:
-                if self.parent_ui.item.type == 'child':
-                    print 'FIX REFRESHING ON CHILD ADD !!!!!!!!!!!', 'commit_insert', self.commit_insert
-                    print self.parent_ui
-                    self.parent_ui.refresh_results()
+            if self.add_sobj_widget.item:
+                if self.add_sobj_widget.item.type == 'child':
+                    self.add_sobj_widget.refresh_results()
             else:
-                self.parent_ui.add_new_tab(new_sobject)
-            self.parent_ui.close()
+                self.add_sobj_widget.add_new_tab(new_sobject)
+            self.add_sobj_widget.close()
 
     def create_control_buttons(self):
         self.addNewButton = QtGui.QPushButton('Add')
@@ -289,6 +291,7 @@ class QTacticSimpleUploadWdg(QtGui.QWidget, QTacticBasicInputWdg):
     def get_column(self):
         return self.tactic_widget.get_name()
 
+    @gf.catch_error
     def browse_for_preview(self):
         options = QtGui.QFileDialog.Options()
         options |= QtGui.QFileDialog.DontUseNativeDialog

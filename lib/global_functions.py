@@ -1,24 +1,183 @@
 # file global_functions.py
 # Global Functions Module
 
-import subprocess
+import sys
 import os
+import subprocess
 import copy
 import ast
 import json
 import zlib
 import binascii
 import collections
+import re
+import traceback
 import side.qtawesome as qta
 from lib.side.bs4 import BeautifulSoup
-# import PySide.QtGui as QtGui
-# import PySide.QtCore as QtCore
 from lib.side.Qt import QtWidgets as QtGui
 from lib.side.Qt import QtGui as Qt4Gui
 from lib.side.Qt import QtCore
 
-# from PySide import QtSvg
 from environment import env_mode, env_tactic
+from side.pyseq import get_sequences
+
+
+def catch_error(func):
+    def __tryexcept__(*args, **kwargs):
+
+        try:
+            func(*args, **kwargs)
+        except Exception as expected:
+            traceback.print_exc(file=sys.stdout)
+            stacktrace = traceback.format_exc()
+
+            exception = {
+                'exception': expected,
+                'stacktrace': stacktrace,
+            }
+
+            stacktrace_handle(exception)
+
+    return __tryexcept__
+
+
+def stacktrace_handle(exception):
+
+    expected = exception['exception']
+
+    error_type = catch_error_type(expected)
+
+    exception_text = u'{0}<p>{1}</p><p><b>Catched Error: {2}</b></p>'.format(
+        unicode(str(expected.__doc__), 'utf-8', errors='ignore'),
+        unicode(str(expected.message), 'utf-8', errors='ignore'),
+        str(error_type))
+
+    title = u'{0}'.format(unicode(str(expected.__doc__), 'utf-8', errors='ignore'))
+    message = u'{0}<p>{1}</p>'.format(
+        u"<p>Exception appeared:</p>",
+        exception_text)
+    buttons = [('Ok', QtGui.QMessageBox.AcceptRole)]
+
+    reply = show_message_predefined(
+        title=title,
+        message=message,
+        stacktrace=exception['stacktrace'],
+        buttons=buttons,
+        parent=None,
+        message_type='warning',
+    )
+    if reply == QtGui.QMessageBox.YesRole:
+        pass
+
+    # return thread
+
+
+def show_message_predefined(title, message, stacktrace=None, buttons=None, parent=None, message_type='question'):
+    """
+    Showing message with title, text and returns pressed button
+    :param title: 'Message Title'
+    :param message: 'Message Text'
+    :param message_type: 'question', 'warning', etc...
+    :param buttons: tuple of buttons: (('Yes', QtGui.QMessageBox.YesRole), ('No', QtGui.QMessageBox.NoRole)), etc...
+    :return: button role
+    """
+    if not buttons:
+        buttons = (('Yes', QtGui.QMessageBox.YesRole), ('No', QtGui.QMessageBox.NoRole))
+
+    if message_type == 'warning':
+        msb_type = QtGui.QMessageBox.Warning
+    elif message_type == 'information':
+        msb_type = QtGui.QMessageBox.Information
+    elif message_type == 'critical':
+        msb_type = QtGui.QMessageBox.Critical
+    else:
+        msb_type = QtGui.QMessageBox.Question
+
+    message_box = QtGui.QMessageBox(
+        msb_type,
+        title,
+        message,
+        QtGui.QMessageBox.NoButton,
+        parent,
+    )
+
+    if stacktrace:
+        layout = QtGui.QVBoxLayout()
+
+        from lib.ui_classes import ui_misc_classes
+
+        collapse_wdg = ui_misc_classes.Ui_collapsableWidget()
+        collapse_wdg.setLayout(layout)
+        collapse_wdg.setText('Hide Stacktrace')
+        collapse_wdg.setCollapsedText('Show Stacktrace')
+        collapse_wdg.setCollapsed(True)
+
+        msb_layot = message_box.layout()
+
+        # workaround for pyside2
+        wdg_list = []
+
+        for i in range(msb_layot.count()):
+            wdg = msb_layot.itemAt(i).widget()
+            if wdg:
+                wdg_list.append(wdg)
+
+        msb_layot.addWidget(wdg_list[0], 0, 0)
+        msb_layot.addWidget(wdg_list[1], 0, 1)
+        msb_layot.addWidget(wdg_list[2], 2, 1)
+        msb_layot.addWidget(collapse_wdg, 1, 1)
+
+        text_edit = QtGui.QPlainTextEdit()
+        text_edit.setMinimumWidth(600)
+        text_edit.setPlainText(stacktrace)
+
+        layout.addWidget(text_edit)
+
+    for title, role in buttons:
+        message_box.addButton(title, role)
+
+    message_box.exec_()
+    return message_box.buttonRole(message_box.clickedButton())
+
+
+def catch_error_type(exception):
+    # print('Some exception appeared!', str(type(exception)), unicode(str(exception), 'utf-8', errors='ignore'))
+
+    error = 'unknown_error'
+
+    # Catch project existance
+    if str(exception).find('No project') != -1:
+        error = 'no_project_error'
+
+    # Catch ticket error
+    if str(exception).find('Cannot login with key:') != -1:
+        error = 'ticket_error'
+
+    # Catch socket exception, connection error
+    if str(exception).find(
+            'A connection attempt failed because the connected party did not properly respond after a period of time') != -1:
+        error = 'connection_timeout'
+
+    # Catch Connection refused
+    if str(exception).find('No connection could be made because the target machine actively refused it') != -1:
+        error = 'connection_refused'
+
+    if str(exception).find('Connection refused') != -1:
+        error = 'connection_refused'
+
+    if str(exception).find('Login/Password combination incorrect') != -1:
+        error = 'login_pass_error'
+
+    if str(exception).find('connect to MySQL server') != -1:
+        error = 'sql_connection_error'
+
+    if str(exception).find('ProtocolError') != -1:
+        error = 'protocol_error'
+
+    if str(exception).find('object has no attribute') != -1:
+        error = 'attribute_error'
+
+    return error
 
 
 def hex_to_rgb(hex_v, alpha=None, tuple=False):
@@ -131,17 +290,83 @@ def split_files_and_dirs(filename):
         if os.path.isdir(single):
             dirs_list.append(single)
         else:
-            files_list.append(extract_filename(single))
+            files_list.append(single)
 
     return dirs_list, files_list
 
 
-def sequences_from_files(files_list):
-    print(files_list)
+def get_sequences_from_files(files_list):
+    sequences = get_sequences(files_list)
+
+    out_files = {
+        'seq': [],
+        'fl': []
+    }
+
+    for seq in sequences:
+        if seq.length() > 1:
+            out_files['seq'].append(seq)
+        else:
+            out_files['fl'].append(seq.path())
+
+    return out_files
 
 
-def sequences_from_dirs(files_list):
-    print(files_list)
+def get_udims_from_files(files_list):
+    values_pattern = re.compile('u([0-9]+)_v([0-9]+)')
+    # mari_values_pattern = re.compile('[_|.](([0-9][0-9])([0-9][0-9]))[.]')
+
+    udims_dict = {
+        'udim': collections.defaultdict(list),
+        'noudim': []
+    }
+
+    for file in files_list:
+        values_result = re.findall(values_pattern, file)
+        # if not values_result:
+        #     values_result = re.findall(mari_values_pattern, file)
+        split_result = re.split(values_pattern, file)
+        # print split_result, 'split_result'
+        # print values_result, 'values_result'
+        udim_collection = u'{0}u<>_v<>{1}'.format(split_result[0], split_result[-1])
+
+        if values_result:
+            udims_dict['udim'][udim_collection].append(split_result)
+        else:
+            udims_dict['noudim'].append(file)
+
+    return udims_dict
+
+
+def get_files_objects(items):
+    udims_dict = get_udims_from_files(items)
+    sequence_items = get_sequences_from_files(udims_dict['noudim'])
+    nosequence_items = sequence_items.get('fl')
+    sequence_items = sequence_items.get('seq')
+    udim_items = udims_dict['udim']
+
+    out_dict = {
+        'seq': [],
+        'fl': [],
+        'udim': [],
+    }
+
+    for seq in sequence_items:
+        file_obj = FileObject(seq)
+        file_obj.init_as_sequence()
+        out_dict['seq'].append(file_obj)
+
+    for fl in nosequence_items:
+        file_obj = FileObject(fl)
+        file_obj.init_as_file()
+        out_dict['fl'].append(file_obj)
+
+    for name, udim in udim_items.items():
+        file_obj = FileObject((name, udim))
+        file_obj.init_as_udim()
+        out_dict['udim'].append(file_obj)
+
+    return out_dict
 
 
 def file_format(ext):
@@ -191,11 +416,11 @@ def extract_extension(filename):
     ext = base_filename.split('.', -1)
     if not os.path.isdir(filename):
         if base_filename == ext[0]:
-            return [filename, 'No Ext', 'main', 'file']
+            return ['', 'No Ext', 'main', 'file']
         elif len(ext) > 1:
             return file_format(ext[-1])
     elif os.path.isdir(filename):
-        return [filename, 'Folder', 'folder', 'folder']
+        return ['', 'Folder', 'folder', 'folder']
 
 
 def extract_filename(filename, no_ext=False):
@@ -912,3 +1137,226 @@ def to_plain_text(html, strip=80):
         plain_text += ' ...'
 
     return plain_text
+
+
+# CLASSES #
+
+
+class FileObject(object):
+    def __init__(self, file_):
+
+        self._file = file_
+        self._type = None
+        self._file_type = None
+        self._files_list = []
+        self._file_path = None
+        self._file_name = None
+        self._pretty_file_name = None
+        self._file_ext = None
+        self._base_file_type_pretty_name = None
+        self._base_file_type = None
+        self._tactic_file_type = None
+        self._sequence_length = None
+        self._sequence_frames = None
+        self._sequence_padding = None
+        self._sequence_start = None
+        self._sequence_end = None
+        self._sequence_missing_frames = None
+
+        self._udim_tiles_count = None
+        self._udim_tiles = None
+
+    def init_as_sequence(self):
+        """ Init as sequence file object
+            This i very basic wrap for pyseq.Sequence """
+        self.set_type('seq')
+        self.set_file_path(self._file.directory())
+        self.set_file_name(self._file.head())
+        self.set_pretty_file_name(self._file.format('%h%r%t'))
+
+        for seq in self._file:
+            full_path = u'{0}{1}'.format(self.get_file_path(), seq)
+            self._files_list.append(full_path)
+
+        self.set_file_type(extract_extension(self._files_list[0]))
+
+        file_type = self.get_file_type()
+
+        self.set_file_ext(file_type[0])
+        self.set_base_file_type_pretty_name(file_type[1])
+        self.set_base_file_type('sequence')
+        self.set_tactic_file_type(file_type[3])
+
+        self.set_sequence_frames(self._file.frames())
+        self.set_sequence_padding(self._file._get_padding())
+        self.set_sequence_length(self._file.size)
+        self.set_sequence_start(self._file.start())
+        self.set_sequence_end(self._file.end())
+        self.set_sequence_missing_frames(self._file.missing())
+
+    def init_as_file(self):
+        """ Init as sequence file object
+            This i very basic wrap for pyseq.Sequence, without any sequences"""
+        self.set_type('fl')
+        self.set_file_path(extract_dirname(self._file))
+        self.set_pretty_file_name(extract_filename(self._file))
+        self.set_file_name(extract_filename(self._file, no_ext=True))
+
+        self._files_list.append(self._file)
+
+        self.set_file_type(extract_extension(self._file))
+
+        file_type = self.get_file_type()
+
+        self.set_file_ext(file_type[0])
+        self.set_base_file_type_pretty_name(file_type[1])
+        self.set_base_file_type(file_type[2])
+        self.set_tactic_file_type(file_type[3])
+
+    def init_as_udim(self):
+        """ Init as sequence file object"""
+        self.set_type('udim')
+
+        self.set_file_path(extract_dirname(self._file[0]))
+        self.set_pretty_file_name(extract_filename(self._file[0]))
+
+        udim_tiles = []
+
+        for fl in self._file[1]:
+            full_path = u'{0}u{1}_v{2}{3}'.format(*fl)
+            self._files_list.append(full_path)
+            udim_tile = '.'.join(fl[1:3])
+            udim_tiles.append(udim_tile)
+
+        self.set_file_type(extract_extension(self._files_list[0]))
+        self.set_file_name(extract_filename(self._file[1][0][0], no_ext=True))
+
+        file_type = self.get_file_type()
+
+        self.set_file_ext(file_type[0])
+        self.set_base_file_type_pretty_name(file_type[1])
+        self.set_base_file_type('udim')
+        self.set_tactic_file_type(file_type[3])
+
+        self.set_udim_tiles_count(len(self._files_list))
+        self.set_udim_tiles(udim_tiles)
+
+    def get_type(self):
+        return self._type
+
+    def set_type(self, type_):
+        self._type = type_
+
+    def get_file_type(self):
+        return self._file_type
+
+    def set_file_type(self, file_type_):
+        self._file_type = file_type_
+
+    def get_file_path(self):
+        return self._file_path
+
+    def set_file_path(self, path_):
+        self._file_path = path_
+
+    def get_all_files_list(self, first=False):
+        if first:
+            return self._files_list[0]
+        else:
+            return self._files_list
+
+    def set_all_files_list(self, files_list_):
+        self._files_list = files_list_
+
+    def get_file_name(self):
+        return self._file_name
+
+    def set_file_name(self, name_):
+        self._file_name = name_
+
+    def get_pretty_file_name(self):
+        return self._pretty_file_name
+
+    def set_pretty_file_name(self, pretty_name_):
+        self._pretty_file_name = pretty_name_
+
+    def get_file_ext(self):
+        return self._file_ext
+
+    def set_file_ext(self, ext_):
+        self._file_ext = ext_
+
+    def get_base_file_type_pretty_name(self):
+        return self._base_file_type_pretty_name
+
+    def set_base_file_type_pretty_name(self, base_file_type_pretty_name_):
+        self._base_file_type_pretty_name = base_file_type_pretty_name_
+
+    def get_base_file_type(self):
+        return self._base_file_type
+
+    def set_base_file_type(self, base_file_type_):
+        self._base_file_type = base_file_type_
+
+    def get_tactic_file_type(self):
+        return self._tactic_file_type
+
+    def set_tactic_file_type(self, tactic_file_type_):
+        self._tactic_file_type = tactic_file_type_
+
+    def get_sequence_framerange(self):
+        return self._file._get_framerange(self.get_sequence_frames())
+
+    def get_sequence_frames(self):
+        return self._sequence_frames
+
+    def set_sequence_frames(self, sequence_frames_):
+        self._sequence_frames = sequence_frames_
+
+    def get_sequence_padding(self):
+        return self._sequence_padding
+
+    def set_sequence_padding(self, sequence_padding_):
+        self._sequence_padding = sequence_padding_
+
+    def get_sequence_lenght(self):
+        return self._sequence_length
+
+    def set_sequence_length(self, sequence_length_):
+        self._sequence_length = sequence_length_
+
+    def get_sequence_start(self):
+        return self._sequence_start
+
+    def set_sequence_start(self, sequence_start_):
+        self._sequence_start = sequence_start_
+
+    def get_sequence_end(self):
+        return self._sequence_end
+
+    def set_sequence_end(self, sequence_end_):
+        self._sequence_end = sequence_end_
+
+    def get_sequence_missing_frames(self):
+        return self._sequence_missing_frames
+
+    def set_sequence_missing_frames(self, sequence_missing_frames_):
+        self._sequence_missing_frames = sequence_missing_frames_
+
+    def get_udim_tiles_count(self):
+        return self._udim_tiles_count
+
+    def set_udim_tiles_count(self, udim_tiles_count_):
+        self._udim_tiles_count = udim_tiles_count_
+
+    def get_udim_tiles(self):
+        return self._udim_tiles
+
+    def set_udim_tiles(self, udim_tiles_):
+        self._udim_tiles = udim_tiles_
+
+    def open_file(self):
+        open_file_associated(self.get_all_files_list()[0])
+
+    def open_folder(self):
+        open_file_associated(self.get_file_path())

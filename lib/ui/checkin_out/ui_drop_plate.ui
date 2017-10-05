@@ -222,6 +222,11 @@ QTreeView::item:selected:!active {
      </column>
      <column>
       <property name="text">
+       <string>Range/Tiles</string>
+      </property>
+     </column>
+     <column>
+      <property name="text">
        <string>Class/Ext</string>
       </property>
      </column>

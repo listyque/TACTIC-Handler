@@ -100,7 +100,7 @@ class Ui_itemWidget(QtGui.QWidget, ui_item.Ui_item):
                         self.previewLabel.setPixmap(pixmap.scaledToHeight(64, QtCore.Qt.SmoothTransformation))
 
     def controls_actions(self):
-        self.tasksToolButton.setHidden(True)  # Temporaty hide tasks button
+        # self.tasksToolButton.setHidden(True)  # Temporaty hide tasks button
         self.tasksToolButton.clicked.connect(lambda: self.create_tasks_window())
         self.relationsToolButton.clicked.connect(self.drop_down_children)
 
@@ -227,7 +227,9 @@ class Ui_itemWidget(QtGui.QWidget, ui_item.Ui_item):
 
     def get_context_options(self):
         pipeline = self.get_current_process_pipeline()
-        process = pipeline.get_process('publish')
+        process = None
+        if pipeline:
+            process = pipeline.get_process('publish')
         if process:
             context_options = process.get('context_options')
             if context_options:
@@ -235,7 +237,10 @@ class Ui_itemWidget(QtGui.QWidget, ui_item.Ui_item):
 
     def get_checkin_mode_options(self):
         pipeline = self.get_current_process_pipeline()
-        process = pipeline.get_process('publish')
+        process = None
+        if pipeline:
+            process = pipeline.get_process('publish')
+
         if process:
             return process.get('checkin_mode')
 
@@ -411,8 +416,10 @@ class Ui_itemWidget(QtGui.QWidget, ui_item.Ui_item):
         else:
             return []
 
+    @gf.catch_error
     def get_notes_count(self):
 
+        @gf.catch_error
         def notes_fill():
             notes_counts = notes_counts_query.result['notes']
             process_items_dict = {item.process: item for item in self.process_items}
@@ -421,6 +428,7 @@ class Ui_itemWidget(QtGui.QWidget, ui_item.Ui_item):
                 if process_item:
                     process_item.set_notes_count(val)
 
+        @gf.catch_error
         def children_fill():
             children_counts = notes_counts_query.result['stypes']
             child_items_dict = {item.child.get('from'): item for item in self.child_items}
@@ -444,6 +452,7 @@ class Ui_itemWidget(QtGui.QWidget, ui_item.Ui_item):
         notes_counts_query.finished.connect(notes_fill)
         notes_counts_query.finished.connect(children_fill)
 
+    @gf.catch_error
     def expand_tree_item(self):
         if not self.info['is_expanded']:
             self.info['is_expanded'] = True
@@ -478,6 +487,16 @@ class Ui_itemWidget(QtGui.QWidget, ui_item.Ui_item):
         parent_item = self.get_parent_item_widget()
         if parent_item:
             return parent_item.get_sobject()
+
+    def delete_current_sobject(self):
+
+        sobject = self.get_sobject()
+        print 'DELETING', sobject
+        sobject.delete_sobject()
+
+    def delete_current_snapshot_sobject(self):
+
+        print 'DELETING SNAPSHOT', self.get_sobject()
 
     def mouseDoubleClickEvent(self, event):
         do_dbl_click = None
@@ -799,7 +818,9 @@ class Ui_processItemWidget(QtGui.QWidget, ui_item_process.Ui_processItem):
 
     def get_context_options(self):
         pipeline = self.get_current_process_pipeline()
-        process = pipeline.get_process(self.process)
+        process = None
+        if pipeline:
+            process = pipeline.get_process(self.process)
         if process:
             context_options = process.get('context_options')
             if context_options:
@@ -807,7 +828,9 @@ class Ui_processItemWidget(QtGui.QWidget, ui_item_process.Ui_processItem):
 
     def get_checkin_mode_options(self):
         pipeline = self.get_current_process_pipeline()
-        process = pipeline.get_process(self.process)
+        process = None
+        if pipeline:
+            process = pipeline.get_process(self.process)
         if process:
             return process.get('checkin_mode')
 
@@ -834,6 +857,7 @@ class Ui_processItemWidget(QtGui.QWidget, ui_item_process.Ui_processItem):
         if parent_item:
             return parent_item.get_sobject()
 
+    @gf.catch_error
     def expand_tree_item(self):
         if not self.info['is_expanded']:
             self.info['is_expanded'] = True
@@ -1073,7 +1097,9 @@ class Ui_snapshotItemWidget(QtGui.QWidget, ui_item_snapshot.Ui_snapshotItem):
 
     def get_context_options(self):
         pipeline = self.get_current_process_pipeline()
-        process = pipeline.get_process(self.process)
+        process = None
+        if pipeline:
+            process = pipeline.get_process(self.process)
         if process:
             context_options = process.get('context_options')
             if context_options:
@@ -1081,7 +1107,9 @@ class Ui_snapshotItemWidget(QtGui.QWidget, ui_item_snapshot.Ui_snapshotItem):
 
     def get_checkin_mode_options(self):
         pipeline = self.get_current_process_pipeline()
-        process = pipeline.get_process(self.process)
+        process = None
+        if pipeline:
+            process = pipeline.get_process(self.process)
         if process:
             return process.get('checkin_mode')
 
@@ -1122,13 +1150,18 @@ class Ui_snapshotItemWidget(QtGui.QWidget, ui_item_snapshot.Ui_snapshotItem):
             return parent_item.get_search_key()
 
     def get_sobject(self):
-        # TODO WHY SNAPSHOT?
-        return self.snapshot
+        return self.sobject
 
     def get_parent_sobject(self):
         parent_item = self.get_parent_item_widget()
         if parent_item:
             return parent_item.get_sobject()
+
+    def delete_current_sobject(self):
+
+        snapshot = self.get_snapshot()
+        print 'DELETING', snapshot
+        snapshot.delete_sobject()
 
     def get_skey(self, skey=False, only=False, parent=False):
         """skey://sthpw/snapshot?code=SNAPSHOT00000028"""
@@ -1152,6 +1185,7 @@ class Ui_snapshotItemWidget(QtGui.QWidget, ui_item_snapshot.Ui_snapshotItem):
         self.snapshot['description'] = new_description
         self.commentLabel.setText(new_description)
 
+    @gf.catch_error
     def expand_tree_item(self):
         # Duct tape, to fix buggy items drawings
         tree_widget = self.get_current_tree_widget()
@@ -1282,10 +1316,16 @@ class Ui_childrenItemWidget(QtGui.QWidget, ui_item_children.Ui_childrenItem):
             # tab_color_rgb = gf.hex_to_rgb(button_color, alpha=8)
             self.childrenToolButton.setStyleSheet('QToolButton {background-color: transparent;}')
 
+    @gf.catch_error
     def add_new_sobject(self):
-        self.add_sobject = addsobject_widget.Ui_addTacticSobjectWidget(stype=self.stype, item=self, parent=self.parent_ui)
+        self.add_sobject = addsobject_widget.Ui_addTacticSobjectWidget(
+            stype=self.stype,
+            parent_stype=self.parent_ui.stype,
+            item=self,
+            parent=self)
         self.add_sobject.show()
 
+    @gf.catch_error
     def expand_tree_item(self):
         self.add_child_sobjects()
         self.childrenToolButton.setCheckable(True)
@@ -1319,6 +1359,7 @@ class Ui_childrenItemWidget(QtGui.QWidget, ui_item_children.Ui_childrenItem):
         parent_item_widget = current_tree.itemWidget(self.tree_item.parent(), 0)
         return parent_item_widget
 
+    @gf.catch_error
     def toggle_cildren_button(self):
         if self.tree_item.isExpanded():
             self.tree_item.treeWidget().setItemExpanded(self.tree_item, False)

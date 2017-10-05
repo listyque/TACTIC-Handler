@@ -49,7 +49,7 @@ class Ui_DockMain(MayaQWidgetDockableMixin, QtGui.QMainWindow):
         self.create_ui()
 
         # overriding QMayaDockWidget buggy resize event
-        self.maya_window.resizeEvent = self.resizeEvent
+        # self.maya_window.resizeEvent = self.resizeEvent
 
         self.catch_maya_closing()
 

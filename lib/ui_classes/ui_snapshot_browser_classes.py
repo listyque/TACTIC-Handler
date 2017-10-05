@@ -136,14 +136,17 @@ class Ui_snapshotBrowserWidget(QtGui.QWidget, ui_snapshot_browser.Ui_snapshotBro
 
     def open_menu(self):
         item = self.filesTreeWidget.currentItem()
-        if item.data(0, QtCore.Qt.UserRole):
-            menu = self.file_context_menu()
-            if menu:
-                menu.exec_(Qt4Gui.QCursor.pos())
+        if item:
+            if item.data(0, QtCore.Qt.UserRole):
+                menu = self.file_context_menu()
+                if menu:
+                    menu.exec_(Qt4Gui.QCursor.pos())
 
+    @gf.catch_error
     def open_file_from_graphics_view(self):
         self.file_list[self.current_pix].open_file()
 
+    @gf.catch_error
     def open_folder_from_graphics_view(self):
         self.file_list[self.current_pix].open_folder()
 
@@ -151,12 +154,14 @@ class Ui_snapshotBrowserWidget(QtGui.QWidget, ui_snapshot_browser.Ui_snapshotBro
         clipboard = QtGui.QApplication.instance().clipboard()
         clipboard.setText(self.file_list[self.current_pix].get_full_abs_path())
 
+    @gf.catch_error
     def open_file_from_tree(self, index=None):
         item = self.filesTreeWidget.currentItem()
         file_object = item.data(0, QtCore.Qt.UserRole)
 
         file_object.open_file()
 
+    @gf.catch_error
     def open_folder_from_tree(self):
         item = self.filesTreeWidget.currentItem()
         file_object = item.data(0, QtCore.Qt.UserRole)
