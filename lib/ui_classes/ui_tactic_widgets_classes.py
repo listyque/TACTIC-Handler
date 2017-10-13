@@ -78,6 +78,8 @@ class QtTacticEditWidget(QtGui.QWidget):
 
             self.commit_upload_wdg(existing_sobject)
 
+            print 'REFRESHING'
+
             self.add_sobj_widget.refresh_results()
             self.add_sobj_widget.close()
 

@@ -341,6 +341,7 @@ def get_udims_from_files(files_list):
 def get_files_objects(items):
     udims_dict = get_udims_from_files(items)
     sequence_items = get_sequences_from_files(udims_dict['noudim'])
+    print sequence_items
     nosequence_items = sequence_items.get('fl')
     sequence_items = sequence_items.get('seq')
     udim_items = udims_dict['udim']
@@ -424,12 +425,12 @@ def extract_extension(filename):
 
 
 def extract_filename(filename, no_ext=False):
-    name = unicode(os.path.basename(filename)).split('.', 1)
+    name = unicode(os.path.basename(filename)).split('.')
     if len(name) > 1:
-        if not no_ext:
-            return name[0] + '.' + name[1]
+        if no_ext:
+            return u''.join(name[:-1])
         else:
-            return name[0]
+            return u'.'.join(name)
     else:
         return name[0]
 
@@ -1240,6 +1241,12 @@ class FileObject(object):
 
         self.set_udim_tiles_count(len(self._files_list))
         self.set_udim_tiles(udim_tiles)
+
+    def get_metadata(self):
+        metadata_dict = {
+
+        }
+        return metadata_dict
 
     def get_type(self):
         return self._type

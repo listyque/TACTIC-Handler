@@ -35,7 +35,7 @@ class Ui_processFilterDialog(QtGui.QDialog):
         # self.setWindowFlags(QtCore.Qt.Popup)
         self.setFocusPolicy(QtCore.Qt.StrongFocus)
 
-        self.parent_ui = parent_ui
+        self.checkin_out_widget = parent_ui
         self.project = project
         self.stype = stype
         self.all_items_dict = {
@@ -311,9 +311,9 @@ class Ui_processFilterDialog(QtGui.QDialog):
     #     print event, 'Focus Out'
 
     def readSettings(self):
-        tab_name = self.parent_ui.objectName().split('/')
+        tab_name = self.checkin_out_widget.objectName().split('/')
         group_path = '{0}/{1}/{2}/{3}'.format(
-            self.parent_ui.relates_to,
+            self.checkin_out_widget.relates_to,
             self.project.info['type'],
             self.project.info['code'],
             tab_name[1]
@@ -323,9 +323,9 @@ class Ui_processFilterDialog(QtGui.QDialog):
         self.settings.endGroup()
 
     def writeSettings(self):
-        tab_name = self.parent_ui.objectName().split('/')
+        tab_name = self.checkin_out_widget.objectName().split('/')
         group_path = '{0}/{1}/{2}/{3}'.format(
-            self.parent_ui.relates_to,
+            self.checkin_out_widget.relates_to,
             self.project.info['type'],
             self.project.info['code'],
             tab_name[1]
@@ -336,7 +336,7 @@ class Ui_processFilterDialog(QtGui.QDialog):
 
     def save_and_refresh(self):
         self.writeSettings()
-        search_wdg = self.parent_ui.get_search_widget()
+        search_wdg = self.checkin_out_widget.get_search_widget()
         search_wdg.search_results_widget.refresh_current_results()
         # self.parent_ui.refresh_current_results()
 
@@ -801,7 +801,7 @@ class Ui_searchResultsWidget(QtGui.QWidget):
 
             tab_names_list.append(self.resultsTabWidget.tabText(tab))
             # tab_options_list.append(self.parent_ui.searchOptionsGroupBox.get_search_options())
-            tab_options_list.append('self.search_widget.searchOptionsGroupBox.get_search_options()')
+            tab_options_list.append('self.search_widget.searchOptionsGroupBox.get_search_options()')  # THIS IS TEMPORARY
 
         search_cache = (tab_names_list, tab_state_list, self.resultsTabWidget.currentIndex(), tab_options_list)
 
@@ -822,7 +822,7 @@ class Ui_searchWidget(QtGui.QWidget, search_widget.Ui_searchWidget):
     def __init__(self, stype, project, parent_ui, parent=None):
         super(self.__class__, self).__init__(parent=parent)
 
-        self.parent_ui = parent_ui
+        self.checkin_out_widget = parent_ui
 
         self.stype = stype
         self.project = project
@@ -881,32 +881,32 @@ class Ui_searchWidget(QtGui.QWidget, search_widget.Ui_searchWidget):
         return self.searchLineEdit.text()
 
     def get_process_ignore_list(self):
-        return self.parent_ui.get_process_ignore_list()
+        return self.checkin_out_widget.get_process_ignore_list()
 
     def get_current_tree_widget(self):
         return self.search_results_widget.get_current_widget()
 
     def get_fast_controls_widget(self):
-        return self.parent_ui.get_fast_controls_widget()
+        return self.checkin_out_widget.get_fast_controls_widget()
 
     def get_snapshot_browser(self):
-        return self.parent_ui.snapshot_browser_widget
+        return self.checkin_out_widget.snapshot_browser_widget
 
     def get_description_widget(self):
-        return self.parent_ui.description_widget
+        return self.checkin_out_widget.description_widget
 
     def get_drop_plate_widget(self):
-        return self.parent_ui.drop_plate_widget
+        return self.checkin_out_widget.drop_plate_widget
 
     def get_search_options_widget(self):
-        return self.parent_ui.search_options_widget
+        return self.checkin_out_widget.search_options_widget
 
     def refresh_current_results(self):
         self.search_results_widget.refresh_current_results()
 
     @gf.catch_error
     def open_items_context_menu(self, *args):
-        return self.parent_ui.open_menu()
+        return self.checkin_out_widget.open_menu()
 
     @gf.catch_error
     def do_search(self, search_query=None, search_by=None, new_tab=False):
@@ -1172,19 +1172,19 @@ class Ui_resultsFormWidget(QtGui.QWidget, ui_search_results_tree.Ui_resultsForm)
     def send_item_double_click(self, *args):
         modifiers = QtGui.QApplication.keyboardModifiers()
 
-        parent_ui = self.get_parent_ui()
+        checkin_out_widget = self.get_checkin_out_widget()
 
-        checkin_options_widget = parent_ui.get_checkin_options_widget_config()
+        checkin_options_widget = checkin_out_widget.get_checkin_options_widget_config()
 
-        current_widget = parent_ui.get_current_tree_widget()
+        current_widget = checkin_out_widget.get_current_tree_widget()
         current_tree_widget_item = current_widget.get_current_tree_widget_item()
 
         if modifiers == QtCore.Qt.ShiftModifier and checkin_options_widget.doubleClickOpenCheckBox.isChecked():
             if current_tree_widget_item.type == 'snapshot':
-                parent_ui.open_file()
+                checkin_out_widget.open_file()
         if checkin_options_widget.doubleClickSaveCheckBox.isChecked():
             if current_tree_widget_item.type in ['process', 'snapshot', 'sobject']:
-                parent_ui.save_file()
+                checkin_out_widget.save_file()
 
     @gf.catch_error
     def set_current_results_tree_widget_item(self, tree_widget):
@@ -1196,8 +1196,8 @@ class Ui_resultsFormWidget(QtGui.QWidget, ui_search_results_tree.Ui_resultsForm)
         self.current_tree_widget_item = tree_widget.itemWidget(tree_widget.currentItem(), 0)
         self.current_results_versions_tree_widget_item = tree_widget.itemWidget(tree_widget.currentItem(), 0)
 
-    def get_parent_ui(self):
-        return self.search_widget.parent_ui
+    def get_checkin_out_widget(self):
+        return self.search_widget.checkin_out_widget
 
     def get_current_tree_widget_item(self):
         if not self.current_tree_widget_item:
@@ -1213,9 +1213,11 @@ class Ui_resultsFormWidget(QtGui.QWidget, ui_search_results_tree.Ui_resultsForm)
     def update_current_items_trees(self):
         if self.current_results_versions_tree_widget_item:
             self.search_widget.search_results_widget.update_item_tree(self.current_results_versions_tree_widget_item)
+            self.current_results_versions_tree_widget_item = None
 
         if self.current_results_tree_widget_item:
             self.search_widget.search_results_widget.update_item_tree(self.current_results_tree_widget_item)
+            self.current_results_tree_widget_item = None
 
     @gf.catch_error
     def send_collapse_event_to_item(self, tree_item):

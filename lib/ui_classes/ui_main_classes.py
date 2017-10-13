@@ -598,8 +598,6 @@ class Ui_Main(QtGui.QMainWindow, ui_main.Ui_MainWindow):
         self.customize_ui()
         self.check_for_update()
 
-        print '8'
-
     def check_for_update(self):
         if uf.check_need_update():
             self.label_layout = QtGui.QVBoxLayout(self.menubar)

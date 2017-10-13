@@ -247,6 +247,22 @@ class Ui_dropPlateWidget(QtGui.QWidget, ui_drop_plate.Ui_dropPlate):
         elif checkin_mode == 'workarea':
             self.checkinTypeComboBox.setCurrentIndex(4)
 
+    def get_checkin_mode(self):
+        if self.checkinTypeComboBox.currentIndex() == 0:
+            return 'file'
+        elif self.checkinTypeComboBox.currentIndex() == 1:
+            return 'sequence'
+        elif self.checkinTypeComboBox.currentIndex() == 2:
+            return 'dir'
+        elif self.checkinTypeComboBox.currentIndex() == 3:
+            return 'multi_file'
+        elif self.checkinTypeComboBox.currentIndex() == 4:
+            return 'workarea'
+
+    def get_keep_filename(self):
+
+        return self.keepFileNameCheckBox.isChecked()
+
     def set_settings_from_dict(self, settings_dict=None):
 
         if not settings_dict:

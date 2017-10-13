@@ -33,6 +33,8 @@ class Ui_collapsableWidget(QtGui.QWidget, ui_collapsable.Ui_collapsableWidget):
         self.collapseToolButton.setText(self.__collapsedTex)
 
     def setLayout(self, layout):
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(0)
 
         self.widget.setLayout(layout)
 

@@ -76,7 +76,7 @@ class Ui_checkInOutTabWidget(QtGui.QWidget, checkin_out_tabs.Ui_sObjTabs):
         # self.ui_tree = []
         self.all_search_tabs = []
         self.visible_search_tabs = []
-        self.parent_ui = parent  # main tabs widget
+        self.main_tabs_widget = parent  # main tabs widget
         self.layout_widget = layout_widget
 
         self.current_namespace = self.project.info['type']
@@ -169,7 +169,7 @@ class Ui_checkInOutTabWidget(QtGui.QWidget, checkin_out_tabs.Ui_sObjTabs):
                 self.sObjTabWidget.tabBar().setTabButton(self.sObjTabWidget.count()-1, QtGui.QTabBar.LeftSide, tab.get_tab_label())
 
     def raise_tab(self):
-        self.parent_ui.raise_tab(self.layout_widget)  # parent here is widget with layout
+        self.main_tabs_widget.raise_tab(self.layout_widget)
 
     def apply_current_view_to_all(self):
         current_settings = None

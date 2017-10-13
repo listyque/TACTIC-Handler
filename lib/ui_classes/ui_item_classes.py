@@ -43,9 +43,9 @@ class Ui_itemWidget(QtGui.QWidget, ui_item.Ui_item):
         self.root_snapshot_items = []
         self.process_snapshot_items = []
         self.child_items = []
-        self.parent_ui = parent
+        self.search_widget = parent
 
-        self.project = self.parent_ui.project
+        self.project = self.search_widget.project
         self.relates_to = 'checkin_out'
         self.ignore_dict = ignore_dict
 
@@ -174,7 +174,7 @@ class Ui_itemWidget(QtGui.QWidget, ui_item.Ui_item):
             self.tasks_widget.show()
 
     def get_current_tree_widget(self):
-        current_tree = self.parent_ui.get_current_tree_widget()
+        current_tree = self.search_widget.get_current_tree_widget()
         return current_tree.resultsTreeWidget
 
     def get_index(self):
@@ -213,6 +213,7 @@ class Ui_itemWidget(QtGui.QWidget, ui_item.Ui_item):
         self.fill_child_items()
         self.fill_process_items()
         self.fill_snapshots_items(publish=True)
+        self.fill_snapshots_items()
 
         self.get_notes_count()
 
@@ -285,7 +286,7 @@ class Ui_itemWidget(QtGui.QWidget, ui_item.Ui_item):
                     if not ignored:
                         self.child_items.append(gf.add_child_item(
                             self.tree_item,
-                            self.parent_ui,
+                            self.search_widget,
                             self.sobject,
                             child_stype,
                             child,
@@ -321,7 +322,7 @@ class Ui_itemWidget(QtGui.QWidget, ui_item.Ui_item):
             if not ignored:
                 process_item = gf.add_process_item(
                     self.tree_item,
-                    self.parent_ui,
+                    self.search_widget,
                     self.sobject,
                     self.stype,
                     process,
@@ -338,7 +339,7 @@ class Ui_itemWidget(QtGui.QWidget, ui_item.Ui_item):
         #     self.tree_item.setChildIndicatorPolicy(QtGui.QTreeWidgetItem.ShowIndicator)
 
     def query_snapshots(self):
-        query_thread = tc.ServerThread(self.parent_ui)
+        query_thread = tc.ServerThread(self.search_widget)
 
         query_thread.finished.connect(self.fill_snapshots_items)
         query_thread.kwargs = {}
@@ -368,24 +369,24 @@ class Ui_itemWidget(QtGui.QWidget, ui_item.Ui_item):
         #     self.info['is_expanded'] = True
 
         # adding snapshots per process
-        for proc in self.process_items:
-            if proc.process_items:
-                # may be buggy...
-                proc.info['is_expanded'] = True
-                proc.fill_snapshots_items()
+        if not publish:
+            for proc in self.process_items:
+                if proc.process_items:
+                    # may be buggy...
+                    proc.info['is_expanded'] = True
+                    proc.fill_snapshots_items()
 
-            for key, val in self.sobject.process.iteritems():
-                # because it is dict, items could be in any position
-                if key == proc.process:
-                    self.process_snapshot_items.append(proc.add_snapshots_items(val))
-
-        if publish:
+                for key, val in self.sobject.process.iteritems():
+                    # because it is dict, items could be in any position
+                    if key == proc.process:
+                        self.process_snapshot_items.append(proc.add_snapshots_items(val))
+        else:
             # adding snapshots to publish
             for key, val in self.sobject.process.iteritems():
                 if key == 'publish':
                     self.root_snapshot_items.append(gf.add_snapshot_item(
                             self.tree_item,
-                            self.parent_ui,
+                            self.search_widget,
                             self.sobject,
                             self.stype,
                             'publish',
@@ -437,7 +438,7 @@ class Ui_itemWidget(QtGui.QWidget, ui_item.Ui_item):
                 if child_item:
                     child_item.set_child_count_title(val)
 
-        notes_counts_query = tc.ServerThread(self.parent_ui)
+        notes_counts_query = tc.ServerThread(self.search_widget)
 
         notes_counts_query.kwargs = dict(
             sobject=self.sobject,
@@ -507,7 +508,7 @@ class Ui_itemWidget(QtGui.QWidget, ui_item.Ui_item):
             super(Ui_itemWidget, self).mouseDoubleClickEvent(event)
         else:
             if self.relates_to == 'checkin':
-                self.parent_ui.save_file()
+                self.search_widget.save_file()
 
 
 class Ui_processItemWidget(QtGui.QWidget, ui_item_process.Ui_processItem):
@@ -535,7 +536,7 @@ class Ui_processItemWidget(QtGui.QWidget, ui_item_process.Ui_processItem):
         self.selected_state = False
         self.children_states = None
 
-        self.parent_ui = parent
+        self.search_widget = parent
         self.relates_to = 'checkin_out'
 
 
@@ -574,7 +575,7 @@ class Ui_processItemWidget(QtGui.QWidget, ui_item_process.Ui_processItem):
                 if process_item:
                     process_item.set_notes_count(val)
 
-        notes_counts_query = tc.ServerThread(self.parent_ui)
+        notes_counts_query = tc.ServerThread(self.search_widget)
         notes_counts_query.kwargs = dict(
             sobject=self.sobject,
             process=self.get_process_list(),
@@ -680,7 +681,7 @@ class Ui_processItemWidget(QtGui.QWidget, ui_item_process.Ui_processItem):
             self.note_widget.ui_notes.conversationScrollArea.verticalScrollBar().maximum())
 
     def get_current_tree_widget(self):
-        current_tree = self.parent_ui.get_current_tree_widget()
+        current_tree = self.search_widget.get_current_tree_widget()
         return current_tree.resultsTreeWidget
 
     def get_index(self):
@@ -737,7 +738,7 @@ class Ui_processItemWidget(QtGui.QWidget, ui_item_process.Ui_processItem):
                 # print 'adding', process
                 process_item = gf.add_process_item(
                     self.tree_item,
-                    self.parent_ui,
+                    self.search_widget,
                     self.sobject,
                     self.stype,
                     process,
@@ -760,7 +761,7 @@ class Ui_processItemWidget(QtGui.QWidget, ui_item_process.Ui_processItem):
 
         snapshot_items = gf.add_snapshot_item(
             self.tree_item,
-            self.parent_ui,
+            self.search_widget,
             self.sobject,
             self.stype,
             self.process,
@@ -782,7 +783,7 @@ class Ui_processItemWidget(QtGui.QWidget, ui_item_process.Ui_processItem):
 
         gf.add_snapshot_item(
             self.tree_item,
-            self.parent_ui,
+            self.search_widget,
             self.sobject,
             self.stype,
             self.process,
@@ -883,7 +884,7 @@ class Ui_processItemWidget(QtGui.QWidget, ui_item_process.Ui_processItem):
             super(Ui_processItemWidget, self).mouseDoubleClickEvent(event)
         else:
             if self.relates_to == 'checkin':
-                self.parent_ui.save_file()
+                self.search_widget.save_file()
 
 
 class Ui_snapshotItemWidget(QtGui.QWidget, ui_item_snapshot.Ui_snapshotItem):
@@ -905,7 +906,7 @@ class Ui_snapshotItemWidget(QtGui.QWidget, ui_item_snapshot.Ui_snapshotItem):
         self.selected_state = False
         self.children_states = None
 
-        self.parent_ui = parent
+        self.search_widget = parent
         self.relates_to = 'checkin_out'
 
         self.files = {}
@@ -991,7 +992,8 @@ class Ui_snapshotItemWidget(QtGui.QWidget, ui_item_snapshot.Ui_snapshotItem):
         pixmap = gf.get_icon('folder-sign', icons_set='ei', opacity=0.5, scale_factor=0.5).pixmap(64, Qt4Gui.QIcon.Normal)
         self.previewLabel.setPixmap(pixmap.scaledToHeight(64, QtCore.Qt.SmoothTransformation))
         self.fileNameLabel.setText('Multiple checkin: {0} '.format(self.context))
-        self.commentLabel.setText('Total count: {0}'.format(len(self.get_all_versions_snapshots())))
+        self.commentLabel.setText('Snapshots count: {0}; Files count: {1};'.format(len(self.get_all_versions_snapshots()), len(self.get_all_versions_files())))
+
         self.dateLabel.deleteLater()
         self.sizeLabel.deleteLater()
         self.authorLabel.deleteLater()
@@ -1027,12 +1029,19 @@ class Ui_snapshotItemWidget(QtGui.QWidget, ui_item_snapshot.Ui_snapshotItem):
         # print context.versionless
         return context.versions
 
+    def get_all_versions_files(self):
+        files = []
+        for sn in self.get_all_versions_snapshots().values():
+            files.extend(sn.get_files_objects())
+
+        return files
+
     def get_snapshot(self):
         if self.current_snapshot:
             return self.current_snapshot[0]
 
     def get_current_tree_widget(self):
-        current_tree = self.parent_ui.get_current_tree_widget()
+        current_tree = self.search_widget.get_current_tree_widget()
         return current_tree.resultsTreeWidget
 
     def get_index(self):
@@ -1041,14 +1050,14 @@ class Ui_snapshotItemWidget(QtGui.QWidget, ui_item_snapshot.Ui_snapshotItem):
 
     def get_parent_index(self):
         current_tree = self.get_current_tree_widget()
-        return current_tree.indexFromItem(self.tree_item.parent())
+        return current_tree.indexFromItem(self.get_parent_item())
 
     def get_parent_item(self):
         return self.tree_item.parent()
 
     def get_parent_item_widget(self):
         current_tree = self.get_current_tree_widget()
-        parent_item_widget = current_tree.itemWidget(self.tree_item.parent(), 0)
+        parent_item_widget = current_tree.itemWidget(self.get_parent_item(), 0)
         return parent_item_widget
 
     def collapse_self(self):
@@ -1126,6 +1135,8 @@ class Ui_snapshotItemWidget(QtGui.QWidget, ui_item_snapshot.Ui_snapshotItem):
         process_info = None
         if pipeline:
             process_info = pipeline.process.get(self.process)
+        if not process_info and self.process:
+            process_info = {'name': self.process}
 
         return process_info
 
@@ -1208,9 +1219,9 @@ class Ui_snapshotItemWidget(QtGui.QWidget, ui_item_snapshot.Ui_snapshotItem):
             super(Ui_snapshotItemWidget, self).mouseDoubleClickEvent(event)
         else:
             if self.relates_to == 'checkin':
-                self.parent_ui.save_file()
+                self.search_widget.save_file()
             else:
-                self.parent_ui.open_file()
+                self.search_widget.open_file()
 
 
 class Ui_childrenItemWidget(QtGui.QWidget, ui_item_children.Ui_childrenItem):
@@ -1231,9 +1242,8 @@ class Ui_childrenItemWidget(QtGui.QWidget, ui_item_children.Ui_childrenItem):
         self.selected_state = False
         self.children_states = None
 
-        self.parent_ui = parent
-        self.project = self.parent_ui.project
-        # self.parent_stype = self.parent_ui.stype
+        self.search_widget = parent
+        self.project = self.search_widget.project
 
         self.create_children_button()
 
@@ -1320,7 +1330,7 @@ class Ui_childrenItemWidget(QtGui.QWidget, ui_item_children.Ui_childrenItem):
     def add_new_sobject(self):
         self.add_sobject = addsobject_widget.Ui_addTacticSobjectWidget(
             stype=self.stype,
-            parent_stype=self.parent_ui.stype,
+            parent_stype=self.search_widget.stype,
             item=self,
             parent=self)
         self.add_sobject.show()
@@ -1340,7 +1350,7 @@ class Ui_childrenItemWidget(QtGui.QWidget, ui_item_children.Ui_childrenItem):
         self.childrenToolButton.setChecked(False)
 
     def get_current_tree_widget(self):
-        current_tree = self.parent_ui.get_current_tree_widget()
+        current_tree = self.search_widget.get_current_tree_widget()
         return current_tree.resultsTreeWidget
 
     def get_index(self):
@@ -1411,7 +1421,7 @@ class Ui_childrenItemWidget(QtGui.QWidget, ui_item_children.Ui_childrenItem):
             for sobject in sobjects.itervalues():
                 gf.add_sobject_item(
                     self.tree_item,
-                    self.parent_ui,
+                    self.search_widget,
                     sobject,
                     stype,
                     self.info,

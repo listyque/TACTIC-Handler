@@ -21,7 +21,7 @@ class Ui_snapshotBrowserWidget(QtGui.QWidget, ui_snapshot_browser.Ui_snapshotBro
         self.scene = QtGui.QGraphicsScene(self)
 
         self.item_widget = None
-        self.parent_ui = parent
+        # self.parent_ui = parent
         self.snapshots = None
 
         self.create_ui()
@@ -81,15 +81,14 @@ class Ui_snapshotBrowserWidget(QtGui.QWidget, ui_snapshot_browser.Ui_snapshotBro
         self.menu_actions.append(open_file_folder)
         self.menu_actions.append(copy_path)
         self.menu_actions.append(previews_maya)
-        self.menu_actions.append(add_imageplane)
-        self.menu_actions.append(previews_sep)
-        self.menu_actions.append(add_new_image)
-        self.menu_actions.append(add_new_playblast)
+        # self.menu_actions.append(add_imageplane)
+        # self.menu_actions.append(previews_sep)
+        # self.menu_actions.append(add_new_image)
+        # self.menu_actions.append(add_new_playblast)
 
         self.previewGraphicsView.addActions(self.menu_actions)
 
     def previewGraphicsView_doubleClickEvent(self, event):
-        print event
         self.open_file_from_graphics_view()
 
     def previewGraphicsView_wheelEvent(self, event):
@@ -144,15 +143,19 @@ class Ui_snapshotBrowserWidget(QtGui.QWidget, ui_snapshot_browser.Ui_snapshotBro
 
     @gf.catch_error
     def open_file_from_graphics_view(self):
-        self.file_list[self.current_pix].open_file()
+        if self.file_list:
+            self.file_list[self.current_pix].open_file()
 
     @gf.catch_error
     def open_folder_from_graphics_view(self):
-        self.file_list[self.current_pix].open_folder()
+        if self.file_list:
+            self.file_list[self.current_pix].open_folder()
 
+    @gf.catch_error
     def copy_path_from_graphics_view(self):
-        clipboard = QtGui.QApplication.instance().clipboard()
-        clipboard.setText(self.file_list[self.current_pix].get_full_abs_path())
+        if self.file_list:
+            clipboard = QtGui.QApplication.instance().clipboard()
+            clipboard.setText(self.file_list[self.current_pix].get_full_abs_path())
 
     @gf.catch_error
     def open_file_from_tree(self, index=None):
@@ -249,9 +252,16 @@ class Ui_snapshotBrowserWidget(QtGui.QWidget, ui_snapshot_browser.Ui_snapshotBro
         icon_provider = QtGui.QFileIconProvider()
 
         if self.snapshots:
+
+            if self.item_widget.type == 'snapshot':
+                if self.item_widget.is_versionless():
+                    versionless_snapshot = self.item_widget.get_snapshot()
+                    if versionless_snapshot:
+                        self.snapshots.append(versionless_snapshot)
+
             for snapshot in self.snapshots:
 
-                snapshot_files = snapshot.get_files()
+                # snapshot_files = snapshot.get_files()
                 snapshot_info = snapshot.get_snapshot()
                 snapshot_files_objects = snapshot.get_files_objects(group_by='type')
 
@@ -562,7 +572,7 @@ class Ui_snapshotBrowserWidget(QtGui.QWidget, ui_snapshot_browser.Ui_snapshotBro
         self.item_widget = item_widget
 
         if self.item_widget.type == 'snapshot':
-            is_versionless = item_widget.is_versionless()
+            is_versionless = self.item_widget.is_versionless()
             if is_versionless:
                 self.snapshots = self.item_widget.get_all_versions_snapshots()
             else:
@@ -581,6 +591,7 @@ class Ui_snapshotBrowserWidget(QtGui.QWidget, ui_snapshot_browser.Ui_snapshotBro
 
         elif self.item_widget.type == 'sobject':
             self.snapshots = self.item_widget.get_snapshot()
+            print self.snapshots
             if self.snapshots:
                 self.init_snapshot(True)
                 self.previewGraphicsView.resizeEvent = self.graphicsSceneResizeEvent

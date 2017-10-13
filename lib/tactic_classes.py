@@ -999,6 +999,9 @@ class Snapshot(SObject, object):
     def get_files(self):
         return self.files
 
+    def get_code(self):
+        return self.snapshot.get('code')
+
     def get_search_key(self):
         return self.snapshot['__search_key__']
 
@@ -1102,6 +1105,9 @@ class File(object):
     def get_abs_path(self):
         snapshot = self.__snapshot.get_snapshot()
         repo_name = snapshot.get('repo')
+        if not repo_name:
+            repo_name = 'base'
+
         if repo_name:
             asset_dir = env_tactic.get_base_dir(repo_name)['value'][0]
         else:
@@ -1480,13 +1486,9 @@ def snapshot_delete_confirm(snapshot, files):
         return False, None
 
 
-def save_confirm(paths, repo, update_versionless=True):
-    if update_versionless:
-        update_vs = '<p>Versionless files will be <span style="color:#00aa00;"><b>Updated</b></span></p>'
-    else:
-        update_vs = '<p>Versionless files will <span style="color:#aa0000;"><b>not be</b></span> Updated</p>'
+def save_confirm(item_widget, paths, repo, context, update_versionless=True, description=''):
 
-    message = '<p><p>You are about to save {1} file(s).</p><p>{0}</p><p>Continue?</p>'.format(update_vs, len(paths))
+    message = '<p>You are about to save {0} file(s).</p><p>Continue?</p>'.format(len(paths))
 
     msb = QtGui.QMessageBox(
         QtGui.QMessageBox.Question,
@@ -1496,33 +1498,10 @@ def save_confirm(paths, repo, update_versionless=True):
         env_inst.ui_main
         )
 
-    widgets = QtGui.QWidget()
-    widgets_layout = QtGui.QGridLayout()
-    widgets.setLayout(widgets_layout)
+    layout = QtGui.QVBoxLayout()
 
-    collapse_wdg_vers = ui_misc_classes.Ui_collapsableWidget()
-    layout_vers = QtGui.QVBoxLayout()
-    collapse_wdg_vers.setLayout(layout_vers)
-    collapse_wdg_vers.setText('Hide Versions Files')
-    collapse_wdg_vers.setCollapsedText('Show Versions Files')
-    collapse_wdg_vers.setCollapsed(True)
-
-    collapse_wdg_vls = ui_misc_classes.Ui_collapsableWidget()
-    layout_vls = QtGui.QVBoxLayout()
-    collapse_wdg_vls.setLayout(layout_vls)
-    collapse_wdg_vls.setText('Hide Versionless Files')
-    collapse_wdg_vls.setCollapsedText('Show Versionless Files')
-    collapse_wdg_vls.setCollapsed(True)
-
-    widgets_layout.addWidget(collapse_wdg_vers, 0, 0)
-
-    update_versionless_checkbox = QtGui.QCheckBox('Update Versionless Snapshot')
-
-    if update_versionless:
-        widgets_layout.addWidget(collapse_wdg_vls, 1, 0)
-        update_versionless_checkbox.setChecked(True)
-
-    widgets_layout.addWidget(update_versionless_checkbox, 2, 0)
+    widget = QtGui.QWidget()
+    widget.setLayout(layout)
 
     msb_layot = msb.layout()
 
@@ -1537,52 +1516,11 @@ def save_confirm(paths, repo, update_versionless=True):
     msb_layot.addWidget(wdg_list[0], 0, 0)
     msb_layot.addWidget(wdg_list[1], 0, 1)
     msb_layot.addWidget(wdg_list[2], 2, 1)
-    msb_layot.addWidget(widgets, 1, 1)
+    msb_layot.addWidget(widget, 1, 1)
 
-    # msb_layot.addWidget(widgets, 1, 1)
+    delete_sobj_widget = ui_dialogs_classes.saveConfirmWidget(item_widget, paths, repo, context, update_versionless, description)
 
-    treeWidget_vers = QtGui.QTreeWidget()
-    treeWidget_vers.setAlternatingRowColors(True)
-    treeWidget_vers.setSelectionMode(QtGui.QAbstractItemView.NoSelection)
-    treeWidget_vers.setVerticalScrollMode(QtGui.QAbstractItemView.ScrollPerPixel)
-    treeWidget_vers.setRootIsDecorated(False)
-    treeWidget_vers.headerItem().setText(0, "File")
-    treeWidget_vers.headerItem().setText(1, "Path")
-    treeWidget_vers.setStyleSheet('QTreeView::item {padding: 2px;}')
-    layout_vers.addWidget(treeWidget_vers)
-    for keys, values in paths:
-        for i, fl in enumerate(values['versioned']['names']):
-            full_path = gf.form_path(repo['value'][0] + '/' + values['versioned']['paths'][i])
-            item = QtGui.QTreeWidgetItem()
-            item.setText(0, fl)
-            item.setText(1, full_path)
-            treeWidget_vers.addTopLevelItem(item)
-    treeWidget_vers.setMinimumWidth(treeWidget_vers.columnWidth(0)+treeWidget_vers.columnWidth(1) + 150)
-    treeWidget_vers.setMinimumHeight(250)
-    treeWidget_vers.resizeColumnToContents(0)
-    treeWidget_vers.resizeColumnToContents(1)
-
-    treeWidget_vls = QtGui.QTreeWidget()
-    treeWidget_vls.setAlternatingRowColors(True)
-    treeWidget_vls.setSelectionMode(QtGui.QAbstractItemView.NoSelection)
-    treeWidget_vls.setVerticalScrollMode(QtGui.QAbstractItemView.ScrollPerPixel)
-    treeWidget_vls.setRootIsDecorated(False)
-    treeWidget_vls.headerItem().setText(0, "File")
-    treeWidget_vls.headerItem().setText(1, "Path")
-    treeWidget_vls.setStyleSheet('QTreeView::item {padding: 2px;}')
-    for keys, values in paths:
-        for i, fl in enumerate(values['versionless']['names']):
-            full_path = gf.form_path(repo['value'][0] + '/' + values['versionless']['paths'][i])
-            item = QtGui.QTreeWidgetItem()
-            item.setText(0, fl)
-            item.setText(1, full_path)
-            treeWidget_vls.addTopLevelItem(item)
-    treeWidget_vls.setMinimumWidth(treeWidget_vls.columnWidth(0) + treeWidget_vls.columnWidth(1) + 150)
-    treeWidget_vls.setMinimumHeight(250)
-    treeWidget_vls.resizeColumnToContents(0)
-    treeWidget_vls.resizeColumnToContents(1)
-
-    layout_vls.addWidget(treeWidget_vls)
+    layout.addWidget(delete_sobj_widget)
 
     msb.addButton("Yes", QtGui.QMessageBox.YesRole)
     msb.addButton("No", QtGui.QMessageBox.NoRole)
@@ -1590,13 +1528,13 @@ def save_confirm(paths, repo, update_versionless=True):
     reply = msb.buttonRole(msb.clickedButton())
 
     if reply == QtGui.QMessageBox.YesRole:
-        return True
+        return delete_sobj_widget.get_data_dict()
     else:
-        return False
+        return None
 
 
 def checkin_virtual_snapshot(search_key, context, files_dict, snapshot_type='file', is_revision=False,
-                             repo=None, update_versionless=True, keep_file_name=False, version=None, ignore_keep_file_name=False):
+                             repo=None, update_versionless=True, keep_file_name=False, version=None, checkin_type='file', ignore_keep_file_name=False, item_widget=None, description=''):
 
     kwargs = {
         'search_key': search_key,
@@ -1606,20 +1544,19 @@ def checkin_virtual_snapshot(search_key, context, files_dict, snapshot_type='fil
         'files_dict': files_dict,
         'keep_file_name': keep_file_name,
         'version': version,
+        'checkin_type': checkin_type,
         'ignore_keep_file_name': ignore_keep_file_name,
     }
-
     code = tq.prepare_serverside_script(tq.get_virtual_snapshot_extended, kwargs, return_dict=True)
     result = server_start().execute_python_script('', kwargs=code)
 
     virtual_snapshot = json.loads(result['info']['spt_ret_val'])
 
-    # from pprint import pprint
-    # pprint(virtual_snapshot)
-    # pprint(files_dict.items())
+    data_dict = save_confirm(item_widget, virtual_snapshot, repo, context, update_versionless, description)
 
-    if save_confirm(virtual_snapshot, repo, update_versionless):
-        return virtual_snapshot
+    if data_dict:
+        data_dict['virtual_snapshot'] = virtual_snapshot
+        return data_dict
     else:
         return None
 
@@ -1658,8 +1595,6 @@ def checkin_snapshot(search_key, context, snapshot_type=None, is_revision=False,
             files_info['versionless_files_paths'].append(path_vs)
             files_info['files_types'].append(tp)
             files_info['file_sizes'].append(gf.get_st_size(file_full_path))
-
-    print files_info
 
     kwargs = {
         'search_key': search_key,
@@ -1932,32 +1867,32 @@ def checkin_file(search_key, context, snapshot_type='file', is_revision=False, d
                  update_versionless=True, file_types=None, file_names=None, file_paths=None, exts=None, subfolders=None,
                  postfixes=None, keep_file_name=False, repo_name=None, mode=None, create_icon=True, parent_wdg=None,
                  ignore_keep_file_name=False, checkin_app='standalone', selected_objects=False, ext_type='mayaAscii',
-                 setting_workspace=False):
+                 setting_workspace=False, checkin_type='file', files_dict=None, item_widget=None):
+    if not files_dict:
+        files_dict = []
 
-    files_dict = []
+        for i, fn in enumerate(file_names):
+            file_dict = dict()
+            file_dict['t'] = [file_types[i]]
+            file_dict['s'] = [subfolders[i]]
+            file_dict['e'] = [exts[i]]
+            file_dict['p'] = [postfixes[i]]
 
-    for i, fn in enumerate(file_names):
-        file_dict = dict()
-        file_dict['t'] = [file_types[i]]
-        file_dict['s'] = [subfolders[i]]
-        file_dict['e'] = [exts[i]]
-        file_dict['p'] = [postfixes[i]]
+            files_dict.append((fn, file_dict))
 
-        files_dict.append((fn, file_dict))
-
-    # extending files which can have thumbnails
-    for key, val in files_dict:
-        if gf.file_format(val['e'][0])[3] == 'preview':
-            val['t'].extend(['web', 'icon'])
-            val['s'].extend(['__preview/web', '__preview/icon'])
-            val['e'].extend(['jpg', 'png'])
-            val['p'].extend(['', ''])
+        # extending files which can have thumbnails
+        for key, val in files_dict:
+            if gf.file_format(val['e'][0])[3] == 'preview':
+                val['t'].extend(['web', 'icon'])
+                val['s'].extend(['__preview/web', '__preview/icon'])
+                val['e'].extend(['jpg', 'png'])
+                val['p'].extend(['', ''])
 
     from pprint import pprint
 
     pprint(files_dict)
 
-    virtual_snapshot = checkin_virtual_snapshot(
+    data_dict = checkin_virtual_snapshot(
         search_key,
         context,
         snapshot_type=snapshot_type,
@@ -1967,13 +1902,16 @@ def checkin_file(search_key, context, snapshot_type='file', is_revision=False, d
         update_versionless=update_versionless,
         keep_file_name=keep_file_name,
         version=version,
+        checkin_type=checkin_type,
         ignore_keep_file_name=ignore_keep_file_name,
+        item_widget=item_widget,
+        description=description,
     )
 
     progress_bar = parent_wdg.search_widget.search_results_widget.get_progress_bar()
 
     check_ok = False
-    if virtual_snapshot:
+    if data_dict:
         # check_ok = True
         progress_bar.setVisible(True)
 
@@ -1982,9 +1920,9 @@ def checkin_file(search_key, context, snapshot_type='file', is_revision=False, d
             check_ok = inplace_checkin(
                 file_paths,
                 progress_bar,
-                virtual_snapshot,
+                data_dict['virtual_snapshot'],
                 repo_name,
-                update_versionless,
+                data_dict['update_versionless'],
                 create_icon,
             )
 
@@ -1995,7 +1933,7 @@ def checkin_file(search_key, context, snapshot_type='file', is_revision=False, d
             # for in-place checkin
             check_ok = mf.inplace_checkin(
                 progress_bar,
-                virtual_snapshot,
+                data_dict['virtual_snapshot'],
                 repo_name,
                 update_versionless,
                 create_icon,
@@ -2006,20 +1944,18 @@ def checkin_file(search_key, context, snapshot_type='file', is_revision=False, d
 
         # check_ok = False
 
-        print check_ok
-
         if check_ok:
             checkin_snapshot(
                 search_key,
                 context,
                 snapshot_type=snapshot_type,
                 is_revision=is_revision,
-                description=description,
+                description=data_dict['description'],
                 version=version,
                 update_versionless=update_versionless,
                 keep_file_name=keep_file_name,
                 repo_name=repo_name,
-                virtual_snapshot=virtual_snapshot,
+                virtual_snapshot=data_dict['virtual_snapshot'],
                 files_dict=files_dict,
                 mode=mode,
                 create_icon=create_icon

@@ -252,7 +252,7 @@ def query_search_types_extended(project_code, namespace):
     return json.dumps(result, separators=(',', ':'))
 
 
-def get_virtual_snapshot_extended(search_key, context, files_dict, snapshot_type="file", is_revision=False, level_key=None, keep_file_name=False, version=None, update_versionless=True, ignore_keep_file_name=False):
+def get_virtual_snapshot_extended(search_key, context, files_dict, snapshot_type="file", is_revision=False, level_key=None, keep_file_name=False, version=None, update_versionless=True, ignore_keep_file_name=False, checkin_type='file'):
     '''creates a virtual snapshot and returns a path that this snapshot
     would generate through the naming conventions''
 
@@ -290,7 +290,7 @@ def get_virtual_snapshot_extended(search_key, context, files_dict, snapshot_type
     def prepare_filename(filenaming, f_l, ext, postfix):
 
         if keep_file_name:
-            file_type = file_naming.get_file_type()
+            file_type = filenaming.get_file_type()
             if file_type in ['web', 'icon']:
                 postfix = file_type
             if postfix:
@@ -326,8 +326,13 @@ def get_virtual_snapshot_extended(search_key, context, files_dict, snapshot_type
 
     description = "No description"
 
+    # this is only to avoid naming intersection
     if len(files_dict) > 1 and not ignore_keep_file_name:
         keep_file_name = True
+
+    if checkin_type == 'multi_file':
+        keep_file_name = False
+
     # if len(set(file_type)) != 1:
     #     keep_file_name = False
 
@@ -464,7 +469,7 @@ def create_snapshot_extended(search_key, context, snapshot_type=None, is_revisio
     # update_versionless = False
 
     if update_versionless:
-        snapshot.update_versionless('latest')
+        snapshot.update_versionless('latest', sobject=sobject, checkin_type='auto')
         # snapshot.update_versionless(snapshot_mode='latest', sobject=sobject, checkin_type='auto')
         versionless_snapshot = snapshot.get_by_sobjects([sobject], context, version=-1)
         # if not versionless_snapshot:
