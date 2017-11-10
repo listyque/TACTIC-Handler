@@ -259,7 +259,7 @@ class Ui_checkInOutTabWidget(QtGui.QWidget, checkin_out_tabs.Ui_sObjTabs):
     def get_ignore_stypes_list(self):
         ignore_tabs_list = []
         if self.checkin_out_config and self.checkin_out_config_projects and self.checkin_out_config_projects.get(self.current_project):
-            if not gf.get_value_from_config(self.checkin_out_config, 'processTabsFilterGroupBox', 'QGroupBox'):
+            if not gf.get_value_from_config(self.checkin_out_config, 'processTabsFilterGroupBox'):
                 ignore_tabs_list = []
             else:
                 ignore_tabs_list = self.checkin_out_config_projects[self.current_project]['stypes_list']

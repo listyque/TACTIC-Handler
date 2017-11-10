@@ -145,6 +145,7 @@ class Ui_addTacticSobjectWidget(QtGui.QDialog):
             kwargs = kwargs_insert
 
         code = tq.prepare_serverside_script(tq.query_EditWdg, kwargs, return_dict=True)
+        # print code['code']
         result = tc.server_start().execute_python_script('', kwargs=code)
         result_dict = json.loads(result['info']['spt_ret_val'])
 

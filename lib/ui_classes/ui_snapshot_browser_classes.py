@@ -591,7 +591,6 @@ class Ui_snapshotBrowserWidget(QtGui.QWidget, ui_snapshot_browser.Ui_snapshotBro
 
         elif self.item_widget.type == 'sobject':
             self.snapshots = self.item_widget.get_snapshot()
-            print self.snapshots
             if self.snapshots:
                 self.init_snapshot(True)
                 self.previewGraphicsView.resizeEvent = self.graphicsSceneResizeEvent

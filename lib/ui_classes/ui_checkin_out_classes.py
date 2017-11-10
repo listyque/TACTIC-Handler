@@ -38,7 +38,6 @@ reload(addsobject_widget)
 reload(drop_plate_widget)
 reload(maya_dialogs)
 reload(search_classes)
-reload(tc)
 reload(snapshot_browser_widget)
 reload(fast_controls)
 
@@ -103,8 +102,9 @@ class Ui_descriptionWidget(QtGui.QWidget, description_widget.Ui_descriptionWidge
         self.unset_edit_mode()
 
     def create_rich_edit(self):
-        self.ui_richedit = richedit_widget.Ui_richeditWidget(self.descriptionTextEdit)
-        self.editorLayout.addWidget(self.ui_richedit)
+        self.ui_richedit = richedit_widget.Ui_richeditWidget(self.descriptionTextEdit, parent=self.descriptionTextEdit)
+        # self.editorLayout.setParent(self.descriptionTextEdit)
+        # self.editorLayout.addWidget(self.ui_richedit)
 
     def keyPressEvent(self, key):
         if key.key() == QtCore.Qt.Key_Escape:
@@ -114,11 +114,12 @@ class Ui_descriptionWidget(QtGui.QWidget, description_widget.Ui_descriptionWidge
                 self.customize_without_item()
 
     def create_float_buttons(self):
-        self.descriptionTextEdit.setViewportMargins(0, 0, 0, 24)
+        self.descriptionTextEdit.setViewportMargins(0, 20, 0, 24)
         self.clear_button_layout = QtGui.QGridLayout(self.descriptionTextEdit)
         self.clear_button_layout.setContentsMargins(0, 0, 0, 0)
         self.clear_button_layout.setSpacing(0)
         self.clear_button = QtGui.QToolButton()
+        self.clear_button.setAutoRaise(True)
         self.clear_button.setFixedSize(24, 24)
         self.clear_button.setIcon(
             gf.get_icon('unlock', icons_set='ei', color=Qt4Gui.QColor(0, 192, 255, 192), scale_factor=0.8))
@@ -126,6 +127,7 @@ class Ui_descriptionWidget(QtGui.QWidget, description_widget.Ui_descriptionWidge
         self.clear_button_layout.addWidget(self.clear_button, 1, 2, 1, 1)
         self.clear_button_layout.addItem(QtGui.QSpacerItem(40, 20, QtGui.QSizePolicy.Expanding, QtGui.QSizePolicy.Minimum), 1, 2, 1, 1)
         self.edit_button = QtGui.QToolButton()
+        self.edit_button.setAutoRaise(True)
         self.edit_button.setFixedSize(24, 24)
         self.edit_button.setIcon(
             gf.get_icon('edit', icons_set='ei', scale_factor=0.8))
@@ -133,6 +135,7 @@ class Ui_descriptionWidget(QtGui.QWidget, description_widget.Ui_descriptionWidge
         self.clear_button_layout.addItem(QtGui.QSpacerItem(20, 40, QtGui.QSizePolicy.Minimum, QtGui.QSizePolicy.Expanding), 0, 0, 1, 3)
 
         self.save_button = QtGui.QToolButton()
+        self.save_button.setAutoRaise(True)
         self.save_button.setFixedSize(24, 24)
         self.save_button.setIcon(
             gf.get_icon('ok', icons_set='ei', color=Qt4Gui.QColor(0, 255, 128, 192), scale_factor=0.8))
@@ -449,6 +452,10 @@ class Ui_fastControlsWidget(QtGui.QWidget, fast_controls.Ui_fastControls):
 
         self.fill_process_combo_box(self.item.get_full_process_list(), self.item.get_current_process_info())
 
+        if self.item.type in ['snapshot', 'sobject', 'process']:
+            checkin_mode = self.item.get_checkin_mode_options()
+            self.set_checkin_mode(checkin_mode)
+
     def customize_without_item(self):
 
         # self.savePushButton.setEnabled(False)
@@ -526,6 +533,30 @@ class Ui_fastControlsWidget(QtGui.QWidget, fast_controls.Ui_fastControls):
         self.contextComboBox.setStyleSheet('')
         self.contextComboBox_freezed = False
         self.contextComboBox_clear_button.setHidden(True)
+
+    def set_checkin_mode(self, checkin_mode):
+        if not checkin_mode or checkin_mode == 'file':
+            self.checkinTypeComboBox.setCurrentIndex(0)
+        elif checkin_mode == 'sequence':
+            self.checkinTypeComboBox.setCurrentIndex(1)
+        elif checkin_mode == 'dir':
+            self.checkinTypeComboBox.setCurrentIndex(2)
+        elif checkin_mode == 'multi_file':
+            self.checkinTypeComboBox.setCurrentIndex(3)
+        elif checkin_mode == 'workarea':
+            self.checkinTypeComboBox.setCurrentIndex(4)
+
+    def get_checkin_mode(self):
+        if self.checkinTypeComboBox.currentIndex() == 0:
+            return 'file'
+        elif self.checkinTypeComboBox.currentIndex() == 1:
+            return 'sequence'
+        elif self.checkinTypeComboBox.currentIndex() == 2:
+            return 'dir'
+        elif self.checkinTypeComboBox.currentIndex() == 3:
+            return 'multi_file'
+        elif self.checkinTypeComboBox.currentIndex() == 4:
+            return 'workarea'
 
 
 class Ui_checkInOutWidget(QtGui.QMainWindow):
@@ -1294,11 +1325,11 @@ class Ui_checkInOutWidget(QtGui.QMainWindow):
     def checkin_from_droplist(self, search_key, context, description, save_revision=False, snapshot_version=None, create_icon=True):
 
         selected_items = self.drop_plate_widget.get_selected_items()
-        checkin_type = self.drop_plate_widget.get_checkin_mode()
+        checkin_type = self.fast_controls_tool_bar_widget.get_checkin_mode()
         keep_file_name = self.drop_plate_widget.get_keep_filename()
 
         print checkin_type
-        print selected_items
+        print selected_items, 'selected_items'
         print snapshot_version
         print keep_file_name
 
@@ -1315,34 +1346,17 @@ class Ui_checkInOutWidget(QtGui.QMainWindow):
             subfolders = []
             postfixes = []
             files_dict = None
+            metadata = []
 
             for item in selected_items:
-                if item.get_type() == 'fl':
+                if item.get_type() in ['layer_file', 'file', 'no_ext']:
                     postfixes.append('')
                     subfolders.append('')
                     exts.append(item.get_file_ext())
                     file_types.append(item.get_base_file_type())
                     file_names.append(item.get_file_name())
-                    file_paths.append(gf.form_path(item.get_all_files_list(True)))
-                elif item.get_type() == 'seq':
-                    print 'sequence'
-                elif item.get_type() == 'udim':
-                    print 'UDIM'
-                    files_dict = [(u'WP_20161106_10_40_38_Raw_LI',
-                                {'e': ['jpg', 'jpg', 'png'],
-                                'p': ['', '', ''],
-                                   's': ['', '__preview/web', '__preview/icon'],
-                                   't': ['image', 'web', 'icon']}),
-                                 (u'zaraza',
-                                  {'e': ['png', 'jpg', 'png'],
-                                   'p': ['', '', ''],
-                                   's': ['', '__preview/web', '__preview/icon'],
-                                   't': ['image', 'web', 'icon']}),
-                                 (u'zaraza1',
-                                  {'e': ['png', 'jpg', 'png'],
-                                   'p': ['', '', ''],
-                                   's': ['', '__preview/web', '__preview/icon'],
-                                   't': ['image', 'web', 'icon']})]
+                    file_paths = item.get_all_files_list()
+                    metadata.append(item.get_metadata())
 
             mode = 'inplace'
             print file_types
@@ -1351,6 +1365,7 @@ class Ui_checkInOutWidget(QtGui.QMainWindow):
             print exts
             print subfolders
             print postfixes
+            print metadata
 
             return tc.checkin_file(
                 search_key=search_key,

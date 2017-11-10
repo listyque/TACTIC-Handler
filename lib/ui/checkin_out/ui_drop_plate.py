@@ -2,7 +2,7 @@
 
 # Form implementation generated from reading ui file 'checkin_out/ui_drop_plate.ui'
 #
-# Created: Mon Oct  2 17:50:46 2017
+# Created: Mon Oct 30 14:43:59 2017
 #      by: pyside-uic 0.2.15 running on PySide 1.2.2
 #
 # WARNING! All changes made in this file will be lost!
@@ -10,15 +10,9 @@
 from lib.side.Qt import QtWidgets as QtGui
 from lib.side.Qt import QtCore
 
-
 class Ui_dropPlate(object):
     def setupUi(self, dropPlate):
         dropPlate.setObjectName("dropPlate")
-        sizePolicy = QtGui.QSizePolicy(QtGui.QSizePolicy.Ignored, QtGui.QSizePolicy.Preferred)
-        sizePolicy.setHorizontalStretch(0)
-        sizePolicy.setVerticalStretch(0)
-        sizePolicy.setHeightForWidth(dropPlate.sizePolicy().hasHeightForWidth())
-        dropPlate.setSizePolicy(sizePolicy)
         self.dropPlateGridLayout = QtGui.QGridLayout(dropPlate)
         self.dropPlateGridLayout.setContentsMargins(0, 0, 0, 0)
         self.dropPlateGridLayout.setSpacing(4)
@@ -55,31 +49,20 @@ class Ui_dropPlate(object):
         self.includeSubfoldersCheckBox.setSizePolicy(sizePolicy)
         self.includeSubfoldersCheckBox.setObjectName("includeSubfoldersCheckBox")
         self.dropPlateGridLayout.addWidget(self.includeSubfoldersCheckBox, 1, 3, 1, 1)
-        self.checkinTypeLabel = QtGui.QLabel(dropPlate)
-        self.checkinTypeLabel.setTextFormat(QtCore.Qt.PlainText)
-        self.checkinTypeLabel.setObjectName("checkinTypeLabel")
-        self.dropPlateGridLayout.addWidget(self.checkinTypeLabel, 1, 4, 1, 1)
-        self.checkinTypeComboBox = QtGui.QComboBox(dropPlate)
-        self.checkinTypeComboBox.setObjectName("checkinTypeComboBox")
-        self.checkinTypeComboBox.addItem("")
-        self.checkinTypeComboBox.addItem("")
-        self.checkinTypeComboBox.addItem("")
-        self.checkinTypeComboBox.addItem("")
-        self.checkinTypeComboBox.addItem("")
-        self.dropPlateGridLayout.addWidget(self.checkinTypeComboBox, 1, 5, 1, 1)
         spacerItem = QtGui.QSpacerItem(40, 20, QtGui.QSizePolicy.Expanding, QtGui.QSizePolicy.Minimum)
-        self.dropPlateGridLayout.addItem(spacerItem, 1, 6, 1, 1)
+        self.dropPlateGridLayout.addItem(spacerItem, 1, 4, 1, 1)
         self.clearPushButton = QtGui.QToolButton(dropPlate)
-        sizePolicy = QtGui.QSizePolicy(QtGui.QSizePolicy.Preferred, QtGui.QSizePolicy.Preferred)
+        sizePolicy = QtGui.QSizePolicy(QtGui.QSizePolicy.Fixed, QtGui.QSizePolicy.Fixed)
         sizePolicy.setHorizontalStretch(0)
         sizePolicy.setVerticalStretch(0)
         sizePolicy.setHeightForWidth(self.clearPushButton.sizePolicy().hasHeightForWidth())
         self.clearPushButton.setSizePolicy(sizePolicy)
-        self.clearPushButton.setMinimumSize(QtCore.QSize(75, 0))
-        self.clearPushButton.setToolButtonStyle(QtCore.Qt.ToolButtonTextBesideIcon)
+        self.clearPushButton.setMinimumSize(QtCore.QSize(24, 24))
+        self.clearPushButton.setMaximumSize(QtCore.QSize(24, 24))
+        self.clearPushButton.setToolButtonStyle(QtCore.Qt.ToolButtonIconOnly)
         self.clearPushButton.setAutoRaise(True)
         self.clearPushButton.setObjectName("clearPushButton")
-        self.dropPlateGridLayout.addWidget(self.clearPushButton, 1, 7, 1, 1)
+        self.dropPlateGridLayout.addWidget(self.clearPushButton, 1, 6, 1, 1)
         self.dropTreeWidget = QtGui.QTreeWidget(dropPlate)
         sizePolicy = QtGui.QSizePolicy(QtGui.QSizePolicy.Ignored, QtGui.QSizePolicy.Expanding)
         sizePolicy.setHorizontalStretch(0)
@@ -114,7 +97,19 @@ class Ui_dropPlate(object):
         self.dropTreeWidget.setHeaderHidden(False)
         self.dropTreeWidget.setObjectName("dropTreeWidget")
         self.dropTreeWidget.header().setCascadingSectionResizes(True)
-        self.dropPlateGridLayout.addWidget(self.dropTreeWidget, 0, 0, 1, 8)
+        self.dropPlateGridLayout.addWidget(self.dropTreeWidget, 0, 0, 1, 7)
+        self.configPushButton = QtGui.QToolButton(dropPlate)
+        sizePolicy = QtGui.QSizePolicy(QtGui.QSizePolicy.Fixed, QtGui.QSizePolicy.Fixed)
+        sizePolicy.setHorizontalStretch(0)
+        sizePolicy.setVerticalStretch(0)
+        sizePolicy.setHeightForWidth(self.configPushButton.sizePolicy().hasHeightForWidth())
+        self.configPushButton.setSizePolicy(sizePolicy)
+        self.configPushButton.setMinimumSize(QtCore.QSize(24, 24))
+        self.configPushButton.setMaximumSize(QtCore.QSize(24, 24))
+        self.configPushButton.setToolButtonStyle(QtCore.Qt.ToolButtonIconOnly)
+        self.configPushButton.setAutoRaise(True)
+        self.configPushButton.setObjectName("configPushButton")
+        self.dropPlateGridLayout.addWidget(self.configPushButton, 1, 5, 1, 1)
 
         self.retranslateUi(dropPlate)
         QtCore.QMetaObject.connectSlotsByName(dropPlate)
@@ -125,16 +120,9 @@ class Ui_dropPlate(object):
         self.groupCheckinCheckBox.setText(QtGui.QApplication.translate("dropPlate", "Group Checkin", None))
         self.keepFileNameCheckBox.setText(QtGui.QApplication.translate("dropPlate", "Keep Filename", None))
         self.includeSubfoldersCheckBox.setText(QtGui.QApplication.translate("dropPlate", "Include Subfolders", None))
-        self.checkinTypeLabel.setText(QtGui.QApplication.translate("dropPlate", "Checkin Type:", None))
-        self.checkinTypeComboBox.setItemText(0, QtGui.QApplication.translate("dropPlate", "A File", None))
-        self.checkinTypeComboBox.setItemText(1, QtGui.QApplication.translate("dropPlate", "A Sequence", None))
-        self.checkinTypeComboBox.setItemText(2, QtGui.QApplication.translate("dropPlate", "A Directory", None))
-        self.checkinTypeComboBox.setItemText(3, QtGui.QApplication.translate("dropPlate", "Miltiple Individual Files", None))
-        self.checkinTypeComboBox.setItemText(4, QtGui.QApplication.translate("dropPlate", "Work Area", None))
-        self.clearPushButton.setText(QtGui.QApplication.translate("dropPlate", "Clear", None))
         self.dropTreeWidget.setSortingEnabled(True)
         self.dropTreeWidget.headerItem().setText(0, QtGui.QApplication.translate("dropPlate", "File Name", None))
-        self.dropTreeWidget.headerItem().setText(1, QtGui.QApplication.translate("dropPlate", "Range/Tiles", None))
+        self.dropTreeWidget.headerItem().setText(1, QtGui.QApplication.translate("dropPlate", "Range/Tiles/Layer", None))
         self.dropTreeWidget.headerItem().setText(2, QtGui.QApplication.translate("dropPlate", "Class/Ext", None))
         self.dropTreeWidget.headerItem().setText(3, QtGui.QApplication.translate("dropPlate", "Type", None))
         self.dropTreeWidget.headerItem().setText(4, QtGui.QApplication.translate("dropPlate", "File Path", None))

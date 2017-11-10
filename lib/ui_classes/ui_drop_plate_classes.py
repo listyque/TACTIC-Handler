@@ -1,7 +1,5 @@
 # file ui_drop_plate_classes.py
 
-# import PySide.QtGui as QtGui
-# import PySide.QtCore as QtCore
 import os
 from lib.side.Qt import QtWidgets as QtGui
 from lib.side.Qt import QtGui as Qt4Gui
@@ -10,12 +8,74 @@ from lib.side.Qt import QtCore
 from lib.environment import env_mode
 import lib.global_functions as gf
 import lib.ui.checkin_out.ui_drop_plate as ui_drop_plate
+import lib.ui.checkin_out.ui_drop_plate_config as ui_drop_plate_config
 
 reload(ui_drop_plate)
+reload(ui_drop_plate_config)
 
 
-# seqs = pyseq.get_sequences('//renderserver/Project/projectName/scenes/ep29/ep29sc27/compose/sequence/tif/v1')
-# print(seqs)
+class Ui_matchingTemplateConfigWidget(QtGui.QDialog, ui_drop_plate_config.Ui_matchingTemplateConfig):
+    def __init__(self, parent=None):
+        super(self.__class__, self).__init__(parent=parent)
+
+        self.current_templates_list = []
+
+        self.setupUi(self)
+        self.drop_plate_config_ui()
+
+    def drop_plate_config_ui(self):
+        self.setWindowTitle('Matching Template Config')
+
+        self.fill_templates()
+
+        self.templatesTreeWidget.resizeColumnToContents(0)
+        self.templatesTreeWidget.resizeColumnToContents(1)
+        self.templatesTreeWidget.resizeColumnToContents(2)
+        self.templatesTreeWidget.resizeColumnToContents(3)
+
+    def fill_templates(self):
+
+        templates = [
+            (True, '$FILENAME'),
+            (True, '$FILENAME.$EXT'),
+            (True, '$FILENAME.$FRAME.$EXT'),
+            (True, '$FILENAME_$UDIM.$EXT'),
+            (True, '$FILENAME_$UV.$EXT'),
+            (True, '$FILENAME.$FRAME_$UDIM.$EXT'),
+            (True, '$FILENAME_$FRAME_$UV.$EXT'),
+            (False, '$FILENAME.$FRAME.$LAYER.$EXT'),
+            (False, '$FILENAME.$FRAME.$LAYER_$UV.$EXT'),
+            (False, '$FILENAME.$LAYER.$EXT'),
+            (False, '$FILENAME.$LAYER.$FRAME_$UV.$EXT'),
+            (False, '$FILENAME.$LAYER_$UV.$EXT'),
+            (False, '$FILENAME.$LAYER_$UDIM.$EXT'),
+            (False, '$FILENAME.$LAYER.$FRAME.$EXT'),
+        ]
+
+        for enabled, template in templates:
+
+            tree_item = QtGui.QTreeWidgetItem()
+            if enabled:
+                tree_item.setCheckState(0, QtCore.Qt.Checked)
+                self.current_templates_list.append(template)
+            else:
+                tree_item.setCheckState(0, QtCore.Qt.Unchecked)
+            tree_item.setText(1, template)
+            match_template = gf.MatchTemplate([template], padding=self.get_min_padding())
+            tree_item.setText(2, match_template.get_preview_string())
+            tree_item.setText(3, match_template.get_type_string())
+
+            if template in ['$FILENAME', '$FILENAME.$EXT']:
+                tree_item.setDisabled(True)
+
+            self.templatesTreeWidget.addTopLevelItem(tree_item)
+
+    def get_min_padding(self):
+        return int(self.minFramesPaddingSpinBox.value())
+
+    def get_templates_list(self):
+
+        return self.current_templates_list
 
 
 class Ui_dropPlateWidget(QtGui.QWidget, ui_drop_plate.Ui_dropPlate):
@@ -29,11 +89,13 @@ class Ui_dropPlateWidget(QtGui.QWidget, ui_drop_plate.Ui_dropPlate):
         self.setAcceptDrops(True)
 
         self.create_drop_plate_ui()
+        self.create_config_widget()
         self.controls_actions()
 
     def create_drop_plate_ui(self):
 
-        self.clearPushButton.setIcon(gf.get_icon('eraser'))
+        self.clearPushButton.setIcon(gf.get_icon('trash'))
+        self.configPushButton.setIcon(gf.get_icon('cog'))
 
         self.setAcceptDrops(True)
         self.dropTreeWidget.setSelectionMode(QtGui.QAbstractItemView.SingleSelection)
@@ -44,9 +106,13 @@ class Ui_dropPlateWidget(QtGui.QWidget, ui_drop_plate.Ui_dropPlate):
             self.setSizePolicy(sizePolicy)
             self.setMinimumWidth(300)
 
+    def create_config_widget(self):
+        self.config_widget = Ui_matchingTemplateConfigWidget(self)
+
     def controls_actions(self):
 
         self.clearPushButton.clicked.connect(self.clear_tree_widget)
+        self.configPushButton.clicked.connect(self.config_widget.exec_)
         self.groupCheckinCheckBox.stateChanged.connect(self.enable_group_checkin)
 
         self.create_files_tree_context_menu()
@@ -152,8 +218,8 @@ class Ui_dropPlateWidget(QtGui.QWidget, ui_drop_plate.Ui_dropPlate):
                 for path, subdirs, files in os.walk(dirs):
                     for name in files:
                         items.append(os.path.join(path, name))
-                    for dir in subdirs:
-                        items.append(os.path.join(path, dir))
+                    for s_dir in subdirs:
+                        items.append(os.path.join(path, s_dir))
 
         self.fromDropListCheckBox.setChecked(True)
 
@@ -164,62 +230,39 @@ class Ui_dropPlateWidget(QtGui.QWidget, ui_drop_plate.Ui_dropPlate):
         if len(items) == 1:
             self.groupCheckinCheckBox.setChecked(False)
 
-        files_objects_dict = gf.get_files_objects(items)
+        match_template = gf.MatchTemplate(self.config_widget.get_templates_list(), padding=self.config_widget.get_min_padding())
 
-        self.tree_items = []
+        files_objects_dict = match_template.get_files_objects(items)
 
         icon_provider = QtGui.QFileIconProvider()
 
         for item_type, item in files_objects_dict.items():
-            if item_type == 'udim':
-                for i, file_obj in enumerate(item):
-                    tree_item = QtGui.QTreeWidgetItem()
-                    tree_item.setText(0, file_obj.get_pretty_file_name())
-                    tree_item.setText(1, '{0} tiles'.format(file_obj.get_udim_tiles_count()))
-                    tree_item.setText(2, file_obj.get_base_file_type_pretty_name())
-                    tree_item.setText(3, file_obj.get_base_file_type())
-                    tree_item.setText(4, file_obj.get_file_path())
 
-                    file_icon = icon_provider.icon(file_obj.get_all_files_list()[0])
-                    tree_item.setIcon(0, file_icon)
+            for i, file_obj in enumerate(item):
+                tree_item = QtGui.QTreeWidgetItem()
+                tree_item.setText(0, file_obj.get_pretty_file_name())
+                sequence_info_string = []
+                frameranges = file_obj.get_sequence_frameranges_string('[]')
+                tiles_count = file_obj.get_tiles_count()
+                layer = file_obj.get_layer()
+                if frameranges:
+                    sequence_info_string.append(frameranges)
+                if tiles_count:
+                    sequence_info_string.append('{0} Tile(s)'.format(tiles_count))
+                if layer:
+                    sequence_info_string.append(layer)
+                tree_item.setText(1, ' / '.join(sequence_info_string))
+                tree_item.setText(2, file_obj.get_base_file_type_pretty_name())
+                tree_item.setText(3, file_obj.get_base_file_type())
+                tree_item.setText(4, file_obj.get_file_path())
 
-                    self.dropTreeWidget.addTopLevelItem(tree_item)
-                    self.dropTreeWidget.setItemSelected(tree_item, True)
-                    tree_item.setData(0, QtCore.Qt.UserRole, len(self.tree_items))
-                    self.tree_items.append(file_obj)
+                file_icon = icon_provider.icon(file_obj.get_all_files_list(True))
+                tree_item.setIcon(0, file_icon)
 
-            if item_type == 'seq':
-                for i, file_obj in enumerate(item):
-                    tree_item = QtGui.QTreeWidgetItem()
-                    tree_item.setText(0, file_obj.get_pretty_file_name())
-                    tree_item.setText(1, file_obj.get_sequence_framerange())
-                    tree_item.setText(2, file_obj.get_base_file_type_pretty_name())
-                    tree_item.setText(3, file_obj.get_base_file_type())
-                    tree_item.setText(4, file_obj.get_file_path())
-
-                    file_icon = icon_provider.icon(file_obj.get_all_files_list()[0])
-                    tree_item.setIcon(0, file_icon)
-
-                    self.dropTreeWidget.addTopLevelItem(tree_item)
-                    self.dropTreeWidget.setItemSelected(tree_item, True)
-                    tree_item.setData(0, QtCore.Qt.UserRole, len(self.tree_items))
-                    self.tree_items.append(file_obj)
-
-            if item_type == 'fl':
-                for i, file_obj in enumerate(item):
-                    tree_item = QtGui.QTreeWidgetItem()
-                    tree_item.setText(0, file_obj.get_pretty_file_name())
-                    tree_item.setText(2, file_obj.get_base_file_type_pretty_name())
-                    tree_item.setText(3, file_obj.get_base_file_type())
-                    tree_item.setText(4, file_obj.get_file_path())
-
-                    file_icon = icon_provider.icon(file_obj.get_all_files_list()[0])
-                    tree_item.setIcon(0, file_icon)
-
-                    self.dropTreeWidget.addTopLevelItem(tree_item)
-                    self.dropTreeWidget.setItemSelected(tree_item, True)
-                    tree_item.setData(0, QtCore.Qt.UserRole, len(self.tree_items))
-                    self.tree_items.append(file_obj)
+                self.dropTreeWidget.addTopLevelItem(tree_item)
+                self.dropTreeWidget.setItemSelected(tree_item, True)
+                tree_item.setData(0, QtCore.Qt.UserRole, len(self.tree_items))
+                self.tree_items.append(file_obj)
 
         self.dropTreeWidget.resizeColumnToContents(0)
         self.dropTreeWidget.resizeColumnToContents(1)
@@ -230,34 +273,11 @@ class Ui_dropPlateWidget(QtGui.QWidget, ui_drop_plate.Ui_dropPlate):
         self.dropTreeWidget.sortByColumn(0, QtCore.Qt.AscendingOrder)
 
     def set_item_widget(self, item_widget):
-        self.item_widget = item_widget
-        if self.item_widget.type in ['snapshot', 'sobject', 'process']:
-            checkin_mode = self.item_widget.get_checkin_mode_options()
-            self.set_checkin_mode(checkin_mode)
-
-    def set_checkin_mode(self, checkin_mode):
-        if not checkin_mode or checkin_mode == 'file':
-            self.checkinTypeComboBox.setCurrentIndex(0)
-        elif checkin_mode == 'sequence':
-            self.checkinTypeComboBox.setCurrentIndex(1)
-        elif checkin_mode == 'dir':
-            self.checkinTypeComboBox.setCurrentIndex(2)
-        elif checkin_mode == 'multi_file':
-            self.checkinTypeComboBox.setCurrentIndex(3)
-        elif checkin_mode == 'workarea':
-            self.checkinTypeComboBox.setCurrentIndex(4)
-
-    def get_checkin_mode(self):
-        if self.checkinTypeComboBox.currentIndex() == 0:
-            return 'file'
-        elif self.checkinTypeComboBox.currentIndex() == 1:
-            return 'sequence'
-        elif self.checkinTypeComboBox.currentIndex() == 2:
-            return 'dir'
-        elif self.checkinTypeComboBox.currentIndex() == 3:
-            return 'multi_file'
-        elif self.checkinTypeComboBox.currentIndex() == 4:
-            return 'workarea'
+        pass
+        # self.item_widget = item_widget
+        # if self.item_widget.type in ['snapshot', 'sobject', 'process']:
+        #     checkin_mode = self.item_widget.get_checkin_mode_options()
+        #     self.set_checkin_mode(checkin_mode)
 
     def get_keep_filename(self):
 
@@ -271,14 +291,14 @@ class Ui_dropPlateWidget(QtGui.QWidget, ui_drop_plate.Ui_dropPlate):
                 'keepFileNameCheckBox': False,
                 'fromDropListCheckBox': False,
                 'groupCheckinCheckBox': False,
-                'checkinTypeComboBox': 0
+                # 'checkinTypeComboBox': 0
             }
 
         self.includeSubfoldersCheckBox.setChecked(settings_dict['includeSubfoldersCheckBox'])
         self.keepFileNameCheckBox.setChecked(settings_dict['keepFileNameCheckBox'])
         self.fromDropListCheckBox.setChecked(settings_dict['fromDropListCheckBox'])
         self.groupCheckinCheckBox.setChecked(settings_dict['groupCheckinCheckBox'])
-        self.checkinTypeComboBox.setCurrentIndex(settings_dict['checkinTypeComboBox'])
+        # self.checkinTypeComboBox.setCurrentIndex(settings_dict['checkinTypeComboBox'])
 
     def get_settings_dict(self):
 
@@ -287,7 +307,7 @@ class Ui_dropPlateWidget(QtGui.QWidget, ui_drop_plate.Ui_dropPlate):
             'keepFileNameCheckBox': int(self.keepFileNameCheckBox.isChecked()),
             'fromDropListCheckBox': int(self.fromDropListCheckBox.isChecked()),
             'groupCheckinCheckBox': int(self.groupCheckinCheckBox.isChecked()),
-            'checkinTypeComboBox': int(self.checkinTypeComboBox.currentIndex())
+            # 'checkinTypeComboBox': int(self.checkinTypeComboBox.currentIndex())
 
         }
 

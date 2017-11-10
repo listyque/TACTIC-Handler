@@ -90,7 +90,8 @@ class Ui_itemWidget(QtGui.QWidget, ui_item.Ui_item):
     def set_preview(self):
         snapshots = self.get_snapshot()
         if snapshots:
-            preview_files_objects = snapshots.values()[0].get_previewable_files_objects()
+            # preview_files_objects = snapshots.values()[0].get_previewable_files_objects()
+            preview_files_objects = snapshots.values()[0].get_files_objects(group_by='type').get('icon')
             if preview_files_objects:
                 icon_previw = preview_files_objects[0].get_icon_preview()
                 if icon_previw:
@@ -128,6 +129,11 @@ class Ui_itemWidget(QtGui.QWidget, ui_item.Ui_item):
         icons_process = self.sobject.process.get('icon')
         if icons_process:
             icons = icons_process.contexts.get('icon')
+        else:
+            publish_process = self.sobject.process.get('publish')
+            if publish_process:
+                icons = publish_process.contexts.get('publish')
+
         if icons:
             return icons.versions
 
@@ -1010,7 +1016,8 @@ class Ui_snapshotItemWidget(QtGui.QWidget, ui_item_snapshot.Ui_snapshotItem):
     def set_preview(self):
         snapshot = self.get_snapshot()
         if snapshot:
-            preview_files_objects = snapshot.get_previewable_files_objects()
+            # preview_files_objects = snapshot.get_previewable_files_objects()
+            preview_files_objects = snapshot.get_files_objects(group_by='type').get('icon')
             if preview_files_objects:
                 icon_previw = preview_files_objects[0].get_icon_preview()
                 if icon_previw:

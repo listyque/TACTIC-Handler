@@ -21,6 +21,7 @@ import lib.ui_classes.ui_misc_classes as ui_misc_classes
 import lib.ui_classes.ui_dialogs_classes as ui_dialogs_classes
 import side.client.tactic_client_lib as tactic_client_lib
 
+
 if env_mode.get_mode() == 'maya':
     import maya_functions as mf
     reload(mf)
@@ -1118,7 +1119,7 @@ class File(object):
         return abs_path
 
     def get_full_abs_path(self):
-        return '{0}/{1}'.format(self.get_abs_path(), self.__file['file_name'])
+        return gf.form_path('{0}/{1}'.format(self.get_abs_path(), self.__file['file_name']))
 
     def is_exists(self):
         return os.path.exists(self.get_full_abs_path())
@@ -1329,6 +1330,7 @@ def get_notes_count(sobject, process, children_stypes):
         'search_key': sobject.info['__search_key__'],
         'stypes_list': children_stypes
     }
+
     code = tq.prepare_serverside_script(tq.get_notes_and_stypes_counts, kwargs, return_dict=True)
     result = server_start().execute_python_script('', kwargs=code)
 
@@ -1587,10 +1589,10 @@ def checkin_snapshot(search_key, context, snapshot_type=None, is_revision=False,
                                                         v1['versionless']['paths'],
                                                         v1['versionless']['names'],
                                                         v2['t']):
-            file_full_path = '{0}/{1}/{2}'.format(repo, path_v, name_v)
+            file_full_path = u'{0}/{1}/{2}'.format(repo, path_v, name_v)
             files_info['version_files'].append(file_full_path)
             files_info['version_files_paths'].append(path_v)
-            file_full_path_vs = '{0}/{1}/{2}'.format(repo, path_vs, name_vs)
+            file_full_path_vs = u'{0}/{1}/{2}'.format(repo, path_vs, name_vs)
             files_info['versionless_files'].append(file_full_path_vs)
             files_info['versionless_files_paths'].append(path_vs)
             files_info['files_types'].append(tp)
@@ -1612,7 +1614,6 @@ def checkin_snapshot(search_key, context, snapshot_type=None, is_revision=False,
     }
     # from pprint import pprint
     # pprint(kwargs)
-
     code = tq.prepare_serverside_script(tq.create_snapshot_extended, kwargs, return_dict=True)
     result = server_start().execute_python_script('', kwargs=code)
     # # snapshot = eval(result['info']['spt_ret_val'])

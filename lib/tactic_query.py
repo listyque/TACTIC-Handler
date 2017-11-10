@@ -89,9 +89,13 @@ def query_EditWdg(args=None, search_type=''):
     wdg_config = WidgetConfigView.get_by_element_names(search_type, widget.element_names, base_view=args['view'])
 
     temprorary_ignore = ['pyasm.prod.web.prod_input_wdg.ProjectSelectWdg']
+    # , 'pyasm.widget.input_wdg.SelectWdg' bug with this widget
 
     for i_widget in input_widgets:
         widget_dict = pop_classes(i_widget.__dict__)
+        # for wv, wi in widget_dict.items():
+        #     if type(wi) not in [dict, None, str, int, bool, list, set, tuple]:
+        #         widget_dict[wv] = str(wi)
         widget_dict['action_options'] = wdg_config.get_action_options(widget_dict.get('name'))
         widget_dict['class_name'] = i_widget.get_class_name()
         item_values = i_widget.get_values()
@@ -174,9 +178,15 @@ def get_notes_and_stypes_counts(process, search_key, stypes_list):
         cnt['notes'][p] = search.get_count()
 
     for stype in stypes_list:
-        search = Search(stype)
-        search.add_parent_filter(search_key)
-        cnt['stypes'][stype] = search.get_count()
+        try:
+            search = Search(stype)
+            search.add_parent_filter(search_key)
+            count = search.get_count(True)
+            if count == -1:
+                count = 0
+            cnt['stypes'][stype] = count
+        except:
+            cnt['stypes'][stype] = 0
 
     return cnt
 

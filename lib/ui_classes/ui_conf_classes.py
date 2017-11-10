@@ -1396,7 +1396,8 @@ class Ui_configuration_dialogWidget(QtGui.QDialog, ui_conf.Ui_configuration_dial
         print('Done ui_conf settings write')
         self.settings.endGroup()
 
-        self.checkinPageWidget.close()
+        if self.checkinPageWidget:
+            self.checkinPageWidget.close()
 
     def closeEvent(self, event):
 

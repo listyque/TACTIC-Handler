@@ -180,7 +180,10 @@ class saveConfirmWidget(QtGui.QWidget):
 
     def create_checkboxes_widget(self):
         self.update_versionless_checkbox = QtGui.QCheckBox('Update Versionless')
-        self.update_versionless_checkbox.setChecked(True)
+        if self.update_versionless:
+            self.update_versionless_checkbox.setChecked(True)
+        else:
+            self.update_versionless_checkbox.setChecked(False)
         self.main_layout.addWidget(self.update_versionless_checkbox)
 
     def create_info_label_widget(self):
@@ -296,6 +299,7 @@ class saveConfirmWidget(QtGui.QWidget):
         from lib.ui_classes.ui_checkin_out_classes import Ui_descriptionWidget
 
         self.description_widget = Ui_descriptionWidget(None, None, parent=self)
+        self.description_widget.descriptionTextEdit.setViewportMargins(0, 20, 0, 0)
 
         self.description_widget.setMinimumHeight(200)
         self.description_widget.setMinimumWidth(400)
