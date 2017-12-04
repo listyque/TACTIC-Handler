@@ -44,12 +44,14 @@ class Ui_collapsableWidget(QtGui.QWidget, ui_collapsable.Ui_collapsableWidget):
             self.collapse_state = True
             self.collapseToolButton.setArrowType(QtCore.Qt.RightArrow)
             self.widget.setHidden(True)
+            self.collapseToolButton.setChecked(False)
             if self.__collapsedTex:
                 self.setCollapsedText(self.__collapsedTex)
         else:
             self.collapse_state = False
             self.collapseToolButton.setArrowType(QtCore.Qt.DownArrow)
             self.widget.setHidden(False)
+            self.collapseToolButton.setChecked(True)
             self.setText(self.__text)
 
     def __toggleCollapseState(self):
@@ -114,3 +116,9 @@ class Ui_horizontalCollapsableWidget(QtGui.QWidget, ui_horizontal_collapsable.Ui
             self.setCollapsed(False)
         else:
             self.setCollapsed(True)
+
+
+class Ui_namingEditorWidget(QtGui.QDialog):
+    def __init__(self, parent=None):
+        super(self.__class__, self).__init__(parent=parent)
+        print('Now you can edit your names :)')

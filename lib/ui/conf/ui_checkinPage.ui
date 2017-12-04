@@ -109,7 +109,7 @@
      <property name="flat">
       <bool>true</bool>
      </property>
-     <layout class="QGridLayout" name="snapshotsSavingOptionsLayout" columnstretch="0,0">
+     <layout class="QGridLayout" name="snapshotsSavingOptionsLayout" columnstretch="0,0,0,0">
       <property name="leftMargin">
        <number>9</number>
       </property>
@@ -119,15 +119,8 @@
       <property name="bottomMargin">
        <number>0</number>
       </property>
-      <item row="1" column="1">
+      <item row="1" column="2" colspan="2">
        <widget class="QComboBox" name="repositoryComboBox"/>
-      </item>
-      <item row="1" column="0">
-       <widget class="QLabel" name="repositoryLabel">
-        <property name="text">
-         <string>Current Repository:</string>
-        </property>
-       </widget>
       </item>
       <item row="2" column="0">
        <widget class="QLabel" name="checkinMethodLabel">
@@ -136,7 +129,17 @@
         </property>
        </widget>
       </item>
-      <item row="2" column="1">
+      <item row="3" column="0">
+       <widget class="QCheckBox" name="updateVersionlessCheckBox">
+        <property name="text">
+         <string>Update versionless snapshot</string>
+        </property>
+        <property name="checked">
+         <bool>true</bool>
+        </property>
+       </widget>
+      </item>
+      <item row="2" column="2" colspan="2">
        <widget class="QComboBox" name="checkinMethodComboBox">
         <item>
          <property name="text">
@@ -165,20 +168,10 @@
         </item>
        </widget>
       </item>
-      <item row="3" column="0">
-       <widget class="QCheckBox" name="updateVersionlessCheckBox">
+      <item row="1" column="0">
+       <widget class="QLabel" name="repositoryLabel">
         <property name="text">
-         <string>Update versionless snapshot</string>
-        </property>
-        <property name="checked">
-         <bool>true</bool>
-        </property>
-       </widget>
-      </item>
-      <item row="5" column="0">
-       <widget class="QCheckBox" name="createMayaDirsCheckBox">
-        <property name="text">
-         <string>Create Maya Dirs (worspace.mel)</string>
+         <string>Current Repository:</string>
         </property>
        </widget>
       </item>
@@ -192,6 +185,13 @@
         </property>
        </widget>
       </item>
+      <item row="7" column="0">
+       <widget class="QCheckBox" name="clearDropPlateAfterCheckincheckBox">
+        <property name="text">
+         <string>Clear DropPlate after Checkin</string>
+        </property>
+       </widget>
+      </item>
       <item row="4" column="0">
        <widget class="QCheckBox" name="generatePreviewsCheckBox">
         <property name="text">
@@ -202,6 +202,13 @@
         </property>
        </widget>
       </item>
+      <item row="5" column="0">
+       <widget class="QCheckBox" name="createMayaDirsCheckBox">
+        <property name="text">
+         <string>Create Maya Dirs (worspace.mel)</string>
+        </property>
+       </widget>
+      </item>
       <item row="6" column="0">
        <widget class="QCheckBox" name="uncheckFromDropPlateCheckBox">
         <property name="text">
@@ -209,12 +216,82 @@
         </property>
        </widget>
       </item>
-      <item row="7" column="0">
-       <widget class="QCheckBox" name="clearDropPlateAfterCheckincheckBox">
+      <item row="9" column="0">
+       <widget class="QCheckBox" name="sequencePaddingCheckBox">
         <property name="text">
-         <string>Clear DropPlate after Checkin</string>
+         <string>Sequence Padding:</string>
         </property>
        </widget>
+      </item>
+      <item row="10" column="0">
+       <widget class="QLabel" name="sequqnceNamingTemplatelabel">
+        <property name="text">
+         <string>Sequence, udim/uv naming Template:</string>
+        </property>
+       </widget>
+      </item>
+      <item row="10" column="2" colspan="2">
+       <layout class="QHBoxLayout" name="horizontalLayout" stretch="1,0">
+        <property name="spacing">
+         <number>4</number>
+        </property>
+        <item>
+         <widget class="QLineEdit" name="sequenceNamingTemplateLineEdit">
+          <property name="text">
+           <string>_$LAYER_$UDIM/UV.$FRAME</string>
+          </property>
+          <property name="readOnly">
+           <bool>true</bool>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QToolButton" name="editSequenceNamingTemplateToolButton">
+          <property name="text">
+           <string/>
+          </property>
+          <property name="autoRaise">
+           <bool>true</bool>
+          </property>
+         </widget>
+        </item>
+       </layout>
+      </item>
+      <item row="9" column="2" colspan="2">
+       <layout class="QHBoxLayout" name="horizontalLayout_2" stretch="1,0">
+        <property name="spacing">
+         <number>4</number>
+        </property>
+        <item>
+         <widget class="QSlider" name="sequencePaddingHorizontalSlider">
+          <property name="minimum">
+           <number>1</number>
+          </property>
+          <property name="maximum">
+           <number>9</number>
+          </property>
+          <property name="value">
+           <number>3</number>
+          </property>
+          <property name="orientation">
+           <enum>Qt::Horizontal</enum>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QSpinBox" name="sequencePaddingSpinBox">
+          <property name="minimum">
+           <number>1</number>
+          </property>
+          <property name="maximum">
+           <number>9</number>
+          </property>
+          <property name="value">
+           <number>3</number>
+          </property>
+         </widget>
+        </item>
+       </layout>
       </item>
      </layout>
     </widget>
@@ -535,5 +612,38 @@ QToolButton:pressed {
   </layout>
  </widget>
  <resources/>
- <connections/>
+ <connections>
+  <connection>
+   <sender>sequencePaddingHorizontalSlider</sender>
+   <signal>valueChanged(int)</signal>
+   <receiver>sequencePaddingSpinBox</receiver>
+   <slot>setValue(int)</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>272</x>
+     <y>367</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>352</x>
+     <y>367</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>sequencePaddingSpinBox</sender>
+   <signal>valueChanged(int)</signal>
+   <receiver>sequencePaddingHorizontalSlider</receiver>
+   <slot>setValue(int)</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>350</x>
+     <y>359</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>315</x>
+     <y>357</y>
+    </hint>
+   </hints>
+  </connection>
+ </connections>
 </ui>

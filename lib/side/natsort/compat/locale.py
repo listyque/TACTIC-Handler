@@ -10,7 +10,7 @@ from __future__ import (
 import sys
 
 # Local imports.
-from lib.natsort.compat.py23 import PY_VERSION, cmp_to_key
+from lib.side.natsort.compat.py23 import PY_VERSION, cmp_to_key
 
 # Make the strxfrm function from strcoll on Python2
 # It can be buggy (especially on BSD-based systems),

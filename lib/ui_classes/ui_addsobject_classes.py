@@ -2,8 +2,6 @@
 # file ui_addsobject_classes.py
 # Adding new sObject window
 
-# import PySide.QtCore as QtCore
-# import PySide.QtGui as QtGui
 from lib.side.Qt import QtWidgets as QtGui
 from lib.side.Qt import QtCore
 
@@ -16,79 +14,79 @@ import lib.ui_classes.ui_tactic_widgets_classes as twc
 
 
 # DEPRECATED
-class Ui_addSObjectFormWidget(QtGui.QDialog):
-    def __init__(self, parent=None):
-        super(self.__class__, self).__init__(parent=parent)
-
-        self.settings = QtCore.QSettings('TACTIC Handler', 'TACTIC Handling Tool')
-
-        import lib.ui_classes.ui_tactic_widgets_classes as tc_cl
-
-        self.b = tc_cl.QtTacticEditWidget(self)
-
-        self.setupUi(self)
-
-        self.gridLayout.addWidget(self.b)
-
-        self.tab_name = None
-        self.setSizeGripEnabled(True)
-
-        self.window_actions()
-
-        self.readSettings()
-
-    def window_actions(self):
-        self.cancelButton.clicked.connect(lambda: self.close())
-        self.browseImageButton.clicked.connect(lambda: self.browse_for_preview())
-        self.addNewButton.clicked.connect(lambda: self.add_item())
-
-    def browse_for_preview(self):
-        options = QtGui.QFileDialog.Options()
-        options |= QtGui.QFileDialog.DontUseNativeDialog
-        file_name, filter = QtGui.QFileDialog.getOpenFileName(self, 'Browse for Preview Image',
-                                                              self.previewImageLineEdit.text(),
-                                                              'All Images (*.jpg | *.jpeg | *.png);;'
-                                                              'JPEG Files (*.jpg | *.jpeg);;'
-                                                              'PNG Files (*.png)',
-                                                              '', options)
-        if file_name:
-            self.previewImageLineEdit.setText(file_name)
-
-    def add_item(self):
-        """
-        Adding s object item
-        :return: None
-        """
-        image = self.previewImageLineEdit.text()
-        name = self.nameLineEdit.text()
-        description = self.descriptionTextEdit.toPlainText()
-        keywords = self.keywordsTextEdit.toPlainText()
-        if name:
-            filters = [('name', name)]
-            existing = tc.server_start().query(self.tab_name, filters)
-            if existing:
-                msb = QtGui.QMessageBox(QtGui.QMessageBox.Question, 'This Name already used!',
-                                        "Do you want to use this name anyway?",
-                                        QtGui.QMessageBox.NoButton, self)
-                msb.addButton("Yes", QtGui.QMessageBox.YesRole)
-                msb.addButton("No", QtGui.QMessageBox.NoRole)
-                msb.exec_()
-                reply = msb.buttonRole(msb.clickedButton())
-
-                if reply == QtGui.QMessageBox.YesRole:
-                    sobject = tc.create_sobject(name, description, keywords, self.tab_name)
-                    if image:
-                        snapshot = tc.create_snapshot(sobject['__search_key__'], 'icon')
-                        tc.checkin_icon(snapshot['__search_key__'], image)
-                    self.close()
-                elif reply == QtGui.QMessageBox.NoRole:
-                    pass
-            else:
-                sobject = tc.create_sobject(name, description, keywords, self.tab_name)
-                if image:
-                    snapshot = tc.create_snapshot(sobject['__search_key__'], 'icon')
-                    tc.checkin_icon(snapshot['code'], image)
-                self.close()
+# class Ui_addSObjectFormWidget(QtGui.QDialog):
+#     def __init__(self, parent=None):
+#         super(self.__class__, self).__init__(parent=parent)
+#
+#         self.settings = QtCore.QSettings('TACTIC Handler', 'TACTIC Handling Tool')
+#
+#         import lib.ui_classes.ui_tactic_widgets_classes as tc_cl
+#
+#         self.b = tc_cl.QtTacticEditWidget(self)
+#
+#         self.setupUi(self)
+#
+#         self.gridLayout.addWidget(self.b)
+#
+#         self.tab_name = None
+#         self.setSizeGripEnabled(True)
+#
+#         self.window_actions()
+#
+#         self.readSettings()
+#
+#     def window_actions(self):
+#         self.cancelButton.clicked.connect(lambda: self.close())
+#         self.browseImageButton.clicked.connect(lambda: self.browse_for_preview())
+#         self.addNewButton.clicked.connect(lambda: self.add_item())
+#
+#     def browse_for_preview(self):
+#         options = QtGui.QFileDialog.Options()
+#         options |= QtGui.QFileDialog.DontUseNativeDialog
+#         file_name, filter = QtGui.QFileDialog.getOpenFileName(self, 'Browse for Preview Image',
+#                                                               self.previewImageLineEdit.text(),
+#                                                               'All Images (*.jpg | *.jpeg | *.png);;'
+#                                                               'JPEG Files (*.jpg | *.jpeg);;'
+#                                                               'PNG Files (*.png)',
+#                                                               '', options)
+#         if file_name:
+#             self.previewImageLineEdit.setText(file_name)
+#
+#     def add_item(self):
+#         """
+#         Adding s object item
+#         :return: None
+#         """
+#         image = self.previewImageLineEdit.text()
+#         name = self.nameLineEdit.text()
+#         description = self.descriptionTextEdit.toPlainText()
+#         keywords = self.keywordsTextEdit.toPlainText()
+#         if name:
+#             filters = [('name', name)]
+#             existing = tc.server_start().query(self.tab_name, filters)
+#             if existing:
+#                 msb = QtGui.QMessageBox(QtGui.QMessageBox.Question, 'This Name already used!',
+#                                         "Do you want to use this name anyway?",
+#                                         QtGui.QMessageBox.NoButton, self)
+#                 msb.addButton("Yes", QtGui.QMessageBox.YesRole)
+#                 msb.addButton("No", QtGui.QMessageBox.NoRole)
+#                 msb.exec_()
+#                 reply = msb.buttonRole(msb.clickedButton())
+#
+#                 if reply == QtGui.QMessageBox.YesRole:
+#                     sobject = tc.create_sobject(name, description, keywords, self.tab_name)
+#                     if image:
+#                         snapshot = tc.create_snapshot(sobject['__search_key__'], 'icon')
+#                         tc.checkin_icon(snapshot['__search_key__'], image)
+#                     self.close()
+#                 elif reply == QtGui.QMessageBox.NoRole:
+#                     pass
+#             else:
+#                 sobject = tc.create_sobject(name, description, keywords, self.tab_name)
+#                 if image:
+#                     snapshot = tc.create_snapshot(sobject['__search_key__'], 'icon')
+#                     tc.checkin_icon(snapshot['code'], image)
+#                 self.close()
 
 
 class Ui_addTacticSobjectWidget(QtGui.QDialog):
@@ -145,6 +143,7 @@ class Ui_addTacticSobjectWidget(QtGui.QDialog):
             kwargs = kwargs_insert
 
         code = tq.prepare_serverside_script(tq.query_EditWdg, kwargs, return_dict=True)
+        # print code['code']
         result = tc.server_start().execute_python_script('', kwargs=code)
         result_dict = json.loads(result['info']['spt_ret_val'])
 
@@ -158,6 +157,7 @@ class Ui_addTacticSobjectWidget(QtGui.QDialog):
         self.edit_window = twc.QtTacticEditWidget(
             tactic_widget=tactic_edit_widget,
             qt_widgets=input_widgets_list,
+            stype=self.stype,
             parent=self
         )
 
@@ -184,8 +184,6 @@ class Ui_addTacticSobjectWidget(QtGui.QDialog):
         self.grid_layout.addWidget(self.edit_window)
         self.setSizeGripEnabled(True)
         self.set_title()
-
-        self.readSettings()
 
     def set_title(self):
         stype_tytle = self.stype.info.get('title')
@@ -226,13 +224,13 @@ class Ui_addTacticSobjectWidget(QtGui.QDialog):
 
         tree_wdg.update_current_items_trees()
 
-
     def readSettings(self):
         """
         Reading Settings
         """
         self.settings.beginGroup('ui_main')
         self.setGeometry(self.settings.value('geometry', QtCore.QRect(500, 400, 500, 350)))
+        self.edit_window.set_settings_from_dict(self.settings.value('edit_widndow_settings_dict', None))
         self.settings.endGroup()
 
     def writeSettings(self):
@@ -241,7 +239,13 @@ class Ui_addTacticSobjectWidget(QtGui.QDialog):
         """
         self.settings.beginGroup('ui_main')
         self.settings.setValue('geometry', self.geometry())
+        self.settings.setValue('edit_widndow_settings_dict', self.edit_window.get_settings_dict())
         self.settings.endGroup()
+
+    def showEvent(self, event):
+
+        self.readSettings()
+        event.accept()
 
     def closeEvent(self, event):
         # event.ignore()

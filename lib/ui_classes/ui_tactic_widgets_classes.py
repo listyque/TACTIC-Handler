@@ -1,22 +1,21 @@
-# import PySide.QtGui as QtGui
-# import PySide.QtCore as QtCore
 from lib.side.Qt import QtWidgets as QtGui
 from lib.side.Qt import QtCore
 
 import lib.tactic_classes as tc
 import lib.global_functions as gf
-from lib.environment import env_inst
+from lib.environment import env_inst, env_tactic
 
 
 # edit/input widgets
 class QtTacticEditWidget(QtGui.QWidget):
-    def __init__(self, tactic_widget=None, qt_widgets=None, parent=None):
+    def __init__(self, tactic_widget=None, qt_widgets=None, stype=None, parent=None):
         super(self.__class__, self).__init__(parent=parent)
 
         self.tactic_widget = tactic_widget
 
         self.add_sobj_widget = parent
         self.sobject = self.tactic_widget.get_sobject()
+        self.stype = stype
 
         self.qt_widgets = qt_widgets
         self.has_upload_wdg = None
@@ -44,6 +43,7 @@ class QtTacticEditWidget(QtGui.QWidget):
         self.addNewButton.clicked.connect(self.commit_insert)
         self.saveButton.clicked.connect(self.commit_update)
         self.cancelButton.clicked.connect(lambda: self.add_sobj_widget.close())
+        self.buildDirectoryButton.clicked.connect(self.build_directory_structure)
 
     def get_view(self):
         return self.tactic_widget.view
@@ -78,10 +78,19 @@ class QtTacticEditWidget(QtGui.QWidget):
 
             self.commit_upload_wdg(existing_sobject)
 
-            print 'REFRESHING'
-
             self.add_sobj_widget.refresh_results()
             self.add_sobj_widget.close()
+
+    @gf.catch_error
+    def build_directory_structure(self):
+        import os
+        repo = self.repositoryComboBox.itemData(self.repositoryComboBox.currentIndex())
+        if self.stype.pipeline:
+            paths = tc.get_dirs_with_naming(self.sobject.get_search_key())
+            for path in paths:
+                abs_path = repo['value'][0] + '/' + path
+                if not os.path.exists(gf.form_path(abs_path)):
+                    os.makedirs(gf.form_path(abs_path))
 
     def check_name_uniqueness(self, data):
         name = data.get('name')
@@ -90,8 +99,7 @@ class QtTacticEditWidget(QtGui.QWidget):
         search_type = self.tactic_widget.get_search_type()
 
         if not search_type and self.sobject:
-            search_key = self.sobject.info.get('__search_key__')
-            search_type = tc.server_start().split_search_key(search_key)
+            search_type = tc.server_start().split_search_key(self.sobject.get_search_key())
             search_type = search_type[0]
 
         if name and search_type:
@@ -137,17 +145,45 @@ class QtTacticEditWidget(QtGui.QWidget):
             self.add_sobj_widget.close()
 
     def create_control_buttons(self):
-        self.addNewButton = QtGui.QPushButton('Add')
+        self.addNewButton = QtGui.QPushButton('Create')
+        self.addNewButton.setMaximumWidth(80)
         self.saveButton = QtGui.QPushButton('Save')
+        self.saveButton.setMaximumWidth(80)
         self.cancelButton = QtGui.QPushButton('Cancel')
+        self.cancelButton.setMaximumWidth(80)
+        self.buildDirectoryButton = QtGui.QPushButton('Build Full Directory Structure')
+        self.buildDirectoryButton.setIcon(gf.get_icon('database'))
+        self.build_directory_checkbox = QtGui.QCheckBox('Build Full Directory Structure')
+        self.build_directory_checkbox.setChecked(False)
+        self.build_directory_checkbox.setIcon(gf.get_icon('database'))
+        self.repositoryComboBox = QtGui.QComboBox()
+        base_dirs = env_tactic.get_all_base_dirs()
+        # Default repo states
+        from lib.configuration import cfg_controls
+        current_repo = gf.get_value_from_config(cfg_controls.get_checkin(), 'repositoryComboBox')
+        for key, val in base_dirs:
+            if val['value'][4]:
+                self.repositoryComboBox.addItem(val['value'][1])
+                self.repositoryComboBox.setItemData(self.repositoryComboBox.count() - 1, val)
+        if current_repo:
+            self.repositoryComboBox.setCurrentIndex(current_repo)
 
         if self.tactic_widget.view == 'insert':
-            self.main_layout.addWidget(self.addNewButton, 1, 0, 1, 1)
+            self.main_layout.addWidget(self.build_directory_checkbox, 1, 0, 1, 1)
+            self.main_layout.addWidget(self.repositoryComboBox, 1, 1, 1, 1)
+            spacerItem = QtGui.QSpacerItem(40, 20, QtGui.QSizePolicy.Expanding, QtGui.QSizePolicy.Minimum)
+            self.main_layout.addItem(spacerItem, 1, 2, 1, 1)
+            self.main_layout.addWidget(self.addNewButton, 1, 3, 1, 1)
+            self.main_layout.addWidget(self.cancelButton, 1, 4, 1, 1)
+            self.main_layout.setColumnStretch(1, 0)
         else:
-            self.main_layout.addWidget(self.saveButton, 1, 0, 1, 1)
-        self.main_layout.addWidget(self.cancelButton, 1, 1, 1, 1)
-
-        self.main_layout.setColumnStretch(0, 1)
+            self.main_layout.addWidget(self.buildDirectoryButton, 1, 0, 1, 1)
+            self.main_layout.addWidget(self.repositoryComboBox, 1, 1, 1, 1)
+            spacerItem = QtGui.QSpacerItem(40, 20, QtGui.QSizePolicy.Expanding, QtGui.QSizePolicy.Minimum)
+            self.main_layout.addItem(spacerItem, 1, 2, 1, 1)
+            self.main_layout.addWidget(self.saveButton, 1, 3, 1, 1)
+            self.main_layout.addWidget(self.cancelButton, 1, 4, 1, 1)
+            self.main_layout.setColumnStretch(1, 0)
 
     def add_widgets_to_scroll_area(self):
         for widget in self.qt_widgets:
@@ -168,6 +204,20 @@ class QtTacticEditWidget(QtGui.QWidget):
         self.scroll_area_layout.setAlignment(QtCore.Qt.AlignTop)
 
         self.main_layout.addWidget(self.scroll_area, 0, 0, 1, 0)
+
+    def set_settings_from_dict(self, settings_dict=None):
+        if not settings_dict:
+            settings_dict = {
+                'build_directory_checkbox': False,
+            }
+
+        self.build_directory_checkbox.setChecked(settings_dict.get('build_directory_checkbox'))
+
+    def get_settings_dict(self):
+        settings_dict = {
+            'build_directory_checkbox': self.build_directory_checkbox.isChecked(),
+        }
+        return settings_dict
 
 
 class QTacticBasicInputWdg(object):

@@ -7,7 +7,7 @@ from __future__ import (
 )
 
 # Local imports.
-from lib.natsort.natsort import (
+from lib.side.natsort.natsort import (
     natsort_key,
     natsort_keygen,
     natsorted,
@@ -24,7 +24,7 @@ from lib.natsort.natsort import (
     as_utf8,
     ns,
 )
-from lib.natsort._version import __version__
+from lib.side.natsort._version import __version__
 
 __all__ = [
     'natsort_key',

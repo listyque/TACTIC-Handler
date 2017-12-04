@@ -20,21 +20,21 @@ from itertools import islice
 from locale import localeconv
 
 # Local imports.
-from lib.natsort.ns_enum import ns, _ns
-from lib.natsort.unicode_numbers import digits, numeric
-from lib.natsort.locale_help import locale_convert, grouper
-from lib.natsort.compat.pathlib import PurePath, has_pathlib
-from lib.natsort.compat.py23 import (
+from lib.side.natsort.ns_enum import ns, _ns
+from lib.side.natsort.unicode_numbers import digits, numeric
+from lib.side.natsort.locale_help import locale_convert, grouper
+from lib.side.natsort.compat.pathlib import PurePath, has_pathlib
+from lib.side.natsort.compat.py23 import (
     py23_str,
     py23_zip,
     PY_VERSION,
 )
-from lib.natsort.compat.locale import (
+from lib.side.natsort.compat.locale import (
     dumb_sort,
     use_pyicu,
     null_string,
 )
-from lib.natsort.compat.fastnumbers import (
+from lib.side.natsort.compat.fastnumbers import (
     fast_float,
     fast_int,
     isint,

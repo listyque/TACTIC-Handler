@@ -20,7 +20,7 @@ try:
     if not (v[0] >= 0 and v[1] >= 5):  # Require >= version 0.5.0.
         raise ImportError  # pragma: no cover
 except ImportError:
-    from lib.natsort.compat.fake_fastnumbers import (
+    from lib.side.natsort.compat.fake_fastnumbers import (
         fast_float,
         fast_int,
         isint,

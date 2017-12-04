@@ -13,7 +13,7 @@ from __future__ import (
 import unicodedata
 
 # Local imports.
-from lib.natsort.compat.py23 import py23_unichr
+from lib.side.natsort.compat.py23 import py23_unichr
 
 
 # Rather than determine this on the fly, which would incur a startup

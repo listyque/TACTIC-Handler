@@ -151,6 +151,7 @@ def create_app_update_list():
         'asd4.txt',
         'backup',
         'design',
+        'deprecated',
     ]
     include_list = [
         '*.py',

@@ -40,9 +40,9 @@ reload(ui_conf_classes)
 reload(ui_my_tactic_classes)
 reload(ui_assets_browser_classes)
 reload(ui_float_notify_classes)
-reload(tc)
-reload(uf)
-reload(gf)
+# reload(tc)
+# reload(uf)
+# reload(gf)
 
 
 class Ui_updateDialog(QtGui.QDialog, ui_update.Ui_updateDialog):
@@ -221,7 +221,7 @@ class Ui_mainTabs(QtGui.QWidget, ui_main_tabs.Ui_mainTabsForm):
         self.current_namespace = self.project.info['type']
 
         if self.checkin_out_config_projects and self.checkin_out_config:
-            if gf.get_value_from_config(self.checkin_out_config, 'controlsTabsFilterGroupBox', 'QGroupBox'):
+            if gf.get_value_from_config(self.checkin_out_config, 'controlsTabsFilterGroupBox'):
                 self.customize_controls_tabs()
 
         self.create_ui_main_tabs()
@@ -229,7 +229,7 @@ class Ui_mainTabs(QtGui.QWidget, ui_main_tabs.Ui_mainTabsForm):
     def customize_controls_tabs(self):
         if self.checkin_out_config_projects:
             project_tabs_list = self.checkin_out_config_projects.get(self.current_project)
-            if gf.get_value_from_config(self.checkin_out_config, 'applyToAllProjectsRadioButton', 'QRadioButton'):
+            if gf.get_value_from_config(self.checkin_out_config, 'applyToAllProjectsRadioButton'):
                 tabs_list = self.checkin_out_config_projects.get('!tabs_list!')
             elif project_tabs_list:
                 tabs_list = project_tabs_list['tabs_list']

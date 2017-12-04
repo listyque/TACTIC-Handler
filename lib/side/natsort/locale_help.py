@@ -16,11 +16,11 @@ from itertools import chain
 from locale import localeconv
 
 # Local imports.
-from lib.natsort.compat.locale import use_pyicu, _low
+from lib.side.natsort.compat.locale import use_pyicu, _low
 if use_pyicu:
-    from lib.natsort.compat.locale import get_pyicu_transform, getlocale
+    from lib.side.natsort.compat.locale import get_pyicu_transform, getlocale
 else:
-    from lib.natsort.compat.locale import strxfrm
+    from lib.side.natsort.compat.locale import strxfrm
 
 
 def groupletters(x):

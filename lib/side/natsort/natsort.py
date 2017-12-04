@@ -24,9 +24,9 @@ from functools import partial
 from warnings import warn
 
 # Local imports.
-from lib.natsort.ns_enum import ns
-from lib.natsort.compat.py23 import u_format
-from lib.natsort.utils import (
+from lib.side.natsort.ns_enum import ns
+from lib.side.natsort.compat.py23 import u_format
+from lib.side.natsort.utils import (
     _natsort_key,
     _args_to_enum,
     _do_decoding,

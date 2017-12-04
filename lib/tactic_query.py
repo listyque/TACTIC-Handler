@@ -89,9 +89,13 @@ def query_EditWdg(args=None, search_type=''):
     wdg_config = WidgetConfigView.get_by_element_names(search_type, widget.element_names, base_view=args['view'])
 
     temprorary_ignore = ['pyasm.prod.web.prod_input_wdg.ProjectSelectWdg']
+    # , 'pyasm.widget.input_wdg.SelectWdg' bug with this widget
 
     for i_widget in input_widgets:
         widget_dict = pop_classes(i_widget.__dict__)
+        # for wv, wi in widget_dict.items():
+        #     if type(wi) not in [dict, None, str, int, bool, list, set, tuple]:
+        #         widget_dict[wv] = str(wi)
         widget_dict['action_options'] = wdg_config.get_action_options(widget_dict.get('name'))
         widget_dict['class_name'] = i_widget.get_class_name()
         item_values = i_widget.get_values()
@@ -174,9 +178,15 @@ def get_notes_and_stypes_counts(process, search_key, stypes_list):
         cnt['notes'][p] = search.get_count()
 
     for stype in stypes_list:
-        search = Search(stype)
-        search.add_parent_filter(search_key)
-        cnt['stypes'][stype] = search.get_count()
+        try:
+            search = Search(stype)
+            search.add_parent_filter(search_key)
+            count = search.get_count(True)
+            if count == -1:
+                count = 0
+            cnt['stypes'][stype] = count
+        except:
+            cnt['stypes'][stype] = 0
 
     return cnt
 
@@ -252,6 +262,27 @@ def query_search_types_extended(project_code, namespace):
     return json.dumps(result, separators=(',', ':'))
 
 
+def get_dirs_with_naming(search_key=None):
+    from pyasm.biz import Snapshot
+    from pyasm.biz import Project
+    from pyasm.search import SearchType
+    sobjects = server.server._get_sobjects(search_key)
+    sobject = sobjects[0]
+    file_object = SearchType.create('sthpw/file')
+    from pyasm.biz import Pipeline
+    pipelines = Pipeline.get_by_search_type(sobject.get_base_search_type())
+    processes = pipelines[0].get_process_names()
+    dir_naming = Project.get_dir_naming()
+    dir_naming.set_sobject(sobject)
+    dir_naming.set_file_object(file_object)
+    dirs_list = []
+    for process in processes:
+        snapshot = Snapshot.create(sobject, snapshot_type='file', context=process, commit=False, version=-1)
+        dir_naming.set_snapshot(snapshot)
+        dirs_list.append(dir_naming.get_dir('relative'))
+    return dirs_list
+
+
 def get_virtual_snapshot_extended(search_key, context, files_dict, snapshot_type="file", is_revision=False, level_key=None, keep_file_name=False, version=None, update_versionless=True, ignore_keep_file_name=False, checkin_type='file'):
     '''creates a virtual snapshot and returns a path that this snapshot
     would generate through the naming conventions''
@@ -284,32 +315,9 @@ def get_virtual_snapshot_extended(search_key, context, files_dict, snapshot_type
     import json
     from pyasm.biz import Snapshot
     from pyasm.biz import Project
+    # from pyasm.biz import File, FileGroup, FileRange
     from pyasm.search import SearchType
     api = server.server
-
-    def prepare_filename(filenaming, f_l, ext, postfix):
-
-        if keep_file_name:
-            file_type = filenaming.get_file_type()
-            if file_type in ['web', 'icon']:
-                postfix = file_type
-            if postfix:
-                result_file_name = f_l + '_' + postfix + '.' + ext
-            else:
-                result_file_name = f_l + '.' + ext
-        else:
-            name_ext = filenaming.get_file_name()
-            if postfix:
-                result_file_name = name_ext.replace('.' + ext, '_' + postfix + '.' + ext)
-            else:
-                result_file_name = name_ext
-        return result_file_name
-
-    def prepare_folder(d, sub):
-        if sub:
-            return d + '/' + sub
-        else:
-            return d
 
     sobjects = api._get_sobjects(search_key)
     sobject = sobjects[0]
@@ -363,8 +371,55 @@ def get_virtual_snapshot_extended(search_key, context, files_dict, snapshot_type
 
     file_object = SearchType.create("sthpw/file")
 
+    def prepare_filename(filenaming, f_l, ext, postfix, metadata):
+
+        if keep_file_name:
+            file_type = filenaming.get_file_type()
+            if file_type in ['web', 'icon']:
+                postfix = file_type
+            if postfix:
+                result_file_name = f_l + '_' + postfix + '.' + ext
+            else:
+                if ext:
+                    result_file_name = f_l + '.' + ext
+                else:
+                    result_file_name = f_l
+        else:
+            name_ext = filenaming.get_file_name()
+
+            # filenaming.get_file_name()
+            if postfix:
+                result_file_name = name_ext.replace(filenaming.get_ext(), '_{0}.{1}'.format(postfix, ext))
+            else:
+                result_file_name = name_ext
+
+        first_part = result_file_name.replace(filenaming.get_ext(), '')
+        # second_part = ''
+        #
+        # if metadata:
+        #     if metadata.get('type') in ['udim', 'layer_udim', 'udim_sequence', 'layer_udim_sequence']:
+        #         result_file_name = result_file_name.replace(filenaming.get_ext(), '_[UUVV].{0}'.format(ext))
+        #
+        #     if metadata.get('type') in ['uv', 'layer_uv', 'uv_sequence', 'layer_uv_sequence']:
+        #         result_file_name = result_file_name.replace(filenaming.get_ext(), '_[u<>_v<>].{0}'.format(ext))
+        #
+        #     if metadata.get('type') in ['sequence', 'layer_sequence', 'layer_uv_sequence', 'layer_udim_sequence', 'uv_sequence', 'udim_sequence']:
+        #         padding = int(metadata['padding'])
+        #         result_file_name = result_file_name.replace(filenaming.get_ext(), '.[{0}].{1}'.format('#' * padding, ext))
+        #
+        #     second_part = result_file_name.replace(first_part, '').replace(filenaming.get_ext(), '')
+        from pyasm.biz import Naming
+        b = Naming.get(filenaming.sobject, filenaming.snapshot, file_path=filenaming.file_object.get_full_file_name())
+        return first_part, metadata.get('name_part'), filenaming.get_ext()
+
+    def prepare_folder(d, sub):
+        if sub:
+            return d + '/' + sub
+        else:
+            return d
+
     result_list = []
-    # fl::file, t::type, e::extension, s::sub-folder
+    # fl::file, t::type, e::extension, s::sub-folder, p::postfix, m::metadata
     for fl, val in files_dict:
 
         result_dict = {'versionless': {'paths': [], 'names': []}, 'versioned': {'paths': [], 'names': []}}
@@ -378,19 +433,20 @@ def get_virtual_snapshot_extended(search_key, context, files_dict, snapshot_type
         for t, e, s, p in zip(val['t'], val['e'], val['s'], val['p']):
             file_object.set_value("file_name", fl)
             file_object.set_value("type", t)
+            file_object.set_value("metadata", json.dumps(val['m'], separators=(',', ':')))
 
             file_naming.set_snapshot(snapshot_versioned)
             file_naming.set_ext(e)
             file_naming.set_file_object(file_object)
             result_dict['versioned']['paths'].append(prepare_folder(snapshot_versioned.get_dir('relative', file_type=t), s))
-            result_dict['versioned']['names'].append(prepare_filename(file_naming, fl, e, p))
+            result_dict['versioned']['names'].append(prepare_filename(file_naming, fl, e, p, val['m']))
 
             if update_versionless:
                 file_naming.set_snapshot(snapshot_versionless)
                 file_naming.set_ext(e)
                 file_naming.set_file_object(file_object)
                 result_dict['versionless']['paths'].append(prepare_folder(snapshot_versionless.get_dir('relative', file_type=t), s))
-                result_dict['versionless']['names'].append(prepare_filename(file_naming, fl, e, p))
+                result_dict['versionless']['names'].append(prepare_filename(file_naming, fl, e, p, val['m']))
 
         result_list.append((fl, result_dict))
 
@@ -398,6 +454,8 @@ def get_virtual_snapshot_extended(search_key, context, files_dict, snapshot_type
 
 
 def create_snapshot_extended(search_key, context, snapshot_type=None, is_revision=False, is_latest=True, is_current=False, description=None, version=None, level_key=None, update_versionless=True, keep_file_name=True, repo_name=None, files_info=None, mode=None, create_icon=False):
+    import os
+    import json
     from pyasm.biz import Snapshot
     from pyasm.checkin import FileAppendCheckin
     from pyasm.search import Search
@@ -464,6 +522,7 @@ def create_snapshot_extended(search_key, context, snapshot_type=None, is_revisio
     for i, fl in enumerate(files_list):
         fl.set_value(name='st_size', value=files_info['file_sizes'][i])
         fl.set_value(name='relative_dir', value=files_info['version_files_paths'][i])
+        fl.set_value(name='metadata', value=json.dumps(files_info['version_metadata'][i], separators=(',', ':')))
         fl.commit()
 
     # update_versionless = False
@@ -517,6 +576,9 @@ def create_snapshot_extended(search_key, context, snapshot_type=None, is_revisio
             file_object.set_value(name='st_size', value=files_info['file_sizes'][i])
             file_object.set_value(name='project_code', value=snapshot.get_project_code())
             file_object.set_value(name='relative_dir', value=files_info['versionless_files_paths'][i])
+            file_object.set_value(name='metadata', value=json.dumps(files_info['versionless_metadata'][i], separators=(',', ':')))
+            file_object.set_value(name='source_path', value=files_info['versionless_files'][i])
+            file_object.set_value(name='file_name', value=os.path.basename(files_info['versionless_files'][i]))
             file_object.commit()
 
     return str('OKEEDOKEE')

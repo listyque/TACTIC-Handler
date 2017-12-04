@@ -3,6 +3,7 @@
 
 import sys
 import os
+from stat import ST_SIZE
 import subprocess
 import copy
 import ast
@@ -13,13 +14,13 @@ import collections
 import re
 import traceback
 import side.qtawesome as qta
+import side.natsort as natsort
 from lib.side.bs4 import BeautifulSoup
 from lib.side.Qt import QtWidgets as QtGui
 from lib.side.Qt import QtGui as Qt4Gui
 from lib.side.Qt import QtCore
 
 from environment import env_mode, env_tactic
-from side.pyseq import get_sequences
 
 
 def catch_error(func):
@@ -283,168 +284,6 @@ def gen_acronym(word, length=2):
     return acronym
 
 
-def split_files_and_dirs(filename):
-    dirs_list = []
-    files_list = []
-    for single in filename:
-        if os.path.isdir(single):
-            dirs_list.append(single)
-        else:
-            files_list.append(single)
-
-    return dirs_list, files_list
-
-
-def get_sequences_from_files(files_list):
-    sequences = get_sequences(files_list)
-
-    out_files = {
-        'seq': [],
-        'fl': []
-    }
-
-    for seq in sequences:
-        if seq.length() > 1:
-            out_files['seq'].append(seq)
-        else:
-            out_files['fl'].append(seq.path())
-
-    return out_files
-
-
-def get_udims_from_files(files_list):
-    values_pattern = re.compile('u([0-9]+)_v([0-9]+)')
-    # mari_values_pattern = re.compile('[_|.](([0-9][0-9])([0-9][0-9]))[.]')
-
-    udims_dict = {
-        'udim': collections.defaultdict(list),
-        'noudim': []
-    }
-
-    for file in files_list:
-        values_result = re.findall(values_pattern, file)
-        # if not values_result:
-        #     values_result = re.findall(mari_values_pattern, file)
-        split_result = re.split(values_pattern, file)
-        # print split_result, 'split_result'
-        # print values_result, 'values_result'
-        udim_collection = u'{0}u<>_v<>{1}'.format(split_result[0], split_result[-1])
-
-        if values_result:
-            udims_dict['udim'][udim_collection].append(split_result)
-        else:
-            udims_dict['noudim'].append(file)
-
-    return udims_dict
-
-
-def get_files_objects(items):
-    udims_dict = get_udims_from_files(items)
-    sequence_items = get_sequences_from_files(udims_dict['noudim'])
-    print sequence_items
-    nosequence_items = sequence_items.get('fl')
-    sequence_items = sequence_items.get('seq')
-    udim_items = udims_dict['udim']
-
-    out_dict = {
-        'seq': [],
-        'fl': [],
-        'udim': [],
-    }
-
-    for seq in sequence_items:
-        file_obj = FileObject(seq)
-        file_obj.init_as_sequence()
-        out_dict['seq'].append(file_obj)
-
-    for fl in nosequence_items:
-        file_obj = FileObject(fl)
-        file_obj.init_as_file()
-        out_dict['fl'].append(file_obj)
-
-    for name, udim in udim_items.items():
-        file_obj = FileObject((name, udim))
-        file_obj.init_as_udim()
-        out_dict['udim'].append(file_obj)
-
-    return out_dict
-
-
-def file_format(ext):
-    formats = {
-        'ma': ['ma', 'mayaAscii', 'maya', 'file'],
-        'mb': ['mb', 'mayaBinary', 'maya', 'file'],
-        'hip': ['hip', 'Houdini', 'houdini', 'file'],
-        '3b': ['3b', '3D-Coat', 'coat', 'file'],
-        'max': ['max', '3DSMax scene', 'max', 'file'],
-        'scn': ['scn', 'Softimage XSI', 'xsi', 'file'],
-        'mud': ['mud', 'Mudbox', 'mudbox', 'file'],
-        'abc': ['abc', 'Alembic', 'cache', 'file'],
-        'obj': ['obj', 'OBJ', 'obj', 'file'],
-        '3ds': ['3ds', '3DSMax model', 'obj', 'file'],
-        'nk': ['nk', 'Nuke', 'nuke', 'file'],
-        'fbx': ['fbx', 'FBX', 'obj', 'file'],
-        'dae': ['dae', 'COLLADA', 'cache', 'file'],
-        'rs': ['rs', 'Redshift Proxy', 'cache', 'file'],
-        'vdb': ['vdb', 'Open VDB', 'cache', 'file'],
-        'jpg': ['jpg', 'JPEG Image', 'image', 'preview'],
-        'jpeg': ['jpeg', 'JPEG Image', 'image', 'preview'],
-        'psd': ['psd', 'Photoshop PSD', 'image', 'file'],
-        'tif': ['tif', 'TIFF Image', 'image', 'preview'],
-        'tiff': ['tiff', 'TIFF Image', 'image', 'preview'],
-        'png': ['png', 'PNG Image', 'image', 'preview'],
-        'tga': ['tga', 'TARGA Image', 'image', 'file'],
-        'exr': ['exr', 'EXR Image', 'image', 'file'],
-        'hdr': ['hdr', 'HDR Image', 'image', 'file'],
-        'dpx': ['dpx', 'DPX Image', 'image', 'file'],
-        'mov': ['mov', 'MOV Animation', 'movie', 'file'],
-        'avi': ['avi', 'AVI Animation', 'movie', 'file'],
-    }
-    low_case_ext = ext.lower()
-    if low_case_ext in formats.keys():
-        return formats[low_case_ext]
-    else:
-        return [low_case_ext, low_case_ext, 'main', 'file']
-
-
-def get_ext(file_name):
-    # func for possible future needs
-    return file_name.split('.', -1)[-1]
-
-
-def extract_extension(filename):
-    base_filename = unicode(os.path.basename(filename))
-    ext = base_filename.split('.', -1)
-    if not os.path.isdir(filename):
-        if base_filename == ext[0]:
-            return ['', 'No Ext', 'main', 'file']
-        elif len(ext) > 1:
-            return file_format(ext[-1])
-    elif os.path.isdir(filename):
-        return ['', 'Folder', 'folder', 'folder']
-
-
-def extract_filename(filename, no_ext=False):
-    name = unicode(os.path.basename(filename)).split('.')
-    if len(name) > 1:
-        if no_ext:
-            return u''.join(name[:-1])
-        else:
-            return u'.'.join(name)
-    else:
-        return name[0]
-
-
-def extract_dirname(filename):
-    dir = unicode(os.path.realpath(filename)).split('.', 1)
-    if dir[0] == filename:
-        return os.path.dirname(filename)
-    if len(dir) == 1 and not os.path.isdir(filename):
-        return dir[0]
-    else:
-        return os.path.dirname(filename)
-
-
 def minify_code(source, pack=False):
     import side.pyminifier as pyminifier
     cleanup_comments = pyminifier.minification.remove_comments_and_docstrings(source)
@@ -512,10 +351,7 @@ def get_controls_dict(ignore_list=None):
     return copy.deepcopy(controls_dict)
 
 
-def get_value_from_config(config_dict, control, control_type=None):
-    # if control_type:
-    #     config_dict = {'key': config_dict[control_type]}
-    # print config_dict
+def get_value_from_config(config_dict, control):
     if config_dict:
         for all_values in config_dict.itervalues():
             # print all_values
@@ -826,14 +662,14 @@ def add_sobject_item(parent_item, parent_widget, sobject, stype, item_info, inse
     from lib.ui_classes.ui_item_classes import Ui_itemWidget
 
     tree_item = QtGui.QTreeWidgetItem()
-    item_info = {
+    item_info_dict = {
         'relates_to': item_info['relates_to'],
         'is_expanded': False,
         'sep_versions': item_info['sep_versions']
     }
 
     tree_item.setChildIndicatorPolicy(QtGui.QTreeWidgetItem.ShowIndicator)
-    tree_item_widget = Ui_itemWidget(sobject, stype, item_info, tree_item, ignore_dict, parent_widget)
+    tree_item_widget = Ui_itemWidget(sobject, stype, item_info_dict, tree_item, ignore_dict, parent_widget)
 
     add_item_to_tree(parent_item, tree_item, tree_item_widget, insert_pos=insert_pos)
 
@@ -844,13 +680,13 @@ def add_process_item(tree_widget, parent_widget, sobject, stype, process, item_i
     from lib.ui_classes.ui_item_classes import Ui_processItemWidget
 
     tree_item = QtGui.QTreeWidgetItem()
-    item_info = {
+    item_info_dict = {
         'relates_to': item_info['relates_to'],
         'is_expanded': False,
         'sep_versions': item_info['sep_versions']
     }
 
-    tree_item_widget = Ui_processItemWidget(sobject, stype, process, item_info, tree_item, pipeline, parent_widget)
+    tree_item_widget = Ui_processItemWidget(sobject, stype, process, item_info_dict, tree_item, pipeline, parent_widget)
 
     add_item_to_tree(tree_widget, tree_item, tree_item_widget, insert_pos=insert_pos)
 
@@ -865,7 +701,7 @@ def add_snapshot_item(tree_widget, parent_widget, sobject, stype, process, pipel
 
     for key, context in snapshots.contexts.iteritems():
         tree_item = QtGui.QTreeWidgetItem()
-        item_info = {
+        item_info_dict = {
             'relates_to': item_info['relates_to'],
             'is_expanded': False,
             'sep_versions': item_info['sep_versions']
@@ -877,7 +713,7 @@ def add_snapshot_item(tree_widget, parent_widget, sobject, stype, process, pipel
             pipeline,
             key,
             context.versionless.values(),
-            item_info,
+            item_info_dict,
             tree_item,
             parent_widget
         )
@@ -893,7 +729,7 @@ def add_snapshot_item(tree_widget, parent_widget, sobject, stype, process, pipel
         if not sep_versions:
             for versions in context.versions.itervalues():
                 tree_item_versions = QtGui.QTreeWidgetItem()
-                item_info = {
+                item_info_dict = {
                     'relates_to': item_info['relates_to'],
                     'is_expanded': False,
                     'sep_versions': item_info['sep_versions']
@@ -905,7 +741,7 @@ def add_snapshot_item(tree_widget, parent_widget, sobject, stype, process, pipel
                     pipeline,
                     key,
                     [versions],
-                    item_info,
+                    item_info_dict,
                     tree_item_versions,
                     parent_widget
                 )
@@ -918,9 +754,9 @@ def add_versions_snapshot_item(tree_widget, parent_widget, sobject, stype, proce
 
     from lib.ui_classes.ui_item_classes import Ui_snapshotItemWidget
 
-    for key, snapshot in snapshots.iteritems():
+    for key, snapshot in snapshots.items():
         tree_item = QtGui.QTreeWidgetItem()
-        item_info = {
+        item_info_dict = {
             'relates_to': item_info['relates_to'],
             'is_expanded': False,
             'sep_versions': item_info['sep_versions']
@@ -932,7 +768,7 @@ def add_versions_snapshot_item(tree_widget, parent_widget, sobject, stype, proce
             pipeline,
             context,
             [snapshot],
-            item_info,
+            item_info_dict,
             tree_item,
             parent_widget
         )
@@ -944,18 +780,19 @@ def add_child_item(tree_widget, parent_widget, sobject, stype, child, item_info)
     from lib.ui_classes.ui_item_classes import Ui_childrenItemWidget
 
     tree_item = QtGui.QTreeWidgetItem()
-    item_info = {
+    item_info_dict = {
         'relates_to': item_info['relates_to'],
         'is_expanded': False,
         'sep_versions': item_info['sep_versions']
     }
-    tree_item_widget = Ui_childrenItemWidget(sobject, stype, child, item_info, tree_item, parent_widget)
+    tree_item_widget = Ui_childrenItemWidget(sobject, stype, child, item_info_dict, tree_item, parent_widget)
 
     add_item_to_tree(tree_widget, tree_item, tree_item_widget)
 
     return tree_item_widget
 
 
+# DEPRECATED by now
 def expand_to_snapshot(parent, tree_widget):
     # TODO make it infinite
     top_item = tree_widget.topLevelItem(0)
@@ -1042,10 +879,95 @@ def tree_state_revert(wdg, state_dict):
 
 
 # files etc routine
+
+def split_files_and_dirs(filename):
+    dirs_list = []
+    files_list = []
+    for single in filename:
+        if os.path.isdir(single):
+            dirs_list.append(single)
+        else:
+            files_list.append(single)
+
+    return dirs_list, files_list
+
+
+def file_format(ext):
+    formats = {
+        'ma': ['ma', 'mayaAscii', 'maya', 'file'],
+        'mb': ['mb', 'mayaBinary', 'maya', 'file'],
+        'hip': ['hip', 'Houdini', 'houdini', 'file'],
+        '3b': ['3b', '3D-Coat', 'coat', 'file'],
+        'max': ['max', '3DSMax scene', 'max', 'file'],
+        'scn': ['scn', 'Softimage XSI', 'xsi', 'file'],
+        'mud': ['mud', 'Mudbox', 'mudbox', 'file'],
+        'abc': ['abc', 'Alembic', 'cache', 'file'],
+        'obj': ['obj', 'OBJ', 'obj', 'file'],
+        '3ds': ['3ds', '3DSMax model', 'obj', 'file'],
+        'nk': ['nk', 'Nuke', 'nuke', 'file'],
+        'fbx': ['fbx', 'FBX', 'obj', 'file'],
+        'dae': ['dae', 'COLLADA', 'cache', 'file'],
+        'rs': ['rs', 'Redshift Proxy', 'cache', 'file'],
+        'vdb': ['vdb', 'Open VDB', 'cache', 'file'],
+        'jpg': ['jpg', 'JPEG Image', 'image', 'preview'],
+        'jpeg': ['jpeg', 'JPEG Image', 'image', 'preview'],
+        'psd': ['psd', 'Photoshop PSD', 'image', 'file'],
+        'tif': ['tif', 'TIFF Image', 'image', 'preview'],
+        'tiff': ['tiff', 'TIFF Image', 'image', 'preview'],
+        'png': ['png', 'PNG Image', 'image', 'preview'],
+        'tga': ['tga', 'TARGA Image', 'image', 'file'],
+        'exr': ['exr', 'EXR Image', 'image', 'file'],
+        'hdr': ['hdr', 'HDR Image', 'image', 'file'],
+        'dpx': ['dpx', 'DPX Image', 'image', 'file'],
+        'mov': ['mov', 'MOV Animation', 'movie', 'file'],
+        'avi': ['avi', 'AVI Animation', 'movie', 'file'],
+    }
+    low_case_ext = ext.lower()
+    if low_case_ext in formats.keys():
+        return formats[low_case_ext]
+    else:
+        return [low_case_ext, low_case_ext, 'main', 'file']
+
+
+def get_ext(file_name):
+    # func for possible future needs
+    return file_name.split('.', -1)[-1]
+
+
+def extract_extension(filename):
+    base_filename = unicode(os.path.basename(filename))
+    ext = base_filename.split('.', -1)
+    if not os.path.isdir(filename):
+        if base_filename == ext[0]:
+            return ['', 'No Ext', 'main', 'file']
+        elif len(ext) > 1:
+            return file_format(ext[-1])
+    elif os.path.isdir(filename):
+        return ['', 'Folder', 'folder', 'folder']
+
+
+def extract_filename(filename, no_ext=False):
+    name = unicode(os.path.basename(filename)).split('.')
+    if len(name) > 1:
+        if no_ext:
+            return u'.'.join(name[:-1])
+        else:
+            return u'.'.join(name)
+    else:
+        return name[0]
+
+
+def extract_dirname(filename):
+    dir = unicode(os.path.realpath(filename)).split('.', 1)
+    if dir[0] == filename:
+        return os.path.dirname(filename)
+    if len(dir) == 1 and not os.path.isdir(filename):
+        return dir[0]
+    else:
+        return os.path.dirname(filename)
+
+
 def open_file_associated(filepath):
-    # TODO message if file not exists
-    # if sys.platform.startswith('darwin'):
-    #     subprocess.call(('open', filepath))
     if filepath:
         if env_mode.get_platform() == 'Linux':
             subprocess.call(('xdg-open', filepath))
@@ -1056,17 +978,22 @@ def open_file_associated(filepath):
 def form_path(path):
     if env_mode.get_platform() == 'Linux':
         formed_path = path.replace('\\', '/').replace('\\\\', '/').replace('//', '/')
+    elif env_mode.get_platform() == 'Windows':
+        formed_path = path.replace('/', '\\')
     else:
         formed_path = path.replace('\\', '/')
-        # return formed_path
-    # else:
-    #     formed_path = path.replace('\\', '/').replace('//', '/')
     return formed_path
 
 
 def get_st_size(file_path):
-    from stat import ST_SIZE
-    return os.stat(file_path)[ST_SIZE]
+    if type(file_path) == list:
+        total_size = 0
+        for fl in file_path:
+            if os.path.exists(fl):
+                total_size += os.stat(fl)[ST_SIZE]
+        return total_size
+    else:
+        return os.stat(file_path)[ST_SIZE]
 
 
 def get_file_asset_dir(item):
@@ -1142,228 +1069,811 @@ def to_plain_text(html, strip=80):
 
 # CLASSES #
 
-
 class FileObject(object):
-    def __init__(self, file_):
+    def __init__(self, file_=None, template_=None):
 
         self._file = file_
+        self._template = template_
         self._type = None
         self._file_type = None
         self._files_list = []
         self._file_path = None
         self._file_name = None
+        self._new_filename = None
+        self._new_filepath = None
+        self._new_frame_padding = None
+        self._new_template = None
+        self._abs_file_name = None
         self._pretty_file_name = None
         self._file_ext = None
+        self._layer = None
         self._base_file_type_pretty_name = None
         self._base_file_type = None
         self._tactic_file_type = None
         self._sequence_length = None
-        self._sequence_frames = None
         self._sequence_padding = None
+        self._sequence_frames = []
         self._sequence_start = None
         self._sequence_end = None
         self._sequence_missing_frames = None
 
-        self._udim_tiles_count = None
-        self._udim_tiles = None
+        self._tiles_count = None
+        self._tiles = []
 
-    def init_as_sequence(self):
-        """ Init as sequence file object
-            This i very basic wrap for pyseq.Sequence """
-        self.set_type('seq')
-        self.set_file_path(self._file.directory())
-        self.set_file_name(self._file.head())
-        self.set_pretty_file_name(self._file.format('%h%r%t'))
+        if self._file:
+            self.init_files()
 
-        for seq in self._file:
-            full_path = u'{0}{1}'.format(self.get_file_path(), seq)
-            self._files_list.append(full_path)
+    def get_abs_file_name(self, file_dict=None, pretty=False, filename=False, no_ext=False):
 
-        self.set_file_type(extract_extension(self._files_list[0]))
+        if not file_dict:
+            file_dict = self.get_all_files_dicts(True)
 
-        file_type = self.get_file_type()
+        if not file_dict and self._abs_file_name:
+            return self._abs_file_name
 
-        self.set_file_ext(file_type[0])
-        self.set_base_file_type_pretty_name(file_type[1])
-        self.set_base_file_type('sequence')
-        self.set_tactic_file_type(file_type[3])
+        separators = self._template['pattern_separators']
+        order = self._template['order']
 
-        self.set_sequence_frames(self._file.frames())
-        self.set_sequence_padding(self._file._get_padding())
-        self.set_sequence_length(self._file.size)
-        self.set_sequence_start(self._file.start())
-        self.set_sequence_end(self._file.end())
-        self.set_sequence_missing_frames(self._file.missing())
+        if len(order) - len(separators) > 0:
+            separators.insert(0, '')
 
-    def init_as_file(self):
-        """ Init as sequence file object
-            This i very basic wrap for pyseq.Sequence, without any sequences"""
-        self.set_type('fl')
-        self.set_file_path(extract_dirname(self._file))
-        self.set_pretty_file_name(extract_filename(self._file))
-        self.set_file_name(extract_filename(self._file, no_ext=True))
+        order_format = u''.join('%s{%s}' % (k, j) for j, k in zip(order, separators))
 
-        self._files_list.append(self._file)
+        if pretty:
+            self._abs_file_name = order_format.format(**self.get_pretty_frames_and_udims(file_dict.copy()))
+        else:
+            self._abs_file_name = order_format.format(**file_dict)
+        if filename:
+            if no_ext:
+                return self.__get_filename(file_dict.copy(), no_ext=True).get('filename')
+            else:
+                return order_format.format(**self.__get_filename(file_dict.copy()))
 
-        self.set_file_type(extract_extension(self._file))
+        return self._abs_file_name
 
-        file_type = self.get_file_type()
+    @staticmethod
+    def __get_filename(file_dict, no_ext=False):
+        if file_dict.get('filename'):
+            file_dict['filename'] = file_dict.get('filename').split('/')[-1]
+            if no_ext and file_dict.get('ext'):
+                file_dict['filename'].replace('.{0}'.format(file_dict['ext']), '')
+        return file_dict
 
-        self.set_file_ext(file_type[0])
-        self.set_base_file_type_pretty_name(file_type[1])
-        self.set_base_file_type(file_type[2])
-        self.set_tactic_file_type(file_type[3])
+    def get_pretty_frames_and_udims(self, file_dict):
+        if file_dict.get('frame'):
+            file_dict['frame'] = '[{}]'.format('#' * self.get_sequence_padding())
+        if file_dict.get('udim'):
+            file_dict['udim'] = '[UUVV]'
+        if file_dict.get('uv'):
+            file_dict['uv'] = '[u<>_v<>]'
 
-    def init_as_udim(self):
-        """ Init as sequence file object"""
-        self.set_type('udim')
-
-        self.set_file_path(extract_dirname(self._file[0]))
-        self.set_pretty_file_name(extract_filename(self._file[0]))
-
-        udim_tiles = []
-
-        for fl in self._file[1]:
-            full_path = u'{0}u{1}_v{2}{3}'.format(*fl)
-            self._files_list.append(full_path)
-            udim_tile = '.'.join(fl[1:3])
-            udim_tiles.append(udim_tile)
-
-        self.set_file_type(extract_extension(self._files_list[0]))
-        self.set_file_name(extract_filename(self._file[1][0][0], no_ext=True))
-
-        file_type = self.get_file_type()
-
-        self.set_file_ext(file_type[0])
-        self.set_base_file_type_pretty_name(file_type[1])
-        self.set_base_file_type('udim')
-        self.set_tactic_file_type(file_type[3])
-
-        self.set_udim_tiles_count(len(self._files_list))
-        self.set_udim_tiles(udim_tiles)
+        return file_dict
 
     def get_metadata(self):
-        metadata_dict = {
+        metadata_dict = {}
+        if self.get_file_name(True):
+            metadata_dict['filename'] = self.get_file_name(True)
+        if self.get_file_ext():
+            metadata_dict['ext'] = self.get_file_ext()
+        if self.get_layer():
+            metadata_dict['layer'] = self.get_layer()
+        if self.get_sequence_frameranges():
+            metadata_dict['frameranges'] = self.get_sequence_frameranges()
+        if self.get_sequence_frame_range():
+            metadata_dict['frame_range'] = self.get_sequence_frame_range()
+        if self.get_sequence_padding():
+            metadata_dict['padding'] = self.get_sequence_padding()
+        if self.get_tiles():
+            metadata_dict['udims'] = self.get_tiles()
+        if self.get_type():
+            metadata_dict['type'] = self.get_type()
+        if self._template:
+            metadata_dict['template'] = self._template['pattern_string']
 
-        }
+        if self._new_filename:
+            metadata_dict['new_filename'] = self._new_filename[0]
+            metadata_dict['new_file_part'] = self._new_filename[1]
+            metadata_dict['new_file_ext'] = self._new_filename[2].replace('.', '')
+        if self._new_template:
+            metadata_dict['new_template'] = self._new_template
+        if self._new_frame_padding:
+            metadata_dict['new_padding'] = self._new_frame_padding
+
         return metadata_dict
 
     def get_type(self):
         return self._type
 
     def set_type(self, type_):
-        self._type = type_
+        if type_:
+            self._type = type_['type']
+        else:
+            self._type = 'file'
 
     def get_file_type(self):
-        return self._file_type
-
-    def set_file_type(self, file_type_):
-        self._file_type = file_type_
+        return extract_extension(self.get_abs_file_name())
 
     def get_file_path(self):
-        return self._file_path
-
-    def set_file_path(self, path_):
-        self._file_path = path_
+        return extract_dirname(self.get_abs_file_name())
 
     def get_all_files_list(self, first=False):
+        if not self._files_list:
+            for fld in self.get_all_files_dicts():
+                self._files_list.append(form_path(self.get_abs_file_name(fld)))
+
         if first:
-            return self._files_list[0]
+            return form_path(self._files_list[0])
         else:
             return self._files_list
 
-    def set_all_files_list(self, files_list_):
-        self._files_list = files_list_
+    def get_all_files_dicts(self, first=False):
+        if first:
+            return self._file[1][0]
+        else:
+            return self._file[1]
 
-    def get_file_name(self):
+    def get_file_name(self, no_ext=False):
+        if not self._file_name:
+            self._file_name = self.get_abs_file_name(filename=True, no_ext=no_ext)
         return self._file_name
 
-    def set_file_name(self, name_):
-        self._file_name = name_
+    def get_name_part(self, frame_padding=4, template='.$LAYER_$UDIM/UV.$FRAME'):
+        pattern, separators = self.split_template(template)
+
+        order_format = ''
+        for file_dict in self.get_all_files_dicts():
+            order_format = ''
+            for item, sep in zip(reversed(pattern), reversed(separators)):
+                if item == '$UDIM/UV':
+                    if file_dict.get('udim'):
+                        item = '[UUVV]'
+                    elif file_dict.get('uv'):
+                        item = 'u<>_v<>'
+                if item == '$FRAME':
+                    item = '[{}]'.format('#' * frame_padding)
+                if item == '$LAYER':
+                    item = file_dict['layer']
+
+                order_format = sep + item + order_format
+
+        return order_format
+
+    def get_all_new_files_list(self, new_filename=None, new_filepath=None, new_frame_padding=4, no_ext=False, new_template='$FILENAME.$LAYER_$UDIM/UV.$FRAME.$EXT'):
+        """
+        This can only be used onece, it creates metadata with new data, and returning list with new filenames.
+
+        :param new_filename:
+        :param new_filepath:
+        :param new_frame_padding:
+        :param no_ext:
+        :param new_template:
+        :return:
+        """
+        if new_filename:
+            self._new_filename = new_filename
+        if new_filepath:
+            self._new_filepath = new_filepath
+        if new_frame_padding:
+            self._new_frame_padding = new_frame_padding
+
+        pattern, separators = self.split_template(new_template)
+
+        order_format_list = []
+
+        for file_dict in self.get_all_files_dicts():
+            order_format = ''
+            template = ''
+            for item, sep in zip(reversed(pattern), reversed(separators)):
+                temp = ''
+                if item == '$FILENAME':
+                    item = u'{0}/{1}'.format(self._new_filepath, self._new_filename[0])
+                    temp = '$FILENAME'
+                if item == '$UDIM/UV':
+                    if file_dict.get('udim'):
+                        item = file_dict['udim']
+                        temp = '$UDIM'
+                    elif file_dict.get('uv'):
+                        item = file_dict['uv']
+                        temp = '$UV'
+                if item == '$FRAME':
+                    item = file_dict['frame'].zfill(self._new_frame_padding)
+                    temp = '$FRAME'
+                if item == '$LAYER':
+                    item = file_dict['layer']
+                    temp = '$LAYER'
+                if item == '$EXT' and not no_ext:
+                    item = self._new_filename[2].replace('.', '')
+                    temp = '$EXT'
+
+                order_format = sep + item + order_format
+                template = sep + temp + template
+
+            order_format_list.append(order_format)
+
+            self._new_template = template
+
+        return order_format_list
+
+    def split_template(self, template):
+        match_template = MatchTemplate([template])
+
+        template = match_template.split_patterns.values()[0][0]
+
+        pattern = template[0]
+        separators = template[1]
+        if len(pattern) - len(separators) > 0:
+            separators.insert(0, '')
+
+        new_pattern = []
+        new_separators = []
+        for cp, cp_sep in zip(pattern, separators):
+            for i, op in enumerate(self._template['pattern']):
+                if op in ['$UDIM', '$UV']:
+                    op = '$UDIM/UV'
+                if cp == op:
+                    new_pattern.append(cp)
+                    new_separators.append(cp_sep)
+
+        return new_pattern, new_separators
+
+    def get_file_id(self):
+        return self._file[0]
 
     def get_pretty_file_name(self):
-        return self._pretty_file_name
-
-    def set_pretty_file_name(self, pretty_name_):
-        self._pretty_file_name = pretty_name_
+        if self.get_type() not in ['layer_file', 'file', 'no_ext']:
+            return extract_filename(self.get_abs_file_name(pretty=True))
+        return extract_filename(self.get_abs_file_name())
 
     def get_file_ext(self):
+        if not self._file_ext:
+            self._file_ext = self.get_file_type()[0]
         return self._file_ext
 
-    def set_file_ext(self, ext_):
-        self._file_ext = ext_
+    def get_layer(self):
+        return self._layer
 
     def get_base_file_type_pretty_name(self):
+        if not self._base_file_type_pretty_name:
+            self._base_file_type_pretty_name = self.get_file_type()[1]
         return self._base_file_type_pretty_name
 
-    def set_base_file_type_pretty_name(self, base_file_type_pretty_name_):
-        self._base_file_type_pretty_name = base_file_type_pretty_name_
-
     def get_base_file_type(self):
+        if not self._base_file_type:
+            self._base_file_type = self.get_file_type()[2]
         return self._base_file_type
 
-    def set_base_file_type(self, base_file_type_):
-        self._base_file_type = base_file_type_
-
     def get_tactic_file_type(self):
+        if not self._tactic_file_type:
+            self._tactic_file_type = self.get_file_type()[3]
         return self._tactic_file_type
 
-    def set_tactic_file_type(self, tactic_file_type_):
-        self._tactic_file_type = tactic_file_type_
+    def get_sequence_frameranges(self, padding=False):
 
-    def get_sequence_framerange(self):
-        return self._file._get_framerange(self.get_sequence_frames())
+        if self._sequence_frames:
+            if self.get_type() in ['layer_uv_sequence', 'layer_udim_sequence', 'uv_sequence', 'udim_sequence']:
 
-    def get_sequence_frames(self):
-        return self._sequence_frames
+                self._sequence_length = collections.defaultdict(list)
+                self._sequence_start = collections.defaultdict(list)
+                self._sequence_end = collections.defaultdict(list)
+                self._sequence_missing_frames = collections.defaultdict(list)
+                sequence_ranges = collections.defaultdict(list)
+                for uv, frames in self._sequence_frames:
+                    frame_list = sorted(frames)
+                    first_frame = min(frame_list)
+                    last_frame = max(frame_list)
+                    frames_buffer = []
+                    missing_frames = []
 
-    def set_sequence_frames(self, sequence_frames_):
-        self._sequence_frames = sequence_frames_
+                    for frame in range(first_frame, last_frame + 2):
 
-    def get_sequence_padding(self):
-        return self._sequence_padding
+                        frames_buffer.append(frame)
+                        if frame not in frame_list:
 
-    def set_sequence_padding(self, sequence_padding_):
-        self._sequence_padding = sequence_padding_
+                            if frames_buffer[0] == frame - 1:
+                                if padding:
+                                    sequence_ranges[uv].append(self.get_frame_with_padding(frames_buffer[0]))
+                                else:
+                                    sequence_ranges[uv].append(str(frames_buffer[0]))
+                            elif frame - 1 in frame_list:
+                                if padding:
+                                    sequence_ranges[uv].append(
+                                        '{0}-{1}'.format(self.get_frame_with_padding(frames_buffer[0]),
+                                                         self.get_frame_with_padding(frame - 1)))
+                                else:
+                                    sequence_ranges[uv].append('{0}-{1}'.format(frames_buffer[0], frame - 1))
+                            frames_buffer = []
+
+                            if last_frame > frame:
+                                missing_frames.append(frame)
+
+                    self._sequence_length[uv].append(len(frame_list))
+                    self._sequence_start[uv].append(first_frame)
+                    self._sequence_end[uv].append(last_frame)
+                    self._sequence_missing_frames[uv].append(missing_frames)
+
+                return sequence_ranges.items()
+
+            elif self.get_type() in ['sequence', 'layer_sequence']:
+
+                frame_list = sorted(self._sequence_frames)
+                first_frame = min(frame_list)
+                last_frame = max(frame_list)
+                frames_buffer = []
+                sequence_ranges = []
+                missing_frames = []
+
+                for frame in range(first_frame, last_frame + 2):
+
+                    frames_buffer.append(frame)
+                    if frame not in frame_list:
+
+                        if frames_buffer[0] == frame - 1:
+                            if padding:
+                                sequence_ranges.append(self.get_frame_with_padding(frames_buffer[0]))
+                            else:
+                                sequence_ranges.append(str(frames_buffer[0]))
+                        elif frame - 1 in frame_list:
+                            if padding:
+                                sequence_ranges.append('{0}-{1}'.format(self.get_frame_with_padding(frames_buffer[0]),
+                                                                        self.get_frame_with_padding(frame - 1)))
+                            else:
+                                sequence_ranges.append('{0}-{1}'.format(frames_buffer[0], frame - 1))
+                        frames_buffer = []
+
+                        if last_frame > frame:
+                            missing_frames.append(self.get_frame_with_padding(frame))
+
+                self._sequence_length = len(frame_list)
+                self._sequence_start = first_frame
+                self._sequence_end = last_frame
+                self._sequence_missing_frames = missing_frames
+
+                return sequence_ranges
+
+    def get_sequence_frame_range(self):
+        if self._sequence_frames:
+            if self.get_type() in ['layer_uv_sequence', 'layer_udim_sequence', 'uv_sequence', 'udim_sequence']:
+                sequence_ranges = []
+                for start, end in zip(self.get_sequence_start().items(), self.get_sequence_end().items()):
+                    sequence_ranges.append((start[0], '{0}-{1}'.format(start[1][0], end[1][-1])))
+                return sequence_ranges
+            elif self.get_type() in ['sequence', 'layer_sequence']:
+                return '{0}-{1}'.format(self.get_sequence_start(), self.get_sequence_end())
+
+    def get_frame_with_padding(self, frame):
+        return '%0*d' % (self.get_sequence_padding(), int(frame))
+
+    def get_sequence_frameranges_string(self, brackets=None):
+        frames = self.get_sequence_frameranges()
+        if frames:
+            if self.get_type() in ['layer_uv_sequence', 'layer_udim_sequence', 'uv_sequence', 'udim_sequence']:
+                framerange_strings = []
+                for uv, frame in frames:
+                    framerange_string = '{1} ({0})'.format(uv, ', '.join(frame))
+                    if brackets:
+                        framerange_string = '%s%s%s' % (brackets[0], framerange_string, brackets[1])
+                    framerange_strings.append(framerange_string)
+
+                return ', '.join(framerange_strings)
+
+            elif self.get_type() in ['sequence', 'layer_sequence']:
+                framerange_string = ', '.join(frames)
+                if brackets:
+                    return '%s%s%s' % (brackets[0], framerange_string, brackets[1])
+
+                return framerange_string
+
+    def init_files(self):
+        if self._template:
+            self.set_type(self._template)
+        if self._sequence_frames:
+            return self._sequence_frames
+        else:
+            all_files_dicts = self.get_all_files_dicts()
+            if self.get_type() in ['layer_file', 'file', 'no_ext']:
+                for fld in all_files_dicts:
+                    self._layer = fld.get('layer')
+
+            elif self.get_type() in ['layer_uv', 'layer_udim', 'uv', 'udim']:
+                for fld in all_files_dicts:
+                    udim = fld.get('udim')
+                    if not udim:
+                        udim = fld.get('uv')
+                    self._tiles.append(udim)
+                    self._layer = fld.get('layer')
+                self._tiles_count = len(self._tiles)
+
+            elif self.get_type() in ['sequence', 'layer_sequence']:
+                for fld in all_files_dicts:
+                    self._sequence_padding = len(fld['frame'])
+                    self._sequence_frames.append(int(fld['frame']))
+                    self._layer = fld.get('layer')
+
+            elif self.get_type() in ['layer_uv_sequence', 'layer_udim_sequence', 'uv_sequence', 'udim_sequence']:
+                frames_by_udims = collections.defaultdict(list)
+                for fld in all_files_dicts:
+                    self._sequence_padding = len(fld['frame'])
+                    udim = fld.get('udim')
+                    if not udim:
+                        udim = fld.get('uv')
+                    frames_by_udims[udim].append(int(fld['frame']))
+                    self._layer = fld.get('layer')
+                self._sequence_frames = frames_by_udims.items()
+                self._tiles = frames_by_udims.keys()
+                self._tiles_count = len(self._tiles)
+
+            return self._sequence_frames
 
     def get_sequence_lenght(self):
         return self._sequence_length
 
-    def set_sequence_length(self, sequence_length_):
-        self._sequence_length = sequence_length_
+    def get_sequence_padding(self):
+        return self._sequence_padding
 
     def get_sequence_start(self):
         return self._sequence_start
 
-    def set_sequence_start(self, sequence_start_):
-        self._sequence_start = sequence_start_
-
     def get_sequence_end(self):
         return self._sequence_end
-
-    def set_sequence_end(self, sequence_end_):
-        self._sequence_end = sequence_end_
 
     def get_sequence_missing_frames(self):
         return self._sequence_missing_frames
 
-    def set_sequence_missing_frames(self, sequence_missing_frames_):
-        self._sequence_missing_frames = sequence_missing_frames_
+    def get_tiles_count(self):
+        return self._tiles_count
 
-    def get_udim_tiles_count(self):
-        return self._udim_tiles_count
-
-    def set_udim_tiles_count(self, udim_tiles_count_):
-        self._udim_tiles_count = udim_tiles_count_
-
-    def get_udim_tiles(self):
-        return self._udim_tiles
-
-    def set_udim_tiles(self, udim_tiles_):
-        self._udim_tiles = udim_tiles_
+    def get_tiles(self):
+        return self._tiles
 
     def open_file(self):
-        open_file_associated(self.get_all_files_list()[0])
+        open_file_associated(form_path(self.get_all_files_list(True)))
 
     def open_folder(self):
-        open_file_associated(self.get_file_path())
+        open_file_associated(form_path(self.get_file_path()))
+
+
+class MatchTemplate(object):
+    default_patterns = [
+        '$FILENAME',
+        '$FILENAME.$EXT'
+    ]
+
+    def __init__(self, patterns=None, padding=3, add_default_patterns=False):
+
+        if patterns:
+            self.patterns = set(patterns)
+        else:
+            self.patterns = None
+        if add_default_patterns:
+            if patterns:
+                patterns.extend(self.default_patterns)
+                self.patterns = set(patterns)
+            else:
+                self.patterns = set(self.default_patterns)
+        self.padding = padding
+        self.split_patterns = None
+
+        if self.patterns:
+            self.parse_patterns()
+
+    def get_preview_string(self):
+
+        return self.patterns.pop()\
+            .replace('$FILENAME', 'Filename')\
+            .replace('$EXT', 'tif')\
+            .replace('$UDIM', '[UUVV]')\
+            .replace('$UV', '[u<>_v<>]')\
+            .replace('$FRAME', '[###]')\
+            .replace('$LAYER', 'layer')
+
+    def get_type_string(self):
+        return self.split_patterns.keys()[0].replace('_', ' | ')
+
+    def get_template(self, template):
+        templates = {
+            '$EXT': ['(?P<ext>[0-9A-z]+)', 'ext'],
+            '$FILENAME': ['(?P<filename>.+)', 'filename'],
+            '$UDIM': ['(?P<udim>(?P<u>[0-9]{2})(?P<v>[0-9]{2}))', 'udim'],
+            '$UV': ['(?P<uv>u(?P<u>[0-9]{1,2})_v(?P<v>[0-9]{1,2}))', 'uv'],
+            '$FRAME': ['(?P<frame>[0-9]{%s,})' % self.padding, 'frame'],  # must be at least 3 frames by default
+            '$LAYER': ['(?P<layer>[A-z0-9]*[A-z]+[A-z0-9]*)', 'layer'],  # layer must not have digits only
+        }
+
+        return templates.get(template)
+
+    @staticmethod
+    def get_type(keys_list):
+        if all(('$UV' in keys_list, '$FRAME' in keys_list, '$LAYER' in keys_list)):
+            return 'layer_uv_sequence'
+        if all(('$UDIM' in keys_list, '$FRAME' in keys_list, '$LAYER' in keys_list)):
+            return 'layer_udim_sequence'
+        if all(('$UV' in keys_list, '$FRAME' in keys_list)):
+            return 'uv_sequence'
+        if all(('$UDIM' in keys_list, '$FRAME' in keys_list)):
+            return 'udim_sequence'
+        if all(('$LAYER' in keys_list, '$FRAME' in keys_list)):
+            return 'layer_sequence'
+        if all(('$LAYER' in keys_list, '$UV' in keys_list)):
+            return 'layer_uv'
+        if all(('$LAYER' in keys_list, '$UDIM' in keys_list)):
+            return 'layer_udim'
+        if '$FRAME' in keys_list:
+            return 'sequence'
+        if '$UV' in keys_list:
+            return 'uv'
+        if '$UDIM' in keys_list:
+            return 'udim'
+        if '$LAYER' in keys_list:
+            return 'layer_file'
+        if '$EXT' in keys_list:
+            return 'file'
+        return 'no_ext'
+
+    def parse_patterns(self, patterns=None):
+        if patterns:
+            self.patterns = patterns
+
+        values_pattern = re.compile('[.|_]')
+        split_patterns = collections.defaultdict(list)
+
+        for ptn in self.patterns:
+            key = re.split(values_pattern, ptn)
+            split_patterns[self.get_type(key)].append((key, re.findall(values_pattern, ptn), ptn))
+
+        self.split_patterns = split_patterns
+        return self.split_patterns
+
+    def get_re_patterns(self, patterns):
+        re_temp = []
+        re_seps = []
+        order = []
+
+        for i, key in enumerate(patterns[0]):
+            if len(patterns[1]) > i and patterns[1][i]:
+                re_seps.append('[{}]'.format(patterns[1][i]))
+            else:
+                re_seps.append('')
+            template = self.get_template(key)
+            if template:
+                re_temp.append(template[0])
+                order.append(template[1])
+            else:
+                re_temp.append(key)
+
+        pattern = '^{0}$'.format(''.join(j + k for j, k in zip(re_temp, re_seps)))
+
+        return pattern, order
+
+    @staticmethod
+    def get_unique_name(group_dict, order, separators):
+
+        if len(order) - len(separators) > 0:
+            separators.insert(0, '')
+
+        order_format = ''
+        for item, sep in zip(order, separators):
+            if item == 'frame':
+                item = '[$FRAME' + str(len(group_dict['frame'])) + '$]'
+            if item == 'uv':
+                item = '[$UV$]'
+            if item == 'udim':
+                item = '[$UDIM$]'
+            if item == 'ext':
+                item = group_dict['ext']
+            if item == 'filename':
+                item = group_dict['filename']
+            if item == 'layer':
+                item = group_dict['layer']
+
+            order_format = order_format + sep + item
+
+        return order_format
+
+    def match_by_template(self, files_list, templates, template_names):
+        match_dicts = []
+        tpls_names = []
+
+        for i, template in enumerate(templates):
+            values_pattern = re.compile(template[0])
+            def_dict = collections.defaultdict(list)
+            not_matched = []
+            for fl in files_list:
+                # for windows os
+                fl_norm = fl.replace('\\', '/')
+                search_result = re.search(values_pattern, fl_norm)
+                if search_result:
+                    group_dict = search_result.groupdict()
+                    unique_filename = self.get_unique_name(group_dict, template[1], template_names[i][1][1])
+                    group_dict['orig_file'] = fl_norm
+                    def_dict[unique_filename].append(group_dict)
+                else:
+                    not_matched.append(fl_norm)
+
+            # if not found, match with next template
+            files_list = not_matched
+            if def_dict:
+                match_dicts.append(def_dict)
+                template_dict = {
+                    'type': template_names[i][0],
+                    're_string': template[0],
+                    'order': template[1],
+                    'pattern': template_names[i][1][0],
+                    'pattern_separators': template_names[i][1][1],
+                    'pattern_string': template_names[i][1][2],
+                }
+                tpls_names.append(template_dict)
+
+        return zip(match_dicts, tpls_names)
+
+    def get_files(self, files_list=None, default_types=False):
+        templates = []
+        template_names = []
+
+        # this is needed, because we need to get uv sequences first, then others
+        types = [
+            'layer_uv_sequence',
+            'layer_udim_sequence',
+            'uv_sequence',
+            'udim_sequence',
+            'layer_sequence',
+            'layer_uv',
+            'layer_udim',
+            'sequence',
+            'uv',
+            'udim',
+            'layer_file',
+            'file',
+            'no_ext'
+        ]
+
+        def_types = [
+            'file',
+            'no_ext'
+        ]
+
+        if default_types:
+            types = def_types
+
+        for tp in types:
+            if self.split_patterns.get(tp):
+                for patterns in self.split_patterns.get(tp):
+                    templates.append(self.get_re_patterns(patterns))
+                    template_names.append((tp, patterns))
+
+        return self.match_by_template(set(files_list), templates, template_names)
+
+    def get_files_objects(self, files_list, allow_single_sequence=False, allow_single_udim=False):
+        found_files = self.get_files(natsort.realsorted(files_list))
+        out_dict = collections.defaultdict(list)
+
+        single_sequences_and_udims = []
+
+        for files, tpl in found_files:
+            for fl in files.items():
+                if not allow_single_sequence or allow_single_udim:
+                    if tpl['type'] in ['layer_uv_sequence', 'layer_udim_sequence', 'uv_sequence', 'udim_sequence', 'layer_sequence', 'sequence'] and len(fl[1]) == 1:
+                        single_sequences_and_udims.append(fl[1][0]['orig_file'])
+                    elif tpl['type'] in ['layer_uv', 'layer_udim', 'sequence', 'uv', 'udim'] and len(fl[1]) == 1:
+                        single_sequences_and_udims.append(fl[1][0]['orig_file'])
+                    else:
+                        file_obj = FileObject(fl, tpl)
+                        out_dict[tpl['type']].append(file_obj)
+
+        # getting all single sequences or udims/uvs
+        if single_sequences_and_udims:
+            single_found_files = self.get_files(single_sequences_and_udims, default_types=True)
+            for files, tpl in single_found_files:
+                for fl in files.items():
+                    file_obj = FileObject(fl, tpl)
+                    out_dict[tpl['type']].append(file_obj)
+
+        return out_dict
+
+    def init_from_tactic_file_object(self, tactic_file_object):
+        metadata = tactic_file_object.get_metadata()
+        path = tactic_file_object.get_abs_path()
+        template = self.parse_patterns([metadata.get('new_template')]).values()[0][0]
+        pattern = template[0]
+        separators = template[1]
+        if len(pattern) - len(separators) > 0:
+            separators.insert(0, '')
+
+        files_list = []
+        if metadata.get('type') in ['layer_uv_sequence', 'layer_udim_sequence', 'uv_sequence', 'udim_sequence']:
+            udims_list = self.unpack_udims(metadata.get('frameranges'))
+            for udim, frames in udims_list:
+                for frame in frames:
+                    name = self.updack_name(
+                        pattern,
+                        separators,
+                        metadata.get('new_filename'),
+                        metadata.get('new_file_ext'),
+                        udim,
+                        '%0*d' % (metadata.get('new_padding'), int(frame)),
+                        metadata.get('layer'),
+                    )
+                    files_list.append('%s/%s' % (path, name))
+        elif metadata.get('type') in ['layer_uv', 'layer_udim', 'uv', 'udim']:
+            udims_list = metadata.get('udims')
+            for udim in udims_list:
+                name = self.updack_name(
+                    pattern,
+                    separators,
+                    metadata.get('new_filename'),
+                    metadata.get('new_file_ext'),
+                    udim,
+                    None,
+                    metadata.get('layer'),
+                )
+                files_list.append('%s/%s' % (path, name))
+        elif metadata.get('type') in ['sequence', 'layer_sequence']:
+            frames_list = metadata.get('frameranges')
+            for frame in frames_list:
+                name = self.updack_name(
+                    pattern,
+                    separators,
+                    metadata.get('new_filename'),
+                    metadata.get('new_file_ext'),
+                    None,
+                    '%0*d' % (metadata.get('new_padding'), int(frame)),
+                    metadata.get('layer'),
+                )
+                files_list.append('%s/%s' % (path, name))
+        elif metadata.get('type') in ['layer_file', 'file', 'no_ext']:
+            name = self.updack_name(
+                pattern,
+                separators,
+                metadata.get('new_filename'),
+                metadata.get('new_file_ext'),
+                None,
+                None,
+                metadata.get('layer'),
+            )
+            files_list.append('%s/%s' % (path, name))
+
+        self.__init__(
+            [metadata.get('new_template')],
+            padding=int(metadata.get('new_padding')),
+            # add_default_patterns=True
+        )
+        files_objects_dict = self.get_files_objects(files_list)
+
+        return files_objects_dict
+
+    @staticmethod
+    def updack_name(pattern, separators, file_name=None, file_ext=None, udim=None, frame=None, layer=None):
+        result_name = []
+
+        for p, s in zip(pattern, separators):
+            if p == '$FILENAME':
+                result_name.append(s + file_name)
+            if p in ['$UDIM', '$UV']:
+                result_name.append(s + udim)
+            if p == '$LAYER':
+                result_name.append(s + layer)
+            if p == '$FRAME':
+                result_name.append(s + frame)
+            if p == '$EXT':
+                result_name.append(s + file_ext)
+
+        return ''.join(result_name)
+
+    def unpack_udims(self, udims):
+
+        udims_list = []
+        for udim, frames in udims:
+            udims_list.append((udim, self.unpack_frames(frames)))
+
+        return udims_list
+
+    @staticmethod
+    def unpack_frames(frameranges):
+        # does not support negative values
+        frames = []
+        for frame in frameranges:
+            split = frame.split('-')
+            if len(split) > 1:
+                frames.extend(range(int(split[0]), int(split[1])+1))
+            else:
+                frames.append(int(frame))
+        return frames

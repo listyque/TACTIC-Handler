@@ -14,7 +14,7 @@ import lib.tactic_classes as tc
 import lib.global_functions as gf
 # import lib.ui.checkin_out.ui_checkin_out_widget as ui_checkin_out_widget
 import lib.ui.checkin_out.ui_checkin_out_options_dialog as ui_checkin_out_options_dialog
-# import lib.ui_classes.ui_misc_classes as ui_misc_classes
+import lib.ui_classes.ui_misc_classes as ui_misc_classes
 import ui_item_classes as item_widget
 # import ui_icons_classes as icons_widget
 import ui_richedit_classes as richedit_widget
@@ -38,7 +38,6 @@ reload(addsobject_widget)
 reload(drop_plate_widget)
 reload(maya_dialogs)
 reload(search_classes)
-reload(tc)
 reload(snapshot_browser_widget)
 reload(fast_controls)
 
@@ -103,8 +102,9 @@ class Ui_descriptionWidget(QtGui.QWidget, description_widget.Ui_descriptionWidge
         self.unset_edit_mode()
 
     def create_rich_edit(self):
-        self.ui_richedit = richedit_widget.Ui_richeditWidget(self.descriptionTextEdit)
-        self.editorLayout.addWidget(self.ui_richedit)
+        self.ui_richedit = richedit_widget.Ui_richeditWidget(self.descriptionTextEdit, parent=self.descriptionTextEdit)
+        # self.editorLayout.setParent(self.descriptionTextEdit)
+        # self.editorLayout.addWidget(self.ui_richedit)
 
     def keyPressEvent(self, key):
         if key.key() == QtCore.Qt.Key_Escape:
@@ -114,11 +114,12 @@ class Ui_descriptionWidget(QtGui.QWidget, description_widget.Ui_descriptionWidge
                 self.customize_without_item()
 
     def create_float_buttons(self):
-        self.descriptionTextEdit.setViewportMargins(0, 0, 0, 24)
+        self.descriptionTextEdit.setViewportMargins(0, 20, 0, 24)
         self.clear_button_layout = QtGui.QGridLayout(self.descriptionTextEdit)
         self.clear_button_layout.setContentsMargins(0, 0, 0, 0)
         self.clear_button_layout.setSpacing(0)
         self.clear_button = QtGui.QToolButton()
+        self.clear_button.setAutoRaise(True)
         self.clear_button.setFixedSize(24, 24)
         self.clear_button.setIcon(
             gf.get_icon('unlock', icons_set='ei', color=Qt4Gui.QColor(0, 192, 255, 192), scale_factor=0.8))
@@ -126,6 +127,7 @@ class Ui_descriptionWidget(QtGui.QWidget, description_widget.Ui_descriptionWidge
         self.clear_button_layout.addWidget(self.clear_button, 1, 2, 1, 1)
         self.clear_button_layout.addItem(QtGui.QSpacerItem(40, 20, QtGui.QSizePolicy.Expanding, QtGui.QSizePolicy.Minimum), 1, 2, 1, 1)
         self.edit_button = QtGui.QToolButton()
+        self.edit_button.setAutoRaise(True)
         self.edit_button.setFixedSize(24, 24)
         self.edit_button.setIcon(
             gf.get_icon('edit', icons_set='ei', scale_factor=0.8))
@@ -133,6 +135,7 @@ class Ui_descriptionWidget(QtGui.QWidget, description_widget.Ui_descriptionWidge
         self.clear_button_layout.addItem(QtGui.QSpacerItem(20, 40, QtGui.QSizePolicy.Minimum, QtGui.QSizePolicy.Expanding), 0, 0, 1, 3)
 
         self.save_button = QtGui.QToolButton()
+        self.save_button.setAutoRaise(True)
         self.save_button.setFixedSize(24, 24)
         self.save_button.setIcon(
             gf.get_icon('ok', icons_set='ei', color=Qt4Gui.QColor(0, 255, 128, 192), scale_factor=0.8))
@@ -421,6 +424,7 @@ class Ui_fastControlsWidget(QtGui.QWidget, fast_controls.Ui_fastControls):
         self.customize_ui()
 
         # self.fill_process_combo_box()
+        self.create_explicit_filename_edit()
         self.create_context_combo_box()
         self.controls_actions()
 
@@ -428,6 +432,8 @@ class Ui_fastControlsWidget(QtGui.QWidget, fast_controls.Ui_fastControls):
 
         self.contextComboBox.editTextChanged.connect(self.freeze_context_combo_box)
         self.contextComboBox_clear_button.clicked.connect(self.unfreeze_context_combo_box)
+        self.explicitFilenameLineEdit.textEdited.connect(self.freeze_explicit_filename_edit)
+        self.explicitFilenameLineEdit_clear_button.clicked.connect(self.unfreeze_explicit_filename_edit)
 
     def set_item(self, item):
         self.item = item
@@ -446,8 +452,13 @@ class Ui_fastControlsWidget(QtGui.QWidget, fast_controls.Ui_fastControls):
         if not self.contextComboBox_freezed:
             self.fill_context_combo_box(self.item.get_context_options(), self.item.get_context())
             self.unfreeze_context_combo_box()
+            # self.unfreeze_explicit_filename_edit()
 
         self.fill_process_combo_box(self.item.get_full_process_list(), self.item.get_current_process_info())
+
+        if self.item.type in ['snapshot', 'sobject', 'process']:
+            checkin_mode = self.item.get_checkin_mode_options()
+            self.set_checkin_mode(checkin_mode)
 
     def customize_without_item(self):
 
@@ -456,6 +467,7 @@ class Ui_fastControlsWidget(QtGui.QWidget, fast_controls.Ui_fastControls):
         self.contextComboBox.setEnabled(False)
         self.processComboBox.setEnabled(False)
         self.unfreeze_context_combo_box()
+        self.unfreeze_explicit_filename_edit()
 
     def customize_ui(self):
         pass
@@ -503,6 +515,35 @@ class Ui_fastControlsWidget(QtGui.QWidget, fast_controls.Ui_fastControls):
             if current_process and current_process == process:
                 self.processComboBox.setCurrentIndex(i)
 
+    def create_explicit_filename_edit(self):
+        self.explicitFilenameLineEdit_freezed = False
+        self.explicitFilenameLineEdit.clear()
+
+        self.explicitFilenameLineEdit_clear_button_layout = QtGui.QHBoxLayout(self.explicitFilenameLineEdit)
+        self.explicitFilenameLineEdit_clear_button_layout.setContentsMargins(0, 0, 3, 0)
+        self.explicitFilenameLineEdit_clear_button_layout.setSpacing(0)
+        self.explicitFilenameLineEdit_clear_button = QtGui.QToolButton()
+        self.explicitFilenameLineEdit_clear_button.setFixedSize(16, 16)
+        self.explicitFilenameLineEdit_clear_button.setIcon(gf.get_icon('remove', icons_set='ei', color=Qt4Gui.QColor(255, 196, 0, 192), scale_factor=0.8))
+        self.explicitFilenameLineEdit_clear_button_layout.insertStretch(0)
+        self.explicitFilenameLineEdit_clear_button_layout.addWidget(self.explicitFilenameLineEdit_clear_button)
+        self.explicitFilenameLineEdit_clear_button.setHidden(True)
+
+        if env_mode.get_mode() == 'standalone':
+            self.explicitFilenameLabel.setHidden(True)
+            self.explicitFilenameLineEdit.setHidden(True)
+
+    def freeze_explicit_filename_edit(self):
+        self.explicitFilenameLineEdit.setStyleSheet('QLineEdit{border-color: rgba(0,192,255,192);}')
+        self.explicitFilenameLineEdit_freezed = True
+        self.explicitFilenameLineEdit_clear_button.setHidden(False)
+
+    def unfreeze_explicit_filename_edit(self):
+        self.explicitFilenameLineEdit.setStyleSheet('')
+        self.explicitFilenameLineEdit_freezed = False
+        self.explicitFilenameLineEdit_clear_button.setHidden(True)
+        self.explicitFilenameLineEdit.clear()
+
     def create_context_combo_box(self):
         self.contextComboBox_freezed = False
         self.contextComboBox.clear()
@@ -526,6 +567,36 @@ class Ui_fastControlsWidget(QtGui.QWidget, fast_controls.Ui_fastControls):
         self.contextComboBox.setStyleSheet('')
         self.contextComboBox_freezed = False
         self.contextComboBox_clear_button.setHidden(True)
+
+    def set_checkin_mode(self, checkin_mode):
+        if not checkin_mode or checkin_mode == 'file':
+            self.checkinTypeComboBox.setCurrentIndex(0)
+        elif checkin_mode == 'sequence':
+            self.checkinTypeComboBox.setCurrentIndex(1)
+        elif checkin_mode == 'dir':
+            self.checkinTypeComboBox.setCurrentIndex(2)
+        elif checkin_mode == 'multi_file':
+            self.checkinTypeComboBox.setCurrentIndex(3)
+        elif checkin_mode == 'workarea':
+            self.checkinTypeComboBox.setCurrentIndex(4)
+
+    def get_checkin_mode(self):
+        if self.checkinTypeComboBox.currentIndex() == 0:
+            return 'file'
+        elif self.checkinTypeComboBox.currentIndex() == 1:
+            return 'sequence'
+        elif self.checkinTypeComboBox.currentIndex() == 2:
+            return 'dir'
+        elif self.checkinTypeComboBox.currentIndex() == 3:
+            return 'multi_file'
+        elif self.checkinTypeComboBox.currentIndex() == 4:
+            return 'workarea'
+
+    def get_context(self):
+        return self.contextComboBox.currentText()
+
+    def get_explicit_filename(self):
+        return self.explicitFilenameLineEdit.text()
 
 
 class Ui_checkInOutWidget(QtGui.QMainWindow):
@@ -554,6 +625,7 @@ class Ui_checkInOutWidget(QtGui.QMainWindow):
         # self.current_namespace =
 
         self.process_tree_widget = None
+        self.naming_editor_widget = None
         # self.checkin_options_widget = None
 
         self.relates_to = 'checkin_checkout'
@@ -800,23 +872,13 @@ class Ui_checkInOutWidget(QtGui.QMainWindow):
     def get_checkin_options_widget_config(self):
         return self.checkin_options_widget.checkinPageWidget
 
-    # def create_gear_menu_popup(self):
-    #     self.gearMenuToolButton.setIcon(gf.get_icon('cog'))
-    #     self.gearMenuToolButton.setMinimumSize(22, 22)
-    #
-    #     self.filter_process = QtGui.QAction('Filter Process', self.gearMenuToolButton)
-    #     self.filter_process.triggered.connect(self.create_process_tree_widget)
-    #     self.refresh_results = QtGui.QAction('Refresh results', self.gearMenuToolButton)
-    #     self.refresh_results.triggered.connect(self.refresh_results)
-    #     self.clear_results = QtGui.QAction('Close all Search-Tabs', self.gearMenuToolButton)
-    #     self.clear_results.triggered.connect(self.close_all_search_tabs)
-    #     self.search_options = QtGui.QAction('Toggle Search options', self.gearMenuToolButton)
-    #     self.search_options.triggered.connect(self.toggle_search_group_box)
-    #
-    #     self.gearMenuToolButton.addAction(self.filter_process)
-    #     self.gearMenuToolButton.addAction(self.refresh_results)
-    #     self.gearMenuToolButton.addAction(self.clear_results)
-    #     self.gearMenuToolButton.addAction(self.search_options)
+    @gf.catch_error
+    def create_naming_editor_widget(self):
+        if not self.naming_editor_widget:
+            self.naming_editor_widget = ui_misc_classes.Ui_namingEditorWidget()
+            self.naming_editor_widget.exec_()
+        else:
+            self.naming_editor_widget.exec_()
 
     @gf.catch_error
     def create_process_tree_widget(self):
@@ -1051,16 +1113,11 @@ class Ui_checkInOutWidget(QtGui.QMainWindow):
 
     @gf.catch_error
     def toggle_search_group_box(self):
-        if self.searchOptionsGroupBox.isVisible():
-            self.set_search_group_box_state(True)
+        if self.search_options_dock.isHidden():
+            self.search_options_dock.setHidden(False)
+            self.search_options_dock.raise_()
         else:
-            self.set_search_group_box_state(False)
-
-    def set_search_group_box_state(self, hidden=False):
-        if hidden:
-            self.searchOptionsGroupBox.hide()
-        else:
-            self.searchOptionsGroupBox.show()
+            self.search_options_dock.setHidden(True)
 
     def controls_actions(self):
         """
@@ -1094,48 +1151,95 @@ class Ui_checkInOutWidget(QtGui.QMainWindow):
 
     def fill_gear_menu(self):
 
-        self.filter_process = QtGui.QAction('Filter Process', self)
-        self.filter_process.triggered.connect(self.create_process_tree_widget)
-        self.refresh_results = QtGui.QAction('Refresh results', self)
-        # self.refresh_results.triggered.connect(self.refresh_current_results)
-        self.clear_results = QtGui.QAction('Close all Search-Tabs', self)
-        # self.clear_results.triggered.connect(self.close_all_search_tabs)
-        self.search_options = QtGui.QAction('Toggle Search options', self)
-        self.search_options.triggered.connect(self.toggle_search_group_box)
+        self.add_new_sobject_action = QtGui.QAction('Add new {0}'.format(self.stype.get_pretty_name()), self)
+        self.add_new_sobject_action.triggered.connect(self.add_new_sobject)
+        self.add_new_sobject_action.setIcon(gf.get_icon('plus-square'))
 
-        self.search_widget.add_action_to_gear_menu(self.filter_process)
-        self.search_widget.add_action_to_gear_menu(self.refresh_results)
-        self.search_widget.add_action_to_gear_menu(self.clear_results)
-        self.search_widget.add_action_to_gear_menu(self.search_options)
+        self.filter_process_action = QtGui.QAction('Filter Processes', self)
+        self.filter_process_action.triggered.connect(self.create_process_tree_widget)
+        self.filter_process_action.setIcon(gf.get_icon('filter'))
+
+        self.find_opened_sobject_action = QtGui.QAction('Find Current Opened Search Object', self)
+        self.find_opened_sobject_action.triggered.connect(self.create_process_tree_widget)
+        self.find_opened_sobject_action.setIcon(gf.get_icon('magic'))
+
+        self.search_options_toggle_action = QtGui.QAction('Search Options Dock', self)
+        self.search_options_toggle_action.triggered.connect(self.toggle_search_group_box)
+        self.search_options_toggle_action.setIcon(gf.get_icon('binoculars', scale_factor=0.95))
+
+        self.description_toggle_action = QtGui.QAction('Description Dock', self)
+        self.description_toggle_action.triggered.connect(self.toggle_search_group_box)
+        self.description_toggle_action.setIcon(gf.get_icon('keyboard-o'))
+
+        self.snapshot_browser_toggle_action = QtGui.QAction('Snapshot Browser Dock', self)
+        self.snapshot_browser_toggle_action.triggered.connect(self.toggle_search_group_box)
+        self.snapshot_browser_toggle_action.setIcon(gf.get_icon('sitemap'))
+
+        self.checkin_options_toggle_action = QtGui.QAction('Checkin Options Dock', self)
+        self.checkin_options_toggle_action.triggered.connect(self.toggle_search_group_box)
+        self.checkin_options_toggle_action.setIcon(gf.get_icon('sliders'))
+
+        self.drop_plate_toggle_action = QtGui.QAction('Drop Plate Dock', self)
+        self.drop_plate_toggle_action.triggered.connect(self.toggle_search_group_box)
+        self.drop_plate_toggle_action.setIcon(gf.get_icon('inbox'))
+
+        self.fast_controls_toggle_action = QtGui.QAction('Fast Controls Tool Bar', self)
+        self.fast_controls_toggle_action.triggered.connect(self.toggle_search_group_box)
+        self.fast_controls_toggle_action.setIcon(gf.get_icon('tachometer'))
+
+        self.search_widget.add_action_to_gear_menu(self.add_new_sobject_action)
+        self.search_widget.add_action_to_gear_menu(self.filter_process_action)
+        if env_mode.get_mode() == 'maya':
+            self.search_widget.add_action_to_gear_menu(self.find_opened_sobject_action)
+        self.search_widget.add_action_to_gear_menu(self.search_options_toggle_action)
+        self.search_widget.add_action_to_gear_menu(self.description_toggle_action)
+        self.search_widget.add_action_to_gear_menu(self.snapshot_browser_toggle_action)
+        self.search_widget.add_action_to_gear_menu(self.checkin_options_toggle_action)
+        self.search_widget.add_action_to_gear_menu(self.drop_plate_toggle_action)
+        self.search_widget.add_action_to_gear_menu(self.fast_controls_toggle_action)
 
     def fill_collapsable_toolbar(self):
+
+        self.naming_editor_button = QtGui.QToolButton()
+        self.naming_editor_button.setMaximumSize(22, 22)
+        self.naming_editor_button.setAutoRaise(True)
+        self.naming_editor_button.setIcon(gf.get_icon('list-ul'))
+        self.naming_editor_button.clicked.connect(self.create_naming_editor_widget)
+        self.naming_editor_button.setToolTip('Naming Editor for Current Search Type')
+
         self.filter_process_button = QtGui.QToolButton()
         self.filter_process_button.setMaximumSize(22, 22)
         self.filter_process_button.setAutoRaise(True)
         self.filter_process_button.setIcon(gf.get_icon('filter'))
         self.filter_process_button.clicked.connect(self.create_process_tree_widget)
+        self.filter_process_button.setToolTip('Filter current Tree of Processes and Child Search Types')
 
         self.toggle_search_options_button = QtGui.QToolButton()
         self.toggle_search_options_button.setMaximumSize(22, 22)
         self.toggle_search_options_button.setAutoRaise(True)
-        self.toggle_search_options_button.setIcon(gf.get_icon('sliders'))
+        self.toggle_search_options_button.setIcon(gf.get_icon('binoculars', scale_factor=0.95))
         self.toggle_search_options_button.clicked.connect(self.toggle_search_group_box)
+        self.toggle_search_options_button.setToolTip('Toggle Search Options')
 
         self.add_new_sobject_button = QtGui.QToolButton()
         self.add_new_sobject_button.setMaximumSize(22, 22)
         self.add_new_sobject_button.setAutoRaise(True)
-        self.add_new_sobject_button.setIcon(gf.get_icon('plus-square-o'))
+        self.add_new_sobject_button.setIcon(gf.get_icon('plus-square'))
         self.add_new_sobject_button.clicked.connect(self.add_new_sobject)
+        self.add_new_sobject_button.setToolTip('Add new {0}'.format(self.stype.get_pretty_name()))
 
         self.find_opened_sobject_button = QtGui.QToolButton()
         self.find_opened_sobject_button.setMaximumSize(22, 22)
         self.find_opened_sobject_button.setAutoRaise(True)
-        self.find_opened_sobject_button.setIcon(gf.get_icon('bolt'))
+        self.find_opened_sobject_button.setIcon(gf.get_icon('magic'))
         self.find_opened_sobject_button.clicked.connect(self.find_opened_sobject)
+        self.find_opened_sobject_button.setToolTip('Find Current Opened Search Object')
 
+        self.search_widget.add_widget_to_collapsable_toolbar(self.add_new_sobject_button)
         self.search_widget.add_widget_to_collapsable_toolbar(self.filter_process_button)
         self.search_widget.add_widget_to_collapsable_toolbar(self.toggle_search_options_button)
-        self.search_widget.add_widget_to_collapsable_toolbar(self.add_new_sobject_button)
+        self.search_widget.add_widget_to_collapsable_toolbar(self.naming_editor_button)
+
         if env_mode.get_mode() == 'maya':
             self.search_widget.add_widget_to_collapsable_toolbar(self.find_opened_sobject_button)
 
@@ -1294,16 +1398,17 @@ class Ui_checkInOutWidget(QtGui.QMainWindow):
     def checkin_from_droplist(self, search_key, context, description, save_revision=False, snapshot_version=None, create_icon=True):
 
         selected_items = self.drop_plate_widget.get_selected_items()
-        checkin_type = self.drop_plate_widget.get_checkin_mode()
+        checkin_type = self.fast_controls_tool_bar_widget.get_checkin_mode()
         keep_file_name = self.drop_plate_widget.get_keep_filename()
 
         print checkin_type
-        print selected_items
+        print selected_items, 'selected_items'
         print snapshot_version
         print keep_file_name
 
         current_widget = self.get_current_tree_widget()
         current_tree_widget_item = current_widget.get_current_tree_widget_item()
+        print current_tree_widget_item
 
         # selected_items = None
         if selected_items:
@@ -1315,42 +1420,27 @@ class Ui_checkInOutWidget(QtGui.QMainWindow):
             subfolders = []
             postfixes = []
             files_dict = None
+            metadata = []
 
             for item in selected_items:
-                if item.get_type() == 'fl':
-                    postfixes.append('')
-                    subfolders.append('')
-                    exts.append(item.get_file_ext())
-                    file_types.append(item.get_base_file_type())
-                    file_names.append(item.get_file_name())
-                    file_paths.append(gf.form_path(item.get_all_files_list(True)))
-                elif item.get_type() == 'seq':
-                    print 'sequence'
-                elif item.get_type() == 'udim':
-                    print 'UDIM'
-                    files_dict = [(u'WP_20161106_10_40_38_Raw_LI',
-                                {'e': ['jpg', 'jpg', 'png'],
-                                'p': ['', '', ''],
-                                   's': ['', '__preview/web', '__preview/icon'],
-                                   't': ['image', 'web', 'icon']}),
-                                 (u'zaraza',
-                                  {'e': ['png', 'jpg', 'png'],
-                                   'p': ['', '', ''],
-                                   's': ['', '__preview/web', '__preview/icon'],
-                                   't': ['image', 'web', 'icon']}),
-                                 (u'zaraza1',
-                                  {'e': ['png', 'jpg', 'png'],
-                                   'p': ['', '', ''],
-                                   's': ['', '__preview/web', '__preview/icon'],
-                                   't': ['image', 'web', 'icon']})]
+                postfixes.append('')
+                subfolders.append('')
+                exts.append(item.get_file_ext())
+                file_types.append(item.get_base_file_type())
+                file_names.append(item.get_file_name(True))
+                file_paths.append(item.get_all_files_list())
+                metadata_dict = item.get_metadata()
+                metadata_dict['name_part'] = item.get_name_part()
+                metadata.append(metadata_dict)
 
             mode = 'inplace'
-            print file_types
+            print file_types, 'file_types'
             print file_names
             print file_paths
             print exts
             print subfolders
             print postfixes
+            print metadata
 
             return tc.checkin_file(
                 search_key=search_key,
@@ -1365,6 +1455,7 @@ class Ui_checkInOutWidget(QtGui.QMainWindow):
                 exts=exts,
                 subfolders=subfolders,
                 postfixes=postfixes,
+                metadata=metadata,
                 keep_file_name=keep_file_name,
                 repo_name=self.get_current_repo(),
                 mode=mode,
@@ -1374,6 +1465,7 @@ class Ui_checkInOutWidget(QtGui.QMainWindow):
                 files_dict=files_dict,
                 checkin_type=checkin_type,
                 item_widget=current_tree_widget_item,
+                files_objects=selected_items,
             )
 
     def checkin_from_path(self, search_key, context, description, explicit_paths=None):
@@ -1527,7 +1619,7 @@ class Ui_checkInOutWidget(QtGui.QMainWindow):
             # self.fast_controls_tool_bar_widget.set_save_button_enabled(False)
             search_key = current_tree_widget_item.get_skey(parent=True)
             print search_key
-            context = current_tree_widget_item.get_context(True, self.fast_controls_tool_bar_widget.contextComboBox.currentText()).replace(' ', '_')
+            context = current_tree_widget_item.get_context(True, self.fast_controls_tool_bar_widget.get_context()).replace(' ', '_')
 
             description = self.description_widget.get_description('plain')
             print description

@@ -133,6 +133,7 @@ class saveConfirmWidget(QtGui.QWidget):
 
         self.item_widget = item_widget
         self.paths = paths
+        print self.paths, 'paths saveConfirmWidget'
         self.repo = repo
         self.context = context
         self.update_versionless = update_versionless
@@ -180,7 +181,10 @@ class saveConfirmWidget(QtGui.QWidget):
 
     def create_checkboxes_widget(self):
         self.update_versionless_checkbox = QtGui.QCheckBox('Update Versionless')
-        self.update_versionless_checkbox.setChecked(True)
+        if self.update_versionless:
+            self.update_versionless_checkbox.setChecked(True)
+        else:
+            self.update_versionless_checkbox.setChecked(False)
         self.main_layout.addWidget(self.update_versionless_checkbox)
 
     def create_info_label_widget(self):
@@ -238,7 +242,7 @@ class saveConfirmWidget(QtGui.QWidget):
             for i, fl in enumerate(values['versionless']['names']):
                 full_path = gf.form_path(self.repo['value'][0] + '/' + values['versionless']['paths'][i])
                 item = QtGui.QTreeWidgetItem()
-                item.setText(0, fl)
+                item.setText(0, ''.join(fl))
                 item.setText(1, full_path)
                 self.treeWidget_vls.addTopLevelItem(item)
             self.treeWidget_vls.setMinimumWidth(self.treeWidget_vls.columnWidth(0) + self.treeWidget_vls.columnWidth(1) + 150)
@@ -272,7 +276,7 @@ class saveConfirmWidget(QtGui.QWidget):
             for i, fl in enumerate(values['versioned']['names']):
                 full_path = gf.form_path(self.repo['value'][0] + '/' + values['versioned']['paths'][i])
                 item = QtGui.QTreeWidgetItem()
-                item.setText(0, fl)
+                item.setText(0, ''.join(fl))
                 item.setText(1, full_path)
                 self.treeWidget_vers.addTopLevelItem(item)
             self.treeWidget_vers.setMinimumWidth(self.treeWidget_vers.columnWidth(0) + self.treeWidget_vers.columnWidth(1) + 150)
@@ -296,6 +300,7 @@ class saveConfirmWidget(QtGui.QWidget):
         from lib.ui_classes.ui_checkin_out_classes import Ui_descriptionWidget
 
         self.description_widget = Ui_descriptionWidget(None, None, parent=self)
+        self.description_widget.descriptionTextEdit.setViewportMargins(0, 20, 0, 0)
 
         self.description_widget.setMinimumHeight(200)
         self.description_widget.setMinimumWidth(400)
