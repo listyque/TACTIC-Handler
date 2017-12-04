@@ -1,16 +1,9 @@
 # -*- coding: utf-8 -*-
 
-<<<<<<< HEAD
 # Form implementation generated from reading ui file 'checkin_out\ui_drop_plate_config.ui'
 #
 # Created: Thu Nov 23 00:13:03 2017
 #      by: pyside-uic 0.2.15 running on PySide 1.2.4
-=======
-# Form implementation generated from reading ui file 'checkin_out/ui_drop_plate_config.ui'
-#
-# Created: Fri Nov 10 17:56:09 2017
-#      by: pyside-uic 0.2.15 running on PySide 1.2.2
->>>>>>> origin/master
 #
 # WARNING! All changes made in this file will be lost!
 
@@ -20,21 +13,12 @@ from lib.side.Qt import QtCore
 class Ui_matchingTemplateConfig(object):
     def setupUi(self, matchingTemplateConfig):
         matchingTemplateConfig.setObjectName("matchingTemplateConfig")
-<<<<<<< HEAD
-=======
-        matchingTemplateConfig.resize(756, 495)
->>>>>>> origin/master
         matchingTemplateConfig.setSizeGripEnabled(True)
         self.gridLayout_2 = QtGui.QGridLayout(matchingTemplateConfig)
         self.gridLayout_2.setObjectName("gridLayout_2")
         self.matchingTamplateLabel = QtGui.QLabel(matchingTemplateConfig)
         self.matchingTamplateLabel.setObjectName("matchingTamplateLabel")
         self.gridLayout_2.addWidget(self.matchingTamplateLabel, 0, 0, 1, 1)
-<<<<<<< HEAD
-=======
-        spacerItem = QtGui.QSpacerItem(40, 20, QtGui.QSizePolicy.Expanding, QtGui.QSizePolicy.Minimum)
-        self.gridLayout_2.addItem(spacerItem, 0, 1, 1, 1)
->>>>>>> origin/master
         self.editSelectedItemButton = QtGui.QToolButton(matchingTemplateConfig)
         sizePolicy = QtGui.QSizePolicy(QtGui.QSizePolicy.Preferred, QtGui.QSizePolicy.Preferred)
         sizePolicy.setHorizontalStretch(0)
@@ -44,11 +28,8 @@ class Ui_matchingTemplateConfig(object):
         self.editSelectedItemButton.setMinimumSize(QtCore.QSize(70, 0))
         self.editSelectedItemButton.setObjectName("editSelectedItemButton")
         self.gridLayout_2.addWidget(self.editSelectedItemButton, 0, 2, 1, 1)
-<<<<<<< HEAD
         spacerItem = QtGui.QSpacerItem(40, 20, QtGui.QSizePolicy.Expanding, QtGui.QSizePolicy.Minimum)
         self.gridLayout_2.addItem(spacerItem, 0, 1, 1, 1)
-=======
->>>>>>> origin/master
         self.addNewItemButton = QtGui.QToolButton(matchingTemplateConfig)
         sizePolicy = QtGui.QSizePolicy(QtGui.QSizePolicy.Preferred, QtGui.QSizePolicy.Preferred)
         sizePolicy.setHorizontalStretch(0)
@@ -99,7 +80,6 @@ class Ui_matchingTemplateConfig(object):
         self.minFramesPaddingSpinBox.setProperty("value", 3)
         self.minFramesPaddingSpinBox.setObjectName("minFramesPaddingSpinBox")
         self.gridLayout.addWidget(self.minFramesPaddingSpinBox, 0, 1, 1, 1)
-<<<<<<< HEAD
         self.oneFrameSequenceDetectionCheckBox = QtGui.QCheckBox(matchingTemplateConfig)
         self.oneFrameSequenceDetectionCheckBox.setChecked(True)
         self.oneFrameSequenceDetectionCheckBox.setObjectName("oneFrameSequenceDetectionCheckBox")
@@ -108,8 +88,6 @@ class Ui_matchingTemplateConfig(object):
         self.oneUdimDetectionCheckBox.setChecked(True)
         self.oneUdimDetectionCheckBox.setObjectName("oneUdimDetectionCheckBox")
         self.gridLayout.addWidget(self.oneUdimDetectionCheckBox, 1, 2, 1, 1)
-=======
->>>>>>> origin/master
         self.gridLayout_2.addLayout(self.gridLayout, 2, 0, 1, 4)
 
         self.retranslateUi(matchingTemplateConfig)
@@ -127,9 +105,6 @@ class Ui_matchingTemplateConfig(object):
         self.templatesTreeWidget.headerItem().setText(2, QtGui.QApplication.translate("matchingTemplateConfig", "Preview", None))
         self.templatesTreeWidget.headerItem().setText(3, QtGui.QApplication.translate("matchingTemplateConfig", "Type", None))
         self.label.setText(QtGui.QApplication.translate("matchingTemplateConfig", "Minimum Frames padding: ", None))
-<<<<<<< HEAD
         self.oneFrameSequenceDetectionCheckBox.setText(QtGui.QApplication.translate("matchingTemplateConfig", "Allow Single Frame Sequence", None))
         self.oneUdimDetectionCheckBox.setText(QtGui.QApplication.translate("matchingTemplateConfig", "Allow single UDIM/UV", None))
-=======
->>>>>>> origin/master
 

@@ -42,7 +42,6 @@ class Ui_matchingTemplateConfigWidget(QtGui.QDialog, ui_drop_plate_config.Ui_mat
             (True, '$FILENAME_$UDIM.$EXT'),
             (True, '$FILENAME_$UV.$EXT'),
             (True, '$FILENAME.$FRAME_$UDIM.$EXT'),
-<<<<<<< HEAD
             (True, '$FILENAME.$FRAME_$UV.$EXT'),
             (True, '$FILENAME_$UV.$FRAME.$EXT'),
             (False, '$FILENAME_$LAYER.$EXT'),
@@ -56,16 +55,6 @@ class Ui_matchingTemplateConfigWidget(QtGui.QDialog, ui_drop_plate_config.Ui_mat
             (True, '$FILENAME.$LAYER.$FRAME_$UDIM.$EXT'),
             (True, '$FILENAME.$LAYER_$UDIM.$FRAME.$EXT'),
             (False, '$FILENAME_$LAYER.$FRAME_$UDIM.$EXT'),
-=======
-            (True, '$FILENAME_$FRAME_$UV.$EXT'),
-            (False, '$FILENAME.$FRAME.$LAYER.$EXT'),
-            (False, '$FILENAME.$FRAME.$LAYER_$UV.$EXT'),
-            (False, '$FILENAME.$LAYER.$EXT'),
-            (False, '$FILENAME.$LAYER.$FRAME_$UV.$EXT'),
-            (False, '$FILENAME.$LAYER_$UV.$EXT'),
-            (False, '$FILENAME.$LAYER_$UDIM.$EXT'),
-            (False, '$FILENAME.$LAYER.$FRAME.$EXT'),
->>>>>>> origin/master
         ]
 
         for enabled, template in templates:
@@ -276,16 +265,12 @@ class Ui_dropPlateWidget(QtGui.QWidget, ui_drop_plate.Ui_dropPlate):
                 tree_item.setIcon(0, file_icon)
 
                 self.dropTreeWidget.addTopLevelItem(tree_item)
-<<<<<<< HEAD
 
                 if self.dropTreeWidget.topLevelItemCount() < 50:  # for performance reasons
                     self.dropTreeWidget.setItemSelected(tree_item, True)
                 else:
                     self.dropTreeWidget.clearSelection()
 
-=======
-                self.dropTreeWidget.setItemSelected(tree_item, True)
->>>>>>> origin/master
                 tree_item.setData(0, QtCore.Qt.UserRole, len(self.tree_items))
                 self.tree_items.append(file_obj)
 

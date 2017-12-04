@@ -1631,17 +1631,10 @@ def checkin_snapshot(search_key, context, snapshot_type=None, is_revision=False,
                                                         v1['versionless']['paths'],
                                                         v1['versionless']['names'],
                                                         v2['t']):
-<<<<<<< HEAD
             file_full_path = u'{0}/{1}/{2}'.format(repo, path_v, ''.join(name_v))
             files_info['version_files'].append(file_full_path)
             files_info['version_files_paths'].append(path_v)
             file_full_path_vs = u'{0}/{1}/{2}'.format(repo, path_vs, ''.join(name_vs))
-=======
-            file_full_path = u'{0}/{1}/{2}'.format(repo, path_v, name_v)
-            files_info['version_files'].append(file_full_path)
-            files_info['version_files_paths'].append(path_v)
-            file_full_path_vs = u'{0}/{1}/{2}'.format(repo, path_vs, name_vs)
->>>>>>> origin/master
             files_info['versionless_files'].append(file_full_path_vs)
             files_info['versionless_files_paths'].append(path_vs)
             files_info['files_types'].append(tp)

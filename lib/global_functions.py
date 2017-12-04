@@ -950,11 +950,7 @@ def extract_filename(filename, no_ext=False):
     name = unicode(os.path.basename(filename)).split('.')
     if len(name) > 1:
         if no_ext:
-<<<<<<< HEAD
             return u'.'.join(name[:-1])
-=======
-            return u''.join(name[:-1])
->>>>>>> origin/master
         else:
             return u'.'.join(name)
     else:
@@ -1071,34 +1067,10 @@ def to_plain_text(html, strip=80):
     return plain_text
 
 
-# def nat_key(inp):
-#     out_list = []
-#     for i in inp:
-#         if i.isdigit():
-#             d = int(i)
-#             if out_list and type(out_list[-1]) == int:
-#                 out_list[-1] = out_list[-1] * 10 + d
-#             else:
-#                 out_list.append(d)
-#         else:
-#             out_list.append(i.lower())
-#     return out_list
-#
-#
-# def sort_sequence(ints_list):
-#
-#     return sorted(ints_list, key=nat_key)
-
-
-<<<<<<< HEAD
-class FileObject(object):
-    def __init__(self, file_=None, template_=None):
-=======
 # CLASSES #
 
 class FileObject(object):
-    def __init__(self, file_, template_=None):
->>>>>>> origin/master
+    def __init__(self, file_=None, template_=None):
 
         self._file = file_
         self._template = template_
@@ -1107,13 +1079,10 @@ class FileObject(object):
         self._files_list = []
         self._file_path = None
         self._file_name = None
-<<<<<<< HEAD
         self._new_filename = None
         self._new_filepath = None
         self._new_frame_padding = None
         self._new_template = None
-=======
->>>>>>> origin/master
         self._abs_file_name = None
         self._pretty_file_name = None
         self._file_ext = None
@@ -1130,7 +1099,6 @@ class FileObject(object):
 
         self._tiles_count = None
         self._tiles = []
-<<<<<<< HEAD
 
         if self._file:
             self.init_files()
@@ -1151,32 +1119,10 @@ class FileObject(object):
 
         order_format = u''.join('%s{%s}' % (k, j) for j, k in zip(order, separators))
 
-=======
-
-        self.set_type(self._template)
-        self.init_files()
-
-    def get_abs_file_name(self, file_dict=None, pretty=False):
-
-        if not file_dict:
-            file_dict = self.get_all_files_dicts(True)
-
-        if not file_dict and self._abs_file_name:
-            return self._abs_file_name
-
-        separators = self._template['pattern_separators']
-        order = self._template['order']
-        for o in order:
-            if len(order) > len(separators):
-                separators.append('')
-        order_format = u''.join('{%s}' % j + k for j, k in zip(order, separators))
-
->>>>>>> origin/master
         if pretty:
             self._abs_file_name = order_format.format(**self.get_pretty_frames_and_udims(file_dict.copy()))
         else:
             self._abs_file_name = order_format.format(**file_dict)
-<<<<<<< HEAD
         if filename:
             if no_ext:
                 return self.__get_filename(file_dict.copy(), no_ext=True).get('filename')
@@ -1193,11 +1139,6 @@ class FileObject(object):
                 file_dict['filename'].replace('.{0}'.format(file_dict['ext']), '')
         return file_dict
 
-=======
-
-        return self._abs_file_name
-
->>>>>>> origin/master
     def get_pretty_frames_and_udims(self, file_dict):
         if file_dict.get('frame'):
             file_dict['frame'] = '[{}]'.format('#' * self.get_sequence_padding())
@@ -1210,7 +1151,6 @@ class FileObject(object):
 
     def get_metadata(self):
         metadata_dict = {}
-<<<<<<< HEAD
         if self.get_file_name(True):
             metadata_dict['filename'] = self.get_file_name(True)
         if self.get_file_ext():
@@ -1221,21 +1161,12 @@ class FileObject(object):
             metadata_dict['frameranges'] = self.get_sequence_frameranges()
         if self.get_sequence_frame_range():
             metadata_dict['frame_range'] = self.get_sequence_frame_range()
-=======
-        if self.get_layer():
-            metadata_dict['layer'] = self.get_layer()
-        # if self._sequence_frames:
-        #     metadata_dict['frames'] = self._sequence_frames
-        if self.get_sequence_frameranges():
-            metadata_dict['frameranges'] = self.get_sequence_frameranges()
->>>>>>> origin/master
         if self.get_sequence_padding():
             metadata_dict['padding'] = self.get_sequence_padding()
         if self.get_tiles():
             metadata_dict['udims'] = self.get_tiles()
         if self.get_type():
             metadata_dict['type'] = self.get_type()
-<<<<<<< HEAD
         if self._template:
             metadata_dict['template'] = self._template['pattern_string']
 
@@ -1247,8 +1178,6 @@ class FileObject(object):
             metadata_dict['new_template'] = self._new_template
         if self._new_frame_padding:
             metadata_dict['new_padding'] = self._new_frame_padding
-=======
->>>>>>> origin/master
 
         return metadata_dict
 
@@ -1283,7 +1212,6 @@ class FileObject(object):
         else:
             return self._file[1]
 
-<<<<<<< HEAD
     def get_file_name(self, no_ext=False):
         if not self._file_name:
             self._file_name = self.get_abs_file_name(filename=True, no_ext=no_ext)
@@ -1388,13 +1316,6 @@ class FileObject(object):
 
         return new_pattern, new_separators
 
-=======
-    def get_file_name(self):
-        if not self._file_name:
-            self._file_name = extract_filename(self.get_abs_file_name(), no_ext=True)
-        return self._file_name
-
->>>>>>> origin/master
     def get_file_id(self):
         return self._file[0]
 
@@ -1509,7 +1430,6 @@ class FileObject(object):
 
                 return sequence_ranges
 
-<<<<<<< HEAD
     def get_sequence_frame_range(self):
         if self._sequence_frames:
             if self.get_type() in ['layer_uv_sequence', 'layer_udim_sequence', 'uv_sequence', 'udim_sequence']:
@@ -1520,8 +1440,6 @@ class FileObject(object):
             elif self.get_type() in ['sequence', 'layer_sequence']:
                 return '{0}-{1}'.format(self.get_sequence_start(), self.get_sequence_end())
 
-=======
->>>>>>> origin/master
     def get_frame_with_padding(self, frame):
         return '%0*d' % (self.get_sequence_padding(), int(frame))
 
@@ -1546,11 +1464,8 @@ class FileObject(object):
                 return framerange_string
 
     def init_files(self):
-<<<<<<< HEAD
         if self._template:
             self.set_type(self._template)
-=======
->>>>>>> origin/master
         if self._sequence_frames:
             return self._sequence_frames
         else:
@@ -1618,7 +1533,6 @@ class FileObject(object):
 
 
 class MatchTemplate(object):
-<<<<<<< HEAD
     default_patterns = [
         '$FILENAME',
         '$FILENAME.$EXT'
@@ -1639,20 +1553,11 @@ class MatchTemplate(object):
         self.padding = padding
         self.split_patterns = None
 
-=======
-    def __init__(self, patterns, padding=3):
-
-        self.patterns = set(patterns)
-        self.padding = padding
-        self.split_patterns = None
-
->>>>>>> origin/master
         if self.patterns:
             self.parse_patterns()
 
     def get_preview_string(self):
 
-<<<<<<< HEAD
         return self.patterns.pop()\
             .replace('$FILENAME', 'Filename')\
             .replace('$EXT', 'tif')\
@@ -1660,9 +1565,6 @@ class MatchTemplate(object):
             .replace('$UV', '[u<>_v<>]')\
             .replace('$FRAME', '[###]')\
             .replace('$LAYER', 'layer')
-=======
-        return self.patterns.pop().replace('$FILENAME', 'Filename').replace('$EXT', 'tif').replace('$UDIM', '[UUVV]').replace('$UV', '[u<>_v<>]').replace('$FRAME', '[###]').replace('$LAYER', 'layer')
->>>>>>> origin/master
 
     def get_type_string(self):
         return self.split_patterns.keys()[0].replace('_', ' | ')
@@ -1719,10 +1621,7 @@ class MatchTemplate(object):
             split_patterns[self.get_type(key)].append((key, re.findall(values_pattern, ptn), ptn))
 
         self.split_patterns = split_patterns
-<<<<<<< HEAD
         return self.split_patterns
-=======
->>>>>>> origin/master
 
     def get_re_patterns(self, patterns):
         re_temp = []
@@ -1730,11 +1629,7 @@ class MatchTemplate(object):
         order = []
 
         for i, key in enumerate(patterns[0]):
-<<<<<<< HEAD
             if len(patterns[1]) > i and patterns[1][i]:
-=======
-            if len(patterns[1]) > i:
->>>>>>> origin/master
                 re_seps.append('[{}]'.format(patterns[1][i]))
             else:
                 re_seps.append('')
@@ -1752,21 +1647,11 @@ class MatchTemplate(object):
     @staticmethod
     def get_unique_name(group_dict, order, separators):
 
-<<<<<<< HEAD
         if len(order) - len(separators) > 0:
             separators.insert(0, '')
 
         order_format = ''
         for item, sep in zip(order, separators):
-=======
-        for o in order:
-            if len(order) > len(separators):
-                separators.append('')
-
-        order_format = ''
-        order_format_list = []
-        for item, sep in zip(reversed(order), reversed(separators)):
->>>>>>> origin/master
             if item == 'frame':
                 item = '[$FRAME' + str(len(group_dict['frame'])) + '$]'
             if item == 'uv':
@@ -1780,12 +1665,7 @@ class MatchTemplate(object):
             if item == 'layer':
                 item = group_dict['layer']
 
-<<<<<<< HEAD
             order_format = order_format + sep + item
-=======
-            order_format_list.append(item)
-            order_format = item + sep + order_format
->>>>>>> origin/master
 
         return order_format
 
@@ -1804,10 +1684,7 @@ class MatchTemplate(object):
                 if search_result:
                     group_dict = search_result.groupdict()
                     unique_filename = self.get_unique_name(group_dict, template[1], template_names[i][1][1])
-<<<<<<< HEAD
                     group_dict['orig_file'] = fl_norm
-=======
->>>>>>> origin/master
                     def_dict[unique_filename].append(group_dict)
                 else:
                     not_matched.append(fl_norm)
@@ -1826,15 +1703,9 @@ class MatchTemplate(object):
                 }
                 tpls_names.append(template_dict)
 
-<<<<<<< HEAD
         return zip(match_dicts, tpls_names)
 
     def get_files(self, files_list=None, default_types=False):
-=======
-        return zip(match_dicts, tpls_names), files_list
-
-    def get_files(self, files_list=None):
->>>>>>> origin/master
         templates = []
         template_names = []
 
@@ -1854,7 +1725,6 @@ class MatchTemplate(object):
             'file',
             'no_ext'
         ]
-<<<<<<< HEAD
 
         def_types = [
             'file',
@@ -1864,8 +1734,6 @@ class MatchTemplate(object):
         if default_types:
             types = def_types
 
-=======
->>>>>>> origin/master
         for tp in types:
             if self.split_patterns.get(tp):
                 for patterns in self.split_patterns.get(tp):
@@ -1874,7 +1742,6 @@ class MatchTemplate(object):
 
         return self.match_by_template(set(files_list), templates, template_names)
 
-<<<<<<< HEAD
     def get_files_objects(self, files_list, allow_single_sequence=False, allow_single_udim=False):
         found_files = self.get_files(natsort.realsorted(files_list))
         out_dict = collections.defaultdict(list)
@@ -2010,20 +1877,3 @@ class MatchTemplate(object):
             else:
                 frames.append(int(frame))
         return frames
-=======
-    def get_files_objects(self, files_list):
-
-        found_files = self.get_files(files_list)
-        out_dict = collections.defaultdict(list)
-
-        for files, tpl in found_files[0]:
-            for fl in files.items():
-                file_obj = FileObject(fl, tpl)
-                out_dict[tpl['type']].append(file_obj)
-
-        for fl in found_files[1]:
-            file_obj = FileObject(fl)
-            out_dict['file'].append(file_obj)
-
-        return out_dict
->>>>>>> origin/master
