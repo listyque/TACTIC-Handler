@@ -1,6 +1,12 @@
 {
     "major": "0", 
+<<<<<<< HEAD
     "build": "15", 
     "minor": "1", 
     "revision": "11"
+=======
+    "build": "11", 
+    "minor": "1", 
+    "revision": "5"
+>>>>>>> origin/master
 }

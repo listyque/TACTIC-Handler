@@ -592,12 +592,15 @@ class Ui_fastControlsWidget(QtGui.QWidget, fast_controls.Ui_fastControls):
         elif self.checkinTypeComboBox.currentIndex() == 4:
             return 'workarea'
 
+<<<<<<< HEAD
     def get_context(self):
         return self.contextComboBox.currentText()
 
     def get_explicit_filename(self):
         return self.explicitFilenameLineEdit.text()
 
+=======
+>>>>>>> origin/master
 
 class Ui_checkInOutWidget(QtGui.QMainWindow):
     def __init__(self, stype, tab_widget, project, parent=None):
@@ -1423,6 +1426,7 @@ class Ui_checkInOutWidget(QtGui.QMainWindow):
             metadata = []
 
             for item in selected_items:
+<<<<<<< HEAD
                 postfixes.append('')
                 subfolders.append('')
                 exts.append(item.get_file_ext())
@@ -1432,6 +1436,16 @@ class Ui_checkInOutWidget(QtGui.QMainWindow):
                 metadata_dict = item.get_metadata()
                 metadata_dict['name_part'] = item.get_name_part()
                 metadata.append(metadata_dict)
+=======
+                if item.get_type() in ['layer_file', 'file', 'no_ext']:
+                    postfixes.append('')
+                    subfolders.append('')
+                    exts.append(item.get_file_ext())
+                    file_types.append(item.get_base_file_type())
+                    file_names.append(item.get_file_name())
+                    file_paths = item.get_all_files_list()
+                    metadata.append(item.get_metadata())
+>>>>>>> origin/master
 
             mode = 'inplace'
             print file_types, 'file_types'

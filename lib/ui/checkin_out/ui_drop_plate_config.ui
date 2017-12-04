@@ -2,6 +2,17 @@
 <ui version="4.0">
  <class>matchingTemplateConfig</class>
  <widget class="QDialog" name="matchingTemplateConfig">
+<<<<<<< HEAD
+=======
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>756</width>
+    <height>495</height>
+   </rect>
+  </property>
+>>>>>>> origin/master
   <property name="windowTitle">
    <string>Dialog</string>
   </property>
@@ -16,6 +27,22 @@
      </property>
     </widget>
    </item>
+<<<<<<< HEAD
+=======
+   <item row="0" column="1">
+    <spacer name="horizontalSpacer">
+     <property name="orientation">
+      <enum>Qt::Horizontal</enum>
+     </property>
+     <property name="sizeHint" stdset="0">
+      <size>
+       <width>40</width>
+       <height>20</height>
+      </size>
+     </property>
+    </spacer>
+   </item>
+>>>>>>> origin/master
    <item row="0" column="2">
     <widget class="QToolButton" name="editSelectedItemButton">
      <property name="sizePolicy">
@@ -35,6 +62,7 @@
      </property>
     </widget>
    </item>
+<<<<<<< HEAD
    <item row="0" column="1">
     <spacer name="horizontalSpacer">
      <property name="orientation">
@@ -48,6 +76,8 @@
      </property>
     </spacer>
    </item>
+=======
+>>>>>>> origin/master
    <item row="0" column="3">
     <widget class="QToolButton" name="addNewItemButton">
      <property name="sizePolicy">
@@ -177,6 +207,7 @@ QTreeView::item:selected:!active {
        </property>
       </widget>
      </item>
+<<<<<<< HEAD
      <item row="1" column="0" colspan="2">
       <widget class="QCheckBox" name="oneFrameSequenceDetectionCheckBox">
        <property name="text">
@@ -197,6 +228,8 @@ QTreeView::item:selected:!active {
        </property>
       </widget>
      </item>
+=======
+>>>>>>> origin/master
     </layout>
    </item>
   </layout>
