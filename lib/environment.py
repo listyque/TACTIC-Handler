@@ -3,6 +3,9 @@
 # Global constants with defaults
 
 import os
+import logging
+import traceback
+# import collections
 import platform
 import json
 
@@ -42,6 +45,7 @@ class Inst(object):
     """
     projects = None  # all projects Classes
     current_project = None  # ONLY and ONLY to see which project dock is active
+    ui_debuglog = None
     ui_super = None  # maya main window, or standalone main window
     ui_maya_dock = None  # maya docked window
     ui_main = None  # main widget inside dock, or standalone main window
@@ -52,6 +56,7 @@ class Inst(object):
     check_tree = {}
     control_tabs = {}
     ui_addsobject = None
+    # threads_pool = collections.defaultdict(list)
 
     def get_current_project(self):
         return self.current_project
@@ -108,7 +113,99 @@ class Inst(object):
             if self.control_tabs.get(project_code):
                 del self.control_tabs[project_code]
 
+
 env_inst = Inst()
+
+
+@singleton
+class DebugLog(object):
+    """
+    This is Debug Log singleton
+    """
+    # show_source_location = True
+    #
+    # # Formats the message as needed and calls the correct logging method
+    # # to actually handle it
+    # def _raw_log(self, logfn, message, exc_info):
+    #     cname = ''
+    #     loc = ''
+    #     fn = ''
+    #     tb = traceback.extract_stack()
+    #     if len(tb) > 2:
+    #         if self.show_source_location:
+    #             loc = '(%s:%d):' % (os.path.basename(tb[-3][0]), tb[-3][1])
+    #         fn = tb[-3][2]
+    #         if fn != '<module>':
+    #             if self.__class__.__name__ != DebugLog.__name__:
+    #                 fn = self.__class__.__name__ + '.' + fn
+    #             fn += '()'
+    #
+    #     logfn(loc + cname + fn + ': ' + message, exc_info=exc_info)
+
+    def get_trace_info(self, message_text='', html=False, color='ff0000'):
+        tb = traceback.extract_stack(limit=3)
+        if tb:
+            message_type = '[ INFO ]'
+            module_path = os.path.basename(tb[0][0])
+            line_number = tb[0][1]
+            function_name = tb[0][2]
+            # caller = tb[0][3]
+
+            trace_str = '{0} {1} @ //{2:4d} : Module: {3}, Function: {4}()'.format(
+                message_type,
+                message_text,
+                int(line_number),
+                module_path,
+                function_name)
+            if html:
+                return '<br><span style="color:#{0};">{1}</span></br>'.format(color, trace_str)
+            else:
+                return trace_str
+
+    def info(self, message, exc_info=False):
+        """
+        Log a info-level message. If exc_info is True, if an exception
+        was caught, show the exception information (message and stack trace).
+        """
+        if env_inst.ui_debuglog:
+            env_inst.ui_debuglog.add_info(self.get_trace_info(message, html=True))
+        # self._raw_log(logging.info, message, exc_info)
+
+    def debug(self, message, exc_info=False):
+        """
+        Log a debug-level message. If exc_info is True, if an exception
+        was caught, show the exception information (message and stack trace).
+        """
+        self._raw_log(logging.debug, message, exc_info)
+
+    def warning(self, message, exc_info=False):
+        """
+        Log a warning-level message. If exc_info is True, if an exception
+        was caught, show the exception information (message and stack trace).
+        """
+        self._raw_log(logging.warning, message, exc_info)
+
+    def error(self, message, exc_info=False):
+        """
+        Log an error-level message. If exc_info is True, if an exception
+        was caught, show the exception information (message and stack trace).
+        """
+        self._raw_log(logging.error, message, exc_info)
+
+    # @staticmethod
+    # def basicConfig(level=logging.DEBUG):
+    #     """
+    #     Apply a basic logging configuration which outputs the log to the
+    #     console (stderr). Optionally, the minimum log level can be set, one
+    #     of DEBUG, WARNING, ERROR (or any of the levels from the logging
+    #     module). If not set, DEBUG log level is used as minimum.
+    #     """
+    #     logging.basicConfig(level=level,
+    #         format='%(asctime)s %(levelname)s %(message)s',
+    #         datefmt='%Y-%m-%d %H:%M:%S')
+
+
+dl = DebugLog()
 
 
 @singleton

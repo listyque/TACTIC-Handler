@@ -104,6 +104,7 @@ QTabBar::tab:!selected {
     <addaction name="actionDock_undock"/>
     <addaction name="separator"/>
     <addaction name="actionServerside_Script"/>
+    <addaction name="actionDebug_Log"/>
     <addaction name="separator"/>
     <addaction name="actionUpdate"/>
     <addaction name="separator"/>
@@ -149,6 +150,11 @@ QTabBar::tab:!selected {
   <action name="actionDock_undock">
    <property name="text">
     <string>Dock/undock</string>
+   </property>
+  </action>
+  <action name="actionDebug_Log">
+   <property name="text">
+    <string>Debug Log</string>
    </property>
   </action>
  </widget>

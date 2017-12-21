@@ -2,14 +2,13 @@
 
 # Form implementation generated from reading ui file './ui_main.ui'
 #
-# Created: Mon May 29 16:07:24 2017
-#      by: pyside-uic 0.2.13 running on PySide 1.2.2
+# Created: Wed Dec 20 19:00:46 2017
+#      by: pyside-uic 0.2.15 running on PySide 1.2.2
 #
 # WARNING! All changes made in this file will be lost!
 
 from lib.side.Qt import QtWidgets as QtGui
 from lib.side.Qt import QtCore
-
 
 class Ui_MainWindow(object):
     def setupUi(self, MainWindow):
@@ -101,11 +100,14 @@ class Ui_MainWindow(object):
         self.actionServerside_Script.setObjectName("actionServerside_Script")
         self.actionDock_undock = QtGui.QAction(MainWindow)
         self.actionDock_undock.setObjectName("actionDock_undock")
+        self.actionDebug_Log = QtGui.QAction(MainWindow)
+        self.actionDebug_Log.setObjectName("actionDebug_Log")
         self.menuConfig.addAction(self.actionConfiguration)
         self.menuConfig.addAction(self.actionApply_to_all_Tabs)
         self.menuConfig.addAction(self.actionDock_undock)
         self.menuConfig.addSeparator()
         self.menuConfig.addAction(self.actionServerside_Script)
+        self.menuConfig.addAction(self.actionDebug_Log)
         self.menuConfig.addSeparator()
         self.menuConfig.addAction(self.actionUpdate)
         self.menuConfig.addSeparator()
@@ -127,4 +129,5 @@ class Ui_MainWindow(object):
         self.actionApply_to_all_Tabs.setText(QtGui.QApplication.translate("MainWindow", "Current view to All Tabs", None))
         self.actionServerside_Script.setText(QtGui.QApplication.translate("MainWindow", "Serverside Script", None))
         self.actionDock_undock.setText(QtGui.QApplication.translate("MainWindow", "Dock/undock", None))
+        self.actionDebug_Log.setText(QtGui.QApplication.translate("MainWindow", "Debug Log", None))
 

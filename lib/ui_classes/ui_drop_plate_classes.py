@@ -92,6 +92,7 @@ class Ui_dropPlateWidget(QtGui.QWidget, ui_drop_plate.Ui_dropPlate):
         self.setupUi(self)
 
         self.setAcceptDrops(True)
+        self.dropTreeWidget.setDragDropMode(QtGui.QAbstractItemView.DragOnly)
 
         self.create_drop_plate_ui()
         self.create_config_widget()
@@ -273,6 +274,9 @@ class Ui_dropPlateWidget(QtGui.QWidget, ui_drop_plate.Ui_dropPlate):
 
                 tree_item.setData(0, QtCore.Qt.UserRole, len(self.tree_items))
                 self.tree_items.append(file_obj)
+
+                if i % 10 == 0:
+                    QtGui.QApplication.processEvents()
 
         self.dropTreeWidget.resizeColumnToContents(0)
         self.dropTreeWidget.resizeColumnToContents(1)

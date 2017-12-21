@@ -16,7 +16,6 @@ class deleteSobjectWidget(QtGui.QWidget):
         self.shown = False
 
     def create_ui(self):
-        print self.sobject, 'creating delete widget'
         self.shown = True
         self.create_main_layout()
         self.create_checkboxes_widget()
@@ -68,12 +67,11 @@ class deleteSobjectWidget(QtGui.QWidget):
 
     def create_files_dependencies_widget(self):
 
-        collapse_wdg_files = ui_misc_classes.Ui_collapsableWidget()
+        collapse_wdg_files = ui_misc_classes.Ui_collapsableWidget(state=True)
         layout_files = QtGui.QVBoxLayout()
         collapse_wdg_files.setLayout(layout_files)
         collapse_wdg_files.setText('Hide Files Dependencies')
         collapse_wdg_files.setCollapsedText('Show Files Dependencies')
-        collapse_wdg_files.setCollapsed(True)
 
         self.files_tree_widget = QtGui.QTreeWidget()
 
@@ -83,12 +81,11 @@ class deleteSobjectWidget(QtGui.QWidget):
 
     def create_snapshots_dependencies_widget(self):
 
-        collapse_wdg_snapshots = ui_misc_classes.Ui_collapsableWidget()
+        collapse_wdg_snapshots = ui_misc_classes.Ui_collapsableWidget(state=True)
         layout_files = QtGui.QVBoxLayout()
         collapse_wdg_snapshots.setLayout(layout_files)
         collapse_wdg_snapshots.setText('Hide Snapshots Dependencies')
         collapse_wdg_snapshots.setCollapsedText('Show Snapshots Dependencies')
-        collapse_wdg_snapshots.setCollapsed(True)
 
         self.files_tree_widget = QtGui.QTreeWidget()
 
@@ -98,12 +95,11 @@ class deleteSobjectWidget(QtGui.QWidget):
 
     def create_tasks_dependencies_widget(self):
 
-        collapse_wdg_tasks = ui_misc_classes.Ui_collapsableWidget()
+        collapse_wdg_tasks = ui_misc_classes.Ui_collapsableWidget(state=True)
         layout_files = QtGui.QVBoxLayout()
         collapse_wdg_tasks.setLayout(layout_files)
         collapse_wdg_tasks.setText('Hide Tasks Dependencies')
         collapse_wdg_tasks.setCollapsedText('Show Tasks Dependencies')
-        collapse_wdg_tasks.setCollapsed(True)
 
         self.files_tree_widget = QtGui.QTreeWidget()
 
@@ -113,12 +109,11 @@ class deleteSobjectWidget(QtGui.QWidget):
 
     def create_notes_dependencies_widget(self):
 
-        collapse_wdg_notes = ui_misc_classes.Ui_collapsableWidget()
+        collapse_wdg_notes = ui_misc_classes.Ui_collapsableWidget(state=True)
         layout_files = QtGui.QVBoxLayout()
         collapse_wdg_notes.setLayout(layout_files)
         collapse_wdg_notes.setText('Hide Notes Dependencies')
         collapse_wdg_notes.setCollapsedText('Show Notes Dependencies')
-        collapse_wdg_notes.setCollapsed(True)
 
         self.files_tree_widget = QtGui.QTreeWidget()
 
@@ -133,7 +128,7 @@ class saveConfirmWidget(QtGui.QWidget):
 
         self.item_widget = item_widget
         self.paths = paths
-        print self.paths, 'paths saveConfirmWidget'
+        # print self.paths, 'paths saveConfirmWidget'
         self.repo = repo
         self.context = context
         self.update_versionless = update_versionless
@@ -144,12 +139,9 @@ class saveConfirmWidget(QtGui.QWidget):
 
         self.shown = True
         self.create_main_layout()
-
         self.create_info_label_widget()
         self.create_label_widget()
-
         self.create_checkboxes_widget()
-
         self.create_versionless_widget()
         self.create_versions_widget()
 
@@ -222,12 +214,11 @@ class saveConfirmWidget(QtGui.QWidget):
 
     def create_versionless_widget(self):
 
-        self.collapse_wdg_vls = ui_misc_classes.Ui_collapsableWidget()
+        self.collapse_wdg_vls = ui_misc_classes.Ui_collapsableWidget(state=True)
         layout_files = QtGui.QVBoxLayout()
         self.collapse_wdg_vls.setLayout(layout_files)
         self.collapse_wdg_vls.setText('Hide Versionless Files')
         self.collapse_wdg_vls.setCollapsedText('Show Versionless Files')
-        self.collapse_wdg_vls.setCollapsed(True)
 
         # self.files_tree_widget = QtGui.QTreeWidget()
         self.treeWidget_vls = QtGui.QTreeWidget()
@@ -256,12 +247,11 @@ class saveConfirmWidget(QtGui.QWidget):
 
     def create_versions_widget(self):
 
-        self.collapse_wdg_vers = ui_misc_classes.Ui_collapsableWidget()
+        self.collapse_wdg_vers = ui_misc_classes.Ui_collapsableWidget(state=True)
         layout_files = QtGui.QVBoxLayout()
         self.collapse_wdg_vers.setLayout(layout_files)
         self.collapse_wdg_vers.setText('Hide Versions Files')
         self.collapse_wdg_vers.setCollapsedText('Show Versions Files')
-        self.collapse_wdg_vers.setCollapsed(True)
 
         # self.files_tree_widget = QtGui.QTreeWidget()
         self.treeWidget_vers = QtGui.QTreeWidget()
@@ -290,12 +280,11 @@ class saveConfirmWidget(QtGui.QWidget):
 
     def create_description_widget(self):
 
-        self.collapse_wdg_descr = ui_misc_classes.Ui_collapsableWidget()
+        self.collapse_wdg_descr = ui_misc_classes.Ui_collapsableWidget(state=False)
         layout_files = QtGui.QVBoxLayout()
         self.collapse_wdg_descr.setLayout(layout_files)
         self.collapse_wdg_descr.setText('Hide Description')
         self.collapse_wdg_descr.setCollapsedText('Show Description')
-        self.collapse_wdg_descr.setCollapsed(False)
 
         from lib.ui_classes.ui_checkin_out_classes import Ui_descriptionWidget
 
@@ -308,5 +297,7 @@ class saveConfirmWidget(QtGui.QWidget):
         self.description_widget.set_description(self.description)
 
         layout_files.addWidget(self.description_widget)
-
         self.main_layout.addWidget(self.collapse_wdg_descr)
+
+        if not self.description:
+            self.collapse_wdg_descr.setHidden(True)

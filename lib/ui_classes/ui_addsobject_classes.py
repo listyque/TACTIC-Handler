@@ -218,8 +218,6 @@ class Ui_addTacticSobjectWidget(QtGui.QDialog):
     def refresh_results(self):
         checkin_out_tab = self.get_checkin_out_tab()
         checkin_out_tab.refresh_current_results()
-
-        print 'begin_refreshing'
         tree_wdg = checkin_out_tab.get_current_tree_widget()
 
         tree_wdg.update_current_items_trees()

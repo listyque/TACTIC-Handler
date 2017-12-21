@@ -16,6 +16,7 @@ class QtTacticEditWidget(QtGui.QWidget):
         self.add_sobj_widget = parent
         self.sobject = self.tactic_widget.get_sobject()
         self.stype = stype
+        self.item = self.add_sobj_widget.item
 
         self.qt_widgets = qt_widgets
         self.has_upload_wdg = None
@@ -82,9 +83,13 @@ class QtTacticEditWidget(QtGui.QWidget):
             self.add_sobj_widget.close()
 
     @gf.catch_error
-    def build_directory_structure(self):
+    def build_directory_structure(self, sobject=None):
         import os
         repo = self.repositoryComboBox.itemData(self.repositoryComboBox.currentIndex())
+        if sobject:
+            sobject_class = tc.SObject(sobject, project=self.stype.project)
+            self.sobject = sobject_class
+
         if self.stype.pipeline:
             paths = tc.get_dirs_with_naming(self.sobject.get_search_key())
             for path in paths:
@@ -144,6 +149,9 @@ class QtTacticEditWidget(QtGui.QWidget):
                 self.add_sobj_widget.add_new_tab(new_sobject)
             self.add_sobj_widget.close()
 
+        if self.build_directory_checkbox.isEnabled():
+            self.build_directory_structure(new_sobject)
+
     def create_control_buttons(self):
         self.addNewButton = QtGui.QPushButton('Create')
         self.addNewButton.setMaximumWidth(80)
@@ -156,6 +164,7 @@ class QtTacticEditWidget(QtGui.QWidget):
         self.build_directory_checkbox = QtGui.QCheckBox('Build Full Directory Structure')
         self.build_directory_checkbox.setChecked(False)
         self.build_directory_checkbox.setIcon(gf.get_icon('database'))
+
         self.repositoryComboBox = QtGui.QComboBox()
         base_dirs = env_tactic.get_all_base_dirs()
         # Default repo states
@@ -184,6 +193,11 @@ class QtTacticEditWidget(QtGui.QWidget):
             self.main_layout.addWidget(self.saveButton, 1, 3, 1, 1)
             self.main_layout.addWidget(self.cancelButton, 1, 4, 1, 1)
             self.main_layout.setColumnStretch(1, 0)
+
+        if self.item:
+            if self.item.type != 'sobject':
+                self.buildDirectoryButton.setHidden(True)
+                self.repositoryComboBox.setHidden(True)
 
     def add_widgets_to_scroll_area(self):
         for widget in self.qt_widgets:
@@ -349,12 +363,15 @@ class QTacticSimpleUploadWdg(QtGui.QWidget, QTacticBasicInputWdg):
         options |= QtGui.QFileDialog.DontUseNativeDialog
         file_name, filter = QtGui.QFileDialog.getOpenFileName(self, 'Browse for Preview Image',
                                                               self.text_edit.text(),
-                                                              'All Images (*.jpg | *.jpeg | *.png);;'
+                                                              'All Images (*.jpg | *.jpeg | *.png | *.tif);;'
                                                               'JPEG Files (*.jpg | *.jpeg);;'
-                                                              'PNG Files (*.png)',
+                                                              'PNG Files (*.png)'
+                                                              'TIF Files (*.tif)',
                                                               '', options)
         if file_name:
-            self.text_edit.setText(file_name)
+            ext = gf.extract_extension(file_name)
+            if ext[3] == 'preview':
+                self.text_edit.setText(file_name)
 
     def create_upload_wdg(self):
         self.create_browse_button()
@@ -382,14 +399,16 @@ class QTacticSimpleUploadWdg(QtGui.QWidget, QTacticBasicInputWdg):
         self.drop_plate_layout.setSpacing(0)
         self.drop_plate_layout.setContentsMargins(0, 0, 0, 0)
         self.drop_plate.setLayout(self.drop_plate_layout)
-        self.drop_plate_label = QtGui.QLabel('DROP HERE')
+        self.drop_plate_label = QtGui.QLabel('DROP IMAGES HERE')
         self.drop_plate_label.setAlignment(QtCore.Qt.AlignCenter)
         self.drop_plate_layout.addWidget(self.drop_plate_label)
-        self.drop_plate_label.setStyleSheet('QLabel{border: 1px solid gray;border-radius: 4px;background: qlineargradient(spread:pad, x1:0, y1:0, x2:0, y2:1, stop:0 rgba(0, 0, 0, 32), stop:1 rgba(0, 0, 0, 0));}')
+        self.drop_plate_label.setStyleSheet('QLabel{border: 2px dashed grey;border-radius: 4px;background: qlineargradient(spread:pad, x1:0, y1:0, x2:0, y2:1, stop:0 rgba(0, 0, 0, 32), stop:1 rgba(0, 0, 0, 0));}')
 
     def fill_text_edit(self, links_list):
         # for link in links_list:
-        self.text_edit.setText(links_list[0])
+        ext = gf.extract_extension(links_list[0])
+        if ext[3] == 'preview':
+            self.text_edit.setText(links_list[0])
 
     def get_upload_list(self):
         if self.text_edit.text():
@@ -403,7 +422,11 @@ class QTacticSimpleUploadWdg(QtGui.QWidget, QTacticBasicInputWdg):
         files_list = self.get_upload_list()
 
         if files_list:
-            checkin_widget.checkin_from_path(search_key, 'icon', '', files_list)
+            match_template = gf.MatchTemplate(['$FILENAME.$EXT'])
+            files_objects_dict = match_template.get_files_objects(files_list)
+
+            checkin_widget.checkin_file_objects(search_key, 'icon', '', files_objects=files_objects_dict.get('file'),
+                                                checkin_type='file', keep_file_name=False)
 
     def dragEnterEvent(self, event):
         if event.mimeData().hasUrls:

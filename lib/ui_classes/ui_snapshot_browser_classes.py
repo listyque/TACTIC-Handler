@@ -1,8 +1,6 @@
 # file ui_snapshot_browser_classes.py
 # Snaphsot file manager Widget
 
-# import PySide.QtGui as QtGui
-# import PySide.QtCore as QtCore
 from lib.side.Qt import QtWidgets as QtGui
 from lib.side.Qt import QtGui as Qt4Gui
 from lib.side.Qt import QtCore
@@ -21,7 +19,6 @@ class Ui_snapshotBrowserWidget(QtGui.QWidget, ui_snapshot_browser.Ui_snapshotBro
         self.scene = QtGui.QGraphicsScene(self)
 
         self.item_widget = None
-        # self.parent_ui = parent
         self.snapshots = None
 
         self.create_ui()
@@ -197,7 +194,7 @@ class Ui_snapshotBrowserWidget(QtGui.QWidget, ui_snapshot_browser.Ui_snapshotBro
 
         delete_sobject = QtGui.QAction('Delete', self.filesTreeWidget)
         delete_sobject.setIcon(gf.get_icon('remove'))
-        delete_sobject.triggered.connect(lambda: self.delete_sobject())
+        # delete_sobject.triggered.connect(lambda: self.delete_sobject())
 
         menu = QtGui.QMenu()
 
@@ -261,43 +258,36 @@ class Ui_snapshotBrowserWidget(QtGui.QWidget, ui_snapshot_browser.Ui_snapshotBro
 
             for snapshot in self.snapshots:
 
-                # snapshot_files = snapshot.get_files()
                 snapshot_info = snapshot.get_snapshot()
                 snapshot_files_objects = snapshot.get_files_objects(group_by='type')
 
-                sn_item = QtGui.QTreeWidgetItem()
-                sn_item.setText(0, 'Snapshot ({0}), Version: {1}'.format(snapshot_info.get('id'), snapshot_info.get('version')))
-                self.filesTreeWidget.addTopLevelItem(sn_item)
-                sn_item.setExpanded(True)
+                if show_all_files:
+                    sn_item = QtGui.QTreeWidgetItem()
+                    sn_item.setText(0, 'Snapshot ({0}), Version: {1}'.format(snapshot_info.get('id'), snapshot_info.get('version')))
+                    self.filesTreeWidget.addTopLevelItem(sn_item)
+                    sn_item.setExpanded(True)
 
                 preview = []
                 if not show_all_files:
                     preview = ['icon', 'playblast', 'web']
 
-                for file_type, files_objects in snapshot_files_objects.iteritems():
+                for file_type, files_objects in snapshot_files_objects.items():
                     type_item = QtGui.QTreeWidgetItem()
                     if file_type not in preview:
-                        type_item.setText(0, file_type)
-                        sn_item.addChild(type_item)
-                        type_item.setExpanded(True)
+                        if show_all_files:
+                            type_item.setText(0, file_type)
+                            sn_item.addChild(type_item)
+                            type_item.setExpanded(True)
 
                         for file_object in files_objects:
                             # multiple files in snapshot
+                            if file_object.is_meta_file_obj():
+                                self.add_item_with_meta_file_object(file_object, show_more_info, show_all_files, snapshot_info, type_item, icon_provider)
+                            else:
+                                self.add_item_with_tactic_file_object(file_object, show_more_info, show_all_files, snapshot_info, type_item, icon_provider)
 
-                            child_item = QtGui.QTreeWidgetItem()
-                            file_name = file_object.get_filename_with_ext()
-                            if not file_object.is_exists():
-                                file_name += ' (file missing)'
-                            child_item.setText(0, file_name)
-                            child_item.setData(0, QtCore.Qt.UserRole, file_object)
-                            if show_more_info:
-                                child_item.setText(1, gf.sizes(file_object.get_file_size()))
-                                child_item.setText(2, file_object.get_abs_path())
-                                child_item.setText(3, snapshot_info.get('repo'))
-                                child_item.setText(4, file_object.get_base_type())
-                            type_item.addChild(child_item)
-                            file_icon = icon_provider.icon(file_object.get_full_abs_path())
-                            child_item.setIcon(0, file_icon)
+                    if len(files_objects) % 10 == 0:
+                        QtGui.QApplication.processEvents()
 
                 self.filesTreeWidget.resizeColumnToContents(0)
                 if show_more_info:
@@ -306,6 +296,57 @@ class Ui_snapshotBrowserWidget(QtGui.QWidget, ui_snapshot_browser.Ui_snapshotBro
                     # self.filesTreeWidget.resizeColumnToContents(3)
                     self.filesTreeWidget.resizeColumnToContents(4)
                     self.filesTreeWidget.resizeColumnToContents(5)
+
+    def add_item_with_meta_file_object(self, file_object, show_more_info, show_all_files, snapshot_info, type_item, icon_provider):
+
+        meta_file_object = file_object.get_meta_file_object()
+        child_item = QtGui.QTreeWidgetItem()
+        file_name = file_object.get_filename_with_ext()
+        if not meta_file_object.is_exists():
+            file_name += ' (File Missing)'
+        child_item.setText(0, file_name)
+        child_item.setData(0, QtCore.Qt.UserRole, file_object)
+        if show_more_info:
+            child_item.setText(1, gf.sizes(file_object.get_file_size()))
+            child_item.setText(2, file_object.get_abs_path())
+            child_item.setText(3, snapshot_info.get('repo'))
+            child_item.setText(4, file_object.get_base_type())
+        if show_all_files:
+            type_item.addChild(child_item)
+        else:
+            self.filesTreeWidget.addTopLevelItem(child_item)
+        file_icon = icon_provider.icon(meta_file_object.get_all_files_list(first=True))
+        child_item.setIcon(0, file_icon)
+        if len(meta_file_object.get_all_files_list()) > 1:
+            # if this is meta with sequence or udims etc...
+            for meta_file_name in meta_file_object.get_all_files_list(filenames=True):
+                sub_child_item = QtGui.QTreeWidgetItem()
+                child_item.addChild(sub_child_item)
+                sub_child_item.setText(0, meta_file_name)
+                sub_child_item.setData(0, QtCore.Qt.UserRole, file_object)
+                sub_child_item.setIcon(0, file_icon)
+
+        child_item.setExpanded(True)
+
+    def add_item_with_tactic_file_object(self, file_object, show_more_info, show_all_files, snapshot_info, type_item, icon_provider):
+        child_item = QtGui.QTreeWidgetItem()
+        file_name = file_object.get_filename_with_ext()
+        if not file_object.is_exists():
+            file_name += ' (File Missing)'
+        child_item.setText(0, file_name)
+        child_item.setData(0, QtCore.Qt.UserRole, file_object)
+        if show_more_info:
+            child_item.setText(1, gf.sizes(file_object.get_file_size()))
+            child_item.setText(2, file_object.get_abs_path())
+            child_item.setText(3, snapshot_info.get('repo'))
+            child_item.setText(4, file_object.get_base_type())
+        if show_all_files:
+            type_item.addChild(child_item)
+        else:
+            self.filesTreeWidget.addTopLevelItem(child_item)
+        file_icon = icon_provider.icon(file_object.get_full_abs_path())
+        child_item.setIcon(0, file_icon)
+        child_item.setExpanded(True)
 
     def init_images_slider(self):
         self.imagesSlider.setValue(0)

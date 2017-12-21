@@ -10,7 +10,7 @@ from lib.side.Qt import QtWidgets as QtGui
 from lib.side.Qt import QtGui as Qt4Gui
 from lib.side.Qt import QtCore
 
-from lib.environment import env_mode, env_inst, env_server
+from lib.environment import env_mode, env_inst, env_server, dl
 from lib.configuration import cfg_controls
 import lib.tactic_classes as tc
 import lib.update_functions as uf
@@ -20,6 +20,7 @@ import lib.ui.ui_main_tabs as ui_main_tabs
 import lib.ui.misc.ui_serverside as ui_serverside
 import lib.ui.misc.ui_update as ui_update
 import lib.ui.misc.ui_create_update as ui_create_update
+import lib.ui_classes.ui_misc_classes as ui_misc_classes
 import ui_checkin_out_tabs_classes
 import ui_conf_classes
 import ui_my_tactic_classes
@@ -520,6 +521,9 @@ class Ui_Main(QtGui.QMainWindow, ui_main.Ui_MainWindow):
             env_mode.get_mode()),
             QtCore.QSettings.IniFormat)
 
+        self.create_debuglog_widget()
+        env_inst.ui_debuglog = self.debuglog_widget
+        dl.info('WARNING!!!')
         self.projects_docks = collections.OrderedDict()
         if env_mode.is_offline():
             self.create_ui_main_offline()
@@ -598,6 +602,10 @@ class Ui_Main(QtGui.QMainWindow, ui_main.Ui_MainWindow):
         self.customize_ui()
         self.check_for_update()
 
+    def create_debuglog_widget(self):
+
+        self.debuglog_widget = ui_misc_classes.Ui_debugLogWidget(self)
+
     def check_for_update(self):
         if uf.check_need_update():
             self.label_layout = QtGui.QVBoxLayout(self.menubar)
@@ -646,6 +654,7 @@ class Ui_Main(QtGui.QMainWindow, ui_main.Ui_MainWindow):
 
         self.actionUpdate.triggered.connect(self.update_self)
         self.actionServerside_Script.triggered.connect(self.create_server_side_script_editor)
+        self.actionDebug_Log.triggered.connect(lambda: self.debuglog_widget.show())
 
         self.actionDock_undock.triggered.connect(self.undock_window)
 

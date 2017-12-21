@@ -5,11 +5,7 @@
   <property name="windowTitle">
    <string>Form</string>
   </property>
-<<<<<<< HEAD
   <layout class="QHBoxLayout" name="horizontalLayout" stretch="0,0,0,1,0,1,0,0,0,1">
-=======
-  <layout class="QHBoxLayout" name="horizontalLayout" stretch="0,0,1,1,0,1,0,1">
->>>>>>> origin/master
    <property name="spacing">
     <number>4</number>
    </property>

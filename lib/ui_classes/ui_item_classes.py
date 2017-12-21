@@ -2,18 +2,16 @@
 # file ui_item_classes.py
 # Main Item for TreeWidget
 
-import os
-# import PySide.QtGui as QtGui
-# import PySide.QtCore as QtCore
 from lib.side.Qt import QtWidgets as QtGui
 from lib.side.Qt import QtGui as Qt4Gui
 from lib.side.Qt import QtCore
 
-from lib.environment import env_tactic
+from lib.environment import env_tactic, env_inst, env_mode
 from lib.configuration import cfg_controls
 import lib.global_functions as gf
 import lib.tactic_classes as tc
 import lib.ui.items.ui_item as ui_item
+import lib.ui_classes.ui_misc_classes as ui_misc_classes
 import lib.ui.items.ui_item_children as ui_item_children
 import lib.ui.items.ui_item_process as ui_item_process
 import lib.ui.items.ui_item_snapshot as ui_item_snapshot
@@ -26,6 +24,37 @@ reload(ui_item_process)
 reload(ui_item_snapshot)
 reload(tasks_widget)
 reload(notes_widget)
+
+
+class Ui_infoItemsWidget(QtGui.QWidget):
+    def __init__(self, parent=None):
+        super(self.__class__, self).__init__(parent=parent)
+
+        self.create_ui()
+        self.items = []
+
+    def create_ui(self):
+        self.items_layout = QtGui.QHBoxLayout()
+        self.items_layout.setContentsMargins(0, 0, 0, 0)
+        self.items_layout.setSpacing(4)
+        self.setLayout(self.items_layout)
+
+    def add_item(self, widget):
+        if len(self.items) > 0:
+            self.items_layout.addWidget(self.get_line_delimiter())
+        self.items_layout.addWidget(widget)
+        self.items.append(widget)
+
+    def get_line_delimiter(self):
+        line = QtGui.QFrame(self)
+        line.setMaximumSize(QtCore.QSize(1, 12))
+        line.setStyleSheet('QFrame { border: 0px; background-color: grey;}')
+        # line.setFrameShadow(QtGui.QFrame.Plain)
+        line.setFrameShape(QtGui.QFrame.VLine)
+        return line
+
+    def get_items(self):
+        return self.items
 
 
 class Ui_itemWidget(QtGui.QWidget, ui_item.Ui_item):
@@ -53,9 +82,6 @@ class Ui_itemWidget(QtGui.QWidget, ui_item.Ui_item):
         self.selected_state = False
         self.children_states = None
 
-        if self.sobject:
-            self.fill_sobject_info()
-
         self.controls_actions()
 
         self.parents_stypes = None
@@ -63,6 +89,9 @@ class Ui_itemWidget(QtGui.QWidget, ui_item.Ui_item):
         self.check_for_children()
 
         self.create_ui()
+
+        if self.sobject:
+            self.fill_sobject_info()
 
     def get_expand_state(self):
         return self.expand_state
@@ -72,7 +101,7 @@ class Ui_itemWidget(QtGui.QWidget, ui_item.Ui_item):
         self.tree_item.setExpanded(state)
 
     def get_selected_state(self):
-        return self.expand_state
+        return self.selected_state
 
     def set_selected_state(self, state):
         self.selected_state = state
@@ -82,10 +111,80 @@ class Ui_itemWidget(QtGui.QWidget, ui_item.Ui_item):
         self.children_states = states
 
     def create_ui(self):
+        self.drop_wdg = QtGui.QWidget(self)
+        self.setMinimumWidth(260)
         self.previewLabel.setText('<span style=" font-size:14pt; font-weight:600; color:#828282;">{0}</span>'.format(
             gf.gen_acronym(self.get_title()))
         )
+        self.itemColorLine.setStyleSheet('QFrame { border: 0px; background-color: %s;}' % self.stype.get_stype_color())
+
         self.set_preview()
+
+        self.tasksToolButton.setIcon(gf.get_icon('tasks'))
+        self.relationsToolButton.setIcon(gf.get_icon('sitemap'))
+
+        self.tasksToolButton.setToolButtonStyle(QtCore.Qt.ToolButtonTextBesideIcon)
+        self.tasksToolButton.setText('| 0')
+
+        self.create_item_info_widget()
+
+    def set_drop_indicator_on(self):
+        if self.drop_wdg.isHidden():
+            self.lay = QtGui.QVBoxLayout(self.drop_wdg)
+            self.lay.setSpacing(0)
+            self.lay.setContentsMargins(0, 0, 0, 0)
+            self.drop_wdg.setLayout(self.lay)
+            self.drop_wdg.setStyleSheet('QLabel {padding: 0px;border: 0px dashed grey; background-color: rgba(0,0,100,128);}')
+            self.label = QtGui.QLabel('DROP HERE')
+            self.lay.addWidget(self.label)
+            self.drop_wdg.show()
+            self.drop_wdg.resize(self.size())
+
+    def set_drop_indicator_off(self):
+        self.drop_wdg.setHidden(True)
+
+    @staticmethod
+    def get_item_info_label():
+        font = Qt4Gui.QFont()
+        font.setPointSize(7)
+        label = QtGui.QLabel()
+        label.setFont(font)
+        label.setTextFormat(QtCore.Qt.PlainText)
+        label.setAlignment(QtCore.Qt.AlignCenter)
+        return label
+
+    def create_item_info_widget(self):
+        self.item_info_widget = Ui_infoItemsWidget(self)
+        self.infoHorizontalLayout.addWidget(self.item_info_widget)
+
+    def make_screenshot(self):
+        self.wid = ui_misc_classes.Ui_screenShotMakerDialog()
+        self.screenshot = self.wid.screenshot_pixmap
+        env_inst.ui_main.setHidden(True)
+        self.wid.exec_()
+        env_inst.ui_main.setHidden(False)
+
+    def fill_sobject_info(self):
+
+        self.dateLabel = self.get_item_info_label()
+        self.tasksLabel = self.get_item_info_label()
+        self.snapshotsLabel = self.get_item_info_label()
+        self.item_info_widget.add_item(self.dateLabel)
+        # self.item_info_widget.add_item(self.tasksLabel)
+        # self.item_info_widget.add_item(self.snapshotsLabel)
+
+        # self.bt = QtGui.QPushButton('Make Screenshot')
+        # self.item_info_widget.add_item(self.bt)
+        # self.bt.clicked.connect(self.make_screenshot)
+
+
+        self.fileNameLabel.setText(self.get_title())
+        self.commentLabel.setText(gf.to_plain_text(self.sobject.info.get('description')))
+        # timestamp = datetime.strptime(self.sobject.info.get('timestamp').split('.')[0], '%Y-%m-%d %H:%M:%S')
+        date = str(self.sobject.info.get('timestamp')).split('.')[0].replace(' ', ' \n')
+        self.dateLabel.setText(date)
+        self.tasksLabel.setText('0 Tasks')
+        self.snapshotsLabel.setText('0 Snapshots')
 
     def set_preview(self):
         snapshots = self.get_snapshot()
@@ -98,20 +197,32 @@ class Ui_itemWidget(QtGui.QWidget, ui_item.Ui_item):
                     previw_abs_path = icon_previw.get_full_abs_path()
                     pixmap = Qt4Gui.QPixmap(previw_abs_path)
                     if not pixmap.isNull():
-                        self.previewLabel.setPixmap(pixmap.scaledToHeight(64, QtCore.Qt.SmoothTransformation))
+                        pixmap = pixmap.scaledToHeight(64, QtCore.Qt.SmoothTransformation)
+
+                        painter = Qt4Gui.QPainter()
+                        pixmap_mask = Qt4Gui.QPixmap(64, 64)
+                        pixmap_mask.fill(QtCore.Qt.transparent)
+                        painter.begin(pixmap_mask)
+                        painter.setRenderHint(Qt4Gui.QPainter.Antialiasing)
+                        painter.setBrush(Qt4Gui.QBrush(Qt4Gui.QColor(0, 0, 0, 255)))
+                        painter.drawRoundedRect(QtCore.QRect(0, 0, 64, 64), 4, 4)
+                        painter.end()
+
+                        rounded_pixmap = Qt4Gui.QPixmap(pixmap.size())
+                        rounded_pixmap.fill(QtCore.Qt.transparent)
+                        painter.begin(rounded_pixmap)
+                        painter.setRenderHint(Qt4Gui.QPainter.Antialiasing)
+                        painter.drawPixmap(QtCore.QRect((pixmap.width() - 64) / 2, 0, 64, 64), pixmap_mask)
+                        painter.setCompositionMode(Qt4Gui.QPainter.CompositionMode_SourceIn)
+                        painter.drawPixmap(0, 0, pixmap)
+                        painter.end()
+
+                        self.previewLabel.setPixmap(rounded_pixmap)
 
     def controls_actions(self):
         # self.tasksToolButton.setHidden(True)  # Temporaty hide tasks button
         self.tasksToolButton.clicked.connect(lambda: self.create_tasks_window())
         self.relationsToolButton.clicked.connect(self.drop_down_children)
-
-    def fill_sobject_info(self):
-
-        self.fileNameLabel.setText(self.get_title())
-        self.commentLabel.setText(gf.to_plain_text(self.sobject.info.get('description')))
-        # timestamp = datetime.strptime(self.sobject.info.get('timestamp').split('.')[0], '%Y-%m-%d %H:%M:%S')
-        date = str(self.sobject.info.get('timestamp')).split('.')[0]
-        self.dateLabel.setText(date)
 
     def get_title(self):
         title = 'No Title'
@@ -301,7 +412,6 @@ class Ui_itemWidget(QtGui.QWidget, ui_item.Ui_item):
         # self.child_items = child_items
 
     def fill_process_items(self):
-
         # getting all possible processes here
         processes = []
         pipeline_code = self.sobject.info.get('pipeline_code')
@@ -346,7 +456,7 @@ class Ui_itemWidget(QtGui.QWidget, ui_item.Ui_item):
 
     def query_snapshots(self):
         query_thread = tc.ServerThread(self.search_widget)
-
+        # env_inst.threads_pool['snapshots_query_thread'].append(query_thread)
         query_thread.finished.connect(self.fill_snapshots_items)
         query_thread.kwargs = {}
         query_thread.routine = self.sobject.update_snapshots
@@ -377,6 +487,7 @@ class Ui_itemWidget(QtGui.QWidget, ui_item.Ui_item):
         # adding snapshots per process
         if not publish:
             for proc in self.process_items:
+                # QtGui.QApplication.processEvents()
                 if proc.process_items:
                     # may be buggy...
                     proc.info['is_expanded'] = True
@@ -389,6 +500,7 @@ class Ui_itemWidget(QtGui.QWidget, ui_item.Ui_item):
         else:
             # adding snapshots to publish
             for key, val in self.sobject.process.iteritems():
+                # QtGui.QApplication.processEvents()
                 if key == 'publish':
                     self.root_snapshot_items.append(gf.add_snapshot_item(
                             self.tree_item,
@@ -435,8 +547,6 @@ class Ui_itemWidget(QtGui.QWidget, ui_item.Ui_item):
                 if process_item:
                     process_item.set_notes_count(val)
 
-        @gf.catch_error
-        def children_fill():
             children_counts = notes_counts_query.result['stypes']
             child_items_dict = {item.child.get('from'): item for item in self.child_items}
             for key, val in children_counts.iteritems():
@@ -445,7 +555,7 @@ class Ui_itemWidget(QtGui.QWidget, ui_item.Ui_item):
                     child_item.set_child_count_title(val)
 
         notes_counts_query = tc.ServerThread(self.search_widget)
-
+        # env_inst.threads_pool['notes_counts_query'].append(notes_counts_query)
         notes_counts_query.kwargs = dict(
             sobject=self.sobject,
             process=self.get_process_list(),
@@ -455,9 +565,7 @@ class Ui_itemWidget(QtGui.QWidget, ui_item.Ui_item):
         # notes_counts_query.msleep(10)
         notes_counts_query.start()
         notes_counts_query.setPriority(QtCore.QThread.LowPriority)
-
         notes_counts_query.finished.connect(notes_fill)
-        notes_counts_query.finished.connect(children_fill)
 
     @gf.catch_error
     def expand_tree_item(self):
@@ -472,9 +580,18 @@ class Ui_itemWidget(QtGui.QWidget, ui_item.Ui_item):
         self.get_notes_count()
 
         # Duct tape, to fix buggy items drawings
-        tree_widget = self.get_current_tree_widget()
-        tree_widget.resize(tree_widget.width() + 1, tree_widget.height())
-        tree_widget.resize(tree_widget.width() - 1, tree_widget.height())
+        # tree_widget = self.get_current_tree_widget()
+        # tree_widget.resize(tree_widget.width() + 4, tree_widget.height())
+        # tree_widget.resize(tree_widget.width() - 4, tree_widget.height())
+        # tree_widget.update(0)
+
+    @gf.catch_error
+    def expand_recursive(self):
+        gf.tree_recursive_expand(self.tree_item, True)
+
+    @gf.catch_error
+    def collapse_recursive(self):
+        gf.tree_recursive_expand(self.tree_item, False)
 
     def collapse_tree_item(self):
         pass
@@ -498,7 +615,7 @@ class Ui_itemWidget(QtGui.QWidget, ui_item.Ui_item):
     def delete_current_sobject(self):
 
         sobject = self.get_sobject()
-        print 'DELETING', sobject
+        # print 'DELETING', sobject
         sobject.delete_sobject()
 
     def delete_current_snapshot_sobject(self):
@@ -562,7 +679,7 @@ class Ui_processItemWidget(QtGui.QWidget, ui_item_process.Ui_processItem):
         self.tree_item.setExpanded(state)
 
     def get_selected_state(self):
-        return self.expand_state
+        return self.selected_state
 
     def set_selected_state(self, state):
         self.selected_state = state
@@ -572,7 +689,6 @@ class Ui_processItemWidget(QtGui.QWidget, ui_item_process.Ui_processItem):
         self.children_states = states
 
     def get_notes_count(self):
-
         def notes_fill():
             notes_counts = notes_counts_query.result['notes']
             process_items_dict = {item.process: item for item in self.process_items}
@@ -582,6 +698,7 @@ class Ui_processItemWidget(QtGui.QWidget, ui_item_process.Ui_processItem):
                     process_item.set_notes_count(val)
 
         notes_counts_query = tc.ServerThread(self.search_widget)
+        # env_inst.threads_pool['notes_counts_query'].append(notes_counts_query)
         notes_counts_query.kwargs = dict(
             sobject=self.sobject,
             process=self.get_process_list(),
@@ -628,6 +745,8 @@ class Ui_processItemWidget(QtGui.QWidget, ui_item_process.Ui_processItem):
         self.notesToolButton.clicked.connect(lambda: self.create_notes_widget())
 
     def create_ui(self):
+        self.drop_wdg = QtGui.QWidget(self)
+        self.setMinimumWidth(260)
         item_color = Qt4Gui.QColor(200, 200, 200)
         pipeline = self.get_current_process_pipeline()
         process = pipeline.get_process(self.process)
@@ -652,6 +771,21 @@ class Ui_processItemWidget(QtGui.QWidget, ui_item_process.Ui_processItem):
         self.label.setText(title)
 
         self.notesToolButton.setIcon(gf.get_icon('commenting-o'))
+
+    def set_drop_indicator_on(self):
+        if self.drop_wdg.isHidden():
+            self.lay = QtGui.QVBoxLayout(self.drop_wdg)
+            self.lay.setSpacing(0)
+            self.lay.setContentsMargins(0, 0, 0, 0)
+            self.drop_wdg.setLayout(self.lay)
+            self.drop_wdg.setStyleSheet('QLabel {padding: 0px;border: 0px dashed grey; background-color: rgba(0,0,100,128);}')
+            self.label = QtGui.QLabel('DROP HERE')
+            self.lay.addWidget(self.label)
+            self.drop_wdg.show()
+            self.drop_wdg.resize(self.size())
+
+    def set_drop_indicator_off(self):
+        self.drop_wdg.setHidden(True)
 
     def fill_subprocesses(self):
         if self.process_info:
@@ -764,7 +898,6 @@ class Ui_processItemWidget(QtGui.QWidget, ui_item_process.Ui_processItem):
                     self.process_snapshot_items.append(proc.add_snapshots_items(val))
 
     def add_snapshots_items(self, snapshots):
-
         snapshot_items = gf.add_snapshot_item(
             self.tree_item,
             self.search_widget,
@@ -874,9 +1007,17 @@ class Ui_processItemWidget(QtGui.QWidget, ui_item_process.Ui_processItem):
         self.get_notes_count()
 
         # Duct tape, to fix buggy items drawings
-        tree_widget = self.get_current_tree_widget()
-        tree_widget.resize(tree_widget.width() + 1, tree_widget.height())
-        tree_widget.resize(tree_widget.width() - 1, tree_widget.height())
+        # tree_widget = self.get_current_tree_widget()
+        # tree_widget.resize(tree_widget.width() + 4, tree_widget.height())
+        # tree_widget.resize(tree_widget.width() - 4, tree_widget.height())
+
+    @gf.catch_error
+    def expand_recursive(self):
+        gf.tree_recursive_expand(self.tree_item, True)
+
+    @gf.catch_error
+    def collapse_recursive(self):
+        gf.tree_recursive_expand(self.tree_item, False)
 
     def collapse_tree_item(self):
         pass
@@ -911,8 +1052,10 @@ class Ui_snapshotItemWidget(QtGui.QWidget, ui_item_snapshot.Ui_snapshotItem):
         self.expand_state = False
         self.selected_state = False
         self.children_states = None
+        self.multiple_checkin = False
 
         self.search_widget = parent
+
         self.relates_to = 'checkin_out'
 
         self.files = {}
@@ -924,38 +1067,173 @@ class Ui_snapshotItemWidget(QtGui.QWidget, ui_item_snapshot.Ui_snapshotItem):
         self.create_ui()
 
     def create_ui(self):
-        hidden = ['icon', 'web', 'playblast']
+        self.drop_wdg = QtGui.QWidget(self)
+        self.drop_wdg.setHidden(True)
+
+        self.setMinimumWidth(260)
+
+        self.create_item_info_widget()
+
+        self.dateLabel = self.get_item_info_label()
+        self.verLabel = self.get_item_info_label()
+        self.verLabel.setTextFormat(QtCore.Qt.RichText)
+        self.revLabel = self.get_item_info_label()
+        self.revLabel.setTextFormat(QtCore.Qt.RichText)
+        self.repoLabel = self.get_item_info_label()
+        self.repoLabel.setTextFormat(QtCore.Qt.RichText)
+
+        self.itemColorLine.setStyleSheet('QFrame { border: 0px; background-color: black;}')
 
         if self.snapshot:
+
+            self.item_info_widget.add_item(self.dateLabel)
+            if gf.get_ver_rev(ver=self.snapshot['version'], rev=0):
+                self.item_info_widget.add_item(self.verLabel)
+            if gf.get_ver_rev(rev=self.snapshot['revision'], ver=0):
+                self.item_info_widget.add_item(self.revLabel)
+            if self.snapshot.get('repo'):
+                self.sizeLabel.setStyleSheet(self.get_repo_color())
+                repo_name = env_tactic.get_base_dir(self.snapshot['repo'])['value'][1]
+                hex_color = ['{:02x}'.format(i) for i in self.get_repo_color(True)]
+                self.repoLabel.setTextFormat(QtCore.Qt.RichText)
+                self.repoLabel.setText('<span style="color:#{0};">{1}</span>'.format(
+                    ''.join(hex_color),
+                    repo_name
+                ))
+                self.item_info_widget.add_item(self.repoLabel)
+
             self.check_main_file()
 
             self.commentLabel.setText(gf.to_plain_text(self.snapshot['description'], 80))
             self.dateLabel.setText(self.snapshot['timestamp'].split('.')[0].replace(' ', ' \n'))
             self.authorLabel.setText(self.snapshot['login'] + ':')
-            self.verRevLabel.setText(gf.get_ver_rev(self.snapshot['version'], self.snapshot['revision']))
+            self.verLabel.setText(gf.get_ver_rev(ver=self.snapshot['version'], rev=0))
+            self.revLabel.setText(gf.get_ver_rev(rev=self.snapshot['revision'], ver=0))
 
-            file_ext = 'err'
-            for key, fl in self.files.iteritems():
+            hidden = ['icon', 'web', 'playblast']
+            snapshot = self.get_snapshot()
+            files_objects = snapshot.get_files_objects(group_by='type')
+
+            for key, fls in files_objects.items():
                 if key not in hidden:
-                    if self.snapshot.get('repo'):
-                        self.sizeLabel.setStyleSheet(self.get_repo_color())
-                    if not self.isEnabled():
-                        self.fileNameLabel.setText('{0}, (File Missing)'.format(fl[0]['file_name']))
-                    else:
-                        self.fileNameLabel.setText(fl[0]['file_name'])
-                    file_ext = gf.get_ext(fl[0]['file_name'])
-                    # print fl
-                    self.sizeLabel.setText(gf.sizes(fl[0]['st_size']))
-
-            if not self.set_preview():
-                self.previewLabel.setText(
-                    '<span style=" font-size:12pt; font-weight:600; color:#828282;">{0}</span>'.format(file_ext)
-                )
+                    if len(fls) > 1:
+                        self.fill_info_with_multiple_checkin(fls)
+                    elif len(fls) != 0:
+                        if fls[0].is_meta_file_obj():
+                            file_obj = fls[0].get_meta_file_object()
+                            self.fill_info_with_meta_file_object(file_obj, fls[0])
+                        else:
+                            self.fill_info_with_tactic_file_object(fls[0])
         else:
             if self.get_checkin_mode_options() == 'multi_file':
                 self.set_multiple_files_view()
             else:
                 self.set_no_versionless_view()
+
+    def set_drop_indicator_on(self):
+        if self.drop_wdg.isHidden():
+            self.lay = QtGui.QVBoxLayout(self.drop_wdg)
+            self.lay.setSpacing(0)
+            self.lay.setContentsMargins(0, 0, 0, 0)
+            self.drop_wdg.setLayout(self.lay)
+            self.drop_wdg.setStyleSheet('QLabel {padding: 0px;border: 0px dashed grey; background-color: rgba(0,0,100,128);}')
+            self.label = QtGui.QLabel('DROP HERE')
+            self.lay.addWidget(self.label)
+            self.drop_wdg.show()
+            self.drop_wdg.resize(self.size())
+
+    def set_drop_indicator_off(self):
+        self.drop_wdg.setHidden(True)
+
+    def fill_info_with_multiple_checkin(self, files_list):
+        self.set_is_multiple_checkin(True)
+        pixmap = gf.get_icon('folder', icons_set='ei', opacity=0.5, scale_factor=0.5).pixmap(64, Qt4Gui.QIcon.Normal)
+        self.previewLabel.setPixmap(pixmap.scaledToHeight(64, QtCore.Qt.SmoothTransformation))
+        self.fileNameLabel.setText('Multiple files | {0}'.format(len(files_list)))
+        self.sizeLabel.deleteLater()
+
+    def fill_info_with_meta_file_object(self, meta_file_object, tactic_file_object):
+        if not self.isEnabled():
+            self.fileNameLabel.setText('{0}, (File Missing)'.format(meta_file_object.get_pretty_file_name()))
+        else:
+            self.fileNameLabel.setText(meta_file_object.get_pretty_file_name())
+
+        self.sizeLabel.setText(gf.sizes(tactic_file_object.get_file_size()))
+
+        if not self.set_preview():
+            file_ext = tactic_file_object.get_ext()
+            if not file_ext:
+                file_ext = 'err'
+            self.previewLabel.setText(
+                '<span style=" font-size:12pt; font-weight:600; color:#828282;">{0}</span>'.format(file_ext))
+
+        # getting extra info from meta
+        seq_range = meta_file_object.get_sequence_frameranges_string(brackets='[]')
+        frames_count = meta_file_object.get_sequence_lenght()
+        layer = meta_file_object.get_layer()
+        tiles = meta_file_object.get_tiles_count()
+        metadata = tactic_file_object.get_metadata()
+        maya_version = None
+        if metadata:
+            app_info = metadata.get('app_info')
+            if app_info:
+                maya_version = app_info.get('p')
+        snapshot = self.get_snapshot()
+        if snapshot:
+            if snapshot.is_latest():
+                self.isLatestLabel = self.get_item_info_label()
+                self.isLatestLabel.setTextFormat(QtCore.Qt.RichText)
+                self.isLatestLabel.setText('<span style="color:#2eb82e;">Latest</span>')
+                self.item_info_widget.add_item(self.isLatestLabel)
+        if seq_range:
+            self.framerange_label = self.get_item_info_label()
+            self.item_info_widget.add_item(self.framerange_label)
+            self.framerange_label.setText(seq_range)
+        if frames_count:
+            self.frames_count_label = self.get_item_info_label()
+            self.item_info_widget.add_item(self.frames_count_label)
+            self.frames_count_label.setText('Frames: {0}'.format(frames_count))
+        if layer:
+            self.flayer_label = self.get_item_info_label()
+            self.item_info_widget.add_item(self.flayer_label)
+            self.flayer_label.setText(layer)
+        if tiles:
+            self.tiles_label = self.get_item_info_label()
+            self.item_info_widget.add_item(self.tiles_label)
+            self.tiles_label.setText('Tiles: {0}'.format(tiles))
+        if maya_version:
+            self.mayaVerLabel = self.get_item_info_label()
+            self.item_info_widget.add_item(self.mayaVerLabel)
+            self.mayaVerLabel.setText(maya_version)
+
+    def fill_info_with_tactic_file_object(self, tactic_file_object):
+        if not self.isEnabled():
+            self.fileNameLabel.setText('{0}, (File Missing)'.format(tactic_file_object.get_filename_with_ext()))
+        else:
+            self.fileNameLabel.setText(tactic_file_object.get_filename_with_ext())
+
+        self.sizeLabel.setText(gf.sizes(tactic_file_object.get_file_size()))
+
+        if not self.set_preview():
+            file_ext = tactic_file_object.get_ext()
+            if not file_ext:
+                file_ext = 'err'
+            self.previewLabel.setText(
+                '<span style=" font-size:12pt; font-weight:600; color:#828282;">{0}</span>'.format(file_ext))
+
+    @staticmethod
+    def get_item_info_label():
+        font = Qt4Gui.QFont()
+        font.setPointSize(7)
+        label = QtGui.QLabel()
+        label.setFont(font)
+        label.setTextFormat(QtCore.Qt.PlainText)
+        label.setAlignment(QtCore.Qt.AlignCenter)
+        return label
+
+    def create_item_info_widget(self):
+        self.item_info_widget = Ui_infoItemsWidget(self)
+        self.infoHorizontalLayout.addWidget(self.item_info_widget)
 
     def is_versionless(self):
         snapshot = self.get_snapshot()
@@ -973,7 +1251,7 @@ class Ui_snapshotItemWidget(QtGui.QWidget, ui_item_snapshot.Ui_snapshotItem):
         self.tree_item.setExpanded(state)
 
     def get_selected_state(self):
-        return self.expand_state
+        return self.selected_state
 
     def set_selected_state(self, state):
         self.selected_state = state
@@ -982,6 +1260,12 @@ class Ui_snapshotItemWidget(QtGui.QWidget, ui_item_snapshot.Ui_snapshotItem):
     def set_children_states(self, states):
         self.children_states = states
 
+    def set_is_multiple_checkin(self, is_multiple):
+        self.multiple_checkin = is_multiple
+
+    def get_is_multiple_checkin(self):
+        return self.multiple_checkin
+
     def check_main_file(self):
         snapshot = self.get_snapshot()
         if snapshot:
@@ -989,14 +1273,17 @@ class Ui_snapshotItemWidget(QtGui.QWidget, ui_item_snapshot.Ui_snapshotItem):
             if files_objects:
                 first_file = files_objects[0]
                 if first_file:
-                    # meta_file_object = first_file.get_meta_file_object()
-                    # print meta_file_object, 'From ui_item_classes'
-                    # if meta_file_object:
-                    #     print meta_file_object.get_all_files_list()
-                    if first_file.is_exists():
-                        self.setEnabled(True)
+                    if first_file.is_meta_file_obj():
+                        meta_file_object = first_file.get_meta_file_object()
+                        if meta_file_object.is_exists():
+                            self.setEnabled(True)
+                        else:
+                            self.setDisabled(True)
                     else:
-                        self.setDisabled(True)
+                        if first_file.is_exists():
+                            self.setEnabled(True)
+                        else:
+                            self.setDisabled(True)
 
     def set_multiple_files_view(self):
         pixmap = gf.get_icon('folder-sign', icons_set='ei', opacity=0.5, scale_factor=0.5).pixmap(64, Qt4Gui.QIcon.Normal)
@@ -1028,7 +1315,28 @@ class Ui_snapshotItemWidget(QtGui.QWidget, ui_item_snapshot.Ui_snapshotItem):
                     previw_abs_path = icon_previw.get_full_abs_path()
                     pixmap = Qt4Gui.QPixmap(previw_abs_path)
                     if not pixmap.isNull():
-                        self.previewLabel.setPixmap(pixmap.scaledToHeight(64, QtCore.Qt.SmoothTransformation))
+
+                        pixmap = pixmap.scaledToHeight(64, QtCore.Qt.SmoothTransformation)
+
+                        painter = Qt4Gui.QPainter()
+                        pixmap_mask = Qt4Gui.QPixmap(64, 64)
+                        pixmap_mask.fill(QtCore.Qt.transparent)
+                        painter.begin(pixmap_mask)
+                        painter.setRenderHint(Qt4Gui.QPainter.Antialiasing)
+                        painter.setBrush(Qt4Gui.QBrush(Qt4Gui.QColor(0, 0, 0, 255)))
+                        painter.drawRoundedRect(QtCore.QRect(0, 0, 64, 64), 4, 4)
+                        painter.end()
+
+                        rounded_pixmap = Qt4Gui.QPixmap(pixmap.size())
+                        rounded_pixmap.fill(QtCore.Qt.transparent)
+                        painter.begin(rounded_pixmap)
+                        painter.setRenderHint(Qt4Gui.QPainter.Antialiasing)
+                        painter.drawPixmap(QtCore.QRect((pixmap.width() - 64) / 2, 0, 64, 64), pixmap_mask)
+                        painter.setCompositionMode(Qt4Gui.QPainter.CompositionMode_SourceIn)
+                        painter.drawPixmap(0, 0, pixmap)
+                        painter.end()
+
+                        self.previewLabel.setPixmap(rounded_pixmap)
                         return True
                     else:
                         return False
@@ -1064,6 +1372,8 @@ class Ui_snapshotItemWidget(QtGui.QWidget, ui_item_snapshot.Ui_snapshotItem):
         return current_tree.indexFromItem(self.get_parent_item())
 
     def get_parent_item(self):
+        # temporary duckt tape
+        self.tree_item = self.get_current_tree_widget().currentItem()
         return self.tree_item.parent()
 
     def get_parent_item_widget(self):
@@ -1086,17 +1396,20 @@ class Ui_snapshotItemWidget(QtGui.QWidget, ui_item_snapshot.Ui_snapshotItem):
             if parent_item_widget.type == 'snapshot':
                 # if we have snapshot, so go upper to get parent of upper snapshot
                 parent_item_widget = parent_item_widget.get_parent_item_widget()
-                parent_item_widget.update_items()
+                # TODO. SOMETHING STRANGE HERE, we need to refresh after update
+                if parent_item_widget != self:
+                    parent_item_widget.update_items()
             else:
                 parent_item_widget.update_items()
 
-    def get_repo_color(self):
+    def get_repo_color(self, only_color=False):
         config = cfg_controls.get_checkin()
         if config:
             repo_colors = env_tactic.get_base_dir(self.snapshot['repo'])['value'][2]
         else:
             repo_colors = [96, 96, 96]
-
+        if only_color:
+            return repo_colors
         stylesheet = 'QLabel{background: qlineargradient(spread:pad, x1:0, y1:0, x2:1, y2:0, stop:0 rgba(255, 255, 255, 0), stop:1 rgba(%s, %s, %s, 96));' \
                      'border - bottom: 2px solid qlineargradient(spread:pad, x1:0, y1:0, x2:1, y2:0, stop:0 rgba(255, 255, 255, 0), stop:1 rgba(128, 128, 128, 175));' \
                      'padding: 0px;}' % tuple(repo_colors)
@@ -1182,7 +1495,7 @@ class Ui_snapshotItemWidget(QtGui.QWidget, ui_item_snapshot.Ui_snapshotItem):
     def delete_current_sobject(self):
 
         snapshot = self.get_snapshot()
-        print 'DELETING', snapshot
+        # print 'DELETING FROM ITEM', snapshot
         snapshot.delete_sobject()
 
     def get_skey(self, skey=False, only=False, parent=False):
@@ -1209,16 +1522,26 @@ class Ui_snapshotItemWidget(QtGui.QWidget, ui_item_snapshot.Ui_snapshotItem):
 
     @gf.catch_error
     def expand_tree_item(self):
+        if not self.info['is_expanded']:
+            self.info['is_expanded'] = True
         # Duct tape, to fix buggy items drawings
-        tree_widget = self.get_current_tree_widget()
-        tree_widget.resize(tree_widget.width() + 1, tree_widget.height())
-        tree_widget.resize(tree_widget.width() - 1, tree_widget.height())
+        # tree_widget = self.get_current_tree_widget()
+        # tree_widget.resize(tree_widget.width() + 4, tree_widget.height())
+        # tree_widget.resize(tree_widget.width() - 4, tree_widget.height())
+
+    @gf.catch_error
+    def expand_recursive(self):
+        gf.tree_recursive_expand(self.tree_item, True)
+
+    @gf.catch_error
+    def collapse_recursive(self):
+        gf.tree_recursive_expand(self.tree_item, False)
 
     def collapse_tree_item(self):
         pass
 
-    def resizeEvent(self, event):
-        self.tree_item.setSizeHint(0, QtCore.QSize(self.width(), 25 + self.commentLabel.height()))
+    # def resizeEvent(self, event):
+    #     self.tree_item.setSizeHint(0, QtCore.QSize(self.width(), 25 + self.commentLabel.height()))
 
     def mouseDoubleClickEvent(self, event):
         if self.relates_to == 'checkin':
@@ -1263,7 +1586,24 @@ class Ui_childrenItemWidget(QtGui.QWidget, ui_item_children.Ui_childrenItem):
         self.create_ui()
 
     def create_ui(self):
+        self.drop_wdg = QtGui.QWidget(self)
+        self.setMinimumWidth(260)
         self.addNewSObjectToolButton.setIcon(gf.get_icon('plus-square-o'))
+
+    def set_drop_indicator_on(self):
+        if self.drop_wdg.isHidden():
+            self.lay = QtGui.QVBoxLayout(self.drop_wdg)
+            self.lay.setSpacing(0)
+            self.lay.setContentsMargins(0, 0, 0, 0)
+            self.drop_wdg.setLayout(self.lay)
+            self.drop_wdg.setStyleSheet('QLabel {padding: 0px;border: 0px dashed grey; background-color: rgba(0,0,100,128);}')
+            self.label = QtGui.QLabel('DROP HERE')
+            self.lay.addWidget(self.label)
+            self.drop_wdg.show()
+            self.drop_wdg.resize(self.size())
+
+    def set_drop_indicator_off(self):
+        self.drop_wdg.setHidden(True)
 
     def get_expand_state(self):
         return self.expand_state
@@ -1273,7 +1613,7 @@ class Ui_childrenItemWidget(QtGui.QWidget, ui_item_children.Ui_childrenItem):
         self.tree_item.setExpanded(state)
 
     def get_selected_state(self):
-        return self.expand_state
+        return self.selected_state
 
     def set_selected_state(self, state):
         self.selected_state = state
@@ -1348,14 +1688,25 @@ class Ui_childrenItemWidget(QtGui.QWidget, ui_item_children.Ui_childrenItem):
 
     @gf.catch_error
     def expand_tree_item(self):
+        # if not self.info['is_expanded']:
+        #     self.info['is_expanded'] = True
+
         self.add_child_sobjects()
         self.childrenToolButton.setCheckable(True)
         self.childrenToolButton.setChecked(True)
 
         # Duct tape, to fix buggy items drawings
-        tree_widget = self.get_current_tree_widget()
-        tree_widget.resize(tree_widget.width() + 1, tree_widget.height())
-        tree_widget.resize(tree_widget.width() - 1, tree_widget.height())
+        # tree_widget = self.get_current_tree_widget()
+        # tree_widget.resize(tree_widget.width() + 4, tree_widget.height())
+        # tree_widget.resize(tree_widget.width() - 4, tree_widget.height())
+
+    @gf.catch_error
+    def expand_recursive(self):
+        gf.tree_recursive_expand(self.tree_item, True)
+
+    @gf.catch_error
+    def collapse_recursive(self):
+        gf.tree_recursive_expand(self.tree_item, False)
 
     def collapse_tree_item(self):
         self.childrenToolButton.setChecked(False)

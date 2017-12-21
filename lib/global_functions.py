@@ -20,7 +20,7 @@ from lib.side.Qt import QtWidgets as QtGui
 from lib.side.Qt import QtGui as Qt4Gui
 from lib.side.Qt import QtCore
 
-from environment import env_mode, env_tactic
+from environment import env_mode, env_tactic, env_inst
 
 
 def catch_error(func):
@@ -107,11 +107,10 @@ def show_message_predefined(title, message, stacktrace=None, buttons=None, paren
 
         from lib.ui_classes import ui_misc_classes
 
-        collapse_wdg = ui_misc_classes.Ui_collapsableWidget()
+        collapse_wdg = ui_misc_classes.Ui_collapsableWidget(state=True)
         collapse_wdg.setLayout(layout)
         collapse_wdg.setText('Hide Stacktrace')
         collapse_wdg.setCollapsedText('Show Stacktrace')
-        collapse_wdg.setCollapsed(True)
 
         msb_layot = message_box.layout()
 
@@ -297,13 +296,15 @@ def minify_code(source, pack=False):
         return reduce_op
 
 
-def get_ver_rev(ver, rev):
+def get_ver_rev(ver=None, rev=None):
     if ver > 0 and rev > 0:
         result = '<span style="color:#008498;">Ver: {0:03d};</span><span style="color:#0a9800;"> Rev: {1:03d}</span>'.format(
             ver,
             rev)
     elif ver > 0 and rev == 0:
-        result = '<span style="color:#008498;">Ver: {0:03d}</span>'.format(ver, rev)
+        result = '<span style="color:#008498;">Ver: {0:03d}</span>'.format(ver)
+    elif ver == 0 and rev > 0:
+        result = '<span style="color:#0a9800;"> Rev: {0:03d}</span>'.format(rev)
     else:
         result = ''
 
@@ -613,11 +614,15 @@ def create_tab_label(tab_name, stype):
         effect.setBlurRadius(8)
         tab_label.setGraphicsEffect(effect)
 
-        tab_color_rgb = hex_to_rgb(tab_color, alpha=20)
+        tab_color_rgb = hex_to_rgb(tab_color, alpha=128)
         tab_label.setStyleSheet('QLabel {' +
-                                'background: qlineargradient(spread:pad, x1:0, y1:0, x2:1, y2:0, stop:0 rgba(0, 0, 0, 0), stop:0.2 {0}, stop:0.8 {0}, stop:1 rgba(0, 0, 0, 0));'.format(
-                                    tab_color_rgb) +
-                                '}')
+                                'background-color: transparent;    border-bottom: 1px solid {0};'.format(tab_color_rgb) +
+                                ' }')
+
+        # tab_label.setStyleSheet('QLabel {' +
+        #                         'background: qlineargradient(spread:pad, x1:0, y1:0, x2:1, y2:0, stop:0 rgba(0, 0, 0, 0), stop:0.2 {0}, stop:0.8 {0}, stop:1 rgba(0, 0, 0, 0));'.format(
+        #                             tab_color_rgb) +
+        #                         '}')
     return tab_label
 
 
@@ -648,6 +653,7 @@ def add_item_to_tree(tree_widget, tree_item, tree_item_widget=None, insert_pos=N
         else:
             tree_widget.addTopLevelItem(tree_item)
         if tree_item_widget:
+            tree_widget.resizeColumnToContents(0)
             tree_widget.setItemWidget(tree_item, 0, tree_item_widget)
     else:
         if insert_pos is not None:
@@ -655,7 +661,10 @@ def add_item_to_tree(tree_widget, tree_item, tree_item_widget=None, insert_pos=N
         else:
             tree_widget.addChild(tree_item)
         if tree_item_widget:
+            tree_widget.treeWidget().resizeColumnToContents(0)
             tree_widget.treeWidget().setItemWidget(tree_item, 0, tree_item_widget)
+
+    # QtGui.QApplication.processEvents()
 
 
 def add_sobject_item(parent_item, parent_widget, sobject, stype, item_info, insert_pos=None, ignore_dict=None):
@@ -823,6 +832,28 @@ def expand_to_snapshot(parent, tree_widget):
                                 tree_widget.scrollToItem(child_item)
 
 
+def tree_recursive_expand(wdg, state):
+    """ Expanding tree to the ground"""
+
+    if type(wdg) == QtGui.QTreeWidget:
+        items_count = wdg.topLevelItemCount()
+        tree_item = wdg.topLevelItem
+        tree_wdg = wdg
+    else:
+        items_count = wdg.childCount()
+        tree_item = wdg.child
+        tree_wdg = wdg.treeWidget()
+
+    for i in range(items_count):
+        item = tree_item(i)
+        item.setExpanded(state)
+        item_wdg = tree_wdg.itemWidget(item, 0)
+        if state:
+            item_wdg.expand_recursive()
+        else:
+            item_wdg.collapse_recursive()
+
+
 def tree_state(wdg, state_dict):
     """ Recursive getting data from each tree item"""
 
@@ -854,7 +885,6 @@ def tree_state(wdg, state_dict):
 
 def tree_state_revert(wdg, state_dict):
     """ Recursive setting data to each tree item"""
-
     if type(wdg) == QtGui.QTreeWidget:
         lv = wdg.topLevelItemCount()
         tree_item = wdg.topLevelItem
@@ -929,11 +959,6 @@ def file_format(ext):
         return [low_case_ext, low_case_ext, 'main', 'file']
 
 
-def get_ext(file_name):
-    # func for possible future needs
-    return file_name.split('.', -1)[-1]
-
-
 def extract_extension(filename):
     base_filename = unicode(os.path.basename(filename))
     ext = base_filename.split('.', -1)
@@ -975,6 +1000,16 @@ def open_file_associated(filepath):
             os.startfile(filepath)
 
 
+def open_folder(filepath):
+    if filepath:
+        if env_mode.get_platform() == 'Linux':
+            subprocess.call(('nautilus', '-s', filepath))
+        elif env_mode.get_platform() == 'Windows':
+            subprocess.call(u'explorer /select, "{0}"'.format(filepath))
+        else:
+            os.startfile(filepath)
+
+
 def form_path(path):
     if env_mode.get_platform() == 'Linux':
         formed_path = path.replace('\\', '/').replace('\\\\', '/').replace('//', '/')
@@ -993,7 +1028,8 @@ def get_st_size(file_path):
                 total_size += os.stat(fl)[ST_SIZE]
         return total_size
     else:
-        return os.stat(file_path)[ST_SIZE]
+        if os.path.exists(file_path):
+            return os.stat(file_path)[ST_SIZE]
 
 
 def get_file_asset_dir(item):
@@ -1079,6 +1115,7 @@ class FileObject(object):
         self._files_list = []
         self._file_path = None
         self._file_name = None
+        self._sizes_list = []
         self._new_filename = None
         self._new_filepath = None
         self._new_frame_padding = None
@@ -1096,6 +1133,7 @@ class FileObject(object):
         self._sequence_start = None
         self._sequence_end = None
         self._sequence_missing_frames = None
+        self._app_info = None
 
         self._tiles_count = None
         self._tiles = []
@@ -1167,9 +1205,14 @@ class FileObject(object):
             metadata_dict['udims'] = self.get_tiles()
         if self.get_type():
             metadata_dict['type'] = self.get_type()
+        if not self._sizes_list:
+            metadata_dict['st_sizes'] = self.get_sizes_list()
+        if self._sizes_list:
+            metadata_dict['st_size'] = self.get_sizes_list(together=True)
+        if self.get_app_info():
+            metadata_dict['app_info'] = self.get_app_info()
         if self._template:
             metadata_dict['template'] = self._template['pattern_string']
-
         if self._new_filename:
             metadata_dict['new_filename'] = self._new_filename[0]
             metadata_dict['new_file_part'] = self._new_filename[1]
@@ -1181,6 +1224,15 @@ class FileObject(object):
 
         return metadata_dict
 
+    def get_app_info(self):
+        return self._app_info
+
+    def set_app_info(self, app_info_dict):
+        if app_info_dict:
+            self._app_info = app_info_dict
+        else:
+            self._app_info = None
+
     def get_type(self):
         return self._type
 
@@ -1190,21 +1242,55 @@ class FileObject(object):
         else:
             self._type = 'file'
 
+    def get_sizes_list(self, together=False, files_list=None):
+        if self._sizes_list:
+            if together:
+                return sum(self._sizes_list)
+            else:
+                return self._sizes_list
+
+        sizes_list = []
+        if not files_list:
+            files_list = self.get_all_files_list()
+        for fl in files_list:
+            size = get_st_size(fl)
+            if size:
+                sizes_list.append(size)
+
+        if sizes_list:
+            if together:
+                return sum(sizes_list)
+            else:
+                return sizes_list
+
+    def set_sizes_list(self, _sizes_list):
+        if _sizes_list:
+            self._sizes_list = _sizes_list
+
     def get_file_type(self):
         return extract_extension(self.get_abs_file_name())
 
     def get_file_path(self):
         return extract_dirname(self.get_abs_file_name())
 
-    def get_all_files_list(self, first=False):
+    def get_all_files_list(self, first=False, filenames=False, no_ext=False):
+
+        if filenames:
+            # Only for external calls
+            file_names_list = []
+            for fld in self.get_all_files_dicts():
+                file_names_list.append(form_path(self.get_abs_file_name(fld, filename=True, no_ext=no_ext)))
+            return sorted(file_names_list)
+
         if not self._files_list:
             for fld in self.get_all_files_dicts():
                 self._files_list.append(form_path(self.get_abs_file_name(fld)))
+            self._files_list = sorted(self._files_list)
 
         if first:
             return form_path(self._files_list[0])
         else:
-            return self._files_list
+            return sorted(self._files_list)
 
     def get_all_files_dicts(self, first=False):
         if first:
@@ -1238,9 +1324,9 @@ class FileObject(object):
 
         return order_format
 
-    def get_all_new_files_list(self, new_filename=None, new_filepath=None, new_frame_padding=4, no_ext=False, new_template='$FILENAME.$LAYER_$UDIM/UV.$FRAME.$EXT'):
+    def get_all_new_files_list(self, new_filename=None, new_filepath=None, new_frame_padding=None, no_ext=False, new_template='$FILENAME.$LAYER_$UDIM/UV.$FRAME.$EXT'):
         """
-        This can only be used onece, it creates metadata with new data, and returning list with new filenames.
+        This can only be used once, it creates metadata with new data, and returning list with new file names.
 
         :param new_filename:
         :param new_filepath:
@@ -1525,6 +1611,15 @@ class FileObject(object):
     def get_tiles(self):
         return self._tiles
 
+    def is_exists(self, check_all_files=False):
+        if check_all_files:
+            exist = False
+            for fl in self.get_all_files_list():
+                exist = os.path.exists(fl)
+            return exist
+        else:
+            return os.path.exists(self.get_all_files_list(True))
+
     def open_file(self):
         open_file_associated(form_path(self.get_all_files_list(True)))
 
@@ -1742,8 +1837,11 @@ class MatchTemplate(object):
 
         return self.match_by_template(set(files_list), templates, template_names)
 
-    def get_files_objects(self, files_list, allow_single_sequence=False, allow_single_udim=False):
-        found_files = self.get_files(natsort.realsorted(files_list))
+    def get_files_objects(self, files_list, allow_single_sequence=False, allow_single_udim=False, sort=True):
+        if sort:
+            found_files = self.get_files(natsort.realsorted(files_list))
+        else:
+            found_files = self.get_files(files_list)
         out_dict = collections.defaultdict(list)
 
         single_sequences_and_udims = []
@@ -1783,7 +1881,7 @@ class MatchTemplate(object):
             udims_list = self.unpack_udims(metadata.get('frameranges'))
             for udim, frames in udims_list:
                 for frame in frames:
-                    name = self.updack_name(
+                    name = self.unpack_name(
                         pattern,
                         separators,
                         metadata.get('new_filename'),
@@ -1796,7 +1894,7 @@ class MatchTemplate(object):
         elif metadata.get('type') in ['layer_uv', 'layer_udim', 'uv', 'udim']:
             udims_list = metadata.get('udims')
             for udim in udims_list:
-                name = self.updack_name(
+                name = self.unpack_name(
                     pattern,
                     separators,
                     metadata.get('new_filename'),
@@ -1807,9 +1905,9 @@ class MatchTemplate(object):
                 )
                 files_list.append('%s/%s' % (path, name))
         elif metadata.get('type') in ['sequence', 'layer_sequence']:
-            frames_list = metadata.get('frameranges')
+            frames_list = self.unpack_frames(metadata.get('frameranges'))
             for frame in frames_list:
-                name = self.updack_name(
+                name = self.unpack_name(
                     pattern,
                     separators,
                     metadata.get('new_filename'),
@@ -1820,7 +1918,7 @@ class MatchTemplate(object):
                 )
                 files_list.append('%s/%s' % (path, name))
         elif metadata.get('type') in ['layer_file', 'file', 'no_ext']:
-            name = self.updack_name(
+            name = self.unpack_name(
                 pattern,
                 separators,
                 metadata.get('new_filename'),
@@ -1833,7 +1931,7 @@ class MatchTemplate(object):
 
         self.__init__(
             [metadata.get('new_template')],
-            padding=int(metadata.get('new_padding')),
+            padding=metadata.get('new_padding'),
             # add_default_patterns=True
         )
         files_objects_dict = self.get_files_objects(files_list)
@@ -1841,7 +1939,7 @@ class MatchTemplate(object):
         return files_objects_dict
 
     @staticmethod
-    def updack_name(pattern, separators, file_name=None, file_ext=None, udim=None, frame=None, layer=None):
+    def unpack_name(pattern, separators, file_name=None, file_ext=None, udim=None, frame=None, layer=None):
         result_name = []
 
         for p, s in zip(pattern, separators):

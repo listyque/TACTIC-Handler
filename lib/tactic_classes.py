@@ -165,11 +165,10 @@ def show_message_predefined(title, message, stacktrace=None, buttons=None, paren
     if stacktrace:
         layout = QtGui.QVBoxLayout()
 
-        collapse_wdg = ui_misc_classes.Ui_collapsableWidget()
+        collapse_wdg = ui_misc_classes.Ui_collapsableWidget(state=True)
         collapse_wdg.setLayout(layout)
         collapse_wdg.setText('Hide Stacktrace')
         collapse_wdg.setCollapsedText('Show Stacktrace')
-        collapse_wdg.setCollapsed(True)
 
         msb_layot = message_box.layout()
 
@@ -679,6 +678,13 @@ class SType(object):
             else:
                 return self.info['table_name'].title()
 
+    def get_stype_color(self, fmt='rgb', alpha=None, tuple=False):
+        color = self.info['color']
+        if color:
+            if fmt == 'rgb':
+                return gf.hex_to_rgb(color, alpha=alpha, tuple=tuple)
+            else:
+                return color
 
 class Schema(object):
     def __init__(self, schema_dict):
@@ -1054,6 +1060,9 @@ class Snapshot(SObject, object):
     def get_version(self):
         return self.snapshot.get('version')
 
+    def is_latest(self):
+        return self.snapshot.get('is_latest')
+
     def is_versionless(self):
         if self.get_version() == -1:
             return True
@@ -1105,17 +1114,17 @@ class File(object):
         return self.__file['base_type']
 
     def get_ext(self):
-        ext = gf.get_ext(self.__file['file_name'])
-        return ext
+        ext = gf.extract_extension(self.__file['file_name'])
+        return ext[0]
 
     def get_filename_with_ext(self):
         return self.__file['file_name']
 
     def get_filename(self):
         filename = self.__file['file_name']
-        ext = gf.get_ext(filename)
+        ext = gf.extract_extension(filename)
         if ext:
-            return filename.replace('.' + ext, '')
+            return filename.replace('.' + ext[0], '')
         else:
             return filename
 
@@ -1158,10 +1167,10 @@ class File(object):
             return True
 
         previewable = False
-        ext = gf.get_ext(self.__file['file_name'])
+        ext = gf.extract_extension(self.__file['file_name'])
         if self.__file['type'] in ['icon', 'web', 'image', 'playblast']:
             return True
-        elif gf.file_format(ext)[3] == 'preview':
+        elif ext[3] == 'preview':
             previewable = True
 
         self.previewable = previewable
@@ -1196,7 +1205,7 @@ class File(object):
         gf.open_file_associated(self.get_full_abs_path())
 
     def open_folder(self):
-        gf.open_file_associated(self.get_abs_path())
+        gf.open_folder(self.get_full_abs_path())
 
 # End of SObject Class
 
@@ -1291,7 +1300,7 @@ def get_sobjects(process_list=None, sobjects_list=None, get_snapshots=True, proj
         for sobject in sobjects_list:
             snapshots[sobject['code']].append(sobject)
 
-        # creating dict or ready SObjects
+        # creating dict of ready SObjects
         for k, v in snapshots.iteritems():
             sobjects[k] = SObject(v[-1], process_codes, env_inst.projects[project_code])
             sobjects[k].init_snapshots(v[:-1])
@@ -1346,8 +1355,16 @@ def assets_query_new(query, stype, columns=None, project=None, limit=0, offset=0
         filters = []
 
     built_process = server.build_search_type(stype, project)
+    # print s_code
+    import time
+
+    start = time.time()
+    print("start getting sobjects names")
 
     assets_list = server.query(built_process, filters, columns, order_bys, limit=limit, offset=offset)
+
+    end = time.time()
+    print(end - start)
 
     # print assets_list
     return assets_list
@@ -1548,7 +1565,6 @@ def save_confirm(item_widget, paths, repo, context, update_versionless=True, des
     msb_layot.addWidget(wdg_list[1], 0, 1)
     msb_layot.addWidget(wdg_list[2], 2, 1)
     msb_layot.addWidget(widget, 1, 1)
-
     delete_sobj_widget = ui_dialogs_classes.saveConfirmWidget(item_widget, paths, repo, context, update_versionless, description)
 
     layout.addWidget(delete_sobj_widget)
@@ -1557,7 +1573,6 @@ def save_confirm(item_widget, paths, repo, context, update_versionless=True, des
     msb.addButton("No", QtGui.QMessageBox.NoRole)
     msb.exec_()
     reply = msb.buttonRole(msb.clickedButton())
-
     if reply == QtGui.QMessageBox.YesRole:
         return delete_sobj_widget.get_data_dict()
     else:
@@ -1593,9 +1608,7 @@ def checkin_virtual_snapshot(search_key, context, files_dict, snapshot_type='fil
     result = server_start().execute_python_script('', kwargs=code)
 
     virtual_snapshot = json.loads(result['info']['spt_ret_val'])
-
     data_dict = save_confirm(item_widget, virtual_snapshot, repo, context, update_versionless, description)
-
     if data_dict:
         data_dict['virtual_snapshot'] = virtual_snapshot
         return data_dict
@@ -1631,18 +1644,27 @@ def checkin_snapshot(search_key, context, snapshot_type=None, is_revision=False,
                                                         v1['versionless']['paths'],
                                                         v1['versionless']['names'],
                                                         v2['t']):
-            file_full_path = u'{0}/{1}/{2}'.format(repo, path_v, ''.join(name_v))
-            files_info['version_files'].append(file_full_path)
+            file_path_v = u'{0}/{1}'.format(repo, path_v)
+            file_full_path_v = u'{0}/{1}'.format(file_path_v, ''.join(name_v))
+            files_info['version_files'].append(file_full_path_v)
             files_info['version_files_paths'].append(path_v)
-            file_full_path_vs = u'{0}/{1}/{2}'.format(repo, path_vs, ''.join(name_vs))
+            file_path_vs = u'{0}/{1}'.format(repo, path_v)
+            file_full_path_vs = u'{0}/{1}'.format(file_path_vs, ''.join(name_vs))
             files_info['versionless_files'].append(file_full_path_vs)
             files_info['versionless_files_paths'].append(path_vs)
             files_info['files_types'].append(tp)
-            file_object.get_all_new_files_list(name_v, path_v)
+            new_files_list = file_object.get_all_new_files_list(name_v, file_path_v)
+            # print new_files_list
+            files_info['file_sizes'].append(file_object.get_sizes_list(together=True, files_list=new_files_list))
             files_info['version_metadata'].append(file_object.get_metadata())
-            file_object.get_all_new_files_list(name_vs, path_vs)
+            # print name_v, path_v, 'checking_snapshot_ver'
+            # print file_object.get_metadata()
+            file_object.get_all_new_files_list(name_vs, file_path_vs)
             files_info['versionless_metadata'].append(file_object.get_metadata())
-            files_info['file_sizes'].append(gf.get_st_size(file_object.get_all_new_files_list()))
+            # print name_vs, path_vs, 'checking_snapshot_versionless'
+            # print file_object.get_metadata()
+            # print file_object.get_sizes_list()
+            # print file_object.get_sizes_list(True)
 
     kwargs = {
         'search_key': search_key,
@@ -1841,7 +1863,7 @@ def generate_web_and_icon(source_image_path, web_save_path=None, icon_save_path=
             icon.save(icon_save_path)
 
 
-def inplace_checkin(file_paths, progress_bar, virtual_snapshot, repo_name, update_versionless, generate_icons=True, files_objects=None):
+def inplace_checkin(file_paths, progress_bar, virtual_snapshot, repo_name, update_versionless, generate_icons=True, files_objects=None, padding=None):
     check_ok = False
 
     def copy_file(dest_path, source_path):
@@ -1863,7 +1885,11 @@ def inplace_checkin(file_paths, progress_bar, virtual_snapshot, repo_name, updat
 
         for ver in versions:
             dest_path_vers = repo_name['value'][0] + '/' + val[ver]['paths'][0]
-            dest_files_vers = files_objects[i].get_all_new_files_list(val[ver]['names'][0], dest_path_vers)
+            # print file_paths
+            # print val[ver]['paths'], "val[ver]['paths']"
+            # print val[ver]['names']
+            dest_files_vers = files_objects[i].get_all_new_files_list(val[ver]['names'][0], dest_path_vers, new_frame_padding=padding)
+            # print dest_files_vers
 
             # create dest dirs
             if not os.path.exists(dest_path_vers):
@@ -1872,7 +1898,9 @@ def inplace_checkin(file_paths, progress_bar, virtual_snapshot, repo_name, updat
             # copy files to dest dir
             for j, fl in enumerate(file_paths[i]):
                 progress_bar.setValue(int(j * 100 / len(file_paths[i])))
-                check_ok = copy_file(dest_files_vers[j], fl)
+                # print dest_files_vers[j]
+                # print fl
+                check_ok = copy_file(gf.form_path(dest_files_vers[j]), gf.form_path(fl))
 
             if generate_icons and len(val[ver]['paths']) > 1:
                 dest_web_path_vers = gf.form_path(
@@ -1880,6 +1908,7 @@ def inplace_checkin(file_paths, progress_bar, virtual_snapshot, repo_name, updat
                     val[ver]['paths'][1]
                 )
                 dest_web_file_vers = files_objects[i].get_all_new_files_list(val[ver]['names'][1], dest_web_path_vers)
+                # print dest_web_file_vers, 'dest_web_file_vers'
 
                 dest_icon_path_vers = gf.form_path(
                     repo_name['value'][0] + '/' +
@@ -1887,6 +1916,7 @@ def inplace_checkin(file_paths, progress_bar, virtual_snapshot, repo_name, updat
                 )
                 dest_icon_file_vers = files_objects[i].get_all_new_files_list(val[ver]['names'][2],
                                                                               dest_icon_path_vers)
+                # print dest_icon_file_vers, 'dest_icon_file_vers'
                 if not os.path.exists(dest_web_path_vers):
                     os.makedirs(dest_web_path_vers)
                 if not os.path.exists(dest_icon_path_vers):
@@ -1908,7 +1938,7 @@ def inplace_checkin(file_paths, progress_bar, virtual_snapshot, repo_name, updat
 # Checkin functions
 def checkin_file(search_key, context, snapshot_type='file', is_revision=False, description=None, version=None,
                  update_versionless=True, file_types=None, file_names=None, file_paths=None, exts=None, subfolders=None,
-                 postfixes=None, metadata=None, keep_file_name=False, repo_name=None, mode=None, create_icon=True, parent_wdg=None,
+                 postfixes=None, metadata=None, padding=None, keep_file_name=False, repo_name=None, mode=None, create_icon=True, parent_wdg=None,
                  ignore_keep_file_name=False, checkin_app='standalone', selected_objects=False, ext_type='mayaAscii',
                  setting_workspace=False, checkin_type='file', files_dict=None, item_widget=None, files_objects=None):
     if not files_dict:
@@ -1920,7 +1950,10 @@ def checkin_file(search_key, context, snapshot_type='file', is_revision=False, d
             file_dict['s'] = [subfolders[i]]
             file_dict['e'] = [exts[i]]
             file_dict['p'] = [postfixes[i]]
-            file_dict['m'] = metadata[i]
+            if metadata:
+                file_dict['m'] = metadata[i]
+            else:
+                file_dict['m'] = None
 
             files_dict.append((fn, file_dict))
 
@@ -1935,7 +1968,7 @@ def checkin_file(search_key, context, snapshot_type='file', is_revision=False, d
     from pprint import pprint
 
     pprint(files_dict)
-
+    # print 'FILES DICT'
     data_dict = checkin_virtual_snapshot(
         search_key,
         context,
@@ -1951,7 +1984,6 @@ def checkin_file(search_key, context, snapshot_type='file', is_revision=False, d
         item_widget=item_widget,
         description=description,
     )
-
     progress_bar = parent_wdg.search_widget.search_results_widget.get_progress_bar()
 
     check_ok = False
@@ -1969,14 +2001,15 @@ def checkin_file(search_key, context, snapshot_type='file', is_revision=False, d
                 data_dict['update_versionless'],
                 create_icon,
                 files_objects,
+                padding=padding,
             )
 
         if checkin_app == 'maya':
 
             mf.set_info_to_scene(search_key, context)
-            print 'checkin from maya'
+            # print 'checkin from maya'
             # for in-place checkin
-            check_ok = mf.inplace_checkin(
+            check_ok, files_objects = mf.inplace_checkin(
                 progress_bar,
                 data_dict['virtual_snapshot'],
                 repo_name,

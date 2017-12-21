@@ -1,5 +1,3 @@
-# import PySide.QtGui as QtGui
-# import PySide.QtCore as QtCore
 from lib.side.Qt import QtWidgets as QtGui
 from lib.side.Qt import QtGui as Qt4Gui
 from lib.side.Qt import QtCore
@@ -359,6 +357,8 @@ class Ui_searchResultsWidget(QtGui.QWidget):
     def __init__(self, search_widget, parent=None):
         super(self.__class__, self).__init__(parent=parent)
 
+        self.setAttribute(QtCore.Qt.WA_DeleteOnClose)
+
         self.settings = QtCore.QSettings(
             '{0}/settings/{1}/{2}/{3}/search_cache.ini'.format(
                 env_mode.get_current_path(),
@@ -418,7 +418,7 @@ class Ui_searchResultsWidget(QtGui.QWidget):
 
     def controls_actions(self):
         self.add_new_tab_button.clicked.connect(self.add_tab)
-        self.refresh_tab_button.clicked.connect(self.refresh_current_results)
+        self.refresh_tab_button.clicked.connect(lambda: self.refresh_current_results(True))
         self.resultsTabWidget.tabCloseRequested.connect(self.close_tab)
 
     def threads_actions(self):
@@ -473,10 +473,9 @@ class Ui_searchResultsWidget(QtGui.QWidget):
             return []
 
     @gf.catch_error
-    def refresh_current_results(self):
-        self.add_items_to_results(self.get_current_tab_text(), refresh=True)
-
-        # self.animation.start()
+    def refresh_current_results(self, force_full_update=False):
+        current_widget = self.search_widget.get_current_tree_widget()
+        current_widget.update_current_items_trees(force_full_update=force_full_update)
 
     def close_all_tabs(self):
 
@@ -611,23 +610,32 @@ class Ui_searchResultsWidget(QtGui.QWidget):
                 item_info,
                 ignore_dict=self.search_widget.get_process_ignore_list(),
             )
-
             if total_sobjects:
                 current_widget.progress_bar.setValue(int(p * 100 / total_sobjects))
-
         if current_widget.info['state']:
             gf.tree_state_revert(current_tree_widget, current_widget.info['state'])
 
         current_widget.progress_bar.setVisible(False)
 
-    def update_item_tree(self, item):
+    def update_item_tree(self, item, force_full_update=False):
         current_widget = self.get_current_widget()
         current_tree_widget = current_widget.resultsTreeWidget
         current_widget.info['state'] = gf.tree_state(current_tree_widget, {})
         current_widget.progress_bar.setVisible(True)
 
-        item.update_items()
-        current_widget.update_versions_items(item)
+        if force_full_update:
+            # if we did not selected any tree item, we update whole tree forced
+            self.add_items_to_results(self.get_current_tab_text(), refresh=True)
+            if item:
+                # but if we have tree item, try to update versions
+                current_widget.update_versions_items(item)
+        elif item:
+            if item.type == 'sobject':
+                self.add_items_to_results(self.get_current_tab_text(), refresh=True)
+                current_widget.update_versions_items(item)
+            else:
+                item.update_items()
+                current_widget.update_versions_items(item)
 
         if current_widget.info['state']:
             gf.tree_state_revert(current_tree_widget, current_widget.info['state'])
@@ -638,6 +646,7 @@ class Ui_searchResultsWidget(QtGui.QWidget):
         if tab_title:
             filter_process = QtGui.QAction(tab_title, self.history_tab_button)
             filter_process.triggered.connect(lambda: self.restore_tab_from_history(filter_process, widget))
+            filter_process.setData(widget)
 
             try:
                 if self.clear_history:
@@ -654,7 +663,12 @@ class Ui_searchResultsWidget(QtGui.QWidget):
 
     def clear_tabs_history(self):
         for action in self.history_tab_button.actions():
+            print action.data()
+            if action.data():
+                action.data().close()
+                action.data().deleteLater()
             self.history_tab_button.removeAction(action)
+
         del self.clear_history
 
     def restore_tab_from_history(self, action, widget):
@@ -687,6 +701,7 @@ class Ui_searchResultsWidget(QtGui.QWidget):
         self.refresh_tab_button.setAutoRaise(True)
         self.refresh_tab_button.setMinimumWidth(20)
         self.refresh_tab_button.setMinimumHeight(20)
+        self.refresh_tab_button.setIcon(gf.get_icon('refresh'))
 
         # effect = QtGui.QGraphicsColorizeEffect(self.refresh_tab_button)
         # self.animation = QtCore.QPropertyAnimation(effect, "color", self)
@@ -695,7 +710,6 @@ class Ui_searchResultsWidget(QtGui.QWidget):
         # self.animation.setEndValue(Qt4Gui.QColor(49, 140, 72, 128))
         # self.animation.start()
         # self.refresh_tab_button.setGraphicsEffect(effect)
-        self.refresh_tab_button.setIcon(gf.get_icon('refresh'))
 
         self.right_buttons_layout = QtGui.QHBoxLayout()
         self.right_buttons_layout.setContentsMargins(0, 0, 0, 0)
@@ -721,6 +735,7 @@ class Ui_searchResultsWidget(QtGui.QWidget):
         self.sep_versions = search_results_tree.get_is_separate_versions()
         self.resultsTabWidget.addTab(search_results_tree, search_title)
         self.resultsTabWidget.setCurrentWidget(search_results_tree)
+
         return search_results_tree.resultsTreeWidget
 
     def set_settings_from_dict(self, settings_dict=None):
@@ -821,7 +836,7 @@ class Ui_searchResultsWidget(QtGui.QWidget):
 class Ui_searchWidget(QtGui.QWidget, search_widget.Ui_searchWidget):
     def __init__(self, stype, project, parent_ui, parent=None):
         super(self.__class__, self).__init__(parent=parent)
-
+        self.setAttribute(QtCore.Qt.WA_DeleteOnClose)
         self.checkin_out_widget = parent_ui
 
         self.stype = stype
@@ -876,6 +891,9 @@ class Ui_searchWidget(QtGui.QWidget, search_widget.Ui_searchWidget):
     def create_search_results_widget(self):
         self.search_results_widget = Ui_searchResultsWidget(search_widget=self)
         self.searchOptionsSplitter.addWidget(self.search_results_widget)
+
+    def get_search_results_widget(self):
+        return self.search_results_widget
 
     def get_search_query_text(self):
         return self.searchLineEdit.text()
@@ -1126,6 +1144,8 @@ class Ui_resultsFormWidget(QtGui.QWidget, ui_search_results_tree.Ui_resultsForm)
     def __init__(self, search_widget, info, parent=None):
         super(self.__class__, self).__init__(parent=parent)
 
+        self.setAttribute(QtCore.Qt.WA_DeleteOnClose)
+
         self.setupUi(self)
 
         self.search_widget = search_widget
@@ -1145,10 +1165,77 @@ class Ui_resultsFormWidget(QtGui.QWidget, ui_search_results_tree.Ui_resultsForm)
 
         self.create_separate_versions_tree()
         self.create_progress_bar()
+        # self.setAcceptDrops(True)
+
+        # self.create_results_tree_widgets()
+
+    def create_results_tree_widgets(self):
+
+        self.resultsTreeWidget.setAcceptDrops(True)
+        self.resultsTreeWidget.setDragDropMode(QtGui.QAbstractItemView.DragDrop)
+
+        self.resultsTreeWidget.dragEnterEvent = self.resultsTreeWidget_dragEnterEvent
+        self.resultsTreeWidget.dragLeaveEvent = self.resultsTreeWidget_dragLeaveEvent
+        self.resultsTreeWidget.dragMoveEvent = self.resultsTreeWidget_dragMoveEvent
+        self.resultsTreeWidget.dropEvent = self.resultsTreeWidget_dropEvent
+
+        # self.resultsVersionsTreeWidget.setAcceptDrops(True)
+        # self.resultsVersionsTreeWidget.setDragDropMode(QtGui.QAbstractItemView.DragOnly)
+        self.trees_items = set()
+
+    def resultsTreeWidget_dragLeaveEvent(self, event):
+        # print event.source()
+
+        for i in self.trees_items:
+            i.set_drop_indicator_off()
+
+        self.trees_items = set()
+
+        event.accept()
+
+    def resultsTreeWidget_dragEnterEvent(self, event):
+        # print event.source()
+
+        if event.mimeData().hasUrls:
+            event.accept()
+        else:
+            event.ignore()
+
+    def resultsTreeWidget_dragMoveEvent(self, event):
+
+        # print event.possibleActions()
+        # print event.proposedAction()
+        # print event.registerEventType()
+        # print event.type()
+        tree_item = self.resultsTreeWidget.itemAt(event.pos())
+        tree_item_widget = self.resultsTreeWidget.itemWidget(tree_item, 0)
+        self.trees_items.add(tree_item_widget)
+
+        if tree_item_widget:
+            tree_item_widget.set_drop_indicator_on()
+
+        if event.mimeData().hasUrls:
+            event.setDropAction(QtCore.Qt.CopyAction)
+            event.accept()
+        else:
+            event.ignore()
+
+    def resultsTreeWidget_dropEvent(self, event):
+        if event.mimeData().hasUrls:
+            event.setDropAction(QtCore.Qt.CopyAction)
+            event.accept()
+            links = []
+            for url in event.mimeData().urls():
+                links.append(unicode(url.toLocalFile()))
+            # self.append_items_to_tree(links)
+            print links
+        else:
+            event.ignore()
 
     def controls_actions(self):
         # Tree widget actions
-        self.resultsTreeWidget.itemPressed.connect(lambda:  self.set_current_results_tree_widget_item(self.resultsTreeWidget))
+        self.resultsTreeWidget.itemPressed.connect(lambda:  self.set_current_results_tree_widget_item(
+            self.resultsTreeWidget))
         self.resultsTreeWidget.itemPressed.connect(self.load_preview)
         self.resultsTreeWidget.itemPressed.connect(self.fill_versions_items)
         self.resultsTreeWidget.setContextMenuPolicy(QtCore.Qt.CustomContextMenu)
@@ -1159,11 +1246,21 @@ class Ui_resultsFormWidget(QtGui.QWidget, ui_search_results_tree.Ui_resultsForm)
         self.resultsTreeWidget.itemDoubleClicked.connect(self.send_item_double_click)
 
         # Separate Snapshots tree widget actions
-        self.resultsVersionsTreeWidget.itemPressed.connect(lambda: self.set_current_results_versions_tree_widget_item(self.resultsVersionsTreeWidget))
+        self.resultsVersionsTreeWidget.itemPressed.connect(lambda: self.set_current_results_versions_tree_widget_item(
+            self.resultsVersionsTreeWidget))
+
         self.resultsVersionsTreeWidget.itemPressed.connect(self.load_preview)
         self.resultsVersionsTreeWidget.setContextMenuPolicy(QtCore.Qt.CustomContextMenu)
         self.resultsVersionsTreeWidget.customContextMenuRequested.connect(self.search_widget.open_items_context_menu)
         self.resultsVersionsTreeWidget.itemDoubleClicked.connect(self.send_item_double_click)
+
+    def results_tree_expand(self, event):
+        print event
+        # modifiers = QtGui.QApplication.keyboardModifiers()
+        # if modifiers == QtCore.Qt.ControlModifier:
+        #     self.commitPushButton.setHidden(False)
+
+        event.accept()
 
     # def set_current_tree_widget_item(self, tree_widget):
     #     self.current_tree_widget_item = tree_widget.itemWidget(tree_widget.currentItem(), 0)
@@ -1210,24 +1307,38 @@ class Ui_resultsFormWidget(QtGui.QWidget, ui_search_results_tree.Ui_resultsForm)
     def get_current_results_versions_tree_widget_item(self):
         return self.current_results_versions_tree_widget_item
 
-    def update_current_items_trees(self):
+    def update_current_items_trees(self, force_full_update=False):
         if self.current_results_versions_tree_widget_item:
-            self.search_widget.search_results_widget.update_item_tree(self.current_results_versions_tree_widget_item)
+            self.search_widget.search_results_widget.update_item_tree(self.current_results_versions_tree_widget_item,
+                                                                      force_full_update)
             self.current_results_versions_tree_widget_item = None
+        elif force_full_update:
+            self.search_widget.search_results_widget.update_item_tree(self.current_results_versions_tree_widget_item,
+                                                                      force_full_update)
 
         if self.current_results_tree_widget_item:
-            self.search_widget.search_results_widget.update_item_tree(self.current_results_tree_widget_item)
+            self.search_widget.search_results_widget.update_item_tree(self.current_results_tree_widget_item,
+                                                                      force_full_update)
             self.current_results_tree_widget_item = None
+        elif force_full_update:
+            self.search_widget.search_results_widget.update_item_tree(self.current_results_tree_widget_item,
+                                                                      force_full_update)
 
     @gf.catch_error
     def send_collapse_event_to_item(self, tree_item):
         tree_widget = self.resultsTreeWidget.itemWidget(tree_item, 0)
         tree_widget.collapse_tree_item()
 
+        if QtGui.QApplication.keyboardModifiers() == QtCore.Qt.ShiftModifier:
+            tree_widget.collapse_recursive()
+
     @gf.catch_error
     def send_expand_event_to_item(self, tree_item):
         tree_widget = self.resultsTreeWidget.itemWidget(tree_item, 0)
         tree_widget.expand_tree_item()
+
+        if QtGui.QApplication.keyboardModifiers() == QtCore.Qt.ShiftModifier:
+            tree_widget.expand_recursive()
 
     @gf.catch_error
     def fill_versions_items(self, widget, *args):

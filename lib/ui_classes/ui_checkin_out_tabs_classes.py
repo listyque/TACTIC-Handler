@@ -15,55 +15,6 @@ reload(checkin_out_tabs)
 reload(checkin_out)
 
 
-class ColoredTabBar(QtGui.QTabBar):
-
-    def __init__(self, parent=None):
-        super(self.__class__, self).__init__(parent=parent)
-        self.setMovable(True)
-
-        self.colors = []
-
-    def set_tab_color(self, index, color):
-        if not self.colors:
-            for i in range(self.count()):
-                self.colors.append('gray')
-
-        self.colors[index] = color
-
-        self.update()
-
-    def paintEvent(self, event):
-        painter = QtGui.QStylePainter(self)
-        option = QtGui.QStyleOptionTab()
-
-        if not self.colors:
-            for i in range(self.count()):
-                self.colors.append('gray')
-
-        for i, tab_color in enumerate(self.colors):
-            self.initStyleOption(option, i)
-            color = Qt4Gui.QColor(tab_color)
-            color.setAlpha(96)
-            linearGrad = QtGui.QLinearGradient(QtCore.QPointF(0, 0), QtCore.QPointF(0, 1))
-            linearGrad.setColorAt(0, color)
-            linearGrad.setColorAt(1, QtCore.Qt.transparent)
-            brush = QtGui.QBrush(linearGrad)
-
-            color_selected = Qt4Gui.QColor(tab_color)
-            color_selected.setAlpha(168)
-            linearGrad = QtGui.QLinearGradient(QtCore.QPointF(0, 0), QtCore.QPointF(0, 20))
-            linearGrad.setColorAt(0, color_selected)
-            linearGrad.setColorAt(1, QtCore.Qt.transparent)
-
-            brush_selected = QtGui.QBrush(linearGrad)
-
-            option.palette.setBrush(Qt4Gui.QPalette.Normal, Qt4Gui.QPalette.Button, brush)
-            option.palette.setBrush(Qt4Gui.QPalette.Normal, Qt4Gui.QPalette.Background, brush_selected)
-
-            painter.setCompositionMode(QtGui.QPainter.CompositionMode_Lighten)
-            painter.drawControl(QtGui.QStyle.CE_TabBarTab, option)
-
-
 class Ui_checkInOutTabWidget(QtGui.QWidget, checkin_out_tabs.Ui_sObjTabs):
     def __init__(self, project, layout_widget, parent=None):
         super(self.__class__, self).__init__(parent=parent)
@@ -285,8 +236,6 @@ class Ui_checkInOutTabWidget(QtGui.QWidget, checkin_out_tabs.Ui_sObjTabs):
         """
         Adding process tabs marked for Maya
         """
-
-        # self.sObjTabWidget.setTabBar(ColoredTabBar(self))
 
         ignore_tabs_list = self.get_ignore_stypes_list()
 

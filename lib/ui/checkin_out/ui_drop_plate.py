@@ -2,7 +2,7 @@
 
 # Form implementation generated from reading ui file 'checkin_out/ui_drop_plate.ui'
 #
-# Created: Mon Oct 30 14:43:59 2017
+# Created: Wed Dec 20 16:51:55 2017
 #      by: pyside-uic 0.2.15 running on PySide 1.2.2
 #
 # WARNING! All changes made in this file will be lost!
@@ -50,7 +50,7 @@ class Ui_dropPlate(object):
         self.includeSubfoldersCheckBox.setObjectName("includeSubfoldersCheckBox")
         self.dropPlateGridLayout.addWidget(self.includeSubfoldersCheckBox, 1, 3, 1, 1)
         spacerItem = QtGui.QSpacerItem(40, 20, QtGui.QSizePolicy.Expanding, QtGui.QSizePolicy.Minimum)
-        self.dropPlateGridLayout.addItem(spacerItem, 1, 4, 1, 1)
+        self.dropPlateGridLayout.addItem(spacerItem, 1, 7, 1, 1)
         self.clearPushButton = QtGui.QToolButton(dropPlate)
         sizePolicy = QtGui.QSizePolicy(QtGui.QSizePolicy.Fixed, QtGui.QSizePolicy.Fixed)
         sizePolicy.setHorizontalStretch(0)
@@ -62,7 +62,7 @@ class Ui_dropPlate(object):
         self.clearPushButton.setToolButtonStyle(QtCore.Qt.ToolButtonIconOnly)
         self.clearPushButton.setAutoRaise(True)
         self.clearPushButton.setObjectName("clearPushButton")
-        self.dropPlateGridLayout.addWidget(self.clearPushButton, 1, 6, 1, 1)
+        self.dropPlateGridLayout.addWidget(self.clearPushButton, 1, 9, 1, 1)
         self.dropTreeWidget = QtGui.QTreeWidget(dropPlate)
         sizePolicy = QtGui.QSizePolicy(QtGui.QSizePolicy.Ignored, QtGui.QSizePolicy.Expanding)
         sizePolicy.setHorizontalStretch(0)
@@ -97,7 +97,7 @@ class Ui_dropPlate(object):
         self.dropTreeWidget.setHeaderHidden(False)
         self.dropTreeWidget.setObjectName("dropTreeWidget")
         self.dropTreeWidget.header().setCascadingSectionResizes(True)
-        self.dropPlateGridLayout.addWidget(self.dropTreeWidget, 0, 0, 1, 7)
+        self.dropPlateGridLayout.addWidget(self.dropTreeWidget, 0, 0, 1, 10)
         self.configPushButton = QtGui.QToolButton(dropPlate)
         sizePolicy = QtGui.QSizePolicy(QtGui.QSizePolicy.Fixed, QtGui.QSizePolicy.Fixed)
         sizePolicy.setHorizontalStretch(0)
@@ -109,9 +109,25 @@ class Ui_dropPlate(object):
         self.configPushButton.setToolButtonStyle(QtCore.Qt.ToolButtonIconOnly)
         self.configPushButton.setAutoRaise(True)
         self.configPushButton.setObjectName("configPushButton")
-        self.dropPlateGridLayout.addWidget(self.configPushButton, 1, 5, 1, 1)
+        self.dropPlateGridLayout.addWidget(self.configPushButton, 1, 8, 1, 1)
+        self.enableFilterCheckBox = QtGui.QCheckBox(dropPlate)
+        self.enableFilterCheckBox.setChecked(False)
+        self.enableFilterCheckBox.setObjectName("enableFilterCheckBox")
+        self.dropPlateGridLayout.addWidget(self.enableFilterCheckBox, 1, 4, 1, 1)
+        self.filterLineEdit = QtGui.QLineEdit(dropPlate)
+        self.filterLineEdit.setEnabled(False)
+        self.filterLineEdit.setObjectName("filterLineEdit")
+        self.dropPlateGridLayout.addWidget(self.filterLineEdit, 1, 6, 1, 1)
+        self.filterComboBox = QtGui.QComboBox(dropPlate)
+        self.filterComboBox.setEnabled(False)
+        self.filterComboBox.setObjectName("filterComboBox")
+        self.filterComboBox.addItem("")
+        self.filterComboBox.addItem("")
+        self.dropPlateGridLayout.addWidget(self.filterComboBox, 1, 5, 1, 1)
 
         self.retranslateUi(dropPlate)
+        QtCore.QObject.connect(self.enableFilterCheckBox, QtCore.SIGNAL("toggled(bool)"), self.filterComboBox.setEnabled)
+        QtCore.QObject.connect(self.enableFilterCheckBox, QtCore.SIGNAL("toggled(bool)"), self.filterLineEdit.setEnabled)
         QtCore.QMetaObject.connectSlotsByName(dropPlate)
 
     def retranslateUi(self, dropPlate):
@@ -126,4 +142,7 @@ class Ui_dropPlate(object):
         self.dropTreeWidget.headerItem().setText(2, QtGui.QApplication.translate("dropPlate", "Class/Ext", None))
         self.dropTreeWidget.headerItem().setText(3, QtGui.QApplication.translate("dropPlate", "Type", None))
         self.dropTreeWidget.headerItem().setText(4, QtGui.QApplication.translate("dropPlate", "File Path", None))
+        self.enableFilterCheckBox.setText(QtGui.QApplication.translate("dropPlate", "Filter:", None))
+        self.filterComboBox.setItemText(0, QtGui.QApplication.translate("dropPlate", "By Extension", None))
+        self.filterComboBox.setItemText(1, QtGui.QApplication.translate("dropPlate", "By Filename", None))
 

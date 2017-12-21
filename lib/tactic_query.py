@@ -408,9 +408,14 @@ def get_virtual_snapshot_extended(search_key, context, files_dict, snapshot_type
         #         result_file_name = result_file_name.replace(filenaming.get_ext(), '.[{0}].{1}'.format('#' * padding, ext))
         #
         #     second_part = result_file_name.replace(first_part, '').replace(filenaming.get_ext(), '')
-        from pyasm.biz import Naming
-        b = Naming.get(filenaming.sobject, filenaming.snapshot, file_path=filenaming.file_object.get_full_file_name())
-        return first_part, metadata.get('name_part'), filenaming.get_ext()
+
+        # from pyasm.biz import Naming
+        # b = Naming.get(filenaming.sobject, filenaming.snapshot, file_path=filenaming.file_object.get_full_file_name())
+
+        if metadata:
+            return first_part, metadata.get('name_part'), filenaming.get_ext()
+        else:
+            return first_part, '', filenaming.get_ext()
 
     def prepare_folder(d, sub):
         if sub:
@@ -433,7 +438,8 @@ def get_virtual_snapshot_extended(search_key, context, files_dict, snapshot_type
         for t, e, s, p in zip(val['t'], val['e'], val['s'], val['p']):
             file_object.set_value("file_name", fl)
             file_object.set_value("type", t)
-            file_object.set_value("metadata", json.dumps(val['m'], separators=(',', ':')))
+            if val['m']:
+                file_object.set_value("metadata", json.dumps(val['m'], separators=(',', ':')))
 
             file_naming.set_snapshot(snapshot_versioned)
             file_naming.set_ext(e)
