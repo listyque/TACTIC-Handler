@@ -126,21 +126,21 @@ def get_maya_info_dict():
 def inplace_checkin(progress_bar, virtual_snapshot, repo_name, update_versionless, generate_icons=True,
                     selected_objects=False, ext_type='mayaAscii', setting_workspace=False):
 
-    scene_name = None
-    playblast_name = None
-    scene_path = None
-    playblast_path = None
+    # scene_name = None
+    # playblast_name = None
+    # scene_path = None
+    # playblast_path = None
 
-    from pprint import pprint
+    # from pprint import pprint
 
-    for snapshot in virtual_snapshot:
-        pprint(snapshot)
-        if snapshot[0] == 'scene':
-            scene_name = snapshot[1]['versioned']['names'][0]
-            scene_path = gf.form_path(repo_name['value'][0] + '/' + snapshot[1]['versioned']['paths'][0])
-        else:
-            playblast_name = snapshot[1]['versioned']['names'][0]
-            playblast_path = gf.form_path(repo_name['value'][0] + '/' + snapshot[1]['versioned']['paths'][0])
+    # for snapshot in virtual_snapshot:
+    # pprint(virtual_snapshot)
+    # if snapshot[0] == 'scene':
+    scene_name = virtual_snapshot[0][1]['versioned']['names'][0]
+    scene_path = gf.form_path(repo_name['value'][0] + '/' + virtual_snapshot[0][1]['versioned']['paths'][0])
+    # else:
+    playblast_name = virtual_snapshot[1][1]['versioned']['names'][0]
+    playblast_path = gf.form_path(repo_name['value'][0] + '/' + virtual_snapshot[1][1]['versioned']['paths'][0])
 
     full_scene_path = scene_path + '/' + ''.join(scene_name)
     full_playblast_path = playblast_path + '/' + ''.join(playblast_name)

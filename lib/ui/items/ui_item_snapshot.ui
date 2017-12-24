@@ -92,7 +92,6 @@
        </property>
        <property name="font">
         <font>
-         <pointsize>9</pointsize>
          <weight>75</weight>
          <bold>true</bold>
         </font>
@@ -168,7 +167,6 @@
        </property>
        <property name="font">
         <font>
-         <pointsize>8</pointsize>
          <italic>true</italic>
         </font>
        </property>
@@ -193,12 +191,6 @@
          <width>0</width>
          <height>25</height>
         </size>
-       </property>
-       <property name="font">
-        <font>
-         <pointsize>8</pointsize>
-         <italic>true</italic>
-        </font>
        </property>
        <property name="textFormat">
         <enum>Qt::PlainText</enum>

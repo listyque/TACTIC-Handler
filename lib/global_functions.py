@@ -603,8 +603,25 @@ def collect_defaults(defaults_dict=None, init_dict=None, layouts_list=None, get_
 
 
 def create_tab_label(tab_name, stype):
-    tab_label = QtGui.QLabel(tab_name)
+    wdg = QtGui.QFrame()
+    lay = QtGui.QVBoxLayout()
+    lay.setSpacing(0)
+    lay.setContentsMargins(4, 4, 4, 6)
+    wdg.setLayout(lay)
+    tab_label = QtGui.QLabel()
+    lay.addWidget(tab_label)
+    tab_label.setText(tab_name)
     tab_label.setAlignment(QtCore.Qt.AlignCenter)
+
+    font = Qt4Gui.QFont()
+    font.setPointSize(8)
+    font.setWeight(65)
+    font.setBold(True)
+    tab_label.setFont(font)
+    tab_label.setTextFormat(QtCore.Qt.PlainText)
+    tab_label.setAlignment(QtCore.Qt.AlignHCenter | QtCore.Qt.AlignVCenter)
+    tab_label.setMargin(0)
+
     tab_color = stype.info['color']
     if tab_color:
         effect = QtGui.QGraphicsDropShadowEffect(tab_label)
@@ -615,15 +632,10 @@ def create_tab_label(tab_name, stype):
         tab_label.setGraphicsEffect(effect)
 
         tab_color_rgb = hex_to_rgb(tab_color, alpha=128)
-        tab_label.setStyleSheet('QLabel {' +
-                                'background-color: transparent;    border-bottom: 1px solid {0};'.format(tab_color_rgb) +
-                                ' }')
-
-        # tab_label.setStyleSheet('QLabel {' +
-        #                         'background: qlineargradient(spread:pad, x1:0, y1:0, x2:1, y2:0, stop:0 rgba(0, 0, 0, 0), stop:0.2 {0}, stop:0.8 {0}, stop:1 rgba(0, 0, 0, 0));'.format(
-        #                             tab_color_rgb) +
-        #                         '}')
-    return tab_label
+        tab_label.setStyleSheet('QLabel {border: 0px;}')
+        wdg.setStyleSheet('QFrame {background-color: transparent;' +
+                          'border-bottom: 2px solid {0};'.format(tab_color_rgb) + '}')
+    return wdg
 
 
 def get_icon(icon_name, icon_name_active=None, color=None, color_active=None, icons_set='fa', **kwargs):

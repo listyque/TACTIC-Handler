@@ -1,9 +1,9 @@
 # -*- coding: utf-8 -*-
 
-# Form implementation generated from reading ui file 'items/ui_item_snapshot.ui'
+# Form implementation generated from reading ui file 'items\ui_item_snapshot.ui'
 #
-# Created: Mon Dec 11 18:39:31 2017
-#      by: pyside-uic 0.2.15 running on PySide 1.2.2
+# Created: Sat Dec 23 23:34:03 2017
+#      by: pyside-uic 0.2.15 running on PySide 1.2.4
 #
 # WARNING! All changes made in this file will be lost!
 
@@ -47,7 +47,6 @@ class Ui_snapshotItem(object):
         self.fileNameLabel.setMinimumSize(QtCore.QSize(0, 20))
         self.fileNameLabel.setMaximumSize(QtCore.QSize(16777215, 20))
         font = Qt4Gui.QFont()
-        font.setPointSize(8)
         font.setWeight(75)
         font.setBold(True)
         self.fileNameLabel.setFont(font)
@@ -83,7 +82,6 @@ class Ui_snapshotItem(object):
         self.authorLabel = QtGui.QLabel(snapshotItem)
         self.authorLabel.setMinimumSize(QtCore.QSize(0, 25))
         font = Qt4Gui.QFont()
-        font.setPointSize(8)
         font.setItalic(True)
         self.authorLabel.setFont(font)
         self.authorLabel.setStyleSheet("color:grey;")
@@ -94,10 +92,6 @@ class Ui_snapshotItem(object):
         self.descriptionLorizontalLayout.addWidget(self.authorLabel)
         self.commentLabel = QtGui.QLabel(snapshotItem)
         self.commentLabel.setMinimumSize(QtCore.QSize(0, 25))
-        font = Qt4Gui.QFont()
-        font.setPointSize(8)
-        font.setItalic(True)
-        self.commentLabel.setFont(font)
         self.commentLabel.setTextFormat(QtCore.Qt.PlainText)
         self.commentLabel.setAlignment(QtCore.Qt.AlignLeading|QtCore.Qt.AlignLeft|QtCore.Qt.AlignTop)
         self.commentLabel.setWordWrap(True)

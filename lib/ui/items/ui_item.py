@@ -1,9 +1,9 @@
 # -*- coding: utf-8 -*-
 
-# Form implementation generated from reading ui file 'items/ui_item.ui'
+# Form implementation generated from reading ui file 'items\ui_item.ui'
 #
-# Created: Mon Dec 11 18:39:31 2017
-#      by: pyside-uic 0.2.15 running on PySide 1.2.2
+# Created: Sat Dec 23 23:34:02 2017
+#      by: pyside-uic 0.2.15 running on PySide 1.2.4
 #
 # WARNING! All changes made in this file will be lost!
 
@@ -87,7 +87,6 @@ class Ui_item(object):
         self.fileNameLabel.setMinimumSize(QtCore.QSize(0, 20))
         self.fileNameLabel.setMaximumSize(QtCore.QSize(16777215, 24))
         font = Qt4Gui.QFont()
-        font.setPointSize(8)
         font.setWeight(75)
         font.setBold(True)
         self.fileNameLabel.setFont(font)
@@ -119,10 +118,6 @@ class Ui_item(object):
         self.descriptionLerticalLayout.setObjectName("descriptionLerticalLayout")
         self.commentLabel = QtGui.QLabel(item)
         self.commentLabel.setMinimumSize(QtCore.QSize(0, 25))
-        font = Qt4Gui.QFont()
-        font.setPointSize(8)
-        font.setItalic(True)
-        self.commentLabel.setFont(font)
         self.commentLabel.setTextFormat(QtCore.Qt.PlainText)
         self.commentLabel.setAlignment(QtCore.Qt.AlignLeading|QtCore.Qt.AlignLeft|QtCore.Qt.AlignTop)
         self.commentLabel.setWordWrap(True)

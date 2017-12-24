@@ -4,8 +4,6 @@
 import collections
 import copy
 
-# import PySide.QtCore as QtCore
-# import PySide.QtGui as QtGui
 from lib.side.Qt import QtWidgets as QtGui
 from lib.side.Qt import QtGui as Qt4Gui
 from lib.side.Qt import QtCore
@@ -17,19 +15,14 @@ import lib.global_functions as gf
 import lib.ui.conf.ui_conf as ui_conf
 import lib.ui.conf.ui_serverPage as ui_serverPage
 import lib.ui.conf.ui_projectPage as ui_projectPage
-# import lib.ui.conf.ui_checkoutPage as ui_checkoutPage
 import lib.ui.conf.ui_checkinPage as ui_checkinPage
 import lib.ui.conf.ui_checkinOutPage as ui_checkinOutPage
 import lib.ui.conf.ui_globalPage as ui_globalPage
 import lib.ui.conf.ui_mayaPage as ui_mayaPage
 
-# if env_mode.get_mode() == 'maya':
-#     import maya.cmds as cmds
-
 reload(ui_conf)
 reload(ui_serverPage)
 reload(ui_projectPage)
-# reload(ui_checkoutPage)
 reload(ui_checkinPage)
 reload(ui_checkinOutPage)
 reload(ui_globalPage)
@@ -567,13 +560,20 @@ class Ui_checkinPageWidget(QtGui.QWidget, ui_checkinPage.Ui_checkinPageWidget):
         self.page_defaults, self.page_init = gf.collect_defaults(
             self.page_defaults,
             self.page_init,
-            [self.customRepoPathsLayout, self.defaultRepoPathsLayout, self.checkinMiscOptionsLayout, self.snapshotsSavingOptionsLayout],
+            [self.customRepoPathsLayout,
+             self.defaultRepoPathsLayout,
+             self.checkinMiscOptionsLayout,
+             self.snapshotsSavingOptionsLayout,
+             self.confirmsHorizontalLayout,
+             self.sequencePaddingHorizontalLayout,
+             self.seuqenceNamingHorizontalLayout,
+             self.dropPlateOptionsLayout],
             get_values=get_values,
             apply_values=apply_values,
             store_defaults=store_defaults,
             undo_changes=undo_changes,
             parent=parent,
-            ignore_list=[QtGui.QGroupBox, QtGui.QTreeWidget]
+            ignore_list=[QtGui.QGroupBox, QtGui.QTreeWidget, QtGui.QSlider]
         )
 
         if not self.custom_repo_item_defaults:
@@ -763,15 +763,18 @@ class Ui_checkinOutPageWidget(QtGui.QWidget, ui_checkinOutPage.Ui_checkinOutPage
     def projects_tree_widget_click(self, item):
         project_code = item.text(1)
         if project_code:
-            # check if we have current project
-            if not self.page_init_projects.get(project_code):
-                self.init_per_projects_config_dict()
+            self.init_project_tree(project_code)
 
-            if self.applyToAllProjectsRadioButton.isChecked():
-                self.load_to_controls_tabs_tree_widget(self.page_init_projects['!tabs_list!'])
-            else:
-                self.load_to_controls_tabs_tree_widget(self.page_init_projects[project_code]['tabs_list'])
-            self.load_project_stypes(project_code)
+    def init_project_tree(self, project_code):
+        # check if we have current project
+        if not self.page_init_projects.get(project_code):
+            self.init_per_projects_config_dict()
+
+        if self.applyToAllProjectsRadioButton.isChecked():
+            self.load_to_controls_tabs_tree_widget(self.page_init_projects['!tabs_list!'])
+        else:
+            self.load_to_controls_tabs_tree_widget(self.page_init_projects[project_code]['tabs_list'])
+        self.load_project_stypes(project_code)
 
         self.selected_project = project_code
 
@@ -1097,14 +1100,10 @@ class Ui_configuration_dialogWidget(QtGui.QDialog, ui_conf.Ui_configuration_dial
     def create_checkin_page(self):
         self.checkinPageWidget = Ui_checkinPageWidget(self)
 
-        print self.checkinPageWidget.objectName(), '!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!'
-
         self.checkinPageLayout.addWidget(self.checkinPageWidget)
 
     def create_checkin_out_page(self):
         self.checkinOutPageWidget = Ui_checkinOutPageWidget(self)
-
-        print self.checkinOutPageWidget.objectName(), '!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!'
 
         self.checkinOutPageLayout.addWidget(self.checkinOutPageWidget)
 

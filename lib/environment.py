@@ -151,7 +151,7 @@ class DebugLog(object):
             function_name = tb[0][2]
             # caller = tb[0][3]
 
-            trace_str = '{0} {1} @ //{2:4d} : Module: {3}, Function: {4}()'.format(
+            trace_str = '{0} {1} @ //{2:04d} : Module: {3}, Function: {4}()'.format(
                 message_type,
                 message_text,
                 int(line_number),

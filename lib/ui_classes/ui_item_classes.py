@@ -6,7 +6,7 @@ from lib.side.Qt import QtWidgets as QtGui
 from lib.side.Qt import QtGui as Qt4Gui
 from lib.side.Qt import QtCore
 
-from lib.environment import env_tactic, env_inst, env_mode
+from lib.environment import env_tactic, env_inst
 from lib.configuration import cfg_controls
 import lib.global_functions as gf
 import lib.tactic_classes as tc

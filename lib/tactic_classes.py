@@ -541,6 +541,9 @@ class Project(object):
         self.stypes = None
         self.workflow = None
 
+    def get_code(self):
+        return self.info.get('code')
+
     def get_stypes(self):
         # import time
         #

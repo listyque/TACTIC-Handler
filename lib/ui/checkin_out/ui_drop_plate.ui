@@ -12,7 +12,7 @@
    <property name="spacing">
     <number>4</number>
    </property>
-   <item row="1" column="0">
+   <item row="2" column="0">
     <widget class="QCheckBox" name="fromDropListCheckBox">
      <property name="sizePolicy">
       <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
@@ -25,7 +25,7 @@
      </property>
     </widget>
    </item>
-   <item row="1" column="1">
+   <item row="2" column="1">
     <widget class="QCheckBox" name="groupCheckinCheckBox">
      <property name="sizePolicy">
       <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
@@ -38,7 +38,7 @@
      </property>
     </widget>
    </item>
-   <item row="1" column="2">
+   <item row="2" column="2">
     <widget class="QCheckBox" name="keepFileNameCheckBox">
      <property name="sizePolicy">
       <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
@@ -51,7 +51,7 @@
      </property>
     </widget>
    </item>
-   <item row="1" column="3">
+   <item row="2" column="3">
     <widget class="QCheckBox" name="includeSubfoldersCheckBox">
      <property name="sizePolicy">
       <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
@@ -64,7 +64,7 @@
      </property>
     </widget>
    </item>
-   <item row="1" column="7">
+   <item row="2" column="7">
     <spacer name="horizontalSpacer">
      <property name="orientation">
       <enum>Qt::Horizontal</enum>
@@ -77,7 +77,7 @@
      </property>
     </spacer>
    </item>
-   <item row="1" column="9">
+   <item row="2" column="9">
     <widget class="QToolButton" name="clearPushButton">
      <property name="sizePolicy">
       <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
@@ -200,7 +200,7 @@ QTreeView::item:selected:!active {
      </column>
     </widget>
    </item>
-   <item row="1" column="8">
+   <item row="2" column="8">
     <widget class="QToolButton" name="configPushButton">
      <property name="sizePolicy">
       <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
@@ -228,7 +228,7 @@ QTreeView::item:selected:!active {
      </property>
     </widget>
    </item>
-   <item row="1" column="4">
+   <item row="2" column="4">
     <widget class="QCheckBox" name="enableFilterCheckBox">
      <property name="text">
       <string>Filter:</string>
@@ -238,14 +238,14 @@ QTreeView::item:selected:!active {
      </property>
     </widget>
    </item>
-   <item row="1" column="6">
+   <item row="2" column="6">
     <widget class="QLineEdit" name="filterLineEdit">
      <property name="enabled">
       <bool>false</bool>
      </property>
     </widget>
    </item>
-   <item row="1" column="5">
+   <item row="2" column="5">
     <widget class="QComboBox" name="filterComboBox">
      <property name="enabled">
       <bool>false</bool>
@@ -261,6 +261,13 @@ QTreeView::item:selected:!active {
       </property>
      </item>
     </widget>
+   </item>
+   <item row="1" column="0" colspan="10">
+    <layout class="QHBoxLayout" name="progressBarLayout">
+     <property name="spacing">
+      <number>0</number>
+     </property>
+    </layout>
    </item>
   </layout>
  </widget>

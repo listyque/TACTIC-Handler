@@ -796,8 +796,10 @@ class Ui_Main(QtGui.QMainWindow, ui_main.Ui_MainWindow):
             self.settings.setValue('pos', self.pos())
             self.settings.setValue('size', self.size())
         self.settings.setValue("windowState", int(state))
-        self.settings.setValue('opened_projects', self.projects_docks.keys())
-        self.settings.setValue('current_active_project', str(env_inst.get_current_project()))
+        if self.projects_docks.keys():
+            self.settings.setValue('opened_projects', self.projects_docks.keys())
+        if env_inst.get_current_project():
+            self.settings.setValue('current_active_project', str(env_inst.get_current_project()))
 
         print('Done main_ui settings write')
         self.settings.endGroup()

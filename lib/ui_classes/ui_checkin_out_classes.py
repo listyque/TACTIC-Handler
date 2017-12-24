@@ -6,6 +6,7 @@ from lib.side.Qt import QtGui as Qt4Gui
 from lib.side.Qt import QtCore
 
 from lib.environment import env_mode, env_inst, env_server, env_tactic, dl
+from lib.configuration import cfg_controls
 import lib.tactic_classes as tc
 import lib.global_functions as gf
 import lib.ui.checkin_out.ui_checkin_out_options_dialog as ui_checkin_out_options_dialog
@@ -437,6 +438,7 @@ class Ui_fastControlsWidget(QtGui.QWidget, fast_controls.Ui_fastControls):
         self.processComboBox.setEnabled(False)
         self.unfreeze_context_combo_box()
         self.unfreeze_explicit_filename_edit()
+        self.clear_explicit_filename()
 
     def fill_context_combo_box(self, contexts_list, current_context=None):
         self.contextComboBox.clear()
@@ -546,7 +548,13 @@ class Ui_fastControlsWidget(QtGui.QWidget, fast_controls.Ui_fastControls):
     def get_context(self):
         return self.contextComboBox.currentText()
 
+    def clear_explicit_filename(self):
+        self.explicitFilenameLineEdit.setText('')
+
     def get_explicit_filename(self):
+        explicit_name = self.explicitFilenameLineEdit.text()
+        if explicit_name:
+            self.explicitFilenameLineEdit.setText(explicit_name.replace(' ', '_').replace('/', '_').replace('\\', '_'))
         return self.explicitFilenameLineEdit.text()
 
 
@@ -580,9 +588,15 @@ class Ui_checkInOutWidget(QtGui.QMainWindow):
 
         env_inst.set_check_tree(self.project.info['code'], 'checkin_out', self.tab_name, self)
 
-    def get_tab_label(self):
-        self.tab_label = gf.create_tab_label(self.tab_widget.objectName(), self.stype)
+    def get_tab_label(self, label_text=None):
+
+        if not label_text:
+            label_text = self.tab_widget.objectName()
+        self.tab_label = gf.create_tab_label(label_text, self.stype)
         return self.tab_label
+
+    def get_tab_code(self):
+        return self.tab_name
 
     def do_creating_ui(self):
         if not self.is_created:
@@ -1201,13 +1215,17 @@ class Ui_checkInOutWidget(QtGui.QMainWindow):
             # print postfixes
             # print metadata
 
+            update_versionless = self.get_update_versionless()
+            if keep_file_name:
+                update_versionless = False
+
             return tc.checkin_file(
                 search_key=search_key,
                 context=context,
                 description=description,
                 version=snapshot_version,
                 is_revision=save_revision,
-                update_versionless=self.get_update_versionless(),
+                update_versionless=update_versionless,
                 file_types=file_types,
                 file_names=file_names,
                 file_paths=file_paths,
@@ -1289,8 +1307,19 @@ class Ui_checkInOutWidget(QtGui.QMainWindow):
         else:
             selected_objects = [False]
 
+        update_versionless = self.get_update_versionless()
+        explicit_filename = self.fast_controls_tool_bar_widget.get_explicit_filename()
+        ignore_keep_file_name = True
+        if explicit_filename:
+            ignore_keep_file_name = False
+            update_versionless = False
+
         file_types = ['main', 'playblast']
-        file_names = ['scene', 'playblast']
+
+        if explicit_filename:
+            file_names = [explicit_filename, explicit_filename]
+        else:
+            file_names = ['scene', 'playblast']
         file_paths = ['', '']
         exts = [types[ext_type], 'jpg']
         subfolders = ['', '__preview']
@@ -1318,7 +1347,7 @@ class Ui_checkInOutWidget(QtGui.QMainWindow):
             description=description,
             version=snapshot_version,
             is_revision=save_revision,
-            update_versionless=self.get_update_versionless(),
+            update_versionless=update_versionless,
             file_types=file_types,
             file_names=file_names,
             file_paths=file_paths,
@@ -1330,7 +1359,7 @@ class Ui_checkInOutWidget(QtGui.QMainWindow):
             mode=mode,
             create_icon=True,
             parent_wdg=self,
-            ignore_keep_file_name=True,
+            ignore_keep_file_name=ignore_keep_file_name,
             checkin_app='maya',
             selected_objects=selected_objects[0],
             ext_type=ext_type,
@@ -1373,6 +1402,41 @@ class Ui_checkInOutWidget(QtGui.QMainWindow):
             current_widget.update_current_items_trees()
             # self.drop_plate_widget.fromDropListCheckBox.setChecked(False)
 
+    def save_revision_confirm(self, save_revision, selected_objects):
+
+        # confirm_revison = bool(int(gf.get_value_from_config(cfg_controls.get_checkin(), 'askReplaceRevisionCheckBox')))
+        confirm_revison = self.checkin_options_widget.checkinPageWidget.askReplaceRevisionCheckBox.isChecked()
+
+        if save_revision and confirm_revison:
+            buttons = (
+                ('Replace', QtGui.QMessageBox.YesRole),
+                ('Cancel', QtGui.QMessageBox.NoRole),
+                ('Do not show again', QtGui.QMessageBox.RejectRole))
+            if selected_objects:
+                replace_result = gf.show_message_predefined(
+                    'Files will be replaced!',
+                    '<br>Attention! The file you are working on now will be <b>REPLACED</b> with this selected objects only.</br>'
+                    '<br>Other work (objects) you have made in this file will disappear!</br>'
+                    '<br>If you do not want this use "Save selected objects" command instead.</br>',
+                    buttons=buttons,
+                    parent=self)
+            else:
+                replace_result = gf.show_message_predefined(
+                    'Files will be replaced!',
+                    '<br>Attention! The file saved to this version will be <b>REPLACED</b> with new one.</br>'
+                    '<br>Earlier file you have saved before will disappear!</br>'
+                    '<br>If you do not want this use "Save selected" command instead.</br>',
+                    buttons=buttons,
+                    parent=self)
+        else:
+            return True
+
+        if replace_result == QtGui.QMessageBox.ButtonRole.YesRole:
+            return True
+        if replace_result == QtGui.QMessageBox.ButtonRole.RejectRole:
+            self.checkin_options_widget.checkinPageWidget.askReplaceRevisionCheckBox.setChecked(False)
+            return True
+
     @gf.catch_error
     def save_file(self, selected_objects=None, save_revision=False, update_snapshot=False):
         current_widget = self.get_current_tree_widget()
@@ -1380,7 +1444,6 @@ class Ui_checkInOutWidget(QtGui.QMainWindow):
 
         # print current_widget, 'current_widget'
         # print current_tree_widget_item, 'current_tree_widget_item'
-
         current_snapshot_version = None
         if current_tree_widget_item.type == 'snapshot' and save_revision:
             snapshot = current_tree_widget_item.get_snapshot()
@@ -1389,7 +1452,8 @@ class Ui_checkInOutWidget(QtGui.QMainWindow):
                 if current_snapshot_version in [-1, 0]:
                     current_snapshot_version = None
 
-        if current_tree_widget_item:
+        if current_tree_widget_item and self.save_revision_confirm(save_revision, selected_objects):
+
             # self.fast_controls_tool_bar_widget.set_save_button_enabled(False)
             search_key = current_tree_widget_item.get_skey(parent=True)
             # print search_key

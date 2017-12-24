@@ -102,6 +102,7 @@ class Ui_dropPlateWidget(QtGui.QWidget, ui_drop_plate.Ui_dropPlate):
 
         self.clearPushButton.setIcon(gf.get_icon('trash'))
         self.configPushButton.setIcon(gf.get_icon('cog'))
+        self.create_progress_bar_widget()
 
         self.setAcceptDrops(True)
         self.dropTreeWidget.setSelectionMode(QtGui.QAbstractItemView.SingleSelection)
@@ -111,6 +112,13 @@ class Ui_dropPlateWidget(QtGui.QWidget, ui_drop_plate.Ui_dropPlate):
             sizePolicy = QtGui.QSizePolicy(QtGui.QSizePolicy.Preferred, QtGui.QSizePolicy.Preferred)
             self.setSizePolicy(sizePolicy)
             self.setMinimumWidth(300)
+
+    def create_progress_bar_widget(self):
+        self.progressBar = QtGui.QProgressBar()
+        self.progressBar.setMaximum(100)
+        self.progressBarLayout.addWidget(self.progressBar)
+        self.progressBar.setTextVisible(True)
+        self.progressBar.setVisible(False)
 
     def create_config_widget(self):
         self.config_widget = Ui_matchingTemplateConfigWidget(self)
@@ -242,6 +250,8 @@ class Ui_dropPlateWidget(QtGui.QWidget, ui_drop_plate.Ui_dropPlate):
 
         icon_provider = QtGui.QFileIconProvider()
 
+        self.progressBar.setVisible(True)
+
         for item_type, item in files_objects_dict.items():
 
             for i, file_obj in enumerate(item):
@@ -278,6 +288,9 @@ class Ui_dropPlateWidget(QtGui.QWidget, ui_drop_plate.Ui_dropPlate):
                 if i % 10 == 0:
                     QtGui.QApplication.processEvents()
 
+                self.progressBar.setValue(int(i * 100 / len(item)))
+
+        self.progressBar.setValue(100)
         self.dropTreeWidget.resizeColumnToContents(0)
         self.dropTreeWidget.resizeColumnToContents(1)
         self.dropTreeWidget.resizeColumnToContents(2)
@@ -285,6 +298,7 @@ class Ui_dropPlateWidget(QtGui.QWidget, ui_drop_plate.Ui_dropPlate):
         self.dropTreeWidget.resizeColumnToContents(4)
 
         self.dropTreeWidget.sortByColumn(0, QtCore.Qt.AscendingOrder)
+        self.progressBar.setVisible(False)
 
     def set_item_widget(self, item_widget):
         pass
