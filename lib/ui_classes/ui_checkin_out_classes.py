@@ -668,6 +668,7 @@ class Ui_checkInOutWidget(QtGui.QMainWindow):
             QtGui.QDockWidget.DockWidgetMovable | QtGui.QDockWidget.DockWidgetClosable)
 
         self.addDockWidget(QtCore.Qt.BottomDockWidgetArea, self.drop_plate_dock)
+        self.drop_plate_dock.close() #drop plate do not open up by default
 
     def create_snapshot_browser_dock(self):
         print 'creating snapshot_browser_dock'
@@ -698,6 +699,7 @@ class Ui_checkInOutWidget(QtGui.QMainWindow):
             QtGui.QDockWidget.DockWidgetMovable | QtGui.QDockWidget.DockWidgetClosable)
 
         self.addDockWidget(QtCore.Qt.RightDockWidgetArea, self.description_dock)
+        self.description_dock.close() #description dock do not open by default
 
     def create_search_options_dock(self):
         print 'creating search_options_dock'
