@@ -1004,12 +1004,16 @@ def extract_dirname(filename):
         return os.path.dirname(filename)
 
 
-def open_file_associated(filepath):
+def open_file_associated(filepath,mayaVer):
     if filepath:
         if env_mode.get_platform() == 'Linux':
             subprocess.call(('xdg-open', filepath))
         else:
-            os.startfile(filepath)
+            mayaLoc = r'C:/Program Files/Autodesk/Maya%s/bin/maya.exe "%s"' %(mayaVer,filepath)
+            print mayaLoc
+            
+            subprocess.Popen(mayaLoc,stdout=subprocess.PIPE)
+            #os.startfile(filepath)
 
 
 def open_folder(filepath):
