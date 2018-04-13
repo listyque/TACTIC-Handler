@@ -955,6 +955,47 @@ class Ui_checkInOutWidget(QtGui.QMainWindow):
             self.search_options_dock.raise_()
         else:
             self.search_options_dock.setHidden(True)
+            
+        @gf.catch_error
+    def toggle_description_box(self):
+        if self.description_dock.isHidden():
+            self.description_dock.setHidden(False)
+            self.description_dock.raise_()
+        else:
+            self.description_dock.setHidden(True)
+            
+    @gf.catch_error
+    def toggle_snapshot_browser_box(self):
+        if self.snapshot_browser_dock.isHidden():
+            self.snapshot_browser_dock.setHidden(False)
+            self.snapshot_browser_dock.raise_()
+        else:
+            self.snapshot_browser_dock.setHidden(True)
+            
+    @gf.catch_error
+    def toggle_drop_plate_box(self):
+        if self.drop_plate_dock.isHidden():
+            self.drop_plate_dock.setHidden(False)
+            self.drop_plate_dock.raise_()
+        else:
+            self.drop_plate_dock.setHidden(True)
+
+    @gf.catch_error
+    def toggle_checkin_options_box(self):
+        if self.checkin_options_dock.isHidden():
+            self.checkin_options_dock.setHidden(False)
+            self.checkin_options_dock.raise_()
+        else:
+            self.checkin_options_dock.setHidden(True)
+
+    @gf.catch_error
+    def toggle_fast_controls_box(self):
+        if self.fast_controls_tool_bar.isHidden():
+            self.fast_controls_tool_bar.setHidden(False)
+            self.fast_controls_tool_bar.raise_()
+        else:
+            self.fast_controls_tool_bar.setHidden(True)  
+    
 
     def fill_gear_menu(self):
 
@@ -975,23 +1016,23 @@ class Ui_checkInOutWidget(QtGui.QMainWindow):
         self.search_options_toggle_action.setIcon(gf.get_icon('binoculars', scale_factor=0.95))
 
         self.description_toggle_action = QtGui.QAction('Description Dock', self)
-        self.description_toggle_action.triggered.connect(self.toggle_search_group_box)
+        self.description_toggle_action.triggered.connect(self.toggle_description_box)
         self.description_toggle_action.setIcon(gf.get_icon('keyboard-o'))
 
         self.snapshot_browser_toggle_action = QtGui.QAction('Snapshot Browser Dock', self)
-        self.snapshot_browser_toggle_action.triggered.connect(self.toggle_search_group_box)
+        self.snapshot_browser_toggle_action.triggered.connect(self.toggle_snapshot_browser_box)
         self.snapshot_browser_toggle_action.setIcon(gf.get_icon('sitemap'))
 
         self.checkin_options_toggle_action = QtGui.QAction('Checkin Options Dock', self)
-        self.checkin_options_toggle_action.triggered.connect(self.toggle_search_group_box)
+        self.checkin_options_toggle_action.triggered.connect(self.toggle_checkin_options_box)
         self.checkin_options_toggle_action.setIcon(gf.get_icon('sliders'))
 
         self.drop_plate_toggle_action = QtGui.QAction('Drop Plate Dock', self)
-        self.drop_plate_toggle_action.triggered.connect(self.toggle_search_group_box)
+        self.drop_plate_toggle_action.triggered.connect(self.toggle_drop_plate_box)
         self.drop_plate_toggle_action.setIcon(gf.get_icon('inbox'))
 
         self.fast_controls_toggle_action = QtGui.QAction('Fast Controls Tool Bar', self)
-        self.fast_controls_toggle_action.triggered.connect(self.toggle_search_group_box)
+        self.fast_controls_toggle_action.triggered.connect(self.toggle_fast_controls_box)
         self.fast_controls_toggle_action.setIcon(gf.get_icon('tachometer'))
 
         self.search_widget.add_action_to_gear_menu(self.add_new_sobject_action)
