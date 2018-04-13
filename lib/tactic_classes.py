@@ -1205,7 +1205,8 @@ class File(object):
             return self
 
     def open_file(self):
-        gf.open_file_associated(self.get_full_abs_path())
+        maya_info = self.get_metadata().get('app_info').get('v')
+        gf.open_file_associated(self.get_full_abs_path(),maya_info)
 
     def open_folder(self):
         gf.open_folder(self.get_full_abs_path())
