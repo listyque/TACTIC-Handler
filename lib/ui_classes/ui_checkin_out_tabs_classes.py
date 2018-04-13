@@ -339,6 +339,13 @@ class Ui_checkInOutTabWidget(QtGui.QWidget, checkin_out_tabs.Ui_sObjTabs):
                 # this is needed because of Qt restore setting bug
                 tab.do_creating_ui()
             tab.tab_widget.layout().addWidget(tab)
+            
+        # Every tab will read the widget seetings when creating ui
+        current_tab = self.get_current_tab_widget()
+        if current_tab:
+            current_settings = current_tab.get_settings_dict()
+        for tab in self.all_search_tabs:
+            tab.set_settings_from_dict(json.dumps(current_settings), apply_checkin_options=False, apply_search_options=False)
 
         # Add labels
         for i, label in enumerate(added_labels):
