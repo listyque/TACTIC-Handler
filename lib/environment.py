@@ -3,15 +3,14 @@
 # Global constants with defaults
 
 import os
-import logging
-import traceback
-# import collections
+import datetime
+import inspect
+import collections
 import platform
 import json
-
 from lib.side.Qt import QtCore
 
-# import PySide.QtCore as QtCore
+CFG_FORMAT = 'json'  # set this to 'ini' if you want to use QSettings instead of json
 
 
 def singleton(cls):
@@ -24,18 +23,102 @@ def singleton(cls):
     return get_instance()
 
 
-def to_json(obj, pretty=False):
-    indent = None
-    separators = (',', ':')
-    if pretty:
-        indent = 4
-        separators = (', ', ': ')
-    return json.dumps(obj, indent=indent, separators=separators)
+def env_write_config(obj=None, filename='settings', unique_id='', sub_id=None, update_file=False, long_abs_path=False):
+    """
+    Converts python objects to json, then writes it to disk.
+    Supported writing formats: 'json', 'ini'. Format can be set via global var CFG_FORMAT.
+    If ini used, there is less sub folders will be created.
+
+    :param obj: any dict, list etc...
+    :param filename: name of the file to be written, without ext. 'settings'
+    :param unique_id: if format set to json will create sub dirs to ensure uniqueness. 'a/b/c'
+    :param sub_id: unique id inside dump. 'abc'
+    :param update_file: updates json instead of rewriting
+    :param long_abs_path: if set to true path for saving will match current environment paths
+    """
+
+    if long_abs_path:
+        abs_path = '{0}/settings/{1}/{2}/{3}'.format(
+                    env_mode.get_current_path(),
+                    env_mode.get_node(),
+                    env_server.get_cur_srv_preset(),
+                    env_mode.get_mode())
+    else:
+        abs_path = '{0}/settings'.format(env_mode.get_current_path())
+
+    if CFG_FORMAT == 'json':
+        full_abs_path = '{0}/{1}'.format(abs_path, unique_id)
+        if not os.path.exists(full_abs_path):
+            os.makedirs(full_abs_path)
+
+        full_path = '{0}/{1}.json'.format(full_abs_path, filename)
+
+        obj_from_file = None
+
+        if update_file and sub_id:
+            if os.path.exists(full_path):
+                with open(full_path, 'r') as json_file:
+                    obj_from_file = json.load(json_file)
+
+        if sub_id:
+            if obj_from_file:
+                obj_from_file[sub_id] = obj
+                obj = obj_from_file
+            else:
+                obj = {sub_id: obj}
+
+        with open(full_path, 'w') as json_file:
+            json.dump(obj, json_file, indent=2, separators=(',', ': '))
+
+    elif CFG_FORMAT == 'ini':
+        full_path = '{0}/{1}.ini'.format(abs_path, filename)
+        settings = QtCore.QSettings(full_path, QtCore.QSettings.IniFormat)
+        settings.beginGroup(filename)
+        if sub_id:
+            settings.beginGroup(sub_id)
+        settings.setValue(unique_id, json.dumps(obj, separators=(',', ':')))
+        settings.endGroup()
 
 
-def from_json(obj):
-    if obj:
-        return json.loads(obj)
+def env_read_config(filename='settings', unique_id='', sub_id=None, long_abs_path=False):
+    if long_abs_path:
+        abs_path = '{0}/settings/{1}/{2}/{3}'.format(
+                    env_mode.get_current_path(),
+                    env_mode.get_node(),
+                    env_server.get_cur_srv_preset(),
+                    env_mode.get_mode())
+    else:
+        abs_path = '{0}/settings'.format(env_mode.get_current_path())
+
+    if CFG_FORMAT == 'json':
+        if unique_id:
+            full_path = '{0}/{1}/{2}.json'.format(abs_path, unique_id, filename)
+        else:
+            full_path = '{0}/{1}.json'.format(abs_path, filename)
+
+        if os.path.exists(full_path):
+            with open(full_path, 'r') as json_file:
+                obj = json.load(json_file)
+
+            if sub_id:
+                return obj.get(sub_id)
+            else:
+                return obj
+
+    elif CFG_FORMAT == 'ini':
+        full_path = '{0}/{1}.ini'.format(abs_path, filename)
+        settings = QtCore.QSettings(full_path, QtCore.QSettings.IniFormat)
+        settings.beginGroup(filename)
+
+        if sub_id:
+            settings.beginGroup(sub_id)
+
+        value = settings.value(unique_id, None)
+        settings.endGroup()
+
+        if value:
+            obj = json.loads(value)
+            return obj
 
 
 @singleton
@@ -56,7 +139,6 @@ class Inst(object):
     check_tree = {}
     control_tabs = {}
     ui_addsobject = None
-    # threads_pool = collections.defaultdict(list)
 
     def get_current_project(self):
         return self.current_project
@@ -122,87 +204,66 @@ class DebugLog(object):
     """
     This is Debug Log singleton
     """
-    # show_source_location = True
-    #
-    # # Formats the message as needed and calls the correct logging method
-    # # to actually handle it
-    # def _raw_log(self, logfn, message, exc_info):
-    #     cname = ''
-    #     loc = ''
-    #     fn = ''
-    #     tb = traceback.extract_stack()
-    #     if len(tb) > 2:
-    #         if self.show_source_location:
-    #             loc = '(%s:%d):' % (os.path.basename(tb[-3][0]), tb[-3][1])
-    #         fn = tb[-3][2]
-    #         if fn != '<module>':
-    #             if self.__class__.__name__ != DebugLog.__name__:
-    #                 fn = self.__class__.__name__ + '.' + fn
-    #             fn += '()'
-    #
-    #     logfn(loc + cname + fn + ': ' + message, exc_info=exc_info)
+    info_dict = collections.OrderedDict()
+    warning_dict = collections.OrderedDict()
+    log_dict = collections.OrderedDict()
+    logs_order = 0
 
-    def get_trace_info(self, message_text='', html=False, color='ff0000'):
-        tb = traceback.extract_stack(limit=3)
-        if tb:
-            message_type = '[ INFO ]'
-            module_path = os.path.basename(tb[0][0])
-            line_number = tb[0][1]
-            function_name = tb[0][2]
-            # caller = tb[0][3]
-
-            trace_str = '{0} {1} @ //{2:04d} : Module: {3}, Function: {4}()'.format(
-                message_type,
-                message_text,
-                int(line_number),
-                module_path,
-                function_name)
-            if html:
-                return '<br><span style="color:#{0};">{1}</span></br>'.format(color, trace_str)
-            else:
-                return trace_str
-
-    def info(self, message, exc_info=False):
+    def get_trace(self, message_text, message_type, caller=2, group_id=None):
         """
-        Log a info-level message. If exc_info is True, if an exception
-        was caught, show the exception information (message and stack trace).
+        Getting trace info from code inspecting
+        :param message_text: Useful message in log
+        :param message_type: Message type [info, warning, etc..]
+        :param caller: getting deeper to stack
+        :param group_id: group and subgroup for uniqueness, for ex. 'Group/SubGroup/SubSubGroup'
+        :return:
         """
+
+        stack = inspect.stack()
+
+        if stack[caller][0]:
+            return (self.logs_order, {
+                'datetime': datetime.datetime.today(),
+                'unique_id': group_id,
+                'message_text': message_text,
+                'line_number': int(stack[caller][0].f_lineno),
+                'module_path': os.path.basename(stack[caller][0].f_code.co_filename),
+                'function_name': stack[caller][0].f_code.co_name,
+                'message_type': message_type,
+            })
+
+    def info(self, message, caller=2, group_id=None):
+        self.logs_order += 1
+        trace = self.get_trace(message, 'info', caller, group_id)
+        if self.info_dict.get(trace[1]['module_path']):
+            self.info_dict[trace[1]['module_path']].append(trace)
+        else:
+            self.info_dict[trace[1]['module_path']] = [trace]
+
         if env_inst.ui_debuglog:
-            env_inst.ui_debuglog.add_info(self.get_trace_info(message, html=True))
-        # self._raw_log(logging.info, message, exc_info)
+            env_inst.ui_debuglog.add_debuglog(trace[1], '[ INF ]')
 
-    def debug(self, message, exc_info=False):
-        """
-        Log a debug-level message. If exc_info is True, if an exception
-        was caught, show the exception information (message and stack trace).
-        """
-        self._raw_log(logging.debug, message, exc_info)
+    def warning(self, message, caller=2, group_id=None):
+        self.logs_order += 1
+        trace = self.get_trace(message, 'warning', caller, group_id)
+        if self.warning_dict.get(trace[1]['module_path']):
+            self.warning_dict[trace[1]['module_path']].append(trace)
+        else:
+            self.warning_dict[trace[1]['module_path']] = [trace]
 
-    def warning(self, message, exc_info=False):
-        """
-        Log a warning-level message. If exc_info is True, if an exception
-        was caught, show the exception information (message and stack trace).
-        """
-        self._raw_log(logging.warning, message, exc_info)
+        if env_inst.ui_debuglog:
+            env_inst.ui_debuglog.add_debuglog(trace[1], '[ WRN ]')
 
-    def error(self, message, exc_info=False):
-        """
-        Log an error-level message. If exc_info is True, if an exception
-        was caught, show the exception information (message and stack trace).
-        """
-        self._raw_log(logging.error, message, exc_info)
+    def log(self, message, caller=2, group_id=None):
+        self.logs_order += 1
+        trace = self.get_trace(message, 'log', caller, group_id)
+        if self.log_dict.get(trace[1]['module_path']):
+            self.log_dict[trace[1]['module_path']].append(trace)
+        else:
+            self.log_dict[trace[1]['module_path']] = [trace]
 
-    # @staticmethod
-    # def basicConfig(level=logging.DEBUG):
-    #     """
-    #     Apply a basic logging configuration which outputs the log to the
-    #     console (stderr). Optionally, the minimum log level can be set, one
-    #     of DEBUG, WARNING, ERROR (or any of the levels from the logging
-    #     module). If not set, DEBUG log level is used as minimum.
-    #     """
-    #     logging.basicConfig(level=level,
-    #         format='%(asctime)s %(levelname)s %(message)s',
-    #         datefmt='%Y-%m-%d %H:%M:%S')
+        if env_inst.ui_debuglog:
+            env_inst.ui_debuglog.add_debuglog(trace[1], '[ LOG ]')
 
 
 dl = DebugLog()
@@ -281,49 +342,68 @@ env_mode = Mode()
 
 @singleton
 class Env(object):
+    default_preset = {
+            'user': 'admin',
+            'server': '127.0.0.1:9123',
+            'ticket': None,
+            'site': {'site_name': '', 'enabled': False},
+            'proxy': {'login': '', 'pass': '', 'server': '', 'enabled': False},
+            'timeout': 5,
+            'config_format': 'json',
+        }
+
     def __init__(self):
-        self.settings = QtCore.QSettings('{0}/settings/environment_config.ini'.format(env_mode.get_current_path()), QtCore.QSettings.IniFormat)
         self.defaults = None
-        self.get_defaults()
-
+        self.server_presets_defaults = None
         self.server_presets = None
-        self.get_server_presets()
-
         self.user = None
         self.site = None
         self.server = None
         self.ticket = None
         self.proxy = None
+        self.timeout = None
+        self.config_format = None
+
+        self.get_server_presets_defaults()
+        self.get_server_presets()
+
+        self.get_defaults()
+
+    def reload(self):
+        self.__init__()
+
+    def get_default_preset(self):
+        return self.default_preset.copy()
+
+    def save_default_preset(self):
+        self.defaults = self.get_default_preset()
 
     def get_defaults(self):
-        self.settings.beginGroup(env_mode.get_node() + '/server_environment')
-        self.defaults = from_json(self.settings.value('TACTIC_DEFAULTS', 'null'))
-        self.settings.endGroup()
+        unique_id = '{0}/environment_config/server_presets'.format(env_mode.get_node())
+        self.defaults = env_read_config(filename=self.get_cur_srv_preset(), unique_id=unique_id)
 
-        if self.defaults is None:
-            self.defaults = {
-                'user': 'admin',
-                'server': '127.0.0.1:9123',
-                'ticket': None,
-                'site': {'site_name': '', 'enabled': False},
-                'proxy': {'login': '', 'pass': '', 'server': '', 'enabled': False},
-                'server_presets': {'presets_list': ['default'], 'current_idx': 0},
-            }
-            self.set_defaults()
+        if not self.defaults:
+            # if default is not exists, so generate new empty config
+            self.defaults = self.get_default_preset()
+            self.save_defaults(True)
 
-    def set_defaults(self):
-        self.settings.beginGroup(env_mode.get_node() + '/server_environment')
-        self.settings.setValue('TACTIC_DEFAULTS', to_json(self.defaults))
-        print('Done set_defaults settings write')
-        self.settings.endGroup()
+    def save_defaults(self, defaults=False):
+        if not defaults:
+            self.defaults['user'] = self.user
+            self.defaults['server'] = self.server
+            self.defaults['ticket'] = self.ticket
+            self.defaults['site'] = self.site
+            self.defaults['proxy'] = self.proxy
+            self.defaults['timeout'] = self.timeout
+
+        unique_id = '{0}/environment_config/server_presets'.format(env_mode.get_node())
+        env_write_config(self.defaults, filename=self.get_cur_srv_preset(), unique_id=unique_id)
 
     def get_proxy(self):
         if self.proxy:
             return self.proxy
         else:
-            self.settings.beginGroup(env_mode.get_node() + '/server_environment')
-            self.proxy = from_json(self.settings.value('TACTIC_PROXY', to_json(self.defaults['proxy'])))
-            self.settings.endGroup()
+            self.proxy = self.defaults.get('proxy')
             return self.proxy
 
     def set_proxy(self, proxy_login, proxy_pass, proxy_server, enabled=False):
@@ -334,34 +414,32 @@ class Env(object):
             'enabled': enabled,
         }
         self.proxy = proxy
-        self.settings.beginGroup(env_mode.get_node() + '/server_environment')
-        self.settings.setValue('TACTIC_PROXY', to_json(self.proxy))
-        print('Done set_proxy settings write')
-        self.settings.endGroup()
+
+    def set_timeout(self, timeout=None):
+        self.timeout = timeout
+
+    def get_timeout(self):
+        if not self.timeout:
+            self.timeout = self.default_preset['timeout']
+            return float(self.timeout)
+        else:
+            return float(self.timeout)
 
     def get_user(self):
         if self.user:
             return self.user
         else:
-            self.settings.beginGroup(env_mode.get_node() + '/server_environment/' + self.get_cur_srv_preset())
-            self.user = self.settings.value('TACTIC_USER', self.defaults['user'])
-            self.settings.endGroup()
+            self.user = self.defaults.get('user')
             return self.user
 
     def set_user(self, user_name):
         self.user = user_name
-        self.settings.beginGroup(env_mode.get_node() + '/server_environment/' + self.get_cur_srv_preset())
-        self.settings.setValue('TACTIC_USER', user_name)
-        print('Done set_user settings write')
-        self.settings.endGroup()
 
     def get_site(self):
         if self.site:
             return self.site
         else:
-            self.settings.beginGroup(env_mode.get_node() + '/server_environment/' + self.get_cur_srv_preset())
-            self.site = from_json(self.settings.value('TACTIC_SITE', to_json(self.defaults['site'])))
-            self.settings.endGroup()
+            self.site = self.defaults.get('site')
             return self.site
 
     def set_site(self, site_name, enabled=False):
@@ -370,71 +448,68 @@ class Env(object):
             'enabled': enabled,
         }
         self.site = site
-        self.settings.beginGroup(env_mode.get_node() + '/server_environment/' + self.get_cur_srv_preset())
-        self.settings.setValue('TACTIC_SITE', to_json(self.site))
-        print('Done set_site settings write')
-        self.settings.endGroup()
 
     def get_server(self):
         if self.server:
             return self.server
         else:
-            self.settings.beginGroup(env_mode.get_node() + '/server_environment/' + self.get_cur_srv_preset())
-            self.server = self.settings.value('TACTIC_SERVER', self.defaults['server'])
-            self.settings.endGroup()
+            self.server = self.defaults.get('server')
             return self.server
 
     def set_server(self, server_name):
         self.server = server_name
-        self.settings.beginGroup(env_mode.get_node() + '/server_environment/' + self.get_cur_srv_preset())
-        self.settings.setValue('TACTIC_SERVER', server_name)
-        print('Done set_server settings write')
-        self.settings.endGroup()
+
+    def save_server_presets_defaults(self):
+        unique_id = '{0}/environment_config'.format(env_mode.get_node())
+        env_write_config(self.server_presets_defaults, filename='presets_conf', unique_id=unique_id)
+
+    def get_server_presets_defaults(self):
+        unique_id = '{0}/environment_config'.format(env_mode.get_node())
+        self.server_presets_defaults = env_read_config(filename='presets_conf', unique_id=unique_id)
+        if not self.server_presets_defaults:
+            self.server_presets_defaults = {'server_presets': {'presets_list': ['default'], 'current': 'default'}}
 
     def get_server_presets(self):
         if self.server_presets:
             return self.server_presets
         else:
-            self.settings.beginGroup(env_mode.get_node() + '/server_environment')
-            self.server_presets = from_json(self.settings.value('SERVER_PRESETS', to_json(self.defaults['server_presets'])))
-            self.settings.endGroup()
-            return self.server_presets
+            self.server_presets = self.server_presets_defaults['server_presets']
 
-    def set_server_presets(self, presets_list, current_idx):
-        server_presets = {
-            'presets_list': presets_list,
-            'current_idx': current_idx,
-        }
-        self.server_presets = server_presets
-
-        self.settings.beginGroup(env_mode.get_node() + '/server_environment')
-        self.settings.setValue('SERVER_PRESETS', to_json(server_presets))
-        print('Done set_server_presets settings write')
-        self.settings.endGroup()
-
-    def set_cur_srv_preset(self, current_idx):
-        self.set_server_presets(self.server_presets['presets_list'], current_idx)
+    def set_cur_srv_preset(self, current):
+        self.server_presets['current'] = current
 
     def get_cur_srv_preset(self):
-        idx = int(self.server_presets['current_idx'])
-        current_server_preset = self.server_presets['presets_list'][idx]
-        return current_server_preset
+        return self.server_presets['current']
+
+    def add_server_preset(self, preset_name, set_current=False):
+        self.server_presets['presets_list'].append(preset_name)
+        if set_current:
+            self.server_presets['current'] = preset_name
+
+    def remove_server_preset(self, preset_name):
+        self.server_presets['presets_list'].remove(preset_name)
+        self.server_presets['current'] = 'default'
 
     def get_ticket(self):
         if self.ticket:
             return self.ticket
         else:
-            self.settings.beginGroup(env_mode.get_node() + '/server_environment/' + self.get_cur_srv_preset())
-            self.ticket = self.settings.value('TACTIC_TICKET', self.defaults['ticket'])
-            self.settings.endGroup()
+            self.ticket = self.defaults.get('ticket')
             return self.ticket
 
     def set_ticket(self, ticket_name):
         self.ticket = ticket_name
-        self.settings.beginGroup(env_mode.get_node() + '/server_environment/' + self.get_cur_srv_preset())
-        self.settings.setValue('TACTIC_TICKET', ticket_name)
-        print('Done set_ticket settings write')
-        self.settings.endGroup()
+
+    def get_config_format(self):
+        if self.config_format:
+            return self.config_format
+        else:
+            self.config_format = self.defaults.get('config_format')
+            return self.config_format
+
+    def set_config_format(self, config_format):
+        self.config_format = config_format
+
 
 env_server = Env()
 
@@ -443,7 +518,6 @@ env_server = Env()
 class Tactic(object):
 
     def __init__(self):
-        self.settings = QtCore.QSettings('{0}/settings/environment_config.ini'.format(env_mode.get_current_path()), QtCore.QSettings.IniFormat)
 
         self.base_dirs = None
         self.default_base_dirs = None
@@ -454,16 +528,18 @@ class Tactic(object):
         import tactic_classes as tc
         default_base_dirs = tc.server_start().get_base_dirs()
         self.default_base_dirs = default_base_dirs
-        self.settings.beginGroup(env_mode.get_node() + '/tactic_environment')
-        self.settings.setValue('TACTIC_DEFAULT_DIRS', str(default_base_dirs))
-        self.settings.endGroup()
+
+        unique_id = '{0}/environment_config'.format(env_mode.get_node())
+        env_write_config(default_base_dirs, filename='tactic_dirs', unique_id=unique_id, sub_id='TACTIC_DEFAULT_DIRS', update_file=True)
+
         return default_base_dirs
 
     def get_default_base_dirs(self, force=False):
         if not self.default_base_dirs:
-            self.settings.beginGroup(env_mode.get_node() + '/tactic_environment')
-            self.default_base_dirs = json.loads(self.settings.value('TACTIC_DEFAULT_DIRS', 'null'))
-            self.settings.endGroup()
+
+            unique_id = '{0}/environment_config'.format(env_mode.get_node())
+            self.default_base_dirs = env_read_config(filename='tactic_dirs', unique_id=unique_id, sub_id='TACTIC_DEFAULT_DIRS')
+
             if not self.default_base_dirs or force:
                 self.default_base_dirs = self.query_base_dirs()
             return self.default_base_dirs
@@ -472,9 +548,9 @@ class Tactic(object):
 
     def get_base_dirs(self, force=False):
         if not self.base_dirs:
-            self.settings.beginGroup(env_mode.get_node() + '/tactic_environment')
-            self.base_dirs = from_json(self.settings.value('TACTIC_BASE_DIRS', 'null'))
-            self.settings.endGroup()
+
+            unique_id = '{0}/environment_config'.format(env_mode.get_node())
+            self.base_dirs = env_read_config(filename='tactic_dirs', unique_id=unique_id, sub_id='TACTIC_BASE_DIRS')
 
             if not self.base_dirs or force:
                 base_dirs = self.get_default_base_dirs(force)
@@ -506,9 +582,8 @@ class Tactic(object):
         return self.base_dirs
 
     def save_base_dirs(self):
-        self.settings.beginGroup(env_mode.get_node() + '/tactic_environment')
-        self.settings.setValue('TACTIC_BASE_DIRS', to_json(self.base_dirs))
-        self.settings.endGroup()
+        unique_id = '{0}/environment_config'.format(env_mode.get_node())
+        env_write_config(self.base_dirs, filename='tactic_dirs', unique_id=unique_id, sub_id='TACTIC_BASE_DIRS', update_file=True)
 
     def get_custom_dir(self):
         if env_mode.get_platform() == 'Linux':
@@ -517,9 +592,8 @@ class Tactic(object):
             return {'name': 'win32_custom_asset_dir', 'value': self.custom_dirs['win32_custom_asset_dir']}
 
     def get_custom_dirs(self):
-        self.settings.beginGroup(env_mode.get_node() + '/tactic_environment')
-        self.custom_dirs = from_json(self.settings.value('TACTIC_CUSTOM_DIRS', 'null'))
-        self.settings.endGroup()
+        unique_id = '{0}/environment_config'.format(env_mode.get_node())
+        self.custom_dirs = env_read_config(filename='tactic_dirs', unique_id=unique_id, sub_id='TACTIC_CUSTOM_DIRS')
 
         if not self.custom_dirs:
 
@@ -528,9 +602,8 @@ class Tactic(object):
                     'win32_custom_asset_dir': {'path': [], 'name': [], 'current': [], 'visible': [], 'color': [], 'enabled': False},
                 }
 
-            self.settings.beginGroup(env_mode.get_node() + '/tactic_environment')
-            self.settings.setValue('TACTIC_CUSTOM_DIRS', to_json(self.custom_dirs))
-            self.settings.endGroup()
+            unique_id = '{0}/environment_config'.format(env_mode.get_node())
+            env_write_config(self.custom_dirs, filename='tactic_dirs', unique_id=unique_id, sub_id='TACTIC_CUSTOM_DIRS', update_file=True)
 
         return self.custom_dirs
 
@@ -629,7 +702,83 @@ class Tactic(object):
                 base_dirs['win32_server_handoff_dir'] = value
 
 
-# print 'getting tactic env'
 env_tactic = Tactic()
-# print env_tactic.get_base_dirs()
-# print 'getting tactic env done'
+
+
+@singleton
+class Controls(object):
+    def __init__(self):
+        self.server = None
+        self.project = None
+        self.checkin = None
+        self.checkout = None
+        self.checkin_out = None
+        self.checkin_out_projects = None
+        self.checkin = None
+        self.maya_scene = None
+
+    def get_server(self):
+        if self.server:
+            return self.server
+        else:
+            self.server = env_read_config(filename='server', unique_id='ui_conf', long_abs_path=True)
+            return self.server
+
+    def set_server(self, server):
+        self.server = server
+        env_write_config(server, 'server', unique_id='ui_conf', long_abs_path=True)
+
+    def get_project(self):
+        if self.project:
+            return self.project
+        else:
+            self.project = env_read_config(filename='project', unique_id='ui_conf', long_abs_path=True)
+            return self.project
+
+    def set_project(self, project):
+        self.project = project
+        env_write_config(project, 'project', unique_id='ui_conf', long_abs_path=True)
+
+    def get_checkin(self):
+        if self.checkin:
+            return self.checkin
+        else:
+            self.checkin = env_read_config(filename='checkin', unique_id='ui_conf', long_abs_path=True)
+            return self.checkin
+
+    def set_checkin(self, checkin):
+
+        self.checkin = checkin
+        env_write_config(filename='checkin', unique_id='ui_conf', obj=checkin, long_abs_path=True)
+
+    def get_checkin_out(self):
+        if self.checkin_out:
+            return self.checkin_out
+        else:
+            self.checkin_out = env_read_config(filename='checkin_out', unique_id='ui_conf', long_abs_path=True)
+            return self.checkin_out
+
+    def set_checkin_out(self, checkin_out):
+        self.checkin_out = checkin_out
+        env_write_config(filename='checkin_out', unique_id='ui_conf', obj=checkin_out, long_abs_path=True)
+
+    def get_checkin_out_projects(self):
+        if self.checkin_out_projects:
+            return self.checkin_out_projects
+        else:
+            self.checkin_out_projects = env_read_config(filename='checkin_out_projects', unique_id='ui_conf', long_abs_path=True)
+            return self.checkin_out_projects
+
+    def set_checkin_out_projects(self, checkin_out_projects):
+        self.checkin_out_projects = checkin_out_projects
+        env_write_config(filename='checkin_out_projects', unique_id='ui_conf', obj=checkin_out_projects, long_abs_path=True)
+
+    def get_maya_scene(self):
+        self.maya_scene = env_read_config(filename='maya_scene', unique_id='ui_conf', long_abs_path=True)
+        return self.maya_scene
+
+    def set_maya_scene(self, maya_scene):
+        self.maya_scene = maya_scene
+        env_write_config(filename='maya_scene', unique_id='ui_conf', obj=maya_scene, long_abs_path=True)
+
+cfg_controls = Controls()

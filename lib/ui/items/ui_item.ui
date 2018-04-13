@@ -5,7 +5,7 @@
   <property name="windowTitle">
    <string>Form</string>
   </property>
-  <layout class="QGridLayout" name="gridLayout" rowstretch="0,0,1">
+  <layout class="QGridLayout" name="gridLayout" rowstretch="0,0,1" columnstretch="0,0,0,1,0">
    <property name="margin">
     <number>0</number>
    </property>
@@ -209,19 +209,6 @@
      <property name="spacing">
       <number>0</number>
      </property>
-     <item>
-      <spacer name="horizontalSpacer">
-       <property name="orientation">
-        <enum>Qt::Horizontal</enum>
-       </property>
-       <property name="sizeHint" stdset="0">
-        <size>
-         <width>0</width>
-         <height>0</height>
-        </size>
-       </property>
-      </spacer>
-     </item>
      <item>
       <widget class="QCheckBox" name="selectedCheckBox">
        <property name="sizePolicy">

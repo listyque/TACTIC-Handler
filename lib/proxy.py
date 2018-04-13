@@ -2,7 +2,6 @@
 
 # Requires python-ntlm (http://code.google.com/p/python-ntlm/) package
 from lib.side.ntlm import HTTPNtlmAuthHandler
-
 import xmlrpclib
 import base64
 import cookielib
@@ -27,14 +26,23 @@ class UrllibTransport(xmlrpclib.Transport, object):
         self.proxy_server = self.proxy['server']
         self.proxy_enabled = self.proxy['enabled']
 
-    def update_proxy(self):
-        self.proxy = env_server.get_proxy()
+    def update_proxy(self, proxy_dict=None):
+        if proxy_dict:
+            self.proxy = proxy_dict
+        else:
+            self.proxy = env_server.get_proxy()
         self.proxy_user = self.proxy['login']
         self.proxy_pass = self.proxy['pass']
         self.proxy_server = self.proxy['server']
         self.proxy_enabled = self.proxy['enabled']
         if not self.proxy_enabled:
             self.proxyurl = None
+
+    def disable_proxy(self):
+        self.proxy_enabled = False
+
+    def enable_proxy(self):
+        self.proxy_enabled = True
 
     def request(self, host, handler, request_body, verbose=0):
         self.verbose = verbose
@@ -113,6 +121,6 @@ class UrllibTransport(xmlrpclib.Transport, object):
                                           urllib2.HTTPCookieProcessor(cj))
 
         urllib2.install_opener(opener)
-        response = urllib2.urlopen(request, timeout=10)
 
+        response = urllib2.urlopen(request, timeout=env_server.get_timeout())
         return self.parse_response(response)

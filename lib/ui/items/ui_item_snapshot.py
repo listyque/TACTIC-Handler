@@ -1,9 +1,9 @@
 # -*- coding: utf-8 -*-
 
-# Form implementation generated from reading ui file 'items\ui_item_snapshot.ui'
+# Form implementation generated from reading ui file 'items/ui_item_snapshot.ui'
 #
-# Created: Sat Dec 23 23:34:03 2017
-#      by: pyside-uic 0.2.15 running on PySide 1.2.4
+# Created: Tue Dec 26 15:17:43 2017
+#      by: pyside-uic 0.2.15 running on PySide 1.2.2
 #
 # WARNING! All changes made in this file will be lost!
 
@@ -103,8 +103,6 @@ class Ui_snapshotItem(object):
         self.checkBoxHorizontalLayout = QtGui.QHBoxLayout()
         self.checkBoxHorizontalLayout.setSpacing(0)
         self.checkBoxHorizontalLayout.setObjectName("checkBoxHorizontalLayout")
-        spacerItem1 = QtGui.QSpacerItem(0, 0, QtGui.QSizePolicy.Expanding, QtGui.QSizePolicy.Minimum)
-        self.checkBoxHorizontalLayout.addItem(spacerItem1)
         self.selectedCheckBox = QtGui.QCheckBox(snapshotItem)
         sizePolicy = QtGui.QSizePolicy(QtGui.QSizePolicy.Minimum, QtGui.QSizePolicy.Preferred)
         sizePolicy.setHorizontalStretch(0)
@@ -125,6 +123,7 @@ class Ui_snapshotItem(object):
         self.itemColorLine.setFrameShadow(QtGui.QFrame.Sunken)
         self.itemColorLine.setObjectName("itemColorLine")
         self.gridLayout.addWidget(self.itemColorLine, 0, 0, 3, 1)
+        self.gridLayout.setColumnStretch(2, 1)
         self.gridLayout.setRowStretch(2, 1)
 
         self.retranslateUi(snapshotItem)

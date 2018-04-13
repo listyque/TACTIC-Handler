@@ -6,8 +6,7 @@ from lib.side.Qt import QtWidgets as QtGui
 from lib.side.Qt import QtGui as Qt4Gui
 from lib.side.Qt import QtCore
 
-from lib.environment import env_tactic, env_inst
-from lib.configuration import cfg_controls
+from lib.environment import env_tactic, env_inst, dl, cfg_controls
 import lib.global_functions as gf
 import lib.tactic_classes as tc
 import lib.ui.items.ui_item as ui_item
@@ -32,17 +31,39 @@ class Ui_infoItemsWidget(QtGui.QWidget):
 
         self.create_ui()
         self.items = []
+        self.items_ = []
 
     def create_ui(self):
+
+        self.main_layout = QtGui.QHBoxLayout(self)
+        self.main_layout.setContentsMargins(0, 0, 0, 0)
+        self.main_layout.setSpacing(0)
+
         self.items_layout = QtGui.QHBoxLayout()
         self.items_layout.setContentsMargins(0, 0, 0, 0)
         self.items_layout.setSpacing(4)
-        self.setLayout(self.items_layout)
+        self.items_layout.setSizeConstraint(QtGui.QLayout.SetMinAndMaxSize)
+
+        self.items_right_layout = QtGui.QHBoxLayout()
+        self.items_right_layout.setContentsMargins(0, 0, 10, 0)
+        self.items_right_layout.setSpacing(4)
+
+        self.main_layout.addLayout(self.items_layout)
+        spacer = QtGui.QSpacerItem(20, 10, QtGui.QSizePolicy.Expanding, QtGui.QSizePolicy.Maximum)
+        self.main_layout.addItem(spacer)
+
+        self.main_layout.addLayout(self.items_right_layout)
 
     def add_item(self, widget):
         if len(self.items) > 0:
             self.items_layout.addWidget(self.get_line_delimiter())
         self.items_layout.addWidget(widget)
+        self.items.append(widget)
+
+    def add_item_to_right(self, widget):
+        if len(self.items) > 0:
+            self.items_right_layout.addWidget(self.get_line_delimiter())
+        self.items_right_layout.addWidget(widget)
         self.items.append(widget)
 
     def get_line_delimiter(self):
@@ -111,7 +132,10 @@ class Ui_itemWidget(QtGui.QWidget, ui_item.Ui_item):
         self.children_states = states
 
     def create_ui(self):
-        self.drop_wdg = QtGui.QWidget(self)
+        # self.thread_pool = QtCore.QThreadPool()
+        # self.thread_pool = QtCore.QThreadPool.globalInstance()
+        # self.thread_pool.setMaxThreadCount(8)
+        # self.drop_wdg = QtGui.QWidget(self)
         self.setMinimumWidth(260)
         self.previewLabel.setText('<span style=" font-size:14pt; font-weight:600; color:#828282;">{0}</span>'.format(
             gf.gen_acronym(self.get_title()))
@@ -169,7 +193,7 @@ class Ui_itemWidget(QtGui.QWidget, ui_item.Ui_item):
         self.dateLabel = self.get_item_info_label()
         self.tasksLabel = self.get_item_info_label()
         self.snapshotsLabel = self.get_item_info_label()
-        self.item_info_widget.add_item(self.dateLabel)
+        self.item_info_widget.add_item_to_right(self.dateLabel)
         # self.item_info_widget.add_item(self.tasksLabel)
         # self.item_info_widget.add_item(self.snapshotsLabel)
 
@@ -179,7 +203,12 @@ class Ui_itemWidget(QtGui.QWidget, ui_item.Ui_item):
 
 
         self.fileNameLabel.setText(self.get_title())
-        self.commentLabel.setText(gf.to_plain_text(self.sobject.info.get('description')))
+        limit_enabled = bool(gf.get_value_from_config(cfg_controls.get_checkin(), 'snapshotDescriptionLimitCheckBox'))
+        limit = gf.get_value_from_config(cfg_controls.get_checkin(), 'snapshotDescriptionLimitSpinBox')
+        if limit_enabled:
+            self.commentLabel.setText(gf.to_plain_text(self.sobject.info.get('description'), limit))
+        else:
+            self.commentLabel.setText(gf.to_plain_text(self.sobject.info.get('description'), None))
         # timestamp = datetime.strptime(self.sobject.info.get('timestamp').split('.')[0], '%Y-%m-%d %H:%M:%S')
         date = str(self.sobject.info.get('timestamp')).split('.')[0].replace(' ', ' \n')
         self.dateLabel.setText(date)
@@ -455,14 +484,30 @@ class Ui_itemWidget(QtGui.QWidget, ui_item.Ui_item):
         #     self.tree_item.setChildIndicatorPolicy(QtGui.QTreeWidgetItem.ShowIndicator)
 
     def query_snapshots(self):
-        query_thread = tc.ServerThread(self.search_widget)
-        # env_inst.threads_pool['snapshots_query_thread'].append(query_thread)
-        query_thread.finished.connect(self.fill_snapshots_items)
-        query_thread.kwargs = {}
-        query_thread.routine = self.sobject.update_snapshots
-        # query_thread.msleep(10)
-        query_thread.start()
-        query_thread.setPriority(QtCore.QThread.NormalPriority)
+
+        def update_snapshots_agent():
+            return self.sobject.update_snapshots()
+
+        query_worker = gf.get_thread_worker(
+            update_snapshots_agent,
+            finished_func=self.fill_snapshots_items,
+            error_func=gf.error_handle
+        )
+        # query_worker.try_start()
+        query_worker.start()
+        # print(self.thread_pool.activeThreadCount(), 'query_snapshot')
+        #
+        # query_thread = tc.ServerThread(self.search_widget)
+        # # env_inst.threads_pool['snapshots_query_thread'].append(query_thread)
+        # query_thread.finished.connect(self.fill_snapshots_items)
+        # query_thread.kwargs = {}
+        # query_thread.routine = self.sobject.update_snapshots
+        # # query_thread.msleep(10)
+        # # query_thread.start()
+        # query_thread.start(QtCore.QThread.NormalPriority)
+        #
+        # # query_thread.exec_()
+        # # query_thread.setPriority(QtCore.QThread.NormalPriority)
 
     def fill_snapshots_items(self, publish=False):
         # print self.children_states, 'CHILDREN STATES, fill_snapshots_items'
@@ -539,33 +584,52 @@ class Ui_itemWidget(QtGui.QWidget, ui_item.Ui_item):
     def get_notes_count(self):
 
         @gf.catch_error
-        def notes_fill():
-            notes_counts = notes_counts_query.result['notes']
+        def notes_fill(result):
+            notes_counts = result['notes']
             process_items_dict = {item.process: item for item in self.process_items}
             for key, val in notes_counts.iteritems():
                 process_item = process_items_dict.get(key)
                 if process_item:
                     process_item.set_notes_count(val)
 
-            children_counts = notes_counts_query.result['stypes']
+            children_counts = result['stypes']
             child_items_dict = {item.child.get('from'): item for item in self.child_items}
             for key, val in children_counts.iteritems():
                 child_item = child_items_dict.get(key)
                 if child_item:
                     child_item.set_child_count_title(val)
 
-        notes_counts_query = tc.ServerThread(self.search_widget)
-        # env_inst.threads_pool['notes_counts_query'].append(notes_counts_query)
-        notes_counts_query.kwargs = dict(
-            sobject=self.sobject,
-            process=self.get_process_list(),
-            children_stypes=self.get_children_list()
+        def get_notes_counts_agent():
+            return tc.get_notes_count(
+                sobject=self.sobject,
+                process=self.get_process_list(),
+                children_stypes=self.get_children_list()
+            )
+
+        notes_counts_query_worker = gf.get_thread_worker(
+            get_notes_counts_agent,
+            result_func=notes_fill,
+            error_func=gf.error_handle
         )
-        notes_counts_query.routine = tc.get_notes_count
-        # notes_counts_query.msleep(10)
-        notes_counts_query.start()
-        notes_counts_query.setPriority(QtCore.QThread.LowPriority)
-        notes_counts_query.finished.connect(notes_fill)
+        # notes_counts_query_worker.try_start()
+        notes_counts_query_worker.try_start()
+        # print(self.thread_pool.activeThreadCount(), 'query_notes, item')
+
+
+        # notes_counts_query = tc.ServerThread(self.search_widget)
+        # # env_inst.threads_pool['notes_counts_query'].append(notes_counts_query)
+        # notes_counts_query.kwargs = dict(
+        #     sobject=self.sobject,
+        #     process=self.get_process_list(),
+        #     children_stypes=self.get_children_list()
+        # )
+        # notes_counts_query.routine = tc.get_notes_count
+        # # notes_counts_query.msleep(10)
+        # # notes_counts_query.start()
+        # notes_counts_query.start(QtCore.QThread.NormalPriority)
+        # # notes_counts_query.exec_()
+        # # notes_counts_query.setPriority(QtCore.QThread.LowPriority)
+        # notes_counts_query.finished.connect(notes_fill)
 
     @gf.catch_error
     def expand_tree_item(self):
@@ -688,26 +752,47 @@ class Ui_processItemWidget(QtGui.QWidget, ui_item_process.Ui_processItem):
     def set_children_states(self, states):
         self.children_states = states
 
+    @gf.catch_error
     def get_notes_count(self):
-        def notes_fill():
-            notes_counts = notes_counts_query.result['notes']
+
+        @gf.catch_error
+        def notes_fill(result):
+            notes_counts = result['notes']
             process_items_dict = {item.process: item for item in self.process_items}
             for key, val in notes_counts.iteritems():
                 process_item = process_items_dict.get(key)
                 if process_item:
                     process_item.set_notes_count(val)
 
-        notes_counts_query = tc.ServerThread(self.search_widget)
-        # env_inst.threads_pool['notes_counts_query'].append(notes_counts_query)
-        notes_counts_query.kwargs = dict(
-            sobject=self.sobject,
-            process=self.get_process_list(),
-            children_stypes=[]
-        )
-        notes_counts_query.routine = tc.get_notes_count
-        notes_counts_query.start()
+        def get_notes_counts_agent():
+            return tc.get_notes_count(
+                sobject=self.sobject,
+                process=self.get_process_list(),
+                children_stypes=[]
+            )
 
-        notes_counts_query.finished.connect(notes_fill)
+        notes_counts_query_worker = gf.get_thread_worker(
+            get_notes_counts_agent,
+            result_func=notes_fill,
+            error_func=gf.error_handle
+        )
+        # notes_counts_query_worker.try_start()
+        notes_counts_query_worker.try_start()
+        # print(self.thread_pool.activeThreadCount(), 'query_notes, process')
+
+        # notes_counts_query = tc.ServerThread(self.search_widget)
+        # # env_inst.threads_pool['notes_counts_query'].append(notes_counts_query)
+        # notes_counts_query.kwargs = dict(
+        #     sobject=self.sobject,
+        #     process=self.get_process_list(),
+        #     children_stypes=[]
+        # )
+        # notes_counts_query.routine = tc.get_notes_count
+        # # notes_counts_query.start()
+        # notes_counts_query.start(QtCore.QThread.NormalPriority)
+        # # notes_counts_query.exec_()
+        #
+        # notes_counts_query.finished.connect(notes_fill)
 
     def get_full_process_list(self):
         pipeline = self.get_current_process_pipeline()
@@ -745,7 +830,10 @@ class Ui_processItemWidget(QtGui.QWidget, ui_item_process.Ui_processItem):
         self.notesToolButton.clicked.connect(lambda: self.create_notes_widget())
 
     def create_ui(self):
-        self.drop_wdg = QtGui.QWidget(self)
+        # self.thread_pool = QtCore.QThreadPool()
+        # self.thread_pool.setMaxThreadCount(4)
+        # self.thread_pool = QtCore.QThreadPool.globalInstance()
+        # self.drop_wdg = QtGui.QWidget(self)
         self.setMinimumWidth(260)
         item_color = Qt4Gui.QColor(200, 200, 200)
         pipeline = self.get_current_process_pipeline()
@@ -824,6 +912,9 @@ class Ui_processItemWidget(QtGui.QWidget, ui_item_process.Ui_processItem):
         current_tree = self.search_widget.get_current_tree_widget()
         return current_tree.resultsTreeWidget
 
+    def get_current_progress_bar(self):
+        return self.search_widget.get_progress_bar()
+
     def get_index(self):
         current_tree = self.get_current_tree_widget()
         return current_tree.indexFromItem(self.tree_item)
@@ -868,7 +959,9 @@ class Ui_processItemWidget(QtGui.QWidget, ui_item_process.Ui_processItem):
         #         if show_all:
         #             processes.extend(['icon', 'attachment', 'publish'])
 
-        for process in processes:
+        progress_bar = self.get_current_progress_bar()
+        progress_bar.setVisible(True)
+        for i, process in enumerate(processes):
             ignored = False
             # if self.ignore_dict:
             #     if process in self.ignore_dict['processes'].get(pipeline_code):
@@ -888,14 +981,23 @@ class Ui_processItemWidget(QtGui.QWidget, ui_item_process.Ui_processItem):
                 self.process_items.append(process_item)
                 process_item.fill_subprocesses()
 
+                progress_bar.setValue(int(i * 100 / len(processes)))
+
+        progress_bar.setVisible(False)
+
     def fill_snapshots_items(self):
         # print self.children_states, 'CHILDREN STATES, fill_snapshots_items'
+        progress_bar = self.get_current_progress_bar()
+        progress_bar.setVisible(True)
         # adding snapshots per process
-        for proc in self.process_items:
+        for i, proc in enumerate(self.process_items):
+            progress_bar.setValue(int(i * 100 / len(self.process_items)))
             for key, val in self.sobject.process.iteritems():
                 # because it is dict, items could be in any position
                 if key == proc.process:
                     self.process_snapshot_items.append(proc.add_snapshots_items(val))
+
+        progress_bar.setVisible(False)
 
     def add_snapshots_items(self, snapshots):
         snapshot_items = gf.add_snapshot_item(
@@ -1004,12 +1106,8 @@ class Ui_processItemWidget(QtGui.QWidget, ui_item_process.Ui_processItem):
 
             self.fill_snapshots_items()
 
-        self.get_notes_count()
-
-        # Duct tape, to fix buggy items drawings
-        # tree_widget = self.get_current_tree_widget()
-        # tree_widget.resize(tree_widget.width() + 4, tree_widget.height())
-        # tree_widget.resize(tree_widget.width() - 4, tree_widget.height())
+        if self.process_items:
+            self.get_notes_count()
 
     @gf.catch_error
     def expand_recursive(self):
@@ -1067,14 +1165,15 @@ class Ui_snapshotItemWidget(QtGui.QWidget, ui_item_snapshot.Ui_snapshotItem):
         self.create_ui()
 
     def create_ui(self):
-        self.drop_wdg = QtGui.QWidget(self)
-        self.drop_wdg.setHidden(True)
+        # self.drop_wdg = QtGui.QWidget(self)
+        # self.drop_wdg.setHidden(True)
 
         self.setMinimumWidth(260)
 
         self.create_item_info_widget()
 
         self.dateLabel = self.get_item_info_label()
+        self.dateLabel.setAlignment(QtCore.Qt.AlignRight)
         self.verLabel = self.get_item_info_label()
         self.verLabel.setTextFormat(QtCore.Qt.RichText)
         self.revLabel = self.get_item_info_label()
@@ -1086,7 +1185,7 @@ class Ui_snapshotItemWidget(QtGui.QWidget, ui_item_snapshot.Ui_snapshotItem):
 
         if self.snapshot:
 
-            self.item_info_widget.add_item(self.dateLabel)
+            self.item_info_widget.add_item_to_right(self.dateLabel)
             if gf.get_ver_rev(ver=self.snapshot['version'], rev=0):
                 self.item_info_widget.add_item(self.verLabel)
             if gf.get_ver_rev(rev=self.snapshot['revision'], ver=0):
@@ -1104,7 +1203,12 @@ class Ui_snapshotItemWidget(QtGui.QWidget, ui_item_snapshot.Ui_snapshotItem):
 
             self.check_main_file()
 
-            self.commentLabel.setText(gf.to_plain_text(self.snapshot['description'], 80))
+            limit_enabled = bool(gf.get_value_from_config(cfg_controls.get_checkin(), 'snapshotDescriptionLimitCheckBox'))
+            limit = gf.get_value_from_config(cfg_controls.get_checkin(), 'snapshotDescriptionLimitSpinBox')
+            if limit_enabled:
+                self.commentLabel.setText(gf.to_plain_text(self.snapshot['description'], limit))
+            else:
+                self.commentLabel.setText(gf.to_plain_text(self.snapshot['description'], None))
             self.dateLabel.setText(self.snapshot['timestamp'].split('.')[0].replace(' ', ' \n'))
             self.authorLabel.setText(self.snapshot['login'] + ':')
             self.verLabel.setText(gf.get_ver_rev(ver=self.snapshot['version'], rev=0))
@@ -1124,6 +1228,7 @@ class Ui_snapshotItemWidget(QtGui.QWidget, ui_item_snapshot.Ui_snapshotItem):
                             self.fill_info_with_meta_file_object(file_obj, fls[0])
                         else:
                             self.fill_info_with_tactic_file_object(fls[0])
+            self.highlight_xontext_in_file_name()
         else:
             if self.get_checkin_mode_options() == 'multi_file':
                 self.set_multiple_files_view()
@@ -1144,6 +1249,18 @@ class Ui_snapshotItemWidget(QtGui.QWidget, ui_item_snapshot.Ui_snapshotItem):
 
     def set_drop_indicator_off(self):
         self.drop_wdg.setHidden(True)
+
+    def highlight_xontext_in_file_name(self):
+        context = self.get_context()
+        file_name_text = self.fileNameLabel.text()
+        if file_name_text and context:
+            until_context = file_name_text.find(context)
+            if until_context != -1:
+                self.fileNameLabel.setTextFormat(QtCore.Qt.RichText)
+                first_part = file_name_text[:until_context]
+                second_part = file_name_text[len(first_part) + len(context):]
+                highlighted_text = '{0}<font color="#b3b300">{1}</font>{2}'.format(first_part, context, second_part)
+                self.fileNameLabel.setText(highlighted_text)
 
     def fill_info_with_multiple_checkin(self, files_list):
         self.set_is_multiple_checkin(True)
@@ -1586,7 +1703,7 @@ class Ui_childrenItemWidget(QtGui.QWidget, ui_item_children.Ui_childrenItem):
         self.create_ui()
 
     def create_ui(self):
-        self.drop_wdg = QtGui.QWidget(self)
+        # self.drop_wdg = QtGui.QWidget(self)
         self.setMinimumWidth(260)
         self.addNewSObjectToolButton.setIcon(gf.get_icon('plus-square-o'))
 
@@ -1811,9 +1928,3 @@ class Ui_childrenItemWidget(QtGui.QWidget, ui_item_children.Ui_childrenItem):
         parent_item = self.get_parent_item_widget()
         if parent_item:
             return parent_item.get_sobject()
-
-# from tactic.ui.panel import TableLayoutWdg
-#
-# table = TableLayoutWdg(search_type='cgshort/textures', view='table', search_limit=8, init_load_num=8)
-# table.get_display()
-# return str(table.table.render())

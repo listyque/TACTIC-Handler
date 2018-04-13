@@ -182,10 +182,12 @@ class TacticEditWdg(TacticBaseWidget):
 
     def commit(self, data):
         # TODO make with threads
+        stype = self.get_stype()
+        project = stype.get_project()
         if self.view == 'edit':
-            return tc.server_start().update(self.get_search_key(), data)
+            return tc.server_start(project=project.get_code()).update(self.get_search_key(), data)
         else:
-            return tc.server_start().insert(self.get_search_type(), data, parent_key=self.get_parent_search_key())
+            return tc.server_start(project=project.get_code()).insert(self.get_search_type(), data, parent_key=self.get_parent_search_key())
 
     def set_base_edit_options(self, options_dict):
         options_dict_get = options_dict.get

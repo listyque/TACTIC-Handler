@@ -8,11 +8,12 @@ from lib.side.Qt import QtWidgets as QtGui
 from lib.side.Qt import QtGui as Qt4Gui
 from lib.side.Qt import QtCore
 
-from lib.environment import env_mode, env_inst, env_server, env_tactic
-from lib.configuration import cfg_controls
+from lib.environment import env_mode, env_inst, env_server, env_tactic, env_write_config, env_read_config, cfg_controls
 import lib.tactic_classes as tc
 import lib.global_functions as gf
+import lib.ui_classes.ui_misc_classes as ui_misc_classes
 import lib.ui.conf.ui_conf as ui_conf
+import lib.ui.conf.ui_conf_main as ui_conf_main
 import lib.ui.conf.ui_serverPage as ui_serverPage
 import lib.ui.conf.ui_projectPage as ui_projectPage
 import lib.ui.conf.ui_checkinPage as ui_checkinPage
@@ -38,118 +39,48 @@ class Ui_serverPageWidget(QtGui.QWidget, ui_serverPage.Ui_serverPageWidget):
         self.page_init = cfg_controls.get_server()
         self.page_defaults = None
 
-        self.ping_thread = tc.ServerThread(self)
+        self.thread_pool = QtCore.QThreadPool()
+        self.ping_thread_pool = QtCore.QThreadPool()
+        self.restart_after_check = False
 
         self.create_serverPage()
 
     def create_serverPage(self):
 
         self.readSettings()
-        self.check_server_status()
-        self.threadsActions()
-        self.page_actions()
+        self.create_ping_progress_dialog()
+        self.set_server_status()
+        # self.threadsActions()
+        self.controls_actions()
 
-    def threadsActions(self):
-        self.ping_thread.finished.connect(lambda: self.try_connect_to_server(try_connect=True))
+        self.environmentsGroupBox.setEnabled(False)
 
-    def page_actions(self):
-        self.connectToServerButton.clicked.connect(lambda: self.try_connect_to_server(run_thread=True))
+    # def threadsActions(self):
+    #     self.ping_thread.finished.connect(lambda: self.try_connect_to_server(try_connect=True))
+
+    def create_ping_progress_dialog(self):
+        timeout = env_server.get_timeout()
+        self.ping_progress_dialog = QtGui.QProgressDialog('Ping with timeout {0} sec...'.format(timeout), 'Stop', 0,
+                                                          100, self)
+
+        self.ping_progress_dialog.setWindowTitle('Searching for Tactic Api...')
+        self.ping_progress_dialog.setFixedSize(450, 120)
+        self.ping_progress_dialog.setWindowModality(QtCore.Qt.WindowModal)
+        self.ping_progress_dialog.canceled.connect(lambda: self.apply_and_connect_to_server_stop())
+        self.ping_progress_dialog.canceled.connect(lambda: self.ping_cancelled())
+        self.ping_progress_dialog.setValue(100)
+        self.ping_progress_dialog.hide()
+
+    def controls_actions(self):
+        self.connectToServerButton.clicked.connect(lambda: self.apply_and_connect_to_server(run_thread=True))
+        self.connectToServerButton.clicked.connect(lambda: env_inst.ui_conf.set_page_status())
+
         self.generateTicketButton.clicked.connect(self.generate_ticket)
+        self.editServerPresetsPushButton.clicked.connect(self.edit_server_presets)
 
-    def try_connect_to_server(self, run_thread=False, try_connect=False):
+        self.serverPresetsComboBox.currentIndexChanged.connect(self.change_server_preset)
 
-        if run_thread:
-            self.save_config()
-            if not self.ping_thread.isRunning():
-                self.ping_thread.kwargs = dict()
-                self.ping_thread.routine = tc.server_fast_ping
-                self.ping_thread.start()
-
-            self.ping_thread.wait()
-
-        if try_connect:
-            connect = tc.treat_result(self.ping_thread)
-
-            if connect.isFailed():
-                if connect.result == QtGui.QMessageBox.ApplyRole:
-                    connect.run()
-                    self.try_connect_to_server(try_connect=True)
-                env_inst.ui_conf.need_restart = True
-                if env_inst.ui_conf.need_restart:
-                    env_inst.ui_conf.restart(force=True)
-                env_inst.ui_conf.switch_to_online_status(False)
-                self.check_server_status()
-
-            if not connect.isFailed():
-                if connect.result == 'ping_ok':
-                    self.tacticStatusLable.setText('Status: <b><span style="color:#a5af19;">Ping OK</span></b>')
-                else:
-                    if env_inst.ui_conf.need_restart:
-                        env_inst.ui_conf.need_restart = False
-                        env_inst.ui_conf.restart(force=True)
-                    env_inst.ui_conf.switch_to_online_status(True)
-                    self.check_server_status()
-
-    def generate_ticket(self):
-
-        self.try_connect_to_server(run_thread=True)
-        generate_ticket = False
-        if not self.ping_thread.isFailed():
-            thread = tc.generate_new_ticket(self.userNameLineEdit.text(), parent=self)
-            thread.wait()
-            if thread.isFailed():
-                tc.treat_result(thread)
-            else:
-                generate_ticket = True
-
-        if generate_ticket:
-            env_inst.ui_conf.switch_to_online_status(True)
-            self.check_server_status()
-            self.loginStatusLable.setText('Status: <b><span style="color:#a5af19;">Updated</span></b>')
-            env_inst.ui_conf.restart(force=True)
-            if env_inst.ui_conf.need_restart:
-                env_inst.ui_conf.close()
-
-    def collect_defaults(self, get_values=False, apply_values=False, store_defaults=False, undo_changes=False):
-        self.page_defaults, self.page_init = gf.collect_defaults(
-            self.page_defaults,
-            self.page_init,
-            [self.serverPageWidgetLayout, self.authorizationLayout, self.environmentLayout, self.proxyGridLayout],
-            get_values=get_values,
-            apply_values=apply_values,
-            store_defaults=store_defaults,
-            undo_changes=undo_changes,
-            parent=env_inst.ui_conf,
-            ignore_list=[QtGui.QLineEdit, QtGui.QTreeWidget, QtGui.QComboBox, QtGui.QRadioButton]
-        )
-
-    def check_server_status(self):
-
-        if env_mode.is_offline():
-            self.tacticStatusLable.setText('Status: <b><span style="color:#ff4646;">Unknown</span></b>')
-            self.loginStatusLable.setText('Status: <b><span style="color:#ff4646;">Unknown</span></b>')
-        else:
-            self.tacticStatusLable.setText('Status: <b><span style="color:#a5af19;">Ping OK</span></b>')
-            current_ticket = tc.server_start().get_login_ticket()
-            try:
-                tc.server_ping()
-            except Exception as expected:
-                tc.catch_error_type(expected)
-                current_ticket = 'TICKET_ERROR'
-
-            if env_server.get_ticket() == current_ticket:
-                self.loginStatusLable.setText('Status: <b><span style="color:#a5af19;">Match</span></b>')
-            else:
-                self.loginStatusLable.setText('Status: <b><span style="color:#ff4646;">Not Match</span></b>')
-                # env_mode.set_offline()
-                env_inst.ui_conf.switch_to_online_status(False)
-                # env_inst.ui_conf.need_restart = True
-                # self.generate_ticket()
-
-    def save_config(self):
-        self.collect_defaults(get_values=True)
-        cfg_controls.set_server(self.page_init)
-        self.collect_defaults(store_defaults=True)
+    def save_server_preset_config(self):
 
         env_server.set_server(
             server_name=self.tacticServerLineEdit.text(),
@@ -171,12 +102,387 @@ class Ui_serverPageWidget(QtGui.QWidget, ui_serverPage.Ui_serverPageWidget):
             enabled=self.proxyGroupBox.isChecked(),
         )
 
+        if env_server.get_ticket():
+            env_server.set_ticket(env_server.get_ticket())
+
+        env_server.save_server_presets_defaults()
+        env_server.save_defaults()
+
+        env_inst.ui_conf.need_restart = True
+
+    def apply_and_connect_to_server_error(self, result=None):
+        self.set_api_status(False)
+        self.set_ticket_status('unknown')
+        self.apply_and_connect_to_server_stop()
+        env_inst.ui_conf.need_restart = True
+
+        gf.error_handle(result)
+
+        if self.restart_after_check:
+            env_mode.set_offline()
+            env_inst.ui_conf.restart(force=True)
+
+    def apply_and_connect_to_server_progress(self, progress):
+
+        if self.ping_progress_dialog.isVisible():
+            self.ping_progress_dialog.setValue(progress)
+        else:
+            if progress != 100:
+                self.ping_progress_dialog.show()
+                self.ping_progress_dialog.setValue(progress)
+
+    def apply_and_connect_to_server_stop(self):
+        thread_worker = getattr(self.apply_and_connect_to_server_progress, 'thread_worker')
+
+        thread_worker.stypes_items_progress_worker.disable_signals()
+        thread_worker.stypes_items_worker.disable_signals()
+
+    def ping_cancelled(self):
+
+        self.set_server_status()
+
+        if self.restart_after_check:
+            env_mode.set_offline()
+            env_inst.ui_conf.restart(force=True)
+
+    def apply_and_connect_to_server(self, result=None, run_thread=False):
+        if run_thread:
+            # self.save_server_preset_config()
+
+            server = self.tacticServerLineEdit.text()
+            proxy = {
+                'login': self.proxyLoginLineEdit.text(),
+                'pass': self.proxyPasswordLineEdit.text(),
+                'enabled': self.proxyGroupBox.isChecked(),
+                'server': self.proxyServerLineEdit.text()
+            }
+
+            def server_fast_ping_agent():
+                return tc.server_fast_ping_predefined(server, proxy)
+
+            # self.ping_thread_pool.setExpiryTimeout(50)
+            # self.ping_thread_pool.setMaxThreadCount(2)
+
+            stypes_items_worker = gf.get_thread_worker(
+                server_fast_ping_agent,
+                self.ping_thread_pool,
+                result_func=self.apply_and_connect_to_server,
+                error_func=self.apply_and_connect_to_server_error,
+            )
+            stypes_items_worker.try_start()
+
+            def progress_agent():
+                import time
+                timeout = env_server.get_timeout()
+                for i in range(1, 100):
+                    time.sleep(float(timeout) / 100.0)
+                    if stypes_items_progress_worker.is_signals_enabled():
+                        stypes_items_progress_worker.emit_progress(i)
+                    else:
+                        # print 'MAKING PROGRESS'
+                        # stypes_items_progress_worker.emit_progress(100)
+                        break
+                stypes_items_progress_worker.emit_progress(100)
+
+            # print thread_worker, 'CURRENT WORKER THREAD'
+            stypes_items_progress_worker = gf.get_thread_worker(
+                progress_agent,
+                self.ping_thread_pool,
+                progress_func=self.apply_and_connect_to_server_progress,
+                # stop_func=lambda: self.ping_progress_dialog.setValue(100),
+            )
+            stypes_items_progress_worker.add_custom_kwargs(stypes_items_worker=stypes_items_worker,
+                                                           stypes_items_progress_worker=stypes_items_progress_worker)
+            stypes_items_progress_worker.try_start()
+
+        if result:
+            if result == 'ping_ok':
+                env_inst.ui_conf.need_restart = True
+
+                self.set_api_status(True)
+                self.apply_and_connect_to_server_stop()
+                # self.set_ticket_status('unknown')
+                if not env_server.get_ticket():
+                    self.set_ticket_status('gen')
+                    if self.restart_after_check:
+                        env_mode.set_offline()
+                else:
+                    current_ticket = tc.server_start().get_login_ticket()
+                    if current_ticket:
+                        try:
+                            tc.server_start().ping()
+                            self.set_ticket_status('match')
+                            if self.restart_after_check:
+                                env_mode.set_online()
+                        except:
+                            self.set_ticket_status()
+                            if self.restart_after_check:
+                                env_mode.set_offline()
+
+                        # if env_server.get_ticket() == current_ticket:
+                        #     print tc.server_start().ping(), 'DEFAULT PING SERVER!!!'
+                        #     self.set_ticket_status('match')
+                        #     env_mode.set_online()
+                        # else:
+                        #     self.set_ticket_status()
+                        #     env_mode.set_offline()
+                    else:
+                        self.set_ticket_status('gen')
+                        if self.restart_after_check:
+                            env_mode.set_offline()
+
+            if self.restart_after_check:
+                env_inst.ui_conf.restart(force=True)
+
+
+                            # self.tacticStatusLable.setText('Status: <b><span style="color:#a5af19;">Ping OK</span></b>')
+            # else:
+            #     print(5, 'SETTING ONLINE')
+            #     env_mode.set_online()
+            #     print(6, 'SWITCH ONLINE STATUS')
+            #     env_inst.ui_conf.switch_to_online_status(True)
+            #     print(7, 'RESTARTING UI CONF')
+            #     env_inst.ui_conf.restart(force=True)
+            #     print(8, 'CHECKING SERVER STATUS')
+            #     self.check_server_status()
+            #     self.apply_and_connect_to_server_stop()
+            #     self.ping_progress_dialog.setValue(100)
+
+                # if env_inst.ui_conf.need_restart:
+                #     env_inst.ui_conf.need_restart = False
+
+    # def try_connect_to_server_error(self, result=None):
+    #     if result:
+    #         self.set_api_status(False)
+    #         self.set_ticket_status('unknown')
+    #         env_inst.ui_conf.need_restart = True
+    #         env_mode.set_offline()
+    #
+    #         # env_inst.ui_conf.restart(force=True)
+    #         # self.check_server_status()
+    #
+    #         gf.error_handle(result)
+    #         # env_inst.ui_conf.need_restart = True
+    #
+    # def try_connect_to_server(self, result=None, run_thread=False):
+    #     if run_thread:
+    #         # self.save_config()
+    #         print 2, 'run thread'
+    #
+    #         def server_fast_ping_agent():
+    #             print 'FAST PING AGENT'
+    #             return tc.server_fast_ping()
+    #
+    #         stypes_items_worker = gf.get_thread_worker(
+    #             server_fast_ping_agent,
+    #             self.thread_pool,
+    #             result_func=self.try_connect_to_server,
+    #             error_func=self.try_connect_to_server_error
+    #         )
+    #         print 3, 'starting fast ping agent'
+    #         stypes_items_worker.try_start()
+    #
+    #     if result:
+    #         print 4, 'OK RESULT', result
+    #
+    #         if result == 'ping_ok':
+    #             env_inst.ui_conf.need_restart = True
+    #
+    #             self.set_api_status(True)
+    #             # self.set_ticket_status('unknown')
+    #             if not env_server.get_ticket():
+    #                 self.set_ticket_status('gen')
+    #                 env_mode.set_offline()
+    #             else:
+    #                 current_ticket = tc.server_start().get_login_ticket()
+    #                 print current_ticket, 'THIS IS CURRENT TICKET'
+    #                 print env_server.get_ticket(), 'THIS IS FROM BASE TICKET'
+    #                 if current_ticket:
+    #                     if env_server.get_ticket() == current_ticket:
+    #                         self.set_ticket_status('match')
+    #                         env_mode.set_online()
+    #                     else:
+    #                         self.set_ticket_status()
+    #                         env_mode.set_offline()
+    #                 else:
+    #                     self.set_ticket_status('gen')
+    #                     env_mode.set_offline()
+
+    def change_server_preset(self):
+
+        env_server.set_cur_srv_preset(self.serverPresetsComboBox.currentText())
+        env_server.save_server_presets_defaults()
+        env_server.reload()
+
+        self.userNameLineEdit.setText(env_server.get_user())
+        self.tacticServerLineEdit.setText(env_server.get_server())
+        # self.tacticEnvLineEdit.setText(env_server.get_data_dir())
+        # self.tacticInstallDirLineEdit.setText(env_server.get_install_dir())
+        site = env_server.get_site()
+        self.siteLineEdit.setText(site['site_name'])
+        self.usePortalSiteCheckBox.setChecked(site['enabled'])
+
+        proxy = env_server.get_proxy()
+        self.proxyLoginLineEdit.setText(proxy['login'])
+        self.proxyPasswordLineEdit.setText(proxy['pass'])
+        self.proxyServerLineEdit.setText(proxy['server'])
+        self.proxyGroupBox.setChecked(proxy['enabled'])
+
+        # self.collect_defaults(apply_values=True)
+
+    def edit_server_presets(self):
+
+        self.server_presets_editor = ui_misc_classes.Ui_serverPresetsEditorWidget(self)
+        self.server_presets_editor.exec_()
+
+    def generate_ticket_error(self, result=None):
+        if result:
+            env_inst.ui_conf.need_restart = True
+            reply = gf.error_handle(result)
+            if reply == QtGui.QMessageBox.ApplyRole:
+                self.generate_ticket()
+
+    def generate_ticket(self, result=None):
+        if not result:
+            # self.try_connect_to_server(run_thread=True)
+            kwargs = tc.generate_new_ticket(self.userNameLineEdit.text(), parent=self)
+
+            def generate_new_ticket_agent():
+                return tc.server_auth(**kwargs)
+
+            stypes_items_worker = gf.get_thread_worker(
+                generate_new_ticket_agent,
+                self.thread_pool,
+                result_func=self.generate_ticket,
+                error_func=self.generate_ticket_error
+            )
+            if kwargs:
+                self.userNameLineEdit.setText(kwargs.get('login'))
+                stypes_items_worker.try_start()
+            # generate_ticket = tc.generate_new_ticket(self.userNameLineEdit.text(), parent=self)
+
+            # thread.wait()
+            #
+            # if thread.isFailed():
+            #     tc.treat_result(thread)
+            # else:
+            #     generate_ticket = True
+
+        if result:
+            # self.save_config()
+            self.save_server_preset_config()
+            # env_inst.ui_conf.switch_to_online_status(True)
+            # self.check_server_status()
+            self.set_ticket_status('updated')
+            # env_inst.ui_conf.need_restart = True
+            # self.loginStatusLable.setText('Status: <b><span style="color:#a5af19;">Updated</span></b>')
+            # env_inst.ui_conf.restart()
+            # if env_inst.ui_conf.need_restart:
+            #     env_inst.ui_conf.close()
+
+    def collect_defaults(self, get_values=False, apply_values=False, store_defaults=False, undo_changes=False):
+        self.page_defaults, self.page_init = gf.collect_defaults(
+            self.page_defaults,
+            self.page_init,
+            [self.serverPageWidgetLayout, self.authorizationLayout, self.environmentLayout, self.proxyGridLayout],
+            get_values=get_values,
+            apply_values=apply_values,
+            store_defaults=store_defaults,
+            undo_changes=undo_changes,
+            parent=env_inst.ui_conf,
+            ignore_list=[QtGui.QTreeWidget, QtGui.QRadioButton]
+        )
+
+    def set_api_status(self, api_found=True):
+
+        if api_found:
+            self.generateTicketButton.setEnabled(True)
+            self.tacticStatusLable.setText('Connection Status: <b><span style="color:#66ff66;">Tactic Api Found</span></b>')
+        else:
+            self.generateTicketButton.setEnabled(False)
+            self.tacticStatusLable.setText('Connection Status: <b><span style="color:#ff4646;">No Connection</span></b>')
+
+    def set_ticket_status(self, ticket_status='unknown'):
+
+        if ticket_status == 'unknown':
+            self.loginStatusLable.setText('Ticket Status: <b><span style="color:#ff4646;">No Ticket</span></b>')
+        elif ticket_status == 'gen':
+            self.loginStatusLable.setText('Ticket Status: <b><span style="color:#a5af19;">Need to Generate</span></b>')
+        elif ticket_status == 'updated':
+            self.loginStatusLable.setText('Ticket Status: <b><span style="color:#66d9ff;">Updated</span></b>')
+        elif ticket_status == 'match':
+            self.loginStatusLable.setText('Ticket Status: <b><span style="color:#66ff66;">Match</span></b>')
+        else:
+            self.loginStatusLable.setText('Ticket Status: <b><span style="color:#ff4646;">Not Match</span></b>')
+
+    def set_server_status(self):
+        if env_mode.is_offline():
+            self.generateTicketButton.setEnabled(False)
+            self.set_api_status(False)
+            self.set_ticket_status('unknown')
+        else:
+            self.generateTicketButton.setEnabled(True)
+            self.set_api_status(True)
+            self.set_ticket_status('match')
+
+
+        # if env_mode.is_offline():
+        #     self.loginStatusLable.setText('Ticket Status: <b><span style="color:#ff4646;">Unknown</span></b>')
+        # else:
+        #     if env_server.get_ticket():
+        #         current_ticket = tc.server_start().get_login_ticket()
+        #         try:
+        #             tc.server_ping()
+        #         except Exception as expected:
+        #             current_ticket = 'TICKET_ERROR'
+        #
+        #         if env_server.get_ticket() == current_ticket:
+        #
+        #             self.loginStatusLable.setText('Ticket Status: <b><span style="color:#a5af19;">Match</span></b>')
+        #         else:
+        #             self.loginStatusLable.setText('Ticket Status: <b><span style="color:#ff4646;">Not Match</span></b>')
+        #             env_mode.set_offline()
+        #             env_inst.ui_conf.switch_to_online_status(False)
+        #             env_inst.ui_conf.need_restart = True
+        #             # self.generate_ticket()
+        #     else:
+        #         self.loginStatusLable.setText('Ticket Status: <b><span style="color:#ff4646;">Need Generation</span></b>')
+        #         env_mode.set_offline()
+        #         env_inst.ui_conf.switch_to_online_status(False)
+        #         env_inst.ui_conf.need_restart = True
+        #         # self.generate_ticket()
+
+    def save_config(self):
+        self.collect_defaults(get_values=True)
+        cfg_controls.set_server(self.page_init)
+        self.collect_defaults(store_defaults=True)
+
+        self.save_server_preset_config()
+
+        # print 'trying to connect server'
+        # print 1
+        # self.try_connect_to_server(run_thread=True)
+
+        # self.try_connect_to_server(run_thread=True)
+        self.restart_after_check = True
+        self.apply_and_connect_to_server(run_thread=True)
+
+        # self.set_server_status()
+        # self.apply_and_connect_to_server(run_thread=True)
+        # if env_inst.ui_conf.need_restart:
+        #     env_inst.ui_conf.restart(True)
+            # env_inst.ui_conf.close()
+
     def readSettings(self):
 
         server_presets = env_server.get_server_presets()
         presets_list = server_presets['presets_list']
-        current_idx = server_presets['current_idx']
+        if server_presets['current']:
+            current_idx = presets_list.index(server_presets['current'])
+        else:
+            current_idx = 0
 
+        self.serverPresetsComboBox.clear()
         self.serverPresetsComboBox.addItems(presets_list)
         self.serverPresetsComboBox.setCurrentIndex(current_idx)
 
@@ -195,7 +501,8 @@ class Ui_serverPageWidget(QtGui.QWidget, ui_serverPage.Ui_serverPageWidget):
         self.proxyGroupBox.setChecked(proxy['enabled'])
 
     def showEvent(self, *args, **kwargs):
-        if not self.page_defaults and self.page_init:
+
+        if not (self.page_defaults or self.page_init):
             self.collect_defaults(apply_values=True)
         self.collect_defaults()
 
@@ -322,7 +629,6 @@ class Ui_projectPageWidget(QtGui.QWidget, ui_projectPage.Ui_projectPageWidget):
         env_server.set_namespace(self.current_namespace)
 
     def showEvent(self, *args, **kwargs):
-        print 'add projects_items'
         # if not self.query_projects_thread.isRunning():
         #     self.query_projects_thread.kwargs = dict()
         #     self.query_projects_thread.routine = tc.query_projects
@@ -330,49 +636,9 @@ class Ui_projectPageWidget(QtGui.QWidget, ui_projectPage.Ui_projectPageWidget):
 
         self.add_projects_items(1)
 
-        print 'projectPage'
         # if not self.page_defaults and self.page_init:
         #     self.collect_defaults(apply_values=True)
         # self.collect_defaults()
-
-
-# class Ui_checkoutPageWidget(QtGui.QWidget, ui_checkoutPage.Ui_checkoutPageWidget):
-#     def __init__(self, parent=None):
-#         super(self.__class__, self).__init__(parent=parent)
-#
-#         self.setupUi(self)
-#
-#         self.page_init = cfg_controls.get_checkout()
-#         self.page_defaults = None
-#
-#         self.create_checkout_page()
-#
-#     def create_checkout_page(self):
-#         pass
-#
-#     def save_config(self):
-#         self.collect_defaults(get_values=True)
-#         cfg_controls.set_checkout(self.page_init)
-#         self.collect_defaults(store_defaults=True)
-#
-#     def collect_defaults(self, get_values=False, apply_values=False, store_defaults=False, undo_changes=False):
-#         self.page_defaults, self.page_init = gf.collect_defaults(
-#             self.page_defaults,
-#             self.page_init,
-#             [self.checkoutMiscOptionsLayout],
-#             get_values=get_values,
-#             apply_values=apply_values,
-#             store_defaults=store_defaults,
-#             undo_changes=undo_changes,
-#             parent=env_inst.ui_conf,
-#             ignore_list=[QtGui.QToolButton, QtGui.QLineEdit, QtGui.QTreeWidget, QtGui.QGroupBox, QtGui.QComboBox, QtGui.QRadioButton]
-#         )
-#
-#     def showEvent(self, *args, **kwargs):
-#         print 'checkoutPage'
-#         if not self.page_defaults and self.page_init:
-#             self.collect_defaults(apply_values=True)
-#         self.collect_defaults()
 
 
 class Ui_checkinPageWidget(QtGui.QWidget, ui_checkinPage.Ui_checkinPageWidget):
@@ -464,7 +730,6 @@ class Ui_checkinPageWidget(QtGui.QWidget, ui_checkinPage.Ui_checkinPageWidget):
                 #             self.repositoryComboBox.setItemData(self.repositoryComboBox.count() - 1, custom_val)
 
     def add_custom_repo_dir(self):
-        print self.custom_repo_item_init
         if self.custom_repo_item_init is None:
             d = {
                 'path': [],
@@ -730,7 +995,6 @@ class Ui_checkinOutPageWidget(QtGui.QWidget, ui_checkinOutPage.Ui_checkinOutPage
     def get_tabs_list():
         return [
             ['Checkin / Checkout ', 'Checkin / Checkout', True],
-            # ['Checkin', 'Checkin', True],
             ['My Tactic', 'My Tactic', True],
             ['Assets Browser', 'Assets Browser', True],
         ]
@@ -781,7 +1045,7 @@ class Ui_checkinOutPageWidget(QtGui.QWidget, ui_checkinOutPage.Ui_checkinOutPage
     def load_project_stypes(self, project_code):
         project = env_inst.projects[project_code]
         if not project.stypes:
-            project.get_stypes()
+            project.query_stypes()
 
         exclude_list = self.page_init_projects[project_code]['stypes_list']
 
@@ -986,7 +1250,6 @@ class Ui_checkinOutPageWidget(QtGui.QWidget, ui_checkinOutPage.Ui_checkinOutPage
         self.collect_defaults(store_defaults=True)
 
     def showEvent(self, *args, **kwargs):
-        print 'checkInOutPage'
 
         if not self.page_defaults and self.page_init:
             self.collect_defaults(apply_values=True)
@@ -1021,59 +1284,160 @@ class Ui_mayaScenePageWidget(QtGui.QWidget, ui_mayaPage.Ui_mayaScenePageWidget):
         self.setupUi(self)
 
 
-class Ui_configuration_dialogWidget(QtGui.QDialog, ui_conf.Ui_configuration_dialog):
+class Ui_configuration_dialogWidget(QtGui.QDialog):
     def __init__(self, parent=None):
         super(self.__class__, self).__init__(parent=parent)
-        env_inst.ui_conf = self
 
-        self.need_restart = None
+        self.create_ui()
 
-        self.settings = QtCore.QSettings('{0}/settings/{1}/{2}/{3}/conf_ui_config.ini'.format(
-            env_mode.get_current_path(),
-            env_mode.get_node(),
-            env_server.get_cur_srv_preset(),
-            env_mode.get_mode()),
-            QtCore.QSettings.IniFormat)
+        self.create_main_widget()
 
+        self.readSettings()
+
+    def create_ui(self):
+        self.setObjectName('configuration_dialog')
+        self.setWindowTitle('TACTIC Handler configuration')
+        self.setWindowModality(QtCore.Qt.ApplicationModal)
+        self.resize(750, 700)
+        self.setSizeGripEnabled(True)
+        self.setModal(True)
+
+        self.confDialogLayout = QtGui.QVBoxLayout(self)
+        self.confDialogLayout.setObjectName('confDialogLayout')
+
+    def create_main_widget(self):
+        self.main_widget = Ui_configuration_mainWidget(configuration_dialog=self, parent=self)
+
+        self.confDialogLayout.addWidget(self.main_widget)
+
+    def restart_main_widget(self, save_config=False):
+        if save_config:
+            self.main_widget.close()
+        else:
+            self.main_widget.deleteLater()
+        self.create_main_widget()
+
+    def set_settings_from_dict(self, settings_dict=None):
+
+        if not settings_dict:
+            settings_dict = {
+                'configToolBox': 0,
+                'windowState': False,
+                'pos': [150, 150],
+                'size': [600, 540],
+            }
+
+        if env_mode.is_offline():
+            self.main_widget.configToolBox.setCurrentIndex(0)
+        else:
+            self.main_widget.configToolBox.setCurrentIndex(int(settings_dict['configToolBox']))
+
+        if settings_dict['windowState']:
+            self.setWindowState(QtCore.Qt.WindowMaximized)
+        else:
+            self.move(settings_dict['pos'][0], settings_dict['pos'][1])
+            self.resize(settings_dict['size'][0], settings_dict['size'][1])
+
+    def get_settings_dict(self):
+        settings_dict = {
+            'configToolBox': int(self.main_widget.configToolBox.currentIndex())
+        }
+
+        if self.windowState() == QtCore.Qt.WindowMaximized:
+            state = True
+        else:
+            state = False
+            settings_dict['pos'] = self.pos().toTuple()
+            settings_dict['size'] = self.size().toTuple()
+
+        settings_dict['windowState'] = state
+
+        return settings_dict
+
+    def readSettings(self):
+
+        self.set_settings_from_dict(env_read_config(filename='ui_settings', unique_id='ui_conf', long_abs_path=True))
+
+    def writeSettings(self):
+
+        env_write_config(self.get_settings_dict(), filename='ui_settings', unique_id='ui_conf', long_abs_path=True)
+
+        # if self.checkinPageWidget:
+        #     self.checkinPageWidget.close()
+
+    def closeEvent(self, event):
+
+        # self.writeSettings()
+        self.main_widget.close()
+        event.ignore()
+
+
+class Ui_configuration_mainWidget(QtGui.QWidget, ui_conf_main.Ui_uiConfMainWidget):
+    def __init__(self, configuration_dialog, parent=None):
+        super(self.__class__, self).__init__(parent=parent)
+
+        self.configuration_dialog = configuration_dialog
+
+        self.create_ui()
+
+    # def create_main_widget(self):
+    #
+    #     # self.confDialogLayout.addWidget(self.main_widget)
+    #
+    #     print 'CREATING MAIN WDG'
+
+    def create_ui(self):
         self.serverPageWidget = None
         self.projectPageWidget = None
-        self.checkoutPageWidget = None
         self.checkinPageWidget = None
         self.checkinOutPageWidget = None
         self.globalConfigPageWidget = None
         self.currentEnvironmentPageWidget = None
 
+        env_inst.ui_conf = self
         if env_mode.is_offline():
             self.create_ui_conf_offline()
         else:
             self.create_ui_conf()
 
     def create_ui_conf_offline(self):
-        self.need_restart = True
+
         self.setupUi(self)
 
-        self.readSettings()
+        self.need_restart = True
+
         self.controls_actions()
+
         self.create_server_page()
 
         for i in range(1, self.configToolBox.count()):
             self.configToolBox.setItemEnabled(i, False)
 
     def create_ui_conf(self):
-        self.need_restart = False
+
         self.setupUi(self)
 
-        self.readSettings()
+        self.need_restart = False
 
         self.controls_actions()
 
+        self.create_pages()
+
+    def create_pages(self):
+
         self.create_server_page()
         self.create_project_page()
-        # self.create_checkout_page()
         self.create_checkin_page()
         self.create_checkin_out_page()
-        self.create_global_config_page()
-        self.create_current_environment_page()
+        # self.create_global_config_page()
+        # self.create_current_environment_page()
+
+        self.hide_empty_pages()
+
+    def hide_empty_pages(self):
+
+        self.configToolBox.setItemEnabled(4, False)
+        self.configToolBox.setItemEnabled(5, False)
 
     def switch_to_online_status(self, online=None):
         if online:
@@ -1092,10 +1456,6 @@ class Ui_configuration_dialogWidget(QtGui.QDialog, ui_conf.Ui_configuration_dial
     def create_project_page(self):
         self.projectPageWidget = Ui_projectPageWidget(self)
         self.projectPageLayout.addWidget(self.projectPageWidget)
-
-    # def create_checkout_page(self):
-    #     self.checkoutPageWidget = Ui_checkoutPageWidget(self)
-    #     self.checkoutPageLayout.addWidget(self.checkoutPageWidget)
 
     def create_checkin_page(self):
         self.checkinPageWidget = Ui_checkinPageWidget(self)
@@ -1133,7 +1493,7 @@ class Ui_configuration_dialogWidget(QtGui.QDialog, ui_conf.Ui_configuration_dial
         if event.type() == QtCore.QEvent.KeyPress and isinstance(widget, QtGui.QLineEdit):
             self.set_page_status()
 
-        if event.type() in [QtCore.QEvent.MouseButtonRelease, QtCore.QEvent.Wheel] and isinstance(widget, (
+        if event.type() in [QtCore.QEvent.EnabledChange, QtCore.QEvent.MouseButtonRelease, QtCore.QEvent.FocusIn] and isinstance(widget, (
             QtGui.QCheckBox,
             QtGui.QGroupBox,
             QtGui.QRadioButton,
@@ -1158,14 +1518,15 @@ class Ui_configuration_dialogWidget(QtGui.QDialog, ui_conf.Ui_configuration_dial
         self.reset_button.setEnabled(False)
         self.reset_button.clicked.connect(self.undo_changes)
 
-        self.buttonBox.button(QtGui.QDialogButtonBox.RestoreDefaults).clicked.connect(self.restore_defaults)
+        # removed until a have time
+        # self.buttonBox.button(QtGui.QDialogButtonBox.RestoreDefaults).clicked.connect(self.restore_defaults)
 
         self.apply_button = self.buttonBox.button(QtGui.QDialogButtonBox.Apply)
         self.apply_button.setEnabled(False)
         self.apply_button.clicked.connect(self.perform_save)
 
-    def restore_defaults(self):
-        print('Restore default changes')
+    # def restore_defaults(self):
+    #     print('Restore default changes')
 
     def confirm_saving(self, page):
 
@@ -1194,7 +1555,7 @@ class Ui_configuration_dialogWidget(QtGui.QDialog, ui_conf.Ui_configuration_dial
 
     def compare_changes(self, page=None):
 
-        if env_mode.is_online():
+        # if env_mode.is_online():
 
             if page == 'serverPage' and self.serverPageWidget:
                 if self.serverPageWidget.page_defaults:
@@ -1202,34 +1563,38 @@ class Ui_configuration_dialogWidget(QtGui.QDialog, ui_conf.Ui_configuration_dial
                     if not gf.campare_dicts(self.serverPageWidget.page_init, self.serverPageWidget.page_defaults):
                         return self.confirm_saving('TACTIC Server options')
 
-            if page == 'checkoutPage' and self.checkoutPageWidget:
-                if self.checkoutPageWidget.page_defaults:
-                    self.checkoutPageWidget.collect_defaults(get_values=True)
-                    if not gf.campare_dicts(self.checkoutPageWidget.page_init, self.checkoutPageWidget.page_defaults):
-                        return self.confirm_saving('Checkout options')
+            # if page == 'checkoutPage' and self.checkoutPageWidget:
+            #     if self.checkoutPageWidget.page_defaults:
+            #         self.checkoutPageWidget.collect_defaults(get_values=True)
+            #         if not gf.campare_dicts(self.checkoutPageWidget.page_init, self.checkoutPageWidget.page_defaults):
+            #             return self.confirm_saving('Checkout options')
 
-            if page == 'checkinPage' and self.checkinPageWidget:
+            if page == 'checkinOutOptionsPage' and self.checkinPageWidget:
                 if self.checkinPageWidget.page_defaults:
                     self.checkinPageWidget.collect_defaults(get_values=True)
                     if not gf.campare_dicts(self.checkinPageWidget.page_init, self.checkinPageWidget.page_defaults):
-                        return self.confirm_saving('Checkin options')
+                        return self.confirm_saving('Checkin/checkout options')
 
     def compare_all_changes(self):
         # walk through all pages, to see any changes made
+        close = True
+
         for i in range(self.configToolBox.count()):
             current_page = self.configToolBox.widget(i).objectName()
             compare = self.compare_changes(current_page)
             if compare == 'exit':
-                return True
+                self.undo_changes()
+                close = True
             elif compare == 'perform_save':
                 self.perform_save(current_page)
+                close = False
             elif compare == 'undo_changes':
                 self.undo_changes()
-                return False
+                close = False
             elif compare == 'cancel':
-                return False
+                close = False
 
-        return True
+        return close
 
     def undo_changes(self, page=None):
 
@@ -1245,20 +1610,19 @@ class Ui_configuration_dialogWidget(QtGui.QDialog, ui_conf.Ui_configuration_dial
 
             self.serverPageWidget.collect_defaults(undo_changes=True)
 
-        if current_page == 'projectPage':
-            current_item_text = self.configToolBox.itemText(1)
-            print current_item_text
-            if current_item_text.find('(changed)') != -1:
-                self.configToolBox.setItemText(1, current_item_text.replace(', (changed)', ''))
+        # if current_page == 'projectPage':
+        #     current_item_text = self.configToolBox.itemText(1)
+        #     if current_item_text.find('(changed)') != -1:
+        #         self.configToolBox.setItemText(1, current_item_text.replace(', (changed)', ''))
+        #
+        #     self.projectPageWidget.change_current_project(undo=True)
 
-            self.projectPageWidget.change_current_project(undo=True)
-
-        if current_page == 'checkoutPage':
-            current_item_text = self.configToolBox.itemText(2)
-            if current_item_text.find('(changed)') != -1:
-                self.configToolBox.setItemText(2, current_item_text.replace(', (changed)', ''))
-
-            self.checkoutPageWidget.collect_defaults(undo_changes=True)
+        # if current_page == 'checkoutPage':
+        #     current_item_text = self.configToolBox.itemText(2)
+        #     if current_item_text.find('(changed)') != -1:
+        #         self.configToolBox.setItemText(2, current_item_text.replace(', (changed)', ''))
+        #
+        #     self.checkoutPageWidget.collect_defaults(undo_changes=True)
 
         if current_page == 'checkinPage':
             current_item_text = self.configToolBox.itemText(3)
@@ -1299,19 +1663,19 @@ class Ui_configuration_dialogWidget(QtGui.QDialog, ui_conf.Ui_configuration_dial
             current_page = page
 
         if current_page == 'serverPage':
-            # self.serverPageWidget.save_config()
-            self.serverPageWidget.try_connect_to_server(run_thread=True)
+            self.serverPageWidget.save_config()
+            # self.serverPageWidget.try_connect_to_server(run_thread=True)
             current_item_text = self.configToolBox.itemText(0)
             if current_item_text.find('(changed)') != -1:
                 self.configToolBox.setItemText(0, current_item_text.replace(', (changed)', ', (saved)'))
 
-            if env_mode.is_online():
-                self.restart(force=True)
+            # env_inst.ui_main.restart_ui_main()
+            # self.restart(force=True)
 
-        if current_page == 'projectPage':
-            self.projectPageWidget.save_config()
-
-            self.restart(force=True)
+        # if current_page == 'projectPage':
+        #     self.projectPageWidget.save_config()
+        #
+        #     self.restart(force=True)
 
         if current_page == 'checkinOutOptionsPage':
             self.checkinPageWidget.save_config()
@@ -1346,65 +1710,45 @@ class Ui_configuration_dialogWidget(QtGui.QDialog, ui_conf.Ui_configuration_dial
 
     def restart(self, force=False):
         if force:
+            env_inst.ui_conf = None
+            # self.deleteLater()
+            # print(self.objectName())
+            # print(self.uiConfMainWidget.close())
+            # self.create_ui()
+            self.configuration_dialog.writeSettings()
+            self.configuration_dialog.restart_main_widget()
+            self.configuration_dialog.readSettings()
+            # new_main_window.open_config_dialog()
             main_window = env_inst.ui_main
             new_main_window = main_window.restart_ui_main()
-            self.setParent(new_main_window)
+            # self.setParent(new_main_window)
+            new_main_window.setWindowModality(QtCore.Qt.NonModal)
+
+
         else:
             ask_restart = QtGui.QMessageBox.question(self, 'Restart TACTIC Handler?',
-                                                     "<p>Looks like You have made changes which require restarting</p>"
+                                                     "<p>You have made changes which require restarting</p>"
                                                      "<p>Perform restart?</p>",
                                                      QtGui.QMessageBox.Yes | QtGui.QMessageBox.No)
             if ask_restart == QtGui.QMessageBox.Yes:
                 # self.close()
-                main_window = env_inst.ui_main
-                new_main_window = main_window.restart_ui_main()
-                self.setParent(new_main_window)
-
-    def readSettings(self):
-        """
-        Reading Settings
-        """
-        # if env_mode.get_mode() == 'maya':
-        #     self.currentWorkdirLineEdit.setText(cmds.workspace(q=True, dir=True))
-
-        self.settings.beginGroup('ui_conf')
-        if env_mode.is_offline():
-            self.configToolBox.setCurrentIndex(0)
-        else:
-            self.configToolBox.setCurrentIndex(int(self.settings.value('configToolBox', 0)))
-        self.move(self.settings.value('pos', self.pos()))
-        self.resize(self.settings.value('size', self.size()))
-        if self.settings.value("windowState"):
-            if bool(int(self.settings.value("windowState"))):
-                self.setWindowState(QtCore.Qt.WindowMaximized)
-        self.settings.endGroup()
-
-    def writeSettings(self):
-        """
-        Writing Settings
-        """
-        self.settings.beginGroup('ui_conf')
-        self.settings.setValue('configToolBox', self.configToolBox.currentIndex())
-        if self.windowState() == QtCore.Qt.WindowMaximized:
-            state = True
-        else:
-            state = False
-            self.settings.setValue('pos', self.pos())
-            self.settings.setValue('size', self.size())
-        self.settings.setValue("windowState", int(state))
-        print('Done ui_conf settings write')
-        self.settings.endGroup()
-
-        if self.checkinPageWidget:
-            self.checkinPageWidget.close()
+                self.restart(True)
+                # main_window = env_inst.ui_main
+                # new_main_window = main_window.restart_ui_main()
+                # self.setParent(new_main_window)
+                # new_main_window.setWindowModality(QtCore.Qt.NonModal)
 
     def closeEvent(self, event):
 
         # FIXME Double restarting bug
 
-        if self.compare_all_changes():
-            self.writeSettings()
+        closing = self.compare_all_changes()
+
+        if closing:
             env_inst.ui_conf = None
             event.accept()
+            self.deleteLater()
+            self.configuration_dialog.writeSettings()
+            self.configuration_dialog.deleteLater()
         else:
             event.ignore()

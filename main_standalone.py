@@ -7,12 +7,14 @@ from lib.side.Qt import QtWidgets as QtGui
 from lib.side.Qt import QtGui as Qt4Gui
 
 from lib.environment import env_mode, env_inst
+import lib.global_functions as gf
 import lib.tactic_classes as tc
 import lib.ui_classes.ui_main_classes as ui_main_classes
 
 
 def reload_modules():
     reload(ui_main_classes)
+
 
 groups = ['Disabled', 'Active', 'Inactive', 'Normal']
 roles = ['Window',
@@ -49,7 +51,8 @@ def setPaletteFromDct(dct):
             qGrp = getattr(Qt4Gui.QPalette, group)
             qRl = getattr(Qt4Gui.QPalette, role)
             palette.setColor(qGrp, qRl, color)
-            QtGui.QApplication.setPalette(palette)
+
+    QtGui.QApplication.setPalette(palette)
 
 
 palette = {
@@ -72,46 +75,41 @@ palette = {
 }
 
 
-def create_ui(thread):
-    thread = tc.treat_result(thread)
-    if thread.result == QtGui.QMessageBox.ApplyRole:
-        retry_startup(thread)
+@gf.catch_error
+def create_ui(ping_worker):
+    if ping_worker.is_failed():
+        env_mode.set_offline()
+        if not env_inst.ui_main:
+            window = ui_main_classes.Ui_Main(parent=None)
+            window.statusBar()
+            window.show()
+        gf.error_handle(ping_worker.get_error_tuple())
     else:
-        if thread.isFailed():
-            env_mode.set_offline()
-            window = ui_main_classes.Ui_Main(parent=None)
-        else:
-            env_mode.set_online()
-            window = ui_main_classes.Ui_Main(parent=None)
-
+        env_mode.set_online()
+        offline_ui = None
+        if env_inst.ui_main:
+            offline_ui = env_inst.ui_main
+        window = ui_main_classes.Ui_Main(parent=None)
+        if offline_ui:
+            offline_ui.close()
         window.statusBar()
         window.show()
 
-        if thread.result == QtGui.QMessageBox.ActionRole:
-            window.open_config_dialog()
 
-
-def retry_startup(thread):
-    thread.run()
-    create_ui(thread)
-
-
-def restart():
-    reload(ui_main_classes)
-    ping_thread = tc.get_server_thread(dict(), tc.server_ping, lambda: create_ui(ping_thread), parent=env_inst.ui_super)
-    ping_thread.start()
-    return ping_thread
-
-
+@gf.catch_error
 def startup():
     app = QtGui.QApplication(sys.argv)
     env_inst.ui_super = app
     app.setStyle("plastique")
     setPaletteFromDct(palette)
 
-    ping_thread = tc.get_server_thread(dict(), tc.server_ping, lambda: create_ui(ping_thread), parent=app)
-    ping_thread.start()
+    def server_ping_agent():
+        return tc.server_ping()
+
+    ping_worker = gf.get_thread_worker(server_ping_agent, finished_func=lambda: create_ui(ping_worker))
+    ping_worker.try_start()
     sys.exit(app.exec_())
+
 
 if __name__ == '__main__':
     startup()

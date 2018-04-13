@@ -9,8 +9,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>503</width>
-    <height>319</height>
+    <width>750</width>
+    <height>700</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -22,18 +22,24 @@
   <property name="modal">
    <bool>true</bool>
   </property>
-  <layout class="QGridLayout" name="gridLayout_6">
-   <item row="0" column="0">
-    <widget class="QToolBox" name="configToolBox">
-     <property name="palette">
-      <palette>
-       <active/>
-       <inactive/>
-       <disabled/>
-      </palette>
-     </property>
-     <property name="styleSheet">
-      <string notr="true">QToolBox &gt; *,
+  <layout class="QVBoxLayout" name="confDialogLayout">
+   <item>
+    <widget class="QWidget" name="uiConfMainWidget" native="true">
+     <layout class="QVBoxLayout" name="uiConfLayout">
+      <property name="margin">
+       <number>0</number>
+      </property>
+      <item>
+       <widget class="QToolBox" name="configToolBox">
+        <property name="palette">
+         <palette>
+          <active/>
+          <inactive/>
+          <disabled/>
+         </palette>
+        </property>
+        <property name="styleSheet">
+         <string notr="true">QToolBox &gt; *,
 QToolBox &gt; QScrollArea &gt; #qt_scrollarea_viewport &gt; QWidget {
 	background-color: rgba(128, 128, 128, 48);
 }
@@ -42,147 +48,152 @@ QToolBox::tab {
 	border-style: outset;
 	border-width: 1px;
 	border-color:  rgba(75, 75, 75, 75);
-	border-radius: 1px;
-	padding: 3px;
+	border-radius: 3px;
+	padding: 1px;
 	background: qlineargradient(x1: 0, y1: 0, x2: 0, y2: 1, stop: 0 rgba(175, 175, 175, 25), stop: 1 rgba(175, 175, 175, 0));
 }
-
+/*
 QToolBox::tab:hover {
     background: qlineargradient(x1: 0, y1: 0, x2: 0, y2: 1, stop: 0 rgba(175, 175, 175, 50), stop: 1 rgba(175, 175, 175, 0));
     border: 1px solid rgba(128, 128, 128, 75);
 }
+*/
 QToolBox::tab:selected {
     font: italic;
+	background: qlineargradient(x1: 0, y1: 0, x2: 0, y2: 1, stop: 0 rgba(175, 175, 175, 50), stop: 1 rgba(175, 175, 175, 0));
 	border-style: outset;
 	border-width: 1px;
-	border-color:  rgba(75, 75, 75, 75);
-	border-radius: 1px;
+	border-color:  rgba(128, 128, 128, 75);
+	border-radius: 3px;
 }</string>
-     </property>
-     <property name="currentIndex">
-      <number>0</number>
-     </property>
-     <property name="tabSpacing">
-      <number>6</number>
-     </property>
-     <widget class="QWidget" name="serverPage">
-      <property name="geometry">
-       <rect>
-        <x>0</x>
-        <y>0</y>
-        <width>485</width>
-        <height>90</height>
-       </rect>
-      </property>
-      <attribute name="label">
-       <string>TACTIC Server</string>
-      </attribute>
-      <layout class="QVBoxLayout" name="serverPageLayout">
-       <property name="margin">
-        <number>6</number>
-       </property>
-      </layout>
-     </widget>
-     <widget class="QWidget" name="projectPage">
-      <property name="geometry">
-       <rect>
-        <x>0</x>
-        <y>0</y>
-        <width>100</width>
-        <height>30</height>
-       </rect>
-      </property>
-      <attribute name="label">
-       <string>Project</string>
-      </attribute>
-      <layout class="QVBoxLayout" name="projectPageLayout">
-       <property name="margin">
-        <number>6</number>
-       </property>
-      </layout>
-     </widget>
-     <widget class="QWidget" name="checkinOutOptionsPage">
-      <property name="geometry">
-       <rect>
-        <x>0</x>
-        <y>0</y>
-        <width>100</width>
-        <height>30</height>
-       </rect>
-      </property>
-      <attribute name="label">
-       <string>Checkin/Checkout Options</string>
-      </attribute>
-      <layout class="QVBoxLayout" name="checkinPageLayout">
-       <property name="margin">
-        <number>6</number>
-       </property>
-      </layout>
-     </widget>
-     <widget class="QWidget" name="checkinOutAppPage">
-      <property name="geometry">
-       <rect>
-        <x>0</x>
-        <y>0</y>
-        <width>100</width>
-        <height>30</height>
-       </rect>
-      </property>
-      <attribute name="label">
-       <string>Checkin/Checkout Appearance</string>
-      </attribute>
-      <layout class="QVBoxLayout" name="checkinOutPageLayout">
-       <property name="margin">
-        <number>6</number>
-       </property>
-      </layout>
-     </widget>
-     <widget class="QWidget" name="globalCofigPage">
-      <property name="geometry">
-       <rect>
-        <x>0</x>
-        <y>0</y>
-        <width>100</width>
-        <height>30</height>
-       </rect>
-      </property>
-      <attribute name="label">
-       <string>Global Config</string>
-      </attribute>
-      <layout class="QVBoxLayout" name="globalCofigPageLayout">
-       <property name="margin">
-        <number>6</number>
-       </property>
-      </layout>
-     </widget>
-     <widget class="QWidget" name="currentEnvironmentPage">
-      <property name="geometry">
-       <rect>
-        <x>0</x>
-        <y>0</y>
-        <width>100</width>
-        <height>30</height>
-       </rect>
-      </property>
-      <attribute name="label">
-       <string>Current Environment Options</string>
-      </attribute>
-      <layout class="QVBoxLayout" name="currentEnvironmentPageLayout">
-       <property name="margin">
-        <number>6</number>
-       </property>
-      </layout>
-     </widget>
-    </widget>
-   </item>
-   <item row="1" column="0">
-    <widget class="QDialogButtonBox" name="buttonBox">
-     <property name="orientation">
-      <enum>Qt::Horizontal</enum>
-     </property>
-     <property name="standardButtons">
-      <set>QDialogButtonBox::Apply|QDialogButtonBox::Close|QDialogButtonBox::Reset|QDialogButtonBox::RestoreDefaults|QDialogButtonBox::SaveAll</set>
-     </property>
+        </property>
+        <property name="currentIndex">
+         <number>0</number>
+        </property>
+        <property name="tabSpacing">
+         <number>2</number>
+        </property>
+        <widget class="QWidget" name="serverPage">
+         <property name="geometry">
+          <rect>
+           <x>0</x>
+           <y>0</y>
+           <width>732</width>
+           <height>515</height>
+          </rect>
+         </property>
+         <attribute name="label">
+          <string>TACTIC Server</string>
+         </attribute>
+         <layout class="QVBoxLayout" name="serverPageLayout">
+          <property name="margin">
+           <number>6</number>
+          </property>
+         </layout>
+        </widget>
+        <widget class="QWidget" name="projectPage">
+         <property name="geometry">
+          <rect>
+           <x>0</x>
+           <y>0</y>
+           <width>732</width>
+           <height>515</height>
+          </rect>
+         </property>
+         <attribute name="label">
+          <string>Project</string>
+         </attribute>
+         <layout class="QVBoxLayout" name="projectPageLayout">
+          <property name="margin">
+           <number>6</number>
+          </property>
+         </layout>
+        </widget>
+        <widget class="QWidget" name="checkinOutOptionsPage">
+         <property name="geometry">
+          <rect>
+           <x>0</x>
+           <y>0</y>
+           <width>732</width>
+           <height>515</height>
+          </rect>
+         </property>
+         <attribute name="label">
+          <string>Checkin/Checkout Options</string>
+         </attribute>
+         <layout class="QVBoxLayout" name="checkinPageLayout">
+          <property name="margin">
+           <number>6</number>
+          </property>
+         </layout>
+        </widget>
+        <widget class="QWidget" name="checkinOutAppPage">
+         <property name="geometry">
+          <rect>
+           <x>0</x>
+           <y>0</y>
+           <width>732</width>
+           <height>515</height>
+          </rect>
+         </property>
+         <attribute name="label">
+          <string>Checkin/Checkout Appearance</string>
+         </attribute>
+         <layout class="QVBoxLayout" name="checkinOutPageLayout">
+          <property name="margin">
+           <number>6</number>
+          </property>
+         </layout>
+        </widget>
+        <widget class="QWidget" name="globalCofigPage">
+         <property name="geometry">
+          <rect>
+           <x>0</x>
+           <y>0</y>
+           <width>732</width>
+           <height>515</height>
+          </rect>
+         </property>
+         <attribute name="label">
+          <string>Global Config</string>
+         </attribute>
+         <layout class="QVBoxLayout" name="globalCofigPageLayout">
+          <property name="margin">
+           <number>6</number>
+          </property>
+         </layout>
+        </widget>
+        <widget class="QWidget" name="currentEnvironmentPage">
+         <property name="geometry">
+          <rect>
+           <x>0</x>
+           <y>0</y>
+           <width>732</width>
+           <height>515</height>
+          </rect>
+         </property>
+         <attribute name="label">
+          <string>Current Environment Options</string>
+         </attribute>
+         <layout class="QVBoxLayout" name="currentEnvironmentPageLayout">
+          <property name="margin">
+           <number>6</number>
+          </property>
+         </layout>
+        </widget>
+       </widget>
+      </item>
+      <item>
+       <widget class="QDialogButtonBox" name="buttonBox">
+        <property name="standardButtons">
+         <set>QDialogButtonBox::Apply|QDialogButtonBox::Close|QDialogButtonBox::Reset</set>
+        </property>
+        <property name="centerButtons">
+         <bool>false</bool>
+        </property>
+       </widget>
+      </item>
+     </layout>
     </widget>
    </item>
   </layout>

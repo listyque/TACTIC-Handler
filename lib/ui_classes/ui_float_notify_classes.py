@@ -14,7 +14,6 @@ class Ui_floatNotifyWidget(QtGui.QDialog, ui_notifications.Ui_floatNotify):
         super(self.__class__, self).__init__(parent=parent)
 
         self.setupUi(self)
-        self.settings = QtCore.QSettings('TACTIC Handler', 'TACTIC Handling Tool')
         self.setWindowFlags(QtCore.Qt.ToolTip)
         self.update_secs = 1000
 
@@ -73,7 +72,7 @@ class Ui_floatNotifyWidget(QtGui.QDialog, ui_notifications.Ui_floatNotify):
     def manual_update(self):
         print "performing update!"
         now = QtCore.QDateTime.currentDateTimeUtc()
-        self.settings.setValue("float_notify_lastUpdate", now)
+        # self.settings.setValue("float_notify_lastUpdate", now)
         self.start_update(self.update_secs)
 
     def start_update(self, secs):
@@ -96,41 +95,41 @@ class Ui_floatNotifyWidget(QtGui.QDialog, ui_notifications.Ui_floatNotify):
         y_w = self.offset.y()
         self.move(x - x_w, y - y_w)
 
-    def readSettings(self):
-        """
-        Reading Settings
-        """
-        self.settings.beginGroup(env.Mode.get_mode() + '/ui_main')
-        self.move(self.settings.value('float_notify_pos', self.pos()))
-        self.resize(self.settings.value('float_notify_size', self.size()))
-
-        lastUpdate = self.settings.value('float_notify_lastUpdate')
-
-        now = QtCore.QDateTime.currentDateTimeUtc()
-        # update_time = 60*60*24*5
-        secs = self.update_secs
-
-        if not lastUpdate:
-            # secs = abs(lastUpdate.secsTo(now))
-            if secs >= self.update_secs:
-                print "Update is past due at load time"
-                self.manual_update()
-                return
-            else:
-                print "Still %d seconds left from last load, until next update" % secs
-
-        self.start_update(secs)
-        self.settings.endGroup()
-
-    def writeSettings(self):
-        """
-        Writing Settings
-        """
-        self.settings.beginGroup(env.Mode.get_mode() + '/ui_main')
-        self.settings.setValue('float_notify_pos', self.pos())
-        self.settings.setValue('float_notify_size', self.size())
-        print('Done ui_float_notify settings write')
-        self.settings.endGroup()
+    # def readSettings(self):
+    #     """
+    #     Reading Settings
+    #     """
+    #     self.settings.beginGroup(env.Mode.get_mode() + '/ui_main')
+    #     self.move(self.settings.value('float_notify_pos', self.pos()))
+    #     self.resize(self.settings.value('float_notify_size', self.size()))
+    #
+    #     lastUpdate = self.settings.value('float_notify_lastUpdate')
+    #
+    #     now = QtCore.QDateTime.currentDateTimeUtc()
+    #     # update_time = 60*60*24*5
+    #     secs = self.update_secs
+    #
+    #     if not lastUpdate:
+    #         # secs = abs(lastUpdate.secsTo(now))
+    #         if secs >= self.update_secs:
+    #             print "Update is past due at load time"
+    #             self.manual_update()
+    #             return
+    #         else:
+    #             print "Still %d seconds left from last load, until next update" % secs
+    #
+    #     self.start_update(secs)
+    #     self.settings.endGroup()
+    #
+    # def writeSettings(self):
+    #     """
+    #     Writing Settings
+    #     """
+    #     self.settings.beginGroup(env.Mode.get_mode() + '/ui_main')
+    #     self.settings.setValue('float_notify_pos', self.pos())
+    #     self.settings.setValue('float_notify_size', self.size())
+    #     print('Done ui_float_notify settings write')
+    #     self.settings.endGroup()
 
     def closeEvent(self, event):
         self.writeSettings()

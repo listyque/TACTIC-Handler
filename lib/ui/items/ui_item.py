@@ -1,9 +1,9 @@
 # -*- coding: utf-8 -*-
 
-# Form implementation generated from reading ui file 'items\ui_item.ui'
+# Form implementation generated from reading ui file 'items/ui_item.ui'
 #
-# Created: Sat Dec 23 23:34:02 2017
-#      by: pyside-uic 0.2.15 running on PySide 1.2.4
+# Created: Tue Dec 26 15:29:02 2017
+#      by: pyside-uic 0.2.15 running on PySide 1.2.2
 #
 # WARNING! All changes made in this file will be lost!
 
@@ -101,8 +101,6 @@ class Ui_item(object):
         self.checkBoxHorizontalLayout = QtGui.QHBoxLayout()
         self.checkBoxHorizontalLayout.setSpacing(0)
         self.checkBoxHorizontalLayout.setObjectName("checkBoxHorizontalLayout")
-        spacerItem2 = QtGui.QSpacerItem(0, 0, QtGui.QSizePolicy.Expanding, QtGui.QSizePolicy.Minimum)
-        self.checkBoxHorizontalLayout.addItem(spacerItem2)
         self.selectedCheckBox = QtGui.QCheckBox(item)
         sizePolicy = QtGui.QSizePolicy(QtGui.QSizePolicy.Minimum, QtGui.QSizePolicy.Preferred)
         sizePolicy.setHorizontalStretch(0)
@@ -129,6 +127,7 @@ class Ui_item(object):
         self.infoHorizontalLayout.setSpacing(0)
         self.infoHorizontalLayout.setObjectName("infoHorizontalLayout")
         self.gridLayout.addLayout(self.infoHorizontalLayout, 1, 3, 1, 1)
+        self.gridLayout.setColumnStretch(3, 1)
         self.gridLayout.setRowStretch(2, 1)
 
         self.retranslateUi(item)

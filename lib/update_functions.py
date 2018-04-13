@@ -7,10 +7,11 @@ import urllib2
 import zipfile
 import json
 from lib.environment import env_mode, env_server, env_inst
+import lib.global_functions as gf
 import lib.tactic_classes as tc
 
 
-def get_version(major=0, minor=0, build=0, revision=0, string=False):
+def get_version(major=0, minor=0, build=0, revision=0, string=False, sort_sum=False):
     version_dict = {
         'major': major,
         'minor': minor,
@@ -19,6 +20,8 @@ def get_version(major=0, minor=0, build=0, revision=0, string=False):
     }
     if string:
         return '{major}_{minor}_{build}_{revision}'.format(**version_dict)
+    elif sort_sum:
+        return int(major)*1000 + int(minor)*100 + int(build)*10 + int(revision)
     else:
         return version_dict
 
@@ -90,15 +93,21 @@ def download_from_url(url):
         opener = urllib2.build_opener(proxy_handler, auth, urllib2.HTTPHandler)
         urllib2.install_opener(opener)
 
-    run_thread = tc.ServerThread(env_inst.ui_main)
-    run_thread.kwargs = dict(url=url, timeout=1)
-    run_thread.routine = urllib2.urlopen
-    run_thread.run()
-    result_thread = tc.treat_result(run_thread, silent=True)
-    if result_thread.isFailed():
+    def url_open_agent(url=url, timeout=1):
+        return urllib2.urlopen(url=url, timeout=timeout)
+
+    query_worker = gf.get_thread_worker(
+        url_open_agent,
+        error_func=gf.error_handle
+    )
+    query_worker.try_start()
+    thread_pool = query_worker.get_thread_pool()
+    thread_pool.waitForDone()
+
+    if query_worker.is_failed():
         return False
-    else:
-        return result_thread.result
+    # else:
+    #     return result_thread.result
 
 
 def check_for_last_version():

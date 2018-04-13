@@ -3,9 +3,7 @@
 # Global TACTIC Functions Module
 
 import os
-import sys
 import shutil
-import traceback
 import urlparse
 import collections
 import json
@@ -14,10 +12,9 @@ from lib.side.Qt import QtWidgets as QtGui
 from lib.side.Qt import QtGui as Qt4Gui
 from lib.side.Qt import QtCore
 import lib.proxy as proxy
-from lib.environment import env_mode, env_server, env_inst, env_tactic
+from lib.environment import env_mode, env_server, env_inst, env_tactic, dl
 import global_functions as gf
 import tactic_query as tq
-import lib.ui_classes.ui_misc_classes as ui_misc_classes
 import lib.ui_classes.ui_dialogs_classes as ui_dialogs_classes
 import side.client.tactic_client_lib as tactic_client_lib
 
@@ -26,82 +23,80 @@ if env_mode.get_mode() == 'maya':
     import maya_functions as mf
     reload(mf)
 
-
-class ServerThread(QtCore.QThread):
-    def __init__(self, parent=None):
-        super(ServerThread, self).__init__(parent=parent)
-
-        self.kwargs = None
-        self.result = None
-        self.connected = False
-        self.failed = False
-
-    def isConnected(self):
-        return self.connected
-
-    def setConnected(self, boolean):
-        self.connected = boolean
-
-    def isFailed(self):
-        return self.failed
-
-    def setFailed(self, boolean):
-        self.failed = boolean
-
-    def routine(self, **kwargs):
-        pass
-
-    def run(self):
-        try:
-            self.result = self.routine(**(self.kwargs or {}))
-            self.setFailed(False)
-        except Exception as expected:
-            self.setFailed(True)
-
-            traceback.print_exc(file=sys.stdout)
-            stacktrace = traceback.format_exc()
-
-            exception = {
-                'exception': expected,
-                'stacktrace': stacktrace,
-            }
-            self.result = exception
-
-
-def get_server_thread(kwargs_dict, runnable_func, connected_func, parent=None):
-    thread = ServerThread(parent)
-
-    if not thread.isRunning():
-        thread.kwargs = kwargs_dict
-        thread.routine = runnable_func
-
-        if not thread.isConnected():
-            thread.finished.connect(connected_func)
-            thread.setConnected(True)
-            # thread.start()
-
-    return thread
-
-
-def treat_result(thread, silent=False):
-    if silent:
-        return thread
-    if thread.isFailed():
-        print 'ERROR TREATING'
-        return error_handle(thread)
-    else:
-        return thread
+# class ServerThread(QtCore.QThread):
+#     def __init__(self, parent=None):
+#         super(ServerThread, self).__init__(parent=parent)
+#
+#         self.kwargs = None
+#         self.result = None
+#         self.connected = False
+#         self.failed = False
+#
+#     def isConnected(self):
+#         return self.connected
+#
+#     def setConnected(self, boolean):
+#         self.connected = boolean
+#
+#     def isFailed(self):
+#         return self.failed
+#
+#     def setFailed(self, boolean):
+#         self.failed = boolean
+#
+#     def routine(self, **kwargs):
+#         pass
+#
+#     def run(self):
+#         try:
+#             self.result = self.routine(**(self.kwargs or {}))
+#             self.setFailed(False)
+#         except Exception as expected:
+#             self.setFailed(True)
+#
+#             traceback.print_exc(file=sys.stdout)
+#             stacktrace = traceback.format_exc()
+#
+#             exception = {
+#                 'exception': expected,
+#                 'stacktrace': stacktrace,
+#             }
+#             self.result = exception
+#
+#
+# def get_server_thread(kwargs_dict, runnable_func, connected_func, parent=None):
+#     thread = ServerThread(parent)
+#
+#     if not thread.isRunning():
+#         thread.kwargs = kwargs_dict
+#         thread.routine = runnable_func
+#
+#         if not thread.isConnected():
+#             thread.finished.connect(connected_func)
+#             thread.setConnected(True)
+#             # thread.start()
+#
+#     return thread
+#
+#
+# def treat_result(thread, silent=False):
+#     if silent:
+#         return thread
+#     if thread.isFailed():
+#         print 'ERROR TREATING'
+#         return error_handle(thread)
+#     else:
+#         return thread
 
 
 def server_auth(host, project=None, login=None, password=None, site=None, get_ticket=False):
     server = tactic_client_lib.TacticServerStub.get(protocol='xmlrpc', setup=False)
+
+    server.set_transport(proxy.UrllibTransport())
     if env_server.get_proxy()['enabled']:
-        transport = proxy.UrllibTransport()
-        server.set_transport(transport)
+        server.transport.enable_proxy()
     else:
-        if server.transport:
-            server.transport.update_proxy()
-        server.set_transport(None)
+        server.transport.disable_proxy()
 
     server.set_server(host)
     server.set_project(project)
@@ -121,119 +116,18 @@ def server_auth(host, project=None, login=None, password=None, site=None, get_ti
     return server
 
 
-def server_start(get_ticket=False):
+def server_start(get_ticket=False, project=None):
+    if not project:
+        project = 'sthpw'
     server = server_auth(
         env_server.get_server(),
-        env_inst.get_current_project(),
+        project,
         env_server.get_user(),
         '',
         env_server.get_site()['site_name'],
         get_ticket=get_ticket,
     )
     return server
-
-
-def show_message_predefined(title, message, stacktrace=None, buttons=None, parent=None, message_type='question'):
-    """
-    Showing message with title, text and returns pressed button
-    :param title: 'Message Title'
-    :param message: 'Message Text'
-    :param message_type: 'question', 'warning', etc...
-    :param buttons: tuple of buttons: (('Yes', QtGui.QMessageBox.YesRole), ('No', QtGui.QMessageBox.NoRole)), etc...
-    :return: button role
-    """
-    if not buttons:
-        buttons = (('Yes', QtGui.QMessageBox.YesRole), ('No', QtGui.QMessageBox.NoRole))
-
-    if message_type == 'warning':
-        msb_type = QtGui.QMessageBox.Warning
-    elif message_type == 'information':
-        msb_type = QtGui.QMessageBox.Information
-    elif message_type == 'critical':
-        msb_type = QtGui.QMessageBox.Critical
-    else:
-        msb_type = QtGui.QMessageBox.Question
-
-    message_box = QtGui.QMessageBox(
-        msb_type,
-        title,
-        message,
-        QtGui.QMessageBox.NoButton,
-        parent,
-    )
-
-    if stacktrace:
-        layout = QtGui.QVBoxLayout()
-
-        collapse_wdg = ui_misc_classes.Ui_collapsableWidget(state=True)
-        collapse_wdg.setLayout(layout)
-        collapse_wdg.setText('Hide Stacktrace')
-        collapse_wdg.setCollapsedText('Show Stacktrace')
-
-        msb_layot = message_box.layout()
-
-        wdg_list = []
-
-        for i in range(msb_layot.count()):
-            wdg = msb_layot.itemAt(i).widget()
-            if wdg:
-                wdg_list.append(wdg)
-
-        msb_layot.addWidget(wdg_list[0], 0, 0)
-        msb_layot.addWidget(wdg_list[1], 0, 1)
-        msb_layot.addWidget(wdg_list[2], 2, 1)
-        msb_layot.addWidget(collapse_wdg, 1, 1)
-
-        # msb_layot.addWidget(collapse_wdg, 1, 1)
-
-        text_edit = QtGui.QPlainTextEdit()
-        text_edit.setMinimumWidth(600)
-        text_edit.setPlainText(stacktrace)
-
-        layout.addWidget(text_edit)
-
-    for title, role in buttons:
-        message_box.addButton(title, role)
-
-    message_box.exec_()
-    return message_box.buttonRole(message_box.clickedButton())
-
-
-def catch_error_type(exception):
-    # print('Some exception appeared!', str(type(exception)), unicode(str(exception), 'utf-8', errors='ignore'))
-
-    error = 'unknown_error'
-
-    # Catch project existance
-    if str(exception).find('No project') != -1:
-        error = 'no_project_error'
-
-    # Catch ticket error
-    if str(exception).find('Cannot login with key:') != -1:
-        error = 'ticket_error'
-
-    # Catch socket exception, connection error
-    if str(exception).find(
-            'A connection attempt failed because the connected party did not properly respond after a period of time') != -1:
-        error = 'connection_timeout'
-
-    # Catch Connection refused
-    if str(exception).find('No connection could be made because the target machine actively refused it') != -1:
-        error = 'connection_refused'
-
-    if str(exception).find('Connection refused') != -1:
-        error = 'connection_refused'
-
-    if str(exception).find('Login/Password combination incorrect') != -1:
-        error = 'login_pass_error'
-
-    if str(exception).find('connect to MySQL server') != -1:
-        error = 'sql_connection_error'
-
-    if str(exception).find('ProtocolError') != -1:
-        error = 'protocol_error'
-
-    return error
 
 
 def generate_new_ticket(explicit_username=None, parent=None):
@@ -244,6 +138,10 @@ def generate_new_ticket(explicit_username=None, parent=None):
         QtGui.QMessageBox.NoButton,
         parent,
     )
+
+    login_pass_dlg.addButton("Ok", QtGui.QMessageBox.YesRole)
+    login_pass_dlg.addButton("Cancel", QtGui.QMessageBox.NoRole)
+
     layout = QtGui.QGridLayout()
 
     widget = QtGui.QWidget()
@@ -287,221 +185,24 @@ def generate_new_ticket(explicit_username=None, parent=None):
     login_pass_dlg.exec_()
 
     host = env_server.get_server()
-    #TODO SOMETHING
     project = 'sthpw'
     login = login_line_edit.text()
     password = pass_line_edit.text()
     site = env_server.get_site()['site_name']
 
-    thread = get_server_thread(
-        dict(),
-        lambda: server_auth(host, project, login, password, site, get_ticket=True),
-        server_ping,
-        parent=parent
+    kwargs = dict(
+        host=host,
+        project=project,
+        login=login,
+        password=password,
+        site=site,
+        get_ticket=True
     )
-    thread.start()
-    treat_result(thread)
-    thread.wait()
-    return thread
 
+    reply = login_pass_dlg.buttonRole(login_pass_dlg.clickedButton())
 
-def run_tactic_team_server():
-
-    path = os.path.normpath(env_server.get_install_dir() + os.sep + os.pardir)
-    print('Starting TACTIC Server... Press Retry after server started!', path)
-    os.system(path + '/ServerRun.bat')
-
-
-def error_handle(thread):
-    expected = thread.result['exception']
-
-    error_type = catch_error_type(expected)
-
-    exception_text = u'{0}<p>{1}</p><p><b>Catched Error: {2}</b></p>'.format(
-        unicode(str(expected.__doc__), 'utf-8', errors='ignore'),
-        unicode(str(expected.message), 'utf-8', errors='ignore'),
-        str(error_type))
-
-    if (error_type == 'connection_refused') or (error_type == 'connection_timeout'):
-        title = '{0}, {1}'.format("Cannot connect to TACTIC Server!", error_type)
-        message = u'{0}<p>{1}</p>'.format(
-            u"<p>Looks like TACTIC Server isn't running! May be You need to set up Right Server port and address</p>"
-            u"<p>Start Server? (Only TACTIC Team)</p>",
-            exception_text)
-        buttons = [('Yes', QtGui.QMessageBox.YesRole),
-                   ('No', QtGui.QMessageBox.NoRole),
-                   ('Retry', QtGui.QMessageBox.ApplyRole)]
-
-        if not env_inst.ui_conf:
-            buttons.append(('Open Config', QtGui.QMessageBox.ActionRole))
-
-        reply = show_message_predefined(
-            title=title,
-            message=message,
-            stacktrace=thread.result['stacktrace'],
-            buttons=buttons,
-            parent=None,
-            message_type='critical',
-        )
-        if reply == QtGui.QMessageBox.YesRole:
-            run_tactic_team_server()
-            thread.result = QtGui.QMessageBox.ApplyRole
-        if reply == QtGui.QMessageBox.ApplyRole:
-            thread.result = reply
-        if reply == QtGui.QMessageBox.ActionRole:
-            thread.result = reply
-
-        return thread
-
-    if error_type == 'unknown_error':
-        title = u'{0}'.format(unicode(str(expected.__doc__), 'utf-8', errors='ignore'))
-        message = u'{0}<p>{1}</p>'.format(
-            u"<p>This is no usual type of Exception! See stacktrace for information</p>",
-            exception_text)
-        buttons = [('Ok', QtGui.QMessageBox.NoRole),
-                   ('Retry', QtGui.QMessageBox.ApplyRole)]
-
-        if not env_inst.ui_conf:
-            buttons.append(('Open Config', QtGui.QMessageBox.ActionRole))
-
-        reply = show_message_predefined(
-            title=title,
-            message=message,
-            stacktrace=thread.result['stacktrace'],
-            buttons=buttons,
-            parent=None,
-            message_type='question',
-        )
-        if reply == QtGui.QMessageBox.ApplyRole:
-            thread.result = reply
-        if reply == QtGui.QMessageBox.ActionRole:
-            thread.result = reply
-
-        return thread
-
-    if error_type == 'ticket_error':
-        title = '{0}, {1}'.format("Ticket Error!", error_type)
-        message = u'{0}<p>{1}</p>'.format(
-            u"<p>Wrong ticket, or session may have expired!</p> <p>Generate new ticket?</p>",
-            exception_text)
-        buttons = [('Yes', QtGui.QMessageBox.YesRole),
-                   ('No', QtGui.QMessageBox.NoRole)]
-
-        if not env_inst.ui_conf:
-            buttons.append(('Open Config', QtGui.QMessageBox.ActionRole))
-
-        reply = show_message_predefined(
-            title=title,
-            message=message,
-            stacktrace=thread.result['stacktrace'],
-            buttons=buttons,
-            parent=None,
-            message_type='question',
-        )
-        if reply == QtGui.QMessageBox.YesRole:
-            generate_new_ticket()
-            thread.result = QtGui.QMessageBox.ApplyRole
-        if reply == QtGui.QMessageBox.ActionRole:
-            thread.result = reply
-
-        return thread
-
-    if error_type == 'no_project_error':
-        title = '{0}, {1}'.format("This Project does not exists!", error_type)
-        message = u'{0}<p>{1}</p>'.format(
-            u"<p>You set up wrong Porject Name, or Project not exist!</p> <p>Reset Project to \"sthpw\"?</p>",
-            exception_text)
-        buttons = [('Yes', QtGui.QMessageBox.YesRole),
-                   ('No', QtGui.QMessageBox.NoRole)]
-
-        if not env_inst.ui_conf:
-            buttons.append(('Open Config', QtGui.QMessageBox.ActionRole))
-
-        reply = show_message_predefined(
-            title=title,
-            message=message,
-            stacktrace=thread.result['stacktrace'],
-            buttons=buttons,
-            parent=None,
-            message_type='critical',
-        )
-        if reply == QtGui.QMessageBox.YesRole:
-            env_server.set_project('sthpw')
-            env_inst.ui_main.restart_ui_main()
-        if reply == QtGui.QMessageBox.ActionRole:
-            thread.result = reply
-
-        return thread
-
-    if error_type == 'login_pass_error':
-        title = '{0}, {1}'.format("Wrong user Login or Password for TACTIC Server!", error_type)
-        message = u'{0}<p>{1}</p>'.format(
-            u"<p>You need to open config, and type correct Login and Password!</p>",
-            exception_text)
-        buttons = [('Ok', QtGui.QMessageBox.NoRole)]
-
-        if not env_inst.ui_conf:
-            buttons.append(('Open Config', QtGui.QMessageBox.ActionRole))
-
-        reply = show_message_predefined(
-            title=title,
-            message=message,
-            stacktrace=thread.result['stacktrace'],
-            buttons=buttons,
-            parent=None,
-            message_type='critical',
-        )
-        if reply == QtGui.QMessageBox.ActionRole:
-            thread.result = reply
-
-        return thread
-
-    if error_type == 'sql_connection_error':
-        title = '{0}, {1}'.format("SQL Server Error!", error_type)
-        message = u'{0}<p>{1}</p>'.format(
-            u"<p>TACTIC Server can't connect to SQL server, may be SQL Server Down! Or wrong server port/ip </p>",
-            exception_text)
-        buttons = [('Ok', QtGui.QMessageBox.NoRole)]
-
-        if not env_inst.ui_conf:
-            buttons.append(('Open Config', QtGui.QMessageBox.ActionRole))
-
-        reply = show_message_predefined(
-            title=title,
-            message=message,
-            stacktrace=thread.result['stacktrace'],
-            buttons=buttons,
-            parent=None,
-            message_type='critical',
-        )
-        if reply == QtGui.QMessageBox.ActionRole:
-            thread.result = reply
-
-        return thread
-
-    if error_type == 'protocol_error':
-        title = '{0}, {1}'.format("Error with the Protocol!", error_type)
-        message = u'{0}<p>{1}</p>'.format(u"<p>Something wrong!</p>", exception_text)
-        buttons = [('Ok', QtGui.QMessageBox.NoRole),
-                   ('Retry', QtGui.QMessageBox.ApplyRole)]
-
-        if not env_inst.ui_conf:
-            buttons.append(('Open Config', QtGui.QMessageBox.ActionRole))
-
-        reply = show_message_predefined(
-            title=title,
-            message=message,
-            stacktrace=thread.result['stacktrace'],
-            buttons=buttons,
-            parent=None,
-            message_type='critical',
-        )
-        if reply == QtGui.QMessageBox.ActionRole:
-            thread.result = reply
-        if reply == QtGui.QMessageBox.ApplyRole:
-            thread.result = reply
-
-        return thread
+    if reply == QtGui.QMessageBox.YesRole:
+        return kwargs
 
 
 def server_ping():
@@ -512,6 +213,30 @@ def server_ping():
             return False
     else:
         return False
+
+
+def server_fast_ping_predefined(server_url, proxy_dict=None):
+    server = tactic_client_lib.TacticServerStub.get(protocol='xmlrpc', setup=False)
+
+    transport = proxy.UrllibTransport()
+    server.set_transport(transport)
+
+    if proxy_dict.get('enabled'):
+        server.transport.update_proxy(proxy_dict)
+        server.transport.enable_proxy()
+    else:
+        server.transport.update_proxy(proxy_dict)
+        server.transport.disable_proxy()
+        # server.set_transport(None)
+
+    server.set_server(server_url)
+
+    if server.fast_ping() == 'OK':
+        del server
+        return 'ping_ok'
+    else:
+        del server
+        return 'ping_fail'
 
 
 def server_fast_ping():
@@ -533,6 +258,19 @@ def server_fast_ping():
         return 'ping_fail'
 
 
+def split_search_key(search_key):
+    search_type, asset_code = server_start().split_search_key(search_key)
+
+    pipeline_code, project_code = search_type.split('?project=')
+
+    return {
+        'search_type': search_type,
+        'asset_code': asset_code,
+        'pipeline_code': pipeline_code,
+        'project_code': project_code
+    }
+
+
 # Projects related classes
 class Project(object):
     def __init__(self, project):
@@ -541,24 +279,33 @@ class Project(object):
         self.stypes = None
         self.workflow = None
 
+    def get_info(self):
+        return self.info
+
+    def get_workflow(self):
+        return self.workflow
+
     def get_code(self):
         return self.info.get('code')
 
+    def get_type(self):
+        return self.info.get('type')
+
+    def is_template(self):
+        return self.info.get('is_template')
+
     def get_stypes(self):
-        # import time
-        #
-        # start = time.time()
-        # print("start")
+        if not self.stypes:
+            self.query_stypes()
 
+        return self.stypes
+
+    def query_stypes(self):
         self.stypes = self.query_search_types()
-
-        # end = time.time()
-        # print(end - start)
 
         return self.stypes
 
     def query_search_types(self):
-
         kwargs = {
             'project_code': self.info.get('code'),
             'namespace': self.info.get('type')
@@ -566,7 +313,7 @@ class Project(object):
 
         code = tq.prepare_serverside_script(tq.query_search_types_extended, kwargs, return_dict=True)
 
-        result = server_start().execute_python_script('', kwargs=code)
+        result = server_start(project=kwargs['project_code']).execute_python_script('', kwargs=code)
         stypes = json.loads(result['info']['spt_ret_val'])
 
         schema = stypes.get('schema')
@@ -689,6 +436,19 @@ class SType(object):
             else:
                 return color
 
+    def get_project(self):
+        return self.project
+
+    def get_info(self):
+        return self.info
+
+    def get_schema(self):
+        return self.schema
+
+    def get_pipeline(self):
+        return self.pipeline
+
+
 class Schema(object):
     def __init__(self, schema_dict):
 
@@ -719,7 +479,9 @@ class Workflow(object):
             for proc in parent_pipeline.processes:
                 if proc['process'] == process:
                     parent_process = proc
-        return self.get_pipeline_by_parent(parent_process)
+        if parent_process:
+            # TODO SOMETHING WRONG WITH THIS, may be it query too much pipelines
+            return self.get_pipeline_by_parent(parent_process)
 
     def get_pipeline_by_parent(self, parent_process):
         for pipe in self.__pipeline_list:
@@ -849,7 +611,7 @@ class SObject(object):
         else:
             filters = [('search_code', s_code), ('project_code', self.project.info['code'])]
 
-        return server_start().query_snapshots(filters=filters, include_files=True)
+        return server_start(project=self.project.info['code']).query_snapshots(filters=filters, include_files=True)
 
     # Tasks by search code
     def query_tasks(self, s_code, process=None, user=None):
@@ -860,7 +622,7 @@ class SObject(object):
         :param user: Optional users names
         :return:
         """
-        server = server_start()
+        server = server_start(project=self.project.info['code'])
 
         search_type = 'sthpw/task'
         if process:
@@ -878,7 +640,7 @@ class SObject(object):
         :param process: Process code
         :return:
         """
-        server = server_start()
+        server = server_start(project=self.project.info['code'])
 
         search_type = 'sthpw/note'
         if process:
@@ -890,16 +652,14 @@ class SObject(object):
 
     # Query snapshots to update current
     def update_snapshots(self):
-        import time
-
-        start = time.time()
-        print("start")
+        # import time
+        # start = time.time()
 
         snapshot_dict = self.query_snapshots(self.info['code'])
         self.init_snapshots(snapshot_dict)
 
-        end = time.time()
-        print(end - start)
+        # end = time.time()
+        # dl.info('Updating Snapshots time: {0}'.format(1215), group_id='server_query')
 
     # Initial Snapshots by process without query
     def init_snapshots(self, snapshot_dict):
@@ -950,7 +710,6 @@ class SObject(object):
                 'include_dependencies': include_dependencies,
             }
             code = tq.prepare_serverside_script(tq.delete_sobject, kwargs, return_dict=True)
-            print code['code']
             result = server_start().execute_python_script('', kwargs=code)
 
             return result['info']['spt_ret_val']
@@ -1212,23 +971,6 @@ class File(object):
 
 # End of SObject Class
 
-#DEPRECATED
-# def query_projects():
-#     server = server_start()
-#     search_type = 'sthpw/project'
-#     filters = []
-#     projects = server.query(search_type, filters)
-#
-#     exclude_list = ['sthpw', 'unittest', 'admin']
-#
-#     projects_by_category = collections.defaultdict(list)
-#
-#     for project in projects:
-#         if project['code'] not in exclude_list:
-#             projects_by_category[project['category']].append(project)
-#
-#     return projects_by_category
-
 
 def query_all_projects():
     server = server_start()
@@ -1243,7 +985,7 @@ def get_all_projects():
 
     projects_list = query_all_projects()
 
-    dct = collections.OrderedDict()
+    result = collections.OrderedDict()
 
     exclude_list = ['sthpw', 'unittest', 'admin']
     if len(projects_list) == 2:
@@ -1251,9 +993,11 @@ def get_all_projects():
 
     for project in projects_list:
         if project.get('code') not in exclude_list:
-            dct[project.get('code')] = Project(project)
+            result[project.get('code')] = Project(project)
 
-    return dct
+    env_inst.projects = result
+
+    return result
 
 
 def get_sobjects(process_list=None, sobjects_list=None, get_snapshots=True, project_code=None):
@@ -1284,15 +1028,14 @@ def get_sobjects(process_list=None, sobjects_list=None, get_snapshots=True, proj
         s_code = [s['code'] for s in sobjects_list]
 
         # print s_code
-        import time
+        # import time
+        # start = time.time()
 
-        start = time.time()
-        print("start")
         # process_codes = ['icon']
         snapshots_list = query_snapshots(process_codes, s_code, project_code)
 
-        end = time.time()
-        print(end - start)
+        # end = time.time()
+        # dl.info('Getting Sobjects time: {0}'.format(start - end), group_id='server_query')
 
         snapshots = collections.defaultdict(list)
         # filter snapshots by search_code
@@ -1359,16 +1102,14 @@ def assets_query_new(query, stype, columns=None, project=None, limit=0, offset=0
 
     built_process = server.build_search_type(stype, project)
     # print s_code
-    import time
-
-    start = time.time()
-    print("start getting sobjects names")
+    # import time
+    # start = time.time()
 
     assets_list = server.query(built_process, filters, columns, order_bys, limit=limit, offset=offset)
 
-    end = time.time()
-    print(end - start)
-
+    # end = time.time()
+    # dl.info('Query Assets Names time: {0}'.format(5415), group_id='server_query/{0}')
+    # print 'query time: ' + str(end - start)
     # print assets_list
     return assets_list
 
@@ -1376,12 +1117,12 @@ def assets_query_new(query, stype, columns=None, project=None, limit=0, offset=0
 def get_notes_count(sobject, process, children_stypes):
     kwargs = {
         'process': process,
-        'search_key': sobject.info['__search_key__'],
+        'search_key': sobject.get_search_key(),
         'stypes_list': children_stypes
     }
-
     code = tq.prepare_serverside_script(tq.get_notes_and_stypes_counts, kwargs, return_dict=True)
-    result = server_start().execute_python_script('', kwargs=code)
+    project_code = split_search_key(kwargs['search_key'])
+    result = server_start(project=project_code['project_code']).execute_python_script('', kwargs=code)
 
     return result['info']['spt_ret_val']
 
@@ -1587,7 +1328,8 @@ def get_dirs_with_naming(search_key):
         'search_key': search_key
     }
     code = tq.prepare_serverside_script(tq.get_dirs_with_naming, kwargs, return_dict=True)
-    result = server_start().execute_python_script('', kwargs=code)
+    project_code = split_search_key(search_key)
+    result = server_start(project=project_code['project_code']).execute_python_script('', kwargs=code)
 
     return result['info']['spt_ret_val']
 
@@ -1608,7 +1350,8 @@ def checkin_virtual_snapshot(search_key, context, files_dict, snapshot_type='fil
         'ignore_keep_file_name': ignore_keep_file_name,
     }
     code = tq.prepare_serverside_script(tq.get_virtual_snapshot_extended, kwargs, return_dict=True)
-    result = server_start().execute_python_script('', kwargs=code)
+    project_code = split_search_key(search_key)
+    result = server_start(project=project_code['project_code']).execute_python_script('', kwargs=code)
 
     virtual_snapshot = json.loads(result['info']['spt_ret_val'])
     data_dict = save_confirm(item_widget, virtual_snapshot, repo, context, update_versionless, description)
@@ -1686,7 +1429,8 @@ def checkin_snapshot(search_key, context, snapshot_type=None, is_revision=False,
     # from pprint import pprint
     # pprint(kwargs)
     code = tq.prepare_serverside_script(tq.create_snapshot_extended, kwargs, return_dict=True)
-    result = server_start().execute_python_script('', kwargs=code)
+    project_code = split_search_key(search_key)
+    result = server_start(project=project_code['project_code']).execute_python_script('', kwargs=code)
     # # snapshot = eval(result['info']['spt_ret_val'])
 
     return result
@@ -2016,7 +1760,7 @@ def checkin_file(search_key, context, snapshot_type='file', is_revision=False, d
                 progress_bar,
                 data_dict['virtual_snapshot'],
                 repo_name,
-                update_versionless,
+                data_dict['update_versionless'],
                 create_icon,
                 selected_objects=selected_objects,
                 ext_type=ext_type,
@@ -2033,7 +1777,7 @@ def checkin_file(search_key, context, snapshot_type='file', is_revision=False, d
                 is_revision=is_revision,
                 description=data_dict['description'],
                 version=version,
-                update_versionless=update_versionless,
+                update_versionless=data_dict['update_versionless'],
                 keep_file_name=keep_file_name,
                 repo_name=repo_name,
                 virtual_snapshot=data_dict['virtual_snapshot'],

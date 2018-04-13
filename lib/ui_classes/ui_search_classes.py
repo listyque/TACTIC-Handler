@@ -2,8 +2,7 @@ from lib.side.Qt import QtWidgets as QtGui
 from lib.side.Qt import QtGui as Qt4Gui
 from lib.side.Qt import QtCore
 
-from lib.environment import env_mode, env_inst, env_server
-from lib.configuration import cfg_controls
+from lib.environment import env_mode, env_inst, env_server, cfg_controls, env_read_config, env_write_config
 import lib.global_functions as gf
 import lib.tactic_classes as tc
 import lib.ui_classes.ui_misc_classes as ui_misc_classes
@@ -18,15 +17,6 @@ reload(ui_search_results_tree)
 class Ui_processFilterDialog(QtGui.QDialog):
     def __init__(self, parent_ui, project, stype, parent=None):
         super(self.__class__, self).__init__(parent=parent)
-
-        self.settings = QtCore.QSettings(
-            '{0}/settings/{1}/{2}/{3}/search_cache.ini'.format(
-                env_mode.get_current_path(),
-                env_mode.get_node(),
-                env_server.get_cur_srv_preset(),
-                env_mode.get_mode()),
-            QtCore.QSettings.IniFormat
-        )
 
         self.setSizeGripEnabled(True)
         # self.setWindowFlags(QtCore.Qt.ToolTip)
@@ -310,27 +300,35 @@ class Ui_processFilterDialog(QtGui.QDialog):
 
     def readSettings(self):
         tab_name = self.checkin_out_widget.objectName().split('/')
-        group_path = '{0}/{1}/{2}/{3}'.format(
+        group_path = 'ui_search/{0}/{1}/{2}/{3}'.format(
             self.checkin_out_widget.relates_to,
             self.project.info['type'],
             self.project.info['code'],
             tab_name[1]
         )
-        self.settings.beginGroup(group_path)
-        self.set_from_ignore_dict(gf.from_json(self.settings.value('process_ignore_dict')))
-        self.settings.endGroup()
+
+        self.set_from_ignore_dict(
+            env_read_config(
+                filename='process_ignore_dict',
+                unique_id=group_path,
+                long_abs_path=True
+            )
+        )
 
     def writeSettings(self):
         tab_name = self.checkin_out_widget.objectName().split('/')
-        group_path = '{0}/{1}/{2}/{3}'.format(
+        group_path = 'ui_search/{0}/{1}/{2}/{3}'.format(
             self.checkin_out_widget.relates_to,
             self.project.info['type'],
             self.project.info['code'],
             tab_name[1]
         )
-        self.settings.beginGroup(group_path)
-        self.settings.setValue('process_ignore_dict', gf.to_json(self.get_ignore_dict()))
-        self.settings.endGroup()
+        env_write_config(
+            self.get_ignore_dict(),
+            filename='process_ignore_dict',
+            unique_id=group_path,
+            long_abs_path=True
+        )
 
     def save_and_refresh(self):
         self.writeSettings()
@@ -359,15 +357,6 @@ class Ui_searchResultsWidget(QtGui.QWidget):
 
         self.setAttribute(QtCore.Qt.WA_DeleteOnClose)
 
-        self.settings = QtCore.QSettings(
-            '{0}/settings/{1}/{2}/{3}/search_cache.ini'.format(
-                env_mode.get_current_path(),
-                env_mode.get_node(),
-                env_server.get_cur_srv_preset(),
-                env_mode.get_mode()),
-            QtCore.QSettings.IniFormat
-        )
-
         self.create_ui()
 
         self.search_widget = search_widget
@@ -384,7 +373,45 @@ class Ui_searchResultsWidget(QtGui.QWidget):
 
         self.create_ui_search_results()
 
+    def query_sobjects(self, sobjects_list):
+
+        def get_sobjects_agent():
+            """ If we have traceback, it points us here"""
+            return tc.get_sobjects(
+                process_list=[''],
+                sobjects_list=sobjects_list,
+                project_code=self.project.info['code']
+            )
+
+        query_sobjects_worker = gf.get_thread_worker(
+            get_sobjects_agent,
+            self.thread_pool,
+            result_func=self.fill_items,
+            error_func=gf.error_handle
+        )
+        query_sobjects_worker.try_start()
+
+    def query_names(self, query):
+
+        def assets_query_new_agent():
+            """ If we have traceback, it points us here"""
+            return tc.assets_query_new(
+                query=query,
+                stype=self.stype.info['code'],
+                project=self.project.info['code']
+            )
+
+        query_names_worker = gf.get_thread_worker(
+            assets_query_new_agent,
+            self.thread_pool,
+            result_func=self.assets_names,
+            error_func=gf.error_handle
+        )
+        query_names_worker.try_start()
+
     def create_ui(self):
+
+        self.thread_pool = QtCore.QThreadPool()
 
         self.create_results_tab_widget()
 
@@ -404,26 +431,17 @@ class Ui_searchResultsWidget(QtGui.QWidget):
         self.resultsTabWidget.setObjectName("resultsTabWidget")
 
     def create_ui_search_results(self):
-        # Query Threads
-        self.names_query_thread = tc.ServerThread(self)
-        self.sobjects_query_thread = tc.ServerThread(self)
 
         self.create_new_tab_button()
         # self.add_tab()
         self.controls_actions()
-        self.threads_actions()
 
-        print 'reading searchresults settings'
         self.readSettings()
 
     def controls_actions(self):
         self.add_new_tab_button.clicked.connect(self.add_tab)
         self.refresh_tab_button.clicked.connect(lambda: self.refresh_current_results(True))
         self.resultsTabWidget.tabCloseRequested.connect(self.close_tab)
-
-    def threads_actions(self):
-        self.names_query_thread.finished.connect(self.assets_names)
-        self.sobjects_query_thread.finished.connect(self.fill_items)
 
     def get_current_widget(self):
         return self.resultsTabWidget.currentWidget()
@@ -535,37 +553,36 @@ class Ui_searchResultsWidget(QtGui.QWidget):
 
         if query:
             # Run first thread
-            if not self.names_query_thread.isRunning():
-                self.names_query_thread.kwargs = dict(
-                    query=query_tuple,
-                    stype=self.stype.info['code'],
-                    project=self.project.info['code']
-                )
-                self.names_query_thread.routine = tc.assets_query_new
-                self.names_query_thread.start()
+            self.query_names(query=query_tuple)
 
     @gf.catch_error
-    def assets_names(self):
-        names = tc.treat_result(self.names_query_thread)
-        if names.isFailed():
-            if names.result == QtGui.QMessageBox.ApplyRole:
-                names.run()
-                self.assets_names()
-            elif names.result == QtGui.QMessageBox.ActionRole:
-                env_inst.offline = True
-                env_inst.ui_main.open_config_dialog()
+    def assets_names(self, names):
 
-        if not names.isFailed():
+            # print(names.is_failed())
+        # names = tc.treat_result(self.names_query_thread)
+
+        # if names.isFailed():
+        #     if names.result == QtGui.QMessageBox.ApplyRole:
+        #         names.run()
+        #         self.assets_names()
+        #     elif names.result == QtGui.QMessageBox.ActionRole:
+        #         env_inst.offline = True
+        #         env_inst.ui_main.open_config_dialog()
+
+        # if not names.isFailed():
             # pretty name for new single tab
-            if len(names.result) == 1:
-                tab_name = names.result[0].get('name')
+            if len(names) == 1:
+                tab_name = names[0].get('name')
+
                 if tab_name:
                     self.set_current_tab_text(tab_name)
 
-            if not self.sobjects_query_thread.isRunning():
-                self.sobjects_query_thread.kwargs = dict(process_list=[''], sobjects_list=names.result, project_code=self.project.info['code'])
-                self.sobjects_query_thread.routine = tc.get_sobjects
-                self.sobjects_query_thread.start()
+            self.query_sobjects(names)
+
+            # if not self.sobjects_query_thread.isRunning():
+            #     self.sobjects_query_thread.kwargs = dict(process_list=[''], sobjects_list=names.result, project_code=self.project.info['code'])
+            #     self.sobjects_query_thread.routine = tc.get_sobjects
+            #     self.sobjects_query_thread.start(QtCore.QThread.NormalPriority)
             #
             # pl = names.result
             #
@@ -584,8 +601,8 @@ class Ui_searchResultsWidget(QtGui.QWidget):
             #     # threaded.finished.connect(lambda : self.prnt(threaded))
 
     @gf.catch_error
-    def fill_items(self):
-        self.sobjects = self.sobjects_query_thread.result
+    def fill_items(self, result):
+        self.sobjects = result
 
         current_widget = self.get_current_widget()
         current_tree_widget = current_widget.resultsTreeWidget
@@ -617,7 +634,7 @@ class Ui_searchResultsWidget(QtGui.QWidget):
 
         current_widget.progress_bar.setVisible(False)
 
-    def update_item_tree(self, item, force_full_update=False):
+    def update_item_tree(self, item=None, force_full_update=False):
         current_widget = self.get_current_widget()
         current_tree_widget = current_widget.resultsTreeWidget
         current_widget.info['state'] = gf.tree_state(current_tree_widget, {})
@@ -767,15 +784,8 @@ class Ui_searchResultsWidget(QtGui.QWidget):
 
         return settings_dict
 
-    def readSettings(self):
-        """
-        Reading Settings
-        """
-        tab_name = self.tab_name.split('/')
-        group_path = 'checkin_checkout_search/{0}/{1}/{2}'.format(self.current_namespace, self.current_project, tab_name[1])
-        self.settings.beginGroup(group_path)
-
-        search_cache = gf.hex_to_html(self.settings.value('last_search_tabs'))
+    def set_search_cache(self, search_cache):
+        search_cache = gf.hex_to_html(search_cache)
 
         if search_cache:
             search_cache = gf.from_json(search_cache, use_ast=True)
@@ -789,15 +799,8 @@ class Ui_searchResultsWidget(QtGui.QWidget):
             self.resultsTabWidget.setCurrentIndex(int(search_cache[2]))
         else:
             self.add_tab()
-        self.settings.endGroup()
 
-    def writeSettings(self):
-        """
-        Writing Settings
-        """
-        tab_name = self.tab_name.split('/')
-        group_path = 'checkin_checkout_search/{0}/{1}/{2}'.format(self.current_namespace, self.current_project, tab_name[1])
-        self.settings.beginGroup(group_path)
+    def get_search_cache(self):
 
         tab_names_list = []
         tab_state_list = []
@@ -815,16 +818,47 @@ class Ui_searchResultsWidget(QtGui.QWidget):
                 tab_state_list.append(old_state)
 
             tab_names_list.append(self.resultsTabWidget.tabText(tab))
-            # tab_options_list.append(self.parent_ui.searchOptionsGroupBox.get_search_options())
             tab_options_list.append('self.search_widget.searchOptionsGroupBox.get_search_options()')  # THIS IS TEMPORARY
 
         search_cache = (tab_names_list, tab_state_list, self.resultsTabWidget.currentIndex(), tab_options_list)
 
-        # self.settings.setValue('last_search_tabs', str(search_cache))
-        self.settings.setValue('last_search_tabs', gf.html_to_hex(gf.to_json(search_cache, use_ast=True)))
+        return gf.html_to_hex(gf.to_json(search_cache, use_ast=True))
 
-        print('Done ui_search ' + self.search_widget.objectName() + ' settings write')
-        self.settings.endGroup()
+    def readSettings(self):
+        """
+        Reading Settings
+        """
+        tab_name = self.tab_name.split('/')
+        group_path = 'ui_search/{0}/{1}/{2}'.format(
+            self.current_namespace,
+            self.current_project,
+            tab_name[1])
+
+        self.set_search_cache(
+            env_read_config(
+                filename='search_cache',
+                unique_id=group_path,
+                long_abs_path=True
+            )
+        )
+
+    def writeSettings(self):
+        """
+        Writing Settings
+        """
+        tab_name = self.tab_name.split('/')
+        group_path = 'ui_search/{0}/{1}/{2}'.format(
+            self.current_namespace,
+            self.current_project,
+            tab_name[1]
+        )
+
+        env_write_config(
+            self.get_search_cache(),
+            filename='search_cache',
+            unique_id=group_path,
+            long_abs_path=True
+        )
 
     def closeEvent(self, event):
 
@@ -849,15 +883,17 @@ class Ui_searchWidget(QtGui.QWidget, search_widget.Ui_searchWidget):
         self.setupUi(self)
 
         # Query Threads
-        self.search_suggestions_thread = tc.ServerThread(self)
+        self.thread_pool = QtCore.QThreadPool()
 
-        self.create_search_line()
+        # Disabled because bugs on some systems
+        # self.create_search_line()
+
         self.create_search_results_widget()
         self.create_gear_menu_popup()
         self.create_collapsable_toolbar()
 
         self.controls_actions()
-        self.threads_actions()
+        # self.threads_actions()
 
     def controls_actions(self):
         self.searchLineEdit.returnPressed.connect(self.do_search)
@@ -869,8 +905,8 @@ class Ui_searchWidget(QtGui.QWidget, search_widget.Ui_searchWidget):
         self.search_suggestions_elapsed.start()
         self.search_suggestions_timer.timeout.connect(lambda: self.search_suggestions_end(key=self.searchLineEdit.text()))
 
-    def threads_actions(self):
-        self.search_suggestions_thread.finished.connect(lambda: self.search_suggestions_end(popup_suggestion=True))
+    # def threads_actions(self):
+    #     self.search_suggestions_thread.finished.connect(lambda: self.search_suggestions_end(popup_suggestion=True))
 
     def searchLineSingleClick(self, event):
         self.searchLineEdit.selectAll()
@@ -894,6 +930,9 @@ class Ui_searchWidget(QtGui.QWidget, search_widget.Ui_searchWidget):
 
     def get_search_results_widget(self):
         return self.search_results_widget
+
+    def get_progress_bar(self):
+        return self.search_results_widget.get_progress_bar()
 
     def get_search_query_text(self):
         return self.searchLineEdit.text()
@@ -919,6 +958,7 @@ class Ui_searchWidget(QtGui.QWidget, search_widget.Ui_searchWidget):
     def get_search_options_widget(self):
         return self.checkin_out_widget.search_options_widget
 
+    @gf.catch_error
     def refresh_current_results(self):
         self.search_results_widget.refresh_current_results()
 
@@ -937,36 +977,41 @@ class Ui_searchWidget(QtGui.QWidget, search_widget.Ui_searchWidget):
     @gf.catch_error
     def search_suggestions_start(self, *args):
         if self.search_suggestions_elapsed.elapsed() > 500:
-            self.search_suggestions_timer.start(200)
+            self.search_suggestions_timer.start(10)
 
     @gf.catch_error
-    def search_suggestions_end(self, key=None, popup_suggestion=False):
+    def search_suggestions_end(self, result=None, key=None):
         self.search_suggestions_elapsed.restart()
         if key:
             self.search_suggestions_timer.stop()
-            if not self.search_suggestions_thread.isRunning():
-                query = (key, 0)
-                code = self.stype.info.get('code')
-                project = self.project.info['code']
-                columns = ['name']
+            query = (key, 0)
+            code = self.stype.info.get('code')
+            project = self.project.info['code']
+            columns = ['name']
 
-                self.search_suggestions_thread.kwargs = dict(
+            def assets_query_new_agent():
+                return tc.assets_query_new(
                     query=query,
                     stype=code,
                     columns=columns,
                     project=project,
-                    limit=15,
+                    limit=30,
                     offset=0,
-                    order_bys='timestamp desc',
+                    order_bys='timestamp desc'
                 )
-                self.search_suggestions_thread.routine = tc.assets_query_new
-                self.search_suggestions_thread.start()
 
-        if popup_suggestion:
-            results = self.search_suggestions_thread.result
+            search_suggestions_worker = gf.get_thread_worker(
+                assets_query_new_agent,
+                self.thread_pool,
+                result_func=self.search_suggestions_end,
+                error_func=gf.error_handle
+            )
+            search_suggestions_worker.try_start()
+
+        if result:
             suggestions_list = []
 
-            for item in results:
+            for item in result:
                 suggestions_list.append(item.get('name'))
 
             completer = QtGui.QCompleter(suggestions_list, self)
@@ -1308,21 +1353,15 @@ class Ui_resultsFormWidget(QtGui.QWidget, ui_search_results_tree.Ui_resultsForm)
         return self.current_results_versions_tree_widget_item
 
     def update_current_items_trees(self, force_full_update=False):
-        if self.current_results_versions_tree_widget_item:
-            self.search_widget.search_results_widget.update_item_tree(self.current_results_versions_tree_widget_item,
-                                                                      force_full_update)
-            self.current_results_versions_tree_widget_item = None
-        elif force_full_update:
-            self.search_widget.search_results_widget.update_item_tree(self.current_results_versions_tree_widget_item,
-                                                                      force_full_update)
 
-        if self.current_results_tree_widget_item:
-            self.search_widget.search_results_widget.update_item_tree(self.current_results_tree_widget_item,
-                                                                      force_full_update)
+        if force_full_update:
+            self.search_widget.search_results_widget.update_item_tree(force_full_update=True)
+        elif self.current_results_versions_tree_widget_item:
+            self.current_results_versions_tree_widget_item = None
+            self.search_widget.search_results_widget.update_item_tree(self.current_results_versions_tree_widget_item)
+        elif self.current_results_tree_widget_item:
             self.current_results_tree_widget_item = None
-        elif force_full_update:
-            self.search_widget.search_results_widget.update_item_tree(self.current_results_tree_widget_item,
-                                                                      force_full_update)
+            self.search_widget.search_results_widget.update_item_tree(self.current_results_tree_widget_item)
 
     @gf.catch_error
     def send_collapse_event_to_item(self, tree_item):
@@ -1420,17 +1459,17 @@ class Ui_resultsFormWidget(QtGui.QWidget, ui_search_results_tree.Ui_resultsForm)
         #
         #     self.playblastLayout.addWidget(self.playblast_widget)
 
-    def set_snapshot_to_drop_plate(self, item):
-
-        drop_plate_widget = self.search_widget.get_drop_plate_widget()
-        drop_plate_widget.set_item_widget(item)
+    # def set_snapshot_to_drop_plate(self, item):
+    #
+    #     drop_plate_widget = self.search_widget.get_drop_plate_widget()
+    #     drop_plate_widget.set_item_widget(item)
 
     @gf.catch_error
     def load_preview(self, *args):
         # loading preview image and snapshot browser
         nested_item = self.current_tree_widget_item
         self.browse_snapshot(nested_item)
-        self.set_snapshot_to_drop_plate(nested_item)
+        # self.set_snapshot_to_drop_plate(nested_item)
 
         env_inst.ui_main_tabs[self.search_widget.project.info['code']].skeyLineEdit.setText(nested_item.get_skey(skey=True))
         # env_inst.ui_main.skeyLineEdit.setText(nested_item.get_skey(skey=True))

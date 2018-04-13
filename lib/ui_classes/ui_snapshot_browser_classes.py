@@ -253,7 +253,7 @@ class Ui_snapshotBrowserWidget(QtGui.QWidget, ui_snapshot_browser.Ui_snapshotBro
             if self.item_widget.type == 'snapshot':
                 if self.item_widget.is_versionless():
                     versionless_snapshot = self.item_widget.get_snapshot()
-                    if versionless_snapshot:
+                    if versionless_snapshot not in self.snapshots:
                         self.snapshots.append(versionless_snapshot)
 
             for snapshot in self.snapshots:
@@ -271,7 +271,7 @@ class Ui_snapshotBrowserWidget(QtGui.QWidget, ui_snapshot_browser.Ui_snapshotBro
                 if not show_all_files:
                     preview = ['icon', 'playblast', 'web']
 
-                for file_type, files_objects in snapshot_files_objects.items():
+                for i, (file_type, files_objects) in enumerate(snapshot_files_objects.items()):
                     type_item = QtGui.QTreeWidgetItem()
                     if file_type not in preview:
                         if show_all_files:
@@ -286,7 +286,7 @@ class Ui_snapshotBrowserWidget(QtGui.QWidget, ui_snapshot_browser.Ui_snapshotBro
                             else:
                                 self.add_item_with_tactic_file_object(file_object, show_more_info, show_all_files, snapshot_info, type_item, icon_provider)
 
-                    if len(files_objects) % 10 == 0:
+                    if i % 20 == 0:
                         QtGui.QApplication.processEvents()
 
                 self.filesTreeWidget.resizeColumnToContents(0)

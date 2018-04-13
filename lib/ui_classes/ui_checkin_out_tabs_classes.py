@@ -1,12 +1,9 @@
 # ui_checkin_out_tabs_classes.py
 # Check In Tabs interface
 
-import json
 from lib.side.Qt import QtWidgets as QtGui
-from lib.side.Qt import QtGui as Qt4Gui
 from lib.side.Qt import QtCore
-from lib.environment import env_mode, env_inst, env_server
-from lib.configuration import cfg_controls
+from lib.environment import env_inst, cfg_controls, env_read_config, env_write_config
 import lib.global_functions as gf
 import lib.ui.checkin_out.ui_checkin_out_tabs as checkin_out_tabs
 import ui_checkin_out_classes as checkin_out
@@ -34,23 +31,16 @@ class Ui_checkInOutTabWidget(QtGui.QWidget, checkin_out_tabs.Ui_sObjTabs):
         self.current_namespace = self.project.info['type']
         self.stypes_items = self.project.stypes
 
-        self.settings = QtCore.QSettings('{0}/settings/{1}/{2}/{3}/checkin_out_ui_config.ini'.format(
-            env_mode.get_current_path(),
-            env_mode.get_node(),
-            env_server.get_cur_srv_preset(),
-            env_mode.get_mode()),
-            QtCore.QSettings.IniFormat)
-
         self.checkin_out_config_projects = cfg_controls.get_checkin_out_projects()
         self.checkin_out_config = cfg_controls.get_checkin_out()
 
         # self.context_items = context_items
-
         self.is_created = False
         self.stypes_tree_visible = False
         self.tab_bar_customization()
 
     def create_ui(self):
+
         if self.stypes_items:
             self.is_created = True
             self.add_items_to_stypes_tree()
@@ -162,7 +152,7 @@ class Ui_checkInOutTabWidget(QtGui.QWidget, checkin_out_tabs.Ui_sObjTabs):
 
         if current_settings:
             for tab in self.all_search_tabs:
-                tab.set_settings_from_dict(json.dumps(current_settings), apply_checkin_options=False, apply_search_options=False)
+                tab.set_settings_from_dict(current_settings, apply_checkin_options=False, apply_search_options=False)
 
     def fast_save(self):
         current_tab = self.get_current_tab_widget()
@@ -344,39 +334,58 @@ class Ui_checkInOutTabWidget(QtGui.QWidget, checkin_out_tabs.Ui_sObjTabs):
         for i, label in enumerate(added_labels):
             self.sObjTabWidget.tabBar().setTabButton(i, QtGui.QTabBar.LeftSide, label)
 
+    def set_settings_from_dict(self, settings_dict):
+        if not settings_dict:
+            settings_dict = {
+                'stypes_tree_visible': 0,
+                'sObjTabWidget_currentIndex': 0
+            }
+
+        if bool(int(settings_dict['stypes_tree_visible'])):
+            self.hamburger_button_click()
+        self.current_tab_idx = int(settings_dict['sObjTabWidget_currentIndex'])
+
+    def get_settings_dict(self):
+        settings_dict = {
+            'stypes_tree_visible': int(self.stypes_tree_visible),
+            'sObjTabWidget_currentIndex': int(self.sObjTabWidget.currentIndex()),
+        }
+
+        return settings_dict
+
     def readSettings(self):
         """
         Reading Settings
         """
-        group_path = '{0}/{1}/{2}'.format(
-            self.current_namespace,
-            self.current_project,
-            'checkin_out',
+
+        group_path = 'ui_main/{0}/{1}'.format(
+                self.current_namespace,
+                self.current_project
+            )
+
+        self.set_settings_from_dict(
+            env_read_config(
+                filename='ui_checkin_out_tabs',
+                unique_id=group_path,
+                long_abs_path=True
+            )
         )
-        self.settings.beginGroup(group_path)
-
-        if bool(int(self.settings.value('stypes_tree_visible', 0))):
-            self.hamburger_button_click()
-        self.current_tab_idx = int(self.settings.value('sObjTabWidget_currentIndex', 0))
-
-        self.settings.endGroup()
 
     def writeSettings(self):
         """
         Writing Settings
         """
-        group_path = '{0}/{1}/{2}'.format(
+        group_path = 'ui_main/{0}/{1}'.format(
             self.current_namespace,
             self.current_project,
-            'checkin_out',
         )
-        self.settings.beginGroup(group_path)
-        self.settings.setValue('sObjTabWidget_currentIndex', int(self.sObjTabWidget.currentIndex()))
-        self.settings.setValue('stypes_tree_visible', int(self.stypes_tree_visible))
-        print('Done ui_checkin_out_tab settings write')
-        self.settings.endGroup()
-        # for tab in self.ui_tree:
-        #     tab.writeSettings()
+
+        env_write_config(
+            self.get_settings_dict(),
+            filename='ui_checkin_out_tabs',
+            unique_id=group_path,
+            long_abs_path=True
+        )
 
     def showEvent(self, event):
         if not self.is_created:

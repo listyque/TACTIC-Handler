@@ -1,10 +1,10 @@
 # Internal server-side sctipts
 
 import global_functions as gf
+import inspect
 
 
 def prepare_serverside_script(func, kwargs, return_dict=True, has_return=True, shrink=True):
-    import inspect
     func_lines = inspect.getsourcelines(func)
     if has_return:
         run_command = func_lines[0][0].replace('def ', 'return ')[:-2]
@@ -33,14 +33,13 @@ def prepare_serverside_script(func, kwargs, return_dict=True, has_return=True, s
     var_stitch = ', '.join(all_vars)
     ready_run_command = '{0}({1})'.format(run_command[:run_command.find('(')], var_stitch)
 
-    code = ''.join(func_lines[0]) + ready_run_command
+    traceback = inspect.getsourcelines(get_traceback)
+    handle = inspect.getsourcelines(traceback_handle)
 
-    # print code
+    code = ''.join(traceback[0]) + ''.join(handle[0]) + '@traceback_handle \n' + ''.join(func_lines[0]) + ready_run_command
 
     if shrink:
         code = gf.minify_code(source=code, pack=False)
-
-    # print code
 
     if return_dict:
         code_dict = {
@@ -49,6 +48,55 @@ def prepare_serverside_script(func, kwargs, return_dict=True, has_return=True, s
         return code_dict
     else:
         return code
+
+
+def traceback_handle(func):
+    def traceback_handle_wrap(*arg, **kwarg):
+        try:
+            result = func(*arg, **kwarg)
+        except:
+            result = get_traceback()
+        return result
+
+    return traceback_handle_wrap
+
+
+def get_traceback():
+    result = u''
+    import traceback, sys
+    exception_type, exception_value, exception_traceback = sys.exc_info()
+
+    exception_type_string = exception_type is not None and exception_type.__name__ or u'UnknownError'
+    exception_value_string = exception_value is not None and exception_value.message or u'Unknown error handled'
+
+    format_traceback = traceback.format_exception(exception_type, exception_value, exception_traceback, limit=100)
+    if format_traceback:
+        if isinstance(format_traceback, (list, set, tuple)):
+            format_traceback_list = list(format_traceback)
+        else:
+            format_traceback_list = [format_traceback]
+        for format_traceback in format_traceback_list:
+            if isinstance(format_traceback, (basestring, unicode)):
+                result += format_traceback
+            else:
+                try:
+                    result += format_traceback.__repr__()
+                except:
+                    try:
+                        result += unicode(format_traceback)
+                    except:
+                        result += u'( Failed to decode Exception data )'
+    if not result:
+        result = u'Error: ' + exception_value_string + u'\n' + exception_type_string + u': ' + exception_value_string
+
+    return result
+
+
+def get_result(result):
+    if result['info']['spt_ret_val'][0:9] == 'Traceback':
+        raise Exception(result['info']['spt_ret_val'])
+    else:
+        return result['info']['spt_ret_val']
 
 
 def query_EditWdg(args=None, search_type=''):
@@ -335,11 +383,12 @@ def get_virtual_snapshot_extended(search_key, context, files_dict, snapshot_type
     description = "No description"
 
     # this is only to avoid naming intersection
-    if len(files_dict) > 1 and not ignore_keep_file_name:
-        keep_file_name = True
+    if checkin_type == 'file':
+        if len(files_dict) > 1 and not ignore_keep_file_name:
+            keep_file_name = True
 
-    if checkin_type == 'multi_file':
-        keep_file_name = False
+    # if checkin_type == 'multi_file':
+    #     keep_file_name = False
 
     # if len(set(file_type)) != 1:
     #     keep_file_name = False

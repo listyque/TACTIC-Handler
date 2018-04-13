@@ -23,6 +23,168 @@ from lib.side.Qt import QtCore
 from environment import env_mode, env_tactic, env_inst
 
 
+class ThreadSignals(QtCore.QObject):
+    finished = QtCore.Signal()
+    error = QtCore.Signal(tuple)
+    result = QtCore.Signal(object)
+    progress = QtCore.Signal(int)
+    stop = QtCore.Signal(object)
+
+
+class ThreadWorker(QtCore.QRunnable):
+    '''
+    Adapted from: https://martinfitzpatrick.name/article/multithreading-pyqt-applications-with-qthreadpool/
+    Worker thread
+
+    Inherits from QRunnable to handler worker thread setup, signals and wrap-up.
+
+    :param agent: This is function which will be started by QRunnable.
+    :type agent: function
+
+    '''
+
+    def __init__(self, agent, thread_pool, parent=None):
+        super(ThreadWorker, self).__init__(parent=parent)
+        # Settings
+        self.setAutoDelete(False)
+
+        # Vars
+        self.agent = agent
+        # we can access thread_worker from running agent func
+        self.agent.thread_worker = self
+
+        self.thread_pool = thread_pool
+        self.signals_enabled = True
+
+        self.failed = False
+        self.error_tuple = None
+
+        # Signals
+        self.signals = ThreadSignals()
+
+    def add_custom_kwargs(self, **kwargs):
+        for kwarg, value in kwargs.items():
+            setattr(self, kwarg, value)
+
+    def disable_signals(self):
+        self.signals_enabled = False
+
+    def is_signals_enabled(self):
+        return self.signals_enabled
+
+    def start(self):
+        self.thread_pool.start(self)
+
+    def try_start(self):
+        self.thread_pool.tryStart(self)
+
+    def get_thread_pool(self):
+        return self.thread_pool
+
+    def is_failed(self):
+        return self.failed
+
+    def set_failed(self, boolean):
+        self.failed = boolean
+
+    def get_error_tuple(self):
+        return self.error_tuple
+
+    def finished_func(self, func=None):
+        if func:
+            vars(func)['thread_worker'] = self
+            self.signals.finished.connect(func)
+
+    def error_func(self, func=None):
+        if func:
+            vars(func)['thread_worker'] = self
+            self.signals.error.connect(func)
+
+    def result_func(self, func=None):
+        if func:
+            vars(func)['thread_worker'] = self
+            self.signals.result.connect(func)
+
+    def progress_func(self, func=None):
+        if func:
+            vars(func)['thread_worker'] = self
+            self.signals.progress.connect(func)
+
+    def stop_func(self, func=None):
+        if func:
+            vars(func)['thread_worker'] = self
+            self.signals.stop.connect(func)
+
+    def emit_finished(self):
+        if self.signals_enabled:
+            self.signals.finished.emit()
+
+    def emit_error(self, error):
+        if self.signals_enabled:
+            self.signals.error.emit(error)
+        self.error_tuple = error
+
+    def emit_result(self, result):
+        if self.signals_enabled:
+            self.signals.result.emit(result)
+
+    def emit_progress(self, progress):
+        # if self.signals_enabled:
+            self.signals.progress.emit(progress)
+
+    def emit_stop(self, stop):
+        self.signals.stop.emit(stop)
+
+    @QtCore.Slot()
+    def run(self):
+        try:
+            result = self.agent()
+        except Exception as expected:
+            if self.signals_enabled:
+                traceback.print_exc(file=sys.stdout)
+            stacktrace = traceback.format_exc()
+
+            exception = {
+                'exception': expected,
+                'stacktrace': stacktrace,
+            }
+            self.set_failed(True)
+            self.emit_error((exception, self))
+        else:
+            self.set_failed(False)
+            self.setAutoDelete(True)
+            self.emit_result(result)
+        finally:
+            self.emit_finished()
+
+
+def get_thread_worker(agent_func, thread_pool=None, result_func=None, error_func=None,
+                      finished_func=None, progress_func=None, stop_func=None, parent=None):
+    """
+    This will create worker with thread poll for you, or you can add worker to you existing thread
+
+    :param agent_func: This will be run, cannot be lambda.
+    :param thread_pool: If no passed, will creates global instance, which can be accessed from worker.
+    :param result_func: This func will be executed when thread finished without error, and should have return
+    :param error_func: Executed when thread will fail
+    :param finished_func: Executed even when thread fail, should not have any return
+    :param progress_func: Emitting progress
+    :param parent: Parent of the worker
+    :return: Worker object
+    """
+    if not thread_pool:
+        thread_pool = QtCore.QThreadPool().globalInstance()
+
+    worker = ThreadWorker(agent_func, thread_pool, parent=parent)
+    worker.result_func(result_func)
+    worker.error_func(error_func)
+    worker.finished_func(finished_func)
+    worker.progress_func(progress_func)
+    worker.stop_func(stop_func)
+
+    return worker
+
+
 def catch_error(func):
     def __tryexcept__(*args, **kwargs):
 
@@ -37,14 +199,14 @@ def catch_error(func):
                 'stacktrace': stacktrace,
             }
 
-            stacktrace_handle(exception)
+            error_handle((exception, None))
 
     return __tryexcept__
 
 
-def stacktrace_handle(exception):
-
-    expected = exception['exception']
+def error_handle(args):
+    stacktrace_dict, worker = args
+    expected = stacktrace_dict['exception']
 
     error_type = catch_error_type(expected)
 
@@ -53,24 +215,178 @@ def stacktrace_handle(exception):
         unicode(str(expected.message), 'utf-8', errors='ignore'),
         str(error_type))
 
-    title = u'{0}'.format(unicode(str(expected.__doc__), 'utf-8', errors='ignore'))
-    message = u'{0}<p>{1}</p>'.format(
-        u"<p>Exception appeared:</p>",
-        exception_text)
-    buttons = [('Ok', QtGui.QMessageBox.AcceptRole)]
+    if error_type in ['unknown_error', 'attribute_error']:
+        title = u'{0}'.format(unicode(str(expected.__doc__), 'utf-8', errors='ignore'))
+        message = u'{0}<p>{1}</p>'.format(
+            u"<p>This is not usual type of Exception! See stacktrace for information</p>",
+            exception_text)
+        buttons = [('Ok', QtGui.QMessageBox.NoRole)]
+        if worker:
+            buttons.append(('Retry', QtGui.QMessageBox.ApplyRole))
 
-    reply = show_message_predefined(
-        title=title,
-        message=message,
-        stacktrace=exception['stacktrace'],
-        buttons=buttons,
-        parent=None,
-        message_type='warning',
-    )
-    if reply == QtGui.QMessageBox.YesRole:
-        pass
+        reply = show_message_predefined(
+            title=title,
+            message=message,
+            stacktrace=stacktrace_dict['stacktrace'],
+            buttons=buttons,
+            parent=env_inst.ui_main,
+            message_type='question',
+        )
+        if reply == QtGui.QMessageBox.ApplyRole:
+            worker.try_start()
 
-    # return thread
+        return reply
+
+    if error_type in ['connection_refused', 'connection_timeout']:
+        title = '{0}, {1}'.format("Cannot connect to TACTIC Server!", error_type)
+        message = u'{0}<p>{1}</p>'.format(
+            u"<p>There is no Network connection to TACTIC Server, or Connection Timed Out</p>"
+            u"<p>May be you set wrong server address?</p>",
+            exception_text)
+        buttons = [('Ok', QtGui.QMessageBox.NoRole)]
+
+        if worker:
+            buttons.append(('Retry', QtGui.QMessageBox.ApplyRole))
+
+        if not env_inst.ui_conf:
+            buttons.append(('Open Config', QtGui.QMessageBox.ActionRole))
+
+        reply = show_message_predefined(
+            title=title,
+            message=message,
+            stacktrace=stacktrace_dict['stacktrace'],
+            buttons=buttons,
+            parent=env_inst.ui_main,
+            message_type='critical',
+        )
+        if reply == QtGui.QMessageBox.ApplyRole:
+            worker.try_start()
+        if reply == QtGui.QMessageBox.ActionRole:
+            env_inst.ui_main.open_config_dialog()
+
+        return reply
+
+    if error_type == 'ticket_error':
+        title = '{0}, {1}'.format("Ticket Error!", error_type)
+        message = u'{0}<p>{1}</p>'.format(
+            u"<p>Wrong ticket, or session may have expired!</p> <p>Generate new ticket?</p>",
+            exception_text)
+        buttons = [('Yes', QtGui.QMessageBox.YesRole),
+                   ('No', QtGui.QMessageBox.NoRole)]
+
+        if not env_inst.ui_conf:
+            buttons.append(('Open Config', QtGui.QMessageBox.ActionRole))
+
+        reply = show_message_predefined(
+            title=title,
+            message=message,
+            stacktrace=stacktrace_dict['stacktrace'],
+            buttons=buttons,
+            parent=None,
+            message_type='question',
+        )
+        if reply == QtGui.QMessageBox.YesRole:
+            env_inst.ui_main.open_config_dialog()
+            env_inst.ui_conf.hide()
+            env_inst.ui_conf.create_server_page()
+            env_inst.ui_conf.serverPageWidget.generate_ticket()
+        if reply == QtGui.QMessageBox.ActionRole:
+            env_inst.ui_main.open_config_dialog()
+
+        return reply
+
+    if error_type == 'no_project_error':
+        title = '{0}, {1}'.format("This Project does not exists!", error_type)
+        message = u'{0}<p>{1}</p>'.format(
+            u"<p>Project from previous session currently not Exists!</p>",
+            exception_text)
+        buttons = [('Ok', QtGui.QMessageBox.NoRole)]
+
+        if not env_inst.ui_conf:
+            buttons.append(('Open Config', QtGui.QMessageBox.ActionRole))
+
+        reply = show_message_predefined(
+            title=title,
+            message=message,
+            stacktrace=stacktrace_dict['stacktrace'],
+            buttons=buttons,
+            parent=None,
+            message_type='critical',
+        )
+        if reply == QtGui.QMessageBox.NoRole:
+            env_inst.ui_main.restart_ui_main()
+        if reply == QtGui.QMessageBox.ActionRole:
+            env_inst.ui_main.open_config_dialog()
+
+        return reply
+
+    if error_type == 'login_pass_error':
+        title = '{0}, {1}'.format("Wrong user Login or Password for TACTIC Server!", error_type)
+        message = u'{0}<p>{1}</p>'.format(
+            u"<p>You need to open config, and type correct Login and Password!</p>",
+            exception_text)
+        buttons = [('Ok', QtGui.QMessageBox.NoRole), ('Retry', QtGui.QMessageBox.ApplyRole)]
+
+        if not env_inst.ui_conf:
+            buttons.append(('Open Config', QtGui.QMessageBox.ActionRole))
+
+        reply = show_message_predefined(
+            title=title,
+            message=message,
+            stacktrace=stacktrace_dict['stacktrace'],
+            buttons=buttons,
+            parent=None,
+            message_type='critical',
+        )
+        if reply == QtGui.QMessageBox.ActionRole:
+            env_inst.ui_main.open_config_dialog()
+
+        return reply
+
+    if error_type == 'sql_connection_error':
+        title = '{0}, {1}'.format("SQL Server Error!", error_type)
+        message = u'{0}<p>{1}</p>'.format(
+            u"<p>TACTIC Server can't connect to SQL server, may be SQL Server Down! Or wrong server port/ip </p>",
+            exception_text)
+        buttons = [('Ok', QtGui.QMessageBox.NoRole)]
+
+        if not env_inst.ui_conf:
+            buttons.append(('Open Config', QtGui.QMessageBox.ActionRole))
+
+        reply = show_message_predefined(
+            title=title,
+            message=message,
+            stacktrace=stacktrace_dict['stacktrace'],
+            buttons=buttons,
+            parent=None,
+            message_type='critical',
+        )
+        if reply == QtGui.QMessageBox.ActionRole:
+            env_inst.ui_main.open_config_dialog()
+
+        return reply
+
+    if error_type == 'protocol_error':
+        title = '{0}, {1}'.format("Error with the Protocol!", error_type)
+        message = u'{0}<p>{1}</p>'.format(u"<p>Something wrong!</p>", exception_text)
+        buttons = [('Ok', QtGui.QMessageBox.NoRole),
+                   ('Retry', QtGui.QMessageBox.ApplyRole)]
+
+        if not env_inst.ui_conf:
+            buttons.append(('Open Config', QtGui.QMessageBox.ActionRole))
+
+        reply = show_message_predefined(
+            title=title,
+            message=message,
+            stacktrace=stacktrace_dict['stacktrace'],
+            buttons=buttons,
+            parent=None,
+            message_type='critical',
+        )
+        if reply == QtGui.QMessageBox.ActionRole:
+            env_inst.ui_main.open_config_dialog()
+
+        return reply
 
 
 def show_message_predefined(title, message, stacktrace=None, buttons=None, parent=None, message_type='question'):
@@ -163,6 +479,9 @@ def catch_error_type(exception):
         error = 'connection_refused'
 
     if str(exception).find('Connection refused') != -1:
+        error = 'connection_refused'
+
+    if str(exception).find('getaddrinfo failed') != -1:
         error = 'connection_refused'
 
     if str(exception).find('Login/Password combination incorrect') != -1:
@@ -355,7 +674,6 @@ def get_controls_dict(ignore_list=None):
 def get_value_from_config(config_dict, control):
     if config_dict:
         for all_values in config_dict.itervalues():
-            # print all_values
             for obj_name, value in zip(all_values['obj_name'], all_values['value']):
                 if control == obj_name:
                     return value
@@ -450,46 +768,26 @@ def change_property_by_widget_type(widget, in_dict):
         if widget.objectName() in in_dict['QLineEdit']['obj_name']:
             val = in_dict['QLineEdit']['value'][in_dict['QLineEdit']['obj_name'].index(widget.objectName())]
             widget.setText(val)
-            # for name, val in zip(in_dict['QLineEdit']['obj_name'], in_dict['QLineEdit']['value']):
-            #     if widget.objectName() == name:
-            #         widget.setText(val)
-            #         break
 
     elif isinstance(widget, QtGui.QCheckBox) and in_dict.get('QCheckBox'):
         if widget.objectName() in in_dict['QCheckBox']['obj_name']:
             val = in_dict['QCheckBox']['value'][in_dict['QCheckBox']['obj_name'].index(widget.objectName())]
             widget.setChecked(val)
-        # for name, val in zip(in_dict['QCheckBox']['obj_name'], in_dict['QCheckBox']['value']):
-        #     if widget.objectName() == name:
-        #         widget.setChecked(val)
-        #         break
 
     elif isinstance(widget, QtGui.QGroupBox) and in_dict.get('QGroupBox'):
         if widget.objectName() in in_dict['QGroupBox']['obj_name']:
             val = in_dict['QGroupBox']['value'][in_dict['QGroupBox']['obj_name'].index(widget.objectName())]
             widget.setChecked(val)
-        # for name, val in zip(in_dict['QGroupBox']['obj_name'], in_dict['QGroupBox']['value']):
-        #     if widget.objectName() == name:
-        #         widget.setChecked(val)
-        #         break
 
     elif isinstance(widget, QtGui.QRadioButton) and in_dict.get('QRadioButton'):
         if widget.objectName() in in_dict['QRadioButton']['obj_name']:
             val = in_dict['QRadioButton']['value'][in_dict['QRadioButton']['obj_name'].index(widget.objectName())]
             widget.setChecked(val)
-        # for name, val in zip(in_dict['QRadioButton']['obj_name'], in_dict['QRadioButton']['value']):
-        #     if widget.objectName() == name:
-        #         widget.setChecked(val)
-        #         break
 
     elif isinstance(widget, QtGui.QSpinBox) and in_dict.get('QSpinBox'):
         if widget.objectName() in in_dict['QSpinBox']['obj_name']:
             val = in_dict['QSpinBox']['value'][in_dict['QSpinBox']['obj_name'].index(widget.objectName())]
             widget.setValue(int(val))
-        # for name, val in zip(in_dict['QSpinBox']['obj_name'], in_dict['QSpinBox']['value']):
-        #     if widget.objectName() == name:
-        #         widget.setValue(int(val))
-        #         break
 
     elif isinstance(widget, QtGui.QComboBox) and in_dict.get('QComboBox'):
         if widget.objectName() in in_dict['QComboBox']['obj_name']:
@@ -665,18 +963,16 @@ def add_item_to_tree(tree_widget, tree_item, tree_item_widget=None, insert_pos=N
         else:
             tree_widget.addTopLevelItem(tree_item)
         if tree_item_widget:
-            tree_widget.resizeColumnToContents(0)
             tree_widget.setItemWidget(tree_item, 0, tree_item_widget)
+            tree_widget.resizeColumnToContents(0)
     else:
         if insert_pos is not None:
             tree_widget.insertChild(insert_pos, tree_item)
         else:
             tree_widget.addChild(tree_item)
         if tree_item_widget:
-            tree_widget.treeWidget().resizeColumnToContents(0)
             tree_widget.treeWidget().setItemWidget(tree_item, 0, tree_item_widget)
-
-    # QtGui.QApplication.processEvents()
+            tree_widget.treeWidget().resizeColumnToContents(0)
 
 
 def add_sobject_item(parent_item, parent_widget, sobject, stype, item_info, insert_pos=None, ignore_dict=None):
@@ -720,6 +1016,9 @@ def add_snapshot_item(tree_widget, parent_widget, sobject, stype, process, pipel
 
     snapshots_items = []
 
+    progress_bar = parent_widget.get_progress_bar()
+    progress_bar.setVisible(True)
+
     for key, context in snapshots.contexts.iteritems():
         tree_item = QtGui.QTreeWidgetItem()
         item_info_dict = {
@@ -748,7 +1047,10 @@ def add_snapshot_item(tree_widget, parent_widget, sobject, stype, process, pipel
         snapshots_items.append(snapshot_item)
 
         if not sep_versions:
-            for versions in context.versions.itervalues():
+            for i, versions in enumerate(context.versions.itervalues()):
+                if i % 5 == 0:
+                    progress_bar.setValue(int(i * 100 / len(context.versions)))
+                # print(len(context.versions))
                 tree_item_versions = QtGui.QTreeWidgetItem()
                 item_info_dict = {
                     'relates_to': item_info['relates_to'],
@@ -768,6 +1070,8 @@ def add_snapshot_item(tree_widget, parent_widget, sobject, stype, process, pipel
                 )
                 add_item_to_tree(snapshot_item.tree_item, snapshot_item_versions.tree_item, snapshot_item_versions)
 
+    progress_bar.setVisible(False)
+
     return snapshots_items
 
 
@@ -775,7 +1079,12 @@ def add_versions_snapshot_item(tree_widget, parent_widget, sobject, stype, proce
 
     from lib.ui_classes.ui_item_classes import Ui_snapshotItemWidget
 
-    for key, snapshot in snapshots.items():
+    progress_bar = parent_widget.get_progress_bar()
+    progress_bar.setVisible(True)
+
+    for i, (key, snapshot) in enumerate(snapshots.items()):
+        if i % 5 == 0:
+            progress_bar.setValue(int(i * 100 / len(snapshots)))
         tree_item = QtGui.QTreeWidgetItem()
         item_info_dict = {
             'relates_to': item_info['relates_to'],
@@ -796,6 +1105,8 @@ def add_versions_snapshot_item(tree_widget, parent_widget, sobject, stype, proce
 
         add_item_to_tree(tree_widget, snapshot_item.tree_item, snapshot_item)
 
+    progress_bar.setVisible(False)
+
 
 def add_child_item(tree_widget, parent_widget, sobject, stype, child, item_info):
     from lib.ui_classes.ui_item_classes import Ui_childrenItemWidget
@@ -814,35 +1125,35 @@ def add_child_item(tree_widget, parent_widget, sobject, stype, child, item_info)
 
 
 # DEPRECATED by now
-def expand_to_snapshot(parent, tree_widget):
-    # TODO make it infinite
-    top_item = tree_widget.topLevelItem(0)
-    skey_context = parent.go_by_skey[1]['context']
-    skey_process = skey_context.split('/')[0]
-    skey_code = parent.go_by_skey[1].get('item_code')
-
-    if skey_context and top_item:
-        top_item.setExpanded(True)
-
-        for i in range(top_item.childCount()):
-            process_title = top_item.child(i).text(0)
-            if process_title == skey_process:
-                process_item = top_item.child(i)
-                process_item.setExpanded(True)
-                for j in range(process_item.childCount()):
-                    child_item = process_item.child(j)
-                    child_widget = tree_widget.itemWidget(child_item, 0)
-                    if child_widget.snapshot['context'] == skey_context:
-                        child_item.setExpanded(True)
-                        child_item.setSelected(True)
-                        for k in range(child_item.childCount()):
-                            last_item = child_item.child(k)
-                            last_widget = tree_widget.itemWidget(last_item, 0)
-                            if last_widget.snapshot['code'] == skey_code:
-                                child_item.setSelected(False)
-                                last_item.setSelected(True)
-                                tree_widget.scrollToItem(child_item)
-
+# def expand_to_snapshot(parent, tree_widget):
+#     # TODO make it infinite
+#     top_item = tree_widget.topLevelItem(0)
+#     skey_context = parent.go_by_skey[1]['context']
+#     skey_process = skey_context.split('/')[0]
+#     skey_code = parent.go_by_skey[1].get('item_code')
+#
+#     if skey_context and top_item:
+#         top_item.setExpanded(True)
+#
+#         for i in range(top_item.childCount()):
+#             process_title = top_item.child(i).text(0)
+#             if process_title == skey_process:
+#                 process_item = top_item.child(i)
+#                 process_item.setExpanded(True)
+#                 for j in range(process_item.childCount()):
+#                     child_item = process_item.child(j)
+#                     child_widget = tree_widget.itemWidget(child_item, 0)
+#                     if child_widget.snapshot['context'] == skey_context:
+#                         child_item.setExpanded(True)
+#                         child_item.setSelected(True)
+#                         for k in range(child_item.childCount()):
+#                             last_item = child_item.child(k)
+#                             last_widget = tree_widget.itemWidget(last_item, 0)
+#                             if last_widget.snapshot['code'] == skey_code:
+#                                 child_item.setSelected(False)
+#                                 last_item.setSelected(True)
+#                                 tree_widget.scrollToItem(child_item)
+#
 
 def tree_recursive_expand(wdg, state):
     """ Expanding tree to the ground"""
@@ -1108,9 +1419,12 @@ def simplify_html(html, pretty=False):
 def to_plain_text(html, strip=80):
     text_doc = Qt4Gui.QTextDocument()
     text_doc.setHtml(html)
-    plain_text = text_doc.toPlainText()[:strip]
-    if len(plain_text) > strip - 1:
-        plain_text += ' ...'
+    if strip:
+        plain_text = text_doc.toPlainText()[:strip]
+        if len(plain_text) > strip - 1:
+            plain_text += ' ...'
+    else:
+        plain_text = text_doc.toPlainText()
 
     return plain_text
 

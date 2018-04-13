@@ -3,7 +3,7 @@ from lib.side.Qt import QtCore
 
 import lib.tactic_classes as tc
 import lib.global_functions as gf
-from lib.environment import env_inst, env_tactic
+from lib.environment import env_inst, env_tactic, cfg_controls
 
 
 # edit/input widgets
@@ -92,10 +92,19 @@ class QtTacticEditWidget(QtGui.QWidget):
 
         if self.stype.pipeline:
             paths = tc.get_dirs_with_naming(self.sobject.get_search_key())
-            for path in paths:
-                abs_path = repo['value'][0] + '/' + path
-                if not os.path.exists(gf.form_path(abs_path)):
-                    os.makedirs(gf.form_path(abs_path))
+            if not repo:
+                base_dirs = env_tactic.get_all_base_dirs()
+                for key, val in base_dirs:
+                    if val['value'][4]:
+                        for path in paths:
+                            abs_path = val['value'][0] + '/' + path
+                            if not os.path.exists(gf.form_path(abs_path)):
+                                os.makedirs(gf.form_path(abs_path))
+            else:
+                for path in paths:
+                    abs_path = repo['value'][0] + '/' + path
+                    if not os.path.exists(gf.form_path(abs_path)):
+                        os.makedirs(gf.form_path(abs_path))
 
     def check_name_uniqueness(self, data):
         name = data.get('name')
@@ -104,12 +113,13 @@ class QtTacticEditWidget(QtGui.QWidget):
         search_type = self.tactic_widget.get_search_type()
 
         if not search_type and self.sobject:
-            search_type = tc.server_start().split_search_key(self.sobject.get_search_key())
-            search_type = search_type[0]
+            search_key_split = tc.split_search_key(self.sobject.get_search_key())
+            search_type = search_key_split.get('search_type')
 
         if name and search_type:
             filters = [('name', name)]
-            existing = tc.server_start().query(search_type, filters)
+            project = self.stype.get_project()
+            existing = tc.server_start(project=project.get_code()).query(search_type, filters)
 
             if self.get_view() == 'edit':
                 # check if we editing and leaved the same name, not warn about uniqueness
@@ -168,12 +178,15 @@ class QtTacticEditWidget(QtGui.QWidget):
         self.repositoryComboBox = QtGui.QComboBox()
         base_dirs = env_tactic.get_all_base_dirs()
         # Default repo states
-        from lib.configuration import cfg_controls
         current_repo = gf.get_value_from_config(cfg_controls.get_checkin(), 'repositoryComboBox')
         for key, val in base_dirs:
             if val['value'][4]:
                 self.repositoryComboBox.addItem(val['value'][1])
                 self.repositoryComboBox.setItemData(self.repositoryComboBox.count() - 1, val)
+
+        # Special for build all repos dirs
+        self.repositoryComboBox.addItem('All Repos')
+
         if current_repo:
             self.repositoryComboBox.setCurrentIndex(current_repo)
 
@@ -364,9 +377,9 @@ class QTacticSimpleUploadWdg(QtGui.QWidget, QTacticBasicInputWdg):
         file_name, filter = QtGui.QFileDialog.getOpenFileName(self, 'Browse for Preview Image',
                                                               self.text_edit.text(),
                                                               'All Images (*.jpg | *.jpeg | *.png | *.tif);;'
-                                                              'JPEG Files (*.jpg | *.jpeg);;'
-                                                              'PNG Files (*.png)'
-                                                              'TIF Files (*.tif)',
+                                                              'JPEG Images (*.jpg | *.jpeg);;'
+                                                              'PNG Images (*.png);;'
+                                                              'TIF Images (*.tif)',
                                                               '', options)
         if file_name:
             ext = gf.extract_extension(file_name)

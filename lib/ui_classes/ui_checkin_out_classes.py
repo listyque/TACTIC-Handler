@@ -5,8 +5,7 @@ from lib.side.Qt import QtWidgets as QtGui
 from lib.side.Qt import QtGui as Qt4Gui
 from lib.side.Qt import QtCore
 
-from lib.environment import env_mode, env_inst, env_server, env_tactic, dl
-from lib.configuration import cfg_controls
+from lib.environment import env_mode, env_inst, env_tactic, dl, env_read_config, env_write_config
 import lib.tactic_classes as tc
 import lib.global_functions as gf
 import lib.ui.checkin_out.ui_checkin_out_options_dialog as ui_checkin_out_options_dialog
@@ -52,17 +51,12 @@ class Ui_descriptionWidget(QtGui.QWidget, description_widget.Ui_descriptionWidge
     def create_ui(self):
 
         if self.stype:
-            self.update_desctiption_thread = tc.ServerThread(self)
             self.create_float_buttons()
 
         self.create_rich_edit()
 
         if self.stype:
             self.controls_actions()
-            self.threads_actions()
-
-    def threads_actions(self):
-        self.update_desctiption_thread.finished.connect(lambda: self.update_desctiption(update_description=True))
 
     def controls_actions(self):
         self.descriptionTextEdit.textChanged.connect(self.freeze_text_edit)
@@ -142,7 +136,7 @@ class Ui_descriptionWidget(QtGui.QWidget, description_widget.Ui_descriptionWidge
                     description=gf.simplify_html(self.descriptionTextEdit.toHtml())
                 )
                 self.update_desctiption_thread.routine = tc.update_description
-                self.update_desctiption_thread.start()
+                self.update_desctiption_thread.start(QtCore.QThread.NormalPriority)
 
         if update_description:
             update = tc.treat_result(self.update_desctiption_thread)
@@ -568,13 +562,6 @@ class Ui_checkInOutWidget(QtGui.QMainWindow):
         self.is_created = False
         self.is_showed = False
 
-        self.settings = QtCore.QSettings('{0}/settings/{1}/{2}/{3}/checkin_out_ui_config.ini'.format(
-            env_mode.get_current_path(),
-            env_mode.get_node(),
-            env_server.get_cur_srv_preset(),
-            env_mode.get_mode()),
-            QtCore.QSettings.IniFormat)
-
         self.stype = stype
         self.project = project
 
@@ -603,13 +590,9 @@ class Ui_checkInOutWidget(QtGui.QMainWindow):
             self.create_ui()
 
     def create_ui(self):
+        dl.log('Creating Checkin / Checkout UI', group_id=self.tab_name)
         self.is_created = True
 
-        # Query Threads
-        self.search_suggestions_thread = tc.ServerThread(self)
-        self.update_desctiption_thread = tc.ServerThread(self)
-
-        # self.setAcceptDrops(True)
         self.create_search_widget()
 
         self.create_fast_controls_tool_bar()
@@ -625,23 +608,25 @@ class Ui_checkInOutWidget(QtGui.QMainWindow):
         self.add_items_to_formats_combo()
 
         # self.controls_actions()
-        self.threads_actions()
+        # self.threads_actions()
 
+    @gf.catch_error
     def create_search_widget(self):
-        print 'creating search_widget'
-        dl.info('creating search_widget')
+        dl.log('Creating Search Widget', group_id=self.tab_name)
 
         self.search_widget = search_classes.Ui_searchWidget(stype=self.stype, project=self.project, parent_ui=self, parent=self)
 
-        sizePolicy = QtGui.QSizePolicy(QtGui.QSizePolicy.Expanding, QtGui.QSizePolicy.Expanding)
-        sizePolicy.setHorizontalStretch(0)
-        sizePolicy.setVerticalStretch(0)
-        sizePolicy.setHeightForWidth(self.search_widget.sizePolicy().hasHeightForWidth())
-        self.search_widget.setSizePolicy(sizePolicy)
+        # sizePolicy = QtGui.QSizePolicy(QtGui.QSizePolicy.Expanding, QtGui.QSizePolicy.Expanding)
+        # sizePolicy.setHorizontalStretch(0)
+        # sizePolicy.setVerticalStretch(0)
+        # sizePolicy.setHeightForWidth(self.search_widget.sizePolicy().hasHeightForWidth())
+        # self.search_widget.setSizePolicy(sizePolicy)
         self.setCentralWidget(self.search_widget)
 
+    @gf.catch_error
     def create_fast_controls_tool_bar(self):
-        dl.info('creating fast_controls_tool_bar')
+        dl.log('Creating Fast Controls ToolBar', group_id=self.tab_name)
+
         self.fast_controls_tool_bar_widget = Ui_fastControlsWidget(stype=self.stype, project=self.project, parent=self)
 
         self.fast_controls_tool_bar = QtGui.QToolBar()
@@ -654,8 +639,9 @@ class Ui_checkInOutWidget(QtGui.QMainWindow):
 
         self.addToolBar(QtCore.Qt.BottomToolBarArea, self.fast_controls_tool_bar)
 
+    @gf.catch_error
     def create_drop_plate_dock(self):
-        print 'creating drop_plate_dock'
+        dl.log('Creating Drop Plate Dock', group_id=self.tab_name)
 
         self.drop_plate_widget = drop_plate_widget.Ui_dropPlateWidget(self)
 
@@ -669,8 +655,9 @@ class Ui_checkInOutWidget(QtGui.QMainWindow):
 
         self.addDockWidget(QtCore.Qt.BottomDockWidgetArea, self.drop_plate_dock)
 
+    @gf.catch_error
     def create_snapshot_browser_dock(self):
-        print 'creating snapshot_browser_dock'
+        dl.log('Creating Snapshot Browser Dock', group_id=self.tab_name)
 
         self.snapshot_browser_widget = snapshot_browser_widget.Ui_snapshotBrowserWidget(self)
 
@@ -684,8 +671,9 @@ class Ui_checkInOutWidget(QtGui.QMainWindow):
 
         self.addDockWidget(QtCore.Qt.RightDockWidgetArea, self.snapshot_browser_dock)
 
+    @gf.catch_error
     def create_description_dock(self):
-        print 'creating description_dock'
+        dl.log('Creating Description Dock', group_id=self.tab_name)
 
         self.description_widget = Ui_descriptionWidget(self.project, self.stype, parent=self)
 
@@ -699,8 +687,9 @@ class Ui_checkInOutWidget(QtGui.QMainWindow):
 
         self.addDockWidget(QtCore.Qt.RightDockWidgetArea, self.description_dock)
 
+    @gf.catch_error
     def create_search_options_dock(self):
-        print 'creating search_options_dock'
+        dl.log('Creating Search Options Dock', group_id=self.tab_name)
 
         self.search_options_widget = search_classes.Ui_searchOptionsWidget(parent_ui=self, parent=self)
 
@@ -715,8 +704,9 @@ class Ui_checkInOutWidget(QtGui.QMainWindow):
         self.search_options_dock.setHidden(True)
         self.addDockWidget(QtCore.Qt.BottomDockWidgetArea, self.search_options_dock)
 
+    @gf.catch_error
     def create_checkin_options_dock(self):
-        print 'creating checkin_options_dock'
+        dl.log('Creating Checkin Options Dock', group_id=self.tab_name)
 
         self.checkin_options_widget = Ui_checkInOutOptionsWidget(stype=self.stype, project=self.project, parent=self)
 
@@ -956,6 +946,46 @@ class Ui_checkInOutWidget(QtGui.QMainWindow):
         else:
             self.search_options_dock.setHidden(True)
 
+    @gf.catch_error
+    def toggle_description_box(self):
+        if self.description_dock.isHidden():
+            self.description_dock.setHidden(False)
+            self.description_dock.raise_()
+        else:
+            self.description_dock.setHidden(True)
+
+    @gf.catch_error
+    def toggle_snapshot_browser_box(self):
+        if self.snapshot_browser_dock.isHidden():
+            self.snapshot_browser_dock.setHidden(False)
+            self.snapshot_browser_dock.raise_()
+        else:
+            self.snapshot_browser_dock.setHidden(True)
+
+    @gf.catch_error
+    def toggle_drop_plate_box(self):
+        if self.drop_plate_dock.isHidden():
+            self.drop_plate_dock.setHidden(False)
+            self.drop_plate_dock.raise_()
+        else:
+            self.drop_plate_dock.setHidden(True)
+
+    @gf.catch_error
+    def toggle_checkin_options_box(self):
+        if self.checkin_options_dock.isHidden():
+            self.checkin_options_dock.setHidden(False)
+            self.checkin_options_dock.raise_()
+        else:
+            self.checkin_options_dock.setHidden(True)
+
+    @gf.catch_error
+    def toggle_fast_controls_box(self):
+        if self.fast_controls_tool_bar.isHidden():
+            self.fast_controls_tool_bar.setHidden(False)
+            self.fast_controls_tool_bar.raise_()
+        else:
+            self.fast_controls_tool_bar.setHidden(True)
+
     def fill_gear_menu(self):
 
         self.add_new_sobject_action = QtGui.QAction('Add new {0}'.format(self.stype.get_pretty_name()), self)
@@ -975,23 +1005,23 @@ class Ui_checkInOutWidget(QtGui.QMainWindow):
         self.search_options_toggle_action.setIcon(gf.get_icon('binoculars', scale_factor=0.95))
 
         self.description_toggle_action = QtGui.QAction('Description Dock', self)
-        self.description_toggle_action.triggered.connect(self.toggle_search_group_box)
+        self.description_toggle_action.triggered.connect(self.toggle_description_box)
         self.description_toggle_action.setIcon(gf.get_icon('keyboard-o'))
 
         self.snapshot_browser_toggle_action = QtGui.QAction('Snapshot Browser Dock', self)
-        self.snapshot_browser_toggle_action.triggered.connect(self.toggle_search_group_box)
+        self.snapshot_browser_toggle_action.triggered.connect(self.toggle_snapshot_browser_box)
         self.snapshot_browser_toggle_action.setIcon(gf.get_icon('sitemap'))
 
         self.checkin_options_toggle_action = QtGui.QAction('Checkin Options Dock', self)
-        self.checkin_options_toggle_action.triggered.connect(self.toggle_search_group_box)
+        self.checkin_options_toggle_action.triggered.connect(self.toggle_checkin_options_box)
         self.checkin_options_toggle_action.setIcon(gf.get_icon('sliders'))
 
         self.drop_plate_toggle_action = QtGui.QAction('Drop Plate Dock', self)
-        self.drop_plate_toggle_action.triggered.connect(self.toggle_search_group_box)
+        self.drop_plate_toggle_action.triggered.connect(self.toggle_drop_plate_box)
         self.drop_plate_toggle_action.setIcon(gf.get_icon('inbox'))
 
         self.fast_controls_toggle_action = QtGui.QAction('Fast Controls Tool Bar', self)
-        self.fast_controls_toggle_action.triggered.connect(self.toggle_search_group_box)
+        self.fast_controls_toggle_action.triggered.connect(self.toggle_fast_controls_box)
         self.fast_controls_toggle_action.setIcon(gf.get_icon('tachometer'))
 
         self.search_widget.add_action_to_gear_menu(self.add_new_sobject_action)
@@ -1049,12 +1079,6 @@ class Ui_checkInOutWidget(QtGui.QMainWindow):
 
         if env_mode.get_mode() == 'maya':
             self.search_widget.add_widget_to_collapsable_toolbar(self.find_opened_sobject_button)
-
-    def threads_actions(self):
-        # Threads Actions
-        self.search_suggestions_thread.finished.connect(lambda: self.search_suggestions_end(popup_suggestion=True))
-        self.update_desctiption_thread.finished.connect(lambda: self.update_desctiption(update_description=True))
-
 
     @gf.catch_error
     def find_opened_sobject(self):
@@ -1245,51 +1269,6 @@ class Ui_checkInOutWidget(QtGui.QMainWindow):
                 item_widget=current_tree_widget_item,
                 files_objects=files_objects,
             )
-
-    # def checkin_from_path(self, search_key, context, description, explicit_paths=None):
-    #
-    #     if explicit_paths:
-    #
-    #         file_types = []
-    #         file_names = []
-    #         file_paths = []
-    #         exts = []
-    #         subfolders = []
-    #         postfixes = []
-    #
-    #         for path in explicit_paths:
-    #             file_types.append('main')
-    #             file_names.append(gf.extract_filename(path))
-    #             exts.append(gf.extract_extension(path)[0])
-    #             subfolders.append('')
-    #             postfixes.append('')
-    #             file_path = gf.form_path(path)
-    #             file_paths.append(file_path)
-    #
-    #         mode = 'inplace'
-    #
-    #         create_icon = False
-    #         if context == 'icon':
-    #             create_icon = True
-    #
-    #         return tc.checkin_file(
-    #             search_key=search_key,
-    #             context=context,
-    #             description=description,
-    #             version=None,
-    #             update_versionless=self.get_update_versionless(),
-    #             file_types=file_types,
-    #             file_names=file_names,
-    #             file_paths=file_paths,
-    #             exts=exts,
-    #             subfolders=subfolders,
-    #             postfixes=postfixes,
-    #             keep_file_name=False,
-    #             repo_name=self.get_current_repo(),
-    #             mode=mode,
-    #             create_icon=create_icon,
-    #             parent_wdg=self,
-    #         )
 
     def checkin_from_maya(self, search_key, context, description, save_revision=False, snapshot_version=None,
                           selected_objects=None):
@@ -1485,7 +1464,7 @@ class Ui_checkInOutWidget(QtGui.QMainWindow):
                 if saved:
                     self.description_widget.set_item(None)
                     self.fast_controls_tool_bar_widget.set_item(None)
-                    current_widget.update_current_items_trees()
+                    current_widget.update_current_items_trees(force_full_update=True)
                     self.drop_plate_widget.fromDropListCheckBox.setChecked(False)
 
             if env_mode.get_mode() == 'standalone':
@@ -1499,7 +1478,7 @@ class Ui_checkInOutWidget(QtGui.QMainWindow):
                 if saved:
                     self.description_widget.set_item(None)
                     self.fast_controls_tool_bar_widget.set_item(None)
-                    current_widget.update_current_items_trees()
+                    current_widget.update_current_items_trees(force_full_update=True)
         # else:
         #     print 'nothing happen'
             # self.savePushButton.setEnabled(False)
@@ -1525,6 +1504,7 @@ class Ui_checkInOutWidget(QtGui.QMainWindow):
         Open window for adding new sobject
         """
         self.add_sobject = addsobject_widget.Ui_addTacticSobjectWidget(stype=self.stype, parent=self)
+
         self.add_sobject.show()
 
     # @gf.catch_error
@@ -1634,10 +1614,9 @@ class Ui_checkInOutWidget(QtGui.QMainWindow):
 
         if not settings_dict:
             settings_dict = {}
-        else:
-            settings_dict = json.loads(settings_dict)
 
-        self.search_widget.set_settings_from_dict(settings_dict.get('search_widget'))
+        if apply_search_options:
+            self.search_widget.set_settings_from_dict(settings_dict.get('search_widget'))
         self.drop_plate_widget.set_settings_from_dict(settings_dict.get('drop_plate_dock'))
         self.snapshot_browser_widget.set_settings_from_dict(settings_dict.get('snapshot_browser_dock'))
         self.checkin_options_widget.set_settings_from_dict(settings_dict.get('checkin_options_dock'))
@@ -1650,8 +1629,6 @@ class Ui_checkInOutWidget(QtGui.QMainWindow):
             self.do_creating_ui()
         elif not self.is_created:
             return None
-
-        # print self.checkin_options_widget.get_settings_dict()
 
         settings_dict = {
             'search_widget': self.search_widget.get_settings_dict(),
@@ -1669,41 +1646,38 @@ class Ui_checkInOutWidget(QtGui.QMainWindow):
         Reading Settings
         """
 
-        # print 'MAINWINDOW SETTING READ'
-
         tab_name = self.objectName().split('/')
-        group_path = '{0}/{1}/{2}'.format(
+        group_path = 'ui_search/{0}/{1}/{2}'.format(
             self.project.info['type'],
             self.project.info['code'],
             tab_name[1]
         )
-        self.settings.beginGroup(group_path)
 
-        settings_dict = self.settings.value('settings_dict', None)
-
-        self.set_settings_from_dict(settings_dict)
-
-        self.settings.endGroup()
+        self.set_settings_from_dict(
+            env_read_config(
+                filename='ui_checkin_out',
+                unique_id=group_path,
+                long_abs_path=True
+            )
+        )
 
     def writeSettings(self):
         """
         Writing Settings
         """
 
-        # print 'MAINWINDOW SETTING WRITTEN'
-
-        group_path = '{0}/{1}/{2}'.format(
+        group_path = 'ui_search/{0}/{1}/{2}'.format(
             self.project.info['type'],
             self.project.info['code'],
             self.tab_name.split('/')[1]
         )
-        self.settings.beginGroup(group_path)
 
-        settings_dict = self.get_settings_dict()
-
-        if settings_dict:
-            self.settings.setValue('settings_dict', json.dumps(settings_dict))
-        self.settings.endGroup()
+        env_write_config(
+            self.get_settings_dict(),
+            filename='ui_checkin_out',
+            unique_id=group_path,
+            long_abs_path=True
+        )
 
     def closeEvent(self, event):
         if self.is_showed:
@@ -1722,5 +1696,5 @@ class Ui_checkInOutWidget(QtGui.QMainWindow):
         event.accept()
 
         if not self.is_showed:
-            self.readSettings()
             self.is_showed = True
+            self.readSettings()

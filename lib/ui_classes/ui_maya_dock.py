@@ -2,13 +2,12 @@
 # file ui_maya_dock.py
 # Main Dock Window interface
 
-# import PySide.QtCore as QtCore
-# import PySide.QtGui as QtGui
 from lib.side.Qt import QtWidgets as QtGui
 from lib.side.Qt import QtCore
 from lib.environment import env_inst, env_mode, env_server
 import lib.maya_functions as mf
 import lib.tactic_classes as tc
+import lib.global_functions as gf
 from maya.app.general.mayaMixin import MayaQWidgetDockableMixin
 import ui_main_classes
 
@@ -21,7 +20,6 @@ class Ui_DockMain(MayaQWidgetDockableMixin, QtGui.QMainWindow):
         env_inst.ui_maya_dock = self
         self.setObjectName('TacticHandlerDock')
         self.maya_window = self.parent()
-        print self.maya_window, 'WINDOW'
 
         self.hotkeys_dict = hotkeys
 
@@ -184,48 +182,39 @@ class Ui_DockMain(MayaQWidgetDockableMixin, QtGui.QMainWindow):
         self.writeSettings()
 
 
+def init_env(current_path):
+    env_mode.set_current_path(current_path)
+    env_mode.set_mode('maya')
+
+
 def close_all_instances():
     try:
         main_docks = mf.get_maya_dock_window()
         for dock in main_docks:
             dock.close()
+            dock.deleteLater()
             if env_inst.ui_main:
                 env_inst.ui_main.close()
     except:
         raise
 
 
-def create_ui(thread, hotkeys=None):
-    thread = tc.treat_result(thread)
+@gf.catch_error
+def create_ui(ping_worker, hotkeys=None):
 
-    if thread.result == QtGui.QMessageBox.ApplyRole:
-        retry_startup(thread)
+    if ping_worker.is_failed():
+        env_mode.set_offline()
+        main_tab = Ui_DockMain()
+        gf.error_handle(ping_worker.get_error_tuple())
     else:
-        if thread.isFailed():
-            env_mode.set_offline()
-            main_tab = Ui_DockMain()
-        else:
-            env_mode.set_online()
-            main_tab = Ui_DockMain(hotkeys=hotkeys)
-        main_tab.show()
-        main_tab.raise_()
+        env_mode.set_online()
+        main_tab = Ui_DockMain(hotkeys=hotkeys)
 
-        if thread.result == QtGui.QMessageBox.ActionRole:
-            env_inst.ui_main.open_config_dialog()
+    main_tab.show()
+    main_tab.raise_()
 
 
-def retry_startup(thread):
-    thread.run()
-    create_ui(thread)
-
-
-def restart():
-    reload(ui_main_classes)
-    ping_thread = tc.get_server_thread(dict(), tc.server_ping, lambda: create_ui(ping_thread), parent=env_inst.ui_super)
-    ping_thread.start()
-    return ping_thread
-
-
+@gf.catch_error
 def startup(restart=False, hotkeys=None):
     if restart:
         close_all_instances()
@@ -239,5 +228,9 @@ def startup(restart=False, hotkeys=None):
         main_tab.show()
         main_tab.raise_()
     except:
-        ping_thread = tc.get_server_thread(dict(), tc.server_ping, lambda: create_ui(ping_thread, hotkeys), parent=env_inst.ui_super)
-        ping_thread.start()
+
+        def server_ping_agent():
+            return tc.server_ping()
+
+        ping_worker = gf.get_thread_worker(server_ping_agent, finished_func=lambda: create_ui(ping_worker, hotkeys))
+        ping_worker.try_start()

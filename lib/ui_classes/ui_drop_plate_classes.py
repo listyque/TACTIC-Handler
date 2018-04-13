@@ -7,6 +7,7 @@ from lib.side.Qt import QtCore
 
 from lib.environment import env_mode
 import lib.global_functions as gf
+import lib.tactic_classes as tc
 import lib.ui.checkin_out.ui_drop_plate as ui_drop_plate
 import lib.ui.checkin_out.ui_drop_plate_config as ui_drop_plate_config
 
@@ -98,6 +99,16 @@ class Ui_dropPlateWidget(QtGui.QWidget, ui_drop_plate.Ui_dropPlate):
         self.create_config_widget()
         self.controls_actions()
 
+    def threads_fill_items(self, kwargs):
+
+        def get_files_objects_agent():
+            return self.get_files_objects(kwargs)
+
+        worker = gf.get_thread_worker(get_files_objects_agent)
+        worker.result_func(self.append_items_to_tree)
+        worker.error_func(gf.error_handle)
+        worker.try_start()
+
     def create_drop_plate_ui(self):
 
         self.clearPushButton.setIcon(gf.get_icon('trash'))
@@ -135,11 +146,11 @@ class Ui_dropPlateWidget(QtGui.QWidget, ui_drop_plate.Ui_dropPlate):
 
         if state:
             self.dropTreeWidget.setSelectionMode(QtGui.QAbstractItemView.ExtendedSelection)
-            self.keepFileNameCheckBox.setEnabled(False)
+            # self.keepFileNameCheckBox.setEnabled(False)
         else:
             self.dropTreeWidget.setSelectionMode(QtGui.QAbstractItemView.SingleSelection)
             self.dropTreeWidget.clearSelection()
-            self.keepFileNameCheckBox.setEnabled(True)
+            # self.keepFileNameCheckBox.setEnabled(True)
 
     def clear_tree_widget(self):
 
@@ -225,7 +236,7 @@ class Ui_dropPlateWidget(QtGui.QWidget, ui_drop_plate.Ui_dropPlate):
 
             return selected_items
 
-    def append_items_to_tree(self, items):
+    def get_files_objects(self, items):
         if self.includeSubfoldersCheckBox.isChecked():
             dirs_and_files = gf.split_files_and_dirs(items)
             for dirs in dirs_and_files[0]:
@@ -235,10 +246,6 @@ class Ui_dropPlateWidget(QtGui.QWidget, ui_drop_plate.Ui_dropPlate):
                     for s_dir in subdirs:
                         items.append(os.path.join(path, s_dir))
 
-        self.fromDropListCheckBox.setChecked(True)
-
-        self.dropTreeWidget.clearSelection()
-
         if len(items) > 1:
             self.groupCheckinCheckBox.setChecked(True)
         if len(items) == 1:
@@ -246,7 +253,12 @@ class Ui_dropPlateWidget(QtGui.QWidget, ui_drop_plate.Ui_dropPlate):
 
         match_template = gf.MatchTemplate(self.config_widget.get_templates_list(), padding=self.config_widget.get_min_padding())
 
-        files_objects_dict = match_template.get_files_objects(items)
+        return match_template.get_files_objects(items)
+
+    def append_items_to_tree(self, files_objects_dict):
+        self.fromDropListCheckBox.setChecked(True)
+
+        self.dropTreeWidget.clearSelection()
 
         icon_provider = QtGui.QFileIconProvider()
 
@@ -300,13 +312,6 @@ class Ui_dropPlateWidget(QtGui.QWidget, ui_drop_plate.Ui_dropPlate):
         self.dropTreeWidget.sortByColumn(0, QtCore.Qt.AscendingOrder)
         self.progressBar.setVisible(False)
 
-    def set_item_widget(self, item_widget):
-        pass
-        # self.item_widget = item_widget
-        # if self.item_widget.type in ['snapshot', 'sobject', 'process']:
-        #     checkin_mode = self.item_widget.get_checkin_mode_options()
-        #     self.set_checkin_mode(checkin_mode)
-
     def get_keep_filename(self):
 
         return self.keepFileNameCheckBox.isChecked()
@@ -319,14 +324,12 @@ class Ui_dropPlateWidget(QtGui.QWidget, ui_drop_plate.Ui_dropPlate):
                 'keepFileNameCheckBox': False,
                 'fromDropListCheckBox': False,
                 'groupCheckinCheckBox': False,
-                # 'checkinTypeComboBox': 0
             }
 
         self.includeSubfoldersCheckBox.setChecked(settings_dict['includeSubfoldersCheckBox'])
         self.keepFileNameCheckBox.setChecked(settings_dict['keepFileNameCheckBox'])
         self.fromDropListCheckBox.setChecked(settings_dict['fromDropListCheckBox'])
         self.groupCheckinCheckBox.setChecked(settings_dict['groupCheckinCheckBox'])
-        # self.checkinTypeComboBox.setCurrentIndex(settings_dict['checkinTypeComboBox'])
 
     def get_settings_dict(self):
 
@@ -335,7 +338,6 @@ class Ui_dropPlateWidget(QtGui.QWidget, ui_drop_plate.Ui_dropPlate):
             'keepFileNameCheckBox': int(self.keepFileNameCheckBox.isChecked()),
             'fromDropListCheckBox': int(self.fromDropListCheckBox.isChecked()),
             'groupCheckinCheckBox': int(self.groupCheckinCheckBox.isChecked()),
-            # 'checkinTypeComboBox': int(self.checkinTypeComboBox.currentIndex())
 
         }
 
@@ -361,6 +363,6 @@ class Ui_dropPlateWidget(QtGui.QWidget, ui_drop_plate.Ui_dropPlate):
             links = []
             for url in event.mimeData().urls():
                 links.append(unicode(url.toLocalFile()))
-            self.append_items_to_tree(links)
+            self.threads_fill_items(links)
         else:
             event.ignore()

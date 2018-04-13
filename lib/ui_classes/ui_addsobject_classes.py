@@ -6,87 +6,12 @@ from lib.side.Qt import QtWidgets as QtGui
 from lib.side.Qt import QtCore
 
 import json
-from lib.environment import env_mode, env_server, env_inst
+from lib.environment import env_inst, env_write_config, env_read_config
+import lib.global_functions as gf
 import lib.tactic_classes as tc
 import lib.tactic_widgets as tw
 import lib.tactic_query as tq
 import lib.ui_classes.ui_tactic_widgets_classes as twc
-
-
-# DEPRECATED
-# class Ui_addSObjectFormWidget(QtGui.QDialog):
-#     def __init__(self, parent=None):
-#         super(self.__class__, self).__init__(parent=parent)
-#
-#         self.settings = QtCore.QSettings('TACTIC Handler', 'TACTIC Handling Tool')
-#
-#         import lib.ui_classes.ui_tactic_widgets_classes as tc_cl
-#
-#         self.b = tc_cl.QtTacticEditWidget(self)
-#
-#         self.setupUi(self)
-#
-#         self.gridLayout.addWidget(self.b)
-#
-#         self.tab_name = None
-#         self.setSizeGripEnabled(True)
-#
-#         self.window_actions()
-#
-#         self.readSettings()
-#
-#     def window_actions(self):
-#         self.cancelButton.clicked.connect(lambda: self.close())
-#         self.browseImageButton.clicked.connect(lambda: self.browse_for_preview())
-#         self.addNewButton.clicked.connect(lambda: self.add_item())
-#
-#     def browse_for_preview(self):
-#         options = QtGui.QFileDialog.Options()
-#         options |= QtGui.QFileDialog.DontUseNativeDialog
-#         file_name, filter = QtGui.QFileDialog.getOpenFileName(self, 'Browse for Preview Image',
-#                                                               self.previewImageLineEdit.text(),
-#                                                               'All Images (*.jpg | *.jpeg | *.png);;'
-#                                                               'JPEG Files (*.jpg | *.jpeg);;'
-#                                                               'PNG Files (*.png)',
-#                                                               '', options)
-#         if file_name:
-#             self.previewImageLineEdit.setText(file_name)
-#
-#     def add_item(self):
-#         """
-#         Adding s object item
-#         :return: None
-#         """
-#         image = self.previewImageLineEdit.text()
-#         name = self.nameLineEdit.text()
-#         description = self.descriptionTextEdit.toPlainText()
-#         keywords = self.keywordsTextEdit.toPlainText()
-#         if name:
-#             filters = [('name', name)]
-#             existing = tc.server_start().query(self.tab_name, filters)
-#             if existing:
-#                 msb = QtGui.QMessageBox(QtGui.QMessageBox.Question, 'This Name already used!',
-#                                         "Do you want to use this name anyway?",
-#                                         QtGui.QMessageBox.NoButton, self)
-#                 msb.addButton("Yes", QtGui.QMessageBox.YesRole)
-#                 msb.addButton("No", QtGui.QMessageBox.NoRole)
-#                 msb.exec_()
-#                 reply = msb.buttonRole(msb.clickedButton())
-#
-#                 if reply == QtGui.QMessageBox.YesRole:
-#                     sobject = tc.create_sobject(name, description, keywords, self.tab_name)
-#                     if image:
-#                         snapshot = tc.create_snapshot(sobject['__search_key__'], 'icon')
-#                         tc.checkin_icon(snapshot['__search_key__'], image)
-#                     self.close()
-#                 elif reply == QtGui.QMessageBox.NoRole:
-#                     pass
-#             else:
-#                 sobject = tc.create_sobject(name, description, keywords, self.tab_name)
-#                 if image:
-#                     snapshot = tc.create_snapshot(sobject['__search_key__'], 'icon')
-#                     tc.checkin_icon(snapshot['code'], image)
-#                 self.close()
 
 
 class Ui_addTacticSobjectWidget(QtGui.QDialog):
@@ -94,12 +19,6 @@ class Ui_addTacticSobjectWidget(QtGui.QDialog):
         super(self.__class__, self).__init__(parent=parent)
 
         # TODO get title from within
-        self.settings = QtCore.QSettings('{0}/settings/{1}/{2}/{3}/main_ui_config.ini'.format(
-            env_mode.get_current_path(),
-            env_mode.get_node(),
-            env_server.get_cur_srv_preset(),
-            env_mode.get_mode()),
-            QtCore.QSettings.IniFormat)
 
         self.item = item
         self.stype = stype
@@ -116,6 +35,17 @@ class Ui_addTacticSobjectWidget(QtGui.QDialog):
                 self.search_key = self.item.get_search_key()
             self.parent_search_key = self.item.get_parent_search_key()
 
+        self.grid_layout = QtGui.QGridLayout(self)
+
+        self.create_ui()
+
+    def create_ui(self):
+
+        self.setWindowModality(QtCore.Qt.WindowModal)
+
+        self.create_loading_label()
+        self.toggle_loading_label()
+
         kwargs_edit = {
             'args': {
                 'input_prefix': 'edit',
@@ -124,6 +54,7 @@ class Ui_addTacticSobjectWidget(QtGui.QDialog):
                 'view': 'edit',
             },
             'search_type': self.search_type,
+            'project': self.stype.project.get_code(),
         }
 
         kwargs_insert = {
@@ -135,6 +66,7 @@ class Ui_addTacticSobjectWidget(QtGui.QDialog):
                 'view': 'insert',
             },
             'search_type': self.search_type,
+            'project': self.stype.project.get_code(),
         }
 
         if self.view == 'edit':
@@ -142,17 +74,24 @@ class Ui_addTacticSobjectWidget(QtGui.QDialog):
         else:
             kwargs = kwargs_insert
 
-        code = tq.prepare_serverside_script(tq.query_EditWdg, kwargs, return_dict=True)
-        # print code['code']
-        result = tc.server_start().execute_python_script('', kwargs=code)
-        result_dict = json.loads(result['info']['spt_ret_val'])
+        self.thread_pool = QtCore.QThreadPool()
 
+        self.get_widgets(kwargs)
+        self.setSizeGripEnabled(True)
+        self.set_title()
+
+    def create_widgets_ui(self, result_dict):
+        self.toggle_loading_label()
+        
         input_widgets_list = []
         if self.item:
             result_dict['EditWdg']['sobject'] = self.item.get_sobject()
             result_dict['EditWdg']['parent_sobject'] = self.item.get_parent_sobject()
 
+        # print result_dict
+
         tactic_edit_widget = tw.TacticEditWdg(result_dict['EditWdg'])
+        tactic_edit_widget.set_stype(self.stype)
 
         self.edit_window = twc.QtTacticEditWidget(
             tactic_widget=tactic_edit_widget,
@@ -180,10 +119,46 @@ class Ui_addTacticSobjectWidget(QtGui.QDialog):
 
             input_widgets_list.append(qt_widget_instance)
 
-        self.grid_layout = QtGui.QGridLayout(self)
         self.grid_layout.addWidget(self.edit_window)
-        self.setSizeGripEnabled(True)
-        self.set_title()
+
+        self.edit_window.create_ui()
+        self.readSettings()
+        # self.edit_window.set_settings_from_dict(self.settings.value('edit_widndow_settings_dict', None))
+
+    def create_loading_label(self):
+        self.loading_label = QtGui.QLabel()
+        self.loading_label.setText('Loading...')
+        self.loading_label.setAlignment(QtCore.Qt.AlignHCenter | QtCore.Qt.AlignVCenter)
+        self.loading_label.setVisible(False)
+
+        self.grid_layout.addWidget(self.loading_label, 0, 0)
+
+    def toggle_loading_label(self):
+        if self.loading_label.isVisible():
+            self.loading_label.setVisible(False)
+            # self.main_tabWidget.setVisible(True)
+            # self.skeyLineEdit.setVisible(True)
+        else:
+            self.loading_label.setVisible(True)
+            # self.main_tabWidget.setVisible(False)
+            # self.skeyLineEdit.setVisible(False)
+
+    def get_widgets(self, kwargs):
+
+        def query_widgets_agent():
+            return self.query_widgets(kwargs)
+
+        worker = gf.get_thread_worker(query_widgets_agent, self.thread_pool)
+        worker.result_func(self.create_widgets_ui)
+        worker.error_func(gf.error_handle)
+        worker.try_start()
+
+    @staticmethod
+    def query_widgets(kwargs):
+        code = tq.prepare_serverside_script(tq.query_EditWdg, kwargs, return_dict=True)
+        result = tq.get_result(tc.server_start(project=kwargs['project']).execute_python_script('', kwargs=code))
+
+        return json.loads(result)
 
     def set_title(self):
         stype_tytle = self.stype.info.get('title')
@@ -222,30 +197,53 @@ class Ui_addTacticSobjectWidget(QtGui.QDialog):
 
         tree_wdg.update_current_items_trees()
 
+    def set_settings_from_dict(self, settings_dict=None):
+
+        if not settings_dict:
+            settings_dict = {
+                'geometry': None,
+                'edit_widndow_settings_dict': self.edit_window.get_settings_dict(),
+            }
+        geo = settings_dict['geometry']
+        if geo:
+            self.setGeometry(QtCore.QRect(geo[0], geo[1], geo[2], geo[3]))
+        else:
+            self.resize(600, 500)
+        self.edit_window.set_settings_from_dict(settings_dict['edit_widndow_settings_dict'])
+
+    def get_settings_dict(self):
+
+        settings_dict = {
+            'geometry': self.geometry().getRect(),
+            'edit_widndow_settings_dict': self.edit_window.get_settings_dict(),
+        }
+
+        return settings_dict
+
     def readSettings(self):
         """
         Reading Settings
         """
-        self.settings.beginGroup('ui_main')
-        self.setGeometry(self.settings.value('geometry', QtCore.QRect(500, 400, 500, 350)))
-        self.edit_window.set_settings_from_dict(self.settings.value('edit_widndow_settings_dict', None))
-        self.settings.endGroup()
+        self.set_settings_from_dict(
+            env_read_config(
+                filename='ui_addsobject',
+                unique_id='ui_main',
+                long_abs_path=True
+            )
+        )
 
     def writeSettings(self):
         """
         Writing Settings
         """
-        self.settings.beginGroup('ui_main')
-        self.settings.setValue('geometry', self.geometry())
-        self.settings.setValue('edit_widndow_settings_dict', self.edit_window.get_settings_dict())
-        self.settings.endGroup()
+        # TODO need to decide save settings per project, or per sobject, or globally
 
-    def showEvent(self, event):
-
-        self.readSettings()
-        event.accept()
+        env_write_config(
+            self.get_settings_dict(),
+            filename='ui_addsobject',
+            unique_id='ui_main',
+            long_abs_path=True)
 
     def closeEvent(self, event):
-        # event.ignore()
         self.writeSettings()
         event.accept()
