@@ -956,7 +956,7 @@ class Ui_checkInOutWidget(QtGui.QMainWindow):
         else:
             self.search_options_dock.setHidden(True)
             
-        @gf.catch_error
+    @gf.catch_error
     def toggle_description_box(self):
         if self.description_dock.isHidden():
             self.description_dock.setHidden(False)
