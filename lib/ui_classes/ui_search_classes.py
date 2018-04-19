@@ -594,8 +594,37 @@ class Ui_searchResultsWidget(QtGui.QWidget):
 
         current_widget.progress_bar.setVisible(True)
         total_sobjects = len(self.sobjects.keys()) - 1
+## ------------------------------SORT ORDER---------------------------------------##
+        scene_list = []
+        sobject_info = []
+        dict_list = self.sobjects.itervalues()
 
-        for p, sobject in enumerate(self.sobjects.itervalues()):
+        #get sobject values for key "name"
+        for sobject in dict_list:
+            scene_name = sobject.info.get('name')
+            scene_list.append(scene_name)
+            sobject_info.append(sobject)
+
+        #make scene list elements into str
+        scene_list = [str(q[:]) for q in scene_list]
+
+        #insertion sort algorithm
+        for index in range(1,len(scene_list)):
+            currentvalue = scene_list[index]
+            sobj_currentvalue = sobject_info[index]
+            position = index
+
+            while position > 0 and scene_list[position-1]>currentvalue:
+                scene_list[position]=scene_list[position-1]
+                sobject_info[position]=sobject_info[position-1]
+                position = position - 1
+
+            scene_list[position] = currentvalue
+            sobject_info[position] = sobj_currentvalue
+
+##--------------------------------------------------------------------------------##
+
+        for p, sobject in enumerate(sobject_info): #original is enumerate(self.sobjects.itervalues())
             item_info = {
                 'relates_to': 'checkin_out',
                 'is_expanded': False,
