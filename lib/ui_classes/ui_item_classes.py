@@ -1779,8 +1779,38 @@ class Ui_childrenItemWidget(QtGui.QWidget, ui_item_children.Ui_childrenItem):
             sobjects = tc.get_sobjects(process, assets, project_code=self.project.info.get('code'))
             stype = self.stype
             sobject_item_widget = self.get_parent_item_widget()
+            
+ #---------------------SORT ORDER ----------------------------------------#
+            shot_list=[]
+            sobject_info = []
+            dict_list = sobjects.itervalues()
+            
+            #get sobject values for key "name"
+            for sobject in dict_list:
+                shot_name = sobject.info.get('name')
+                shot_list.append(shot_name)
+                sobject_info.append(sobject)
 
-            for sobject in sobjects.itervalues():
+            #make shot list elements into str
+            shot_list = [str(q[:]) for q in shot_list]
+
+            #insertion sort algorithm
+            for index in range(1,len(shot_list)):
+                currentvalue = shot_list[index]
+                sobj_currentvalue = sobject_info[index] 
+                position = index
+                
+                while position > 0 and shot_list[position-1]>currentvalue:
+                    shot_list[position]=shot_list[position-1]
+                    sobject_info[position] = sobject_info[position-1]
+                    position = position-1
+
+                shot_list[position]=currentvalue
+                sobject_info[position] = sobj_currentvalue
+                
+#--------------------------------------------------------------------------#
+
+            for sobject in sobject_info: #changed from sobjects.itervalues():
                 gf.add_sobject_item(
                     self.tree_item,
                     self.search_widget,
