@@ -3,13 +3,13 @@
 
 import sys
 
-from lib.side.Qt import QtWidgets as QtGui
-from lib.side.Qt import QtGui as Qt4Gui
+from thlib.side.Qt import QtWidgets as QtGui
+from thlib.side.Qt import QtGui as Qt4Gui
 
-from lib.environment import env_mode, env_inst
-import lib.global_functions as gf
-import lib.tactic_classes as tc
-import lib.ui_classes.ui_main_classes as ui_main_classes
+from thlib.environment import env_mode, env_inst
+import thlib.global_functions as gf
+import thlib.tactic_classes as tc
+import thlib.ui_classes.ui_main_classes as ui_main_classes
 
 
 def reload_modules():

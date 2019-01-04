@@ -4,9 +4,9 @@
 import os
 import sys
 import PySide.QtGui as QtGui
-import lib.environment as env
+import thlib.environment as env
 env.Mode.set_mode('standalone')
-import lib.ui_main_classes
+import thlib.ui_main_classes
 DATA_DIR = os.environ['TACTIC_DATA_DIR'] + '/TACTIC-handler'
 sys.path.append(DATA_DIR)
 
@@ -75,7 +75,7 @@ def startup(restart=False):
     # app = QtGui.QApplication(sys.argv)
     # app.setStyle("plastique")
     # setPaletteFromDct(palette)
-    window = lib.ui_main_classes.Ui_Main()
+    window = thlib.ui_main_classes.Ui_Main()
     env.Inst.ui_standalone = window
     window.main_layout.setSpacing(6)
     window.main_layout.setContentsMargins(9, 9, 9, 0)

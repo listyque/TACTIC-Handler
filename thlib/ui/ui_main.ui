@@ -1,0 +1,216 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>MainWindow</class>
+ <widget class="QMainWindow" name="MainWindow">
+  <property name="windowModality">
+   <enum>Qt::ApplicationModal</enum>
+  </property>
+  <property name="windowTitle">
+   <string>TACTIC handler</string>
+  </property>
+  <property name="styleSheet">
+   <string notr="true">QTreeView {
+    show-decoration-selected: 1;
+}
+QTreeView::item {
+	border-style: outset;
+	border-width: 1px;
+	border-color:  rgba(75, 75, 75, 75);
+	border-radius: 1px;
+	padding: 0px;
+	background: rgba(175, 175, 175, 25);
+}
+
+QTreeView::item:hover {
+    background: rgba(175, 175, 175, 50);
+    border: 1px solid rgba(128, 128, 128, 75);
+}
+QTreeView::item:selected {
+    border: 1px solid transparent;
+}
+QTreeView::item:selected:active{
+	background: rgba(82, 133, 166, 255);
+    border: 1px solid transparent;
+}
+QTreeView::item:selected:!active {
+	background: rgba(82, 133, 166, 255);
+    border: 1px solid transparent;
+}
+QTreeView::item:selected{
+    selection-background-color: transparent;
+    border: 1px solid transparent;
+}
+QDockWidget::title{
+    padding: 4px;
+    border-radius: 3px;
+	padding-left: 10px;
+    background-color: rgba(0,0,0,64);
+}
+QDockWidget::close-button, QDockWidget::float-button {
+	padding: 0px;
+}
+
+QDockWidget {
+    border: 0px ;
+    border-radius: 0px;
+}
+QDockWidget::close-button {
+    border: none;
+}
+QTabWidget::pane {
+    border: 0px;
+}
+QTabBar::tab {
+    background: transparent;
+    border: 2px solid transparent;
+    border-top-right-radius: 0px;
+    border-top-left-radius: 0px;
+    border-bottom-right-radius: 3px;
+    border-bottom-left-radius: 3px;
+    padding: 4px;
+}
+QTabBar::tab:selected, QTabBar::tab:hover {
+    background: qlineargradient(x1: 0, y1: 0, x2: 0, y2: 1, stop: 0 rgba(255, 255, 255, 32), stop: 1 rgba(255, 255, 255, 48));
+}
+QTabBar::tab:selected {
+    border-color: transparent;
+}
+QTabBar::tab:!selected {
+    margin-top: 0px;
+}
+QGroupBox {
+	background: qlineargradient(x1: 0, y1: 0, x2: 0, y2: 1, stop: 0 rgba(175, 175, 175, 16), stop: 1 rgba(0, 0, 0, 0));
+	border: 0px;
+    border-radius: 4px;
+    padding: 0px 8px;
+}
+
+QGroupBox::title {
+    subcontrol-origin: margin;
+    subcontrol-position: left top; 
+    padding: 2 6px;
+	background-color: transparent;
+    border-bottom: 2px solid qlineargradient(spread:pad, x1:0, y1:0, x2:1, y2:0, stop:0 rgba(128, 128, 128, 64), stop:1 rgba(128, 128,128, 0));
+}
+</string>
+  </property>
+  <property name="locale">
+   <locale language="English" country="UnitedStates"/>
+  </property>
+  <property name="windowFilePath">
+   <string notr="true"/>
+  </property>
+  <property name="dockNestingEnabled">
+   <bool>true</bool>
+  </property>
+  <property name="dockOptions">
+   <set>QMainWindow::AllowNestedDocks|QMainWindow::AllowTabbedDocks|QMainWindow::AnimatedDocks</set>
+  </property>
+  <widget class="QWidget" name="mainwidget"/>
+  <widget class="QMenuBar" name="menubar">
+   <property name="geometry">
+    <rect>
+     <x>0</x>
+     <y>0</y>
+     <width>96</width>
+     <height>21</height>
+    </rect>
+   </property>
+   <widget class="QMenu" name="menuConfig">
+    <property name="title">
+     <string>Menu</string>
+    </property>
+    <addaction name="actionConfiguration"/>
+    <addaction name="actionApply_to_all_Tabs"/>
+    <addaction name="actionDock_undock"/>
+    <addaction name="separator"/>
+    <addaction name="actionServerside_Script"/>
+    <addaction name="actionDebug_Log"/>
+    <addaction name="separator"/>
+    <addaction name="actionUpdate"/>
+    <addaction name="separator"/>
+    <addaction name="separator"/>
+    <addaction name="actionExit"/>
+   </widget>
+   <widget class="QMenu" name="menuProject">
+    <property name="tearOffEnabled">
+     <bool>true</bool>
+    </property>
+    <property name="title">
+     <string>Project</string>
+    </property>
+   </widget>
+   <widget class="QMenu" name="menuView">
+    <property name="title">
+     <string>View</string>
+    </property>
+    <addaction name="actionCheckin_Checkout"/>
+    <addaction name="actionMy_Tactic"/>
+   </widget>
+   <addaction name="menuConfig"/>
+   <addaction name="menuView"/>
+   <addaction name="menuProject"/>
+  </widget>
+  <action name="actionConfiguration">
+   <property name="text">
+    <string>Configuration</string>
+   </property>
+  </action>
+  <action name="actionUpdate">
+   <property name="text">
+    <string>Update</string>
+   </property>
+  </action>
+  <action name="actionExit">
+   <property name="text">
+    <string>Exit</string>
+   </property>
+  </action>
+  <action name="actionApply_to_all_Tabs">
+   <property name="text">
+    <string>Current view to All Tabs</string>
+   </property>
+  </action>
+  <action name="actionServerside_Script">
+   <property name="text">
+    <string>Serverside Script</string>
+   </property>
+  </action>
+  <action name="actionDock_undock">
+   <property name="text">
+    <string>Dock/undock</string>
+   </property>
+  </action>
+  <action name="actionDebug_Log">
+   <property name="text">
+    <string>Debug Log</string>
+   </property>
+  </action>
+  <action name="actionCheckin_Checkout">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="checked">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>Checkin / Checkout</string>
+   </property>
+  </action>
+  <action name="actionMy_Tactic">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>My Tactic</string>
+   </property>
+  </action>
+  <action name="actionAssets_browser">
+   <property name="text">
+    <string>Assets browser</string>
+   </property>
+  </action>
+ </widget>
+ <resources/>
+ <connections/>
+</ui>
