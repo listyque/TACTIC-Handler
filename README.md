@@ -26,7 +26,7 @@ Youtube [Old in Maya version](https://www.youtube.com/watch?v=E3CIjbZIHGM)
 Youtube [Old Standalone version](https://www.youtube.com/watch?v=FD0dHPTBXSw)
 
 Main Window screenshot:
-![Main Window](/screenshots/old/24.12.2017/new_tabs.png)
+![Main Window](/screenshots/04.01.2019/vfx_template_3dassets.png)
 
 Customization ability:
 ![Customization](/screenshots/old/05.10.2017/any_interface_tweaks.png)
