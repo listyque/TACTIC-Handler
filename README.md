@@ -26,19 +26,19 @@ Youtube [Old in Maya version](https://www.youtube.com/watch?v=E3CIjbZIHGM)
 Youtube [Old Standalone version](https://www.youtube.com/watch?v=FD0dHPTBXSw)
 
 Main Window screenshot:
-![Main Window](/screenshots/24.12.2017/new_tabs.png)
+![Main Window](/screenshots/old/24.12.2017/new_tabs.png)
 
 Customization ability:
-![Customization](/screenshots/05.10.2017/any_interface_tweaks.png)
+![Customization](/screenshots/old/05.10.2017/any_interface_tweaks.png)
 
 Server-side script editor (useful for TACTIC developers)
-![Server-side script editor](/screenshots/05.10.2017/serverside_script_runner.png)
+![Server-side script editor](/screenshots/old/05.10.2017/serverside_script_runner.png)
 
 Commiting drag-and-dropped files, sequences stc...:
-![Commiting](/screenshots/07.12.2017/new_drop_plate_and_checkins.png)
+![Commiting](/screenshots/old/07.12.2017/new_drop_plate_and_checkins.png)
 
 How commited sequences looks:
-![Sequences](/screenshots/21.12.2017/multiple_checkin_with_sequences.png)
+![Sequences](/screenshots/old/21.12.2017/multiple_checkin_with_sequences.png)
 
 What is this TACTIC?
 TACTIC – it's something! Go here if you don't know [TACTIC Opensourse](https://github.com/listyque/TACTIC)
