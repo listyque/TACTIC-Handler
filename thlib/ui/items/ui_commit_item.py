@@ -7,7 +7,9 @@
 #
 # WARNING! All changes made in this file will be lost!
 
-from PySide import QtCore, QtGui
+from thlib.side.Qt import QtWidgets as QtGui
+from thlib.side.Qt import QtGui as Qt4Gui
+from thlib.side.Qt import QtCore
 
 class Ui_commitItem(object):
     def setupUi(self, commitItem):
@@ -45,7 +47,7 @@ class Ui_commitItem(object):
         self.fileNameLabel = QtGui.QLabel(commitItem)
         self.fileNameLabel.setMinimumSize(QtCore.QSize(0, 20))
         self.fileNameLabel.setMaximumSize(QtCore.QSize(16777215, 24))
-        font = QtGui.QFont()
+        font = Qt4Gui.QFont()
         font.setWeight(75)
         font.setBold(True)
         self.fileNameLabel.setFont(font)
@@ -80,5 +82,5 @@ class Ui_commitItem(object):
         QtCore.QMetaObject.connectSlotsByName(commitItem)
 
     def retranslateUi(self, commitItem):
-        commitItem.setWindowTitle(QtGui.QApplication.translate("commitItem", "Form", None, QtGui.QApplication.UnicodeUTF8))
+        commitItem.setWindowTitle(u"Form")
 

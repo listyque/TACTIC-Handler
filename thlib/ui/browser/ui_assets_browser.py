@@ -7,7 +7,9 @@
 #
 # WARNING! All changes made in this file will be lost!
 
-from PySide import QtCore, QtGui
+from thlib.side.Qt import QtWidgets as QtGui
+from thlib.side.Qt import QtGui as Qt4Gui
+from thlib.side.Qt import QtCore
 
 class Ui_assetsBrowser(object):
     def setupUi(self, assetsBrowser):
@@ -39,7 +41,7 @@ class Ui_assetsBrowser(object):
         sizePolicy.setHeightForWidth(self.searchLineEdit.sizePolicy().hasHeightForWidth())
         self.searchLineEdit.setSizePolicy(sizePolicy)
         self.searchLineEdit.setMaximumSize(QtCore.QSize(16777215, 20))
-        font = QtGui.QFont()
+        font = Qt4Gui.QFont()
         font.setPointSize(9)
         self.searchLineEdit.setFont(font)
         self.searchLineEdit.setStyleSheet("QLineEdit {\n"
@@ -106,10 +108,10 @@ class Ui_assetsBrowser(object):
         QtCore.QMetaObject.connectSlotsByName(assetsBrowser)
 
     def retranslateUi(self, assetsBrowser):
-        assetsBrowser.setWindowTitle(QtGui.QApplication.translate("assetsBrowser", "Form", None, QtGui.QApplication.UnicodeUTF8))
-        self.assetsTreeWidget.headerItem().setText(0, QtGui.QApplication.translate("assetsBrowser", "all", None, QtGui.QApplication.UnicodeUTF8))
-        self.countLabel.setText(QtGui.QApplication.translate("assetsBrowser", "(10/150)", None, QtGui.QApplication.UnicodeUTF8))
-        self.label_2.setText(QtGui.QApplication.translate("assetsBrowser", "Load Limit:", None, QtGui.QApplication.UnicodeUTF8))
-        self.label.setText(QtGui.QApplication.translate("assetsBrowser", "Zoom:", None, QtGui.QApplication.UnicodeUTF8))
-        self.zoomSpinBox.setSuffix(QtGui.QApplication.translate("assetsBrowser", "%", None, QtGui.QApplication.UnicodeUTF8))
+        assetsBrowser.setWindowTitle(u"Form")
+        self.assetsTreeWidget.headerItem().setText(0, u"all")
+        self.countLabel.setText(u"(10/150)")
+        self.label_2.setText(u"Load Limit:")
+        self.label.setText(u"Zoom:")
+        self.zoomSpinBox.setSuffix(u"%")
 

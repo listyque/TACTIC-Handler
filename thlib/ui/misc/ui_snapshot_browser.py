@@ -7,7 +7,9 @@
 #
 # WARNING! All changes made in this file will be lost!
 
-from PySide import QtCore, QtGui
+from thlib.side.Qt import QtWidgets as QtGui
+from thlib.side.Qt import QtGui as Qt4Gui
+from thlib.side.Qt import QtCore
 
 class Ui_snapshotBrowser(object):
     def setupUi(self, snapshotBrowser):
@@ -51,7 +53,7 @@ class Ui_snapshotBrowser(object):
         self.previewGraphicsView.setFrameShape(QtGui.QFrame.NoFrame)
         self.previewGraphicsView.setVerticalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOff)
         self.previewGraphicsView.setHorizontalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOff)
-        self.previewGraphicsView.setRenderHints(QtGui.QPainter.Antialiasing|QtGui.QPainter.HighQualityAntialiasing|QtGui.QPainter.SmoothPixmapTransform|QtGui.QPainter.TextAntialiasing)
+        self.previewGraphicsView.setRenderHints(Qt4Gui.QPainter.Antialiasing|Qt4Gui.QPainter.HighQualityAntialiasing|Qt4Gui.QPainter.SmoothPixmapTransform|Qt4Gui.QPainter.TextAntialiasing)
         self.previewGraphicsView.setOptimizationFlags(QtGui.QGraphicsView.DontAdjustForAntialiasing|QtGui.QGraphicsView.DontSavePainterState)
         self.previewGraphicsView.setObjectName("previewGraphicsView")
         self.imageViewerLayout.addWidget(self.previewGraphicsView)
@@ -91,10 +93,10 @@ class Ui_snapshotBrowser(object):
         QtCore.QMetaObject.connectSlotsByName(snapshotBrowser)
 
     def retranslateUi(self, snapshotBrowser):
-        self.showAllCheckBox.setText(QtGui.QApplication.translate("snapshotBrowser", "Show All Files", None, QtGui.QApplication.UnicodeUTF8))
-        self.showMoreInfoCheckBox.setText(QtGui.QApplication.translate("snapshotBrowser", "Show More Info", None, QtGui.QApplication.UnicodeUTF8))
-        self.filesTreeWidget.headerItem().setText(1, QtGui.QApplication.translate("snapshotBrowser", "Size:", None, QtGui.QApplication.UnicodeUTF8))
-        self.filesTreeWidget.headerItem().setText(2, QtGui.QApplication.translate("snapshotBrowser", "Path:", None, QtGui.QApplication.UnicodeUTF8))
-        self.filesTreeWidget.headerItem().setText(3, QtGui.QApplication.translate("snapshotBrowser", "Repo:", None, QtGui.QApplication.UnicodeUTF8))
-        self.filesTreeWidget.headerItem().setText(4, QtGui.QApplication.translate("snapshotBrowser", "Base Type:", None, QtGui.QApplication.UnicodeUTF8))
+        self.showAllCheckBox.setText(u"Show All Files")
+        self.showMoreInfoCheckBox.setText(u"Show More Info")
+        self.filesTreeWidget.headerItem().setText(1, u"Size:")
+        self.filesTreeWidget.headerItem().setText(2, u"Path:")
+        self.filesTreeWidget.headerItem().setText(3, u"Repo:")
+        self.filesTreeWidget.headerItem().setText(4, u"Base Type:")
 

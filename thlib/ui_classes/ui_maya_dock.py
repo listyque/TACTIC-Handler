@@ -73,8 +73,6 @@ class Ui_DockMain(MayaQWidgetDockableMixin, QtGui.QMainWindow):
         self.move(self.dock_pos)
 
     def handle_hotkeys(self):
-        print('NOW HANDLING HOTKEYS')
-
         if self.hotkeys_dict:
             project_code = self.hotkeys_dict.get('project')
             control_tab = self.hotkeys_dict.get('control_tab')
@@ -263,7 +261,7 @@ def startup(restart=False, hotkeys=None):
     try:
         main_tab = mf.get_maya_dock_window()[0]
         main_tab.hotkeys_dict = hotkeys
-        main_tab.handle_hotkeys()
+        # main_tab.handle_hotkeys()
         main_tab.show()
         main_tab.raise_()
     except:

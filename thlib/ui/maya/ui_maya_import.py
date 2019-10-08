@@ -7,7 +7,9 @@
 #
 # WARNING! All changes made in this file will be lost!
 
-from PySide import QtCore, QtGui
+from thlib.side.Qt import QtWidgets as QtGui
+from thlib.side.Qt import QtGui as Qt4Gui
+from thlib.side.Qt import QtCore
 
 class Ui_importOptions(object):
     def setupUi(self, importOptions):
@@ -51,8 +53,8 @@ class Ui_importOptions(object):
         QtCore.QMetaObject.connectSlotsByName(importOptions)
 
     def retranslateUi(self, importOptions):
-        importOptions.setWindowTitle(QtGui.QApplication.translate("importOptions", "Form", None, QtGui.QApplication.UnicodeUTF8))
-        self.optionsImportPushButton.setText(QtGui.QApplication.translate("importOptions", "Importing options", None, QtGui.QApplication.UnicodeUTF8))
-        self.importPushButton.setText(QtGui.QApplication.translate("importOptions", "Import", None, QtGui.QApplication.UnicodeUTF8))
-        self.groupBox.setTitle(QtGui.QApplication.translate("importOptions", "Import count:", None, QtGui.QApplication.UnicodeUTF8))
+        importOptions.setWindowTitle(u"Form")
+        self.optionsImportPushButton.setText(u"Importing options")
+        self.importPushButton.setText(u"Import")
+        self.groupBox.setTitle(u"Import count:")
 

@@ -7,7 +7,9 @@
 #
 # WARNING! All changes made in this file will be lost!
 
-from PySide import QtCore, QtGui
+from thlib.side.Qt import QtWidgets as QtGui
+from thlib.side.Qt import QtGui as Qt4Gui
+from thlib.side.Qt import QtCore
 
 class Ui_incom(object):
     def setupUi(self, incom):
@@ -35,7 +37,7 @@ class Ui_incom(object):
         self.gridLayout_3.setObjectName("gridLayout_3")
         self.dateLabel = QtGui.QLabel(self.groupBox)
         self.dateLabel.setMinimumSize(QtCore.QSize(0, 18))
-        font = QtGui.QFont()
+        font = Qt4Gui.QFont()
         font.setPointSize(10)
         self.dateLabel.setFont(font)
         self.dateLabel.setToolTip("")
@@ -51,7 +53,7 @@ class Ui_incom(object):
         self.gridLayout_3.addWidget(self.dateLabel, 0, 1, 1, 1)
         self.authorFullLabel = QtGui.QLabel(self.groupBox)
         self.authorFullLabel.setMinimumSize(QtCore.QSize(0, 50))
-        font = QtGui.QFont()
+        font = Qt4Gui.QFont()
         font.setPointSize(9)
         self.authorFullLabel.setFont(font)
         self.authorFullLabel.setAccessibleDescription("")
@@ -82,7 +84,7 @@ class Ui_incom(object):
         self.gridLayout_3.addWidget(self.authorPicLabel, 1, 0, 1, 1)
         self.authorLabel = QtGui.QLabel(self.groupBox)
         self.authorLabel.setMinimumSize(QtCore.QSize(0, 18))
-        font = QtGui.QFont()
+        font = Qt4Gui.QFont()
         font.setPointSize(10)
         font.setWeight(75)
         font.setItalic(False)
@@ -106,8 +108,8 @@ class Ui_incom(object):
         QtCore.QMetaObject.connectSlotsByName(incom)
 
     def retranslateUi(self, incom):
-        incom.setWindowTitle(QtGui.QApplication.translate("incom", "Form", None, QtGui.QApplication.UnicodeUTF8))
-        self.authorFullLabel.setText(QtGui.QApplication.translate("incom", "Алексей Мерзкий\n"
-"listy@live.ru", None, QtGui.QApplication.UnicodeUTF8))
-        self.authorPicLabel.setText(QtGui.QApplication.translate("incom", "<img src=\"D:/APS/OneDrive/Exam_(work_title)/root/admin/login/admin/icon/admin_icon_icon.png\">", None, QtGui.QApplication.UnicodeUTF8))
+        incom.setWindowTitle(u"Form")
+        self.authorFullLabel.setText(u"Алексей Мерзкий\n"
+"listy@live.ru")
+        self.authorPicLabel.setText(u"<img src=\"D:/APS/OneDrive/Exam_(work_title)/root/admin/login/admin/icon/admin_icon_icon.png\">")
 

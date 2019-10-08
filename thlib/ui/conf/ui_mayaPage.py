@@ -7,7 +7,9 @@
 #
 # WARNING! All changes made in this file will be lost!
 
-from PySide import QtCore, QtGui
+from thlib.side.Qt import QtWidgets as QtGui
+from thlib.side.Qt import QtGui as Qt4Gui
+from thlib.side.Qt import QtCore
 
 class Ui_mayaScenePageWidget(object):
     def setupUi(self, mayaScenePageWidget):
@@ -45,8 +47,8 @@ class Ui_mayaScenePageWidget(object):
         QtCore.QMetaObject.connectSlotsByName(mayaScenePageWidget)
 
     def retranslateUi(self, mayaScenePageWidget):
-        self.currentWorkdirLable.setText(QtGui.QApplication.translate("mayaScenePageWidget", "Current Workdir:", None, QtGui.QApplication.UnicodeUTF8))
-        self.createMayaDirsCheckBox.setText(QtGui.QApplication.translate("mayaScenePageWidget", "Create Maya Dirs (worspace.mel)", None, QtGui.QApplication.UnicodeUTF8))
-        self.createPlayblastCheckBox.setText(QtGui.QApplication.translate("mayaScenePageWidget", "Create screenshot (playblast)", None, QtGui.QApplication.UnicodeUTF8))
-        self.mayaSaveFormatLabel.setText(QtGui.QApplication.translate("mayaScenePageWidget", "Maya Saving Format:", None, QtGui.QApplication.UnicodeUTF8))
+        self.currentWorkdirLable.setText(u"Current Workdir:")
+        self.createMayaDirsCheckBox.setText(u"Create Maya Dirs (worspace.mel)")
+        self.createPlayblastCheckBox.setText(u"Create screenshot (playblast)")
+        self.mayaSaveFormatLabel.setText(u"Maya Saving Format:")
 

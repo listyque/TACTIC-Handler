@@ -7,7 +7,9 @@
 #
 # WARNING! All changes made in this file will be lost!
 
-from PySide import QtCore, QtGui
+from thlib.side.Qt import QtWidgets as QtGui
+from thlib.side.Qt import QtGui as Qt4Gui
+from thlib.side.Qt import QtCore
 
 class Ui_commitQueue(object):
     def setupUi(self, commitQueue):
@@ -81,11 +83,11 @@ class Ui_commitQueue(object):
         QtCore.QMetaObject.connectSlotsByName(commitQueue)
 
     def retranslateUi(self, commitQueue):
-        commitQueue.setWindowTitle(QtGui.QApplication.translate("commitQueue", "MainWindow", None, QtGui.QApplication.UnicodeUTF8))
-        self.label.setText(QtGui.QApplication.translate("commitQueue", "Commits in Queue:", None, QtGui.QApplication.UnicodeUTF8))
-        self.filesCountLabel.setText(QtGui.QApplication.translate("commitQueue", "0", None, QtGui.QApplication.UnicodeUTF8))
-        self.clearQueuePushButton.setText(QtGui.QApplication.translate("commitQueue", "Clear Queue", None, QtGui.QApplication.UnicodeUTF8))
-        self.filesQueueTreeWidget.headerItem().setText(0, QtGui.QApplication.translate("commitQueue", "1", None, QtGui.QApplication.UnicodeUTF8))
-        self.commitAllPushButton.setText(QtGui.QApplication.translate("commitQueue", "Commit All", None, QtGui.QApplication.UnicodeUTF8))
-        self.closePushButton.setText(QtGui.QApplication.translate("commitQueue", "Close", None, QtGui.QApplication.UnicodeUTF8))
+        commitQueue.setWindowTitle(u"MainWindow")
+        self.label.setText(u"Commits in Queue:")
+        self.filesCountLabel.setText(u"0")
+        self.clearQueuePushButton.setText(u"Clear Queue")
+        self.filesQueueTreeWidget.headerItem().setText(0, u"1")
+        self.commitAllPushButton.setText(u"Commit All")
+        self.closePushButton.setText(u"Close")
 

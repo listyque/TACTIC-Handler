@@ -7,7 +7,9 @@
 #
 # WARNING! All changes made in this file will be lost!
 
-from PySide import QtCore, QtGui
+from thlib.side.Qt import QtWidgets as QtGui
+from thlib.side.Qt import QtGui as Qt4Gui
+from thlib.side.Qt import QtCore
 
 class Ui_messages(object):
     def setupUi(self, messages):
@@ -38,5 +40,5 @@ class Ui_messages(object):
         QtCore.QMetaObject.connectSlotsByName(messages)
 
     def retranslateUi(self, messages):
-        messages.setWindowTitle(QtGui.QApplication.translate("messages", "Form", None, QtGui.QApplication.UnicodeUTF8))
+        messages.setWindowTitle(u"Form")
 

@@ -16,7 +16,7 @@ import thlib.ui.ui_main as ui_main
 from thlib.ui_classes.ui_script_editor_classes import Ui_ScriptEditForm
 from thlib.ui_classes.ui_update_classes import Ui_updateDialog
 import thlib.ui.misc.ui_create_update as ui_create_update
-import thlib.ui_classes.ui_misc_classes as ui_misc_classes
+from thlib.ui_classes.ui_misc_classes import Ui_debugLogWidget, Ui_messagesWidget
 import ui_checkin_out_tabs_classes
 import ui_conf_classes
 # import ui_my_tactic_classes
@@ -307,13 +307,13 @@ class Ui_Main(QtGui.QMainWindow, ui_main.Ui_MainWindow):
         self.created = True
 
     def create_debuglog_widget(self):
-        env_inst.ui_debuglog = ui_misc_classes.Ui_debugLogWidget(self)
+        env_inst.ui_debuglog = Ui_debugLogWidget(self)
 
     def create_script_editor_widget(self):
         env_inst.ui_script_editor = Ui_ScriptEditForm(self)
 
     def create_messages_widget(self):
-        env_inst.ui_messages = ui_misc_classes.Ui_messagesWidget(self)
+        env_inst.ui_messages = Ui_messagesWidget(self)
 
     def create_info_label(self):
         self.label_layout = QtGui.QVBoxLayout(self.menubar)

@@ -7,7 +7,9 @@
 #
 # WARNING! All changes made in this file will be lost!
 
-from PySide import QtCore, QtGui
+from thlib.side.Qt import QtWidgets as QtGui
+from thlib.side.Qt import QtGui as Qt4Gui
+from thlib.side.Qt import QtCore
 
 class Ui_tasks(object):
     def setupUi(self, tasks):
@@ -168,25 +170,25 @@ class Ui_tasks(object):
         tasks.setTabOrder(self.showNotesButton, self.skeyLineEdit)
 
     def retranslateUi(self, tasks):
-        tasks.setWindowTitle(QtGui.QApplication.translate("tasks", "Tasks for exam/props Mushroom", None, QtGui.QApplication.UnicodeUTF8))
-        self.contextLabel.setText(QtGui.QApplication.translate("tasks", "Context:", None, QtGui.QApplication.UnicodeUTF8))
-        self.taskInfoGroupBox.setTitle(QtGui.QApplication.translate("tasks", "Task info:", None, QtGui.QApplication.UnicodeUTF8))
-        self.groupBox.setTitle(QtGui.QApplication.translate("tasks", "Task Desctiption:", None, QtGui.QApplication.UnicodeUTF8))
-        self.label_3.setText(QtGui.QApplication.translate("tasks", "Priority:", None, QtGui.QApplication.UnicodeUTF8))
-        self.label.setText(QtGui.QApplication.translate("tasks", "Assigned to:", None, QtGui.QApplication.UnicodeUTF8))
-        self.label_5.setText(QtGui.QApplication.translate("tasks", "Started:", None, QtGui.QApplication.UnicodeUTF8))
-        self.label_2.setText(QtGui.QApplication.translate("tasks", "Supervisor:", None, QtGui.QApplication.UnicodeUTF8))
-        self.startedDateTimeEdit.setDisplayFormat(QtGui.QApplication.translate("tasks", "yyyy.MM.dd. HH:mm:ss", None, QtGui.QApplication.UnicodeUTF8))
-        self.endDateTimeEdit.setDisplayFormat(QtGui.QApplication.translate("tasks", "yyyy.MM.dd. HH:mm:ss", None, QtGui.QApplication.UnicodeUTF8))
-        self.label_6.setText(QtGui.QApplication.translate("tasks", "End planned:", None, QtGui.QApplication.UnicodeUTF8))
-        self.label_4.setText(QtGui.QApplication.translate("tasks", "Status:", None, QtGui.QApplication.UnicodeUTF8))
-        self.saveChangesButton.setText(QtGui.QApplication.translate("tasks", "Save changes", None, QtGui.QApplication.UnicodeUTF8))
-        self.label_7.setText(QtGui.QApplication.translate("tasks", "Subscription:", None, QtGui.QApplication.UnicodeUTF8))
-        self.showNotesButton.setText(QtGui.QApplication.translate("tasks", "Show Task Notes", None, QtGui.QApplication.UnicodeUTF8))
-        self.subsParentStatusLabel.setText(QtGui.QApplication.translate("tasks", "Not Subscribed", None, QtGui.QApplication.UnicodeUTF8))
-        self.subsParentPushButton.setText(QtGui.QApplication.translate("tasks", "Subscribe to parent", None, QtGui.QApplication.UnicodeUTF8))
-        self.subsTaskPushButton.setText(QtGui.QApplication.translate("tasks", "Subscribe to task", None, QtGui.QApplication.UnicodeUTF8))
-        self.subsTaskStatusLabel.setText(QtGui.QApplication.translate("tasks", "Not Subscribed", None, QtGui.QApplication.UnicodeUTF8))
-        self.subsUsersPushButton.setText(QtGui.QApplication.translate("tasks", "Subscribe Users/Groups", None, QtGui.QApplication.UnicodeUTF8))
-        self.skeyLineEdit.setText(QtGui.QApplication.translate("tasks", "skey://", None, QtGui.QApplication.UnicodeUTF8))
+        tasks.setWindowTitle(u"Tasks for exam/props Mushroom")
+        self.contextLabel.setText(u"Context:")
+        self.taskInfoGroupBox.setTitle(u"Task info:")
+        self.groupBox.setTitle(u"Task Desctiption:")
+        self.label_3.setText(u"Priority:")
+        self.label.setText(u"Assigned to:")
+        self.label_5.setText(u"Started:")
+        self.label_2.setText(u"Supervisor:")
+        self.startedDateTimeEdit.setDisplayFormat(u"yyyy.MM.dd. HH:mm:ss")
+        self.endDateTimeEdit.setDisplayFormat(u"yyyy.MM.dd. HH:mm:ss")
+        self.label_6.setText(u"End planned:")
+        self.label_4.setText(u"Status:")
+        self.saveChangesButton.setText(u"Save changes")
+        self.label_7.setText(u"Subscription:")
+        self.showNotesButton.setText(u"Show Task Notes")
+        self.subsParentStatusLabel.setText(u"Not Subscribed")
+        self.subsParentPushButton.setText(u"Subscribe to parent")
+        self.subsTaskPushButton.setText(u"Subscribe to task")
+        self.subsTaskStatusLabel.setText(u"Not Subscribed")
+        self.subsUsersPushButton.setText(u"Subscribe Users/Groups")
+        self.skeyLineEdit.setText(u"skey://")
 

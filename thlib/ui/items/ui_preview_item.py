@@ -51,5 +51,5 @@ class Ui_previewItem(object):
         QtCore.QMetaObject.connectSlotsByName(previewItem)
 
     def retranslateUi(self, previewItem):
-        previewItem.setWindowTitle(QtGui.QApplication.translate("previewItem", "Form", None))
+        previewItem.setWindowTitle(u"Form")
 

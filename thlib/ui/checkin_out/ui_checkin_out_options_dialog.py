@@ -7,7 +7,9 @@
 #
 # WARNING! All changes made in this file will be lost!
 
-from PySide import QtCore, QtGui
+from thlib.side.Qt import QtWidgets as QtGui
+from thlib.side.Qt import QtGui as Qt4Gui
+from thlib.side.Qt import QtCore
 
 class Ui_checkinOutOptions(object):
     def setupUi(self, checkinOutOptions):
@@ -35,7 +37,7 @@ class Ui_checkinOutOptions(object):
         QtCore.QMetaObject.connectSlotsByName(checkinOutOptions)
 
     def retranslateUi(self, checkinOutOptions):
-        checkinOutOptions.setWindowTitle(QtGui.QApplication.translate("checkinOutOptions", "Form", None, QtGui.QApplication.UnicodeUTF8))
-        self.settingsPerTabCheckBox.setText(QtGui.QApplication.translate("checkinOutOptions", "Only for This Tab", None, QtGui.QApplication.UnicodeUTF8))
-        self.applyToAllPushButton.setText(QtGui.QApplication.translate("checkinOutOptions", "Apply to All Tabs", None, QtGui.QApplication.UnicodeUTF8))
+        checkinOutOptions.setWindowTitle(u"Form")
+        self.settingsPerTabCheckBox.setText(u"Only for This Tab")
+        self.applyToAllPushButton.setText(u"Apply to All Tabs")
 

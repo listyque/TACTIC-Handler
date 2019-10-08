@@ -7,7 +7,9 @@
 #
 # WARNING! All changes made in this file will be lost!
 
-from PySide import QtCore, QtGui
+from thlib.side.Qt import QtWidgets as QtGui
+from thlib.side.Qt import QtGui as Qt4Gui
+from thlib.side.Qt import QtCore
 
 class Ui_taskItem(object):
     def setupUi(self, taskItem):
@@ -33,5 +35,5 @@ class Ui_taskItem(object):
         QtCore.QMetaObject.connectSlotsByName(taskItem)
 
     def retranslateUi(self, taskItem):
-        self.addToolButton.setText(QtGui.QApplication.translate("taskItem", "Add", None, QtGui.QApplication.UnicodeUTF8))
+        self.addToolButton.setText(u"Add")
 

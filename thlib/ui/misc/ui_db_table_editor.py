@@ -7,7 +7,9 @@
 #
 # WARNING! All changes made in this file will be lost!
 
-from PySide import QtCore, QtGui
+from thlib.side.Qt import QtWidgets as QtGui
+from thlib.side.Qt import QtGui as Qt4Gui
+from thlib.side.Qt import QtCore
 
 class Ui_editDBTable(object):
     def setupUi(self, editDBTable):
@@ -94,24 +96,24 @@ class Ui_editDBTable(object):
         QtCore.QMetaObject.connectSlotsByName(editDBTable)
 
     def retranslateUi(self, editDBTable):
-        editDBTable.setWindowTitle(QtGui.QApplication.translate("editDBTable", "MainWindow", None, QtGui.QApplication.UnicodeUTF8))
-        self.tablesTreeWidget.headerItem().setText(0, QtGui.QApplication.translate("editDBTable", "1", None, QtGui.QApplication.UnicodeUTF8))
+        editDBTable.setWindowTitle(u"MainWindow")
+        self.tablesTreeWidget.headerItem().setText(0, u"1")
         __sortingEnabled = self.tablesTreeWidget.isSortingEnabled()
         self.tablesTreeWidget.setSortingEnabled(False)
-        self.tablesTreeWidget.topLevelItem(0).setText(0, QtGui.QApplication.translate("editDBTable", "Modeling", None, QtGui.QApplication.UnicodeUTF8))
-        self.tablesTreeWidget.topLevelItem(0).child(0).setText(0, QtGui.QApplication.translate("editDBTable", "Notes", None, QtGui.QApplication.UnicodeUTF8))
-        self.tablesTreeWidget.topLevelItem(0).child(1).setText(0, QtGui.QApplication.translate("editDBTable", "Snapshots", None, QtGui.QApplication.UnicodeUTF8))
-        self.tablesTreeWidget.topLevelItem(0).child(1).child(0).setText(0, QtGui.QApplication.translate("editDBTable", "Files", None, QtGui.QApplication.UnicodeUTF8))
-        self.tablesTreeWidget.topLevelItem(0).child(2).setText(0, QtGui.QApplication.translate("editDBTable", "Snapshots/modeling/context", None, QtGui.QApplication.UnicodeUTF8))
-        self.tablesTreeWidget.topLevelItem(0).child(2).child(0).setText(0, QtGui.QApplication.translate("editDBTable", "Files", None, QtGui.QApplication.UnicodeUTF8))
-        self.tablesTreeWidget.topLevelItem(1).setText(0, QtGui.QApplication.translate("editDBTable", "Render", None, QtGui.QApplication.UnicodeUTF8))
-        self.tablesTreeWidget.topLevelItem(1).child(0).setText(0, QtGui.QApplication.translate("editDBTable", "Lighting", None, QtGui.QApplication.UnicodeUTF8))
-        self.tablesTreeWidget.topLevelItem(1).child(0).child(0).setText(0, QtGui.QApplication.translate("editDBTable", "Notes", None, QtGui.QApplication.UnicodeUTF8))
-        self.tablesTreeWidget.topLevelItem(1).child(0).child(1).setText(0, QtGui.QApplication.translate("editDBTable", "Snapshots", None, QtGui.QApplication.UnicodeUTF8))
-        self.tablesTreeWidget.topLevelItem(1).child(0).child(1).child(0).setText(0, QtGui.QApplication.translate("editDBTable", "Files", None, QtGui.QApplication.UnicodeUTF8))
-        self.tablesTreeWidget.topLevelItem(1).child(0).child(2).setText(0, QtGui.QApplication.translate("editDBTable", "Snapshots/lighting/context", None, QtGui.QApplication.UnicodeUTF8))
-        self.tablesTreeWidget.topLevelItem(1).child(0).child(2).child(0).setText(0, QtGui.QApplication.translate("editDBTable", "Files", None, QtGui.QApplication.UnicodeUTF8))
-        self.tablesTreeWidget.topLevelItem(1).child(1).setText(0, QtGui.QApplication.translate("editDBTable", "Render", None, QtGui.QApplication.UnicodeUTF8))
+        self.tablesTreeWidget.topLevelItem(0).setText(0, u"Modeling")
+        self.tablesTreeWidget.topLevelItem(0).child(0).setText(0, u"Notes")
+        self.tablesTreeWidget.topLevelItem(0).child(1).setText(0, u"Snapshots")
+        self.tablesTreeWidget.topLevelItem(0).child(1).child(0).setText(0, u"Files")
+        self.tablesTreeWidget.topLevelItem(0).child(2).setText(0, u"Snapshots/modeling/context")
+        self.tablesTreeWidget.topLevelItem(0).child(2).child(0).setText(0, u"Files")
+        self.tablesTreeWidget.topLevelItem(1).setText(0, u"Render")
+        self.tablesTreeWidget.topLevelItem(1).child(0).setText(0, u"Lighting")
+        self.tablesTreeWidget.topLevelItem(1).child(0).child(0).setText(0, u"Notes")
+        self.tablesTreeWidget.topLevelItem(1).child(0).child(1).setText(0, u"Snapshots")
+        self.tablesTreeWidget.topLevelItem(1).child(0).child(1).child(0).setText(0, u"Files")
+        self.tablesTreeWidget.topLevelItem(1).child(0).child(2).setText(0, u"Snapshots/lighting/context")
+        self.tablesTreeWidget.topLevelItem(1).child(0).child(2).child(0).setText(0, u"Files")
+        self.tablesTreeWidget.topLevelItem(1).child(1).setText(0, u"Render")
         self.tablesTreeWidget.setSortingEnabled(__sortingEnabled)
-        self.savePushButton.setText(QtGui.QApplication.translate("editDBTable", "Save changes", None, QtGui.QApplication.UnicodeUTF8))
+        self.savePushButton.setText(u"Save changes")
 

@@ -7,7 +7,9 @@
 #
 # WARNING! All changes made in this file will be lost!
 
-from PySide import QtCore, QtGui
+from thlib.side.Qt import QtWidgets as QtGui
+from thlib.side.Qt import QtGui as Qt4Gui
+from thlib.side.Qt import QtCore
 
 class Ui_openOptions(object):
     def setupUi(self, openOptions):
@@ -46,10 +48,10 @@ class Ui_openOptions(object):
         QtCore.QMetaObject.connectSlotsByName(openOptions)
 
     def retranslateUi(self, openOptions):
-        openOptions.setWindowTitle(QtGui.QApplication.translate("openOptions", "Form", None, QtGui.QApplication.UnicodeUTF8))
-        self.optionsOpenPushButton.setText(QtGui.QApplication.translate("openOptions", "Opening options", None, QtGui.QApplication.UnicodeUTF8))
-        self.openPushButton.setText(QtGui.QApplication.translate("openOptions", "Open", None, QtGui.QApplication.UnicodeUTF8))
-        self.groupBox.setTitle(QtGui.QApplication.translate("openOptions", "Opening:", None, QtGui.QApplication.UnicodeUTF8))
-        self.setWorkdirCheckBox.setText(QtGui.QApplication.translate("openOptions", "Setup working directory", None, QtGui.QApplication.UnicodeUTF8))
-        self.savePushButton.setText(QtGui.QApplication.translate("openOptions", "Save", None, QtGui.QApplication.UnicodeUTF8))
+        openOptions.setWindowTitle(u"Form")
+        self.optionsOpenPushButton.setText(u"Opening options")
+        self.openPushButton.setText(u"Open")
+        self.groupBox.setTitle(u"Opening:")
+        self.setWorkdirCheckBox.setText(u"Setup working directory")
+        self.savePushButton.setText(u"Save")
 

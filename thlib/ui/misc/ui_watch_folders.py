@@ -7,7 +7,9 @@
 #
 # WARNING! All changes made in this file will be lost!
 
-from PySide import QtCore, QtGui
+from thlib.side.Qt import QtWidgets as QtGui
+from thlib.side.Qt import QtGui as Qt4Gui
+from thlib.side.Qt import QtCore
 
 class Ui_ProjectWatchFolder(object):
     def setupUi(self, ProjectWatchFolder):
@@ -31,10 +33,10 @@ class Ui_ProjectWatchFolder(object):
         QtCore.QMetaObject.connectSlotsByName(ProjectWatchFolder)
 
     def retranslateUi(self, ProjectWatchFolder):
-        ProjectWatchFolder.setWindowTitle(QtGui.QApplication.translate("ProjectWatchFolder", "Watch Folder", None, QtGui.QApplication.UnicodeUTF8))
-        self.watchEnabledCheckBox.setText(QtGui.QApplication.translate("ProjectWatchFolder", "Watch Folders Enabled", None, QtGui.QApplication.UnicodeUTF8))
-        self.watchFoldersTreeWidget.headerItem().setText(0, QtGui.QApplication.translate("ProjectWatchFolder", "Status", None, QtGui.QApplication.UnicodeUTF8))
-        self.watchFoldersTreeWidget.headerItem().setText(1, QtGui.QApplication.translate("ProjectWatchFolder", "SType", None, QtGui.QApplication.UnicodeUTF8))
-        self.watchFoldersTreeWidget.headerItem().setText(2, QtGui.QApplication.translate("ProjectWatchFolder", "SObject", None, QtGui.QApplication.UnicodeUTF8))
-        self.watchFoldersTreeWidget.headerItem().setText(3, QtGui.QApplication.translate("ProjectWatchFolder", "Repositories", None, QtGui.QApplication.UnicodeUTF8))
+        ProjectWatchFolder.setWindowTitle(u"Watch Folder")
+        self.watchEnabledCheckBox.setText(u"Watch Folders Enabled")
+        self.watchFoldersTreeWidget.headerItem().setText(0, u"Status")
+        self.watchFoldersTreeWidget.headerItem().setText(1, u"SType")
+        self.watchFoldersTreeWidget.headerItem().setText(2, u"SObject")
+        self.watchFoldersTreeWidget.headerItem().setText(3, u"Repositories")
 

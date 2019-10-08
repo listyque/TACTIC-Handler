@@ -7,7 +7,9 @@
 #
 # WARNING! All changes made in this file will be lost!
 
-from PySide import QtCore, QtGui
+from thlib.side.Qt import QtWidgets as QtGui
+from thlib.side.Qt import QtGui as Qt4Gui
+from thlib.side.Qt import QtCore
 
 class Ui_updateDialog(object):
     def setupUi(self, updateDialog):
@@ -51,14 +53,14 @@ class Ui_updateDialog(object):
         QtCore.QMetaObject.connectSlotsByName(updateDialog)
 
     def retranslateUi(self, updateDialog):
-        updateDialog.setWindowTitle(QtGui.QApplication.translate("updateDialog", "Update TACTIC-Handler", None, QtGui.QApplication.UnicodeUTF8))
-        self.versionLabel.setText(QtGui.QApplication.translate("updateDialog", "Current Version:", None, QtGui.QApplication.UnicodeUTF8))
-        self.versionsTreeWidget.headerItem().setText(0, QtGui.QApplication.translate("updateDialog", "Available Versions", None, QtGui.QApplication.UnicodeUTF8))
-        self.versionsTreeWidget.headerItem().setText(1, QtGui.QApplication.translate("updateDialog", "Date", None, QtGui.QApplication.UnicodeUTF8))
-        self.versionsTreeWidget.headerItem().setText(2, QtGui.QApplication.translate("updateDialog", "Changes", None, QtGui.QApplication.UnicodeUTF8))
-        self.versionsTreeWidget.headerItem().setText(3, QtGui.QApplication.translate("updateDialog", "Misc", None, QtGui.QApplication.UnicodeUTF8))
-        self.updateToLastPushButton.setText(QtGui.QApplication.translate("updateDialog", "Update to last", None, QtGui.QApplication.UnicodeUTF8))
-        self.updateToSelectedPushButton.setText(QtGui.QApplication.translate("updateDialog", "Update to selected", None, QtGui.QApplication.UnicodeUTF8))
-        self.currentVersionlabel.setText(QtGui.QApplication.translate("updateDialog", " ", None, QtGui.QApplication.UnicodeUTF8))
-        self.commitPushButton.setText(QtGui.QApplication.translate("updateDialog", "Create update", None, QtGui.QApplication.UnicodeUTF8))
+        updateDialog.setWindowTitle(u"Update TACTIC-Handler")
+        self.versionLabel.setText(u"Current Version:")
+        self.versionsTreeWidget.headerItem().setText(0, u"Available Versions")
+        self.versionsTreeWidget.headerItem().setText(1, u"Date")
+        self.versionsTreeWidget.headerItem().setText(2, u"Changes")
+        self.versionsTreeWidget.headerItem().setText(3, u"Misc")
+        self.updateToLastPushButton.setText(u"Update to last")
+        self.updateToSelectedPushButton.setText(u"Update to selected")
+        self.currentVersionlabel.setText(u" ")
+        self.commitPushButton.setText(u"Create update")
 

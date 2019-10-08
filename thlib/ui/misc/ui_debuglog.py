@@ -7,7 +7,9 @@
 #
 # WARNING! All changes made in this file will be lost!
 
-from PySide import QtCore, QtGui
+from thlib.side.Qt import QtWidgets as QtGui
+from thlib.side.Qt import QtGui as Qt4Gui
+from thlib.side.Qt import QtCore
 
 class Ui_DebugLog(object):
     def setupUi(self, DebugLog):
@@ -56,11 +58,11 @@ class Ui_DebugLog(object):
         QtCore.QMetaObject.connectSlotsByName(DebugLog)
 
     def retranslateUi(self, DebugLog):
-        DebugLog.setWindowTitle(QtGui.QApplication.translate("DebugLog", "Debug Log", None, QtGui.QApplication.UnicodeUTF8))
-        self.logCheckBox.setText(QtGui.QApplication.translate("DebugLog", "Log", None, QtGui.QApplication.UnicodeUTF8))
-        self.infoCheckBox.setText(QtGui.QApplication.translate("DebugLog", "Info", None, QtGui.QApplication.UnicodeUTF8))
-        self.warningCheckBox.setText(QtGui.QApplication.translate("DebugLog", "Warning", None, QtGui.QApplication.UnicodeUTF8))
-        self.exceptionCheckBox.setText(QtGui.QApplication.translate("DebugLog", "Exception", None, QtGui.QApplication.UnicodeUTF8))
-        self.errorCheckBox.setText(QtGui.QApplication.translate("DebugLog", "Error", None, QtGui.QApplication.UnicodeUTF8))
-        self.criticalCheckBox.setText(QtGui.QApplication.translate("DebugLog", "Critical", None, QtGui.QApplication.UnicodeUTF8))
+        DebugLog.setWindowTitle(u"Debug Log")
+        self.logCheckBox.setText(u"Log")
+        self.infoCheckBox.setText(u"Info")
+        self.warningCheckBox.setText(u"Warning")
+        self.exceptionCheckBox.setText(u"Exception")
+        self.errorCheckBox.setText(u"Error")
+        self.criticalCheckBox.setText(u"Critical")
 

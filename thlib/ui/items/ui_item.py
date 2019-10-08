@@ -7,7 +7,9 @@
 #
 # WARNING! All changes made in this file will be lost!
 
-from PySide import QtCore, QtGui
+from thlib.side.Qt import QtWidgets as QtGui
+from thlib.side.Qt import QtGui as Qt4Gui
+from thlib.side.Qt import QtCore
 
 class Ui_item(object):
     def setupUi(self, item):
@@ -53,7 +55,7 @@ class Ui_item(object):
         self.fileNameLabel = QtGui.QLabel(item)
         self.fileNameLabel.setMinimumSize(QtCore.QSize(0, 20))
         self.fileNameLabel.setMaximumSize(QtCore.QSize(16777215, 24))
-        font = QtGui.QFont()
+        font = Qt4Gui.QFont()
         font.setWeight(75)
         font.setBold(True)
         self.fileNameLabel.setFont(font)
@@ -145,5 +147,5 @@ class Ui_item(object):
         QtCore.QMetaObject.connectSlotsByName(item)
 
     def retranslateUi(self, item):
-        item.setWindowTitle(QtGui.QApplication.translate("item", "Form", None, QtGui.QApplication.UnicodeUTF8))
+        item.setWindowTitle(u"Form")
 

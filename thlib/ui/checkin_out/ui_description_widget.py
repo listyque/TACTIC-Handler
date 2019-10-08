@@ -7,7 +7,9 @@
 #
 # WARNING! All changes made in this file will be lost!
 
-from PySide import QtCore, QtGui
+from thlib.side.Qt import QtWidgets as QtGui
+from thlib.side.Qt import QtGui as Qt4Gui
+from thlib.side.Qt import QtCore
 
 class Ui_descriptionWidget(object):
     def setupUi(self, descriptionWidget):
@@ -29,5 +31,5 @@ class Ui_descriptionWidget(object):
         QtCore.QMetaObject.connectSlotsByName(descriptionWidget)
 
     def retranslateUi(self, descriptionWidget):
-        descriptionWidget.setWindowTitle(QtGui.QApplication.translate("descriptionWidget", "Form", None, QtGui.QApplication.UnicodeUTF8))
+        descriptionWidget.setWindowTitle(u"Form")
 

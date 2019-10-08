@@ -3,7 +3,7 @@
 
 __all__ = ["OutputCls"]
 
-import sys
+import locale
 from thlib.side.Qt import QtCore
 
 
@@ -12,7 +12,7 @@ class OutputCls(QtCore.QObject):
     written = QtCore.Signal(unicode)
     flushed = QtCore.Signal()
 
-    encoding = sys.stdout.encoding
+    encoding = locale.getpreferredencoding()
 
     def __init__(self, std, parent_stream=None, parent=None):
 

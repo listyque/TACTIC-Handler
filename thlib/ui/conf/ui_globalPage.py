@@ -7,7 +7,9 @@
 #
 # WARNING! All changes made in this file will be lost!
 
-from PySide import QtCore, QtGui
+from thlib.side.Qt import QtWidgets as QtGui
+from thlib.side.Qt import QtGui as Qt4Gui
+from thlib.side.Qt import QtCore
 
 class Ui_globalPageWidget(object):
     def setupUi(self, globalPageWidget):
@@ -40,8 +42,8 @@ class Ui_globalPageWidget(object):
         QtCore.QMetaObject.connectSlotsByName(globalPageWidget)
 
     def retranslateUi(self, globalPageWidget):
-        globalPageWidget.setWindowTitle(QtGui.QApplication.translate("globalPageWidget", "Form", None, QtGui.QApplication.UnicodeUTF8))
-        self.cacheProcessTabsCheckBox.setText(QtGui.QApplication.translate("globalPageWidget", "Cache Tabs (faster launch)", None, QtGui.QApplication.UnicodeUTF8))
-        self.flushTabsCachePushButton.setText(QtGui.QApplication.translate("globalPageWidget", "Flush Tabs cache", None, QtGui.QApplication.UnicodeUTF8))
-        self.configPathGroupBox.setTitle(QtGui.QApplication.translate("globalPageWidget", "Configuration files path:", None, QtGui.QApplication.UnicodeUTF8))
+        globalPageWidget.setWindowTitle(u"Form")
+        self.cacheProcessTabsCheckBox.setText(u"Cache Tabs (faster launch)")
+        self.flushTabsCachePushButton.setText(u"Flush Tabs cache")
+        self.configPathGroupBox.setTitle(u"Configuration files path:")
 

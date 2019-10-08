@@ -224,6 +224,6 @@ class Ui_richedit(object):
         richedit.setTabOrder(self.copyButton, self.cutButton)
 
     def retranslateUi(self, richedit):
-        richedit.setWindowTitle(QtGui.QApplication.translate("richedit", "Form", None))
+        richedit.setWindowTitle(u"Form")
 
 import thlib.ui.resources_rc

@@ -7,7 +7,9 @@
 #
 # WARNING! All changes made in this file will be lost!
 
-from PySide import QtCore, QtGui
+from thlib.side.Qt import QtWidgets as QtGui
+from thlib.side.Qt import QtGui as Qt4Gui
+from thlib.side.Qt import QtCore
 
 class Ui_notes(object):
     def setupUi(self, notes):
@@ -62,8 +64,8 @@ class Ui_notes(object):
         QtCore.QMetaObject.connectSlotsByName(notes)
 
     def retranslateUi(self, notes):
-        notes.setWindowTitle(QtGui.QApplication.translate("notes", "Form", None, QtGui.QApplication.UnicodeUTF8))
-        self.replyPushButton.setText(QtGui.QApplication.translate("notes", "Reply", None, QtGui.QApplication.UnicodeUTF8))
-        self.useFilterCheckBox.setText(QtGui.QApplication.translate("notes", "Filter by users", None, QtGui.QApplication.UnicodeUTF8))
-        self.filterUsersPushButton.setText(QtGui.QApplication.translate("notes", "Pick Users", None, QtGui.QApplication.UnicodeUTF8))
+        notes.setWindowTitle(u"Form")
+        self.replyPushButton.setText(u"Reply")
+        self.useFilterCheckBox.setText(u"Filter by users")
+        self.filterUsersPushButton.setText(u"Pick Users")
 

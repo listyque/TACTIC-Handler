@@ -7,7 +7,9 @@
 #
 # WARNING! All changes made in this file will be lost!
 
-from PySide import QtCore, QtGui
+from thlib.side.Qt import QtWidgets as QtGui
+from thlib.side.Qt import QtGui as Qt4Gui
+from thlib.side.Qt import QtCore
 
 class Ui_taskDetailItem(object):
     def setupUi(self, taskDetailItem):
@@ -72,8 +74,8 @@ class Ui_taskDetailItem(object):
         QtCore.QMetaObject.connectSlotsByName(taskDetailItem)
 
     def retranslateUi(self, taskDetailItem):
-        self.dateFromLabel.setText(QtGui.QApplication.translate("taskDetailItem", "From: 2016.02.07. 16:21:57", None, QtGui.QApplication.UnicodeUTF8))
-        self.dateToLabel.setText(QtGui.QApplication.translate("taskDetailItem", "To: 2016.02.09. 16:21:57", None, QtGui.QApplication.UnicodeUTF8))
-        self.stautsLabel.setText(QtGui.QApplication.translate("taskDetailItem", "Status: Assignment", None, QtGui.QApplication.UnicodeUTF8))
-        self.priorityLabel.setText(QtGui.QApplication.translate("taskDetailItem", "Priority: 5 - Critical", None, QtGui.QApplication.UnicodeUTF8))
+        self.dateFromLabel.setText(u"From: 2016.02.07. 16:21:57")
+        self.dateToLabel.setText(u"To: 2016.02.09. 16:21:57")
+        self.stautsLabel.setText(u"Status: Assignment")
+        self.priorityLabel.setText(u"Priority: 5 - Critical")
 

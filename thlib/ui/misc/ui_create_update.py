@@ -7,7 +7,9 @@
 #
 # WARNING! All changes made in this file will be lost!
 
-from PySide import QtCore, QtGui
+from thlib.side.Qt import QtWidgets as QtGui
+from thlib.side.Qt import QtGui as Qt4Gui
+from thlib.side.Qt import QtCore
 
 class Ui_createUpdateDialog(object):
     def setupUi(self, createUpdateDialog):
@@ -63,11 +65,11 @@ class Ui_createUpdateDialog(object):
         QtCore.QMetaObject.connectSlotsByName(createUpdateDialog)
 
     def retranslateUi(self, createUpdateDialog):
-        createUpdateDialog.setWindowTitle(QtGui.QApplication.translate("createUpdateDialog", "Creating new Update", None, QtGui.QApplication.UnicodeUTF8))
-        self.versionLabel.setText(QtGui.QApplication.translate("createUpdateDialog", "Version:", None, QtGui.QApplication.UnicodeUTF8))
-        self.dateLabel.setText(QtGui.QApplication.translate("createUpdateDialog", "Date:", None, QtGui.QApplication.UnicodeUTF8))
-        self.changesLabel.setText(QtGui.QApplication.translate("createUpdateDialog", "Changes:", None, QtGui.QApplication.UnicodeUTF8))
-        self.miscLabel.setText(QtGui.QApplication.translate("createUpdateDialog", "Misc:", None, QtGui.QApplication.UnicodeUTF8))
-        self.createUpdatePushButton.setText(QtGui.QApplication.translate("createUpdateDialog", "Create Update", None, QtGui.QApplication.UnicodeUTF8))
-        self.dateEdit.setDisplayFormat(QtGui.QApplication.translate("createUpdateDialog", "MM.dd.yyyy", None, QtGui.QApplication.UnicodeUTF8))
+        createUpdateDialog.setWindowTitle(u"Creating new Update")
+        self.versionLabel.setText(u"Version:")
+        self.dateLabel.setText(u"Date:")
+        self.changesLabel.setText(u"Changes:")
+        self.miscLabel.setText(u"Misc:")
+        self.createUpdatePushButton.setText(u"Create Update")
+        self.dateEdit.setDisplayFormat(u"MM.dd.yyyy")
 

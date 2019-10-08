@@ -7,7 +7,9 @@
 #
 # WARNING! All changes made in this file will be lost!
 
-from PySide import QtCore, QtGui
+from thlib.side.Qt import QtWidgets as QtGui
+from thlib.side.Qt import QtGui as Qt4Gui
+from thlib.side.Qt import QtCore
 
 class Ui_projectPageWidget(object):
     def setupUi(self, projectPageWidget):
@@ -51,15 +53,15 @@ class Ui_projectPageWidget(object):
         QtCore.QMetaObject.connectSlotsByName(projectPageWidget)
 
     def retranslateUi(self, projectPageWidget):
-        self.projectsTreeWidget.setToolTip(QtGui.QApplication.translate("projectPageWidget", "Right click for menu", None, QtGui.QApplication.UnicodeUTF8))
-        self.projectsTreeWidget.setStatusTip(QtGui.QApplication.translate("projectPageWidget", "Right click for menu", None, QtGui.QApplication.UnicodeUTF8))
-        self.projectsTreeWidget.headerItem().setText(0, QtGui.QApplication.translate("projectPageWidget", "Category/Title", None, QtGui.QApplication.UnicodeUTF8))
-        self.projectsTreeWidget.headerItem().setText(1, QtGui.QApplication.translate("projectPageWidget", "Code", None, QtGui.QApplication.UnicodeUTF8))
-        self.projectsTreeWidget.headerItem().setText(2, QtGui.QApplication.translate("projectPageWidget", "Namespace (template)", None, QtGui.QApplication.UnicodeUTF8))
-        self.projectsTreeWidget.headerItem().setText(3, QtGui.QApplication.translate("projectPageWidget", "Status", None, QtGui.QApplication.UnicodeUTF8))
-        self.createProjectsLable.setText(QtGui.QApplication.translate("projectPageWidget", "Create new Project:", None, QtGui.QApplication.UnicodeUTF8))
-        self.createProjectPushButton.setText(QtGui.QApplication.translate("projectPageWidget", "Create", None, QtGui.QApplication.UnicodeUTF8))
-        self.colorSchemeHintLabel.setText(QtGui.QApplication.translate("projectPageWidget", "Legend: ", None, QtGui.QApplication.UnicodeUTF8))
-        self.currentProjectLabel.setText(QtGui.QApplication.translate("projectPageWidget", " Current Projects ", None, QtGui.QApplication.UnicodeUTF8))
-        self.templateProjectsLabel.setText(QtGui.QApplication.translate("projectPageWidget", " Template Projects ", None, QtGui.QApplication.UnicodeUTF8))
+        self.projectsTreeWidget.setToolTip(u"Right click for menu")
+        self.projectsTreeWidget.setStatusTip(u"Right click for menu")
+        self.projectsTreeWidget.headerItem().setText(0, u"Category/Title")
+        self.projectsTreeWidget.headerItem().setText(1, u"Code")
+        self.projectsTreeWidget.headerItem().setText(2, u"Namespace (template)")
+        self.projectsTreeWidget.headerItem().setText(3, u"Status")
+        self.createProjectsLable.setText(u"Create new Project:")
+        self.createProjectPushButton.setText(u"Create")
+        self.colorSchemeHintLabel.setText(u"Legend: ")
+        self.currentProjectLabel.setText(u" Current Projects ")
+        self.templateProjectsLabel.setText(u" Template Projects ")
 

@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-from PySide import QtCore
+from thlib.side.Qt import QtCore
 
 from ._qt import QtEngine
 

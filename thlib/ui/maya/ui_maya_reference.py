@@ -7,7 +7,9 @@
 #
 # WARNING! All changes made in this file will be lost!
 
-from PySide import QtCore, QtGui
+from thlib.side.Qt import QtWidgets as QtGui
+from thlib.side.Qt import QtGui as Qt4Gui
+from thlib.side.Qt import QtCore
 
 class Ui_referenceOptions(object):
     def setupUi(self, referenceOptions):
@@ -51,8 +53,8 @@ class Ui_referenceOptions(object):
         QtCore.QMetaObject.connectSlotsByName(referenceOptions)
 
     def retranslateUi(self, referenceOptions):
-        referenceOptions.setWindowTitle(QtGui.QApplication.translate("referenceOptions", "Form", None, QtGui.QApplication.UnicodeUTF8))
-        self.optionsReferencePushButton.setText(QtGui.QApplication.translate("referenceOptions", "Referencing options", None, QtGui.QApplication.UnicodeUTF8))
-        self.referencePushButton.setText(QtGui.QApplication.translate("referenceOptions", "Reference", None, QtGui.QApplication.UnicodeUTF8))
-        self.groupBox.setTitle(QtGui.QApplication.translate("referenceOptions", "Reference count:", None, QtGui.QApplication.UnicodeUTF8))
+        referenceOptions.setWindowTitle(u"Form")
+        self.optionsReferencePushButton.setText(u"Referencing options")
+        self.referencePushButton.setText(u"Reference")
+        self.groupBox.setTitle(u"Reference count:")
 

@@ -7,7 +7,9 @@
 #
 # WARNING! All changes made in this file will be lost!
 
-from PySide import QtCore, QtGui
+from thlib.side.Qt import QtWidgets as QtGui
+from thlib.side.Qt import QtGui as Qt4Gui
+from thlib.side.Qt import QtCore
 
 class Ui_floatNotify(object):
     def setupUi(self, floatNotify):
@@ -145,15 +147,15 @@ class Ui_floatNotify(object):
         QtCore.QMetaObject.connectSlotsByName(floatNotify)
 
     def retranslateUi(self, floatNotify):
-        self.viewToolButton.setText(QtGui.QApplication.translate("floatNotify", "View", None, QtGui.QApplication.UnicodeUTF8))
-        self.nextToolButton.setText(QtGui.QApplication.translate("floatNotify", "...", None, QtGui.QApplication.UnicodeUTF8))
-        self.prevToolButton.setText(QtGui.QApplication.translate("floatNotify", "...", None, QtGui.QApplication.UnicodeUTF8))
-        self.skipToolButton.setText(QtGui.QApplication.translate("floatNotify", "Skip", None, QtGui.QApplication.UnicodeUTF8))
-        self.hideToolButton.setText(QtGui.QApplication.translate("floatNotify", "Hide", None, QtGui.QApplication.UnicodeUTF8))
-        self.posLabel.setText(QtGui.QApplication.translate("floatNotify", "5/10", None, QtGui.QApplication.UnicodeUTF8))
-        self.dateLabel.setText(QtGui.QApplication.translate("floatNotify", "2016-01-26 14:19:57", None, QtGui.QApplication.UnicodeUTF8))
-        self.noteNameLabel.setText(QtGui.QApplication.translate("floatNotify", "Task changed in:", None, QtGui.QApplication.UnicodeUTF8))
-        self.notePathLabel.setText(QtGui.QApplication.translate("floatNotify", "Props / Mushroom / The Pirate", None, QtGui.QApplication.UnicodeUTF8))
-        self.authorLabel.setText(QtGui.QApplication.translate("floatNotify", "Author:", None, QtGui.QApplication.UnicodeUTF8))
-        self.commentLabel.setText(QtGui.QApplication.translate("floatNotify", "Comment....", None, QtGui.QApplication.UnicodeUTF8))
+        self.viewToolButton.setText(u"View")
+        self.nextToolButton.setText(u"...")
+        self.prevToolButton.setText(u"...")
+        self.skipToolButton.setText(u"Skip")
+        self.hideToolButton.setText(u"Hide")
+        self.posLabel.setText(u"5/10")
+        self.dateLabel.setText(u"2016-01-26 14:19:57")
+        self.noteNameLabel.setText(u"Task changed in:")
+        self.notePathLabel.setText(u"Props / Mushroom / The Pirate")
+        self.authorLabel.setText(u"Author:")
+        self.commentLabel.setText(u"Comment....")
 

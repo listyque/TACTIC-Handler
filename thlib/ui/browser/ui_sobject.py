@@ -8,7 +8,9 @@
 # WARNING! All changes made in this file will be lost!
 
 from thlib.side.Qt import QtWidgets as QtGui
+from thlib.side.Qt import QtGui as Qt4Gui
 from thlib.side.Qt import QtCore
+
 
 class Ui_sobjectGroupBox(object):
     def setupUi(self, sobjectGroupBox):
@@ -51,5 +53,5 @@ class Ui_sobjectGroupBox(object):
         QtCore.QMetaObject.connectSlotsByName(sobjectGroupBox)
 
     def retranslateUi(self, sobjectGroupBox):
-        self.picLabel.setText(QtGui.QApplication.translate("sobjectGroupBox", "PIC", None))
+        self.picLabel.setText(u"PIC")
 

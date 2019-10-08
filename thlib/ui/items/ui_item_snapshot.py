@@ -7,7 +7,9 @@
 #
 # WARNING! All changes made in this file will be lost!
 
-from PySide import QtCore, QtGui
+from thlib.side.Qt import QtWidgets as QtGui
+from thlib.side.Qt import QtGui as Qt4Gui
+from thlib.side.Qt import QtCore
 
 class Ui_snapshotItem(object):
     def setupUi(self, snapshotItem):
@@ -44,7 +46,7 @@ class Ui_snapshotItem(object):
         self.fileNameLabel = QtGui.QLabel(snapshotItem)
         self.fileNameLabel.setMinimumSize(QtCore.QSize(0, 20))
         self.fileNameLabel.setMaximumSize(QtCore.QSize(16777215, 20))
-        font = QtGui.QFont()
+        font = Qt4Gui.QFont()
         font.setWeight(75)
         font.setBold(True)
         self.fileNameLabel.setFont(font)
@@ -78,7 +80,7 @@ class Ui_snapshotItem(object):
         self.descriptionLorizontalLayout.setObjectName("descriptionLorizontalLayout")
         self.authorLabel = QtGui.QLabel(snapshotItem)
         self.authorLabel.setMinimumSize(QtCore.QSize(0, 25))
-        font = QtGui.QFont()
+        font = Qt4Gui.QFont()
         font.setItalic(True)
         self.authorLabel.setFont(font)
         self.authorLabel.setStyleSheet("color:grey;")
@@ -114,5 +116,5 @@ class Ui_snapshotItem(object):
         QtCore.QMetaObject.connectSlotsByName(snapshotItem)
 
     def retranslateUi(self, snapshotItem):
-        snapshotItem.setWindowTitle(QtGui.QApplication.translate("snapshotItem", "Form", None, QtGui.QApplication.UnicodeUTF8))
+        snapshotItem.setWindowTitle(u"Form")
 
