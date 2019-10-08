@@ -26,13 +26,13 @@ Youtube [Old in Maya version](https://www.youtube.com/watch?v=E3CIjbZIHGM)
 Youtube [Old Standalone version](https://www.youtube.com/watch?v=FD0dHPTBXSw)
 
 Main Window screenshot:
-![Main Window](/screenshots/new/main_window.png)
+![Main Window](/screenshots/latest/main_window.png)
 
 Customization ability:
 ![Customization](/screenshots/old/05.10.2017/any_interface_tweaks.png)
 
 Server-side script editor (useful for TACTIC developers)
-![Server-side script editor](/screenshots/new/script_editor.png)
+![Server-side script editor](/screenshots/latest/script_editor.png)
 
 Commiting drag-and-dropped files, sequences stc...:
 ![Commiting](/screenshots/old/07.12.2017/new_drop_plate_and_checkins.png)
