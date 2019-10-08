@@ -1,14 +1,13 @@
 # -*- coding: utf-8 -*-
 
-# Form implementation generated from reading ui file 'checkin_out/ui_drop_plate_config.ui'
+# Form implementation generated from reading ui file 'checkin_out\ui_drop_plate_config.ui'
 #
-# Created: Tue May 29 18:10:15 2018
-#      by: pyside-uic 0.2.15 running on PySide 1.2.2
+# Created: Sat Oct  5 00:17:20 2019
+#      by: pyside-uic 0.2.15 running on PySide 1.2.4
 #
 # WARNING! All changes made in this file will be lost!
 
-from thlib.side.Qt import QtWidgets as QtGui
-from thlib.side.Qt import QtCore
+from PySide import QtCore, QtGui
 
 class Ui_matchingTemplateConfig(object):
     def setupUi(self, matchingTemplateConfig):
@@ -72,12 +71,12 @@ class Ui_matchingTemplateConfig(object):
         QtCore.QMetaObject.connectSlotsByName(matchingTemplateConfig)
 
     def retranslateUi(self, matchingTemplateConfig):
-        matchingTemplateConfig.setWindowTitle(u"Dialog")
-        self.matchingTamplateLabel.setText(u"Matching Templates (could interfere with each other):")
-        self.editSelectedItemButton.setText(u"Edit")
-        self.addNewItemButton.setText(u"Add new")
-        self.templatesTreeWidget.headerItem().setText(0, u"Active")
-        self.templatesTreeWidget.headerItem().setText(1, u"Template")
-        self.templatesTreeWidget.headerItem().setText(2, u"Preview")
-        self.templatesTreeWidget.headerItem().setText(3, u"Type")
+        matchingTemplateConfig.setWindowTitle(QtGui.QApplication.translate("matchingTemplateConfig", "Dialog", None, QtGui.QApplication.UnicodeUTF8))
+        self.matchingTamplateLabel.setText(QtGui.QApplication.translate("matchingTemplateConfig", "Matching Templates (could interfere with each other):", None, QtGui.QApplication.UnicodeUTF8))
+        self.editSelectedItemButton.setText(QtGui.QApplication.translate("matchingTemplateConfig", "Edit", None, QtGui.QApplication.UnicodeUTF8))
+        self.addNewItemButton.setText(QtGui.QApplication.translate("matchingTemplateConfig", "Add new", None, QtGui.QApplication.UnicodeUTF8))
+        self.templatesTreeWidget.headerItem().setText(0, QtGui.QApplication.translate("matchingTemplateConfig", "Active", None, QtGui.QApplication.UnicodeUTF8))
+        self.templatesTreeWidget.headerItem().setText(1, QtGui.QApplication.translate("matchingTemplateConfig", "Template", None, QtGui.QApplication.UnicodeUTF8))
+        self.templatesTreeWidget.headerItem().setText(2, QtGui.QApplication.translate("matchingTemplateConfig", "Preview", None, QtGui.QApplication.UnicodeUTF8))
+        self.templatesTreeWidget.headerItem().setText(3, QtGui.QApplication.translate("matchingTemplateConfig", "Type", None, QtGui.QApplication.UnicodeUTF8))
 

@@ -4,92 +4,30 @@
 
 import os
 import shutil
+import urllib
 import urlparse
 import collections
 import json
+from cPickle import dumps, loads
 from bs4 import BeautifulSoup
+import time
 from thlib.side.Qt import QtWidgets as QtGui
 from thlib.side.Qt import QtGui as Qt4Gui
 from thlib.side.Qt import QtCore
 import thlib.proxy as proxy
-from thlib.environment import env_mode, env_server, env_inst, env_tactic, dl
+from thlib.environment import env_mode, env_server, env_inst, env_tactic, env_write_config, env_read_config, dl
 import global_functions as gf
 import tactic_query as tq
-import side.client.tactic_client_lib as tactic_client_lib
+from side.client.tactic_client_lib.tactic_server_stub import TacticServerStub
 
 
 if env_mode.get_mode() == 'maya':
     import maya_functions as mf
     reload(mf)
 
-# class ServerThread(QtCore.QThread):
-#     def __init__(self, parent=None):
-#         super(ServerThread, self).__init__(parent=parent)
-#
-#         self.kwargs = None
-#         self.result = None
-#         self.connected = False
-#         self.failed = False
-#
-#     def isConnected(self):
-#         return self.connected
-#
-#     def setConnected(self, boolean):
-#         self.connected = boolean
-#
-#     def isFailed(self):
-#         return self.failed
-#
-#     def setFailed(self, boolean):
-#         self.failed = boolean
-#
-#     def routine(self, **kwargs):
-#         pass
-#
-#     def run(self):
-#         try:
-#             self.result = self.routine(**(self.kwargs or {}))
-#             self.setFailed(False)
-#         except Exception as expected:
-#             self.setFailed(True)
-#
-#             traceback.print_exc(file=sys.stdout)
-#             stacktrace = traceback.format_exc()
-#
-#             exception = {
-#                 'exception': expected,
-#                 'stacktrace': stacktrace,
-#             }
-#             self.result = exception
-#
-#
-# def get_server_thread(kwargs_dict, runnable_func, connected_func, parent=None):
-#     thread = ServerThread(parent)
-#
-#     if not thread.isRunning():
-#         thread.kwargs = kwargs_dict
-#         thread.routine = runnable_func
-#
-#         if not thread.isConnected():
-#             thread.finished.connect(connected_func)
-#             thread.setConnected(True)
-#             # thread.start()
-#
-#     return thread
-#
-#
-# def treat_result(thread, silent=False):
-#     if silent:
-#         return thread
-#     if thread.isFailed():
-#         print 'ERROR TREATING'
-#         return error_handle(thread)
-#     else:
-#         return thread
-
 
 def server_auth(host, project=None, login=None, password=None, site=None, get_ticket=False):
-    server = tactic_client_lib.TacticServerStub.get(protocol='xmlrpc', setup=False)
+    server = TacticServerStub.get(protocol='xmlrpc', setup=False)
     server.set_transport(proxy.UrllibTransport())
     if env_server.get_proxy()['enabled']:
         server.transport.enable_proxy()
@@ -103,7 +41,7 @@ def server_auth(host, project=None, login=None, password=None, site=None, get_ti
     ticket = env_server.get_ticket()
     if not ticket or get_ticket:
         ticket = server.get_ticket(login, password, site)
-        if type(ticket) == dict:
+        if isinstance(ticket, dict):
             if ticket.get('exception'):
                 return server
         else:
@@ -205,7 +143,7 @@ def generate_new_ticket(explicit_username=None, parent=None):
 
 def server_ping():
     if server_start():
-        if server_start().fast_ping() == 'OK':
+        if server_start().ping() == 'OK':
             return True
         else:
             return False
@@ -214,7 +152,7 @@ def server_ping():
 
 
 def server_fast_ping_predefined(server_url, proxy_dict=None):
-    server = tactic_client_lib.TacticServerStub.get(protocol='xmlrpc', setup=False)
+    server = TacticServerStub.get(protocol='xmlrpc', setup=False)
 
     transport = proxy.UrllibTransport()
     server.set_transport(transport)
@@ -238,7 +176,7 @@ def server_fast_ping_predefined(server_url, proxy_dict=None):
 
 
 def server_fast_ping():
-    server = tactic_client_lib.TacticServerStub.get(protocol='xmlrpc', setup=False)
+    server = TacticServerStub.get(protocol='xmlrpc', setup=False)
     if env_server.get_proxy()['enabled']:
         transport = proxy.UrllibTransport()
         server.set_transport(transport)
@@ -298,42 +236,48 @@ class Project(object):
 
     def get_stypes(self):
         if not self.stypes:
-            self.query_stypes()
+            return self.query_search_types()
+        else:
+            return self.stypes
 
-        return self.stypes
+    def query_search_types(self, force=False):
 
-    def query_stypes(self):
-        self.stypes = self.query_search_types()
+        use_cache = True
+        stypes_result = None
 
-        return self.stypes
+        if use_cache and not force:
+            # reading cache from file
+            stypes_cache = env_read_config(
+                filename='stypes_cache',
+                unique_id='cache/{0}'.format(self.get_code()),
+                long_abs_path=True
+            )
+            if stypes_cache:
+                stypes_result = gf.hex_to_html(stypes_cache)
+            else:
+                return self.query_search_types(True)
+        else:
+            kwargs = {
+                'project_code': self.info.get('code'),
+                'namespace': self.info.get('type')
+            }
+            code = tq.prepare_serverside_script(tq.query_search_types_extended, kwargs, return_dict=True)
+            result = server_start(project=kwargs['project_code']).execute_python_script('', kwargs=code)
+            if result:
+                # writing result to cache
+                env_write_config(
+                    gf.html_to_hex(result['info']['spt_ret_val']),
+                    filename='stypes_cache',
+                    unique_id='cache/{0}'.format(self.get_code()),
+                    long_abs_path=True
+                )
+                stypes_result = result['info']['spt_ret_val']
 
-    def query_search_types(self):
-        kwargs = {
-            'project_code': self.info.get('code'),
-            'namespace': self.info.get('type')
-        }
-
-        code = tq.prepare_serverside_script(tq.query_search_types_extended, kwargs, return_dict=True)
-
-        # import time
-        # start = time.time()
-        # for i in range(10):
-        result = server_start(project=kwargs['project_code']).execute_python_script('', kwargs=code)
-
-        # print time.time() - start
-
-        stypes = json.loads(result['info']['spt_ret_val'])
+        stypes = json.loads(stypes_result)
 
         schema = stypes.get('schema')
-        # TODO site-wide pipelines
         pipelines = stypes.get('pipelines')
         stypes = stypes.get('stypes')
-
-        # from pprint import pprint
-
-        # print(schema)
-        # print(pipelines)
-        # print(stypes)
 
         if schema:
             prj_schema = schema[0]['schema']
@@ -346,24 +290,22 @@ class Project(object):
             return self.get_all_search_types(stypes, pipelines, prj_schema)
 
     def get_all_search_types(self, stype_list, process_list, schema):
-
         pipeline = BeautifulSoup(schema, 'html.parser')
-        all_connectionslist = []
-        # dct = collections.defaultdict(list)
+        all_connections_list = []
+
         dct = collections.OrderedDict()
 
         for pipe in pipeline.find_all(name='connect'):
-            all_connectionslist.append(pipe.attrs)
+            all_connections_list.append(pipe.attrs)
 
         for pipe in pipeline.find_all(name='search_type'):
             dct.setdefault(pipe.attrs['name'], []).append({'search_type': pipe.attrs})
-            # dct[pipe.attrs['name']].append({'search_type': pipe.attrs})
 
             conn = {
                 'children': [],
                 'parents': [],
             }
-            for connect in all_connectionslist:
+            for connect in all_connections_list:
                 if pipe.attrs['name'] == connect['from']:
                     conn['parents'].append(connect)
                 if pipe.attrs['name'] == connect['to']:
@@ -389,7 +331,9 @@ class Project(object):
             stype_obj = SType(stype, stype_schema, stype_process, project=self)
             stypes_objects[stype['code']] = stype_obj
 
-        return stypes_objects
+        self.stypes = stypes_objects
+
+        return self.stypes
 
 
 # sTypes related classes
@@ -467,7 +411,11 @@ class SType(object):
     def get_columns_info(self):
         return self.info['column_info']
 
-    def get_definition(self, definition='table', processed=True):
+    def get_definition(self, definition='table', processed=True, bs=False):
+
+        if bs:
+            return BeautifulSoup(self.info['definition'].get(definition), 'html.parser')
+
         if processed:
 
             definition_bs = BeautifulSoup(self.info['definition'].get(definition), 'html.parser')
@@ -480,6 +428,24 @@ class SType(object):
 
         else:
             return self.info['definition'].get(definition)
+
+    def get_children_stypes(self):
+        children_list = []
+
+        if self.schema.children:
+            for child in self.schema.children:
+                children_list.append(self.project.stypes.get(child.get('from')))
+
+        return children_list
+
+    def get_parent_stypes(self):
+        parents_list = []
+
+        if self.schema.parents:
+            for parent in self.schema.parents:
+                parents_list.append(self.project.stypes.get(parent.get('to')))
+
+        return parents_list
 
 
 class Schema(object):
@@ -500,11 +466,39 @@ class Schema(object):
     def get_children(self):
         return self.__schema_dict[1].get('children')
 
+    def get_child(self, child_code, parent_code):
+
+        for child in self.parents:
+            if child['to'] == parent_code and child['from'] == child_code:
+                return child
 
 class Workflow(object):
     def __init__(self, pipeline):
 
         self.__pipeline_list = pipeline
+        self.__pipeline_by_codes = {}
+
+        self.sort_by_search_types()
+
+    def __get_by_stype(self, search_type_code):
+        tasks_pipeliens = {}
+        for pipe in self.__pipeline_list:
+            if pipe['search_type'] == search_type_code:
+                tasks_pipeliens[pipe['code']] = Pipeline(pipe)
+
+        return tasks_pipeliens
+
+    def sort_by_search_types(self):
+        for pipe in self.__pipeline_list:
+            search_type_code = pipe.get('search_type')
+            if search_type_code:
+                self.__pipeline_by_codes[search_type_code] = self.__get_by_stype(search_type_code)
+
+    def get_all_pipelines(self):
+        return self.__pipeline_by_codes
+
+    def get_by_stype_code(self, code):
+        return self.__pipeline_by_codes.get(code)
 
     def get_child_pipeline_by_process_code(self, parent_pipeline, process):
         parent_process = None
@@ -520,9 +514,6 @@ class Workflow(object):
         for pipe in self.__pipeline_list:
             if pipe['parent_process'] == parent_process['code']:
                 return Pipeline(pipe)
-
-    def get_by_stype(self):
-        pass
 
     def get_pipeline(self):
 
@@ -582,6 +573,8 @@ class Pipeline(object):
                 if pipe.attrs['name'] == connect['to']:
                     self.process[pipe.attrs.get('name')]['children'] = connect
 
+    def get_process_info(self, process_name):
+        return self.process.get(process_name)
 
 # SObject class
 class SObject(object):
@@ -634,12 +627,16 @@ class SObject(object):
         # OUTPUT VARS
         self.process = {}
         self.tasks = {}
+        self.tasks_sobjects = None
         self.notes = {}
         self.snapshots = {}
 
-        # Info Vars
+        # INFO VARS
         self.tasks_count = {'__total__': 0}
         self.notes_count = {'publish': 0}
+
+        # INTERNAL VARS
+        self.update_dict = {}
 
     # Snapshots by search code
     def query_snapshots(self, s_code=None, s_id=None, process=None, order_bys=None, user=None):
@@ -710,6 +707,7 @@ class SObject(object):
             snapshot_dict = self.query_snapshots(s_code=self.info['code'], order_bys=order_bys)
         else:
             snapshot_dict = self.query_snapshots(s_id=self.info['id'], order_bys=order_bys)
+
         self.init_snapshots(snapshot_dict)
 
         # end = time.time()
@@ -738,6 +736,16 @@ class SObject(object):
         for process in process_set:
             self.tasks[process] = Process(tasks_list, process, True)
 
+    def get_tasks_sobjects(self, process=None):
+        search_type = 'sthpw/task'
+        if process:
+            filters = [('search_code', self.info['code']), ('process', process), ('project_code', self.project.info['code'])]
+        else:
+            filters = [('search_code', self.info['code']), ('project_code', self.project.info['code'])]
+
+        self.tasks_sobjects = get_sobjects_new(search_type, filters, project_code=self.project.info['code'])
+        return self.tasks_sobjects
+
     def set_tasks_count(self, process, count):
         self.tasks_count[process] = count
 
@@ -746,6 +754,14 @@ class SObject(object):
             return self.tasks_count.get(process)
         else:
             return self.tasks_count
+
+    def get_stype(self, code=None):
+        stypes = self.project.get_stypes()
+        if stypes:
+            if code:
+                stypes.get(code)
+            else:
+                return stypes.get(self.info['__search_key__'].split('?')[0])
 
     # Notes by SObject
     def get_notes(self):
@@ -788,17 +804,28 @@ class SObject(object):
     def get_pipeline_code(self):
         return self.info.get('pipeline_code')
 
-    def get_title(self):
+    def get_title(self, pretty=False):
         title = self.info.get('name')
         if not title:
             title = self.info.get('title')
         if not title:
             title = self.info.get('code')
+        if pretty:
+            return title.replace('_', ' ').capitalize()
+        else:
+            return title
 
-        return title
+    def get_code(self):
+        return self.info['code']
 
     def get_info(self):
         return self.info
+
+    def get_value(self, column):
+        return self.info.get(column)
+
+    def set_data(self, column, data):
+        self.update_dict[column] = data
 
     def get_project(self):
         return self.project
@@ -809,6 +836,330 @@ class SObject(object):
     def get_all_processes(self):
         # returning dict with all processes if it's have snapshots
         return self.process
+
+    def get_related_sobjects(self, child_stype=None, parent_stype=None, get_all_snapshots=False):
+        if not parent_stype:
+            parent_stype = self.get_stype()
+
+        child = child_stype.schema.get_child(child_stype.get_code(), parent_stype.get_code())
+
+        relationship = child.get('relationship')
+
+        child_col = child.get('from_col')
+        instance_type = None
+        related_type = None
+
+        if relationship and not child_col:
+            if relationship == 'search_type':
+                child_col = 'search_code'
+            elif relationship == 'code':
+                child_col = '{0}_code'.format(child.get('to').split('/')[-1])
+            elif relationship == 'instance':
+                child_col = 'code'
+                instance_type = child.get('instance_type')
+                related_type = child.get('to')
+
+        child_code = self.info.get('code')
+
+        # may be it is workaround, but i can't see any faster way
+        # if parent-child switched in schema we search another direction
+        # TODO It is workaround and should be rewritten
+        if self.info.get('relative_dir') == child.get('to'):
+            if child.get('to_col'):
+                child_code = self.info.get(child.get('to_col'))
+
+        filters = [(child_col, child_code)]
+
+        order_bys = ['name']
+        built_process = server_start(
+            project=self.project.get_code()).build_search_type(
+            child.get('from'),
+            self.project.get_code()
+        )
+
+        return get_sobjects_new(
+            search_type=built_process,
+            filters=filters,
+            order_bys=order_bys,
+            instance_type=instance_type,
+            related_type=related_type,
+            get_all_snapshots=get_all_snapshots,
+        )
+
+    def commit(self, triggers=True):
+
+        # filling actual info to sobject
+        for column, value in self.update_dict.items():
+            self.info[column] = value
+
+        return server_start(project=self.project.get_code()).update(
+            self.get_search_key(),
+            data=self.update_dict,
+            triggers=triggers
+        )
+
+
+# Login related classes
+class Login(SObject):
+    object_type = 'login'
+
+    def __init__(self, login, login_groups=None, login_in_groups=None):
+
+        self.info = login
+        self.login_groups = login_groups
+        self.login_in_groups = login_in_groups
+        self.all_subscriptions = None
+        self.all_messages = None
+
+        self.__init_login_groups()
+
+    def get_object_type(self):
+        return self.object_type
+
+    def get_login_groups(self):
+        return self.login_groups
+
+    def get_display_name(self):
+        return self.info['display_name']
+
+    def get_login(self):
+        return self.info['login']
+
+    def get_code(self):
+        return self.info['code']
+
+    def get_project_code(self):
+        return self.info['project_code']
+
+    def get_info(self):
+        return self.info
+
+    def __init_login_groups(self):
+
+        for login_group in self.login_groups:
+            for login_in_group in self.login_in_groups:
+                if self.info['login'] == login_in_group['login']:
+                    if login_group.get_login_group() == login_in_group['login_group']:
+                        login_group.add_login_to_group(self)
+
+    # Query Methods
+    def query_subscriptions_and_messages(self):
+        subscriptions_and_messages = get_subscriptions_and_messages(
+                current_login=self.info['code'],
+                update_logins=False
+            )
+        # from pprint import pprint
+        # pprint(subscriptions_and_messages)
+
+        subscriptions_list = []
+
+        for subscription in subscriptions_and_messages['subscriptions']:
+            exist_subs = self.check_subscription_exists(subscription)
+            if not exist_subs:
+                subscriptions_list.append(Subscription(subscription=subscription))
+            else:
+                subscriptions_list.append(exist_subs)
+
+        messages_list = []
+
+        for message in subscriptions_and_messages['messages']:
+            exist_mess = self.check_message_exists(message)
+            if not exist_mess:
+                messages_list.append(Message(message=message))
+            else:
+                messages_list.append(exist_mess)
+
+        return subscriptions_list, messages_list
+
+    def check_subscription_exists(self, subs):
+        if self.all_subscriptions:
+            for subscription in self.all_subscriptions:
+                if subscription.get_info() == subs:
+                    return subscription
+
+    def check_message_exists(self, mess):
+        if self.all_messages:
+            for message in self.all_messages:
+                if message.get_info() == mess:
+                    return message
+
+    def get_subscriptions_and_messages(self, force_update=False):
+        if not self.all_subscriptions or not self.all_messages:
+            self.all_subscriptions, self.all_messages = self.query_subscriptions_and_messages()
+            return self.all_subscriptions, self.all_messages
+        if force_update:
+            self.all_subscriptions, self.all_messages = self.query_subscriptions_and_messages()
+
+        return self.all_subscriptions, self.all_messages
+
+    def get_subscriptions_by_category(self, category=None):
+        self.get_subscriptions_and_messages()
+
+        subscriptions = []
+        for subscription in self.all_subscriptions:
+            if subscription.get_category() == category:
+                subscriptions.append(subscription)
+
+        return subscriptions
+
+
+class LoginGroup(SObject):
+    object_type = 'login_group'
+
+    def __init__(self, login_group):
+
+        self.info = login_group
+        self.group_logins = []
+
+    def get_object_type(self):
+        return self.object_type
+
+    def get_pretty_name(self):
+        title = self.info.get('name')
+        if title:
+            return title.title()
+        else:
+            title = self.get_login_group()
+            if title:
+                return title.replace('_', ' ').title()
+            else:
+                return self.get_code().replace('_', ' ').title()
+
+    def get_description(self):
+        return self.info.get('description')
+
+    def get_login_group(self):
+        return self.info['login_group']
+
+    def get_code(self):
+        return self.info['code']
+
+    def get_project_code(self):
+        return self.info['project_code']
+
+    def get_info(self):
+        return self.info
+
+    def get_logins(self):
+        return self.group_logins
+
+    def add_login_to_group(self, login_obj):
+        self.group_logins.append(login_obj)
+
+
+class Subscription(SObject):
+    object_type = 'subscription'
+
+    def __init__(self, subscription):
+
+        self.info = subscription
+        self.messages = None
+
+    def get_message_code(self):
+        return self.info['message_code']
+
+    def get_code(self):
+        return self.info['code']
+
+    def get_project_code(self):
+        return self.info['project_code']
+
+    def get_info(self):
+        return self.info
+
+    def get_category(self):
+        return self.info['category']
+
+    def get_last_cleared(self):
+        return self.info['last_cleared']
+
+    def get_login(self):
+        return self.info['login']
+
+    # Query Methods
+    def query_messages(self):
+
+        search_type = 'sthpw/message'
+        filters = [('category', self.get_category()), ('code', self.get_message_code())]
+
+        messages = server_start().query(search_type, filters)
+
+        messages_list = []
+
+        for message in messages:
+            messages_list.append(Message(message=message))
+
+        return messages_list
+
+    def get_messages(self):
+        if not self.messages:
+            self.messages = self.query_messages()
+
+        return self.messages
+
+
+class Message(SObject):
+    object_type = 'message'
+
+    def __init__(self, message):
+
+        self.info = message
+        self.message_log = None
+
+    def get_message(self):
+        return self.info['message']
+
+    def get_login(self):
+        return self.info['login']
+
+    def get_code(self):
+        return self.info['code']
+
+    def get_timestamp(self):
+        return self.info['timestamp']
+
+    def get_project_code(self):
+        return self.info['project_code']
+
+    def get_category(self):
+        return self.info['category']
+
+    def get_status(self):
+        return self.info['status']
+
+    def get_info(self):
+        return self.info
+
+    # Query Methods
+    def query_message_log(self):
+
+        search_type = 'sthpw/message_log'
+        filters = [('message_code', self.get_code())]
+
+        message_logs = server_start().query(search_type, filters)
+
+        message_logs_list = []
+
+        for message_log in message_logs:
+            message_logs_list.append(MessageLog(message_log=message_log))
+
+        return message_logs_list
+
+    def get_message_log(self, force=False):
+        if not self.message_log:
+            self.message_log = self.query_message_log()
+        elif force:
+            self.message_log = self.query_message_log()
+
+        return self.message_log
+
+
+class MessageLog(Message):
+    object_type = 'message_log'
+
+    def __init__(self, message_log):
+
+        self.info = message_log
 
 
 class Process(object):
@@ -827,7 +1178,6 @@ class Process(object):
         else:
             versions = collections.defaultdict(list)
             versionless = collections.defaultdict(list)
-
             for snapshot in in_dict:
                 if snapshot['process'] == process and (snapshot['version'] == -1 or snapshot['version'] == 0):
                     versionless[snapshot['context']].append(snapshot)
@@ -896,9 +1246,6 @@ class Snapshot(SObject, object):
 
     def get_files_objects(self, group_by=None):
         if not group_by:
-            # if self.files_objects:
-            #     return self.files_objects
-
             files_objects = []
             for fl in self.__files:
                 files_objects.append(File(fl, self))
@@ -953,11 +1300,17 @@ class File(object):
     def get_dict(self):
         return self.__file
 
+    def get_unique_id(self):
+        return id(self)
+
     def get_search_key(self):
         return self.__file['__search_key__']
 
     def get_file_size(self, check_real_size=False):
-        return self.__file['st_size']
+        if check_real_size:
+            return gf.get_st_size(self.get_full_abs_path())
+        else:
+            return self.__file['st_size']
 
     def get_snapshot(self):
         return self.__snapshot
@@ -1014,23 +1367,47 @@ class File(object):
         else:
             return filename
 
+    def get_repo_path(self):
+        snapshot = self.__snapshot.get_snapshot()
+        repo_name = snapshot.get('repo')
+
+        # if repo not explicitly written in snapshot or disabled in config we choose base repo
+        if not repo_name or not env_tactic.get_base_dir(repo_name)['value'][4]:
+            repo_name = 'base'
+
+        asset_dir = env_tactic.get_base_dir(repo_name)['value'][0]
+
+        return gf.form_path(asset_dir)
+
     def get_abs_path(self):
         snapshot = self.__snapshot.get_snapshot()
         repo_name = snapshot.get('repo')
-        if not repo_name:
+
+        # if repo not explicitly written in snapshot or disabled in config we choose base repo
+        if not repo_name or not env_tactic.get_base_dir(repo_name)['value'][4]:
             repo_name = 'base'
 
-        if repo_name:
-            asset_dir = env_tactic.get_base_dir(repo_name)['value'][0]
-        else:
-            asset_dir = env_tactic.get_base_dir('client')['value'][0]
+        asset_dir = env_tactic.get_base_dir(repo_name)['value'][0]
 
         abs_path = gf.form_path(
             '{0}/{1}'.format(asset_dir, self.__file['relative_dir']))
+
         return abs_path
 
     def get_full_abs_path(self):
         return gf.form_path('{0}/{1}'.format(self.get_abs_path(), self.__file['file_name']))
+
+    def get_web_path(self):
+        server_address = env_server.get_server()
+        if not server_address.startswith('http://'):
+            server_address = u'http://{}'.format(server_address)
+        asset_path = u'{0}/{1}'.format(server_address, env_tactic.get_base_dir('web')['value'][0])
+
+        abs_path = gf.form_path(u'{0}/{1}'.format(asset_path, self.__file['relative_dir']), tp='web')
+        return abs_path
+
+    def get_full_web_path(self):
+        return '{0}/{1}'.format(self.get_web_path(), self.__file['file_name'])
 
     def is_exists(self):
         return os.path.exists(self.get_full_abs_path())
@@ -1074,48 +1451,147 @@ class File(object):
         else:
             return self
 
+    def download_file(self, dest_path=None):
+
+        full_abs_path = self.prepare_repo(dest_path)
+
+        with urllib.urlopen(self.get_full_web_path()) as download:
+            with open(full_abs_path, "wb") as downloaded_file:
+                downloaded_file.write(download.read())
+
+            downloaded_file.close()
+
+        download.close()
+
+        return full_abs_path
+
+    def prepare_repo(self, dest_path=None):
+        if not dest_path:
+            dest_path = self.get_abs_path()
+
+        full_abs_path = self.get_full_abs_path()
+
+        if not os.path.exists(dest_path):
+            os.makedirs(dest_path)
+
+        return full_abs_path
+
     def open_file(self):
         gf.open_file_associated(self.get_full_abs_path())
 
     def open_folder(self):
-        gf.open_folder(self.get_full_abs_path())
+        gf.open_folder(gf.form_path(self.get_full_abs_path()), highlight=True)
 
 # End of SObject Class
 
 
-def query_all_projects():
-    server = server_start()
-    search_type = 'sthpw/project'
-    filters = []
-    projects = server.query(search_type, filters)
+def get_all_projects_and_logins(force=False):
 
-    return projects
+    use_cache = True
+
+    if use_cache and not force:
+        # reading cache from file
+        projects_cache = env_read_config(
+            filename='projects_cache',
+            unique_id='cache',
+            long_abs_path=True
+        )
+        logins_cache = env_read_config(
+            filename='logins_cache',
+            unique_id='cache',
+            long_abs_path=True
+        )
+        if projects_cache and logins_cache:
+            projects_dict = loads(gf.hex_to_html(str(projects_cache)))
+            logins_dict = loads(gf.hex_to_html(str(logins_cache)))
+
+            env_inst.projects = projects_dict
+            env_inst.logins = logins_dict
+
+            return projects_dict
+        else:
+            return get_all_projects_and_logins(True)
+    else:
+        kwargs = {
+            'current_login': env_inst.get_current_login()
+        }
+
+        code = tq.prepare_serverside_script(tq.get_projects_and_logins, kwargs, return_dict=True)
+        result = server_start().execute_python_script('', kwargs=code)
+
+        projects_and_users = json.loads(result['info']['spt_ret_val'])
+
+        projects = projects_and_users.get('projects')
+        logins = projects_and_users.get('logins')
+        login_groups = projects_and_users.get('login_groups')
+        login_in_groups = projects_and_users.get('login_in_groups')
+        # subscriptions = projects_and_users.get('subscriptions')
+
+        # Making Projects objects
+        projects_dict = collections.OrderedDict()
+        exclude_list = ['sthpw', 'unittest', 'admin']
+        if len(projects) == 2:
+            exclude_list = []
+
+        for project in projects:
+            if project.get('code') not in exclude_list:
+                projects_dict[project.get('code')] = Project(project)
+
+        env_inst.projects = projects_dict
+
+        logins_dict = collections.OrderedDict()
+        login_groups_list = []
+        login_in_groups_list = []
+
+        for login_group in login_groups:
+            login_groups_list.append(LoginGroup(login_group))
+
+        for login_in_group in login_in_groups:
+            login_in_groups_list.append(login_in_group)
+
+        for login in logins:
+            login_object = Login(login, login_groups_list, login_in_groups_list)
+            # if login_object.get_login() == env_inst.get_current_login():
+            #     login_object.all_subscriptions = subscriptions
+            logins_dict[login.get('code')] = login_object
+
+        env_inst.logins = logins_dict
+
+        # writing result to cache
+        env_write_config(
+            gf.html_to_hex(dumps(projects_dict)),
+            filename='projects_cache',
+            unique_id='cache',
+            long_abs_path=True
+        )
+        env_write_config(
+            gf.html_to_hex(dumps(logins_dict)),
+            filename='logins_cache',
+            unique_id='cache',
+            long_abs_path=True
+        )
+
+        return projects_dict
 
 
-def get_all_projects():
+def get_subscriptions_and_messages(current_login='admin', update_logins=False):
 
-    projects_list = query_all_projects()
+    kwargs = {
+        'current_login': current_login,
+        'update_logins': update_logins,
+    }
 
-    result = collections.OrderedDict()
+    code = tq.prepare_serverside_script(tq.get_subscriptions_and_messages, kwargs, return_dict=True)
+    result = server_start().execute_python_script('', kwargs=code)
 
-    exclude_list = ['sthpw', 'unittest', 'admin']
-    if len(projects_list) == 2:
-        exclude_list = []
+    subs_and_users = json.loads(result['info']['spt_ret_val'])
 
-    for project in projects_list:
-        if project.get('code') not in exclude_list:
-            result[project.get('code')] = Project(project)
-
-    env_inst.projects = result
-
-    return result
+    return subs_and_users
 
 
-def get_sobjects_new(search_type, filters=[], order_bys=[], limit=None, offset=None, process_list=[]):
+def get_sobjects_new(search_type, filters=[], order_bys=[], project_code=None, instance_type=None, related_type=None, limit=None, offset=None, process_list=[], get_all_snapshots=False):
     """
     Filters snapshot by search codes, and sobjects codes
-    :param sobjects_list: full list of stypes
-    :param get_snapshots: query for snapshots per sobject or not
     :param project_code: assign project class to particular sObject
     :return: dict of sObjects objects
     """
@@ -1123,12 +1599,20 @@ def get_sobjects_new(search_type, filters=[], order_bys=[], limit=None, offset=N
         'search_type': search_type,
         'filters': filters,
         'order_bys': order_bys,
+        'project_code': project_code,
         'limit': limit,
         'offset': offset,
+        'instance_type': instance_type,
+        'related_type': related_type,
+        'get_all_snapshots': get_all_snapshots,
     }
 
     code = tq.prepare_serverside_script(tq.query_sobjects, kwargs, return_dict=True)
-    project_code = split_search_key(search_type)['project_code']
+    if not project_code:
+        if search_type.startswith('sthpw'):
+            project_code = 'sthpw'
+        else:
+            project_code = split_search_key(search_type)['project_code']
     result = server_start(project=project_code).execute_python_script('', kwargs=code)
 
     if result['info']['spt_ret_val']:
@@ -1146,7 +1630,6 @@ def get_sobjects_new(search_type, filters=[], order_bys=[], limit=None, offset=N
 
         sobjects = collections.OrderedDict()
 
-        # process_codes = []
         process_codes = list(process_list)
         for builtin in ['icon', 'attachment', 'publish']:
             if builtin not in process_codes:
@@ -1160,63 +1643,6 @@ def get_sobjects_new(search_type, filters=[], order_bys=[], limit=None, offset=N
             sobjects[sobject['__search_key__']].set_tasks_count('__total__', sobject['__tasks_count__'])
 
         return sobjects, info
-
-
-# DEPRECATED, IT IS NOT RESPECT SORTING
-# def get_sobjects(process_list=None, sobjects_list=None, get_snapshots=True, project_code=None):
-#     """
-#     Filters snapshot by search codes, and sobjects codes
-#     :param sobjects_list: full list of stypes
-#     :param get_snapshots: query for snapshots per sobject or not
-#     :param project_code: assign project class to particular sObject
-#     :return: dict of sObjects objects
-#     """
-#     sobjects = collections.OrderedDict()
-#     if get_snapshots:
-#         process_codes = list(process_list)
-#         for builtin in ['icon', 'attachment', 'publish']:
-#             if builtin not in process_codes:
-#                 process_codes.append(builtin)
-#
-#         s_code = [s['code'] for s in sobjects_list]
-#
-#         snapshots_list = query_snapshots(process_codes, s_code, project_code)
-#
-#         snapshots = collections.OrderedDict()
-#
-#         # filter snapshots by search_code
-#         for snapshot in snapshots_list:
-#             snapshots.setdefault(snapshot['search_code'], []).append(snapshot)
-#
-#         # append sObject info to the end of each search_code filtered list
-#         for sobject in sobjects_list:
-#             snapshots.setdefault(sobject['code'], []).append(sobject)
-#
-#         # creating dict of ready SObjects
-#         for k, v in snapshots.items():
-#             sobjects[k] = SObject(v[-1], process_codes, env_inst.projects[project_code])
-#             sobjects[k].init_snapshots(v[:-1])
-#     else:
-#         # Create list of Sobjects
-#         for sobject in sobjects_list:
-#             sobjects[sobject['code']] = SObject(sobject)
-#
-#     return sobjects
-
-
-# def query_snapshots(process_list=None, s_code=None, project_code=None):
-#     """
-#     Query for snapshots belongs to asset
-#     :return: list of snapshots
-#     """
-#
-#     filters_snapshots = [
-#         ('process', process_list),
-#         ('project_code', project_code),
-#         ('search_code', s_code),
-#     ]
-#
-#     return server_start().query_snapshots(filters=filters_snapshots, include_files=True)
 
 
 def server_query(filters, stype, columns=None, project=None, limit=0, offset=0, order_bys='timestamp desc'):
@@ -1261,52 +1687,13 @@ def server_query(filters, stype, columns=None, project=None, limit=0, offset=0, 
     return server.query(built_process, filters, columns, order_bys, limit=limit, offset=offset)
 
 
-# def assets_query_new(query, stype, columns=None, project=None, limit=0, offset=0, order_bys='timestamp desc'):
-#     """
-#     Query for searching assets
-#     """
-#     if not columns:
-#         columns = []
-#     # TODO This is old and will be deprecated
-#     server = server_start()
-#     filters = []
-#     expr = ''
-#     if query[1] == 0:
-#         filters = [('name', 'EQI', query[0])]
-#     if query[1] == 1:
-#         filters = [('code', query[0])]
-#     if query[1] == 2:
-#         filters = None
-#         parents_codes = ['scenes_code', 'sets_code']
-#         for parent in parents_codes:
-#             expr += '@SOBJECT(cgshort/shot["{0}", "{1}"]), '.format(parent, query[0])
-#     if query[1] == 3:
-#         filters = [('description', 'EQI', query[0])]
-#     if query[1] == 4:
-#         filters = [('keywords', 'EQI', query[0])]
-#
-#     if query[0] == '*':
-#         filters = []
-#
-#     built_process = server.build_search_type(stype, project)
-#     # print s_code
-#     # import time
-#     # start = time.time()
-#     assets_list = server.query(built_process, filters, columns, order_bys, limit=limit, offset=offset)
-#
-#     # end = time.time()
-#     # dl.info('Query Assets Names time: {0}'.format(5415), group_id='server_query/{0}')
-#     # print 'query time: ' + str(end - start)
-#     # print assets_list
-#     return assets_list
-
-
 def get_notes_count(sobject, process, children_stypes):
     kwargs = {
         'process': process,
         'search_key': sobject.get_search_key(),
         'stypes_list': children_stypes
     }
+
     code = tq.prepare_serverside_script(tq.get_notes_and_stypes_counts, kwargs, return_dict=True)
     project_code = split_search_key(kwargs['search_key'])
     result = server_start(project=project_code['project_code']).execute_python_script('', kwargs=code)
@@ -1331,6 +1718,57 @@ def users_query():
         result[login['login']] = login
 
     return result
+
+
+def insert_sobjects(search_type, project_code, data, metadata={}, parent_key=None, instance_type=None,  info={}, use_id=False, triggers=True):
+
+    kwargs = {
+        'search_type': search_type,
+        'project_code': project_code,
+        'data': data,
+        'metadata': metadata,
+        'parent_key': parent_key,
+        'instance_type': instance_type,
+        'info': info,
+        'use_id': use_id,
+        'triggers': triggers
+    }
+
+    code = tq.prepare_serverside_script(tq.insert_sobjects, kwargs, return_dict=True)
+    result = server_start(project=project_code).execute_python_script('', kwargs=code)
+
+    return result['info']['spt_ret_val']
+
+
+def insert_instance_sobjects(search_key, project_code, parent_key=None, instance_type=None):
+
+    kwargs = {
+        'search_key': search_key,
+        'project_code': project_code,
+        'parent_key': parent_key,
+        'instance_type': instance_type,
+    }
+
+    code = tq.prepare_serverside_script(tq.insert_instance_sobjects, kwargs, return_dict=True)
+    result = server_start(project=project_code).execute_python_script('', kwargs=code)
+
+    return result['info']['spt_ret_val']
+
+
+def edit_multiple_instance_sobjects(project_code, insert_search_keys=[], exclude_search_keys=[], parent_key=None, instance_type=None):
+
+    kwargs = {
+        'project_code': project_code,
+        'insert_search_keys': insert_search_keys,
+        'exclude_search_keys': exclude_search_keys,
+        'parent_key': parent_key,
+        'instance_type': instance_type,
+    }
+
+    code = tq.prepare_serverside_script(tq.edit_multiple_instance_sobjects, kwargs, return_dict=True)
+    result = server_start(project=project_code).execute_python_script('', kwargs=code)
+
+    return result['info']['spt_ret_val']
 
 
 def delete_sobject_snapshot(sobject, delete_snapshot=True, search_keys=None, files_paths=None):
@@ -1384,7 +1822,7 @@ def sobject_delete_confirm(sobject):
     msb_layot.addWidget(wdg_list[2], 2, 1)
     msb_layot.addWidget(widget, 1, 1)
 
-    from thlib.ui_classes.ui_dialogs_classes import deleteSobjectWidget
+    from thlib.ui_classes.ui_delete_sobject_classes import deleteSobjectWidget
 
     delete_sobj_widget = deleteSobjectWidget(sobject=sobject)
 
@@ -1544,13 +1982,133 @@ def get_virtual_snapshot(search_key, context, files_dict, snapshot_type='file', 
         'ignore_keep_file_name': ignore_keep_file_name,
     }
 
+    # from pprint import pprint
+
+    # pprint(kwargs)
+    import time
+    start = time.time()
+
     code = tq.prepare_serverside_script(tq.get_virtual_snapshot_extended, kwargs, return_dict=True)
     project_code = split_search_key(search_key)
     server = server_start(project=project_code['project_code'])
     result = server.execute_python_script('', kwargs=code)
-    virtual_snapshot = json.loads(result['info']['spt_ret_val'])
+
+    print time.time() - start
+
+    virtual_snapshot = {'versionless': {'paths': [], 'names': []}, 'versioned': {'paths': [], 'names': []}}
+
+    if result['info']['spt_ret_val']:
+        if result['info']['spt_ret_val'].startswith('Traceback'):
+            dl.exception(result['info']['spt_ret_val'], group_id='{0}/{1}'.format('exceptions', get_virtual_snapshot.func_name))
+        else:
+            virtual_snapshot = json.loads(result['info']['spt_ret_val'])
 
     return virtual_snapshot
+
+def checkin_snapshot_upload(search_key, context, snapshot_type=None, is_revision=False, description=None, version=None,
+                     update_versionless=True, only_versionless=False, keep_file_name=False, repo_name=None, virtual_snapshot=None,
+                     files_dict=None, mode=None, create_icon=False, files_objects=None):
+
+    files_info = {
+        'version_files': [],
+        'version_files_paths': [],
+        'versionless_files': [],
+        'versionless_files_paths': [],
+        'files_types': [],
+        'file_sizes': [],
+        'version_metadata': [],
+        'versionless_metadata': []
+    }
+
+    repo = repo_name['value'][0]
+
+    for (k1, v1), (k2, v2), file_object in zip(virtual_snapshot, files_dict, files_objects):
+        for path_v, name_v, path_vs, name_vs, tp in zip(v1['versioned']['paths'],
+                                                        v1['versioned']['names'],
+                                                        v1['versionless']['paths'],
+                                                        v1['versionless']['names'],
+                                                        v2['t']):
+            file_path_v = u'{0}/{1}'.format(repo, path_v)
+            file_full_path_v = u'{0}/{1}'.format(file_path_v, ''.join(name_v))
+            files_info['version_files'].append(file_full_path_v)
+            files_info['version_files_paths'].append(path_v)
+            file_path_vs = u'{0}/{1}'.format(repo, path_vs)
+            file_full_path_vs = u'{0}/{1}'.format(file_path_vs, ''.join(name_vs))
+            files_info['versionless_files'].append(file_full_path_vs)
+            files_info['versionless_files_paths'].append(path_vs)
+            files_info['files_types'].append(tp)
+
+            if only_versionless:
+                new_files_list = file_object.get_all_new_files_list(name_vs, file_path_vs)
+
+            else:
+                new_files_list = file_object.get_all_new_files_list(name_v, file_path_v)
+
+            files_info['file_sizes'].append(file_object.get_sizes_list(together=False, files_list=new_files_list))
+            files_info['version_metadata'].append(file_object.get_metadata())
+            file_object.get_all_new_files_list(name_vs, file_path_vs)
+            files_info['versionless_metadata'].append(file_object.get_metadata())
+
+    kwargs = {
+        'search_key': search_key,
+        'context': context,
+        'snapshot_type': snapshot_type,
+        'is_revision': is_revision,
+        'description': description,
+        'version': version,
+        'update_versionless': update_versionless,
+        'only_versionless': only_versionless,
+        'keep_file_name': keep_file_name,
+        'files_info': files_info,
+        'repo_name': repo_name['value'][3],
+        'mode': mode,
+        'create_icon': create_icon,
+    }
+
+    # import time
+    # start = time.time()
+
+    # from pprint import pprint
+
+    # pprint(kwargs)
+
+    code = tq.prepare_serverside_script(tq.create_snapshot_extended, kwargs, return_dict=True, catch_traceback=False)
+    project_code = split_search_key(search_key)
+
+    # print self.args_dict['file_paths']
+    # print 'BEGIN UPLOAD', env_inst.get_current_project()
+    server = server_start(project=env_inst.get_current_project())
+    server.start('Upload Checkin')
+    # for fl in files_objects:
+    #     print fl.get_abs_file_name()
+    #     print fl.get_all_files_list(True)
+    #     # server.upload_file(fl.get_all_files_list(True))
+    #     server.upload_file(fl.get_abs_file_name())
+
+    for version_file in files_info['version_files']:
+        # print version_file
+        server.upload_file(version_file)
+    # print tc.server_start().simple_checkin(self.args_dict['search_key'], self.args_dict['context'], self.args_dict['file_paths'][0][0])
+
+    result = server.execute_python_script('', kwargs=code)
+
+    server.finish('Upload Done')
+
+    # print time.time() - start, 'Checking time create_snapshot_extended'
+
+    if result['info']['spt_ret_val']:
+        if result['info']['spt_ret_val'].startswith('Traceback'):
+            dl.exception(result['info']['spt_ret_val'],
+                         group_id='{0}/{1}'.format('exceptions', get_virtual_snapshot.func_name))
+            exception = Exception()
+            exception.message = 'Tactic Exception when checkin snapshot'
+            stacktrace_dict = {
+                'exception': exception,
+                'stacktrace': result['info']['spt_ret_val']
+            }
+            gf.error_handle((stacktrace_dict, None))
+        else:
+            return result
 
 
 def checkin_snapshot(search_key, context, snapshot_type=None, is_revision=False, description=None, version=None,
@@ -1580,13 +2138,19 @@ def checkin_snapshot(search_key, context, snapshot_type=None, is_revision=False,
             file_full_path_v = u'{0}/{1}'.format(file_path_v, ''.join(name_v))
             files_info['version_files'].append(file_full_path_v)
             files_info['version_files_paths'].append(path_v)
-            file_path_vs = u'{0}/{1}'.format(repo, path_v)
+            file_path_vs = u'{0}/{1}'.format(repo, path_vs)
             file_full_path_vs = u'{0}/{1}'.format(file_path_vs, ''.join(name_vs))
             files_info['versionless_files'].append(file_full_path_vs)
             files_info['versionless_files_paths'].append(path_vs)
             files_info['files_types'].append(tp)
-            new_files_list = file_object.get_all_new_files_list(name_v, file_path_v)
-            files_info['file_sizes'].append(file_object.get_sizes_list(together=True, files_list=new_files_list))
+
+            if only_versionless:
+                new_files_list = file_object.get_all_new_files_list(name_vs, file_path_vs)
+
+            else:
+                new_files_list = file_object.get_all_new_files_list(name_v, file_path_v)
+
+            files_info['file_sizes'].append(file_object.get_sizes_list(together=False, files_list=new_files_list))
             files_info['version_metadata'].append(file_object.get_metadata())
             file_object.get_all_new_files_list(name_vs, file_path_vs)
             files_info['versionless_metadata'].append(file_object.get_metadata())
@@ -1607,11 +2171,28 @@ def checkin_snapshot(search_key, context, snapshot_type=None, is_revision=False,
         'create_icon': create_icon,
     }
 
-    code = tq.prepare_serverside_script(tq.create_snapshot_extended, kwargs, return_dict=True)
+    import time
+    start = time.time()
+
+    code = tq.prepare_serverside_script(tq.create_snapshot_extended, kwargs, return_dict=True, catch_traceback=False)
     project_code = split_search_key(search_key)
     result = server_start(project=project_code['project_code']).execute_python_script('', kwargs=code)
 
-    return result
+    print time.time() - start, 'Checking time create_snapshot_extended'
+
+    if result['info']['spt_ret_val']:
+        if result['info']['spt_ret_val'].startswith('Traceback'):
+            dl.exception(result['info']['spt_ret_val'],
+                         group_id='{0}/{1}'.format('exceptions', get_virtual_snapshot.func_name))
+            exception = Exception()
+            exception.message = 'Tactic Exception when checkin snapshot'
+            stacktrace_dict = {
+                'exception': exception,
+                'stacktrace': result['info']['spt_ret_val']
+            }
+            gf.error_handle((stacktrace_dict, None))
+        else:
+            return result
 
 
 # def add_repo_info(search_key, context, snapshot, repo):
@@ -1637,9 +2218,7 @@ def update_description(search_key, description):
     data = {
         'description': description
     }
-    transaction = server_start().update(search_key, data)
-
-    return transaction
+    return server_start().update(search_key, data)
 
 
 def add_note(search_key, process, context, note, note_html, login):
@@ -1780,7 +2359,11 @@ def inplace_checkin(file_paths, virtual_snapshot, repo_name, update_versionless,
         if dest_path == source_path:
             print('Destination path is equal to source path, skipping...', dest_path)
         else:
-            shutil.copyfile(source_path, dest_path)
+            try:
+                shutil.copyfile(source_path, dest_path)
+            except Exception as err:
+                print err
+                print 'File in the Local Structure is the Same! Just creating checkin and do nothing.'
         if not os.path.exists(dest_path):
             return False
         else:
@@ -1801,6 +2384,7 @@ def inplace_checkin(file_paths, virtual_snapshot, repo_name, update_versionless,
             }
             progress_callback(i, info_dict)
         for ver in versions:
+            # print ver, 'tactic_classes.py'
             dest_path_vers = repo_name['value'][0] + '/' + val[ver]['paths'][0]
             dest_files_vers = files_objects[i].get_all_new_files_list(val[ver]['names'][0], dest_path_vers, new_frame_padding=padding)
 
@@ -1853,7 +2437,8 @@ def checkin_file(search_key, context, snapshot_type='file', is_revision=False, d
                  exts=None, subfolders=None, postfixes=None, metadata=None, padding=None, keep_file_name=False,
                  repo_name=None, mode=None, create_icon=True, ignore_keep_file_name=False, checkin_app='standalone',
                  selected_objects=False, ext_type='mayaAscii', setting_workspace=False, checkin_type='file',
-                 files_dict=None, item_widget=None, files_objects=None, explicit_filename=None, commit_silently=False):
+                 files_dict=None, item_widget=None, files_objects=None, explicit_filename=None, commit_silently=False,
+                 run_before_checkin=None, run_after_checkin=None, single_threaded=False):
 
     if not files_dict:
         files_dict = []
@@ -1875,10 +2460,9 @@ def checkin_file(search_key, context, snapshot_type='file', is_revision=False, d
         for key, val in files_dict:
             if gf.file_format(val['e'][0])[3] == 'preview':
                 val['t'].extend(['web', 'icon'])
-                val['s'].extend(['__preview/web', '__preview/icon'])
+                val['s'].extend(['', ''])
                 val['e'].extend(['jpg', 'png'])
                 val['p'].extend(['', ''])
-
     args_dict = {
         'search_key': search_key,
         'context': context,
@@ -1904,16 +2488,23 @@ def checkin_file(search_key, context, snapshot_type='file', is_revision=False, d
         'checkin_type': checkin_type,
         'item_widget': item_widget,
         'files_objects': files_objects,
+        'run_before_checkin': run_before_checkin,
+        'run_after_checkin': run_after_checkin,
     }
 
     search_key_split = split_search_key(search_key)
+    # from pprint import pprint
+    # pprint(args_dict)
+
+    checkin_wdg = env_inst.get_check_tree(
+        search_key_split['project_code'],
+        'checkin_out',
+        search_key_split['pipeline_code'])
 
     if commit_silently:
-        checkin_wdg = env_inst.get_check_tree(search_key_split['project_code'], 'checkin_out', search_key_split['pipeline_code'])
-
         commit_queue = env_inst.get_commit_queue('global_commit_queue')
         if not commit_queue:
-            from thlib.ui_classes.ui_dialogs_classes import Ui_commitQueueWidget
+            from thlib.ui_classes.ui_commit_queue_classes import Ui_commitQueueWidget
             commit_queue = Ui_commitQueueWidget(parent=checkin_wdg)
             env_inst.commit_queue['global_commit_queue'] = commit_queue
 
@@ -1922,8 +2513,14 @@ def checkin_file(search_key, context, snapshot_type='file', is_revision=False, d
         commit_queue.setWindowModality(QtCore.Qt.ApplicationModal)
         commit_queue.splitter.moveSplitter(2000, 0)
         commit_queue.show()
+    elif single_threaded:
+        commit_queue = env_inst.get_commit_queue(search_key_split['project_code'])
+        commit_queue.set_single_threaded(True)
+        commit_queue.add_item_to_queue(args_dict)
+        commit_queue.show()
     else:
         commit_queue = env_inst.get_commit_queue(search_key_split['project_code'])
+        commit_queue.set_single_threaded(False)
         commit_queue.add_item_to_queue(args_dict)
         commit_queue.show()
 
@@ -2024,4 +2621,13 @@ def generate_skey(pipeline_code=None, code=None):
     )
 
     return skey
+
+
+def group_sobject_by(sobjects_dict, group_by):
+    grouped = collections.defaultdict(list)
+    for sobject in sobjects_dict.values():
+        dic = sobject.info
+        grouped[dic.get(group_by)].append(sobject)
+
+    return grouped
 

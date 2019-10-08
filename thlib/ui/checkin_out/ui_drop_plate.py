@@ -1,14 +1,13 @@
 # -*- coding: utf-8 -*-
 
-# Form implementation generated from reading ui file 'checkin_out/ui_drop_plate.ui'
+# Form implementation generated from reading ui file 'checkin_out\ui_drop_plate.ui'
 #
-# Created: Fri Jun  8 17:10:18 2018
-#      by: pyside-uic 0.2.15 running on PySide 1.2.2
+# Created: Sat Oct  5 00:17:19 2019
+#      by: pyside-uic 0.2.15 running on PySide 1.2.4
 #
 # WARNING! All changes made in this file will be lost!
 
-from thlib.side.Qt import QtWidgets as QtGui
-from thlib.side.Qt import QtCore
+from PySide import QtCore, QtGui
 
 class Ui_dropPlate(object):
     def setupUi(self, dropPlate):
@@ -153,18 +152,18 @@ class Ui_dropPlate(object):
         QtCore.QMetaObject.connectSlotsByName(dropPlate)
 
     def retranslateUi(self, dropPlate):
-        dropPlate.setWindowTitle(u"Form")
+        dropPlate.setWindowTitle(QtGui.QApplication.translate("dropPlate", "Form", None, QtGui.QApplication.UnicodeUTF8))
         self.dropTreeWidget.setSortingEnabled(True)
-        self.dropTreeWidget.headerItem().setText(0, u"File Name")
-        self.dropTreeWidget.headerItem().setText(1, u"Range/Tiles/Layer")
-        self.dropTreeWidget.headerItem().setText(2, u"Class/Ext")
-        self.dropTreeWidget.headerItem().setText(3, u"Type")
-        self.dropTreeWidget.headerItem().setText(4, u"File Path")
-        self.enableFilterCheckBox.setText(u"Filter:")
-        self.filterComboBox.setItemText(0, u"By Extension")
-        self.filterComboBox.setItemText(1, u"By Filename")
-        self.fromDropListCheckBox.setText(u"From Droplist")
-        self.groupCheckinCheckBox.setText(u"Group Checkin")
-        self.keepFileNameCheckBox.setText(u"Keep Filename")
-        self.includeSubfoldersCheckBox.setText(u"Include Subfolders")
+        self.dropTreeWidget.headerItem().setText(0, QtGui.QApplication.translate("dropPlate", "File Name", None, QtGui.QApplication.UnicodeUTF8))
+        self.dropTreeWidget.headerItem().setText(1, QtGui.QApplication.translate("dropPlate", "Range/Tiles/Layer", None, QtGui.QApplication.UnicodeUTF8))
+        self.dropTreeWidget.headerItem().setText(2, QtGui.QApplication.translate("dropPlate", "Class/Ext", None, QtGui.QApplication.UnicodeUTF8))
+        self.dropTreeWidget.headerItem().setText(3, QtGui.QApplication.translate("dropPlate", "Type", None, QtGui.QApplication.UnicodeUTF8))
+        self.dropTreeWidget.headerItem().setText(4, QtGui.QApplication.translate("dropPlate", "File Path", None, QtGui.QApplication.UnicodeUTF8))
+        self.enableFilterCheckBox.setText(QtGui.QApplication.translate("dropPlate", "Filter:", None, QtGui.QApplication.UnicodeUTF8))
+        self.filterComboBox.setItemText(0, QtGui.QApplication.translate("dropPlate", "By Extension", None, QtGui.QApplication.UnicodeUTF8))
+        self.filterComboBox.setItemText(1, QtGui.QApplication.translate("dropPlate", "By Filename", None, QtGui.QApplication.UnicodeUTF8))
+        self.fromDropListCheckBox.setText(QtGui.QApplication.translate("dropPlate", "From Droplist", None, QtGui.QApplication.UnicodeUTF8))
+        self.groupCheckinCheckBox.setText(QtGui.QApplication.translate("dropPlate", "Group Checkin", None, QtGui.QApplication.UnicodeUTF8))
+        self.keepFileNameCheckBox.setText(QtGui.QApplication.translate("dropPlate", "Keep Filename", None, QtGui.QApplication.UnicodeUTF8))
+        self.includeSubfoldersCheckBox.setText(QtGui.QApplication.translate("dropPlate", "Include Subfolders", None, QtGui.QApplication.UnicodeUTF8))
 

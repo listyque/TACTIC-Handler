@@ -2,11 +2,16 @@
 # file ui_item_classes.py
 # Main Item for TreeWidget
 
+import os
+from xml.etree.ElementPath import get_parent_map
+
 from thlib.side.Qt import QtWidgets as QtGui
 from thlib.side.Qt import QtGui as Qt4Gui
+from thlib.side.Qt import QtNetwork
 from thlib.side.Qt import QtCore
 
 from thlib.environment import env_tactic, env_inst, cfg_controls, dl
+from thlib.ui_classes.ui_repo_sync_queue_classes import Ui_repoSyncDialog
 import thlib.global_functions as gf
 import thlib.tactic_classes as tc
 import thlib.ui.items.ui_commit_item as ui_commit_item
@@ -17,13 +22,13 @@ import thlib.ui.items.ui_item_process as ui_item_process
 import thlib.ui.items.ui_item_snapshot as ui_item_snapshot
 import ui_tasks_classes as tasks_widget
 import ui_notes_classes
-import ui_addsobject_classes as addsobject_widget
+import ui_addsobject_classes
 
-reload(ui_item)
-reload(ui_item_process)
-reload(ui_item_snapshot)
-reload(tasks_widget)
-reload(ui_notes_classes)
+# reload(ui_item)
+# reload(ui_item_process)
+# reload(ui_item_snapshot)
+# reload(tasks_widget)
+# reload(ui_notes_classes)
 
 
 class Ui_infoItemsWidget(QtGui.QWidget):
@@ -172,7 +177,6 @@ class Ui_commitItemWidget(QtGui.QWidget, ui_commit_item.Ui_commitItem):
         self.progress_wdg = QtGui.QWidget(self)
         self.progress_wdg.setHidden(True)
         self.commited = False
-
         self.create_ui()
 
     def create_ui(self):
@@ -217,7 +221,7 @@ class Ui_commitItemWidget(QtGui.QWidget, ui_commit_item.Ui_commitItem):
             pixmap = pix
 
         elif image_path:
-            print('MAKING PREVIEW FROM IMAGE PATH')
+            # print('MAKING PREVIEW FROM IMAGE PATH')
             source_image_path = image_path
             image = Qt4Gui.QImage(0, 0, Qt4Gui.QImage.Format_ARGB32)
             icon = None
@@ -321,6 +325,187 @@ class Ui_commitItemWidget(QtGui.QWidget, ui_commit_item.Ui_commitItem):
         event.accept()
 
 
+class Ui_repoSyncItemWidget(QtGui.QWidget):
+    downloaded = QtCore.Signal(object)
+
+    def __init__(self, file_object, parent=None):
+        super(self.__class__, self).__init__(parent=parent)
+
+        self.type = 'repo_sync'
+        self.file_object = file_object
+        self.network_manager = None
+        self.progress_wdg = QtGui.QWidget(self)
+        self.progress_wdg.setHidden(True)
+        self.is_downloaded = False
+
+        self.create_ui()
+
+    def create_ui(self):
+        self.setMinimumSize(280, 40)
+        self.create_main_layout()
+        self.create_file_name_label()
+
+        self.fill_info()
+        self.create_progress_indicator()
+
+    def create_main_layout(self):
+
+        self.main_layout = QtGui.QGridLayout()
+        self.setLayout(self.main_layout)
+        self.main_layout.setContentsMargins(0, 4, 0, 0)
+
+    def create_file_name_label(self):
+        self.file_name_label = QtGui.QLabel()
+        self.file_name_label.setStyleSheet('QLabel {padding-left: 4px;}')
+        self.main_layout.addWidget(self.file_name_label)
+
+    def set_title(self, title=u''):
+        self.file_name_label.setText(title)
+
+    def set_description(self, description=u''):
+        self.commentLabel.setText(description)
+
+    def fill_info(self):
+        self.set_title(self.file_object.get_filename_with_ext())
+        # self.set_description(self.commit_widget.description)
+
+    def create_progress_indicator(self):
+        if self.progress_wdg.isHidden():
+            self.lay = QtGui.QVBoxLayout(self.progress_wdg)
+            self.lay.setSpacing(0)
+            self.lay.setContentsMargins(0, 0, 0, 0)
+            self.progress_wdg.setLayout(self.lay)
+            self.progress_bar_wdg = QtGui.QProgressBar()
+            self.progress_bar_wdg.setTextVisible(True)
+            self.progress_bar_wdg.setStyleSheet('QProgressBar {border:0px; background-color: transparent;}'
+                                            'QProgressBar::chunk {background-color: rgba(30,160,200,64);}')
+            self.progress_bar_wdg.setSizePolicy(QtGui.QSizePolicy.Preferred, QtGui.QSizePolicy.Preferred)
+            self.progress_bar_wdg.setAlignment(QtCore.Qt.AlignHCenter | QtCore.Qt.AlignVCenter)
+            self.lay.addWidget(self.progress_bar_wdg)
+            self.progress_wdg.show()
+            # self.progress_wdg.resize(self.size())
+            self.main_layout.addWidget(self.progress_wdg)
+
+    def set_progress_indicator_on(self):
+        self.progress_wdg.setHidden(False)
+
+    def set_progress_indicator_off(self):
+        self.progress_wdg.setHidden(True)
+
+    def set_progress_status(self, progress, info_dict):
+        self.progress_bar_wdg.setStyleSheet('QProgressBar {border:0px; background-color: transparent;}'
+                                            'QProgressBar::chunk {background-color: rgba(30,160,200,64);}')
+        self.progress_bar_wdg.setMaximum(info_dict['total_count'])
+        self.progress_bar_wdg.setValue(progress + 1)
+        self.progress_bar_wdg.setFormat(u'%v / %m {status_text}'.format(**info_dict))
+
+    def is_download_finished(self):
+        return self.is_downloaded
+
+    def set_download_finished(self):
+        self.progress_bar_wdg.setStyleSheet('QProgressBar {border:0px; background-color: transparent;}'
+                                            'QProgressBar::chunk {background-color: rgba(30,160,30,128);}')
+        self.progress_bar_wdg.setFormat('Download Finished')
+        self.is_downloaded = True
+
+    def set_download_ufinished(self):
+        self.progress_bar_wdg.setStyleSheet('QProgressBar {border:0px; background-color: transparent;}'
+                                            'QProgressBar::chunk {background-color: rgba(30,160,200,64);}')
+        self.is_downloaded = False
+
+    def set_download_already_exists(self):
+        self.progress_bar_wdg.setStyleSheet('QProgressBar {border:0px; background-color: transparent;}'
+                                            'QProgressBar::chunk {background-color: rgba(30,60,120,128);}')
+        self.progress_bar_wdg.setFormat('File Already In Repo')
+        self.is_downloaded = True
+
+    def set_download_failed(self):
+        self.progress_bar_wdg.setStyleSheet('QProgressBar {border:0px; background-color: transparent;}'
+                                            'QProgressBar::chunk {background-color: rgba(200,20,10,64);}')
+        self.progress_bar_wdg.setFormat('Download Failed')
+        self.is_downloaded = False
+
+    def download_done(self):
+
+        self.set_download_finished()
+
+        self.is_downloaded = True
+        self.downloaded.emit(self.file_object)
+
+    def download_progress(self, progress, info_dict=None):
+        self.set_progress_indicator_on()
+        self.set_progress_status(progress, info_dict)
+
+    def download_def(self):
+
+        def download_file_agent():
+            # print '5.1 Begin downloading'
+            info_dict = {
+                'status_text': 'Downloading File',
+                'total_count': 2
+            }
+            download_file_worker.emit_progress(0, info_dict)
+
+            self.file_object.download_file()
+            download_file_worker.emit_progress(1, info_dict)
+
+        # print '4 Getting thread pool'
+        # print env_inst.get_thread_pool('server_query/http_download_pool')
+        download_file_worker = gf.get_thread_worker(
+            download_file_agent,
+            env_inst.get_thread_pool('server_query/http_download_pool'),
+            finished_func=self.download_done,
+            progress_func=self.download_progress,
+            error_func=gf.error_handle,
+        )
+        # print '5 Starting worker'
+        # stypes_items_worker.setAutoDelete(True)
+        download_file_worker.start()
+
+    def set_network_manager(self, network_manager):
+        self.network_manager = network_manager
+
+    def file_already_in_repo(self):
+
+        if os.path.exists(self.file_object.get_full_abs_path()):
+            if self.file_object.get_file_size() == self.file_object.get_file_size(True):
+                return True
+
+    def download(self):
+        if not self.file_already_in_repo():
+            url = QtCore.QUrl(self.file_object.get_full_web_path())
+            request = QtNetwork.QNetworkRequest(url)
+            # print url.toString()
+            # print request
+            request.setAttribute(QtNetwork.QNetworkRequest.User, self.file_object)
+            request.setAttribute(QtNetwork.QNetworkRequest.HttpPipeliningAllowedAttribute, True)
+
+            # print request.attribute()
+
+            # print self.file_object.get_unique_id()
+            info_dict = {
+                'status_text': 'Downloading File',
+                'total_count': 4
+            }
+            self.download_progress(0, info_dict)
+
+            self.network_manager.get(request)
+            self.download_progress(1, info_dict)
+        else:
+            info_dict = {
+                'status_text': 'Downloading File',
+                'total_count': 2
+            }
+            self.download_progress(0, info_dict)
+            self.download_progress(1, info_dict)
+            self.set_download_already_exists()
+            self.downloaded.emit(self.file_object)
+
+    def closeEvent(self, event):
+        self.deleteLater()
+        event.accept()
+
+
 class Ui_itemWidget(QtGui.QWidget, ui_item.Ui_item):
     def __init__(self, sobject, stype, info, ignore_dict, parent=None):
         super(self.__class__, self).__init__(parent=parent)
@@ -328,16 +513,17 @@ class Ui_itemWidget(QtGui.QWidget, ui_item.Ui_item):
         self.setupUi(self)
         self.closed = False
         self.created = False
+        self.overlay_layout_widget = None
         self.type = 'sobject'
         self.sobject = sobject
         self.stype = stype
+
         self.info = info
         self.tree_item = None
         self.sep_versions = self.info['sep_versions']
         self.process_items = []
-        self.root_snapshot_items = []
-        self.process_snapshot_items = []
         self.child_items = []
+        self.snapshots_items = []
         self.search_widget = None
 
         self.project = self.stype.get_project()
@@ -346,18 +532,55 @@ class Ui_itemWidget(QtGui.QWidget, ui_item.Ui_item):
 
         self.expand_state = False
         self.selected_state = False
-        self.children_states = None
         self.have_watch_folder = False
         self.watch_folder_path = None
 
-        self.controls_actions()
-
         self.parents_stypes = None
         self.children_stypes = None
-        self.check_for_children()
+
+        if self.stype.schema:
+            self.check_for_children()
+        # self.check_for_downloadable()
+
+        self.forced_creation()
+
+    def controls_actions(self):
+        self.tasksToolButton.clicked.connect(self.create_tasks_window)
+        self.relationsToolButton.clicked.connect(self.drop_down_children)
+        self.syncWithRepoToolButton.clicked.connect(self.create_sync_dialog)
+        self.notesToolButton.clicked.connect(self.show_notes_widget)
+
+    def create_simple_view_ui(self):
+
+        self.create_overlay_layout()
+
+        self.setMinimumWidth(260)
+
+        self.previewLabel.setText(u'<span style=" font-size:14pt; font-weight:600; color:#828282;">{0}</span>'.format(
+            gf.gen_acronym(self.get_title()))
+        )
+        self.itemColorLine.setStyleSheet('QFrame { border: 0px; background-color: %s;}' % self.stype.get_stype_color())
+
+        self.tasksToolButton.setHidden(True)
+        self.relationsToolButton.setHidden(True)
+        self.notesToolButton.setHidden(True)
+        self.watchFolderToolButton.setHidden(True)
+        self.syncWithRepoToolButton.setHidden(True)
+
+        self.create_item_info_widget()
+
+        if self.sobject:
+            self.fill_sobject_info()
+            self.fill_info_items()
+            if gf.get_value_from_config(cfg_controls.get_checkin(), 'getPreviewsThroughHttpCheckbox') == 1:
+                self.set_web_preview()
+            else:
+                self.set_preview()
 
     def create_ui(self):
         # self.drop_wdg = QtGui.QWidget(self)
+
+        self.create_overlay_layout()
 
         self.setMinimumWidth(260)
 
@@ -367,26 +590,78 @@ class Ui_itemWidget(QtGui.QWidget, ui_item.Ui_item):
         self.itemColorLine.setStyleSheet('QFrame { border: 0px; background-color: %s;}' % self.stype.get_stype_color())
 
         self.tasksToolButton.setIcon(gf.get_icon('tasks'))
-        self.relationsToolButton.setIcon(gf.get_icon('sitemap'))
+        self.relationsToolButton.setIcon(gf.get_icon('sitemap', icons_set='mdi'))
 
         self.notesToolButton.setIcon(gf.get_icon('commenting-o'))
 
         self.create_item_info_widget()
+        self.create_sync_with_repo_button()
         self.create_watch_folder_button()
 
         if self.sobject:
             self.fill_sobject_info()
             self.fill_info_items()
-            self.set_preview()
+            if gf.get_value_from_config(cfg_controls.get_checkin(), 'getPreviewsThroughHttpCheckbox') == 1:
+                self.set_web_preview()
+            else:
+                self.set_preview()
 
         self.check_watch_folder()
 
+        self.check_expand_state(self.get_children_states())
+
         self.controls_actions()
 
-    def controls_actions(self):
-        self.tasksToolButton.clicked.connect(lambda: self.create_tasks_window())
-        self.relationsToolButton.clicked.connect(self.drop_down_children)
-        self.notesToolButton.clicked.connect(self.show_notes_widget)
+    def create_overlay_layout(self):
+        # when use this, layout should have only one widget, use add_overlay_widget()
+
+        self.overlay_layout_widget = QtGui.QWidget(self)
+        sizePolicy = QtGui.QSizePolicy(QtGui.QSizePolicy.Preferred, QtGui.QSizePolicy.Preferred)
+        self.overlay_layout_widget.setSizePolicy(sizePolicy)
+
+        self.overlay_layout = QtGui.QVBoxLayout(self.overlay_layout_widget)
+        self.overlay_layout.setSpacing(0)
+        self.overlay_layout.setContentsMargins(0, 0, 0, 0)
+
+        self.overlay_layout_widget.setLayout(self.overlay_layout)
+        self.overlay_layout_widget.setHidden(True)
+
+    def show_overlay(self):
+        self.overlay_layout_widget.setHidden(False)
+        self.show()
+
+    def create_tasks_window(self):
+        try:
+            self.tasks_widget.show()
+        except:
+            self.tasks_widget = tasks_widget.Ui_tasksWidgetMain(self.sobject, self)
+            self.tasks_widget.show()
+
+    def create_watch_folder_button(self):
+        self.watchFolderToolButton.setIcon(gf.get_icon('eye-slash', color=Qt4Gui.QColor(160, 160, 160)))
+        self.watchFolderToolButton.toggled.connect(self.toggle_watch_folder_button)
+        self.watchFolderToolButton.clicked.connect(self.save_watch_status)
+
+    def create_sync_with_repo_button(self):
+        self.syncWithRepoToolButton.setIcon(gf.get_icon('cloud-sync', color=Qt4Gui.QColor(250, 250, 250), icons_set='mdi'))
+        # self.syncWithRepoToolButton.clicked.connect(self.save_watch_status)
+
+    def create_item_info_widget(self):
+        self.item_info_widget = Ui_infoItemsWidget(self)
+        self.infoHorizontalLayout.addWidget(self.item_info_widget)
+
+    def create_sync_dialog(self):
+        sync_dialog = Ui_repoSyncDialog(parent=env_inst.ui_main, stype=self.stype, sobject=self.sobject)
+        sync_dialog.exec_()
+
+    def add_overlay_widget(self, widget):
+        self.overlay_layout.addWidget(widget)
+
+    def get_overlay_layout(self):
+        return self.overlay_layout
+
+    def get_overlay_widget(self):
+        return self.overlay_layout.itemAt(0).widget()
 
     def get_type(self):
         return self.type
@@ -405,8 +680,11 @@ class Ui_itemWidget(QtGui.QWidget, ui_item.Ui_item):
         self.selected_state = state
         self.tree_item.setSelected(state)
 
+    def get_children_states(self):
+        return self.info.get('children_states')
+
     def set_children_states(self, states):
-        self.children_states = states
+        self.info['children_states'] = states
 
     def is_checked(self):
         return False
@@ -446,11 +724,6 @@ class Ui_itemWidget(QtGui.QWidget, ui_item.Ui_item):
             self.watchFolderToolButton.setChecked(False)
             self.watchFolderToolButton.setIcon(gf.get_icon('eye-slash', color=Qt4Gui.QColor(160, 160, 160)))
 
-    def create_watch_folder_button(self):
-        self.watchFolderToolButton.setIcon(gf.get_icon('eye-slash', color=Qt4Gui.QColor(160, 160, 160)))
-        self.watchFolderToolButton.toggled.connect(self.toggle_watch_folder_button)
-        self.watchFolderToolButton.clicked.connect(self.save_watch_status)
-
     def save_watch_status(self):
         if self.have_watch_folder:
             watch_folder_ui = env_inst.watch_folders.get(self.project.get_code())
@@ -461,7 +734,7 @@ class Ui_itemWidget(QtGui.QWidget, ui_item.Ui_item):
         else:
             self.watchFolderToolButton.setChecked(False)
             watch_folders_ui = env_inst.watch_folders.get(self.project.get_code())
-            watch_folders_ui.add_aseet_to_watch(self)
+            watch_folders_ui.add_asset_to_watch(self)
 
     def toggle_watch_folder_button(self, state):
         if state:
@@ -529,9 +802,16 @@ class Ui_itemWidget(QtGui.QWidget, ui_item.Ui_item):
         label.setAlignment(QtCore.Qt.AlignCenter)
         return label
 
-    def create_item_info_widget(self):
-        self.item_info_widget = Ui_infoItemsWidget(self)
-        self.infoHorizontalLayout.addWidget(self.item_info_widget)
+    @staticmethod
+    def get_item_info_html_label():
+        font = Qt4Gui.QFont()
+        font.setPointSize(7)
+        label = QtGui.QLabel()
+        label.setFont(font)
+        label.setOpenExternalLinks(True)
+        label.setTextFormat(QtCore.Qt.RichText)
+        label.setAlignment(QtCore.Qt.AlignCenter)
+        return label
 
     def fill_sobject_info(self):
 
@@ -560,20 +840,50 @@ class Ui_itemWidget(QtGui.QWidget, ui_item.Ui_item):
     def fill_info_items(self):
         table_columns = []
 
+        # may be it's slow to getting definition this way
+
+        color_definition = self.stype.get_definition('color', bs=True)
+
+        edit_definition = self.stype.get_definition('edit_definition', bs=True)
+
+        # TODO May be it should be special TACTIC-Handler definition if it is exists
         for i in self.stype.get_definition('table'):
             table_columns.append(i.get('name'))
 
         exclude_columns = ['__search_type__', '__search_key__', '__tasks_count__', '__notes_count__',
                            '__snapshots__', 'name', 'code', 'keywords', 'description', 'timestamp']
-
-        for i, j in self.sobject.get_info().items():
-            if j:
-                if i in table_columns and i not in exclude_columns:
+        for column, data in self.sobject.get_info().items():
+            if data:
+                if column in table_columns and column not in exclude_columns:
                     info_label = self.get_item_info_label()
-                    info_label.setText(unicode(j[0:30]))
-                    self.item_info_widget.add_item(info_label)
+                    name = None
 
-        # print(self.stype.info['definition'])
+                    # Getting color from db
+                    if color_definition.element:
+                        name = color_definition.element.get('name')
+                    if column == name:
+                        if color_definition.colors:
+                            for colors in color_definition.colors.find_all():
+                                if colors.get('name') == data:
+                                    info_label.setStyleSheet('color: {}'.format(gf.hex_to_rgb(colors.text)))
+
+                    # Getting edit definition from db, just to freely get labels
+                    if edit_definition.element:
+                        for element in edit_definition.edit_definition.find_all():
+                            if column == element.get('name'):
+                                if element.values and element.labels:
+                                    for val, label in zip(element.values.text.split('|'), element.labels.text.split('|')):
+                                        if val == data:
+                                            data = label
+                    if unicode(data).lower().startswith(('https://', 'http://', 'ftp://')):
+                        info_label = self.get_item_info_html_label()
+                        info_label.setPixmap(gf.get_icon('crosshairs', color=Qt4Gui.QColor(255, 255, 255)).pixmap(24, 24))
+                        info_label.setText(u'<p><a href="{1}" style="color:#66a3ff;text-decoration:none;">{0} Link</a></p>'.format(column.capitalize(), data))
+                    else:
+                        # at this time we don't need long text, as it will not fit to item
+                        data = unicode(data)[0:30]
+                        info_label.setText(data)
+                    self.item_info_widget.add_item(info_label)
 
     def set_preview(self):
 
@@ -586,81 +896,116 @@ class Ui_itemWidget(QtGui.QWidget, ui_item.Ui_item):
             if preview_files_objects:
                 icon_previw = preview_files_objects[0].get_icon_preview()
                 if icon_previw:
-                    previw_abs_path = icon_previw.get_full_abs_path()
-                    pixmap = Qt4Gui.QPixmap(previw_abs_path)
-                    if not pixmap.isNull():
-                        pixmap = pixmap.scaledToHeight(64, QtCore.Qt.SmoothTransformation)
+                    pixmap = self.get_preview_pixmap(icon_previw.get_full_abs_path())
+                    if pixmap:
+                        self.previewLabel.setPixmap(pixmap)
 
-                        painter = Qt4Gui.QPainter()
-                        pixmap_mask = Qt4Gui.QPixmap(64, 64)
-                        pixmap_mask.fill(QtCore.Qt.transparent)
-                        painter.begin(pixmap_mask)
-                        painter.setRenderHint(Qt4Gui.QPainter.Antialiasing)
-                        painter.setBrush(Qt4Gui.QBrush(Qt4Gui.QColor(0, 0, 0, 255)))
-                        painter.drawRoundedRect(QtCore.QRect(0, 0, 64, 64), 4, 4)
-                        painter.end()
+    def set_web_preview(self):
 
-                        rounded_pixmap = Qt4Gui.QPixmap(pixmap.size())
-                        rounded_pixmap.fill(QtCore.Qt.transparent)
-                        painter.begin(rounded_pixmap)
-                        painter.setRenderHint(Qt4Gui.QPainter.Antialiasing)
-                        painter.drawPixmap(QtCore.QRect((pixmap.width() - 64) / 2, 0, 64, 64), pixmap_mask)
-                        painter.setCompositionMode(Qt4Gui.QPainter.CompositionMode_SourceIn)
-                        painter.drawPixmap(0, 0, pixmap)
-                        painter.end()
+        snapshots = self.get_snapshot('icon')
+        if not snapshots:
+            snapshots = self.get_snapshot('publish')
 
-                        self.previewLabel.setPixmap(rounded_pixmap)
+        if snapshots:
+            preview_files_objects = snapshots.get_files_objects(group_by='type').get('icon')
+            if preview_files_objects:
+                icon_previw = preview_files_objects[0].get_icon_preview()
+                if icon_previw:
+                    if os.path.exists(icon_previw.get_full_abs_path()):
+                        # TODO This should be more complicated, and check hash not just size
+                        if icon_previw.get_file_size() == icon_previw.get_file_size(True):
+                            self.set_preview()
+                        else:
+                            self.download_and_set_preview_file(icon_previw)
+                    else:
+                        self.download_and_set_preview_file(icon_previw)
 
-    def get_title(self):
-        title = u'No Title'
-        if self.sobject.info.get('name'):
-            title = self.sobject.info.get('name')
-        elif self.sobject.info.get('title'):
-            title = self.sobject.info.get('title')
-        elif self.sobject.info.get('code'):
-            title = self.sobject.info.get('code')
+    def download_and_set_preview_file(self, file_object):
+        repo_sync_item = env_inst.ui_repo_sync_queue.download_file_object(file_object)
+        repo_sync_item.downloaded.connect(self.set_preview_pixmap)
+        repo_sync_item.download()
 
-        return title
+    def set_preview_pixmap(self, file_object):
+        pixmap = self.get_preview_pixmap(file_object.get_full_abs_path())
+        if pixmap:
+            self.previewLabel.setPixmap(pixmap)
 
-    def get_all_versions_snapshots(self, process='publish'):
-        process = self.sobject.process.get(process)
-        if process:
-            context = process.contexts.get(process)
-            if context:
-                return context.versions
-            else:
-                context = process.contexts.values()[0]
-                return context.versions
+    def get_preview_pixmap(self, image_path):
+        pixmap = Qt4Gui.QPixmap(image_path)
+        if not pixmap.isNull():
+            pixmap = pixmap.scaledToHeight(64, QtCore.Qt.SmoothTransformation)
 
-    def get_snapshots(self, process='publish'):
+            painter = Qt4Gui.QPainter()
+            pixmap_mask = Qt4Gui.QPixmap(64, 64)
+            pixmap_mask.fill(QtCore.Qt.transparent)
+            painter.begin(pixmap_mask)
+            painter.setRenderHint(Qt4Gui.QPainter.Antialiasing)
+            painter.setBrush(Qt4Gui.QBrush(Qt4Gui.QColor(0, 0, 0, 255)))
+            painter.drawRoundedRect(QtCore.QRect(0, 0, 64, 64), 4, 4)
+            painter.end()
 
-        snapshot_process = self.sobject.process.get(process)
+            rounded_pixmap = Qt4Gui.QPixmap(pixmap.size())
+            rounded_pixmap.fill(QtCore.Qt.transparent)
+            painter.begin(rounded_pixmap)
+            painter.setRenderHint(Qt4Gui.QPainter.Antialiasing)
+            painter.drawPixmap(QtCore.QRect((pixmap.width() - 64) / 2, 0, 64, 64), pixmap_mask)
+            painter.setCompositionMode(Qt4Gui.QPainter.CompositionMode_SourceIn)
+            painter.drawPixmap(0, 0, pixmap)
+            painter.end()
 
-        if snapshot_process:
-            context = snapshot_process.contexts.get(process)
-
-            if not context:
-                context = snapshot_process.contexts.values()[0]
-            if context.versionless:
-                return context.versionless
-            else:
-                return context.versions
-
-    def get_all_snapshots(self):
-        return self.sobject.process
-
-    def get_snapshot(self, process='publish'):
-
-        snapshot_process = self.sobject.process.get(process)
-        if snapshot_process:
-            context = snapshot_process.contexts.values()[0]
-            if context.versionless:
-                return context.versionless.values()[0]
-            else:
-                return context.versions.values()[0]
+            return rounded_pixmap
 
     def drop_down_children(self):
         self.relationsToolButton.showMenu()
+
+    def check_expand_state(self, state=None):
+
+        if state:
+            if state.get('d'):
+                expanded = state['d']['e']
+                selected = state['d']['s']
+
+                if expanded:
+                    self.set_expand_state(expanded)
+                if selected:
+                    self.set_selected_state(selected)
+
+                # state for current item was applied and then replaced with children states
+                self.set_children_states(state['s'])
+
+    def collapse_self(self):
+        parent = self.get_parent_item()
+        return parent.takeChild(self.get_row())
+
+    @gf.catch_error
+    def expand_recursive(self):
+        gf.tree_recursive_expand(self.tree_item, True)
+
+    @gf.catch_error
+    def collapse_recursive(self):
+        gf.tree_recursive_expand(self.tree_item, False)
+
+    def collapse_tree_item(self):
+        pass
+
+    @gf.catch_error
+    def expand_tree_item(self):
+        if not self.info['is_expanded']:
+            self.info['is_expanded'] = True
+
+            self.fill_child_items()
+            self.fill_process_items()
+
+            self.query_snapshots()
+
+        self.get_notes_count()
+
+    def collapse_all_children(self):
+        return self.tree_item.takeChildren()
+
+    def check_sub_items_expand_state(self, state=None):
+        if state:
+            gf.tree_state_revert(self.tree_item, state)
 
     def check_for_children(self):
         if self.stype.schema.parents:
@@ -693,57 +1038,6 @@ class Ui_itemWidget(QtGui.QWidget, ui_item.Ui_item):
 
         if not (self.stype.schema.children or self.stype.schema.parents):
             self.relationsToolButton.hide()
-
-    def create_tasks_window(self):
-        try:
-            self.tasks_widget.show()
-        except:
-            self.tasks_widget = tasks_widget.Ui_tasksWidgetMain(self.sobject, self)
-            self.tasks_widget.show()
-
-    def get_current_results_widget(self):
-        current_tree = self.search_widget.get_current_results_tree_widget()
-        return current_tree
-
-    def get_index(self):
-        current_tree = self.get_current_results_widget()
-        return current_tree.indexFromItem(self.tree_item)
-
-    def get_parent_index(self):
-        current_tree = self.get_current_results_widget()
-        return current_tree.indexFromItem(self.tree_item.parent())
-
-    def get_parent_item(self):
-        return self.tree_item.parent()
-
-    def get_parent_item_widget(self):
-        current_tree = self.get_current_results_widget()
-        parent_item_widget = current_tree.itemWidget(self.tree_item.parent(), 0)
-        return parent_item_widget
-
-    def collapse_self(self):
-        parent = self.get_parent_item()
-        return parent.takeChild(self.get_index().row())
-
-    def collapse_all_children(self):
-        return self.tree_item.takeChildren()
-
-    def update_items(self):
-        self.sobject.update_snapshots()
-
-        self.collapse_all_children()
-
-        self.child_items = []
-        self.process_items = []
-        self.root_snapshot_items = []
-        self.process_snapshot_items = []
-
-        self.fill_child_items()
-        self.fill_process_items()
-        self.fill_snapshots_items(publish=True)
-        self.fill_snapshots_items()
-
-        self.get_notes_count()
 
     def get_context(self, process=False, custom=None):
         if process:
@@ -798,20 +1092,57 @@ class Ui_itemWidget(QtGui.QWidget, ui_item.Ui_item):
         self.sobject.info['description'] = new_description
         self.commentLabel.setText(new_description)
 
+    def query_snapshots(self):
+
+        order_bys = ['timestamp desc']
+
+        env_inst.ui_main.set_info_status_text('<span style=" font-size:8pt; color:#00ff00;">Getting snapshots</span>')
+
+        def update_snapshots_agent():
+            return self.sobject.update_snapshots(order_bys=order_bys)
+
+        env_inst.set_thread_pool(None, 'server_query/server_thread_pool')
+
+        query_worker = gf.get_thread_worker(
+            update_snapshots_agent,
+            thread_pool=env_inst.get_thread_pool('server_query/server_thread_pool'),
+            finished_func=self.fill_snapshots_items,
+            error_func=gf.error_handle
+        )
+        query_worker.start()
+
+    def check_for_child_recursion(self):
+        """
+        This function checks for the recursively added relations,
+        for example asset > texture_in_asset > asset_in_texture > asset.
+        Currently it is implemeted through items relations and should be rewritten on the SObject level.
+        """
+        parent_item = self.get_parent_item_widget()
+        if parent_item:
+            if parent_item.type == 'child':
+                child_item_parent = parent_item.get_parent_item_widget()
+                if child_item_parent:
+                    if not self.ignore_dict:
+                        self.ignore_dict = {}
+                    self.ignore_dict.setdefault('children', []).append(child_item_parent.stype.info['code'])
+
     def fill_child_items(self):
+        # checking for unnecessary recursion
+        self.check_for_child_recursion()
 
         # adding child items
-        # child_items = []
         if self.children_stypes:
             for child in self.children_stypes:
                 child_stype = self.project.stypes.get(child.get('from'))
+                relationship_type = child.get('type')
                 if child_stype:
                     ignored = False
                     if self.ignore_dict:
-                        if child_stype.info['code'] in self.ignore_dict['children']:
-                            ignored = True
+                        if self.ignore_dict.get('children'):
+                            if child_stype.info['code'] in self.ignore_dict['children']:
+                                ignored = True
 
-                    if not ignored:
+                    if not ignored and relationship_type not in ['many_to_many']:
                         self.child_items.append(gf.add_child_item(
                             self.tree_item,
                             self.search_widget,
@@ -820,19 +1151,20 @@ class Ui_itemWidget(QtGui.QWidget, ui_item.Ui_item):
                             child,
                             self.info
                         ))
-        # self.child_items = child_items
 
     def fill_process_items(self):
+
         # getting all possible processes here
         processes = []
         pipeline_code = self.sobject.info.get('pipeline_code')
+        curent_pipeline = None
         if pipeline_code and self.stype.pipeline:
-            processes = self.stype.pipeline.get(pipeline_code)
-            if processes:
-                processes = processes.process.keys()
+            curent_pipeline = self.stype.pipeline.get(pipeline_code)
+            if curent_pipeline:
+                processes = curent_pipeline.process.keys()
 
         if self.ignore_dict:
-            if self.ignore_dict['show_builtins']:
+            if self.ignore_dict.get('show_builtins'):
                 show_all = True
                 for builtin in ['icon', 'attachment', 'publish']:
                     if builtin not in self.ignore_dict['builtins']:
@@ -842,10 +1174,19 @@ class Ui_itemWidget(QtGui.QWidget, ui_item.Ui_item):
                     processes.extend(['icon', 'attachment', 'publish'])
 
         for process in processes:
+            process_info = curent_pipeline.get_process_info(process)
+
             ignored = False
+
+            # Ignoring PROGRESS, ACTION, CONDITION processes
+            # TODO Special case for progress, we should fetch completeness of progress node as in tactic.
+            if process_info.get('type') in ['action', 'condition', 'dependency', 'progress']:
+                ignored = True
+
             if self.ignore_dict:
-                if process in self.ignore_dict['processes'].get(pipeline_code):
-                    ignored = True
+                if self.ignore_dict.get('processes'):
+                    if process in self.ignore_dict['processes'].get(pipeline_code):
+                        ignored = True
             if not ignored:
                 process_item = gf.add_process_item(
                     self.tree_item,
@@ -865,85 +1206,75 @@ class Ui_itemWidget(QtGui.QWidget, ui_item.Ui_item):
         #     # this loads root 'publish' items on expand !my favorite duct tape!
         #     self.tree_item.setChildIndicatorPolicy(QtGui.QTreeWidgetItem.ShowIndicator)
 
-    def query_snapshots(self):
-
-        order_bys = ['timestamp desc']
-
-        env_inst.ui_main.set_info_status_text('<span style=" font-size:8pt; color:#00ff00;">Getting snapshots</span>')
-
-        def update_snapshots_agent():
-            return self.sobject.update_snapshots(order_bys=order_bys)
-
-        server_thread_pool = QtCore.QThreadPool()
-        server_thread_pool.setMaxThreadCount(env_tactic.max_threads())
-        env_inst.set_thread_pool(server_thread_pool, 'server_query/server_thread_pool')
-
-        query_worker = gf.get_thread_worker(
-            update_snapshots_agent,
-            thread_pool=env_inst.get_thread_pool('server_query/server_thread_pool'),
-            finished_func=self.fill_snapshots_items,
-            error_func=gf.error_handle
-        )
-        query_worker.start()
-
-    def fill_snapshots_items(self, publish=False):
-        # print self.children_states, 'CHILDREN STATES, fill_snapshots_items'
-
-        # current_widget = self.get_current_widget()
-        # current_tree_widget = current_widget.resultsTreeWidget
-        # print current_tree_widget
-        # tree_widget = self.resultsTreeWidget.itemWidget(tree_item, 0)
-        # tree_widget = self.get_current_results_widget()
-
-        # TODO Show All Process
-        # process = []
-        # if self.searchOptionsGroupBox.showAllProcessCheckBox.isChecked():
-        #     process = self.process
-        # else:
-        #     for p in tree_widget.sobject.process.iterkeys():
-        #         process.append(p)
-
-        # if self.type == 'sobject' and not self.info['is_expanded']:
-        #     self.info['is_expanded'] = True
-
-        # import time
-        # start = time.time()
-
+    def fill_snapshots_items(self):
         env_inst.ui_main.set_info_status_text('<span style=" font-size:8pt; color:#00ff00;">Filling snapshots</span>')
 
-        # adding snapshots per process
-        if not publish:
-            for proc in self.process_items:
-                # QtGui.QApplication.processEvents()
-                if proc.process_items:
-                    # may be buggy...
-                    proc.info['is_expanded'] = True
-                    proc.fill_snapshots_items()
+        # adding snapshots to publish
+        for key, val in self.sobject.process.iteritems():
+            if key == 'publish':
+                self.snapshots_items.append(gf.add_snapshot_item(
+                        self.tree_item,
+                        self.search_widget,
+                        self.sobject,
+                        self.stype,
+                        'publish',
+                        None,
+                        val,
+                        self.info,
+                        self.sep_versions,
+                        True,
+                    ))
 
-                for key, val in self.sobject.process.iteritems():
-                    # because it is dict, items could be in any position
-                    if key == proc.process:
-                        self.process_snapshot_items.append(proc.add_snapshots_items(val))
-        else:
-            # adding snapshots to publish
+        # adding snapshots per process
+        for proc in self.process_items:
+            if proc.process_items:
+                # may be buggy...
+                proc.info['is_expanded'] = True
+                proc.fill_snapshots_items()
+
             for key, val in self.sobject.process.iteritems():
-                # QtGui.QApplication.processEvents()
-                if key == 'publish':
-                    self.root_snapshot_items.append(gf.add_snapshot_item(
-                            self.tree_item,
-                            self.search_widget,
-                            self.sobject,
-                            self.stype,
-                            'publish',
-                            None,
-                            val,
-                            self.info,
-                            self.sep_versions,
-                            True,
-                        ))
+                # because it is dict, items could be in any position
+                if key == proc.process:
+                    proc.snapshots_items.append(proc.add_snapshots_items(val))
 
         # print time.time() - start
+
+        self.check_sub_items_expand_state(self.get_children_states())
+
         env_inst.ui_main.set_info_status_text('')
+
+    def get_current_results_widget(self):
+        current_tree = self.search_widget.get_current_results_tree_widget()
+        return current_tree
+
+    def get_depth(self):
+        idx = 0
+        item = self.tree_item
+
+        while item.parent():
+            item = item.parent()
+            idx += 1
+
+        return idx
+
+    def get_row(self):
+        return self.get_index().row()
+
+    def get_index(self):
+        current_tree = self.get_current_results_widget()
+        return current_tree.indexFromItem(self.tree_item)
+
+    def get_parent_index(self):
+        current_tree = self.get_current_results_widget()
+        return current_tree.indexFromItem(self.tree_item.parent())
+
+    def get_parent_item(self):
+        return self.tree_item.parent()
+
+    def get_parent_item_widget(self):
+        current_tree = self.get_current_results_widget()
+        parent_item_widget = current_tree.itemWidget(self.tree_item.parent(), 0)
+        return parent_item_widget
 
     def get_full_process_list(self):
         pipeline = self.get_current_process_pipeline()
@@ -955,7 +1286,6 @@ class Ui_itemWidget(QtGui.QWidget, ui_item.Ui_item):
         # for process_widget in self.process_items:
         #     process.append(process_widget.process)
         # return process
-
         if self.stype.pipeline:
             builtins = ['icon', 'attachment', 'publish']
             current_pipeline = self.stype.pipeline.get(self.sobject.get_pipeline_code())
@@ -995,7 +1325,7 @@ class Ui_itemWidget(QtGui.QWidget, ui_item.Ui_item):
     @gf.catch_error
     def get_notes_count(self):
 
-        @gf.catch_error
+        #@gf.catch_error
         def notes_fill(result):
             if not self.closed:
                 notes_counts = result['notes']
@@ -1018,9 +1348,7 @@ class Ui_itemWidget(QtGui.QWidget, ui_item.Ui_item):
                 process=self.get_process_list(),
                 children_stypes=self.get_children_list()
             )
-        server_thread_pool = QtCore.QThreadPool()
-        server_thread_pool.setMaxThreadCount(env_tactic.max_threads())
-        env_inst.set_thread_pool(server_thread_pool, 'server_query/server_thread_pool')
+        env_inst.set_thread_pool(None, 'server_query/server_thread_pool')
 
         notes_counts_query_worker = gf.get_thread_worker(
             get_notes_counts_agent,
@@ -1030,28 +1358,17 @@ class Ui_itemWidget(QtGui.QWidget, ui_item.Ui_item):
         )
         notes_counts_query_worker.start()
 
-    @gf.catch_error
-    def expand_tree_item(self):
-        if not self.info['is_expanded']:
-            self.info['is_expanded'] = True
+    def get_relationship(self):
+        parent_item_widget = self.get_parent_item_widget()
+        if parent_item_widget:
+            if parent_item_widget.type == 'child':
+                return parent_item_widget.get_relationship()
 
-            self.fill_child_items()
-            self.fill_process_items()
-            self.fill_snapshots_items(publish=True)
-            self.query_snapshots()
-
-        self.get_notes_count()
-
-    @gf.catch_error
-    def expand_recursive(self):
-        gf.tree_recursive_expand(self.tree_item, True)
-
-    @gf.catch_error
-    def collapse_recursive(self):
-        gf.tree_recursive_expand(self.tree_item, False)
-
-    def collapse_tree_item(self):
-        pass
+    def get_schema(self):
+        parent_item_widget = self.get_parent_item_widget()
+        if parent_item_widget:
+            if parent_item_widget.type == 'child':
+                return parent_item_widget.child
 
     def get_search_key(self):
         return self.sobject.get_search_key()
@@ -1069,20 +1386,94 @@ class Ui_itemWidget(QtGui.QWidget, ui_item.Ui_item):
         if parent_item:
             return parent_item.get_sobject()
 
-    def delete_current_sobject(self):
+    def get_title(self):
+        title = u'No Title'
+        if self.sobject.info.get('name'):
+            title = self.sobject.info.get('name')
+        elif self.sobject.info.get('title'):
+            title = self.sobject.info.get('title')
+        elif self.sobject.info.get('code'):
+            title = self.sobject.info.get('code')
 
+        return title
+
+    def get_all_versions_snapshots(self, process='publish'):
+        process = self.sobject.process.get(process)
+        if process:
+            context = process.contexts.get(process)
+            if context:
+                return context.versions
+            else:
+                context = process.contexts.values()[0]
+                return context.versions
+
+    def get_snapshots(self, process='publish'):
+
+        snapshot_process = self.sobject.process.get(process)
+
+        if snapshot_process:
+            context = snapshot_process.contexts.get(process)
+
+            if not context:
+                context = snapshot_process.contexts.values()[0]
+            if context.versionless:
+                return context.versionless
+            else:
+                return context.versions
+
+    def get_all_snapshots(self):
+        return self.sobject.process
+
+    def get_snapshot(self, process='publish'):
+
+        snapshot_process = self.sobject.process.get(process)
+        if snapshot_process:
+            context = snapshot_process.contexts.values()[0]
+            if context.versionless:
+                return context.versionless.values()[0]
+            else:
+                return context.versions.values()[0]
+
+    def unlink_current_sobject(self):
         sobject = self.get_sobject()
-        # print 'DELETING', sobject
-        sobject.delete_sobject()
+        parent_sobject = self.get_parent_sobject()
+        child = self.get_schema()
+
+        tc.edit_multiple_instance_sobjects(
+            self.project.get_code(),
+            exclude_search_keys=[sobject.get_search_key()],
+            parent_key=parent_sobject.get_search_key(),
+            instance_type=child.get('instance_type')
+        )
+
+    def delete_current_sobject(self):
+        # DISABLED TILL READY
+        print 'Deleting of Sobjects Disabled.'
+        # sobject = self.get_sobject()
+
+        # sobject.delete_sobject()
 
     def delete_current_snapshot_sobject(self):
 
         print 'DELETING SNAPSHOT', self.get_sobject()
 
+    def forced_creation(self):
+        if self.info.get('forced_creation'):
+
+            if not self.created:
+                self.created = True
+                if self.info['simple_view']:
+                    self.create_simple_view_ui()
+                else:
+                    self.create_ui()
+
     def showEvent(self, event):
         if not self.created:
             self.created = True
-            self.create_ui()
+            if self.info['simple_view']:
+                self.create_simple_view_ui()
+            else:
+                self.create_ui()
         event.accept()
 
     def closeEvent(self, event):
@@ -1093,15 +1484,20 @@ class Ui_itemWidget(QtGui.QWidget, ui_item.Ui_item):
         self.deleteLater()
         event.accept()
 
+    def resizeEvent(self, event):
+        if self.overlay_layout_widget:
+            self.overlay_layout_widget.resize(self.size())
+        event.accept()
+
     def mouseDoubleClickEvent(self, event):
         do_dbl_click = None
-        if self.relates_to == 'checkin':
+        if self.relates_to == 'checkin_out':
             do_dbl_click = gf.get_value_from_config(cfg_controls.get_checkin(), 'doubleClickSaveCheckBox')
 
         if not do_dbl_click:
             super(Ui_itemWidget, self).mouseDoubleClickEvent(event)
         else:
-            if self.relates_to == 'checkin':
+            if self.relates_to == 'checkin_out':
                 self.search_widget.save_file()
 
 
@@ -1122,111 +1518,17 @@ class Ui_processItemWidget(QtGui.QWidget, ui_item_process.Ui_processItem):
         self.sep_versions = self.info['sep_versions']
         self.process_info = self.get_current_process_info()
         self.workflow = self.stype.project.workflow
-        self.snapshot_items = []
         self.process_items = []
-        self.process_snapshot_items = []
+        self.snapshots_items = []
         # print(tree_item.text(0))
         # self.item_info = {}
 
         self.expand_state = False
         self.selected_state = False
-        self.children_states = None
         self.have_watch_folder = False
 
         self.search_widget = None
         self.relates_to = 'checkin_out'
-
-        # self.item_info[
-        #     'description'] = 'This is {0} process item, there is no description, better click on Notes button'.format(
-        #     self.process)
-
-        # self.controls_actions()
-
-        # self.create_ui()
-
-    def get_type(self):
-        return self.type
-
-    def get_expand_state(self):
-        return self.expand_state
-
-    def set_expand_state(self, state):
-        self.expand_state = state
-        self.tree_item.setExpanded(state)
-
-    def get_selected_state(self):
-        return self.selected_state
-
-    def set_selected_state(self, state):
-        self.selected_state = state
-        self.tree_item.setSelected(state)
-
-    def set_children_states(self, states):
-        self.children_states = states
-
-    @gf.catch_error
-    def get_notes_count(self):
-
-        @gf.catch_error
-        def notes_fill(result):
-            if not self.closed:
-                notes_counts = result['notes']
-                process_items_dict = {item.process: item for item in self.process_items}
-                for key, val in notes_counts.iteritems():
-                    process_item = process_items_dict.get(key)
-                    if process_item:
-                        process_item.set_notes_count(val)
-
-        def get_notes_counts_agent():
-            return tc.get_notes_count(
-                sobject=self.sobject,
-                process=self.get_process_list(),
-                children_stypes=[]
-            )
-
-        server_thread_pool = QtCore.QThreadPool()
-        server_thread_pool.setMaxThreadCount(env_tactic.max_threads())
-        env_inst.set_thread_pool(server_thread_pool, 'server_query/server_thread_pool')
-
-        notes_counts_query_worker = gf.get_thread_worker(
-            get_notes_counts_agent,
-            thread_pool=env_inst.get_thread_pool('server_query/server_thread_pool'),
-            result_func=notes_fill,
-            error_func=gf.error_handle
-        )
-        notes_counts_query_worker.start()
-
-    def get_full_process_list(self):
-        pipeline = self.get_current_process_pipeline()
-        if pipeline:
-            return pipeline.process
-
-    def get_process_list(self):
-        process = []
-        for process_widget in self.process_items:
-            process.append(process_widget.process)
-        return process
-
-    def get_snapshot(self):
-        return None
-
-    def get_current_process_info(self):
-        pipeline = self.get_current_process_pipeline()
-        process_info = None
-        if pipeline:
-            process_info = pipeline.process.get(self.process)
-
-        return process_info
-
-    def get_current_process_pipeline(self):
-        # pipeline_code = self.sobject.info.get('pipeline_code')
-        # pipeline = self.stype.pipeline.get(pipeline_code)
-        if self.pipeline:
-            return self.pipeline
-        else:
-            pipeline_code = self.sobject.info.get('pipeline_code')
-            pipeline = self.stype.pipeline.get(pipeline_code)
-            return pipeline
 
     def controls_actions(self):
         self.notesToolButton.clicked.connect(lambda: self.show_notes_widget())
@@ -1260,6 +1562,112 @@ class Ui_processItemWidget(QtGui.QWidget, ui_item_process.Ui_processItem):
         self.notesToolButton.setIcon(gf.get_icon('commenting-o'))
 
         self.controls_actions()
+
+    def get_type(self):
+        return self.type
+
+    def get_expand_state(self):
+        return self.expand_state
+
+    def set_expand_state(self, state):
+        self.expand_state = state
+        self.tree_item.setExpanded(state)
+
+    def get_selected_state(self):
+        return self.selected_state
+
+    def set_selected_state(self, state):
+        self.selected_state = state
+        self.tree_item.setSelected(state)
+
+    def get_children_states(self):
+        return self.info.get('children_states')
+
+    def set_children_states(self, states):
+        self.info['children_states'] = states
+
+    # def check_expand_state(self, state=None):
+    #     # if not state:
+    #     #     state = self.get_children_states()
+    #
+    #     if state:
+    #         from pprint import pprint
+    #         pprint(state)
+    #         # expanded = state[self.get_row()]['d']['e']
+    #         # selected = state[self.get_row()]['d']['s']
+    #         #
+    #         # self.set_expand_state(expanded)
+    #         # self.set_selected_state(selected)
+    #         #
+    #         # for i in range(self.get_depth()):
+    #         #     state = state[self.get_row()]['s']
+    #         #
+    #         # self.set_children_states(state)
+
+    @gf.catch_error
+    def get_notes_count(self):
+
+        #@gf.catch_error
+        def notes_fill(result):
+            if not self.closed:
+                notes_counts = result['notes']
+                process_items_dict = {item.process: item for item in self.process_items}
+                for key, val in notes_counts.iteritems():
+                    process_item = process_items_dict.get(key)
+                    if process_item:
+                        process_item.set_notes_count(val)
+
+        def get_notes_counts_agent():
+            return tc.get_notes_count(
+                sobject=self.sobject,
+                process=self.get_process_list(),
+                children_stypes=[]
+            )
+
+        env_inst.set_thread_pool(None, 'server_query/server_thread_pool')
+
+        notes_counts_query_worker = gf.get_thread_worker(
+            get_notes_counts_agent,
+            thread_pool=env_inst.get_thread_pool('server_query/server_thread_pool'),
+            result_func=notes_fill,
+            error_func=gf.error_handle
+        )
+        notes_counts_query_worker.start()
+
+    def get_full_process_list(self):
+        pipeline = self.get_current_process_pipeline()
+        if pipeline:
+            return pipeline.process
+
+    def get_process_list(self):
+        process = []
+        for process_widget in self.process_items:
+            process.append(process_widget.process)
+        return process
+
+    def get_snapshot(self):
+        return None
+
+    def get_current_process(self):
+        return self.sobject.get_process(self.process)
+
+    def get_current_process_info(self):
+        pipeline = self.get_current_process_pipeline()
+        process_info = None
+        if pipeline:
+            process_info = pipeline.process.get(self.process)
+
+        return process_info
+
+    def get_current_process_pipeline(self):
+        # pipeline_code = self.sobject.info.get('pipeline_code')
+        # pipeline = self.stype.pipeline.get(pipeline_code)
+        if self.pipeline:
+            return self.pipeline
+        else:
+            pipeline_code = self.sobject.info.get('pipeline_code')
+            pipeline = self.stype.pipeline.get(pipeline_code)
+            return pipeline
 
     def set_drop_indicator_on(self):
         if self.drop_wdg.isHidden():
@@ -1301,6 +1709,19 @@ class Ui_processItemWidget(QtGui.QWidget, ui_item_process.Ui_processItem):
 
     def get_current_progress_bar(self):
         return self.search_widget.get_progress_bar()
+
+    def get_depth(self):
+        idx = 0
+        item = self.tree_item
+
+        while item.parent():
+            item = item.parent()
+            idx += 1
+
+        return idx
+
+    def get_row(self):
+        return self.get_index().row()
 
     def get_index(self):
         current_tree = self.get_current_results_widget()
@@ -1385,14 +1806,15 @@ class Ui_processItemWidget(QtGui.QWidget, ui_item_process.Ui_processItem):
             for key, val in self.sobject.process.iteritems():
                 # because it is dict, items could be in any position
                 if key == proc.process:
-                    self.process_snapshot_items.append(proc.add_snapshots_items(val))
+                    proc.add_snapshots_items(val)
 
         # progress_bar.setVisible(False)
 
         # print time.time() - start
 
     def add_snapshots_items(self, snapshots):
-        snapshot_items = gf.add_snapshot_item(
+
+        return gf.add_snapshot_item(
             self.tree_item,
             self.search_widget,
             self.sobject,
@@ -1404,27 +1826,25 @@ class Ui_processItemWidget(QtGui.QWidget, ui_item_process.Ui_processItem):
             self.sep_versions,
             False,
         )
-        if self.children_states:
-            gf.tree_state_revert(self.tree_item, self.children_states)
+        # if self.children_states:
+        #     gf.tree_state_revert(self.tree_item, self.children_states)
 
-        return snapshot_items
-
-    def update_items(self):
-        self.sobject.update_snapshots()
-        self.collapse_all_children()
-
-        gf.add_snapshot_item(
-            self.tree_item,
-            self.search_widget,
-            self.sobject,
-            self.stype,
-            self.process,
-            self.pipeline,
-            self.sobject.process.get(self.process),
-            self.info,
-            self.sep_versions,
-            False,
-        )
+    # def update_items(self):
+    #     self.sobject.update_snapshots()
+    #     self.collapse_all_children()
+    #
+    #     gf.add_snapshot_item(
+    #         self.tree_item,
+    #         self.search_widget,
+    #         self.sobject,
+    #         self.stype,
+    #         self.process,
+    #         self.pipeline,
+    #         self.sobject.process.get(self.process),
+    #         self.info,
+    #         self.sep_versions,
+    #         False,
+    #     )
 
     def prnt(self):
         # print(str(self.item_index))
@@ -1432,6 +1852,19 @@ class Ui_processItemWidget(QtGui.QWidget, ui_item_process.Ui_processItem):
         print(self.sobject.process)
         self.sobject.update_snapshots()
         print(self.sobject.process)
+
+    def get_snapshots(self, versionless=True):
+        process = self.get_current_process()
+        if process:
+            contexts = process.get_contexts()
+            snapshots = []
+            if contexts:
+                for context in contexts.values():
+                    if versionless:
+                        snapshots.append(context.get_versionless())
+                    else:
+                        snapshots.append(context.get_versions())
+                return snapshots
 
     def get_context(self, process=False, custom=None):
 
@@ -1497,8 +1930,8 @@ class Ui_processItemWidget(QtGui.QWidget, ui_item_process.Ui_processItem):
 
             self.fill_snapshots_items()
 
-        if self.process_items:
-            self.get_notes_count()
+        # if self.process_items:
+        self.get_notes_count()
 
     @gf.catch_error
     def expand_recursive(self):
@@ -1555,7 +1988,6 @@ class Ui_snapshotItemWidget(QtGui.QWidget, ui_item_snapshot.Ui_snapshotItem):
         self.tree_item = None
         self.expand_state = False
         self.selected_state = False
-        self.children_states = None
         self.multiple_checkin = False
         self.have_watch_folder = False
 
@@ -1592,6 +2024,9 @@ class Ui_snapshotItemWidget(QtGui.QWidget, ui_item_snapshot.Ui_snapshotItem):
         self.repoLabel.setTextFormat(QtCore.Qt.RichText)
 
         self.itemColorLine.setStyleSheet('QFrame { border: 0px; background-color: black;}')
+
+        # print 'Checkin expand state of SNAPSHOT Item from within'
+        # self.check_expand_state()
 
         if self.snapshot:
 
@@ -1682,18 +2117,21 @@ class Ui_snapshotItemWidget(QtGui.QWidget, ui_item_snapshot.Ui_snapshotItem):
 
     def fill_info_with_meta_file_object(self, meta_file_object, tactic_file_object):
         if not self.isEnabled():
-            self.fileNameLabel.setText('{0}, (File Missing)'.format(meta_file_object.get_pretty_file_name()))
+            self.fileNameLabel.setText('{0}, (File Offline)'.format(meta_file_object.get_pretty_file_name()))
         else:
             self.fileNameLabel.setText(meta_file_object.get_pretty_file_name())
 
         self.sizeLabel.setText(gf.sizes(tactic_file_object.get_file_size()))
 
-        if not self.set_preview():
-            file_ext = tactic_file_object.get_ext()
-            if not file_ext:
-                file_ext = 'err'
-            self.previewLabel.setText(
-                '<span style=" font-size:12pt; font-weight:600; color:#828282;">{0}</span>'.format(file_ext))
+        if gf.get_value_from_config(cfg_controls.get_checkin(), 'getPreviewsThroughHttpCheckbox') == 1:
+            self.set_web_preview(tactic_file_object)
+        else:
+            self.set_preview(tactic_file_object)
+            # file_ext = tactic_file_object.get_ext()
+            # if not file_ext:
+            #     file_ext = 'err'
+            # self.previewLabel.setText(
+            #     '<span style=" font-size:12pt; font-weight:600; color:#828282;">{0}</span>'.format(file_ext))
 
         # getting extra info from meta
         seq_range = meta_file_object.get_sequence_frameranges_string(brackets='[]')
@@ -1736,13 +2174,20 @@ class Ui_snapshotItemWidget(QtGui.QWidget, ui_item_snapshot.Ui_snapshotItem):
 
     def fill_info_with_tactic_file_object(self, tactic_file_object):
         if not self.isEnabled():
-            self.fileNameLabel.setText('{0}, (File Missing)'.format(tactic_file_object.get_filename_with_ext()))
+            self.fileNameLabel.setText('{0}, (File Offline)'.format(tactic_file_object.get_filename_with_ext()))
         else:
             self.fileNameLabel.setText(tactic_file_object.get_filename_with_ext())
 
         self.sizeLabel.setText(gf.sizes(tactic_file_object.get_file_size()))
 
-        if not self.set_preview():
+        if gf.get_value_from_config(cfg_controls.get_checkin(), 'getPreviewsThroughHttpCheckbox') == 1:
+            self.set_web_preview()
+        else:
+            self.set_preview()
+            # self.set_ext_preview()
+
+    def set_ext_preview(self, tactic_file_object=None):
+        if tactic_file_object:
             file_ext = tactic_file_object.get_ext()
             if not file_ext:
                 file_ext = 'err'
@@ -1785,8 +2230,27 @@ class Ui_snapshotItemWidget(QtGui.QWidget, ui_item_snapshot.Ui_snapshotItem):
         self.selected_state = state
         self.tree_item.setSelected(state)
 
+    def get_children_states(self):
+        return self.info.get('children_states')
+
     def set_children_states(self, states):
-        self.children_states = states
+        self.info['children_states'] = states
+
+    def check_expand_state(self, state=None):
+        # if not state:
+        #     state = self.get_children_states()
+
+        if state:
+            expanded = state[self.get_row()]['d']['e']
+            selected = state[self.get_row()]['d']['s']
+
+            self.set_expand_state(expanded)
+            self.set_selected_state(selected)
+
+            for i in range(self.get_depth()):
+                state = state[self.get_row()]['s']
+
+            self.set_children_states(state)
 
     def set_is_multiple_checkin(self, is_multiple):
         self.multiple_checkin = is_multiple
@@ -1832,42 +2296,70 @@ class Ui_snapshotItemWidget(QtGui.QWidget, ui_item_snapshot.Ui_snapshotItem):
         self.sizeLabel.deleteLater()
         self.authorLabel.deleteLater()
 
-    def set_preview(self):
+    def set_preview(self, tactic_file_object=None):
         snapshot = self.get_snapshot()
         if snapshot:
-            # preview_files_objects = snapshot.get_previewable_files_objects()
             preview_files_objects = snapshot.get_files_objects(group_by='type').get('icon')
             if preview_files_objects:
                 icon_previw = preview_files_objects[0].get_icon_preview()
                 if icon_previw:
-                    previw_abs_path = icon_previw.get_full_abs_path()
-                    pixmap = Qt4Gui.QPixmap(previw_abs_path)
-                    if not pixmap.isNull():
+                    if not self.set_preview_pixmap(icon_previw):
+                        self.set_ext_preview(tactic_file_object)
 
-                        pixmap = pixmap.scaledToHeight(64, QtCore.Qt.SmoothTransformation)
-
-                        painter = Qt4Gui.QPainter()
-                        pixmap_mask = Qt4Gui.QPixmap(64, 64)
-                        pixmap_mask.fill(QtCore.Qt.transparent)
-                        painter.begin(pixmap_mask)
-                        painter.setRenderHint(Qt4Gui.QPainter.Antialiasing)
-                        painter.setBrush(Qt4Gui.QBrush(Qt4Gui.QColor(0, 0, 0, 255)))
-                        painter.drawRoundedRect(QtCore.QRect(0, 0, 64, 64), 4, 4)
-                        painter.end()
-
-                        rounded_pixmap = Qt4Gui.QPixmap(pixmap.size())
-                        rounded_pixmap.fill(QtCore.Qt.transparent)
-                        painter.begin(rounded_pixmap)
-                        painter.setRenderHint(Qt4Gui.QPainter.Antialiasing)
-                        painter.drawPixmap(QtCore.QRect((pixmap.width() - 64) / 2, 0, 64, 64), pixmap_mask)
-                        painter.setCompositionMode(Qt4Gui.QPainter.CompositionMode_SourceIn)
-                        painter.drawPixmap(0, 0, pixmap)
-                        painter.end()
-
-                        self.previewLabel.setPixmap(rounded_pixmap)
-                        return True
+    def set_web_preview(self, tactic_file_object=None):
+        snapshot = self.get_snapshot()
+        if snapshot:
+            preview_files_objects = snapshot.get_files_objects(group_by='type').get('icon')
+            if preview_files_objects:
+                icon_previw = preview_files_objects[0].get_icon_preview()
+                if icon_previw:
+                    if os.path.exists(icon_previw.get_full_abs_path()):
+                        if icon_previw.get_file_size() == icon_previw.get_file_size(True):
+                            self.set_preview()
+                        else:
+                            self.download_and_set_preview_file(icon_previw)
                     else:
-                        return False
+                        self.download_and_set_preview_file(icon_previw)
+            else:
+                self.set_ext_preview(tactic_file_object)
+
+    def download_and_set_preview_file(self, file_object):
+        repo_sync_item = env_inst.ui_repo_sync_queue.download_file_object(file_object)
+        repo_sync_item.downloaded.connect(self.set_preview_pixmap)
+        repo_sync_item.download()
+
+    def set_preview_pixmap(self, file_object):
+        pixmap = self.get_preview_pixmap(file_object.get_full_abs_path())
+        if pixmap:
+            self.previewLabel.setPixmap(pixmap)
+            return True
+        else:
+            return False
+
+    def get_preview_pixmap(self, image_path):
+        pixmap = Qt4Gui.QPixmap(image_path)
+        if not pixmap.isNull():
+            pixmap = pixmap.scaledToHeight(64, QtCore.Qt.SmoothTransformation)
+
+            painter = Qt4Gui.QPainter()
+            pixmap_mask = Qt4Gui.QPixmap(64, 64)
+            pixmap_mask.fill(QtCore.Qt.transparent)
+            painter.begin(pixmap_mask)
+            painter.setRenderHint(Qt4Gui.QPainter.Antialiasing)
+            painter.setBrush(Qt4Gui.QBrush(Qt4Gui.QColor(0, 0, 0, 255)))
+            painter.drawRoundedRect(QtCore.QRect(0, 0, 64, 64), 4, 4)
+            painter.end()
+
+            rounded_pixmap = Qt4Gui.QPixmap(pixmap.size())
+            rounded_pixmap.fill(QtCore.Qt.transparent)
+            painter.begin(rounded_pixmap)
+            painter.setRenderHint(Qt4Gui.QPainter.Antialiasing)
+            painter.drawPixmap(QtCore.QRect((pixmap.width() - 64) / 2, 0, 64, 64), pixmap_mask)
+            painter.setCompositionMode(Qt4Gui.QPainter.CompositionMode_SourceIn)
+            painter.drawPixmap(0, 0, pixmap)
+            painter.end()
+
+            return rounded_pixmap
 
     def get_all_versions_snapshots(self):
         process = self.sobject.process.get(self.process)
@@ -1888,6 +2380,19 @@ class Ui_snapshotItemWidget(QtGui.QWidget, ui_item_snapshot.Ui_snapshotItem):
     def get_current_results_widget(self):
         current_tree = self.search_widget.get_current_results_tree_widget()
         return current_tree
+
+    def get_depth(self):
+        idx = 0
+        item = self.tree_item
+
+        while item.parent():
+            item = item.parent()
+            idx += 1
+
+        return idx
+
+    def get_row(self):
+        return self.get_index().row()
 
     def get_index(self):
         current_tree = self.get_current_results_widget()
@@ -1914,19 +2419,19 @@ class Ui_snapshotItemWidget(QtGui.QWidget, ui_item_snapshot.Ui_snapshotItem):
     def collapse_all_children(self):
         return self.tree_item.takeChildren()
 
-    def update_items(self):
-        self.sobject.update_snapshots()
-
-        parent_item_widget = self.get_parent_item_widget()
-        if parent_item_widget:
-            if parent_item_widget.type == 'snapshot':
-                # if we have snapshot, so go upper to get parent of upper snapshot
-                parent_item_widget = parent_item_widget.get_parent_item_widget()
-                # TODO. SOMETHING STRANGE HERE, we need to refresh after update
-                if parent_item_widget != self:
-                    parent_item_widget.update_items()
-            else:
-                parent_item_widget.update_items()
+    # def update_items(self):
+    #     self.sobject.update_snapshots()
+    #
+    #     parent_item_widget = self.get_parent_item_widget()
+    #     if parent_item_widget:
+    #         if parent_item_widget.type == 'snapshot':
+    #             # if we have snapshot, so go upper to get parent of upper snapshot
+    #             parent_item_widget = parent_item_widget.get_parent_item_widget()
+    #             # TODO. SOMETHING STRANGE HERE, we need to refresh after update
+    #             if parent_item_widget != self:
+    #                 parent_item_widget.update_items()
+    #         else:
+    #             parent_item_widget.update_items()
 
     def get_repo_color(self, only_color=False):
         config = cfg_controls.get_checkin()
@@ -2051,10 +2556,6 @@ class Ui_snapshotItemWidget(QtGui.QWidget, ui_item_snapshot.Ui_snapshotItem):
     def expand_tree_item(self):
         if not self.info['is_expanded']:
             self.info['is_expanded'] = True
-        # Duct tape, to fix buggy items drawings
-        # tree_widget = self.get_current_results_widget()
-        # tree_widget.resize(tree_widget.width() + 4, tree_widget.height())
-        # tree_widget.resize(tree_widget.width() - 4, tree_widget.height())
 
     @gf.catch_error
     def expand_recursive(self):
@@ -2099,11 +2600,12 @@ class Ui_snapshotItemWidget(QtGui.QWidget, ui_item_snapshot.Ui_snapshotItem):
         event.accept()
 
 
-class Ui_childrenItemWidget(QtGui.QWidget, ui_item_children.Ui_childrenItem):
+class Ui_childrenItemWidget(QtGui.QWidget):
     def __init__(self, sobject, stype, child, info, parent=None):
         super(self.__class__, self).__init__(parent=parent)
 
-        self.setupUi(self)
+        # self.setupUi(self)
+
         self.created = False
         self.type = 'child'
         self.sobject = sobject
@@ -2114,10 +2616,12 @@ class Ui_childrenItemWidget(QtGui.QWidget, ui_item_children.Ui_childrenItem):
 
         self.expand_state = False
         self.selected_state = False
-        self.children_states = None
 
         self.search_widget = None
         self.project = self.stype.get_project()
+
+        self.create_layout()
+        self.customize_ui()
 
     def get_type(self):
         return self.type
@@ -2125,30 +2629,97 @@ class Ui_childrenItemWidget(QtGui.QWidget, ui_item_children.Ui_childrenItem):
     def create_ui(self):
         # self.drop_wdg = QtGui.QWidget(self)
 
-        self.create_children_button()
-
         self.tree_item.setExpanded = self.tree_item_set_expanded_override
-        self.childrenToolButton.setCheckable(False)
-
-        self.setMinimumWidth(260)
-        self.addNewSObjectToolButton.setIcon(gf.get_icon('plus-square-o'))
 
         self.controls_actions()
 
-    def set_drop_indicator_on(self):
-        if self.drop_wdg.isHidden():
-            self.lay = QtGui.QVBoxLayout(self.drop_wdg)
-            self.lay.setSpacing(0)
-            self.lay.setContentsMargins(0, 0, 0, 0)
-            self.drop_wdg.setLayout(self.lay)
-            self.drop_wdg.setStyleSheet('QLabel {padding: 0px;border: 0px dashed grey; background-color: rgba(0,0,100,128);}')
-            self.label = QtGui.QLabel('DROP HERE')
-            self.lay.addWidget(self.label)
-            self.drop_wdg.show()
-            self.drop_wdg.resize(self.size())
+    # def set_drop_indicator_on(self):
+    #     if self.drop_wdg.isHidden():
+    #         self.lay = QtGui.QVBoxLayout(self.drop_wdg)
+    #         self.lay.setSpacing(0)
+    #         self.lay.setContentsMargins(0, 0, 0, 0)
+    #         self.drop_wdg.setLayout(self.lay)
+    #         self.drop_wdg.setStyleSheet('QLabel {padding: 0px;border: 0px dashed grey; background-color: rgba(0,0,100,128);}')
+    #         self.label = QtGui.QLabel('DROP HERE')
+    #         self.lay.addWidget(self.label)
+    #         self.drop_wdg.show()
+    #         self.drop_wdg.resize(self.size())
+    #
+    # def set_drop_indicator_off(self):
+    #     self.drop_wdg.setHidden(True)
 
-    def set_drop_indicator_off(self):
-        self.drop_wdg.setHidden(True)
+    def customize_ui(self):
+        self.setMinimumWidth(260)
+
+        self.create_children_tool_button()
+
+        self.create_link_sobjects_button()
+
+        self.create_add_sobjects_button()
+
+    def create_layout(self):
+        self.horizontalLayout = QtGui.QHBoxLayout(self)
+        self.horizontalLayout.setSpacing(0)
+        self.horizontalLayout.setContentsMargins(0, 0, 0, 0)
+        self.horizontalLayout.setObjectName("horizontalLayout")
+
+        self.resize(52, 25)
+        self.setStyleSheet("QTreeView::item {border-width: 0px;    border-radius: 0px;padding: 0px;}")
+
+    def create_children_tool_button(self):
+
+        title = self.stype.get_pretty_name()
+        if not title:
+                title = 'untitled'
+        self.title = title.capitalize()
+
+        clr = self.stype.get_stype_color(tuple=True)
+        stype_color = None
+        if clr:
+            stype_color = Qt4Gui.QColor(clr[0], clr[1], clr[2], 255)
+
+        self.childrenToolButton = QtGui.QToolButton(self)
+        sizePolicy = QtGui.QSizePolicy(QtGui.QSizePolicy.Preferred, QtGui.QSizePolicy.Preferred)
+        sizePolicy.setHorizontalStretch(0)
+        sizePolicy.setVerticalStretch(0)
+        sizePolicy.setHeightForWidth(self.childrenToolButton.sizePolicy().hasHeightForWidth())
+        self.childrenToolButton.setSizePolicy(sizePolicy)
+        self.childrenToolButton.setMinimumSize(QtCore.QSize(0, 24))
+        self.childrenToolButton.setMaximumSize(QtCore.QSize(16777215, 24))
+        self.childrenToolButton.setCheckable(False)
+        self.childrenToolButton.setToolButtonStyle(QtCore.Qt.ToolButtonTextBesideIcon)
+        self.childrenToolButton.setObjectName("childrenToolButton")
+        self.childrenToolButton.setIcon(gf.get_icon('view-sequential', color=stype_color, icons_set='mdi', scale_factor=1.1))
+        self.childrenToolButton.setText(self.title)
+        self.childrenToolButton.setStyleSheet('QToolButton {background-color: transparent;}')
+
+        self.horizontalLayout.addWidget(self.childrenToolButton)
+
+    def create_link_sobjects_button(self):
+        self.link_sobjects_tool_button = QtGui.QToolButton(self)
+        self.link_sobjects_tool_button.setToolButtonStyle(QtCore.Qt.ToolButtonTextBesideIcon)
+        self.link_sobjects_tool_button.setAutoRaise(True)
+        self.link_sobjects_tool_button.setMinimumSize(QtCore.QSize(22, 22))
+        self.link_sobjects_tool_button.setMaximumSize(QtCore.QSize(28, 22))
+
+        self.link_sobjects_tool_button.setObjectName("link_sobjects_tool_button")
+        self.link_sobjects_tool_button.setIcon(gf.get_icon('link-variant', icons_set='mdi'))
+
+        self.horizontalLayout.addWidget(self.link_sobjects_tool_button)
+
+        self.link_sobjects_tool_button.setHidden(True)  # hidden by default
+
+        if self.child.get('relationship') == 'instance':
+            self.link_sobjects_tool_button.setHidden(False)
+
+    def create_add_sobjects_button(self):
+        self.add_sobjects_tool_button = QtGui.QToolButton(self)
+        self.add_sobjects_tool_button.setToolButtonStyle(QtCore.Qt.ToolButtonTextBesideIcon)
+        self.add_sobjects_tool_button.setAutoRaise(True)
+        self.add_sobjects_tool_button.setObjectName("link_sobjects_tool_button")
+        self.add_sobjects_tool_button.setIcon(gf.get_icon('plus-square-o'))
+
+        self.horizontalLayout.addWidget(self.add_sobjects_tool_button)
 
     def get_expand_state(self):
         return self.expand_state
@@ -2164,8 +2735,30 @@ class Ui_childrenItemWidget(QtGui.QWidget, ui_item_children.Ui_childrenItem):
         self.selected_state = state
         self.tree_item.setSelected(state)
 
+    def get_children_states(self):
+        return self.info.get('children_states')
+
     def set_children_states(self, states):
-        self.children_states = states
+        self.info['children_states'] = states
+
+    # def check_expand_state(self, state=None):
+    #     # if not state:
+    #     #     state = self.get_children_states()
+    #
+    #     if state:
+    #         from pprint import pprint
+    #         pprint(state)
+    #
+    #         # expanded = state[self.get_row()]['d']['e']
+    #         # selected = state[self.get_row()]['d']['s']
+    #         #
+    #         # self.set_expand_state(expanded)
+    #         # self.set_selected_state(selected)
+    #         #
+    #         # for i in range(self.get_depth()):
+    #         #     state = state[self.get_row()]['s']
+    #         #
+    #         # self.set_children_states(state)
 
     def tree_item_set_expanded_override(self, state):
         if state:
@@ -2174,64 +2767,35 @@ class Ui_childrenItemWidget(QtGui.QWidget, ui_item_children.Ui_childrenItem):
 
     def controls_actions(self):
         self.childrenToolButton.clicked.connect(self.toggle_cildren_button)
-        self.addNewSObjectToolButton.clicked.connect(self.add_new_sobject)
+        self.add_sobjects_tool_button.clicked.connect(self.add_new_sobject)
+        self.link_sobjects_tool_button.clicked.connect(self.link_sobjects)
 
     def set_child_count_title(self, count):
         if count > 0:
-            self.addNewSObjectToolButton.setIcon(gf.get_icon('plus-square'))
+            self.add_sobjects_tool_button.setIcon(gf.get_icon('plus-square'))
             self.tree_item.setChildIndicatorPolicy(QtGui.QTreeWidgetItem.ShowIndicator)
-        self.addNewSObjectToolButton.setText('| {0}'.format(count))
-
-    def create_children_button(self):
-        title = self.stype.get_pretty_name()
-        if not title:
-                title = 'untitled'
-        self.title = title.capitalize()
-        self.childrenToolButton.setIcon(gf.get_icon('list', icons_set='ei', scale_factor=0.8))
-        self.childrenToolButton.setText(self.title)
-
-        self.set_style()
-
-    def set_style(self):
-        # tab_label = QtGui.QLabel(tab_name)
-        # tab_label.setAlignment(QtCore.Qt.AlignCenter)
-        # tab_color = stype.info['color']
-        button_color = '0000ff'
-
-        if button_color:
-            effect = QtGui.QGraphicsDropShadowEffect(self.childrenToolButton)
-            # blur = QtGui.QGraphicsBlurEffect(tab_label)
-            # QtGui.QGraphicsItemAnimation
-
-            t_c = gf.hex_to_rgb(button_color, alpha=255, tuple=True)
-            # print t_c
-            effect.setOffset(1, 1)
-            effect.setColor(Qt4Gui.QColor(t_c[0], t_c[1], t_c[2], t_c[3]))
-            # blur.setColor(Qt4Gui.QColor(t_c[0], t_c[1], t_c[2], t_c[3]))
-            # print blur.strength()
-            # blur.setStrength(.5)
-            # blur.setBlurRadius()
-            # print blur.blurHints()
-            # print blur.blurRadius()
-            # blur.setBlurRadius(2)
-
-            effect.setBlurRadius(20)
-            self.childrenToolButton.setGraphicsEffect(effect)
-            # tab_label.setGraphicsEffect(blur)
-
-            # tab_color_rgb = gf.hex_to_rgb(button_color, alpha=8)
-            self.childrenToolButton.setStyleSheet('QToolButton {background-color: transparent;}')
+        self.add_sobjects_tool_button.setText('| {0}'.format(count))
 
     @gf.catch_error
     def add_new_sobject(self):
 
-        self.add_sobject = addsobject_widget.Ui_addTacticSobjectWidget(
+        self.add_sobject = ui_addsobject_classes.Ui_addTacticSobjectWidget(
             stype=self.stype,
             parent_stype=self.search_widget.stype,
             item=self,
             parent=self)
 
         self.add_sobject.show()
+
+    @gf.catch_error
+    def link_sobjects(self):
+        link_sobjects_widget = ui_addsobject_classes.Ui_linkSobjectsWidget(
+            stype=self.stype,
+            parent_stype=self.search_widget.stype,
+            item=self,
+            parent=env_inst.ui_main)
+
+        link_sobjects_widget.show()
 
     @gf.catch_error
     def expand_tree_item(self):
@@ -2241,11 +2805,6 @@ class Ui_childrenItemWidget(QtGui.QWidget, ui_item_children.Ui_childrenItem):
         self.add_child_sobjects()
         self.childrenToolButton.setCheckable(True)
         self.childrenToolButton.setChecked(True)
-
-        # Duct tape, to fix buggy items drawings
-        # tree_widget = self.get_current_results_widget()
-        # tree_widget.resize(tree_widget.width() + 4, tree_widget.height())
-        # tree_widget.resize(tree_widget.width() - 4, tree_widget.height())
 
     @gf.catch_error
     def expand_recursive(self):
@@ -2261,6 +2820,19 @@ class Ui_childrenItemWidget(QtGui.QWidget, ui_item_children.Ui_childrenItem):
     def get_current_results_widget(self):
         current_tree = self.search_widget.get_current_results_tree_widget()
         return current_tree
+
+    def get_depth(self):
+        idx = 0
+        item = self.tree_item
+
+        while item.parent():
+            item = item.parent()
+            idx += 1
+
+        return idx
+
+    def get_row(self):
+        return self.get_index().row()
 
     def get_index(self):
         current_tree = self.get_current_results_widget()
@@ -2292,56 +2864,121 @@ class Ui_childrenItemWidget(QtGui.QWidget, ui_item_children.Ui_childrenItem):
                 self.childrenToolButton.setChecked(True)
                 # self.childrenToolButton.setArrowType(QtCore.Qt.DownArrow)
 
+    def get_relationship(self):
+        relationship = self.child.get('relationship')
+
+        child_col = self.child.get('from_col')
+        # instance_type = None
+        # related_type = None
+
+        if relationship and not child_col:
+            if relationship == 'search_type':
+                child_col = 'search_code'
+            elif relationship == 'code':
+                child_col = '{0}_code'.format(self.child.get('to').split('/')[-1])
+            elif relationship == 'instance':
+                child_col = 'code'
+                # instance_type = self.child.get('instance_type')
+                # related_type = self.child.get('to')
+
+            return relationship
+
+
     def add_child_sobjects(self):
-        # TODO Threading here
+
         if not self.info['is_expanded']:
             self.info['is_expanded'] = True
 
-            server = tc.server_start(project=self.project.get_code())
+            # TODO The whole thing can be replace with this one
+            # self.sobject.get_related_sobjects(child_stype=self.stype)
 
             relationship = self.child.get('relationship')
 
             child_col = self.child.get('from_col')
+            instance_type = None
+            related_type = None
 
             if relationship and not child_col:
                 if relationship == 'search_type':
                     child_col = 'search_code'
                 elif relationship == 'code':
                     child_col = '{0}_code'.format(self.child.get('to').split('/')[-1])
+                elif relationship == 'instance':
+                    child_col = 'code'
+                    instance_type = self.child.get('instance_type')
+                    related_type = self.child.get('to')
 
             child_code = self.sobject.info.get('code')
 
-            # may be it is workaroud, but i can't see any faster way
-            # if parent-child switched in schema we search another way
+            # may be it is workaround, but i can't see any faster way
+            # if parent-child switched in schema we search another direction
+            # TODO It is workaroud and should be rewritten
             if self.sobject.info.get('relative_dir') == self.child.get('to'):
-                child_code = self.sobject.info.get(self.child.get('to_col'))
+                if self.child.get('to_col'):
+                    child_code = self.sobject.info.get(self.child.get('to_col'))
 
             filters = [(child_col, child_code)]
 
             order_bys = ['name']
-            built_process = server.build_search_type(self.child.get('from'), self.project.get_code())
+            built_process = tc.server_start(project=self.project.get_code()).build_search_type(self.child.get('from'), self.project.get_code())
 
-            sobjects = tc.get_sobjects_new(
-                search_type=built_process,
-                filters=filters,
-                order_bys=order_bys,
-            )
+            # Logging info
+            dl.log('Getting children for {}'.format(self.stype.get_pretty_name()), group_id=self.stype.get_code())
+            if instance_type:
+                runtime_command = 'thenv.get_tc().get_sobjects_new(search_type="{0}", filters={1}, order_bys={2}, instance_type={3}, related_type={4})'.format(built_process, filters, order_bys, instance_type, related_type)
+            else:
+                runtime_command = 'thenv.get_tc().get_sobjects_new(search_type="{0}", filters={1}, order_bys={2})'.format(
+                    built_process, filters, order_bys)
+            dl.info(runtime_command, group_id=self.stype.get_code())
 
-            stype = self.stype
-            sobject_item_widget = self.get_parent_item_widget()
-            ignore_dict = None
-            if sobject_item_widget:
-                ignore_dict = sobject_item_widget.ignore_dict
-
-            for sobject in sobjects[0].itervalues():
-                gf.add_sobject_item(
-                    self.tree_item,
-                    self.search_widget,
-                    sobject,
-                    stype,
-                    self.info,
-                    ignore_dict=ignore_dict
+            def get_sobjects_agent():
+                return tc.get_sobjects_new(
+                    search_type=built_process,
+                    filters=filters,
+                    order_bys=order_bys,
+                    instance_type=instance_type,
+                    related_type=related_type,
                 )
+
+            get_sobjects_worker = gf.get_thread_worker(
+                get_sobjects_agent,
+                env_inst.get_thread_pool('server_query/http_download_pool'),
+                result_func=self.fill_child_items,
+                # progress_func=self.download_progress,
+                error_func=gf.error_handle,
+            )
+            get_sobjects_worker.start()
+
+    def fill_child_items(self, sobjects):
+        env_inst.ui_main.set_info_status_text('<span style=" font-size:8pt; color:#00ff00;">Filling SObjects</span>')
+        sobject_item_widget = self.get_parent_item_widget()
+        ignore_dict = None
+        if sobject_item_widget:
+            ignore_dict = sobject_item_widget.ignore_dict
+
+        for i, sobject in enumerate(sobjects[0].itervalues()):
+            children_states = None
+            if self.info['children_states']:
+                children_states = self.info['children_states'].get(i)
+            item_info_dict = {
+                'relates_to': self.info['relates_to'],
+                'is_expanded': self.info['is_expanded'],
+                'sep_versions': self.info['sep_versions'],
+                'children_states': children_states,
+                'simple_view': False,
+            }
+            gf.add_sobject_item(
+                self.tree_item,
+                self.search_widget,
+                sobject,
+                self.stype,
+                item_info_dict,
+                ignore_dict=ignore_dict
+            )
+            # if i+1 % 20 == 0:
+            #     QtGui.QApplication.processEvents()
+
+        env_inst.ui_main.set_info_status_text('')
 
     def get_skey(self, skey=False, only=False, parent=False):
         pass
@@ -2376,4 +3013,448 @@ class Ui_childrenItemWidget(QtGui.QWidget, ui_item_children.Ui_childrenItem):
 
     def closeEvent(self, event):
         self.deleteLater()
+        event.accept()
+
+
+class Ui_groupItemWidget(QtGui.QWidget):
+    def __init__(self, sobject, stype, info, parent=None):
+        super(self.__class__, self).__init__(parent=parent)
+
+        # self.setupUi(self)
+
+        self.created = False
+        self.type = 'group'
+        self.sobject = sobject
+        self.stype = stype
+        # self.child = child
+        self.info = info
+        self.tree_item = None
+
+        self.expand_state = False
+        self.selected_state = False
+
+        self.search_widget = None
+        self.project = self.stype.get_project()
+
+        self.create_layout()
+        self.customize_ui()
+
+    def get_type(self):
+        return self.type
+
+    def create_ui(self):
+        # self.drop_wdg = QtGui.QWidget(self)
+
+        self.tree_item.setExpanded = self.tree_item_set_expanded_override
+
+        self.controls_actions()
+
+    # def set_drop_indicator_on(self):
+    #     if self.drop_wdg.isHidden():
+    #         self.lay = QtGui.QVBoxLayout(self.drop_wdg)
+    #         self.lay.setSpacing(0)
+    #         self.lay.setContentsMargins(0, 0, 0, 0)
+    #         self.drop_wdg.setLayout(self.lay)
+    #         self.drop_wdg.setStyleSheet('QLabel {padding: 0px;border: 0px dashed grey; background-color: rgba(0,0,100,128);}')
+    #         self.label = QtGui.QLabel('DROP HERE')
+    #         self.lay.addWidget(self.label)
+    #         self.drop_wdg.show()
+    #         self.drop_wdg.resize(self.size())
+    #
+    # def set_drop_indicator_off(self):
+    #     self.drop_wdg.setHidden(True)
+
+    def customize_ui(self):
+        self.setMinimumWidth(260)
+
+        self.create_children_tool_button()
+
+        # self.create_link_sobjects_button()
+
+        # self.create_add_sobjects_button()
+
+    def create_layout(self):
+        self.horizontalLayout = QtGui.QHBoxLayout(self)
+        self.horizontalLayout.setSpacing(0)
+        self.horizontalLayout.setContentsMargins(0, 0, 0, 0)
+        self.horizontalLayout.setObjectName("horizontalLayout")
+
+        self.resize(52, 25)
+        self.setStyleSheet("QTreeView::item {border-width: 0px;    border-radius: 0px;padding: 0px;}")
+
+    def create_children_tool_button(self):
+
+        title = self.stype.get_pretty_name()
+        if not title:
+                title = 'untitled'
+        self.title = title.capitalize()
+
+        clr = self.stype.get_stype_color(tuple=True)
+        stype_color = None
+        if clr:
+            stype_color = Qt4Gui.QColor(clr[0], clr[1], clr[2], 255)
+
+        self.childrenToolButton = QtGui.QToolButton(self)
+        sizePolicy = QtGui.QSizePolicy(QtGui.QSizePolicy.Preferred, QtGui.QSizePolicy.Preferred)
+        sizePolicy.setHorizontalStretch(0)
+        sizePolicy.setVerticalStretch(0)
+        sizePolicy.setHeightForWidth(self.childrenToolButton.sizePolicy().hasHeightForWidth())
+        self.childrenToolButton.setSizePolicy(sizePolicy)
+        self.childrenToolButton.setMinimumSize(QtCore.QSize(0, 24))
+        self.childrenToolButton.setMaximumSize(QtCore.QSize(16777215, 24))
+        self.childrenToolButton.setCheckable(False)
+        self.childrenToolButton.setToolButtonStyle(QtCore.Qt.ToolButtonTextBesideIcon)
+        self.childrenToolButton.setObjectName("childrenToolButton")
+        self.childrenToolButton.setIcon(gf.get_icon('view-sequential', color=stype_color, icons_set='mdi', scale_factor=1.1))
+        self.childrenToolButton.setText(self.title)
+        self.childrenToolButton.setStyleSheet('QToolButton {background-color: transparent;}')
+
+        self.horizontalLayout.addWidget(self.childrenToolButton)
+
+    def create_link_sobjects_button(self):
+        self.link_sobjects_tool_button = QtGui.QToolButton(self)
+        self.link_sobjects_tool_button.setToolButtonStyle(QtCore.Qt.ToolButtonTextBesideIcon)
+        self.link_sobjects_tool_button.setAutoRaise(True)
+        self.link_sobjects_tool_button.setMinimumSize(QtCore.QSize(22, 22))
+        self.link_sobjects_tool_button.setMaximumSize(QtCore.QSize(28, 22))
+
+        self.link_sobjects_tool_button.setObjectName("link_sobjects_tool_button")
+        self.link_sobjects_tool_button.setIcon(gf.get_icon('link-variant', icons_set='mdi'))
+
+        self.horizontalLayout.addWidget(self.link_sobjects_tool_button)
+
+        self.link_sobjects_tool_button.setHidden(True)  # hidden by default
+
+        if self.child.get('relationship') == 'instance':
+            self.link_sobjects_tool_button.setHidden(False)
+
+    def create_add_sobjects_button(self):
+        self.add_sobjects_tool_button = QtGui.QToolButton(self)
+        self.add_sobjects_tool_button.setToolButtonStyle(QtCore.Qt.ToolButtonTextBesideIcon)
+        self.add_sobjects_tool_button.setAutoRaise(True)
+        self.add_sobjects_tool_button.setObjectName("link_sobjects_tool_button")
+        self.add_sobjects_tool_button.setIcon(gf.get_icon('plus-square-o'))
+
+        self.horizontalLayout.addWidget(self.add_sobjects_tool_button)
+
+    def get_expand_state(self):
+        return self.expand_state
+
+    def set_expand_state(self, state):
+        self.expand_state = state
+        self.tree_item.setExpanded(state)
+
+    def get_selected_state(self):
+        return self.selected_state
+
+    def set_selected_state(self, state):
+        self.selected_state = state
+        self.tree_item.setSelected(state)
+
+    def get_children_states(self):
+        return self.info.get('children_states')
+
+    def set_children_states(self, states):
+        self.info['children_states'] = states
+
+    # def check_expand_state(self, state=None):
+    #     # if not state:
+    #     #     state = self.get_children_states()
+    #
+    #     if state:
+    #         from pprint import pprint
+    #         pprint(state)
+    #
+    #         # expanded = state[self.get_row()]['d']['e']
+    #         # selected = state[self.get_row()]['d']['s']
+    #         #
+    #         # self.set_expand_state(expanded)
+    #         # self.set_selected_state(selected)
+    #         #
+    #         # for i in range(self.get_depth()):
+    #         #     state = state[self.get_row()]['s']
+    #         #
+    #         # self.set_children_states(state)
+
+    def tree_item_set_expanded_override(self, state):
+        if state:
+            self.toggle_cildren_button()
+        self.tree_item.treeWidget().setItemExpanded(self.tree_item, state)
+
+    def controls_actions(self):
+        self.childrenToolButton.clicked.connect(self.toggle_cildren_button)
+        self.add_sobjects_tool_button.clicked.connect(self.add_new_sobject)
+        self.link_sobjects_tool_button.clicked.connect(self.link_sobjects)
+
+    def set_child_count_title(self, count):
+        if count > 0:
+            self.add_sobjects_tool_button.setIcon(gf.get_icon('plus-square'))
+            self.tree_item.setChildIndicatorPolicy(QtGui.QTreeWidgetItem.ShowIndicator)
+        self.add_sobjects_tool_button.setText('| {0}'.format(count))
+
+    @gf.catch_error
+    def add_new_sobject(self):
+
+        self.add_sobject = ui_addsobject_classes.Ui_addTacticSobjectWidget(
+            stype=self.stype,
+            parent_stype=self.search_widget.stype,
+            item=self,
+            parent=self)
+
+        self.add_sobject.show()
+
+    @gf.catch_error
+    def link_sobjects(self):
+        link_sobjects_widget = ui_addsobject_classes.Ui_linkSobjectsWidget(
+            stype=self.stype,
+            parent_stype=self.search_widget.stype,
+            item=self,
+            parent=env_inst.ui_main)
+
+        link_sobjects_widget.show()
+
+    @gf.catch_error
+    def expand_tree_item(self):
+        # if not self.info['is_expanded']:
+        #     self.info['is_expanded'] = True
+
+        self.add_child_sobjects()
+        self.childrenToolButton.setCheckable(True)
+        self.childrenToolButton.setChecked(True)
+
+    @gf.catch_error
+    def expand_recursive(self):
+        gf.tree_recursive_expand(self.tree_item, True)
+
+    @gf.catch_error
+    def collapse_recursive(self):
+        gf.tree_recursive_expand(self.tree_item, False)
+
+    def collapse_tree_item(self):
+        self.childrenToolButton.setChecked(False)
+
+    def get_current_results_widget(self):
+        current_tree = self.search_widget.get_current_results_tree_widget()
+        return current_tree
+
+    def get_depth(self):
+        idx = 0
+        item = self.tree_item
+
+        while item.parent():
+            item = item.parent()
+            idx += 1
+
+        return idx
+
+    def get_row(self):
+        return self.get_index().row()
+
+    def get_index(self):
+        current_tree = self.get_current_results_widget()
+        return current_tree.indexFromItem(self.tree_item)
+
+    def get_parent_index(self):
+        current_tree = self.get_current_results_widget()
+        return current_tree.indexFromItem(self.tree_item.parent())
+
+    def get_parent_item(self):
+        return self.tree_item.parent()
+
+    def get_parent_item_widget(self):
+        current_tree = self.get_current_results_widget()
+        parent_item_widget = current_tree.itemWidget(self.tree_item.parent(), 0)
+        return parent_item_widget
+
+    @gf.catch_error
+    def toggle_cildren_button(self):
+        if self.tree_item.isExpanded():
+            self.tree_item.treeWidget().setItemExpanded(self.tree_item, False)
+            self.childrenToolButton.setChecked(False)
+            # self.childrenToolButton.setArrowType(QtCore.Qt.RightArrow)
+        else:
+            self.add_child_sobjects()
+            if self.tree_item.childCount() > 0:
+                self.childrenToolButton.setCheckable(True)
+                self.tree_item.treeWidget().setItemExpanded(self.tree_item, True)
+                self.childrenToolButton.setChecked(True)
+                # self.childrenToolButton.setArrowType(QtCore.Qt.DownArrow)
+
+    def get_relationship(self):
+        relationship = self.child.get('relationship')
+
+        child_col = self.child.get('from_col')
+        # instance_type = None
+        # related_type = None
+
+        if relationship and not child_col:
+            if relationship == 'search_type':
+                child_col = 'search_code'
+            elif relationship == 'code':
+                child_col = '{0}_code'.format(self.child.get('to').split('/')[-1])
+            elif relationship == 'instance':
+                child_col = 'code'
+                # instance_type = self.child.get('instance_type')
+                # related_type = self.child.get('to')
+
+            return relationship
+
+
+    def add_child_sobjects(self):
+
+        if not self.info['is_expanded']:
+            self.info['is_expanded'] = True
+
+            # TODO The whole thing can be replace with this one
+            # self.sobject.get_related_sobjects(child_stype=self.stype)
+
+            relationship = self.child.get('relationship')
+
+            child_col = self.child.get('from_col')
+            instance_type = None
+            related_type = None
+
+            if relationship and not child_col:
+                if relationship == 'search_type':
+                    child_col = 'search_code'
+                elif relationship == 'code':
+                    child_col = '{0}_code'.format(self.child.get('to').split('/')[-1])
+                elif relationship == 'instance':
+                    child_col = 'code'
+                    instance_type = self.child.get('instance_type')
+                    related_type = self.child.get('to')
+
+            child_code = self.sobject.info.get('code')
+
+            # may be it is workaround, but i can't see any faster way
+            # if parent-child switched in schema we search another direction
+            # TODO It is workaroud and should be rewritten
+            if self.sobject.info.get('relative_dir') == self.child.get('to'):
+                if self.child.get('to_col'):
+                    child_code = self.sobject.info.get(self.child.get('to_col'))
+
+            filters = [(child_col, child_code)]
+
+            order_bys = ['name']
+            built_process = tc.server_start(project=self.project.get_code()).build_search_type(self.child.get('from'), self.project.get_code())
+
+            # Logging info
+            dl.log('Getting children for {}'.format(self.stype.get_pretty_name()), group_id=self.stype.get_code())
+            if instance_type:
+                runtime_command = 'thenv.get_tc().get_sobjects_new(search_type="{0}", filters={1}, order_bys={2}, instance_type={3}, related_type={4})'.format(built_process, filters, order_bys, instance_type, related_type)
+            else:
+                runtime_command = 'thenv.get_tc().get_sobjects_new(search_type="{0}", filters={1}, order_bys={2})'.format(
+                    built_process, filters, order_bys)
+            dl.info(runtime_command, group_id=self.stype.get_code())
+
+            def get_sobjects_agent():
+                return tc.get_sobjects_new(
+                    search_type=built_process,
+                    filters=filters,
+                    order_bys=order_bys,
+                    instance_type=instance_type,
+                    related_type=related_type,
+                )
+
+            get_sobjects_worker = gf.get_thread_worker(
+                get_sobjects_agent,
+                env_inst.get_thread_pool('server_query/http_download_pool'),
+                result_func=self.fill_child_items,
+                # progress_func=self.download_progress,
+                error_func=gf.error_handle,
+            )
+            get_sobjects_worker.start()
+
+    def fill_child_items(self, sobjects):
+        env_inst.ui_main.set_info_status_text('<span style=" font-size:8pt; color:#00ff00;">Filling SObjects</span>')
+        sobject_item_widget = self.get_parent_item_widget()
+        ignore_dict = None
+        if sobject_item_widget:
+            ignore_dict = sobject_item_widget.ignore_dict
+
+        for i, sobject in enumerate(sobjects[0].itervalues()):
+            children_states = None
+            if self.info['children_states']:
+                children_states = self.info['children_states'].get(i)
+            item_info_dict = {
+                'relates_to': self.info['relates_to'],
+                'is_expanded': self.info['is_expanded'],
+                'sep_versions': self.info['sep_versions'],
+                'children_states': children_states,
+                'simple_view': False,
+            }
+            gf.add_sobject_item(
+                self.tree_item,
+                self.search_widget,
+                sobject,
+                self.stype,
+                item_info_dict,
+                ignore_dict=ignore_dict
+            )
+            # if i+1 % 20 == 0:
+            #     QtGui.QApplication.processEvents()
+
+        env_inst.ui_main.set_info_status_text('')
+
+    def get_skey(self, skey=False, only=False, parent=False):
+        pass
+
+    def get_description(self):
+        return 'No Description for this item "{0}"'.format('AZAZAZ')
+
+    def is_checked(self):
+        return False
+
+    def get_search_key(self):
+        return self.sobject.info.get('__search_key__')
+
+    def get_parent_search_key(self):
+        parent_item = self.get_parent_item_widget()
+        if parent_item:
+            return parent_item.get_search_key()
+
+    def get_sobject(self):
+        return self.sobject
+
+    def get_parent_sobject(self):
+        parent_item = self.get_parent_item_widget()
+        if parent_item:
+            return parent_item.get_sobject()
+
+    def showEvent(self, event):
+        if not self.created:
+            self.created = True
+            self.create_ui()
+        event.accept()
+
+    def closeEvent(self, event):
+        self.deleteLater()
+        event.accept()
+
+
+class Ui_layoutWrapWidget(QtGui.QWidget):
+    def __init__(self, parent=None):
+        super(self.__class__, self).__init__(parent=parent)
+
+        self.widget = None
+        self.setObjectName('layout_widget')
+
+    def set_widget(self, widget):
+        self.widget = widget
+        self.setMinimumSize(self.widget.sizeHint())
+        self.widget.setParent(self)
+
+    def take_widget(self, parent=None):
+        if parent:
+            self.widget.setParent(parent)
+        else:
+            self.widget.setParent(None)
+        return self.widget
+
+    def get_widget(self):
+        return self.widget
+
+    def resizeEvent(self, event):
+        if self.widget:
+            self.widget.resize(self.size())
         event.accept()

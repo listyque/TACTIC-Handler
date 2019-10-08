@@ -15,7 +15,7 @@ __all__ = ['PipelineInterpreter']
 
 from xml.dom.minidom import parseString
 
-from thlib.client.tactic_client_lib.common import Common
+from thlib.side.client.tactic_client_lib.common import Common
 
 from handler import Handler
 

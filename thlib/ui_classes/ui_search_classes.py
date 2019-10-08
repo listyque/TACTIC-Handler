@@ -2,14 +2,16 @@ from thlib.side.Qt import QtWidgets as QtGui
 from thlib.side.Qt import QtGui as Qt4Gui
 from thlib.side.Qt import QtCore
 
-from thlib.environment import env_inst, env_tactic, cfg_controls, env_read_config, env_write_config
+from thlib.environment import env_inst, env_server, cfg_controls, env_read_config, env_write_config
 import thlib.global_functions as gf
 import thlib.tactic_classes as tc
 import thlib.ui_classes.ui_misc_classes as ui_misc_classes
 import thlib.ui.search.ui_search_results_tree as ui_search_results_tree
 
-# reload(ui_search_options)
 reload(ui_search_results_tree)
+
+DEFAULT_FILTER = ('name', 'EQI', '')
+EXPR_FILTER = ('_expression', 'in', "@SOBJECT(sthpw/task['assigned', $LOGIN])")
 
 
 class Ui_processFilterDialog(QtGui.QDialog):
@@ -400,7 +402,7 @@ class Ui_searchWidget(QtGui.QWidget):
 
     def create_search_line_edit(self):
         self.searchLineEdit = ui_misc_classes.SuggestedLineEdit(self.stype, self.project, 'search')
-        self.searchLineEdit.setObjectName("searchLineEdit")
+        self.searchLineEdit.setObjectName('searchLineEdit')
         self.searchLineEdit.setToolTip('Enter Your search query here')
         self.searchWidgetGridLayout.addWidget(self.searchLineEdit, 0, 0, 1, 1)
 
@@ -484,6 +486,28 @@ class Ui_searchWidget(QtGui.QWidget):
         self.right_buttons_widget = QtGui.QWidget(self)
         self.right_buttons_widget.setLayout(self.right_buttons_layout)
 
+        self.group_by_button = QtGui.QToolButton()
+        self.group_by_button.setAutoRaise(True)
+        self.group_by_button.setMinimumWidth(20)
+        self.group_by_button.setMinimumHeight(20)
+        self.group_by_button.setPopupMode(QtGui.QToolButton.InstantPopup)
+        self.group_by_button.setIcon(gf.get_icon('folder-multiple-outline', icons_set='mdi', scale_factor=1))
+        self.group_by_button.setToolTip('Group Items By')
+
+        self.no_grouping_button = QtGui.QAction('No Grouping', self.group_by_button, checkable=True)
+        self.no_grouping_button.setIcon(gf.get_icon('sort-alphabetical', icons_set='mdi', scale_factor=1.3))
+        self.no_grouping_button.triggered.connect(lambda: self.change_items_sorting('sobject', 'name'))
+        self.no_grouping_button.setChecked(True)
+
+        self.group_by_date_button = QtGui.QAction('Sort by Name', self.group_by_button, checkable=True)
+        self.group_by_date_button.setIcon(gf.get_icon('sort-alphabetical', icons_set='mdi', scale_factor=1.3))
+        self.group_by_date_button.triggered.connect(lambda: self.change_items_sorting('sobject', 'name'))
+        self.group_by_date_button.setChecked(True)
+
+        self.group_by_button.addAction(self.no_grouping_button)
+        self.group_by_button.addAction(self.group_by_date_button)
+
+
         self.sobject_items_sorting_button = QtGui.QToolButton()
         self.sobject_items_sorting_button.setAutoRaise(True)
         self.sobject_items_sorting_button.setMinimumWidth(20)
@@ -561,6 +585,7 @@ class Ui_searchWidget(QtGui.QWidget):
         self.additional_buttons_layout.addWidget(self.sobject_items_sorting_button)
         self.additional_buttons_layout.addWidget(self.snapshot_items_sorting_button)
         self.additional_buttons_layout.addWidget(self.change_view_tab_button)
+        self.additional_buttons_layout.addWidget(self.group_by_button)
 
         self.main_collapsable_toolbar = ui_misc_classes.Ui_horizontalCollapsableWidget()
         self.main_buttons_layout = QtGui.QHBoxLayout()
@@ -605,6 +630,12 @@ class Ui_searchWidget(QtGui.QWidget):
         if not limit:
             limit = self.get_display_limit()
 
+        # ONLY FOR ANIMATORS!
+        from thlib.environment import SPECIALIZED
+
+        if SPECIALIZED == 'animators':
+            filters = [DEFAULT_FILTER, EXPR_FILTER]
+
         info = {
             'title': search_title,
             'filters': filters,
@@ -634,8 +665,10 @@ class Ui_searchWidget(QtGui.QWidget):
         return self.resultsTabWidget.tabText(idx)
 
     def get_display_limit(self):
-
-        return 10
+        display_limit = gf.get_value_from_config(cfg_controls.get_checkin(), 'displayLimitSpinBox')
+        if not display_limit:
+            display_limit = 10
+        return display_limit
 
     def get_results_tab_widget(self):
         return self.resultsTabWidget
@@ -693,7 +726,7 @@ class Ui_searchWidget(QtGui.QWidget):
         if filters:
             adv_search_widget.set_filters(filters)
         else:
-            adv_search_widget.add_default_filter(('name', 'EQI', ''))
+            adv_search_widget.add_default_filter(DEFAULT_FILTER)
 
     def get_current_checkin_out_widget(self):
         return env_inst.get_check_tree(self.project.get_code(), 'checkin_out', self.stype.get_code())
@@ -736,24 +769,23 @@ class Ui_searchWidget(QtGui.QWidget):
     #     return self.checkin_out_widget.open_menu()
 
     @gf.catch_error
-    def do_search(self, search_query=None):
+    def do_search(self, explicit_search_query=None):
 
         results_widget = self.get_current_results_widget()
-        if search_query:
-            results_widget.update_default_filter(search_query)
+        if explicit_search_query:
+            results_widget.search_query(explicit_search_query)
+
+            # results_widget.update_default_filter(explicit_search_query)
         else:
             search_query = self.searchLineEdit.text()
-            results_widget.update_default_filter(search_query)
-
-        results_widget.set_offset(0)
-
-        # checkin_out_widget = self.get_current_checkin_out_widget()
-        # adv_search_widget = checkin_out_widget.get_advanced_search_widget()
-
-        results_widget.update_filters(True)
-        results_widget.update_search_results()
-
-        self.set_current_tab_title(search_query)
+            if search_query.startswith('skey://'):
+                print 'HERE WE GOING BY SEARCH KEY', search_query
+                self.go_by_skey(search_query)
+            elif search_query is not None:
+                # checkin_out_widget = self.get_current_checkin_out_widget()
+                # adv_search_widget = checkin_out_widget.get_advanced_search_widget()
+                results_widget.search_query(search_query)
+                self.set_current_tab_title(search_query)
 
     @gf.catch_error
     def update_current_search_results(self):
@@ -762,6 +794,78 @@ class Ui_searchWidget(QtGui.QWidget):
         # collecting current advanced search options
         results_widget.update_filters(True)
         results_widget.update_search_results(refresh=True, offset=results_widget.collect_offset())
+
+    def go_by_skey(self, skey_in=None, relates_to=None):
+        # TODO Need to rewrite this according to porjects tabs
+
+        # if relates_to:
+        #     self.relates_to = relates_to
+        # else:
+        #     self.relates_to = None
+        #     if self.main_tabWidget.currentWidget().objectName() == 'checkOutTab':
+        #         self.relates_to = 'checkout'
+        #     if self.main_tabWidget.currentWidget().objectName() == 'checkInTab':
+        #         self.relates_to = 'checkin'
+
+        # print(self.relates_to)
+
+        if skey_in:
+            skey = tc.parce_skey(skey_in)
+
+        print(skey)
+
+        common_pipeline_codes = ['snapshot', 'task']
+        pipeline_code = None
+        if skey:
+            if skey.get('pipeline_code') and skey.get('project'):
+                if skey.get('project') == env_inst.get_current_project():
+                    if skey['pipeline_code'] not in common_pipeline_codes:
+                        pipeline_code = u'{namespace}/{pipeline_code}'.format(**skey)
+                # else:
+                #     self.wrong_project_message(skey)
+
+        # if pipeline_code and self.relates_to in ['checkin', 'checkout']:
+        #     # TODO BUG WITH env_inst.ui_check_tabs!!!
+        #     tab_wdg = env_inst.ui_check_tabs[self.relates_to].sObjTabWidget
+        #     for i in range(tab_wdg.count()):
+        #         if tab_wdg.widget(i).objectName() == pipeline_code:
+        #             tab_wdg.setCurrentIndex(i)
+        #
+        #     tree_wdg = tab_wdg.currentWidget()
+        #     tree_wdg.go_by_skey[0] = True
+        #
+        #     if skey.get('context'):
+        #         tree_wdg.go_by_skey[1] = skey
+        #
+        #     search_code = skey.get('code')
+        #     tree_wdg.searchLineEdit.setText(search_code)
+        #     tree_wdg.searchOptionsGroupBox.searchCodeRadioButton.setChecked(True)
+        #
+        #     tree_wdg.search_results_widget.add_tab(search_code)
+
+            # tree_wdg.add_items_to_results(search_code)
+
+    def wrong_project_message(self, skey):
+        print(skey)
+        msb = QtGui.QMessageBox(QtGui.QMessageBox.Question,
+                                'Item {code}, not belongs to current project!'.format(**skey),
+                                '<p>Current project is <b>{0}</b>, switch to <b>{project}</b> related to this item?</p>'.format(
+                                    env_server.get_project(), **skey) + '<p>This will restart TACTIC Handler!</p>',
+                                QtGui.QMessageBox.NoButton, env_inst.ui_main)
+        msb.addButton("Switch to Project", QtGui.QMessageBox.YesRole)
+        msb.addButton("Cancel", QtGui.QMessageBox.NoRole)
+        msb.exec_()
+
+        reply = msb.buttonRole(msb.clickedButton())
+
+        if reply == QtGui.QMessageBox.YesRole:
+            env_server.set_project(skey['project'])
+            skey_link = self.skeyLineEdit.text()
+            self.close()
+            self.create_ui_main()
+            self.show()
+            self.skeyLineEdit.setText(skey_link)
+            self.go_by_skey()
 
     def create_gear_menu_popup(self):
         self.gearMenuToolButton.setIcon(gf.get_icon('cog'))
@@ -772,6 +876,7 @@ class Ui_searchWidget(QtGui.QWidget):
 
     def create_collapsable_toolbar(self):
         self.collapsable_toolbar = ui_misc_classes.Ui_horizontalCollapsableWidget()
+        self.collapsable_toolbar.setCollapsed(False)
 
         self.buttons_layout = QtGui.QHBoxLayout()
         self.buttons_layout.setSpacing(0)
@@ -939,9 +1044,14 @@ class Ui_filterWidget(QtGui.QWidget):
             return True
 
     def fill_column_combo_box(self):
+        last_item_index = 0
         for i, (column, values) in enumerate(self.stype.get_columns_info().items()):
             self.column_combo_box.addItem(gf.prettify_text(column))
             self.column_combo_box.setItemData(i, column, QtCore.Qt.UserRole)
+            last_item_index = i+1
+
+        self.column_combo_box.addItem('**Expression')
+        self.column_combo_box.setItemData(last_item_index, '_expression', QtCore.Qt.UserRole)
 
     def fill_match_by_combo_box(self):
 
@@ -1240,120 +1350,6 @@ class Ui_advancedSearchWidget(QtGui.QWidget):
         return settings_dict
 
 
-# DEPRECATED
-# class Ui_searchOptionsWidget(QtGui.QGroupBox, ui_search_options.Ui_searchOptionsGroupBox):
-#     def __init__(self, parent_ui, parent=None):
-#         super(self.__class__, self).__init__(parent=parent)
-#
-#         self.setupUi(self)
-#         self.parent_ui = parent_ui
-#
-#         self.project = self.parent_ui.project
-#         self.current_project = self.project.info['code']
-#         self.current_namespace = self.project.info['type']
-#
-#         self.tab_name = self.parent_ui.objectName()
-#         self.tab_related_to = self.parent_ui.relates_to
-#
-#         self.controls_actions()
-#
-#     def controls_actions(self):
-#
-#         self.saveAsDefaultsPushButton.clicked.connect(self.apply_current_to_all_tabs)
-#
-#     def apply_current_to_all_tabs(self):
-#         current_settings = self.get_settings_dict()
-#         for tab in env_inst.check_tree.get(self.parent_ui.relates_to).itervalues():
-#             tab.searchOptionsGroupBox.set_settings_from_dict(current_settings)
-#
-#     def get_custom_process_list(self):
-#         return ['AZZA']
-#
-#     def set_search_by(self, search_by):
-#
-#         if search_by == 0:
-#             self.searchNameRadioButton.setChecked(True)
-#         elif search_by == 1:
-#             self.searchCodeRadioButton.setChecked(True)
-#         elif search_by == 2:
-#             self.searchDescriptionRadioButton.setChecked(True)
-#         elif search_by == 3:
-#             self.searchKeywordsRadioButton.setChecked(True)
-#         elif search_by == 4:
-#             self.searchParentCodeRadioButton.setChecked(True)
-#
-#     def get_search_by(self):
-#
-#         if self.searchNameRadioButton.isChecked():
-#             return 0
-#         elif self.searchCodeRadioButton.isChecked():
-#             return 1
-#         elif self.searchDescriptionRadioButton.isChecked():
-#             return 2
-#         elif self.searchKeywordsRadioButton.isChecked():
-#             return 3
-#         elif self.searchParentCodeRadioButton.isChecked():
-#             return 4
-#
-#     def set_sort_by(self, sort_by):
-#
-#         if sort_by == 0:
-#             self.sortNameRadioButton.setChecked(True)
-#         elif sort_by == 1:
-#             self.sortCodeRadioButton.setChecked(True)
-#         elif sort_by == 2:
-#             self.sortTimestampRadioButton.setChecked(True)
-#         elif sort_by == 3:
-#             self.sortNothingRadioButton.setChecked(True)
-#
-#     def get_sort_by(self):
-#
-#         if self.sortNameRadioButton.isChecked():
-#             return 0
-#         elif self.sortCodeRadioButton.isChecked():
-#             return 1
-#         elif self.sortTimestampRadioButton.isChecked():
-#             return 2
-#         elif self.sortNothingRadioButton.isChecked():
-#             return 3
-#
-#     def set_search_options(self, options_dict):
-#         if options_dict:
-#             self.set_search_by(options_dict['search_by'])
-#             self.set_sort_by(options_dict['sort_by'])
-#
-#     def get_search_options(self):
-#
-#         options_dict = {
-#             'search_by': self.get_search_by(),
-#             'sort_by': self.get_sort_by()
-#         }
-#
-#         return options_dict
-#
-#     def set_settings_from_dict(self, settings_dict=None):
-#
-#         if not settings_dict:
-#             settings_dict = {
-#                 'search_options': None,
-#                 'showAllProcessCheckBox': False,
-#                 'displayLimitSpinBox': 10,
-#             }
-#
-#         self.set_search_options(gf.from_json(settings_dict.get('search_options')))
-#         self.showAllProcessCheckBox.setChecked(settings_dict['showAllProcessCheckBox'])
-#         self.displayLimitSpinBox.setValue(settings_dict['displayLimitSpinBox'])
-#
-#     def get_settings_dict(self):
-#
-#         settings_dict = {
-#             'search_options': str(self.get_search_options()),
-#             'showAllProcessCheckBox': int(self.showAllProcessCheckBox.isChecked()),
-#             'displayLimitSpinBox': int(self.displayLimitSpinBox.value()),
-#         }
-#
-#         return settings_dict
-
 class Ui_navigationWidget(QtGui.QWidget):
     refresh_search = QtCore.Signal(object, object)
 
@@ -1625,6 +1621,19 @@ class Ui_resultsFormWidget(QtGui.QWidget, ui_search_results_tree.Ui_resultsForm)
         self.create_bottom_navigation_widget()
 
         self.resultsTreeWidget.setAlternatingRowColors(True)
+
+        self.resultsTreeWidget.setStyleSheet("""
+        QAbstractItemView {
+        show-decoration-selected: 0;
+        selection-background-color: #3D7848;
+        selection-color: #DDDDDD;
+        alternate-background-color: #353535;
+        }
+        QTreeView {
+        show-decoration-selected: 0;
+        }
+        """)
+
         self.resultsVersionsTreeWidget.setAlternatingRowColors(True)
 
         # self.create_results_tree_widgets()
@@ -1662,6 +1671,12 @@ class Ui_resultsFormWidget(QtGui.QWidget, ui_search_results_tree.Ui_resultsForm)
     def toggle_results_view(self, view='separate_vertical'):
 
         print 'toggling', view
+
+    def search_query(self, search_query):
+        self.update_default_filter(search_query)
+        self.set_offset(0)
+        self.update_filters(True)
+        self.update_search_results()
 
     def update_search_results(self, limit=None, offset=None,  refresh=False):
         # collecting new filters, limit, offset, etc...
@@ -1852,6 +1867,8 @@ class Ui_resultsFormWidget(QtGui.QWidget, ui_search_results_tree.Ui_resultsForm)
         self.resultsTreeWidget.itemExpanded.connect(self.send_expand_event_to_item)
         self.resultsTreeWidget.itemDoubleClicked.connect(self.send_item_double_click)
 
+        # self.resultsTreeWidget.setSelectionMode(QtGui.QAbstractItemView.ExtendedSelection)
+
         # Separate Snapshots tree widget actions
         self.resultsVersionsTreeWidget.itemPressed.connect(lambda: self.set_current_results_versions_tree_widget_item(
             self.resultsVersionsTreeWidget))
@@ -1871,7 +1888,6 @@ class Ui_resultsFormWidget(QtGui.QWidget, ui_search_results_tree.Ui_resultsForm)
         return self.resultsVersionsTreeWidget
 
     def selection_changed(self):
-
         if self.resultsTreeWidget.selectedItems():
             current_tree_item = self.resultsTreeWidget.selectedItems()[0]
             self.fill_versions_items(current_tree_item, 0)
@@ -1898,9 +1914,7 @@ class Ui_resultsFormWidget(QtGui.QWidget, ui_search_results_tree.Ui_resultsForm)
                 offset=offset
             )
 
-        server_thread_pool = QtCore.QThreadPool()
-        server_thread_pool.setMaxThreadCount(env_tactic.max_threads())
-        env_inst.set_thread_pool(server_thread_pool, 'server_query/server_thread_pool')
+        env_inst.set_thread_pool(None, 'server_query/server_thread_pool')
 
         query_sobjects_worker = gf.get_thread_worker(
             get_sobjects_new_agent,
@@ -1914,8 +1928,6 @@ class Ui_resultsFormWidget(QtGui.QWidget, ui_search_results_tree.Ui_resultsForm)
     def fill_items(self, result):
         env_inst.ui_main.set_info_status_text('<span style=" font-size:8pt; color:#00ff00;">Filling SObjects</span>')
 
-        self.res = True
-
         self.sobjects = result[0]
         self.query_info = result[1]
 
@@ -1924,14 +1936,21 @@ class Ui_resultsFormWidget(QtGui.QWidget, ui_search_results_tree.Ui_resultsForm)
 
         self.progress_bar.setVisible(True)
         total_sobjects = len(self.sobjects.keys()) - 1
+        # import time
+        # start = time.time()
 
-        for p, sobject in enumerate(self.sobjects.itervalues()):
+        for i, sobject in enumerate(self.sobjects.itervalues()):
+
+            last_state = None
+            if self.info['state']:
+                last_state = self.info['state'].get(i)
+
             item_info = {
                 'relates_to': 'checkin_out',
-                'is_expanded': False,
                 'sep_versions': self.sep_versions,
+                'children_states': last_state,
+                'simple_view': False,
             }
-
             gf.add_sobject_item(
                 self.resultsTreeWidget,
                 self,
@@ -1941,14 +1960,18 @@ class Ui_resultsFormWidget(QtGui.QWidget, ui_search_results_tree.Ui_resultsForm)
                 ignore_dict=None,
             )
             if total_sobjects:
-                if p % 5 == 0:
-                    self.progress_bar.setValue(int(p * 100 / total_sobjects))
+                if i+1 % 20 == 0:
+                    self.progress_bar.setValue(int(i+1 * 100 / total_sobjects))
 
+        # print time.time() - start, 'filing sobjects time'
         if not self.info['title'] and not self.get_tab_title():
             self.set_tab_title('Found {0} {1}'.format(int(self.query_info.get('total_sobjects_query_count')), self.stype.get_pretty_name()))
 
         if self.get_state():
-            self.apply_state(self.info.get('state'))
+            # reverting tree states to saved in settings
+            # self.apply_state(self.info.get('state'))
+            # from pprint import pprint
+            # pprint(self.info['state'])
 
             if self.info.get('refresh'):
                 self.info['refresh'] = None
@@ -2070,6 +2093,14 @@ class Ui_resultsFormWidget(QtGui.QWidget, ui_search_results_tree.Ui_resultsForm)
                     self.search_widget.search_results_widget.update_item_tree(self.current_results_tree_widget_item)
 
     @gf.catch_error
+    def item_clicked(self, tree_item, pos):
+        print tree_item
+        print pos
+
+        tree_widget = self.resultsTreeWidget.itemWidget(tree_item, 0)
+        tree_widget.query_snapshots()
+
+    @gf.catch_error
     def send_collapse_event_to_item(self, tree_item):
         tree_widget = self.resultsTreeWidget.itemWidget(tree_item, 0)
         tree_widget.collapse_tree_item()
@@ -2088,33 +2119,65 @@ class Ui_resultsFormWidget(QtGui.QWidget, ui_search_results_tree.Ui_resultsForm)
     @gf.catch_error
     def fill_versions_items(self, widget, *args):
         if self.resultsVersionsTreeWidget.isVisible():
-            parent_widget = self.resultsTreeWidget.itemWidget(widget, 0)
+            item_widget = self.resultsTreeWidget.itemWidget(widget, 0)
 
-            if parent_widget.type == 'snapshot':
-                process = parent_widget.process
-                context = parent_widget.context
-                snapshots = parent_widget.sobject.process[process].contexts[context].versions
+            if item_widget.type == 'snapshot':
+                process = item_widget.process
+                context = item_widget.context
+                snapshots = item_widget.sobject.process[process].contexts[context].versions
 
                 self.resultsVersionsTreeWidget.clear()
                 gf.add_versions_snapshot_item(
                     self.resultsVersionsTreeWidget,
                     self,
-                    parent_widget.sobject,
-                    parent_widget.stype,
+                    item_widget.sobject,
+                    item_widget.stype,
                     process,
-                    parent_widget.pipeline,
+                    item_widget.get_current_process_pipeline(),
                     context,
                     snapshots,
-                    parent_widget.info,
+                    item_widget.info,
                 )
 
-            if parent_widget.type == 'sobject':
+            elif item_widget.type == 'sobject':
+
+                snapshots = item_widget.get_all_snapshots()
+                if snapshots:
+                    ready_snapshots = None
+                    process = 'publish'
+                    self.resultsVersionsTreeWidget.clear()
+
+                    if snapshots.get('publish'):
+                        ready_snapshots = item_widget.get_snapshots('publish')
+                    elif snapshots.get('icon'):
+                        ready_snapshots = item_widget.get_snapshots('icon')
+                        process = 'icon'
+                    else:
+                        processes = item_widget.get_all_snapshots()
+                        process = processes.keys()[0]
+                        if process:
+                            ready_snapshots = item_widget.get_snapshots(process)
+
+                    gf.add_versions_snapshot_item(
+                        self.resultsVersionsTreeWidget,
+                        self,
+                        item_widget.sobject,
+                        item_widget.stype,
+                        process,
+                        item_widget.get_current_process_pipeline(),
+                        process,
+                        ready_snapshots,
+                        item_widget.info,
+                    )
+                else:
+                    self.resultsVersionsTreeWidget.clear()
+
+            elif item_widget.type == 'process':
                 self.resultsVersionsTreeWidget.clear()
 
-            if parent_widget.type == 'process':
+            elif item_widget.type == 'child':
                 self.resultsVersionsTreeWidget.clear()
-
-            if parent_widget.type == 'child':
+            else:
                 self.resultsVersionsTreeWidget.clear()
 
     def update_versions_items(self, item_widget):
@@ -2197,6 +2260,289 @@ class Ui_resultsFormWidget(QtGui.QWidget, ui_search_results_tree.Ui_resultsForm)
                 self.resultsSplitter.setOrientation(QtCore.Qt.Vertical)
             else:
                 self.resultsSplitter.setOrientation(QtCore.Qt.Horizontal)
+
+    def create_progress_bar(self):
+        self.progress_bar = QtGui.QProgressBar()
+        self.progress_bar.setMaximum(100)
+        self.progress_bar.hide()
+        self.resultsLayout.addWidget(self.progress_bar)
+
+    def showEvent(self, event):
+
+        if not self.created:
+            self.create_ui()
+
+        event.accept()
+
+
+class Ui_simpleResultsFormWidget(QtGui.QWidget):
+    def __init__(self, project, stype, info, parent=None):
+        super(self.__class__, self).__init__(parent=parent)
+
+        self.setAttribute(QtCore.Qt.WA_DeleteOnClose)
+
+        self.info = info
+        self.stype = stype
+        self.project = project
+        self.created = False
+
+        self.bottom_navigataion_widget = None
+
+        self.create_results_tree_widget()
+
+    def create_ui(self):
+
+        self.create_progress_bar()
+        self.create_bottom_navigation_widget()
+
+        self.results_tree_widget.setStyleSheet("""
+        QAbstractItemView {
+        show-decoration-selected: 0;
+        selection-background-color: #3D7848;
+        selection-color: #DDDDDD;
+        alternate-background-color: #353535;
+        }
+        QTreeView {
+        show-decoration-selected: 0;
+        }
+        """)
+
+        self.initial_load_results()
+
+        # self.controls_actions()
+
+        self.created = True
+
+    def create_results_tree_widget(self):
+        self.resultsLayout = QtGui.QVBoxLayout(self)
+        self.setLayout(self.resultsLayout)
+        self.resultsLayout.setSpacing(0)
+        self.resultsLayout.setContentsMargins(0, 0, 0, 0)
+        self.resultsLayout.setObjectName("resultsLayout")
+
+        self.results_tree_widget = QtGui.QTreeWidget()
+        self.results_tree_widget.setTabKeyNavigation(True)
+        self.results_tree_widget.setVerticalScrollMode(QtGui.QAbstractItemView.ScrollPerPixel)
+        self.results_tree_widget.setRootIsDecorated(False)
+        self.results_tree_widget.setAllColumnsShowFocus(True)
+        self.results_tree_widget.setWordWrap(True)
+        self.results_tree_widget.setHeaderHidden(True)
+        self.results_tree_widget.setSelectionMode(QtGui.QAbstractItemView.ExtendedSelection)
+        self.results_tree_widget.setAlternatingRowColors(True)
+        self.results_tree_widget.setObjectName("results_tree_widget")
+
+        self.resultsLayout.addWidget(self.results_tree_widget)
+
+    def update_default_filter(self, query_text):
+        checkin_out_widget = self.get_current_checkin_out_widget()
+        adv_search_widget = checkin_out_widget.get_advanced_search_widget()
+        df = adv_search_widget.get_default_filter()
+        adv_search_widget.update_default_filter((df[0], df[1], query_text))
+
+    def initial_load_results(self, limit=None, offset=None):
+        if limit is None:
+            limit = self.get_limit()
+
+        if offset is None:
+            offset = self.get_offset()
+
+        order_bys = ['name']
+
+        self.query_sobjects_new(
+            filters=self.get_filters(),
+            stype=self.stype.get_code(),
+            project=self.project.get_code(),
+            order_bys=order_bys,
+            limit=limit,
+            offset=offset,
+        )
+
+    def search_query(self, search_query):
+        # self.update_default_filter(search_query)
+        self.set_offset(0)
+        # self.update_filters(True)
+        self.update_search_results()
+
+    def update_search_results(self, limit=None, offset=None,  refresh=False):
+        # collecting new filters, limit, offset, etc...
+        # self.get_info_dict()
+
+        if limit is None:
+            limit = self.get_limit()
+
+        if offset is None:
+            offset = self.get_offset()
+
+        if refresh:
+            # marking this as refreshing
+            self.info['refresh'] = True
+
+            # collecting current tree widget state
+            self.info['state'] = gf.tree_state(self.results_tree_widget, {})
+
+        order_bys = ['name']
+
+        # making query for current search with current search options
+        self.query_sobjects_new(
+            filters=self.get_filters(),
+            stype=self.stype.get_code(),
+            project=self.project.get_code(),
+            order_bys=order_bys,
+            limit=limit,
+            offset=offset,
+        )
+
+    def get_info_dict(self):
+
+        current_state = self.collect_state()
+        if current_state:
+            self.info['state'] = current_state
+
+        self.info['title'] = self.get_tab_title()
+        self.info['offset'] = self.collect_offset()
+        self.info['limit'] = self.get_limit()
+        self.info['filters'] = self.get_filters()
+
+        self.info['current_index'] = self.get_current_index()
+
+        return self.info
+
+    def get_offset(self):
+        return self.info['offset']
+
+    def collect_offset(self):
+        if self.bottom_navigataion_widget:
+            return self.bottom_navigataion_widget.get_offset()
+        else:
+            return self.info['offset']
+
+    def set_offset(self, offset):
+        self.info['offset'] = offset
+
+    def get_limit(self):
+        return self.info['limit']
+
+    def set_limit(self, limit):
+        self.info['limit'] = limit
+
+    def get_current_index(self):
+        checkin_out_widget = self.get_current_checkin_out_widget()
+        search_widget = checkin_out_widget.get_search_widget()
+        results_tab_widget = search_widget.get_results_tab_widget()
+        current_idx = results_tab_widget.indexOf(self)
+
+        return current_idx
+
+    def get_tab_title(self):
+        checkin_out_widget = self.get_current_checkin_out_widget()
+        search_widget = checkin_out_widget.get_search_widget()
+        results_tab_widget = search_widget.get_results_tab_widget()
+        current_idx = results_tab_widget.indexOf(self)
+
+        results_tab_widget.tabText(current_idx)
+        self.info['title'] = results_tab_widget.tabText(current_idx)
+
+        return self.info['title']
+
+    def set_tab_title(self, title=''):
+        checkin_out_widget = self.get_current_checkin_out_widget()
+        search_widget = checkin_out_widget.get_search_widget()
+        results_tab_widget = search_widget.get_results_tab_widget()
+        current_idx = results_tab_widget.indexOf(self)
+
+        self.info['title'] = title
+        results_tab_widget.setTabText(current_idx, title)
+
+    def get_filters(self):
+        return self.info['filters']
+
+    def set_filters(self, filters):
+        self.info['filters'] = filters
+
+    def update_filters(self, check_valid=False):
+        checkin_out_widget = self.get_current_checkin_out_widget()
+        adv_search_widget = checkin_out_widget.get_advanced_search_widget()
+
+        self.set_filters(adv_search_widget.get_filters(check_valid))
+
+    def get_results_tree_widget(self):
+        return self.results_tree_widget
+
+    def query_sobjects_new(self, filters, stype, project, order_bys=[], limit=None, offset=None):
+
+        search_type = tc.server_start().build_search_type(stype, project)
+
+        env_inst.ui_main.set_info_status_text('<span style=" font-size:8pt; color:#00ff00;">Getting SObjects</span>')
+
+        def get_sobjects_new_agent():
+            """ If we have traceback, it points us here"""
+            return tc.get_sobjects_new(
+                search_type=search_type,
+                filters=filters,
+                order_bys=order_bys,
+                limit=limit,
+                offset=offset
+            )
+
+        env_inst.set_thread_pool(None, 'server_query/server_thread_pool')
+
+        query_sobjects_worker = gf.get_thread_worker(
+            get_sobjects_new_agent,
+            thread_pool=env_inst.get_thread_pool('server_query/server_thread_pool'),
+            result_func=self.fill_items,
+            error_func=gf.error_handle
+        )
+        query_sobjects_worker.start()
+
+    @gf.catch_error
+    def fill_items(self, result):
+        env_inst.ui_main.set_info_status_text('<span style=" font-size:8pt; color:#00ff00;">Filling SObjects</span>')
+
+        self.sobjects = result[0]
+        self.query_info = result[1]
+
+        gf.recursive_close_tree_item_widgets(self.results_tree_widget)
+        self.results_tree_widget.clear()
+
+        self.progress_bar.setVisible(True)
+        total_sobjects = len(self.sobjects.keys()) - 1
+
+        for i, sobject in enumerate(self.sobjects.itervalues()):
+
+            item_info = {
+                'relates_to': 'checkin_out',
+                'sep_versions': True,
+                'children_states': None,
+                'simple_view': True,
+            }
+
+            gf.add_sobject_item(
+                self.results_tree_widget,
+                self,
+                sobject,
+                self.stype,
+                item_info,
+                ignore_dict=None,
+            )
+            if total_sobjects:
+                if i+1 % 20 == 0:
+                    self.progress_bar.setValue(int(i+1 * 100 / total_sobjects))
+
+        self.progress_bar.setVisible(False)
+
+        self.bottom_navigataion_widget.init_navigation(self.query_info)
+        # self.update_filters(True)
+
+        env_inst.ui_main.set_info_status_text('')
+
+    def create_bottom_navigation_widget(self):
+
+        self.bottom_navigataion_widget = Ui_navigationWidget(project=self.project, stype=self.stype)
+        self.bottom_navigataion_widget.refresh_search.connect(self.update_search_results)
+
+        self.bottom_navigataion_widget.setHidden(True)
+
+        self.resultsLayout.addWidget(self.bottom_navigataion_widget)
 
     def create_progress_bar(self):
         self.progress_bar = QtGui.QProgressBar()

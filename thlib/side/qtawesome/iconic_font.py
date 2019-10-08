@@ -1,3 +1,4 @@
+# -*- coding: utf8 -*-
 r"""
 
 Iconic Font
@@ -19,6 +20,7 @@ import json
 import os
 import hashlib
 import warnings
+import locale
 
 # Third party imports
 from Qt.QtCore import QObject, QPoint, QRect, Qt
@@ -204,10 +206,11 @@ class IconicFont(QObject):
 
         if directory is None:
             directory = os.path.join(
-                os.path.dirname(os.path.realpath(__file__)), 'fonts')
+                os.path.dirname(os.path.realpath(__file__)), 'fonts').decode(locale.getpreferredencoding())
 
         # Load font
         if QApplication.instance() is not None:
+
             id_ = QFontDatabase.addApplicationFont(os.path.join(directory,
                                                                 ttf_filename))
             loadedFontFamilies = QFontDatabase.applicationFontFamilies(id_)
@@ -224,6 +227,7 @@ class IconicFont(QObject):
 
             with open(os.path.join(directory, charmap_filename), 'r') as codes:
                 self.charmap[prefix] = json.load(codes, object_hook=hook)
+            codes.close()
 
             # Verify that vendorized fonts are not corrupt
             if not SYSTEM_FONTS:
@@ -246,6 +250,7 @@ class IconicFont(QObject):
                               'rb') as f:
                         content = f.read()
                         hasher.update(content)
+                    f.close()
                     ttf_calculated_hash_code = hasher.hexdigest()
                     if ttf_calculated_hash_code != ttf_hash:
                         raise FontError(u"Font is corrupt at: '{0}'".format(

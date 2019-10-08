@@ -9,16 +9,20 @@ input_classes = {
         'pyasm.widget.input_wdg.TextWdg',
         'pyasm.widget.input_wdg.TextAreaWdg',
         'pyasm.widget.input_wdg.SelectWdg',
+        'pyasm.widget.input_wdg.CheckboxWdg',
         'pyasm.prod.web.prod_input_wdg.CurrentCheckboxWdg',
         'tactic.ui.input.task_input_wdg.TaskSObjectInputWdg',
+        'tactic.ui.widget.calendar_wdg.CalendarInputWdg',
     ],
     'handler': [
         'TacticSimpleUploadWdg',
         'TacticTextWdg',
         'TacticTextAreaWdg',
         'TacticSelectWdg',
+        'TacticCheckboxWdg',
         'TacticCurrentCheckboxWdg',
         'TacticTaskSObjectInputWdg',
+        'TacticCalendarInputWdg',
     ],
 }
 
@@ -51,6 +55,7 @@ class TacticBaseWidget(object):
         self.name = None
         self.title = None
         self.values = None
+        self.display_values = None
 
         self.kwargs = None
         self.options_dict = None
@@ -120,6 +125,16 @@ class TacticBaseWidget(object):
     def get_values(self):
         return self.values
 
+    def set_display_values(self, display_values):
+        self.display_values = display_values
+
+    def get_display_values(self):
+        return self.display_values
+
+    def get_default_values(self):
+        if self.display_values:
+            return self.display_values[0]
+
     def set_parent_search_key(self, parent_key):
         self.parent_key = parent_key
 
@@ -147,7 +162,23 @@ class TacticBaseWidget(object):
     def get_options(self):
         return self.options_dict
 
+    # def get_empty_label(self):
+    #     if self.has_empty_value():
+    #         return self.options_dict.get('empty_option_label')
+    #     else:
+    #         return ''
+    #
+    # def has_empty_value(self):
+    #     if self.kwargs:
+    #         if self.kwargs.get('empty'):
+    #             return True
+    #     elif self.options_dict.get('empty'):
+    #         return True
+    #     else:
+    #         return False
+
     def set_base_widget_options(self, options_dict):
+
         options_dict_get = options_dict.get
         self.options_dict = options_dict
 
@@ -161,6 +192,7 @@ class TacticBaseWidget(object):
         self.set_name(options_dict_get('name'))
         self.set_title(options_dict_get('title'))
         self.set_values(options_dict_get('values'))
+        self.set_display_values(options_dict_get('__display_values__'))
 
         self.set_action_options(options_dict_get('action_options'))
 
@@ -183,6 +215,7 @@ class TacticEditWdg(TacticBaseWidget):
 
     def commit(self, data):
         # TODO make with threads
+        # print 'BEGIN SAVING', data
         stype = self.get_stype()
         project = stype.get_project()
 
@@ -195,13 +228,36 @@ class TacticEditWdg(TacticBaseWidget):
 
             return tc.server_start(project=project.get_code()).update(self.get_search_key(), data)
         else:
+            instance_type = None
+            instance_type_str = None
+
+            sobject = self.get_sobject()
+
+            if sobject:
+                parent_stype = sobject.get_stype()
+
+                schema = self.stype.get_schema()
+                child = schema.get_child(self.get_search_type(), parent_stype.get_code())
+
+                if child:
+                    relationship = child.get('relationship')
+                    if relationship == 'instance':
+                        instance_type = child.get('instance_type')
+
             # Logging info
             dl.log('Making Commit Insert for {}'.format(stype.get_pretty_name()), group_id=stype.get_code())
-            runtime_command = 'thenv.get_tc().server_start(project="{0}").insert("{1}", {2}, parent_key="{3}")'.format(
-                project.get_code(), self.get_search_type(), str(data), self.get_parent_search_key())
+            parent_key = self.get_parent_search_key()
+            if parent_key:
+                parent_key = '"{}"'.format(parent_key)
+
+            if instance_type:
+                instance_type_str = '"{}"'.format(instance_type)
+
+            runtime_command = 'thenv.get_tc().insert_sobjects("{0}", "{1}", {2}, parent_key={3}, instance_type={4})'.format(
+                self.get_search_type(), project.get_code(), str(data), parent_key, instance_type_str)
             dl.info(runtime_command, group_id=stype.get_code())
 
-            return tc.server_start(project=project.get_code()).insert(self.get_search_type(), data, parent_key=self.get_parent_search_key())
+            return tc.insert_sobjects(self.get_search_type(), project.get_code(), data, parent_key=self.get_parent_search_key(), instance_type=instance_type)
 
     def set_base_edit_options(self, options_dict):
         options_dict_get = options_dict.get
@@ -287,6 +343,13 @@ class TacticSelectWdg(TacticBaseInputWdg):
         self.set_empty(self.kwargs.get('empty'))
 
 
+class TacticCheckboxWdg(TacticBaseInputWdg):
+    def __init__(self, options_dict=None):
+        super(self.__class__, self).__init__(options_dict=options_dict)
+
+        self.set_class_name('pyasm.widget.input_wdg.CheckboxWdg')
+
+
 class TacticCurrentCheckboxWdg(TacticBaseInputWdg):
     def __init__(self, options_dict=None):
         super(self.__class__, self).__init__(options_dict=options_dict)
@@ -299,6 +362,13 @@ class TacticTaskSObjectInputWdg(TacticBaseInputWdg):
         super(self.__class__, self).__init__(options_dict=options_dict)
 
         self.set_class_name('tactic.ui.input.task_input_wdg.TaskSObjectInputWdg')
+
+
+class TacticCalendarInputWdg(TacticBaseInputWdg):
+    def __init__(self, options_dict=None):
+        super(self.__class__, self).__init__(options_dict=options_dict)
+
+        self.set_class_name('tactic.ui.widget.calendar_wdg.CalendarInputWdg')
 
 
 def get_widget_name(tactic_class='', type=''):

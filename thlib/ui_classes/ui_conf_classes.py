@@ -2,6 +2,7 @@
 # Configuration window classes
 
 import collections
+from functools import partial
 import copy
 
 from thlib.side.Qt import QtWidgets as QtGui
@@ -66,8 +67,12 @@ class Ui_serverPageWidget(QtGui.QWidget, ui_serverPage.Ui_serverPageWidget):
         self.ping_progress_dialog.hide()
 
     def controls_actions(self):
-        self.connectToServerButton.clicked.connect(lambda: self.apply_and_connect_to_server(run_thread=True))
-        self.connectToServerButton.clicked.connect(lambda: env_inst.ui_conf.set_page_status())
+
+        # self.connectToServerButton.clicked.connect(lambda: self.apply_and_connect_to_server(run_thread=True))
+        # self.connectToServerButton.clicked.connect(lambda: env_inst.ui_conf.set_page_status())
+
+        self.connectToServerButton.clicked.connect(partial(self.apply_and_connect_to_server, run_thread=True))
+        self.connectToServerButton.clicked.connect(partial(env_inst.ui_conf.set_page_status))
 
         self.generateTicketButton.clicked.connect(self.generate_ticket)
         self.editServerPresetsPushButton.clicked.connect(self.edit_server_presets)
@@ -140,6 +145,10 @@ class Ui_serverPageWidget(QtGui.QWidget, ui_serverPage.Ui_serverPageWidget):
             env_inst.ui_conf.restart(force=True)
 
     def apply_and_connect_to_server(self, result=None, run_thread=False):
+
+        """THIS WHOLE THING IS COMPLICATED AND SHOULD BE REWRITTEN"""
+        # TODO Rewrite this func
+
         if run_thread:
             # TODO ask dialog about apply settings
             # self.save_server_preset_config()
@@ -155,9 +164,7 @@ class Ui_serverPageWidget(QtGui.QWidget, ui_serverPage.Ui_serverPageWidget):
             def server_fast_ping_agent():
                 return tc.server_fast_ping_predefined(server, proxy)
 
-            server_thread_pool = QtCore.QThreadPool()
-            server_thread_pool.setMaxThreadCount(env_tactic.max_threads())
-            env_inst.set_thread_pool(server_thread_pool, 'server_query/server_thread_pool')
+            env_inst.set_thread_pool(None, 'server_query/server_thread_pool')
 
             stypes_items_worker = gf.get_thread_worker(
                 server_fast_ping_agent,
@@ -165,34 +172,38 @@ class Ui_serverPageWidget(QtGui.QWidget, ui_serverPage.Ui_serverPageWidget):
                 result_func=self.apply_and_connect_to_server,
                 error_func=self.apply_and_connect_to_server_error,
             )
-            stypes_items_worker.try_start()
+            stypes_items_worker.start()
 
-            def progress_agent():
-                import time
-                timeout = env_server.get_timeout()
-                for i in range(1, 100):
-                    time.sleep(float(timeout) / 100.0)
-                    if stypes_items_progress_worker.is_signals_enabled():
-                        stypes_items_progress_worker.emit_progress(i)
-                    else:
-                        break
-                stypes_items_progress_worker.emit_progress(100)
-
-            stypes_items_progress_worker = gf.get_thread_worker(
-                progress_agent,
-                env_inst.get_thread_pool('server_query/server_thread_pool'),
-                progress_func=self.apply_and_connect_to_server_progress,
-            )
-            stypes_items_progress_worker.add_custom_kwargs(stypes_items_worker=stypes_items_worker,
-                                                           stypes_items_progress_worker=stypes_items_progress_worker)
-            stypes_items_progress_worker.try_start()
+            # def progress_agent():
+            #     import time
+            #     timeout = env_server.get_timeout()
+            #     for i in range(1, 100):
+            #         time.sleep(float(timeout) / 100.0)
+            #         if stypes_items_progress_worker.is_signals_enabled():
+            #             stypes_items_progress_worker.emit_progress(i)
+            #         else:
+            #             break
+            #     stypes_items_progress_worker.emit_progress(100)
+            #
+            # stypes_items_progress_worker = gf.get_thread_worker(
+            #     progress_agent,
+            #     env_inst.get_thread_pool('server_query/server_thread_pool'),
+            #     progress_func=self.apply_and_connect_to_server_progress,
+            #     result_func=dummy_func
+            # )
+            #
+            # stypes_items_progress_worker.add_custom_kwargs(
+            #     stypes_items_worker=stypes_items_worker,
+            #     stypes_items_progress_worker=stypes_items_progress_worker
+            # )
+            # stypes_items_progress_worker.start()
 
         if result:
             if result == 'ping_ok':
                 env_inst.ui_conf.need_restart = True
 
                 self.set_api_status(True)
-                self.apply_and_connect_to_server_stop()
+                # self.apply_and_connect_to_server_stop()
                 # self.set_ticket_status('unknown')
                 if not env_server.get_ticket():
                     self.set_ticket_status('gen')
@@ -259,9 +270,7 @@ class Ui_serverPageWidget(QtGui.QWidget, ui_serverPage.Ui_serverPageWidget):
             def generate_new_ticket_agent():
                 return tc.server_auth(**kwargs)
 
-            server_thread_pool = QtCore.QThreadPool()
-            server_thread_pool.setMaxThreadCount(env_tactic.max_threads())
-            env_inst.set_thread_pool(server_thread_pool, 'server_query/server_thread_pool')
+            env_inst.set_thread_pool(None, 'server_query/server_thread_pool')
 
             stypes_items_worker = gf.get_thread_worker(
                 generate_new_ticket_agent,
@@ -271,7 +280,7 @@ class Ui_serverPageWidget(QtGui.QWidget, ui_serverPage.Ui_serverPageWidget):
             )
             if kwargs:
                 self.userNameLineEdit.setText(kwargs.get('login'))
-                stypes_items_worker.try_start()
+                stypes_items_worker.start()
             # generate_ticket = tc.generate_new_ticket(self.userNameLineEdit.text(), parent=self)
 
             # thread.wait()
@@ -287,8 +296,7 @@ class Ui_serverPageWidget(QtGui.QWidget, ui_serverPage.Ui_serverPageWidget):
             # env_inst.ui_conf.switch_to_online_status(True)
             # self.check_server_status()
             self.set_ticket_status('updated')
-            # env_inst.ui_conf.need_restart = True
-            # self.loginStatusLable.setText('Status: <b><span style="color:#a5af19;">Updated</span></b>')
+            env_inst.ui_conf.apply_button.setEnabled(True)
             # env_inst.ui_conf.restart()
             # if env_inst.ui_conf.need_restart:
             #     env_inst.ui_conf.close()
@@ -1164,7 +1172,6 @@ class Ui_checkinOutPageWidget(QtGui.QWidget, ui_checkinOutPage.Ui_checkinOutPage
         self.collect_defaults(store_defaults=True)
 
     def showEvent(self, *args, **kwargs):
-
         if not self.page_defaults and self.page_init:
             self.collect_defaults(apply_values=True)
         self.collect_defaults()

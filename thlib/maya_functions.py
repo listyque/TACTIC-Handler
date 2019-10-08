@@ -15,7 +15,7 @@ except:
     import shiboken2 as shiboken
 
 import tactic_classes as tc
-from thlib.environment import env_inst
+from thlib.environment import env_inst, dl
 import global_functions as gf
 
 
@@ -38,25 +38,28 @@ def get_maya_dock_window():
     return maya_dock_instances
 
 
-def open_scene(file_path, dir_path, all_process):
+def open_scene(file_object):
     # check if scene need saving
+    file_path = file_object.get_full_abs_path()
     new_scene = mel.eval('saveChanges("file -f -new")')
     if bool(new_scene):
-        print('Opening: ' + file_path)
+        dl.log('Opening: ' + file_path, group_id='maya_log')
         # set_workspace(dir_path, all_process)
-        cmds.file(file_path, open=True, force=True)
-
-        # cmds.file(q=True, location=True)  #prtint current scene path
+        cmds.file(file_path, open=True, force=True, ignoreVersion=True)
 
 
-def import_scene(file_path):
-    print('Importing: ' + file_path)
-    cmds.file(file_path, i=True)
+def import_scene(file_object):
+    file_path = file_object.get_full_abs_path()
+    dl.log('Importing: ' + file_path, group_id='maya_log')
+    namespace = gf.extract_filename(file_path, no_ext=True)
+    cmds.file(file_path, namespace=namespace.replace('.', '_'), i=True, ignoreVersion=True)
 
 
-def reference_scene(file_path):
-    print('Referencing: ' + file_path)
-    cmds.file(file_path, r=True)
+def reference_scene(file_object):
+    file_path = file_object.get_full_abs_path()
+    dl.log('Referencing: ' + file_path, group_id='maya_log')
+    namespace = gf.extract_filename(file_path, no_ext=True)
+    cmds.file(file_path, namespace=namespace.replace('.', '_'), reference=True, ignoreVersion=True)
 
 
 def get_current_scene_foramt():
@@ -74,6 +77,12 @@ def get_skey_from_scene():
         return skey
 
 
+def wrap_export_selected_options(project_code, tab_code, wdg_code):
+    mel.eval('proc export_selection_maya(){python("' +
+             "main.mf.export_selected('{0}', '{1}', '{2}')".format(project_code, tab_code, wdg_code) +
+             '");}fileOptions "ExportActive" "export_selection_maya";')
+
+
 def export_selected(project_code, tab_code, wdg_code):
 
     current_type = cmds.optionVar(q='defaultFileExportActiveType')
@@ -82,7 +91,13 @@ def export_selected(project_code, tab_code, wdg_code):
 
     current_checkin_widget = env_inst.get_check_tree(project_code, tab_code, wdg_code)
 
-    current_checkin_widget.save_file(selected_objects=[True, {current_type: current_ext[2:]}])
+    current_checkin_widget.save_file(selected_objects=[True, {current_type: current_ext[2:]}], maya_checkin=True)
+
+
+def wrap_save_options(project_code, tab_code, wdg_code):
+    mel.eval('proc save_as_maya(){python("' +
+             "main.mf.save_as('{0}', '{1}', '{2}')".format(project_code, tab_code, wdg_code) +
+             '");}fileOptions "SaveAs" "save_as_maya";')
 
 
 def save_as(project_code, tab_code, wdg_code):
@@ -93,19 +108,7 @@ def save_as(project_code, tab_code, wdg_code):
 
     current_checkin_widget = env_inst.get_check_tree(project_code, tab_code, wdg_code)
 
-    current_checkin_widget.save_file(selected_objects=[False, {current_type: current_ext[2:]}])
-
-
-def wrap_export_selected_options(project_code, tab_code, wdg_code):
-    mel.eval('proc export_selection_maya(){python("' +
-             "main.mf.export_selected('{0}', '{1}', '{2}')".format(project_code, tab_code, wdg_code) +
-             '");}fileOptions "ExportActive" "export_selection_maya";')
-
-
-def wrap_save_options(project_code, tab_code, wdg_code):
-    mel.eval('proc save_as_maya(){python("' +
-             "main.mf.save_as('{0}', '{1}', '{2}')".format(project_code, tab_code, wdg_code) +
-             '");}fileOptions "SaveAs" "save_as_maya";')
+    current_checkin_widget.save_file(selected_objects=[False, {current_type: current_ext[2:]}], maya_checkin=True)
 
 
 def set_info_to_scene(search_key, context):
@@ -155,20 +158,22 @@ def get_temp_playblast():
 def inplace_checkin(virtual_snapshot, repo_name, update_versionless, only_versionless=False, generate_icons=True,
                     selected_objects=False, ext_type='mayaAscii', setting_workspace=False):
 
-    scene_name = virtual_snapshot[0][1]['versioned']['names'][0]
-    scene_path = gf.form_path(repo_name['value'][0] + '/' + virtual_snapshot[0][1]['versioned']['paths'][0])
-    playblast_name = virtual_snapshot[1][1]['versioned']['names'][0]
-    playblast_path = gf.form_path(repo_name['value'][0] + '/' + virtual_snapshot[1][1]['versioned']['paths'][0])
+    main_version = 'versioned'
+    if only_versionless:
+        main_version = 'versionless'
+
+    scene_name = virtual_snapshot[0][1][main_version]['names'][0]
+    scene_path = gf.form_path(repo_name['value'][0] + '/' + virtual_snapshot[0][1][main_version]['paths'][0])
+    playblast_name = virtual_snapshot[1][1][main_version]['names'][0]
+    playblast_path = gf.form_path(repo_name['value'][0] + '/' + virtual_snapshot[1][1][main_version]['paths'][0])
 
     full_scene_path = scene_path + '/' + ''.join(scene_name)
     full_playblast_path = playblast_path + '/' + ''.join(playblast_name)
-
     # create dest dirs
     if not os.path.exists(scene_path):
         os.makedirs(scene_path)
     if not os.path.exists(playblast_path):
         os.makedirs(playblast_path)
-
     # saving maya scene
     try:
         if ext_type in ['mayaAscii', 'mayaBinary']:
@@ -204,6 +209,7 @@ def inplace_checkin(virtual_snapshot, repo_name, update_versionless, only_versio
             mel.eval('enableIsolateSelect {0} 1;'.format(current_panel))
 
         current_frame = cmds.currentTime(query=True)
+
         cmds.playblast(
             forceOverwrite=True,
             format='image',
@@ -217,20 +223,20 @@ def inplace_checkin(virtual_snapshot, repo_name, update_versionless, only_versio
             viewer=False,
             percent=100
         )
+
         if selected_objects:
             cmds.isolateSelect(current_panel, state=False)
             mel.eval('enableIsolateSelect {0} 0;'.format(current_panel))
 
         match_template = gf.MatchTemplate(['$FILENAME.$EXT'])
-        files_objects_dict = match_template.get_files_objects([full_scene_path, full_playblast_path], sort=False)
 
+        files_objects_dict = match_template.get_files_objects([full_scene_path, full_playblast_path], sort=False)
         maya_app_info_dict = get_maya_info_dict()
+
         for fl in files_objects_dict.get('file'):
             fl.set_app_info(maya_app_info_dict)
             files_objects_list.append(fl)
-
         file_paths = [[full_scene_path], [full_playblast_path]]
-
         check_ok = tc.inplace_checkin(
             file_paths,
             virtual_snapshot,
@@ -293,8 +299,8 @@ def create_workspace(dir_path, all_process):
                 val += 'work/{0};'.format(process)
         workspace.append('workspace -fr "{0}" "{1}";\n'.format(const, val))
 
-    workspace_file = open(dir_path + "/workspace.mel", "w")
-    workspace_file.writelines(workspace)
+    with open(dir_path + "/workspace.mel", "w") as workspace_file:
+        workspace_file.writelines(workspace)
     workspace_file.close()
 
 

@@ -5,6 +5,20 @@
   <property name="windowModality">
    <enum>Qt::ApplicationModal</enum>
   </property>
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>820</width>
+    <height>800</height>
+   </rect>
+  </property>
+  <property name="minimumSize">
+   <size>
+    <width>600</width>
+    <height>600</height>
+   </size>
+  </property>
   <property name="windowTitle">
    <string>TACTIC handler</string>
   </property>
@@ -112,7 +126,7 @@ QGroupBox::title {
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>96</width>
+     <width>820</width>
      <height>21</height>
     </rect>
    </property>
@@ -121,10 +135,12 @@ QGroupBox::title {
      <string>Menu</string>
     </property>
     <addaction name="actionConfiguration"/>
+    <addaction name="actionSave_Preferences"/>
+    <addaction name="actionReloadCache"/>
     <addaction name="actionApply_to_all_Tabs"/>
     <addaction name="actionDock_undock"/>
     <addaction name="separator"/>
-    <addaction name="actionServerside_Script"/>
+    <addaction name="actionScriptEditor"/>
     <addaction name="actionDebug_Log"/>
     <addaction name="separator"/>
     <addaction name="actionUpdate"/>
@@ -137,19 +153,20 @@ QGroupBox::title {
      <bool>true</bool>
     </property>
     <property name="title">
-     <string>Project</string>
+     <string>Projects</string>
     </property>
    </widget>
-   <widget class="QMenu" name="menuView">
+   <widget class="QMenu" name="menuUser">
     <property name="title">
-     <string>View</string>
+     <string>User</string>
     </property>
-    <addaction name="actionCheckin_Checkout"/>
-    <addaction name="actionMy_Tactic"/>
+    <addaction name="actionEdit_My_Account"/>
+    <addaction name="actionMessages"/>
+    <addaction name="actionDashboard"/>
    </widget>
    <addaction name="menuConfig"/>
-   <addaction name="menuView"/>
    <addaction name="menuProject"/>
+   <addaction name="menuUser"/>
   </widget>
   <action name="actionConfiguration">
    <property name="text">
@@ -171,9 +188,9 @@ QGroupBox::title {
     <string>Current view to All Tabs</string>
    </property>
   </action>
-  <action name="actionServerside_Script">
+  <action name="actionScriptEditor">
    <property name="text">
-    <string>Serverside Script</string>
+    <string>Script Editor</string>
    </property>
   </action>
   <action name="actionDock_undock">
@@ -208,6 +225,31 @@ QGroupBox::title {
   <action name="actionAssets_browser">
    <property name="text">
     <string>Assets browser</string>
+   </property>
+  </action>
+  <action name="actionEdit_My_Account">
+   <property name="text">
+    <string>Edit My Account</string>
+   </property>
+  </action>
+  <action name="actionMessages">
+   <property name="text">
+    <string>My Messages</string>
+   </property>
+  </action>
+  <action name="actionDashboard">
+   <property name="text">
+    <string>My Dashboard</string>
+   </property>
+  </action>
+  <action name="actionSave_Preferences">
+   <property name="text">
+    <string>Save Preferences</string>
+   </property>
+  </action>
+  <action name="actionReloadCache">
+   <property name="text">
+    <string>Reload Cache</string>
    </property>
   </action>
  </widget>

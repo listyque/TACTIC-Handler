@@ -9,16 +9,20 @@ import copy
 import ast
 import json
 import zlib
+import zipfile
+import cPickle
 import binascii
 import collections
 import re
 import traceback
+import datetime
 import side.qtawesome as qta
 import side.natsort as natsort
 from bs4 import BeautifulSoup
 from thlib.side.Qt import QtWidgets as QtGui
 from thlib.side.Qt import QtGui as Qt4Gui
 from thlib.side.Qt import QtCore
+from thlib.side.Qt import QtNetwork
 from thlib.side.watchdog.observers import Observer
 from thlib.side.watchdog.events import FileSystemEventHandler, EVENT_TYPE_MOVED, EVENT_TYPE_CREATED, EVENT_TYPE_DELETED, EVENT_TYPE_MODIFIED
 
@@ -64,8 +68,8 @@ class EventHandler(FileSystemEventHandler, QtCore.QObject):
 
 class FSObserver(Observer):
 
-    def __init__(self):
-        super(FSObserver, self).__init__()
+    def __init__(self, timeout=1):
+        super(FSObserver, self).__init__(timeout=timeout)
 
         self.event_handler = EventHandler()
         self.started = False
@@ -75,7 +79,7 @@ class FSObserver(Observer):
     def set_created_signal(self, func):
         self.event_handler.created.connect(func)
 
-    def append_watch(self, watch_name, paths=None, repos=None, recursive=None):
+    def append_watch(self, watch_name, paths=None, repos=None, pipeline=None, recursive=None):
 
         if watch_name not in self.observers_dict.keys():
 
@@ -83,6 +87,7 @@ class FSObserver(Observer):
                 watch = self.schedule(self.event_handler, path=path, recursive=recursive)
                 watch.watch_name = watch_name
                 watch.repo = repos[i]
+                watch.pipeline = pipeline
                 self.observers_dict.setdefault(watch_name, []).append(watch)
                 dl.info(u'Enabled Watching path: {0}'.format(path),
                         group_id='watch_folders_ui')
@@ -139,11 +144,10 @@ class ThreadWorker(QtCore.QRunnable):
     :type agent: function
 
     """
-
-    def __init__(self, agent, thread_pool, parent=None):
-        super(ThreadWorker, self).__init__(parent=parent)
+    def __init__(self, agent, thread_pool):
+        super(ThreadWorker, self).__init__()
         # Settings
-        self.setAutoDelete(False)
+        self.setAutoDelete(True)
 
         # Vars
         self.agent = agent
@@ -254,15 +258,19 @@ class ThreadWorker(QtCore.QRunnable):
             self.set_failed(True)
             self.emit_error((exception, self))
         else:
-            self.setAutoDelete(True)
             self.emit_result(result)
             self.set_failed(False)
         finally:
-            self.emit_finished()
+            if not self.failed:
+                self.emit_finished()
+                self.set_failed(False)
+
+            self.setAutoDelete(True)
+            del self
 
 
 def get_thread_worker(agent_func, thread_pool=None, result_func=None, error_func=None,
-                      finished_func=None, progress_func=None, stop_func=None, parent=None):
+                      finished_func=None, progress_func=None, stop_func=None):
     """
     This will create worker with thread pool for you, or you can add worker to your existing thread
 
@@ -272,19 +280,19 @@ def get_thread_worker(agent_func, thread_pool=None, result_func=None, error_func
     :param error_func: Executed when thread will fail
     :param finished_func: Executed even when thread fail, should not have any return
     :param progress_func: Emitting progress
-    :param parent: Parent of the worker
     :return: Worker object
     """
+
     if not thread_pool:
         thread_pool = QtCore.QThreadPool().globalInstance()
 
-    worker = ThreadWorker(agent_func, thread_pool, parent=parent)
+    # worker = ThreadWorker(agent_func, thread_pool, parent=parent)
+    worker = ThreadWorker(agent_func, thread_pool)
     worker.result_func(result_func)
     worker.error_func(error_func)
     worker.finished_func(finished_func)
     worker.progress_func(progress_func)
     worker.stop_func(stop_func)
-
     return worker
 
 
@@ -381,7 +389,7 @@ def error_handle(args):
         buttons = [('Yes', QtGui.QMessageBox.YesRole),
                    ('No', QtGui.QMessageBox.NoRole)]
 
-        if not env_inst.ui_conf:
+        if not env_inst.ui_conf and env_inst.ui_main:
             buttons.append(('Open Config', QtGui.QMessageBox.ActionRole))
 
         reply = show_message_predefined(
@@ -606,6 +614,11 @@ def catch_error_type(exception):
     return error
 
 
+def parce_timestamp(timestamp):
+    if timestamp:
+        return datetime.datetime.strptime(timestamp, '%Y-%m-%d %H:%M:%S.%f')
+
+
 def hex_to_rgb(hex_v, alpha=None, tuple=False):
     """
     Converts hex color to rgb/a
@@ -722,17 +735,9 @@ def prettify_text(text, first_letter=False):
             return text.replace('_', ' ').title()
 
 
-def minify_code(source, pack=False):
-    import side.pyminifier as pyminifier
-    cleanup_comments = pyminifier.minification.remove_comments_and_docstrings(source)
-    cleanup_blanks = pyminifier.minification.remove_blank_lines(cleanup_comments)
-    multi_line = pyminifier.minification.join_multiline_pairs(cleanup_blanks)
-    dedent = pyminifier.minification.dedent(multi_line)
-    reduce_op = pyminifier.minification.reduce_operators(dedent)
-    if pack:
-        return pyminifier.compression.gz_pack(reduce_op)
-    else:
-        return reduce_op
+def minify_code(source):
+    import side.python_minifier as python_minifier
+    return python_minifier.minify(source)
 
 
 def get_ver_rev(ver=None, rev=None):
@@ -791,12 +796,26 @@ def get_controls_dict(ignore_list=None):
     return copy.deepcopy(controls_dict)
 
 
-def get_value_from_config(config_dict, control):
+def get_value_from_config(config_dict, control, default_value=None):
     if config_dict:
-        for all_values in config_dict.itervalues():
-            for obj_name, value in zip(all_values['obj_name'], all_values['value']):
-                if control == obj_name:
-                    return value
+        if default_value:
+            result = None
+            for all_values in config_dict.itervalues():
+                for obj_name, value in zip(all_values['obj_name'], all_values['value']):
+                    if control == obj_name:
+                        result = value
+                        break
+            if not result:
+                return default_value
+            else:
+                return result
+        else:
+            for all_values in config_dict.itervalues():
+                for obj_name, value in zip(all_values['obj_name'], all_values['value']):
+                    if control == obj_name:
+                        return value
+    else:
+        return default_value
 
 
 def walk_through_layouts(args=None, ignore_list=None):
@@ -964,7 +983,7 @@ def str_to_toolbar_area(area):
         return QtCore.Qt.RightToolBarArea
 
 
-def store_dict_values(widgets, out_dict, parent):
+def store_dict_values(widgets, out_dict, parent=None):
     clear_property_dict(out_dict)
     for widget in widgets:
         if isinstance(widget,
@@ -977,7 +996,8 @@ def store_dict_values(widgets, out_dict, parent):
                        QtGui.QGroupBox,
                        QtGui.QSpinBox,)):
             store_property_by_widget_type(widget, out_dict)
-            widget.installEventFilter(parent)
+            if parent:
+                widget.installEventFilter(parent)
 
 
 def apply_dict_values(widgets, in_dict):
@@ -1095,6 +1115,57 @@ def add_item_to_tree(tree_widget, tree_item, tree_item_widget=None, insert_pos=N
             tree_widget.treeWidget().resizeColumnToContents(0)
 
 
+def check_tree_items_exists(root_item, item_text):
+    if type(root_item) == QtGui.QTreeWidget:
+        for i in range(root_item.topLevelItemCount()):
+            top_item = root_item.topLevelItem(i)
+            if item_text == top_item.data(0, 12):
+                return top_item
+    else:
+        for i in range(root_item.childCount()):
+            top_item = root_item.child(i)
+            if item_text == top_item.data(0, 12):
+                return top_item
+
+
+def add_child_items(root_item, sobject):
+    child_item = QtGui.QTreeWidgetItem(root_item)
+    child_item.setText(0, sobject.get_title())
+    child_item.setText(1, sobject.get_value('language'))
+    child_item.setData(0, QtCore.Qt.UserRole, sobject)
+    if sobject.get_value('language') == 'python':
+        child_item.setIcon(0, get_icon('language-python', icons_set='mdi'))
+    elif sobject.get_value('language') == 'javascript':
+        child_item.setIcon(0, get_icon('language-javascript', icons_set='mdi'))
+    else:
+        child_item.setIcon(0, get_icon('text', icons_set='mdi'))
+    root_item.addChild(child_item)
+
+
+def recursive_add_items(root_item, subgroup_list):
+    item_text = subgroup_list.pop()
+    if check_tree_items_exists(root_item, item_text):
+        group_item = check_tree_items_exists(root_item, item_text)
+    else:
+        group_item = QtGui.QTreeWidgetItem(root_item)
+        root_item.addChild(group_item)
+        val = root_item.data(0, QtCore.Qt.UserRole)
+        if val:
+            group_item.setText(0, item_text)
+        else:
+            group_item.setText(0, item_text)
+        group_item.setData(0, 12, item_text)
+        group_item.setData(0, QtCore.Qt.UserRole, val)
+        group_item.setIcon(0, root_item.icon(0))
+
+    if subgroup_list:
+        return recursive_add_items(group_item, subgroup_list)
+    else:
+        sobjects_list = root_item.data(0, QtCore.Qt.UserRole)
+        for sobject in sobjects_list:
+            add_child_items(group_item, sobject)
+
+
 def add_preview_item(parent_item, file_object=None, screenshot=None):
     from thlib.ui_classes.ui_item_classes import Ui_previewItemWidget
 
@@ -1123,26 +1194,45 @@ def add_commit_item(parent_item, item_widget):
     return tree_item_widget
 
 
-def add_sobject_item(parent_item, parent_widget, sobject, stype, item_info, insert_pos=None, ignore_dict=None):
-    from thlib.ui_classes.ui_item_classes import Ui_itemWidget
+def add_repo_sync_item(tree_widget, file_object):
+    from thlib.ui_classes.ui_item_classes import Ui_repoSyncItemWidget
+
     tree_item = QtGui.QTreeWidgetItem()
+
+    tree_item_widget = Ui_repoSyncItemWidget(file_object=file_object)
+
+    add_item_to_tree(tree_widget, tree_item, tree_item_widget)
+
+    return tree_item_widget
+
+
+def add_sobject_item(parent_item, parent_widget, sobject, stype, item_info, insert_pos=None, ignore_dict=None, return_layout_widget=False):
+    from thlib.ui_classes.ui_item_classes import Ui_itemWidget, Ui_layoutWrapWidget
+
     item_info_dict = {
         'relates_to': item_info['relates_to'],
         'is_expanded': False,
-        'sep_versions': item_info['sep_versions']
+        'sep_versions': item_info['sep_versions'],
+        'children_states': item_info.get('children_states'),
+        'simple_view': item_info['simple_view'],
+        'forced_creation': item_info.get('forced_creation'),
     }
 
+    tree_item = QtGui.QTreeWidgetItem()
     tree_item.setChildIndicatorPolicy(QtGui.QTreeWidgetItem.ShowIndicator)
     tree_item_widget = Ui_itemWidget(sobject, stype, item_info_dict, ignore_dict)
-
     tree_item_widget.tree_item = tree_item
     tree_item_widget.search_widget = parent_widget
 
-    add_item_to_tree(parent_item, tree_item, tree_item_widget, insert_pos=insert_pos)
-
-    tree_item_widget.setParent(tree_item_widget.parent())
-
-    return tree_item_widget
+    if return_layout_widget:
+        layout_widget = Ui_layoutWrapWidget()
+        layout_widget.set_widget(tree_item_widget)
+        add_item_to_tree(parent_item, tree_item, layout_widget, insert_pos=insert_pos)
+        return layout_widget
+    else:
+        add_item_to_tree(parent_item, tree_item, tree_item_widget, insert_pos=insert_pos)
+        tree_item_widget.setParent(tree_item_widget.parent())
+        return tree_item_widget
 
 
 def add_process_item(tree_widget, parent_widget, sobject, stype, process, item_info, insert_pos=None, pipeline=None):
@@ -1153,7 +1243,8 @@ def add_process_item(tree_widget, parent_widget, sobject, stype, process, item_i
     item_info_dict = {
         'relates_to': item_info['relates_to'],
         'is_expanded': False,
-        'sep_versions': item_info['sep_versions']
+        'sep_versions': item_info['sep_versions'],
+        'children_states': item_info.get('children_states'),
     }
 
     tree_item_widget = Ui_processItemWidget(sobject, stype, process, item_info_dict, pipeline)
@@ -1168,17 +1259,19 @@ def add_process_item(tree_widget, parent_widget, sobject, stype, process, item_i
     return tree_item_widget
 
 
-def add_snapshot_item(tree_widget, parent_widget, sobject, stype, process, pipeline, snapshots, item_info, sep_versions=False,
-                      insert_at_top=True):
+def add_snapshot_item(tree_widget, parent_widget, sobject, stype, process, pipeline, snapshots, item_info,
+                      sep_versions=False, insert_at_top=True):
     from thlib.ui_classes.ui_item_classes import Ui_snapshotItemWidget
-    snapshots_items = []
+
+    snapshots_list = []
 
     for key, context in snapshots.contexts.items():
         tree_item = QtGui.QTreeWidgetItem()
         item_info_dict = {
             'relates_to': item_info['relates_to'],
             'is_expanded': False,
-            'sep_versions': item_info['sep_versions']
+            'sep_versions': item_info['sep_versions'],
+            'children_states': item_info.get('children_states')
         }
         snapshot_item = Ui_snapshotItemWidget(
             sobject,
@@ -1224,7 +1317,9 @@ def add_snapshot_item(tree_widget, parent_widget, sobject, stype, process, pipel
 
                 snapshot_item_versions.setParent(snapshot_item_versions.parent())
 
-    return snapshots_items
+        snapshots_list.append(snapshot_item)
+
+    return snapshots_list
 
 
 def add_versions_snapshot_item(tree_widget, parent_widget, sobject, stype, process, pipeline, context, snapshots, item_info):
@@ -1236,7 +1331,7 @@ def add_versions_snapshot_item(tree_widget, parent_widget, sobject, stype, proce
         item_info_dict = {
             'relates_to': item_info['relates_to'],
             'is_expanded': False,
-            'sep_versions': item_info['sep_versions']
+            'sep_versions': item_info['sep_versions'],
         }
         snapshot_item = Ui_snapshotItemWidget(
             sobject,
@@ -1261,7 +1356,8 @@ def add_child_item(tree_widget, parent_widget, sobject, stype, child, item_info)
     item_info_dict = {
         'relates_to': item_info['relates_to'],
         'is_expanded': False,
-        'sep_versions': item_info['sep_versions']
+        'sep_versions': item_info['sep_versions'],
+        'children_states': item_info.get('children_states')
     }
     tree_item_widget = Ui_childrenItemWidget(sobject, stype, child, item_info_dict)
 
@@ -1342,6 +1438,103 @@ def tree_recursive_expand(wdg, state):
             item_wdg.collapse_recursive()
 
 
+def get_tree_widget_checked_state(wdg, state_dict):
+    """
+    Recursive getting checked state from each tree item storing names of checked items
+    This func is slower than it could be, but produce more readable look
+    """
+
+    if type(wdg) == QtGui.QTreeWidget:
+        lv = wdg.topLevelItemCount()
+        for i in range(lv):
+            item = wdg.topLevelItem(i)
+
+            state = False
+            if item.checkState(0) == QtCore.Qt.Checked:
+                state = True
+
+            item_data = item.data(1, 0)
+            if not item_data:
+                item_data = i
+
+            d = {
+                'state':  state,
+            }
+
+            if item.childCount() > 0:
+                get_tree_widget_checked_state(item, d)
+
+            state_dict[item_data] = d
+    else:
+        lv = wdg.childCount()
+        for i in range(lv):
+            item = wdg.child(i)
+
+            state = False
+            if item.checkState(0) == QtCore.Qt.Checked:
+                state = True
+
+            item_data = item.data(1, 0)
+            if not item_data:
+                item_data = i
+
+            d = {
+                'state': state,
+            }
+
+            if item.childCount() > 0:
+                get_tree_widget_checked_state(item, d)
+
+            if not state_dict.get('sub'):
+                state_dict['sub'] = {}
+                state_dict['sub'][item_data] = d
+            else:
+                state_dict['sub'][item_data] = d
+
+    return state_dict
+
+
+def set_tree_widget_checked_state(wdg, state_dict, ignore_types_tuple=None, only_types_tuple=None, state=None):
+    """
+    Recursively setting checked state to each tree item by names
+    """
+
+    if type(wdg) == QtGui.QTreeWidget:
+        lv = wdg.topLevelItemCount()
+        tree_item = wdg.topLevelItem
+    else:
+        lv = wdg.childCount()
+        tree_item = wdg.child
+
+    for i in range(lv):
+        item = tree_item(i)
+        item_data = item.data(1, 0)
+
+        if state_dict.get(item_data):
+            if ignore_types_tuple:
+                if not item_data.endswith(ignore_types_tuple):
+                    if state_dict[item_data]['state']:
+                        item.setCheckState(0, QtCore.Qt.Checked)
+                    else:
+                        item.setCheckState(0, QtCore.Qt.Unchecked)
+
+            elif only_types_tuple:
+                if item_data.endswith(only_types_tuple):
+                    if state:
+                        item.setCheckState(0, QtCore.Qt.Checked)
+                    else:
+                        item.setCheckState(0, QtCore.Qt.Unchecked)
+            else:
+                if state_dict[item_data]['state']:
+                    item.setCheckState(0, QtCore.Qt.Checked)
+                else:
+                    item.setCheckState(0, QtCore.Qt.Unchecked)
+
+            if item.childCount() > 0:
+                if state_dict[item_data].get('sub'):
+                    set_tree_widget_checked_state(item, state_dict[item_data]['sub'], ignore_types_tuple, only_types_tuple, state)
+
+
 def tree_state(wdg, state_dict):
     """ Recursive getting data from each tree item"""
 
@@ -1371,7 +1564,7 @@ def tree_state(wdg, state_dict):
     return state_dict
 
 
-def tree_state_revert(wdg, state_dict):
+def tree_state_revert(wdg, state_dict, use_item_widgets=True):
     """ Recursive setting data to each tree item"""
     if type(wdg) == QtGui.QTreeWidget:
         lv = wdg.topLevelItemCount()
@@ -1385,12 +1578,16 @@ def tree_state_revert(wdg, state_dict):
     for i in range(lv):
         if state_dict.get(i):
             item = tree_item(i)
-            item_widget = tree_wdg.itemWidget(item, 0)
-            item_widget.set_expand_state(state_dict[i]['d']['e'])
-            item_widget.set_selected_state(state_dict[i]['d']['s'])
-            item_widget.set_children_states(state_dict[i]['s'])
+            if use_item_widgets:
+                item_widget = tree_wdg.itemWidget(item, 0)
+                item_widget.set_expand_state(state_dict[i]['d']['e'])
+                item_widget.set_selected_state(state_dict[i]['d']['s'])
+                item_widget.set_children_states(state_dict[i]['s'])
+            else:
+                item.setExpanded(state_dict[i]['d']['e'])
+                item.setSelected(state_dict[i]['d']['s'])
             if item.childCount() > 0:
-                tree_state_revert(item, state_dict[i]['s'])
+                tree_state_revert(item, state_dict[i]['s'], use_item_widgets)
             # Scrolling to item
             if item.isSelected():
                 tree_wdg.scrollToItem(item)
@@ -1480,6 +1677,18 @@ def extract_dirname(filename):
         return os.path.dirname(filename)
 
 
+def extract_zip_archive(zip_file_path, destination_path):
+    zp = zipfile.ZipFile(zip_file_path, "r")
+
+    members = []
+    for member in zp.infolist():
+        member.filename = member.filename.replace('\\', '/')
+        members.append(member)
+
+    zp.extractall(destination_path, members)
+    zp.close()
+
+
 def open_file_associated(filepath):
     # print 'OPENING FILE'
     if filepath and os.path.exists(filepath):
@@ -1492,6 +1701,7 @@ def open_file_associated(filepath):
 
 
 def open_folder(filepath, highlight=True):
+
     if filepath and os.path.exists(filepath):
         if env_mode.get_platform() == 'Linux':
             if highlight:
@@ -1508,13 +1718,27 @@ def open_folder(filepath, highlight=True):
 
 
 def form_path(path, tp=None):
-    if env_mode.get_platform() == 'Linux' or tp == 'linux':
+    if tp == 'web':
+        return path.replace('\\', '/').replace('\\\\', '/').replace('//', '/').replace(':/', '://')
+
+    elif env_mode.get_platform() == 'Linux' or tp == 'linux':
         formed_path = path.replace('\\', '/').replace('\\\\', '/').replace('//', '/')
+        return formed_path
+
     elif env_mode.get_platform() == 'Windows' or tp == 'win':
-        formed_path = path.replace('/', '\\')
+
+        # guess if path is in local network
+        if path.startswith('\\\\'):
+            return '\\' + path.replace('/', '\\').replace('\\\\', '\\')
+        elif path.startswith('/'):
+            return '\\' + path.replace('/', '\\').replace('\\\\', '\\')
+        elif path.startswith('//'):
+            return '\\' + path.replace('/', '\\').replace('\\\\', '\\')
+        else:
+            return path.replace('//', '\\').replace('/', '\\').replace('\\\\', '\\')
+
     else:
-        formed_path = path.replace('\\', '/')
-    return formed_path
+        return path.replace('\\', '/')
 
 
 def get_st_size(file_path):
@@ -1616,9 +1840,19 @@ def tuple_to_qsize(qtuple, qtype='size'):
         return QtCore.QRect(qtuple[0], qtuple[1], qtuple[2], qtuple[3])
 
 
+def socket_push(obj):
+    socket = QtNetwork.QLocalSocket()
+    socket.connectToServer('TacticHandler_TacticApiClient', QtCore.QIODevice.WriteOnly)
+    socket.write(binascii.b2a_hex(cPickle.dumps(obj)))
+    socket.waitForBytesWritten(20000)
+
+    return socket
+
+
 # CLASSES #
 
 class FileObject(object):
+    """Meta File Object"""
     def __init__(self, file_=None, template_=None):
 
         self._file = file_
@@ -2145,10 +2379,10 @@ class FileObject(object):
         return self._previewable
 
     def open_file(self):
-        open_file_associated(form_path(self.get_all_files_list(True)))
+        open_file_associated(self.get_all_files_list(True))
 
     def open_folder(self):
-        open_folder(form_path(self.get_all_files_list(first=True)), highlight=True)
+        open_folder(self.get_all_files_list(first=True), highlight=True)
 
 
 class MatchTemplate(object):
@@ -2240,6 +2474,7 @@ class MatchTemplate(object):
             split_patterns[self.get_type(key)].append((key, re.findall(values_pattern, ptn), ptn))
 
         self.split_patterns = split_patterns
+
         return self.split_patterns
 
     def get_re_patterns(self, patterns):

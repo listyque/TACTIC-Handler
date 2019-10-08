@@ -5,5 +5,5 @@ import os
 sys.path.insert(0, os.path.dirname(__file__))
 
 
-__author__ = 'krivospickiy_a'
+__author__ = 'Krivospitskiy Alexey'
 

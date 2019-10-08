@@ -21,6 +21,10 @@ import unittest
 import getpass
 import xmlrpclib, sys, os, shutil
 
+import imp
+md5_path = "%s/src/bin/get_md5.py" % tacticenv.get_install_dir()
+get_md5 = imp.load_source('get_md5', md5_path)
+
 from pyasm.common import Xml,TacticException, Config
 from pyasm.security import Batch
 from pyasm.checkin import CheckinException
@@ -29,7 +33,6 @@ from pyasm.security import Batch
 from pyasm.biz import Project
 from pyasm.prod.service import ApiException
 from pyasm.unittest import UnittestEnvironment
-
 
 
 class ClientApiTest(unittest.TestCase):
@@ -82,20 +85,23 @@ class ClientApiTest(unittest.TestCase):
             except Exception, e:
                 x = e.__str__().find("Login/Password combination incorrect") == -1
                 my.assertEquals(False, x, e.__str__() )
+        
+        
+        my.server.set_ticket(test_ticket)		
+        description = "run 10 or more tests"		
+        my.server.start("Client API Unittest", description)		
+		
 
-       
-        my.server.set_ticket(test_ticket)
-        description = "run 10 or more tests"
-        my.server.start("Client API Unittest", description)
-
-        # test basic functionality in a transaction.  A new ticket is
+        # test basic functionality in a transaction.  A new ticket is		
         # generated which is used to append to the transaction.
+	 
         try:
+            
             people = my.server.query("unittest/person")
             for person in people:
                 my.server.delete_sobject(person.get('__search_key__') )
 
-
+            
             #my._test_widget()
             my._test_version()
 
@@ -134,6 +140,8 @@ class ClientApiTest(unittest.TestCase):
             my._test_eval()
             my._test_execute()
             my._test_create_task()
+            my._test_upload()
+            my._test_check_access()
         except Exception:
             my.server.abort()
             raise
@@ -526,9 +534,9 @@ class ClientApiTest(unittest.TestCase):
 
     def _test_get_related(my):
         results = my.server.get_related_types('unittest/person')
-        my.assertEquals(['unittest/city', 'unittest/car','unittest/person_in_car'], results)
+        my.assertEquals(['unittest/city', 'unittest/car', 'unittest/country', 'unittest/person_in_car'], results)
         results = my.server.get_related_types('unittest/country')
-        my.assertEquals(['unittest/city'], results)
+        my.assertEquals(['unittest/city','unittest/person'], results)
 
 
     def _test_update(my):
@@ -817,7 +825,9 @@ class ClientApiTest(unittest.TestCase):
         # test versionless
         versionless_snapshot = my.server.get_snapshot(search_key, context, -1, include_paths=True, include_paths_dict=True, versionless=True)
         paths_dict = versionless_snapshot.get('__paths_dict__')
-        my.assertEquals(paths_dict.get('main') , ['/home/apache/assets/unittest/person/joe/metadata/miso_ramen_metadata.jpg'])
+
+        asset_dir = my.server.get_base_dirs().get('asset_base_dir')
+        my.assertEquals(paths_dict.get('main') , ['%s/unittest/person/joe/metadata/miso_ramen_metadata.jpg'%asset_dir])
         #my.assertEquals( {}, versionless_snapshot)
         versionless_snapshot = my.server.get_snapshot(search_key, context, 0, include_paths=True, include_paths_dict=True, versionless=True)
         my.assertEquals( {}, versionless_snapshot)
@@ -1270,7 +1280,8 @@ class ClientApiTest(unittest.TestCase):
         lib_paths = paths.get('lib_paths')
 
         
-        lib_path_exist = '/home/apache/assets/unittest/person/joe/test_checkin/.versions/miso_ramen_test_checkin_v004.jpg' in lib_paths
+        asset_dir = my.server.get_base_dirs().get('asset_base_dir')
+        lib_path_exist = '%s/unittest/person/joe/test_checkin/.versions/miso_ramen_test_checkin_v004.jpg'%asset_dir in lib_paths
         my.assertEquals( lib_path_exist, True )
 
         
@@ -1292,7 +1303,9 @@ class ClientApiTest(unittest.TestCase):
         paths = my.server.get_paths(search_key, context, version, file_type='*', versionless=True)
         my.assertNotEquals( {}, paths )
         lib_paths = paths.get('lib_paths')
-        lib_path_exist = '/home/apache/assets/unittest/person/joe/test_checkin/miso_ramen_test_checkin.jpg' in lib_paths
+       
+
+        lib_path_exist = '%s/unittest/person/joe/test_checkin/miso_ramen_test_checkin.jpg'%asset_dir in lib_paths
         my.assertEquals( lib_path_exist, True )
 
 
@@ -1305,7 +1318,7 @@ class ClientApiTest(unittest.TestCase):
         paths = my.server.get_paths(search_key, context, version, file_type='*', versionless=True)
         my.assertNotEquals( {}, paths )
         lib_paths = paths.get('lib_paths')
-        lib_path_exist = '/home/apache/assets/unittest/person/joe/test_checkin/subfolder_test_checkin' == lib_paths[0]
+        lib_path_exist = '%s/unittest/person/joe/test_checkin/subfolder_test_checkin'%asset_dir == lib_paths[0]
         my.assertEquals( lib_path_exist, True )
 
     def _test_level_checkin(my):
@@ -1488,10 +1501,12 @@ class ClientApiTest(unittest.TestCase):
         #print snap
         snapshot = my.server.query_snapshots(filters=[('code',snap.get('code'))], include_files=True)
         files = snapshot[0].get('__files__')
+        asset_dir = my.server.get_base_dirs().get('asset_base_dir')
+
         for file in files:
             if file.get('type') == file_type:
                 print "ooo: ", file.get('checkin_dir')
-                my.assertEquals(file.get('checkin_dir'), '/home/apache/assets/Unittest/12_TACTIC/snapshot_icon')
+                my.assertEquals(file.get('checkin_dir'), '%s/Unittest/12_TACTIC/snapshot_icon'%asset_dir)
 
     def _test_hierarchy(my):
 
@@ -1966,6 +1981,111 @@ class ClientApiTest(unittest.TestCase):
         person_sk = result.get('__search_key__')
         task = my.server.create_task(person_sk, process='start', assigned='ben')
         my.assertEquals(task.get('assigned'), 'ben')
+
+    def _test_upload(my):
+        from pyasm.common import Environment
+        
+        file_path = "%s/test/miso_ramen.jpg" % my.client_lib_dir
+        size  = os.path.getsize(file_path)
+        checksum = get_md5.get_md5(file_path)
+       
+        my.server.upload_file(file_path)
+        transaction_ticket = my.server.get_transaction_ticket()
+
+        upload_dir = Environment.get_upload_dir(transaction_ticket)
+        upload_path = "%s/miso_ramen.jpg" % upload_dir
+
+        exists = os.path.exists(upload_path)
+        my.assertEquals(True, exists)
+    
+        upload_size = os.path.getsize(upload_path)
+        my.assertEquals(size, upload_size)
+
+        upload_checksum = get_md5.get_md5(upload_path)
+        my.assertEquals(checksum, upload_checksum)
+
+        # Do further upload tests if test files exist
+        file_name = "large_file.jpg"
+        file_path = "%s/test/%s" % (my.client_lib_dir, file_name)
+        if os.path.exists(file_path):
+            my._test_multipart_upload(file_name)
+
+        file_name = "base64_file.png"
+        file_path = "%s/test/%s" % (my.client_lib_dir, file_name)
+        if os.path.exists(file_path):
+            my._test_base64_upload(file_name)
+      
+        file_name = "large_base64_file.png"
+        file_path = "%s/test/%s" % (my.client_lib_dir, file_name)
+        if os.path.exists(file_path):
+            my._test_base64_upload(file_name)
+
+    def _test_multipart_upload(my, file_name):
+        from pyasm.common import Environment
+
+        file_path = "%s/test/%s" % (my.client_lib_dir, file_name)
+        my.server.upload_file(file_path)
+        transaction_ticket = my.server.get_transaction_ticket()
+        upload_dir = Environment.get_upload_dir(transaction_ticket)
+        upload_path = "%s/%s" % (upload_dir, file_name)
+        size = os.path.getsize(file_path)
+        checksum = get_md5.get_md5(upload_path) 
+
+        exists = os.path.exists(upload_path)
+        my.assertEquals(True, exists)
+
+        upload_size = os.path.getsize(upload_path)
+        my.assertEquals(size, upload_size)
+
+        upload_checksum = get_md5.get_md5(upload_path)
+        my.assertEquals(checksum, upload_checksum)
+
+    def _test_base64_upload(my, file_name):
+        from pyasm.common import Environment
+        file_path = "%s/test/%s" % (my.client_lib_dir, file_name)
+        my.server.upload_file(file_path)
+        transaction_ticket = my.server.get_transaction_ticket()
+        upload_dir = Environment.get_upload_dir(transaction_ticket)
+        
+        # On upload, an action file should be created in the same
+        # upload directory.
+        upload_path = "%s/%s" % (upload_dir, file_name)
+        action_path = "%s.action" % upload_path
+        file_exists = os.path.exists(upload_path)
+        action_exists = os.path.exists(action_path)
+        my.assertEquals(True, file_exists)
+        my.assertEquals(True, action_exists)
+        
+        decoded_data = open(upload_path, "rb")
+        header = decoded_data.read(22)
+        my.assertNotEqual(header, "data:image/png;base64,")
+        decoded_data.close()
+
+        # On upload a file of the same name, the original action 
+        # file should be deleted.
+        unencoded_file = "%s/test/miso_ramen.jpg" % my.client_lib_dir
+        temporary_name = "%s/test/base64_original.png" % my.client_lib_dir
+        os.rename(file_path, temporary_name) 
+        os.rename(unencoded_file, file_path)
+
+        my.server.upload_file(file_path)
+
+        upload_exists = os.path.exists(upload_path)
+        action_exists = os.path.exists(action_path)
+        my.assertEquals(True, upload_exists)
+        my.assertEquals(False, action_exists)
+        
+        # Revert names
+        os.rename(file_path, unencoded_file)
+        os.rename(temporary_name, file_path) 
+
+    def _test_check_access(my):
+        returned = my.server.check_access('project', {'code':'unittest'}, 'allow')
+        my.assertEquals(True, returned)
+        
+        # all project is allowed for admin
+        returned = my.server.check_access('project', {'code':'sample3d'}, 'allow')
+        my.assertEquals(True, returned)
 
     def _test_pipeline(my):
         search_type = "unittest/person"

@@ -1,14 +1,13 @@
 # -*- coding: utf-8 -*-
 
-# Form implementation generated from reading ui file 'misc/ui_debuglog.ui'
+# Form implementation generated from reading ui file 'misc\ui_debuglog.ui'
 #
-# Created: Mon May  7 14:55:31 2018
-#      by: pyside-uic 0.2.15 running on PySide 1.2.2
+# Created: Sat Oct  5 00:17:09 2019
+#      by: pyside-uic 0.2.15 running on PySide 1.2.4
 #
 # WARNING! All changes made in this file will be lost!
 
-from thlib.side.Qt import QtWidgets as QtGui
-from thlib.side.Qt import QtCore
+from PySide import QtCore, QtGui
 
 class Ui_DebugLog(object):
     def setupUi(self, DebugLog):
@@ -57,11 +56,11 @@ class Ui_DebugLog(object):
         QtCore.QMetaObject.connectSlotsByName(DebugLog)
 
     def retranslateUi(self, DebugLog):
-        DebugLog.setWindowTitle(QtGui.QApplication.translate("DebugLog", "Debug Log", None))
-        self.logCheckBox.setText(QtGui.QApplication.translate("DebugLog", "Log", None))
-        self.infoCheckBox.setText(QtGui.QApplication.translate("DebugLog", "Info", None))
-        self.warningCheckBox.setText(QtGui.QApplication.translate("DebugLog", "Warning", None))
-        self.exceptionCheckBox.setText(QtGui.QApplication.translate("DebugLog", "Exception", None))
-        self.errorCheckBox.setText(QtGui.QApplication.translate("DebugLog", "Error", None))
-        self.criticalCheckBox.setText(QtGui.QApplication.translate("DebugLog", "Critical", None))
+        DebugLog.setWindowTitle(QtGui.QApplication.translate("DebugLog", "Debug Log", None, QtGui.QApplication.UnicodeUTF8))
+        self.logCheckBox.setText(QtGui.QApplication.translate("DebugLog", "Log", None, QtGui.QApplication.UnicodeUTF8))
+        self.infoCheckBox.setText(QtGui.QApplication.translate("DebugLog", "Info", None, QtGui.QApplication.UnicodeUTF8))
+        self.warningCheckBox.setText(QtGui.QApplication.translate("DebugLog", "Warning", None, QtGui.QApplication.UnicodeUTF8))
+        self.exceptionCheckBox.setText(QtGui.QApplication.translate("DebugLog", "Exception", None, QtGui.QApplication.UnicodeUTF8))
+        self.errorCheckBox.setText(QtGui.QApplication.translate("DebugLog", "Error", None, QtGui.QApplication.UnicodeUTF8))
+        self.criticalCheckBox.setText(QtGui.QApplication.translate("DebugLog", "Critical", None, QtGui.QApplication.UnicodeUTF8))
 

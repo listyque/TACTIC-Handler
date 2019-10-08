@@ -1,15 +1,13 @@
 # -*- coding: utf-8 -*-
 
-# Form implementation generated from reading ui file 'misc/ui_create_update.ui'
+# Form implementation generated from reading ui file 'misc\ui_create_update.ui'
 #
-# Created: Thu Apr 27 14:15:16 2017
-#      by: pyside-uic 0.2.13 running on PySide 1.2.2
+# Created: Sat Oct  5 00:17:09 2019
+#      by: pyside-uic 0.2.15 running on PySide 1.2.4
 #
 # WARNING! All changes made in this file will be lost!
 
-from thlib.side.Qt import QtWidgets as QtGui
-from thlib.side.Qt import QtCore
-
+from PySide import QtCore, QtGui
 
 class Ui_createUpdateDialog(object):
     def setupUi(self, createUpdateDialog):
@@ -65,11 +63,11 @@ class Ui_createUpdateDialog(object):
         QtCore.QMetaObject.connectSlotsByName(createUpdateDialog)
 
     def retranslateUi(self, createUpdateDialog):
-        createUpdateDialog.setWindowTitle(QtGui.QApplication.translate("createUpdateDialog", "Creating new Update", None))
-        self.versionLabel.setText(QtGui.QApplication.translate("createUpdateDialog", "Version:", None))
-        self.dateLabel.setText(QtGui.QApplication.translate("createUpdateDialog", "Date:", None))
-        self.changesLabel.setText(QtGui.QApplication.translate("createUpdateDialog", "Changes:", None))
-        self.miscLabel.setText(QtGui.QApplication.translate("createUpdateDialog", "Misc:", None))
-        self.createUpdatePushButton.setText(QtGui.QApplication.translate("createUpdateDialog", "Create Update", None))
-        self.dateEdit.setDisplayFormat(QtGui.QApplication.translate("createUpdateDialog", "MM.dd.yyyy", None))
+        createUpdateDialog.setWindowTitle(QtGui.QApplication.translate("createUpdateDialog", "Creating new Update", None, QtGui.QApplication.UnicodeUTF8))
+        self.versionLabel.setText(QtGui.QApplication.translate("createUpdateDialog", "Version:", None, QtGui.QApplication.UnicodeUTF8))
+        self.dateLabel.setText(QtGui.QApplication.translate("createUpdateDialog", "Date:", None, QtGui.QApplication.UnicodeUTF8))
+        self.changesLabel.setText(QtGui.QApplication.translate("createUpdateDialog", "Changes:", None, QtGui.QApplication.UnicodeUTF8))
+        self.miscLabel.setText(QtGui.QApplication.translate("createUpdateDialog", "Misc:", None, QtGui.QApplication.UnicodeUTF8))
+        self.createUpdatePushButton.setText(QtGui.QApplication.translate("createUpdateDialog", "Create Update", None, QtGui.QApplication.UnicodeUTF8))
+        self.dateEdit.setDisplayFormat(QtGui.QApplication.translate("createUpdateDialog", "MM.dd.yyyy", None, QtGui.QApplication.UnicodeUTF8))
 

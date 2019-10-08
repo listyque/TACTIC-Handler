@@ -30,14 +30,14 @@
       <property name="bottomMargin">
        <number>0</number>
       </property>
-      <item row="3" column="0">
+      <item row="4" column="0">
        <widget class="QCheckBox" name="versionsSeparateCheckinCheckBox">
         <property name="text">
          <string>Display Versions separated:</string>
         </property>
        </widget>
       </item>
-      <item row="5" column="0">
+      <item row="6" column="0">
        <widget class="QCheckBox" name="snapshotDescriptionLimitCheckBox">
         <property name="text">
          <string>Limit snapshot description preview (symbols):</string>
@@ -47,21 +47,7 @@
         </property>
        </widget>
       </item>
-      <item row="0" column="0">
-       <widget class="QCheckBox" name="doubleClickSaveCheckBox">
-        <property name="text">
-         <string>DoubleClick for Save</string>
-        </property>
-       </widget>
-      </item>
-      <item row="1" column="0">
-       <widget class="QCheckBox" name="doubleClickOpenCheckBox">
-        <property name="text">
-         <string>Shift + DoubleClick for Open</string>
-        </property>
-       </widget>
-      </item>
-      <item row="5" column="2">
+      <item row="6" column="2">
        <widget class="QSpinBox" name="snapshotDescriptionLimitSpinBox">
         <property name="minimum">
          <number>20</number>
@@ -77,14 +63,34 @@
         </property>
        </widget>
       </item>
-      <item row="3" column="1">
+      <item row="4" column="1">
        <widget class="QRadioButton" name="bottomVersionsRadioButton">
         <property name="text">
          <string>Bottom</string>
         </property>
        </widget>
       </item>
-      <item row="3" column="2">
+      <item row="7" column="0">
+       <widget class="QLabel" name="label_2">
+        <property name="text">
+         <string>Search results limit:</string>
+        </property>
+       </widget>
+      </item>
+      <item row="7" column="2">
+       <widget class="QSpinBox" name="displayLimitSpinBox">
+        <property name="minimum">
+         <number>20</number>
+        </property>
+        <property name="maximum">
+         <number>500</number>
+        </property>
+        <property name="singleStep">
+         <number>5</number>
+        </property>
+       </widget>
+      </item>
+      <item row="4" column="2">
        <widget class="QRadioButton" name="rightVersionsRadioButton">
         <property name="text">
          <string>Right</string>
@@ -94,33 +100,31 @@
         </property>
        </widget>
       </item>
-      <item row="6" column="0">
-       <widget class="QLabel" name="label_2">
+      <item row="1" column="0" colspan="3">
+       <widget class="QCheckBox" name="doubleClickSaveCheckBox">
         <property name="text">
-         <string>Search results limit:</string>
+         <string>DoubleClick for Save</string>
         </property>
        </widget>
       </item>
-      <item row="6" column="2">
-       <widget class="QSpinBox" name="displayLimitSpinBox">
-        <property name="minimum">
-         <number>5</number>
-        </property>
-        <property name="maximum">
-         <number>200</number>
-        </property>
-        <property name="singleStep">
-         <number>5</number>
+      <item row="2" column="0" colspan="3">
+       <widget class="QCheckBox" name="doubleClickOpenCheckBox">
+        <property name="text">
+         <string>Shift + DoubleClick for Open</string>
         </property>
        </widget>
       </item>
-      <item row="2" column="0">
+      <item row="3" column="0" colspan="3">
        <widget class="QCheckBox" name="showAllProcessCheckBox">
         <property name="text">
-         <string>Show default Processes</string>
+         <string>Show Builtin Processes (publish, icon, attachement)</string>
         </property>
-        <property name="checked">
-         <bool>true</bool>
+       </widget>
+      </item>
+      <item row="0" column="0" colspan="3">
+       <widget class="QCheckBox" name="getPreviewsThroughHttpCheckbox">
+        <property name="text">
+         <string>Get Previews Though HTTP</string>
         </property>
        </widget>
       </item>
@@ -151,14 +155,10 @@
       <property name="bottomMargin">
        <number>0</number>
       </property>
-      <item row="2" column="0">
-       <widget class="QLabel" name="checkinMethodLabel">
-        <property name="text">
-         <string>Checkin Method:</string>
-        </property>
-       </widget>
+      <item row="1" column="1" colspan="3">
+       <widget class="QComboBox" name="repositoryComboBox"/>
       </item>
-      <item row="3" column="0">
+      <item row="4" column="0">
        <widget class="QCheckBox" name="updateVersionlessCheckBox">
         <property name="text">
          <string>Update versionless snapshot</string>
@@ -168,45 +168,7 @@
         </property>
        </widget>
       </item>
-      <item row="5" column="0">
-       <widget class="QCheckBox" name="createMayaDirsCheckBox">
-        <property name="text">
-         <string>Create Maya Dirs (worspace.mel)</string>
-        </property>
-       </widget>
-      </item>
-      <item row="4" column="0">
-       <widget class="QCheckBox" name="generatePreviewsCheckBox">
-        <property name="text">
-         <string>Generate Previews</string>
-        </property>
-        <property name="checked">
-         <bool>true</bool>
-        </property>
-       </widget>
-      </item>
-      <item row="1" column="0">
-       <widget class="QLabel" name="repositoryLabel">
-        <property name="text">
-         <string>Current Repository:</string>
-        </property>
-       </widget>
-      </item>
-      <item row="9" column="0">
-       <widget class="QCheckBox" name="sequencePaddingCheckBox">
-        <property name="text">
-         <string>Sequence Padding:</string>
-        </property>
-       </widget>
-      </item>
-      <item row="10" column="0">
-       <widget class="QLabel" name="sequqnceNamingTemplatelabel">
-        <property name="text">
-         <string>Sequence, udim/uv naming Template:</string>
-        </property>
-       </widget>
-      </item>
-      <item row="10" column="1" colspan="3">
+      <item row="11" column="1" colspan="3">
        <layout class="QHBoxLayout" name="seuqenceNamingHorizontalLayout" stretch="1,0">
         <property name="spacing">
          <number>4</number>
@@ -233,7 +195,7 @@
         </item>
        </layout>
       </item>
-      <item row="9" column="1" colspan="3">
+      <item row="10" column="1" colspan="3">
        <layout class="QHBoxLayout" name="sequencePaddingHorizontalLayout" stretch="1,0">
         <property name="spacing">
          <number>4</number>
@@ -269,6 +231,74 @@
         </item>
        </layout>
       </item>
+      <item row="7" column="0">
+       <widget class="QCheckBox" name="createPlayblastCheckBox">
+        <property name="text">
+         <string>Create screenshot (playblast)</string>
+        </property>
+        <property name="checked">
+         <bool>true</bool>
+        </property>
+       </widget>
+      </item>
+      <item row="8" column="0" colspan="4">
+       <layout class="QHBoxLayout" name="confirmsHorizontalLayout">
+        <property name="spacing">
+         <number>0</number>
+        </property>
+        <item>
+         <widget class="QCheckBox" name="askBeforeSaveCheckBox">
+          <property name="text">
+           <string>Confirm Saving</string>
+          </property>
+          <property name="checked">
+           <bool>true</bool>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QCheckBox" name="askReplaceRevisionCheckBox">
+          <property name="text">
+           <string>Revision Confirm Saving</string>
+          </property>
+          <property name="checked">
+           <bool>true</bool>
+          </property>
+         </widget>
+        </item>
+       </layout>
+      </item>
+      <item row="6" column="0">
+       <widget class="QCheckBox" name="createMayaDirsCheckBox">
+        <property name="text">
+         <string>Create Maya Dirs (worspace.mel)</string>
+        </property>
+       </widget>
+      </item>
+      <item row="5" column="0">
+       <widget class="QCheckBox" name="generatePreviewsCheckBox">
+        <property name="text">
+         <string>Generate Previews</string>
+        </property>
+        <property name="checked">
+         <bool>true</bool>
+        </property>
+       </widget>
+      </item>
+      <item row="10" column="0">
+       <widget class="QCheckBox" name="sequencePaddingCheckBox">
+        <property name="text">
+         <string>Sequence Padding:</string>
+        </property>
+       </widget>
+      </item>
+      <item row="2" column="0">
+       <widget class="QLabel" name="checkinMethodLabel">
+        <property name="text">
+         <string>Checkin Method:</string>
+        </property>
+       </widget>
+      </item>
       <item row="2" column="1" colspan="3">
        <widget class="QComboBox" name="checkinMethodComboBox">
         <item>
@@ -298,44 +328,39 @@
         </item>
        </widget>
       </item>
-      <item row="7" column="0" colspan="4">
-       <layout class="QHBoxLayout" name="confirmsHorizontalLayout">
-        <property name="spacing">
-         <number>0</number>
-        </property>
-        <item>
-         <widget class="QCheckBox" name="askBeforeSaveCheckBox">
-          <property name="text">
-           <string>Confirm Saving</string>
-          </property>
-          <property name="checked">
-           <bool>true</bool>
-          </property>
-         </widget>
-        </item>
-        <item>
-         <widget class="QCheckBox" name="askReplaceRevisionCheckBox">
-          <property name="text">
-           <string>Revision Confirm Saving</string>
-          </property>
-          <property name="checked">
-           <bool>true</bool>
-          </property>
-         </widget>
-        </item>
-       </layout>
-      </item>
-      <item row="1" column="1" colspan="3">
-       <widget class="QComboBox" name="repositoryComboBox"/>
-      </item>
-      <item row="6" column="0">
-       <widget class="QCheckBox" name="createPlayblastCheckBox">
+      <item row="1" column="0">
+       <widget class="QLabel" name="repositoryLabel">
         <property name="text">
-         <string>Create screenshot (playblast)</string>
+         <string>Current Repository:</string>
         </property>
-        <property name="checked">
-         <bool>true</bool>
+       </widget>
+      </item>
+      <item row="11" column="0">
+       <widget class="QLabel" name="sequqnceNamingTemplatelabel">
+        <property name="text">
+         <string>Sequence, udim/uv naming Template:</string>
         </property>
+       </widget>
+      </item>
+      <item row="3" column="0">
+       <widget class="QLabel" name="checkoutMethodLabel">
+        <property name="text">
+         <string>Checkout Method:</string>
+        </property>
+       </widget>
+      </item>
+      <item row="3" column="1" colspan="3">
+       <widget class="QComboBox" name="checkoutMethodComboBox">
+        <item>
+         <property name="text">
+          <string>Local</string>
+         </property>
+        </item>
+        <item>
+         <property name="text">
+          <string>HTTP</string>
+         </property>
+        </item>
        </widget>
       </item>
      </layout>
@@ -406,12 +431,18 @@
         <property name="text">
          <string>Uncheck &quot;From DropPlate&quot; after Checkin</string>
         </property>
+        <property name="checked">
+         <bool>true</bool>
+        </property>
        </widget>
       </item>
       <item row="2" column="0">
        <widget class="QCheckBox" name="clearDropPlateAfterCheckincheckBox">
         <property name="text">
          <string>Clear DropPlate after Checkin</string>
+        </property>
+        <property name="checked">
+         <bool>true</bool>
         </property>
        </widget>
       </item>
@@ -472,39 +503,33 @@
       <property name="bottomMargin">
        <number>0</number>
       </property>
-      <item row="0" column="3">
-       <widget class="QLineEdit" name="assetBaseDirPathLineEdit"/>
+      <item row="5" column="0">
+       <widget class="QCheckBox" name="handoffCheckBox">
+        <property name="text">
+         <string>Use handoff dir:</string>
+        </property>
+       </widget>
       </item>
-      <item row="4" column="2" colspan="2">
-       <widget class="QLineEdit" name="handoffDirPathLineEdit"/>
-      </item>
-      <item row="1" column="3">
-       <widget class="QLineEdit" name="sandboxDirPathLineEdit"/>
+      <item row="4" column="2">
+       <widget class="QLineEdit" name="clientRepoDirNameLineEdit"/>
       </item>
       <item row="2" column="3">
-       <widget class="QLineEdit" name="localRepoDirPathLineEdit"/>
+       <widget class="QLineEdit" name="sandboxDirPathLineEdit"/>
       </item>
-      <item row="3" column="3">
-       <widget class="QLineEdit" name="clientRepoDirPathLineEdit"/>
+      <item row="2" column="2">
+       <widget class="QLineEdit" name="sandboxDirNameLineEdit"/>
       </item>
-      <item row="0" column="0">
-       <widget class="QCheckBox" name="assetBaseDirCheckBox">
+      <item row="3" column="2">
+       <widget class="QLineEdit" name="localRepoDirNameLineEdit"/>
+      </item>
+      <item row="4" column="0">
+       <widget class="QCheckBox" name="clientRepoCheckBox">
         <property name="text">
-         <string>Asset base dir:</string>
-        </property>
-        <property name="checked">
-         <bool>true</bool>
+         <string>Client repo dir:</string>
         </property>
        </widget>
       </item>
-      <item row="1" column="0">
-       <widget class="QCheckBox" name="sandboxCheckBox">
-        <property name="text">
-         <string>Sandbox dir:</string>
-        </property>
-       </widget>
-      </item>
-      <item row="2" column="0">
+      <item row="3" column="0">
        <widget class="QCheckBox" name="localRepoCheckBox">
         <property name="text">
          <string>Local repo dir:</string>
@@ -514,33 +539,10 @@
         </property>
        </widget>
       </item>
-      <item row="3" column="0">
-       <widget class="QCheckBox" name="clientRepoCheckBox">
-        <property name="text">
-         <string>Client repo dir:</string>
-        </property>
-       </widget>
+      <item row="5" column="2" colspan="2">
+       <widget class="QLineEdit" name="handoffDirPathLineEdit"/>
       </item>
-      <item row="4" column="0">
-       <widget class="QCheckBox" name="handoffCheckBox">
-        <property name="text">
-         <string>Use handoff dir:</string>
-        </property>
-       </widget>
-      </item>
-      <item row="0" column="2">
-       <widget class="QLineEdit" name="assetBaseDirNameLineEdit"/>
-      </item>
-      <item row="1" column="2">
-       <widget class="QLineEdit" name="sandboxDirNameLineEdit"/>
-      </item>
-      <item row="2" column="2">
-       <widget class="QLineEdit" name="localRepoDirNameLineEdit"/>
-      </item>
-      <item row="3" column="2">
-       <widget class="QLineEdit" name="clientRepoDirNameLineEdit"/>
-      </item>
-      <item row="0" column="1">
+      <item row="1" column="1">
        <widget class="QToolButton" name="assetBaseDirColorToolButton">
         <property name="maximumSize">
          <size>
@@ -563,7 +565,17 @@ QToolButton:pressed {
         </property>
        </widget>
       </item>
-      <item row="1" column="1">
+      <item row="2" column="0">
+       <widget class="QCheckBox" name="sandboxCheckBox">
+        <property name="text">
+         <string>Sandbox dir:</string>
+        </property>
+       </widget>
+      </item>
+      <item row="3" column="3">
+       <widget class="QLineEdit" name="localRepoDirPathLineEdit"/>
+      </item>
+      <item row="2" column="1">
        <widget class="QToolButton" name="sandboxDirColorToolButton">
         <property name="maximumSize">
          <size>
@@ -586,7 +598,10 @@ QToolButton:pressed {
         </property>
        </widget>
       </item>
-      <item row="3" column="1">
+      <item row="4" column="3">
+       <widget class="QLineEdit" name="clientRepoDirPathLineEdit"/>
+      </item>
+      <item row="4" column="1">
        <widget class="QToolButton" name="clientRepoDirColorToolButton">
         <property name="maximumSize">
          <size>
@@ -609,7 +624,7 @@ QToolButton:pressed {
         </property>
        </widget>
       </item>
-      <item row="2" column="1">
+      <item row="3" column="1">
        <widget class="QToolButton" name="localRepoDirColorToolButton">
         <property name="maximumSize">
          <size>
@@ -631,6 +646,22 @@ QToolButton:pressed {
          <bool>false</bool>
         </property>
        </widget>
+      </item>
+      <item row="0" column="0" rowspan="2">
+       <widget class="QCheckBox" name="assetBaseDirCheckBox">
+        <property name="text">
+         <string>Asset base dir:</string>
+        </property>
+        <property name="checked">
+         <bool>true</bool>
+        </property>
+       </widget>
+      </item>
+      <item row="0" column="2" rowspan="2">
+       <widget class="QLineEdit" name="assetBaseDirNameLineEdit"/>
+      </item>
+      <item row="0" column="3" rowspan="2">
+       <widget class="QLineEdit" name="assetBaseDirPathLineEdit"/>
       </item>
      </layout>
     </widget>

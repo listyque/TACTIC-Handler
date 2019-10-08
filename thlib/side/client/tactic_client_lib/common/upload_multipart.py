@@ -69,8 +69,14 @@ class UploadMultipart(object):
                 fields.append( ("login_ticket", my.ticket) )
                 basename = os.path.basename(path)
                 from json import dumps as jsondumps
-                if sys.stdout.encoding:
+
+                # Workaround for python inside Maya, maya.Output has no sys.stdout.encoding property
+                if getattr(sys.stdout, "encoding", None) is not None and sys.stdout.encoding:
                     basename = basename.decode(sys.stdout.encoding)
+                else:
+                    import locale
+                    basename = basename.decode(locale.getpreferredencoding())
+
                 basename = jsondumps(basename)
                 basename = basename.strip('"')
                 # the first index begins at 0

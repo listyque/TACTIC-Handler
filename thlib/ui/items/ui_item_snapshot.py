@@ -2,14 +2,12 @@
 
 # Form implementation generated from reading ui file 'items\ui_item_snapshot.ui'
 #
-# Created: Mon Dec 31 01:42:16 2018
+# Created: Sat Oct  5 00:17:14 2019
 #      by: pyside-uic 0.2.15 running on PySide 1.2.4
 #
 # WARNING! All changes made in this file will be lost!
 
-from thlib.side.Qt import QtWidgets as QtGui
-from thlib.side.Qt import QtGui as Qt4Gui
-from thlib.side.Qt import QtCore
+from PySide import QtCore, QtGui
 
 class Ui_snapshotItem(object):
     def setupUi(self, snapshotItem):
@@ -46,7 +44,7 @@ class Ui_snapshotItem(object):
         self.fileNameLabel = QtGui.QLabel(snapshotItem)
         self.fileNameLabel.setMinimumSize(QtCore.QSize(0, 20))
         self.fileNameLabel.setMaximumSize(QtCore.QSize(16777215, 20))
-        font = Qt4Gui.QFont()
+        font = QtGui.QFont()
         font.setWeight(75)
         font.setBold(True)
         self.fileNameLabel.setFont(font)
@@ -80,7 +78,7 @@ class Ui_snapshotItem(object):
         self.descriptionLorizontalLayout.setObjectName("descriptionLorizontalLayout")
         self.authorLabel = QtGui.QLabel(snapshotItem)
         self.authorLabel.setMinimumSize(QtCore.QSize(0, 25))
-        font = Qt4Gui.QFont()
+        font = QtGui.QFont()
         font.setItalic(True)
         self.authorLabel.setFont(font)
         self.authorLabel.setStyleSheet("color:grey;")
@@ -112,4 +110,9 @@ class Ui_snapshotItem(object):
         self.gridLayout.setColumnStretch(2, 1)
         self.gridLayout.setRowStretch(2, 1)
 
+        self.retranslateUi(snapshotItem)
         QtCore.QMetaObject.connectSlotsByName(snapshotItem)
+
+    def retranslateUi(self, snapshotItem):
+        snapshotItem.setWindowTitle(QtGui.QApplication.translate("snapshotItem", "Form", None, QtGui.QApplication.UnicodeUTF8))
+

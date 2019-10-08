@@ -6,140 +6,346 @@ from thlib.side.Qt import QtWidgets as QtGui
 from thlib.side.Qt import QtCore
 
 import json
-from thlib.environment import env_inst, env_tactic, env_write_config, env_read_config
+from thlib.environment import env_inst, env_write_config, env_read_config
 import thlib.global_functions as gf
 import thlib.tactic_classes as tc
 import thlib.tactic_widgets as tw
 import thlib.tactic_query as tq
 import thlib.ui_classes.ui_tactic_widgets_classes as twc
-import thlib.ui.misc.ui_db_table_editor as ui_db_table_editor
 
 
-class Ui_editDBTableWidget(QtGui.QMainWindow, ui_db_table_editor.Ui_editDBTable):
-    def __init__(self, stype, parent_stype=None, item=None, view='edit', search_key=None, parent=None):
+class Ui_linkSobjectsWidget(QtGui.QDialog):
+    def __init__(self, stype, parent_stype=None, item=None, parent=None):
         super(self.__class__, self).__init__(parent=parent)
 
-        self.setupUi(self)
-
         self.item = item
-        self.sobject = self.item.get_sobject()
         self.stype = stype
         self.parent_stype = parent_stype
-        self.search_type = self.stype.info.get('code')
-
-        self.view = view
-
-        self.search_key = search_key
-        self.parent_search_key = None
-
-        if self.item:
-            if not search_key:
-                self.search_key = self.item.get_search_key()
-            self.parent_search_key = self.item.get_parent_search_key()
-
-        # self.grid_layout = QtGui.QGridLayout(self)
+        self.current_mode = 'add'
+        self.include_set = set()
+        self.exclude_set = set()
+        self.current_set = set()
 
         self.create_ui()
 
     def create_ui(self):
+        self.create_layout()
+
+        self.resize(750, 800)
+        self.setMinimumSize(600, 500)
 
         self.setWindowModality(QtCore.Qt.WindowModal)
+        self.setSizeGripEnabled(True)
+        self.setFocusPolicy(QtCore.Qt.StrongFocus)
 
-        self.fill_table_widget()
+        self.create_all_layouts()
 
-    def fill_table_widget(self, pipeline=None):
+        self.create_parent_search_line()
+        self.create_instances_search_line()
 
-        # def get_current_process_info(self):
-        #     pipeline = self.get_current_process_pipeline()
-        #     process_info = None
-        #     if pipeline:
-        #         process_info = pipeline.process.get(self.process)
-        #
-        #     return process_info
-        #
-        # self.tablesTreeWidget.addTopLevelItem(QtGui.QTreeWidgetItem())
+        self.create_parent_widget()
+        self.create_instances_widget()
 
-        def recursive_add_sub_processes(ppln):
-            for child_process in ppln.get_all_processes_names():
-                subprocess_item = QtGui.QTreeWidgetItem()
-                subprocess_item.setText(0, child_process)
-                process_item.addChild(subprocess_item)
+        self.create_buttons()
 
-        # getting all possible processes here
-        pipeline_code = self.sobject.info.get('pipeline_code')
-        if pipeline_code and self.stype.pipeline:
-            pipeline = self.stype.pipeline.get(pipeline_code)
+        # self.create_loading_label()
+        # self.toggle_loading_label()
 
-        for process in pipeline.get_all_processes_names():
-            process_item = QtGui.QTreeWidgetItem()
-            process_item.setText(0, process)
-            self.tablesTreeWidget.addTopLevelItem(process_item)
-            process_info = pipeline.process.get(process)
+        self.set_title()
 
-            if process_info.get('type') == 'hierarchy':
-                workflow = self.stype.get_workflow()
-                child_pipeline = workflow.get_child_pipeline_by_process_code(pipeline, process)
+        self.controls_actions()
 
-                recursive_add_sub_processes(child_pipeline)
+        self.parent_search_line_edit.setFocus()
 
-        # print self.sobject.process.items()
+    def controls_actions(self):
 
-        process = self.sobject.get_process('modeling')
-        contexts = process.get_contexts()
-        if contexts:
-            for key, val in contexts.items():
-                # print key, val
+        self.parent_tree_widget.itemSelectionChanged.connect(self.set_arrow_right)
+        self.parent_search_line_edit.returnPressed.connect(self.do_parent_search)
 
-                for snapshot in val.get_versions().values():
-                    # from pprint import pprint
-                    # pprint(snapshot.get_snapshot())
-                    self.fill_edit_table_tree_widget(snapshot.get_snapshot())
+        self.instances_tree_widget.itemSelectionChanged.connect(self.set_arrow_left)
 
-    def add_edit_table_tree_widget_header(self, dicts_list):
+        self.add_remove_tool_button.clicked.connect(self.add_remove_tool_button_clicked)
 
-        self.editTableWidget.setColumnCount(len(dicts_list))
+        self.cancel_button.clicked.connect(self.close)
+        self.save_button.clicked.connect(self.save_instances_state)
 
-        for i, (key, val) in enumerate(sorted(dicts_list.items())):
-            # self.editTableWidget.headerItem().setText(i, key)
-            item = QtGui.QTableWidgetItem()
-            item.setText(key)
-            self.editTableWidget.setHorizontalHeaderItem(i, item)
-            # top_item.setText(i, str(val))
-        # self.tableEditorTreeWidget.addTopLevelItem(top_item)
+    def save_instances_state(self):
+        tc.edit_multiple_instance_sobjects(
+            self.stype.project.get_code(),
+            insert_search_keys=self.include_set,
+            exclude_search_keys=self.exclude_set,
+            parent_key=self.item.sobject.get_search_key(),
+            instance_type=self.item.child.get('instance_type')
+        )
 
-    def fill_edit_table_tree_widget(self, dicts_list):
-        print dicts_list
+        self.close()
 
-        self.editTableWidget.setEditTriggers(QtGui.QAbstractItemView.AllEditTriggers)
-        self.editTableWidget.setAlternatingRowColors(True)
-        self.editTableWidget.setSelectionMode(QtGui.QAbstractItemView.ExtendedSelection)
-        self.editTableWidget.setGridStyle(QtCore.Qt.DashLine)
+    def set_arrow_right(self):
+        self.add_remove_tool_button.setIcon(gf.get_icon('arrow-right-bold', icons_set='mdi'))
+        self.instances_tree_widget.clearSelection()
 
-        self.add_edit_table_tree_widget_header(dicts_list)
-        # self.editTableWidget.clear()
+        self.current_mode = 'add'
 
-        self.editTableWidget.setRowCount(10)
-        vertical_item = QtGui.QTableWidgetItem()
-        vertical_item.setText('aas')
-        self.editTableWidget.setVerticalHeaderItem(0, vertical_item)
+    def set_arrow_left(self):
+        self.add_remove_tool_button.setIcon(gf.get_icon('arrow-left-bold', icons_set='mdi'))
+        self.parent_tree_widget.clearSelection()
 
-        for i, (key, val) in enumerate(sorted(dicts_list.items())):
-            item = QtGui.QTableWidgetItem()
-            item.setText(key)
-            self.editTableWidget.setHorizontalHeaderItem(i, item)
+        self.current_mode = 'remove'
 
-            # attr_val = cmds.getAttr('{0}.{1}'.format(from_node, attr))
-            value_item = QtGui.QTableWidgetItem()
-            value_item.setText(str(val))
-            # value_item.setData(1, [str(from_node), attr])
-            self.editTableWidget.setItem(0, i, value_item)
+    def add_remove_tool_button_clicked(self):
+
+        if self.current_mode == 'remove':
+            selected_instaces = self.instances_tree_widget.selectedItems()
+            for item in selected_instaces:
+
+                item_widget = self.instances_tree_widget.itemWidget(item, 0)
+
+                item_info = {
+                    'relates_to': 'checkin_out',
+                    'sep_versions': True,
+                    'children_states': None,
+                    'simple_view': True,
+                }
+                gf.add_sobject_item(
+                    self.parent_tree_widget,
+                    self,
+                    item_widget.sobject,
+                    self.stype,
+                    item_info,
+                    ignore_dict=None,
+                )
+
+                sobject = item_widget.sobject
+                search_key = sobject.get_search_key()
+
+                if search_key not in self.include_set:
+                    self.exclude_set.add(search_key)
+
+                if search_key in self.include_set:
+                    self.include_set.remove(search_key)
+
+                idx = self.instances_tree_widget.indexFromItem(item)
+                self.instances_tree_widget.takeTopLevelItem(idx.row())
+
+        elif self.current_mode == 'add':
+            selected_parents = self.parent_tree_widget.selectedItems()
+            for item in selected_parents:
+
+                item_widget = self.parent_tree_widget.itemWidget(item, 0)
+
+                item_info = {
+                    'relates_to': 'checkin_out',
+                    'sep_versions': True,
+                    'children_states': None,
+                    'simple_view': True,
+                }
+                gf.add_sobject_item(
+                    self.instances_tree_widget,
+                    self,
+                    item_widget.sobject,
+                    self.stype,
+                    item_info,
+                    ignore_dict=None,
+                )
+
+                sobject = item_widget.sobject
+                search_key = sobject.get_search_key()
+
+                if search_key in self.exclude_set:
+                    self.exclude_set.remove(search_key)
+
+                if search_key not in self.current_set:
+                    self.include_set.add(search_key)
+
+                idx = self.parent_tree_widget.indexFromItem(item)
+                self.parent_tree_widget.takeTopLevelItem(idx.row())
+
+    def create_layout(self):
+
+        self.grid_layout = QtGui.QGridLayout(self)
+
+    def create_all_layouts(self):
+        self.splitter = QtGui.QSplitter(self)
+        self.splitter.setOrientation(QtCore.Qt.Horizontal)
+        self.splitter.setObjectName("splitter")
+
+        self.gridLayoutWidget = QtGui.QWidget(self.splitter)
+        self.gridLayoutWidget.setObjectName("gridLayoutWidget")
+
+        self.parent_grid_layout = QtGui.QGridLayout(self.gridLayoutWidget)
+        self.parent_grid_layout.setContentsMargins(0, 0, 0, 0)
+        self.parent_grid_layout.setObjectName("parent_grid_layout")
+
+        self.add_remove_tool_button = QtGui.QToolButton(self.gridLayoutWidget)
+
+        sizePolicy = QtGui.QSizePolicy(QtGui.QSizePolicy.Fixed, QtGui.QSizePolicy.Preferred)
+        sizePolicy.setHorizontalStretch(0)
+        sizePolicy.setVerticalStretch(0)
+        sizePolicy.setHeightForWidth(self.add_remove_tool_button.sizePolicy().hasHeightForWidth())
+
+        self.add_remove_tool_button.setSizePolicy(sizePolicy)
+        self.add_remove_tool_button.setObjectName("add_remove_tool_button")
+        self.add_remove_tool_button.setAutoRaise(True)
+
+        self.parent_grid_layout.addWidget(self.add_remove_tool_button, 0, 1, 1, 1)
+
+        self.add_remove_tool_button.setIcon(gf.get_icon('arrow-right-bold', icons_set='mdi'))
+
+        self.parent_vertical_layout = QtGui.QVBoxLayout()
+
+        self.parent_vertical_layout.setObjectName("parent_vertical_layout")
+
+        self.parent_grid_layout.addLayout(self.parent_vertical_layout, 0, 0, 1, 1)
+
+        self.verticalLayoutWidget = QtGui.QWidget(self.splitter)
+        self.verticalLayoutWidget.setObjectName("verticalLayoutWidget")
+
+        self.instances_vertical_layout = QtGui.QVBoxLayout(self.verticalLayoutWidget)
+        self.instances_vertical_layout.setContentsMargins(0, 0, 0, 0)
+        self.instances_vertical_layout.setObjectName("instances_vertical_layout")
+
+        self.buttons_layout = QtGui.QHBoxLayout()
+        self.buttons_layout.setObjectName("buttons_layout")
+        self.grid_layout.addLayout(self.buttons_layout, 1, 0, 1, 1)
+
+        self.grid_layout.addWidget(self.splitter, 0, 0, 1, 1)
+
+    def create_buttons(self):
+
+        self.save_button = QtGui.QPushButton('Save')
+        self.save_button.setMaximumWidth(80)
+        self.save_button.setIcon(gf.get_icon('content-save', icons_set='mdi'))
+        self.save_button.setFlat(True)
+        self.save_button.setFocusPolicy(QtCore.Qt.NoFocus)
+
+        self.cancel_button = QtGui.QPushButton('Close')
+        self.cancel_button.setMaximumWidth(80)
+        self.cancel_button.setIcon(gf.get_icon('close', icons_set='mdi'))
+        self.cancel_button.setFlat(True)
+        self.cancel_button.setFocusPolicy(QtCore.Qt.NoFocus)
+
+        spacerItem = QtGui.QSpacerItem(40, 20, QtGui.QSizePolicy.Expanding, QtGui.QSizePolicy.Minimum)
+
+        self.buttons_layout.addItem(spacerItem)
+
+        self.buttons_layout.addWidget(self.save_button)
+        self.buttons_layout.addWidget(self.cancel_button)
+
+    def create_parent_search_line(self):
+        from thlib.ui_classes.ui_misc_classes import SuggestedLineEdit
+
+        self.parent_search_line_edit = SuggestedLineEdit(self.stype, self.stype.project, 'search')
+        self.parent_search_line_edit.setObjectName("parent_search_line_edit")
+        self.parent_search_line_edit.setToolTip('Enter Your search query here')
+        self.parent_vertical_layout.addWidget(self.parent_search_line_edit)
+
+    def create_instances_search_line(self):
+        from thlib.ui_classes.ui_misc_classes import SuggestedLineEdit
+
+        self.instances_search_line_edit = SuggestedLineEdit(self.stype, self.stype.project, 'search')
+        self.instances_search_line_edit.setObjectName("instances_search_line_edit")
+        self.instances_search_line_edit.setToolTip('Enter Your search query here')
+        self.instances_vertical_layout.addWidget(self.instances_search_line_edit)
+
+    def create_parent_widget(self):
+
+        from thlib.ui_classes.ui_search_classes import Ui_simpleResultsFormWidget, DEFAULT_FILTER
+
+        info = {
+            'title': '',
+            'filters': [DEFAULT_FILTER],
+            'state': None,
+            'offset': 0,
+            'limit': 20,
+        }
+
+        self.search_results_widget = Ui_simpleResultsFormWidget(
+            project=self.stype.project,
+            stype=self.stype,
+            info=info,
+            parent=self
+        )
+
+        self.parent_tree_widget = self.search_results_widget.get_results_tree_widget()
+
+        self.parent_vertical_layout.addWidget(self.search_results_widget)
+
+    def do_parent_search(self):
+
+        query_text = self.parent_search_line_edit.text()
+        if query_text:
+            self.search_results_widget.set_filters([('name', 'EQI', query_text)])
+            self.search_results_widget.search_query(query_text)
+
+    @env_inst.async_engine
+    def create_instances_widget(self):
+
+        self.instances_tree_widget = QtGui.QTreeWidget()
+        self.instances_tree_widget.setTabKeyNavigation(True)
+        self.instances_tree_widget.setVerticalScrollMode(QtGui.QAbstractItemView.ScrollPerPixel)
+        self.instances_tree_widget.setRootIsDecorated(False)
+        self.instances_tree_widget.setAllColumnsShowFocus(True)
+        self.instances_tree_widget.setWordWrap(True)
+        self.instances_tree_widget.setHeaderHidden(True)
+        self.instances_tree_widget.setSelectionMode(QtGui.QAbstractItemView.ExtendedSelection)
+        self.instances_tree_widget.setObjectName("instances_tree_widget")
+
+        parent_sobject = self.item.get_sobject()
+
+        # sobjects, info = parent_sobject.get_related_sobjects(self.stype)
+        sobjects, data = yield env_inst.async_task(parent_sobject.get_related_sobjects, self.stype)
+
+        self.instances_tree_widget.clear()
+
+        for i, sobject in enumerate(sobjects.itervalues()):
+
+            item_info = {
+                'relates_to': 'checkin_out',
+                'sep_versions': True,
+                'children_states': None,
+                'simple_view': True,
+            }
+            gf.add_sobject_item(
+                self.instances_tree_widget,
+                self,
+                sobject,
+                self.stype,
+                item_info,
+                ignore_dict=None,
+            )
+
+            self.current_set.add(sobject.get_search_key())
+
+        self.instances_vertical_layout.addWidget(self.instances_tree_widget)
+
+    def set_title(self):
+        stype_tytle = self.stype.info.get('title')
+        stype_code = self.stype.info.get('code')
+        if stype_tytle:
+            title = stype_tytle.capitalize()
+        else:
+            title = 'Unknown'
+
+        self.setWindowTitle('Linking SObjects {0} ({1})'.format(title, stype_code))
+
+    def create_loading_label(self):
+        self.loading_label = QtGui.QLabel()
+        self.loading_label.setText('Loading...')
+        self.loading_label.setAlignment(QtCore.Qt.AlignHCenter | QtCore.Qt.AlignVCenter)
+        self.loading_label.setVisible(False)
+
+        self.grid_layout.addWidget(self.loading_label, 0, 0)
+
+    def toggle_loading_label(self):
+        if self.loading_label.isVisible():
+            self.loading_label.setVisible(False)
+        else:
+            self.loading_label.setVisible(True)
 
 
 class Ui_addTacticSobjectWidget(QtGui.QDialog):
     def __init__(self, stype, parent_stype=None, item=None, view='insert', search_key=None, parent=None):
         super(self.__class__, self).__init__(parent=parent)
-
-        # TODO get title from within
 
         self.item = item
         self.stype = stype
@@ -203,40 +409,37 @@ class Ui_addTacticSobjectWidget(QtGui.QDialog):
     def create_ui(self):
 
         self.setWindowModality(QtCore.Qt.WindowModal)
+        self.setSizeGripEnabled(True)
 
         self.create_loading_label()
         self.toggle_loading_label()
 
-        kwargs_edit = {
-            'args': {
-                'input_prefix': 'edit',
-                'search_key': self.search_key,
-                'parent_key': self.parent_search_key,
-                'view': 'edit',
-            },
-            'search_type': self.search_type,
-            'project': self.stype.project.get_code(),
-        }
-
-        kwargs_insert = {
-            'args': {
-                'mode': 'insert',
-                'input_prefix': 'insert',
-                'parent_key': self.parent_search_key,
-                'search_type': self.search_type,
-                'view': 'insert',
-            },
-            'search_type': self.search_type,
-            'project': self.stype.project.get_code(),
-        }
-
         if self.view == 'edit':
-            kwargs = kwargs_edit
+            kwargs = {
+                'args': {
+                    'input_prefix': 'edit',
+                    'search_key': self.search_key,
+                    'parent_key': self.parent_search_key,
+                    'view': 'edit',
+                },
+                'search_type': self.search_type,
+                'project': self.stype.project.get_code(),
+            }
         else:
-            kwargs = kwargs_insert
+            kwargs = {
+                'args': {
+                    'mode': 'insert',
+                    'input_prefix': 'insert',
+                    'parent_key': self.parent_search_key,
+                    'search_type': self.search_type,
+                    'view': 'insert',
+                },
+                'search_type': self.search_type,
+                'project': self.stype.project.get_code(),
+            }
 
         self.get_widgets(kwargs)
-        self.setSizeGripEnabled(True)
+
         self.set_title()
 
     def create_widgets_ui(self, result_dict):
@@ -258,6 +461,7 @@ class Ui_addTacticSobjectWidget(QtGui.QDialog):
         )
 
         for widget_dict in result_dict['InputWidgets']:
+
             tactic_widget_name = tw.get_widget_name(widget_dict['class_name'], 'input')
 
             widget_dict['sobject'] = result_dict['EditWdg'].get('sobject')
@@ -274,11 +478,17 @@ class Ui_addTacticSobjectWidget(QtGui.QDialog):
             tactic_widget_instance = tactic_widget(options_dict=widget_dict)
             qt_widget_instance = qt_widget(tactic_widget=tactic_widget_instance, parent=self.edit_window)
 
+            # print '**************************************DEBUGINFO******************************************'
+            # print qt_widget_instance, tactic_widget_instance
+            # from pprint import pprint
+            # pprint(widget_dict)
+
             input_widgets_list.append(qt_widget_instance)
 
         self.grid_layout.addWidget(self.edit_window)
 
         self.edit_window.create_ui()
+
         self.readSettings()
 
     def create_loading_label(self):
@@ -300,9 +510,7 @@ class Ui_addTacticSobjectWidget(QtGui.QDialog):
         def query_widgets_agent():
             return self.query_widgets(kwargs)
 
-        server_thread_pool = QtCore.QThreadPool()
-        server_thread_pool.setMaxThreadCount(env_tactic.max_threads())
-        env_inst.set_thread_pool(server_thread_pool, 'server_query/server_thread_pool')
+        env_inst.set_thread_pool(None, 'server_query/server_thread_pool')
 
         worker = gf.get_thread_worker(
             query_widgets_agent,
@@ -414,288 +622,3 @@ class Ui_addTacticSobjectWidget(QtGui.QDialog):
         self.writeSettings()
         event.accept()
 
-
-# import ast
-# import maya.cmds as cmds
-# import PyQt4.QtGui as QtGui
-# import PyQt4.QtCore as QtCore
-
-
-class QtWindow(QtGui.QDialog):
-    def __init__(self, parent=None):
-        super(self.__class__, self).__init__(parent=parent)
-
-        self.layout = QtGui.QGridLayout()
-        self.setLayout(self.layout)
-
-        self.CenterSplitter = QtGui.QSplitter()
-        self.CenterSplitter.setOrientation(QtCore.Qt.Horizontal)
-
-        self.LeftSplitter = QtGui.QSplitter(self.CenterSplitter)
-        self.LeftSplitter.setOrientation(QtCore.Qt.Vertical)
-
-        self.rightSplitter = QtGui.QSplitter(self.CenterSplitter)
-        self.rightSplitter.setOrientation(QtCore.Qt.Vertical)
-        self.layout.addWidget(self.CenterSplitter, 0, 0, 1, 0)
-
-        self.create_trees()
-        self.create_tables()
-        self.create_button()
-        self.create_options()
-
-        self.controls_actions()
-
-    def create_options(self):
-        self.shapes_checkbox = QtGui.QCheckBox()
-        self.shapes_checkbox.setText('Shapes')
-        self.shapes_checkbox.setChecked(True)
-        self.transforms_checkbox = QtGui.QCheckBox()
-        self.transforms_checkbox.setText('Transforms')
-        self.transforms_checkbox.setChecked(True)
-
-        self.filter_edit = QtGui.QLineEdit()
-
-        self.layout.addWidget(self.shapes_checkbox, 3, 0, 1, 1)
-        self.layout.addWidget(self.transforms_checkbox, 3, 1, 1, 1)
-
-        self.layout.addWidget(self.filter_edit, 4, 0, 1, 1)
-
-    def create_trees(self):
-        self.from_tree = QtGui.QTreeWidget(self.LeftSplitter)
-        self.from_tree.setHeaderHidden(True)
-
-        self.to_tree = QtGui.QTreeWidget(self.rightSplitter)
-        self.to_tree.setHeaderHidden(True)
-
-    def create_tables(self):
-        self.edit_attrs_table = QtGui.QTableWidget(self.LeftSplitter)
-        self.edit_attrs_table.setEditTriggers(QtGui.QAbstractItemView.AllEditTriggers)
-        self.edit_attrs_table.setAlternatingRowColors(True)
-        self.edit_attrs_table.setSelectionMode(QtGui.QAbstractItemView.ExtendedSelection)
-        self.edit_attrs_table.setGridStyle(QtCore.Qt.DashLine)
-
-        self.edit_attrs_to_table = QtGui.QTableWidget(self.rightSplitter)
-        self.edit_attrs_to_table.setEditTriggers(QtGui.QAbstractItemView.AllEditTriggers)
-        self.edit_attrs_to_table.setAlternatingRowColors(True)
-        self.edit_attrs_to_table.setSelectionMode(QtGui.QAbstractItemView.ExtendedSelection)
-        self.edit_attrs_to_table.setGridStyle(QtCore.Qt.DashLine)
-
-    def add_table_header(self):
-        self.edit_attrs_table.setColumnCount(2)
-        item = QtGui.QTableWidgetItem()
-        item.setText('Attribute')
-        self.edit_attrs_table.setHorizontalHeaderItem(0, item)
-        item = QtGui.QTableWidgetItem()
-        item.setText('Value')
-        self.edit_attrs_table.setHorizontalHeaderItem(1, item)
-
-        self.edit_attrs_table.setRowCount(0)
-
-    def create_button(self):
-
-        self.get_from = QtGui.QPushButton('FROM')
-        self.get_to = QtGui.QPushButton('TO')
-
-        self.conn = QtGui.QPushButton('CONNECT')
-
-        self.list_all_attr_button = QtGui.QPushButton('LIST ALL ATTRS')
-        self.select_frobj_button = QtGui.QPushButton('Select Fobj')
-
-        self.layout.addWidget(self.get_from, 1, 0, 1, 1)
-        self.layout.addWidget(self.get_to, 1, 1, 1, 1)
-        self.layout.addWidget(self.conn, 2, 0, 1, 1)
-        self.layout.addWidget(self.list_all_attr_button, 2, 1, 1, 1)
-        self.layout.addWidget(self.select_frobj_button, 4, 1, 1, 1)
-
-    def select_fobj(self):
-        transforms = bool(self.transforms_checkbox.isChecked())
-        shapes = bool(self.shapes_checkbox.isChecked())
-
-        selection_list = []
-
-        for key, value in self.attr_shape_dict.iteritems():
-
-            if 'rmanFobjIndex' in value:
-                selection_list.append(key)
-        cmds.select(selection_list)
-
-    def get_from_tree(self):
-
-        transforms = bool(self.transforms_checkbox.isChecked())
-        shapes = bool(self.shapes_checkbox.isChecked())
-
-        from_list = cmds.ls(sl=True, dag=True, shapes=shapes, transforms=transforms)
-
-        self.from_tree.clear()
-        final_from_list = []
-        filter_text = self.filter_edit.text()
-        if filter_text:
-            for node in from_list:
-                if node.find(filter_text) != -1:
-                    final_from_list.append(node)
-        else:
-            final_from_list = from_list
-
-        for shape in final_from_list:
-            item = QtGui.QTreeWidgetItem()
-            self.from_tree.addTopLevelItem(item)
-            item.setText(0, shape)
-
-    def get_to_tree(self):
-        to_list = cmds.ls(sl=True, dag=True)
-        self.to_tree.clear()
-
-        for shape in to_list:
-            item = QtGui.QTreeWidgetItem()
-            self.to_tree.addTopLevelItem(item)
-            item.setText(0, shape)
-
-    def connecting_attrs(self):
-
-        from_node = self.from_tree.selectedItems()[0].text(0)
-        attr_list = cmds.listAttr(str(from_node), userDefined=True)
-
-        print attr_list
-        print from_node
-
-        to_items_list = []
-        for i in range(self.to_tree.topLevelItemCount()):
-            to_it = self.to_tree.topLevelItem(i)
-            to_items_list.append(str(to_it.text(0)))
-
-        print to_items_list
-
-        # connecting attr
-        for to_item in to_items_list:
-            for attr in attr_list:
-                try:
-                    cmds.connectAttr('{0}.{1}'.format(from_node, attr), '{0}.{1}'.format(to_item, attr), force=True)
-                except Exception as ex:
-                    print ex, to_item, attr
-
-    def tree_item_click(self, item):
-
-        from_node = item.text(0)
-
-        attr_list = cmds.listAttr(str(from_node), userDefined=True)
-
-        self.edit_attrs_table.clear()
-        self.add_table_header()
-        if attr_list:
-            self.edit_attrs_table.setColumnCount(int(len(attr_list)))
-
-            self.edit_attrs_table.setRowCount(1)
-            vertical_item = QtGui.QTableWidgetItem()
-            vertical_item.setText(from_node)
-            self.edit_attrs_table.setVerticalHeaderItem(0, vertical_item)
-
-            for i, attr in enumerate(attr_list):
-                item = QtGui.QTableWidgetItem()
-                item.setText(attr)
-                self.edit_attrs_table.setHorizontalHeaderItem(i, item)
-
-                attr_val = cmds.getAttr('{0}.{1}'.format(from_node, attr))
-                value_item = QtGui.QTableWidgetItem()
-                value_item.setText(str(attr_val))
-                value_item.setData(1, [str(from_node), attr])
-                self.edit_attrs_table.setItem(0, i, value_item)
-
-    def list_all_attrs(self):
-        self.attr_shape_dict = {}
-
-        self.edit_attrs_table.clear()
-        rows_count = 0
-        col_count = 0
-        all_attrs_list = []
-        all_nodes_with_attrs = []
-
-        # make lists
-        for j in range(self.from_tree.topLevelItemCount()):
-            from_item = self.from_tree.topLevelItem(j)
-            from_node = from_item.text(0)
-            attr_list = cmds.listAttr(str(from_node), userDefined=True)
-            if attr_list:
-                rows_count += 1
-                all_attrs_list.extend(attr_list)
-                all_nodes_with_attrs.append(from_node)
-
-        # filling Table
-        truncated_attrs_list = set(all_attrs_list)
-        col_count = len(truncated_attrs_list)
-        self.edit_attrs_table.setRowCount(rows_count)
-        self.edit_attrs_table.setColumnCount(col_count)
-        for j, node in enumerate(all_nodes_with_attrs):
-            vertical_item = QtGui.QTableWidgetItem()
-            vertical_item.setText(node)
-
-            self.edit_attrs_table.setVerticalHeaderItem(j, vertical_item)
-            attr_list = []
-            for i, attr in enumerate(truncated_attrs_list):
-                item = QtGui.QTableWidgetItem()
-                item.setText(attr)
-                self.edit_attrs_table.setHorizontalHeaderItem(i, item)
-                exists = cmds.attributeQuery(attr, node=str(node), exists=True)
-                if exists:
-                    attr_val = cmds.getAttr('{0}.{1}'.format(str(node), attr))
-
-                    value_item = QtGui.QTableWidgetItem()
-                    value_item.setText(str(attr_val))
-                    value_item.setData(1, [str(node), attr])
-                    self.edit_attrs_table.setItem(j, i, value_item)
-
-                    attr_list.append(attr)
-            self.attr_shape_dict[str(node)] = attr_list
-
-    def commit_and_check_attr(self, item, e_item, commit=False):
-        value = str(e_item.data(0).toPyObject())
-        node = str(e_item.data(1).toPyObject()[0])
-        attr = str(e_item.data(1).toPyObject()[1])
-        exists = cmds.attributeQuery(attr, node=node, exists=True)
-
-        if commit:
-            result_value = cmds.getAttr('{0}.{1}'.format(node, attr))
-            print result_value
-            # item.setText(str(result_value))
-        else:
-            if exists:
-                attr_type = cmds.getAttr('{0}.{1}'.format(node, attr), type=True)
-                if attr_type == 'string':
-                    cmds.setAttr('{0}.{1}'.format(node, attr), str(value), type='string')
-                elif attr_type == 'double':
-                    cmds.setAttr('{0}.{1}'.format(node, attr), float(value))
-                elif attr_type == 'bool':
-                    cmds.setAttr('{0}.{1}'.format(node, attr), bool(int(value)))
-                else:
-                    cmds.setAttr('{0}.{1}'.format(node, attr), int(value))
-
-    def edit_table_item(self, item):
-        selected_items = self.edit_attrs_table.selectedItems()
-        value = item.text()
-        for s_item in selected_items:
-            s_item.setText(value)
-            self.commit_and_check_attr(s_item, item)
-
-            # for s_item in selected_items:
-            #    self.commit_and_check_attr(s_item, item, commit=True)
-
-    def controls_actions(self):
-
-        self.get_from.clicked.connect(self.get_from_tree)
-        self.get_to.clicked.connect(self.get_to_tree)
-
-        self.conn.clicked.connect(self.connecting_attrs)
-
-        self.list_all_attr_button.clicked.connect(self.list_all_attrs)
-
-        self.select_frobj_button.clicked.connect(self.select_fobj)
-
-        self.from_tree.itemClicked.connect(self.tree_item_click)
-
-        self.to_tree.itemClicked.connect(self.tree_item_click)
-
-        self.edit_attrs_table.itemChanged.connect(self.edit_table_item)
-
-
-# wnd = QtWindow()
-# wnd.setSizeGripEnabled(True)
-# wnd.show()

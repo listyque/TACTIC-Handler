@@ -2,14 +2,12 @@
 
 # Form implementation generated from reading ui file 'items\ui_item.ui'
 #
-# Created: Mon Dec 31 01:39:11 2018
+# Created: Sat Oct  5 00:17:13 2019
 #      by: pyside-uic 0.2.15 running on PySide 1.2.4
 #
 # WARNING! All changes made in this file will be lost!
 
-from thlib.side.Qt import QtWidgets as QtGui
-from thlib.side.Qt import QtGui as Qt4Gui
-from thlib.side.Qt import QtCore
+from PySide import QtCore, QtGui
 
 class Ui_item(object):
     def setupUi(self, item):
@@ -55,7 +53,7 @@ class Ui_item(object):
         self.fileNameLabel = QtGui.QLabel(item)
         self.fileNameLabel.setMinimumSize(QtCore.QSize(0, 20))
         self.fileNameLabel.setMaximumSize(QtCore.QSize(16777215, 24))
-        font = Qt4Gui.QFont()
+        font = QtGui.QFont()
         font.setWeight(75)
         font.setBold(True)
         self.fileNameLabel.setFont(font)
@@ -65,6 +63,15 @@ class Ui_item(object):
         self.fileNameLabel.setTextFormat(QtCore.Qt.PlainText)
         self.fileNameLabel.setObjectName("fileNameLabel")
         self.horizontalLayout_2.addWidget(self.fileNameLabel)
+        self.syncWithRepoToolButton = QtGui.QToolButton(item)
+        sizePolicy = QtGui.QSizePolicy(QtGui.QSizePolicy.Preferred, QtGui.QSizePolicy.Fixed)
+        sizePolicy.setHorizontalStretch(0)
+        sizePolicy.setVerticalStretch(0)
+        sizePolicy.setHeightForWidth(self.syncWithRepoToolButton.sizePolicy().hasHeightForWidth())
+        self.syncWithRepoToolButton.setSizePolicy(sizePolicy)
+        self.syncWithRepoToolButton.setAutoRaise(True)
+        self.syncWithRepoToolButton.setObjectName("syncWithRepoToolButton")
+        self.horizontalLayout_2.addWidget(self.syncWithRepoToolButton)
         self.watchFolderToolButton = QtGui.QToolButton(item)
         sizePolicy = QtGui.QSizePolicy(QtGui.QSizePolicy.Preferred, QtGui.QSizePolicy.Fixed)
         sizePolicy.setHorizontalStretch(0)
@@ -134,5 +141,9 @@ class Ui_item(object):
         self.gridLayout.setColumnStretch(2, 1)
         self.gridLayout.setRowStretch(2, 1)
 
+        self.retranslateUi(item)
         QtCore.QMetaObject.connectSlotsByName(item)
+
+    def retranslateUi(self, item):
+        item.setWindowTitle(QtGui.QApplication.translate("item", "Form", None, QtGui.QApplication.UnicodeUTF8))
 

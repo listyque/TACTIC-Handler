@@ -239,12 +239,12 @@ def close_all_instances():
 
 
 @gf.catch_error
-def create_ui(ping_worker, hotkeys=None):
+def create_ui(error_tuple=None, hotkeys=None):
 
-    if ping_worker.is_failed():
+    if error_tuple:
         env_mode.set_offline()
         main_tab = Ui_DockMain(hotkeys=hotkeys)
-        gf.error_handle(ping_worker.get_error_tuple())
+        gf.error_handle(error_tuple)
     else:
         env_mode.set_online()
         main_tab = Ui_DockMain(hotkeys=hotkeys)
@@ -271,5 +271,10 @@ def startup(restart=False, hotkeys=None):
         def server_ping_agent():
             return tc.server_ping()
 
-        ping_worker = gf.get_thread_worker(server_ping_agent, finished_func=lambda: create_ui(ping_worker, hotkeys))
-        ping_worker.try_start()
+        ping_worker = gf.get_thread_worker(
+            server_ping_agent,
+            finished_func=lambda: create_ui(None, hotkeys),
+            error_func=create_ui
+        )
+
+        ping_worker.start()

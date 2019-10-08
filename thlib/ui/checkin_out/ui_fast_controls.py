@@ -2,13 +2,12 @@
 
 # Form implementation generated from reading ui file 'checkin_out\ui_fast_controls.ui'
 #
-# Created: Sat Dec 29 01:21:44 2018
+# Created: Sat Oct  5 00:17:20 2019
 #      by: pyside-uic 0.2.15 running on PySide 1.2.4
 #
 # WARNING! All changes made in this file will be lost!
 
-from thlib.side.Qt import QtWidgets as QtGui
-from thlib.side.Qt import QtCore
+from PySide import QtCore, QtGui
 
 class Ui_fastControls(object):
     def setupUi(self, fastControls):
@@ -60,14 +59,14 @@ class Ui_fastControls(object):
         QtCore.QMetaObject.connectSlotsByName(fastControls)
 
     def retranslateUi(self, fastControls):
-        fastControls.setWindowTitle(u"Form")
-        self.checkinTypeLabel.setText(u"Checkin Type:")
-        self.checkinTypeComboBox.setItemText(0, u"A File")
-        self.checkinTypeComboBox.setItemText(1, u"A Sequence")
-        self.checkinTypeComboBox.setItemText(2, u"A Directory")
-        self.checkinTypeComboBox.setItemText(3, u"Miltiple Individual Files")
-        self.checkinTypeComboBox.setItemText(4, u"Work Area")
-        self.explicitFilenameLabel.setText(u"Explicit Filename:")
-        self.processLabel.setText(u"Process:")
-        self.contextLabel.setText(u"Context:")
+        fastControls.setWindowTitle(QtGui.QApplication.translate("fastControls", "Form", None, QtGui.QApplication.UnicodeUTF8))
+        self.checkinTypeLabel.setText(QtGui.QApplication.translate("fastControls", "Checkin Type:", None, QtGui.QApplication.UnicodeUTF8))
+        self.checkinTypeComboBox.setItemText(0, QtGui.QApplication.translate("fastControls", "A File", None, QtGui.QApplication.UnicodeUTF8))
+        self.checkinTypeComboBox.setItemText(1, QtGui.QApplication.translate("fastControls", "A Sequence", None, QtGui.QApplication.UnicodeUTF8))
+        self.checkinTypeComboBox.setItemText(2, QtGui.QApplication.translate("fastControls", "A Directory", None, QtGui.QApplication.UnicodeUTF8))
+        self.checkinTypeComboBox.setItemText(3, QtGui.QApplication.translate("fastControls", "Miltiple Individual Files", None, QtGui.QApplication.UnicodeUTF8))
+        self.checkinTypeComboBox.setItemText(4, QtGui.QApplication.translate("fastControls", "Work Area", None, QtGui.QApplication.UnicodeUTF8))
+        self.explicitFilenameLabel.setText(QtGui.QApplication.translate("fastControls", "Explicit Filename:", None, QtGui.QApplication.UnicodeUTF8))
+        self.processLabel.setText(QtGui.QApplication.translate("fastControls", "Process:", None, QtGui.QApplication.UnicodeUTF8))
+        self.contextLabel.setText(QtGui.QApplication.translate("fastControls", "Context:", None, QtGui.QApplication.UnicodeUTF8))
 

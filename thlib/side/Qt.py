@@ -44,7 +44,7 @@ import shutil
 
 #  !!! ONLY FOR PYCHARM AUTOCOMPLETER !!!
 if None:
-    from PySide import QtGui, QtCore
+    from PySide import QtGui, QtCore, QtNetwork
     QtWidgets = QtGui
 #  !!! ONLY FOR PYCHARM AUTOCOMPLETER !!!
 

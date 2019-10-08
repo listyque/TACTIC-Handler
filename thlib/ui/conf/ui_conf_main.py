@@ -1,15 +1,13 @@
 # -*- coding: utf-8 -*-
 
-# Form implementation generated from reading ui file 'conf/ui_conf_main.ui'
+# Form implementation generated from reading ui file 'conf\ui_conf_main.ui'
 #
-# Created: Wed Jan 24 13:57:26 2018
-#      by: pyside-uic 0.2.15 running on PySide 1.2.2
+# Created: Sat Oct  5 00:17:17 2019
+#      by: pyside-uic 0.2.15 running on PySide 1.2.4
 #
 # WARNING! All changes made in this file will be lost!
 
-from thlib.side.Qt import QtWidgets as QtGui
-from thlib.side.Qt import QtGui as Qt4Gui
-from thlib.side.Qt import QtCore
+from PySide import QtCore, QtGui
 
 class Ui_uiConfMainWidget(object):
     def setupUi(self, uiConfMainWidget):
@@ -19,7 +17,7 @@ class Ui_uiConfMainWidget(object):
         self.uiConfMainWidgetLayout.setContentsMargins(0, 0, 0, 0)
         self.uiConfMainWidgetLayout.setObjectName("uiConfMainWidgetLayout")
         self.configToolBox = QtGui.QToolBox(uiConfMainWidget)
-        palette = Qt4Gui.QPalette()
+        palette = QtGui.QPalette()
         self.configToolBox.setPalette(palette)
         self.configToolBox.setStyleSheet("QToolBox > *,\n"
 "QToolBox > QScrollArea > #qt_scrollarea_viewport > QWidget {\n"
@@ -104,11 +102,11 @@ class Ui_uiConfMainWidget(object):
         QtCore.QMetaObject.connectSlotsByName(uiConfMainWidget)
 
     def retranslateUi(self, uiConfMainWidget):
-        uiConfMainWidget.setWindowTitle(QtGui.QApplication.translate("uiConfMainWidget", "TACTIC Handler configuration", None))
-        self.configToolBox.setItemText(self.configToolBox.indexOf(self.serverPage), QtGui.QApplication.translate("uiConfMainWidget", "TACTIC Server", None))
-        self.configToolBox.setItemText(self.configToolBox.indexOf(self.projectPage), QtGui.QApplication.translate("uiConfMainWidget", "Project", None))
-        self.configToolBox.setItemText(self.configToolBox.indexOf(self.checkinOutOptionsPage), QtGui.QApplication.translate("uiConfMainWidget", "Checkin/Checkout Options", None))
-        self.configToolBox.setItemText(self.configToolBox.indexOf(self.checkinOutAppPage), QtGui.QApplication.translate("uiConfMainWidget", "Checkin/Checkout Appearance", None))
-        self.configToolBox.setItemText(self.configToolBox.indexOf(self.globalCofigPage), QtGui.QApplication.translate("uiConfMainWidget", "Global Config", None))
-        self.configToolBox.setItemText(self.configToolBox.indexOf(self.currentEnvironmentPage), QtGui.QApplication.translate("uiConfMainWidget", "Current Environment Options", None))
+        uiConfMainWidget.setWindowTitle(QtGui.QApplication.translate("uiConfMainWidget", "TACTIC Handler configuration", None, QtGui.QApplication.UnicodeUTF8))
+        self.configToolBox.setItemText(self.configToolBox.indexOf(self.serverPage), QtGui.QApplication.translate("uiConfMainWidget", "TACTIC Server", None, QtGui.QApplication.UnicodeUTF8))
+        self.configToolBox.setItemText(self.configToolBox.indexOf(self.projectPage), QtGui.QApplication.translate("uiConfMainWidget", "Project", None, QtGui.QApplication.UnicodeUTF8))
+        self.configToolBox.setItemText(self.configToolBox.indexOf(self.checkinOutOptionsPage), QtGui.QApplication.translate("uiConfMainWidget", "Checkin/Checkout Options", None, QtGui.QApplication.UnicodeUTF8))
+        self.configToolBox.setItemText(self.configToolBox.indexOf(self.checkinOutAppPage), QtGui.QApplication.translate("uiConfMainWidget", "Checkin/Checkout Appearance", None, QtGui.QApplication.UnicodeUTF8))
+        self.configToolBox.setItemText(self.configToolBox.indexOf(self.globalCofigPage), QtGui.QApplication.translate("uiConfMainWidget", "Global Config", None, QtGui.QApplication.UnicodeUTF8))
+        self.configToolBox.setItemText(self.configToolBox.indexOf(self.currentEnvironmentPage), QtGui.QApplication.translate("uiConfMainWidget", "Current Environment Options", None, QtGui.QApplication.UnicodeUTF8))
 

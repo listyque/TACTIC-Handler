@@ -24,6 +24,3 @@ reload(main)
 hotkeys = None
 
 main.startup(hotkeys=hotkeys)
-
-# from lib.environment import env_inst
-# print env_inst.ui_maya_dock.status_bar

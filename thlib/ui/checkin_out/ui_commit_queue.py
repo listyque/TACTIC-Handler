@@ -1,14 +1,13 @@
 # -*- coding: utf-8 -*-
 
-# Form implementation generated from reading ui file 'checkin_out/ui_commit_queue.ui'
+# Form implementation generated from reading ui file 'checkin_out\ui_commit_queue.ui'
 #
-# Created: Thu May 10 14:59:18 2018
-#      by: pyside-uic 0.2.15 running on PySide 1.2.2
+# Created: Sat Oct  5 00:17:19 2019
+#      by: pyside-uic 0.2.15 running on PySide 1.2.4
 #
 # WARNING! All changes made in this file will be lost!
 
-from thlib.side.Qt import QtWidgets as QtGui
-from thlib.side.Qt import QtCore
+from PySide import QtCore, QtGui
 
 class Ui_commitQueue(object):
     def setupUi(self, commitQueue):
@@ -82,11 +81,11 @@ class Ui_commitQueue(object):
         QtCore.QMetaObject.connectSlotsByName(commitQueue)
 
     def retranslateUi(self, commitQueue):
-        commitQueue.setWindowTitle(QtGui.QApplication.translate("commitQueue", "MainWindow", None))
-        self.label.setText(QtGui.QApplication.translate("commitQueue", "Commits in Queue:", None))
-        self.filesCountLabel.setText(QtGui.QApplication.translate("commitQueue", "0", None))
-        self.clearQueuePushButton.setText(QtGui.QApplication.translate("commitQueue", "Clear Queue", None))
-        self.filesQueueTreeWidget.headerItem().setText(0, QtGui.QApplication.translate("commitQueue", "1", None))
-        self.commitAllPushButton.setText(QtGui.QApplication.translate("commitQueue", "Commit All", None))
-        self.closePushButton.setText(QtGui.QApplication.translate("commitQueue", "Close", None))
+        commitQueue.setWindowTitle(QtGui.QApplication.translate("commitQueue", "MainWindow", None, QtGui.QApplication.UnicodeUTF8))
+        self.label.setText(QtGui.QApplication.translate("commitQueue", "Commits in Queue:", None, QtGui.QApplication.UnicodeUTF8))
+        self.filesCountLabel.setText(QtGui.QApplication.translate("commitQueue", "0", None, QtGui.QApplication.UnicodeUTF8))
+        self.clearQueuePushButton.setText(QtGui.QApplication.translate("commitQueue", "Clear Queue", None, QtGui.QApplication.UnicodeUTF8))
+        self.filesQueueTreeWidget.headerItem().setText(0, QtGui.QApplication.translate("commitQueue", "1", None, QtGui.QApplication.UnicodeUTF8))
+        self.commitAllPushButton.setText(QtGui.QApplication.translate("commitQueue", "Commit All", None, QtGui.QApplication.UnicodeUTF8))
+        self.closePushButton.setText(QtGui.QApplication.translate("commitQueue", "Close", None, QtGui.QApplication.UnicodeUTF8))
 

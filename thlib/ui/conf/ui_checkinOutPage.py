@@ -1,15 +1,13 @@
 # -*- coding: utf-8 -*-
 
-# Form implementation generated from reading ui file 'conf/ui_checkinOutPage.ui'
+# Form implementation generated from reading ui file 'conf\ui_checkinOutPage.ui'
 #
-# Created: Thu May 24 12:10:41 2018
-#      by: pyside-uic 0.2.15 running on PySide 1.2.2
+# Created: Sat Oct  5 00:17:16 2019
+#      by: pyside-uic 0.2.15 running on PySide 1.2.4
 #
 # WARNING! All changes made in this file will be lost!
 
-from thlib.side.Qt import QtWidgets as QtGui
-from thlib.side.Qt import QtGui as Qt4Gui
-from thlib.side.Qt import QtCore
+from PySide import QtCore, QtGui
 
 class Ui_checkinOutPageWidget(object):
     def setupUi(self, checkinOutPageWidget):
@@ -20,7 +18,7 @@ class Ui_checkinOutPageWidget(object):
         self.checkinOutPageWidgetLayout.setVerticalSpacing(0)
         self.checkinOutPageWidgetLayout.setObjectName("checkinOutPageWidgetLayout")
         self.processTabsFilterGroupBox = QtGui.QGroupBox(checkinOutPageWidget)
-        font = Qt4Gui.QFont()
+        font = QtGui.QFont()
         font.setWeight(75)
         font.setBold(True)
         self.processTabsFilterGroupBox.setFont(font)
@@ -43,7 +41,7 @@ class Ui_checkinOutPageWidget(object):
         self.processTabsFilterLayout.addWidget(self.processTreeWidget)
         self.checkinOutPageWidgetLayout.addWidget(self.processTabsFilterGroupBox, 1, 1, 1, 1)
         self.controlsTabsFilterGroupBox = QtGui.QGroupBox(checkinOutPageWidget)
-        font = Qt4Gui.QFont()
+        font = QtGui.QFont()
         font.setWeight(75)
         font.setBold(True)
         self.controlsTabsFilterGroupBox.setFont(font)
@@ -101,7 +99,7 @@ class Ui_checkinOutPageWidget(object):
         self.projectsDisplayTreeWidget.header().setDefaultSectionSize(87)
         self.checkinOutPageWidgetLayout.addWidget(self.projectsDisplayTreeWidget, 0, 0, 3, 1)
         self.sObjectTabOptionsGroupBox = QtGui.QGroupBox(checkinOutPageWidget)
-        font = Qt4Gui.QFont()
+        font = QtGui.QFont()
         font.setWeight(75)
         font.setBold(True)
         self.sObjectTabOptionsGroupBox.setFont(font)
@@ -121,19 +119,19 @@ class Ui_checkinOutPageWidget(object):
         QtCore.QMetaObject.connectSlotsByName(checkinOutPageWidget)
 
     def retranslateUi(self, checkinOutPageWidget):
-        self.processTabsFilterGroupBox.setTitle(QtGui.QApplication.translate("checkinOutPageWidget", "Filter Process Tabs (Per Project only)", None))
-        self.processTreeWidget.headerItem().setText(0, QtGui.QApplication.translate("checkinOutPageWidget", "Type/Title", None))
-        self.processTreeWidget.headerItem().setText(1, QtGui.QApplication.translate("checkinOutPageWidget", "Code", None))
-        self.controlsTabsFilterGroupBox.setTitle(QtGui.QApplication.translate("checkinOutPageWidget", "Filter Control Tabs", None))
-        self.controlsTabsTreeWidget.headerItem().setText(0, QtGui.QApplication.translate("checkinOutPageWidget", "Tab Name", None))
-        self.controlsTabsTreeWidget.headerItem().setText(1, QtGui.QApplication.translate("checkinOutPageWidget", "Tab Label (Dbl click to Edit)", None))
-        self.controlsTabsMoveUpToolButton.setText(QtGui.QApplication.translate("checkinOutPageWidget", "...", None))
-        self.applyToAllProjectsRadioButton.setText(QtGui.QApplication.translate("checkinOutPageWidget", "Choose globally", None))
-        self.controlsTabsMoveDownToolButton.setText(QtGui.QApplication.translate("checkinOutPageWidget", "...", None))
-        self.applyToAllProjectsPushButton.setText(QtGui.QApplication.translate("checkinOutPageWidget", "Apply current to All", None))
-        self.applyPerProjectsRadioButton.setText(QtGui.QApplication.translate("checkinOutPageWidget", "Choose per Project", None))
-        self.projectsDisplayTreeWidget.headerItem().setText(0, QtGui.QApplication.translate("checkinOutPageWidget", "Category/Title", None))
-        self.projectsDisplayTreeWidget.headerItem().setText(1, QtGui.QApplication.translate("checkinOutPageWidget", "Code", None))
-        self.sObjectTabOptionsGroupBox.setTitle(QtGui.QApplication.translate("checkinOutPageWidget", "SObject Tab Options:", None))
-        self.lastViewOnAllTabscheckBox.setText(QtGui.QApplication.translate("checkinOutPageWidget", "Apply Last opened Tab Layout to all Tabs", None))
+        self.processTabsFilterGroupBox.setTitle(QtGui.QApplication.translate("checkinOutPageWidget", "Filter Process Tabs (Per Project only)", None, QtGui.QApplication.UnicodeUTF8))
+        self.processTreeWidget.headerItem().setText(0, QtGui.QApplication.translate("checkinOutPageWidget", "Type/Title", None, QtGui.QApplication.UnicodeUTF8))
+        self.processTreeWidget.headerItem().setText(1, QtGui.QApplication.translate("checkinOutPageWidget", "Code", None, QtGui.QApplication.UnicodeUTF8))
+        self.controlsTabsFilterGroupBox.setTitle(QtGui.QApplication.translate("checkinOutPageWidget", "Filter Control Tabs", None, QtGui.QApplication.UnicodeUTF8))
+        self.controlsTabsTreeWidget.headerItem().setText(0, QtGui.QApplication.translate("checkinOutPageWidget", "Tab Name", None, QtGui.QApplication.UnicodeUTF8))
+        self.controlsTabsTreeWidget.headerItem().setText(1, QtGui.QApplication.translate("checkinOutPageWidget", "Tab Label (Dbl click to Edit)", None, QtGui.QApplication.UnicodeUTF8))
+        self.controlsTabsMoveUpToolButton.setText(QtGui.QApplication.translate("checkinOutPageWidget", "...", None, QtGui.QApplication.UnicodeUTF8))
+        self.applyToAllProjectsRadioButton.setText(QtGui.QApplication.translate("checkinOutPageWidget", "Choose globally", None, QtGui.QApplication.UnicodeUTF8))
+        self.controlsTabsMoveDownToolButton.setText(QtGui.QApplication.translate("checkinOutPageWidget", "...", None, QtGui.QApplication.UnicodeUTF8))
+        self.applyToAllProjectsPushButton.setText(QtGui.QApplication.translate("checkinOutPageWidget", "Apply current to All", None, QtGui.QApplication.UnicodeUTF8))
+        self.applyPerProjectsRadioButton.setText(QtGui.QApplication.translate("checkinOutPageWidget", "Choose per Project", None, QtGui.QApplication.UnicodeUTF8))
+        self.projectsDisplayTreeWidget.headerItem().setText(0, QtGui.QApplication.translate("checkinOutPageWidget", "Category/Title", None, QtGui.QApplication.UnicodeUTF8))
+        self.projectsDisplayTreeWidget.headerItem().setText(1, QtGui.QApplication.translate("checkinOutPageWidget", "Code", None, QtGui.QApplication.UnicodeUTF8))
+        self.sObjectTabOptionsGroupBox.setTitle(QtGui.QApplication.translate("checkinOutPageWidget", "SObject Tab Options:", None, QtGui.QApplication.UnicodeUTF8))
+        self.lastViewOnAllTabscheckBox.setText(QtGui.QApplication.translate("checkinOutPageWidget", "Apply Last opened Tab Layout to all Tabs", None, QtGui.QApplication.UnicodeUTF8))
 

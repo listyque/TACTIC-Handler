@@ -8,7 +8,7 @@ import zipfile
 import json
 from thlib.environment import env_mode, env_server, env_inst
 import thlib.global_functions as gf
-import thlib.tactic_classes as tc
+# import thlib.tactic_classes as tc
 
 
 def get_version(major=0, minor=0, build=0, revision=0, string=False, sort_sum=False):
@@ -131,6 +131,8 @@ def get_updates_from_server():
             with open('{0}/{1}'.format(path_to_save, vl), 'wb') as output:
                 output.write(update_file.read())
 
+            output.close()
+
 
 def get_update_archive_from_server(archive_name):
 
@@ -140,6 +142,8 @@ def get_update_archive_from_server(archive_name):
     if update_archive_file:
         with open(archive_path, 'wb') as output:
             output.write(update_archive_file.read())
+
+        output.close()
 
         return archive_path
 

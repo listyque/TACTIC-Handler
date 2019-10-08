@@ -2,11 +2,10 @@
 # Start here to run app standalone
 
 import sys
-
 from thlib.side.Qt import QtWidgets as QtGui
 from thlib.side.Qt import QtGui as Qt4Gui
 
-from thlib.environment import env_mode, env_inst
+from thlib.environment import env_mode, env_inst, start_api_client
 import thlib.global_functions as gf
 import thlib.tactic_classes as tc
 import thlib.ui_classes.ui_main_classes as ui_main_classes
@@ -75,15 +74,14 @@ palette = {
 }
 
 
-@gf.catch_error
-def create_ui(ping_worker):
-    if ping_worker.is_failed():
+def create_ui(error_tuple=None):
+    if error_tuple:
         env_mode.set_offline()
         if not env_inst.ui_main:
             window = ui_main_classes.Ui_Main(parent=None)
             window.statusBar()
             window.show()
-        gf.error_handle(ping_worker.get_error_tuple())
+        gf.error_handle(error_tuple)
     else:
         env_mode.set_online()
         offline_ui = None
@@ -99,15 +97,24 @@ def create_ui(ping_worker):
 @gf.catch_error
 def startup():
     app = QtGui.QApplication(sys.argv)
+    app.setApplicationName('TacticHandler_Client')
     env_inst.ui_super = app
-    app.setStyle("plastique")
+    app.setStyle('plastique')
     setPaletteFromDct(palette)
+
+    # start_api_client()
 
     def server_ping_agent():
         return tc.server_ping()
 
-    ping_worker = gf.get_thread_worker(server_ping_agent, finished_func=lambda: create_ui(ping_worker))
-    ping_worker.try_start()
+    ping_worker = gf.get_thread_worker(
+        server_ping_agent,
+        finished_func=create_ui,
+        error_func=create_ui
+    )
+
+    ping_worker.start()
+
     sys.exit(app.exec_())
 
 

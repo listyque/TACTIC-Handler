@@ -1,17 +1,29 @@
 # module Environment
 # file environment.py
 # Global constants with defaults
-
+import sys
 import os
+import io
+import subprocess
+import locale
+# from multiprocessing.connection import Client
 import datetime
 import inspect
 import collections
 import platform
 import json
 from thlib.side.Qt import QtCore
+from async_gui.engine import Task
+from async_gui.toolkits.pyqt import PyQtEngine
+
 
 CFG_FORMAT = 'json'  # set this to 'ini' if you want to use QSettings instead of json
-SERVER_THREADS_COUNT = 4  # max connections to remote tactic server
+SERVER_THREADS_COUNT = 1  # max connections to remote tactic server
+HTTP_THREADS_COUNT = 4  # max connections to http
+MAX_RECURSION_DEPTH = 65536  # maximum recursion for stability reasons
+SPECIALIZED = None  # can be string, made for personal script packs, e.g. to create pre-configured pack
+
+sys.setrecursionlimit(MAX_RECURSION_DEPTH)
 
 
 def singleton(cls):
@@ -24,9 +36,19 @@ def singleton(cls):
     return get_instance()
 
 
-def get_tc():
-    import tactic_classes as tc
-    return tc
+def tc():
+    import tactic_classes
+    return tactic_classes
+
+
+def gf():
+    import global_functions
+    return global_functions
+
+
+def mf():
+    import maya_functions
+    return maya_functions
 
 
 def env_write_config(obj=None, filename='settings', unique_id='', sub_id=None, update_file=False, long_abs_path=False):
@@ -44,20 +66,20 @@ def env_write_config(obj=None, filename='settings', unique_id='', sub_id=None, u
     """
 
     if long_abs_path:
-        abs_path = '{0}/settings/{1}/{2}/{3}'.format(
+        abs_path = u'{0}/settings/{1}/{2}/{3}'.format(
                     env_mode.get_current_path(),
                     env_mode.get_node(),
                     env_server.get_cur_srv_preset(),
                     env_mode.get_mode())
     else:
-        abs_path = '{0}/settings'.format(env_mode.get_current_path())
+        abs_path = u'{0}/settings'.format(env_mode.get_current_path())
 
-    if CFG_FORMAT == 'json':
-        full_abs_path = '{0}/{1}'.format(abs_path, unique_id)
+    if CFG_FORMAT == u'json':
+        full_abs_path = u'{0}/{1}'.format(abs_path, unique_id)
         if not os.path.exists(full_abs_path):
             os.makedirs(full_abs_path)
 
-        full_path = '{0}/{1}.json'.format(full_abs_path, filename)
+        full_path = u'{0}/{1}.json'.format(full_abs_path, filename)
 
         obj_from_file = None
 
@@ -65,6 +87,8 @@ def env_write_config(obj=None, filename='settings', unique_id='', sub_id=None, u
             if os.path.exists(full_path):
                 with open(full_path, 'r') as json_file:
                     obj_from_file = json.load(json_file)
+
+                json_file.close()
 
         if sub_id:
             if obj_from_file:
@@ -76,8 +100,10 @@ def env_write_config(obj=None, filename='settings', unique_id='', sub_id=None, u
         with open(full_path, 'w') as json_file:
             json.dump(obj, json_file, indent=2, separators=(',', ': '))
 
-    elif CFG_FORMAT == 'ini':
-        full_path = '{0}/{1}.ini'.format(abs_path, filename)
+        json_file.close()
+
+    elif CFG_FORMAT == u'ini':
+        full_path = u'{0}/{1}.ini'.format(abs_path, filename)
         settings = QtCore.QSettings(full_path, QtCore.QSettings.IniFormat)
         settings.beginGroup(filename)
         if sub_id:
@@ -88,31 +114,37 @@ def env_write_config(obj=None, filename='settings', unique_id='', sub_id=None, u
 
 def env_read_config(filename='settings', unique_id='', sub_id=None, long_abs_path=False):
     if long_abs_path:
-        abs_path = '{0}/settings/{1}/{2}/{3}'.format(
+        abs_path = u'{0}/settings/{1}/{2}/{3}'.format(
                     env_mode.get_current_path(),
                     env_mode.get_node(),
                     env_server.get_cur_srv_preset(),
                     env_mode.get_mode())
     else:
-        abs_path = '{0}/settings'.format(env_mode.get_current_path())
+        abs_path = u'{0}/settings'.format(env_mode.get_current_path())
 
-    if CFG_FORMAT == 'json':
+    if CFG_FORMAT == u'json':
         if unique_id:
-            full_path = '{0}/{1}/{2}.json'.format(abs_path, unique_id, filename)
+            full_path = u'{0}/{1}/{2}.json'.format(abs_path, unique_id, filename)
         else:
-            full_path = '{0}/{1}.json'.format(abs_path, filename)
+            full_path = u'{0}/{1}.json'.format(abs_path, filename)
 
         if os.path.exists(full_path):
             with open(full_path, 'r') as json_file:
-                obj = json.load(json_file)
+                try:
+                    obj = json.load(json_file)
+                except Exception as expected:
+                    dl.exception(expected, group_id='configs')
+                    obj = {}
+
+            json_file.close()
 
             if sub_id:
                 return obj.get(sub_id)
             else:
                 return obj
 
-    elif CFG_FORMAT == 'ini':
-        full_path = '{0}/{1}.ini'.format(abs_path, filename)
+    elif CFG_FORMAT == u'ini':
+        full_path = u'{0}/{1}.ini'.format(abs_path, filename)
         settings = QtCore.QSettings(full_path, QtCore.QSettings.IniFormat)
         settings.beginGroup(filename)
 
@@ -127,14 +159,37 @@ def env_read_config(filename='settings', unique_id='', sub_id=None, long_abs_pat
             return obj
 
 
+def env_write_file(data, file_relative_path, file_name, sub_path=''):
+    if sub_path:
+        relative_path = u'{0}/{1}'.format(sub_path, file_relative_path)
+    else:
+        relative_path = file_relative_path
+
+    file_path = u'{0}/custom_scripts/{1}'.format(
+        env_mode.get_current_path(),
+        relative_path
+    )
+
+    if not os.path.exists(file_path):
+        os.makedirs(file_path)
+
+    with io.open(u'{0}/{1}'.format(file_path, file_name), 'w+', encoding='utf8') as data_file:
+        data_file.write(data)
+    data_file.close()
+
+
 @singleton
 class Inst(object):
     """
     This class stores all instances of interfaces classes
     """
     projects = None  # all projects Classes
-    current_project = None  # ONLY and ONLY to see which project dock is active
+    logins = None  # all users Classes
+    current_project = None  # ONLY and ONLY to see which project dock is active SHOULD BE DEPRECATED
     ui_debuglog = None
+    ui_script_editor = None # Script editor Ui
+    ui_messages = None
+    ui_notify = None
     ui_super = None  # maya main window, or standalone main window
     ui_maya_dock = None  # maya docked window
     ui_main = None  # main widget inside dock, or standalone main window
@@ -142,18 +197,35 @@ class Inst(object):
     ui_tasks = None
     ui_notes = None
     ui_conf = None  # configuration window instance
+    ui_repo_sync_queue = None
     check_tree = {}
     control_tabs = {}
     watch_folders = {}
     commit_queue = {}
     thread_pools = {}
-    ui_addsobject = None
+    async_engine = PyQtEngine().async
+    async_task = Task
 
     def get_current_project(self):
         return self.current_project
 
     def set_current_project(self, project_code):
         self.current_project = project_code
+
+    def get_current_login(self):
+        return env_server.get_user()
+
+    def get_current_login_object(self):
+        return self.logins.get(env_server.get_user())
+
+    def get_all_logins(self, login_code=None):
+        if login_code:
+            return self.logins.get(login_code)
+        else:
+            return self.logins
+
+    def get_all_login_groups(self):
+        return self.logins['admin'].login_groups
 
     def get_current_stypes(self):
         # this is bad practice using this func
@@ -208,10 +280,19 @@ class Inst(object):
             project_code = self.current_project
         return self.commit_queue.get(project_code)
 
-    def set_thread_pool(self, thread_pool, name='main'):
-        # first created thread poll will be live until deleted manually
-        if not self.thread_pools.get(name):
+    def set_thread_pool(self, thread_pool=None, name='main'):
+        # first created thread pool will be live until deleted manually
+        if not self.thread_pools.get(name) and not thread_pool:
+            dl.log('Creating new Thread Pool {}'.format(name), group_id='server/log')
+            thread_pool = QtCore.QThreadPool.globalInstance()
+            thread_pool.setMaxThreadCount(env_tactic.max_threads())
             self.thread_pools[name] = thread_pool
+            return thread_pool
+
+        elif thread_pool and not self.thread_pools.get(name):
+            dl.log('Creating new Thread Pool {}'.format(name), group_id='server/log')
+            self.thread_pools[name] = thread_pool
+            return thread_pool
 
     def get_thread_pool(self, name='main'):
         return self.thread_pools.get(name)
@@ -241,7 +322,8 @@ class DebugLog(object):
     error_dict = collections.OrderedDict()
     critical_dict = collections.OrderedDict()
     logs_order = 0
-    print_log = False
+    print_log = True
+    session_start = datetime.datetime.today()
 
     def get_trace(self, message_text, message_type, caller=2, group_id=None):
         """
@@ -348,7 +430,10 @@ class Mode(object):
         self.current_path = None
         self.get_current_path()
         self.platform = platform.system()
-        self.node = platform.node()
+        if SPECIALIZED:
+            self.node = SPECIALIZED
+        else:
+            self.node = platform.node()
 
     def set_mode(self, mode):
         if mode in self.modes:
@@ -362,10 +447,10 @@ class Mode(object):
 
     def get_current_path(self):
         if self.current_path:
-            return self.current_path
+            return self.current_path.decode(locale.getpreferredencoding())
         else:
             self.current_path = os.path.dirname(os.path.split(__file__)[0])
-            return self.current_path
+            return self.current_path.decode(locale.getpreferredencoding())
 
     def get_platform(self):
         return self.platform
@@ -389,10 +474,10 @@ class Mode(object):
             return False
 
     def is_offline(self):
-        if self.status:
-            return False
-        else:
+        if self.status is False:
             return True
+        else:
+            return False
 
 
 env_mode = Mode()
@@ -406,7 +491,7 @@ class Env(object):
             'ticket': None,
             'site': {'site_name': '', 'enabled': False},
             'proxy': {'login': '', 'pass': '', 'server': '', 'enabled': False},
-            'timeout': 20,
+            'timeout': 120,
             'config_format': 'json',
         }
 
@@ -587,28 +672,31 @@ class Tactic(object):
         default_base_dirs = tc.server_start().get_base_dirs()
         self.default_base_dirs = default_base_dirs
 
-        unique_id = '{0}/environment_config'.format(env_mode.get_node())
-        env_write_config(default_base_dirs, filename='tactic_dirs', unique_id=unique_id, sub_id='TACTIC_DEFAULT_DIRS', update_file=True)
+        unique_id = '{0}/environment_config/server_presets'.format(env_mode.get_node())
+        tactic_dirs_filename = 'tactic_dirs_{}'.format(env_server.get_cur_srv_preset())
+        env_write_config(default_base_dirs, filename=tactic_dirs_filename, unique_id=unique_id, sub_id='TACTIC_DEFAULT_DIRS', update_file=True)
 
         return default_base_dirs
 
     def get_default_base_dirs(self, force=False):
-        if not self.default_base_dirs:
+        if not self.default_base_dirs or force:
 
-            unique_id = '{0}/environment_config'.format(env_mode.get_node())
-            self.default_base_dirs = env_read_config(filename='tactic_dirs', unique_id=unique_id, sub_id='TACTIC_DEFAULT_DIRS')
+            unique_id = '{0}/environment_config/server_presets'.format(env_mode.get_node())
+            tactic_dirs_filename = 'tactic_dirs_{}'.format(env_server.get_cur_srv_preset())
+            self.default_base_dirs = env_read_config(filename=tactic_dirs_filename, unique_id=unique_id, sub_id='TACTIC_DEFAULT_DIRS')
 
-            if not self.default_base_dirs or force:
+            if not self.default_base_dirs:
                 self.default_base_dirs = self.query_base_dirs()
             return self.default_base_dirs
         else:
             return self.default_base_dirs
 
     def get_base_dirs(self, force=False):
-        if not self.base_dirs:
+        if not self.base_dirs or force:
 
-            unique_id = '{0}/environment_config'.format(env_mode.get_node())
-            self.base_dirs = env_read_config(filename='tactic_dirs', unique_id=unique_id, sub_id='TACTIC_BASE_DIRS')
+            unique_id = '{0}/environment_config/server_presets'.format(env_mode.get_node())
+            tactic_dirs_filename = 'tactic_dirs_{}'.format(env_server.get_cur_srv_preset())
+            self.base_dirs = env_read_config(filename=tactic_dirs_filename, unique_id=unique_id, sub_id='TACTIC_BASE_DIRS')
 
             if not self.base_dirs or force:
                 base_dirs = self.get_default_base_dirs(force)
@@ -634,14 +722,16 @@ class Tactic(object):
                         'win32_server_handoff_dir': [base_dirs['win32_server_handoff_dir'], 'Handoff', '', 'server_handoff', False],
                         'linux_server_handoff_dir': [base_dirs['linux_server_handoff_dir'], 'Handoff', '', 'server_handoff', False],
                     }
-
-                self.save_base_dirs()
+                if not force:
+                    # Saving only first time, when forced we just read from configs
+                    self.save_base_dirs()
 
         return self.base_dirs
 
     def save_base_dirs(self):
-        unique_id = '{0}/environment_config'.format(env_mode.get_node())
-        env_write_config(self.base_dirs, filename='tactic_dirs', unique_id=unique_id, sub_id='TACTIC_BASE_DIRS', update_file=True)
+        unique_id = '{0}/environment_config/server_presets'.format(env_mode.get_node())
+        tactic_dirs_filename = 'tactic_dirs_{}'.format(env_server.get_cur_srv_preset())
+        env_write_config(self.base_dirs, filename=tactic_dirs_filename, unique_id=unique_id, sub_id='TACTIC_BASE_DIRS', update_file=True)
 
     def get_custom_dir(self):
         if env_mode.get_platform() == 'Linux':
@@ -650,8 +740,9 @@ class Tactic(object):
             return {'name': 'win32_custom_asset_dir', 'value': self.custom_dirs['win32_custom_asset_dir']}
 
     def get_custom_dirs(self):
-        unique_id = '{0}/environment_config'.format(env_mode.get_node())
-        self.custom_dirs = env_read_config(filename='tactic_dirs', unique_id=unique_id, sub_id='TACTIC_CUSTOM_DIRS')
+        unique_id = '{0}/environment_config/server_presets'.format(env_mode.get_node())
+        tactic_dirs_filename = 'tactic_dirs_{}'.format(env_server.get_cur_srv_preset())
+        self.custom_dirs = env_read_config(filename=tactic_dirs_filename, unique_id=unique_id, sub_id='TACTIC_CUSTOM_DIRS')
 
         if not self.custom_dirs:
 
@@ -660,8 +751,9 @@ class Tactic(object):
                     'win32_custom_asset_dir': {'path': [], 'name': [], 'current': [], 'visible': [], 'color': [], 'enabled': False},
                 }
 
-            unique_id = '{0}/environment_config'.format(env_mode.get_node())
-            env_write_config(self.custom_dirs, filename='tactic_dirs', unique_id=unique_id, sub_id='TACTIC_CUSTOM_DIRS', update_file=True)
+            unique_id = '{0}/environment_config/server_presets'.format(env_mode.get_node())
+            tactic_dirs_filename = 'tactic_dirs_{}'.format(env_server.get_cur_srv_preset())
+            env_write_config(self.custom_dirs, filename=tactic_dirs_filename, unique_id=unique_id, sub_id='TACTIC_CUSTOM_DIRS', update_file=True)
 
         return self.custom_dirs
 
@@ -681,7 +773,7 @@ class Tactic(object):
         if override_base_dirs:
             base_dirs = override_base_dirs
 
-        if repo_name == 'base':
+        if repo_name in 'base':
             return {'name': 'asset_base_dir', 'value': base_dirs['asset_base_dir']}
 
         elif repo_name == 'web':
@@ -759,9 +851,43 @@ class Tactic(object):
             else:
                 base_dirs['win32_server_handoff_dir'] = value
 
+    def get_current_repo(self, value=None):
+
+        from global_functions import get_value_from_config
+
+        base_dirs = self.get_all_base_dirs()
+
+        active_repos = []
+
+        for key, val in base_dirs:
+            if val['value'][4]:
+                active_repos.append(val)
+
+        current_repo = get_value_from_config(cfg_controls.get_checkin(), 'repositoryComboBox')
+
+        if active_repos:
+            if value == 'path':
+                return active_repos[current_repo]['value'][0]
+            elif value == 'title':
+                return active_repos[current_repo]['value'][1]
+            elif value == 'color':
+                return active_repos[current_repo]['value'][2]
+            elif value == 'name':
+                return active_repos[current_repo]['value'][3]
+            elif value == 'active':
+                return active_repos[current_repo]['value'][4]
+            elif value == 'base_name':
+                return active_repos[current_repo]['name']
+            else:
+                return active_repos[current_repo]
+
+
     @staticmethod
-    def max_threads():
-        return SERVER_THREADS_COUNT
+    def max_threads(type='xmlrpc'):
+        if type == 'xmlrpc':
+            return SERVER_THREADS_COUNT
+        elif type == 'http':
+            return HTTP_THREADS_COUNT
 
 
 env_tactic = Tactic()
@@ -845,3 +971,9 @@ class Controls(object):
 
 
 cfg_controls = Controls()
+
+
+def start_api_client():
+
+    filepath = 'tactic_api_client.py'
+    subprocess.Popen(('python', filepath), stdin=subprocess.PIPE, stderr=subprocess.PIPE, stdout=subprocess.PIPE)

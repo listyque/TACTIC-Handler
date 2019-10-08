@@ -1,14 +1,13 @@
 # -*- coding: utf-8 -*-
 
-# Form implementation generated from reading ui file 'items/ui_item_children.ui'
+# Form implementation generated from reading ui file 'items\ui_item_children.ui'
 #
-# Created: Thu Apr 27 14:15:16 2017
-#      by: pyside-uic 0.2.13 running on PySide 1.2.2
+# Created: Sat Oct  5 00:17:14 2019
+#      by: pyside-uic 0.2.15 running on PySide 1.2.4
 #
 # WARNING! All changes made in this file will be lost!
 
-from thlib.side.Qt import QtWidgets as QtGui
-from thlib.side.Qt import QtCore
+from PySide import QtCore, QtGui
 
 class Ui_childrenItem(object):
     def setupUi(self, childrenItem):

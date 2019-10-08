@@ -63,17 +63,22 @@ class Ui_matchingTemplateConfigWidget(QtGui.QDialog, ui_drop_plate_config.Ui_mat
             (True, '$FILENAME.$FRAME_$UV.$EXT'),
             (True, '$FILENAME_$UV.$FRAME.$EXT'),
             (False, '$FILENAME_$LAYER.$EXT'),
-            (True, '$FILENAME.$LAYER.$EXT'),
-            (True, '$FILENAME_$LAYER.$FRAME.$EXT'),
-            (True, '$FILENAME.$LAYER.$FRAME.$EXT'),
-            (True, '$FILENAME.$LAYER_$UV.$EXT'),
-            (True, '$FILENAME.$LAYER.$FRAME_$UV.$EXT'),
-            (True, '$FILENAME.$LAYER_$UV.$FRAME.$EXT'),
-            (True, '$FILENAME.$LAYER_$UDIM.$EXT'),
-            (True, '$FILENAME.$LAYER.$FRAME_$UDIM.$EXT'),
-            (True, '$FILENAME.$LAYER_$UDIM.$FRAME.$EXT'),
+            (False, '$FILENAME.$LAYER.$EXT'),
+            (False, '$FILENAME_$LAYER.$FRAME.$EXT'),
+            (False, '$FILENAME.$LAYER.$FRAME.$EXT'),
+            (False, '$FILENAME.$LAYER_$UV.$EXT'),
+            (False, '$FILENAME.$LAYER.$FRAME_$UV.$EXT'),
+            (False, '$FILENAME.$LAYER_$UV.$FRAME.$EXT'),
+            (False, '$FILENAME.$LAYER_$UDIM.$EXT'),
+            (False, '$FILENAME.$LAYER.$FRAME_$UDIM.$EXT'),
+            (False, '$FILENAME.$LAYER_$UDIM.$FRAME.$EXT'),
             (False, '$FILENAME_$LAYER.$FRAME_$UDIM.$EXT'),
         ]
+        # templates = [
+        #     (True, '$FILENAME'),
+        #     (True, '$FILENAME.$EXT'),
+        #     (True, '$FILENAMEFrame$FRAME.$EXT'),
+        # ]
 
         for enabled, template in templates:
 
@@ -141,13 +146,15 @@ class Ui_dropPlateWidget(QtGui.QWidget, ui_drop_plate.Ui_dropPlate):
         self.create_config_widget()
         self.controls_actions()
 
-    def threads_fill_items(self, kwargs):
+    def threads_fill_items(self, kwargs, exec_after_added=None):
 
         def get_files_objects_agent():
             return self.get_files_objects(kwargs)
 
         worker = gf.get_thread_worker(get_files_objects_agent)
         worker.result_func(self.append_items_to_tree)
+        if exec_after_added:
+            worker.finished_func(exec_after_added)
         worker.error_func(gf.error_handle)
         worker.try_start()
 
@@ -311,7 +318,7 @@ class Ui_dropPlateWidget(QtGui.QWidget, ui_drop_plate.Ui_dropPlate):
 
         paste_from_clipboard = QtGui.QAction('Paste From Clipboard', self.dropTreeWidget)
         paste_from_clipboard.setIcon(gf.get_icon('folder-open'))
-        # paste_from_clipboard.triggered.connect(self.add_files_from_menu)
+        paste_from_clipboard.triggered.connect(self.add_files_from_clipboard)
 
         menu = QtGui.QMenu()
 
@@ -320,7 +327,7 @@ class Ui_dropPlateWidget(QtGui.QWidget, ui_drop_plate.Ui_dropPlate):
 
         return menu
 
-    def add_files_from_menu(self):
+    def add_files_from_menu(self, exec_after_added=None):
 
         options = QtGui.QFileDialog.Options()
         options |= QtGui.QFileDialog.DontUseNativeDialog
@@ -329,10 +336,19 @@ class Ui_dropPlateWidget(QtGui.QWidget, ui_drop_plate.Ui_dropPlate):
                                                               'All Files (*.*);;',
                                                               '', options)
         if files_names:
-            self.threads_fill_items(files_names)
+            self.threads_fill_items(files_names, exec_after_added)
+
+    def add_files_from_clipboard(self, exec_after_added=None):
+        clipboard = QtGui.QApplication.clipboard()
+        files_names = clipboard.text()
+
+        if files_names:
+            files_names = set(files_names.split('\n'))
+            self.threads_fill_items(files_names, exec_after_added)
 
     def get_selected_items(self):
         selected_items = []
+
         if self.tree_items:
             for item in self.dropTreeWidget.selectedItems():
                 index = item.data(0, QtCore.Qt.UserRole)
@@ -352,15 +368,20 @@ class Ui_dropPlateWidget(QtGui.QWidget, ui_drop_plate.Ui_dropPlate):
                     for s_dir in subdirs:
                         items.append(os.path.join(path, s_dir))
 
-        # DEPRECATED
-        # if len(items) > 1:
-        #     self.groupCheckinCheckBox.setChecked(True)
-        # if len(items) == 1:
-        #     self.groupCheckinCheckBox.setChecked(False)
-
         match_template = gf.MatchTemplate(self.config_widget.get_templates_list(), padding=self.config_widget.get_min_padding())
 
         return match_template.get_files_objects(items)
+
+    def remove_selected_items(self):
+        if self.tree_items:
+            for item in self.dropTreeWidget.selectedItems():
+                index = item.data(0, QtCore.Qt.UserRole)
+                for i, itm in enumerate(self.tree_items):
+                    if i == index:
+                        self.tree_items.pop(index)
+
+                item_index = self.dropTreeWidget.indexFromItem(item)
+                self.dropTreeWidget.takeTopLevelItem(item_index.row())
 
     def append_items_to_tree(self, files_objects_dict):
         self.fromDropListCheckBox.setChecked(True)
@@ -404,10 +425,10 @@ class Ui_dropPlateWidget(QtGui.QWidget, ui_drop_plate.Ui_dropPlate):
                 tree_item.setData(0, QtCore.Qt.UserRole, len(self.tree_items))
                 self.tree_items.append(file_obj)
 
-                if i % 10 == 0:
-                    QtGui.QApplication.processEvents()
+                # if i+1 % 50 == 0:
+                #     QtGui.QApplication.processEvents()
 
-                self.progressBar.setValue(int(i * 100 / len(item)))
+                self.progressBar.setValue(int(i+1 * 100 / len(item)))
 
         self.progressBar.setValue(100)
         self.dropTreeWidget.resizeColumnToContents(0)

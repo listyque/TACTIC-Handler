@@ -1,14 +1,13 @@
 # -*- coding: utf-8 -*-
 
-# Form implementation generated from reading ui file 'tasks/ui_tasks.ui'
+# Form implementation generated from reading ui file 'tasks\ui_tasks.ui'
 #
-# Created: Thu Apr 27 14:15:15 2017
-#      by: pyside-uic 0.2.13 running on PySide 1.2.2
+# Created: Sat Oct  5 00:17:08 2019
+#      by: pyside-uic 0.2.15 running on PySide 1.2.4
 #
 # WARNING! All changes made in this file will be lost!
 
-from thlib.side.Qt import QtWidgets as QtGui
-from thlib.side.Qt import QtCore
+from PySide import QtCore, QtGui
 
 class Ui_tasks(object):
     def setupUi(self, tasks):
@@ -169,25 +168,25 @@ class Ui_tasks(object):
         tasks.setTabOrder(self.showNotesButton, self.skeyLineEdit)
 
     def retranslateUi(self, tasks):
-        tasks.setWindowTitle(QtGui.QApplication.translate("tasks", "Tasks for exam/props Mushroom", None))
-        self.contextLabel.setText(QtGui.QApplication.translate("tasks", "Context:", None))
-        self.taskInfoGroupBox.setTitle(QtGui.QApplication.translate("tasks", "Task info:", None))
-        self.groupBox.setTitle(QtGui.QApplication.translate("tasks", "Task Desctiption:", None))
-        self.label_3.setText(QtGui.QApplication.translate("tasks", "Priority:", None))
-        self.label.setText(QtGui.QApplication.translate("tasks", "Assigned to:", None))
-        self.label_5.setText(QtGui.QApplication.translate("tasks", "Started:", None))
-        self.label_2.setText(QtGui.QApplication.translate("tasks", "Supervisor:", None))
-        self.startedDateTimeEdit.setDisplayFormat(QtGui.QApplication.translate("tasks", "yyyy.MM.dd. HH:mm:ss", None))
-        self.endDateTimeEdit.setDisplayFormat(QtGui.QApplication.translate("tasks", "yyyy.MM.dd. HH:mm:ss", None))
-        self.label_6.setText(QtGui.QApplication.translate("tasks", "End planned:", None))
-        self.label_4.setText(QtGui.QApplication.translate("tasks", "Status:", None))
-        self.saveChangesButton.setText(QtGui.QApplication.translate("tasks", "Save changes", None))
-        self.label_7.setText(QtGui.QApplication.translate("tasks", "Subscription:", None))
-        self.showNotesButton.setText(QtGui.QApplication.translate("tasks", "Show Task Notes", None))
-        self.subsParentStatusLabel.setText(QtGui.QApplication.translate("tasks", "Not Subscribed", None))
-        self.subsParentPushButton.setText(QtGui.QApplication.translate("tasks", "Subscribe to parent", None))
-        self.subsTaskPushButton.setText(QtGui.QApplication.translate("tasks", "Subscribe to task", None))
-        self.subsTaskStatusLabel.setText(QtGui.QApplication.translate("tasks", "Not Subscribed", None))
-        self.subsUsersPushButton.setText(QtGui.QApplication.translate("tasks", "Subscribe Users/Groups", None))
-        self.skeyLineEdit.setText(QtGui.QApplication.translate("tasks", "skey://", None))
+        tasks.setWindowTitle(QtGui.QApplication.translate("tasks", "Tasks for exam/props Mushroom", None, QtGui.QApplication.UnicodeUTF8))
+        self.contextLabel.setText(QtGui.QApplication.translate("tasks", "Context:", None, QtGui.QApplication.UnicodeUTF8))
+        self.taskInfoGroupBox.setTitle(QtGui.QApplication.translate("tasks", "Task info:", None, QtGui.QApplication.UnicodeUTF8))
+        self.groupBox.setTitle(QtGui.QApplication.translate("tasks", "Task Desctiption:", None, QtGui.QApplication.UnicodeUTF8))
+        self.label_3.setText(QtGui.QApplication.translate("tasks", "Priority:", None, QtGui.QApplication.UnicodeUTF8))
+        self.label.setText(QtGui.QApplication.translate("tasks", "Assigned to:", None, QtGui.QApplication.UnicodeUTF8))
+        self.label_5.setText(QtGui.QApplication.translate("tasks", "Started:", None, QtGui.QApplication.UnicodeUTF8))
+        self.label_2.setText(QtGui.QApplication.translate("tasks", "Supervisor:", None, QtGui.QApplication.UnicodeUTF8))
+        self.startedDateTimeEdit.setDisplayFormat(QtGui.QApplication.translate("tasks", "yyyy.MM.dd. HH:mm:ss", None, QtGui.QApplication.UnicodeUTF8))
+        self.endDateTimeEdit.setDisplayFormat(QtGui.QApplication.translate("tasks", "yyyy.MM.dd. HH:mm:ss", None, QtGui.QApplication.UnicodeUTF8))
+        self.label_6.setText(QtGui.QApplication.translate("tasks", "End planned:", None, QtGui.QApplication.UnicodeUTF8))
+        self.label_4.setText(QtGui.QApplication.translate("tasks", "Status:", None, QtGui.QApplication.UnicodeUTF8))
+        self.saveChangesButton.setText(QtGui.QApplication.translate("tasks", "Save changes", None, QtGui.QApplication.UnicodeUTF8))
+        self.label_7.setText(QtGui.QApplication.translate("tasks", "Subscription:", None, QtGui.QApplication.UnicodeUTF8))
+        self.showNotesButton.setText(QtGui.QApplication.translate("tasks", "Show Task Notes", None, QtGui.QApplication.UnicodeUTF8))
+        self.subsParentStatusLabel.setText(QtGui.QApplication.translate("tasks", "Not Subscribed", None, QtGui.QApplication.UnicodeUTF8))
+        self.subsParentPushButton.setText(QtGui.QApplication.translate("tasks", "Subscribe to parent", None, QtGui.QApplication.UnicodeUTF8))
+        self.subsTaskPushButton.setText(QtGui.QApplication.translate("tasks", "Subscribe to task", None, QtGui.QApplication.UnicodeUTF8))
+        self.subsTaskStatusLabel.setText(QtGui.QApplication.translate("tasks", "Not Subscribed", None, QtGui.QApplication.UnicodeUTF8))
+        self.subsUsersPushButton.setText(QtGui.QApplication.translate("tasks", "Subscribe Users/Groups", None, QtGui.QApplication.UnicodeUTF8))
+        self.skeyLineEdit.setText(QtGui.QApplication.translate("tasks", "skey://", None, QtGui.QApplication.UnicodeUTF8))
 

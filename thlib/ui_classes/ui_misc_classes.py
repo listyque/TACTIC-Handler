@@ -1,3 +1,4 @@
+import os
 import datetime
 from thlib.side.Qt import QtWidgets as QtGui
 from thlib.side.Qt import QtGui as Qt4Gui
@@ -5,9 +6,95 @@ from thlib.side.Qt import QtCore
 
 import thlib.global_functions as gf
 import thlib.tactic_classes as tc
-from thlib.environment import env_inst, env_server, env_tactic, dl
+from thlib.environment import env_inst, env_server, env_mode, dl
 import thlib.ui.misc.ui_collapsable as ui_collapsable
 import thlib.ui.misc.ui_debuglog as ui_debuglog
+import thlib.ui.misc.ui_messages as ui_messages
+import ui_richedit_classes
+
+
+class SquareLabel(QtGui.QLabel):
+    clicked = QtCore.Signal()
+
+    def __init__(self, menu, action, parent=None):
+        super(self.__class__, self).__init__(parent=parent)
+
+        self.menu = menu
+        self.action = action
+
+    def mousePressEvent(self, event):
+        self.clicked.emit()
+        event.accept()
+
+    def enterEvent(self, event):
+        self.setAutoFillBackground(False)
+        self.menu.setActiveAction(self.action)
+
+    def leaveEvent(self, event):
+        self.setAutoFillBackground(True)
+
+
+class MenuWithLayout(QtGui.QMenu):
+    def __init__(self, parent=None):
+        super(self.__class__, self).__init__(parent=parent)
+
+        self.set_styling()
+
+        self.layout = QtGui.QGridLayout()
+        self.layout.setSpacing(0)
+        self.layout.setContentsMargins(0, 1, 1, 1)
+        self.layout.setColumnStretch(0, 1)
+
+        self.setLayout(self.layout)
+
+    def set_styling(self):
+
+        self.setStyleSheet("QMenu::separator { height: 2px;}")
+
+    def addAction(self, action, edit_label=False):
+
+        w = QtGui.QWidget()
+        l = QtGui.QGridLayout(w)
+
+        b = SquareLabel(menu=self, action=action)
+        b.setAlignment(QtCore.Qt.AlignCenter)
+        b.setPixmap(gf.get_icon('edit', icons_set='ei').pixmap(13, 13))
+        w.setMinimumSize(22, 13)
+
+        b.setAutoFillBackground(True)
+
+        b.setBackgroundRole(Qt4Gui.QPalette.Background)
+
+        sizePolicy = QtGui.QSizePolicy(QtGui.QSizePolicy.Preferred, QtGui.QSizePolicy.Preferred)
+        sizePolicy.setHorizontalStretch(0)
+        sizePolicy.setVerticalStretch(0)
+        l.setSpacing(0)
+        l.setContentsMargins(0, 0, 0, 0)
+        l.addWidget(b)
+
+        self.layout.addWidget(w, len(self.actions()), 1, 1, 1)
+
+        spacerItem = QtGui.QSpacerItem(self.sizeHint().width()-5, 2, QtGui.QSizePolicy.Minimum, QtGui.QSizePolicy.Expanding)
+
+        self.layout.addItem(spacerItem, len(self.actions()), 0, 1, 1)
+
+        self.layout.setRowStretch(len(self.actions()), 1)
+
+        super(MenuWithLayout, self).addAction(action)
+
+        w.setFixedHeight(self.actionGeometry(action).height())
+
+        if edit_label:
+            return b
+        else:
+            b.setHidden(True)
+            return action
+
+    def addSeparator(self):
+        spacerItem = QtGui.QSpacerItem(0, 2, QtGui.QSizePolicy.Preferred, QtGui.QSizePolicy.Minimum)
+        self.layout.addItem(spacerItem, len(self.actions()), 0, 1, 2)
+
+        return super(MenuWithLayout, self).addSeparator()
 
 
 class Ui_collapsableWidget(QtGui.QWidget, ui_collapsable.Ui_collapsableWidget):
@@ -591,10 +678,21 @@ class Ui_debugLogWidget(QtGui.QDialog, ui_debuglog.Ui_DebugLog):
         if subgroup_list:
             return self.recursive_add_items(group_item, subgroup_list)
 
-    def add_debuglog(self, debuglog_dict, message_type, print_log=False):
+    def add_debuglog(self, debuglog_dict, message_type, write_log=False):
         self.debugLogTextEdit.append(self.format_debuglog(debuglog_dict[1], message_type))
-        if print_log:
-            print(self.format_debuglog(debuglog_dict[1], message_type, False))
+        if write_log:
+            log_text = self.format_debuglog(debuglog_dict[1], message_type, False)
+            log_path = u'{0}/log'.format(env_mode.get_current_path())
+            date_str = datetime.date.strftime(dl.session_start, '%d_%m_%Y_%H_%M_%S')
+            if os.path.exists(log_path):
+                with open(u'{0}/session_{1}.log'.format(log_path, date_str), 'a+') as log_file:
+                    log_file.write(log_text + '\n')
+            else:
+                os.makedirs(log_path)
+                with open(u'{0}/session_{1}.log'.format(log_path, date_str), 'w+') as log_file:
+                    log_file.write(log_text + '\n')
+
+            log_file.close()
 
     def format_debuglog(self, debuglog_dict, message_type, html=True):
 
@@ -626,30 +724,6 @@ class Ui_debugLogWidget(QtGui.QDialog, ui_debuglog.Ui_DebugLog):
     def showEvent(self, event):
         event.accept()
         self.fill_modules_tree()
-
-
-# class SuggestedSearchWidget(QtGui.QWidget):
-#
-#     def __init__(self, parent=None):
-#         super(self.__class__, self).__init__(parent=parent)
-#
-#         self.create_ui()
-#
-#     def create_ui(self):
-#         pass
-
-
-# class CustomCompleter(QtGui.QCompleter):
-#     def __init__(self, *args, **kwargs):
-#         super(CustomCompleter, self).__init__(*args, **kwargs)
-#         self.setCompletionMode(QtGui.QCompleter.PopupCompletion)
-#         self.setCaseSensitivity(QtCore.Qt.CaseInsensitive)
-#
-#     def complete(self):
-#         super(CustomCompleter, self).complete()
-#         popup = self.popup()
-#         if not popup.isVisible():
-#             popup.show()
 
 
 class CompleterLineEdit(QtGui.QLineEdit):
@@ -712,7 +786,8 @@ class SuggestedLineEdit(CompleterLineEdit):
         self.controls_actions()
 
         # limiting available search characters
-        self.setValidator(Qt4Gui.QRegExpValidator(QtCore.QRegExp('\w+'), self))
+        # self.setValidator(Qt4Gui.QRegExpValidator(QtCore.QRegExp('\w+'), self))
+        self.validator = Qt4Gui.QRegExpValidator(QtCore.QRegExp('\w+'), self)
         self.setFocusPolicy(QtCore.Qt.StrongFocus)
         self.setFrame(False)
 
@@ -773,10 +848,17 @@ class SuggestedLineEdit(CompleterLineEdit):
     @gf.catch_error
     def search_suggestions(self, key=None):
 
+        state = self.validator.validate(key, 0)[0].name
+
+        if state == 'Invalid':
+            key = None
+
         if key:
             code = self.stype.info.get('code')
             project = self.project.info.get('code')
-            columns = [self.suggest_column]
+            columns = [self.suggest_column, 'keywords', 'code']
+
+            # filters = ['begin', ('keywords', 'EQI', key), (self.suggest_column, 'EQI', key), 'or']
 
             filters = [(self.suggest_column, 'EQI', key)]
 
@@ -790,9 +872,7 @@ class SuggestedLineEdit(CompleterLineEdit):
                     offset=0,
                 )
 
-            server_thread_pool = QtCore.QThreadPool()
-            server_thread_pool.setMaxThreadCount(env_tactic.max_threads())
-            env_inst.set_thread_pool(server_thread_pool, 'server_query/server_thread_pool')
+            env_inst.set_thread_pool(None, 'server_query/server_thread_pool')
 
             search_suggestions_worker = gf.get_thread_worker(
                 assets_query_new_agent,
@@ -812,7 +892,16 @@ class SuggestedLineEdit(CompleterLineEdit):
                 if item_text:
                     suggestions_list.append(item_text)
 
-            self.update_items_list(suggestions_list)
+            # print suggestions_list
+
+            # for item in result:
+            #     item_keywords = item.get('keywords')
+            #     if item_keywords:
+            #         keywords_split = item_keywords.split(' ')
+            #         keywords_split = map(lambda i: unicode.replace(i, ',', ''), keywords_split)
+            #         suggestions_list.extend(keywords_split)
+
+            self.update_items_list(list(set(suggestions_list)))
             self.completer.complete()
         else:
             self.clear_items_list()
@@ -854,3 +943,195 @@ class StyledTabWidget(QtGui.QTabWidget):
 
     def customize_ui(self):
         pass
+
+
+class Ui_replyWidget(QtGui.QWidget):
+    def __init__(self, parent=None):
+        super(self.__class__, self).__init__(parent=parent)
+
+        self.create_ui()
+
+    def create_ui(self):
+
+        self.verticalLayout = QtGui.QVBoxLayout(self)
+        self.verticalLayout.setSpacing(0)
+        self.verticalLayout.setContentsMargins(0, 0, 0, 0)
+        self.editorLayout = QtGui.QVBoxLayout()
+        self.editorLayout.setSpacing(0)
+        self.verticalLayout.addLayout(self.editorLayout)
+        self.descriptionTextEdit = QtGui.QTextEdit()
+        self.verticalLayout.addWidget(self.descriptionTextEdit)
+        self.verticalLayout.setStretch(1, 1)
+        self.setLayout(self.verticalLayout)
+
+        self.reply_button = QtGui.QPushButton('Reply')
+
+        self.verticalLayout.addWidget(self.reply_button)
+
+        self.create_rich_edit()
+
+    def controls_actions(self):
+        pass
+
+    def create_rich_edit(self):
+        self.ui_richedit = ui_richedit_classes.Ui_richeditWidget(self.descriptionTextEdit, parent=self.descriptionTextEdit)
+        self.editorLayout.addWidget(self.ui_richedit)
+
+
+class Ui_messagesWidget(QtGui.QDialog, ui_messages.Ui_messages):
+    def __init__(self, parent=None):
+        super(self.__class__, self).__init__(parent=parent)
+
+        env_inst.ui_messages = self
+
+        self.setupUi(self)
+
+        self.created = False
+
+    def create_ui(self):
+
+        self.setSizeGripEnabled(True)
+        self.setWindowTitle('Messages')
+
+        self.usersTreeWidget.setRootIsDecorated(False)
+
+        self.fill_users_tree()
+        self.create_chat_tabs()
+
+        self.controls_actions()
+        self.created = True
+
+    def controls_actions(self):
+
+        self.usersTreeWidget.itemSelectionChanged.connect(self.select_current_tree_widget_item)
+
+    def fill_users_tree(self):
+
+        # logins = env_inst.logins
+
+        # print logins
+        # print env_inst.get_all_login_groups()
+        self.usersTreeWidget.clear()
+
+        for login_group in env_inst.get_all_login_groups():
+            top_item = QtGui.QTreeWidgetItem()
+            top_item.setText(0, login_group.get_pretty_name())
+            top_item.setData(0, QtCore.Qt.UserRole, login_group)
+            self.usersTreeWidget.addTopLevelItem(top_item)
+            group_logins = login_group.get_logins()
+            if group_logins:
+                for login in group_logins:
+                    login_item = QtGui.QTreeWidgetItem()
+                    login_item.setText(0, login.get_display_name())
+                    login_item.setData(0, QtCore.Qt.UserRole, login)
+                    top_item.addChild(login_item)
+
+                top_item.setExpanded(True)
+
+    def select_current_tree_widget_item(self):
+        selected_items = self.usersTreeWidget.selectedItems()
+        if selected_items:
+            # print selected_items[0]
+            # print selected_items[0].data(0, QtCore.Qt.UserRole)
+            item_data = selected_items[0].data(0, QtCore.Qt.UserRole)
+            if item_data.get_object_type() == 'login':
+                # print item_data.get_subscriptions()
+                print item_data
+                import random
+                key = random.randrange(0, 255)
+                tc.server_start().subscribe(key, category='chat')
+
+    def create_chat_tabs(self):
+
+        current_login = env_inst.get_current_login_object()
+
+        self.chat_tab_widget = StyledTabWidget(self)
+        self.chat_tab_widget.setMovable(True)
+        self.chat_tab_widget.setTabsClosable(True)
+        self.chat_tab_widget.setObjectName("chat_tab_widget")
+        self.chat_tab_widget.setStyleSheet(
+            '#notes_tab_widget > QTabBar::tab {background: transparent;border: 2px solid transparent;'
+            'border-top-left-radius: 3px;border-top-right-radius: 3px;border-bottom-left-radius: 0px;border-bottom-right-radius: 0px;padding: 4px;}'
+            '#notes_tab_widget > QTabBar::tab:selected, #notes_tab_widget > QTabBar::tab:hover {'
+            'background: qlineargradient(x1: 0, y1: 0, x2: 0, y2: 1, stop: 0 rgba(255, 255, 255, 48), stop: 1 rgba(255, 255, 255, 32));}'
+            '#notes_tab_widget > QTabBar::tab:selected {border-color: transparent;}'
+            '#notes_tab_widget > QTabBar::tab:!selected {margin-top: 0px;}')
+
+        for chat in current_login.get_subscriptions_by_category('chat'):
+            if chat.get_login() == current_login.get_code():
+
+                partner_login_name = chat.get_message_code()
+                for ms_code in current_login.get_subscriptions_by_category('chat'):
+                    if ms_code.info['message_code'] == chat.info['message_code'] and ms_code.get_login() != chat.get_login():
+                        partner_login_obj = env_inst.get_all_logins(ms_code.get_login())
+                        partner_login = ms_code.get_login()
+                        if partner_login_obj:
+                            partner_login_name = partner_login_obj.get_display_name()
+                        else:
+                            partner_login_name = ms_code.get_login()
+
+                chat_tab = self.create_chat_tab(chat, partner_login)
+
+                self.chat_tab_widget.addTab(chat_tab, partner_login_name)
+
+        self.tabsVerticalLayout.addWidget(self.chat_tab_widget)
+
+    def create_chat_tab(self, chat_subscription, partner_login):
+        tab_layout = QtGui.QVBoxLayout()
+        tab_widget = QtGui.QWidget()
+        tab_widget.setLayout(tab_layout)
+
+        text_edit = QtGui.QTextEdit()
+
+        reply_widget = Ui_replyWidget(self)
+
+        tab_layout.addWidget(text_edit)
+        tab_layout.addWidget(reply_widget)
+
+        # temporary!!!
+        reply_widget.reply_button.clicked.connect(lambda: self.post_reply(
+            text_edit,
+            chat_subscription,
+            partner_login,
+            reply_widget.descriptionTextEdit.toPlainText(),
+        ))
+
+        self.fill_chat_messages(text_edit, chat_subscription, partner_login)
+
+        return tab_widget
+
+    def fill_chat_messages(self, chat_widget, chat_subscription, partner_login):
+
+        for message in chat_subscription.get_messages():
+            print message.get_status()
+            if message.get_status() == 'in_progress':
+                message_logs = message.get_message_log(True)
+                last_cleared_date = gf.parce_timestamp(chat_subscription.get_last_cleared())
+                for message_log in reversed(message_logs):
+                    if last_cleared_date:
+                        message_date = gf.parce_timestamp(message_log.get_timestamp())
+                        if last_cleared_date < message_date:
+                            chat_widget.append('New Message: ')
+                    chat_widget.append(u'   {0}: {1}'.format(message_log.get_login(), message_log.get_message()))
+
+    def post_reply(self, chat_widget, chat_subscription, partner_login, reply_text):
+
+        key = chat_subscription.get_message_code()
+        message = reply_text
+        category = 'chat'
+
+        tc.server_start().log_message(key, message, category=category, status='in_progress')
+
+        chat_widget.clear()
+
+        # current_login.get_subscriptions_and_messages(True)
+
+        self.fill_chat_messages(chat_widget, chat_subscription, partner_login)
+
+        print reply_text
+
+    def showEvent(self, event):
+        if not self.created:
+            self.create_ui()
+
+        event.accept()

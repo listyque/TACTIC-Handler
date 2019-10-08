@@ -1,14 +1,13 @@
 # -*- coding: utf-8 -*-
 
-# Form implementation generated from reading ui file 'browser/ui_sobject_info.ui'
+# Form implementation generated from reading ui file 'browser\ui_sobject_info.ui'
 #
-# Created: Thu Apr 27 14:15:17 2017
-#      by: pyside-uic 0.2.13 running on PySide 1.2.2
+# Created: Sat Oct  5 00:17:21 2019
+#      by: pyside-uic 0.2.15 running on PySide 1.2.4
 #
 # WARNING! All changes made in this file will be lost!
 
-from thlib.side.Qt import QtWidgets as QtGui
-from thlib.side.Qt import QtCore
+from PySide import QtCore, QtGui
 
 class Ui_sobjectInfo(object):
     def setupUi(self, sobjectInfo):
@@ -178,16 +177,16 @@ class Ui_sobjectInfo(object):
         QtCore.QMetaObject.connectSlotsByName(sobjectInfo)
 
     def retranslateUi(self, sobjectInfo):
-        sobjectInfo.setWindowTitle(QtGui.QApplication.translate("sobjectInfo", "MainWindow", None))
-        self.commentLabel_3.setText(QtGui.QApplication.translate("sobjectInfo", "Description:", None))
-        self.fileNameLabel.setText(QtGui.QApplication.translate("sobjectInfo", "<html><head/><body><p><span style=\" font-size:16pt;\">Sets: Zal</span></p><p><span style=\" font-size:12pt;\">Code: (SETS00001)</span></p><p align=\"right\"><span style=\" font-size:10pt;\">6 tasks / 144 notes / 45 snapshots</span></p></body></html>", None))
-        self.commentLabel_4.setText(QtGui.QApplication.translate("sobjectInfo", "Keywords:", None))
-        self.commentLabel.setText(QtGui.QApplication.translate("sobjectInfo", "Big zala, good for gi tests", None))
-        self.keywordsLabel.setText(QtGui.QApplication.translate("sobjectInfo", "gi, tests, zal, big, good", None))
-        self.commentLabel_5.setText(QtGui.QApplication.translate("sobjectInfo", "PIC", None))
-        self.checkOutToolButton.setText(QtGui.QApplication.translate("sobjectInfo", "Checkout Shapshot", None))
-        self.checkInToolButton.setText(QtGui.QApplication.translate("sobjectInfo", "Checkin Shapshot", None))
-        self.tabWidget.setTabText(self.tabWidget.indexOf(self.tasksTab), QtGui.QApplication.translate("sobjectInfo", "Tasks", None))
-        self.tabWidget.setTabText(self.tabWidget.indexOf(self.notesTab), QtGui.QApplication.translate("sobjectInfo", "Notes", None))
-        self.tabWidget.setTabText(self.tabWidget.indexOf(self.editTab), QtGui.QApplication.translate("sobjectInfo", "Edit", None))
+        sobjectInfo.setWindowTitle(QtGui.QApplication.translate("sobjectInfo", "MainWindow", None, QtGui.QApplication.UnicodeUTF8))
+        self.commentLabel_3.setText(QtGui.QApplication.translate("sobjectInfo", "Description:", None, QtGui.QApplication.UnicodeUTF8))
+        self.fileNameLabel.setText(QtGui.QApplication.translate("sobjectInfo", "<html><head/><body><p><span style=\" font-size:16pt;\">Sets: Zal</span></p><p><span style=\" font-size:12pt;\">Code: (SETS00001)</span></p><p align=\"right\"><span style=\" font-size:10pt;\">6 tasks / 144 notes / 45 snapshots</span></p></body></html>", None, QtGui.QApplication.UnicodeUTF8))
+        self.commentLabel_4.setText(QtGui.QApplication.translate("sobjectInfo", "Keywords:", None, QtGui.QApplication.UnicodeUTF8))
+        self.commentLabel.setText(QtGui.QApplication.translate("sobjectInfo", "Big zala, good for gi tests", None, QtGui.QApplication.UnicodeUTF8))
+        self.keywordsLabel.setText(QtGui.QApplication.translate("sobjectInfo", "gi, tests, zal, big, good", None, QtGui.QApplication.UnicodeUTF8))
+        self.commentLabel_5.setText(QtGui.QApplication.translate("sobjectInfo", "PIC", None, QtGui.QApplication.UnicodeUTF8))
+        self.checkOutToolButton.setText(QtGui.QApplication.translate("sobjectInfo", "Checkout Shapshot", None, QtGui.QApplication.UnicodeUTF8))
+        self.checkInToolButton.setText(QtGui.QApplication.translate("sobjectInfo", "Checkin Shapshot", None, QtGui.QApplication.UnicodeUTF8))
+        self.tabWidget.setTabText(self.tabWidget.indexOf(self.tasksTab), QtGui.QApplication.translate("sobjectInfo", "Tasks", None, QtGui.QApplication.UnicodeUTF8))
+        self.tabWidget.setTabText(self.tabWidget.indexOf(self.notesTab), QtGui.QApplication.translate("sobjectInfo", "Notes", None, QtGui.QApplication.UnicodeUTF8))
+        self.tabWidget.setTabText(self.tabWidget.indexOf(self.editTab), QtGui.QApplication.translate("sobjectInfo", "Edit", None, QtGui.QApplication.UnicodeUTF8))
 

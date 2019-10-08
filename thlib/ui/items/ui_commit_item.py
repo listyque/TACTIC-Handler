@@ -1,15 +1,13 @@
 # -*- coding: utf-8 -*-
 
-# Form implementation generated from reading ui file 'items/ui_commit_item.ui'
+# Form implementation generated from reading ui file 'items\ui_commit_item.ui'
 #
-# Created: Tue May  8 15:31:12 2018
-#      by: pyside-uic 0.2.15 running on PySide 1.2.2
+# Created: Sat Oct  5 00:17:13 2019
+#      by: pyside-uic 0.2.15 running on PySide 1.2.4
 #
 # WARNING! All changes made in this file will be lost!
 
-from thlib.side.Qt import QtWidgets as QtGui
-from thlib.side.Qt import QtGui as Qt4Gui
-from thlib.side.Qt import QtCore
+from PySide import QtCore, QtGui
 
 class Ui_commitItem(object):
     def setupUi(self, commitItem):
@@ -47,7 +45,7 @@ class Ui_commitItem(object):
         self.fileNameLabel = QtGui.QLabel(commitItem)
         self.fileNameLabel.setMinimumSize(QtCore.QSize(0, 20))
         self.fileNameLabel.setMaximumSize(QtCore.QSize(16777215, 24))
-        font = Qt4Gui.QFont()
+        font = QtGui.QFont()
         font.setWeight(75)
         font.setBold(True)
         self.fileNameLabel.setFont(font)
@@ -82,5 +80,5 @@ class Ui_commitItem(object):
         QtCore.QMetaObject.connectSlotsByName(commitItem)
 
     def retranslateUi(self, commitItem):
-        commitItem.setWindowTitle(QtGui.QApplication.translate("commitItem", "Form", None))
+        commitItem.setWindowTitle(QtGui.QApplication.translate("commitItem", "Form", None, QtGui.QApplication.UnicodeUTF8))
 

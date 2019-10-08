@@ -91,7 +91,7 @@
     </layout>
    </item>
    <item row="0" column="2" colspan="2">
-    <layout class="QHBoxLayout" name="horizontalLayout_2" stretch="1,0">
+    <layout class="QHBoxLayout" name="horizontalLayout_2" stretch="1,0,0">
      <property name="spacing">
       <number>0</number>
      </property>
@@ -125,6 +125,19 @@
        </property>
        <property name="textFormat">
         <enum>Qt::PlainText</enum>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QToolButton" name="syncWithRepoToolButton">
+       <property name="sizePolicy">
+        <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+         <horstretch>0</horstretch>
+         <verstretch>0</verstretch>
+        </sizepolicy>
+       </property>
+       <property name="autoRaise">
+        <bool>true</bool>
        </property>
       </widget>
      </item>

@@ -1,15 +1,13 @@
 # -*- coding: utf-8 -*-
 
-# Form implementation generated from reading ui file 'browser/ui_assets_browser.ui'
+# Form implementation generated from reading ui file 'browser\ui_assets_browser.ui'
 #
-# Created: Thu Apr 27 14:15:17 2017
-#      by: pyside-uic 0.2.13 running on PySide 1.2.2
+# Created: Sat Oct  5 00:17:20 2019
+#      by: pyside-uic 0.2.15 running on PySide 1.2.4
 #
 # WARNING! All changes made in this file will be lost!
 
-from thlib.side.Qt import QtWidgets as QtGui
-from thlib.side.Qt import QtGui as Qt4Gui
-from thlib.side.Qt import QtCore
+from PySide import QtCore, QtGui
 
 class Ui_assetsBrowser(object):
     def setupUi(self, assetsBrowser):
@@ -41,7 +39,7 @@ class Ui_assetsBrowser(object):
         sizePolicy.setHeightForWidth(self.searchLineEdit.sizePolicy().hasHeightForWidth())
         self.searchLineEdit.setSizePolicy(sizePolicy)
         self.searchLineEdit.setMaximumSize(QtCore.QSize(16777215, 20))
-        font = Qt4Gui.QFont()
+        font = QtGui.QFont()
         font.setPointSize(9)
         self.searchLineEdit.setFont(font)
         self.searchLineEdit.setStyleSheet("QLineEdit {\n"
@@ -108,10 +106,10 @@ class Ui_assetsBrowser(object):
         QtCore.QMetaObject.connectSlotsByName(assetsBrowser)
 
     def retranslateUi(self, assetsBrowser):
-        assetsBrowser.setWindowTitle(QtGui.QApplication.translate("assetsBrowser", "Form", None))
-        self.assetsTreeWidget.headerItem().setText(0, QtGui.QApplication.translate("assetsBrowser", "all", None))
-        self.countLabel.setText(QtGui.QApplication.translate("assetsBrowser", "(10/150)", None))
-        self.label_2.setText(QtGui.QApplication.translate("assetsBrowser", "Load Limit:", None))
-        self.label.setText(QtGui.QApplication.translate("assetsBrowser", "Zoom:", None))
-        self.zoomSpinBox.setSuffix(QtGui.QApplication.translate("assetsBrowser", "%", None))
+        assetsBrowser.setWindowTitle(QtGui.QApplication.translate("assetsBrowser", "Form", None, QtGui.QApplication.UnicodeUTF8))
+        self.assetsTreeWidget.headerItem().setText(0, QtGui.QApplication.translate("assetsBrowser", "all", None, QtGui.QApplication.UnicodeUTF8))
+        self.countLabel.setText(QtGui.QApplication.translate("assetsBrowser", "(10/150)", None, QtGui.QApplication.UnicodeUTF8))
+        self.label_2.setText(QtGui.QApplication.translate("assetsBrowser", "Load Limit:", None, QtGui.QApplication.UnicodeUTF8))
+        self.label.setText(QtGui.QApplication.translate("assetsBrowser", "Zoom:", None, QtGui.QApplication.UnicodeUTF8))
+        self.zoomSpinBox.setSuffix(QtGui.QApplication.translate("assetsBrowser", "%", None, QtGui.QApplication.UnicodeUTF8))
 

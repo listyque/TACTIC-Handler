@@ -1,14 +1,13 @@
 # -*- coding: utf-8 -*-
 
-# Form implementation generated from reading ui file 'checkin_out/ui_description_widget.ui'
+# Form implementation generated from reading ui file 'checkin_out\ui_description_widget.ui'
 #
-# Created: Fri May 12 15:44:23 2017
-#      by: pyside-uic 0.2.13 running on PySide 1.2.2
+# Created: Sat Oct  5 00:17:19 2019
+#      by: pyside-uic 0.2.15 running on PySide 1.2.4
 #
 # WARNING! All changes made in this file will be lost!
 
-from thlib.side.Qt import QtWidgets as QtGui
-from thlib.side.Qt import QtCore
+from PySide import QtCore, QtGui
 
 class Ui_descriptionWidget(object):
     def setupUi(self, descriptionWidget):
@@ -30,5 +29,5 @@ class Ui_descriptionWidget(object):
         QtCore.QMetaObject.connectSlotsByName(descriptionWidget)
 
     def retranslateUi(self, descriptionWidget):
-        descriptionWidget.setWindowTitle(QtGui.QApplication.translate("descriptionWidget", "Form", None))
+        descriptionWidget.setWindowTitle(QtGui.QApplication.translate("descriptionWidget", "Form", None, QtGui.QApplication.UnicodeUTF8))
 
