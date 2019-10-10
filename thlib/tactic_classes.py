@@ -1720,6 +1720,69 @@ def users_query():
     return result
 
 
+def get_custom_scripts(store_locally=True, project=None, scripts_codes_list=None):
+    if not project:
+        project = env_inst.get_current_project()
+
+    filters = []
+
+    if scripts_codes_list:
+        folders = []
+        titles = []
+        for script_code in scripts_codes_list:
+            splitted = script_code.split('/')
+
+            folders.append('/'.join(splitted[:-1]))
+            titles.append(''.join(splitted[-1]))
+
+        filters = (['folder', 'in', '|'.join(folders)], ['title', 'in', '|'.join(titles)])
+
+    search_type = server_start().build_search_type('config/custom_script', project_code=project)
+
+    scripts_sobjects, data = get_sobjects_new(search_type, filters)
+
+    return scripts_sobjects
+
+
+def execute_custom_script(script_path, kwargs=None, project=None, local_execution=True, refresh_scripts=True):
+    """
+    Use example:
+    import thlib.environment as thenv
+    thenv.tc().execute_custom_script('batch/batch_dispatcher', project='dolly3d')
+
+    :param script_path: path to script e.g. 'folder/title'
+    :param kwargs: kwarg for script executed on server
+    :param project: project code string
+    :param local_execution: execute locally or server-side
+    :return:
+    """
+
+    # TODO Make it work without GUI calls. This should be able to run withrout script editor
+
+    if local_execution:
+
+        if project:
+            # making shure we have all environment for project ready
+            project_obj = env_inst.set_current_project(project)
+            project_obj = env_inst.get_project_by_code(project)
+            project_obj.get_stypes()
+
+            if refresh_scripts:
+                env_inst.ui_script_editor.refresh_scripts_tree(False)
+
+            module_path = 'custom_scripts/{0}/{1}.py'.format(project, script_path)
+        else:
+            module_path = 'custom_scripts/{0}.py'.format(script_path)
+
+        with open(module_path, 'r') as py_file:
+            source_code = py_file.read()
+        py_file.close()
+
+        env_inst.ui_script_editor.execute_source_code(source_code.decode('utf-8'))
+    else:
+        return server_start(project).execute_python_script(script_path, kwargs=kwargs)
+
+
 def insert_sobjects(search_type, project_code, data, metadata={}, parent_key=None, instance_type=None,  info={}, use_id=False, triggers=True):
 
     kwargs = {
@@ -2004,6 +2067,7 @@ def get_virtual_snapshot(search_key, context, files_dict, snapshot_type='file', 
             virtual_snapshot = json.loads(result['info']['spt_ret_val'])
 
     return virtual_snapshot
+
 
 def checkin_snapshot_upload(search_key, context, snapshot_type=None, is_revision=False, description=None, version=None,
                      update_versionless=True, only_versionless=False, keep_file_name=False, repo_name=None, virtual_snapshot=None,

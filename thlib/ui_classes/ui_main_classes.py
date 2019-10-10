@@ -306,6 +306,15 @@ class Ui_Main(QtGui.QMainWindow, ui_main.Ui_MainWindow):
 
         self.created = True
 
+    @staticmethod
+    def execute_after_all_ui_started():
+        # This func is executed after all ui started. File execute_after_start can contain any useful code that
+        # should be executed after ui loaded
+
+        from execute_after_start import execute
+
+        execute()
+
     def create_debuglog_widget(self):
         env_inst.ui_debuglog = Ui_debugLogWidget(self)
 
@@ -621,6 +630,8 @@ class Ui_Main(QtGui.QMainWindow, ui_main.Ui_MainWindow):
             env_inst.ui_main.set_info_status_text('')
 
             # self.create_ui_float_notify()
+
+            self.execute_after_all_ui_started()
 
     def query_projects(self):
         env_inst.ui_main.set_info_status_text(

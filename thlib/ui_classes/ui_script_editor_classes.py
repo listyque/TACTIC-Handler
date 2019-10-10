@@ -288,17 +288,14 @@ class Ui_ScriptEditForm(QtGui.QDialog):
                 self.run_type_combo_box.setEnabled(False)
                 self.run_script_button.setEnabled(False)
 
-    @staticmethod
-    def get_scripts_from_server():
-        search_type = tc.server_start().build_search_type('config/custom_script', project_code=env_inst.get_current_project())
-        scripts_sobjects, data = tc.get_sobjects_new(search_type)
-        return scripts_sobjects
-
     @env_inst.async_engine
-    def fill_sctipts_tree_widget(self):
+    def fill_sctipts_tree_widget(self, async_run=True):
 
         # getting all the scripts from db
-        scripts_sobjects = yield env_inst.async_task(self.get_scripts_from_server)
+        if async_run:
+            scripts_sobjects = yield env_inst.async_task(tc.get_custom_scripts)
+        else:
+            scripts_sobjects = tc.get_custom_scripts()
 
         if scripts_sobjects:
             scripts_sobjects_by_folder = tc.group_sobject_by(scripts_sobjects, 'folder')
@@ -338,6 +335,7 @@ class Ui_ScriptEditForm(QtGui.QDialog):
             sub_path = env_inst.get_current_project()
 
             # writing scripts to local folder
+            # TODO Make it part of get_custom_scripts
             for folder_path, sobjects_list in scripts_sobjects_by_folder.items():
                 for sobject in sobjects_list:
                     ext = 'py'
@@ -387,6 +385,9 @@ class Ui_ScriptEditForm(QtGui.QDialog):
     def get_current_script(self):
         return self.console.toPlainText()
 
+    def execute_source_code(self, source_code):
+        self.console_obj.enter(source_code)
+
     def run_locally(self, whole=False):
         if self.run_script_button.isEnabled():
             if whole:
@@ -403,7 +404,8 @@ class Ui_ScriptEditForm(QtGui.QDialog):
             self.output.moveCursor(Qt4Gui.QTextCursor.End)
 
             self.output.scroll_to_bottom()
-            self.console_obj.enter(text)
+
+            self.execute_source_code(text)
 
     def run_serverside(self, whole=True):
         if self.run_script_button.isEnabled():
@@ -449,10 +451,10 @@ class Ui_ScriptEditForm(QtGui.QDialog):
 
         self.output.clear()
 
-    def refresh_scripts_tree(self):
+    def refresh_scripts_tree(self, async_run=True):
 
         self.scripts_tree_widget.clear()
-        self.fill_sctipts_tree_widget()
+        self.fill_sctipts_tree_widget(async_run)
 
     def create_new_script(self):
 

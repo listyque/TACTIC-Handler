@@ -6,7 +6,6 @@ import os
 import io
 import subprocess
 import locale
-# from multiprocessing.connection import Client
 import datetime
 import inspect
 import collections
@@ -187,7 +186,7 @@ class Inst(object):
     logins = None  # all users Classes
     current_project = None  # ONLY and ONLY to see which project dock is active SHOULD BE DEPRECATED
     ui_debuglog = None
-    ui_script_editor = None # Script editor Ui
+    ui_script_editor = None  # Script editor Ui
     ui_messages = None
     ui_notify = None
     ui_super = None  # maya main window, or standalone main window
@@ -212,6 +211,12 @@ class Inst(object):
     def set_current_project(self, project_code):
         self.current_project = project_code
 
+    def get_project_by_code(self, project_code=None):
+        if not project_code:
+            project_code = self.current_project
+
+        return self.projects.get(project_code)
+
     def get_current_login(self):
         return env_server.get_user()
 
@@ -225,6 +230,7 @@ class Inst(object):
             return self.logins
 
     def get_all_login_groups(self):
+        # TODO This func looks really odd
         return self.logins['admin'].login_groups
 
     def get_current_stypes(self):

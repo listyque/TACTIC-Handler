@@ -5,7 +5,7 @@ import sys
 from thlib.side.Qt import QtWidgets as QtGui
 from thlib.side.Qt import QtGui as Qt4Gui
 
-from thlib.environment import env_mode, env_inst, start_api_client
+from thlib.environment import env_mode, env_inst  #, start_api_client
 import thlib.global_functions as gf
 import thlib.tactic_classes as tc
 import thlib.ui_classes.ui_main_classes as ui_main_classes
