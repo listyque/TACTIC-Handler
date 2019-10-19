@@ -1,6 +1,7 @@
 # main_standalone.py
 # Start here to run app standalone
 
+# import os
 import sys
 from thlib.side.Qt import QtWidgets as QtGui
 from thlib.side.Qt import QtGui as Qt4Gui
@@ -9,10 +10,6 @@ from thlib.environment import env_mode, env_inst  #, start_api_client
 import thlib.global_functions as gf
 import thlib.tactic_classes as tc
 import thlib.ui_classes.ui_main_classes as ui_main_classes
-
-
-def reload_modules():
-    reload(ui_main_classes)
 
 
 groups = ['Disabled', 'Active', 'Inactive', 'Normal']
@@ -96,10 +93,9 @@ def create_ui(error_tuple=None):
 
 @gf.catch_error
 def startup():
-    app = QtGui.QApplication(sys.argv)
-    app.setApplicationName('TacticHandler_Client')
-    env_inst.ui_super = app
-    app.setStyle('plastique')
+    env_inst.ui_super = QtGui.QApplication(sys.argv)
+    env_inst.ui_super.setApplicationName('TacticHandler_Client')
+    env_inst.ui_super.setStyle('plastique')
     setPaletteFromDct(palette)
 
     # start_api_client()
@@ -115,7 +111,7 @@ def startup():
 
     ping_worker.start()
 
-    sys.exit(app.exec_())
+    sys.exit(env_inst.ui_super.exec_())
 
 
 if __name__ == '__main__':

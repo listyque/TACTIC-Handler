@@ -39,6 +39,10 @@ class Ui_snapshotBrowserWidget(QtGui.QWidget, ui_snapshot_browser.Ui_snapshotBro
         self.previewGraphicsView.mouseDoubleClickEvent = self.previewGraphicsView_doubleClickEvent
         self.filesTreeWidget.doubleClicked.connect(self.open_file_from_tree)
 
+    def customize_ui(self):
+
+        self.filesTreeWidget.setStyleSheet(gf.get_qtreeview_style())
+
     def create_files_tree_context_menu(self):
         self.filesTreeWidget.setContextMenuPolicy(QtCore.Qt.CustomContextMenu)
         self.filesTreeWidget.customContextMenuRequested.connect(self.open_menu)
@@ -420,7 +424,7 @@ class Ui_snapshotBrowserWidget(QtGui.QWidget, ui_snapshot_browser.Ui_snapshotBro
             '<span style=" font-size:8pt; color:#00ff00;">Downloading Previews</span>')
 
         # stype = self.item_widget.stype
-        repo_sync_widget = env_inst.ui_repo_sync_queue.download_file_object(file_object)
+        repo_sync_widget = env_inst.ui_repo_sync_queue.schedule_file_object(file_object)
         repo_sync_widget.downloaded.connect(self.download_ready)
         repo_sync_widget.download()
 
@@ -625,6 +629,8 @@ class Ui_snapshotBrowserWidget(QtGui.QWidget, ui_snapshot_browser.Ui_snapshotBro
     def create_ui(self):
         self.setupUi(self)
         self.create_preview_widget()
+
+        self.customize_ui()
 
     @QtCore.Signal
     def value_increased(self, int):

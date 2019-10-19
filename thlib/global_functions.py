@@ -619,6 +619,10 @@ def parce_timestamp(timestamp):
         return datetime.datetime.strptime(timestamp, '%Y-%m-%d %H:%M:%S.%f')
 
 
+def restart_app():
+    os.system('{0} {1}'.format(sys.executable, ' '.join(sys.argv)))
+
+
 def hex_to_rgb(hex_v, alpha=None, tuple=False):
     """
     Converts hex color to rgb/a
@@ -1142,7 +1146,7 @@ def add_child_items(root_item, sobject):
     root_item.addChild(child_item)
 
 
-def recursive_add_items(root_item, subgroup_list):
+def recursive_add_items(root_item, subgroup_list, sobjects_list):
     item_text = subgroup_list.pop()
     if check_tree_items_exists(root_item, item_text):
         group_item = check_tree_items_exists(root_item, item_text)
@@ -1159,9 +1163,8 @@ def recursive_add_items(root_item, subgroup_list):
         group_item.setIcon(0, root_item.icon(0))
 
     if subgroup_list:
-        return recursive_add_items(group_item, subgroup_list)
+        return recursive_add_items(group_item, subgroup_list, sobjects_list)
     else:
-        sobjects_list = root_item.data(0, QtCore.Qt.UserRole)
         for sobject in sobjects_list:
             add_child_items(group_item, sobject)
 
@@ -2734,3 +2737,32 @@ class MatchTemplate(object):
             else:
                 frames.append(int(frame))
         return frames
+
+
+# Widgets Styles
+
+def get_qtreeview_style():
+    style = """
+QAbstractItemView {
+    show-decoration-selected: 0;
+    selection-background-color:	rgb(28, 32, 30);
+    selection-color: rgb(245,245,245);
+    alternate-background-color: rgb(62,62,62);
+    background: rgb(52,52,52);
+    
+    
+}
+QAbstractItemView::item:hover {
+    background-color: rgb(38, 42, 40);
+    border: 0px;
+}
+
+QTreeView::item {
+    padding: 2px;
+}
+QTreeView {
+    paint-alternating-row-colors-for-empty-area: 0;
+}
+
+"""
+    return style

@@ -73,14 +73,14 @@ class Ui_notesTabbedWidget(QtGui.QWidget):
             '#notes_tab_widget > QTabBar::tab:selected {border-color: transparent;}'
             '#notes_tab_widget > QTabBar::tab:!selected {margin-top: 0px;}')
 
-    def bring_dock_widget_up(self, sobject):
+    def bring_dock_widget_up(self):
 
         related_notes_dock = env_inst.get_check_tree(
             self.project.get_code(), 'checkin_out_instanced_widgets', 'notes_dock')
 
         dock_widget = related_notes_dock.parent()
         if dock_widget:
-            if type(dock_widget) == QtGui.QDockWidget:
+            if isinstance(dock_widget, QtGui.QDockWidget):
                 dock_widget.setHidden(False)
                 dock_widget.raise_()
 
@@ -123,7 +123,7 @@ class Ui_notesTabbedWidget(QtGui.QWidget):
         else:
             self.bring_tab_up(sobject, context)
 
-        self.bring_dock_widget_up(sobject)
+        self.bring_dock_widget_up()
 
 
 class Ui_notesWidget(QtGui.QWidget, ui_notes.Ui_notes):

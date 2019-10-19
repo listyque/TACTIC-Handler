@@ -62,6 +62,7 @@ class Ui_repoSyncDialog(QtGui.QDialog):
         self.grid.addWidget(self.download_queue, 0, 2, 4, 2)
 
     def files_downloads_finished(self):
+        print 'DOWNLOAD FINISH'
         self.downloads_finished.emit()
 
     def check_tree_items(self, changed_item):
@@ -200,7 +201,8 @@ class Ui_repoSyncDialog(QtGui.QDialog):
         self.tree_widget.setSelectionMode(QtGui.QAbstractItemView.ExtendedSelection)
         self.tree_widget.setHeaderHidden(True)
         self.tree_widget.setObjectName('tree_widget')
-        self.tree_widget.setStyleSheet('QTreeView::item {padding: 2px;}')
+        self.tree_widget.setAlternatingRowColors(True)
+        self.tree_widget.setStyleSheet(gf.get_qtreeview_style())
         self.tree_widget.setRootIsDecorated(True)
 
         self.grid.addWidget(self.tree_widget, 1, 0, 1, 2)
@@ -509,9 +511,9 @@ class Ui_repoSyncDialog(QtGui.QDialog):
 
         return data
 
-    def add_file_objectsto_queue(self, files_objects_list):
+    def add_file_objects_to_queue(self, files_objects_list):
         for file_object in files_objects_list:
-            self.repo_sync_items.append(self.download_queue.download_file_object(file_object))
+            self.repo_sync_items.append(self.download_queue.schedule_file_object(file_object))
 
     def download_files(self):
         for repo_sync_item in self.repo_sync_items:
@@ -524,6 +526,7 @@ class Ui_repoSyncDialog(QtGui.QDialog):
         self.download_queue.clear_queue()
         self.repo_sync_items = []
 
+    @env_inst.async_engine
     def start_sync(self, preset_dict=None):
         # it is recommended to use finished signal
         if not preset_dict:
@@ -628,10 +631,10 @@ class Ui_repoSyncDialog(QtGui.QDialog):
 
         if self.versionlessSyncRadioButton.isChecked():
             # self.download_files_objects_list(versionless_list)
-            self.add_file_objectsto_queue(versionless_list)
+            self.add_file_objects_to_queue(versionless_list)
         else:
-            self.add_file_objectsto_queue(versionless_list)
-            self.add_file_objectsto_queue(versions_list)
+            self.add_file_objects_to_queue(versionless_list)
+            self.add_file_objects_to_queue(versions_list)
             # self.download_files_objects_list(versionless_list)
             # self.download_files_objects_list(versions_list)
 
@@ -816,6 +819,7 @@ class Ui_repoSyncQueueWidget(QtGui.QMainWindow):
         self.files_queue_tree_widget.setHeaderHidden(True)
         self.files_queue_tree_widget.setObjectName('files_queue_tree_widget')
         self.files_queue_tree_widget.setSelectionMode(QtGui.QAbstractItemView.ExtendedSelection)
+        self.files_queue_tree_widget.setStyleSheet(gf.get_qtreeview_style())
         self.main_layout.addWidget(self.files_queue_tree_widget)
 
     def create_progress_bar_widget(self):
@@ -930,7 +934,6 @@ class Ui_repoSyncQueueWidget(QtGui.QMainWindow):
         # # print(reply.rawHeaderPairs())
 
     def emit_if_all_downloads_done(self):
-
         if self.total_downloading_count == self.total_downloaded_count:
             self.downloads_finished.emit()
 
@@ -950,7 +953,7 @@ class Ui_repoSyncQueueWidget(QtGui.QMainWindow):
         repo_sync_item.download_progress(4, info_dict)
 
         downloaded_file.close()
-        repo_sync_item.download_done()
+        repo_sync_item.set_download_finished()
 
         reply.deleteLater()
 
@@ -958,7 +961,7 @@ class Ui_repoSyncQueueWidget(QtGui.QMainWindow):
         self.total_downloaded_count += 1
         self.emit_if_all_downloads_done()
 
-    def download_file_object(self, file_object):
+    def schedule_file_object(self, file_object):
         self.total_downloading_count += 1
 
         # request.setAttribute(QNetworkRequest.CacheLoadControlAttribute, QNetworkRequest.PreferCache)

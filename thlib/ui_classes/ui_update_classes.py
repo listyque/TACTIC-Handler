@@ -105,7 +105,7 @@ class Ui_updateDialog(QtGui.QDialog, ui_update.Ui_updateDialog):
             last_version = current_version
 
         if current_version == last_version:
-            self.updateToLastPushButton.setEnabled(False)
+            self.updateToLastPushButton.setEnabled(True)
             self.currentVersionlabel.setText('<span style=" color:#00ff00;">{0} (up to date)</span>'.format(
                 current_version.replace('_', '.')))
         else:
@@ -125,11 +125,13 @@ class Ui_updateDialog(QtGui.QDialog, ui_update.Ui_updateDialog):
             self.commitPushButton.setHidden(False)
 
     def update_to_last_version(self):
-        uf.save_current_version(self.last_version)
-        self.current_version = uf.get_current_version()
-        self.check_current_version()
-        archive_path = uf.get_update_archive_from_server(self.updates[-1].get('update_archive'))
-        uf.update_from_archive(archive_path)
+        # uf.save_current_version(self.last_version)
+        # self.current_version = uf.get_current_version()
+        # self.check_current_version()
+        # archive_path = uf.get_update_archive_from_server(self.updates[-1].get('update_archive'))
+        archive_path = r'D:\APS\OneDrive\MEGAsync\TACTIC-handler\updates\0_4_7_9.zip'
+
+        # uf.update_from_archive(archive_path)
         env_inst.ui_main.restart_for_update_ui_main()
 
     def update_to_selected_version(self):

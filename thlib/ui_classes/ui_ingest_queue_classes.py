@@ -165,7 +165,7 @@ class Ui_ingestDialog(QtGui.QDialog):
         self.tree_widget.setSelectionMode(QtGui.QAbstractItemView.ExtendedSelection)
         self.tree_widget.setHeaderHidden(True)
         self.tree_widget.setObjectName('tree_widget')
-        self.tree_widget.setStyleSheet('QTreeView::item {padding: 2px;}')
+        self.tree_widget.setStyleSheet(gf.get_qtreeview_style())
         self.tree_widget.setRootIsDecorated(True)
 
         self.grid.addWidget(self.tree_widget, 1, 0, 1, 2)
@@ -476,7 +476,7 @@ class Ui_ingestDialog(QtGui.QDialog):
 
     def download_files_objects_list(self, files_objects_list):
         for file_object in files_objects_list:
-            repo_sync_item = self.download_queue.download_file_object(file_object)
+            repo_sync_item = self.download_queue.schedule_file_object(file_object)
             repo_sync_item.download()
 
     def start_sync(self):

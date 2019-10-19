@@ -3,6 +3,7 @@
 # Global TACTIC Functions Module
 
 import os
+import io
 import shutil
 import urllib
 import urlparse
@@ -15,7 +16,7 @@ from thlib.side.Qt import QtWidgets as QtGui
 from thlib.side.Qt import QtGui as Qt4Gui
 from thlib.side.Qt import QtCore
 import thlib.proxy as proxy
-from thlib.environment import env_mode, env_server, env_inst, env_tactic, env_write_config, env_read_config, dl
+from thlib.environment import env_mode, env_server, env_inst, env_tactic, env_write_config, env_read_config, env_write_file, dl
 import global_functions as gf
 import tactic_query as tq
 from side.client.tactic_client_lib.tactic_server_stub import TacticServerStub
@@ -195,6 +196,16 @@ def server_fast_ping():
 
 
 def split_search_key(search_key):
+
+    if search_key.startswith('sthpw'):
+        search_type, asset_code = server_start().split_search_key(search_key)
+        return {
+            'search_type': search_type,
+            'asset_code': asset_code,
+            'pipeline_code': None,
+            'project_code': 'sthpw'
+        }
+
     search_type, asset_code = server_start().split_search_key(search_key)
     if len(search_type.split('?project=')) > 1:
         pipeline_code, project_code = search_type.split('?project=')
@@ -258,8 +269,8 @@ class Project(object):
                 return self.query_search_types(True)
         else:
             kwargs = {
-                'project_code': self.info.get('code'),
-                'namespace': self.info.get('type')
+                'project_code': self.get_code(),
+                'namespace': self.get_code()
             }
             code = tq.prepare_serverside_script(tq.query_search_types_extended, kwargs, return_dict=True)
             result = server_start(project=kwargs['project_code']).execute_python_script('', kwargs=code)
@@ -283,6 +294,11 @@ class Project(object):
             prj_schema = schema[0]['schema']
         else:
             prj_schema = None
+
+        # Empty until it needed
+        if self.get_code() == 'sthpw':
+            prj_schema = 'dummy'
+            pipelines = [{None: None}]
 
         if not pipelines or not prj_schema:
             return []
@@ -526,6 +542,8 @@ class Workflow(object):
 
 
 class Pipeline(object):
+    # TODO rewrite this sh**ty class. This is really mind blowing logic
+
     def __init__(self, process):
 
         self.__process_dict = process
@@ -824,7 +842,7 @@ class SObject(object):
     def get_value(self, column):
         return self.info.get(column)
 
-    def set_data(self, column, data):
+    def set_value(self, column, data):
         self.update_dict[column] = data
 
     def get_project(self):
@@ -918,6 +936,12 @@ class Login(SObject):
 
     def get_login_groups(self):
         return self.login_groups
+
+    def get_login_group(self, login_group_code):
+        login_groups = self.login_groups
+        for login_group in login_groups:
+            if login_group_code == login_group.get_code():
+                return login_group
 
     def get_display_name(self):
         return self.info['display_name']
@@ -1529,7 +1553,7 @@ def get_all_projects_and_logins(force=False):
 
         # Making Projects objects
         projects_dict = collections.OrderedDict()
-        exclude_list = ['sthpw', 'unittest', 'admin']
+        exclude_list = ['unittest', 'admin']
         if len(projects) == 2:
             exclude_list = []
 
@@ -1741,6 +1765,58 @@ def get_custom_scripts(store_locally=True, project=None, scripts_codes_list=None
 
     scripts_sobjects, data = get_sobjects_new(search_type, filters)
 
+    if store_locally:
+        # writing scripts to local folder
+
+        paths_to_create_init_set = set()
+        scripts_sobjects_by_folder = group_sobject_by(scripts_sobjects, 'folder')
+
+        for folder_path, sobjects_list in scripts_sobjects_by_folder.items():
+            for sobject in sobjects_list:
+                ext = 'py'
+                if sobject.get_value('language') == 'javascript':
+                    ext = 'js'
+                file_name = u'{}.{}'.format(sobject.get_value('title'), ext)
+                env_write_file(
+                    sobject.get_value('script'),
+                    folder_path,
+                    file_name,
+                    project
+                )
+            paths_list = folder_path.split('/')
+
+            if paths_list:
+                path_parts = u''
+                for path in paths_list:
+                    path_parts = u'{}/{}'.format(path_parts, path)
+                    if path_parts:
+                        if project:
+                            full_path = u'{0}/custom_scripts/{1}/{2}/__init__.py'.format(
+                                env_mode.get_current_path(),
+                                project,
+                                path_parts)
+                        else:
+                            full_path = u'{0}/custom_scripts/{1}/__init__.py'.format(
+                                env_mode.get_current_path(),
+                                path_parts)
+                        paths_to_create_init_set.add(full_path)
+
+        if project:
+            paths_to_create_init_set.add(u'{0}/custom_scripts/{1}/__init__.py'.format(
+                env_mode.get_current_path(),
+                project))
+
+        paths_to_create_init_set.add(u'{0}/custom_scripts/__init__.py'.format(
+            env_mode.get_current_path()))
+
+        # create __init__ files so we can access files from script editor
+        for init_path in paths_to_create_init_set:
+            formed_init_path = gf.form_path(init_path)
+            if not os.path.exists(formed_init_path):
+                with io.open(formed_init_path, 'w+') as init_py_file:
+                    init_py_file.write(u'')
+                init_py_file.close()
+
     return scripts_sobjects
 
 
@@ -1748,7 +1824,7 @@ def execute_custom_script(script_path, kwargs=None, project=None, local_executio
     """
     Use example:
     import thlib.environment as thenv
-    thenv.tc().execute_custom_script('batch/batch_dispatcher', project='dolly3d')
+    thenv.tc().execute_custom_script('tools/runners/render_setup_runner', project='project_code')
 
     :param script_path: path to script e.g. 'folder/title'
     :param kwargs: kwarg for script executed on server
@@ -1757,22 +1833,21 @@ def execute_custom_script(script_path, kwargs=None, project=None, local_executio
     :return:
     """
 
-    # TODO Make it work without GUI calls. This should be able to run withrout script editor
-
     if local_execution:
 
         if project:
             # making shure we have all environment for project ready
-            project_obj = env_inst.set_current_project(project)
+            env_inst.set_current_project(project)
             project_obj = env_inst.get_project_by_code(project)
             project_obj.get_stypes()
 
             if refresh_scripts:
+                # TODO Make it work without GUI calls. This should be able to run withrout script editor
                 env_inst.ui_script_editor.refresh_scripts_tree(False)
 
-            module_path = 'custom_scripts/{0}/{1}.py'.format(project, script_path)
+            module_path = u'{0}/custom_scripts/{1}/{2}.py'.format(env_mode.get_current_path(), project, script_path)
         else:
-            module_path = 'custom_scripts/{0}.py'.format(script_path)
+            module_path = u'{0}/custom_scripts/{1}.py'.format(env_mode.get_current_path(), script_path)
 
         with open(module_path, 'r') as py_file:
             source_code = py_file.read()
@@ -2694,4 +2769,3 @@ def group_sobject_by(sobjects_dict, group_by):
         grouped[dic.get(group_by)].append(sobject)
 
     return grouped
-

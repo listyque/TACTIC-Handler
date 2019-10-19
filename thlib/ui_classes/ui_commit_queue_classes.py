@@ -806,7 +806,7 @@ class commitWidget(QtGui.QWidget):
         self.treeWidget_vls.setRootIsDecorated(False)
         self.treeWidget_vls.headerItem().setText(0, "File")
         self.treeWidget_vls.headerItem().setText(1, "Path")
-        self.treeWidget_vls.setStyleSheet('QTreeView::item {padding: 2px;}')
+        self.treeWidget_vls.setStyleSheet(gf.get_qtreeview_style())
         self.treeWidget_vls.setTextElideMode(QtCore.Qt.ElideLeft)
 
         layout_files.addWidget(self.treeWidget_vls)
@@ -828,7 +828,7 @@ class commitWidget(QtGui.QWidget):
         self.treeWidget_vers.setRootIsDecorated(False)
         self.treeWidget_vers.headerItem().setText(0, "File")
         self.treeWidget_vers.headerItem().setText(1, "Path")
-        self.treeWidget_vers.setStyleSheet('QTreeView::item {padding: 2px;}')
+        self.treeWidget_vers.setStyleSheet(gf.get_qtreeview_style())
         self.treeWidget_vers.setTextElideMode(QtCore.Qt.ElideLeft)
 
         layout_files.addWidget(self.treeWidget_vers)
@@ -964,7 +964,7 @@ class Ui_commitQueueWidget(QtGui.QMainWindow, Ui_commitQueue):
 
         self.clearQueuePushButton.setIcon(gf.get_icon('trash'))
         self.clearQueuePushButton.setEnabled(False)
-        self.commitAllPushButton.setIcon(gf.get_icon('save'))
+        self.commitAllPushButton.setIcon(gf.get_icon('content-save', icons_set='mdi', scale_factor=1))
         self.commitAllPushButton.setEnabled(False)
 
         self.create_empty_queue_label()
@@ -977,6 +977,7 @@ class Ui_commitQueueWidget(QtGui.QMainWindow, Ui_commitQueue):
         self.single_threaded = single_threaded
 
     def customize_ui(self):
+        self.filesQueueTreeWidget.setStyleSheet(gf.get_qtreeview_style())
         self.filesQueueTreeWidget.setSelectionMode(QtGui.QAbstractItemView.ExtendedSelection)
 
     def create_files_queue_tree_context_menu(self):
@@ -986,7 +987,7 @@ class Ui_commitQueueWidget(QtGui.QMainWindow, Ui_commitQueue):
     def queue_items_menu(self):
 
         commit_current = QtGui.QAction('Commit Current', self.filesQueueTreeWidget)
-        commit_current.setIcon(gf.get_icon('save'))
+        commit_current.setIcon(gf.get_icon('content-save', icons_set='mdi', scale_factor=1))
         commit_current.triggered.connect(self.commit_current_item)
 
         delete_current = QtGui.QAction('Remove From Queue', self.filesQueueTreeWidget)

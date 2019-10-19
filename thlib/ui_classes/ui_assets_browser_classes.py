@@ -6,7 +6,7 @@
 from thlib.side.Qt import QtWidgets as QtGui
 from thlib.side.Qt import QtCore
 
-from thlib.side.flowlayout import ScrollingFlowWidget
+# from thlib.side.flowlayout import ScrollingFlowWidget
 import thlib.tactic_classes as tc
 import thlib.environment as env
 import thlib.ui.browser.ui_assets_browser as ui_assets_browser

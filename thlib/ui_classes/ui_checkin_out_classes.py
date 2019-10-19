@@ -19,8 +19,9 @@ from thlib.ui_classes.ui_misc_classes import MenuWithLayout, Ui_namingEditorWidg
 from thlib.ui_classes.ui_drop_plate_classes import Ui_dropPlateWidget
 from thlib.ui_classes.ui_snapshot_browser_classes import Ui_snapshotBrowserWidget
 from thlib.ui_classes.ui_fast_controls_classes import Ui_fastControlsWidget
-from thlib.ui_classes.ui_description_classes import  Ui_descriptionWidget
-from thlib.ui_classes.ui_columns_editor_classes import  Ui_columnsViewerWidget
+from thlib.ui_classes.ui_description_classes import Ui_descriptionWidget
+from thlib.ui_classes.ui_columns_editor_classes import Ui_columnsViewerWidget
+from thlib.ui_classes.ui_tasks_classes import Ui_tasksDockWidget
 
 if env_mode.get_mode() == 'maya':
     import thlib.maya_functions as mf
@@ -150,6 +151,7 @@ class Ui_checkInOutWidget(QtGui.QMainWindow):
         self.tab_label = None
 
         self.notes_dock = None
+        self.tasks_dock = None
         self.checkin_options_dock = None
 
         self.process_tree_widget = None
@@ -193,6 +195,7 @@ class Ui_checkInOutWidget(QtGui.QMainWindow):
         self.create_advanced_search_widget()
         self.create_checkin_options_dock()
         self.create_notes_dock()
+        self.create_tasks_dock()
 
         self.fill_gear_menu()
         self.fill_collapsable_toolbar()
@@ -220,11 +223,36 @@ class Ui_checkInOutWidget(QtGui.QMainWindow):
             QtGui.QDockWidget.DockWidgetMovable | QtGui.QDockWidget.DockWidgetClosable)
 
         self.notes_dock.setHidden(True)
-        self.addDockWidget(QtCore.Qt.LeftDockWidgetArea, self.notes_dock)
+        self.addDockWidget(QtCore.Qt.RightDockWidgetArea, self.notes_dock)
+
+    @gf.catch_error
+    def create_tasks_dock(self):
+
+        self.tasks_widget = env_inst.get_check_tree(self.project.get_code(), 'checkin_out_instanced_widgets', 'tasks_dock')
+
+        if not self.tasks_widget:
+            self.tasks_widget = Ui_tasksDockWidget(project=self.project, parent=self)
+            env_inst.set_check_tree(
+                self.project.get_code(), 'checkin_out_instanced_widgets', 'tasks_dock', self.tasks_widget)
+
+        self.tasks_dock = QtGui.QDockWidget(self)
+        self.tasks_dock.setWidget(self.tasks_widget)
+        self.tasks_dock.setWindowTitle('Tasks Dock')
+        self.tasks_dock.setObjectName('tasks_dock')
+        self.tasks_dock.setWindowIconText('asdasd')
+
+        self.tasks_dock.setFeatures(
+            QtGui.QDockWidget.DockWidgetMovable | QtGui.QDockWidget.DockWidgetClosable)
+
+        self.tasks_dock.setHidden(True)
+        self.addDockWidget(QtCore.Qt.BottomDockWidgetArea, self.tasks_dock)
 
     def sync_instanced_widgets(self):
         if not self.notes_dock:
             self.create_notes_dock()
+        if not self.tasks_dock:
+            self.create_tasks_dock()
+
         if not self.drop_plate_dock:
             self.create_drop_plate_dock()
         if not self.checkin_options_dock:
@@ -232,6 +260,8 @@ class Ui_checkInOutWidget(QtGui.QMainWindow):
 
         if not self.notes_dock.widget():
             self.notes_dock.setWidget(env_inst.get_check_tree(self.project.get_code(), 'checkin_out_instanced_widgets', 'notes_dock'))
+        if not self.tasks_dock.widget():
+            self.tasks_dock.setWidget(env_inst.get_check_tree(self.project.get_code(), 'checkin_out_instanced_widgets', 'tasks_dock'))
         if not self.drop_plate_dock.widget():
             self.drop_plate_dock.setWidget(env_inst.get_check_tree(self.project.get_code(), 'checkin_out_instanced_widgets', 'drop_plate_dock'))
         if not self.checkin_options_dock.widget():
@@ -335,23 +365,6 @@ class Ui_checkInOutWidget(QtGui.QMainWindow):
         self.columns_viewer_dock.setHidden(True)
         self.addDockWidget(QtCore.Qt.BottomDockWidgetArea, self.columns_viewer_dock)
 
-    # @gf.catch_error
-    # def create_search_options_dock(self):
-    #     dl.log('Creating Search Options Dock', group_id=self.stype.get_code())
-    #
-    #     self.search_options_widget = ui_search_classes.Ui_searchOptionsWidget(parent_ui=self, parent=self)
-    #
-    #     self.search_options_dock = QtGui.QDockWidget(self)
-    #     self.search_options_dock.setWidget(self.search_options_widget)
-    #     self.search_options_dock.setWindowTitle('Search Options')
-    #     self.search_options_dock.setObjectName('search_options_dock')
-    #
-    #     self.search_options_dock.setFeatures(
-    #         QtGui.QDockWidget.DockWidgetMovable | QtGui.QDockWidget.DockWidgetClosable)
-    #
-    #     self.search_options_dock.setHidden(True)
-    #     self.addDockWidget(QtCore.Qt.BottomDockWidgetArea, self.search_options_dock)
-
     @gf.catch_error
     def create_advanced_search_widget(self):
         dl.log('Creating Advanced Search Widget', group_id=self.stype.get_code())
@@ -402,6 +415,9 @@ class Ui_checkInOutWidget(QtGui.QMainWindow):
     def get_snapshot_browser(self):
         return self.snapshot_browser_widget
 
+    def get_tasks_widget(self):
+        return self.tasks_widget
+
     def get_description_widget(self):
         return self.description_widget
 
@@ -416,9 +432,6 @@ class Ui_checkInOutWidget(QtGui.QMainWindow):
 
     def get_advanced_search_widget(self):
         return self.advanced_search_widget
-
-    # def get_search_options_widget(self):
-    #     return self.search_options_widget
 
     def get_checkin_options_widget(self):
         return self.checkin_options_widget
@@ -462,18 +475,6 @@ class Ui_checkInOutWidget(QtGui.QMainWindow):
     def refresh_current_results(self):
         self.search_widget.update_current_search_results()
 
-    def search_mode_state(self):
-        if self.searchOptionsGroupBox.searchNameRadioButton.isChecked():
-            return 0
-        if self.searchOptionsGroupBox.searchCodeRadioButton.isChecked():
-            return 1
-        if self.searchOptionsGroupBox.searchParentCodeRadioButton.isChecked():
-            return 2
-        if self.searchOptionsGroupBox.searchDescriptionRadioButton.isChecked():
-            return 3
-        if self.searchOptionsGroupBox.searchKeywordsRadioButton.isChecked():
-            return 4
-
     def checkin_context_menu(self, tool_button=True, mode=None):
 
         current_results_widget = self.get_current_results_widget()
@@ -506,11 +507,11 @@ class Ui_checkInOutWidget(QtGui.QMainWindow):
         delete_selected.triggered.connect(self.delete_selected_sobjects)
 
         save_scene = QtGui.QAction('Save scene', self)
-        save_scene.setIcon(gf.get_icon('save'))
+        save_scene.setIcon(gf.get_icon('content-save', icons_set='mdi', scale_factor=1))
         save_scene.triggered.connect(partial(self.save_file, maya_checkin=True))
 
         save_snapshot = QtGui.QAction('Save snapshot', self)
-        save_snapshot.setIcon(gf.get_icon('save'))
+        save_snapshot.setIcon(gf.get_icon('content-save', icons_set='mdi', scale_factor=1))
         save_snapshot.triggered.connect(self.save_file)
 
         open_scene = QtGui.QAction('Open scene', self)
@@ -768,14 +769,6 @@ class Ui_checkInOutWidget(QtGui.QMainWindow):
 
         return menu
 
-    # @gf.catch_error
-    # def toggle_search_group_box(self):
-    #     if self.search_options_dock.isHidden():
-    #         self.search_options_dock.setHidden(False)
-    #         self.search_options_dock.raise_()
-    #     else:
-    #         self.search_options_dock.setHidden(True)
-
     @gf.catch_error
     def toggle_advanced_search_widget(self):
         if self.advanced_search_widget.isHidden():
@@ -864,6 +857,14 @@ class Ui_checkInOutWidget(QtGui.QMainWindow):
         else:
             self.notes_dock.setHidden(True)
 
+    @gf.catch_error
+    def toggle_tasks_dock(self):
+        if self.tasks_dock.isHidden():
+            self.tasks_dock.setHidden(False)
+            self.tasks_dock.raise_()
+        else:
+            self.tasks_dock.setHidden(True)
+
     def fill_gear_menu(self):
 
         self.add_new_sobject_action = QtGui.QAction('Add new {0}'.format(self.stype.get_pretty_name()), self)
@@ -902,6 +903,10 @@ class Ui_checkInOutWidget(QtGui.QMainWindow):
         self.notes_dock_toggle_action.triggered.connect(self.toggle_notes_dock)
         self.notes_dock_toggle_action.setIcon(gf.get_icon('inbox'))
 
+        self.tasks_dock_toggle_action = QtGui.QAction('Tasks Dock', self)
+        self.tasks_dock_toggle_action.triggered.connect(self.toggle_tasks_dock)
+        self.tasks_dock_toggle_action.setIcon(gf.get_icon('inbox'))
+
         self.fast_controls_toggle_action = QtGui.QAction('Fast Controls Tool Bar', self)
         self.fast_controls_toggle_action.triggered.connect(self.toggle_fast_controls_box)
         self.fast_controls_toggle_action.setIcon(gf.get_icon('tachometer'))
@@ -928,6 +933,7 @@ class Ui_checkInOutWidget(QtGui.QMainWindow):
         self.search_widget.add_action_to_gear_menu(self.checkin_options_toggle_action)
         self.search_widget.add_action_to_gear_menu(self.drop_plate_toggle_action)
         self.search_widget.add_action_to_gear_menu(self.notes_dock_toggle_action)
+        self.search_widget.add_action_to_gear_menu(self.tasks_dock_toggle_action)
         self.search_widget.add_action_to_gear_menu(self.fast_controls_toggle_action)
         self.search_widget.add_action_to_gear_menu(self.repo_sync_queue_toggle_action)
         self.search_widget.add_action_to_gear_menu(self.commit_queue_toggle_action)
@@ -950,19 +956,19 @@ class Ui_checkInOutWidget(QtGui.QMainWindow):
 
         self.toggle_advanced_search_button = QtGui.QToolButton()
         self.toggle_advanced_search_button.setAutoRaise(True)
-        self.toggle_advanced_search_button.setIcon(gf.get_icon('database-search', icons_set='mdi', scale_factor=1.2))
+        self.toggle_advanced_search_button.setIcon(gf.get_icon('magnify', icons_set='mdi', scale_factor=1.2))
         self.toggle_advanced_search_button.clicked.connect(self.toggle_advanced_search_widget)
         self.toggle_advanced_search_button.setToolTip('Toggle Advanced Search')
 
         self.add_new_sobject_button = QtGui.QToolButton()
         self.add_new_sobject_button.setAutoRaise(True)
-        self.add_new_sobject_button.setIcon(gf.get_icon('plus-box', icons_set='mdi', scale_factor=1.2))
+        self.add_new_sobject_button.setIcon(gf.get_icon('plus', icons_set='mdi', scale_factor=1.2))
         self.add_new_sobject_button.clicked.connect(self.add_new_sobject)
         self.add_new_sobject_button.setToolTip('Add new {0}'.format(self.stype.get_pretty_name()))
 
         self.multiple_add_new_sobject_button = QtGui.QToolButton()
         self.multiple_add_new_sobject_button.setAutoRaise(True)
-        self.multiple_add_new_sobject_button.setIcon(gf.get_icon('library-plus', icons_set='mdi', scale_factor=1.2))
+        self.multiple_add_new_sobject_button.setIcon(gf.get_icon('plus-circle-multiple-outline', icons_set='mdi', scale_factor=1.2))
         self.multiple_add_new_sobject_button.clicked.connect(self.add_new_sobject)
         self.multiple_add_new_sobject_button.setToolTip('Multiple Add new {0}'.format(self.stype.get_pretty_name()))
 
@@ -979,8 +985,8 @@ class Ui_checkInOutWidget(QtGui.QMainWindow):
         # self.find_opened_sobject_button.setToolTip('Find Current Opened Search Object')
 
         self.search_widget.add_widget_to_collapsable_toolbar(self.add_new_sobject_button)
-        self.search_widget.add_widget_to_collapsable_toolbar(self.multiple_add_new_sobject_button)
-        self.search_widget.add_widget_to_collapsable_toolbar(self.ingest_files_to_stype_button)
+        # self.search_widget.add_widget_to_collapsable_toolbar(self.multiple_add_new_sobject_button)
+        # self.search_widget.add_widget_to_collapsable_toolbar(self.ingest_files_to_stype_button)
         # self.search_widget.add_widget_to_collapsable_toolbar(self.filter_process_button)
         self.search_widget.add_widget_to_collapsable_toolbar(self.toggle_advanced_search_button)
         # removed until naming editor created
@@ -1122,10 +1128,8 @@ class Ui_checkInOutWidget(QtGui.QMainWindow):
                     args_dict = {'item_widget': current_tree_widget_item}
 
                     args_dict['file_object'] = fl
-                    repo_sync_widget = env_inst.ui_repo_sync_queue.download_file_object(fl)
-                    # print repo_sync_widget
+                    repo_sync_widget = env_inst.ui_repo_sync_queue.schedule_file_object(fl)
                     if fl.get_type() in ['main', 'maya']:
-                        # print fl.get_full_abs_path()
                         if not connected:
                             repo_sync_widget.downloaded.connect(mf.open_scene)
                             connected = True
@@ -1147,8 +1151,7 @@ class Ui_checkInOutWidget(QtGui.QMainWindow):
                 connected = False
                 for fl in current_snapshot.get_files_objects():
 
-                    repo_sync_widget = env_inst.ui_repo_sync_queue.download_file_object(fl)
-                    # print repo_sync_widget
+                    repo_sync_widget = env_inst.ui_repo_sync_queue.schedule_file_object(fl)
                     if fl.get_type() in ['main', 'maya', 'image']:
                         if not connected:
                             repo_sync_widget.downloaded.connect(fl.open_file)
@@ -1181,7 +1184,7 @@ class Ui_checkInOutWidget(QtGui.QMainWindow):
                     args_dict = {'item_widget': current_tree_widget_item}
 
                     args_dict['file_object'] = fl
-                    repo_sync_widget = env_inst.ui_repo_sync_queue.download_file_object(fl)
+                    repo_sync_widget = env_inst.ui_repo_sync_queue.schedule_file_object(fl)
                     if fl.get_type() in ['main', 'maya']:
                         if not connected:
                             repo_sync_widget.downloaded.connect(mf.import_scene)
@@ -1194,27 +1197,6 @@ class Ui_checkInOutWidget(QtGui.QMainWindow):
                     if fl.get_type() in ['main', 'maya']:
                         mf.import_scene(fl)
                         break
-
-        # if env_mode.get_mode() == 'maya':
-        #     current_results_widget = self.get_current_results_widget()
-        #     current_tree_widget_item = current_results_widget.get_current_tree_widget_item()
-        #
-        #     current_snapshot = current_tree_widget_item.get_snapshot()
-        #
-        #     for tp, fl in current_snapshot.get_files_objects(group_by='type').items():
-        #         if tp in ['main', 'maya']:
-        #             mf.import_scene(fl[0].get_full_abs_path())
-        #             break
-        # else:
-        #     current_results_widget = self.get_current_results_widget()
-        #     current_tree_widget_item = current_results_widget.get_current_tree_widget_item()
-        #
-        #     current_snapshot = current_tree_widget_item.get_snapshot()
-        #
-        #     for tp, fl in current_snapshot.get_files_objects(group_by='type').items():
-        #         if tp not in ['web', 'icon']:
-        #             fl[0].open_file()
-        #             break
 
     @gf.catch_error
     def reference_file(self):
@@ -1232,10 +1214,10 @@ class Ui_checkInOutWidget(QtGui.QMainWindow):
                 connected = False
                 for fl in current_snapshot.get_files_objects():
 
-                    args_dict = {'item_widget': current_tree_widget_item}
-
-                    args_dict['file_object'] = fl
-                    repo_sync_widget = env_inst.ui_repo_sync_queue.download_file_object(fl)
+                    # args_dict = {'item_widget': current_tree_widget_item}
+                    #
+                    # args_dict['file_object'] = fl
+                    repo_sync_widget = env_inst.ui_repo_sync_queue.schedule_file_object(fl)
                     if fl.get_type() in ['main', 'maya']:
                         if not connected:
                             repo_sync_widget.downloaded.connect(mf.reference_scene)
@@ -1248,17 +1230,6 @@ class Ui_checkInOutWidget(QtGui.QMainWindow):
                     if fl.get_type() in ['main', 'maya']:
                         mf.reference_scene(fl)
                         break
-
-        # if env_mode.get_mode() == 'maya':
-        #     current_results_widget = self.get_current_results_widget()
-        #     current_tree_widget_item = current_results_widget.get_current_tree_widget_item()
-        #
-        #     current_snapshot = current_tree_widget_item.get_snapshot()
-        #
-        #     for tp, fl in current_snapshot.get_files_objects(group_by='type').items():
-        #         if tp in ['main', 'maya']:
-        #             mf.reference_scene(fl[0].get_full_abs_path())
-        #             break
 
     @gf.catch_error
     def open_folder(self, typ='versionless'):
@@ -1334,22 +1305,6 @@ class Ui_checkInOutWidget(QtGui.QMainWindow):
             else:
                 repo_menu.actions()[0].triggered.emit()
 
-    # def import_file(self):
-    #     file_path = self.get_current_item_paths()[0]
-    #
-    #     if env_mode.get_mode() == 'maya':
-    #         mf.import_scene(file_path)
-    #     else:
-    #         pass
-    #
-    # def reference_file(self):
-    #     file_path = self.get_current_item_paths()[0]
-    #
-    #     if env_mode.get_mode() == 'maya':
-    #         mf.reference_scene(file_path)
-    #     else:
-    #         pass
-
     # Saving functions
     def checkin_file_objects(self, search_key, context, description, save_revision=False, snapshot_version=None,
                              create_icon=True, files_objects=None, checkin_type=None, keep_file_name=None,
@@ -1378,7 +1333,6 @@ class Ui_checkInOutWidget(QtGui.QMainWindow):
             # need to check if this is sequence
             padding = 4
             for item in files_objects:
-                # print item
                 postfixes.append('')
                 subfolders.append('')
                 exts.append(item.get_file_ext())
@@ -1442,9 +1396,6 @@ class Ui_checkInOutWidget(QtGui.QMainWindow):
 
     def checkin_from_maya(self, search_key, context, description, save_revision=False, snapshot_version=None,
                           selected_objects=None):
-
-        # print(selected_objects, 'SELECTED')
-        # ext_type = self.fast_controls_tool_bar_widget.formatTypeComboBox.currentText()
 
         ext_type = mf.get_current_scene_foramt()
 
@@ -1561,15 +1512,9 @@ class Ui_checkInOutWidget(QtGui.QMainWindow):
 
             if saved:
                 print 'ALL GOOD ;)'
-                # current_widget = self.get_current_tree_widget()
-                # self.description_widget.set_item(None)
-                # self.fast_controls_tool_bar_widget.set_item(None)
-                # current_widget.update_current_items_trees()
-                # self.drop_plate_widget.fromDropListCheckBox.setChecked(False)
 
     def save_revision_confirm(self, save_revision, selected_objects):
 
-        # confirm_revison = bool(int(gf.get_value_from_config(cfg_controls.get_checkin(), 'askReplaceRevisionCheckBox')))
         confirm_revison = self.checkin_options_widget.checkinPageWidget.askReplaceRevisionCheckBox.isChecked()
 
         if save_revision and confirm_revison:
@@ -1621,10 +1566,6 @@ class Ui_checkInOutWidget(QtGui.QMainWindow):
             context = current_tree_widget_item.get_context(True, self.fast_controls_tool_bar_widget.get_context()).replace(' ', '_')
 
             description = self.description_widget.get_description('plain')
-            if self.drop_plate_widget.get_selected_items():
-                checkin_from_droplist = self.drop_plate_widget.fromDropListCheckBox.isChecked()
-            else:
-                checkin_from_droplist = False
             group_checkin = self.drop_plate_widget.groupCheckinCheckBox.isChecked()
 
             if env_mode.get_mode() == 'maya':
@@ -1637,7 +1578,14 @@ class Ui_checkInOutWidget(QtGui.QMainWindow):
                         snapshot_version=current_snapshot_version,
                         selected_objects=selected_objects,
                     )
-                elif checkin_from_droplist:
+                elif not self.drop_plate_widget.get_selected_items():
+                    def run_after_exec():
+                        self.save_file(
+                            selected_objects=selected_objects,
+                            save_revision=save_revision,
+                        )
+                    self.drop_plate_widget.add_files_from_menu(exec_after_added=run_after_exec)
+                else:
                     if group_checkin:
                         self.checkin_file_objects(
                             search_key=search_key,
@@ -1658,15 +1606,6 @@ class Ui_checkInOutWidget(QtGui.QMainWindow):
                             )
 
                         self.drop_plate_widget.remove_selected_items()
-                elif not self.drop_plate_widget.get_selected_items():
-                    def run_after_exec():
-                        self.save_file(
-                            selected_objects=selected_objects,
-                            save_revision=save_revision,
-                        )
-                        # self.drop_plate_dock.setHidden(False)
-                        # self.drop_plate_dock.raise_()
-                    self.drop_plate_widget.add_files_from_menu(exec_after_added=run_after_exec)
 
             if env_mode.get_mode() == 'standalone':
                 if not self.drop_plate_widget.get_selected_items():
@@ -1675,8 +1614,6 @@ class Ui_checkInOutWidget(QtGui.QMainWindow):
                             selected_objects=selected_objects,
                             save_revision=save_revision,
                         )
-                        # self.drop_plate_dock.setHidden(False)
-                        # self.drop_plate_dock.raise_()
                     self.drop_plate_widget.add_files_from_menu(exec_after_added=run_after_exec)
 
                 if group_checkin:
@@ -1705,12 +1642,7 @@ class Ui_checkInOutWidget(QtGui.QMainWindow):
         self.columns_viewer_widget.set_item(None)
         self.fast_controls_tool_bar_widget.set_item(None)
 
-        # current_widget = self.get_current_tree_widget()
-        # current_widget.update_current_items_trees(force_full_update=True)
         self.refresh_current_results()
-
-        if env_mode.get_mode() == 'maya':
-            self.drop_plate_widget.fromDropListCheckBox.setChecked(False)
 
     def get_update_versionless(self):
 
@@ -1827,35 +1759,15 @@ class Ui_checkInOutWidget(QtGui.QMainWindow):
     @gf.catch_error
     def ingest_files(self):
         print 'CREATING IGEST WINDOW'
-        # current_results_widget = self.get_current_results_widget()
-        # current_tree_widget_item = current_results_widget.get_current_tree_widget_item()
-        #
-        # current_tree_widget_item.delete_current_sobject()
-        #
-        # self.refresh_current_results()
 
     def ingest_maya_textures(self):
         print 'CREATING IGEST WINDOW'
-        # current_results_widget = self.get_current_results_widget()
-        # current_tree_widget_item = current_results_widget.get_current_tree_widget_item()
-        #
-        # current_tree_widget_item.delete_current_sobject()
-        #
-        # self.refresh_current_results()
 
     def open_item_menu(self, item_widget):
         if item_widget:
             menu = self.checkin_context_menu(False, mode=item_widget.get_type())
             if menu:
                 menu.exec_(Qt4Gui.QCursor.pos())
-
-    # def set_save_button_menu(self):
-    #     current_results_widget = self.get_current_results_widget()
-    #     current_tree_widget_item = current_results_widget.get_current_tree_widget_item()
-    #
-    #     if current_tree_widget_item:
-    #         self.fast_controls_tool_bar_widget.set_save_button_menu(
-    #             self.checkin_context_menu(True, mode=current_tree_widget_item.get_type()))
 
     def set_settings_from_dict(self, settings_dict=None, apply_checkin_options=True, apply_search_options=True):
         self.do_creating_ui()
@@ -1873,7 +1785,7 @@ class Ui_checkInOutWidget(QtGui.QMainWindow):
 
         self.advanced_search_widget.set_settings_from_dict(settings_dict.get('advanced_search_widget'))
 
-        # QtGui.QApplication.processEvents()
+        QtGui.QApplication.processEvents()
 
         self.restoreState(QtCore.QByteArray.fromHex(str(settings_dict.get('main_state'))))
 
@@ -1932,11 +1844,15 @@ class Ui_checkInOutWidget(QtGui.QMainWindow):
             # closing search_widget
             self.search_widget.close()
 
-            # empty instanced widgets
-            env_inst.set_check_tree(self.project.get_code(), 'checkin_out_instanced_widgets', 'drop_plate_dock', None)
+            # empty instanced widgets, This is very important for Maya
+            env_inst.set_check_tree(
+                self.project.get_code(), 'checkin_out_instanced_widgets', 'drop_plate_dock', None)
             env_inst.set_check_tree(
                 self.project.get_code(), 'checkin_out_instanced_widgets', 'checkin_options_dock', None)
-            env_inst.set_check_tree(self.project.get_code(), 'checkin_out_instanced_widgets', 'notes_dock', None)
+            env_inst.set_check_tree(
+                self.project.get_code(), 'checkin_out_instanced_widgets', 'notes_dock', None)
+            env_inst.set_check_tree(
+                self.project.get_code(), 'checkin_out_instanced_widgets', 'tasks_dock', None)
 
             self.close()
             self.deleteLater()
@@ -1948,6 +1864,11 @@ class Ui_checkInOutWidget(QtGui.QMainWindow):
 
         self.do_creating_ui()
 
+        if not self.is_showed:
+            self.is_showed = True
+            # self.restore_state_deffered()
+            self.readSettings()
+
     def hideEvent(self, event):
         event.accept()
 
@@ -1955,8 +1876,3 @@ class Ui_checkInOutWidget(QtGui.QMainWindow):
         event.accept()
 
         self.sync_instanced_widgets()
-
-        if not self.is_showed:
-            self.is_showed = True
-            # self.restore_state_deffered()
-            self.readSettings()

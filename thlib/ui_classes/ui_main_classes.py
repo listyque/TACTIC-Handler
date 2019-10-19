@@ -53,48 +53,17 @@ class Ui_mainTabs(QtGui.QWidget):
         self.current_project = self.project.info['code']
         self.current_namespace = self.project.info['type']
 
-        # if self.checkin_out_config_projects and self.checkin_out_config:
-        #     if gf.get_value_from_config(self.checkin_out_config, 'controlsTabsFilterGroupBox'):
-        #         self.customize_controls_tabs()
-
         self.create_ui()
-
-    # def customize_controls_tabs(self):
-    #     if self.checkin_out_config_projects:
-    #         project_tabs_list = self.checkin_out_config_projects.get(self.current_project)
-    #         if gf.get_value_from_config(self.checkin_out_config, 'applyToAllProjectsRadioButton'):
-    #             tabs_list = self.checkin_out_config_projects.get('!tabs_list!')
-    #         elif project_tabs_list:
-    #             tabs_list = project_tabs_list['tabs_list']
-    #         else:
-    #             tabs_list = None
-    #         if tabs_list:
-    #             for i, tab in enumerate(tabs_list):
-    #                 if tab[0] == 'Checkin / Checkout':
-    #                     if not tab[2]:
-    #                         self.main_tabWidget.removeTab(self.get_tab_index(self.checkInOutTab))
-    #                     else:
-    #                         self.main_tabWidget.insertTab(i, self.checkInOutTab, tab[1])
-    #                 if tab[0] == 'My Tactic':
-    #                     if not tab[2]:
-    #                         self.main_tabWidget.removeTab(self.get_tab_index(self.myTacticTab))
-    #                     else:
-    #                         self.main_tabWidget.insertTab(i, self.myTacticTab, tab[1])
-    #                 if tab[0] == 'Assets Browser':
-    #                     if not tab[2]:
-    #                         self.main_tabWidget.removeTab(self.get_tab_index(self.assetsBrowserTab))
-    #                     else:
-    #                         self.main_tabWidget.insertTab(i, self.assetsBrowserTab, tab[1])
 
     def create_ui(self):
 
         self.ui_checkin_checkout = None
-        # self.skeyLineEdit_actions()
-        # self.readSettings()
         self.main_layout = QtGui.QGridLayout(self)
         self.main_layout.setSpacing(0)
         self.main_layout.setContentsMargins(0, 0, 0, 0)
         self.setLayout(self.main_layout)
+
+        self.create_loading_label()
 
     def get_tab_index(self, tab_widget):
         return self.main_tabWidget.indexOf(tab_widget)
@@ -142,20 +111,6 @@ class Ui_mainTabs(QtGui.QWidget):
         self.ui_checkin_checkout.setHidden(True)
         self.main_layout.addWidget(self.ui_checkin_checkout)
 
-    # def create_ui_my_tactic(self):
-    #     """
-    #     Create My Tactic Tab
-    #     """
-    #     self.ui_my_tactic = ui_my_tactic_classes.Ui_myTacticWidget(self)
-    #     self.myTacticLayout.addWidget(self.ui_my_tactic)
-
-    # def create_ui_assets_browser(self):
-    #     """
-    #     Create Assets Browser Tab
-    #     """
-    #     self.ui_assets_browser = ui_assets_browser_classes.Ui_assetsBrowserWidget(self)
-    #     self.assetsBrowserLayout.addWidget(self.ui_assets_browser)
-
     def create_loading_label(self):
         self.loading_label = QtGui.QLabel()
         self.loading_label.setText('Loading...')
@@ -167,34 +122,26 @@ class Ui_mainTabs(QtGui.QWidget):
     def toggle_loading_label(self):
         if self.loading_label.isVisible():
             self.loading_label.setVisible(False)
-            # self.main_tabWidget.setVisible(True)
-            # self.skeyLineEdit.setVisible(True)
         else:
             self.loading_label.setVisible(True)
-            # self.main_tabWidget.setVisible(False)
-            # self.skeyLineEdit.setVisible(False)
 
-    # def readSettings(self):
-    #     self.set_settings_from_dict(env_read_config(
-    #         filename='ui_main_tab',
-    #         unique_id='ui_main/{0}/{1}'.format(self.current_namespace, self.current_project),
-    #         long_abs_path=True))
+    # def paintEvent(self, event):
+    #     if not self.isCreated:
+    #         self.isCreated = True
+    #         self.create_loading_label()
+    #         self.get_stypes(run_thread=True)
     #
-    # def writeSettings(self):
-    #     env_write_config(
-    #         self.get_settings_dict(),
-    #         filename='ui_main_tab',
-    #         unique_id='ui_main/{0}/{1}'.format(self.current_namespace, self.current_project),
-    #         long_abs_path=True)
+    #     # TODO This is bad and should be not used or removed
+    #     print self.project.info['code']
+    #     env_inst.set_current_project(self.project.info['code'])
 
-    def paintEvent(self, event):
+    def showEvent(self, *args, **kwargs):
+
         if not self.isCreated:
             self.isCreated = True
-            self.create_loading_label()
             self.toggle_loading_label()
             self.get_stypes(run_thread=True)
 
-        # TODO This is bad and should be not used or removed
         env_inst.set_current_project(self.project.info['code'])
 
     def closeEvent(self, event):
@@ -351,8 +298,14 @@ class Ui_Main(QtGui.QMainWindow, ui_main.Ui_MainWindow):
         if env_mode.get_mode() == 'standalone':
             self.actionDock_undock.setVisible(False)
 
-        self.actionExit.setIcon(gf.get_icon('close'))
-        self.actionConfiguration.setIcon(gf.get_icon('wrench'))
+        self.actionExit.setIcon(gf.get_icon('window-close', icons_set='mdi'))
+        self.actionConfiguration.setIcon(gf.get_icon('settings', icons_set='mdi'))
+        self.actionSave_Preferences.setIcon(gf.get_icon('content-save', icons_set='mdi'))
+        self.actionReloadCache.setIcon(gf.get_icon('reload', icons_set='mdi'))
+        self.actionApply_to_all_Tabs.setIcon(gf.get_icon('hexagon-multiple', icons_set='mdi'))
+        self.actionScriptEditor.setIcon(gf.get_icon('script', icons_set='mdi'))
+        self.actionDebug_Log.setIcon(gf.get_icon('bug', icons_set='mdi'))
+        self.actionUpdate.setIcon(gf.get_icon('update', icons_set='mdi'))
         self.create_info_label()
 
     def menu_bar_actions(self):
@@ -461,25 +414,39 @@ class Ui_Main(QtGui.QMainWindow, ui_main.Ui_MainWindow):
         for project in env_inst.projects.values():
             project.query_search_types(True)
 
-        self.restart_ui_main()
+        if env_mode.get_mode() == 'maya':
+            self.restart_ui_main()
+        else:
+            self.close()
+            gf.restart_app()
 
     def open_config_dialog(self):
         conf_dialog = ui_conf_classes.Ui_configuration_dialogWidget(parent=self)
         conf_dialog.show()
 
     def restart_for_update_ui_main(self):
-        if env_mode.get_mode() == 'standalone':
-            import main_standalone
-            thread = main_standalone.restart()
-            thread.finished.connect(self.close)
+
         if env_mode.get_mode() == 'maya':
-            import main_maya
-            thread = main_maya.main.restart()
-            thread.finished.connect(main_maya.main.close_all_instances)
+            # import main_maya
+            # thread = main_maya.main.restart()
+            from thlib.ui_classes.ui_maya_dock import close_all_instances
+            close_all_instances()
+            # self.restart_ui_main()
+        else:
+            self.close()
+            gf.restart_app()
+
+        # if env_mode.get_mode() == 'standalone':
+        #     import main_standalone
+        #     thread = main_standalone.restart()
+        #     thread.finished.connect(self.close)
+        # if env_mode.get_mode() == 'maya':
+        #     import main_maya
+        #     thread = main_maya.main.restart()
+        #     thread.finished.connect(main_maya.main.close_all_instances)
 
     def restart_ui_main(self):
         self.close()
-        self.projects_docks = collections.OrderedDict()
 
         if env_mode.is_online():
             self.create_ui_main()
@@ -512,7 +479,8 @@ class Ui_Main(QtGui.QMainWindow, ui_main.Ui_MainWindow):
         all_projects_dicts = []
 
         for project_name, project in env_inst.projects.iteritems():
-            all_projects_dicts.append(project.info)
+            if project.get_code() != 'sthpw':
+                all_projects_dicts.append(project.info)
 
         projects_by_categories = gf.group_dict_by(all_projects_dicts, 'category')
 

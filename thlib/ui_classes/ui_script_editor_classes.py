@@ -13,8 +13,6 @@
 __all__ = ['Ui_ScriptEditForm']
 
 
-import os
-import io
 import time
 from thlib.side.Qt import QtWidgets as QtGui
 from thlib.side.Qt import QtGui as Qt4Gui
@@ -22,7 +20,7 @@ from thlib.side.Qt import QtCore
 
 import thlib.tactic_classes as tc
 import thlib.global_functions as gf
-from thlib.environment import env_inst, env_mode, env_read_config, env_write_config, env_write_file
+from thlib.environment import env_inst, env_read_config, env_write_config
 from thlib.ui_classes.ui_misc_classes import Ui_horizontalCollapsableWidget
 from thlib.side.console.core import console, stream
 from thlib.side.console.ui import editor_window, output_window
@@ -163,7 +161,7 @@ class Ui_ScriptEditForm(QtGui.QDialog):
         self.scripts_tree_widget.setAlternatingRowColors(True)
         self.scripts_tree_widget.setAllColumnsShowFocus(True)
         self.scripts_tree_widget.setVerticalScrollMode(QtGui.QAbstractItemView.ScrollPerPixel)
-        self.scripts_tree_widget.setStyleSheet('QTreeView::item {padding: 2px;}')
+        self.scripts_tree_widget.setStyleSheet(gf.get_qtreeview_style())
         self.scripts_tree_widget.setSelectionMode(QtGui.QAbstractItemView.SingleSelection)
         self.scripts_tree_widget.setEditTriggers(QtGui.QAbstractItemView.NoEditTriggers)
         self.scripts_tree_widget.setRootIsDecorated(True)
@@ -302,85 +300,36 @@ class Ui_ScriptEditForm(QtGui.QDialog):
 
             # adding scripts to tree widget
             for folder_path, sobjects_list in scripts_sobjects_by_folder.items():
-                subgroup_list = folder_path.split('/')
-                if len(subgroup_list) > 1:
-                    subgroup_list.reverse()
-                    top_item_title = subgroup_list.pop()
-                    exist_item = gf.check_tree_items_exists(self.scripts_tree_widget, top_item_title)
+                paths_list = folder_path.split('/')
+                exist_item = gf.check_tree_items_exists(self.scripts_tree_widget, paths_list[0])
+
+                if len(paths_list) > 1:
+                    paths_list.reverse()
+                    top_item_title = paths_list.pop()
+
                     if exist_item:
-                        gf.recursive_add_items(exist_item, subgroup_list)
+                        gf.recursive_add_items(exist_item, paths_list, sobjects_list)
                     else:
                         root_item = QtGui.QTreeWidgetItem(self.scripts_tree_widget)
                         root_item.setText(0, top_item_title)
                         root_item.setData(0, 12, top_item_title)
                         root_item.setData(0, QtCore.Qt.UserRole, sobjects_list)
                         root_item.setIcon(0, gf.get_icon('folder', icons_set='mdi'))
+                        gf.recursive_add_items(root_item, paths_list, sobjects_list)
                         self.scripts_tree_widget.addTopLevelItem(root_item)
-                        gf.recursive_add_items(root_item, subgroup_list)
                 else:
-                    root_item = QtGui.QTreeWidgetItem(self.scripts_tree_widget)
-                    root_item.setText(0, folder_path)
-                    root_item.setData(0, 12, folder_path)
-                    root_item.setData(0, QtCore.Qt.UserRole, sobjects_list)
-                    root_item.setIcon(0, gf.get_icon('folder', icons_set='mdi'))
-                    exist_item = gf.check_tree_items_exists(self.scripts_tree_widget, folder_path)
-                    if not exist_item:
+                    if exist_item:
+                        for sobject in sobjects_list:
+                            gf.add_child_items(exist_item, sobject)
+                    else:
+                        root_item = QtGui.QTreeWidgetItem(self.scripts_tree_widget)
+                        root_item.setText(0, folder_path)
+                        root_item.setData(0, 12, folder_path)
+                        root_item.setData(0, QtCore.Qt.UserRole, sobjects_list)
+                        root_item.setIcon(0, gf.get_icon('folder', icons_set='mdi'))
                         self.scripts_tree_widget.addTopLevelItem(root_item)
-
-                    # adding child items with scripts sobjects itself
-                    for sobject in sobjects_list:
-                        gf.add_child_items(root_item, sobject)
-
-            paths_to_create_init_set = set()
-            sub_path = env_inst.get_current_project()
-
-            # writing scripts to local folder
-            # TODO Make it part of get_custom_scripts
-            for folder_path, sobjects_list in scripts_sobjects_by_folder.items():
-                for sobject in sobjects_list:
-                    ext = 'py'
-                    if sobject.get_value('language') == 'javascript':
-                        ext = 'js'
-                    file_name = u'{}.{}'.format(sobject.get_value('title'), ext)
-                    env_write_file(
-                        sobject.get_value('script'),
-                        folder_path,
-                        file_name,
-                        sub_path
-                    )
-                paths_list = folder_path.split('/')
-
-                if paths_list:
-                    path_parts = ''
-                    for path in paths_list:
-                        path_parts = u'{}/{}'.format(path_parts, path)
-                        if path_parts:
-                            if sub_path:
-                                full_path = u'{0}/custom_scripts/{1}/{2}/__init__.py'.format(
-                                    env_mode.get_current_path(),
-                                    sub_path,
-                                    path_parts)
-                            else:
-                                full_path = u'{0}/custom_scripts/{1}/__init__.py'.format(
-                                    env_mode.get_current_path(),
-                                    path_parts)
-                            paths_to_create_init_set.add(full_path)
-
-            if sub_path:
-                paths_to_create_init_set.add(u'{0}/custom_scripts/{1}/__init__.py'.format(
-                    env_mode.get_current_path(),
-                    sub_path))
-
-            paths_to_create_init_set.add(u'{0}/custom_scripts/__init__.py'.format(
-                env_mode.get_current_path()))
-
-            # create __init__ files so we can access files from script editor
-            for init_path in paths_to_create_init_set:
-                formed_init_path = gf.form_path(init_path)
-                if not os.path.exists(formed_init_path):
-                    with io.open(formed_init_path, 'w+') as init_py_file:
-                        init_py_file.write(u'')
-                    init_py_file.close()
+                        for sobject in sobjects_list:
+                            gf.add_child_items(root_item, sobject)
 
     def get_current_script(self):
         return self.console.toPlainText()
@@ -476,7 +425,7 @@ class Ui_ScriptEditForm(QtGui.QDialog):
             if len(script_sobjects) > 0:
                 script_sobject = script_sobjects.values()[0]
 
-                script_sobject.set_data('script', self.get_current_script())
+                script_sobject.set_value('script', self.get_current_script())
                 script_sobject.commit(False)
             else:
                 tc.server_start().insert(search_type, dict(filters))

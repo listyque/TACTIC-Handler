@@ -2,7 +2,7 @@
 
 # Form implementation generated from reading ui file 'checkin_out\ui_drop_plate.ui'
 #
-# Created: Sat Oct  5 00:17:19 2019
+# Created: Mon Oct 14 11:50:09 2019
 #      by: pyside-uic 0.2.15 running on PySide 1.2.4
 #
 # WARNING! All changes made in this file will be lost!
@@ -89,14 +89,6 @@ class Ui_dropPlate(object):
         self.filterComboBox.addItem("")
         self.filterComboBox.addItem("")
         self.expandingLayout.addWidget(self.filterComboBox)
-        self.fromDropListCheckBox = QtGui.QCheckBox(dropPlate)
-        sizePolicy = QtGui.QSizePolicy(QtGui.QSizePolicy.Preferred, QtGui.QSizePolicy.Fixed)
-        sizePolicy.setHorizontalStretch(0)
-        sizePolicy.setVerticalStretch(0)
-        sizePolicy.setHeightForWidth(self.fromDropListCheckBox.sizePolicy().hasHeightForWidth())
-        self.fromDropListCheckBox.setSizePolicy(sizePolicy)
-        self.fromDropListCheckBox.setObjectName("fromDropListCheckBox")
-        self.expandingLayout.addWidget(self.fromDropListCheckBox)
         self.groupCheckinCheckBox = QtGui.QCheckBox(dropPlate)
         sizePolicy = QtGui.QSizePolicy(QtGui.QSizePolicy.Preferred, QtGui.QSizePolicy.Fixed)
         sizePolicy.setHorizontalStretch(0)
@@ -164,7 +156,6 @@ class Ui_dropPlate(object):
         self.enableFilterCheckBox.setText(u"Filter:")
         self.filterComboBox.setItemText(0, u"By Extension")
         self.filterComboBox.setItemText(1, u"By Filename")
-        self.fromDropListCheckBox.setText(u"From Droplist")
         self.groupCheckinCheckBox.setText(u"Group Checkin")
         self.keepFileNameCheckBox.setText(u"Keep Filename")
         self.includeSubfoldersCheckBox.setText(u"Include Subfolders")

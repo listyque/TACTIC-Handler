@@ -140,9 +140,9 @@ class Ui_dropPlateWidget(QtGui.QWidget, ui_drop_plate.Ui_dropPlate):
         self.setupUi(self)
 
         self.setAcceptDrops(True)
-        self.dropTreeWidget.setDragDropMode(QtGui.QAbstractItemView.DragOnly)
 
         self.create_ui()
+
         self.create_config_widget()
         self.controls_actions()
 
@@ -161,21 +161,26 @@ class Ui_dropPlateWidget(QtGui.QWidget, ui_drop_plate.Ui_dropPlate):
     def create_ui(self):
 
         self.clearPushButton.setIcon(gf.get_icon('trash'))
-        self.configPushButton.setIcon(gf.get_icon('cog'))
+        self.configPushButton.setIcon(gf.get_icon('settings', icons_set='mdi'))
         self.create_progress_bar_widget()
 
         self.create_collapsable_toolbar()
 
         self.setAcceptDrops(True)
-        self.dropTreeWidget.setSelectionMode(QtGui.QAbstractItemView.ExtendedSelection)
 
         if env_mode.get_mode() == 'standalone':
-            self.fromDropListCheckBox.setHidden(True)
             sizePolicy = QtGui.QSizePolicy(QtGui.QSizePolicy.Preferred, QtGui.QSizePolicy.Preferred)
             self.setSizePolicy(sizePolicy)
             self.setMinimumWidth(300)
 
         self.move_controls_to_collapsable_toolbar()
+
+        self.customize_ui()
+
+    def customize_ui(self):
+        self.dropTreeWidget.setSelectionMode(QtGui.QAbstractItemView.ExtendedSelection)
+        self.dropTreeWidget.setDragDropMode(QtGui.QAbstractItemView.DragOnly)
+        self.dropTreeWidget.setStyleSheet(gf.get_qtreeview_style())
 
     def create_progress_bar_widget(self):
         self.progressBar = QtGui.QProgressBar()
@@ -204,7 +209,6 @@ class Ui_dropPlateWidget(QtGui.QWidget, ui_drop_plate.Ui_dropPlate):
         self.buttons_layout.addWidget(widget)
 
     def move_controls_to_collapsable_toolbar(self):
-        self.add_widget_to_collapsable_toolbar(self.fromDropListCheckBox)
         self.add_widget_to_collapsable_toolbar(self.groupCheckinCheckBox)
         self.add_widget_to_collapsable_toolbar(self.keepFileNameCheckBox)
         self.add_widget_to_collapsable_toolbar(self.includeSubfoldersCheckBox)
@@ -218,21 +222,9 @@ class Ui_dropPlateWidget(QtGui.QWidget, ui_drop_plate.Ui_dropPlate):
 
         self.create_files_tree_context_menu()
 
-    # DEPRECATED
-    # def enable_group_checkin(self, state):
-    #
-    #     if state:
-    #         self.dropTreeWidget.setSelectionMode(QtGui.QAbstractItemView.ExtendedSelection)
-    #         # self.keepFileNameCheckBox.setEnabled(False)
-    #     else:
-    #         self.dropTreeWidget.setSelectionMode(QtGui.QAbstractItemView.SingleSelection)
-    #         self.dropTreeWidget.clearSelection()
-    #         # self.keepFileNameCheckBox.setEnabled(True)
-
     def clear_tree_widget(self):
 
         self.dropTreeWidget.clear()
-        self.fromDropListCheckBox.setChecked(False)
         self.tree_items = []
 
     def create_files_tree_context_menu(self):
@@ -384,8 +376,6 @@ class Ui_dropPlateWidget(QtGui.QWidget, ui_drop_plate.Ui_dropPlate):
                 self.dropTreeWidget.takeTopLevelItem(item_index.row())
 
     def append_items_to_tree(self, files_objects_dict):
-        self.fromDropListCheckBox.setChecked(True)
-
         self.dropTreeWidget.clearSelection()
 
         icon_provider = QtGui.QFileIconProvider()
@@ -450,13 +440,11 @@ class Ui_dropPlateWidget(QtGui.QWidget, ui_drop_plate.Ui_dropPlate):
             settings_dict = {
                 'includeSubfoldersCheckBox': False,
                 'keepFileNameCheckBox': False,
-                'fromDropListCheckBox': False,
                 'groupCheckinCheckBox': False,
             }
 
         self.includeSubfoldersCheckBox.setChecked(settings_dict['includeSubfoldersCheckBox'])
         self.keepFileNameCheckBox.setChecked(settings_dict['keepFileNameCheckBox'])
-        self.fromDropListCheckBox.setChecked(settings_dict['fromDropListCheckBox'])
         self.groupCheckinCheckBox.setChecked(settings_dict['groupCheckinCheckBox'])
 
     def get_settings_dict(self):
@@ -464,7 +452,6 @@ class Ui_dropPlateWidget(QtGui.QWidget, ui_drop_plate.Ui_dropPlate):
         settings_dict = {
             'includeSubfoldersCheckBox': int(self.includeSubfoldersCheckBox.isChecked()),
             'keepFileNameCheckBox': int(self.keepFileNameCheckBox.isChecked()),
-            'fromDropListCheckBox': int(self.fromDropListCheckBox.isChecked()),
             'groupCheckinCheckBox': int(self.groupCheckinCheckBox.isChecked()),
 
         }

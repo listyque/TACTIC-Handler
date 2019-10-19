@@ -23,7 +23,7 @@ import warnings
 import locale
 
 # Third party imports
-from Qt.QtCore import QObject, QPoint, QRect, Qt
+from Qt.QtCore import QObject, QPoint, QRect, Qt, QByteArray
 from Qt.QtGui import (QColor, QFont, QFontDatabase, QIcon, QIconEngine,
                         QPainter, QPixmap)
 from Qt.QtWidgets import QApplication
@@ -210,9 +210,10 @@ class IconicFont(QObject):
 
         # Load font
         if QApplication.instance() is not None:
+            with open(os.path.join(directory, ttf_filename), 'rb') as font_data:
+                id_ = QFontDatabase.addApplicationFontFromData(QByteArray(font_data.read()))
+            font_data.close()
 
-            id_ = QFontDatabase.addApplicationFont(os.path.join(directory,
-                                                                ttf_filename))
             loadedFontFamilies = QFontDatabase.applicationFontFamilies(id_)
             if(loadedFontFamilies):
                 self.fontname[prefix] = loadedFontFamilies[0]
@@ -228,6 +229,8 @@ class IconicFont(QObject):
             with open(os.path.join(directory, charmap_filename), 'r') as codes:
                 self.charmap[prefix] = json.load(codes, object_hook=hook)
             codes.close()
+
+
 
             # Verify that vendorized fonts are not corrupt
             if not SYSTEM_FONTS:

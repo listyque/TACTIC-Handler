@@ -3,7 +3,7 @@ from Qt.QtCore import QTimer
 
 class Spin:
 
-    def __init__(self, parent_widget, interval=10, step=1):
+    def __init__(self, parent_widget, interval=50, step=1.0):
         self.parent_widget = parent_widget
         self.interval, self.step = interval, step
         self.info = {}
@@ -12,8 +12,8 @@ class Spin:
         if self.parent_widget in self.info:
             timer, angle, step = self.info[self.parent_widget]
 
-            if angle >= 360:
-                angle = 0
+            if float(angle) >= float(360):
+                angle = 0.0
 
             angle += step
             self.info[self.parent_widget] = timer, angle, step

@@ -1,23 +1,755 @@
 # file ui_tasks_classes.py
 # Main Window of tasks
 
-# import PySide.QtGui as QtGui
-# import PySide.QtCore as QtCore
+# TODO Add stacked tasks, so when multiple contex can be choosen by context, of same context and status add more users
+# TODO button to add more task, of more users to current task (plus button near user combo)
+# TODO save on close (and autosave checkbox)
+# TODO Highlight or add only one task process if Process Selected, not sobject or snapshot
+# TODO Select all text in combo boxes (for fast search - click and type)
+# TODO Filter combo box
+
+from functools import partial
+
 from thlib.side.Qt import QtWidgets as QtGui
 from thlib.side.Qt import QtGui as Qt4Gui
 from thlib.side.Qt import QtCore
 
 import thlib.ui.tasks.ui_tasks as ui_tasks
+from thlib.environment import env_inst, env_write_config, env_read_config
 import ui_richedit_classes as richedit_widget
 import ui_notes_classes as notes_widget
 import ui_item_task_classes as task_item_widget
 import thlib.tactic_classes as tc
 import thlib.global_functions as gf
+from thlib.ui_classes.ui_misc_classes import Ui_horizontalCollapsableWidget
 
 reload(ui_tasks)
 reload(richedit_widget)
 reload(notes_widget)
 reload(task_item_widget)
+
+
+class Ui_coloredComboBox(QtGui.QComboBox):
+    def __init__(self, parent=None):
+        super(self.__class__, self).__init__(parent=parent)
+
+        self.setEditable(True)
+
+        self.customize()
+
+        self.controls_actions()
+
+    def controls_actions(self):
+        self.currentIndexChanged.connect(self.index_changed)
+
+    def add_item(self, item_text, item_color=None, hex_color=None, item_data=None):
+        if hex_color:
+            c = gf.hex_to_rgb(hex_color, tuple=True)
+            item_color = Qt4Gui.QColor(c[0], c[1], c[2], 128)
+
+        if not item_color:
+            self.addItem(item_text)
+        else:
+            model = self.model()
+            item = Qt4Gui.QStandardItem(u'{0}'.format(item_text))
+            item.setBackground(item_color)
+            item.setData(item_color, 1)
+            item.setData(item_text, 2)
+            if item_data:
+                item.setData(item_data, 3)
+            model.appendRow(item)
+
+    def index_changed(self):
+        item_color = self.itemData(self.currentIndex(), 1)
+        if item_color:
+            c = item_color.toTuple()
+            rgba_color = 'rgba({0}, {1}, {2}, {3})'.format(c[0], c[1], c[2], 192)
+            self.setStyleSheet('QComboBox {background: ' + rgba_color + ';}')
+            self.customize(rgba_color)
+        else:
+            self.setStyleSheet('')
+
+    def customize(self, rgba_color=None):
+        if not rgba_color:
+            rgba_color = 'rgba(255, 255, 255, 48)'
+        line_edit = self.lineEdit()
+        line_edit.setStyleSheet("""
+            QLineEdit {
+                border: 0px;
+                border-radius: 2px;
+                show-decoration-selected: 1;
+                padding: 0px 0px;
+            """ + """background: {};""".format(rgba_color) +
+                                """ background-position: bottom left;
+                                    background-repeat: fixed;
+                                    selection-background-color: darkgray;
+                                    padding-left: 0px;
+                                }
+                                """)
+
+
+class Ui_simpleTaskWidget(QtGui.QFrame):
+    def __init__(self, process, parent_sobject, tasks_sobjects_list=None, parent=None):
+        super(self.__class__, self).__init__(parent=parent)
+
+        self.process = process
+        self.parent_sobject = parent_sobject
+        self.tasks_sobjects_list = tasks_sobjects_list
+        self.current_task_sobject = None
+        self.task_data_dict = {}
+        self.initial_task_data_dict = {}
+
+        self.create_ui()
+
+        self.create_filler()
+
+        self.controls_actions()
+
+    def controls_actions(self):
+        self.statuses_combo_box.currentIndexChanged.connect(self.statuses_combo_box_changed)
+        self.users_combo_box.currentIndexChanged.connect(self.users_combo_box_changed)
+
+        self.tasks_options_button.clicked.connect(self.open_task_menu)
+        self.save_task_button.clicked.connect(self.simple_save_task)
+
+    def create_ui(self):
+
+        self.setMinimumWidth(160)
+        self.setObjectName('simple_task_widget')
+
+        self.setStyleSheet('QFrame#simple_task_widget { border-radius: 3px; background-color: rgba(255,255,255,0);}')
+
+        self.create_main_layout()
+        self.setAutoFillBackground(True)
+        self.create_status_color_line()
+
+    def reset_ui(self):
+        self.tasks_sobjects_list = []
+        self.current_task_sobject = None
+        self.task_data_dict = {}
+        self.initial_task_data_dict = {}
+
+        self.statuses_combo_box.setCurrentIndex(0)
+        self.users_combo_box.setCurrentIndex(0)
+
+    def get_process(self):
+        return self.process
+
+    def is_task_changed(self):
+        return True
+
+    def set_something_changed(self):
+        self.setStyleSheet('QFrame#simple_task_widget { border-radius: 3px; background-color: rgba(255,255,255,24);}')
+        self.save_task_button.setHidden(False)
+
+    def set_empty_task(self):
+        self.setStyleSheet('QFrame#simple_task_widget { border-radius: 3px; background-color: rgba(255,255,255,0);}')
+        self.save_task_button.setHidden(True)
+
+    def statuses_combo_box_changed(self, index):
+        self.set_something_changed()
+
+    def users_combo_box_changed(self, index):
+        self.set_something_changed()
+
+    def create_main_layout(self):
+        self.main_layout = QtGui.QGridLayout(self)
+        self.main_layout.setSpacing(6)
+        self.main_layout.setContentsMargins(0, 0, 4, 4)
+        self.setLayout(self.main_layout)
+
+    def create_status_color_line(self):
+        self.process_color_line = QtGui.QFrame(self)
+        self.process_color_line.setMaximumSize(QtCore.QSize(2, 32))
+        self.process_color_line.setStyleSheet('QFrame { border: 0px; background-color: grey;}')
+        self.process_color_line.setFrameShadow(QtGui.QFrame.Plain)
+        self.process_color_line.setFrameShape(QtGui.QFrame.VLine)
+        self.process_color_line.setLineWidth(2)
+        self.process_color_line.setObjectName('status_color_line')
+        self.main_layout.addWidget(self.process_color_line, 0, 0, 1, 1)
+
+    def create_process_label(self):
+
+        self.process_label = QtGui.QLabel()
+        self.process_label.setText(self.process)
+
+        self.main_layout.addWidget(self.process_label, 0, 1)
+
+    def create_tasks_buttons(self):
+        self.tasks_options_button = QtGui.QToolButton()
+        self.tasks_options_button.setIcon(gf.get_icon('menu', icons_set='mdi', scale_factor=1))
+        self.tasks_options_button.setToolTip('Tasks Options')
+        self.tasks_options_button.setMaximumSize(24, 24)
+        self.tasks_options_button.setAutoRaise(True)
+
+        self.save_task_button = QtGui.QToolButton()
+        self.save_task_button.setIcon(gf.get_icon('content-save', icons_set='mdi', scale_factor=1))
+        self.save_task_button.setToolTip('Save Task')
+        self.save_task_button.setMaximumSize(24, 24)
+        self.save_task_button.setAutoRaise(True)
+        self.save_task_button.setHidden(True)
+
+        self.main_layout.addWidget(self.save_task_button, 0, 2)
+        self.main_layout.addWidget(self.tasks_options_button, 0, 3)
+
+    def open_task_menu(self):
+        menu = self.watch_items_menu()
+        if menu:
+            menu.exec_(Qt4Gui.QCursor.pos())
+
+    def watch_items_menu(self):
+
+        add_task = QtGui.QAction('Add Task', self.tasks_options_button)
+        add_task.setIcon(gf.get_icon('plus', icons_set='mdi', scale_factor=1))
+        add_task.triggered.connect(self.add_new_task)
+
+        edit_task = QtGui.QAction('Edit Task', self.tasks_options_button)
+        edit_task.setIcon(gf.get_icon('square-edit-outline', icons_set='mdi', scale_factor=1))
+
+        delete_task = QtGui.QAction('Delete Task', self.tasks_options_button)
+        delete_task.setIcon(gf.get_icon('delete-forever', icons_set='mdi', scale_factor=1))
+        delete_task.triggered.connect(self.delete_task)
+
+        # enable_watch = QtGui.QAction('Enable Watch', self.tasks_options_button)
+        # enable_watch.setIcon(gf.get_icon('eye'))
+        #
+        # disable_watch = QtGui.QAction('Disable Watch', self.tasks_options_button)
+        # disable_watch.setIcon(gf.get_icon('eye-slash'))
+
+        menu = QtGui.QMenu()
+
+        menu.addAction(add_task)
+
+        if self.tasks_sobjects_list:
+
+            menu.addAction(edit_task)
+            menu.addAction(delete_task)
+            menu.addSeparator()
+
+            for task_sobject in self.tasks_sobjects_list:
+                task_action = QtGui.QAction(u'Task: {0} / {1}'.format(
+                    task_sobject.get_value('context'),
+                    task_sobject.get_value('assigned')
+                ), self.tasks_options_button)
+
+                task_action.setCheckable(True)
+
+                if task_sobject == self.current_task_sobject:
+                    task_action.setChecked(True)
+                elif task_sobject.get_value('login') == env_inst.get_current_login():
+                    task_action.setChecked(True)
+
+                task_action.triggered.connect(partial(self.customize_by_task_sobject, task_sobject))
+
+                menu.addAction(task_action)
+
+        return menu
+
+    def create_statuses_combo(self):
+        self.statuses_combo_box = Ui_coloredComboBox()
+        self.statuses_combo_box.add_item('--status--', hex_color='#303030')
+
+        self.main_layout.addWidget(self.statuses_combo_box, 1, 1, 1, 3)
+
+    def create_users_combo(self):
+        self.users_combo_box = Ui_coloredComboBox()
+        self.users_combo_box.add_item('--user--', hex_color='#303030')
+
+        self.main_layout.addWidget(self.users_combo_box, 2, 1, 1, 3)
+
+    def set_tasks_sobjects(self, tasks_sobjects_list):
+        if tasks_sobjects_list:
+            self.tasks_sobjects_list = tasks_sobjects_list
+
+        if self.tasks_sobjects_list:
+
+            # TODO multiple users view MAY BE
+
+            self.current_task_sobject = self.tasks_sobjects_list[0]
+            self.customize_by_task_sobject(self.current_task_sobject)
+
+    def customize_by_task_sobject(self, task_sobject):
+        self.current_task_sobject = task_sobject
+
+        if self.current_task_sobject:
+            self.customize_statuses_combo(task_sobject)
+            self.customize_users_combo(task_sobject)
+            self.customize_process_label()
+
+        self.save_task_button.setHidden(True)
+
+    def create_filler(self):
+
+        self.create_process_label()
+
+        self.create_tasks_buttons()
+
+        self.create_statuses_combo()
+        self.fill_statuses_combo()
+
+        self.create_users_combo()
+        self.fill_users_combo()
+
+    def get_process_info(self):
+        stype = self.parent_sobject.get_stype()
+        parent_sobject_pipeline_code = self.parent_sobject.get_pipeline_code()
+
+        current_pipeline = stype.get_pipeline().get(parent_sobject_pipeline_code)
+        process_info = current_pipeline.get_process_info(self.process)
+
+        return process_info
+
+    def get_process_label(self):
+        process_info = self.get_process_info()
+
+        if process_info:
+            process_label = process_info.get('label')
+            if process_label:
+                return process_label
+            else:
+                return self.process
+        else:
+            return self.process
+
+    def fill_statuses_combo(self):
+        stype = self.parent_sobject.get_stype()
+        parent_sobject_pipeline_code = self.parent_sobject.get_pipeline_code()
+        workflow = stype.get_workflow()
+        tasks_pipelines = workflow.get_by_stype_code('sthpw/task')
+
+        current_pipeline = stype.get_pipeline().get(parent_sobject_pipeline_code)
+        process_info = self.get_process_info()
+
+        if process_info:
+            process_label = process_info.get('label')
+            if process_label:
+                self.process_label.setText(process_label)
+
+            process_color = process_info.get('color')
+            if not process_color:
+                process = current_pipeline.get_process(self.process)
+                if process:
+                    process_color = process.get('color')
+            if process_color:
+                self.process_color_line.setStyleSheet('QFrame { border: 0px; background-color: %s;}' % process_color)
+
+            task_pipeline_code = process_info.get('task_pipeline')
+            if task_pipeline_code:
+                task_pipeline = tasks_pipelines.get(task_pipeline_code)
+
+                # for task_status in task_pipeline.get_all_processes_names():
+                #     self.statuses_combo_box.addItem(task_status)
+
+                for process, value in task_pipeline.process.items():
+                    self.statuses_combo_box.add_item(process, hex_color=value.get('color'))
+
+    def customize_statuses_combo(self, task_sobject):
+
+        task_status = task_sobject.get_value('status')
+        self.initial_task_data_dict['status'] = task_status
+        status_index = self.statuses_combo_box.findText(task_status)
+        if status_index != -1:
+            self.statuses_combo_box.setCurrentIndex(status_index)
+
+    def fill_users_combo(self):
+
+        current_login = env_inst.get_current_login_object()
+
+        stype = self.parent_sobject.get_stype()
+        parent_sobject_pipeline_code = self.parent_sobject.get_pipeline_code()
+
+        current_pipeline = stype.get_pipeline().get(parent_sobject_pipeline_code)
+        process_info = current_pipeline.get_process_info(self.process)
+
+        if process_info:
+            assigned_login_group_code = process_info.get('assigned_login_group')
+            assigned_login_group = current_login.get_login_group(assigned_login_group_code)
+
+            if assigned_login_group:
+                group_logins = assigned_login_group.get_logins()
+                if group_logins:
+                    for i, login in enumerate(group_logins):
+                        self.users_combo_box.setItemData(i, login.get_login(), QtCore.Qt.UserRole)
+                        self.users_combo_box.add_item(login.get_display_name(), hex_color='#484848')
+            else:
+                all_logins = env_inst.get_all_logins().values()
+                for i, login in enumerate(all_logins):
+                    self.users_combo_box.setItemData(i, login.get_login(), QtCore.Qt.UserRole)
+                    self.users_combo_box.add_item(login.get_display_name(), hex_color='#484848')
+
+    def customize_users_combo(self, task_sobject):
+
+        task_login = task_sobject.get_value('assigned')
+        self.initial_task_data_dict['assigned'] = task_login
+        user_index = self.users_combo_box.findData(task_login)
+        if user_index != -1:
+            self.users_combo_box.setCurrentIndex(user_index+1)
+
+    def customize_process_label(self):
+        if len(self.tasks_sobjects_list) > 0:
+            self.process_label.setText(u'{} | {}'.format(self.get_process_label(), len(self.tasks_sobjects_list)))
+        else:
+            self.process_label.setText(self.get_process_label())
+
+    def get_changed_data(self):
+
+        users_combo_index = self.users_combo_box.currentIndex()
+        new_login = self.users_combo_box.itemData(users_combo_index-1, QtCore.Qt.UserRole)
+        new_login_text = self.users_combo_box.itemText(users_combo_index)
+
+        status_combo_index = self.statuses_combo_box.currentIndex()
+        new_status = self.statuses_combo_box.itemText(status_combo_index)
+
+        if new_login_text == '--user--':
+            self.task_data_dict['assigned'] = new_login_text
+        elif new_login:
+            # we only get data if something changed
+            initial_login = self.initial_task_data_dict.get('assigned')
+            if initial_login:
+                if initial_login != new_login:
+                    self.task_data_dict['assigned'] = new_login
+            else:
+                self.task_data_dict['assigned'] = new_login
+
+        if new_status:
+            # we only get data if something changed
+            initial_status = self.initial_task_data_dict.get('status')
+            if initial_status:
+                if initial_status != new_status:
+                    self.task_data_dict['status'] = new_status
+            else:
+                self.task_data_dict['status'] = new_status
+
+        return self.task_data_dict
+
+    def fill_process_label(self, label_text):
+        if self.tasks_sobjects_list:
+            self.process_label.setText(u'{} | {}'.format(label_text, len(self.tasks_sobjects_list)))
+        else:
+            self.process_label.setText(u'{}'.format(label_text))
+
+    def add_new_task(self):
+        print 'Adding new task'
+        from thlib.ui_classes.ui_addsobject_classes import Ui_addTacticSobjectWidget
+
+        tasks_stype = env_inst.get_stype_by_code('sthpw/task')
+        parent_stype = self.parent_sobject.get_stype()
+        search_key = self.parent_sobject.get_search_key()
+
+        print search_key
+
+        add_sobject = Ui_addTacticSobjectWidget(
+            stype=tasks_stype,
+            parent_stype=parent_stype,
+            # search_key=search_key,
+            parent_search_key=search_key,
+            # view='edit',
+            parent=self,
+        )
+
+        add_sobject.show()
+
+        return add_sobject
+
+    def refresh_tasks_sobjects(self):
+        tasks_sobjects, info = self.parent_sobject.get_tasks_sobjects(process=self.process)
+        if tasks_sobjects:
+            self.set_tasks_sobjects(tasks_sobjects.values())
+        else:
+            self.reset_ui()
+            self.set_empty_task()
+            self.customize_process_label()
+
+    def delete_task(self):
+        self.current_task_sobject.delete_sobject(include_dependencies=True)
+        self.refresh_tasks_sobjects()
+
+    def simple_save_task(self):
+
+        self.save_task_button.setHidden(True)
+        changed_data = self.get_changed_data()
+
+        # fetching data to commit
+        if changed_data:
+            do_commit = False
+            data = {}
+            for column, val in changed_data.items():
+                if val not in ['--user--', '--status--']:
+                    do_commit = True
+                    if self.current_task_sobject:
+                        self.current_task_sobject.set_value(column, val)
+                    else:
+                        # If no current tasks we create it later
+                        data[column] = val
+                elif self.initial_task_data_dict.get(column) != val:
+                    if self.current_task_sobject:
+                        do_commit = True
+                        self.current_task_sobject.set_value(column, '')
+            if do_commit:
+                if self.current_task_sobject:
+                    self.current_task_sobject.commit(triggers=False)
+                else:
+                    data['process'] = self.process
+                    tc.server_start(project=self.parent_sobject.project.get_code()).insert(
+                        'sthpw/task',
+                        data,
+                        parent_key=self.parent_sobject.get_search_key(),
+                        triggers=False
+                    )
+                    self.refresh_tasks_sobjects()
+            else:
+                self.set_empty_task()
+
+
+class Ui_tasksDockWidget(QtGui.QWidget):
+    def __init__(self, project=None, parent=None):
+        super(self.__class__, self).__init__(parent=parent)
+
+        self.project = project
+        self.sobject = None
+        self.task_widgets_list = []
+        self.tasks_sobjects = None
+
+        self.create_ui()
+        self.controls_actions()
+
+    def controls_actions(self):
+        self.save_button.clicked.connect(self.save_tasks)
+        self.refresh_button.clicked.connect(self.refresh_tasks)
+
+    def create_ui(self):
+
+        self.create_main_layout()
+
+        self.create_toolbar()
+        self.create_options_toolbar()
+
+        self.create_stretch()
+
+        self.create_scroll_area()
+
+        self.create_no_notes_label()
+
+    def create_main_layout(self):
+        self.main_layout = QtGui.QGridLayout(self)
+        self.main_layout.setSpacing(0)
+        self.main_layout.setContentsMargins(0, 0, 0, 0)
+        self.setLayout(self.main_layout)
+
+    def create_toolbar(self):
+
+        self.collapsable_toolbar = Ui_horizontalCollapsableWidget()
+        buttons_layout = QtGui.QHBoxLayout()
+        buttons_layout.setSpacing(0)
+        buttons_layout.setContentsMargins(0, 0, 0, 0)
+        self.collapsable_toolbar.set_direction('right')
+        self.collapsable_toolbar.setLayout(buttons_layout)
+        self.collapsable_toolbar.setCollapsed(False)
+
+        self.save_button = QtGui.QToolButton()
+        self.save_button.setAutoRaise(True)
+        self.save_button.setIcon(gf.get_icon('content-save', icons_set='mdi', scale_factor=1))
+        self.save_button.setToolTip('Save Current Changes')
+
+        self.refresh_button = QtGui.QToolButton()
+        self.refresh_button.setAutoRaise(True)
+        self.refresh_button.setIcon(gf.get_icon('refresh', icons_set='mdi', scale_factor=1.3))
+        self.refresh_button.setToolTip('Refresh Current Tasks')
+
+        buttons_layout.addWidget(self.save_button)
+        buttons_layout.addWidget(self.refresh_button)
+
+        self.main_layout.addWidget(self.collapsable_toolbar, 0, 0, 1, 1)
+
+    def create_options_toolbar(self):
+
+        self.collapsable_options_toolbar = Ui_horizontalCollapsableWidget()
+        buttons_layout = QtGui.QHBoxLayout()
+        buttons_layout.setSpacing(0)
+        buttons_layout.setContentsMargins(0, 0, 0, 0)
+        self.collapsable_options_toolbar.set_direction('right')
+        self.collapsable_options_toolbar.setLayout(buttons_layout)
+        self.collapsable_options_toolbar.setCollapsed(True)
+
+        self.auto_save_check_box = QtGui.QCheckBox('Autosave')
+        self.auto_save_check_box.setChecked(False)
+
+        self.filter_process_check_box = QtGui.QCheckBox('Filter')
+        self.filter_process_check_box.setChecked(False)
+
+        self.process_combo_box = Ui_coloredComboBox()
+        self.process_combo_box.setEnabled(False)
+
+        QtCore.QObject.connect(
+            self.filter_process_check_box,
+            QtCore.SIGNAL("toggled(bool)"),
+            self.process_combo_box.setEnabled)
+
+        buttons_layout.addWidget(self.filter_process_check_box)
+        buttons_layout.addWidget(self.process_combo_box)
+        buttons_layout.addWidget(self.auto_save_check_box)
+
+        self.main_layout.addWidget(self.collapsable_options_toolbar, 0, 1, 1, 1)
+
+    def create_stretch(self):
+        spacerItem = QtGui.QSpacerItem(40, 20, QtGui.QSizePolicy.Expanding, QtGui.QSizePolicy.Minimum)
+        self.main_layout.addItem(spacerItem, 0, 2, 1, 1)
+        self.main_layout.setColumnStretch(2, 1)
+
+    def create_scroll_area(self):
+        from thlib.side.flowlayout import FlowLayout
+
+        self.scroll_area_contents = QtGui.QWidget()
+        self.scroll_area_contents.setContentsMargins(9, 9, 0, 0)
+
+        self.scroll_area = QtGui.QScrollArea()
+        self.scroll_area.setWidgetResizable(True)
+        self.scroll_area.setWidget(self.scroll_area_contents)
+
+        self.scroll_area_layout = FlowLayout(self.scroll_area_contents)
+
+        self.scroll_area_layout.setAlignment(QtCore.Qt.AlignTop)
+        self.scroll_area_layout.setContentsMargins(9, 9, 0, 0)
+        self.scroll_area_layout.setSpacing(9)
+
+        self.main_layout.addWidget(self.scroll_area, 1, 0, 1, 3)
+
+    def create_no_notes_label(self):
+        self.no_notes_label = QtGui.QLabel()
+        self.no_notes_label.setMinimumSize(0, 0)
+        self.no_notes_label.setText('Select Item to See Tasks...')
+        self.no_notes_label.setAlignment(QtCore.Qt.AlignHCenter | QtCore.Qt.AlignVCenter)
+
+        self.scroll_area_layout.addWidget(self.no_notes_label)
+
+    def toggle_no_notes_label(self):
+        if self.no_notes_label.isVisible():
+            self.no_notes_label.setHidden(True)
+        else:
+            self.no_notes_label.setHidden(False)
+
+    def save_tasks(self):
+        # groupped_tasks_sobjects = tc.group_sobject_by(self.tasks_sobjects, 'process')
+
+        # for process, task_sobjects in groupped_tasks_sobjects.items():
+        for task_widget in self.task_widgets_list:
+            print task_widget.is_task_changed()
+            # if task_widget.get_process() == process:
+            #     task_widget.set_tasks_sobjects(task_sobjects)
+
+    def refresh_tasks(self):
+        self.create_filler_tasks()
+
+        self.query_tasks()
+        self.fill_tasks()
+
+    def query_tasks(self):
+        self.tasks_sobjects, info = self.sobject.get_tasks_sobjects()
+
+    def create_filler_tasks(self):
+        self.clear_scroll_area()
+        self.process_combo_box.clear()
+
+        stype = self.sobject.get_stype()
+        # getting all possible processes here
+        processes = []
+        pipeline_code = self.sobject.get_pipeline_code()
+        current_pipeline = None
+        if pipeline_code and stype.pipeline:
+            current_pipeline = stype.pipeline.get(pipeline_code)
+            if current_pipeline:
+                processes = current_pipeline.process.keys()
+
+        # if self.ignore_dict:
+        #     if self.ignore_dict.get('show_builtins'):
+        #         show_all = True
+        #         for builtin in ['icon', 'attachment', 'publish']:
+        #             if builtin not in self.ignore_dict['builtins']:
+        #                 processes.append(builtin)
+        #                 show_all = False
+        #         if show_all:
+        #             processes.extend(['icon', 'attachment', 'publish'])
+
+        for process in processes:
+            process_info = current_pipeline.get_process_info(process)
+
+            ignored = False
+
+            # Ignoring PROGRESS, ACTION, CONDITION processes
+            # TODO Special case for progress, we should fetch completeness of progress node as in tactic.
+            if process_info.get('type') in ['action', 'condition', 'dependency', 'progress']:
+                ignored = True
+
+            if not ignored:
+                # Filling process combo box
+                if process_info:
+                    process_color = process_info.get('color')
+                    if not process_color:
+                        process_object = current_pipeline.get_process(process)
+                        if process_object:
+                            process_color = process_object.get('color')
+
+                    process_label = process_info.get('label')
+                    if process_label:
+                        if process_color:
+                            self.process_combo_box.add_item(process_label, hex_color=process_color, item_data=process)
+                        else:
+                            self.process_combo_box.add_item(process_label, hex_color='#484848', item_data=process)
+                    else:
+                        self.process_combo_box.add_item(process, hex_color='#484848', item_data=process)
+                else:
+                    self.process_combo_box.add_item(process, hex_color='#484848', item_data=process)
+
+                # creating and adding Simple task widgets
+                task_widget = Ui_simpleTaskWidget(process, self.sobject)
+                self.task_widgets_list.append(task_widget)
+                self.scroll_area_layout.addWidget(task_widget)
+
+    def clear_scroll_area(self):
+        self.scroll_area_layout.clear_items()
+
+    def fill_tasks(self):
+        groupped_tasks_sobjects = tc.group_sobject_by(self.tasks_sobjects, 'process')
+
+        for process, task_sobjects in groupped_tasks_sobjects.items():
+            for task_widget in self.task_widgets_list:
+                if task_widget.get_process() == process:
+                    task_widget.set_tasks_sobjects(task_sobjects)
+
+        self.set_dock_title(u'Tasks For: {0}'.format(self.sobject.get_title()))
+
+    def bring_dock_widget_up(self):
+
+        related_tasks_dock = env_inst.get_check_tree(
+            self.project.get_code(), 'checkin_out_instanced_widgets', 'tasks_dock')
+
+        dock_widget = related_tasks_dock.parent()
+        if dock_widget:
+            if isinstance(dock_widget, QtGui.QDockWidget):
+                dock_widget.setHidden(False)
+                dock_widget.raise_()
+
+    def set_dock_title(self, title_string):
+
+        related_tasks_dock = env_inst.get_check_tree(
+            self.project.get_code(), 'checkin_out_instanced_widgets', 'tasks_dock')
+
+        dock_widget = related_tasks_dock.parent()
+        if dock_widget:
+            if isinstance(dock_widget, QtGui.QDockWidget):
+                dock_widget.setWindowTitle(title_string)
+
+    def set_sobject(self, sobject):
+
+        self.task_widgets_list = []
+
+        # self.no_notes_label.setVisible(False)
+        self.sobject = sobject
+
+        self.create_filler_tasks()
+
+        self.query_tasks()
+        self.fill_tasks()
 
 
 class Ui_tasksWidgetMain(QtGui.QMainWindow):

@@ -193,7 +193,7 @@ class Ui_processFilterDialog(QtGui.QDialog):
         self.tree_widget.setSelectionMode(QtGui.QAbstractItemView.ExtendedSelection)
         self.tree_widget.setHeaderHidden(True)
         self.tree_widget.setObjectName('tree_widget')
-        self.tree_widget.setStyleSheet('QTreeView::item {padding: 2px;}')
+        self.tree_widget.setStyleSheet(gf.get_qtreeview_style())
         # self.tree_widget.setRootIsDecorated(False)
 
         self.grid.addWidget(self.tree_widget, 0, 0, 1, 2)
@@ -442,7 +442,7 @@ class Ui_searchWidget(QtGui.QWidget):
         self.add_new_tab_button.setAutoRaise(True)
         self.add_new_tab_button.setMinimumWidth(20)
         self.add_new_tab_button.setMinimumHeight(20)
-        self.add_new_tab_button.setIcon(gf.get_icon('plus', icons_set='mdi', scale_factor=1.3))
+        self.add_new_tab_button.setIcon(gf.get_icon('plus', icons_set='mdi', scale_factor=1.2))
         self.add_new_tab_button.setToolTip('Add new Search Tab')
 
         self.history_tab_button = QtGui.QToolButton()
@@ -450,14 +450,14 @@ class Ui_searchWidget(QtGui.QWidget):
         self.history_tab_button.setMinimumWidth(20)
         self.history_tab_button.setMinimumHeight(20)
         self.history_tab_button.setPopupMode(QtGui.QToolButton.InstantPopup)
-        self.history_tab_button.setIcon(gf.get_icon('history', icons_set='mdi', scale_factor=1.3))
+        self.history_tab_button.setIcon(gf.get_icon('history', icons_set='mdi', scale_factor=1.2))
         self.history_tab_button.setToolTip('History of closed Search Results')
 
         self.refresh_tab_button = QtGui.QToolButton()
         self.refresh_tab_button.setAutoRaise(True)
         self.refresh_tab_button.setMinimumWidth(20)
         self.refresh_tab_button.setMinimumHeight(20)
-        self.refresh_tab_button.setIcon(gf.get_icon('refresh', icons_set='mdi', scale_factor=1.3))
+        self.refresh_tab_button.setIcon(gf.get_icon('refresh', icons_set='mdi', scale_factor=1.2))
         self.refresh_tab_button.setToolTip('Refresh current Results')
 
         self.right_buttons_layout = QtGui.QHBoxLayout()
@@ -731,42 +731,8 @@ class Ui_searchWidget(QtGui.QWidget):
     def get_current_checkin_out_widget(self):
         return env_inst.get_check_tree(self.project.get_code(), 'checkin_out', self.stype.get_code())
 
-    # def get_search_results_widget(self):
-    #     return self.search_results_widget
-    #
-    # def get_progress_bar(self):
-    #     return self.search_results_widget.get_progress_bar()
-    #
-    # def get_search_query_text(self):
-    #     return self.searchLineEdit.text()
-    #
-    # def get_process_ignore_list(self):
-    #     return self.checkin_out_widget.get_process_ignore_list()
-    #
-    # def get_current_tree_widget(self):
-    #     return self.search_results_widget.get_current_widget()
-    #
-    # def get_fast_controls_widget(self):
-    #     return self.checkin_out_widget.get_fast_controls_widget()
-    #
-    # def get_snapshot_browser(self):
-    #     return self.checkin_out_widget.snapshot_browser_widget
-    #
-    # def get_description_widget(self):
-    #     return self.checkin_out_widget.description_widget
-    #
-    # def get_drop_plate_widget(self):
-    #     return self.checkin_out_widget.drop_plate_widget
-    #
-    # def get_search_options_widget(self):
-    #     return self.checkin_out_widget.search_options_widget
-    #
     def get_current_results_widget(self):
         return self.resultsTabWidget.currentWidget()
-
-    # @gf.catch_error
-    # def open_items_context_menu(self, *args):
-    #     return self.checkin_out_widget.open_menu()
 
     @gf.catch_error
     def do_search(self, explicit_search_query=None):
@@ -797,17 +763,6 @@ class Ui_searchWidget(QtGui.QWidget):
 
     def go_by_skey(self, skey_in=None, relates_to=None):
         # TODO Need to rewrite this according to porjects tabs
-
-        # if relates_to:
-        #     self.relates_to = relates_to
-        # else:
-        #     self.relates_to = None
-        #     if self.main_tabWidget.currentWidget().objectName() == 'checkOutTab':
-        #         self.relates_to = 'checkout'
-        #     if self.main_tabWidget.currentWidget().objectName() == 'checkInTab':
-        #         self.relates_to = 'checkin'
-
-        # print(self.relates_to)
 
         if skey_in:
             skey = tc.parce_skey(skey_in)
@@ -868,7 +823,7 @@ class Ui_searchWidget(QtGui.QWidget):
             self.go_by_skey()
 
     def create_gear_menu_popup(self):
-        self.gearMenuToolButton.setIcon(gf.get_icon('cog'))
+        self.gearMenuToolButton.setIcon(gf.get_icon('settings', icons_set='mdi'))
         self.gearMenuToolButton.setMinimumSize(22, 22)
 
     def add_action_to_gear_menu(self, action):
@@ -1620,24 +1575,8 @@ class Ui_resultsFormWidget(QtGui.QWidget, ui_search_results_tree.Ui_resultsForm)
         # self.setAcceptDrops(True)
         self.create_bottom_navigation_widget()
 
-        self.resultsTreeWidget.setAlternatingRowColors(True)
+        self.customize_ui()
 
-        self.resultsTreeWidget.setStyleSheet("""
-        QAbstractItemView {
-        show-decoration-selected: 0;
-        selection-background-color: #3D7848;
-        selection-color: #DDDDDD;
-        alternate-background-color: #353535;
-        }
-        QTreeView {
-        show-decoration-selected: 0;
-        }
-        """)
-
-        self.resultsVersionsTreeWidget.setAlternatingRowColors(True)
-
-        # self.create_results_tree_widgets()
-        # self.update_search_results()
         self.initial_load_results()
 
         self.controls_actions()
@@ -1796,69 +1735,7 @@ class Ui_resultsFormWidget(QtGui.QWidget, ui_search_results_tree.Ui_resultsForm)
 
         self.set_filters(adv_search_widget.get_filters(check_valid))
 
-    # def create_results_tree_widgets(self):
-    #
-    #     self.resultsTreeWidget.setAcceptDrops(True)
-    #     self.resultsTreeWidget.setDragDropMode(QtGui.QAbstractItemView.DragDrop)
-    #
-    #     self.resultsTreeWidget.dragEnterEvent = self.resultsTreeWidget_dragEnterEvent
-    #     self.resultsTreeWidget.dragLeaveEvent = self.resultsTreeWidget_dragLeaveEvent
-    #     self.resultsTreeWidget.dragMoveEvent = self.resultsTreeWidget_dragMoveEvent
-    #     self.resultsTreeWidget.dropEvent = self.resultsTreeWidget_dropEvent
-    #
-    #     # self.resultsVersionsTreeWidget.setAcceptDrops(True)
-    #     # self.resultsVersionsTreeWidget.setDragDropMode(QtGui.QAbstractItemView.DragOnly)
-    #     self.trees_items = set()
-    #
-    # def resultsTreeWidget_dragLeaveEvent(self, event):
-    #
-    #     for i in self.trees_items:
-    #         i.set_drop_indicator_off()
-    #
-    #     self.trees_items = set()
-    #
-    #     event.accept()
-    #
-    # def resultsTreeWidget_dragEnterEvent(self, event):
-    #
-    #     if event.mimeData().hasUrls:
-    #         event.accept()
-    #     else:
-    #         event.ignore()
-    #
-    # def resultsTreeWidget_dragMoveEvent(self, event):
-    #
-    #     tree_item = self.resultsTreeWidget.itemAt(event.pos())
-    #     tree_item_widget = self.resultsTreeWidget.itemWidget(tree_item, 0)
-    #     self.trees_items.add(tree_item_widget)
-    #
-    #     if tree_item_widget:
-    #         tree_item_widget.set_drop_indicator_on()
-    #
-    #     if event.mimeData().hasUrls:
-    #         event.setDropAction(QtCore.Qt.CopyAction)
-    #         event.accept()
-    #     else:
-    #         event.ignore()
-    #
-    # def resultsTreeWidget_dropEvent(self, event):
-    #     if event.mimeData().hasUrls:
-    #         event.setDropAction(QtCore.Qt.CopyAction)
-    #         event.accept()
-    #         links = []
-    #         for url in event.mimeData().urls():
-    #             links.append(unicode(url.toLocalFile()))
-    #         # self.append_items_to_tree(links)
-    #         print links
-    #     else:
-    #         event.ignore()
-
     def controls_actions(self):
-        # Tree widget actions
-        # self.resultsTreeWidget.itemPressed.connect(lambda:  self.set_current_results_tree_widget_item(
-        #     self.resultsTreeWidget))
-        # self.resultsTreeWidget.itemPressed.connect(self.load_preview)
-        # self.resultsTreeWidget.itemPressed.connect(self.fill_versions_items)
         self.resultsTreeWidget.itemSelectionChanged.connect(self.selection_changed)
         self.resultsTreeWidget.setContextMenuPolicy(QtCore.Qt.CustomContextMenu)
         self.resultsTreeWidget.customContextMenuRequested.connect(self.open_item_context_menu)
@@ -1866,8 +1743,6 @@ class Ui_resultsFormWidget(QtGui.QWidget, ui_search_results_tree.Ui_resultsForm)
         self.resultsTreeWidget.itemCollapsed.connect(self.send_collapse_event_to_item)
         self.resultsTreeWidget.itemExpanded.connect(self.send_expand_event_to_item)
         self.resultsTreeWidget.itemDoubleClicked.connect(self.send_item_double_click)
-
-        # self.resultsTreeWidget.setSelectionMode(QtGui.QAbstractItemView.ExtendedSelection)
 
         # Separate Snapshots tree widget actions
         self.resultsVersionsTreeWidget.itemPressed.connect(lambda: self.set_current_results_versions_tree_widget_item(
@@ -1877,6 +1752,18 @@ class Ui_resultsFormWidget(QtGui.QWidget, ui_search_results_tree.Ui_resultsForm)
         self.resultsVersionsTreeWidget.setContextMenuPolicy(QtCore.Qt.CustomContextMenu)
         self.resultsVersionsTreeWidget.customContextMenuRequested.connect(self.open_item_context_menu)
         self.resultsVersionsTreeWidget.itemDoubleClicked.connect(self.send_item_double_click)
+
+    def customize_ui(self):
+
+        # self.resultsTreeWidget.setSelectionMode(QtGui.QAbstractItemView.ExtendedSelection)
+
+        self.resultsTreeWidget.setAlternatingRowColors(True)
+        self.resultsTreeWidget.setStyleSheet(gf.get_qtreeview_style())
+        self.resultsTreeWidget.setFocusPolicy(QtCore.Qt.NoFocus)
+
+        self.resultsVersionsTreeWidget.setAlternatingRowColors(True)
+        self.resultsVersionsTreeWidget.setStyleSheet(gf.get_qtreeview_style())
+        self.resultsVersionsTreeWidget.setFocusPolicy(QtCore.Qt.NoFocus)
 
     def get_current_results_tree_widget(self):
         return self.resultsTreeWidget
@@ -2220,13 +2107,18 @@ class Ui_resultsFormWidget(QtGui.QWidget, ui_search_results_tree.Ui_resultsForm)
         snapshot_browser = checkin_out_widget.get_snapshot_browser()
         snapshot_browser.set_item_widget(item)
 
+    # def browse_tasks(self, item):
+    #     checkin_out_widget = self.get_current_checkin_out_widget()
+    #     tasks_widget = checkin_out_widget.get_tasks_widget()
+    #     tasks_widget.set_sobject(item.get_sobject())
+
     @gf.catch_error
     def load_preview(self, *args):
         nested_item = self.current_tree_widget_item
+
         self.browse_snapshot(nested_item)
 
-        # TODO Make skey line
-        # env_inst.ui_main_tabs[self.project.get_code()].skeyLineEdit.setText(nested_item.get_skey(True))
+        # self.browse_tasks(nested_item)
 
         checkin_out_widget = self.get_current_checkin_out_widget()
 
@@ -2295,17 +2187,7 @@ class Ui_simpleResultsFormWidget(QtGui.QWidget):
         self.create_progress_bar()
         self.create_bottom_navigation_widget()
 
-        self.results_tree_widget.setStyleSheet("""
-        QAbstractItemView {
-        show-decoration-selected: 0;
-        selection-background-color: #3D7848;
-        selection-color: #DDDDDD;
-        alternate-background-color: #353535;
-        }
-        QTreeView {
-        show-decoration-selected: 0;
-        }
-        """)
+        self.results_tree_widget.setStyleSheet(gf.get_qtreeview_style())
 
         self.initial_load_results()
 
@@ -2330,6 +2212,7 @@ class Ui_simpleResultsFormWidget(QtGui.QWidget):
         self.results_tree_widget.setSelectionMode(QtGui.QAbstractItemView.ExtendedSelection)
         self.results_tree_widget.setAlternatingRowColors(True)
         self.results_tree_widget.setObjectName("results_tree_widget")
+        self.results_tree_widget.setStyleSheet(gf.get_qtreeview_style())
 
         self.resultsLayout.addWidget(self.results_tree_widget)
 

@@ -588,6 +588,7 @@ class Ui_repositoryEditorWidget(QtGui.QDialog):
         self.repos_tree_widget.setRootIsDecorated(False)
         self.repos_tree_widget.setHeaderHidden(True)
         self.repos_tree_widget.setObjectName('repos_tree_widget')
+        self.repos_tree_widget.setStyleSheet(gf.get_qtreeview_style())
 
         self.main_layout.addWidget(self.repos_tree_widget, 2, 0, 2, 1)
 

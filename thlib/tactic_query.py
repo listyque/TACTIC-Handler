@@ -133,7 +133,7 @@ def query_EditWdg(args=None, search_type=''):
     input_widgets = widget.get_widgets()
     wdg_config = WidgetConfigView.get_by_element_names(search_type, widget.element_names, base_view=args['view'])
 
-    temprorary_ignore = ['pyasm.prod.web.prod_input_wdg.ProjectSelectWdg']
+    temprorary_ignore = ['pyasm.prod.web.prod_input_wdg.ProjectSelectWdg', 'tactic.ui.input.process_context_wdg.ProcessInputWdg']
     # , 'pyasm.widget.input_wdg.SelectWdg' bug with this widget
 
     for i_widget in input_widgets:
@@ -368,10 +368,10 @@ def query_search_types_extended(project_code, namespace):
     import json
     from pyasm.biz import Project
     from pyasm.search import Search
-    # api = server.server
-    # get_sobject_dict = api.get_sobject_dict
-
     from pyasm.search import SearchKey
+
+    from pyasm.widget import WidgetConfigView
+    from pyasm.search import WidgetDbConfig
 
     def get_sobject_dict(sobject):
         search_key = SearchKey.get_by_sobject(sobject, use_id=False)
@@ -380,12 +380,14 @@ def query_search_types_extended(project_code, namespace):
 
         return sobj
 
-    prj = Project.get_by_code(project_code)
-
-    stypes = prj.get_search_types()
-
-    from pyasm.widget import WidgetConfigView
-    from pyasm.search import WidgetDbConfig
+    if project_code == 'sthpw':
+        search = Search('sthpw/search_object')
+        search.add_filters('code', ['sthpw/task'])
+        search.add_order_by('search_type')
+        stypes = search.get_sobjects()
+    else:
+        prj = Project.get_by_code(project_code)
+        stypes = prj.get_search_types()
 
     all_stypes = []
     # longest time consuming part, don't know how to optimize yet

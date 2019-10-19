@@ -407,6 +407,7 @@ class Ui_repoSyncItemWidget(QtGui.QWidget):
                                             'QProgressBar::chunk {background-color: rgba(30,160,30,128);}')
         self.progress_bar_wdg.setFormat('Download Finished')
         self.is_downloaded = True
+        self.downloaded.emit(self.file_object)
 
     def set_download_ufinished(self):
         self.progress_bar_wdg.setStyleSheet('QProgressBar {border:0px; background-color: transparent;}'
@@ -424,43 +425,44 @@ class Ui_repoSyncItemWidget(QtGui.QWidget):
                                             'QProgressBar::chunk {background-color: rgba(200,20,10,64);}')
         self.progress_bar_wdg.setFormat('Download Failed')
         self.is_downloaded = False
-
-    def download_done(self):
-
-        self.set_download_finished()
-
-        self.is_downloaded = True
         self.downloaded.emit(self.file_object)
+
+    # def download_done(self):
+    #
+    #     self.set_download_finished()
+    #
+    #     self.is_downloaded = True
+    #     self.downloaded.emit(self.file_object)
 
     def download_progress(self, progress, info_dict=None):
         self.set_progress_indicator_on()
         self.set_progress_status(progress, info_dict)
 
-    def download_def(self):
-
-        def download_file_agent():
-            # print '5.1 Begin downloading'
-            info_dict = {
-                'status_text': 'Downloading File',
-                'total_count': 2
-            }
-            download_file_worker.emit_progress(0, info_dict)
-
-            self.file_object.download_file()
-            download_file_worker.emit_progress(1, info_dict)
-
-        # print '4 Getting thread pool'
-        # print env_inst.get_thread_pool('server_query/http_download_pool')
-        download_file_worker = gf.get_thread_worker(
-            download_file_agent,
-            env_inst.get_thread_pool('server_query/http_download_pool'),
-            finished_func=self.download_done,
-            progress_func=self.download_progress,
-            error_func=gf.error_handle,
-        )
-        # print '5 Starting worker'
-        # stypes_items_worker.setAutoDelete(True)
-        download_file_worker.start()
+    # def download_def(self):
+    #
+    #     def download_file_agent():
+    #         # print '5.1 Begin downloading'
+    #         info_dict = {
+    #             'status_text': 'Downloading File',
+    #             'total_count': 2
+    #         }
+    #         download_file_worker.emit_progress(0, info_dict)
+    #
+    #         self.file_object.download_file()
+    #         download_file_worker.emit_progress(1, info_dict)
+    #
+    #     # print '4 Getting thread pool'
+    #     # print env_inst.get_thread_pool('server_query/http_download_pool')
+    #     download_file_worker = gf.get_thread_worker(
+    #         download_file_agent,
+    #         env_inst.get_thread_pool('server_query/http_download_pool'),
+    #         finished_func=self.download_done,
+    #         progress_func=self.download_progress,
+    #         error_func=gf.error_handle,
+    #     )
+    #     # print '5 Starting worker'
+    #     # stypes_items_worker.setAutoDelete(True)
+    #     download_file_worker.start()
 
     def set_network_manager(self, network_manager):
         self.network_manager = network_manager
@@ -545,7 +547,7 @@ class Ui_itemWidget(QtGui.QWidget, ui_item.Ui_item):
         self.forced_creation()
 
     def controls_actions(self):
-        self.tasksToolButton.clicked.connect(self.create_tasks_window)
+        self.tasksToolButton.clicked.connect(self.show_tasks_dock)
         self.relationsToolButton.clicked.connect(self.drop_down_children)
         self.syncWithRepoToolButton.clicked.connect(self.create_sync_dialog)
         self.notesToolButton.clicked.connect(self.show_notes_widget)
@@ -630,12 +632,18 @@ class Ui_itemWidget(QtGui.QWidget, ui_item.Ui_item):
         self.overlay_layout_widget.setHidden(False)
         self.show()
 
-    def create_tasks_window(self):
-        try:
-            self.tasks_widget.show()
-        except:
-            self.tasks_widget = tasks_widget.Ui_tasksWidgetMain(self.sobject, self)
-            self.tasks_widget.show()
+    def show_tasks_dock(self):
+
+        project = self.sobject.get_project()
+        tasks_widget = env_inst.get_check_tree(project.get_code(), 'checkin_out_instanced_widgets', 'tasks_dock')
+        tasks_widget.set_sobject(self.sobject)
+        tasks_widget.bring_dock_widget_up()
+
+        # try:
+        #     self.tasks_widget.show()
+        # except:
+        #     self.tasks_widget = tasks_widget.Ui_tasksWidgetMain(self.sobject, self)
+        #     self.tasks_widget.show()
 
     def create_watch_folder_button(self):
         self.watchFolderToolButton.setIcon(gf.get_icon('eye-slash', color=Qt4Gui.QColor(160, 160, 160)))
@@ -921,7 +929,7 @@ class Ui_itemWidget(QtGui.QWidget, ui_item.Ui_item):
                         self.download_and_set_preview_file(icon_previw)
 
     def download_and_set_preview_file(self, file_object):
-        repo_sync_item = env_inst.ui_repo_sync_queue.download_file_object(file_object)
+        repo_sync_item = env_inst.ui_repo_sync_queue.schedule_file_object(file_object)
         repo_sync_item.downloaded.connect(self.set_preview_pixmap)
         repo_sync_item.download()
 
@@ -2324,7 +2332,7 @@ class Ui_snapshotItemWidget(QtGui.QWidget, ui_item_snapshot.Ui_snapshotItem):
                 self.set_ext_preview(tactic_file_object)
 
     def download_and_set_preview_file(self, file_object):
-        repo_sync_item = env_inst.ui_repo_sync_queue.download_file_object(file_object)
+        repo_sync_item = env_inst.ui_repo_sync_queue.schedule_file_object(file_object)
         repo_sync_item.downloaded.connect(self.set_preview_pixmap)
         repo_sync_item.download()
 
@@ -2664,7 +2672,7 @@ class Ui_childrenItemWidget(QtGui.QWidget):
         self.horizontalLayout.setObjectName("horizontalLayout")
 
         self.resize(52, 25)
-        self.setStyleSheet("QTreeView::item {border-width: 0px;    border-radius: 0px;padding: 0px;}")
+        # self.setStyleSheet("QTreeView::item {border-width: 0px;    border-radius: 0px;padding: 0px;}")
 
     def create_children_tool_button(self):
 
@@ -3015,7 +3023,7 @@ class Ui_childrenItemWidget(QtGui.QWidget):
         self.deleteLater()
         event.accept()
 
-
+# NOT USED
 class Ui_groupItemWidget(QtGui.QWidget):
     def __init__(self, sobject, stype, info, parent=None):
         super(self.__class__, self).__init__(parent=parent)
@@ -3080,7 +3088,6 @@ class Ui_groupItemWidget(QtGui.QWidget):
         self.horizontalLayout.setObjectName("horizontalLayout")
 
         self.resize(52, 25)
-        self.setStyleSheet("QTreeView::item {border-width: 0px;    border-radius: 0px;padding: 0px;}")
 
     def create_children_tool_button(self):
 

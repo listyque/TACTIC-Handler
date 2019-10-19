@@ -189,6 +189,7 @@ class Ui_horizontalCollapsableWidget(QtGui.QWidget):
         self.create_ui()
 
         self.collapse_state = False
+        self.__direction = 'left'
         self.__collapsedTex = ''
         self.__text = ''
 
@@ -218,6 +219,9 @@ class Ui_horizontalCollapsableWidget(QtGui.QWidget):
     def __controlsActions(self):
         self.collapseToolButton.clicked.connect(self.__toggleCollapseState)
 
+    def set_direction(self, direction):
+        self.__direction = direction
+
     def setText(self, text):
         self.__text = text
         self.collapseToolButton.setText(self.__text)
@@ -234,13 +238,19 @@ class Ui_horizontalCollapsableWidget(QtGui.QWidget):
 
         if state:
             self.collapse_state = True
-            self.collapseToolButton.setIcon(gf.get_icon('angle-left'))
+            if self.__direction == 'left':
+                self.collapseToolButton.setIcon(gf.get_icon('angle-left'))
+            else:
+                self.collapseToolButton.setIcon(gf.get_icon('angle-right'))
             self.widget.setHidden(True)
             if self.__collapsedTex:
                 self.setCollapsedText(self.__collapsedTex)
         else:
             self.collapse_state = False
-            self.collapseToolButton.setIcon(gf.get_icon('angle-right'))
+            if self.__direction == 'left':
+                self.collapseToolButton.setIcon(gf.get_icon('angle-right'))
+            else:
+                self.collapseToolButton.setIcon(gf.get_icon('angle-left'))
             self.widget.setHidden(False)
             self.setText(self.__text)
 
@@ -306,6 +316,7 @@ class Ui_serverPresetsEditorWidget(QtGui.QDialog):
         self.presets_tree_widget.setRootIsDecorated(False)
         self.presets_tree_widget.setHeaderHidden(True)
         self.presets_tree_widget.setObjectName('presets_tree_widget')
+        self.presets_tree_widget.setStyleSheet(gf.get_qtreeview_style())
 
         self.main_layout.addWidget(self.presets_tree_widget, 1, 0, 2, 1)
 
@@ -443,7 +454,7 @@ class Ui_previewsEditorDialog(QtGui.QDialog):
         # self.treeWidget_vls.setSelectionMode(QtGui.QAbstractItemView.NoSelection)
         self.items_tree_widget.setVerticalScrollMode(QtGui.QAbstractItemView.ScrollPerPixel)
         self.items_tree_widget.setRootIsDecorated(False)
-        self.items_tree_widget.setStyleSheet('QTreeView::item {padding: 2px;}')
+        self.items_tree_widget.setStyleSheet(gf.get_qtreeview_style())
 
         self.main_layout.addWidget(self.items_tree_widget)
 

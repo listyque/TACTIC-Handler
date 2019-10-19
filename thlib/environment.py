@@ -184,7 +184,7 @@ class Inst(object):
     """
     projects = None  # all projects Classes
     logins = None  # all users Classes
-    current_project = None  # ONLY and ONLY to see which project dock is active SHOULD BE DEPRECATED
+    current_project = None  # current project activates with project dock show event
     ui_debuglog = None
     ui_script_editor = None  # Script editor Ui
     ui_messages = None
@@ -229,16 +229,21 @@ class Inst(object):
         else:
             return self.logins
 
-    def get_all_login_groups(self):
-        # TODO This func looks really odd
-        return self.logins['admin'].login_groups
+    def get_stypes(self, project_code='sthpw'):
+        # this is bad practice using this func
+        return self.projects.get(project_code).stypes
 
     def get_current_stypes(self):
         # this is bad practice using this func
         return self.projects.get(self.current_project).stypes
 
     def get_current_stype_by_code(self, code):
-        stypes = self.projects.get(self.current_project).stypes
+        stypes = self.projects.get(self.current_project).get_stypes()
+        return stypes.get(code)
+
+    def get_stype_by_code(self, code, project_code='sthpw'):
+        stypes = self.projects.get(project_code).get_stypes()
+
         return stypes.get(code)
 
     def set_control_tab(self, project_code, tab_code, tab_widget):

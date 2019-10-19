@@ -3,6 +3,12 @@ from thlib.environment import dl
 
 # TODO Widgets matching TACTIC Standard widgets
 
+# TODO WIDGETS:
+# <tactic.ui.input.task_input_wdg.TaskSObjectInputWdg object at 0x7fcca95531d0>,
+# <tactic.ui.input.process_context_wdg.ProcessInputWdg object at 0x7fcca9553ad0>,
+# <tactic.ui.input.process_group_select_wdg.ProcessGroupSelectWdg object at 0x7fcca95530d0>,
+
+
 input_classes = {
     'tactic': [
         'tactic.ui.widget.upload_wdg.SimpleUploadWdg',

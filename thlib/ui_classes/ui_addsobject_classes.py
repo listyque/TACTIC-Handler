@@ -289,6 +289,7 @@ class Ui_linkSobjectsWidget(QtGui.QDialog):
         self.instances_tree_widget.setHeaderHidden(True)
         self.instances_tree_widget.setSelectionMode(QtGui.QAbstractItemView.ExtendedSelection)
         self.instances_tree_widget.setObjectName("instances_tree_widget")
+        self.instances_tree_widget.setStyleSheet(gf.get_qtreeview_style())
 
         parent_sobject = self.item.get_sobject()
 
@@ -344,7 +345,7 @@ class Ui_linkSobjectsWidget(QtGui.QDialog):
 
 
 class Ui_addTacticSobjectWidget(QtGui.QDialog):
-    def __init__(self, stype, parent_stype=None, item=None, view='insert', search_key=None, parent=None):
+    def __init__(self, stype, parent_stype=None, item=None, view='insert', search_key=None, parent_search_key=None, parent=None):
         super(self.__class__, self).__init__(parent=parent)
 
         self.item = item
@@ -355,7 +356,7 @@ class Ui_addTacticSobjectWidget(QtGui.QDialog):
         self.view = view
 
         self.search_key = search_key
-        self.parent_search_key = None
+        self.parent_search_key = parent_search_key
 
         if self.item:
             if not search_key:
@@ -368,48 +369,49 @@ class Ui_addTacticSobjectWidget(QtGui.QDialog):
 
         # self.add_multiple()
 
-    def add_multiple(self):
-        self.wnd = QtGui.QDialog(self)
-        self.wnd.show()
-        self.l = QtGui.QVBoxLayout()
-
-        self.b = QtGui.QPushButton('Begin')
-
-        self.wnd.setLayout(self.l)
-
-        self.l.addWidget(self.b)
-        self.b.clicked.connect(self.begin_inst)
-
-    def begin_inst(self):
-
-        # tactic_edit_widget = tw.TacticEditWdg(wdg_dict)
-        print self.stype.get_code()
-        # tactic_edit_widget.set_stype(self.stype)
-
-        # {u'episode_code': u'EPISODE00010', u'name': u'test'}
-
-        lst = {}
-        for i, ep in enumerate(sorted(lst.keys())):
-            print ep, i, 'out of:', len(lst)
-            data = {'name': ep}
-            wd = {u'input_prefix': u'insert', u'element_titles': [u'Preview', u'Name', u'Description', u'Keywords'], u'title': u'', u'element_names': [u'preview', u'name', u'description', u'keywords'], u'kwargs': {u'search_type': u'melnitsapipeline/episode', u'code': u'', u'title_width': u'', u'parent_key': None, u'title': u'', u'default': u'', u'search_key': u'', u'input_prefix': u'insert', u'config_base': u'', u'single': u'', u'cbjs_edit_path': u'', u'access': u'', u'width': u'', u'show_header': u'', u'cbjs_cancel': u'', u'mode': u'insert', u'cbjs_insert_path': u'', u'ignore': u'', u'show_action': u'', u'search_id': u'', u'view': u'insert'}, u'element_descriptions': [None, u'Name', u'Description', u'Keywords'], u'mode': u'insert', u'security_denied': False}
-            tactic_edit_widget = tw.TacticEditWdg(wd)
-            tactic_edit_widget.set_stype(self.stype.project.get_stypes()['melnitsapipeline/episode'])
-
-            episode_sobj = tactic_edit_widget.commit(data)
-            print episode_sobj
-            for j, sc in enumerate(sorted(lst[ep])):
-                print sc, j, 'out of:', len(ep)
-
-                sc['episode_code'] = episode_sobj['code']
-
-                scene_sobj = self.edit_window.tactic_widget.commit(sc)
-                print scene_sobj
+    # def add_multiple(self):
+    #     self.wnd = QtGui.QDialog(self)
+    #     self.wnd.show()
+    #     self.l = QtGui.QVBoxLayout()
+    #
+    #     self.b = QtGui.QPushButton('Begin')
+    #
+    #     self.wnd.setLayout(self.l)
+    #
+    #     self.l.addWidget(self.b)
+    #     self.b.clicked.connect(self.begin_inst)
+    #
+    # def begin_inst(self):
+    #
+    #     # tactic_edit_widget = tw.TacticEditWdg(wdg_dict)
+    #     print self.stype.get_code()
+    #     # tactic_edit_widget.set_stype(self.stype)
+    #
+    #     # {u'episode_code': u'EPISODE00010', u'name': u'test'}
+    #
+    #     lst = {}
+    #     for i, ep in enumerate(sorted(lst.keys())):
+    #         print ep, i, 'out of:', len(lst)
+    #         data = {'name': ep}
+    #         wd = {u'input_prefix': u'insert', u'element_titles': [u'Preview', u'Name', u'Description', u'Keywords'], u'title': u'', u'element_names': [u'preview', u'name', u'description', u'keywords'], u'kwargs': {u'search_type': u'melnitsapipeline/episode', u'code': u'', u'title_width': u'', u'parent_key': None, u'title': u'', u'default': u'', u'search_key': u'', u'input_prefix': u'insert', u'config_base': u'', u'single': u'', u'cbjs_edit_path': u'', u'access': u'', u'width': u'', u'show_header': u'', u'cbjs_cancel': u'', u'mode': u'insert', u'cbjs_insert_path': u'', u'ignore': u'', u'show_action': u'', u'search_id': u'', u'view': u'insert'}, u'element_descriptions': [None, u'Name', u'Description', u'Keywords'], u'mode': u'insert', u'security_denied': False}
+    #         tactic_edit_widget = tw.TacticEditWdg(wd)
+    #         tactic_edit_widget.set_stype(self.stype.project.get_stypes()['melnitsapipeline/episode'])
+    #
+    #         episode_sobj = tactic_edit_widget.commit(data)
+    #         print episode_sobj
+    #         for j, sc in enumerate(sorted(lst[ep])):
+    #             print sc, j, 'out of:', len(ep)
+    #
+    #             sc['episode_code'] = episode_sobj['code']
+    #
+    #             scene_sobj = self.edit_window.tactic_widget.commit(sc)
+    #             print scene_sobj
 
     def create_ui(self):
 
         self.setWindowModality(QtCore.Qt.WindowModal)
         self.setSizeGripEnabled(True)
+        self.resize(400, 300)
 
         self.create_loading_label()
         self.toggle_loading_label()

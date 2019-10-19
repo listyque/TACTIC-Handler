@@ -30,10 +30,8 @@ class Ui_checkInOutTabWidget(QtGui.QWidget, checkin_out_tabs.Ui_sObjTabs):
         env_inst.set_control_tab(self.current_project, 'checkin_out', self)
 
         self.setupUi(self)
-        # self.ui_tree = []
         self.all_search_tabs = []
         self.current_tab_idx = 0
-        # self.visible_search_tabs = []
         self.main_tabs_widget = parent  # main tabs widget
         self.layout_widget = layout_widget
 
@@ -43,7 +41,6 @@ class Ui_checkInOutTabWidget(QtGui.QWidget, checkin_out_tabs.Ui_sObjTabs):
         self.checkin_out_config_projects = cfg_controls.get_checkin_out_projects()
         self.checkin_out_config = cfg_controls.get_checkin_out()
 
-        # self.context_items = context_items
         self.is_created = False
         self.stypes_tree_visible = False
         self.tab_bar_customization()
@@ -58,6 +55,11 @@ class Ui_checkInOutTabWidget(QtGui.QWidget, checkin_out_tabs.Ui_sObjTabs):
             self.create_watch_folders_ui()
             self.create_commit_queue_ui()
             self.create_repo_sync_queue_ui()
+
+        self.customize_ui()
+
+    def customize_ui(self):
+        self.sTypesTreeWidget.setStyleSheet(gf.get_qtreeview_style())
 
     def controls_actions(self):
         self.hamburger_tab_button.clicked.connect(self.hamburger_button_click)
@@ -179,11 +181,11 @@ class Ui_checkInOutTabWidget(QtGui.QWidget, checkin_out_tabs.Ui_sObjTabs):
     def tab_bar_customization(self):
         self.hamburger_tab_button = QtGui.QToolButton()
         self.hamburger_tab_button.setAutoRaise(True)
-        self.hamburger_tab_button.setMinimumWidth(20)
-        self.hamburger_tab_button.setMinimumHeight(20)
+        self.hamburger_tab_button.setMinimumWidth(24)
+        self.hamburger_tab_button.setMinimumHeight(24)
         self.animation_close = QtCore.QPropertyAnimation(self.sTypesTreeWidget, "maximumWidth", self)
         self.animation_open = QtCore.QPropertyAnimation(self.sTypesTreeWidget, "maximumWidth", self)
-        self.hamburger_tab_button.setIcon(gf.get_icon('navicon'))
+        self.hamburger_tab_button.setIcon(gf.get_icon('menu', icons_set='mdi', scale_factor=1.2))
 
         self.sObjTabWidget.setCornerWidget(self.hamburger_tab_button, QtCore.Qt.BottomLeftCorner)
 
@@ -332,19 +334,9 @@ class Ui_checkInOutTabWidget(QtGui.QWidget, checkin_out_tabs.Ui_sObjTabs):
         for i, tab in enumerate(self.all_search_tabs):
             tab.tab_widget.layout().addWidget(tab)
 
-        # if gf.get_value_from_config(cfg_controls.get_checkin_out(), 'lastViewOnAllTabscheckBox'):
-        #     # Every tab will read the widget settings when creating ui
-        #     current_tab = self.get_current_tab_widget()
-        #     if current_tab:
-        #         current_settings = current_tab.get_settings_dict(force=True)
-        #         for tab in self.all_search_tabs:
-        #             tab.set_settings_from_dict(current_settings, apply_checkin_options=False, apply_search_options=False)
-
         # Add labels
         for i, label in enumerate(added_labels):
             self.sObjTabWidget.tabBar().setTabButton(i, QtGui.QTabBar.LeftSide, label)
-
-        # self.sObjTabWidget.setHidden(False)
 
     def create_watch_folders_ui(self):
         env_inst.watch_folders[self.project.get_code()] = Ui_projectWatchFoldersWidget(

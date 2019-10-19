@@ -204,26 +204,24 @@ def create_app_update_list():
 
 
 def create_update_archive(archive_path):
-    zp = zipfile.ZipFile(archive_path, 'w', compression=zipfile.ZIP_DEFLATED)
-    files_list = create_app_update_list()
-    abs_path = env_mode.get_current_path()
+    with zipfile.ZipFile(archive_path, 'w', compression=zipfile.ZIP_DEFLATED) as zp:
+        files_list = create_app_update_list()
+        abs_path = env_mode.get_current_path()
 
-    for fl in files_list:
-        fl_rep = fl.replace
-        zp.write(fl, arcname=fl_rep(abs_path, ''))
+        for fl in files_list:
+            fl_rep = fl.replace
+            print zp.write(fl, arcname=fl_rep(abs_path, ''))
+
     zp.close()
 
 
 def update_from_archive(archive_path):
-    zp = zipfile.ZipFile(archive_path, "r")
-    members = []
-    for member in zp.infolist():
-        print member.filename
-        member.filename = member.filename.replace('\\', '/')
-        members.append(member)
+    with zipfile.ZipFile(archive_path, "r") as zp:
+        members = []
+        for member in zp.infolist():
+            member.filename = member.filename.replace('\\', '/')
+            members.append(member)
 
-    badpath = 'D:\\OneDrive\\CGProjects\\TACTIC-Handler\\thlib\\side\\qtawesome\\fonts\\fontawesome-webfont.ttf'
-    print badpath
-    print zp.namelist()
-    # zp.extractall(env_mode.get_current_path(), members)
+        zp.extractall(env_mode.get_current_path(), members)
+
     zp.close()
