@@ -16,20 +16,26 @@ Key Feauters:
 
 Wiki Page about [What is this and what's going on.](https://github.com/listyque/TACTIC-Handler/wiki/What-is-this-and-what's-going-on. "What is this and what's going on.")
 
-
 Wiki Page with [How to Start Instructions](https://github.com/listyque/TACTIC-Handler/wiki/Setup-Instrcutions-(updated) "How to Start Instructions")
-
-Youtube [Setup instructions video](www.youtube.com/watch?v=z6sDVUhGNbI)
-
-Youtube [Old in Maya version](https://www.youtube.com/watch?v=E3CIjbZIHGM)
-
-Youtube [Old Standalone version](https://www.youtube.com/watch?v=FD0dHPTBXSw)
 
 Main Window screenshot:
 ![Main Window](/screenshots/latest/main_window.png)
 
-Customization ability:
-![Customization](/screenshots/old/05.10.2017/any_interface_tweaks.png)
+Tabs navigation:
+![tabs_navigation](/screenshots/videos/tabs_navigation.gif)
+
+Tasks navigation, Editing:
+![tasks_navigation](/screenshots/videos/tasks_navigation.gif)
+
+Advanced Search:
+![advance_search](/screenshots/videos/advance_search.gif)
+
+Sync Files from Remote Repository:
+![repository_sync](/screenshots/videos/repository_sync.gif)
+
+
+Main Window screenshot:
+![Main Window](/screenshots/latest/main_window.png)
 
 Server-side script editor (useful for TACTIC developers)
 ![Server-side script editor](/screenshots/latest/script_editor.png)
@@ -39,6 +45,16 @@ Commiting drag-and-dropped files, sequences stc...:
 
 How commited sequences looks:
 ![Sequences](/screenshots/old/21.12.2017/multiple_checkin_with_sequences.png)
+
+Customization ability:
+![Customization](/screenshots/old/05.10.2017/any_interface_tweaks.png)
+
+Youtube [Setup instructions video](www.youtube.com/watch?v=z6sDVUhGNbI)
+
+Youtube [Old in Maya version](https://www.youtube.com/watch?v=E3CIjbZIHGM)
+
+Youtube [Old Standalone version](https://www.youtube.com/watch?v=FD0dHPTBXSw)
+
 
 What is this TACTIC?
 TACTIC – it's something! Go here if you don't know [TACTIC Opensourse](https://github.com/listyque/TACTIC)
