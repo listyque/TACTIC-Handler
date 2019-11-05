@@ -1,13 +1,6 @@
 from thlib.side.Qt import QtWidgets as QtGui
-from thlib.side.Qt import QtGui as Qt4Gui
-from thlib.side.Qt import QtCore
 
-import thlib.ui_classes.ui_misc_classes as ui_misc_classes
-import thlib.ui.checkin_out.ui_commit_queue as ui_commit_queue
-
-import thlib.tactic_classes as tc
-import thlib.global_functions as gf
-from thlib.environment import env_inst, env_mode, env_tactic, cfg_controls, env_read_config, env_write_config
+from thlib.ui_classes.ui_custom_qwidgets import Ui_collapsableWidget
 
 
 class deleteSobjectWidget(QtGui.QWidget):
@@ -69,7 +62,7 @@ class deleteSobjectWidget(QtGui.QWidget):
 
     def create_files_dependencies_widget(self):
 
-        collapse_wdg_files = ui_misc_classes.Ui_collapsableWidget(state=True)
+        collapse_wdg_files = Ui_collapsableWidget(state=True)
         layout_files = QtGui.QVBoxLayout()
         collapse_wdg_files.setLayout(layout_files)
         collapse_wdg_files.setText('Hide Files Dependencies')
@@ -83,7 +76,7 @@ class deleteSobjectWidget(QtGui.QWidget):
 
     def create_snapshots_dependencies_widget(self):
 
-        collapse_wdg_snapshots = ui_misc_classes.Ui_collapsableWidget(state=True)
+        collapse_wdg_snapshots = Ui_collapsableWidget(state=True)
         layout_files = QtGui.QVBoxLayout()
         collapse_wdg_snapshots.setLayout(layout_files)
         collapse_wdg_snapshots.setText('Hide Snapshots Dependencies')
@@ -97,7 +90,7 @@ class deleteSobjectWidget(QtGui.QWidget):
 
     def create_tasks_dependencies_widget(self):
 
-        collapse_wdg_tasks = ui_misc_classes.Ui_collapsableWidget(state=True)
+        collapse_wdg_tasks = Ui_collapsableWidget(state=True)
         layout_files = QtGui.QVBoxLayout()
         collapse_wdg_tasks.setLayout(layout_files)
         collapse_wdg_tasks.setText('Hide Tasks Dependencies')
@@ -111,7 +104,7 @@ class deleteSobjectWidget(QtGui.QWidget):
 
     def create_notes_dependencies_widget(self):
 
-        collapse_wdg_notes = ui_misc_classes.Ui_collapsableWidget(state=True)
+        collapse_wdg_notes = Ui_collapsableWidget(state=True)
         layout_files = QtGui.QVBoxLayout()
         collapse_wdg_notes.setLayout(layout_files)
         collapse_wdg_notes.setText('Hide Notes Dependencies')

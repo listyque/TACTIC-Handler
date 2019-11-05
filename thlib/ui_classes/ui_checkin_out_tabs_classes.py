@@ -9,80 +9,121 @@ from thlib.side.Qt import QtCore
 from thlib.environment import env_inst, env_tactic, cfg_controls, env_read_config, env_write_config, dl
 import thlib.global_functions as gf
 import thlib.tactic_classes as tc
-import thlib.ui.checkin_out.ui_checkin_out_tabs as checkin_out_tabs
 import ui_checkin_out_classes as checkin_out
 import thlib.ui.misc.ui_watch_folders as ui_watch_folders
 from thlib.ui_classes.ui_commit_queue_classes import Ui_commitQueueWidget
 from thlib.ui_classes.ui_repo_sync_queue_classes import Ui_repoSyncQueueWidget
 from thlib.ui_classes.ui_watch_folder_classes import Ui_projectWatchFoldersWidget
-
-# reload(checkin_out_tabs)
-# reload(checkin_out)
-# reload(ui_watch_folders)
+from thlib.ui_classes.ui_custom_qwidgets import Ui_extendedTabBarWidget, Ui_extendedTreeWidget
 
 
-class Ui_checkInOutTabWidget(QtGui.QWidget, checkin_out_tabs.Ui_sObjTabs):
-    def __init__(self, project, layout_widget, parent=None):
+
+class Ui_checkInOutTabWidget(QtGui.QWidget):
+    def __init__(self, project, parent=None):
         super(self.__class__, self).__init__(parent=parent)
 
         self.project = project
-        self.current_project = self.project.get_code()
-        env_inst.set_control_tab(self.current_project, 'checkin_out', self)
 
-        self.setupUi(self)
+        env_inst.set_control_tab(self.project.get_code(), 'checkin_out', self)
+
+        self.create_ui()
+
         self.all_search_tabs = []
         self.current_tab_idx = 0
-        self.main_tabs_widget = parent  # main tabs widget
-        self.layout_widget = layout_widget
-
-        self.current_namespace = self.project.info['type']
-        self.stypes_items = self.project.stypes
 
         self.checkin_out_config_projects = cfg_controls.get_checkin_out_projects()
         self.checkin_out_config = cfg_controls.get_checkin_out()
 
         self.is_created = False
         self.stypes_tree_visible = False
+
         self.tab_bar_customization()
 
     def create_ui(self):
-        if self.stypes_items:
+
+        self.setObjectName('sobject_tab_widget')
+
+        self.create_main_layout()
+        self.create_stypes_tree_widget()
+        self.create_stypes_tab_widget()
+
+        self.maint_layout.setStretch(1, 1)
+
+    def init_ui(self):
+        if self.project.stypes:
             self.is_created = True
+
             self.add_items_to_stypes_tree()
             self.readSettings()
-            self.add_items_to_tabs()
+
+            self.fill_stypes_tab_widget()
+
             self.controls_actions()
+
             self.create_watch_folders_ui()
             self.create_commit_queue_ui()
             self.create_repo_sync_queue_ui()
 
-        self.customize_ui()
-
-    def customize_ui(self):
-        self.sTypesTreeWidget.setStyleSheet(gf.get_qtreeview_style())
-
     def controls_actions(self):
         self.hamburger_tab_button.clicked.connect(self.hamburger_button_click)
 
-        self.sTypesTreeWidget.itemClicked.connect(self.stypes_tree_item_click)
-        self.sTypesTreeWidget.itemChanged.connect(self.stypes_tree_item_change)
+        self.stypes_tree_widget.itemClicked.connect(self.stypes_tree_item_click)
+        self.stypes_tree_widget.itemChanged.connect(self.stypes_tree_item_change)
 
-        self.sObjTabWidget.mousePressEvent = self.sobj_tab_middle_mouse_event
+        # self.stypes_tab_widget.mousePressEvent = self.sobj_tab_middle_mouse_event
+        self.stypes_tab_widget.middle_mouse_pressed.connect(self.middle_mouse_press)
 
-    def sobj_tab_middle_mouse_event(self, event):
-        if event.button() == QtCore.Qt.MouseButton.MiddleButton:
-            pos = event.pos()
-            # This is because hamburger button
-            tab_pos = self.sObjTabWidget.tabBar().tabAt(QtCore.QPoint(pos.x() - 26, pos.y()))
-            if tab_pos != -1:
-                widget = self.sObjTabWidget.widget(tab_pos)
-                tab = self.get_stype_tab_by_widget(widget)
-                self.toggle_stype_tab(tab=tab, hide=True)
-                tree_item = self.get_tree_item_by_code(tab.stype.get_code())
-                if tree_item:
-                    tree_item.setCheckState(0, QtCore.Qt.Unchecked)
+    def create_main_layout(self):
+        self.maint_layout = QtGui.QHBoxLayout(self)
+        self.maint_layout.setSpacing(0)
+        self.maint_layout.setContentsMargins(0, 0, 0, 0)
+        self.maint_layout.setObjectName('maint_layout')
 
-        event.accept()
+    def create_stypes_tree_widget(self):
+        self.stypes_tree_widget = Ui_extendedTreeWidget(self)
+        self.stypes_tree_widget.setMaximumSize(QtCore.QSize(0, 16777215))
+        self.stypes_tree_widget.setHorizontalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOff)
+        self.stypes_tree_widget.setEditTriggers(QtGui.QAbstractItemView.NoEditTriggers)
+        self.stypes_tree_widget.setVerticalScrollMode(QtGui.QAbstractItemView.ScrollPerPixel)
+        self.stypes_tree_widget.setRootIsDecorated(False)
+        self.stypes_tree_widget.setAnimated(True)
+        self.stypes_tree_widget.setHeaderHidden(True)
+        self.stypes_tree_widget.setObjectName('stypes_tree_widget')
+
+        self.maint_layout.addWidget(self.stypes_tree_widget)
+
+    def create_stypes_tab_widget(self):
+        self.stypes_tab_widget = Ui_extendedTabBarWidget(self)
+
+        self.stypes_tab_widget.setMovable(True)
+        self.stypes_tab_widget.setObjectName('stypes_tab_widget')
+        self.stypes_tab_widget.customize_ui()
+        self.stypes_tab_widget.set_corner_offset(26)
+
+        self.maint_layout.addWidget(self.stypes_tab_widget)
+
+    # def sobj_tab_middle_mouse_event(self, event):
+    #     if event.button() == QtCore.Qt.MouseButton.MiddleButton:
+    #         pos = event.pos()
+    #         # This offset is because hamburger button on the left
+    #         tab_pos = self.stypes_tab_widget.tabBar().tabAt(QtCore.QPoint(pos.x() - 26, pos.y()))
+    #         if tab_pos != -1:
+    #             widget = self.stypes_tab_widget.widget(tab_pos)
+    #             tab = self.get_stype_tab_by_widget(widget)
+    #             self.toggle_stype_tab(tab=tab, hide=True)
+    #             tree_item = self.get_tree_item_by_code(tab.stype.get_code())
+    #             if tree_item:
+    #                 tree_item.setCheckState(0, QtCore.Qt.Unchecked)
+    #
+    #     event.accept()
+
+    def middle_mouse_press(self, tab_pos):
+        widget = self.stypes_tab_widget.widget(tab_pos)
+        tab = self.get_stype_tab_by_widget(widget)
+        self.toggle_stype_tab(tab=tab, hide=True)
+        tree_item = self.get_tree_item_by_code(tab.stype.get_code())
+        if tree_item:
+            tree_item.setCheckState(0, QtCore.Qt.Unchecked)
 
     def stypes_tree_item_click(self, item):
         item_data = item.data(0, QtCore.Qt.UserRole)
@@ -113,7 +154,7 @@ class Ui_checkInOutTabWidget(QtGui.QWidget, checkin_out_tabs.Ui_sObjTabs):
 
     def get_stype_tab_by_widget(self, widget):
         for tab in self.all_search_tabs:
-            if tab.tab_widget == widget:
+            if tab == widget:
                 return tab
 
     def get_stype_tab_by_code(self, code):
@@ -123,8 +164,8 @@ class Ui_checkInOutTabWidget(QtGui.QWidget, checkin_out_tabs.Ui_sObjTabs):
 
     def get_tree_item_by_code(self, code):
 
-        for i in range(self.sTypesTreeWidget.topLevelItemCount()):
-            top = self.sTypesTreeWidget.topLevelItem(i)
+        for i in range(self.stypes_tree_widget.topLevelItemCount()):
+            top = self.stypes_tree_widget.topLevelItem(i)
             for j in range(top.childCount()):
                 child = top.child(j)
                 item_data = child.data(0, QtCore.Qt.UserRole)
@@ -136,26 +177,23 @@ class Ui_checkInOutTabWidget(QtGui.QWidget, checkin_out_tabs.Ui_sObjTabs):
         if code:
             tab = self.get_stype_tab_by_code(code)
         if tab:
-            idx = self.sObjTabWidget.indexOf(tab.tab_widget)
-            self.sObjTabWidget.setCurrentIndex(idx)
+            idx = self.stypes_tab_widget.indexOf(tab)
+            self.stypes_tab_widget.setCurrentIndex(idx)
 
     def toggle_stype_tab(self, code=None, tab=None, hide=False):
 
         if code:
             tab = self.get_stype_tab_by_code(code)
         if tab:
-            idx = self.sObjTabWidget.indexOf(tab.tab_widget)
+            idx = self.stypes_tab_widget.indexOf(tab)
             if hide:
-                self.sObjTabWidget.removeTab(idx)
+                self.stypes_tab_widget.removeTab(idx)
                 self.set_ignore_stypes_list(code, hide=True)
             else:
-                self.sObjTabWidget.addTab(tab.tab_widget, '')
+                self.stypes_tab_widget.addTab(tab, '')
 
                 self.set_ignore_stypes_list(code, hide=False)
-                self.sObjTabWidget.tabBar().setTabButton(self.sObjTabWidget.count()-1, QtGui.QTabBar.LeftSide, tab.get_tab_label())
-
-    def raise_tab(self):
-        self.main_tabs_widget.raise_tab(self.layout_widget)
+                self.stypes_tab_widget.tabBar().setTabButton(self.stypes_tab_widget.count()-1, QtGui.QTabBar.LeftSide, tab.get_tab_label())
 
     def apply_current_view_to_all(self):
         current_settings = None
@@ -173,9 +211,9 @@ class Ui_checkInOutTabWidget(QtGui.QWidget, checkin_out_tabs.Ui_sObjTabs):
         current_tab.fast_save(**kargs)
 
     def get_current_tab_widget(self):
-        current_widget = self.sObjTabWidget.currentWidget()
+        current_widget = self.stypes_tab_widget.currentWidget()
         for tab in self.all_search_tabs:
-            if current_widget == tab.tab_widget:
+            if current_widget == tab:
                 return tab
 
     def tab_bar_customization(self):
@@ -183,14 +221,15 @@ class Ui_checkInOutTabWidget(QtGui.QWidget, checkin_out_tabs.Ui_sObjTabs):
         self.hamburger_tab_button.setAutoRaise(True)
         self.hamburger_tab_button.setMinimumWidth(24)
         self.hamburger_tab_button.setMinimumHeight(24)
-        self.animation_close = QtCore.QPropertyAnimation(self.sTypesTreeWidget, "maximumWidth", self)
-        self.animation_open = QtCore.QPropertyAnimation(self.sTypesTreeWidget, "maximumWidth", self)
+        self.animation_close = QtCore.QPropertyAnimation(self.stypes_tree_widget, "maximumWidth", self)
+        self.animation_open = QtCore.QPropertyAnimation(self.stypes_tree_widget, "maximumWidth", self)
         self.hamburger_tab_button.setIcon(gf.get_icon('menu', icons_set='mdi', scale_factor=1.2))
 
-        self.sObjTabWidget.setCornerWidget(self.hamburger_tab_button, QtCore.Qt.BottomLeftCorner)
+        self.stypes_tab_widget.add_left_corner_widget(self.hamburger_tab_button)
 
     def hamburger_button_click(self):
-        content_width = self.sTypesTreeWidget.sizeHintForColumn(0) + 40
+        content_width = self.stypes_tree_widget.sizeHintForColumn(0) + 40
+
         if self.stypes_tree_visible:
             self.animation_close.setDuration(100)
             self.animation_close.setStartValue(content_width)
@@ -207,11 +246,11 @@ class Ui_checkInOutTabWidget(QtGui.QWidget, checkin_out_tabs.Ui_sObjTabs):
 
     def add_items_to_stypes_tree(self):
         exclude_list = self.get_ignore_stypes_list()
-        self.sTypesTreeWidget.clear()
+        self.stypes_tree_widget.clear()
 
         all_stypes = []
 
-        for stype in env_inst.projects[self.current_project].stypes.itervalues():
+        for stype in env_inst.projects[self.project.get_code()].stypes.itervalues():
             all_stypes.append(stype.info)
 
         grouped = gf.group_dict_by(all_stypes, 'type')
@@ -223,11 +262,11 @@ class Ui_checkInOutTabWidget(QtGui.QWidget, checkin_out_tabs.Ui_sObjTabs):
                 type_name = 'No Category'
             top_item.setText(0, type_name.capitalize())
             top_item.setCheckState(0, QtCore.Qt.Checked)
-            self.sTypesTreeWidget.addTopLevelItem(top_item)
+            self.stypes_tree_widget.addTopLevelItem(top_item)
             for item in value:
                 child_item = QtGui.QTreeWidgetItem()
 
-                stype = env_inst.projects[self.current_project].stypes.get(item.get('code'))
+                stype = env_inst.projects[self.project.get_code()].stypes.get(item.get('code'))
 
                 item_code = stype.get_code()
                 child_item.setText(0, stype.get_pretty_name())
@@ -243,11 +282,11 @@ class Ui_checkInOutTabWidget(QtGui.QWidget, checkin_out_tabs.Ui_sObjTabs):
 
     def get_ignore_stypes_list(self):
         ignore_tabs_list = []
-        if self.checkin_out_config and self.checkin_out_config_projects and self.checkin_out_config_projects.get(self.current_project):
+        if self.checkin_out_config and self.checkin_out_config_projects and self.checkin_out_config_projects.get(self.project.get_code()):
             if not gf.get_value_from_config(self.checkin_out_config, 'processTabsFilterGroupBox'):
                 ignore_tabs_list = []
             else:
-                ignore_tabs_list = self.checkin_out_config_projects[self.current_project]['stypes_list']
+                ignore_tabs_list = self.checkin_out_config_projects[self.project.get_code()]['stypes_list']
                 if not ignore_tabs_list:
                     ignore_tabs_list = []
 
@@ -258,14 +297,14 @@ class Ui_checkInOutTabWidget(QtGui.QWidget, checkin_out_tabs.Ui_sObjTabs):
         self.init_stypes_config()
 
         # TODO this code will reset all previous projects states
-        if not self.checkin_out_config_projects.get(self.current_project):
+        if not self.checkin_out_config_projects.get(self.project.get_code()):
             self.init_stypes_config(True)
 
         if self.checkin_out_config_projects:
-            if not self.checkin_out_config_projects[self.current_project]['stypes_list']:
+            if not self.checkin_out_config_projects[self.project.get_code()]['stypes_list']:
                 stypes_list = []
             else:
-                stypes_list = self.checkin_out_config_projects[self.current_project]['stypes_list']
+                stypes_list = self.checkin_out_config_projects[self.project.get_code()]['stypes_list']
 
             if hide:
                 if stype_code not in stypes_list:
@@ -274,7 +313,7 @@ class Ui_checkInOutTabWidget(QtGui.QWidget, checkin_out_tabs.Ui_sObjTabs):
                 if stype_code in stypes_list:
                     stypes_list.remove(stype_code)
 
-            self.checkin_out_config_projects[self.current_project]['stypes_list'] = stypes_list
+            self.checkin_out_config_projects[self.project.get_code()]['stypes_list'] = stypes_list
 
     def init_stypes_config(self, force=False):
         if not self.checkin_out_config_projects or force:
@@ -295,48 +334,20 @@ class Ui_checkInOutTabWidget(QtGui.QWidget, checkin_out_tabs.Ui_sObjTabs):
         if self.checkin_out_config_projects:
             cfg_controls.set_checkin_out_projects(self.checkin_out_config_projects)
 
-    def add_items_to_tabs(self):
-        """
-        Adding process tabs marked for Maya
-        """
-        self.sObjTabWidget.setHidden(True)
+    def fill_stypes_tab_widget(self):
 
         ignore_tabs_list = self.get_ignore_stypes_list()
 
-        for i, stype in enumerate(self.stypes_items.itervalues()):
-
-            tab_widget = QtGui.QWidget(self)
-            tab_widget_layout = QtGui.QVBoxLayout()
-            tab_widget_layout.setContentsMargins(0, 0, 0, 0)
-            tab_widget_layout.setSpacing(0)
-            tab_widget.setLayout(tab_widget_layout)
-            tab_widget.setObjectName(stype.get_pretty_name())
-
-            self.all_search_tabs.append(checkin_out.Ui_checkInOutWidget(stype, tab_widget, self.project, self))
-
-        # Add tabs
-        added_labels = []
-        for i, tab in enumerate(self.all_search_tabs):
+        # we creating all Stype Widgets, so we can access them if we need in all_search_tabs
+        for stype in self.project.stypes.values():
+            tab = checkin_out.Ui_checkInOutWidget(stype, self.project)
+            tab.setParent(self)
+            self.all_search_tabs.append(tab)
+            # but only adding currenly visible tabs
             if tab.stype.get_code() not in ignore_tabs_list:
-                added_labels.append(tab.get_tab_label())
-                self.sObjTabWidget.addTab(tab.tab_widget, '')
+                self.stypes_tab_widget.add_tab(tab, tab.get_tab_label())
 
-        self.sObjTabWidget.setCurrentIndex(self.current_tab_idx)
-
-        self.sObjTabWidget.setStyleSheet(
-            '#sObjTabWidget > QTabBar::tab {background: transparent;border: 2px solid transparent;'
-            'border-top-left-radius: 3px;border-top-right-radius: 3px;border-bottom-left-radius: 0px;border-bottom-right-radius: 0px;padding: 0px;}'
-            '#sObjTabWidget > QTabBar::tab:selected, #sObjTabWidget > QTabBar::tab:hover {'
-            'background: qlineargradient(x1: 0, y1: 0, x2: 0, y2: 1, stop: 0 rgba(255, 255, 255, 48), stop: 1 rgba(255, 255, 255, 32));}'
-            '#sObjTabWidget > QTabBar::tab:selected {border-color: transparent;}'
-            '#sObjTabWidget > QTabBar::tab:!selected {margin-top: 0px;}')
-
-        for i, tab in enumerate(self.all_search_tabs):
-            tab.tab_widget.layout().addWidget(tab)
-
-        # Add labels
-        for i, label in enumerate(added_labels):
-            self.sObjTabWidget.tabBar().setTabButton(i, QtGui.QTabBar.LeftSide, label)
+        self.stypes_tab_widget.setCurrentIndex(self.current_tab_idx)
 
     def create_watch_folders_ui(self):
         env_inst.watch_folders[self.project.get_code()] = Ui_projectWatchFoldersWidget(
@@ -352,20 +363,23 @@ class Ui_checkInOutTabWidget(QtGui.QWidget, checkin_out_tabs.Ui_sObjTabs):
         env_inst.ui_repo_sync_queue = Ui_repoSyncQueueWidget(parent=self)
 
     def set_settings_from_dict(self, settings_dict):
+
         if not settings_dict:
             settings_dict = {
                 'stypes_tree_visible': 0,
-                'sObjTabWidget_currentIndex': 0
+                'stypes_tab_widget_currentIndex': 0
             }
 
-        if bool(int(settings_dict['stypes_tree_visible'])):
+        if bool(int(settings_dict.get('stypes_tree_visible'))):
             self.hamburger_button_click()
-        self.current_tab_idx = int(settings_dict['sObjTabWidget_currentIndex'])
+
+        if settings_dict.get('stypes_tab_widget_currentIndex'):
+            self.current_tab_idx = int(settings_dict['stypes_tab_widget_currentIndex'])
 
     def get_settings_dict(self):
         settings_dict = {
             'stypes_tree_visible': int(self.stypes_tree_visible),
-            'sObjTabWidget_currentIndex': int(self.sObjTabWidget.currentIndex()),
+            'stypes_tab_widget_currentIndex': int(self.stypes_tab_widget.currentIndex()),
         }
 
         return settings_dict
@@ -376,8 +390,8 @@ class Ui_checkInOutTabWidget(QtGui.QWidget, checkin_out_tabs.Ui_sObjTabs):
         """
 
         group_path = 'ui_main/{0}/{1}'.format(
-                self.current_namespace,
-                self.current_project
+                self.project.get_type(),
+                self.project.get_code()
             )
 
         self.set_settings_from_dict(
@@ -393,8 +407,8 @@ class Ui_checkInOutTabWidget(QtGui.QWidget, checkin_out_tabs.Ui_sObjTabs):
         Writing Settings
         """
         group_path = 'ui_main/{0}/{1}'.format(
-            self.current_namespace,
-            self.current_project,
+            self.project.get_type(),
+            self.project.get_code(),
         )
 
         env_write_config(
@@ -406,12 +420,15 @@ class Ui_checkInOutTabWidget(QtGui.QWidget, checkin_out_tabs.Ui_sObjTabs):
 
     def showEvent(self, event):
         if not self.is_created:
-            self.create_ui()
-            self.sObjTabWidget.show()
+            self.init_ui()
         event.accept()
 
     def closeEvent(self, event):
         self.writeSettings()
+
         for tab in self.all_search_tabs:
             tab.close()
+            tab.deleteLater()
+
+        self.all_search_tabs = []
         event.accept()

@@ -16,12 +16,12 @@ import thlib.ui.ui_main as ui_main
 from thlib.ui_classes.ui_script_editor_classes import Ui_ScriptEditForm
 from thlib.ui_classes.ui_update_classes import Ui_updateDialog
 import thlib.ui.misc.ui_create_update as ui_create_update
-from thlib.ui_classes.ui_misc_classes import Ui_debugLogWidget, Ui_messagesWidget
+from thlib.ui_classes.ui_custom_qwidgets import Ui_debugLogWidget, Ui_messagesWidget
 import ui_checkin_out_tabs_classes
 import ui_conf_classes
 # import ui_my_tactic_classes
-import ui_assets_browser_classes
-import ui_float_notify_classes
+#import ui_assets_browser_classes
+#import ui_float_notify_classes
 if env_mode.get_mode() == 'maya':
     import thlib.maya_functions as mf
     reload(mf)
@@ -31,9 +31,8 @@ reload(ui_main)
 reload(ui_create_update)
 reload(ui_checkin_out_tabs_classes)
 reload(ui_conf_classes)
-# reload(ui_my_tactic_classes)
-reload(ui_assets_browser_classes)
-reload(ui_float_notify_classes)
+#reload(ui_assets_browser_classes)
+#reload(ui_float_notify_classes)
 reload(tc)
 reload(uf)
 reload(gf)
@@ -106,7 +105,6 @@ class Ui_mainTabs(QtGui.QWidget):
         self.ui_checkin_checkout = ui_checkin_out_tabs_classes.Ui_checkInOutTabWidget(
             self.project,
             self,
-            parent=self
         )
         self.ui_checkin_checkout.setHidden(True)
         self.main_layout.addWidget(self.ui_checkin_checkout)
@@ -125,16 +123,6 @@ class Ui_mainTabs(QtGui.QWidget):
         else:
             self.loading_label.setVisible(True)
 
-    # def paintEvent(self, event):
-    #     if not self.isCreated:
-    #         self.isCreated = True
-    #         self.create_loading_label()
-    #         self.get_stypes(run_thread=True)
-    #
-    #     # TODO This is bad and should be not used or removed
-    #     print self.project.info['code']
-    #     env_inst.set_current_project(self.project.info['code'])
-
     def showEvent(self, *args, **kwargs):
 
         if not self.isCreated:
@@ -149,7 +137,6 @@ class Ui_mainTabs(QtGui.QWidget):
         if self.ui_checkin_checkout:
             self.ui_checkin_checkout.close()
 
-        # self.writeSettings()
         event.accept()
 
 
@@ -173,7 +160,6 @@ class Ui_Main(QtGui.QMainWindow, ui_main.Ui_MainWindow):
                 if not project.is_template():
                     dock_widget = QtGui.QDockWidget(self)
                     dock_widget.setObjectName(project_code)
-                    # print project.info['title'].replace('_', ' ').capitalize()
                     dock_widget.setWindowTitle(project.info.get('title'))
                     dock_widget.setMinimumWidth(200)
                     dock_widget.setFeatures(
@@ -187,14 +173,6 @@ class Ui_Main(QtGui.QMainWindow, ui_main.Ui_MainWindow):
                         self.tabifyDockWidget(dock, dock_widget)
 
                     self.projects_docks[project_code] = dock_widget
-
-                    dock_widget.setStyleSheet(
-                        '#complex_testing_phase_four > QTabBar::tab {background: transparent;border: 2px solid transparent;'
-                        'border-top-left-radius: 3px;border-top-right-radius: 3px;border-bottom-left-radius: 0px;border-bottom-right-radius: 0px;padding: 4px;}'
-                        '#complex_testing_phase_four > QTabBar::tab:selected, #complex_testing_phase_four > QTabBar::tab:hover {'
-                        'background: qlineargradient(x1: 0, y1: 0, x2: 0, y2: 1, stop: 0 rgba(255, 255, 255, 48), stop: 1 rgba(255, 255, 255, 32));}'
-                        '#complex_testing_phase_four > QTabBar::tab:selected {border-color: transparent;}'
-                        '#complex_testing_phase_four > QTabBar::tab:!selected {margin-top: 0px;}')
 
                     dock_widget.show()
                     dock_widget.raise_()

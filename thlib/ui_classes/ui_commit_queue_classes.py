@@ -4,7 +4,7 @@ from thlib.side.Qt import QtCore
 from thlib.environment import env_inst, env_mode, env_tactic, cfg_controls
 import thlib.global_functions as gf
 import thlib.tactic_classes as tc
-from thlib.ui_classes.ui_misc_classes import Ui_previewsEditorDialog, Ui_screenShotMakerDialog, Ui_collapsableWidget
+from thlib.ui_classes.ui_custom_qwidgets import Ui_previewsEditorDialog, Ui_screenShotMakerDialog, Ui_collapsableWidget
 from thlib.ui.checkin_out.ui_commit_queue import Ui_commitQueue
 
 
@@ -977,7 +977,6 @@ class Ui_commitQueueWidget(QtGui.QMainWindow, Ui_commitQueue):
         self.single_threaded = single_threaded
 
     def customize_ui(self):
-        self.filesQueueTreeWidget.setStyleSheet(gf.get_qtreeview_style())
         self.filesQueueTreeWidget.setSelectionMode(QtGui.QAbstractItemView.ExtendedSelection)
 
     def create_files_queue_tree_context_menu(self):

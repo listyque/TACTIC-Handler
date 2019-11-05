@@ -21,7 +21,7 @@ from thlib.side.Qt import QtCore
 import thlib.tactic_classes as tc
 import thlib.global_functions as gf
 from thlib.environment import env_inst, env_read_config, env_write_config
-from thlib.ui_classes.ui_misc_classes import Ui_horizontalCollapsableWidget
+from thlib.ui_classes.ui_custom_qwidgets import Ui_horizontalCollapsableWidget
 from thlib.side.console.core import console, stream
 from thlib.side.console.ui import editor_window, output_window
 
@@ -377,14 +377,11 @@ class Ui_ScriptEditForm(QtGui.QDialog):
                 'code': text
             }
             start = time.time()
-            result = tc.server_start().execute_python_script('', kwargs=code_dict)
+            result = tc.execute_procedure_serverside(lambda: None, code_dict)
             print('\nServe-Side execution time: {}\n'.format(time.time() - start))
 
             from pprint import pprint
-            if not result['info']['spt_ret_val']:
-                print(result['status'])
-            else:
-                pprint(result['info']['spt_ret_val'])
+            pprint(result)
 
     def run_script(self):
         if self.run_type_combo_box.currentIndex() == 0:

@@ -12,7 +12,7 @@ from thlib.side.Qt import QtCore
 from thlib.environment import env_mode, env_inst, env_server, env_tactic, env_write_config, env_read_config, cfg_controls
 import thlib.tactic_classes as tc
 import thlib.global_functions as gf
-import thlib.ui_classes.ui_misc_classes as ui_misc_classes
+from thlib.ui_classes.ui_custom_qwidgets import Ui_serverPresetsEditorWidget
 import thlib.ui.conf.ui_conf as ui_conf
 import thlib.ui.conf.ui_conf_main as ui_conf_main
 import thlib.ui.conf.ui_serverPage as ui_serverPage
@@ -252,7 +252,7 @@ class Ui_serverPageWidget(QtGui.QWidget, ui_serverPage.Ui_serverPageWidget):
 
     def edit_server_presets(self):
 
-        self.server_presets_editor = ui_misc_classes.Ui_serverPresetsEditorWidget(self)
+        self.server_presets_editor = Ui_serverPresetsEditorWidget(self)
         self.server_presets_editor.exec_()
 
     def generate_ticket_error(self, result=None):

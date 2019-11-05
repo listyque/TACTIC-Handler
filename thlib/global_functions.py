@@ -3,6 +3,7 @@
 
 import sys
 import os
+import time
 from stat import ST_SIZE
 import subprocess
 import copy
@@ -536,9 +537,9 @@ def show_message_predefined(title, message, stacktrace=None, buttons=None, paren
     if stacktrace:
         layout = QtGui.QVBoxLayout()
 
-        from thlib.ui_classes import ui_misc_classes
+        from thlib.ui_classes.ui_custom_qwidgets import Ui_collapsableWidget
 
-        collapse_wdg = ui_misc_classes.Ui_collapsableWidget(state=True)
+        collapse_wdg = Ui_collapsableWidget(state=True)
         collapse_wdg.setLayout(layout)
         collapse_wdg.setText('Hide Stacktrace')
         collapse_wdg.setCollapsedText('Show Stacktrace')
@@ -742,6 +743,15 @@ def prettify_text(text, first_letter=False):
 def minify_code(source):
     import side.python_minifier as python_minifier
     return python_minifier.minify(source)
+
+
+def time_it(start_time=None, message='Code flow running time: '):
+    if start_time:
+        end_time = time.time()
+
+        print('{0}{1}'.format(message, end_time - start_time))
+    else:
+        return time.time()
 
 
 def get_ver_rev(ver=None, rev=None):
@@ -1101,14 +1111,14 @@ def get_icon(icon_name, icon_name_active=None, color=None, color_active=None, ic
 # New QTreeWidget funcs
 
 def add_item_to_tree(tree_widget, tree_item, tree_item_widget=None, insert_pos=None):
-    if type(tree_widget) == QtGui.QTreeWidget:
+    if isinstance(tree_widget, QtGui.QTreeWidget):
         if insert_pos is not None:
             tree_widget.insertTopLevelItem(insert_pos, tree_item)
         else:
             tree_widget.addTopLevelItem(tree_item)
         if tree_item_widget:
             tree_widget.setItemWidget(tree_item, 0, tree_item_widget)
-            tree_widget.resizeColumnToContents(0)
+            # tree_widget.resizeColumnToContents(0)
     else:
         if insert_pos is not None:
             tree_widget.insertChild(insert_pos, tree_item)
@@ -1116,11 +1126,11 @@ def add_item_to_tree(tree_widget, tree_item, tree_item_widget=None, insert_pos=N
             tree_widget.addChild(tree_item)
         if tree_item_widget:
             tree_widget.treeWidget().setItemWidget(tree_item, 0, tree_item_widget)
-            tree_widget.treeWidget().resizeColumnToContents(0)
+            # tree_widget.treeWidget().resizeColumnToContents(0)
 
 
 def check_tree_items_exists(root_item, item_text):
-    if type(root_item) == QtGui.QTreeWidget:
+    if isinstance(root_item, QtGui.QTreeWidget):
         for i in range(root_item.topLevelItemCount()):
             top_item = root_item.topLevelItem(i)
             if item_text == top_item.data(0, 12):
@@ -1210,6 +1220,7 @@ def add_repo_sync_item(tree_widget, file_object):
 
 
 def add_sobject_item(parent_item, parent_widget, sobject, stype, item_info, insert_pos=None, ignore_dict=None, return_layout_widget=False):
+
     from thlib.ui_classes.ui_item_classes import Ui_itemWidget, Ui_layoutWrapWidget
 
     item_info_dict = {
@@ -1264,6 +1275,7 @@ def add_process_item(tree_widget, parent_widget, sobject, stype, process, item_i
 
 def add_snapshot_item(tree_widget, parent_widget, sobject, stype, process, pipeline, snapshots, item_info,
                       sep_versions=False, insert_at_top=True):
+
     from thlib.ui_classes.ui_item_classes import Ui_snapshotItemWidget
 
     snapshots_list = []
@@ -1400,7 +1412,7 @@ def get_all_tree_item_widgets(wdg, items_list=None):
 
 
 def recursive_close_tree_item_widgets(wdg):
-    if type(wdg) == QtGui.QTreeWidget:
+    if isinstance(wdg, QtGui.QTreeWidget) :
         items_count = wdg.topLevelItemCount()
         tree_item = wdg.topLevelItem
         tree_wdg = wdg
@@ -1422,7 +1434,7 @@ def recursive_close_tree_item_widgets(wdg):
 def tree_recursive_expand(wdg, state):
     """ Expanding tree to the ground"""
 
-    if type(wdg) == QtGui.QTreeWidget:
+    if isinstance(wdg, QtGui.QTreeWidget):
         items_count = wdg.topLevelItemCount()
         tree_item = wdg.topLevelItem
         tree_wdg = wdg
@@ -1447,7 +1459,7 @@ def get_tree_widget_checked_state(wdg, state_dict):
     This func is slower than it could be, but produce more readable look
     """
 
-    if type(wdg) == QtGui.QTreeWidget:
+    if isinstance(wdg, QtGui.QTreeWidget):
         lv = wdg.topLevelItemCount()
         for i in range(lv):
             item = wdg.topLevelItem(i)
@@ -1502,7 +1514,7 @@ def set_tree_widget_checked_state(wdg, state_dict, ignore_types_tuple=None, only
     Recursively setting checked state to each tree item by names
     """
 
-    if type(wdg) == QtGui.QTreeWidget:
+    if isinstance(wdg, QtGui.QTreeWidget):
         lv = wdg.topLevelItemCount()
         tree_item = wdg.topLevelItem
     else:
@@ -1541,7 +1553,7 @@ def set_tree_widget_checked_state(wdg, state_dict, ignore_types_tuple=None, only
 def tree_state(wdg, state_dict):
     """ Recursive getting data from each tree item"""
 
-    if type(wdg) == QtGui.QTreeWidget:
+    if isinstance(wdg, QtGui.QTreeWidget):
         lv = wdg.topLevelItemCount()
         for i in range(lv):
             item = wdg.topLevelItem(i)
@@ -1567,9 +1579,35 @@ def tree_state(wdg, state_dict):
     return state_dict
 
 
+def filter_multiple_selected_items(tree_widget, items_list, last_item):
+
+    # First we cut off all items in different rows, and allow only similar items
+    current_row_items_list = []
+    excluded_types = ['child', 'process']
+    for item in items_list:
+
+        item_index = tree_widget.indexFromItem(item)
+        last_item_index = tree_widget.indexFromItem(last_item)
+        if item_index.parent() == last_item_index.parent():
+
+            # Then we check it this items widgets is same type
+            item_widget = tree_widget.itemWidget(item, 0)
+            last_item_widget = tree_widget.itemWidget(last_item, 0)
+
+            # excluding types that should not be selected together
+            if item_widget.type == last_item_widget.type and last_item_widget.type not in excluded_types:
+                current_row_items_list.append(item)
+            else:
+                if item_index != last_item_index:
+                    item.setSelected(False)
+        else:
+            if item_index != last_item_index:
+                item.setSelected(False)
+
+
 def tree_state_revert(wdg, state_dict, use_item_widgets=True):
     """ Recursive setting data to each tree item"""
-    if type(wdg) == QtGui.QTreeWidget:
+    if isinstance(wdg, QtGui.QTreeWidget):
         lv = wdg.topLevelItemCount()
         tree_item = wdg.topLevelItem
         tree_wdg = wdg
@@ -1745,7 +1783,7 @@ def form_path(path, tp=None):
 
 
 def get_st_size(file_path):
-    if type(file_path) == list:
+    if isinstance(file_path, list):
         total_size = 0
         for fl in file_path:
             if os.path.exists(fl):
@@ -2762,6 +2800,7 @@ QTreeView::item {
 }
 QTreeView {
     paint-alternating-row-colors-for-empty-area: 0;
+    border: 0px;
 }
 
 """

@@ -114,6 +114,7 @@ class Ui_snapshotBrowserWidget(QtGui.QWidget, ui_snapshot_browser.Ui_snapshotBro
         self.forward_button.wheelEvent = self.previewGraphicsView_wheelEvent
 
         self.current_pix = 0
+        self.current_pixmap = None
         self.pix_list = []
         self.file_list = []
         self.pm_list = []
@@ -282,7 +283,7 @@ class Ui_snapshotBrowserWidget(QtGui.QWidget, ui_snapshot_browser.Ui_snapshotBro
                 if self.item_widget.is_versionless():
                     versionless_snapshot = self.item_widget.get_snapshot()
                     if versionless_snapshot and versionless_snapshot not in self.snapshots:
-                        self.snapshots.append(versionless_snapshot)
+                        self.snapshots.insert(0, versionless_snapshot)
 
             for snapshot in self.snapshots:
                 snapshot_info = snapshot.get_snapshot()
@@ -327,16 +328,13 @@ class Ui_snapshotBrowserWidget(QtGui.QWidget, ui_snapshot_browser.Ui_snapshotBro
                             else:
                                 self.add_item_with_tactic_file_object(file_object, show_more_info, show_all_files, snapshot_info, type_item, file_icon)
 
-                    # if i+1 % 50 == 0:
-                    #     QtGui.QApplication.processEvents()
-
-                self.filesTreeWidget.resizeColumnToContents(0)
-                if show_more_info:
-                    self.filesTreeWidget.resizeColumnToContents(1)
-                    self.filesTreeWidget.resizeColumnToContents(2)
-                    # self.filesTreeWidget.resizeColumnToContents(3)
-                    self.filesTreeWidget.resizeColumnToContents(4)
-                    self.filesTreeWidget.resizeColumnToContents(5)
+            self.filesTreeWidget.resizeColumnToContents(0)
+            if show_more_info:
+                self.filesTreeWidget.resizeColumnToContents(1)
+                self.filesTreeWidget.resizeColumnToContents(2)
+                # self.filesTreeWidget.resizeColumnToContents(3)
+                self.filesTreeWidget.resizeColumnToContents(4)
+                self.filesTreeWidget.resizeColumnToContents(5)
 
     def add_item_with_meta_file_object(self, file_object, show_more_info, show_all_files, snapshot_info, type_item, file_icon):
 
@@ -399,22 +397,26 @@ class Ui_snapshotBrowserWidget(QtGui.QWidget, ui_snapshot_browser.Ui_snapshotBro
         self.imagesSlider.valueChanged.connect(self.emi_inc)
 
     def getting_pixmaps(self):
+
         for snapshot in self.snapshots:
             preview_files_objects = snapshot.get_previewable_files_objects()
             for preview_file_obj in preview_files_objects:
                 web_file_obj = preview_file_obj.get_web_preview()
                 if not web_file_obj:
                     web_file_obj = preview_file_obj
-
                 if web_file_obj.is_meta_file_obj():
                     meta_file_object = web_file_obj.get_meta_file_object()
-                    pixmap = Qt4Gui.QPixmap(meta_file_object.get_all_files_list(first=True))
+                    # pixmap = Qt4Gui.QPixmap()
+                    pixmap_path = meta_file_object.get_all_files_list(first=True)
+                    # print meta_file_object.get_all_files_list(first=True)
                 else:
-                    pixmap = Qt4Gui.QPixmap(web_file_obj.get_full_abs_path())
-
-                if not pixmap.isNull():
-                    self.pix_list.append(pixmap.scaledToWidth(640, QtCore.Qt.SmoothTransformation))
-                    self.file_list.append(preview_file_obj)
+                    # pixmap = Qt4Gui.QPixmap()
+                    pixmap_path = web_file_obj.get_full_abs_path()
+                    # print web_file_obj.get_full_abs_path()
+                # if not pixmap.isNull():
+                    # self.pix_list.append(pixmap.scaledToWidth(640, QtCore.Qt.SmoothTransformation))
+                self.pix_list.append(pixmap_path)
+                self.file_list.append(preview_file_obj)
 
         self.create_scene()
 
@@ -619,7 +621,10 @@ class Ui_snapshotBrowserWidget(QtGui.QWidget, ui_snapshot_browser.Ui_snapshotBro
         if self.pix_list:
             self.pm_list = [self.pm1, self.pm2, self.pm3]
             for i, pm in enumerate(self.pm_list):
-                pm.add_pixmap(self.pix_list[i % len(self.pix_list)])
+                pixmap = Qt4Gui.QPixmap(self.pix_list[i % len(self.pix_list)])
+                if not pixmap.isNull():
+                    pm.add_pixmap(pixmap.scaledToWidth(640, QtCore.Qt.SmoothTransformation))
+                    self.current_pixmap = pixmap
 
             self.previewGraphicsView.setSceneRect(self.pm1.pixmap_item.boundingRect())
             self.previewGraphicsView.fitInView(self.pm1.pixmap_item.boundingRect(), QtCore.Qt.KeepAspectRatio)
@@ -658,8 +663,8 @@ class Ui_snapshotBrowserWidget(QtGui.QWidget, ui_snapshot_browser.Ui_snapshotBro
             idx = index % len(self.pix_list)
             pm_idx = index % len(self.pm_list)
             self.pm_list[pm_idx].add_pixmap(self.pix_list[idx])
-            self.previewGraphicsView.setSceneRect(self.pix_list[idx].rect())
-            self.previewGraphicsView.fitInView(self.pix_list[idx].rect(), QtCore.Qt.KeepAspectRatio)
+            # self.previewGraphicsView.setSceneRect(self.pix_list[idx].rect())
+            # self.previewGraphicsView.fitInView(self.pix_list[idx].rect(), QtCore.Qt.KeepAspectRatio)
 
     def move_slider_forward(self):
         value = self.imagesSlider.value() + 1
@@ -677,12 +682,12 @@ class Ui_snapshotBrowserWidget(QtGui.QWidget, ui_snapshot_browser.Ui_snapshotBro
         self.file_list = []
 
         self.getting_pixmaps()
+
         self.init_images_slider()
         if not self.machine.isRunning():
             self.machine.start()
 
     def set_item_widget(self, item_widget):
-
         # !!! i think this whole thing should be rewritten !!!
 
         self.item_widget = item_widget
@@ -707,7 +712,6 @@ class Ui_snapshotBrowserWidget(QtGui.QWidget, ui_snapshot_browser.Ui_snapshotBro
                 self.do_preview()
             else:
                 self.clear()
-
         elif self.item_widget.type == 'sobject':
 
             # checking if we have any snapshots, we can show it in snapshot browser
@@ -783,15 +787,10 @@ class Ui_snapshotBrowserWidget(QtGui.QWidget, ui_snapshot_browser.Ui_snapshotBro
     def graphicsSceneResizeEvent(self, event):
         # TODO Smooth downscaling pixmap
         rect = QtCore.QRect(0, 0, 512, 512)
-        if self.pix_list:
-            # pix = self.pix_list[self.current_pix]
-            # self.pm1.add_pixmap(pix.scaledToHeight(self.previewGraphicsView.height(), QtCore.Qt.SmoothTransformation))
-
-            rect = self.pix_list[self.current_pix].rect()
+        if self.current_pixmap:
+            rect = self.current_pixmap.rect()
         self.previewGraphicsView.setSceneRect(rect)
         self.previewGraphicsView.fitInView(rect, QtCore.Qt.KeepAspectRatio)
-        # print self.previewGraphicsView.height()
-        # print self.pm1.pixmap_item
         event.accept()
 
     def resize_event(self, event):

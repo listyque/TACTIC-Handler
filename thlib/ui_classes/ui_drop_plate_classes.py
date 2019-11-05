@@ -9,7 +9,7 @@ from thlib.environment import env_mode, env_write_config, env_read_config
 import thlib.global_functions as gf
 import thlib.ui.checkin_out.ui_drop_plate as ui_drop_plate
 import thlib.ui.checkin_out.ui_drop_plate_config as ui_drop_plate_config
-import thlib.ui_classes.ui_misc_classes as ui_misc_classes
+from thlib.ui_classes.ui_custom_qwidgets import  Ui_horizontalCollapsableWidget
 
 reload(ui_drop_plate)
 reload(ui_drop_plate_config)
@@ -193,7 +193,7 @@ class Ui_dropPlateWidget(QtGui.QWidget, ui_drop_plate.Ui_dropPlate):
         self.config_widget = Ui_matchingTemplateConfigWidget(self)
 
     def create_collapsable_toolbar(self):
-        self.collapsable_toolbar = ui_misc_classes.Ui_horizontalCollapsableWidget()
+        self.collapsable_toolbar = Ui_horizontalCollapsableWidget()
         self.collapsable_toolbar.setText('Quick Config')
 
         self.buttons_layout = QtGui.QHBoxLayout()

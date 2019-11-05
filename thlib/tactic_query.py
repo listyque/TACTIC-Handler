@@ -12,21 +12,15 @@ def prepare_serverside_script(func, kwargs, return_dict=True, has_return=True, s
         run_command = func_lines[0][0].replace('def ', '')[:-2]
     # i don't want 're' here, so try to understand logic, with love to future me :-*
     # TODO multiline bug
-    val_split = run_command.split(',')
-    left_part = val_split[0].split('(')
-    right_part = val_split[-1][:-1]
-    full_list = [left_part[1]] + val_split[1:-1] + [right_part]
-    all_vars = []
-    for split in full_list:
-        # split keys and values, and add to list keys which values need update
-        fltr = split.split('=')[0].replace(' ', '')
-        if fltr in kwargs.keys():
-            all_vars.append(fltr)
-    for i, k in enumerate(all_vars):
-        for key, val in kwargs.items():
-            if k == key:
-                all_vars[i] = '{0}={1}'.format(key, repr(val))
-    var_stitch = ', '.join(all_vars)
+
+    args_list = []
+    for key, arg in kwargs.items():
+        if isinstance(arg, (str, unicode)):
+            args_list.append(u'{}="{}"'.format(key, arg))
+        else:
+            args_list.append(u'{}={}'.format(key, arg))
+
+    var_stitch = ', '.join(args_list)
     ready_run_command = '{0}({1})'.format(run_command[:run_command.find('(')], var_stitch)
     if catch_traceback:
         traceback = inspect.getsourcelines(get_traceback)
@@ -87,16 +81,12 @@ def get_traceback():
     return result
 
 
-def get_result(result):
-    if result['info']['spt_ret_val'].startswith('Traceback'):
-        raise Exception(result['info']['spt_ret_val'])
-    else:
-        return result['info']['spt_ret_val']
-
-
-def query_EditWdg(args=None, search_type=''):
+def query_EditWdg(args=None, search_type='', project=''):
     import json
     from pyasm.widget.widget_config import WidgetConfigView
+
+    if project:
+        server.set_project(project)
 
     def pop_classes(in_dict):
         out_dict = {}
@@ -349,22 +339,12 @@ def get_notes_and_stypes_counts(process, search_key, stypes_list):
     return cnt
 
 
-def query_search_types_extended(project_code, namespace):
+def query_search_types_extended(project_code):
     """
     This crazy stuff made to execute queries on server
     All needed info is getting almost half time faster
     :return:
     """
-    # TODO remove query, and dig deeper to get more info about pipelines, processes, stypes
-    # from pyasm.search import Search
-    # from pyasm.biz import Pipeline
-    #
-    # search_type = 'cgshort/scenes'
-    # search = Search("sthpw/pipeline")
-    # search.add_filter("search_type", search_type)
-    # pipelines = search.get_sobjects()
-    #
-    # return str(pipelines)
     import json
     from pyasm.biz import Project
     from pyasm.search import Search
@@ -382,7 +362,7 @@ def query_search_types_extended(project_code, namespace):
 
     if project_code == 'sthpw':
         search = Search('sthpw/search_object')
-        search.add_filters('code', ['sthpw/task'])
+        search.add_filters('code', ['sthpw/task', 'sthpw/login', 'sthpw/snapshot', 'sthpw/file', 'sthpw/search_type', 'sthpw/search_object', 'sthpw/schema', 'sthpw/retire_log', 'sthpw/repo', 'sthpw/project_type', 'sthpw/project', 'sthpw/pref_setting', 'sthpw/pref_list', 'sthpw/pipeline', 'sthpw/notification_login', 'sthpw/notification_log', 'sthpw/notification', 'sthpw/note', 'sthpw/milestone', 'sthpw/message_log', 'sthpw/message', 'sthpw/login_in_group', 'sthpw/login_group', 'sthpw/login', 'sthpw/exception_log', 'sthpw/debug_log', 'sthpw/custom_script', 'sthpw/clipboard', 'sthpw/change_timestamp', 'config/custom_property'])
         search.add_order_by('search_type')
         stypes = search.get_sobjects()
     else:
@@ -444,6 +424,22 @@ def query_search_types_extended(project_code, namespace):
 
     # getting project schema
     schema = server.query('sthpw/schema', [('code', project_code)])
+
+    if project_code == 'sthpw':
+        from pyasm.biz import Schema
+        admin_schema = Schema.get()
+        admin_schema_dict = {
+            '__search_key__': u'sthpw/schema?code=sthpw',
+            'code': u'sthpw',
+            'description': u'Schema for project [sthpw]',
+            'id': 1,
+            'login': u'admin',
+            'project_code': u'sthpw',
+            's_status': None,
+            'schema': admin_schema.get_admin_schema().get_xml().to_string(),
+            'timestamp': '2005-01-01 00:00:00'}
+
+        schema.append(admin_schema_dict)
 
     result = {'schema': schema, 'pipelines': pipelines, 'stypes': all_stypes}
 

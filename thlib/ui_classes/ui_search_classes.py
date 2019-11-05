@@ -1,3 +1,21 @@
+# -*- coding: utf-8 -*-
+# Search UI classes and methods
+
+# Copyright (c) 2019, Krivospitskiy Alexey, <listy@live.ru>, https://github.com/listyque/TACTIC-Handler
+#
+# This program and the accompanying materials are made available under the
+# terms of the Eclipse Public License 2.0 which is available at
+# http://www.eclipse.org/legal/epl-2.0, or the Apache License, Version 2.0
+# which is available at https://www.apache.org/licenses/LICENSE-2.0.
+#
+# SPDX-License-Identifier: EPL-2.0 OR Apache-2.0
+
+
+__all__ = ['Ui_simpleResultsFormWidget', 'Ui_navigationWidget', 'Ui_searchWidget', 'Ui_searchOptionsWidget',
+           'Ui_filterWidget', 'Ui_resultsTabWidget', 'Ui_processFilterDialog', 'Ui_advancedSearchWidget']
+
+
+import collections
 from thlib.side.Qt import QtWidgets as QtGui
 from thlib.side.Qt import QtGui as Qt4Gui
 from thlib.side.Qt import QtCore
@@ -5,13 +23,96 @@ from thlib.side.Qt import QtCore
 from thlib.environment import env_inst, env_server, cfg_controls, env_read_config, env_write_config
 import thlib.global_functions as gf
 import thlib.tactic_classes as tc
-import thlib.ui_classes.ui_misc_classes as ui_misc_classes
-import thlib.ui.search.ui_search_results_tree as ui_search_results_tree
-
-reload(ui_search_results_tree)
+from thlib.ui_classes.ui_custom_qwidgets import SuggestedLineEdit, Ui_horizontalCollapsableWidget, Ui_collapsableWidget, Ui_extendedTreeWidget, Ui_extendedTabBarWidget
 
 DEFAULT_FILTER = ('name', 'EQI', '')
 EXPR_FILTER = ('_expression', 'in', "@SOBJECT(sthpw/task['assigned', $LOGIN])")
+
+
+def get_suggestion_filter(column, search_text, possible_columns):
+    filters = ['begin', (column, 'EQI', search_text)]
+
+    if 'keywords' in possible_columns:
+        filters.append(('keywords', 'EQI', search_text))
+
+    if 'description' in possible_columns:
+        filters.append(('description', 'EQI', search_text))
+
+    filters.append('or')
+
+    return filters
+
+
+def get_match_list_by_type(column_type):
+    match_list = [
+        ('Is', '='),
+        ('Is not', '!='),
+        ('Contains', 'EQI'),
+        ('Does not contain', 'NEQI'),
+        ('Is empty', None),
+        ('Is not empty', 'like'),
+        ('Starts with', 'like'),
+        ('Ends with', 'like'),
+        ('Does not starts with', 'not like'),
+        ('Does not end with', 'not like'),
+        ('In', 'in'),
+        ('Not in', 'not in'),
+        ('Is distinct', ''),
+    ]
+
+    if column_type == 'boolean':
+        match_list = [
+            ('Is', '='),
+            ('Is not', '!='),
+            ('Is empty', None),
+            ('Is not empty', None),
+        ]
+    elif column_type in ['integer', 'float', 'currency']:
+        match_list = [
+            ('is equal to', ''),
+            ('is greater than', ''),
+            ('is less than', ''),
+            ('in', 'in'),
+            ('not in', 'not in'),
+            ('is empty', None),
+            ('is not empty', ''),
+            ('is distinct', ''),
+        ]
+    elif column_type in ['time', 'timestamp', 'datetime2']:
+        match_list = [
+            ('is newer than', ''),
+            ('is older than', ''),
+            ('is on', ''),
+            ('is empty', None),
+            ('is not empty', ''),
+        ]
+    elif column_type in ['login']:
+        match_list = [
+            ('is', '='),
+            ('is not', '!='),
+            ('contains', 'EQI'),
+            ('does not contain', 'NEQI'),
+            ('is empty', None),
+            ('is not empty', ''),
+            ('starts with', ''),
+            ('ends with', ''),
+        ]
+    elif column_type in ['_expression']:
+        match_list = [
+            ('Have', 'in'),
+            ('Do not have', 'not in'),
+            # ('Match (slow)', 'match'),
+            # ('Do not match (slow)', 'do not match'),
+        ]
+    elif column_type in ['timecode']:
+        match_list = [
+            ('is timecode before', '<='),
+            ('is timecode after', '>='),
+            ('is timecode equal', '='),
+            ('is empty', None),
+        ]
+
+    return match_list
 
 
 class Ui_processFilterDialog(QtGui.QDialog):
@@ -393,18 +494,24 @@ class Ui_searchWidget(QtGui.QWidget):
         self.controls_actions()
 
     def controls_actions(self):
-        self.searchLineEdit.returnPressed.connect(self.do_search)
+        # self.search_line_edit.returnPressed.connect(self.search_line_edit_text_edited)
+        self.search_line_edit.returnPressed.connect(self.do_search)
+        self.search_line_edit.textEdited.connect(self.search_line_edit_text_edited)
+        self.search_line_edit.item_selected.connect(self.do_search)
+        self.search_line_edit.item_clicked.connect(self.do_search)
 
-        self.add_new_tab_button.clicked.connect(self.add_tab)
+        self.add_new_tab_button.clicked.connect(self.add_tab_button_click)
         self.refresh_tab_button.clicked.connect(self.update_current_search_results)
-        self.resultsTabWidget.tabCloseRequested.connect(self.close_tab)
-        self.resultsTabWidget.currentChanged.connect(self.changed_tab)
+
+        self.results_tab_widget.tabCloseRequested.connect(self.close_tab)
+        self.results_tab_widget.middle_mouse_pressed.connect(self.close_tab)
+        self.results_tab_widget.currentChanged.connect(self.current_tab_changed)
 
     def create_search_line_edit(self):
-        self.searchLineEdit = ui_misc_classes.SuggestedLineEdit(self.stype, self.project, 'search')
-        self.searchLineEdit.setObjectName('searchLineEdit')
-        self.searchLineEdit.setToolTip('Enter Your search query here')
-        self.searchWidgetGridLayout.addWidget(self.searchLineEdit, 0, 0, 1, 1)
+        self.search_line_edit = SuggestedLineEdit(self.stype, self.project, parent=self)
+        self.search_line_edit.setObjectName('search_line_edit')
+        self.search_line_edit.setToolTip('Enter Your search query here')
+        self.searchWidgetGridLayout.addWidget(self.search_line_edit, 0, 0, 1, 1)
 
     def create_search_results_widget(self):
 
@@ -416,7 +523,7 @@ class Ui_searchWidget(QtGui.QWidget):
         self.search_results_widget.setLayout(self.resultsLayout)
 
         self.create_results_tab_widget()
-        self.resultsLayout.addWidget(self.resultsTabWidget)
+        self.resultsLayout.addWidget(self.results_tab_widget)
         self.create_tool_buttons()
 
         self.searchWidgetGridLayout.addWidget(self.search_results_widget, 2, 0, 1, 3)
@@ -424,39 +531,90 @@ class Ui_searchWidget(QtGui.QWidget):
         # print self.searchWidgetGridLayout.rowStretch()
 
     def create_results_tab_widget(self):
-        self.resultsTabWidget = QtGui.QTabWidget()
-        self.resultsTabWidget.setMovable(True)
-        self.resultsTabWidget.setTabsClosable(True)
-        self.resultsTabWidget.setObjectName("resultsTabWidget")
+        self.results_tab_widget = Ui_extendedTabBarWidget(self)
+        self.results_tab_widget.setMovable(True)
+        self.results_tab_widget.setObjectName('results_tab_widget')
+        self.results_tab_widget.customize_ui(padding=4)
+        self.results_tab_widget.set_corner_offset(48)
 
-        self.resultsTabWidget.setStyleSheet(
-            '#resultsTabWidget > QTabBar::tab {background: transparent;border: 2px solid transparent;'
-            'border-top-left-radius: 3px;border-top-right-radius: 3px;border-bottom-left-radius: 0px;border-bottom-right-radius: 0px;padding: 4px;}'
-            '#resultsTabWidget > QTabBar::tab:selected, #resultsTabWidget > QTabBar::tab:hover {'
-            'background: qlineargradient(x1: 0, y1: 0, x2: 0, y2: 1, stop: 0 rgba(255, 255, 255, 48), stop: 1 rgba(255, 255, 255, 32));}'
-            '#resultsTabWidget > QTabBar::tab:selected {border-color: transparent;}'
-            '#resultsTabWidget > QTabBar::tab:!selected {margin-top: 0px;}')
+    def add_tab_button_click(self):
+        self.search_line_edit.setFocus()
+        self.add_tab()
+
+    def get_tasks_tastuses_menu(self):
+        workflow = self.stype.get_workflow()
+        tasks_pipelines = workflow.get_by_stype_code('sthpw/task')
+
+        # piplines = self.stype.get_pipeline()
+        # for porcess in piplines.values()[0].get_all_processes_names():
+        #     print piplines.values()[0].get_process_info(porcess)
+
+        tasks_pipline = tasks_pipelines['dolly3d/light']
+
+        print tasks_pipline
+        actions_list = []
+        for process in tasks_pipline.get_all_processes_names():
+            print process
+            task_status_action = QtGui.QAction(process, self)
+            actions_list.append(task_status_action)
+        return actions_list
 
     def create_tool_buttons(self):
+        self.left_buttons_layout = QtGui.QHBoxLayout()
+        self.left_buttons_layout.setContentsMargins(0, 0, 0, 0)
+        self.left_buttons_layout.setSpacing(0)
+
+        self.left_buttons_widget = QtGui.QWidget(self)
+        self.left_buttons_widget.setLayout(self.left_buttons_layout)
+
         self.add_new_tab_button = QtGui.QToolButton()
         self.add_new_tab_button.setAutoRaise(True)
-        self.add_new_tab_button.setMinimumWidth(20)
-        self.add_new_tab_button.setMinimumHeight(20)
+        self.add_new_tab_button.setMinimumWidth(24)
+        self.add_new_tab_button.setMinimumHeight(24)
         self.add_new_tab_button.setIcon(gf.get_icon('plus', icons_set='mdi', scale_factor=1.2))
         self.add_new_tab_button.setToolTip('Add new Search Tab')
 
+        self.add_filter_button = QtGui.QToolButton()
+        self.add_filter_button.setAutoRaise(True)
+        self.add_filter_button.setMinimumWidth(24)
+        self.add_filter_button.setMinimumHeight(24)
+        self.add_filter_button.setPopupMode(QtGui.QToolButton.InstantPopup)
+        self.add_filter_button.setIcon(gf.get_icon('filter', icons_set='mdi', scale_factor=0.9))
+        self.add_filter_button.setToolTip('Add Filter')
+
+        self.filter_by_tasks_menu = QtGui.QMenu('Tasks', self.add_filter_button)
+        self.my_tasks_action = QtGui.QAction('My Tasks', self.add_filter_button)
+        self.filter_by_tasks_menu.addAction(self.my_tasks_action)
+        # TODO MAKE IT PERSONALIZED
+        # self.filter_by_tasks_menu.addActions(self.get_tasks_tastuses_menu())
+
+        self.filter_by_snapshots_menu = QtGui.QMenu('Snapshots', self.add_filter_button)
+        self.my_snapshots_action = QtGui.QAction('My Snapshots', self.add_filter_button)
+        self.filter_by_snapshots_menu.addAction(self.my_snapshots_action)
+
+        self.filter_by_preset_menu = QtGui.QMenu('Presets', self.add_filter_button)
+        self.edit_presets_action = QtGui.QAction('Edit Presets', self.add_filter_button)
+        self.filter_by_preset_menu.addAction(self.edit_presets_action)
+
+        self.add_filter_button.addAction(self.filter_by_tasks_menu.menuAction())
+        self.add_filter_button.addAction(self.filter_by_snapshots_menu.menuAction())
+        self.add_filter_button.addAction(self.filter_by_preset_menu.menuAction())
+
+        self.left_buttons_layout.addWidget(self.add_new_tab_button)
+        self.left_buttons_layout.addWidget(self.add_filter_button)
+
         self.history_tab_button = QtGui.QToolButton()
         self.history_tab_button.setAutoRaise(True)
-        self.history_tab_button.setMinimumWidth(20)
-        self.history_tab_button.setMinimumHeight(20)
+        self.history_tab_button.setMinimumWidth(24)
+        self.history_tab_button.setMinimumHeight(24)
         self.history_tab_button.setPopupMode(QtGui.QToolButton.InstantPopup)
         self.history_tab_button.setIcon(gf.get_icon('history', icons_set='mdi', scale_factor=1.2))
         self.history_tab_button.setToolTip('History of closed Search Results')
 
         self.refresh_tab_button = QtGui.QToolButton()
         self.refresh_tab_button.setAutoRaise(True)
-        self.refresh_tab_button.setMinimumWidth(20)
-        self.refresh_tab_button.setMinimumHeight(20)
+        self.refresh_tab_button.setMinimumWidth(24)
+        self.refresh_tab_button.setMinimumHeight(24)
         self.refresh_tab_button.setIcon(gf.get_icon('refresh', icons_set='mdi', scale_factor=1.2))
         self.refresh_tab_button.setToolTip('Refresh current Results')
 
@@ -480,27 +638,24 @@ class Ui_searchWidget(QtGui.QWidget):
         # self.resultsTabWidget.tabBar().setTabButton(1, QtGui.QTabBar.RightSide, self.b)
         # QtGui.QTabBar.styleSheet()
 
-
-        # self.resultsTabWidget.tabBar().setLayout(self.l)
-
         self.right_buttons_widget = QtGui.QWidget(self)
         self.right_buttons_widget.setLayout(self.right_buttons_layout)
 
         self.group_by_button = QtGui.QToolButton()
         self.group_by_button.setAutoRaise(True)
-        self.group_by_button.setMinimumWidth(20)
-        self.group_by_button.setMinimumHeight(20)
+        self.group_by_button.setMinimumWidth(24)
+        self.group_by_button.setMinimumHeight(24)
         self.group_by_button.setPopupMode(QtGui.QToolButton.InstantPopup)
-        self.group_by_button.setIcon(gf.get_icon('folder-multiple-outline', icons_set='mdi', scale_factor=1))
+        self.group_by_button.setIcon(gf.get_icon('group', icons_set='mdi', scale_factor=1))
         self.group_by_button.setToolTip('Group Items By')
 
         self.no_grouping_button = QtGui.QAction('No Grouping', self.group_by_button, checkable=True)
-        self.no_grouping_button.setIcon(gf.get_icon('sort-alphabetical', icons_set='mdi', scale_factor=1.3))
+        self.no_grouping_button.setIcon(gf.get_icon('sort-alphabetical', icons_set='mdi', scale_factor=1))
         self.no_grouping_button.triggered.connect(lambda: self.change_items_sorting('sobject', 'name'))
         self.no_grouping_button.setChecked(True)
 
         self.group_by_date_button = QtGui.QAction('Sort by Name', self.group_by_button, checkable=True)
-        self.group_by_date_button.setIcon(gf.get_icon('sort-alphabetical', icons_set='mdi', scale_factor=1.3))
+        self.group_by_date_button.setIcon(gf.get_icon('sort-alphabetical', icons_set='mdi', scale_factor=1))
         self.group_by_date_button.triggered.connect(lambda: self.change_items_sorting('sobject', 'name'))
         self.group_by_date_button.setChecked(True)
 
@@ -510,14 +665,14 @@ class Ui_searchWidget(QtGui.QWidget):
 
         self.sobject_items_sorting_button = QtGui.QToolButton()
         self.sobject_items_sorting_button.setAutoRaise(True)
-        self.sobject_items_sorting_button.setMinimumWidth(20)
-        self.sobject_items_sorting_button.setMinimumHeight(20)
+        self.sobject_items_sorting_button.setMinimumWidth(24)
+        self.sobject_items_sorting_button.setMinimumHeight(24)
         self.sobject_items_sorting_button.setPopupMode(QtGui.QToolButton.InstantPopup)
-        self.sobject_items_sorting_button.setIcon(gf.get_icon('sort-variant', icons_set='mdi', scale_factor=1.3))
+        self.sobject_items_sorting_button.setIcon(gf.get_icon('sort-alphabetical', icons_set='mdi', scale_factor=1))
         self.sobject_items_sorting_button.setToolTip('SObject Items Sorting')
 
         self.sort_so_by_name_action = QtGui.QAction('Sort by Name', self.sobject_items_sorting_button, checkable=True)
-        self.sort_so_by_name_action.setIcon(gf.get_icon('sort-alphabetical', icons_set='mdi', scale_factor=1.3))
+        self.sort_so_by_name_action.setIcon(gf.get_icon('sort-alphabetical', icons_set='mdi', scale_factor=1))
         self.sort_so_by_name_action.triggered.connect(lambda: self.change_items_sorting('sobject', 'name'))
         self.sort_so_by_name_action.setChecked(True)
 
@@ -525,14 +680,14 @@ class Ui_searchWidget(QtGui.QWidget):
 
         self.snapshot_items_sorting_button = QtGui.QToolButton()
         self.snapshot_items_sorting_button.setAutoRaise(True)
-        self.snapshot_items_sorting_button.setMinimumWidth(20)
-        self.snapshot_items_sorting_button.setMinimumHeight(20)
+        self.snapshot_items_sorting_button.setMinimumWidth(24)
+        self.snapshot_items_sorting_button.setMinimumHeight(24)
         self.snapshot_items_sorting_button.setPopupMode(QtGui.QToolButton.InstantPopup)
-        self.snapshot_items_sorting_button.setIcon(gf.get_icon('sort-variant', icons_set='mdi', scale_factor=1.3))
+        self.snapshot_items_sorting_button.setIcon(gf.get_icon('sort-alphabetical', icons_set='mdi', scale_factor=1))
         self.snapshot_items_sorting_button.setToolTip('Snapshot Items Sorting')
 
         self.sort_sn_by_name_action = QtGui.QAction('Sort by Name', self.snapshot_items_sorting_button, checkable=True)
-        self.sort_sn_by_name_action.setIcon(gf.get_icon('sort-alphabetical', icons_set='mdi', scale_factor=1.3))
+        self.sort_sn_by_name_action.setIcon(gf.get_icon('sort-alphabetical', icons_set='mdi', scale_factor=1))
         self.sort_sn_by_name_action.triggered.connect(lambda: self.change_items_sorting('snapshot', 'name'))
         self.sort_sn_by_name_action.setChecked(True)
 
@@ -540,27 +695,27 @@ class Ui_searchWidget(QtGui.QWidget):
 
         self.change_view_tab_button = QtGui.QToolButton()
         self.change_view_tab_button.setAutoRaise(True)
-        self.change_view_tab_button.setMinimumWidth(20)
-        self.change_view_tab_button.setMinimumHeight(20)
+        self.change_view_tab_button.setMinimumWidth(24)
+        self.change_view_tab_button.setMinimumHeight(24)
         self.change_view_tab_button.setPopupMode(QtGui.QToolButton.InstantPopup)
-        self.change_view_tab_button.setIcon(gf.get_icon('view-list', icons_set='mdi', scale_factor=1.3))
+        self.change_view_tab_button.setIcon(gf.get_icon('view-list', icons_set='mdi', scale_factor=1))
         self.change_view_tab_button.setToolTip('Change Search Results View Style')
 
         self.items_view_action = QtGui.QMenu('Items View', self.change_view_tab_button)
-        self.items_view_action.setIcon(gf.get_icon('view-list', icons_set='mdi', scale_factor=1.3))
+        self.items_view_action.setIcon(gf.get_icon('view-list', icons_set='mdi', scale_factor=1))
         # self.items_view_action.triggered.connect(self.clear_tabs_history)
 
         self.split_view_horizontal_action = QtGui.QAction('Splitted Horizontal View', self.change_view_tab_button, checkable=True)
-        self.split_view_horizontal_action.setIcon(gf.get_icon('view-sequential', icons_set='mdi', scale_factor=1.3))
+        self.split_view_horizontal_action.setIcon(gf.get_icon('view-sequential', icons_set='mdi', scale_factor=1))
         self.split_view_horizontal_action.triggered.connect(lambda: self.toggle_current_view('splitted_horizontal'))
 
         self.split_view_vertical_action = QtGui.QAction('Splitted Vertical View', self.change_view_tab_button, checkable=True)
-        self.split_view_vertical_action.setIcon(gf.get_icon('view-parallel', icons_set='mdi', scale_factor=1.3))
+        self.split_view_vertical_action.setIcon(gf.get_icon('view-parallel', icons_set='mdi', scale_factor=1))
         self.split_view_vertical_action.triggered.connect(lambda: self.toggle_current_view('splitted_vertical'))
         self.split_view_vertical_action.setChecked(True)
 
         self.continious_view_action = QtGui.QAction('Continious View', self.change_view_tab_button, checkable=True)
-        self.continious_view_action.setIcon(gf.get_icon('view-dashboard-variant', icons_set='mdi', scale_factor=1.3))
+        self.continious_view_action.setIcon(gf.get_icon('view-dashboard-variant', icons_set='mdi', scale_factor=1))
         self.continious_view_action.triggered.connect(lambda: self.toggle_current_view('continious'))
 
         self.items_view_action.addAction(self.split_view_horizontal_action)
@@ -569,13 +724,13 @@ class Ui_searchWidget(QtGui.QWidget):
         # print self.get_current_results_widget()
 
         self.tiles_view_action = QtGui.QAction('Tiles View', self.change_view_tab_button, checkable=True)
-        self.tiles_view_action.setIcon(gf.get_icon('view-grid', icons_set='mdi', scale_factor=1.3))
+        self.tiles_view_action.setIcon(gf.get_icon('view-grid', icons_set='mdi', scale_factor=1))
         self.tiles_view_action.triggered.connect(lambda: self.toggle_current_view('tiles'))
 
         self.change_view_tab_button.addAction(self.items_view_action.menuAction())
         self.change_view_tab_button.addAction(self.tiles_view_action)
 
-        self.additional_collapsable_toolbar = ui_misc_classes.Ui_horizontalCollapsableWidget()
+        self.additional_collapsable_toolbar = Ui_horizontalCollapsableWidget()
         self.additional_buttons_layout = QtGui.QHBoxLayout()
         self.additional_buttons_layout.setSpacing(0)
         self.additional_buttons_layout.setContentsMargins(0, 0, 0, 0)
@@ -587,7 +742,7 @@ class Ui_searchWidget(QtGui.QWidget):
         self.additional_buttons_layout.addWidget(self.change_view_tab_button)
         self.additional_buttons_layout.addWidget(self.group_by_button)
 
-        self.main_collapsable_toolbar = ui_misc_classes.Ui_horizontalCollapsableWidget()
+        self.main_collapsable_toolbar = Ui_horizontalCollapsableWidget()
         self.main_buttons_layout = QtGui.QHBoxLayout()
         self.main_buttons_layout.setSpacing(0)
         self.main_buttons_layout.setContentsMargins(0, 0, 0, 0)
@@ -613,8 +768,8 @@ class Ui_searchWidget(QtGui.QWidget):
         # self.animation.start()
         # self.refresh_tab_button.setGraphicsEffect(effect)
 
-        self.resultsTabWidget.setCornerWidget(self.right_buttons_widget, QtCore.Qt.TopRightCorner)
-        self.resultsTabWidget.setCornerWidget(self.add_new_tab_button, QtCore.Qt.TopLeftCorner)
+        self.results_tab_widget.setCornerWidget(self.right_buttons_widget, QtCore.Qt.TopRightCorner)
+        self.results_tab_widget.setCornerWidget(self.left_buttons_widget, QtCore.Qt.TopLeftCorner)
 
     def change_items_sorting(self, items_type='sobject', sort='name'):
         print('MAKING SORT BY ', items_type, sort)
@@ -625,7 +780,7 @@ class Ui_searchWidget(QtGui.QWidget):
         current_results_widget.toggle_results_view(view)
 
     @gf.catch_error
-    def add_tab(self, search_title='', filters=[], state=None, offset=0, limit=None, reverting=False):
+    def add_tab(self, search_title='', filters=[], state=None, offset=0, limit=None, reverting=False, items_count=0, search_line_text='', current_index=0):
 
         if not limit:
             limit = self.get_display_limit()
@@ -642,27 +797,30 @@ class Ui_searchWidget(QtGui.QWidget):
             'state': state,
             'offset': offset,
             'limit': limit,
+            'items_count': items_count,
+            'search_line_text': search_line_text,
+            'current_index': current_index,
         }
 
-        search_results_widget = Ui_resultsFormWidget(
+        search_results_widget = Ui_resultsTabWidget(
             project=self.project,
             stype=self.stype,
             info=info,
-            parent=self.resultsTabWidget
+            parent=self.results_tab_widget
         )
         # self.sep_versions = search_results_tree.get_is_separate_versions()
-        self.resultsTabWidget.addTab(search_results_widget, search_title)
+        self.results_tab_widget.addTab(search_results_widget, search_title)
 
         if not reverting:
-            self.resultsTabWidget.setCurrentWidget(search_results_widget)
+            self.results_tab_widget.setCurrentWidget(search_results_widget)
 
     def set_current_tab_title(self, title):
-        idx = self.resultsTabWidget.currentIndex()
-        self.resultsTabWidget.setTabText(idx, title)
+        current_results_widget = self.get_current_results_widget()
+        current_results_widget.set_tab_title(title)
 
     def get_current_tab_title(self):
-        idx = self.resultsTabWidget.currentIndex()
-        return self.resultsTabWidget.tabText(idx)
+        current_results_widget = self.get_current_results_widget()
+        return current_results_widget.get_tab_title()
 
     def get_display_limit(self):
         display_limit = gf.get_value_from_config(cfg_controls.get_checkin(), 'displayLimitSpinBox')
@@ -671,7 +829,7 @@ class Ui_searchWidget(QtGui.QWidget):
         return display_limit
 
     def get_results_tab_widget(self):
-        return self.resultsTabWidget
+        return self.results_tab_widget
 
     def add_to_history_list(self, tab_title, widget):
         if tab_title:
@@ -705,19 +863,20 @@ class Ui_searchWidget(QtGui.QWidget):
 
     def restore_tab_from_history(self, action, widget):
 
-        self.resultsTabWidget.addTab(widget, action.text())
-        self.resultsTabWidget.setCurrentWidget(widget)
+        self.results_tab_widget.addTab(widget, action.text())
+        self.results_tab_widget.setCurrentWidget(widget)
         self.history_tab_button.removeAction(action)
 
     @gf.catch_error
     def close_tab(self, tab_index):
-        if self.resultsTabWidget.count() > 1:
-            self.add_to_history_list(self.resultsTabWidget.tabText(tab_index), self.resultsTabWidget.widget(tab_index))
-            self.resultsTabWidget.removeTab(tab_index)
+        if self.results_tab_widget.count() > 1:
+            self.add_to_history_list(self.results_tab_widget.tabText(tab_index), self.results_tab_widget.widget(tab_index))
+            self.results_tab_widget.removeTab(tab_index)
 
-    def changed_tab(self, idx):
+    def current_tab_changed(self, idx):
 
-        search_results_widget = self.resultsTabWidget.widget(idx)
+        search_results_widget = self.results_tab_widget.widget(idx)
+
         checkin_out_widget = self.get_current_checkin_out_widget()
         adv_search_widget = checkin_out_widget.get_advanced_search_widget()
         adv_search_widget.clear_all_filters()
@@ -728,38 +887,80 @@ class Ui_searchWidget(QtGui.QWidget):
         else:
             adv_search_widget.add_default_filter(DEFAULT_FILTER)
 
+        search_line_text = search_results_widget.get_search_line_text()
+        if search_line_text is not None:
+            self.search_line_edit.setText(search_line_text, block_event=True)
+
+        title = search_results_widget.get_tab_title()
+        if title is not None:
+            checkin_out_widget = self.get_current_checkin_out_widget()
+            adv_search_widget = checkin_out_widget.get_advanced_search_widget()
+            tab_search_options_widget = adv_search_widget.get_tab_search_options_widget()
+            tab_search_options_widget.set_edit_tab_title(title)
+
     def get_current_checkin_out_widget(self):
         return env_inst.get_check_tree(self.project.get_code(), 'checkin_out', self.stype.get_code())
 
     def get_current_results_widget(self):
-        return self.resultsTabWidget.currentWidget()
+        return self.results_tab_widget.currentWidget()
+
+    def search_line_edit_text_edited(self, edited_text):
+
+        # TODO SPECTIAL CASE FOR SKEYS HERE
+
+        checkin_out_widget = self.get_current_checkin_out_widget()
+        adv_search_widget = checkin_out_widget.get_advanced_search_widget()
+        tab_search_options_widget = adv_search_widget.get_tab_search_options_widget()
+        tab_search_options_widget.set_edit_tab_title(edited_text)
+
+        current_results_widget = self.get_current_results_widget()
+        if current_results_widget:
+            current_results_widget.set_search_line_text(edited_text)
 
     @gf.catch_error
-    def do_search(self, explicit_search_query=None):
+    def do_search(self, search_kwargs=None):
 
-        results_widget = self.get_current_results_widget()
-        if explicit_search_query:
-            results_widget.search_query(explicit_search_query)
+        search_query = self.search_line_edit.text()
+        filters = self.search_line_edit.get_search_filters()
 
-            # results_widget.update_default_filter(explicit_search_query)
-        else:
-            search_query = self.searchLineEdit.text()
-            if search_query.startswith('skey://'):
-                print 'HERE WE GOING BY SEARCH KEY', search_query
-                self.go_by_skey(search_query)
-            elif search_query is not None:
-                # checkin_out_widget = self.get_current_checkin_out_widget()
-                # adv_search_widget = checkin_out_widget.get_advanced_search_widget()
-                results_widget.search_query(search_query)
-                self.set_current_tab_title(search_query)
+        checkin_out_widget = self.get_current_checkin_out_widget()
+        adv_search_widget = checkin_out_widget.get_advanced_search_widget()
+
+        if search_query.startswith('skey://'):
+            print 'HERE WE GOING BY SEARCH KEY', search_query
+            self.go_by_skey(search_query)
+        elif search_kwargs:
+
+            s_col = self.search_line_edit.get_suggest_column()
+
+            explicit_filters = ['begin', (s_col, '=', search_kwargs.get(s_col))]
+            for column, value in search_kwargs.items():
+                filter = (column, '=', value)
+                if filter not in explicit_filters:
+                    explicit_filters.append(filter)
+            explicit_filters.append('and')
+
+            adv_search_widget.set_filters(explicit_filters)
+            self.set_current_tab_title(search_kwargs.get(s_col))
+            self.update_current_search_results(True)
+
+        elif search_query is not None:
+
+            adv_search_widget.set_filters(filters)
+
+            self.set_current_tab_title(search_query)
+            self.update_current_search_results(True)
 
     @gf.catch_error
-    def update_current_search_results(self):
+    def update_current_search_results(self, reset_offset=False):
         results_widget = self.get_current_results_widget()
 
         # collecting current advanced search options
         results_widget.update_filters(True)
-        results_widget.update_search_results(refresh=True, offset=results_widget.collect_offset())
+        if reset_offset:
+            results_widget.update_search_results(refresh=True, offset=0)
+        else:
+            results_widget.update_search_results(refresh=True, offset=results_widget.collect_offset())
 
     def go_by_skey(self, skey_in=None, relates_to=None):
         # TODO Need to rewrite this according to porjects tabs
@@ -830,7 +1031,7 @@ class Ui_searchWidget(QtGui.QWidget):
         self.gearMenuToolButton.addAction(action)
 
     def create_collapsable_toolbar(self):
-        self.collapsable_toolbar = ui_misc_classes.Ui_horizontalCollapsableWidget()
+        self.collapsable_toolbar = Ui_horizontalCollapsableWidget()
         self.collapsable_toolbar.setCollapsed(False)
 
         self.buttons_layout = QtGui.QHBoxLayout()
@@ -849,7 +1050,7 @@ class Ui_searchWidget(QtGui.QWidget):
         search_cache = gf.hex_to_html(search_cache)
 
         # work around for preventing tab widgets showing when tab adding
-        self.resultsTabWidget.setHidden(True)
+        self.results_tab_widget.setHidden(True)
 
         if search_cache:
             search_cache = gf.from_json(search_cache, use_ast=True)
@@ -863,6 +1064,9 @@ class Ui_searchWidget(QtGui.QWidget):
                     state=cache['state'],
                     offset=cache['offset'],
                     limit=cache['limit'],
+                    items_count=cache['items_count'],
+                    search_line_text=cache['search_line_text'],
+                    current_index=cache['current_index'],
                     reverting=True
                 )
 
@@ -870,18 +1074,18 @@ class Ui_searchWidget(QtGui.QWidget):
                 self.add_tab()
 
             if current_index:
-                self.resultsTabWidget.setCurrentIndex(current_index)
+                self.results_tab_widget.setCurrentIndex(current_index)
         else:
             self.add_tab()
 
-        self.resultsTabWidget.setHidden(False)
+        self.results_tab_widget.setHidden(False)
 
     def get_search_cache(self):
 
         tab_info_list = []
 
-        for tab in range(self.resultsTabWidget.count()):
-            results_form_widget = self.resultsTabWidget.widget(tab)
+        for tab in range(self.results_tab_widget.count()):
+            results_form_widget = self.results_tab_widget.widget(tab)
 
             tab_info_list.append(results_form_widget.get_info_dict())
 
@@ -894,23 +1098,26 @@ class Ui_searchWidget(QtGui.QWidget):
                 'collapsable_toolbar': True,
                 'searchLineEdit_text': '',
                 'search_cache': None,
-                'resultsTabWidget_current_index': 0,
+                'results_tab_widget_current_index': 0,
             }
 
         self.collapsable_toolbar.setCollapsed(settings_dict['collapsable_toolbar'])
-        self.searchLineEdit.setText(settings_dict['searchLineEdit_text'])
-        self.set_search_cache(settings_dict.get('search_cache'), settings_dict.get('resultsTabWidget_current_index'))
+        self.set_search_cache(settings_dict.get('search_cache'), settings_dict.get('results_tab_widget_current_index'))
 
     def get_settings_dict(self):
 
         settings_dict = {
             'collapsable_toolbar': int(self.collapsable_toolbar.isCollapsed()),
-            'searchLineEdit_text': unicode(self.searchLineEdit.text()),
             'search_cache': self.get_search_cache(),
-            'resultsTabWidget_current_index': self.resultsTabWidget.currentIndex(),
+            'results_tab_widget_current_index': self.results_tab_widget.currentIndex(),
         }
 
         return settings_dict
+
+    def showEvent(self, event):
+        self.search_line_edit.setFocus()
+
+        event.accept()
 
     def closeEvent(self, event):
 
@@ -919,7 +1126,7 @@ class Ui_searchWidget(QtGui.QWidget):
 
 
 class Ui_filterWidget(QtGui.QWidget):
-    def __init__(self, stype, project, filter, default, parent=None):
+    def __init__(self, stype, project, filter, default, op='begin', parent=None):
         super(self.__class__, self).__init__(parent=parent)
 
         self.stype = stype
@@ -927,21 +1134,29 @@ class Ui_filterWidget(QtGui.QWidget):
 
         self.default = default
         self.filter = filter
+        self.op = op
 
         self.create_ui()
 
     def create_ui(self):
+
+        self.setMaximumHeight(24)
+        self.setMinimumHeight(24)
+
         self.create_main_layout()
 
         self.create_enabled_check_box()
         self.create_column_combo_box()
         self.create_match_by_combo_box()
+        self.create_op_combo_box()
         self.create_query_line_edit()
+        self.create_link_button()
         self.create_remove_self_tool_button()
         self.create_add_filter_tool_button()
 
         self.fill_column_combo_box()
         self.fill_match_by_combo_box()
+        self.fill_op_combo_box()
 
         self.init_filter()
 
@@ -954,6 +1169,7 @@ class Ui_filterWidget(QtGui.QWidget):
 
         self.column_combo_box.currentIndexChanged.connect(self.changed_column_combo_box_index)
         self.match_combo_box.currentIndexChanged.connect(self.changed_match_by_combo_box_index)
+        self.op_combo_box.currentIndexChanged.connect(self.changed_op_combo_box_index)
         self.query_line_edit.textChanged.connect(self.changed_line_edit_text)
         self.query_line_edit.returnPressed.connect(self.edited_line_edit_text)
 
@@ -970,7 +1186,7 @@ class Ui_filterWidget(QtGui.QWidget):
 
     def create_main_layout(self):
         self.main_layout = QtGui.QHBoxLayout()
-        self.main_layout.setSpacing(9)
+        self.main_layout.setSpacing(4)
         self.main_layout.setContentsMargins(0, 0, 0, 0)
         self.setLayout(self.main_layout)
 
@@ -983,21 +1199,6 @@ class Ui_filterWidget(QtGui.QWidget):
         self.column_combo_box = QtGui.QComboBox()
         self.main_layout.addWidget(self.column_combo_box)
 
-    def changed_column_combo_box_index(self, idx):
-        column = self.column_combo_box.itemData(idx, QtCore.Qt.UserRole)
-        self.filter = (column, self.filter[1], self.filter[2])
-
-        self.query_line_edit.set_suggest_column(column)
-
-    def create_match_by_combo_box(self):
-        self.match_combo_box = QtGui.QComboBox()
-        self.main_layout.addWidget(self.match_combo_box)
-
-    def valid_filter(self):
-        query_tex = self.query_line_edit.text()
-        if query_tex.strip() and self.enabled_check_box.isChecked():
-            return True
-
     def fill_column_combo_box(self):
         last_item_index = 0
         for i, (column, values) in enumerate(self.stype.get_columns_info().items()):
@@ -1008,23 +1209,32 @@ class Ui_filterWidget(QtGui.QWidget):
         self.column_combo_box.addItem('**Expression')
         self.column_combo_box.setItemData(last_item_index, '_expression', QtCore.Qt.UserRole)
 
-    def fill_match_by_combo_box(self):
+    def changed_column_combo_box_index(self, idx):
+        column = self.column_combo_box.itemData(idx, QtCore.Qt.UserRole)
 
-        match_list = [
-            ('is', '='),
-            ('is not', '!='),
-            ('contains', 'EQI'),
-            ('does not contain', 'NEQI'),
-            ('is empty', 'like'),
-            ('is not empty', 'like'),
-            ('starts with', ''),
-            ('ends with', ''),
-            ('does not starts with', ''),
-            ('does not end with', ''),
-            ('in', 'in'),
-            ('not in', 'not in'),
-            ('is distinct', ''),
-        ]
+        self.filter = (column, self.filter[1], self.filter[2])
+
+        self.query_line_edit.set_suggest_column(column)
+
+        self.fill_match_by_combo_box(column)
+        self.changed_match_by_combo_box_index(0)
+
+    def create_match_by_combo_box(self):
+        self.match_combo_box = QtGui.QComboBox()
+        self.main_layout.addWidget(self.match_combo_box)
+
+    def fill_match_by_combo_box(self, column=None):
+        self.match_combo_box.clear()
+
+        if not column:
+            if self.filter:
+                column = self.filter[0]
+            else:
+                column = self.column_combo_box.itemData(self.column_combo_box.currentIndex(), QtCore.Qt.UserRole)
+
+        column_type = self.stype.get_column_data_type(column)
+
+        match_list = get_match_list_by_type(column_type)
 
         for i, match in enumerate(match_list):
             self.match_combo_box.addItem(match[0])
@@ -1034,8 +1244,16 @@ class Ui_filterWidget(QtGui.QWidget):
         match = self.match_combo_box.itemData(idx, QtCore.Qt.UserRole)
         self.filter = (self.filter[0], match, self.filter[2])
 
+    def changed_op_combo_box_index(self, idx):
+        self.op = self.op_combo_box.currentText()
+
+    def valid_filter(self):
+        query_tex = self.query_line_edit.text()
+        if query_tex.strip() and self.enabled_check_box.isChecked():
+            return True
+
     def create_query_line_edit(self):
-        self.query_line_edit = ui_misc_classes.SuggestedLineEdit(self.stype, self.project, 'flat')
+        self.query_line_edit = SuggestedLineEdit(self.stype, self.project, parent=self.parent().parent())
         self.main_layout.addWidget(self.query_line_edit)
 
     def changed_line_edit_text(self):
@@ -1044,22 +1262,57 @@ class Ui_filterWidget(QtGui.QWidget):
 
     def edited_line_edit_text(self):
         search_widget = self.get_search_widget()
-        # search_widget.do_search()
         search_widget.update_current_search_results()
-        # results_widget.update_filters(True)
-        # results_widget.update_search_results()
+
+    def create_link_button(self):
+        self.link_button = QtGui.QToolButton()
+        self.main_layout.addWidget(self.link_button)
+        self.link_button.setAutoRaise(True)
+        self.link_button.setIcon(gf.get_icon('link', icons_set='mdi', scale_factor=1.1))
+        self.link_button.setVisible(False)
+        self.link_button.setCheckable(True)
+        self.link_button.setChecked(False)
+        if self.default:
+            self.link_button.setVisible(True)
+
+    def create_op_combo_box(self):
+        self.op_combo_box = QtGui.QComboBox()
+        self.main_layout.addWidget(self.op_combo_box)
+        if self.default:
+            self.op_combo_box.setVisible(False)
+
+    def fill_op_combo_box(self):
+        self.op_combo_box.clear()
+        self.op_combo_box.addItems(['and', 'or'])
+        if self.op:
+            self.set_op(self.op)
+
+    def get_op(self):
+        if self.op != 'begin':
+            return self.op_combo_box.currentText()
+        else:
+            return self.op
+
+    def set_op(self, op):
+        self.op = op
+        if self.op == 'or':
+            self.op_combo_box.setCurrentIndex(1)
+        else:
+            self.op_combo_box.setCurrentIndex(0)
 
     def create_remove_self_tool_button(self):
         self.remove_self_tool_button = QtGui.QToolButton()
+        self.remove_self_tool_button.setAutoRaise(True)
         self.main_layout.addWidget(self.remove_self_tool_button)
-        self.remove_self_tool_button.setIcon(gf.get_icon('close'))
+        self.remove_self_tool_button.setIcon(gf.get_icon('close', icons_set='mdi', scale_factor=1.1))
         if self.default:
             self.remove_self_tool_button.setHidden(True)
 
     def create_add_filter_tool_button(self):
         self.add_filter_tool_button = QtGui.QToolButton()
+        self.add_filter_tool_button.setAutoRaise(True)
         self.main_layout.addWidget(self.add_filter_tool_button)
-        self.add_filter_tool_button.setIcon(gf.get_icon('plus'))
+        self.add_filter_tool_button.setIcon(gf.get_icon('plus', icons_set='mdi', scale_factor=1.2))
         if not self.default:
             self.add_filter_tool_button.setHidden(True)
 
@@ -1084,6 +1337,8 @@ class Ui_filterWidget(QtGui.QWidget):
 
     def set_column_combo_box_value(self, column_code):
         index = self.column_combo_box.findData(column_code, QtCore.Qt.UserRole)
+        if index == -1:
+            index = 0
         self.column_combo_box.setCurrentIndex(index)
 
         self.query_line_edit.set_suggest_column(column_code)
@@ -1099,11 +1354,11 @@ class Ui_filterWidget(QtGui.QWidget):
         if bool(state):
             self.column_combo_box.setEnabled(True)
             self.match_combo_box.setEnabled(True)
-            self.query_line_edit.setEnabled(True)
+            self.query_line_edit.setReadOnly(False)
         else:
             self.column_combo_box.setEnabled(False)
             self.match_combo_box.setEnabled(False)
-            self.query_line_edit.setEnabled(False)
+            self.query_line_edit.setReadOnly(True)
 
     def add_filter_widget(self):
         adv_search_widget = self.get_advanced_search_widget()
@@ -1116,6 +1371,108 @@ class Ui_filterWidget(QtGui.QWidget):
     def closeEvent(self, event):
         event.accept()
         self.deleteLater()
+
+
+class Ui_searchOptionsWidget(QtGui.QWidget):
+    def __init__(self, stype, parent=None):
+        super(self.__class__, self).__init__(parent=parent)
+
+        self.stype = stype
+        self.project = self.stype.get_project()
+
+        self.create_ui()
+
+        self.controls_actions()
+
+    def create_ui(self):
+        # self.setMaximumHeight(46)
+        # self.setMinimumHeight(46)
+
+        self.create_main_layout()
+
+        self.create_tab_name_editor()
+        self.create_presets_combo_box()
+
+    def controls_actions(self):
+        self.tab_name_edit.textEdited.connect(self.tab_name_edit_text_edited)
+        self.tab_name_edit.returnPressed.connect(self.tab_name_edit_text_edited)
+
+    def create_main_layout(self):
+        self.main_layout = QtGui.QGridLayout()
+        self.main_layout.setContentsMargins(6, 6, 6, 6)
+        self.main_layout.setSpacing(6)
+        self.setLayout(self.main_layout)
+
+    def create_tab_name_editor(self):
+        self.tab_name_layout = QtGui.QGridLayout()
+
+        self.tab_name_label = QtGui.QLabel('Search Tab Name: ')
+
+        self.tab_name_edit = QtGui.QLineEdit()
+
+        self.tab_name_layout.addWidget(self.tab_name_label, 0, 0, 1, 1)
+        self.tab_name_layout.addWidget(self.tab_name_edit, 0, 1, 1, 1)
+
+        self.tab_name_layout.setColumnStretch(1, 0)
+
+        self.main_layout.addLayout(self.tab_name_layout, 0, 0)
+
+    def create_presets_combo_box(self):
+        self.presets_layout = QtGui.QGridLayout()
+
+        self.presets_combo_box = QtGui.QComboBox()
+
+        self.add_new_preset_button = QtGui.QToolButton()
+        self.add_new_preset_button.setAutoRaise(True)
+        self.add_new_preset_button.setIcon(gf.get_icon('plus', icons_set='mdi', scale_factor=1.2))
+        # self.add_new_preset_button.clicked.connect(self.add_new_preset)
+        self.add_new_preset_button.setToolTip('Create new Preset and Save (from current state)')
+        # self.add_new_preset_button.setHidden(True)
+
+        self.save_new_preset_button = QtGui.QToolButton()
+        self.save_new_preset_button.setAutoRaise(True)
+        self.save_new_preset_button.setIcon(gf.get_icon('content-save', icons_set='mdi', scale_factor=1))
+        # self.save_new_preset_button.clicked.connect(self.save_preset_to_server)
+        self.save_new_preset_button.setToolTip('Save Current Preset Changes')
+        # self.save_new_preset_button.setHidden(True)
+
+        self.remove_preset_button = QtGui.QToolButton()
+        self.remove_preset_button.setAutoRaise(True)
+        self.remove_preset_button.setIcon(gf.get_icon('delete', icons_set='mdi', scale_factor=1))
+        self.remove_preset_button.clicked.connect(self.close)
+        self.remove_preset_button.setToolTip('Remove Current Preset')
+        # self.remove_preset_button.setHidden(True)
+
+        self.presets_layout.addWidget(self.remove_preset_button, 0, 0, 1, 1)
+        self.presets_layout.addWidget(self.presets_combo_box, 0, 1, 1, 1)
+        self.presets_layout.addWidget(self.save_new_preset_button, 0, 2, 1, 1)
+        self.presets_layout.addWidget(self.add_new_preset_button, 0, 3, 1, 1)
+
+        self.presets_layout.setColumnStretch(1, 0)
+
+        self.main_layout.addLayout(self.presets_layout, 1, 0)
+
+    def get_current_checkin_out_widget(self):
+        return env_inst.get_check_tree(self.project.get_code(), 'checkin_out', self.stype.get_code())
+
+    def get_search_widget(self):
+        checkin_out_widget = self.get_current_checkin_out_widget()
+        return checkin_out_widget.get_search_widget()
+
+    def get_advanced_search_widget(self):
+        checkin_out_widget = self.get_current_checkin_out_widget()
+        return checkin_out_widget.get_advanced_search_widget()
+
+    def set_edit_tab_title(self, text):
+        self.tab_name_edit.setText(text)
+
+    def tab_name_edit_text_edited(self, text=None):
+        checkin_out_widget = self.get_current_checkin_out_widget()
+        search_widget = checkin_out_widget.get_search_widget()
+        search_widget.set_current_tab_title(self.get_edit_tab_title())
+
+    def get_edit_tab_title(self):
+        return self.tab_name_edit.text()
 
 
 class Ui_advancedSearchWidget(QtGui.QWidget):
@@ -1132,16 +1489,15 @@ class Ui_advancedSearchWidget(QtGui.QWidget):
 
     def create_ui(self):
         self.create_main_layout()
-        self.create_scroll_area()
+        self.create_filters_scroll_area()
         self.create_search_filters_widget()
-        # self.create_spacer()
-
-        self.add_default_filter(('name', 'EQI', ''))
+        self.create_search_presets_widget()
 
         self.controls_actions()
 
     def controls_actions(self):
-        pass
+        self.clear_button.clicked.connect(self.clear_filters_button_action)
+        self.do_search_button.clicked.connect(self.do_search_button_action)
 
     def create_main_layout(self):
         self.main_layout = QtGui.QGridLayout()
@@ -1149,50 +1505,66 @@ class Ui_advancedSearchWidget(QtGui.QWidget):
         self.main_layout.setContentsMargins(0, 0, 0, 0)
         self.setLayout(self.main_layout)
 
-    def create_scroll_area(self):
-        self.scroll_area = QtGui.QScrollArea()
-        self.scroll_area_contents = QtGui.QWidget()
-        self.scroll_area.setStyleSheet('QScrollArea > #qt_scrollarea_viewport > QWidget {background-color: rgba(128, 128, 128, 48);}')
-        self.scroll_area.setFrameShape(QtGui.QScrollArea.NoFrame)
-        # self.scroll_area.setMinimumHeight(48)
+    def create_filters_scroll_area(self):
+        self.filters_scroll_area = QtGui.QScrollArea()
+        self.filters_scroll_area_contents = QtGui.QWidget()
+        self.filters_scroll_area.setStyleSheet('QScrollArea > #qt_scrollarea_viewport > QWidget {background-color: rgba(128, 128, 128, 48);}')
+        self.filters_scroll_area.setFrameShape(QtGui.QScrollArea.NoFrame)
 
-        self.scroll_area.setWidgetResizable(True)
-        self.scroll_area.setWidget(self.scroll_area_contents)
+        self.filters_scroll_area.setWidgetResizable(True)
+        self.filters_scroll_area.setWidget(self.filters_scroll_area_contents)
 
-        # self.main_layout.addWidget(self.scroll_area)
-        self.scroll_widgets_layout = QtGui.QVBoxLayout()
-        self.scroll_widgets_layout.setSpacing(4)
-        self.scroll_widgets_layout.setContentsMargins(2, 2, 2, 2)
-        self.scroll_area_contents.setLayout(self.scroll_widgets_layout)
+        self.filters_scroll_widgets_layout = QtGui.QVBoxLayout()
+        self.filters_scroll_widgets_layout.setSpacing(4)
+        self.filters_scroll_widgets_layout.setContentsMargins(2, 2, 2, 2)
+        self.filters_scroll_widgets_layout.setSizeConstraint(QtGui.QLayout.SetMinAndMaxSize)
+        self.filters_scroll_area_contents.setLayout(self.filters_scroll_widgets_layout)
 
     def create_search_filters_widget(self):
 
-        self.filters_collapsable = ui_misc_classes.Ui_collapsableWidget(state=False)
-        layout_filters = QtGui.QVBoxLayout()
-        self.filters_collapsable.setLayout(layout_filters)
+        self.filters_collapsable = Ui_collapsableWidget(state=False)
+        self.filters_collapsable.setLayout(QtGui.QVBoxLayout())
         self.filters_collapsable.setText('Search Filters:')
         self.filters_collapsable.setCollapsedText('Search Filters:')
-        layout_filters.addWidget(self.scroll_area)
+        self.filters_collapsable.add_widget(self.filters_scroll_area)
 
         self.main_layout.addWidget(self.filters_collapsable)
-        self.filters_collapsable.collapsed.connect(self.collapable_widget_collapsed)
+        # self.filters_collapsable.collapsed.connect(self.fit_to_contets)
 
-    def collapable_widget_collapsed(self, collapsed):
-        if collapsed:
-            self.setMaximumHeight(25)
-            self.setMinimumHeight(25)
-        else:
-            self.fit_to_contets()
+        self.do_search_button = QtGui.QToolButton()
+        self.do_search_button.setAutoRaise(True)
+        self.do_search_button.setIcon(gf.get_icon('refresh', icons_set='mdi', scale_factor=1))
 
-    def add_filters(self, filters):
-        for filter_text in filters:
-            self.add_predefined_filter(filter_text)
+        self.clear_button = QtGui.QToolButton()
+        self.clear_button.setAutoRaise(True)
+        self.clear_button.setIcon(gf.get_icon('delete', icons_set='mdi', scale_factor=1))
+
+        self.filters_collapsable.add_overlay_widget(self.do_search_button)
+        self.filters_collapsable.add_overlay_widget(self.clear_button)
+
+    def create_search_presets_widget(self):
+
+        self.search_options_collapsable = Ui_collapsableWidget(state=False)
+        self.search_options_collapsable.setLayout(QtGui.QVBoxLayout())
+        self.search_options_collapsable.setText('Search Options:')
+        self.search_options_collapsable.setCollapsedText('Search Options:')
+        self.main_layout.addWidget(self.search_options_collapsable)
+
+        # self.search_options_collapsable.collapsed.connect(self.fit_to_contets)
+
+        self.tab_search_options_widget = Ui_searchOptionsWidget(self.stype)
+        self.search_options_collapsable.add_widget(self.tab_search_options_widget)
+
+    def get_tab_search_options_widget(self):
+        return self.tab_search_options_widget
 
     def update_default_filter(self, filter_text):
         self.default_filter_widget.set_filter(filter_text)
         self.default_filter_widget.init_filter()
 
     def add_default_filter(self, filter_text):
+        # Default filter can not be removed and have + button
+
         filter_widget = Ui_filterWidget(
             project=self.project,
             stype=self.stype,
@@ -1200,26 +1572,33 @@ class Ui_advancedSearchWidget(QtGui.QWidget):
             filter=filter_text,
             default=True
         )
-        self.scroll_widgets_layout.addWidget(filter_widget)
+        self.filters_scroll_area.setMaximumHeight(filter_widget.height()+4)
+        self.filters_scroll_widgets_layout.addWidget(filter_widget)
         self.filter_widgets.append(filter_widget)
         self.default_filter_widget = filter_widget
 
         self.fit_to_contets()
 
-    def add_predefined_filter(self, filter_text):
+    def add_predefined_filter(self, filter_text, op='and'):
+        # Predefined filter can be removed, and have X button
+
         filter_widget = Ui_filterWidget(
             project=self.project,
             stype=self.stype,
             parent=self,
             filter=filter_text,
-            default=False
+            default=False,
+            op=op,
         )
-        self.scroll_widgets_layout.addWidget(filter_widget)
+        self.filters_scroll_area.setMaximumHeight(filter_widget.height() + 4)
+        self.filters_scroll_widgets_layout.addWidget(filter_widget)
         self.filter_widgets.append(filter_widget)
 
         self.fit_to_contets()
 
     def add_empty_filter(self):
+        # Empty filter created when + button pushed, it starts from first column of search type
+
         filter_widget = Ui_filterWidget(
             project=self.project,
             stype=self.stype,
@@ -1227,7 +1606,8 @@ class Ui_advancedSearchWidget(QtGui.QWidget):
             filter=None,
             default=False
         )
-        self.scroll_widgets_layout.addWidget(filter_widget)
+        self.filters_scroll_area.setMaximumHeight(filter_widget.height() + 4)
+        self.filters_scroll_widgets_layout.addWidget(filter_widget)
         self.filter_widgets.append(filter_widget)
 
         self.fit_to_contets()
@@ -1238,9 +1618,13 @@ class Ui_advancedSearchWidget(QtGui.QWidget):
 
         self.fit_to_contets()
 
-    def create_spacer(self):
-        self.main_layout.addItem(QtGui.QSpacerItem(0, 0, QtGui.QSizePolicy.Minimum, QtGui.QSizePolicy.Expanding), 1, 0, 1, 1)
-        self.main_layout.setRowStretch(0, 1)
+    def do_search_button_action(self):
+        search_widget = self.get_search_widget()
+        search_widget.update_current_search_results()
+
+    def clear_filters_button_action(self):
+        self.clear_all_filters()
+        self.add_default_filter(DEFAULT_FILTER)
 
     def clear_all_filters(self):
         if self.default_filter_widget:
@@ -1251,17 +1635,25 @@ class Ui_advancedSearchWidget(QtGui.QWidget):
             filter_widget.close()
         self.filter_widgets = []
 
-        self.fit_to_contets()
+    @staticmethod
+    def append_filter(filter_widget, filter_list, cnt):
+        if filter_widget.get_op() == 'begin':
+            if cnt > 1:
+                filter_list.append(filter_widget.get_op())
+            filter_list.append(filter_widget.get_filter())
+        else:
+            filter_list.append(filter_widget.get_filter())
+            if cnt > 1:
+                filter_list.append(filter_widget.get_op())
 
     def get_filters(self, check_valid=False):
         filters = []
         for filter_widget in self.filter_widgets:
             if check_valid:
                 if filter_widget.valid_filter():
-                    filters.append(filter_widget.get_filter())
+                    self.append_filter(filter_widget, filters, len(self.filter_widgets))
             else:
-                filters.append(filter_widget.get_filter())
-
+                self.append_filter(filter_widget, filters, len(self.filter_widgets))
         return filters
 
     def get_default_filter(self):
@@ -1269,36 +1661,97 @@ class Ui_advancedSearchWidget(QtGui.QWidget):
 
     def set_filters(self, filters):
         if filters:
-            self.add_default_filter(filters[0])
+            self.clear_all_filters()
 
-            for fltr in filters[1:]:
-                self.add_predefined_filter(fltr)
+            default_op = 'and'
+
+            if filters[0] != 'begin':
+                # if filter did not have begin - add it
+                filters.insert(0, 'begin')
+
+            # setting and defining default operator at the end
+            if filters[-1] not in ['and', 'or']:
+                filters.append(default_op)
+            else:
+                default_op = filters[-1]
+
+            ops_list = []
+            filters_list = []
+            op_added = False
+
+            # Making two lists of OP and filters
+            for fl in filters:
+                # if we found op we add it to list, and mark op is added
+                if isinstance(fl, (str, unicode)):
+                    ops_list.append(fl)
+                    op_added = True
+                else:
+                    # if there is no OP provided, we add default OP
+                    if not op_added:
+                        # searching for next closing op
+                        next_op = default_op
+                        idx = filters.index(fl)
+                        for i in filters[idx:]:
+                            if isinstance(i, (str, unicode)):
+                                next_op = i
+                                break
+                        # adding next closing OP
+                        ops_list.append(next_op)
+                    filters_list.append(fl)
+                    op_added = False
+
+            if ops_list[0] == 'begin':
+                filters_tuple = zip(ops_list[1:], filters_list)
+            else:
+                filters_tuple = zip(ops_list, filters_list)
+
+            # Now we adding our ready filters with proper operators
+            default_added = False
+            for oper, fltr in filters_tuple:
+                if default_added:
+                    self.add_predefined_filter(fltr, oper)
+                else:
+                    self.add_default_filter(fltr)
+                    default_added = True
 
     def fit_to_contets(self):
-        contents_height = 30
-        for filter_widget in self.filter_widgets:
-            contents_height += 30
+        total_height = self.filters_scroll_area.height()
 
-        if contents_height < 330 and not self.filters_collapsable.collapse_state:
-            self.setMaximumHeight(contents_height)
-            self.setMinimumHeight(contents_height)
+        if len(self.filter_widgets) > 0:
+            filter_widget_height = self.filter_widgets[0].height() + 4
+            total_height = filter_widget_height * len(self.filter_widgets)
+
+        if total_height < 280:
+            self.filters_scroll_area.setMinimumHeight(total_height)
+        self.filters_scroll_area.setMaximumHeight(total_height)
+
+    def get_checkin_out_widget(self):
+        return env_inst.get_check_tree(self.project.get_code(), 'checkin_out', self.stype.get_code())
+
+    def get_search_widget(self):
+        checkin_out_widget = self.get_checkin_out_widget()
+        return checkin_out_widget.get_search_widget()
 
     def set_settings_from_dict(self, settings_dict=None):
 
         if not settings_dict:
             settings_dict = {
-                'filters_collapsable_state': False,
+                'filters_collapsable_state': True,
+                'search_options_collaspable_state': True,
                 'visible': False
             }
 
         self.setVisible(settings_dict.get('visible'))
         if settings_dict.get('filters_collapsable_state'):
             self.filters_collapsable.setCollapseState(True)
+        if settings_dict.get('search_options_collaspable_state'):
+            self.search_options_collapsable.setCollapseState(True)
 
     def get_settings_dict(self):
 
         settings_dict = {
             'filters_collapsable_state': self.filters_collapsable.isCollapsed(),
+            'search_options_collaspable_state': self.search_options_collapsable.isCollapsed(),
             'visible': self.isVisible()
         }
 
@@ -1333,6 +1786,14 @@ class Ui_navigationWidget(QtGui.QWidget):
         self.create_navigation_label()
 
         self.controls_actions()
+
+    def set_initial_state(self):
+        self.display_limit = 0
+        self.display_offset = 0
+        self.total_count = 0
+        self.total_query_count = 0
+        self.current_page = 1
+        self.last_page = 0
 
     def controls_actions(self):
 
@@ -1385,7 +1846,6 @@ class Ui_navigationWidget(QtGui.QWidget):
         self.back_button.setSizePolicy(sizePolicy)
         self.back_button.setIcon(gf.get_icon('chevron-left'))
 
-        # self.back_button.setStyleSheet('QPushButton {background-color: qlineargradient(spread:pad, x1:0, y1:1, x2:0.5, y2:0.5, stop:0 rgba(128, 128, 128, 128), stop:1 rgba(0, 0, 0, 0)); border-style: none; outline: none; border-width: 0px; border-radius: 10px;}')
         self.back_button.setStyleSheet('QPushButton {background-color: transparent; border-style: none; outline: none; border-width: 0px;}')
 
         self.back_button_hover_animation = QtCore.QPropertyAnimation(self.back_button_opacity_effect, "opacity", self)
@@ -1407,7 +1867,6 @@ class Ui_navigationWidget(QtGui.QWidget):
         sizePolicy = QtGui.QSizePolicy(QtGui.QSizePolicy.Preferred, QtGui.QSizePolicy.Preferred)
         self.forward_button.setSizePolicy(sizePolicy)
         self.forward_button.setIcon(gf.get_icon('chevron-right'))
-        # self.forward_button.setStyleSheet('QPushButton {background-color: qlineargradient(spread:pad, x1:1, y1:1, x2:0.5, y2:0.5, stop:0 rgba(128, 128, 128, 128), stop:1 rgba(0, 0, 0, 0)); border-style: none; outline: none; border-width: 0px; border-radius: 10px;}')
         self.forward_button.setStyleSheet('QPushButton {background-color: transparent; border-style: none; outline: none; border-width: 0px;}')
 
         self.forward_button_hover_animation = QtCore.QPropertyAnimation(self.forward_button_opacity_effect, "opacity", self)
@@ -1446,19 +1905,10 @@ class Ui_navigationWidget(QtGui.QWidget):
             self.display_offset = self.display_offset - self.display_limit
             self.refresh_search.emit(self.display_limit, self.display_offset)
 
-    def hide(self):
-        self.setHidden(True)
-
-    def unhide(self):
-
-        # if self.display_limit <= self.total_query_count:
-        self.setHidden(False)
-            # return True
-        # else:
-        #     return False
-
     def init_navigation(self, query_info):
+
         if query_info:
+            self.set_initial_state()
 
             self.total_count = query_info['total_sobjects_count']
             self.total_query_count = query_info['total_sobjects_query_count']
@@ -1467,21 +1917,23 @@ class Ui_navigationWidget(QtGui.QWidget):
             self.display_limit = query_info['limit']
             self.display_offset = query_info['offset']
 
+            # Making shure we do not pass invisible pages
+            if self.total_query_count < self.display_offset:
+                self.display_offset = 0
+
             self.gen_pages_line(self.display_limit, self.total_query_count, widget_width=self.width())
 
-            self.resizeEvent = self.main_widget_resizeEvent
-
             # Checking if we need nav bar
-            if self.total_query_count <= 0:
+            if self.total_query_count <= 0 or self.total_query_count < self.display_limit:
                 self.setHidden(True)
             else:
                 self.setHidden(False)
         else:
             self.setHidden(True)
 
-    def main_widget_resizeEvent(self, event):
+    def resizeEvent(self, event):
         self.gen_pages_line(self.display_limit, self.total_query_count, widget_width=self.width())
-        event.accept()
+        super(self.__class__, self).resizeEvent(event)
 
     def get_offset(self):
         return self.display_offset
@@ -1489,6 +1941,7 @@ class Ui_navigationWidget(QtGui.QWidget):
     def gen_pages_line(self, display_limit, total_count, widget_width=None):
         pages = []
         page_number = 1
+
         for i in range(total_count):
             if i % display_limit == 0:
                 page_dict = {
@@ -1498,23 +1951,47 @@ class Ui_navigationWidget(QtGui.QWidget):
                 pages.append(page_dict)
                 page_number += 1
         if pages:
+
+            self.total_pages_count = len(pages)
+
             # guessing how much pages to show in a row
-            pages_to_show = widget_width / 32
-            if pages_to_show > pages[-1]['page_number']:
-                pages_to_show = pages[-1]['page_number']
+            self.fit_pages_count = widget_width / 32
+            if self.fit_pages_count > pages[-1]['page_number']:
+                self.fit_pages_count = pages[-1]['page_number']
 
-            self.last_page = pages_to_show
-
-            final_page_line = ''
-            last_page = 0
-            for i in range(pages_to_show):
-
-                # guessing page by offset
+            # guessing page by offset
+            for i in range(self.total_pages_count):
                 if pages[i]['offset'] == self.display_offset:
                     self.current_page = pages[i]['page_number']
 
-                # generating links line
-                last_page = i+1
+            final_page_line = ''
+            start_page = 0
+
+            if self.fit_pages_count >= self.total_pages_count:
+                offset = self.fit_pages_count
+            else:
+                offset = self.fit_pages_count / 2
+
+            if self.current_page:
+                start_page = self.current_page - offset
+                last_page = self.current_page + offset
+
+                if last_page < self.fit_pages_count:
+                    last_page = self.fit_pages_count
+
+                if last_page > self.total_pages_count:
+                    last_page = self.total_pages_count
+                    start_page -= offset
+
+                if start_page < 0:
+                    start_page = 0
+
+                page_ranges = range(start_page, last_page)
+            else:
+                page_ranges = range(self.last_page)
+
+            for i in page_ranges:
+
                 if i+1 == self.current_page:
                     page_line = '<b>{0}</b>'.format(i+1)
                 else:
@@ -1537,7 +2014,13 @@ class Ui_navigationWidget(QtGui.QWidget):
                     final_page_line,
                     pages[-1]['page_number'],
                     pages[-1]['offset'])
-            # font-size:11pt;
+
+            if start_page > 0:
+                final_page_line = '<a href="{0}:{1}" style="color:#bfbfbf">{0}</a> .. {2}'.format(
+                    pages[0]['page_number'],
+                    pages[0]['offset'],
+                    final_page_line)
+
             self.navigation_label.setText(
                 '<span style=" color:#828282;">Showing {0} - {1} of {2}<br>{3}</span>'.format(
                     first_items,
@@ -1546,14 +2029,16 @@ class Ui_navigationWidget(QtGui.QWidget):
                     final_page_line
                 ))
 
+            self.last_page = last_page
 
-class Ui_resultsFormWidget(QtGui.QWidget, ui_search_results_tree.Ui_resultsForm):
+
+class Ui_resultsTabWidget(QtGui.QWidget):
     def __init__(self, project, stype, info, parent=None):
         super(self.__class__, self).__init__(parent=parent)
 
         self.setAttribute(QtCore.Qt.WA_DeleteOnClose)
 
-        self.setupUi(self)
+        self.raw_create_ui()
 
         self.info = info
         self.stype = stype
@@ -1567,6 +2052,41 @@ class Ui_resultsFormWidget(QtGui.QWidget, ui_search_results_tree.Ui_resultsForm)
         self.current_tree_widget_item = None
         self.current_results_tree_widget_item = None
         self.current_results_versions_tree_widget_item = None
+
+    def raw_create_ui(self):
+        self.resultsLayout = QtGui.QVBoxLayout(self)
+        self.resultsLayout.setSpacing(0)
+        self.resultsLayout.setContentsMargins(0, 0, 0, 0)
+        self.resultsLayout.setObjectName("resultsLayout")
+        self.resultsSplitter = QtGui.QSplitter(self)
+        self.resultsSplitter.setOrientation(QtCore.Qt.Horizontal)
+        self.resultsSplitter.setObjectName("resultsSplitter")
+        self.resultsTreeWidget = Ui_extendedTreeWidget(self.resultsSplitter)
+        self.resultsTreeWidget.setSelectionBehavior(QtGui.QAbstractItemView.SelectRows)
+        self.resultsTreeWidget.setSelectionMode(QtGui.QAbstractItemView.ExtendedSelection)
+        self.resultsTreeWidget.setTabKeyNavigation(True)
+        self.resultsTreeWidget.setVerticalScrollMode(QtGui.QAbstractItemView.ScrollPerPixel)
+        self.resultsTreeWidget.setAllColumnsShowFocus(True)
+        self.resultsTreeWidget.setWordWrap(True)
+        self.resultsTreeWidget.setHeaderHidden(True)
+        self.resultsTreeWidget.setObjectName("resultsTreeWidget")
+        self.resultsTreeWidget.headerItem().setText(0, "1")
+        self.verticalLayoutWidget_3 = QtGui.QWidget(self.resultsSplitter)
+        self.verticalLayoutWidget_3.setObjectName("verticalLayoutWidget_3")
+        self.versionsLayout = QtGui.QVBoxLayout(self.verticalLayoutWidget_3)
+        self.versionsLayout.setContentsMargins(0, 0, 0, 0)
+        self.versionsLayout.setObjectName("versionsLayout")
+        self.resultsVersionsTreeWidget = QtGui.QTreeWidget(self.verticalLayoutWidget_3)
+        self.resultsVersionsTreeWidget.setTabKeyNavigation(True)
+        self.resultsVersionsTreeWidget.setVerticalScrollMode(QtGui.QAbstractItemView.ScrollPerPixel)
+        self.resultsVersionsTreeWidget.setRootIsDecorated(False)
+        self.resultsVersionsTreeWidget.setAllColumnsShowFocus(True)
+        self.resultsVersionsTreeWidget.setWordWrap(True)
+        self.resultsVersionsTreeWidget.setHeaderHidden(True)
+        self.resultsVersionsTreeWidget.setObjectName("resultsVersionsTreeWidget")
+        self.resultsVersionsTreeWidget.headerItem().setText(0, "1")
+        self.versionsLayout.addWidget(self.resultsVersionsTreeWidget)
+        self.resultsLayout.addWidget(self.resultsSplitter)
 
     def create_ui(self):
 
@@ -1615,6 +2135,7 @@ class Ui_resultsFormWidget(QtGui.QWidget, ui_search_results_tree.Ui_resultsForm)
         self.update_default_filter(search_query)
         self.set_offset(0)
         self.update_filters(True)
+        print 'UPDATING SEARCH RESULTS'
         self.update_search_results()
 
     def update_search_results(self, limit=None, offset=None,  refresh=False):
@@ -1657,6 +2178,8 @@ class Ui_resultsFormWidget(QtGui.QWidget, ui_search_results_tree.Ui_resultsForm)
         self.info['limit'] = self.get_limit()
         self.info['filters'] = self.get_filters()
 
+        self.info['items_count'] = self.get_items_count()
+        self.info['search_line_text'] = self.get_search_line_text()
         self.info['current_index'] = self.get_current_index()
 
         return self.info
@@ -1703,31 +2226,39 @@ class Ui_resultsFormWidget(QtGui.QWidget, ui_search_results_tree.Ui_resultsForm)
 
         return current_idx
 
+    def set_search_line_text(self, text):
+        self.info['search_line_text'] = text
+
+    def get_search_line_text(self):
+        return self.info.get('search_line_text')
+
     def get_tab_title(self):
-        checkin_out_widget = self.get_current_checkin_out_widget()
-        search_widget = checkin_out_widget.get_search_widget()
-        results_tab_widget = search_widget.get_results_tab_widget()
-        current_idx = results_tab_widget.indexOf(self)
-
-        results_tab_widget.tabText(current_idx)
-        self.info['title'] = results_tab_widget.tabText(current_idx)
-
         return self.info['title']
 
-    def set_tab_title(self, title=''):
+    def set_tab_title(self, title=u''):
+        self.info['title'] = title
         checkin_out_widget = self.get_current_checkin_out_widget()
         search_widget = checkin_out_widget.get_search_widget()
         results_tab_widget = search_widget.get_results_tab_widget()
         current_idx = results_tab_widget.indexOf(self)
+        if self.get_items_count():
+            tab_title = u'{0} | {1}'.format(title, self.get_items_count())
+        else:
+            tab_title = title
 
-        self.info['title'] = title
-        results_tab_widget.setTabText(current_idx, title)
+        results_tab_widget.setTabText(current_idx, tab_title)
 
     def get_filters(self):
         return self.info['filters']
 
     def set_filters(self, filters):
         self.info['filters'] = filters
+
+    def get_items_count(self):
+        return self.info.get('items_count')
+
+    def set_items_count(self, items_count):
+        self.info['items_count'] = items_count
 
     def update_filters(self, check_valid=False):
         checkin_out_widget = self.get_current_checkin_out_widget()
@@ -1776,7 +2307,20 @@ class Ui_resultsFormWidget(QtGui.QWidget, ui_search_results_tree.Ui_resultsForm)
 
     def selection_changed(self):
         if self.resultsTreeWidget.selectedItems():
-            current_tree_item = self.resultsTreeWidget.selectedItems()[0]
+            current_index = self.resultsTreeWidget.currentIndex()
+
+            if current_index.row() == -1:
+                last_item = self.resultsTreeWidget.selectedItems()[-1]
+                current_index = self.resultsTreeWidget.indexFromItem(last_item)
+
+            current_tree_item = self.resultsTreeWidget.itemFromIndex(current_index)
+
+            gf.filter_multiple_selected_items(
+                self.resultsTreeWidget,
+                self.resultsTreeWidget.selectedItems(),
+                current_tree_item
+            )
+
             self.fill_versions_items(current_tree_item, 0)
             self.current_tree_widget_item = self.resultsTreeWidget.itemWidget(current_tree_item, 0)
             self.load_preview()
@@ -1850,9 +2394,12 @@ class Ui_resultsFormWidget(QtGui.QWidget, ui_search_results_tree.Ui_resultsForm)
                 if i+1 % 20 == 0:
                     self.progress_bar.setValue(int(i+1 * 100 / total_sobjects))
 
-        # print time.time() - start, 'filing sobjects time'
+        self.set_items_count(int(self.query_info.get('total_sobjects_query_count')))
+
         if not self.info['title'] and not self.get_tab_title():
-            self.set_tab_title('Found {0} {1}'.format(int(self.query_info.get('total_sobjects_query_count')), self.stype.get_pretty_name()))
+            self.set_tab_title(self.stype.get_pretty_name())
+        else:
+            self.set_tab_title(self.info['title'])
 
         if self.get_state():
             # reverting tree states to saved in settings
@@ -1873,55 +2420,12 @@ class Ui_resultsFormWidget(QtGui.QWidget, ui_search_results_tree.Ui_resultsForm)
         env_inst.ui_main.set_info_status_text('')
 
     def create_bottom_navigation_widget(self):
-        # self.gridLayout = QtGui.QGridLayout(self.resultsTreeWidget.viewport())
-        # self.gridLayout.setContentsMargins(0, 0, 0, 0)
-        # spacerItem = QtGui.QSpacerItem(0, 0, QtGui.QSizePolicy.Minimum, QtGui.QSizePolicy.Expanding)
-        # self.gridLayout.addItem(spacerItem, 1, 0, 1, 1)
-
         self.bottom_navigataion_widget = Ui_navigationWidget(project=self.project, stype=self.stype)
         self.bottom_navigataion_widget.refresh_search.connect(self.update_search_results)
 
         self.bottom_navigataion_widget.setHidden(True)
 
         self.resultsLayout.addWidget(self.bottom_navigataion_widget)
-
-        # self.gridLayout.addWidget(self.bottom_navigataion_widget)
-
-        # self.bottom_navigataion_widget.setHidden(True)
-
-        # scroll = self.resultsTreeWidget.verticalScrollBar()
-        #
-        # self.maximum = 0
-        # self.resized = True
-        #
-        # def range_changing(v):
-        #
-        #     # print v, 'range_changing'
-        #
-        #     # print 'Hiding', self.resized
-        #     # if self.resized:
-        #     #     self.bottom_navigataion_widget.hide()
-        #
-        #     self.maximum = scroll.maximum()
-        #     self.resized = True
-        #     # if v == 0:
-        #     #     self.bottom_navigataion_widget.hide()
-        #
-        # def value_changing(v1):
-        #     # print v1, 'value_changing'
-        #
-        #     if self.resized:
-        #         scroll.setMaximum(self.maximum + self.bottom_navigataion_widget.height())
-        #         self.resized = False
-        #
-        #     if v1 > scroll.maximum()-1:
-        #         x = self.bottom_navigataion_widget.pos().x()
-        #         self.bottom_navigataion_widget.move(x, self.resultsTreeWidget.viewport().height() - self.bottom_navigataion_widget.height())
-        #
-        #     self.bottom_navigataion_widget.unhide()
-        #
-        # scroll.valueChanged.connect(value_changing)
-        # scroll.rangeChanged.connect(range_changing)
 
     @gf.catch_error
     def send_item_double_click(self, *args):
@@ -1979,13 +2483,13 @@ class Ui_resultsFormWidget(QtGui.QWidget, ui_search_results_tree.Ui_resultsForm)
                     self.current_results_tree_widget_item = None
                     self.search_widget.search_results_widget.update_item_tree(self.current_results_tree_widget_item)
 
-    @gf.catch_error
-    def item_clicked(self, tree_item, pos):
-        print tree_item
-        print pos
-
-        tree_widget = self.resultsTreeWidget.itemWidget(tree_item, 0)
-        tree_widget.query_snapshots()
+    # @gf.catch_error
+    # def item_clicked(self, tree_item, pos):
+    #     print tree_item
+    #     print pos
+    #
+    #     tree_widget = self.resultsTreeWidget.itemWidget(tree_item, 0)
+    #     tree_widget.query_snapshots()
 
     @gf.catch_error
     def send_collapse_event_to_item(self, tree_item):
@@ -2060,7 +2564,30 @@ class Ui_resultsFormWidget(QtGui.QWidget, ui_search_results_tree.Ui_resultsForm)
                     self.resultsVersionsTreeWidget.clear()
 
             elif item_widget.type == 'process':
-                self.resultsVersionsTreeWidget.clear()
+                snapshots = item_widget.get_snapshots()
+                if snapshots:
+                    self.resultsVersionsTreeWidget.clear()
+                    process = item_widget.process
+
+                    ready_snapshots = collections.OrderedDict()
+                    for snapshot in snapshots:
+                        if snapshot:
+                            ready_snapshots[snapshot.keys()[0]] = snapshot.values()[0]
+
+                    gf.add_versions_snapshot_item(
+                        self.resultsVersionsTreeWidget,
+                        self,
+                        item_widget.sobject,
+                        item_widget.stype,
+                        process,
+                        item_widget.get_current_process_pipeline(),
+                        process,
+                        ready_snapshots,
+                        item_widget.info,
+                    )
+
+                else:
+                    self.resultsVersionsTreeWidget.clear()
 
             elif item_widget.type == 'child':
                 self.resultsVersionsTreeWidget.clear()
@@ -2106,19 +2633,13 @@ class Ui_resultsFormWidget(QtGui.QWidget, ui_search_results_tree.Ui_resultsForm)
         checkin_out_widget = self.get_current_checkin_out_widget()
         snapshot_browser = checkin_out_widget.get_snapshot_browser()
         snapshot_browser.set_item_widget(item)
-
-    # def browse_tasks(self, item):
-    #     checkin_out_widget = self.get_current_checkin_out_widget()
-    #     tasks_widget = checkin_out_widget.get_tasks_widget()
-    #     tasks_widget.set_sobject(item.get_sobject())
+        checkin_out_widget.bring_snapshot_browser_dock_up()
 
     @gf.catch_error
     def load_preview(self, *args):
         nested_item = self.current_tree_widget_item
 
         self.browse_snapshot(nested_item)
-
-        # self.browse_tasks(nested_item)
 
         checkin_out_widget = self.get_current_checkin_out_widget()
 

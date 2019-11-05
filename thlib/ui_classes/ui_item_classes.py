@@ -14,21 +14,16 @@ from thlib.environment import env_tactic, env_inst, cfg_controls, dl
 from thlib.ui_classes.ui_repo_sync_queue_classes import Ui_repoSyncDialog
 import thlib.global_functions as gf
 import thlib.tactic_classes as tc
+from thlib.ui_classes.ui_custom_qwidgets import Ui_elideLabel
 import thlib.ui.items.ui_commit_item as ui_commit_item
 import thlib.ui.items.ui_preview_item as ui_preview_item
-import thlib.ui.items.ui_item as ui_item
+# import thlib.ui.items.ui_item as ui_item
 import thlib.ui.items.ui_item_children as ui_item_children
 import thlib.ui.items.ui_item_process as ui_item_process
 import thlib.ui.items.ui_item_snapshot as ui_item_snapshot
 import ui_tasks_classes as tasks_widget
 import ui_notes_classes
 import ui_addsobject_classes
-
-# reload(ui_item)
-# reload(ui_item_process)
-# reload(ui_item_snapshot)
-# reload(tasks_widget)
-# reload(ui_notes_classes)
 
 
 class Ui_infoItemsWidget(QtGui.QWidget):
@@ -76,7 +71,6 @@ class Ui_infoItemsWidget(QtGui.QWidget):
         line = QtGui.QFrame(self)
         line.setMaximumSize(QtCore.QSize(1, 12))
         line.setStyleSheet('QFrame { border: 0px; background-color: grey;}')
-        # line.setFrameShadow(QtGui.QFrame.Plain)
         line.setFrameShape(QtGui.QFrame.VLine)
         return line
 
@@ -221,7 +215,6 @@ class Ui_commitItemWidget(QtGui.QWidget, ui_commit_item.Ui_commitItem):
             pixmap = pix
 
         elif image_path:
-            # print('MAKING PREVIEW FROM IMAGE PATH')
             source_image_path = image_path
             image = Qt4Gui.QImage(0, 0, Qt4Gui.QImage.Format_ARGB32)
             icon = None
@@ -362,12 +355,8 @@ class Ui_repoSyncItemWidget(QtGui.QWidget):
     def set_title(self, title=u''):
         self.file_name_label.setText(title)
 
-    def set_description(self, description=u''):
-        self.commentLabel.setText(description)
-
     def fill_info(self):
         self.set_title(self.file_object.get_filename_with_ext())
-        # self.set_description(self.commit_widget.description)
 
     def create_progress_indicator(self):
         if self.progress_wdg.isHidden():
@@ -438,32 +427,6 @@ class Ui_repoSyncItemWidget(QtGui.QWidget):
         self.set_progress_indicator_on()
         self.set_progress_status(progress, info_dict)
 
-    # def download_def(self):
-    #
-    #     def download_file_agent():
-    #         # print '5.1 Begin downloading'
-    #         info_dict = {
-    #             'status_text': 'Downloading File',
-    #             'total_count': 2
-    #         }
-    #         download_file_worker.emit_progress(0, info_dict)
-    #
-    #         self.file_object.download_file()
-    #         download_file_worker.emit_progress(1, info_dict)
-    #
-    #     # print '4 Getting thread pool'
-    #     # print env_inst.get_thread_pool('server_query/http_download_pool')
-    #     download_file_worker = gf.get_thread_worker(
-    #         download_file_agent,
-    #         env_inst.get_thread_pool('server_query/http_download_pool'),
-    #         finished_func=self.download_done,
-    #         progress_func=self.download_progress,
-    #         error_func=gf.error_handle,
-    #     )
-    #     # print '5 Starting worker'
-    #     # stypes_items_worker.setAutoDelete(True)
-    #     download_file_worker.start()
-
     def set_network_manager(self, network_manager):
         self.network_manager = network_manager
 
@@ -477,14 +440,9 @@ class Ui_repoSyncItemWidget(QtGui.QWidget):
         if not self.file_already_in_repo():
             url = QtCore.QUrl(self.file_object.get_full_web_path())
             request = QtNetwork.QNetworkRequest(url)
-            # print url.toString()
-            # print request
             request.setAttribute(QtNetwork.QNetworkRequest.User, self.file_object)
             request.setAttribute(QtNetwork.QNetworkRequest.HttpPipeliningAllowedAttribute, True)
 
-            # print request.attribute()
-
-            # print self.file_object.get_unique_id()
             info_dict = {
                 'status_text': 'Downloading File',
                 'total_count': 4
@@ -508,11 +466,12 @@ class Ui_repoSyncItemWidget(QtGui.QWidget):
         event.accept()
 
 
-class Ui_itemWidget(QtGui.QWidget, ui_item.Ui_item):
+class Ui_itemWidget(QtGui.QWidget):
     def __init__(self, sobject, stype, info, ignore_dict, parent=None):
         super(self.__class__, self).__init__(parent=parent)
 
-        self.setupUi(self)
+        self.create_ui_raw()
+
         self.closed = False
         self.created = False
         self.overlay_layout_widget = None
@@ -542,9 +501,146 @@ class Ui_itemWidget(QtGui.QWidget, ui_item.Ui_item):
 
         if self.stype.schema:
             self.check_for_children()
-        # self.check_for_downloadable()
 
         self.forced_creation()
+
+    def create_ui_raw(self):
+        self.gridLayout = QtGui.QGridLayout(self)
+        self.gridLayout.setContentsMargins(0, 0, 0, 0)
+        self.gridLayout.setSpacing(0)
+        self.gridLayout.setObjectName("gridLayout")
+        self.itemColorLine = QtGui.QFrame(self)
+        self.itemColorLine.setMaximumSize(QtCore.QSize(4, 16777215))
+        self.itemColorLine.setStyleSheet("QFrame { border: 0px; background-color: black;}")
+        self.itemColorLine.setFrameShadow(QtGui.QFrame.Plain)
+        self.itemColorLine.setLineWidth(4)
+        self.itemColorLine.setFrameShape(QtGui.QFrame.VLine)
+        self.itemColorLine.setFrameShadow(QtGui.QFrame.Sunken)
+        self.itemColorLine.setObjectName("itemColorLine")
+        self.gridLayout.addWidget(self.itemColorLine, 0, 0, 3, 1)
+        self.previewVerticalLayout = QtGui.QVBoxLayout()
+        self.previewVerticalLayout.setSpacing(0)
+        self.previewVerticalLayout.setContentsMargins(4, 4, 4, 4)
+        self.previewVerticalLayout.setObjectName("previewVerticalLayout")
+        self.previewLabel = QtGui.QLabel(self)
+        self.previewLabel.setMinimumSize(QtCore.QSize(64, 64))
+        self.previewLabel.setMaximumSize(QtCore.QSize(64, 64))
+        self.previewLabel.setStyleSheet("QLabel {\n"
+                                        "    background: rgba(175, 175, 175, 16);\n"
+                                        "    border: 0px;\n"
+                                        "    border-radius: 3px;\n"
+                                        "    padding: 0px 0px;\n"
+                                        "}")
+        self.previewLabel.setTextFormat(QtCore.Qt.RichText)
+        self.previewLabel.setAlignment(QtCore.Qt.AlignCenter)
+        self.previewLabel.setObjectName("previewLabel")
+        self.previewVerticalLayout.addWidget(self.previewLabel)
+        spacerItem = QtGui.QSpacerItem(0, 0, QtGui.QSizePolicy.Minimum, QtGui.QSizePolicy.Ignored)
+        self.previewVerticalLayout.addItem(spacerItem)
+        self.previewVerticalLayout.setStretch(1, 1)
+        self.gridLayout.addLayout(self.previewVerticalLayout, 0, 1, 3, 1)
+        self.horizontalLayout_2 = QtGui.QHBoxLayout()
+        self.horizontalLayout_2.setSpacing(0)
+        self.horizontalLayout_2.setContentsMargins(-1, -1, -1, 3)
+        self.horizontalLayout_2.setObjectName("horizontalLayout_2")
+        self.fileNameLabel = QtGui.QLabel(self)
+        self.fileNameLabel.setMinimumSize(QtCore.QSize(0, 20))
+        self.fileNameLabel.setMaximumSize(QtCore.QSize(16777215, 24))
+        font = Qt4Gui.QFont()
+        font.setWeight(75)
+        font.setBold(True)
+        self.fileNameLabel.setFont(font)
+        self.fileNameLabel.setStyleSheet("QLabel {\n"
+                                         "    background-color: transparent;\n"
+                                         "}")
+        self.fileNameLabel.setTextFormat(QtCore.Qt.PlainText)
+        self.fileNameLabel.setObjectName("fileNameLabel")
+        self.horizontalLayout_2.addWidget(self.fileNameLabel)
+
+        self.syncWithRepoToolButton = QtGui.QToolButton(self)
+        sizePolicy = QtGui.QSizePolicy(QtGui.QSizePolicy.Preferred, QtGui.QSizePolicy.Fixed)
+        sizePolicy.setHorizontalStretch(0)
+        sizePolicy.setVerticalStretch(0)
+        sizePolicy.setHeightForWidth(self.syncWithRepoToolButton.sizePolicy().hasHeightForWidth())
+        self.syncWithRepoToolButton.setSizePolicy(sizePolicy)
+        self.syncWithRepoToolButton.setAutoRaise(True)
+        self.syncWithRepoToolButton.setObjectName("syncWithRepoToolButton")
+        self.horizontalLayout_2.addWidget(self.syncWithRepoToolButton)
+
+
+        self.watchFolderToolButton = QtGui.QToolButton(self)
+        sizePolicy = QtGui.QSizePolicy(QtGui.QSizePolicy.Preferred, QtGui.QSizePolicy.Fixed)
+        sizePolicy.setHorizontalStretch(0)
+        sizePolicy.setVerticalStretch(0)
+        sizePolicy.setHeightForWidth(self.watchFolderToolButton.sizePolicy().hasHeightForWidth())
+        self.watchFolderToolButton.setSizePolicy(sizePolicy)
+        self.watchFolderToolButton.setText("")
+        self.watchFolderToolButton.setCheckable(True)
+        self.watchFolderToolButton.setAutoRaise(True)
+        self.watchFolderToolButton.setObjectName("watchFolderToolButton")
+        self.horizontalLayout_2.addWidget(self.watchFolderToolButton)
+
+        self.relationsToolButton = QtGui.QToolButton(self)
+        sizePolicy = QtGui.QSizePolicy(QtGui.QSizePolicy.Preferred, QtGui.QSizePolicy.Fixed)
+        sizePolicy.setHorizontalStretch(0)
+        sizePolicy.setVerticalStretch(0)
+        sizePolicy.setHeightForWidth(self.relationsToolButton.sizePolicy().hasHeightForWidth())
+        self.relationsToolButton.setSizePolicy(sizePolicy)
+        self.relationsToolButton.setPopupMode(QtGui.QToolButton.MenuButtonPopup)
+        self.relationsToolButton.setToolButtonStyle(QtCore.Qt.ToolButtonTextBesideIcon)
+        self.relationsToolButton.setAutoRaise(True)
+        self.relationsToolButton.setArrowType(QtCore.Qt.NoArrow)
+        self.relationsToolButton.setObjectName("relationsToolButton")
+        self.horizontalLayout_2.addWidget(self.relationsToolButton)
+
+        self.horizontalLayout_2.setStretch(0, 1)
+        self.gridLayout.addLayout(self.horizontalLayout_2, 0, 2, 1, 2)
+        self.horizontalLayout = QtGui.QHBoxLayout()
+        self.horizontalLayout.setSpacing(0)
+        self.horizontalLayout.setObjectName("horizontalLayout")
+        self.tasksToolButton = QtGui.QToolButton(self)
+        sizePolicy = QtGui.QSizePolicy(QtGui.QSizePolicy.Preferred, QtGui.QSizePolicy.Fixed)
+        sizePolicy.setHorizontalStretch(0)
+        sizePolicy.setVerticalStretch(0)
+        sizePolicy.setHeightForWidth(self.tasksToolButton.sizePolicy().hasHeightForWidth())
+        self.tasksToolButton.setSizePolicy(sizePolicy)
+        self.tasksToolButton.setToolButtonStyle(QtCore.Qt.ToolButtonTextBesideIcon)
+        self.tasksToolButton.setAutoRaise(True)
+        self.tasksToolButton.setObjectName("tasksToolButton")
+        self.horizontalLayout.addWidget(self.tasksToolButton)
+        self.notesToolButton = QtGui.QToolButton(self)
+        sizePolicy = QtGui.QSizePolicy(QtGui.QSizePolicy.Preferred, QtGui.QSizePolicy.Fixed)
+        sizePolicy.setHorizontalStretch(0)
+        sizePolicy.setVerticalStretch(0)
+        sizePolicy.setHeightForWidth(self.notesToolButton.sizePolicy().hasHeightForWidth())
+        self.notesToolButton.setSizePolicy(sizePolicy)
+        self.notesToolButton.setText("")
+        self.notesToolButton.setToolButtonStyle(QtCore.Qt.ToolButtonTextBesideIcon)
+        self.notesToolButton.setAutoRaise(True)
+        self.notesToolButton.setObjectName("notesToolButton")
+        self.horizontalLayout.addWidget(self.notesToolButton)
+        self.gridLayout.addLayout(self.horizontalLayout, 1, 3, 2, 1)
+        self.descriptionLerticalLayout = QtGui.QVBoxLayout()
+        self.descriptionLerticalLayout.setSpacing(0)
+        self.descriptionLerticalLayout.setContentsMargins(0, 0, 0, 0)
+        self.descriptionLerticalLayout.setObjectName("descriptionLerticalLayout")
+        self.descriptionLabel = Ui_elideLabel(self)
+        self.descriptionLabel.set_font_size(8)
+        self.descriptionLabel.setMinimumSize(QtCore.QSize(0, 25))
+        self.descriptionLabel.setMaximumHeight(25)
+        self.descriptionLabel.setTextFormat(QtCore.Qt.PlainText)
+        self.descriptionLabel.setAlignment(QtCore.Qt.AlignLeading | QtCore.Qt.AlignLeft | QtCore.Qt.AlignTop)
+
+        self.descriptionLabel.setMargin(2)
+        self.descriptionLabel.setObjectName("descriptionLabel")
+        self.descriptionLerticalLayout.addWidget(self.descriptionLabel)
+        self.gridLayout.addLayout(self.descriptionLerticalLayout, 2, 2, 1, 1)
+        self.infoHorizontalLayout = QtGui.QHBoxLayout()
+        self.infoHorizontalLayout.setSpacing(0)
+        self.infoHorizontalLayout.setObjectName("infoHorizontalLayout")
+        self.gridLayout.addLayout(self.infoHorizontalLayout, 1, 2, 1, 1)
+        self.gridLayout.setColumnStretch(2, 1)
+        self.gridLayout.setRowStretch(2, 1)
 
     def controls_actions(self):
         self.tasksToolButton.clicked.connect(self.show_tasks_dock)
@@ -556,7 +652,9 @@ class Ui_itemWidget(QtGui.QWidget, ui_item.Ui_item):
 
         self.create_overlay_layout()
 
-        self.setMinimumWidth(260)
+        self.setMinimumSize(260, 50)
+        self.previewVerticalLayout.setContentsMargins(3,1,4,5)
+
 
         self.previewLabel.setText(u'<span style=" font-size:14pt; font-weight:600; color:#828282;">{0}</span>'.format(
             gf.gen_acronym(self.get_title()))
@@ -584,7 +682,8 @@ class Ui_itemWidget(QtGui.QWidget, ui_item.Ui_item):
 
         self.create_overlay_layout()
 
-        self.setMinimumWidth(260)
+        self.setMinimumSize(260, 50)
+        self.previewVerticalLayout.setContentsMargins(3,1,4,5)
 
         self.previewLabel.setText(u'<span style=" font-size:14pt; font-weight:600; color:#828282;">{0}</span>'.format(
             gf.gen_acronym(self.get_title()))
@@ -631,6 +730,7 @@ class Ui_itemWidget(QtGui.QWidget, ui_item.Ui_item):
     def show_overlay(self):
         self.overlay_layout_widget.setHidden(False)
         self.show()
+        self.overlay_layout_widget.raise_()
 
     def show_tasks_dock(self):
 
@@ -652,7 +752,6 @@ class Ui_itemWidget(QtGui.QWidget, ui_item.Ui_item):
 
     def create_sync_with_repo_button(self):
         self.syncWithRepoToolButton.setIcon(gf.get_icon('cloud-sync', color=Qt4Gui.QColor(250, 250, 250), icons_set='mdi'))
-        # self.syncWithRepoToolButton.clicked.connect(self.save_watch_status)
 
     def create_item_info_widget(self):
         self.item_info_widget = Ui_infoItemsWidget(self)
@@ -829,12 +928,19 @@ class Ui_itemWidget(QtGui.QWidget, ui_item.Ui_item):
         # self.item_info_widget.add_item_to_right(self.dateLabel)
 
         self.fileNameLabel.setText(self.get_title())
-        limit_enabled = bool(gf.get_value_from_config(cfg_controls.get_checkin(), 'snapshotDescriptionLimitCheckBox'))
-        limit = gf.get_value_from_config(cfg_controls.get_checkin(), 'snapshotDescriptionLimitSpinBox')
-        if limit_enabled:
-            self.commentLabel.setText(gf.to_plain_text(self.sobject.info.get('description'), limit))
-        else:
-            self.commentLabel.setText(gf.to_plain_text(self.sobject.info.get('description'), None))
+
+        description = self.sobject.info.get('description')
+        self.descriptionLabel.setToolTip(u'<p>{}</p>'.format(description))
+        self.descriptionLabel.setText(description)
+
+        # limit_enabled = bool(gf.get_value_from_config(cfg_controls.get_checkin(), 'snapshotDescriptionLimitCheckBox'))
+        # limit = gf.get_value_from_config(cfg_controls.get_checkin(), 'snapshotDescriptionLimitSpinBox')
+
+        # if limit_enabled:
+        #     self.descriptionLabel.setText(gf.to_plain_text(self.sobject.info.get('description'), limit))
+        # else:
+        #     self.descriptionLabel.setText(gf.to_plain_text(self.sobject.info.get('description'), None))
+
         # timestamp = datetime.strptime(self.sobject.info.get('timestamp').split('.')[0], '%Y-%m-%d %H:%M:%S')
         # date = str(self.sobject.info.get('timestamp')).split('.')[0].replace(' ', ' \n')
         # self.dateLabel.setText(date)
@@ -876,7 +982,7 @@ class Ui_itemWidget(QtGui.QWidget, ui_item.Ui_item):
                                     info_label.setStyleSheet('color: {}'.format(gf.hex_to_rgb(colors.text)))
 
                     # Getting edit definition from db, just to freely get labels
-                    if edit_definition.element:
+                    if edit_definition.element and edit_definition.edit_definition:
                         for element in edit_definition.edit_definition.find_all():
                             if column == element.get('name'):
                                 if element.values and element.labels:
@@ -885,10 +991,12 @@ class Ui_itemWidget(QtGui.QWidget, ui_item.Ui_item):
                                             data = label
                     if unicode(data).lower().startswith(('https://', 'http://', 'ftp://')):
                         info_label = self.get_item_info_html_label()
+                        info_label.setToolTip(unicode(data))
                         info_label.setPixmap(gf.get_icon('crosshairs', color=Qt4Gui.QColor(255, 255, 255)).pixmap(24, 24))
                         info_label.setText(u'<p><a href="{1}" style="color:#66a3ff;text-decoration:none;">{0} Link</a></p>'.format(column.capitalize(), data))
                     else:
                         # at this time we don't need long text, as it will not fit to item
+                        info_label.setToolTip(unicode(data))
                         data = unicode(data)[0:30]
                         info_label.setText(data)
                     self.item_info_widget.add_item(info_label)
@@ -1098,7 +1206,7 @@ class Ui_itemWidget(QtGui.QWidget, ui_item.Ui_item):
 
     def update_description(self, new_description):
         self.sobject.info['description'] = new_description
-        self.commentLabel.setText(new_description)
+        self.descriptionLabel.setText(new_description)
 
     def query_snapshots(self):
 
@@ -1162,6 +1270,8 @@ class Ui_itemWidget(QtGui.QWidget, ui_item.Ui_item):
 
     def fill_process_items(self):
 
+        builtin_process = ['icon', 'attachment', 'publish']
+
         # getting all possible processes here
         processes = []
         pipeline_code = self.sobject.info.get('pipeline_code')
@@ -1174,15 +1284,21 @@ class Ui_itemWidget(QtGui.QWidget, ui_item.Ui_item):
         if self.ignore_dict:
             if self.ignore_dict.get('show_builtins'):
                 show_all = True
-                for builtin in ['icon', 'attachment', 'publish']:
+                for builtin in builtin_process:
                     if builtin not in self.ignore_dict['builtins']:
                         processes.append(builtin)
                         show_all = False
                 if show_all:
-                    processes.extend(['icon', 'attachment', 'publish'])
+                    processes.extend(builtin_process)
+
+        if not processes:
+            processes = builtin_process
 
         for process in processes:
-            process_info = curent_pipeline.get_process_info(process)
+            if curent_pipeline:
+                process_info = curent_pipeline.get_process_info(process)
+            else:
+                process_info = {'type': 'manual'}
 
             ignored = False
 
@@ -1294,8 +1410,10 @@ class Ui_itemWidget(QtGui.QWidget, ui_item.Ui_item):
         # for process_widget in self.process_items:
         #     process.append(process_widget.process)
         # return process
+
+        builtins = ['icon', 'attachment', 'publish']
+
         if self.stype.pipeline:
-            builtins = ['icon', 'attachment', 'publish']
             current_pipeline = self.stype.pipeline.get(self.sobject.get_pipeline_code())
             workflow = self.stype.get_workflow()
             processes_list = current_pipeline.get_all_processes_names()
@@ -1320,6 +1438,8 @@ class Ui_itemWidget(QtGui.QWidget, ui_item.Ui_item):
                 processes_list.extend(builtins)
 
             return processes_list
+        else:
+            return builtins
 
     def get_children_list(self):
         children_list = []
@@ -1333,7 +1453,6 @@ class Ui_itemWidget(QtGui.QWidget, ui_item.Ui_item):
     @gf.catch_error
     def get_notes_count(self):
 
-        #@gf.catch_error
         def notes_fill(result):
             if not self.closed:
                 notes_counts = result['notes']
@@ -1528,8 +1647,6 @@ class Ui_processItemWidget(QtGui.QWidget, ui_item_process.Ui_processItem):
         self.workflow = self.stype.project.workflow
         self.process_items = []
         self.snapshots_items = []
-        # print(tree_item.text(0))
-        # self.item_info = {}
 
         self.expand_state = False
         self.selected_state = False
@@ -1544,16 +1661,18 @@ class Ui_processItemWidget(QtGui.QWidget, ui_item_process.Ui_processItem):
     def create_ui(self):
         # self.drop_wdg = QtGui.QWidget(self)
         self.setMinimumWidth(260)
+
         item_color = Qt4Gui.QColor(200, 200, 200)
         pipeline = self.get_current_process_pipeline()
-        process = pipeline.get_process(self.process)
-        if process:
-            hex_color = process.get('color')
-            color = None
-            if hex_color:
-                color = gf.hex_to_rgb(hex_color, tuple=True)
-            if color:
-                item_color = Qt4Gui.QColor(*color)
+        if pipeline:
+            process = pipeline.get_process(self.process)
+            if process:
+                hex_color = process.get('color')
+                color = None
+                if hex_color:
+                    color = gf.hex_to_rgb(hex_color, tuple=True)
+                if color:
+                    item_color = Qt4Gui.QColor(*color)
 
         if self.process:
             title = self.process.capitalize()
@@ -1594,28 +1713,9 @@ class Ui_processItemWidget(QtGui.QWidget, ui_item_process.Ui_processItem):
     def set_children_states(self, states):
         self.info['children_states'] = states
 
-    # def check_expand_state(self, state=None):
-    #     # if not state:
-    #     #     state = self.get_children_states()
-    #
-    #     if state:
-    #         from pprint import pprint
-    #         pprint(state)
-    #         # expanded = state[self.get_row()]['d']['e']
-    #         # selected = state[self.get_row()]['d']['s']
-    #         #
-    #         # self.set_expand_state(expanded)
-    #         # self.set_selected_state(selected)
-    #         #
-    #         # for i in range(self.get_depth()):
-    #         #     state = state[self.get_row()]['s']
-    #         #
-    #         # self.set_children_states(state)
-
     @gf.catch_error
     def get_notes_count(self):
 
-        #@gf.catch_error
         def notes_fill(result):
             if not self.closed:
                 notes_counts = result['notes']
@@ -1664,18 +1764,19 @@ class Ui_processItemWidget(QtGui.QWidget, ui_item_process.Ui_processItem):
         process_info = None
         if pipeline:
             process_info = pipeline.process.get(self.process)
+        else:
+            process_info = {'type': 'manual'}
 
         return process_info
 
     def get_current_process_pipeline(self):
-        # pipeline_code = self.sobject.info.get('pipeline_code')
-        # pipeline = self.stype.pipeline.get(pipeline_code)
         if self.pipeline:
             return self.pipeline
         else:
             pipeline_code = self.sobject.info.get('pipeline_code')
-            pipeline = self.stype.pipeline.get(pipeline_code)
-            return pipeline
+            if self.stype.pipeline:
+                pipeline = self.stype.pipeline.get(pipeline_code)
+                return pipeline
 
     def set_drop_indicator_on(self):
         if self.drop_wdg.isHidden():
@@ -1758,33 +1859,13 @@ class Ui_processItemWidget(QtGui.QWidget, ui_item_process.Ui_processItem):
 
         # TODO when i get my hands to recursive filtering, make it respect filtering.
 
-        # processes = []
-        # pipeline_code = self.sobject.info.get('pipeline_code')
-        # if pipeline_code and self.stype.pipeline:
         processes = []
         if pipeline:
             processes = pipeline.process.keys()
 
-        # if self.ignore_dict:
-        #     if self.ignore_dict['show_builtins']:
-        #         show_all = True
-        #         for builtin in ['icon', 'attachment', 'publish']:
-        #             if builtin not in self.ignore_dict['builtins']:
-        #                 processes.append(builtin)
-        #                 show_all = False
-        #         if show_all:
-        #             processes.extend(['icon', 'attachment', 'publish'])
-
-        # progress_bar = self.get_current_progress_bar()
-        # progress_bar.setVisible(True)
         for i, process in enumerate(processes):
             ignored = False
-            # if self.ignore_dict:
-            #     if process in self.ignore_dict['processes'].get(pipeline_code):
-            #         ignored = True
             if not ignored:
-                # print self.tree_item.treeWidget()
-                # print 'adding', process
                 process_item = gf.add_process_item(
                     self.tree_item,
                     self.search_widget,
@@ -1796,29 +1877,14 @@ class Ui_processItemWidget(QtGui.QWidget, ui_item_process.Ui_processItem):
                 )
                 self.process_items.append(process_item)
                 process_item.fill_subprocesses()
-                # progress_bar.setValue(int(i * 100 / len(processes)))
-
-        # progress_bar.setVisible(False)
 
     def fill_snapshots_items(self):
-        # print self.children_states, 'CHILDREN STATES, fill_snapshots_items'
-        # progress_bar = self.get_current_progress_bar()
-        # progress_bar.setVisible(True)
-        # adding snapshots per process
-
-        # import time
-        # start = time.time()
 
         for i, proc in enumerate(self.process_items):
-            # progress_bar.setValue(int(i * 100 / len(self.process_items)))
             for key, val in self.sobject.process.iteritems():
                 # because it is dict, items could be in any position
                 if key == proc.process:
                     proc.add_snapshots_items(val)
-
-        # progress_bar.setVisible(False)
-
-        # print time.time() - start
 
     def add_snapshots_items(self, snapshots):
 
@@ -1834,32 +1900,6 @@ class Ui_processItemWidget(QtGui.QWidget, ui_item_process.Ui_processItem):
             self.sep_versions,
             False,
         )
-        # if self.children_states:
-        #     gf.tree_state_revert(self.tree_item, self.children_states)
-
-    # def update_items(self):
-    #     self.sobject.update_snapshots()
-    #     self.collapse_all_children()
-    #
-    #     gf.add_snapshot_item(
-    #         self.tree_item,
-    #         self.search_widget,
-    #         self.sobject,
-    #         self.stype,
-    #         self.process,
-    #         self.pipeline,
-    #         self.sobject.process.get(self.process),
-    #         self.info,
-    #         self.sep_versions,
-    #         False,
-    #     )
-
-    def prnt(self):
-        # print(str(self.item_index))
-        # print(self.tree_item.parent().setExpanded(False))
-        print(self.sobject.process)
-        self.sobject.update_snapshots()
-        print(self.sobject.process)
 
     def get_snapshots(self, versionless=True):
         process = self.get_current_process()
@@ -1875,20 +1915,11 @@ class Ui_processItemWidget(QtGui.QWidget, ui_item_process.Ui_processItem):
                 return snapshots
 
     def get_context(self, process=False, custom=None):
-
-        # pipeline = self.get_current_process_pipeline()
-        # print pipeline.get_pipeline()
-        # print pipeline.get_process(self.process)
-        # print pipeline.get_info()
-        # print pipeline.get_processes()
-
         if process:
             if custom:
                 return u'{0}/{1}'.format(self.process, custom)
             else:
                 return self.process
-                # else:
-                #     return ''
 
     def get_context_options(self):
         pipeline = self.get_current_process_pipeline()
@@ -1938,7 +1969,6 @@ class Ui_processItemWidget(QtGui.QWidget, ui_item_process.Ui_processItem):
 
             self.fill_snapshots_items()
 
-        # if self.process_items:
         self.get_notes_count()
 
     @gf.catch_error
@@ -1978,11 +2008,12 @@ class Ui_processItemWidget(QtGui.QWidget, ui_item_process.Ui_processItem):
         event.accept()
 
 
-class Ui_snapshotItemWidget(QtGui.QWidget, ui_item_snapshot.Ui_snapshotItem):
+class Ui_snapshotItemWidget(QtGui.QWidget):
     def __init__(self, sobject, stype, process, pipeline, context, snapshot, info, parent=None):
         super(self.__class__, self).__init__(parent=parent)
 
-        self.setupUi(self)
+        self.create_ui_raw()
+        
         self.created = False
         self.type = 'snapshot'
         self.sobject = sobject
@@ -2009,16 +2040,117 @@ class Ui_snapshotItemWidget(QtGui.QWidget, ui_item_snapshot.Ui_snapshotItem):
             self.snapshot = snapshot[0].snapshot
             self.files = snapshot[0].files
 
-        # self.create_ui()
-
+    def create_ui_raw(self):
+        self.gridLayout = QtGui.QGridLayout(self)
+        self.gridLayout.setContentsMargins(0, 0, 0, 0)
+        self.gridLayout.setSpacing(0)
+        self.gridLayout.setObjectName("gridLayout")
+        self.previewVerticalLayout = QtGui.QVBoxLayout()
+        self.previewVerticalLayout.setSpacing(0)
+        self.previewVerticalLayout.setContentsMargins(4, 4, 4, 4)
+        self.previewVerticalLayout.setObjectName("previewVerticalLayout")
+        self.previewLabel = QtGui.QLabel(self)
+        self.previewLabel.setMinimumSize(QtCore.QSize(64, 64))
+        self.previewLabel.setMaximumSize(QtCore.QSize(64, 64))
+        self.previewLabel.setStyleSheet("QLabel {\n"
+                                        "    background: rgba(175, 175, 175, 16);\n"
+                                        "    border: 0px;\n"
+                                        "    border-radius: 3px;\n"
+                                        "    padding: 0px 0px;\n"
+                                        "}")
+        self.previewLabel.setTextFormat(QtCore.Qt.RichText)
+        self.previewLabel.setAlignment(QtCore.Qt.AlignCenter)
+        self.previewLabel.setObjectName("previewLabel")
+        self.previewVerticalLayout.addWidget(self.previewLabel)
+        spacerItem = QtGui.QSpacerItem(0, 0, QtGui.QSizePolicy.Minimum, QtGui.QSizePolicy.Ignored)
+        self.previewVerticalLayout.addItem(spacerItem)
+        self.previewVerticalLayout.setStretch(1, 1)
+        self.gridLayout.addLayout(self.previewVerticalLayout, 0, 1, 3, 1)
+        self.nameVerticalLayout = QtGui.QHBoxLayout()
+        self.nameVerticalLayout.setSpacing(0)
+        self.nameVerticalLayout.setContentsMargins(-1, -1, -1, 3)
+        self.nameVerticalLayout.setObjectName("nameVerticalLayout")
+        self.fileNameLabel = Ui_elideLabel(self)
+        self.fileNameLabel.setMinimumSize(QtCore.QSize(0, 20))
+        self.fileNameLabel.setMaximumSize(QtCore.QSize(16777215, 20))
+        font = Qt4Gui.QFont()
+        font.setWeight(75)
+        font.setBold(True)
+        self.fileNameLabel.setFont(font)
+        self.fileNameLabel.setStyleSheet("QLabel {\n"
+                                         "    background-color: transparent;\n"
+                                         "}")
+        self.fileNameLabel.setTextFormat(QtCore.Qt.PlainText)
+        self.fileNameLabel.setWordWrap(True)
+        self.fileNameLabel.setObjectName("fileNameLabel")
+        self.nameVerticalLayout.addWidget(self.fileNameLabel)
+        self.sizeLabel = QtGui.QLabel(self)
+        self.sizeLabel.setMinimumSize(QtCore.QSize(0, 20))
+        self.sizeLabel.setMaximumSize(QtCore.QSize(16777215, 20))
+        self.sizeLabel.setToolTip("")
+        self.sizeLabel.setStyleSheet("QLabel {\n"
+                                     "    background: qlineargradient(spread:pad, x1:0, y1:0, x2:1, y2:0, stop:0 rgba(255, 255, 255, 0), stop:1 rgba(64, 64, 64, 175));\n"
+                                     "}")
+        self.sizeLabel.setTextFormat(QtCore.Qt.PlainText)
+        self.sizeLabel.setAlignment(QtCore.Qt.AlignRight | QtCore.Qt.AlignTrailing | QtCore.Qt.AlignVCenter)
+        self.sizeLabel.setMargin(2)
+        self.sizeLabel.setObjectName("sizeLabel")
+        self.nameVerticalLayout.addWidget(self.sizeLabel)
+        self.nameVerticalLayout.setStretch(0, 1)
+        self.gridLayout.addLayout(self.nameVerticalLayout, 0, 2, 1, 2)
+        self.infoHorizontalLayout = QtGui.QHBoxLayout()
+        self.infoHorizontalLayout.setSpacing(0)
+        self.infoHorizontalLayout.setObjectName("infoHorizontalLayout")
+        self.gridLayout.addLayout(self.infoHorizontalLayout, 1, 2, 1, 1)
+        self.descriptionLorizontalLayout = QtGui.QHBoxLayout()
+        self.descriptionLorizontalLayout.setSpacing(0)
+        self.descriptionLorizontalLayout.setContentsMargins(0, 0, 0, 0)
+        self.descriptionLorizontalLayout.setObjectName("descriptionLorizontalLayout")
+        self.authorLabel = QtGui.QLabel(self)
+        self.authorLabel.setMinimumSize(QtCore.QSize(0, 25))
+        font = Qt4Gui.QFont()
+        font.setItalic(True)
+        self.authorLabel.setFont(font)
+        self.authorLabel.setStyleSheet("color:grey;")
+        self.authorLabel.setTextFormat(QtCore.Qt.PlainText)
+        self.authorLabel.setAlignment(QtCore.Qt.AlignLeading | QtCore.Qt.AlignLeft | QtCore.Qt.AlignTop)
+        self.authorLabel.setMargin(2)
+        self.authorLabel.setObjectName("authorLabel")
+        self.descriptionLorizontalLayout.addWidget(self.authorLabel)
+        self.descriptionLabel = Ui_elideLabel(self)
+        self.descriptionLabel.set_font_size(8)
+        self.descriptionLabel.setMinimumSize(QtCore.QSize(0, 25))
+        self.descriptionLabel.setMaximumHeight(25)
+        self.descriptionLabel.setTextFormat(QtCore.Qt.PlainText)
+        self.descriptionLabel.setAlignment(QtCore.Qt.AlignLeading | QtCore.Qt.AlignLeft | QtCore.Qt.AlignTop)
+        self.descriptionLabel.setMargin(0)
+        self.descriptionLabel.setObjectName("descriptionLabel")
+        self.descriptionLorizontalLayout.addWidget(self.descriptionLabel)
+        self.descriptionLorizontalLayout.setStretch(1, 1)
+        self.gridLayout.addLayout(self.descriptionLorizontalLayout, 2, 2, 1, 2)
+        self.itemColorLine = QtGui.QFrame(self)
+        self.itemColorLine.setMaximumSize(QtCore.QSize(4, 16777215))
+        self.itemColorLine.setStyleSheet("QFrame { border: 0px; background-color: green;}\n"
+                                         "")
+        self.itemColorLine.setFrameShadow(QtGui.QFrame.Plain)
+        self.itemColorLine.setLineWidth(4)
+        self.itemColorLine.setFrameShape(QtGui.QFrame.VLine)
+        self.itemColorLine.setFrameShadow(QtGui.QFrame.Sunken)
+        self.itemColorLine.setObjectName("itemColorLine")
+        self.gridLayout.addWidget(self.itemColorLine, 0, 0, 3, 1)
+        self.gridLayout.setColumnStretch(2, 1)
+        self.gridLayout.setRowStretch(2, 1)
+    
     def get_type(self):
         return self.type
 
     def create_ui(self):
+
         # self.drop_wdg = QtGui.QWidget(self)
         # self.drop_wdg.setHidden(True)
 
-        self.setMinimumWidth(260)
+        self.setMinimumSize(260, 50)
+        self.previewVerticalLayout.setContentsMargins(3, 1, 4, 5)
 
         self.create_item_info_widget()
 
@@ -2032,9 +2164,6 @@ class Ui_snapshotItemWidget(QtGui.QWidget, ui_item_snapshot.Ui_snapshotItem):
         self.repoLabel.setTextFormat(QtCore.Qt.RichText)
 
         self.itemColorLine.setStyleSheet('QFrame { border: 0px; background-color: black;}')
-
-        # print 'Checkin expand state of SNAPSHOT Item from within'
-        # self.check_expand_state()
 
         if self.snapshot:
 
@@ -2056,12 +2185,16 @@ class Ui_snapshotItemWidget(QtGui.QWidget, ui_item_snapshot.Ui_snapshotItem):
 
             self.check_main_file()
 
-            limit_enabled = bool(gf.get_value_from_config(cfg_controls.get_checkin(), 'snapshotDescriptionLimitCheckBox'))
-            limit = gf.get_value_from_config(cfg_controls.get_checkin(), 'snapshotDescriptionLimitSpinBox')
-            if limit_enabled:
-                self.commentLabel.setText(gf.to_plain_text(self.snapshot['description'], limit))
-            else:
-                self.commentLabel.setText(gf.to_plain_text(self.snapshot['description'], None))
+            # limit_enabled = bool(gf.get_value_from_config(cfg_controls.get_checkin(), 'snapshotDescriptionLimitCheckBox'))
+            # limit = gf.get_value_from_config(cfg_controls.get_checkin(), 'snapshotDescriptionLimitSpinBox')
+            # if limit_enabled:
+            #     self.descriptionLabel.setText(gf.to_plain_text(self.snapshot['description'], limit))
+            # else:
+            #     self.descriptionLabel.setText(gf.to_plain_text(self.snapshot['description'], None))
+            description = gf.to_plain_text(self.snapshot['description'], None)
+            self.descriptionLabel.setToolTip(u'<p>{}</p>'.format(description))
+            self.descriptionLabel.setText(description)
+
             self.dateLabel.setText(self.snapshot['timestamp'].split('.')[0].replace(' ', ' \n'))
             self.authorLabel.setText(self.snapshot['login'] + ':')
             self.verLabel.setText(gf.get_ver_rev(ver=self.snapshot['version'], rev=0))
@@ -2289,7 +2422,7 @@ class Ui_snapshotItemWidget(QtGui.QWidget, ui_item_snapshot.Ui_snapshotItem):
         pixmap = gf.get_icon('folder-sign', icons_set='ei', opacity=0.5, scale_factor=0.5).pixmap(64, Qt4Gui.QIcon.Normal)
         self.previewLabel.setPixmap(pixmap.scaledToHeight(64, QtCore.Qt.SmoothTransformation))
         self.fileNameLabel.setText('Multiple checkin: {0} '.format(self.context))
-        self.commentLabel.setText('Snapshots count: {0}; Files count: {1};'.format(len(self.get_all_versions_snapshots()), len(self.get_all_versions_files())))
+        self.descriptionLabel.setText('Snapshots count: {0}; Files count: {1};'.format(len(self.get_all_versions_snapshots()), len(self.get_all_versions_files())))
 
         self.dateLabel.deleteLater()
         self.sizeLabel.deleteLater()
@@ -2299,7 +2432,7 @@ class Ui_snapshotItemWidget(QtGui.QWidget, ui_item_snapshot.Ui_snapshotItem):
         pixmap = gf.get_icon('exclamation-circle', opacity=0.5, scale_factor=0.6).pixmap(64, Qt4Gui.QIcon.Normal)
         self.previewLabel.setPixmap(pixmap.scaledToHeight(64, QtCore.Qt.SmoothTransformation))
         self.fileNameLabel.setText('Commit without versionless in {0}'.format(self.context))
-        self.commentLabel.setText('Versionless for this commit is not present')
+        self.descriptionLabel.setText('Versionless for this commit is not present')
         self.dateLabel.deleteLater()
         self.sizeLabel.deleteLater()
         self.authorLabel.deleteLater()
@@ -2372,7 +2505,9 @@ class Ui_snapshotItemWidget(QtGui.QWidget, ui_item_snapshot.Ui_snapshotItem):
     def get_all_versions_snapshots(self):
         process = self.sobject.process.get(self.process)
         context = process.contexts.get(self.context)
-        return context.versions
+
+        if context:
+            return context.versions
 
     def get_all_versions_files(self):
         files = []
@@ -2535,7 +2670,6 @@ class Ui_snapshotItemWidget(QtGui.QWidget, ui_item_snapshot.Ui_snapshotItem):
     def delete_current_sobject(self):
 
         snapshot = self.get_snapshot()
-        # print 'DELETING FROM ITEM', snapshot
         snapshot.delete_sobject()
 
     def get_skey(self, skey=False, only=False, parent=False):
@@ -2558,7 +2692,7 @@ class Ui_snapshotItemWidget(QtGui.QWidget, ui_item_snapshot.Ui_snapshotItem):
 
     def update_description(self, new_description):
         self.snapshot['description'] = new_description
-        self.commentLabel.setText(new_description)
+        self.descriptionLabel.setText(new_description)
 
     @gf.catch_error
     def expand_tree_item(self):
@@ -2581,7 +2715,7 @@ class Ui_snapshotItemWidget(QtGui.QWidget, ui_item_snapshot.Ui_snapshotItem):
         # return self.selectedCheckBox.isChecked()
 
     # def resizeEvent(self, event):
-    #     self.tree_item.setSizeHint(0, QtCore.QSize(self.width(), 25 + self.commentLabel.height()))
+    #     self.tree_item.setSizeHint(0, QtCore.QSize(self.width(), 25 + self.descriptionLabel.height()))
 
     def mouseDoubleClickEvent(self, event):
         if self.relates_to == 'checkin_out':
@@ -2611,8 +2745,6 @@ class Ui_snapshotItemWidget(QtGui.QWidget, ui_item_snapshot.Ui_snapshotItem):
 class Ui_childrenItemWidget(QtGui.QWidget):
     def __init__(self, sobject, stype, child, info, parent=None):
         super(self.__class__, self).__init__(parent=parent)
-
-        # self.setupUi(self)
 
         self.created = False
         self.type = 'child'
@@ -2748,25 +2880,6 @@ class Ui_childrenItemWidget(QtGui.QWidget):
 
     def set_children_states(self, states):
         self.info['children_states'] = states
-
-    # def check_expand_state(self, state=None):
-    #     # if not state:
-    #     #     state = self.get_children_states()
-    #
-    #     if state:
-    #         from pprint import pprint
-    #         pprint(state)
-    #
-    #         # expanded = state[self.get_row()]['d']['e']
-    #         # selected = state[self.get_row()]['d']['s']
-    #         #
-    #         # self.set_expand_state(expanded)
-    #         # self.set_selected_state(selected)
-    #         #
-    #         # for i in range(self.get_depth()):
-    #         #     state = state[self.get_row()]['s']
-    #         #
-    #         # self.set_children_states(state)
 
     def tree_item_set_expanded_override(self, state):
         if state:

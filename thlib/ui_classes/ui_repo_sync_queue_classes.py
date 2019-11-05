@@ -5,7 +5,7 @@ from thlib.side.Qt import QtCore
 from thlib.environment import env_inst, env_read_config, env_write_config
 import thlib.global_functions as gf
 import thlib.tactic_classes as tc
-from thlib.ui_classes.ui_misc_classes import Ui_collapsableWidget
+from thlib.ui_classes.ui_custom_qwidgets import Ui_collapsableWidget
 
 
 class Ui_repoSyncDialog(QtGui.QDialog):
@@ -322,33 +322,34 @@ class Ui_repoSyncDialog(QtGui.QDialog):
             added_stypes = []
 
         # Children process
-        for child in stype.schema.children:
-            child_stype = stype.get_project().stypes.get(child['from'])
-            relationship_type = child.get('type')
-            if child_stype and relationship_type not in ['many_to_many']:
+        if stype.schema:
+            for child in stype.schema.children:
+                child_stype = stype.get_project().stypes.get(child['from'])
+                relationship_type = child.get('type')
+                if child_stype and relationship_type not in ['many_to_many']:
 
-                top_item = QtGui.QTreeWidgetItem()
-                top_item.setText(0, child_stype.get_pretty_name() + ' (child)')
-                top_item.setCheckState(0, QtCore.Qt.Checked)
-                top_item.setData(1, 0, '{0}:{1}'.format(child_stype.get_code(), '{s}'))
+                    top_item = QtGui.QTreeWidgetItem()
+                    top_item.setText(0, child_stype.get_pretty_name() + ' (child)')
+                    top_item.setCheckState(0, QtCore.Qt.Checked)
+                    top_item.setData(1, 0, '{0}:{1}'.format(child_stype.get_code(), '{s}'))
 
-                clr = child_stype.get_stype_color(tuple=True)
-                stype_color = None
-                if clr:
-                    stype_color = Qt4Gui.QColor(clr[0], clr[1], clr[2], 255)
-                top_item.setIcon(0, gf.get_icon('view-sequential', color=stype_color, icons_set='mdi', scale_factor=1.1))
+                    clr = child_stype.get_stype_color(tuple=True)
+                    stype_color = None
+                    if clr:
+                        stype_color = Qt4Gui.QColor(clr[0], clr[1], clr[2], 255)
+                    top_item.setIcon(0, gf.get_icon('view-sequential', color=stype_color, icons_set='mdi', scale_factor=1.1))
 
-                parent_tree_item_add(top_item)
+                    parent_tree_item_add(top_item)
 
-                self.fill_builtin_processes(top_item)
+                    self.fill_builtin_processes(top_item)
 
-                # breaking recursion
-                if child_stype not in added_stypes:
-                    added_stypes.append(child_stype)
+                    # breaking recursion
+                    if child_stype not in added_stypes:
+                        added_stypes.append(child_stype)
 
-                    self.fill_stype_pipeline(child_stype, top_item)
+                        self.fill_stype_pipeline(child_stype, top_item)
 
-                    self.fill_children_pipelines_and_processes(child_stype, top_item, added_stypes)
+                        self.fill_children_pipelines_and_processes(child_stype, top_item, added_stypes)
 
     def fit_to_content_tree_widget(self):
 
@@ -596,14 +597,6 @@ class Ui_repoSyncDialog(QtGui.QDialog):
                     self.progress_bar.setFormat(u'%v / %m {}'.format(related_sobject.get_title()))
 
     def sync_by_sobject(self, sobject=None, sync_preset_dict=None, builtin_preset_dict=None):
-        # import time
-        # start = time.time()
-        #
-        # print sobject.get_title()
-        # sobject.update_snapshots()
-        #
-        # end = time.time()
-        # print end - start
 
         process_objects = sobject.get_all_processes()
         enabled_processes = self.get_preset_dict_by_type('process', sync_preset_dict, True)
@@ -630,13 +623,10 @@ class Ui_repoSyncDialog(QtGui.QDialog):
                         versions_list.extend(snapshot.get_files_objects())
 
         if self.versionlessSyncRadioButton.isChecked():
-            # self.download_files_objects_list(versionless_list)
             self.add_file_objects_to_queue(versionless_list)
         else:
             self.add_file_objects_to_queue(versionless_list)
             self.add_file_objects_to_queue(versions_list)
-            # self.download_files_objects_list(versionless_list)
-            # self.download_files_objects_list(versions_list)
 
     def save_preset_to_server(self, preset_name=None, pretty_preset_name=None):
 
@@ -732,7 +722,6 @@ class Ui_repoSyncQueueWidget(QtGui.QMainWindow):
         self.network_manager = QtNetwork.QNetworkAccessManager(self)
         self.network_manager.finished.connect(self.network_manager_finished)
 
-        # self.create_thread_pool()
         if self.embedded:
             self.create_embedded_ui()
         else:
@@ -754,14 +743,9 @@ class Ui_repoSyncQueueWidget(QtGui.QMainWindow):
         self.create_controls()
         self.create_tree_widget()
 
-        # self.create_files_queue_tree_context_menu()
-        # self.create_progress_bar_widget()
-        # self.customize_ui()
-
         self.controls_actions()
 
     def controls_actions(self):
-        # self.filesQueueTreeWidget.itemSelectionChanged.connect(self.select_current_commit_widget)
         self.clear_queue_push_button.clicked.connect(self.clear_queue)
 
     def create_embedded_ui(self):
@@ -844,54 +828,6 @@ class Ui_repoSyncQueueWidget(QtGui.QMainWindow):
         if self.progress_bar_widget.maximum() == progress + 1:
             self.set_progress_indicator_off()
 
-    # def create_files_queue_tree_context_menu(self):
-    #     self.filesQueueTreeWidget.setContextMenuPolicy(QtCore.Qt.CustomContextMenu)
-    #     self.filesQueueTreeWidget.customContextMenuRequested.connect(self.open_menu)
-    #
-    # def queue_items_menu(self):
-    #
-    #     commit_current = QtGui.QAction('Commit Current', self.filesQueueTreeWidget)
-    #     commit_current.setIcon(gf.get_icon('save'))
-    #     commit_current.triggered.connect(self.commit_current_item)
-    #
-    #     delete_current = QtGui.QAction('Remove From Queue', self.filesQueueTreeWidget)
-    #     delete_current.setIcon(gf.get_icon('remove'))
-    #     delete_current.triggered.connect(self.remove_item_from_queue)
-    #
-    #     menu = QtGui.QMenu()
-    #
-    #     menu.addAction(commit_current)
-    #     menu.addAction(delete_current)
-    #
-    #     return menu
-    #
-    # def open_menu(self):
-    #     item = self.filesQueueTreeWidget.currentItem()
-    #     if item:
-    #         # if item.data(0, QtCore.Qt.UserRole):
-    #         menu = self.queue_items_menu()
-    #         if menu:
-    #             menu.exec_(Qt4Gui.QCursor.pos())
-    #
-    # def controls_actions(self):
-    #     self.filesQueueTreeWidget.itemSelectionChanged.connect(self.select_current_commit_widget)
-    #     self.clearQueuePushButton.clicked.connect(self.clear_queue)
-    #     self.closePushButton.clicked.connect(self.close)
-    #     self.commitAllPushButton.clicked.connect(self.do_queue)
-    #
-    # def select_current_commit_widget(self):
-    #
-    #     selected_items = self.filesQueueTreeWidget.selectedItems()
-    #     if selected_items:
-    #         if len(selected_items) > 1:
-    #             commit_items = []
-    #             for item in selected_items:
-    #                 commit_items.append(self.filesQueueTreeWidget.itemWidget(item, 0))
-    #             self.set_multiple_commit_widget(commit_items)
-    #         else:
-    #             current_item_widget = self.filesQueueTreeWidget.itemWidget(selected_items[0], 0)
-    #             self.set_current_repo_sync_widget(current_item_widget.get_repo_sync_widget())
-
     def clear_queue(self):
         self.files_queue_tree_widget.clear()
         self.queue_dict = {}
@@ -908,30 +844,13 @@ class Ui_repoSyncQueueWidget(QtGui.QMainWindow):
         self.check_queue()
 
     def network_manager_finished(self, reply):
-        # print reply.request()
-        # print reply.operation()
-        # print reply.attribute(QtNetwork.QNetworkRequest.User)
         file_object = reply.request().attribute(QtNetwork.QNetworkRequest.User)
-
-        # print file_object.get_unique_id()
 
         if reply.error() == QtNetwork.QNetworkReply.NoError:
             self.do_download_file_object(file_object, reply)
-            # for name, val in reply.rawHeaderPairs():
-            #     # print name, type(val)
-            #     print name.data(), val.data()
-            #     repo_sync_item.download_progress(4, info_dict)
         else:
             repo_sync_item = self.queue_dict.get(file_object.get_unique_id())
             repo_sync_item.set_download_failed()
-
-        # # print(reply)
-        # # print(reply.readData(5000))
-        # for name, val in reply.rawHeaderPairs():
-        #     # print name, type(val)
-        #     print name.data(), val.data()
-        # # print(reply.rawHeaderList())
-        # # print(reply.rawHeaderPairs())
 
     def emit_if_all_downloads_done(self):
         if self.total_downloading_count == self.total_downloaded_count:
@@ -964,11 +883,6 @@ class Ui_repoSyncQueueWidget(QtGui.QMainWindow):
     def schedule_file_object(self, file_object):
         self.total_downloading_count += 1
 
-        # request.setAttribute(QNetworkRequest.CacheLoadControlAttribute, QNetworkRequest.PreferCache)
-        # print("Sending request")
-        # print request.rawHeaderList()
-        # print self.manager.cache()
-
         repo_sync_item = gf.add_repo_sync_item(self.files_queue_tree_widget, file_object)
 
         self.queue_dict[file_object.get_unique_id()] = repo_sync_item
@@ -977,7 +891,6 @@ class Ui_repoSyncQueueWidget(QtGui.QMainWindow):
 
         self.files_queue_tree_widget.scrollToBottom()
 
-        # self.network_manager.head(request)
         repo_sync_item.downloaded.connect(self.increment_downloaded)
 
         return repo_sync_item

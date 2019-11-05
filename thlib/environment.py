@@ -272,6 +272,8 @@ class Inst(object):
         self.check_tree[project_code][tab_code][wdg_code] = widget
 
     def get_check_tree(self, project_code=None, tab_code=None, wdg_code=None):
+        #TODO UNUSABLE AS THRE IS ONLY CHECKIN_OUT TAB EXISTS
+
         if not project_code:
             project_code = self.current_project
         if wdg_code:
@@ -333,7 +335,7 @@ class DebugLog(object):
     error_dict = collections.OrderedDict()
     critical_dict = collections.OrderedDict()
     logs_order = 0
-    print_log = True
+    write_log = True
     session_start = datetime.datetime.today()
 
     def get_trace(self, message_text, message_type, caller=2, group_id=None):
@@ -367,7 +369,7 @@ class DebugLog(object):
             self.info_dict[trace[1]['module_path']] = [trace]
 
         if env_inst.ui_debuglog:
-            env_inst.ui_debuglog.add_debuglog(trace, '[ INF ]', self.print_log)
+            env_inst.ui_debuglog.add_debuglog(trace, '[ INF ]', self.write_log)
 
     def warning(self, message, caller=2, group_id=None):
         self.logs_order += 1
@@ -378,7 +380,7 @@ class DebugLog(object):
             self.warning_dict[trace[1]['module_path']] = [trace]
 
         if env_inst.ui_debuglog:
-            env_inst.ui_debuglog.add_debuglog(trace, '[ WRN ]', self.print_log)
+            env_inst.ui_debuglog.add_debuglog(trace, '[ WRN ]', self.write_log)
 
     def log(self, message, caller=2, group_id=None):
         self.logs_order += 1
@@ -389,7 +391,7 @@ class DebugLog(object):
             self.log_dict[trace[1]['module_path']] = [trace]
 
         if env_inst.ui_debuglog:
-            env_inst.ui_debuglog.add_debuglog(trace, '[ LOG ]', self.print_log)
+            env_inst.ui_debuglog.add_debuglog(trace, '[ LOG ]', self.write_log)
 
     def exception(self, message, caller=2, group_id=None):
         self.logs_order += 1
@@ -400,7 +402,7 @@ class DebugLog(object):
             self.exception_dict[trace[1]['module_path']] = [trace]
 
         if env_inst.ui_debuglog:
-            env_inst.ui_debuglog.add_debuglog(trace, '[ EXC ]', self.print_log)
+            env_inst.ui_debuglog.add_debuglog(trace, '[ EXC ]', self.write_log)
 
     def error(self, message, caller=2, group_id=None):
         self.logs_order += 1
@@ -411,7 +413,7 @@ class DebugLog(object):
             self.error_dict[trace[1]['module_path']] = [trace]
 
         if env_inst.ui_debuglog:
-            env_inst.ui_debuglog.add_debuglog(trace, '[ ERR ]', self.print_log)
+            env_inst.ui_debuglog.add_debuglog(trace, '[ ERR ]', self.write_log)
 
     def critical(self, message, caller=2, group_id=None):
         self.logs_order += 1
@@ -422,7 +424,7 @@ class DebugLog(object):
             self.critical_dict[trace[1]['module_path']] = [trace]
 
         if env_inst.ui_debuglog:
-            env_inst.ui_debuglog.add_debuglog(trace, '[ CRL ]', self.print_log)
+            env_inst.ui_debuglog.add_debuglog(trace, '[ CRL ]', self.write_log)
 
 
 dl = DebugLog()

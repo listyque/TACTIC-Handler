@@ -15,7 +15,7 @@ import ui_search_classes
 import ui_notes_classes
 
 import thlib.ui.checkin_out.ui_checkin_out_options_dialog as ui_checkin_out_options_dialog
-from thlib.ui_classes.ui_misc_classes import MenuWithLayout, Ui_namingEditorWidget
+from thlib.ui_classes.ui_custom_qwidgets import MenuWithLayout, Ui_namingEditorWidget
 from thlib.ui_classes.ui_drop_plate_classes import Ui_dropPlateWidget
 from thlib.ui_classes.ui_snapshot_browser_classes import Ui_snapshotBrowserWidget
 from thlib.ui_classes.ui_fast_controls_classes import Ui_fastControlsWidget
@@ -138,7 +138,7 @@ class Ui_checkInOutOptionsWidget(QtGui.QWidget, ui_checkin_out_options_dialog.Ui
 
 
 class Ui_checkInOutWidget(QtGui.QMainWindow):
-    def __init__(self, stype, tab_widget, project, parent=None):
+    def __init__(self, stype, project, parent=None):
         super(self.__class__, self).__init__(parent=parent)
 
         self.is_created = False
@@ -146,9 +146,6 @@ class Ui_checkInOutWidget(QtGui.QMainWindow):
 
         self.stype = stype
         self.project = project
-
-        self.tab_widget = tab_widget
-        self.tab_label = None
 
         self.notes_dock = None
         self.tasks_dock = None
@@ -162,12 +159,10 @@ class Ui_checkInOutWidget(QtGui.QMainWindow):
 
         env_inst.set_check_tree(self.project.get_code(), 'checkin_out', self.stype.get_code(), self)
 
-    def get_tab_label(self, label_text=None):
-
-        if not label_text:
-            label_text = self.tab_widget.objectName()
-        self.tab_label = gf.create_tab_label(label_text, self.stype)
-        return self.tab_label
+    def get_tab_label(self):
+        tab_label = gf.create_tab_label(self.stype.get_pretty_name(), self.stype)
+        tab_label.setParent(self)
+        return tab_label
 
     def get_tab_code(self):
         return self.stype.get_code()
@@ -181,8 +176,6 @@ class Ui_checkInOutWidget(QtGui.QMainWindow):
         dl.log('Creating Checkin / Checkout UI', group_id=self.stype.get_code())
 
         self.setObjectName(self.stype.get_code())
-
-        self.is_created = True
 
         self.create_search_widget()
 
@@ -202,6 +195,8 @@ class Ui_checkInOutWidget(QtGui.QMainWindow):
 
         # self.controls_actions()
         # self.threads_actions()
+
+        self.is_created = True
 
     @gf.catch_error
     def create_notes_dock(self):
@@ -414,6 +409,10 @@ class Ui_checkInOutWidget(QtGui.QMainWindow):
 
     def get_snapshot_browser(self):
         return self.snapshot_browser_widget
+
+    def bring_snapshot_browser_dock_up(self):
+        self.snapshot_browser_dock.setHidden(False)
+        self.snapshot_browser_dock.raise_()
 
     def get_tasks_widget(self):
         return self.tasks_widget
@@ -1345,6 +1344,8 @@ class Ui_checkInOutWidget(QtGui.QMainWindow):
 
             checkin_mode = gf.get_value_from_config(cfg_controls.get_checkin(), 'checkinMethodComboBox')
 
+            mode = 'upload'
+
             if checkin_mode == 0:
                 mode = 'preallocate'
             elif checkin_mode == 1:
@@ -1866,7 +1867,6 @@ class Ui_checkInOutWidget(QtGui.QMainWindow):
 
         if not self.is_showed:
             self.is_showed = True
-            # self.restore_state_deffered()
             self.readSettings()
 
     def hideEvent(self, event):

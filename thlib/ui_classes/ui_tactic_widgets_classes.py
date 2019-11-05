@@ -4,7 +4,7 @@ from thlib.side.Qt import QtCore
 import thlib.tactic_classes as tc
 import thlib.global_functions as gf
 from thlib.environment import env_inst, env_mode, env_tactic, cfg_controls
-import thlib.ui_classes.ui_misc_classes as ui_misc_classes
+from thlib.ui_classes.ui_custom_qwidgets import Ui_previewsEditorDialog, Ui_screenShotMakerDialog
 
 
 # edit/input widgets
@@ -448,7 +448,7 @@ class QTacticSimpleUploadWdg(QtGui.QWidget, QTacticBasicInputWdg):
         files_objects = self.get_upload_list_files_objects()
         screenshots = self.get_screenshots_to_upload_list()
         if files_objects or screenshots:
-            self.edit_previews_dialog = ui_misc_classes.Ui_previewsEditorDialog(
+            self.edit_previews_dialog = Ui_previewsEditorDialog(
                 files_objects=files_objects,
                 screenshots=screenshots,
                 parent=self)
@@ -480,7 +480,7 @@ class QTacticSimpleUploadWdg(QtGui.QWidget, QTacticBasicInputWdg):
                 self.add_links_to_upload_list([file_name])
 
     def make_screenshot(self):
-        screen_shot_maker_dialog = ui_misc_classes.Ui_screenShotMakerDialog()
+        screen_shot_maker_dialog = Ui_screenShotMakerDialog()
 
         # Hiding all app windows before making screenshot
         if env_mode.get_mode() == 'standalone':

@@ -40,6 +40,7 @@ def server_auth(host, project=None, login=None, password=None, site=None, get_ti
     server.set_site(site)
 
     ticket = env_server.get_ticket()
+
     if not ticket or get_ticket:
         ticket = server.get_ticket(login, password, site)
         if isinstance(ticket, dict):
@@ -270,19 +271,18 @@ class Project(object):
         else:
             kwargs = {
                 'project_code': self.get_code(),
-                'namespace': self.get_code()
             }
-            code = tq.prepare_serverside_script(tq.query_search_types_extended, kwargs, return_dict=True)
-            result = server_start(project=kwargs['project_code']).execute_python_script('', kwargs=code)
-            if result:
+
+            stypes_result = execute_procedure_serverside(tq.query_search_types_extended, kwargs, project=self.get_code(), return_dict=False)
+
+            if stypes_result:
                 # writing result to cache
                 env_write_config(
-                    gf.html_to_hex(result['info']['spt_ret_val']),
+                    gf.html_to_hex(stypes_result),
                     filename='stypes_cache',
                     unique_id='cache/{0}'.format(self.get_code()),
                     long_abs_path=True
                 )
-                stypes_result = result['info']['spt_ret_val']
 
         stypes = json.loads(stypes_result)
 
@@ -425,7 +425,14 @@ class SType(object):
         return self.project.get_workflow()
 
     def get_columns_info(self):
-        return self.info['column_info']
+        return self.info.get('column_info')
+
+    def get_column_data_type(self, column):
+        if column == '_expression':
+            return '_expression'
+        if self.get_columns_info():
+            if self.info['column_info'].get(column):
+                return self.info['column_info'][column]['data_type']
 
     def get_definition(self, definition='table', processed=True, bs=False):
 
@@ -532,13 +539,12 @@ class Workflow(object):
                 return Pipeline(pipe)
 
     def get_pipeline(self):
+        pass
 
-        from pprint import pprint
+        # for pipe in self.__pipeline_list:
+        #     pprint(pipe)
 
-        for pipe in self.__pipeline_list:
-            pprint(pipe)
-
-        return self.__pipeline_list
+        # return self.__pipeline_list
 
 
 class Pipeline(object):
@@ -814,10 +820,8 @@ class SObject(object):
                 'search_key': self.get_search_key(),
                 'include_dependencies': include_dependencies,
             }
-            code = tq.prepare_serverside_script(tq.delete_sobject, kwargs, return_dict=True)
-            result = server_start().execute_python_script('', kwargs=code)
 
-            return result['info']['spt_ret_val']
+            return execute_procedure_serverside(tq.delete_sobject, kwargs)
 
     def get_pipeline_code(self):
         return self.info.get('pipeline_code')
@@ -972,8 +976,6 @@ class Login(SObject):
                 current_login=self.info['code'],
                 update_logins=False
             )
-        # from pprint import pprint
-        # pprint(subscriptions_and_messages)
 
         subscriptions_list = []
 
@@ -1269,14 +1271,14 @@ class Snapshot(SObject, object):
         return self.snapshot['__search_key__']
 
     def get_files_objects(self, group_by=None):
-        if not group_by:
-            files_objects = []
-            for fl in self.__files:
-                files_objects.append(File(fl, self))
-        else:
+        if group_by:
             files_objects = collections.OrderedDict()
             for fl in self.__files:
                 files_objects.setdefault(fl[group_by], []).append(File(fl, self))
+        else:
+            files_objects = []
+            for fl in self.__files:
+                files_objects.append(File(fl, self))
 
         self.files_objects = files_objects
 
@@ -1340,7 +1342,13 @@ class File(object):
         return self.__snapshot
 
     def get_metadata(self):
-        return self.__file.get('metadata')
+        metadata = self.__file.get('metadata')
+        # Simple check if this is json dumpable
+        if isinstance(metadata, (str, unicode)):
+            if metadata.startswith(('{', '"')):
+                metadata = json.loads(metadata)
+
+        return metadata
 
     def get_meta_file_object(self):
         file_object = None
@@ -1509,6 +1517,42 @@ class File(object):
 # End of SObject Class
 
 
+def execute_procedure_serverside(func, kwargs, project=None, return_dict=True):
+    # This is for TACTIC 4.7 compatibility
+    if kwargs.get('code'):
+        code = kwargs
+    else:
+        code = tq.prepare_serverside_script(func, kwargs, shrink=True, catch_traceback=False)
+    result = server_start(project=project).execute_python_script('', kwargs=code)
+
+    if isinstance(result['info'], dict):
+        if result['info'].get('spt_ret_val'):
+            ret_val = result['info']['spt_ret_val']
+        else:
+            ret_val = result['info']
+    else:
+        ret_val = result['info']
+
+    if return_dict:
+        if isinstance(ret_val, (str, unicode)):
+            if ret_val.startswith('Traceback'):
+                # TODO need to decide how we handle tracebacks
+                dl.exception(ret_val, group_id='{0}/{1}'.format('exceptions', func.func_name))
+                final_result = ret_val
+            else:
+                # Simple check if this is json dumpable
+                if ret_val.startswith(('{', '"')):
+                    final_result = json.loads(ret_val)
+                else:
+                    final_result = ret_val
+        else:
+            final_result = ret_val
+    else:
+        final_result = ret_val
+
+
+    return final_result
+
 def get_all_projects_and_logins(force=False):
 
     use_cache = True
@@ -1539,11 +1583,7 @@ def get_all_projects_and_logins(force=False):
         kwargs = {
             'current_login': env_inst.get_current_login()
         }
-
-        code = tq.prepare_serverside_script(tq.get_projects_and_logins, kwargs, return_dict=True)
-        result = server_start().execute_python_script('', kwargs=code)
-
-        projects_and_users = json.loads(result['info']['spt_ret_val'])
+        projects_and_users = execute_procedure_serverside(tq.get_projects_and_logins, kwargs)
 
         projects = projects_and_users.get('projects')
         logins = projects_and_users.get('logins')
@@ -1605,12 +1645,7 @@ def get_subscriptions_and_messages(current_login='admin', update_logins=False):
         'update_logins': update_logins,
     }
 
-    code = tq.prepare_serverside_script(tq.get_subscriptions_and_messages, kwargs, return_dict=True)
-    result = server_start().execute_python_script('', kwargs=code)
-
-    subs_and_users = json.loads(result['info']['spt_ret_val'])
-
-    return subs_and_users
+    return execute_procedure_serverside(tq.get_subscriptions_and_messages, kwargs)
 
 
 def get_sobjects_new(search_type, filters=[], order_bys=[], project_code=None, instance_type=None, related_type=None, limit=None, offset=None, process_list=[], get_all_snapshots=False):
@@ -1631,20 +1666,20 @@ def get_sobjects_new(search_type, filters=[], order_bys=[], project_code=None, i
         'get_all_snapshots': get_all_snapshots,
     }
 
-    code = tq.prepare_serverside_script(tq.query_sobjects, kwargs, return_dict=True)
     if not project_code:
         if search_type.startswith('sthpw'):
             project_code = 'sthpw'
         else:
             project_code = split_search_key(search_type)['project_code']
-    result = server_start(project=project_code).execute_python_script('', kwargs=code)
 
-    if result['info']['spt_ret_val']:
-        if result['info']['spt_ret_val'].startswith('Traceback'):
-            sobjects_list = {'sobjects_list': []}
-            info = None
+    sobjects_list = execute_procedure_serverside(tq.query_sobjects, kwargs, project=project_code)
+
+    if sobjects_list:
+        if isinstance(sobjects_list, str):
+            if sobjects_list.startswith('Traceback'):
+                sobjects_list = {'sobjects_list': []}
+                info = None
         else:
-            sobjects_list = json.loads(result['info']['spt_ret_val'])
             info = {
                 'total_sobjects_count': sobjects_list['total_sobjects_count'],
                 'total_sobjects_query_count': sobjects_list['total_sobjects_query_count'],
@@ -1678,35 +1713,7 @@ def server_query(filters, stype, columns=None, project=None, limit=0, offset=0, 
 
     server = server_start(project=project)
 
-    # filters = []
-    # expr = ''
-    # if query[1] == 0:
-    #     filters = [('name', 'EQI', query[0])]
-    # if query[1] == 1:
-    #     filters = [('code', query[0])]
-    # if query[1] == 2:
-    #     filters = None
-    #     parents_codes = ['scenes_code', 'sets_code']
-    #     for parent in parents_codes:
-    #         expr += '@SOBJECT(cgshort/shot["{0}", "{1}"]), '.format(parent, query[0])
-    # if query[1] == 3:
-    #     filters = [('description', 'EQI', query[0])]
-    # if query[1] == 4:
-    #     filters = [('keywords', 'EQI', query[0])]
-    #
-    # if query[0] == '*':
-    #     filters = []
-
     built_process = server.build_search_type(stype, project)
-    # print s_code
-    # import time
-    # start = time.time()
-    # result =
-
-    # end = time.time()
-    # dl.info('Query Assets Names time: {0}'.format(5415), group_id='server_query/{0}')
-    # print 'query time: ' + str(end - start)
-    # print assets_list
 
     return server.query(built_process, filters, columns, order_bys, limit=limit, offset=offset)
 
@@ -1718,11 +1725,10 @@ def get_notes_count(sobject, process, children_stypes):
         'stypes_list': children_stypes
     }
 
-    code = tq.prepare_serverside_script(tq.get_notes_and_stypes_counts, kwargs, return_dict=True)
     project_code = split_search_key(kwargs['search_key'])
-    result = server_start(project=project_code['project_code']).execute_python_script('', kwargs=code)
+    result = execute_procedure_serverside(tq.get_notes_and_stypes_counts, kwargs, project_code['project_code'])
 
-    return result['info']['spt_ret_val']
+    return result
 
 
 def users_query():
@@ -1813,6 +1819,9 @@ def get_custom_scripts(store_locally=True, project=None, scripts_codes_list=None
         for init_path in paths_to_create_init_set:
             formed_init_path = gf.form_path(init_path)
             if not os.path.exists(formed_init_path):
+                init_folder_path = gf.extract_dirname(formed_init_path)
+                if not os.path.exists(init_folder_path):
+                    os.mkdir(init_folder_path)
                 with io.open(formed_init_path, 'w+') as init_py_file:
                     init_py_file.write(u'')
                 init_py_file.close()
@@ -1872,10 +1881,7 @@ def insert_sobjects(search_type, project_code, data, metadata={}, parent_key=Non
         'triggers': triggers
     }
 
-    code = tq.prepare_serverside_script(tq.insert_sobjects, kwargs, return_dict=True)
-    result = server_start(project=project_code).execute_python_script('', kwargs=code)
-
-    return result['info']['spt_ret_val']
+    return execute_procedure_serverside(tq.insert_sobjects, kwargs, project=project_code)
 
 
 def insert_instance_sobjects(search_key, project_code, parent_key=None, instance_type=None):
@@ -1887,10 +1893,7 @@ def insert_instance_sobjects(search_key, project_code, parent_key=None, instance
         'instance_type': instance_type,
     }
 
-    code = tq.prepare_serverside_script(tq.insert_instance_sobjects, kwargs, return_dict=True)
-    result = server_start(project=project_code).execute_python_script('', kwargs=code)
-
-    return result['info']['spt_ret_val']
+    return execute_procedure_serverside(tq.insert_instance_sobject, kwargs, project=project_code)
 
 
 def edit_multiple_instance_sobjects(project_code, insert_search_keys=[], exclude_search_keys=[], parent_key=None, instance_type=None):
@@ -1903,10 +1906,7 @@ def edit_multiple_instance_sobjects(project_code, insert_search_keys=[], exclude
         'instance_type': instance_type,
     }
 
-    code = tq.prepare_serverside_script(tq.edit_multiple_instance_sobjects, kwargs, return_dict=True)
-    result = server_start(project=project_code).execute_python_script('', kwargs=code)
-
-    return result['info']['spt_ret_val']
+    return execute_procedure_serverside(tq.edit_multiple_instance_sobjects, kwargs, project=project_code)
 
 
 def delete_sobject_snapshot(sobject, delete_snapshot=True, search_keys=None, files_paths=None):
@@ -2097,11 +2097,9 @@ def get_dirs_with_naming(search_key, process_list=None):
         'search_key': search_key,
         'process_list': process_list
     }
-    code = tq.prepare_serverside_script(tq.get_dirs_with_naming, kwargs, return_dict=True)
     project_code = split_search_key(search_key)
-    result = server_start(project=project_code['project_code']).execute_python_script('', kwargs=code)
 
-    return json.loads(result['info']['spt_ret_val'])
+    return execute_procedure_serverside(tq.get_dirs_with_naming, kwargs, project=project_code['project_code'])
 
 
 def get_virtual_snapshot(search_key, context, files_dict, snapshot_type='file', is_revision=False, keep_file_name=False,
@@ -2120,18 +2118,10 @@ def get_virtual_snapshot(search_key, context, files_dict, snapshot_type='file', 
         'ignore_keep_file_name': ignore_keep_file_name,
     }
 
-    # from pprint import pprint
-
-    # pprint(kwargs)
-    import time
-    start = time.time()
-
     code = tq.prepare_serverside_script(tq.get_virtual_snapshot_extended, kwargs, return_dict=True)
     project_code = split_search_key(search_key)
     server = server_start(project=project_code['project_code'])
     result = server.execute_python_script('', kwargs=code)
-
-    print time.time() - start
 
     virtual_snapshot = {'versionless': {'paths': [], 'names': []}, 'versioned': {'paths': [], 'names': []}}
 
@@ -2204,36 +2194,18 @@ def checkin_snapshot_upload(search_key, context, snapshot_type=None, is_revision
         'create_icon': create_icon,
     }
 
-    # import time
-    # start = time.time()
-
-    # from pprint import pprint
-
-    # pprint(kwargs)
-
     code = tq.prepare_serverside_script(tq.create_snapshot_extended, kwargs, return_dict=True, catch_traceback=False)
     project_code = split_search_key(search_key)
 
-    # print self.args_dict['file_paths']
-    # print 'BEGIN UPLOAD', env_inst.get_current_project()
     server = server_start(project=env_inst.get_current_project())
     server.start('Upload Checkin')
-    # for fl in files_objects:
-    #     print fl.get_abs_file_name()
-    #     print fl.get_all_files_list(True)
-    #     # server.upload_file(fl.get_all_files_list(True))
-    #     server.upload_file(fl.get_abs_file_name())
 
     for version_file in files_info['version_files']:
-        # print version_file
         server.upload_file(version_file)
-    # print tc.server_start().simple_checkin(self.args_dict['search_key'], self.args_dict['context'], self.args_dict['file_paths'][0][0])
 
     result = server.execute_python_script('', kwargs=code)
 
     server.finish('Upload Done')
-
-    # print time.time() - start, 'Checking time create_snapshot_extended'
 
     if result['info']['spt_ret_val']:
         if result['info']['spt_ret_val'].startswith('Traceback'):
@@ -2310,14 +2282,9 @@ def checkin_snapshot(search_key, context, snapshot_type=None, is_revision=False,
         'create_icon': create_icon,
     }
 
-    import time
-    start = time.time()
-
     code = tq.prepare_serverside_script(tq.create_snapshot_extended, kwargs, return_dict=True, catch_traceback=False)
     project_code = split_search_key(search_key)
     result = server_start(project=project_code['project_code']).execute_python_script('', kwargs=code)
-
-    print time.time() - start, 'Checking time create_snapshot_extended'
 
     if result['info']['spt_ret_val']:
         if result['info']['spt_ret_val'].startswith('Traceback'):
@@ -2523,7 +2490,6 @@ def inplace_checkin(file_paths, virtual_snapshot, repo_name, update_versionless,
             }
             progress_callback(i, info_dict)
         for ver in versions:
-            # print ver, 'tactic_classes.py'
             dest_path_vers = repo_name['value'][0] + '/' + val[ver]['paths'][0]
             dest_files_vers = files_objects[i].get_all_new_files_list(val[ver]['names'][0], dest_path_vers, new_frame_padding=padding)
 
@@ -2632,8 +2598,6 @@ def checkin_file(search_key, context, snapshot_type='file', is_revision=False, d
     }
 
     search_key_split = split_search_key(search_key)
-    # from pprint import pprint
-    # pprint(args_dict)
 
     checkin_wdg = env_inst.get_check_tree(
         search_key_split['project_code'],
@@ -2664,58 +2628,6 @@ def checkin_file(search_key, context, snapshot_type='file', is_revision=False, d
         commit_queue.show()
 
     return commit_queue
-
-
-def checkin_playblast(snapshot_code, file_name, custom_repo_path):
-    """
-    :return:
-    """
-
-    # code = [('code', 'cgshort/props?project=the_pirate&code=PROPS00001')]
-    # search_type = 'sthpw/message'
-    #
-    # message = server_query(search_type, code)
-    #
-    # from pprint import pprint
-    # pprint(message[0]['message'])
-    #
-    # import json
-    # data = json.loads(message[0]['message'])
-    #
-    # pprint(data)
-
-    # subs = 'cgshort/props?project=the_pirate&code=PROPS00004'
-
-    # subscribe = server_start().subscribe(subs, 'sobject')
-    # print(subscribe)
-
-    # snapshot_code = 'SNAPSHOT00000213'
-    # path = 'D:/mountain.jpg'
-
-    playblast = server_start().add_file(
-        snapshot_code,
-        file_name,
-        file_type='playblast',
-        mode='preallocate',
-        create_icon=True,
-        # dir_naming='{project.code}/{search_type.table_name}/{sobject.name}/work/{snapshot.process}/versions/asd',
-        # file_naming='{sobject.name}_{snapshot.context}_{file.type}_v{version}.{ext}',
-        checkin_type='auto',
-        custom_repo_path=custom_repo_path,
-        do_update_versionless=True,
-    )
-    return playblast
-
-
-def checkin_icon(snapshot_code, file_name):
-    """
-    :return:
-    """
-
-    icon = server_start().add_file(snapshot_code, file_name, file_type='main', mode='upload', create_icon=True,
-                                   file_naming='{sobject.name}_{file.type}_v{version}.{ext}',
-                                   checkin_type='auto')
-    return icon
 
 
 # Skey functions

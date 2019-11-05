@@ -18,15 +18,15 @@ import thlib.ui.tasks.ui_tasks as ui_tasks
 from thlib.environment import env_inst, env_write_config, env_read_config
 import ui_richedit_classes as richedit_widget
 import ui_notes_classes as notes_widget
-import ui_item_task_classes as task_item_widget
+# import ui_item_task_classes as task_item_widget
 import thlib.tactic_classes as tc
 import thlib.global_functions as gf
-from thlib.ui_classes.ui_misc_classes import Ui_horizontalCollapsableWidget
+from thlib.ui_classes.ui_custom_qwidgets import Ui_horizontalCollapsableWidget
 
 reload(ui_tasks)
 reload(richedit_widget)
 reload(notes_widget)
-reload(task_item_widget)
+# reload(task_item_widget)
 
 
 class Ui_coloredComboBox(QtGui.QComboBox):
@@ -487,14 +487,14 @@ class Ui_simpleTaskWidget(QtGui.QFrame):
                         self.current_task_sobject.set_value(column, '')
             if do_commit:
                 if self.current_task_sobject:
-                    self.current_task_sobject.commit(triggers=False)
+                    self.current_task_sobject.commit(triggers=True)
                 else:
                     data['process'] = self.process
                     tc.server_start(project=self.parent_sobject.project.get_code()).insert(
                         'sthpw/task',
                         data,
                         parent_key=self.parent_sobject.get_search_key(),
-                        triggers=False
+                        triggers=True
                     )
                     self.refresh_tasks_sobjects()
             else:
@@ -638,10 +638,13 @@ class Ui_tasksDockWidget(QtGui.QWidget):
             #     task_widget.set_tasks_sobjects(task_sobjects)
 
     def refresh_tasks(self):
-        self.create_filler_tasks()
+        if self.sobject:
+            self.task_widgets_list = []
 
-        self.query_tasks()
-        self.fill_tasks()
+            self.create_filler_tasks()
+
+            self.query_tasks()
+            self.fill_tasks()
 
     def query_tasks(self):
         self.tasks_sobjects, info = self.sobject.get_tasks_sobjects()

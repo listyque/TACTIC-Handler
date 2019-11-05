@@ -232,17 +232,17 @@ class Ui_linkSobjectsWidget(QtGui.QDialog):
         self.buttons_layout.addWidget(self.cancel_button)
 
     def create_parent_search_line(self):
-        from thlib.ui_classes.ui_misc_classes import SuggestedLineEdit
+        from thlib.ui_classes.ui_custom_qwidgets import SuggestedLineEdit
 
-        self.parent_search_line_edit = SuggestedLineEdit(self.stype, self.stype.project, 'search')
+        self.parent_search_line_edit = SuggestedLineEdit(self.stype, self.stype.project, parent=self)
         self.parent_search_line_edit.setObjectName("parent_search_line_edit")
         self.parent_search_line_edit.setToolTip('Enter Your search query here')
         self.parent_vertical_layout.addWidget(self.parent_search_line_edit)
 
     def create_instances_search_line(self):
-        from thlib.ui_classes.ui_misc_classes import SuggestedLineEdit
+        from thlib.ui_classes.ui_custom_qwidgets import SuggestedLineEdit
 
-        self.instances_search_line_edit = SuggestedLineEdit(self.stype, self.stype.project, 'search')
+        self.instances_search_line_edit = SuggestedLineEdit(self.stype, self.stype.project, parent=self)
         self.instances_search_line_edit.setObjectName("instances_search_line_edit")
         self.instances_search_line_edit.setToolTip('Enter Your search query here')
         self.instances_vertical_layout.addWidget(self.instances_search_line_edit)
@@ -510,7 +510,7 @@ class Ui_addTacticSobjectWidget(QtGui.QDialog):
     def get_widgets(self, kwargs):
 
         def query_widgets_agent():
-            return self.query_widgets(kwargs)
+            return tc.execute_procedure_serverside(tq.query_EditWdg, kwargs, project=kwargs['project'])
 
         env_inst.set_thread_pool(None, 'server_query/server_thread_pool')
 
@@ -522,13 +522,6 @@ class Ui_addTacticSobjectWidget(QtGui.QDialog):
         )
 
         worker.start()
-
-    @staticmethod
-    def query_widgets(kwargs):
-        code = tq.prepare_serverside_script(tq.query_EditWdg, kwargs, return_dict=True)
-        result = tq.get_result(tc.server_start(project=kwargs['project']).execute_python_script('', kwargs=code))
-
-        return json.loads(result)
 
     def set_title(self):
         stype_tytle = self.stype.info.get('title')
