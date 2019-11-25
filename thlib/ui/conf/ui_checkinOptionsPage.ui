@@ -117,7 +117,7 @@
       <item row="3" column="0" colspan="3">
        <widget class="QCheckBox" name="showAllProcessCheckBox">
         <property name="text">
-         <string>Show Builtin Processes (publish, icon, attachement)</string>
+         <string>Show Builtin Processes (publish, icon, attachment)</string>
         </property>
        </widget>
       </item>

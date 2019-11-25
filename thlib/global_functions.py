@@ -742,7 +742,7 @@ def prettify_text(text, first_letter=False):
 
 def minify_code(source):
     import side.python_minifier as python_minifier
-    return python_minifier.minify(source)
+    return python_minifier.minify(source, remove_literal_statements=True)
 
 
 def time_it(start_time=None, message='Code flow running time: '):
@@ -1237,6 +1237,7 @@ def add_sobject_item(parent_item, parent_widget, sobject, stype, item_info, inse
     tree_item_widget = Ui_itemWidget(sobject, stype, item_info_dict, ignore_dict)
     tree_item_widget.tree_item = tree_item
     tree_item_widget.search_widget = parent_widget
+    tree_item_widget.setHidden(True)
 
     if return_layout_widget:
         layout_widget = Ui_layoutWrapWidget()
@@ -1269,6 +1270,7 @@ def add_process_item(tree_widget, parent_widget, sobject, stype, process, item_i
     add_item_to_tree(tree_widget, tree_item, tree_item_widget, insert_pos=insert_pos)
 
     tree_item_widget.setParent(tree_item_widget.parent())
+    tree_item_widget.setHidden(True)
 
     return tree_item_widget
 
@@ -1333,11 +1335,12 @@ def add_snapshot_item(tree_widget, parent_widget, sobject, stype, process, pipel
                 snapshot_item_versions.setParent(snapshot_item_versions.parent())
 
         snapshots_list.append(snapshot_item)
+        snapshot_item.setHidden(True)
 
     return snapshots_list
 
 
-def add_versions_snapshot_item(tree_widget, parent_widget, sobject, stype, process, pipeline, context, snapshots, item_info):
+def add_versions_snapshot_item(tree_widget, parent_widget, sobject, stype, pipeline, snapshots, item_info):
 
     from thlib.ui_classes.ui_item_classes import Ui_snapshotItemWidget
 
@@ -1351,9 +1354,9 @@ def add_versions_snapshot_item(tree_widget, parent_widget, sobject, stype, proce
         snapshot_item = Ui_snapshotItemWidget(
             sobject,
             stype,
-            process,
+            snapshot.get_value('process'),
             pipeline,
-            context,
+            snapshot.get_value('context'),
             [snapshot],
             item_info_dict,
         )
@@ -1363,6 +1366,7 @@ def add_versions_snapshot_item(tree_widget, parent_widget, sobject, stype, proce
         add_item_to_tree(tree_widget, tree_item, snapshot_item)
 
         snapshot_item.setParent(snapshot_item.parent())
+        snapshot_item.setHidden(True)
 
 
 def add_child_item(tree_widget, parent_widget, sobject, stype, child, item_info):
@@ -1382,6 +1386,7 @@ def add_child_item(tree_widget, parent_widget, sobject, stype, child, item_info)
     add_item_to_tree(tree_widget, tree_item, tree_item_widget)
 
     tree_item_widget.setParent(tree_item_widget.parent())
+    tree_item_widget.setHidden(True)
 
     return tree_item_widget
 
@@ -1756,6 +1761,19 @@ def open_folder(filepath, highlight=True):
                 os.startfile(filepath)
         else:
             os.startfile(filepath)
+
+
+def form_date_time(datetime_string, return_obj=False):
+    print datetime_string
+    if len(datetime_string.split('.')) > 1:
+        datetime_object = datetime.datetime.strptime(datetime_string, '%Y-%m-%d %H:%M:%S.%f')
+    else:
+        datetime_object = datetime.datetime.strptime(datetime_string, '%Y-%m-%d %H:%M:%S')
+
+    if return_obj:
+        return datetime_object
+    else:
+        return datetime_object.strftime('%Y-%m-%d %H:%M:%S')
 
 
 def form_path(path, tp=None):

@@ -62,7 +62,7 @@ def reference_scene(file_object):
     cmds.file(file_path, namespace=namespace.replace('.', '_'), reference=True, ignoreVersion=True)
 
 
-def get_current_scene_foramt():
+def get_current_scene_format():
     scene_format = cmds.file(query=True, type=True)
 
     if scene_format:

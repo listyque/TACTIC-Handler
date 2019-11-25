@@ -3,6 +3,7 @@
 # Main Item for TreeWidget
 
 import os
+from functools import partial
 from xml.etree.ElementPath import get_parent_map
 
 from thlib.side.Qt import QtWidgets as QtGui
@@ -558,72 +559,56 @@ class Ui_itemWidget(QtGui.QWidget):
         self.horizontalLayout_2.addWidget(self.fileNameLabel)
 
         self.syncWithRepoToolButton = QtGui.QToolButton(self)
-        sizePolicy = QtGui.QSizePolicy(QtGui.QSizePolicy.Preferred, QtGui.QSizePolicy.Fixed)
-        sizePolicy.setHorizontalStretch(0)
-        sizePolicy.setVerticalStretch(0)
-        sizePolicy.setHeightForWidth(self.syncWithRepoToolButton.sizePolicy().hasHeightForWidth())
-        self.syncWithRepoToolButton.setSizePolicy(sizePolicy)
         self.syncWithRepoToolButton.setAutoRaise(True)
         self.syncWithRepoToolButton.setObjectName("syncWithRepoToolButton")
+        sync_dialog = QtGui.QAction('Open Repo Sync', self.syncWithRepoToolButton)
+        sync_dialog.triggered.connect(self.create_sync_dialog)
+        self.syncWithRepoToolButton.addAction(sync_dialog)
+
         self.horizontalLayout_2.addWidget(self.syncWithRepoToolButton)
 
-
         self.watchFolderToolButton = QtGui.QToolButton(self)
-        sizePolicy = QtGui.QSizePolicy(QtGui.QSizePolicy.Preferred, QtGui.QSizePolicy.Fixed)
-        sizePolicy.setHorizontalStretch(0)
-        sizePolicy.setVerticalStretch(0)
-        sizePolicy.setHeightForWidth(self.watchFolderToolButton.sizePolicy().hasHeightForWidth())
-        self.watchFolderToolButton.setSizePolicy(sizePolicy)
-        self.watchFolderToolButton.setText("")
         self.watchFolderToolButton.setCheckable(True)
         self.watchFolderToolButton.setAutoRaise(True)
         self.watchFolderToolButton.setObjectName("watchFolderToolButton")
         self.horizontalLayout_2.addWidget(self.watchFolderToolButton)
 
         self.relationsToolButton = QtGui.QToolButton(self)
-        sizePolicy = QtGui.QSizePolicy(QtGui.QSizePolicy.Preferred, QtGui.QSizePolicy.Fixed)
-        sizePolicy.setHorizontalStretch(0)
-        sizePolicy.setVerticalStretch(0)
-        sizePolicy.setHeightForWidth(self.relationsToolButton.sizePolicy().hasHeightForWidth())
-        self.relationsToolButton.setSizePolicy(sizePolicy)
-        self.relationsToolButton.setPopupMode(QtGui.QToolButton.MenuButtonPopup)
         self.relationsToolButton.setToolButtonStyle(QtCore.Qt.ToolButtonTextBesideIcon)
         self.relationsToolButton.setAutoRaise(True)
-        self.relationsToolButton.setArrowType(QtCore.Qt.NoArrow)
         self.relationsToolButton.setObjectName("relationsToolButton")
+        self.relationsToolButton.setMinimumSize(24, 24)
+
         self.horizontalLayout_2.addWidget(self.relationsToolButton)
 
         self.horizontalLayout_2.setStretch(0, 1)
         self.gridLayout.addLayout(self.horizontalLayout_2, 0, 2, 1, 2)
+
         self.horizontalLayout = QtGui.QHBoxLayout()
         self.horizontalLayout.setSpacing(0)
         self.horizontalLayout.setObjectName("horizontalLayout")
+
         self.tasksToolButton = QtGui.QToolButton(self)
-        sizePolicy = QtGui.QSizePolicy(QtGui.QSizePolicy.Preferred, QtGui.QSizePolicy.Fixed)
-        sizePolicy.setHorizontalStretch(0)
-        sizePolicy.setVerticalStretch(0)
-        sizePolicy.setHeightForWidth(self.tasksToolButton.sizePolicy().hasHeightForWidth())
-        self.tasksToolButton.setSizePolicy(sizePolicy)
         self.tasksToolButton.setToolButtonStyle(QtCore.Qt.ToolButtonTextBesideIcon)
         self.tasksToolButton.setAutoRaise(True)
         self.tasksToolButton.setObjectName("tasksToolButton")
+
         self.horizontalLayout.addWidget(self.tasksToolButton)
+
         self.notesToolButton = QtGui.QToolButton(self)
-        sizePolicy = QtGui.QSizePolicy(QtGui.QSizePolicy.Preferred, QtGui.QSizePolicy.Fixed)
-        sizePolicy.setHorizontalStretch(0)
-        sizePolicy.setVerticalStretch(0)
-        sizePolicy.setHeightForWidth(self.notesToolButton.sizePolicy().hasHeightForWidth())
-        self.notesToolButton.setSizePolicy(sizePolicy)
         self.notesToolButton.setText("")
         self.notesToolButton.setToolButtonStyle(QtCore.Qt.ToolButtonTextBesideIcon)
         self.notesToolButton.setAutoRaise(True)
         self.notesToolButton.setObjectName("notesToolButton")
+
         self.horizontalLayout.addWidget(self.notesToolButton)
         self.gridLayout.addLayout(self.horizontalLayout, 1, 3, 2, 1)
+
         self.descriptionLerticalLayout = QtGui.QVBoxLayout()
         self.descriptionLerticalLayout.setSpacing(0)
         self.descriptionLerticalLayout.setContentsMargins(0, 0, 0, 0)
         self.descriptionLerticalLayout.setObjectName("descriptionLerticalLayout")
+
         self.descriptionLabel = Ui_elideLabel(self)
         self.descriptionLabel.set_font_size(8)
         self.descriptionLabel.setMinimumSize(QtCore.QSize(0, 25))
@@ -634,10 +619,12 @@ class Ui_itemWidget(QtGui.QWidget):
         self.descriptionLabel.setMargin(2)
         self.descriptionLabel.setObjectName("descriptionLabel")
         self.descriptionLerticalLayout.addWidget(self.descriptionLabel)
+
         self.gridLayout.addLayout(self.descriptionLerticalLayout, 2, 2, 1, 1)
         self.infoHorizontalLayout = QtGui.QHBoxLayout()
         self.infoHorizontalLayout.setSpacing(0)
         self.infoHorizontalLayout.setObjectName("infoHorizontalLayout")
+
         self.gridLayout.addLayout(self.infoHorizontalLayout, 1, 2, 1, 1)
         self.gridLayout.setColumnStretch(2, 1)
         self.gridLayout.setRowStretch(2, 1)
@@ -645,7 +632,7 @@ class Ui_itemWidget(QtGui.QWidget):
     def controls_actions(self):
         self.tasksToolButton.clicked.connect(self.show_tasks_dock)
         self.relationsToolButton.clicked.connect(self.drop_down_children)
-        self.syncWithRepoToolButton.clicked.connect(self.create_sync_dialog)
+        self.syncWithRepoToolButton.clicked.connect(self.show_sync_menu)
         self.notesToolButton.clicked.connect(self.show_notes_widget)
 
     def create_simple_view_ui(self):
@@ -676,6 +663,8 @@ class Ui_itemWidget(QtGui.QWidget):
                 self.set_web_preview()
             else:
                 self.set_preview()
+
+        self.created = True
 
     def create_ui(self):
         # self.drop_wdg = QtGui.QWidget(self)
@@ -712,6 +701,7 @@ class Ui_itemWidget(QtGui.QWidget):
         self.check_expand_state(self.get_children_states())
 
         self.controls_actions()
+        self.created = True
 
     def create_overlay_layout(self):
         # when use this, layout should have only one widget, use add_overlay_widget()
@@ -739,23 +729,61 @@ class Ui_itemWidget(QtGui.QWidget):
         tasks_widget.set_sobject(self.sobject)
         tasks_widget.bring_dock_widget_up()
 
-        # try:
-        #     self.tasks_widget.show()
-        # except:
-        #     self.tasks_widget = tasks_widget.Ui_tasksWidgetMain(self.sobject, self)
-        #     self.tasks_widget.show()
-
     def create_watch_folder_button(self):
         self.watchFolderToolButton.setIcon(gf.get_icon('eye-slash', color=Qt4Gui.QColor(160, 160, 160)))
+        self.watchFolderToolButton.setMinimumSize(24, 24)
+        self.watchFolderToolButton.setToolTip('Open Watch-Folder Dialog')
         self.watchFolderToolButton.toggled.connect(self.toggle_watch_folder_button)
         self.watchFolderToolButton.clicked.connect(self.save_watch_status)
 
     def create_sync_with_repo_button(self):
-        self.syncWithRepoToolButton.setIcon(gf.get_icon('cloud-sync', color=Qt4Gui.QColor(250, 250, 250), icons_set='mdi'))
+        self.syncWithRepoToolButton.setIcon(gf.get_icon('cloud-sync', color=Qt4Gui.QColor(160, 160, 160), icons_set='mdi'))
+        self.syncWithRepoToolButton.setMinimumSize(24, 24)
+        self.syncWithRepoToolButton.setToolTip('Open Repository Sync Dialog')
 
     def create_item_info_widget(self):
         self.item_info_widget = Ui_infoItemsWidget(self)
         self.infoHorizontalLayout.addWidget(self.item_info_widget)
+
+    def show_sync_menu(self):
+        sync_dialog = Ui_repoSyncDialog(parent=env_inst.ui_main, stype=self.stype, sobject=self.sobject)
+        sync_dialog.set_auto_close(True)
+
+        # cleanup all actions, except first one
+        if len(self.syncWithRepoToolButton.actions()) > 1:
+            for action in self.syncWithRepoToolButton.actions()[1:]:
+
+                self.syncWithRepoToolButton.removeAction(action)
+
+        presets_list = sync_dialog.get_presets_list()
+        if presets_list:
+            current_repo = sync_dialog.get_current_preset_dict()
+            if current_repo:
+                sync_sep = QtGui.QAction('Current preset:', self.syncWithRepoToolButton)
+                sync_sep.setSeparator(True)
+                action = QtGui.QAction(current_repo.get('pretty_preset_name'), self.syncWithRepoToolButton)
+                self.syncWithRepoToolButton.addAction(sync_sep)
+                self.syncWithRepoToolButton.addAction(action)
+
+                action.triggered.connect(partial(self.show_sync_dialog_with_preset, sync_dialog, current_repo))
+
+            sync_sep = QtGui.QAction('Other presets:', self.syncWithRepoToolButton)
+            sync_sep.setSeparator(True)
+            self.syncWithRepoToolButton.addAction(sync_sep)
+
+            for preset in presets_list:
+                if preset.get('preset_name') != current_repo.get('preset_name'):
+                    action = QtGui.QAction(preset.get('pretty_preset_name'), self.syncWithRepoToolButton)
+                    self.syncWithRepoToolButton.addAction(action)
+
+                    action.triggered.connect(partial(self.show_sync_dialog_with_preset, sync_dialog, preset))
+
+        self.syncWithRepoToolButton.showMenu()
+
+    def show_sync_dialog_with_preset(self, sync_dialog, preset):
+        sync_dialog.setWindowModality(QtCore.Qt.ApplicationModal)
+        sync_dialog.show()
+        sync_dialog.start_sync_ui(preset)
 
     def create_sync_dialog(self):
         sync_dialog = Ui_repoSyncDialog(parent=env_inst.ui_main, stype=self.stype, sobject=self.sobject)
@@ -951,11 +979,14 @@ class Ui_itemWidget(QtGui.QWidget):
         self.set_notes_count(self.sobject.get_notes_count('publish'))
         self.set_tasks_count(self.sobject.get_tasks_count('__total__'))
 
+        if self.sobject.is_snapshots_need_update():
+            self.syncWithRepoToolButton.setIcon(gf.get_icon('cloud-sync', color=Qt4Gui.QColor(80, 180, 80), icons_set='mdi'))
+
+
     def fill_info_items(self):
         table_columns = []
 
         # may be it's slow to getting definition this way
-
         color_definition = self.stype.get_definition('color', bs=True)
 
         edit_definition = self.stype.get_definition('edit_definition', bs=True)
@@ -1128,13 +1159,15 @@ class Ui_itemWidget(QtGui.QWidget):
             self.parents_stypes = self.stype.schema.parents
             for parent in self.stype.schema.parents:
                 parent_code = parent.get('to')
-                parent_title = self.project.stypes.get(parent_code)
-                if parent_title:
-                    parent_title = parent_title.info.get('title')
+                parent_stype = self.project.stypes.get(parent_code)
+                if parent_stype:
+                    parent_title = parent_stype.info.get('title')
                 else:
                     parent_title = parent_code
                 parent_action = QtGui.QAction(parent_title, self.relationsToolButton)
+                parent_action.triggered.connect(partial(self.do_parent_relations, parent_stype, self.stype))
                 self.relationsToolButton.addAction(parent_action)
+
 
         if self.stype.schema.children:
             self.children_stypes = self.stype.schema.children
@@ -1144,16 +1177,55 @@ class Ui_itemWidget(QtGui.QWidget):
 
             for child in self.stype.schema.children:
                 child_code = child.get('from')
-                child_title = self.project.stypes.get(child_code)
-                if child_title:
-                    child_title = child_title.info.get('title')
+                child_stype = self.project.stypes.get(child_code)
+                if child_stype:
+                    child_title = child_stype.info.get('title')
                 else:
                     child_title = child_code
                 child_action = QtGui.QAction(child_title, self.relationsToolButton)
+                child_action.triggered.connect(partial(self.do_child_relations, child_stype, self.stype))
                 self.relationsToolButton.addAction(child_action)
 
         if not (self.stype.schema.children or self.stype.schema.parents):
             self.relationsToolButton.hide()
+
+    def do_parent_relations(self, parent_stype, child_stype):
+        stype_widget = env_inst.get_check_tree(tab_code='checkin_out', wdg_code=parent_stype.get_code())
+
+        checkin_out_control = env_inst.get_control_tab(tab_code='checkin_out')
+
+        checkin_out_control.toggle_stype_tab(tab=stype_widget, hide=False)
+        checkin_out_control.raise_stype_tab(tab=stype_widget)
+
+        search_widget = stype_widget.get_search_widget()
+
+        filters = [('_expression', 'in', self.sobject.get_related_sobjects_tel_string(child_stype=child_stype, parent_stype=parent_stype, relation_type='parent'))]
+
+
+        tab_title = '{0} related to {1}'.format(parent_stype.get_pretty_name(), self.sobject.get_title())
+        search_widget.add_tab(
+            search_title=tab_title,
+            filters=filters,
+        )
+
+    def do_child_relations(self, child_stype, parent_stype):
+        stype_widget = env_inst.get_check_tree(tab_code='checkin_out', wdg_code=child_stype.get_code())
+
+        checkin_out_control = env_inst.get_control_tab(tab_code='checkin_out')
+
+        checkin_out_control.toggle_stype_tab(tab=stype_widget, hide=False)
+        checkin_out_control.raise_stype_tab(tab=stype_widget)
+
+        search_widget = stype_widget.get_search_widget()
+
+        related_filter = ('_expression', 'in', self.sobject.get_related_sobjects_tel_string(child_stype=child_stype, parent_stype=parent_stype, relation_type='child'))
+
+        tab_title = '{0} related to {1}'.format(child_stype.get_pretty_name(), self.sobject.get_title())
+        search_widget.add_tab(
+            search_title=tab_title,
+            filters=[related_filter],
+        )
+
 
     def get_context(self, process=False, custom=None):
         if process:
@@ -1162,13 +1234,13 @@ class Ui_itemWidget(QtGui.QWidget):
             else:
                 return 'publish'
         else:
-            return ''
+            return None
 
     def get_context_options(self):
         pipeline = self.get_current_process_pipeline()
         process = None
         if pipeline:
-            process = pipeline.get_process('publish')
+            process = pipeline.get_pipeline_process('publish')
         if process:
             context_options = process.get('context_options')
             if context_options:
@@ -1178,21 +1250,34 @@ class Ui_itemWidget(QtGui.QWidget):
         pipeline = self.get_current_process_pipeline()
         process = None
         if pipeline:
-            process = pipeline.get_process('publish')
+            process = pipeline.get_pipeline_process('publish')
 
         if process:
             return process.get('checkin_mode')
 
-    @staticmethod
-    def get_current_process_info():
-        process_info = {'name': 'publish'}
+    def get_current_process_info(self):
+
+        current_pipeline = self.get_current_process_pipeline()
+
+        process_info = None
+        if current_pipeline:
+            process_info = current_pipeline.pipeline.get('publish')
+
+        if not process_info:
+            process_info = {'type': 'manual', 'name': 'publish'}
+
         return process_info
 
     def get_current_process_pipeline(self):
 
-        search_type = self.stype.info.get('search_type')
-        if search_type and self.stype.pipeline:
-            return self.stype.pipeline.get(search_type)
+        # search_type = self.stype.info.get('search_type')
+        # if search_type and self.stype.pipeline:
+        #     return self.stype.pipeline.get(search_type)
+
+        pipeline_code = self.sobject.info.get('pipeline_code')
+        if self.stype.pipeline:
+            pipeline = self.stype.pipeline.get(pipeline_code)
+            return pipeline
 
     def get_skey(self, skey=False, only=False, parent=False):
         """skey://cgshort/props?project=the_pirate&code=PROPS00001"""
@@ -1270,7 +1355,7 @@ class Ui_itemWidget(QtGui.QWidget):
 
     def fill_process_items(self):
 
-        builtin_process = ['icon', 'attachment', 'publish']
+        builtin_processes = ['icon', 'attachment', 'publish']
 
         # getting all possible processes here
         processes = []
@@ -1279,31 +1364,31 @@ class Ui_itemWidget(QtGui.QWidget):
         if pipeline_code and self.stype.pipeline:
             curent_pipeline = self.stype.pipeline.get(pipeline_code)
             if curent_pipeline:
-                processes = curent_pipeline.process.keys()
+                processes = curent_pipeline.pipeline.keys()
 
-        if self.ignore_dict:
-            if self.ignore_dict.get('show_builtins'):
-                show_all = True
-                for builtin in builtin_process:
-                    if builtin not in self.ignore_dict['builtins']:
-                        processes.append(builtin)
-                        show_all = False
-                if show_all:
-                    processes.extend(builtin_process)
+        if gf.get_value_from_config(cfg_controls.get_checkin(), 'showAllProcessCheckBox') == 1:
+            show_builtins = True
+        else:
+            show_builtins = False
+
+        if show_builtins:
+            for builtin_process in builtin_processes:
+                if builtin_process not in processes:
+                    processes.append(builtin_process)
 
         if not processes:
-            processes = builtin_process
+            processes = builtin_processes
 
         for process in processes:
-            if curent_pipeline:
-                process_info = curent_pipeline.get_process_info(process)
-            else:
-                process_info = {'type': 'manual'}
 
             ignored = False
+            process_info = None
+            if curent_pipeline:
+                process_info = curent_pipeline.get_pipeline_info(process)
+            if not process_info:
+                process_info = {'type': 'manual'}
 
             # Ignoring PROGRESS, ACTION, CONDITION processes
-            # TODO Special case for progress, we should fetch completeness of progress node as in tactic.
             if process_info.get('type') in ['action', 'condition', 'dependency', 'progress']:
                 ignored = True
 
@@ -1321,14 +1406,9 @@ class Ui_itemWidget(QtGui.QWidget):
                     self.info
                 )
                 self.process_items.append(process_item)
+
                 # filling sub processes
                 process_item.fill_subprocesses()
-
-        # if process_items:
-        #     self.process_items = process_items
-        # else:
-        #     # this loads root 'publish' items on expand !my favorite duct tape!
-        #     self.tree_item.setChildIndicatorPolicy(QtGui.QTreeWidgetItem.ShowIndicator)
 
     def fill_snapshots_items(self):
         env_inst.ui_main.set_info_status_text('<span style=" font-size:8pt; color:#00ff00;">Filling snapshots</span>')
@@ -1361,9 +1441,9 @@ class Ui_itemWidget(QtGui.QWidget):
                 if key == proc.process:
                     proc.snapshots_items.append(proc.add_snapshots_items(val))
 
-        # print time.time() - start
-
         self.check_sub_items_expand_state(self.get_children_states())
+
+        self.tree_item.treeWidget().resizeColumnToContents(0)
 
         env_inst.ui_main.set_info_status_text('')
 
@@ -1401,9 +1481,9 @@ class Ui_itemWidget(QtGui.QWidget):
         return parent_item_widget
 
     def get_full_process_list(self):
-        pipeline = self.get_current_process_pipeline()
-        if pipeline:
-            return pipeline.process
+        current_pipeline = self.get_current_process_pipeline()
+        if current_pipeline:
+            return current_pipeline.pipeline
 
     def get_process_list(self, include_builtins=False, include_hierarchy=False):
         # process = []
@@ -1416,11 +1496,11 @@ class Ui_itemWidget(QtGui.QWidget):
         if self.stype.pipeline:
             current_pipeline = self.stype.pipeline.get(self.sobject.get_pipeline_code())
             workflow = self.stype.get_workflow()
-            processes_list = current_pipeline.get_all_processes_names()
+            processes_list = current_pipeline.get_all_pipeline_names()
             sub_processes_list = []
 
             # getting sub-processes from workflow
-            for process, process_info in current_pipeline.process.items():
+            for process, process_info in current_pipeline.pipeline.items():
                 if process_info.get('type') == 'hierarchy':
                     child_pipeline = workflow.get_child_pipeline_by_process_code(
                         current_pipeline,
@@ -1454,6 +1534,7 @@ class Ui_itemWidget(QtGui.QWidget):
     def get_notes_count(self):
 
         def notes_fill(result):
+
             if not self.closed:
                 notes_counts = result['notes']
                 process_items_dict = {item.process: item for item in self.process_items}
@@ -1472,7 +1553,7 @@ class Ui_itemWidget(QtGui.QWidget):
         def get_notes_counts_agent():
             return tc.get_notes_count(
                 sobject=self.sobject,
-                process=self.get_process_list(),
+                process=self.get_process_list(True),
                 children_stypes=self.get_children_list()
             )
         env_inst.set_thread_pool(None, 'server_query/server_thread_pool')
@@ -1596,7 +1677,6 @@ class Ui_itemWidget(QtGui.QWidget):
 
     def showEvent(self, event):
         if not self.created:
-            self.created = True
             if self.info['simple_view']:
                 self.create_simple_view_ui()
             else:
@@ -1663,16 +1743,17 @@ class Ui_processItemWidget(QtGui.QWidget, ui_item_process.Ui_processItem):
         self.setMinimumWidth(260)
 
         item_color = Qt4Gui.QColor(200, 200, 200)
-        pipeline = self.get_current_process_pipeline()
-        if pipeline:
-            process = pipeline.get_process(self.process)
-            if process:
-                hex_color = process.get('color')
-                color = None
-                if hex_color:
-                    color = gf.hex_to_rgb(hex_color, tuple=True)
-                if color:
-                    item_color = Qt4Gui.QColor(*color)
+        # pipeline = self.get_current_process_pipeline()
+        # if pipeline:
+        #     process = pipeline.get_pipeline_process(self.process)
+        #     if process:
+        #         hex_color = process.get('color')
+        hex_color = self.get_current_process_color()
+        color = None
+        if hex_color:
+            color = gf.hex_to_rgb(hex_color, tuple=True)
+        if color:
+            item_color = Qt4Gui.QColor(*color)
 
         if self.process:
             title = self.process.capitalize()
@@ -1743,9 +1824,9 @@ class Ui_processItemWidget(QtGui.QWidget, ui_item_process.Ui_processItem):
         notes_counts_query_worker.start()
 
     def get_full_process_list(self):
-        pipeline = self.get_current_process_pipeline()
-        if pipeline:
-            return pipeline.process
+        current_pipeline = self.get_current_process_pipeline()
+        if current_pipeline:
+            return current_pipeline.pipeline
 
     def get_process_list(self):
         process = []
@@ -1760,12 +1841,14 @@ class Ui_processItemWidget(QtGui.QWidget, ui_item_process.Ui_processItem):
         return self.sobject.get_process(self.process)
 
     def get_current_process_info(self):
-        pipeline = self.get_current_process_pipeline()
+        current_pipeline = self.get_current_process_pipeline()
+
         process_info = None
-        if pipeline:
-            process_info = pipeline.process.get(self.process)
-        else:
-            process_info = {'type': 'manual'}
+        if current_pipeline:
+            process_info = current_pipeline.pipeline.get(self.process)
+
+        if not process_info:
+            process_info = {'type': 'manual', 'name': self.process}
 
         return process_info
 
@@ -1925,7 +2008,7 @@ class Ui_processItemWidget(QtGui.QWidget, ui_item_process.Ui_processItem):
         pipeline = self.get_current_process_pipeline()
         process = None
         if pipeline:
-            process = pipeline.get_process(self.process)
+            process = pipeline.get_pipeline_process(self.process)
         if process:
             context_options = process.get('context_options')
             if context_options:
@@ -1935,9 +2018,17 @@ class Ui_processItemWidget(QtGui.QWidget, ui_item_process.Ui_processItem):
         pipeline = self.get_current_process_pipeline()
         process = None
         if pipeline:
-            process = pipeline.get_process(self.process)
+            process = pipeline.get_pipeline_process(self.process)
         if process:
             return process.get('checkin_mode')
+
+    def get_current_process_color(self):
+        pipeline = self.get_current_process_pipeline()
+        process = None
+        if pipeline:
+            process = pipeline.get_pipeline_process(self.process)
+        if process:
+            return process.get('color')
 
     def get_description(self):
         return 'No Description for this item "{0}"'.format(self.process)
@@ -2080,8 +2171,6 @@ class Ui_snapshotItemWidget(QtGui.QWidget):
         self.fileNameLabel.setStyleSheet("QLabel {\n"
                                          "    background-color: transparent;\n"
                                          "}")
-        self.fileNameLabel.setTextFormat(QtCore.Qt.PlainText)
-        self.fileNameLabel.setWordWrap(True)
         self.fileNameLabel.setObjectName("fileNameLabel")
         self.nameVerticalLayout.addWidget(self.fileNameLabel)
         self.sizeLabel = QtGui.QLabel(self)
@@ -2185,18 +2274,14 @@ class Ui_snapshotItemWidget(QtGui.QWidget):
 
             self.check_main_file()
 
-            # limit_enabled = bool(gf.get_value_from_config(cfg_controls.get_checkin(), 'snapshotDescriptionLimitCheckBox'))
-            # limit = gf.get_value_from_config(cfg_controls.get_checkin(), 'snapshotDescriptionLimitSpinBox')
-            # if limit_enabled:
-            #     self.descriptionLabel.setText(gf.to_plain_text(self.snapshot['description'], limit))
-            # else:
-            #     self.descriptionLabel.setText(gf.to_plain_text(self.snapshot['description'], None))
             description = gf.to_plain_text(self.snapshot['description'], None)
             self.descriptionLabel.setToolTip(u'<p>{}</p>'.format(description))
             self.descriptionLabel.setText(description)
 
             self.dateLabel.setText(self.snapshot['timestamp'].split('.')[0].replace(' ', ' \n'))
-            self.authorLabel.setText(self.snapshot['login'] + ':')
+            login_obj = env_inst.get_all_logins(self.snapshot['login'])
+            self.authorLabel.setText(login_obj.get_display_name() + ':')
+            self.authorLabel.setAlignment(QtCore.Qt.AlignHCenter | QtCore.Qt.AlignVCenter)
             self.verLabel.setText(gf.get_ver_rev(ver=self.snapshot['version'], rev=0))
             self.revLabel.setText(gf.get_ver_rev(rev=self.snapshot['revision'], ver=0))
 
@@ -2214,7 +2299,7 @@ class Ui_snapshotItemWidget(QtGui.QWidget):
                             self.fill_info_with_meta_file_object(file_obj, fls[0])
                         else:
                             self.fill_info_with_tactic_file_object(fls[0])
-            self.highlight_xontext_in_file_name()
+            self.highlight_context_in_file_name()
         else:
             if self.get_checkin_mode_options() == 'multi_file':
                 self.set_multiple_files_view()
@@ -2236,18 +2321,13 @@ class Ui_snapshotItemWidget(QtGui.QWidget):
     def set_drop_indicator_off(self):
         self.drop_wdg.setHidden(True)
 
-    def highlight_xontext_in_file_name(self):
+    def highlight_context_in_file_name(self):
         context = self.get_context()
+
         file_name_text = self.fileNameLabel.text()
         if file_name_text and context:
-            until_context = file_name_text.find(context)
-            if until_context != -1:
-                self.fileNameLabel.setTextFormat(QtCore.Qt.RichText)
-                first_part = file_name_text[:until_context]
-                second_part = file_name_text[len(first_part) + len(context):]
-
-                highlighted_text = '{0}<font color="{1}">{2}</font>{3}'.format(first_part, '#808080', context, second_part)
-                self.fileNameLabel.setText(highlighted_text)
+            if file_name_text.find(context) != -1:
+                self.fileNameLabel.set_highlighted_part(context, '#a34636')
 
     def fill_info_with_multiple_checkin(self, files_list):
         self.set_is_multiple_checkin(True)
@@ -2257,7 +2337,7 @@ class Ui_snapshotItemWidget(QtGui.QWidget):
         self.sizeLabel.deleteLater()
 
     def fill_info_with_meta_file_object(self, meta_file_object, tactic_file_object):
-        if not self.isEnabled():
+        if not self.previewLabel.isEnabled():
             self.fileNameLabel.setText('{0}, (File Offline)'.format(meta_file_object.get_pretty_file_name()))
         else:
             self.fileNameLabel.setText(meta_file_object.get_pretty_file_name())
@@ -2268,11 +2348,6 @@ class Ui_snapshotItemWidget(QtGui.QWidget):
             self.set_web_preview(tactic_file_object)
         else:
             self.set_preview(tactic_file_object)
-            # file_ext = tactic_file_object.get_ext()
-            # if not file_ext:
-            #     file_ext = 'err'
-            # self.previewLabel.setText(
-            #     '<span style=" font-size:12pt; font-weight:600; color:#828282;">{0}</span>'.format(file_ext))
 
         # getting extra info from meta
         seq_range = meta_file_object.get_sequence_frameranges_string(brackets='[]')
@@ -2409,14 +2484,14 @@ class Ui_snapshotItemWidget(QtGui.QWidget):
                     if first_file.is_meta_file_obj():
                         meta_file_object = first_file.get_meta_file_object()
                         if meta_file_object.is_exists():
-                            self.setEnabled(True)
+                            self.previewLabel.setEnabled(True)
                         else:
-                            self.setDisabled(True)
+                            self.previewLabel.setDisabled(True)
                     else:
                         if first_file.is_exists():
-                            self.setEnabled(True)
+                            self.previewLabel.setEnabled(True)
                         else:
-                            self.setDisabled(True)
+                            self.previewLabel.setDisabled(True)
 
     def set_multiple_files_view(self):
         pixmap = gf.get_icon('folder-sign', icons_set='ei', opacity=0.5, scale_factor=0.5).pixmap(64, Qt4Gui.QIcon.Normal)
@@ -2606,7 +2681,7 @@ class Ui_snapshotItemWidget(QtGui.QWidget):
         pipeline = self.get_current_process_pipeline()
         process = None
         if pipeline:
-            process = pipeline.get_process(self.process)
+            process = pipeline.get_pipeline_process(self.process)
         if process:
             context_options = process.get('context_options')
             if context_options:
@@ -2616,7 +2691,7 @@ class Ui_snapshotItemWidget(QtGui.QWidget):
         pipeline = self.get_current_process_pipeline()
         process = None
         if pipeline:
-            process = pipeline.get_process(self.process)
+            process = pipeline.get_pipeline_process(self.process)
         if process:
             return process.get('checkin_mode')
 
@@ -2629,19 +2704,27 @@ class Ui_snapshotItemWidget(QtGui.QWidget):
                 return self.stype.pipeline.get(pipeline_code)
 
     def get_current_process_info(self):
-        pipeline = self.get_current_process_pipeline()
+        current_pipeline = self.get_current_process_pipeline()
         process_info = None
-        if pipeline:
-            process_info = pipeline.process.get(self.process)
+        if current_pipeline:
+            process_info = current_pipeline.pipeline.get(self.process)
         if not process_info and self.process:
             process_info = {'name': self.process}
 
         return process_info
 
-    def get_full_process_list(self):
+    def get_current_process_color(self):
         pipeline = self.get_current_process_pipeline()
+        process = None
         if pipeline:
-            return pipeline.process
+            process = pipeline.get_pipeline_process(self.process)
+        if process:
+            return process.get('color')
+
+    def get_full_process_list(self):
+        current_pipeline = self.get_current_process_pipeline()
+        if current_pipeline:
+            return current_pipeline.pipeline
 
     def get_process_list(self):
         pipeline = self.get_current_process_pipeline()
@@ -3010,56 +3093,10 @@ class Ui_childrenItemWidget(QtGui.QWidget):
         if not self.info['is_expanded']:
             self.info['is_expanded'] = True
 
-            # TODO The whole thing can be replace with this one
-            # self.sobject.get_related_sobjects(child_stype=self.stype)
-
-            relationship = self.child.get('relationship')
-
-            child_col = self.child.get('from_col')
-            instance_type = None
-            related_type = None
-
-            if relationship and not child_col:
-                if relationship == 'search_type':
-                    child_col = 'search_code'
-                elif relationship == 'code':
-                    child_col = '{0}_code'.format(self.child.get('to').split('/')[-1])
-                elif relationship == 'instance':
-                    child_col = 'code'
-                    instance_type = self.child.get('instance_type')
-                    related_type = self.child.get('to')
-
-            child_code = self.sobject.info.get('code')
-
-            # may be it is workaround, but i can't see any faster way
-            # if parent-child switched in schema we search another direction
-            # TODO It is workaroud and should be rewritten
-            if self.sobject.info.get('relative_dir') == self.child.get('to'):
-                if self.child.get('to_col'):
-                    child_code = self.sobject.info.get(self.child.get('to_col'))
-
-            filters = [(child_col, child_code)]
-
-            order_bys = ['name']
-            built_process = tc.server_start(project=self.project.get_code()).build_search_type(self.child.get('from'), self.project.get_code())
-
-            # Logging info
-            dl.log('Getting children for {}'.format(self.stype.get_pretty_name()), group_id=self.stype.get_code())
-            if instance_type:
-                runtime_command = 'thenv.get_tc().get_sobjects_new(search_type="{0}", filters={1}, order_bys={2}, instance_type={3}, related_type={4})'.format(built_process, filters, order_bys, instance_type, related_type)
-            else:
-                runtime_command = 'thenv.get_tc().get_sobjects_new(search_type="{0}", filters={1}, order_bys={2})'.format(
-                    built_process, filters, order_bys)
-            dl.info(runtime_command, group_id=self.stype.get_code())
+            parent_sobject = self.get_parent_sobject()
 
             def get_sobjects_agent():
-                return tc.get_sobjects_new(
-                    search_type=built_process,
-                    filters=filters,
-                    order_bys=order_bys,
-                    instance_type=instance_type,
-                    related_type=related_type,
-                )
+                return self.sobject.get_related_sobjects(child_stype=self.stype, parent_stype=self.sobject.get_stype())
 
             get_sobjects_worker = gf.get_thread_worker(
                 get_sobjects_agent,
@@ -3096,8 +3133,8 @@ class Ui_childrenItemWidget(QtGui.QWidget):
                 item_info_dict,
                 ignore_dict=ignore_dict
             )
-            # if i+1 % 20 == 0:
-            #     QtGui.QApplication.processEvents()
+
+        self.tree_item.treeWidget().resizeColumnToContents(0)
 
         env_inst.ui_main.set_info_status_text('')
 
@@ -3511,8 +3548,8 @@ class Ui_groupItemWidget(QtGui.QWidget):
                 item_info_dict,
                 ignore_dict=ignore_dict
             )
-            # if i+1 % 20 == 0:
-            #     QtGui.QApplication.processEvents()
+
+            self.tree_item.treeWidget().resizeColumnToContents(0)
 
         env_inst.ui_main.set_info_status_text('')
 

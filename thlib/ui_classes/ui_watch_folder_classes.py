@@ -103,7 +103,7 @@ class Ui_projectWatchFoldersWidget(QtGui.QDialog, Ui_ProjectWatchFolder):
         self.fs_watcher.remove_watch(watch_name=skey)
 
     def handle_watch_created_event(self, event, watch):
-        dl.log('File dropped to watch folder {}'.format(event.src_path), group_id='watch_folder')
+        dl.log(u'File dropped to watch folder {}'.format(event.src_path), group_id='watch_folder')
 
         self.show()
 
@@ -152,7 +152,7 @@ class Ui_projectWatchFoldersWidget(QtGui.QDialog, Ui_ProjectWatchFolder):
                 # Also this is totally wrong, cause we should know exactly the pipeline and its processes, so need to write proper pipeline_code when creating watch folder
                 current_pipeline = pipelines.values()[0]
 
-            current_process = current_pipeline.get_process(context)
+            current_process = current_pipeline.get_pipeline_process(context)
 
             if current_process:
                 checkin_mode = current_process.get('checkin_mode')

@@ -147,13 +147,19 @@ class QtTacticEditWidget(QtGui.QWidget):
             search_type = search_key_split.get('search_type')
 
         if name and search_type:
-            # filters = [('name', name)]
-            # project = self.stype.get_project()
-            # existing = tc.server_start(project=project.get_code()).query(search_type, filters)
-
             # better version, that take parents into account
             parent_sobject = self.tactic_widget.get_parent_sobject()
-            related_sobjects, info = parent_sobject.get_related_sobjects(self.stype)
+            if parent_sobject:
+                related_sobjects, info = parent_sobject.get_related_sobjects(child_stype=self.stype, parent_stype=parent_sobject.get_stype())
+            else:
+                if self.sobject:
+                    if self.sobject.get_value('name'):
+                        filters = [('name', self.sobject.get_value('name'))]
+                        related_sobjects, info = tc.get_sobjects_new(self.stype.get_code(), filters, project_code=self.stype.get_project().get_code())
+                    else:
+                        related_sobjects = {}
+                else:
+                    related_sobjects = {}
 
             for related_sobject in related_sobjects.values():
                 if related_sobject.get_value('name') == name:
@@ -731,7 +737,9 @@ class QTacticCurrentCheckboxWdg(QtGui.QWidget, QTacticBasicInputWdg):
         values = self.tactic_widget.get_display_values()
         if values:
             print values, self, 'values'
-            self.checkbox.setChecked(values[0])
+            if isinstance(values, list):
+                if isinstance(values[0], bool):
+                    self.checkbox.setChecked(values[0])
 
     def create_checkbox(self):
         self.checkbox = QtGui.QCheckBox()
@@ -813,13 +821,179 @@ class QTacticCalendarInputWdg(QtGui.QWidget, QTacticBasicInputWdg):
 
     def fill_default_values(self):
         values = self.tactic_widget.get_display_values()
-        if values:
-            print 'TODO: MAKE DATETIME!'
-            current_datetime = QtCore.QDateTime.currentDateTime()
-            self.date_time_edit.setDateTime(current_datetime)
+        print values
 
-            # print values, self, 'values'
-            # self.checkbox.setChecked(values[0])
+        if values:
+            if values[0]:
+                date = QtCore.QDateTime.fromString(gf.form_date_time(values[0]), 'yyyy-MM-dd HH:mm:ss')
+                self.date_time_edit.setDateTime(date)
 
     def create_date_time_edit(self):
         self.date_time_edit = QtGui.QDateTimeEdit()
+        self.date_time_edit.setCalendarPopup(True)
+
+
+class QTacticProcessGroupSelectWdg(QtGui.QWidget, QTacticBasicInputWdg):
+    def __init__(self, tactic_widget, parent=None):
+        super(self.__class__, self).__init__(parent=parent)
+
+        self.init_ui()
+
+        self.parent_ui = parent
+
+        self.tactic_widget = tactic_widget
+        self.parent_sobject = self.tactic_widget.get_parent_sobject()
+        self.sobject = self.tactic_widget.get_sobject()
+
+        self.create_combo_box()
+
+        self.set_title(self.tactic_widget.get_title())
+        self.set_control_widget(self.combo_box)
+
+        self.add_items_to_combo_box()
+
+        # self.init_default_value()
+
+        # if not self.init_default_value():
+        #     self.autofill_by_parent()
+
+    def autofill_by_parent(self):
+
+        sobject = self.parent_sobject
+        if not sobject:
+            sobject = self.sobject
+
+        if sobject:
+            column = sobject.info.get(self.get_column())
+            if column:
+                for i, value in enumerate(self.tactic_widget.get_values()):
+                    if column == value:
+                        self.combo_box.setCurrentIndex(i)
+
+    def init_default_value(self):
+
+        display_values = self.tactic_widget.get_display_values()
+
+        if display_values.get('labels'):
+            default_value = display_values.get('labels')[0]
+
+        else:
+            default_value = None
+
+        if default_value:
+            for i, value in enumerate(self.tactic_widget.get_values()):
+                if default_value == value:
+                    self.combo_box.setCurrentIndex(i)
+                    return True
+
+    def get_data(self):
+
+        return ''
+
+        codes = self.tactic_widget.get_values()
+        index = self.combo_box.currentIndex()
+
+        if not codes[index]:
+            return ''
+        else:
+            return codes[index]
+
+    def get_column(self):
+        action_options = self.tactic_widget.get_action_options()
+        column = action_options.get('column')
+        if column:
+            return column
+        else:
+            return self.tactic_widget.get_name()
+
+    def create_combo_box(self):
+        self.combo_box = QtGui.QComboBox()
+        self.combo_box.setEditable(True)
+        self.combo_box.setCurrentIndex(0)
+
+    def add_items_to_combo_box(self):
+        labels = self.tactic_widget.get_labels()
+        for label in labels:
+            self.combo_box.addItem(label)
+
+
+class QTacticProjectSelectWdg(QtGui.QWidget, QTacticBasicInputWdg):
+    def __init__(self, tactic_widget, parent=None):
+        super(self.__class__, self).__init__(parent=parent)
+
+        self.init_ui()
+
+        self.parent_ui = parent
+
+        self.tactic_widget = tactic_widget
+        self.parent_sobject = self.tactic_widget.get_parent_sobject()
+        self.sobject = self.tactic_widget.get_sobject()
+
+        self.create_combo_box()
+
+        self.set_title(self.tactic_widget.get_title())
+        self.set_control_widget(self.combo_box)
+
+        self.add_items_to_combo_box()
+
+        # self.init_default_value()
+
+        # if not self.init_default_value():
+        #     self.autofill_by_parent()
+
+    def autofill_by_parent(self):
+
+        sobject = self.parent_sobject
+        if not sobject:
+            sobject = self.sobject
+
+        if sobject:
+            column = sobject.info.get(self.get_column())
+            if column:
+                for i, value in enumerate(self.tactic_widget.get_values()):
+                    if column == value:
+                        self.combo_box.setCurrentIndex(i)
+
+    def init_default_value(self):
+
+        display_values = self.tactic_widget.get_display_values()
+
+        if display_values.get('labels'):
+            default_value = display_values.get('labels')[0]
+
+        else:
+            default_value = None
+
+        if default_value:
+            for i, value in enumerate(self.tactic_widget.get_values()):
+                if default_value == value:
+                    self.combo_box.setCurrentIndex(i)
+                    return True
+
+    def get_data(self):
+
+        codes = self.tactic_widget.get_values()
+        index = self.combo_box.currentIndex()
+
+        if not codes[index]:
+            return ''
+        else:
+            return codes[index]
+
+    def get_column(self):
+        action_options = self.tactic_widget.get_action_options()
+        column = action_options.get('column')
+        if column:
+            return column
+        else:
+            return self.tactic_widget.get_name()
+
+    def create_combo_box(self):
+        self.combo_box = QtGui.QComboBox()
+        self.combo_box.setEditable(True)
+        self.combo_box.setCurrentIndex(0)
+
+    def add_items_to_combo_box(self):
+        labels = self.tactic_widget.get_labels()
+        for label in labels:
+            self.combo_box.addItem(label)

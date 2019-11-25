@@ -19,6 +19,7 @@ __all__ = ['Ui_extendedTabBarWidget', 'Ui_extendedTreeWidget', 'SquareLabel', 'M
 
 import os
 import datetime
+import codecs
 from thlib.side.Qt import QtWidgets as QtGui
 from thlib.side.Qt import QtGui as Qt4Gui
 from thlib.side.Qt import QtCore
@@ -828,18 +829,18 @@ class Ui_debugLogWidget(QtGui.QDialog, ui_debuglog.Ui_DebugLog):
             log_path = u'{0}/log'.format(env_mode.get_current_path())
             date_str = datetime.date.strftime(dl.session_start, '%d_%m_%Y_%H_%M_%S')
             if os.path.exists(log_path):
-                with open(u'{0}/session_{1}.log'.format(log_path, date_str), 'a+') as log_file:
-                    log_file.write(log_text + '\n')
+                with codecs.open(u'{0}/session_{1}.log'.format(log_path, date_str), 'a+', 'utf-8') as log_file:
+                    log_file.write(log_text + u'\n')
             else:
                 os.makedirs(log_path)
-                with open(u'{0}/session_{1}.log'.format(log_path, date_str), 'w+') as log_file:
-                    log_file.write(log_text + '\n')
+                with codecs.open(u'{0}/session_{1}.log'.format(log_path, date_str), 'w+', 'utf-8') as log_file:
+                    log_file.write(log_text + u'\n')
 
             log_file.close()
 
     def format_debuglog(self, debuglog_dict, message_type, html=True):
 
-        trace_str = '{0} {1} {2} ----- //{3:04d} : Module: {4}, Function: {5}()'.format(
+        trace_str = u'{0} {1} {2} ----- //{3:04d} : Module: {4}, Function: {5}()'.format(
             datetime.date.strftime(debuglog_dict['datetime'], '[%d.%m.%Y - %H:%M:%S]'),
             message_type,
             debuglog_dict['message_text'],
@@ -860,7 +861,7 @@ class Ui_debugLogWidget(QtGui.QDialog, ui_debuglog.Ui_DebugLog):
                 color = 'ff8080'
             else:
                 color = 'a5a5a5'
-            return '<span style="color:#{0};">{1}</span>'.format(color, trace_str)
+            return u'<span style="color:#{0};">{1}</span>'.format(color, trace_str)
         else:
             return trace_str
 
@@ -1060,10 +1061,12 @@ class SuggestedLineEdit(QtGui.QLineEdit):
         self.project = project
         self.return_pressed = False
         self.single_click_select_all = True
+        self.autofill_selected_items = False
         self.display_limit = 50
         self.popup_limit = 20
         self.suggest_column = 'name'
         self.search_filters = None
+        self.default_filter = None
 
         self.create_ui()
 
@@ -1212,9 +1215,19 @@ class SuggestedLineEdit(QtGui.QLineEdit):
         self.magnify_tool_button.setIcon(gf.get_icon('magnify', icons_set='mdi', scale_factor=1.3))
 
     def controls_actions(self):
-        # self.returnPressed.connect(self.set_return_pressed)
+        self.item_selected.connect(self.do_item_selected)
+        self.item_clicked.connect(self.do_item_clicked)
         self.textEdited.connect(self.search_suggestions)
         self.custom_tree_view.item_mouse_clicked.connect(self.item_mouse_clicked)
+
+    def do_item_selected(self, item_dict):
+        if self.autofill_selected_items:
+            if self.custom_tree_view.isVisible():
+                self.setText(item_dict.get(self.suggest_column))
+
+    def do_item_clicked(self, item_dict):
+        if self.autofill_selected_items:
+            self.setText(item_dict.get(self.suggest_column))
 
     def item_mouse_clicked(self, model_index):
 
@@ -1261,6 +1274,9 @@ class SuggestedLineEdit(QtGui.QLineEdit):
         }
         """ % customize_dict)
 
+    def set_autofill_selected_items(self, do_autofill=True):
+        self.autofill_selected_items = do_autofill
+
     def set_return_pressed(self):
         self.return_pressed = True
 
@@ -1270,10 +1286,11 @@ class SuggestedLineEdit(QtGui.QLineEdit):
     def get_suggest_column(self):
         return self.suggest_column
 
-    # def mousePressEvent(self, event):
-    #     event.accept()
-    #     # if self.single_click_select_all:
-    #     #     self.selectAll()
+    def set_default_filter(self, default_filter):
+        self.default_filter = default_filter
+
+    def get_default_filter(self):
+        return self.default_filter
 
     def set_search_filters(self, search_filters):
         self.search_filters = search_filters
@@ -1311,7 +1328,12 @@ class SuggestedLineEdit(QtGui.QLineEdit):
                         columns.append(add_column)
 
             from thlib.ui_classes.ui_search_classes import get_suggestion_filter
-            self.set_search_filters(get_suggestion_filter(self.suggest_column, key, possible_columns=columns))
+            self.set_search_filters(get_suggestion_filter(
+                self.suggest_column,
+                key,
+                possible_columns=columns,
+                default_filter=self.get_default_filter()
+            ))
 
             def assets_query_new_agent():
                 return (tc.server_query(
@@ -1605,6 +1627,9 @@ class Ui_elideLabel(QtGui.QLabel):
     def __init__(self, parent=None):
         super(self.__class__, self).__init__(parent=parent)
 
+        self.highlighted_part = None
+        self.highlighted_part_color = None
+
         self.setFont(self.font())
 
         self.setSizePolicy(QtGui.QSizePolicy.Ignored, QtGui.QSizePolicy.Preferred)
@@ -1614,23 +1639,39 @@ class Ui_elideLabel(QtGui.QLabel):
     def set_font_size(self, size_int):
         self.font().setPointSize(size_int)
 
+    def set_highlighted_part(self, text, color):
+
+        self.highlighted_part = text
+        self.highlighted_part_color = color
+
     def paintEvent(self, event):
         painter = QtGui.QStylePainter(self)
-        #
         metrics = Qt4Gui.QFontMetrics(self.font())
-        elided = metrics.elidedText(self.text(), QtCore.Qt.ElideRight, self.width())
-        painter.drawText(self.contentsRect(), QtCore.Qt.AlignLeft | QtCore.Qt.AlignVCenter, elided)
+        if self.highlighted_part:
+            doc = Qt4Gui.QTextDocument(self)
+            doc.setUndoRedoEnabled(False)
+            elided = metrics.elidedText(self.text(), QtCore.Qt.ElideRight, self.width())
 
-        # doc = Qt4Gui.QTextDocument(self)
-        # doc.setUndoRedoEnabled(False)
-        # # doc.setHtml(elided)
-        # doc.setPlainText(elided)
-        # doc.setDefaultFont(self.font())
-        # doc.setTextWidth(self.width())
-        # doc.setUseDesignMetrics(True)
-        # doc.setDefaultTextOption(QtCore.Qt.AlignLeft | QtCore.Qt.AlignVCenter)
-        #
-        # painter = Qt4Gui.QPainter(self)
-        # painter.setRenderHints(Qt4Gui.QPainter.Antialiasing|Qt4Gui.QPainter.HighQualityAntialiasing|Qt4Gui.QPainter.SmoothPixmapTransform|Qt4Gui.QPainter.TextAntialiasing, True)
-        # doc.drawContents(painter, self.contentsRect())
-        # painter.end()
+            until_context = elided.find(self.highlighted_part)
+            if until_context != -1:
+                first_part = elided[:until_context]
+                second_part = elided[len(first_part) + len(self.highlighted_part):]
+
+                elided = u'{0}<font color="{1}">{2}</font>{3}'.format(first_part, self.highlighted_part_color, self.highlighted_part, second_part)
+
+            doc.setHtml(elided)
+            doc.setDocumentMargin(2)
+            doc.setDefaultFont(self.font())
+            doc.setTextWidth(self.width())
+            doc.setUseDesignMetrics(True)
+            text_options = Qt4Gui.QTextOption()
+            text_options.setWrapMode(Qt4Gui.QTextOption.NoWrap)
+            doc.setDefaultTextOption(text_options)
+
+            painter.setRenderHints(Qt4Gui.QPainter.Antialiasing | Qt4Gui.QPainter.HighQualityAntialiasing | Qt4Gui.QPainter.SmoothPixmapTransform | Qt4Gui.QPainter.TextAntialiasing, True)
+            doc.drawContents(painter, self.contentsRect())
+            painter.end()
+        else:
+            elided = metrics.elidedText(self.text(), QtCore.Qt.ElideRight, self.width())
+            painter.drawText(self.contentsRect(), QtCore.Qt.AlignLeft | QtCore.Qt.AlignVCenter, elided)
+

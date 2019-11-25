@@ -7,9 +7,9 @@ import inspect
 def prepare_serverside_script(func, kwargs, return_dict=True, has_return=True, shrink=True, catch_traceback=True):
     func_lines = inspect.getsourcelines(func)
     if has_return:
-        run_command = func_lines[0][0].replace('def ', 'return ')[:-2]
+        run_command = func_lines[0][0].replace(u'def ', u'return ')[:-2]
     else:
-        run_command = func_lines[0][0].replace('def ', '')[:-2]
+        run_command = func_lines[0][0].replace(u'def ', u'')[:-2]
     # i don't want 're' here, so try to understand logic, with love to future me :-*
     # TODO multiline bug
 
@@ -20,14 +20,14 @@ def prepare_serverside_script(func, kwargs, return_dict=True, has_return=True, s
         else:
             args_list.append(u'{}={}'.format(key, arg))
 
-    var_stitch = ', '.join(args_list)
-    ready_run_command = '{0}({1})'.format(run_command[:run_command.find('(')], var_stitch)
+    var_stitch = u', '.join(args_list)
+    ready_run_command = u'{0}({1})'.format(run_command[:run_command.find('(')], var_stitch)
     if catch_traceback:
         traceback = inspect.getsourcelines(get_traceback)
         handle = inspect.getsourcelines(traceback_handle)
-        code = ''.join(traceback[0]) + ''.join(handle[0]) + '@traceback_handle \n' + ''.join(func_lines[0]) + ready_run_command
+        code = u''.join(traceback[0]) + u''.join(handle[0]) + u'@traceback_handle \n' + ''.join(func_lines[0]) + ready_run_command
     else:
-        code = ''.join(func_lines[0]) + ready_run_command
+        code = u''.join(func_lines[0]) + ready_run_command
     if shrink:
         code = gf.minify_code(source=code)
     if return_dict:
@@ -91,10 +91,11 @@ def query_EditWdg(args=None, search_type='', project=''):
     def pop_classes(in_dict):
         out_dict = {}
 
-        ignore_columns = ['sobjects_for_options']  # this is for SelectWdg
+        ignore_columns = ['sobjects_for_options', 'pipelines', '_sobjects']
         for key, val in in_dict.iteritems():
             if not (hasattr(val, '__dict__') or key.startswith('_')) and key not in ignore_columns:
                 out_dict[key] = val
+
         return out_dict
 
     class_name = 'tactic.ui.panel.EditWdg'
@@ -123,33 +124,26 @@ def query_EditWdg(args=None, search_type='', project=''):
     input_widgets = widget.get_widgets()
     wdg_config = WidgetConfigView.get_by_element_names(search_type, widget.element_names, base_view=args['view'])
 
-    temprorary_ignore = ['pyasm.prod.web.prod_input_wdg.ProjectSelectWdg', 'tactic.ui.input.process_context_wdg.ProcessInputWdg']
-    # , 'pyasm.widget.input_wdg.SelectWdg' bug with this widget
+    temprorary_ignore = ['tactic.ui.input.process_context_wdg.ProcessInputWdg', 'tactic.ui.input.process_context_wdg.SubContextInputWdg', 'tactic.ui.widget.misc_input_wdg.TaskStatusSelectWdg']
 
     for i_widget in input_widgets:
         widget_dict = pop_classes(i_widget.__dict__)
         widget_dict['action_options'] = wdg_config.get_action_options(widget_dict.get('name'))
         widget_dict['class_name'] = i_widget.get_class_name()
         display_values = i_widget.get_values()
-        # i_widget.get_values()
         if display_values:
             widget_dict['__display_values__'] = display_values
+        else:
+            # Special cases for different widgets
+            if widget_dict['class_name'] == 'tactic.ui.input.process_group_select_wdg.ProcessGroupSelectWdg':
+                select_wd = i_widget.get_display()
+                select_wd.get_display()
+                widget_dict['__display_values__'] = select_wd.__dict__
 
         if widget_dict['class_name'] not in temprorary_ignore:
             result_dict['InputWidgets'].append(widget_dict)
 
     return json.dumps(result_dict, separators=(',', ':'))
-    # return str(widget.get_widgets())
-    # return (dir(widget))
-
-    # Container.put("request_top_wdg", widget)
-    # html = widget.get_buffer_display()
-    # m = Container.get_instance()
-    # m.get_data()
-    # print m.get('SearchType:virtual_stypes')
-
-    # widget_html = server.get_widget(class_name, args, [])
-    # return widget_html
 
 
 def delete_sobject(search_key, include_dependencies=False, list_dependencies=None):
@@ -317,17 +311,15 @@ def get_notes_and_stypes_counts(process, search_key, stypes_list):
         'notes': {},
         'stypes': {},
     }
-    if process:
-        for p in process:
-            search = Search('sthpw/note')
-            search.add_op_filters([('process', p), ('search_type', search_type), ('search_code', search_code)])
-            cnt['notes'][p] = search.get_count(True)
+
+    for p in process:
+        search = Search('sthpw/note')
+        search.add_op_filters([('process', p), ('search_type', search_type), ('search_code', search_code)])
+        cnt['notes'][p] = search.get_count(True)
 
     for stype in stypes_list:
         try:
             search = Search(stype)
-            # search.add_parent_filter(search_key)
-            # search.add_relationship_filter(parent,)
             search.add_relationship_filter(sobject)
             count = search.get_count(True)
             if count == -1:
@@ -349,6 +341,7 @@ def query_search_types_extended(project_code):
     from pyasm.biz import Project
     from pyasm.search import Search
     from pyasm.search import SearchKey
+    from pyasm.biz import Pipeline
 
     from pyasm.widget import WidgetConfigView
     from pyasm.search import WidgetDbConfig
@@ -362,7 +355,14 @@ def query_search_types_extended(project_code):
 
     if project_code == 'sthpw':
         search = Search('sthpw/search_object')
-        search.add_filters('code', ['sthpw/task', 'sthpw/login', 'sthpw/snapshot', 'sthpw/file', 'sthpw/search_type', 'sthpw/search_object', 'sthpw/schema', 'sthpw/retire_log', 'sthpw/repo', 'sthpw/project_type', 'sthpw/project', 'sthpw/pref_setting', 'sthpw/pref_list', 'sthpw/pipeline', 'sthpw/notification_login', 'sthpw/notification_log', 'sthpw/notification', 'sthpw/note', 'sthpw/milestone', 'sthpw/message_log', 'sthpw/message', 'sthpw/login_in_group', 'sthpw/login_group', 'sthpw/login', 'sthpw/exception_log', 'sthpw/debug_log', 'sthpw/custom_script', 'sthpw/clipboard', 'sthpw/change_timestamp', 'config/custom_property'])
+        search.add_filters('code', ['sthpw/task', 'sthpw/login', 'sthpw/snapshot', 'sthpw/file', 'sthpw/search_type',
+                                    'sthpw/search_object', 'sthpw/schema', 'sthpw/retire_log', 'sthpw/repo',
+                                    'sthpw/project_type', 'sthpw/project', 'sthpw/pref_setting', 'sthpw/pref_list',
+                                    'sthpw/pipeline', 'sthpw/notification_login', 'sthpw/notification_log',
+                                    'sthpw/notification', 'sthpw/note', 'sthpw/milestone', 'sthpw/message_log',
+                                    'sthpw/message', 'sthpw/login_in_group', 'sthpw/login_group', 'sthpw/login',
+                                    'sthpw/exception_log', 'sthpw/debug_log', 'sthpw/custom_script', 'sthpw/clipboard',
+                                    'sthpw/change_timestamp', 'config/custom_property', 'sthpw/ticket'])
         search.add_order_by('search_type')
         stypes = search.get_sobjects()
     else:
@@ -401,19 +401,25 @@ def query_search_types_extended(project_code):
 
     stypes_pipelines = search.get_sobjects()
 
+    # Adding default tasks pipelines
+    stypes_pipelines.append(Pipeline.get_by_code('task'))
+    stypes_pipelines.append(Pipeline.get_by_code('approval'))
+    stypes_pipelines.append(Pipeline.get_by_code('dependency'))
+    stypes_pipelines.append(Pipeline.get_by_code('progress'))
+
     # getting processes info
     pipelines = []
-    for stype in stypes_pipelines:
-        stypes_dict = get_sobject_dict(stype)
+    for pipeline in stypes_pipelines:
+        stypes_dict = get_sobject_dict(pipeline)
 
         processes = []
-        for process in stype.get_process_names():
-            process_sobject = stype.get_process_sobject(process)
+        for process in pipeline.get_process_names():
+            process_sobject = pipeline.get_process_sobject(process)
             if process_sobject:
                 processes.append(get_sobject_dict(process_sobject))
 
         task_processes = []
-        for process in stype.get_processes():
+        for process in pipeline.get_processes():
             process_obj = process.get_task_pipeline()
             if process_obj != 'task':
                 task_processes.append(process_obj)
@@ -490,10 +496,13 @@ def get_dirs_with_naming(search_key=None, process_list=None):
     return json.dumps(dirs_dict, separators=(',', ':'))
 
 
-def query_sobjects(search_type, filters=[], order_bys=[], project_code=None, limit=None, offset=None, instance_type=None, related_type=None, get_all_snapshots=False):
+def query_sobjects_snapshots_updated(search_type, filters=[], order_bys=[], project_code=None, last_timestamp=''):
     import json
     from pyasm.search import Search, SearchKey
     from pyasm.biz import Snapshot
+
+    if project_code:
+        server.set_project(project_code)
 
     def get_sobject_dict(sobject):
         search_key = SearchKey.get_by_sobject(sobject, use_id=False)
@@ -509,91 +518,43 @@ def query_sobjects(search_type, filters=[], order_bys=[], project_code=None, lim
 
     # Getting count of all sobjects of this stype
     search = Search(splitted_search_type)
-    total_sobjects_count = search.get_count()
 
-    sobjects_dicts_list = []
-    # total_sobjects_query_count = 0
+    # checking if search filters have expression and separate it
+    expressions_filters_list = []
+    filters_list = []
 
-    # getting only related sobjects of instance type given
-    if instance_type:
-        search = Search(related_type)
-        sobject_code = None
-        for fltr in filters:
-            if fltr[0] == 'code':
-                sobject_code = fltr[-1]
-                break
-        search_key = server.build_search_key(related_type, sobject_code, project_code)
-        # return search_key
-        sobject = search.get_by_search_key(search_key)
+    for fltr in filters:
+        if fltr[0] == '_expression':
+            expressions_filters_list.append((fltr[1], fltr[2]))
+        else:
+            filters_list.append(fltr)
 
-        search = Search(splitted_search_type)
+    # now evaluate all expressions and add them to our search
+    search.add_op('begin')
+    # search.add_op('and')
 
-        if limit:
-            search.set_limit(limit)
+    if filters_list:
+        search.add_op_filters(filters_list)
 
-        if offset:
-            search.set_offset(offset)
+    if order_bys:
+        for order_by in order_bys:
+            search.add_order_by(order_by)
 
-        search.add_relationship_filter(sobject)
+    if expressions_filters_list:
 
-        related_sobjects = search.get_sobjects()
+        for op, expression_filter in expressions_filters_list:
+            eval_sobjects = Search.eval(expression_filter)
+            if eval_sobjects:
+                search.add_relationship_filters(eval_sobjects, op=op)
+            elif op == 'in':
+                search.set_null_filter()
 
-        total_sobjects_query_count = search.get_count()
+    sobjects_list = search.get_sobjects()
 
-        if related_sobjects:
-            for related_sobject in related_sobjects:
-                sobjects_dicts_list.append(get_sobject_dict(related_sobject))
-    else:
-        # checking if search filters have expression and separate it
-        expressions_filters_list = []
-        filters_list = []
-
-        for fltr in filters:
-            if fltr[0] == '_expression':
-                expressions_filters_list.append((fltr[1], fltr[2]))
-            else:
-                filters_list.append(fltr)
-
-        # now evaluate all expressions and add them to our search
-        search.add_op('begin')
-        # search.add_op('and')
-
-        if filters_list:
-            search.add_op_filters(filters_list)
-
-        if order_bys:
-            for order_by in order_bys:
-                search.add_order_by(order_by)
-
-        if expressions_filters_list:
-
-            for op, expression_filter in expressions_filters_list:
-                eval_sobjects = Search.eval(expression_filter)
-                if eval_sobjects:
-                    search.add_relationship_filters(eval_sobjects, op=op)
-                elif op == 'in':
-                    search.set_null_filter()
-
-        total_sobjects_query_count = search.get_count()
-
-        if limit:
-            search.set_limit(limit)
-
-        if offset:
-            search.set_offset(offset)
-
-        sobjects_list = search.get_sobjects()
-
-        sobjects_dicts_list = server.server._get_sobjects_dict(sobjects_list)
-
-    #total_sobjects_query_count = len(server.query(search_type, filters=filters, return_sobjects=True))
+    sobjects_dicts_list = server.server._get_sobjects_dict(sobjects_list)
 
     result = {
-        'total_sobjects_count': total_sobjects_count,
-        'total_sobjects_query_count': total_sobjects_query_count,
         'sobjects_list': sobjects_dicts_list,
-        'limit': limit,
-        'offset': offset,
     }
     have_search_code = False
     if sobjects_dicts_list:
@@ -601,24 +562,6 @@ def query_sobjects(search_type, filters=[], order_bys=[], project_code=None, lim
             have_search_code = True
 
     for sobject in sobjects_dicts_list:
-
-        search = Search('sthpw/note')
-        if have_search_code:
-            search.add_op_filters(
-                [('process', 'publish'), ('search_type', search_type), ('search_code', sobject['code'])])
-        else:
-            search.add_op_filters(
-                [('process', 'publish'), ('search_type', search_type), ('search_id', sobject['id'])])
-
-        sobject['__notes_count__'] = search.get_count()
-
-        search = Search('sthpw/task')
-        if have_search_code:
-            search.add_op_filters([('search_type', search_type), ('search_code', sobject['code'])])
-        else:
-            search.add_op_filters([('search_type', search_type), ('search_id', sobject['id'])])
-
-        sobject['__tasks_count__'] = search.get_count()
 
         search = Search('sthpw/snapshot')
 
@@ -660,6 +603,217 @@ def query_sobjects(search_type, filters=[], order_bys=[], project_code=None, lim
                     snapshots_list.append(snapshot_dict)
 
         sobject['__snapshots__'] = snapshots_list
+
+    return json.dumps(result, separators=(',', ':'))
+
+
+def query_sobjects(search_type, filters=[], order_bys=[], project_code=None, limit=None, offset=None, get_all_snapshots=False, check_snapshots_updates=False):
+    """
+
+    :param search_type:
+    :param filters:
+    :param order_bys:
+    :param project_code:
+    :param limit:
+    :param offset:
+    :param get_all_snapshots:
+    :param check_snapshots_updates: tuples list [('CODE000000', '2019.11.10 00:00:00'),] Checks for new snapshots to date, including related children
+    :return:
+    """
+    import json
+    from pyasm.search import Search, SearchKey
+    from pyasm.biz import Snapshot
+    from pyasm.biz import Schema
+
+    if project_code:
+        server.set_project(project_code)
+
+    if check_snapshots_updates:
+        schema = Schema.get()
+        splitted_search_type = server.split_search_key(search_type)[0]
+        related_search_types = schema.get_related_search_types(splitted_search_type, 'children')
+        check_snapshots_updates_dict = dict(check_snapshots_updates)
+
+    def get_sobject_dict(sobject):
+        search_key = SearchKey.get_by_sobject(sobject, use_id=False)
+        sobj = sobject.get_data()
+        sobj['__search_key__'] = search_key
+
+        return sobj
+
+    if search_type.startswith('sthpw'):
+        splitted_search_type = search_type
+    else:
+        splitted_search_type, project_code = server.split_search_key(search_type)
+
+    # Getting count of all sobjects of this stype
+    search = Search(splitted_search_type)
+    total_sobjects_count = search.get_count()
+
+    # sobjects_dicts_list = []
+    # total_sobjects_query_count = 0
+
+    # # getting only related sobjects of instance type given
+    # if instance_type:
+    #     search = Search(related_type)
+    #     sobject_code = None
+    #     for fltr in filters:
+    #         if fltr[0] == 'code':
+    #             sobject_code = fltr[-1]
+    #             break
+    #     search_key = server.build_search_key(related_type, sobject_code, project_code)
+    #     # return search_key
+    #     sobject = search.get_by_search_key(search_key)
+    #
+    #     search = Search(splitted_search_type)
+    #
+    #     if limit:
+    #         search.set_limit(limit)
+    #
+    #     if offset:
+    #         search.set_offset(offset)
+    #
+    #     search.add_relationship_filter(sobject)
+    #
+    #     related_sobjects = search.get_sobjects()
+    #
+    #     total_sobjects_query_count = search.get_count()
+    #
+    #     if related_sobjects:
+    #         for related_sobject in related_sobjects:
+    #             sobjects_dicts_list.append(get_sobject_dict(related_sobject))
+    # else:
+    # checking if search filters have expression and separate it
+    expressions_filters_list = []
+    filters_list = []
+
+    for fltr in filters:
+        if fltr[0] == '_expression':
+            expressions_filters_list.append((fltr[1], fltr[2]))
+        else:
+            filters_list.append(fltr)
+
+    # now evaluate all expressions and add them to our search
+    search.add_op('begin')
+    # search.add_op('and')
+
+    if filters_list:
+        search.add_op_filters(filters_list)
+
+    if order_bys:
+        for order_by in order_bys:
+            search.add_order_by(order_by)
+
+    if expressions_filters_list:
+
+        for op, expression_filter in expressions_filters_list:
+            eval_sobjects = Search.eval(expression_filter)
+            if eval_sobjects:
+                search.add_relationship_filters(eval_sobjects, op=op)
+            elif op == 'in':
+                search.set_null_filter()
+
+    total_sobjects_query_count = search.get_count()
+
+    if limit:
+        search.set_limit(limit)
+
+    if offset:
+        search.set_offset(offset)
+
+    sobjects_list = search.get_sobjects()
+
+    sobjects_dicts_list = server.server._get_sobjects_dict(sobjects_list)
+
+    result = {
+        'total_sobjects_count': total_sobjects_count,
+        'total_sobjects_query_count': total_sobjects_query_count,
+        'sobjects_list': sobjects_dicts_list,
+        'limit': limit,
+        'offset': offset,
+    }
+    have_search_code = False
+    if sobjects_dicts_list:
+        if sobjects_dicts_list[0].get('code'):
+            have_search_code = True
+
+    for sobject_dict, sobject in zip(sobjects_dicts_list, sobjects_list):
+
+        if check_snapshots_updates:
+            timestamp = check_snapshots_updates_dict.get(sobject_dict.get('code'))
+            if timestamp:
+                all_related_sobjects_list = []
+
+                for related_search_type in related_search_types:
+                    all_related_sobjects_list.extend(sobject.get_related_sobjects(related_search_type))
+
+                snapshot_search = Search('sthpw/snapshot')
+                snapshot_search.add_relationship_filters(all_related_sobjects_list, op='in')
+                snapshot_search.set_limit(1)
+
+                snapshot_search.add_op_filters([('timestamp', 'is after', timestamp)])
+                snapshot_search.add_op_filters([('login', '!=', server.get_login())])
+                if snapshot_search.get_sobjects():
+                    sobject_dict['__have_updates__'] = True
+
+        search = Search('sthpw/note')
+        if have_search_code:
+            search.add_op_filters(
+                [('process', 'publish'), ('search_type', search_type), ('search_code', sobject_dict['code'])])
+        else:
+            search.add_op_filters(
+                [('process', 'publish'), ('search_type', search_type), ('search_id', sobject_dict['id'])])
+
+        sobject_dict['__notes_count__'] = search.get_count()
+
+        search = Search('sthpw/task')
+        if have_search_code:
+            search.add_op_filters([('search_type', search_type), ('search_code', sobject_dict['code'])])
+        else:
+            search.add_op_filters([('search_type', search_type), ('search_id', sobject_dict['id'])])
+
+        sobject_dict['__tasks_count__'] = search.get_count()
+
+        search = Search('sthpw/snapshot')
+
+        snapshots_filters = [('search_type', search_type)]
+        if have_search_code:
+            snapshots_filters.append(('search_code', sobject_dict['code']))
+        else:
+            snapshots_filters.append(('search_id', sobject_dict['id']))
+
+        if not get_all_snapshots:
+            snapshots_filters.append(('process', ['icon', 'attachment', 'publish']))
+        search.add_op_filters(snapshots_filters)
+
+        snapshots = search.get_sobjects()
+
+        snapshot_files = Snapshot.get_files_dict_by_snapshots(snapshots)
+
+        snapshots_list = []
+        for snapshot in snapshots:
+            if get_all_snapshots:
+                snapshot_dict = get_sobject_dict(snapshot)
+                files_list = []
+                files = snapshot_files.get(snapshot_dict['code'])
+                if files:
+                    for fl in files:
+                        files_list.append(server.server._get_sobject_dict(fl))
+                snapshot_dict['__files__'] = files_list
+                snapshots_list.append(snapshot_dict)
+            else:
+                # limiting snapshots to just latest version and versionless
+                if snapshot.get_version() in [-1, 0, '-1', '0'] or snapshot.is_latest():
+                    snapshot_dict = get_sobject_dict(snapshot)
+                    files_list = []
+                    files = snapshot_files.get(snapshot_dict['code'])
+                    if files:
+                        for fl in files:
+                            files_list.append(server.server._get_sobject_dict(fl))
+                    snapshot_dict['__files__'] = files_list
+                    snapshots_list.append(snapshot_dict)
+
+        sobject_dict['__snapshots__'] = snapshots_list
 
     return json.dumps(result, separators=(',', ':'))
 

@@ -10,6 +10,7 @@ from thlib.ui_classes.ui_custom_qwidgets import Ui_collapsableWidget
 
 class Ui_repoSyncDialog(QtGui.QDialog):
     downloads_finished = QtCore.Signal()
+    file_download_done = QtCore.Signal(object)
 
     def __init__(self, stype, sobject, parent=None):
         super(self.__class__, self).__init__(parent=parent)
@@ -18,13 +19,19 @@ class Ui_repoSyncDialog(QtGui.QDialog):
         self.sobject = sobject
         self.togglers = [False, False, False, False]
         self.repo_sync_items = []
+        self.sync_in_progress = False
+        self.interrupted = False
+        self.auto_close = False
 
         self.get_all_presets_from_server()
 
         self.create_ui()
 
     def create_ui(self):
-        self.setWindowTitle('Sync Repo for: {0}'.format(self.sobject.get_title()))
+        if self.sobject:
+            self.setWindowTitle('Sync Repo for: {0}'.format(self.sobject.get_title()))
+        else:
+            self.setWindowTitle('Sync Repo for: {0}'.format(self.stype.get_pretty_name()))
         self.setSizeGripEnabled(True)
 
         self.setFocusPolicy(QtCore.Qt.StrongFocus)
@@ -58,12 +65,29 @@ class Ui_repoSyncDialog(QtGui.QDialog):
         self.download_queue = Ui_repoSyncQueueWidget(embedded=True)
 
         self.download_queue.downloads_finished.connect(self.files_downloads_finished)
+        self.download_queue.file_download_done.connect(self.file_download_finished)
 
         self.grid.addWidget(self.download_queue, 0, 2, 4, 2)
 
     def files_downloads_finished(self):
-        print 'DOWNLOAD FINISH'
-        self.downloads_finished.emit()
+
+        self.sync_in_progress = False
+
+        if not self.interrupted:
+            self.downloads_finished.emit()
+
+        if self.auto_close:
+            self.close()
+
+        self.downloads_progress_bar.setVisible(False)
+
+    def file_download_finished(self, fl):
+        if not self.interrupted:
+            self.file_download_done.emit(fl)
+
+            progress = self.downloads_progress_bar.value()
+            self.downloads_progress_bar.setValue(progress + 1)
+            self.downloads_progress_bar.setFormat(u'%v / %m {}'.format(fl.get_filename_with_ext()))
 
     def check_tree_items(self, changed_item):
         if len(self.tree_widget.selectedItems()) > 1:
@@ -170,9 +194,16 @@ class Ui_repoSyncDialog(QtGui.QDialog):
         self.progress_bar.setTextVisible(True)
         self.progress_bar.setHidden(True)
 
+        self.downloads_progress_bar = QtGui.QProgressBar()
+        self.downloads_progress_bar.setMaximum(100)
+        # self.progressBarLayout.addWidget(self.progressBar)
+        self.downloads_progress_bar.setTextVisible(True)
+        self.downloads_progress_bar.setHidden(True)
+
         self.grid.addWidget(self.controls_collapsable, 2, 0, 1, 2)
         self.grid.addWidget(self.start_sync_button, 3, 0, 1, 2)
         self.grid.addWidget(self.progress_bar, 4, 0, 1, 4)
+        self.grid.addWidget(self.downloads_progress_bar, 5, 0, 1, 4)
 
     def toggle_presets_edit_buttons(self, state):
 
@@ -184,6 +215,9 @@ class Ui_repoSyncDialog(QtGui.QDialog):
             self.add_new_preset_button.setHidden(False)
             self.save_new_preset_button.setHidden(False)
             self.remove_preset_button.setHidden(False)
+
+    def set_auto_close(self, auto_close):
+        self.auto_close = auto_close
 
     def create_tree_widget(self):
 
@@ -283,23 +317,23 @@ class Ui_repoSyncDialog(QtGui.QDialog):
             parent_tree_item_add = parent_tree_item.addChild
 
         if stype.pipeline:
-            for pipeline in stype.pipeline.itervalues():
+            for stype_pipeline in stype.pipeline.itervalues():
                 top_item = QtGui.QTreeWidgetItem()
-                title = pipeline.info.get('name')
+                title = stype_pipeline.info.get('name')
                 if not title:
-                    title = pipeline.info.get('code')
+                    title = stype_pipeline.info.get('code')
                 top_item.setText(0, title)
-                top_item.setData(1, 0, '{0}:{1}'.format(pipeline.info.get('code'), '{pp}'))
+                top_item.setData(1, 0, '{0}:{1}'.format(stype_pipeline.info.get('code'), '{pp}'))
                 parent_tree_item_add(top_item)
 
-                for key, val in pipeline.process.iteritems():
+                for key, val in stype_pipeline.pipeline.iteritems():
                     child_item = QtGui.QTreeWidgetItem()
                     child_item.setText(0, key.capitalize())
                     child_item.setCheckState(0, QtCore.Qt.Checked)
                     child_item.setData(1, 0, '{0}:{1}'.format(key, '{pr}'))
 
                     item_color = Qt4Gui.QColor(200, 200, 200)
-                    process = pipeline.get_process(key)
+                    process = stype_pipeline.get_pipeline_process(key)
                     if process:
                         hex_color = process.get('color')
                         color = None
@@ -516,12 +550,24 @@ class Ui_repoSyncDialog(QtGui.QDialog):
         for file_object in files_objects_list:
             self.repo_sync_items.append(self.download_queue.schedule_file_object(file_object))
 
+    def get_presets_list(self):
+        return self.presets_list
+
     def download_files(self):
-        for repo_sync_item in self.repo_sync_items:
-            repo_sync_item.download()
-            self.download_queue.files_num_label.setText(
-                str(self.download_queue.files_queue_tree_widget.topLevelItemCount())
-            )
+
+        self.downloads_progress_bar.setVisible(True)
+
+        if not self.interrupted:
+            for repo_sync_item in self.repo_sync_items:
+                repo_sync_item.download()
+                self.download_queue.files_num_label.setText(
+                    str(self.download_queue.files_queue_tree_widget.topLevelItemCount())
+                )
+
+            self.downloads_progress_bar.setMaximum(len(self.repo_sync_items))
+
+        if not self.repo_sync_items:
+            self.files_downloads_finished()
 
     def clear_queue(self):
         self.download_queue.clear_queue()
@@ -529,6 +575,7 @@ class Ui_repoSyncDialog(QtGui.QDialog):
 
     @env_inst.async_engine
     def start_sync(self, preset_dict=None):
+        self.sync_in_progress = True
         # it is recommended to use finished signal
         if not preset_dict:
             preset_dict = self.get_current_preset_dict()
@@ -541,20 +588,39 @@ class Ui_repoSyncDialog(QtGui.QDialog):
 
         self.download_files()
 
-    def start_sync_ui(self):
+    def start_sync_ui(self, preset_dict=None):
+
+        self.show()
+
+        self.sync_in_progress = True
         self.progress_bar.setHidden(False)
 
         self.clear_queue()
-        self.sobject.update_snapshots()
+        if not preset_dict:
+            preset_dict = self.get_current_preset_dict()
 
-        self.sync_by_pipeline()
-
-        preset_dict = self.get_current_preset_dict()
-        self.sync_children(self.sobject, preset_dict)
+        if self.sobject:
+            self.sobject.update_snapshots()
+            self.sync_by_pipeline(self.sobject, preset_dict)
+            self.sync_children(self.sobject, preset_dict)
+            self.save_last_sync_date()
+        else:
+            stype_sobjects, data = tc.get_sobjects_new(
+                self.stype.get_code(),
+                [],
+                project_code=self.stype.project.get_code(),
+                get_all_snapshots=True
+            )
+            for sobject in stype_sobjects.values():
+                self.sync_by_pipeline(sobject, preset_dict)
+                self.sync_children(sobject, preset_dict)
+                self.save_last_sync_date(sobject)
 
         self.download_files()
-
         self.progress_bar.setHidden(True)
+
+    def interrupt_sync_process(self):
+        self.interrupted = True
 
     def sync_by_pipeline(self, sobject=None, preset_dict=None):
         if not sobject:
@@ -604,23 +670,25 @@ class Ui_repoSyncDialog(QtGui.QDialog):
         versionless_list = []
         versions_list = []
         if builtin_preset_dict:
-
             all_precesses = dict(enabled_processes.items() + builtin_preset_dict.items())
         else:
             all_precesses = enabled_processes
 
         for process_name, process_object in process_objects.items():
-            if process_name in all_precesses.keys():
-                contexts = process_object.get_contexts()
-                for context, context_obj in contexts.items():
 
-                    versionless_snapshots = context_obj.get_versionless()
-                    for code, snapshot in versionless_snapshots.items():
-                        versionless_list.extend(snapshot.get_files_objects())
+            if not self.interrupted:
 
-                    versions_snapshots = context_obj.get_versions()
-                    for code, snapshot in versions_snapshots.items():
-                        versions_list.extend(snapshot.get_files_objects())
+                if process_name in all_precesses.keys():
+                    contexts = process_object.get_contexts()
+                    for context, context_obj in contexts.items():
+
+                        versionless_snapshots = context_obj.get_versionless()
+                        for code, snapshot in versionless_snapshots.items():
+                            versionless_list.extend(snapshot.get_files_objects())
+
+                        versions_snapshots = context_obj.get_versions()
+                        for code, snapshot in versions_snapshots.items():
+                            versions_list.extend(snapshot.get_files_objects())
 
         if self.versionlessSyncRadioButton.isChecked():
             self.add_file_objects_to_queue(versionless_list)
@@ -676,6 +744,25 @@ class Ui_repoSyncDialog(QtGui.QDialog):
         if initial_index == int(settings_dict.get('presets_combo_box')):
             self.apply_repo_sync_preset(initial_index)
 
+    def save_last_sync_date(self, sobject=None):
+
+        if not sobject:
+            sobject = self.sobject
+
+        group_path = 'ui_search/{0}/{1}/{2}/sobjects_conf'.format(
+            self.stype.project.info['type'],
+            self.stype.project.info['code'],
+            self.stype.get_code().split('/')[1]
+        )
+
+        current_datetime = QtCore.QDateTime.currentDateTime()
+        env_write_config(
+            current_datetime.toString('yyyy.MM.dd hh:mm:ss'),
+            filename=sobject.get_code(),
+            unique_id=group_path,
+            long_abs_path=True
+        )
+
     def readSettings(self):
         group_path = 'ui_search/{0}/{1}/{2}'.format(
             self.stype.project.info['type'],
@@ -704,12 +791,31 @@ class Ui_repoSyncDialog(QtGui.QDialog):
         )
 
     def closeEvent(self, event):
-        self.writeSettings()
-        event.accept()
+        if not self.sync_in_progress:
+            self.writeSettings()
+            self.deleteLater()
+            event.accept()
+        else:
+            buttons = (('Ok', QtGui.QMessageBox.NoRole), ('Interrupt', QtGui.QMessageBox.ActionRole))
+            reply = gf.show_message_predefined(
+                title='Download in Progress',
+                message='Some files are not yet Downloaded.\nInterrupt the Sync Process?.',
+                buttons=buttons,
+                parent=self,
+                message_type='question',
+            )
+
+            if reply == QtGui.QMessageBox.ActionRole:
+                self.interrupt_sync_process()
+                self.deleteLater()
+                event.accept()
+            else:
+                event.ignore()
 
 
 class Ui_repoSyncQueueWidget(QtGui.QMainWindow):
     downloads_finished = QtCore.Signal()
+    file_download_done = QtCore.Signal(object)
 
     def __init__(self, embedded=False, parent=None):
         super(self.__class__, self).__init__(parent=parent)
@@ -876,9 +982,11 @@ class Ui_repoSyncQueueWidget(QtGui.QMainWindow):
 
         reply.deleteLater()
 
-    def increment_downloaded(self):
+    def increment_downloaded(self, fl=None):
         self.total_downloaded_count += 1
         self.emit_if_all_downloads_done()
+
+        self.file_download_done.emit(fl)
 
     def schedule_file_object(self, file_object):
         self.total_downloading_count += 1

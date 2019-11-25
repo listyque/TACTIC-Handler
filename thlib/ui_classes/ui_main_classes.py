@@ -76,10 +76,6 @@ class Ui_mainTabs(QtGui.QWidget):
             if self.project.stypes:
                 self.create_checkin_checkout_ui()
                 self.toggle_loading_label()
-                if env_mode.get_mode() == 'maya':
-                    dl.log('Handling Maya Hotkeys', group_id='Maya')
-                    env_inst.ui_maya_dock.handle_hotkeys()
-
                 self.ui_checkin_checkout.setHidden(False)
             env_inst.ui_main.set_info_status_text('')
 
@@ -293,9 +289,15 @@ class Ui_Main(QtGui.QMainWindow, ui_main.Ui_MainWindow):
 
         def close_routine():
             if env_mode.get_mode() == 'maya':
+                self.close()
+
                 from thlib.ui_classes.ui_maya_dock import close_all_instances
                 close_all_instances()
-                self.close()
+
+                # Removing path from sys, so we can run other instance from different path
+                import sys
+                sys.path.remove(env_mode.get_current_path())
+
             if env_mode.get_mode() == 'standalone':
                 self.close()
 
@@ -321,62 +323,30 @@ class Ui_Main(QtGui.QMainWindow, ui_main.Ui_MainWindow):
 
     def edit_my_account(self):
 
-        import thlib.tactic_widgets as tw
-        import thlib.ui_classes.ui_tactic_widgets_classes as twc
+        print 'Edit my Account'
+        from thlib.ui_classes.ui_addsobject_classes import Ui_addTacticSobjectWidget
 
-        wd = {u'input_prefix': u'insert', u'element_titles': [u'Preview', u'Name', u'Description', u'Keywords'],
-              u'title': u'', u'element_names': [u'preview', u'name', u'description', u'keywords'],
-              u'kwargs': {u'search_type': u'melnitsapipeline/episode', u'code': u'', u'title_width': u'',
-                          u'parent_key': None, u'title': u'', u'default': u'', u'search_key': u'',
-                          u'input_prefix': u'insert', u'config_base': u'', u'single': u'', u'cbjs_edit_path': u'',
-                          u'access': u'', u'width': u'', u'show_header': u'', u'cbjs_cancel': u'', u'mode': u'insert',
-                          u'cbjs_insert_path': u'', u'ignore': u'', u'show_action': u'', u'search_id': u'',
-                          u'view': u'insert'}, u'element_descriptions': [None, u'Name', u'Description', u'Keywords'],
-              u'mode': u'insert', u'security_denied': False}
-        tactic_edit_widget = tw.TacticEditWdg(wd)
-        tactic_edit_widget.set_stype(env_inst.get_current_stypes()['tactichandler/bug'])
+        login_stype = env_inst.get_stype_by_code('sthpw/login')
+        # parent_stype = self.parent_sobject.get_stype()
+        # search_key = self.parent_sobject.get_search_key()
 
-        input_widgets_list = []
+        # print search_key
 
-        class Item(object):
-            def __init__(self):
-                self.get_pipeline = None
-                self.type = 'fake'
-
-        self.item = Item()
-        # class item(object):
-        def get_pipeline():
-            return None
-        self.item.get_pipeline = get_pipeline
-        # self.item.get_pipeline = get_pipeline
-        edit_window = twc.QtTacticEditWidget(
-            tactic_widget=tactic_edit_widget,
-            qt_widgets=input_widgets_list,
-            stype=self.item,
-            parent=self
+        add_sobject = Ui_addTacticSobjectWidget(
+            stype=login_stype,
+            parent_stype=None,
+            # search_key=search_key,
+            parent_search_key=None,
+            # view='edit',
+            parent=self,
         )
 
-        edit_window.show()
+        add_sobject.show()
 
-        self.dlg = QtGui.QDialog(self)
-        self.l = QtGui.QVBoxLayout()
-        self.l.addWidget(edit_window)
-        self.dlg.setLayout(self.l)
-        self.dlg.show()
-
-        import ui_addsobject_classes
-        # edit_current_account = ui_addsobject_classes.Ui_addTacticSobjectWidget(
-        #     stype=env_inst.get_current_stypes().values()[0],
-        #     view='edit',
-        #     parent=self,
-        # )
-        # edit_current_account.setWindowTitle(u'Editing User Account')
-        # edit_current_account.show()
-
-    def create_ui_float_notify(self):
-        self.float_notify = ui_float_notify_classes.Ui_floatNotifyWidget(self)
-        self.float_notify.show()
-        self.float_notify.setSizeGripEnabled(True)
+    # def create_ui_float_notify(self):
+    #     self.float_notify = ui_float_notify_classes.Ui_floatNotifyWidget(self)
+    #     self.float_notify.show()
+    #     self.float_notify.setSizeGripEnabled(True)
 
     def open_script_editor(self):
         env_inst.ui_script_editor.show()

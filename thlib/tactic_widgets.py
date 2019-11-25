@@ -4,9 +4,9 @@ from thlib.environment import dl
 # TODO Widgets matching TACTIC Standard widgets
 
 # TODO WIDGETS:
-# <tactic.ui.input.task_input_wdg.TaskSObjectInputWdg object at 0x7fcca95531d0>,
 # <tactic.ui.input.process_context_wdg.ProcessInputWdg object at 0x7fcca9553ad0>,
-# <tactic.ui.input.process_group_select_wdg.ProcessGroupSelectWdg object at 0x7fcca95530d0>,
+#  '<tactic.ui.input.process_context_wdg.SubContextInputWdg object at 0x7f94ea537d90>',
+#  '<tactic.ui.widget.misc_input_wdg.TaskStatusSelectWdg object at 0x7f94ea537850>'
 
 
 input_classes = {
@@ -19,6 +19,8 @@ input_classes = {
         'pyasm.prod.web.prod_input_wdg.CurrentCheckboxWdg',
         'tactic.ui.input.task_input_wdg.TaskSObjectInputWdg',
         'tactic.ui.widget.calendar_wdg.CalendarInputWdg',
+        'tactic.ui.input.process_group_select_wdg.ProcessGroupSelectWdg',
+        'pyasm.prod.web.prod_input_wdg.ProjectSelectWdg',
     ],
     'handler': [
         'TacticSimpleUploadWdg',
@@ -29,6 +31,8 @@ input_classes = {
         'TacticCurrentCheckboxWdg',
         'TacticTaskSObjectInputWdg',
         'TacticCalendarInputWdg',
+        'TacticProcessGroupSelectWdg',
+        'TacticProjectSelectWdg',
     ],
 }
 
@@ -377,6 +381,99 @@ class TacticCalendarInputWdg(TacticBaseInputWdg):
         self.set_class_name('tactic.ui.widget.calendar_wdg.CalendarInputWdg')
 
 
+class TacticProcessGroupSelectWdg(TacticBaseInputWdg):
+    def __init__(self, options_dict=None):
+        super(self.__class__, self).__init__(options_dict=options_dict)
+
+        self.set_class_name('tactic.ui.input.process_group_select_wdg.ProcessGroupSelectWdg')
+
+        self.labels = []
+        self.values = []
+
+        self.required = None
+        self.empty = None
+
+        # if options_dict:
+        #     self.set_select_widget_options(options_dict)
+
+    def set_labels(self, labels):
+        self.labels = labels
+
+    def get_labels(self):
+        return self.labels
+
+    def set_values(self, values):
+        self.values = values
+
+    def get_values(self):
+        return self.values
+
+    def set_required(self, required):
+        self.required = required
+
+    def get_required(self):
+        return self.required
+
+    def set_empty(self, empty):
+        self.empty = empty
+
+    def get_empty(self):
+        return self.empty
+
+    def set_select_widget_options(self, options_dict):
+        options_dict_get = options_dict['__display_values__'].get
+
+        self.set_values(options_dict_get('values'))
+        self.set_labels(options_dict_get('labels'))
+
+
+class TacticProjectSelectWdg(TacticBaseInputWdg):
+    def __init__(self, options_dict=None):
+        super(self.__class__, self).__init__(options_dict=options_dict)
+
+        self.set_class_name('tactic.ui.input.process_group_select_wdg.ProcessGroupSelectWdg')
+
+        self.labels = None
+        self.values = None
+
+        self.required = None
+        self.empty = None
+
+        if options_dict:
+            self.set_select_widget_options(options_dict)
+
+    def set_labels(self, labels):
+        self.labels = labels
+
+    def get_labels(self):
+        return self.labels
+
+    def set_values(self, values):
+        self.values = values
+
+    def get_values(self):
+        return self.values
+
+    def set_required(self, required):
+        self.required = required
+
+    def get_required(self):
+        return self.required
+
+    def set_empty(self, empty):
+        self.empty = empty
+
+    def get_empty(self):
+        return self.empty
+
+    def set_select_widget_options(self, options_dict):
+
+        options_dict_get = options_dict.get
+
+        self.set_values(options_dict_get('values'))
+        self.set_labels(options_dict_get('labels'))
+
+
 def get_widget_name(tactic_class='', type=''):
     if type == 'input':
         tactic_classes = input_classes
@@ -388,4 +485,5 @@ def get_widget_name(tactic_class='', type=''):
         for i, cls in enumerate(tactic_classes['tactic']):
             if tactic_class == cls:
                 result_class = tactic_classes['handler'][i]
+
         return result_class

@@ -472,6 +472,11 @@ class Ui_dropPlateWidget(QtGui.QWidget, ui_drop_plate.Ui_dropPlate):
             event.ignore()
 
     def dropEvent(self, event):
+
+        print event.mimeData()
+        print event.mimeData().text()
+        print event.mimeData().urls()
+
         if event.mimeData().hasUrls:
             event.setDropAction(QtCore.Qt.CopyAction)
             event.accept()

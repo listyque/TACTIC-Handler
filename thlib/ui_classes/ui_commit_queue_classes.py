@@ -739,6 +739,7 @@ class commitWidget(QtGui.QWidget):
         virtual_snapshot_worker.start()
 
     def refresh_virtual_snapshot(self):
+
         self.update_args_dict()
 
         def refresh_virtual_snapshot_agent():
@@ -746,8 +747,8 @@ class commitWidget(QtGui.QWidget):
                 'status_text': 'Updating Snapshot Info',
                 'total_count': 2
             }
-
             virtual_snapshot_worker.emit_progress(0, info_dict)
+
             virtual_snapshot = tc.get_virtual_snapshot(
                 search_key=self.args_dict['search_key'],
                 context=self.args_dict['context'],
@@ -761,9 +762,8 @@ class commitWidget(QtGui.QWidget):
                 ignore_keep_file_name=self.args_dict['ignore_keep_file_name'],
                 )
             virtual_snapshot_worker.emit_progress(1, info_dict)
-            return virtual_snapshot
 
-        # thread_pool = env_inst.get_thread_pool('commit_queue/server_thread_pool')
+            return virtual_snapshot
 
         virtual_snapshot_worker = gf.get_thread_worker(
             refresh_virtual_snapshot_agent,
@@ -772,10 +772,8 @@ class commitWidget(QtGui.QWidget):
             progress_func=self.checkin_progress,
             error_func=gf.error_handle
         )
+
         virtual_snapshot_worker.start()
-        # print thread_pool.activeThreadCount()
-        # if thread_pool.activeThreadCount() < 3:
-        #     thread_pool.reserveThread()
 
     @gf.catch_error
     def fill_virtual_snapshot(self, result):
@@ -1037,6 +1035,7 @@ class Ui_commitQueueWidget(QtGui.QMainWindow, Ui_commitQueue):
 
     def commit_queue(self):
         self.commitAllPushButton.setEnabled(False)
+        self.closePushButton.setEnabled(False)
         self.clearQueuePushButton.setEnabled(False)
 
         next_in_queue = 0
@@ -1051,6 +1050,7 @@ class Ui_commitQueueWidget(QtGui.QMainWindow, Ui_commitQueue):
 
     def commit_current_item(self):
         self.commitAllPushButton.setEnabled(False)
+        self.closePushButton.setEnabled(False)
         self.clearQueuePushButton.setEnabled(False)
 
         commit_item = self.filesQueueTreeWidget.itemWidget(self.filesQueueTreeWidget.currentItem(), 0)
@@ -1117,6 +1117,8 @@ class Ui_commitQueueWidget(QtGui.QMainWindow, Ui_commitQueue):
         self.empty_label.close()
         self.create_empty_queue_label()
 
+        self.closePushButton.setEnabled(True)
+
     def check_queue(self):
 
         for i in range(self.commitEditorLayout.count()):
@@ -1134,10 +1136,12 @@ class Ui_commitQueueWidget(QtGui.QMainWindow, Ui_commitQueue):
         if self.queue_list and not self.empty_label.isVisible():
             self.empty_label.setVisible(False)
             self.clearQueuePushButton.setEnabled(True)
+            self.closePushButton.setEnabled(True)
             self.commitAllPushButton.setEnabled(True)
         else:
             self.empty_label.setVisible(True)
             self.clearQueuePushButton.setEnabled(False)
+            self.closePushButton.setEnabled(False)
             self.commitAllPushButton.setEnabled(False)
 
     def check_for_duplicates(self, args_dict):
@@ -1189,7 +1193,6 @@ class Ui_commitQueueWidget(QtGui.QMainWindow, Ui_commitQueue):
 
     @gf.catch_error
     def add_item_to_queue(self, args_dict, commit_queue_ui=None, force=False):
-
         if not self.check_for_duplicates(args_dict) or force:
             commit_item = gf.add_commit_item(self.filesQueueTreeWidget, args_dict['item_widget'])
             commit_item.set_args_dict(args_dict)

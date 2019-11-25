@@ -2,6 +2,7 @@ from thlib.side.Qt import QtWidgets as QtGui
 from thlib.side.Qt import QtGui as Qt4Gui
 
 import thlib.global_functions as gf
+from thlib.environment import cfg_controls
 from thlib.ui.checkin_out.ui_fast_controls import Ui_fastControls
 
 
@@ -17,9 +18,7 @@ class Ui_fastControlsWidget(QtGui.QWidget, Ui_fastControls):
 
     def create_ui(self):
         self.setupUi(self)
-        # self.customize_ui()
 
-        # self.fill_process_combo_box()
         self.create_explicit_filename_edit()
         self.create_context_combo_box()
         self.controls_actions()
@@ -65,22 +64,41 @@ class Ui_fastControlsWidget(QtGui.QWidget, Ui_fastControls):
         if contexts_list:
             self.contextComboBox.addItems(contexts_list)
 
-        if current_context != None:
+        if current_context is not None:
             if current_context == '':
                 self.contextComboBox.setEditText('')
             else:
-                self.contextComboBox.addItem(current_context)
-                self.contextComboBox.setCurrentIndex(self.contextComboBox.count()-1)
+                contex_found = False
+                for i in range(self.contextComboBox.count()):
+                    if self.contextComboBox.itemText(i) == current_context:
+                        self.contextComboBox.setCurrentIndex(i)
+                        contex_found = True
+                        break
+
+                if not contex_found:
+                    self.contextComboBox.addItem(current_context)
+                    self.contextComboBox.setCurrentIndex(self.contextComboBox.count()-1)
 
     def fill_process_combo_box(self, process_dict, current_process=None):
         if current_process:
             current_process = current_process.get('name')
 
+        builtin_processes = ['publish', 'icon', 'attachment']
+
         if process_dict:
             process_list = process_dict.keys()
-            process_list.append('publish')
         else:
-            process_list = ['publish']  # may be need to add attachment
+            process_list = builtin_processes
+
+        if gf.get_value_from_config(cfg_controls.get_checkin(), 'showAllProcessCheckBox') == 1:
+            show_builtins = True
+        else:
+            show_builtins = False
+
+        if show_builtins:
+            for builtin_process in builtin_processes:
+                if builtin_process not in process_list:
+                    process_list.append(builtin_process)
 
         self.processComboBox.clear()
         for i, process in enumerate(process_list):

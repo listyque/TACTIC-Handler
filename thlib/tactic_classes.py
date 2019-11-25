@@ -4,6 +4,7 @@
 
 import os
 import io
+import glob
 import shutil
 import urllib
 import urlparse
@@ -222,6 +223,39 @@ def split_search_key(search_key):
         'project_code': project_code
     }
 
+# checking for updates on server routine
+def get_snapshots_updates_list(search_type_code, project_code):
+
+        search_type_object = env_inst.get_stype_by_code(search_type_code, project_code)
+
+        group_path = u'ui_search/{0}/{1}/{2}/sobjects_conf'.format(
+            search_type_object.project.info['type'],
+            search_type_object.project.info['code'],
+            search_type_object.get_code().split('/')[1]
+        )
+
+        abs_path = u'{0}/settings/{1}/{2}/{3}/{4}'.format(
+            env_mode.get_current_path(),
+            env_mode.get_node(),
+            env_server.get_cur_srv_preset(),
+            env_mode.get_mode(),
+            group_path)
+
+        json_files = glob.glob1(abs_path, '*.json')
+
+        update_snapshots_timestamp_list = []
+
+        for js in json_files:
+            full_path = u'{}/{}'.format(abs_path, js)
+            with open(full_path, 'r') as json_file:
+                date_time_string = json.load(json_file)
+
+            json_file.close()
+
+            update_snapshots_timestamp_list.append((js.split('.')[0], date_time_string))
+
+        return update_snapshots_timestamp_list
+
 
 # Projects related classes
 class Project(object):
@@ -370,10 +404,10 @@ class SType(object):
 
         self.info = stype
         self.project = project
-        self.schema = None
+        self.schema = schema
         self.pipeline = self.__init_pipelines(pipelines)
 
-        if schema:
+        if self.schema:
             self.schema = Schema(schema)
 
     @staticmethod
@@ -489,11 +523,17 @@ class Schema(object):
     def get_children(self):
         return self.__schema_dict[1].get('children')
 
-    def get_child(self, child_code, parent_code):
+    def get_child(self, child_stype, parent_stype):
 
-        for child in self.parents:
-            if child['to'] == parent_code and child['from'] == child_code:
+        for child in self.children:
+            if child['from'] == child_stype and child['to'] == parent_stype:
                 return child
+
+    def get_parent(self, parent_stype, child_stype):
+
+        for parent in self.parents:
+            if parent['to'] == parent_stype and parent['from'] == child_stype:
+                return parent
 
 class Workflow(object):
     def __init__(self, pipeline):
@@ -523,6 +563,15 @@ class Workflow(object):
     def get_by_stype_code(self, code):
         return self.__pipeline_by_codes.get(code)
 
+    def get_by_pipeline_code(self, stype_code, pipeline_code):
+        return self.get_by_stype_code(stype_code).get(pipeline_code)
+
+    def get_by_process_node_type(self, stype_code, node_type):
+        if node_type in [None, 'manual']:
+            node_type = 'task'
+
+        return self.get_by_stype_code(stype_code).get(node_type)
+
     def get_child_pipeline_by_process_code(self, parent_pipeline, process):
         parent_process = None
         if parent_pipeline.processes:
@@ -538,67 +587,56 @@ class Workflow(object):
             if pipe['parent_process'] == parent_process['code']:
                 return Pipeline(pipe)
 
-    def get_pipeline(self):
-        pass
-
-        # for pipe in self.__pipeline_list:
-        #     pprint(pipe)
-
-        # return self.__pipeline_list
-
 
 class Pipeline(object):
-    # TODO rewrite this sh**ty class. This is really mind blowing logic
 
     def __init__(self, process):
 
-        self.__process_dict = process
+        self.info = process
 
-        self.process = collections.OrderedDict()
+        self.pipeline = collections.OrderedDict()
 
-        self.get_pipeline()
-        self.processes = self.get_processes()
-        self.info = self.get_info()
+        self.init_pipeline()
 
-    def get_processes(self):
-        return self.__process_dict['stypes_processes']
+    def get_all_pipeline_process(self):
+        return self.info['stypes_processes']
 
     def get_info(self):
-        return self.__process_dict
+        return self.info
 
-    def get_process(self, process):
+    def get_pipeline_process(self, process_code):
         # what if we have duplicated processes?
-        for proc in self.processes:
-            if proc['process'] == process:
-                return proc
+        for process in self.info['stypes_processes']:
+            if process['process'] == process_code:
+                return process
 
-    def get_all_processes_names(self):
+    def get_all_pipeline_names(self):
         process_names_list = []
 
-        for process in self.process:
+        for process in self.pipeline:
             process_names_list.append(process)
 
         return process_names_list
 
-    def get_pipeline(self):
+    def init_pipeline(self):
 
         all_connectionslist = []
-        pipeline = BeautifulSoup(self.__process_dict['pipeline'], 'html.parser')
+        pipeline = BeautifulSoup(self.info['pipeline'], 'html.parser')
 
         for pipe in pipeline.find_all(name='connect'):
             all_connectionslist.append(pipe.attrs)
 
         for pipe in pipeline.find_all(name='process'):
-            self.process[pipe.attrs.get('name')] = pipe.attrs
+            self.pipeline[pipe.attrs.get('name')] = pipe.attrs
 
             for connect in all_connectionslist:
                 if pipe.attrs['name'] == connect['from']:
-                    self.process[pipe.attrs.get('name')]['parents'] = connect
+                    self.pipeline[pipe.attrs.get('name')]['parents'] = connect
                 if pipe.attrs['name'] == connect['to']:
-                    self.process[pipe.attrs.get('name')]['children'] = connect
+                    self.pipeline[pipe.attrs.get('name')]['children'] = connect
 
-    def get_process_info(self, process_name):
-        return self.process.get(process_name)
+    def get_pipeline_info(self, pipeline_name):
+        return self.pipeline.get(pipeline_name)
 
 # SObject class
 class SObject(object):
@@ -760,6 +798,9 @@ class SObject(object):
         for process in process_set:
             self.tasks[process] = Process(tasks_list, process, True)
 
+    def is_snapshots_need_update(self):
+        return self.info.get('__have_updates__')
+
     def get_tasks_sobjects(self, process=None):
         search_type = 'sthpw/task'
         if process:
@@ -859,52 +900,97 @@ class SObject(object):
         # returning dict with all processes if it's have snapshots
         return self.process
 
-    def get_related_sobjects(self, child_stype=None, parent_stype=None, get_all_snapshots=False):
-        if not parent_stype:
-            parent_stype = self.get_stype()
+    def get_schema(self):
 
-        child = child_stype.schema.get_child(child_stype.get_code(), parent_stype.get_code())
+        return self.get_stype().get_schema()
 
-        relationship = child.get('relationship')
+    def get_related_sobjects_tel_string(self, child_stype=None, parent_stype=None, relation_type='child'):
 
-        child_col = child.get('from_col')
         instance_type = None
         related_type = None
 
-        if relationship and not child_col:
+        if relation_type == 'parent':
+            schema = child_stype.get_schema()
+            relations = schema.get_parent(parent_stype.get_code(), child_stype.get_code())
+
+            related_type = parent_stype.get_code()
+        else:
+            schema = parent_stype.get_schema()
+            relations = schema.get_child(child_stype.get_code(), parent_stype.get_code())
+
+            related_type = child_stype.get_code()
+
+
+        relationship = relations.get('relationship')
+
+        if relationship:
             if relationship == 'search_type':
                 child_col = 'search_code'
             elif relationship == 'code':
-                child_col = '{0}_code'.format(child.get('to').split('/')[-1])
+                if relations.get('from_col'):
+                    related_from_column = relations.get('from_col')
+                else:
+                    related_from_column = '{0}_code'.format(relations.get('to').split('/')[-1])
+
+                if relations.get('from_col'):
+                    related_to_column = relations.get('to_col')
+                else:
+                    related_to_column = '{0}_code'.format(relations.get('from').split('/')[-1])
+
+                related_from_code = self.info.get(related_from_column)
+                related_to_code = self.info.get(related_to_column)
+
+                # if there is no found code even with explicit columns
+                if not related_from_code:
+                    related_from_code = self.info.get('code')
+
+                if not related_to_code:
+                    related_to_code = self.info.get('code')
+
             elif relationship == 'instance':
-                child_col = 'code'
-                instance_type = child.get('instance_type')
-                related_type = child.get('to')
+                if relations.get('from_col'):
+                    related_from_column = relations.get('from_col')
+                else:
+                    related_from_column = '{0}_code'.format(relations.get('from').split('/')[-1])
 
-        child_code = self.info.get('code')
+                if relations.get('from_col'):
+                    related_to_column = relations.get('to_col')
+                else:
+                    related_to_column = '{0}_code'.format(relations.get('to').split('/')[-1])
 
-        # may be it is workaround, but i can't see any faster way
-        # if parent-child switched in schema we search another direction
-        # TODO It is workaround and should be rewritten
-        if self.info.get('relative_dir') == child.get('to'):
-            if child.get('to_col'):
-                child_code = self.info.get(child.get('to_col'))
+                instance_type = relations.get('instance_type')
+                related_code = self.info.get('code')
 
-        filters = [(child_col, child_code)]
+        if relationship == 'instance':
+            if relation_type == 'parent':
+                return u"@SOBJECT({0}['{1}', '{2}'].{3})".format(instance_type, related_from_column, related_code, related_type)
+            else:
+                return u"@SOBJECT({0}['{1}', '{2}'].{3})".format(instance_type, related_to_column, related_code, related_type)
+        else:
+            if relation_type == 'parent':
+                return u"@SOBJECT({0}['{1}', '{2}'])".format(related_type, related_to_column, related_from_code)
+            else:
+                return u"@SOBJECT({0}['{1}', '{2}'])".format(related_type, related_from_column, related_to_code)
+
+    def get_related_sobjects(self, child_stype=None, parent_stype=None, get_all_snapshots=False):
+
+        if not child_stype:
+            child_stype = self.get_stype()
+        elif not parent_stype:
+            parent_stype = self.get_stype()
 
         order_bys = ['name']
         built_process = server_start(
             project=self.project.get_code()).build_search_type(
-            child.get('from'),
+            child_stype.get_code(),
             self.project.get_code()
         )
+        filters = [('_expression', 'in', self.get_related_sobjects_tel_string(child_stype, parent_stype))]
 
         return get_sobjects_new(
             search_type=built_process,
             filters=filters,
             order_bys=order_bys,
-            instance_type=instance_type,
-            related_type=related_type,
             get_all_snapshots=get_all_snapshots,
         )
 
@@ -1522,7 +1608,7 @@ def execute_procedure_serverside(func, kwargs, project=None, return_dict=True):
     if kwargs.get('code'):
         code = kwargs
     else:
-        code = tq.prepare_serverside_script(func, kwargs, shrink=True, catch_traceback=False)
+        code = tq.prepare_serverside_script(func, kwargs, shrink=False, catch_traceback=False)
     result = server_start(project=project).execute_python_script('', kwargs=code)
 
     if isinstance(result['info'], dict):
@@ -1541,7 +1627,7 @@ def execute_procedure_serverside(func, kwargs, project=None, return_dict=True):
                 final_result = ret_val
             else:
                 # Simple check if this is json dumpable
-                if ret_val.startswith(('{', '"')):
+                if ret_val.startswith(('{', '"', '[')):
                     final_result = json.loads(ret_val)
                 else:
                     final_result = ret_val
@@ -1648,7 +1734,7 @@ def get_subscriptions_and_messages(current_login='admin', update_logins=False):
     return execute_procedure_serverside(tq.get_subscriptions_and_messages, kwargs)
 
 
-def get_sobjects_new(search_type, filters=[], order_bys=[], project_code=None, instance_type=None, related_type=None, limit=None, offset=None, process_list=[], get_all_snapshots=False):
+def get_sobjects_new(search_type, filters=[], order_bys=[], project_code=None, limit=None, offset=None, process_list=[], get_all_snapshots=False, check_snapshots_updates=False):
     """
     Filters snapshot by search codes, and sobjects codes
     :param project_code: assign project class to particular sObject
@@ -1661,9 +1747,8 @@ def get_sobjects_new(search_type, filters=[], order_bys=[], project_code=None, i
         'project_code': project_code,
         'limit': limit,
         'offset': offset,
-        'instance_type': instance_type,
-        'related_type': related_type,
         'get_all_snapshots': get_all_snapshots,
+        'check_snapshots_updates': check_snapshots_updates,
     }
 
     if not project_code:
@@ -1671,6 +1756,11 @@ def get_sobjects_new(search_type, filters=[], order_bys=[], project_code=None, i
             project_code = 'sthpw'
         else:
             project_code = split_search_key(search_type)['project_code']
+
+        kwargs['project_code'] = project_code
+    else:
+        if search_type.find('?') == -1:
+            kwargs['search_type'] = server_start(project=project_code).build_search_type(search_type, project_code)
 
     sobjects_list = execute_procedure_serverside(tq.query_sobjects, kwargs, project=project_code)
 
@@ -1719,6 +1809,7 @@ def server_query(filters, stype, columns=None, project=None, limit=0, offset=0, 
 
 
 def get_notes_count(sobject, process, children_stypes):
+
     kwargs = {
         'process': process,
         'search_key': sobject.get_search_key(),
@@ -1731,23 +1822,23 @@ def get_notes_count(sobject, process, children_stypes):
     return result
 
 
-def users_query():
-    """
-    Query for Users
-    :param asset_code: Code of asset related to task
-    :param user: Optional users names
-    :return:
-    """
-    server = server_start()
-    search_type = 'sthpw/login'
-    filters = []
-    logins = server.query(search_type, filters)
-
-    result = collections.OrderedDict()
-    for login in logins:
-        result[login['login']] = login
-
-    return result
+# def users_query():
+#     """
+#     Query for Users
+#     :param asset_code: Code of asset related to task
+#     :param user: Optional users names
+#     :return:
+#     """
+#     server = server_start()
+#     search_type = 'sthpw/login'
+#     filters = []
+#     logins = server.query(search_type, filters)
+#
+#     result = collections.OrderedDict()
+#     for login in logins:
+#         result[login['login']] = login
+#
+#     return result
 
 
 def get_custom_scripts(store_locally=True, project=None, scripts_codes_list=None):
@@ -1893,7 +1984,7 @@ def insert_instance_sobjects(search_key, project_code, parent_key=None, instance
         'instance_type': instance_type,
     }
 
-    return execute_procedure_serverside(tq.insert_instance_sobject, kwargs, project=project_code)
+    return execute_procedure_serverside(tq.insert_instance_sobjects, kwargs, project=project_code)
 
 
 def edit_multiple_instance_sobjects(project_code, insert_search_keys=[], exclude_search_keys=[], parent_key=None, instance_type=None):
@@ -2105,6 +2196,8 @@ def get_dirs_with_naming(search_key, process_list=None):
 def get_virtual_snapshot(search_key, context, files_dict, snapshot_type='file', is_revision=False, keep_file_name=False,
                          explicit_filename=None, version=None, checkin_type='file', ignore_keep_file_name=False):
 
+    virtual_snapshot = {'versionless': {'paths': [], 'names': []}, 'versioned': {'paths': [], 'names': []}}
+
     kwargs = {
         'search_key': search_key,
         'context': context,
@@ -2118,18 +2211,9 @@ def get_virtual_snapshot(search_key, context, files_dict, snapshot_type='file', 
         'ignore_keep_file_name': ignore_keep_file_name,
     }
 
-    code = tq.prepare_serverside_script(tq.get_virtual_snapshot_extended, kwargs, return_dict=True)
     project_code = split_search_key(search_key)
-    server = server_start(project=project_code['project_code'])
-    result = server.execute_python_script('', kwargs=code)
 
-    virtual_snapshot = {'versionless': {'paths': [], 'names': []}, 'versioned': {'paths': [], 'names': []}}
-
-    if result['info']['spt_ret_val']:
-        if result['info']['spt_ret_val'].startswith('Traceback'):
-            dl.exception(result['info']['spt_ret_val'], group_id='{0}/{1}'.format('exceptions', get_virtual_snapshot.func_name))
-        else:
-            virtual_snapshot = json.loads(result['info']['spt_ret_val'])
+    virtual_snapshot = execute_procedure_serverside(tq.get_virtual_snapshot_extended, kwargs, project=project_code['project_code'], return_dict=True)
 
     return virtual_snapshot
 
@@ -2343,105 +2427,105 @@ def add_note(search_key, process, context, note, note_html, login):
     return transaction
 
 
-def task_process_query(seach_key):
-    # TODO Query task process per process
-    # from pprint import pprint
-    server = server_start()
-    processes = {}
-    default_processes = ['Assignment', 'Pending', 'In Progress', 'Waiting', 'Need Assistance', 'Revise', 'Reject',
-                         'Complete', 'Approved']
-    default_colors = ['#ecbf7f', '#8ad3e5', '#e9e386', '#a96ccf', '#a96ccf', '#e84a4d', '#e84a4d', '#a3d991', '#a3d991']
+# def task_process_query(seach_key):
+#     # TODO Query task process per process
+#     # from pprint import pprint
+#     server = server_start()
+#     processes = {}
+#     default_processes = ['Assignment', 'Pending', 'In Progress', 'Waiting', 'Need Assistance', 'Revise', 'Reject',
+#                          'Complete', 'Approved']
+#     default_colors = ['#ecbf7f', '#8ad3e5', '#e9e386', '#a96ccf', '#a96ccf', '#e84a4d', '#e84a4d', '#a3d991', '#a3d991']
+#
+#     processes['process'] = default_processes
+#     processes['color'] = default_colors
+#
+#     # process_expr = "@SOBJECT(sthpw/pipeline['search_type', 'sthpw/task'].config/process)"
+#     # process_expr = "@SOBJECT(sthpw/pipeline['code', 'the_pirate/Concept'].config/process)"
+#     # process_expr = "@SOBJECT(sthpw/pipeline['code', 'cgshort/props'].config/process)"
+#     # process_expr = "@SOBJECT(sthpw/subscription['login','{0}'])".format('admin')
+#     # process_expr = "@SOBJECT(sthpw/message_log['message_code','cgshort/characters?project=the_pirate&code=CHARACTERS00001'])"
+#     # process_list = server_start().eval(process_expr)
+#     # print(dir(thread_server_start()))
+#     # thr = ServerThread()
+#     # print(ServerThread().isRunning())
+#
+#     # def rt():
+#     #
+#     #     filters = [('search_code', ['PROPS00001', 'PROPS00002', 'PROPS00003', 'PROPS00004','PROPS00005','PROPS00006','PROPS00007','PROPS00008','PROPS00009','PROPS00010','PROPS00011','PROPS00012','PROPS00013','PROPS00014','PROPS00015','PROPS00016','PROPS00017','PROPS00018','PROPS00019','PROPS00021']), ('project_code', 'the_pirate')]
+#     #     return thr.server.query_snapshots(filters=filters, include_files=True)
+#     # return thr.server.get_all_children('cgshort/props?project=the_pirate&code=PROPS00001', 'sthpw/snapshot')
+#     # return asd
+#     # thr.routine = rt
+#     # print(thr.isRunning())
+#     # thr.start()
+#     # print(thr.isRunning())
+#     #
+#     # def print_result():
+#     #     print(thr.result)
+#     #
+#     # thr.finished.connect(print_result)
+#     # pprint(asd)
+#
+#
+#     code = [('message_code', 'cgshort/characters?project=the_pirate&code=CHARACTERS00001')]
+#     search_type = 'sthpw/message_log'
+#
+#     message = server.query(search_type, code)
+#
+#     # from pprint import pprint
+#     print('from task_process_query!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!')
+#     # pprint(message)
+#     # print(message[0])
+#     # import json
+#     # data = json.loads(message[0]['message'])
+#     # pprint(data)
+#     # if (len(process_list) == 0):
+#     #     process_list = default_processes
+#
+#
+#     # print('from task_process_query!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!')
+#     # pprint(process_list)
+#
+#     return processes
 
-    processes['process'] = default_processes
-    processes['color'] = default_colors
 
-    # process_expr = "@SOBJECT(sthpw/pipeline['search_type', 'sthpw/task'].config/process)"
-    # process_expr = "@SOBJECT(sthpw/pipeline['code', 'the_pirate/Concept'].config/process)"
-    # process_expr = "@SOBJECT(sthpw/pipeline['code', 'cgshort/props'].config/process)"
-    # process_expr = "@SOBJECT(sthpw/subscription['login','{0}'])".format('admin')
-    # process_expr = "@SOBJECT(sthpw/message_log['message_code','cgshort/characters?project=the_pirate&code=CHARACTERS00001'])"
-    # process_list = server_start().eval(process_expr)
-    # print(dir(thread_server_start()))
-    # thr = ServerThread()
-    # print(ServerThread().isRunning())
-
-    # def rt():
-    #
-    #     filters = [('search_code', ['PROPS00001', 'PROPS00002', 'PROPS00003', 'PROPS00004','PROPS00005','PROPS00006','PROPS00007','PROPS00008','PROPS00009','PROPS00010','PROPS00011','PROPS00012','PROPS00013','PROPS00014','PROPS00015','PROPS00016','PROPS00017','PROPS00018','PROPS00019','PROPS00021']), ('project_code', 'the_pirate')]
-    #     return thr.server.query_snapshots(filters=filters, include_files=True)
-    # return thr.server.get_all_children('cgshort/props?project=the_pirate&code=PROPS00001', 'sthpw/snapshot')
-    # return asd
-    # thr.routine = rt
-    # print(thr.isRunning())
-    # thr.start()
-    # print(thr.isRunning())
-    #
-    # def print_result():
-    #     print(thr.result)
-    #
-    # thr.finished.connect(print_result)
-    # pprint(asd)
-
-
-    code = [('message_code', 'cgshort/characters?project=the_pirate&code=CHARACTERS00001')]
-    search_type = 'sthpw/message_log'
-
-    message = server.query(search_type, code)
-
-    # from pprint import pprint
-    print('from task_process_query!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!')
-    # pprint(message)
-    # print(message[0])
-    # import json
-    # data = json.loads(message[0]['message'])
-    # pprint(data)
-    # if (len(process_list) == 0):
-    #     process_list = default_processes
-
-
-    # print('from task_process_query!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!')
-    # pprint(process_list)
-
-    return processes
-
-
-def task_priority_query(seach_key):
-    """
-    Takes info from html widget, to get priority values
-    :return: tuple lavel - value
-    """
-    # TODO Use this method, and make it templates
-    # defin = server_start().get_config_definition('sthpw/task', 'edit_definition', 'priority')
-    # print('from task_priority_query')
-    # print(defin)
-
-    class_name = 'tactic.ui.manager.EditElementDefinitionWdg'
-
-    args = {
-        'config_xml': '',
-        'element_name': 'priority',
-        'path': '/Edit/priority',
-        'search_type': 'sthpw/task',
-        'view': 'edit_definition',
-    }
-
-    widget_html = server_start().get_widget(class_name, args, [])
-
-    import re
-
-    values_expr = '<values>(.*?)</values>'
-    values_pattern = re.compile(values_expr)
-    values_result = re.findall(values_pattern, widget_html)
-    values = values_result[0].split('|')
-
-    labels_expr = '<labels>(.*?)</labels>'
-    labels_pattern = re.compile(labels_expr)
-    labels_result = re.findall(labels_pattern, widget_html)
-    labels = labels_result[0].split('|')
-
-    result = zip(labels, values)
-
-    return result
+# def task_priority_query(seach_key):
+#     """
+#     Takes info from html widget, to get priority values
+#     :return: tuple lavel - value
+#     """
+#     # TODO Use this method, and make it templates
+#     # defin = server_start().get_config_definition('sthpw/task', 'edit_definition', 'priority')
+#     # print('from task_priority_query')
+#     # print(defin)
+#
+#     class_name = 'tactic.ui.manager.EditElementDefinitionWdg'
+#
+#     args = {
+#         'config_xml': '',
+#         'element_name': 'priority',
+#         'path': '/Edit/priority',
+#         'search_type': 'sthpw/task',
+#         'view': 'edit_definition',
+#     }
+#
+#     widget_html = server_start().get_widget(class_name, args, [])
+#
+#     import re
+#
+#     values_expr = '<values>(.*?)</values>'
+#     values_pattern = re.compile(values_expr)
+#     values_result = re.findall(values_pattern, widget_html)
+#     values = values_result[0].split('|')
+#
+#     labels_expr = '<labels>(.*?)</labels>'
+#     labels_pattern = re.compile(labels_expr)
+#     labels_result = re.findall(labels_pattern, widget_html)
+#     labels = labels_result[0].split('|')
+#
+#     result = zip(labels, values)
+#
+#     return result
 
 
 def generate_web_and_icon(source_image_path, web_save_path=None, icon_save_path=None):
@@ -2568,6 +2652,7 @@ def checkin_file(search_key, context, snapshot_type='file', is_revision=False, d
                 val['s'].extend(['', ''])
                 val['e'].extend(['jpg', 'png'])
                 val['p'].extend(['', ''])
+
     args_dict = {
         'search_key': search_key,
         'context': context,
@@ -2631,7 +2716,7 @@ def checkin_file(search_key, context, snapshot_type='file', is_revision=False, d
 
 
 # Skey functions
-def parce_skey(skey, get_skey_and_context=False):
+def parce_skey(skey, get_skey_and_context=False, return_sobject=True):
 
     if get_skey_and_context:
         skey_list = skey[7:].split('&context=')
@@ -2658,7 +2743,17 @@ def parce_skey(skey, get_skey_and_context=False):
             skey_dict['type'] = 'sobject'
             if not skey_dict.get('context'):
                 skey_dict['context'] = '_no_context_'
-        return skey_dict
+
+        if return_sobject:
+            filters = [('code', '=', skey_dict.get('code'))]
+            search_type = server_start().build_search_type(u'{namespace}/{pipeline_code}'.format(**skey_dict), project_code=skey_dict.get('project'))
+
+            sobjects = get_sobjects_new(search_type, filters)[0]
+            if sobjects:
+                sobject = sobjects.values()[0]
+            return skey_dict, sobject
+        else:
+            return skey_dict
     else:
         return None
 

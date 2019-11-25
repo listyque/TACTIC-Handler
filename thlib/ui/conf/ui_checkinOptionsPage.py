@@ -403,7 +403,7 @@ class Ui_checkinOptionsPageWidget(object):
         self.rightVersionsRadioButton.setText(u"Right")
         self.doubleClickSaveCheckBox.setText(u"DoubleClick for Save")
         self.doubleClickOpenCheckBox.setText(u"Shift + DoubleClick for Open")
-        self.showAllProcessCheckBox.setText(u"Show Builtin Processes (publish, icon, attachement)")
+        self.showAllProcessCheckBox.setText(u"Show Builtin Processes (publish, icon, attachment)")
         self.getPreviewsThroughHttpCheckbox.setText(u"Get Previews Though HTTP")
         self.snapshotsSavingOptionsGroupBox.setTitle(u"Snapshots Saving Options:")
         self.updateVersionlessCheckBox.setText(u"Update versionless snapshot")

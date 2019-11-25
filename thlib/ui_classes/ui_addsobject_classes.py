@@ -34,8 +34,9 @@ class Ui_linkSobjectsWidget(QtGui.QDialog):
         self.resize(750, 800)
         self.setMinimumSize(600, 500)
 
-        self.setWindowModality(QtCore.Qt.WindowModal)
+        self.setWindowModality(QtCore.Qt.ApplicationModal)
         self.setSizeGripEnabled(True)
+        self.setWindowFlags(QtCore.Qt.Dialog)
         self.setFocusPolicy(QtCore.Qt.StrongFocus)
 
         self.create_all_layouts()
@@ -48,9 +49,6 @@ class Ui_linkSobjectsWidget(QtGui.QDialog):
 
         self.create_buttons()
 
-        # self.create_loading_label()
-        # self.toggle_loading_label()
-
         self.set_title()
 
         self.controls_actions()
@@ -61,6 +59,12 @@ class Ui_linkSobjectsWidget(QtGui.QDialog):
 
         self.parent_tree_widget.itemSelectionChanged.connect(self.set_arrow_right)
         self.parent_search_line_edit.returnPressed.connect(self.do_parent_search)
+        self.parent_search_line_edit.item_selected.connect(self.do_parent_search)
+        self.parent_search_line_edit.item_clicked.connect(self.do_parent_search)
+
+        self.instances_search_line_edit.returnPressed.connect(self.do_instance_search)
+        self.instances_search_line_edit.item_selected.connect(self.do_instance_search)
+        self.instances_search_line_edit.item_clicked.connect(self.do_instance_search)
 
         self.instances_tree_widget.itemSelectionChanged.connect(self.set_arrow_left)
 
@@ -68,6 +72,9 @@ class Ui_linkSobjectsWidget(QtGui.QDialog):
 
         self.cancel_button.clicked.connect(self.close)
         self.save_button.clicked.connect(self.save_instances_state)
+
+    def keyPressEvent(self, event):
+        event.ignore()
 
     def save_instances_state(self):
         tc.edit_multiple_instance_sobjects(
@@ -93,6 +100,10 @@ class Ui_linkSobjectsWidget(QtGui.QDialog):
         self.current_mode = 'remove'
 
     def add_remove_tool_button_clicked(self):
+        for sobject in self.instances_search_results_widget.sobjects:
+            self.current_set.add(sobject)
+
+        # TODO DUPLICATES CHECK
 
         if self.current_mode == 'remove':
             selected_instaces = self.instances_tree_widget.selectedItems()
@@ -132,6 +143,8 @@ class Ui_linkSobjectsWidget(QtGui.QDialog):
             for item in selected_parents:
 
                 item_widget = self.parent_tree_widget.itemWidget(item, 0)
+                sobject = item_widget.sobject
+                search_key = sobject.get_search_key()
 
                 item_info = {
                     'relates_to': 'checkin_out',
@@ -147,9 +160,6 @@ class Ui_linkSobjectsWidget(QtGui.QDialog):
                     item_info,
                     ignore_dict=None,
                 )
-
-                sobject = item_widget.sobject
-                search_key = sobject.get_search_key()
 
                 if search_key in self.exclude_set:
                     self.exclude_set.remove(search_key)
@@ -238,6 +248,7 @@ class Ui_linkSobjectsWidget(QtGui.QDialog):
         self.parent_search_line_edit.setObjectName("parent_search_line_edit")
         self.parent_search_line_edit.setToolTip('Enter Your search query here')
         self.parent_vertical_layout.addWidget(self.parent_search_line_edit)
+        self.parent_search_line_edit.set_autofill_selected_items(True)
 
     def create_instances_search_line(self):
         from thlib.ui_classes.ui_custom_qwidgets import SuggestedLineEdit
@@ -246,10 +257,15 @@ class Ui_linkSobjectsWidget(QtGui.QDialog):
         self.instances_search_line_edit.setObjectName("instances_search_line_edit")
         self.instances_search_line_edit.setToolTip('Enter Your search query here')
         self.instances_vertical_layout.addWidget(self.instances_search_line_edit)
+        self.instances_search_line_edit.set_autofill_selected_items(True)
+
+        # parent_sobject = self.item.get_sobject()
+        # related_expr = parent_sobject.get_related_sobjects_tel_string(self.stype)
+        # self.instances_search_line_edit.set_default_filter(('_expression', 'in', related_expr))
 
     def create_parent_widget(self):
 
-        from thlib.ui_classes.ui_search_classes import Ui_simpleResultsFormWidget, DEFAULT_FILTER
+        from thlib.ui_classes.ui_search_classes import Ui_resultsTabWidget, DEFAULT_FILTER
 
         info = {
             'title': '',
@@ -257,9 +273,10 @@ class Ui_linkSobjectsWidget(QtGui.QDialog):
             'state': None,
             'offset': 0,
             'limit': 20,
+            'simple_view': True
         }
 
-        self.search_results_widget = Ui_simpleResultsFormWidget(
+        self.search_results_widget = Ui_resultsTabWidget(
             project=self.stype.project,
             stype=self.stype,
             info=info,
@@ -271,53 +288,59 @@ class Ui_linkSobjectsWidget(QtGui.QDialog):
         self.parent_vertical_layout.addWidget(self.search_results_widget)
 
     def do_parent_search(self):
-
         query_text = self.parent_search_line_edit.text()
         if query_text:
             self.search_results_widget.set_filters([('name', 'EQI', query_text)])
             self.search_results_widget.search_query(query_text)
+        else:
+            self.search_results_widget.set_filters([])
+            self.search_results_widget.search_query('')
 
-    @env_inst.async_engine
-    def create_instances_widget(self):
-
-        self.instances_tree_widget = QtGui.QTreeWidget()
-        self.instances_tree_widget.setTabKeyNavigation(True)
-        self.instances_tree_widget.setVerticalScrollMode(QtGui.QAbstractItemView.ScrollPerPixel)
-        self.instances_tree_widget.setRootIsDecorated(False)
-        self.instances_tree_widget.setAllColumnsShowFocus(True)
-        self.instances_tree_widget.setWordWrap(True)
-        self.instances_tree_widget.setHeaderHidden(True)
-        self.instances_tree_widget.setSelectionMode(QtGui.QAbstractItemView.ExtendedSelection)
-        self.instances_tree_widget.setObjectName("instances_tree_widget")
-        self.instances_tree_widget.setStyleSheet(gf.get_qtreeview_style())
+    def do_instance_search(self):
+        query_text = self.instances_search_line_edit.text()
 
         parent_sobject = self.item.get_sobject()
 
-        # sobjects, info = parent_sobject.get_related_sobjects(self.stype)
-        sobjects, data = yield env_inst.async_task(parent_sobject.get_related_sobjects, self.stype)
+        related_expr = parent_sobject.get_related_sobjects_tel_string(child_stype=self.stype, parent_stype=parent_sobject.get_stype())
 
-        self.instances_tree_widget.clear()
+        if query_text:
+            self.instances_search_results_widget.set_filters([
+                ('name', 'EQI', query_text),
+                ('_expression', 'in', related_expr)
+            ])
+            self.instances_search_results_widget.search_query(query_text)
+        else:
+            self.instances_search_results_widget.set_filters([('_expression', 'in', related_expr)])
+            self.instances_search_results_widget.search_query('')
 
-        for i, sobject in enumerate(sobjects.itervalues()):
+    @env_inst.async_engine
+    def create_instances_widget(self):
+        from thlib.ui_classes.ui_search_classes import Ui_resultsTabWidget
 
-            item_info = {
-                'relates_to': 'checkin_out',
-                'sep_versions': True,
-                'children_states': None,
-                'simple_view': True,
-            }
-            gf.add_sobject_item(
-                self.instances_tree_widget,
-                self,
-                sobject,
-                self.stype,
-                item_info,
-                ignore_dict=None,
-            )
+        parent_sobject = self.item.get_sobject()
+        related_expr = parent_sobject.get_related_sobjects_tel_string(child_stype=self.stype, parent_stype=parent_sobject.get_stype())
 
-            self.current_set.add(sobject.get_search_key())
+        filters = [('_expression', 'in', related_expr)]
 
-        self.instances_vertical_layout.addWidget(self.instances_tree_widget)
+        info = {
+            'title': '',
+            'filters': filters,
+            'state': None,
+            'offset': 0,
+            'limit': 20,
+            'simple_view': True
+        }
+
+        self.instances_search_results_widget = Ui_resultsTabWidget(
+            project=self.stype.project,
+            stype=self.stype,
+            info=info,
+            parent=self
+        )
+
+        self.instances_tree_widget = self.instances_search_results_widget.get_results_tree_widget()
+
+        self.instances_vertical_layout.addWidget(self.instances_search_results_widget)
 
     def set_title(self):
         stype_tytle = self.stype.info.get('title')
@@ -361,7 +384,8 @@ class Ui_addTacticSobjectWidget(QtGui.QDialog):
         if self.item:
             if not search_key:
                 self.search_key = self.item.get_search_key()
-            self.parent_search_key = self.item.get_parent_search_key()
+            if not parent_search_key:
+                self.parent_search_key = self.item.get_parent_search_key()
 
         self.grid_layout = QtGui.QGridLayout(self)
 

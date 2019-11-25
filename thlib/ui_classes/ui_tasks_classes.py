@@ -205,6 +205,7 @@ class Ui_simpleTaskWidget(QtGui.QFrame):
 
         edit_task = QtGui.QAction('Edit Task', self.tasks_options_button)
         edit_task.setIcon(gf.get_icon('square-edit-outline', icons_set='mdi', scale_factor=1))
+        edit_task.triggered.connect(self.edit_task)
 
         delete_task = QtGui.QAction('Delete Task', self.tasks_options_button)
         delete_task.setIcon(gf.get_icon('delete-forever', icons_set='mdi', scale_factor=1))
@@ -295,7 +296,7 @@ class Ui_simpleTaskWidget(QtGui.QFrame):
         parent_sobject_pipeline_code = self.parent_sobject.get_pipeline_code()
 
         current_pipeline = stype.get_pipeline().get(parent_sobject_pipeline_code)
-        process_info = current_pipeline.get_process_info(self.process)
+        process_info = current_pipeline.get_pipeline_info(self.process)
 
         return process_info
 
@@ -315,7 +316,6 @@ class Ui_simpleTaskWidget(QtGui.QFrame):
         stype = self.parent_sobject.get_stype()
         parent_sobject_pipeline_code = self.parent_sobject.get_pipeline_code()
         workflow = stype.get_workflow()
-        tasks_pipelines = workflow.get_by_stype_code('sthpw/task')
 
         current_pipeline = stype.get_pipeline().get(parent_sobject_pipeline_code)
         process_info = self.get_process_info()
@@ -327,20 +327,23 @@ class Ui_simpleTaskWidget(QtGui.QFrame):
 
             process_color = process_info.get('color')
             if not process_color:
-                process = current_pipeline.get_process(self.process)
+                process = current_pipeline.get_pipeline_process(self.process)
                 if process:
                     process_color = process.get('color')
             if process_color:
                 self.process_color_line.setStyleSheet('QFrame { border: 0px; background-color: %s;}' % process_color)
 
             task_pipeline_code = process_info.get('task_pipeline')
+
+            # Getting tasks pipeline, if it is not created, we use default builtin pipelines
             if task_pipeline_code:
-                task_pipeline = tasks_pipelines.get(task_pipeline_code)
+                task_pipeline = workflow.get_by_pipeline_code('sthpw/task', task_pipeline_code)
+            else:
+                process_type = process_info.get('type')
+                task_pipeline = workflow.get_by_process_node_type('sthpw/task', process_type)
 
-                # for task_status in task_pipeline.get_all_processes_names():
-                #     self.statuses_combo_box.addItem(task_status)
-
-                for process, value in task_pipeline.process.items():
+            if task_pipeline:
+                for process, value in task_pipeline.pipeline.items():
                     self.statuses_combo_box.add_item(process, hex_color=value.get('color'))
 
     def customize_statuses_combo(self, task_sobject):
@@ -359,7 +362,7 @@ class Ui_simpleTaskWidget(QtGui.QFrame):
         parent_sobject_pipeline_code = self.parent_sobject.get_pipeline_code()
 
         current_pipeline = stype.get_pipeline().get(parent_sobject_pipeline_code)
-        process_info = current_pipeline.get_process_info(self.process)
+        process_info = current_pipeline.get_pipeline_info(self.process)
 
         if process_info:
             assigned_login_group_code = process_info.get('assigned_login_group')
@@ -444,6 +447,31 @@ class Ui_simpleTaskWidget(QtGui.QFrame):
             # search_key=search_key,
             parent_search_key=search_key,
             # view='edit',
+            parent=self,
+        )
+
+        add_sobject.show()
+
+        return add_sobject
+
+    def edit_task(self):
+        print 'Editing task'
+        from thlib.ui_classes.ui_addsobject_classes import Ui_addTacticSobjectWidget
+
+        tasks_stype = env_inst.get_stype_by_code('sthpw/task')
+        parent_stype = self.parent_sobject.get_stype()
+        search_key = self.current_task_sobject.get_search_key()
+        parent_search_key = self.parent_sobject.get_search_key()
+
+
+        print search_key
+
+        add_sobject = Ui_addTacticSobjectWidget(
+            stype=tasks_stype,
+            parent_stype=parent_stype,
+            search_key=search_key,
+            parent_search_key=parent_search_key,
+            view='edit',
             parent=self,
         )
 
@@ -661,7 +689,7 @@ class Ui_tasksDockWidget(QtGui.QWidget):
         if pipeline_code and stype.pipeline:
             current_pipeline = stype.pipeline.get(pipeline_code)
             if current_pipeline:
-                processes = current_pipeline.process.keys()
+                processes = current_pipeline.pipeline.keys()
 
         # if self.ignore_dict:
         #     if self.ignore_dict.get('show_builtins'):
@@ -674,7 +702,7 @@ class Ui_tasksDockWidget(QtGui.QWidget):
         #             processes.extend(['icon', 'attachment', 'publish'])
 
         for process in processes:
-            process_info = current_pipeline.get_process_info(process)
+            process_info = current_pipeline.get_pipeline_info(process)
 
             ignored = False
 
@@ -688,7 +716,7 @@ class Ui_tasksDockWidget(QtGui.QWidget):
                 if process_info:
                     process_color = process_info.get('color')
                     if not process_color:
-                        process_object = current_pipeline.get_process(process)
+                        process_object = current_pipeline.get_pipeline_process(process)
                         if process_object:
                             process_color = process_object.get('color')
 

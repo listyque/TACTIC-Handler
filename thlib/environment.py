@@ -64,6 +64,8 @@ def env_write_config(obj=None, filename='settings', unique_id='', sub_id=None, u
     :param long_abs_path: if set to true path for saving will match current environment paths
     """
 
+    filename = filename.replace('/', '_').replace('\\', '_')
+
     if long_abs_path:
         abs_path = u'{0}/settings/{1}/{2}/{3}'.format(
                     env_mode.get_current_path(),
@@ -112,6 +114,9 @@ def env_write_config(obj=None, filename='settings', unique_id='', sub_id=None, u
 
 
 def env_read_config(filename='settings', unique_id='', sub_id=None, long_abs_path=False):
+
+    filename = filename.replace('/', '_').replace('\\', '_')
+
     if long_abs_path:
         abs_path = u'{0}/settings/{1}/{2}/{3}'.format(
                     env_mode.get_current_path(),

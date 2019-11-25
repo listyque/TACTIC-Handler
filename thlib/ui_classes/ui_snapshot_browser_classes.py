@@ -421,28 +421,17 @@ class Ui_snapshotBrowserWidget(QtGui.QWidget, ui_snapshot_browser.Ui_snapshotBro
         self.create_scene()
 
     def download_web_preview(self, file_object):
-        # print 'GETTING THROUGH DOWNLOAD'
         env_inst.ui_main.set_info_status_text(
             '<span style=" font-size:8pt; color:#00ff00;">Downloading Previews</span>')
 
-        # stype = self.item_widget.stype
         repo_sync_widget = env_inst.ui_repo_sync_queue.schedule_file_object(file_object)
         repo_sync_widget.downloaded.connect(self.download_ready)
         repo_sync_widget.download()
 
     def download_ready(self, web_file_obj=None):
-        # print web_file_obj
+        # print 'DOWNLOAD READY'
         env_inst.ui_main.set_info_status_text('')
-    #     if web_file_obj.is_meta_file_obj():
-    #         meta_file_object = web_file_obj.get_meta_file_object()
-    #         pixmap = Qt4Gui.QPixmap(meta_file_object.get_all_files_list(first=True))
-    #     else:
-    #         pixmap = Qt4Gui.QPixmap(web_file_obj.get_full_abs_path())
-    #     if not pixmap.isNull():
-    #         self.pix_list.append(pixmap.scaledToWidth(640, QtCore.Qt.SmoothTransformation))
-    #
-    #     print web_file_obj
-    #     # self.do_preview()
+        # self.set_item_widget(self.item_widget)
 
     def create_on_scene_layout(self):
         self.previewGraphicsView_layout = QtGui.QGridLayout(self.previewGraphicsView)
@@ -499,8 +488,6 @@ class Ui_snapshotBrowserWidget(QtGui.QWidget, ui_snapshot_browser.Ui_snapshotBro
 
     def create_scene(self):
         self.scene.clear()
-
-        # self.scene.setBackgroundBrush(QtCore.Qt.black)
 
         self.pm1 = Pixmap()
         self.pm2 = Pixmap()

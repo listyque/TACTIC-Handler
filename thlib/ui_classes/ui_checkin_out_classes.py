@@ -15,6 +15,7 @@ import ui_search_classes
 import ui_notes_classes
 
 import thlib.ui.checkin_out.ui_checkin_out_options_dialog as ui_checkin_out_options_dialog
+from thlib.ui_classes.ui_repo_sync_queue_classes import Ui_repoSyncDialog
 from thlib.ui_classes.ui_custom_qwidgets import MenuWithLayout, Ui_namingEditorWidget
 from thlib.ui_classes.ui_drop_plate_classes import Ui_dropPlateWidget
 from thlib.ui_classes.ui_snapshot_browser_classes import Ui_snapshotBrowserWidget
@@ -622,6 +623,10 @@ class Ui_checkInOutWidget(QtGui.QMainWindow):
                 save_selected_snapshot_additional = menu.addAction(save_selected_snapshot, True)
                 save_selected_snapshot_additional.clicked.connect(self.export_selected_file_options)
 
+                menu.addSeparator()
+                save_snapshot_additional = menu.addAction(save_snapshot, True)
+                save_snapshot_additional.clicked.connect(self.save_file_options)
+
             elif env_mode.get_mode() == 'standalone':
                 save_snapshot_additional = menu.addAction(save_snapshot, True)
                 save_snapshot_additional.clicked.connect(self.save_file_options)
@@ -700,6 +705,10 @@ class Ui_checkInOutWidget(QtGui.QMainWindow):
                     save_selected_snapshot_additional.clicked.connect(self.export_selected_file_options)
 
                     menu.addSeparator()
+                    save_snapshot_additional = menu.addAction(save_snapshot, True)
+                    save_snapshot_additional.clicked.connect(self.save_file_options)
+
+                    menu.addSeparator()
 
                     import_snapshot_additional = menu.addAction(import_snapshot, True)
                     import_snapshot_additional.clicked.connect(self.import_file_options)
@@ -710,7 +719,6 @@ class Ui_checkInOutWidget(QtGui.QMainWindow):
                     save_snapshot_additional = menu.addAction(save_snapshot, True)
                     save_snapshot_additional.clicked.connect(self.save_file_options)
 
-            if current_tree_widget_item.get_snapshot():
                 menu.addSeparator()
 
                 save_snapshot_revision_additional = menu.addAction(save_snapshot_revision, True)
@@ -738,7 +746,21 @@ class Ui_checkInOutWidget(QtGui.QMainWindow):
                     menu.addAction(delete_snapshot_tree)
                 if current_tree_widget_item.is_checked():
                     menu.addAction(delete_selected)
+            else:
+                if env_mode.get_mode() == 'maya':
+                    save_scene_additional = menu.addAction(save_scene, True)
+                    save_scene_additional.clicked.connect(self.save_file_options)
 
+                    save_selected_snapshot_additional = menu.addAction(save_selected_snapshot, True)
+                    save_selected_snapshot_additional.clicked.connect(self.export_selected_file_options)
+
+                elif env_mode.get_mode() == 'standalone':
+                    save_snapshot_additional = menu.addAction(save_snapshot, True)
+                    save_snapshot_additional.clicked.connect(self.save_file_options)
+
+                menu.addSeparator()
+                menu.addAction(open_folder_vls)
+                menu.addAction(open_folder_v)
         if mode == 'process':
             if env_mode.get_mode() == 'maya':
                 save_scene_additional = menu.addAction(save_scene, True)
@@ -868,7 +890,11 @@ class Ui_checkInOutWidget(QtGui.QMainWindow):
 
         self.add_new_sobject_action = QtGui.QAction('Add new {0}'.format(self.stype.get_pretty_name()), self)
         self.add_new_sobject_action.triggered.connect(self.add_new_sobject)
-        self.add_new_sobject_action.setIcon(gf.get_icon('plus-square'))
+        self.add_new_sobject_action.setIcon(gf.get_icon('plus', icons_set='mdi', scale_factor=1.2))
+
+        self.sync_sobjects_action = QtGui.QAction('Sync {0}'.format(self.stype.get_pretty_name()), self)
+        self.sync_sobjects_action.triggered.connect(self.create_sync_dialog)
+        self.sync_sobjects_action.setIcon(gf.get_icon('cloud-sync', icons_set='mdi'))
 
         self.filter_process_action = QtGui.QAction('Filter Processes', self)
         self.filter_process_action.triggered.connect(self.create_process_tree_widget)
@@ -923,7 +949,7 @@ class Ui_checkInOutWidget(QtGui.QMainWindow):
         self.watch_folder_toggle_action.setIcon(gf.get_icon('eye'))
 
         self.search_widget.add_action_to_gear_menu(self.add_new_sobject_action)
-        # self.search_widget.add_action_to_gear_menu(self.filter_process_action)
+        self.search_widget.add_action_to_gear_menu(self.sync_sobjects_action)
         if env_mode.get_mode() == 'maya':
             self.search_widget.add_action_to_gear_menu(self.find_opened_sobject_action)
         self.search_widget.add_action_to_gear_menu(self.search_options_toggle_action)
@@ -1034,6 +1060,11 @@ class Ui_checkInOutWidget(QtGui.QMainWindow):
                 all_process = current_tree_widget_item.sobject.all_process
 
         return file_path, dir_path, all_process
+
+    @gf.catch_error
+    def create_sync_dialog(self):
+        sync_dialog = Ui_repoSyncDialog(parent=env_inst.ui_main, stype=self.stype, sobject=None)
+        sync_dialog.exec_()
 
     @gf.catch_error
     def create_watch_folder(self):
@@ -1398,7 +1429,7 @@ class Ui_checkInOutWidget(QtGui.QMainWindow):
     def checkin_from_maya(self, search_key, context, description, save_revision=False, snapshot_version=None,
                           selected_objects=None):
 
-        ext_type = mf.get_current_scene_foramt()
+        ext_type = mf.get_current_scene_format()
 
         types = {
             'mayaBinary': 'mb',
@@ -1447,7 +1478,7 @@ class Ui_checkInOutWidget(QtGui.QMainWindow):
 
         match_template = gf.MatchTemplate(['$FILENAME.$EXT'])
 
-        files_objects_dict = match_template.get_files_objects(['/path/maya.{0}'.format(types[ext_type])])
+        files_objects_dict = match_template.get_files_objects(['path/maya.{0}'.format(types[ext_type])])
 
         current_results_widget = self.get_current_results_widget()
         current_tree_widget_item = None
@@ -1550,6 +1581,10 @@ class Ui_checkInOutWidget(QtGui.QMainWindow):
 
     @gf.catch_error
     def save_file(self, selected_objects=None, save_revision=False, maya_checkin=False):
+
+        commit_queue = env_inst.get_commit_queue(self.project.get_code())
+        commit_queue.show()
+
         current_results_widget = self.get_current_results_widget()
         current_tree_widget_item = current_results_widget.get_current_tree_widget_item()
 
