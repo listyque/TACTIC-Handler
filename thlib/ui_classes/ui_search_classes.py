@@ -178,7 +178,7 @@ class Ui_processFilterDialog(QtGui.QDialog):
                 ignore_dict['children'].append(child.data(1, 0))
 
         # get processes ignore list
-        for name, processes in self.all_items_dict['processes'].iteritems():
+        for name, processes in self.all_items_dict['processes'].items():
             ignored_process = []
             for process in processes:
                 if process.checkState(0) == QtCore.Qt.Unchecked:
@@ -204,7 +204,7 @@ class Ui_processFilterDialog(QtGui.QDialog):
                     child.setCheckState(0, QtCore.Qt.Unchecked)
 
             # get processes ignore list
-            for name, processes in self.all_items_dict['processes'].iteritems():
+            for name, processes in self.all_items_dict['processes'].items():
                 for process in processes:
                     ignore_list = ignore_dict['processes'].get(name)
                     if not ignore_list:
@@ -333,7 +333,7 @@ class Ui_processFilterDialog(QtGui.QDialog):
                         top_item.addChild(item)
                         top_item.setExpanded(True)
                         child_items = []
-                        for key, val in pipeline.process.iteritems():
+                        for key, val in pipeline.process.items():
                             child_item = QtGui.QTreeWidgetItem()
                             child_item.setText(0, key.capitalize())
                             child_item.setCheckState(0, QtCore.Qt.Checked)
@@ -360,7 +360,7 @@ class Ui_processFilterDialog(QtGui.QDialog):
                 self.tree_widget.addTopLevelItem(top_item)
 
                 child_items = []
-                for key, val in pipeline.process.iteritems():
+                for key, val in pipeline.process.items():
                     child_item = QtGui.QTreeWidgetItem()
                     child_item.setText(0, key.capitalize())
                     child_item.setCheckState(0, QtCore.Qt.Checked)

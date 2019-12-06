@@ -293,7 +293,7 @@ def create_workspace(dir_path, all_process):
         'furAttrMap': '',
     }
 
-    for const, val in consts_list.iteritems():
+    for const, val in consts_list.items():
         if (const == 'scene') or (const == 'mayaAscii') or (const == 'mayaBinary'):
             for process in all_process:
                 val += 'work/{0};'.format(process)

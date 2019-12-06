@@ -326,7 +326,7 @@ class Ui_repoSyncDialog(QtGui.QDialog):
                 top_item.setData(1, 0, '{0}:{1}'.format(stype_pipeline.info.get('code'), '{pp}'))
                 parent_tree_item_add(top_item)
 
-                for key, val in stype_pipeline.pipeline.iteritems():
+                for key, val in stype_pipeline.pipeline.items():
                     child_item = QtGui.QTreeWidgetItem()
                     child_item.setText(0, key.capitalize())
                     child_item.setCheckState(0, QtCore.Qt.Checked)

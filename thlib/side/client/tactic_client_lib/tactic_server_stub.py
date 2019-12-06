@@ -901,11 +901,11 @@ class TacticServerStub(object):
         #server_version = my.get_server_version()
 
         # Switch to using api versions
-        client_api_version = my.get_client_api_version()
-        server_api_version = my.get_server_api_version()
-        if client_api_version != server_api_version:
-            raise TacticApiException("Server version [%s] does not match client api version [%s]"
-                                     % (server_api_version, client_api_version))
+        # client_api_version = my.get_client_api_version()
+        # server_api_version = my.get_server_api_version()
+        # if client_api_version != server_api_version:
+        #     raise TacticApiException("Server version [%s] does not match client api version [%s]"
+        #                              % (server_api_version, client_api_version))
 
         my.set_server(my.server_name)
         # clear the handoff dir

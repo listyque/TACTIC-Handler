@@ -965,14 +965,14 @@ class Ui_tasksWidget(QtGui.QWidget, ui_tasks.Ui_tasks):
 
             # Second level, contexts of tasks
             if self.sobject.tasks.get(process):
-                for context, task in self.sobject.tasks[process].contexts.iteritems():
+                for context, task in self.sobject.tasks[process].contexts.items():
                     self.child_item = QtGui.QTreeWidgetItem()
                     self.child_item.setText(0, context)
                     self.top_item.addChild(self.child_item)
                     self.top_item.setExpanded(True)
 
                     # Third level, Tasks items
-                    for sub, item in self.sobject.tasks[process].contexts[context].items.iteritems():
+                    for sub, item in self.sobject.tasks[process].contexts[context].items.items():
                         self.sub_item = QtGui.QTreeWidgetItem()
                         self.sub_item.setData(0, QtCore.Qt.UserRole, item)
                         # self.sub_item.setText(0, sub)

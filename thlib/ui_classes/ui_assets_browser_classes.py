@@ -220,7 +220,7 @@ class Ui_assetsBrowserWidget(QtGui.QWidget, ui_assets_browser.Ui_assetsBrowser):
             spl[split[0]].append(split[1])
 
         parents = collections.defaultdict(list)
-        for key, values in spl.iteritems():
+        for key, values in spl.items():
             parents[key.split('?')[0]] = \
                 tc.get_sobjects(sobjects_list=stub.query(key, [('code', values)]), get_snapshots=False)
 
@@ -274,7 +274,7 @@ class Ui_assetsBrowserWidget(QtGui.QWidget, ui_assets_browser.Ui_assetsBrowser):
 
     def create_assets_tree(self):
         self.asstes_tree = tc.query_assets_names()
-        for name, value in self.asstes_tree.iteritems():
+        for name, value in self.asstes_tree.items():
             self.top_item = QtGui.QTreeWidgetItem()
             if not name:
                 name = 'Untyped'

@@ -247,7 +247,7 @@ class commitWidget(QtGui.QWidget):
             }
             snapshot_checkin_worker.emit_progress(5, info_dict)
 
-            snapshot = tc.checkin_snapshot_upload(
+            snapshot = tc.checkin_snapshot(
                 search_key=self.args_dict['search_key'],
                 context=self.args_dict['context'],
                 snapshot_type=self.args_dict['snapshot_type'],

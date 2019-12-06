@@ -17,7 +17,7 @@ class Ui_projectWatchFoldersWidget(QtGui.QDialog, Ui_ProjectWatchFolder):
         self.watch_folders_dict = self.get_watch_folders_dict()
         self.watched_items = set()
 
-        # env_inst.watch_folders[self.project.get_code()] = self
+        env_inst.watch_folders[self.project.get_code()] = self
 
         self.setupUi(self)
 

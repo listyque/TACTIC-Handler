@@ -255,7 +255,7 @@ class Ui_ingestDialog(QtGui.QDialog):
                 top_item.setData(1, 0, '{0}:{1}'.format(pipeline.info.get('code'), '{pp}'))
                 parent_tree_item_add(top_item)
 
-                for key, val in pipeline.process.iteritems():
+                for key, val in pipeline.process.items():
                     child_item = QtGui.QTreeWidgetItem()
                     child_item.setText(0, key.capitalize())
                     child_item.setCheckState(0, QtCore.Qt.Checked)

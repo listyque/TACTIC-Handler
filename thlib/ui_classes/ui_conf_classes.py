@@ -495,12 +495,12 @@ class Ui_projectPageWidget(QtGui.QWidget, ui_projectPage.Ui_projectPageWidget):
 
             all_projects_dicts = []
 
-            for project_name, project in projects.iteritems():
+            for project_name, project in projects.items():
                 all_projects_dicts.append(project.info)
 
             projects_by_categories = gf.group_dict_by(all_projects_dicts, 'category')
 
-            for key, value in projects_by_categories.iteritems():
+            for key, value in projects_by_categories.items():
                 top_item = QtGui.QTreeWidgetItem()
                 if key:
                     title = key.replace('_', ' ').capitalize()
@@ -921,7 +921,7 @@ class Ui_checkinOutPageWidget(QtGui.QWidget, ui_checkinOutPage.Ui_checkinOutPage
         ]
 
     def apply_current_controls_to_all(self):
-        for key, val in self.page_init_projects.iteritems():
+        for key, val in self.page_init_projects.items():
             if key != '!tabs_list!':
                 self.page_init_projects[key]['tabs_list'] = self.collect_controls_tree_values()
 
@@ -1032,7 +1032,7 @@ class Ui_checkinOutPageWidget(QtGui.QWidget, ui_checkinOutPage.Ui_checkinOutPage
 
         grouped = gf.group_dict_by(all_stypes, 'type')
 
-        for name, value in grouped.iteritems():
+        for name, value in grouped.items():
             self.top_item = QtGui.QTreeWidgetItem()
             self.top_item.setCheckState(0, QtCore.Qt.Checked)
             if not name:
@@ -1122,12 +1122,12 @@ class Ui_checkinOutPageWidget(QtGui.QWidget, ui_checkinOutPage.Ui_checkinOutPage
 
             all_projects_dicts = []
 
-            for project_name, project in projects.iteritems():
+            for project_name, project in projects.items():
                 all_projects_dicts.append(project.info)
 
             projects_by_categories = gf.group_dict_by(all_projects_dicts, 'category')
 
-            for key, value in projects_by_categories.iteritems():
+            for key, value in projects_by_categories.items():
                 top_item = QtGui.QTreeWidgetItem()
                 if key:
                     title = key.replace('_', ' ').capitalize()

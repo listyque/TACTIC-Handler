@@ -415,7 +415,7 @@ class SType(object):
 
         ready_pipeline = collections.OrderedDict()
         if pipelines:
-            for key, pipeline in pipelines.iteritems():
+            for key, pipeline in pipelines.items():
                 ready_pipeline[key] = Pipeline(pipeline)
 
         if ready_pipeline:
@@ -574,8 +574,8 @@ class Workflow(object):
 
     def get_child_pipeline_by_process_code(self, parent_pipeline, process):
         parent_process = None
-        if parent_pipeline.processes:
-            for proc in parent_pipeline.processes:
+        if parent_pipeline.get_all_pipeline_process():
+            for proc in parent_pipeline.get_all_pipeline_process():
                 if proc['process'] == process:
                     parent_process = proc
         if parent_process:
@@ -584,8 +584,9 @@ class Workflow(object):
 
     def get_pipeline_by_parent(self, parent_process):
         for pipe in self.__pipeline_list:
-            if pipe['parent_process'] == parent_process['code']:
-                return Pipeline(pipe)
+            if pipe.get('parent_process'):
+                if pipe['parent_process'] == parent_process['code']:
+                    return Pipeline(pipe)
 
 
 class Pipeline(object):
@@ -924,9 +925,10 @@ class SObject(object):
         relationship = relations.get('relationship')
 
         if relationship:
-            if relationship == 'search_type':
-                child_col = 'search_code'
-            elif relationship == 'code':
+            # if relationship == 'search_type':
+            #     child_col = 'search_code'
+
+            if relationship in ['code', 'search_type']:
                 if relations.get('from_col'):
                     related_from_column = relations.get('from_col')
                 else:
@@ -1603,13 +1605,15 @@ class File(object):
 # End of SObject Class
 
 
-def execute_procedure_serverside(func, kwargs, project=None, return_dict=True):
+def execute_procedure_serverside(func, kwargs, project=None, return_dict=True, server=None):
     # This is for TACTIC 4.7 compatibility
     if kwargs.get('code'):
         code = kwargs
     else:
         code = tq.prepare_serverside_script(func, kwargs, shrink=False, catch_traceback=False)
-    result = server_start(project=project).execute_python_script('', kwargs=code)
+    if not server:
+        server = server_start(project=project)
+    result = server.execute_python_script('', kwargs=code)
 
     if isinstance(result['info'], dict):
         if result['info'].get('spt_ret_val'):
@@ -1822,25 +1826,6 @@ def get_notes_count(sobject, process, children_stypes):
     return result
 
 
-# def users_query():
-#     """
-#     Query for Users
-#     :param asset_code: Code of asset related to task
-#     :param user: Optional users names
-#     :return:
-#     """
-#     server = server_start()
-#     search_type = 'sthpw/login'
-#     filters = []
-#     logins = server.query(search_type, filters)
-#
-#     result = collections.OrderedDict()
-#     for login in logins:
-#         result[login['login']] = login
-#
-#     return result
-
-
 def get_custom_scripts(store_locally=True, project=None, scripts_codes_list=None):
     if not project:
         project = env_inst.get_current_project()
@@ -1942,8 +1927,7 @@ def execute_custom_script(script_path, kwargs=None, project=None, local_executio
             project_obj.get_stypes()
 
             if refresh_scripts:
-                # TODO Make it work without GUI calls. This should be able to run withrout script editor
-                env_inst.ui_script_editor.refresh_scripts_tree(False)
+                get_custom_scripts(project=project)
 
             module_path = u'{0}/custom_scripts/{1}/{2}.py'.format(env_mode.get_current_path(), project, script_path)
         else:
@@ -2014,10 +1998,6 @@ def delete_sobject_snapshot(sobject, delete_snapshot=True, search_keys=None, fil
     except Exception as err:
         print(err, 'delete_sobject_snapshot')
         return False
-
-
-def delete_sobject_item(skey, delete_files=False):
-    server_start().delete_sobject(skey, delete_files)
 
 
 def sobject_delete_confirm(sobject):
@@ -2134,55 +2114,6 @@ def snapshot_delete_confirm(snapshot, files):
         return False, None
 
 
-def save_confirm(item_widget, paths, repo, context, update_versionless=True, description=''):
-
-    message = '<p>You are about to save {0} file(s).</p><p>Continue?</p>'.format(len(paths))
-
-    msb = QtGui.QMessageBox(
-        QtGui.QMessageBox.Question,
-        'Confirm saving',
-        message,
-        QtGui.QMessageBox.NoButton,
-        env_inst.ui_main
-        )
-
-    layout = QtGui.QVBoxLayout()
-
-    widget = QtGui.QWidget()
-    widget.setLayout(layout)
-
-    msb_layot = msb.layout()
-
-    # workaround for pyside2
-    wdg_list = []
-
-    for i in range(msb_layot.count()):
-        wdg = msb_layot.itemAt(i).widget()
-        if wdg:
-            wdg_list.append(wdg)
-
-    msb_layot.addWidget(wdg_list[0], 0, 0)
-    msb_layot.addWidget(wdg_list[1], 0, 1)
-    msb_layot.addWidget(wdg_list[2], 2, 1)
-    msb_layot.addWidget(widget, 1, 1)
-
-    from thlib.ui_classes.ui_dialogs_classes import commitWidget
-
-    save_confirm_widget = commitWidget(item_widget, paths, repo, context, update_versionless, description)
-
-    layout.addWidget(save_confirm_widget)
-
-    msb.addButton("Yes", QtGui.QMessageBox.YesRole)
-    msb.addButton("No", QtGui.QMessageBox.NoRole)
-    msb.exec_()
-    reply = msb.buttonRole(msb.clickedButton())
-
-    if reply == QtGui.QMessageBox.YesRole:
-        return save_confirm_widget.get_data_dict()
-    else:
-        return None
-
-
 def get_dirs_with_naming(search_key, process_list=None):
     kwargs = {
         'search_key': search_key,
@@ -2203,7 +2134,7 @@ def get_virtual_snapshot(search_key, context, files_dict, snapshot_type='file', 
         'context': context,
         'snapshot_type': snapshot_type,
         'is_revision': is_revision,
-        'files_dict': files_dict,
+        'files_dict': json.dumps(files_dict),
         'keep_file_name': keep_file_name,
         'explicit_filename': explicit_filename,
         'version': version,
@@ -2216,94 +2147,6 @@ def get_virtual_snapshot(search_key, context, files_dict, snapshot_type='file', 
     virtual_snapshot = execute_procedure_serverside(tq.get_virtual_snapshot_extended, kwargs, project=project_code['project_code'], return_dict=True)
 
     return virtual_snapshot
-
-
-def checkin_snapshot_upload(search_key, context, snapshot_type=None, is_revision=False, description=None, version=None,
-                     update_versionless=True, only_versionless=False, keep_file_name=False, repo_name=None, virtual_snapshot=None,
-                     files_dict=None, mode=None, create_icon=False, files_objects=None):
-
-    files_info = {
-        'version_files': [],
-        'version_files_paths': [],
-        'versionless_files': [],
-        'versionless_files_paths': [],
-        'files_types': [],
-        'file_sizes': [],
-        'version_metadata': [],
-        'versionless_metadata': []
-    }
-
-    repo = repo_name['value'][0]
-
-    for (k1, v1), (k2, v2), file_object in zip(virtual_snapshot, files_dict, files_objects):
-        for path_v, name_v, path_vs, name_vs, tp in zip(v1['versioned']['paths'],
-                                                        v1['versioned']['names'],
-                                                        v1['versionless']['paths'],
-                                                        v1['versionless']['names'],
-                                                        v2['t']):
-            file_path_v = u'{0}/{1}'.format(repo, path_v)
-            file_full_path_v = u'{0}/{1}'.format(file_path_v, ''.join(name_v))
-            files_info['version_files'].append(file_full_path_v)
-            files_info['version_files_paths'].append(path_v)
-            file_path_vs = u'{0}/{1}'.format(repo, path_vs)
-            file_full_path_vs = u'{0}/{1}'.format(file_path_vs, ''.join(name_vs))
-            files_info['versionless_files'].append(file_full_path_vs)
-            files_info['versionless_files_paths'].append(path_vs)
-            files_info['files_types'].append(tp)
-
-            if only_versionless:
-                new_files_list = file_object.get_all_new_files_list(name_vs, file_path_vs)
-
-            else:
-                new_files_list = file_object.get_all_new_files_list(name_v, file_path_v)
-
-            files_info['file_sizes'].append(file_object.get_sizes_list(together=False, files_list=new_files_list))
-            files_info['version_metadata'].append(file_object.get_metadata())
-            file_object.get_all_new_files_list(name_vs, file_path_vs)
-            files_info['versionless_metadata'].append(file_object.get_metadata())
-
-    kwargs = {
-        'search_key': search_key,
-        'context': context,
-        'snapshot_type': snapshot_type,
-        'is_revision': is_revision,
-        'description': description,
-        'version': version,
-        'update_versionless': update_versionless,
-        'only_versionless': only_versionless,
-        'keep_file_name': keep_file_name,
-        'files_info': files_info,
-        'repo_name': repo_name['value'][3],
-        'mode': mode,
-        'create_icon': create_icon,
-    }
-
-    code = tq.prepare_serverside_script(tq.create_snapshot_extended, kwargs, return_dict=True, catch_traceback=False)
-    project_code = split_search_key(search_key)
-
-    server = server_start(project=env_inst.get_current_project())
-    server.start('Upload Checkin')
-
-    for version_file in files_info['version_files']:
-        server.upload_file(version_file)
-
-    result = server.execute_python_script('', kwargs=code)
-
-    server.finish('Upload Done')
-
-    if result['info']['spt_ret_val']:
-        if result['info']['spt_ret_val'].startswith('Traceback'):
-            dl.exception(result['info']['spt_ret_val'],
-                         group_id='{0}/{1}'.format('exceptions', get_virtual_snapshot.func_name))
-            exception = Exception()
-            exception.message = 'Tactic Exception when checkin snapshot'
-            stacktrace_dict = {
-                'exception': exception,
-                'stacktrace': result['info']['spt_ret_val']
-            }
-            gf.error_handle((stacktrace_dict, None))
-        else:
-            return result
 
 
 def checkin_snapshot(search_key, context, snapshot_type=None, is_revision=False, description=None, version=None,
@@ -2331,12 +2174,12 @@ def checkin_snapshot(search_key, context, snapshot_type=None, is_revision=False,
                                                         v2['t']):
             file_path_v = u'{0}/{1}'.format(repo, path_v)
             file_full_path_v = u'{0}/{1}'.format(file_path_v, ''.join(name_v))
-            files_info['version_files'].append(file_full_path_v)
-            files_info['version_files_paths'].append(path_v)
+            files_info['version_files'].append(gf.form_path(file_full_path_v, 'linux'))
+            files_info['version_files_paths'].append(gf.form_path(path_v, 'linux'))
             file_path_vs = u'{0}/{1}'.format(repo, path_vs)
             file_full_path_vs = u'{0}/{1}'.format(file_path_vs, ''.join(name_vs))
-            files_info['versionless_files'].append(file_full_path_vs)
-            files_info['versionless_files_paths'].append(path_vs)
+            files_info['versionless_files'].append(gf.form_path(file_full_path_vs, 'linux'))
+            files_info['versionless_files_paths'].append(gf.form_path(path_vs, 'linux'))
             files_info['files_types'].append(tp)
 
             if only_versionless:
@@ -2350,9 +2193,12 @@ def checkin_snapshot(search_key, context, snapshot_type=None, is_revision=False,
             file_object.get_all_new_files_list(name_vs, file_path_vs)
             files_info['versionless_metadata'].append(file_object.get_metadata())
 
+    project_code = split_search_key(search_key)
+
     kwargs = {
         'search_key': search_key,
         'context': context,
+        'project_code': project_code['project_code'],
         'snapshot_type': snapshot_type,
         'is_revision': is_revision,
         'description': description,
@@ -2360,48 +2206,37 @@ def checkin_snapshot(search_key, context, snapshot_type=None, is_revision=False,
         'update_versionless': update_versionless,
         'only_versionless': only_versionless,
         'keep_file_name': keep_file_name,
-        'files_info': files_info,
+        'files_info': json.dumps(files_info),
         'repo_name': repo_name['value'][3],
         'mode': mode,
         'create_icon': create_icon,
     }
 
-    code = tq.prepare_serverside_script(tq.create_snapshot_extended, kwargs, return_dict=True, catch_traceback=False)
-    project_code = split_search_key(search_key)
-    result = server_start(project=project_code['project_code']).execute_python_script('', kwargs=code)
+    server = server_start(project=project_code['project_code'])
+    server.start(u'Upload Checkin from Tactic Handler by: {}'.format(env_inst.get_current_login()))
 
-    if result['info']['spt_ret_val']:
-        if result['info']['spt_ret_val'].startswith('Traceback'):
-            dl.exception(result['info']['spt_ret_val'],
-                         group_id='{0}/{1}'.format('exceptions', get_virtual_snapshot.func_name))
-            exception = Exception()
-            exception.message = 'Tactic Exception when checkin snapshot'
-            stacktrace_dict = {
-                'exception': exception,
-                'stacktrace': result['info']['spt_ret_val']
-            }
-            gf.error_handle((stacktrace_dict, None))
+    for version_file in files_info['version_files']:
+        server.upload_file(version_file)
+
+    result = execute_procedure_serverside(tq.create_snapshot_extended, kwargs, project=project_code['project_code'], return_dict=True, server=server)
+
+    server.finish('Upload Done')
+
+    if result:
+        if isinstance(result, (str, unicode)):
+            if result.startswith('Traceback'):
+                dl.exception(result, group_id='{0}/{1}'.format('exceptions', get_virtual_snapshot.func_name))
+                exception = Exception()
+                exception.message = 'Tactic Exception when checkin snapshot'
+                stacktrace_dict = {
+                    'exception': exception,
+                    'stacktrace': result
+                }
+                gf.error_handle((stacktrace_dict, None))
+            else:
+                return result
         else:
             return result
-
-
-# def add_repo_info(search_key, context, snapshot, repo):
-#     server = server_start()
-#     # adding repository info
-#     splitted_skey = server.split_search_key(search_key)
-#     filters_snapshots = [
-#         ('context', context),
-#         ('search_code', splitted_skey[1]),
-#         ('search_type', splitted_skey[0]),
-#         ('version', -1),
-#     ]
-#     parent = server.query_snapshots(filters=filters_snapshots, include_files=False)[0]
-#
-#     data = {
-#         snapshot.get('__search_key__'): {'repo': repo['name']},
-#         parent.get('__search_key__'): {'repo': repo['name']},
-#     }
-#     server.update_multiple(data, False)
 
 
 def update_description(search_key, description):
@@ -2425,107 +2260,6 @@ def add_note(search_key, process, context, note, note_html, login):
     transaction = server_start(project=project_code['project_code']).insert(search_type, data, parent_key=search_key, triggers=False)
 
     return transaction
-
-
-# def task_process_query(seach_key):
-#     # TODO Query task process per process
-#     # from pprint import pprint
-#     server = server_start()
-#     processes = {}
-#     default_processes = ['Assignment', 'Pending', 'In Progress', 'Waiting', 'Need Assistance', 'Revise', 'Reject',
-#                          'Complete', 'Approved']
-#     default_colors = ['#ecbf7f', '#8ad3e5', '#e9e386', '#a96ccf', '#a96ccf', '#e84a4d', '#e84a4d', '#a3d991', '#a3d991']
-#
-#     processes['process'] = default_processes
-#     processes['color'] = default_colors
-#
-#     # process_expr = "@SOBJECT(sthpw/pipeline['search_type', 'sthpw/task'].config/process)"
-#     # process_expr = "@SOBJECT(sthpw/pipeline['code', 'the_pirate/Concept'].config/process)"
-#     # process_expr = "@SOBJECT(sthpw/pipeline['code', 'cgshort/props'].config/process)"
-#     # process_expr = "@SOBJECT(sthpw/subscription['login','{0}'])".format('admin')
-#     # process_expr = "@SOBJECT(sthpw/message_log['message_code','cgshort/characters?project=the_pirate&code=CHARACTERS00001'])"
-#     # process_list = server_start().eval(process_expr)
-#     # print(dir(thread_server_start()))
-#     # thr = ServerThread()
-#     # print(ServerThread().isRunning())
-#
-#     # def rt():
-#     #
-#     #     filters = [('search_code', ['PROPS00001', 'PROPS00002', 'PROPS00003', 'PROPS00004','PROPS00005','PROPS00006','PROPS00007','PROPS00008','PROPS00009','PROPS00010','PROPS00011','PROPS00012','PROPS00013','PROPS00014','PROPS00015','PROPS00016','PROPS00017','PROPS00018','PROPS00019','PROPS00021']), ('project_code', 'the_pirate')]
-#     #     return thr.server.query_snapshots(filters=filters, include_files=True)
-#     # return thr.server.get_all_children('cgshort/props?project=the_pirate&code=PROPS00001', 'sthpw/snapshot')
-#     # return asd
-#     # thr.routine = rt
-#     # print(thr.isRunning())
-#     # thr.start()
-#     # print(thr.isRunning())
-#     #
-#     # def print_result():
-#     #     print(thr.result)
-#     #
-#     # thr.finished.connect(print_result)
-#     # pprint(asd)
-#
-#
-#     code = [('message_code', 'cgshort/characters?project=the_pirate&code=CHARACTERS00001')]
-#     search_type = 'sthpw/message_log'
-#
-#     message = server.query(search_type, code)
-#
-#     # from pprint import pprint
-#     print('from task_process_query!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!')
-#     # pprint(message)
-#     # print(message[0])
-#     # import json
-#     # data = json.loads(message[0]['message'])
-#     # pprint(data)
-#     # if (len(process_list) == 0):
-#     #     process_list = default_processes
-#
-#
-#     # print('from task_process_query!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!')
-#     # pprint(process_list)
-#
-#     return processes
-
-
-# def task_priority_query(seach_key):
-#     """
-#     Takes info from html widget, to get priority values
-#     :return: tuple lavel - value
-#     """
-#     # TODO Use this method, and make it templates
-#     # defin = server_start().get_config_definition('sthpw/task', 'edit_definition', 'priority')
-#     # print('from task_priority_query')
-#     # print(defin)
-#
-#     class_name = 'tactic.ui.manager.EditElementDefinitionWdg'
-#
-#     args = {
-#         'config_xml': '',
-#         'element_name': 'priority',
-#         'path': '/Edit/priority',
-#         'search_type': 'sthpw/task',
-#         'view': 'edit_definition',
-#     }
-#
-#     widget_html = server_start().get_widget(class_name, args, [])
-#
-#     import re
-#
-#     values_expr = '<values>(.*?)</values>'
-#     values_pattern = re.compile(values_expr)
-#     values_result = re.findall(values_pattern, widget_html)
-#     values = values_result[0].split('|')
-#
-#     labels_expr = '<labels>(.*?)</labels>'
-#     labels_pattern = re.compile(labels_expr)
-#     labels_result = re.findall(labels_pattern, widget_html)
-#     labels = labels_result[0].split('|')
-#
-#     result = zip(labels, values)
-#
-#     return result
 
 
 def generate_web_and_icon(source_image_path, web_save_path=None, icon_save_path=None):

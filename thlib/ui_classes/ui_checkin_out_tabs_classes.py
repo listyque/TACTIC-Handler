@@ -255,7 +255,7 @@ class Ui_checkInOutTabWidget(QtGui.QWidget):
 
         grouped = gf.group_dict_by(all_stypes, 'type')
 
-        for type_name, value in grouped.iteritems():
+        for type_name, value in grouped.items():
             top_item = QtGui.QTreeWidgetItem()
 
             if not type_name:

@@ -426,13 +426,13 @@ class Ui_Main(QtGui.QMainWindow, ui_main.Ui_MainWindow):
 
         all_projects_dicts = []
 
-        for project_name, project in env_inst.projects.iteritems():
+        for project_name, project in env_inst.projects.items():
             if project.get_code() != 'sthpw':
                 all_projects_dicts.append(project.info)
 
         projects_by_categories = gf.group_dict_by(all_projects_dicts, 'category')
 
-        for cat_name, projects in projects_by_categories.iteritems():
+        for cat_name, projects in projects_by_categories.items():
             if cat_name:
                 cat_name = gf.prettify_text(cat_name, True)
             else:

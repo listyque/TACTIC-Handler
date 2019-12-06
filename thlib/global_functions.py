@@ -855,8 +855,8 @@ def clear_property_dict(in_dict):
 def campare_dicts(dict_one, dict_two):
     result = True
 
-    for key, val in dict_one.iteritems():
-        for key1, val1 in dict_two.iteritems():
+    for key, val in dict_one.items():
+        for key1, val1 in dict_two.items():
             if key == key1:
                 for i, j in enumerate(val['value']):
                     if j != val1['value'][i]:

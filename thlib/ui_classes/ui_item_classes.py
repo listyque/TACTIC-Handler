@@ -841,23 +841,24 @@ class Ui_itemWidget(QtGui.QWidget):
 
     def check_watch_folder(self, remove_watch=False):
         watch_folder_ui = env_inst.watch_folders.get(self.project.get_code())
-        watch_dict = watch_folder_ui.get_watch_dict_by_skey(self.get_search_key())
+        if watch_folder_ui:
+            watch_dict = watch_folder_ui.get_watch_dict_by_skey(self.get_search_key())
 
-        if watch_dict and not self.have_watch_folder:
-            self.have_watch_folder = True
-            if watch_dict['status']:
-                self.set_watch_folder_enabled()
-            else:
-                self.set_watch_folder_disabled()
-            watch_folder_ui.add_item_to_watch(self)
-            self.set_watch_folder_path(watch_dict['path'])
-        elif not self.have_watch_folder:
-            self.watchFolderToolButton.setIcon(gf.get_icon('eye-slash', color=Qt4Gui.QColor(160, 160, 160)))
+            if watch_dict and not self.have_watch_folder:
+                self.have_watch_folder = True
+                if watch_dict['status']:
+                    self.set_watch_folder_enabled()
+                else:
+                    self.set_watch_folder_disabled()
+                watch_folder_ui.add_item_to_watch(self)
+                self.set_watch_folder_path(watch_dict['path'])
+            elif not self.have_watch_folder:
+                self.watchFolderToolButton.setIcon(gf.get_icon('eye-slash', color=Qt4Gui.QColor(160, 160, 160)))
 
-        if remove_watch:
-            self.have_watch_folder = False
-            self.watchFolderToolButton.setChecked(False)
-            self.watchFolderToolButton.setIcon(gf.get_icon('eye-slash', color=Qt4Gui.QColor(160, 160, 160)))
+            if remove_watch:
+                self.have_watch_folder = False
+                self.watchFolderToolButton.setChecked(False)
+                self.watchFolderToolButton.setIcon(gf.get_icon('eye-slash', color=Qt4Gui.QColor(160, 160, 160)))
 
     def save_watch_status(self):
         if self.have_watch_folder:
@@ -1414,7 +1415,7 @@ class Ui_itemWidget(QtGui.QWidget):
         env_inst.ui_main.set_info_status_text('<span style=" font-size:8pt; color:#00ff00;">Filling snapshots</span>')
 
         # adding snapshots to publish
-        for key, val in self.sobject.process.iteritems():
+        for key, val in self.sobject.process.items():
             if key == 'publish':
                 self.snapshots_items.append(gf.add_snapshot_item(
                         self.tree_item,
@@ -1436,7 +1437,7 @@ class Ui_itemWidget(QtGui.QWidget):
                 proc.info['is_expanded'] = True
                 proc.fill_snapshots_items()
 
-            for key, val in self.sobject.process.iteritems():
+            for key, val in self.sobject.process.items():
                 # because it is dict, items could be in any position
                 if key == proc.process:
                     proc.snapshots_items.append(proc.add_snapshots_items(val))
@@ -1507,7 +1508,7 @@ class Ui_itemWidget(QtGui.QWidget):
                         process
                     )
                     if child_pipeline:
-                        sub_processes_list.extend(child_pipeline.get_all_processes_names())
+                        sub_processes_list.extend(child_pipeline.get_all_pipeline_names())
 
             if include_hierarchy:
                 processes_list.extend(sub_processes_list)
@@ -1538,14 +1539,14 @@ class Ui_itemWidget(QtGui.QWidget):
             if not self.closed:
                 notes_counts = result['notes']
                 process_items_dict = {item.process: item for item in self.process_items}
-                for key, val in notes_counts.iteritems():
+                for key, val in notes_counts.items():
                     process_item = process_items_dict.get(key)
                     if process_item:
                         process_item.set_notes_count(val)
 
                 children_counts = result['stypes']
                 child_items_dict = {item.child.get('from'): item for item in self.child_items}
-                for key, val in children_counts.iteritems():
+                for key, val in children_counts.items():
                     child_item = child_items_dict.get(key)
                     if child_item:
                         child_item.set_child_count_title(val)
@@ -1801,7 +1802,7 @@ class Ui_processItemWidget(QtGui.QWidget, ui_item_process.Ui_processItem):
             if not self.closed:
                 notes_counts = result['notes']
                 process_items_dict = {item.process: item for item in self.process_items}
-                for key, val in notes_counts.iteritems():
+                for key, val in notes_counts.items():
                     process_item = process_items_dict.get(key)
                     if process_item:
                         process_item.set_notes_count(val)
@@ -1944,7 +1945,8 @@ class Ui_processItemWidget(QtGui.QWidget, ui_item_process.Ui_processItem):
 
         processes = []
         if pipeline:
-            processes = pipeline.process.keys()
+            # pipeline.pipeline.keys()
+            processes = pipeline.get_all_pipeline_names()
 
         for i, process in enumerate(processes):
             ignored = False
@@ -1964,7 +1966,7 @@ class Ui_processItemWidget(QtGui.QWidget, ui_item_process.Ui_processItem):
     def fill_snapshots_items(self):
 
         for i, proc in enumerate(self.process_items):
-            for key, val in self.sobject.process.iteritems():
+            for key, val in self.sobject.process.items():
                 # because it is dict, items could be in any position
                 if key == proc.process:
                     proc.add_snapshots_items(val)

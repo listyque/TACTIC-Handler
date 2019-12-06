@@ -16,7 +16,7 @@ def prepare_serverside_script(func, kwargs, return_dict=True, has_return=True, s
     args_list = []
     for key, arg in kwargs.items():
         if isinstance(arg, (str, unicode)):
-            args_list.append(u'{}="{}"'.format(key, arg))
+            args_list.append(u"{}='{}'".format(key, arg.replace('"', '\"')))
         else:
             args_list.append(u'{}={}'.format(key, arg))
 
@@ -92,7 +92,7 @@ def query_EditWdg(args=None, search_type='', project=''):
         out_dict = {}
 
         ignore_columns = ['sobjects_for_options', 'pipelines', '_sobjects']
-        for key, val in in_dict.iteritems():
+        for key, val in in_dict.items():
             if not (hasattr(val, '__dict__') or key.startswith('_')) and key not in ignore_columns:
                 out_dict[key] = val
 
@@ -944,6 +944,7 @@ def get_virtual_snapshot_extended(search_key, context, files_dict, snapshot_type
         level_id = None
 
     description = "No description"
+    files_dict = json.loads(files_dict)
 
     # this is only to avoid naming intersection
     if checkin_type == 'file':
@@ -1083,8 +1084,8 @@ def get_virtual_snapshot_extended(search_key, context, files_dict, snapshot_type
     return json.dumps(result_list, separators=(',', ':'))
 
 
-def create_snapshot_extended(search_key, context, snapshot_type=None, is_revision=False, is_latest=True, is_current=False, description=None, version=None, level_key=None, update_versionless=True, only_versionless=False, keep_file_name=True, repo_name=None, files_info=None, mode=None, create_icon=False):
-    import os
+def create_snapshot_extended(search_key, context, project_code=None, snapshot_type=None, is_revision=False, is_latest=True, is_current=False, description=None, version=None, level_key=None, update_versionless=True, only_versionless=False, keep_file_name=True, repo_name=None, files_info=None, mode=None, create_icon=False):
+    # import os
     import json
     from pyasm.biz import Snapshot
     from pyasm.checkin import FileAppendCheckin
@@ -1093,6 +1094,8 @@ def create_snapshot_extended(search_key, context, snapshot_type=None, is_revisio
 
     import time
     start = time.time()
+    if project_code:
+        server.set_project(project_code)
 
     timings = {}
 
@@ -1116,6 +1119,8 @@ def create_snapshot_extended(search_key, context, snapshot_type=None, is_revisio
         description = 'No description'
     if not snapshot_type:
         snapshot_type = 'file'
+
+    files_info = json.loads(files_info)
 
     def get_max_version(context, search_key):
         # faster way to get max snapshot version
@@ -1184,6 +1189,7 @@ def create_snapshot_extended(search_key, context, snapshot_type=None, is_revisio
             file_types.append(types)
 
         snapshot.commit(triggers=True, log_transaction=True)
+
         # we keep file name as we already got name from virtual snapshot
         checkin = FileAppendCheckin(snapshot.get_code(), file_paths, file_types,
                                     keep_file_name=True, mode=checkin_mode, source_paths=file_paths,
@@ -1200,8 +1206,10 @@ def create_snapshot_extended(search_key, context, snapshot_type=None, is_revisio
             fl.commit(triggers=False, log_transaction=False)
 
         if update_versionless:
+
             snapshot.update_versionless('latest', sobject=sobject, checkin_type='strict')
             versionless_snapshot = snapshot.get_by_sobjects([sobject], context, version=-1)
+
             if repo_name:
                 versionless_snapshot[0].set_value('repo', repo_name)
             versionless_snapshot[0].set_value('login', snapshot.get_attr_value('login'))
@@ -1309,7 +1317,7 @@ def create_snapshot_extended(search_key, context, snapshot_type=None, is_revisio
 
     timings['commit_files_versionless'] = time.time() - start
 
-    return str(timings)
+    return json.dumps(timings)
 
 """
 
