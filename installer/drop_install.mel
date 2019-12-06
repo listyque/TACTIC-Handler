@@ -1,0 +1,4 @@
+global proc dummy_func_to_get_path(){}
+
+string $script_path = `whatIs dummy_func_to_get_path`;
+python("drop_path= \"" + $script_path + "\"[24:].replace('drop_install.mel','')\nimport sys\nif drop_path not in sys.path:\n sys.path.append(drop_path)\nimport shelf_install as si\nreload(si)\nsi.begin_shelf_install()");
