@@ -94,7 +94,7 @@ class QtTacticEditWidget(QtGui.QWidget):
         if self.stype.pipeline:
             current_pipeline = self.stype.pipeline.get(self.sobject.get_pipeline_code())
             workflow = self.stype.get_workflow()
-            processes_list = current_pipeline.get_all_processes_names()
+            processes_list = current_pipeline.get_all_pipeline_process()
             sub_processes_list = []
 
             # getting sub-processes from workflow
@@ -105,7 +105,7 @@ class QtTacticEditWidget(QtGui.QWidget):
                         process
                     )
                     if child_pipeline:
-                        sub_processes_list.extend(child_pipeline.get_all_processes_names())
+                        sub_processes_list.extend(child_pipeline.get_all_pipeline_process())
 
             if sub_processes_list:
                 processes_list.extend(sub_processes_list)

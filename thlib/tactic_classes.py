@@ -524,7 +524,6 @@ class Schema(object):
         return self.__schema_dict[1].get('children')
 
     def get_child(self, child_stype, parent_stype):
-
         for child in self.children:
             if child['from'] == child_stype and child['to'] == parent_stype:
                 return child
@@ -684,15 +683,16 @@ class SObject(object):
 
         # INPUT VARS
         self.info = in_sobj
-        self.all_process = in_process
+        self.all_process = in_process  # TODO Should be deprecated almost not used
         self.project = project
 
         # OUTPUT VARS
         self.process = {}
         self.tasks = {}
         self.tasks_sobjects = None
+        self.snapshots_sobjects = None
+        self.files_sobjects = None
         self.notes = {}
-        self.snapshots = {}
 
         # INFO VARS
         self.tasks_count = {'__total__': 0}
@@ -726,6 +726,7 @@ class SObject(object):
         return server_start(project=self.project.info['code']).query_snapshots(filters=filters, order_bys=order_bys, include_files=True)
 
     # Tasks by search code
+    # DEPRECATED
     def query_tasks(self, s_code, process=None, user=None):
         """
         Query for Task
@@ -745,6 +746,7 @@ class SObject(object):
         return server.query(search_type, filters)
 
     # Notes by search code
+    # DEPRECATED
     def query_notes(self, s_code, process=None):
         """
         Query for Notes
@@ -764,17 +766,12 @@ class SObject(object):
 
     # Query snapshots to update current
     def update_snapshots(self, order_bys=None):
-        # import time
-        # start = time.time()
         if self.info.get('code'):
             snapshot_dict = self.query_snapshots(s_code=self.info['code'], order_bys=order_bys)
         else:
             snapshot_dict = self.query_snapshots(s_id=self.info['id'], order_bys=order_bys)
 
         self.init_snapshots(snapshot_dict)
-
-        # end = time.time()
-        # dl.info('Updating Snapshots time: {0}'.format(1215), group_id='server_query')
 
     # Initial Snapshots by process without query
     def init_snapshots(self, snapshot_dict):
@@ -785,13 +782,59 @@ class SObject(object):
 
     # Snapshots by SObject
     def get_snapshots(self, order_bys=None):
+
+        # Getting all snapshots available for this sobject
+        # This will return processes classes dict, which will contain contexts classes
+        # Useful for fast query all snapshots with files
+
+        # snapshots = sobject.get_snapshots() :: dict {'publish': Process()}
+        # publish_process = snapshots['publish']
+        # contexts = publish_process.get_contexts() :: dict {'publish/context': Contexts()}
+        # preview = contexts['publish/preview']
+        # versionless_snapshots = preview.get_versionless()
+
         snapshots_list = self.query_snapshots(self.info['code'], order_bys=order_bys)
         process_set = set(snapshot['process'] for snapshot in snapshots_list)
 
         for process in process_set:
-            self.snapshots[process] = Process(snapshots_list, process)
+            self.process[process] = Process(snapshots_list, process)
+
+        return self.process
+
+    def get_snapshots_sobjects(self, process=None):
+        # This is only returning SObjects of snapshots, classes without files, use get_snapshots for files instead
+        # Use this only if need to delete or edit snapshot info
+        # Use group_sobject_by() for easier management
+        # snapshots, info = sobject.get_snapshots_sobjects()
+        # by_context = tc.group_sobject_by(snapshots, 'context')
+
+        search_type = 'sthpw/snapshot'
+        if process:
+            filters = [('search_code', self.info['code']), ('process', process), ('project_code', self.project.info['code'])]
+        else:
+            filters = [('search_code', self.info['code']), ('project_code', self.project.info['code'])]
+
+        self.snapshots_sobjects = get_sobjects_new(search_type, filters, project_code=self.project.info['code'])
+
+        return self.snapshots_sobjects
+
+    def get_files_sobjects(self, type=None):
+        # Getting files sobjects for particular Sobject useful if needed to delete or edit
+
+        filters = [('search_code', self.info['search_code']), ('project_code', self.project.info['code'])]
+
+        search_type = 'sthpw/file'
+        if type:
+            filters.append(('type', type))
+        if self.info.get('__search_type__') == 'sthpw/snapshot':
+            filters.append(('snapshot_code', self.info['code']))
+
+        self.files_sobjects = get_sobjects_new(search_type, filters, project_code=self.project.info['code'])
+
+        return self.files_sobjects
 
     # Tasks by SObject
+    # DEPRECATED
     def get_tasks(self):
         tasks_list = self.query_tasks(self.info['code'])
         process_set = set(task['process'] for task in tasks_list)
@@ -803,6 +846,7 @@ class SObject(object):
         return self.info.get('__have_updates__')
 
     def get_tasks_sobjects(self, process=None):
+        # Use group_sobject_by()
         search_type = 'sthpw/task'
         if process:
             filters = [('search_code', self.info['code']), ('process', process), ('project_code', self.project.info['code'])]
@@ -810,6 +854,7 @@ class SObject(object):
             filters = [('search_code', self.info['code']), ('project_code', self.project.info['code'])]
 
         self.tasks_sobjects = get_sobjects_new(search_type, filters, project_code=self.project.info['code'])
+
         return self.tasks_sobjects
 
     def set_tasks_count(self, process, count):
@@ -829,7 +874,11 @@ class SObject(object):
             else:
                 return stypes.get(self.info['__search_key__'].split('?')[0])
 
+    def get_plain_search_type(self):
+        return self.info['__search_key__'].split('?')[0]
+
     # Notes by SObject
+    #DEPRECATED
     def get_notes(self):
         notes_list = self.query_notes(self.info['code'])
         process_set = set(note['process'] for note in notes_list)
@@ -849,21 +898,32 @@ class SObject(object):
     def get_search_key(self):
         return self.info.get('__search_key__')
 
-    def delete_sobject(self, include_dependencies=False, list_dependencies=None):
+    def delete_sobject(self, include_dependencies=False, list_dependencies=None, confirm=True):
+        if list_dependencies:
+            confirm = False
 
-        snapshot_del_confirm = sobject_delete_confirm(self.get_search_key())
-        if snapshot_del_confirm:
-            include_dependencies = True
-            list_dependencies = {
-                'related_types': ['sthpw/file']
-            }
+        if confirm:
+            del_confirm = sobject_delete_confirm(self)
+        else:
+            del_confirm = True
+
+        if del_confirm:
+            if isinstance(del_confirm, dict):
+                list_dependencies = del_confirm['search_types']
+
+                dependencies_dict = {
+                    'related_types': list_dependencies
+                }
 
             kwargs = {
-                'search_key': self.get_search_key(),
+                'search_keys': self.get_search_key(),
                 'include_dependencies': include_dependencies,
+                'list_dependencies': dependencies_dict,
             }
 
-            return execute_procedure_serverside(tq.delete_sobject, kwargs)
+            return execute_procedure_serverside(tq.delete_sobjects, kwargs)
+        else:
+            return False
 
     def get_pipeline_code(self):
         return self.info.get('pipeline_code')
@@ -927,7 +987,7 @@ class SObject(object):
         if relationship:
             # if relationship == 'search_type':
             #     child_col = 'search_code'
-
+            # TODO Need special case for search_type relationship
             if relationship in ['code', 'search_type']:
                 if relations.get('from_col'):
                     related_from_column = relations.get('from_col')
@@ -1339,7 +1399,8 @@ class Snapshot(SObject, object):
         self.__files = snapshot['__files__']
         self.files = collections.OrderedDict()
 
-        self.files_objects = None
+        self.files_objects = []
+        self.goupped_by_files_objects = {}
         self.preview_files_objects = None
 
         for fl in self.__files:
@@ -1359,18 +1420,22 @@ class Snapshot(SObject, object):
         return self.snapshot['__search_key__']
 
     def get_files_objects(self, group_by=None):
+
+        if not self.files_objects:
+            for fl in self.__files:
+                self.files_objects.append(File(fl, self))
+
         if group_by:
-            files_objects = collections.OrderedDict()
-            for fl in self.__files:
-                files_objects.setdefault(fl[group_by], []).append(File(fl, self))
+            if group_by not in self.goupped_by_files_objects.keys():
+                files_objects = collections.OrderedDict()
+                for fl in self.__files:
+                    files_objects.setdefault(fl[group_by], []).append(File(fl, self))
+
+                self.goupped_by_files_objects[group_by] = files_objects
+
+            return self.goupped_by_files_objects[group_by]
         else:
-            files_objects = []
-            for fl in self.__files:
-                files_objects.append(File(fl, self))
-
-        self.files_objects = files_objects
-
-        return self.files_objects
+            return self.files_objects
 
     def get_previewable_files_objects(self):
         if self.preview_files_objects:
@@ -1379,11 +1444,12 @@ class Snapshot(SObject, object):
         files_objects = self.get_files_objects()
         preview_objects = []
         for fo in files_objects:
-            if fo.get_type() not in ['icon', 'web']:
+            if fo.get_type() not in ['web', 'icon']:
                 if fo.is_previewable():
                     preview_objects.append(fo)
 
         self.preview_files_objects = preview_objects
+
         return preview_objects
 
     def get_snapshot(self):
@@ -1402,35 +1468,34 @@ class Snapshot(SObject, object):
             return False
 
 
-class File(object):
+class File(SObject, object):
     def __init__(self, file_dict, snapshot=None):
 
-        self.__file = file_dict
+        self.downloaded = False
+
+        self.info = file_dict
         self.__snapshot = snapshot
         self.previewable = False
         self.meta_file_object = False
         self.get_meta_file_object()
 
     def get_dict(self):
-        return self.__file
+        return self.info
 
     def get_unique_id(self):
         return id(self)
-
-    def get_search_key(self):
-        return self.__file['__search_key__']
 
     def get_file_size(self, check_real_size=False):
         if check_real_size:
             return gf.get_st_size(self.get_full_abs_path())
         else:
-            return self.__file['st_size']
+            return self.info['st_size']
 
     def get_snapshot(self):
         return self.__snapshot
 
     def get_metadata(self):
-        metadata = self.__file.get('metadata')
+        metadata = self.info.get('metadata')
         # Simple check if this is json dumpable
         if isinstance(metadata, (str, unicode)):
             if metadata.startswith(('{', '"')):
@@ -1454,20 +1519,20 @@ class File(object):
         return self.meta_file_object
 
     def get_type(self):
-        return self.__file['type']
+        return self.info['type']
 
     def get_base_type(self):
-        return self.__file['base_type']
+        return self.info['base_type']
 
     def get_ext(self):
-        ext = gf.extract_extension(self.__file['file_name'])
+        ext = gf.extract_extension(self.info['file_name'])
         return ext[0]
 
     def get_filename_with_ext(self):
-        return self.__file['file_name']
+        return self.info['file_name']
 
     def get_filename(self):
-        filename = self.__file['file_name']
+        filename = self.info['file_name']
         ext = gf.extract_extension(filename)
         if ext:
             return filename.replace('.' + ext[0], '')
@@ -1477,7 +1542,7 @@ class File(object):
     def get_filename_no_type_prefix(self):
         # guess right only if type at the end
         filename = self.get_filename()
-        prefix = self.__file['type']
+        prefix = self.info['type']
         if prefix:
             if filename.endswith(prefix):
                 no_prefix_name = filename.split('_')
@@ -1510,12 +1575,12 @@ class File(object):
         asset_dir = env_tactic.get_base_dir(repo_name)['value'][0]
 
         abs_path = gf.form_path(
-            '{0}/{1}'.format(asset_dir, self.__file['relative_dir']))
+            '{0}/{1}'.format(asset_dir, self.info['relative_dir']))
 
         return abs_path
 
     def get_full_abs_path(self):
-        return gf.form_path('{0}/{1}'.format(self.get_abs_path(), self.__file['file_name']))
+        return gf.form_path('{0}/{1}'.format(self.get_abs_path(), self.info['file_name']))
 
     def get_web_path(self):
         server_address = env_server.get_server()
@@ -1523,11 +1588,11 @@ class File(object):
             server_address = u'http://{}'.format(server_address)
         asset_path = u'{0}/{1}'.format(server_address, env_tactic.get_base_dir('web')['value'][0])
 
-        abs_path = gf.form_path(u'{0}/{1}'.format(asset_path, self.__file['relative_dir']), tp='web')
+        abs_path = gf.form_path(u'{0}/{1}'.format(asset_path, self.info['relative_dir']), tp='web')
         return abs_path
 
     def get_full_web_path(self):
-        return '{0}/{1}'.format(self.get_web_path(), self.__file['file_name'])
+        return '{0}/{1}'.format(self.get_web_path(), self.info['file_name'])
 
     def is_exists(self):
         return os.path.exists(self.get_full_abs_path())
@@ -1537,8 +1602,8 @@ class File(object):
             return True
 
         previewable = False
-        ext = gf.extract_extension(self.__file['file_name'])
-        if self.__file['type'] in ['icon', 'web', 'image', 'playblast']:
+        ext = gf.extract_extension(self.info['file_name'])
+        if self.info['type'] in ['icon', 'web', 'image', 'playblast']:
             return True
         elif ext[3] == 'preview':
             previewable = True
@@ -1549,7 +1614,7 @@ class File(object):
 
     def get_web_preview(self):
         # return web file object related to this file
-        if self.__file['type'] != 'web':
+        if self.info['type'] != 'web':
             files = self.__snapshot.get_files_objects()
             filename = self.get_filename_no_type_prefix()
             for fl in files:
@@ -1561,7 +1626,7 @@ class File(object):
 
     def get_icon_preview(self):
         # return icon file object related to this file
-        if self.__file['type'] != 'icon':
+        if self.info['type'] != 'icon':
             files = self.__snapshot.get_files_objects()
             filename = self.get_filename_no_type_prefix()
             for fl in files:
@@ -1602,6 +1667,12 @@ class File(object):
     def open_folder(self):
         gf.open_folder(gf.form_path(self.get_full_abs_path()), highlight=True)
 
+    def is_downloaded(self):
+        return self.downloaded
+
+    def set_downloaded(self):
+        self.downloaded = True
+
 # End of SObject Class
 
 
@@ -1610,9 +1681,10 @@ def execute_procedure_serverside(func, kwargs, project=None, return_dict=True, s
     if kwargs.get('code'):
         code = kwargs
     else:
-        code = tq.prepare_serverside_script(func, kwargs, shrink=False, catch_traceback=False)
+        code = tq.prepare_serverside_script(func, kwargs, shrink=True, catch_traceback=False)
     if not server:
         server = server_start(project=project)
+
     result = server.execute_python_script('', kwargs=code)
 
     if isinstance(result['info'], dict):
@@ -1632,7 +1704,7 @@ def execute_procedure_serverside(func, kwargs, project=None, return_dict=True, s
             else:
                 # Simple check if this is json dumpable
                 if ret_val.startswith(('{', '"', '[')):
-                    final_result = json.loads(ret_val)
+                    final_result = json.loads(ret_val, strict=False)
                 else:
                     final_result = ret_val
         else:
@@ -1642,6 +1714,7 @@ def execute_procedure_serverside(func, kwargs, project=None, return_dict=True, s
 
 
     return final_result
+
 
 def get_all_projects_and_logins(force=False):
 
@@ -1738,11 +1811,32 @@ def get_subscriptions_and_messages(current_login='admin', update_logins=False):
     return execute_procedure_serverside(tq.get_subscriptions_and_messages, kwargs)
 
 
+def delete_sobjects(search_keys, list_dependencies):
+    """
+    Deletes bunch of sobjects
+    !!! SEARCH KEYS MUST ME SAME TYPE !!!
+    :param search_keys: ['sthpw/snapshot?code=SNAPSHOT000000']
+    :param list_dependencies: {'search_types': [u'sthpw/snapshot', 'sthpw/notes', 'sthps/file']}
+    :return: deleted sobjects dict
+    """
+
+    kwargs = {
+        'search_keys': search_keys,
+        'include_dependencies': False,
+        'list_dependencies': list_dependencies,
+    }
+
+    return execute_procedure_serverside(tq.delete_sobjects, kwargs)
+
+
+
+
 def get_sobjects_new(search_type, filters=[], order_bys=[], project_code=None, limit=None, offset=None, process_list=[], get_all_snapshots=False, check_snapshots_updates=False):
     """
     Filters snapshot by search codes, and sobjects codes
+    :param search_type: search_type or search_key (if using search_type project_code should to be provided)
     :param project_code: assign project class to particular sObject
-    :return: dict of sObjects objects
+    :return: tuple : (dict, dict) of sObjects objects
     """
     kwargs = {
         'search_type': search_type,
@@ -1769,7 +1863,7 @@ def get_sobjects_new(search_type, filters=[], order_bys=[], project_code=None, l
     sobjects_list = execute_procedure_serverside(tq.query_sobjects, kwargs, project=project_code)
 
     if sobjects_list:
-        if isinstance(sobjects_list, str):
+        if isinstance(sobjects_list, (str, unicode)):
             if sobjects_list.startswith('Traceback'):
                 sobjects_list = {'sobjects_list': []}
                 info = None
@@ -1788,7 +1882,7 @@ def get_sobjects_new(search_type, filters=[], order_bys=[], project_code=None, l
             if builtin not in process_codes:
                 process_codes.append(builtin)
 
-        # Create list of Sobjects
+        # Create ordered dict of Sobject class Objects with snapshots, and some counts
         for sobject in sobjects_list['sobjects_list']:
             sobjects[sobject['__search_key__']] = SObject(sobject, process_codes, env_inst.projects[project_code])
             sobjects[sobject['__search_key__']].init_snapshots(sobject['__snapshots__'])
@@ -1797,6 +1891,21 @@ def get_sobjects_new(search_type, filters=[], order_bys=[], project_code=None, l
 
         return sobjects, info
 
+
+def get_sobjects_objects(sobjects_list, project_code):
+    result = {}
+
+    for searc_type, sobjects_list in sobjects_list.items():
+
+        sobjects_dict = collections.OrderedDict()
+        # Create ordered dict of Sobject class Objects
+        for sobjects in sobjects_list:
+            for sobject in sobjects:
+                sobjects_dict[sobject['__search_key__']] = SObject(sobject, [], env_inst.projects[project_code])
+
+        result[searc_type] = sobjects_dict
+
+    return result
 
 def server_query(filters, stype, columns=None, project=None, limit=0, offset=0, order_bys='timestamp desc'):
     """
@@ -1984,29 +2093,50 @@ def edit_multiple_instance_sobjects(project_code, insert_search_keys=[], exclude
     return execute_procedure_serverside(tq.edit_multiple_instance_sobjects, kwargs, project=project_code)
 
 
-def delete_sobject_snapshot(sobject, delete_snapshot=True, search_keys=None, files_paths=None):
-    dep_list = {
-        'related_types': ['sthpw/file'],
-        'files_list': {'search_key': search_keys,
-                       'file_path': files_paths,
-                       'delete_snapshot': delete_snapshot,
-                       },
-    }
-    try:
-        print server_start().delete_sobject(sobject, list_dependencies=dep_list), 'delete_sobject_snapshot'
-        return True
-    except Exception as err:
-        print(err, 'delete_sobject_snapshot')
-        return False
+# def delete_sobject_snapshot(sobject, delete_snapshot=True, search_keys=None, files_paths=None):
+#     dep_list = {
+#         'related_types': ['sthpw/file'],
+#         'files_list': {'search_key': search_keys,
+#                        'file_path': files_paths,
+#                        'delete_snapshot': delete_snapshot,
+#                        },
+#     }
+#     try:
+#         print server_start().delete_sobject(sobject, list_dependencies=dep_list), 'delete_sobject_snapshot'
+#         return True
+#     except Exception as err:
+#         print(err, 'delete_sobject_snapshot')
+#         return False
 
 
-def sobject_delete_confirm(sobject):
-    # ver_rev = gf.get_ver_rev(snapshot['version'], snapshot['revision'])
+def sobject_delete_confirm(sobjects):
 
-    msb = QtGui.QMessageBox(QtGui.QMessageBox.Question, 'Confirm deleting',
-                            '<p><p>Do you really want to delete sobject:</p>{0}<p>Version: {1}</p>Also remove dependencies?</p>'.format(
-                                sobject, 'VERREV'),
-                            QtGui.QMessageBox.NoButton, env_inst.ui_main)
+    multiple_delete = False
+    if isinstance(sobjects, list):
+        if len(sobjects) > 1:
+            multiple_delete = True
+        else:
+            multiple_delete = False
+    else:
+        sobjects = [sobjects]
+
+    if multiple_delete:
+        sobjects_list = []
+        for i, sobject in enumerate(sobjects):
+            if i > 15:
+                sobjects_list.append(u'and <b>{0}</b> more sobjects'.format(len(sobjects) - i))
+                break
+
+            sobjects_list.append(u'<b>{0}</b>'.format(sobject.get_title()))
+
+        msb = QtGui.QMessageBox(QtGui.QMessageBox.Question, 'Confirm Deleting',
+                                u'<p>Do you really want to delete:<br><b>{0}</b> ?</p><p>Also remove dependencies?</p>'.format(u'<br>'.join(sobjects_list)),
+                                QtGui.QMessageBox.NoButton, env_inst.ui_main)
+    else:
+        msb = QtGui.QMessageBox(QtGui.QMessageBox.Question, 'Confirm Deleting',
+                                u'<p>Do you really want to delete:<br><b>{0}</b>?</p><p>Also remove dependencies?</p>'.format(
+                                    sobjects[0].get_title()),
+                                QtGui.QMessageBox.NoButton, env_inst.ui_main)
 
     msb.addButton("Delete", QtGui.QMessageBox.YesRole)
     msb.addButton("Cancel", QtGui.QMessageBox.NoRole)
@@ -2033,7 +2163,7 @@ def sobject_delete_confirm(sobject):
 
     from thlib.ui_classes.ui_delete_sobject_classes import deleteSobjectWidget
 
-    delete_sobj_widget = deleteSobjectWidget(sobject=sobject)
+    delete_sobj_widget = deleteSobjectWidget(sobjects=sobjects)
 
     layout.addWidget(delete_sobj_widget)
 
@@ -2206,21 +2336,29 @@ def checkin_snapshot(search_key, context, snapshot_type=None, is_revision=False,
         'update_versionless': update_versionless,
         'only_versionless': only_versionless,
         'keep_file_name': keep_file_name,
-        'files_info': json.dumps(files_info),
+        'files_info': json.dumps(files_info, separators=(',', ':')),
         'repo_name': repo_name['value'][3],
         'mode': mode,
         'create_icon': create_icon,
     }
 
     server = server_start(project=project_code['project_code'])
-    server.start(u'Upload Checkin from Tactic Handler by: {}'.format(env_inst.get_current_login()))
+    if mode == 'upload':
+        server.start('Upload Checkin', u'Upload Checkin from Tactic Handler by: {}'.format(env_inst.get_current_login()))
 
-    for version_file in files_info['version_files']:
-        server.upload_file(version_file)
+        for version_file in files_info['version_files']:
+            server.upload_file(version_file)
 
-    result = execute_procedure_serverside(tq.create_snapshot_extended, kwargs, project=project_code['project_code'], return_dict=True, server=server)
+        result = execute_procedure_serverside(tq.create_snapshot_extended, kwargs, project=project_code['project_code'], return_dict=True, server=server)
 
-    server.finish('Upload Done')
+        server.finish('Upload Checkin Done')
+    elif mode in ['inplace', 'preallocated']:
+        server.start('Inplace Checkin', u'Inplace Checkin from Tactic Handler by: {}'.format(env_inst.get_current_login()))
+
+        result = execute_procedure_serverside(tq.create_snapshot_extended, kwargs, project=project_code['project_code'], return_dict=True, server=server)
+
+        server.finish('Inplace Checkin Done')
+
 
     if result:
         if isinstance(result, (str, unicode)):
@@ -2261,6 +2399,17 @@ def add_note(search_key, process, context, note, note_html, login):
 
     return transaction
 
+def get_all_dependency(search_keys, project_code=None, return_sobjects=True):
+
+    if not project_code:
+        project_code = split_search_key(search_keys[0])['project_code']
+
+    result = execute_procedure_serverside(tq.get_all_dependency, {'search_keys': search_keys}, project=project_code)
+
+    if return_sobjects:
+        return get_sobjects_objects(result, project_code)
+    else:
+        return result
 
 def generate_web_and_icon(source_image_path, web_save_path=None, icon_save_path=None):
 

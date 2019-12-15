@@ -504,11 +504,6 @@ class Ui_addTacticSobjectWidget(QtGui.QDialog):
             tactic_widget_instance = tactic_widget(options_dict=widget_dict)
             qt_widget_instance = qt_widget(tactic_widget=tactic_widget_instance, parent=self.edit_window)
 
-            # print '**************************************DEBUGINFO******************************************'
-            # print qt_widget_instance, tactic_widget_instance
-            # from pprint import pprint
-            # pprint(widget_dict)
-
             input_widgets_list.append(qt_widget_instance)
 
         self.grid_layout.addWidget(self.edit_window)

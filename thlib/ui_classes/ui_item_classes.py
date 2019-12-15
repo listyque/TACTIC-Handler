@@ -397,6 +397,7 @@ class Ui_repoSyncItemWidget(QtGui.QWidget):
                                             'QProgressBar::chunk {background-color: rgba(30,160,30,128);}')
         self.progress_bar_wdg.setFormat('Download Finished')
         self.is_downloaded = True
+        env_inst.ui_main.set_info_status_text('')
         self.downloaded.emit(self.file_object)
 
     def set_download_ufinished(self):
@@ -415,14 +416,8 @@ class Ui_repoSyncItemWidget(QtGui.QWidget):
                                             'QProgressBar::chunk {background-color: rgba(200,20,10,64);}')
         self.progress_bar_wdg.setFormat('Download Failed')
         self.is_downloaded = False
+        env_inst.ui_main.set_info_status_text('')
         self.downloaded.emit(self.file_object)
-
-    # def download_done(self):
-    #
-    #     self.set_download_finished()
-    #
-    #     self.is_downloaded = True
-    #     self.downloaded.emit(self.file_object)
 
     def download_progress(self, progress, info_dict=None):
         self.set_progress_indicator_on()
@@ -438,6 +433,8 @@ class Ui_repoSyncItemWidget(QtGui.QWidget):
                 return True
 
     def download(self):
+        env_inst.ui_main.set_info_status_text('<span style=" font-size:8pt; color:#00ff00;">Download in progress</span>')
+
         if not self.file_already_in_repo():
             url = QtCore.QUrl(self.file_object.get_full_web_path())
             request = QtNetwork.QNetworkRequest(url)
@@ -460,6 +457,7 @@ class Ui_repoSyncItemWidget(QtGui.QWidget):
             self.download_progress(0, info_dict)
             self.download_progress(1, info_dict)
             self.set_download_already_exists()
+            env_inst.ui_main.set_info_status_text('')
             self.downloaded.emit(self.file_object)
 
     def closeEvent(self, event):
@@ -726,8 +724,8 @@ class Ui_itemWidget(QtGui.QWidget):
 
         project = self.sobject.get_project()
         tasks_widget = env_inst.get_check_tree(project.get_code(), 'checkin_out_instanced_widgets', 'tasks_dock')
-        tasks_widget.set_sobject(self.sobject)
         tasks_widget.bring_dock_widget_up()
+        tasks_widget.set_sobject(self.sobject, True)
 
     def create_watch_folder_button(self):
         self.watchFolderToolButton.setIcon(gf.get_icon('eye-slash', color=Qt4Gui.QColor(160, 160, 160)))
@@ -820,9 +818,6 @@ class Ui_itemWidget(QtGui.QWidget):
 
     def set_children_states(self, states):
         self.info['children_states'] = states
-
-    def is_checked(self):
-        return False
 
     def set_tasks_count(self, tasks_count):
         if tasks_count > 0:
@@ -1059,7 +1054,7 @@ class Ui_itemWidget(QtGui.QWidget):
             if preview_files_objects:
                 icon_previw = preview_files_objects[0].get_icon_preview()
                 if icon_previw:
-                    if os.path.exists(icon_previw.get_full_abs_path()):
+                    if icon_previw.is_exists():
                         # TODO This should be more complicated, and check hash not just size
                         if icon_previw.get_file_size() == icon_previw.get_file_size(True):
                             self.set_preview()
@@ -1069,9 +1064,11 @@ class Ui_itemWidget(QtGui.QWidget):
                         self.download_and_set_preview_file(icon_previw)
 
     def download_and_set_preview_file(self, file_object):
-        repo_sync_item = env_inst.ui_repo_sync_queue.schedule_file_object(file_object)
-        repo_sync_item.downloaded.connect(self.set_preview_pixmap)
-        repo_sync_item.download()
+        if not file_object.is_downloaded():
+            if file_object.get_unique_id() not in env_inst.ui_repo_sync_queue.queue_dict.keys():
+                repo_sync_item = env_inst.ui_repo_sync_queue.schedule_file_object(file_object)
+                repo_sync_item.downloaded.connect(self.set_preview_pixmap)
+                repo_sync_item.download()
 
     def set_preview_pixmap(self, file_object):
         pixmap = self.get_preview_pixmap(file_object.get_full_abs_path())
@@ -1448,9 +1445,8 @@ class Ui_itemWidget(QtGui.QWidget):
 
         env_inst.ui_main.set_info_status_text('')
 
-    def get_current_results_widget(self):
-        current_tree = self.search_widget.get_current_results_tree_widget()
-        return current_tree
+    def get_current_tree_widget(self):
+        return self.tree_item.treeWidget()
 
     def get_depth(self):
         idx = 0
@@ -1466,18 +1462,18 @@ class Ui_itemWidget(QtGui.QWidget):
         return self.get_index().row()
 
     def get_index(self):
-        current_tree = self.get_current_results_widget()
+        current_tree = self.get_current_tree_widget()
         return current_tree.indexFromItem(self.tree_item)
 
     def get_parent_index(self):
-        current_tree = self.get_current_results_widget()
+        current_tree = self.get_current_tree_widget()
         return current_tree.indexFromItem(self.tree_item.parent())
 
     def get_parent_item(self):
         return self.tree_item.parent()
 
     def get_parent_item_widget(self):
-        current_tree = self.get_current_results_widget()
+        current_tree = self.get_current_tree_widget()
         parent_item_widget = current_tree.itemWidget(self.tree_item.parent(), 0)
         return parent_item_widget
 
@@ -1656,15 +1652,11 @@ class Ui_itemWidget(QtGui.QWidget):
         )
 
     def delete_current_sobject(self):
-        # DISABLED TILL READY
-        print 'Deleting of Sobjects Disabled.'
-        # sobject = self.get_sobject()
+        sobject = self.get_sobject()
+        return sobject.delete_sobject()
 
-        # sobject.delete_sobject()
-
-    def delete_current_snapshot_sobject(self):
-
-        print 'DELETING SNAPSHOT', self.get_sobject()
+    def get_deletable_sobject(self):
+        return self.get_sobject()
 
     def forced_creation(self):
         if self.info.get('forced_creation'):
@@ -1896,9 +1888,8 @@ class Ui_processItemWidget(QtGui.QWidget, ui_item_process.Ui_processItem):
         notes_widget = env_inst.get_check_tree(project.get_code(), 'checkin_out_instanced_widgets', 'notes_dock')
         notes_widget.add_notes_tab(self.sobject, self.process)
 
-    def get_current_results_widget(self):
-        current_tree = self.search_widget.get_current_results_tree_widget()
-        return current_tree
+    def get_current_tree_widget(self):
+        return self.tree_item.treeWidget()
 
     def get_current_progress_bar(self):
         return self.search_widget.get_progress_bar()
@@ -1917,18 +1908,18 @@ class Ui_processItemWidget(QtGui.QWidget, ui_item_process.Ui_processItem):
         return self.get_index().row()
 
     def get_index(self):
-        current_tree = self.get_current_results_widget()
+        current_tree = self.get_current_tree_widget()
         return current_tree.indexFromItem(self.tree_item)
 
     def get_parent_index(self):
-        current_tree = self.get_current_results_widget()
+        current_tree = self.get_current_tree_widget()
         return current_tree.indexFromItem(self.tree_item.parent())
 
     def get_parent_item(self):
         return self.tree_item.parent()
 
     def get_parent_item_widget(self):
-        current_tree = self.get_current_results_widget()
+        current_tree = self.get_current_tree_widget()
         parent_item_widget = current_tree.itemWidget(self.tree_item.parent(), 0)
         return parent_item_widget
 
@@ -2074,9 +2065,6 @@ class Ui_processItemWidget(QtGui.QWidget, ui_item_process.Ui_processItem):
 
     def collapse_tree_item(self):
         pass
-
-    def is_checked(self):
-        return False
 
     def mouseDoubleClickEvent(self, event):
         do_dbl_click = None
@@ -2531,7 +2519,7 @@ class Ui_snapshotItemWidget(QtGui.QWidget):
             if preview_files_objects:
                 icon_previw = preview_files_objects[0].get_icon_preview()
                 if icon_previw:
-                    if os.path.exists(icon_previw.get_full_abs_path()):
+                    if icon_previw.is_exists():
                         if icon_previw.get_file_size() == icon_previw.get_file_size(True):
                             self.set_preview()
                         else:
@@ -2542,9 +2530,11 @@ class Ui_snapshotItemWidget(QtGui.QWidget):
                 self.set_ext_preview(tactic_file_object)
 
     def download_and_set_preview_file(self, file_object):
-        repo_sync_item = env_inst.ui_repo_sync_queue.schedule_file_object(file_object)
-        repo_sync_item.downloaded.connect(self.set_preview_pixmap)
-        repo_sync_item.download()
+        if not file_object.is_downloaded():
+            if file_object.get_unique_id() not in env_inst.ui_repo_sync_queue.queue_dict.keys():
+                repo_sync_item = env_inst.ui_repo_sync_queue.schedule_file_object(file_object)
+                repo_sync_item.downloaded.connect(self.set_preview_pixmap)
+                repo_sync_item.download()
 
     def set_preview_pixmap(self, file_object):
         pixmap = self.get_preview_pixmap(file_object.get_full_abs_path())
@@ -2597,9 +2587,8 @@ class Ui_snapshotItemWidget(QtGui.QWidget):
         if self.current_snapshot:
             return self.current_snapshot[0]
 
-    def get_current_results_widget(self):
-        current_tree = self.search_widget.get_current_results_tree_widget()
-        return current_tree
+    def get_current_tree_widget(self):
+        return self.tree_item.treeWidget()
 
     def get_depth(self):
         idx = 0
@@ -2615,20 +2604,20 @@ class Ui_snapshotItemWidget(QtGui.QWidget):
         return self.get_index().row()
 
     def get_index(self):
-        current_tree = self.get_current_results_widget()
+        current_tree = self.get_current_tree_widget()
         return current_tree.indexFromItem(self.tree_item)
 
     def get_parent_index(self):
-        current_tree = self.get_current_results_widget()
+        current_tree = self.get_current_tree_widget()
         return current_tree.indexFromItem(self.get_parent_item())
 
     def get_parent_item(self):
         # temporary duckt tape
-        self.tree_item = self.get_current_results_widget().currentItem()
+        self.tree_item = self.get_current_tree_widget().currentItem()
         return self.tree_item.parent()
 
     def get_parent_item_widget(self):
-        current_tree = self.get_current_results_widget()
+        current_tree = self.get_current_tree_widget()
         parent_item_widget = current_tree.itemWidget(self.get_parent_item(), 0)
         return parent_item_widget
 
@@ -2753,9 +2742,11 @@ class Ui_snapshotItemWidget(QtGui.QWidget):
             return parent_item.get_sobject()
 
     def delete_current_sobject(self):
-
         snapshot = self.get_snapshot()
-        snapshot.delete_sobject()
+        return snapshot.delete_sobject()
+
+    def get_deletable_sobject(self):
+        return self.get_snapshot()
 
     def get_skey(self, skey=False, only=False, parent=False):
         """skey://sthpw/snapshot?code=SNAPSHOT00000028"""
@@ -2794,13 +2785,6 @@ class Ui_snapshotItemWidget(QtGui.QWidget):
 
     def collapse_tree_item(self):
         pass
-
-    def is_checked(self):
-        return False
-        # return self.selectedCheckBox.isChecked()
-
-    # def resizeEvent(self, event):
-    #     self.tree_item.setSizeHint(0, QtCore.QSize(self.width(), 25 + self.descriptionLabel.height()))
 
     def mouseDoubleClickEvent(self, event):
         if self.relates_to == 'checkin_out':
@@ -3023,9 +3007,8 @@ class Ui_childrenItemWidget(QtGui.QWidget):
     def collapse_tree_item(self):
         self.childrenToolButton.setChecked(False)
 
-    def get_current_results_widget(self):
-        current_tree = self.search_widget.get_current_results_tree_widget()
-        return current_tree
+    def get_current_tree_widget(self):
+        return self.tree_item.treeWidget()
 
     def get_depth(self):
         idx = 0
@@ -3041,18 +3024,18 @@ class Ui_childrenItemWidget(QtGui.QWidget):
         return self.get_index().row()
 
     def get_index(self):
-        current_tree = self.get_current_results_widget()
+        current_tree = self.get_current_tree_widget()
         return current_tree.indexFromItem(self.tree_item)
 
     def get_parent_index(self):
-        current_tree = self.get_current_results_widget()
+        current_tree = self.get_current_tree_widget()
         return current_tree.indexFromItem(self.tree_item.parent())
 
     def get_parent_item(self):
         return self.tree_item.parent()
 
     def get_parent_item_widget(self):
-        current_tree = self.get_current_results_widget()
+        current_tree = self.get_current_tree_widget()
         parent_item_widget = current_tree.itemWidget(self.tree_item.parent(), 0)
         return parent_item_widget
 
@@ -3145,9 +3128,6 @@ class Ui_childrenItemWidget(QtGui.QWidget):
 
     def get_description(self):
         return 'No Description for this item "{0}"'.format('AZAZAZ')
-
-    def is_checked(self):
-        return False
 
     def get_search_key(self):
         return self.sobject.info.get('__search_key__')
@@ -3392,9 +3372,8 @@ class Ui_groupItemWidget(QtGui.QWidget):
     def collapse_tree_item(self):
         self.childrenToolButton.setChecked(False)
 
-    def get_current_results_widget(self):
-        current_tree = self.search_widget.get_current_results_tree_widget()
-        return current_tree
+    def get_current_tree_widget(self):
+        return self.tree_item.treeWidget()
 
     def get_depth(self):
         idx = 0
@@ -3410,18 +3389,18 @@ class Ui_groupItemWidget(QtGui.QWidget):
         return self.get_index().row()
 
     def get_index(self):
-        current_tree = self.get_current_results_widget()
+        current_tree = self.get_current_tree_widget()
         return current_tree.indexFromItem(self.tree_item)
 
     def get_parent_index(self):
-        current_tree = self.get_current_results_widget()
+        current_tree = self.get_current_tree_widget()
         return current_tree.indexFromItem(self.tree_item.parent())
 
     def get_parent_item(self):
         return self.tree_item.parent()
 
     def get_parent_item_widget(self):
-        current_tree = self.get_current_results_widget()
+        current_tree = self.get_current_tree_widget()
         parent_item_widget = current_tree.itemWidget(self.tree_item.parent(), 0)
         return parent_item_widget
 
@@ -3560,9 +3539,6 @@ class Ui_groupItemWidget(QtGui.QWidget):
 
     def get_description(self):
         return 'No Description for this item "{0}"'.format('AZAZAZ')
-
-    def is_checked(self):
-        return False
 
     def get_search_key(self):
         return self.sobject.info.get('__search_key__')

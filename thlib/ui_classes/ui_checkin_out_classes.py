@@ -152,9 +152,9 @@ class Ui_checkInOutWidget(QtGui.QMainWindow):
         self.tasks_dock = None
         self.checkin_options_dock = None
 
-        self.process_tree_widget = None
+        # self.process_tree_widget = None
         self.drop_plate_dock = None
-        self.naming_editor_widget = None
+        # self.naming_editor_widget = None
 
         self.relates_to = 'checkin_out'
 
@@ -185,7 +185,6 @@ class Ui_checkInOutWidget(QtGui.QMainWindow):
         self.create_snapshot_browser_dock()
         self.create_description_dock()
         self.create_columns_viewer_dock()
-        # self.create_search_options_dock()
         self.create_advanced_search_widget()
         self.create_checkin_options_dock()
         self.create_notes_dock()
@@ -193,9 +192,6 @@ class Ui_checkInOutWidget(QtGui.QMainWindow):
 
         self.fill_gear_menu()
         self.fill_collapsable_toolbar()
-
-        # self.controls_actions()
-        # self.threads_actions()
 
         self.is_created = True
 
@@ -235,7 +231,6 @@ class Ui_checkInOutWidget(QtGui.QMainWindow):
         self.tasks_dock.setWidget(self.tasks_widget)
         self.tasks_dock.setWindowTitle('Tasks Dock')
         self.tasks_dock.setObjectName('tasks_dock')
-        self.tasks_dock.setWindowIconText('asdasd')
 
         self.tasks_dock.setFeatures(
             QtGui.QDockWidget.DockWidgetMovable | QtGui.QDockWidget.DockWidgetClosable)
@@ -479,6 +474,11 @@ class Ui_checkInOutWidget(QtGui.QMainWindow):
 
         current_results_widget = self.get_current_results_widget()
         current_tree_widget_item = current_results_widget.get_current_tree_widget_item()
+        current_tree_widget = current_tree_widget_item.get_current_tree_widget()
+
+        multiple_selection = False
+        if len(current_tree_widget.selectedItems()) > 1:
+            multiple_selection = True
 
         menu = MenuWithLayout()
 
@@ -593,7 +593,7 @@ class Ui_checkInOutWidget(QtGui.QMainWindow):
 
         delete_snapshot_tree = QtGui.QAction('Delete Whole Tree', self)
         delete_snapshot_tree.setIcon(gf.get_icon('remove'))
-        delete_snapshot_tree.triggered.connect(self.delete_sobject)
+        delete_snapshot_tree.triggered.connect(self.delete_sobject_with_context)
 
         # Children items only menu
         ingest_files = QtGui.QAction('Ingest Files', self)
@@ -604,95 +604,23 @@ class Ui_checkInOutWidget(QtGui.QMainWindow):
         # ingest_maya_textures.setIcon(gf.get_icon('edit'))
         # ingest_maya_textures.triggered.connect(self.ingest_maya_textures)
 
-        # if not tool_button:
-        if mode == 'sobject':
-            if current_tree_widget_item.get_snapshot():
-
-                if env_mode.get_mode() == 'maya':
-                    open_snapshot_additional = menu.addAction(open_scene, True)
-                    open_snapshot_additional.clicked.connect(self.open_file_options)
-
-                elif env_mode.get_mode() == 'standalone':
-                    open_snapshot_additional = menu.addAction(open_snapshot, True)
-                    open_snapshot_additional.clicked.connect(self.open_file_options)
-
-            if env_mode.get_mode() == 'maya':
-                save_scene_additional = menu.addAction(save_scene, True)
-                save_scene_additional.clicked.connect(self.save_file_options)
-
-                save_selected_snapshot_additional = menu.addAction(save_selected_snapshot, True)
-                save_selected_snapshot_additional.clicked.connect(self.export_selected_file_options)
-
-                menu.addSeparator()
-                save_snapshot_additional = menu.addAction(save_snapshot, True)
-                save_snapshot_additional.clicked.connect(self.save_file_options)
-
-            elif env_mode.get_mode() == 'standalone':
-                save_snapshot_additional = menu.addAction(save_snapshot, True)
-                save_snapshot_additional.clicked.connect(self.save_file_options)
-
-            if current_tree_widget_item.get_snapshot():
-
-                if env_mode.get_mode() == 'maya':
-                    menu.addSeparator()
-                    import_snapshot_additional = menu.addAction(import_snapshot, True)
-                    import_snapshot_additional.clicked.connect(self.import_file_options)
-
-                    refence_snapshot_additional = menu.addAction(reference_snapshot, True)
-                    refence_snapshot_additional.clicked.connect(self.reference_file_options)
-
-                menu.addSeparator()
-
-                save_snapshot_revision_additional = menu.addAction(save_snapshot_revision, True)
-                save_snapshot_revision_additional.clicked.connect(self.save_file_options)
-
-                if env_mode.get_mode() == 'maya':
-                    save_selected_snapshot_revision_additional = menu.addAction(save_selected_snapshot_revision, True)
-                    save_selected_snapshot_revision_additional.clicked.connect(self.export_selected_file_options)
-
-                # update_snapshot_additional = menu.addAction(update_snapshot, True)
-                # update_snapshot_additional.clicked.connect(self.export_selected_file_options)
-                menu.addSeparator()
-
-            # menu.addAction(update_selected_snapshot)
-            # menu.addAction(update_playblast)
-
-            menu.addSeparator()
-
-            menu.addAction(open_folder_vls)
-            menu.addAction(open_folder_v)
-
-            menu.addSeparator()
-            if current_tree_widget_item.have_watch_folder:
-                menu.addAction(open_folder_wf)
-                menu.addAction(edit_watch_folder)
-                menu.addAction(remove_watch_folder)
-            else:
-                menu.addAction(create_watch_folder)
-
-            menu.addSeparator()
-            menu.addAction(copy_skey)
-            menu.addAction(edit_info)
-            if current_tree_widget_item.is_checked():
+        if multiple_selection:
+            if mode == 'sobject':
                 menu.addAction(edit_info_for_selected)
-
-            if current_tree_widget_item.get_relationship() == 'instance':
                 menu.addSeparator()
-                menu.addAction(unlink_sobject)
-            menu.addSeparator()
-            menu.addAction(delete_sobject)
-            if current_tree_widget_item.is_checked():
                 menu.addAction(delete_selected)
+            if mode == 'snapshot':
+                menu.addAction(edit_info_for_selected)
+                menu.addSeparator()
+                menu.addAction(delete_selected)
+        else:
+            if mode == 'sobject':
+                if current_tree_widget_item.get_snapshot():
 
-        if mode == 'snapshot':
-            if current_tree_widget_item.get_snapshot():
-                if current_tree_widget_item.get_is_multiple_checkin():
-                    open_snapshot_additional = menu.addAction(open_folder, True)
-                    open_snapshot_additional.clicked.connect(self.open_file_options)
-                else:
                     if env_mode.get_mode() == 'maya':
                         open_snapshot_additional = menu.addAction(open_scene, True)
                         open_snapshot_additional.clicked.connect(self.open_file_options)
+
                     elif env_mode.get_mode() == 'standalone':
                         open_snapshot_additional = menu.addAction(open_snapshot, True)
                         open_snapshot_additional.clicked.connect(self.open_file_options)
@@ -708,85 +636,171 @@ class Ui_checkInOutWidget(QtGui.QMainWindow):
                     save_snapshot_additional = menu.addAction(save_snapshot, True)
                     save_snapshot_additional.clicked.connect(self.save_file_options)
 
-                    menu.addSeparator()
-
-                    import_snapshot_additional = menu.addAction(import_snapshot, True)
-                    import_snapshot_additional.clicked.connect(self.import_file_options)
-
-                    refence_snapshot_additional = menu.addAction(reference_snapshot, True)
-                    refence_snapshot_additional.clicked.connect(self.reference_file_options)
                 elif env_mode.get_mode() == 'standalone':
                     save_snapshot_additional = menu.addAction(save_snapshot, True)
                     save_snapshot_additional.clicked.connect(self.save_file_options)
 
-                menu.addSeparator()
+                if current_tree_widget_item.get_snapshot():
 
-                save_snapshot_revision_additional = menu.addAction(save_snapshot_revision, True)
-                save_snapshot_revision_additional.clicked.connect(self.save_file_options)
+                    if env_mode.get_mode() == 'maya':
+                        menu.addSeparator()
+                        import_snapshot_additional = menu.addAction(import_snapshot, True)
+                        import_snapshot_additional.clicked.connect(self.import_file_options)
 
-                if env_mode.get_mode() == 'maya':
-                    save_selected_snapshot_revision_additional = menu.addAction(save_selected_snapshot_revision, True)
-                    save_selected_snapshot_revision_additional.clicked.connect(self.export_selected_file_options)
+                        refence_snapshot_additional = menu.addAction(reference_snapshot, True)
+                        refence_snapshot_additional.clicked.connect(self.reference_file_options)
 
                     menu.addSeparator()
 
-                # update_snapshot_additional = menu.addAction(update_snapshot, True)
-                # update_snapshot_additional.clicked.connect(self.export_selected_file_options)
+                    save_snapshot_revision_additional = menu.addAction(save_snapshot_revision, True)
+                    save_snapshot_revision_additional.clicked.connect(self.save_file_options)
+
+                    if env_mode.get_mode() == 'maya':
+                        save_selected_snapshot_revision_additional = menu.addAction(save_selected_snapshot_revision, True)
+                        save_selected_snapshot_revision_additional.clicked.connect(self.export_selected_file_options)
+
+                    # update_snapshot_additional = menu.addAction(update_snapshot, True)
+                    # update_snapshot_additional.clicked.connect(self.export_selected_file_options)
+                    menu.addSeparator()
+
+                # menu.addAction(update_selected_snapshot)
+                # menu.addAction(update_playblast)
 
                 menu.addSeparator()
-                menu.addAction(open_folder)
+
+                menu.addAction(open_folder_vls)
+                menu.addAction(open_folder_v)
+
+                menu.addSeparator()
+                if current_tree_widget_item.have_watch_folder:
+                    menu.addAction(open_folder_wf)
+                    menu.addAction(edit_watch_folder)
+                    menu.addAction(remove_watch_folder)
+                else:
+                    menu.addAction(create_watch_folder)
+
                 menu.addSeparator()
                 menu.addAction(copy_skey)
                 menu.addAction(edit_info)
-                if current_tree_widget_item.is_checked():
+
+                if multiple_selection:
                     menu.addAction(edit_info_for_selected)
+
+                if current_tree_widget_item.get_relationship() == 'instance':
+                    menu.addSeparator()
+                    menu.addAction(unlink_sobject)
                 menu.addSeparator()
-                menu.addAction(delete_snapshot)
-                if current_tree_widget_item.is_versionless():
-                    menu.addAction(delete_snapshot_tree)
-                if current_tree_widget_item.is_checked():
+                menu.addAction(delete_sobject)
+                if multiple_selection:
                     menu.addAction(delete_selected)
-            else:
+
+            if mode == 'snapshot':
+                if current_tree_widget_item.get_snapshot():
+                    if current_tree_widget_item.get_is_multiple_checkin():
+                        open_snapshot_additional = menu.addAction(open_folder, True)
+                        open_snapshot_additional.clicked.connect(self.open_file_options)
+                    else:
+                        if env_mode.get_mode() == 'maya':
+                            open_snapshot_additional = menu.addAction(open_scene, True)
+                            open_snapshot_additional.clicked.connect(self.open_file_options)
+                        elif env_mode.get_mode() == 'standalone':
+                            open_snapshot_additional = menu.addAction(open_snapshot, True)
+                            open_snapshot_additional.clicked.connect(self.open_file_options)
+
+                    if env_mode.get_mode() == 'maya':
+                        save_scene_additional = menu.addAction(save_scene, True)
+                        save_scene_additional.clicked.connect(self.save_file_options)
+
+                        save_selected_snapshot_additional = menu.addAction(save_selected_snapshot, True)
+                        save_selected_snapshot_additional.clicked.connect(self.export_selected_file_options)
+
+                        menu.addSeparator()
+                        save_snapshot_additional = menu.addAction(save_snapshot, True)
+                        save_snapshot_additional.clicked.connect(self.save_file_options)
+
+                        menu.addSeparator()
+
+                        import_snapshot_additional = menu.addAction(import_snapshot, True)
+                        import_snapshot_additional.clicked.connect(self.import_file_options)
+
+                        refence_snapshot_additional = menu.addAction(reference_snapshot, True)
+                        refence_snapshot_additional.clicked.connect(self.reference_file_options)
+                    elif env_mode.get_mode() == 'standalone':
+                        save_snapshot_additional = menu.addAction(save_snapshot, True)
+                        save_snapshot_additional.clicked.connect(self.save_file_options)
+
+                    menu.addSeparator()
+
+                    save_snapshot_revision_additional = menu.addAction(save_snapshot_revision, True)
+                    save_snapshot_revision_additional.clicked.connect(self.save_file_options)
+
+                    if env_mode.get_mode() == 'maya':
+                        save_selected_snapshot_revision_additional = menu.addAction(save_selected_snapshot_revision, True)
+                        save_selected_snapshot_revision_additional.clicked.connect(self.export_selected_file_options)
+
+                        menu.addSeparator()
+
+                    # update_snapshot_additional = menu.addAction(update_snapshot, True)
+                    # update_snapshot_additional.clicked.connect(self.export_selected_file_options)
+
+                    menu.addSeparator()
+                    menu.addAction(open_folder)
+                    menu.addSeparator()
+                    menu.addAction(copy_skey)
+                    menu.addAction(edit_info)
+
+                    if multiple_selection:
+                        menu.addAction(edit_info_for_selected)
+
+                    menu.addSeparator()
+                    menu.addAction(delete_snapshot)
+                    if current_tree_widget_item.is_versionless():
+                        menu.addAction(delete_snapshot_tree)
+
+                    if multiple_selection:
+                        menu.addAction(delete_selected)
+
+                else:
+                    if env_mode.get_mode() == 'maya':
+                        save_scene_additional = menu.addAction(save_scene, True)
+                        save_scene_additional.clicked.connect(self.save_file_options)
+
+                        save_selected_snapshot_additional = menu.addAction(save_selected_snapshot, True)
+                        save_selected_snapshot_additional.clicked.connect(self.export_selected_file_options)
+
+                    elif env_mode.get_mode() == 'standalone':
+                        save_snapshot_additional = menu.addAction(save_snapshot, True)
+                        save_snapshot_additional.clicked.connect(self.save_file_options)
+
+                    menu.addSeparator()
+                    menu.addAction(open_folder_vls)
+                    menu.addAction(open_folder_v)
+            if mode == 'process':
                 if env_mode.get_mode() == 'maya':
                     save_scene_additional = menu.addAction(save_scene, True)
                     save_scene_additional.clicked.connect(self.save_file_options)
-
                     save_selected_snapshot_additional = menu.addAction(save_selected_snapshot, True)
                     save_selected_snapshot_additional.clicked.connect(self.export_selected_file_options)
-
+                    menu.addSeparator()
+                    save_snapshot_additional = menu.addAction(save_snapshot, True)
+                    save_snapshot_additional.clicked.connect(self.save_file_options)
                 elif env_mode.get_mode() == 'standalone':
                     save_snapshot_additional = menu.addAction(save_snapshot, True)
                     save_snapshot_additional.clicked.connect(self.save_file_options)
 
+                if current_tree_widget_item.have_watch_folder:
+                    menu.addSeparator()
+                    menu.addAction(open_folder_wf)
                 menu.addSeparator()
                 menu.addAction(open_folder_vls)
                 menu.addAction(open_folder_v)
-        if mode == 'process':
-            if env_mode.get_mode() == 'maya':
-                save_scene_additional = menu.addAction(save_scene, True)
-                save_scene_additional.clicked.connect(self.save_file_options)
-                save_selected_snapshot_additional = menu.addAction(save_selected_snapshot, True)
-                save_selected_snapshot_additional.clicked.connect(self.export_selected_file_options)
+
                 menu.addSeparator()
-                save_snapshot_additional = menu.addAction(save_snapshot, True)
-                save_snapshot_additional.clicked.connect(self.save_file_options)
-            elif env_mode.get_mode() == 'standalone':
-                save_snapshot_additional = menu.addAction(save_snapshot, True)
-                save_snapshot_additional.clicked.connect(self.save_file_options)
+                menu.addAction(edit_db_table)
 
-            if current_tree_widget_item.have_watch_folder:
-                menu.addSeparator()
-                menu.addAction(open_folder_wf)
-            menu.addSeparator()
-            menu.addAction(open_folder_vls)
-            menu.addAction(open_folder_v)
-
-            menu.addSeparator()
-            menu.addAction(edit_db_table)
-
-        if mode == 'child':
-            menu.addAction(ingest_files)
-            # menu.addAction(ingest_maya_textures)
+            if mode == 'child':
+                menu.addAction(ingest_files)
+                # menu.addAction(ingest_maya_textures)
 
         return menu
 
@@ -1725,14 +1739,24 @@ class Ui_checkInOutWidget(QtGui.QMainWindow):
 
     @gf.catch_error
     def delete_selected_sobjects(self):
-        current_widget = self.get_current_tree_widget()
-        items_list = gf.get_all_tree_item_widgets(current_widget.resultsTreeWidget)
+        current_results_widget = self.get_current_results_widget()
+        current_tree_widget_item = current_results_widget.get_current_tree_widget_item()
+        current_tree_widget = current_tree_widget_item.get_current_tree_widget()
 
-        for item in items_list:
-            if item.is_checked():
-                item.delete_current_sobject()
+        sobjects_list = []
+        search_keys_list = []
+        for item in current_tree_widget.selectedItems():
+            item_wdg = current_tree_widget.itemWidget(item, 0)
+            sobject = item_wdg.get_deletable_sobject()
 
-        self.refresh_current_results()
+            sobjects_list.append(sobject)
+            search_keys_list.append(sobject.get_search_key())
+
+        del_confirm = tc.sobject_delete_confirm(sobjects_list)
+
+        if del_confirm:
+            tc.delete_sobjects(search_keys_list, del_confirm)
+            self.refresh_current_results()
 
     @gf.catch_error
     def unlink_sobject(self):
@@ -1744,13 +1768,37 @@ class Ui_checkInOutWidget(QtGui.QMainWindow):
         self.refresh_current_results()
 
     @gf.catch_error
+    def delete_sobject_with_context(self):
+        current_results_widget = self.get_current_results_widget()
+        current_tree_widget_item = current_results_widget.get_current_tree_widget_item()
+
+        versionless_sobject = current_tree_widget_item.get_deletable_sobject()
+        versions_sobjects = current_tree_widget_item.get_all_versions_snapshots()
+
+        sobjects_list = []
+        search_keys_list = []
+        for version_sobject in versions_sobjects.values():
+            sobjects_list.append(version_sobject)
+            search_keys_list.append(version_sobject.get_search_key())
+
+        sobjects_list.append(versionless_sobject)
+        search_keys_list.append(versionless_sobject.get_search_key())
+
+        del_confirm = tc.sobject_delete_confirm(sobjects_list)
+
+        if del_confirm:
+            tc.delete_sobjects(search_keys_list, del_confirm)
+            self.refresh_current_results()
+
+    @gf.catch_error
     def delete_sobject(self):
         current_results_widget = self.get_current_results_widget()
         current_tree_widget_item = current_results_widget.get_current_tree_widget_item()
 
-        current_tree_widget_item.delete_current_sobject()
+        deleted = current_tree_widget_item.delete_current_sobject()
 
-        self.refresh_current_results()
+        if deleted:
+            self.refresh_current_results()
 
     @gf.catch_error
     def edit_existing_sobject(self):

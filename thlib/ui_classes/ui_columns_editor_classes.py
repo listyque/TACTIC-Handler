@@ -25,11 +25,12 @@ class Ui_columnsViewerWidget(QtGui.QWidget):
         pass
 
     def set_item(self, item):
-        self.item = item
-        if self.item:
-            self.customize_with_item()
-        else:
-            self.customize_without_item()
+        if not self.visibleRegion().isEmpty():
+            self.item = item
+            if self.item:
+                self.customize_with_item()
+            else:
+                self.customize_without_item()
 
     def customize_with_item(self):
         self.columns_tab_widget.clear()

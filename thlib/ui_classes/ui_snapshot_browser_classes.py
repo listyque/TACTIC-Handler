@@ -9,6 +9,7 @@ import thlib.ui.misc.ui_snapshot_browser as ui_snapshot_browser
 import ui_addsobject_classes as addsobject_widget
 from thlib.environment import env_inst, cfg_controls
 import thlib.global_functions as gf
+import thlib.tactic_classes as tc
 
 reload(ui_snapshot_browser)
 
@@ -18,6 +19,8 @@ class Ui_snapshotBrowserWidget(QtGui.QWidget, ui_snapshot_browser.Ui_snapshotBro
         super(self.__class__, self).__init__(parent=parent)
 
         self.scene = QtGui.QGraphicsScene(self)
+        self.shown = False
+        self.scene_created = False
 
         self.item_widget = None
         self.snapshots = None
@@ -25,6 +28,8 @@ class Ui_snapshotBrowserWidget(QtGui.QWidget, ui_snapshot_browser.Ui_snapshotBro
         self.create_ui()
 
         self.controls_actions()
+
+        self.installEventFilter(self)
 
     def controls_actions(self):
 
@@ -52,36 +57,46 @@ class Ui_snapshotBrowserWidget(QtGui.QWidget, ui_snapshot_browser.Ui_snapshotBro
 
         self.menu_actions = []
 
-        open_external = QtGui.QAction("Open File", self.previewGraphicsView)
+        open_external = QtGui.QAction('Open File', self.previewGraphicsView)
         open_external.setIcon(gf.get_icon('folder'))
         open_external.triggered.connect(self.open_file_from_graphics_view)
 
-        open_file_folder = QtGui.QAction('Show Folder', self.filesTreeWidget)
+        open_file_folder = QtGui.QAction('Show Folder', self.previewGraphicsView)
         open_file_folder.setIcon(gf.get_icon('folder-open'))
         open_file_folder.triggered.connect(self.open_folder_from_graphics_view)
 
-        copy_path = QtGui.QAction("Copy File Path", self.previewGraphicsView)
+        copy_path = QtGui.QAction('Copy File Path', self.previewGraphicsView)
         copy_path.setIcon(gf.get_icon('copy'))
         copy_path.triggered.connect(self.copy_path_from_graphics_view)
+
+        copy_web_path = QtGui.QAction('Copy Web Link', self.previewGraphicsView)
+        copy_web_path.setIcon(gf.get_icon('link', icons_set='mdi', scale_factor=1))
+        copy_web_path.triggered.connect(self.copy_web_path_from_graphics_view)
+
+        copy_to_clipboard = QtGui.QAction('Copy To Clipboard', self.previewGraphicsView)
+        copy_to_clipboard.setIcon(gf.get_icon('link', icons_set='mdi', scale_factor=1))
+        copy_to_clipboard.triggered.connect(self.copy_to_clipboard_from_graphics_view)
 
         previews_maya = QtGui.QAction('', self.previewGraphicsView)
         previews_maya.setSeparator(True)
 
-        add_imageplane = QtGui.QAction("Add as Imageplane", self.previewGraphicsView)
+        add_imageplane = QtGui.QAction('Add as Imageplane', self.previewGraphicsView)
         add_imageplane.triggered.connect(lambda: self.add_as_image_plane(self.imagesSlider.value()))
 
         previews_sep = QtGui.QAction('', self.previewGraphicsView)
         previews_sep.setSeparator(True)
 
-        add_new_image = QtGui.QAction("Add new Image", self.previewGraphicsView)
+        add_new_image = QtGui.QAction('Add new Image', self.previewGraphicsView)
         add_new_image.triggered.connect(lambda: self.open_ext(self.imagesSlider.value()))
 
-        add_new_playblast = QtGui.QAction("Capture new playblast", self.previewGraphicsView)
+        add_new_playblast = QtGui.QAction('Capture new playblast', self.previewGraphicsView)
         add_new_playblast.triggered.connect(lambda: self.open_ext(self.imagesSlider.value()))
 
         self.menu_actions.append(open_external)
         self.menu_actions.append(open_file_folder)
         self.menu_actions.append(copy_path)
+        self.menu_actions.append(copy_web_path)
+        self.menu_actions.append(copy_to_clipboard)
         self.menu_actions.append(previews_maya)
         # self.menu_actions.append(add_imageplane)
         # self.menu_actions.append(previews_sep)
@@ -114,7 +129,6 @@ class Ui_snapshotBrowserWidget(QtGui.QWidget, ui_snapshot_browser.Ui_snapshotBro
         self.forward_button.wheelEvent = self.previewGraphicsView_wheelEvent
 
         self.current_pix = 0
-        self.current_pixmap = None
         self.pix_list = []
         self.file_list = []
         self.pm_list = []
@@ -148,11 +162,25 @@ class Ui_snapshotBrowserWidget(QtGui.QWidget, ui_snapshot_browser.Ui_snapshotBro
     @gf.catch_error
     def open_file_from_graphics_view(self):
         if self.file_list:
-            file_object = self.file_list[self.current_pix]
-            if file_object.is_meta_file_obj():
-                meta_file_object = file_object.get_meta_file_object()
-                meta_file_object.open_file()
+
+            if gf.get_value_from_config(cfg_controls.get_checkin(), 'checkoutMethodComboBox') == 0:
+                checkout_method = 'local'
             else:
+                checkout_method = 'http'
+
+            file_object = self.file_list[self.current_pix]
+
+            if checkout_method == 'http':
+                repo_sync_widget = env_inst.ui_repo_sync_queue.schedule_file_object(file_object)
+
+                # preventing double opening of the file
+                connected = False
+                if not connected:
+                    repo_sync_widget.downloaded.connect(file_object.open_file)
+                    connected = True
+                repo_sync_widget.download()
+
+            elif checkout_method == 'local':
                 file_object.open_file()
 
     @gf.catch_error
@@ -177,14 +205,46 @@ class Ui_snapshotBrowserWidget(QtGui.QWidget, ui_snapshot_browser.Ui_snapshotBro
                 clipboard.setText(file_object.get_full_abs_path())
 
     @gf.catch_error
+    def copy_web_path_from_graphics_view(self):
+        if self.file_list:
+            clipboard = QtGui.QApplication.instance().clipboard()
+            file_object = self.file_list[self.current_pix]
+            clipboard.setText(file_object.get_full_web_path())
+
+    @gf.catch_error
+    def copy_to_clipboard_from_graphics_view(self):
+        if self.file_list:
+            clipboard = QtGui.QApplication.instance().clipboard()
+            file_object = self.file_list[self.current_pix]
+
+            image = Qt4Gui.QImage(0, 0, Qt4Gui.QImage.Format_ARGB32)
+            image.load(file_object.get_full_abs_path())
+
+            if not image.isNull():
+                clipboard.setImage(image)
+
+    @gf.catch_error
     def open_file_from_tree(self, index=None):
+
+        if gf.get_value_from_config(cfg_controls.get_checkin(), 'checkoutMethodComboBox') == 0:
+            checkout_method = 'local'
+        else:
+            checkout_method = 'http'
+
         item = self.filesTreeWidget.currentItem()
         file_object = item.data(0, QtCore.Qt.UserRole)
 
-        if file_object.is_meta_file_obj():
-            meta_file_object = file_object.get_meta_file_object()
-            meta_file_object.open_file()
-        else:
+        if checkout_method == 'http':
+            repo_sync_widget = env_inst.ui_repo_sync_queue.schedule_file_object(file_object)
+
+            # preventing double opening of the file
+            connected = False
+            if not connected:
+                repo_sync_widget.downloaded.connect(file_object.open_file)
+                connected = True
+            repo_sync_widget.download()
+
+        elif checkout_method == 'local':
             file_object.open_file()
 
     @gf.catch_error
@@ -204,6 +264,25 @@ class Ui_snapshotBrowserWidget(QtGui.QWidget, ui_snapshot_browser.Ui_snapshotBro
         clipboard = QtGui.QApplication.instance().clipboard()
         clipboard.setText(file_object.get_full_abs_path())
 
+    def copy_web_path_from_tree(self):
+        item = self.filesTreeWidget.currentItem()
+        file_object = item.data(0, QtCore.Qt.UserRole)
+
+        clipboard = QtGui.QApplication.instance().clipboard()
+        clipboard.setText(file_object.get_full_web_path())
+
+    def copy_to_clipboard_from_tree(self):
+        item = self.filesTreeWidget.currentItem()
+        file_object = item.data(0, QtCore.Qt.UserRole)
+
+        clipboard = QtGui.QApplication.instance().clipboard()
+
+        image = Qt4Gui.QImage(0, 0, Qt4Gui.QImage.Format_ARGB32)
+        image.load(file_object.get_full_abs_path())
+
+        if not image.isNull():
+            clipboard.setImage(image)
+
     def file_context_menu(self):
         open_file = QtGui.QAction('Open File', self.filesTreeWidget)
         open_file.setIcon(gf.get_icon('folder'))
@@ -213,9 +292,17 @@ class Ui_snapshotBrowserWidget(QtGui.QWidget, ui_snapshot_browser.Ui_snapshotBro
         open_file_folder.setIcon(gf.get_icon('folder-open'))
         open_file_folder.triggered.connect(self.open_folder_from_tree)
 
-        copy_path = QtGui.QAction("Copy File Path", self.previewGraphicsView)
+        copy_path = QtGui.QAction('Copy File Path', self.filesTreeWidget)
         copy_path.setIcon(gf.get_icon('copy'))
         copy_path.triggered.connect(self.copy_path_from_tree)
+
+        copy_web_path = QtGui.QAction('Copy Web Link', self.filesTreeWidget)
+        copy_web_path.setIcon(gf.get_icon('link', icons_set='mdi', scale_factor=1))
+        copy_web_path.triggered.connect(self.copy_web_path_from_tree)
+
+        copy_to_clipboard = QtGui.QAction('Copy to Clipboard', self.filesTreeWidget)
+        copy_to_clipboard.setIcon(gf.get_icon('link', icons_set='mdi', scale_factor=1))
+        copy_to_clipboard.triggered.connect(self.copy_to_clipboard_from_tree)
 
         edit_info = QtGui.QAction('Edit Info', self.filesTreeWidget)
         edit_info.setIcon(gf.get_icon('edit'))
@@ -223,13 +310,15 @@ class Ui_snapshotBrowserWidget(QtGui.QWidget, ui_snapshot_browser.Ui_snapshotBro
 
         delete_sobject = QtGui.QAction('Delete', self.filesTreeWidget)
         delete_sobject.setIcon(gf.get_icon('remove'))
-        # delete_sobject.triggered.connect(lambda: self.delete_sobject())
+        delete_sobject.triggered.connect(self.delete_file_sobject)
 
         menu = QtGui.QMenu()
 
         menu.addAction(open_file)
         menu.addAction(open_file_folder)
         menu.addAction(copy_path)
+        menu.addAction(copy_web_path)
+        menu.addAction(copy_to_clipboard)
         menu.addAction(edit_info)
         menu.addAction(delete_sobject)
 
@@ -252,9 +341,18 @@ class Ui_snapshotBrowserWidget(QtGui.QWidget, ui_snapshot_browser.Ui_snapshotBro
         self.edit_sobject.setWindowTitle('Editing info for {0}'.format(self.item_widget.sobject.info.get('name')))
         self.edit_sobject.show()
 
-    def refresh_current_results(self):
-        self.item_widget.update_items()
-        self.fill_files_tree()
+    def delete_file_sobject(self):
+
+        # TODO Refresh after deleting
+
+        item = self.filesTreeWidget.currentItem()
+
+        file_object = item.data(0, QtCore.Qt.UserRole)
+
+        delete_confirm = tc.sobject_delete_confirm([file_object])
+
+        if delete_confirm:
+            tc.delete_sobjects([file_object.get_search_key()], delete_confirm)
 
     def init_snapshot(self, multiple_sapshots=False):
         if multiple_sapshots:
@@ -275,10 +373,12 @@ class Ui_snapshotBrowserWidget(QtGui.QWidget, ui_snapshot_browser.Ui_snapshotBro
         else:
             self.filesTreeWidget.setHeaderHidden(False)
             self.filesTreeWidget.setColumnCount(5)
+
         icon_provider = QtGui.QFileIconProvider()
         known_icon_ext = {}
         if self.snapshots:
 
+            # Making versionless on top of tree
             if self.item_widget.type == 'snapshot':
                 if self.item_widget.is_versionless():
                     versionless_snapshot = self.item_widget.get_snapshot()
@@ -295,10 +395,23 @@ class Ui_snapshotBrowserWidget(QtGui.QWidget, ui_snapshot_browser.Ui_snapshotBro
                     self.filesTreeWidget.addTopLevelItem(sn_item)
                     sn_item.setExpanded(True)
 
+                # Download from http
+                for file_type, files_objects in snapshot_files_objects.items():
+                    for file_object in files_objects:
+
+                        if gf.get_value_from_config(cfg_controls.get_checkin(), 'getPreviewsThroughHttpCheckbox') == 1:
+                            if file_type in ['icon', 'playblast', 'web', 'image']:
+                                if file_object.is_exists():
+                                    if file_object.get_file_size() != file_object.get_file_size(True):
+                                        self.download_web_preview(file_object)
+                                else:
+                                    self.download_web_preview(file_object)
+
                 preview = []
                 if not show_all_files:
                     preview = ['icon', 'playblast', 'web']
 
+                # Adding files to tree
                 for i, (file_type, files_objects) in enumerate(snapshot_files_objects.items()):
                     type_item = QtGui.QTreeWidgetItem()
                     if file_type not in preview:
@@ -309,18 +422,13 @@ class Ui_snapshotBrowserWidget(QtGui.QWidget, ui_snapshot_browser.Ui_snapshotBro
 
                         for file_object in files_objects:
 
-                            # remove unnecessary calls to icon provider
+                            # removing unnecessary calls to icon provider
                             file_ext = file_object.get_ext()
                             if known_icon_ext.get(file_ext):
                                 file_icon = known_icon_ext[file_ext]
                             else:
                                 file_icon = icon_provider.icon(file_object.get_full_abs_path())
                                 known_icon_ext[file_ext] = file_icon
-
-                            if gf.get_value_from_config(cfg_controls.get_checkin(), 'getPreviewsThroughHttpCheckbox') == 1:
-                                if file_type in ['icon', 'playblast', 'web']:
-                                    if file_object.get_file_size() != file_object.get_file_size(True):
-                                        self.download_web_preview(file_object)
 
                             # multiple files in snapshot
                             if file_object.is_meta_file_obj():
@@ -332,7 +440,6 @@ class Ui_snapshotBrowserWidget(QtGui.QWidget, ui_snapshot_browser.Ui_snapshotBro
             if show_more_info:
                 self.filesTreeWidget.resizeColumnToContents(1)
                 self.filesTreeWidget.resizeColumnToContents(2)
-                # self.filesTreeWidget.resizeColumnToContents(3)
                 self.filesTreeWidget.resizeColumnToContents(4)
                 self.filesTreeWidget.resizeColumnToContents(5)
 
@@ -399,39 +506,42 @@ class Ui_snapshotBrowserWidget(QtGui.QWidget, ui_snapshot_browser.Ui_snapshotBro
     def getting_pixmaps(self):
 
         for snapshot in self.snapshots:
+
             preview_files_objects = snapshot.get_previewable_files_objects()
+
+            if not preview_files_objects:
+                # Trying to gen any preview if possible
+                for fo in snapshot.get_files_objects():
+                    if fo.get_type() == 'web':
+                        if fo not in preview_files_objects:
+                            preview_files_objects.append(fo)
+
             for preview_file_obj in preview_files_objects:
+
                 web_file_obj = preview_file_obj.get_web_preview()
                 if not web_file_obj:
                     web_file_obj = preview_file_obj
                 if web_file_obj.is_meta_file_obj():
                     meta_file_object = web_file_obj.get_meta_file_object()
-                    # pixmap = Qt4Gui.QPixmap()
                     pixmap_path = meta_file_object.get_all_files_list(first=True)
-                    # print meta_file_object.get_all_files_list(first=True)
                 else:
-                    # pixmap = Qt4Gui.QPixmap()
                     pixmap_path = web_file_obj.get_full_abs_path()
-                    # print web_file_obj.get_full_abs_path()
-                # if not pixmap.isNull():
-                    # self.pix_list.append(pixmap.scaledToWidth(640, QtCore.Qt.SmoothTransformation))
                 self.pix_list.append(pixmap_path)
                 self.file_list.append(preview_file_obj)
 
-        self.create_scene()
-
     def download_web_preview(self, file_object):
-        env_inst.ui_main.set_info_status_text(
-            '<span style=" font-size:8pt; color:#00ff00;">Downloading Previews</span>')
 
-        repo_sync_widget = env_inst.ui_repo_sync_queue.schedule_file_object(file_object)
-        repo_sync_widget.downloaded.connect(self.download_ready)
-        repo_sync_widget.download()
+        if not file_object.is_downloaded():
+            if file_object.get_unique_id() not in env_inst.ui_repo_sync_queue.queue_dict.keys():
+                repo_sync_widget = env_inst.ui_repo_sync_queue.schedule_file_object(file_object)
+                repo_sync_widget.downloaded.connect(self.download_ready)
+                repo_sync_widget.download()
 
-    def download_ready(self, web_file_obj=None):
-        # print 'DOWNLOAD READY'
+    def download_ready(self, file_obj=None):
         env_inst.ui_main.set_info_status_text('')
-        # self.set_item_widget(self.item_widget)
+        file_obj.set_downloaded()
+        if env_inst.ui_repo_sync_queue.is_all_downloads_done():
+            self.refresh_with_item_widget(self.item_widget)
 
     def create_on_scene_layout(self):
         self.previewGraphicsView_layout = QtGui.QGridLayout(self.previewGraphicsView)
@@ -486,12 +596,41 @@ class Ui_snapshotBrowserWidget(QtGui.QWidget, ui_snapshot_browser.Ui_snapshotBro
         self.previewGraphicsView_layout.setColumnStretch(1, 1)
         self.previewGraphicsView_layout.setColumnStretch(2, 1)
 
-    def create_scene(self):
-        self.scene.clear()
+    def clear_scene(self):
+        if self.scene_created:
+            self.pm1.add_pixmap(Qt4Gui.QPixmap())
+            self.pm2.add_pixmap(Qt4Gui.QPixmap())
+            self.pm3.add_pixmap(Qt4Gui.QPixmap())
 
-        self.pm1 = Pixmap()
-        self.pm2 = Pixmap()
-        self.pm3 = Pixmap()
+    def update_scene(self):
+        if self.pix_list:
+
+            self.clear_scene()
+
+            self.pm_list = [self.pm1, self.pm2, self.pm3]
+
+            for i, pm in enumerate(self.pm_list):
+                pixmap = Qt4Gui.QPixmap(self.pix_list[i % len(self.pix_list)])
+                if pixmap.isNull():
+                    pm.set_op(0.0)
+                else:
+                    pm.add_pixmap(pixmap.scaledToWidth(640, QtCore.Qt.SmoothTransformation))
+
+
+            self.previewGraphicsView.setSceneRect(self.pm1.pixmap_item.boundingRect())
+            self.previewGraphicsView.fitInView(self.pm1.pixmap_item.boundingRect(), QtCore.Qt.KeepAspectRatio)
+
+        self.imagesSlider.setValue(0)
+
+        if not self.machine.isRunning():
+            self.machine.start()
+
+    def create_scene(self):
+        self.scene_created = True
+
+        self.pm1 = Pixmap(self)
+        self.pm2 = Pixmap(self)
+        self.pm3 = Pixmap(self)
 
         self.scene.addItem(self.pm1.pixmap_item)
         self.scene.addItem(self.pm2.pixmap_item)
@@ -499,9 +638,9 @@ class Ui_snapshotBrowserWidget(QtGui.QWidget, ui_snapshot_browser.Ui_snapshotBro
 
         # animation
         self.machine = QtCore.QStateMachine()
-        self.state1 = QtCore.QState(self.machine)
-        self.state2 = QtCore.QState(self.machine)
-        self.state3 = QtCore.QState(self.machine)
+        self.state1 = QtCore.QState()
+        self.state2 = QtCore.QState()
+        self.state3 = QtCore.QState()
 
         self.state1.assignProperty(self.pm1, 'pos', QtCore.QPoint(0, 0))
         self.state1.assignProperty(self.pm1, 'opacity', 1)
@@ -529,8 +668,6 @@ class Ui_snapshotBrowserWidget(QtGui.QWidget, ui_snapshot_browser.Ui_snapshotBro
 
         self.state3.assignProperty(self.pm3, 'pos', QtCore.QPoint(0, 0))
         self.state3.assignProperty(self.pm3, 'opacity', 1)
-
-        self.machine.setInitialState(self.state1)
 
         self.pm1_anm = QtCore.QPropertyAnimation(self.pm1, 'pos', self)
         self.pm1_anm.setEasingCurve(QtCore.QEasingCurve.OutExpo)
@@ -611,12 +748,18 @@ class Ui_snapshotBrowserWidget(QtGui.QWidget, ui_snapshot_browser.Ui_snapshotBro
                 pixmap = Qt4Gui.QPixmap(self.pix_list[i % len(self.pix_list)])
                 if not pixmap.isNull():
                     pm.add_pixmap(pixmap.scaledToWidth(640, QtCore.Qt.SmoothTransformation))
-                    self.current_pixmap = pixmap
 
             self.previewGraphicsView.setSceneRect(self.pm1.pixmap_item.boundingRect())
             self.previewGraphicsView.fitInView(self.pm1.pixmap_item.boundingRect(), QtCore.Qt.KeepAspectRatio)
 
         self.imagesSlider.setValue(0)
+
+        if not self.machine.isRunning():
+            self.machine.addState(self.state1)
+            self.machine.addState(self.state2)
+            self.machine.addState(self.state3)
+            self.machine.setInitialState(self.state1)
+            self.machine.start()
 
     def create_ui(self):
         self.setupUi(self)
@@ -646,12 +789,19 @@ class Ui_snapshotBrowserWidget(QtGui.QWidget, ui_snapshot_browser.Ui_snapshotBro
 
     # rotating
     def rotate_pixmaps(self, index=None):
-        if self.pix_list:
+
+        if self.pix_list and self.pm_list:
+
             idx = index % len(self.pix_list)
             pm_idx = index % len(self.pm_list)
-            self.pm_list[pm_idx].add_pixmap(self.pix_list[idx])
-            # self.previewGraphicsView.setSceneRect(self.pix_list[idx].rect())
-            # self.previewGraphicsView.fitInView(self.pix_list[idx].rect(), QtCore.Qt.KeepAspectRatio)
+
+            pixmap = Qt4Gui.QPixmap(self.pix_list[idx])
+
+            if not pixmap.isNull():
+                self.pm_list[pm_idx].add_pixmap(pixmap.scaledToWidth(640, QtCore.Qt.SmoothTransformation))
+
+            self.previewGraphicsView.setSceneRect(self.pm_list[pm_idx].pixmap_item.boundingRect())
+            self.previewGraphicsView.fitInView(self.pm_list[pm_idx].pixmap_item.boundingRect(), QtCore.Qt.KeepAspectRatio)
 
     def move_slider_forward(self):
         value = self.imagesSlider.value() + 1
@@ -662,8 +812,6 @@ class Ui_snapshotBrowserWidget(QtGui.QWidget, ui_snapshot_browser.Ui_snapshotBro
         self.imagesSlider.setValue(value)
 
     def do_preview(self):
-
-        self.current_pix = 0
         self.pm_list = []
         self.pix_list = []
         self.file_list = []
@@ -671,13 +819,28 @@ class Ui_snapshotBrowserWidget(QtGui.QWidget, ui_snapshot_browser.Ui_snapshotBro
         self.getting_pixmaps()
 
         self.init_images_slider()
-        if not self.machine.isRunning():
-            self.machine.start()
+
+        if self.pix_list:
+            if self.scene_created:
+                self.update_scene()
+            else:
+                self.create_scene()
+        else:
+            self.clear_scene()
 
     def set_item_widget(self, item_widget):
-        # !!! i think this whole thing should be rewritten !!!
-
         self.item_widget = item_widget
+
+        if self.visibleRegion().isEmpty():
+            self.shown = False
+        else:
+            self.refresh_with_item_widget(self.item_widget)
+
+    def refresh_with_item_widget(self, item_widget):
+        # Refer to paint event to see where refreshing is
+        self.shown = True
+
+        # !!! i think this whole thing should be rewritten !!!
 
         if self.item_widget.type == 'snapshot':
             is_versionless = self.item_widget.is_versionless()
@@ -700,7 +863,6 @@ class Ui_snapshotBrowserWidget(QtGui.QWidget, ui_snapshot_browser.Ui_snapshotBro
             else:
                 self.clear()
         elif self.item_widget.type == 'sobject':
-
             # checking if we have any snapshots, we can show it in snapshot browser
             # versionless here have priority
             self.snapshots = None
@@ -721,7 +883,6 @@ class Ui_snapshotBrowserWidget(QtGui.QWidget, ui_snapshot_browser.Ui_snapshotBro
             else:
                 self.clear()
         elif self.item_widget.type == 'process':
-
             self.snapshots = []
             snapshots = self.item_widget.get_snapshots()
             if snapshots:
@@ -739,15 +900,17 @@ class Ui_snapshotBrowserWidget(QtGui.QWidget, ui_snapshot_browser.Ui_snapshotBro
             self.clear()
 
     def clear(self):
-        self.previewGraphicsView.resizeEvent = self.resize_event
-        self.imagesSlider.setMaximum(0)
-        self.imagesSlider.setMinimum(0)
-        self.current_pix = 0
-        self.pm_list = []
+        self.clear_scene()
+
+        # self.current_pix = 0
         self.pix_list = []
         self.file_list = []
         self.filesTreeWidget.clear()
-        self.scene.clear()
+
+        self.previewGraphicsView.resizeEvent = self.resize_event
+        self.imagesSlider.setMaximum(0)
+        self.imagesSlider.setMinimum(0)
+        # self.clear_scene()
 
     def set_settings_from_dict(self, settings_dict=None):
 
@@ -772,21 +935,32 @@ class Ui_snapshotBrowserWidget(QtGui.QWidget, ui_snapshot_browser.Ui_snapshotBro
         return settings_dict
 
     def graphicsSceneResizeEvent(self, event):
-        # TODO Smooth downscaling pixmap
-        rect = QtCore.QRect(0, 0, 512, 512)
-        if self.current_pixmap:
-            rect = self.current_pixmap.rect()
+        if self.pm1.pixmap_item:
+            rect = self.pm1.pixmap_item.boundingRect()
+        else:
+            rect = QtCore.QRect(0, 0, 512, 512)
+
         self.previewGraphicsView.setSceneRect(rect)
         self.previewGraphicsView.fitInView(rect, QtCore.Qt.KeepAspectRatio)
+
         event.accept()
 
     def resize_event(self, event):
         event.accept()
 
+    def paintEvent(self, event):
+
+        # may be it is hack, but it's the only event occuring when window shown
+        if not self.shown:
+            if self.item_widget:
+                self.refresh_with_item_widget(self.item_widget)
+            self.shown = True
+
+        event.accept()
 
 class Pixmap(QtCore.QObject):
-    def __init__(self):
-        super(Pixmap, self).__init__()
+    def __init__(self, parent=None):
+        super(Pixmap, self).__init__(parent=parent)
 
         self.pixmap_item = QtGui.QGraphicsPixmapItem()
         self.pixmap_item.setTransformationMode(QtCore.Qt.SmoothTransformation)

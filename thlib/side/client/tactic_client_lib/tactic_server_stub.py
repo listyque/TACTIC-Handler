@@ -201,21 +201,22 @@ class TacticServerStub(object):
         # TODO: Not implmeneted: This is needed for isolation of transactions
         #if my.transaction_ticket:
         #    url = '%s%s' % (url, my.transaction_ticket)
-        my.server = xmlrpclib.Server(url, allow_none=True)
+        # my.server = xmlrpclib.Server(url, allow_none=True)
 
         if my.transport:
             my.server = xmlrpclib.Server(url, allow_none=True, transport=my.transport)
         else:
             my.server = xmlrpclib.Server(url, allow_none=True)
 
-        try:
-            pass
-            #print my.server.test(my.ticket)
-        except httplib.InvalidURL:
-            raise TacticApiException("You have supplied an invalid server name [%s]"
-                                     % my.server_name)
+        # try:
+        #     pass
+        #     #print my.server.test(my.ticket)
+        # except httplib.InvalidURL:
+        #     raise TacticApiException("You have supplied an invalid server name [%s]"
+        #                              % my.server_name)
             
         my.has_server = True
+
         # WARNING: this is changing code in the xmlrpclib library.  This
         # library is not sending a proper user agent.  Hacking it in
         # so that at least the OS is sent
@@ -1121,6 +1122,7 @@ class TacticServerStub(object):
         [/code]
         '''
         #return my.server.query(my.ticket, search_type, filters, columns, order_bys, show_retired, limit, offset, single, return_sobjects)
+
         results = my.server.query(my.ticket, search_type, filters, columns,
                                   order_bys, show_retired, limit, offset,
                                   single, distinct, return_sobjects)

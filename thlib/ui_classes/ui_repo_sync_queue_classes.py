@@ -1,3 +1,4 @@
+import copy
 from thlib.side.Qt import QtWidgets as QtGui
 from thlib.side.Qt import QtGui as Qt4Gui
 from thlib.side.Qt import QtNetwork
@@ -478,6 +479,14 @@ class Ui_repoSyncDialog(QtGui.QDialog):
             # Pipeline items should not have check state, filter it with {pp} tag
             gf.set_tree_widget_checked_state(self.tree_widget, preset_dict, ignore_types_tuple=(':{pp}'))
 
+            if preset_dict.get('get_versions'):
+                if preset_dict['get_versions']:
+                    self.fullSyncRadioButton.setChecked(True)
+                else:
+                    self.versionlessSyncRadioButton.setChecked(True)
+            else:
+                self.versionlessSyncRadioButton.setChecked(True)
+
     def get_preset_by_name(self, preset_name):
         # Only used on initial items filling
         if self.presets_list:
@@ -527,6 +536,7 @@ class Ui_repoSyncDialog(QtGui.QDialog):
         preset_dict = {
             'preset_name': preset_name,
             'pretty_preset_name': pretty_preset_name,
+            'get_versions': self.fullSyncRadioButton.isChecked()
         }
         gf.get_tree_widget_checked_state(self.tree_widget, preset_dict)
 
@@ -962,6 +972,9 @@ class Ui_repoSyncQueueWidget(QtGui.QMainWindow):
         if self.total_downloading_count == self.total_downloaded_count:
             self.downloads_finished.emit()
 
+    def is_all_downloads_done(self):
+        return self.total_downloading_count == self.total_downloaded_count
+
     def do_download_file_object(self, file_object, reply):
         repo_sync_item = self.queue_dict.get(file_object.get_unique_id())
 
@@ -989,16 +1002,16 @@ class Ui_repoSyncQueueWidget(QtGui.QMainWindow):
         self.file_download_done.emit(fl)
 
     def schedule_file_object(self, file_object):
+
+        # If we already downloaded particular file object, make a new instance of it
+        if file_object.get_unique_id() in self.queue_dict.keys():
+            file_object = copy.copy(file_object)
+
         self.total_downloading_count += 1
-
         repo_sync_item = gf.add_repo_sync_item(self.files_queue_tree_widget, file_object)
-
         self.queue_dict[file_object.get_unique_id()] = repo_sync_item
-
         repo_sync_item.set_network_manager(self.network_manager)
-
         self.files_queue_tree_widget.scrollToBottom()
-
         repo_sync_item.downloaded.connect(self.increment_downloaded)
 
         return repo_sync_item

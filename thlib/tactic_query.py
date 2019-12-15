@@ -21,7 +21,7 @@ def prepare_serverside_script(func, kwargs, return_dict=True, has_return=True, s
             args_list.append(u'{}={}'.format(key, arg))
 
     var_stitch = u', '.join(args_list)
-    ready_run_command = u'{0}({1})'.format(run_command[:run_command.find('(')], var_stitch)
+    ready_run_command = u'{0}({1})'.format(run_command[:run_command.find(u'(')], var_stitch)
     if catch_traceback:
         traceback = inspect.getsourcelines(get_traceback)
         handle = inspect.getsourcelines(traceback_handle)
@@ -146,48 +146,80 @@ def query_EditWdg(args=None, search_type='', project=''):
     return json.dumps(result_dict, separators=(',', ':'))
 
 
-def delete_sobject(search_key, include_dependencies=False, list_dependencies=None):
+def get_all_dependency(search_keys, project_code=None):
+    from pyasm.search import Search, SearchType
+    from pyasm.biz import Project
+    import json
+
+    if not project_code:
+        search_type, search_code = server.split_search_key(search_keys[0])
+        project_code = Project.extract_project_code(search_type)
+
+    server.set_project(project_code)
+
+    result = {}
+    for search_key in search_keys:
+        sobject = Search.get_by_search_key(search_key)
+        base_search_type = sobject.get_base_search_type()
+        related_types = SearchType.get_related_types(base_search_type, direction='children')
+
+        for related_type in related_types:
+            sobjects = sobject.get_related_sobjects(related_type)
+            result.setdefault(related_type, []).append(server.server._get_sobjects_dict(sobjects))
+            # result[related_type] = server.server._get_sobjects_dict(sobjects)
+
+    return json.dumps(result)
+
+
+def delete_sobjects(search_keys, include_dependencies=False, list_dependencies=None):
     '''Invokes the delete method.  Note: this function may fail due
     to dependencies.  Tactic will not cascade delete.  This function
     should be used with extreme caution because, if successful, it will
     permenently remove the existence of an sobject
 
     @params
-    ticket - authentication ticket
     search_key - the key identifying
                   the search_type table.
-    include_dependencies - true/false
     list_dependencies - dependency dict {
         'related_types': ["sthpw/note", "sthpw/file"],
-        'files_list': {
-                        'search_key': [],
-                        'file_path': [],
-                        'delete_snapshot': True,
     } etc...
 
     @return
     sobject - a dictionary that represents values of the sobject in the
         form name/value pairs
     '''
-    api = server.server
-    sobjects = api._get_sobjects(search_key)
+
+    from pyasm.biz import Project
+    from tactic.ui.tools import DeleteCmd
+    import json
+
+    if not isinstance(search_keys, list):
+        search_keys = [search_keys]
+
+    search_type, search_code = server.split_search_key(search_keys[0])
+    project_code = Project.extract_project_code(search_type)
+    server.set_project(project_code)
+
+    sobjects = server.server._get_sobjects(search_keys)
     if not sobjects:
-        raise Exception("SObject [%s] does not exist" % search_key)
-    sobject = sobjects[0]
+        raise Exception("SObject [%s] does not exist" % search_keys[0])
 
-    # delete this sobject
-    if include_dependencies:
-        from tactic.ui.tools import DeleteCmd
-        cmd = DeleteCmd(sobject=sobject, auto_discover=True)
-        cmd.execute()
-    elif list_dependencies:
-        from tactic.ui.tools import DeleteCmd
-        cmd = DeleteCmd(sobject=sobject, values=list_dependencies)
-        cmd.execute()
-    else:
-        sobject.delete()
+    deleted_sobjects = []
+    ex_list = ['sthpw/file']
 
-    return api._get_sobject_dict(sobject)
+    for sobject in sobjects:
+        if include_dependencies:
+            cmd = DeleteCmd(sobject=sobject, auto_discover=True)
+            cmd.execute()
+        elif list_dependencies and sobject.get_base_search_type() not in ex_list:
+            cmd = DeleteCmd(sobject=sobject, values=list_dependencies, auto_discover=False)
+            cmd.execute()
+        else:
+            sobject.delete()
+
+        deleted_sobjects.append(server.server._get_sobject_dict(sobject))
+
+    return json.dumps(deleted_sobjects)
 
 
 def get_projects_and_logins(current_login='admin'):
@@ -1085,19 +1117,14 @@ def get_virtual_snapshot_extended(search_key, context, files_dict, snapshot_type
 
 
 def create_snapshot_extended(search_key, context, project_code=None, snapshot_type=None, is_revision=False, is_latest=True, is_current=False, description=None, version=None, level_key=None, update_versionless=True, only_versionless=False, keep_file_name=True, repo_name=None, files_info=None, mode=None, create_icon=False):
-    # import os
     import json
     from pyasm.biz import Snapshot
     from pyasm.checkin import FileAppendCheckin
     from pyasm.search import Search
     from pyasm.common import Environment
 
-    import time
-    start = time.time()
     if project_code:
         server.set_project(project_code)
-
-    timings = {}
 
     # mode = 'local'
 
@@ -1120,7 +1147,7 @@ def create_snapshot_extended(search_key, context, project_code=None, snapshot_ty
     if not snapshot_type:
         snapshot_type = 'file'
 
-    files_info = json.loads(files_info)
+    files_info = json.loads(files_info, strict=False)
 
     def get_max_version(context, search_key):
         # faster way to get max snapshot version
@@ -1145,11 +1172,7 @@ def create_snapshot_extended(search_key, context, project_code=None, snapshot_ty
         else:
             version = 1
 
-    timings['version'] = time.time() - start
-
     snapshot = Snapshot.create(sobject, snapshot_type=snapshot_type, context=context, description=description, is_revision=is_revision, is_latest=is_latest, is_current=is_current, level_type=level_type, level_id=level_id, commit=False, version=version)
-
-    timings['create_snap'] = time.time() - start
 
     if repo_name:
         snapshot.set_value('repo', repo_name)
@@ -1166,8 +1189,6 @@ def create_snapshot_extended(search_key, context, project_code=None, snapshot_ty
 
         snapshot.set_value('version', version)
         snapshot.set_value('revision', revision + 1)
-
-    timings['revision'] = time.time() - start
 
     if mode == 'upload':
         checkin_mode = 'uploaded'
@@ -1270,8 +1291,6 @@ def create_snapshot_extended(search_key, context, project_code=None, snapshot_ty
                 fl.set_value(name='metadata', value=json.dumps(files_info['version_metadata'][i], separators=(',', ':')))
                 fl.commit(triggers=False, log_transaction=False)
 
-        timings['commit_files'] = time.time() - start
-
         if update_versionless:
             existing_versionless_snapshot = snapshot.get_by_sobjects([sobject], context, version=-1)
             if existing_versionless_snapshot:
@@ -1315,9 +1334,7 @@ def create_snapshot_extended(search_key, context, project_code=None, snapshot_ty
 
             versionless.commit(triggers=False, log_transaction=False)
 
-    timings['commit_files_versionless'] = time.time() - start
-
-    return json.dumps(timings)
+    return 'OK'
 
 """
 

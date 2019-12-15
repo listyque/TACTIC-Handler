@@ -247,7 +247,7 @@ class TacticEditWdg(TacticBaseWidget):
                 parent_stype = sobject.get_stype()
 
                 schema = self.stype.get_schema()
-                child = schema.get_child(self.get_search_type(), parent_stype.get_code())
+                child = schema.get_child(parent_stype.get_code(), self.stype.get_code())
 
                 if child:
                     relationship = child.get('relationship')
@@ -263,7 +263,7 @@ class TacticEditWdg(TacticBaseWidget):
             if instance_type:
                 instance_type_str = '"{}"'.format(instance_type)
 
-            runtime_command = 'thenv.get_tc().insert_sobjects("{0}", "{1}", {2}, parent_key={3}, instance_type={4})'.format(
+            runtime_command = u'thenv.get_tc().insert_sobjects("{0}", "{1}", {2}, parent_key={3}, instance_type={4})'.format(
                 self.get_search_type(), project.get_code(), str(data), parent_key, instance_type_str)
             dl.info(runtime_command, group_id=stype.get_code())
 

@@ -1,33 +1,43 @@
 from thlib.side.Qt import QtWidgets as QtGui
+from thlib.side.Qt import QtCore
+import thlib.tactic_classes as tc
+import thlib.global_functions as gf
 
 from thlib.ui_classes.ui_custom_qwidgets import Ui_collapsableWidget
 
 
 class deleteSobjectWidget(QtGui.QWidget):
-    def __init__(self, sobject, parent=None):
+    def __init__(self, sobjects, parent=None):
         super(self.__class__, self).__init__(parent=parent)
 
-        self.sobject = sobject
+        self.sobjects = sobjects
+        self.dependencies = None
+
+        self.get_dependencies()
+
         self.shown = False
 
     def create_ui(self):
         self.shown = True
-        self.create_main_layout()
-        self.create_checkboxes_widget()
-        self.create_files_dependencies_widget()
-        self.create_snapshots_dependencies_widget()
-        self.create_tasks_dependencies_widget()
-        self.create_notes_dependencies_widget()
 
-        self.controls_actions()
+        self.create_main_layout()
+
+        self.create_dependency_widget()
+
+    def get_dependencies(self):
+        if len(self.sobjects) > 1:
+            search_keys = []
+            for sobject in self.sobjects:
+                search_keys.append(sobject.get_search_key())
+
+            self.dependencies = tc.get_all_dependency(search_keys)
+        else:
+            self.dependencies = tc.get_all_dependency([self.sobjects[0].get_search_key()])
 
     def get_data_dict(self):
 
         data_dict = {
-            'del_files': self.delete_files_checkbox.isChecked(),
-            'del_snapshots': self.delete_snapshot_checkbox.isChecked(),
-            'del_tasks': self.delete_tasks_checkbox.isChecked(),
-            'del_notes': self.delete_notes_checkbox.isChecked(),
+            'search_types': self.get_confirmed_to_delete_search_types(),
         }
 
         return data_dict
@@ -36,82 +46,106 @@ class deleteSobjectWidget(QtGui.QWidget):
         if not self.shown:
             self.create_ui()
 
-    def controls_actions(self):
-        pass
-
     def create_main_layout(self):
         self.main_layout = QtGui.QGridLayout(self)
         self.main_layout.setContentsMargins(0, 0, 0, 0)
 
-    def create_checkboxes_widget(self):
-        self.delete_files_checkbox = QtGui.QCheckBox('Delete files')
-        self.delete_files_checkbox.setChecked(True)
-        self.main_layout.addWidget(self.delete_files_checkbox)
+    def create_dependency_widget(self):
+        pos = 0
 
-        self.delete_snapshot_checkbox = QtGui.QCheckBox('Delete snapshots')
-        self.delete_snapshot_checkbox.setChecked(True)
-        self.main_layout.addWidget(self.delete_snapshot_checkbox)
+        check_list = ['sthpw/snapshot', 'sthpw/file']
 
-        self.delete_tasks_checkbox = QtGui.QCheckBox('Delete tasks')
-        self.delete_tasks_checkbox.setChecked(True)
-        self.main_layout.addWidget(self.delete_tasks_checkbox)
+        self.check_boxes_list = []
 
-        self.delete_notes_checkbox = QtGui.QCheckBox('Delete notes')
-        self.delete_notes_checkbox.setChecked(True)
-        self.main_layout.addWidget(self.delete_notes_checkbox)
+        for search_type, sobjects in self.dependencies.items():
+            if len(sobjects) > 0:
+                pos += 1
+                layout = QtGui.QHBoxLayout()
 
-    def create_files_dependencies_widget(self):
+                deleting_check_box = QtGui.QCheckBox()
+                deleting_check_box.setObjectName(search_type)
+                if search_type in check_list:
+                    deleting_check_box.setChecked(True)
+                layout.addWidget(deleting_check_box)
 
-        collapse_wdg_files = Ui_collapsableWidget(state=True)
-        layout_files = QtGui.QVBoxLayout()
-        collapse_wdg_files.setLayout(layout_files)
-        collapse_wdg_files.setText('Hide Files Dependencies')
-        collapse_wdg_files.setCollapsedText('Show Files Dependencies')
+                self.check_boxes_list.append(deleting_check_box)
 
-        self.files_tree_widget = QtGui.QTreeWidget()
+                collapse_wdg_files = Ui_collapsableWidget(state=True)
+                layout_files = QtGui.QVBoxLayout()
 
-        layout_files.addWidget(self.files_tree_widget)
+                collapse_wdg_files.setLayout(layout_files)
+                collapse_wdg_files.setText(u'Hide {0} | {1}'.format(search_type, len(sobjects)))
+                collapse_wdg_files.setCollapsedText(u'Show {0} | {1}'.format(search_type, len(sobjects)))
 
-        self.main_layout.addWidget(collapse_wdg_files)
+                files_tree_widget = Ui_dependencyExpandWidget(sobjects=sobjects)
+                files_tree_widget.setMinimumSize(600, 300)
 
-    def create_snapshots_dependencies_widget(self):
+                layout_files.addWidget(files_tree_widget)
 
-        collapse_wdg_snapshots = Ui_collapsableWidget(state=True)
-        layout_files = QtGui.QVBoxLayout()
-        collapse_wdg_snapshots.setLayout(layout_files)
-        collapse_wdg_snapshots.setText('Hide Snapshots Dependencies')
-        collapse_wdg_snapshots.setCollapsedText('Show Snapshots Dependencies')
+                layout.addWidget(collapse_wdg_files)
 
-        self.files_tree_widget = QtGui.QTreeWidget()
+                self.main_layout.addLayout(layout, pos, 0)
 
-        layout_files.addWidget(self.files_tree_widget)
+    def get_confirmed_to_delete_search_types(self):
 
-        self.main_layout.addWidget(collapse_wdg_snapshots)
+        search_types = []
 
-    def create_tasks_dependencies_widget(self):
+        for check_box in self.check_boxes_list:
+            if check_box.isChecked():
+                search_types.append(check_box.objectName())
 
-        collapse_wdg_tasks = Ui_collapsableWidget(state=True)
-        layout_files = QtGui.QVBoxLayout()
-        collapse_wdg_tasks.setLayout(layout_files)
-        collapse_wdg_tasks.setText('Hide Tasks Dependencies')
-        collapse_wdg_tasks.setCollapsedText('Show Tasks Dependencies')
+        if not search_types:
+            search_types.append(self.sobjects[0].get_plain_search_type())
 
-        self.files_tree_widget = QtGui.QTreeWidget()
+        return search_types
 
-        layout_files.addWidget(self.files_tree_widget)
 
-        self.main_layout.addWidget(collapse_wdg_tasks)
+class Ui_dependencyExpandWidget(QtGui.QWidget):
+    def __init__(self, sobjects, parent=None):
+        super(self.__class__, self).__init__(parent=parent)
 
-    def create_notes_dependencies_widget(self):
+        self.sobjects = sobjects
+        self.shown = False
 
-        collapse_wdg_notes = Ui_collapsableWidget(state=True)
-        layout_files = QtGui.QVBoxLayout()
-        collapse_wdg_notes.setLayout(layout_files)
-        collapse_wdg_notes.setText('Hide Notes Dependencies')
-        collapse_wdg_notes.setCollapsedText('Show Notes Dependencies')
+    def create_ui(self):
+        self.shown = True
 
-        self.files_tree_widget = QtGui.QTreeWidget()
+        self.create_main_layout()
 
-        layout_files.addWidget(self.files_tree_widget)
+        self.create_tree_widget()
 
-        self.main_layout.addWidget(collapse_wdg_notes)
+        self.fill_tree_widget()
+
+    def create_main_layout(self):
+        self.main_layout = QtGui.QVBoxLayout()
+        self.main_layout.setContentsMargins(0, 0, 0, 0)
+        self.main_layout.setSpacing(0)
+        self.setLayout(self.main_layout)
+
+    def create_tree_widget(self):
+        self.tree_widget = QtGui.QTreeWidget()
+        self.tree_widget.setAlternatingRowColors(True)
+        self.tree_widget.setSelectionMode(QtGui.QAbstractItemView.NoSelection)
+        self.tree_widget.setVerticalScrollMode(QtGui.QAbstractItemView.ScrollPerPixel)
+        self.tree_widget.setRootIsDecorated(False)
+        self.tree_widget.headerItem().setText(0, "Title")
+        self.tree_widget.headerItem().setText(1, "Search Key")
+        self.tree_widget.setStyleSheet(gf.get_qtreeview_style())
+        self.tree_widget.setTextElideMode(QtCore.Qt.ElideLeft)
+
+        self.main_layout.addWidget(self.tree_widget)
+
+    def fill_tree_widget(self):
+        self.tree_widget.clear()
+
+        for sobject in self.sobjects.values():
+            item = QtGui.QTreeWidgetItem()
+            item.setText(0, sobject.get_title())
+            item.setText(1, sobject.get_search_key())
+            self.tree_widget.addTopLevelItem(item)
+
+        self.tree_widget.resizeColumnToContents(0)
+
+    def showEvent(self, event):
+        if not self.shown:
+            self.create_ui()

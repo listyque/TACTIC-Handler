@@ -653,7 +653,7 @@ def get_prc(prc, number):
 
 
 def sizes(size, precision=2):
-    if size != '':
+    if size not in ['', None]:
         size = int(size)
     else:
         size = 0
@@ -839,6 +839,7 @@ def walk_through_layouts(args=None, ignore_list=None):
     for layout in args:
         for i in range(layout.count()):
             widget = layout.itemAt(i).widget()
+            # TODO This may Shoot sometimes
             if type(widget) not in ignore_list:
                 all_widgets.append(layout.itemAt(i).widget())
 
@@ -1391,12 +1392,13 @@ def add_child_item(tree_widget, parent_widget, sobject, stype, child, item_info)
     return tree_item_widget
 
 
+# TODO MAY BE USELESS
 def get_all_tree_item_widgets(wdg, items_list=None):
 
     if not items_list:
         items_list = []
 
-    if type(wdg) == QtGui.QTreeWidget:
+    if isinstance(wdg,  QtGui.QTreeWidget):
         items_count = wdg.topLevelItemCount()
         tree_item = wdg.topLevelItem
         tree_wdg = wdg

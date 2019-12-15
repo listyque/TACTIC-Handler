@@ -2308,9 +2308,6 @@ class Ui_resultsTabWidget(QtGui.QWidget):
         self.resultsVersionsTreeWidget.setStyleSheet(gf.get_qtreeview_style())
         self.resultsVersionsTreeWidget.setFocusPolicy(QtCore.Qt.NoFocus)
 
-    def get_current_results_tree_widget(self):
-        return self.resultsTreeWidget
-
     def get_results_tree_widget(self):
         return self.resultsTreeWidget
 
@@ -2501,14 +2498,6 @@ class Ui_resultsTabWidget(QtGui.QWidget):
                     self.current_results_tree_widget_item = None
                     self.search_widget.search_results_widget.update_item_tree(self.current_results_tree_widget_item)
 
-    # @gf.catch_error
-    # def item_clicked(self, tree_item, pos):
-    #     print tree_item
-    #     print pos
-    #
-    #     tree_widget = self.resultsTreeWidget.itemWidget(tree_item, 0)
-    #     tree_widget.query_snapshots()
-
     @gf.catch_error
     def send_collapse_event_to_item(self, tree_item):
         tree_widget = self.resultsTreeWidget.itemWidget(tree_item, 0)
@@ -2605,29 +2594,6 @@ class Ui_resultsTabWidget(QtGui.QWidget):
 
         self.resultsVersionsTreeWidget.resizeColumnToContents(0)
 
-    def update_versions_items(self, item_widget):
-        if self.resultsVersionsTreeWidget.isVisible():
-
-            if item_widget.type == 'snapshot':
-                process = item_widget.process
-                context = item_widget.context
-
-                snapshots = item_widget.sobject.process[process].contexts[context].versions
-
-                self.resultsVersionsTreeWidget.clear()
-
-                gf.add_versions_snapshot_item(
-                    self.resultsVersionsTreeWidget,
-                    self,
-                    item_widget.sobject,
-                    item_widget.stype,
-                    process,
-                    item_widget.pipeline,
-                    context,
-                    snapshots,
-                    item_widget.info,
-                )
-
     def clear_versionless_tree_widget(self):
         gf.recursive_close_tree_item_widgets(self.resultsTreeWidget)
         self.resultsTreeWidget.clear()
@@ -2643,17 +2609,24 @@ class Ui_resultsTabWidget(QtGui.QWidget):
     def browse_snapshot(self, item):
         checkin_out_widget = self.get_current_checkin_out_widget()
         snapshot_browser = checkin_out_widget.get_snapshot_browser()
-        snapshot_browser.set_item_widget(item)
 
         modifiers = QtGui.QApplication.keyboardModifiers()
-        if modifiers == QtCore.Qt.ControlModifier:
+        if modifiers == QtCore.Qt.AltModifier:
             checkin_out_widget.bring_snapshot_browser_dock_up()
+
+        # if not snapshot_browser.visibleRegion().isEmpty():
+        snapshot_browser.set_item_widget(item)
+
+    def browse_tasks(self, item):
+
+        checkin_out_widget = self.get_current_checkin_out_widget()
+        tasks_widget = checkin_out_widget.get_tasks_widget()
+
+        tasks_widget.set_sobject(item.sobject)
 
     @gf.catch_error
     def load_preview(self, *args):
         nested_item = self.current_tree_widget_item
-
-        self.browse_snapshot(nested_item)
 
         checkin_out_widget = self.get_current_checkin_out_widget()
 
@@ -2670,6 +2643,10 @@ class Ui_resultsTabWidget(QtGui.QWidget):
         else:
             fast_controls_widget.set_item(None)
             description_widget.set_item(None)
+
+        self.browse_tasks(nested_item)
+
+        self.browse_snapshot(nested_item)
 
     def get_is_separate_versions(self):
         return self.sep_versions
@@ -2703,278 +2680,3 @@ class Ui_resultsTabWidget(QtGui.QWidget):
                 self.create_ui()
 
         event.accept()
-
-
-# class Ui_simpleResultsFormWidget(QtGui.QWidget):
-#     def __init__(self, project, stype, info, parent=None):
-#         super(self.__class__, self).__init__(parent=parent)
-#
-#         self.setAttribute(QtCore.Qt.WA_DeleteOnClose)
-#
-#         self.info = info
-#         self.stype = stype
-#         self.project = project
-#         self.created = False
-#
-#         self.bottom_navigataion_widget = None
-#
-#         self.create_results_tree_widget()
-#
-#     def create_ui(self):
-#
-#         self.create_progress_bar()
-#         self.create_bottom_navigation_widget()
-#
-#         self.results_tree_widget.setStyleSheet(gf.get_qtreeview_style())
-#
-#         self.initial_load_results()
-#
-#         # self.controls_actions()
-#
-#         self.created = True
-#
-#     def create_results_tree_widget(self):
-#         self.resultsLayout = QtGui.QVBoxLayout(self)
-#         self.setLayout(self.resultsLayout)
-#         self.resultsLayout.setSpacing(0)
-#         self.resultsLayout.setContentsMargins(0, 0, 0, 0)
-#         self.resultsLayout.setObjectName("resultsLayout")
-#
-#         self.results_tree_widget = QtGui.QTreeWidget()
-#         self.results_tree_widget.setTabKeyNavigation(True)
-#         self.results_tree_widget.setVerticalScrollMode(QtGui.QAbstractItemView.ScrollPerPixel)
-#         self.results_tree_widget.setRootIsDecorated(False)
-#         self.results_tree_widget.setAllColumnsShowFocus(True)
-#         self.results_tree_widget.setWordWrap(True)
-#         self.results_tree_widget.setHeaderHidden(True)
-#         self.results_tree_widget.setSelectionMode(QtGui.QAbstractItemView.ExtendedSelection)
-#         self.results_tree_widget.setAlternatingRowColors(True)
-#         self.results_tree_widget.setObjectName("results_tree_widget")
-#         self.results_tree_widget.setStyleSheet(gf.get_qtreeview_style())
-#
-#         self.resultsLayout.addWidget(self.results_tree_widget)
-#
-#     def update_default_filter(self, query_text):
-#         checkin_out_widget = self.get_current_checkin_out_widget()
-#         adv_search_widget = checkin_out_widget.get_advanced_search_widget()
-#         df = adv_search_widget.get_default_filter()
-#         adv_search_widget.update_default_filter((df[0], df[1], query_text))
-#
-#     def initial_load_results(self, limit=None, offset=None):
-#         if limit is None:
-#             limit = self.get_limit()
-#
-#         if offset is None:
-#             offset = self.get_offset()
-#
-#         order_bys = ['name']
-#
-#         self.query_sobjects_new(
-#             filters=self.get_filters(),
-#             stype=self.stype.get_code(),
-#             project=self.project.get_code(),
-#             order_bys=order_bys,
-#             limit=limit,
-#             offset=offset,
-#         )
-#
-#     def search_query(self, search_query):
-#         # self.update_default_filter(search_query)
-#         self.set_offset(0)
-#         # self.update_filters(True)
-#         self.update_search_results()
-#
-#     def update_search_results(self, limit=None, offset=None,  refresh=False):
-#         # collecting new filters, limit, offset, etc...
-#         # self.get_info_dict()
-#
-#         if limit is None:
-#             limit = self.get_limit()
-#
-#         if offset is None:
-#             offset = self.get_offset()
-#
-#         if refresh:
-#             # marking this as refreshing
-#             self.info['refresh'] = True
-#
-#             # collecting current tree widget state
-#             self.info['state'] = gf.tree_state(self.results_tree_widget, {})
-#
-#         order_bys = ['name']
-#
-#         # making query for current search with current search options
-#         self.query_sobjects_new(
-#             filters=self.get_filters(),
-#             stype=self.stype.get_code(),
-#             project=self.project.get_code(),
-#             order_bys=order_bys,
-#             limit=limit,
-#             offset=offset,
-#         )
-#
-#     def get_info_dict(self):
-#
-#         current_state = self.collect_state()
-#         if current_state:
-#             self.info['state'] = current_state
-#
-#         self.info['title'] = self.get_tab_title()
-#         self.info['offset'] = self.collect_offset()
-#         self.info['limit'] = self.get_limit()
-#         self.info['filters'] = self.get_filters()
-#
-#         self.info['current_index'] = self.get_current_index()
-#
-#         return self.info
-#
-#     def get_offset(self):
-#         return self.info['offset']
-#
-#     def collect_offset(self):
-#         if self.bottom_navigataion_widget:
-#             return self.bottom_navigataion_widget.get_offset()
-#         else:
-#             return self.info['offset']
-#
-#     def set_offset(self, offset):
-#         self.info['offset'] = offset
-#
-#     def get_limit(self):
-#         return self.info['limit']
-#
-#     def set_limit(self, limit):
-#         self.info['limit'] = limit
-#
-#     def get_current_index(self):
-#         checkin_out_widget = self.get_current_checkin_out_widget()
-#         search_widget = checkin_out_widget.get_search_widget()
-#         results_tab_widget = search_widget.get_results_tab_widget()
-#         current_idx = results_tab_widget.indexOf(self)
-#
-#         return current_idx
-#
-#     def get_tab_title(self):
-#         checkin_out_widget = self.get_current_checkin_out_widget()
-#         search_widget = checkin_out_widget.get_search_widget()
-#         results_tab_widget = search_widget.get_results_tab_widget()
-#         current_idx = results_tab_widget.indexOf(self)
-#
-#         results_tab_widget.tabText(current_idx)
-#         self.info['title'] = results_tab_widget.tabText(current_idx)
-#
-#         return self.info['title']
-#
-#     def set_tab_title(self, title=''):
-#         checkin_out_widget = self.get_current_checkin_out_widget()
-#         search_widget = checkin_out_widget.get_search_widget()
-#         results_tab_widget = search_widget.get_results_tab_widget()
-#         current_idx = results_tab_widget.indexOf(self)
-#
-#         self.info['title'] = title
-#         results_tab_widget.setTabText(current_idx, title)
-#
-#     def get_filters(self):
-#         return self.info['filters']
-#
-#     def set_filters(self, filters):
-#         self.info['filters'] = filters
-#
-#     def update_filters(self, check_valid=False):
-#         checkin_out_widget = self.get_current_checkin_out_widget()
-#         adv_search_widget = checkin_out_widget.get_advanced_search_widget()
-#
-#         self.set_filters(adv_search_widget.get_filters(check_valid))
-#
-#     def get_results_tree_widget(self):
-#         return self.results_tree_widget
-#
-#     def query_sobjects_new(self, filters, stype, project, order_bys=[], limit=None, offset=None):
-#
-#         search_type = tc.server_start().build_search_type(stype, project)
-#
-#         env_inst.ui_main.set_info_status_text('<span style=" font-size:8pt; color:#00ff00;">Getting SObjects</span>')
-#
-#         def get_sobjects_new_agent():
-#             """ If we have traceback, it points us here"""
-#             return tc.get_sobjects_new(
-#                 search_type=search_type,
-#                 filters=filters,
-#                 order_bys=order_bys,
-#                 limit=limit,
-#                 offset=offset
-#             )
-#
-#         env_inst.set_thread_pool(None, 'server_query/server_thread_pool')
-#
-#         query_sobjects_worker = gf.get_thread_worker(
-#             get_sobjects_new_agent,
-#             thread_pool=env_inst.get_thread_pool('server_query/server_thread_pool'),
-#             result_func=self.fill_items,
-#             error_func=gf.error_handle
-#         )
-#         query_sobjects_worker.start()
-#
-#     @gf.catch_error
-#     def fill_items(self, result):
-#         env_inst.ui_main.set_info_status_text('<span style=" font-size:8pt; color:#00ff00;">Filling SObjects</span>')
-#
-#         self.sobjects = result[0]
-#         self.query_info = result[1]
-#
-#         gf.recursive_close_tree_item_widgets(self.results_tree_widget)
-#         self.results_tree_widget.clear()
-#
-#         self.progress_bar.setVisible(True)
-#         total_sobjects = len(self.sobjects.keys()) - 1
-#
-#         for i, sobject in enumerate(self.sobjects.itervalues()):
-#
-#             item_info = {
-#                 'relates_to': 'checkin_out',
-#                 'sep_versions': True,
-#                 'children_states': None,
-#                 'simple_view': True,
-#             }
-#
-#             gf.add_sobject_item(
-#                 self.results_tree_widget,
-#                 self,
-#                 sobject,
-#                 self.stype,
-#                 item_info,
-#                 ignore_dict=None,
-#             )
-#             if total_sobjects:
-#                 if i+1 % 20 == 0:
-#                     self.progress_bar.setValue(int(i+1 * 100 / total_sobjects))
-#
-#         self.progress_bar.setVisible(False)
-#
-#         self.bottom_navigataion_widget.init_navigation(self.query_info)
-#         # self.update_filters(True)
-#         self.results_tree_widget.resizeColumnToContents(0)
-#
-#         env_inst.ui_main.set_info_status_text('')
-#
-#     def create_bottom_navigation_widget(self):
-#
-#         self.bottom_navigataion_widget = Ui_navigationWidget(project=self.project, stype=self.stype)
-#         self.bottom_navigataion_widget.refresh_search.connect(self.update_search_results)
-#
-#         self.bottom_navigataion_widget.setHidden(True)
-#
-#         self.resultsLayout.addWidget(self.bottom_navigataion_widget)
-#
-#     def create_progress_bar(self):
-#         self.progress_bar = QtGui.QProgressBar()
-#         self.progress_bar.setMaximum(100)
-#         self.progress_bar.hide()
-#         self.resultsLayout.addWidget(self.progress_bar)
-#
-#     def showEvent(self, event):
-#
-#         if not self.created:
-#             self.create_ui()
-#
-#         event.accept()
