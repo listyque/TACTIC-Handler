@@ -92,25 +92,8 @@ class QtTacticEditWidget(QtGui.QWidget):
             self.sobject = sobject_class
 
         if self.stype.pipeline:
-            current_pipeline = self.stype.pipeline.get(self.sobject.get_pipeline_code())
-            workflow = self.stype.get_workflow()
-            processes_list = current_pipeline.get_all_pipeline_process()
-            sub_processes_list = []
 
-            # getting sub-processes from workflow
-            for process, process_info in current_pipeline.process.items():
-                if process_info.get('type') == 'hierarchy':
-                    child_pipeline = workflow.get_child_pipeline_by_process_code(
-                        current_pipeline,
-                        process
-                    )
-                    if child_pipeline:
-                        sub_processes_list.extend(child_pipeline.get_all_pipeline_process())
-
-            if sub_processes_list:
-                processes_list.extend(sub_processes_list)
-
-            paths = tc.get_dirs_with_naming(self.sobject.get_search_key(), processes_list)
+            paths = tc.get_dirs_with_naming(self.sobject.get_search_key(), None)
 
             all_paths = []
 
@@ -155,7 +138,7 @@ class QtTacticEditWidget(QtGui.QWidget):
                 if self.sobject:
                     if self.sobject.get_value('name'):
                         filters = [('name', self.sobject.get_value('name'))]
-                        related_sobjects, info = tc.get_sobjects_new(self.stype.get_code(), filters, project_code=self.stype.get_project().get_code())
+                        related_sobjects, info = tc.get_sobjects(self.stype.get_code(), filters, project_code=self.stype.get_project().get_code())
                     else:
                         related_sobjects = {}
                 else:

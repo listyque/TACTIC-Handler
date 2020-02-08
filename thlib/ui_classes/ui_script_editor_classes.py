@@ -30,6 +30,7 @@ class Ui_ScriptEditForm(QtGui.QDialog):
     def __init__(self, parent=None):
         super(self.__class__, self).__init__(parent=parent)
 
+        self.shown = False
         self.sripts_languages = [
             ('Local-Python', 'local_python'),
             ('Server-Python', 'python'),
@@ -38,6 +39,7 @@ class Ui_ScriptEditForm(QtGui.QDialog):
             ('Expression', 'expression'),
             ('Xml', 'xml'),
         ]
+        self.current_script_sobject = None
 
         env_inst.ui_script_editor = self
 
@@ -181,6 +183,8 @@ class Ui_ScriptEditForm(QtGui.QDialog):
         if env_inst.get_current_project():
             self.fill_sctipts_tree_widget()
 
+        self.create_scripts_tree_context_menu()
+
     def controls_actions(self):
         self.run_script_button.clicked.connect(self.run_script)
 
@@ -268,10 +272,23 @@ class Ui_ScriptEditForm(QtGui.QDialog):
                 self.fill_by_sobject(script_sobject)
 
     def fill_by_sobject(self, sobject):
-        # QtGui.QPlainTextEdit.setPlainText()
+
+        self.current_script_sobject = sobject
+
         self.console.setPlainText(sobject.get_value('script'))
         self.first_path_part_line_edit.setText(sobject.get_value('folder'))
         self.second_path_part_line_edit.setText(sobject.get_value('title'))
+
+        lang = sobject.get_value('language')
+
+        if lang == 'local_python':
+            self.run_type_combo_box.setCurrentIndex(0)
+        else:
+            self.run_type_combo_box.setCurrentIndex(1)
+
+        for i, lng in enumerate(self.sripts_languages):
+            if lng[1] == lang:
+                self.script_language_combo_box.setCurrentIndex(i)
 
     def handle_scripts_language_combo_box(self, i):
         if i is not None:
@@ -290,10 +307,10 @@ class Ui_ScriptEditForm(QtGui.QDialog):
     def fill_sctipts_tree_widget(self, async_run=True):
 
         # getting all the scripts from db
-        if async_run:
-            scripts_sobjects = yield env_inst.async_task(tc.get_custom_scripts)
-        else:
-            scripts_sobjects = tc.get_custom_scripts()
+        # if async_run:
+        #     scripts_sobjects = yield env_inst.async_task(tc.get_custom_scripts)
+        # else:
+        scripts_sobjects = tc.get_custom_scripts()
 
         if scripts_sobjects:
             scripts_sobjects_by_folder = tc.group_sobject_by(scripts_sobjects, 'folder')
@@ -331,8 +348,15 @@ class Ui_ScriptEditForm(QtGui.QDialog):
                         for sobject in sobjects_list:
                             gf.add_child_items(root_item, sobject)
 
+    def get_current_script_language(self):
+        current_idx = self.script_language_combo_box.currentIndex()
+        return self.sripts_languages[current_idx]
+
     def get_current_script(self):
         return self.console.toPlainText()
+
+    def get_current_script_sobject(self):
+        return self.current_script_sobject
 
     def execute_source_code(self, source_code):
         self.console_obj.enter(source_code)
@@ -389,45 +413,121 @@ class Ui_ScriptEditForm(QtGui.QDialog):
         elif self.run_type_combo_box.currentIndex() == 1:
             self.run_serverside()
 
-    def run_script_path(self, script_path, local=True, serverside=False):
-
-        pass
-
     def cleanup_output(self):
 
         self.output.clear()
 
-    def refresh_scripts_tree(self, async_run=True):
+    def refresh_scripts_tree(self, async_run=True, revert=True):
+        if revert:
+            state = self.get_scripts_tree_state()
 
         self.scripts_tree_widget.clear()
         self.fill_sctipts_tree_widget(async_run)
 
+        if revert:
+            self.revert_scripts_tree_state(state)
+
+    def create_scripts_tree_context_menu(self):
+        self.scripts_tree_widget.setContextMenuPolicy(QtCore.Qt.CustomContextMenu)
+        self.scripts_tree_widget.customContextMenuRequested.connect(self.open_menu)
+
+    def open_menu(self):
+        item = self.scripts_tree_widget.currentItem()
+        if item:
+            if item.data(0, QtCore.Qt.UserRole):
+                menu = self.scripts_context_menu()
+                if menu:
+                    menu.exec_(Qt4Gui.QCursor.pos())
+
+    def create_execution_script(self):
+        item = self.scripts_tree_widget.currentItem()
+
+        sobject = item.data(0, QtCore.Qt.UserRole)
+
+        if sobject:
+            project = sobject.get_project()
+            script_folder = self.first_path_part_line_edit.text()
+            script_title = self.second_path_part_line_edit.text()
+
+            script_path = script_folder + '/' + script_title
+            procedure = u"import thlib.environment as thenv\nthenv.tc().execute_custom_script('{0}', project='{1}')"
+
+            clipboard = QtGui.QApplication.instance().clipboard()
+            clipboard.setText(procedure.format(script_path, project.get_code()))
+
+    def scripts_context_menu(self):
+
+        copy_runner_script = QtGui.QAction('Copy Script Runner', self.scripts_tree_widget)
+        copy_runner_script.setIcon(gf.get_icon('copy'))
+        copy_runner_script.triggered.connect(self.create_execution_script)
+
+        delete_sobject = QtGui.QAction('Delete', self.scripts_tree_widget)
+        delete_sobject.setIcon(gf.get_icon('remove'))
+        delete_sobject.triggered.connect(self.delete_script_sobject)
+
+        menu = QtGui.QMenu()
+
+        menu.addAction(copy_runner_script)
+        menu.addAction(delete_sobject)
+
+        return menu
+
+    def delete_script_sobject(self):
+
+        item = self.scripts_tree_widget.currentItem()
+
+        sobject = item.data(0, QtCore.Qt.UserRole)
+
+        if sobject:
+            sobject.delete_sobject()
+            self.refresh_scripts_tree()
+
     def create_new_script(self):
 
         self.console.clear()
+
+        self.current_script_sobject = None
+
         self.first_path_part_line_edit.setText('')
         self.second_path_part_line_edit.setText('')
+        self.script_language_combo_box.setCurrentIndex(0)
+        self.run_type_combo_box.setCurrentIndex(0)
 
-        self.refresh_scripts_tree()
+        self.refresh_scripts_tree(revert=False)
 
     def save_current_script(self):
 
         script_folder = self.first_path_part_line_edit.text()
         script_title = self.second_path_part_line_edit.text()
+        current_language = self.get_current_script_language()[1]
+
         if script_folder and script_title:
-            search_type = tc.server_start().build_search_type('config/custom_script', project_code=env_inst.get_current_project())
-            filters = [('folder', script_folder), ('title', script_title)]
-            script_sobjects, data = tc.get_sobjects_new(search_type, filters)
+            script_sobject = self.get_current_script_sobject()
 
-            if len(script_sobjects) > 0:
-                script_sobject = script_sobjects.values()[0]
-
+            if script_sobject:
                 script_sobject.set_value('script', self.get_current_script())
+                script_sobject.set_value('language', current_language)
+                script_sobject.set_value('folder', script_folder)
+                script_sobject.set_value('title', script_title)
                 script_sobject.commit(False)
             else:
+                search_type = tc.server_start().build_search_type('config/custom_script', project_code=env_inst.get_current_project())
+                filters = [
+                    ('script', self.get_current_script()),
+                    ('folder', script_folder),
+                    ('title', script_title),
+                    ('language', current_language)
+                ]
                 tc.server_start().insert(search_type, dict(filters))
 
             self.refresh_scripts_tree()
+
+    def get_scripts_tree_state(self):
+        return gf.to_json(gf.tree_state(self.scripts_tree_widget, {}), use_ast=True)
+
+    def revert_scripts_tree_state(self, state_raw):
+        state = gf.from_json(state_raw, use_ast=True)
+        gf.tree_state_revert(self.scripts_tree_widget, state, use_item_widgets=False)
 
     def set_settings_from_dict(self, settings_dict=None):
 
@@ -454,15 +554,14 @@ class Ui_ScriptEditForm(QtGui.QDialog):
             self.splitter.restoreState(QtCore.QByteArray.fromHex(str(settings_dict.get('splitter'))))
 
         if settings_dict.get('scripts_tree_widget'):
-            state = gf.from_json(settings_dict.get('scripts_tree_widget'), use_ast=True)
-            gf.tree_state_revert(self.scripts_tree_widget, state, use_item_widgets=False)
+            self.revert_scripts_tree_state(settings_dict.get('scripts_tree_widget'))
 
     def get_settings_dict(self):
         settings_dict = {
             'windowState': False,
             'main_splitter': str(self.main_splitter.saveState().toHex()),
             'splitter': str(self.splitter.saveState().toHex()),
-            'scripts_tree_widget': gf.to_json(gf.tree_state(self.scripts_tree_widget, {}), use_ast=True)
+            'scripts_tree_widget': self.get_scripts_tree_state(),
         }
 
         if self.windowState() == QtCore.Qt.WindowMaximized:
@@ -490,8 +589,11 @@ class Ui_ScriptEditForm(QtGui.QDialog):
         env_write_config(self.get_settings_dict(), filename='ui_script_editor', unique_id='ui_main', long_abs_path=True)
 
     def showEvent(self, event):
-        self.refresh_scripts_tree()
-        self.readSettings()
+
+        if not self.shown:
+            self.refresh_scripts_tree()
+            self.readSettings()
+            self.shown = True
 
         event.accept()
 

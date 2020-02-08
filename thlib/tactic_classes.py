@@ -78,8 +78,8 @@ def generate_new_ticket(explicit_username=None, parent=None):
         parent,
     )
 
-    login_pass_dlg.addButton("Ok", QtGui.QMessageBox.YesRole)
-    login_pass_dlg.addButton("Cancel", QtGui.QMessageBox.NoRole)
+    login_pass_dlg.addButton('Ok', QtGui.QMessageBox.YesRole)
+    login_pass_dlg.addButton('Cancel', QtGui.QMessageBox.NoRole)
 
     layout = QtGui.QGridLayout()
 
@@ -356,10 +356,26 @@ class Project(object):
                 'parents': [],
             }
             for connect in all_connections_list:
+
                 if pipe.attrs['name'] == connect['from']:
-                    conn['parents'].append(connect)
+
+                    # special case for "path"
+                    if connect.get('path'):
+                        if connect['path'] == 'parent':
+                            conn['parents'].append(connect)
+                        if connect['path'] == 'child':
+                            conn['children'].append(connect)
+                    else:
+                        conn['parents'].append(connect)
+
                 if pipe.attrs['name'] == connect['to']:
-                    conn['children'].append(connect)
+                    if connect.get('path'):
+                        if connect['path'] == 'parent':
+                            conn['parents'].append(connect)
+                        if connect['path'] == 'child':
+                            conn['children'].append(connect)
+                    else:
+                        conn['children'].append(connect)
 
             # dct[pipe.attrs['name']].append(conn)
             dct.setdefault(pipe.attrs['name'], []).append(conn)
@@ -532,6 +548,16 @@ class Schema(object):
 
         for parent in self.parents:
             if parent['to'] == parent_stype and parent['from'] == child_stype:
+                return parent
+
+    def get_child_instance(self, instance_type):
+        for child in self.children:
+            if child['from'] == instance_type:
+                return child
+
+    def get_parent_instance(self, instance_type):
+        for parent in self.parents:
+            if parent['from'] == instance_type:
                 return parent
 
 class Workflow(object):
@@ -814,14 +840,18 @@ class SObject(object):
         else:
             filters = [('search_code', self.info['code']), ('project_code', self.project.info['code'])]
 
-        self.snapshots_sobjects = get_sobjects_new(search_type, filters, project_code=self.project.info['code'])
+        self.snapshots_sobjects = get_sobjects(search_type, filters, project_code=self.project.info['code'])
 
         return self.snapshots_sobjects
 
     def get_files_sobjects(self, type=None):
         # Getting files sobjects for particular Sobject useful if needed to delete or edit
 
-        filters = [('search_code', self.info['search_code']), ('project_code', self.project.info['code'])]
+        search_code = self.info.get('search_code')
+        if not search_code:
+            search_code = self.info.get('code')
+
+        filters = [('search_code', search_code), ('project_code', self.project.info['code'])]
 
         search_type = 'sthpw/file'
         if type:
@@ -829,7 +859,7 @@ class SObject(object):
         if self.info.get('__search_type__') == 'sthpw/snapshot':
             filters.append(('snapshot_code', self.info['code']))
 
-        self.files_sobjects = get_sobjects_new(search_type, filters, project_code=self.project.info['code'])
+        self.files_sobjects = get_sobjects(search_type, filters, project_code=self.project.info['code'])
 
         return self.files_sobjects
 
@@ -853,7 +883,7 @@ class SObject(object):
         else:
             filters = [('search_code', self.info['code']), ('project_code', self.project.info['code'])]
 
-        self.tasks_sobjects = get_sobjects_new(search_type, filters, project_code=self.project.info['code'])
+        self.tasks_sobjects = get_sobjects(search_type, filters, project_code=self.project.info['code'])
 
         return self.tasks_sobjects
 
@@ -967,6 +997,11 @@ class SObject(object):
 
     def get_related_sobjects_tel_string(self, child_stype=None, parent_stype=None, relation_type='child'):
 
+        # print child_stype
+        # print parent_stype
+        # print relation_type
+
+
         instance_type = None
         related_type = None
 
@@ -985,6 +1020,11 @@ class SObject(object):
         relationship = relations.get('relationship')
 
         if relationship:
+
+            # print relationship, "RELATIONSHIP"
+            # print schema
+
+
             # if relationship == 'search_type':
             #     child_col = 'search_code'
             # TODO Need special case for search_type relationship
@@ -1010,23 +1050,56 @@ class SObject(object):
                     related_to_code = self.info.get('code')
 
             elif relationship == 'instance':
+
+                related_code = self.info.get('code')
+
+                # Trying to get instance type
+
+                instance_type = relations.get('instance_type')
+                if relation_type == 'parent':
+                    instance_relationship = schema.get_parent_instance(instance_type)
+                else:
+                    instance_relationship = schema.get_child_instance(instance_type)
+
+                if instance_relationship:
+                    relations = instance_relationship
+
+                # print relations, 'relations'
+
                 if relations.get('from_col'):
                     related_from_column = relations.get('from_col')
                 else:
                     related_from_column = '{0}_code'.format(relations.get('from').split('/')[-1])
 
-                if relations.get('from_col'):
+                if relations.get('to_col'):
                     related_to_column = relations.get('to_col')
                 else:
                     related_to_column = '{0}_code'.format(relations.get('to').split('/')[-1])
 
-                instance_type = relations.get('instance_type')
-                related_code = self.info.get('code')
+                # print instance_type
+                # print relations
+                # print related_code
+                # print related_from_column
+                # print related_to_column
+
+                if relations.get('path'):
+                    if relation_type == 'parent':
+                        instance_type = 'parent:' + instance_type
+                        related_type = 'child:' + related_type
+                    else:
+                        instance_type = 'child:' + instance_type
+                        related_type = 'parent:' + related_type
+
+                        # some kind of hack
+                        related_to_column = related_from_column
+
 
         if relationship == 'instance':
             if relation_type == 'parent':
+                # print u"@SOBJECT({0}['{1}', '{2}'].{3})".format(instance_type, related_from_column, related_code, related_type)
                 return u"@SOBJECT({0}['{1}', '{2}'].{3})".format(instance_type, related_from_column, related_code, related_type)
             else:
+                # print u"@SOBJECT({0}['{1}', '{2}'].{3})".format(instance_type, related_to_column, related_code, related_type)
                 return u"@SOBJECT({0}['{1}', '{2}'].{3})".format(instance_type, related_to_column, related_code, related_type)
         else:
             if relation_type == 'parent':
@@ -1049,7 +1122,7 @@ class SObject(object):
         )
         filters = [('_expression', 'in', self.get_related_sobjects_tel_string(child_stype, parent_stype))]
 
-        return get_sobjects_new(
+        return get_sobjects(
             search_type=built_process,
             filters=filters,
             order_bys=order_bys,
@@ -1829,15 +1902,14 @@ def delete_sobjects(search_keys, list_dependencies):
     return execute_procedure_serverside(tq.delete_sobjects, kwargs)
 
 
-
-
-def get_sobjects_new(search_type, filters=[], order_bys=[], project_code=None, limit=None, offset=None, process_list=[], get_all_snapshots=False, check_snapshots_updates=False):
+def get_sobjects(search_type, filters=[], order_bys=[], project_code=None, limit=None, offset=None, process_list=[], get_all_snapshots=False, check_snapshots_updates=False):
     """
     Filters snapshot by search codes, and sobjects codes
     :param search_type: search_type or search_key (if using search_type project_code should to be provided)
     :param project_code: assign project class to particular sObject
     :return: tuple : (dict, dict) of sObjects objects
     """
+
     kwargs = {
         'search_type': search_type,
         'filters': filters,
@@ -1890,6 +1962,37 @@ def get_sobjects_new(search_type, filters=[], order_bys=[], project_code=None, l
             sobjects[sobject['__search_key__']].set_tasks_count('__total__', sobject['__tasks_count__'])
 
         return sobjects, info
+
+
+# TEMPORARY
+get_sobjects_new = get_sobjects
+# TEMPORARY
+
+
+def get_group_sobjects(search_type, project_code=None, groups_list=[]):
+
+    kwargs = {
+        'search_type': search_type,
+        'project_code': project_code,
+        'groups_list': groups_list,
+    }
+
+    if not project_code:
+        if search_type.startswith('sthpw'):
+            project_code = 'sthpw'
+        else:
+            project_code = split_search_key(search_type)['project_code']
+
+        kwargs['project_code'] = project_code
+    else:
+        if search_type.find('?') == -1:
+            kwargs['search_type'] = server_start(project=project_code).build_search_type(search_type, project_code)
+
+    result = execute_procedure_serverside(tq.query_group_sobjects, kwargs, project=project_code)
+
+    print kwargs
+
+    return result
 
 
 def get_sobjects_objects(sobjects_list, project_code):
@@ -1954,7 +2057,7 @@ def get_custom_scripts(store_locally=True, project=None, scripts_codes_list=None
 
     search_type = server_start().build_search_type('config/custom_script', project_code=project)
 
-    scripts_sobjects, data = get_sobjects_new(search_type, filters)
+    scripts_sobjects, data = get_sobjects(search_type, filters)
 
     if store_locally:
         # writing scripts to local folder
@@ -2631,7 +2734,7 @@ def parce_skey(skey, get_skey_and_context=False, return_sobject=True):
             filters = [('code', '=', skey_dict.get('code'))]
             search_type = server_start().build_search_type(u'{namespace}/{pipeline_code}'.format(**skey_dict), project_code=skey_dict.get('project'))
 
-            sobjects = get_sobjects_new(search_type, filters)[0]
+            sobjects = get_sobjects(search_type, filters)[0]
             if sobjects:
                 sobject = sobjects.values()[0]
             return skey_dict, sobject

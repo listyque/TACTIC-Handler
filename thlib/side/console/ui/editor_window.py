@@ -360,7 +360,7 @@ class EditorWindow(QtGui.QPlainTextEdit):
         text = cursor.selectedText()
         text = text.replace(u"\u2029", "\n")
         text = text.replace(u"\u2028", "\n")
-        text = str(text)
+        text = unicode(text)
         if text.count("\n") == 0 and (abs_start != start or abs_end != end or start == end):
             # Single selection add indent.
             indent, indent_end, real_indent_end, need_to_indent = self.LineIndentInfo(text)

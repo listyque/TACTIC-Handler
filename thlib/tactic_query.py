@@ -331,7 +331,7 @@ def get_subscriptions_and_messages(current_login='admin', update_logins=False):
     return json.dumps(result, separators=(',', ':'))
 
 
-def get_notes_and_stypes_counts(process, search_key, stypes_list):
+def get_notes_and_stypes_counts(process, search_key, stypes_list, path='child'):
     # getting notes by search_type process and count of stypes from stypes_list
     from pyasm.search import Search
 
@@ -352,7 +352,7 @@ def get_notes_and_stypes_counts(process, search_key, stypes_list):
     for stype in stypes_list:
         try:
             search = Search(stype)
-            search.add_relationship_filter(sobject)
+            search.add_relationship_filter(sobject, path=path)
             count = search.get_count(True)
             if count == -1:
                 count = 0
@@ -488,10 +488,15 @@ def get_dirs_with_naming(search_key=None, process_list=None):
     import json
     from pyasm.biz import Snapshot
     from pyasm.biz import Project
-    from pyasm.search import SearchType
+    from pyasm.search import SearchType, Search
+
+    search_type, search_code = server.split_search_key(search_key)
+    project_code = Project.extract_project_code(search_type)
+    server.set_project(project_code)
+
+    search_type = search_type.split('?')[0]
 
     dir_naming = Project.get_dir_naming()
-    # Project.get_file_naming()
 
     dirs_dict = {
         'versions': [],
@@ -504,11 +509,20 @@ def get_dirs_with_naming(search_key=None, process_list=None):
         from pyasm.biz import Pipeline
         sobjects = server.server._get_sobjects(search_key)
         sobject = sobjects[0]
-        pipelines = Pipeline.get_by_search_type(sobject.get_base_search_type())
-        processes = pipelines[0].get_process_names()
+        pipeline = Pipeline.get_by_sobject(sobject)
+        processes = pipeline.get_process_names()
 
-    search_type, search_code = server.split_search_key(search_key)
-    search_type = search_type.split('?')[0]
+        # getting sub processes
+        processes_sobjects = pipeline.get_process_sobjects()
+        for process_sobject in processes_sobjects.values():
+            parent_process = process_sobject.get_value('code')
+            if parent_process:
+                search = Search('sthpw/pipeline')
+                search.add_filter(name='parent_process', value=parent_process)
+                sub_pipelines = search.get_sobjects()
+                if sub_pipelines:
+                    for sub_pipeline in sub_pipelines:
+                        processes.extend(sub_pipeline.get_process_names())
 
     for process in processes:
         # querying sobjects every time because we need to refresh naming
@@ -682,39 +696,6 @@ def query_sobjects(search_type, filters=[], order_bys=[], project_code=None, lim
     search = Search(splitted_search_type)
     total_sobjects_count = search.get_count()
 
-    # sobjects_dicts_list = []
-    # total_sobjects_query_count = 0
-
-    # # getting only related sobjects of instance type given
-    # if instance_type:
-    #     search = Search(related_type)
-    #     sobject_code = None
-    #     for fltr in filters:
-    #         if fltr[0] == 'code':
-    #             sobject_code = fltr[-1]
-    #             break
-    #     search_key = server.build_search_key(related_type, sobject_code, project_code)
-    #     # return search_key
-    #     sobject = search.get_by_search_key(search_key)
-    #
-    #     search = Search(splitted_search_type)
-    #
-    #     if limit:
-    #         search.set_limit(limit)
-    #
-    #     if offset:
-    #         search.set_offset(offset)
-    #
-    #     search.add_relationship_filter(sobject)
-    #
-    #     related_sobjects = search.get_sobjects()
-    #
-    #     total_sobjects_query_count = search.get_count()
-    #
-    #     if related_sobjects:
-    #         for related_sobject in related_sobjects:
-    #             sobjects_dicts_list.append(get_sobject_dict(related_sobject))
-    # else:
     # checking if search filters have expression and separate it
     expressions_filters_list = []
     filters_list = []
@@ -727,7 +708,6 @@ def query_sobjects(search_type, filters=[], order_bys=[], project_code=None, lim
 
     # now evaluate all expressions and add them to our search
     search.add_op('begin')
-    # search.add_op('and')
 
     if filters_list:
         search.add_op_filters(filters_list)
@@ -848,6 +828,32 @@ def query_sobjects(search_type, filters=[], order_bys=[], project_code=None, lim
         sobject_dict['__snapshots__'] = snapshots_list
 
     return json.dumps(result, separators=(',', ':'))
+
+
+def query_group_sobjects(search_type, project_code=None, groups_list=[]):
+
+    import json
+    from pyasm.search import Search
+
+    if project_code:
+        server.set_project(project_code)
+
+    search_type = server.split_search_key(search_type)[0]
+
+    group_bys = []
+    for group in groups_list:
+
+        search = Search(search_type)
+        search.add_column(group, distinct=True)
+        search.add_group_by(group)
+
+        all_groups = []
+        for sobject in search.get_sobjects():
+            all_groups.append(sobject.data[group])
+
+        group_bys.append((group, all_groups))
+
+    return json.dumps(group_bys, separators=(',', ':'))
 
 
 def insert_sobjects(search_type, project_code, data, metadata={}, parent_key=None, instance_type=None, info={}, use_id=False, triggers=True):

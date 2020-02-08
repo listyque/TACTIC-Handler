@@ -69,6 +69,8 @@ class Ui_floatNotifyWidget(QtGui.QDialog, ui_notifications.Ui_floatNotify):
         # self.enableNotify = QtGui.QAction("Enable notifications", self,
         #                                 triggered=self.start_update)
 
+        self.show_script_editor_action = QtGui.QAction('Script Editor', self, triggered=self.show_script_editor)
+
         self.disableNotify = QtGui.QAction('Disable notifications', self, triggered=self.objectName)
 
         self.showNotify = QtGui.QAction('Show notify-window', self, triggered=self.show)
@@ -82,6 +84,8 @@ class Ui_floatNotifyWidget(QtGui.QDialog, ui_notifications.Ui_floatNotify):
         # self.trayIconMenu.addAction(self.updateNotify)
         # self.trayIconMenu.addSeparator()
         # self.trayIconMenu.addAction(self.enableNotify)
+        self.trayIconMenu.addAction(self.show_script_editor_action)
+        self.trayIconMenu.addSeparator()
         self.trayIconMenu.addAction(self.disableNotify)
         self.trayIconMenu.addSeparator()
         self.trayIconMenu.addAction(self.showNotify)
@@ -91,6 +95,9 @@ class Ui_floatNotifyWidget(QtGui.QDialog, ui_notifications.Ui_floatNotify):
 
         self.trayIcon = QtGui.QSystemTrayIcon(self)
         self.trayIcon.setContextMenu(self.trayIconMenu)
+
+    def show_script_editor(self):
+        env_inst.ui_script_editor.show()
 
     def hide_notify_window(self):
         self.setHidden(True)

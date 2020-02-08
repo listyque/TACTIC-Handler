@@ -3,6 +3,8 @@ from multiprocessing.connection import Listener
 from thlib.side.Qt import QtWidgets as QtGui
 
 import thlib.ui_classes.ui_float_notify_classes as ui_float_notify_classes
+from thlib.ui_classes.ui_custom_qwidgets import Ui_debugLogWidget
+from thlib.ui_classes.ui_script_editor_classes import Ui_ScriptEditForm
 import thlib.global_functions as gf
 from thlib.environment import env_inst
 
@@ -29,6 +31,9 @@ class Ui_TacticApiClient(QtGui.QMainWindow):
         self.setCentralWidget(self.mainwidget)
 
         self.create_float_notify()
+
+        self.create_debuglog_widget()
+        self.create_script_editor_widget()
 
     def create_float_notify(self):
         self.float_notify = ui_float_notify_classes.Ui_floatNotifyWidget(self)
@@ -68,3 +73,8 @@ class Ui_TacticApiClient(QtGui.QMainWindow):
 
         worker.start()
 
+    def create_debuglog_widget(self):
+        env_inst.ui_debuglog = Ui_debugLogWidget(self)
+
+    def create_script_editor_widget(self):
+        env_inst.ui_script_editor = Ui_ScriptEditForm(self)

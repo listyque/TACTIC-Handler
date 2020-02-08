@@ -603,7 +603,9 @@ class Ui_repoSyncDialog(QtGui.QDialog):
         self.show()
 
         self.sync_in_progress = True
+
         self.progress_bar.setHidden(False)
+        self.toggle_ui(False)
 
         self.clear_queue()
         if not preset_dict:
@@ -615,7 +617,7 @@ class Ui_repoSyncDialog(QtGui.QDialog):
             self.sync_children(self.sobject, preset_dict)
             self.save_last_sync_date()
         else:
-            stype_sobjects, data = tc.get_sobjects_new(
+            stype_sobjects, data = tc.get_sobjects(
                 self.stype.get_code(),
                 [],
                 project_code=self.stype.project.get_code(),
@@ -628,9 +630,18 @@ class Ui_repoSyncDialog(QtGui.QDialog):
 
         self.download_files()
         self.progress_bar.setHidden(True)
+        self.toggle_ui(True)
 
     def interrupt_sync_process(self):
         self.interrupted = True
+
+    def toggle_ui(self, enable=False):
+        self.start_sync_button.setEnabled(enable)
+        self.remove_preset_button.setEnabled(enable)
+        self.add_new_preset_button.setEnabled(enable)
+        self.save_new_preset_button.setEnabled(enable)
+        self.controls_collapsable.setEnabled(enable)
+        self.presets_combo_box.setEnabled(enable)
 
     def sync_by_pipeline(self, sobject=None, preset_dict=None):
         if not sobject:

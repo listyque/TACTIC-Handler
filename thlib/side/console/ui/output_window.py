@@ -36,6 +36,8 @@ class OutputWindow(QtGui.QPlainTextEdit):
         text = text.replace("\\r", "\r")
         text = text.replace("\\n", "\n")
         text = text.replace(" ", "&nbsp;")
+        text = text.replace("<", "&lt;")
+        text = text.replace(">", "&gt;")
         for line in text.splitlines():
             line = '<font color="#A9A9A9">' + line + '</font><br>'
             self.__write_html_output(line)
@@ -48,13 +50,11 @@ class OutputWindow(QtGui.QPlainTextEdit):
         if self.__current_write_state != "output":
             self.__current_write_state = "output"
 
-        # text = unicode(text)
         text = text.replace("\\r", "\r")
         text = text.replace("\\n", "\n")
         self.moveCursor(Qt4Gui.QTextCursor.End)
         self.insertPlainText(text)
         self.moveCursor(Qt4Gui.QTextCursor.End)
-        # QtCore.QCoreApplication.processEvents(QtCore.QEventLoop.ExcludeUserInputEvents)
         self.scroll_to_bottom()
 
     def write_error(self, text):
@@ -66,10 +66,11 @@ class OutputWindow(QtGui.QPlainTextEdit):
         text = text.replace("\\r", "\r")
         text = text.replace("\\n", "\n")
         text = text.replace(" ", "&nbsp;")
+        text = text.replace("<", "&lt;")
+        text = text.replace(">", "&gt;")
         for line in text.splitlines():
             line = '<font color="#ff9999">' + line + '</font><br>'
             self.__write_html_output(line)
-            # QtGui.QApplication.processEvents(QtCore.QEventLoop.ExcludeUserInputEvents)
 
         self.scroll_to_bottom()
 

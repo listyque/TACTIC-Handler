@@ -8,6 +8,7 @@ from thlib.side.Qt import QtNetwork as QtNetwork
 
 import main_standalone
 import thlib.global_functions as gf
+import thlib.tactic_classes as tc
 import thlib.ui_classes.ui_tactic_api_client_classes as ui_tactic_api_client_classes
 
 
@@ -63,6 +64,7 @@ def startup():
     app.setStyle('plastique')
 
     main_standalone.setPaletteFromDct(main_standalone.palette)
+    tc.get_all_projects_and_logins()
 
     main_window = ui_tactic_api_client_classes.Ui_TacticApiClient()
 

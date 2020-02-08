@@ -231,15 +231,17 @@ class Ui_checkInOutTabWidget(QtGui.QWidget):
         content_width = self.stypes_tree_widget.sizeHintForColumn(0) + 40
 
         if self.stypes_tree_visible:
-            self.animation_close.setDuration(100)
+            self.animation_close.setDuration(200)
             self.animation_close.setStartValue(content_width)
             self.animation_close.setEndValue(0)
+            self.animation_close.setEasingCurve(QtCore.QEasingCurve.OutSine)
             self.animation_close.start()
             self.stypes_tree_visible = False
         else:
-            self.animation_open.setDuration(150)
+            self.animation_open.setDuration(200)
             self.animation_open.setStartValue(0)
             self.animation_open.setEndValue(content_width)
+            self.animation_open.setEasingCurve(QtCore.QEasingCurve.InSine)
             self.animation_open.start()
 
             self.stypes_tree_visible = True

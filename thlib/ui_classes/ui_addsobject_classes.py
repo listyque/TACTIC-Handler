@@ -5,7 +5,6 @@
 from thlib.side.Qt import QtWidgets as QtGui
 from thlib.side.Qt import QtCore
 
-import json
 from thlib.environment import env_inst, env_write_config, env_read_config
 import thlib.global_functions as gf
 import thlib.tactic_classes as tc
@@ -265,7 +264,7 @@ class Ui_linkSobjectsWidget(QtGui.QDialog):
 
     def create_parent_widget(self):
 
-        from thlib.ui_classes.ui_search_classes import Ui_resultsTabWidget, DEFAULT_FILTER
+        from thlib.ui_classes.ui_search_classes import Ui_searchResultsWidget, DEFAULT_FILTER
 
         info = {
             'title': '',
@@ -273,10 +272,12 @@ class Ui_linkSobjectsWidget(QtGui.QDialog):
             'state': None,
             'offset': 0,
             'limit': 20,
-            'simple_view': True
+            'simple_view': True,
+            'group_by': None,
+            'sort_by': None,
         }
 
-        self.search_results_widget = Ui_resultsTabWidget(
+        self.search_results_widget = Ui_searchResultsWidget(
             project=self.stype.project,
             stype=self.stype,
             info=info,
@@ -315,7 +316,7 @@ class Ui_linkSobjectsWidget(QtGui.QDialog):
 
     @env_inst.async_engine
     def create_instances_widget(self):
-        from thlib.ui_classes.ui_search_classes import Ui_resultsTabWidget
+        from thlib.ui_classes.ui_search_classes import Ui_searchResultsWidget
 
         parent_sobject = self.item.get_sobject()
         related_expr = parent_sobject.get_related_sobjects_tel_string(child_stype=self.stype, parent_stype=parent_sobject.get_stype())
@@ -328,10 +329,12 @@ class Ui_linkSobjectsWidget(QtGui.QDialog):
             'state': None,
             'offset': 0,
             'limit': 20,
-            'simple_view': True
+            'simple_view': True,
+            'group_by': None,
+            'sort_by': None,
         }
 
-        self.instances_search_results_widget = Ui_resultsTabWidget(
+        self.instances_search_results_widget = Ui_searchResultsWidget(
             project=self.stype.project,
             stype=self.stype,
             info=info,

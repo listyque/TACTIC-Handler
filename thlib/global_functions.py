@@ -70,7 +70,7 @@ class EventHandler(FileSystemEventHandler, QtCore.QObject):
 class FSObserver(Observer):
 
     def __init__(self, timeout=1):
-        super(FSObserver, self).__init__(timeout=timeout)
+        super(self.__class__, self).__init__(timeout=timeout)
 
         self.event_handler = EventHandler()
         self.started = False
@@ -1109,6 +1109,10 @@ def get_icon(icon_name, icon_name_active=None, color=None, color_active=None, ic
     return styling_icon
 
 
+def handle_drop_mime_data(mime_data):
+    print mime_data
+
+
 # New QTreeWidget funcs
 
 def add_item_to_tree(tree_widget, tree_item, tree_item_widget=None, insert_pos=None):
@@ -1148,8 +1152,10 @@ def add_child_items(root_item, sobject):
     child_item.setText(0, sobject.get_title())
     child_item.setText(1, sobject.get_value('language'))
     child_item.setData(0, QtCore.Qt.UserRole, sobject)
-    if sobject.get_value('language') == 'python':
-        child_item.setIcon(0, get_icon('language-python', icons_set='mdi'))
+    if sobject.get_value('language') in ['python']:
+        child_item.setIcon(0, get_icon('language-python', icons_set='mdi', color=Qt4Gui.QColor(100, 100, 200)))
+    elif sobject.get_value('language') in ['local_python']:
+        child_item.setIcon(0, get_icon('language-python', icons_set='mdi', color=Qt4Gui.QColor(200, 100, 100)))
     elif sobject.get_value('language') == 'javascript':
         child_item.setIcon(0, get_icon('language-javascript', icons_set='mdi'))
     else:
@@ -1235,6 +1241,7 @@ def add_sobject_item(parent_item, parent_widget, sobject, stype, item_info, inse
 
     tree_item = QtGui.QTreeWidgetItem()
     tree_item.setChildIndicatorPolicy(QtGui.QTreeWidgetItem.ShowIndicator)
+
     tree_item_widget = Ui_itemWidget(sobject, stype, item_info_dict, ignore_dict)
     tree_item_widget.tree_item = tree_item
     tree_item_widget.search_widget = parent_widget
@@ -1249,6 +1256,30 @@ def add_sobject_item(parent_item, parent_widget, sobject, stype, item_info, inse
         add_item_to_tree(parent_item, tree_item, tree_item_widget, insert_pos=insert_pos)
         tree_item_widget.setParent(tree_item_widget.parent())
         return tree_item_widget
+
+
+def add_group_by_item(parent_item, parent_widget, group, column, sub_columns, stype, item_info):
+
+    from thlib.ui_classes.ui_item_classes import Ui_groupItemWidget
+    tree_item = QtGui.QTreeWidgetItem()
+    tree_item.setChildIndicatorPolicy(QtGui.QTreeWidgetItem.ShowIndicator)
+    item_info_dict = {
+        'relates_to': item_info['relates_to'],
+        'is_expanded': False,
+        'sep_versions': item_info['sep_versions'],
+        'children_states': item_info.get('children_states')
+    }
+    tree_item_widget = Ui_groupItemWidget(group, column, sub_columns, stype, item_info_dict)
+
+    tree_item_widget.tree_item = tree_item
+    tree_item_widget.search_widget = parent_widget
+
+    add_item_to_tree(parent_item, tree_item, tree_item_widget)
+
+    tree_item_widget.setParent(tree_item_widget.parent())
+    tree_item_widget.setHidden(True)
+
+    return tree_item_widget
 
 
 def add_process_item(tree_widget, parent_widget, sobject, stype, process, item_info, insert_pos=None, pipeline=None):
