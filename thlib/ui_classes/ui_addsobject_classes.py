@@ -76,12 +76,24 @@ class Ui_linkSobjectsWidget(QtGui.QDialog):
         event.ignore()
 
     def save_instances_state(self):
+        instance_type = self.item.child.get('instance_type')
+
+        # getting path
+        path = None
+        schema = self.stype.get_schema()
+
+        parent = schema.get_parent_instance(instance_type, self.stype.get_code())
+        if parent:
+            if parent.get('path'):
+                path = parent.get('path')
+
         tc.edit_multiple_instance_sobjects(
             self.stype.project.get_code(),
             insert_search_keys=self.include_set,
             exclude_search_keys=self.exclude_set,
             parent_key=self.item.sobject.get_search_key(),
-            instance_type=self.item.child.get('instance_type')
+            instance_type=instance_type,
+            path=path,
         )
 
         self.close()
@@ -319,7 +331,7 @@ class Ui_linkSobjectsWidget(QtGui.QDialog):
         from thlib.ui_classes.ui_search_classes import Ui_searchResultsWidget
 
         parent_sobject = self.item.get_sobject()
-        related_expr = parent_sobject.get_related_sobjects_tel_string(child_stype=self.stype, parent_stype=parent_sobject.get_stype())
+        related_expr = parent_sobject.get_related_sobjects_tel_string(child_stype=self.stype, parent_stype=parent_sobject.get_stype(), path='child')
 
         filters = [('_expression', 'in', related_expr)]
 

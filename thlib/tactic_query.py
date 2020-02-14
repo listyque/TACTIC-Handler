@@ -2,6 +2,7 @@
 
 import global_functions as gf
 import inspect
+from pprint import pformat
 
 
 def prepare_serverside_script(func, kwargs, return_dict=True, has_return=True, shrink=True, catch_traceback=True):
@@ -10,7 +11,7 @@ def prepare_serverside_script(func, kwargs, return_dict=True, has_return=True, s
         run_command = func_lines[0][0].replace(u'def ', u'return ')[:-2]
     else:
         run_command = func_lines[0][0].replace(u'def ', u'')[:-2]
-    # i don't want 're' here, so try to understand logic, with love to future me :-*
+
     # TODO multiline bug
 
     args_list = []
@@ -18,9 +19,12 @@ def prepare_serverside_script(func, kwargs, return_dict=True, has_return=True, s
         if isinstance(arg, (str, unicode)):
             args_list.append(u"{}='{}'".format(key, arg.replace('"', '\"')))
         else:
-            args_list.append(u'{}={}'.format(key, arg))
+            # args_list.append(u'{}={}'.format(key, arg))
+            # Workaround for slow MAKO with long lines
+            args_list.append(u'{}={}'.format(key, pformat(arg)))
 
     var_stitch = u', '.join(args_list)
+
     ready_run_command = u'{0}({1})'.format(run_command[:run_command.find(u'(')], var_stitch)
     if catch_traceback:
         traceback = inspect.getsourcelines(get_traceback)
@@ -331,7 +335,7 @@ def get_subscriptions_and_messages(current_login='admin', update_logins=False):
     return json.dumps(result, separators=(',', ':'))
 
 
-def get_notes_and_stypes_counts(process, search_key, stypes_list, path='child'):
+def get_notes_and_stypes_counts(process, search_key, stypes_list):
     # getting notes by search_type process and count of stypes from stypes_list
     from pyasm.search import Search
 
@@ -349,10 +353,12 @@ def get_notes_and_stypes_counts(process, search_key, stypes_list, path='child'):
         search.add_op_filters([('process', p), ('search_type', search_type), ('search_code', search_code)])
         cnt['notes'][p] = search.get_count(True)
 
+    print stypes_list
+
     for stype in stypes_list:
         try:
             search = Search(stype)
-            search.add_relationship_filter(sobject, path=path)
+            search.add_relationship_filter(sobject)
             count = search.get_count(True)
             if count == -1:
                 count = 0
@@ -903,7 +909,7 @@ def insert_instance_sobjects(search_key, project_code, parent_key=None, instance
     return 'ok'
 
 
-def edit_multiple_instance_sobjects(project_code, insert_search_keys=[], exclude_search_keys=[], parent_key=None, instance_type=None):
+def edit_multiple_instance_sobjects(project_code, insert_search_keys=[], exclude_search_keys=[], parent_key=None, instance_type=None, path=None):
 
     from pyasm.search import SearchType
 
@@ -918,7 +924,7 @@ def edit_multiple_instance_sobjects(project_code, insert_search_keys=[], exclude
         src_sobject = server.query(child_search_type, [('code', child_code)], return_sobjects=True)[0]
 
         instance = SearchType.create(instance_type)
-        instance.add_related_connection(src_sobject, dst_sobject)
+        instance.add_related_connection(src_sobject, dst_sobject, src_path=path)
         instance.commit()
 
     for search_key in exclude_search_keys:
@@ -930,6 +936,7 @@ def edit_multiple_instance_sobjects(project_code, insert_search_keys=[], exclude
         parent_sobject = server.query(parent_search_type, [('code', parent_code)], return_sobjects=True)[0]
 
         child_sobject.remove_instance(parent_sobject)
+        # parent_sobject.remove_instance(child_sobject)
 
     return 'ok'
 

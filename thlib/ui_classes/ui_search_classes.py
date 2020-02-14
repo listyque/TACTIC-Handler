@@ -2083,7 +2083,7 @@ class Ui_searchResultsWidget(QtGui.QWidget):
         self.resultsSplitter.setObjectName("resultsSplitter")
         self.resultsTreeWidget = Ui_extendedTreeWidget(self.resultsSplitter)
         self.resultsTreeWidget.setRootIsDecorated(False)
-        self.resultsTreeWidget.setIndentation(24)
+        self.resultsTreeWidget.setIndentation(0)
         self.resultsTreeWidget.setSelectionBehavior(QtGui.QAbstractItemView.SelectRows)
         self.resultsTreeWidget.setSelectionMode(QtGui.QAbstractItemView.ExtendedSelection)
         self.resultsTreeWidget.setTabKeyNavigation(True)
@@ -2092,7 +2092,7 @@ class Ui_searchResultsWidget(QtGui.QWidget):
         self.resultsTreeWidget.setWordWrap(True)
         self.resultsTreeWidget.setHeaderHidden(True)
         self.resultsTreeWidget.setObjectName("resultsTreeWidget")
-        self.resultsTreeWidget.headerItem().setText(0, "1")
+        # self.resultsTreeWidget.headerItem().setText(0, "1")
         self.verticalLayoutWidget_3 = QtGui.QWidget(self.resultsSplitter)
         self.verticalLayoutWidget_3.setObjectName("verticalLayoutWidget_3")
         self.versionsLayout = QtGui.QVBoxLayout(self.verticalLayoutWidget_3)
@@ -2345,11 +2345,11 @@ class Ui_searchResultsWidget(QtGui.QWidget):
         # self.resultsTreeWidget.setSelectionMode(QtGui.QAbstractItemView.ExtendedSelection)
 
         self.resultsTreeWidget.setAlternatingRowColors(True)
-        self.resultsTreeWidget.setStyleSheet(gf.get_qtreeview_style())
+        self.resultsTreeWidget.setStyleSheet(gf.get_qtreeview_style(True))
         self.resultsTreeWidget.setFocusPolicy(QtCore.Qt.NoFocus)
 
         self.resultsVersionsTreeWidget.setAlternatingRowColors(True)
-        self.resultsVersionsTreeWidget.setStyleSheet(gf.get_qtreeview_style())
+        self.resultsVersionsTreeWidget.setStyleSheet(gf.get_qtreeview_style(True))
         self.resultsVersionsTreeWidget.setFocusPolicy(QtCore.Qt.NoFocus)
 
     def get_results_tree_widget(self):
@@ -2376,7 +2376,12 @@ class Ui_searchResultsWidget(QtGui.QWidget):
 
             self.fill_versions_items(current_tree_item, 0)
             self.current_tree_widget_item = self.resultsTreeWidget.itemWidget(current_tree_item, 0)
-            self.load_preview()
+
+            items_list = []
+            for item in self.resultsTreeWidget.selectedItems():
+                items_list.append(self.resultsTreeWidget.itemWidget(item, 0))
+
+            self.load_preview(items_list)
 
     def open_item_context_menu(self):
         checkin_out_widget = self.get_current_checkin_out_widget()
@@ -2754,7 +2759,7 @@ class Ui_searchResultsWidget(QtGui.QWidget):
         tasks_widget.set_sobject(item.sobject)
 
     @gf.catch_error
-    def load_preview(self, *args):
+    def load_preview(self, selected_items_list):
         nested_item = self.current_tree_widget_item
 
         checkin_out_widget = self.get_current_checkin_out_widget()
@@ -2768,7 +2773,11 @@ class Ui_searchResultsWidget(QtGui.QWidget):
         if nested_item.type in ['sobject', 'snapshot', 'process']:
             fast_controls_widget.set_item(nested_item)
             description_widget.set_item(nested_item)
-            columns_viewer_widget.set_item(nested_item)
+
+            if len(selected_items_list) > 1:
+                columns_viewer_widget.set_items(selected_items_list)
+            else:
+                columns_viewer_widget.set_item(nested_item)
 
             self.browse_tasks(nested_item)
             self.browse_snapshot(nested_item)

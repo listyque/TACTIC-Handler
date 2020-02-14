@@ -1091,7 +1091,7 @@ def create_tab_label(tab_name, stype):
     return wdg
 
 
-def get_icon(icon_name, icon_name_active=None, color=None, color_active=None, icons_set='fa', **kwargs):
+def get_icon(icon_name, icon_name_active=None, color=None, color_active=None, icons_set='fa', spin=None, **kwargs):
 
     if not color:
         color = Qt4Gui.QColor(200, 200, 200)
@@ -1099,11 +1099,15 @@ def get_icon(icon_name, icon_name_active=None, color=None, color_active=None, ic
         color_active = Qt4Gui.QColor(240, 240, 240)
     if not icon_name_active:
         icon_name_active = icon_name
+    if spin:
+        spin = qta.Spin(spin[0], interval=spin[1], step=spin[2])
+
     styling_icon = qta.icon(
         '{0}.{1}'.format(icons_set, icon_name),
         active='{0}.{1}'.format(icons_set, icon_name_active),
         color=color,
         color_active=color_active,
+        animation=spin,
         **kwargs)
 
     return styling_icon
@@ -1314,11 +1318,17 @@ def add_snapshot_item(tree_widget, parent_widget, sobject, stype, process, pipel
 
     snapshots_list = []
 
+    if sep_versions:
+        expandable = False
+    else:
+        expandable = True
+
     for key, context in snapshots.contexts.items():
         tree_item = QtGui.QTreeWidgetItem()
         item_info_dict = {
             'relates_to': item_info['relates_to'],
             'is_expanded': False,
+            'expandable': expandable,
             'sep_versions': item_info['sep_versions'],
             'children_states': item_info.get('children_states')
         }
@@ -1348,6 +1358,7 @@ def add_snapshot_item(tree_widget, parent_widget, sobject, stype, process, pipel
                 item_info_dict = {
                     'relates_to': item_info['relates_to'],
                     'is_expanded': False,
+                    'expandable': False,
                     'sep_versions': item_info['sep_versions']
                 }
                 snapshot_item_versions = Ui_snapshotItemWidget(
@@ -1402,7 +1413,9 @@ def add_versions_snapshot_item(tree_widget, parent_widget, sobject, stype, pipel
 
 
 def add_child_item(tree_widget, parent_widget, sobject, stype, child, item_info):
+
     from thlib.ui_classes.ui_item_classes import Ui_childrenItemWidget
+
     tree_item = QtGui.QTreeWidgetItem()
     item_info_dict = {
         'relates_to': item_info['relates_to'],
@@ -1410,6 +1423,7 @@ def add_child_item(tree_widget, parent_widget, sobject, stype, child, item_info)
         'sep_versions': item_info['sep_versions'],
         'children_states': item_info.get('children_states')
     }
+
     tree_item_widget = Ui_childrenItemWidget(sobject, stype, child, item_info_dict)
 
     tree_item_widget.tree_item = tree_item
@@ -2830,13 +2844,16 @@ class MatchTemplate(object):
 
 # Widgets Styles
 
-def get_qtreeview_style():
+def get_qtreeview_style(disable_branch=False):
+
+    branch = 'QTreeView::branch {background: transparent;}'
+
     style = """
 QAbstractItemView {
     show-decoration-selected: 0;
     selection-background-color:	rgb(28, 32, 30);
     selection-color: rgb(245,245,245);
-    alternate-background-color: rgb(62,62,62);
+    alternate-background-color: rgb(58,58,58);
     background: rgb(52,52,52);
     
     
@@ -2853,6 +2870,8 @@ QTreeView {
     paint-alternating-row-colors-for-empty-area: 0;
     border: 0px;
 }
-
 """
+    if disable_branch:
+        style += branch
+
     return style

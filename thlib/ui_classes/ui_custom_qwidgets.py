@@ -1634,7 +1634,7 @@ class Ui_elideLabel(QtGui.QLabel):
 
         self.setSizePolicy(QtGui.QSizePolicy.Ignored, QtGui.QSizePolicy.Preferred)
         self.setWordWrap(False)
-        self.setContentsMargins(2, 0, 0, 0)
+        # self.setContentsMargins(8, -10, 0, 0)
 
     def set_font_size(self, size_int):
         self.font().setPointSize(size_int)
@@ -1660,7 +1660,7 @@ class Ui_elideLabel(QtGui.QLabel):
                 elided = u'{0}<font color="{1}">{2}</font>{3}'.format(first_part, self.highlighted_part_color, self.highlighted_part, second_part)
 
             doc.setHtml(elided)
-            doc.setDocumentMargin(2)
+            # doc.setDocumentMargin(2)
             doc.setDefaultFont(self.font())
             doc.setTextWidth(self.width())
             doc.setUseDesignMetrics(True)

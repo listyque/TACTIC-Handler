@@ -576,7 +576,7 @@ class Ui_tasksDockWidget(QtGui.QWidget):
 
         self.save_button = QtGui.QToolButton()
         self.save_button.setAutoRaise(True)
-        self.save_button.setIcon(gf.get_icon('content-save', icons_set='mdi', scale_factor=1))
+        self.save_button.setIcon(gf.get_icon('content-save-all', icons_set='mdi', scale_factor=1))
         self.save_button.setToolTip('Save Current Changes')
 
         self.refresh_button = QtGui.QToolButton()

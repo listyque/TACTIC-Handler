@@ -21,7 +21,7 @@ from thlib.ui_classes.ui_drop_plate_classes import Ui_dropPlateWidget
 from thlib.ui_classes.ui_snapshot_browser_classes import Ui_snapshotBrowserWidget
 from thlib.ui_classes.ui_fast_controls_classes import Ui_fastControlsWidget
 from thlib.ui_classes.ui_description_classes import Ui_descriptionWidget
-from thlib.ui_classes.ui_columns_editor_classes import Ui_columnsViewerWidget
+from thlib.ui_classes.ui_columns_editor_classes import Ui_columnsEditorWidget
 from thlib.ui_classes.ui_tasks_classes import Ui_tasksDockWidget
 
 if env_mode.get_mode() == 'maya':
@@ -343,11 +343,11 @@ class Ui_checkInOutWidget(QtGui.QMainWindow):
     def create_columns_viewer_dock(self):
         dl.log('Creating Columns Viewer Dock', group_id=self.stype.get_code())
 
-        self.columns_viewer_widget = Ui_columnsViewerWidget(self.project, self.stype, parent=self)
+        self.columns_viewer_widget = Ui_columnsEditorWidget(self.project, self.stype, parent=self)
 
         self.columns_viewer_dock = QtGui.QDockWidget(self)
         self.columns_viewer_dock.setWidget(self.columns_viewer_widget)
-        self.columns_viewer_dock.setWindowTitle('Columns Viewer')
+        self.columns_viewer_dock.setWindowTitle('Columns Editor')
         self.columns_viewer_dock.setObjectName('columns_viewer_dock')
 
         self.columns_viewer_dock.setFeatures(

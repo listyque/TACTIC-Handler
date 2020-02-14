@@ -18,10 +18,6 @@ import thlib.tactic_classes as tc
 from thlib.ui_classes.ui_custom_qwidgets import Ui_elideLabel
 import thlib.ui.items.ui_commit_item as ui_commit_item
 import thlib.ui.items.ui_preview_item as ui_preview_item
-# import thlib.ui.items.ui_item as ui_item
-import thlib.ui.items.ui_item_children as ui_item_children
-import thlib.ui.items.ui_item_process as ui_item_process
-import thlib.ui.items.ui_item_snapshot as ui_item_snapshot
 import ui_tasks_classes as tasks_widget
 import ui_notes_classes
 import ui_addsobject_classes
@@ -32,8 +28,8 @@ class Ui_infoItemsWidget(QtGui.QWidget):
         super(self.__class__, self).__init__(parent=parent)
 
         self.create_ui()
-        self.items = []
-        self.items_ = []
+        self.right_items = []
+        self.left_items = []
 
     def create_ui(self):
 
@@ -47,7 +43,7 @@ class Ui_infoItemsWidget(QtGui.QWidget):
         self.items_layout.setSizeConstraint(QtGui.QLayout.SetMinAndMaxSize)
 
         self.items_right_layout = QtGui.QHBoxLayout()
-        self.items_right_layout.setContentsMargins(0, 0, 10, 0)
+        self.items_right_layout.setContentsMargins(0, 0, 0, 0)
         self.items_right_layout.setSpacing(4)
 
         self.main_layout.addLayout(self.items_layout)
@@ -57,26 +53,35 @@ class Ui_infoItemsWidget(QtGui.QWidget):
         self.main_layout.addLayout(self.items_right_layout)
 
     def add_item(self, widget):
-        if len(self.items) > 0:
+        if len(self.left_items) > 0:
             self.items_layout.addWidget(self.get_line_delimiter())
         self.items_layout.addWidget(widget)
-        self.items.append(widget)
+        self.left_items.append(widget)
 
     def add_item_to_right(self, widget):
-        if len(self.items) > 0:
+        if len(self.right_items) > 0:
             self.items_right_layout.addWidget(self.get_line_delimiter())
         self.items_right_layout.addWidget(widget)
-        self.items.append(widget)
+        self.right_items.append(widget)
 
     def get_line_delimiter(self):
-        line = QtGui.QFrame(self)
-        line.setMaximumSize(QtCore.QSize(1, 12))
-        line.setStyleSheet('QFrame { border: 0px; background-color: grey;}')
-        line.setFrameShape(QtGui.QFrame.VLine)
-        return line
+        font = Qt4Gui.QFont()
+        font.setFamily("Segoe UI")
+        font.setPointSize(7)
+        label = QtGui.QLabel(self)
+        label.setFont(font)
+        label.setText('/')
+        label.setAlignment(QtCore.Qt.AlignLeading | QtCore.Qt.AlignLeft | QtCore.Qt.AlignBottom)
+        label.setMaximumSize(16, 24)
+        label.setStyleSheet("color:grey;")
 
-    def get_items(self):
-        return self.items
+        return label
+
+    def get_left_items(self):
+        return self.left_items
+
+    def get_right_items(self):
+        return self.right_items
 
     def closeEvent(self, event):
         self.deleteLater()
@@ -479,6 +484,7 @@ class Ui_itemWidget(QtGui.QWidget):
         self.stype = stype
 
         self.info = info
+        self.notes_count = 0
         self.tree_item = None
         self.sep_versions = self.info['sep_versions']
         self.process_items = []
@@ -504,68 +510,117 @@ class Ui_itemWidget(QtGui.QWidget):
         self.forced_creation()
 
     def create_ui_raw(self):
+        self.setObjectName('UiItemWidget')
+        self.setMinimumSize(260, 60)
+        self.setMaximumHeight(80)
+        self.setContentsMargins(0, 0, 0, 0)
+
         self.gridLayout = QtGui.QGridLayout(self)
-        self.gridLayout.setContentsMargins(0, 0, 0, 0)
-        self.gridLayout.setSpacing(0)
+        self.gridLayout.setContentsMargins(4, 0, 8, 0)
+        self.gridLayout.setSpacing(2)
         self.gridLayout.setObjectName("gridLayout")
+
+        self.indent_spacer = QtGui.QSpacerItem(0, 0, QtGui.QSizePolicy.Minimum, QtGui.QSizePolicy.Expanding)
+        self.gridLayout.addItem(self.indent_spacer, 0, 0, 3, 1)
+
+        self.expand_item_button = QtGui.QToolButton(self)
+        self.expand_item_button.setMaximumSize(16, 2048)
+        self.expand_item_button.setMinimumHeight(80)
+        self.expand_item_button.setStyleSheet("QToolButton { border: 0px; background-color: transparent;}")
+        self.expand_item_button.setAutoRaise(True)
+        self.expand_item_button.setIcon(gf.get_icon('chevron-right', icons_set='mdi', color=Qt4Gui.QColor(160, 160, 160), scale_factor=1.6))
+
+        # effect = QtGui.QGraphicsOpacityEffect(self.expand_item_button)
+        # effect.setOpacity(0)
+        #
+        # self.expand_item_button_anm_close = QtCore.QPropertyAnimation(effect, 'opacity', self.expand_item_button)
+        # self.expand_item_button_anm_close.setDuration(200)
+        # self.expand_item_button_anm_close.setStartValue(1)
+        # self.expand_item_button_anm_close.setEndValue(0)
+        # self.expand_item_button_anm_close.setEasingCurve(QtCore.QEasingCurve.OutSine)
+        #
+        # self.expand_item_button_anm_open = QtCore.QPropertyAnimation(effect, 'opacity', self.expand_item_button)
+        # self.expand_item_button_anm_open.setDuration(200)
+        # self.expand_item_button_anm_open.setStartValue(0)
+        # self.expand_item_button_anm_open.setEndValue(1)
+        # self.expand_item_button_anm_open.setEasingCurve(QtCore.QEasingCurve.InSine)
+        # self.expand_item_button.setGraphicsEffect(effect)
+
+        self.gridLayout.addWidget(self.expand_item_button, 0, 2, 3, 1)
+
         self.itemColorLine = QtGui.QFrame(self)
-        self.itemColorLine.setMaximumSize(QtCore.QSize(4, 16777215))
+        self.itemColorLine.setMaximumSize(QtCore.QSize(2, 16777215))
         self.itemColorLine.setStyleSheet("QFrame { border: 0px; background-color: black;}")
         self.itemColorLine.setFrameShadow(QtGui.QFrame.Plain)
-        self.itemColorLine.setLineWidth(4)
+        self.itemColorLine.setLineWidth(2)
         self.itemColorLine.setFrameShape(QtGui.QFrame.VLine)
         self.itemColorLine.setFrameShadow(QtGui.QFrame.Sunken)
         self.itemColorLine.setObjectName("itemColorLine")
 
-        self.expand_item_button = QtGui.QToolButton()
-        self.expand_item_button.setMaximumSize(24, 2048)
-        self.expand_item_button.setStyleSheet("QToolButton { border: 0px; background-color: transparent;}")
-        self.expand_item_button.setIcon(gf.get_icon('chevron-right', icons_set='mdi', scale_factor=2))
-
-        self.gridLayout.addWidget(self.expand_item_button, 0, 0, 3, 1)
         self.gridLayout.addWidget(self.itemColorLine, 0, 1, 3, 1)
-        self.previewVerticalLayout = QtGui.QVBoxLayout()
-        self.previewVerticalLayout.setSpacing(0)
-        self.previewVerticalLayout.setContentsMargins(4, 4, 4, 4)
-        self.previewVerticalLayout.setObjectName("previewVerticalLayout")
+
         self.previewLabel = QtGui.QLabel(self)
         self.previewLabel.setMinimumSize(QtCore.QSize(64, 64))
         self.previewLabel.setMaximumSize(QtCore.QSize(64, 64))
         self.previewLabel.setStyleSheet("QLabel {\n"
-                                        "    background: rgba(175, 175, 175, 16);\n"
-                                        "    border: 0px;\n"
-                                        "    border-radius: 3px;\n"
+                                        "    background: rgba(175, 175, 175, 64);\n"
+                                        "    border: 16px;\n"
+                                        "    border-radius: 32px;\n"
                                         "    padding: 0px 0px;\n"
                                         "}")
         self.previewLabel.setTextFormat(QtCore.Qt.RichText)
-        self.previewLabel.setAlignment(QtCore.Qt.AlignCenter)
+        self.previewLabel.setAlignment(QtCore.Qt.AlignVCenter | QtCore.Qt.AlignHCenter)
         self.previewLabel.setObjectName("previewLabel")
-        self.previewVerticalLayout.addWidget(self.previewLabel)
-        spacerItem = QtGui.QSpacerItem(0, 0, QtGui.QSizePolicy.Minimum, QtGui.QSizePolicy.Ignored)
-        self.previewVerticalLayout.addItem(spacerItem)
-        self.previewVerticalLayout.setStretch(1, 1)
-        self.gridLayout.addLayout(self.previewVerticalLayout, 0, 2, 3, 1)
+
+        self.gridLayout.addWidget(self.previewLabel, 0, 3, 3, 1)
+
         self.horizontalLayout_2 = QtGui.QHBoxLayout()
         self.horizontalLayout_2.setSpacing(0)
-        self.horizontalLayout_2.setContentsMargins(-1, -1, -1, 3)
+        self.horizontalLayout_2.setContentsMargins(0, 0, 0, 0)
         self.horizontalLayout_2.setObjectName("horizontalLayout_2")
+
+        # File name Label
         self.fileNameLabel = QtGui.QLabel(self)
-        self.fileNameLabel.setMinimumSize(QtCore.QSize(0, 20))
-        self.fileNameLabel.setMaximumSize(QtCore.QSize(16777215, 24))
+        self.fileNameLabel.setMinimumSize(QtCore.QSize(0, 30))
+        self.fileNameLabel.setMaximumSize(QtCore.QSize(16777215, 30))
         font = Qt4Gui.QFont()
-        font.setWeight(75)
-        font.setBold(True)
+        font.setFamily("Segoe UI")
+        font.setPointSize(11)
+        # font.setWeight(65)
+        # font.setBold(True)
         self.fileNameLabel.setFont(font)
-        self.fileNameLabel.setStyleSheet("QLabel {\n"
-                                         "    background-color: transparent;\n"
-                                         "}")
+        self.fileNameLabel.setStyleSheet("QLabel {background-color: transparent;}")
         self.fileNameLabel.setTextFormat(QtCore.Qt.PlainText)
         self.fileNameLabel.setObjectName("fileNameLabel")
+        self.fileNameLabel.setIndent(8)
+        # self.fileNameLabel
         self.horizontalLayout_2.addWidget(self.fileNameLabel)
 
         self.syncWithRepoToolButton = QtGui.QToolButton(self)
         self.syncWithRepoToolButton.setAutoRaise(True)
+        self.syncWithRepoToolButton.setMinimumSize(30, 30)
+        self.syncWithRepoToolButton.setMaximumSize(30, 30)
         self.syncWithRepoToolButton.setObjectName("syncWithRepoToolButton")
+        self.syncWithRepoToolButton.setStyleSheet("QToolButton { border: 0px; background-color: transparent;}")
+        self.syncWithRepoToolButton.setIcon(gf.get_icon('cloud-sync', icons_set='mdi', color=Qt4Gui.QColor(160, 160, 160)))
+        self.syncWithRepoToolButton.setToolTip('Open Repository Sync Dialog')
+
+        effect = QtGui.QGraphicsOpacityEffect(self.syncWithRepoToolButton)
+        effect.setOpacity(0)
+
+        self.sync_with_repo_tool_button_anm_close = QtCore.QPropertyAnimation(effect, 'opacity', self.syncWithRepoToolButton)
+        self.sync_with_repo_tool_button_anm_close.setDuration(200)
+        self.sync_with_repo_tool_button_anm_close.setStartValue(1)
+        self.sync_with_repo_tool_button_anm_close.setEndValue(0)
+        self.sync_with_repo_tool_button_anm_close.setEasingCurve(QtCore.QEasingCurve.OutSine)
+
+        self.sync_with_repo_tool_button_anm_open = QtCore.QPropertyAnimation(effect, 'opacity', self.syncWithRepoToolButton)
+        self.sync_with_repo_tool_button_anm_open.setDuration(200)
+        self.sync_with_repo_tool_button_anm_open.setStartValue(0)
+        self.sync_with_repo_tool_button_anm_open.setEndValue(1)
+        self.sync_with_repo_tool_button_anm_open.setEasingCurve(QtCore.QEasingCurve.InSine)
+        self.syncWithRepoToolButton.setGraphicsEffect(effect)
+
         sync_dialog = QtGui.QAction('Open Repo Sync', self.syncWithRepoToolButton)
         sync_dialog.triggered.connect(self.create_sync_dialog)
         self.syncWithRepoToolButton.addAction(sync_dialog)
@@ -575,19 +630,63 @@ class Ui_itemWidget(QtGui.QWidget):
         self.watchFolderToolButton = QtGui.QToolButton(self)
         self.watchFolderToolButton.setCheckable(True)
         self.watchFolderToolButton.setAutoRaise(True)
+        self.watchFolderToolButton.setMinimumSize(30, 30)
+        self.watchFolderToolButton.setMaximumSize(30, 30)
+        self.watchFolderToolButton.setStyleSheet("QToolButton { border: 0px; background-color: transparent;}")
         self.watchFolderToolButton.setObjectName("watchFolderToolButton")
+        self.watchFolderToolButton.setIcon(gf.get_icon('eye-off', icons_set='mdi', color=Qt4Gui.QColor(160, 160, 160)))
+        self.watchFolderToolButton.setToolTip('Open Watch-Folder Dialog')
+
+        effect = QtGui.QGraphicsOpacityEffect(self.watchFolderToolButton)
+        effect.setOpacity(0)
+
+        self.watch_folder_tool_button_anm_close = QtCore.QPropertyAnimation(effect, 'opacity', self.watchFolderToolButton)
+        self.watch_folder_tool_button_anm_close.setDuration(200)
+        self.watch_folder_tool_button_anm_close.setStartValue(1)
+        self.watch_folder_tool_button_anm_close.setEndValue(0)
+        self.watch_folder_tool_button_anm_close.setEasingCurve(QtCore.QEasingCurve.OutSine)
+
+        self.watch_folder_tool_button_anm_open = QtCore.QPropertyAnimation(effect, 'opacity', self.watchFolderToolButton)
+        self.watch_folder_tool_button_anm_open.setDuration(200)
+        self.watch_folder_tool_button_anm_open.setStartValue(0)
+        self.watch_folder_tool_button_anm_open.setEndValue(1)
+        self.watch_folder_tool_button_anm_open.setEasingCurve(QtCore.QEasingCurve.InSine)
+        self.watchFolderToolButton.setGraphicsEffect(effect)
+
+        self.watchFolderToolButton.toggled.connect(self.toggle_watch_folder_button)
+        self.watchFolderToolButton.clicked.connect(self.save_watch_status)
+
         self.horizontalLayout_2.addWidget(self.watchFolderToolButton)
 
         self.relationsToolButton = QtGui.QToolButton(self)
-        self.relationsToolButton.setToolButtonStyle(QtCore.Qt.ToolButtonTextBesideIcon)
+        self.relationsToolButton.setToolButtonStyle(QtCore.Qt.ToolButtonIconOnly)
         self.relationsToolButton.setAutoRaise(True)
         self.relationsToolButton.setObjectName("relationsToolButton")
-        self.relationsToolButton.setMinimumSize(24, 24)
+        self.relationsToolButton.setMinimumSize(30, 30)
+        self.relationsToolButton.setMaximumSize(30, 30)
+        self.relationsToolButton.setStyleSheet("QToolButton { border: 0px; background-color: transparent;}")
+        self.relationsToolButton.setIcon(gf.get_icon('sitemap', icons_set='mdi', color=Qt4Gui.QColor(160, 160, 160)))
+
+        effect = QtGui.QGraphicsOpacityEffect(self.relationsToolButton)
+        effect.setOpacity(0)
+
+        self.relations_tool_button_anm_close = QtCore.QPropertyAnimation(effect, 'opacity', self.relationsToolButton)
+        self.relations_tool_button_anm_close.setDuration(200)
+        self.relations_tool_button_anm_close.setStartValue(1)
+        self.relations_tool_button_anm_close.setEndValue(0)
+        self.relations_tool_button_anm_close.setEasingCurve(QtCore.QEasingCurve.OutSine)
+
+        self.relations_tool_button_anm_open = QtCore.QPropertyAnimation(effect, 'opacity', self.relationsToolButton)
+        self.relations_tool_button_anm_open.setDuration(200)
+        self.relations_tool_button_anm_open.setStartValue(0)
+        self.relations_tool_button_anm_open.setEndValue(1)
+        self.relations_tool_button_anm_open.setEasingCurve(QtCore.QEasingCurve.InSine)
+        self.relationsToolButton.setGraphicsEffect(effect)
 
         self.horizontalLayout_2.addWidget(self.relationsToolButton)
-
         self.horizontalLayout_2.setStretch(0, 1)
-        self.gridLayout.addLayout(self.horizontalLayout_2, 0, 3, 1, 2)
+
+        self.gridLayout.addLayout(self.horizontalLayout_2, 0, 4, 1, 2)
 
         self.horizontalLayout = QtGui.QHBoxLayout()
         self.horizontalLayout.setSpacing(0)
@@ -596,43 +695,70 @@ class Ui_itemWidget(QtGui.QWidget):
         self.tasksToolButton = QtGui.QToolButton(self)
         self.tasksToolButton.setToolButtonStyle(QtCore.Qt.ToolButtonTextBesideIcon)
         self.tasksToolButton.setAutoRaise(True)
+        self.tasksToolButton.setMinimumSize(30, 30)
+        self.tasksToolButton.setMaximumSize(200, 30)
+        font = Qt4Gui.QFont()
+        font.setFamily("Segoe UI")
+        font.setPointSize(10)
+        self.tasksToolButton.setFont(font)
+        self.tasksToolButton.setStyleSheet("QToolButton { border: 0px; background-color: transparent;}")
         self.tasksToolButton.setObjectName("tasksToolButton")
+        # self.tasksToolButton.setIcon(gf.get_icon('tasks', color=Qt4Gui.QColor(160, 160, 160)))
+        self.tasksToolButton.setIcon(gf.get_icon('calendar-check', icons_set='mdi', color=Qt4Gui.QColor(160, 160, 160)))
 
         self.horizontalLayout.addWidget(self.tasksToolButton)
 
         self.notesToolButton = QtGui.QToolButton(self)
-        self.notesToolButton.setText("")
         self.notesToolButton.setToolButtonStyle(QtCore.Qt.ToolButtonTextBesideIcon)
         self.notesToolButton.setAutoRaise(True)
+        self.notesToolButton.setMinimumSize(30, 30)
+        self.notesToolButton.setMaximumSize(200, 30)
+        font = Qt4Gui.QFont()
+        font.setFamily("Segoe UI")
+        font.setPointSize(10)
+        self.notesToolButton.setFont(font)
+        self.notesToolButton.setStyleSheet("QToolButton { border: 0px; background-color: transparent;}")
         self.notesToolButton.setObjectName("notesToolButton")
+        self.notesToolButton.setIcon(gf.get_icon('message-outline',  icons_set='mdi', color=Qt4Gui.QColor(160, 160, 160)))
 
         self.horizontalLayout.addWidget(self.notesToolButton)
-        self.gridLayout.addLayout(self.horizontalLayout, 1, 4, 2, 1)
+        self.gridLayout.addLayout(self.horizontalLayout, 1, 5, 2, 1)
 
         self.descriptionLerticalLayout = QtGui.QVBoxLayout()
         self.descriptionLerticalLayout.setSpacing(0)
-        self.descriptionLerticalLayout.setContentsMargins(0, 0, 0, 0)
+        self.descriptionLerticalLayout.setContentsMargins(16, 0, 0, 0)
         self.descriptionLerticalLayout.setObjectName("descriptionLerticalLayout")
 
         self.descriptionLabel = Ui_elideLabel(self)
-        self.descriptionLabel.set_font_size(8)
-        self.descriptionLabel.setMinimumSize(QtCore.QSize(0, 25))
-        self.descriptionLabel.setMaximumHeight(25)
+        # self.descriptionLabel.set_font_size(8)
+        font = Qt4Gui.QFont()
+        font.setFamily("Segoe UI")
+        font.setPointSize(8)
+        font.setWeight(50)
+        font.setBold(False)
+        self.descriptionLabel.setFont(font)
+        self.descriptionLabel.setMinimumSize(QtCore.QSize(0, 30))
+        self.descriptionLabel.setMaximumHeight(30)
         self.descriptionLabel.setTextFormat(QtCore.Qt.PlainText)
-        self.descriptionLabel.setAlignment(QtCore.Qt.AlignLeading | QtCore.Qt.AlignLeft | QtCore.Qt.AlignTop)
+        # self.descriptionLabel.setAlignment(QtCore.Qt.AlignLeading | QtCore.Qt.AlignLeft | QtCore.Qt.AlignTop)
 
-        self.descriptionLabel.setMargin(2)
+        # self.descriptionLabel.setMargin(8)
+        # self.descriptionLabel.setIndent(8)
         self.descriptionLabel.setObjectName("descriptionLabel")
         self.descriptionLerticalLayout.addWidget(self.descriptionLabel)
 
-        self.gridLayout.addLayout(self.descriptionLerticalLayout, 2, 3, 1, 1)
+        self.gridLayout.addLayout(self.descriptionLerticalLayout, 2, 4, 1, 1)
         self.infoHorizontalLayout = QtGui.QHBoxLayout()
         self.infoHorizontalLayout.setSpacing(0)
+        self.infoHorizontalLayout.setContentsMargins(16, 8, 0, 0)
         self.infoHorizontalLayout.setObjectName("infoHorizontalLayout")
-        #
-        self.gridLayout.addLayout(self.infoHorizontalLayout, 1, 3, 1, 1)
+
+        self.gridLayout.addLayout(self.infoHorizontalLayout, 1, 4, 1, 1)
+
         self.gridLayout.setColumnStretch(2, 1)
         self.gridLayout.setRowStretch(2, 1)
+
+        # self.setStyleSheet("QWidget {border: 1px solid rgb(96, 96, 96);}")
 
     def controls_actions(self):
         self.tasksToolButton.clicked.connect(self.show_tasks_dock)
@@ -640,15 +766,11 @@ class Ui_itemWidget(QtGui.QWidget):
         self.syncWithRepoToolButton.clicked.connect(self.show_sync_menu)
         self.notesToolButton.clicked.connect(self.show_notes_widget)
 
-        self.expand_item_button.clicked.connect(self.toggle_expand_item_button)
+        self.expand_item_button.clicked.connect(self.toggle_expand_tree_item)
 
     def create_simple_view_ui(self):
 
         self.create_overlay_layout()
-
-        self.setMinimumSize(260, 50)
-        self.previewVerticalLayout.setContentsMargins(3,1,4,5)
-
 
         self.previewLabel.setText(u'<span style=" font-size:14pt; font-weight:600; color:#828282;">{0}</span>'.format(
             gf.gen_acronym(self.get_title()))
@@ -674,25 +796,14 @@ class Ui_itemWidget(QtGui.QWidget):
         self.created = True
 
     def create_ui(self):
-        # self.drop_wdg = QtGui.QWidget(self)
         self.create_overlay_layout()
-
-        self.setMinimumSize(260, 50)
-        self.previewVerticalLayout.setContentsMargins(3,1,4,5)
 
         self.previewLabel.setText(u'<span style=" font-size:14pt; font-weight:600; color:#828282;">{0}</span>'.format(
             gf.gen_acronym(self.get_title()))
         )
         self.itemColorLine.setStyleSheet('QFrame { border: 0px; background-color: %s;}' % self.stype.get_stype_color())
 
-        self.tasksToolButton.setIcon(gf.get_icon('tasks'))
-        self.relationsToolButton.setIcon(gf.get_icon('sitemap', icons_set='mdi'))
-
-        self.notesToolButton.setIcon(gf.get_icon('commenting-o'))
-
         self.create_item_info_widget()
-        self.create_sync_with_repo_button()
-        self.create_watch_folder_button()
 
         if self.sobject:
             self.fill_sobject_info()
@@ -708,22 +819,30 @@ class Ui_itemWidget(QtGui.QWidget):
         self.controls_actions()
         self.created = True
 
-        self.setAcceptDrops(True)
         # shortcut = QtGui.QShortcut(Qt4Gui.QKeySequence(self.tr('Ctrl+D', 'File|Open')), self)
         # shortcut.activated.connect(self.asd)
         self.create_drop_widget()
 
-    def toggle_expand_item_button(self):
-        if self.tree_item.isExpanded():
-            self.tree_item.setExpanded(False)
-            # self.tree_item.treeWidget().setItemExpanded(self.tree_item, False)
+        self.set_indent(12)
 
-            self.expand_item_button.setIcon(gf.get_icon('chevron-right', icons_set='mdi', scale_factor=2))
+    def set_indent(self, indent=24):
+        result_indent = self.get_depth() * indent
+        self.indent_spacer.changeSize(result_indent, 0)
+
+    def toggle_expand_item_button(self, state=None):
+
+        if state is not None:
+            if self.tree_item.isExpanded():
+                self.expand_item_button.setIcon(gf.get_icon('chevron-down', icons_set='mdi', color=Qt4Gui.QColor(160, 160, 160), scale_factor=1.6))
+            else:
+                self.expand_item_button.setIcon(gf.get_icon('chevron-right', icons_set='mdi', color=Qt4Gui.QColor(160, 160, 160), scale_factor=1.6))
         else:
-            if self.tree_item.childCount() > 0:
+            if self.tree_item.isExpanded():
+                self.tree_item.setExpanded(False)
+                self.expand_item_button.setIcon(gf.get_icon('chevron-right', icons_set='mdi', color=Qt4Gui.QColor(160, 160, 160), scale_factor=1.6))
+            else:
                 self.tree_item.setExpanded(True)
-                # self.tree_item.treeWidget().setItemExpanded(self.tree_item, True)
-                self.expand_item_button.setIcon(gf.get_icon('chevron-down', icons_set='mdi', scale_factor=2))
+                self.expand_item_button.setIcon(gf.get_icon('chevron-down', icons_set='mdi', color=Qt4Gui.QColor(160, 160, 160), scale_factor=1.6))
 
     def create_overlay_layout(self):
         # when use this, layout should have only one widget, use add_overlay_widget()
@@ -749,7 +868,6 @@ class Ui_itemWidget(QtGui.QWidget):
             self.drop_icon_publish_anm_open.start()
             self.drop_icon_attach_anm_open.start()
 
-
     def hide_overlay(self):
 
         self.drop_icon_label_anm_close.start()
@@ -758,6 +876,7 @@ class Ui_itemWidget(QtGui.QWidget):
         # self.overlay_layout_widget.setHidden(True)
 
     def create_drop_widget(self):
+        self.setAcceptDrops(True)
 
         self.drop_widget = QtGui.QWidget()
         self.drop_widget_layout = QtGui.QHBoxLayout()
@@ -841,6 +960,26 @@ class Ui_itemWidget(QtGui.QWidget):
     #     print 'LEV'
     #     # super(self.drop_widget.__class__, self).leaveEvent(event)
 
+    def show_additional_controls(self):
+        # self.expand_item_button_anm_open.start()
+        self.sync_with_repo_tool_button_anm_open.start()
+        self.watch_folder_tool_button_anm_open.start()
+        self.relations_tool_button_anm_open.start()
+
+    def hide_additional_controls(self):
+        # self.expand_item_button_anm_close.start()
+        self.sync_with_repo_tool_button_anm_close.start()
+        self.watch_folder_tool_button_anm_close.start()
+        self.relations_tool_button_anm_close.start()
+
+    def enterEvent(self, event):
+        self.show_additional_controls()
+        event.accept()
+
+    def leaveEvent(self, event):
+        self.hide_additional_controls()
+        event.accept()
+
     def dragEnterEvent(self, event):
         print 'DRAG EVENT', event.type()
         event.accept()
@@ -901,20 +1040,9 @@ class Ui_itemWidget(QtGui.QWidget):
         tasks_widget.bring_dock_widget_up()
         tasks_widget.set_sobject(self.sobject, True)
 
-    def create_watch_folder_button(self):
-        self.watchFolderToolButton.setIcon(gf.get_icon('eye-slash', color=Qt4Gui.QColor(160, 160, 160)))
-        self.watchFolderToolButton.setMinimumSize(24, 24)
-        self.watchFolderToolButton.setToolTip('Open Watch-Folder Dialog')
-        self.watchFolderToolButton.toggled.connect(self.toggle_watch_folder_button)
-        self.watchFolderToolButton.clicked.connect(self.save_watch_status)
-
-    def create_sync_with_repo_button(self):
-        self.syncWithRepoToolButton.setIcon(gf.get_icon('cloud-sync', color=Qt4Gui.QColor(160, 160, 160), icons_set='mdi'))
-        self.syncWithRepoToolButton.setMinimumSize(24, 24)
-        self.syncWithRepoToolButton.setToolTip('Open Repository Sync Dialog')
-
     def create_item_info_widget(self):
         self.item_info_widget = Ui_infoItemsWidget(self)
+        self.item_info_widget.setMaximumHeight(16)
         self.infoHorizontalLayout.addWidget(self.item_info_widget)
 
     def show_sync_menu(self):
@@ -995,12 +1123,17 @@ class Ui_itemWidget(QtGui.QWidget):
 
     def set_tasks_count(self, tasks_count):
         if tasks_count > 0:
-            self.tasksToolButton.setIcon(gf.get_icon('tasks'))
+            self.tasksToolButton.setIcon(
+                gf.get_icon('calendar-check', icons_set='mdi'))
+            # self.tasksToolButton.setIcon(gf.get_icon('tasks'))
         self.tasksToolButton.setText('| {0}'.format(tasks_count))
 
     def set_notes_count(self, notes_count):
+        self.notes_count = notes_count
+
         if notes_count > 0:
-            self.notesToolButton.setIcon(gf.get_icon('commenting'))
+            # self.notesToolButton.setIcon(gf.get_icon('commenting'))
+            self.notesToolButton.setIcon(gf.get_icon('message', icons_set='mdi'))
         self.notesToolButton.setText('| {0}'.format(notes_count))
 
     def is_have_watch_folder(self):
@@ -1022,12 +1155,12 @@ class Ui_itemWidget(QtGui.QWidget):
                 watch_folder_ui.add_item_to_watch(self)
                 self.set_watch_folder_path(watch_dict['path'])
             elif not self.have_watch_folder:
-                self.watchFolderToolButton.setIcon(gf.get_icon('eye-slash', color=Qt4Gui.QColor(160, 160, 160)))
+                self.watchFolderToolButton.setIcon(gf.get_icon('eye-off', icons_set='mdi', color=Qt4Gui.QColor(160, 160, 160)))
 
             if remove_watch:
                 self.have_watch_folder = False
                 self.watchFolderToolButton.setChecked(False)
-                self.watchFolderToolButton.setIcon(gf.get_icon('eye-slash', color=Qt4Gui.QColor(160, 160, 160)))
+                self.watchFolderToolButton.setIcon(gf.get_icon('eye-off', icons_set='mdi', color=Qt4Gui.QColor(160, 160, 160)))
 
     def save_watch_status(self):
         if self.have_watch_folder:
@@ -1046,13 +1179,15 @@ class Ui_itemWidget(QtGui.QWidget):
             if self.have_watch_folder:
                 self.watchFolderToolButton.setIcon(gf.get_icon(
                     'eye',
+                    icons_set='mdi',
                     color=Qt4Gui.QColor(100, 200, 100),
                     color_active=Qt4Gui.QColor(120, 220, 120),
                 ))
         else:
             if self.have_watch_folder:
                 self.watchFolderToolButton.setIcon(gf.get_icon(
-                    'eye-slash',
+                    'eye-off',
+                    icons_set='mdi',
                     color=Qt4Gui.QColor(200, 100, 100),
                     color_active=Qt4Gui.QColor(220, 120, 120),
                 ))
@@ -1100,58 +1235,43 @@ class Ui_itemWidget(QtGui.QWidget):
     @staticmethod
     def get_item_info_label():
         font = Qt4Gui.QFont()
+        font.setFamily("Segoe UI")
         font.setPointSize(7)
         label = QtGui.QLabel()
         label.setFont(font)
         label.setTextFormat(QtCore.Qt.PlainText)
-        label.setAlignment(QtCore.Qt.AlignCenter)
+        label.setAlignment(QtCore.Qt.AlignLeading | QtCore.Qt.AlignLeft | QtCore.Qt.AlignBottom)
         return label
 
     @staticmethod
     def get_item_info_html_label():
         font = Qt4Gui.QFont()
+        font.setFamily("Segoe UI")
         font.setPointSize(7)
+
         label = QtGui.QLabel()
         label.setFont(font)
         label.setOpenExternalLinks(True)
         label.setTextFormat(QtCore.Qt.RichText)
-        label.setAlignment(QtCore.Qt.AlignCenter)
+        label.setAlignment(QtCore.Qt.AlignLeading | QtCore.Qt.AlignLeft | QtCore.Qt.AlignBottom)
         return label
 
     def fill_sobject_info(self):
-
-        # self.dateLabel = self.get_item_info_label()
         self.tasksLabel = self.get_item_info_label()
         self.snapshotsLabel = self.get_item_info_label()
-        # self.item_info_widget.add_item_to_right(self.dateLabel)
 
         self.fileNameLabel.setText(self.get_title())
 
         description = self.sobject.info.get('description')
-        self.descriptionLabel.setToolTip(u'<p>{}</p>'.format(description))
-        self.descriptionLabel.setText(description)
-
-        # limit_enabled = bool(gf.get_value_from_config(cfg_controls.get_checkin(), 'snapshotDescriptionLimitCheckBox'))
-        # limit = gf.get_value_from_config(cfg_controls.get_checkin(), 'snapshotDescriptionLimitSpinBox')
-
-        # if limit_enabled:
-        #     self.descriptionLabel.setText(gf.to_plain_text(self.sobject.info.get('description'), limit))
-        # else:
-        #     self.descriptionLabel.setText(gf.to_plain_text(self.sobject.info.get('description'), None))
-
-        # timestamp = datetime.strptime(self.sobject.info.get('timestamp').split('.')[0], '%Y-%m-%d %H:%M:%S')
-        # date = str(self.sobject.info.get('timestamp')).split('.')[0].replace(' ', ' \n')
-        # self.dateLabel.setText(date)
-        # self.item_info_widget.add_item(self.dateLabel)
-        self.tasksLabel.setText('0 Tasks')
-        self.snapshotsLabel.setText('0 Snapshots')
+        if description:
+            self.descriptionLabel.setToolTip(u'<p>{}</p>'.format(description))
+            self.descriptionLabel.setText(description)
 
         self.set_notes_count(self.sobject.get_notes_count('publish'))
         self.set_tasks_count(self.sobject.get_tasks_count('__total__'))
 
         if self.sobject.is_snapshots_need_update():
             self.syncWithRepoToolButton.setIcon(gf.get_icon('cloud-sync', color=Qt4Gui.QColor(80, 180, 80), icons_set='mdi'))
-
 
     def fill_info_items(self):
         table_columns = []
@@ -1230,6 +1350,7 @@ class Ui_itemWidget(QtGui.QWidget):
                 if icon_previw:
                     if icon_previw.is_exists():
                         # TODO This should be more complicated, and check hash not just size
+                        # TODO Warning if file did not match local-remote
                         if icon_previw.get_file_size() == icon_previw.get_file_size(True):
                             self.set_preview()
                         else:
@@ -1260,7 +1381,7 @@ class Ui_itemWidget(QtGui.QWidget):
             painter.begin(pixmap_mask)
             painter.setRenderHint(Qt4Gui.QPainter.Antialiasing)
             painter.setBrush(Qt4Gui.QBrush(Qt4Gui.QColor(0, 0, 0, 255)))
-            painter.drawRoundedRect(QtCore.QRect(0, 0, 64, 64), 4, 4)
+            painter.drawEllipse(QtCore.QRect(2, 2, 60, 60))
             painter.end()
 
             rounded_pixmap = Qt4Gui.QPixmap(pixmap.size())
@@ -1305,19 +1426,24 @@ class Ui_itemWidget(QtGui.QWidget):
         gf.tree_recursive_expand(self.tree_item, False)
 
     def collapse_tree_item(self):
-        pass
+        self.toggle_expand_item_button(False)
 
     @gf.catch_error
     def expand_tree_item(self):
         if not self.info['is_expanded']:
             self.info['is_expanded'] = True
 
-            self.fill_child_items()
-            self.fill_process_items()
+            self.query_snapshots()
+        else:
+            self.toggle_expand_item_button(True)
+
+    def toggle_expand_tree_item(self):
+        if not self.info['is_expanded']:
+            self.info['is_expanded'] = True
 
             self.query_snapshots()
-
-        self.get_notes_count()
+        else:
+            self.toggle_expand_item_button()
 
     def collapse_all_children(self):
         return self.tree_item.takeChildren()
@@ -1341,9 +1467,10 @@ class Ui_itemWidget(QtGui.QWidget):
                 else:
                     parent_title = gf.prettify_text(parent_code.split('/')[1])
 
-                relationship_type = parent.get('type')
+                type = parent.get('type')
+                relationship = parent.get('relationship')
 
-                if relationship_type not in ['many_to_many']:
+                if type not in ['many_to_many'] and relationship not in ['instance']:
                     parent_action = QtGui.QAction(parent_title, self.relationsToolButton)
                     parent_action.triggered.connect(partial(self.do_parent_relations, parent_stype, self.stype))
                     self.relationsToolButton.addAction(parent_action)
@@ -1365,9 +1492,9 @@ class Ui_itemWidget(QtGui.QWidget):
                 else:
                     child_title = gf.prettify_text(child_code.split('/')[1])
 
-                relationship_type = child.get('type')
+                type = child.get('type')
 
-                if relationship_type not in ['many_to_many']:
+                if type not in ['many_to_many']:
                     child_action = QtGui.QAction(child_title, self.relationsToolButton)
                     child_action.triggered.connect(partial(self.do_child_relations, child_stype, self.stype))
                     self.relationsToolButton.addAction(child_action)
@@ -1385,7 +1512,7 @@ class Ui_itemWidget(QtGui.QWidget):
 
         search_widget = stype_widget.get_search_widget()
 
-        filters = [('_expression', 'in', self.sobject.get_related_sobjects_tel_string(child_stype=child_stype, parent_stype=parent_stype, relation_type='parent'))]
+        filters = [('_expression', 'in', self.sobject.get_related_sobjects_tel_string(child_stype=child_stype, parent_stype=parent_stype, path='parent'))]
 
         tab_title = '{0} related to {1}'.format(parent_stype.get_pretty_name(), self.sobject.get_title())
         search_widget.add_tab(
@@ -1403,14 +1530,13 @@ class Ui_itemWidget(QtGui.QWidget):
 
         search_widget = stype_widget.get_search_widget()
 
-        related_filter = ('_expression', 'in', self.sobject.get_related_sobjects_tel_string(child_stype=child_stype, parent_stype=parent_stype, relation_type='child'))
+        related_filter = ('_expression', 'in', self.sobject.get_related_sobjects_tel_string(child_stype=child_stype, parent_stype=parent_stype, path='child'))
 
         tab_title = '{0} related to {1}'.format(child_stype.get_pretty_name(), self.sobject.get_title())
         search_widget.add_tab(
             search_title=tab_title,
             filters=[related_filter],
         )
-
 
     def get_context(self, process=False, custom=None):
         if process:
@@ -1479,6 +1605,8 @@ class Ui_itemWidget(QtGui.QWidget):
         self.descriptionLabel.setText(new_description)
 
     def query_snapshots(self):
+        self.expand_item_button.setIcon(
+            gf.get_icon('loading', icons_set='mdi', scale_factor=1.2, spin=[self.expand_item_button, 30, 45]))
 
         order_bys = ['timestamp desc']
 
@@ -1598,6 +1726,9 @@ class Ui_itemWidget(QtGui.QWidget):
     def fill_snapshots_items(self):
         env_inst.ui_main.set_info_status_text('<span style=" font-size:8pt; color:#00ff00;">Filling snapshots</span>')
 
+        self.fill_child_items()
+        self.fill_process_items()
+
         # adding snapshots to publish
         for key, val in self.sobject.process.items():
             if key == 'publish':
@@ -1617,12 +1748,10 @@ class Ui_itemWidget(QtGui.QWidget):
         # adding snapshots per process
         for proc in self.process_items:
             if proc.process_items:
-                # may be buggy...
                 proc.info['is_expanded'] = True
                 proc.fill_snapshots_items()
 
             for key, val in self.sobject.process.items():
-                # because it is dict, items could be in any position
                 if key == proc.process:
                     proc.snapshots_items.append(proc.add_snapshots_items(val))
 
@@ -1631,6 +1760,12 @@ class Ui_itemWidget(QtGui.QWidget):
         self.tree_item.treeWidget().resizeColumnToContents(0)
 
         env_inst.ui_main.set_info_status_text('')
+
+        self.toggle_expand_item_button(True)
+
+        self.get_notes_count()
+
+        self.tree_item.setExpanded(True)
 
     def get_current_tree_widget(self):
         return self.tree_item.treeWidget()
@@ -1709,7 +1844,8 @@ class Ui_itemWidget(QtGui.QWidget):
         children_list = []
         if self.children_stypes:
             for child in self.children_stypes:
-                children_list.append(child.get('from'))
+                if child.get('from') not in children_list:
+                    children_list.append(child.get('from'))
             return children_list
         else:
             return []
@@ -1718,9 +1854,6 @@ class Ui_itemWidget(QtGui.QWidget):
     def get_notes_count(self):
 
         def notes_fill(result):
-
-            print result['stypes']
-
 
             if not self.closed:
                 notes_counts = result['notes']
@@ -1732,16 +1865,25 @@ class Ui_itemWidget(QtGui.QWidget):
 
                 children_counts = result['stypes']
                 child_items_dict = {item.child.get('from'): item for item in self.child_items}
+
                 for key, val in children_counts.items():
                     child_item = child_items_dict.get(key)
                     if child_item:
-                        child_item.set_child_count_title(val)
+                        if child_item.get_relationship() == 'instance':
+                            child = child_item.child
+                            instance_type = child.get('instance_type')
+                            if instance_type:
+                                child_item.set_child_count_title(children_counts.get(instance_type))
+                            else:
+                                child_item.set_child_count_title(val)
+                        else:
+                            child_item.set_child_count_title(val)
 
         def get_notes_counts_agent():
             return tc.get_notes_count(
                 sobject=self.sobject,
                 process=self.get_process_list(True),
-                children_stypes=self.get_children_list()
+                children_stypes=self.get_children_list(),
             )
         env_inst.set_thread_pool(None, 'server_query/server_thread_pool')
 
@@ -1834,11 +1976,23 @@ class Ui_itemWidget(QtGui.QWidget):
         parent_sobject = self.get_parent_sobject()
         child = self.get_schema()
 
+        instance_type = child.get('instance_type')
+
+        # getting path
+        path = None
+        schema = self.stype.get_schema()
+
+        parent = schema.get_parent_instance(instance_type, self.stype.get_code())
+        if parent:
+            if parent.get('path'):
+                path = parent.get('path')
+
         tc.edit_multiple_instance_sobjects(
             self.project.get_code(),
             exclude_search_keys=[sobject.get_search_key()],
             parent_key=parent_sobject.get_search_key(),
-            instance_type=child.get('instance_type')
+            instance_type=instance_type,
+            path=path,
         )
 
     def delete_current_sobject(self):
@@ -1892,11 +2046,12 @@ class Ui_itemWidget(QtGui.QWidget):
                 self.search_widget.save_file()
 
 
-class Ui_processItemWidget(QtGui.QWidget, ui_item_process.Ui_processItem):
+class Ui_processItemWidget(QtGui.QWidget):
     def __init__(self, sobject, stype, process, info, pipeline, parent=None):
         super(self.__class__, self).__init__(parent=parent)
 
-        self.setupUi(self)
+        self.create_ui_raw()
+
         self.created = False
         self.closed = False
         self.type = 'process'
@@ -1905,6 +2060,7 @@ class Ui_processItemWidget(QtGui.QWidget, ui_item_process.Ui_processItem):
         self.process = process
         self.pipeline = pipeline
         self.info = info
+        self.notes_count = 0
         self.tree_item = None
         self.sep_versions = self.info['sep_versions']
         self.process_info = self.get_current_process_info()
@@ -1922,9 +2078,66 @@ class Ui_processItemWidget(QtGui.QWidget, ui_item_process.Ui_processItem):
     def controls_actions(self):
         self.notesToolButton.clicked.connect(lambda: self.show_notes_widget())
 
+        self.expand_item_button.clicked.connect(self.toggle_expand_tree_item)
+
+    def create_ui_raw(self):
+        self.setMinimumWidth(260)
+
+        self.create_layout()
+
+        self.create_indent()
+
+        self.create_expand_item_tool_button()
+
+        self.icon_label = QtGui.QLabel(self)
+        self.icon_label.setMaximumSize(24, 24)
+        self.horizontalLayout.addWidget(self.icon_label)
+
+        self.label = QtGui.QLabel(self)
+        self.label.setMinimumSize(0, 24)
+        self.label.setMaximumSize(16777215, 24)
+        self.label.setStyleSheet('QLabel {padding: 0px;}')
+        font = Qt4Gui.QFont()
+        font.setFamily("Segoe UI")
+        font.setPointSize(9)
+        # font.setWeight(75)
+        # font.setBold(True)
+        self.label.setFont(font)
+        self.label.setTextFormat(QtCore.Qt.PlainText)
+
+        self.horizontalLayout.addWidget(self.label)
+
+        self.notesToolButton = QtGui.QToolButton(self)
+        self.notesToolButton.setMinimumSize(QtCore.QSize(0, 24))
+        self.notesToolButton.setMaximumSize(QtCore.QSize(16777215, 24))
+        self.notesToolButton.setToolButtonStyle(QtCore.Qt.ToolButtonTextBesideIcon)
+        self.notesToolButton.setAutoRaise(True)
+        self.notesToolButton.setStyleSheet("QToolButton { border: 0px; background-color: transparent;}")
+        self.notesToolButton.setObjectName("notesToolButton")
+        self.notesToolButton.setToolTip('Leave note for this Process')
+        self.notesToolButton.setText('| 0')
+        self.notesToolButton.setIcon(gf.get_icon('message-outline', icons_set='mdi', color=Qt4Gui.QColor(160, 160, 160)))
+
+        effect = QtGui.QGraphicsOpacityEffect(self.notesToolButton)
+        effect.setOpacity(0)
+
+        self.notes_tool_button_anm_close = QtCore.QPropertyAnimation(effect, 'opacity', self.notesToolButton)
+        self.notes_tool_button_anm_close.setDuration(200)
+        self.notes_tool_button_anm_close.setStartValue(1)
+        self.notes_tool_button_anm_close.setEndValue(0)
+        self.notes_tool_button_anm_close.setEasingCurve(QtCore.QEasingCurve.OutSine)
+
+        self.notes_tool_button_anm_open = QtCore.QPropertyAnimation(effect, 'opacity', self.notesToolButton)
+        self.notes_tool_button_anm_open.setDuration(200)
+        self.notes_tool_button_anm_open.setStartValue(0)
+        self.notes_tool_button_anm_open.setEndValue(1)
+        self.notes_tool_button_anm_open.setEasingCurve(QtCore.QEasingCurve.InSine)
+        self.notesToolButton.setGraphicsEffect(effect)
+
+        self.horizontalLayout.addWidget(self.notesToolButton)
+
     def create_ui(self):
         # self.drop_wdg = QtGui.QWidget(self)
-        self.setMinimumWidth(260)
 
         item_color = Qt4Gui.QColor(200, 200, 200)
         # pipeline = self.get_current_process_pipeline()
@@ -1944,19 +2157,68 @@ class Ui_processItemWidget(QtGui.QWidget, ui_item_process.Ui_processItem):
         else:
             title = 'Unnamed'
         if self.process_info.get('type') == 'hierarchy':
-            self.tree_item.setIcon(0, gf.get_icon('fork', icons_set='ei', color=item_color, scale_factor=0.9))
+            self.icon_label.setPixmap(gf.get_icon('fork', icons_set='ei', color=item_color, scale_factor=0.9).pixmap(24, 24))
+            # self.tree_item.setIcon(0, gf.get_icon('fork', icons_set='ei', color=item_color, scale_factor=0.9))
         else:
-            self.tree_item.setIcon(0, gf.get_icon('circle', color=item_color, scale_factor=0.55))
+            self.icon_label.setPixmap(gf.get_icon('circle', color=item_color, scale_factor=0.4).pixmap(24, 24))
+            # self.tree_item.setIcon(0, gf.get_icon('circle', color=item_color, scale_factor=0.55))
 
         self.label.setContentsMargins(4, 0, 0, 0)
         self.label.setText(title)
 
-        self.notesToolButton.setIcon(gf.get_icon('commenting-o'))
-
         self.controls_actions()
+
+        self.set_indent(12)
+
+    def set_indent(self, indent=24):
+        result_indent = self.get_depth() * indent
+        self.indent_spacer.changeSize(result_indent, 0)
+
+    def create_layout(self):
+        self.horizontalLayout = QtGui.QHBoxLayout(self)
+        self.horizontalLayout.setSpacing(0)
+        self.horizontalLayout.setContentsMargins(0, 0, 8, 0)
+        self.horizontalLayout.setObjectName('horizontalLayout')
+
+    def create_indent(self):
+        self.indent_spacer = QtGui.QSpacerItem(0, 0, QtGui.QSizePolicy.Minimum, QtGui.QSizePolicy.Expanding)
+        self.horizontalLayout.addItem(self.indent_spacer)
+
+    def create_expand_item_tool_button(self):
+        self.expand_item_button = QtGui.QToolButton(self)
+        self.expand_item_button.setMaximumSize(16, 2048)
+        # self.expand_item_button.setAutoRaise(True)
+        self.expand_item_button.setStyleSheet("QToolButton { border: 0px; background-color: transparent;}")
+
+        effect = QtGui.QGraphicsBlurEffect(self.expand_item_button)
+        effect.setBlurRadius(20)
+        self.expand_item_button_anm_opacity = QtCore.QPropertyAnimation(effect, 'blurRadius', self.expand_item_button)
+        self.expand_item_button_anm_opacity.setDuration(200)
+
+        self.expand_item_button_anm_opacity.setStartValue(20)
+        self.expand_item_button_anm_opacity.setEndValue(0)
+        self.expand_item_button_anm_opacity.setEasingCurve(QtCore.QEasingCurve.InSine)
+        self.expand_item_button.setGraphicsEffect(effect)
+
+        self.horizontalLayout.addWidget(self.expand_item_button)
 
     def get_type(self):
         return self.type
+
+    def toggle_expand_item_button(self, state=None):
+
+        if state is not None:
+            if self.tree_item.isExpanded():
+                self.expand_item_button.setIcon(gf.get_icon('chevron-down', icons_set='mdi', color=Qt4Gui.QColor(160, 160, 160), scale_factor=1.6))
+            else:
+                self.expand_item_button.setIcon(gf.get_icon('chevron-right', icons_set='mdi', color=Qt4Gui.QColor(160, 160, 160), scale_factor=1.6))
+        else:
+            if self.tree_item.isExpanded():
+                self.tree_item.setExpanded(False)
+                self.expand_item_button.setIcon(gf.get_icon('chevron-right', icons_set='mdi', color=Qt4Gui.QColor(160, 160, 160), scale_factor=1.6))
+            else:
+                self.tree_item.setExpanded(True)
+                self.expand_item_button.setIcon(gf.get_icon('chevron-down', icons_set='mdi', color=Qt4Gui.QColor(160, 160, 160), scale_factor=1.6))
 
     def get_expand_state(self):
         return self.expand_state
@@ -2070,8 +2332,11 @@ class Ui_processItemWidget(QtGui.QWidget, ui_item_process.Ui_processItem):
                 self.add_process_items(child_pipeline)
 
     def set_notes_count(self, notes_count):
+        self.notes_count = notes_count
+
         if notes_count > 0:
-            self.notesToolButton.setIcon(gf.get_icon('commenting'))
+            self.notesToolButton.setIcon(gf.get_icon('message', icons_set='mdi'))
+            self.notes_tool_button_anm_open.start()
         self.notesToolButton.setText('| {0}'.format(notes_count))
 
     def show_notes_widget(self):
@@ -2124,6 +2389,9 @@ class Ui_processItemWidget(QtGui.QWidget, ui_item_process.Ui_processItem):
     def add_process_items(self, pipeline):
 
         # TODO when i get my hands to recursive filtering, make it respect filtering.
+        self.expand_item_button.setIcon(
+            gf.get_icon('chevron-right', icons_set='mdi', color=Qt4Gui.QColor(160, 160, 160), scale_factor=1.6))
+        self.expand_item_button_anm_opacity.start()
 
         processes = []
         if pipeline:
@@ -2154,6 +2422,9 @@ class Ui_processItemWidget(QtGui.QWidget, ui_item_process.Ui_processItem):
                     proc.add_snapshots_items(val)
 
     def add_snapshots_items(self, snapshots):
+        self.expand_item_button.setIcon(
+            gf.get_icon('chevron-right', icons_set='mdi', color=Qt4Gui.QColor(160, 160, 160), scale_factor=1.6))
+        self.expand_item_button_anm_opacity.start()
 
         return gf.add_snapshot_item(
             self.tree_item,
@@ -2237,6 +2508,17 @@ class Ui_processItemWidget(QtGui.QWidget, ui_item_process.Ui_processItem):
         if parent_item:
             return parent_item.get_sobject()
 
+    def show_additional_controls(self):
+        if self.notes_count == 0:
+            self.notes_tool_button_anm_open.start()
+
+    def hide_additional_controls(self):
+        if self.notes_count == 0:
+            self.notes_tool_button_anm_close.start()
+
+    def collapse_tree_item(self):
+        self.toggle_expand_item_button(False)
+
     @gf.catch_error
     def expand_tree_item(self):
         if not self.info['is_expanded']:
@@ -2244,7 +2526,12 @@ class Ui_processItemWidget(QtGui.QWidget, ui_item_process.Ui_processItem):
 
             self.fill_snapshots_items()
 
-        self.get_notes_count()
+            self.get_notes_count()
+
+        self.toggle_expand_item_button(True)
+
+    def toggle_expand_tree_item(self):
+        self.toggle_expand_item_button()
 
     @gf.catch_error
     def expand_recursive(self):
@@ -2253,9 +2540,6 @@ class Ui_processItemWidget(QtGui.QWidget, ui_item_process.Ui_processItem):
     @gf.catch_error
     def collapse_recursive(self):
         gf.tree_recursive_expand(self.tree_item, False)
-
-    def collapse_tree_item(self):
-        pass
 
     def mouseDoubleClickEvent(self, event):
         do_dbl_click = None
@@ -2267,6 +2551,14 @@ class Ui_processItemWidget(QtGui.QWidget, ui_item_process.Ui_processItem):
         else:
             if self.relates_to == 'checkin_out':
                 self.search_widget.save_file()
+
+    def enterEvent(self, event):
+        self.show_additional_controls()
+        event.accept()
+
+    def leaveEvent(self, event):
+        self.hide_additional_controls()
+        event.accept()
 
     def showEvent(self, event):
         if not self.created:
@@ -2314,13 +2606,38 @@ class Ui_snapshotItemWidget(QtGui.QWidget):
 
     def create_ui_raw(self):
         self.gridLayout = QtGui.QGridLayout(self)
-        self.gridLayout.setContentsMargins(0, 0, 0, 0)
-        self.gridLayout.setSpacing(0)
+        # self.setMinimumSize(260, 50)
+        self.setMinimumSize(260, 60)
+        self.setMaximumHeight(80)
+        self.setContentsMargins(0, 0, 0, 0)
+
+        self.gridLayout.setContentsMargins(4, 0, 0, 0)
+        self.gridLayout.setSpacing(2)
         self.gridLayout.setObjectName("gridLayout")
-        self.previewVerticalLayout = QtGui.QVBoxLayout()
-        self.previewVerticalLayout.setSpacing(0)
-        self.previewVerticalLayout.setContentsMargins(4, 4, 4, 4)
-        self.previewVerticalLayout.setObjectName("previewVerticalLayout")
+
+        self.indent_spacer = QtGui.QSpacerItem(0, 0, QtGui.QSizePolicy.Minimum, QtGui.QSizePolicy.Expanding)
+        self.gridLayout.addItem(self.indent_spacer, 0, 0, 3, 1)
+
+        self.itemColorLine = QtGui.QFrame(self)
+        self.itemColorLine.setMaximumSize(QtCore.QSize(2, 16777215))
+        self.itemColorLine.setStyleSheet('QFrame { border: 0px; background-color: grey;}')
+        self.itemColorLine.setFrameShadow(QtGui.QFrame.Plain)
+        self.itemColorLine.setLineWidth(2)
+        self.itemColorLine.setFrameShape(QtGui.QFrame.VLine)
+        self.itemColorLine.setFrameShadow(QtGui.QFrame.Sunken)
+        self.itemColorLine.setObjectName("itemColorLine")
+
+        self.gridLayout.addWidget(self.itemColorLine, 0, 1, 3, 1)
+
+        self.expand_item_button = QtGui.QToolButton()
+        self.expand_item_button.setMaximumSize(16, 2048)
+        self.expand_item_button.setMinimumHeight(80)
+        self.expand_item_button.setStyleSheet("QToolButton { border: 0px; background-color: transparent;}")
+        self.expand_item_button.setAutoRaise(True)
+        # self.expand_item_button.setIcon(gf.get_icon('chevron-right', icons_set='mdi', color=Qt4Gui.QColor(160, 160, 160), scale_factor=1.6))
+
+        self.gridLayout.addWidget(self.expand_item_button, 0, 2, 3, 1)
+
         self.previewLabel = QtGui.QLabel(self)
         self.previewLabel.setMinimumSize(QtCore.QSize(64, 64))
         self.previewLabel.setMaximumSize(QtCore.QSize(64, 64))
@@ -2333,61 +2650,72 @@ class Ui_snapshotItemWidget(QtGui.QWidget):
         self.previewLabel.setTextFormat(QtCore.Qt.RichText)
         self.previewLabel.setAlignment(QtCore.Qt.AlignCenter)
         self.previewLabel.setObjectName("previewLabel")
-        self.previewVerticalLayout.addWidget(self.previewLabel)
-        spacerItem = QtGui.QSpacerItem(0, 0, QtGui.QSizePolicy.Minimum, QtGui.QSizePolicy.Ignored)
-        self.previewVerticalLayout.addItem(spacerItem)
-        self.previewVerticalLayout.setStretch(1, 1)
-        self.gridLayout.addLayout(self.previewVerticalLayout, 0, 1, 3, 1)
+
+        self.gridLayout.addWidget(self.previewLabel, 0, 3, 3, 1)
+
         self.nameVerticalLayout = QtGui.QHBoxLayout()
         self.nameVerticalLayout.setSpacing(0)
-        self.nameVerticalLayout.setContentsMargins(-1, -1, -1, 3)
+        self.nameVerticalLayout.setContentsMargins(8, 0, 0, 0)
         self.nameVerticalLayout.setObjectName("nameVerticalLayout")
         self.fileNameLabel = Ui_elideLabel(self)
-        self.fileNameLabel.setMinimumSize(QtCore.QSize(0, 20))
-        self.fileNameLabel.setMaximumSize(QtCore.QSize(16777215, 20))
+        self.fileNameLabel.setMinimumSize(QtCore.QSize(0, 24))
+        self.fileNameLabel.setMaximumSize(QtCore.QSize(16777215, 24))
         font = Qt4Gui.QFont()
-        font.setWeight(75)
-        font.setBold(True)
+        font.setFamily("Segoe UI")
+        font.setPointSize(10)
         self.fileNameLabel.setFont(font)
-        self.fileNameLabel.setStyleSheet("QLabel {\n"
-                                         "    background-color: transparent;\n"
-                                         "}")
+        self.fileNameLabel.setStyleSheet("QLabel {background-color: transparent;}")
         self.fileNameLabel.setObjectName("fileNameLabel")
+        # self.fileNameLabel.setAlignment(QtCore.Qt.AlignHCenter | QtCore.Qt.AlignVCenter)
+        # self.fileNameLabel.setIndent(8)
         self.nameVerticalLayout.addWidget(self.fileNameLabel)
+
         self.sizeLabel = QtGui.QLabel(self)
-        self.sizeLabel.setMinimumSize(QtCore.QSize(0, 20))
-        self.sizeLabel.setMaximumSize(QtCore.QSize(16777215, 20))
-        self.sizeLabel.setToolTip("")
-        self.sizeLabel.setStyleSheet("QLabel {\n"
-                                     "    background: qlineargradient(spread:pad, x1:0, y1:0, x2:1, y2:0, stop:0 rgba(255, 255, 255, 0), stop:1 rgba(64, 64, 64, 175));\n"
-                                     "}")
+        self.sizeLabel.setMinimumSize(QtCore.QSize(0, 24))
+        self.sizeLabel.setMaximumSize(QtCore.QSize(16777215, 24))
+        self.sizeLabel.setStyleSheet("QLabel {background: qlineargradient(spread:pad, x1:0, y1:0, x2:1, y2:0, stop:0 rgba(255, 255, 255, 0), stop:1 rgba(64, 64, 64, 175));}")
         self.sizeLabel.setTextFormat(QtCore.Qt.PlainText)
+        font = Qt4Gui.QFont()
+        font.setFamily("Segoe UI")
+        font.setPointSize(8)
+        self.sizeLabel.setFont(font)
         self.sizeLabel.setAlignment(QtCore.Qt.AlignRight | QtCore.Qt.AlignTrailing | QtCore.Qt.AlignVCenter)
-        self.sizeLabel.setMargin(2)
-        self.sizeLabel.setObjectName("sizeLabel")
+        # self.sizeLabel.setMargin(2)
+        # self.sizeLabel.setObjectName("sizeLabel")
         self.nameVerticalLayout.addWidget(self.sizeLabel)
         self.nameVerticalLayout.setStretch(0, 1)
-        self.gridLayout.addLayout(self.nameVerticalLayout, 0, 2, 1, 2)
+        self.gridLayout.addLayout(self.nameVerticalLayout, 0, 4, 1, 2)
+
         self.infoHorizontalLayout = QtGui.QHBoxLayout()
         self.infoHorizontalLayout.setSpacing(0)
+        self.infoHorizontalLayout.setContentsMargins(16, 0, 0, 0)
         self.infoHorizontalLayout.setObjectName("infoHorizontalLayout")
-        self.gridLayout.addLayout(self.infoHorizontalLayout, 1, 2, 1, 1)
+
+        self.gridLayout.addLayout(self.infoHorizontalLayout, 1, 4, 1, 1)
+
         self.descriptionLorizontalLayout = QtGui.QHBoxLayout()
-        self.descriptionLorizontalLayout.setSpacing(0)
-        self.descriptionLorizontalLayout.setContentsMargins(0, 0, 0, 0)
+        self.descriptionLorizontalLayout.setSpacing(4)
+        self.descriptionLorizontalLayout.setContentsMargins(16, 0, 0, 0)
         self.descriptionLorizontalLayout.setObjectName("descriptionLorizontalLayout")
         self.authorLabel = QtGui.QLabel(self)
         self.authorLabel.setMinimumSize(QtCore.QSize(0, 25))
-        font = Qt4Gui.QFont()
-        font.setItalic(True)
-        self.authorLabel.setFont(font)
         self.authorLabel.setStyleSheet("color:grey;")
         self.authorLabel.setTextFormat(QtCore.Qt.PlainText)
         self.authorLabel.setAlignment(QtCore.Qt.AlignLeading | QtCore.Qt.AlignLeft | QtCore.Qt.AlignTop)
-        self.authorLabel.setMargin(2)
+        font = Qt4Gui.QFont()
+        font.setFamily("Segoe UI")
+        font.setPointSize(8)
+        font.setItalic(True)
+        self.authorLabel.setFont(font)
+        # self.authorLabel.setMargin(2)
         self.authorLabel.setObjectName("authorLabel")
+
         self.descriptionLorizontalLayout.addWidget(self.authorLabel)
         self.descriptionLabel = Ui_elideLabel(self)
+        font = Qt4Gui.QFont()
+        font.setFamily("Segoe UI")
+        font.setPointSize(8)
+        self.descriptionLabel.setFont(font)
         self.descriptionLabel.set_font_size(8)
         self.descriptionLabel.setMinimumSize(QtCore.QSize(0, 25))
         self.descriptionLabel.setMaximumHeight(25)
@@ -2397,20 +2725,14 @@ class Ui_snapshotItemWidget(QtGui.QWidget):
         self.descriptionLabel.setObjectName("descriptionLabel")
         self.descriptionLorizontalLayout.addWidget(self.descriptionLabel)
         self.descriptionLorizontalLayout.setStretch(1, 1)
-        self.gridLayout.addLayout(self.descriptionLorizontalLayout, 2, 2, 1, 2)
-        self.itemColorLine = QtGui.QFrame(self)
-        self.itemColorLine.setMaximumSize(QtCore.QSize(4, 16777215))
-        self.itemColorLine.setStyleSheet("QFrame { border: 0px; background-color: green;}\n"
-                                         "")
-        self.itemColorLine.setFrameShadow(QtGui.QFrame.Plain)
-        self.itemColorLine.setLineWidth(4)
-        self.itemColorLine.setFrameShape(QtGui.QFrame.VLine)
-        self.itemColorLine.setFrameShadow(QtGui.QFrame.Sunken)
-        self.itemColorLine.setObjectName("itemColorLine")
-        self.gridLayout.addWidget(self.itemColorLine, 0, 0, 3, 1)
+
+        self.gridLayout.addLayout(self.descriptionLorizontalLayout, 2, 4, 1, 2)
+
         self.gridLayout.setColumnStretch(2, 1)
         self.gridLayout.setRowStretch(2, 1)
-    
+
+        # self.setStyleSheet("QWidget {border: 1px solid rgb(96, 96, 96);}")
+
     def get_type(self):
         return self.type
 
@@ -2418,9 +2740,6 @@ class Ui_snapshotItemWidget(QtGui.QWidget):
 
         # self.drop_wdg = QtGui.QWidget(self)
         # self.drop_wdg.setHidden(True)
-
-        self.setMinimumSize(260, 50)
-        self.previewVerticalLayout.setContentsMargins(3, 1, 4, 5)
 
         self.create_item_info_widget()
 
@@ -2432,8 +2751,6 @@ class Ui_snapshotItemWidget(QtGui.QWidget):
         self.revLabel.setTextFormat(QtCore.Qt.RichText)
         self.repoLabel = self.get_item_info_label()
         self.repoLabel.setTextFormat(QtCore.Qt.RichText)
-
-        self.itemColorLine.setStyleSheet('QFrame { border: 0px; background-color: black;}')
 
         if self.snapshot:
 
@@ -2486,6 +2803,28 @@ class Ui_snapshotItemWidget(QtGui.QWidget):
                 self.set_multiple_files_view()
             else:
                 self.set_no_versionless_view()
+
+        self.set_indent(12)
+        self.controls_actions()
+
+        self.check_expand_is_possible()
+
+    def check_expand_is_possible(self):
+
+        if self.info.get('expandable'):
+            self.expand_item_button.setMaximumSize(16, 2048)
+            self.expand_item_button.setIcon(
+                gf.get_icon('chevron-right', icons_set='mdi', color=Qt4Gui.QColor(160, 160, 160), scale_factor=1.6))
+        else:
+            self.expand_item_button.setMaximumSize(4, 2048)
+            self.expand_item_button.setEnabled(False)
+
+    def controls_actions(self):
+        self.expand_item_button.clicked.connect(self.toggle_expand_tree_item)
+
+    def set_indent(self, indent=24):
+        result_indent = self.get_depth() * indent
+        self.indent_spacer.changeSize(result_indent, 0)
 
     def set_drop_indicator_on(self):
         if self.drop_wdg.isHidden():
@@ -2594,15 +2933,18 @@ class Ui_snapshotItemWidget(QtGui.QWidget):
     @staticmethod
     def get_item_info_label():
         font = Qt4Gui.QFont()
+        font.setFamily("Segoe UI")
         font.setPointSize(7)
         label = QtGui.QLabel()
         label.setFont(font)
         label.setTextFormat(QtCore.Qt.PlainText)
-        label.setAlignment(QtCore.Qt.AlignCenter)
+        # label.setAlignment(QtCore.Qt.AlignCenter)
+        label.setAlignment(QtCore.Qt.AlignLeading | QtCore.Qt.AlignLeft | QtCore.Qt.AlignBottom)
         return label
 
     def create_item_info_widget(self):
         self.item_info_widget = Ui_infoItemsWidget(self)
+        # self.item_info_widget.setMaximumHeight(60)
         self.infoHorizontalLayout.addWidget(self.item_info_widget)
 
     def is_versionless(self):
@@ -2632,6 +2974,21 @@ class Ui_snapshotItemWidget(QtGui.QWidget):
 
     def set_children_states(self, states):
         self.info['children_states'] = states
+
+    def toggle_expand_item_button(self, state=None):
+
+        if state is not None:
+            if self.tree_item.isExpanded():
+                self.expand_item_button.setIcon(gf.get_icon('chevron-down', icons_set='mdi', color=Qt4Gui.QColor(160, 160, 160), scale_factor=1.6))
+            else:
+                self.expand_item_button.setIcon(gf.get_icon('chevron-right', icons_set='mdi', color=Qt4Gui.QColor(160, 160, 160), scale_factor=1.6))
+        else:
+            if self.tree_item.isExpanded():
+                self.tree_item.setExpanded(False)
+                self.expand_item_button.setIcon(gf.get_icon('chevron-right', icons_set='mdi', color=Qt4Gui.QColor(160, 160, 160), scale_factor=1.6))
+            else:
+                self.tree_item.setExpanded(True)
+                self.expand_item_button.setIcon(gf.get_icon('chevron-down', icons_set='mdi', color=Qt4Gui.QColor(160, 160, 160), scale_factor=1.6))
 
     def check_expand_state(self, state=None):
         # if not state:
@@ -2961,10 +3318,18 @@ class Ui_snapshotItemWidget(QtGui.QWidget):
         self.snapshot['description'] = new_description
         self.descriptionLabel.setText(new_description)
 
+    def collapse_tree_item(self):
+        self.toggle_expand_item_button(False)
+
     @gf.catch_error
     def expand_tree_item(self):
         if not self.info['is_expanded']:
             self.info['is_expanded'] = True
+
+        self.toggle_expand_item_button(True)
+
+    def toggle_expand_tree_item(self):
+        self.toggle_expand_item_button()
 
     @gf.catch_error
     def expand_recursive(self):
@@ -2973,9 +3338,6 @@ class Ui_snapshotItemWidget(QtGui.QWidget):
     @gf.catch_error
     def collapse_recursive(self):
         gf.tree_recursive_expand(self.tree_item, False)
-
-    def collapse_tree_item(self):
-        pass
 
     def mouseDoubleClickEvent(self, event):
         if self.relates_to == 'checkin_out':
@@ -3020,18 +3382,35 @@ class Ui_childrenItemWidget(QtGui.QWidget):
         self.search_widget = None
         self.project = self.stype.get_project()
 
-        self.create_layout()
-        self.customize_ui()
-
     def get_type(self):
         return self.type
 
     def create_ui(self):
+        self.create_layout()
+
+        # self.setMaximumSize(16777215, 80)
+        # self.setMinimumSize(260, 80)
+
+        self.setMinimumSize(260, 40)
+        self.setMaximumHeight(40)
+        self.setContentsMargins(0, 0, 16, 5)
+
+        self.create_indent()
+
+        self.create_expand_item_tool_button()
+
+        self.create_children_tool_button()
+
+        self.create_link_sobjects_button()
+
+        self.create_add_sobjects_button()
+
+        self.horizontalLayout.setStretch(3, 1)
+
         # self.drop_wdg = QtGui.QWidget(self)
-
-        self.tree_item.setExpanded = self.tree_item_set_expanded_override
-
         self.controls_actions()
+
+        self.set_indent(12)
 
     # def set_drop_indicator_on(self):
     #     if self.drop_wdg.isHidden():
@@ -3048,23 +3427,38 @@ class Ui_childrenItemWidget(QtGui.QWidget):
     # def set_drop_indicator_off(self):
     #     self.drop_wdg.setHidden(True)
 
-    def customize_ui(self):
-        self.setMinimumWidth(260)
-
-        self.create_children_tool_button()
-
-        self.create_link_sobjects_button()
-
-        self.create_add_sobjects_button()
+    def set_indent(self, indent=24):
+        result_indent = self.get_depth() * indent
+        self.indent_spacer.changeSize(result_indent, 0)
 
     def create_layout(self):
         self.horizontalLayout = QtGui.QHBoxLayout(self)
-        self.horizontalLayout.setSpacing(0)
+        self.horizontalLayout.setSpacing(4)
         self.horizontalLayout.setContentsMargins(0, 0, 0, 0)
         self.horizontalLayout.setObjectName('horizontalLayout')
 
-        self.resize(52, 25)
-        # self.setStyleSheet("QTreeView::item {border-width: 0px;    border-radius: 0px;padding: 0px;}")
+    def create_indent(self):
+        self.indent_spacer = QtGui.QSpacerItem(0, 0, QtGui.QSizePolicy.Minimum, QtGui.QSizePolicy.Expanding)
+        self.horizontalLayout.addItem(self.indent_spacer)
+
+    def create_expand_item_tool_button(self):
+        self.expand_item_button = QtGui.QToolButton()
+        self.expand_item_button.setMaximumSize(16, 2048)
+        self.expand_item_button.setStyleSheet("QToolButton { border: 0px; background-color: transparent;}")
+        self.expand_item_button.setIcon(
+            gf.get_icon('chevron-right', icons_set='mdi', color=Qt4Gui.QColor(160, 160, 160), scale_factor=1.6))
+
+        effect = QtGui.QGraphicsBlurEffect(self.expand_item_button)
+        effect.setBlurRadius(20)
+        self.expand_item_button_anm_opacity = QtCore.QPropertyAnimation(effect, 'blurRadius', self.expand_item_button)
+        self.expand_item_button_anm_opacity.setDuration(200)
+
+        self.expand_item_button_anm_opacity.setStartValue(20)
+        self.expand_item_button_anm_opacity.setEndValue(0)
+        self.expand_item_button_anm_opacity.setEasingCurve(QtCore.QEasingCurve.InSine)
+        self.expand_item_button.setGraphicsEffect(effect)
+
+        self.horizontalLayout.addWidget(self.expand_item_button)
 
     def create_children_tool_button(self):
 
@@ -3078,32 +3472,43 @@ class Ui_childrenItemWidget(QtGui.QWidget):
         if clr:
             stype_color = Qt4Gui.QColor(clr[0], clr[1], clr[2], 255)
 
-        self.childrenToolButton = QtGui.QToolButton(self)
+        self.icon_label = QtGui.QLabel(self)
+        self.icon_label.setMaximumSize(30, 30)
+        self.icon_label.setMinimumSize(30, 30)
+        self.icon_label.setPixmap(gf.get_icon('view-sequential', color=stype_color, icons_set='mdi', scale_factor=0.8).pixmap(24, 24))
+
+        self.horizontalLayout.addWidget(self.icon_label)
+
+        self.label = QtGui.QLabel(self)
+        self.label.setMinimumSize(0, 30)
+        self.label.setMaximumSize(16777215, 30)
+        # self.label.setStyleSheet('QLabel {padding: 0px;}')
+        font = Qt4Gui.QFont()
+        font.setFamily("Segoe UI")
+        font.setPointSize(10)
+        self.label.setFont(font)
+        self.label.setTextFormat(QtCore.Qt.PlainText)
+        self.label.setText(self.title)
+
         sizePolicy = QtGui.QSizePolicy(QtGui.QSizePolicy.Preferred, QtGui.QSizePolicy.Preferred)
         sizePolicy.setHorizontalStretch(0)
         sizePolicy.setVerticalStretch(0)
-        sizePolicy.setHeightForWidth(self.childrenToolButton.sizePolicy().hasHeightForWidth())
-        self.childrenToolButton.setSizePolicy(sizePolicy)
-        self.childrenToolButton.setMinimumSize(QtCore.QSize(0, 24))
-        self.childrenToolButton.setMaximumSize(QtCore.QSize(16777215, 24))
-        self.childrenToolButton.setCheckable(False)
-        self.childrenToolButton.setToolButtonStyle(QtCore.Qt.ToolButtonTextBesideIcon)
-        self.childrenToolButton.setObjectName("childrenToolButton")
-        self.childrenToolButton.setIcon(gf.get_icon('view-sequential', color=stype_color, icons_set='mdi', scale_factor=1.1))
-        self.childrenToolButton.setText(self.title)
-        self.childrenToolButton.setStyleSheet('QToolButton {background-color: transparent;}')
+        sizePolicy.setHeightForWidth(self.label.sizePolicy().hasHeightForWidth())
+        self.label.setSizePolicy(sizePolicy)
 
-        self.horizontalLayout.addWidget(self.childrenToolButton)
+        self.horizontalLayout.addWidget(self.label)
 
     def create_link_sobjects_button(self):
         self.link_sobjects_tool_button = QtGui.QToolButton(self)
         self.link_sobjects_tool_button.setToolButtonStyle(QtCore.Qt.ToolButtonTextBesideIcon)
         self.link_sobjects_tool_button.setAutoRaise(True)
-        self.link_sobjects_tool_button.setMinimumSize(QtCore.QSize(22, 22))
-        self.link_sobjects_tool_button.setMaximumSize(QtCore.QSize(28, 22))
+        self.link_sobjects_tool_button.setMinimumSize(QtCore.QSize(30, 30))
+        self.link_sobjects_tool_button.setMaximumSize(QtCore.QSize(30, 30))
+        self.link_sobjects_tool_button.setStyleSheet("QToolButton { border: 0px; background-color: transparent;}")
+        self.link_sobjects_tool_button.setToolTip('Link Sobjects Interface')
 
         self.link_sobjects_tool_button.setObjectName('link_sobjects_tool_button')
-        self.link_sobjects_tool_button.setIcon(gf.get_icon('link-variant', icons_set='mdi'))
+        self.link_sobjects_tool_button.setIcon(gf.get_icon('link-variant', icons_set='mdi', color=Qt4Gui.QColor(160, 160, 160)))
 
         self.horizontalLayout.addWidget(self.link_sobjects_tool_button)
 
@@ -3116,8 +3521,14 @@ class Ui_childrenItemWidget(QtGui.QWidget):
         self.add_sobjects_tool_button = QtGui.QToolButton(self)
         self.add_sobjects_tool_button.setToolButtonStyle(QtCore.Qt.ToolButtonTextBesideIcon)
         self.add_sobjects_tool_button.setAutoRaise(True)
+        self.add_sobjects_tool_button.setMinimumSize(QtCore.QSize(30, 30))
+        self.add_sobjects_tool_button.setMaximumSize(QtCore.QSize(600, 30))
+        self.add_sobjects_tool_button.setStyleSheet("QToolButton { border: 0px; background-color: transparent;}")
+        self.add_sobjects_tool_button.setToolTip('Add new Related Sobject')
+
         self.add_sobjects_tool_button.setObjectName("link_sobjects_tool_button")
-        self.add_sobjects_tool_button.setIcon(gf.get_icon('plus-square-o'))
+        self.add_sobjects_tool_button.setIcon(gf.get_icon('plus-circle-outline', icons_set='mdi', color=Qt4Gui.QColor(160, 160, 160)))
+        self.add_sobjects_tool_button.setText('| 0')
 
         self.horizontalLayout.addWidget(self.add_sobjects_tool_button)
 
@@ -3141,20 +3552,24 @@ class Ui_childrenItemWidget(QtGui.QWidget):
     def set_children_states(self, states):
         self.info['children_states'] = states
 
-    def tree_item_set_expanded_override(self, state):
-        if state:
-            self.toggle_cildren_button()
-        self.tree_item.treeWidget().setItemExpanded(self.tree_item, state)
+    # def tree_item_set_expanded_override(self, state):
+    #     if state:
+    #         self.toggle_cildren_button()
+    #     self.tree_item.treeWidget().setItemExpanded(self.tree_item, state)
 
     def controls_actions(self):
-        self.childrenToolButton.clicked.connect(self.toggle_cildren_button)
         self.add_sobjects_tool_button.clicked.connect(self.add_new_sobject)
         self.link_sobjects_tool_button.clicked.connect(self.link_sobjects)
 
+        # self.tree_item.setExpanded = self.tree_item_set_expanded_override
+
+        self.expand_item_button.clicked.connect(self.toggle_expand_tree_item)
+
     def set_child_count_title(self, count):
         if count > 0:
-            self.add_sobjects_tool_button.setIcon(gf.get_icon('plus-square'))
+            self.add_sobjects_tool_button.setIcon(gf.get_icon('plus-circle', icons_set='mdi'))
             self.tree_item.setChildIndicatorPolicy(QtGui.QTreeWidgetItem.ShowIndicator)
+            self.expand_item_button_anm_opacity.start()
         self.add_sobjects_tool_button.setText('| {0}'.format(count))
 
     @gf.catch_error
@@ -3178,14 +3593,40 @@ class Ui_childrenItemWidget(QtGui.QWidget):
 
         link_sobjects_widget.show()
 
+    def toggle_expand_item_button(self, state=None):
+
+        if state is not None:
+            if self.tree_item.isExpanded():
+                self.expand_item_button.setIcon(gf.get_icon('chevron-down', icons_set='mdi', color=Qt4Gui.QColor(160, 160, 160), scale_factor=1.6))
+            else:
+                self.expand_item_button.setIcon(gf.get_icon('chevron-right', icons_set='mdi', color=Qt4Gui.QColor(160, 160, 160), scale_factor=1.6))
+        else:
+            if self.tree_item.isExpanded():
+                self.tree_item.setExpanded(False)
+                self.expand_item_button.setIcon(gf.get_icon('chevron-right', icons_set='mdi', color=Qt4Gui.QColor(160, 160, 160), scale_factor=1.6))
+            else:
+                self.tree_item.setExpanded(True)
+                self.expand_item_button.setIcon(gf.get_icon('chevron-down', icons_set='mdi', color=Qt4Gui.QColor(160, 160, 160), scale_factor=1.6))
+
+    def collapse_tree_item(self):
+        self.toggle_expand_item_button(False)
+
     @gf.catch_error
     def expand_tree_item(self):
-        # if not self.info['is_expanded']:
-        #     self.info['is_expanded'] = True
+        if not self.info['is_expanded']:
+            self.info['is_expanded'] = True
 
-        self.add_child_sobjects()
-        self.childrenToolButton.setCheckable(True)
-        self.childrenToolButton.setChecked(True)
+            self.add_child_sobjects()
+        else:
+            self.toggle_expand_item_button(True)
+
+    def toggle_expand_tree_item(self):
+        if not self.info['is_expanded']:
+            self.info['is_expanded'] = True
+
+            self.add_child_sobjects()
+        else:
+            self.toggle_expand_item_button()
 
     @gf.catch_error
     def expand_recursive(self):
@@ -3194,9 +3635,6 @@ class Ui_childrenItemWidget(QtGui.QWidget):
     @gf.catch_error
     def collapse_recursive(self):
         gf.tree_recursive_expand(self.tree_item, False)
-
-    def collapse_tree_item(self):
-        self.childrenToolButton.setChecked(False)
 
     def get_current_tree_widget(self):
         return self.tree_item.treeWidget()
@@ -3234,13 +3672,13 @@ class Ui_childrenItemWidget(QtGui.QWidget):
     def toggle_cildren_button(self):
         if self.tree_item.isExpanded():
             self.tree_item.treeWidget().setItemExpanded(self.tree_item, False)
-            self.childrenToolButton.setChecked(False)
+            # self.childrenToolButton.setChecked(False)
         else:
             self.add_child_sobjects()
             if self.tree_item.childCount() > 0:
-                self.childrenToolButton.setCheckable(True)
+                # self.childrenToolButton.setCheckable(True)
                 self.tree_item.treeWidget().setItemExpanded(self.tree_item, True)
-                self.childrenToolButton.setChecked(True)
+                # self.childrenToolButton.setChecked(True)
 
     def get_relationship(self):
         relationship = self.child.get('relationship')
@@ -3261,28 +3699,28 @@ class Ui_childrenItemWidget(QtGui.QWidget):
 
             return relationship
 
-
     def add_child_sobjects(self):
+        self.expand_item_button.setIcon(
+            gf.get_icon('loading', icons_set='mdi', scale_factor=1.2, spin=[self.expand_item_button, 30, 45]))
 
-        if not self.info['is_expanded']:
-            self.info['is_expanded'] = True
+        parent_sobject = self.get_parent_sobject()
 
-            parent_sobject = self.get_parent_sobject()
+        def get_sobjects_agent():
+            return self.sobject.get_related_sobjects(child_stype=self.stype, parent_stype=self.sobject.get_stype(), path='child')
 
-            def get_sobjects_agent():
-                return self.sobject.get_related_sobjects(child_stype=self.stype, parent_stype=self.sobject.get_stype())
-
-            get_sobjects_worker = gf.get_thread_worker(
-                get_sobjects_agent,
-                env_inst.get_thread_pool('server_query/http_download_pool'),
-                result_func=self.fill_child_items,
-                # progress_func=self.download_progress,
-                error_func=gf.error_handle,
-            )
-            get_sobjects_worker.start()
+        get_sobjects_worker = gf.get_thread_worker(
+            get_sobjects_agent,
+            env_inst.get_thread_pool('server_query/http_download_pool'),
+            result_func=self.fill_child_items,
+            # progress_func=self.download_progress,
+            error_func=gf.error_handle,
+        )
+        get_sobjects_worker.start()
 
     def fill_child_items(self, sobjects):
+
         env_inst.ui_main.set_info_status_text('<span style=" font-size:8pt; color:#00ff00;">Filling SObjects</span>')
+
         sobject_item_widget = self.get_parent_item_widget()
         ignore_dict = None
         if sobject_item_widget:
@@ -3311,6 +3749,10 @@ class Ui_childrenItemWidget(QtGui.QWidget):
         self.tree_item.treeWidget().resizeColumnToContents(0)
 
         env_inst.ui_main.set_info_status_text('')
+
+        self.toggle_expand_item_button(True)
+
+        self.tree_item.setExpanded(True)
 
     def get_skey(self, skey=False, only=False, parent=False):
         pass
@@ -3390,7 +3832,7 @@ class Ui_groupItemWidget(QtGui.QWidget):
         self.horizontalLayout.setContentsMargins(0, 0, 0, 0)
         self.horizontalLayout.setObjectName("horizontalLayout")
 
-        self.resize(52, 25)
+        # self.resize(52, 25)
 
     def create_children_tool_button(self):
 

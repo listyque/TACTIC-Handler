@@ -7,15 +7,21 @@ import thlib.global_functions as gf
 from thlib.ui_classes.ui_richedit_classes import Ui_richeditWidget
 
 
-class Ui_descriptionWidget(QtGui.QWidget):
-    def __init__(self, project, stype, parent=None):
+class Ui_tacticColumnEditorWidget(QtGui.QWidget):
+    def __init__(self, sobject=None, column=None, stype=None, parent=None, multiple_mode=False):
         super(self.__class__, self).__init__(parent=parent)
 
         self.create_ui_raw()
 
+        self.sobject = sobject
+        self.column = column
         self.stype = stype
-        self.project = project
-        self.item = None
+
+        self.multiple_mode = multiple_mode
+
+        self.old_data = None
+        self.new_data = None
+
         self.descriptionTextEdit_freezed = False
         self.descriptionTextEdit_edited = False
 
@@ -26,60 +32,110 @@ class Ui_descriptionWidget(QtGui.QWidget):
         self.verticalLayout.setSpacing(0)
         self.verticalLayout.setContentsMargins(0, 0, 0, 0)
         self.verticalLayout.setObjectName("verticalLayout")
+
         self.editorLayout = QtGui.QVBoxLayout()
         self.editorLayout.setSpacing(0)
         self.editorLayout.setObjectName("editorLayout")
         self.verticalLayout.addLayout(self.editorLayout)
-        self.descriptionTextEdit = QtGui.QTextEdit(self)
-        self.descriptionTextEdit.setObjectName("descriptionTextEdit")
-        self.verticalLayout.addWidget(self.descriptionTextEdit)
-        self.verticalLayout.setStretch(1, 1)
+
+        # self.verticalLayout.setStretch(1, 1)
 
     def create_ui(self):
 
-        if self.stype:
-            self.create_float_buttons()
+        self.create_plain_text_editor()
 
-        self.create_rich_edit()
+        self.create_float_buttons()
 
-        if self.stype:
-            self.controls_actions()
+        if self.sobject:
+            self.customize_with_sobject()
+
+        # self.create_rich_edit()
+
+        self.controls_actions()
 
     def controls_actions(self):
-        self.descriptionTextEdit.cursorPositionChanged.connect(self.set_edit_mode)
-        # self.descriptionTextEdit.textChanged.connect(self.set_edit_mode)
+        self.plain_text_editor.cursorPositionChanged.connect(self.set_edit_mode)
+        self.plain_text_editor.textChanged.connect(self.data_changed)
         # self.descriptionTextEdit.selectionChanged.connect(self.text_edit_select)
         self.clear_button.clicked.connect(self.unfreeze_text_edit)
 
         self.lock_button.clicked.connect(self.freeze_text_edit)
 
         self.edit_button.clicked.connect(self.set_edit_mode)
-        self.save_button.clicked.connect(self.unset_edit_mode)
-        self.save_button.clicked.connect(self.update_desctiption)
+        self.save_button.clicked.connect(self.save_current_column)
 
-    def set_item(self, item):
-        if not self.visibleRegion().isEmpty():
-            self.item = item
-            if self.item:
-                self.customize_with_item()
-            else:
-                self.customize_without_item()
+    def set_sobject(self, sobject):
+        self.sobject = sobject
 
-    def customize_with_item(self):
+        self.customize_with_sobject()
 
-        if not self.descriptionTextEdit_freezed or self.descriptionTextEdit.toPlainText() == '':
-            self.descriptionTextEdit.blockSignals(True)
-            self.descriptionTextEdit.setText(self.item.get_description())
-            self.unfreeze_text_edit()
-            self.unset_edit_mode()
-            self.descriptionTextEdit.blockSignals(False)
+    def get_sobject(self):
+        return self.sobject
+
+    def get_column(self):
+        return self.column
+
+    def get_changed_data(self):
+
+        if self.old_data != self.new_data:
+            return self.new_data
+        else:
+            return None
+
+    def customize_with_sobject(self):
+
+        # Getting column info
+
+        column_info = self.stype.get_column_info(self.column)
+
+        text_editor_columns = ['text', 'varchar']
+
+        if column_info['data_type'] in text_editor_columns:
+            self.create_text_editor_column()
+
+        # if not self.descriptionTextEdit_freezed or self.descriptionTextEdit.toPlainText() == '':
+        #     self.descriptionTextEdit.blockSignals(True)
+        #     self.descriptionTextEdit.setText(self.item.get_description())
+        #     self.unfreeze_text_edit()
+        #     self.unset_edit_mode()
+        #     self.descriptionTextEdit.blockSignals(False)
+
+    # def set_item(self, item):
+    #     if not self.visibleRegion().isEmpty():
+    #         self.item = item
+    #         if self.item:
+    #             self.customize_with_item()
+    #         else:
+    #             self.customize_without_item()
+    #
+    # def customize_with_item(self):
+    #
+    #     if not self.descriptionTextEdit_freezed or self.descriptionTextEdit.toPlainText() == '':
+    #         self.descriptionTextEdit.blockSignals(True)
+    #         self.descriptionTextEdit.setText(self.item.get_description())
+    #         self.unfreeze_text_edit()
+    #         self.unset_edit_mode()
+    #         self.descriptionTextEdit.blockSignals(False)
+
+    def create_plain_text_editor(self):
+        self.plain_text_editor = QtGui.QTextEdit(self)
+        self.plain_text_editor.setObjectName('plain_text_editor')
+
+        self.verticalLayout.addWidget(self.plain_text_editor)
+
+    def create_text_editor_column(self):
+        if not self.multiple_mode:
+            self.old_data = self.sobject.get_value(self.column)
+            self.new_data = self.sobject.get_value(self.column)
+            self.plain_text_editor.setText(self.old_data)
 
     def customize_without_item(self):
         self.unfreeze_text_edit()
         self.unset_edit_mode()
 
     def create_rich_edit(self):
-        self.ui_richedit = Ui_richeditWidget(self.descriptionTextEdit, parent=self.descriptionTextEdit)
+        self.plain_text_editor.setViewportMargins(0, 20, 0, 24)
+        self.ui_richedit = Ui_richeditWidget(self.plain_text_editor, parent=self.plain_text_editor)
         # self.editorLayout.setParent(self.descriptionTextEdit)
         # self.editorLayout.addWidget(self.ui_richedit)
 
@@ -91,8 +147,7 @@ class Ui_descriptionWidget(QtGui.QWidget):
                 self.customize_without_item()
 
     def create_float_buttons(self):
-        self.descriptionTextEdit.setViewportMargins(0, 20, 0, 24)
-        self.clear_button_layout = QtGui.QGridLayout(self.descriptionTextEdit)
+        self.clear_button_layout = QtGui.QGridLayout(self.plain_text_editor)
         self.clear_button_layout.setContentsMargins(0, 0, 0, 0)
         self.clear_button_layout.setSpacing(0)
 
@@ -134,38 +189,21 @@ class Ui_descriptionWidget(QtGui.QWidget):
         self.save_button.setHidden(True)
         self.lock_button.setHidden(True)
 
-    def description_update_finished(self):
-        pass
-
-    def update_desctiption(self):
-
-        def update_desctiption_agent():
-            return tc.update_description(
-                search_key=self.item.get_search_key(),
-                description=self.descriptionTextEdit.toPlainText()
-                # description=gf.simplify_html(self.descriptionTextEdit.toHtml())
-            )
-
-        query_sobjects_worker = gf.get_thread_worker(
-            update_desctiption_agent,
-            finished_func=self.description_update_finished,
-            error_func=gf.error_handle
-        )
-        self.item.update_description(self.descriptionTextEdit.toPlainText())
-        query_sobjects_worker.start()
+    def data_changed(self):
+        self.new_data = self.plain_text_editor.toPlainText()
 
     def set_edit_mode(self):
         if not self.descriptionTextEdit_edited and not self.descriptionTextEdit_freezed:
             #print 'SETTING EDIT MODE'
             # self.unfreeze_text_edit()
-            self.descriptionTextEdit.setStyleSheet('QTextEdit{border: 2px solid rgba(0,255,128,192); border-radius: 3px;}')
+            self.plain_text_editor.setStyleSheet('QTextEdit{border: 2px solid rgba(0,255,128,192); border-radius: 3px;}')
             self.descriptionTextEdit_edited = True
             self.edit_button.setHidden(True)
             self.save_button.setHidden(False)
             self.lock_button.setHidden(False)
 
     def unset_edit_mode(self):
-        self.descriptionTextEdit.setStyleSheet('')
+        self.plain_text_editor.setStyleSheet('')
         self.descriptionTextEdit_edited = False
         self.edit_button.setHidden(False)
         self.save_button.setHidden(True)
@@ -173,28 +211,15 @@ class Ui_descriptionWidget(QtGui.QWidget):
 
     def freeze_text_edit(self):
         # if not self.descriptionTextEdit_edited:
-            self.descriptionTextEdit.setStyleSheet('QTextEdit{border: 2px solid rgba(0,192,255,192); border-radius: 3px;}')
+            self.plain_text_editor.setStyleSheet('QTextEdit{border: 2px solid rgba(0,192,255,192); border-radius: 3px;}')
             self.descriptionTextEdit_freezed = True
             self.clear_button.setHidden(False)
             self.lock_button.setHidden(True)
             self.edit_button.setHidden(True)
 
-    # def text_edit_select(self):
-    #     if not self.descriptionTextEdit_edited and not self.descriptionTextEdit_freezed:
-    #         self.descriptionTextEdit.clear()
-
-    def get_description(self, fmt='html'):
-        if self.descriptionTextEdit_freezed:
-            if fmt == 'html':
-                return self.descriptionTextEdit.toHtml()
-            elif fmt == 'plain':
-                return self.descriptionTextEdit.toPlainText()
-        else:
-            return 'No Description'
-
-    def set_description(self, description):
-        self.descriptionTextEdit.setText(description)
-        self.descriptionTextEdit_freezed = True
+    def save_current_column(self):
+        self.unset_edit_mode()
+        print 'SAVING CURRENT COLUMN'
 
     def unfreeze_text_edit(self):
         self.descriptionTextEdit.setStyleSheet('')

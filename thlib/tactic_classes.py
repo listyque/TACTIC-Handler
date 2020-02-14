@@ -474,6 +474,11 @@ class SType(object):
     def get_workflow(self):
         return self.project.get_workflow()
 
+    def get_column_info(self, column):
+        column_info = self.info.get('column_info')
+        if column_info:
+            return column_info.get(column)
+
     def get_columns_info(self):
         return self.info.get('column_info')
 
@@ -550,14 +555,14 @@ class Schema(object):
             if parent['to'] == parent_stype and parent['from'] == child_stype:
                 return parent
 
-    def get_child_instance(self, instance_type):
+    def get_child_instance(self, instance_type, related_type):
         for child in self.children:
-            if child['from'] == instance_type:
+            if child['from'] == instance_type and child['to'] == related_type:
                 return child
 
-    def get_parent_instance(self, instance_type):
+    def get_parent_instance(self, instance_type, related_type):
         for parent in self.parents:
-            if parent['from'] == instance_type:
+            if parent['from'] == instance_type and parent['to'] == related_type:
                 return parent
 
 class Workflow(object):
@@ -900,7 +905,7 @@ class SObject(object):
         stypes = self.project.get_stypes()
         if stypes:
             if code:
-                stypes.get(code)
+                return stypes.get(code)
             else:
                 return stypes.get(self.info['__search_key__'].split('?')[0])
 
@@ -991,21 +996,16 @@ class SObject(object):
         # returning dict with all processes if it's have snapshots
         return self.process
 
-    def get_schema(self):
+    def get_schema(self, stype=None):
 
-        return self.get_stype().get_schema()
+        return self.get_stype(stype).get_schema()
 
-    def get_related_sobjects_tel_string(self, child_stype=None, parent_stype=None, relation_type='child'):
-
-        # print child_stype
-        # print parent_stype
-        # print relation_type
-
+    def get_related_sobjects_tel_string(self, child_stype=None, parent_stype=None, path='child'):
 
         instance_type = None
         related_type = None
 
-        if relation_type == 'parent':
+        if path == 'parent':
             schema = child_stype.get_schema()
             relations = schema.get_parent(parent_stype.get_code(), child_stype.get_code())
 
@@ -1020,10 +1020,6 @@ class SObject(object):
         relationship = relations.get('relationship')
 
         if relationship:
-
-            # print relationship, "RELATIONSHIP"
-            # print schema
-
 
             # if relationship == 'search_type':
             #     child_col = 'search_code'
@@ -1051,20 +1047,18 @@ class SObject(object):
 
             elif relationship == 'instance':
 
-                related_code = self.info.get('code')
-
                 # Trying to get instance type
-
                 instance_type = relations.get('instance_type')
-                if relation_type == 'parent':
-                    instance_relationship = schema.get_parent_instance(instance_type)
+
+                instance_schema = self.get_schema(instance_type)
+
+                if path == 'parent':
+                    instance_relationship = instance_schema.get_parent_instance(instance_type, related_type)
                 else:
-                    instance_relationship = schema.get_child_instance(instance_type)
+                    instance_relationship = instance_schema.get_child_instance(instance_type, related_type)
 
                 if instance_relationship:
                     relations = instance_relationship
-
-                # print relations, 'relations'
 
                 if relations.get('from_col'):
                     related_from_column = relations.get('from_col')
@@ -1076,14 +1070,8 @@ class SObject(object):
                 else:
                     related_to_column = '{0}_code'.format(relations.get('to').split('/')[-1])
 
-                # print instance_type
-                # print relations
-                # print related_code
-                # print related_from_column
-                # print related_to_column
-
                 if relations.get('path'):
-                    if relation_type == 'parent':
+                    if path == 'parent':
                         instance_type = 'parent:' + instance_type
                         related_type = 'child:' + related_type
                     else:
@@ -1093,21 +1081,21 @@ class SObject(object):
                         # some kind of hack
                         related_to_column = related_from_column
 
+                related_code = self.info.get('code')
+
 
         if relationship == 'instance':
-            if relation_type == 'parent':
-                # print u"@SOBJECT({0}['{1}', '{2}'].{3})".format(instance_type, related_from_column, related_code, related_type)
+            if path == 'parent':
                 return u"@SOBJECT({0}['{1}', '{2}'].{3})".format(instance_type, related_from_column, related_code, related_type)
             else:
-                # print u"@SOBJECT({0}['{1}', '{2}'].{3})".format(instance_type, related_to_column, related_code, related_type)
                 return u"@SOBJECT({0}['{1}', '{2}'].{3})".format(instance_type, related_to_column, related_code, related_type)
         else:
-            if relation_type == 'parent':
+            if path == 'parent':
                 return u"@SOBJECT({0}['{1}', '{2}'])".format(related_type, related_to_column, related_from_code)
             else:
                 return u"@SOBJECT({0}['{1}', '{2}'])".format(related_type, related_from_column, related_to_code)
 
-    def get_related_sobjects(self, child_stype=None, parent_stype=None, get_all_snapshots=False):
+    def get_related_sobjects(self, child_stype=None, parent_stype=None, get_all_snapshots=False, path='child'):
 
         if not child_stype:
             child_stype = self.get_stype()
@@ -1120,7 +1108,7 @@ class SObject(object):
             child_stype.get_code(),
             self.project.get_code()
         )
-        filters = [('_expression', 'in', self.get_related_sobjects_tel_string(child_stype, parent_stype))]
+        filters = [('_expression', 'in', self.get_related_sobjects_tel_string(child_stype, parent_stype, path=path))]
 
         return get_sobjects(
             search_type=built_process,
@@ -1754,7 +1742,7 @@ def execute_procedure_serverside(func, kwargs, project=None, return_dict=True, s
     if kwargs.get('code'):
         code = kwargs
     else:
-        code = tq.prepare_serverside_script(func, kwargs, shrink=True, catch_traceback=False)
+        code = tq.prepare_serverside_script(func, kwargs, shrink=False, catch_traceback=False)
     if not server:
         server = server_start(project=project)
 
@@ -2029,7 +2017,7 @@ def get_notes_count(sobject, process, children_stypes):
     kwargs = {
         'process': process,
         'search_key': sobject.get_search_key(),
-        'stypes_list': children_stypes
+        'stypes_list': children_stypes,
     }
 
     project_code = split_search_key(kwargs['search_key'])
@@ -2183,7 +2171,7 @@ def insert_instance_sobjects(search_key, project_code, parent_key=None, instance
     return execute_procedure_serverside(tq.insert_instance_sobjects, kwargs, project=project_code)
 
 
-def edit_multiple_instance_sobjects(project_code, insert_search_keys=[], exclude_search_keys=[], parent_key=None, instance_type=None):
+def edit_multiple_instance_sobjects(project_code, insert_search_keys=[], exclude_search_keys=[], parent_key=None, instance_type=None, path=None):
 
     kwargs = {
         'project_code': project_code,
@@ -2191,6 +2179,7 @@ def edit_multiple_instance_sobjects(project_code, insert_search_keys=[], exclude
         'exclude_search_keys': exclude_search_keys,
         'parent_key': parent_key,
         'instance_type': instance_type,
+        'path': path,
     }
 
     return execute_procedure_serverside(tq.edit_multiple_instance_sobjects, kwargs, project=project_code)
