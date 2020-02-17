@@ -1774,6 +1774,13 @@ def execute_procedure_serverside(func, kwargs, project=None, return_dict=True, s
         final_result = ret_val
 
 
+    if isinstance(final_result, (str, unicode)):
+        # Decompress long query
+        js = gf.hex_to_html(final_result)
+        if js:
+            if js.startswith(('{', '"', '[')):
+                final_result = json.loads(js, strict=False)
+
     return final_result
 
 

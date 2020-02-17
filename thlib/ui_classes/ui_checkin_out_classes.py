@@ -1352,7 +1352,8 @@ class Ui_checkInOutWidget(QtGui.QMainWindow):
     # Saving functions
     def checkin_file_objects(self, search_key, context, description, save_revision=False, snapshot_version=None,
                              create_icon=True, files_objects=None, checkin_type=None, keep_file_name=None,
-                             commit_silently=False, run_before_checkin=None, run_after_checkin=None, single_threaded=False):
+                             commit_silently=False, run_before_checkin=None, run_after_checkin=None,
+                             single_threaded=False, update_versionless=None):
 
         if files_objects is None:
             files_objects = self.drop_plate_widget.get_selected_items()
@@ -1364,6 +1365,7 @@ class Ui_checkInOutWidget(QtGui.QMainWindow):
         current_tree_widget_item = None
         if current_results_widget:
             current_tree_widget_item = current_results_widget.get_current_tree_widget_item()
+
         if files_objects:
 
             file_types = []
@@ -1402,7 +1404,8 @@ class Ui_checkInOutWidget(QtGui.QMainWindow):
             elif checkin_mode == 4:
                 mode = 'upload'
 
-            update_versionless = self.get_update_versionless()
+            if not update_versionless:
+                update_versionless = self.get_update_versionless()
             if keep_file_name:
                 update_versionless = False
             explicit_filename = self.fast_controls_tool_bar_widget.get_explicit_filename()

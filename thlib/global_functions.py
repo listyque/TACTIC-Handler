@@ -742,7 +742,11 @@ def prettify_text(text, first_letter=False):
 
 def minify_code(source):
     import side.python_minifier as python_minifier
-    return python_minifier.minify(source, remove_literal_statements=True)
+    return python_minifier.minify(
+        source, remove_literal_statements=False, combine_imports=False,
+        remove_annotations=False, hoist_literals=False, rename_locals=False,
+        remove_pass=False, remove_object_base=False
+    )
 
 
 def time_it(start_time=None, message='Code flow running time: '):
@@ -1127,7 +1131,6 @@ def add_item_to_tree(tree_widget, tree_item, tree_item_widget=None, insert_pos=N
             tree_widget.addTopLevelItem(tree_item)
         if tree_item_widget:
             tree_widget.setItemWidget(tree_item, 0, tree_item_widget)
-            # tree_widget.resizeColumnToContents(0)
     else:
         if insert_pos is not None:
             tree_widget.insertChild(insert_pos, tree_item)
@@ -1135,7 +1138,6 @@ def add_item_to_tree(tree_widget, tree_item, tree_item_widget=None, insert_pos=N
             tree_widget.addChild(tree_item)
         if tree_item_widget:
             tree_widget.treeWidget().setItemWidget(tree_item, 0, tree_item_widget)
-            # tree_widget.treeWidget().resizeColumnToContents(0)
 
 
 def check_tree_items_exists(root_item, item_text):
@@ -1249,7 +1251,7 @@ def add_sobject_item(parent_item, parent_widget, sobject, stype, item_info, inse
     tree_item_widget = Ui_itemWidget(sobject, stype, item_info_dict, ignore_dict)
     tree_item_widget.tree_item = tree_item
     tree_item_widget.search_widget = parent_widget
-    tree_item_widget.setHidden(True)
+    # tree_item_widget.setHidden(True)
 
     if return_layout_widget:
         layout_widget = Ui_layoutWrapWidget()

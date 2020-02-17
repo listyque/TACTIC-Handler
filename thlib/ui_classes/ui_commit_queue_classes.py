@@ -170,7 +170,7 @@ class commitWidget(QtGui.QWidget):
                 setattr(run_before_checkin, 'checkin_widget', self)
                 run_before_checkin()
 
-            if checkin_method == 'inplace':
+            if checkin_method in ['inplace', 'preallocate']:
                 self.begin_commit_inplace()
             elif checkin_method == 'upload':
                 self.begin_commit_upload()
@@ -748,7 +748,6 @@ class commitWidget(QtGui.QWidget):
                 'total_count': 2
             }
             virtual_snapshot_worker.emit_progress(0, info_dict)
-
             virtual_snapshot = tc.get_virtual_snapshot(
                 search_key=self.args_dict['search_key'],
                 context=self.args_dict['context'],
@@ -761,6 +760,7 @@ class commitWidget(QtGui.QWidget):
                 checkin_type=self.args_dict['checkin_type'],
                 ignore_keep_file_name=self.args_dict['ignore_keep_file_name'],
                 )
+
             virtual_snapshot_worker.emit_progress(1, info_dict)
 
             return virtual_snapshot
@@ -1118,6 +1118,7 @@ class Ui_commitQueueWidget(QtGui.QMainWindow, Ui_commitQueue):
         self.create_empty_queue_label()
 
         self.closePushButton.setEnabled(True)
+        self.close()
 
     def check_queue(self):
 

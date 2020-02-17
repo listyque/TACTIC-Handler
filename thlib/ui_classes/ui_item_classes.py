@@ -478,6 +478,7 @@ class Ui_itemWidget(QtGui.QWidget):
 
         self.closed = False
         self.created = False
+        self.painted = False
         self.overlay_layout_widget = None
         self.type = 'sobject'
         self.sobject = sobject
@@ -703,7 +704,6 @@ class Ui_itemWidget(QtGui.QWidget):
         self.tasksToolButton.setFont(font)
         self.tasksToolButton.setStyleSheet("QToolButton { border: 0px; background-color: transparent;}")
         self.tasksToolButton.setObjectName("tasksToolButton")
-        # self.tasksToolButton.setIcon(gf.get_icon('tasks', color=Qt4Gui.QColor(160, 160, 160)))
         self.tasksToolButton.setIcon(gf.get_icon('calendar-check', icons_set='mdi', color=Qt4Gui.QColor(160, 160, 160)))
 
         self.horizontalLayout.addWidget(self.tasksToolButton)
@@ -798,30 +798,38 @@ class Ui_itemWidget(QtGui.QWidget):
     def create_ui(self):
         self.create_overlay_layout()
 
-        self.previewLabel.setText(u'<span style=" font-size:14pt; font-weight:600; color:#828282;">{0}</span>'.format(
-            gf.gen_acronym(self.get_title()))
-        )
-        self.itemColorLine.setStyleSheet('QFrame { border: 0px; background-color: %s;}' % self.stype.get_stype_color())
-
-        self.create_item_info_widget()
-
-        if self.sobject:
-            self.fill_sobject_info()
-            self.fill_info_items()
-            if gf.get_value_from_config(cfg_controls.get_checkin(), 'getPreviewsThroughHttpCheckbox') == 1:
-                self.set_web_preview()
-            else:
-                self.set_preview()
-
-        self.check_watch_folder()
-        self.check_expand_state(self.get_children_states())
+        #
+        # self.check_expand_state(self.get_children_states())
+        #
+        #
+        # self.previewLabel.setText(u'<span style=" font-size:14pt; font-weight:600; color:#828282;">{0}</span>'.format(
+        #     gf.gen_acronym(self.get_title()))
+        # )
+        # self.itemColorLine.setStyleSheet('QFrame { border: 0px; background-color: %s;}' % self.stype.get_stype_color())
+        #
+        # self.create_item_info_widget()
+        #
+        # if self.sobject:
+        #     self.fill_sobject_info()
+        #
+        #     # SLOWEST PART:
+        #     self.fill_info_items()
+        #
+        #     if gf.get_value_from_config(cfg_controls.get_checkin(), 'getPreviewsThroughHttpCheckbox') == 1:
+        #         self.set_web_preview()
+        #     else:
+        #         self.set_preview()
+        #
+        # self.check_watch_folder()
+        #
+        # self.create_drop_widget()
 
         self.controls_actions()
         self.created = True
 
         # shortcut = QtGui.QShortcut(Qt4Gui.QKeySequence(self.tr('Ctrl+D', 'File|Open')), self)
         # shortcut.activated.connect(self.asd)
-        self.create_drop_widget()
+
 
         self.set_indent(12)
 
@@ -859,9 +867,12 @@ class Ui_itemWidget(QtGui.QWidget):
         self.overlay_layout_widget.setHidden(True)
 
     def show_overlay(self):
-        self.overlay_layout_widget.setHidden(False)
-        self.show()
+
+        # This will bring main ui to Top
+        QtGui.QDialog.activateWindow(self)
+
         self.overlay_layout_widget.raise_()
+        self.overlay_layout_widget.show()
 
         if not self.info.get('simple_view'):
             self.drop_icon_label_anm_open.start()
@@ -873,7 +884,11 @@ class Ui_itemWidget(QtGui.QWidget):
         self.drop_icon_label_anm_close.start()
         self.drop_icon_publish_anm_close.start()
         self.drop_icon_attach_anm_close.start()
-        # self.overlay_layout_widget.setHidden(True)
+
+    def hide_overlay_at_animation_end(self, val):
+        if val == 0.0:
+            self.overlay_layout_widget.lower()
+            # self.overlay_layout_widget.hide()
 
     def create_drop_widget(self):
         self.setAcceptDrops(True)
@@ -938,6 +953,9 @@ class Ui_itemWidget(QtGui.QWidget):
         self.drop_icon_attach_anm_close.setStartValue(1)
         self.drop_icon_attach_anm_close.setEndValue(0)
         self.drop_icon_attach_anm_close.setEasingCurve(QtCore.QEasingCurve.OutSine)
+
+        self.drop_icon_attach_anm_close.valueChanged.connect(self.hide_overlay_at_animation_end)
+
         self.drop_icon_attach_anm_open = QtCore.QPropertyAnimation(effect, 'opacity', self.drop_icon_attach)
         self.drop_icon_attach_anm_open.setDuration(200)
         self.drop_icon_attach_anm_open.setStartValue(0)
@@ -972,6 +990,72 @@ class Ui_itemWidget(QtGui.QWidget):
         self.watch_folder_tool_button_anm_close.start()
         self.relations_tool_button_anm_close.start()
 
+    def checkin_dropped_files(self, files_list):
+
+        # We need to select current item, it is important!
+        self.tree_item.setSelected(True)
+
+        checkin_widget = env_inst.get_check_tree(
+            project_code=self.project.get_code(),
+            tab_code='checkin_out',
+            wdg_code=self.stype.get_code(),
+        )
+        update_versionless = None
+        if self.drop_icon_publish.hasFocus():
+            process = 'publish'
+        elif self.drop_icon_attach.hasFocus():
+            process = 'attachment'
+        elif self.drop_icon_label.hasFocus():
+            process = 'icon'
+            update_versionless = True
+
+        checkin_widget.do_creating_ui()
+
+        match_template = gf.MatchTemplate(['$FILENAME.$EXT'])
+        files_objects_dict = match_template.get_files_objects(files_list)
+
+
+        for file_object in files_objects_dict.get('file'):
+            checkin_widget.checkin_file_objects(
+                search_key=self.get_search_key(),
+                context=process,
+                description='Drag-Drop Cehckin',
+                files_objects=[file_object],
+                update_versionless=update_versionless,
+            )
+
+    def analyze_dropped(self, mime_data):
+        urls = mime_data.urls()
+        if urls:
+            if len(urls) > 1:
+                self.drop_icon_publish.setText('Publish {} Files'.format(len(urls)))
+                self.drop_icon_attach.setText('Attach {} Files'.format(len(urls)))
+                self.drop_icon_label.setHidden(True)
+            else:
+                self.drop_icon_publish.setText('Publish File')
+                self.drop_icon_attach.setText('Attach File')
+                self.drop_icon_label.setHidden(False)
+
+    def handle_dopped(self, mime_data):
+        urls = mime_data.urls()
+        if urls:
+            # Determine if dropped is local file
+            is_local_files = False
+            if urls[0].toLocalFile():
+                is_local_files = True
+
+            if is_local_files:
+                local_files_list = []
+                for url in urls:
+                    if os.path.isfile(url.toLocalFile()):
+                        local_files_list.append(url.toLocalFile())
+
+                if local_files_list:
+                    self.checkin_dropped_files(local_files_list)
+
+            # print urls[0].toLocalFile()
+            # print urls[0].toEncoded()
+
     def enterEvent(self, event):
         self.show_additional_controls()
         event.accept()
@@ -981,19 +1065,11 @@ class Ui_itemWidget(QtGui.QWidget):
         event.accept()
 
     def dragEnterEvent(self, event):
-        print 'DRAG EVENT', event.type()
         event.accept()
 
+        self.analyze_dropped(event.mimeData())
+
         self.show_overlay()
-
-        print event.mimeData()
-
-        # print event.mimeData().data(0)
-        print event.mimeData().html()
-        print event.mimeData().text()
-        print event.mimeData().urls()
-        print event.mimeData().imageData()
-        print event.mimeData().colorData()
 
         super(self.__class__, self).dragEnterEvent(event)
 
@@ -1008,27 +1084,18 @@ class Ui_itemWidget(QtGui.QWidget):
 
     def dragLeaveEvent(self, event):
 
-        print 'DRAG LEAVE', event.type()
         event.accept()
 
         self.hide_overlay()
+
         super(self.__class__, self).dragLeaveEvent(event)
 
     def dropEvent(self, event):
 
-        print event.mimeData()
-
-        # print event.mimeData().data(0)
-        print event.mimeData().html()
-        print event.mimeData().text()
-        print event.mimeData().urls()
-        print event.mimeData().imageData()
-        print event.mimeData().colorData()
-        # print event.pos()
-        # print event.modifiers()
-        # print event.actions()
-        # print event, 'DROP'
         self.hide_overlay()
+
+        self.handle_dopped(event.mimeData())
+
         event.accept()
 
         super(self.__class__, self).dropEvent(event)
@@ -1458,19 +1525,27 @@ class Ui_itemWidget(QtGui.QWidget):
             self.parents_stypes = self.stype.schema.parents
             for parent in self.stype.schema.parents:
                 parent_code = parent.get('to')
+
+                splitted_parent_code = parent_code.split('/')
+                if isinstance(splitted_parent_code, list):
+                    if len(splitted_parent_code) > 1:
+                        splitted_parent_code = splitted_parent_code[1]
+                    else:
+                        splitted_parent_code = splitted_parent_code[0]
+
                 parent_stype = self.project.stypes.get(parent_code)
 
                 if parent_stype:
                     parent_title = parent_stype.info.get('title')
                     if not parent_title:
-                        parent_title = gf.prettify_text(parent_code.split('/')[1])
+                        parent_title = gf.prettify_text(splitted_parent_code)
                 else:
-                    parent_title = gf.prettify_text(parent_code.split('/')[1])
+                    parent_title = gf.prettify_text(splitted_parent_code)
 
-                type = parent.get('type')
+                parent_type = parent.get('type')
                 relationship = parent.get('relationship')
 
-                if type not in ['many_to_many'] and relationship not in ['instance']:
+                if parent_type not in ['many_to_many'] and relationship not in ['instance']:
                     parent_action = QtGui.QAction(parent_title, self.relationsToolButton)
                     parent_action.triggered.connect(partial(self.do_parent_relations, parent_stype, self.stype))
                     self.relationsToolButton.addAction(parent_action)
@@ -1484,17 +1559,25 @@ class Ui_itemWidget(QtGui.QWidget):
 
             for child in self.stype.schema.children:
                 child_code = child.get('from')
+
+                splitted_child_code = child_code.split('/')
+                if isinstance(splitted_child_code, list):
+                    if len(splitted_child_code) > 1:
+                        splitted_child_code = splitted_child_code[1]
+                    else:
+                        splitted_child_code = splitted_child_code[0]
+
                 child_stype = self.project.stypes.get(child_code)
                 if child_stype:
                     child_title = child_stype.info.get('title')
                     if not child_title:
-                        child_title = gf.prettify_text(child_code.split('/')[1])
+                        child_title = gf.prettify_text(splitted_child_code)
                 else:
-                    child_title = gf.prettify_text(child_code.split('/')[1])
+                    child_title = gf.prettify_text(splitted_child_code)
 
-                type = child.get('type')
+                child_type = child.get('type')
 
-                if type not in ['many_to_many']:
+                if child_type not in ['many_to_many']:
                     child_action = QtGui.QAction(child_title, self.relationsToolButton)
                     child_action.triggered.connect(partial(self.do_child_relations, child_stype, self.stype))
                     self.relationsToolButton.addAction(child_action)
@@ -2012,6 +2095,40 @@ class Ui_itemWidget(QtGui.QWidget):
                 else:
                     self.create_ui()
 
+    def paintEvent(self, event):
+
+        if not self.painted:
+            self.painted = True
+
+            if not self.info['simple_view']:
+
+                self.check_expand_state(self.get_children_states())
+
+                self.previewLabel.setText(
+                    u'<span style=" font-size:14pt; font-weight:600; color:#828282;">{0}</span>'.format(
+                        gf.gen_acronym(self.get_title()))
+                )
+                self.itemColorLine.setStyleSheet(
+                    'QFrame { border: 0px; background-color: %s;}' % self.stype.get_stype_color())
+
+                self.create_item_info_widget()
+
+                if self.sobject:
+                    self.fill_sobject_info()
+
+                    # SLOWEST PART:
+                    self.fill_info_items()
+
+                    if gf.get_value_from_config(cfg_controls.get_checkin(), 'getPreviewsThroughHttpCheckbox') == 1:
+                        self.set_web_preview()
+                    else:
+                        self.set_preview()
+
+                self.check_watch_folder()
+
+                self.create_drop_widget()
+
+
     def showEvent(self, event):
         if not self.created:
 
@@ -2157,7 +2274,7 @@ class Ui_processItemWidget(QtGui.QWidget):
         else:
             title = 'Unnamed'
         if self.process_info.get('type') == 'hierarchy':
-            self.icon_label.setPixmap(gf.get_icon('fork', icons_set='ei', color=item_color, scale_factor=0.9).pixmap(24, 24))
+            self.icon_label.setPixmap(gf.get_icon('fork', icons_set='ei', color=item_color, scale_factor=0.7).pixmap(24, 24))
             # self.tree_item.setIcon(0, gf.get_icon('fork', icons_set='ei', color=item_color, scale_factor=0.9))
         else:
             self.icon_label.setPixmap(gf.get_icon('circle', color=item_color, scale_factor=0.4).pixmap(24, 24))
@@ -2579,6 +2696,7 @@ class Ui_snapshotItemWidget(QtGui.QWidget):
         self.create_ui_raw()
         
         self.created = False
+        self.painted = False
         self.type = 'snapshot'
         self.sobject = sobject
         self.stype = stype
@@ -2741,68 +2859,6 @@ class Ui_snapshotItemWidget(QtGui.QWidget):
         # self.drop_wdg = QtGui.QWidget(self)
         # self.drop_wdg.setHidden(True)
 
-        self.create_item_info_widget()
-
-        self.dateLabel = self.get_item_info_label()
-        self.dateLabel.setAlignment(QtCore.Qt.AlignRight)
-        self.verLabel = self.get_item_info_label()
-        self.verLabel.setTextFormat(QtCore.Qt.RichText)
-        self.revLabel = self.get_item_info_label()
-        self.revLabel.setTextFormat(QtCore.Qt.RichText)
-        self.repoLabel = self.get_item_info_label()
-        self.repoLabel.setTextFormat(QtCore.Qt.RichText)
-
-        if self.snapshot:
-
-            self.item_info_widget.add_item_to_right(self.dateLabel)
-            if gf.get_ver_rev(ver=self.snapshot['version'], rev=0):
-                self.item_info_widget.add_item(self.verLabel)
-            if gf.get_ver_rev(rev=self.snapshot['revision'], ver=0):
-                self.item_info_widget.add_item(self.revLabel)
-            if self.snapshot.get('repo'):
-                self.sizeLabel.setStyleSheet(self.get_repo_color())
-                repo_name = env_tactic.get_base_dir(self.snapshot['repo'])['value'][1]
-                hex_color = ['{:02x}'.format(i) for i in self.get_repo_color(True)]
-                self.repoLabel.setTextFormat(QtCore.Qt.RichText)
-                self.repoLabel.setText('<span style="color:#{0};">{1}</span>'.format(
-                    ''.join(hex_color),
-                    repo_name
-                ))
-                self.item_info_widget.add_item(self.repoLabel)
-
-            self.check_main_file()
-
-            description = gf.to_plain_text(self.snapshot['description'], None)
-            self.descriptionLabel.setToolTip(u'<p>{}</p>'.format(description))
-            self.descriptionLabel.setText(description)
-
-            self.dateLabel.setText(self.snapshot['timestamp'].split('.')[0].replace(' ', ' \n'))
-            login_obj = env_inst.get_all_logins(self.snapshot['login'])
-            self.authorLabel.setText(u'{}:'.format(login_obj.get_display_name()))
-            self.authorLabel.setAlignment(QtCore.Qt.AlignHCenter | QtCore.Qt.AlignVCenter)
-            self.verLabel.setText(gf.get_ver_rev(ver=self.snapshot['version'], rev=0))
-            self.revLabel.setText(gf.get_ver_rev(rev=self.snapshot['revision'], ver=0))
-
-            hidden = ['icon', 'web', 'playblast']
-            snapshot = self.get_snapshot()
-            files_objects = snapshot.get_files_objects(group_by='type')
-
-            for key, fls in files_objects.items():
-                if key not in hidden:
-                    if len(fls) > 1:
-                        self.fill_info_with_multiple_checkin(fls)
-                    elif len(fls) != 0:
-                        if fls[0].is_meta_file_obj():
-                            file_obj = fls[0].get_meta_file_object()
-                            self.fill_info_with_meta_file_object(file_obj, fls[0])
-                        else:
-                            self.fill_info_with_tactic_file_object(fls[0])
-            self.highlight_context_in_file_name()
-        else:
-            if self.get_checkin_mode_options() == 'multi_file':
-                self.set_multiple_files_view()
-            else:
-                self.set_no_versionless_view()
 
         self.set_indent(12)
         self.controls_actions()
@@ -3353,6 +3409,76 @@ class Ui_snapshotItemWidget(QtGui.QWidget):
             else:
                 self.search_widget.open_file()
 
+    def paintEvent(self, event):
+        if not self.painted:
+            self.painted = True
+
+            self.create_item_info_widget()
+
+            self.dateLabel = self.get_item_info_label()
+            self.dateLabel.setAlignment(QtCore.Qt.AlignRight)
+            self.verLabel = self.get_item_info_label()
+            self.verLabel.setTextFormat(QtCore.Qt.RichText)
+            self.revLabel = self.get_item_info_label()
+            self.revLabel.setTextFormat(QtCore.Qt.RichText)
+            self.repoLabel = self.get_item_info_label()
+            self.repoLabel.setTextFormat(QtCore.Qt.RichText)
+
+            if self.snapshot:
+
+                self.item_info_widget.add_item_to_right(self.dateLabel)
+                if gf.get_ver_rev(ver=self.snapshot['version'], rev=0):
+                    self.item_info_widget.add_item(self.verLabel)
+                if gf.get_ver_rev(rev=self.snapshot['revision'], ver=0):
+                    self.item_info_widget.add_item(self.revLabel)
+                if self.snapshot.get('repo'):
+                    self.sizeLabel.setStyleSheet(self.get_repo_color())
+                    repo_name = env_tactic.get_base_dir(self.snapshot['repo'])['value'][1]
+                    hex_color = ['{:02x}'.format(i) for i in self.get_repo_color(True)]
+                    self.repoLabel.setTextFormat(QtCore.Qt.RichText)
+                    self.repoLabel.setText('<span style="color:#{0};">{1}</span>'.format(
+                        ''.join(hex_color),
+                        repo_name
+                    ))
+                    self.item_info_widget.add_item(self.repoLabel)
+
+                self.check_main_file()
+
+                description = gf.to_plain_text(self.snapshot['description'], None)
+                self.descriptionLabel.setToolTip(u'<p>{}</p>'.format(description))
+                self.descriptionLabel.setText(description)
+
+                self.dateLabel.setText(self.snapshot['timestamp'].split('.')[0].replace(' ', ' \n'))
+                login_obj = env_inst.get_all_logins(self.snapshot['login'])
+                if login_obj:
+                    self.authorLabel.setText(u'{}:'.format(login_obj.get_display_name()))
+                self.authorLabel.setAlignment(QtCore.Qt.AlignHCenter | QtCore.Qt.AlignVCenter)
+                self.verLabel.setText(gf.get_ver_rev(ver=self.snapshot['version'], rev=0))
+                self.revLabel.setText(gf.get_ver_rev(rev=self.snapshot['revision'], ver=0))
+
+                hidden = ['icon', 'web', 'playblast']
+                snapshot = self.get_snapshot()
+                files_objects = snapshot.get_files_objects(group_by='type')
+
+                for key, fls in files_objects.items():
+                    if key not in hidden:
+                        if len(fls) > 1:
+                            self.fill_info_with_multiple_checkin(fls)
+                        elif len(fls) != 0:
+                            if fls[0].is_meta_file_obj():
+                                file_obj = fls[0].get_meta_file_object()
+                                self.fill_info_with_meta_file_object(file_obj, fls[0])
+                            else:
+                                self.fill_info_with_tactic_file_object(fls[0])
+                self.highlight_context_in_file_name()
+            else:
+                if self.get_checkin_mode_options() == 'multi_file':
+                    self.set_multiple_files_view()
+                else:
+                    self.set_no_versionless_view()
+
+        event.accept()
+
     def showEvent(self, event):
         if not self.created:
             self.created = True
@@ -3700,6 +3826,9 @@ class Ui_childrenItemWidget(QtGui.QWidget):
             return relationship
 
     def add_child_sobjects(self):
+
+        env_inst.ui_main.set_info_status_text('<span style=" font-size:8pt; color:#00ff00;">Getting SObjects</span>')
+
         self.expand_item_button.setIcon(
             gf.get_icon('loading', icons_set='mdi', scale_factor=1.2, spin=[self.expand_item_button, 30, 45]))
 

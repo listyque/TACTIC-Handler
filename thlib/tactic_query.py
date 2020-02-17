@@ -33,6 +33,7 @@ def prepare_serverside_script(func, kwargs, return_dict=True, has_return=True, s
     else:
         code = u''.join(func_lines[0]) + ready_run_command
     if shrink:
+        # minify is a bit slow
         code = gf.minify_code(source=code)
     if return_dict:
         code_dict = {
@@ -353,7 +354,7 @@ def get_notes_and_stypes_counts(process, search_key, stypes_list):
         search.add_op_filters([('process', p), ('search_type', search_type), ('search_code', search_code)])
         cnt['notes'][p] = search.get_count(True)
 
-    print stypes_list
+    # print(stypes_list)
 
     for stype in stypes_list:
         try:
@@ -400,12 +401,22 @@ def query_search_types_extended(project_code):
                                     'sthpw/notification', 'sthpw/note', 'sthpw/milestone', 'sthpw/message_log',
                                     'sthpw/message', 'sthpw/login_in_group', 'sthpw/login_group', 'sthpw/login',
                                     'sthpw/exception_log', 'sthpw/debug_log', 'sthpw/custom_script', 'sthpw/clipboard',
-                                    'sthpw/change_timestamp', 'config/custom_property', 'sthpw/ticket'])
+                                    'sthpw/change_timestamp', 'config/custom_property', 'sthpw/ticket',
+                                    'sthpw/transaction_log', 'sthpw/wdg_settings', 'sthpw/subscription',
+                                    'sthpw/status_log', 'sthpw/sobject_log', 'sthpw/sobject_list', 'sthpw/connection'])
         search.add_order_by('search_type')
         stypes = search.get_sobjects()
     else:
         prj = Project.get_by_code(project_code)
         stypes = prj.get_search_types()
+
+    # add_config_tables = False
+    #
+    # if add_config_tables:
+    #     search = Search('sthpw/search_object')
+    #     search.add_filters('code', ['config/naming'])
+    #     search.add_order_by('search_type')
+    #     stypes.extend(search.get_sobjects())
 
     all_stypes = []
     # longest time consuming part, don't know how to optimize yet
@@ -673,9 +684,14 @@ def query_sobjects(search_type, filters=[], order_bys=[], project_code=None, lim
     :return:
     """
     import json
+    import zlib
+    import binascii
+
     from pyasm.search import Search, SearchKey
     from pyasm.biz import Snapshot
     from pyasm.biz import Schema
+
+    compressed_return = True
 
     if project_code:
         server.set_project(project_code)
@@ -774,23 +790,26 @@ def query_sobjects(search_type, filters=[], order_bys=[], project_code=None, lim
                 if snapshot_search.get_sobjects():
                     sobject_dict['__have_updates__'] = True
 
-        search = Search('sthpw/note')
+        note_search = Search('sthpw/note')
         if have_search_code:
-            search.add_op_filters(
+            note_search.add_op_filters(
                 [('process', 'publish'), ('search_type', search_type), ('search_code', sobject_dict['code'])])
         else:
-            search.add_op_filters(
+            note_search.add_op_filters(
                 [('process', 'publish'), ('search_type', search_type), ('search_id', sobject_dict['id'])])
 
-        sobject_dict['__notes_count__'] = search.get_count()
+        sobject_dict['__notes_count__'] = note_search.get_count()
 
-        search = Search('sthpw/task')
+        task_search = Search('sthpw/task')
         if have_search_code:
-            search.add_op_filters([('search_type', search_type), ('search_code', sobject_dict['code'])])
+            task_search.add_op_filters([('search_type', search_type), ('search_code', sobject_dict['code'])])
         else:
-            search.add_op_filters([('search_type', search_type), ('search_id', sobject_dict['id'])])
+            task_search.add_op_filters([('search_type', search_type), ('search_id', sobject_dict['id'])])
 
-        sobject_dict['__tasks_count__'] = search.get_count()
+        sobject_dict['__tasks_count__'] = task_search.get_count()
+
+        # sobject_dict['__notes_count__'] = 0
+        # sobject_dict['__tasks_count__'] = 0
 
         search = Search('sthpw/snapshot')
 
@@ -833,7 +852,10 @@ def query_sobjects(search_type, filters=[], order_bys=[], project_code=None, lim
 
         sobject_dict['__snapshots__'] = snapshots_list
 
-    return json.dumps(result, separators=(',', ':'))
+    if compressed_return:
+        return 'zlib:' + binascii.b2a_hex(zlib.compress(json.dumps(result, separators=(',', ':')), 9))
+    else:
+        return json.dumps(result, separators=(',', ':'))
 
 
 def query_group_sobjects(search_type, project_code=None, groups_list=[]):

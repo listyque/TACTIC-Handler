@@ -2759,7 +2759,7 @@ class Ui_searchResultsWidget(QtGui.QWidget):
         tasks_widget.set_sobject(item.sobject)
 
     @gf.catch_error
-    def load_preview(self, selected_items_list):
+    def load_preview(self, selected_items_list, *args):
         nested_item = self.current_tree_widget_item
 
         checkin_out_widget = self.get_current_checkin_out_widget()
@@ -2773,9 +2773,11 @@ class Ui_searchResultsWidget(QtGui.QWidget):
         if nested_item.type in ['sobject', 'snapshot', 'process']:
             fast_controls_widget.set_item(nested_item)
             description_widget.set_item(nested_item)
-
-            if len(selected_items_list) > 1:
-                columns_viewer_widget.set_items(selected_items_list)
+            if isinstance(selected_items_list, list):
+                if len(selected_items_list) > 1:
+                    columns_viewer_widget.set_items(selected_items_list)
+                else:
+                    columns_viewer_widget.set_item(nested_item)
             else:
                 columns_viewer_widget.set_item(nested_item)
 
