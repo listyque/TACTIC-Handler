@@ -21,6 +21,7 @@ class Ui_snapshotBrowserWidget(QtGui.QWidget, ui_snapshot_browser.Ui_snapshotBro
         self.scene = QtGui.QGraphicsScene(self)
         self.shown = False
         self.scene_created = False
+        self.downloading_in_progress = False
 
         self.item_widget = None
         self.snapshots = None
@@ -530,6 +531,7 @@ class Ui_snapshotBrowserWidget(QtGui.QWidget, ui_snapshot_browser.Ui_snapshotBro
                 self.file_list.append(preview_file_obj)
 
     def download_web_preview(self, file_object):
+        self.downloading_in_progress = True
 
         if not file_object.is_downloaded():
             if file_object.get_unique_id() not in env_inst.ui_repo_sync_queue.queue_dict.keys():
@@ -538,6 +540,9 @@ class Ui_snapshotBrowserWidget(QtGui.QWidget, ui_snapshot_browser.Ui_snapshotBro
                 repo_sync_widget.download()
 
     def download_ready(self, file_obj=None):
+
+        self.downloading_in_progress = False
+
         env_inst.ui_main.set_info_status_text('')
         file_obj.set_downloaded()
         if env_inst.ui_repo_sync_queue.is_all_downloads_done():
@@ -603,7 +608,8 @@ class Ui_snapshotBrowserWidget(QtGui.QWidget, ui_snapshot_browser.Ui_snapshotBro
             self.pm3.add_pixmap(Qt4Gui.QPixmap())
 
     def update_scene(self):
-        if self.pix_list:
+
+        if self.pix_list and not self.downloading_in_progress:
 
             self.clear_scene()
 
@@ -616,11 +622,10 @@ class Ui_snapshotBrowserWidget(QtGui.QWidget, ui_snapshot_browser.Ui_snapshotBro
                 else:
                     pm.add_pixmap(pixmap.scaledToWidth(640, QtCore.Qt.SmoothTransformation))
 
-
             self.previewGraphicsView.setSceneRect(self.pm1.pixmap_item.boundingRect())
             self.previewGraphicsView.fitInView(self.pm1.pixmap_item.boundingRect(), QtCore.Qt.KeepAspectRatio)
 
-        self.imagesSlider.setValue(0)
+            self.imagesSlider.setValue(0)
 
         if not self.machine.isRunning():
             self.machine.start()
