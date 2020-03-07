@@ -327,8 +327,13 @@ class Ui_dropPlateWidget(QtGui.QWidget, ui_drop_plate.Ui_dropPlate):
                                                               '',
                                                               'All Files (*.*);;',
                                                               '', options)
+
         if files_names:
             self.threads_fill_items(files_names, exec_after_added)
+            # files_objects = self.get_files_objects(files_names)
+            # self.append_items_to_tree(files_objects)
+            # if exec_after_added:
+            #     exec_after_added(files_objects)
 
     def add_files_from_clipboard(self, exec_after_added=None):
         clipboard = QtGui.QApplication.clipboard()
@@ -342,17 +347,25 @@ class Ui_dropPlateWidget(QtGui.QWidget, ui_drop_plate.Ui_dropPlate):
         selected_items = []
 
         if self.tree_items:
+
             for item in self.dropTreeWidget.selectedItems():
-                index = item.data(0, QtCore.Qt.UserRole)
-                for i, itm in enumerate(self.tree_items):
-                    if i == index:
-                        selected_items.append(itm)
+                # index = item.data(0, QtCore.Qt.UserRole)
+                file_object = item.data(1, QtCore.Qt.UserRole)
+                # print file_object
+                # for i, itm in enumerate(self.tree_items):
+                #     print itm, i
+                #     if i == index:
+                #         selected_items.append(itm)
+                #         break
+                selected_items.append(file_object)
 
         return selected_items
 
     def get_files_objects(self, items):
         if self.includeSubfoldersCheckBox.isChecked():
+
             dirs_and_files = gf.split_files_and_dirs(items)
+
             for dirs in dirs_and_files[0]:
                 for path, subdirs, files in os.walk(dirs):
                     for name in files:
@@ -407,12 +420,14 @@ class Ui_dropPlateWidget(QtGui.QWidget, ui_drop_plate.Ui_dropPlate):
 
                 self.dropTreeWidget.addTopLevelItem(tree_item)
 
-                if self.dropTreeWidget.topLevelItemCount() < 50:  # for performance reasons
-                    self.dropTreeWidget.setItemSelected(tree_item, True)
-                else:
-                    self.dropTreeWidget.clearSelection()
+                # TODO fix this (we need to select all)
+                # if self.dropTreeWidget.topLevelItemCount() < 50:  # for performance reasons
+                self.dropTreeWidget.setItemSelected(tree_item, True)
+                # else:
+                #     self.dropTreeWidget.clearSelection()
 
                 tree_item.setData(0, QtCore.Qt.UserRole, len(self.tree_items))
+                tree_item.setData(1, QtCore.Qt.UserRole, file_obj)
                 self.tree_items.append(file_obj)
 
                 # if i+1 % 50 == 0:
@@ -427,7 +442,7 @@ class Ui_dropPlateWidget(QtGui.QWidget, ui_drop_plate.Ui_dropPlate):
         self.dropTreeWidget.resizeColumnToContents(3)
         self.dropTreeWidget.resizeColumnToContents(4)
 
-        self.dropTreeWidget.sortByColumn(0, QtCore.Qt.AscendingOrder)
+        # self.dropTreeWidget.sortByColumn(0, QtCore.Qt.AscendingOrder)
         self.progressBar.setVisible(False)
 
     def get_keep_filename(self):

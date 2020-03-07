@@ -38,31 +38,16 @@ class Ui_tacticColumnEditorWidget(QtGui.QWidget):
         self.editorLayout.setObjectName("editorLayout")
         self.verticalLayout.addLayout(self.editorLayout)
 
-        # self.verticalLayout.setStretch(1, 1)
-
     def create_ui(self):
-
-        self.create_plain_text_editor()
-
-        self.create_float_buttons()
-
         if self.sobject:
             self.customize_with_sobject()
 
         # self.create_rich_edit()
 
-        self.controls_actions()
-
     def controls_actions(self):
+
         self.plain_text_editor.cursorPositionChanged.connect(self.set_edit_mode)
         self.plain_text_editor.textChanged.connect(self.data_changed)
-        # self.descriptionTextEdit.selectionChanged.connect(self.text_edit_select)
-        self.clear_button.clicked.connect(self.unfreeze_text_edit)
-
-        self.lock_button.clicked.connect(self.freeze_text_edit)
-
-        self.edit_button.clicked.connect(self.set_edit_mode)
-        self.save_button.clicked.connect(self.save_current_column)
 
     def set_sobject(self, sobject):
         self.sobject = sobject
@@ -90,8 +75,11 @@ class Ui_tacticColumnEditorWidget(QtGui.QWidget):
 
         text_editor_columns = ['text', 'varchar']
 
-        if column_info['data_type'] in text_editor_columns:
-            self.create_text_editor_column()
+        # TODO special cases for builtin definition columns eg. Preview etc..
+
+        if column_info:
+            if column_info['data_type'] in text_editor_columns:
+                self.create_text_editor_column()
 
         # if not self.descriptionTextEdit_freezed or self.descriptionTextEdit.toPlainText() == '':
         #     self.descriptionTextEdit.blockSignals(True)
@@ -124,10 +112,16 @@ class Ui_tacticColumnEditorWidget(QtGui.QWidget):
         self.verticalLayout.addWidget(self.plain_text_editor)
 
     def create_text_editor_column(self):
+        self.create_plain_text_editor()
+        self.create_float_buttons()
+
         if not self.multiple_mode:
+
             self.old_data = self.sobject.get_value(self.column)
             self.new_data = self.sobject.get_value(self.column)
             self.plain_text_editor.setText(self.old_data)
+
+        self.controls_actions()
 
     def customize_without_item(self):
         self.unfreeze_text_edit()
@@ -160,6 +154,8 @@ class Ui_tacticColumnEditorWidget(QtGui.QWidget):
         self.clear_button_layout.addWidget(self.clear_button, 1, 3, 1, 1)
         self.clear_button_layout.addItem(QtGui.QSpacerItem(40, 20, QtGui.QSizePolicy.Expanding, QtGui.QSizePolicy.Minimum), 1, 4, 1, 1)
 
+        self.clear_button.clicked.connect(self.unfreeze_text_edit)
+
         self.lock_button = QtGui.QToolButton()
         self.lock_button.setAutoRaise(True)
         self.lock_button.setFixedSize(24, 24)
@@ -168,6 +164,8 @@ class Ui_tacticColumnEditorWidget(QtGui.QWidget):
 
         self.clear_button_layout.addWidget(self.lock_button, 1, 2, 1, 1)
         # self.clear_button_layout.addItem(QtGui.QSpacerItem(40, 20, QtGui.QSizePolicy.Expanding, QtGui.QSizePolicy.Minimum), 1, 3, 1, 1)
+
+        self.lock_button.clicked.connect(self.freeze_text_edit)
 
         self.edit_button = QtGui.QToolButton()
         self.edit_button.setAutoRaise(True)
@@ -178,12 +176,16 @@ class Ui_tacticColumnEditorWidget(QtGui.QWidget):
         self.clear_button_layout.addWidget(self.edit_button, 1, 0, 1, 1)
         self.clear_button_layout.addItem(QtGui.QSpacerItem(20, 40, QtGui.QSizePolicy.Minimum, QtGui.QSizePolicy.Expanding), 0, 0, 1, 3)
 
+        self.edit_button.clicked.connect(self.set_edit_mode)
+
         self.save_button = QtGui.QToolButton()
         self.save_button.setAutoRaise(True)
         self.save_button.setFixedSize(24, 24)
         self.save_button.setIcon(
             gf.get_icon('content-save', icons_set='mdi', color=Qt4Gui.QColor(0, 255, 128, 192)))
         self.clear_button_layout.addWidget(self.save_button, 1, 1, 1, 1)
+
+        self.save_button.clicked.connect(self.save_current_column)
 
         self.clear_button.setHidden(True)
         self.save_button.setHidden(True)

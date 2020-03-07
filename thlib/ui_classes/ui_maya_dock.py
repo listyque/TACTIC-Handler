@@ -148,6 +148,14 @@ class Ui_DockMain(MayaQWidgetDockableMixin, QtGui.QMainWindow):
 
         env_write_config(self.get_settings_dict(), filename='ui_maya_settings', unique_id='ui_main', long_abs_path=True)
 
+    def raise_window(self):
+        if self.isMaximized():
+            self.showMaximized()
+        else:
+            self.showNormal()
+
+        QtGui.QDialog.activateWindow(self)
+
     def catch_maya_closing(self):
         QtGui.QApplication.instance().aboutToQuit.connect(env_inst.ui_main.close)
         QtGui.QApplication.instance().aboutToQuit.connect(self.close)
@@ -211,6 +219,7 @@ def startup(restart=False, *args, **kwargs):
         main_tab = mf.get_maya_dock_window()[0]
         main_tab.show()
         main_tab.raise_()
+        main_tab.raise_window()
     except:
 
         def server_ping_agent():

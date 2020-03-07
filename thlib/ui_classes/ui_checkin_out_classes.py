@@ -514,6 +514,10 @@ class Ui_checkInOutWidget(QtGui.QMainWindow):
         save_snapshot.setIcon(gf.get_icon('content-save', icons_set='mdi', scale_factor=1))
         save_snapshot.triggered.connect(self.save_file)
 
+        paste_snapshot_from_clipboard = QtGui.QAction('Paste from Clipboard', self)
+        paste_snapshot_from_clipboard.setIcon(gf.get_icon('content-paste', icons_set='mdi', scale_factor=1))
+        paste_snapshot_from_clipboard.triggered.connect(self.paste_from_clipboard)
+
         open_scene = QtGui.QAction('Open scene', self)
         open_scene.setIcon(gf.get_icon('folder'))
         open_scene.triggered.connect(self.open_file)
@@ -532,22 +536,18 @@ class Ui_checkInOutWidget(QtGui.QMainWindow):
 
         open_folder = QtGui.QAction('Show Folder', self)
         open_folder.setIcon(gf.get_icon('folder-open'))
-
         open_folder.triggered.connect(self.open_folder)
 
         open_folder_vls = QtGui.QAction('Show Folder', self)
         open_folder_vls.setIcon(gf.get_icon('folder-open'))
-
         open_folder_vls.triggered.connect(lambda: self.open_folder('versionless'))
 
         open_folder_v = QtGui.QAction('Show Folder Versions', self)
         open_folder_v.setIcon(gf.get_icon('folder-open'))
-
         open_folder_v.triggered.connect(lambda: self.open_folder('versions'))
 
         open_folder_wf = QtGui.QAction('Show Watch folder', self)
         open_folder_wf.setIcon(gf.get_icon('folder-open'))
-
         open_folder_wf.triggered.connect(self.open_watch_folder)
 
         create_watch_folder = QtGui.QAction('Create Watch Folder', self)
@@ -557,12 +557,10 @@ class Ui_checkInOutWidget(QtGui.QMainWindow):
 
         edit_watch_folder = QtGui.QAction('Edit Watch Folder', self)
         edit_watch_folder.setIcon(gf.get_icon('eye'))
-
         edit_watch_folder.triggered.connect(self.edit_watch_folder)
 
         remove_watch_folder = QtGui.QAction('Delete Watch Folder', self)
         remove_watch_folder.setIcon(gf.get_icon('eye-slash'))
-
         remove_watch_folder.triggered.connect(self.delete_watch_folder)
 
         save_selected_snapshot = QtGui.QAction('Save selected objects', self)
@@ -639,6 +637,10 @@ class Ui_checkInOutWidget(QtGui.QMainWindow):
                 elif env_mode.get_mode() == 'standalone':
                     save_snapshot_additional = menu.addAction(save_snapshot, True)
                     save_snapshot_additional.clicked.connect(self.save_file_options)
+
+                menu.addSeparator()
+
+                menu.addAction(paste_snapshot_from_clipboard)
 
                 if current_tree_widget_item.get_snapshot():
 
@@ -731,6 +733,10 @@ class Ui_checkInOutWidget(QtGui.QMainWindow):
 
                     menu.addSeparator()
 
+                    menu.addAction(paste_snapshot_from_clipboard)
+
+                    menu.addSeparator()
+
                     save_snapshot_revision_additional = menu.addAction(save_snapshot_revision, True)
                     save_snapshot_revision_additional.clicked.connect(self.save_file_options)
 
@@ -791,6 +797,11 @@ class Ui_checkInOutWidget(QtGui.QMainWindow):
                 if current_tree_widget_item.have_watch_folder:
                     menu.addSeparator()
                     menu.addAction(open_folder_wf)
+
+                menu.addSeparator()
+
+                menu.addAction(paste_snapshot_from_clipboard)
+
                 menu.addSeparator()
                 menu.addAction(open_folder_vls)
                 menu.addAction(open_folder_v)
@@ -1596,6 +1607,23 @@ class Ui_checkInOutWidget(QtGui.QMainWindow):
             self.checkin_options_widget.checkinPageWidget.askReplaceRevisionCheckBox.setChecked(False)
             return True
 
+    def paste_from_clipboard(self):
+
+        clipboard = QtGui.QApplication.clipboard()
+        files_names = clipboard.text()
+        print clipboard.mimeData()
+        # print clipboard.mimeData().data()
+        print clipboard.mimeData().html()
+        print clipboard.mimeData().text()
+        print clipboard.mimeData().urls()
+        print clipboard.mimeData().imageData()
+
+
+        if files_names:
+            pass
+            # files_names = set(files_names.split('\n'))
+            # self.threads_fill_items(files_names, exec_after_added)
+
     @gf.catch_error
     def save_file(self, selected_objects=None, save_revision=False, maya_checkin=False):
 
@@ -1662,7 +1690,9 @@ class Ui_checkInOutWidget(QtGui.QMainWindow):
 
             if env_mode.get_mode() == 'standalone':
                 if not self.drop_plate_widget.get_selected_items():
+
                     def run_after_exec():
+
                         self.save_file(
                             selected_objects=selected_objects,
                             save_revision=save_revision,

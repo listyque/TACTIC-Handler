@@ -171,6 +171,7 @@ class ThreadWorker(QtCore.QRunnable):
 
     def disable_signals(self):
         self.signals_enabled = False
+        print self.signals_enabled, 'signals'
 
     def is_signals_enabled(self):
         return self.signals_enabled
@@ -220,6 +221,7 @@ class ThreadWorker(QtCore.QRunnable):
 
     def emit_finished(self):
         if self.signals_enabled:
+            print 'EMITTING FINISHED'
             self.signals.finished.emit()
 
     def emit_error(self, error):
@@ -229,6 +231,7 @@ class ThreadWorker(QtCore.QRunnable):
 
     def emit_result(self, result):
         if self.signals_enabled:
+            print 'EMITTING RESULT'
             self.signals.result.emit(result)
 
     def emit_progress(self, progress, obj=None):
@@ -680,7 +683,7 @@ def html_to_hex(text_html):
 
 def hex_to_html(text_hex):
     if text_hex:
-        detect_zlib = text_hex.rfind('zlib:')
+        detect_zlib = text_hex.rfind('zlib:', 0, 5)
         if detect_zlib == 0:
             hex_to_text = zlib.decompress(binascii.a2b_hex(text_hex[5:]))
         else:
@@ -1125,6 +1128,7 @@ def handle_drop_mime_data(mime_data):
 
 def add_item_to_tree(tree_widget, tree_item, tree_item_widget=None, insert_pos=None):
     if isinstance(tree_widget, QtGui.QTreeWidget):
+
         if insert_pos is not None:
             tree_widget.insertTopLevelItem(insert_pos, tree_item)
         else:
@@ -1212,6 +1216,7 @@ def add_commit_item(parent_item, item_widget):
     tree_item = QtGui.QTreeWidgetItem()
 
     tree_item_widget = Ui_commitItemWidget(item_widget=item_widget)
+    tree_item_widget.tree_item = tree_item
 
     add_item_to_tree(parent_item, tree_item, tree_item_widget)
 
@@ -1244,7 +1249,6 @@ def add_sobject_item(parent_item, parent_widget, sobject, stype, item_info, inse
         'simple_view': item_info['simple_view'],
         'forced_creation': item_info.get('forced_creation'),
     }
-
     tree_item = QtGui.QTreeWidgetItem()
     tree_item.setChildIndicatorPolicy(QtGui.QTreeWidgetItem.ShowIndicator)
 
@@ -1261,6 +1265,7 @@ def add_sobject_item(parent_item, parent_widget, sobject, stype, item_info, inse
     else:
         add_item_to_tree(parent_item, tree_item, tree_item_widget, insert_pos=insert_pos)
         tree_item_widget.setParent(tree_item_widget.parent())
+
         return tree_item_widget
 
 

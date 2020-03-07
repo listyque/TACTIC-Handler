@@ -2078,6 +2078,7 @@ class Ui_searchResultsWidget(QtGui.QWidget):
         self.resultsLayout.setSpacing(0)
         self.resultsLayout.setContentsMargins(0, 0, 0, 0)
         self.resultsLayout.setObjectName("resultsLayout")
+
         self.resultsSplitter = QtGui.QSplitter(self)
         self.resultsSplitter.setOrientation(QtCore.Qt.Horizontal)
         self.resultsSplitter.setObjectName("resultsSplitter")
@@ -2105,8 +2106,11 @@ class Ui_searchResultsWidget(QtGui.QWidget):
         self.resultsVersionsTreeWidget.setAllColumnsShowFocus(True)
         self.resultsVersionsTreeWidget.setWordWrap(True)
         self.resultsVersionsTreeWidget.setHeaderHidden(True)
+        self.resultsVersionsTreeWidget.setIndentation(0)
+        self.resultsVersionsTreeWidget.setSelectionBehavior(QtGui.QAbstractItemView.SelectRows)
+        self.resultsVersionsTreeWidget.setSelectionMode(QtGui.QAbstractItemView.ExtendedSelection)
         self.resultsVersionsTreeWidget.setObjectName("resultsVersionsTreeWidget")
-        self.resultsVersionsTreeWidget.headerItem().setText(0, "1")
+        # self.resultsVersionsTreeWidget.headerItem().setText(0, "1")
         self.versionsLayout.addWidget(self.resultsVersionsTreeWidget)
         self.resultsLayout.addWidget(self.resultsSplitter)
 
@@ -2192,6 +2196,7 @@ class Ui_searchResultsWidget(QtGui.QWidget):
         self.update_search_results()
 
     def update_search_results(self, limit=None, offset=None,  refresh=False):
+
         # collecting new filters, limit, offset, etc...
         # self.get_info_dict()
 
@@ -2446,12 +2451,15 @@ class Ui_searchResultsWidget(QtGui.QWidget):
         gf.recursive_close_tree_item_widgets(self.resultsTreeWidget)
         self.resultsTreeWidget.clear()
         # self.resultsVersionsTreeWidget.clear()
-
+        # self.resultsTreeWidget.setUniformRowHeights(True)
         self.progress_bar.setVisible(True)
         total_sobjects = len(self.sobjects.keys()) - 1
 
-        for i, sobject in enumerate(self.sobjects.values()):
+        # s = gf.time_it()
 
+        # tree_items_list = []
+        # tree_widgets_list = []
+        for i, sobject in enumerate(self.sobjects.values()):
             last_state = None
             if self.info['state']:
                 last_state = self.info['state'].get(i)
@@ -2470,10 +2478,22 @@ class Ui_searchResultsWidget(QtGui.QWidget):
                 item_info,
                 ignore_dict=None,
             )
+
+            # tree_items_list.append(tree_widget.tree_item)
+            # tree_widgets_list.append(tree_widget)
             if total_sobjects:
                 if i+1 % 20 == 0:
                     self.progress_bar.setValue(int(i+1 * 100 / total_sobjects))
 
+        # gf.time_it(s)
+        # s = gf.time_it()
+        # self.resultsTreeWidget.addTopLevelItems(tree_items_list)
+        # for tree_item, tree_item_widget in zip(tree_items_list, tree_widgets_list):
+        #     tree_item_widget.setParent(self.resultsTreeWidget)
+        #     self.resultsTreeWidget.setItemWidget(tree_item, 0, tree_item_widget)
+        #
+        # # print tree_items_list
+        # gf.time_it(s)
         self.set_items_count(int(self.query_info.get('total_sobjects_query_count')))
 
         if not self.info.get('simple_view'):
@@ -2751,7 +2771,18 @@ class Ui_searchResultsWidget(QtGui.QWidget):
         # if not snapshot_browser.visibleRegion().isEmpty():
         snapshot_browser.set_item_widget(item)
 
-    def browse_tasks(self, item):
+    def browse_tasks(self, items_list):
+
+        checkin_out_widget = self.get_current_checkin_out_widget()
+        tasks_widget = checkin_out_widget.get_tasks_widget()
+        sobjects_list = []
+        for item in items_list:
+            sobjects_list.append(item.sobject)
+
+        if sobjects_list:
+            tasks_widget.set_sobjects(sobjects_list)
+
+    def browse_task(self, item):
 
         checkin_out_widget = self.get_current_checkin_out_widget()
         tasks_widget = checkin_out_widget.get_tasks_widget()
@@ -2776,12 +2807,14 @@ class Ui_searchResultsWidget(QtGui.QWidget):
             if isinstance(selected_items_list, list):
                 if len(selected_items_list) > 1:
                     columns_viewer_widget.set_items(selected_items_list)
+                    self.browse_tasks(selected_items_list)
                 else:
                     columns_viewer_widget.set_item(nested_item)
+                    self.browse_task(nested_item)
             else:
                 columns_viewer_widget.set_item(nested_item)
+                self.browse_task(nested_item)
 
-            self.browse_tasks(nested_item)
             self.browse_snapshot(nested_item)
 
         else:

@@ -117,6 +117,11 @@ class Ui_snapshotBrowserWidget(QtGui.QWidget, ui_snapshot_browser.Ui_snapshotBro
             self.move_slider_backward()
 
     def create_preview_widget(self):
+
+        self.pm1 = None
+        self.pm2 = None
+        self.pm3 = None
+
         self.previewGraphicsView.setScene(self.scene)
         self.previewGraphicsView.setAlignment(QtCore.Qt.AlignVCenter | QtCore.Qt.AlignHCenter)
         self.create_on_scene_layout()
@@ -940,13 +945,14 @@ class Ui_snapshotBrowserWidget(QtGui.QWidget, ui_snapshot_browser.Ui_snapshotBro
         return settings_dict
 
     def graphicsSceneResizeEvent(self, event):
-        if self.pm1.pixmap_item:
-            rect = self.pm1.pixmap_item.boundingRect()
-        else:
-            rect = QtCore.QRect(0, 0, 512, 512)
+        if self.pm1:
+            if self.pm1.pixmap_item:
+                rect = self.pm1.pixmap_item.boundingRect()
+            else:
+                rect = QtCore.QRect(0, 0, 512, 512)
 
-        self.previewGraphicsView.setSceneRect(rect)
-        self.previewGraphicsView.fitInView(rect, QtCore.Qt.KeepAspectRatio)
+            self.previewGraphicsView.setSceneRect(rect)
+            self.previewGraphicsView.fitInView(rect, QtCore.Qt.KeepAspectRatio)
 
         event.accept()
 

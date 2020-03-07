@@ -880,7 +880,29 @@ class SObject(object):
     def is_snapshots_need_update(self):
         return self.info.get('__have_updates__')
 
+    @staticmethod
+    def get_multiple_tasks_sobjects(sobjects_list, process=None):
+
+        sobjects_codes = []
+        project_code = sobjects_list[0].project.info['code']
+        for sobject in sobjects_list:
+            sobjects_codes.append(sobject.info['code'])
+
+        search_type = 'sthpw/task'
+        if process:
+            filters = [('search_code', 'in', '|'.join(sobjects_codes)), ('process', process), ('project_code', project_code)]
+        else:
+            filters = [('search_code', 'in', '|'.join(sobjects_codes)), ('project_code', project_code)]
+
+        sobjects, info = get_sobjects(search_type, filters, project_code=project_code)
+
+        if sobjects:
+            return group_sobject_by(sobjects, 'search_code')
+        else:
+            return {}
+
     def get_tasks_sobjects(self, process=None):
+
         # Use group_sobject_by()
         search_type = 'sthpw/task'
         if process:
@@ -1768,18 +1790,17 @@ def execute_procedure_serverside(func, kwargs, project=None, return_dict=True, s
                     final_result = json.loads(ret_val, strict=False)
                 else:
                     final_result = ret_val
+
+                if isinstance(final_result, (str, unicode)) and return_dict:
+                    # Decompress long query
+                    js = gf.hex_to_html(final_result)
+                    if js:
+                        if js.startswith(('{', '"', '[')):
+                            final_result = json.loads(js, strict=False)
         else:
             final_result = ret_val
     else:
         final_result = ret_val
-
-
-    if isinstance(final_result, (str, unicode)):
-        # Decompress long query
-        js = gf.hex_to_html(final_result)
-        if js:
-            if js.startswith(('{', '"', '[')):
-                final_result = json.loads(js, strict=False)
 
     return final_result
 
@@ -2381,7 +2402,6 @@ def get_virtual_snapshot(search_key, context, files_dict, snapshot_type='file', 
 def checkin_snapshot(search_key, context, snapshot_type=None, is_revision=False, description=None, version=None,
                      update_versionless=True, only_versionless=False, keep_file_name=False, repo_name=None, virtual_snapshot=None,
                      files_dict=None, mode=None, create_icon=False, files_objects=None):
-
     files_info = {
         'version_files': [],
         'version_files_paths': [],
@@ -2442,22 +2462,22 @@ def checkin_snapshot(search_key, context, snapshot_type=None, is_revision=False,
     }
 
     server = server_start(project=project_code['project_code'])
+
     if mode == 'upload':
         server.start('Upload Checkin', u'Upload Checkin from Tactic Handler by: {}'.format(env_inst.get_current_login()))
 
         for version_file in files_info['version_files']:
             server.upload_file(version_file)
+        result = execute_procedure_serverside(tq.create_snapshot_extended, kwargs, project=project_code['project_code'], return_dict=False, server=server)
 
-        result = execute_procedure_serverside(tq.create_snapshot_extended, kwargs, project=project_code['project_code'], return_dict=True, server=server)
+        server.finish(u'Upload Checkin from Tactic Handler by: {}. Finished.'.format(env_inst.get_current_login()))
 
-        server.finish('Upload Checkin Done')
-    elif mode in ['inplace', 'preallocated']:
+    elif mode in ['inplace', 'preallocate']:
         server.start('Inplace Checkin', u'Inplace Checkin from Tactic Handler by: {}'.format(env_inst.get_current_login()))
 
-        result = execute_procedure_serverside(tq.create_snapshot_extended, kwargs, project=project_code['project_code'], return_dict=True, server=server)
+        result = execute_procedure_serverside(tq.create_snapshot_extended, kwargs, project=project_code['project_code'], return_dict=False, server=server)
 
-        server.finish('Inplace Checkin Done')
-
+        server.finish(u'Inplace Checkin from Tactic Handler by: {}. Finished.'.format(env_inst.get_current_login()))
 
     if result:
         if isinstance(result, (str, unicode)):
@@ -2753,7 +2773,13 @@ def generate_skey(pipeline_code=None, code=None):
 
 def group_sobject_by(sobjects_dict, group_by):
     grouped = collections.defaultdict(list)
-    for sobject in sobjects_dict.values():
+
+    if isinstance(sobjects_dict, list):
+        sobjects = sobjects_dict
+    else:
+        sobjects = sobjects_dict.values()
+
+    for sobject in sobjects:
         dic = sobject.info
         grouped[dic.get(group_by)].append(sobject)
 

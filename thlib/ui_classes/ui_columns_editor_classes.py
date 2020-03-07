@@ -190,8 +190,9 @@ class Ui_columnsEditorWidget(QtGui.QWidget):
     def set_item(self, item):
         if not self.visibleRegion().isEmpty():
             self.item = item
-
-            self.fill_definition_combo_box()
+            s = gf.time_it()
+            # self.fill_definition_combo_box()
+            gf.time_it(s)
 
             if self.item:
                 self.customize_with_item()
@@ -251,6 +252,7 @@ class Ui_columnsEditorWidget(QtGui.QWidget):
 
         self.multiple_mode = False
 
+        # TODO save tabs names with their stypes
         self.current_active_tab = self.columns_tab_widget.currentIndex()
 
         self.columns_tab_widget.clear()
@@ -262,12 +264,12 @@ class Ui_columnsEditorWidget(QtGui.QWidget):
         idx = self.definition_combo_box.currentIndex()
         current_definition = self.definition_combo_box.itemData(idx, QtCore.Qt.UserRole)
         if not current_definition:
-            current_definition = 'table'
+            current_definition = 'edit'
 
         for i in stype.get_definition(current_definition):
             table_columns.append(i.get('name'))
 
-        exclude_columns = ['__search_type__', '__search_key__', '__tasks_count__', '__notes_count__', '__snapshots__']
+        exclude_columns = ['__search_type__', '__search_key__', '__tasks_count__', '__notes_count__', '__snapshots__', 'preview']
 
         if self.item.type == 'snapshot':
             sobject = self.item.get_snapshot()
@@ -277,8 +279,7 @@ class Ui_columnsEditorWidget(QtGui.QWidget):
         if sobject:
             self.set_dock_title(u'Editing Columns of: {0}'.format(sobject.get_title()))
 
-            sobject_dict = sobject.get_info()
-            for column, val in sobject_dict.items():
+            for column in table_columns:
                 if column not in exclude_columns:
                     if column in table_columns:
                         column_editor = Ui_tacticColumnEditorWidget(sobject, column, stype)

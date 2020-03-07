@@ -49,7 +49,7 @@ class Ui_checkinOptionsPageWidget(object):
         self.checkinMiscOptionsLayout.addWidget(self.label_2, 7, 0, 1, 1)
         self.displayLimitSpinBox = QtGui.QSpinBox(self.checkinMiscOptionsGroupBox)
         self.displayLimitSpinBox.setMinimum(20)
-        self.displayLimitSpinBox.setMaximum(500)
+        self.displayLimitSpinBox.setMaximum(5000)
         self.displayLimitSpinBox.setSingleStep(5)
         self.displayLimitSpinBox.setObjectName("displayLimitSpinBox")
         self.checkinMiscOptionsLayout.addWidget(self.displayLimitSpinBox, 7, 2, 1, 1)

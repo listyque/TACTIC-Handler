@@ -133,8 +133,8 @@ class commitWidget(QtGui.QWidget):
     def update_args_dict(self):
 
         # updating args_dict
-        self.args_dict['explicit_filename'] = self.explicit_file_name_edit.text().strip().replace(' ', '_')
-        self.args_dict['description'] = self.description_widget.get_description('plain')
+        self.args_dict['explicit_filename'] = u'{0}'.format(self.explicit_file_name_edit.text().strip().replace(' ', '_'))
+        self.args_dict['description'] = u'{0}'.format(self.description_widget.get_description('plain'))
         self.args_dict['update_versionless'] = self.update_versionless_checkbox.isChecked()
         self.args_dict['only_versionless'] = self.only_versionless
 
@@ -154,6 +154,14 @@ class commitWidget(QtGui.QWidget):
 
         commit_queue_ui.set_progress_indicator_on()
         commit_queue_ui.set_progress(progress, info_dict)
+
+    def interrupt_commit(self,):
+
+        thread_worker = getattr(self.interrupt_commit, 'thread_worker')
+
+        # print thread_worker
+        # print dir(thread_worker)
+        thread_worker.disable_signals()
 
     def commit(self, single_commit=False, single_threaded=False):
         self.single_commit = single_commit
@@ -425,6 +433,7 @@ class commitWidget(QtGui.QWidget):
             self.only_versionless_checkbox.stateChanged.connect(self.apply_to_multiple_items)
             self.context_edit.editingFinished.connect(self.apply_to_multiple_items)
             self.repo_combo_box.currentIndexChanged.connect(self.apply_to_multiple_items)
+            self.keep_file_name_checkbox.stateChanged.connect(self.apply_to_multiple_items)
         else:
             self.context_as_file_name_checkbox.stateChanged.connect(self.switch_context_as_filename)
             self.keep_file_name_checkbox.stateChanged.connect(self.switch_keep_filename)
@@ -473,12 +482,16 @@ class commitWidget(QtGui.QWidget):
         self.drop_plate.dropEvent = self.drop_plate_dropEvent
 
     def apply_to_multiple_items(self):
+
         for commit_item in self.commit_items_list:
             commit_widget = commit_item.get_commit_widget()
             commit_widget.update_versionless_checkbox.setChecked(self.update_versionless_checkbox.checkState())
             commit_widget.only_versionless_checkbox.setChecked(self.only_versionless_checkbox.checkState())
             commit_widget.context_edit.setText(self.context_edit.text())
+            commit_widget.edit_context(self.context_edit.text())
             commit_widget.repo_combo_box.setCurrentIndex(self.repo_combo_box.currentIndex())
+            commit_widget.keep_file_name_checkbox.setCheckState(self.keep_file_name_checkbox.checkState())
+            commit_widget.refresh_virtual_snapshot()
 
     def add_links_to_upload_list(self, links):
         for link in links:
@@ -713,6 +726,7 @@ class commitWidget(QtGui.QWidget):
                 'total_count': 6
             }
             virtual_snapshot_worker.emit_progress(0, info_dict)
+
             virtual_snapshot = tc.get_virtual_snapshot(
                 search_key=self.args_dict['search_key'],
                 context=self.args_dict['context'],
@@ -726,6 +740,7 @@ class commitWidget(QtGui.QWidget):
                 ignore_keep_file_name=self.args_dict['ignore_keep_file_name'],
                 )
             virtual_snapshot_worker.emit_progress(1, info_dict)
+
             return virtual_snapshot
 
         virtual_snapshot_worker = gf.get_thread_worker(
@@ -748,6 +763,7 @@ class commitWidget(QtGui.QWidget):
                 'total_count': 2
             }
             virtual_snapshot_worker.emit_progress(0, info_dict)
+            s = gf.time_it()
             virtual_snapshot = tc.get_virtual_snapshot(
                 search_key=self.args_dict['search_key'],
                 context=self.args_dict['context'],
@@ -761,6 +777,7 @@ class commitWidget(QtGui.QWidget):
                 ignore_keep_file_name=self.args_dict['ignore_keep_file_name'],
                 )
 
+            gf.time_it(s)
             virtual_snapshot_worker.emit_progress(1, info_dict)
 
             return virtual_snapshot
@@ -770,7 +787,8 @@ class commitWidget(QtGui.QWidget):
             thread_pool=env_inst.get_thread_pool('commit_queue/server_thread_pool'),
             result_func=self.fill_virtual_snapshot,
             progress_func=self.checkin_progress,
-            error_func=gf.error_handle
+            error_func=gf.error_handle,
+            stop_func=self.interrupt_commit,
         )
 
         virtual_snapshot_worker.start()
@@ -976,6 +994,8 @@ class Ui_commitQueueWidget(QtGui.QMainWindow, Ui_commitQueue):
 
     def customize_ui(self):
         self.filesQueueTreeWidget.setSelectionMode(QtGui.QAbstractItemView.ExtendedSelection)
+        self.filesQueueTreeWidget.setStyleSheet(gf.get_qtreeview_style())
+        self.filesQueueTreeWidget.setFocusPolicy(QtCore.Qt.NoFocus)
 
     def create_files_queue_tree_context_menu(self):
         self.filesQueueTreeWidget.setContextMenuPolicy(QtCore.Qt.CustomContextMenu)
@@ -1108,7 +1128,16 @@ class Ui_commitQueueWidget(QtGui.QMainWindow, Ui_commitQueue):
         if self.progress_bar_widget.maximum() == progress + 1:
             self.set_progress_indicator_off()
 
+    def stop_progress(self):
+        for commit_item in self.queue_list:
+            # print commit_item
+            commit_widget = commit_item.get_commit_widget()
+
+            commit_widget.interrupt_commit()
+
     def clear_queue(self):
+
+        self.stop_progress()
 
         self.filesQueueTreeWidget.clear()
         self.queue_list = []

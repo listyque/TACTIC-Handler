@@ -17,7 +17,7 @@ def prepare_serverside_script(func, kwargs, return_dict=True, has_return=True, s
     args_list = []
     for key, arg in kwargs.items():
         if isinstance(arg, (str, unicode)):
-            args_list.append(u"{}='{}'".format(key, arg.replace('"', '\"')))
+            args_list.append(u"{}='{}'".format(key, arg.replace('"', '\"').replace('\n', '\\n').replace('\r', '\\r')))
         else:
             # args_list.append(u'{}={}'.format(key, arg))
             # Workaround for slow MAKO with long lines
@@ -530,7 +530,8 @@ def get_dirs_with_naming(search_key=None, process_list=None):
         processes = pipeline.get_process_names()
 
         # getting sub processes
-        processes_sobjects = pipeline.get_process_sobjects()
+        pipeline.get_process_sobject('dummy')
+        processes_sobjects = pipeline.process_sobjects
         for process_sobject in processes_sobjects.values():
             parent_process = process_sobject.get_value('code')
             if parent_process:
@@ -853,7 +854,8 @@ def query_sobjects(search_type, filters=[], order_bys=[], project_code=None, lim
         sobject_dict['__snapshots__'] = snapshots_list
 
     if compressed_return:
-        return 'zlib:' + binascii.b2a_hex(zlib.compress(json.dumps(result, separators=(',', ':')), 9))
+        # return 'zlib:' + binascii.b2a_hex(zlib.compress(json.dumps(result, separators=(',', ':')), 9))
+        return '{0}{1}'.format('zlib:', binascii.b2a_hex(zlib.compress(json.dumps(result, separators=(',', ':')).encode(), 9)).decode())
     else:
         return json.dumps(result, separators=(',', ':'))
 
@@ -961,6 +963,38 @@ def edit_multiple_instance_sobjects(project_code, insert_search_keys=[], exclude
         # parent_sobject.remove_instance(child_sobject)
 
     return 'ok'
+
+
+def edit_multiple_tasks_sobjects(project_code, parent_search_keys=None, data=None):
+
+    from pyasm.search import SearchType
+
+    server.set_project(project_code)
+
+    # for search_key in insert_search_keys:
+    #
+    #     child_search_type, child_code = server.split_search_key(search_key)
+    #     parent_search_type, parent_code = server.split_search_key(parent_key)
+    #
+    #     dst_sobject= server.query(parent_search_type, [('code', parent_code)], return_sobjects=True)[0]
+    #     src_sobject = server.query(child_search_type, [('code', child_code)], return_sobjects=True)[0]
+    #
+    #     instance = SearchType.create(instance_type)
+    #     instance.add_related_connection(src_sobject, dst_sobject, src_path=path)
+    #     instance.commit()
+    #
+    # for search_key in exclude_search_keys:
+    #
+    #     child_search_type, child_code = server.split_search_key(search_key)
+    #     parent_search_type, parent_code = server.split_search_key(parent_key)
+    #
+    #     child_sobject = server.query(child_search_type, [('code', child_code)], return_sobjects=True)[0]
+    #     parent_sobject = server.query(parent_search_type, [('code', parent_code)], return_sobjects=True)[0]
+    #
+    #     child_sobject.remove_instance(parent_sobject)
+    #     # parent_sobject.remove_instance(child_sobject)
+    #
+    # return 'ok'
 
 
 def get_virtual_snapshot_extended(search_key, context, files_dict, snapshot_type="file", is_revision=False, level_key=None, keep_file_name=False, explicit_filename=None, version=None, update_versionless=True, ignore_keep_file_name=False, checkin_type='file'):

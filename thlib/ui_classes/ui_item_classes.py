@@ -174,6 +174,7 @@ class Ui_commitItemWidget(QtGui.QWidget, ui_commit_item.Ui_commitItem):
         self.commit_widget = None
         self.args_dict = None
         self.item_widget = item_widget
+        self.tree_item = None
         self.progress_wdg = QtGui.QWidget(self)
         self.progress_wdg.setHidden(True)
         self.commited = False
@@ -213,6 +214,10 @@ class Ui_commitItemWidget(QtGui.QWidget, ui_commit_item.Ui_commitItem):
         self.set_description(self.commit_widget.description)
 
         self.set_preview()
+
+    def scroll_to_current_item(self):
+        tree_widget = self.tree_item.treeWidget()
+        tree_widget.scrollToItem(self.tree_item)
 
     def set_preview(self, pix=None, image_path=None):
         pixmap = None
@@ -295,6 +300,8 @@ class Ui_commitItemWidget(QtGui.QWidget, ui_commit_item.Ui_commitItem):
         self.progress_bar_wdg.setMaximum(info_dict['total_count'])
         self.progress_bar_wdg.setValue(progress + 1)
         self.progress_bar_wdg.setFormat(u'%v / %m {status_text}'.format(**info_dict))
+
+        self.scroll_to_current_item()
 
     def is_commit_finished(self):
         return self.commited
@@ -798,38 +805,10 @@ class Ui_itemWidget(QtGui.QWidget):
     def create_ui(self):
         self.create_overlay_layout()
 
-        #
-        # self.check_expand_state(self.get_children_states())
-        #
-        #
-        # self.previewLabel.setText(u'<span style=" font-size:14pt; font-weight:600; color:#828282;">{0}</span>'.format(
-        #     gf.gen_acronym(self.get_title()))
-        # )
-        # self.itemColorLine.setStyleSheet('QFrame { border: 0px; background-color: %s;}' % self.stype.get_stype_color())
-        #
-        # self.create_item_info_widget()
-        #
-        # if self.sobject:
-        #     self.fill_sobject_info()
-        #
-        #     # SLOWEST PART:
-        #     self.fill_info_items()
-        #
-        #     if gf.get_value_from_config(cfg_controls.get_checkin(), 'getPreviewsThroughHttpCheckbox') == 1:
-        #         self.set_web_preview()
-        #     else:
-        #         self.set_preview()
-        #
-        # self.check_watch_folder()
-        #
-        # self.create_drop_widget()
+        self.check_expand_state(self.get_children_states())
 
         self.controls_actions()
         self.created = True
-
-        # shortcut = QtGui.QShortcut(Qt4Gui.QKeySequence(self.tr('Ctrl+D', 'File|Open')), self)
-        # shortcut.activated.connect(self.asd)
-
 
         self.set_indent(12)
 
@@ -980,14 +959,22 @@ class Ui_itemWidget(QtGui.QWidget):
 
     def show_additional_controls(self):
         # self.expand_item_button_anm_open.start()
-        self.sync_with_repo_tool_button_anm_open.start()
-        self.watch_folder_tool_button_anm_open.start()
+        if not self.sobject.is_snapshots_need_update():
+            self.sync_with_repo_tool_button_anm_open.start()
+
+        if not self.have_watch_folder:
+            self.watch_folder_tool_button_anm_open.start()
+
         self.relations_tool_button_anm_open.start()
 
     def hide_additional_controls(self):
         # self.expand_item_button_anm_close.start()
-        self.sync_with_repo_tool_button_anm_close.start()
-        self.watch_folder_tool_button_anm_close.start()
+        if not self.sobject.is_snapshots_need_update():
+            self.sync_with_repo_tool_button_anm_close.start()
+
+        if not self.have_watch_folder:
+            self.watch_folder_tool_button_anm_close.start()
+
         self.relations_tool_button_anm_close.start()
 
     def checkin_dropped_files(self, files_list):
@@ -1250,6 +1237,7 @@ class Ui_itemWidget(QtGui.QWidget):
                     color=Qt4Gui.QColor(100, 200, 100),
                     color_active=Qt4Gui.QColor(120, 220, 120),
                 ))
+                self.watch_folder_tool_button_anm_open.start()
         else:
             if self.have_watch_folder:
                 self.watchFolderToolButton.setIcon(gf.get_icon(
@@ -1258,6 +1246,7 @@ class Ui_itemWidget(QtGui.QWidget):
                     color=Qt4Gui.QColor(200, 100, 100),
                     color_active=Qt4Gui.QColor(220, 120, 120),
                 ))
+                self.watch_folder_tool_button_anm_open.start()
 
     def set_watch_folder_enabled(self):
         self.watchFolderToolButton.setChecked(True)
@@ -1339,6 +1328,7 @@ class Ui_itemWidget(QtGui.QWidget):
 
         if self.sobject.is_snapshots_need_update():
             self.syncWithRepoToolButton.setIcon(gf.get_icon('cloud-sync', color=Qt4Gui.QColor(80, 180, 80), icons_set='mdi'))
+            self.sync_with_repo_tool_button_anm_open.start()
 
     def fill_info_items(self):
         table_columns = []
@@ -2102,8 +2092,6 @@ class Ui_itemWidget(QtGui.QWidget):
 
             if not self.info['simple_view']:
 
-                self.check_expand_state(self.get_children_states())
-
                 self.previewLabel.setText(
                     u'<span style=" font-size:14pt; font-weight:600; color:#828282;">{0}</span>'.format(
                         gf.gen_acronym(self.get_title()))
@@ -2724,7 +2712,6 @@ class Ui_snapshotItemWidget(QtGui.QWidget):
 
     def create_ui_raw(self):
         self.gridLayout = QtGui.QGridLayout(self)
-        # self.setMinimumSize(260, 50)
         self.setMinimumSize(260, 60)
         self.setMaximumHeight(80)
         self.setContentsMargins(0, 0, 0, 0)
@@ -2881,21 +2868,6 @@ class Ui_snapshotItemWidget(QtGui.QWidget):
     def set_indent(self, indent=24):
         result_indent = self.get_depth() * indent
         self.indent_spacer.changeSize(result_indent, 0)
-
-    def set_drop_indicator_on(self):
-        if self.drop_wdg.isHidden():
-            self.lay = QtGui.QVBoxLayout(self.drop_wdg)
-            self.lay.setSpacing(0)
-            self.lay.setContentsMargins(0, 0, 0, 0)
-            self.drop_wdg.setLayout(self.lay)
-            self.drop_wdg.setStyleSheet('QLabel {padding: 0px;border: 0px dashed grey; background-color: rgba(0,0,100,128);}')
-            self.label = QtGui.QLabel('DROP HERE')
-            self.lay.addWidget(self.label)
-            self.drop_wdg.show()
-            self.drop_wdg.resize(self.size())
-
-    def set_drop_indicator_off(self):
-        self.drop_wdg.setHidden(True)
 
     def highlight_context_in_file_name(self):
         context = self.get_context()

@@ -89,13 +89,17 @@ class Ui_coloredComboBox(QtGui.QComboBox):
 
 
 class Ui_simpleTaskWidget(QtGui.QFrame):
-    def __init__(self, process, parent_sobject, tasks_sobjects_list=None, parent=None):
+    def __init__(self, process, parent_sobject, tasks_sobjects_list=None, parent_sobjects_list=None, parent=None):
         super(self.__class__, self).__init__(parent=parent)
 
         self.process = process
         self.parent_sobject = parent_sobject
         self.tasks_sobjects_list = tasks_sobjects_list
+        self.parent_sobjects_list = parent_sobjects_list
         self.current_task_sobject = None
+        self.multiple_mode = False
+        self.total_tasks = 0
+
         self.task_data_dict = {}
         self.initial_task_data_dict = {}
 
@@ -125,6 +129,7 @@ class Ui_simpleTaskWidget(QtGui.QFrame):
 
     def reset_ui(self):
         self.tasks_sobjects_list = []
+        self.parent_sobjects_list = []
         self.current_task_sobject = None
         self.task_data_dict = {}
         self.initial_task_data_dict = {}
@@ -140,11 +145,15 @@ class Ui_simpleTaskWidget(QtGui.QFrame):
 
     def set_something_changed(self):
         self.setStyleSheet('QFrame#simple_task_widget { border-radius: 3px; background-color: rgba(255,255,255,24);}')
-        self.save_task_button.setHidden(False)
+
+        if self.multiple_mode:
+            self.show_save_multiple_button()
+        else:
+            self.show_save_button()
 
     def set_empty_task(self):
         self.setStyleSheet('QFrame#simple_task_widget { border-radius: 3px; background-color: rgba(255,255,255,0);}')
-        self.save_task_button.setHidden(True)
+        self.hide_save_button()
 
     def statuses_combo_box_changed(self, index):
         self.set_something_changed()
@@ -183,14 +192,33 @@ class Ui_simpleTaskWidget(QtGui.QFrame):
         self.tasks_options_button.setAutoRaise(True)
 
         self.save_task_button = QtGui.QToolButton()
-        self.save_task_button.setIcon(gf.get_icon('content-save', icons_set='mdi', scale_factor=1))
         self.save_task_button.setToolTip('Save Task')
         self.save_task_button.setMaximumSize(24, 24)
         self.save_task_button.setAutoRaise(True)
-        self.save_task_button.setHidden(True)
+        self.save_task_button_opacity = QtGui.QGraphicsOpacityEffect(self.save_task_button)
+        self.save_task_button.setGraphicsEffect(self.save_task_button_opacity)
+        self.hide_save_button()
 
         self.main_layout.addWidget(self.save_task_button, 0, 2)
         self.main_layout.addWidget(self.tasks_options_button, 0, 3)
+
+    def hide_save_button(self):
+        self.save_task_button_opacity.setOpacity(0)
+        self.save_task_button.setEnabled(False)
+
+    def show_save_button(self):
+        self.save_task_button_opacity.setOpacity(1)
+        self.save_task_button.setIcon(gf.get_icon('content-save', icons_set='mdi', scale_factor=1))
+        self.save_task_button.setEnabled(True)
+
+    def hide_save_multiple_button(self):
+        self.save_task_button_opacity.setOpacity(0)
+        self.save_task_button.setEnabled(False)
+
+    def show_save_multiple_button(self):
+        self.save_task_button_opacity.setOpacity(1)
+        self.save_task_button.setIcon(gf.get_icon('content-save-all', icons_set='mdi', scale_factor=1))
+        self.save_task_button.setEnabled(True)
 
     def open_task_menu(self):
         menu = self.watch_items_menu()
@@ -258,16 +286,38 @@ class Ui_simpleTaskWidget(QtGui.QFrame):
 
         self.main_layout.addWidget(self.users_combo_box, 2, 1, 1, 3)
 
+    def add_tasks_sobjects(self, tasks_sobjects_list=None, parent_sobjects_list=None):
+        if tasks_sobjects_list:
+            if not self.tasks_sobjects_list:
+                self.tasks_sobjects_list = []
+            self.tasks_sobjects_list.extend(tasks_sobjects_list)
+
+        if parent_sobjects_list:
+            self.parent_sobjects_list = parent_sobjects_list
+
+    def init_with_multiple_tasks(self):
+        self.multiple_mode = True
+
+        if self.tasks_sobjects_list:
+            self.current_task_sobject = self.tasks_sobjects_list[0]
+            self.customize_statuses_combo(self.current_task_sobject)
+            self.customize_users_combo(self.current_task_sobject)
+            self.customize_process_label()
+            self.hide_save_button()
+            self.hide_save_multiple_button()
+
     def set_tasks_sobjects(self, tasks_sobjects_list):
+
+        self.multiple_mode = False
+
         if tasks_sobjects_list:
             self.tasks_sobjects_list = tasks_sobjects_list
 
         if self.tasks_sobjects_list:
-
-            # TODO multiple users view MAY BE
-
             self.current_task_sobject = self.tasks_sobjects_list[0]
             self.customize_by_task_sobject(self.current_task_sobject)
+
+        self.hide_save_button()
 
     def customize_by_task_sobject(self, task_sobject):
         self.current_task_sobject = task_sobject
@@ -276,8 +326,6 @@ class Ui_simpleTaskWidget(QtGui.QFrame):
             self.customize_statuses_combo(task_sobject)
             self.customize_users_combo(task_sobject)
             self.customize_process_label()
-
-        self.save_task_button.setHidden(True)
 
     def create_filler(self):
 
@@ -389,7 +437,9 @@ class Ui_simpleTaskWidget(QtGui.QFrame):
             self.users_combo_box.setCurrentIndex(user_index+1)
 
     def customize_process_label(self):
-        if len(self.tasks_sobjects_list) > 0:
+        if self.multiple_mode:
+            self.process_label.setText(u'{} ~'.format(self.get_process_label()))
+        elif len(self.tasks_sobjects_list) > 0:
             self.process_label.setText(u'{} | {}'.format(self.get_process_label(), len(self.tasks_sobjects_list)))
         else:
             self.process_label.setText(self.get_process_label())
@@ -494,39 +544,84 @@ class Ui_simpleTaskWidget(QtGui.QFrame):
 
     def simple_save_task(self):
 
-        self.save_task_button.setHidden(True)
+        self.hide_save_button()
         changed_data = self.get_changed_data()
 
         # fetching data to commit
         if changed_data:
-            do_commit = False
-            data = {}
-            for column, val in changed_data.items():
-                if val not in ['--user--', '--status--']:
-                    do_commit = True
-                    if self.current_task_sobject:
-                        self.current_task_sobject.set_value(column, val)
-                    else:
-                        # If no current tasks we create it later
-                        data[column] = val
-                elif self.initial_task_data_dict.get(column) != val:
-                    if self.current_task_sobject:
-                        do_commit = True
-                        self.current_task_sobject.set_value(column, '')
-            if do_commit:
-                if self.current_task_sobject:
-                    self.current_task_sobject.commit(triggers=True)
-                else:
-                    data['process'] = self.process
-                    tc.server_start(project=self.parent_sobject.project.get_code()).insert(
-                        'sthpw/task',
-                        data,
-                        parent_key=self.parent_sobject.get_search_key(),
-                        triggers=True
-                    )
-                    self.refresh_tasks_sobjects()
+            if self.multiple_mode:
+                self.commit_multiple_task(changed_data)
             else:
-                self.set_empty_task()
+                self.commit_single_task(changed_data)
+
+    def commit_multiple_task(self, changed_data):
+        print 'COMMINT MULTIPLE', self.current_task_sobject
+        do_commit = False
+        data = {}
+        for column, val in changed_data.items():
+            if val not in ['--user--', '--status--']:
+                do_commit = True
+                if self.current_task_sobject:
+                    self.current_task_sobject.set_value(column, val)
+                else:
+                    # If no current tasks we create it later
+                    data[column] = val
+            elif self.initial_task_data_dict.get(column) != val:
+                if self.current_task_sobject:
+                    do_commit = True
+                    self.current_task_sobject.set_value(column, '')
+
+        print do_commit, data
+        if do_commit:
+            data['process'] = self.process
+
+            # update multiple sobjects
+            for task_sobject in self.tasks_sobjects_list:
+                print task_sobject.get_search_key()
+
+            # insert new sobjects if it doesn't created earlier
+            print data
+            for sobject in self.parent_sobjects_list:
+                print sobject.get_search_key()
+
+
+
+            tc.server_start(project=self.parent_sobject.project.get_code()).insert_multiple(
+                'sthpw/task',
+                data,
+                parent_key=self.parent_sobject.get_search_key(),
+                triggers=True
+            )
+
+    def commit_single_task(self, changed_data):
+        do_commit = False
+        data = {}
+        for column, val in changed_data.items():
+            if val not in ['--user--', '--status--']:
+                do_commit = True
+                if self.current_task_sobject:
+                    self.current_task_sobject.set_value(column, val)
+                else:
+                    # If no current tasks we create it later
+                    data[column] = val
+            elif self.initial_task_data_dict.get(column) != val:
+                if self.current_task_sobject:
+                    do_commit = True
+                    self.current_task_sobject.set_value(column, '')
+        if do_commit:
+            if self.current_task_sobject:
+                self.current_task_sobject.commit(triggers=True)
+            else:
+                data['process'] = self.process
+                tc.server_start(project=self.parent_sobject.project.get_code()).insert(
+                    'sthpw/task',
+                    data,
+                    parent_key=self.parent_sobject.get_search_key(),
+                    triggers=True
+                )
+                self.refresh_tasks_sobjects()
+        else:
+            self.set_empty_task()
 
 
 class Ui_tasksDockWidget(QtGui.QWidget):
@@ -535,8 +630,10 @@ class Ui_tasksDockWidget(QtGui.QWidget):
 
         self.project = project
         self.sobject = None
+        self.sobjects_list = []
         self.task_widgets_list = []
         self.tasks_sobjects = None
+        self.multiple_mode = False
 
         self.create_ui()
         self.controls_actions()
@@ -666,12 +763,30 @@ class Ui_tasksDockWidget(QtGui.QWidget):
             #     task_widget.set_tasks_sobjects(task_sobjects)
 
     def refresh_tasks(self):
-        if self.sobject:
-            self.task_widgets_list = []
 
+        if self.multiple_mode:
+            if self.sobjects_list:
+                self.task_widgets_list = []
+                self.create_filler_tasks()
+        elif self.sobject:
+            self.task_widgets_list = []
             self.create_filler_tasks()
 
             self.query_tasks()
+
+    def query_multiple_tasks(self):
+        def get_tasks_sobjects_agent():
+            return tc.SObject.get_multiple_tasks_sobjects(sobjects_list=self.sobjects_list)
+
+        env_inst.set_thread_pool(None, 'server_query/server_thread_pool')
+
+        get_tasks_sobjects_worker = gf.get_thread_worker(
+            get_tasks_sobjects_agent,
+            env_inst.get_thread_pool('server_query/server_thread_pool'),
+            result_func=self.fill_multiple_tasks,
+            error_func=gf.error_handle,
+        )
+        get_tasks_sobjects_worker.try_start()
 
     def query_tasks(self):
 
@@ -750,6 +865,16 @@ class Ui_tasksDockWidget(QtGui.QWidget):
     def clear_scroll_area(self):
         self.scroll_area_layout.clear_items()
 
+    def fill_multiple_tasks(self, query_result):
+        if query_result:
+            for code, tasks_sobjects in query_result.items():
+                groupped_tasks_sobjects = tc.group_sobject_by(tasks_sobjects, 'process')
+                for task_widget in self.task_widgets_list:
+                    task_widget.add_tasks_sobjects(groupped_tasks_sobjects.get(task_widget.get_process()), self.sobjects_list)
+
+            for task_widget in self.task_widgets_list:
+                task_widget.init_with_multiple_tasks()
+
     def fill_tasks(self, query_result):
 
         self.tasks_sobjects, info = query_result
@@ -788,6 +913,8 @@ class Ui_tasksDockWidget(QtGui.QWidget):
 
     def set_sobject(self, sobject, force=False):
 
+        self.multiple_mode = False
+
         # Do something only if widget is visible to user
         if force:
             self.task_widgets_list = []
@@ -797,6 +924,24 @@ class Ui_tasksDockWidget(QtGui.QWidget):
             self.task_widgets_list = []
             self.sobject = sobject
             self.query_tasks()
+
+    def set_sobjects(self, sobjects_list, force=False):
+
+        self.multiple_mode = True
+
+        # Do something only if widget is visible to user
+        if force:
+            self.set_dock_title(u'Multiple Tasks Editing Mode for: {0} items'.format(len(sobjects_list)))
+            self.task_widgets_list = []
+            self.sobjects_list = sobjects_list
+            self.create_filler_tasks()
+            self.query_multiple_tasks()
+        elif not self.visibleRegion().isEmpty():
+            self.set_dock_title(u'Multiple Tasks Editing Mode for: {0} items'.format(len(sobjects_list)))
+            self.task_widgets_list = []
+            self.sobjects_list = sobjects_list
+            self.create_filler_tasks()
+            self.query_multiple_tasks()
 
 
 # class Ui_tasksWidgetMain(QtGui.QMainWindow):
