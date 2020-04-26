@@ -6,7 +6,7 @@ import sys
 from thlib.side.Qt import QtWidgets as QtGui
 from thlib.side.Qt import QtGui as Qt4Gui
 
-from thlib.environment import env_mode, env_inst  #, start_api_client
+from thlib.environment import env_mode, env_inst
 import thlib.global_functions as gf
 import thlib.tactic_classes as tc
 import thlib.ui_classes.ui_main_classes as ui_main_classes
@@ -97,8 +97,6 @@ def startup():
     env_inst.ui_super.setApplicationName('TacticHandler_Client')
     env_inst.ui_super.setStyle('plastique')
     setPaletteFromDct(palette)
-
-    # start_api_client()
 
     def server_ping_agent():
         return tc.server_ping()

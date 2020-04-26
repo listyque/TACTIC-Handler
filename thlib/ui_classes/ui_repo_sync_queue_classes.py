@@ -612,7 +612,11 @@ class Ui_repoSyncDialog(QtGui.QDialog):
             preset_dict = self.get_current_preset_dict()
 
         if self.sobject:
-            self.sobject.update_snapshots()
+            if preset_dict.get('only_updates'):
+                self.sobject.update_snapshots(filters=[('timestamp', 'is after', self.get_last_sync_date())])
+            else:
+                self.sobject.update_snapshots()
+
             self.sync_by_pipeline(self.sobject, preset_dict)
             self.sync_children(self.sobject, preset_dict)
             self.save_last_sync_date()
@@ -642,6 +646,7 @@ class Ui_repoSyncDialog(QtGui.QDialog):
         self.save_new_preset_button.setEnabled(enable)
         self.controls_collapsable.setEnabled(enable)
         self.presets_combo_box.setEnabled(enable)
+        self.download_queue.clear_queue_push_button.setEnabled(enable)
 
     def sync_by_pipeline(self, sobject=None, preset_dict=None):
         if not sobject:
@@ -690,6 +695,9 @@ class Ui_repoSyncDialog(QtGui.QDialog):
 
         versionless_list = []
         versions_list = []
+
+        versionless_only = self.versionlessSyncRadioButton.isChecked()
+
         if builtin_preset_dict:
             all_precesses = dict(enabled_processes.items() + builtin_preset_dict.items())
         else:
@@ -707,11 +715,12 @@ class Ui_repoSyncDialog(QtGui.QDialog):
                         for code, snapshot in versionless_snapshots.items():
                             versionless_list.extend(snapshot.get_files_objects())
 
-                        versions_snapshots = context_obj.get_versions()
-                        for code, snapshot in versions_snapshots.items():
-                            versions_list.extend(snapshot.get_files_objects())
+                        if not versionless_only:
+                            versions_snapshots = context_obj.get_versions()
+                            for code, snapshot in versions_snapshots.items():
+                                versions_list.extend(snapshot.get_files_objects())
 
-        if self.versionlessSyncRadioButton.isChecked():
+        if versionless_only:
             self.add_file_objects_to_queue(versionless_list)
         else:
             self.add_file_objects_to_queue(versionless_list)
@@ -765,6 +774,22 @@ class Ui_repoSyncDialog(QtGui.QDialog):
         if initial_index == int(settings_dict.get('presets_combo_box')):
             self.apply_repo_sync_preset(initial_index)
 
+    def get_last_sync_date(self, sobject=None):
+
+        if not sobject:
+            sobject = self.sobject
+
+        group_path = 'ui_search/{0}/{1}/{2}/sobjects_conf'.format(
+            self.stype.project.info['type'],
+            self.stype.project.info['code'],
+            self.stype.get_code().split('/')[1]
+        )
+
+        return env_read_config(filename=sobject.get_code(),
+            unique_id=group_path,
+            long_abs_path=True
+        )
+
     def save_last_sync_date(self, sobject=None):
 
         if not sobject:
@@ -783,6 +808,13 @@ class Ui_repoSyncDialog(QtGui.QDialog):
             unique_id=group_path,
             long_abs_path=True
         )
+
+    def refresh_search_widget(self):
+
+        checkin_out = env_inst.get_check_tree(self.stype.get_project().get_code(), 'checkin_out', self.stype.get_code())
+
+        if checkin_out:
+            checkin_out.refresh_current_results()
 
     def readSettings(self):
         group_path = 'ui_search/{0}/{1}/{2}'.format(
@@ -815,6 +847,7 @@ class Ui_repoSyncDialog(QtGui.QDialog):
         if not self.sync_in_progress:
             self.writeSettings()
             self.deleteLater()
+            self.refresh_search_widget()
             event.accept()
         else:
             buttons = (('Ok', QtGui.QMessageBox.NoRole), ('Interrupt', QtGui.QMessageBox.ActionRole))

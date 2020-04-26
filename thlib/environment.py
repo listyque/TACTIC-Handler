@@ -11,15 +11,17 @@ import inspect
 import collections
 import platform
 import json
-from thlib.side.Qt import QtCore
+from cPickle import dumps, loads
+from thlib.side.Qt import QtCore, QtNetwork
 from async_gui.engine import Task
 from async_gui.toolkits.pyqt import PyQtEngine
+from api_connector import AppServer, AppClient
 
 
 CFG_FORMAT = 'json'  # set this to 'ini' if you want to use QSettings instead of json
 SERVER_THREADS_COUNT = 1  # max connections to remote tactic server
 HTTP_THREADS_COUNT = 4  # max connections to http
-MAX_RECURSION_DEPTH = 65536  # maximum recursion for stability reasons
+MAX_RECURSION_DEPTH = 65535  # maximum recursion for stability reasons
 SPECIALIZED = None  # can be string, made for personal script packs, e.g. to create pre-configured pack
 
 sys.setrecursionlimit(MAX_RECURSION_DEPTH)
@@ -209,6 +211,8 @@ class Inst(object):
     thread_pools = {}
     async_engine = PyQtEngine().async
     async_task = Task
+
+    conn = None
 
     def get_current_project(self):
         return self.current_project
@@ -442,10 +446,11 @@ class Mode(object):
     Available modes listed in self.mods
     """
     def __init__(self):
-        self.modes = ['maya', 'houdini', '3dsmax', 'nuke', 'standalone']
+        self.modes = ['maya', 'houdini', '3dsmax', 'nuke', 'standalone', 'api_server']
         self.status = False
         self.current_mode = 'standalone'
         self.current_path = None
+        self.current_path_path = None
         self.get_current_path()
         self.platform = platform.system()
         if SPECIALIZED:
@@ -469,6 +474,16 @@ class Mode(object):
         else:
             self.current_path = os.path.dirname(os.path.split(__file__)[0])
             return self.current_path.decode(locale.getpreferredencoding())
+
+    def get_current_python_path(self):
+        if self.current_path_path:
+            return self.current_path_path.decode(locale.getpreferredencoding())
+        else:
+            self.current_path_path = sys.executable
+            if self.current_mode == 'maya':
+                self.current_path_path = sys.executable.replace('maya.exe', 'mayapy.exe')
+
+            return self.current_path_path.decode(locale.getpreferredencoding())
 
     def get_platform(self):
         return self.platform
@@ -635,6 +650,11 @@ class Env(object):
             return self.server_presets
         else:
             self.server_presets = self.server_presets_defaults['server_presets']
+
+    @staticmethod
+    def get_server_preset(preset_name):
+        unique_id = '{0}/environment_config/server_presets'.format(env_mode.get_node())
+        return env_read_config(filename=preset_name, unique_id=unique_id)
 
     def set_cur_srv_preset(self, current):
         self.server_presets['current'] = current
@@ -991,7 +1011,175 @@ class Controls(object):
 cfg_controls = Controls()
 
 
-def start_api_client():
+@singleton
+class ApiConnectorWrapper(object):
+    """
+    This class allow execute tactic_classes methods remotely
 
-    filepath = 'tactic_api_client.py'
-    subprocess.Popen(('python', filepath), stdin=subprocess.PIPE, stderr=subprocess.PIPE, stdout=subprocess.PIPE)
+    Usage example:
+
+    from thlib.environment import env_api
+
+    client = env_api.execute_method('get_sobjects',
+        search_type='sthpw/login?project=sthpw',
+        filters=[])
+
+    def handoff(result=None):
+        print result
+
+    env_api.get_results(client, handoff)
+
+    """
+    api_server = None
+    starting_api_server = False
+
+    def spawn_api_server(self, parent=None):
+
+        if self.api_server:
+            self.api_server.stop()
+
+        self.api_server = AppServer(6000, '127.0.0.1')
+        # self.api_server.accepted.connect(self.server_accepted_connection)
+        self.api_server.received.connect(self.server_handle_input_data)
+
+        if parent:
+            self.api_server.setParent(parent)
+        else:
+            self.api_server.setParent(env_inst.ui_main)
+
+        self.api_server.run()
+
+    # def server_accepted_connection(self, socket):
+    #     print 'Accepted!', socket
+    #     self.api_server.send_to_client(socket, 'pass_phrase')
+
+    def server_handle_input_data(self, socket, data):
+
+        print socket
+        print data
+
+        method_name, args, kwargs = loads(str(data))
+
+        if method_name == 'close_server':
+            print('Got closing server Command')
+            print('---')
+            result = ('ret_val', 'closing_server')
+            self.api_server.send(socket, dumps(result))
+            self.api_server.stop()
+
+            print('Closing Server')
+            env_inst.ui_super.quit()
+        else:
+            t = gf().time_it()
+            print('Executing method: {0}'.format(method_name))
+            try:
+                result = self.execute_tc_method(method_name, *args, **kwargs)
+            except Exception as expected:
+                print(expected)
+                result = ('__exception__', expected.__dict__)
+            else:
+                result = ('ret_val', result)
+
+            gf().time_it(t, message='Duration: ')
+            dumped_data = dumps(result)
+            print('Sending: {0}'.format(gf().sizes(len(dumped_data))))
+            print('---')
+
+            self.api_server.send(socket, dumped_data)
+
+    def close_server(self, parent=None):
+
+        def handoff(result=None):
+            print(result)
+
+        client = self.execute_method('close_server')
+
+        env_api.get_results(client, handoff)
+        if parent:
+            client.setParent(parent)
+        else:
+            client.setParent(env_inst.ui_main)
+
+        client.waitForReadyRead()
+        return client
+
+    @staticmethod
+    def execute_tc_method(method_name, *args, **kwargs):
+        method = getattr(tc(), method_name)
+        return method(*args, **kwargs)
+
+    @staticmethod
+    def get_api_client():
+        return AppClient(6000, '127.0.0.1')
+
+    def execute_method(self, method_name, parent=None, *args, **kwargs):
+
+        # ensure server is running
+        if method_name != 'close_server':
+            self.start_api_server_app()
+
+        api_client = self.get_api_client()
+
+        def send(client):
+            client.send(dumps((method_name, args, kwargs)))
+
+        api_client.connected.connect(lambda client=api_client: send(client))
+
+        if parent:
+            api_client.setParent(parent)
+        else:
+            api_client.setParent(env_inst.ui_main)
+
+        return api_client
+
+    # def send_method_result_to_client(self, socket):
+    #     self.api_server.send(socket, dumps(tc().get_all_projects_and_logins(True)))
+
+    def get_results(self, client, handoff_method):
+        catch_error = gf().catch_error
+
+        @catch_error
+        def handoff(cl, data=None):
+
+            in_data = str(data)
+            if not in_data.startswith('key:'):
+
+                result = loads(str(data))
+                if result[0] == '__exception__':
+                    cl.stop()
+                    raise Exception(result[1].get('faultString'))
+                elif result[0] == 'ret_val':
+                    handoff_method(result[1])
+
+            cl.stop()
+
+        client.received.connect(lambda data, cl=client: handoff(cl, data))
+        client.run()
+
+    def start_api_server_app(self):
+
+        # Checking if we already trying to execute new process of api_server
+        if not self.starting_api_server:
+            self.starting_api_server = True
+
+            server_api_socket = QtNetwork.QLocalSocket()
+
+            def start_api():
+                filepath = u'{0}/tactic_api_server.py'.format(env_mode.get_current_path())
+                subprocess.Popen((env_mode.get_current_python_path(), filepath), shell=True, stdin=subprocess.PIPE,
+                                 stderr=subprocess.PIPE, stdout=subprocess.PIPE)
+
+                self.starting_api_server = False
+
+            def api_running():
+                self.starting_api_server = False
+
+            server_api_socket.error.connect(start_api)
+            server_api_socket.connected.connect(api_running)
+
+            server_api_socket.connectToServer('TacticHandler_TacticApiServer', QtCore.QIODevice.ReadOnly)
+
+            server_api_socket.close()
+
+
+env_api = ApiConnectorWrapper()

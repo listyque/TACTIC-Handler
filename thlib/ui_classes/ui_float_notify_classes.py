@@ -54,7 +54,7 @@ class Ui_floatNotifyWidget(QtGui.QDialog, ui_notifications.Ui_floatNotify):
         self.hideToolButton.clicked.connect(self.hide_notify_window)
         # self.skipToolButton.clicked.connect(self.manual_update)
 
-        self.trayIcon.activated.connect(self.show_notify_window)
+        # self.trayIcon.activated.connect(self.show_notify_window)
         self._updateTimer.timeout.connect(self.perform_update)
 
     def setIcon(self):

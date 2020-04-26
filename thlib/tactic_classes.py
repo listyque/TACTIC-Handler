@@ -199,8 +199,10 @@ def server_fast_ping():
 
 def split_search_key(search_key):
 
+    server = server_start()
+
     if search_key.startswith('sthpw'):
-        search_type, asset_code = server_start().split_search_key(search_key)
+        search_type, asset_code = server.split_search_key(search_key)
         return {
             'search_type': search_type,
             'asset_code': asset_code,
@@ -208,11 +210,11 @@ def split_search_key(search_key):
             'project_code': 'sthpw'
         }
 
-    search_type, asset_code = server_start().split_search_key(search_key)
+    search_type, asset_code = server.split_search_key(search_key)
     if len(search_type.split('?project=')) > 1:
         pipeline_code, project_code = search_type.split('?project=')
     else:
-        search_type, project_code = server_start().split_search_key(search_key)
+        search_type, project_code = server.split_search_key(search_key)
         asset_code = None
         pipeline_code = None
 
@@ -627,7 +629,8 @@ class Pipeline(object):
 
         self.pipeline = collections.OrderedDict()
 
-        self.init_pipeline()
+        if self.info.get('pipeline'):
+            self.init_pipeline()
 
     def get_all_pipeline_process(self):
         return self.info['stypes_processes']
@@ -649,9 +652,20 @@ class Pipeline(object):
 
         return process_names_list
 
+    def get_all_tasks_pipelines_names(self):
+        tasks_pipelines_names_list = set()
+
+        for process in self.pipeline.values():
+            task_pipeline = process.get('task_pipeline')
+            if task_pipeline:
+                tasks_pipelines_names_list.add(task_pipeline)
+
+        return list(tasks_pipelines_names_list)
+
     def init_pipeline(self):
 
         all_connectionslist = []
+
         pipeline = BeautifulSoup(self.info['pipeline'], 'html.parser')
 
         for pipe in pipeline.find_all(name='connect'):
@@ -666,8 +680,20 @@ class Pipeline(object):
                 if pipe.attrs['name'] == connect['to']:
                     self.pipeline[pipe.attrs.get('name')]['children'] = connect
 
-    def get_pipeline_info(self, pipeline_name):
-        return self.pipeline.get(pipeline_name)
+    def get_process_info(self, process):
+        return self.pipeline.get(process)
+
+    def get_process_label(self, process):
+        process_info = self.get_process_info(process)
+        if process_info:
+            process_label = process_info.get('label')
+            if process_label:
+                return process_label
+            else:
+                return process.capitalize()
+        else:
+            return process.capitalize()
+
 
 # SObject class
 class SObject(object):
@@ -733,28 +759,31 @@ class SObject(object):
         self.update_dict = {}
 
     # Snapshots by search code
-    def query_snapshots(self, s_code=None, s_id=None, process=None, order_bys=None, user=None):
+    def query_snapshots(self, s_code=None, s_id=None, process=None, order_bys=None, filters=None):
         """
         Query for Snapshots
         :param s_code: Code of asset related to snapshot
         :param process: Process code
         :param order_bys: Order By
-        :param user: Optional users names
+        :param filters: Optional filters
         :return:
         """
 
         if process:
             if s_code:
-                filters = [('search_code', s_code), ('process', process), ('project_code', self.project.info['code'])]
+                filters_expr = [('search_code', s_code), ('process', process), ('project_code', self.project.info['code'])]
             elif s_id:
-                filters = [('search_id', s_id), ('process', process), ('project_code', self.project.info['code'])]
+                filters_expr = [('search_id', s_id), ('process', process), ('project_code', self.project.info['code'])]
         else:
             if s_code:
-                filters = [('search_code', s_code), ('project_code', self.project.info['code'])]
+                filters_expr = [('search_code', s_code), ('project_code', self.project.info['code'])]
             elif s_id:
-                filters = [('search_id', s_id), ('project_code', self.project.info['code'])]
+                filters_expr = [('search_id', s_id), ('project_code', self.project.info['code'])]
 
-        return server_start(project=self.project.info['code']).query_snapshots(filters=filters, order_bys=order_bys, include_files=True)
+        if filters:
+            filters_expr.extend(filters)
+
+        return server_start(project=self.project.info['code']).query_snapshots(filters=filters_expr, order_bys=order_bys, include_files=True)
 
     # Tasks by search code
     # DEPRECATED
@@ -796,11 +825,11 @@ class SObject(object):
         return server.query(search_type, filters)
 
     # Query snapshots to update current
-    def update_snapshots(self, order_bys=None):
+    def update_snapshots(self, order_bys=None, filters=None):
         if self.info.get('code'):
-            snapshot_dict = self.query_snapshots(s_code=self.info['code'], order_bys=order_bys)
+            snapshot_dict = self.query_snapshots(s_code=self.info['code'], order_bys=order_bys, filters=filters)
         else:
-            snapshot_dict = self.query_snapshots(s_id=self.info['id'], order_bys=order_bys)
+            snapshot_dict = self.query_snapshots(s_id=self.info['id'], order_bys=order_bys, filters=filters)
 
         self.init_snapshots(snapshot_dict)
 
@@ -1117,7 +1146,7 @@ class SObject(object):
             else:
                 return u"@SOBJECT({0}['{1}', '{2}'])".format(related_type, related_from_column, related_to_code)
 
-    def get_related_sobjects(self, child_stype=None, parent_stype=None, get_all_snapshots=False, path='child'):
+    def get_related_sobjects(self, child_stype=None, parent_stype=None, get_all_snapshots=False, path='child', filters=None):
 
         if not child_stype:
             child_stype = self.get_stype()
@@ -1130,11 +1159,15 @@ class SObject(object):
             child_stype.get_code(),
             self.project.get_code()
         )
-        filters = [('_expression', 'in', self.get_related_sobjects_tel_string(child_stype, parent_stype, path=path))]
+
+        expr_filters = [('_expression', 'in', self.get_related_sobjects_tel_string(child_stype, parent_stype, path=path))]
+
+        if filters:
+            expr_filters.extend(filters)
 
         return get_sobjects(
             search_type=built_process,
-            filters=filters,
+            filters=expr_filters,
             order_bys=order_bys,
             get_all_snapshots=get_all_snapshots,
         )
@@ -2394,6 +2427,8 @@ def get_virtual_snapshot(search_key, context, files_dict, snapshot_type='file', 
 
     project_code = split_search_key(search_key)
 
+    dl.log('Getting Virtual Snapshot', group_id='server/checkin')
+
     virtual_snapshot = execute_procedure_serverside(tq.get_virtual_snapshot_extended, kwargs, project=project_code['project_code'], return_dict=True)
 
     return virtual_snapshot
@@ -2464,14 +2499,24 @@ def checkin_snapshot(search_key, context, snapshot_type=None, is_revision=False,
     server = server_start(project=project_code['project_code'])
 
     if mode == 'upload':
+        s = gf.time_it()
+        dl.log('Starting Upload Checkin ' + str(server), group_id='server/checkin')
         server.start('Upload Checkin', u'Upload Checkin from Tactic Handler by: {}'.format(env_inst.get_current_login()))
+        gf.time_it(s, message='Transaction start: ')
 
         for version_file in files_info['version_files']:
+            dl.log('Uploading File ' + version_file + ' ' + str(server), group_id='server/checkin')
             server.upload_file(version_file)
+            dl.log('Done Uploading File ' + version_file + ' ' + str(server), group_id='server/checkin')
+
+        gf.time_it(s, message='Upload time: ')
+        dl.log('Begin Snapshot creation ' + search_key + ' ' + str(server), group_id='server/checkin')
+
         result = execute_procedure_serverside(tq.create_snapshot_extended, kwargs, project=project_code['project_code'], return_dict=False, server=server)
-
+        gf.time_it(s, message='On Server execution: ')
+        dl.log('Upload Finished' + ' ' + str(server), group_id='server/checkin')
         server.finish(u'Upload Checkin from Tactic Handler by: {}. Finished.'.format(env_inst.get_current_login()))
-
+        gf.time_it(s, message='Transaction End: ')
     elif mode in ['inplace', 'preallocate']:
         server.start('Inplace Checkin', u'Inplace Checkin from Tactic Handler by: {}'.format(env_inst.get_current_login()))
 

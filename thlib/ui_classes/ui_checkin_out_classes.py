@@ -16,7 +16,7 @@ import ui_notes_classes
 
 import thlib.ui.checkin_out.ui_checkin_out_options_dialog as ui_checkin_out_options_dialog
 from thlib.ui_classes.ui_repo_sync_queue_classes import Ui_repoSyncDialog
-from thlib.ui_classes.ui_custom_qwidgets import MenuWithLayout, Ui_namingEditorWidget
+from thlib.ui_classes.ui_custom_qwidgets import MenuWithLayout  # , Ui_namingEditorWidget
 from thlib.ui_classes.ui_drop_plate_classes import Ui_dropPlateWidget
 from thlib.ui_classes.ui_snapshot_browser_classes import Ui_snapshotBrowserWidget
 from thlib.ui_classes.ui_fast_controls_classes import Ui_fastControlsWidget

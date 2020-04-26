@@ -127,11 +127,15 @@ class FSObserver(Observer):
 
 
 class ThreadSignals(QtCore.QObject):
+    started = QtCore.Signal()
     finished = QtCore.Signal()
     error = QtCore.Signal(tuple)
     result = QtCore.Signal(object)
     progress = QtCore.Signal(object, object)
     stop = QtCore.Signal(object)
+
+    def __init__(self, parent=None):
+        super(ThreadSignals, self).__init__(parent=parent)
 
 
 class ThreadWorker(QtCore.QRunnable):
@@ -145,8 +149,8 @@ class ThreadWorker(QtCore.QRunnable):
     :type agent: function
 
     """
-    def __init__(self, agent, thread_pool):
-        super(ThreadWorker, self).__init__()
+    def __init__(self, agent, thread_pool, parent=None):
+        super(ThreadWorker, self).__init__(parent=parent)
         # Settings
         self.setAutoDelete(True)
 
@@ -171,7 +175,6 @@ class ThreadWorker(QtCore.QRunnable):
 
     def disable_signals(self):
         self.signals_enabled = False
-        print self.signals_enabled, 'signals'
 
     def is_signals_enabled(self):
         return self.signals_enabled
@@ -193,6 +196,11 @@ class ThreadWorker(QtCore.QRunnable):
 
     def get_error_tuple(self):
         return self.error_tuple
+
+    def started_func(self, func):
+        if func:
+            vars(func)['thread_worker'] = self
+            self.signals.started.connect(func)
 
     def finished_func(self, func=None):
         if func:
@@ -216,12 +224,16 @@ class ThreadWorker(QtCore.QRunnable):
 
     def stop_func(self, func=None):
         if func:
-            vars(func)['thread_worker'] = self
+            import random
+            vars(func)['thread_worker'] = random.randint(0, 99999)
             self.signals.stop.connect(func)
+
+    def emit_started(self):
+        if self.signals_enabled:
+            self.signals.started.emit()
 
     def emit_finished(self):
         if self.signals_enabled:
-            print 'EMITTING FINISHED'
             self.signals.finished.emit()
 
     def emit_error(self, error):
@@ -231,7 +243,6 @@ class ThreadWorker(QtCore.QRunnable):
 
     def emit_result(self, result):
         if self.signals_enabled:
-            print 'EMITTING RESULT'
             self.signals.result.emit(result)
 
     def emit_progress(self, progress, obj=None):
@@ -244,7 +255,11 @@ class ThreadWorker(QtCore.QRunnable):
     @QtCore.Slot()
     def run(self):
         try:
-            result = self.agent()
+            if self.signals_enabled:
+                self.emit_started()
+                result = self.agent()
+            else:
+                result = None
         except Exception as expected:
             if self.signals_enabled:
                 traceback.print_exc(file=sys.stdout)
@@ -1955,7 +1970,7 @@ def tuple_to_qsize(qtuple, qtype='size'):
 
 def socket_push(obj):
     socket = QtNetwork.QLocalSocket()
-    socket.connectToServer('TacticHandler_TacticApiClient', QtCore.QIODevice.WriteOnly)
+    socket.connectToServer('TacticHandler_TacticApiServer', QtCore.QIODevice.WriteOnly)
     socket.write(binascii.b2a_hex(cPickle.dumps(obj)))
     socket.waitForBytesWritten(20000)
 

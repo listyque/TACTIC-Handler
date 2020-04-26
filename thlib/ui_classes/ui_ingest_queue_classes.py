@@ -4,7 +4,7 @@ from thlib.side.Qt import QtCore
 from thlib.environment import env_inst, env_read_config, env_write_config
 import thlib.global_functions as gf
 import thlib.tactic_classes as tc
-from thlib.ui_classes.ui_misc_classes import Ui_collapsableWidget
+from thlib.ui_classes.ui_custom_qwidgets import Ui_collapsableWidget
 
 
 class Ui_ingestDialog(QtGui.QDialog):

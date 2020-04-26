@@ -1802,9 +1802,16 @@ class TacticServerStub(object):
         path - the name of the file that will be uploaded
         
         '''
+
+        from thlib.environment import dl
+
+        dl.log('getting UploadMultipart', group_id='tactic_stub')
+
         from common import UploadMultipart
         upload = UploadMultipart()
         upload.set_ticket(my.transaction_ticket)
+
+        dl.log('got UploadMultipart', group_id='tactic_stub')
 
         # If a portal set up is used, alter server name for upload
         if my.site:
@@ -1828,11 +1835,14 @@ class TacticServerStub(object):
             if sub_dir:
                 upload.set_subdir(sub_dir)
 
-
-
+        dl.log('setting set_upload_server ' + upload_server_url, group_id='tactic_stub')
         upload.set_upload_server(upload_server_url)
         #upload.set_subdir("blah")
-        upload.execute(path)
+        dl.log('execute upload ' + path, group_id='tactic_stub')
+        try:
+            upload.execute(path)
+        except:
+            raise TacticApiException('Uploading Failed!')
 
         # upload a file
         #filename = os.path.basename(path)

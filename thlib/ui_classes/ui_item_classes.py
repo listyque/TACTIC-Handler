@@ -15,7 +15,7 @@ from thlib.environment import env_tactic, env_inst, cfg_controls, dl
 from thlib.ui_classes.ui_repo_sync_queue_classes import Ui_repoSyncDialog
 import thlib.global_functions as gf
 import thlib.tactic_classes as tc
-from thlib.ui_classes.ui_custom_qwidgets import Ui_elideLabel
+from thlib.ui_classes.ui_custom_qwidgets import Ui_elideLabel, MenuWithLayout
 import thlib.ui.items.ui_commit_item as ui_commit_item
 import thlib.ui.items.ui_preview_item as ui_preview_item
 import ui_tasks_classes as tasks_widget
@@ -609,9 +609,10 @@ class Ui_itemWidget(QtGui.QWidget):
         self.syncWithRepoToolButton.setMinimumSize(30, 30)
         self.syncWithRepoToolButton.setMaximumSize(30, 30)
         self.syncWithRepoToolButton.setObjectName("syncWithRepoToolButton")
-        self.syncWithRepoToolButton.setStyleSheet("QToolButton { border: 0px; background-color: transparent;}")
+        self.syncWithRepoToolButton.setStyleSheet("QToolButton { border: 0px; background-color: transparent;} QToolButton::menu-indicator {background: transparent;}")
         self.syncWithRepoToolButton.setIcon(gf.get_icon('cloud-sync', icons_set='mdi', color=Qt4Gui.QColor(160, 160, 160)))
         self.syncWithRepoToolButton.setToolTip('Open Repository Sync Dialog')
+        self.syncWithRepoToolButton.setPopupMode(QtGui.QToolButton.InstantPopup)
 
         effect = QtGui.QGraphicsOpacityEffect(self.syncWithRepoToolButton)
         effect.setOpacity(0)
@@ -628,10 +629,6 @@ class Ui_itemWidget(QtGui.QWidget):
         self.sync_with_repo_tool_button_anm_open.setEndValue(1)
         self.sync_with_repo_tool_button_anm_open.setEasingCurve(QtCore.QEasingCurve.InSine)
         self.syncWithRepoToolButton.setGraphicsEffect(effect)
-
-        sync_dialog = QtGui.QAction('Open Repo Sync', self.syncWithRepoToolButton)
-        sync_dialog.triggered.connect(self.create_sync_dialog)
-        self.syncWithRepoToolButton.addAction(sync_dialog)
 
         self.horizontalLayout_2.addWidget(self.syncWithRepoToolButton)
 
@@ -672,7 +669,7 @@ class Ui_itemWidget(QtGui.QWidget):
         self.relationsToolButton.setObjectName("relationsToolButton")
         self.relationsToolButton.setMinimumSize(30, 30)
         self.relationsToolButton.setMaximumSize(30, 30)
-        self.relationsToolButton.setStyleSheet("QToolButton { border: 0px; background-color: transparent;}")
+        self.relationsToolButton.setStyleSheet("QToolButton { border: 0px; background-color: transparent;} QToolButton::menu-indicator {background: transparent;}")
         self.relationsToolButton.setIcon(gf.get_icon('sitemap', icons_set='mdi', color=Qt4Gui.QColor(160, 160, 160)))
 
         effect = QtGui.QGraphicsOpacityEffect(self.relationsToolButton)
@@ -1103,36 +1100,62 @@ class Ui_itemWidget(QtGui.QWidget):
         sync_dialog = Ui_repoSyncDialog(parent=env_inst.ui_main, stype=self.stype, sobject=self.sobject)
         sync_dialog.set_auto_close(True)
 
-        # cleanup all actions, except first one
-        if len(self.syncWithRepoToolButton.actions()) > 1:
-            for action in self.syncWithRepoToolButton.actions()[1:]:
+        need_update = False
+        if self.sobject.is_snapshots_need_update():
+            need_update = True
 
-                self.syncWithRepoToolButton.removeAction(action)
+        menu = MenuWithLayout()
+        menu.set_custom_icon(gf.get_icon('update', icons_set='mdi').pixmap(18, 18))
+        self.syncWithRepoToolButton.setMenu(menu)
+
+
+        sync_dialog_action = QtGui.QAction('Open Repo Sync', self.syncWithRepoToolButton)
+        sync_dialog_action.setIcon(gf.get_icon('cloud-sync', icons_set='mdi'))
+        sync_dialog_action.triggered.connect(self.create_sync_dialog)
+
+        menu.addAction(sync_dialog_action)
 
         presets_list = sync_dialog.get_presets_list()
         if presets_list:
-            current_repo = sync_dialog.get_current_preset_dict()
-            if current_repo:
+            current_repo_preset = sync_dialog.get_current_preset_dict()
+            if current_repo_preset:
                 sync_sep = QtGui.QAction('Current preset:', self.syncWithRepoToolButton)
                 sync_sep.setSeparator(True)
-                action = QtGui.QAction(current_repo.get('pretty_preset_name'), self.syncWithRepoToolButton)
-                self.syncWithRepoToolButton.addAction(sync_sep)
-                self.syncWithRepoToolButton.addAction(action)
+                action = QtGui.QAction(current_repo_preset.get('pretty_preset_name'), self.syncWithRepoToolButton)
+                action.setIcon(gf.get_icon('download', icons_set='mdi'))
+                action.triggered.connect(partial(self.show_sync_dialog_with_preset, sync_dialog, current_repo_preset))
 
-                action.triggered.connect(partial(self.show_sync_dialog_with_preset, sync_dialog, current_repo))
+                menu.addAction(sync_sep)
+
+                if need_update:
+                    action_additional = menu.addAction(action, True)
+                    current_repo_update_preset = current_repo_preset.copy()
+                    current_repo_update_preset['only_updates'] = True
+                    action_additional.clicked.connect(partial(self.show_sync_dialog_with_preset, sync_dialog, current_repo_update_preset))
+                else:
+                    menu.addAction(action)
 
             sync_sep = QtGui.QAction('Other presets:', self.syncWithRepoToolButton)
             sync_sep.setSeparator(True)
-            self.syncWithRepoToolButton.addAction(sync_sep)
+            menu.addAction(sync_sep)
 
             for preset in presets_list:
-                if preset.get('preset_name') != current_repo.get('preset_name'):
+                if preset.get('preset_name') != current_repo_preset.get('preset_name'):
                     action = QtGui.QAction(preset.get('pretty_preset_name'), self.syncWithRepoToolButton)
-                    self.syncWithRepoToolButton.addAction(action)
-
+                    action.setIcon(gf.get_icon('download', icons_set='mdi'))
                     action.triggered.connect(partial(self.show_sync_dialog_with_preset, sync_dialog, preset))
 
+                    if need_update:
+
+                        update_preset = preset.copy()
+                        update_preset['only_updates'] = True
+                        action_additional = menu.addAction(action, True)
+                        action_additional.clicked.connect(partial(self.show_sync_dialog_with_preset, sync_dialog, update_preset))
+                    else:
+                        menu.addAction(action)
+
         self.syncWithRepoToolButton.showMenu()
+        self.syncWithRepoToolButton.setMenu(None)
 
     def show_sync_dialog_with_preset(self, sync_dialog, preset):
         sync_dialog.setWindowModality(QtCore.Qt.ApplicationModal)
@@ -1770,7 +1793,7 @@ class Ui_itemWidget(QtGui.QWidget):
             ignored = False
             process_info = None
             if curent_pipeline:
-                process_info = curent_pipeline.get_pipeline_info(process)
+                process_info = curent_pipeline.get_process_info(process)
             if not process_info:
                 process_info = {'type': 'manual'}
 

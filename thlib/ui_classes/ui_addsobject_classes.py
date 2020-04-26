@@ -30,9 +30,6 @@ class Ui_linkSobjectsWidget(QtGui.QDialog):
     def create_ui(self):
         self.create_layout()
 
-        self.resize(750, 800)
-        self.setMinimumSize(600, 500)
-
         self.setWindowModality(QtCore.Qt.ApplicationModal)
         self.setSizeGripEnabled(True)
         self.setWindowFlags(QtCore.Qt.Dialog)
@@ -53,6 +50,8 @@ class Ui_linkSobjectsWidget(QtGui.QDialog):
         self.controls_actions()
 
         self.parent_search_line_edit.setFocus()
+
+        self.readSettings()
 
     def controls_actions(self):
 
@@ -380,6 +379,65 @@ class Ui_linkSobjectsWidget(QtGui.QDialog):
             self.loading_label.setVisible(False)
         else:
             self.loading_label.setVisible(True)
+
+    def refresh_search_widget(self):
+
+        checkin_out = env_inst.get_check_tree(self.parent_stype.get_project().get_code(), 'checkin_out', self.parent_stype.get_code())
+
+        if checkin_out:
+            checkin_out.refresh_current_results()
+
+    def get_settings_dict(self):
+        settings_dict = {
+            'size': self.size().toTuple(),
+            'pos': self.pos().toTuple()
+        }
+        return settings_dict
+
+    def set_settings_from_dict(self, settings_dict=None):
+
+        self.setMinimumSize(600, 500)
+
+        if settings_dict:
+            self.resize(settings_dict['size'][0], settings_dict['size'][1])
+            self.move(settings_dict['pos'][0], settings_dict['pos'][1])
+        else:
+            self.resize(750, 800)
+
+    def readSettings(self):
+        group_path = 'ui_search/{0}/{1}/{2}'.format(
+            self.parent_stype.project.info['type'],
+            self.parent_stype.project.info['code'],
+            self.parent_stype.get_code().split('/')[1]
+        )
+
+        self.set_settings_from_dict(
+            env_read_config(
+                filename='ui_link_sbojects',
+                unique_id=group_path,
+                long_abs_path=True
+            )
+        )
+
+    def writeSettings(self):
+        group_path = 'ui_search/{0}/{1}/{2}'.format(
+            self.parent_stype.project.info['type'],
+            self.parent_stype.project.info['code'],
+            self.parent_stype.get_code().split('/')[1]
+        )
+
+        env_write_config(
+            self.get_settings_dict(),
+            filename='ui_link_sbojects',
+            unique_id=group_path,
+            long_abs_path=True
+        )
+
+    def closeEvent(self, event):
+        self.writeSettings()
+        self.refresh_search_widget()
+        self.deleteLater()
+        event.accept()
 
 
 class Ui_addTacticSobjectWidget(QtGui.QDialog):

@@ -1,7 +1,7 @@
 from thlib.side.Qt import QtWidgets as QtGui
 from thlib.side.Qt import QtGui as Qt4Gui
 from thlib.side.Qt import QtCore
-from thlib.environment import env_inst, env_mode, env_tactic, cfg_controls
+from thlib.environment import env_inst, env_mode, env_tactic, env_api, cfg_controls, dl
 import thlib.global_functions as gf
 import thlib.tactic_classes as tc
 from thlib.ui_classes.ui_custom_qwidgets import Ui_previewsEditorDialog, Ui_screenShotMakerDialog, Ui_collapsableWidget
@@ -31,6 +31,11 @@ class commitWidget(QtGui.QWidget):
         self.single_threaded = False
         self.links_to_upload_list = set()
         self.screenshots_to_upload_list = []
+
+        self.virtual_snapshot_worker = None
+        # self.snapshot_checkin_worker = None
+        self.inplace_checkin_worker = None
+        self.upload_checkin_worker = None
 
     def create_ui(self):
         self.shown = True
@@ -155,13 +160,15 @@ class commitWidget(QtGui.QWidget):
         commit_queue_ui.set_progress_indicator_on()
         commit_queue_ui.set_progress(progress, info_dict)
 
-    def interrupt_commit(self,):
-
-        thread_worker = getattr(self.interrupt_commit, 'thread_worker')
-
-        # print thread_worker
-        # print dir(thread_worker)
-        thread_worker.disable_signals()
+    def interrupt_commit(self):
+        if self.virtual_snapshot_worker:
+            self.virtual_snapshot_worker.disable_signals()
+        # if self.snapshot_checkin_worker:
+        #     self.snapshot_checkin_worker.disable_signals()
+        if self.inplace_checkin_worker:
+            self.inplace_checkin_worker.disable_signals()
+        if self.upload_checkin_worker:
+            self.upload_checkin_worker.disable_signals()
 
     def commit(self, single_commit=False, single_threaded=False):
         self.single_commit = single_commit
@@ -192,8 +199,9 @@ class commitWidget(QtGui.QWidget):
                     'status_text': 'Copying Files to Repo',
                     'total_count': 6
                 }
+                dl.log('Preparing files', group_id='server/checkin')
                 # for in-lace checkin in local repos
-                upload_checkin_worker.emit_progress(3, info_dict)
+                self.upload_checkin_worker.emit_progress(3, info_dict)
                 check_ok = tc.inplace_checkin(
                     self.args_dict['file_paths'],
                     self.virtual_snapshot,
@@ -203,12 +211,12 @@ class commitWidget(QtGui.QWidget):
                     self.args_dict['create_icon'],
                     self.args_dict['files_objects'],
                     self.args_dict['padding'],
-                    progress_callback=upload_checkin_worker.emit_progress,
+                    progress_callback=self.upload_checkin_worker.emit_progress,
                 )
-                upload_checkin_worker.emit_progress(4, info_dict)
+                self.upload_checkin_worker.emit_progress(4, info_dict)
                 return check_ok
 
-            upload_checkin_worker = gf.get_thread_worker(
+            self.upload_checkin_worker = gf.get_thread_worker(
                 upload_checkin_agent,
                 thread_pool=env_inst.get_thread_pool('commit_queue/server_thread_pool'),
                 result_func=self.upload_chekin_snapshot,
@@ -216,14 +224,14 @@ class commitWidget(QtGui.QWidget):
                 progress_func=self.checkin_progress,
                 error_func=gf.error_handle
             )
-            upload_checkin_worker.start()
-            # print tc.server_start().simple_checkin(self.args_dict['search_key'], self.args_dict['context'],
-            #                                        self.args_dict['file_paths'][0][0])
+            self.upload_checkin_worker.start()
 
         if self.args_dict['checkin_app'] == 'maya':
+            dl.log('Preparing files', group_id='server/checkin')
+
             import thlib.maya_functions as mf
             mf.set_info_to_scene(self.args_dict['search_key'], self.args_dict['context'])
-            # for in-place checkin
+
             check_ok, files_objects = mf.inplace_checkin(
                 self.virtual_snapshot,
                 self.args_dict['repo_name'],
@@ -236,7 +244,6 @@ class commitWidget(QtGui.QWidget):
             )
 
             if check_ok:
-                # print files_objects
                 self.args_dict['files_objects'] = files_objects
                 self.upload_chekin_snapshot()
             else:
@@ -248,14 +255,54 @@ class commitWidget(QtGui.QWidget):
         self.update_args_dict()
         # print 'begin checkin snapshot', result
 
-        def upload_checkin_snapshot_agent():
+        # def upload_checkin_snapshot_agent():
+        #     info_dict = {
+        #         'status_text': 'Saving Snapshot To DB',
+        #         'total_count': 6
+        #     }
+        #     dl.log('Begin snapshot Ceheckin', group_id='server/checkin')
+        #     snapshot_checkin_worker.emit_progress(5, info_dict)
+        #
+        #     snapshot = tc.checkin_snapshot(
+        #         search_key=self.args_dict['search_key'],
+        #         context=self.args_dict['context'],
+        #         snapshot_type=self.args_dict['snapshot_type'],
+        #         is_revision=self.args_dict['is_revision'],
+        #         description=self.args_dict['description'],
+        #         version=self.args_dict['version'],
+        #         update_versionless=self.args_dict['update_versionless'],
+        #         only_versionless=self.args_dict['only_versionless'],
+        #         keep_file_name=self.args_dict['keep_file_name'],
+        #         repo_name=self.args_dict['repo_name'],
+        #         virtual_snapshot=self.virtual_snapshot,
+        #         files_dict=self.args_dict['files_dict'],
+        #         mode=self.args_dict['mode'],
+        #         create_icon=self.args_dict['create_icon'],
+        #         files_objects=self.args_dict['files_objects'],
+        #     )
+        #
+        #     snapshot_checkin_worker.emit_progress(6, info_dict)
+        #     # self.commit_item.set_commit_finished()
+        #     return snapshot
+        #
+        # snapshot_checkin_worker = gf.get_thread_worker(
+        #     upload_checkin_snapshot_agent,
+        #     thread_pool=env_inst.get_thread_pool('commit_queue/server_thread_pool'),
+        #     result_func=self.checkin_done,
+        #     # finished_func=self.commit_item.set_commit_finished,
+        #     progress_func=self.checkin_progress,
+        #     error_func=gf.error_handle
+        # )
+        if self.single_threaded:
+            self.checkin_done(self.commit_item)
+        else:
             info_dict = {
                 'status_text': 'Saving Snapshot To DB',
                 'total_count': 6
             }
-            snapshot_checkin_worker.emit_progress(5, info_dict)
-
-            snapshot = tc.checkin_snapshot(
+            dl.log('Begin snapshot Ceheckin', group_id='server/checkin')
+            self.checkin_progress(5, info_dict)
+            api_client = env_api.execute_method('checkin_snapshot',
                 search_key=self.args_dict['search_key'],
                 context=self.args_dict['context'],
                 snapshot_type=self.args_dict['snapshot_type'],
@@ -270,24 +317,44 @@ class commitWidget(QtGui.QWidget):
                 files_dict=self.args_dict['files_dict'],
                 mode=self.args_dict['mode'],
                 create_icon=self.args_dict['create_icon'],
-                files_objects=self.args_dict['files_objects'],
-            )
-            snapshot_checkin_worker.emit_progress(6, info_dict)
-            # self.commit_item.set_commit_finished()
-            return snapshot
+                files_objects=self.args_dict['files_objects'],)
 
-        snapshot_checkin_worker = gf.get_thread_worker(
-            upload_checkin_snapshot_agent,
-            thread_pool=env_inst.get_thread_pool('commit_queue/checkin_snapshot_pool'),
-            result_func=self.checkin_done,
-            # finished_func=self.commit_item.set_commit_finished,
-            progress_func=self.checkin_progress,
-            error_func=gf.error_handle
+            env_api.get_results(api_client, self.checkin_done)
+
+            self.checkin_progress(6, info_dict)
+            # snapshot_checkin_worker.start()
+
+    @gf.catch_error
+    def upload_chekin_snapshot_(self, result=None):
+        self.update_args_dict()
+        info_dict = {
+            'status_text': 'Saving Snapshot To DB',
+            'total_count': 6
+        }
+        dl.log('Begin snapshot Ceheckin', group_id='server/checkin')
+        self.checkin_progress(5, info_dict)
+
+        snapshot = tc.checkin_snapshot(
+            search_key=self.args_dict['search_key'],
+            context=self.args_dict['context'],
+            snapshot_type=self.args_dict['snapshot_type'],
+            is_revision=self.args_dict['is_revision'],
+            description=self.args_dict['description'],
+            version=self.args_dict['version'],
+            update_versionless=self.args_dict['update_versionless'],
+            only_versionless=self.args_dict['only_versionless'],
+            keep_file_name=self.args_dict['keep_file_name'],
+            repo_name=self.args_dict['repo_name'],
+            virtual_snapshot=self.virtual_snapshot,
+            files_dict=self.args_dict['files_dict'],
+            mode=self.args_dict['mode'],
+            create_icon=self.args_dict['create_icon'],
+            files_objects=self.args_dict['files_objects'],
         )
-        if self.single_threaded:
-            self.checkin_done(self.commit_item)
-        else:
-            snapshot_checkin_worker.start()
+        self.checkin_progress(6, info_dict)
+        # self.commit_item.set_commit_finished()
+
+        self.checkin_done(snapshot)
 
     @gf.catch_error
     def inplace_chekin(self):
@@ -304,11 +371,11 @@ class commitWidget(QtGui.QWidget):
                     self.args_dict['create_icon'],
                     self.args_dict['files_objects'],
                     self.args_dict['padding'],
-                    progress_callback=inplace_checkin_worker.emit_progress,
+                    progress_callback=self.inplace_checkin_worker.emit_progress,
                 )
                 return check_ok
 
-            inplace_checkin_worker = gf.get_thread_worker(
+            self.inplace_checkin_worker = gf.get_thread_worker(
                 inplace_checkin_agent,
                 thread_pool=env_inst.get_thread_pool('commit_queue/server_thread_pool'),
                 result_func=self.inplace_checkin_done,
@@ -320,11 +387,12 @@ class commitWidget(QtGui.QWidget):
                 inplace_checkin_agent()
                 self.chekin_snapshot()
             else:
-                inplace_checkin_worker.start()
+                self.inplace_checkin_worker.start()
 
         if self.args_dict['checkin_app'] == 'maya':
             import thlib.maya_functions as mf
             mf.set_info_to_scene(self.args_dict['search_key'], self.args_dict['context'])
+
             # for in-place checkin
             check_ok, files_objects = mf.inplace_checkin(
                 self.virtual_snapshot,
@@ -380,7 +448,7 @@ class commitWidget(QtGui.QWidget):
 
         snapshot_checkin_worker = gf.get_thread_worker(
             inplace_checkin_agent,
-            thread_pool=env_inst.get_thread_pool('commit_queue/checkin_snapshot_pool'),
+            thread_pool=env_inst.get_thread_pool('commit_queue/server_thread_pool'),
             result_func=self.checkin_done,
             progress_func=self.checkin_progress,
             error_func=gf.error_handle
@@ -686,7 +754,7 @@ class commitWidget(QtGui.QWidget):
                 'status_text': 'Updating Snapshot Info',
                 'total_count': 2
             }
-            virtual_snapshot_worker.emit_progress(0, info_dict)
+            self.virtual_snapshot_worker.emit_progress(0, info_dict)
             virtual_snapshot = tc.get_virtual_snapshot(
                 search_key=self.args_dict['search_key'],
                 context=self.args_dict['context'],
@@ -699,10 +767,10 @@ class commitWidget(QtGui.QWidget):
                 checkin_type=self.args_dict['checkin_type'],
                 ignore_keep_file_name=self.args_dict['ignore_keep_file_name'],
                 )
-            virtual_snapshot_worker.emit_progress(1, info_dict)
+            self.virtual_snapshot_worker.emit_progress(1, info_dict)
             return virtual_snapshot
 
-        virtual_snapshot_worker = gf.get_thread_worker(
+        self.virtual_snapshot_worker = gf.get_thread_worker(
             update_virtual_snapshot_agent,
             thread_pool=env_inst.get_thread_pool('commit_queue/server_thread_pool'),
             result_func=self.fill_virtual_snapshot,
@@ -714,7 +782,7 @@ class commitWidget(QtGui.QWidget):
             self.fill_virtual_snapshot(update_virtual_snapshot_agent())
             self.inplace_chekin()
         else:
-            virtual_snapshot_worker.start()
+            self.virtual_snapshot_worker.start()
 
     @gf.catch_error
     def begin_commit_upload(self):
@@ -725,7 +793,9 @@ class commitWidget(QtGui.QWidget):
                 'status_text': 'Updating Snapshot Info',
                 'total_count': 6
             }
-            virtual_snapshot_worker.emit_progress(0, info_dict)
+
+            dl.log('Begin Upload Commit', group_id='server/checkin')
+            self.virtual_snapshot_worker.emit_progress(0, info_dict)
 
             virtual_snapshot = tc.get_virtual_snapshot(
                 search_key=self.args_dict['search_key'],
@@ -739,11 +809,11 @@ class commitWidget(QtGui.QWidget):
                 checkin_type=self.args_dict['checkin_type'],
                 ignore_keep_file_name=self.args_dict['ignore_keep_file_name'],
                 )
-            virtual_snapshot_worker.emit_progress(1, info_dict)
+            self.virtual_snapshot_worker.emit_progress(1, info_dict)
 
             return virtual_snapshot
 
-        virtual_snapshot_worker = gf.get_thread_worker(
+        self.virtual_snapshot_worker = gf.get_thread_worker(
             update_virtual_snapshot_agent,
             thread_pool=env_inst.get_thread_pool('commit_queue/server_thread_pool'),
             result_func=self.fill_virtual_snapshot,
@@ -751,7 +821,7 @@ class commitWidget(QtGui.QWidget):
             progress_func=self.checkin_progress,
             error_func=gf.error_handle
         )
-        virtual_snapshot_worker.start()
+        self.virtual_snapshot_worker.start()
 
     def refresh_virtual_snapshot(self):
 
@@ -762,8 +832,8 @@ class commitWidget(QtGui.QWidget):
                 'status_text': 'Updating Snapshot Info',
                 'total_count': 2
             }
-            virtual_snapshot_worker.emit_progress(0, info_dict)
-            s = gf.time_it()
+            self.virtual_snapshot_worker.emit_progress(0, info_dict)
+
             virtual_snapshot = tc.get_virtual_snapshot(
                 search_key=self.args_dict['search_key'],
                 context=self.args_dict['context'],
@@ -777,27 +847,25 @@ class commitWidget(QtGui.QWidget):
                 ignore_keep_file_name=self.args_dict['ignore_keep_file_name'],
                 )
 
-            gf.time_it(s)
-            virtual_snapshot_worker.emit_progress(1, info_dict)
+            self.virtual_snapshot_worker.emit_progress(1, info_dict)
 
             return virtual_snapshot
 
-        virtual_snapshot_worker = gf.get_thread_worker(
+        self.virtual_snapshot_worker = gf.get_thread_worker(
             refresh_virtual_snapshot_agent,
             thread_pool=env_inst.get_thread_pool('commit_queue/server_thread_pool'),
             result_func=self.fill_virtual_snapshot,
             progress_func=self.checkin_progress,
             error_func=gf.error_handle,
-            stop_func=self.interrupt_commit,
         )
 
-        virtual_snapshot_worker.start()
+        self.virtual_snapshot_worker.start()
 
     @gf.catch_error
     def fill_virtual_snapshot(self, result):
         self.virtual_snapshot = result
-        self.fill_versionless_widget(result)
-        self.fill_versions_widget(result)
+        self.fill_versionless_widget(self.virtual_snapshot)
+        self.fill_versions_widget(self.virtual_snapshot)
         self.commit_item.set_progress_indicator_off()
 
         if self.args_dict['checkin_app'] == 'maya':
@@ -1054,6 +1122,9 @@ class Ui_commitQueueWidget(QtGui.QMainWindow, Ui_commitQueue):
                 self.set_current_commit_widget(current_item_widget.get_commit_widget())
 
     def commit_queue(self):
+
+        self.stop_progress()
+
         self.commitAllPushButton.setEnabled(False)
         self.closePushButton.setEnabled(False)
         self.clearQueuePushButton.setEnabled(False)
@@ -1130,9 +1201,7 @@ class Ui_commitQueueWidget(QtGui.QMainWindow, Ui_commitQueue):
 
     def stop_progress(self):
         for commit_item in self.queue_list:
-            # print commit_item
             commit_widget = commit_item.get_commit_widget()
-
             commit_widget.interrupt_commit()
 
     def clear_queue(self):

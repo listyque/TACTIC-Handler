@@ -1,6 +1,5 @@
 from thlib.side.Qt import QtWidgets as QtGui
 from thlib.side.Qt import QtGui as Qt4Gui
-from thlib.side.Qt import QtCore
 
 
 class OutputWindow(QtGui.QPlainTextEdit):

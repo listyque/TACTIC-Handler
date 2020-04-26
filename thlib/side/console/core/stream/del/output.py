@@ -1,32 +1,24 @@
-# -*- coding: utf-8 -*-
-# encoding: utf-8
-
-__all__ = ["OutputCls"]
-
-import locale
 from thlib.side.Qt import QtCore
 
 
-class OutputCls(QtCore.QObject):
+class Output(QtCore.QObject):
 
     written = QtCore.Signal(unicode)
     flushed = QtCore.Signal()
-
-    encoding = locale.getpreferredencoding()
 
     def __init__(self, std, parent_stream=None, parent=None):
 
         """
         Initialize default settings.
         """
-        # self.__io = open('D:/APS/OneDrive/MEGAsync/TACTIC-handler/stuff.txt', 'w')
+
         self.__parent_stream = parent_stream
 
-        super(OutputCls, self).__init__(parent)
+        super(Output, self).__init__(parent)
 
         self.__std = std
         self.softspace = 0
-
+        
     def readline(self, *args, **kwargs):
         
         """
@@ -48,21 +40,8 @@ class OutputCls(QtCore.QObject):
         """
         Write text message.
         """
-
-        # if text is not None:
-        #     if isinstance(text, (str, unicode)):
-        #         self.__std.write(text)
-        #     else:
-        #         self.__std.write(repr(text))
-
-        try:
-            self.__std.write(text)
-            self.written.emit(text)
-        except:
-            pass
-        finally:
-            return text
-
+        
+        result = self.__std.write(text)
         # try:
         #     # text = unicode(text).encode('utf-8', errors='ignore')
         #     text = str(text)
@@ -70,8 +49,8 @@ class OutputCls(QtCore.QObject):
         # except UnicodeEncodeError or UnicodeDecodeError:
         #     text = u"Failed to encode error message..."
 
-        # self.written.emit(text)
-        # return result
+        self.written.emit(text)
+        return result
 
     def writelines(self, line_list):
 
@@ -96,6 +75,7 @@ class OutputCls(QtCore.QObject):
         """
         Flush
         """
+
         result = self.__std.flush(*args, **kwargs)
         self.flushed.emit()
         return result

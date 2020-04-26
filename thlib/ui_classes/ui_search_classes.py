@@ -541,23 +541,110 @@ class Ui_searchWidget(QtGui.QWidget):
         self.search_line_edit.setFocus()
         self.add_tab()
 
-    def get_tasks_tastuses_menu(self):
+    def fill_tasks_tastuses_menu(self, menu):
+
+        # Filling users tasks filter
+        current_login = env_inst.get_current_login_object()
+        # print env_inst.get_all_logins()
+        # print current_login.get_login_groups()
+
+        menu.addSeparator()
+        users_menu = menu.addMenu('Pick User')
+        users_menu.setIcon(gf.get_icon('account', icons_set='mdi', scale_factor=1.1))
+
+        for login_group in current_login.get_login_groups():
+            group_menu = users_menu.addMenu(login_group.get_pretty_name())
+            group_menu.setIcon(gf.get_icon('account-multiple', icons_set='mdi', scale_factor=1.1))
+
+            default_group_action = QtGui.QAction('Whole Group', self)
+            default_group_action.setIcon(gf.get_icon('account-multiple-plus', icons_set='mdi', scale_factor=1.1))
+            group_menu.addAction(default_group_action)
+
+            group_logins = login_group.get_logins()
+            if group_logins:
+                group_menu.addSeparator()
+                for login in group_logins:
+                    login_action = QtGui.QAction(login.get_display_name(), self)
+                    login_action.setIcon(gf.get_icon('account-plus', icons_set='mdi', scale_factor=1.1))
+                    group_menu.addAction(login_action)
+
         workflow = self.stype.get_workflow()
-        tasks_pipelines = workflow.get_by_stype_code('sthpw/task')
+        tasks_workflow = workflow.get_by_stype_code('sthpw/task')
 
-        # piplines = self.stype.get_pipeline()
-        # for porcess in piplines.values()[0].get_all_processes_names():
-        #     print piplines.values()[0].get_process_info(porcess)
+        stype_pipelines = self.stype.get_pipeline()
 
-        tasks_pipline = tasks_pipelines['dolly3d/light']
+        # filling all possible tasks statuses by processes
+        if stype_pipelines:
 
-        print tasks_pipline
-        actions_list = []
-        for process in tasks_pipline.get_all_processes_names():
-            print process
-            task_status_action = QtGui.QAction(process, self)
-            actions_list.append(task_status_action)
-        return actions_list
+            menu.addSeparator()
+            for stype_pipeline in stype_pipelines.values():
+                for stype_process in stype_pipeline.get_all_pipeline_names():
+                    process_menu = menu.addMenu(stype_pipeline.get_process_label(stype_process))
+
+                    # colorizing processes
+                    process_info = stype_pipeline.get_process_info(stype_process)
+                    process_hex_color = process_info.get('color')
+                    if process_hex_color:
+                        process_color = gf.hex_to_rgb(process_hex_color, tuple=True)
+                        if process_color:
+                            process_color = Qt4Gui.QColor(*process_color)
+                            process_menu.setIcon(gf.get_icon('circle', color=process_color, scale_factor=0.6))
+                    else:
+                        process_menu.setIcon(gf.get_icon('circle', scale_factor=0.6))
+
+                    task_pipeline = process_info.get('task_pipeline')
+
+                    # use default tasks pipeline
+                    if not task_pipeline:
+                        task_pipeline = 'task'
+
+                    default_task_action = QtGui.QAction('Show All Statuses', self)
+                    default_task_action.setIcon(gf.get_icon('circle', scale_factor=0.6))
+                    process_menu.addAction(default_task_action)
+                    process_menu.addSeparator()
+                    if tasks_workflow.get(task_pipeline):
+                        for task_process in tasks_workflow[task_pipeline].get_all_pipeline_names():
+                            task_status_action = QtGui.QAction(task_process, self)
+
+                            # colorizing processes
+                            task_process_info = tasks_workflow[task_pipeline].get_process_info(task_process)
+                            task_process_hex_color = task_process_info.get('color')
+                            if task_process_hex_color:
+                                task_process_color = gf.hex_to_rgb(task_process_hex_color, tuple=True)
+                                if task_process_color:
+                                    task_process_color = Qt4Gui.QColor(*task_process_color)
+                                    task_status_action.setIcon(gf.get_icon('circle', color=task_process_color, scale_factor=0.6))
+                            else:
+                                task_status_action.setIcon(gf.get_icon('circle', scale_factor=0.6))
+
+                            process_menu.addAction(task_status_action)
+
+                menu.addSeparator()
+
+                # Filling task statuses by all pipelines used with this search type
+                task_pipelines = stype_pipeline.get_all_tasks_pipelines_names()
+                task_pipelines.append('task')
+
+                for task_pipeline in task_pipelines:
+                    pipeline_menu = menu.addMenu(task_pipeline)
+                    if tasks_workflow.get(task_pipeline):
+                        for task_process in tasks_workflow[task_pipeline].get_all_pipeline_names():
+
+                            task_status_action = QtGui.QAction(task_process, self)
+
+                            # colorizing processes
+                            task_process_info = tasks_workflow[task_pipeline].get_process_info(task_process)
+                            task_process_hex_color = task_process_info.get('color')
+                            if task_process_hex_color:
+                                task_process_color = gf.hex_to_rgb(task_process_hex_color, tuple=True)
+                                if task_process_color:
+                                    task_process_color = Qt4Gui.QColor(*task_process_color)
+                                    task_status_action.setIcon(
+                                        gf.get_icon('circle', color=task_process_color, scale_factor=0.6))
+                            else:
+                                task_status_action.setIcon(gf.get_icon('circle', scale_factor=0.6))
+
+                            pipeline_menu.addAction(task_status_action)
 
     def create_tool_buttons(self):
         self.left_buttons_layout = QtGui.QHBoxLayout()
@@ -580,20 +667,30 @@ class Ui_searchWidget(QtGui.QWidget):
         self.add_filter_button.setMinimumHeight(24)
         self.add_filter_button.setPopupMode(QtGui.QToolButton.InstantPopup)
         self.add_filter_button.setIcon(gf.get_icon('filter', icons_set='mdi', scale_factor=0.9))
-        self.add_filter_button.setToolTip('Add Filter')
+        self.add_filter_button.setToolTip('Add Filter to Tab')
 
         self.filter_by_tasks_menu = QtGui.QMenu('Tasks', self.add_filter_button)
+        self.filter_by_tasks_menu.setIcon(gf.get_icon('calendar-check', icons_set='mdi', scale_factor=1))
         self.my_tasks_action = QtGui.QAction('My Tasks', self.add_filter_button)
+        self.my_tasks_action.setIcon(gf.get_icon('account-details', icons_set='mdi', scale_factor=1.1))
         self.filter_by_tasks_menu.addAction(self.my_tasks_action)
-        # TODO MAKE IT PERSONALIZED
-        # self.filter_by_tasks_menu.addActions(self.get_tasks_tastuses_menu())
+        self.filter_by_tasks_menu.setTearOffEnabled(True)
+        self.filter_by_tasks_menu.setWindowTitle('Tasks Filters: {0}'.format(self.stype.get_pretty_name()))
+        self.fill_tasks_tastuses_menu(self.filter_by_tasks_menu)
 
         self.filter_by_snapshots_menu = QtGui.QMenu('Snapshots', self.add_filter_button)
+        self.filter_by_snapshots_menu.setIcon(gf.get_icon('file-document-outline', icons_set='mdi', scale_factor=1))
         self.my_snapshots_action = QtGui.QAction('My Snapshots', self.add_filter_button)
+        self.my_snapshots_action.setIcon(gf.get_icon('account-check', icons_set='mdi', scale_factor=1.1))
         self.filter_by_snapshots_menu.addAction(self.my_snapshots_action)
 
+        # TODO snapshots by users, snapshots by processes, snapshots by date
+        #self.fill_snapshot_filters_menu(self.filter_by_snapshots_menu)
+
         self.filter_by_preset_menu = QtGui.QMenu('Presets', self.add_filter_button)
+        self.filter_by_preset_menu.setIcon(gf.get_icon('heart', icons_set='mdi', scale_factor=1))
         self.edit_presets_action = QtGui.QAction('Edit Presets', self.add_filter_button)
+        self.edit_presets_action.setIcon(gf.get_icon('circle-edit-outline', icons_set='mdi', scale_factor=1))
         self.filter_by_preset_menu.addAction(self.edit_presets_action)
 
         self.add_filter_button.addAction(self.filter_by_tasks_menu.menuAction())

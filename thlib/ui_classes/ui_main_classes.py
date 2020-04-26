@@ -8,7 +8,7 @@ from thlib.side.Qt import QtWidgets as QtGui
 from thlib.side.Qt import QtGui as Qt4Gui
 from thlib.side.Qt import QtCore
 
-from thlib.environment import env_mode, env_inst, dl, env_write_config, env_read_config, cfg_controls
+from thlib.environment import env_mode, env_inst, dl, env_write_config, env_read_config, cfg_controls, env_api, env_server
 import thlib.tactic_classes as tc
 import thlib.update_functions as uf
 import thlib.global_functions as gf
@@ -19,9 +19,7 @@ import thlib.ui.misc.ui_create_update as ui_create_update
 from thlib.ui_classes.ui_custom_qwidgets import Ui_debugLogWidget, Ui_messagesWidget
 import ui_checkin_out_tabs_classes
 import ui_conf_classes
-# import ui_my_tactic_classes
-#import ui_assets_browser_classes
-#import ui_float_notify_classes
+
 if env_mode.get_mode() == 'maya':
     import thlib.maya_functions as mf
     reload(mf)
@@ -223,7 +221,7 @@ class Ui_Main(QtGui.QMainWindow, ui_main.Ui_MainWindow):
         self.readSettings()
         self.setIcon()
         self.create_script_editor_widget()
-        self.create_messages_widget()
+        # self.create_messages_widget()
 
         self.created = True
 
@@ -236,8 +234,15 @@ class Ui_Main(QtGui.QMainWindow, ui_main.Ui_MainWindow):
 
         execute()
 
+        env_api.start_api_server_app()
+
     def create_debuglog_widget(self):
         env_inst.ui_debuglog = Ui_debugLogWidget(self)
+        env_inst.ui_debuglog.setWindowState(QtCore.Qt.WindowMinimized)
+
+        env_inst.ui_debuglog.show()
+        env_inst.ui_debuglog.hide()
+        env_inst.ui_debuglog.setWindowState(QtCore.Qt.WindowNoState)
 
     def create_script_editor_widget(self):
         env_inst.ui_script_editor = Ui_ScriptEditForm(self)
@@ -289,6 +294,7 @@ class Ui_Main(QtGui.QMainWindow, ui_main.Ui_MainWindow):
 
         def close_routine():
             if env_mode.get_mode() == 'maya':
+
                 self.close()
 
                 from thlib.ui_classes.ui_maya_dock import close_all_instances
@@ -299,6 +305,7 @@ class Ui_Main(QtGui.QMainWindow, ui_main.Ui_MainWindow):
                 sys.path.remove(env_mode.get_current_path())
 
             if env_mode.get_mode() == 'standalone':
+
                 self.close()
 
         self.actionExit.triggered.connect(close_routine)
@@ -393,8 +400,19 @@ class Ui_Main(QtGui.QMainWindow, ui_main.Ui_MainWindow):
         #     thread = main_maya.main.restart()
         #     thread.finished.connect(main_maya.main.close_all_instances)
 
-    def restart_ui_main(self):
+    def restart_ui_main(self, server_preset=None):
+        if server_preset:
+            new_server_preset = env_server.get_cur_srv_preset()
+            env_server.set_cur_srv_preset(server_preset)
+
+        # Closing main app itself
         self.close()
+
+        # Closing server api
+        env_api.close_server()
+
+        if server_preset:
+            env_server.set_cur_srv_preset(new_server_preset)
 
         if env_mode.is_online():
             self.create_ui_main()
@@ -529,6 +547,10 @@ class Ui_Main(QtGui.QMainWindow, ui_main.Ui_MainWindow):
         env_write_config(self.get_settings_dict(), filename='ui_settings', unique_id='ui_main', long_abs_path=True)
 
     def closeEvent(self, event):
+
+        # Closing server api
+        env_api.close_server(self)
+
         for dock in self.projects_docks.values():
             # project_code = dock.widget().project.get_code()
             dock.widget().close()
@@ -536,7 +558,9 @@ class Ui_Main(QtGui.QMainWindow, ui_main.Ui_MainWindow):
             dock.deleteLater()
             del dock
             # env_inst.cleanup(project_code)
+
         self.writeSettings()
+
         event.accept()
 
     def query_projects_finished(self, result=None):
@@ -544,8 +568,6 @@ class Ui_Main(QtGui.QMainWindow, ui_main.Ui_MainWindow):
             self.restore_opened_projects()
             self.fill_projects_to_menu()
             env_inst.ui_main.set_info_status_text('')
-
-            # self.create_ui_float_notify()
 
             self.execute_after_all_ui_started()
 

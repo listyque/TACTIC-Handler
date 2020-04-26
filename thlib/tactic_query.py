@@ -408,7 +408,7 @@ def query_search_types_extended(project_code):
         stypes = search.get_sobjects()
     else:
         prj = Project.get_by_code(project_code)
-        stypes = prj.get_search_types()
+        stypes = prj.get_search_types(include_multi_project=True)
 
     # add_config_tables = False
     #
@@ -935,9 +935,23 @@ def insert_instance_sobjects(search_key, project_code, parent_key=None, instance
 
 def edit_multiple_instance_sobjects(project_code, insert_search_keys=[], exclude_search_keys=[], parent_key=None, instance_type=None, path=None):
 
-    from pyasm.search import SearchType
+    from pyasm.search import SearchType, Search
 
     server.set_project(project_code)
+
+    def remove_instance(to_sobject, from_sobject, instance_type):
+        from_expression = '@SOBJECT(child:{0})'.format(instance_type)
+        to_expression = '@SOBJECT(parent:{0})'.format(instance_type)
+
+        from_instances = Search.eval(from_expression, from_sobject)
+        to_instances = Search.eval(to_expression, to_sobject)
+
+        for from_instance in from_instances:
+            from_search_key = from_instance.get_search_key()
+            for to_instance in to_instances:
+                to_search_key = to_instance.get_search_key()
+                if from_search_key == to_search_key:
+                    to_instance.delete()
 
     for search_key in insert_search_keys:
 
@@ -959,8 +973,10 @@ def edit_multiple_instance_sobjects(project_code, insert_search_keys=[], exclude
         child_sobject = server.query(child_search_type, [('code', child_code)], return_sobjects=True)[0]
         parent_sobject = server.query(parent_search_type, [('code', parent_code)], return_sobjects=True)[0]
 
-        child_sobject.remove_instance(parent_sobject)
-        # parent_sobject.remove_instance(child_sobject)
+        if path:
+            remove_instance(child_sobject, parent_sobject, instance_type)
+        else:
+            child_sobject.remove_instance(parent_sobject)
 
     return 'ok'
 
@@ -1030,6 +1046,7 @@ def get_virtual_snapshot_extended(search_key, context, files_dict, snapshot_type
     from pyasm.biz import Snapshot
     from pyasm.biz import Project
     from pyasm.search import SearchType, SearchKey, Search
+
     api = server.server
 
     sobject = SearchKey.get_by_search_key(search_key)

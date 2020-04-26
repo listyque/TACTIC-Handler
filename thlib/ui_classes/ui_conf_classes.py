@@ -104,8 +104,10 @@ class Ui_serverPageWidget(QtGui.QWidget, ui_serverPage.Ui_serverPageWidget):
         if env_server.get_ticket():
             env_server.set_ticket(env_server.get_ticket())
 
+        # env_server.set_cur_srv_preset(self.serverPresetsComboBox.currentText())
         env_server.save_server_presets_defaults()
         env_server.save_defaults()
+        # env_server.reload()
 
         env_inst.ui_conf.need_restart = True
 
@@ -236,19 +238,25 @@ class Ui_serverPageWidget(QtGui.QWidget, ui_serverPage.Ui_serverPageWidget):
         env_server.save_server_presets_defaults()
         env_server.reload()
 
-        self.userNameLineEdit.setText(env_server.get_user())
-        self.tacticServerLineEdit.setText(env_server.get_server())
+        server_preset = env_server.get_server_preset(self.serverPresetsComboBox.currentText())
+
+        self.userNameLineEdit.setText(server_preset['user'])
+        self.tacticServerLineEdit.setText(server_preset['server'])
         # self.tacticEnvLineEdit.setText(env_server.get_data_dir())
         # self.tacticInstallDirLineEdit.setText(env_server.get_install_dir())
-        site = env_server.get_site()
+        site = server_preset['site']
         self.siteLineEdit.setText(site['site_name'])
         self.usePortalSiteCheckBox.setChecked(site['enabled'])
 
-        proxy = env_server.get_proxy()
+        proxy = server_preset['proxy']
         self.proxyLoginLineEdit.setText(proxy['login'])
         self.proxyPasswordLineEdit.setText(proxy['pass'])
         self.proxyServerLineEdit.setText(proxy['server'])
         self.proxyGroupBox.setChecked(proxy['enabled'])
+
+    def get_current_server_preset(self):
+        idx = gf.get_value_from_config(self.page_defaults, 'serverPresetsComboBox')
+        return self.serverPresetsComboBox.itemText(idx)
 
     def edit_server_presets(self):
 
@@ -966,7 +974,7 @@ class Ui_checkinOutPageWidget(QtGui.QWidget, ui_checkinOutPage.Ui_checkinOutPage
     def load_project_stypes(self, project_code):
         project = env_inst.projects[project_code]
         if not project.stypes:
-            project.query_stypes()
+            project.query_search_types()
 
         exclude_list = self.page_init_projects[project_code]['stypes_list']
 
@@ -1298,6 +1306,7 @@ class Ui_configuration_mainWidget(QtGui.QWidget, ui_conf_main.Ui_uiConfMainWidge
         super(self.__class__, self).__init__(parent=parent)
 
         self.configuration_dialog = configuration_dialog
+        self.last_server_preset = None
 
         self.create_ui()
 
@@ -1583,6 +1592,7 @@ class Ui_configuration_mainWidget(QtGui.QWidget, ui_conf_main.Ui_uiConfMainWidge
             current_page = page
 
         if current_page == 'serverPage':
+            self.last_server_preset = self.serverPageWidget.get_current_server_preset()
             self.serverPageWidget.save_config()
             # self.serverPageWidget.try_connect_to_server(run_thread=True)
             current_item_text = self.configToolBox.itemText(0)
@@ -1618,7 +1628,6 @@ class Ui_configuration_mainWidget(QtGui.QWidget, ui_conf_main.Ui_uiConfMainWidge
         self.apply_button.setEnabled(False)
         self.reset_button.setEnabled(False)
 
-
         # if current_page == 'globalCofigPage':
         #     self.checkinOutPageWidget.save_config()
         #
@@ -1635,15 +1644,24 @@ class Ui_configuration_mainWidget(QtGui.QWidget, ui_conf_main.Ui_uiConfMainWidge
             # print(self.objectName())
             # print(self.uiConfMainWidget.close())
             # self.create_ui()
+            env_inst.set_current_project(None)
+            # print self.last_server_preset
+            # print env_server.get_cur_srv_preset()
+
+            # new_server_preset = env_server.get_cur_srv_preset()
+            # env_server.set_cur_srv_preset(self.last_server_preset)
+
             self.configuration_dialog.writeSettings()
             self.configuration_dialog.restart_main_widget()
             self.configuration_dialog.readSettings()
             # new_main_window.open_config_dialog()
-            main_window = env_inst.ui_main
-            new_main_window = main_window.restart_ui_main()
-            # self.setParent(new_main_window)
-            new_main_window.setWindowModality(QtCore.Qt.NonModal)
 
+            main_window = env_inst.ui_main
+            new_main_window = main_window.restart_ui_main(self.last_server_preset)
+            # env_server.set_cur_srv_preset(new_server_preset)
+            # self.setParent(new_main_window)
+
+            new_main_window.setWindowModality(QtCore.Qt.NonModal)
 
         else:
             ask_restart = QtGui.QMessageBox.question(self, 'Restart TACTIC Handler?',

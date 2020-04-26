@@ -344,7 +344,7 @@ class Ui_simpleTaskWidget(QtGui.QFrame):
         parent_sobject_pipeline_code = self.parent_sobject.get_pipeline_code()
 
         current_pipeline = stype.get_pipeline().get(parent_sobject_pipeline_code)
-        process_info = current_pipeline.get_pipeline_info(self.process)
+        process_info = current_pipeline.get_process_info(self.process)
 
         return process_info
 
@@ -410,7 +410,7 @@ class Ui_simpleTaskWidget(QtGui.QFrame):
         parent_sobject_pipeline_code = self.parent_sobject.get_pipeline_code()
 
         current_pipeline = stype.get_pipeline().get(parent_sobject_pipeline_code)
-        process_info = current_pipeline.get_pipeline_info(self.process)
+        process_info = current_pipeline.get_process_info(self.process)
 
         if process_info:
             assigned_login_group_code = process_info.get('assigned_login_group')
@@ -828,7 +828,7 @@ class Ui_tasksDockWidget(QtGui.QWidget):
         #             processes.extend(['icon', 'attachment', 'publish'])
 
         for process in processes:
-            process_info = current_pipeline.get_pipeline_info(process)
+            process_info = current_pipeline.get_process_info(process)
 
             ignored = False
 

@@ -11,6 +11,9 @@ __all__ = ['UploadMultipart', 'TacticUploadException']
 import httplib, urlparse, socket
 import os, sys
 
+from thlib.environment import dl
+
+
 class TacticUploadException(Exception):
     pass
 
@@ -45,14 +48,23 @@ class UploadMultipart(object):
 
     def execute(my, path):
         assert my.server_url
-        #f = open(path, 'rb')
+
+        dl.log('opening file: ' + path, group_id='tactic_stub')
+        # f = open(path, 'rb')
+
         import codecs
         f = codecs.open(path, 'rb')
 
+        dl.log('file opened', group_id='tactic_stub')
+
         count = 0
         while 1:
-            buffer = f.read(my.chunk_size)
-            if not buffer:
+            dl.log('reading file', group_id='tactic_stub')
+            read_buffer = f.read(my.chunk_size)
+
+            dl.log('file read', group_id='tactic_stub')
+            if not read_buffer:
+                dl.log('NO BUFFER', group_id='tactic_stub')
                 break
 
             if count == 0:
@@ -70,6 +82,8 @@ class UploadMultipart(object):
                 basename = os.path.basename(path)
                 from json import dumps as jsondumps
 
+                dl.log('checks for basename', group_id='tactic_stub')
+
                 # Workaround for python inside Maya, maya.Output has no sys.stdout.encoding property
                 if getattr(sys.stdout, "encoding", None) is not None and sys.stdout.encoding:
                     basename = basename.decode(sys.stdout.encoding)
@@ -77,6 +91,7 @@ class UploadMultipart(object):
                     import locale
                     basename = basename.decode(locale.getpreferredencoding())
 
+                dl.log('jsondumps ' + basename, group_id='tactic_stub')
                 basename = jsondumps(basename)
                 basename = basename.strip('"')
                 # the first index begins at 0
@@ -84,27 +99,31 @@ class UploadMultipart(object):
 
             if my.subdir:
                 fields.append( ("subdir", my.subdir) )
-	    
-            files = [("file", path, buffer)]
+
+            files = [("file", path, read_buffer)]
+
+            dl.log('!!! begin upload !!!', group_id='tactic_stub')
+
             (status, reason, content) = my.upload(my.server_url,fields,files)
 
-            
             if reason != "OK":
                 raise TacticUploadException("Upload of '%s' failed: %s %s" % (path, status, reason) )
 
             count += 1
 
-
+        dl.log('CLOSING FILE', group_id='tactic_stub')
         f.close()
 
+        dl.log('File CLOSED', group_id='tactic_stub')
 
 
     def upload(my, url, fields, files):
         try:
             while 1:
                 try:
+                    dl.log('posting url ' + url, group_id='tactic_stub')
                     ret_value = my.posturl(url,fields,files)
-
+                    dl.log('posting done ' + str(ret_value), group_id='tactic_stub')
                     return ret_value
                 except socket.error, e:
                     print "Error: ", e

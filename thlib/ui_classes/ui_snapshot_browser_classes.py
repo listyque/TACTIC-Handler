@@ -532,6 +532,7 @@ class Ui_snapshotBrowserWidget(QtGui.QWidget, ui_snapshot_browser.Ui_snapshotBro
                     pixmap_path = meta_file_object.get_all_files_list(first=True)
                 else:
                     pixmap_path = web_file_obj.get_full_abs_path()
+
                 self.pix_list.append(pixmap_path)
                 self.file_list.append(preview_file_obj)
 
@@ -621,6 +622,7 @@ class Ui_snapshotBrowserWidget(QtGui.QWidget, ui_snapshot_browser.Ui_snapshotBro
             self.pm_list = [self.pm1, self.pm2, self.pm3]
 
             for i, pm in enumerate(self.pm_list):
+
                 pixmap = Qt4Gui.QPixmap(self.pix_list[i % len(self.pix_list)])
                 if pixmap.isNull():
                     pm.set_op(0.0)
@@ -755,6 +757,7 @@ class Ui_snapshotBrowserWidget(QtGui.QWidget, ui_snapshot_browser.Ui_snapshotBro
         if self.pix_list:
             self.pm_list = [self.pm1, self.pm2, self.pm3]
             for i, pm in enumerate(self.pm_list):
+
                 pixmap = Qt4Gui.QPixmap(self.pix_list[i % len(self.pix_list)])
                 if not pixmap.isNull():
                     pm.add_pixmap(pixmap.scaledToWidth(640, QtCore.Qt.SmoothTransformation))
@@ -825,6 +828,7 @@ class Ui_snapshotBrowserWidget(QtGui.QWidget, ui_snapshot_browser.Ui_snapshotBro
         self.pm_list = []
         self.pix_list = []
         self.file_list = []
+        self.downloading_in_progress = False
 
         self.getting_pixmaps()
 

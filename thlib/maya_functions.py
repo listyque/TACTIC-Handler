@@ -7,6 +7,7 @@ from thlib.side.Qt import QtGui as Qt4Gui
 from thlib.side.Qt import QtCore
 
 import maya.OpenMayaUI as omui
+import maya
 import maya.cmds as cmds
 import maya.mel as mel
 try:
@@ -199,7 +200,7 @@ def inplace_checkin(virtual_snapshot, repo_name, update_versionless, only_versio
 
     if renamed and saved:
         if setting_workspace:
-            print 'SETTING WORKSPACE'
+            pass
             # set_workspace(dest_scene_ver, all_process)
 
         # isolate selected to create proper playblast
@@ -237,6 +238,7 @@ def inplace_checkin(virtual_snapshot, repo_name, update_versionless, only_versio
             fl.set_app_info(maya_app_info_dict)
             files_objects_list.append(fl)
         file_paths = [[full_scene_path], [full_playblast_path]]
+
         check_ok = tc.inplace_checkin(
             file_paths,
             virtual_snapshot,
@@ -248,6 +250,8 @@ def inplace_checkin(virtual_snapshot, repo_name, update_versionless, only_versio
         )
     else:
         check_ok = False
+
+    maya.utils.processIdleEvents()
 
     return check_ok, files_objects_list
 

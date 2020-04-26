@@ -126,7 +126,9 @@ class MenuWithLayout(QtGui.QMenu):
     def __init__(self, parent=None):
         super(self.__class__, self).__init__(parent=parent)
 
-        self.set_styling()
+        # self.set_styling()
+        self.icon_pixmap = None
+        self.edit_label = None
 
         self.layout = QtGui.QGridLayout()
         self.layout.setSpacing(0)
@@ -135,30 +137,36 @@ class MenuWithLayout(QtGui.QMenu):
 
         self.setLayout(self.layout)
 
-    def set_styling(self):
+    def set_custom_icon(self, icon_pixmap):
+        self.icon_pixmap = icon_pixmap
 
-        self.setStyleSheet("QMenu::separator { height: 2px;}")
+    # def set_styling(self):
+    #
+    #     self.setStyleSheet("QMenu::separator { height: 2px;}")
 
     def addAction(self, action, edit_label=False):
 
         w = QtGui.QWidget()
         l = QtGui.QGridLayout(w)
 
-        b = SquareLabel(menu=self, action=action)
-        b.setAlignment(QtCore.Qt.AlignCenter)
-        b.setPixmap(gf.get_icon('edit', icons_set='ei').pixmap(13, 13))
+        self.edit_label = SquareLabel(menu=self, action=action)
+        self.edit_label.setAlignment(QtCore.Qt.AlignCenter)
+        if self.icon_pixmap:
+            self.edit_label.setPixmap(self.icon_pixmap)
+        else:
+            self.edit_label.setPixmap(gf.get_icon('square-edit-outline', icons_set='mdi').pixmap(18, 18))
         w.setMinimumSize(22, 13)
 
-        b.setAutoFillBackground(True)
+        self.edit_label.setAutoFillBackground(True)
 
-        b.setBackgroundRole(Qt4Gui.QPalette.Background)
+        self.edit_label.setBackgroundRole(Qt4Gui.QPalette.Background)
 
         sizePolicy = QtGui.QSizePolicy(QtGui.QSizePolicy.Preferred, QtGui.QSizePolicy.Preferred)
         sizePolicy.setHorizontalStretch(0)
         sizePolicy.setVerticalStretch(0)
         l.setSpacing(0)
         l.setContentsMargins(0, 0, 0, 0)
-        l.addWidget(b)
+        l.addWidget(self.edit_label)
 
         self.layout.addWidget(w, len(self.actions()), 1, 1, 1)
 
@@ -173,9 +181,9 @@ class MenuWithLayout(QtGui.QMenu):
         w.setFixedHeight(self.actionGeometry(action).height())
 
         if edit_label:
-            return b
+            return self.edit_label
         else:
-            b.setHidden(True)
+            self.edit_label.setHidden(True)
             return action
 
     def addSeparator(self):
@@ -737,7 +745,7 @@ class Ui_debugLogWidget(QtGui.QDialog, ui_debuglog.Ui_DebugLog):
         self.create_ui()
 
     def create_ui(self):
-
+        self.setWindowFlags(QtCore.Qt.Window)
         self.setSizeGripEnabled(True)
 
         self.controls_actions()
@@ -823,30 +831,34 @@ class Ui_debugLogWidget(QtGui.QDialog, ui_debuglog.Ui_DebugLog):
             return self.recursive_add_items(group_item, subgroup_list)
 
     def add_debuglog(self, debuglog_dict, message_type, write_log=False):
-        self.debugLogTextEdit.append(self.format_debuglog(debuglog_dict[1], message_type))
         if write_log:
             log_text = self.format_debuglog(debuglog_dict[1], message_type, False)
             log_path = u'{0}/log'.format(env_mode.get_current_path())
             date_str = datetime.date.strftime(dl.session_start, '%d_%m_%Y_%H_%M_%S')
             if os.path.exists(log_path):
-                with codecs.open(u'{0}/session_{1}.log'.format(log_path, date_str), 'a+', 'utf-8') as log_file:
+                with codecs.open(u'{0}/{1}_session_{2}.log'.format(log_path, env_mode.get_mode(), date_str), 'a', 'utf-8') as log_file:
                     log_file.write(log_text + u'\n')
+                log_file.close()
             else:
                 os.makedirs(log_path)
-                with codecs.open(u'{0}/session_{1}.log'.format(log_path, date_str), 'w+', 'utf-8') as log_file:
+                with codecs.open(u'{0}/{1}_session_{2}.log'.format(log_path, env_mode.get_mode(), date_str), 'a', 'utf-8') as log_file:
                     log_file.write(log_text + u'\n')
+                log_file.close()
 
-            log_file.close()
+            self.debugLogTextEdit.append(log_text)
+        else:
+            self.debugLogTextEdit.append(self.format_debuglog(debuglog_dict[1], message_type))
 
     def format_debuglog(self, debuglog_dict, message_type, html=True):
 
-        trace_str = u'{0} {1} {2} ----- //{3:04d} : Module: {4}, Function: {5}()'.format(
-            datetime.date.strftime(debuglog_dict['datetime'], '[%d.%m.%Y - %H:%M:%S]'),
+        trace_str = u'[{6}] \n    Message: {2}\n       {0} {1} {4} / {5}(): {3:04d}\n'.format(
+            datetime.date.strftime(debuglog_dict['datetime'], '[%d.%m.%Y - %H:%M:%S.%f]'),
             message_type,
             debuglog_dict['message_text'],
             int(debuglog_dict['line_number']),
             debuglog_dict['module_path'],
-            debuglog_dict['function_name'])
+            debuglog_dict['function_name'],
+            debuglog_dict['unique_id'],)
 
         if html:
             if message_type == '[ INF ]':

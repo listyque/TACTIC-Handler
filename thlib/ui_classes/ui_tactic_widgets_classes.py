@@ -578,7 +578,7 @@ class QTacticSimpleUploadWdg(QtGui.QWidget, QTacticBasicInputWdg):
             for file_object in files_objects_dict.get('file'):
                 commit_queue_ui = checkin_widget.checkin_file_objects(
                     search_key, 'icon', '', files_objects=[file_object], checkin_type='file', keep_file_name=False,
-                    commit_silently=True)
+                    commit_silently=True, update_versionless=True)
 
             if commit_queue_ui:
                 commit_queue_ui.commit_queue()
