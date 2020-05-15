@@ -2,7 +2,7 @@
 PySide based Southpaw TACTIC client that can help you commit assets to TACTIC
 Can be used with Standalone or with Autodesk Maya 2014-2018+, The Foundry Nuke, Autodesk 3DSmax, Houdini, etc...
 
-Key Feauters:
+## Key Feauters:
 * Qt Based UI
 * Runnable standalone or within any App with Python and PySide, PyQt4+
 * Rich Functionality, like commiting UDIM textures with sequences, or Sequences of animation, with proper naming.
@@ -15,6 +15,9 @@ Key Feauters:
 * Rich customization, server presets, many useful and small things that can help you with your everyday work and etc...
 
 Link to Docs [Tactic-Handler Documentation pages](http://tactic-handler.tk/docs/)
+
 Screenshots [Tactic-Handler Screenshots](http://tactic-handler.tk/docs/screenshots/)
+
 How to Start [Tactic-Handler Installation Guides](http://tactic-handler.tk/docs/requirements/)
+
 Api Examples [Tactic-Handler Api Usage Examples](http://tactic-handler.tk/docs/api_reference/)
