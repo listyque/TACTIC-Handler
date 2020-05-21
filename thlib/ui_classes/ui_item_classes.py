@@ -23,6 +23,184 @@ import ui_notes_classes
 import ui_addsobject_classes
 
 
+class Ui_stypeIconWidget(QtGui.QWidget):
+    def __init__(self, stype=None, parent=None):
+        super(self.__class__, self).__init__(parent=parent)
+
+        self.create_ui_raw()
+
+        self.stype = stype
+
+        self.tree_item = None
+
+        if self.stype:
+            self.project = self.stype.get_project()
+
+        self.create_ui()
+
+    def create_ui_raw(self):
+        self.setObjectName('Ui_stypeIconWidget')
+        self.setMaximumSize(60, 36)
+        self.setMinimumSize(60, 36)
+        self.setContentsMargins(2, 0, 0, 0)
+
+        self.horizontal_layout = QtGui.QHBoxLayout(self)
+        self.horizontal_layout.setContentsMargins(0, 0, 0, 0)
+        self.horizontal_layout.setSpacing(0)
+
+        self.itemColorLine = QtGui.QFrame(self)
+        self.itemColorLine.setMaximumSize(QtCore.QSize(2, 16777215))
+        self.itemColorLine.setStyleSheet("QFrame { border: 0px; background-color: black;}")
+        self.itemColorLine.setFrameShadow(QtGui.QFrame.Plain)
+        self.itemColorLine.setLineWidth(2)
+        self.itemColorLine.setFrameShape(QtGui.QFrame.VLine)
+        self.itemColorLine.setFrameShadow(QtGui.QFrame.Sunken)
+        sizePolicy = QtGui.QSizePolicy(QtGui.QSizePolicy.Preferred, QtGui.QSizePolicy.Preferred)
+        self.itemColorLine.setSizePolicy(sizePolicy)
+
+        self.horizontal_layout.addWidget(self.itemColorLine)
+
+        self.previewLabel = QtGui.QLabel(self)
+        self.previewLabel.setMinimumSize(QtCore.QSize(32, 32))
+        self.previewLabel.setMaximumSize(QtCore.QSize(32, 32))
+        self.previewLabel.setStyleSheet('QLabel {background: rgba(175, 175, 175, 64); border: 0px; border-radius: 16px;padding: 0px 0px;}')
+        self.previewLabel.setTextFormat(QtCore.Qt.RichText)
+        self.previewLabel.setAlignment(QtCore.Qt.AlignVCenter | QtCore.Qt.AlignHCenter)
+        sizePolicy = QtGui.QSizePolicy(QtGui.QSizePolicy.Preferred, QtGui.QSizePolicy.Preferred)
+        self.previewLabel.setSizePolicy(sizePolicy)
+
+        # File name Label
+        self.fileNameLabel = QtGui.QLabel(self)
+        font = Qt4Gui.QFont()
+        font.setFamily('Segoe UI')
+        font.setPointSize(7)
+        self.fileNameLabel.setFont(font)
+        self.fileNameLabel.setTextFormat(QtCore.Qt.PlainText)
+        self.fileNameLabel.setAlignment(QtCore.Qt.AlignVCenter | QtCore.Qt.AlignHCenter)
+        self.fileNameLabel.setMaximumWidth(60)
+        self.fileNameLabel.setWordWrap(True)
+        sizePolicy = QtGui.QSizePolicy(QtGui.QSizePolicy.Preferred, QtGui.QSizePolicy.Preferred)
+        self.fileNameLabel.setSizePolicy(sizePolicy)
+
+        self.fileNameLabel.setHidden(True)
+        spacerItem = QtGui.QSpacerItem(0, 0, QtGui.QSizePolicy.Expanding, QtGui.QSizePolicy.Ignored)
+        self.horizontal_layout.addItem(spacerItem)
+
+        self.horizontal_layout.addWidget(self.previewLabel)
+
+        self.horizontal_layout.addWidget(self.fileNameLabel)
+
+        spacerItem = QtGui.QSpacerItem(0, 0, QtGui.QSizePolicy.Expanding, QtGui.QSizePolicy.Ignored)
+        self.horizontal_layout.addItem(spacerItem)
+
+
+    def create_ui(self):
+
+        self.fill_sobject_info()
+
+        # if gf.get_value_from_config(cfg_controls.get_checkin(), 'getPreviewsThroughHttpCheckbox') == 1:
+        #     self.set_web_preview()
+        # else:
+        #     self.set_preview()
+
+    def enterEvent(self, event):
+        self.fileNameLabel.setHidden(False)
+        self.previewLabel.setHidden(True)
+        event.accept()
+
+    def leaveEvent(self, event):
+        self.fileNameLabel.setHidden(True)
+        self.previewLabel.setHidden(False)
+        event.accept()
+
+    def fill_sobject_info(self):
+        self.fileNameLabel.setText(self.stype.get_pretty_name())
+        # text_height = self.fileNameLabel.sizeHint().height()
+        # self.setMinimumHeight(self.height() + text_height)
+
+        self.previewLabel.setText(u'<span style=" font-size:9pt; font-weight:600; color:#828282;">{0}</span>'.format(
+            gf.gen_acronym(self.stype.get_pretty_name())))
+
+        tab_color = None
+        if self.stype:
+            tab_color = self.stype.info['color']
+        if tab_color:
+            tab_color_rgb = gf.hex_to_rgb(tab_color, alpha=128)
+
+            self.itemColorLine.setStyleSheet('QFrame { border: 0px; background-color: %s;}' % self.stype.get_stype_color())
+
+    def set_preview(self):
+
+        snapshots = self.get_snapshot('icon')
+        if not snapshots:
+            snapshots = self.get_snapshot('publish')
+
+        if snapshots:
+            preview_files_objects = snapshots.get_files_objects(group_by='type').get('icon')
+            if preview_files_objects:
+                icon_previw = preview_files_objects[0].get_icon_preview()
+                if icon_previw:
+                    pixmap = self.get_preview_pixmap(icon_previw.get_full_abs_path())
+                    if pixmap:
+                        self.previewLabel.setPixmap(pixmap)
+
+    def set_web_preview(self):
+
+        snapshots = self.get_snapshot('icon')
+        if not snapshots:
+            snapshots = self.get_snapshot('publish')
+
+        if snapshots:
+            preview_files_objects = snapshots.get_files_objects(group_by='type').get('icon')
+            if preview_files_objects:
+                icon_previw = preview_files_objects[0].get_icon_preview()
+                if icon_previw:
+                    if icon_previw.is_exists():
+                        if icon_previw.get_file_size() == icon_previw.get_file_size(True):
+                            self.set_preview()
+                        else:
+                            self.download_and_set_preview_file(icon_previw)
+                    else:
+                        self.download_and_set_preview_file(icon_previw)
+
+    def download_and_set_preview_file(self, file_object):
+        if not file_object.is_downloaded():
+            if file_object.get_unique_id() not in env_inst.ui_repo_sync_queue.queue_dict.keys():
+                repo_sync_item = env_inst.ui_repo_sync_queue.schedule_file_object(file_object)
+                repo_sync_item.downloaded.connect(self.set_preview_pixmap)
+                repo_sync_item.download()
+
+    def set_preview_pixmap(self, file_object):
+        pixmap = self.get_preview_pixmap(file_object.get_full_abs_path())
+        if pixmap:
+            self.previewLabel.setPixmap(pixmap)
+
+    def get_preview_pixmap(self, image_path):
+        pixmap = Qt4Gui.QPixmap(image_path)
+        if not pixmap.isNull():
+            pixmap = pixmap.scaledToHeight(64, QtCore.Qt.SmoothTransformation)
+
+            painter = Qt4Gui.QPainter()
+            pixmap_mask = Qt4Gui.QPixmap(64, 64)
+            pixmap_mask.fill(QtCore.Qt.transparent)
+            painter.begin(pixmap_mask)
+            painter.setRenderHint(Qt4Gui.QPainter.Antialiasing)
+            painter.setBrush(Qt4Gui.QBrush(Qt4Gui.QColor(0, 0, 0, 255)))
+            painter.drawEllipse(QtCore.QRect(2, 2, 60, 60))
+            painter.end()
+
+            rounded_pixmap = Qt4Gui.QPixmap(pixmap.size())
+            rounded_pixmap.fill(QtCore.Qt.transparent)
+            painter.begin(rounded_pixmap)
+            painter.setRenderHint(Qt4Gui.QPainter.Antialiasing)
+            painter.drawPixmap(QtCore.QRect((pixmap.width() - 64) / 2, 0, 64, 64), pixmap_mask)
+            painter.setCompositionMode(Qt4Gui.QPainter.CompositionMode_SourceIn)
+            painter.drawPixmap(0, 0, pixmap)
+            painter.end()
+
+            return rounded_pixmap
+
+
 class Ui_infoItemsWidget(QtGui.QWidget):
     def __init__(self, parent=None):
         super(self.__class__, self).__init__(parent=parent)
@@ -864,7 +1042,7 @@ class Ui_itemWidget(QtGui.QWidget):
     def hide_overlay_at_animation_end(self, val):
         if val == 0.0:
             self.overlay_layout_widget.lower()
-            # self.overlay_layout_widget.hide()
+            self.overlay_layout_widget.hide()
 
     def create_drop_widget(self):
         self.setAcceptDrops(True)
@@ -1011,6 +1189,10 @@ class Ui_itemWidget(QtGui.QWidget):
     def analyze_dropped(self, mime_data):
         urls = mime_data.urls()
         if urls:
+            # TODO Point to expand item
+            # if not self.tree_item.isExpanded():
+            #     self.expand_tree_item()
+
             if len(urls) > 1:
                 self.drop_icon_publish.setText('Publish {} Files'.format(len(urls)))
                 self.drop_icon_attach.setText('Attach {} Files'.format(len(urls)))
@@ -1036,9 +1218,6 @@ class Ui_itemWidget(QtGui.QWidget):
 
                 if local_files_list:
                     self.checkin_dropped_files(local_files_list)
-
-            # print urls[0].toLocalFile()
-            # print urls[0].toEncoded()
 
     def enterEvent(self, event):
         self.show_additional_controls()
@@ -2139,7 +2318,6 @@ class Ui_itemWidget(QtGui.QWidget):
 
                 self.create_drop_widget()
 
-
     def showEvent(self, event):
         if not self.created:
 
@@ -2182,6 +2360,7 @@ class Ui_processItemWidget(QtGui.QWidget):
 
         self.created = False
         self.closed = False
+        self.overlay_layout_widget = None
         self.type = 'process'
         self.sobject = sobject
         self.stype = stype
@@ -2202,6 +2381,7 @@ class Ui_processItemWidget(QtGui.QWidget):
 
         self.search_widget = None
         self.relates_to = 'checkin_out'
+
 
     def controls_actions(self):
         self.notesToolButton.clicked.connect(lambda: self.show_notes_widget())
@@ -2265,7 +2445,6 @@ class Ui_processItemWidget(QtGui.QWidget):
         self.horizontalLayout.addWidget(self.notesToolButton)
 
     def create_ui(self):
-        # self.drop_wdg = QtGui.QWidget(self)
 
         item_color = Qt4Gui.QColor(200, 200, 200)
         # pipeline = self.get_current_process_pipeline()
@@ -2298,6 +2477,10 @@ class Ui_processItemWidget(QtGui.QWidget):
 
         self.set_indent(12)
 
+        self.create_overlay_layout()
+
+        self.create_drop_widget()
+
     def set_indent(self, indent=24):
         result_indent = self.get_depth() * indent
         self.indent_spacer.changeSize(result_indent, 0)
@@ -2311,6 +2494,75 @@ class Ui_processItemWidget(QtGui.QWidget):
     def create_indent(self):
         self.indent_spacer = QtGui.QSpacerItem(0, 0, QtGui.QSizePolicy.Minimum, QtGui.QSizePolicy.Expanding)
         self.horizontalLayout.addItem(self.indent_spacer)
+
+    def create_overlay_layout(self):
+        # when use this, layout should have only one widget, use add_overlay_widget()
+
+        self.overlay_layout_widget = QtGui.QWidget(self)
+        sizePolicy = QtGui.QSizePolicy(QtGui.QSizePolicy.Preferred, QtGui.QSizePolicy.Preferred)
+        self.overlay_layout_widget.setSizePolicy(sizePolicy)
+
+        self.overlay_layout = QtGui.QVBoxLayout(self.overlay_layout_widget)
+        self.overlay_layout.setSpacing(0)
+        self.overlay_layout.setContentsMargins(0, 0, 0, 0)
+
+        self.overlay_layout_widget.setLayout(self.overlay_layout)
+        self.overlay_layout_widget.setHidden(True)
+
+    def show_overlay(self):
+
+        # This will bring main ui to Top
+        QtGui.QDialog.activateWindow(self)
+
+        self.overlay_layout_widget.raise_()
+        self.overlay_layout_widget.show()
+
+        if not self.info.get('simple_view'):
+            self.drop_icon_publish_anm_open.start()
+
+    def hide_overlay(self):
+
+        self.drop_icon_publish_anm_close.start()
+
+    def hide_overlay_at_animation_end(self, val):
+        if val == 0.0:
+            self.overlay_layout_widget.lower()
+            self.overlay_layout_widget.hide()
+
+    def create_drop_widget(self):
+        self.setAcceptDrops(True)
+
+        self.drop_widget = QtGui.QWidget()
+        self.drop_widget_layout = QtGui.QHBoxLayout()
+        self.drop_widget_layout.setSpacing(0)
+        self.drop_widget_layout.setContentsMargins(0, 0, 0, 0)
+        self.drop_widget.setLayout(self.drop_widget_layout)
+
+        style = 'QPushButton{border: 0px solid white;border-radius: 0px;background: qlineargradient(spread:pad, x1:0, y1:0, x2:0, y2:1, stop:0 rgba(73, 126, 175, 240), stop:1 rgba(73, 126, 175, 220));}QPushButton:focus{border: 0px dashed white;}'
+
+        self.drop_icon_publish = QtGui.QPushButton(u'Drop File to {0}'.format(self.get_current_process_title()))
+        self.drop_icon_publish.setIcon(gf.get_icon('upload', icons_set='mdi', scale_factor=1))
+        self.drop_icon_publish.setIconSize(QtCore.QSize(20, 20))
+        effect = QtGui.QGraphicsOpacityEffect(self.drop_icon_publish)
+        self.drop_icon_publish_anm_close = QtCore.QPropertyAnimation(effect, 'opacity', self.drop_icon_publish)
+        self.drop_icon_publish_anm_close.setDuration(200)
+        self.drop_icon_publish_anm_close.setStartValue(1)
+        self.drop_icon_publish_anm_close.setEndValue(0)
+        self.drop_icon_publish_anm_close.setEasingCurve(QtCore.QEasingCurve.OutSine)
+        self.drop_icon_publish_anm_open = QtCore.QPropertyAnimation(effect, 'opacity', self.drop_icon_publish)
+        self.drop_icon_publish_anm_open.setDuration(200)
+        self.drop_icon_publish_anm_open.setStartValue(0)
+        self.drop_icon_publish_anm_open.setEndValue(1)
+        self.drop_icon_publish_anm_open.setEasingCurve(QtCore.QEasingCurve.InSine)
+        self.drop_icon_publish.setGraphicsEffect(effect)
+        self.drop_icon_publish.setSizePolicy(QtGui.QSizePolicy.Preferred, QtGui.QSizePolicy.Preferred)
+        self.drop_icon_publish.setStyleSheet(style)
+
+        self.drop_icon_publish_anm_close.valueChanged.connect(self.hide_overlay_at_animation_end)
+
+        self.drop_widget_layout.addWidget(self.drop_icon_publish)
+
+        self.overlay_layout.addWidget(self.drop_widget)
 
     def create_expand_item_tool_button(self):
         self.expand_item_button = QtGui.QToolButton(self)
@@ -2413,6 +2665,14 @@ class Ui_processItemWidget(QtGui.QWidget):
 
     def get_current_process(self):
         return self.sobject.get_process(self.process)
+
+    def get_current_process_title(self):
+        if self.process:
+            title = self.process.capitalize()
+        else:
+            title = 'Unnamed'
+
+        return title
 
     def get_current_process_info(self):
         current_pipeline = self.get_current_process_pipeline()
@@ -2669,6 +2929,55 @@ class Ui_processItemWidget(QtGui.QWidget):
     def collapse_recursive(self):
         gf.tree_recursive_expand(self.tree_item, False)
 
+    def checkin_dropped_files(self, files_list):
+
+        # We need to select current item, it is important!
+        self.tree_item.setSelected(True)
+
+        checkin_widget = env_inst.get_check_tree(
+            project_code=self.stype.project.get_code(),
+            tab_code='checkin_out',
+            wdg_code=self.stype.get_code(),
+        )
+        checkin_widget.do_creating_ui()
+
+        match_template = gf.MatchTemplate(['$FILENAME.$EXT'])
+        files_objects_dict = match_template.get_files_objects(files_list)
+
+
+        for file_object in files_objects_dict.get('file'):
+            checkin_widget.checkin_file_objects(
+                search_key=self.get_search_key(),
+                context=self.process,
+                description='Drag-Drop Cehckin',
+                files_objects=[file_object],
+            )
+
+    def analyze_dropped(self, mime_data):
+        urls = mime_data.urls()
+        if urls:
+            if len(urls) > 1:
+                self.drop_icon_publish.setText(u'Drop {0} Files to {1}'.format(len(urls), self.get_current_process_title()))
+            else:
+                self.drop_icon_publish.setText(u'Drop File to {0}'.format(self.get_current_process_title()))
+
+    def handle_dopped(self, mime_data):
+        urls = mime_data.urls()
+        if urls:
+            # Determine if dropped is local file
+            is_local_files = False
+            if urls[0].toLocalFile():
+                is_local_files = True
+
+            if is_local_files:
+                local_files_list = []
+                for url in urls:
+                    if os.path.isfile(url.toLocalFile()):
+                        local_files_list.append(url.toLocalFile())
+
+                if local_files_list:
+                    self.checkin_dropped_files(local_files_list)
+
     def mouseDoubleClickEvent(self, event):
         do_dbl_click = None
         if self.relates_to == 'checkin_out':
@@ -2692,6 +3001,47 @@ class Ui_processItemWidget(QtGui.QWidget):
         if not self.created:
             self.created = True
             self.create_ui()
+        event.accept()
+
+    def dragEnterEvent(self, event):
+        event.accept()
+
+        self.analyze_dropped(event.mimeData())
+
+        self.show_overlay()
+
+        super(self.__class__, self).dragEnterEvent(event)
+
+    def dragMoveEvent(self, event):
+        event.accept()
+
+        wdg = QtGui.QApplication.widgetAt(Qt4Gui.QCursor.pos())
+        if isinstance(wdg, QtGui.QPushButton):
+            wdg.setFocus()
+
+        super(self.__class__, self).dragMoveEvent(event)
+
+    def dragLeaveEvent(self, event):
+
+        event.accept()
+
+        self.hide_overlay()
+
+        super(self.__class__, self).dragLeaveEvent(event)
+
+    def dropEvent(self, event):
+
+        self.hide_overlay()
+
+        self.handle_dopped(event.mimeData())
+
+        event.accept()
+
+        super(self.__class__, self).dropEvent(event)
+
+    def resizeEvent(self, event):
+        if self.overlay_layout_widget:
+            self.overlay_layout_widget.resize(self.size())
         event.accept()
 
     def closeEvent(self, event):

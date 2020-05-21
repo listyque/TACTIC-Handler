@@ -408,7 +408,7 @@ def query_search_types_extended(project_code):
         stypes = search.get_sobjects()
     else:
         prj = Project.get_by_code(project_code)
-        stypes = prj.get_search_types(include_multi_project=True)
+        stypes = prj.get_search_types(include_multi_project=False)
 
     # add_config_tables = False
     #
@@ -671,7 +671,7 @@ def query_sobjects_snapshots_updated(search_type, filters=[], order_bys=[], proj
     return json.dumps(result, separators=(',', ':'))
 
 
-def query_sobjects(search_type, filters=[], order_bys=[], project_code=None, limit=None, offset=None, get_all_snapshots=False, check_snapshots_updates=False):
+def query_sobjects(search_type, filters=[], order_bys=[], project_code=None, limit=None, offset=None, get_all_snapshots=False, check_snapshots_updates=False, include_info=True, include_snapshots=True, compressed_return=True):
     """
 
     :param search_type:
@@ -691,8 +691,6 @@ def query_sobjects(search_type, filters=[], order_bys=[], project_code=None, lim
     from pyasm.search import Search, SearchKey
     from pyasm.biz import Snapshot
     from pyasm.biz import Schema
-
-    compressed_return = True
 
     if project_code:
         server.set_project(project_code)
@@ -715,9 +713,11 @@ def query_sobjects(search_type, filters=[], order_bys=[], project_code=None, lim
     else:
         splitted_search_type, project_code = server.split_search_key(search_type)
 
-    # Getting count of all sobjects of this stype
     search = Search(splitted_search_type)
-    total_sobjects_count = search.get_count()
+
+    if include_info:
+        # Getting count of all sobjects of this stype
+        total_sobjects_count = search.get_count()
 
     # checking if search filters have expression and separate it
     expressions_filters_list = []
@@ -748,7 +748,8 @@ def query_sobjects(search_type, filters=[], order_bys=[], project_code=None, lim
             elif op == 'in':
                 search.set_null_filter()
 
-    total_sobjects_query_count = search.get_count()
+    if include_info:
+        total_sobjects_query_count = search.get_count()
 
     if limit:
         search.set_limit(limit)
@@ -760,17 +761,34 @@ def query_sobjects(search_type, filters=[], order_bys=[], project_code=None, lim
 
     sobjects_dicts_list = server.server._get_sobjects_dict(sobjects_list)
 
-    result = {
-        'total_sobjects_count': total_sobjects_count,
-        'total_sobjects_query_count': total_sobjects_query_count,
-        'sobjects_list': sobjects_dicts_list,
-        'limit': limit,
-        'offset': offset,
-    }
+    if include_info:
+        result = {
+            'total_sobjects_count': total_sobjects_count,
+            'total_sobjects_query_count': total_sobjects_query_count,
+            'sobjects_list': sobjects_dicts_list,
+            'limit': limit,
+            'offset': offset,
+        }
+    else:
+        result = {
+            'sobjects_list': sobjects_dicts_list,
+            'limit': limit,
+            'offset': offset,
+        }
+
     have_search_code = False
     if sobjects_dicts_list:
         if sobjects_dicts_list[0].get('code'):
             have_search_code = True
+
+    if include_snapshots:
+        snapshot_search = Search('sthpw/snapshot')
+        snapshot_search.add_relationship_filters(sobjects_list, op='in')
+        if not get_all_snapshots:
+            snapshot_search.add_op_filters([('process', ['icon', 'attachment', 'publish'])])
+        snapshots_sobjects = snapshot_search.get_sobjects()
+
+        snapshots_files_sobjects = Snapshot.get_files_dict_by_snapshots(snapshots_sobjects)
 
     for sobject_dict, sobject in zip(sobjects_dicts_list, sobjects_list):
 
@@ -791,67 +809,90 @@ def query_sobjects(search_type, filters=[], order_bys=[], project_code=None, lim
                 if snapshot_search.get_sobjects():
                     sobject_dict['__have_updates__'] = True
 
-        note_search = Search('sthpw/note')
-        if have_search_code:
-            note_search.add_op_filters(
-                [('process', 'publish'), ('search_type', search_type), ('search_code', sobject_dict['code'])])
-        else:
-            note_search.add_op_filters(
-                [('process', 'publish'), ('search_type', search_type), ('search_id', sobject_dict['id'])])
-
-        sobject_dict['__notes_count__'] = note_search.get_count()
-
-        task_search = Search('sthpw/task')
-        if have_search_code:
-            task_search.add_op_filters([('search_type', search_type), ('search_code', sobject_dict['code'])])
-        else:
-            task_search.add_op_filters([('search_type', search_type), ('search_id', sobject_dict['id'])])
-
-        sobject_dict['__tasks_count__'] = task_search.get_count()
-
-        # sobject_dict['__notes_count__'] = 0
-        # sobject_dict['__tasks_count__'] = 0
-
-        search = Search('sthpw/snapshot')
-
-        snapshots_filters = [('search_type', search_type)]
-        if have_search_code:
-            snapshots_filters.append(('search_code', sobject_dict['code']))
-        else:
-            snapshots_filters.append(('search_id', sobject_dict['id']))
-
-        if not get_all_snapshots:
-            snapshots_filters.append(('process', ['icon', 'attachment', 'publish']))
-        search.add_op_filters(snapshots_filters)
-
-        snapshots = search.get_sobjects()
-
-        snapshot_files = Snapshot.get_files_dict_by_snapshots(snapshots)
-
-        snapshots_list = []
-        for snapshot in snapshots:
-            if get_all_snapshots:
-                snapshot_dict = get_sobject_dict(snapshot)
-                files_list = []
-                files = snapshot_files.get(snapshot_dict['code'])
-                if files:
-                    for fl in files:
-                        files_list.append(server.server._get_sobject_dict(fl))
-                snapshot_dict['__files__'] = files_list
-                snapshots_list.append(snapshot_dict)
+        if include_info:
+            note_search = Search('sthpw/note')
+            if have_search_code:
+                note_search.add_op_filters(
+                    [('process', 'publish'), ('search_type', search_type), ('search_code', sobject_dict['code'])])
             else:
-                # limiting snapshots to just latest version and versionless
-                if snapshot.get_version() in [-1, 0, '-1', '0'] or snapshot.is_latest():
+                note_search.add_op_filters(
+                    [('process', 'publish'), ('search_type', search_type), ('search_id', sobject_dict['id'])])
+
+            sobject_dict['__notes_count__'] = note_search.get_count()
+
+            task_search = Search('sthpw/task')
+            if have_search_code:
+                task_search.add_op_filters([('search_type', search_type), ('search_code', sobject_dict['code'])])
+            else:
+                task_search.add_op_filters([('search_type', search_type), ('search_id', sobject_dict['id'])])
+
+            sobject_dict['__tasks_count__'] = task_search.get_count()
+
+        if include_snapshots:
+            related_snapshots = []
+            for snapshot in snapshots_sobjects:
+                if have_search_code:
+                    if snapshot.get_value('search_code') == sobject_dict['code']:
+                        related_snapshots.append(snapshot)
+                else:
+                    if snapshot.get_value('search_id') == sobject_dict['id']:
+                        related_snapshots.append(snapshot)
+
+            snapshots_list = []
+            for snapshot in related_snapshots:
+
+                if snapshot.get_version() in [-1, 0, '-1', '0'] or snapshot.is_latest() or get_all_snapshots:
                     snapshot_dict = get_sobject_dict(snapshot)
                     files_list = []
-                    files = snapshot_files.get(snapshot_dict['code'])
-                    if files:
-                        for fl in files:
+                    snapshots_files = snapshots_files_sobjects.get(snapshot_dict['code'])
+                    if snapshots_files:
+                        for fl in snapshots_files:
                             files_list.append(server.server._get_sobject_dict(fl))
                     snapshot_dict['__files__'] = files_list
                     snapshots_list.append(snapshot_dict)
+            sobject_dict['__snapshots__'] = snapshots_list
 
-        sobject_dict['__snapshots__'] = snapshots_list
+            # DEPRECATED, REPLACED WITH FASTER VERSION
+            # search = Search('sthpw/snapshot')
+            #
+            # snapshots_filters = [('search_type', search_type)]
+            # if have_search_code:
+            #     snapshots_filters.append(('search_code', sobject_dict['code']))
+            # else:
+            #     snapshots_filters.append(('search_id', sobject_dict['id']))
+            #
+            # if not get_all_snapshots:
+            #     snapshots_filters.append(('process', ['icon', 'attachment', 'publish']))
+            # search.add_op_filters(snapshots_filters)
+            #
+            # snapshots = search.get_sobjects()
+            #
+            # snapshot_files = Snapshot.get_files_dict_by_snapshots(snapshots)
+            #
+            # snapshots_list = []
+            # for snapshot in snapshots:
+            #     if get_all_snapshots:
+            #         snapshot_dict = get_sobject_dict(snapshot)
+            #         files_list = []
+            #         files = snapshot_files.get(snapshot_dict['code'])
+            #         if files:
+            #             for fl in files:
+            #                 files_list.append(server.server._get_sobject_dict(fl))
+            #         snapshot_dict['__files__'] = files_list
+            #         snapshots_list.append(snapshot_dict)
+            #     else:
+            #         # limiting snapshots to just latest version and versionless
+            #         if snapshot.get_version() in [-1, 0, '-1', '0'] or snapshot.is_latest():
+            #             snapshot_dict = get_sobject_dict(snapshot)
+            #             files_list = []
+            #             files = snapshot_files.get(snapshot_dict['code'])
+            #             if files:
+            #                 for fl in files:
+            #                     files_list.append(server.server._get_sobject_dict(fl))
+            #             snapshot_dict['__files__'] = files_list
+            #             snapshots_list.append(snapshot_dict)
+
+            sobject_dict['__snapshots__'] = snapshots_list
 
     if compressed_return:
         # return 'zlib:' + binascii.b2a_hex(zlib.compress(json.dumps(result, separators=(',', ':')), 9))

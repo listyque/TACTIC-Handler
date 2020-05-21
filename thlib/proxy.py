@@ -44,6 +44,34 @@ class UrllibTransport(xmlrpclib.Transport, object):
     def enable_proxy(self):
         self.proxy_enabled = True
 
+    def parse_response(self, response):
+        # read response data from httpresponse, and parse it
+
+        # Check for new http response object, else it is a file object
+        if hasattr(response, 'getheader'):
+            if response.getheader("Content-Encoding", "") == "gzip":
+                stream = xmlrpclib.GzipDecodedResponse(response)
+            else:
+                stream = response
+        else:
+            stream = response
+
+        p, u = self.getparser()
+
+        while 1:
+            data = stream.read(1024)
+            if not data:
+                break
+            if self.verbose:
+                print "body:", repr(data)
+            p.feed(data)
+
+        if stream is not response:
+            stream.close()
+        p.close()
+
+        return u.close()
+
     def request(self, host, handler, request_body, verbose=0):
         self.verbose = verbose
 

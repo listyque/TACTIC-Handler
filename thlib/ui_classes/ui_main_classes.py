@@ -29,8 +29,6 @@ reload(ui_main)
 reload(ui_create_update)
 reload(ui_checkin_out_tabs_classes)
 reload(ui_conf_classes)
-#reload(ui_assets_browser_classes)
-#reload(ui_float_notify_classes)
 reload(tc)
 reload(uf)
 reload(gf)
@@ -156,8 +154,8 @@ class Ui_Main(QtGui.QMainWindow, ui_main.Ui_MainWindow):
                     dock_widget.setObjectName(project_code)
                     dock_widget.setWindowTitle(project.info.get('title'))
                     dock_widget.setMinimumWidth(200)
-                    dock_widget.setFeatures(
-                        QtGui.QDockWidget.DockWidgetMovable | QtGui.QDockWidget.DockWidgetClosable)
+                    # dock_widget.setFeatures(QtGui.QDockWidget.DockWidgetMovable | QtGui.QDockWidget.DockWidgetClosable)
+                    dock_widget.setFeatures(QtGui.QDockWidget.DockWidgetClosable)
 
                     main_tabs_widget = Ui_mainTabs(project_code, dock_widget)
                     dock_widget.setWidget(main_tabs_widget)
@@ -210,6 +208,7 @@ class Ui_Main(QtGui.QMainWindow, ui_main.Ui_MainWindow):
 
         self.setupUi(self)
         self.setWindowTitle('TACTIC Handler')
+        self.create_status_bar()
         self.customize_ui()
 
         # instance attributes
@@ -224,6 +223,11 @@ class Ui_Main(QtGui.QMainWindow, ui_main.Ui_MainWindow):
         # self.create_messages_widget()
 
         self.created = True
+
+    def create_status_bar(self):
+        self.status_bar = QtGui.QStatusBar(self)
+        self.setStatusBar(self.status_bar)
+        self.status_bar.showMessage('I Am Status Bar')
 
     @staticmethod
     def execute_after_all_ui_started():

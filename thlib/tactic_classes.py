@@ -1053,6 +1053,16 @@ class SObject(object):
 
     def get_related_sobjects_tel_string(self, child_stype=None, parent_stype=None, path='child'):
 
+        """
+        Getting related Search Type
+        This methrod relies on Schema, and not supposed to be used for built in Search Types
+
+        :param child_stype: Children Search Type
+        :param parent_stype: Parent Search Type
+        :param path: path for relationship for asset to asset relationship
+        :return: TEL string "@SOBJECT()"
+        """
+
         instance_type = None
         related_type = None
 
@@ -1951,7 +1961,7 @@ def delete_sobjects(search_keys, list_dependencies):
     return execute_procedure_serverside(tq.delete_sobjects, kwargs)
 
 
-def get_sobjects(search_type, filters=[], order_bys=[], project_code=None, limit=None, offset=None, process_list=[], get_all_snapshots=False, check_snapshots_updates=False):
+def get_sobjects(search_type, filters=[], order_bys=[], project_code=None, limit=None, offset=None, process_list=[], get_all_snapshots=False, check_snapshots_updates=False, include_info=True, include_snapshots=True, compressed_return=True):
     """
     Filters snapshot by search codes, and sobjects codes
     :param search_type: search_type or search_key (if using search_type project_code should to be provided)
@@ -1968,6 +1978,9 @@ def get_sobjects(search_type, filters=[], order_bys=[], project_code=None, limit
         'offset': offset,
         'get_all_snapshots': get_all_snapshots,
         'check_snapshots_updates': check_snapshots_updates,
+        'include_info': include_info,
+        'include_snapshots': include_snapshots,
+        'compressed_return': compressed_return,
     }
 
     if not project_code:
@@ -1981,7 +1994,9 @@ def get_sobjects(search_type, filters=[], order_bys=[], project_code=None, limit
         if search_type.find('?') == -1:
             kwargs['search_type'] = server_start(project=project_code).build_search_type(search_type, project_code)
 
+    s = gf.time_it()
     sobjects_list = execute_procedure_serverside(tq.query_sobjects, kwargs, project=project_code)
+    gf.time_it(s)
 
     if sobjects_list:
         if isinstance(sobjects_list, (str, unicode)):
@@ -1990,8 +2005,8 @@ def get_sobjects(search_type, filters=[], order_bys=[], project_code=None, limit
                 info = None
         else:
             info = {
-                'total_sobjects_count': sobjects_list['total_sobjects_count'],
-                'total_sobjects_query_count': sobjects_list['total_sobjects_query_count'],
+                'total_sobjects_count': sobjects_list.get('total_sobjects_count'),
+                'total_sobjects_query_count': sobjects_list.get('total_sobjects_query_count'),
                 'limit': sobjects_list['limit'],
                 'offset': sobjects_list['offset'],
             }
@@ -2006,12 +2021,16 @@ def get_sobjects(search_type, filters=[], order_bys=[], project_code=None, limit
         # Create ordered dict of Sobject class Objects with snapshots, and some counts
         for sobject in sobjects_list['sobjects_list']:
             sobjects[sobject['__search_key__']] = SObject(sobject, process_codes, env_inst.projects[project_code])
-            sobjects[sobject['__search_key__']].init_snapshots(sobject['__snapshots__'])
-            sobjects[sobject['__search_key__']].set_notes_count('publish', sobject['__notes_count__'])
-            sobjects[sobject['__search_key__']].set_tasks_count('__total__', sobject['__tasks_count__'])
+            if include_snapshots:
+                sobjects[sobject['__search_key__']].init_snapshots(sobject['__snapshots__'])
+            if include_info:
+                sobjects[sobject['__search_key__']].set_notes_count('publish', sobject['__notes_count__'])
+                sobjects[sobject['__search_key__']].set_tasks_count('__total__', sobject['__tasks_count__'])
 
-        return sobjects, info
-
+        if include_info:
+            return sobjects, info
+        else:
+            return sobjects
 
 # TEMPORARY
 get_sobjects_new = get_sobjects

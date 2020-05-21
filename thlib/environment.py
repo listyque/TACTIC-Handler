@@ -212,8 +212,6 @@ class Inst(object):
     async_engine = PyQtEngine().async
     async_task = Task
 
-    conn = None
-
     def get_current_project(self):
         return self.current_project
 
@@ -281,7 +279,6 @@ class Inst(object):
         self.check_tree[project_code][tab_code][wdg_code] = widget
 
     def get_check_tree(self, project_code=None, tab_code=None, wdg_code=None):
-        #TODO UNUSABLE AS THRE IS ONLY CHECKIN_OUT TAB EXISTS
 
         if not project_code:
             project_code = self.current_project
@@ -450,7 +447,7 @@ class Mode(object):
         self.status = False
         self.current_mode = 'standalone'
         self.current_path = None
-        self.current_path_path = None
+        self.current_python_path = None
         self.get_current_path()
         self.platform = platform.system()
         if SPECIALIZED:
@@ -476,14 +473,14 @@ class Mode(object):
             return self.current_path.decode(locale.getpreferredencoding())
 
     def get_current_python_path(self):
-        if self.current_path_path:
-            return self.current_path_path.decode(locale.getpreferredencoding())
+        if self.current_python_path:
+            return self.current_python_path.decode(locale.getpreferredencoding())
         else:
-            self.current_path_path = sys.executable
+            self.current_python_path = sys.executable
             if self.current_mode == 'maya':
-                self.current_path_path = sys.executable.replace('maya.exe', 'mayapy.exe')
+                self.current_python_path = sys.executable.replace('maya.exe', 'mayapy.exe')
 
-            return self.current_path_path.decode(locale.getpreferredencoding())
+            return self.current_python_path.decode(locale.getpreferredencoding())
 
     def get_platform(self):
         return self.platform
@@ -1039,7 +1036,6 @@ class ApiConnectorWrapper(object):
             self.api_server.stop()
 
         self.api_server = AppServer(6000, '127.0.0.1')
-        # self.api_server.accepted.connect(self.server_accepted_connection)
         self.api_server.received.connect(self.server_handle_input_data)
 
         if parent:
@@ -1049,14 +1045,7 @@ class ApiConnectorWrapper(object):
 
         self.api_server.run()
 
-    # def server_accepted_connection(self, socket):
-    #     print 'Accepted!', socket
-    #     self.api_server.send_to_client(socket, 'pass_phrase')
-
     def server_handle_input_data(self, socket, data):
-
-        print socket
-        print data
 
         method_name, args, kwargs = loads(str(data))
 
@@ -1132,9 +1121,6 @@ class ApiConnectorWrapper(object):
 
         return api_client
 
-    # def send_method_result_to_client(self, socket):
-    #     self.api_server.send(socket, dumps(tc().get_all_projects_and_logins(True)))
-
     def get_results(self, client, handoff_method):
         catch_error = gf().catch_error
 
@@ -1158,8 +1144,13 @@ class ApiConnectorWrapper(object):
 
     def start_api_server_app(self):
 
+        # Special case for linux and Mac
+        use_api_server = True
+        if env_mode.get_platform() != 'Windows':
+            use_api_server = False
+
         # Checking if we already trying to execute new process of api_server
-        if not self.starting_api_server:
+        if not self.starting_api_server and use_api_server:
             self.starting_api_server = True
 
             server_api_socket = QtNetwork.QLocalSocket()

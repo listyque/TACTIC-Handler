@@ -1077,40 +1077,9 @@ def collect_defaults(defaults_dict=None, init_dict=None, layouts_list=None, get_
     return defaults_dict, init_dict
 
 
-def create_tab_label(tab_name, stype):
-    wdg = QtGui.QFrame()
-    lay = QtGui.QVBoxLayout()
-    lay.setSpacing(0)
-    lay.setContentsMargins(4, 4, 4, 6)
-    wdg.setLayout(lay)
-    tab_label = QtGui.QLabel()
-    lay.addWidget(tab_label)
-    tab_label.setText(tab_name)
-    tab_label.setAlignment(QtCore.Qt.AlignCenter)
-
-    font = Qt4Gui.QFont()
-    font.setPointSize(8)
-    font.setWeight(65)
-    font.setBold(True)
-    tab_label.setFont(font)
-    tab_label.setTextFormat(QtCore.Qt.PlainText)
-    tab_label.setAlignment(QtCore.Qt.AlignHCenter | QtCore.Qt.AlignVCenter)
-    tab_label.setMargin(0)
-
-    tab_color = stype.info['color']
-    if tab_color:
-        effect = QtGui.QGraphicsDropShadowEffect(tab_label)
-        t_c = hex_to_rgb(tab_color, alpha=8, tuple=True)
-        effect.setOffset(2, 2)
-        effect.setColor(Qt4Gui.QColor(t_c[0], t_c[1], t_c[2], t_c[3]))
-        effect.setBlurRadius(8)
-        tab_label.setGraphicsEffect(effect)
-
-        tab_color_rgb = hex_to_rgb(tab_color, alpha=128)
-        tab_label.setStyleSheet('QLabel {border: 0px;}')
-        wdg.setStyleSheet('QFrame {background-color: transparent;' +
-                          'border-bottom: 2px solid {0};'.format(tab_color_rgb) + '}')
-    return wdg
+def create_tab_label(tab_name, stype=None):
+    from thlib.ui_classes.ui_custom_qwidgets import Ui_tabLabel
+    return Ui_tabLabel(tab_name, stype)
 
 
 def get_icon(icon_name, icon_name_active=None, color=None, color_active=None, icons_set='fa', spin=None, **kwargs):
@@ -2873,18 +2842,15 @@ def get_qtreeview_style(disable_branch=False):
     style = """
 QAbstractItemView {
     show-decoration-selected: 0;
-    selection-background-color:	rgb(28, 32, 30);
+    selection-background-color:	rgb(32, 32, 32);
     selection-color: rgb(245,245,245);
     alternate-background-color: rgb(58,58,58);
     background: rgb(52,52,52);
-    
-    
 }
 QAbstractItemView::item:hover {
-    background-color: rgb(38, 42, 40);
+    background-color: rgb(40, 40, 40);
     border: 0px;
 }
-
 QTreeView::item {
     padding: 2px;
 }
@@ -2892,6 +2858,30 @@ QTreeView {
     paint-alternating-row-colors-for-empty-area: 0;
     border: 0px;
 }
+QScrollBar:vertical {
+    border: 0px;
+    background: rgba(128,128,128,16);
+    width:8px;
+    margin: 0px 0px 0px 0px;
+    }
+QScrollBar::handle:vertical {
+    background: rgba(255,255,255,48);
+    min-height: 0px;
+    border-radius: 4px;
+    }
+QScrollBar::add-line:vertical {
+    background: rgba(255,255,255,48);
+    height: 0px;
+    subcontrol-position: bottom;
+    subcontrol-origin: margin;
+    }
+QScrollBar::sub-line:vertical {
+    background: rgba(255,255,255,48);
+    height: 0 px;
+    subcontrol-position: top;
+    subcontrol-origin: margin;
+    }
+
 """
     if disable_branch:
         style += branch

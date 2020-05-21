@@ -9,7 +9,7 @@ from thlib.environment import env_mode, env_write_config, env_read_config
 import thlib.global_functions as gf
 import thlib.ui.checkin_out.ui_drop_plate as ui_drop_plate
 import thlib.ui.checkin_out.ui_drop_plate_config as ui_drop_plate_config
-from thlib.ui_classes.ui_custom_qwidgets import  Ui_horizontalCollapsableWidget
+from thlib.ui_classes.ui_custom_qwidgets import Ui_horizontalCollapsableWidget
 
 reload(ui_drop_plate)
 reload(ui_drop_plate_config)

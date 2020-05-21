@@ -16,13 +16,14 @@ import ui_notes_classes
 
 import thlib.ui.checkin_out.ui_checkin_out_options_dialog as ui_checkin_out_options_dialog
 from thlib.ui_classes.ui_repo_sync_queue_classes import Ui_repoSyncDialog
-from thlib.ui_classes.ui_custom_qwidgets import MenuWithLayout  # , Ui_namingEditorWidget
+from thlib.ui_classes.ui_custom_qwidgets import MenuWithLayout, StyledToolButton  # , Ui_namingEditorWidget
 from thlib.ui_classes.ui_drop_plate_classes import Ui_dropPlateWidget
 from thlib.ui_classes.ui_snapshot_browser_classes import Ui_snapshotBrowserWidget
 from thlib.ui_classes.ui_fast_controls_classes import Ui_fastControlsWidget
 from thlib.ui_classes.ui_description_classes import Ui_descriptionWidget
 from thlib.ui_classes.ui_columns_editor_classes import Ui_columnsEditorWidget
 from thlib.ui_classes.ui_tasks_classes import Ui_tasksDockWidget
+from thlib.ui_classes.ui_item_classes import Ui_stypeIconWidget
 
 if env_mode.get_mode() == 'maya':
     import thlib.maya_functions as mf
@@ -144,6 +145,7 @@ class Ui_checkInOutWidget(QtGui.QMainWindow):
 
         self.is_created = False
         self.is_showed = False
+        self.is_redrawn = False
 
         self.stype = stype
         self.project = project
@@ -161,9 +163,7 @@ class Ui_checkInOutWidget(QtGui.QMainWindow):
         env_inst.set_check_tree(self.project.get_code(), 'checkin_out', self.stype.get_code(), self)
 
     def get_tab_label(self):
-        tab_label = gf.create_tab_label(self.stype.get_pretty_name(), self.stype)
-        tab_label.setParent(self)
-        return tab_label
+        return Ui_stypeIconWidget(parent=self, stype=self.stype)
 
     def get_tab_code(self):
         return self.stype.get_code()
@@ -239,6 +239,9 @@ class Ui_checkInOutWidget(QtGui.QMainWindow):
         self.addDockWidget(QtCore.Qt.BottomDockWidgetArea, self.tasks_dock)
 
     def sync_instanced_widgets(self):
+
+        self.is_redrawn = True
+
         if not self.notes_dock:
             self.create_notes_dock()
         if not self.tasks_dock:
@@ -261,7 +264,6 @@ class Ui_checkInOutWidget(QtGui.QMainWindow):
     @gf.catch_error
     def create_search_widget(self):
         dl.log('Creating Search Widget', group_id=self.stype.get_code())
-
         self.search_widget = ui_search_classes.Ui_searchWidget(stype=self.stype, project=self.project, parent=self)
 
         self.setCentralWidget(self.search_widget)
@@ -434,13 +436,13 @@ class Ui_checkInOutWidget(QtGui.QMainWindow):
     def get_checkin_options_widget_config(self):
         return self.checkin_options_widget.checkinPageWidget
 
-    @gf.catch_error
-    def create_naming_editor_widget(self):
-        if not self.naming_editor_widget:
-            self.naming_editor_widget = Ui_namingEditorWidget()
-            self.naming_editor_widget.exec_()
-        else:
-            self.naming_editor_widget.exec_()
+    # @gf.catch_error
+    # def create_naming_editor_widget(self):
+    #     if not self.naming_editor_widget:
+    #         self.naming_editor_widget = Ui_namingEditorWidget()
+    #         self.naming_editor_widget.exec_()
+    #     else:
+    #         self.naming_editor_widget.exec_()
 
     @gf.catch_error
     def create_process_tree_widget(self):
@@ -1004,26 +1006,22 @@ class Ui_checkInOutWidget(QtGui.QMainWindow):
         # self.filter_process_button.clicked.connect(self.create_process_tree_widget)
         # self.filter_process_button.setToolTip('Filter current Tree of Processes and Child Search Types')
 
-        self.toggle_advanced_search_button = QtGui.QToolButton()
-        self.toggle_advanced_search_button.setAutoRaise(True)
+        self.toggle_advanced_search_button = StyledToolButton(shadow_enabled=False)
         self.toggle_advanced_search_button.setIcon(gf.get_icon('magnify', icons_set='mdi', scale_factor=1.2))
         self.toggle_advanced_search_button.clicked.connect(self.toggle_advanced_search_widget)
         self.toggle_advanced_search_button.setToolTip('Toggle Advanced Search')
 
-        self.add_new_sobject_button = QtGui.QToolButton()
-        self.add_new_sobject_button.setAutoRaise(True)
+        self.add_new_sobject_button = StyledToolButton(shadow_enabled=False)
         self.add_new_sobject_button.setIcon(gf.get_icon('plus', icons_set='mdi', scale_factor=1.2))
         self.add_new_sobject_button.clicked.connect(self.add_new_sobject)
         self.add_new_sobject_button.setToolTip('Add new {0}'.format(self.stype.get_pretty_name()))
 
-        self.multiple_add_new_sobject_button = QtGui.QToolButton()
-        self.multiple_add_new_sobject_button.setAutoRaise(True)
+        self.multiple_add_new_sobject_button = StyledToolButton(shadow_enabled=False)
         self.multiple_add_new_sobject_button.setIcon(gf.get_icon('plus-circle-multiple-outline', icons_set='mdi', scale_factor=1.2))
         self.multiple_add_new_sobject_button.clicked.connect(self.add_new_sobject)
         self.multiple_add_new_sobject_button.setToolTip('Multiple Add new {0}'.format(self.stype.get_pretty_name()))
 
-        self.ingest_files_to_stype_button = QtGui.QToolButton()
-        self.ingest_files_to_stype_button.setAutoRaise(True)
+        self.ingest_files_to_stype_button = StyledToolButton(shadow_enabled=False)
         self.ingest_files_to_stype_button.setIcon(gf.get_icon('database-plus', icons_set='mdi', scale_factor=1.2))
         self.ingest_files_to_stype_button.clicked.connect(self.add_new_sobject)
         self.ingest_files_to_stype_button.setToolTip('Ingest Files to {0}'.format(self.stype.get_pretty_name()))
@@ -1987,8 +1985,9 @@ class Ui_checkInOutWidget(QtGui.QMainWindow):
 
     def hideEvent(self, event):
         event.accept()
+        self.is_redrawn = False
 
     def paintEvent(self, event):
         event.accept()
-
-        self.sync_instanced_widgets()
+        if not self.is_redrawn:
+            self.sync_instanced_widgets()

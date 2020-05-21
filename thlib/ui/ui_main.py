@@ -17,44 +17,61 @@ class Ui_MainWindow(object):
         MainWindow.resize(820, 800)
         MainWindow.setMinimumSize(QtCore.QSize(600, 600))
         MainWindow.setStyleSheet(
+"""
+QSplitter::handle {
+    border: 0px;
+    background: transparent;
+    margin: 0px 0px 0px 0px;
+}
+
+QSplitter::handle:horizontal {
+    width: 4px;
+}
+
+QSplitter::handle:vertical {
+    height: 4px;
+}
+
+QSplitter::handle:pressed {
+    border: 0px;
+    background: rgb(128,128,128);
+}
+QSplitter::handle:hover {
+    border: 0px;
+    background: rgb(128,128,128);
+}
+QMainWindow::separator
+{
+    width: 4px;
+    border: 0px;
+    background: transparent;
+}
+QMainWindow::separator:hover {
+    border: 0px;
+    background: rgb(128,128,128);
+}
+"""
 "QDockWidget::title{\n"
 "    padding: 4px;\n"
+"    border: 1px solid rgb(64,64,64);\n"
 "    border-radius: 3px;\n"
 "    padding-left: 10px;\n"
-"    background-color: rgba(0,0,0,64);\n"
+"    background-color: rgb(80,80,80);\n"
 "}\n"
 "QDockWidget::close-button, QDockWidget::float-button {\n"
 "    padding: 0px;\n"
+"    color: rgb(0,0,128);\n"
 "}\n"
 "\n"
 "QDockWidget {\n"
 "    border: 0px ;\n"
 "    border-radius: 0px;\n"
+"    background: black;\n"
 "}\n"
 "QDockWidget::close-button {\n"
 "    border: none;\n"
 "}\n"
-"QTabWidget::pane {\n"
-"    border: 0px;\n"
-"}\n"
-"QTabBar::tab {\n"
-"    background: transparent;\n"
-"    border: 2px solid transparent;\n"
-"    border-top-right-radius: 0px;\n"
-"    border-top-left-radius: 0px;\n"
-"    border-bottom-right-radius: 3px;\n"
-"    border-bottom-left-radius: 3px;\n"
-"    padding: 4px;\n"
-"}\n"
-"QTabBar::tab:selected, QTabBar::tab:hover {\n"
-"    background: qlineargradient(x1: 0, y1: 0, x2: 0, y2: 1, stop: 0 rgba(255, 255, 255, 32), stop: 1 rgba(255, 255, 255, 48));\n"
-"}\n"
-"QTabBar::tab:selected {\n"
-"    border-color: transparent;\n"
-"}\n"
-"QTabBar::tab:!selected {\n"
-"    margin-top: 0px;\n"
-"}\n"
+
 "QGroupBox {\n"
 "    background: qlineargradient(x1: 0, y1: 0, x2: 0, y2: 1, stop: 0 rgba(175, 175, 175, 16), stop: 1 rgba(0, 0, 0, 0));\n"
 "    border: 0px;\n"

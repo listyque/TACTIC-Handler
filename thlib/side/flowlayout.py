@@ -3,9 +3,11 @@
 from Qt import QtWidgets as QtGui
 from Qt import QtCore
 
+from thlib.global_functions import time_it
+
 
 # ------------------------------------------------------------------------
-class FlowLayout(QtGui.QGridLayout):
+class FlowLayout(QtGui.QLayout):
     """
     Standard PyQt examples FlowLayout modified to work with a scollable parent
     MODIFIED FOR TACTIC HANDLER
@@ -66,22 +68,19 @@ class FlowLayout(QtGui.QGridLayout):
 
     def minimumSize(self):
         size = QtCore.QSize()
-        widths = []
-        heights = []
-        for item in self.itemList:
-            widths.append(item.minimumSize().width())
-            heights.append(item.minimumSize().height())
 
-        for item in self.itemList:
-            widget = item.widget()
-            widget.resize(max(widths), max(heights))
+        # Considering all widgets are the same size
+        if self.itemList:
+            size = size.expandedTo(self.itemList[0].minimumSize())
 
-            minimum_size = QtCore.QSize(max(widths), max(heights))
-            size = size.expandedTo(minimum_size)
+        # uncomment if you want different sizes
+        # for item in self.itemList:
+        #     size = size.expandedTo(item.minimumSize())
 
         return size
 
     def doLayout(self, rect, testOnly=True):
+
         x = rect.x()
         y = rect.y()
         lineHeight = 0
@@ -89,13 +88,11 @@ class FlowLayout(QtGui.QGridLayout):
         for item in self.itemList:
             spacing = self.spacing()
             nextX = x + self.sizeHint().width() + spacing
-
             if nextX - spacing > rect.right() and lineHeight > 0:
                 x = rect.x()
                 y = y + lineHeight + spacing
                 nextX = x + self.sizeHint().width() + spacing
                 lineHeight = 0
-
             if not testOnly:
                 item.setGeometry(QtCore.QRect(QtCore.QPoint(x, y), self.sizeHint()))
 

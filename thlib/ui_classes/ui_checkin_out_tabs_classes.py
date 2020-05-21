@@ -14,7 +14,7 @@ import thlib.ui.misc.ui_watch_folders as ui_watch_folders
 from thlib.ui_classes.ui_commit_queue_classes import Ui_commitQueueWidget
 from thlib.ui_classes.ui_repo_sync_queue_classes import Ui_repoSyncQueueWidget
 from thlib.ui_classes.ui_watch_folder_classes import Ui_projectWatchFoldersWidget
-from thlib.ui_classes.ui_custom_qwidgets import Ui_extendedTabBarWidget, Ui_extendedTreeWidget
+from thlib.ui_classes.ui_custom_qwidgets import Ui_extendedTabBarWidget, Ui_extendedLeftTabBarWidget, Ui_extendedTreeWidget, StyledToolButton, Ui_sideBarWidget
 
 
 
@@ -26,6 +26,7 @@ class Ui_checkInOutTabWidget(QtGui.QWidget):
 
         env_inst.set_control_tab(self.project.get_code(), 'checkin_out', self)
 
+        self.create_overlay_layout()
         self.create_ui()
 
         self.all_search_tabs = []
@@ -35,19 +36,21 @@ class Ui_checkInOutTabWidget(QtGui.QWidget):
         self.checkin_out_config = cfg_controls.get_checkin_out()
 
         self.is_created = False
-        self.stypes_tree_visible = False
+        self.overlay_visible = False
 
         self.tab_bar_customization()
+
 
     def create_ui(self):
 
         self.setObjectName('sobject_tab_widget')
 
         self.create_main_layout()
-        self.create_stypes_tree_widget()
         self.create_stypes_tab_widget()
 
-        self.maint_layout.setStretch(1, 1)
+        self.create_stypes_tree_widget()
+
+        # self.main_layout.setStretch(1, 1)
 
     def init_ui(self):
         if self.project.stypes:
@@ -64,8 +67,40 @@ class Ui_checkInOutTabWidget(QtGui.QWidget):
             self.create_commit_queue_ui()
             self.create_repo_sync_queue_ui()
 
+    def create_overlay_layout(self):
+
+        self.overlay_layout_widget = QtGui.QWidget(self)
+        sizePolicy = QtGui.QSizePolicy(QtGui.QSizePolicy.Preferred, QtGui.QSizePolicy.Preferred)
+        self.overlay_layout_widget.setSizePolicy(sizePolicy)
+
+        self.overlay_layout = QtGui.QVBoxLayout(self.overlay_layout_widget)
+        self.overlay_layout.setSpacing(0)
+        self.overlay_layout.setContentsMargins(0, 0, 0, 0)
+
+        self.overlay_layout_widget.setLayout(self.overlay_layout)
+        self.overlay_layout_widget.setHidden(True)
+
+    def show_overlay(self):
+        self.overlay_visible = True
+
+        self.overlay_layout_widget.raise_()
+        self.overlay_layout_widget.show()
+
+        self.sidebar_widget.open_sidebar()
+
+    def hide_overlay(self):
+        self.overlay_visible = False
+
+        self.sidebar_widget.close_sidebar()
+
+    def hide_overlay_at_hiding(self):
+        self.overlay_layout_widget.lower()
+        self.overlay_layout_widget.hide()
+
     def controls_actions(self):
         self.hamburger_tab_button.clicked.connect(self.hamburger_button_click)
+
+        self.sidebar_widget.clicked.connect(self.hide_overlay)
 
         self.stypes_tree_widget.itemClicked.connect(self.stypes_tree_item_click)
         self.stypes_tree_widget.itemChanged.connect(self.stypes_tree_item_change)
@@ -74,12 +109,15 @@ class Ui_checkInOutTabWidget(QtGui.QWidget):
         self.stypes_tab_widget.middle_mouse_pressed.connect(self.middle_mouse_press)
 
     def create_main_layout(self):
-        self.maint_layout = QtGui.QHBoxLayout(self)
-        self.maint_layout.setSpacing(0)
-        self.maint_layout.setContentsMargins(0, 0, 0, 0)
-        self.maint_layout.setObjectName('maint_layout')
+        self.main_layout = QtGui.QHBoxLayout(self)
+        self.main_layout.setSpacing(0)
+        self.main_layout.setContentsMargins(0, 0, 0, 0)
+        self.main_layout.setObjectName('maint_layout')
 
     def create_stypes_tree_widget(self):
+
+        self.sidebar_widget = Ui_sideBarWidget(parent=self, underlayer_widget=self.stypes_tab_widget)
+
         self.stypes_tree_widget = Ui_extendedTreeWidget(self)
         self.stypes_tree_widget.setMaximumSize(QtCore.QSize(0, 16777215))
         self.stypes_tree_widget.setHorizontalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOff)
@@ -89,18 +127,24 @@ class Ui_checkInOutTabWidget(QtGui.QWidget):
         self.stypes_tree_widget.setAnimated(True)
         self.stypes_tree_widget.setHeaderHidden(True)
         self.stypes_tree_widget.setObjectName('stypes_tree_widget')
+        self.stypes_tree_widget.setMinimumHeight(400)
+        self.stypes_tree_widget.setMinimumWidth(250)
 
-        self.maint_layout.addWidget(self.stypes_tree_widget)
+        self.sidebar_widget.hidden.connect(self.hide_overlay_at_hiding)
+
+        self.sidebar_widget.add_sidebar_widget(self.stypes_tree_widget)
+
+        self.overlay_layout.addWidget(self.sidebar_widget)
 
     def create_stypes_tab_widget(self):
-        self.stypes_tab_widget = Ui_extendedTabBarWidget(self)
+        self.stypes_tab_widget = Ui_extendedLeftTabBarWidget(self)
 
         self.stypes_tab_widget.setMovable(True)
         self.stypes_tab_widget.setObjectName('stypes_tab_widget')
         self.stypes_tab_widget.customize_ui()
-        self.stypes_tab_widget.set_corner_offset(26)
+        self.stypes_tab_widget.set_corner_offset(52)
 
-        self.maint_layout.addWidget(self.stypes_tab_widget)
+        self.main_layout.addWidget(self.stypes_tab_widget)
 
     # def sobj_tab_middle_mouse_event(self, event):
     #     if event.button() == QtCore.Qt.MouseButton.MiddleButton:
@@ -217,34 +261,30 @@ class Ui_checkInOutTabWidget(QtGui.QWidget):
                 return tab
 
     def tab_bar_customization(self):
-        self.hamburger_tab_button = QtGui.QToolButton()
-        self.hamburger_tab_button.setAutoRaise(True)
-        self.hamburger_tab_button.setMinimumWidth(24)
-        self.hamburger_tab_button.setMinimumHeight(24)
-        self.animation_close = QtCore.QPropertyAnimation(self.stypes_tree_widget, "maximumWidth", self)
-        self.animation_open = QtCore.QPropertyAnimation(self.stypes_tree_widget, "maximumWidth", self)
+
+        self.hamburger_tab_button = StyledToolButton(shadow_enabled=True, small=True, square_type=True)
         self.hamburger_tab_button.setIcon(gf.get_icon('menu', icons_set='mdi', scale_factor=1.2))
 
-        self.stypes_tab_widget.add_left_corner_widget(self.hamburger_tab_button)
+        self.left_buttons_layout = QtGui.QHBoxLayout()
+        self.left_buttons_layout.setContentsMargins(0, 0, 0, 0)
+        self.left_buttons_layout.setSpacing(0)
+
+        self.left_buttons_widget = QtGui.QWidget(self)
+        self.left_buttons_widget.setLayout(self.left_buttons_layout)
+        self.left_buttons_widget.setMinimumSize(36, 36)
+
+        self.left_buttons_layout.addWidget(self.hamburger_tab_button)
+
+        self.stypes_tab_widget.add_left_corner_widget(self.left_buttons_widget)
 
     def hamburger_button_click(self):
-        content_width = self.stypes_tree_widget.sizeHintForColumn(0) + 40
+        # content_width = self.stypes_tree_widget.sizeHintForColumn(0) + 40
+        # self.stypes_tree_widget.setMinimumWidth(content_width)
 
-        if self.stypes_tree_visible:
-            self.animation_close.setDuration(200)
-            self.animation_close.setStartValue(content_width)
-            self.animation_close.setEndValue(0)
-            self.animation_close.setEasingCurve(QtCore.QEasingCurve.OutSine)
-            self.animation_close.start()
-            self.stypes_tree_visible = False
+        if self.overlay_visible:
+            self.hide_overlay()
         else:
-            self.animation_open.setDuration(200)
-            self.animation_open.setStartValue(0)
-            self.animation_open.setEndValue(content_width)
-            self.animation_open.setEasingCurve(QtCore.QEasingCurve.InSine)
-            self.animation_open.start()
-
-            self.stypes_tree_visible = True
+            self.show_overlay()
 
     def add_items_to_stypes_tree(self):
         exclude_list = self.get_ignore_stypes_list()
@@ -368,19 +408,19 @@ class Ui_checkInOutTabWidget(QtGui.QWidget):
 
         if not settings_dict:
             settings_dict = {
-                'stypes_tree_visible': 0,
+                # 'stypes_tree_visible': 0,
                 'stypes_tab_widget_currentIndex': 0
             }
 
-        if bool(int(settings_dict.get('stypes_tree_visible'))):
-            self.hamburger_button_click()
+        # if bool(int(settings_dict.get('stypes_tree_visible'))):
+        #     self.hamburger_button_click()
 
         if settings_dict.get('stypes_tab_widget_currentIndex'):
             self.current_tab_idx = int(settings_dict['stypes_tab_widget_currentIndex'])
 
     def get_settings_dict(self):
         settings_dict = {
-            'stypes_tree_visible': int(self.stypes_tree_visible),
+            # 'stypes_tree_visible': int(self.stypes_tree_visible),
             'stypes_tab_widget_currentIndex': int(self.stypes_tab_widget.currentIndex()),
         }
 
@@ -425,6 +465,11 @@ class Ui_checkInOutTabWidget(QtGui.QWidget):
             self.init_ui()
         event.accept()
 
+    def resizeEvent(self, event):
+        if self.overlay_layout_widget:
+            self.overlay_layout_widget.resize(self.size())
+        event.accept()
+
     def closeEvent(self, event):
         self.writeSettings()
 
@@ -434,3 +479,9 @@ class Ui_checkInOutTabWidget(QtGui.QWidget):
 
         self.all_search_tabs = []
         event.accept()
+
+    def keyPressEvent(self, event):
+        if event.key() == QtCore.Qt.Key_Escape:
+            self.hide_overlay()
+        else:
+            super(Ui_checkInOutTabWidget, self).keyPressEvent(event)

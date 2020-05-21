@@ -252,50 +252,12 @@ class commitWidget(QtGui.QWidget):
 
     @gf.catch_error
     def upload_chekin_snapshot(self, result=None):
-        self.update_args_dict()
-        # print 'begin checkin snapshot', result
 
-        # def upload_checkin_snapshot_agent():
-        #     info_dict = {
-        #         'status_text': 'Saving Snapshot To DB',
-        #         'total_count': 6
-        #     }
-        #     dl.log('Begin snapshot Ceheckin', group_id='server/checkin')
-        #     snapshot_checkin_worker.emit_progress(5, info_dict)
-        #
-        #     snapshot = tc.checkin_snapshot(
-        #         search_key=self.args_dict['search_key'],
-        #         context=self.args_dict['context'],
-        #         snapshot_type=self.args_dict['snapshot_type'],
-        #         is_revision=self.args_dict['is_revision'],
-        #         description=self.args_dict['description'],
-        #         version=self.args_dict['version'],
-        #         update_versionless=self.args_dict['update_versionless'],
-        #         only_versionless=self.args_dict['only_versionless'],
-        #         keep_file_name=self.args_dict['keep_file_name'],
-        #         repo_name=self.args_dict['repo_name'],
-        #         virtual_snapshot=self.virtual_snapshot,
-        #         files_dict=self.args_dict['files_dict'],
-        #         mode=self.args_dict['mode'],
-        #         create_icon=self.args_dict['create_icon'],
-        #         files_objects=self.args_dict['files_objects'],
-        #     )
-        #
-        #     snapshot_checkin_worker.emit_progress(6, info_dict)
-        #     # self.commit_item.set_commit_finished()
-        #     return snapshot
-        #
-        # snapshot_checkin_worker = gf.get_thread_worker(
-        #     upload_checkin_snapshot_agent,
-        #     thread_pool=env_inst.get_thread_pool('commit_queue/server_thread_pool'),
-        #     result_func=self.checkin_done,
-        #     # finished_func=self.commit_item.set_commit_finished,
-        #     progress_func=self.checkin_progress,
-        #     error_func=gf.error_handle
-        # )
-        if self.single_threaded:
-            self.checkin_done(self.commit_item)
+        if env_mode.get_platform() != 'Windows':
+            self.upload_chekin_snapshot_legacy()
         else:
+            self.update_args_dict()
+
             info_dict = {
                 'status_text': 'Saving Snapshot To DB',
                 'total_count': 6
@@ -322,39 +284,51 @@ class commitWidget(QtGui.QWidget):
             env_api.get_results(api_client, self.checkin_done)
 
             self.checkin_progress(6, info_dict)
-            # snapshot_checkin_worker.start()
 
     @gf.catch_error
-    def upload_chekin_snapshot_(self, result=None):
+    def upload_chekin_snapshot_legacy(self, result=None):
         self.update_args_dict()
-        info_dict = {
-            'status_text': 'Saving Snapshot To DB',
-            'total_count': 6
-        }
-        dl.log('Begin snapshot Ceheckin', group_id='server/checkin')
-        self.checkin_progress(5, info_dict)
 
-        snapshot = tc.checkin_snapshot(
-            search_key=self.args_dict['search_key'],
-            context=self.args_dict['context'],
-            snapshot_type=self.args_dict['snapshot_type'],
-            is_revision=self.args_dict['is_revision'],
-            description=self.args_dict['description'],
-            version=self.args_dict['version'],
-            update_versionless=self.args_dict['update_versionless'],
-            only_versionless=self.args_dict['only_versionless'],
-            keep_file_name=self.args_dict['keep_file_name'],
-            repo_name=self.args_dict['repo_name'],
-            virtual_snapshot=self.virtual_snapshot,
-            files_dict=self.args_dict['files_dict'],
-            mode=self.args_dict['mode'],
-            create_icon=self.args_dict['create_icon'],
-            files_objects=self.args_dict['files_objects'],
+        def upload_checkin_snapshot_agent():
+            info_dict = {
+                'status_text': 'Saving Snapshot To DB',
+                'total_count': 6
+            }
+            snapshot_checkin_worker.emit_progress(5, info_dict)
+
+            snapshot = tc.checkin_snapshot(
+                search_key=self.args_dict['search_key'],
+                context=self.args_dict['context'],
+                snapshot_type=self.args_dict['snapshot_type'],
+                is_revision=self.args_dict['is_revision'],
+                description=self.args_dict['description'],
+                version=self.args_dict['version'],
+                update_versionless=self.args_dict['update_versionless'],
+                only_versionless=self.args_dict['only_versionless'],
+                keep_file_name=self.args_dict['keep_file_name'],
+                repo_name=self.args_dict['repo_name'],
+                virtual_snapshot=self.virtual_snapshot,
+                files_dict=self.args_dict['files_dict'],
+                mode=self.args_dict['mode'],
+                create_icon=self.args_dict['create_icon'],
+                files_objects=self.args_dict['files_objects'],
+            )
+            snapshot_checkin_worker.emit_progress(6, info_dict)
+            # self.commit_item.set_commit_finished()
+            return snapshot
+
+        snapshot_checkin_worker = gf.get_thread_worker(
+            upload_checkin_snapshot_agent,
+            thread_pool=env_inst.get_thread_pool('commit_queue/checkin_snapshot_pool'),
+            result_func=self.checkin_done,
+            # finished_func=self.commit_item.set_commit_finished,
+            progress_func=self.checkin_progress,
+            error_func=gf.error_handle
         )
-        self.checkin_progress(6, info_dict)
-        # self.commit_item.set_commit_finished()
-
-        self.checkin_done(snapshot)
+        if self.single_threaded:
+            self.checkin_done(self.commit_item)
+        else:
+            snapshot_checkin_worker.start()
 
     @gf.catch_error
     def inplace_chekin(self):

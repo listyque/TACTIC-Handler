@@ -1,7 +1,6 @@
 # main_standalone.py
 # Start here to run app standalone
 
-# import os
 import sys
 from thlib.side.Qt import QtWidgets as QtGui
 from thlib.side.Qt import QtGui as Qt4Gui

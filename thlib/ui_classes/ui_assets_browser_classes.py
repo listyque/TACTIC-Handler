@@ -1,14 +1,15 @@
 # file ui_assets_browser_classes.py
 # Assets Browser
 
-# import PySide.QtGui as QtGui
-# import PySide.QtCore as QtCore
+from pprint import pprint
+
 from thlib.side.Qt import QtWidgets as QtGui
+from thlib.side.Qt import QtGui as Qt4Gui
 from thlib.side.Qt import QtCore
 
-# from thlib.side.flowlayout import ScrollingFlowWidget
 import thlib.tactic_classes as tc
-import thlib.environment as env
+import thlib.global_functions as gf
+from thlib.environment import env_inst
 import thlib.ui.browser.ui_assets_browser as ui_assets_browser
 import thlib.ui.browser.ui_sobject as ui_sobject
 import thlib.ui.browser.ui_sobject_info as ui_sobject_info
@@ -29,8 +30,8 @@ class Ui_sobjectInfoWidget(QtGui.QMainWindow, ui_sobject_info.Ui_sobjectInfo):
 
         self.sobject = sobject
 
-        self.create_tasks_widget()
-        self.create_edit_widget()
+        # self.create_tasks_widget()
+        # self.create_edit_widget()
 
     def create_tasks_widget(self):
         tasks_wdg = ui_tasks_classes.Ui_tasksWidgetMain(self.sobject, self)
@@ -143,7 +144,7 @@ class Ui_assetsBrowserWidget(QtGui.QWidget, ui_assets_browser.Ui_assetsBrowser):
 
         self.asstes_tree = None
         self.dyn_list = []
-        self.tabs_items, self.context_items = self.query_tabs()
+        # self.tabs_items, self.context_items = self.query_tabs()
         self.toggle = False
         self.current_stype = None
 
@@ -151,7 +152,7 @@ class Ui_assetsBrowserWidget(QtGui.QWidget, ui_assets_browser.Ui_assetsBrowser):
 
         self.controls_actions()
 
-        self.create_search_group_box()
+        # self.create_search_group_box()
 
         # self.subscriptions_query()
 
@@ -183,22 +184,37 @@ class Ui_assetsBrowserWidget(QtGui.QWidget, ui_assets_browser.Ui_assetsBrowser):
             sobj_widget.setMinimumWidth(150 * value / 100)
             sobj_widget.setMinimumHeight(150 * value / 100)
             image_size = 140 * self.zoomSpinBox.value() / 100
-            if sobj_widget.picLabel.text() != 'No preview':
-                old_path_split = sobj_widget.picLabel.text().split('=')
-                old_path_join = '{0}={1}='.format(*old_path_split) + '"{0}"'.format(image_size)
-                sobj_widget.picLabel.setText(old_path_join)
+            # if sobj_widget.picLabel.text() != 'No preview':
+            #     old_path_split = sobj_widget.picLabel.text().split('=')
+            #     old_path_join = '{0}={1}='.format(*old_path_split) + '"{0}"'.format(image_size)
+            #     sobj_widget.picLabel.setText(old_path_join)
 
     def dynamic_query(self, limit=0, offset=0):
 
         filters = []
         order_bys = ['timestamp desc']
         columns = []
-        sobjects_list = tc.server_start().query(self.current_stype, filters, columns, order_bys, limit=limit, offset=offset)
-        print self.current_stype
-        print sobjects_list
-        print filters
-        all_process = self.context_items[self.current_stype]
-        sobjects = tc.get_sobjects(all_process, sobjects_list)
+        # sobjects_list = tc.server_start(project=env_inst.current_project).query(self.current_stype, filters, columns, order_bys, limit=limit, offset=offset)
+        # print self.current_stype
+        # print sobjects_list
+        # print filters
+
+        search_type = tc.server_start().build_search_type(self.current_stype, env_inst.current_project)
+
+        # all_process = self.context_items[self.current_stype]
+        # sobjects = tc.get_sobjects(all_process, sobjects_list)
+        # sobjects = tc.get_sobjects_objects(sobjects_list, env_inst.current_project)
+
+        sobjects = tc.get_sobjects(
+            search_type=search_type,
+            project_code=env_inst.current_project,
+            filters=filters,
+            order_bys=order_bys,
+            limit=limit,
+            offset=offset,
+            include_info=False,
+            include_snapshots=True,
+        )
 
         return sobjects
 
@@ -236,36 +252,72 @@ class Ui_assetsBrowserWidget(QtGui.QWidget, ui_assets_browser.Ui_assetsBrowser):
         pprint(stub.query('cgshort/shot', [('scenes_code', 'SCENES00001')]))
 
     def create_scroll_layout(self):
-        self.scroller = ScrollingFlowWidget()
-        self.scroller.setContentsMargins(20, 20, 20, 20)
-        self.scroller.setSpacing(12)
-        self.scroller.wheelEvent = self.wheelEvent
+        # self.scroller = FlowLayout()
+        # self.scroller.setContentsMargins(20, 20, 20, 20)
+        # self.scroller.setSpacing(12)
+        # self.scroller.wheelEvent = self.wheelEvent
+        # self.sobjectScrollLayout.addWidget(self.scroller)
+
+        from thlib.side.flowlayout import FlowLayout
+
+        self.scroll_area_contents = QtGui.QWidget()
+        self.scroll_area_contents.setContentsMargins(9, 9, 0, 0)
+
+        self.scroller = QtGui.QScrollArea()
+        self.scroller.setWidgetResizable(True)
+        self.scroller.setWidget(self.scroll_area_contents)
+
+        self.scroll_area_layout = FlowLayout(self.scroll_area_contents)
+        # self.scroll_area_layout = QtGui.QGridLayout(self.scroll_area_contents)
+
+        self.scroll_area_layout.setAlignment(QtCore.Qt.AlignTop)
+        self.scroll_area_layout.setContentsMargins(9, 9, 0, 0)
+        self.scroll_area_layout.setSpacing(9)
+
         self.sobjectScrollLayout.addWidget(self.scroller)
 
     def fill_results(self):
-        self.dyn_list = self.dynamic_query(self.limitSpinBox.value(), self.scroller.flowLayout.count())
+        self.dyn_list = self.dynamic_query(self.limitSpinBox.value(), self.scroll_area_layout.count())
+
         for i in range(len(self.dyn_list)):
-            QtGui.qApp.processEvents()
+            # QtGui.qApp.processEvents()
             self.sobj_widget = Ui_sobjectWidget(self.dyn_list.values()[i], self)
+            # self.sobj_widget = QtGui.QPushButton('SOBJ')
             self.sobj_widget.setMinimumWidth(150 * self.zoomSpinBox.value() / 100)
             self.sobj_widget.setMinimumHeight(150 * self.zoomSpinBox.value() / 100)
             image_size = 140 * self.zoomSpinBox.value() / 100
 
-            effect = QtGui.QGraphicsDropShadowEffect(self.assetsTreeWidget)
-            effect.setOffset(3, 3)
-            effect.setColor(Qt4Gui.QColor(0, 0, 0, 160))
-            effect.setBlurRadius(30)
+            # effect = QtGui.QGraphicsDropShadowEffect(self.assetsTreeWidget)
+            # effect.setOffset(3, 3)
+            # effect.setColor(Qt4Gui.QColor(0, 0, 0, 160))
+            # effect.setBlurRadius(30)
 
-            self.sobj_widget.setGraphicsEffect(effect)
+            # self.sobj_widget.setGraphicsEffect(effect)
             self.sobj_widget.setTitle(self.dyn_list.values()[i].info['name'])
             try:
-                web_file = self.dyn_list.values()[i].process['icon'].contexts['icon'].versionless.values()[0].files['web']
-                web_full_path = '{0}/{1}/{2}'.format(env.Env.get_asset_dir(), web_file[0]['relative_dir'], web_file[0]['file_name'])
+                # web_file = self.dyn_list.values()[i].process['icon'].contexts['icon'].versionless.values()[0].files['web']
+                # web_full_path = '{0}/{1}/{2}'.format(env.Env.get_asset_dir(), web_file[0]['relative_dir'], web_file[0]['file_name'])
+                sobject = self.dyn_list.values()[i]
+
+                publish_process = sobject.get_process('publish')
+                context = publish_process.contexts.get('publish')
+
+                versionless_snapshots = context.get_versionless()
+
+                file_obj = versionless_snapshots.values()[0].get_previewable_files_objects()
+
+                # print file_obj[0].get_full_abs_path()
+                # print file_obj[0].get_web_preview()
+
+                web_preview = file_obj[0].get_web_preview()
+
+                web_full_path = web_preview.get_full_abs_path()
+
                 self.sobj_widget.picLabel.setText("<img src=\"{0}\" width=\"{1}\" ".format(web_full_path, image_size))
             except:
                 self.sobj_widget.picLabel.setText('No preview')
 
-            self.scroller.addWidget(self.sobj_widget)
+            self.scroll_area_layout.addWidget(self.sobj_widget)
             self.sobjects_widgets.append(self.sobj_widget)
 
     def wheelEvent(self, QWheelEvent):
@@ -273,7 +325,9 @@ class Ui_assetsBrowserWidget(QtGui.QWidget, ui_assets_browser.Ui_assetsBrowser):
             self.fill_results()
 
     def create_assets_tree(self):
-        self.asstes_tree = tc.query_assets_names()
+        stypes = env_inst.get_current_stypes()
+        self.asstes_tree = tc.group_sobject_by(stypes, 'type')
+        # self.asstes_tree = tc.query_assets_names()
         for name, value in self.asstes_tree.items():
             self.top_item = QtGui.QTreeWidgetItem()
             if not name:
@@ -283,12 +337,12 @@ class Ui_assetsBrowserWidget(QtGui.QWidget, ui_assets_browser.Ui_assetsBrowser):
             for item in value:
                 # print(item)
                 self.child_item = QtGui.QTreeWidgetItem()
-                if item['title']:
-                    item_title = item['title'].capitalize()
+                if item.info['title']:
+                    item_title = item.info['title'].capitalize()
                 else:
                     item_title = 'Unnamed'
                 self.child_item.setText(0, item_title)
-                self.child_item.setData(0, QtCore.Qt.UserRole, item)
+                self.child_item.setData(0, QtCore.Qt.UserRole, item.info)
                 self.top_item.addChild(self.child_item)
 
     def load_results(self, position):
@@ -321,3 +375,11 @@ class Ui_assetsBrowserWidget(QtGui.QWidget, ui_assets_browser.Ui_assetsBrowser):
     def query_tabs():
         tab_names = tc.query_tab_names()
         return tab_names, tc.context_query(tab_names['codes'])
+
+
+# from thlib.environment import env_inst
+# from thlib.ui_classes.ui_assets_browser_classes import Ui_assetsBrowserWidget
+#
+# asd = Ui_assetsBrowserWidget(env_inst.ui_main)
+#
+# asd.show()

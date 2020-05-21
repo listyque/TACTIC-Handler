@@ -22,10 +22,11 @@ from thlib.side.Qt import QtWidgets as QtGui
 from thlib.side.Qt import QtGui as Qt4Gui
 from thlib.side.Qt import QtCore
 
-from thlib.environment import env_inst, env_server, cfg_controls, env_read_config, env_write_config, env_mode
+from thlib.environment import env_inst, env_server, cfg_controls, env_read_config, env_write_config
 import thlib.global_functions as gf
 import thlib.tactic_classes as tc
-from thlib.ui_classes.ui_custom_qwidgets import SuggestedLineEdit, Ui_horizontalCollapsableWidget, Ui_collapsableWidget, Ui_extendedTreeWidget, Ui_extendedTabBarWidget
+from thlib.ui_classes.ui_custom_qwidgets import SuggestedLineEdit, Ui_horizontalCollapsableWidget, Ui_collapsableWidget, Ui_extendedTreeWidget, Ui_extendedTabBarWidget, StyledToolButton, StyledComboBox
+from thlib.ui_classes.ui_assets_browser_classes import Ui_assetsBrowserWidget
 
 DEFAULT_FILTER = ('name', 'EQI', '')
 EXPR_FILTER = ('_expression', 'in', "@SOBJECT(sthpw/task['assigned', $LOGIN])")
@@ -471,12 +472,10 @@ class Ui_searchWidget(QtGui.QWidget):
         self.searchWidgetGridLayout.setSpacing(0)
         self.searchWidgetGridLayout.setObjectName("searchWidgetGridLayout")
         self.expandingLayout = QtGui.QVBoxLayout()
-        self.expandingLayout.setSpacing(0)
         self.expandingLayout.setObjectName("expandingLayout")
         self.searchWidgetGridLayout.addLayout(self.expandingLayout, 0, 1, 1, 1)
-        self.gearMenuToolButton = QtGui.QToolButton(self)
+        self.gearMenuToolButton = StyledToolButton()
         self.gearMenuToolButton.setPopupMode(QtGui.QToolButton.InstantPopup)
-        self.gearMenuToolButton.setAutoRaise(True)
         self.gearMenuToolButton.setArrowType(QtCore.Qt.NoArrow)
         self.gearMenuToolButton.setObjectName("gearMenuToolButton")
         self.searchWidgetGridLayout.addWidget(self.gearMenuToolButton, 0, 2, 1, 1)
@@ -495,7 +494,6 @@ class Ui_searchWidget(QtGui.QWidget):
         self.controls_actions()
 
     def controls_actions(self):
-        # self.search_line_edit.returnPressed.connect(self.search_line_edit_text_edited)
         self.search_line_edit.returnPressed.connect(self.do_search)
         self.search_line_edit.textEdited.connect(self.search_line_edit_text_edited)
         self.search_line_edit.item_selected.connect(self.do_search)
@@ -516,7 +514,7 @@ class Ui_searchWidget(QtGui.QWidget):
 
     def create_search_results_widget(self):
 
-        self.search_results_widget = QtGui.QWidget()
+        self.search_results_widget = QtGui.QWidget(self)
 
         self.resultsLayout = QtGui.QVBoxLayout()
         self.resultsLayout.setSpacing(0)
@@ -524,7 +522,6 @@ class Ui_searchWidget(QtGui.QWidget):
         self.search_results_widget.setLayout(self.resultsLayout)
 
         self.create_results_tab_widget()
-        self.resultsLayout.addWidget(self.results_tab_widget)
         self.create_tool_buttons()
 
         self.searchWidgetGridLayout.addWidget(self.search_results_widget, 2, 0, 1, 3)
@@ -534,8 +531,10 @@ class Ui_searchWidget(QtGui.QWidget):
         self.results_tab_widget = Ui_extendedTabBarWidget(self)
         self.results_tab_widget.setMovable(True)
         self.results_tab_widget.setObjectName('results_tab_widget')
-        self.results_tab_widget.customize_ui(padding=4)
-        self.results_tab_widget.set_corner_offset(48)
+        self.results_tab_widget.customize_ui()
+        self.results_tab_widget.set_corner_offset(72)
+
+        self.resultsLayout.addWidget(self.results_tab_widget)
 
     def add_tab_button_click(self):
         self.search_line_edit.setFocus()
@@ -653,18 +652,13 @@ class Ui_searchWidget(QtGui.QWidget):
 
         self.left_buttons_widget = QtGui.QWidget(self)
         self.left_buttons_widget.setLayout(self.left_buttons_layout)
+        self.left_buttons_widget.setMinimumSize(36, 36)
 
-        self.add_new_tab_button = QtGui.QToolButton()
-        self.add_new_tab_button.setAutoRaise(True)
-        self.add_new_tab_button.setMinimumWidth(24)
-        self.add_new_tab_button.setMinimumHeight(24)
+        self.add_new_tab_button = StyledToolButton(small=True, shadow_enabled=True, square_type=False)
         self.add_new_tab_button.setIcon(gf.get_icon('plus', icons_set='mdi', scale_factor=1.2))
         self.add_new_tab_button.setToolTip('Add new Search Tab')
 
-        self.add_filter_button = QtGui.QToolButton()
-        self.add_filter_button.setAutoRaise(True)
-        self.add_filter_button.setMinimumWidth(24)
-        self.add_filter_button.setMinimumHeight(24)
+        self.add_filter_button = StyledToolButton(small=True, shadow_enabled=True, square_type=True)
         self.add_filter_button.setPopupMode(QtGui.QToolButton.InstantPopup)
         self.add_filter_button.setIcon(gf.get_icon('filter', icons_set='mdi', scale_factor=0.9))
         self.add_filter_button.setToolTip('Add Filter to Tab')
@@ -673,6 +667,7 @@ class Ui_searchWidget(QtGui.QWidget):
         self.filter_by_tasks_menu.setIcon(gf.get_icon('calendar-check', icons_set='mdi', scale_factor=1))
         self.my_tasks_action = QtGui.QAction('My Tasks', self.add_filter_button)
         self.my_tasks_action.setIcon(gf.get_icon('account-details', icons_set='mdi', scale_factor=1.1))
+        self.my_tasks_action.triggered.connect(self.do_my_tasks_action)
         self.filter_by_tasks_menu.addAction(self.my_tasks_action)
         self.filter_by_tasks_menu.setTearOffEnabled(True)
         self.filter_by_tasks_menu.setWindowTitle('Tasks Filters: {0}'.format(self.stype.get_pretty_name()))
@@ -700,24 +695,18 @@ class Ui_searchWidget(QtGui.QWidget):
         self.left_buttons_layout.addWidget(self.add_new_tab_button)
         self.left_buttons_layout.addWidget(self.add_filter_button)
 
-        self.history_tab_button = QtGui.QToolButton()
-        self.history_tab_button.setAutoRaise(True)
-        self.history_tab_button.setMinimumWidth(24)
-        self.history_tab_button.setMinimumHeight(24)
+        self.history_tab_button = StyledToolButton(small=True, shadow_enabled=True, square_type=False)
         self.history_tab_button.setPopupMode(QtGui.QToolButton.InstantPopup)
         self.history_tab_button.setIcon(gf.get_icon('history', icons_set='mdi', scale_factor=1.2))
         self.history_tab_button.setToolTip('History of closed Search Results')
 
-        self.refresh_tab_button = QtGui.QToolButton()
-        self.refresh_tab_button.setAutoRaise(True)
-        self.refresh_tab_button.setMinimumWidth(24)
-        self.refresh_tab_button.setMinimumHeight(24)
+        self.refresh_tab_button = StyledToolButton(small=True, shadow_enabled=True, square_type=False)
         self.refresh_tab_button.setIcon(gf.get_icon('refresh', icons_set='mdi', scale_factor=1.2))
         self.refresh_tab_button.setToolTip('Refresh current Results')
 
         self.right_buttons_layout = QtGui.QHBoxLayout()
         self.right_buttons_layout.setContentsMargins(0, 0, 0, 0)
-        self.right_buttons_layout.setSpacing(2)
+        self.right_buttons_layout.setSpacing(0)
 
         # self.l = QtGui.QHBoxLayout()
         # self.l.setSpacing(0)
@@ -737,11 +726,9 @@ class Ui_searchWidget(QtGui.QWidget):
 
         self.right_buttons_widget = QtGui.QWidget(self)
         self.right_buttons_widget.setLayout(self.right_buttons_layout)
+        self.right_buttons_widget.setMinimumSize(36, 36)
 
-        self.group_by_button = QtGui.QToolButton()
-        self.group_by_button.setAutoRaise(True)
-        self.group_by_button.setMinimumWidth(24)
-        self.group_by_button.setMinimumHeight(24)
+        self.group_by_button = StyledToolButton(small=True, shadow_enabled=True, square_type=True)
         self.group_by_button.setPopupMode(QtGui.QToolButton.InstantPopup)
         self.group_by_button.setIcon(gf.get_icon('group', icons_set='mdi', scale_factor=1))
         self.group_by_button.setToolTip('Group Items By')
@@ -769,10 +756,7 @@ class Ui_searchWidget(QtGui.QWidget):
 
         self.group_by_button.addActions(self.group_by_actions)
 
-        self.sobject_items_sorting_button = QtGui.QToolButton()
-        self.sobject_items_sorting_button.setAutoRaise(True)
-        self.sobject_items_sorting_button.setMinimumWidth(24)
-        self.sobject_items_sorting_button.setMinimumHeight(24)
+        self.sobject_items_sorting_button = StyledToolButton(small=True, shadow_enabled=True, square_type=True)
         self.sobject_items_sorting_button.setPopupMode(QtGui.QToolButton.InstantPopup)
         self.sobject_items_sorting_button.setIcon(gf.get_icon('sort-alphabetical', icons_set='mdi', scale_factor=1))
         self.sobject_items_sorting_button.setToolTip('SObject Items Sorting')
@@ -784,10 +768,7 @@ class Ui_searchWidget(QtGui.QWidget):
 
         self.sobject_items_sorting_button.addAction(self.sort_so_by_name_action)
 
-        self.snapshot_items_sorting_button = QtGui.QToolButton()
-        self.snapshot_items_sorting_button.setAutoRaise(True)
-        self.snapshot_items_sorting_button.setMinimumWidth(24)
-        self.snapshot_items_sorting_button.setMinimumHeight(24)
+        self.snapshot_items_sorting_button = StyledToolButton(small=True, shadow_enabled=True, square_type=True)
         self.snapshot_items_sorting_button.setPopupMode(QtGui.QToolButton.InstantPopup)
         self.snapshot_items_sorting_button.setIcon(gf.get_icon('sort-alphabetical', icons_set='mdi', scale_factor=1))
         self.snapshot_items_sorting_button.setToolTip('Snapshot Items Sorting')
@@ -799,16 +780,13 @@ class Ui_searchWidget(QtGui.QWidget):
 
         self.snapshot_items_sorting_button.addAction(self.sort_sn_by_name_action)
 
-        self.change_view_tab_button = QtGui.QToolButton()
-        self.change_view_tab_button.setAutoRaise(True)
-        self.change_view_tab_button.setMinimumWidth(24)
-        self.change_view_tab_button.setMinimumHeight(24)
+        self.change_view_tab_button = StyledToolButton(small=True, shadow_enabled=True, square_type=True)
         self.change_view_tab_button.setPopupMode(QtGui.QToolButton.InstantPopup)
         self.change_view_tab_button.setIcon(gf.get_icon('view-list', icons_set='mdi', scale_factor=1))
         self.change_view_tab_button.setToolTip('Change Search Results View Style')
 
-        self.items_view_action = QtGui.QMenu('Items View', self.change_view_tab_button)
-        self.items_view_action.setIcon(gf.get_icon('view-list', icons_set='mdi', scale_factor=1))
+        # self.items_view_action = QtGui.QMenu('Items View', self.change_view_tab_button)
+        # self.items_view_action.setIcon(gf.get_icon('view-list', icons_set='mdi', scale_factor=1))
         # self.items_view_action.triggered.connect(self.clear_tabs_history)
 
         self.split_view_horizontal_action = QtGui.QAction('Splitted Horizontal View', self.change_view_tab_button, checkable=True)
@@ -824,16 +802,25 @@ class Ui_searchWidget(QtGui.QWidget):
         self.continious_view_action.setIcon(gf.get_icon('view-dashboard-variant', icons_set='mdi', scale_factor=1))
         self.continious_view_action.triggered.connect(lambda: self.toggle_current_view('continious'))
 
-        self.items_view_action.addAction(self.split_view_horizontal_action)
-        self.items_view_action.addAction(self.split_view_vertical_action)
-        self.items_view_action.addAction(self.continious_view_action)
+        # self.items_view_action.addAction(self.split_view_horizontal_action)
+        # self.items_view_action.addAction(self.split_view_vertical_action)
+        # self.items_view_action.addAction(self.continious_view_action)
         # print self.get_current_results_widget()
 
         self.tiles_view_action = QtGui.QAction('Tiles View', self.change_view_tab_button, checkable=True)
         self.tiles_view_action.setIcon(gf.get_icon('view-grid', icons_set='mdi', scale_factor=1))
         self.tiles_view_action.triggered.connect(lambda: self.toggle_current_view('tiles'))
 
-        self.change_view_tab_button.addAction(self.items_view_action.menuAction())
+        # self.change_view_tab_button.addAction(self.items_view_action.menuAction())
+        self.change_view_actions_group = QtGui.QActionGroup(self)
+        self.change_view_actions_group.addAction(self.split_view_horizontal_action)
+        self.change_view_actions_group.addAction(self.split_view_vertical_action)
+        self.change_view_actions_group.addAction(self.continious_view_action)
+        self.change_view_actions_group.addAction(self.tiles_view_action)
+
+        self.change_view_tab_button.addAction(self.split_view_horizontal_action)
+        self.change_view_tab_button.addAction(self.split_view_vertical_action)
+        self.change_view_tab_button.addAction(self.continious_view_action)
         self.change_view_tab_button.addAction(self.tiles_view_action)
 
         self.additional_collapsable_toolbar = Ui_horizontalCollapsableWidget()
@@ -877,13 +864,45 @@ class Ui_searchWidget(QtGui.QWidget):
         self.results_tab_widget.setCornerWidget(self.right_buttons_widget, QtCore.Qt.TopRightCorner)
         self.results_tab_widget.setCornerWidget(self.left_buttons_widget, QtCore.Qt.TopLeftCorner)
 
+    def do_my_tasks_action(self):
+        stype_widget = env_inst.get_check_tree(tab_code='checkin_out', wdg_code=self.stype.get_code())
+
+        print stype_widget
+
+        checkin_out_control = env_inst.get_control_tab(tab_code='checkin_out')
+
+        checkin_out_control.toggle_stype_tab(tab=stype_widget, hide=False)
+        checkin_out_control.raise_stype_tab(tab=stype_widget)
+
+        # search_widget = stype_widget.get_search_widget()
+        advanced_search_widget = stype_widget.get_advanced_search_widget()
+
+        # sthpw_project = env_inst.get_project_by_code('sthpw')
+        # print sthpw_project
+        # print sthpw_project.get_stypes()
+        # print sthpw_project.stypes.get('sthpw/task')
+
+        # task_stype = sthpw_project.stypes.get('sthpw/task')
+        # env_inst.get_current_login()
+
+        related_filter = ('_expression', 'in', "@SOBJECT(sthpw/task['assigned', '$LOGIN'])")
+
+        advanced_search_widget.add_predefined_filter(related_filter)
+
+        # tab_title = '{0} related to {1}'.format(self.stype.get_pretty_name(), self.sobject.get_title())
+        # search_widget.add_tab(
+        #     search_title=tab_title,
+        #     filters=[related_filter],
+        # )
+        stype_widget.refresh_current_results()
+
     def change_items_sorting(self, items_type='sobject', sort='name'):
         print('MAKING SORT BY ', items_type, sort)
 
     def toggle_current_view(self, view='splitted_vertical'):
 
         current_results_widget = self.get_current_results_widget()
-        current_results_widget.toggle_results_view(view)
+        current_results_widget.set_results_view(view)
 
     def toggle_goups_by(self, action):
 
@@ -906,7 +925,7 @@ class Ui_searchWidget(QtGui.QWidget):
         self.add_tab('test_groups', [('name', 'EQI', 'fgsfds')])
 
     @gf.catch_error
-    def add_tab(self, search_title='', filters=[], state=None, offset=0, limit=None, reverting=False, items_count=0, search_line_text='', current_index=0):
+    def add_tab(self, search_title='', filters=[], state=None, offset=0, limit=None, reverting=False, items_count=0, search_line_text='', current_index=0, view='splitted_vertical'):
 
         if not limit:
             limit = self.get_display_limit()
@@ -928,6 +947,7 @@ class Ui_searchWidget(QtGui.QWidget):
             'current_index': current_index,
             'group_by': self.group_by_columns,
             'sort_by': self.sort_by,
+            'view': view
         }
 
         search_results_widget = Ui_searchResultsWidget(
@@ -936,7 +956,9 @@ class Ui_searchWidget(QtGui.QWidget):
             info=info,
             parent=self.results_tab_widget
         )
-        self.results_tab_widget.addTab(search_results_widget, search_title)
+        tab_label = gf.create_tab_label(search_title)
+        tab_label.setParent(self)
+        self.results_tab_widget.add_tab(search_results_widget, tab_label)
 
         if not reverting:
             self.results_tab_widget.setCurrentWidget(search_results_widget)
@@ -1141,7 +1163,7 @@ class Ui_searchWidget(QtGui.QWidget):
 
     def create_gear_menu_popup(self):
         self.gearMenuToolButton.setIcon(gf.get_icon('settings', icons_set='mdi'))
-        self.gearMenuToolButton.setMinimumSize(22, 22)
+        # self.gearMenuToolButton.setMinimumSize(22, 22)
 
     def add_action_to_gear_menu(self, action):
         self.gearMenuToolButton.addAction(action)
@@ -1212,7 +1234,6 @@ class Ui_searchWidget(QtGui.QWidget):
         if not settings_dict:
             settings_dict = {
                 'collapsable_toolbar': True,
-                'searchLineEdit_text': '',
                 'search_cache': None,
                 'results_tab_widget_current_index': 0,
             }
@@ -1256,8 +1277,8 @@ class Ui_filterWidget(QtGui.QWidget):
 
     def create_ui(self):
 
-        self.setMaximumHeight(24)
-        self.setMinimumHeight(24)
+        self.setMaximumHeight(44)
+        self.setMinimumHeight(44)
 
         self.create_main_layout()
 
@@ -1302,7 +1323,7 @@ class Ui_filterWidget(QtGui.QWidget):
 
     def create_main_layout(self):
         self.main_layout = QtGui.QHBoxLayout()
-        self.main_layout.setSpacing(4)
+        self.main_layout.setSpacing(9)
         self.main_layout.setContentsMargins(0, 0, 0, 0)
         self.setLayout(self.main_layout)
 
@@ -1312,7 +1333,7 @@ class Ui_filterWidget(QtGui.QWidget):
         self.enabled_check_box.setChecked(True)
 
     def create_column_combo_box(self):
-        self.column_combo_box = QtGui.QComboBox()
+        self.column_combo_box = StyledComboBox()
         self.main_layout.addWidget(self.column_combo_box)
 
     def fill_column_combo_box(self):
@@ -1336,7 +1357,7 @@ class Ui_filterWidget(QtGui.QWidget):
         self.changed_match_by_combo_box_index(0)
 
     def create_match_by_combo_box(self):
-        self.match_combo_box = QtGui.QComboBox()
+        self.match_combo_box = StyledComboBox()
         self.main_layout.addWidget(self.match_combo_box)
 
     def fill_match_by_combo_box(self, column=None):
@@ -1382,7 +1403,10 @@ class Ui_filterWidget(QtGui.QWidget):
         search_widget.update_current_search_results()
 
     def create_link_button(self):
-        self.link_button = QtGui.QToolButton()
+
+        # This link button is supposed to be a link to main search (will make first filter behave as main search line)
+
+        self.link_button = StyledToolButton(small=True, square_type=True)
         self.main_layout.addWidget(self.link_button)
         self.link_button.setAutoRaise(True)
         self.link_button.setIcon(gf.get_icon('link', icons_set='mdi', scale_factor=1.1))
@@ -1393,7 +1417,7 @@ class Ui_filterWidget(QtGui.QWidget):
             self.link_button.setVisible(True)
 
     def create_op_combo_box(self):
-        self.op_combo_box = QtGui.QComboBox()
+        self.op_combo_box = StyledComboBox()
         self.main_layout.addWidget(self.op_combo_box)
         if self.default:
             self.op_combo_box.setVisible(False)
@@ -1418,7 +1442,7 @@ class Ui_filterWidget(QtGui.QWidget):
             self.op_combo_box.setCurrentIndex(0)
 
     def create_remove_self_tool_button(self):
-        self.remove_self_tool_button = QtGui.QToolButton()
+        self.remove_self_tool_button = StyledToolButton(small=True)
         self.remove_self_tool_button.setAutoRaise(True)
         self.main_layout.addWidget(self.remove_self_tool_button)
         self.remove_self_tool_button.setIcon(gf.get_icon('close', icons_set='mdi', scale_factor=1.1))
@@ -1426,7 +1450,7 @@ class Ui_filterWidget(QtGui.QWidget):
             self.remove_self_tool_button.setHidden(True)
 
     def create_add_filter_tool_button(self):
-        self.add_filter_tool_button = QtGui.QToolButton()
+        self.add_filter_tool_button = StyledToolButton(small=True)
         self.add_filter_tool_button.setAutoRaise(True)
         self.main_layout.addWidget(self.add_filter_tool_button)
         self.add_filter_tool_button.setIcon(gf.get_icon('plus', icons_set='mdi', scale_factor=1.2))
@@ -2155,7 +2179,12 @@ class Ui_searchResultsWidget(QtGui.QWidget):
 
         self.setAttribute(QtCore.Qt.WA_DeleteOnClose)
 
-        self.raw_create_ui()
+        self.create_layout()
+        self.create_items_view()
+        self.create_tiles_view()
+
+        self.create_overlay_layout()
+        self.create_loading_overlay_widget()
 
         self.info = info
         self.stype = stype
@@ -2170,16 +2199,26 @@ class Ui_searchResultsWidget(QtGui.QWidget):
         self.current_results_tree_widget_item = None
         self.current_results_versions_tree_widget_item = None
 
-    def raw_create_ui(self):
+    def create_layout(self):
         self.resultsLayout = QtGui.QVBoxLayout(self)
         self.resultsLayout.setSpacing(0)
         self.resultsLayout.setContentsMargins(0, 0, 0, 0)
         self.resultsLayout.setObjectName("resultsLayout")
 
-        self.resultsSplitter = QtGui.QSplitter(self)
-        self.resultsSplitter.setOrientation(QtCore.Qt.Horizontal)
-        self.resultsSplitter.setObjectName("resultsSplitter")
-        self.resultsTreeWidget = Ui_extendedTreeWidget(self.resultsSplitter)
+    def create_tiles_view(self):
+        self.results_tiles_view = Ui_assetsBrowserWidget(self)
+
+        self.resultsLayout.addWidget(self.results_tiles_view)
+
+        self.results_tiles_view.setHidden(True)
+
+    def create_items_view(self):
+
+        self.items_view_splitter = QtGui.QSplitter(self)
+        self.items_view_splitter.setOrientation(QtCore.Qt.Horizontal)
+        self.items_view_splitter.setObjectName("items_view_splitter")
+
+        self.resultsTreeWidget = Ui_extendedTreeWidget(self.items_view_splitter)
         self.resultsTreeWidget.setRootIsDecorated(False)
         self.resultsTreeWidget.setIndentation(0)
         self.resultsTreeWidget.setSelectionBehavior(QtGui.QAbstractItemView.SelectRows)
@@ -2190,13 +2229,8 @@ class Ui_searchResultsWidget(QtGui.QWidget):
         self.resultsTreeWidget.setWordWrap(True)
         self.resultsTreeWidget.setHeaderHidden(True)
         self.resultsTreeWidget.setObjectName("resultsTreeWidget")
-        # self.resultsTreeWidget.headerItem().setText(0, "1")
-        self.verticalLayoutWidget_3 = QtGui.QWidget(self.resultsSplitter)
-        self.verticalLayoutWidget_3.setObjectName("verticalLayoutWidget_3")
-        self.versionsLayout = QtGui.QVBoxLayout(self.verticalLayoutWidget_3)
-        self.versionsLayout.setContentsMargins(0, 0, 0, 0)
-        self.versionsLayout.setObjectName("versionsLayout")
-        self.resultsVersionsTreeWidget = QtGui.QTreeWidget(self.verticalLayoutWidget_3)
+
+        self.resultsVersionsTreeWidget = QtGui.QTreeWidget(self.items_view_splitter)
         self.resultsVersionsTreeWidget.setTabKeyNavigation(True)
         self.resultsVersionsTreeWidget.setVerticalScrollMode(QtGui.QAbstractItemView.ScrollPerPixel)
         self.resultsVersionsTreeWidget.setRootIsDecorated(False)
@@ -2207,33 +2241,38 @@ class Ui_searchResultsWidget(QtGui.QWidget):
         self.resultsVersionsTreeWidget.setSelectionBehavior(QtGui.QAbstractItemView.SelectRows)
         self.resultsVersionsTreeWidget.setSelectionMode(QtGui.QAbstractItemView.ExtendedSelection)
         self.resultsVersionsTreeWidget.setObjectName("resultsVersionsTreeWidget")
-        # self.resultsVersionsTreeWidget.headerItem().setText(0, "1")
-        self.versionsLayout.addWidget(self.resultsVersionsTreeWidget)
-        self.resultsLayout.addWidget(self.resultsSplitter)
+
+        self.resultsLayout.addWidget(self.items_view_splitter)
+        self.items_view_splitter.setHidden(True)
 
     def create_simple_view_ui(self):
 
-        self.verticalLayoutWidget_3.close()
         self.sep_versions = False
         self.resultsTreeWidget.setRootIsDecorated(False)
 
         self.create_progress_bar()
         self.create_bottom_navigation_widget()
 
+        self.set_results_view(self.info.get('view'), False)
+
         self.customize_ui()
 
         self.initial_load_results()
-
-        # self.controls_actions()
 
         self.created = True
 
     def create_ui(self):
 
-        self.create_separate_versions_tree()
+        # self.create_separate_versions_tree()
+
+        self.sep_versions = gf.get_value_from_config(self.checkin_out_config, 'versionsSeparateCheckinCheckBox')
+        if self.sep_versions:
+            self.sep_versions = bool(int(self.sep_versions))
+
         self.create_progress_bar()
-        # self.setAcceptDrops(True)
         self.create_bottom_navigation_widget()
+
+        self.set_results_view(self.info.get('view'), False)
 
         self.customize_ui()
 
@@ -2242,6 +2281,66 @@ class Ui_searchResultsWidget(QtGui.QWidget):
         self.controls_actions()
 
         self.created = True
+
+    def create_overlay_layout(self):
+
+        self.overlay_layout_widget = QtGui.QWidget(self)
+        sizePolicy = QtGui.QSizePolicy(QtGui.QSizePolicy.Preferred, QtGui.QSizePolicy.Preferred)
+        self.overlay_layout_widget.setSizePolicy(sizePolicy)
+
+        self.overlay_layout = QtGui.QVBoxLayout(self.overlay_layout_widget)
+        self.overlay_layout.setSpacing(0)
+        self.overlay_layout.setContentsMargins(0, 0, 0, 0)
+
+        self.overlay_layout_widget.setLayout(self.overlay_layout)
+        self.overlay_layout_widget.setHidden(True)
+
+    def show_overlay(self):
+
+        self.overlay_layout_widget.raise_()
+        self.overlay_layout_widget.show()
+
+        self.loading_anm_open.start()
+
+    def hide_overlay(self):
+
+        self.loading_anm_close.start()
+
+    def hide_overlay_at_animation_end(self, val):
+        if val == 0.0:
+            self.overlay_layout_widget.lower()
+            self.overlay_layout_widget.hide()
+
+    def create_loading_overlay_widget(self):
+
+        self.loading_widget = QtGui.QToolButton()
+
+        sizePolicy = QtGui.QSizePolicy(QtGui.QSizePolicy.Preferred, QtGui.QSizePolicy.Preferred)
+        self.loading_widget.setSizePolicy(sizePolicy)
+
+        self.loading_widget.setMinimumSize(64, 64)
+        self.loading_widget.setIconSize(QtCore.QSize(64, 64))
+        self.loading_widget.setStyleSheet("QToolButton { border: 0px; background-color: rgba(0, 0, 0, 96);}")
+        self.loading_widget.setIcon(gf.get_icon('loading', icons_set='mdi', scale_factor=1, spin=[self.loading_widget, 30, 45]))
+
+        effect = QtGui.QGraphicsOpacityEffect(self.loading_widget)
+
+        self.loading_anm_close = QtCore.QPropertyAnimation(effect, 'opacity', self.loading_widget)
+        self.loading_anm_close.setDuration(200)
+        self.loading_anm_close.setStartValue(1)
+        self.loading_anm_close.setEndValue(0)
+        self.loading_anm_close.setEasingCurve(QtCore.QEasingCurve.OutSine)
+        self.loading_anm_open = QtCore.QPropertyAnimation(effect, 'opacity', self.loading_widget)
+        self.loading_anm_open.setDuration(200)
+        self.loading_anm_open.setStartValue(0)
+        self.loading_anm_open.setEndValue(1)
+        self.loading_anm_open.setEasingCurve(QtCore.QEasingCurve.InSine)
+
+        self.loading_anm_close.valueChanged.connect(self.hide_overlay_at_animation_end)
+
+        self.loading_widget.setGraphicsEffect(effect)
+
+        self.overlay_layout.addWidget(self.loading_widget)
 
     def update_default_filter(self, query_text):
         checkin_out_widget = self.get_current_checkin_out_widget()
@@ -2277,9 +2376,34 @@ class Ui_searchResultsWidget(QtGui.QWidget):
                 offset=offset,
             )
 
-    def toggle_results_view(self, view='separate_vertical'):
+    def set_results_view(self, view='splitted_vertical', refresh=True):
 
         print 'toggling', view
+        self.set_cuttent_view(view)
+
+        if view == 'continious':
+            self.results_tiles_view.setHidden(True)
+            self.resultsVersionsTreeWidget.setHidden(True)
+            self.items_view_splitter.setHidden(False)
+            self.sep_versions = False
+        elif view == 'splitted_horizontal':
+            self.results_tiles_view.setHidden(True)
+            self.items_view_splitter.setHidden(False)
+            self.resultsVersionsTreeWidget.setHidden(False)
+            self.items_view_splitter.setOrientation(QtCore.Qt.Vertical)
+            self.sep_versions = True
+        elif view == 'splitted_vertical':
+            self.results_tiles_view.setHidden(True)
+            self.items_view_splitter.setHidden(False)
+            self.resultsVersionsTreeWidget.setHidden(False)
+            self.items_view_splitter.setOrientation(QtCore.Qt.Horizontal)
+            self.sep_versions = True
+        elif view == 'tiles':
+            self.items_view_splitter.setHidden(True)
+            self.results_tiles_view.setHidden(False)
+
+        if refresh:
+            self.update_search_results(refresh=True)
 
     def search_query(self, search_query):
         if not self.info.get('simple_view'):
@@ -2337,6 +2461,8 @@ class Ui_searchResultsWidget(QtGui.QWidget):
         self.info['search_line_text'] = self.get_search_line_text()
         self.info['current_index'] = self.get_current_index()
 
+        self.info['view'] = self.get_cuttent_view()
+
         return self.info
 
     def get_state(self):
@@ -2387,6 +2513,12 @@ class Ui_searchResultsWidget(QtGui.QWidget):
     def set_search_line_text(self, text):
         self.info['search_line_text'] = text
 
+    def get_cuttent_view(self):
+        return self.info.get('view')
+
+    def set_cuttent_view(self, view):
+        self.info['view'] = view
+
     def get_search_line_text(self):
         return self.info.get('search_line_text')
 
@@ -2400,11 +2532,18 @@ class Ui_searchResultsWidget(QtGui.QWidget):
         results_tab_widget = search_widget.get_results_tab_widget()
         current_idx = results_tab_widget.indexOf(self)
         if self.get_items_count():
-            tab_title = u'{0} | {1}'.format(title, self.get_items_count())
+            tab_title = u'{0} <b><span style=" font-size:7pt; color:#999999;">| {1}</span></b>'.format(title, self.get_items_count())
+            #     <span style=" font-size:8pt; color:#00ff00;">Getting Search Types</span>
         else:
             tab_title = title
 
-        results_tab_widget.setTabText(current_idx, tab_title)
+        tab_label = results_tab_widget.tabBar().tabButton(current_idx, QtGui.QTabBar.RightSide)
+        tab_label.close()
+        tab_label = gf.create_tab_label(tab_title)
+        tab_label.setParent(self)
+        results_tab_widget.tabBar().setTabButton(current_idx, QtGui.QTabBar.RightSide, tab_label)
+
+        # results_tab_widget.setTabText(current_idx, tab_title)
 
     def get_filters(self):
         return self.info['filters']
@@ -2495,6 +2634,8 @@ class Ui_searchResultsWidget(QtGui.QWidget):
 
         env_inst.ui_main.set_info_status_text('<span style=" font-size:8pt; color:#00ff00;">Getting SObjects</span>')
 
+        self.show_overlay()
+
         def get_sobjects_agent():
             """ If we have traceback, it points us here"""
             return tc.get_sobjects(
@@ -2540,6 +2681,7 @@ class Ui_searchResultsWidget(QtGui.QWidget):
 
     @gf.catch_error
     def fill_items(self, result):
+        self.hide_overlay()
         env_inst.ui_main.set_info_status_text('<span style=" font-size:8pt; color:#00ff00;">Filling SObjects</span>')
 
         self.sobjects = result[0]
@@ -2767,6 +2909,7 @@ class Ui_searchResultsWidget(QtGui.QWidget):
 
     @gf.catch_error
     def fill_versions_items(self, widget, *args):
+
         if self.resultsVersionsTreeWidget.isVisible():
             item_widget = self.resultsTreeWidget.itemWidget(widget, 0)
 
@@ -2843,7 +2986,7 @@ class Ui_searchResultsWidget(QtGui.QWidget):
             else:
                 self.resultsVersionsTreeWidget.clear()
 
-        self.resultsVersionsTreeWidget.resizeColumnToContents(0)
+            self.resultsVersionsTreeWidget.resizeColumnToContents(0)
 
     def clear_versionless_tree_widget(self):
         gf.recursive_close_tree_item_widgets(self.resultsTreeWidget)
@@ -2921,19 +3064,19 @@ class Ui_searchResultsWidget(QtGui.QWidget):
     def get_is_separate_versions(self):
         return self.sep_versions
 
-    def create_separate_versions_tree(self):
-
-        self.sep_versions = gf.get_value_from_config(self.checkin_out_config, 'versionsSeparateCheckinCheckBox')
-        if self.sep_versions:
-            self.sep_versions = bool(int(self.sep_versions))
-
-        if not self.sep_versions:
-            self.verticalLayoutWidget_3.close()
-        else:
-            if gf.get_value_from_config(self.checkin_out_config, 'bottomVersionsRadioButton'):
-                self.resultsSplitter.setOrientation(QtCore.Qt.Vertical)
-            else:
-                self.resultsSplitter.setOrientation(QtCore.Qt.Horizontal)
+    # def create_separate_versions_tree(self):
+    #
+    #     self.sep_versions = gf.get_value_from_config(self.checkin_out_config, 'versionsSeparateCheckinCheckBox')
+    #     if self.sep_versions:
+    #         self.sep_versions = bool(int(self.sep_versions))
+    #
+    #     if not self.sep_versions:
+    #         self.resultsVersionsTreeWidget.setHidden(True)
+    #     else:
+    #         if gf.get_value_from_config(self.checkin_out_config, 'bottomVersionsRadioButton'):
+    #             self.items_view_splitter.setOrientation(QtCore.Qt.Vertical)
+    #         else:
+    #             self.items_view_splitter.setOrientation(QtCore.Qt.Horizontal)
 
     def create_progress_bar(self):
         self.progress_bar = QtGui.QProgressBar()
@@ -2949,4 +3092,9 @@ class Ui_searchResultsWidget(QtGui.QWidget):
             else:
                 self.create_ui()
 
+        event.accept()
+
+    def resizeEvent(self, event):
+        if self.overlay_layout_widget:
+            self.overlay_layout_widget.resize(self.size())
         event.accept()
