@@ -5,16 +5,17 @@ from thlib.side.Qt import QtWidgets as QtGui
 from thlib.side.Qt import QtGui as Qt4Gui
 from thlib.side.Qt import QtCore
 
-import thlib.ui.misc.ui_snapshot_browser as ui_snapshot_browser
+#import thlib.ui.misc.ui_snapshot_browser as ui_snapshot_browser
+from thlib.ui_classes.ui_custom_qwidgets import Ui_horizontalCollapsableWidget, StyledToolButton
 import ui_addsobject_classes as addsobject_widget
 from thlib.environment import env_inst, cfg_controls
 import thlib.global_functions as gf
 import thlib.tactic_classes as tc
 
-reload(ui_snapshot_browser)
+#reload(ui_snapshot_browser)
 
 
-class Ui_snapshotBrowserWidget(QtGui.QWidget, ui_snapshot_browser.Ui_snapshotBrowser):
+class Ui_snapshotBrowserWidget(QtGui.QWidget):
     def __init__(self, parent=None):
         super(self.__class__, self).__init__(parent=parent)
 
@@ -31,6 +32,170 @@ class Ui_snapshotBrowserWidget(QtGui.QWidget, ui_snapshot_browser.Ui_snapshotBro
         self.controls_actions()
 
         self.installEventFilter(self)
+
+    def create_ui_raw(self):
+
+        self.snapshotBrowserLayout = QtGui.QVBoxLayout(self)
+        self.snapshotBrowserLayout.setSpacing(0)
+        self.snapshotBrowserLayout.setContentsMargins(0, 0, 0, 0)
+        self.snapshotBrowserLayout.setObjectName("snapshotBrowserLayout")
+
+        self.create_toolbar()
+
+        self.browserSplitter = QtGui.QSplitter(self)
+        self.browserSplitter.setOrientation(QtCore.Qt.Vertical)
+        self.browserSplitter.setObjectName("browserSplitter")
+        self.verticalLayoutWidget = QtGui.QWidget(self.browserSplitter)
+        self.verticalLayoutWidget.setObjectName("verticalLayoutWidget")
+        self.verticalLayoutWidget.setContentsMargins(0, 0, 0, 0)
+
+        self.imageViewerLayout = QtGui.QVBoxLayout(self.verticalLayoutWidget)
+        self.imageViewerLayout.setSpacing(0)
+        self.imageViewerLayout.setContentsMargins(0, 0, 0, 0)
+        self.imageViewerLayout.setObjectName("imageViewerLayout")
+        self.previewGraphicsView = QtGui.QGraphicsView(self.verticalLayoutWidget)
+        self.previewGraphicsView.setFrameShape(QtGui.QFrame.NoFrame)
+        self.previewGraphicsView.setVerticalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOff)
+        self.previewGraphicsView.setHorizontalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOff)
+        self.previewGraphicsView.setRenderHints(
+            Qt4Gui.QPainter.Antialiasing | Qt4Gui.QPainter.HighQualityAntialiasing | Qt4Gui.QPainter.SmoothPixmapTransform | Qt4Gui.QPainter.TextAntialiasing)
+        self.previewGraphicsView.setOptimizationFlags(
+            QtGui.QGraphicsView.DontAdjustForAntialiasing | QtGui.QGraphicsView.DontSavePainterState)
+        self.previewGraphicsView.setObjectName("previewGraphicsView")
+        self.imageViewerLayout.addWidget(self.previewGraphicsView)
+        self.imageViewerLayout.setStretch(1, 1)
+
+        self.imagesSlider = QtGui.QSlider(self.verticalLayoutWidget)
+        self.imagesSlider.setStyleSheet("QSlider::groove:horizontal {\n"
+                                        "    border: 0px solid rgb(96, 96, 96);\n"
+                                        "    height: 8px;\n"
+                                        "    background: rgb(72,72,72);\n"
+                                        "    margin: 0px;\n"
+                                        "}\n"
+                                        "\n"
+                                        "QSlider::handle:horizontal {\n"
+                                        "    background: rgb(96,96,96);\n"
+                                        "    border: 0px;\n"
+                                        "    width: 18px;\n"
+                                        "    margin: 0px 0;\n"
+                                        "    border-radius: 4px;\n"
+                                        "    width: 40px;\n"
+                                        "}")
+        self.imagesSlider.setMaximum(1)
+        self.imagesSlider.setPageStep(1)
+        self.imagesSlider.setTracking(True)
+        self.imagesSlider.setOrientation(QtCore.Qt.Horizontal)
+        self.imagesSlider.setTickPosition(QtGui.QSlider.TicksAbove)
+        self.imagesSlider.setObjectName("imagesSlider")
+        self.imagesSlider.setMaximumHeight(12)
+        self.imageViewerLayout.addWidget(self.imagesSlider)
+
+        self.gridLayoutWidget = QtGui.QWidget(self.browserSplitter)
+        self.gridLayoutWidget.setObjectName("gridLayoutWidget")
+        self.filesBrowserLayout = QtGui.QGridLayout(self.gridLayoutWidget)
+        self.filesBrowserLayout.setContentsMargins(0, 0, 0, 0)
+        self.filesBrowserLayout.setObjectName("filesBrowserLayout")
+
+        self.showAllCheckBox = QtGui.QCheckBox(self.gridLayoutWidget)
+        # self.showAllCheckBox.setObjectName("showAllCheckBox")
+        self.filesBrowserLayout.addWidget(self.showAllCheckBox, 1, 0, 1, 1)
+        self.showAllCheckBox.setHidden(True)
+
+        self.showMoreInfoCheckBox = QtGui.QCheckBox(self.gridLayoutWidget)
+        # self.showMoreInfoCheckBox.setObjectName("showMoreInfoCheckBox")
+        self.filesBrowserLayout.addWidget(self.showMoreInfoCheckBox, 1, 1, 1, 1)
+        self.showMoreInfoCheckBox.setHidden(True)
+
+        self.filesTreeWidget = QtGui.QTreeWidget(self.gridLayoutWidget)
+        self.filesTreeWidget.setStyleSheet("QTreeView::item {\n"
+                                           "    padding: 2px;\n"
+                                           "}\n"
+                                           "QTreeView::item:selected:active{\n"
+                                           "    background: qlineargradient(spread:pad, x1:0, y1:0, x2:1, y2:0, stop:0 rgba(82, 133, 166, 255), stop:1 rgba(82, 133, 166, 255));\n"
+                                           "    border: 1px solid transparent;\n"
+                                           "}\n"
+                                           "QTreeView::item:selected:!active {\n"
+                                           "    background: qlineargradient(spread:pad, x1:0, y1:0, x2:1, y2:0, stop:0 rgba(82, 133, 166, 255), stop:1 rgba(82, 133, 166, 255));\n"
+                                           "    border: 1px solid transparent;\n"
+                                           "}\n"
+                                           "")
+        self.filesTreeWidget.setAlternatingRowColors(True)
+        self.filesTreeWidget.setHeaderHidden(True)
+        self.filesTreeWidget.setObjectName("filesTreeWidget")
+        self.filesTreeWidget.headerItem().setText(0, "Snapshot / Type / Name:")
+
+        self.filesBrowserLayout.addWidget(self.filesTreeWidget, 0, 0, 1, 2)
+
+        self.snapshotBrowserLayout.addWidget(self.browserSplitter)
+
+        # self.showAllCheckBox.setText(u"Show All Files")
+        # self.showMoreInfoCheckBox.setText(u"Show More Info")
+
+        self.filesTreeWidget.headerItem().setText(1, u"Size:")
+        self.filesTreeWidget.headerItem().setText(2, u"Path:")
+        self.filesTreeWidget.headerItem().setText(3, u"Repo:")
+        self.filesTreeWidget.headerItem().setText(4, u"Base Type:")
+
+    def create_toolbar(self):
+
+        buttons_layout = QtGui.QHBoxLayout()
+        buttons_layout.setSpacing(0)
+        buttons_layout.setContentsMargins(0, 0, 0, 0)
+
+        self.settings_button = StyledToolButton(small=True)
+        self.settings_button.setPopupMode(QtGui.QToolButton.InstantPopup)
+        self.settings_button.setArrowType(QtCore.Qt.NoArrow)
+        self.settings_button.setIcon(gf.get_icon('settings', icons_set='mdi'))
+        self.settings_button.setToolTip('Config Snapshot Browser')
+
+
+        self.show_all_action = QtGui.QAction(u"Show All Files", self)
+        self.show_all_action.triggered.connect(lambda: self.toggle_files_view('all'))
+        self.show_all_action.setIcon(gf.get_icon('playlist-check', icons_set='mdi', scale_factor=1.3))
+
+        self.show_more_action = QtGui.QAction(u"Show More Info", self)
+        self.show_more_action.triggered.connect(lambda: self.toggle_files_view('more'))
+        self.show_more_action.setIcon(gf.get_icon('playlist-plus', icons_set='mdi', scale_factor=1.3))
+
+        self.horizontal_orientation_action = QtGui.QAction(u"Horizontal orientation", self)
+        self.horizontal_orientation_action.triggered.connect(lambda: self.switch_splitter_layout('horizontal'))
+        self.horizontal_orientation_action.setIcon(gf.get_icon('view-sequential', icons_set='mdi', scale_factor=1))
+
+        self.vertical_orientation_action = QtGui.QAction(u"Vertical orientation", self)
+        self.vertical_orientation_action.triggered.connect(lambda: self.switch_splitter_layout('vertical'))
+        self.vertical_orientation_action.setIcon(gf.get_icon('view-parallel', icons_set='mdi', scale_factor=1))
+
+        self.settings_button.addAction(self.show_all_action)
+        self.settings_button.addAction(self.show_more_action)
+        self.settings_button.addAction(self.horizontal_orientation_action)
+        self.settings_button.addAction(self.vertical_orientation_action)
+
+        self.refresh_button = StyledToolButton(small=True)
+        self.refresh_button.setAutoRaise(True)
+        self.refresh_button.setIcon(gf.get_icon('refresh', icons_set='mdi', scale_factor=1.3))
+        self.refresh_button.setToolTip('Refresh Current Tasks')
+
+        buttons_layout.addWidget(self.settings_button)
+        buttons_layout.addWidget(self.refresh_button)
+        spacerItem = QtGui.QSpacerItem(40, 20, QtGui.QSizePolicy.Expanding, QtGui.QSizePolicy.Minimum)
+        buttons_layout.addItem(spacerItem)
+        buttons_layout.setStretch(3, 1)
+
+        self.snapshotBrowserLayout.addLayout(buttons_layout)
+
+    def switch_splitter_layout(self, orientation):
+
+        if orientation == 'vertical':
+            self.browserSplitter.setOrientation(QtCore.Qt.Horizontal)
+        elif orientation == 'horizontal':
+            self.browserSplitter.setOrientation(QtCore.Qt.Vertical)
+
+    def toggle_files_view(self, view):
+
+        if view == 'all':
+            self.showAllCheckBox.toggle()
+        elif view == 'more':
+            self.showMoreInfoCheckBox.toggle()
 
     def controls_actions(self):
 
@@ -373,6 +538,7 @@ class Ui_snapshotBrowserWidget(QtGui.QWidget, ui_snapshot_browser.Ui_snapshotBro
 
         show_more_info = self.showMoreInfoCheckBox.isChecked()
         show_all_files = self.showAllCheckBox.isChecked()
+
         if not show_more_info:
             self.filesTreeWidget.setHeaderHidden(True)
             self.filesTreeWidget.setColumnCount(1)
@@ -775,7 +941,8 @@ class Ui_snapshotBrowserWidget(QtGui.QWidget, ui_snapshot_browser.Ui_snapshotBro
             self.machine.start()
 
     def create_ui(self):
-        self.setupUi(self)
+        self.create_ui_raw()
+
         self.create_preview_widget()
 
         self.customize_ui()

@@ -60,10 +60,10 @@ class Ui_DockMain(MayaQWidgetDockableMixin, QtGui.QMainWindow):
         self.move(self.dock_pos)
 
     def set_docked(self):
-        status_bar = env_inst.ui_main.statusBar()
+        # status_bar = env_inst.ui_main.statusBar()
 
-        if status_bar:
-            status_bar.show()
+        # if status_bar:
+        #     status_bar.show()
 
         self.toggle_dock = True
         self.setDockableParameters(
@@ -93,8 +93,8 @@ class Ui_DockMain(MayaQWidgetDockableMixin, QtGui.QMainWindow):
             self.maya_dock.close()
             self.maya_dock.deleteLater()
         self.docked = False
-        status_bar = env_inst.ui_main.statusBar()
-        status_bar.show()
+        # status_bar = env_inst.ui_main.statusBar()
+        # status_bar.show()
 
     def set_settings_from_dict(self, settings_dict=None):
 

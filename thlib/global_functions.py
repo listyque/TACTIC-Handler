@@ -1082,7 +1082,15 @@ def create_tab_label(tab_name, stype=None):
     return Ui_tabLabel(tab_name, stype)
 
 
-def get_icon(icon_name, icon_name_active=None, color=None, color_active=None, icons_set='fa', spin=None, **kwargs):
+def get_icon(icon_name=None, icon_name_active=None, color=None, color_active=None, icons_set='fa', spin=None, tactic_icon=None, **kwargs):
+
+    if tactic_icon:
+        splitted = tactic_icon.split('_')
+        icons_set = splitted[0].lower()
+        icon_name = '-'.join(splitted[1:]).lower()
+
+        if icons_set in ['fas', 'far', 'fa']:
+            icons_set = 'fa5s'
 
     if not color:
         color = Qt4Gui.QColor(200, 200, 200)
@@ -1221,6 +1229,42 @@ def add_repo_sync_item(tree_widget, file_object):
     return tree_item_widget
 
 
+def add_sidebar_item(tree_widget, stype, project, item_info, insert_pos=None):
+
+    from thlib.ui_classes.ui_item_classes import Ui_sidebarItemWidget
+
+    tree_item = QtGui.QTreeWidgetItem()
+
+    tree_item_widget = Ui_sidebarItemWidget(stype, project, item_info)
+
+    tree_item_widget.tree_item = tree_item
+
+    add_item_to_tree(tree_widget, tree_item, tree_item_widget, insert_pos=insert_pos)
+
+    tree_item_widget.setParent(tree_item_widget.parent())
+    # tree_item_widget.setHidden(True)
+
+    return tree_item_widget
+
+
+def add_project_item(tree_widget, projects, item_info, insert_pos=None):
+
+    from thlib.ui_classes.ui_item_classes import Ui_projectItemWidget
+
+    tree_item = QtGui.QTreeWidgetItem()
+
+    tree_item_widget = Ui_projectItemWidget(projects, item_info)
+
+    tree_item_widget.tree_item = tree_item
+
+    add_item_to_tree(tree_widget, tree_item, tree_item_widget, insert_pos=insert_pos)
+
+    tree_item_widget.setParent(tree_item_widget.parent())
+    # tree_item_widget.setHidden(True)
+
+    return tree_item_widget
+
+
 def add_sobject_item(parent_item, parent_widget, sobject, stype, item_info, insert_pos=None, ignore_dict=None, return_layout_widget=False):
 
     from thlib.ui_classes.ui_item_classes import Ui_itemWidget, Ui_layoutWrapWidget
@@ -1256,6 +1300,7 @@ def add_sobject_item(parent_item, parent_widget, sobject, stype, item_info, inse
 def add_group_by_item(parent_item, parent_widget, group, column, sub_columns, stype, item_info):
 
     from thlib.ui_classes.ui_item_classes import Ui_groupItemWidget
+
     tree_item = QtGui.QTreeWidgetItem()
     tree_item.setChildIndicatorPolicy(QtGui.QTreeWidgetItem.ShowIndicator)
     item_info_dict = {
@@ -1820,6 +1865,11 @@ def form_path(path, tp=None):
 
     elif env_mode.get_platform() == 'Linux' or tp == 'linux':
         formed_path = path.replace('\\', '/').replace('\\\\', '/').replace('//', '/')
+
+        if env_mode.get_platform() == 'Windows':
+            if formed_path.startswith('/'):
+                formed_path = '/' + formed_path
+
         return formed_path
 
     elif env_mode.get_platform() == 'Windows' or tp == 'win':
@@ -2626,9 +2676,10 @@ class MatchTemplate(object):
 
         for i, template in enumerate(templates):
             values_pattern = re.compile(template[0])
-            def_dict = collections.defaultdict(list)
+            def_dict = collections.OrderedDict()
             not_matched = []
-            for fl in files_list:
+            while files_list:
+                fl = files_list.pop()
                 # for windows os
                 fl_norm = fl.replace('\\', '/')
                 search_result = re.search(values_pattern, fl_norm)
@@ -2636,7 +2687,7 @@ class MatchTemplate(object):
                     group_dict = search_result.groupdict()
                     unique_filename = self.get_unique_name(group_dict, template[1], template_names[i][1][1])
                     group_dict['orig_file'] = fl_norm
-                    def_dict[unique_filename].append(group_dict)
+                    def_dict.setdefault(unique_filename, []).append(group_dict)
                 else:
                     not_matched.append(fl_norm)
 
@@ -2691,14 +2742,14 @@ class MatchTemplate(object):
                     templates.append(self.get_re_patterns(patterns))
                     template_names.append((tp, patterns))
 
-        return self.match_by_template(set(files_list), templates, template_names)
+        return self.match_by_template(files_list, templates, template_names)
 
     def get_files_objects(self, files_list, allow_single_sequence=False, allow_single_udim=False, sort=True):
         if sort:
             found_files = self.get_files(natsort.realsorted(files_list))
         else:
             found_files = self.get_files(files_list)
-        out_dict = collections.defaultdict(list)
+        out_dict = collections.OrderedDict()
 
         single_sequences_and_udims = []
 
@@ -2711,7 +2762,7 @@ class MatchTemplate(object):
                         single_sequences_and_udims.append(fl[1][0]['orig_file'])
                     else:
                         file_obj = FileObject(fl, tpl)
-                        out_dict[tpl['type']].append(file_obj)
+                        out_dict.setdefault(tpl['type'], []).append(file_obj)
 
         # getting all single sequences or udims/uvs
         if single_sequences_and_udims:
@@ -2719,7 +2770,7 @@ class MatchTemplate(object):
             for files, tpl in single_found_files:
                 for fl in files.items():
                     file_obj = FileObject(fl, tpl)
-                    out_dict[tpl['type']].append(file_obj)
+                    out_dict.setdefault(tpl['type'], []).append(file_obj)
 
         return out_dict
 
@@ -2842,13 +2893,13 @@ def get_qtreeview_style(disable_branch=False):
     style = """
 QAbstractItemView {
     show-decoration-selected: 0;
-    selection-background-color:	rgb(32, 32, 32);
+    selection-background-color:	rgb(57, 68, 81);
     selection-color: rgb(245,245,245);
     alternate-background-color: rgb(58,58,58);
     background: rgb(52,52,52);
 }
 QAbstractItemView::item:hover {
-    background-color: rgb(40, 40, 40);
+    background-color: rgb(64, 69, 74);
     border: 0px;
 }
 QTreeView::item {

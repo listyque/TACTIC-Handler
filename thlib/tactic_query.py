@@ -230,6 +230,7 @@ def delete_sobjects(search_keys, include_dependencies=False, list_dependencies=N
 def get_projects_and_logins(current_login='admin'):
     import json
     from pyasm.search import Search, SearchKey
+    from pyasm.biz import Snapshot
 
     def get_sobjects_dict(sobjects):
         res = []
@@ -243,10 +244,49 @@ def get_projects_and_logins(current_login='admin'):
 
         return res
 
+    def get_sobject_dict(sobject):
+        search_key = SearchKey.get_by_sobject(sobject, use_id=False)
+        sobj = sobject.get_data()
+        sobj['__search_key__'] = search_key
+
+        return sobj
+
     # Getting all Projects from db
     search = Search('sthpw/project')
     search.add_op_filters([])
-    projects = get_sobjects_dict(search.get_sobjects())
+    projects = search.get_sobjects()
+
+    # Getting snapshots for projects previews
+    snapshot_search = Search('sthpw/snapshot')
+    snapshot_search.add_relationship_filters(projects, op='in')
+    snapshot_search.add_op_filters([('process', ['icon', 'attachment', 'publish'])])
+    snapshots_sobjects = snapshot_search.get_sobjects()
+
+    snapshots_files_sobjects = Snapshot.get_files_dict_by_snapshots(snapshots_sobjects)
+
+    projects = get_sobjects_dict(projects)
+
+    for project in projects:
+
+        related_snapshots = []
+        for snapshot in snapshots_sobjects:
+            if snapshot.get_value('search_code') == project['code']:
+                related_snapshots.append(snapshot)
+
+        snapshots_list = []
+        for snapshot in related_snapshots:
+
+            if snapshot.get_version() in [-1, 0, '-1', '0'] or snapshot.is_latest():
+                snapshot_dict = get_sobject_dict(snapshot)
+                files_list = []
+                snapshots_files = snapshots_files_sobjects.get(snapshot_dict['code'])
+                if snapshots_files:
+                    for fl in snapshots_files:
+                        files_list.append(server.server._get_sobject_dict(fl))
+                snapshot_dict['__files__'] = files_list
+                snapshots_list.append(snapshot_dict)
+
+        project['__snapshots__'] = snapshots_list
 
     # Getting all possible Logins from db
 
@@ -408,7 +448,7 @@ def query_search_types_extended(project_code):
         stypes = search.get_sobjects()
     else:
         prj = Project.get_by_code(project_code)
-        stypes = prj.get_search_types(include_multi_project=False)
+        stypes = prj.get_search_types(include_multi_project=True)
 
     # add_config_tables = False
     #
@@ -496,7 +536,12 @@ def query_search_types_extended(project_code):
 
         schema.append(admin_schema_dict)
 
-    result = {'schema': schema, 'pipelines': pipelines, 'stypes': all_stypes}
+    configs = WidgetDbConfig('').get_all_by_search_type('SideBarWdg')
+    side_bar_configs = []
+    for config in configs:
+        side_bar_configs.append(get_sobject_dict(config))
+
+    result = {'schema': schema, 'pipelines': pipelines, 'stypes': all_stypes, 'sidebar': side_bar_configs}
 
     return json.dumps(result, separators=(',', ':'))
 

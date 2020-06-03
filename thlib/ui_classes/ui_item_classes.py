@@ -97,6 +97,7 @@ class Ui_stypeIconWidget(QtGui.QWidget):
     def create_ui(self):
 
         self.fill_sobject_info()
+        self.setCursor(Qt4Gui.QCursor(QtCore.Qt.PointingHandCursor))
 
         # if gf.get_value_from_config(cfg_controls.get_checkin(), 'getPreviewsThroughHttpCheckbox') == 1:
         #     self.set_web_preview()
@@ -118,16 +119,16 @@ class Ui_stypeIconWidget(QtGui.QWidget):
         # text_height = self.fileNameLabel.sizeHint().height()
         # self.setMinimumHeight(self.height() + text_height)
 
-        self.previewLabel.setText(u'<span style=" font-size:9pt; font-weight:600; color:#828282;">{0}</span>'.format(
-            gf.gen_acronym(self.stype.get_pretty_name())))
-
-        tab_color = None
+        stype_color = None
         if self.stype:
-            tab_color = self.stype.info['color']
-        if tab_color:
-            tab_color_rgb = gf.hex_to_rgb(tab_color, alpha=128)
+            stype_color = self.stype.get_stype_color()
+        if not stype_color:
+            stype_color = 'rgba(255,255,255,128)'
 
-            self.itemColorLine.setStyleSheet('QFrame { border: 0px; background-color: %s;}' % self.stype.get_stype_color())
+        self.previewLabel.setText(u'<span style=" font-size:9pt; font-weight:600; color:{0};">{1}</span>'.format(
+            stype_color, gf.gen_acronym(self.stype.get_pretty_name())))
+
+        self.itemColorLine.setStyleSheet('QFrame { border: 0px; background-color: %s;}' % stype_color)
 
     def set_preview(self):
 
@@ -199,6 +200,874 @@ class Ui_stypeIconWidget(QtGui.QWidget):
             painter.end()
 
             return rounded_pixmap
+
+
+class Ui_sidebarItemWidget(QtGui.QWidget):
+    def __init__(self, stype=None, project=None, item_info=None, tree_item=None, parent=None):
+        super(self.__class__, self).__init__(parent=parent)
+
+        self.stype = stype
+        self.project = project
+        self.item_info = item_info
+        self.tree_item = tree_item
+        self.shown = False
+        self.item_type = 'link'
+
+        self.create_ui()
+
+    def get_type(self):
+        return self.item_type
+
+    def get_code(self):
+        return self.stype.get_code()
+
+    def create_ui_link_widget(self):
+
+        # ONLY IF self.item_type IS 'link'
+
+        self.setObjectName('Ui_sidebarItemWidget')
+        self.setMaximumSize(200, 44)
+        self.setMinimumSize(200, 44)
+        self.setContentsMargins(0, 2, 0, 6)
+
+        self.horizontal_layout = QtGui.QHBoxLayout(self)
+        self.horizontal_layout.setContentsMargins(0, 0, 0, 0)
+        self.horizontal_layout.setSpacing(0)
+
+        self.indent_spacer = QtGui.QSpacerItem(0, 0, QtGui.QSizePolicy.Minimum, QtGui.QSizePolicy.Expanding)
+        self.horizontal_layout.addItem(self.indent_spacer)
+
+        self.itemColorLine = QtGui.QFrame(self)
+        self.itemColorLine.setMaximumSize(QtCore.QSize(2, 16777215))
+        self.itemColorLine.setStyleSheet("QFrame { border: 0px; background-color: rgba(255,255,255,128);}")
+        self.itemColorLine.setFrameShadow(QtGui.QFrame.Plain)
+        self.itemColorLine.setLineWidth(2)
+        self.itemColorLine.setFrameShape(QtGui.QFrame.VLine)
+        self.itemColorLine.setFrameShadow(QtGui.QFrame.Sunken)
+        sizePolicy = QtGui.QSizePolicy(QtGui.QSizePolicy.Preferred, QtGui.QSizePolicy.Preferred)
+        self.itemColorLine.setSizePolicy(sizePolicy)
+
+        self.horizontal_layout.addWidget(self.itemColorLine)
+
+        self.previewLabel = QtGui.QLabel(self)
+        self.previewLabel.setMinimumSize(QtCore.QSize(32, 32))
+        self.previewLabel.setMaximumSize(QtCore.QSize(32, 32))
+        self.previewLabel.setStyleSheet('QLabel {background: rgba(175, 175, 175, 64); border: 0px; border-radius: 16px;padding: 0px 0px;}')
+        self.previewLabel.setTextFormat(QtCore.Qt.RichText)
+        self.previewLabel.setAlignment(QtCore.Qt.AlignVCenter | QtCore.Qt.AlignHCenter)
+        sizePolicy = QtGui.QSizePolicy(QtGui.QSizePolicy.Preferred, QtGui.QSizePolicy.Preferred)
+        self.previewLabel.setSizePolicy(sizePolicy)
+
+        spacerItem = QtGui.QSpacerItem(12, 0, QtGui.QSizePolicy.Expanding, QtGui.QSizePolicy.Ignored)
+        self.horizontal_layout.addItem(spacerItem)
+
+        self.horizontal_layout.addWidget(self.previewLabel)
+
+        self.item_title_label = QtGui.QLabel(self)
+        self.item_title_label.setMinimumSize(QtCore.QSize(0, 30))
+        self.item_title_label.setMaximumSize(QtCore.QSize(16777215, 30))
+        font = Qt4Gui.QFont()
+        font.setFamily("Segoe UI")
+        font.setPointSize(11)
+        self.item_title_label.setFont(font)
+        self.item_title_label.setStyleSheet("QLabel {background-color: transparent;}")
+        self.item_title_label.setTextFormat(QtCore.Qt.PlainText)
+        self.item_title_label.setIndent(12)
+        self.horizontal_layout.addWidget(self.item_title_label)
+
+        self.horizontal_layout.setStretch(4, 1)
+
+    def create_ui_separator_widget(self):
+
+        # ONLY IF self.item_type IS 'separator'
+
+        self.setObjectName('Ui_sidebarItemWidget')
+        self.setContentsMargins(0, 0, 0, 0)
+
+        self.horizontal_layout = QtGui.QHBoxLayout(self)
+        self.horizontal_layout.setContentsMargins(0, 0, 0, 0)
+        self.horizontal_layout.setSpacing(0)
+
+        self.indent_spacer = QtGui.QSpacerItem(0, 0, QtGui.QSizePolicy.Minimum, QtGui.QSizePolicy.Expanding)
+        self.horizontal_layout.addItem(self.indent_spacer)
+
+        self.itemColorLine = QtGui.QFrame(self)
+        self.itemColorLine.setMaximumSize(QtCore.QSize(16777215, 2))
+        self.itemColorLine.setStyleSheet("QFrame { border: 0px; background-color: rgba(0,0,0,32);}")
+        self.itemColorLine.setFrameShadow(QtGui.QFrame.Plain)
+        self.itemColorLine.setLineWidth(2)
+        self.itemColorLine.setFrameShape(QtGui.QFrame.HLine)
+        self.itemColorLine.setFrameShadow(QtGui.QFrame.Sunken)
+        sizePolicy = QtGui.QSizePolicy(QtGui.QSizePolicy.Preferred, QtGui.QSizePolicy.Preferred)
+        self.itemColorLine.setSizePolicy(sizePolicy)
+
+        self.horizontal_layout.addWidget(self.itemColorLine)
+
+    def create_ui_sub_widget(self):
+
+        # ONLY IF self.item_type IS 'sub'
+
+        self.setObjectName('Ui_sidebarItemWidget')
+        self.setMaximumSize(200, 44)
+        self.setMinimumSize(200, 44)
+        self.setContentsMargins(0, 2, 0, 6)
+
+        self.horizontal_layout = QtGui.QHBoxLayout(self)
+        self.horizontal_layout.setContentsMargins(14, 0, 0, 0)
+        self.horizontal_layout.setSpacing(0)
+
+        self.indent_spacer = QtGui.QSpacerItem(0, 0, QtGui.QSizePolicy.Minimum, QtGui.QSizePolicy.Expanding)
+        self.horizontal_layout.addItem(self.indent_spacer)
+
+        self.create_indent()
+
+        self.create_expand_item_tool_button()
+
+        self.item_title_label = QtGui.QLabel(self)
+        self.item_title_label.setMinimumSize(QtCore.QSize(0, 30))
+        self.item_title_label.setMaximumSize(QtCore.QSize(16777215, 30))
+        font = Qt4Gui.QFont()
+        font.setFamily("Segoe UI")
+        font.setPointSize(11)
+        self.item_title_label.setFont(font)
+        self.item_title_label.setStyleSheet("QLabel {background-color: transparent;}")
+        self.item_title_label.setTextFormat(QtCore.Qt.PlainText)
+        self.item_title_label.setIndent(12)
+        self.horizontal_layout.addWidget(self.item_title_label)
+
+        self.horizontal_layout.setStretch(3, 1)
+
+    def create_ui(self):
+
+        if self.item_info['display_class'][0] == 'LinkWdg':
+            self.create_ui_link_widget()
+            self.setCursor(Qt4Gui.QCursor(QtCore.Qt.PointingHandCursor))
+            self.item_type = 'link'
+        elif self.item_info['display_class'][0] == 'SeparatorWdg':
+            self.create_ui_separator_widget()
+            self.item_type = 'separator'
+        elif self.item_info['display_class'][0] == 'SideBarSectionLinkWdg':
+            self.create_ui_sub_widget()
+            self.setCursor(Qt4Gui.QCursor(QtCore.Qt.PointingHandCursor))
+            self.item_type = 'sub'
+
+        # if gf.get_value_from_config(cfg_controls.get_checkin(), 'getPreviewsThroughHttpCheckbox') == 1:
+        #     self.set_web_preview()
+        # else:
+        #     self.set_preview()
+
+    def fill_sub_items(self):
+
+        item_sub_definitions = self.item_info['sub_definitions']
+
+        if item_sub_definitions:
+
+            sidebar = self.project.get_sidebar()
+            project_definition = sidebar.get_definition(bs=True)
+
+            for sidebar_item in item_sub_definitions:
+
+                stype_code = None
+                view_definition = None
+                sub_definitions = []
+                layout = 'default'
+
+                if sidebar_item.search_type:
+                    stype_code = sidebar_item.search_type.string
+
+                if sidebar_item.layout:
+                    layout = sidebar_item.layout.string
+
+                if sidebar_item.view:
+                    view_definition = sidebar.get_definition(sidebar_item.view.string)
+
+                    for sub_def in view_definition:
+                        sub_def_name = sub_def['name']
+
+                        for sub_prj_def in project_definition:
+                            if sub_prj_def['name'] == sub_def_name:
+                                sub_definitions.append(sub_prj_def)
+
+                    view_definition
+
+                stype = self.project.stypes.get(stype_code)
+
+                item_info = {
+                    'title': sidebar_item.get('title'),
+                    'name': sidebar_item.get('name'),
+                    'display_class': sidebar_item.display.get('class'),
+                    'search_type': stype_code,
+                    'layout': layout,
+                    'view_definition': view_definition,
+                    'sub_definitions': sub_definitions,
+                    'item': sidebar_item,
+                }
+
+                gf.add_sidebar_item(
+                    tree_widget=self.tree_item,
+                    stype=stype,
+                    project=self.project,
+                    item_info=item_info,
+                )
+                self.tree_item.treeWidget().resizeColumnToContents(0)
+
+    def get_pretty_name(self):
+        title = self.item_info.get('title')
+        if title:
+            return title.title()
+        else:
+            title = self.item_info.get('name').replace('_', ' ')
+            if title:
+                return title.title()
+            else:
+                return 'Untitled'
+
+    def fill_item_info(self):
+
+        if self.item_type == 'link':
+            self.item_title_label.setText(self.get_pretty_name())
+            if self.stype:
+
+                stype_color = None
+                if self.stype:
+                    stype_color = self.stype.get_stype_color()
+                if not stype_color:
+                    stype_color = 'rgba(255,255,255,128)'
+
+                self.previewLabel.setText(
+                    u'<span style=" font-size:9pt; font-weight:600; color:{0};">{1}</span>'.format(
+                        stype_color, gf.gen_acronym(self.get_pretty_name())))
+
+                self.itemColorLine.setStyleSheet('QFrame { border: 0px; background-color: %s;}' % stype_color)
+            else:
+                self.previewLabel.setText(
+                    u'<span style=" font-size:9pt; font-weight:600; color:{0};">{1}</span>'.format(
+                        'rgba(255,255,255,128)', gf.gen_acronym(self.get_pretty_name())))
+            item_definition = self.item_info['item']
+
+            if item_definition.get('icon'):
+                try:
+                    self.previewLabel.setPixmap(gf.get_icon(tactic_icon=item_definition.get('icon'), icons_set='mdi').pixmap(16, 16))
+                    self.previewLabel.setStyleSheet('')
+                except:
+                    pass
+
+        if self.item_type == 'separator':
+            self.tree_item.setDisabled(True)
+
+        if self.item_type == 'sub':
+            self.item_title_label.setText(self.item_info['title'])
+            self.tree_item.setFlags(QtCore.Qt.ItemIsEnabled)
+            sidebar_item = self.item_info['item']
+            # print sidebar_item
+            # print sidebar_item.get('state')
+            if sidebar_item.get('state') == 'open':
+                self.tree_item.setExpanded(True)
+                self.toggle_expand_item_button(True)
+            else:
+                self.toggle_expand_item_button(True)
+
+            self.fill_sub_items()
+
+            self.expand_item_button.clicked.connect(self.toggle_expand_item_button)
+
+        self.shown = True
+        self.set_indent(12)
+
+    def create_expand_item_tool_button(self):
+        self.expand_item_button = QtGui.QToolButton(self)
+        self.expand_item_button.setMaximumSize(32, 2048)
+        self.expand_item_button.setAutoRaise(True)
+        self.expand_item_button.setStyleSheet("QToolButton { border: 0px; background-color: transparent;}")
+
+        # effect = QtGui.QGraphicsBlurEffect(self.expand_item_button)
+        # effect.setBlurRadius(20)
+        # self.expand_item_button_anm_opacity = QtCore.QPropertyAnimation(effect, 'blurRadius', self.expand_item_button)
+        # self.expand_item_button_anm_opacity.setDuration(200)
+        #
+        # self.expand_item_button_anm_opacity.setStartValue(20)
+        # self.expand_item_button_anm_opacity.setEndValue(0)
+        # self.expand_item_button_anm_opacity.setEasingCurve(QtCore.QEasingCurve.InSine)
+        # self.expand_item_button.setGraphicsEffect(effect)
+
+        self.horizontal_layout.addWidget(self.expand_item_button)
+
+    def toggle_expand_item_button(self, state=None):
+
+        if state is not None:
+            if self.tree_item.isExpanded():
+                self.expand_item_button.setIcon(gf.get_icon('chevron-down', icons_set='mdi', color=Qt4Gui.QColor(160, 160, 160), scale_factor=1.6))
+            else:
+                self.expand_item_button.setIcon(gf.get_icon('chevron-right', icons_set='mdi', color=Qt4Gui.QColor(160, 160, 160), scale_factor=1.6))
+        else:
+            if self.tree_item.isExpanded():
+                self.tree_item.setExpanded(False)
+                self.expand_item_button.setIcon(gf.get_icon('chevron-right', icons_set='mdi', color=Qt4Gui.QColor(160, 160, 160), scale_factor=1.6))
+            else:
+                self.tree_item.setExpanded(True)
+                self.expand_item_button.setIcon(gf.get_icon('chevron-down', icons_set='mdi', color=Qt4Gui.QColor(160, 160, 160), scale_factor=1.6))
+
+    def get_depth(self):
+        idx = 0
+        item = self.tree_item
+
+        while item.parent():
+            item = item.parent()
+            idx += 1
+
+        return idx
+
+    def create_indent(self):
+        self.indent_spacer = QtGui.QSpacerItem(0, 0, QtGui.QSizePolicy.Minimum, QtGui.QSizePolicy.Expanding)
+        self.horizontal_layout.addItem(self.indent_spacer)
+
+    def set_indent(self, indent=24):
+        result_indent = self.get_depth() * indent
+        self.indent_spacer.changeSize(result_indent, 0)
+
+    def enterEvent(self, event):
+        # self.stype_name_label.setHidden(False)
+        # self.previewLabel.setHidden(True)
+        event.accept()
+
+    def leaveEvent(self, event):
+        # self.stype_name_label.setHidden(True)
+        # self.previewLabel.setHidden(False)
+        event.accept()
+
+    def mousePressEvent(self, event):
+        if self.item_type == 'sub':
+            self.toggle_expand_item_button()
+
+        super(Ui_sidebarItemWidget, self).mousePressEvent(event)
+
+    def showEvent(self, event):
+        if not self.shown:
+            self.fill_item_info()
+
+        event.accept()
+
+
+class Ui_projectLinkWidget(QtGui.QWidget):
+
+    clicked = QtCore.Signal(object)
+
+    def __init__(self, project=None, item_info=None, tree_item=None, parent=None):
+        super(self.__class__, self).__init__(parent=parent)
+
+        self.project = project
+        self.item_info = item_info
+        self.tree_item = tree_item
+        self.shown = False
+        self.item_type = 'link'
+
+        self.create_ui()
+
+    def create_ui_link_widget(self):
+
+        self.setObjectName('Ui_projectLinkWidget')
+        self.setMaximumSize(250, 64)
+        self.setMinimumSize(200, 64)
+        self.setContentsMargins(0, 0, 0, 0)
+
+        self.horizontal_layout = QtGui.QHBoxLayout(self)
+        self.horizontal_layout.setContentsMargins(0, 0, 0, 0)
+        self.horizontal_layout.setSpacing(0)
+
+        self.indent_spacer = QtGui.QSpacerItem(0, 0, QtGui.QSizePolicy.Minimum, QtGui.QSizePolicy.Expanding)
+        self.horizontal_layout.addItem(self.indent_spacer)
+
+        self.previewLabel = QtGui.QLabel(self)
+        self.previewLabel.setMinimumSize(QtCore.QSize(64, 64))
+        self.previewLabel.setMaximumSize(QtCore.QSize(64, 64))
+        self.previewLabel.setStyleSheet('QLabel {background: rgb(72,72,72); border: 0px; border-radius: 0px;padding: 0px 0px;}')
+        self.previewLabel.setTextFormat(QtCore.Qt.RichText)
+        self.previewLabel.setAlignment(QtCore.Qt.AlignVCenter | QtCore.Qt.AlignHCenter)
+        sizePolicy = QtGui.QSizePolicy(QtGui.QSizePolicy.Preferred, QtGui.QSizePolicy.Preferred)
+        self.previewLabel.setSizePolicy(sizePolicy)
+
+        spacerItem = QtGui.QSpacerItem(12, 0, QtGui.QSizePolicy.Expanding, QtGui.QSizePolicy.Ignored)
+        self.horizontal_layout.addItem(spacerItem)
+
+        self.horizontal_layout.addWidget(self.previewLabel)
+
+        self.item_title_label = QtGui.QLabel(self)
+        self.item_title_label.setMinimumSize(QtCore.QSize(0, 30))
+        self.item_title_label.setMaximumSize(QtCore.QSize(16777215, 60))
+        font = Qt4Gui.QFont()
+        font.setFamily("Segoe UI")
+        font.setPointSize(11)
+        self.item_title_label.setFont(font)
+        self.item_title_label.setStyleSheet("QLabel {background-color: transparent;}")
+        self.item_title_label.setTextFormat(QtCore.Qt.PlainText)
+        self.item_title_label.setIndent(12)
+        self.item_title_label.setWordWrap(True)
+
+        self.item_info_label = QtGui.QLabel(self)
+        self.item_info_label.setMinimumSize(QtCore.QSize(0, 30))
+        self.item_info_label.setMaximumSize(QtCore.QSize(16777215, 30))
+        font = Qt4Gui.QFont()
+        font.setFamily("Segoe UI")
+        font.setPointSize(9)
+        self.item_info_label.setFont(font)
+        self.item_info_label.setStyleSheet("QLabel {background-color: transparent; color: grey;}")
+        self.item_info_label.setTextFormat(QtCore.Qt.PlainText)
+        self.item_info_label.setIndent(12)
+
+        self.info_layout = QtGui.QVBoxLayout()
+        self.info_layout.addWidget(self.item_title_label)
+        self.info_layout.addWidget(self.item_info_label)
+
+        self.horizontal_layout.addLayout(self.info_layout)
+
+        self.horizontal_layout.setStretch(3, 1)
+
+        self.setCursor(Qt4Gui.QCursor(QtCore.Qt.PointingHandCursor))
+
+    def create_ui(self):
+
+        if self.item_info['item_type'] == 'link':
+            self.item_type = 'link'
+            self.create_ui_link_widget()
+
+        # if gf.get_value_from_config(cfg_controls.get_checkin(), 'getPreviewsThroughHttpCheckbox') == 1:
+        #     self.set_web_preview()
+        # else:
+        #     self.set_preview()
+
+    def fill_item_info(self):
+
+        if self.item_type == 'link':
+            effect = QtGui.QGraphicsDropShadowEffect(self)
+            effect.setOffset(0, 0)
+            effect.setColor(Qt4Gui.QColor(0, 0, 0, 64))
+            effect.setBlurRadius(16)
+
+            self.setGraphicsEffect(effect)
+
+            self.item_title_label.setText(self.project.get_title())
+            if self.project.is_template():
+                self.item_info_label.setText('(template)')
+
+            if self.project:
+
+                if self.project.process:
+
+                    if gf.get_value_from_config(cfg_controls.get_checkin(), 'getPreviewsThroughHttpCheckbox') == 1:
+                        self.set_web_preview()
+                    else:
+                        self.set_preview()
+                else:
+                    self.previewLabel.setText(
+                        u'<span style=" font-size:9pt; font-weight:600; color:{0};">{1}</span>'.format(
+                            'rgb(128,128,128)', gf.gen_acronym(self.project.get_title())))
+            else:
+                self.previewLabel.setText(
+                    u'<span style=" font-size:9pt; font-weight:600; color:{0};">{1}</span>'.format(
+                        'rgb(128,128,128)', ''))
+
+        self.shown = True
+        self.set_indent(0)
+
+    def create_expand_item_tool_button(self):
+        self.expand_item_button = QtGui.QToolButton(self)
+        self.expand_item_button.setMaximumSize(32, 2048)
+        self.expand_item_button.setAutoRaise(True)
+        self.expand_item_button.setStyleSheet("QToolButton { border: 0px; background-color: transparent;}")
+
+        self.horizontal_layout.addWidget(self.expand_item_button)
+
+    def toggle_expand_item_button(self, state=None):
+
+        if state is not None:
+            if self.tree_item.isExpanded():
+                self.expand_item_button.setIcon(gf.get_icon('chevron-down', icons_set='mdi', color=Qt4Gui.QColor(160, 160, 160), scale_factor=1.6))
+            else:
+                self.expand_item_button.setIcon(gf.get_icon('chevron-right', icons_set='mdi', color=Qt4Gui.QColor(160, 160, 160), scale_factor=1.6))
+        else:
+            if self.tree_item.isExpanded():
+                self.tree_item.setExpanded(False)
+                self.expand_item_button.setIcon(gf.get_icon('chevron-right', icons_set='mdi', color=Qt4Gui.QColor(160, 160, 160), scale_factor=1.6))
+            else:
+                self.tree_item.setExpanded(True)
+                self.expand_item_button.setIcon(gf.get_icon('chevron-down', icons_set='mdi', color=Qt4Gui.QColor(160, 160, 160), scale_factor=1.6))
+
+    def get_depth(self):
+        idx = 0
+        item = self.tree_item
+
+        while item.parent():
+            item = item.parent()
+            idx += 1
+
+        return idx
+
+    def create_indent(self):
+        self.indent_spacer = QtGui.QSpacerItem(0, 0, QtGui.QSizePolicy.Minimum, QtGui.QSizePolicy.Expanding)
+        self.horizontal_layout.addItem(self.indent_spacer)
+
+    def set_indent(self, indent=24):
+        result_indent = self.get_depth() * indent
+        self.indent_spacer.changeSize(result_indent, 0)
+
+    def set_project(self, project):
+
+        self.project = project
+
+    def get_snapshot(self, process='publish'):
+
+        snapshot_process = self.project.process.get(process)
+        if snapshot_process:
+            context = snapshot_process.contexts.values()[0]
+            if context.versionless:
+                return context.versionless.values()[0]
+            else:
+                return context.versions.values()[0]
+
+    def set_preview(self):
+
+        snapshots = self.get_snapshot('icon')
+        if not snapshots:
+            snapshots = self.get_snapshot('publish')
+
+        if snapshots:
+            preview_files_objects = snapshots.get_files_objects(group_by='type').get('icon')
+            if preview_files_objects:
+                icon_previw = preview_files_objects[0].get_icon_preview()
+                if icon_previw:
+                    pixmap = self.get_preview_pixmap(icon_previw.get_full_abs_path())
+                    if pixmap:
+                        self.previewLabel.setPixmap(pixmap)
+
+    def set_web_preview(self):
+
+        snapshots = self.get_snapshot('icon')
+        if not snapshots:
+            snapshots = self.get_snapshot('publish')
+
+        if snapshots:
+            preview_files_objects = snapshots.get_files_objects(group_by='type').get('icon')
+            if preview_files_objects:
+                icon_previw = preview_files_objects[0].get_icon_preview()
+                if icon_previw:
+                    if icon_previw.is_exists():
+                        if icon_previw.get_file_size() == icon_previw.get_file_size(True):
+                            self.set_preview()
+                        else:
+                            self.download_and_set_preview_file(icon_previw)
+                    else:
+                        self.download_and_set_preview_file(icon_previw)
+
+    def download_and_set_preview_file(self, file_object):
+        if not file_object.is_downloaded():
+            if file_object.get_unique_id() not in env_inst.ui_repo_sync_queue.queue_dict.keys():
+                repo_sync_item = env_inst.ui_repo_sync_queue.schedule_file_object(file_object)
+                repo_sync_item.downloaded.connect(self.set_preview_pixmap)
+                repo_sync_item.download()
+
+    def set_preview_pixmap(self, file_object):
+        pixmap = self.get_preview_pixmap(file_object.get_full_abs_path())
+        if pixmap:
+            self.previewLabel.setPixmap(pixmap)
+
+    def get_preview_pixmap(self, image_path):
+        pixmap = Qt4Gui.QPixmap(image_path)
+        if not pixmap.isNull():
+            pix_width = 70
+            pix_height = 70
+
+            pixmap = pixmap.scaledToHeight(pix_width, QtCore.Qt.SmoothTransformation)
+
+            painter = Qt4Gui.QPainter()
+            pixmap_mask = Qt4Gui.QPixmap(pix_width, pix_height)
+            pixmap_mask.fill(QtCore.Qt.transparent)
+            painter.begin(pixmap_mask)
+            painter.setRenderHint(Qt4Gui.QPainter.Antialiasing)
+            painter.setBrush(Qt4Gui.QBrush(Qt4Gui.QColor(0, 0, 0, 255)))
+            painter.drawRect(QtCore.QRect(0, 0, pix_width, pix_height))
+            painter.end()
+
+            rounded_pixmap = Qt4Gui.QPixmap(pixmap.size())
+            rounded_pixmap.fill(QtCore.Qt.transparent)
+            painter.begin(rounded_pixmap)
+            painter.setRenderHint(Qt4Gui.QPainter.Antialiasing)
+            painter.drawPixmap(QtCore.QRect((pixmap.width() - pix_width) / 2, 0, pix_width, pix_width), pixmap_mask)
+            painter.setCompositionMode(Qt4Gui.QPainter.CompositionMode_SourceIn)
+            painter.drawPixmap(0, 0, pixmap)
+            painter.end()
+
+            return rounded_pixmap
+
+    def enterEvent(self, event):
+        event.accept()
+
+    def leaveEvent(self, event):
+        event.accept()
+
+    def mousePressEvent(self, event):
+
+        if self.item_type == 'link':
+            self.clicked.emit(self.project.get_code())
+
+        super(Ui_projectLinkWidget, self).mousePressEvent(event)
+
+    def showEvent(self, event):
+        if not self.shown:
+            self.fill_item_info()
+
+        event.accept()
+
+
+class Ui_projectItemWidget(QtGui.QWidget):
+    def __init__(self, projects=None, item_info=None, tree_item=None, parent=None):
+        super(self.__class__, self).__init__(parent=parent)
+
+        self.projects = projects
+        self.item_info = item_info
+        self.tree_item = tree_item
+        self.shown = False
+        self.item_type = 'cat'
+
+        self.create_ui()
+
+    def create_ui_link_widget(self):
+
+        # ONLY IF self.item_type IS 'link'
+
+        self.setObjectName('Ui_projectItemWidget')
+        # self.setMaximumSize(200, 44)
+        self.setMinimumSize(200, 80)
+        self.setContentsMargins(0, 2, 0, 6)
+
+        self.horizontal_layout = QtGui.QHBoxLayout(self)
+        self.horizontal_layout.setContentsMargins(0, 0, 0, 0)
+        self.horizontal_layout.setSpacing(0)
+
+        self.indent_spacer = QtGui.QSpacerItem(0, 0, QtGui.QSizePolicy.Minimum, QtGui.QSizePolicy.Expanding)
+        self.horizontal_layout.addItem(self.indent_spacer)
+
+    def create_ui_cat_widget(self):
+
+        # ONLY IF self.item_type IS 'cat'
+
+        self.setObjectName('Ui_projectItemWidget')
+        # self.setMaximumSize(200, 44)
+        self.setMinimumSize(200, 44)
+        self.setContentsMargins(0, 2, 0, 8)
+
+        self.horizontal_layout = QtGui.QHBoxLayout(self)
+        self.horizontal_layout.setContentsMargins(16, 0, 0, 0)
+        self.horizontal_layout.setSpacing(0)
+
+        self.indent_spacer = QtGui.QSpacerItem(0, 0, QtGui.QSizePolicy.Minimum, QtGui.QSizePolicy.Expanding)
+        self.horizontal_layout.addItem(self.indent_spacer)
+
+        self.create_indent()
+
+        self.create_expand_item_tool_button()
+
+        self.item_title_label = QtGui.QLabel(self)
+        self.item_title_label.setMinimumSize(QtCore.QSize(0, 30))
+        self.item_title_label.setMaximumSize(QtCore.QSize(16777215, 30))
+        font = Qt4Gui.QFont()
+        font.setFamily("Segoe UI")
+        font.setPointSize(11)
+        self.item_title_label.setFont(font)
+        self.item_title_label.setStyleSheet("QLabel {background-color: transparent;}")
+        self.item_title_label.setTextFormat(QtCore.Qt.PlainText)
+        self.item_title_label.setIndent(12)
+        self.horizontal_layout.addWidget(self.item_title_label)
+
+        self.horizontal_layout.setStretch(3, 1)
+
+        self.setCursor(Qt4Gui.QCursor(QtCore.Qt.PointingHandCursor))
+
+    def create_ui(self):
+        if self.item_info['item_type'] == 'cat':
+            self.item_type = 'cat'
+            self.create_ui_cat_widget()
+        if self.item_info['item_type'] == 'link':
+            self.item_type = 'link'
+            self.create_ui_link_widget()
+
+        # if gf.get_value_from_config(cfg_controls.get_checkin(), 'getPreviewsThroughHttpCheckbox') == 1:
+        #     self.set_web_preview()
+        # else:
+        #     self.set_preview()
+
+    def fill_projects_links(self):
+
+        self.projects_grid_layout = QtGui.QGridLayout()
+        self.projects_grid_layout.setContentsMargins(0, 0, 0, 0)
+        self.projects_grid_layout.setSpacing(4)
+
+        self.horizontal_layout.addLayout(self.projects_grid_layout)
+
+        break_line = 0
+        next_line = 0
+        total_lines = 0
+        max_col = 2
+
+        for project in self.projects:
+
+            item_info = {
+                'title': project['title'],
+                'code': project['code'],
+                'item_type': 'link'
+            }
+
+            project_link_widget = Ui_projectLinkWidget(
+                project=env_inst.get_project_by_code(project['code']),
+                item_info=item_info,
+                tree_item=self.tree_item
+            )
+
+            project_link_widget.clicked.connect(env_inst.ui_main.create_project_dock)
+
+            self.projects_grid_layout.addWidget(project_link_widget, break_line, next_line)
+
+            next_line += 1
+            if next_line > max_col:
+                break_line += 1
+                next_line = 0
+
+            total_lines += 1
+
+        spacerItem = QtGui.QSpacerItem(0, 0, QtGui.QSizePolicy.Expanding, QtGui.QSizePolicy.Ignored)
+        self.horizontal_layout.addItem(spacerItem)
+        self.horizontal_layout.setStretch(1, 1)
+
+        lines_div = total_lines // 4
+        height = self.height() + 64 * lines_div
+
+        self.setMinimumHeight(height)
+
+
+    def fill_link_items(self):
+
+        if self.projects:
+
+            item_info = {
+                'item_type': 'link',
+            }
+
+            gf.add_project_item(
+                tree_widget=self.tree_item,
+                projects=self.projects,
+                item_info=item_info,
+            )
+
+            self.tree_item.treeWidget().resizeColumnToContents(0)
+
+    def get_pretty_name(self):
+        title = self.item_info.get('title')
+        if title:
+            return title.title()
+        else:
+            title = self.item_info.get('name').replace('_', ' ')
+            if title:
+                return title.title()
+            else:
+                return 'Untitled'
+
+    def fill_item_info(self):
+
+        if self.item_type == 'link':
+            self.tree_item.setFlags(QtCore.Qt.ItemIsEnabled)
+            self.fill_projects_links()
+
+            # self.item_title_label.setText(self.get_pretty_name())
+            #
+            # self.previewLabel.setText(
+            #     u'<span style=" font-size:9pt; font-weight:600; color:{0};">{1}</span>'.format(
+            #         'rgba(255,255,255,128)', gf.gen_acronym(self.get_pretty_name())))
+
+        if self.item_type == 'cat':
+            self.item_title_label.setText(self.item_info['title'])
+            self.tree_item.setFlags(QtCore.Qt.ItemIsEnabled)
+
+            self.tree_item.setExpanded(True)
+            self.toggle_expand_item_button(True)
+
+            self.fill_link_items()
+
+            self.expand_item_button.clicked.connect(self.toggle_expand_item_button)
+
+        self.shown = True
+        self.set_indent(0)
+
+    def create_expand_item_tool_button(self):
+        self.expand_item_button = QtGui.QToolButton(self)
+        self.expand_item_button.setMaximumSize(32, 2048)
+        self.expand_item_button.setAutoRaise(True)
+        self.expand_item_button.setStyleSheet("QToolButton { border: 0px; background-color: transparent;}")
+
+        # effect = QtGui.QGraphicsBlurEffect(self.expand_item_button)
+        # effect.setBlurRadius(20)
+        # self.expand_item_button_anm_opacity = QtCore.QPropertyAnimation(effect, 'blurRadius', self.expand_item_button)
+        # self.expand_item_button_anm_opacity.setDuration(200)
+        #
+        # self.expand_item_button_anm_opacity.setStartValue(20)
+        # self.expand_item_button_anm_opacity.setEndValue(0)
+        # self.expand_item_button_anm_opacity.setEasingCurve(QtCore.QEasingCurve.InSine)
+        # self.expand_item_button.setGraphicsEffect(effect)
+
+        self.horizontal_layout.addWidget(self.expand_item_button)
+
+    def toggle_expand_item_button(self, state=None):
+
+        if state is not None:
+            if self.tree_item.isExpanded():
+                self.expand_item_button.setIcon(gf.get_icon('chevron-down', icons_set='mdi', color=Qt4Gui.QColor(160, 160, 160), scale_factor=1.6))
+            else:
+                self.expand_item_button.setIcon(gf.get_icon('chevron-right', icons_set='mdi', color=Qt4Gui.QColor(160, 160, 160), scale_factor=1.6))
+        else:
+            if self.tree_item.isExpanded():
+                self.tree_item.setExpanded(False)
+                self.expand_item_button.setIcon(gf.get_icon('chevron-right', icons_set='mdi', color=Qt4Gui.QColor(160, 160, 160), scale_factor=1.6))
+            else:
+                self.tree_item.setExpanded(True)
+                self.expand_item_button.setIcon(gf.get_icon('chevron-down', icons_set='mdi', color=Qt4Gui.QColor(160, 160, 160), scale_factor=1.6))
+
+    def get_depth(self):
+        idx = 0
+        item = self.tree_item
+
+        while item.parent():
+            item = item.parent()
+            idx += 1
+
+        return idx
+
+    def create_indent(self):
+        self.indent_spacer = QtGui.QSpacerItem(0, 0, QtGui.QSizePolicy.Minimum, QtGui.QSizePolicy.Expanding)
+        self.horizontal_layout.addItem(self.indent_spacer)
+
+    def set_indent(self, indent=24):
+        result_indent = self.get_depth() * indent
+        self.indent_spacer.changeSize(result_indent, 0)
+
+    def enterEvent(self, event):
+        # self.stype_name_label.setHidden(False)
+        # self.previewLabel.setHidden(True)
+        event.accept()
+
+    def leaveEvent(self, event):
+        # self.stype_name_label.setHidden(True)
+        # self.previewLabel.setHidden(False)
+        event.accept()
+
+    def mousePressEvent(self, event):
+        if self.item_type == 'cat':
+            self.toggle_expand_item_button()
+
+        super(Ui_projectItemWidget, self).mousePressEvent(event)
+
+    def showEvent(self, event):
+        if not self.shown:
+            self.fill_item_info()
+
+        event.accept()
 
 
 class Ui_infoItemsWidget(QtGui.QWidget):
@@ -941,6 +1810,8 @@ class Ui_itemWidget(QtGui.QWidget):
         self.gridLayout.setRowStretch(2, 1)
 
         # self.setStyleSheet("QWidget {border: 1px solid rgb(96, 96, 96);}")
+
+        self.setCursor(Qt4Gui.QCursor(QtCore.Qt.PointingHandCursor))
 
     def controls_actions(self):
         self.tasksToolButton.clicked.connect(self.show_tasks_dock)
@@ -2444,6 +3315,8 @@ class Ui_processItemWidget(QtGui.QWidget):
 
         self.horizontalLayout.addWidget(self.notesToolButton)
 
+        self.setCursor(Qt4Gui.QCursor(QtCore.Qt.PointingHandCursor))
+
     def create_ui(self):
 
         item_color = Qt4Gui.QColor(200, 200, 200)
@@ -2465,10 +3338,8 @@ class Ui_processItemWidget(QtGui.QWidget):
             title = 'Unnamed'
         if self.process_info.get('type') == 'hierarchy':
             self.icon_label.setPixmap(gf.get_icon('fork', icons_set='ei', color=item_color, scale_factor=0.7).pixmap(24, 24))
-            # self.tree_item.setIcon(0, gf.get_icon('fork', icons_set='ei', color=item_color, scale_factor=0.9))
         else:
             self.icon_label.setPixmap(gf.get_icon('circle', color=item_color, scale_factor=0.4).pixmap(24, 24))
-            # self.tree_item.setIcon(0, gf.get_icon('circle', color=item_color, scale_factor=0.55))
 
         self.label.setContentsMargins(4, 0, 0, 0)
         self.label.setText(title)
@@ -2564,10 +3435,13 @@ class Ui_processItemWidget(QtGui.QWidget):
 
         self.overlay_layout.addWidget(self.drop_widget)
 
+    def get_type(self):
+        return self.type
+
     def create_expand_item_tool_button(self):
         self.expand_item_button = QtGui.QToolButton(self)
         self.expand_item_button.setMaximumSize(16, 2048)
-        # self.expand_item_button.setAutoRaise(True)
+        self.expand_item_button.setAutoRaise(True)
         self.expand_item_button.setStyleSheet("QToolButton { border: 0px; background-color: transparent;}")
 
         effect = QtGui.QGraphicsBlurEffect(self.expand_item_button)
@@ -2581,9 +3455,6 @@ class Ui_processItemWidget(QtGui.QWidget):
         self.expand_item_button.setGraphicsEffect(effect)
 
         self.horizontalLayout.addWidget(self.expand_item_button)
-
-    def get_type(self):
-        return self.type
 
     def toggle_expand_item_button(self, state=None):
 
@@ -3866,6 +4737,8 @@ class Ui_childrenItemWidget(QtGui.QWidget):
         self.setMaximumHeight(40)
         self.setContentsMargins(0, 0, 16, 5)
 
+        self.setCursor(Qt4Gui.QCursor(QtCore.Qt.PointingHandCursor))
+
         self.create_indent()
 
         self.create_expand_item_tool_button()
@@ -3915,6 +4788,8 @@ class Ui_childrenItemWidget(QtGui.QWidget):
     def create_expand_item_tool_button(self):
         self.expand_item_button = QtGui.QToolButton()
         self.expand_item_button.setMaximumSize(16, 2048)
+        self.expand_item_button.setAutoRaise(True)
+        self.expand_item_button.setCursor(Qt4Gui.QCursor(QtCore.Qt.PointingHandCursor))
         self.expand_item_button.setStyleSheet("QToolButton { border: 0px; background-color: transparent;}")
         self.expand_item_button.setIcon(
             gf.get_icon('chevron-right', icons_set='mdi', color=Qt4Gui.QColor(160, 160, 160), scale_factor=1.6))

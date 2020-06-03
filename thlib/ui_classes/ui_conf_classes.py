@@ -976,9 +976,9 @@ class Ui_checkinOutPageWidget(QtGui.QWidget, ui_checkinOutPage.Ui_checkinOutPage
         if not project.stypes:
             project.query_search_types()
 
-        exclude_list = self.page_init_projects[project_code]['stypes_list']
+        include_list = self.page_init_projects[project_code]['stypes_list']
 
-        if not exclude_list:
+        if not include_list:
             self.processTreeWidget.clear()
             if env_inst.projects[project_code].stypes:
                 self.create_process_tree_widget(project_code)
@@ -986,7 +986,7 @@ class Ui_checkinOutPageWidget(QtGui.QWidget, ui_checkinOutPage.Ui_checkinOutPage
         else:
             self.processTreeWidget.clear()
             if env_inst.projects[project_code].stypes:
-                self.create_process_tree_widget(project_code, exclude_list)
+                self.create_process_tree_widget(project_code, include_list)
 
     def controls_tree_changed(self):
         if self.applyToAllProjectsRadioButton.isChecked():
@@ -1020,17 +1020,17 @@ class Ui_checkinOutPageWidget(QtGui.QWidget, ui_checkinOutPage.Ui_checkinOutPage
         env_inst.ui_conf.set_page_status()
 
     def collect_process_tree_values(self):
-        exclude_list = []
+        include_list = []
         for i in range(self.processTreeWidget.topLevelItemCount()):
             top_item = self.processTreeWidget.topLevelItem(i)
             for j in range(top_item.childCount()):
                 child_item = top_item.child(j)
-                if child_item.checkState(0) == QtCore.Qt.CheckState.Unchecked:
-                    exclude_list.append(child_item.text(1))
+                if child_item.checkState(0) == QtCore.Qt.CheckState.Checked:
+                    include_list.append(child_item.text(1))
 
-        return exclude_list
+        return include_list
 
-    def create_process_tree_widget(self, project_code, exclude_list=None):
+    def create_process_tree_widget(self, project_code, include_list=None):
         self.processTreeWidget.clear()
 
         all_stypes = []
@@ -1042,7 +1042,7 @@ class Ui_checkinOutPageWidget(QtGui.QWidget, ui_checkinOutPage.Ui_checkinOutPage
 
         for name, value in grouped.items():
             self.top_item = QtGui.QTreeWidgetItem()
-            self.top_item.setCheckState(0, QtCore.Qt.Checked)
+            self.top_item.setCheckState(0, QtCore.Qt.Unchecked)
             if not name:
                 name = 'Category'
             self.top_item.setText(0, name.capitalize())
@@ -1058,10 +1058,10 @@ class Ui_checkinOutPageWidget(QtGui.QWidget, ui_checkinOutPage.Ui_checkinOutPage
                 self.child_item.setText(0, stype.get_pretty_name())
                 self.child_item.setText(1, item_code)
                 self.child_item.setData(0, QtCore.Qt.UserRole, item)
-                self.child_item.setCheckState(0, QtCore.Qt.Checked)
-                if exclude_list:
-                    if item_code in exclude_list:
-                        self.child_item.setCheckState(0, QtCore.Qt.Unchecked)
+                self.child_item.setCheckState(0, QtCore.Qt.Unchecked)
+                if include_list:
+                    if item_code in include_list:
+                        self.child_item.setCheckState(0, QtCore.Qt.Checked)
                 self.top_item.addChild(self.child_item)
 
             self.top_item.setExpanded(True)

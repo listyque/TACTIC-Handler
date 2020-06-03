@@ -259,442 +259,6 @@ def get_snapshots_updates_list(search_type_code, project_code):
         return update_snapshots_timestamp_list
 
 
-# Projects related classes
-class Project(object):
-    def __init__(self, project):
-
-        self.info = project
-        self.stypes = None
-        self.workflow = None
-
-    def get_info(self):
-        return self.info
-
-    def get_workflow(self):
-        return self.workflow
-
-    def get_code(self):
-        return self.info.get('code')
-
-    def get_type(self):
-        return self.info.get('type')
-
-    def is_template(self):
-        return self.info.get('is_template')
-
-    def get_stypes(self):
-        if not self.stypes:
-            return self.query_search_types()
-        else:
-            return self.stypes
-
-    def query_search_types(self, force=False):
-
-        use_cache = True
-        stypes_result = None
-
-        if use_cache and not force:
-            # reading cache from file
-            stypes_cache = env_read_config(
-                filename='stypes_cache',
-                unique_id='cache/{0}'.format(self.get_code()),
-                long_abs_path=True
-            )
-            if stypes_cache:
-                stypes_result = gf.hex_to_html(stypes_cache)
-            else:
-                return self.query_search_types(True)
-        else:
-            kwargs = {
-                'project_code': self.get_code(),
-            }
-
-            stypes_result = execute_procedure_serverside(tq.query_search_types_extended, kwargs, project=self.get_code(), return_dict=False)
-
-            if stypes_result:
-                # writing result to cache
-                env_write_config(
-                    gf.html_to_hex(stypes_result),
-                    filename='stypes_cache',
-                    unique_id='cache/{0}'.format(self.get_code()),
-                    long_abs_path=True
-                )
-
-        stypes = json.loads(stypes_result)
-
-        schema = stypes.get('schema')
-        pipelines = stypes.get('pipelines')
-        stypes = stypes.get('stypes')
-
-        if schema:
-            prj_schema = schema[0]['schema']
-        else:
-            prj_schema = None
-
-        # Empty until it needed
-        if self.get_code() == 'sthpw':
-            prj_schema = 'dummy'
-            pipelines = [{None: None}]
-
-        if not pipelines or not prj_schema:
-            return []
-        else:
-            return self.get_all_search_types(stypes, pipelines, prj_schema)
-
-    def get_all_search_types(self, stype_list, process_list, schema):
-        pipeline = BeautifulSoup(schema, 'html.parser')
-        all_connections_list = []
-
-        dct = collections.OrderedDict()
-
-        for pipe in pipeline.find_all(name='connect'):
-            all_connections_list.append(pipe.attrs)
-
-        for pipe in pipeline.find_all(name='search_type'):
-            dct.setdefault(pipe.attrs['name'], []).append({'search_type': pipe.attrs})
-
-            conn = {
-                'children': [],
-                'parents': [],
-            }
-            for connect in all_connections_list:
-
-                if pipe.attrs['name'] == connect['from']:
-
-                    # special case for "path"
-                    if connect.get('path'):
-                        if connect['path'] == 'parent':
-                            conn['parents'].append(connect)
-                        if connect['path'] == 'child':
-                            conn['children'].append(connect)
-                    else:
-                        conn['parents'].append(connect)
-
-                if pipe.attrs['name'] == connect['to']:
-                    if connect.get('path'):
-                        if connect['path'] == 'parent':
-                            conn['parents'].append(connect)
-                        if connect['path'] == 'child':
-                            conn['children'].append(connect)
-                    else:
-                        conn['children'].append(connect)
-
-            # dct[pipe.attrs['name']].append(conn)
-            dct.setdefault(pipe.attrs['name'], []).append(conn)
-
-        # getting workflow here
-        self.workflow = Workflow(process_list)
-
-        # getting stypes processes here
-        stypes_objects = collections.OrderedDict()
-        for stype in stype_list:
-            stype_process = collections.OrderedDict()
-            stype_schema = dct.get(stype['code'])
-
-            for process in process_list:
-                if dct.get(stype['code']):
-                    if process['search_type'] == dct.get(stype['code'])[0]['search_type']['name']:
-                        stype_process[process['code']] = process
-
-            stype_obj = SType(stype, stype_schema, stype_process, project=self)
-            stypes_objects[stype['code']] = stype_obj
-
-        self.stypes = stypes_objects
-
-        return self.stypes
-
-
-# sTypes related classes
-class SType(object):
-    """
-
-    .schema.info
-    .schema.parents
-    .schema.children
-
-    .pipeline.info
-    .pipeline.process
-    .pipeline.process['Blocking'].get('parents')
-    .pipeline.process['Blocking'].get('children')
-
-    """
-    def __init__(self, stype, schema=None, pipelines=None, project=None):
-
-        self.info = stype
-        self.project = project
-        self.schema = schema
-        self.pipeline = self.__init_pipelines(pipelines)
-
-        if self.schema:
-            self.schema = Schema(schema)
-
-    @staticmethod
-    def __init_pipelines(pipelines):
-
-        ready_pipeline = collections.OrderedDict()
-        if pipelines:
-            for key, pipeline in pipelines.items():
-                ready_pipeline[key] = Pipeline(pipeline)
-
-        if ready_pipeline:
-            return ready_pipeline
-
-    def get_pretty_name(self):
-        title = self.info.get('title')
-        if title:
-            return title.title()
-        else:
-            title = self.info.get('code').split('/')[-1]
-            if title:
-                return title.replace('_', ' ').title()
-            else:
-                return self.info['table_name'].title()
-
-    def get_stype_color(self, fmt='rgb', alpha=None, tuple=False):
-        color = self.info['color']
-        if color:
-            if fmt == 'rgb':
-                return gf.hex_to_rgb(color, alpha=alpha, tuple=tuple)
-            else:
-                return color
-
-    def get_code(self):
-        return self.info['code']
-
-    def get_project(self):
-        return self.project
-
-    def get_info(self):
-        return self.info
-
-    def get_schema(self):
-        return self.schema
-
-    def get_pipeline(self):
-        return self.pipeline
-
-    def get_workflow(self):
-        return self.project.get_workflow()
-
-    def get_column_info(self, column):
-        column_info = self.info.get('column_info')
-        if column_info:
-            return column_info.get(column)
-
-    def get_columns_info(self):
-        return self.info.get('column_info')
-
-    def get_column_data_type(self, column):
-        if column == '_expression':
-            return '_expression'
-        if self.get_columns_info():
-            if self.info['column_info'].get(column):
-                return self.info['column_info'][column]['data_type']
-
-    def get_definition(self, definition='table', processed=True, bs=False):
-
-        if bs:
-            return BeautifulSoup(self.info['definition'].get(definition), 'html.parser')
-
-        if processed:
-
-            definition_bs = BeautifulSoup(self.info['definition'].get(definition), 'html.parser')
-
-            all_elements = []
-            for element in definition_bs.find_all(name='element'):
-                all_elements.append(element.attrs)
-
-            return all_elements
-
-        else:
-            return self.info['definition'].get(definition)
-
-    def get_children_stypes(self):
-        children_list = []
-
-        if self.schema.children:
-            for child in self.schema.children:
-                children_list.append(self.project.stypes.get(child.get('from')))
-
-        return children_list
-
-    def get_parent_stypes(self):
-        parents_list = []
-
-        if self.schema.parents:
-            for parent in self.schema.parents:
-                parents_list.append(self.project.stypes.get(parent.get('to')))
-
-        return parents_list
-
-
-class Schema(object):
-    def __init__(self, schema_dict):
-
-        self.__schema_dict = schema_dict
-        self.info = self.get_info()
-
-        self.parents = self.get_parents()
-        self.children = self.get_children()
-
-    def get_info(self):
-        return self.__schema_dict[0]['search_type']
-
-    def get_parents(self):
-        return self.__schema_dict[1].get('parents')
-
-    def get_children(self):
-        return self.__schema_dict[1].get('children')
-
-    def get_child(self, child_stype, parent_stype):
-        for child in self.children:
-            if child['from'] == child_stype and child['to'] == parent_stype:
-                return child
-
-    def get_parent(self, parent_stype, child_stype):
-
-        for parent in self.parents:
-            if parent['to'] == parent_stype and parent['from'] == child_stype:
-                return parent
-
-    def get_child_instance(self, instance_type, related_type):
-        for child in self.children:
-            if child['from'] == instance_type and child['to'] == related_type:
-                return child
-
-    def get_parent_instance(self, instance_type, related_type):
-        for parent in self.parents:
-            if parent['from'] == instance_type and parent['to'] == related_type:
-                return parent
-
-class Workflow(object):
-    def __init__(self, pipeline):
-
-        self.__pipeline_list = pipeline
-        self.__pipeline_by_codes = {}
-
-        self.sort_by_search_types()
-
-    def __get_by_stype(self, search_type_code):
-        tasks_pipeliens = {}
-        for pipe in self.__pipeline_list:
-            if pipe['search_type'] == search_type_code:
-                tasks_pipeliens[pipe['code']] = Pipeline(pipe)
-
-        return tasks_pipeliens
-
-    def sort_by_search_types(self):
-        for pipe in self.__pipeline_list:
-            search_type_code = pipe.get('search_type')
-            if search_type_code:
-                self.__pipeline_by_codes[search_type_code] = self.__get_by_stype(search_type_code)
-
-    def get_all_pipelines(self):
-        return self.__pipeline_by_codes
-
-    def get_by_stype_code(self, code):
-        return self.__pipeline_by_codes.get(code)
-
-    def get_by_pipeline_code(self, stype_code, pipeline_code):
-        return self.get_by_stype_code(stype_code).get(pipeline_code)
-
-    def get_by_process_node_type(self, stype_code, node_type):
-        if node_type in [None, 'manual']:
-            node_type = 'task'
-
-        return self.get_by_stype_code(stype_code).get(node_type)
-
-    def get_child_pipeline_by_process_code(self, parent_pipeline, process):
-        parent_process = None
-        if parent_pipeline.get_all_pipeline_process():
-            for proc in parent_pipeline.get_all_pipeline_process():
-                if proc['process'] == process:
-                    parent_process = proc
-        if parent_process:
-            # TODO SOMETHING WRONG WITH THIS, may be it query too much pipelines
-            return self.get_pipeline_by_parent(parent_process)
-
-    def get_pipeline_by_parent(self, parent_process):
-        for pipe in self.__pipeline_list:
-            if pipe.get('parent_process'):
-                if pipe['parent_process'] == parent_process['code']:
-                    return Pipeline(pipe)
-
-
-class Pipeline(object):
-
-    def __init__(self, process):
-
-        self.info = process
-
-        self.pipeline = collections.OrderedDict()
-
-        if self.info.get('pipeline'):
-            self.init_pipeline()
-
-    def get_all_pipeline_process(self):
-        return self.info['stypes_processes']
-
-    def get_info(self):
-        return self.info
-
-    def get_pipeline_process(self, process_code):
-        # what if we have duplicated processes?
-        for process in self.info['stypes_processes']:
-            if process['process'] == process_code:
-                return process
-
-    def get_all_pipeline_names(self):
-        process_names_list = []
-
-        for process in self.pipeline:
-            process_names_list.append(process)
-
-        return process_names_list
-
-    def get_all_tasks_pipelines_names(self):
-        tasks_pipelines_names_list = set()
-
-        for process in self.pipeline.values():
-            task_pipeline = process.get('task_pipeline')
-            if task_pipeline:
-                tasks_pipelines_names_list.add(task_pipeline)
-
-        return list(tasks_pipelines_names_list)
-
-    def init_pipeline(self):
-
-        all_connectionslist = []
-
-        pipeline = BeautifulSoup(self.info['pipeline'], 'html.parser')
-
-        for pipe in pipeline.find_all(name='connect'):
-            all_connectionslist.append(pipe.attrs)
-
-        for pipe in pipeline.find_all(name='process'):
-            self.pipeline[pipe.attrs.get('name')] = pipe.attrs
-
-            for connect in all_connectionslist:
-                if pipe.attrs['name'] == connect['from']:
-                    self.pipeline[pipe.attrs.get('name')]['parents'] = connect
-                if pipe.attrs['name'] == connect['to']:
-                    self.pipeline[pipe.attrs.get('name')]['children'] = connect
-
-    def get_process_info(self, process):
-        return self.pipeline.get(process)
-
-    def get_process_label(self, process):
-        process_info = self.get_process_info(process)
-        if process_info:
-            process_label = process_info.get('label')
-            if process_label:
-                return process_label
-            else:
-                return process.capitalize()
-        else:
-            return process.capitalize()
-
-
 # SObject class
 class SObject(object):
     """
@@ -862,12 +426,16 @@ class SObject(object):
         return self.process
 
     def get_snapshots_sobjects(self, process=None):
-        # This is only returning SObjects of snapshots, classes without files, use get_snapshots for files instead
-        # Use this only if need to delete or edit snapshot info
-        # Use group_sobject_by() for easier management
-        # snapshots, info = sobject.get_snapshots_sobjects()
-        # by_context = tc.group_sobject_by(snapshots, 'context')
+        """
+            This is only returning SObjects of snapshots, classes without files, use get_snapshots for files instead
+            Use this only if need to delete or edit snapshot info
+            Use group_sobject_by() for easier management
 
+            Example:
+
+                snapshots, info = sobject.get_snapshots_sobjects()
+                by_context = tc.group_sobject_by(snapshots, 'context')
+        """
         search_type = 'sthpw/snapshot'
         if process:
             filters = [('search_code', self.info['code']), ('process', process), ('project_code', self.project.info['code'])]
@@ -1193,6 +761,506 @@ class SObject(object):
             data=self.update_dict,
             triggers=triggers
         )
+
+
+# Projects related classes
+class Project(SObject):
+    def __init__(self, project):
+
+        self.info = project
+        self.stypes = None
+        self.workflow = None
+        self.sidebar = None
+
+        self.process = {}
+
+    def get_title(self, pretty=False):
+        title = self.info.get('name')
+        if not title:
+            title = self.info.get('title')
+        if not title:
+            title = self.info.get('code')
+        if pretty:
+            return title.replace('_', ' ').capitalize()
+        else:
+            return title
+
+    def get_workflow(self):
+        return self.workflow
+
+    def get_sidebar(self):
+        return self.sidebar
+
+    def get_type(self):
+        return self.info.get('type')
+
+    def is_template(self):
+        return self.info.get('is_template')
+
+    def get_stypes(self):
+        if not self.stypes:
+            return self.query_search_types()
+        else:
+            return self.stypes
+
+    def query_search_types(self, force=False):
+
+        use_cache = True
+        stypes_result = None
+
+        if use_cache and not force:
+            # reading cache from file
+            stypes_cache = env_read_config(
+                filename='stypes_cache',
+                unique_id='cache/{0}'.format(self.get_code()),
+                long_abs_path=True
+            )
+            if stypes_cache:
+                stypes_result = gf.hex_to_html(stypes_cache)
+            else:
+                return self.query_search_types(True)
+        else:
+            kwargs = {
+                'project_code': self.get_code(),
+            }
+
+            stypes_result = execute_procedure_serverside(tq.query_search_types_extended, kwargs, project=self.get_code(), return_dict=False)
+
+            if stypes_result:
+                # writing result to cache
+                env_write_config(
+                    gf.html_to_hex(stypes_result),
+                    filename='stypes_cache',
+                    unique_id='cache/{0}'.format(self.get_code()),
+                    long_abs_path=True
+                )
+
+        stypes = json.loads(stypes_result)
+
+        sidebar = stypes.get('sidebar')
+        schema = stypes.get('schema')
+        pipelines = stypes.get('pipelines')
+        stypes = stypes.get('stypes')
+
+
+        if schema:
+            prj_schema = schema[0]['schema']
+        else:
+            prj_schema = None
+
+        # Empty until it needed
+        if self.get_code() == 'sthpw':
+            prj_schema = 'dummy'
+            pipelines = [{None: None}]
+
+        if not pipelines or not prj_schema:
+            return []
+        else:
+            return self.get_all_search_types(stypes, pipelines, prj_schema, sidebar)
+
+    def get_all_search_types(self, stype_list, process_list, schema, sidebar):
+        pipeline = BeautifulSoup(schema, 'html.parser')
+        all_connections_list = []
+
+        dct = collections.OrderedDict()
+
+        for pipe in pipeline.find_all(name='connect'):
+            all_connections_list.append(pipe.attrs)
+
+        for pipe in pipeline.find_all(name='search_type'):
+            dct.setdefault(pipe.attrs['name'], []).append({'search_type': pipe.attrs})
+
+            conn = {
+                'children': [],
+                'parents': [],
+            }
+            for connect in all_connections_list:
+
+                if pipe.attrs['name'] == connect['from']:
+
+                    # special case for "path"
+                    if connect.get('path'):
+                        if connect['path'] == 'parent':
+                            conn['parents'].append(connect)
+                        if connect['path'] == 'child':
+                            conn['children'].append(connect)
+                    else:
+                        conn['parents'].append(connect)
+
+                if pipe.attrs['name'] == connect['to']:
+                    if connect.get('path'):
+                        if connect['path'] == 'parent':
+                            conn['parents'].append(connect)
+                        if connect['path'] == 'child':
+                            conn['children'].append(connect)
+                    else:
+                        conn['children'].append(connect)
+
+            # dct[pipe.attrs['name']].append(conn)
+            dct.setdefault(pipe.attrs['name'], []).append(conn)
+
+        # getting workflow here
+        self.workflow = Workflow(process_list)
+
+        # getting stypes processes here
+        stypes_objects = collections.OrderedDict()
+        for stype in stype_list:
+            stype_process = collections.OrderedDict()
+            stype_schema = dct.get(stype['code'])
+
+            for process in process_list:
+                if dct.get(stype['code']):
+                    if process['search_type'] == dct.get(stype['code'])[0]['search_type']['name']:
+                        stype_process[process['code']] = process
+
+            stype_obj = SType(stype, stype_schema, stype_process, project=self)
+            stypes_objects[stype['code']] = stype_obj
+
+        self.stypes = stypes_objects
+
+        # getting definition for sidebar
+        self.sidebar = Sidebar(sidebar)
+
+        return self.stypes
+
+
+# sTypes related classes
+class SType(object):
+    """
+
+    .schema.info
+    .schema.parents
+    .schema.children
+
+    .pipeline.info
+    .pipeline.process
+    .pipeline.process['Blocking'].get('parents')
+    .pipeline.process['Blocking'].get('children')
+
+    """
+    def __init__(self, stype, schema=None, pipelines=None, project=None):
+
+        self.info = stype
+        self.project = project
+        self.schema = schema
+        self.pipeline = self.__init_pipelines(pipelines)
+
+        if self.schema:
+            self.schema = Schema(schema)
+
+    @staticmethod
+    def __init_pipelines(pipelines):
+
+        ready_pipeline = collections.OrderedDict()
+        if pipelines:
+            for key, pipeline in pipelines.items():
+                ready_pipeline[key] = Pipeline(pipeline)
+
+        if ready_pipeline:
+            return ready_pipeline
+
+    def get_pretty_name(self):
+        title = self.info.get('title')
+        if title:
+            return title.title()
+        else:
+            title = self.info.get('code').split('/')[-1]
+            if title:
+                return title.replace('_', ' ').title()
+            else:
+                return self.info['table_name'].title()
+
+    def get_stype_color(self, fmt='rgb', alpha=None, tuple=False):
+        color = self.info['color']
+        if color:
+            if fmt == 'rgb':
+                return gf.hex_to_rgb(color, alpha=alpha, tuple=tuple)
+            else:
+                return color
+
+    def get_code(self):
+        return self.info['code']
+
+    def get_project(self):
+        return self.project
+
+    def get_info(self):
+        return self.info
+
+    def get_schema(self):
+        return self.schema
+
+    def get_pipeline(self):
+        return self.pipeline
+
+    def get_workflow(self):
+        return self.project.get_workflow()
+
+    def get_column_info(self, column):
+        column_info = self.info.get('column_info')
+        if column_info:
+            return column_info.get(column)
+
+    def get_columns_info(self):
+        return self.info.get('column_info')
+
+    def get_column_data_type(self, column):
+        if column == '_expression':
+            return '_expression'
+        if self.get_columns_info():
+            if self.info['column_info'].get(column):
+                return self.info['column_info'][column]['data_type']
+
+    def get_definition(self, definition='table', processed=True, bs=False):
+
+        if bs:
+            return BeautifulSoup(self.info['definition'].get(definition), 'html.parser')
+
+        if processed:
+
+            definition_bs = BeautifulSoup(self.info['definition'].get(definition), 'html.parser')
+
+            all_elements = []
+            for element in definition_bs.find_all(name='element'):
+                all_elements.append(element.attrs)
+
+            return all_elements
+
+        else:
+            return self.info['definition'].get(definition)
+
+    def get_children_stypes(self):
+        children_list = []
+
+        if self.schema.children:
+            for child in self.schema.children:
+                children_list.append(self.project.stypes.get(child.get('from')))
+
+        return children_list
+
+    def get_parent_stypes(self):
+        parents_list = []
+
+        if self.schema.parents:
+            for parent in self.schema.parents:
+                parents_list.append(self.project.stypes.get(parent.get('to')))
+
+        return parents_list
+
+
+class Sidebar():
+    def __init__(self, config_dict):
+
+        self.config_dict = config_dict
+
+    def has_definition(self):
+
+        if self.config_dict:
+            return True
+        else:
+            return False
+
+    def get_definition(self, definition='definition', login='', processed=True, bs=False):
+
+        definition_xml = ''
+
+        for config in self.config_dict:
+            if login:
+                if config['login'] == login:
+                    if config['view'] == definition:
+                        definition_xml = config['config']
+            elif config['login'] is None:
+                if config['view'] == definition:
+                    definition_xml = config['config']
+
+        if bs:
+            definition_bs = BeautifulSoup(definition_xml, 'html.parser')
+
+            all_elements = []
+            for element in definition_bs.find_all(name='element'):
+                all_elements.append(element)
+
+            return all_elements
+
+        if processed:
+
+            definition_bs = BeautifulSoup(definition_xml, 'html.parser')
+
+            all_elements = []
+            for element in definition_bs.find_all(name='element'):
+                all_elements.append(element.attrs)
+
+            return all_elements
+
+        else:
+            return definition_xml
+
+
+class Schema(object):
+    def __init__(self, schema_dict):
+
+        self.__schema_dict = schema_dict
+        self.info = self.get_info()
+
+        self.parents = self.get_parents()
+        self.children = self.get_children()
+
+    def get_info(self):
+        return self.__schema_dict[0]['search_type']
+
+    def get_parents(self):
+        return self.__schema_dict[1].get('parents')
+
+    def get_children(self):
+        return self.__schema_dict[1].get('children')
+
+    def get_child(self, child_stype, parent_stype):
+        for child in self.children:
+            if child['from'] == child_stype and child['to'] == parent_stype:
+                return child
+
+    def get_parent(self, parent_stype, child_stype):
+
+        for parent in self.parents:
+            if parent['to'] == parent_stype and parent['from'] == child_stype:
+                return parent
+
+    def get_child_instance(self, instance_type, related_type):
+        for child in self.children:
+            if child['from'] == instance_type and child['to'] == related_type:
+                return child
+
+    def get_parent_instance(self, instance_type, related_type):
+        for parent in self.parents:
+            if parent['from'] == instance_type and parent['to'] == related_type:
+                return parent
+
+class Workflow(object):
+    def __init__(self, pipeline):
+
+        self.__pipeline_list = pipeline
+        self.__pipeline_by_codes = {}
+
+        self.sort_by_search_types()
+
+    def __get_by_stype(self, search_type_code):
+        tasks_pipeliens = {}
+        for pipe in self.__pipeline_list:
+            if pipe['search_type'] == search_type_code:
+                tasks_pipeliens[pipe['code']] = Pipeline(pipe)
+
+        return tasks_pipeliens
+
+    def sort_by_search_types(self):
+        for pipe in self.__pipeline_list:
+            search_type_code = pipe.get('search_type')
+            if search_type_code:
+                self.__pipeline_by_codes[search_type_code] = self.__get_by_stype(search_type_code)
+
+    def get_all_pipelines(self):
+        return self.__pipeline_by_codes
+
+    def get_by_stype_code(self, code):
+        return self.__pipeline_by_codes.get(code)
+
+    def get_by_pipeline_code(self, stype_code, pipeline_code):
+        return self.get_by_stype_code(stype_code).get(pipeline_code)
+
+    def get_by_process_node_type(self, stype_code, node_type):
+        if node_type in [None, 'manual']:
+            node_type = 'task'
+
+        return self.get_by_stype_code(stype_code).get(node_type)
+
+    def get_child_pipeline_by_process_code(self, parent_pipeline, process):
+        parent_process = None
+        if parent_pipeline.get_all_pipeline_process():
+            for proc in parent_pipeline.get_all_pipeline_process():
+                if proc['process'] == process:
+                    parent_process = proc
+        if parent_process:
+            # TODO SOMETHING WRONG WITH THIS, may be it query too much pipelines
+            return self.get_pipeline_by_parent(parent_process)
+
+    def get_pipeline_by_parent(self, parent_process):
+        for pipe in self.__pipeline_list:
+            if pipe.get('parent_process'):
+                if pipe['parent_process'] == parent_process['code']:
+                    return Pipeline(pipe)
+
+
+class Pipeline(object):
+
+    def __init__(self, process):
+
+        self.info = process
+
+        self.pipeline = collections.OrderedDict()
+
+        if self.info.get('pipeline'):
+            self.init_pipeline()
+
+    def get_all_pipeline_process(self):
+        return self.info['stypes_processes']
+
+    def get_info(self):
+        return self.info
+
+    def get_pipeline_process(self, process_code):
+        # what if we have duplicated processes?
+        for process in self.info['stypes_processes']:
+            if process['process'] == process_code:
+                return process
+
+    def get_all_pipeline_names(self):
+        process_names_list = []
+
+        for process in self.pipeline:
+            process_names_list.append(process)
+
+        return process_names_list
+
+    def get_all_tasks_pipelines_names(self):
+        tasks_pipelines_names_list = set()
+
+        for process in self.pipeline.values():
+            task_pipeline = process.get('task_pipeline')
+            if task_pipeline:
+                tasks_pipelines_names_list.add(task_pipeline)
+
+        return list(tasks_pipelines_names_list)
+
+    def init_pipeline(self):
+
+        all_connectionslist = []
+
+        pipeline = BeautifulSoup(self.info['pipeline'], 'html.parser')
+
+        for pipe in pipeline.find_all(name='connect'):
+            all_connectionslist.append(pipe.attrs)
+
+        for pipe in pipeline.find_all(name='process'):
+            self.pipeline[pipe.attrs.get('name')] = pipe.attrs
+
+            for connect in all_connectionslist:
+                if pipe.attrs['name'] == connect['from']:
+                    self.pipeline[pipe.attrs.get('name')]['parents'] = connect
+                if pipe.attrs['name'] == connect['to']:
+                    self.pipeline[pipe.attrs.get('name')]['children'] = connect
+
+    def get_process_info(self, process):
+        return self.pipeline.get(process)
+
+    def get_process_label(self, process):
+        process_info = self.get_process_info(process)
+        if process_info:
+            process_label = process_info.get('label')
+            if process_label:
+                return process_label
+            else:
+                return process.capitalize()
+        else:
+            return process.capitalize()
 
 
 # Login related classes
@@ -1894,7 +1962,9 @@ def get_all_projects_and_logins(force=False):
 
         for project in projects:
             if project.get('code') not in exclude_list:
-                projects_dict[project.get('code')] = Project(project)
+                project_sobject = Project(project)
+                project_sobject.init_snapshots(project['__snapshots__'])
+                projects_dict[project.get('code')] = project_sobject
 
         env_inst.projects = projects_dict
 

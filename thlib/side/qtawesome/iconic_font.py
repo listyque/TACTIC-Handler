@@ -1,4 +1,3 @@
-# -*- coding: utf8 -*-
 r"""
 
 Iconic Font
@@ -16,24 +15,30 @@ methods returning instances of ``QIcon``.
 
 # Standard library imports
 from __future__ import print_function
+import hashlib
 import json
 import os
-import hashlib
 import warnings
-import locale
 
 # Third party imports
-from Qt.QtCore import QObject, QPoint, QRect, Qt, QByteArray
-from Qt.QtGui import (QColor, QFont, QFontDatabase, QIcon, QIconEngine,
-                        QPainter, QPixmap)
-from Qt.QtWidgets import QApplication
-# from six import unichr
-
+from thlib.side.Qt.QtCore import QByteArray, QObject, QPoint, QRect, Qt
+from thlib.side.Qt.QtGui import (QColor, QFont, QFontDatabase, QIcon, QIconEngine,
+                        QPainter, QPixmap, QTransform)
+from thlib.side.Qt.QtWidgets import QApplication
 
 # Linux packagers, please set this to True if you want to make qtawesome
 # use system fonts
 SYSTEM_FONTS = False
 
+# MD5 Hashes for font files bundled with qtawesome:
+MD5_HASHES = {
+    'fontawesome4.7-webfont.ttf': 'b06871f281fee6b241d60582ae9369b9',
+    'fontawesome5-regular-webfont.ttf': '6a745dc6a0871f350b0219f5a2678838',
+    'fontawesome5-solid-webfont.ttf': 'acf50f59802f20d8b45220eaae532a1c',
+    'fontawesome5-brands-webfont.ttf': 'ed2b8bf117160466ba6220a8f1da54a4',
+    'elusiveicons-webfont.ttf': '207966b04c032d5b873fd595a211582e',
+    'materialdesignicons-webfont.ttf': 'f51112347be6b44f9ef46151a971430d',
+}
 
 _default_options = {
     'color': QColor(50, 50, 50),
@@ -54,7 +59,7 @@ def set_global_defaults(**kwargs):
         'color_active', 'color_selected', 'color_disabled',
         'color_on_selected', 'color_on_active', 'color_on_disabled',
         'color_off_selected', 'color_off_active', 'color_off_disabled',
-        'animation', 'offset', 'scale_factor',
+        'animation', 'offset', 'scale_factor', 'rotated', 'hflip', 'vflip'
         ]
 
     for kw in kwargs:
@@ -88,7 +93,7 @@ class CharIconPainter:
                 QIcon.Active: (options['color_on_active'],
                                options['on_active']),
                 QIcon.Selected: (options['color_on_selected'],
-                                 options['on_selected']) 
+                                 options['on_selected'])
             },
 
             QIcon.Off: {
@@ -98,7 +103,7 @@ class CharIconPainter:
                 QIcon.Active: (options['color_off_active'],
                                options['off_active']),
                 QIcon.Selected: (options['color_off_selected'],
-                                 options['off_selected']) 
+                                 options['off_selected'])
             }
         }
 
@@ -111,7 +116,7 @@ class CharIconPainter:
         # The reason why the glyph size is smaller than the icon size is to
         # account for font bearing.
 
-        draw_size = 0.875 * round(rect.height() * options['scale_factor'])
+        draw_size = round(0.875 * rect.height() * options['scale_factor'])
         prefix = options['prefix']
 
         # Animation setup hook
@@ -122,12 +127,37 @@ class CharIconPainter:
         painter.setFont(iconic.font(prefix, draw_size))
         if 'offset' in options:
             rect = QRect(rect)
-            rect.translate(options['offset'][0] * rect.width(),
-                           options['offset'][1] * rect.height())
+            rect.translate(round(options['offset'][0] * rect.width()),
+                           round(options['offset'][1] * rect.height()))
+
+        if 'vflip' in options and options['vflip'] == True:
+            x_center = rect.width() * 0.5
+            y_center = rect.height() * 0.5
+            painter.translate(x_center, y_center)
+            transfrom = QTransform()
+            transfrom.scale(1,-1)
+            painter.setTransform(transfrom, True)
+            painter.translate(-x_center, -y_center)
+
+        if 'hflip' in options and options['hflip'] == True:
+            x_center = rect.width() * 0.5
+            y_center = rect.height() * 0.5
+            painter.translate(x_center, y_center)
+            transfrom = QTransform()
+            transfrom.scale(-1, 1)
+            painter.setTransform(transfrom, True)
+            painter.translate(-x_center, -y_center)
+
+        if 'rotated' in options:
+            x_center = rect.width() * 0.5
+            y_center = rect.height() * 0.5
+            painter.translate(x_center, y_center)
+            painter.rotate(options['rotated'])
+            painter.translate(-x_center, -y_center)
 
         painter.setOpacity(options.get('opacity', 1.0))
 
-        painter.drawText(rect, Qt.AlignCenter | Qt.AlignVCenter, char)
+        painter.drawText(rect, int(Qt.AlignCenter | Qt.AlignVCenter), char)
         painter.restore()
 
 
@@ -140,7 +170,7 @@ class CharIconEngine(QIconEngine):
     """Specialization of QIconEngine used to draw font-based icons."""
 
     def __init__(self, iconic, painter, options):
-        super(CharIconEngine, self).__init__()
+        super(self.__class__, self).__init__()
         self.iconic = iconic
         self.painter = painter
         self.options = options
@@ -173,11 +203,12 @@ class IconicFont(QObject):
             - Optionally, the directory containing these files. When not
               provided, the files will be looked for in ``./fonts/``.
         """
-        super(IconicFont, self).__init__()
+        super(self.__class__, self).__init__()
         self.painter = CharIconPainter()
         self.painters = {}
         self.fontname = {}
         self.charmap = {}
+        self.icon_cache = {}
         for fargs in args:
             self.load_font(*fargs)
 
@@ -197,16 +228,32 @@ class IconicFont(QObject):
         directory: str or None, optional
             Directory for font and charmap files
         """
+        import struct
+
+        def unichar(i):
+            try:
+                return unichr(i)
+            except ValueError:
+                return struct.pack('i', i).decode('utf-32')
 
         def hook(obj):
             result = {}
             for key in obj:
-                result[key] = unichr(int(obj[key], 16))
+                try:
+                    result[key] = unichar(int(obj[key], 16))
+                except ValueError:
+                    if int(obj[key], 16) > 0xffff:
+                        # ignoring unsupported code in Python 2.7 32bit Windows
+                        # ValueError: chr() arg not in range(0x10000)
+                        pass
+                    else:
+                        raise FontError(u'Failed to load character '
+                                        '{0}:{1}'.format(key, obj[key]))
             return result
 
         if directory is None:
             directory = os.path.join(
-                os.path.dirname(os.path.realpath(__file__)), 'fonts').decode(locale.getpreferredencoding())
+                os.path.dirname(os.path.realpath(__file__)), 'fonts')
 
         # Load font
         if QApplication.instance() is not None:
@@ -215,7 +262,8 @@ class IconicFont(QObject):
             font_data.close()
 
             loadedFontFamilies = QFontDatabase.applicationFontFamilies(id_)
-            if(loadedFontFamilies):
+
+            if loadedFontFamilies:
                 self.fontname[prefix] = loadedFontFamilies[0]
             else:
                 raise FontError(u"Font at '{0}' appears to be empty. "
@@ -228,32 +276,16 @@ class IconicFont(QObject):
 
             with open(os.path.join(directory, charmap_filename), 'r') as codes:
                 self.charmap[prefix] = json.load(codes, object_hook=hook)
-            codes.close()
-
-
 
             # Verify that vendorized fonts are not corrupt
             if not SYSTEM_FONTS:
-                md5_hashes = {'fontawesome4.7-webfont.ttf':
-                              'b06871f281fee6b241d60582ae9369b9',
-                              'fontawesome5-regular-webfont.ttf':
-                              '1001ae931cec5dbf1686ae04d50d2130',
-                              'fontawesome5-solid-webfont.ttf':
-                              '264db4086a7cf660e91bcff419ced8b8',
-                              'fontawesome5-brands-webfont.ttf':
-                              '947b9537bc0fecc8130d48eb753495a1',
-                              'elusiveicons-webfont.ttf':
-                              '207966b04c032d5b873fd595a211582e',
-                              'materialdesignicons-webfont.ttf':
-                              '64b96825d49e070ea87c7100f2db3f46'}
-                ttf_hash = md5_hashes.get(ttf_filename, None)
+                ttf_hash = MD5_HASHES.get(ttf_filename, None)
                 if ttf_hash is not None:
                     hasher = hashlib.md5()
                     with open(os.path.join(directory, ttf_filename),
                               'rb') as f:
                         content = f.read()
                         hasher.update(content)
-                    f.close()
                     ttf_calculated_hash_code = hasher.hexdigest()
                     if ttf_calculated_hash_code != ttf_hash:
                         raise FontError(u"Font is corrupt at: '{0}'".format(
@@ -261,29 +293,32 @@ class IconicFont(QObject):
 
     def icon(self, *names, **kwargs):
         """Return a QIcon object corresponding to the provided icon name."""
-        options_list = kwargs.pop('options', [{}] * len(names))
-        general_options = kwargs
+        cache_key = '{}{}'.format(names,kwargs)
+        if cache_key not in self.icon_cache:
+            options_list = kwargs.pop('options', [{}] * len(names))
+            general_options = kwargs
 
-        if len(options_list) != len(names):
-            error = '"options" must be a list of size {0}'.format(len(names))
-            raise Exception(error)
+            if len(options_list) != len(names):
+                error = '"options" must be a list of size {0}'.format(len(names))
+                raise Exception(error)
 
-        if QApplication.instance() is not None:
-            parsed_options = []
-            for i in range(len(options_list)):
-                specific_options = options_list[i]
-                parsed_options.append(self._parse_options(specific_options,
-                                                          general_options,
-                                                          names[i]))
+            if QApplication.instance() is not None:
+                parsed_options = []
+                for i in range(len(options_list)):
+                    specific_options = options_list[i]
+                    parsed_options.append(self._parse_options(specific_options,
+                                                              general_options,
+                                                              names[i]))
 
-            # Process high level API
-            api_options = parsed_options
+                # Process high level API
+                api_options = parsed_options
 
-            return self._icon_by_painter(self.painter, api_options)
-        else:
-            warnings.warn("You need to have a running "
-                          "QApplication to use QtAwesome!")
-            return QIcon()
+                self.icon_cache[cache_key] = self._icon_by_painter(self.painter, api_options)
+            else:
+                warnings.warn("You need to have a running "
+                              "QApplication to use QtAwesome!")
+                return QIcon()
+        return self.icon_cache[cache_key]
 
     def _parse_options(self, specific_options, general_options, name):
         options = dict(_default_options, **general_options)
@@ -364,7 +399,7 @@ class IconicFont(QObject):
     def font(self, prefix, size):
         """Return a QFont corresponding to the given prefix and size."""
         font = QFont(self.fontname[prefix])
-        font.setPixelSize(size)
+        font.setPixelSize(round(size))
         if prefix[-1] == 's':  # solid style
             font.setStyleName('Solid')
         return font

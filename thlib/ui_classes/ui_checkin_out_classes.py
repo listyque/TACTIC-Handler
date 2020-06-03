@@ -162,6 +162,11 @@ class Ui_checkInOutWidget(QtGui.QMainWindow):
 
         env_inst.set_check_tree(self.project.get_code(), 'checkin_out', self.stype.get_code(), self)
 
+        self.status_bar = QtGui.QStatusBar(self)
+        self.status_bar.setStyleSheet('QStatusBar {background: transparent;}')
+
+        self.setStatusBar(self.status_bar)
+
     def get_tab_label(self):
         return Ui_stypeIconWidget(parent=self, stype=self.stype)
 
@@ -1615,7 +1620,6 @@ class Ui_checkInOutWidget(QtGui.QMainWindow):
         print clipboard.mimeData().text()
         print clipboard.mimeData().urls()
         print clipboard.mimeData().imageData()
-
 
         if files_names:
             pass

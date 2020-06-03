@@ -708,25 +708,9 @@ class Ui_searchWidget(QtGui.QWidget):
         self.right_buttons_layout.setContentsMargins(0, 0, 0, 0)
         self.right_buttons_layout.setSpacing(0)
 
-        # self.l = QtGui.QHBoxLayout()
-        # self.l.setSpacing(0)
-        # self.l.setContentsMargins(0, 0, 0, 0)
-        #
-        # spacer = QtGui.QSpacerItem(500, 20, QtGui.QSizePolicy.Expanding, QtGui.QSizePolicy.Maximum)
-        # self.l.addItem(spacer)
-        #
-        # self.b = QtGui.QPushButton('asd')
-        # self.b.setMaximumWidth(20)
-        # self.b.setMaximumHeight(20)
-        # self.b.setStyleSheet('QPushButton {margin-right: 5px;padding: 6px;}')
-        # self.l.addWidget(self.b)
-
-        # self.resultsTabWidget.tabBar().setTabButton(1, QtGui.QTabBar.RightSide, self.b)
-        # QtGui.QTabBar.styleSheet()
-
-        self.right_buttons_widget = QtGui.QWidget(self)
+        self.right_buttons_widget = QtGui.QWidget()
         self.right_buttons_widget.setLayout(self.right_buttons_layout)
-        self.right_buttons_widget.setMinimumSize(36, 36)
+        self.right_buttons_widget.setMinimumSize(20, 36)
 
         self.group_by_button = StyledToolButton(small=True, shadow_enabled=True, square_type=True)
         self.group_by_button.setPopupMode(QtGui.QToolButton.InstantPopup)
@@ -845,21 +829,8 @@ class Ui_searchWidget(QtGui.QWidget):
         self.main_buttons_layout.addWidget(self.refresh_tab_button)
         self.main_buttons_layout.addWidget(self.history_tab_button)
 
-        # self.expandingLayout.addWidget(self.collapsable_toolbar)
-
         self.right_buttons_layout.addWidget(self.additional_collapsable_toolbar)
         self.right_buttons_layout.addWidget(self.main_collapsable_toolbar)
-
-        # self.right_buttons_layout.addWidget(self.refresh_tab_button)
-        # self.right_buttons_layout.addWidget(self.history_tab_button)
-
-        # effect = QtGui.QGraphicsColorizeEffect(self.refresh_tab_button)
-        # self.animation = QtCore.QPropertyAnimation(effect, "color", self)
-        # self.animation.setDuration(500)
-        # self.animation.setStartValue(Qt4Gui.QColor(0, 0, 0, 0))
-        # self.animation.setEndValue(Qt4Gui.QColor(49, 140, 72, 128))
-        # self.animation.start()
-        # self.refresh_tab_button.setGraphicsEffect(effect)
 
         self.results_tab_widget.setCornerWidget(self.right_buttons_widget, QtCore.Qt.TopRightCorner)
         self.results_tab_widget.setCornerWidget(self.left_buttons_widget, QtCore.Qt.TopLeftCorner)
@@ -1163,7 +1134,6 @@ class Ui_searchWidget(QtGui.QWidget):
 
     def create_gear_menu_popup(self):
         self.gearMenuToolButton.setIcon(gf.get_icon('settings', icons_set='mdi'))
-        # self.gearMenuToolButton.setMinimumSize(22, 22)
 
     def add_action_to_gear_menu(self, action):
         self.gearMenuToolButton.addAction(action)
@@ -2230,7 +2200,7 @@ class Ui_searchResultsWidget(QtGui.QWidget):
         self.resultsTreeWidget.setHeaderHidden(True)
         self.resultsTreeWidget.setObjectName("resultsTreeWidget")
 
-        self.resultsVersionsTreeWidget = QtGui.QTreeWidget(self.items_view_splitter)
+        self.resultsVersionsTreeWidget = Ui_extendedTreeWidget(self.items_view_splitter)
         self.resultsVersionsTreeWidget.setTabKeyNavigation(True)
         self.resultsVersionsTreeWidget.setVerticalScrollMode(QtGui.QAbstractItemView.ScrollPerPixel)
         self.resultsVersionsTreeWidget.setRootIsDecorated(False)
@@ -2253,7 +2223,7 @@ class Ui_searchResultsWidget(QtGui.QWidget):
         self.create_progress_bar()
         self.create_bottom_navigation_widget()
 
-        self.set_results_view(self.info.get('view'), False)
+        self.set_results_view('continious', False)
 
         self.customize_ui()
 

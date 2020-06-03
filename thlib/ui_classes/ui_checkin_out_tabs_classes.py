@@ -12,10 +12,137 @@ import thlib.tactic_classes as tc
 import ui_checkin_out_classes as checkin_out
 import thlib.ui.misc.ui_watch_folders as ui_watch_folders
 from thlib.ui_classes.ui_commit_queue_classes import Ui_commitQueueWidget
-from thlib.ui_classes.ui_repo_sync_queue_classes import Ui_repoSyncQueueWidget
 from thlib.ui_classes.ui_watch_folder_classes import Ui_projectWatchFoldersWidget
 from thlib.ui_classes.ui_custom_qwidgets import Ui_extendedTabBarWidget, Ui_extendedLeftTabBarWidget, Ui_extendedTreeWidget, StyledToolButton, Ui_sideBarWidget
 
+
+class Ui_tacticSidebarWidget(QtGui.QWidget):
+    clicked = QtCore.Signal(object)
+    def __init__(self, project, parent=None):
+        super(self.__class__, self).__init__(parent=parent)
+
+        self.project = project
+
+        self.checkin_out_config_projects = cfg_controls.get_checkin_out_projects()
+        self.checkin_out_config = cfg_controls.get_checkin_out()
+
+        self.create_ui()
+
+    def create_ui(self):
+        self.main_layout = QtGui.QVBoxLayout()
+        self.main_layout.setContentsMargins(0, 0, 0, 0)
+        self.main_layout.setSpacing(0)
+        self.setLayout(self.main_layout)
+
+        self.tree_widget = Ui_extendedTreeWidget(self)
+        self.tree_widget.setMaximumSize(QtCore.QSize(0, 16777215))
+        self.tree_widget.setHorizontalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOff)
+        self.tree_widget.setEditTriggers(QtGui.QAbstractItemView.NoEditTriggers)
+        self.tree_widget.setIndentation(0)
+        self.tree_widget.setSelectionBehavior(QtGui.QAbstractItemView.SelectRows)
+        self.tree_widget.setTabKeyNavigation(True)
+        self.tree_widget.setVerticalScrollMode(QtGui.QAbstractItemView.ScrollPerPixel)
+        self.tree_widget.setAllColumnsShowFocus(True)
+        self.tree_widget.setRootIsDecorated(False)
+        self.tree_widget.setHeaderHidden(True)
+        self.tree_widget.setExpandsOnDoubleClick(False)
+        self.tree_widget.setObjectName('sidebar_widget')
+        self.tree_widget.setMinimumHeight(400)
+        self.tree_widget.setMinimumWidth(250)
+        self.tree_widget.setFocusPolicy(QtCore.Qt.NoFocus)
+
+        self.tree_widget.setStyleSheet(gf.get_qtreeview_style(True))
+
+        self.main_layout.addWidget(self.tree_widget)
+
+        self.controls_actions()
+
+    def controls_actions(self):
+
+        self.tree_widget.itemClicked.connect(self.tree_widget_item_click)
+
+    def tree_widget_item_click(self, item):
+
+        item_widget = self.tree_widget.itemWidget(item, 0)
+        self.clicked.emit(item_widget)
+
+    def get_ignore_stypes_list(self):
+        ignore_tabs_list = []
+        if self.checkin_out_config and self.checkin_out_config_projects and self.checkin_out_config_projects.get(self.project.get_code()):
+            if not gf.get_value_from_config(self.checkin_out_config, 'processTabsFilterGroupBox'):
+                ignore_tabs_list = []
+            else:
+                ignore_tabs_list = self.checkin_out_config_projects[self.project.get_code()]['stypes_list']
+                if not ignore_tabs_list:
+                    ignore_tabs_list = []
+
+        return ignore_tabs_list
+
+    def initial_fill(self):
+
+        self.tree_widget.clear()
+
+        sidebar = self.project.get_sidebar()
+
+        if sidebar.has_definition():
+
+            # making shure if there is *special TH* definition
+            project_definition = sidebar.get_definition(bs=True)
+            tactic_handler_definition = sidebar.get_definition('tactic_handler')
+
+            if not tactic_handler_definition:
+                tactic_handler_definition = sidebar.get_definition('project_view')
+
+            tactic_handler_sidebar = []
+            for th_def in tactic_handler_definition:
+                th_def_name = th_def['name']
+                for prj_def in project_definition:
+                    if prj_def['name'] == th_def_name:
+                        tactic_handler_sidebar.append(prj_def)
+
+            for sidebar_item in tactic_handler_sidebar:
+
+                stype_code = None
+                view_definition = None
+                sub_definitions = []
+                layout = 'default'
+
+                if sidebar_item.search_type:
+                    stype_code = sidebar_item.search_type.string
+
+                if sidebar_item.layout:
+                    layout = sidebar_item.layout.string
+
+                if sidebar_item.view:
+                    view_definition = sidebar.get_definition(sidebar_item.view.string)
+
+                    for sub_def in view_definition:
+                        sub_def_name = sub_def['name']
+
+                        for sub_prj_def in project_definition:
+                            if sub_prj_def['name'] == sub_def_name:
+                                sub_definitions.append(sub_prj_def)
+
+                stype = self.project.stypes.get(stype_code)
+
+                item_info = {
+                    'title': sidebar_item.get('title'),
+                    'name': sidebar_item.get('name'),
+                    'display_class': sidebar_item.display.get('class'),
+                    'search_type': stype_code,
+                    'layout': layout,
+                    'view_definition': view_definition,
+                    'sub_definitions': sub_definitions,
+                    'item': sidebar_item,
+                }
+
+                gf.add_sidebar_item(
+                    tree_widget=self.tree_widget,
+                    stype=stype,
+                    project=self.project,
+                    item_info=item_info,
+                )
+                self.tree_widget.resizeColumnToContents(0)
 
 
 class Ui_checkInOutTabWidget(QtGui.QWidget):
@@ -38,9 +165,6 @@ class Ui_checkInOutTabWidget(QtGui.QWidget):
         self.is_created = False
         self.overlay_visible = False
 
-        self.tab_bar_customization()
-
-
     def create_ui(self):
 
         self.setObjectName('sobject_tab_widget')
@@ -48,16 +172,15 @@ class Ui_checkInOutTabWidget(QtGui.QWidget):
         self.create_main_layout()
         self.create_stypes_tab_widget()
 
-        self.create_stypes_tree_widget()
-
-        # self.main_layout.setStretch(1, 1)
+        self.create_left_sidebar_widget()
 
     def init_ui(self):
         if self.project.stypes:
             self.is_created = True
 
-            self.add_items_to_stypes_tree()
             self.readSettings()
+
+            self.fill_tactic_sidebar_widget()
 
             self.fill_stypes_tab_widget()
 
@@ -65,7 +188,6 @@ class Ui_checkInOutTabWidget(QtGui.QWidget):
 
             self.create_watch_folders_ui()
             self.create_commit_queue_ui()
-            self.create_repo_sync_queue_ui()
 
     def create_overlay_layout(self):
 
@@ -98,14 +220,12 @@ class Ui_checkInOutTabWidget(QtGui.QWidget):
         self.overlay_layout_widget.hide()
 
     def controls_actions(self):
-        self.hamburger_tab_button.clicked.connect(self.hamburger_button_click)
 
         self.sidebar_widget.clicked.connect(self.hide_overlay)
+        self.sidebar_widget.hidden.connect(self.hide_overlay_at_hiding)
 
-        self.stypes_tree_widget.itemClicked.connect(self.stypes_tree_item_click)
-        self.stypes_tree_widget.itemChanged.connect(self.stypes_tree_item_change)
+        self.tactic_sidebar_widget.clicked.connect(self.tactic_sidebar_item_click)
 
-        # self.stypes_tab_widget.mousePressEvent = self.sobj_tab_middle_mouse_event
         self.stypes_tab_widget.middle_mouse_pressed.connect(self.middle_mouse_press)
 
     def create_main_layout(self):
@@ -114,25 +234,13 @@ class Ui_checkInOutTabWidget(QtGui.QWidget):
         self.main_layout.setContentsMargins(0, 0, 0, 0)
         self.main_layout.setObjectName('maint_layout')
 
-    def create_stypes_tree_widget(self):
+    def create_left_sidebar_widget(self):
 
         self.sidebar_widget = Ui_sideBarWidget(parent=self, underlayer_widget=self.stypes_tab_widget)
 
-        self.stypes_tree_widget = Ui_extendedTreeWidget(self)
-        self.stypes_tree_widget.setMaximumSize(QtCore.QSize(0, 16777215))
-        self.stypes_tree_widget.setHorizontalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOff)
-        self.stypes_tree_widget.setEditTriggers(QtGui.QAbstractItemView.NoEditTriggers)
-        self.stypes_tree_widget.setVerticalScrollMode(QtGui.QAbstractItemView.ScrollPerPixel)
-        self.stypes_tree_widget.setRootIsDecorated(False)
-        self.stypes_tree_widget.setAnimated(True)
-        self.stypes_tree_widget.setHeaderHidden(True)
-        self.stypes_tree_widget.setObjectName('stypes_tree_widget')
-        self.stypes_tree_widget.setMinimumHeight(400)
-        self.stypes_tree_widget.setMinimumWidth(250)
+        self.tactic_sidebar_widget = Ui_tacticSidebarWidget(self.project)
 
-        self.sidebar_widget.hidden.connect(self.hide_overlay_at_hiding)
-
-        self.sidebar_widget.add_sidebar_widget(self.stypes_tree_widget)
+        self.sidebar_widget.add_sidebar_widget(self.tactic_sidebar_widget)
 
         self.overlay_layout.addWidget(self.sidebar_widget)
 
@@ -142,59 +250,25 @@ class Ui_checkInOutTabWidget(QtGui.QWidget):
         self.stypes_tab_widget.setMovable(True)
         self.stypes_tab_widget.setObjectName('stypes_tab_widget')
         self.stypes_tab_widget.customize_ui()
-        self.stypes_tab_widget.set_corner_offset(52)
 
         self.main_layout.addWidget(self.stypes_tab_widget)
-
-    # def sobj_tab_middle_mouse_event(self, event):
-    #     if event.button() == QtCore.Qt.MouseButton.MiddleButton:
-    #         pos = event.pos()
-    #         # This offset is because hamburger button on the left
-    #         tab_pos = self.stypes_tab_widget.tabBar().tabAt(QtCore.QPoint(pos.x() - 26, pos.y()))
-    #         if tab_pos != -1:
-    #             widget = self.stypes_tab_widget.widget(tab_pos)
-    #             tab = self.get_stype_tab_by_widget(widget)
-    #             self.toggle_stype_tab(tab=tab, hide=True)
-    #             tree_item = self.get_tree_item_by_code(tab.stype.get_code())
-    #             if tree_item:
-    #                 tree_item.setCheckState(0, QtCore.Qt.Unchecked)
-    #
-    #     event.accept()
 
     def middle_mouse_press(self, tab_pos):
         widget = self.stypes_tab_widget.widget(tab_pos)
         tab = self.get_stype_tab_by_widget(widget)
-        self.toggle_stype_tab(tab=tab, hide=True)
-        tree_item = self.get_tree_item_by_code(tab.stype.get_code())
-        if tree_item:
-            tree_item.setCheckState(0, QtCore.Qt.Unchecked)
-
-    def stypes_tree_item_click(self, item):
-        item_data = item.data(0, QtCore.Qt.UserRole)
-        if item_data:
-            self.raise_stype_tab(code=item_data.get('code'))
-
-    def stypes_tree_item_change(self, item):
-        if item.childCount() > 0:
-            for i in range(item.childCount()):
-                if item.checkState(0) == QtCore.Qt.CheckState.Unchecked:
-                    item.child(i).setCheckState(0, QtCore.Qt.Unchecked)
-                else:
-                    item.child(i).setCheckState(0, QtCore.Qt.Checked)
-                self.toggle_tree_item(item.child(i))
-        else:
-            self.toggle_tree_item(item)
-
-    def toggle_tree_item(self, item):
-        item_data = item.data(0, QtCore.Qt.UserRole)
-        if item_data:
-            if item.checkState(0):
-                self.toggle_stype_tab(code=item_data.get('code'), hide=False)
-            else:
-                self.toggle_stype_tab(code=item_data.get('code'), hide=True)
+        self.toggle_stype_tab(code=tab.stype.get_code(), hide=True)
 
         # saving changes to config
         self.save_ignore_stypes_list()
+
+    def tactic_sidebar_item_click(self, item_widget):
+        if item_widget.get_type() == 'link':
+            self.toggle_stype_tab(code=item_widget.get_code(), hide=False)
+            self.raise_stype_tab(code=item_widget.get_code())
+
+            # saving changes to config
+            self.save_ignore_stypes_list()
+            self.hide_overlay()
 
     def get_stype_tab_by_widget(self, widget):
         for tab in self.all_search_tabs:
@@ -218,6 +292,7 @@ class Ui_checkInOutTabWidget(QtGui.QWidget):
                         return child
 
     def raise_stype_tab(self, code=None, tab=None):
+
         if code:
             tab = self.get_stype_tab_by_code(code)
         if tab:
@@ -228,16 +303,19 @@ class Ui_checkInOutTabWidget(QtGui.QWidget):
 
         if code:
             tab = self.get_stype_tab_by_code(code)
+
         if tab:
             idx = self.stypes_tab_widget.indexOf(tab)
+
             if hide:
                 self.stypes_tab_widget.removeTab(idx)
-                self.set_ignore_stypes_list(code, hide=True)
+                self.set_opened_stypes_tabs_list(code, store=False)
             else:
-                self.stypes_tab_widget.addTab(tab, '')
+                if idx == -1:
+                    self.stypes_tab_widget.addTab(tab, '')
 
-                self.set_ignore_stypes_list(code, hide=False)
-                self.stypes_tab_widget.tabBar().setTabButton(self.stypes_tab_widget.count()-1, QtGui.QTabBar.LeftSide, tab.get_tab_label())
+                    self.set_opened_stypes_tabs_list(code, store=True)
+                    self.stypes_tab_widget.tabBar().setTabButton(self.stypes_tab_widget.count()-1, QtGui.QTabBar.LeftSide, tab.get_tab_label())
 
     def apply_current_view_to_all(self):
         current_settings = None
@@ -260,69 +338,18 @@ class Ui_checkInOutTabWidget(QtGui.QWidget):
             if current_widget == tab:
                 return tab
 
-    def tab_bar_customization(self):
-
-        self.hamburger_tab_button = StyledToolButton(shadow_enabled=True, small=True, square_type=True)
-        self.hamburger_tab_button.setIcon(gf.get_icon('menu', icons_set='mdi', scale_factor=1.2))
-
-        self.left_buttons_layout = QtGui.QHBoxLayout()
-        self.left_buttons_layout.setContentsMargins(0, 0, 0, 0)
-        self.left_buttons_layout.setSpacing(0)
-
-        self.left_buttons_widget = QtGui.QWidget(self)
-        self.left_buttons_widget.setLayout(self.left_buttons_layout)
-        self.left_buttons_widget.setMinimumSize(36, 36)
-
-        self.left_buttons_layout.addWidget(self.hamburger_tab_button)
-
-        self.stypes_tab_widget.add_left_corner_widget(self.left_buttons_widget)
-
     def hamburger_button_click(self):
-        # content_width = self.stypes_tree_widget.sizeHintForColumn(0) + 40
-        # self.stypes_tree_widget.setMinimumWidth(content_width)
 
         if self.overlay_visible:
             self.hide_overlay()
         else:
             self.show_overlay()
 
-    def add_items_to_stypes_tree(self):
-        exclude_list = self.get_ignore_stypes_list()
-        self.stypes_tree_widget.clear()
+    def fill_tactic_sidebar_widget(self):
 
-        all_stypes = []
+        self.tactic_sidebar_widget.initial_fill()
 
-        for stype in env_inst.projects[self.project.get_code()].stypes.itervalues():
-            all_stypes.append(stype.info)
-
-        grouped = gf.group_dict_by(all_stypes, 'type')
-
-        for type_name, value in grouped.items():
-            top_item = QtGui.QTreeWidgetItem()
-
-            if not type_name:
-                type_name = 'No Category'
-            top_item.setText(0, type_name.capitalize())
-            top_item.setCheckState(0, QtCore.Qt.Checked)
-            self.stypes_tree_widget.addTopLevelItem(top_item)
-            for item in value:
-                child_item = QtGui.QTreeWidgetItem()
-
-                stype = env_inst.projects[self.project.get_code()].stypes.get(item.get('code'))
-
-                item_code = stype.get_code()
-                child_item.setText(0, stype.get_pretty_name())
-                child_item.setText(1, item_code)
-                child_item.setData(0, QtCore.Qt.UserRole, item)
-                child_item.setCheckState(0, QtCore.Qt.Checked)
-                if exclude_list:
-                    if item_code in exclude_list:
-                        child_item.setCheckState(0, QtCore.Qt.Unchecked)
-                top_item.addChild(child_item)
-
-            top_item.setExpanded(True)
-
-    def get_ignore_stypes_list(self):
+    def get_opened_stypes_tabs_list(self):
         ignore_tabs_list = []
         if self.checkin_out_config and self.checkin_out_config_projects and self.checkin_out_config_projects.get(self.project.get_code()):
             if not gf.get_value_from_config(self.checkin_out_config, 'processTabsFilterGroupBox'):
@@ -334,7 +361,7 @@ class Ui_checkInOutTabWidget(QtGui.QWidget):
 
         return ignore_tabs_list
 
-    def set_ignore_stypes_list(self, stype_code, hide=False):
+    def set_opened_stypes_tabs_list(self, stype_code, store=True):
 
         self.init_stypes_config()
 
@@ -348,7 +375,7 @@ class Ui_checkInOutTabWidget(QtGui.QWidget):
             else:
                 stypes_list = self.checkin_out_config_projects[self.project.get_code()]['stypes_list']
 
-            if hide:
+            if store:
                 if stype_code not in stypes_list:
                     stypes_list.append(stype_code)
             else:
@@ -378,15 +405,16 @@ class Ui_checkInOutTabWidget(QtGui.QWidget):
 
     def fill_stypes_tab_widget(self):
 
-        ignore_tabs_list = self.get_ignore_stypes_list()
+        opened_tabs_list = self.get_opened_stypes_tabs_list()
 
         # we creating all Stype Widgets, so we can access them if we need in all_search_tabs
         for stype in self.project.stypes.values():
             tab = checkin_out.Ui_checkInOutWidget(stype, self.project)
             tab.setParent(self)
             self.all_search_tabs.append(tab)
+
             # but only adding currenly visible tabs
-            if tab.stype.get_code() not in ignore_tabs_list:
+            if tab.stype.get_code() in opened_tabs_list:
                 self.stypes_tab_widget.add_tab(tab, tab.get_tab_label())
 
         self.stypes_tab_widget.setCurrentIndex(self.current_tab_idx)
@@ -400,9 +428,6 @@ class Ui_checkInOutTabWidget(QtGui.QWidget):
         env_inst.commit_queue[self.project.get_code()] = Ui_commitQueueWidget(
             parent=self,
             project=self.project)
-
-    def create_repo_sync_queue_ui(self):
-        env_inst.ui_repo_sync_queue = Ui_repoSyncQueueWidget(parent=self)
 
     def set_settings_from_dict(self, settings_dict):
 
@@ -461,6 +486,10 @@ class Ui_checkInOutTabWidget(QtGui.QWidget):
         )
 
     def showEvent(self, event):
+        # Connecting to hamburger button click event
+        top_bar_widget = env_inst.ui_main.get_top_bar_widget()
+        top_bar_widget.connect_hamburger(self.hamburger_button_click)
+
         if not self.is_created:
             self.init_ui()
         event.accept()

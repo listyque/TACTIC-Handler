@@ -113,7 +113,7 @@ class Ui_sideBarWidget(QtGui.QWidget):
         self.setLayout(self.main_layout)
 
     def create_dimming_widget(self):
-        self.dimmer_widget_dark = QtGui.QLabel('DARK')
+        self.dimmer_widget_dark = QtGui.QLabel()
         self.dimmer_widget = FadeWidget()
 
         sizePolicy = QtGui.QSizePolicy(QtGui.QSizePolicy.Preferred, QtGui.QSizePolicy.Preferred)
@@ -152,7 +152,7 @@ class Ui_sideBarWidget(QtGui.QWidget):
         self.animation_close = QtCore.QPropertyAnimation(self.sidebar_proxy, "pos", self)
         self.animation_open = QtCore.QPropertyAnimation(self.sidebar_proxy, "pos", self)
 
-        self.animation_close.setDuration(200)
+        self.animation_close.setDuration(100)
 
         self.animation_close.setStartValue(QtCore.QPoint(0, 0))
         self.animation_close.setEndValue(QtCore.QPoint(-250, 0))
@@ -190,18 +190,17 @@ class Ui_sideBarWidget(QtGui.QWidget):
         self.overlay_layout_widget.setHidden(True)
 
     def show_overlay(self):
+        self.overlay_layout_widget.show()
+        self.overlay_layout_widget.raise_()
+
+        self.sidebar.hide()
+        self.sidebar_proxy.setPixmap(Qt4Gui.QPixmap.grabWidget(self.sidebar, 0, 0, 250, self.height()))
+        self.sidebar.setUpdatesEnabled(False)
+        self.sidebar_proxy.show()
 
         self.dimmer_widget.setPixmap(Qt4Gui.QPixmap.grabWidget(self.underlayer_widget))
         self.underlayer_widget.setUpdatesEnabled(False)
         self.dimmer_widget.show()
-
-        self.sidebar_proxy.setPixmap(Qt4Gui.QPixmap.grabWidget(self.sidebar, 0, 0, 250, self.height()))
-        self.sidebar.setUpdatesEnabled(False)
-        self.sidebar_proxy.show()
-        self.sidebar.hide()
-
-        self.overlay_layout_widget.raise_()
-        self.overlay_layout_widget.show()
 
         self.dimmer_anm_open.start()
         self.animation_open.start()
@@ -232,11 +231,11 @@ class Ui_sideBarWidget(QtGui.QWidget):
             self.sidebar.show()
             self.sidebar_proxy.hide()
 
-            effect = QtGui.QGraphicsDropShadowEffect(self)
-            effect.setOffset(4, 0)
-            effect.setColor(Qt4Gui.QColor(0, 0, 0, 128))
-            effect.setBlurRadius(16)
-            self.sidebar.setGraphicsEffect(effect)
+            # effect = QtGui.QGraphicsDropShadowEffect(self)
+            # effect.setOffset(4, 0)
+            # effect.setColor(Qt4Gui.QColor(0, 0, 0, 128))
+            # effect.setBlurRadius(16)
+            # self.sidebar.setGraphicsEffect(effect)
 
             self.dimmer_widget.hide()
             self.dimmer_widget_dark.show()
@@ -362,7 +361,7 @@ class Ui_extendedLeftTabBarWidget(QtGui.QTabWidget):
     top: 0px;
 }
 #%(obj_name)s > QTabBar::tab {
-    background: rgb(48, 48, 48);
+    background: rgb(64, 64, 64);
 
     border: 0px transparent;
     border-top-right-radius: 0px;
@@ -381,10 +380,10 @@ class Ui_extendedLeftTabBarWidget(QtGui.QTabWidget):
     margin-bottom: 0px;
 }
 #%(obj_name)s > QTabBar::tab:selected{
-    background: rgb(64, 64, 64);
+    background: rgb(57, 68, 81);
 }
 #%(obj_name)s > QTabBar::tab:hover {
-    background: rgb(40, 40, 40);
+    background: rgb(64, 69, 74);
 }
 #%(obj_name)s > QTabBar::tab:!selected {
     margin-top: 0px;
@@ -418,7 +417,7 @@ class Ui_extendedLeftTabBarWidget(QtGui.QTabWidget):
         painter = Qt4Gui.QPainter()
         painter.begin(self)
         rect = self.rect()
-        painter.fillRect(rect.x(), rect.y(), self.tabBar().minimumSizeHint().width(), rect.height(), Qt4Gui.QColor(48, 48, 48))
+        painter.fillRect(rect.x(), rect.y(), self.tabBar().minimumSizeHint().width(), rect.height(), Qt4Gui.QColor(64, 64, 64))
 
 
 class Ui_tabLabel(QtGui.QFrame):
@@ -737,6 +736,10 @@ class Ui_horizontalCollapsableWidget(QtGui.QWidget):
         self.horizontalLayout.addWidget(self.collapseToolButton)
         self.horizontalLayout.setStretch(1, 1)
 
+        self.setMinimumSize(10, 30)
+
+        self.setCursor(Qt4Gui.QCursor(QtCore.Qt.PointingHandCursor))
+
     def customize_ui(self):
 
         self.collapseToolButton.setStyleSheet("""
@@ -750,11 +753,13 @@ class Ui_horizontalCollapsableWidget(QtGui.QWidget):
                 background: transparent;
                 }
                 QToolButton:pressed {
-                    background-color: rgb(44, 44, 44);
+                    background-color: rgb(107, 107, 107);
                 }
+                /*
                 QToolButton:hover {
                     background-color: rgb(107, 107, 107);
                 }
+                */
                 """)
 
         effect = QtGui.QGraphicsDropShadowEffect(self)
@@ -1874,6 +1879,7 @@ class StyledToolButton(QtGui.QToolButton):
         self.shadow_enabled = shadow_enabled
         self.square_type = square_type
         self.small = small
+        self.setAutoRaise(True)
 
         self.create_ui()
 
@@ -1887,6 +1893,7 @@ class StyledToolButton(QtGui.QToolButton):
             self.setMaximumSize(42, 42)
 
         self.customize_ui()
+        self.setCursor(Qt4Gui.QCursor(QtCore.Qt.PointingHandCursor))
 
     def customize_ui(self):
 
@@ -1906,10 +1913,91 @@ class StyledToolButton(QtGui.QToolButton):
         background: transparent;
         }}
         QToolButton:pressed {{
-            background-color: rgb(44, 44, 44);
+            background-color: rgb(107, 107, 107);
         }}
+        /*
         QToolButton:hover {{
             background-color: rgb(107, 107, 107);
+        }}
+        */
+        """.format(**customize_dict))
+
+        if self.shadow_enabled:
+            effect = QtGui.QGraphicsDropShadowEffect(self)
+            effect.setOffset(0, 0)
+            effect.setColor(Qt4Gui.QColor(0, 0, 0, 64))
+            effect.setBlurRadius(16)
+            self.setGraphicsEffect(effect)
+
+
+class StyledChooserToolButton(QtGui.QToolButton):
+    def __init__(self, small=False, shadow_enabled=True, square_type=False, parent=None):
+        super(self.__class__, self).__init__(parent=parent)
+
+        self.shadow_enabled = shadow_enabled
+        self.square_type = square_type
+        self.small = small
+
+        effect = QtGui.QGraphicsDropShadowEffect(self)
+        effect.setOffset(0, 0)
+        effect.setColor(Qt4Gui.QColor(0, 0, 0, 64))
+        effect.setBlurRadius(16)
+        self.setGraphicsEffect(effect)
+
+        # self.setPopupMode(QtGui.QToolButton.InstantPopup)
+
+        self.setToolButtonStyle(QtCore.Qt.ToolButtonTextBesideIcon)
+        self.setLayoutDirection(QtCore.Qt.RightToLeft)
+        self.setIcon(gf.get_icon('chevron-down', icons_set='mdi', scale_factor=1.2))
+
+        self.create_ui()
+
+    def create_ui(self):
+
+        if self.small:
+            self.setMaximumHeight(32)
+        else:
+            self.setMaximumHeight(38)
+
+        # self.create_menu()
+
+        self.customize_ui()
+        self.setCursor(Qt4Gui.QCursor(QtCore.Qt.PointingHandCursor))
+
+    # def create_menu(self):
+    #
+    #     self.menu = QtGui.QMenu()
+    #     self.menu.setLayoutDirection(QtCore.Qt.LeftToRight)
+    #
+    #     self.setMenu(self.menu)
+    #
+    # def get_menu(self):
+    #     return self.menu
+
+    def customize_ui(self):
+
+        if self.square_type:
+            customize_dict = {'radius': int(self.height() / 8), 'margin': 4}
+        else:
+            customize_dict = {'radius': int(self.height() / 2)-4, 'margin': 4}
+
+        self.setStyleSheet("""
+        QToolButton {{
+            font-size:11pt;
+            color: rgb(192,192,192);
+            border: 0px;
+            border-radius: {radius}px;
+            background: transparent;
+            margin: {margin}px;
+        }}
+        QToolButton::menu-indicator {{
+        background: transparent;
+        }}
+        QToolButton:pressed {{
+            /*background-color: rgb(44, 44, 44);*/
+        }}
+        QToolButton:hover {{
+            /*background-color: rgb(107, 107, 107);*/
         }}
         """.format(**customize_dict))
 
@@ -1922,8 +2010,10 @@ class StyledToolButton(QtGui.QToolButton):
 
 
 class StyledComboBox(QtGui.QComboBox):
-    def __init__(self, parent=None):
+    def __init__(self, flat_style=False, parent=None):
         super(self.__class__, self).__init__(parent=parent)
+
+        self.flat_style = flat_style
 
         self.create_ui()
 
@@ -1946,8 +2036,6 @@ class StyledComboBox(QtGui.QComboBox):
         effect.setBlurRadius(16)
         self.setGraphicsEffect(effect)
 
-        self.setItemIcon(1, gf.get_icon('edit'))
-
         self.setStyleSheet("""
 QComboBox {
     border: 0px;
@@ -1963,12 +2051,13 @@ QComboBox:editable {
 }
 
 QComboBox:!editable, QComboBox::drop-down:editable {
-     background: rgb(100,100,100);
+     /*background: rgb(100,100,100);*/
+     background: transparent;
 }
 
-/* QComboBox gets the "on" state when the popup is open */
 QComboBox:!editable:on, QComboBox::drop-down:editable:on {
-    background: rgb(120,120,120);
+    /*background: rgb(120,120,120);*/
+    background: transparent;
 }
 
 QComboBox::drop-down {
