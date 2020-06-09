@@ -2044,7 +2044,7 @@ class Ui_itemWidget(QtGui.QWidget):
         # We need to select current item, it is important!
         tree_widget = self.get_current_tree_widget()
         tree_widget.clearSelection()
-        tree_widget.setItemSelected(self.tree_item, True)
+        tree_widget.setCurrentItem(self.tree_item, 0)
 
         checkin_widget = self.get_current_checkin_widget()
 
@@ -2144,8 +2144,6 @@ class Ui_itemWidget(QtGui.QWidget):
         self.hide_overlay()
 
         self.handle_dopped(event.mimeData())
-
-        event.accept()
 
         super(self.__class__, self).dropEvent(event)
 
@@ -3854,7 +3852,7 @@ class Ui_processItemWidget(QtGui.QWidget):
         # We need to select current item, it is important!
         tree_widget = self.get_current_tree_widget()
         tree_widget.clearSelection()
-        tree_widget.setItemSelected(self.tree_item, True)
+        tree_widget.setCurrentItem(self.tree_item, 0)
 
         checkin_widget = self.get_current_checkin_widget()
 
@@ -3868,7 +3866,7 @@ class Ui_processItemWidget(QtGui.QWidget):
                 context=self.process,
                 description='Drag-Drop Cehckin',
                 files_objects=[file_object],
-                checkin_type=self.get_checkin_mode_options(),
+                # checkin_type=self.get_checkin_mode_options(),
             )
 
     def analyze_dropped(self, mime_data):

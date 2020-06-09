@@ -359,8 +359,12 @@ class Ui_topBarWidget(QtGui.QWidget):
         self.info_label = QtGui.QLabel()
         self.info_label.setAlignment(QtCore.Qt.AlignHCenter | QtCore.Qt.AlignVCenter)
         self.info_label.setText('')
+        self.loading_tool_button = QtGui.QToolButton()
+        self.loading_tool_button.setStyleSheet('QToolButton {border: 0px;background: transparent;}')
+        self.loading_tool_button.setIcon(gf.get_icon('loading', icons_set='mdi', scale_factor=1, spin=[self.loading_tool_button, 30, 45]))
 
         self.main_layout.addWidget(self.info_label)
+        self.main_layout.addWidget(self.loading_tool_button)
 
     def set_current_project(self, project=None):
 
@@ -377,6 +381,10 @@ class Ui_topBarWidget(QtGui.QWidget):
 
     def set_info_status_text(self, status_text=''):
         self.info_label.setText(status_text)
+        if status_text == '':
+            self.loading_tool_button.setHidden(True)
+        else:
+            self.loading_tool_button.setHidden(False)
 
     def create_hamburger_button(self):
 
