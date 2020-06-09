@@ -237,7 +237,6 @@ class Inst(object):
             return self.logins
 
     def get_stypes(self, project_code='sthpw'):
-        # this is bad practice using this func
         return self.projects.get(project_code).stypes
 
     def get_current_stypes(self):
@@ -249,7 +248,10 @@ class Inst(object):
         return stypes.get(code)
 
     def get_stype_by_code(self, code, project_code='sthpw'):
-        stypes = self.projects.get(project_code).get_stypes()
+        if code.startswith('sthpw'):
+            stypes = self.projects.get('sthpw').get_stypes()
+        else:
+            stypes = self.projects.get(project_code).get_stypes()
 
         return stypes.get(code)
 

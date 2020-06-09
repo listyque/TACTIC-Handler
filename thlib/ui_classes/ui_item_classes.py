@@ -390,7 +390,10 @@ class Ui_sidebarItemWidget(QtGui.QWidget):
 
                     view_definition
 
-                stype = self.project.stypes.get(stype_code)
+                if stype_code and stype_code.startswith('sthpw'):
+                    stype = env_inst.get_stype_by_code(stype_code)
+                else:
+                    stype = self.project.stypes.get(stype_code)
 
                 item_info = {
                     'title': sidebar_item.get('title'),
@@ -638,6 +641,7 @@ class Ui_projectLinkWidget(QtGui.QWidget):
     def fill_item_info(self):
 
         if self.item_type == 'link':
+
             effect = QtGui.QGraphicsDropShadowEffect(self)
             effect.setOffset(0, 0)
             effect.setColor(Qt4Gui.QColor(0, 0, 0, 64))
@@ -937,7 +941,7 @@ class Ui_projectItemWidget(QtGui.QWidget):
         self.horizontal_layout.addItem(spacerItem)
         self.horizontal_layout.setStretch(1, 1)
 
-        lines_div = total_lines // 4
+        lines_div = total_lines // 3
         height = self.height() + 64 * lines_div
 
         self.setMinimumHeight(height)
@@ -2023,16 +2027,27 @@ class Ui_itemWidget(QtGui.QWidget):
 
         self.relations_tool_button_anm_close.start()
 
+    def get_current_checkin_widget(self):
+        main_stype = self.search_widget.stype
+        checkin_widget = env_inst.get_check_tree(
+            project_code=main_stype.project.get_code(),
+            tab_code='checkin_out',
+            wdg_code=main_stype.get_code(),
+        )
+
+        checkin_widget.do_creating_ui()
+
+        return  checkin_widget
+
     def checkin_dropped_files(self, files_list):
 
         # We need to select current item, it is important!
-        self.tree_item.setSelected(True)
+        tree_widget = self.get_current_tree_widget()
+        tree_widget.clearSelection()
+        tree_widget.setItemSelected(self.tree_item, True)
 
-        checkin_widget = env_inst.get_check_tree(
-            project_code=self.project.get_code(),
-            tab_code='checkin_out',
-            wdg_code=self.stype.get_code(),
-        )
+        checkin_widget = self.get_current_checkin_widget()
+
         update_versionless = None
         if self.drop_icon_publish.hasFocus():
             process = 'publish'
@@ -2040,7 +2055,7 @@ class Ui_itemWidget(QtGui.QWidget):
             process = 'attachment'
         elif self.drop_icon_label.hasFocus():
             process = 'icon'
-            update_versionless = True
+            update_versionless = False
 
         checkin_widget.do_creating_ui()
 
@@ -2458,6 +2473,14 @@ class Ui_itemWidget(QtGui.QWidget):
         if not snapshots:
             snapshots = self.get_snapshot('publish')
 
+        if not snapshots:
+            # getting anything we can set to preview
+            processes = self.get_all_snapshots()
+            if processes:
+                process = processes.keys()[0]
+                if process:
+                    snapshots = self.get_snapshot(process)
+
         if snapshots:
             preview_files_objects = snapshots.get_files_objects(group_by='type').get('icon')
             if preview_files_objects:
@@ -2472,6 +2495,14 @@ class Ui_itemWidget(QtGui.QWidget):
         snapshots = self.get_snapshot('icon')
         if not snapshots:
             snapshots = self.get_snapshot('publish')
+
+        if not snapshots:
+            # getting anything we can set to preview
+            processes = self.get_all_snapshots()
+            if processes:
+                process = processes.keys()[0]
+                if process:
+                    snapshots = self.get_snapshot(process)
 
         if snapshots:
             preview_files_objects = snapshots.get_files_objects(group_by='type').get('icon')
@@ -3703,12 +3734,18 @@ class Ui_processItemWidget(QtGui.QWidget):
         if process:
             contexts = process.get_contexts()
             snapshots = []
+
             if contexts:
                 for context in contexts.values():
                     if versionless:
-                        snapshots.append(context.get_versionless())
+                        versionless_snapshots = context.get_versionless()
+                        if versionless_snapshots:
+                            snapshots.append(versionless_snapshots)
                     else:
-                        snapshots.append(context.get_versions())
+                        versions_snapshots = context.get_versions()
+                        if versions_snapshots:
+                            snapshots.append(versions_snapshots)
+
                 return snapshots
 
     def get_context(self, process=False, custom=None):
@@ -3759,6 +3796,18 @@ class Ui_processItemWidget(QtGui.QWidget):
     def get_parent_search_key(self):
         pass
 
+    def get_current_checkin_widget(self):
+        main_stype = self.search_widget.stype
+        checkin_widget = env_inst.get_check_tree(
+            project_code=main_stype.project.get_code(),
+            tab_code='checkin_out',
+            wdg_code=main_stype.get_code(),
+        )
+
+        checkin_widget.do_creating_ui()
+
+        return  checkin_widget
+
     def get_sobject(self):
         return self.sobject
 
@@ -3803,14 +3852,11 @@ class Ui_processItemWidget(QtGui.QWidget):
     def checkin_dropped_files(self, files_list):
 
         # We need to select current item, it is important!
-        self.tree_item.setSelected(True)
+        tree_widget = self.get_current_tree_widget()
+        tree_widget.clearSelection()
+        tree_widget.setItemSelected(self.tree_item, True)
 
-        checkin_widget = env_inst.get_check_tree(
-            project_code=self.stype.project.get_code(),
-            tab_code='checkin_out',
-            wdg_code=self.stype.get_code(),
-        )
-        checkin_widget.do_creating_ui()
+        checkin_widget = self.get_current_checkin_widget()
 
         match_template = gf.MatchTemplate(['$FILENAME.$EXT'])
         files_objects_dict = match_template.get_files_objects(files_list)
@@ -3822,6 +3868,7 @@ class Ui_processItemWidget(QtGui.QWidget):
                 context=self.process,
                 description='Drag-Drop Cehckin',
                 files_objects=[file_object],
+                checkin_type=self.get_checkin_mode_options(),
             )
 
     def analyze_dropped(self, mime_data):

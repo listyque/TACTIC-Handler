@@ -230,7 +230,8 @@ def delete_sobjects(search_keys, include_dependencies=False, list_dependencies=N
 def get_projects_and_logins(current_login='admin'):
     import json
     from pyasm.search import Search, SearchKey
-    from pyasm.biz import Snapshot
+    from pyasm.biz import Snapshot, Project
+    from pyasm.common import Environment
 
     def get_sobjects_dict(sobjects):
         res = []
@@ -253,8 +254,13 @@ def get_projects_and_logins(current_login='admin'):
 
     # Getting all Projects from db
     search = Search('sthpw/project')
-    search.add_op_filters([])
-    projects = search.get_sobjects()
+    search.add_filters('code', ['admin', 'sthpw'], op='in')
+    builtin_projects = search.get_sobjects()
+
+    # getting only user projects
+    user_projects = Project.get_user_projects()
+
+    projects = builtin_projects + user_projects
 
     # Getting snapshots for projects previews
     snapshot_search = Search('sthpw/snapshot')
@@ -443,7 +449,8 @@ def query_search_types_extended(project_code):
                                     'sthpw/exception_log', 'sthpw/debug_log', 'sthpw/custom_script', 'sthpw/clipboard',
                                     'sthpw/change_timestamp', 'config/custom_property', 'sthpw/ticket',
                                     'sthpw/transaction_log', 'sthpw/wdg_settings', 'sthpw/subscription',
-                                    'sthpw/status_log', 'sthpw/sobject_log', 'sthpw/sobject_list', 'sthpw/connection'])
+                                    'sthpw/status_log', 'sthpw/sobject_log', 'sthpw/sobject_list', 'sthpw/connection',
+                                    'sthpw/work_hour',])
         search.add_order_by('search_type')
         stypes = search.get_sobjects()
     else:
@@ -827,11 +834,37 @@ def query_sobjects(search_type, filters=[], order_bys=[], project_code=None, lim
             have_search_code = True
 
     if include_snapshots:
-        snapshot_search = Search('sthpw/snapshot')
-        snapshot_search.add_relationship_filters(sobjects_list, op='in')
-        if not get_all_snapshots:
-            snapshot_search.add_op_filters([('process', ['icon', 'attachment', 'publish'])])
-        snapshots_sobjects = snapshot_search.get_sobjects()
+
+        snapshots_sobjects = []
+        if get_all_snapshots:
+            snapshot_search = Search('sthpw/snapshot')
+            snapshot_search.add_relationship_filters(sobjects_list, op='in')
+            snapshots_sobjects = snapshot_search.get_sobjects()
+        else:
+            thumb_snapshot_search = Search('sthpw/snapshot')
+            thumb_snapshot_search.add_relationship_filters(sobjects_list, op='in')
+
+            thumb_snapshots_sobjects = thumb_snapshot_search.get_sobjects()
+
+            if thumb_snapshots_sobjects:
+                thumbs_list = []
+                added_list = []
+                for snapshot in thumb_snapshots_sobjects:
+
+                    search_code = snapshot.get_value('search_code')
+                    process = snapshot.get_value('process')
+
+                    if process in ['icon', 'publish', 'attachment']:
+                        thumbs_list.append(snapshot)
+                        if search_code not in added_list:
+                            added_list.append(search_code)
+                    elif search_code not in added_list:
+                        # getting any with preview
+                        if snapshot.get_file_code_by_type('web'):
+                            added_list.append(search_code)
+                            thumbs_list.append(snapshot)
+
+                snapshots_sobjects.extend(thumbs_list)
 
         snapshots_files_sobjects = Snapshot.get_files_dict_by_snapshots(snapshots_sobjects)
 
@@ -897,50 +930,7 @@ def query_sobjects(search_type, filters=[], order_bys=[], project_code=None, lim
                     snapshots_list.append(snapshot_dict)
             sobject_dict['__snapshots__'] = snapshots_list
 
-            # DEPRECATED, REPLACED WITH FASTER VERSION
-            # search = Search('sthpw/snapshot')
-            #
-            # snapshots_filters = [('search_type', search_type)]
-            # if have_search_code:
-            #     snapshots_filters.append(('search_code', sobject_dict['code']))
-            # else:
-            #     snapshots_filters.append(('search_id', sobject_dict['id']))
-            #
-            # if not get_all_snapshots:
-            #     snapshots_filters.append(('process', ['icon', 'attachment', 'publish']))
-            # search.add_op_filters(snapshots_filters)
-            #
-            # snapshots = search.get_sobjects()
-            #
-            # snapshot_files = Snapshot.get_files_dict_by_snapshots(snapshots)
-            #
-            # snapshots_list = []
-            # for snapshot in snapshots:
-            #     if get_all_snapshots:
-            #         snapshot_dict = get_sobject_dict(snapshot)
-            #         files_list = []
-            #         files = snapshot_files.get(snapshot_dict['code'])
-            #         if files:
-            #             for fl in files:
-            #                 files_list.append(server.server._get_sobject_dict(fl))
-            #         snapshot_dict['__files__'] = files_list
-            #         snapshots_list.append(snapshot_dict)
-            #     else:
-            #         # limiting snapshots to just latest version and versionless
-            #         if snapshot.get_version() in [-1, 0, '-1', '0'] or snapshot.is_latest():
-            #             snapshot_dict = get_sobject_dict(snapshot)
-            #             files_list = []
-            #             files = snapshot_files.get(snapshot_dict['code'])
-            #             if files:
-            #                 for fl in files:
-            #                     files_list.append(server.server._get_sobject_dict(fl))
-            #             snapshot_dict['__files__'] = files_list
-            #             snapshots_list.append(snapshot_dict)
-
-            sobject_dict['__snapshots__'] = snapshots_list
-
     if compressed_return:
-        # return 'zlib:' + binascii.b2a_hex(zlib.compress(json.dumps(result, separators=(',', ':')), 9))
         return '{0}{1}'.format('zlib:', binascii.b2a_hex(zlib.compress(json.dumps(result, separators=(',', ':')).encode(), 9)).decode())
     else:
         return json.dumps(result, separators=(',', ':'))
@@ -1352,6 +1342,10 @@ def create_snapshot_extended(search_key, context, project_code=None, snapshot_ty
         snapshot.set_value('is_latest', 1)
     if is_current:
         snapshot.set_value('is_current', 1)
+
+    if context.startswith('icon'):
+        # This is for TACTIC 4.8 >
+        update_versionless = False
 
     if is_revision:
         snapshot_code = server.eval("@GET(sthpw/snapshot['version', {0}].code)".format(version),

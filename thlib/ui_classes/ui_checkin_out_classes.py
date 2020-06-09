@@ -620,7 +620,19 @@ class Ui_checkInOutWidget(QtGui.QMainWindow):
                 menu.addAction(delete_selected)
         else:
             if mode == 'sobject':
-                if current_tree_widget_item.get_snapshot():
+
+                snapshots = current_tree_widget_item.get_all_snapshots()
+                ready_snapshots = None
+
+                if snapshots.get('publish'):
+                    ready_snapshots = current_tree_widget_item.get_snapshot('publish')
+                else:
+                    processes = current_tree_widget_item.get_all_snapshots()
+                    process = processes.keys()[0]
+                    if process:
+                        ready_snapshots = current_tree_widget_item.get_snapshots(process)
+
+                if ready_snapshots:
 
                     if env_mode.get_mode() == 'maya':
                         open_snapshot_additional = menu.addAction(open_scene, True)
@@ -1178,50 +1190,81 @@ class Ui_checkInOutWidget(QtGui.QMainWindow):
             current_results_widget = self.get_current_results_widget()
             current_tree_widget_item = current_results_widget.get_current_tree_widget_item()
 
-            current_snapshot = current_tree_widget_item.get_snapshot()
-            if checkout_method == 'http':
-                connected = False
-                for fl in current_snapshot.get_files_objects():
+            if current_tree_widget_item.type == 'sobject':
+                # getting any possible snapshot for Item widget
+                snapshots = current_tree_widget_item.get_all_snapshots()
+                current_snapshot = None
+                if snapshots.get('publish'):
+                    current_snapshot = current_tree_widget_item.get_snapshot('publish')
+                else:
+                    processes = current_tree_widget_item.get_all_snapshots()
+                    process = processes.keys()[0]
+                    if process:
+                        current_snapshot = current_tree_widget_item.get_snapshots(process)
+                        if current_snapshot:
+                            current_snapshot = current_snapshot.values()[0]
+            else:
+                current_snapshot = current_tree_widget_item.get_snapshot()
 
-                    args_dict = {'item_widget': current_tree_widget_item}
+            if current_snapshot:
+                if checkout_method == 'http':
+                    connected = False
+                    for fl in current_snapshot.get_files_objects():
 
-                    args_dict['file_object'] = fl
-                    repo_sync_widget = env_inst.ui_repo_sync_queue.schedule_file_object(fl)
-                    if fl.get_type() in ['main', 'maya']:
-                        if not connected:
-                            repo_sync_widget.downloaded.connect(mf.open_scene)
-                            connected = True
-                    repo_sync_widget.download()
+                        args_dict = {'item_widget': current_tree_widget_item}
 
-            elif checkout_method == 'local':
+                        args_dict['file_object'] = fl
+                        repo_sync_widget = env_inst.ui_repo_sync_queue.schedule_file_object(fl)
+                        if fl.get_type() in ['main', 'maya']:
+                            if not connected:
+                                repo_sync_widget.downloaded.connect(mf.open_scene)
+                                connected = True
+                        repo_sync_widget.download()
 
-                for fl in current_snapshot.get_files_objects():
-                    if fl.get_type() in ['main', 'maya']:
-                        mf.open_scene(fl)
-                        break
+                elif checkout_method == 'local':
+
+                    for fl in current_snapshot.get_files_objects():
+                        if fl.get_type() in ['main', 'maya']:
+                            mf.open_scene(fl)
+                            break
         else:
             current_results_widget = self.get_current_results_widget()
             current_tree_widget_item = current_results_widget.get_current_tree_widget_item()
 
-            current_snapshot = current_tree_widget_item.get_snapshot()
+            if current_tree_widget_item.type == 'sobject':
+                # getting any possible snapshot for Item widget
+                snapshots = current_tree_widget_item.get_all_snapshots()
+                current_snapshot = None
+                if snapshots.get('publish'):
+                    current_snapshot = current_tree_widget_item.get_snapshot('publish')
+                else:
+                    processes = current_tree_widget_item.get_all_snapshots()
+                    process = processes.keys()[0]
+                    if process:
+                        current_snapshot = current_tree_widget_item.get_snapshots(process)
+                        if current_snapshot:
+                            current_snapshot = current_snapshot.values()[0]
+            else:
+                current_snapshot = current_tree_widget_item.get_snapshot()
 
-            if checkout_method == 'http':
-                connected = False
-                for fl in current_snapshot.get_files_objects():
+            if current_snapshot:
+                if checkout_method == 'http':
+                    connected = False
+                    for fl in current_snapshot.get_files_objects():
 
-                    repo_sync_widget = env_inst.ui_repo_sync_queue.schedule_file_object(fl)
-                    if fl.get_type() in ['main', 'maya', 'image']:
-                        if not connected:
-                            repo_sync_widget.downloaded.connect(fl.open_file)
-                            connected = True
-                    repo_sync_widget.download()
+                        repo_sync_widget = env_inst.ui_repo_sync_queue.schedule_file_object(fl)
+                        if fl.get_type() in ['main', 'maya', 'image']:
+                            if not connected:
+                                repo_sync_widget.downloaded.connect(fl.open_file)
+                                connected = True
+                        repo_sync_widget.download()
 
-            elif checkout_method == 'local':
+                elif checkout_method == 'local':
 
-                for fl in current_snapshot.get_files_objects():
-                    if fl.get_type() not in ['web', 'icon']:
-                        fl.open_file()
-                        break
+                    for fl in current_snapshot.get_files_objects():
+                        if fl.get_type() not in ['web', 'icon']:
+                            fl.open_file()
+                            break
 
     @gf.catch_error
     def import_file(self):
@@ -1418,7 +1461,7 @@ class Ui_checkInOutWidget(QtGui.QMainWindow):
             elif checkin_mode == 4:
                 mode = 'upload'
 
-            if not update_versionless:
+            if update_versionless is None:
                 update_versionless = self.get_update_versionless()
             if keep_file_name:
                 update_versionless = False

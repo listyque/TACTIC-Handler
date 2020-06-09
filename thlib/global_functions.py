@@ -1260,7 +1260,6 @@ def add_project_item(tree_widget, projects, item_info, insert_pos=None):
     add_item_to_tree(tree_widget, tree_item, tree_item_widget, insert_pos=insert_pos)
 
     tree_item_widget.setParent(tree_item_widget.parent())
-    # tree_item_widget.setHidden(True)
 
     return tree_item_widget
 
@@ -1738,33 +1737,34 @@ def split_files_and_dirs(filename):
 
 def file_format(ext):
     formats = {
-        'ma': ['ma', 'mayaAscii', 'maya', 'file'],
-        'mb': ['mb', 'mayaBinary', 'maya', 'file'],
-        'hip': ['hip', 'Houdini', 'houdini', 'file'],
-        '3b': ['3b', '3D-Coat', 'coat', 'file'],
-        'max': ['max', '3DSMax scene', 'max', 'file'],
-        'scn': ['scn', 'Softimage XSI', 'xsi', 'file'],
-        'mud': ['mud', 'Mudbox', 'mudbox', 'file'],
-        'abc': ['abc', 'Alembic', 'cache', 'file'],
-        'obj': ['obj', 'OBJ', 'obj', 'file'],
-        '3ds': ['3ds', '3DSMax model', 'obj', 'file'],
-        'nk': ['nk', 'Nuke', 'nuke', 'file'],
-        'fbx': ['fbx', 'FBX', 'obj', 'file'],
-        'dae': ['dae', 'COLLADA', 'cache', 'file'],
-        'rs': ['rs', 'Redshift Proxy', 'cache', 'file'],
-        'vdb': ['vdb', 'Open VDB', 'cache', 'file'],
-        'jpg': ['jpg', 'JPEG Image', 'image', 'preview'],
-        'jpeg': ['jpeg', 'JPEG Image', 'image', 'preview'],
-        'psd': ['psd', 'Photoshop PSD', 'image', 'file'],
-        'tif': ['tif', 'TIFF Image', 'image', 'preview'],
-        'tiff': ['tiff', 'TIFF Image', 'image', 'preview'],
-        'png': ['png', 'PNG Image', 'image', 'preview'],
-        'tga': ['tga', 'TARGA Image', 'image', 'file'],
-        'exr': ['exr', 'EXR Image', 'image', 'file'],
-        'hdr': ['hdr', 'HDR Image', 'image', 'file'],
-        'dpx': ['dpx', 'DPX Image', 'image', 'file'],
-        'mov': ['mov', 'MOV Animation', 'movie', 'file'],
-        'avi': ['avi', 'AVI Animation', 'movie', 'file'],
+        'ma': ['ma', 'mayaAscii', 'main', 'file'],
+        'mb': ['mb', 'mayaBinary', 'main', 'file'],
+        'hip': ['hip', 'Houdini', 'main', 'file'],
+        '3b': ['3b', '3D-Coat', 'main', 'file'],
+        'max': ['max', '3DSMax scene', 'main', 'file'],
+        'scn': ['scn', 'Softimage XSI', 'main', 'file'],
+        'mud': ['mud', 'Mudbox', 'main', 'file'],
+        'abc': ['abc', 'Alembic', 'main', 'file'],
+        'obj': ['obj', 'OBJ', 'main', 'file'],
+        '3ds': ['3ds', '3DSMax model', 'main', 'file'],
+        'nk': ['nk', 'Nuke', 'main', 'file'],
+        'fbx': ['fbx', 'FBX', 'main', 'file'],
+        'dae': ['dae', 'COLLADA', 'main', 'file'],
+        'rs': ['rs', 'Redshift Proxy', 'main', 'file'],
+        'vdb': ['vdb', 'Open VDB', 'main', 'file'],
+        'jpg': ['jpg', 'JPEG Image', 'main', 'preview'],
+        'jpeg': ['jpeg', 'JPEG Image', 'main', 'preview'],
+        'psd': ['psd', 'Photoshop PSD', 'main', 'file'],
+        'tif': ['tif', 'TIFF Image', 'main', 'preview'],
+        'tiff': ['tiff', 'TIFF Image', 'main', 'preview'],
+        'png': ['png', 'PNG Image', 'main', 'preview'],
+        'tga': ['tga', 'TARGA Image', 'main', 'file'],
+        'exr': ['exr', 'EXR Image', 'main', 'file'],
+        'hdr': ['hdr', 'HDR Image', 'main', 'file'],
+        'dpx': ['dpx', 'DPX Image', 'main', 'file'],
+        'mov': ['mov', 'MOV Animation', 'main', 'file'],
+        'avi': ['avi', 'AVI Animation', 'main', 'file'],
+        'mp4': ['mp4', 'MP4 Animation', 'main', 'file'],
     }
     low_case_ext = ext.lower()
     if low_case_ext in formats.keys():

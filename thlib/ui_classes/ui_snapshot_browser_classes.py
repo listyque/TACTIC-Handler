@@ -691,6 +691,7 @@ class Ui_snapshotBrowserWidget(QtGui.QWidget):
             for preview_file_obj in preview_files_objects:
 
                 web_file_obj = preview_file_obj.get_web_preview()
+
                 if not web_file_obj:
                     web_file_obj = preview_file_obj
                 if web_file_obj.is_meta_file_obj():
@@ -790,11 +791,13 @@ class Ui_snapshotBrowserWidget(QtGui.QWidget):
             for i, pm in enumerate(self.pm_list):
 
                 pixmap = Qt4Gui.QPixmap(self.pix_list[i % len(self.pix_list)])
+
                 if pixmap.isNull():
                     pm.set_op(0.0)
                 else:
                     pm.add_pixmap(pixmap.scaledToWidth(640, QtCore.Qt.SmoothTransformation))
 
+            self.pm1.set_op(1.0)
             self.previewGraphicsView.setSceneRect(self.pm1.pixmap_item.boundingRect())
             self.previewGraphicsView.fitInView(self.pm1.pixmap_item.boundingRect(), QtCore.Qt.KeepAspectRatio)
 
@@ -998,7 +1001,6 @@ class Ui_snapshotBrowserWidget(QtGui.QWidget):
         self.downloading_in_progress = False
 
         self.getting_pixmaps()
-
         self.init_images_slider()
 
         if self.pix_list:
@@ -1046,15 +1048,31 @@ class Ui_snapshotBrowserWidget(QtGui.QWidget):
         elif self.item_widget.type == 'sobject':
             # checking if we have any snapshots, we can show it in snapshot browser
             # versionless here have priority
-            self.snapshots = None
+            # self.snapshots = None
             snapshots = self.item_widget.get_all_snapshots()
-            if snapshots:
-                # first we try to get 'publish' process
-                if snapshots.get('publish'):
-                    self.snapshots = self.item_widget.get_snapshots('publish')
-                # then 'icon' process should do
-                elif snapshots.get('icon'):
-                    self.snapshots = self.item_widget.get_snapshots('icon')
+
+            # getting any possible snapshot for Item widget
+            # snapshots = current_tree_widget_item.get_all_snapshots()
+            self.snapshots = None
+            if snapshots.get('publish'):
+                self.snapshots = self.item_widget.get_snapshots('publish')
+            elif snapshots.get('icon'):
+                self.snapshots = self.item_widget.get_snapshots('icon')
+            else:
+                processes = self.item_widget.get_all_snapshots()
+                process = processes.keys()[0]
+                if process:
+                    self.snapshots = self.item_widget.get_snapshots(process)
+                    # if current_snapshot:
+                    #     current_snapshot = current_snapshot.values()[0]
+
+            # if snapshots:
+            #     # first we try to get 'publish' process
+            #     if snapshots.get('publish'):
+            #         self.snapshots = self.item_widget.get_snapshots('publish')
+            #     # then 'icon' process should do
+            #     elif snapshots.get('icon'):
+            #         self.snapshots = self.item_widget.get_snapshots('icon')
 
             if self.snapshots:
                 self.init_snapshot(True)
@@ -1064,12 +1082,21 @@ class Ui_snapshotBrowserWidget(QtGui.QWidget):
             else:
                 self.clear()
         elif self.item_widget.type == 'process':
+
             self.snapshots = []
             snapshots = self.item_widget.get_snapshots()
             if snapshots:
                 for snapshot in snapshots:
                     if snapshot:
-                        self.snapshots.append(snapshot.values()[0])
+                        for sn in snapshot.values():
+                            self.snapshots.append(sn)
+            else:
+                snapshots = self.item_widget.get_snapshots(versionless=False)
+                if snapshots:
+                    for snapshot in snapshots:
+                        if snapshot:
+                            for sn in snapshot.values():
+                                self.snapshots.append(sn)
 
             if self.snapshots:
                 self.previewGraphicsView.resizeEvent = self.graphicsSceneResizeEvent

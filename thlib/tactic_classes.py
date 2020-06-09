@@ -1810,11 +1810,11 @@ class File(SObject, object):
         # return web file object related to this file
         if self.info['type'] != 'web':
             files = self.__snapshot.get_files_objects()
-            filename = self.get_filename_no_type_prefix()
+            # filename = self.get_filename_no_type_prefix()
             for fl in files:
                 if fl.get_type() == 'web':
-                    if filename in fl.get_filename():
-                        return fl
+                    # if filename in fl.get_filename():
+                    return fl
         else:
             return self
 
@@ -1822,11 +1822,11 @@ class File(SObject, object):
         # return icon file object related to this file
         if self.info['type'] != 'icon':
             files = self.__snapshot.get_files_objects()
-            filename = self.get_filename_no_type_prefix()
+            # filename = self.get_filename_no_type_prefix()
             for fl in files:
                 if fl.get_type() == 'icon':
-                    if filename in fl.get_filename():
-                        return fl
+                    # if filename in fl.get_filename():
+                    return fl
         else:
             return self
 

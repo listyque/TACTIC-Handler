@@ -529,6 +529,8 @@ class Ui_projectsChooserWidget(QtGui.QWidget):
     def __init__(self, parent=None):
         super(self.__class__, self).__init__(parent=parent)
 
+        self.bg_widget = None
+
         self.create_ui()
 
     def create_ui(self):
@@ -563,6 +565,11 @@ class Ui_projectsChooserWidget(QtGui.QWidget):
     def controls_actions(self):
         pass
 
+    def set_bg_widget(self, widget):
+        # This is workaround to get window drop shadow effect working in qt5+
+        self.bg_widget = widget
+        self.bg_widget.lower()
+
     def initial_fill(self):
 
         self.tree_widget.clear()
@@ -594,6 +601,29 @@ class Ui_projectsChooserWidget(QtGui.QWidget):
             )
 
         self.tree_widget.resizeColumnToContents(0)
+
+    def resizeEvent(self, event):
+        if self.bg_widget:
+            self.bg_widget.resize(self.size())
+
+        event.accept()
+
+    def moveEvent(self, event):
+        if self.bg_widget:
+            self.bg_widget.move(self.pos())
+
+        event.accept()
+
+    def hideEvent(self, event):
+        if self.bg_widget:
+            self.bg_widget.hide()
+        event.accept()
+
+    def showEvent(self, event):
+        if self.bg_widget:
+            self.bg_widget.show()
+
+        event.accept()
 
 
 class Ui_Main(QtGui.QMainWindow):
@@ -736,14 +766,17 @@ class Ui_Main(QtGui.QMainWindow):
 
     def create_projects_chooser(self):
 
-        self.projects_chooser_widget = Ui_projectsChooserWidget()
-
+        self.projects_chooser_widget_bg = QtGui.QFrame(self)
+        self.projects_chooser_widget_bg.setStyleSheet("QFrame { border: 0px; background-color: black;}")
+        self.projects_chooser_widget_bg.setHidden(True)
         effect = QtGui.QGraphicsDropShadowEffect(self)
         effect.setOffset(0, 0)
         effect.setColor(Qt4Gui.QColor(0, 0, 0, 128))
         effect.setBlurRadius(64)
+        self.projects_chooser_widget_bg.setGraphicsEffect(effect)
 
-        self.projects_chooser_widget.setGraphicsEffect(effect)
+        self.projects_chooser_widget = Ui_projectsChooserWidget(self)
+        self.projects_chooser_widget.set_bg_widget(self.projects_chooser_widget_bg)
 
         self.projects_chooser_widget.setMinimumWidth(800)
         self.projects_chooser_widget.setMaximumWidth(800)
@@ -786,7 +819,7 @@ class Ui_Main(QtGui.QMainWindow):
 
             self.projects_chooser_widget.setHidden(False)
 
-    def create_project_dock(self, project_code):
+    def create_project_dock(self, project_code, dummy=None):
 
         if project_code not in self.projects_docks.keys():
 

@@ -2902,6 +2902,7 @@ class Ui_searchResultsWidget(QtGui.QWidget):
             elif item_widget.type == 'sobject':
 
                 snapshots = item_widget.get_all_snapshots()
+
                 if snapshots:
                     ready_snapshots = None
                     self.resultsVersionsTreeWidget.clear()
@@ -2916,27 +2917,36 @@ class Ui_searchResultsWidget(QtGui.QWidget):
                         if process:
                             ready_snapshots = item_widget.get_snapshots(process)
 
-                    gf.add_versions_snapshot_item(
-                        self.resultsVersionsTreeWidget,
-                        self,
-                        item_widget.sobject,
-                        item_widget.stype,
-                        item_widget.get_current_process_pipeline(),
-                        ready_snapshots,
-                        item_widget.info,
-                    )
+                    if ready_snapshots:
+                        gf.add_versions_snapshot_item(
+                            self.resultsVersionsTreeWidget,
+                            self,
+                            item_widget.sobject,
+                            item_widget.stype,
+                            item_widget.get_current_process_pipeline(),
+                            ready_snapshots,
+                            item_widget.info,
+                        )
                 else:
                     self.resultsVersionsTreeWidget.clear()
 
             elif item_widget.type == 'process':
                 snapshots = item_widget.get_snapshots()
+
+                versions = False
+                if not snapshots:
+                    versions = True
+                    snapshots = item_widget.get_snapshots(versionless=False)
+
                 if snapshots:
                     self.resultsVersionsTreeWidget.clear()
-
-                    ready_snapshots = collections.OrderedDict()
-                    for snapshot in snapshots:
-                        if snapshot:
-                            ready_snapshots[snapshot.keys()[0]] = snapshot.values()[0]
+                    if versions:
+                        ready_snapshots = snapshots[0]
+                    else:
+                        ready_snapshots = collections.OrderedDict()
+                        for snapshot in snapshots:
+                            if snapshot:
+                                ready_snapshots[snapshot.keys()[0]] = snapshot.values()[0]
 
                     gf.add_versions_snapshot_item(
                         self.resultsVersionsTreeWidget,
@@ -2971,6 +2981,7 @@ class Ui_searchResultsWidget(QtGui.QWidget):
         self.clear_versions_tree_widget()
 
     def browse_snapshot(self, item):
+
         checkin_out_widget = self.get_current_checkin_out_widget()
         snapshot_browser = checkin_out_widget.get_snapshot_browser()
 
