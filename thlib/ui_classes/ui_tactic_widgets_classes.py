@@ -271,12 +271,14 @@ class QtTacticEditWidget(QtGui.QWidget):
         self.main_layout.addWidget(self.scroll_area, 0, 0, 1, 0)
 
     def set_settings_from_dict(self, settings_dict=None):
-        if not settings_dict:
-            settings_dict = {
-                'build_directory_checkbox': False,
-            }
 
-        self.build_directory_checkbox.setChecked(settings_dict.get('build_directory_checkbox'))
+        ref_settings_dict = {
+            'build_directory_checkbox': False,
+        }
+
+        settings = gf.check_config(ref_settings_dict, settings_dict)
+
+        self.build_directory_checkbox.setChecked(settings['build_directory_checkbox'])
 
     def get_settings_dict(self):
         settings_dict = {

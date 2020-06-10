@@ -1023,8 +1023,6 @@ class Ui_snapshotBrowserWidget(QtGui.QWidget):
         # Refer to paint event to see where refreshing is
         self.shown = True
 
-        # !!! i think this whole thing should be rewritten !!!
-
         if self.item_widget.type == 'snapshot':
             is_versionless = self.item_widget.is_versionless()
             if is_versionless:
@@ -1046,33 +1044,23 @@ class Ui_snapshotBrowserWidget(QtGui.QWidget):
             else:
                 self.clear()
         elif self.item_widget.type == 'sobject':
+
             # checking if we have any snapshots, we can show it in snapshot browser
             # versionless here have priority
-            # self.snapshots = None
-            snapshots = self.item_widget.get_all_snapshots()
-
             # getting any possible snapshot for Item widget
-            # snapshots = current_tree_widget_item.get_all_snapshots()
+            snapshots = self.item_widget.get_all_snapshots()
             self.snapshots = None
+
             if snapshots.get('publish'):
                 self.snapshots = self.item_widget.get_snapshots('publish')
             elif snapshots.get('icon'):
                 self.snapshots = self.item_widget.get_snapshots('icon')
             else:
                 processes = self.item_widget.get_all_snapshots()
-                process = processes.keys()[0]
-                if process:
-                    self.snapshots = self.item_widget.get_snapshots(process)
-                    # if current_snapshot:
-                    #     current_snapshot = current_snapshot.values()[0]
-
-            # if snapshots:
-            #     # first we try to get 'publish' process
-            #     if snapshots.get('publish'):
-            #         self.snapshots = self.item_widget.get_snapshots('publish')
-            #     # then 'icon' process should do
-            #     elif snapshots.get('icon'):
-            #         self.snapshots = self.item_widget.get_snapshots('icon')
+                if processes:
+                    process = processes.keys()[0]
+                    if process:
+                        self.snapshots = self.item_widget.get_snapshots(process)
 
             if self.snapshots:
                 self.init_snapshot(True)
@@ -1110,7 +1098,6 @@ class Ui_snapshotBrowserWidget(QtGui.QWidget):
     def clear(self):
         self.clear_scene()
 
-        # self.current_pix = 0
         self.pix_list = []
         self.file_list = []
         self.filesTreeWidget.clear()
@@ -1118,21 +1105,21 @@ class Ui_snapshotBrowserWidget(QtGui.QWidget):
         self.previewGraphicsView.resizeEvent = self.resize_event
         self.imagesSlider.setMaximum(0)
         self.imagesSlider.setMinimum(0)
-        # self.clear_scene()
 
     def set_settings_from_dict(self, settings_dict=None):
 
-        if not settings_dict:
-            settings_dict = {
-                'showAllCheckBox': False,
-                'showMoreInfoCheckBox': False,
-                'browserSplitter': None,
-            }
+        ref_settings_dict = {
+            'showAllCheckBox': False,
+            'showMoreInfoCheckBox': False,
+            'browserSplitter': None,
+        }
 
-        self.showAllCheckBox.setChecked(settings_dict['showAllCheckBox'])
-        self.showMoreInfoCheckBox.setChecked(settings_dict['showMoreInfoCheckBox'])
-        if settings_dict.get('browserSplitter'):
-            self.browserSplitter.restoreState(QtCore.QByteArray.fromHex(str(settings_dict.get('browserSplitter'))))
+        settings = gf.check_config(ref_settings_dict, settings_dict)
+
+        self.showAllCheckBox.setChecked(settings['showAllCheckBox'])
+        self.showMoreInfoCheckBox.setChecked(settings['showMoreInfoCheckBox'])
+        if settings['browserSplitter']:
+            self.browserSplitter.restoreState(QtCore.QByteArray.fromHex(str(settings['browserSplitter'])))
 
     def get_settings_dict(self):
         settings_dict = {

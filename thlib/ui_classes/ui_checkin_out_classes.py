@@ -83,12 +83,13 @@ class Ui_checkInOutOptionsWidget(QtGui.QWidget, ui_checkin_out_options_dialog.Ui
 
     def set_settings_from_dict(self, settings_dict=None):
 
-        if not settings_dict:
-            settings_dict = {
-                'settingsPerTabCheckBox': False,
-            }
+        ref_settings_dict = {
+            'settingsPerTabCheckBox': False,
+        }
 
-        self.settingsPerTabCheckBox.setChecked(int(settings_dict.get('settingsPerTabCheckBox')))
+        settings = gf.check_config(ref_settings_dict, settings_dict)
+
+        self.settingsPerTabCheckBox.setChecked(int(settings['settingsPerTabCheckBox']))
 
     def get_settings_dict(self):
 
@@ -628,9 +629,10 @@ class Ui_checkInOutWidget(QtGui.QMainWindow):
                     ready_snapshots = current_tree_widget_item.get_snapshot('publish')
                 else:
                     processes = current_tree_widget_item.get_all_snapshots()
-                    process = processes.keys()[0]
-                    if process:
-                        ready_snapshots = current_tree_widget_item.get_snapshots(process)
+                    if processes:
+                        process = processes.keys()[0]
+                        if process:
+                            ready_snapshots = current_tree_widget_item.get_snapshots(process)
 
                 if ready_snapshots:
 

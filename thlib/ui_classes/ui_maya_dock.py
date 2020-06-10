@@ -98,23 +98,24 @@ class Ui_DockMain(MayaQWidgetDockableMixin, QtGui.QMainWindow):
 
     def set_settings_from_dict(self, settings_dict=None):
 
-        if not settings_dict:
-            settings_dict = {
-                'docked': 0,
-                'dock_pos': (200, 200),
-                'dock_size': (427, 690),
-                'dock_isFloating': 0,
-                'dock_tabArea': 1,
-            }
+        ref_settings_dict = {
+            'docked': 0,
+            'dock_pos': (200, 200),
+            'dock_size': (427, 690),
+            'dock_isFloating': 0,
+            'dock_tabArea': 1,
+        }
 
-        self.docked = bool(int(settings_dict['docked']))
+        settings = gf.check_config(ref_settings_dict, settings_dict)
 
-        self.dock_pos = gf.tuple_to_qsize(settings_dict['dock_pos'], 'pos')
-        self.dock_size = gf.tuple_to_qsize(settings_dict['dock_size'], 'size')
+        self.docked = bool(int(settings['docked']))
 
-        self.dock_is_floating = bool(int(settings_dict['dock_isFloating']))
+        self.dock_pos = gf.tuple_to_qsize(settings['dock_pos'], 'pos')
+        self.dock_size = gf.tuple_to_qsize(settings['dock_size'], 'size')
 
-        if int(settings_dict['dock_tabArea']) == 2:
+        self.dock_is_floating = bool(int(settings['dock_isFloating']))
+
+        if int(settings['dock_tabArea']) == 2:
             self.dock_area = 'right'
         else:
             self.dock_area = 'left'

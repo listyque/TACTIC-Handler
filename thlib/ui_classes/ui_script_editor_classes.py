@@ -531,30 +531,31 @@ class Ui_ScriptEditForm(QtGui.QDialog):
 
     def set_settings_from_dict(self, settings_dict=None):
 
-        if not settings_dict:
-            settings_dict = {
+        ref_settings_dict = {
             'pos': self.pos().toTuple(),
             'size': self.size().toTuple(),
             'windowState': False,
             'main_splitter': None,
             'splitter': None,
             'scripts_tree_widget': None,
-            }
+        }
 
-        self.move(settings_dict['pos'][0], settings_dict['pos'][1])
-        self.resize(settings_dict['size'][0], settings_dict['size'][1])
+        settings = gf.check_config(ref_settings_dict, settings_dict)
 
-        if settings_dict['windowState']:
+        self.move(settings['pos'][0], settings['pos'][1])
+        self.resize(settings['size'][0], settings['size'][1])
+
+        if settings['windowState']:
             self.setWindowState(QtCore.Qt.WindowMaximized)
 
-        if settings_dict.get('main_splitter'):
-            self.main_splitter.restoreState(QtCore.QByteArray.fromHex(str(settings_dict.get('main_splitter'))))
+        if settings['main_splitter']:
+            self.main_splitter.restoreState(QtCore.QByteArray.fromHex(str(settings['main_splitter'])))
 
-        if settings_dict.get('splitter'):
-            self.splitter.restoreState(QtCore.QByteArray.fromHex(str(settings_dict.get('splitter'))))
+        if settings['splitter']:
+            self.splitter.restoreState(QtCore.QByteArray.fromHex(str(settings['splitter'])))
 
-        if settings_dict.get('scripts_tree_widget'):
-            self.revert_scripts_tree_state(settings_dict.get('scripts_tree_widget'))
+        if settings['scripts_tree_widget']:
+            self.revert_scripts_tree_state(settings['scripts_tree_widget'])
 
     def get_settings_dict(self):
         settings_dict = {

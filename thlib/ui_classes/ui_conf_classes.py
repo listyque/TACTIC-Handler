@@ -1248,24 +1248,25 @@ class Ui_configuration_dialogWidget(QtGui.QDialog):
 
     def set_settings_from_dict(self, settings_dict=None):
 
-        if not settings_dict:
-            settings_dict = {
-                'configToolBox': 0,
-                'windowState': False,
-                'pos': [150, 150],
-                'size': [600, 540],
-            }
+        ref_settings_dict = {
+            'configToolBox': 0,
+            'windowState': False,
+            'pos': [150, 150],
+            'size': [600, 540],
+        }
+
+        settings = gf.check_config(ref_settings_dict, settings_dict)
 
         if env_mode.is_offline():
             self.main_widget.configToolBox.setCurrentIndex(0)
         else:
-            self.main_widget.configToolBox.setCurrentIndex(int(settings_dict['configToolBox']))
+            self.main_widget.configToolBox.setCurrentIndex(int(settings['configToolBox']))
 
-        if settings_dict['windowState']:
+        if settings['windowState']:
             self.setWindowState(QtCore.Qt.WindowMaximized)
         else:
-            self.move(settings_dict['pos'][0], settings_dict['pos'][1])
-            self.resize(settings_dict['size'][0], settings_dict['size'][1])
+            self.move(settings['pos'][0], settings['pos'][1])
+            self.resize(settings['size'][0], settings['size'][1])
 
     def get_settings_dict(self):
         settings_dict = {

@@ -773,16 +773,16 @@ class Ui_searchWidget(QtGui.QWidget):
         # self.items_view_action.setIcon(gf.get_icon('view-list', icons_set='mdi', scale_factor=1))
         # self.items_view_action.triggered.connect(self.clear_tabs_history)
 
-        self.split_view_horizontal_action = QtGui.QAction('Splitted Horizontal View', self.change_view_tab_button, checkable=True)
+        self.split_view_horizontal_action = QtGui.QAction('Splitted Horizontal View', self.change_view_tab_button)
         self.split_view_horizontal_action.setIcon(gf.get_icon('view-sequential', icons_set='mdi', scale_factor=1))
         self.split_view_horizontal_action.triggered.connect(lambda: self.toggle_current_view('splitted_horizontal'))
 
-        self.split_view_vertical_action = QtGui.QAction('Splitted Vertical View', self.change_view_tab_button, checkable=True)
+        self.split_view_vertical_action = QtGui.QAction('Splitted Vertical View', self.change_view_tab_button)
         self.split_view_vertical_action.setIcon(gf.get_icon('view-parallel', icons_set='mdi', scale_factor=1))
         self.split_view_vertical_action.triggered.connect(lambda: self.toggle_current_view('splitted_vertical'))
-        self.split_view_vertical_action.setChecked(True)
+        # self.split_view_vertical_action.setChecked(True)
 
-        self.continious_view_action = QtGui.QAction('Continious View', self.change_view_tab_button, checkable=True)
+        self.continious_view_action = QtGui.QAction('Continious View', self.change_view_tab_button)
         self.continious_view_action.setIcon(gf.get_icon('view-dashboard-variant', icons_set='mdi', scale_factor=1))
         self.continious_view_action.triggered.connect(lambda: self.toggle_current_view('continious'))
 
@@ -791,16 +791,16 @@ class Ui_searchWidget(QtGui.QWidget):
         # self.items_view_action.addAction(self.continious_view_action)
         # print self.get_current_results_widget()
 
-        self.tiles_view_action = QtGui.QAction('Tiles View', self.change_view_tab_button, checkable=True)
+        self.tiles_view_action = QtGui.QAction('Tiles View', self.change_view_tab_button)
         self.tiles_view_action.setIcon(gf.get_icon('view-grid', icons_set='mdi', scale_factor=1))
         self.tiles_view_action.triggered.connect(lambda: self.toggle_current_view('tiles'))
 
         # self.change_view_tab_button.addAction(self.items_view_action.menuAction())
-        self.change_view_actions_group = QtGui.QActionGroup(self)
-        self.change_view_actions_group.addAction(self.split_view_horizontal_action)
-        self.change_view_actions_group.addAction(self.split_view_vertical_action)
-        self.change_view_actions_group.addAction(self.continious_view_action)
-        self.change_view_actions_group.addAction(self.tiles_view_action)
+        # self.change_view_actions_group = QtGui.QActionGroup(self)
+        # self.change_view_actions_group.addAction(self.split_view_horizontal_action)
+        # self.change_view_actions_group.addAction(self.split_view_vertical_action)
+        # self.change_view_actions_group.addAction(self.continious_view_action)
+        # self.change_view_actions_group.addAction(self.tiles_view_action)
 
         self.change_view_tab_button.addAction(self.split_view_horizontal_action)
         self.change_view_tab_button.addAction(self.split_view_vertical_action)
@@ -896,7 +896,7 @@ class Ui_searchWidget(QtGui.QWidget):
         self.add_tab('test_groups', [('name', 'EQI', 'fgsfds')])
 
     @gf.catch_error
-    def add_tab(self, search_title='', filters=[], state=None, offset=0, limit=None, reverting=False, items_count=0, search_line_text='', current_index=0, view='splitted_vertical'):
+    def add_tab(self, search_title='', filters=[], state=None, offset=0, limit=None, reverting=False, items_count=0, search_line_text='', current_index=0, view=None, splitter_state=None):
 
         if not limit:
             limit = self.get_display_limit()
@@ -918,7 +918,8 @@ class Ui_searchWidget(QtGui.QWidget):
             'current_index': current_index,
             'group_by': self.group_by_columns,
             'sort_by': self.sort_by,
-            'view': view
+            'view': view,
+            'splitter_state': splitter_state,
         }
 
         search_results_widget = Ui_searchResultsWidget(
@@ -1147,7 +1148,6 @@ class Ui_searchWidget(QtGui.QWidget):
         self.buttons_layout.setContentsMargins(0, 0, 0, 0)
 
         self.collapsable_toolbar.setLayout(self.buttons_layout)
-        self.collapsable_toolbar.setCollapsed(True)
 
         self.expandingLayout.addWidget(self.collapsable_toolbar)
 
@@ -1175,7 +1175,9 @@ class Ui_searchWidget(QtGui.QWidget):
                     items_count=cache['items_count'],
                     search_line_text=cache['search_line_text'],
                     current_index=cache['current_index'],
-                    reverting=True
+                    reverting=True,
+                    view=cache['view'],
+                    splitter_state=cache['splitter_state'],
                 )
 
             if not tab_added:
@@ -1200,21 +1202,27 @@ class Ui_searchWidget(QtGui.QWidget):
         return gf.html_to_hex(gf.to_json(tab_info_list, use_ast=True))
 
     def set_settings_from_dict(self, settings_dict=None):
+        ref_settings_dict = {
+            'collapsable_toolbar': False,
+            'main_collapsable_toolbar': False,
+            'additional_collapsable_toolbar': True,
+            'search_cache': None,
+            'results_tab_widget_current_index': 0,
+        }
 
-        if not settings_dict:
-            settings_dict = {
-                'collapsable_toolbar': True,
-                'search_cache': None,
-                'results_tab_widget_current_index': 0,
-            }
+        settings = gf.check_config(ref_settings_dict, settings_dict)
 
-        self.collapsable_toolbar.setCollapsed(settings_dict['collapsable_toolbar'])
-        self.set_search_cache(settings_dict.get('search_cache'), settings_dict.get('results_tab_widget_current_index'))
+        self.collapsable_toolbar.setCollapsed(settings['collapsable_toolbar'])
+        self.main_collapsable_toolbar.setCollapsed(settings['main_collapsable_toolbar'])
+        self.additional_collapsable_toolbar.setCollapsed(settings['additional_collapsable_toolbar'])
+        self.set_search_cache(settings['search_cache'], settings['results_tab_widget_current_index'])
 
     def get_settings_dict(self):
 
         settings_dict = {
             'collapsable_toolbar': int(self.collapsable_toolbar.isCollapsed()),
+            'main_collapsable_toolbar': int(self.main_collapsable_toolbar.isCollapsed()),
+            'additional_collapsable_toolbar': int(self.additional_collapsable_toolbar.isCollapsed()),
             'search_cache': self.get_search_cache(),
             'results_tab_widget_current_index': self.results_tab_widget.currentIndex(),
         }
@@ -1845,18 +1853,17 @@ class Ui_advancedSearchWidget(QtGui.QWidget):
 
     def set_settings_from_dict(self, settings_dict=None):
 
-        if not settings_dict:
-            settings_dict = {
-                'filters_collapsable_state': True,
-                'search_options_collaspable_state': True,
-                'visible': False
-            }
+        ref_settings_dict = {
+            'filters_collapsable_state': True,
+            'search_options_collaspable_state': True,
+            'visible': False
+        }
 
-        self.setVisible(settings_dict.get('visible'))
-        if settings_dict.get('filters_collapsable_state'):
-            self.filters_collapsable.setCollapseState(True)
-        if settings_dict.get('search_options_collaspable_state'):
-            self.search_options_collapsable.setCollapseState(True)
+        settings = gf.check_config(ref_settings_dict, settings_dict)
+
+        self.setVisible(settings['visible'])
+        self.filters_collapsable.setCollapseState(settings['filters_collapsable_state'])
+        self.search_options_collapsable.setCollapseState(settings['search_options_collaspable_state'])
 
     def get_settings_dict(self):
 
@@ -2217,7 +2224,6 @@ class Ui_searchResultsWidget(QtGui.QWidget):
 
     def create_simple_view_ui(self):
 
-        self.sep_versions = False
         self.resultsTreeWidget.setRootIsDecorated(False)
 
         self.create_progress_bar()
@@ -2233,16 +2239,15 @@ class Ui_searchResultsWidget(QtGui.QWidget):
 
     def create_ui(self):
 
-        # self.create_separate_versions_tree()
-
-        self.sep_versions = gf.get_value_from_config(self.checkin_out_config, 'versionsSeparateCheckinCheckBox')
-        if self.sep_versions:
-            self.sep_versions = bool(int(self.sep_versions))
-
         self.create_progress_bar()
         self.create_bottom_navigation_widget()
 
-        self.set_results_view(self.info.get('view'), False)
+        if self.info.get('view'):
+            self.set_results_view(self.info.get('view'), True)
+        else:
+            self.set_initial_view()
+
+        self.set_current_splitter_state(self.info.get('splitter_state'))
 
         self.customize_ui()
 
@@ -2346,10 +2351,22 @@ class Ui_searchResultsWidget(QtGui.QWidget):
                 offset=offset,
             )
 
-    def set_results_view(self, view='splitted_vertical', refresh=True):
+    def set_initial_view(self):
+        self.sep_versions = gf.get_value_from_config(self.checkin_out_config, 'versionsSeparateCheckinCheckBox')
+        if self.sep_versions:
+            self.sep_versions = bool(int(self.sep_versions))
 
-        print 'toggling', view
-        self.set_cuttent_view(view)
+        if self.sep_versions:
+            if gf.get_value_from_config(self.checkin_out_config, 'bottomVersionsRadioButton'):
+                self.set_results_view(view='splitted_horizontal', refresh=True)
+            else:
+                self.set_results_view(view='splitted_vertical', refresh=True)
+        else:
+            self.set_results_view(view='continious', refresh=True)
+
+    def set_results_view(self, view=None, refresh=True):
+
+        self.set_current_view(view)
 
         if view == 'continious':
             self.results_tiles_view.setHidden(True)
@@ -2371,6 +2388,7 @@ class Ui_searchResultsWidget(QtGui.QWidget):
         elif view == 'tiles':
             self.items_view_splitter.setHidden(True)
             self.results_tiles_view.setHidden(False)
+            self.sep_versions = False
 
         if refresh:
             self.update_search_results(refresh=True)
@@ -2389,7 +2407,7 @@ class Ui_searchResultsWidget(QtGui.QWidget):
     def update_search_results(self, limit=None, offset=None,  refresh=False):
 
         # collecting new filters, limit, offset, etc...
-        # self.get_info_dict()
+        self.get_info_dict()
 
         if limit is None:
             limit = self.get_limit()
@@ -2431,7 +2449,8 @@ class Ui_searchResultsWidget(QtGui.QWidget):
         self.info['search_line_text'] = self.get_search_line_text()
         self.info['current_index'] = self.get_current_index()
 
-        self.info['view'] = self.get_cuttent_view()
+        self.info['view'] = self.get_current_view()
+        self.info['splitter_state'] = self.get_current_splitter_state()
 
         return self.info
 
@@ -2483,10 +2502,16 @@ class Ui_searchResultsWidget(QtGui.QWidget):
     def set_search_line_text(self, text):
         self.info['search_line_text'] = text
 
-    def get_cuttent_view(self):
+    def get_current_splitter_state(self):
+        return str(self.items_view_splitter.saveState().toHex())
+
+    def set_current_splitter_state(self, splitter_state):
+        self.items_view_splitter.restoreState(QtCore.QByteArray.fromHex(splitter_state))
+
+    def get_current_view(self):
         return self.info.get('view')
 
-    def set_cuttent_view(self, view):
+    def set_current_view(self, view):
         self.info['view'] = view
 
     def get_search_line_text(self):
@@ -2503,7 +2528,6 @@ class Ui_searchResultsWidget(QtGui.QWidget):
         current_idx = results_tab_widget.indexOf(self)
         if self.get_items_count():
             tab_title = u'{0} <b><span style=" font-size:7pt; color:#999999;">| {1}</span></b>'.format(title, self.get_items_count())
-            #     <span style=" font-size:8pt; color:#00ff00;">Getting Search Types</span>
         else:
             tab_title = title
 
@@ -2512,8 +2536,6 @@ class Ui_searchResultsWidget(QtGui.QWidget):
         tab_label = gf.create_tab_label(tab_title)
         tab_label.setParent(self)
         results_tab_widget.tabBar().setTabButton(current_idx, QtGui.QTabBar.RightSide, tab_label)
-
-        # results_tab_widget.setTabText(current_idx, tab_title)
 
     def get_filters(self):
         return self.info['filters']
@@ -2553,8 +2575,6 @@ class Ui_searchResultsWidget(QtGui.QWidget):
 
     def customize_ui(self):
 
-        # self.resultsTreeWidget.setSelectionMode(QtGui.QAbstractItemView.ExtendedSelection)
-
         self.resultsTreeWidget.setAlternatingRowColors(True)
         self.resultsTreeWidget.setStyleSheet(gf.get_qtreeview_style(True))
         self.resultsTreeWidget.setFocusPolicy(QtCore.Qt.NoFocus)
@@ -2571,6 +2591,7 @@ class Ui_searchResultsWidget(QtGui.QWidget):
 
     def selection_changed(self):
         if self.resultsTreeWidget.selectedItems():
+
             current_index = self.resultsTreeWidget.currentIndex()
 
             if current_index.row() == -1:
@@ -2658,16 +2679,14 @@ class Ui_searchResultsWidget(QtGui.QWidget):
         self.query_info = result[1]
 
         gf.recursive_close_tree_item_widgets(self.resultsTreeWidget)
+
         self.resultsTreeWidget.clear()
-        # self.resultsVersionsTreeWidget.clear()
-        # self.resultsTreeWidget.setUniformRowHeights(True)
+        self.resultsVersionsTreeWidget.clear()
+
         self.progress_bar.setVisible(True)
         total_sobjects = len(self.sobjects.keys()) - 1
 
-        # s = gf.time_it()
-
-        # tree_items_list = []
-        # tree_widgets_list = []
+        # Need to rewrite this for performance reasons
         for i, sobject in enumerate(self.sobjects.values()):
             last_state = None
             if self.info['state']:
@@ -2687,9 +2706,6 @@ class Ui_searchResultsWidget(QtGui.QWidget):
                 item_info,
                 ignore_dict=None,
             )
-
-            # tree_items_list.append(tree_widget.tree_item)
-            # tree_widgets_list.append(tree_widget)
             if total_sobjects:
                 if i+1 % 20 == 0:
                     self.progress_bar.setValue(int(i+1 * 100 / total_sobjects))
@@ -2913,9 +2929,10 @@ class Ui_searchResultsWidget(QtGui.QWidget):
                         ready_snapshots = item_widget.get_snapshots('icon')
                     else:
                         processes = item_widget.get_all_snapshots()
-                        process = processes.keys()[0]
-                        if process:
-                            ready_snapshots = item_widget.get_snapshots(process)
+                        if processes:
+                            process = processes.keys()[0]
+                            if process:
+                                ready_snapshots = item_widget.get_snapshots(process)
 
                     if ready_snapshots:
                         gf.add_versions_snapshot_item(
@@ -2989,7 +3006,6 @@ class Ui_searchResultsWidget(QtGui.QWidget):
         if modifiers == QtCore.Qt.AltModifier:
             checkin_out_widget.bring_snapshot_browser_dock_up()
 
-        # if not snapshot_browser.visibleRegion().isEmpty():
         snapshot_browser.set_item_widget(item)
 
     def browse_tasks(self, items_list):
@@ -3044,20 +3060,6 @@ class Ui_searchResultsWidget(QtGui.QWidget):
 
     def get_is_separate_versions(self):
         return self.sep_versions
-
-    # def create_separate_versions_tree(self):
-    #
-    #     self.sep_versions = gf.get_value_from_config(self.checkin_out_config, 'versionsSeparateCheckinCheckBox')
-    #     if self.sep_versions:
-    #         self.sep_versions = bool(int(self.sep_versions))
-    #
-    #     if not self.sep_versions:
-    #         self.resultsVersionsTreeWidget.setHidden(True)
-    #     else:
-    #         if gf.get_value_from_config(self.checkin_out_config, 'bottomVersionsRadioButton'):
-    #             self.items_view_splitter.setOrientation(QtCore.Qt.Vertical)
-    #         else:
-    #             self.items_view_splitter.setOrientation(QtCore.Qt.Horizontal)
 
     def create_progress_bar(self):
         self.progress_bar = QtGui.QProgressBar()

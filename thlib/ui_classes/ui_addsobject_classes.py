@@ -660,17 +660,19 @@ class Ui_addTacticSobjectWidget(QtGui.QDialog):
 
     def set_settings_from_dict(self, settings_dict=None):
 
-        if not settings_dict:
-            settings_dict = {
-                'geometry': None,
-                'edit_widndow_settings_dict': self.edit_window.get_settings_dict(),
-            }
-        geo = settings_dict['geometry']
+        ref_settings_dict = {
+            'geometry': None,
+            'edit_widndow_settings_dict': self.edit_window.get_settings_dict(),
+        }
+
+        settings = gf.check_config(ref_settings_dict, settings_dict)
+
+        geo = settings['geometry']
         if geo:
             self.setGeometry(QtCore.QRect(geo[0], geo[1], geo[2], geo[3]))
         else:
             self.resize(600, 500)
-        self.edit_window.set_settings_from_dict(settings_dict['edit_widndow_settings_dict'])
+        self.edit_window.set_settings_from_dict(settings['edit_widndow_settings_dict'])
 
     def get_settings_dict(self):
 

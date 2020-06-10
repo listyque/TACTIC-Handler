@@ -767,11 +767,11 @@ def minify_code(source):
     )
 
 
-def time_it(start_time=None, message='Code flow running time: '):
+def time_it(start_time=None, message='Code flow running time:'):
     if start_time:
         end_time = time.time()
 
-        print('{0}{1}'.format(message, end_time - start_time))
+        print('{0} {1}'.format(message, end_time - start_time))
     else:
         return time.time()
 
@@ -1985,6 +1985,22 @@ def tuple_to_qsize(qtuple, qtype='size'):
         return QtCore.QPoint(qtuple[0], qtuple[1])
     elif qtype == 'rect':
         return QtCore.QRect(qtuple[0], qtuple[1], qtuple[2], qtuple[3])
+
+
+def check_config(ref_config_dict, config_dict):
+
+    if config_dict:
+        # First simple check
+        if len(ref_config_dict.keys()) != len(config_dict.keys()):
+            return ref_config_dict
+        else:
+            # Check per items
+            if set(config_dict.keys()) == set(ref_config_dict.keys()):
+                return config_dict
+            else:
+                return ref_config_dict
+    else:
+        return ref_config_dict
 
 
 def socket_push(obj):

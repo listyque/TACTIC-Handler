@@ -488,12 +488,13 @@ class Ui_projectWatchFoldersWidget(QtGui.QDialog, Ui_ProjectWatchFolder):
 
     def set_settings_from_dict(self, settings_dict=None):
 
-        if not settings_dict:
-            settings_dict = {
-                'watch_folders_dict': self.watch_folders_dict,
-            }
+        ref_settings_dict = {
+            'watch_folders_dict': self.watch_folders_dict,
+        }
 
-        self.watch_folders_dict = settings_dict['watch_folders_dict']
+        settings = gf.check_config(ref_settings_dict, settings_dict)
+
+        self.watch_folders_dict = settings['watch_folders_dict']
 
     def get_settings_dict(self):
         settings_dict = {

@@ -590,16 +590,17 @@ class Ui_ingestDialog(QtGui.QDialog):
         return settings_dict
 
     def set_settings_from_dict(self, settings_dict=None):
-        if not settings_dict:
-            settings_dict = {
-                'presets_combo_box': 0,
-            }
+        ref_settings_dict = {
+            'presets_combo_box': 0,
+        }
+
+        settings = gf.check_config(ref_settings_dict, settings_dict)
 
         initial_index = self.presets_combo_box.currentIndex()
 
-        self.presets_combo_box.setCurrentIndex(int(settings_dict.get('presets_combo_box')))
+        self.presets_combo_box.setCurrentIndex(int(settings['presets_combo_box']))
 
-        if initial_index == int(settings_dict.get('presets_combo_box')):
+        if initial_index == int(settings['presets_combo_box']):
             self.apply_repo_sync_preset(initial_index)
 
     def readSettings(self):

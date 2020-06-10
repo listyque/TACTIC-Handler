@@ -3,7 +3,6 @@
 # Main Window interface
 
 import collections
-from functools import partial
 from thlib.side.Qt import QtWidgets as QtGui
 from thlib.side.Qt import QtGui as Qt4Gui
 from thlib.side.Qt import QtCore
@@ -12,7 +11,7 @@ from thlib.environment import env_mode, env_inst, dl, env_write_config, env_read
 import thlib.tactic_classes as tc
 import thlib.update_functions as uf
 import thlib.global_functions as gf
-import thlib.ui.ui_main as ui_main
+# import thlib.ui.ui_main as ui_main
 from thlib.ui_classes.ui_script_editor_classes import Ui_ScriptEditForm
 from thlib.ui_classes.ui_update_classes import Ui_updateDialog
 import thlib.ui.misc.ui_create_update as ui_create_update
@@ -26,7 +25,7 @@ if env_mode.get_mode() == 'maya':
     reload(mf)
 
 
-reload(ui_main)
+# reload(ui_main)
 reload(ui_create_update)
 reload(ui_checkin_out_tabs_classes)
 reload(ui_conf_classes)
@@ -1098,58 +1097,14 @@ class Ui_Main(QtGui.QMainWindow):
         return self
 
     def apply_current_view(self):
-        # TODO may be need to be rewriten to use env instance
+
         if env_inst.get_current_project():
-            current_project_widget = self.projects_docks[env_inst.get_current_project()].widget()
+            current_project_widget = self.projects_docks[env_inst.get_current_project()]
 
             current_project_widget.ui_checkin_checkout.apply_current_view_to_all()
 
-            # widget_name = current_project_widget.main_tabWidget.currentWidget().objectName()
-
-            # if widget_name == 'checkInOutTab':
-            #     current_project_widget.ui_checkin_checkout.apply_current_view_to_all()
-            #
-            # if widget_name == 'checkOutTab':
-            #     current_project_widget.ui_checkout.apply_current_view_to_all()
-            #
-            # if widget_name == 'checkInTab':
-            #     current_project_widget.ui_checkin.apply_current_view_to_all()
-
     def fill_projects_to_projects_chooser(self):
         self.projects_chooser_widget.initial_fill()
-
-    # def fill_projects_to_menu(self):
-    #
-    #     all_projects_dicts = []
-    #
-    #     for project_name, project in env_inst.projects.items():
-    #         if project.get_code() != 'sthpw':
-    #             all_projects_dicts.append(project.info)
-    #
-    #     projects_by_categories = gf.group_dict_by(all_projects_dicts, 'category')
-    #
-    #     for cat_name, projects in projects_by_categories.items():
-    #         if cat_name:
-    #             cat_name = gf.prettify_text(cat_name, True)
-    #         else:
-    #             cat_name = 'No Category'
-    #         if cat_name != 'Template':
-    #             category = self.top_bar_widget.menuProject.addMenu(cat_name)
-    #
-    #         for e, project in enumerate(projects):
-    #             if not project.get('is_template'):
-    #                 project_code = project.get('code')
-    #
-    #                 menu_action = QtGui.QAction(self)
-    #                 # menu_action.setCheckable(True)
-    #
-    #                 if self.opened_projects:
-    #                     if project_code in self.opened_projects:
-    #                         menu_action.setChecked(True)
-    #                 menu_action.setText(project.get('title'))
-    #                 # Don't know why lambda did not work here
-    #                 menu_action.triggered.connect(partial(self.create_project_dock, project_code))
-    #                 category.addAction(menu_action)
 
     def restore_opened_projects(self):
         if self.ui_settings_dict:
@@ -1161,9 +1116,6 @@ class Ui_Main(QtGui.QMainWindow):
                 self.opened_projects = [self.opened_projects]
 
         if self.opened_projects:
-            # for project in self.opened_projects:
-            #     if project:
-            #         self.create_project_dock(project)
 
             current_project_code = self.ui_settings_dict.get('current_active_project')
             self.create_project_dock(current_project_code)
@@ -1206,19 +1158,20 @@ class Ui_Main(QtGui.QMainWindow):
 
     def set_settings_from_dict(self, settings_dict=None):
 
-        if not settings_dict:
-            settings_dict = {
-                'pos': self.pos().toTuple(),
-                'size': self.size().toTuple(),
-                'windowState': False,
-                'opened_projects': '',
-                'current_active_project': '',
-            }
+        ref_settings_dict = {
+            'pos': self.pos().toTuple(),
+            'size': self.size().toTuple(),
+            'windowState': False,
+            'opened_projects': '',
+            'current_active_project': '',
+        }
 
-        self.move(settings_dict['pos'][0], settings_dict['pos'][1])
-        self.resize(settings_dict['size'][0], settings_dict['size'][1])
+        settings = gf.check_config(ref_settings_dict, settings_dict)
 
-        if settings_dict['windowState']:
+        self.move(settings['pos'][0], settings['pos'][1])
+        self.resize(settings['size'][0], settings['size'][1])
+
+        if settings['windowState']:
             self.setWindowState(QtCore.Qt.WindowMaximized)
 
     def readSettings(self):
@@ -1234,8 +1187,6 @@ class Ui_Main(QtGui.QMainWindow):
         env_api.close_server(self)
 
         for dock in self.projects_docks.values():
-            # project_code = dock.widget().project.get_code()
-            # dock.widget().close()
             dock.close()
             dock.deleteLater()
             del dock
@@ -1250,7 +1201,6 @@ class Ui_Main(QtGui.QMainWindow):
             self.create_repo_sync_queue_ui()
 
             self.restore_opened_projects()
-            # self.fill_projects_to_menu()
             self.fill_projects_to_projects_chooser()
             env_inst.ui_main.set_info_status_text('')
 
@@ -1272,7 +1222,3 @@ class Ui_Main(QtGui.QMainWindow):
             error_func=gf.error_handle
         )
         projects_items_worker.start()
-
-    # def closeEventExt(self, event):
-    #     self.ext_window.deleteLater()
-    #     event.accept()

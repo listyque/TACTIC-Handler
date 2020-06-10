@@ -451,16 +451,17 @@ class Ui_dropPlateWidget(QtGui.QWidget, ui_drop_plate.Ui_dropPlate):
 
     def set_settings_from_dict(self, settings_dict=None):
 
-        if not settings_dict:
-            settings_dict = {
-                'includeSubfoldersCheckBox': False,
-                'keepFileNameCheckBox': False,
-                'groupCheckinCheckBox': False,
-            }
+        ref_settings_dict = {
+            'includeSubfoldersCheckBox': False,
+            'keepFileNameCheckBox': False,
+            'groupCheckinCheckBox': False,
+        }
 
-        self.includeSubfoldersCheckBox.setChecked(settings_dict['includeSubfoldersCheckBox'])
-        self.keepFileNameCheckBox.setChecked(settings_dict['keepFileNameCheckBox'])
-        self.groupCheckinCheckBox.setChecked(settings_dict['groupCheckinCheckBox'])
+        settings = gf.check_config(ref_settings_dict, settings_dict)
+
+        self.includeSubfoldersCheckBox.setChecked(settings['includeSubfoldersCheckBox'])
+        self.keepFileNameCheckBox.setChecked(settings['keepFileNameCheckBox'])
+        self.groupCheckinCheckBox.setChecked(settings['groupCheckinCheckBox'])
 
     def get_settings_dict(self):
 

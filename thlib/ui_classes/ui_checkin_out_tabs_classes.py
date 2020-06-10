@@ -440,17 +440,13 @@ class Ui_checkInOutTabWidget(QtGui.QWidget):
 
     def set_settings_from_dict(self, settings_dict):
 
-        if not settings_dict:
-            settings_dict = {
-                # 'stypes_tree_visible': 0,
-                'stypes_tab_widget_currentIndex': 0
-            }
+        ref_settings_dict = {
+            'stypes_tab_widget_currentIndex': 0
+        }
 
-        # if bool(int(settings_dict.get('stypes_tree_visible'))):
-        #     self.hamburger_button_click()
+        settings = gf.check_config(ref_settings_dict, settings_dict)
 
-        if settings_dict.get('stypes_tab_widget_currentIndex'):
-            self.current_tab_idx = int(settings_dict['stypes_tab_widget_currentIndex'])
+        self.current_tab_idx = int(settings['stypes_tab_widget_currentIndex'])
 
     def get_settings_dict(self):
         settings_dict = {
