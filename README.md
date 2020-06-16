@@ -2,6 +2,8 @@
 PySide based Southpaw TACTIC client that can help you commit assets to TACTIC
 Can be used with Standalone or with Autodesk Maya 2014-2018+, The Foundry Nuke, Autodesk 3DSmax, Houdini, etc...
 
+![in_action](/screenshots/10.06.2020/in_action.gif)
+
 ## Key Feauters:
 * Qt Based UI
 * Runnable standalone or within any App with Python and PySide, PyQt4+
