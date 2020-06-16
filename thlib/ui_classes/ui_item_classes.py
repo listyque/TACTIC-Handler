@@ -2357,7 +2357,7 @@ class Ui_itemWidget(QtGui.QWidget):
     def show_notes_widget(self):
         project = self.sobject.get_project()
         notes_widget = env_inst.get_check_tree(project.get_code(), 'checkin_out_instanced_widgets', 'notes_dock')
-        notes_widget.add_notes_tab(self.sobject, 'publish')
+        notes_widget.show_notes(self.sobject, 'publish')
 
     def set_drop_indicator_on(self):
         if self.drop_wdg.isHidden():
@@ -3630,7 +3630,7 @@ class Ui_processItemWidget(QtGui.QWidget):
     def show_notes_widget(self):
         project = self.sobject.get_project()
         notes_widget = env_inst.get_check_tree(project.get_code(), 'checkin_out_instanced_widgets', 'notes_dock')
-        notes_widget.add_notes_tab(self.sobject, self.process)
+        notes_widget.show_notes(self.sobject, self.process)
 
     def get_current_tree_widget(self):
         return self.tree_item.treeWidget()

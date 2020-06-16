@@ -14,18 +14,16 @@ from thlib.side.Qt import QtWidgets as QtGui
 from thlib.side.Qt import QtGui as Qt4Gui
 from thlib.side.Qt import QtCore
 
-import thlib.ui.tasks.ui_tasks as ui_tasks
+# import thlib.ui.tasks.ui_tasks as ui_tasks
 from thlib.environment import env_inst, env_write_config, env_read_config
-import ui_richedit_classes as richedit_widget
-import ui_notes_classes as notes_widget
+# import ui_richedit_classes as richedit_widget
 # import ui_item_task_classes as task_item_widget
 import thlib.tactic_classes as tc
 import thlib.global_functions as gf
 from thlib.ui_classes.ui_custom_qwidgets import Ui_horizontalCollapsableWidget
 
-reload(ui_tasks)
-reload(richedit_widget)
-reload(notes_widget)
+# reload(ui_tasks)
+# reload(richedit_widget)
 # reload(task_item_widget)
 
 
@@ -88,8 +86,8 @@ class Ui_coloredComboBox(QtGui.QComboBox):
                                 """)
 
 
-class Ui_simpleTaskWidget(QtGui.QFrame):
-    def __init__(self, process, parent_sobject, tasks_sobjects_list=None, parent_sobjects_list=None, parent=None):
+class Ui_taskWidget(QtGui.QFrame):
+    def __init__(self, process, parent_sobject, tasks_sobjects_list=None, parent_sobjects_list=None, type='simple', parent=None):
         super(self.__class__, self).__init__(parent=parent)
 
         self.process = process
@@ -99,15 +97,12 @@ class Ui_simpleTaskWidget(QtGui.QFrame):
         self.current_task_sobject = None
         self.multiple_mode = False
         self.total_tasks = 0
+        self.type = type
 
         self.task_data_dict = {}
         self.initial_task_data_dict = {}
 
         self.create_ui()
-
-        self.create_filler()
-
-        self.controls_actions()
 
     def controls_actions(self):
         self.statuses_combo_box.currentIndexChanged.connect(self.statuses_combo_box_changed)
@@ -119,13 +114,22 @@ class Ui_simpleTaskWidget(QtGui.QFrame):
     def create_ui(self):
 
         self.setMinimumWidth(160)
-        self.setObjectName('simple_task_widget')
+        self.setObjectName('task_widget')
 
-        self.setStyleSheet('QFrame#simple_task_widget { border-radius: 3px; background-color: rgba(255,255,255,0);}')
+        self.setStyleSheet('QFrame#task_widget { border-radius: 3px; background-color: rgba(255,255,255,0);}')
+        self.setAutoFillBackground(True)
 
         self.create_main_layout()
-        self.setAutoFillBackground(True)
-        self.create_status_color_line()
+
+        if self.type == 'simple':
+            self.create_filler()
+
+            self.controls_actions()
+
+        elif self.type == 'extended':
+            self.create_extended_filler()
+
+            self.controls_actions()
 
     def reset_ui(self):
         self.tasks_sobjects_list = []
@@ -144,7 +148,7 @@ class Ui_simpleTaskWidget(QtGui.QFrame):
         return True
 
     def set_something_changed(self):
-        self.setStyleSheet('QFrame#simple_task_widget { border-radius: 3px; background-color: rgba(255,255,255,24);}')
+        self.setStyleSheet('QFrame#task_widget { border-radius: 3px; background-color: rgba(255,255,255,24);}')
 
         if self.multiple_mode:
             self.show_save_multiple_button()
@@ -152,7 +156,7 @@ class Ui_simpleTaskWidget(QtGui.QFrame):
             self.show_save_button()
 
     def set_empty_task(self):
-        self.setStyleSheet('QFrame#simple_task_widget { border-radius: 3px; background-color: rgba(255,255,255,0);}')
+        self.setStyleSheet('QFrame#task_widget { border-radius: 3px; background-color: rgba(255,255,255,0);}')
         self.hide_save_button()
 
     def statuses_combo_box_changed(self, index):
@@ -328,7 +332,19 @@ class Ui_simpleTaskWidget(QtGui.QFrame):
             self.customize_process_label()
 
     def create_filler(self):
+        self.create_status_color_line()
+        self.create_process_label()
 
+        self.create_tasks_buttons()
+
+        self.create_statuses_combo()
+        self.fill_statuses_combo()
+
+        self.create_users_combo()
+        self.fill_users_combo()
+
+    def create_extended_filler(self):
+        self.create_status_color_line()
         self.create_process_label()
 
         self.create_tasks_buttons()
@@ -728,7 +744,38 @@ class Ui_tasksDockWidget(QtGui.QWidget):
         self.scroll_area_contents.setContentsMargins(9, 9, 0, 0)
 
         self.scroll_area = QtGui.QScrollArea()
+        self.scroll_area.setStyleSheet("""
+        QScrollArea {
+            background: rgb(52, 52, 52);
+        }
+        QScrollArea > QWidget > QWidget {
+            background: rgb(52, 52, 52);
+        }
+        QScrollBar:vertical {
+            border: 0px ;
+            background: transparent;
+            width:8px;
+            margin: 0px 0px 0px 0px;
+        }
+        QScrollBar::handle:vertical {
+            background: rgba(255,255,255,64);
+            min-height: 0px;
+            border-radius: 4px;
+        }
+        QScrollBar::add-line:vertical {
+            background: rgba(255,255,255,64);
+            height: 0px;
+            subcontrol-position: bottom;
+            subcontrol-origin: margin;
+        }
+        QScrollBar::sub-line:vertical {
+            background: rgba(255,255,255,64);
+            height: 0 px;
+            subcontrol-position: top;
+            subcontrol-origin: margin;
+        }""")
         self.scroll_area.setWidgetResizable(True)
+        self.scroll_area.setFrameShape(QtGui.QFrame.NoFrame)
         self.scroll_area.setWidget(self.scroll_area_contents)
 
         self.scroll_area_layout = FlowLayout(self.scroll_area_contents)
@@ -858,7 +905,7 @@ class Ui_tasksDockWidget(QtGui.QWidget):
                     self.process_combo_box.add_item(process, hex_color='#484848', item_data=process)
 
                 # creating and adding Simple task widgets
-                task_widget = Ui_simpleTaskWidget(process, self.sobject)
+                task_widget = Ui_taskWidget(process, self.sobject)
                 self.task_widgets_list.append(task_widget)
                 self.scroll_area_layout.addWidget(task_widget)
 

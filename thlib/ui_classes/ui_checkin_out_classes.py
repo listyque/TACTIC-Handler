@@ -208,7 +208,7 @@ class Ui_checkInOutWidget(QtGui.QMainWindow):
             self.project.get_code(), 'checkin_out_instanced_widgets', 'notes_dock')
 
         if not self.notes_widget:
-            self.notes_widget = ui_notes_classes.Ui_notesTabbedWidget(project=self.project, parent=self)
+            self.notes_widget = ui_notes_classes.Ui_notesBaseWidget(project=self.project, parent=self)
             env_inst.set_check_tree(
                 self.project.get_code(), 'checkin_out_instanced_widgets', 'notes_dock', self.notes_widget)
 

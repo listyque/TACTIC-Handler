@@ -19,6 +19,7 @@ import traceback
 import datetime
 import side.qtawesome as qta
 import side.natsort as natsort
+from side.timelapsed import timelapsed
 from bs4 import BeautifulSoup
 from thlib.side.Qt import QtWidgets as QtGui
 from thlib.side.Qt import QtGui as Qt4Gui
@@ -664,6 +665,16 @@ def hex_to_rgb(hex_v, alpha=None, tuple=False):
             return r, g, b
         else:
             return 'rgb({},{},{})'.format(r, g, b)
+
+
+def sub_urls(text):
+    urls = re.compile(r"((https?):((//)|(\\\\))+[\w\d:#@%/;$()~_?\+-=\\\.&]*)", re.MULTILINE | re.UNICODE)
+    value = urls.sub(r'<a href="\1" style="color:#66a3ff;text-decoration:none;">\1</a>', text)
+
+    urls = re.compile(r"((http?):((//)|(\\\\))+[\w\d:#@%/;$()~_?\+-=\\\.&]*)", re.MULTILINE | re.UNICODE)
+    value = urls.sub(r'<a href="\1" style="color:#66a3ff;text-decoration:none;">\1</a>', value)
+
+    return value
 
 
 def get_prc(prc, number):
@@ -1847,7 +1858,6 @@ def open_folder(filepath, highlight=True):
 
 
 def form_date_time(datetime_string, return_obj=False):
-    print datetime_string
     if len(datetime_string.split('.')) > 1:
         datetime_object = datetime.datetime.strptime(datetime_string, '%Y-%m-%d %H:%M:%S.%f')
     else:
@@ -1857,6 +1867,10 @@ def form_date_time(datetime_string, return_obj=False):
         return datetime_object
     else:
         return datetime_object.strftime('%Y-%m-%d %H:%M:%S')
+
+
+def get_pretty_datetime(date_time_object):
+    return timelapsed.Timelapsed.from_timestamp(date_time_object)
 
 
 def form_path(path, tp=None):

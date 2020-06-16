@@ -16,7 +16,7 @@ from thlib.ui_classes.ui_script_editor_classes import Ui_ScriptEditForm
 from thlib.ui_classes.ui_update_classes import Ui_updateDialog
 import thlib.ui.misc.ui_create_update as ui_create_update
 from thlib.ui_classes.ui_repo_sync_queue_classes import Ui_repoSyncQueueWidget
-from thlib.ui_classes.ui_custom_qwidgets import Ui_debugLogWidget, Ui_messagesWidget, StyledToolButton, Ui_extendedTreeWidget, StyledChooserToolButton
+from thlib.ui_classes.ui_custom_qwidgets import Ui_debugLogWidget, Ui_messagesWidget, StyledToolButton, Ui_extendedTreeWidget, StyledChooserToolButton, Ui_projectIconWidget, Ui_userIconWidget
 import ui_checkin_out_tabs_classes
 import ui_conf_classes
 
@@ -32,190 +32,6 @@ reload(ui_conf_classes)
 reload(tc)
 reload(uf)
 reload(gf)
-
-
-class Ui_projectIconWidget(QtGui.QWidget):
-    def __init__(self, parent=None):
-        super(self.__class__, self).__init__(parent=parent)
-
-        self.create_ui_raw()
-
-        self.project = None
-
-        self.create_ui()
-
-    def create_ui_raw(self):
-        self.setObjectName('Ui_projectIconWidget')
-        self.setMaximumSize(60, 48)
-        self.setMinimumSize(60, 48)
-        self.setContentsMargins(0, 0, 0, 0)
-
-        self.horizontal_layout = QtGui.QHBoxLayout(self)
-        self.horizontal_layout.setContentsMargins(0, 0, 0, 0)
-        self.horizontal_layout.setSpacing(0)
-
-        self.previewLabel = QtGui.QLabel(self)
-        self.previewLabel.setMinimumSize(QtCore.QSize(60, 48))
-        self.previewLabel.setMaximumSize(QtCore.QSize(60, 48))
-        self.previewLabel.setStyleSheet('QLabel {background: transparent; border: 0px; border-radius: 0px;padding: 0px 0px;}')
-        self.previewLabel.setTextFormat(QtCore.Qt.RichText)
-        self.previewLabel.setAlignment(QtCore.Qt.AlignVCenter | QtCore.Qt.AlignHCenter)
-        sizePolicy = QtGui.QSizePolicy(QtGui.QSizePolicy.Preferred, QtGui.QSizePolicy.Preferred)
-        self.previewLabel.setSizePolicy(sizePolicy)
-
-        self.horizontal_layout.addWidget(self.previewLabel)
-
-    def create_ui(self):
-
-        self.fill_info()
-        self.setCursor(Qt4Gui.QCursor(QtCore.Qt.PointingHandCursor))
-
-    def set_project(self, project):
-
-        self.project = project
-
-    def get_snapshot(self, process='publish'):
-
-        snapshot_process = self.project.process.get(process)
-        if snapshot_process:
-            context = snapshot_process.contexts.values()[0]
-            if context.versionless:
-                return context.versionless.values()[0]
-            else:
-                return context.versions.values()[0]
-
-    def fill_info(self):
-        if self.project:
-
-            if self.project.process:
-
-                if gf.get_value_from_config(cfg_controls.get_checkin(), 'getPreviewsThroughHttpCheckbox') == 1:
-                    self.set_web_preview()
-                else:
-                    self.set_preview()
-            else:
-                self.previewLabel.setText(u'<span style=" font-size:9pt; font-weight:600; color:{0};">{1}</span>'.format(
-                        'rgb(128,128,128)', gf.gen_acronym(self.project.get_title())))
-        else:
-            self.previewLabel.setText(u'<span style=" font-size:9pt; font-weight:600; color:{0};">{1}</span>'.format(
-                'rgb(128,128,128)', ''))
-
-    def set_preview(self):
-
-        snapshots = self.get_snapshot('icon')
-        if not snapshots:
-            snapshots = self.get_snapshot('publish')
-
-        if snapshots:
-            preview_files_objects = snapshots.get_files_objects(group_by='type').get('icon')
-            if preview_files_objects:
-                icon_previw = preview_files_objects[0].get_icon_preview()
-                if icon_previw:
-                    pixmap = self.get_preview_pixmap(icon_previw.get_full_abs_path())
-                    if pixmap:
-                        self.previewLabel.setPixmap(pixmap)
-
-    def set_web_preview(self):
-
-        snapshots = self.get_snapshot('icon')
-        if not snapshots:
-            snapshots = self.get_snapshot('publish')
-
-        if snapshots:
-            preview_files_objects = snapshots.get_files_objects(group_by='type').get('icon')
-            if preview_files_objects:
-                icon_previw = preview_files_objects[0].get_icon_preview()
-                if icon_previw:
-                    if icon_previw.is_exists():
-                        if icon_previw.get_file_size() == icon_previw.get_file_size(True):
-                            self.set_preview()
-                        else:
-                            self.download_and_set_preview_file(icon_previw)
-                    else:
-                        self.download_and_set_preview_file(icon_previw)
-
-    def download_and_set_preview_file(self, file_object):
-        if not file_object.is_downloaded():
-            if file_object.get_unique_id() not in env_inst.ui_repo_sync_queue.queue_dict.keys():
-                repo_sync_item = env_inst.ui_repo_sync_queue.schedule_file_object(file_object)
-                repo_sync_item.downloaded.connect(self.set_preview_pixmap)
-                repo_sync_item.download()
-
-    def set_preview_pixmap(self, file_object):
-        pixmap = self.get_preview_pixmap(file_object.get_full_abs_path())
-        if pixmap:
-            self.previewLabel.setPixmap(pixmap)
-
-    def get_preview_pixmap(self, image_path):
-        pixmap = Qt4Gui.QPixmap(image_path)
-        if not pixmap.isNull():
-
-            pix_width = 48
-            pix_height = 48
-
-            pixmap = pixmap.scaledToHeight(pix_width, QtCore.Qt.SmoothTransformation)
-
-            painter = Qt4Gui.QPainter()
-            pixmap_mask = Qt4Gui.QPixmap(pix_width, pix_height)
-            pixmap_mask.fill(QtCore.Qt.transparent)
-            painter.begin(pixmap_mask)
-            painter.setRenderHint(Qt4Gui.QPainter.Antialiasing)
-            painter.setBrush(Qt4Gui.QBrush(Qt4Gui.QColor(0, 0, 0, 255)))
-            painter.drawRoundedRect(QtCore.QRect(4, 4, pix_width-8, pix_height-8), 4, 4)
-            painter.end()
-
-            rounded_pixmap = Qt4Gui.QPixmap(pixmap.size())
-            rounded_pixmap.fill(QtCore.Qt.transparent)
-            painter.begin(rounded_pixmap)
-            painter.setRenderHint(Qt4Gui.QPainter.Antialiasing)
-            painter.drawPixmap(QtCore.QRect((pixmap.width() - pix_width) / 2, 0, pix_width, pix_width), pixmap_mask)
-            painter.setCompositionMode(Qt4Gui.QPainter.CompositionMode_SourceIn)
-            painter.drawPixmap(0, 0, pixmap)
-            painter.end()
-
-            return rounded_pixmap
-
-
-class Ui_userIconWidget(QtGui.QWidget):
-    def __init__(self, project=None, login=None, parent=None):
-        super(self.__class__, self).__init__(parent=parent)
-
-        self.create_ui_raw()
-
-        self.project = project
-        self.login = login
-
-        self.create_ui()
-
-    def create_ui_raw(self):
-        self.setObjectName('Ui_userIconWidget')
-        self.setMaximumSize(60, 36)
-        self.setMinimumSize(60, 36)
-        self.setContentsMargins(0, 0, 0, 0)
-
-        self.horizontal_layout = QtGui.QHBoxLayout(self)
-        self.horizontal_layout.setContentsMargins(0, 0, 0, 0)
-        self.horizontal_layout.setSpacing(0)
-
-        self.previewLabel = QtGui.QLabel(self)
-        self.previewLabel.setMinimumSize(QtCore.QSize(32, 32))
-        self.previewLabel.setMaximumSize(QtCore.QSize(32, 32))
-        self.previewLabel.setStyleSheet('QLabel {background: rgba(175, 175, 175, 64); border: 0px; border-radius: 16px;padding: 0px 0px;}')
-        self.previewLabel.setTextFormat(QtCore.Qt.RichText)
-        self.previewLabel.setAlignment(QtCore.Qt.AlignVCenter | QtCore.Qt.AlignHCenter)
-        sizePolicy = QtGui.QSizePolicy(QtGui.QSizePolicy.Preferred, QtGui.QSizePolicy.Preferred)
-        self.previewLabel.setSizePolicy(sizePolicy)
-
-        self.horizontal_layout.addWidget(self.previewLabel)
-
-    def create_ui(self):
-
-        self.fill_info()
-        self.setCursor(Qt4Gui.QCursor(QtCore.Qt.PointingHandCursor))
-
-    def fill_info(self):
-        self.previewLabel.setText(u'<span style=" font-size:9pt; font-weight:600; color:{0};">{1}</span>'.format(
-            'rgb(64,64,64)', gf.gen_acronym('Alex Miarsky')))
 
 
 class Ui_mainTabs(QtGui.QWidget):
@@ -373,10 +189,12 @@ class Ui_topBarWidget(QtGui.QWidget):
             self.hamburger_tab_button.setHidden(False)
             self.projects_chooser_button.setText(self.current_project.info.get('title'))
             self.fill_project_icon()
+            self.fill_user_icon()
         else:
             self.hamburger_tab_button.setHidden(True)
             self.projects_chooser_button.setText('Projects')
             self.fill_project_icon()
+            self.fill_user_icon()
 
     def set_info_status_text(self, status_text=''):
         self.info_label.setText(status_text)
@@ -427,6 +245,10 @@ class Ui_topBarWidget(QtGui.QWidget):
 
         self.project_icon_widget.set_project(self.current_project)
         self.project_icon_widget.fill_info()
+
+    def fill_user_icon(self):
+
+        self.user_icon_widget.set_login(env_inst.get_current_login_object())
 
     def create_spacer(self):
         spacer_item = QtGui.QSpacerItem(0, 0, QtGui.QSizePolicy.Expanding, QtGui.QSizePolicy.Ignored)

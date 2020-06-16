@@ -605,6 +605,19 @@ class SObject(object):
     def set_value(self, column, data):
         self.update_dict[column] = data
 
+    def get_timestamp(self, obj=False, pretty=False, simple=False):
+
+        if obj:
+            return gf.parce_timestamp(self.info['timestamp'])
+        elif pretty:
+            dateime = gf.parce_timestamp(self.info['timestamp'])
+            return gf.get_pretty_datetime(dateime)
+        elif simple:
+            dateime = gf.parce_timestamp(self.info['timestamp'])
+            return dateime.strftime('%Y %B %d %H:%M:%S')
+        else:
+            return self.info['timestamp']
+
     def get_project(self):
         return self.project
 
@@ -1482,9 +1495,6 @@ class Message(SObject):
 
     def get_code(self):
         return self.info['code']
-
-    def get_timestamp(self):
-        return self.info['timestamp']
 
     def get_project_code(self):
         return self.info['project_code']
@@ -2637,18 +2647,17 @@ def update_description(search_key, description):
     return server_start().update(search_key, data)
 
 
-def add_note(search_key, process, context, note, note_html, login):
+def add_note(search_key, process, context, note, login):
     search_type = 'sthpw/note'
 
     data = {
         'process': process,
         'context': context,
         'note': note,
-        # 'note_html': gf.html_to_hex(note_html),
         'login': login,
     }
     project_code = split_search_key(search_key)
-    transaction = server_start(project=project_code['project_code']).insert(search_type, data, parent_key=search_key, triggers=False)
+    transaction = server_start(project=project_code['project_code']).insert(search_type, data, parent_key=search_key, triggers=True)
 
     return transaction
 
