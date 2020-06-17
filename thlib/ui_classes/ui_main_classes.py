@@ -205,7 +205,7 @@ class Ui_topBarWidget(QtGui.QWidget):
 
     def create_hamburger_button(self):
 
-        self.hamburger_tab_button = StyledToolButton(shadow_enabled=True, small=True, square_type=True)
+        self.hamburger_tab_button = StyledToolButton(shadow_enabled=True, size='small', square_type=True)
         self.hamburger_tab_button.setIcon(gf.get_icon('menu', icons_set='mdi', scale_factor=1.2))
         self.hamburger_tab_button.clicked.connect(self.hamburger_tab_button_click)
         self.hamburger_tab_button.setHidden(True)

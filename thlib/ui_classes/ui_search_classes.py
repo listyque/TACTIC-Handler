@@ -654,11 +654,11 @@ class Ui_searchWidget(QtGui.QWidget):
         self.left_buttons_widget.setLayout(self.left_buttons_layout)
         self.left_buttons_widget.setMinimumSize(36, 36)
 
-        self.add_new_tab_button = StyledToolButton(small=True, shadow_enabled=True, square_type=False)
+        self.add_new_tab_button = StyledToolButton(size='small', shadow_enabled=True, square_type=False)
         self.add_new_tab_button.setIcon(gf.get_icon('plus', icons_set='mdi', scale_factor=1.2))
         self.add_new_tab_button.setToolTip('Add new Search Tab')
 
-        self.add_filter_button = StyledToolButton(small=True, shadow_enabled=True, square_type=True)
+        self.add_filter_button = StyledToolButton(size='small', shadow_enabled=True, square_type=True)
         self.add_filter_button.setPopupMode(QtGui.QToolButton.InstantPopup)
         self.add_filter_button.setIcon(gf.get_icon('filter', icons_set='mdi', scale_factor=0.9))
         self.add_filter_button.setToolTip('Add Filter to Tab')
@@ -695,12 +695,12 @@ class Ui_searchWidget(QtGui.QWidget):
         self.left_buttons_layout.addWidget(self.add_new_tab_button)
         self.left_buttons_layout.addWidget(self.add_filter_button)
 
-        self.history_tab_button = StyledToolButton(small=True, shadow_enabled=True, square_type=False)
+        self.history_tab_button = StyledToolButton(size='small', shadow_enabled=True, square_type=False)
         self.history_tab_button.setPopupMode(QtGui.QToolButton.InstantPopup)
         self.history_tab_button.setIcon(gf.get_icon('history', icons_set='mdi', scale_factor=1.2))
         self.history_tab_button.setToolTip('History of closed Search Results')
 
-        self.refresh_tab_button = StyledToolButton(small=True, shadow_enabled=True, square_type=False)
+        self.refresh_tab_button = StyledToolButton(size='small', shadow_enabled=True, square_type=False)
         self.refresh_tab_button.setIcon(gf.get_icon('refresh', icons_set='mdi', scale_factor=1.2))
         self.refresh_tab_button.setToolTip('Refresh current Results')
 
@@ -712,7 +712,7 @@ class Ui_searchWidget(QtGui.QWidget):
         self.right_buttons_widget.setLayout(self.right_buttons_layout)
         self.right_buttons_widget.setMinimumSize(20, 36)
 
-        self.group_by_button = StyledToolButton(small=True, shadow_enabled=True, square_type=True)
+        self.group_by_button = StyledToolButton(size='small', shadow_enabled=True, square_type=True)
         self.group_by_button.setPopupMode(QtGui.QToolButton.InstantPopup)
         self.group_by_button.setIcon(gf.get_icon('group', icons_set='mdi', scale_factor=1))
         self.group_by_button.setToolTip('Group Items By')
@@ -740,7 +740,7 @@ class Ui_searchWidget(QtGui.QWidget):
 
         self.group_by_button.addActions(self.group_by_actions)
 
-        self.sobject_items_sorting_button = StyledToolButton(small=True, shadow_enabled=True, square_type=True)
+        self.sobject_items_sorting_button = StyledToolButton(size='small', shadow_enabled=True, square_type=True)
         self.sobject_items_sorting_button.setPopupMode(QtGui.QToolButton.InstantPopup)
         self.sobject_items_sorting_button.setIcon(gf.get_icon('sort-alphabetical', icons_set='mdi', scale_factor=1))
         self.sobject_items_sorting_button.setToolTip('SObject Items Sorting')
@@ -752,7 +752,7 @@ class Ui_searchWidget(QtGui.QWidget):
 
         self.sobject_items_sorting_button.addAction(self.sort_so_by_name_action)
 
-        self.snapshot_items_sorting_button = StyledToolButton(small=True, shadow_enabled=True, square_type=True)
+        self.snapshot_items_sorting_button = StyledToolButton(size='small', shadow_enabled=True, square_type=True)
         self.snapshot_items_sorting_button.setPopupMode(QtGui.QToolButton.InstantPopup)
         self.snapshot_items_sorting_button.setIcon(gf.get_icon('sort-alphabetical', icons_set='mdi', scale_factor=1))
         self.snapshot_items_sorting_button.setToolTip('Snapshot Items Sorting')
@@ -764,7 +764,7 @@ class Ui_searchWidget(QtGui.QWidget):
 
         self.snapshot_items_sorting_button.addAction(self.sort_sn_by_name_action)
 
-        self.change_view_tab_button = StyledToolButton(small=True, shadow_enabled=True, square_type=True)
+        self.change_view_tab_button = StyledToolButton(size='small', shadow_enabled=True, square_type=True)
         self.change_view_tab_button.setPopupMode(QtGui.QToolButton.InstantPopup)
         self.change_view_tab_button.setIcon(gf.get_icon('view-list', icons_set='mdi', scale_factor=1))
         self.change_view_tab_button.setToolTip('Change Search Results View Style')
@@ -1159,13 +1159,14 @@ class Ui_searchWidget(QtGui.QWidget):
 
         # work around for preventing tab widgets showing when tab adding
         self.results_tab_widget.setHidden(True)
-
+        # print search_cache
         if search_cache:
             search_cache = gf.from_json(search_cache, use_ast=True)
 
             tab_added = 0
             for cache in search_cache:
                 tab_added += 1
+
                 self.add_tab(
                     search_title=cache['title'],
                     filters=cache['filters'],
@@ -1384,7 +1385,7 @@ class Ui_filterWidget(QtGui.QWidget):
 
         # This link button is supposed to be a link to main search (will make first filter behave as main search line)
 
-        self.link_button = StyledToolButton(small=True, square_type=True)
+        self.link_button = StyledToolButton(size='small', square_type=True)
         self.main_layout.addWidget(self.link_button)
         self.link_button.setAutoRaise(True)
         self.link_button.setIcon(gf.get_icon('link', icons_set='mdi', scale_factor=1.1))
@@ -1420,7 +1421,7 @@ class Ui_filterWidget(QtGui.QWidget):
             self.op_combo_box.setCurrentIndex(0)
 
     def create_remove_self_tool_button(self):
-        self.remove_self_tool_button = StyledToolButton(small=True)
+        self.remove_self_tool_button = StyledToolButton(size='small')
         self.remove_self_tool_button.setAutoRaise(True)
         self.main_layout.addWidget(self.remove_self_tool_button)
         self.remove_self_tool_button.setIcon(gf.get_icon('close', icons_set='mdi', scale_factor=1.1))
@@ -1428,7 +1429,7 @@ class Ui_filterWidget(QtGui.QWidget):
             self.remove_self_tool_button.setHidden(True)
 
     def create_add_filter_tool_button(self):
-        self.add_filter_tool_button = StyledToolButton(small=True)
+        self.add_filter_tool_button = StyledToolButton(size='small')
         self.add_filter_tool_button.setAutoRaise(True)
         self.main_layout.addWidget(self.add_filter_tool_button)
         self.add_filter_tool_button.setIcon(gf.get_icon('plus', icons_set='mdi', scale_factor=1.2))
@@ -2243,14 +2244,13 @@ class Ui_searchResultsWidget(QtGui.QWidget):
         self.create_bottom_navigation_widget()
 
         if self.info.get('view'):
-            self.set_results_view(self.info.get('view'), True)
+            self.set_results_view(self.info.get('view'), False)
         else:
             self.set_initial_view()
 
         self.set_current_splitter_state(self.info.get('splitter_state'))
 
         self.customize_ui()
-
         self.initial_load_results()
 
         self.controls_actions()

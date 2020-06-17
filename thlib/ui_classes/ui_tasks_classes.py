@@ -20,7 +20,7 @@ from thlib.environment import env_inst, env_write_config, env_read_config
 # import ui_item_task_classes as task_item_widget
 import thlib.tactic_classes as tc
 import thlib.global_functions as gf
-from thlib.ui_classes.ui_custom_qwidgets import Ui_horizontalCollapsableWidget
+from thlib.ui_classes.ui_custom_qwidgets import Ui_horizontalCollapsableWidget, StyledToolButton
 
 # reload(ui_tasks)
 # reload(richedit_widget)
@@ -189,16 +189,17 @@ class Ui_taskWidget(QtGui.QFrame):
         self.main_layout.addWidget(self.process_label, 0, 1)
 
     def create_tasks_buttons(self):
-        self.tasks_options_button = QtGui.QToolButton()
+        if self.type == 'simple':
+            buttons_size = 'tiny'
+        else:
+            buttons_size = 'small'
+
+        self.tasks_options_button = StyledToolButton(size=buttons_size, square_type=True)
         self.tasks_options_button.setIcon(gf.get_icon('menu', icons_set='mdi', scale_factor=1))
         self.tasks_options_button.setToolTip('Tasks Options')
-        self.tasks_options_button.setMaximumSize(24, 24)
-        self.tasks_options_button.setAutoRaise(True)
 
-        self.save_task_button = QtGui.QToolButton()
+        self.save_task_button = StyledToolButton(size=buttons_size, square_type=True)
         self.save_task_button.setToolTip('Save Task')
-        self.save_task_button.setMaximumSize(24, 24)
-        self.save_task_button.setAutoRaise(True)
         self.save_task_button_opacity = QtGui.QGraphicsOpacityEffect(self.save_task_button)
         self.save_task_button.setGraphicsEffect(self.save_task_button_opacity)
         self.hide_save_button()
@@ -278,17 +279,84 @@ class Ui_taskWidget(QtGui.QFrame):
 
         return menu
 
+    def create_task_info(self):
+
+        self.task_info_layout = QtGui.QGridLayout()
+        self.task_info_layout.setContentsMargins(0, 0, 0, 0)
+        self.task_info_layout.setSpacing(9)
+        self.due_days_label = QtGui.QLabel(self)
+        font = Qt4Gui.QFont()
+        font.setFamily("Segoe UI")
+        font.setPointSize(9)
+        self.due_days_label.setFont(font)
+        self.due_days_label.setObjectName("due_days_label")
+
+        self.task_info_layout.addWidget(self.due_days_label, 0, 1, 1, 1)
+
+        self.parent_name_label = QtGui.QLabel(self)
+        font = Qt4Gui.QFont()
+        font.setFamily("Segoe UI")
+        font.setPointSize(11)
+        self.parent_name_label.setFont(font)
+        self.parent_name_label.setObjectName("parent_name_label")
+        self.task_info_layout.addWidget(self.parent_name_label, 0, 0, 1, 1)
+        self.description_label = QtGui.QLabel(self)
+        font = Qt4Gui.QFont()
+        font.setFamily("Segoe UI")
+        font.setPointSize(9)
+        self.description_label.setFont(font)
+        self.description_label.setObjectName("description_label")
+        self.task_info_layout.addWidget(self.description_label, 1, 0, 1, 2)
+        self.start_date_label = QtGui.QLabel(self)
+        font = Qt4Gui.QFont()
+        font.setFamily("Segoe UI")
+        font.setPointSize(9)
+        self.start_date_label.setFont(font)
+        self.start_date_label.setObjectName("start_date_label")
+        self.task_info_layout.addWidget(self.start_date_label, 0, 2, 1, 1)
+        self.end_date_label = QtGui.QLabel(self)
+        font = Qt4Gui.QFont()
+        font.setFamily("Segoe UI")
+        font.setPointSize(9)
+        self.end_date_label.setFont(font)
+        self.end_date_label.setObjectName("end_date_label")
+        self.task_info_layout.addWidget(self.end_date_label, 1, 2, 1, 1)
+        self.start_date_time_edit = QtGui.QDateTimeEdit(self)
+        self.start_date_time_edit.setCalendarPopup(True)
+        self.start_date_time_edit.setDisplayFormat(u"yyyy.MM.dd. HH:mm:ss")
+        self.task_info_layout.addWidget(self.start_date_time_edit, 0, 3, 1, 1)
+
+        self.end_date_time_edit = QtGui.QDateTimeEdit(self)
+        self.end_date_time_edit.setCalendarPopup(True)
+        self.end_date_time_edit.setDisplayFormat(u"yyyy.MM.dd. HH:mm:ss")
+        self.task_info_layout.addWidget(self.end_date_time_edit, 1, 3, 1, 1)
+        self.task_info_layout.setColumnStretch(1, 1)
+
+        current_datetime = QtCore.QDateTime.currentDateTime()
+        self.start_date_time_edit.setDateTime(current_datetime)
+        self.end_date_time_edit.setDateTime(current_datetime)
+
+        # self.due_days_label.setText('(5 day overdue)')
+        # self.parent_name_label.setText('Ikrinka')
+        # self.description_label.setText('Description for the current task')
+        self.start_date_label.setText('Start: ')
+        self.end_date_label.setText('End: ')
+
+        self.bottom_info_layout.addLayout(self.task_info_layout)
+
     def create_statuses_combo(self):
         self.statuses_combo_box = Ui_coloredComboBox()
         self.statuses_combo_box.add_item('--status--', hex_color='#303030')
 
-        self.main_layout.addWidget(self.statuses_combo_box, 1, 1, 1, 3)
+        # self.main_layout.addWidget(self.statuses_combo_box, 1, 2, 1, 3)
+        self.statuses_layout.addWidget(self.statuses_combo_box)
 
     def create_users_combo(self):
         self.users_combo_box = Ui_coloredComboBox()
         self.users_combo_box.add_item('--user--', hex_color='#303030')
 
-        self.main_layout.addWidget(self.users_combo_box, 2, 1, 1, 3)
+        self.statuses_layout.addWidget(self.users_combo_box)
+        # self.main_layout.addWidget(self.users_combo_box, 2, 2, 1, 3)
 
     def add_tasks_sobjects(self, tasks_sobjects_list=None, parent_sobjects_list=None):
         if tasks_sobjects_list:
@@ -330,12 +398,17 @@ class Ui_taskWidget(QtGui.QFrame):
             self.customize_statuses_combo(task_sobject)
             self.customize_users_combo(task_sobject)
             self.customize_process_label()
+            if self.type == 'extended':
+                self.customize_task_info()
 
     def create_filler(self):
         self.create_status_color_line()
         self.create_process_label()
 
         self.create_tasks_buttons()
+
+        self.statuses_layout = QtGui.QVBoxLayout()
+        self.main_layout.addLayout(self.statuses_layout, 1, 1, 1, 3)
 
         self.create_statuses_combo()
         self.fill_statuses_combo()
@@ -344,10 +417,24 @@ class Ui_taskWidget(QtGui.QFrame):
         self.fill_users_combo()
 
     def create_extended_filler(self):
+
+        self.main_layout.setSpacing(9)
+        self.main_layout.setContentsMargins(4, 4, 12, 12)
+
         self.create_status_color_line()
         self.create_process_label()
 
         self.create_tasks_buttons()
+
+        self.bottom_info_layout = QtGui.QHBoxLayout()
+        self.main_layout.addLayout(self.bottom_info_layout, 1, 1, 1, 3)
+
+        self.create_task_info()
+
+        self.statuses_layout = QtGui.QVBoxLayout()
+        self.bottom_info_layout.addLayout(self.statuses_layout)
+        self.bottom_info_layout.setStretch(0, 1)
+        self.bottom_info_layout.setStretch(1, 0)
 
         self.create_statuses_combo()
         self.fill_statuses_combo()
@@ -459,6 +546,15 @@ class Ui_taskWidget(QtGui.QFrame):
             self.process_label.setText(u'{} | {}'.format(self.get_process_label(), len(self.tasks_sobjects_list)))
         else:
             self.process_label.setText(self.get_process_label())
+
+    def customize_task_info(self):
+        self.description_label.setText(self.current_task_sobject.get_value('description'))
+        self.parent_name_label.setText(self.parent_sobject.get_title())
+
+        start_date = QtCore.QDateTime.fromString(self.current_task_sobject.get_value('bid_start_date'), 'yyyy-MM-dd HH:mm:ss')
+        end_date = QtCore.QDateTime.fromString(self.current_task_sobject.get_value('bid_end_date'), 'yyyy-MM-dd HH:mm:ss')
+        self.start_date_time_edit.setDateTime(start_date)
+        self.end_date_time_edit.setDateTime(end_date)
 
     def get_changed_data(self):
 

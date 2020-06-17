@@ -25,6 +25,7 @@ from thlib.side.Qt import QtWidgets as QtGui
 from thlib.side.Qt import QtGui as Qt4Gui
 from thlib.side.Qt import QtCore
 from thlib.side.Qt import QtNetwork
+from thlib.side.colorhash import ColorHash
 from thlib.side.watchdog.observers import Observer
 from thlib.side.watchdog.events import FileSystemEventHandler, EVENT_TYPE_MOVED, EVENT_TYPE_CREATED, EVENT_TYPE_DELETED, EVENT_TYPE_MODIFIED
 
@@ -754,6 +755,11 @@ def gen_acronym(word, length=2):
     if len(acronym) < length:
         acronym += word[1:length]
     return acronym
+
+
+def gen_color(word):
+    color = ColorHash(word, lightness=0.5, saturation=0.3)
+    return color.hex
 
 
 def prettify_text(text, first_letter=False):

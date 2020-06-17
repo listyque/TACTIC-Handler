@@ -142,7 +142,7 @@ class Ui_snapshotBrowserWidget(QtGui.QWidget):
         buttons_layout.setSpacing(0)
         buttons_layout.setContentsMargins(0, 0, 0, 0)
 
-        self.settings_button = StyledToolButton(small=True)
+        self.settings_button = StyledToolButton(size='small')
         self.settings_button.setPopupMode(QtGui.QToolButton.InstantPopup)
         self.settings_button.setArrowType(QtCore.Qt.NoArrow)
         self.settings_button.setIcon(gf.get_icon('settings', icons_set='mdi'))
@@ -170,7 +170,7 @@ class Ui_snapshotBrowserWidget(QtGui.QWidget):
         self.settings_button.addAction(self.horizontal_orientation_action)
         self.settings_button.addAction(self.vertical_orientation_action)
 
-        self.refresh_button = StyledToolButton(small=True)
+        self.refresh_button = StyledToolButton(size='small')
         self.refresh_button.setAutoRaise(True)
         self.refresh_button.setIcon(gf.get_icon('refresh', icons_set='mdi', scale_factor=1.3))
         self.refresh_button.setToolTip('Refresh Current Tasks')

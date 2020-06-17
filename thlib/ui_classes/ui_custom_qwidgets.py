@@ -241,6 +241,7 @@ class Ui_userIconWidget(QtGui.QWidget):
         self.previewLabel.setMinimumSize(QtCore.QSize(32, 32))
         self.previewLabel.setMaximumSize(QtCore.QSize(32, 32))
         self.previewLabel.setStyleSheet('QLabel {background: rgba(175, 175, 175, 64); border: 0px; border-radius: 16px;padding: 0px 0px;}')
+        self.previewLabel.setPixmap(gf.get_icon('account', icons_set='mdi').pixmap(20, 20))
         self.previewLabel.setTextFormat(QtCore.Qt.RichText)
         self.previewLabel.setAlignment(QtCore.Qt.AlignVCenter | QtCore.Qt.AlignHCenter)
         sizePolicy = QtGui.QSizePolicy(QtGui.QSizePolicy.Preferred, QtGui.QSizePolicy.Preferred)
@@ -258,8 +259,12 @@ class Ui_userIconWidget(QtGui.QWidget):
         self.setCursor(Qt4Gui.QCursor(QtCore.Qt.PointingHandCursor))
 
     def fill_info(self):
+
         self.previewLabel.setText(u'<span style=" font-size:9pt; font-weight:600; color:{0};">{1}</span>'.format(
-            'rgb(64,64,64)', gf.gen_acronym(self.login.get_display_name())))
+            'rgb(240, 240, 240)', gf.gen_acronym(self.login.get_display_name())))
+
+        self.previewLabel.setStyleSheet(
+            'QLabel {{background: {0}; border: 0px; border-radius: 16px;padding: 0px 0px;}}'.format(gf.gen_color(self.login.get_value('login'))))
 
 
 class Ui_sideBarWidget(QtGui.QWidget):
@@ -2061,24 +2066,24 @@ class SuggestedLineEdit(QtGui.QLineEdit):
 
 
 class StyledToolButton(QtGui.QToolButton):
-    def __init__(self, small=False, shadow_enabled=True, square_type=False, parent=None):
+    def __init__(self, size='normal', shadow_enabled=True, square_type=False, parent=None):
         super(self.__class__, self).__init__(parent=parent)
 
         self.shadow_enabled = shadow_enabled
         self.square_type = square_type
-        self.small = small
+        self.size = size
         self.setAutoRaise(True)
 
         self.create_ui()
 
     def create_ui(self):
 
-        if self.small:
-            self.setMinimumSize(38, 38)
-            self.setMaximumSize(38, 38)
-        else:
-            self.setMinimumSize(42, 42)
-            self.setMaximumSize(42, 42)
+        if self.size == 'tiny':
+            self.setFixedSize(30, 30)
+        elif self.size == 'small':
+            self.setFixedSize(38, 38)
+        elif self.size == 'normal':
+            self.setFixedSize(42, 42)
 
         self.customize_ui()
         self.setCursor(Qt4Gui.QCursor(QtCore.Qt.PointingHandCursor))
@@ -2225,69 +2230,69 @@ class StyledComboBox(QtGui.QComboBox):
         self.setGraphicsEffect(effect)
 
         self.setStyleSheet("""
-QComboBox {
-    border: 0px;
-    border-radius: 4px;
-    padding-right: 4px;
-    padding-left: 16px;
-    /* min-width: 6em; */
-    font-size:11pt;
-}
-
-QComboBox:editable {
-    background: transparent;
-}
-
-QComboBox:!editable, QComboBox::drop-down:editable {
-     /*background: rgb(100,100,100);*/
-     background: transparent;
-}
-
-QComboBox:!editable:on, QComboBox::drop-down:editable:on {
-    /*background: rgb(120,120,120);*/
-    background: transparent;
-}
-
-QComboBox::drop-down {
-    subcontrol-origin: padding;
-    subcontrol-position: top right;
-    width: 10px;
-
-    border-left-width: 0px;
-    border-left-color: darkgray;
-    border-left-style: solid;
-    border-top-right-radius: 4px;
-    border-bottom-right-radius: 4px;
-}
-
-QComboBox QAbstractItemView {
-    border: 0px;
-    selection-background-color: rgb(120, 120, 120);
-}
-QScrollBar:vertical {
-    border: 0px ;
-    background: rgb(64, 64, 64);
-    width:8px;
-    margin: 0px 0px 0px 0px;
-    }
-QScrollBar::handle:vertical {
-    background: rgb(100,100,100);
-    min-height: 0px;
-    border-radius: 4px;
-    }
-QScrollBar::add-line:vertical {
-    background: rgba(0,0,0,64);
-    height: 0px;
-    subcontrol-position: bottom;
-    subcontrol-origin: margin;
-    }
-QScrollBar::sub-line:vertical {
-    background: rgba(0,0,0,64);
-    height: 0 px;
-    subcontrol-position: top;
-    subcontrol-origin: margin;
-    }
-""")
+        QComboBox {
+            border: 0px;
+            border-radius: 4px;
+            padding-right: 4px;
+            padding-left: 16px;
+            /* min-width: 6em; */
+            font-size:11pt;
+        }
+        
+        QComboBox:editable {
+            background: transparent;
+        }
+        
+        QComboBox:!editable, QComboBox::drop-down:editable {
+             /*background: rgb(100,100,100);*/
+             background: transparent;
+        }
+        
+        QComboBox:!editable:on, QComboBox::drop-down:editable:on {
+            /*background: rgb(120,120,120);*/
+            background: transparent;
+        }
+        
+        QComboBox::drop-down {
+            subcontrol-origin: padding;
+            subcontrol-position: top right;
+            width: 10px;
+        
+            border-left-width: 0px;
+            border-left-color: darkgray;
+            border-left-style: solid;
+            border-top-right-radius: 4px;
+            border-bottom-right-radius: 4px;
+        }
+        
+        QComboBox QAbstractItemView {
+            border: 0px;
+            selection-background-color: rgb(120, 120, 120);
+        }
+        QScrollBar:vertical {
+            border: 0px ;
+            background: rgb(64, 64, 64);
+            width:8px;
+            margin: 0px 0px 0px 0px;
+            }
+        QScrollBar::handle:vertical {
+            background: rgb(100,100,100);
+            min-height: 0px;
+            border-radius: 4px;
+            }
+        QScrollBar::add-line:vertical {
+            background: rgba(0,0,0,64);
+            height: 0px;
+            subcontrol-position: bottom;
+            subcontrol-origin: margin;
+            }
+        QScrollBar::sub-line:vertical {
+            background: rgba(0,0,0,64);
+            height: 0 px;
+            subcontrol-position: top;
+            subcontrol-origin: margin;
+            }
+        """)
 
 
 class Ui_replyWidget(QtGui.QWidget):

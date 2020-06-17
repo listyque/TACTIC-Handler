@@ -450,30 +450,30 @@ class Ui_checkInOutWidget(QtGui.QMainWindow):
     #     else:
     #         self.naming_editor_widget.exec_()
 
-    @gf.catch_error
-    def create_process_tree_widget(self):
-        if not self.process_tree_widget:
-            self.process_tree_widget = ui_search_classes.Ui_processFilterDialog(
-                parent_ui=self,
-                parent=self,
-                project=self.project,
-                stype=self.stype
-            )
-            self.process_tree_widget.show()
-        else:
-            self.process_tree_widget.show()
+    # @gf.catch_error
+    # def create_process_tree_widget(self):
+    #     if not self.process_tree_widget:
+    #         self.process_tree_widget = ui_search_classes.Ui_processFilterDialog(
+    #             parent_ui=self,
+    #             parent=self,
+    #             project=self.project,
+    #             stype=self.stype
+    #         )
+    #         self.process_tree_widget.show()
+    #     else:
+    #         self.process_tree_widget.show()
 
-    def get_process_ignore_list(self):
-        if self.process_tree_widget:
-            return self.process_tree_widget.get_ignore_dict()
-        else:
-            self.process_tree_widget = ui_search_classes.Ui_processFilterDialog(
-                parent_ui=self,
-                parent=self,
-                project=self.project,
-                stype=self.stype
-            )
-            return self.process_tree_widget.get_ignore_dict()
+    # def get_process_ignore_list(self):
+    #     if self.process_tree_widget:
+    #         return self.process_tree_widget.get_ignore_dict()
+    #     else:
+    #         self.process_tree_widget = ui_search_classes.Ui_processFilterDialog(
+    #             parent_ui=self,
+    #             parent=self,
+    #             project=self.project,
+    #             stype=self.stype
+    #         )
+    #         return self.process_tree_widget.get_ignore_dict()
 
     def refresh_current_results(self):
         self.search_widget.update_current_search_results()
@@ -942,13 +942,13 @@ class Ui_checkInOutWidget(QtGui.QMainWindow):
         self.sync_sobjects_action.triggered.connect(self.create_sync_dialog)
         self.sync_sobjects_action.setIcon(gf.get_icon('cloud-sync', icons_set='mdi'))
 
-        self.filter_process_action = QtGui.QAction('Filter Processes', self)
-        self.filter_process_action.triggered.connect(self.create_process_tree_widget)
-        self.filter_process_action.setIcon(gf.get_icon('filter'))
+        # self.filter_process_action = QtGui.QAction('Filter Processes', self)
+        # self.filter_process_action.triggered.connect(self.create_process_tree_widget)
+        # self.filter_process_action.setIcon(gf.get_icon('filter'))
 
-        self.find_opened_sobject_action = QtGui.QAction('Find Current Opened Search Object', self)
-        self.find_opened_sobject_action.triggered.connect(self.create_process_tree_widget)
-        self.find_opened_sobject_action.setIcon(gf.get_icon('magic'))
+        # self.find_opened_sobject_action = QtGui.QAction('Find Current Opened Search Object', self)
+        # self.find_opened_sobject_action.triggered.connect(self.create_process_tree_widget)
+        # self.find_opened_sobject_action.setIcon(gf.get_icon('magic'))
 
         self.search_options_toggle_action = QtGui.QAction('Advanced Search Dock', self)
         self.search_options_toggle_action.triggered.connect(self.toggle_advanced_search_widget)
@@ -996,8 +996,8 @@ class Ui_checkInOutWidget(QtGui.QMainWindow):
 
         self.search_widget.add_action_to_gear_menu(self.add_new_sobject_action)
         self.search_widget.add_action_to_gear_menu(self.sync_sobjects_action)
-        if env_mode.get_mode() == 'maya':
-            self.search_widget.add_action_to_gear_menu(self.find_opened_sobject_action)
+        # if env_mode.get_mode() == 'maya':
+        #     self.search_widget.add_action_to_gear_menu(self.find_opened_sobject_action)
         self.search_widget.add_action_to_gear_menu(self.search_options_toggle_action)
         self.search_widget.add_action_to_gear_menu(self.description_toggle_action)
         self.search_widget.add_action_to_gear_menu(self.snapshot_browser_toggle_action)

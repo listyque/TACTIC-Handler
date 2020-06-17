@@ -368,7 +368,7 @@ class Ui_messageWidget(QtGui.QWidget):
         self.user_label.setStyleSheet('QLabel {padding-left: 8px; font-size: 10pt; color: grey;}')
 
         self.overlay_layout.addWidget(self.user_label, 0, 0, 1, 1)
-        self.toolButton = StyledToolButton(small=True)
+        self.toolButton = StyledToolButton(size='small')
         self.toolButton.setParent(self.text_area)
         self.toolButton.setIcon(gf.get_icon('dots-vertical', icons_set='mdi', scale_factor=1.2))
         self.overlay_layout.addWidget(self.toolButton, 0, 1, 1, 1)
@@ -469,6 +469,7 @@ class Ui_messageWidget(QtGui.QWidget):
 
         # TODO Add login info, like group etc
         self.user_label.setText(u'{0} ({1})'.format(self.login.get_display_name(), self.login.get_value('login')))
+        self.user_label.setStyleSheet('QLabel {{padding-left: 8px; font-size: 10pt; color: {0};}}'.format(gf.gen_color(self.login.get_value('login'))))
 
         self.date_label.setText(self.note.get_timestamp(pretty=True))
 
