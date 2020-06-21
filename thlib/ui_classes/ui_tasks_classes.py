@@ -20,70 +20,11 @@ from thlib.environment import env_inst, env_write_config, env_read_config
 # import ui_item_task_classes as task_item_widget
 import thlib.tactic_classes as tc
 import thlib.global_functions as gf
-from thlib.ui_classes.ui_custom_qwidgets import Ui_horizontalCollapsableWidget, StyledToolButton
+from thlib.ui_classes.ui_custom_qwidgets import Ui_horizontalCollapsableWidget, StyledToolButton, Ui_coloredComboBox
 
 # reload(ui_tasks)
 # reload(richedit_widget)
 # reload(task_item_widget)
-
-
-class Ui_coloredComboBox(QtGui.QComboBox):
-    def __init__(self, parent=None):
-        super(self.__class__, self).__init__(parent=parent)
-
-        self.setEditable(True)
-
-        self.customize()
-
-        self.controls_actions()
-
-    def controls_actions(self):
-        self.currentIndexChanged.connect(self.index_changed)
-
-    def add_item(self, item_text, item_color=None, hex_color=None, item_data=None):
-        if hex_color:
-            c = gf.hex_to_rgb(hex_color, tuple=True)
-            item_color = Qt4Gui.QColor(c[0], c[1], c[2], 128)
-
-        if not item_color:
-            self.addItem(item_text)
-        else:
-            model = self.model()
-            item = Qt4Gui.QStandardItem(u'{0}'.format(item_text))
-            item.setBackground(item_color)
-            item.setData(item_color, 1)
-            item.setData(item_text, 2)
-            if item_data:
-                item.setData(item_data, 3)
-            model.appendRow(item)
-
-    def index_changed(self):
-        item_color = self.itemData(self.currentIndex(), 1)
-        if item_color:
-            c = item_color.toTuple()
-            rgba_color = 'rgba({0}, {1}, {2}, {3})'.format(c[0], c[1], c[2], 192)
-            self.setStyleSheet('QComboBox {background: ' + rgba_color + ';}')
-            self.customize(rgba_color)
-        else:
-            self.setStyleSheet('')
-
-    def customize(self, rgba_color=None):
-        if not rgba_color:
-            rgba_color = 'rgba(255, 255, 255, 48)'
-        line_edit = self.lineEdit()
-        line_edit.setStyleSheet("""
-            QLineEdit {
-                border: 0px;
-                border-radius: 2px;
-                show-decoration-selected: 1;
-                padding: 0px 0px;
-            """ + """background: {};""".format(rgba_color) +
-                                """ background-position: bottom left;
-                                    background-repeat: fixed;
-                                    selection-background-color: darkgray;
-                                    padding-left: 0px;
-                                }
-                                """)
 
 
 class Ui_taskWidget(QtGui.QFrame):
@@ -446,8 +387,11 @@ class Ui_taskWidget(QtGui.QFrame):
         stype = self.parent_sobject.get_stype()
         parent_sobject_pipeline_code = self.parent_sobject.get_pipeline_code()
 
-        current_pipeline = stype.get_pipeline().get(parent_sobject_pipeline_code)
-        process_info = current_pipeline.get_process_info(self.process)
+        stype_current_pipeline = stype.get_pipeline()
+        process_info = None
+        if stype_current_pipeline:
+            current_pipeline = stype_current_pipeline.get(parent_sobject_pipeline_code)
+            process_info = current_pipeline.get_process_info(self.process)
 
         return process_info
 
@@ -468,8 +412,11 @@ class Ui_taskWidget(QtGui.QFrame):
         parent_sobject_pipeline_code = self.parent_sobject.get_pipeline_code()
         workflow = stype.get_workflow()
 
-        current_pipeline = stype.get_pipeline().get(parent_sobject_pipeline_code)
-        process_info = self.get_process_info()
+        stype_current_pipeline = stype.get_pipeline()
+        process_info = None
+        if stype_current_pipeline:
+            current_pipeline = stype_current_pipeline.get(parent_sobject_pipeline_code)
+            process_info = current_pipeline.get_process_info(self.process)
 
         if process_info:
             process_label = process_info.get('label')
@@ -512,8 +459,11 @@ class Ui_taskWidget(QtGui.QFrame):
         stype = self.parent_sobject.get_stype()
         parent_sobject_pipeline_code = self.parent_sobject.get_pipeline_code()
 
-        current_pipeline = stype.get_pipeline().get(parent_sobject_pipeline_code)
-        process_info = current_pipeline.get_process_info(self.process)
+        stype_current_pipeline = stype.get_pipeline()
+        process_info = None
+        if stype_current_pipeline:
+            current_pipeline = stype_current_pipeline.get(parent_sobject_pipeline_code)
+            process_info = current_pipeline.get_process_info(self.process)
 
         if process_info:
             assigned_login_group_code = process_info.get('assigned_login_group')
@@ -594,21 +544,19 @@ class Ui_taskWidget(QtGui.QFrame):
             self.process_label.setText(u'{}'.format(label_text))
 
     def add_new_task(self):
-        print 'Adding new task'
         from thlib.ui_classes.ui_addsobject_classes import Ui_addTacticSobjectWidget
 
         tasks_stype = env_inst.get_stype_by_code('sthpw/task')
         parent_stype = self.parent_sobject.get_stype()
-        search_key = self.parent_sobject.get_search_key()
-
-        print search_key
+        parent_search_key = self.parent_sobject.get_search_key()
 
         add_sobject = Ui_addTacticSobjectWidget(
             stype=tasks_stype,
             parent_stype=parent_stype,
-            # search_key=search_key,
-            parent_search_key=search_key,
-            # view='edit',
+            parent_search_key=parent_search_key,
+            view='insert',
+            parent_sobject=self.parent_sobject,
+            info_dict={'process': self.process},
             parent=self,
         )
 

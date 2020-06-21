@@ -739,6 +739,9 @@ def from_json(obj, use_ast=False):
         else:
             return json.loads(obj)
 
+def pp(text):
+    from pprint import pprint
+    return pprint(text)
 
 def gen_acronym(word, length=2):
     acronym = ''

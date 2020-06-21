@@ -21,6 +21,9 @@ input_classes = {
         'tactic.ui.widget.calendar_wdg.CalendarInputWdg',
         'tactic.ui.input.process_group_select_wdg.ProcessGroupSelectWdg',
         'pyasm.prod.web.prod_input_wdg.ProjectSelectWdg',
+        'tactic.ui.input.process_context_wdg.ProcessInputWdg',
+        'tactic.ui.input.process_context_wdg.SubContextInputWdg',
+        'tactic.ui.widget.misc_input_wdg.TaskStatusSelectWdg',
     ],
     'handler': [
         'TacticSimpleUploadWdg',
@@ -33,6 +36,9 @@ input_classes = {
         'TacticCalendarInputWdg',
         'TacticProcessGroupSelectWdg',
         'TacticProjectSelectWdg',
+        'TacticProcessInputWdg',
+        'TacticSubContextInputWdg',
+        'TacticTaskStatusSelectWdg',
     ],
 }
 
@@ -71,6 +77,8 @@ class TacticBaseWidget(object):
         self.options_dict = None
 
         self.action_options = None
+
+        self.info_dict = None
 
         if options_dict:
             self.set_base_widget_options(options_dict)
@@ -135,6 +143,9 @@ class TacticBaseWidget(object):
     def get_values(self):
         return self.values
 
+    def get_value(self, value):
+        return self.options_dict.get(value)
+
     def set_display_values(self, display_values):
         self.display_values = display_values
 
@@ -150,6 +161,10 @@ class TacticBaseWidget(object):
 
     def get_parent_search_key(self):
         return self.parent_key
+
+    def get_parent_stype(self):
+        if self.parent_sobject:
+            return self.parent_sobject.get_stype()
 
     def set_search_key(self, search_key):
         self.search_key = search_key
@@ -171,6 +186,12 @@ class TacticBaseWidget(object):
 
     def get_options(self):
         return self.options_dict
+
+    def get_info_dict(self):
+        return self.info_dict
+
+    def set_info_dict(self, info_dict):
+        self.info_dict = info_dict
 
     # def get_empty_label(self):
     #     if self.has_empty_value():
@@ -205,6 +226,7 @@ class TacticBaseWidget(object):
         self.set_display_values(options_dict_get('__display_values__'))
 
         self.set_action_options(options_dict_get('action_options'))
+        self.set_info_dict(options_dict_get('info_dict'))
 
         if self.kwargs:
             self.set_search_type(self.kwargs.get('search_type'))
@@ -227,7 +249,11 @@ class TacticEditWdg(TacticBaseWidget):
         # TODO make with threads
         # print 'BEGIN SAVING', data
         stype = self.get_stype()
-        project = stype.get_project()
+        parent_stype = self.get_parent_stype()
+        if parent_stype:
+            project = parent_stype.get_project()
+        else:
+            project = stype.get_project()
 
         if self.view == 'edit':
             # Logging info
@@ -270,10 +296,9 @@ class TacticEditWdg(TacticBaseWidget):
             return tc.insert_sobjects(self.get_search_type(), project.get_code(), data, parent_key=self.get_parent_search_key(), instance_type=instance_type)
 
     def set_base_edit_options(self, options_dict):
-        options_dict_get = options_dict.get
         self.options_dict = options_dict
 
-        self.mode = options_dict_get('mode')
+        self.mode = self.options_dict.get('mode')
         self.input_prefix = self.kwargs.get('input_prefix')
         self.view = self.kwargs.get('view')
 
@@ -472,6 +497,27 @@ class TacticProjectSelectWdg(TacticBaseInputWdg):
 
         self.set_values(options_dict_get('values'))
         self.set_labels(options_dict_get('labels'))
+
+
+class TacticProcessInputWdg(TacticBaseInputWdg):
+    def __init__(self, options_dict=None):
+        super(self.__class__, self).__init__(options_dict=options_dict)
+
+        self.set_class_name('pyasm.widget.input_wdg.CheckboxWdg')
+
+
+class TacticSubContextInputWdg(TacticBaseInputWdg):
+    def __init__(self, options_dict=None):
+        super(self.__class__, self).__init__(options_dict=options_dict)
+
+        self.set_class_name('pyasm.widget.input_wdg.CheckboxWdg')
+
+
+class TacticTaskStatusSelectWdg(TacticBaseInputWdg):
+    def __init__(self, options_dict=None):
+        super(self.__class__, self).__init__(options_dict=options_dict)
+
+        self.set_class_name('pyasm.widget.input_wdg.CheckboxWdg')
 
 
 def get_widget_name(tactic_class='', type=''):

@@ -441,13 +441,15 @@ class Ui_linkSobjectsWidget(QtGui.QDialog):
 
 
 class Ui_addTacticSobjectWidget(QtGui.QDialog):
-    def __init__(self, stype, parent_stype=None, item=None, view='insert', search_key=None, parent_search_key=None, parent=None):
+    def __init__(self, stype, parent_stype=None, item=None, view='insert', search_key=None, parent_search_key=None, parent_sobject=None, info_dict=None, parent=None):
         super(self.__class__, self).__init__(parent=parent)
 
         self.item = item
         self.stype = stype
         self.parent_stype = parent_stype
         self.search_type = self.stype.info.get('code')
+        self.parent_sobject = parent_sobject
+        self.info_dict = info_dict
 
         self.view = view
 
@@ -522,9 +524,9 @@ class Ui_addTacticSobjectWidget(QtGui.QDialog):
                     'view': 'edit',
                 },
                 'search_type': self.search_type,
-                'project': self.stype.project.get_code(),
             }
         else:
+
             kwargs = {
                 'args': {
                     'mode': 'insert',
@@ -534,8 +536,12 @@ class Ui_addTacticSobjectWidget(QtGui.QDialog):
                     'view': 'insert',
                 },
                 'search_type': self.search_type,
-                'project': self.stype.project.get_code(),
             }
+
+        if self.parent_stype:
+            kwargs['project'] = self.parent_stype.project.get_code()
+        else:
+            kwargs['project'] = self.stype.project.get_code()
 
         self.get_widgets(kwargs)
 
@@ -548,6 +554,11 @@ class Ui_addTacticSobjectWidget(QtGui.QDialog):
         if self.item:
             result_dict['EditWdg']['sobject'] = self.item.get_sobject()
             result_dict['EditWdg']['parent_sobject'] = self.item.get_parent_sobject()
+        elif self.parent_sobject:
+            result_dict['EditWdg']['parent_sobject'] = self.parent_sobject
+
+        if self.info_dict:
+            result_dict['EditWdg']['info_dict'] = self.info_dict
 
         tactic_edit_widget = tw.TacticEditWdg(result_dict['EditWdg'])
         tactic_edit_widget.set_stype(self.stype)
@@ -600,6 +611,7 @@ class Ui_addTacticSobjectWidget(QtGui.QDialog):
             self.loading_label.setVisible(True)
 
     def get_widgets(self, kwargs):
+        print(kwargs)
 
         def query_widgets_agent():
             return tc.execute_procedure_serverside(tq.query_EditWdg, kwargs, project=kwargs['project'])

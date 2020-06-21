@@ -404,8 +404,7 @@ class Ui_ScriptEditForm(QtGui.QDialog):
             result = tc.execute_procedure_serverside(lambda: None, code_dict)
             print('\nServe-Side execution time: {}\n'.format(time.time() - start))
 
-            from pprint import pprint
-            pprint(result)
+            gf.pp(result)
 
     def run_script(self):
         if self.run_type_combo_box.currentIndex() == 0:

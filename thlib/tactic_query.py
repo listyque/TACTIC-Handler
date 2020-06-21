@@ -98,6 +98,7 @@ def query_EditWdg(args=None, search_type='', project=''):
 
         ignore_columns = ['sobjects_for_options', 'pipelines', '_sobjects']
         for key, val in in_dict.items():
+
             if not (hasattr(val, '__dict__') or key.startswith('_')) and key not in ignore_columns:
                 out_dict[key] = val
 
@@ -129,13 +130,14 @@ def query_EditWdg(args=None, search_type='', project=''):
     input_widgets = widget.get_widgets()
     wdg_config = WidgetConfigView.get_by_element_names(search_type, widget.element_names, base_view=args['view'])
 
-    temprorary_ignore = ['tactic.ui.input.process_context_wdg.ProcessInputWdg', 'tactic.ui.input.process_context_wdg.SubContextInputWdg', 'tactic.ui.widget.misc_input_wdg.TaskStatusSelectWdg']
+    temprorary_ignore = []
 
     for i_widget in input_widgets:
         widget_dict = pop_classes(i_widget.__dict__)
         widget_dict['action_options'] = wdg_config.get_action_options(widget_dict.get('name'))
         widget_dict['class_name'] = i_widget.get_class_name()
         display_values = i_widget.get_values()
+
         if display_values:
             widget_dict['__display_values__'] = display_values
         else:
@@ -144,6 +146,17 @@ def query_EditWdg(args=None, search_type='', project=''):
                 select_wd = i_widget.get_display()
                 select_wd.get_display()
                 widget_dict['__display_values__'] = select_wd.__dict__
+
+        # Special cases for different widgets
+        if widget_dict['class_name'] == 'tactic.ui.widget.misc_input_wdg.TaskStatusSelectWdg':
+
+            task_pipelines_result = []
+            task_pipelines = widget_dict['task_pipelines']
+            if task_pipelines:
+                for tp in task_pipelines:
+                    task_pipelines_result.append(tp.get_code())
+
+            widget_dict['task_pipelines'] = task_pipelines_result
 
         if widget_dict['class_name'] not in temprorary_ignore:
             result_dict['InputWidgets'].append(widget_dict)

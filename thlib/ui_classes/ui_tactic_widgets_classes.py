@@ -4,7 +4,7 @@ from thlib.side.Qt import QtCore
 import thlib.tactic_classes as tc
 import thlib.global_functions as gf
 from thlib.environment import env_inst, env_mode, env_tactic, cfg_controls
-from thlib.ui_classes.ui_custom_qwidgets import Ui_previewsEditorDialog, Ui_screenShotMakerDialog
+from thlib.ui_classes.ui_custom_qwidgets import Ui_previewsEditorDialog, Ui_screenShotMakerDialog, Ui_coloredComboBox, StyledComboBox
 
 
 # edit/input widgets
@@ -16,6 +16,7 @@ class QtTacticEditWidget(QtGui.QWidget):
 
         self.add_sobj_widget = parent
         self.sobject = self.tactic_widget.get_sobject()
+        self.parent_sobject = self.tactic_widget.get_parent_sobject()
         self.stype = stype
         self.item = self.add_sobj_widget.item
 
@@ -40,6 +41,18 @@ class QtTacticEditWidget(QtGui.QWidget):
     def showEvent(self, event):
         if not self.shown:
             self.create_ui()
+
+    def get_sobject(self):
+        return self.sobject
+
+    def get_parent_sobject(self):
+        return self.parent_sobject
+
+    def get_stype(self):
+        return self.stype
+
+    def get_info_dict(self):
+        return self.tactic_widget.get_info_dict()
 
     def controls_actions(self):
         self.addNewButton.clicked.connect(self.commit_insert)
@@ -261,6 +274,62 @@ class QtTacticEditWidget(QtGui.QWidget):
 
     def create_scroll_area(self):
         self.scroll_area = QtGui.QScrollArea()
+        self.scroll_area.setStyleSheet("""
+        QScrollArea {
+            background: rgb(68, 68, 68);
+        }
+        QScrollArea > QWidget > QWidget {
+            background: rgb(68, 68, 68);
+        }
+        QScrollBar:vertical {
+            border: 0px ;
+            background: transparent;
+            width:8px;
+            margin: 0px 0px 0px 0px;
+        }
+        QScrollBar::handle:vertical {
+            background: rgba(255,255,255,64);
+            min-height: 0px;
+            border-radius: 4px;
+        }
+        QScrollBar::add-line:vertical {
+            background: rgba(255,255,255,64);
+            height: 0px;
+            subcontrol-position: bottom;
+            subcontrol-origin: margin;
+        }
+        QScrollBar::sub-line:vertical {
+            background: rgba(255,255,255,64);
+            height: 0 px;
+            subcontrol-position: top;
+            subcontrol-origin: margin;
+        }
+        QScrollBar:horizontal {
+            border: 0px ;
+            background: transparent;
+            height:8px;
+            margin: 0px 0px 0px 0px;
+        }
+        QScrollBar::handle:horizontal {
+            background: rgba(255,255,255,64);
+            min-height: 0px;
+            border-radius: 4px;
+        }
+        QScrollBar::add-line:horizontal {
+            background: rgba(255,255,255,64);
+            height: 0px;
+            subcontrol-position: bottom;
+            subcontrol-origin: margin;
+        }
+        QScrollBar::sub-line:horizontal {
+            background: rgba(255,255,255,64);
+            height: 0 px;
+            subcontrol-position: top;
+            subcontrol-origin: margin;
+        }""")
+        self.scroll_area.setWidgetResizable(True)
+        self.scroll_area.setFrameShape(QtGui.QScrollArea.NoFrame)
+
         self.scroll_area_contents = QtGui.QWidget()
         self.scroll_area_layout = QtGui.QVBoxLayout(self.scroll_area_contents)
 
@@ -376,11 +445,11 @@ class QTacticSelectWdg(QtGui.QWidget, QTacticBasicInputWdg):
 
         codes = self.tactic_widget.get_values()
         index = self.combo_box.currentIndex()
-
-        if not codes[index]:
-            return ''
-        else:
-            return codes[index]
+        if codes:
+            if not codes[index]:
+                return ''
+            else:
+                return codes[index]
 
     def get_column(self):
         action_options = self.tactic_widget.get_action_options()
@@ -780,6 +849,25 @@ class QTacticTaskSObjectInputWdg(QtGui.QWidget, QTacticBasicInputWdg):
                     title = sobject.info.get('code')
                 self.parent_label.setText(title)
 
+        if not sobject or parent_sobject:
+            display_values = self.tactic_widget.get_display_values()
+
+            if display_values:
+                if display_values[0]:
+                    parent_sobject = self.tactic_widget.get_parent_sobject()
+                    if parent_sobject:
+                        self.parent_label.setText(parent_sobject.get_title())
+                    else:
+                        self.parent_label.setText(display_values[0])
+                else:
+                    stype = self.tactic_widget.get_stype()
+                    project = stype.get_project()
+                    self.parent_label.setText(project.get_title())
+            else:
+                parent_sobject = self.tactic_widget.get_parent_sobject()
+                if parent_sobject:
+                    self.parent_label.setText(parent_sobject.get_title())
+
     def create_parent_label(self):
         self.parent_label = QtGui.QLabel()
 
@@ -799,14 +887,16 @@ class QTacticCalendarInputWdg(QtGui.QWidget, QTacticBasicInputWdg):
         self.set_control_widget(self.date_time_edit)
 
     def get_data(self):
-        return None
+
+        date_time = self.date_time_edit.dateTime()
+
+        return date_time.toString('yyyy-MM-dd HH:mm:ss')
 
     def get_column(self):
         return self.tactic_widget.get_name()
 
     def fill_default_values(self):
         values = self.tactic_widget.get_display_values()
-        print values
 
         if values:
             if values[0]:
@@ -815,7 +905,10 @@ class QTacticCalendarInputWdg(QtGui.QWidget, QTacticBasicInputWdg):
 
     def create_date_time_edit(self):
         self.date_time_edit = QtGui.QDateTimeEdit()
+        self.date_time_edit.setDisplayFormat(u"yyyy.MM.dd. HH:mm:ss")
         self.date_time_edit.setCalendarPopup(True)
+        current_datetime = QtCore.QDateTime.currentDateTime()
+        self.date_time_edit.setDateTime(current_datetime)
 
 
 class QTacticProcessGroupSelectWdg(QtGui.QWidget, QTacticBasicInputWdg):
@@ -833,9 +926,9 @@ class QTacticProcessGroupSelectWdg(QtGui.QWidget, QTacticBasicInputWdg):
         self.create_combo_box()
 
         self.set_title(self.tactic_widget.get_title())
-        self.set_control_widget(self.combo_box)
+        self.set_control_widget(self.users_combo_box)
 
-        self.add_items_to_combo_box()
+        self.fill_users_combo()
 
         # self.init_default_value()
 
@@ -853,7 +946,7 @@ class QTacticProcessGroupSelectWdg(QtGui.QWidget, QTacticBasicInputWdg):
             if column:
                 for i, value in enumerate(self.tactic_widget.get_values()):
                     if column == value:
-                        self.combo_box.setCurrentIndex(i)
+                        self.users_combo_box.setCurrentIndex(i)
 
     def init_default_value(self):
 
@@ -868,20 +961,13 @@ class QTacticProcessGroupSelectWdg(QtGui.QWidget, QTacticBasicInputWdg):
         if default_value:
             for i, value in enumerate(self.tactic_widget.get_values()):
                 if default_value == value:
-                    self.combo_box.setCurrentIndex(i)
+                    self.users_combo_box.setCurrentIndex(i)
                     return True
 
     def get_data(self):
-
-        return ''
-
-        codes = self.tactic_widget.get_values()
-        index = self.combo_box.currentIndex()
-
-        if not codes[index]:
-            return ''
-        else:
-            return codes[index]
+        if self.users_combo_box.currentIndex() not in [-1, 0]:
+            idx = self.users_combo_box.currentIndex()
+            return self.users_combo_box.itemData(idx-1, QtCore.Qt.UserRole)
 
     def get_column(self):
         action_options = self.tactic_widget.get_action_options()
@@ -892,14 +978,45 @@ class QTacticProcessGroupSelectWdg(QtGui.QWidget, QTacticBasicInputWdg):
             return self.tactic_widget.get_name()
 
     def create_combo_box(self):
-        self.combo_box = QtGui.QComboBox()
-        self.combo_box.setEditable(True)
-        self.combo_box.setCurrentIndex(0)
+        self.users_combo_box = StyledComboBox()
+        self.users_combo_box.setEditable(False)
+        self.users_combo_box.setCurrentIndex(0)
+        display_values = self.tactic_widget.get_value('__display_values__')
+        self.users_combo_box.addItem(display_values.get('empty_option_label'))
 
-    def add_items_to_combo_box(self):
-        labels = self.tactic_widget.get_labels()
-        for label in labels:
-            self.combo_box.addItem(label)
+    def fill_users_combo(self):
+
+        current_login = env_inst.get_current_login_object()
+
+        stype = self.parent_sobject.get_stype()
+        parent_sobject_pipeline_code = self.parent_sobject.get_pipeline_code()
+
+        info_dict = self.parent_ui.get_info_dict()
+        current_process = None
+        if info_dict:
+            current_process = info_dict.get('process')
+
+        stype_current_pipeline = stype.get_pipeline()
+        process_info = None
+        if stype_current_pipeline:
+            current_pipeline = stype_current_pipeline.get(parent_sobject_pipeline_code)
+            process_info = current_pipeline.get_process_info(current_process)
+
+        if process_info:
+            assigned_login_group_code = process_info.get('assigned_login_group')
+            assigned_login_group = current_login.get_login_group(assigned_login_group_code)
+
+            if assigned_login_group:
+                group_logins = assigned_login_group.get_logins()
+                if group_logins:
+                    for i, login in enumerate(group_logins):
+                        self.users_combo_box.setItemData(i, login.get_login(), QtCore.Qt.UserRole)
+                        self.users_combo_box.addItem(login.get_display_name())
+            else:
+                all_logins = env_inst.get_all_logins().values()
+                for i, login in enumerate(all_logins):
+                    self.users_combo_box.setItemData(i, login.get_login(), QtCore.Qt.UserRole)
+                    self.users_combo_box.addItem(login.get_display_name())
 
 
 class QTacticProjectSelectWdg(QtGui.QWidget, QTacticBasicInputWdg):
@@ -982,3 +1099,146 @@ class QTacticProjectSelectWdg(QtGui.QWidget, QTacticBasicInputWdg):
         labels = self.tactic_widget.get_labels()
         for label in labels:
             self.combo_box.addItem(label)
+
+
+class QTacticTaskStatusSelectWdg(QtGui.QWidget, QTacticBasicInputWdg):
+    def __init__(self, tactic_widget, parent=None):
+        super(self.__class__, self).__init__(parent=parent)
+
+        self.init_ui()
+
+        self.tactic_widget = tactic_widget
+        self.parent_ui = parent
+        self.parent_sobject = self.tactic_widget.get_parent_sobject()
+
+        self.create_processes_combo_box()
+
+        self.set_title(self.tactic_widget.get_title())
+        self.fill_default_values()
+
+        self.set_control_widget(self.statuses_combo_box)
+
+    def get_data(self):
+        if self.statuses_combo_box.currentIndex() not in [-1, 0]:
+            return self.statuses_combo_box.currentText()
+
+    def get_column(self):
+        return self.tactic_widget.get_name()
+
+    def fill_default_values(self):
+
+        task_pipelines = self.tactic_widget.get_value('task_pipelines')
+        info_dict = self.parent_ui.get_info_dict()
+        current_process = None
+        if info_dict:
+            current_process = info_dict.get('process')
+
+        if task_pipelines and self.parent_sobject and current_process:
+            stype = self.parent_sobject.get_stype()
+            parent_sobject_pipeline_code = self.parent_sobject.get_pipeline_code()
+            workflow = stype.get_workflow()
+
+            stype_current_pipeline = stype.get_pipeline()
+            if stype_current_pipeline:
+                current_pipeline = stype_current_pipeline.get(parent_sobject_pipeline_code)
+                process_info = current_pipeline.get_process_info(current_process)
+                if process_info:
+
+                    task_pipeline_code = process_info.get('task_pipeline')
+
+                    if task_pipeline_code:
+                        task_pipeline = workflow.get_by_pipeline_code('sthpw/task', task_pipeline_code)
+                    else:
+                        process_type = process_info.get('type')
+                        task_pipeline = workflow.get_by_process_node_type('sthpw/task', process_type)
+
+                    if task_pipeline:
+                        for process, value in task_pipeline.pipeline.items():
+                            self.statuses_combo_box.add_item(process, hex_color=value.get('color'))
+
+    def create_processes_combo_box(self):
+
+        self.statuses_combo_box = Ui_coloredComboBox()
+        self.statuses_combo_box.add_item('--{0}--'.format(self.tactic_widget.get_name()), hex_color='#303030')
+
+
+class QTacticSubContextInputWdg(QtGui.QWidget, QTacticBasicInputWdg):
+    def __init__(self, tactic_widget, parent=None):
+        super(self.__class__, self).__init__(parent=parent)
+
+        self.init_ui()
+        self.tactic_widget = tactic_widget
+
+        self.create_text_edit()
+
+        self.set_title(self.tactic_widget.get_title())
+        self.fill_default_values()
+        self.set_control_widget(self.text_edit)
+
+    def get_data(self):
+        if unicode(self.text_edit.text()) != unicode(self.tactic_widget.get_default_values()):
+            return unicode(self.text_edit.text())
+
+    def get_column(self):
+        return self.tactic_widget.get_name()
+
+    def fill_default_values(self):
+        if self.tactic_widget.get_default_values():
+            self.text_edit.setText(unicode(self.tactic_widget.get_default_values()))
+
+    def create_text_edit(self):
+        self.text_edit = QtGui.QLineEdit()
+
+
+class QTacticProcessInputWdg(QtGui.QWidget, QTacticBasicInputWdg):
+    def __init__(self, tactic_widget, parent=None):
+        super(self.__class__, self).__init__(parent=parent)
+
+        self.init_ui()
+
+        self.tactic_widget = tactic_widget
+        self.parent_ui = parent
+        self.parent_sobject = self.tactic_widget.get_parent_sobject()
+
+        self.create_processes_combo_box()
+
+        self.set_title(self.tactic_widget.get_title())
+        self.fill_default_values()
+
+        self.set_control_widget(self.statuses_combo_box)
+
+    def get_data(self):
+        if self.statuses_combo_box.currentIndex() not in [-1, 0]:
+            return self.statuses_combo_box.currentText()
+
+    def get_column(self):
+        return self.tactic_widget.get_name()
+
+    def fill_default_values(self):
+
+        pipeline_codes = self.tactic_widget.get_value('pipeline_codes')
+        info_dict = self.parent_ui.get_info_dict()
+        current_process = None
+        if info_dict:
+            current_process = info_dict.get('process')
+
+        if pipeline_codes and self.parent_sobject and current_process:
+            stype = self.parent_sobject.get_stype()
+            parent_sobject_pipeline_code = self.parent_sobject.get_pipeline_code()
+
+            stype_current_pipeline = stype.get_pipeline()
+            if stype_current_pipeline:
+                current_pipeline = stype_current_pipeline.get(parent_sobject_pipeline_code)
+
+                if current_pipeline:
+                    for process, value in current_pipeline.pipeline.items():
+                        self.statuses_combo_box.add_item(process, hex_color=value.get('color'))
+
+                    status_index = self.statuses_combo_box.findText(current_process)
+                    if status_index != -1:
+                        self.statuses_combo_box.setCurrentIndex(status_index)
+
+    def create_processes_combo_box(self):
+
+        self.statuses_combo_box = Ui_coloredComboBox()
+        self.statuses_combo_box.add_item('--{0}--'.format(self.tactic_widget.get_name()), hex_color='#303030')

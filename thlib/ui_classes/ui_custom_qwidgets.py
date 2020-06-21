@@ -2065,6 +2065,65 @@ class SuggestedLineEdit(QtGui.QLineEdit):
         event.accept()
 
 
+class Ui_coloredComboBox(QtGui.QComboBox):
+    def __init__(self, parent=None):
+        super(self.__class__, self).__init__(parent=parent)
+
+        self.setEditable(True)
+
+        self.customize()
+
+        self.controls_actions()
+
+    def controls_actions(self):
+        self.currentIndexChanged.connect(self.index_changed)
+
+    def add_item(self, item_text, item_color=None, hex_color=None, item_data=None):
+        if hex_color:
+            c = gf.hex_to_rgb(hex_color, tuple=True)
+            item_color = Qt4Gui.QColor(c[0], c[1], c[2], 128)
+
+        if not item_color:
+            self.addItem(item_text)
+        else:
+            model = self.model()
+            item = Qt4Gui.QStandardItem(u'{0}'.format(item_text))
+            item.setBackground(item_color)
+            item.setData(item_color, 1)
+            item.setData(item_text, 2)
+            if item_data:
+                item.setData(item_data, 3)
+            model.appendRow(item)
+
+    def index_changed(self):
+        item_color = self.itemData(self.currentIndex(), 1)
+        if item_color:
+            c = item_color.toTuple()
+            rgba_color = 'rgba({0}, {1}, {2}, {3})'.format(c[0], c[1], c[2], 192)
+            self.setStyleSheet('QComboBox {background: ' + rgba_color + ';}')
+            self.customize(rgba_color)
+        else:
+            self.setStyleSheet('')
+
+    def customize(self, rgba_color=None):
+        if not rgba_color:
+            rgba_color = 'rgba(255, 255, 255, 48)'
+        line_edit = self.lineEdit()
+        line_edit.setStyleSheet("""
+            QLineEdit {
+                border: 0px;
+                border-radius: 2px;
+                show-decoration-selected: 1;
+                padding: 0px 0px;
+            """ + """background: {};""".format(rgba_color) +
+                                """ background-position: bottom left;
+                                    background-repeat: fixed;
+                                    selection-background-color: darkgray;
+                                    padding-left: 0px;
+                                }
+                                """)
+
+
 class StyledToolButton(QtGui.QToolButton):
     def __init__(self, size='normal', shadow_enabled=True, square_type=False, parent=None):
         super(self.__class__, self).__init__(parent=parent)
