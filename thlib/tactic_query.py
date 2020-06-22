@@ -397,6 +397,7 @@ def get_subscriptions_and_messages(current_login='admin', update_logins=False):
 
 def get_notes_and_stypes_counts(process, search_key, stypes_list):
     # getting notes by search_type process and count of stypes from stypes_list
+    # TODO simplify query and use filtering
     from pyasm.search import Search
 
     search_type, search_code = server.split_search_key(search_key)
@@ -406,12 +407,17 @@ def get_notes_and_stypes_counts(process, search_key, stypes_list):
     cnt = {
         'notes': {},
         'stypes': {},
+        'tasks': {},
     }
 
     for p in process:
         search = Search('sthpw/note')
         search.add_op_filters([('process', p), ('search_type', search_type), ('search_code', search_code)])
         cnt['notes'][p] = search.get_count(True)
+
+        search = Search('sthpw/task')
+        search.add_op_filters([('process', p), ('search_type', search_type), ('search_code', search_code)])
+        cnt['tasks'][p] = search.get_count(True)
 
     # print(stypes_list)
 
@@ -901,23 +907,37 @@ def query_sobjects(search_type, filters=[], order_bys=[], project_code=None, lim
                     sobject_dict['__have_updates__'] = True
 
         if include_info:
-            note_search = Search('sthpw/note')
-            if have_search_code:
-                note_search.add_op_filters(
-                    [('process', 'publish'), ('search_type', search_type), ('search_code', sobject_dict['code'])])
+            if search_type == 'sthpw/task':
+                # for a task Search Type notes are stored for search id by default
+                note_search = Search('sthpw/note')
+                if have_search_code:
+                    note_search.add_op_filters(
+                        [('process', sobject_dict['process']), ('search_code', sobject_dict['search_code'])])
+                else:
+                    note_search.add_op_filters(
+                        [('process', sobject_dict['process']), ('search_id', sobject_dict['search_id'])])
+
+                sobject_dict['__notes_count__'] = note_search.get_count()
+                # there is no reason to rearch for tasks of tasks, this is never used
+                sobject_dict['__tasks_count__'] = 0
             else:
-                note_search.add_op_filters(
-                    [('process', 'publish'), ('search_type', search_type), ('search_id', sobject_dict['id'])])
+                note_search = Search('sthpw/note')
+                if have_search_code:
+                    note_search.add_op_filters(
+                        [('process', 'publish'), ('search_type', search_type), ('search_code', sobject_dict['code'])])
+                else:
+                    note_search.add_op_filters(
+                        [('process', 'publish'), ('search_type', search_type), ('search_id', sobject_dict['id'])])
 
-            sobject_dict['__notes_count__'] = note_search.get_count()
+                sobject_dict['__notes_count__'] = note_search.get_count()
 
-            task_search = Search('sthpw/task')
-            if have_search_code:
-                task_search.add_op_filters([('search_type', search_type), ('search_code', sobject_dict['code'])])
-            else:
-                task_search.add_op_filters([('search_type', search_type), ('search_id', sobject_dict['id'])])
+                task_search = Search('sthpw/task')
+                if have_search_code:
+                    task_search.add_op_filters([('search_type', search_type), ('search_code', sobject_dict['code'])])
+                else:
+                    task_search.add_op_filters([('search_type', search_type), ('search_id', sobject_dict['id'])])
 
-            sobject_dict['__tasks_count__'] = task_search.get_count()
+                sobject_dict['__tasks_count__'] = task_search.get_count()
 
         if include_snapshots:
             related_snapshots = []

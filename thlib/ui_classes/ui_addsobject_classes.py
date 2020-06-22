@@ -611,7 +611,6 @@ class Ui_addTacticSobjectWidget(QtGui.QDialog):
             self.loading_label.setVisible(True)
 
     def get_widgets(self, kwargs):
-        print(kwargs)
 
         def query_widgets_agent():
             return tc.execute_procedure_serverside(tq.query_EditWdg, kwargs, project=kwargs['project'])

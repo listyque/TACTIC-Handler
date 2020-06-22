@@ -507,7 +507,7 @@ class SObject(object):
         else:
             filters = [('search_code', self.info['code']), ('project_code', self.project.info['code'])]
 
-        self.tasks_sobjects = get_sobjects(search_type, filters, project_code=self.project.info['code'])
+        self.tasks_sobjects = get_sobjects(search_type, filters, include_snapshots=False, project_code=self.project.info['code'])
 
         return self.tasks_sobjects
 
@@ -2104,7 +2104,11 @@ def get_sobjects(search_type, filters=[], order_bys=[], project_code=None, limit
             if include_snapshots:
                 sobjects[sobject['__search_key__']].init_snapshots(sobject['__snapshots__'])
             if include_info:
-                sobjects[sobject['__search_key__']].set_notes_count('publish', sobject['__notes_count__'])
+
+                if sobject.get('process'):
+                    sobjects[sobject['__search_key__']].set_notes_count(sobject['process'], sobject['__notes_count__'])
+                else:
+                    sobjects[sobject['__search_key__']].set_notes_count('publish', sobject['__notes_count__'])
                 sobjects[sobject['__search_key__']].set_tasks_count('__total__', sobject['__tasks_count__'])
 
         if include_info:

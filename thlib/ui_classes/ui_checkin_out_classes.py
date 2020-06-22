@@ -1025,22 +1025,22 @@ class Ui_checkInOutWidget(QtGui.QMainWindow):
         # self.filter_process_button.clicked.connect(self.create_process_tree_widget)
         # self.filter_process_button.setToolTip('Filter current Tree of Processes and Child Search Types')
 
-        self.toggle_advanced_search_button = StyledToolButton(shadow_enabled=False)
+        self.toggle_advanced_search_button = StyledToolButton(shadow_enabled=True)
         self.toggle_advanced_search_button.setIcon(gf.get_icon('magnify', icons_set='mdi', scale_factor=1.2))
         self.toggle_advanced_search_button.clicked.connect(self.toggle_advanced_search_widget)
         self.toggle_advanced_search_button.setToolTip('Toggle Advanced Search')
 
-        self.add_new_sobject_button = StyledToolButton(shadow_enabled=False)
+        self.add_new_sobject_button = StyledToolButton(shadow_enabled=True)
         self.add_new_sobject_button.setIcon(gf.get_icon('plus', icons_set='mdi', scale_factor=1.2))
         self.add_new_sobject_button.clicked.connect(self.add_new_sobject)
         self.add_new_sobject_button.setToolTip('Add new {0}'.format(self.stype.get_pretty_name()))
 
-        self.multiple_add_new_sobject_button = StyledToolButton(shadow_enabled=False)
+        self.multiple_add_new_sobject_button = StyledToolButton(shadow_enabled=True)
         self.multiple_add_new_sobject_button.setIcon(gf.get_icon('plus-circle-multiple-outline', icons_set='mdi', scale_factor=1.2))
         self.multiple_add_new_sobject_button.clicked.connect(self.add_new_sobject)
         self.multiple_add_new_sobject_button.setToolTip('Multiple Add new {0}'.format(self.stype.get_pretty_name()))
 
-        self.ingest_files_to_stype_button = StyledToolButton(shadow_enabled=False)
+        self.ingest_files_to_stype_button = StyledToolButton(shadow_enabled=True)
         self.ingest_files_to_stype_button.setIcon(gf.get_icon('database-plus', icons_set='mdi', scale_factor=1.2))
         self.ingest_files_to_stype_button.clicked.connect(self.add_new_sobject)
         self.ingest_files_to_stype_button.setToolTip('Ingest Files to {0}'.format(self.stype.get_pretty_name()))

@@ -2263,18 +2263,15 @@ class Ui_itemWidget(QtGui.QWidget):
 
     def set_tasks_count(self, tasks_count):
         if tasks_count > 0:
-            self.tasksToolButton.setIcon(
-                gf.get_icon('calendar-check', icons_set='mdi'))
-            # self.tasksToolButton.setIcon(gf.get_icon('tasks'))
-        self.tasksToolButton.setText('| {0}'.format(tasks_count))
+            self.tasksToolButton.setIcon(gf.get_icon('calendar-check', icons_set='mdi'))
+        self.tasksToolButton.setText('{0}'.format(tasks_count))
 
     def set_notes_count(self, notes_count):
         self.notes_count = notes_count
 
         if notes_count > 0:
-            # self.notesToolButton.setIcon(gf.get_icon('commenting'))
             self.notesToolButton.setIcon(gf.get_icon('message', icons_set='mdi'))
-        self.notesToolButton.setText('| {0}'.format(notes_count))
+        self.notesToolButton.setText('{0}'.format(notes_count))
 
     def is_have_watch_folder(self):
         if self.have_watch_folder:
@@ -3032,11 +3029,12 @@ class Ui_itemWidget(QtGui.QWidget):
 
             if not self.closed:
                 notes_counts = result['notes']
+                tasks_counts = result['tasks']
                 process_items_dict = {item.process: item for item in self.process_items}
                 for key, val in notes_counts.items():
                     process_item = process_items_dict.get(key)
                     if process_item:
-                        process_item.set_notes_count(val)
+                        process_item.set_notes_count(val, tasks_counts[key])
 
                 children_counts = result['stypes']
                 child_items_dict = {item.child.get('from'): item for item in self.child_items}
@@ -3268,6 +3266,7 @@ class Ui_processItemWidget(QtGui.QWidget):
         self.pipeline = pipeline
         self.info = info
         self.notes_count = 0
+        self.tasks_count = 0
         self.tree_item = None
         self.sep_versions = self.info['sep_versions']
         self.process_info = self.get_current_process_info()
@@ -3526,11 +3525,12 @@ class Ui_processItemWidget(QtGui.QWidget):
         def notes_fill(result):
             if not self.closed:
                 notes_counts = result['notes']
+                tasks_counts = result['tasks']
                 process_items_dict = {item.process: item for item in self.process_items}
                 for key, val in notes_counts.items():
                     process_item = process_items_dict.get(key)
                     if process_item:
-                        process_item.set_notes_count(val)
+                        process_item.set_notes_count(val, tasks_counts[key])
 
         def get_notes_counts_agent():
             return tc.get_notes_count(
@@ -3619,13 +3619,14 @@ class Ui_processItemWidget(QtGui.QWidget):
                 )
                 self.add_process_items(child_pipeline)
 
-    def set_notes_count(self, notes_count):
+    def set_notes_count(self, notes_count, tasks_count=0):
         self.notes_count = notes_count
+        self.tasks_count = tasks_count
 
-        if notes_count > 0:
+        if notes_count > 0 or tasks_count > 0:
             self.notesToolButton.setIcon(gf.get_icon('message', icons_set='mdi'))
             self.notes_tool_button_anm_open.start()
-        self.notesToolButton.setText('| {0}'.format(notes_count))
+        self.notesToolButton.setText('{0} | {1}'.format(notes_count, tasks_count))
 
     def show_notes_widget(self):
         project = self.sobject.get_project()
@@ -3815,11 +3816,11 @@ class Ui_processItemWidget(QtGui.QWidget):
             return parent_item.get_sobject()
 
     def show_additional_controls(self):
-        if self.notes_count == 0:
+        if self.notes_count == 0 and self.tasks_count == 0:
             self.notes_tool_button_anm_open.start()
 
     def hide_additional_controls(self):
-        if self.notes_count == 0:
+        if self.notes_count == 0 and self.tasks_count == 0:
             self.notes_tool_button_anm_close.start()
 
     def collapse_tree_item(self):

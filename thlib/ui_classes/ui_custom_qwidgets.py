@@ -2138,21 +2138,45 @@ class StyledToolButton(QtGui.QToolButton):
     def create_ui(self):
 
         if self.size == 'tiny':
-            self.setFixedSize(30, 30)
+            if self.shadow_enabled:
+                self.setFixedSize(30, 30)
+            else:
+                self.setFixedSize(22, 22)
         elif self.size == 'small':
-            self.setFixedSize(38, 38)
+            if self.shadow_enabled:
+                self.setFixedSize(38, 38)
+            else:
+                self.setFixedSize(34, 34)
         elif self.size == 'normal':
-            self.setFixedSize(42, 42)
+            if self.shadow_enabled:
+                self.setFixedSize(42, 42)
+            else:
+                self.setFixedSize(38, 38)
 
         self.customize_ui()
         self.setCursor(Qt4Gui.QCursor(QtCore.Qt.PointingHandCursor))
 
     def customize_ui(self):
 
-        if self.square_type:
-            customize_dict = {'radius': int(self.height() / 8), 'margin': 4}
+        if self.shadow_enabled:
+            if self.square_type:
+                customize_dict = {'radius': int(self.height() / 8)}
+            else:
+                customize_dict = {'radius': int(self.height() / 2) - 4}
+
+            customize_dict['margin'] = 4
+            effect = QtGui.QGraphicsDropShadowEffect(self)
+            effect.setOffset(0, 0)
+            effect.setColor(Qt4Gui.QColor(0, 0, 0, 64))
+            effect.setBlurRadius(16)
+            self.setGraphicsEffect(effect)
         else:
-            customize_dict = {'radius': int(self.height() / 2)-4, 'margin': 4}
+            if self.square_type:
+                customize_dict = {'radius': int(self.height() / 4)}
+            else:
+                customize_dict = {'radius': int(self.height() / 2)}
+
+            customize_dict['margin'] = 0
 
         self.setStyleSheet("""
         QToolButton {{
@@ -2173,13 +2197,6 @@ class StyledToolButton(QtGui.QToolButton):
         }}
         */
         """.format(**customize_dict))
-
-        if self.shadow_enabled:
-            effect = QtGui.QGraphicsDropShadowEffect(self)
-            effect.setOffset(0, 0)
-            effect.setColor(Qt4Gui.QColor(0, 0, 0, 64))
-            effect.setBlurRadius(16)
-            self.setGraphicsEffect(effect)
 
 
 class StyledChooserToolButton(QtGui.QToolButton):
