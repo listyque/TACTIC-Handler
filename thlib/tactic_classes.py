@@ -311,6 +311,7 @@ class SObject(object):
         self.process = {}
         self.tasks = {}
         self.tasks_sobjects = None
+        self.notes_sobjects = None
         self.snapshots_sobjects = None
         self.files_sobjects = None
         self.notes = {}
@@ -371,22 +372,22 @@ class SObject(object):
 
     # Notes by search code
     # DEPRECATED
-    def query_notes(self, s_code, process=None):
-        """
-        Query for Notes
-        :param s_code: Code of asset related to note
-        :param process: Process code
-        :return:
-        """
-        server = server_start(project=self.project.info['code'])
-
-        search_type = 'sthpw/note'
-        if process:
-            filters = [('search_code', s_code), ('process', process), ('project_code', self.project.info['code'])]
-        else:
-            filters = [('search_code', s_code), ('project_code', self.project.info['code'])]
-
-        return server.query(search_type, filters)
+    # def query_notes(self, s_code, process=None):
+    #     """
+    #     Query for Notes
+    #     :param s_code: Code of asset related to note
+    #     :param process: Process code
+    #     :return:
+    #     """
+    #     server = server_start(project=self.project.info['code'])
+    #
+    #     search_type = 'sthpw/note'
+    #     if process:
+    #         filters = [('search_code', s_code), ('process', process), ('project_code', self.project.info['code'])]
+    #     else:
+    #         filters = [('search_code', s_code), ('project_code', self.project.info['code'])]
+    #
+    #     return server.query(search_type, filters)
 
     # Query snapshots to update current
     def update_snapshots(self, order_bys=None, filters=None):
@@ -533,12 +534,24 @@ class SObject(object):
 
     # Notes by SObject
     #DEPRECATED
-    def get_notes(self):
-        notes_list = self.query_notes(self.info['code'])
-        process_set = set(note['process'] for note in notes_list)
+    # def get_notes(self):
+    #     notes_list = self.query_notes(self.info['code'])
+    #     process_set = set(note['process'] for note in notes_list)
+    #
+    #     for process in process_set:
+    #         self.notes[process] = Process(notes_list, process, True)
 
-        for process in process_set:
-            self.notes[process] = Process(notes_list, process, True)
+    def get_notes_sobjects(self, process=None):
+
+        search_type = 'sthpw/note'
+        if process:
+            filters = [('search_code', self.info['code']), ('process', process), ('project_code', self.project.info['code'])]
+        else:
+            filters = [('search_code', self.info['code']), ('project_code', self.project.info['code'])]
+
+        self.notes_sobjects = get_sobjects(search_type, filters, include_snapshots=False, project_code=self.project.info['code'])
+
+        return self.notes_sobjects
 
     def set_notes_count(self, process, count):
         self.notes_count[process] = count
@@ -1888,7 +1901,7 @@ def execute_procedure_serverside(func, kwargs, project=None, return_dict=True, s
         code = tq.prepare_serverside_script(func, kwargs, shrink=False, catch_traceback=False)
     if not server:
         server = server_start(project=project)
-
+    code['_debug_args'] = False
     result = server.execute_python_script('', kwargs=code)
 
     if isinstance(result['info'], dict):

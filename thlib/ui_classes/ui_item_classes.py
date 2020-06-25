@@ -2450,11 +2450,16 @@ class Ui_itemWidget(QtGui.QWidget):
                                     for val, label in zip(element.values.text.split('|'), element.labels.text.split('|')):
                                         if val == data:
                                             data = label
+
                     if unicode(data).lower().startswith(('https://', 'http://', 'ftp://')):
                         info_label = self.get_item_info_html_label()
                         info_label.setToolTip(unicode(data))
                         info_label.setPixmap(gf.get_icon('crosshairs', color=Qt4Gui.QColor(255, 255, 255)).pixmap(24, 24))
                         info_label.setText(u'<p><a href="{1}" style="color:#66a3ff;text-decoration:none;">{0} Link</a></p>'.format(column.capitalize(), data))
+                    elif isinstance(data, bool):
+                        info_label = self.get_item_info_html_label()
+                        info_label.setToolTip(u'{0}: {1}'.format(column.capitalize(), data))
+                        info_label.setText(unicode(column.capitalize()))
                     else:
                         # at this time we don't need long text, as it will not fit to item
                         info_label.setToolTip(unicode(data))
@@ -3623,7 +3628,7 @@ class Ui_processItemWidget(QtGui.QWidget):
         self.notes_count = notes_count
         self.tasks_count = tasks_count
 
-        if notes_count > 0 or tasks_count > 0:
+        if (self.notes_count > 0) or (self.tasks_count > 0):
             self.notesToolButton.setIcon(gf.get_icon('message', icons_set='mdi'))
             self.notes_tool_button_anm_open.start()
         self.notesToolButton.setText('{0} | {1}'.format(notes_count, tasks_count))

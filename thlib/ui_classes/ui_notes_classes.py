@@ -88,9 +88,36 @@ class Ui_notesBaseWidget(QtGui.QWidget):
 
         self.main_notes_layout.addWidget(self.notes_widget)
 
-        self.notes_widget.fill_notes()
+        # self.notes_widget.fill_notes()
+        self.notes_widget.query_notes()
 
         self.bring_dock_widget_up()
+
+    def update_notes(self, sobject, context):
+        if self.notes_widget:
+            self.notes_widget.close()
+            self.notes_widget = None
+
+        if self.task_widget:
+            self.task_widget.close()
+            self.task_widget = None
+
+        self.toggle_no_notes_label()
+
+        self.task_widget = Ui_taskWidget(process=context, parent_sobject=sobject, type='extended', parent=self)
+        sizePolicy = QtGui.QSizePolicy(QtGui.QSizePolicy.Preferred, QtGui.QSizePolicy.Preferred)
+        self.task_widget.setSizePolicy(sizePolicy)
+        self.task_widget.setMaximumHeight(170)
+        self.task_widget.refresh_tasks_sobjects()
+
+        self.main_notes_layout.addWidget(self.task_widget)
+
+        self.notes_widget = Ui_notesWidget(sobject=sobject, context=context, parent=self)
+
+        self.main_notes_layout.addWidget(self.notes_widget)
+
+        # self.notes_widget.fill_notes()
+        self.notes_widget.query_notes()
 
 
 class Ui_notesWidget(QtGui.QWidget):
@@ -256,25 +283,42 @@ class Ui_notesWidget(QtGui.QWidget):
             self.reply_text_edit.setMinimumHeight(32)
             self.reply_text_edit.setMaximumHeight(32)
 
-    def fill_notes(self):
+    def query_notes(self):
+
+        def get_tasks_sobjects_agent():
+            return self.sobject.get_notes_sobjects(self.context)
+
+        env_inst.set_thread_pool(None, 'server_query/server_thread_pool')
+
+        get_tasks_sobjects_worker = gf.get_thread_worker(
+            get_tasks_sobjects_agent,
+            env_inst.get_thread_pool('server_query/server_thread_pool'),
+            result_func=self.fill_notes,
+            error_func=gf.error_handle,
+        )
+        get_tasks_sobjects_worker.try_start()
+
+    def fill_notes(self, query_result):
+
+        self.notes_sobjects, info = query_result
+
+        groupped_tasks_sobjects = tc.group_sobject_by(self.notes_sobjects, 'process')
 
         self.create_scroll_area()
         self.current_user = env_server.get_user()
-        self.sobject.get_notes()
         self.widgets_list = []
 
-        for proc in self.sobject.notes.values():
-            for context in proc.contexts.values():
-                for note in reversed(list(context.items.values())):
-                    if note.info['context'] == self.context:
-                        if note.info['login'] == self.current_user:
-                            note_widget = Ui_messageWidget(note, 'out', self)
-                            self.lay.addWidget(note_widget)
-                            self.widgets_list.append(note_widget)
-                        else:
-                            note_widget = Ui_messageWidget(note, 'in', self)
-                            self.lay.addWidget(note_widget)
-                            self.widgets_list.append(note_widget)
+        for process, task_sobjects in groupped_tasks_sobjects.items():
+
+            for note in reversed(task_sobjects):
+                if note.info['login'] == self.current_user:
+                    note_widget = Ui_messageWidget(note, 'out', self)
+                    self.lay.addWidget(note_widget)
+                    self.widgets_list.append(note_widget)
+                else:
+                    note_widget = Ui_messageWidget(note, 'in', self)
+                    self.lay.addWidget(note_widget)
+                    self.widgets_list.append(note_widget)
 
         self.show()
         if self.widgets_list:
@@ -290,7 +334,8 @@ class Ui_notesWidget(QtGui.QWidget):
         login = self.current_user
 
         new_note = tc.add_note(search_type, process, context, note, login)
-        self.fill_notes()
+        # self.fill_notes()
+        self.query_notes()
 
         self.reply_text_edit.clear()
 

@@ -421,6 +421,9 @@ class Ui_checkInOutWidget(QtGui.QMainWindow):
     def get_tasks_widget(self):
         return self.tasks_widget
 
+    def get_notes_widget(self):
+        return self.notes_widget
+
     def get_description_widget(self):
         return self.description_widget
 

@@ -134,11 +134,14 @@ class Ui_sobjectWidget(QtGui.QGroupBox, ui_sobject.Ui_sobjectGroupBox):
         """)
 
 
-class Ui_assetsBrowserWidget(QtGui.QWidget, ui_assets_browser.Ui_assetsBrowser):
+class Ui_assetsBrowserWidget(QtGui.QWidget):
     def __init__(self, parent=None):
         super(self.__class__, self).__init__(parent=parent)
 
-        self.setupUi(self)
+        self.sobjects_widgets = None
+        self.all_width = 10
+
+        self.create_ui_raw()
 
         self.relates_to = 'assets_browser'
 
@@ -156,28 +159,124 @@ class Ui_assetsBrowserWidget(QtGui.QWidget, ui_assets_browser.Ui_assetsBrowser):
 
         # self.subscriptions_query()
 
-    def create_search_group_box(self):
-        self.searchOptionsGroupBox = icons_widget.Ui_searchOptionsWidget(self)
-        self.searchOptionsLayout.addWidget(self.searchOptionsGroupBox)
-        self.searchOptionsGroupBox.miscGroupBox.hide()
+    def create_ui_raw(self):
+        self.verticalLayout = QtGui.QVBoxLayout(self)
+        self.verticalLayout.setSpacing(0)
+        self.verticalLayout.setContentsMargins(0, 0, 0, 0)
+        self.verticalLayout.setObjectName("verticalLayout")
+        self.splitter = QtGui.QSplitter(self)
+        self.splitter.setOrientation(QtCore.Qt.Horizontal)
+        self.splitter.setObjectName("splitter")
+        self.assetsTreeWidget = QtGui.QTreeWidget(self.splitter)
+        self.assetsTreeWidget.setMinimumSize(QtCore.QSize(120, 0))
+        self.assetsTreeWidget.setMaximumSize(QtCore.QSize(200, 16777215))
+        self.assetsTreeWidget.setBaseSize(QtCore.QSize(60, 0))
+        self.assetsTreeWidget.setObjectName("assetsTreeWidget")
+        self.assetsTreeWidget.header().setVisible(False)
+        self.verticalLayoutWidget_3 = QtGui.QWidget(self.splitter)
+        self.verticalLayoutWidget_3.setObjectName("verticalLayoutWidget_3")
+        self.verticalLayout_2 = QtGui.QVBoxLayout(self.verticalLayoutWidget_3)
+        self.verticalLayout_2.setSpacing(0)
+        self.verticalLayout_2.setContentsMargins(0, 0, 0, 0)
+        self.verticalLayout_2.setObjectName("verticalLayout_2")
+        self.searchLineEdit = QtGui.QLineEdit(self.verticalLayoutWidget_3)
+        sizePolicy = QtGui.QSizePolicy(QtGui.QSizePolicy.Preferred, QtGui.QSizePolicy.Fixed)
+        sizePolicy.setHorizontalStretch(0)
+        sizePolicy.setVerticalStretch(0)
+        sizePolicy.setHeightForWidth(self.searchLineEdit.sizePolicy().hasHeightForWidth())
+        self.searchLineEdit.setSizePolicy(sizePolicy)
+        self.searchLineEdit.setMaximumSize(QtCore.QSize(16777215, 20))
+        font = Qt4Gui.QFont()
+        font.setPointSize(9)
+        self.searchLineEdit.setFont(font)
+        self.searchLineEdit.setStyleSheet("QLineEdit {\n"
+                                          "    color: rgb(192, 192, 192);\n"
+                                          "    border: 2px solid darkgray;\n"
+                                          "    border-radius: 10px;\n"
+                                          "    show-decoration-selected: 1;\n"
+                                          "    padding: 0px 8px;\n"
+                                          "    background: qlineargradient(spread:pad, x1:0, y1:0, x2:1, y2:0, stop:0 rgba(128, 128, 128, 255), stop:1 rgba(64, 64,64, 255));\n"
+                                          "    background-position: bottom left;\n"
+                                          "    background-image: url(\":/ui_check/gliph/search_16.png\");\n"
+                                          "    background-repeat: fixed;\n"
+                                          "    selection-background-color: darkgray;\n"
+                                          "    padding-left: 15px;\n"
+                                          "}\n"
+                                          "QLineEdit:hover{\n"
+                                          "    color: white;\n"
+                                          "    background-image: url(\":/ui_check/gliph/searchHover_16.png\");\n"
+                                          "}")
+        self.searchLineEdit.setFrame(False)
+        self.searchLineEdit.setObjectName("searchLineEdit")
+        self.verticalLayout_2.addWidget(self.searchLineEdit)
+        self.searchOptionsLayout = QtGui.QVBoxLayout()
+        self.searchOptionsLayout.setSpacing(0)
+        self.searchOptionsLayout.setObjectName("searchOptionsLayout")
+        self.verticalLayout_2.addLayout(self.searchOptionsLayout)
+        self.sobjectScrollLayout = QtGui.QVBoxLayout()
+        self.sobjectScrollLayout.setSpacing(0)
+        self.sobjectScrollLayout.setObjectName("sobjectScrollLayout")
+        self.verticalLayout_2.addLayout(self.sobjectScrollLayout)
+        self.horizontalLayout = QtGui.QHBoxLayout()
+        self.horizontalLayout.setSpacing(6)
+        self.horizontalLayout.setObjectName("horizontalLayout")
+        self.countLabel = QtGui.QLabel(self.verticalLayoutWidget_3)
+        self.countLabel.setObjectName("countLabel")
+        self.horizontalLayout.addWidget(self.countLabel)
+        spacerItem = QtGui.QSpacerItem(40, 20, QtGui.QSizePolicy.Expanding, QtGui.QSizePolicy.Minimum)
+        self.horizontalLayout.addItem(spacerItem)
+        self.label_2 = QtGui.QLabel(self.verticalLayoutWidget_3)
+        self.label_2.setObjectName("label_2")
+        self.horizontalLayout.addWidget(self.label_2)
+        self.limitSpinBox = QtGui.QSpinBox(self.verticalLayoutWidget_3)
+        self.limitSpinBox.setMinimum(5)
+        self.limitSpinBox.setMaximum(500)
+        self.limitSpinBox.setSingleStep(5)
+        self.limitSpinBox.setProperty("value", 20)
+        self.limitSpinBox.setObjectName("limitSpinBox")
+        self.horizontalLayout.addWidget(self.limitSpinBox)
+        self.label = QtGui.QLabel(self.verticalLayoutWidget_3)
+        self.label.setObjectName("label")
+        self.horizontalLayout.addWidget(self.label)
+        self.zoomSpinBox = QtGui.QSpinBox(self.verticalLayoutWidget_3)
+        self.zoomSpinBox.setMinimum(25)
+        self.zoomSpinBox.setMaximum(400)
+        self.zoomSpinBox.setSingleStep(25)
+        self.zoomSpinBox.setProperty("value", 100)
+        self.zoomSpinBox.setObjectName("zoomSpinBox")
+        self.horizontalLayout.addWidget(self.zoomSpinBox)
+        self.verticalLayout_2.addLayout(self.horizontalLayout)
+        self.verticalLayout_2.setStretch(2, 1)
+        self.verticalLayout.addWidget(self.splitter)
 
-    def searchLineDoubleClick(self, event):
-        if not self.toggle:
-            self.toggle = True
-            self.searchOptionsGroupBox.setMinimumHeight(95)
-        else:
-            self.toggle = False
-            self.searchOptionsGroupBox.setMinimumHeight(0)
+        self.assetsTreeWidget.headerItem().setText(0, u"all")
+        self.countLabel.setText(u"(10/150)")
+        self.label_2.setText(u"Load Limit:")
+        self.label.setText(u"Zoom:")
+        self.zoomSpinBox.setSuffix(u"%")
 
-    def searchLineSingleClick(self, event):
-        self.searchLineEdit.selectAll()
+    # def create_search_group_box(self):
+    #     self.searchOptionsGroupBox = icons_widget.Ui_searchOptionsWidget(self)
+    #     self.searchOptionsLayout.addWidget(self.searchOptionsGroupBox)
+    #     self.searchOptionsGroupBox.miscGroupBox.hide()
+
+    # def searchLineDoubleClick(self, event):
+    #     if not self.toggle:
+    #         self.toggle = True
+    #         self.searchOptionsGroupBox.setMinimumHeight(95)
+    #     else:
+    #         self.toggle = False
+    #         self.searchOptionsGroupBox.setMinimumHeight(0)
+
+    # def searchLineSingleClick(self, event):
+    #     self.searchLineEdit.selectAll()
 
     def controls_actions(self):
         self.zoomSpinBox.valueChanged.connect(self.sobject_widget_zoom)
         self.assetsTreeWidget.itemClicked.connect(self.load_results)
 
-        self.searchLineEdit.mouseDoubleClickEvent = self.searchLineDoubleClick
-        self.searchLineEdit.mousePressEvent = self.searchLineSingleClick
+        # self.searchLineEdit.mouseDoubleClickEvent = self.searchLineDoubleClick
+        # self.searchLineEdit.mousePressEvent = self.searchLineSingleClick
 
     def sobject_widget_zoom(self, value):
         for sobj_widget in self.sobjects_widgets:
@@ -188,6 +287,49 @@ class Ui_assetsBrowserWidget(QtGui.QWidget, ui_assets_browser.Ui_assetsBrowser):
             #     old_path_split = sobj_widget.picLabel.text().split('=')
             #     old_path_join = '{0}={1}='.format(*old_path_split) + '"{0}"'.format(image_size)
             #     sobj_widget.picLabel.setText(old_path_join)
+
+    def resizeEvent(self, event):
+        if self.sobjects_widgets:
+            self.scroll_area_contents.setUpdatesEnabled(False)
+
+            width = self.scroll_area_contents.width()-2
+            current = self.sobjects_widgets[0].width()
+            max_width = 300
+            min_width = 200
+
+            if width % 2 != 0:
+                width -= 1
+
+            if current < max_width:
+                self.all_width = width / max_width
+
+            if current > min_width:
+                self.all_width = width / min_width
+
+            wdg_width = width / self.all_width
+
+            if wdg_width < min_width:
+                wdg_width = min_width
+
+            if wdg_width > max_width:
+                wdg_width = max_width
+
+            if wdg_width % 2 != 0:
+                wdg_width -= 1
+
+            print wdg_width, width, self.all_width
+
+            for sobj_widget in self.sobjects_widgets:
+                sobj_widget.setFixedSize(wdg_width, wdg_width)
+                # sobj_widget.setMinimumWidth(wdg_width)
+                # sobj_widget.setMinimumHeight(wdg_width)
+
+                # sobj_widget.setMinimumWidth(150 * 150 / 100)
+                # sobj_widget.setMinimumHeight(150 * 150 / 100)
+                # image_size = 140 * self.zoomSpinBox.value() / 100
+
+            self.scroll_area_contents.setUpdatesEnabled(True)
+        event.accept()
 
     def dynamic_query(self, limit=0, offset=0):
 
@@ -218,38 +360,38 @@ class Ui_assetsBrowserWidget(QtGui.QWidget, ui_assets_browser.Ui_assetsBrowser):
 
         return sobjects
 
-    def subscriptions_query(self):
-        import collections
-
-        stub = tc.server_start()
-
-        all_sobjects = tc.query_tab_names(True)
-
-        filters = [('login', env.Env.get_user()), ('project_code', env.Env.get_project())]
-
-        subscriptions = stub.query('sthpw/subscription', filters)
-
-        spl = collections.defaultdict(list)
-
-        for sub in subscriptions:
-            split = stub.split_search_key(sub['message_code'])
-            spl[split[0]].append(split[1])
-
-        parents = collections.defaultdict(list)
-        for key, values in spl.items():
-            parents[key.split('?')[0]] = \
-                tc.get_sobjects(sobjects_list=stub.query(key, [('code', values)]), get_snapshots=False)
-
-        pprint(all_sobjects)
-        pprint(dict(parents))
-
-        # print(stub.get_parent('cgshort/shot?project=the_pirate&code=SHOT00001'))
-
-        server = tc.server_start()
-        expr = "@GET(cgshort/shot.cgshort/scenes.code)"
-        result = server.eval(expr)
-        pprint(result)
-        pprint(stub.query('cgshort/shot', [('scenes_code', 'SCENES00001')]))
+    # def subscriptions_query(self):
+    #     import collections
+    #
+    #     stub = tc.server_start()
+    #
+    #     all_sobjects = tc.query_tab_names(True)
+    #
+    #     filters = [('login', env.Env.get_user()), ('project_code', env.Env.get_project())]
+    #
+    #     subscriptions = stub.query('sthpw/subscription', filters)
+    #
+    #     spl = collections.defaultdict(list)
+    #
+    #     for sub in subscriptions:
+    #         split = stub.split_search_key(sub['message_code'])
+    #         spl[split[0]].append(split[1])
+    #
+    #     parents = collections.defaultdict(list)
+    #     for key, values in spl.items():
+    #         parents[key.split('?')[0]] = \
+    #             tc.get_sobjects(sobjects_list=stub.query(key, [('code', values)]), get_snapshots=False)
+    #
+    #     pprint(all_sobjects)
+    #     pprint(dict(parents))
+    #
+    #     # print(stub.get_parent('cgshort/shot?project=the_pirate&code=SHOT00001'))
+    #
+    #     server = tc.server_start()
+    #     expr = "@GET(cgshort/shot.cgshort/scenes.code)"
+    #     result = server.eval(expr)
+    #     pprint(result)
+    #     pprint(stub.query('cgshort/shot', [('scenes_code', 'SCENES00001')]))
 
     def create_scroll_layout(self):
         # self.scroller = FlowLayout()
@@ -258,21 +400,20 @@ class Ui_assetsBrowserWidget(QtGui.QWidget, ui_assets_browser.Ui_assetsBrowser):
         # self.scroller.wheelEvent = self.wheelEvent
         # self.sobjectScrollLayout.addWidget(self.scroller)
 
-        from thlib.side.flowlayout import FlowLayout
-
         self.scroll_area_contents = QtGui.QWidget()
-        self.scroll_area_contents.setContentsMargins(9, 9, 0, 0)
+        self.scroll_area_contents.setContentsMargins(0, 0, 0, 0)
 
         self.scroller = QtGui.QScrollArea()
         self.scroller.setWidgetResizable(True)
         self.scroller.setWidget(self.scroll_area_contents)
+        self.scroller.setVerticalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOff)
 
-        self.scroll_area_layout = FlowLayout(self.scroll_area_contents)
+        self.scroll_area_layout = StretchFlowLayout(self.scroll_area_contents)
         # self.scroll_area_layout = QtGui.QGridLayout(self.scroll_area_contents)
 
         self.scroll_area_layout.setAlignment(QtCore.Qt.AlignTop)
-        self.scroll_area_layout.setContentsMargins(9, 9, 0, 0)
-        self.scroll_area_layout.setSpacing(9)
+        self.scroll_area_layout.setContentsMargins(0, 0, 0, 0)
+        self.scroll_area_layout.setSpacing(0)
 
         self.sobjectScrollLayout.addWidget(self.scroller)
 
@@ -377,9 +518,97 @@ class Ui_assetsBrowserWidget(QtGui.QWidget, ui_assets_browser.Ui_assetsBrowser):
         return tab_names, tc.context_query(tab_names['codes'])
 
 
-# from thlib.environment import env_inst
-# from thlib.ui_classes.ui_assets_browser_classes import Ui_assetsBrowserWidget
-#
-# asd = Ui_assetsBrowserWidget(env_inst.ui_main)
-#
-# asd.show()
+class StretchFlowLayout(QtGui.QGridLayout):
+    """
+    Standard PyQt examples FlowLayout modified to work with a scollable parent
+    MODIFIED FOR TACTIC HANDLER
+    """
+
+    def __init__(self, parent=None):
+        super(StretchFlowLayout, self).__init__(parent)
+
+        self.itemList = []
+
+    def __del__(self):
+        item = self.takeAt(0)
+        while item:
+            item = self.takeAt(0)
+
+    def clear_items(self):
+        for i in range(self.count()):
+            item = self.itemAt(i)
+            if item:
+                widget = self.itemAt(i).widget()
+                widget.close()
+                widget.deleteLater()
+
+        self.itemList = []
+
+    def addItem(self, item):
+        self.itemList.append(item)
+
+    def count(self):
+        return len(self.itemList)
+
+    def itemAt(self, index):
+        if index >= 0 and index < len(self.itemList):
+            return self.itemList[index]
+        return None
+
+    def takeAt(self, index):
+        if index >= 0 and index < len(self.itemList):
+            return self.itemList.pop(index)
+        return None
+
+    def expandingDirections(self):
+        return QtCore.Qt.Orientations(QtCore.Qt.Orientation(0))
+
+    def hasHeightForWidth(self):
+        return True
+
+    # def heightForWidth(self, width):
+    #     height = self.doLayout(QtCore.QRect(0, 0, width, 0), True)
+    #     return height
+
+    def setGeometry(self, rect):
+        # super(StretchFlowLayout, self).setGeometry(rect)
+        self.doLayout(rect, False)
+
+    def sizeHint(self):
+        return self.minimumSize()
+
+    def minimumSize(self):
+        size = QtCore.QSize()
+
+        # Considering all widgets are the same size
+        if self.itemList:
+            size = size.expandedTo(self.itemList[0].minimumSize())
+
+        # uncomment if you want different sizes
+        # for item in self.itemList:
+        #     size = size.expandedTo(item.minimumSize())
+
+        return size
+
+    def doLayout(self, rect, testOnly=True):
+
+        x = rect.x()
+        y = rect.y()
+        lineHeight = 0
+
+        for item in self.itemList:
+            spacing = self.spacing()
+            nextX = x + self.sizeHint().width() + spacing
+            if nextX - spacing > rect.right() and lineHeight > 0:
+                x = rect.x()
+                y = y + lineHeight + spacing
+                nextX = x + self.sizeHint().width() + spacing
+                lineHeight = 0
+            if not testOnly:
+                item.setGeometry(QtCore.QRect(QtCore.QPoint(x, y), self.sizeHint()))
+
+            x = nextX
+            # lineHeight = max(lineHeight, self.sizeHint().height())
+            lineHeight = self.sizeHint().height()
+
+        return y + lineHeight - rect.y()
