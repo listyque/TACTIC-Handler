@@ -65,7 +65,14 @@ class Ui_notesBaseWidget(QtGui.QWidget):
                 dock_widget.setHidden(False)
                 dock_widget.raise_()
 
-    def show_notes(self, sobject, context):
+    def clear_notes(self):
+
+        for i in range(self.main_notes_layout.count()):
+            item = self.main_notes_layout.itemAt(i)
+            widget = item.widget()
+            if widget:
+                widget.close()
+
         if self.notes_widget:
             self.notes_widget.close()
             self.notes_widget = None
@@ -74,50 +81,52 @@ class Ui_notesBaseWidget(QtGui.QWidget):
             self.task_widget.close()
             self.task_widget = None
 
+    def show_notes(self, sobject, context='publish'):
+        self.sobject = sobject
+        self.context = context
+
+        self.clear_notes()
+
         self.toggle_no_notes_label()
 
         self.task_widget = Ui_taskWidget(process=context, parent_sobject=sobject, type='extended', parent=self)
         sizePolicy = QtGui.QSizePolicy(QtGui.QSizePolicy.Preferred, QtGui.QSizePolicy.Preferred)
         self.task_widget.setSizePolicy(sizePolicy)
         self.task_widget.setMaximumHeight(170)
-        self.task_widget.refresh_tasks_sobjects()
+        self.task_widget.query_tasks()
 
         self.main_notes_layout.addWidget(self.task_widget)
 
         self.notes_widget = Ui_notesWidget(sobject=sobject, context=context, parent=self)
-
         self.main_notes_layout.addWidget(self.notes_widget)
+        self.notes_widget.show()
 
-        # self.notes_widget.fill_notes()
         self.notes_widget.query_notes()
 
         self.bring_dock_widget_up()
 
-    def update_notes(self, sobject, context):
-        if self.notes_widget:
-            self.notes_widget.close()
-            self.notes_widget = None
+    def set_sobject(self, sobject, context='publish'):
+        self.sobject = sobject
+        self.context = context
+        
+        if not self.visibleRegion().isEmpty():
+            self.clear_notes()
 
-        if self.task_widget:
-            self.task_widget.close()
-            self.task_widget = None
+            self.toggle_no_notes_label()
 
-        self.toggle_no_notes_label()
+            self.task_widget = Ui_taskWidget(process=context, parent_sobject=sobject, type='extended', parent=self)
+            sizePolicy = QtGui.QSizePolicy(QtGui.QSizePolicy.Preferred, QtGui.QSizePolicy.Preferred)
+            self.task_widget.setSizePolicy(sizePolicy)
+            self.task_widget.setMaximumHeight(170)
+            self.main_notes_layout.addWidget(self.task_widget)
 
-        self.task_widget = Ui_taskWidget(process=context, parent_sobject=sobject, type='extended', parent=self)
-        sizePolicy = QtGui.QSizePolicy(QtGui.QSizePolicy.Preferred, QtGui.QSizePolicy.Preferred)
-        self.task_widget.setSizePolicy(sizePolicy)
-        self.task_widget.setMaximumHeight(170)
-        self.task_widget.refresh_tasks_sobjects()
+            self.task_widget.query_tasks()
 
-        self.main_notes_layout.addWidget(self.task_widget)
+            self.notes_widget = Ui_notesWidget(sobject=sobject, context=context, parent=self)
+            self.main_notes_layout.addWidget(self.notes_widget)
+            self.notes_widget.show()
 
-        self.notes_widget = Ui_notesWidget(sobject=sobject, context=context, parent=self)
-
-        self.main_notes_layout.addWidget(self.notes_widget)
-
-        # self.notes_widget.fill_notes()
-        self.notes_widget.query_notes()
+            self.notes_widget.query_notes()
 
 
 class Ui_notesWidget(QtGui.QWidget):
@@ -288,15 +297,17 @@ class Ui_notesWidget(QtGui.QWidget):
         def get_tasks_sobjects_agent():
             return self.sobject.get_notes_sobjects(self.context)
 
-        env_inst.set_thread_pool(None, 'server_query/server_thread_pool')
+        env_inst.set_thread_pool(None, 'server_query/tasks_and_notes_thread_pool')
+        thread_pool = env_inst.get_thread_pool('server_query/tasks_and_notes_thread_pool')
+        thread_pool.setMaxThreadCount(2)
 
         get_tasks_sobjects_worker = gf.get_thread_worker(
             get_tasks_sobjects_agent,
-            env_inst.get_thread_pool('server_query/server_thread_pool'),
+            thread_pool,
             result_func=self.fill_notes,
             error_func=gf.error_handle,
         )
-        get_tasks_sobjects_worker.try_start()
+        get_tasks_sobjects_worker.start()
 
     def fill_notes(self, query_result):
 
@@ -320,7 +331,6 @@ class Ui_notesWidget(QtGui.QWidget):
                     self.lay.addWidget(note_widget)
                     self.widgets_list.append(note_widget)
 
-        self.show()
         if self.widgets_list:
             QtGui.QApplication.processEvents()
             self.conversationScrollArea.ensureWidgetVisible(self.widgets_list[-1])

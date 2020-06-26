@@ -1588,6 +1588,7 @@ class Ui_itemWidget(QtGui.QWidget):
         self.expand_item_button.setStyleSheet("QToolButton { border: 0px; background-color: transparent;}")
         self.expand_item_button.setAutoRaise(True)
         self.expand_item_button.setIcon(gf.get_icon('chevron-right', icons_set='mdi', color=Qt4Gui.QColor(160, 160, 160), scale_factor=1.6))
+        self.expand_item_button.setCursor(Qt4Gui.QCursor(QtCore.Qt.PointingHandCursor))
 
         # effect = QtGui.QGraphicsOpacityEffect(self.expand_item_button)
         # effect.setOpacity(0)
@@ -1664,6 +1665,7 @@ class Ui_itemWidget(QtGui.QWidget):
         self.syncWithRepoToolButton.setIcon(gf.get_icon('cloud-sync', icons_set='mdi', color=Qt4Gui.QColor(160, 160, 160)))
         self.syncWithRepoToolButton.setToolTip('Open Repository Sync Dialog')
         self.syncWithRepoToolButton.setPopupMode(QtGui.QToolButton.InstantPopup)
+        self.syncWithRepoToolButton.setCursor(Qt4Gui.QCursor(QtCore.Qt.PointingHandCursor))
 
         effect = QtGui.QGraphicsOpacityEffect(self.syncWithRepoToolButton)
         effect.setOpacity(0)
@@ -1692,6 +1694,7 @@ class Ui_itemWidget(QtGui.QWidget):
         self.watchFolderToolButton.setObjectName("watchFolderToolButton")
         self.watchFolderToolButton.setIcon(gf.get_icon('eye-off', icons_set='mdi', color=Qt4Gui.QColor(160, 160, 160)))
         self.watchFolderToolButton.setToolTip('Open Watch-Folder Dialog')
+        self.watchFolderToolButton.setCursor(Qt4Gui.QCursor(QtCore.Qt.PointingHandCursor))
 
         effect = QtGui.QGraphicsOpacityEffect(self.watchFolderToolButton)
         effect.setOpacity(0)
@@ -1722,6 +1725,7 @@ class Ui_itemWidget(QtGui.QWidget):
         self.relationsToolButton.setMaximumSize(30, 30)
         self.relationsToolButton.setStyleSheet("QToolButton { border: 0px; background-color: transparent;} QToolButton::menu-indicator {background: transparent;}")
         self.relationsToolButton.setIcon(gf.get_icon('sitemap', icons_set='mdi', color=Qt4Gui.QColor(160, 160, 160)))
+        self.relationsToolButton.setCursor(Qt4Gui.QCursor(QtCore.Qt.PointingHandCursor))
 
         effect = QtGui.QGraphicsOpacityEffect(self.relationsToolButton)
         effect.setOpacity(0)
@@ -1760,6 +1764,7 @@ class Ui_itemWidget(QtGui.QWidget):
         self.tasksToolButton.setStyleSheet("QToolButton { border: 0px; background-color: transparent;}")
         self.tasksToolButton.setObjectName("tasksToolButton")
         self.tasksToolButton.setIcon(gf.get_icon('calendar-check', icons_set='mdi', color=Qt4Gui.QColor(160, 160, 160)))
+        self.tasksToolButton.setCursor(Qt4Gui.QCursor(QtCore.Qt.PointingHandCursor))
 
         self.horizontalLayout.addWidget(self.tasksToolButton)
 
@@ -1775,6 +1780,7 @@ class Ui_itemWidget(QtGui.QWidget):
         self.notesToolButton.setStyleSheet("QToolButton { border: 0px; background-color: transparent;}")
         self.notesToolButton.setObjectName("notesToolButton")
         self.notesToolButton.setIcon(gf.get_icon('message-outline',  icons_set='mdi', color=Qt4Gui.QColor(160, 160, 160)))
+        self.notesToolButton.setCursor(Qt4Gui.QCursor(QtCore.Qt.PointingHandCursor))
 
         self.horizontalLayout.addWidget(self.notesToolButton)
         self.gridLayout.addLayout(self.horizontalLayout, 1, 5, 2, 1)
@@ -1814,8 +1820,6 @@ class Ui_itemWidget(QtGui.QWidget):
         self.gridLayout.setRowStretch(2, 1)
 
         # self.setStyleSheet("QWidget {border: 1px solid rgb(96, 96, 96);}")
-
-        self.setCursor(Qt4Gui.QCursor(QtCore.Qt.PointingHandCursor))
 
     def controls_actions(self):
         self.tasksToolButton.clicked.connect(self.show_tasks_dock)
@@ -3320,15 +3324,36 @@ class Ui_processItemWidget(QtGui.QWidget):
         self.horizontalLayout.addWidget(self.label)
 
         self.notesToolButton = QtGui.QToolButton(self)
-        self.notesToolButton.setMinimumSize(QtCore.QSize(0, 24))
+        self.notesToolButton.setMinimumSize(QtCore.QSize(72, 24))
         self.notesToolButton.setMaximumSize(QtCore.QSize(16777215, 24))
         self.notesToolButton.setToolButtonStyle(QtCore.Qt.ToolButtonTextBesideIcon)
         self.notesToolButton.setAutoRaise(True)
         self.notesToolButton.setStyleSheet("QToolButton { border: 0px; background-color: transparent;}")
         self.notesToolButton.setObjectName("notesToolButton")
-        self.notesToolButton.setToolTip('Leave note for this Process')
-        self.notesToolButton.setText('| 0')
-        self.notesToolButton.setIcon(gf.get_icon('message-outline', icons_set='mdi', color=Qt4Gui.QColor(160, 160, 160)))
+        self.notesToolButton.setToolTip('Open Notes and Task for this Process')
+        self.notesToolButton.setCursor(Qt4Gui.QCursor(QtCore.Qt.PointingHandCursor))
+        sizePolicy = QtGui.QSizePolicy(QtGui.QSizePolicy.Preferred, QtGui.QSizePolicy.Preferred)
+        self.notesToolButton.setSizePolicy(sizePolicy)
+        self.notes_and_tasks_layout = QtGui.QHBoxLayout()
+        self.notes_and_tasks_layout.setSpacing(4)
+        self.notes_and_tasks_layout.setContentsMargins(0, 0, 0, 0)
+        self.notesToolButton.setLayout(self.notes_and_tasks_layout)
+        self.notes_icon_label = QtGui.QLabel()
+        self.notes_icon_label.setPixmap(gf.get_icon('message-outline', icons_set='mdi', color=Qt4Gui.QColor(160, 160, 160)).pixmap(16, 16))
+
+        self.notes_count_label = QtGui.QLabel('0')
+        self.notes_count_label.setMinimumWidth(28)
+
+        self.tasks_icon_label = QtGui.QLabel()
+        self.tasks_icon_label.setPixmap(gf.get_icon('calendar-check', icons_set='mdi', color=Qt4Gui.QColor(160, 160, 160)).pixmap(16, 16))
+
+        self.tasks_count_label = QtGui.QLabel('0')
+        self.tasks_count_label.setMinimumWidth(28)
+
+        self.notes_and_tasks_layout.addWidget(self.notes_icon_label)
+        self.notes_and_tasks_layout.addWidget(self.notes_count_label)
+        self.notes_and_tasks_layout.addWidget(self.tasks_icon_label)
+        self.notes_and_tasks_layout.addWidget(self.tasks_count_label)
 
         effect = QtGui.QGraphicsOpacityEffect(self.notesToolButton)
         effect.setOpacity(0)
@@ -3347,8 +3372,12 @@ class Ui_processItemWidget(QtGui.QWidget):
         self.notesToolButton.setGraphicsEffect(effect)
 
         self.horizontalLayout.addWidget(self.notesToolButton)
+        self.horizontalLayout.setStretch(0, 0)
+        self.horizontalLayout.setStretch(1, 1)
+        self.horizontalLayout.setStretch(2, 1)
+        self.horizontalLayout.setStretch(3, 1)
+        self.horizontalLayout.setStretch(4, 0)
 
-        self.setCursor(Qt4Gui.QCursor(QtCore.Qt.PointingHandCursor))
 
     def create_ui(self):
 
@@ -3476,6 +3505,7 @@ class Ui_processItemWidget(QtGui.QWidget):
         self.expand_item_button.setMaximumSize(16, 2048)
         self.expand_item_button.setAutoRaise(True)
         self.expand_item_button.setStyleSheet("QToolButton { border: 0px; background-color: transparent;}")
+        self.expand_item_button.setCursor(Qt4Gui.QCursor(QtCore.Qt.PointingHandCursor))
 
         effect = QtGui.QGraphicsBlurEffect(self.expand_item_button)
         effect.setBlurRadius(20)
@@ -3628,10 +3658,17 @@ class Ui_processItemWidget(QtGui.QWidget):
         self.notes_count = notes_count
         self.tasks_count = tasks_count
 
-        if (self.notes_count > 0) or (self.tasks_count > 0):
-            self.notesToolButton.setIcon(gf.get_icon('message', icons_set='mdi'))
+        if self.notes_count > 0:
+            # self.notesToolButton.setIcon(gf.get_icon('message', icons_set='mdi'))
+            self.notes_icon_label.setPixmap(gf.get_icon('message', icons_set='mdi').pixmap(16, 16))
             self.notes_tool_button_anm_open.start()
-        self.notesToolButton.setText('{0} | {1}'.format(notes_count, tasks_count))
+        if self.tasks_count > 0:
+            self.tasks_icon_label.setPixmap(gf.get_icon('calendar-check', icons_set='mdi').pixmap(16, 16))
+            if self.notes_count == 0:
+                self.notes_tool_button_anm_open.start()
+        # self.notesToolButton.setText('{0} | {1}'.format(notes_count, tasks_count))
+        self.notes_count_label.setText(u'{0}'.format(notes_count))
+        self.tasks_count_label.setText(u'{0}'.format(tasks_count))
 
     def show_notes_widget(self):
         project = self.sobject.get_project()
@@ -4788,8 +4825,6 @@ class Ui_childrenItemWidget(QtGui.QWidget):
         self.setMaximumHeight(40)
         self.setContentsMargins(0, 0, 16, 5)
 
-        self.setCursor(Qt4Gui.QCursor(QtCore.Qt.PointingHandCursor))
-
         self.create_indent()
 
         self.create_expand_item_tool_button()
@@ -4844,6 +4879,7 @@ class Ui_childrenItemWidget(QtGui.QWidget):
         self.expand_item_button.setStyleSheet("QToolButton { border: 0px; background-color: transparent;}")
         self.expand_item_button.setIcon(
             gf.get_icon('chevron-right', icons_set='mdi', color=Qt4Gui.QColor(160, 160, 160), scale_factor=1.6))
+        self.expand_item_button.setCursor(Qt4Gui.QCursor(QtCore.Qt.PointingHandCursor))
 
         effect = QtGui.QGraphicsBlurEffect(self.expand_item_button)
         effect.setBlurRadius(20)
@@ -4903,6 +4939,7 @@ class Ui_childrenItemWidget(QtGui.QWidget):
         self.link_sobjects_tool_button.setMaximumSize(QtCore.QSize(30, 30))
         self.link_sobjects_tool_button.setStyleSheet("QToolButton { border: 0px; background-color: transparent;}")
         self.link_sobjects_tool_button.setToolTip('Link Sobjects Interface')
+        self.link_sobjects_tool_button.setCursor(Qt4Gui.QCursor(QtCore.Qt.PointingHandCursor))
 
         self.link_sobjects_tool_button.setObjectName('link_sobjects_tool_button')
         self.link_sobjects_tool_button.setIcon(gf.get_icon('link-variant', icons_set='mdi', color=Qt4Gui.QColor(160, 160, 160)))
@@ -4922,6 +4959,7 @@ class Ui_childrenItemWidget(QtGui.QWidget):
         self.add_sobjects_tool_button.setMaximumSize(QtCore.QSize(600, 30))
         self.add_sobjects_tool_button.setStyleSheet("QToolButton { border: 0px; background-color: transparent;}")
         self.add_sobjects_tool_button.setToolTip('Add new Related Sobject')
+        self.add_sobjects_tool_button.setCursor(Qt4Gui.QCursor(QtCore.Qt.PointingHandCursor))
 
         self.add_sobjects_tool_button.setObjectName("link_sobjects_tool_button")
         self.add_sobjects_tool_button.setIcon(gf.get_icon('plus-circle-outline', icons_set='mdi', color=Qt4Gui.QColor(160, 160, 160)))

@@ -724,8 +724,25 @@ class Ui_taskWidget(QtGui.QFrame):
 
         return add_sobject
 
-    def refresh_tasks_sobjects(self):
-        tasks_sobjects, info = self.parent_sobject.get_tasks_sobjects(process=self.process)
+    def query_tasks(self):
+
+        def refresh_tasks_sobjects_agent():
+            return self.parent_sobject.get_tasks_sobjects(process=self.process)
+
+        env_inst.set_thread_pool(None, 'server_query/tasks_and_notes_thread_pool')
+        thread_pool = env_inst.get_thread_pool('server_query/tasks_and_notes_thread_pool')
+        thread_pool.setMaxThreadCount(2)
+
+        refresh_tasks_sobjects_worker = gf.get_thread_worker(
+            refresh_tasks_sobjects_agent,
+            thread_pool,
+            result_func=self.refresh_tasks_sobjects,
+            error_func=gf.error_handle,
+        )
+        refresh_tasks_sobjects_worker.start()
+
+    def refresh_tasks_sobjects(self, query_result):
+        tasks_sobjects, info = query_result
         if tasks_sobjects:
             self.set_tasks_sobjects(tasks_sobjects.values())
         else:
@@ -735,7 +752,7 @@ class Ui_taskWidget(QtGui.QFrame):
 
     def delete_task(self):
         self.current_task_sobject.delete_sobject(include_dependencies=True)
-        self.refresh_tasks_sobjects()
+        self.query_tasks()
 
     def simple_save_task(self):
 
@@ -814,7 +831,7 @@ class Ui_taskWidget(QtGui.QFrame):
                     parent_key=self.parent_sobject.get_search_key(),
                     triggers=True
                 )
-                self.refresh_tasks_sobjects()
+                self.query_tasks()
         else:
             self.set_empty_task()
 
@@ -1004,30 +1021,34 @@ class Ui_tasksDockWidget(QtGui.QWidget):
         def get_tasks_sobjects_agent():
             return tc.SObject.get_multiple_tasks_sobjects(sobjects_list=self.sobjects_list)
 
-        env_inst.set_thread_pool(None, 'server_query/server_thread_pool')
+        env_inst.set_thread_pool(None, 'server_query/tasks_and_notes_thread_pool')
+        thread_pool = env_inst.get_thread_pool('server_query/tasks_and_notes_thread_pool')
+        thread_pool.setMaxThreadCount(2)
 
         get_tasks_sobjects_worker = gf.get_thread_worker(
             get_tasks_sobjects_agent,
-            env_inst.get_thread_pool('server_query/server_thread_pool'),
+            thread_pool,
             result_func=self.fill_multiple_tasks,
             error_func=gf.error_handle,
         )
-        get_tasks_sobjects_worker.try_start()
+        get_tasks_sobjects_worker.start()
 
     def query_tasks(self):
 
         def get_tasks_sobjects_agent():
             return self.sobject.get_tasks_sobjects()
 
-        env_inst.set_thread_pool(None, 'server_query/server_thread_pool')
+        env_inst.set_thread_pool(None, 'server_query/tasks_and_notes_thread_pool')
+        thread_pool = env_inst.get_thread_pool('server_query/tasks_and_notes_thread_pool')
+        thread_pool.setMaxThreadCount(2)
 
         get_tasks_sobjects_worker = gf.get_thread_worker(
             get_tasks_sobjects_agent,
-            env_inst.get_thread_pool('server_query/server_thread_pool'),
+            thread_pool,
             result_func=self.fill_tasks,
             error_func=gf.error_handle,
         )
-        get_tasks_sobjects_worker.try_start()
+        get_tasks_sobjects_worker.start()
 
     def create_filler_tasks(self):
         self.clear_scroll_area()

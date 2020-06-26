@@ -3028,7 +3028,7 @@ class Ui_searchResultsWidget(QtGui.QWidget):
 
         notes_widget = checkin_out_widget.get_notes_widget()
         process = item.get_current_process_info()
-        notes_widget.update_notes(item.sobject, process['name'])
+        notes_widget.set_sobject(item.sobject, process['name'])
 
     @gf.catch_error
     def load_preview(self, selected_items_list, *args):
