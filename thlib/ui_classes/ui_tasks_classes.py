@@ -21,6 +21,8 @@ from thlib.ui_classes.ui_custom_qwidgets import Ui_horizontalCollapsableWidget, 
 
 
 class Ui_taskWidget(QtGui.QFrame):
+    tasks_queried = QtCore.Signal()
+
     def __init__(self, process, parent_sobject, tasks_sobjects_list=None, parent_sobjects_list=None, type='simple', parent=None):
         super(self.__class__, self).__init__(parent=parent)
 
@@ -394,6 +396,12 @@ class Ui_taskWidget(QtGui.QFrame):
             self.hide_save_button()
             self.hide_save_multiple_button()
 
+    def get_current_task_sobject(self):
+        return self.current_task_sobject
+
+    def get_tasks_sobjects(self):
+        return self.tasks_sobjects_list
+
     def set_tasks_sobjects(self, tasks_sobjects_list):
 
         self.multiple_mode = False
@@ -727,7 +735,7 @@ class Ui_taskWidget(QtGui.QFrame):
     def query_tasks(self):
 
         def refresh_tasks_sobjects_agent():
-            return self.parent_sobject.get_tasks_sobjects(process=self.process)
+            return self.parent_sobject.get_tasks_sobjects(process=self.process, include_status_log=True)
 
         env_inst.set_thread_pool(None, 'server_query/tasks_and_notes_thread_pool')
         thread_pool = env_inst.get_thread_pool('server_query/tasks_and_notes_thread_pool')
@@ -742,6 +750,7 @@ class Ui_taskWidget(QtGui.QFrame):
         refresh_tasks_sobjects_worker.start()
 
     def refresh_tasks_sobjects(self, query_result):
+
         tasks_sobjects, info = query_result
         if tasks_sobjects:
             self.set_tasks_sobjects(tasks_sobjects.values())
@@ -749,6 +758,8 @@ class Ui_taskWidget(QtGui.QFrame):
             self.reset_ui()
             self.set_empty_task()
             self.customize_process_label()
+
+        self.tasks_queried.emit()
 
     def delete_task(self):
         self.current_task_sobject.delete_sobject(include_dependencies=True)

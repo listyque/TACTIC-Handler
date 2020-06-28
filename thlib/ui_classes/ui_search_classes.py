@@ -2208,6 +2208,12 @@ class Ui_searchResultsWidget(QtGui.QWidget):
         self.resultsTreeWidget.setHeaderHidden(True)
         self.resultsTreeWidget.setObjectName("resultsTreeWidget")
 
+        def resultsTreeWidget_mouseMoveEvent(event):
+            # This will disable drag mouse selection
+            event.ignore()
+
+        self.resultsTreeWidget.mouseMoveEvent = resultsTreeWidget_mouseMoveEvent
+
         self.resultsVersionsTreeWidget = Ui_extendedTreeWidget(self.items_view_splitter)
         self.resultsVersionsTreeWidget.setTabKeyNavigation(True)
         self.resultsVersionsTreeWidget.setVerticalScrollMode(QtGui.QAbstractItemView.ScrollPerPixel)
@@ -2592,6 +2598,8 @@ class Ui_searchResultsWidget(QtGui.QWidget):
     def selection_changed(self):
         if self.resultsTreeWidget.selectedItems():
 
+            self.resultsTreeWidget.blockSignals(True)
+
             current_index = self.resultsTreeWidget.currentIndex()
 
             if current_index.row() == -1:
@@ -2614,6 +2622,7 @@ class Ui_searchResultsWidget(QtGui.QWidget):
                 items_list.append(self.resultsTreeWidget.itemWidget(item, 0))
 
             self.load_preview(items_list)
+            self.resultsTreeWidget.blockSignals(False)
 
     def open_item_context_menu(self):
         checkin_out_widget = self.get_current_checkin_out_widget()

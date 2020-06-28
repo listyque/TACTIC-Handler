@@ -525,7 +525,11 @@ class Ui_checkInOutWidget(QtGui.QMainWindow):
         save_snapshot.setIcon(gf.get_icon('content-save', icons_set='mdi', scale_factor=1))
         save_snapshot.triggered.connect(self.save_file)
 
-        paste_snapshot_from_clipboard = QtGui.QAction('Paste from Clipboard', self)
+        change_preview = QtGui.QAction('Change Preview', self)
+        change_preview.setIcon(gf.get_icon('image', icons_set='mdi', scale_factor=1))
+        change_preview.triggered.connect(self.change_preview)
+
+        paste_snapshot_from_clipboard = QtGui.QAction('Save from Clipboard', self)
         paste_snapshot_from_clipboard.setIcon(gf.get_icon('content-paste', icons_set='mdi', scale_factor=1))
         paste_snapshot_from_clipboard.triggered.connect(self.paste_from_clipboard)
 
@@ -663,6 +667,7 @@ class Ui_checkInOutWidget(QtGui.QMainWindow):
                     save_snapshot_additional.clicked.connect(self.save_file_options)
 
                 menu.addSeparator()
+                menu.addAction(change_preview)
 
                 menu.addAction(paste_snapshot_from_clipboard)
 
@@ -1673,6 +1678,28 @@ class Ui_checkInOutWidget(QtGui.QMainWindow):
             pass
             # files_names = set(files_names.split('\n'))
             # self.threads_fill_items(files_names, exec_after_added)
+
+    def change_preview(self):
+
+        current_results_widget = self.get_current_results_widget()
+        current_tree_widget_item = current_results_widget.get_current_tree_widget_item()
+
+        search_key = current_tree_widget_item.get_skey(parent=True)
+
+        if not self.drop_plate_widget.get_selected_items():
+            def run_after_exec():
+                self.change_preview()
+
+            self.drop_plate_widget.add_files_from_menu(exec_after_added=run_after_exec)
+
+            self.drop_plate_widget.remove_selected_items()
+
+        self.checkin_file_objects(
+            search_key=search_key,
+            context='icon',
+            description=None,
+            files_objects=self.drop_plate_widget.get_selected_items(),
+        )
 
     @gf.catch_error
     def save_file(self, selected_objects=None, save_revision=False, maya_checkin=False):

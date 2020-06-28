@@ -315,6 +315,7 @@ class SObject(object):
         self.snapshots_sobjects = None
         self.files_sobjects = None
         self.notes = {}
+        self.status_log = []
 
         # INFO VARS
         self.tasks_count = {'__total__': 0}
@@ -492,14 +493,14 @@ class SObject(object):
         else:
             filters = [('search_code', 'in', '|'.join(sobjects_codes)), ('project_code', project_code)]
 
-        sobjects, info = get_sobjects(search_type, filters, project_code=project_code)
+        sobjects, info = get_sobjects(search_type, filters, include_snapshots=False, project_code=project_code)
 
         if sobjects:
             return group_sobject_by(sobjects, 'search_code')
         else:
             return {}
 
-    def get_tasks_sobjects(self, process=None):
+    def get_tasks_sobjects(self, process=None, include_status_log=False):
 
         # Use group_sobject_by()
         search_type = 'sthpw/task'
@@ -508,7 +509,7 @@ class SObject(object):
         else:
             filters = [('search_code', self.info['code']), ('project_code', self.project.info['code'])]
 
-        self.tasks_sobjects = get_sobjects(search_type, filters, include_snapshots=False, project_code=self.project.info['code'])
+        self.tasks_sobjects = get_sobjects(search_type, filters, include_snapshots=False, project_code=self.project.info['code'], include_status_log=include_status_log)
 
         return self.tasks_sobjects
 
@@ -520,6 +521,14 @@ class SObject(object):
             return self.tasks_count.get(process)
         else:
             return self.tasks_count
+
+    def set_status_log(self, status_log):
+
+        for status in status_log:
+            self.status_log.append(SObject(status, project=self.project))
+
+    def get_status_log(self):
+        return self.status_log
 
     def get_stype(self, code=None):
         stypes = self.project.get_stypes()
@@ -2054,7 +2063,7 @@ def delete_sobjects(search_keys, list_dependencies):
     return execute_procedure_serverside(tq.delete_sobjects, kwargs)
 
 
-def get_sobjects(search_type, filters=[], order_bys=[], project_code=None, limit=None, offset=None, process_list=[], get_all_snapshots=False, check_snapshots_updates=False, include_info=True, include_snapshots=True, compressed_return=True):
+def get_sobjects(search_type, filters=[], order_bys=[], project_code=None, limit=None, offset=None, process_list=[], get_all_snapshots=False, check_snapshots_updates=False, include_info=True, include_snapshots=True, compressed_return=True, include_status_log=False):
     """
     Filters snapshot by search codes, and sobjects codes
     :param search_type: search_type or search_key (if using search_type project_code should to be provided)
@@ -2074,6 +2083,7 @@ def get_sobjects(search_type, filters=[], order_bys=[], project_code=None, limit
         'include_info': include_info,
         'include_snapshots': include_snapshots,
         'compressed_return': compressed_return,
+        'include_status_log': include_status_log,
     }
 
     if not project_code:
@@ -2087,9 +2097,7 @@ def get_sobjects(search_type, filters=[], order_bys=[], project_code=None, limit
         if search_type.find('?') == -1:
             kwargs['search_type'] = server_start(project=project_code).build_search_type(search_type, project_code)
 
-    s = gf.time_it()
     sobjects_list = execute_procedure_serverside(tq.query_sobjects, kwargs, project=project_code)
-    gf.time_it(s)
 
     if sobjects_list:
         if isinstance(sobjects_list, (str, unicode)):
@@ -2114,15 +2122,18 @@ def get_sobjects(search_type, filters=[], order_bys=[], project_code=None, limit
         # Create ordered dict of Sobject class Objects with snapshots, and some counts
         for sobject in sobjects_list['sobjects_list']:
             sobjects[sobject['__search_key__']] = SObject(sobject, process_codes, env_inst.projects[project_code])
+
             if include_snapshots:
                 sobjects[sobject['__search_key__']].init_snapshots(sobject['__snapshots__'])
-            if include_info:
 
+            if include_info:
                 if sobject.get('process'):
                     sobjects[sobject['__search_key__']].set_notes_count(sobject['process'], sobject['__notes_count__'])
                 else:
                     sobjects[sobject['__search_key__']].set_notes_count('publish', sobject['__notes_count__'])
                 sobjects[sobject['__search_key__']].set_tasks_count('__total__', sobject['__tasks_count__'])
+            if include_status_log:
+                sobjects[sobject['__search_key__']].set_status_log(sobject['__status_log__'])
 
         if include_info:
             return sobjects, info
@@ -2939,8 +2950,18 @@ def group_sobject_by(sobjects_dict, group_by):
     else:
         sobjects = sobjects_dict.values()
 
-    for sobject in sobjects:
-        dic = sobject.info
-        grouped[dic.get(group_by)].append(sobject)
+    if group_by == 'timestamp':
+        # Special case for timestamp group by
+        for sobject in sobjects:
+            timestamp = sobject.get_timestamp(obj=True)
+            seconds = time.mktime(timestamp.timetuple())
+            grouped[seconds].append(sobject)
+
+        return sorted(grouped.items())
+    else:
+        for sobject in sobjects:
+            dic = sobject.info
+            grouped[dic.get(group_by)].append(sobject)
 
     return grouped
+

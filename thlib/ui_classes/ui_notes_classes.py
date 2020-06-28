@@ -93,22 +93,22 @@ class Ui_notesBaseWidget(QtGui.QWidget):
         sizePolicy = QtGui.QSizePolicy(QtGui.QSizePolicy.Preferred, QtGui.QSizePolicy.Preferred)
         self.task_widget.setSizePolicy(sizePolicy)
         self.task_widget.setMaximumHeight(170)
-        self.task_widget.query_tasks()
 
         self.main_notes_layout.addWidget(self.task_widget)
 
-        self.notes_widget = Ui_notesWidget(sobject=sobject, context=context, parent=self)
+        self.notes_widget = Ui_notesWidget(sobject=sobject, context=context, task_widget=self.task_widget, parent=self)
         self.main_notes_layout.addWidget(self.notes_widget)
         self.notes_widget.show()
 
-        self.notes_widget.query_notes()
+        self.task_widget.query_tasks()
+        self.task_widget.tasks_queried.connect(self.notes_widget.query_notes)
 
         self.bring_dock_widget_up()
 
     def set_sobject(self, sobject, context='publish'):
         self.sobject = sobject
         self.context = context
-        
+
         if not self.visibleRegion().isEmpty():
             self.clear_notes()
 
@@ -120,23 +120,24 @@ class Ui_notesBaseWidget(QtGui.QWidget):
             self.task_widget.setMaximumHeight(170)
             self.main_notes_layout.addWidget(self.task_widget)
 
-            self.task_widget.query_tasks()
-
-            self.notes_widget = Ui_notesWidget(sobject=sobject, context=context, parent=self)
+            self.notes_widget = Ui_notesWidget(sobject=sobject, context=context, task_widget=self.task_widget, parent=self)
             self.main_notes_layout.addWidget(self.notes_widget)
             self.notes_widget.show()
 
-            self.notes_widget.query_notes()
+            self.task_widget.query_tasks()
+            self.task_widget.tasks_queried.connect(self.notes_widget.query_notes)
 
 
 class Ui_notesWidget(QtGui.QWidget):
-    def __init__(self, sobject=None, context=None, parent=None):
+    def __init__(self, sobject=None, context=None, task_widget=None, parent=None):
         super(self.__class__, self).__init__(parent=parent)
 
         self.create_ui_raw()
 
         self.sobject = sobject
         self.context = context
+
+        self.task_widget = task_widget
 
         self.controls_actions()
 
@@ -146,7 +147,7 @@ class Ui_notesWidget(QtGui.QWidget):
         self.main_layout.setSpacing(0)
 
         self.conversationScrollArea = QtGui.QScrollArea()
-        self.conversationScrollArea.setWidgetResizable(True)
+        # self.conversationScrollArea.setWidgetResizable(True)
         self.conversationScrollArea.setFrameShape(QtGui.QFrame.NoFrame)
 
         self.conversationScrollArea.setStyleSheet("""
@@ -294,45 +295,63 @@ class Ui_notesWidget(QtGui.QWidget):
 
     def query_notes(self):
 
-        def get_tasks_sobjects_agent():
+        def get_notes_sobjects_agent():
             return self.sobject.get_notes_sobjects(self.context)
 
         env_inst.set_thread_pool(None, 'server_query/tasks_and_notes_thread_pool')
         thread_pool = env_inst.get_thread_pool('server_query/tasks_and_notes_thread_pool')
         thread_pool.setMaxThreadCount(2)
 
-        get_tasks_sobjects_worker = gf.get_thread_worker(
-            get_tasks_sobjects_agent,
+        get_notes_sobjects_worker = gf.get_thread_worker(
+            get_notes_sobjects_agent,
             thread_pool,
             result_func=self.fill_notes,
             error_func=gf.error_handle,
         )
-        get_tasks_sobjects_worker.start()
+        get_notes_sobjects_worker.start()
 
     def fill_notes(self, query_result):
 
         self.notes_sobjects, info = query_result
 
-        groupped_tasks_sobjects = tc.group_sobject_by(self.notes_sobjects, 'process')
+        notes_sobjects = self.notes_sobjects.values()
 
         self.create_scroll_area()
         self.current_user = env_server.get_user()
         self.widgets_list = []
 
-        for process, task_sobjects in groupped_tasks_sobjects.items():
+        task_status_log = []
 
-            for note in reversed(task_sobjects):
-                if note.info['login'] == self.current_user:
-                    note_widget = Ui_messageWidget(note, 'out', self)
-                    self.lay.addWidget(note_widget)
-                    self.widgets_list.append(note_widget)
-                else:
-                    note_widget = Ui_messageWidget(note, 'in', self)
-                    self.lay.addWidget(note_widget)
-                    self.widgets_list.append(note_widget)
+        if self.task_widget:
+            current_task_sobject = self.task_widget.get_current_task_sobject()
+            if current_task_sobject:
+                task_status_log = current_task_sobject.get_status_log()
+
+        status_and_notes = task_status_log + notes_sobjects
+
+        status_and_notes_sorted = tc.group_sobject_by(status_and_notes, 'timestamp')
+
+        for date, sobject in status_and_notes_sorted:
+            # almost not possible to have same timestamp, so skip checking
+            sobject = sobject[0]
+
+            if sobject.info['login'] == self.current_user:
+                message_type = 'out'
+            else:
+                message_type = 'in'
+
+            if sobject.get_plain_search_type() == 'sthpw/note':
+                note_widget = Ui_messageWidget(sobject, message_type, self)
+                self.lay.addWidget(note_widget)
+                self.widgets_list.append(note_widget)
+            else:
+                status_widget = Ui_statusWidget(sobject, message_type, self)
+                self.lay.addWidget(status_widget)
+                self.widgets_list.append(status_widget)
 
         if self.widgets_list:
             QtGui.QApplication.processEvents()
+            self.conversationScrollArea.setWidgetResizable(True)
             self.conversationScrollArea.ensureWidgetVisible(self.widgets_list[-1])
 
     def reply_note(self):
@@ -340,14 +359,17 @@ class Ui_notesWidget(QtGui.QWidget):
         search_type = self.sobject.info['__search_key__']
         process = self.context
         context = process
-        note = self.reply_text_edit.toPlainText()
         login = self.current_user
 
-        new_note = tc.add_note(search_type, process, context, note, login)
-        # self.fill_notes()
-        self.query_notes()
-
+        note = self.reply_text_edit.toPlainText()
         self.reply_text_edit.clear()
+
+        if note:
+            if not note.startswith(' '):
+                new_note = tc.add_note(search_type, process, context, note, login)
+                self.query_notes()
+        else:
+            self.reply_text_edit.setPlainText(None)
 
     def closeEvent(self, event):
         self.deleteLater()
@@ -536,6 +558,279 @@ class Ui_messageWidget(QtGui.QWidget):
         self.user_label.setStyleSheet('QLabel {{padding-left: 8px; font-size: 10pt; color: {0};}}'.format(gf.gen_color(self.login.get_value('login'))))
 
         self.date_label.setText(self.note.get_timestamp(pretty=True))
+
+    def open_task_menu(self):
+        menu = self.note_options_menu()
+        if menu:
+            menu.exec_(Qt4Gui.QCursor.pos())
+
+    def edit_message(self):
+        print 'Editing message'
+
+    def delete_message(self):
+        print 'Editing message'
+
+    def note_options_menu(self):
+
+        # add_task = QtGui.QAction('Change Status', self.tasks_options_button)
+        # add_task.setIcon(gf.get_icon('plus', icons_set='mdi', scale_factor=1))
+        # add_task.triggered.connect(self.add_new_task)
+
+        edit_message = QtGui.QAction('Edit', self.message_options_button)
+        edit_message.setIcon(gf.get_icon('square-edit-outline', icons_set='mdi', scale_factor=1))
+        edit_message.triggered.connect(self.edit_message)
+
+        delete_message = QtGui.QAction('Delete', self.message_options_button)
+        delete_message.setIcon(gf.get_icon('delete-forever', icons_set='mdi', scale_factor=1))
+        delete_message.triggered.connect(self.delete_message)
+
+        # enable_watch = QtGui.QAction('Enable Watch', self.tasks_options_button)
+        # enable_watch.setIcon(gf.get_icon('eye'))
+        #
+        # disable_watch = QtGui.QAction('Disable Watch', self.tasks_options_button)
+        # disable_watch.setIcon(gf.get_icon('eye-slash'))
+
+        menu = QtGui.QMenu()
+
+        menu.addAction(edit_message)
+        menu.addAction(delete_message)
+
+        # if self.tasks_sobjects_list:
+        #
+        #     menu.addAction(edit_task)
+        #     menu.addAction(delete_task)
+        #     menu.addSeparator()
+        #
+        #     for task_sobject in self.tasks_sobjects_list:
+        #         task_action = QtGui.QAction(u'Task: {0} / {1}'.format(
+        #             task_sobject.get_value('context'),
+        #             task_sobject.get_value('assigned')
+        #         ), self.tasks_options_button)
+        #
+        #         task_action.setCheckable(True)
+        #
+        #         if task_sobject == self.current_task_sobject:
+        #             task_action.setChecked(True)
+        #         elif task_sobject.get_value('login') == env_inst.get_current_login():
+        #             task_action.setChecked(True)
+        #
+        #         task_action.triggered.connect(partial(self.customize_by_task_sobject, task_sobject))
+        #
+        #         menu.addAction(task_action)
+
+        return menu
+
+    def resizeEvent(self, event):
+        event.accept()
+
+        self.text_area.setLineWrapColumnOrWidth(self.width() - 80)
+        text_document = self.text_area.document()
+        metrics = Qt4Gui.QFontMetrics(self.text_area.font())
+
+        document_size = text_document.size()
+
+        doc_height = document_size.height() + 64
+
+        self.text_area.setFixedHeight(doc_height)
+
+        doc_width = document_size.width()
+        text_rect = metrics.boundingRect(QtCore.QRect(), 0, self.text_area.toPlainText())
+        login_rect = metrics.boundingRect(QtCore.QRect(), 0, self.user_label.text())
+        text_width = text_rect.width() + login_rect.width() + 20
+
+        if text_width < doc_width:
+            self.text_area.setFixedWidth(text_width)
+        else:
+            self.text_area.setFixedWidth(doc_width + 20)
+
+        if self.message_type == 'out':
+            x_pos = self.width() - (self.text_area.width() + 60)
+
+            self.text_area.move(x_pos, 0)
+        else:
+            self.text_area.move(60, 0)
+
+        text_area_size = self.text_area.size()
+
+        self.overlay_widget.resize(text_area_size)
+
+        overlay_reg = Qt4Gui.QRegion(self.overlay_widget.frameGeometry())
+        text_area_reg = Qt4Gui.QRegion(QtCore.QRect(0, 36, text_area_size.width(), text_area_size.height()-60))
+
+        self.overlay_widget.setMask(overlay_reg.subtracted(text_area_reg))
+
+        self.setMinimumHeight(doc_height)
+
+
+class Ui_statusWidget(QtGui.QWidget):
+    def __init__(self, status, message_type='out', parent=None):
+        super(self.__class__, self).__init__(parent=parent)
+
+        self.status = status
+        self.login = env_inst.get_all_logins(self.status.info['login'])
+        self.message_type = message_type
+
+        self.create_ui_raw()
+
+        self.customize_ui()
+
+        self.initial_fill()
+
+        self.controls_actions()
+
+    def create_ui_raw(self):
+
+        self.setMinimumWidth(260)
+        self.setMinimumHeight(40)
+
+        self.main_layout = QtGui.QHBoxLayout(self)
+        self.main_layout.setContentsMargins(0, 0, 0, 0)
+        self.main_layout.setSpacing(0)
+
+        self.text_area = QtGui.QTextBrowser()
+        self.text_area.setMinimumWidth(40)
+        self.text_area.setOpenExternalLinks(True)
+        self.text_area.setFrameShape(QtGui.QFrame.NoFrame)
+        self.text_area.setHorizontalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOff)
+        self.text_area.setTextInteractionFlags(QtCore.Qt.LinksAccessibleByMouse | QtCore.Qt.TextSelectableByKeyboard | QtCore.Qt.TextSelectableByMouse | QtCore.Qt.LinksAccessibleByMouse | QtCore.Qt.LinksAccessibleByKeyboard)
+
+        self.user_icon_widget = Ui_userIconWidget(self.login)
+
+        self.user_icon_layout = QtGui.QVBoxLayout()
+        self.user_icon_layout.setContentsMargins(0, 0, 0, 0)
+        self.user_icon_layout.setSpacing(0)
+        spacerItem = QtGui.QSpacerItem(0, 0, QtGui.QSizePolicy.Minimum, QtGui.QSizePolicy.Expanding)
+        self.user_icon_layout.addItem(spacerItem)
+        self.user_icon_layout.addWidget(self.user_icon_widget)
+
+        if self.message_type == 'in':
+            self.main_layout.addLayout(self.user_icon_layout)
+            self.main_layout.addWidget(self.text_area)
+            spacerItem = QtGui.QSpacerItem(0, 0, QtGui.QSizePolicy.Expanding, QtGui.QSizePolicy.Minimum)
+            self.main_layout.addItem(spacerItem)
+
+            self.main_layout.setStretch(0, 0)
+            self.main_layout.setStretch(1, 0)
+            self.main_layout.setStretch(2, 1)
+
+        if self.message_type == 'out':
+            spacerItem = QtGui.QSpacerItem(0, 0, QtGui.QSizePolicy.Expanding, QtGui.QSizePolicy.Minimum)
+            self.main_layout.addItem(spacerItem)
+            self.main_layout.addWidget(self.text_area)
+            self.main_layout.addLayout(self.user_icon_layout)
+            self.main_layout.setStretch(0, 1)
+            self.main_layout.setStretch(1, 0)
+            self.main_layout.setStretch(2, 0)
+
+        self.overlay_widget = QtGui.QWidget(self.text_area)
+        sizePolicy = QtGui.QSizePolicy(QtGui.QSizePolicy.Preferred, QtGui.QSizePolicy.Preferred)
+        self.overlay_widget.setSizePolicy(sizePolicy)
+
+        self.overlay_layout = QtGui.QGridLayout(self.overlay_widget)
+        self.overlay_layout.setSpacing(0)
+        self.overlay_layout.setContentsMargins(0, 0, 0, 0)
+
+        self.overlay_widget.setLayout(self.overlay_layout)
+
+        self.user_label = QtGui.QLabel()
+        self.user_label.setStyleSheet('QLabel {padding-left: 8px; font-size: 10pt; color: grey;}')
+
+        self.overlay_layout.addWidget(self.user_label, 0, 0, 1, 1)
+        self.message_options_button = StyledToolButton(size='small')
+        self.message_options_button.setParent(self.text_area)
+        self.message_options_button.setIcon(gf.get_icon('dots-vertical', icons_set='mdi', scale_factor=1.2))
+        self.overlay_layout.addWidget(self.message_options_button, 0, 1, 1, 1)
+        spacerItem = QtGui.QSpacerItem(0, 0, QtGui.QSizePolicy.Minimum, QtGui.QSizePolicy.Expanding)
+        self.overlay_layout.addItem(spacerItem, 1, 0, 1, 2)
+
+        self.date_label = QtGui.QLabel()
+        self.date_label.enterEvent = self.date_label_enter_event
+        self.date_label.leaveEvent = self.date_label_leave_event
+        self.date_label.setAlignment(QtCore.Qt.AlignRight | QtCore.Qt.AlignTrailing | QtCore.Qt.AlignVCenter)
+        self.date_label.setStyleSheet('QLabel {padding-right: 8px; padding-bottom: 8px; font-size: 10pt; color: grey;}')
+        self.overlay_layout.addWidget(self.date_label, 2, 0, 1, 2)
+
+        self.overlay_widget.raise_()
+
+    def date_label_enter_event(self, event):
+        self.date_label.setText(self.status.get_timestamp(simple=True))
+        event.accept()
+
+    def date_label_leave_event(self, event):
+        self.date_label.setText(self.status.get_timestamp(pretty=True))
+        event.accept()
+
+    def controls_actions(self):
+
+        self.message_options_button.clicked.connect(self.open_task_menu)
+
+    def customize_ui(self):
+        if self.message_type == 'out':
+            customize_dict = {'bottom_left_radius': 6, 'bottom_right_radius': 0}
+        else:
+            customize_dict = {'bottom_left_radius': 0, 'bottom_right_radius': 6}
+
+        self.text_area.setStyleSheet("""
+        QTextEdit, QListView {{
+            font-size: 11pt;
+            border: 0px;
+            border-top-left-radius: 6px;
+            border-top-right-radius: 6px;
+            border-bottom-right-radius: {bottom_right_radius}px;
+            border-bottom-left-radius: {bottom_left_radius}px;
+            show-decoration-selected: 0;
+            background: rgb(64, 64, 64);
+            selection-background-color: darkgray;
+            padding-top: 32px;
+            padding-right: 8px;
+            padding-left: 8px;
+            padding-bottom: 26px;
+        }}
+        QScrollBar:vertical {{
+            border: 0px ;
+            background: transparent;
+            width:8px;
+            margin: 0px 0px 0px 0px;
+        }}
+        QScrollBar::handle:vertical {{
+            background: rgba(255,255,255,64);
+            min-height: 0px;
+            border-radius: 4px;
+        }}
+        QScrollBar::add-line:vertical {{
+            background: rgba(255,255,255,64);
+            height: 0px;
+            subcontrol-position: bottom;
+            subcontrol-origin: margin;
+        }}
+        QScrollBar::sub-line:vertical {{
+            background: rgba(255,255,255,64);
+            height: 0 px;
+            subcontrol-position: top;
+            subcontrol-origin: margin;
+        }}""".format(**customize_dict))
+
+    def initial_fill(self):
+        status_text = u'{0}'.format(self.status.get_value('to_status'))
+
+        self.text_area.setHtml(status_text)
+
+        self.text_area.setLineWrapColumnOrWidth(self.width())
+
+        text_document = self.text_area.document()
+        document_size = text_document.size()
+        doc_height = document_size.height() + 10
+        self.setMinimumHeight(doc_height)
+
+        self.text_area.setLineWrapMode(QtGui.QTextEdit.FixedPixelWidth)
+
+        self.text_area.setCursorWidth(0)
+
+        # TODO Add login info, like group etc
+        self.user_label.setText(u'{0} ({1})'.format(self.login.get_display_name(), self.login.get_value('login')))
+        self.user_label.setStyleSheet('QLabel {{padding-left: 8px; font-size: 10pt; color: {0};}}'.format(gf.gen_color(self.login.get_value('login'))))
+
+        self.date_label.setText(self.status.get_timestamp(pretty=True))
 
     def open_task_menu(self):
         menu = self.note_options_menu()

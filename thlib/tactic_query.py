@@ -742,7 +742,7 @@ def query_sobjects_snapshots_updated(search_type, filters=[], order_bys=[], proj
     return json.dumps(result, separators=(',', ':'))
 
 
-def query_sobjects(search_type, filters=[], order_bys=[], project_code=None, limit=None, offset=None, get_all_snapshots=False, check_snapshots_updates=False, include_info=True, include_snapshots=True, compressed_return=True):
+def query_sobjects(search_type, filters=[], order_bys=[], project_code=None, limit=None, offset=None, get_all_snapshots=False, check_snapshots_updates=False, include_info=True, include_snapshots=True, compressed_return=True, include_status_log=False):
     """
 
     :param search_type:
@@ -918,8 +918,26 @@ def query_sobjects(search_type, filters=[], order_bys=[], project_code=None, lim
                         [('process', sobject_dict['process']), ('search_id', sobject_dict['search_id'])])
 
                 sobject_dict['__notes_count__'] = note_search.get_count()
-                # there is no reason to rearch for tasks of tasks, this is never used
+                # there is no reason to search for tasks of tasks, this is never used
                 sobject_dict['__tasks_count__'] = 0
+
+                if include_status_log:
+                    status_search = Search('sthpw/status_log')
+                    if have_search_code:
+                        status_search.add_op_filters([('search_code', sobject_dict['code'])])
+                    else:
+                        status_search.add_op_filters([('search_id', sobject_dict['id'])])
+
+                    status_sobjects = status_search.get_sobjects()
+
+                    status_log_list = []
+                    if status_sobjects:
+
+                        for status in status_sobjects:
+                            status_dict = get_sobject_dict(status)
+                            status_log_list.append(status_dict)
+
+                    sobject_dict['__status_log__'] = status_log_list
             else:
                 note_search = Search('sthpw/note')
                 if have_search_code:

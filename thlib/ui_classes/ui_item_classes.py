@@ -2118,15 +2118,20 @@ class Ui_itemWidget(QtGui.QWidget):
         event.accept()
 
     def dragEnterEvent(self, event):
-        event.accept()
 
-        self.analyze_dropped(event.mimeData())
+        if event.source():
+            event.ignore()
+        else:
+            event.accept()
 
-        self.show_overlay()
+            self.analyze_dropped(event.mimeData())
+
+            self.show_overlay()
 
         super(self.__class__, self).dragEnterEvent(event)
 
     def dragMoveEvent(self, event):
+
         event.accept()
 
         wdg = QtGui.QApplication.widgetAt(Qt4Gui.QCursor.pos())
@@ -3246,6 +3251,17 @@ class Ui_itemWidget(QtGui.QWidget):
         if self.overlay_layout_widget:
             self.overlay_layout_widget.resize(self.size())
         event.accept()
+
+    def mouseMoveEvent(self, event):
+
+        self.drag = Qt4Gui.QDrag(self)
+        data = QtCore.QMimeData()
+        data.setText(self.get_title())
+        self.drag.setMimeData(data)
+
+        self.drag.exec_()
+
+        super(self.__class__, self).mouseMoveEvent(event)
 
     def mouseDoubleClickEvent(self, event):
         do_dbl_click = None
@@ -4698,6 +4714,37 @@ class Ui_snapshotItemWidget(QtGui.QWidget):
     @gf.catch_error
     def collapse_recursive(self):
         gf.tree_recursive_expand(self.tree_item, False)
+
+    def mouseMoveEvent(self, event):
+
+        self.drag = Qt4Gui.QDrag(self)
+        data = QtCore.QMimeData()
+
+        current_snapshot = self.get_snapshot()
+        current_file = ''
+        for fl in current_snapshot.get_files_objects():
+            if fl.get_type() in ['main', 'maya']:
+                current_file = fl
+                break
+
+        data.setText(current_file.get_full_web_path())
+        data.setUrls([QtCore.QUrl(current_file.get_full_web_path())])
+
+        if current_file.is_previewable():
+            icon_file = current_file.get_icon_preview()
+            pixmap = self.get_preview_pixmap(icon_file.get_full_abs_path())
+            if not pixmap.isNull():
+                self.drag.setPixmap(pixmap)
+
+            full_pixmap = Qt4Gui.QPixmap(current_file.get_full_abs_path())
+            if not pixmap.isNull():
+                data.setImageData(full_pixmap)
+
+        self.drag.setMimeData(data)
+
+        self.drag.exec_()
+
+        super(self.__class__, self).mouseMoveEvent(event)
 
     def mouseDoubleClickEvent(self, event):
         if self.relates_to == 'checkin_out':

@@ -1691,6 +1691,7 @@ def filter_multiple_selected_items(tree_widget, items_list, last_item):
     # First we cut off all items in different rows, and allow only similar items
     current_row_items_list = []
     excluded_types = ['child', 'process']
+
     for item in items_list:
 
         item_index = tree_widget.indexFromItem(item)
@@ -1706,10 +1707,10 @@ def filter_multiple_selected_items(tree_widget, items_list, last_item):
                 current_row_items_list.append(item)
             else:
                 if item_index != last_item_index:
-                    item.setSelected(False)
+                    tree_widget.setItemSelected(item, False)
         else:
             if item_index != last_item_index:
-                item.setSelected(False)
+                tree_widget.setItemSelected(item, False)
 
 
 def tree_state_revert(wdg, state_dict, use_item_widgets=True):
