@@ -982,7 +982,10 @@ class QTacticProcessGroupSelectWdg(QtGui.QWidget, QTacticBasicInputWdg):
         self.users_combo_box.setEditable(False)
         self.users_combo_box.setCurrentIndex(0)
         display_values = self.tactic_widget.get_value('__display_values__')
-        self.users_combo_box.addItem(display_values.get('empty_option_label'))
+        if isinstance(display_values, dict):
+            self.users_combo_box.addItem(display_values.get('empty_option_label'))
+        else:
+            print display_values
 
     def fill_users_combo(self):
 

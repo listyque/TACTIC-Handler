@@ -53,11 +53,18 @@ class deleteSobjectWidget(QtGui.QWidget):
     def create_dependency_widget(self):
         pos = 0
 
-        check_list = ['sthpw/snapshot', 'sthpw/file']
+        check_list = ['sthpw/snapshot', 'sthpw/file', 'sthpw/note', 'sthpw/task', 'sthpw/status_log']
 
         self.check_boxes_list = []
 
         for search_type, sobjects in self.dependencies.items():
+
+            # Filtering if the sobject points to self as dependency
+            for sobject in self.sobjects:
+                for dep_skey in sobjects.keys():
+                    if sobject.get_search_key() == dep_skey:
+                        sobjects.pop(dep_skey)
+
             if len(sobjects) > 0:
                 pos += 1
                 layout = QtGui.QHBoxLayout()

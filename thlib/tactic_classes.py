@@ -2346,7 +2346,7 @@ def insert_sobjects(search_type, project_code, data, metadata={}, parent_key=Non
 
     return execute_procedure_serverside(tq.insert_sobjects, kwargs, project=project_code)
 
-
+# DEPRECATED
 def insert_instance_sobjects(search_key, project_code, parent_key=None, instance_type=None):
 
     kwargs = {

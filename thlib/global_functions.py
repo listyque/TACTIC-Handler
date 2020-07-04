@@ -637,7 +637,10 @@ def catch_error_type(exception):
 
 def parce_timestamp(timestamp):
     if timestamp:
-        return datetime.datetime.strptime(timestamp, '%Y-%m-%d %H:%M:%S.%f')
+        if len(timestamp.split('.')) > 1:
+            return datetime.datetime.strptime(timestamp, '%Y-%m-%d %H:%M:%S.%f')
+        else:
+            return datetime.datetime.strptime(timestamp, '%Y-%m-%d %H:%M:%S')
 
 
 def restart_app():
@@ -739,9 +742,11 @@ def from_json(obj, use_ast=False):
         else:
             return json.loads(obj)
 
+
 def pp(text):
     from pprint import pprint
     return pprint(text)
+
 
 def gen_acronym(word, length=2):
     acronym = ''

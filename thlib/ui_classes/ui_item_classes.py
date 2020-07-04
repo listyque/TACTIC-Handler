@@ -1569,6 +1569,7 @@ class Ui_itemWidget(QtGui.QWidget):
         self.forced_creation()
 
     def create_ui_raw(self):
+
         self.setObjectName('UiItemWidget')
         self.setMinimumSize(260, 60)
         self.setMaximumHeight(80)
@@ -1843,6 +1844,8 @@ class Ui_itemWidget(QtGui.QWidget):
         self.notesToolButton.setHidden(True)
         self.watchFolderToolButton.setHidden(True)
         self.syncWithRepoToolButton.setHidden(True)
+        self.expand_item_button.setIcon(Qt4Gui.QIcon())
+        self.expand_item_button.setEnabled(False)
 
         self.create_item_info_widget()
 
@@ -2066,7 +2069,6 @@ class Ui_itemWidget(QtGui.QWidget):
         match_template = gf.MatchTemplate(['$FILENAME.$EXT'])
         files_objects_dict = match_template.get_files_objects(files_list)
 
-
         for file_object in files_objects_dict.get('file'):
             checkin_widget.checkin_file_objects(
                 search_key=self.get_search_key(),
@@ -2077,6 +2079,7 @@ class Ui_itemWidget(QtGui.QWidget):
             )
 
     def analyze_dropped(self, mime_data):
+
         urls = mime_data.urls()
         if urls:
             # TODO Point to expand item
@@ -2118,10 +2121,17 @@ class Ui_itemWidget(QtGui.QWidget):
         event.accept()
 
     def dragEnterEvent(self, event):
+        source = event.source()
 
-        if event.source():
+        # This is to prevent Strange CRASH
+        if source and source == self:
+            # ignoring self to self drop
+            event.ignore()
+        elif source and event.source().parent():
+            # ignoring in app widgets drop
             event.ignore()
         else:
+            # all others drops allowed
             event.accept()
 
             self.analyze_dropped(event.mimeData())
@@ -2131,7 +2141,6 @@ class Ui_itemWidget(QtGui.QWidget):
         super(self.__class__, self).dragEnterEvent(event)
 
     def dragMoveEvent(self, event):
-
         event.accept()
 
         wdg = QtGui.QApplication.widgetAt(Qt4Gui.QCursor.pos())
@@ -2141,7 +2150,6 @@ class Ui_itemWidget(QtGui.QWidget):
         super(self.__class__, self).dragMoveEvent(event)
 
     def dragLeaveEvent(self, event):
-
         event.accept()
 
         self.hide_overlay()
@@ -2149,7 +2157,6 @@ class Ui_itemWidget(QtGui.QWidget):
         super(self.__class__, self).dragLeaveEvent(event)
 
     def dropEvent(self, event):
-
         self.hide_overlay()
 
         self.handle_dopped(event.mimeData())
@@ -2157,7 +2164,6 @@ class Ui_itemWidget(QtGui.QWidget):
         super(self.__class__, self).dropEvent(event)
 
     def show_tasks_dock(self):
-
         project = self.sobject.get_project()
         tasks_widget = env_inst.get_check_tree(project.get_code(), 'checkin_out_instanced_widgets', 'tasks_dock')
         tasks_widget.bring_dock_widget_up()
@@ -2365,20 +2371,20 @@ class Ui_itemWidget(QtGui.QWidget):
         notes_widget = env_inst.get_check_tree(project.get_code(), 'checkin_out_instanced_widgets', 'notes_dock')
         notes_widget.show_notes(self.sobject, 'publish')
 
-    def set_drop_indicator_on(self):
-        if self.drop_wdg.isHidden():
-            self.lay = QtGui.QVBoxLayout(self.drop_wdg)
-            self.lay.setSpacing(0)
-            self.lay.setContentsMargins(0, 0, 0, 0)
-            self.drop_wdg.setLayout(self.lay)
-            self.drop_wdg.setStyleSheet('QLabel {padding: 0px;border: 0px dashed grey; background-color: rgba(0,0,100,128);}')
-            self.label = QtGui.QLabel('DROP HERE')
-            self.lay.addWidget(self.label)
-            self.drop_wdg.show()
-            self.drop_wdg.resize(self.size())
-
-    def set_drop_indicator_off(self):
-        self.drop_wdg.setHidden(True)
+    # def set_drop_indicator_on(self):
+    #     if self.drop_wdg.isHidden():
+    #         self.lay = QtGui.QVBoxLayout(self.drop_wdg)
+    #         self.lay.setSpacing(0)
+    #         self.lay.setContentsMargins(0, 0, 0, 0)
+    #         self.drop_wdg.setLayout(self.lay)
+    #         self.drop_wdg.setStyleSheet('QLabel {padding: 0px;border: 0px dashed grey; background-color: rgba(0,0,100,128);}')
+    #         self.label = QtGui.QLabel('DROP HERE')
+    #         self.lay.addWidget(self.label)
+    #         self.drop_wdg.show()
+    #         self.drop_wdg.resize(self.size())
+    #
+    # def set_drop_indicator_off(self):
+    #     self.drop_wdg.setHidden(True)
 
     @staticmethod
     def get_item_info_label():
@@ -2653,7 +2659,6 @@ class Ui_itemWidget(QtGui.QWidget):
                     parent_action.triggered.connect(partial(self.do_parent_relations, parent_stype, self.stype))
                     self.relationsToolButton.addAction(parent_action)
 
-
         if self.stype.schema.children:
             self.children_stypes = self.stype.schema.children
             child_sep = QtGui.QAction('Children', self.relationsToolButton)
@@ -2829,6 +2834,7 @@ class Ui_itemWidget(QtGui.QWidget):
     def fill_child_items(self):
         # checking for unnecessary recursion
         self.check_for_child_recursion()
+        print self.ignore_dict, self.stype.get_code()
 
         # adding child items
         if self.children_stypes:
@@ -3202,6 +3208,7 @@ class Ui_itemWidget(QtGui.QWidget):
     def paintEvent(self, event):
 
         if not self.painted:
+
             self.painted = True
 
             if not self.info['simple_view']:
@@ -3252,14 +3259,28 @@ class Ui_itemWidget(QtGui.QWidget):
             self.overlay_layout_widget.resize(self.size())
         event.accept()
 
+    def mousePressEvent(self, event):
+
+        if event.button() == QtCore.Qt.LeftButton:
+            self.drag_start_pos = event.pos()
+        else:
+            self.drag_start_pos = None
+
+        super(self.__class__, self).mousePressEvent(event)
+
     def mouseMoveEvent(self, event):
 
-        self.drag = Qt4Gui.QDrag(self)
-        data = QtCore.QMimeData()
-        data.setText(self.get_title())
-        self.drag.setMimeData(data)
+        if self.drag_start_pos:
+            drag_pos = event.pos() - self.drag_start_pos
 
-        self.drag.exec_()
+            if QtGui.QApplication.startDragDistance() < drag_pos.manhattanLength():
+
+                self.drag = Qt4Gui.QDrag(self)
+                data = QtCore.QMimeData()
+                data.setText(self.get_title())
+                self.drag.setMimeData(data)
+
+                self.drag.exec_(QtCore.Qt.CopyAction)
 
         super(self.__class__, self).mouseMoveEvent(event)
 
@@ -3646,20 +3667,20 @@ class Ui_processItemWidget(QtGui.QWidget):
                 pipeline = self.stype.pipeline.get(pipeline_code)
                 return pipeline
 
-    def set_drop_indicator_on(self):
-        if self.drop_wdg.isHidden():
-            self.lay = QtGui.QVBoxLayout(self.drop_wdg)
-            self.lay.setSpacing(0)
-            self.lay.setContentsMargins(0, 0, 0, 0)
-            self.drop_wdg.setLayout(self.lay)
-            self.drop_wdg.setStyleSheet('QLabel {padding: 0px;border: 0px dashed grey; background-color: rgba(0,0,100,128);}')
-            self.label = QtGui.QLabel('DROP HERE')
-            self.lay.addWidget(self.label)
-            self.drop_wdg.show()
-            self.drop_wdg.resize(self.size())
-
-    def set_drop_indicator_off(self):
-        self.drop_wdg.setHidden(True)
+    # def set_drop_indicator_on(self):
+    #     if self.drop_wdg.isHidden():
+    #         self.lay = QtGui.QVBoxLayout(self.drop_wdg)
+    #         self.lay.setSpacing(0)
+    #         self.lay.setContentsMargins(0, 0, 0, 0)
+    #         self.drop_wdg.setLayout(self.lay)
+    #         self.drop_wdg.setStyleSheet('QLabel {padding: 0px;border: 0px dashed grey; background-color: rgba(0,0,100,128);}')
+    #         self.label = QtGui.QLabel('DROP HERE')
+    #         self.lay.addWidget(self.label)
+    #         self.drop_wdg.show()
+    #         self.drop_wdg.resize(self.size())
+    #
+    # def set_drop_indicator_off(self):
+    #     self.drop_wdg.setHidden(True)
 
     def fill_subprocesses(self):
         if self.process_info:
@@ -3979,11 +4000,15 @@ class Ui_processItemWidget(QtGui.QWidget):
         event.accept()
 
     def dragEnterEvent(self, event):
-        event.accept()
 
-        self.analyze_dropped(event.mimeData())
+        if event.source():
+            event.ignore()
+        else:
+            event.accept()
 
-        self.show_overlay()
+            self.analyze_dropped(event.mimeData())
+
+            self.show_overlay()
 
         super(self.__class__, self).dragEnterEvent(event)
 
@@ -4715,34 +4740,48 @@ class Ui_snapshotItemWidget(QtGui.QWidget):
     def collapse_recursive(self):
         gf.tree_recursive_expand(self.tree_item, False)
 
+    def mousePressEvent(self, event):
+
+        if event.button() == QtCore.Qt.LeftButton:
+            self.drag_start_pos = event.pos()
+        else:
+            self.drag_start_pos = None
+
+        super(self.__class__, self).mousePressEvent(event)
+
     def mouseMoveEvent(self, event):
 
-        self.drag = Qt4Gui.QDrag(self)
-        data = QtCore.QMimeData()
+        if self.drag_start_pos:
+            drag_pos = event.pos() - self.drag_start_pos
 
-        current_snapshot = self.get_snapshot()
-        current_file = ''
-        for fl in current_snapshot.get_files_objects():
-            if fl.get_type() in ['main', 'maya']:
-                current_file = fl
-                break
+            if QtGui.QApplication.startDragDistance() < drag_pos.manhattanLength():
+                current_file = None
 
-        data.setText(current_file.get_full_web_path())
-        data.setUrls([QtCore.QUrl(current_file.get_full_web_path())])
+                current_snapshot = self.get_snapshot()
 
-        if current_file.is_previewable():
-            icon_file = current_file.get_icon_preview()
-            pixmap = self.get_preview_pixmap(icon_file.get_full_abs_path())
-            if not pixmap.isNull():
-                self.drag.setPixmap(pixmap)
+                if current_snapshot:
+                    for fl in current_snapshot.get_files_objects():
+                        if fl.get_type() in ['main', 'maya', 'image']:
+                            current_file = fl
+                            break
 
-            full_pixmap = Qt4Gui.QPixmap(current_file.get_full_abs_path())
-            if not pixmap.isNull():
-                data.setImageData(full_pixmap)
+                if current_file:
 
-        self.drag.setMimeData(data)
+                    self.drag = Qt4Gui.QDrag(self)
+                    data = QtCore.QMimeData(self)
 
-        self.drag.exec_()
+                    data.setText(current_file.get_full_web_path())
+                    data.setUrls([QtCore.QUrl.fromLocalFile(current_file.get_full_abs_path())])
+
+                    if current_file.is_previewable():
+                        icon_file = current_file.get_icon_preview()
+                        pixmap = self.get_preview_pixmap(icon_file.get_full_abs_path())
+                        if not pixmap.isNull():
+                            self.drag.setPixmap(pixmap)
+
+                    self.drag.setMimeData(data)
+
+                    self.drag.exec_(QtCore.Qt.CopyAction)
 
         super(self.__class__, self).mouseMoveEvent(event)
 

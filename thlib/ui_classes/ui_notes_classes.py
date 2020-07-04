@@ -554,8 +554,11 @@ class Ui_messageWidget(QtGui.QWidget):
         self.text_area.setCursorWidth(0)
 
         # TODO Add login info, like group etc
-        self.user_label.setText(u'{0} ({1})'.format(self.login.get_display_name(), self.login.get_value('login')))
-        self.user_label.setStyleSheet('QLabel {{padding-left: 8px; font-size: 10pt; color: {0};}}'.format(gf.gen_color(self.login.get_value('login'))))
+        if self.login:
+            self.user_label.setText(u'{0} ({1})'.format(self.login.get_display_name(), self.login.get_value('login')))
+            self.user_label.setStyleSheet('QLabel {{padding-left: 8px; font-size: 10pt; color: {0};}}'.format(gf.gen_color(self.login.get_value('login'))))
+        else:
+            self.user_label.setText(u'{0} (removed user)'.format(self.note.get_value('login')))
 
         self.date_label.setText(self.note.get_timestamp(pretty=True))
 
@@ -568,7 +571,8 @@ class Ui_messageWidget(QtGui.QWidget):
         print 'Editing message'
 
     def delete_message(self):
-        print 'Editing message'
+        self.note.delete_sobject()
+        self.setHidden(True)
 
     def note_options_menu(self):
 
@@ -676,8 +680,6 @@ class Ui_statusWidget(QtGui.QWidget):
 
         self.initial_fill()
 
-        self.controls_actions()
-
     def create_ui_raw(self):
 
         self.setMinimumWidth(260)
@@ -736,10 +738,9 @@ class Ui_statusWidget(QtGui.QWidget):
         self.user_label.setStyleSheet('QLabel {padding-left: 8px; font-size: 10pt; color: grey;}')
 
         self.overlay_layout.addWidget(self.user_label, 0, 0, 1, 1)
-        self.message_options_button = StyledToolButton(size='small')
-        self.message_options_button.setParent(self.text_area)
-        self.message_options_button.setIcon(gf.get_icon('dots-vertical', icons_set='mdi', scale_factor=1.2))
-        self.overlay_layout.addWidget(self.message_options_button, 0, 1, 1, 1)
+        corner = QtGui.QWidget()
+        corner.setFixedSize(34, 34)
+        self.overlay_layout.addWidget(corner, 0, 1, 1, 1)
         spacerItem = QtGui.QSpacerItem(0, 0, QtGui.QSizePolicy.Minimum, QtGui.QSizePolicy.Expanding)
         self.overlay_layout.addItem(spacerItem, 1, 0, 1, 2)
 
@@ -759,10 +760,6 @@ class Ui_statusWidget(QtGui.QWidget):
     def date_label_leave_event(self, event):
         self.date_label.setText(self.status.get_timestamp(pretty=True))
         event.accept()
-
-    def controls_actions(self):
-
-        self.message_options_button.clicked.connect(self.open_task_menu)
 
     def customize_ui(self):
         if self.message_type == 'out':
@@ -831,67 +828,6 @@ class Ui_statusWidget(QtGui.QWidget):
         self.user_label.setStyleSheet('QLabel {{padding-left: 8px; font-size: 10pt; color: {0};}}'.format(gf.gen_color(self.login.get_value('login'))))
 
         self.date_label.setText(self.status.get_timestamp(pretty=True))
-
-    def open_task_menu(self):
-        menu = self.note_options_menu()
-        if menu:
-            menu.exec_(Qt4Gui.QCursor.pos())
-
-    def edit_message(self):
-        print 'Editing message'
-
-    def delete_message(self):
-        print 'Editing message'
-
-    def note_options_menu(self):
-
-        # add_task = QtGui.QAction('Change Status', self.tasks_options_button)
-        # add_task.setIcon(gf.get_icon('plus', icons_set='mdi', scale_factor=1))
-        # add_task.triggered.connect(self.add_new_task)
-
-        edit_message = QtGui.QAction('Edit', self.message_options_button)
-        edit_message.setIcon(gf.get_icon('square-edit-outline', icons_set='mdi', scale_factor=1))
-        edit_message.triggered.connect(self.edit_message)
-
-        delete_message = QtGui.QAction('Delete', self.message_options_button)
-        delete_message.setIcon(gf.get_icon('delete-forever', icons_set='mdi', scale_factor=1))
-        delete_message.triggered.connect(self.delete_message)
-
-        # enable_watch = QtGui.QAction('Enable Watch', self.tasks_options_button)
-        # enable_watch.setIcon(gf.get_icon('eye'))
-        #
-        # disable_watch = QtGui.QAction('Disable Watch', self.tasks_options_button)
-        # disable_watch.setIcon(gf.get_icon('eye-slash'))
-
-        menu = QtGui.QMenu()
-
-        menu.addAction(edit_message)
-        menu.addAction(delete_message)
-
-        # if self.tasks_sobjects_list:
-        #
-        #     menu.addAction(edit_task)
-        #     menu.addAction(delete_task)
-        #     menu.addSeparator()
-        #
-        #     for task_sobject in self.tasks_sobjects_list:
-        #         task_action = QtGui.QAction(u'Task: {0} / {1}'.format(
-        #             task_sobject.get_value('context'),
-        #             task_sobject.get_value('assigned')
-        #         ), self.tasks_options_button)
-        #
-        #         task_action.setCheckable(True)
-        #
-        #         if task_sobject == self.current_task_sobject:
-        #             task_action.setChecked(True)
-        #         elif task_sobject.get_value('login') == env_inst.get_current_login():
-        #             task_action.setChecked(True)
-        #
-        #         task_action.triggered.connect(partial(self.customize_by_task_sobject, task_sobject))
-        #
-        #         menu.addAction(task_action)
-
-        return menu
 
     def resizeEvent(self, event):
         event.accept()

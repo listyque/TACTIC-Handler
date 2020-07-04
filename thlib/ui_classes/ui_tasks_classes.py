@@ -718,13 +718,13 @@ class Ui_taskWidget(QtGui.QFrame):
         search_key = self.current_task_sobject.get_search_key()
         parent_search_key = self.parent_sobject.get_search_key()
 
-
         add_sobject = Ui_addTacticSobjectWidget(
             stype=tasks_stype,
             parent_stype=parent_stype,
             search_key=search_key,
             parent_search_key=parent_search_key,
             view='edit',
+            parent_sobject=self.parent_sobject,
             parent=self,
         )
 

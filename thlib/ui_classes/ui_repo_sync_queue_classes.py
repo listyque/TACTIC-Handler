@@ -265,7 +265,7 @@ class Ui_repoSyncDialog(QtGui.QDialog):
         self.remove_preset_button = QtGui.QToolButton()
         self.remove_preset_button.setAutoRaise(True)
         self.remove_preset_button.setIcon(gf.get_icon('delete', icons_set='mdi', scale_factor=1))
-        self.remove_preset_button.clicked.connect(self.close)
+        self.remove_preset_button.clicked.connect(self.delete_preset_from_server)
         self.remove_preset_button.setToolTip('Remove Current Preset')
         self.remove_preset_button.setHidden(True)
 
@@ -295,6 +295,7 @@ class Ui_repoSyncDialog(QtGui.QDialog):
 
         self.fill_builtin_processes()
         self.fill_stype_pipeline(self.stype)
+
         self.fill_children_pipelines_and_processes(self.stype)
 
     def fill_builtin_processes(self, parent_tree_item=None):
@@ -330,7 +331,7 @@ class Ui_repoSyncDialog(QtGui.QDialog):
                 for key, val in stype_pipeline.pipeline.items():
                     child_item = QtGui.QTreeWidgetItem()
                     child_item.setText(0, key.capitalize())
-                    child_item.setCheckState(0, QtCore.Qt.Checked)
+                    child_item.setCheckState(0, QtCore.Qt.Unchecked)
                     child_item.setData(1, 0, '{0}:{1}'.format(key, '{pr}'))
 
                     item_color = Qt4Gui.QColor(200, 200, 200)
@@ -347,44 +348,70 @@ class Ui_repoSyncDialog(QtGui.QDialog):
                     top_item.addChild(child_item)
                     top_item.setExpanded(True)
 
-    def fill_children_pipelines_and_processes(self, stype=None, parent_tree_item=None, added_stypes=None):
+    def fill_children_pipelines_and_processes(self, stype=None, parent_tree_item=None):
         if not parent_tree_item:
             parent_tree_item_add = self.tree_widget.addTopLevelItem
         else:
             parent_tree_item_add = parent_tree_item.addChild
 
-        if not added_stypes:
-            added_stypes = []
-
+        project = self.stype.get_project()
         # Children process
         if stype.schema:
             for child in stype.schema.children:
-                child_stype = stype.get_project().stypes.get(child['from'])
+
+                child_stype = project.stypes.get(child['from'])
                 relationship_type = child.get('type')
-                if child_stype and relationship_type not in ['many_to_many']:
 
-                    top_item = QtGui.QTreeWidgetItem()
-                    top_item.setText(0, child_stype.get_pretty_name() + ' (child)')
-                    top_item.setCheckState(0, QtCore.Qt.Checked)
-                    top_item.setData(1, 0, '{0}:{1}'.format(child_stype.get_code(), '{s}'))
+                if child_stype:
+                    ignored = False
+                    if child_stype and relationship_type not in ['many_to_many']:
 
-                    clr = child_stype.get_stype_color(tuple=True)
-                    stype_color = None
-                    if clr:
-                        stype_color = Qt4Gui.QColor(clr[0], clr[1], clr[2], 255)
-                    top_item.setIcon(0, gf.get_icon('view-sequential', color=stype_color, icons_set='mdi', scale_factor=1.1))
+                        # Breaking recursion
+                        # Similar logic in items: check_for_child_recursion()
+                        if parent_tree_item:
+                            parent = parent_tree_item.parent()
 
-                    parent_tree_item_add(top_item)
+                            # we storing ignore dicts in parent stypes, and checking it, so we break recursion
+                            # and also getting as deep as needed when syncing assets
+                            if parent:
+                                ignore_dict = parent.data(2, QtCore.Qt.UserRole)
+                                parent_stype = parent.data(3, QtCore.Qt.UserRole)
+                                ignore_dict.setdefault('children', []).append(parent_stype.info['code'])
+                            else:
+                                ignore_dict = {}
+                        else:
+                            ignore_dict = {}
 
-                    self.fill_builtin_processes(top_item)
+                        # Already added stypes per child tree
+                        if ignore_dict:
+                            if ignore_dict.get('children'):
+                                if child_stype.info['code'] in ignore_dict['children']:
+                                    ignored = True
 
-                    # breaking recursion
-                    if child_stype not in added_stypes:
-                        added_stypes.append(child_stype)
+                        if not ignored:
+                            top_item = QtGui.QTreeWidgetItem()
+                            top_item.setText(0, child_stype.get_pretty_name() + ' (child)')
+                            # Making items unchecked by default, because someone can sync all repo in chain
+                            top_item.setCheckState(0, QtCore.Qt.Unchecked)
+                            top_item.setData(1, 0, '{0}:{1}'.format(child_stype.get_code(), '{s}'))
 
-                        self.fill_stype_pipeline(child_stype, top_item)
+                            # setting ignore dicts and stype for top item
+                            top_item.setData(2, QtCore.Qt.UserRole, ignore_dict)
+                            top_item.setData(3, QtCore.Qt.UserRole, child_stype)
 
-                        self.fill_children_pipelines_and_processes(child_stype, top_item, added_stypes)
+                            clr = child_stype.get_stype_color(tuple=True)
+                            stype_color = None
+                            if clr:
+                                stype_color = Qt4Gui.QColor(clr[0], clr[1], clr[2], 255)
+                            top_item.setIcon(0, gf.get_icon('view-sequential', color=stype_color, icons_set='mdi',
+                                                            scale_factor=1.1))
+
+                            self.fill_builtin_processes(top_item)
+                            self.fill_stype_pipeline(child_stype, top_item)
+
+                            parent_tree_item_add(top_item)
+
+                            self.fill_children_pipelines_and_processes(child_stype, top_item)
 
     def fit_to_content_tree_widget(self):
 
@@ -725,6 +752,43 @@ class Ui_repoSyncDialog(QtGui.QDialog):
         else:
             self.add_file_objects_to_queue(versionless_list)
             self.add_file_objects_to_queue(versions_list)
+
+    def delete_preset_from_server(self, preset_name=None):
+
+        if not preset_name:
+            idx = self.presets_combo_box.currentIndex()
+            preset_name = self.presets_combo_box.itemData(idx)
+
+        # ask before delete
+        buttons = (('Yes', QtGui.QMessageBox.YesRole), ('Cancel', QtGui.QMessageBox.NoRole))
+
+        reply = gf.show_message_predefined(
+            'Removing preset from server',
+            u'Are You sure want to remove <b>" {0} "</b> preset from Server?'.format(preset_name),
+            buttons=buttons,
+            message_type='question',
+            parent=self
+        )
+
+        if reply == QtGui.QMessageBox.YesRole:
+
+            server = tc.server_start()
+
+            data = self.get_preset_config(preset_name)
+            search_type = 'sthpw/wdg_settings'
+
+            # Checking for existing key
+            filters = [('key', data['key'])]
+            columns = ['code', 'project']
+
+            widget_settings = server.query(search_type, filters, columns, single=True)
+
+            search_key = widget_settings['__search_key__']
+
+            server.delete_sobject(search_key)
+
+            self.get_all_presets_from_server()
+            self.fill_presets_combo_box(preset_name)
 
     def save_preset_to_server(self, preset_name=None, pretty_preset_name=None):
 
