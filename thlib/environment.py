@@ -15,7 +15,8 @@ from cPickle import dumps, loads
 from thlib.side.Qt import QtCore, QtNetwork
 from async_gui.engine import Task
 from async_gui.toolkits.pyqt import PyQtEngine
-from api_connector import AppServer, AppClient
+from thlib.side.appconnector.server import Server
+from thlib.side.appconnector.client import Client
 
 
 CFG_FORMAT = 'json'  # set this to 'ini' if you want to use QSettings instead of json
@@ -1037,7 +1038,7 @@ class ApiConnectorWrapper(object):
         if self.api_server:
             self.api_server.stop()
 
-        self.api_server = AppServer(6000, '127.0.0.1')
+        self.api_server = Server('127.0.0.1', 6000)
         self.api_server.received.connect(self.server_handle_input_data)
 
         if parent:
@@ -1045,7 +1046,7 @@ class ApiConnectorWrapper(object):
         else:
             self.api_server.setParent(env_inst.ui_main)
 
-        self.api_server.run()
+        self.api_server.start()
 
     def server_handle_input_data(self, socket, data):
 
@@ -1091,7 +1092,8 @@ class ApiConnectorWrapper(object):
         else:
             client.setParent(env_inst.ui_main)
 
-        client.waitForReadyRead()
+        client._socket.waitForReadyRead()
+        client.close()
         return client
 
     @staticmethod
@@ -1101,7 +1103,7 @@ class ApiConnectorWrapper(object):
 
     @staticmethod
     def get_api_client():
-        return AppClient(6000, '127.0.0.1')
+        return Client('127.0.0.1', 6000)
 
     def execute_method(self, method_name, parent=None, *args, **kwargs):
 
@@ -1134,15 +1136,16 @@ class ApiConnectorWrapper(object):
 
                 result = loads(str(data))
                 if result[0] == '__exception__':
-                    cl.stop()
+                    cl.close()
                     raise Exception(result[1].get('faultString'))
                 elif result[0] == 'ret_val':
+                    cl.close()
                     handoff_method(result[1])
 
-            cl.stop()
+            cl.close()
 
         client.received.connect(lambda data, cl=client: handoff(cl, data))
-        client.run()
+        client.open()
 
     def start_api_server_app(self):
 

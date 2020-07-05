@@ -672,11 +672,8 @@ def hex_to_rgb(hex_v, alpha=None, tuple=False):
 
 
 def sub_urls(text):
-    urls = re.compile(r"((https?):((//)|(\\\\))+[\w\d:#@%/;$()~_?\+-=\\\.&]*)", re.MULTILINE | re.UNICODE)
+    urls = re.compile(r"((https?):((//)|(\\\\))+[\w\d:#@%/;!$()~_?\+-=\\\.&]*)", re.MULTILINE | re.UNICODE)
     value = urls.sub(r'<a href="\1" style="color:#66a3ff;text-decoration:none;">\1</a>', text)
-
-    urls = re.compile(r"((http?):((//)|(\\\\))+[\w\d:#@%/;$()~_?\+-=\\\.&]*)", re.MULTILINE | re.UNICODE)
-    value = urls.sub(r'<a href="\1" style="color:#66a3ff;text-decoration:none;">\1</a>', value)
 
     return value
 

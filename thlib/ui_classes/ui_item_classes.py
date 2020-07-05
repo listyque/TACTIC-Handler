@@ -2834,7 +2834,6 @@ class Ui_itemWidget(QtGui.QWidget):
     def fill_child_items(self):
         # checking for unnecessary recursion
         self.check_for_child_recursion()
-        print self.ignore_dict, self.stype.get_code()
 
         # adding child items
         if self.children_stypes:
@@ -4233,6 +4232,7 @@ class Ui_snapshotItemWidget(QtGui.QWidget):
                 gf.get_icon('chevron-right', icons_set='mdi', color=Qt4Gui.QColor(160, 160, 160), scale_factor=1.6))
         else:
             self.expand_item_button.setMaximumSize(4, 2048)
+            self.expand_item_button.setIcon(Qt4Gui.QIcon())
             self.expand_item_button.setEnabled(False)
 
     def controls_actions(self):
@@ -4377,19 +4377,19 @@ class Ui_snapshotItemWidget(QtGui.QWidget):
         self.info['children_states'] = states
 
     def toggle_expand_item_button(self, state=None):
-
-        if state is not None:
-            if self.tree_item.isExpanded():
-                self.expand_item_button.setIcon(gf.get_icon('chevron-down', icons_set='mdi', color=Qt4Gui.QColor(160, 160, 160), scale_factor=1.6))
+        if self.info.get('expandable'):
+            if state is not None:
+                if self.tree_item.isExpanded():
+                    self.expand_item_button.setIcon(gf.get_icon('chevron-down', icons_set='mdi', color=Qt4Gui.QColor(160, 160, 160), scale_factor=1.6))
+                else:
+                    self.expand_item_button.setIcon(gf.get_icon('chevron-right', icons_set='mdi', color=Qt4Gui.QColor(160, 160, 160), scale_factor=1.6))
             else:
-                self.expand_item_button.setIcon(gf.get_icon('chevron-right', icons_set='mdi', color=Qt4Gui.QColor(160, 160, 160), scale_factor=1.6))
-        else:
-            if self.tree_item.isExpanded():
-                self.tree_item.setExpanded(False)
-                self.expand_item_button.setIcon(gf.get_icon('chevron-right', icons_set='mdi', color=Qt4Gui.QColor(160, 160, 160), scale_factor=1.6))
-            else:
-                self.tree_item.setExpanded(True)
-                self.expand_item_button.setIcon(gf.get_icon('chevron-down', icons_set='mdi', color=Qt4Gui.QColor(160, 160, 160), scale_factor=1.6))
+                if self.tree_item.isExpanded():
+                    self.tree_item.setExpanded(False)
+                    self.expand_item_button.setIcon(gf.get_icon('chevron-right', icons_set='mdi', color=Qt4Gui.QColor(160, 160, 160), scale_factor=1.6))
+                else:
+                    self.tree_item.setExpanded(True)
+                    self.expand_item_button.setIcon(gf.get_icon('chevron-down', icons_set='mdi', color=Qt4Gui.QColor(160, 160, 160), scale_factor=1.6))
 
     def check_expand_state(self, state=None):
         # if not state:

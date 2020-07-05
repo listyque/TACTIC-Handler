@@ -16,11 +16,11 @@ class Ui_sobjectGroupBox(object):
     def setupUi(self, sobjectGroupBox):
         sobjectGroupBox.setObjectName("sobjectGroupBox")
         sobjectGroupBox.resize(150, 150)
-        sizePolicy = QtGui.QSizePolicy(QtGui.QSizePolicy.Fixed, QtGui.QSizePolicy.Fixed)
-        sizePolicy.setHorizontalStretch(0)
-        sizePolicy.setVerticalStretch(0)
-        sizePolicy.setHeightForWidth(sobjectGroupBox.sizePolicy().hasHeightForWidth())
-        sobjectGroupBox.setSizePolicy(sizePolicy)
+        # sizePolicy = QtGui.QSizePolicy(QtGui.QSizePolicy.Fixed, QtGui.QSizePolicy.Fixed)
+        # sizePolicy.setHorizontalStretch(0)
+        # sizePolicy.setVerticalStretch(0)
+        # sizePolicy.setHeightForWidth(sobjectGroupBox.sizePolicy().hasHeightForWidth())
+        # sobjectGroupBox.setSizePolicy(sizePolicy)
         sobjectGroupBox.setMinimumSize(QtCore.QSize(150, 150))
         sobjectGroupBox.setFocusPolicy(QtCore.Qt.ClickFocus)
         sobjectGroupBox.setStyleSheet("#sobjectGroupBox {\n"

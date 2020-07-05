@@ -321,7 +321,7 @@ class Ui_notesWidget(QtGui.QWidget):
         self.widgets_list = []
 
         task_status_log = []
-
+        current_task_sobject = None
         if self.task_widget:
             current_task_sobject = self.task_widget.get_current_task_sobject()
             if current_task_sobject:
@@ -341,11 +341,11 @@ class Ui_notesWidget(QtGui.QWidget):
                 message_type = 'in'
 
             if sobject.get_plain_search_type() == 'sthpw/note':
-                note_widget = Ui_messageWidget(sobject, message_type, self)
+                note_widget = Ui_messageWidget(sobject, message_type, self.sobject, current_task_sobject, self)
                 self.lay.addWidget(note_widget)
                 self.widgets_list.append(note_widget)
             else:
-                status_widget = Ui_statusWidget(sobject, message_type, self)
+                status_widget = Ui_statusWidget(sobject, message_type, self.sobject, current_task_sobject, self)
                 self.lay.addWidget(status_widget)
                 self.widgets_list.append(status_widget)
 
@@ -377,10 +377,12 @@ class Ui_notesWidget(QtGui.QWidget):
 
 
 class Ui_messageWidget(QtGui.QWidget):
-    def __init__(self, note, message_type='out', parent=None):
+    def __init__(self, note, message_type='out', parent_sobject=None, task_sobject=None, parent=None):
         super(self.__class__, self).__init__(parent=parent)
 
         self.note = note
+        self.parent_sobject = parent_sobject
+        self.task_sobject = task_sobject
         self.login = env_inst.get_all_logins(self.note.info['login'])
         self.message_type = message_type
 
@@ -667,10 +669,12 @@ class Ui_messageWidget(QtGui.QWidget):
 
 
 class Ui_statusWidget(QtGui.QWidget):
-    def __init__(self, status, message_type='out', parent=None):
+    def __init__(self, status, message_type='out', parent_sobject=None, task_sobject=None, parent=None):
         super(self.__class__, self).__init__(parent=parent)
 
         self.status = status
+        self.parent_sobject = parent_sobject
+        self.task_sobject = task_sobject
         self.login = env_inst.get_all_logins(self.status.info['login'])
         self.message_type = message_type
 
@@ -761,11 +765,35 @@ class Ui_statusWidget(QtGui.QWidget):
         self.date_label.setText(self.status.get_timestamp(pretty=True))
         event.accept()
 
+    def get_status_color(self):
+
+        stype = self.parent_sobject.get_stype()
+
+        workflow = stype.get_workflow()
+        tasks_pipelines = workflow.get_by_stype_code('sthpw/task')
+
+        status_color = '#ffffff'
+
+        task_pipeline_code = self.task_sobject.info.get('pipeline_code')
+        status = self.status.get_value('to_status')
+
+        if task_pipeline_code:
+            task_pipeline = tasks_pipelines.get(task_pipeline_code)
+            status_info = task_pipeline.get_pipeline_process(status)
+            if status_info:
+                status_color = status_info['color']
+
+        item_color = gf.hex_to_rgb(status_color, alpha=48)
+
+        return item_color
+
     def customize_ui(self):
         if self.message_type == 'out':
             customize_dict = {'bottom_left_radius': 6, 'bottom_right_radius': 0}
         else:
             customize_dict = {'bottom_left_radius': 0, 'bottom_right_radius': 6}
+
+        customize_dict['status_color'] = self.get_status_color()
 
         self.text_area.setStyleSheet("""
         QTextEdit, QListView {{
@@ -776,7 +804,7 @@ class Ui_statusWidget(QtGui.QWidget):
             border-bottom-right-radius: {bottom_right_radius}px;
             border-bottom-left-radius: {bottom_left_radius}px;
             show-decoration-selected: 0;
-            background: rgb(64, 64, 64);
+            background: {status_color};
             selection-background-color: darkgray;
             padding-top: 32px;
             padding-right: 8px;
