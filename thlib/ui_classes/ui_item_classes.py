@@ -1892,6 +1892,10 @@ class Ui_itemWidget(QtGui.QWidget):
         result_indent = self.get_depth() * indent
         self.indent_spacer.changeSize(result_indent, 0)
 
+    def check_main_file(self):
+        # Checking main file for existance
+        pass
+
     def toggle_expand_item_button(self, state=None):
 
         if state is not None:
