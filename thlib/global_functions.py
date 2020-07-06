@@ -2550,10 +2550,10 @@ class FileObject(object):
 
     def is_exists(self, check_all_files=False):
         if check_all_files:
-            exist = False
+            exists = False
             for fl in self.get_all_files_list():
-                exist = os.path.exists(fl)
-            return exist
+                exists = os.path.exists(fl)
+            return exists
         else:
             return os.path.exists(self.get_all_files_list(True))
 

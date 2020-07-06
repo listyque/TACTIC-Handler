@@ -1228,6 +1228,7 @@ class Ui_checkInOutWidget(QtGui.QMainWindow):
                         if fl.get_type() in ['main', 'maya']:
                             if not connected:
                                 repo_sync_widget.downloaded.connect(mf.open_scene)
+                                repo_sync_widget.downloaded.connect(current_tree_widget_item.check_main_file)
                                 connected = True
                         repo_sync_widget.download()
 
@@ -1266,6 +1267,7 @@ class Ui_checkInOutWidget(QtGui.QMainWindow):
                         if fl.get_type() in ['main', 'maya', 'image']:
                             if not connected:
                                 repo_sync_widget.downloaded.connect(fl.open_file)
+                                repo_sync_widget.downloaded.connect(current_tree_widget_item.check_main_file)
                                 connected = True
                         repo_sync_widget.download()
 

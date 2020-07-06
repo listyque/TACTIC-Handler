@@ -780,28 +780,110 @@ class Ui_snapshotBrowserWidget(QtGui.QWidget):
             self.pm2.add_pixmap(Qt4Gui.QPixmap())
             self.pm3.add_pixmap(Qt4Gui.QPixmap())
 
-    def update_scene(self):
+    def load_file(self, file_path):
+
+        qfile = QtCore.QFile(file_path)
+        qfile.open(QtCore.QIODevice.ReadOnly)
+        data = qfile.readAll()
+        return data
+
+    def initial_prepare_pixmaps_threaded(self):
+
+        self.pm_list = [self.pm1, self.pm2, self.pm3]
+        paths_list = []
+        for i, pm in enumerate(self.pm_list):
+            paths_list.append(self.pix_list[i % len(self.pix_list)])
+
+        def get_files_agent():
+            data_list = []
+            for path in paths_list:
+                data_list.append(self.load_file(path))
+
+            return data_list
+
+        get_pixmap_worker = gf.get_thread_worker(
+            get_files_agent,
+            result_func=self.initial_prepare_scene,
+            error_func=gf.error_handle
+        )
+        get_pixmap_worker.start()
+
+    def initial_prepare_scene(self, data_list):
+
+        for data, pm in zip(data_list, self.pm_list):
+            pixmap = Qt4Gui.QPixmap()
+            pixmap.loadFromData(data)
+            if not pixmap.isNull():
+                pm.add_pixmap(pixmap.scaledToWidth(640, QtCore.Qt.SmoothTransformation))
+
+        self.previewGraphicsView.setSceneRect(self.pm1.pixmap_item.boundingRect())
+        self.previewGraphicsView.fitInView(self.pm1.pixmap_item.boundingRect(), QtCore.Qt.KeepAspectRatio)
+
+    def prepare_pixmaps_threaded(self):
 
         if self.pix_list and not self.downloading_in_progress:
-
-            self.clear_scene()
-
             self.pm_list = [self.pm1, self.pm2, self.pm3]
 
+            paths_list = []
             for i, pm in enumerate(self.pm_list):
+                paths_list.append(self.pix_list[i % len(self.pix_list)])
 
-                pixmap = Qt4Gui.QPixmap(self.pix_list[i % len(self.pix_list)])
+            def get_files_agent():
+                data_list = []
+                for path in paths_list:
+                    data_list.append(self.load_file(path))
 
-                if pixmap.isNull():
-                    pm.set_op(0.0)
-                else:
-                    pm.add_pixmap(pixmap.scaledToWidth(640, QtCore.Qt.SmoothTransformation))
+                return data_list
 
-            self.pm1.set_op(1.0)
-            self.previewGraphicsView.setSceneRect(self.pm1.pixmap_item.boundingRect())
-            self.previewGraphicsView.fitInView(self.pm1.pixmap_item.boundingRect(), QtCore.Qt.KeepAspectRatio)
+            get_pixmap_worker = gf.get_thread_worker(
+                get_files_agent,
+                result_func=self.do_update_scene,
+                error_func=gf.error_handle
+            )
+            get_pixmap_worker.start()
 
-            self.imagesSlider.setValue(0)
+    def do_update_scene(self, data_list):
+
+        self.clear_scene()
+
+        for data, pm in zip(data_list, self.pm_list):
+            pixmap = Qt4Gui.QPixmap()
+            pixmap.loadFromData(data)
+            if pixmap.isNull():
+                pm.set_op(0.0)
+            else:
+                pm.add_pixmap(pixmap.scaledToWidth(640, QtCore.Qt.SmoothTransformation))
+
+        self.pm1.set_op(1.0)
+        self.previewGraphicsView.setSceneRect(self.pm1.pixmap_item.boundingRect())
+        self.previewGraphicsView.fitInView(self.pm1.pixmap_item.boundingRect(), QtCore.Qt.KeepAspectRatio)
+
+        self.imagesSlider.setValue(0)
+
+    def update_scene(self):
+
+        self.prepare_pixmaps_threaded()
+
+        # if self.pix_list and not self.downloading_in_progress:
+        #
+        #     self.clear_scene()
+        #
+        #     self.pm_list = [self.pm1, self.pm2, self.pm3]
+        #
+        #     for i, pm in enumerate(self.pm_list):
+        #         s = gf.time_it()
+        #         pixmap = Qt4Gui.QPixmap(self.pix_list[i % len(self.pix_list)])
+        #         gf.time_it(s, 'UPDATE SCENE PIXMAPS')
+        #         if pixmap.isNull():
+        #             pm.set_op(0.0)
+        #         else:
+        #             pm.add_pixmap(pixmap.scaledToWidth(640, QtCore.Qt.SmoothTransformation))
+        #
+        #     self.pm1.set_op(1.0)
+        #     self.previewGraphicsView.setSceneRect(self.pm1.pixmap_item.boundingRect())
+        #     self.previewGraphicsView.fitInView(self.pm1.pixmap_item.boundingRect(), QtCore.Qt.KeepAspectRatio)
+        #
+        #     self.imagesSlider.setValue(0)
 
         if not self.machine.isRunning():
             self.machine.start()
@@ -924,15 +1006,7 @@ class Ui_snapshotBrowserWidget(QtGui.QWidget):
 
         # initial fill
         if self.pix_list:
-            self.pm_list = [self.pm1, self.pm2, self.pm3]
-            for i, pm in enumerate(self.pm_list):
-
-                pixmap = Qt4Gui.QPixmap(self.pix_list[i % len(self.pix_list)])
-                if not pixmap.isNull():
-                    pm.add_pixmap(pixmap.scaledToWidth(640, QtCore.Qt.SmoothTransformation))
-
-            self.previewGraphicsView.setSceneRect(self.pm1.pixmap_item.boundingRect())
-            self.previewGraphicsView.fitInView(self.pm1.pixmap_item.boundingRect(), QtCore.Qt.KeepAspectRatio)
+            self.initial_prepare_pixmaps_threaded()
 
         self.imagesSlider.setValue(0)
 
