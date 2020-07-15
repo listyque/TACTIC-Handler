@@ -11,25 +11,27 @@ import ast
 import json
 import zlib
 import zipfile
-import cPickle
 import binascii
 import collections
 import re
 import traceback
 import datetime
-import side.qtawesome as qta
-import side.natsort as natsort
-from side.timelapsed import timelapsed
-from bs4 import BeautifulSoup
+import thlib.side.qtawesome as qta
+import thlib.side.natsort as natsort
+from thlib.side.timelapsed import timelapsed
+if sys.version_info[0] > 2:
+    from bs4 import BeautifulSoup
+else:
+    from bs42 import BeautifulSoup
 from thlib.side.Qt import QtWidgets as QtGui
 from thlib.side.Qt import QtGui as Qt4Gui
 from thlib.side.Qt import QtCore
-from thlib.side.Qt import QtNetwork
+#from thlib.side.Qt import QtNetwork
 from thlib.side.colorhash import ColorHash
 from thlib.side.watchdog.observers import Observer
 from thlib.side.watchdog.events import FileSystemEventHandler, EVENT_TYPE_MOVED, EVENT_TYPE_CREATED, EVENT_TYPE_DELETED, EVENT_TYPE_MODIFIED
 
-from environment import env_mode, env_tactic, env_inst, dl
+from thlib.environment import env_mode, env_tactic, env_inst, dl
 
 
 class EventHandler(FileSystemEventHandler, QtCore.QObject):
@@ -144,17 +146,14 @@ class ThreadWorker(QtCore.QRunnable):
     """
     Adapted from: https://martinfitzpatrick.name/article/multithreading-pyqt-applications-with-qthreadpool/
     Worker thread
-
     Inherits from QRunnable to handler worker thread setup, signals and wrap-up.
-
     :param agent: This is function which will be started by QRunnable.
     :type agent: function
-
     """
     def __init__(self, agent, thread_pool, parent=None):
         super(ThreadWorker, self).__init__(parent=parent)
         # Settings
-        self.setAutoDelete(True)
+        self.setAutoDelete(False)
 
         # Vars
         self.agent = agent
@@ -245,6 +244,8 @@ class ThreadWorker(QtCore.QRunnable):
 
     def emit_result(self, result):
         if self.signals_enabled:
+            # print QtCore.QThread.currentThread(), 'EMIT'
+            # print self.signals.thread(), 'SIGNAL THREAD'
             self.signals.result.emit(result)
 
     def emit_progress(self, progress, obj=None):
@@ -259,9 +260,11 @@ class ThreadWorker(QtCore.QRunnable):
         try:
             if self.signals_enabled:
                 self.emit_started()
-                result = self.agent()
-            else:
-                result = None
+                self.result = self.agent()
+                # current_thread = self.signals.thread()
+                self.signals.result.emit(self.result)
+                # self.emit_result(self.agent())
+                self.set_failed(False)
         except Exception as expected:
             if self.signals_enabled:
                 traceback.print_exc(file=sys.stdout)
@@ -272,22 +275,26 @@ class ThreadWorker(QtCore.QRunnable):
                 'stacktrace': stacktrace,
             }
 
+            # dl.exception(stacktrace, group_id='{0}/{1}'.format(
+            #     'threaded_exceptions',
+            #     self.agent.func_name, ))
             dl.exception(stacktrace, group_id='{0}/{1}'.format(
                 'threaded_exceptions',
-                self.agent.func_name, ))
+                'FUNC NAME', ))
 
             self.set_failed(True)
             self.emit_error((exception, self))
-        else:
-            self.emit_result(result)
-            self.set_failed(False)
+        # else:
+            # print QtCore.QThread.currentThread(), 'TRYING EMIT'
+            # self.emit_result(result)
+            # self.set_failed(False)
         finally:
             if not self.failed:
                 self.emit_finished()
                 self.set_failed(False)
 
-            self.setAutoDelete(True)
-            del self
+            # self.setAutoDelete(True)
+            # del self
 
 
 def get_thread_worker(agent_func, thread_pool=None, result_func=None, error_func=None,
@@ -304,17 +311,17 @@ def get_thread_worker(agent_func, thread_pool=None, result_func=None, error_func
     :return: Worker object
     """
 
-    if not thread_pool:
-        thread_pool = QtCore.QThreadPool().globalInstance()
-
-    # worker = ThreadWorker(agent_func, thread_pool, parent=parent)
     worker = ThreadWorker(agent_func, thread_pool)
     worker.result_func(result_func)
     worker.error_func(error_func)
     worker.finished_func(finished_func)
     worker.progress_func(progress_func)
     worker.stop_func(stop_func)
-    return worker
+
+    if not thread_pool:
+        thread_pool = QtCore.QThreadPool().globalInstance()
+
+    return worker, thread_pool
 
 
 def catch_error(func):
@@ -331,9 +338,13 @@ def catch_error(func):
                 'stacktrace': stacktrace,
             }
 
+            # dl.exception(stacktrace, group_id='{0}/{1}'.format(
+            #     'exceptions',
+            #     func.func_name,))
+
             dl.exception(stacktrace, group_id='{0}/{1}'.format(
                 'exceptions',
-                func.func_name,))
+                'FUNC_NAME',))
 
             error_handle((exception, None))
 
@@ -347,12 +358,10 @@ def error_handle(args):
     error_type = catch_error_type(expected)
 
     exception_text = u'{0}<p>{1}</p><p><b>Catched Error: {2}</b></p>'.format(
-        unicode(str(expected.__doc__), 'utf-8', errors='ignore'),
-        unicode(str(expected.message), 'utf-8', errors='ignore'),
-        str(error_type))
+        str(expected.__doc__), str(expected), str(error_type))
 
     if error_type in ['unknown_error', 'attribute_error']:
-        title = u'{0}'.format(unicode(str(expected.__doc__), 'utf-8', errors='ignore'))
+        title = u'{0}'.format(str(expected.__doc__))
         message = u'{0}<p>{1}</p>'.format(
             u"<p>This is not usual type of Exception! See stacktrace for information</p>",
             exception_text)
@@ -700,22 +709,32 @@ def sizes(size, precision=2):
 
 
 def html_to_hex(text_html):
-    text_html_cmp = zlib.compress(text_html.encode('utf-8'), 9)
-    text_html_hex = 'zlib:' + binascii.b2a_hex(text_html_cmp)
-    if len(text_html_hex) > len(text_html):
-        text_html_hex = text_html
+    print('PY3 HACK1')
+    # text_html_cmp = zlib.compress(text_html.encode('utf-8'), 9)
+    print(text_html)
+    text_html_cmp = zlib.compress(text_html, 9)
+    # text_html_hex = 'zlib:' + binascii.b2a_hex(text_html_cmp)
+    text_html_hex = text_html
+    # print(text_html_hex)
+    # if len(text_html_hex) > len(text_html):
+    #     text_html_hex = text_html
 
     return text_html_hex
 
 
 def hex_to_html(text_hex):
     if text_hex:
+        # print(text_hex)
+        # print(type(text_hex))
+        # text_hex = str(text_hex, 'utf-8', 'ignore')
+        # hex_to_text = text_hex
         detect_zlib = text_hex.rfind('zlib:', 0, 5)
         if detect_zlib == 0:
             hex_to_text = zlib.decompress(binascii.a2b_hex(text_hex[5:]))
         else:
             hex_to_text = text_hex
 
+        # print(hex_to_text)
         return hex_to_text
 
 
@@ -858,7 +877,7 @@ def get_value_from_config(config_dict, control, default_value=None):
     if config_dict:
         if default_value:
             result = None
-            for all_values in config_dict.itervalues():
+            for all_values in config_dict.values():
                 for obj_name, value in zip(all_values['obj_name'], all_values['value']):
                     if control == obj_name:
                         result = value
@@ -868,7 +887,7 @@ def get_value_from_config(config_dict, control, default_value=None):
             else:
                 return result
         else:
-            for all_values in config_dict.itervalues():
+            for all_values in config_dict.values():
                 for obj_name, value in zip(all_values['obj_name'], all_values['value']):
                     if control == obj_name:
                         return value
@@ -892,8 +911,8 @@ def walk_through_layouts(args=None, ignore_list=None):
 
 def clear_property_dict(in_dict):
     # clearing all dict
-    for i in in_dict.itervalues():
-        for val in i.itervalues():
+    for i in in_dict.values():
+        for val in i.values():
             val[:] = []
 
 
@@ -1135,7 +1154,7 @@ def get_icon(icon_name=None, icon_name_active=None, color=None, color_active=Non
 
 
 def handle_drop_mime_data(mime_data):
-    print mime_data
+    print(mime_data)
 
 
 # New QTreeWidget funcs
@@ -1395,7 +1414,7 @@ def add_snapshot_item(tree_widget, parent_widget, sobject, stype, process, pipel
             process,
             pipeline,
             key,
-            context.versionless.values(),
+            list(context.versionless.values()),
             item_info_dict
         )
         snapshot_item.tree_item = tree_item
@@ -1797,7 +1816,7 @@ def file_format(ext):
 
 
 def extract_extension(filename):
-    base_filename = unicode(os.path.basename(filename))
+    base_filename = str(os.path.basename(filename))
     ext = base_filename.split('.', -1)
     if not os.path.isdir(filename):
         if base_filename == ext[0]:
@@ -1809,7 +1828,7 @@ def extract_extension(filename):
 
 
 def extract_filename(filename, no_ext=False):
-    name = unicode(os.path.basename(filename)).split('.')
+    name = str(os.path.basename(filename)).split('.')
     if len(name) > 1:
         if no_ext:
             return u'.'.join(name[:-1])
@@ -1820,7 +1839,7 @@ def extract_filename(filename, no_ext=False):
 
 
 def extract_dirname(filename):
-    dir = unicode(os.path.realpath(filename)).split('.', 1)
+    dir = str(os.path.realpath(filename)).split('.', 1)
     if dir[0] == filename:
         return os.path.dirname(filename)
     if len(dir) == 1 and not os.path.isdir(filename):
@@ -1842,12 +1861,9 @@ def extract_zip_archive(zip_file_path, destination_path):
 
 
 def open_file_associated(filepath):
-    # print 'OPENING FILE'
     if filepath and os.path.exists(filepath):
         if env_mode.get_platform() == 'Linux':
             subprocess.Popen(('xdg-open', filepath), stdin=subprocess.PIPE, stderr=subprocess.PIPE, stdout=subprocess.PIPE)
-            # print proc.communicate()
-            # print os.environ
         else:
             os.startfile(filepath)
 
@@ -1918,11 +1934,11 @@ def get_st_size(file_path):
     if isinstance(file_path, list):
         total_size = 0
         for fl in file_path:
-            if os.path.exists(fl):
+            if os.path.isfile(fl):
                 total_size += os.stat(fl)[ST_SIZE]
         return total_size
     else:
-        if os.path.exists(file_path):
+        if os.path.isfile(file_path):
             return os.stat(file_path)[ST_SIZE]
 
 
@@ -2027,15 +2043,6 @@ def check_config(ref_config_dict, config_dict):
                 return ref_config_dict
     else:
         return ref_config_dict
-
-
-def socket_push(obj):
-    socket = QtNetwork.QLocalSocket()
-    socket.connectToServer('TacticHandler_TacticApiServer', QtCore.QIODevice.WriteOnly)
-    socket.write(binascii.b2a_hex(cPickle.dumps(obj)))
-    socket.waitForBytesWritten(20000)
-
-    return socket
 
 
 # CLASSES #
@@ -2552,10 +2559,10 @@ class FileObject(object):
         if check_all_files:
             exists = False
             for fl in self.get_all_files_list():
-                exists = os.path.exists(fl)
+                exists = os.path.isfile(fl)
             return exists
         else:
-            return os.path.exists(self.get_all_files_list(True))
+            return os.path.isfile(self.get_all_files_list(True))
 
     def is_previewable(self):
         if self._previewable:
@@ -2609,7 +2616,7 @@ class MatchTemplate(object):
             .replace('$LAYER', 'layer')
 
     def get_type_string(self):
-        return self.split_patterns.keys()[0].replace('_', ' | ')
+        return list(self.split_patterns.keys())[0].replace('_', ' | ')
 
     def get_template(self, template):
         templates = {
@@ -2819,7 +2826,7 @@ class MatchTemplate(object):
     def init_from_tactic_file_object(self, tactic_file_object):
         metadata = tactic_file_object.get_metadata()
         path = tactic_file_object.get_abs_path()
-        template = self.parse_patterns([metadata.get('new_template')]).values()[0][0]
+        template = list(self.parse_patterns([metadata.get('new_template')]).values())[0][0]
         pattern = template[0]
         separators = template[1]
         if len(pattern) - len(separators) > 0:

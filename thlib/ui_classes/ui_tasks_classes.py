@@ -734,20 +734,10 @@ class Ui_taskWidget(QtGui.QFrame):
 
     def query_tasks(self):
 
-        def refresh_tasks_sobjects_agent():
-            return self.parent_sobject.get_tasks_sobjects(process=self.process, include_status_log=True)
-
-        env_inst.set_thread_pool(None, 'server_query/tasks_and_notes_thread_pool')
-        thread_pool = env_inst.get_thread_pool('server_query/tasks_and_notes_thread_pool')
-        thread_pool.setMaxThreadCount(2)
-
-        refresh_tasks_sobjects_worker = gf.get_thread_worker(
-            refresh_tasks_sobjects_agent,
-            thread_pool,
-            result_func=self.refresh_tasks_sobjects,
-            error_func=gf.error_handle,
-        )
-        refresh_tasks_sobjects_worker.start()
+        worker = env_inst.server_pool.add_task(self.parent_sobject.get_tasks_sobjects, process=self.process, include_status_log=True)
+        worker.result.connect(self.refresh_tasks_sobjects)
+        worker.error.connect(gf.error_handle)
+        worker.start()
 
     def refresh_tasks_sobjects(self, query_result):
 
@@ -778,7 +768,7 @@ class Ui_taskWidget(QtGui.QFrame):
                 self.commit_single_task(changed_data)
 
     def commit_multiple_task(self, changed_data):
-        print 'COMMINT MULTIPLE', self.current_task_sobject
+        print('COMMINT MULTIPLE', self.current_task_sobject)
         do_commit = False
         data = {}
         for column, val in changed_data.items():
@@ -794,18 +784,18 @@ class Ui_taskWidget(QtGui.QFrame):
                     do_commit = True
                     self.current_task_sobject.set_value(column, '')
 
-        print do_commit, data
+        print(do_commit, data)
         if do_commit:
             data['process'] = self.process
 
             # update multiple sobjects
             for task_sobject in self.tasks_sobjects_list:
-                print task_sobject.get_search_key()
+                print(task_sobject.get_search_key())
 
             # insert new sobjects if it doesn't created earlier
-            print data
+            print(data)
             for sobject in self.parent_sobjects_list:
-                print sobject.get_search_key()
+                print(sobject.get_search_key())
 
 
 
@@ -1012,7 +1002,7 @@ class Ui_tasksDockWidget(QtGui.QWidget):
 
         # for process, task_sobjects in groupped_tasks_sobjects.items():
         for task_widget in self.task_widgets_list:
-            print task_widget.is_task_changed()
+            print(task_widget.is_task_changed())
             # if task_widget.get_process() == process:
             #     task_widget.set_tasks_sobjects(task_sobjects)
 
@@ -1029,37 +1019,17 @@ class Ui_tasksDockWidget(QtGui.QWidget):
             self.query_tasks()
 
     def query_multiple_tasks(self):
-        def get_tasks_sobjects_agent():
-            return tc.SObject.get_multiple_tasks_sobjects(sobjects_list=self.sobjects_list)
-
-        env_inst.set_thread_pool(None, 'server_query/tasks_and_notes_thread_pool')
-        thread_pool = env_inst.get_thread_pool('server_query/tasks_and_notes_thread_pool')
-        thread_pool.setMaxThreadCount(2)
-
-        get_tasks_sobjects_worker = gf.get_thread_worker(
-            get_tasks_sobjects_agent,
-            thread_pool,
-            result_func=self.fill_multiple_tasks,
-            error_func=gf.error_handle,
-        )
-        get_tasks_sobjects_worker.start()
+        worker = env_inst.server_pool.add_task(tc.SObject.get_multiple_tasks_sobjects, sobjects_list=self.sobjects_list)
+        worker.result.connect(self.fill_multiple_tasks)
+        worker.error.connect(gf.error_handle)
+        worker.start()
 
     def query_tasks(self):
 
-        def get_tasks_sobjects_agent():
-            return self.sobject.get_tasks_sobjects()
-
-        env_inst.set_thread_pool(None, 'server_query/tasks_and_notes_thread_pool')
-        thread_pool = env_inst.get_thread_pool('server_query/tasks_and_notes_thread_pool')
-        thread_pool.setMaxThreadCount(2)
-
-        get_tasks_sobjects_worker = gf.get_thread_worker(
-            get_tasks_sobjects_agent,
-            thread_pool,
-            result_func=self.fill_tasks,
-            error_func=gf.error_handle,
-        )
-        get_tasks_sobjects_worker.start()
+        worker = env_inst.server_pool.add_task(self.sobject.get_tasks_sobjects)
+        worker.result.connect(self.fill_tasks)
+        worker.error.connect(gf.error_handle)
+        worker.start()
 
     def create_filler_tasks(self):
         self.clear_scroll_area()

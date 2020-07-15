@@ -226,10 +226,10 @@ def startup(restart=False, *args, **kwargs):
         def server_ping_agent():
             return tc.server_ping()
 
-        ping_worker = gf.get_thread_worker(
+        ping_worker, thread_pool = gf.get_thread_worker(
             server_ping_agent,
             finished_func=lambda: create_ui(None),
             error_func=create_ui
         )
 
-        ping_worker.start()
+        thread_pool.start(ping_worker)

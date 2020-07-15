@@ -27,7 +27,7 @@ def get_version(major=0, minor=0, build=0, revision=0, string=False, sort_sum=Fa
 
 
 def read_json_from_path(file_path):
-    if os.path.exists(file_path):
+    if os.path.isfile(file_path):
         json_file = file(file_path)
         return json.load(json_file)
     else:
@@ -36,7 +36,7 @@ def read_json_from_path(file_path):
 
 def save_json_to_path(file_path, data):
     updates_dir = '{0}/updates'.format(env_mode.get_current_path())
-    if not os.path.exists(updates_dir):
+    if not os.path.isdir(updates_dir):
         os.makedirs(updates_dir)
     json_file = file(file_path, mode='w+')
     json.dump(data, json_file, indent=4)
@@ -70,7 +70,7 @@ def get_info_from_updates_folder(files_list=False):
     updates_list = []
     for jf in json_files:
         if jf != 'versions.json':
-            print '{0}/{1}'.format(updates_dir, jf)
+            print('{0}/{1}'.format(updates_dir, jf))
             updates_list.append(read_json_from_path('{0}/{1}'.format(updates_dir, jf)))
 
     return updates_list
@@ -149,7 +149,7 @@ def get_update_archive_from_server(archive_name):
 
 
 def delete_files_from_list(files_list):
-    print files_list
+    print(files_list)
 
 
 def create_app_update_list():
@@ -210,7 +210,7 @@ def create_update_archive(archive_path):
 
         for fl in files_list:
             fl_rep = fl.replace
-            print zp.write(fl, arcname=fl_rep(abs_path, ''))
+            print(zp.write(fl, arcname=fl_rep(abs_path, '')))
 
     zp.close()
 

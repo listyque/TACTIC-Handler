@@ -319,7 +319,7 @@ class Ui_repoSyncDialog(QtGui.QDialog):
             parent_tree_item_add = parent_tree_item.addChild
 
         if stype.pipeline:
-            for stype_pipeline in stype.pipeline.itervalues():
+            for stype_pipeline in stype.pipeline.values():
                 top_item = QtGui.QTreeWidgetItem()
                 title = stype_pipeline.info.get('name')
                 if not title:
@@ -610,7 +610,7 @@ class Ui_repoSyncDialog(QtGui.QDialog):
         self.download_queue.clear_queue()
         self.repo_sync_items = []
 
-    @env_inst.async_engine
+    #@env_inst.async_engine
     def start_sync(self, preset_dict=None):
         self.sync_in_progress = True
         # it is recommended to use finished signal
@@ -691,7 +691,7 @@ class Ui_repoSyncDialog(QtGui.QDialog):
         elif current_builtin_preset_dict:
             self.sync_by_sobject(sobject, {}, current_builtin_preset_dict)
 
-    @env_inst.async_engine
+    #@env_inst.async_engine
     def sync_children(self, sobject=None, preset_dict=None):
         stype = sobject.get_stype()
 

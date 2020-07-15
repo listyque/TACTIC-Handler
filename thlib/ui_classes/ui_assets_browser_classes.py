@@ -13,11 +13,11 @@ from thlib.environment import env_inst
 import thlib.ui.browser.ui_assets_browser as ui_assets_browser
 import thlib.ui.browser.ui_sobject as ui_sobject
 import thlib.ui.browser.ui_sobject_info as ui_sobject_info
-import ui_tasks_classes
-import ui_addsobject_classes as addsobject_widget
+import thlib.ui_classes.ui_tasks_classes
+import thlib.ui_classes.ui_addsobject_classes as addsobject_widget
 # import ui_icons_classes as icons_widget
 
-reload(ui_assets_browser)
+#reload(ui_assets_browser)
 
 
 class Ui_sobjectInfoWidget(QtGui.QMainWindow, ui_sobject_info.Ui_sobjectInfo):
@@ -317,7 +317,7 @@ class Ui_assetsBrowserWidget(QtGui.QWidget):
             if wdg_width % 2 != 0:
                 wdg_width -= 1
 
-            print wdg_width, width, self.all_width
+            print(wdg_width, width, self.all_width)
 
             for sobj_widget in self.sobjects_widgets:
                 sobj_widget.setFixedSize(wdg_width, wdg_width)

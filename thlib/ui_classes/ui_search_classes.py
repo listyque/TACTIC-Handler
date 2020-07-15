@@ -838,7 +838,7 @@ class Ui_searchWidget(QtGui.QWidget):
     def do_my_tasks_action(self):
         stype_widget = env_inst.get_check_tree(tab_code='checkin_out', wdg_code=self.stype.get_code())
 
-        print stype_widget
+        print(stype_widget)
 
         checkin_out_control = env_inst.get_control_tab(tab_code='checkin_out')
 
@@ -888,7 +888,7 @@ class Ui_searchWidget(QtGui.QWidget):
 
     def set_group_by_column(self, column):
 
-        print 'Setting group by: ', column
+        print('Setting group by: ', column)
         self.group_by_columns = [column]
         # if column not in self.group_by_columns:
         #     self.group_by_columns.append(column)
@@ -1967,13 +1967,13 @@ class Ui_navigationWidget(QtGui.QWidget):
 
         self.back_button.setStyleSheet('QPushButton {background-color: transparent; border-style: none; outline: none; border-width: 0px;}')
 
-        self.back_button_hover_animation = QtCore.QPropertyAnimation(self.back_button_opacity_effect, "opacity", self)
+        self.back_button_hover_animation = QtCore.QPropertyAnimation(self.back_button_opacity_effect, b"opacity", self)
         self.back_button_hover_animation.setDuration(200)
         self.back_button_hover_animation.setEasingCurve(QtCore.QEasingCurve.InSine)
         self.back_button_hover_animation.setStartValue(0.2)
         self.back_button_hover_animation.setEndValue(1)
 
-        self.back_button_leave_animation = QtCore.QPropertyAnimation(self.back_button_opacity_effect, "opacity", self)
+        self.back_button_leave_animation = QtCore.QPropertyAnimation(self.back_button_opacity_effect, b"opacity", self)
         self.back_button_leave_animation.setDuration(200)
         self.back_button_leave_animation.setEasingCurve(QtCore.QEasingCurve.OutSine)
         self.back_button_leave_animation.setEndValue(0.2)
@@ -1988,13 +1988,13 @@ class Ui_navigationWidget(QtGui.QWidget):
         self.forward_button.setIcon(gf.get_icon('chevron-right'))
         self.forward_button.setStyleSheet('QPushButton {background-color: transparent; border-style: none; outline: none; border-width: 0px;}')
 
-        self.forward_button_hover_animation = QtCore.QPropertyAnimation(self.forward_button_opacity_effect, "opacity", self)
+        self.forward_button_hover_animation = QtCore.QPropertyAnimation(self.forward_button_opacity_effect, b"opacity", self)
         self.forward_button_hover_animation.setDuration(200)
         self.forward_button_hover_animation.setEasingCurve(QtCore.QEasingCurve.InSine)
         self.forward_button_hover_animation.setStartValue(0.2)
         self.forward_button_hover_animation.setEndValue(1)
 
-        self.forward_button_leave_animation = QtCore.QPropertyAnimation(self.forward_button_opacity_effect, "opacity", self)
+        self.forward_button_leave_animation = QtCore.QPropertyAnimation(self.forward_button_opacity_effect, b"opacity", self)
         self.forward_button_leave_animation.setDuration(200)
         self.forward_button_leave_animation.setEasingCurve(QtCore.QEasingCurve.OutSine)
         self.forward_button_leave_animation.setEndValue(0.2)
@@ -2306,12 +2306,12 @@ class Ui_searchResultsWidget(QtGui.QWidget):
 
         effect = QtGui.QGraphicsOpacityEffect(self.loading_widget)
 
-        self.loading_anm_close = QtCore.QPropertyAnimation(effect, 'opacity', self.loading_widget)
+        self.loading_anm_close = QtCore.QPropertyAnimation(effect, b'opacity', self.loading_widget)
         self.loading_anm_close.setDuration(200)
         self.loading_anm_close.setStartValue(1)
         self.loading_anm_close.setEndValue(0)
         self.loading_anm_close.setEasingCurve(QtCore.QEasingCurve.OutSine)
-        self.loading_anm_open = QtCore.QPropertyAnimation(effect, 'opacity', self.loading_widget)
+        self.loading_anm_open = QtCore.QPropertyAnimation(effect, b'opacity', self.loading_widget)
         self.loading_anm_open.setDuration(200)
         self.loading_anm_open.setStartValue(0)
         self.loading_anm_open.setEndValue(1)
@@ -2339,7 +2339,7 @@ class Ui_searchResultsWidget(QtGui.QWidget):
 
         group_by = self.get_group_by()
         if group_by:
-            print 'Filling groups by: ', group_by
+            print('Filling groups by: ', group_by)
             self.query_group_by_sobjects(
                 search_type=self.stype.get_code(),
                 project_code=self.project.get_code(),
@@ -2512,7 +2512,8 @@ class Ui_searchResultsWidget(QtGui.QWidget):
         return str(self.items_view_splitter.saveState().toHex())
 
     def set_current_splitter_state(self, splitter_state):
-        self.items_view_splitter.restoreState(QtCore.QByteArray.fromHex(splitter_state))
+        print('SKIP RESTORE STATE2')
+        #self.items_view_splitter.restoreState(QtCore.QByteArray.fromHex(splitter_state))
 
     def get_current_view(self):
         return self.info.get('view')
@@ -2636,48 +2637,33 @@ class Ui_searchResultsWidget(QtGui.QWidget):
 
         self.show_overlay()
 
-        def get_sobjects_agent():
-            """ If we have traceback, it points us here"""
-            return tc.get_sobjects(
-                search_type=search_type,
-                filters=filters,
-                order_bys=order_bys,
-                project_code=project,
-                limit=limit,
-                offset=offset,
-                check_snapshots_updates=tc.get_snapshots_updates_list(stype, project)
-            )
-
-        env_inst.set_thread_pool(None, 'server_query/server_thread_pool')
-
-        query_sobjects_worker = gf.get_thread_worker(
-            get_sobjects_agent,
-            thread_pool=env_inst.get_thread_pool('server_query/server_thread_pool'),
-            result_func=self.fill_items,
-            error_func=gf.error_handle
+        worker = env_inst.server_pool.add_task(
+            tc.get_sobjects,
+            search_type=search_type,
+            filters=filters,
+            order_bys=order_bys,
+            project_code=project,
+            limit=limit,
+            offset=offset,
+            check_snapshots_updates=tc.get_snapshots_updates_list(stype, project)
         )
-        query_sobjects_worker.start()
+        worker.result.connect(self.fill_items)
+        worker.error.connect(gf.error_handle)
+        worker.start()
 
     def query_group_by_sobjects(self, search_type, project_code, group_by=[]):
 
         env_inst.ui_main.set_info_status_text('<span style=" font-size:8pt; color:#00ff00;">Getting SObjects</span>')
 
-        def get_sobjects_agent():
-            return tc.get_group_sobjects(
-                search_type=search_type,
-                project_code=project_code,
-                groups_list=group_by,
-            )
-
-        env_inst.set_thread_pool(None, 'server_query/server_thread_pool')
-
-        query_sobjects_worker = gf.get_thread_worker(
-            get_sobjects_agent,
-            thread_pool=env_inst.get_thread_pool('server_query/server_thread_pool'),
-            result_func=self.fill_group_by_items,
-            error_func=gf.error_handle
+        worker = env_inst.server_pool.add_task(
+            tc.get_group_sobjects,
+            search_type=search_type,
+            project_code=project_code,
+            groups_list=group_by,
         )
-        query_sobjects_worker.start()
+        worker.result.connect(self.fill_group_by_items)
+        worker.error.connect(gf.error_handle)
+        worker.start()
 
     @gf.catch_error
     def fill_items(self, result):
@@ -2875,16 +2861,17 @@ class Ui_searchResultsWidget(QtGui.QWidget):
         return self.current_results_versions_tree_widget_item
 
     def update_current_items_trees(self, force_full_update=False):
-        if env_inst.get_thread_pool('server_query/server_thread_pool'):
-            if env_inst.get_thread_pool('server_query/server_thread_pool').activeThreadCount() == 0:
-                if force_full_update:
-                    self.search_widget.search_results_widget.update_item_tree(force_full_update=True)
-                elif self.current_results_versions_tree_widget_item:
-                    self.current_results_versions_tree_widget_item = None
-                    self.search_widget.search_results_widget.update_item_tree(self.current_results_versions_tree_widget_item)
-                elif self.current_results_tree_widget_item:
-                    self.current_results_tree_widget_item = None
-                    self.search_widget.search_results_widget.update_item_tree(self.current_results_tree_widget_item)
+        print('UPDATING')
+        # if env_inst.get_thread_pool('server_query/server_thread_pool'):
+        #     if env_inst.get_thread_pool('server_query/server_thread_pool').activeThreadCount() == 0:
+        if force_full_update:
+            self.search_widget.search_results_widget.update_item_tree(force_full_update=True)
+        elif self.current_results_versions_tree_widget_item:
+            self.current_results_versions_tree_widget_item = None
+            self.search_widget.search_results_widget.update_item_tree(self.current_results_versions_tree_widget_item)
+        elif self.current_results_tree_widget_item:
+            self.current_results_tree_widget_item = None
+            self.search_widget.search_results_widget.update_item_tree(self.current_results_tree_widget_item)
 
     @gf.catch_error
     def send_collapse_event_to_item(self, tree_item):
@@ -2939,7 +2926,7 @@ class Ui_searchResultsWidget(QtGui.QWidget):
                     else:
                         processes = item_widget.get_all_snapshots()
                         if processes:
-                            process = processes.keys()[0]
+                            process = list(processes.keys())[0]
                             if process:
                                 ready_snapshots = item_widget.get_snapshots(process)
 
@@ -2972,7 +2959,7 @@ class Ui_searchResultsWidget(QtGui.QWidget):
                         ready_snapshots = collections.OrderedDict()
                         for snapshot in snapshots:
                             if snapshot:
-                                ready_snapshots[snapshot.keys()[0]] = snapshot.values()[0]
+                                ready_snapshots[snapshot.keys()[0]] = list(snapshot.values())[0]
 
                     gf.add_versions_snapshot_item(
                         self.resultsVersionsTreeWidget,

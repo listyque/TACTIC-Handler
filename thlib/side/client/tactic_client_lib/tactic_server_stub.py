@@ -16,7 +16,11 @@
 
 import datetime
 import re
-import xmlrpclib, os, getpass, shutil, httplib, sys, urllib, types, hashlib
+try:
+    import xmlrpclib
+except:
+    import xmlrpc.client as xmlrpclib
+import os, getpass, shutil, sys, urllib, types
 
 class TacticApiException(Exception):
     pass
@@ -203,10 +207,10 @@ class TacticServerStub(object):
         #    url = '%s%s' % (url, my.transaction_ticket)
         # my.server = xmlrpclib.Server(url, allow_none=True)
 
-        if my.transport:
-            my.server = xmlrpclib.Server(url, allow_none=True, transport=my.transport)
-        else:
-            my.server = xmlrpclib.Server(url, allow_none=True)
+        # if my.transport:
+        #     my.server = xmlrpclib.Server(url, allow_none=True, transport=my.transport)
+        # else:
+        my.server = xmlrpclib.Server(url, allow_none=True)
 
         # try:
         #     pass
@@ -431,7 +435,7 @@ class TacticServerStub(object):
             old_path = "%s/%s" % (old_dir, filename)
             if os.path.exists(old_path):
                 os.unlink(old_path)
-                print "Removing deprectated resource file [%s]" % old_path
+                print("Removing deprectated resource file [%s]" % old_path)
 
 
         path = "%s/%s" % (dir,filename)
@@ -474,7 +478,7 @@ class TacticServerStub(object):
             old_path = "%s/%s" % (old_dir, filename)
             if os.path.exists(old_path):
                 os.unlink(old_path)
-                print "Removing deprectated resource file [%s]" % old_path
+                print("Removing deprectated resource file [%s]" % old_path)
 
         
         path = "%s/%s" % (dir,filename)
@@ -589,17 +593,14 @@ class TacticServerStub(object):
         if not force and old_server_name and old_project_code:
             return
 
-        print
-        print "TACTIC requires the following connection information:"
+        print("TACTIC requires the following connection information:")
 
-        print
         server_name = raw_input("Enter name of TACTIC server (%s): "
                                 % old_server_name)
         if not server_name:
             server_name = old_server_name
         
         
-        print
         site = raw_input("If you are accessing a portal project, please enter the site name. Otherwise, hit enter: (site = %s) " % old_site)
         if not site:
             site = old_site
@@ -610,14 +611,12 @@ class TacticServerStub(object):
         if not login:
             login = default_login
 
-        print
         if login == old_login and old_ticket:
             password = getpass.getpass(
                 "Enter password (or use previous ticket): ")
         else:
             password = getpass.getpass("Enter password: ")
 
-        print
         project_code = raw_input("Project (%s): " % old_project_code)
         if not project_code:
             project_code = old_project_code
@@ -628,7 +627,7 @@ class TacticServerStub(object):
         # do the actual work
         if login != old_login or password:
             ticket = my.get_ticket(login, password, site)
-            print "Got ticket [%s] for [%s]" % (ticket, login)
+            print("Got ticket [%s] for [%s]" % (ticket, login))
         else:
             ticket = old_ticket
 
@@ -648,7 +647,7 @@ class TacticServerStub(object):
                 file.write("project=%s\n" % project_code)
 
             file.close()
-            print "Saved to [%s]" % path
+            print("Saved to [%s]" % path)
 
         # set up the server with the new information
         my._setup(my.protocol)
@@ -1126,7 +1125,7 @@ class TacticServerStub(object):
         results = my.server.query(my.ticket, search_type, filters, columns,
                                   order_bys, show_retired, limit, offset,
                                   single, distinct, return_sobjects)
-        if not return_sobjects and isinstance(results, basestring):
+        if not return_sobjects and isinstance(results, str):
             results = eval(results)
         return results
 
@@ -1747,7 +1746,7 @@ class TacticServerStub(object):
             # if it exists, check the MD5 checksum
             if md5_checksum:
                 if my._md5_check(to_path, md5_checksum):
-                    print "skipping '%s', already exists" % to_path
+                    print("skipping '%s', already exists" % to_path)
                     return to_path
             else:
                 # always download if no md5_checksum available
@@ -2010,8 +2009,8 @@ class TacticServerStub(object):
                 try:
                     shutil.rmtree(handoff_dir)
                     os.makedirs(handoff_dir)
-                    os.chmod(handoff_dir, 0777)
-                except OSError, e:
+                    os.chmod(handoff_dir, 777)
+                except OSError as e:
                     sys.stderr.write("WARNING: could not cleanup handoff directory [%s]: %s"
                                      % (handoff_dir, e.__str__()))
 
@@ -2222,8 +2221,8 @@ class TacticServerStub(object):
         try:
             shutil.rmtree(handoff_dir)
             os.makedirs(handoff_dir)
-            os.chmod(handoff_dir, 0777)
-        except OSError, e:
+            os.chmod(handoff_dir, 777)
+        except OSError as e:
             sys.stderr.write("WARNING: could not cleanup handoff directory [%s]: %s"
                              % (handoff_dir, e.__str__()))
 
@@ -2457,7 +2456,7 @@ class TacticServerStub(object):
                 try:
                     shutil.rmtree(handoff_dir)
                     os.makedirs(handoff_dir)
-                except OSError, e:
+                except OSError as e:
                     sys.stderr.write("WARNING: could not cleanup handoff directory [%s]: %s"
                                      % (handoff_dir, e.__str__()))
 
@@ -2594,7 +2593,7 @@ class TacticServerStub(object):
             try:
                 shutil.rmtree(handoff_dir)
                 os.makedirs(handoff_dir)
-            except OSError, e:
+            except OSError as e:
                 sys.stderr.write("WARNING: could not cleanup handoff directory [%s]: %s"
                                  % (handoff_dir, e.__str__()))
 
@@ -3982,7 +3981,7 @@ class TacticServerStub(object):
     #
     def get_release_version(my):
         # DEPRECATED
-        print "WARNING: Deprecated function 'get_release_version'"
+        print("WARNING: Deprecated function 'get_release_version'")
         return my.server.get_release_version(my.ticket)
 
     def get_server_version(my):
@@ -4071,7 +4070,7 @@ class TacticServerStub(object):
 
             return server
 
-        except ImportError, e:
+        except ImportError as e:
             if not cls.server:
                 cls.server = TacticServerStub(protocol='xmlrpc', setup=setup)
             return cls.server
@@ -4103,7 +4102,7 @@ class Command(object):
         my.server.start(my.get_description())
         try:
             my.execute()
-        except Exception, e:
+        except Exception as e:
             my.server.abort()
             raise
         else:

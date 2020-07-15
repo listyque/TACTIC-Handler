@@ -790,7 +790,7 @@ class QTacticCurrentCheckboxWdg(QtGui.QWidget, QTacticBasicInputWdg):
     def fill_default_values(self):
         values = self.tactic_widget.get_display_values()
         if values:
-            print values, self, 'values'
+            print(values, self, 'values')
             if isinstance(values, list):
                 if isinstance(values[0], bool):
                     self.checkbox.setChecked(values[0])
@@ -985,7 +985,7 @@ class QTacticProcessGroupSelectWdg(QtGui.QWidget, QTacticBasicInputWdg):
         if isinstance(display_values, dict):
             self.users_combo_box.addItem(display_values.get('empty_option_label'))
         else:
-            print display_values
+            print(display_values)
 
     def fill_users_combo(self):
 

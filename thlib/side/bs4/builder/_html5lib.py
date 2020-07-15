@@ -33,13 +33,24 @@ try:
     # Pre-0.99999999
     from html5lib.treebuilders import _base as treebuilder_base
     new_html5lib = False
-except ImportError, e:
+except ImportError as e:
     # 0.99999999 and up
     from html5lib.treebuilders import base as treebuilder_base
     new_html5lib = True
 
 class HTML5TreeBuilder(HTMLTreeBuilder):
-    """Use html5lib to build a tree."""
+    """Use html5lib to build a tree.
+
+    Note that this TreeBuilder does not support some features common
+    to HTML TreeBuilders. Some of these features could theoretically
+    be implemented, but at the very least it's quite difficult,
+    because html5lib moves the parse tree around as it's being built.
+
+    * This TreeBuilder doesn't use different subclasses of NavigableString
+      based on the name of the tag in which the string was found.
+
+    * You can't use a SoupStrainer to parse only part of a document.
+    """
 
     NAME = "html5lib"
 
@@ -68,7 +79,7 @@ class HTML5TreeBuilder(HTMLTreeBuilder):
         parser = html5lib.HTMLParser(tree=self.create_treebuilder)
         self.underlying_builder.parser = parser
         extra_kwargs = dict()
-        if not isinstance(markup, unicode):
+        if not isinstance(markup, str):
             if new_html5lib:
                 extra_kwargs['override_encoding'] = self.user_specified_encoding
             else:
@@ -76,13 +87,13 @@ class HTML5TreeBuilder(HTMLTreeBuilder):
         doc = parser.parse(markup, **extra_kwargs)
         
         # Set the character encoding detected by the tokenizer.
-        if isinstance(markup, unicode):
+        if isinstance(markup, str):
             # We need to special-case this because html5lib sets
             # charEncoding to UTF-8 if it gets Unicode input.
             doc.original_encoding = None
         else:
             original_encoding = parser.tokenizer.stream.charEncoding[0]
-            if not isinstance(original_encoding, basestring):
+            if not isinstance(original_encoding, str):
                 # In 0.99999999 and up, the encoding is an html5lib
                 # Encoding object. We want to use a string for compatibility
                 # with other tree builders.
@@ -99,7 +110,7 @@ class HTML5TreeBuilder(HTMLTreeBuilder):
 
     def test_fragment_to_document(self, fragment):
         """See `TreeBuilder`."""
-        return u'<html><head></head><body>%s</body></html>' % fragment
+        return '<html><head></head><body>%s</body></html>' % fragment
 
 
 class TreeBuilderForHtml5lib(treebuilder_base.TreeBuilder):
@@ -116,6 +127,9 @@ class TreeBuilderForHtml5lib(treebuilder_base.TreeBuilder):
                 "", "html.parser", store_line_numbers=store_line_numbers,
                 **kwargs
             )
+        # TODO: What are **kwargs exactly? Should they be passed in
+        # here in addition to/instead of being passed to the BeautifulSoup
+        # constructor?
         super(TreeBuilderForHtml5lib, self).__init__(namespaceHTMLElements)
 
         # This will be set later to an html5lib.html5parser.HTMLParser
@@ -203,7 +217,7 @@ class TreeBuilderForHtml5lib(treebuilder_base.TreeBuilder):
                 rv.append("|%s<%s>" % (' ' * indent, name))
                 if element.attrs:
                     attributes = []
-                    for name, value in element.attrs.items():
+                    for name, value in list(element.attrs.items()):
                         if isinstance(name, NamespacedAttribute):
                             name = "%s %s" % (prefixes[name.namespace], name.name)
                         if isinstance(value, list):
@@ -258,7 +272,7 @@ class Element(treebuilder_base.Node):
 
     def appendChild(self, node):
         string_child = child = None
-        if isinstance(node, basestring):
+        if isinstance(node, str):
             # Some other piece of code decided to pass in a string
             # instead of creating a TextElement object to contain the
             # string.
@@ -275,7 +289,7 @@ class Element(treebuilder_base.Node):
             child = node.element
             node.parent = self
 
-        if not isinstance(child, basestring) and child.parent is not None:
+        if not isinstance(child, str) and child.parent is not None:
             node.element.extract()
 
         if (string_child is not None and self.element.contents
@@ -288,7 +302,7 @@ class Element(treebuilder_base.Node):
             old_element.replace_with(new_element)
             self.soup._most_recent_element = new_element
         else:
-            if isinstance(node, basestring):
+            if isinstance(node, str):
                 # Create a brand new NavigableString from this string.
                 child = self.soup.new_string(node)
 
@@ -316,9 +330,7 @@ class Element(treebuilder_base.Node):
         return AttrList(self.element)
 
     def setAttributes(self, attributes):
-
         if attributes is not None and len(attributes) > 0:
-
             converted_attributes = []
             for name, value in list(attributes.items()):
                 if isinstance(name, tuple):
@@ -328,7 +340,7 @@ class Element(treebuilder_base.Node):
 
             self.soup.builder._replace_cdata_list_attribute_values(
                 self.name, attributes)
-            for name, value in attributes.items():
+            for name, value in list(attributes.items()):
                 self.element[name] = value
 
             # The attributes may contain variables that need substitution.
@@ -363,9 +375,9 @@ class Element(treebuilder_base.Node):
 
     def reparentChildren(self, new_parent):
         """Move all of this tag's children into another tag."""
-        # print "MOVE", self.element.contents
-        # print "FROM", self.element
-        # print "TO", new_parent.element
+        # print("MOVE", self.element.contents)
+        # print("FROM", self.element)
+        # print("TO", new_parent.element)
 
         element = self.element
         new_parent_element = new_parent.element
@@ -423,9 +435,9 @@ class Element(treebuilder_base.Node):
         element.contents = []
         element.next_element = final_next_element
 
-        # print "DONE WITH MOVE"
-        # print "FROM", self.element
-        # print "TO", new_parent_element
+        # print("DONE WITH MOVE")
+        # print("FROM", self.element)
+        # print("TO", new_parent_element)
 
     def cloneNode(self):
         tag = self.soup.new_tag(self.element.name, self.namespace)

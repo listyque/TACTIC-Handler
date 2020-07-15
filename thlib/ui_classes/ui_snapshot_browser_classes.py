@@ -7,7 +7,7 @@ from thlib.side.Qt import QtCore
 
 #import thlib.ui.misc.ui_snapshot_browser as ui_snapshot_browser
 from thlib.ui_classes.ui_custom_qwidgets import Ui_horizontalCollapsableWidget, StyledToolButton
-import ui_addsobject_classes as addsobject_widget
+import thlib.ui_classes.ui_addsobject_classes as addsobject_widget
 from thlib.environment import env_inst, cfg_controls
 import thlib.global_functions as gf
 import thlib.tactic_classes as tc
@@ -527,7 +527,7 @@ class Ui_snapshotBrowserWidget(QtGui.QWidget):
 
     def init_snapshot(self, multiple_sapshots=False):
         if multiple_sapshots:
-            snapshots = self.snapshots.values()
+            snapshots = list(self.snapshots.values())
         else:
             snapshots = [self.snapshots]
 
@@ -734,13 +734,13 @@ class Ui_snapshotBrowserWidget(QtGui.QWidget):
         self.back_button.setIcon(gf.get_icon('chevron-left'))
         self.back_button.setStyleSheet('QPushButton {background-color: qlineargradient(spread:pad, x1:0, y1:0, x2:1, y2:0, stop:0 rgba(0, 0, 0, 64), stop:1 rgba(0, 0, 0, 0)); border-style: none; outline: none; border-width: 0px;}')
 
-        self.back_button_hover_animation = QtCore.QPropertyAnimation(self.back_button_opacity_effect, "opacity", self)
+        self.back_button_hover_animation = QtCore.QPropertyAnimation(self.back_button_opacity_effect, QtCore.QByteArray(b'opacity'), self)
         self.back_button_hover_animation.setDuration(200)
         self.back_button_hover_animation.setEasingCurve(QtCore.QEasingCurve.InSine)
         self.back_button_hover_animation.setStartValue(0)
         self.back_button_hover_animation.setEndValue(1)
 
-        self.back_button_leave_animation = QtCore.QPropertyAnimation(self.back_button_opacity_effect, "opacity", self)
+        self.back_button_leave_animation = QtCore.QPropertyAnimation(self.back_button_opacity_effect, QtCore.QByteArray(b'opacity'), self)
         self.back_button_leave_animation.setDuration(200)
         self.back_button_leave_animation.setEasingCurve(QtCore.QEasingCurve.OutSine)
         self.back_button_leave_animation.setEndValue(0)
@@ -755,13 +755,13 @@ class Ui_snapshotBrowserWidget(QtGui.QWidget):
         self.forward_button.setIcon(gf.get_icon('chevron-right'))
         self.forward_button.setStyleSheet('QPushButton {background-color: qlineargradient(spread:pad, x1:0, y1:0, x2:1, y2:0, stop:0 rgba(0, 0, 0, 0), stop:1 rgba(0, 0, 0, 64)); border-style: none; outline: none; border-width: 0px;}')
 
-        self.forward_button_hover_animation = QtCore.QPropertyAnimation(self.forward_button_opacity_effect, "opacity", self)
+        self.forward_button_hover_animation = QtCore.QPropertyAnimation(self.forward_button_opacity_effect, QtCore.QByteArray(b'opacity'), self)
         self.forward_button_hover_animation.setDuration(200)
         self.forward_button_hover_animation.setEasingCurve(QtCore.QEasingCurve.InSine)
         self.forward_button_hover_animation.setStartValue(0)
         self.forward_button_hover_animation.setEndValue(1)
 
-        self.forward_button_leave_animation = QtCore.QPropertyAnimation(self.forward_button_opacity_effect, "opacity", self)
+        self.forward_button_leave_animation = QtCore.QPropertyAnimation(self.forward_button_opacity_effect, QtCore.QByteArray(b'opacity'), self)
         self.forward_button_leave_animation.setDuration(200)
         self.forward_button_leave_animation.setEasingCurve(QtCore.QEasingCurve.OutSine)
         self.forward_button_leave_animation.setEndValue(0)
@@ -787,26 +787,24 @@ class Ui_snapshotBrowserWidget(QtGui.QWidget):
         data = qfile.readAll()
         return data
 
-    def initial_prepare_pixmaps_threaded(self):
-
+    def get_files_data_list(self):
         self.pm_list = [self.pm1, self.pm2, self.pm3]
         paths_list = []
         for i, pm in enumerate(self.pm_list):
             paths_list.append(self.pix_list[i % len(self.pix_list)])
 
-        def get_files_agent():
-            data_list = []
-            for path in paths_list:
-                data_list.append(self.load_file(path))
+        data_list = []
+        for path in paths_list:
+            data_list.append(self.load_file(path))
 
-            return data_list
+        return data_list
 
-        get_pixmap_worker = gf.get_thread_worker(
-            get_files_agent,
-            result_func=self.initial_prepare_scene,
-            error_func=gf.error_handle
-        )
-        get_pixmap_worker.start()
+    def initial_prepare_pixmaps_threaded(self):
+
+        worker = env_inst.local_pool.add_task(self.get_files_data_list)
+        worker.result.connect(self.initial_prepare_scene)
+        worker.error.connect(gf.error_handle)
+        worker.start()
 
     def initial_prepare_scene(self, data_list):
 
@@ -822,25 +820,11 @@ class Ui_snapshotBrowserWidget(QtGui.QWidget):
     def prepare_pixmaps_threaded(self):
 
         if self.pix_list and not self.downloading_in_progress:
-            self.pm_list = [self.pm1, self.pm2, self.pm3]
 
-            paths_list = []
-            for i, pm in enumerate(self.pm_list):
-                paths_list.append(self.pix_list[i % len(self.pix_list)])
-
-            def get_files_agent():
-                data_list = []
-                for path in paths_list:
-                    data_list.append(self.load_file(path))
-
-                return data_list
-
-            get_pixmap_worker = gf.get_thread_worker(
-                get_files_agent,
-                result_func=self.do_update_scene,
-                error_func=gf.error_handle
-            )
-            get_pixmap_worker.start()
+            worker = env_inst.local_pool.add_task(self.get_files_data_list)
+            worker.result.connect(self.do_update_scene)
+            worker.error.connect(gf.error_handle)
+            worker.start()
 
     def do_update_scene(self, data_list):
 
@@ -905,54 +889,54 @@ class Ui_snapshotBrowserWidget(QtGui.QWidget):
         self.state2 = QtCore.QState()
         self.state3 = QtCore.QState()
 
-        self.state1.assignProperty(self.pm1, 'pos', QtCore.QPoint(0, 0))
-        self.state1.assignProperty(self.pm1, 'opacity', 1)
+        self.state1.assignProperty(self.pm1, b'pos', QtCore.QPoint(0, 0))
+        self.state1.assignProperty(self.pm1, b'opacity', 1)
 
-        self.state2.assignProperty(self.pm1, 'pos', QtCore.QPoint(-255, 0))
-        self.state2.assignProperty(self.pm1, 'opacity', 0)
+        self.state2.assignProperty(self.pm1, b'pos', QtCore.QPoint(-255, 0))
+        self.state2.assignProperty(self.pm1, b'opacity', 0)
 
-        self.state3.assignProperty(self.pm1, 'pos', QtCore.QPoint(255, 0))
-        self.state3.assignProperty(self.pm1, 'opacity', 0)
+        self.state3.assignProperty(self.pm1, b'pos', QtCore.QPoint(255, 0))
+        self.state3.assignProperty(self.pm1, b'opacity', 0)
 
-        self.state1.assignProperty(self.pm2, 'pos', QtCore.QPoint(255, 0))
-        self.state1.assignProperty(self.pm2, 'opacity', 0)
+        self.state1.assignProperty(self.pm2, b'pos', QtCore.QPoint(255, 0))
+        self.state1.assignProperty(self.pm2, b'opacity', 0)
 
-        self.state2.assignProperty(self.pm2, 'pos', QtCore.QPoint(0, 0))
-        self.state2.assignProperty(self.pm2, 'opacity', 1)
+        self.state2.assignProperty(self.pm2, b'pos', QtCore.QPoint(0, 0))
+        self.state2.assignProperty(self.pm2, b'opacity', 1)
 
-        self.state3.assignProperty(self.pm2, 'pos', QtCore.QPoint(-255, 0))
-        self.state3.assignProperty(self.pm2, 'opacity', 0)
+        self.state3.assignProperty(self.pm2, b'pos', QtCore.QPoint(-255, 0))
+        self.state3.assignProperty(self.pm2, b'opacity', 0)
 
-        self.state1.assignProperty(self.pm3, 'pos', QtCore.QPoint(-255, 0))
-        self.state1.assignProperty(self.pm3, 'opacity', 0)
+        self.state1.assignProperty(self.pm3, b'pos', QtCore.QPoint(-255, 0))
+        self.state1.assignProperty(self.pm3, b'opacity', 0)
 
-        self.state2.assignProperty(self.pm3, 'pos', QtCore.QPoint(255, 0))
-        self.state2.assignProperty(self.pm3, 'opacity', 0)
+        self.state2.assignProperty(self.pm3, b'pos', QtCore.QPoint(255, 0))
+        self.state2.assignProperty(self.pm3, b'opacity', 0)
 
-        self.state3.assignProperty(self.pm3, 'pos', QtCore.QPoint(0, 0))
-        self.state3.assignProperty(self.pm3, 'opacity', 1)
+        self.state3.assignProperty(self.pm3, b'pos', QtCore.QPoint(0, 0))
+        self.state3.assignProperty(self.pm3, b'opacity', 1)
 
-        self.pm1_anm = QtCore.QPropertyAnimation(self.pm1, 'pos', self)
+        self.pm1_anm = QtCore.QPropertyAnimation(self.pm1, b'pos', self)
         self.pm1_anm.setEasingCurve(QtCore.QEasingCurve.OutExpo)
         self.pm1_anm.setDuration(300)
 
-        self.pm1_anm_o = QtCore.QPropertyAnimation(self.pm1, 'opacity', self)
+        self.pm1_anm_o = QtCore.QPropertyAnimation(self.pm1, b'opacity', self)
         self.pm1_anm_o.setEasingCurve(QtCore.QEasingCurve.OutExpo)
         self.pm1_anm_o.setDuration(200)
 
-        self.pm2_anm = QtCore.QPropertyAnimation(self.pm2, 'pos', self)
+        self.pm2_anm = QtCore.QPropertyAnimation(self.pm2, b'pos', self)
         self.pm2_anm.setEasingCurve(QtCore.QEasingCurve.OutExpo)
         self.pm2_anm.setDuration(300)
 
-        self.pm2_anm_o = QtCore.QPropertyAnimation(self.pm2, 'opacity', self)
+        self.pm2_anm_o = QtCore.QPropertyAnimation(self.pm2, b'opacity', self)
         self.pm2_anm_o.setEasingCurve(QtCore.QEasingCurve.OutExpo)
         self.pm2_anm_o.setDuration(200)
 
-        self.pm3_anm = QtCore.QPropertyAnimation(self.pm3, 'pos', self)
+        self.pm3_anm = QtCore.QPropertyAnimation(self.pm3, b'pos', self)
         self.pm3_anm.setEasingCurve(QtCore.QEasingCurve.OutExpo)
         self.pm3_anm.setDuration(300)
 
-        self.pm3_anm_o = QtCore.QPropertyAnimation(self.pm3, 'opacity', self)
+        self.pm3_anm_o = QtCore.QPropertyAnimation(self.pm3, b'opacity', self)
         self.pm3_anm_o.setEasingCurve(QtCore.QEasingCurve.OutExpo)
         self.pm3_anm_o.setDuration(200)
 
@@ -1132,7 +1116,7 @@ class Ui_snapshotBrowserWidget(QtGui.QWidget):
             else:
                 processes = self.item_widget.get_all_snapshots()
                 if processes:
-                    process = processes.keys()[0]
+                    process = list(processes.keys())[0]
                     if process:
                         self.snapshots = self.item_widget.get_snapshots(process)
 

@@ -6,7 +6,7 @@ from thlib.side.Qt import QtWidgets as QtGui
 
 import thlib.ui.misc.ui_richedit as ui_richedit
 
-reload(ui_richedit)
+#reload(ui_richedit)
 
 
 class Ui_richeditWidget(QtGui.QWidget, ui_richedit.Ui_richedit):

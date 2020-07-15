@@ -1,4 +1,4 @@
-from thlib.side.Qt import QtCore, QtNetwork
+from ..qt import QtCore, QtNetwork
 import ctypes
 from .p_logger import logger
 
@@ -15,7 +15,7 @@ class Socket(QtNetwork.QTcpSocket):
 
         logger.debug("initialise socket object")
 
-        super(self.__class__, self).__init__(*args)
+        super(Socket, self).__init__(*args)
 
         self._message_size = 0
         self._message_remaining_size = 0

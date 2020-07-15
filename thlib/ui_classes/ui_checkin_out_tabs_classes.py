@@ -9,7 +9,7 @@ from thlib.side.Qt import QtCore
 from thlib.environment import env_inst, env_tactic, cfg_controls, env_read_config, env_write_config, dl
 import thlib.global_functions as gf
 import thlib.tactic_classes as tc
-import ui_checkin_out_classes as checkin_out
+import thlib.ui_classes.ui_checkin_out_classes as checkin_out
 import thlib.ui.misc.ui_watch_folders as ui_watch_folders
 from thlib.ui_classes.ui_commit_queue_classes import Ui_commitQueueWidget
 from thlib.ui_classes.ui_watch_folder_classes import Ui_projectWatchFoldersWidget

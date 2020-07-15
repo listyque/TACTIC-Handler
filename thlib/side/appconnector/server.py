@@ -1,5 +1,4 @@
-from thlib.side.Qt import QtCore, QtNetwork
-import uuid
+from .qt import QtCore, QtNetwork
 from .private.p_tcpserver import TcpServer
 from .private.p_connection import Connection
 from .private.p_logger import logger
@@ -24,9 +23,8 @@ class Server(QtCore.QObject):
         """
 
         logger.debug("initialise server object")
-        logger.setLevel('CRITICAL')
 
-        super(self.__class__, self).__init__()
+        super(Server, self).__init__()
 
         self.host = host
         self.port = port
@@ -38,9 +36,18 @@ class Server(QtCore.QObject):
         self._attempt_limit = 3
         self._attempt_timeout = 30
 
-        self._client_map = {}
-
         self._server = None
+
+    @property
+    def is_listening(self):
+
+        """
+        is listening
+
+        :return: server is active and listening for the new connection (bool)
+        """
+
+        return self._server and self._server.isListening() or False
 
     def start(self):
 
@@ -50,7 +57,11 @@ class Server(QtCore.QObject):
 
         if self._server is None:
             self._server = TcpServer(self)
-            self._server.newConnection.connect(self._accept)
+
+            self._server.accepted.connect(self.accepted.emit)
+            self._server.connected.connect(self.connected.emit)
+            self._server.received.connect(self.received.emit)
+            self._server.disconnected.connect(self.disconnected.emit)
 
         if not self._server.isListening():
             logger.info("begin server listening")
@@ -59,6 +70,7 @@ class Server(QtCore.QObject):
                 host = QtNetwork.QHostAddress(self.host)
 
                 while True:
+                    logger.info("begin server listening on " + repr(host) + " " + repr(port))
                     listen = self._server.listen(host, port)
                     if not listen:
                         listen = self._server.isListening()
@@ -99,22 +111,6 @@ class Server(QtCore.QObject):
         stop server listening
         """
 
-        key_list = list(self._client_map.keys())
-        if key_list:
-            logger.info("close server active connections")
-            while key_list:
-                key = key_list.pop()
-                con = self._client_map[key]
-
-                con.disconnected.disconnect()
-                con.connected.disconnect()
-                con.received.disconnect()
-
-                con.close()
-                con.deleteLater()
-                del self._client_map[key]
-                del con
-
         self.finished.emit()
         if self._server:
             logger.info("stop server listening")
@@ -126,17 +122,6 @@ class Server(QtCore.QObject):
         else:
             logger.warning("server is already stopped")
 
-    @property
-    def is_listening(self):
-
-        """
-        is listening
-
-        :return: server is active and listening for the new connection (bool)
-        """
-
-        return self._server and self._server.isListening() or False
-
     def send(self, key, data):
 
         """
@@ -147,9 +132,7 @@ class Server(QtCore.QObject):
         """
 
         logger.debug("server send message " + repr(key))
-        con = self[key]
-        if con:
-            con.send(data)
+        self._server.send(key, data)
 
     def broadcast(self, data):
 
@@ -160,80 +143,7 @@ class Server(QtCore.QObject):
         """
 
         logger.debug("server broadcast message")
-        for key in self._client_map:
-            self._client_map[key].send(data)
-
-    def _accept(self):
-
-        """
-        accept new connection event
-        """
-
-        if self._server is not None:
-            socket = self._server.nextPendingConnection()
-            con = Connection(socket)
-            self._client_map[con.key] = con
-            logger.debug("accept new connection " + repr(con.key))
-
-            con.disconnected.connect(lambda c=con: self._remove(c))
-            con.connected.connect(lambda c=con: self._connect(c))
-            con.received.connect(lambda d, c=con: self.received.emit(c, d))
-
-            self._connect(con)
-
-            self.accepted.emit(con)
-
-    def _connect(self, key):
-
-        """
-        handle connection with given key
-
-        :param key: key (uuid.UUID)
-        """
-
-        con = self[key]
-        if con:
-            self.connected.emit(con)
-
-    def _remove(self, key):
-
-        """
-        remove connection item by given key
-
-        :param key: key (uuid.UUID)
-        """
-
-        if not isinstance(key, uuid.UUID):
-            if isinstance(key, Connection):
-                key = key.key
-
-            else:
-                key = None
-
-        if key in self._client_map:
-            con = self._client_map[key]
-
-            con.disconnected.disconnect()
-            con.connected.disconnect()
-            con.received.disconnect()
-
-            self.disconnected.emit(con)
-            del self._client_map[key]
-
-            con.close()
-            con.deleteLater()
-            del con
-
-    def __iter__(self):
-
-        """
-        iterate connection item list
-
-        :return: connection item (Connection)
-        """
-
-        for key in self._client_map:
-            yield key
+        self._server.broadcast(data)
 
     def __getitem__(self, key):
 
@@ -244,14 +154,19 @@ class Server(QtCore.QObject):
         :return: connection item (Connection)
         """
 
-        if not isinstance(key, uuid.UUID):
-            if isinstance(key, Connection):
-                key = key.key
-
-            else:
-                key = None
-
-        if key in self._client_map:
-            return self._client_map[key]
+        if self._server:
+            return self._server[key]
 
         return None
+
+    def __iter__(self):
+
+        """
+        iterate connection item list
+
+        :return: connection item (Connection)
+        """
+
+        if self._server:
+            for key in self._server:
+                yield key

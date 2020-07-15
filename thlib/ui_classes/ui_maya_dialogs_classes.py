@@ -9,9 +9,9 @@ import thlib.ui.maya.ui_maya_import as ui_import
 import thlib.ui.maya.ui_maya_open as ui_open
 import thlib.ui.maya.ui_maya_reference as ui_reference
 
-reload(ui_import)
-reload(ui_open)
-reload(ui_reference)
+#reload(ui_import)
+#reload(ui_open)
+#reload(ui_reference)
 
 
 # Importing options Dialog

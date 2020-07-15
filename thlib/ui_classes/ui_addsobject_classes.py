@@ -325,7 +325,7 @@ class Ui_linkSobjectsWidget(QtGui.QDialog):
             self.instances_search_results_widget.set_filters([('_expression', 'in', related_expr)])
             self.instances_search_results_widget.search_query('')
 
-    @env_inst.async_engine
+    #@env_inst.async_engine
     def create_instances_widget(self):
         from thlib.ui_classes.ui_search_classes import Ui_searchResultsWidget
 
@@ -612,18 +612,14 @@ class Ui_addTacticSobjectWidget(QtGui.QDialog):
 
     def get_widgets(self, kwargs):
 
-        def query_widgets_agent():
-            return tc.execute_procedure_serverside(tq.query_EditWdg, kwargs, project=kwargs['project'])
-
-        env_inst.set_thread_pool(None, 'server_query/server_thread_pool')
-
-        worker = gf.get_thread_worker(
-            query_widgets_agent,
-            env_inst.get_thread_pool('server_query/server_thread_pool'),
-            self.create_widgets_ui,
-            gf.error_handle
+        worker = env_inst.server_pool.add_task(
+            tc.execute_procedure_serverside,
+            tq.query_EditWdg,
+            kwargs,
+            project=kwargs['project'],
         )
-
+        worker.result.connect(self.create_widgets_ui)
+        worker.error.connect(gf.error_handle)
         worker.start()
 
     def set_title(self):

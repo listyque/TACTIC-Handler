@@ -8,11 +8,11 @@ __all__ = [
 
 try:
     from collections.abc import Callable # Python 3.6
-except ImportError , e:
+except ImportError as e:
     from collections import Callable
 
 from io import BytesIO
-from StringIO import StringIO
+from io import StringIO
 from lxml import etree
 from bs4.element import (
     Comment,
@@ -35,7 +35,7 @@ LXML = 'lxml'
 
 def _invert(d):
     "Invert a dictionary."
-    return dict((v,k) for k, v in d.items())
+    return dict((v,k) for k, v in list(d.items()))
 
 class LXMLTreeBuilderForXML(TreeBuilder):
     DEFAULT_PARSER_CLASS = etree.XMLParser
@@ -62,10 +62,13 @@ class LXMLTreeBuilderForXML(TreeBuilder):
     # But instead we build an XMLParser or HTMLParser object to serve
     # as the target of parse messages, and those messages don't include
     # line numbers.
+    # See: https://bugs.launchpad.net/lxml/+bug/1846906
     
     def initialize_soup(self, soup):
         """Let the BeautifulSoup object know about the standard namespace
         mapping.
+
+        :param soup: A `BeautifulSoup`.
         """
         super(LXMLTreeBuilderForXML, self).initialize_soup(soup)
         self._register_namespaces(self.DEFAULT_NSMAPS)
@@ -75,8 +78,10 @@ class LXMLTreeBuilderForXML(TreeBuilder):
         while parsing the document.
 
         This might be useful later on when creating CSS selectors.
+
+        :param mapping: A dictionary mapping namespace prefixes to URIs.
         """
-        for key, value in mapping.items():
+        for key, value in list(mapping.items()):
             if key and key not in self.soup._namespaces:
                 # Let the BeautifulSoup object know about a new namespace.
                 # If there are multiple namespaces defined with the same
@@ -84,20 +89,31 @@ class LXMLTreeBuilderForXML(TreeBuilder):
                 self.soup._namespaces[key] = value
 
     def default_parser(self, encoding):
-        # This can either return a parser object or a class, which
-        # will be instantiated with default arguments.
+        """Find the default parser for the given encoding.
+
+        :param encoding: A string.
+        :return: Either a parser object or a class, which
+          will be instantiated with default arguments.
+        """
         if self._default_parser is not None:
             return self._default_parser
         return etree.XMLParser(
             target=self, strip_cdata=False, recover=True, encoding=encoding)
 
     def parser_for(self, encoding):
+        """Instantiate an appropriate parser for the given encoding.
+
+        :param encoding: A string.
+        :return: A parser object such as an `etree.XMLParser`.
+        """
         # Use the default parser.
         parser = self.default_parser(encoding)
 
         if isinstance(parser, Callable):
             # Instantiate the parser with default arguments
-            parser = parser(target=self, strip_cdata=False, encoding=encoding)
+            parser = parser(
+                target=self, strip_cdata=False, recover=True, encoding=encoding
+            )
         return parser
 
     def __init__(self, parser=None, empty_element_tags=None, **kwargs):
@@ -122,29 +138,43 @@ class LXMLTreeBuilderForXML(TreeBuilder):
     def prepare_markup(self, markup, user_specified_encoding=None,
                        exclude_encodings=None,
                        document_declared_encoding=None):
-        """
-        :yield: A series of 4-tuples.
+        """Run any preliminary steps necessary to make incoming markup
+        acceptable to the parser.
+
+        lxml really wants to get a bytestring and convert it to
+        Unicode itself. So instead of using UnicodeDammit to convert
+        the bytestring to Unicode using different encodings, this
+        implementation uses EncodingDetector to iterate over the
+        encodings, and tell lxml to try to parse the document as each
+        one in turn.
+
+        :param markup: Some markup -- hopefully a bytestring.
+        :param user_specified_encoding: The user asked to try this encoding.
+        :param document_declared_encoding: The markup itself claims to be
+            in this encoding.
+        :param exclude_encodings: The user asked _not_ to try any of
+            these encodings.
+
+        :yield: A series of 4-tuples:
          (markup, encoding, declared encoding,
           has undergone character replacement)
 
-        Each 4-tuple represents a strategy for parsing the document.
+         Each 4-tuple represents a strategy for converting the
+         document to Unicode and parsing it. Each strategy will be tried 
+         in turn.
         """
-        # Instead of using UnicodeDammit to convert the bytestring to
-        # Unicode using different encodings, use EncodingDetector to
-        # iterate over the encodings, and tell lxml to try to parse
-        # the document as each one in turn.
         is_html = not self.is_xml
         if is_html:
             self.processing_instruction_class = ProcessingInstruction
         else:
             self.processing_instruction_class = XMLProcessingInstruction
 
-        if isinstance(markup, unicode):
+        if isinstance(markup, str):
             # We were given Unicode. Maybe lxml can parse Unicode on
             # this system?
             yield markup, None, document_declared_encoding, False
 
-        if isinstance(markup, unicode):
+        if isinstance(markup, str):
             # No, apparently not. Convert the Unicode to UTF-8 and
             # tell lxml to parse it as UTF-8.
             yield (markup.encode("utf8"), "utf8",
@@ -159,7 +189,7 @@ class LXMLTreeBuilderForXML(TreeBuilder):
     def feed(self, markup):
         if isinstance(markup, bytes):
             markup = BytesIO(markup)
-        elif isinstance(markup, unicode):
+        elif isinstance(markup, str):
             markup = StringIO(markup)
 
         # Call feed() at least once, even if the markup is empty,
@@ -174,7 +204,7 @@ class LXMLTreeBuilderForXML(TreeBuilder):
                 if len(data) != 0:
                     self.parser.feed(data)
             self.parser.close()
-        except (UnicodeDecodeError, LookupError, etree.ParserError), e:
+        except (UnicodeDecodeError, LookupError, etree.ParserError) as e:
             raise ParserRejectedMarkup(e)
 
     def close(self):
@@ -203,7 +233,7 @@ class LXMLTreeBuilderForXML(TreeBuilder):
             # Also treat the namespace mapping as a set of attributes on the
             # tag, so we can recreate it later.
             attrs = attrs.copy()
-            for prefix, namespace in nsmap.items():
+            for prefix, namespace in list(nsmap.items()):
                 attribute = NamespacedAttribute(
                     "xmlns", prefix, "http://www.w3.org/2000/xmlns/")
                 attrs[attribute] = namespace
@@ -212,7 +242,7 @@ class LXMLTreeBuilderForXML(TreeBuilder):
         # from lxml with namespaces attached to their names, and
         # turn then into NamespacedAttribute objects.
         new_attrs = {}
-        for attr, value in attrs.items():
+        for attr, value in list(attrs.items()):
             namespace, attr = self._getNsTag(attr)
             if namespace is None:
                 new_attrs[attr] = value
@@ -272,7 +302,7 @@ class LXMLTreeBuilderForXML(TreeBuilder):
 
     def test_fragment_to_document(self, fragment):
         """See `TreeBuilder`."""
-        return u'<?xml version="1.0" encoding="utf-8"?>\n%s' % fragment
+        return '<?xml version="1.0" encoding="utf-8"?>\n%s' % fragment
 
 
 class LXMLTreeBuilder(HTMLTreeBuilder, LXMLTreeBuilderForXML):
@@ -293,10 +323,10 @@ class LXMLTreeBuilder(HTMLTreeBuilder, LXMLTreeBuilderForXML):
             self.parser = self.parser_for(encoding)
             self.parser.feed(markup)
             self.parser.close()
-        except (UnicodeDecodeError, LookupError, etree.ParserError), e:
+        except (UnicodeDecodeError, LookupError, etree.ParserError) as e:
             raise ParserRejectedMarkup(e)
 
 
     def test_fragment_to_document(self, fragment):
         """See `TreeBuilder`."""
-        return u'<html><body>%s</body></html>' % fragment
+        return '<html><body>%s</body></html>' % fragment

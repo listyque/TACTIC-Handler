@@ -190,7 +190,7 @@ class EditorWindow(QtGui.QPlainTextEdit):
 
             while block.isValid() and top <= event.rect().bottom():
                 if block.isVisible() and bottom >= event.rect().top():
-                    number = unicode(block_number + 1)
+                    number = str(block_number + 1)
                     painter.drawText(0, top, self._line_area.width(), self.fontMetrics().height(), QtCore.Qt.AlignRight,
                                      number)
 

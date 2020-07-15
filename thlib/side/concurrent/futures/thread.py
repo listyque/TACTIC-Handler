@@ -6,7 +6,10 @@
 import atexit
 from concurrent.futures import _base
 import itertools
-import Queue as queue
+try:
+    import Queue as queue
+except:
+    import queue as queue
 import threading
 import weakref
 import sys

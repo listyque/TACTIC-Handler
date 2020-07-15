@@ -6,8 +6,11 @@ from thlib.side.Qt import QtWidgets as QtGui
 from thlib.side.Qt import QtGui as Qt4Gui
 
 from thlib.environment import env_mode, env_inst
+
 import thlib.global_functions as gf
+
 import thlib.tactic_classes as tc
+
 import thlib.ui_classes.ui_main_classes as ui_main_classes
 
 
@@ -51,26 +54,27 @@ def setPaletteFromDct(dct):
 
 
 palette = {
-    'Foreground:Active': 4290493371L, 'Text:Disabled': 4285098345L, 'WindowText:Normal': 4290493371L,
-    'Window:Active': 4282664004L, 'AlternateBase:Inactive': 4281216558L, 'BrightText:Inactive': 4280624421L,
-    'Base:Disabled': 4281019179L, 'BrightText:Normal': 4280624421L, 'Background:Inactive': 4282664004L,
-    'AlternateBase:Disabled': 4281216558L, 'Button:Inactive': 4284308829L, 'AlternateBase:Active': 4281216558L,
-    'ToolTipBase:Disabled': 4294967260L, 'Base:Active': 4281019179L, 'Text:Inactive': 4291348680L,
-    'Button:Disabled': 4283124555L, 'BrightText:Disabled': 4294967295L, 'ToolTipBase:Active': 4294967260L,
-    'ButtonText:Normal': 4293848814L, 'ToolTipBase:Inactive': 4294967260L, 'Button:Active': 4284308829L,
-    'ButtonText:Disabled': 4286611584L, 'Base:Inactive': 4281019179L, 'BrightText:Active': 4280624421L,
-    'AlternateBase:Normal': 4281216558L, 'Window:Disabled': 4282664004L, 'Window:Inactive': 4282664004L,
-    'Window:Normal': 4282664004L, 'Foreground:Disabled': 4286611584L, 'Text:Normal': 4291348680L,
-    'WindowText:Inactive': 4290493371L, 'ToolTipBase:Normal': 4294967260L, 'WindowText:Disabled': 4286611584L,
-    'ButtonText:Active': 4293848814L, 'ToolTipText:Normal': 4278190080L, 'Text:Active': 4291348680L,
-    'WindowText:Active': 4290493371L, 'Base:Normal': 4281019179L, 'Background:Normal': 4282664004L,
-    'Background:Disabled': 4282664004L, 'Button:Normal': 4284308829L, 'ButtonText:Inactive': 4293848814L,
-    'Background:Active': 4282664004L, 'ToolTipText:Inactive': 4278190080L, 'ToolTipText:Disabled': 4278190080L,
-    'Foreground:Normal': 4290493371L, 'ToolTipText:Active': 4278190080L, 'Foreground:Inactive': 4290493371L
+    'Foreground:Active': 4290493371, 'Text:Disabled': 4285098345, 'WindowText:Normal': 4290493371,
+    'Window:Active': 4282664004, 'AlternateBase:Inactive': 4281216558, 'BrightText:Inactive': 4280624421,
+    'Base:Disabled': 4281019179, 'BrightText:Normal': 4280624421, 'Background:Inactive': 4282664004,
+    'AlternateBase:Disabled': 4281216558, 'Button:Inactive': 4284308829, 'AlternateBase:Active': 4281216558,
+    'ToolTipBase:Disabled': 4294967260, 'Base:Active': 4281019179, 'Text:Inactive': 4291348680,
+    'Button:Disabled': 4283124555, 'BrightText:Disabled': 4294967295, 'ToolTipBase:Active': 4294967260,
+    'ButtonText:Normal': 4293848814, 'ToolTipBase:Inactive': 4294967260, 'Button:Active': 4284308829,
+    'ButtonText:Disabled': 4286611584, 'Base:Inactive': 4281019179, 'BrightText:Active': 4280624421,
+    'AlternateBase:Normal': 4281216558, 'Window:Disabled': 4282664004, 'Window:Inactive': 4282664004,
+    'Window:Normal': 4282664004, 'Foreground:Disabled': 4286611584, 'Text:Normal': 4291348680,
+    'WindowText:Inactive': 4290493371, 'ToolTipBase:Normal': 4294967260, 'WindowText:Disabled': 4286611584,
+    'ButtonText:Active': 4293848814, 'ToolTipText:Normal': 4278190080, 'Text:Active': 4291348680,
+    'WindowText:Active': 4290493371, 'Base:Normal': 4281019179, 'Background:Normal': 4282664004,
+    'Background:Disabled': 4282664004, 'Button:Normal': 4284308829, 'ButtonText:Inactive': 4293848814,
+    'Background:Active': 4282664004, 'ToolTipText:Inactive': 4278190080, 'ToolTipText:Disabled': 4278190080,
+    'Foreground:Normal': 4290493371, 'ToolTipText:Active': 4278190080, 'Foreground:Inactive': 4290493371
 }
 
 
 def create_ui(error_tuple=None):
+
     if error_tuple:
         env_mode.set_offline()
         if not env_inst.ui_main:
@@ -92,21 +96,21 @@ def create_ui(error_tuple=None):
 
 @gf.catch_error
 def startup():
+
     env_inst.ui_super = QtGui.QApplication(sys.argv)
     env_inst.ui_super.setApplicationName('TacticHandler_Client')
-    env_inst.ui_super.setStyle('plastique')
+    env_inst.ui_super.setStyle('fusion')
     setPaletteFromDct(palette)
 
     def server_ping_agent():
         return tc.server_ping()
 
-    ping_worker = gf.get_thread_worker(
+    ping_worker, thread_pool = gf.get_thread_worker(
         server_ping_agent,
         finished_func=create_ui,
         error_func=create_ui
     )
-
-    ping_worker.start()
+    thread_pool.start(ping_worker)
 
     sys.exit(env_inst.ui_super.exec_())
 

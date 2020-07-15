@@ -9,16 +9,18 @@ from thlib.side.Qt import QtCore
 
 from thlib.environment import env_mode, env_inst, dl, env_write_config, env_read_config, cfg_controls, env_api, env_server
 import thlib.tactic_classes as tc
-import thlib.update_functions as uf
+#import thlib.update_functions as uf
+
 import thlib.global_functions as gf
 # import thlib.ui.ui_main as ui_main
 from thlib.ui_classes.ui_script_editor_classes import Ui_ScriptEditForm
+
 from thlib.ui_classes.ui_update_classes import Ui_updateDialog
 import thlib.ui.misc.ui_create_update as ui_create_update
 from thlib.ui_classes.ui_repo_sync_queue_classes import Ui_repoSyncQueueWidget
 from thlib.ui_classes.ui_custom_qwidgets import Ui_debugLogWidget, Ui_messagesWidget, StyledToolButton, Ui_extendedTreeWidget, StyledChooserToolButton, Ui_projectIconWidget, Ui_userIconWidget
-import ui_checkin_out_tabs_classes
-import ui_conf_classes
+import thlib.ui_classes.ui_checkin_out_tabs_classes as ui_checkin_out_tabs_classes
+import thlib.ui_classes.ui_conf_classes as ui_conf_classes
 
 if env_mode.get_mode() == 'maya':
     import thlib.maya_functions as mf
@@ -26,12 +28,12 @@ if env_mode.get_mode() == 'maya':
 
 
 # reload(ui_main)
-reload(ui_create_update)
-reload(ui_checkin_out_tabs_classes)
-reload(ui_conf_classes)
-reload(tc)
-reload(uf)
-reload(gf)
+#reload(ui_create_update)
+#reload(ui_checkin_out_tabs_classes)
+#reload(ui_conf_classes)
+#reload(tc)
+#reload(uf)
+#reload(gf)
 
 
 class Ui_mainTabs(QtGui.QWidget):
@@ -68,7 +70,6 @@ class Ui_mainTabs(QtGui.QWidget):
         self.main_tabWidget.setCurrentIndex(self.get_tab_index(tab_widget))
 
     def get_stypes(self, result=None, run_thread=False):
-
         if result:
             if self.project.stypes:
                 self.create_checkin_checkout_ui()
@@ -81,18 +82,10 @@ class Ui_mainTabs(QtGui.QWidget):
             env_inst.ui_main.set_info_status_text(
                 '<span style=" font-size:8pt; color:#00ff00;">Getting Search Types</span>')
 
-            def get_stypes_agent():
-                return self.project.get_stypes()
-
-            env_inst.set_thread_pool(None, 'server_query/server_thread_pool')
-
-            stypes_items_worker = gf.get_thread_worker(
-                get_stypes_agent,
-                env_inst.get_thread_pool('server_query/server_thread_pool'),
-                result_func=self.get_stypes,
-                error_func=gf.error_handle
-            )
-            stypes_items_worker.start()
+            worker = env_inst.server_pool.add_task(self.project.get_stypes)
+            worker.result.connect(self.get_stypes)
+            worker.error.connect(gf.error_handle)
+            worker.start()
 
     def create_checkin_checkout_ui(self):
         self.ui_checkin_checkout = ui_checkin_out_tabs_classes.Ui_checkInOutTabWidget(
@@ -461,12 +454,21 @@ class Ui_Main(QtGui.QMainWindow):
         self.ui_settings_dict = {}
         self.created = False
 
+        self.create_thread_pools()
+        env_inst.start_pools()
+
         self.create_ui_raw()
 
         if env_mode.is_offline():
             self.create_ui_main_offline()
         else:
             self.create_ui_main()
+
+    def create_thread_pools(self):
+
+        thread_pool = QtCore.QThreadPool()
+        thread_pool.setMaxThreadCount(1)
+        env_inst.set_thread_pool(thread_pool, 'commit_queue/server_thread_pool')
 
     def create_ui_raw(self):
         self.setObjectName("MainWindow")
@@ -826,7 +828,7 @@ class Ui_Main(QtGui.QMainWindow):
 
     def edit_my_account(self):
 
-        print 'Edit my Account'
+        print('Edit my Account')
         from thlib.ui_classes.ui_addsobject_classes import Ui_addTacticSobjectWidget
 
         login_stype = env_inst.get_stype_by_code('sthpw/login')
@@ -1004,9 +1006,11 @@ class Ui_Main(QtGui.QMainWindow):
         env_write_config(self.get_settings_dict(), filename='ui_settings', unique_id='ui_main', long_abs_path=True)
 
     def closeEvent(self, event):
-
         # Closing server api
         env_api.close_server(self)
+
+        # Waiting for all threads finished
+        env_inst.exit_pools()
 
         for dock in self.projects_docks.values():
             dock.close()
@@ -1019,6 +1023,7 @@ class Ui_Main(QtGui.QMainWindow):
         event.accept()
 
     def query_projects_finished(self, result=None):
+
         if result:
             self.create_repo_sync_queue_ui()
 
@@ -1032,15 +1037,8 @@ class Ui_Main(QtGui.QMainWindow):
         env_inst.ui_main.set_info_status_text(
             '<span style=" font-size:8pt; color:#00ff00;">Getting projects</span>')
 
-        def get_all_projects_and_logins_agent():
-            return tc.get_all_projects_and_logins()
+        worker = env_inst.server_pool.add_task(tc.get_all_projects_and_logins)
+        worker.result.connect(self.query_projects_finished)
+        worker.error.connect(gf.error_handle)
+        worker.start()
 
-        env_inst.set_thread_pool(None, 'server_query/server_thread_pool')
-
-        projects_items_worker = gf.get_thread_worker(
-            get_all_projects_and_logins_agent,
-            env_inst.get_thread_pool('server_query/server_thread_pool'),
-            result_func=self.query_projects_finished,
-            error_func=gf.error_handle
-        )
-        projects_items_worker.start()

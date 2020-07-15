@@ -176,7 +176,7 @@ class Ui_ScriptEditForm(QtGui.QDialog):
 
         self.stream = stream.Stream.get_stream()
         if self.stream is None:
-            self.stream = stream.Stream()
+           self.stream = stream.Stream()
 
         self.console_obj = console.Console()
 
@@ -303,7 +303,7 @@ class Ui_ScriptEditForm(QtGui.QDialog):
                 self.run_type_combo_box.setEnabled(False)
                 self.run_script_button.setEnabled(False)
 
-    @env_inst.async_engine
+    #@env_inst.async_engine
     def fill_sctipts_tree_widget(self, async_run=True):
 
         # getting all the scripts from db
@@ -547,11 +547,12 @@ class Ui_ScriptEditForm(QtGui.QDialog):
         if settings['windowState']:
             self.setWindowState(QtCore.Qt.WindowMaximized)
 
-        if settings['main_splitter']:
-            self.main_splitter.restoreState(QtCore.QByteArray.fromHex(str(settings['main_splitter'])))
-
-        if settings['splitter']:
-            self.splitter.restoreState(QtCore.QByteArray.fromHex(str(settings['splitter'])))
+        print('SKIP SPLITTER 3')
+        # if settings['main_splitter']:
+        #     self.main_splitter.restoreState(QtCore.QByteArray.fromHex(str(settings['main_splitter'])))
+        #
+        # if settings['splitter']:
+        #     self.splitter.restoreState(QtCore.QByteArray.fromHex(str(settings['splitter'])))
 
         if settings['scripts_tree_widget']:
             self.revert_scripts_tree_state(settings['scripts_tree_widget'])

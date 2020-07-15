@@ -9,10 +9,10 @@ from thlib.environment import env_mode, env_inst, env_tactic, cfg_controls, dl, 
 import thlib.tactic_classes as tc
 import thlib.global_functions as gf
 
-import ui_addsobject_classes
-import ui_maya_dialogs_classes
-import ui_search_classes
-import ui_notes_classes
+import thlib.ui_classes.ui_addsobject_classes as ui_addsobject_classes
+import thlib.ui_classes.ui_maya_dialogs_classes as ui_maya_dialogs_classes
+import thlib.ui_classes.ui_search_classes as ui_search_classes
+import thlib.ui_classes.ui_notes_classes as ui_notes_classes
 
 import thlib.ui.checkin_out.ui_checkin_out_options_dialog as ui_checkin_out_options_dialog
 from thlib.ui_classes.ui_repo_sync_queue_classes import Ui_repoSyncDialog
@@ -637,7 +637,7 @@ class Ui_checkInOutWidget(QtGui.QMainWindow):
                 else:
                     processes = current_tree_widget_item.get_all_snapshots()
                     if processes:
-                        process = processes.keys()[0]
+                        process = list(processes.keys())[0]
                         if process:
                             ready_snapshots = current_tree_widget_item.get_snapshots(process)
 
@@ -1612,10 +1612,10 @@ class Ui_checkInOutWidget(QtGui.QMainWindow):
             mf.wrap_export_selected_options(self.project.get_code(), 'checkin_out', self.stype.get_code())
 
     def fast_save(self, **kargs):
-        print 'SAVING FAST', kargs
+        print('SAVING FAST', kargs)
         skey = mf.get_skey_from_scene()
 
-        print skey
+        print(skey)
         if skey:
             skey_dict = tc.parce_skey(skey, True)
 
@@ -1629,7 +1629,7 @@ class Ui_checkInOutWidget(QtGui.QMainWindow):
             )
 
             if saved:
-                print 'ALL GOOD ;)'
+                print('ALL GOOD ;)')
 
     def save_revision_confirm(self, save_revision, selected_objects):
 
@@ -1669,12 +1669,12 @@ class Ui_checkInOutWidget(QtGui.QMainWindow):
 
         clipboard = QtGui.QApplication.clipboard()
         files_names = clipboard.text()
-        print clipboard.mimeData()
+        # print clipboard.mimeData()
         # print clipboard.mimeData().data()
-        print clipboard.mimeData().html()
-        print clipboard.mimeData().text()
-        print clipboard.mimeData().urls()
-        print clipboard.mimeData().imageData()
+        # print clipboard.mimeData().html()
+        # print clipboard.mimeData().text()
+        # print clipboard.mimeData().urls()
+        # print clipboard.mimeData().imageData()
 
         if files_names:
             pass
@@ -1828,7 +1828,7 @@ class Ui_checkInOutWidget(QtGui.QMainWindow):
     def copy_search_key(self):
         current_results_widget = self.get_current_results_widget()
         current_tree_widget_item = current_results_widget.get_current_tree_widget_item()
-        print current_tree_widget_item.get_skey(skey=True)
+        print(current_tree_widget_item.get_skey(skey=True))
         clipboard = QtGui.QApplication.instance().clipboard()
         clipboard.setText(current_tree_widget_item.get_skey(skey=True))
 
@@ -1954,10 +1954,7 @@ class Ui_checkInOutWidget(QtGui.QMainWindow):
 
     @gf.catch_error
     def ingest_files(self):
-        print 'CREATING IGEST WINDOW'
-
-    def ingest_maya_textures(self):
-        print 'CREATING IGEST WINDOW'
+        print('CREATING IGEST WINDOW')
 
     def open_item_menu(self, item_widget):
         if item_widget:
@@ -1983,7 +1980,8 @@ class Ui_checkInOutWidget(QtGui.QMainWindow):
 
         QtGui.QApplication.processEvents()
 
-        self.restoreState(QtCore.QByteArray.fromHex(str(settings_dict.get('main_state'))))
+        print('SKIP RESTORE STATE')
+        # self.restoreState(QtCore.QByteArray.fromHex(str(settings_dict.get('main_state'))))
 
     def get_settings_dict(self, force=False):
 

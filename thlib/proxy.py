@@ -2,11 +2,20 @@
 
 # Requires python-ntlm (http://code.google.com/p/python-ntlm/) package
 from thlib.side.ntlm import HTTPNtlmAuthHandler
-import xmlrpclib
+try:
+    import urllib2
+    import xmlrpclib
+    from cookielib import CookieJar
+    from urllib import unquote, splittype, splithost
+except:
+    import urllib as urllib2
+    import xmlrpc.client as xmlrpclib
+    import http.cookiejar as CookieJar
+    from urllib.parse import unquote
+    from urllib.parse import splithost
+
 import base64
-import cookielib
-from urllib import unquote, splittype, splithost
-import urllib2
+
 from thlib.environment import env_server
 
 
@@ -63,7 +72,7 @@ class UrllibTransport(xmlrpclib.Transport, object):
             if not data:
                 break
             if self.verbose:
-                print "body:", repr(data)
+                print("body:", repr(data))
             p.feed(data)
 
         if stream is not response:
@@ -120,7 +129,7 @@ class UrllibTransport(xmlrpclib.Transport, object):
         handler = urllib2.HTTPBasicAuthHandler(password_mgr)
 
         # Cookies
-        cj = cookielib.CookieJar()
+        cj = CookieJar()
 
         if puser_pass:
             # NTLM

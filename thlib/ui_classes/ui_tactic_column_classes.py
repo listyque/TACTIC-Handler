@@ -221,7 +221,7 @@ class Ui_tacticColumnEditorWidget(QtGui.QWidget):
 
     def save_current_column(self):
         self.unset_edit_mode()
-        print 'SAVING CURRENT COLUMN'
+        print('SAVING CURRENT COLUMN')
 
     def unfreeze_text_edit(self):
         self.descriptionTextEdit.setStyleSheet('')

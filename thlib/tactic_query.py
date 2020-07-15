@@ -1,6 +1,6 @@
 # Internal server-side sctipts
 
-import global_functions as gf
+import thlib.global_functions as gf
 import inspect
 from pprint import pformat
 
@@ -16,7 +16,8 @@ def prepare_serverside_script(func, kwargs, return_dict=True, has_return=True, s
 
     args_list = []
     for key, arg in kwargs.items():
-        if isinstance(arg, (str, unicode)):
+        print('PY2 UNICODE CHECK')
+        if isinstance(arg, str):
             args_list.append(u"{}='{}'".format(key, arg.replace('"', '\"').replace('\n', '\\n').replace('\r', '\\r')))
         else:
             # args_list.append(u'{}={}'.format(key, arg))
@@ -1329,9 +1330,11 @@ def get_virtual_snapshot_extended(search_key, context, files_dict, snapshot_type
     return json.dumps(result_list, separators=(',', ':'))
 
 
-def create_snapshot_extended(search_key, context, project_code=None, snapshot_type=None, is_revision=False, is_latest=True, is_current=False, description=None, version=None, level_key=None, update_versionless=True, only_versionless=False, keep_file_name=True, repo_name=None, files_info=None, mode=None, create_icon=False):
+def create_snapshot_extended(search_key, context, project_code=None, snapshot_type=None, is_revision=False, is_latest=True, is_current=False, description=None, version=None, level_key=None, update_versionless=True, only_versionless=False, keep_file_name=True, repo_name=None, files_info=None, mode=None, create_icon=True):
+    import os
+    import shutil
     import json
-    from pyasm.biz import Snapshot
+    from pyasm.biz import Snapshot, IconCreator
     from pyasm.checkin import FileAppendCheckin
     from pyasm.search import Search
     from pyasm.common import Environment
@@ -1425,6 +1428,49 @@ def create_snapshot_extended(search_key, context, project_code=None, snapshot_ty
             original_files_paths.append('{0}/{1}.{2}'.format(lib_dir, metadata['filename'], metadata['new_file_ext']))
             file_paths.append('{0}/{1}.{2}'.format(lib_dir, metadata['new_filename'], metadata['new_file_ext']))
             file_types.append(types)
+
+        # generating previews if its not explicitly passed
+        if any(i in file_types for i in ['web', 'icon']):
+            create_icon = False
+
+        for original_file in file_paths[:]:
+            # if this is a file, then try to create an icon
+            if os.path.isfile(original_file) and create_icon:
+                icon_creator = IconCreator(original_file)
+                icon_creator.execute()
+
+                web_path = icon_creator.get_web_path()
+                icon_path = icon_creator.get_icon_path()
+
+                # If this is pure icon context, then don't check in icon
+                # as the main file.
+                if context == 'icon':
+                    if web_path:
+                        shutil.copy(web_path, original_file)
+                    elif icon_path:
+                        shutil.copy(icon_path, original_file)
+
+                # If web file is not generated and icon is, use original as web.
+                if icon_path and not web_path:
+                    base, ext = os.path.splitext(original_file)
+                    web_path = "%s_web.%s" % (base, ext)
+                    shutil.copy(original_file, web_path)
+
+                if web_path:
+                    file_paths.append(web_path)
+                    file_types.append('web')
+                    original_files_paths.append(web_path)
+                    files_info['file_sizes'].append(65536)
+                    files_info['version_metadata'].append('')
+                    files_info['versionless_metadata'].append('')
+
+                if icon_path:
+                    file_paths.append(icon_path)
+                    file_types.append('icon')
+                    original_files_paths.append(icon_path)
+                    files_info['file_sizes'].append(65536)
+                    files_info['version_metadata'].append('')
+                    files_info['versionless_metadata'].append('')
 
         snapshot.commit(triggers=True, log_transaction=True)
 

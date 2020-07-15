@@ -1,4 +1,4 @@
-from thlib.side.Qt import QtCore
+from ..qt import QtCore
 from .p_logger import logger
 
 
@@ -6,6 +6,7 @@ class SocketThread(QtCore.QThread):
 
     opening = QtCore.Signal(str, int)
     sending = QtCore.Signal(QtCore.QByteArray)
+    closing = QtCore.Signal()
 
     def open(self, host, port):
 
@@ -29,3 +30,11 @@ class SocketThread(QtCore.QThread):
 
         logger.debug("map send data call to thread")
         self.sending.emit(data)
+
+    def close(self):
+
+        """
+        handle close event
+        """
+
+        self.closing.emit()

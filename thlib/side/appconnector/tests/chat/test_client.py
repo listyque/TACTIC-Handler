@@ -7,9 +7,11 @@ sys.path.append(module_location)
 
 def test(connect=False):
 
-    from thlib.side.Qt import QtWidgets, QtGui, QtCore
+    import logging
+    from appconnector.qt import QtWidgets, QtGui, QtCore
     from appconnector.client import Client, logger
-    logger.setLevel(10)
+
+    logger.setLevel(logging.WARNING)
 
     client = Client("127.0.0.1", 55300)
 
@@ -32,7 +34,12 @@ def test(connect=False):
     client.connected.connect(test_connect)
     client.received.connect(test_timer_receive)
 
-    app = QtWidgets.QApplication(sys.argv)
+    found_app = QtWidgets.QApplication.instance()
+    if not found_app:
+        app = QtWidgets.QApplication(sys.argv)
+
+    else:
+        app = found_app
 
     window = QtWidgets.QWidget()
     window.setWindowTitle("client")
@@ -61,7 +68,14 @@ def test(connect=False):
 
         plain_text.moveCursor(QtGui.QTextCursor.End)
         datab = bytes(data)
-        datas = datab.decode("utf-8")
+        try:
+            datas = datab.decode("utf-8")
+
+        except:
+            print("\nerror!!!")
+            print(datab)
+            datas = ""
+
         if datas.startswith("system:"):
             plain_text.appendHtml("<font color=\"gray\">" + str(datas) + "</font>")
         else:
@@ -120,7 +134,10 @@ def test(connect=False):
     if connect:
         test_open()
 
-    sys.exit(app.exec_())
+    if not found_app:
+        sys.exit(app.exec_())
+
+    return window
 
 
 if __name__ == "__main__":

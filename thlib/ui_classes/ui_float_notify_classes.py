@@ -6,7 +6,7 @@ import thlib.global_functions as gf
 # import thlib.tactic_classes as tc
 import thlib.ui.tasks.ui_float_notify as ui_notifications
 
-reload(ui_notifications)
+# reload(ui_notifications)
 
 
 class Ui_floatNotifyWidget(QtGui.QDialog, ui_notifications.Ui_floatNotify):
@@ -48,7 +48,7 @@ class Ui_floatNotifyWidget(QtGui.QDialog, ui_notifications.Ui_floatNotify):
         self.close()
         self.deleteLater()
 
-        print 'closing_app'
+        print('closing_app')
 
     def controls_actions(self):
         self.hideToolButton.clicked.connect(self.hide_notify_window)
@@ -112,8 +112,8 @@ class Ui_floatNotifyWidget(QtGui.QDialog, ui_notifications.Ui_floatNotify):
     def check_whats_changed(self, result):
         subscriptions, messages = result
 
-        print subscriptions
-        print messages
+        print(subscriptions)
+        print(messages)
 
         if not self.subscriptions:
             self.subscriptions = subscriptions
@@ -122,11 +122,11 @@ class Ui_floatNotifyWidget(QtGui.QDialog, ui_notifications.Ui_floatNotify):
             self.messages = messages
 
         if self.messages != messages:
-            print 'Messages changed'
+            print('Messages changed')
             self.messages = messages
 
         if self.subscriptions != subscriptions:
-            print 'Subscription changed'
+            print('Subscription changed')
             self.subscriptions = subscriptions
 
         # print subscriptions
@@ -144,18 +144,17 @@ class Ui_floatNotifyWidget(QtGui.QDialog, ui_notifications.Ui_floatNotify):
         env_inst.set_thread_pool(None, 'server_query/server_update_thread_pool')
         env_inst.set_thread_pool(None, 'server_query/server_thread_pool')
 
-        query_worker = gf.get_thread_worker(
+        query_worker, thread_pool = gf.get_thread_worker(
             get_subscriptions_and_messages_agent,
             thread_pool=env_inst.get_thread_pool('server_query/server_update_thread_pool'),
             result_func=self.updating,
             error_func=self.start_update_timer
         )
-        server_thread_pool = env_inst.get_thread_pool('server_query/server_thread_pool')
-        if server_thread_pool.activeThreadCount() == 0:
+        if thread_pool.activeThreadCount() == 0:
             self.stop_update_timer()
             # print query_worker.start(priority=1)
             # for i in range(50):
-            query_worker.try_start()
+            thread_pool.try_start(query_worker)
             # print query_worker.start()
             # print query_worker.start()
 

@@ -27,7 +27,7 @@ class Ui_TacticApiClient(QtGui.QMainWindow):
 
         # Spawning api listener server
         dl.log('Spawning api listener Server')
-        print 'Spawning api listener Server'
+        print('Spawning api listener Server')
         env_api.spawn_api_server(self)
 
     def create_float_notify(self):

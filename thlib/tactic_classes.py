@@ -3,24 +3,31 @@
 # Global TACTIC Functions Module
 
 import os
+import sys
 import io
 import glob
 import shutil
 import urllib
-import urlparse
+try:
+    import urlparse
+except:
+    from urllib.parse import urlparse
 import collections
 import json
-from cPickle import dumps, loads
-from bs4 import BeautifulSoup
+from pickle import dumps, loads
+if sys.version_info[0] > 2:
+    from bs4 import BeautifulSoup
+else:
+    from bs42 import BeautifulSoup
 import time
 from thlib.side.Qt import QtWidgets as QtGui
 from thlib.side.Qt import QtGui as Qt4Gui
 from thlib.side.Qt import QtCore
 import thlib.proxy as proxy
 from thlib.environment import env_mode, env_server, env_inst, env_tactic, env_write_config, env_read_config, env_write_file, dl
-import global_functions as gf
-import tactic_query as tq
-from side.client.tactic_client_lib.tactic_server_stub import TacticServerStub
+import thlib.global_functions as gf
+import thlib.tactic_query as tq
+from thlib.side.client.tactic_client_lib.tactic_server_stub import TacticServerStub
 
 
 if env_mode.get_mode() == 'maya':
@@ -29,12 +36,12 @@ if env_mode.get_mode() == 'maya':
 
 
 def server_auth(host, project=None, login=None, password=None, site=None, get_ticket=False):
-    server = TacticServerStub.get(protocol='xmlrpc', setup=False)
-    server.set_transport(proxy.UrllibTransport())
-    if env_server.get_proxy()['enabled']:
-        server.transport.enable_proxy()
-    else:
-        server.transport.disable_proxy()
+    server = TacticServerStub(protocol='xmlrpc', setup=False)
+    # server.set_transport(proxy.UrllibTransport())
+    # if env_server.get_proxy()['enabled']:
+    #     server.transport.enable_proxy()
+    # else:
+    #     server.transport.disable_proxy()
 
     server.set_server(host)
     server.set_project(project)
@@ -862,13 +869,15 @@ class Project(SObject):
             stypes_result = execute_procedure_serverside(tq.query_search_types_extended, kwargs, project=self.get_code(), return_dict=False)
 
             if stypes_result:
+                pass
+                print('SKIP WRITING')
                 # writing result to cache
-                env_write_config(
-                    gf.html_to_hex(stypes_result),
-                    filename='stypes_cache',
-                    unique_id='cache/{0}'.format(self.get_code()),
-                    long_abs_path=True
-                )
+                # env_write_config(
+                #     gf.html_to_hex(stypes_result),
+                #     filename='stypes_cache',
+                #     unique_id='cache/{0}'.format(self.get_code()),
+                #     long_abs_path=True
+                # )
 
         stypes = json.loads(stypes_result)
 
@@ -1723,7 +1732,8 @@ class File(SObject, object):
     def get_metadata(self):
         metadata = self.info.get('metadata')
         # Simple check if this is json dumpable
-        if isinstance(metadata, (str, unicode)):
+        print('HERE IS UNICODE CHECK PY2')
+        if isinstance(metadata, str):
             if metadata.startswith(('{', '"')):
                 metadata = json.loads(metadata)
 
@@ -1739,7 +1749,7 @@ class File(SObject, object):
 
         if file_object:
             self.meta_file_object = True
-            return file_object.values()[0][0]
+            return list(file_object.values())[0][0]
 
     def is_meta_file_obj(self):
         return self.meta_file_object
@@ -1821,7 +1831,7 @@ class File(SObject, object):
         return '{0}/{1}'.format(self.get_web_path(), self.info['file_name'])
 
     def is_exists(self):
-        return os.path.exists(self.get_full_abs_path())
+        return os.path.isfile(self.get_full_abs_path())
 
     def is_previewable(self):
         if self.previewable:
@@ -1882,7 +1892,7 @@ class File(SObject, object):
 
         full_abs_path = self.get_full_abs_path()
 
-        if not os.path.exists(dest_path):
+        if not os.path.isdir(dest_path):
             os.makedirs(dest_path)
 
         return full_abs_path
@@ -1922,7 +1932,8 @@ def execute_procedure_serverside(func, kwargs, project=None, return_dict=True, s
         ret_val = result['info']
 
     if return_dict:
-        if isinstance(ret_val, (str, unicode)):
+        print('PY2 UNICODE CHECK')
+        if isinstance(ret_val, str):
             if ret_val.startswith('Traceback'):
                 # TODO need to decide how we handle tracebacks
                 dl.exception(ret_val, group_id='{0}/{1}'.format('exceptions', func.func_name))
@@ -1934,11 +1945,14 @@ def execute_procedure_serverside(func, kwargs, project=None, return_dict=True, s
                 else:
                     final_result = ret_val
 
-                if isinstance(final_result, (str, unicode)) and return_dict:
+                print('PY2 CHECK UNICODE')
+                if isinstance(final_result, str) and return_dict:
                     # Decompress long query
                     js = gf.hex_to_html(final_result)
                     if js:
-                        if js.startswith(('{', '"', '[')):
+                        print(js)
+                        print(type(js))
+                        if js.startswith((b'{', b'"', b'[')):
                             final_result = json.loads(js, strict=False)
         else:
             final_result = ret_val
@@ -1964,9 +1978,12 @@ def get_all_projects_and_logins(force=False):
             unique_id='cache',
             long_abs_path=True
         )
+        projects_cache = None
+        logins_cache = None
+
         if projects_cache and logins_cache:
-            projects_dict = loads(gf.hex_to_html(str(projects_cache)))
-            logins_dict = loads(gf.hex_to_html(str(logins_cache)))
+            projects_dict = loads(gf.hex_to_html(bytearray(projects_cache, 'utf-8')))
+            logins_dict = loads(gf.hex_to_html(bytearray(logins_cache, 'utf-8')))
 
             env_inst.projects = projects_dict
             env_inst.logins = logins_dict
@@ -2099,8 +2116,11 @@ def get_sobjects(search_type, filters=[], order_bys=[], project_code=None, limit
 
     sobjects_list = execute_procedure_serverside(tq.query_sobjects, kwargs, project=project_code)
 
+    print(type(sobjects_list))
+
     if sobjects_list:
-        if isinstance(sobjects_list, (str, unicode)):
+        print('PY2 UNICODE CHECK 5')
+        if isinstance(sobjects_list, str):
             if sobjects_list.startswith('Traceback'):
                 sobjects_list = {'sobjects_list': []}
                 info = None
@@ -2166,7 +2186,7 @@ def get_group_sobjects(search_type, project_code=None, groups_list=[]):
 
     result = execute_procedure_serverside(tq.query_group_sobjects, kwargs, project=project_code)
 
-    print kwargs
+    print(kwargs)
 
     return result
 
@@ -2282,9 +2302,9 @@ def get_custom_scripts(store_locally=True, project=None, scripts_codes_list=None
         # create __init__ files so we can access files from script editor
         for init_path in paths_to_create_init_set:
             formed_init_path = gf.form_path(init_path)
-            if not os.path.exists(formed_init_path):
+            if not os.path.isdir(formed_init_path):
                 init_folder_path = gf.extract_dirname(formed_init_path)
-                if not os.path.exists(init_folder_path):
+                if not os.path.isdir(init_folder_path):
                     os.mkdir(init_folder_path)
                 with io.open(formed_init_path, 'w+') as init_py_file:
                     init_py_file.write(u'')
@@ -2725,8 +2745,8 @@ def inplace_checkin(file_paths, virtual_snapshot, repo_name, update_versionless,
             try:
                 shutil.copyfile(source_path, dest_path)
             except Exception as err:
-                print err
-                print 'File in the Local Structure is the Same! Just creating checkin and do nothing.'
+                print(err)
+                print('File in the Local Structure is the Same! Just creating checkin and do nothing.')
         if not os.path.exists(dest_path):
             return False
         else:
@@ -2964,4 +2984,3 @@ def group_sobject_by(sobjects_dict, group_by):
             grouped[dic.get(group_by)].append(sobject)
 
     return grouped
-

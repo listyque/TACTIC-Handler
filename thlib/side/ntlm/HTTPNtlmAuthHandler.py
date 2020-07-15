@@ -10,10 +10,18 @@
 # 
 # You should have received a copy of the GNU Lesser General Public
 # License along with this library.  If not, see <http://www.gnu.org/licenses/> or <http://www.gnu.org/licenses/lgpl.txt>.
+try:
+    import urllib2
+    import httplib
+    from urllib import addinfourl
+    from urllib2 import BaseHandler
+except:
+    import urllib as urllib2
+    import http.client as httplib
+    from urllib.response import addinfourl
+    from urllib.request import BaseHandler
+import socket
 
-import urllib2
-import httplib, socket
-from urllib import addinfourl
 import ntlm
 import re
 
@@ -107,13 +115,13 @@ Verify "normal" operation.
                 infourl.code = response.status
                 infourl.msg = response.reason
                 return infourl
-            except socket.error, err:
+            except socket.error as err:
                 raise urllib2.URLError(err)
         else:
             return None
 
 
-class HTTPNtlmAuthHandler(AbstractNtlmAuthHandler, urllib2.BaseHandler):
+class HTTPNtlmAuthHandler(AbstractNtlmAuthHandler, BaseHandler):
 
     auth_header = 'Authorization'
 
@@ -121,7 +129,7 @@ class HTTPNtlmAuthHandler(AbstractNtlmAuthHandler, urllib2.BaseHandler):
         return self.http_error_authentication_required('www-authenticate', req, fp, headers)
 
 
-class ProxyNtlmAuthHandler(AbstractNtlmAuthHandler, urllib2.BaseHandler):
+class ProxyNtlmAuthHandler(AbstractNtlmAuthHandler, BaseHandler):
     """ 
         CAUTION: this class has NOT been tested at all!!! 
         use at your own risk

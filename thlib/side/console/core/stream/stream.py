@@ -18,10 +18,10 @@ class Stream(QtCore.QObject):
     __original__stderr = sys.stderr
     __original__excepthook = sys.excepthook
 
-    exceptedWritten = QtCore.Signal(unicode)
-    outputWritten = QtCore.Signal(unicode)
-    errorWritten = QtCore.Signal(unicode)
-    inputWritten = QtCore.Signal(unicode)
+    exceptedWritten = QtCore.Signal(object)
+    outputWritten = QtCore.Signal(object)
+    errorWritten = QtCore.Signal(object)
+    inputWritten = QtCore.Signal(object)
     
     @staticmethod
     def get_stream():
@@ -56,28 +56,28 @@ class Stream(QtCore.QObject):
             Stream.__stream = self
             from . import OutputCls, ExceptionHook
 
-            self.out = OutputCls(Stream.__original__stdout, self)
-            Stream.__stdout = self.out
-            self.out.written.connect(self.writeOutput)
+            # self.out = OutputCls(Stream.__original__stdout, self)
+            # Stream.__stdout = self.out
+            # self.out.written.connect(self.writeOutput)
 
-            self.inp = OutputCls(Stream.__original__stdin, self)
-            Stream.__stdin = self.inp
-            self.inp.written.connect(self.writeInput)
+            # self.inp = OutputCls(Stream.__original__stdin, self)
+            # Stream.__stdin = self.inp
+            # self.inp.written.connect(self.writeInput)
 
-            self.err = OutputCls(Stream.__original__stderr, self)
-            Stream.__stderr = self.err
-            self.err.written.connect(self.writeError)
+            # self.err = OutputCls(Stream.__original__stderr, self)
+            # Stream.__stderr = self.err
+            # self.err.written.connect(self.writeError)
 
-            self.excepthandler = ExceptionHook(Stream.__original__excepthook)
-            Stream.__excepthook = self.excepthandler.excepthook
+            # self.excepthandler = ExceptionHook(Stream.__original__excepthook)
+            # Stream.__excepthook = self.excepthandler.excepthook
 
-            sys.stdin = Stream.__stdin
-            sys.stdout = Stream.__stdout
-            sys.stderr = Stream.__stderr
-            sys.excepthook = self.excepthandler.excepthook
+            # sys.stdin = Stream.__stdin
+            # sys.stdout = Stream.__stdout
+            # sys.stderr = Stream.__stderr
+            # sys.excepthook = self.excepthandler.excepthook
 
-            self.excepthandler.excepted.connect(self.writeExcepted)
-            self.excepthandler.excepted.connect(self.writeErrorToStream)
+            # self.excepthandler.excepted.connect(self.writeExcepted)
+            # self.excepthandler.excepted.connect(self.writeErrorToStream)
 
             self.err_count = 0
             self.out_count = 0
@@ -155,8 +155,8 @@ class Stream(QtCore.QObject):
 
         self.inputWritten.emit(text)
         
-        if self.in_count < sys.maxint:
-            self.in_count += 1
+        # if self.in_count < sys.maxint:
+        self.in_count += 1
 
     def writeError(self, text):
 
@@ -172,8 +172,8 @@ class Stream(QtCore.QObject):
 
         self.errorWritten.emit(text)
         
-        if self.err_count < sys.maxint:
-            self.err_count += 1
+        # if self.err_count < sys.maxint:
+        self.err_count += 1
 
     def writeOutput(self, text):
 

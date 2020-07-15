@@ -7,13 +7,20 @@ sys.path.append(module_location)
 
 def test(start=False):
 
+    import logging
     from appconnector.server import Server, logger
-    logger.setLevel(10)
+
+    logger.setLevel(logging.WARNING)
 
     server = Server("127.0.0.1", 55300)
 
-    from thlib.side.Qt import QtWidgets, QtCore, QtGui
-    app = QtWidgets.QApplication(sys.argv)
+    from appconnector.qt import QtWidgets, QtCore, QtGui
+    found_app = QtWidgets.QApplication.instance()
+    if not found_app:
+        app = QtWidgets.QApplication(sys.argv)
+
+    else:
+        app = found_app
 
     window = QtWidgets.QWidget()
     window.setWindowTitle("server")
@@ -46,7 +53,15 @@ def test(start=False):
         con.send("system:hello, it`s me".encode("utf-8"))
 
         datab = bytes(args[1])
-        datas = datab.decode("utf-8")
+
+        try:
+            datas = datab.decode("utf-8")
+
+        except:
+            print("\nerror!!!")
+            print(datab)
+            datas = ""
+
         if datas.startswith("system:"):
             plain_text.appendHtml("<font color=\"gray\">" + str(datas) + "</font>")
         else:
@@ -66,6 +81,7 @@ def test(start=False):
     layout.addWidget(sbutton)
 
     ebutton = QtWidgets.QPushButton("STOP")
+    ebutton.setVisible(False)
     layout.addWidget(ebutton)
 
     def test_finished():
@@ -97,7 +113,10 @@ def test(start=False):
     if start:
         test_start()
 
-    sys.exit(app.exec_())
+    if not found_app:
+        sys.exit(app.exec_())
+
+    return window
 
 
 if __name__ == "__main__":

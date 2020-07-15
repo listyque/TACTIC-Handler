@@ -11,17 +11,19 @@ import inspect
 import collections
 import platform
 import json
-from cPickle import dumps, loads
+from pickle import dumps, loads
 from thlib.side.Qt import QtCore, QtNetwork
-from async_gui.engine import Task
-from async_gui.toolkits.pyqt import PyQtEngine
+from thlib.pool import ThreadsPool
+# from thlib.side.async_gui.engine import Task
+# from thlib.side.async_gui.toolkits.pyqt import PyQtEngine
 from thlib.side.appconnector.server import Server
 from thlib.side.appconnector.client import Client
 
-
-CFG_FORMAT = 'json'  # set this to 'ini' if you want to use QSettings instead of json
-SERVER_THREADS_COUNT = 1  # max connections to remote tactic server
+IS_Pv3 = sys.version_info[0] > 2
+CFG_FORMAT = 'ini'  # set this to 'ini' if you want to use QSettings instead of json
+SERVER_THREADS_COUNT = 4  # max connections to remote tactic server
 HTTP_THREADS_COUNT = 4  # max connections to http
+LOCAL_THREADS_COUNT = 16  # max local threads
 MAX_RECURSION_DEPTH = 65535  # maximum recursion for stability reasons
 SPECIALIZED = None  # can be string, made for personal script packs, e.g. to create pre-configured pack
 
@@ -39,18 +41,18 @@ def singleton(cls):
 
 
 def tc():
-    import tactic_classes
-    return tactic_classes
+    import thlib.tactic_classes
+    return thlib.tactic_classes
 
 
 def gf():
-    import global_functions
-    return global_functions
+    import thlib.global_functions
+    return thlib.global_functions
 
 
 def mf():
-    import maya_functions
-    return maya_functions
+    import thlib.maya_functions
+    return thlib.maya_functions
 
 
 def env_write_config(obj=None, filename='settings', unique_id='', sub_id=None, update_file=False, long_abs_path=False):
@@ -80,7 +82,7 @@ def env_write_config(obj=None, filename='settings', unique_id='', sub_id=None, u
 
     if CFG_FORMAT == u'json':
         full_abs_path = u'{0}/{1}'.format(abs_path, unique_id)
-        if not os.path.exists(full_abs_path):
+        if not os.path.isdir(full_abs_path):
             os.makedirs(full_abs_path)
 
         full_path = u'{0}/{1}.json'.format(full_abs_path, filename)
@@ -88,7 +90,7 @@ def env_write_config(obj=None, filename='settings', unique_id='', sub_id=None, u
         obj_from_file = None
 
         if update_file and sub_id:
-            if os.path.exists(full_path):
+            if os.path.isfile(full_path):
                 with open(full_path, 'r') as json_file:
                     obj_from_file = json.load(json_file)
 
@@ -102,6 +104,11 @@ def env_write_config(obj=None, filename='settings', unique_id='', sub_id=None, u
                 obj = {sub_id: obj}
 
         with open(full_path, 'w') as json_file:
+            print(type(obj))
+
+            # def dd(i):
+            #     return str(i)
+
             json.dump(obj, json_file, indent=2, separators=(',', ': '))
 
         json_file.close()
@@ -112,6 +119,8 @@ def env_write_config(obj=None, filename='settings', unique_id='', sub_id=None, u
         settings.beginGroup(filename)
         if sub_id:
             settings.beginGroup(sub_id)
+        if isinstance(obj, (str, bytes, bytearray)):
+            obj = str(obj, 'utf-8', 'ignore')
         settings.setValue(unique_id, json.dumps(obj, separators=(',', ':')))
         settings.endGroup()
 
@@ -135,7 +144,7 @@ def env_read_config(filename='settings', unique_id='', sub_id=None, long_abs_pat
         else:
             full_path = u'{0}/{1}.json'.format(abs_path, filename)
 
-        if os.path.exists(full_path):
+        if os.path.isfile(full_path):
             with open(full_path, 'r') as json_file:
                 try:
                     obj = json.load(json_file)
@@ -177,7 +186,7 @@ def env_write_file(data, file_relative_path, file_name, sub_path=''):
         relative_path
     )
 
-    if not os.path.exists(file_path):
+    if not os.path.isdir(file_path):
         os.makedirs(file_path)
 
     with io.open(u'{0}/{1}'.format(file_path, file_name), 'w+', encoding='utf8') as data_file:
@@ -210,8 +219,35 @@ class Inst(object):
     watch_folders = {}
     commit_queue = {}
     thread_pools = {}
-    async_engine = PyQtEngine().async
-    async_task = Task
+    # async_engine = PyQtEngine().async_
+    # async_task = Task
+
+    server_pool = ThreadsPool(max_threads=SERVER_THREADS_COUNT)  # Thread Pool for async tasks
+    # http_pool = ThreadsPool(max_threads=HTTP_THREADS_COUNT)
+    commit_pool = ThreadsPool(max_threads=SERVER_THREADS_COUNT)
+    local_pool = ThreadsPool(max_threads=LOCAL_THREADS_COUNT)
+
+    def start_pools(self):
+        self.server_pool.setParent(self.ui_super)
+        # self.http_pool.setParent(self.ui_super)
+        self.commit_pool.setParent(self.ui_super)
+        self.local_pool.setParent(self.ui_super)
+
+        self.server_pool.start()
+        # self.http_pool.start()
+        self.commit_pool.start()
+        self.local_pool.start()
+
+    def exit_pools(self):
+        self.server_pool.exit()
+        # self.http_pool.exit()
+        self.commit_pool.exit()
+        self.local_pool.exit()
+
+        self.server_pool.wait()
+        # self.http_pool.wait()
+        self.commit_pool.wait()
+        self.local_pool.wait()
 
     def get_current_project(self):
         return self.current_project
@@ -470,20 +506,29 @@ class Mode(object):
 
     def get_current_path(self):
         if self.current_path:
-            return self.current_path.decode(locale.getpreferredencoding())
+            if isinstance(self.current_path, str):
+                return self.current_path
+            else:
+                return self.current_path.decode(locale.getpreferredencoding())
         else:
             self.current_path = os.path.dirname(os.path.split(__file__)[0])
-            return self.current_path.decode(locale.getpreferredencoding())
+            if isinstance(self.current_path, str):
+                return self.current_path
+            else:
+                return self.current_path.decode(locale.getpreferredencoding())
 
     def get_current_python_path(self):
         if self.current_python_path:
-            return self.current_python_path.decode(locale.getpreferredencoding())
+            # return self.current_python_path.decode(locale.getpreferredencoding())
+            return self.current_python_path
         else:
             self.current_python_path = sys.executable
             if self.current_mode == 'maya':
                 self.current_python_path = sys.executable.replace('maya.exe', 'mayapy.exe')
 
-            return self.current_python_path.decode(locale.getpreferredencoding())
+            # return self.current_python_path.decode(locale.getpreferredencoding())
+            print('PY3 HACK 2')
+            return self.current_python_path
 
     def get_platform(self):
         return self.platform
@@ -706,7 +751,7 @@ class Tactic(object):
         self.custom_dirs = None
 
     def query_base_dirs(self):
-        import tactic_classes as tc
+        import thlib.tactic_classes as tc
         default_base_dirs = tc.server_start().get_base_dirs()
         self.default_base_dirs = default_base_dirs
 

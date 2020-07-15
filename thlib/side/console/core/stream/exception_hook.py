@@ -2,7 +2,7 @@
 
 __all__ = ["ExceptionHook"]
 
-import exceptions
+#import exceptions
 import traceback
 import types
 import sys
@@ -12,7 +12,7 @@ from thlib.side.Qt import QtCore
 
 class ExceptionHook(QtCore.QObject):
     
-    excepted = QtCore.Signal(unicode)
+    excepted = QtCore.Signal(object)
     instance = None
     
     def __init__(self, excepthook, parent=None):
@@ -30,8 +30,8 @@ class ExceptionHook(QtCore.QObject):
             if isinstance(arg, type):
                 exception_type = arg
 
-            elif isinstance(arg, exceptions.BaseException):
-                exception_value = arg
+            #elif isinstance(arg, exceptions.BaseException):
+            #    exception_value = arg
 
             elif isinstance(arg, types.TracebackType):
                 exception_traceback = arg

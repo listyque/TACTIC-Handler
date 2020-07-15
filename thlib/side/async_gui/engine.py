@@ -55,7 +55,7 @@ class Engine(object):
         #: main application instance
         self.main_app = None
 
-    def async(self, func):
+    def async_(self, func):
         """ Decorator for asynchronous generators.
 
         Any :class:`Task`, :class:`ProcessTask` or :class:`GTask` yielded from

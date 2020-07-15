@@ -29,7 +29,7 @@ import thlib.tactic_classes as tc
 from thlib.environment import env_inst, env_server, env_mode, dl, cfg_controls
 import thlib.ui.misc.ui_debuglog as ui_debuglog
 import thlib.ui.misc.ui_messages as ui_messages
-import ui_richedit_classes
+import thlib.ui_classes.ui_richedit_classes
 
 
 class FadeWidget(QtGui.QLabel):
@@ -118,11 +118,11 @@ class Ui_projectIconWidget(QtGui.QWidget):
 
         snapshot_process = self.project.process.get(process)
         if snapshot_process:
-            context = snapshot_process.contexts.values()[0]
+            context = list(snapshot_process.contexts.values())[0]
             if context.versionless:
-                return context.versionless.values()[0]
+                return list(context.versionless.values())[0]
             else:
-                return context.versions.values()[0]
+                return list(context.versions.values())[0]
 
     def fill_info(self):
         if self.project:
@@ -319,12 +319,12 @@ class Ui_sideBarWidget(QtGui.QWidget):
         effect.setOpacity(0.5)
         self.dimmer_widget_dark.setHidden(True)
 
-        self.dimmer_anm_close = QtCore.QPropertyAnimation(self.dimmer_widget, 'Fade', self.dimmer_widget)
+        self.dimmer_anm_close = QtCore.QPropertyAnimation(self.dimmer_widget, b'Fade', self.dimmer_widget)
         self.dimmer_anm_close.setDuration(100)
         self.dimmer_anm_close.setStartValue(0.5)
         self.dimmer_anm_close.setEndValue(0.0)
         self.dimmer_anm_close.setEasingCurve(QtCore.QEasingCurve.InSine)
-        self.dimmer_anm_open = QtCore.QPropertyAnimation(self.dimmer_widget, 'Fade', self.dimmer_widget)
+        self.dimmer_anm_open = QtCore.QPropertyAnimation(self.dimmer_widget, b'Fade', self.dimmer_widget)
         self.dimmer_anm_open.setDuration(100)
         self.dimmer_anm_open.setStartValue(0.0)
         self.dimmer_anm_open.setEndValue(0.5)
@@ -342,8 +342,8 @@ class Ui_sideBarWidget(QtGui.QWidget):
         self.sidebar_proxy.setParent(self.dimmer_widget)
         self.sidebar.setParent(self.dimmer_widget)
 
-        self.animation_close = QtCore.QPropertyAnimation(self.sidebar_proxy, "pos", self)
-        self.animation_open = QtCore.QPropertyAnimation(self.sidebar_proxy, "pos", self)
+        self.animation_close = QtCore.QPropertyAnimation(self.sidebar_proxy, b'pos', self)
+        self.animation_open = QtCore.QPropertyAnimation(self.sidebar_proxy, b'pos', self)
 
         self.animation_close.setDuration(100)
 
@@ -504,7 +504,8 @@ QTabWidget::tab-bar {
         self.setCornerWidget(widget, QtCore.Qt.TopLeftCorner)
 
     def add_tab(self, widget, label=''):
-        if isinstance(label, (str, unicode)):
+        print('UNICODE CHECK 4')
+        if isinstance(label, str):
             self.addTab(widget, label)
         else:
             idx = self.addTab(widget, '')
@@ -586,7 +587,8 @@ class Ui_extendedLeftTabBarWidget(QtGui.QTabWidget):
         self.setCornerWidget(widget, QtCore.Qt.TopLeftCorner)
 
     def add_tab(self, widget, label=''):
-        if isinstance(label, (str, unicode)):
+        print('HERE IS UNICODE CHECK PY2 2')
+        if isinstance(label, str):
             self.addTab(widget, label)
         else:
             idx = self.addTab(widget, '')
@@ -1439,7 +1441,7 @@ class Ui_debugLogWidget(QtGui.QDialog, ui_debuglog.Ui_DebugLog):
             log_text = self.format_debuglog(debuglog_dict[1], message_type, False)
             log_path = u'{0}/log'.format(env_mode.get_current_path())
             date_str = datetime.date.strftime(dl.session_start, '%d_%m_%Y_%H_%M_%S')
-            if os.path.exists(log_path):
+            if os.path.isdir(log_path):
                 with codecs.open(u'{0}/{1}_session_{2}.log'.format(log_path, env_mode.get_mode(), date_str), 'a', 'utf-8') as log_file:
                     log_file.write(log_text + u'\n')
                 log_file.close()
@@ -1976,15 +1978,10 @@ class SuggestedLineEdit(QtGui.QLineEdit):
                     offset=0,
                 ), key)
 
-            env_inst.set_thread_pool(None, 'server_query/server_thread_pool')
-
-            search_suggestions_worker = gf.get_thread_worker(
-                assets_query_new_agent,
-                thread_pool=env_inst.get_thread_pool('server_query/server_thread_pool'),
-                result_func=self.search_suggestions_end,
-                error_func=gf.error_handle
-            )
-            search_suggestions_worker.start()
+            worker = env_inst.server_pool.add_task(assets_query_new_agent)
+            worker.result.connect(self.search_suggestions_end)
+            worker.error.connect(gf.error_handle)
+            worker.start()
 
     def search_suggestions_end(self, result=None):
 
@@ -2462,7 +2459,7 @@ class Ui_messagesWidget(QtGui.QDialog, ui_messages.Ui_messages):
             item_data = selected_items[0].data(0, QtCore.Qt.UserRole)
             if item_data.get_object_type() == 'login':
                 # print item_data.get_subscriptions()
-                print item_data
+                print(item_data)
                 import random
                 key = random.randrange(0, 255)
                 tc.server_start().subscribe(key, category='chat')
@@ -2523,7 +2520,7 @@ class Ui_messagesWidget(QtGui.QDialog, ui_messages.Ui_messages):
     def fill_chat_messages(self, chat_widget, chat_subscription, partner_login):
 
         for message in chat_subscription.get_messages():
-            print message.get_status()
+            print(message.get_status())
             if message.get_status() == 'in_progress':
                 message_logs = message.get_message_log(True)
                 last_cleared_date = gf.parce_timestamp(chat_subscription.get_last_cleared())
@@ -2548,7 +2545,7 @@ class Ui_messagesWidget(QtGui.QDialog, ui_messages.Ui_messages):
 
         self.fill_chat_messages(chat_widget, chat_subscription, partner_login)
 
-        print reply_text
+        print(reply_text)
 
     def showEvent(self, event):
         if not self.created:

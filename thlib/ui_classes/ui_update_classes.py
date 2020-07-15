@@ -2,7 +2,7 @@ from thlib.side.Qt import QtWidgets as QtGui
 from thlib.side.Qt import QtCore
 
 from thlib.environment import env_mode, env_inst
-import thlib.update_functions as uf
+#import thlib.update_functions as uf
 import thlib.ui.misc.ui_create_update as ui_create_update
 import thlib.ui.misc.ui_update as ui_update
 

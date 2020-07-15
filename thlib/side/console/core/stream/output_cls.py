@@ -9,7 +9,7 @@ from thlib.side.Qt import QtCore
 
 class OutputCls(QtCore.QObject):
 
-    written = QtCore.Signal(unicode)
+    written = QtCore.Signal(object)
     flushed = QtCore.Signal()
 
     encoding = locale.getpreferredencoding()

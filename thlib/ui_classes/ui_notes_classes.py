@@ -295,26 +295,16 @@ class Ui_notesWidget(QtGui.QWidget):
 
     def query_notes(self):
 
-        def get_notes_sobjects_agent():
-            return self.sobject.get_notes_sobjects(self.context)
-
-        env_inst.set_thread_pool(None, 'server_query/tasks_and_notes_thread_pool')
-        thread_pool = env_inst.get_thread_pool('server_query/tasks_and_notes_thread_pool')
-        thread_pool.setMaxThreadCount(2)
-
-        get_notes_sobjects_worker = gf.get_thread_worker(
-            get_notes_sobjects_agent,
-            thread_pool,
-            result_func=self.fill_notes,
-            error_func=gf.error_handle,
-        )
-        get_notes_sobjects_worker.start()
+        worker = env_inst.server_pool.add_task(self.sobject.get_notes_sobjects, self.context)
+        worker.result.connect(self.fill_notes)
+        worker.error.connect(gf.error_handle)
+        worker.start()
 
     def fill_notes(self, query_result):
 
         self.notes_sobjects, info = query_result
 
-        notes_sobjects = self.notes_sobjects.values()
+        notes_sobjects = list(self.notes_sobjects.values())
 
         self.create_scroll_area()
         self.current_user = env_server.get_user()
@@ -530,7 +520,8 @@ class Ui_messageWidget(QtGui.QWidget):
         note_text = self.note.info['note']
 
         if note_text:
-            if isinstance(note_text, unicode):
+            print('OLD UNICODE CHECK')
+            if isinstance(note_text, str):
 
                 links_highlighted_text = gf.sub_urls(note_text)
 
@@ -570,7 +561,7 @@ class Ui_messageWidget(QtGui.QWidget):
             menu.exec_(Qt4Gui.QCursor.pos())
 
     def edit_message(self):
-        print 'Editing message'
+        print('Editing message')
 
     def delete_message(self):
         self.note.delete_sobject()

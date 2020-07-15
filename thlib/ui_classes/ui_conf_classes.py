@@ -22,13 +22,13 @@ import thlib.ui.conf.ui_checkinOutPage as ui_checkinOutPage
 import thlib.ui.conf.ui_globalPage as ui_globalPage
 import thlib.ui.conf.ui_mayaPage as ui_mayaPage
 
-reload(ui_conf)
-reload(ui_serverPage)
-reload(ui_projectPage)
-reload(ui_checkinOptionsPage)
-reload(ui_checkinOutPage)
-reload(ui_globalPage)
-reload(ui_mayaPage)
+# reload(ui_conf)
+# reload(ui_serverPage)
+# reload(ui_projectPage)
+# reload(ui_checkinOptionsPage)
+# reload(ui_checkinOutPage)
+# reload(ui_globalPage)
+# reload(ui_mayaPage)
 
 
 class Ui_serverPageWidget(QtGui.QWidget, ui_serverPage.Ui_serverPageWidget):
@@ -163,18 +163,14 @@ class Ui_serverPageWidget(QtGui.QWidget, ui_serverPage.Ui_serverPageWidget):
                 'server': self.proxyServerLineEdit.text()
             }
 
-            def server_fast_ping_agent():
-                return tc.server_fast_ping_predefined(server, proxy)
-
-            env_inst.set_thread_pool(None, 'server_query/server_thread_pool')
-
-            stypes_items_worker = gf.get_thread_worker(
-                server_fast_ping_agent,
-                env_inst.get_thread_pool('server_query/server_thread_pool'),
-                result_func=self.apply_and_connect_to_server,
-                error_func=self.apply_and_connect_to_server_error,
+            worker = env_inst.server_pool.add_task(
+                tc.server_fast_ping_predefined,
+                server,
+                proxy,
             )
-            stypes_items_worker.start()
+            worker.result.connect(self.apply_and_connect_to_server)
+            worker.error.connect(self.apply_and_connect_to_server_error)
+            worker.start()
 
             # def progress_agent():
             #     import time
@@ -275,20 +271,17 @@ class Ui_serverPageWidget(QtGui.QWidget, ui_serverPage.Ui_serverPageWidget):
             # self.try_connect_to_server(run_thread=True)
             kwargs = tc.generate_new_ticket(self.userNameLineEdit.text(), parent=self)
 
-            def generate_new_ticket_agent():
-                return tc.server_auth(**kwargs)
-
-            env_inst.set_thread_pool(None, 'server_query/server_thread_pool')
-
-            stypes_items_worker = gf.get_thread_worker(
-                generate_new_ticket_agent,
-                env_inst.get_thread_pool('server_query/server_thread_pool'),
-                result_func=self.generate_ticket,
-                error_func=self.generate_ticket_error
-            )
             if kwargs:
                 self.userNameLineEdit.setText(kwargs.get('login'))
-                stypes_items_worker.start()
+
+                worker = env_inst.server_pool.add_task(
+                    tc.server_auth,
+                    **kwargs
+                )
+                worker.result.connect(self.generate_ticket)
+                worker.error.connect(self.generate_ticket_error)
+                worker.start()
+
             # generate_ticket = tc.generate_new_ticket(self.userNameLineEdit.text(), parent=self)
 
             # thread.wait()

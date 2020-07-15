@@ -216,7 +216,7 @@ class commitWidget(QtGui.QWidget):
                 self.upload_checkin_worker.emit_progress(4, info_dict)
                 return check_ok
 
-            self.upload_checkin_worker = gf.get_thread_worker(
+            self.upload_checkin_worker, thread_pool = gf.get_thread_worker(
                 upload_checkin_agent,
                 thread_pool=env_inst.get_thread_pool('commit_queue/server_thread_pool'),
                 result_func=self.upload_chekin_snapshot,
@@ -224,7 +224,7 @@ class commitWidget(QtGui.QWidget):
                 progress_func=self.checkin_progress,
                 error_func=gf.error_handle
             )
-            self.upload_checkin_worker.start()
+            thread_pool.start(self.upload_checkin_worker)
 
         if self.args_dict['checkin_app'] == 'maya':
             dl.log('Preparing files', group_id='server/checkin')
@@ -317,7 +317,7 @@ class commitWidget(QtGui.QWidget):
             # self.commit_item.set_commit_finished()
             return snapshot
 
-        snapshot_checkin_worker = gf.get_thread_worker(
+        snapshot_checkin_worker, thread_pool = gf.get_thread_worker(
             upload_checkin_snapshot_agent,
             thread_pool=env_inst.get_thread_pool('commit_queue/checkin_snapshot_pool'),
             result_func=self.checkin_done,
@@ -328,7 +328,7 @@ class commitWidget(QtGui.QWidget):
         if self.single_threaded:
             self.checkin_done(self.commit_item)
         else:
-            snapshot_checkin_worker.start()
+            thread_pool.start(snapshot_checkin_worker)
 
     @gf.catch_error
     def inplace_chekin(self):
@@ -349,7 +349,7 @@ class commitWidget(QtGui.QWidget):
                 )
                 return check_ok
 
-            self.inplace_checkin_worker = gf.get_thread_worker(
+            self.inplace_checkin_worker, thread_pool = gf.get_thread_worker(
                 inplace_checkin_agent,
                 thread_pool=env_inst.get_thread_pool('commit_queue/server_thread_pool'),
                 result_func=self.inplace_checkin_done,
@@ -361,7 +361,7 @@ class commitWidget(QtGui.QWidget):
                 inplace_checkin_agent()
                 self.chekin_snapshot()
             else:
-                self.inplace_checkin_worker.start()
+                thread_pool.start(self.inplace_checkin_worker)
 
         if self.args_dict['checkin_app'] == 'maya':
             import thlib.maya_functions as mf
@@ -420,7 +420,7 @@ class commitWidget(QtGui.QWidget):
             snapshot_checkin_worker.emit_progress(1, info_dict)
             return snapshot
 
-        snapshot_checkin_worker = gf.get_thread_worker(
+        snapshot_checkin_worker, thread_pool = gf.get_thread_worker(
             inplace_checkin_agent,
             thread_pool=env_inst.get_thread_pool('commit_queue/server_thread_pool'),
             result_func=self.checkin_done,
@@ -430,7 +430,7 @@ class commitWidget(QtGui.QWidget):
         if self.single_threaded:
             self.checkin_done(inplace_checkin_agent())
         else:
-            snapshot_checkin_worker.start()
+            thread_pool.start(snapshot_checkin_worker)
 
     def checkin_done(self, result=None):
         # print 'checkin done'
@@ -744,7 +744,7 @@ class commitWidget(QtGui.QWidget):
             self.virtual_snapshot_worker.emit_progress(1, info_dict)
             return virtual_snapshot
 
-        self.virtual_snapshot_worker = gf.get_thread_worker(
+        self.virtual_snapshot_worker, thread_pool = gf.get_thread_worker(
             update_virtual_snapshot_agent,
             thread_pool=env_inst.get_thread_pool('commit_queue/server_thread_pool'),
             result_func=self.fill_virtual_snapshot,
@@ -753,10 +753,11 @@ class commitWidget(QtGui.QWidget):
             error_func=gf.error_handle
         )
         if self.single_threaded:
+            # TODO this will cause CRASHES
             self.fill_virtual_snapshot(update_virtual_snapshot_agent())
             self.inplace_chekin()
         else:
-            self.virtual_snapshot_worker.start()
+            thread_pool.start(self.virtual_snapshot_worker)
 
     @gf.catch_error
     def begin_commit_upload(self):
@@ -787,7 +788,7 @@ class commitWidget(QtGui.QWidget):
 
             return virtual_snapshot
 
-        self.virtual_snapshot_worker = gf.get_thread_worker(
+        self.virtual_snapshot_worker, thread_pool = gf.get_thread_worker(
             update_virtual_snapshot_agent,
             thread_pool=env_inst.get_thread_pool('commit_queue/server_thread_pool'),
             result_func=self.fill_virtual_snapshot,
@@ -795,7 +796,7 @@ class commitWidget(QtGui.QWidget):
             progress_func=self.checkin_progress,
             error_func=gf.error_handle
         )
-        self.virtual_snapshot_worker.start()
+        thread_pool.start(self.virtual_snapshot_worker)
 
     def refresh_virtual_snapshot(self):
 
@@ -825,7 +826,7 @@ class commitWidget(QtGui.QWidget):
 
             return virtual_snapshot
 
-        self.virtual_snapshot_worker = gf.get_thread_worker(
+        self.virtual_snapshot_worker, thread_pool = gf.get_thread_worker(
             refresh_virtual_snapshot_agent,
             thread_pool=env_inst.get_thread_pool('commit_queue/server_thread_pool'),
             result_func=self.fill_virtual_snapshot,
@@ -833,7 +834,7 @@ class commitWidget(QtGui.QWidget):
             error_func=gf.error_handle,
         )
 
-        self.virtual_snapshot_worker.start()
+        thread_pool.start(self.virtual_snapshot_worker)
 
     @gf.catch_error
     def fill_virtual_snapshot(self, result):
@@ -1015,8 +1016,6 @@ class Ui_commitQueueWidget(QtGui.QMainWindow, Ui_commitQueue):
         # self.setWindowFlags(QtCore.Qt.Window | QtCore.Qt.WindowStaysOnTopHint)
         self.setWindowFlags(QtCore.Qt.Window)
 
-        env_inst.set_thread_pool(None, 'commit_queue/server_thread_pool')
-
         self.create_files_queue_tree_context_menu()
         self.create_progress_bar_widget()
 
@@ -1080,7 +1079,7 @@ class Ui_commitQueueWidget(QtGui.QMainWindow, Ui_commitQueue):
         self.empty_label.setAlignment(QtCore.Qt.AlignHCenter | QtCore.Qt.AlignVCenter)
         self.empty_label.setMinimumWidth(450)
 
-        self.commitEditorLayout.addWidget(self.empty_label, 0, 0)
+        self.commitEditorLayout.addWidget(self.empty_label)
 
     def select_current_commit_widget(self):
 

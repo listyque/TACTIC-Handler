@@ -10,7 +10,7 @@ XML or HTML to reflect a new encoding; that's the tree builder's job.
 __license__ = "MIT"
 
 import codecs
-from htmlentitydefs import codepoint2name
+from html.entities import codepoint2name
 import re
 import logging
 import string
@@ -22,7 +22,7 @@ try:
     #  PyPI package: cchardet
     import cchardet
     def chardet_dammit(s):
-        if isinstance(s, unicode):
+        if isinstance(s, str):
             return None
         return cchardet.detect(s)['encoding']
 except ImportError:
@@ -32,7 +32,7 @@ except ImportError:
         #  PyPI package: chardet
         import chardet
         def chardet_dammit(s):
-            if isinstance(s, unicode):
+            if isinstance(s, str):
                 return None
             return chardet.detect(s)['encoding']
         #import chardet.constants
@@ -43,6 +43,9 @@ except ImportError:
             return None
 
 # Available from http://cjkpython.i18n.org/.
+#
+# TODO: This doesn't work anymore and the closest thing, iconv_codecs,
+# is GPL-licensed. Check whether this is still necessary.
 try:
     import iconv_codec
 except ImportError:
@@ -50,21 +53,20 @@ except ImportError:
 
 # Build bytestring and Unicode versions of regular expressions for finding
 # a declared encoding inside an XML or HTML document.
-xml_encoding = u'^\s*<\\?.*encoding=[\'"](.*?)[\'"].*\\?>'
-html_meta = u'<\\s*meta[^>]+charset\\s*=\\s*["\']?([^>]*?)[ /;\'">]'
+xml_encoding = '^\\s*<\\?.*encoding=[\'"](.*?)[\'"].*\\?>'
+html_meta = '<\\s*meta[^>]+charset\\s*=\\s*["\']?([^>]*?)[ /;\'">]'
 encoding_res = dict()
 encoding_res[bytes] = {
     'html' : re.compile(html_meta.encode("ascii"), re.I),
     'xml' : re.compile(xml_encoding.encode("ascii"), re.I),
 }
-encoding_res[unicode] = {
+encoding_res[str] = {
     'html' : re.compile(html_meta, re.I),
     'xml' : re.compile(xml_encoding, re.I)
 }
 
 class EntitySubstitution(object):
-
-    """Substitute XML or HTML entities for the corresponding characters."""
+    """The ability to substitute XML or HTML entities for certain characters."""
 
     def _populate_class_variables():
         lookup = {}
@@ -78,7 +80,7 @@ class EntitySubstitution(object):
         # entities, but that's a little tricky.
         extra = [(39, 'apos')]
         for codepoint, name in list(codepoint2name.items()) + extra:
-            character = unichr(codepoint)
+            character = chr(codepoint)
             if codepoint not in (34, 39):
                 # There's no point in turning the quotation mark into
                 # &quot; or the single quote into &apos;, unless it
@@ -110,13 +112,15 @@ class EntitySubstitution(object):
 
     @classmethod
     def _substitute_html_entity(cls, matchobj):
+        """Used with a regular expression to substitute the
+        appropriate HTML entity for a special character."""
         entity = cls.CHARACTER_TO_HTML_ENTITY.get(matchobj.group(0))
         return "&%s;" % entity
 
     @classmethod
     def _substitute_xml_entity(cls, matchobj):
         """Used with a regular expression to substitute the
-        appropriate XML entity for an XML special character."""
+        appropriate XML entity for a special character."""
         entity = cls.CHARACTER_TO_XML_ENTITY[matchobj.group(0)]
         return "&%s;" % entity
 
@@ -211,6 +215,8 @@ class EntitySubstitution(object):
         containg a LATIN SMALL LETTER E WITH ACUTE, but replacing that
         character with "&eacute;" will make it more readable to some
         people.
+
+        :param s: A Unicode string.
         """
         return cls.CHARACTER_TO_HTML_ENTITY_RE.sub(
             cls._substitute_html_entity, s)
@@ -238,6 +244,15 @@ class EncodingDetector:
     """
     def __init__(self, markup, override_encodings=None, is_html=False,
                  exclude_encodings=None):
+        """Constructor.
+
+        :param markup: Some markup in an unknown encoding.
+        :param override_encodings: These encodings will be tried first.
+        :param is_html: If True, this markup is considered to be HTML. Otherwise
+            it's assumed to be XML.
+        :param exclude_encodings: These encodings will not be tried, even
+            if they otherwise would be.
+        """
         self.override_encodings = override_encodings or []
         exclude_encodings = exclude_encodings or []
         self.exclude_encodings = set([x.lower() for x in exclude_encodings])
@@ -249,6 +264,12 @@ class EncodingDetector:
         self.markup, self.sniffed_encoding = self.strip_byte_order_mark(markup)
 
     def _usable(self, encoding, tried):
+        """Should we even bother to try this encoding?
+
+        :param encoding: Name of an encoding.
+        :param tried: Encodings that have already been tried. This will be modified
+            as a side effect.
+        """
         if encoding is not None:
             encoding = encoding.lower()
             if encoding in self.exclude_encodings:
@@ -260,7 +281,10 @@ class EncodingDetector:
 
     @property
     def encodings(self):
-        """Yield a number of encodings that might work for this markup."""
+        """Yield a number of encodings that might work for this markup.
+
+        :yield: A sequence of strings.
+        """
         tried = set()
         for e in self.override_encodings:
             if self._usable(e, tried):
@@ -293,9 +317,13 @@ class EncodingDetector:
 
     @classmethod
     def strip_byte_order_mark(cls, data):
-        """If a byte-order mark is present, strip it and return the encoding it implies."""
+        """If a byte-order mark is present, strip it and return the encoding it implies.
+
+        :param data: Some markup.
+        :return: A 2-tuple (modified data, implied encoding)
+        """
         encoding = None
-        if isinstance(data, unicode):
+        if isinstance(data, str):
             # Unicode data cannot have a byte-order mark.
             return data, encoding
         if (len(data) >= 4) and (data[:2] == b'\xfe\xff') \
@@ -325,6 +353,13 @@ class EncodingDetector:
 
         An HTML encoding is declared in a <meta> tag, hopefully near the
         beginning of the document.
+
+        :param markup: Some markup.
+        :param is_html: If True, this markup is considered to be HTML. Otherwise
+            it's assumed to be XML.
+        :param search_entire_document: Since an encoding is supposed to declared near the beginning
+            of the document, most of the time it's only necessary to search a few kilobytes of data.
+            Set this to True to force this method to search the entire document.
         """
         if search_entire_document:
             xml_endpos = html_endpos = len(markup)
@@ -335,7 +370,7 @@ class EncodingDetector:
         if isinstance(markup, bytes):
             res = encoding_res[bytes]
         else:
-            res = encoding_res[unicode]
+            res = encoding_res[str]
 
         xml_re = res['xml']
         html_re = res['html']
@@ -372,6 +407,21 @@ class UnicodeDammit:
 
     def __init__(self, markup, override_encodings=[],
                  smart_quotes_to=None, is_html=False, exclude_encodings=[]):
+        """Constructor.
+
+        :param markup: A bytestring representing markup in an unknown encoding.
+        :param override_encodings: These encodings will be tried first,
+           before any sniffing code is run.
+
+        :param smart_quotes_to: By default, Microsoft smart quotes will, like all other characters, be converted
+           to Unicode characters. Setting this to 'ascii' will convert them to ASCII quotes instead.
+           Setting it to 'xml' will convert them to XML entity references, and setting it to 'html'
+           will convert them to HTML entity references.
+        :param is_html: If True, this markup is considered to be HTML. Otherwise
+            it's assumed to be XML.
+        :param exclude_encodings: These encodings will not be considered, even
+            if the sniffing code thinks they might make sense.
+        """
         self.smart_quotes_to = smart_quotes_to
         self.tried_encodings = []
         self.contains_replacement_characters = False
@@ -381,9 +431,9 @@ class UnicodeDammit:
             markup, override_encodings, is_html, exclude_encodings)
 
         # Short-circuit if the data is in Unicode to begin with.
-        if isinstance(markup, unicode) or markup == '':
+        if isinstance(markup, str) or markup == '':
             self.markup = markup
-            self.unicode_markup = unicode(markup)
+            self.unicode_markup = str(markup)
             self.original_encoding = None
             return
 
@@ -438,6 +488,10 @@ class UnicodeDammit:
         return sub
 
     def _convert_from(self, proposed, errors="strict"):
+        """Attempt to convert the markup to the proposed encoding.
+
+        :param proposed: The name of a character encoding.
+        """
         proposed = self.find_codec(proposed)
         if not proposed or (proposed, errors) in self.tried_encodings:
             return None
@@ -452,30 +506,40 @@ class UnicodeDammit:
             markup = smart_quotes_compiled.sub(self._sub_ms_char, markup)
 
         try:
-            #print "Trying to convert document to %s (errors=%s)" % (
-            #    proposed, errors)
+            #print("Trying to convert document to %s (errors=%s)" % (
+            #    proposed, errors))
             u = self._to_unicode(markup, proposed, errors)
             self.markup = u
             self.original_encoding = proposed
         except Exception as e:
-            #print "That didn't work!"
-            #print e
+            #print("That didn't work!")
+            #print(e)
             return None
-        #print "Correct encoding: %s" % proposed
+        #print("Correct encoding: %s" % proposed)
         return self.markup
 
     def _to_unicode(self, data, encoding, errors="strict"):
-        '''Given a string and its encoding, decodes the string into Unicode.
-        %encoding is a string recognized by encodings.aliases'''
-        return unicode(data, encoding, errors)
+        """Given a string and its encoding, decodes the string into Unicode.
+
+        :param encoding: The name of an encoding.
+        """
+        return str(data, encoding, errors)
 
     @property
     def declared_html_encoding(self):
+        """If the markup is an HTML document, returns the encoding declared _within_
+        the document.
+        """
         if not self.is_html:
             return None
         return self.detector.declared_encoding
 
     def find_codec(self, charset):
+        """Convert the name of a character set to a codec name.
+
+        :param charset: The name of a character set.
+        :return: The name of a codec.
+        """
         value = (self._codec(self.CHARSET_ALIASES.get(charset, charset))
                or (charset and self._codec(charset.replace("-", "")))
                or (charset and self._codec(charset.replace("-", "_")))
@@ -814,12 +878,16 @@ class UnicodeDammit:
         Currently the only situation supported is Windows-1252 (or its
         subset ISO-8859-1), embedded in UTF-8.
 
-        The input must be a bytestring. If you've already converted
-        the document to Unicode, you're too late.
-
-        The output is a bytestring in which `embedded_encoding`
-        characters have been converted to their `main_encoding`
-        equivalents.
+        :param in_bytes: A bytestring that you suspect contains
+            characters from multiple encodings. Note that this _must_
+            be a bytestring. If you've already converted the document
+            to Unicode, you're too late.
+        :param main_encoding: The primary encoding of `in_bytes`.
+        :param embedded_encoding: The encoding that was used to embed characters
+            in the main document.
+        :return: A bytestring in which `embedded_encoding`
+          characters have been converted to their `main_encoding`
+          equivalents.
         """
         if embedded_encoding.replace('_', '-').lower() not in (
             'windows-1252', 'windows_1252'):

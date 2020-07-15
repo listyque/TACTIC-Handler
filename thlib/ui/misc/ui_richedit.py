@@ -226,4 +226,4 @@ class Ui_richedit(object):
     def retranslateUi(self, richedit):
         richedit.setWindowTitle(u"Form")
 
-import thlib.ui.resources_rc
+#import thlib.ui.resources_rc

@@ -3,6 +3,7 @@
 # Main Item for TreeWidget
 
 import os
+import time
 from functools import partial
 from xml.etree.ElementPath import get_parent_map
 
@@ -18,9 +19,9 @@ import thlib.tactic_classes as tc
 from thlib.ui_classes.ui_custom_qwidgets import Ui_elideLabel, MenuWithLayout
 import thlib.ui.items.ui_commit_item as ui_commit_item
 import thlib.ui.items.ui_preview_item as ui_preview_item
-import ui_tasks_classes as tasks_widget
-import ui_notes_classes
-import ui_addsobject_classes
+import thlib.ui_classes.ui_tasks_classes as tasks_widget
+import thlib.ui_classes.ui_notes_classes as ui_notes_classes
+import thlib.ui_classes.ui_addsobject_classes as ui_addsobject_classes
 
 
 class Ui_stypeIconWidget(QtGui.QWidget):
@@ -449,6 +450,7 @@ class Ui_sidebarItemWidget(QtGui.QWidget):
             item_definition = self.item_info['item']
 
             if item_definition.get('icon'):
+                # TODO What is this???
                 try:
                     self.previewLabel.setPixmap(gf.get_icon(tactic_icon=item_definition.get('icon'), icons_set='mdi').pixmap(16, 16))
                     self.previewLabel.setStyleSheet('')
@@ -722,11 +724,11 @@ class Ui_projectLinkWidget(QtGui.QWidget):
 
         snapshot_process = self.project.process.get(process)
         if snapshot_process:
-            context = snapshot_process.contexts.values()[0]
+            context = list(snapshot_process.contexts.values())[0]
             if context.versionless:
-                return context.versionless.values()[0]
+                return list(context.versionless.values())[0]
             else:
-                return context.versions.values()[0]
+                return list(context.versions.values())[0]
 
     def set_preview(self):
 
@@ -1110,6 +1112,13 @@ class Ui_infoItemsWidget(QtGui.QWidget):
             item = self.items_layout.itemAt(i)
             if item:
                 widget = self.items_layout.itemAt(i).widget()
+                widget.close()
+                widget.deleteLater()
+
+        for i in range(self.items_right_layout.count()):
+            item = self.items_right_layout.itemAt(i)
+            if item:
+                widget = self.items_right_layout.itemAt(i).widget()
                 widget.close()
                 widget.deleteLater()
 
@@ -1500,8 +1509,7 @@ class Ui_repoSyncItemWidget(QtGui.QWidget):
         self.network_manager = network_manager
 
     def file_already_in_repo(self):
-
-        if os.path.exists(self.file_object.get_full_abs_path()):
+        if self.file_object.is_exists():
             if self.file_object.get_file_size() == self.file_object.get_file_size(True):
                 return True
 
@@ -1551,6 +1559,7 @@ class Ui_itemWidget(QtGui.QWidget):
         self.type = 'sobject'
         self.sobject = sobject
         self.stype = stype
+        self.icon_preview_file_object = None
 
         self.info = info
         self.notes_count = 0
@@ -1681,13 +1690,13 @@ class Ui_itemWidget(QtGui.QWidget):
         effect = QtGui.QGraphicsOpacityEffect(self.syncWithRepoToolButton)
         effect.setOpacity(0)
 
-        self.sync_with_repo_tool_button_anm_close = QtCore.QPropertyAnimation(effect, 'opacity', self.syncWithRepoToolButton)
+        self.sync_with_repo_tool_button_anm_close = QtCore.QPropertyAnimation(effect, b'opacity', self.syncWithRepoToolButton)
         self.sync_with_repo_tool_button_anm_close.setDuration(200)
         self.sync_with_repo_tool_button_anm_close.setStartValue(1)
         self.sync_with_repo_tool_button_anm_close.setEndValue(0)
         self.sync_with_repo_tool_button_anm_close.setEasingCurve(QtCore.QEasingCurve.OutSine)
 
-        self.sync_with_repo_tool_button_anm_open = QtCore.QPropertyAnimation(effect, 'opacity', self.syncWithRepoToolButton)
+        self.sync_with_repo_tool_button_anm_open = QtCore.QPropertyAnimation(effect, b'opacity', self.syncWithRepoToolButton)
         self.sync_with_repo_tool_button_anm_open.setDuration(200)
         self.sync_with_repo_tool_button_anm_open.setStartValue(0)
         self.sync_with_repo_tool_button_anm_open.setEndValue(1)
@@ -1710,13 +1719,13 @@ class Ui_itemWidget(QtGui.QWidget):
         effect = QtGui.QGraphicsOpacityEffect(self.watchFolderToolButton)
         effect.setOpacity(0)
 
-        self.watch_folder_tool_button_anm_close = QtCore.QPropertyAnimation(effect, 'opacity', self.watchFolderToolButton)
+        self.watch_folder_tool_button_anm_close = QtCore.QPropertyAnimation(effect, b'opacity', self.watchFolderToolButton)
         self.watch_folder_tool_button_anm_close.setDuration(200)
         self.watch_folder_tool_button_anm_close.setStartValue(1)
         self.watch_folder_tool_button_anm_close.setEndValue(0)
         self.watch_folder_tool_button_anm_close.setEasingCurve(QtCore.QEasingCurve.OutSine)
 
-        self.watch_folder_tool_button_anm_open = QtCore.QPropertyAnimation(effect, 'opacity', self.watchFolderToolButton)
+        self.watch_folder_tool_button_anm_open = QtCore.QPropertyAnimation(effect, b'opacity', self.watchFolderToolButton)
         self.watch_folder_tool_button_anm_open.setDuration(200)
         self.watch_folder_tool_button_anm_open.setStartValue(0)
         self.watch_folder_tool_button_anm_open.setEndValue(1)
@@ -1741,13 +1750,13 @@ class Ui_itemWidget(QtGui.QWidget):
         effect = QtGui.QGraphicsOpacityEffect(self.relationsToolButton)
         effect.setOpacity(0)
 
-        self.relations_tool_button_anm_close = QtCore.QPropertyAnimation(effect, 'opacity', self.relationsToolButton)
+        self.relations_tool_button_anm_close = QtCore.QPropertyAnimation(effect, b'opacity', self.relationsToolButton)
         self.relations_tool_button_anm_close.setDuration(200)
         self.relations_tool_button_anm_close.setStartValue(1)
         self.relations_tool_button_anm_close.setEndValue(0)
         self.relations_tool_button_anm_close.setEasingCurve(QtCore.QEasingCurve.OutSine)
 
-        self.relations_tool_button_anm_open = QtCore.QPropertyAnimation(effect, 'opacity', self.relationsToolButton)
+        self.relations_tool_button_anm_open = QtCore.QPropertyAnimation(effect, b'opacity', self.relationsToolButton)
         self.relations_tool_button_anm_open.setDuration(200)
         self.relations_tool_button_anm_open.setStartValue(0)
         self.relations_tool_button_anm_open.setEndValue(1)
@@ -1970,12 +1979,12 @@ class Ui_itemWidget(QtGui.QWidget):
         self.drop_icon_label.setIcon(gf.get_icon('image', icons_set='mdi', scale_factor=1))
         self.drop_icon_label.setIconSize(QtCore.QSize(24, 24))
         effect = QtGui.QGraphicsOpacityEffect(self.drop_icon_label)
-        self.drop_icon_label_anm_close = QtCore.QPropertyAnimation(effect, 'opacity', self.drop_icon_label)
+        self.drop_icon_label_anm_close = QtCore.QPropertyAnimation(effect, b'opacity', self.drop_icon_label)
         self.drop_icon_label_anm_close.setDuration(200)
         self.drop_icon_label_anm_close.setStartValue(1)
         self.drop_icon_label_anm_close.setEndValue(0)
         self.drop_icon_label_anm_close.setEasingCurve(QtCore.QEasingCurve.OutSine)
-        self.drop_icon_label_anm_open = QtCore.QPropertyAnimation(effect, 'opacity', self.drop_icon_label)
+        self.drop_icon_label_anm_open = QtCore.QPropertyAnimation(effect, b'opacity', self.drop_icon_label)
         self.drop_icon_label_anm_open.setDuration(200)
         self.drop_icon_label_anm_open.setStartValue(0)
         self.drop_icon_label_anm_open.setEndValue(1)
@@ -1989,12 +1998,12 @@ class Ui_itemWidget(QtGui.QWidget):
         self.drop_icon_publish.setIcon(gf.get_icon('upload', icons_set='mdi', scale_factor=1))
         self.drop_icon_publish.setIconSize(QtCore.QSize(24, 24))
         effect = QtGui.QGraphicsOpacityEffect(self.drop_icon_publish)
-        self.drop_icon_publish_anm_close = QtCore.QPropertyAnimation(effect, 'opacity', self.drop_icon_publish)
+        self.drop_icon_publish_anm_close = QtCore.QPropertyAnimation(effect, b'opacity', self.drop_icon_publish)
         self.drop_icon_publish_anm_close.setDuration(200)
         self.drop_icon_publish_anm_close.setStartValue(1)
         self.drop_icon_publish_anm_close.setEndValue(0)
         self.drop_icon_publish_anm_close.setEasingCurve(QtCore.QEasingCurve.OutSine)
-        self.drop_icon_publish_anm_open = QtCore.QPropertyAnimation(effect, 'opacity', self.drop_icon_publish)
+        self.drop_icon_publish_anm_open = QtCore.QPropertyAnimation(effect, b'opacity', self.drop_icon_publish)
         self.drop_icon_publish_anm_open.setDuration(200)
         self.drop_icon_publish_anm_open.setStartValue(0)
         self.drop_icon_publish_anm_open.setEndValue(1)
@@ -2007,7 +2016,7 @@ class Ui_itemWidget(QtGui.QWidget):
         self.drop_icon_attach.setIcon(gf.get_icon('paperclip', icons_set='mdi', scale_factor=1))
         self.drop_icon_attach.setIconSize(QtCore.QSize(24, 24))
         effect = QtGui.QGraphicsOpacityEffect(self.drop_icon_attach)
-        self.drop_icon_attach_anm_close = QtCore.QPropertyAnimation(effect, 'opacity', self.drop_icon_attach)
+        self.drop_icon_attach_anm_close = QtCore.QPropertyAnimation(effect, b'opacity', self.drop_icon_attach)
         self.drop_icon_attach_anm_close.setDuration(200)
         self.drop_icon_attach_anm_close.setStartValue(1)
         self.drop_icon_attach_anm_close.setEndValue(0)
@@ -2015,7 +2024,7 @@ class Ui_itemWidget(QtGui.QWidget):
 
         self.drop_icon_attach_anm_close.valueChanged.connect(self.hide_overlay_at_animation_end)
 
-        self.drop_icon_attach_anm_open = QtCore.QPropertyAnimation(effect, 'opacity', self.drop_icon_attach)
+        self.drop_icon_attach_anm_open = QtCore.QPropertyAnimation(effect, b'opacity', self.drop_icon_attach)
         self.drop_icon_attach_anm_open.setDuration(200)
         self.drop_icon_attach_anm_open.setStartValue(0)
         self.drop_icon_attach_anm_open.setEndValue(1)
@@ -2489,7 +2498,7 @@ class Ui_itemWidget(QtGui.QWidget):
                                         if val == data:
                                             data = label
 
-                    if unicode(data).lower().startswith(('https://', 'http://', 'ftp://')):
+                    if str(data).lower().startswith(('https://', 'http://', 'ftp://')):
                         info_label = self.get_item_info_html_label()
                         info_label.setToolTip(unicode(data))
                         info_label.setPixmap(gf.get_icon('crosshairs', color=Qt4Gui.QColor(255, 255, 255)).pixmap(24, 24))
@@ -2500,13 +2509,12 @@ class Ui_itemWidget(QtGui.QWidget):
                         info_label.setText(unicode(column.capitalize()))
                     else:
                         # at this time we don't need long text, as it will not fit to item
-                        info_label.setToolTip(unicode(data))
-                        data = unicode(data)[0:30]
+                        info_label.setToolTip(str(data))
+                        data = str(data)[0:30]
                         info_label.setText(data)
                     self.item_info_widget.add_item(info_label)
 
-    def set_preview(self):
-
+    def get_icon_preview_file_object(self):
         snapshots = self.get_snapshot('icon')
         if not snapshots:
             snapshots = self.get_snapshot('publish')
@@ -2515,45 +2523,60 @@ class Ui_itemWidget(QtGui.QWidget):
             # getting anything we can set to preview
             processes = self.get_all_snapshots()
             if processes:
-                process = processes.keys()[0]
+                process = list(processes.keys())[0]
                 if process:
                     snapshots = self.get_snapshot(process)
 
         if snapshots:
             preview_files_objects = snapshots.get_files_objects(group_by='type').get('icon')
             if preview_files_objects:
-                icon_previw = preview_files_objects[0].get_icon_preview()
-                if icon_previw:
-                    self.set_preview_pixmap(icon_previw)
+                self.icon_preview_file_object = preview_files_objects[0].get_icon_preview()
+
+                return self.icon_preview_file_object
+
+    def set_preview(self):
+        if self.icon_preview_file_object:
+            self.set_preview_pixmap(self.icon_preview_file_object)
+        else:
+            icon_previw = self.get_icon_preview_file_object()
+            if icon_previw:
+                self.set_preview_pixmap(icon_previw)
 
     def set_web_preview(self):
+        icon_preview = self.get_icon_preview_file_object()
+        if icon_preview:
+            self.check_icon_preview_threaded(icon_preview)
 
-        snapshots = self.get_snapshot('icon')
-        if not snapshots:
-            snapshots = self.get_snapshot('publish')
+    @staticmethod
+    def check_icon_file_exists(icon_preview):
 
-        if not snapshots:
-            # getting anything we can set to preview
-            processes = self.get_all_snapshots()
-            if processes:
-                process = processes.keys()[0]
-                if process:
-                    snapshots = self.get_snapshot(process)
+        # TODO This should be more complicated, and check hash not just size
+        # TODO Warning if file did not match local-remote
+        exists = icon_preview.is_exists()
+        match = icon_preview.get_file_size() == icon_preview.get_file_size(True)
 
-        if snapshots:
-            preview_files_objects = snapshots.get_files_objects(group_by='type').get('icon')
-            if preview_files_objects:
-                icon_previw = preview_files_objects[0].get_icon_preview()
-                if icon_previw:
-                    if icon_previw.is_exists():
-                        # TODO This should be more complicated, and check hash not just size
-                        # TODO Warning if file did not match local-remote
-                        if icon_previw.get_file_size() == icon_previw.get_file_size(True):
-                            self.set_preview()
-                        else:
-                            self.download_and_set_preview_file(icon_previw)
-                    else:
-                        self.download_and_set_preview_file(icon_previw)
+        return exists, match
+
+    def check_icon_preview_threaded(self, icon_preview):
+
+        worker = env_inst.local_pool.add_task(self.check_icon_file_exists, icon_preview)
+        worker.result.connect(self.set_checked_preview)
+        worker.error.connect(gf.error_handle)
+        worker.start()
+
+    def set_checked_preview(self, args=None):
+        exists = args[0]
+        match = args[1]
+
+        icon_preview = self.icon_preview_file_object
+
+        if exists:
+            if match:
+                self.set_preview()
+            else:
+                self.download_and_set_preview_file(icon_preview)
+        else:
+            self.download_and_set_preview_file(icon_preview)
 
     def download_and_set_preview_file(self, file_object):
         if not file_object.is_downloaded():
@@ -2563,16 +2586,10 @@ class Ui_itemWidget(QtGui.QWidget):
                 repo_sync_item.download()
 
     def set_preview_pixmap(self, file_object):
-
-        def get_pixmap_agent():
-            return self.load_preview_from_file(file_object.get_full_abs_path())
-
-        get_pixmap_worker = gf.get_thread_worker(
-            get_pixmap_agent,
-            result_func=self.set_preview_to_preview_label,
-            error_func=gf.error_handle
-        )
-        get_pixmap_worker.start()
+        worker = env_inst.local_pool.add_task(self.load_preview_from_file, file_object.get_full_abs_path())
+        worker.result.connect(self.set_preview_to_preview_label)
+        worker.error.connect(gf.error_handle)
+        worker.start()
 
     def set_preview_to_preview_label(self, data=None):
         if data:
@@ -2594,8 +2611,7 @@ class Ui_itemWidget(QtGui.QWidget):
 
         qfile = QtCore.QFile(image_path)
         qfile.open(QtCore.QIODevice.ReadOnly)
-        data = qfile.readAll()
-        return data
+        return qfile.readAll()
 
     def get_preview_pixmap(self, image_path=None, pixmap=None):
         if not pixmap:
@@ -2857,18 +2873,13 @@ class Ui_itemWidget(QtGui.QWidget):
 
         env_inst.ui_main.set_info_status_text('<span style=" font-size:8pt; color:#00ff00;">Getting snapshots</span>')
 
-        def update_snapshots_agent():
-            return self.sobject.update_snapshots(order_bys=order_bys)
-
-        env_inst.set_thread_pool(None, 'server_query/server_thread_pool')
-
-        query_worker = gf.get_thread_worker(
-            update_snapshots_agent,
-            thread_pool=env_inst.get_thread_pool('server_query/server_thread_pool'),
-            finished_func=self.fill_snapshots_items,
-            error_func=gf.error_handle
+        worker = env_inst.server_pool.add_task(
+            self.sobject.update_snapshots,
+            order_bys=order_bys
         )
-        query_worker.start()
+        worker.finished.connect(self.fill_snapshots_items)
+        worker.error.connect(gf.error_handle)
+        worker.start()
 
     def check_for_child_recursion(self):
         """
@@ -3125,21 +3136,15 @@ class Ui_itemWidget(QtGui.QWidget):
                         else:
                             child_item.set_child_count_title(val)
 
-        def get_notes_counts_agent():
-            return tc.get_notes_count(
-                sobject=self.sobject,
-                process=self.get_process_list(True),
-                children_stypes=self.get_children_list(),
-            )
-        env_inst.set_thread_pool(None, 'server_query/server_thread_pool')
-
-        notes_counts_query_worker = gf.get_thread_worker(
-            get_notes_counts_agent,
-            thread_pool=env_inst.get_thread_pool('server_query/server_thread_pool'),
-            result_func=notes_fill,
-            error_func=gf.error_handle
+        worker = env_inst.server_pool.add_task(
+            tc.get_notes_count,
+            sobject=self.sobject,
+            process=self.get_process_list(True),
+            children_stypes=self.get_children_list(),
         )
-        notes_counts_query_worker.start()
+        worker.result.connect(notes_fill)
+        worker.error.connect(gf.error_handle)
+        worker.start()
 
     def get_relationship(self):
         parent_item_widget = self.get_parent_item_widget()
@@ -3187,7 +3192,7 @@ class Ui_itemWidget(QtGui.QWidget):
             if context:
                 return context.versions
             else:
-                context = process.contexts.values()[0]
+                context = list(process.contexts.values())[0]
                 return context.versions
 
     def get_snapshots(self, process='publish'):
@@ -3198,7 +3203,7 @@ class Ui_itemWidget(QtGui.QWidget):
             context = snapshot_process.contexts.get(process)
 
             if not context:
-                context = snapshot_process.contexts.values()[0]
+                context = list(snapshot_process.contexts.values())[0]
             if context.versionless:
                 return context.versionless
             else:
@@ -3211,11 +3216,11 @@ class Ui_itemWidget(QtGui.QWidget):
 
         snapshot_process = self.sobject.process.get(process)
         if snapshot_process:
-            context = snapshot_process.contexts.values()[0]
+            context = list(snapshot_process.contexts.values())[0]
             if context.versionless:
-                return context.versionless.values()[0]
+                return list(context.versionless.values())[0]
             else:
-                return context.versions.values()[0]
+                return list(context.versions.values())[0]
 
     def unlink_current_sobject(self):
         sobject = self.get_sobject()
@@ -3439,13 +3444,13 @@ class Ui_processItemWidget(QtGui.QWidget):
         effect = QtGui.QGraphicsOpacityEffect(self.notesToolButton)
         effect.setOpacity(0)
 
-        self.notes_tool_button_anm_close = QtCore.QPropertyAnimation(effect, 'opacity', self.notesToolButton)
+        self.notes_tool_button_anm_close = QtCore.QPropertyAnimation(effect, b'opacity', self.notesToolButton)
         self.notes_tool_button_anm_close.setDuration(200)
         self.notes_tool_button_anm_close.setStartValue(1)
         self.notes_tool_button_anm_close.setEndValue(0)
         self.notes_tool_button_anm_close.setEasingCurve(QtCore.QEasingCurve.OutSine)
 
-        self.notes_tool_button_anm_open = QtCore.QPropertyAnimation(effect, 'opacity', self.notesToolButton)
+        self.notes_tool_button_anm_open = QtCore.QPropertyAnimation(effect, b'opacity', self.notesToolButton)
         self.notes_tool_button_anm_open.setDuration(200)
         self.notes_tool_button_anm_open.setStartValue(0)
         self.notes_tool_button_anm_open.setEndValue(1)
@@ -3558,12 +3563,12 @@ class Ui_processItemWidget(QtGui.QWidget):
         self.drop_icon_publish.setIcon(gf.get_icon('upload', icons_set='mdi', scale_factor=1))
         self.drop_icon_publish.setIconSize(QtCore.QSize(20, 20))
         effect = QtGui.QGraphicsOpacityEffect(self.drop_icon_publish)
-        self.drop_icon_publish_anm_close = QtCore.QPropertyAnimation(effect, 'opacity', self.drop_icon_publish)
+        self.drop_icon_publish_anm_close = QtCore.QPropertyAnimation(effect, b'opacity', self.drop_icon_publish)
         self.drop_icon_publish_anm_close.setDuration(200)
         self.drop_icon_publish_anm_close.setStartValue(1)
         self.drop_icon_publish_anm_close.setEndValue(0)
         self.drop_icon_publish_anm_close.setEasingCurve(QtCore.QEasingCurve.OutSine)
-        self.drop_icon_publish_anm_open = QtCore.QPropertyAnimation(effect, 'opacity', self.drop_icon_publish)
+        self.drop_icon_publish_anm_open = QtCore.QPropertyAnimation(effect, b'opacity', self.drop_icon_publish)
         self.drop_icon_publish_anm_open.setDuration(200)
         self.drop_icon_publish_anm_open.setStartValue(0)
         self.drop_icon_publish_anm_open.setEndValue(1)
@@ -3590,7 +3595,7 @@ class Ui_processItemWidget(QtGui.QWidget):
 
         effect = QtGui.QGraphicsBlurEffect(self.expand_item_button)
         effect.setBlurRadius(20)
-        self.expand_item_button_anm_opacity = QtCore.QPropertyAnimation(effect, 'blurRadius', self.expand_item_button)
+        self.expand_item_button_anm_opacity = QtCore.QPropertyAnimation(effect, b'blurRadius', self.expand_item_button)
         self.expand_item_button_anm_opacity.setDuration(200)
 
         self.expand_item_button_anm_opacity.setStartValue(20)
@@ -3648,22 +3653,15 @@ class Ui_processItemWidget(QtGui.QWidget):
                     if process_item:
                         process_item.set_notes_count(val, tasks_counts[key])
 
-        def get_notes_counts_agent():
-            return tc.get_notes_count(
-                sobject=self.sobject,
-                process=self.get_process_list(),
-                children_stypes=[]
-            )
-
-        env_inst.set_thread_pool(None, 'server_query/server_thread_pool')
-
-        notes_counts_query_worker = gf.get_thread_worker(
-            get_notes_counts_agent,
-            thread_pool=env_inst.get_thread_pool('server_query/server_thread_pool'),
-            result_func=notes_fill,
-            error_func=gf.error_handle
+        worker = env_inst.server_pool.add_task(
+            tc.get_notes_count,
+            sobject=self.sobject,
+            process=self.get_process_list(),
+            children_stypes=[],
         )
-        notes_counts_query_worker.start()
+        worker.result.connect(notes_fill)
+        worker.error.connect(gf.error_handle)
+        worker.start()
 
     def get_full_process_list(self):
         current_pipeline = self.get_current_process_pipeline()
@@ -4125,6 +4123,7 @@ class Ui_snapshotItemWidget(QtGui.QWidget):
         self.files = {}
 
         if snapshot:
+            print(snapshot)
             self.snapshot = snapshot[0].snapshot
             self.files = snapshot[0].files
 
@@ -4300,9 +4299,6 @@ class Ui_snapshotItemWidget(QtGui.QWidget):
         self.sizeLabel.deleteLater()
 
     def fill_info_with_meta_file_object(self, meta_file_object, tactic_file_object):
-
-        self.item_info_widget.clear()
-
         if not self.main_file_exists:
             self.fileNameLabel.setText('{0}, (File Offline)'.format(meta_file_object.get_pretty_file_name()))
         else:
@@ -4362,9 +4358,9 @@ class Ui_snapshotItemWidget(QtGui.QWidget):
         self.sizeLabel.setText(gf.sizes(tactic_file_object.get_file_size()))
 
         if gf.get_value_from_config(cfg_controls.get_checkin(), 'getPreviewsThroughHttpCheckbox') == 1:
-            self.set_web_preview()
+            self.set_web_preview(tactic_file_object)
         else:
-            self.set_preview()
+            self.set_preview(tactic_file_object)
 
     def set_ext_preview(self, tactic_file_object=None):
         if tactic_file_object:
@@ -4458,19 +4454,26 @@ class Ui_snapshotItemWidget(QtGui.QWidget):
 
     def check_file_threaded(self, file_object):
 
-        def check_file_agent():
-            return file_object.is_exists()
+        worker = env_inst.local_pool.add_task(file_object.is_exists)
+        worker.result.connect(self.fill_initial_info)
+        worker.error.connect(gf.error_handle)
+        worker.start()
 
-        get_pixmap_worker = gf.get_thread_worker(
-            check_file_agent,
-            result_func=self.set_main_file_exists,
-            error_func=gf.error_handle
-        )
-        get_pixmap_worker.start()
+    def fill_initial_info(self, file_exists=False):
 
-    def set_main_file_exists(self, exists=False):
-        self.main_file_exists = exists
-        self.previewLabel.setEnabled(exists)
+        self.main_file_exists = file_exists
+        self.previewLabel.setEnabled(file_exists)
+
+        self.item_info_widget.clear()
+
+        self.dateLabel = self.get_item_info_label()
+        self.dateLabel.setAlignment(QtCore.Qt.AlignRight)
+        self.verLabel = self.get_item_info_label()
+        self.verLabel.setTextFormat(QtCore.Qt.RichText)
+        self.revLabel = self.get_item_info_label()
+        self.revLabel.setTextFormat(QtCore.Qt.RichText)
+        self.repoLabel = self.get_item_info_label()
+        self.repoLabel.setTextFormat(QtCore.Qt.RichText)
 
         hidden = ['icon', 'web', 'playblast']
         snapshot = self.get_snapshot()
@@ -4487,6 +4490,36 @@ class Ui_snapshotItemWidget(QtGui.QWidget):
                     else:
                         self.fill_info_with_tactic_file_object(fls[0])
 
+        self.item_info_widget.add_item_to_right(self.dateLabel)
+        if gf.get_ver_rev(ver=self.snapshot['version'], rev=0):
+            self.item_info_widget.add_item(self.verLabel)
+        if gf.get_ver_rev(rev=self.snapshot['revision'], ver=0):
+            self.item_info_widget.add_item(self.revLabel)
+        if self.snapshot.get('repo'):
+            self.sizeLabel.setStyleSheet(self.get_repo_color())
+            repo_name = env_tactic.get_base_dir(self.snapshot['repo'])['value'][1]
+            hex_color = ['{:02x}'.format(i) for i in self.get_repo_color(True)]
+            self.repoLabel.setTextFormat(QtCore.Qt.RichText)
+            self.repoLabel.setText('<span style="color:#{0};">{1}</span>'.format(
+                ''.join(hex_color),
+                repo_name
+            ))
+            self.item_info_widget.add_item(self.repoLabel)
+
+        description = gf.to_plain_text(self.snapshot['description'], None)
+        self.descriptionLabel.setToolTip(u'<p>{}</p>'.format(description))
+        self.descriptionLabel.setText(description)
+
+        self.dateLabel.setText(self.snapshot['timestamp'].split('.')[0].replace(' ', ' \n'))
+        login_obj = env_inst.get_all_logins(self.snapshot['login'])
+        if login_obj:
+            self.authorLabel.setText(u'{}:'.format(login_obj.get_display_name()))
+        self.authorLabel.setAlignment(QtCore.Qt.AlignHCenter | QtCore.Qt.AlignVCenter)
+        self.verLabel.setText(gf.get_ver_rev(ver=self.snapshot['version'], rev=0))
+        self.revLabel.setText(gf.get_ver_rev(rev=self.snapshot['revision'], ver=0))
+
+        self.highlight_context_in_file_name()
+
     def check_main_file(self):
         snapshot = self.get_snapshot()
         if snapshot:
@@ -4495,19 +4528,9 @@ class Ui_snapshotItemWidget(QtGui.QWidget):
                 first_file = files_objects[0]
                 if first_file:
                     if first_file.is_meta_file_obj():
-                        # meta_file_object = first_file.get_meta_file_object()
                         self.check_file_threaded(first_file.get_meta_file_object())
-
-                        # if meta_file_object.is_exists():
-                        #     self.previewLabel.setEnabled(True)
-                        # else:
-                        #     self.previewLabel.setDisabled(True)
                     else:
                         self.check_file_threaded(first_file)
-                        # if first_file.is_exists():
-                        #     self.previewLabel.setEnabled(True)
-                        # else:
-                        #     self.previewLabel.setDisabled(True)
 
     def set_multiple_files_view(self):
         pixmap = gf.get_icon('folder-sign', icons_set='ei', opacity=0.5, scale_factor=0.5).pixmap(64, Qt4Gui.QIcon.Normal)
@@ -4515,18 +4538,11 @@ class Ui_snapshotItemWidget(QtGui.QWidget):
         self.fileNameLabel.setText('Multiple checkin: {0} '.format(self.context))
         self.descriptionLabel.setText('Snapshots count: {0}; Files count: {1};'.format(len(self.get_all_versions_snapshots()), len(self.get_all_versions_files())))
 
-        self.dateLabel.deleteLater()
-        self.sizeLabel.deleteLater()
-        self.authorLabel.deleteLater()
-
     def set_no_versionless_view(self):
         pixmap = gf.get_icon('exclamation-circle', opacity=0.5, scale_factor=0.6).pixmap(64, Qt4Gui.QIcon.Normal)
         self.previewLabel.setPixmap(pixmap.scaledToHeight(64, QtCore.Qt.SmoothTransformation))
         self.fileNameLabel.setText('Commit without versionless in {0}'.format(self.context))
         self.descriptionLabel.setText('Versionless for this commit is not present')
-        self.dateLabel.deleteLater()
-        self.sizeLabel.deleteLater()
-        self.authorLabel.deleteLater()
 
     def set_preview(self, tactic_file_object=None):
         snapshot = self.get_snapshot()
@@ -4547,7 +4563,7 @@ class Ui_snapshotItemWidget(QtGui.QWidget):
                 if icon_previw:
                     if icon_previw.is_exists():
                         if icon_previw.get_file_size() == icon_previw.get_file_size(True):
-                            self.set_preview()
+                            self.set_preview(tactic_file_object)
                         else:
                             self.download_and_set_preview_file(icon_previw)
                     else:
@@ -4564,15 +4580,10 @@ class Ui_snapshotItemWidget(QtGui.QWidget):
 
     def set_preview_pixmap(self, file_object):
 
-        def get_pixmap_agent():
-            return self.load_preview_from_file(file_object.get_full_abs_path())
-
-        get_pixmap_worker = gf.get_thread_worker(
-            get_pixmap_agent,
-            result_func=self.set_preview_to_preview_label,
-            error_func=gf.error_handle
-        )
-        get_pixmap_worker.start()
+        worker = env_inst.local_pool.add_task(self.load_preview_from_file, file_object.get_full_abs_path())
+        worker.result.connect(self.set_preview_to_preview_label)
+        worker.error.connect(gf.error_handle)
+        worker.start()
 
     def set_preview_to_preview_label(self, data=None):
         if data:
@@ -4910,48 +4921,8 @@ class Ui_snapshotItemWidget(QtGui.QWidget):
 
             self.create_item_info_widget()
 
-            self.dateLabel = self.get_item_info_label()
-            self.dateLabel.setAlignment(QtCore.Qt.AlignRight)
-            self.verLabel = self.get_item_info_label()
-            self.verLabel.setTextFormat(QtCore.Qt.RichText)
-            self.revLabel = self.get_item_info_label()
-            self.revLabel.setTextFormat(QtCore.Qt.RichText)
-            self.repoLabel = self.get_item_info_label()
-            self.repoLabel.setTextFormat(QtCore.Qt.RichText)
-
             if self.snapshot:
-
-                self.item_info_widget.add_item_to_right(self.dateLabel)
-                if gf.get_ver_rev(ver=self.snapshot['version'], rev=0):
-                    self.item_info_widget.add_item(self.verLabel)
-                if gf.get_ver_rev(rev=self.snapshot['revision'], ver=0):
-                    self.item_info_widget.add_item(self.revLabel)
-                if self.snapshot.get('repo'):
-                    self.sizeLabel.setStyleSheet(self.get_repo_color())
-                    repo_name = env_tactic.get_base_dir(self.snapshot['repo'])['value'][1]
-                    hex_color = ['{:02x}'.format(i) for i in self.get_repo_color(True)]
-                    self.repoLabel.setTextFormat(QtCore.Qt.RichText)
-                    self.repoLabel.setText('<span style="color:#{0};">{1}</span>'.format(
-                        ''.join(hex_color),
-                        repo_name
-                    ))
-                    self.item_info_widget.add_item(self.repoLabel)
-
-                description = gf.to_plain_text(self.snapshot['description'], None)
-                self.descriptionLabel.setToolTip(u'<p>{}</p>'.format(description))
-                self.descriptionLabel.setText(description)
-
-                self.dateLabel.setText(self.snapshot['timestamp'].split('.')[0].replace(' ', ' \n'))
-                login_obj = env_inst.get_all_logins(self.snapshot['login'])
-                if login_obj:
-                    self.authorLabel.setText(u'{}:'.format(login_obj.get_display_name()))
-                self.authorLabel.setAlignment(QtCore.Qt.AlignHCenter | QtCore.Qt.AlignVCenter)
-                self.verLabel.setText(gf.get_ver_rev(ver=self.snapshot['version'], rev=0))
-                self.revLabel.setText(gf.get_ver_rev(rev=self.snapshot['revision'], ver=0))
-
                 self.check_main_file()
-
-                self.highlight_context_in_file_name()
             else:
                 if self.get_checkin_mode_options() == 'multi_file':
                     self.set_multiple_files_view()
@@ -5060,7 +5031,7 @@ class Ui_childrenItemWidget(QtGui.QWidget):
 
         effect = QtGui.QGraphicsBlurEffect(self.expand_item_button)
         effect.setBlurRadius(20)
-        self.expand_item_button_anm_opacity = QtCore.QPropertyAnimation(effect, 'blurRadius', self.expand_item_button)
+        self.expand_item_button_anm_opacity = QtCore.QPropertyAnimation(effect, b'blurRadius', self.expand_item_button)
         self.expand_item_button_anm_opacity.setDuration(200)
 
         self.expand_item_button_anm_opacity.setStartValue(20)
@@ -5320,17 +5291,15 @@ class Ui_childrenItemWidget(QtGui.QWidget):
 
         parent_sobject = self.get_parent_sobject()
 
-        def get_sobjects_agent():
-            return self.sobject.get_related_sobjects(child_stype=self.stype, parent_stype=self.sobject.get_stype(), path='child')
-
-        get_sobjects_worker = gf.get_thread_worker(
-            get_sobjects_agent,
-            env_inst.get_thread_pool('server_query/http_download_pool'),
-            result_func=self.fill_child_items,
-            # progress_func=self.download_progress,
-            error_func=gf.error_handle,
+        worker = env_inst.server_pool.add_task(
+            self.sobject.get_related_sobjects,
+            child_stype=self.stype,
+            parent_stype=self.sobject.get_stype(),
+            path='child'
         )
-        get_sobjects_worker.start()
+        worker.result.connect(self.fill_child_items)
+        worker.error.connect(gf.error_handle)
+        worker.start()
 
     def fill_child_items(self, sobjects):
 
@@ -5454,7 +5423,7 @@ class Ui_groupItemWidget(QtGui.QWidget):
         title = self.group
 
 
-        print title
+        print(title)
 
         if isinstance(title, (bool, int, list)):
             title = str(title)
@@ -5673,7 +5642,7 @@ class Ui_groupItemWidget(QtGui.QWidget):
 
     def add_sobjects(self):
 
-        print 'GETTING'
+        print('GETTING')
 
         if not self.info['is_expanded']:
             self.info['is_expanded'] = True
@@ -5690,21 +5659,16 @@ class Ui_groupItemWidget(QtGui.QWidget):
 
             order_bys = ['name']
 
-            def get_sobjects_agent():
-                return tc.get_sobjects(
-                    search_type=self.stype.get_code(),
-                    project_code=self.project.get_code(),
-                    filters=filters,
-                    order_bys=order_bys,
-                )
-
-            get_sobjects_worker = gf.get_thread_worker(
-                get_sobjects_agent,
-                env_inst.get_thread_pool('server_query/http_download_pool'),
-                result_func=self.fill_sobjects,
-                error_func=gf.error_handle,
+            worker = env_inst.server_pool.add_task(
+                tc.get_sobjects,
+                search_type=self.stype.get_code(),
+                project_code=self.project.get_code(),
+                filters=filters,
+                order_bys=order_bys,
             )
-            get_sobjects_worker.start()
+            worker.result.connect(self.fill_sobjects)
+            worker.error.connect(gf.error_handle)
+            worker.start()
 
     def fill_sobjects(self, sobjects):
         self.loading_widget.close()

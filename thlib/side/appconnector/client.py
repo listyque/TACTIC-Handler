@@ -1,4 +1,4 @@
-from thlib.side.Qt import QtCore, QtNetwork
+from .qt import QtCore, QtNetwork
 from .private.p_socket import Socket
 from .private.p_socketthread import SocketThread
 from .private.p_logger import logger
@@ -18,9 +18,8 @@ class Client(QtCore.QObject):
         """
 
         logger.debug("initialise client object")
-        logger.setLevel('CRITICAL')
 
-        super(self.__class__, self).__init__()
+        super(Client, self).__init__()
 
         self.host = host
         self.port = port
@@ -28,11 +27,13 @@ class Client(QtCore.QObject):
         self._socket = None
         self._thread = None
 
-        self._manual_close = False
         self._attempt_timer = QtCore.QTimer()
         self._attempt_timer.setSingleShot(True)
         self._attempt_timer.timeout.connect(self.check_connection)
-        self.keepalive = True
+
+        self._manual_close = False
+
+        self.keep_alive = True
 
     def error_occurred(self, error):
 
@@ -48,7 +49,7 @@ class Client(QtCore.QObject):
         else:
             logger.warning("no client socket found")
 
-        self._attempt_timer.start(1000)
+        self._attempt_timer.start(3000)
 
     def check_connection(self):
 
@@ -56,7 +57,9 @@ class Client(QtCore.QObject):
         check connection
         """
 
-        if self.keepalive and not self._manual_close:
+        self.disconnected.emit()
+
+        if self.keep_alive and not self._manual_close:
             logger.debug("restore connection")
             if self.is_connected:
                 self.abort()
@@ -72,10 +75,7 @@ class Client(QtCore.QObject):
         :return - is connected state (bool)
         """
 
-        if self.state != QtNetwork.QAbstractSocket.UnconnectedState and self.state != QtNetwork.QAbstractSocket.ClosingState:
-            return True
-
-        return False
+        return self.state == QtNetwork.QAbstractSocket.ConnectedState
 
     @property
     def state(self):
@@ -129,22 +129,29 @@ class Client(QtCore.QObject):
             self.host = host
             self.port = port
 
-            self._thread = SocketThread(self)
+            if self._socket is not None:
+                self._socket.abort()
 
-            self._socket = Socket(self)
+            else:
+                self._socket = Socket()
+
+            self._socket.received.connect(self.received)
             self._socket.disconnected.connect(self.check_connection)
-            self._socket.disconnected.connect(self.disconnected.emit)
             self._socket.error.connect(self.error_occurred)
             self._socket.error.connect(self.error.emit)
             self._socket.connected.connect(self.connected.emit)
-            self._socket.received.connect(self.received)
 
-            self._socket.moveToThread(self._thread)
-            self._thread.opening.connect(self._socket.connectToHost)
-            self._thread.sending.connect(self._socket.send)
-            self._thread.finished.connect(self._thread.deleteLater)
+        self._thread = SocketThread(self)
 
-            self._thread.start()
+        self._thread.finished.connect(self._thread.deleteLater)
+
+        self._thread.opening.connect(self._socket.connectToHost)
+        self._thread.sending.connect(self._socket.send)
+        self._thread.closing.connect(self._socket.close)
+
+        self._socket.moveToThread(self._thread)
+
+        self._thread.start()
 
         logger.info("open client connection to host " + repr(self.host) + " with port " + repr(self.port))
         self._thread.open(self.host, self.port)
@@ -157,26 +164,22 @@ class Client(QtCore.QObject):
 
         self._manual_close = True
 
-        if self._socket is not None and self.is_connected:
+        if self._socket is not None:
             logger.debug("close client connection")
-            self._socket.moveToThread(QtCore.QThread.currentThread())
-            self._socket.close()
-            self._socket.deleteLater()
+
+            self._thread.opening.disconnect()
+            self._thread.sending.disconnect()
+
+            self._thread.close()
+            self._thread.wait(60)
+            self._thread.quit()
+            self._thread.wait(60)
+
+            self._thread = None
             self._socket = None
 
         else:
             logger.warning("client connection already closed")
-
-        if self._thread is not None:
-            logger.debug("cancel client connection thread")
-            if self._thread.isRunning():
-                self._thread.exit(0)
-
-            self._thread.deleteLater()
-            self._thread = None
-
-        else:
-            logger.warning("client connection thread already canceled")
 
     def abort(self):
 
@@ -197,6 +200,8 @@ class Client(QtCore.QObject):
 
         """
         send data
+
+        :param data - message data (QByteArray)
         """
 
         if self.is_connected:

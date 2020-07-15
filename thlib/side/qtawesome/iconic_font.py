@@ -232,7 +232,10 @@ class IconicFont(QObject):
 
         def unichar(i):
             try:
-                return unichr(i)
+                try:
+                    return unichr(i)
+                except:
+                    return chr(i)
             except ValueError:
                 return struct.pack('i', i).decode('utf-32')
 

@@ -1,5 +1,5 @@
 import uuid
-from thlib.side.Qt import QtCore, QtNetwork
+from ..qt import QtCore, QtNetwork
 from .p_socketthread import SocketThread
 from .p_logger import logger
 
@@ -21,22 +21,34 @@ class Connection(QtCore.QObject):
         self.key = uuid.uuid4()
         logger.debug("initialise connection object " + repr(self.key))
 
-        super(self.__class__, self).__init__()
+        super(Connection, self).__init__()
 
+        self._thread = None
         self._socket = socket
-        self._thread = SocketThread(self)
 
+        self._socket.received.connect(self.received)
         self._socket.disconnected.connect(self.disconnected.emit)
         self._socket.connected.connect(self.connected.emit)
         self._socket.error.connect(self.error.emit)
-        self._socket.received.connect(self.received)
 
-        self._socket.moveToThread(self._thread)
-        self._thread.opening.connect(self._socket.connectToHost)
-        self._thread.sending.connect(self._socket.send)
-        self._thread.finished.connect(self._thread.deleteLater)
+    def start(self):
+
+        """
+        start connection thread
+        """
 
         logger.debug("begin connection thread " + repr(self.key))
+
+        self._thread = SocketThread(self)
+
+        self._thread.finished.connect(self._thread.deleteLater)
+
+        self._thread.opening.connect(self._socket.connectToHost)
+        self._thread.sending.connect(self._socket.send)
+        self._thread.closing.connect(self._socket.close)
+
+        self._socket.moveToThread(self._thread)
+
         self._thread.start()
 
     @property
@@ -74,25 +86,22 @@ class Connection(QtCore.QObject):
         close connection
         """
 
-        if self._socket is not None and self.is_connected:
+        if self._socket is not None:
             logger.debug("close connection " + repr(self.key))
-            self._socket.moveToThread(QtCore.QThread.currentThread())
-            self._socket.close()
-            self._socket.deleteLater()
+
+            self._thread.opening.disconnect()
+            self._thread.sending.disconnect()
+
+            self._thread.close()
+            self._thread.wait(60)
+            self._thread.quit()
+            self._thread.wait(60)
+
+            self._thread = None
+            self._socket = None
 
         else:
             logger.warning("can`t close already closed connection " + repr(self.key))
-
-        if self._thread is not None:
-            logger.debug("cancel connection thread " + repr(self.key))
-            if self._thread.isRunning():
-                self._thread.exit(0)
-
-            self._thread.deleteLater()
-            self._thread = None
-
-        else:
-            logger.debug("can`t cancel non-existing connection thread " + repr(self.key))
 
     def abort(self):
 
@@ -113,5 +122,5 @@ class Connection(QtCore.QObject):
         send data
         """
 
-        logger.warning("send data to connection " + repr(self.key))
+        logger.debug("send data to connection " + repr(self.key))
         self._thread.send(data)

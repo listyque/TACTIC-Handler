@@ -1,3 +1,3 @@
 __author__ = 'Krivospitskiy Alexey'
 
-from ui_script_editor_classes import *
+#from thlib.ui_classes.ui_script_editor_classes import *

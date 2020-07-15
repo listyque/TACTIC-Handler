@@ -11,8 +11,8 @@ import thlib.ui.checkin_out.ui_drop_plate as ui_drop_plate
 import thlib.ui.checkin_out.ui_drop_plate_config as ui_drop_plate_config
 from thlib.ui_classes.ui_custom_qwidgets import Ui_horizontalCollapsableWidget
 
-reload(ui_drop_plate)
-reload(ui_drop_plate_config)
+#reload(ui_drop_plate)
+#reload(ui_drop_plate_config)
 
 
 class Ui_matchingTemplateConfigWidget(QtGui.QDialog, ui_drop_plate_config.Ui_matchingTemplateConfig):
@@ -151,12 +151,12 @@ class Ui_dropPlateWidget(QtGui.QWidget, ui_drop_plate.Ui_dropPlate):
         def get_files_objects_agent():
             return self.get_files_objects(kwargs)
 
-        worker = gf.get_thread_worker(get_files_objects_agent)
+        worker, thread_pool = gf.get_thread_worker(get_files_objects_agent)
         worker.result_func(self.append_items_to_tree)
         if exec_after_added:
             worker.finished_func(exec_after_added)
         worker.error_func(gf.error_handle)
-        worker.try_start()
+        thread_pool.start(worker)
 
     def create_ui(self):
 
@@ -489,9 +489,9 @@ class Ui_dropPlateWidget(QtGui.QWidget, ui_drop_plate.Ui_dropPlate):
 
     def dropEvent(self, event):
 
-        print event.mimeData()
-        print event.mimeData().text()
-        print event.mimeData().urls()
+        # print event.mimeData()
+        # print event.mimeData().text()
+        # print event.mimeData().urls()
 
         if event.mimeData().hasUrls:
             event.setDropAction(QtCore.Qt.CopyAction)
