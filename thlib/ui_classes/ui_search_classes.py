@@ -18,11 +18,12 @@ __all__ = ['Ui_navigationWidget', 'Ui_searchWidget', 'Ui_searchOptionsWidget',
 import collections
 import itertools
 from functools import partial
+import thlib.side.six as six
 from thlib.side.Qt import QtWidgets as QtGui
 from thlib.side.Qt import QtGui as Qt4Gui
 from thlib.side.Qt import QtCore
 
-from thlib.environment import env_inst, env_server, cfg_controls, env_read_config, env_write_config
+from thlib.environment import env_inst, env_server, env_mode, cfg_controls, env_read_config, env_write_config
 import thlib.global_functions as gf
 import thlib.tactic_classes as tc
 from thlib.ui_classes.ui_custom_qwidgets import SuggestedLineEdit, Ui_horizontalCollapsableWidget, Ui_collapsableWidget, Ui_extendedTreeWidget, Ui_extendedTabBarWidget, StyledToolButton, StyledComboBox
@@ -1155,6 +1156,7 @@ class Ui_searchWidget(QtGui.QWidget):
         self.buttons_layout.addWidget(widget)
 
     def set_search_cache(self, search_cache, current_index=0):
+        # print(search_cache)
         search_cache = gf.hex_to_html(search_cache)
 
         # work around for preventing tab widgets showing when tab adding
@@ -1200,7 +1202,7 @@ class Ui_searchWidget(QtGui.QWidget):
 
             tab_info_list.append(results_form_widget.get_info_dict())
 
-        return gf.html_to_hex(gf.to_json(tab_info_list, use_ast=True))
+        return str(gf.html_to_hex(gf.to_json(tab_info_list, use_ast=True)))
 
     def set_settings_from_dict(self, settings_dict=None):
         ref_settings_dict = {
@@ -1802,7 +1804,7 @@ class Ui_advancedSearchWidget(QtGui.QWidget):
             # Making two lists of OP and filters
             for fl in filters:
                 # if we found op we add it to list, and mark op is added
-                if isinstance(fl, (str, unicode)):
+                if isinstance(fl, six.string_types):
                     ops_list.append(fl)
                     op_added = True
                 else:
@@ -1812,7 +1814,7 @@ class Ui_advancedSearchWidget(QtGui.QWidget):
                         next_op = default_op
                         idx = filters.index(fl)
                         for i in filters[idx:]:
-                            if isinstance(i, (str, unicode)):
+                            if isinstance(i, six.string_types):
                                 next_op = i
                                 break
                         # adding next closing OP
@@ -2105,9 +2107,9 @@ class Ui_navigationWidget(QtGui.QWidget):
                 if start_page < 0:
                     start_page = 0
 
-                page_ranges = range(start_page, last_page)
+                page_ranges = range(int(start_page), int(last_page))
             else:
-                page_ranges = range(self.last_page)
+                page_ranges = range(int(self.last_page))
 
             for i in page_ranges:
 
@@ -2512,8 +2514,10 @@ class Ui_searchResultsWidget(QtGui.QWidget):
         return str(self.items_view_splitter.saveState().toHex())
 
     def set_current_splitter_state(self, splitter_state):
-        print('SKIP RESTORE STATE2')
-        #self.items_view_splitter.restoreState(QtCore.QByteArray.fromHex(splitter_state))
+        if env_mode.py2:
+            self.items_view_splitter.restoreState(QtCore.QByteArray.fromHex(splitter_state))
+        else:
+            self.items_view_splitter.restoreState(QtCore.QByteArray.fromHex(eval(splitter_state)))
 
     def get_current_view(self):
         return self.info.get('view')
@@ -2959,7 +2963,7 @@ class Ui_searchResultsWidget(QtGui.QWidget):
                         ready_snapshots = collections.OrderedDict()
                         for snapshot in snapshots:
                             if snapshot:
-                                ready_snapshots[snapshot.keys()[0]] = list(snapshot.values())[0]
+                                ready_snapshots[list(snapshot.keys())[0]] = list(snapshot.values())[0]
 
                     gf.add_versions_snapshot_item(
                         self.resultsVersionsTreeWidget,

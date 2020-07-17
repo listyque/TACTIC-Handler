@@ -734,7 +734,7 @@ class Ui_repoSyncDialog(QtGui.QDialog):
 
             if not self.interrupted:
 
-                if process_name in all_precesses.keys():
+                if process_name in list(all_precesses.keys()):
                     contexts = process_object.get_contexts()
                     for context, context_obj in contexts.items():
 
@@ -1085,6 +1085,9 @@ class Ui_repoSyncQueueWidget(QtGui.QMainWindow):
         return self.total_downloading_count == self.total_downloaded_count
 
     def do_download_file_object(self, file_object, reply):
+
+        # print(type(reply.readAll()))
+
         repo_sync_item = self.queue_dict.get(file_object.get_unique_id())
 
         info_dict = {
@@ -1095,7 +1098,7 @@ class Ui_repoSyncQueueWidget(QtGui.QMainWindow):
 
         full_abs_path = file_object.prepare_repo()
         with open(full_abs_path, "wb") as downloaded_file:
-            downloaded_file.write(reply.readAll())
+            downloaded_file.write(bytearray(reply.readAll()))
 
         repo_sync_item.download_progress(4, info_dict)
 
@@ -1113,7 +1116,7 @@ class Ui_repoSyncQueueWidget(QtGui.QMainWindow):
     def schedule_file_object(self, file_object):
 
         # If we already downloaded particular file object, make a new instance of it
-        if file_object.get_unique_id() in self.queue_dict.keys():
+        if file_object.get_unique_id() in list(self.queue_dict.keys()):
             file_object = copy.copy(file_object)
 
         self.total_downloading_count += 1

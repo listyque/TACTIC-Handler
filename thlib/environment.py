@@ -4,6 +4,7 @@
 import sys
 import os
 import io
+from thlib.side.six import PY3
 import subprocess
 import locale
 import datetime
@@ -19,8 +20,8 @@ from thlib.pool import ThreadsPool
 from thlib.side.appconnector.server import Server
 from thlib.side.appconnector.client import Client
 
-IS_Pv3 = sys.version_info[0] > 2
-CFG_FORMAT = 'ini'  # set this to 'ini' if you want to use QSettings instead of json
+
+CFG_FORMAT = 'json'  # set this to 'ini' if you want to use QSettings instead of json
 SERVER_THREADS_COUNT = 4  # max connections to remote tactic server
 HTTP_THREADS_COUNT = 4  # max connections to http
 LOCAL_THREADS_COUNT = 16  # max local threads
@@ -74,7 +75,7 @@ def env_write_config(obj=None, filename='settings', unique_id='', sub_id=None, u
     if long_abs_path:
         abs_path = u'{0}/settings/{1}/{2}/{3}'.format(
                     env_mode.get_current_path(),
-                    env_mode.get_node(),
+                    env_mode.node,
                     env_server.get_cur_srv_preset(),
                     env_mode.get_mode())
     else:
@@ -104,12 +105,14 @@ def env_write_config(obj=None, filename='settings', unique_id='', sub_id=None, u
                 obj = {sub_id: obj}
 
         with open(full_path, 'w') as json_file:
-            print(type(obj))
 
-            # def dd(i):
-            #     return str(i)
+            obj_str = obj
 
-            json.dump(obj, json_file, indent=2, separators=(',', ': '))
+            if PY3:
+                if isinstance(obj, (bytes, bytearray)):
+                    obj_str = obj.decode('utf-8', errors='ignore')
+
+            json.dump(obj_str, json_file, indent=2, separators=(',', ': '))
 
         json_file.close()
 
@@ -119,8 +122,11 @@ def env_write_config(obj=None, filename='settings', unique_id='', sub_id=None, u
         settings.beginGroup(filename)
         if sub_id:
             settings.beginGroup(sub_id)
-        if isinstance(obj, (str, bytes, bytearray)):
-            obj = str(obj, 'utf-8', 'ignore')
+
+        if PY3:
+            if isinstance(obj, (str, bytes, bytearray)):
+                obj = str(obj, 'utf-8', 'ignore')
+
         settings.setValue(unique_id, json.dumps(obj, separators=(',', ':')))
         settings.endGroup()
 
@@ -132,7 +138,7 @@ def env_read_config(filename='settings', unique_id='', sub_id=None, long_abs_pat
     if long_abs_path:
         abs_path = u'{0}/settings/{1}/{2}/{3}'.format(
                     env_mode.get_current_path(),
-                    env_mode.get_node(),
+                    env_mode.node,
                     env_server.get_cur_srv_preset(),
                     env_mode.get_mode())
     else:
@@ -244,10 +250,10 @@ class Inst(object):
         self.commit_pool.exit()
         self.local_pool.exit()
 
-        self.server_pool.wait()
+        # self.server_pool.wait()
         # self.http_pool.wait()
-        self.commit_pool.wait()
-        self.local_pool.wait()
+        # self.commit_pool.wait()
+        # self.local_pool.wait()
 
     def get_current_project(self):
         return self.current_project
@@ -489,10 +495,21 @@ class Mode(object):
         self.current_python_path = None
         self.get_current_path()
         self.platform = platform.system()
+
+    @property
+    def node(self):
         if SPECIALIZED:
-            self.node = SPECIALIZED
+            return SPECIALIZED
         else:
-            self.node = platform.node()
+            return platform.node()
+
+    @property
+    def py3(self):
+        return PY3
+
+    @property
+    def py2(self):
+        return not PY3
 
     def set_mode(self, mode):
         if mode in self.modes:
@@ -519,16 +536,20 @@ class Mode(object):
 
     def get_current_python_path(self):
         if self.current_python_path:
-            # return self.current_python_path.decode(locale.getpreferredencoding())
-            return self.current_python_path
+            if self.py2:
+                return self.current_python_path.decode(locale.getpreferredencoding())
+            else:
+                return self.current_python_path
         else:
             self.current_python_path = sys.executable
             if self.current_mode == 'maya':
+                # TODO Maya for Linux and MacOS
                 self.current_python_path = sys.executable.replace('maya.exe', 'mayapy.exe')
 
-            # return self.current_python_path.decode(locale.getpreferredencoding())
-            print('PY3 HACK 2')
-            return self.current_python_path
+            if self.py2:
+                return self.current_python_path.decode(locale.getpreferredencoding())
+            else:
+                return self.current_python_path
 
     def get_platform(self):
         return self.platform
@@ -600,7 +621,7 @@ class Env(object):
         self.defaults = self.get_default_preset()
 
     def get_defaults(self):
-        unique_id = '{0}/environment_config/server_presets'.format(env_mode.get_node())
+        unique_id = '{0}/environment_config/server_presets'.format(env_mode.node)
         self.defaults = env_read_config(filename=self.get_cur_srv_preset(), unique_id=unique_id)
 
         if not self.defaults:
@@ -617,7 +638,7 @@ class Env(object):
             self.defaults['proxy'] = self.proxy
             self.defaults['timeout'] = self.timeout
 
-        unique_id = '{0}/environment_config/server_presets'.format(env_mode.get_node())
+        unique_id = '{0}/environment_config/server_presets'.format(env_mode.node)
         env_write_config(self.defaults, filename=self.get_cur_srv_preset(), unique_id=unique_id)
 
     def get_proxy(self):
@@ -681,11 +702,11 @@ class Env(object):
         self.server = server_name
 
     def save_server_presets_defaults(self):
-        unique_id = '{0}/environment_config'.format(env_mode.get_node())
+        unique_id = '{0}/environment_config'.format(env_mode.node)
         env_write_config(self.server_presets_defaults, filename='presets_conf', unique_id=unique_id)
 
     def get_server_presets_defaults(self):
-        unique_id = '{0}/environment_config'.format(env_mode.get_node())
+        unique_id = '{0}/environment_config'.format(env_mode.node)
         self.server_presets_defaults = env_read_config(filename='presets_conf', unique_id=unique_id)
         if not self.server_presets_defaults:
             self.server_presets_defaults = {'server_presets': {'presets_list': ['default'], 'current': 'default'}}
@@ -698,7 +719,7 @@ class Env(object):
 
     @staticmethod
     def get_server_preset(preset_name):
-        unique_id = '{0}/environment_config/server_presets'.format(env_mode.get_node())
+        unique_id = '{0}/environment_config/server_presets'.format(env_mode.node)
         return env_read_config(filename=preset_name, unique_id=unique_id)
 
     def set_cur_srv_preset(self, current):
@@ -755,7 +776,7 @@ class Tactic(object):
         default_base_dirs = tc.server_start().get_base_dirs()
         self.default_base_dirs = default_base_dirs
 
-        unique_id = '{0}/environment_config/server_presets'.format(env_mode.get_node())
+        unique_id = '{0}/environment_config/server_presets'.format(env_mode.node)
         tactic_dirs_filename = 'tactic_dirs_{}'.format(env_server.get_cur_srv_preset())
         env_write_config(default_base_dirs, filename=tactic_dirs_filename, unique_id=unique_id, sub_id='TACTIC_DEFAULT_DIRS', update_file=True)
 
@@ -764,7 +785,7 @@ class Tactic(object):
     def get_default_base_dirs(self, force=False):
         if not self.default_base_dirs or force:
 
-            unique_id = '{0}/environment_config/server_presets'.format(env_mode.get_node())
+            unique_id = '{0}/environment_config/server_presets'.format(env_mode.node)
             tactic_dirs_filename = 'tactic_dirs_{}'.format(env_server.get_cur_srv_preset())
             self.default_base_dirs = env_read_config(filename=tactic_dirs_filename, unique_id=unique_id, sub_id='TACTIC_DEFAULT_DIRS')
 
@@ -777,7 +798,7 @@ class Tactic(object):
     def get_base_dirs(self, force=False):
         if not self.base_dirs or force:
 
-            unique_id = '{0}/environment_config/server_presets'.format(env_mode.get_node())
+            unique_id = '{0}/environment_config/server_presets'.format(env_mode.node)
             tactic_dirs_filename = 'tactic_dirs_{}'.format(env_server.get_cur_srv_preset())
             self.base_dirs = env_read_config(filename=tactic_dirs_filename, unique_id=unique_id, sub_id='TACTIC_BASE_DIRS')
 
@@ -812,7 +833,7 @@ class Tactic(object):
         return self.base_dirs
 
     def save_base_dirs(self):
-        unique_id = '{0}/environment_config/server_presets'.format(env_mode.get_node())
+        unique_id = '{0}/environment_config/server_presets'.format(env_mode.node)
         tactic_dirs_filename = 'tactic_dirs_{}'.format(env_server.get_cur_srv_preset())
         env_write_config(self.base_dirs, filename=tactic_dirs_filename, unique_id=unique_id, sub_id='TACTIC_BASE_DIRS', update_file=True)
 
@@ -823,7 +844,7 @@ class Tactic(object):
             return {'name': 'win32_custom_asset_dir', 'value': self.custom_dirs['win32_custom_asset_dir']}
 
     def get_custom_dirs(self):
-        unique_id = '{0}/environment_config/server_presets'.format(env_mode.get_node())
+        unique_id = '{0}/environment_config/server_presets'.format(env_mode.node)
         tactic_dirs_filename = 'tactic_dirs_{}'.format(env_server.get_cur_srv_preset())
         self.custom_dirs = env_read_config(filename=tactic_dirs_filename, unique_id=unique_id, sub_id='TACTIC_CUSTOM_DIRS')
 
@@ -834,7 +855,7 @@ class Tactic(object):
                     'win32_custom_asset_dir': {'path': [], 'name': [], 'current': [], 'visible': [], 'color': [], 'enabled': False},
                 }
 
-            unique_id = '{0}/environment_config/server_presets'.format(env_mode.get_node())
+            unique_id = '{0}/environment_config/server_presets'.format(env_mode.node)
             tactic_dirs_filename = 'tactic_dirs_{}'.format(env_server.get_cur_srv_preset())
             env_write_config(self.custom_dirs, filename=tactic_dirs_filename, unique_id=unique_id, sub_id='TACTIC_CUSTOM_DIRS', update_file=True)
 
@@ -1070,7 +1091,7 @@ class ApiConnectorWrapper(object):
         filters=[])
 
     def handoff(result=None):
-        print result
+        print(result)
 
     env_api.get_results(client, handoff)
 
@@ -1095,7 +1116,7 @@ class ApiConnectorWrapper(object):
 
     def server_handle_input_data(self, socket, data):
 
-        method_name, args, kwargs = loads(str(data))
+        method_name, args, kwargs = loads(data)
 
         if method_name == 'close_server':
             print('Got closing server Command')
@@ -1126,19 +1147,23 @@ class ApiConnectorWrapper(object):
 
     def close_server(self, parent=None):
 
-        def handoff(result=None):
-            print(result)
+        def close_client(client, result=None):
+            client.close()
 
         client = self.execute_method('close_server')
 
-        env_api.get_results(client, handoff)
         if parent:
             client.setParent(parent)
         else:
             client.setParent(env_inst.ui_main)
 
+        client.connected.connect(lambda cl=client: close_client(cl))
+        client.error.connect(lambda cl=client: close_client(cl))
+
+        client.open()
+
         client._socket.waitForReadyRead()
-        client.close()
+
         return client
 
     @staticmethod
@@ -1179,7 +1204,8 @@ class ApiConnectorWrapper(object):
             in_data = str(data)
             if not in_data.startswith('key:'):
 
-                result = loads(str(data))
+                result = loads(data)
+
                 if result[0] == '__exception__':
                     cl.close()
                     raise Exception(result[1].get('faultString'))
@@ -1207,8 +1233,12 @@ class ApiConnectorWrapper(object):
 
             def start_api():
                 filepath = u'{0}/tactic_api_server.py'.format(env_mode.get_current_path())
-                subprocess.Popen((env_mode.get_current_python_path(), filepath), shell=True, stdin=subprocess.PIPE,
-                                 stderr=subprocess.PIPE, stdout=subprocess.PIPE)
+
+                if PY3:
+                    subprocess.Popen((env_mode.get_current_python_path(), filepath), shell=False)
+                else:
+                    subprocess.Popen((env_mode.get_current_python_path(), filepath), shell=True, stdin=subprocess.PIPE,
+                                     stderr=subprocess.PIPE, stdout=subprocess.PIPE)
 
                 self.starting_api_server = False
 

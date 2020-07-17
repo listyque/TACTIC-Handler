@@ -40,9 +40,11 @@ class Ui_floatNotifyWidget(QtGui.QDialog, ui_notifications.Ui_floatNotify):
         self.setIcon()
         self.trayIcon.show()
 
-        self._updateTimer = QtCore.QTimer(self)
+        # self._updateTimer = QtCore.QTimer(self)
 
         self.controls_actions()
+
+        self.trayIcon.showMessage('Tactic Handler Server Api', 'TACTIC Api server is running.\nOpening and closes automatically.', QtGui.QSystemTrayIcon.Information, 500)
 
     def close_app(self):
         self.close()
@@ -55,10 +57,11 @@ class Ui_floatNotifyWidget(QtGui.QDialog, ui_notifications.Ui_floatNotify):
         # self.skipToolButton.clicked.connect(self.manual_update)
 
         # self.trayIcon.activated.connect(self.show_notify_window)
-        self._updateTimer.timeout.connect(self.perform_update)
+        # self._updateTimer.timeout.connect(self.perform_update)
 
     def setIcon(self):
         icon = Qt4Gui.QIcon(':/ui_main/gliph/tactic_favicon.ico')
+
         self.setWindowIcon(icon)
         self.trayIcon.setIcon(icon)
 

@@ -8,7 +8,7 @@ from thlib.side.Qt import QtCore
 #import thlib.ui.misc.ui_snapshot_browser as ui_snapshot_browser
 from thlib.ui_classes.ui_custom_qwidgets import Ui_horizontalCollapsableWidget, StyledToolButton
 import thlib.ui_classes.ui_addsobject_classes as addsobject_widget
-from thlib.environment import env_inst, cfg_controls
+from thlib.environment import env_inst, env_mode, cfg_controls
 import thlib.global_functions as gf
 import thlib.tactic_classes as tc
 
@@ -707,7 +707,7 @@ class Ui_snapshotBrowserWidget(QtGui.QWidget):
         self.downloading_in_progress = True
 
         if not file_object.is_downloaded():
-            if file_object.get_unique_id() not in env_inst.ui_repo_sync_queue.queue_dict.keys():
+            if file_object.get_unique_id() not in list(env_inst.ui_repo_sync_queue.queue_dict.keys()):
                 repo_sync_widget = env_inst.ui_repo_sync_queue.schedule_file_object(file_object)
                 repo_sync_widget.downloaded.connect(self.download_ready)
                 repo_sync_widget.download()
@@ -889,32 +889,32 @@ class Ui_snapshotBrowserWidget(QtGui.QWidget):
         self.state2 = QtCore.QState()
         self.state3 = QtCore.QState()
 
-        self.state1.assignProperty(self.pm1, b'pos', QtCore.QPoint(0, 0))
-        self.state1.assignProperty(self.pm1, b'opacity', 1)
+        self.state1.assignProperty(self.pm1, 'pos', QtCore.QPoint(0, 0))
+        self.state1.assignProperty(self.pm1, 'opacity', 1)
 
-        self.state2.assignProperty(self.pm1, b'pos', QtCore.QPoint(-255, 0))
-        self.state2.assignProperty(self.pm1, b'opacity', 0)
+        self.state2.assignProperty(self.pm1, 'pos', QtCore.QPoint(-255, 0))
+        self.state2.assignProperty(self.pm1, 'opacity', 0)
 
-        self.state3.assignProperty(self.pm1, b'pos', QtCore.QPoint(255, 0))
-        self.state3.assignProperty(self.pm1, b'opacity', 0)
+        self.state3.assignProperty(self.pm1, 'pos', QtCore.QPoint(255, 0))
+        self.state3.assignProperty(self.pm1, 'opacity', 0)
 
-        self.state1.assignProperty(self.pm2, b'pos', QtCore.QPoint(255, 0))
-        self.state1.assignProperty(self.pm2, b'opacity', 0)
+        self.state1.assignProperty(self.pm2, 'pos', QtCore.QPoint(255, 0))
+        self.state1.assignProperty(self.pm2, 'opacity', 0)
 
-        self.state2.assignProperty(self.pm2, b'pos', QtCore.QPoint(0, 0))
-        self.state2.assignProperty(self.pm2, b'opacity', 1)
+        self.state2.assignProperty(self.pm2, 'pos', QtCore.QPoint(0, 0))
+        self.state2.assignProperty(self.pm2, 'opacity', 1)
 
-        self.state3.assignProperty(self.pm2, b'pos', QtCore.QPoint(-255, 0))
-        self.state3.assignProperty(self.pm2, b'opacity', 0)
+        self.state3.assignProperty(self.pm2, 'pos', QtCore.QPoint(-255, 0))
+        self.state3.assignProperty(self.pm2, 'opacity', 0)
 
-        self.state1.assignProperty(self.pm3, b'pos', QtCore.QPoint(-255, 0))
-        self.state1.assignProperty(self.pm3, b'opacity', 0)
+        self.state1.assignProperty(self.pm3, 'pos', QtCore.QPoint(-255, 0))
+        self.state1.assignProperty(self.pm3, 'opacity', 0)
 
-        self.state2.assignProperty(self.pm3, b'pos', QtCore.QPoint(255, 0))
-        self.state2.assignProperty(self.pm3, b'opacity', 0)
+        self.state2.assignProperty(self.pm3, 'pos', QtCore.QPoint(255, 0))
+        self.state2.assignProperty(self.pm3, 'opacity', 0)
 
-        self.state3.assignProperty(self.pm3, b'pos', QtCore.QPoint(0, 0))
-        self.state3.assignProperty(self.pm3, b'opacity', 1)
+        self.state3.assignProperty(self.pm3, 'pos', QtCore.QPoint(0, 0))
+        self.state3.assignProperty(self.pm3, 'opacity', 1)
 
         self.pm1_anm = QtCore.QPropertyAnimation(self.pm1, b'pos', self)
         self.pm1_anm.setEasingCurve(QtCore.QEasingCurve.OutExpo)
@@ -1177,7 +1177,10 @@ class Ui_snapshotBrowserWidget(QtGui.QWidget):
         self.showAllCheckBox.setChecked(settings['showAllCheckBox'])
         self.showMoreInfoCheckBox.setChecked(settings['showMoreInfoCheckBox'])
         if settings['browserSplitter']:
-            self.browserSplitter.restoreState(QtCore.QByteArray.fromHex(str(settings['browserSplitter'])))
+            if env_mode.py2:
+                self.browserSplitter.restoreState(QtCore.QByteArray.fromHex(str(settings['browserSplitter'])))
+            else:
+                self.browserSplitter.restoreState(QtCore.QByteArray.fromHex(eval(settings['browserSplitter'])))
 
     def get_settings_dict(self):
         settings_dict = {

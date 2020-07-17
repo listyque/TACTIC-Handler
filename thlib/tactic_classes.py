@@ -8,6 +8,7 @@ import io
 import glob
 import shutil
 import urllib
+import thlib.side.six as six
 try:
     import urlparse
 except:
@@ -245,7 +246,7 @@ def get_snapshots_updates_list(search_type_code, project_code):
 
         abs_path = u'{0}/settings/{1}/{2}/{3}/{4}'.format(
             env_mode.get_current_path(),
-            env_mode.get_node(),
+            env_mode.node,
             env_server.get_cur_srv_preset(),
             env_mode.get_mode(),
             group_path)
@@ -869,15 +870,13 @@ class Project(SObject):
             stypes_result = execute_procedure_serverside(tq.query_search_types_extended, kwargs, project=self.get_code(), return_dict=False)
 
             if stypes_result:
-                pass
-                print('SKIP WRITING')
                 # writing result to cache
-                # env_write_config(
-                #     gf.html_to_hex(stypes_result),
-                #     filename='stypes_cache',
-                #     unique_id='cache/{0}'.format(self.get_code()),
-                #     long_abs_path=True
-                # )
+                env_write_config(
+                    gf.html_to_hex(stypes_result),
+                    filename='stypes_cache',
+                    unique_id='cache/{0}'.format(self.get_code()),
+                    long_abs_path=True
+                )
 
         stypes = json.loads(stypes_result)
 
@@ -1661,7 +1660,7 @@ class Snapshot(SObject, object):
                 self.files_objects.append(File(fl, self))
 
         if group_by:
-            if group_by not in self.goupped_by_files_objects.keys():
+            if group_by not in list(self.goupped_by_files_objects.keys()):
                 files_objects = collections.OrderedDict()
                 for fl in self.__files:
                     files_objects.setdefault(fl[group_by], []).append(File(fl, self))
@@ -1732,9 +1731,8 @@ class File(SObject, object):
     def get_metadata(self):
         metadata = self.info.get('metadata')
         # Simple check if this is json dumpable
-        print('HERE IS UNICODE CHECK PY2')
-        if isinstance(metadata, str):
-            if metadata.startswith(('{', '"')):
+        if isinstance(metadata, six.string_types):
+            if metadata.startswith(('{', '"', '[')):
                 metadata = json.loads(metadata)
 
         return metadata
@@ -1932,8 +1930,7 @@ def execute_procedure_serverside(func, kwargs, project=None, return_dict=True, s
         ret_val = result['info']
 
     if return_dict:
-        print('PY2 UNICODE CHECK')
-        if isinstance(ret_val, str):
+        if isinstance(ret_val, six.string_types):
             if ret_val.startswith('Traceback'):
                 # TODO need to decide how we handle tracebacks
                 dl.exception(ret_val, group_id='{0}/{1}'.format('exceptions', func.func_name))
@@ -1945,14 +1942,11 @@ def execute_procedure_serverside(func, kwargs, project=None, return_dict=True, s
                 else:
                     final_result = ret_val
 
-                print('PY2 CHECK UNICODE')
-                if isinstance(final_result, str) and return_dict:
+                if isinstance(final_result, six.string_types) and return_dict:
                     # Decompress long query
                     js = gf.hex_to_html(final_result)
                     if js:
-                        print(js)
-                        print(type(js))
-                        if js.startswith((b'{', b'"', b'[')):
+                        if js.startswith(('{', '"', '[')):
                             final_result = json.loads(js, strict=False)
         else:
             final_result = ret_val
@@ -1978,12 +1972,10 @@ def get_all_projects_and_logins(force=False):
             unique_id='cache',
             long_abs_path=True
         )
-        projects_cache = None
-        logins_cache = None
 
         if projects_cache and logins_cache:
-            projects_dict = loads(gf.hex_to_html(bytearray(projects_cache, 'utf-8')))
-            logins_dict = loads(gf.hex_to_html(bytearray(logins_cache, 'utf-8')))
+            projects_dict = loads(gf.hex_to_html(projects_cache, True))
+            logins_dict = loads(gf.hex_to_html(logins_cache, True))
 
             env_inst.projects = projects_dict
             env_inst.logins = logins_dict
@@ -2116,11 +2108,8 @@ def get_sobjects(search_type, filters=[], order_bys=[], project_code=None, limit
 
     sobjects_list = execute_procedure_serverside(tq.query_sobjects, kwargs, project=project_code)
 
-    print(type(sobjects_list))
-
     if sobjects_list:
-        print('PY2 UNICODE CHECK 5')
-        if isinstance(sobjects_list, str):
+        if isinstance(sobjects_list, six.string_types):
             if sobjects_list.startswith('Traceback'):
                 sobjects_list = {'sobjects_list': []}
                 info = None
@@ -2652,8 +2641,10 @@ def checkin_snapshot(search_key, context, snapshot_type=None, is_revision=False,
         gf.time_it(s, message='Transaction start: ')
 
         for version_file in files_info['version_files']:
+            print('BEGIN UPLOAD')
             dl.log('Uploading File ' + version_file + ' ' + str(server), group_id='server/checkin')
             server.upload_file(version_file)
+            print('UPLOADED')
             dl.log('Done Uploading File ' + version_file + ' ' + str(server), group_id='server/checkin')
 
         gf.time_it(s, message='Upload time: ')
@@ -2672,7 +2663,7 @@ def checkin_snapshot(search_key, context, snapshot_type=None, is_revision=False,
         server.finish(u'Inplace Checkin from Tactic Handler by: {}. Finished.'.format(env_inst.get_current_login()))
 
     if result:
-        if isinstance(result, (str, unicode)):
+        if isinstance(result, six.string_types):
             if result.startswith('Traceback'):
                 dl.exception(result, group_id='{0}/{1}'.format('exceptions', get_virtual_snapshot.func_name))
                 exception = Exception()
@@ -2943,7 +2934,7 @@ def parce_skey(skey, get_skey_and_context=False, return_sobject=True):
 
             sobjects = get_sobjects(search_type, filters)[0]
             if sobjects:
-                sobject = sobjects.values()[0]
+                sobject = list(sobjects.values())[0]
             return skey_dict, sobject
         else:
             return skey_dict
@@ -2968,7 +2959,7 @@ def group_sobject_by(sobjects_dict, group_by):
     if isinstance(sobjects_dict, list):
         sobjects = sobjects_dict
     else:
-        sobjects = sobjects_dict.values()
+        sobjects = list(sobjects_dict.values())
 
     if group_by == 'timestamp':
         # Special case for timestamp group by

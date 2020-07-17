@@ -2,6 +2,7 @@
 
 import thlib.global_functions as gf
 import inspect
+import thlib.side.six as six
 from pprint import pformat
 
 
@@ -16,8 +17,7 @@ def prepare_serverside_script(func, kwargs, return_dict=True, has_return=True, s
 
     args_list = []
     for key, arg in kwargs.items():
-        print('PY2 UNICODE CHECK')
-        if isinstance(arg, str):
+        if isinstance(arg, six.string_types):
             args_list.append(u"{}='{}'".format(key, arg.replace('"', '\"').replace('\n', '\\n').replace('\r', '\\r')))
         else:
             # args_list.append(u'{}={}'.format(key, arg))

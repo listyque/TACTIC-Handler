@@ -86,7 +86,7 @@ class Ui_fastControlsWidget(QtGui.QWidget, Ui_fastControls):
         builtin_processes = ['publish', 'icon', 'attachment']
 
         if process_dict:
-            process_list = process_dict.keys()
+            process_list = list(process_dict.keys())
         else:
             process_list = builtin_processes
 

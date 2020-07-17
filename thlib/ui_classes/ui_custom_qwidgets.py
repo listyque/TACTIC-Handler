@@ -20,6 +20,7 @@ __all__ = ['Ui_extendedTabBarWidget', 'Ui_extendedTreeWidget', 'SquareLabel', 'M
 import os
 import datetime
 import codecs
+import thlib.side.six as six
 from thlib.side.Qt import QtWidgets as QtGui
 from thlib.side.Qt import QtGui as Qt4Gui
 from thlib.side.Qt import QtCore
@@ -176,7 +177,7 @@ class Ui_projectIconWidget(QtGui.QWidget):
 
     def download_and_set_preview_file(self, file_object):
         if not file_object.is_downloaded():
-            if file_object.get_unique_id() not in env_inst.ui_repo_sync_queue.queue_dict.keys():
+            if file_object.get_unique_id() not in list(env_inst.ui_repo_sync_queue.queue_dict.keys()):
                 repo_sync_item = env_inst.ui_repo_sync_queue.schedule_file_object(file_object)
                 repo_sync_item.downloaded.connect(self.set_preview_pixmap)
                 repo_sync_item.download()
@@ -371,7 +372,7 @@ class Ui_sideBarWidget(QtGui.QWidget):
 
         self.overlay_layout_widget = QtGui.QToolButton(self)
         self.overlay_layout_widget.clicked.connect(self.overlay_clicked_emit)
-        self.overlay_layout_widget.setStyleSheet("QToolButton {background: transparent;}")
+        self.overlay_layout_widget.setStyleSheet("QToolButton { border: 0px; background-color: rgba(0, 0, 0, 0);}")
         sizePolicy = QtGui.QSizePolicy(QtGui.QSizePolicy.Preferred, QtGui.QSizePolicy.Preferred)
         self.overlay_layout_widget.setSizePolicy(sizePolicy)
 
@@ -504,8 +505,7 @@ QTabWidget::tab-bar {
         self.setCornerWidget(widget, QtCore.Qt.TopLeftCorner)
 
     def add_tab(self, widget, label=''):
-        print('UNICODE CHECK 4')
-        if isinstance(label, str):
+        if isinstance(label, six.string_types):
             self.addTab(widget, label)
         else:
             idx = self.addTab(widget, '')
@@ -587,8 +587,7 @@ class Ui_extendedLeftTabBarWidget(QtGui.QTabWidget):
         self.setCornerWidget(widget, QtCore.Qt.TopLeftCorner)
 
     def add_tab(self, widget, label=''):
-        print('HERE IS UNICODE CHECK PY2 2')
-        if isinstance(label, str):
+        if isinstance(label, six.string_types):
             self.addTab(widget, label)
         else:
             idx = self.addTab(widget, '')
@@ -671,6 +670,23 @@ class Ui_extendedTreeWidget(QtGui.QTreeWidget):
 
     def customize_ui(self):
         self.setStyleSheet(gf.get_qtreeview_style())
+
+        self.scroll_animation = QtCore.QPropertyAnimation(self.verticalScrollBar(), b'value', self)
+        self.scroll_animation.setDuration(200)
+        self.scroll_animation.setStartValue(0)
+        self.scroll_animation.setEndValue(0)
+        self.scroll_animation.setEasingCurve(QtCore.QEasingCurve.OutSine)
+
+    def wheelEvent(self, event):
+        if event.orientation() == QtCore.Qt.Vertical:
+            event.ignore()
+            value = self.verticalScrollBar().value()
+            self.scroll_animation.setStartValue(value)
+            delta_value = self.verticalScrollBar().value() - event.delta()
+            self.scroll_animation.setEndValue(delta_value)
+
+            if self.scroll_animation.state() == QtCore.QAbstractAnimation.State.Stopped:
+                self.scroll_animation.start()
 
 
 class SquareLabel(QtGui.QLabel):
@@ -1999,14 +2015,16 @@ class SuggestedLineEdit(QtGui.QLineEdit):
                 if item_text:
 
                     if isinstance(item_text, str):
-                        item_text = item_text.decode('utf-8')
+                        if env_mode.py2:
+                            item_text = item_text.decode('utf-8')
                     item_dict[self.suggest_column] = item_text
 
                     if item.get('keywords'):
                         item_dict['keywords'] = item.get('keywords')
 
                         if isinstance(item_dict['keywords'], str):
-                            item_dict['keywords'] = item_dict['keywords'].decode('utf-8')
+                            if env_mode.py2:
+                                item_dict['keywords'] = item_dict['keywords'].decode('utf-8')
 
                         keywords_list = item_dict['keywords'].replace(',', ' ').replace('  ', ' ').split(' ')
                         kwd = ''
@@ -2021,7 +2039,8 @@ class SuggestedLineEdit(QtGui.QLineEdit):
                         item_dict['description'] = item.get('description')
 
                         if isinstance(item_dict['description'], str):
-                            item_dict['description'] = item_dict['description'].decode('utf-8')
+                            if env_mode.py2:
+                                item_dict['description'] = item_dict['description'].decode('utf-8')
 
                         description = item_dict['description'].replace('\n', ' ')
                     else:

@@ -522,7 +522,7 @@ class Ui_projectPageWidget(QtGui.QWidget, ui_projectPage.Ui_projectPageWidget):
                     else:
                         child_title = project['title']
 
-                    if project['code'] in env_inst.ui_main_tabs.keys():
+                    if project['code'] in list(env_inst.ui_main_tabs.keys()):
                         child_item.setCheckState(0, QtCore.Qt.Checked)
                         child_item.setForeground(0, Qt4Gui.QBrush(Qt4Gui.QColor(165, 175, 25)))
 
@@ -883,7 +883,7 @@ class Ui_checkinOutPageWidget(QtGui.QWidget, ui_checkinOutPage.Ui_checkinOutPage
         super(self.__class__, self).__init__(parent=parent)
 
         self.setupUi(self)
-        self.opened_projects = env_inst.ui_main_tabs.keys()
+        self.opened_projects = list(env_inst.ui_main_tabs.keys())
         self.selected_project = None
 
         self.page_init = cfg_controls.get_checkin_out()

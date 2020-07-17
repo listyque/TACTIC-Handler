@@ -16,7 +16,7 @@ import warnings
 #         'The soupsieve package is not installed. CSS selectors cannot be used.'
 #     )
 
-from bs4.formatter import (
+from bs42.formatter import (
     Formatter,
     HTMLFormatter,
     XMLFormatter,

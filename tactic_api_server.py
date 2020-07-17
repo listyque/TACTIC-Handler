@@ -59,13 +59,13 @@ def startup():
 
     env_inst.ui_super = QSingleApplication(sys.argv)
     env_inst.ui_super.setApplicationName('TacticHandler_TacticApiServer')
-    env_inst.ui_super.setStyle('plastique')
+    env_inst.ui_super.setStyle('fusion')
 
     env_mode.set_mode('api_server')
 
-    date_str = datetime.date.strftime(dl.session_start, '%d_%m_%Y_%H_%M_%S')
-    stdout_path = u'{0}/log/api_server_stdout_{1}.log'.format(env_mode.get_current_path(), date_str)
-    sys.stdout = open(stdout_path, 'w')
+    # date_str = datetime.date.strftime(dl.session_start, '%d_%m_%Y_%H_%M_%S')
+    # stdout_path = u'{0}/log/api_server_stdout_{1}.log'.format(env_mode.get_current_path(), date_str)
+    # sys.stdout = open(stdout_path, 'w')
 
     main_standalone.setPaletteFromDct(main_standalone.palette)
 

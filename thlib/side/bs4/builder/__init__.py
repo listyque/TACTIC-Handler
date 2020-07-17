@@ -57,6 +57,7 @@ class TreeBuilderRegistry(object):
         :return: A TreeBuilder subclass, or None if there's no
             registered subclass with all the requested features.
         """
+
         if len(self.builders) == 0:
             # There are no builders at all.
             return None

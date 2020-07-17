@@ -7,13 +7,13 @@ __all__ = [
 
 import warnings
 import re
-from bs4.builder import (
+from bs42.builder import (
     PERMISSIVE,
     HTML,
     HTML_5,
     HTMLTreeBuilder,
     )
-from bs4.element import (
+from bs42.element import (
     NamespacedAttribute,
     nonwhitespace_re,
 )
@@ -22,7 +22,7 @@ from html5lib.constants import (
     namespaces,
     prefixes,
     )
-from bs4.element import (
+from bs42.element import (
     Comment,
     Doctype,
     NavigableString,

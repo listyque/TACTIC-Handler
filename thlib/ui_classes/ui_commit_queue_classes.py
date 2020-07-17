@@ -1235,7 +1235,7 @@ class Ui_commitQueueWidget(QtGui.QMainWindow, Ui_commitQueue):
                 multiple_edit_mode=True
             )
 
-            self.commitEditorLayout.addWidget(new_commit_widget, 0, 0)
+            self.commitEditorLayout.addWidget(new_commit_widget)
 
             new_commit_widget.set_commit_items_list(commit_items)
             new_commit_widget.show()
@@ -1245,7 +1245,7 @@ class Ui_commitQueueWidget(QtGui.QMainWindow, Ui_commitQueue):
         self.check_queue()
 
         if self.queue_list:
-            self.commitEditorLayout.addWidget(commit_widget, 0, 0)
+            self.commitEditorLayout.addWidget(commit_widget)
             commit_widget.show()
 
     def remove_item_from_queue(self, commit_item=None):

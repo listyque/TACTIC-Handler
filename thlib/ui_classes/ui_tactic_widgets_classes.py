@@ -674,8 +674,12 @@ class QTacticSimpleUploadWdg(QtGui.QWidget, QTacticBasicInputWdg):
             event.setDropAction(QtCore.Qt.CopyAction)
             event.accept()
             links = []
-            for url in event.mimeData().urls():
-                links.append(unicode(url.toLocalFile()))
+            if env_mode.py2:
+                for url in event.mimeData().urls():
+                    links.append(unicode(url.toLocalFile()))
+            else:
+                for url in event.mimeData().urls():
+                    links.append(str(url.toLocalFile()))
 
             self.add_links_to_upload_list(links)
         else:
@@ -696,15 +700,22 @@ class QTacticTextWdg(QtGui.QWidget, QTacticBasicInputWdg):
         self.set_control_widget(self.text_edit)
 
     def get_data(self):
-        if unicode(self.text_edit.text()) != unicode(self.tactic_widget.get_default_values()):
-            return unicode(self.text_edit.text())
+        if env_mode.py2:
+            if unicode(self.text_edit.text()) != unicode(self.tactic_widget.get_default_values()):
+                return unicode(self.text_edit.text())
+        else:
+            if str(self.text_edit.text()) != str(self.tactic_widget.get_default_values()):
+                return str(self.text_edit.text())
 
     def get_column(self):
         return self.tactic_widget.get_name()
 
     def fill_default_values(self):
         if self.tactic_widget.get_default_values():
-            self.text_edit.setText(unicode(self.tactic_widget.get_default_values()))
+            if env_mode.py2:
+                self.text_edit.setText(unicode(self.tactic_widget.get_default_values()))
+            else:
+                self.text_edit.setText(str(self.tactic_widget.get_default_values()))
 
     def create_text_edit(self):
         self.text_edit = QtGui.QLineEdit()
@@ -724,8 +735,12 @@ class QTacticTextAreaWdg(QtGui.QWidget, QTacticBasicInputWdg):
         self.set_control_widget(self.text_area)
 
     def get_data(self):
-        if unicode(self.text_area.toPlainText()) != unicode(self.tactic_widget.get_default_values()):
-            return unicode(self.text_area.toPlainText())
+        if env_mode.py2:
+            if unicode(self.text_area.toPlainText()) != unicode(self.tactic_widget.get_default_values()):
+                return unicode(self.text_area.toPlainText())
+        else:
+            if str(self.text_area.toPlainText()) != str(self.tactic_widget.get_default_values()):
+                return str(self.text_area.toPlainText())
 
     def get_column(self):
         return self.tactic_widget.get_name()

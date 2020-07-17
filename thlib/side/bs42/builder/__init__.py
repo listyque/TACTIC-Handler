@@ -4,7 +4,7 @@ __license__ = "MIT"
 from collections import defaultdict
 import itertools
 import sys
-from bs4.element import (
+from bs42.element import (
     CharsetMetaAttributeValue,
     ContentMetaAttributeValue,
     nonwhitespace_re
@@ -352,7 +352,7 @@ class HTMLTreeBuilder(TreeBuilder):
 def register_treebuilders_from(module):
     """Copy TreeBuilders from the given module into this module."""
     # I'm fairly sure this is not the best way to do this.
-    this_module = sys.modules['bs4.builder']
+    this_module = sys.modules['bs42.builder']
     for name in module.__all__:
         obj = getattr(module, name)
 

@@ -1208,11 +1208,11 @@ class Ui_checkInOutWidget(QtGui.QMainWindow):
                     current_snapshot = current_tree_widget_item.get_snapshot('publish')
                 else:
                     processes = current_tree_widget_item.get_all_snapshots()
-                    process = processes.keys()[0]
+                    process = list(processes.keys())[0]
                     if process:
                         current_snapshot = current_tree_widget_item.get_snapshots(process)
                         if current_snapshot:
-                            current_snapshot = current_snapshot.values()[0]
+                            current_snapshot = list(current_snapshot.values())[0]
             else:
                 current_snapshot = current_tree_widget_item.get_snapshot()
 
@@ -1250,11 +1250,11 @@ class Ui_checkInOutWidget(QtGui.QMainWindow):
                     current_snapshot = current_tree_widget_item.get_snapshot('publish')
                 else:
                     processes = current_tree_widget_item.get_all_snapshots()
-                    process = processes.keys()[0]
+                    process = list(processes.keys())[0]
                     if process:
                         current_snapshot = current_tree_widget_item.get_snapshots(process)
                         if current_snapshot:
-                            current_snapshot = current_snapshot.values()[0]
+                            current_snapshot = list(current_snapshot.values())[0]
             else:
                 current_snapshot = current_tree_widget_item.get_snapshot()
 
@@ -1524,7 +1524,7 @@ class Ui_checkInOutWidget(QtGui.QMainWindow):
 
         if selected_objects:
             if len(selected_objects) > 1:
-                ext_type = selected_objects[1].keys()[0]
+                ext_type = list(selected_objects[1].keys())[0]
                 types = selected_objects[1]
         else:
             selected_objects = [False]
@@ -1980,8 +1980,12 @@ class Ui_checkInOutWidget(QtGui.QMainWindow):
 
         QtGui.QApplication.processEvents()
 
-        print('SKIP RESTORE STATE')
-        # self.restoreState(QtCore.QByteArray.fromHex(str(settings_dict.get('main_state'))))
+        splitter_state = settings_dict.get('main_state')
+        if splitter_state:
+            if env_mode.py2:
+                self.restoreState(QtCore.QByteArray.fromHex(str(splitter_state)))
+            else:
+                self.restoreState(QtCore.QByteArray.fromHex(eval(splitter_state)))
 
     def get_settings_dict(self, force=False):
 

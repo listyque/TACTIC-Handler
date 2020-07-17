@@ -340,11 +340,13 @@ class Ui_topBarWidget(QtGui.QWidget):
         self.config_button.setPopupMode(QtGui.QToolButton.InstantPopup)
 
     def paintEvent(self, event):
-        super(self.__class__, self).paintEvent(event)
-        painter = Qt4Gui.QPainter()
-        painter.begin(self)
-        rect = self.rect()
-        painter.fillRect(rect.x(), rect.y(), rect.width(), rect.height(), Qt4Gui.QColor(48, 48, 48))
+        # Don't know why on maya there goes different events
+        if event.type() == QtCore.QEvent.Paint:
+            super(Ui_topBarWidget, self).paintEvent(event)
+            painter = Qt4Gui.QPainter()
+            painter.begin(self)
+            rect = self.rect()
+            painter.fillRect(rect.x(), rect.y(), rect.width(), rect.height(), Qt4Gui.QColor(48, 48, 48))
 
 
 class Ui_projectsChooserWidget(QtGui.QWidget):
@@ -652,7 +654,7 @@ class Ui_Main(QtGui.QMainWindow):
 
     def create_project_dock(self, project_code, dummy=None):
 
-        if project_code not in self.projects_docks.keys():
+        if project_code not in list(self.projects_docks.keys()):
 
             for opened_project in self.projects_docks.values():
                 opened_project.setHidden(True)
@@ -970,8 +972,8 @@ class Ui_Main(QtGui.QMainWindow):
             settings_dict['size'] = self.size().toTuple()
         settings_dict['windowState'] = state
 
-        if self.projects_docks.keys():
-            settings_dict['opened_projects'] = self.projects_docks.keys()
+        if list(self.projects_docks.keys()):
+            settings_dict['opened_projects'] = list(self.projects_docks.keys())
             if env_inst.get_current_project():
                 settings_dict['current_active_project'] = str(env_inst.get_current_project())
         else:

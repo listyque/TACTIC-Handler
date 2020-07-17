@@ -410,11 +410,11 @@ class Ui_checkInOutTabWidget(QtGui.QWidget):
 
         opened_tabs_list = self.get_opened_stypes_tabs_list()
 
-        stypes_list = self.project.stypes.values()
+        stypes_list = list(self.project.stypes.values())
 
         sthpw_stypes = env_inst.get_stypes()
         if sthpw_stypes:
-            stypes_list.extend(sthpw_stypes.values())
+            stypes_list.extend(list(sthpw_stypes.values()))
 
         # we creating all Stype Widgets, so we can access them if we need in all_search_tabs
         for stype in stypes_list:

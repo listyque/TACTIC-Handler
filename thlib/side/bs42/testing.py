@@ -9,8 +9,8 @@ import copy
 import functools
 import unittest
 from unittest import TestCase
-from bs4 import BeautifulSoup
-from bs4.element import (
+from bs42 import BeautifulSoup
+from bs42.element import (
     CharsetMetaAttributeValue,
     Comment,
     ContentMetaAttributeValue,
@@ -19,7 +19,7 @@ from bs4.element import (
     Tag
 )
 
-from bs4.builder import HTMLParserTreeBuilder
+from bs42.builder import HTMLParserTreeBuilder
 default_builder = HTMLParserTreeBuilder
 
 BAD_DOCUMENT = u"""A bare string

@@ -6,9 +6,9 @@ __license__ = "MIT"
 import cProfile
 from StringIO import StringIO
 from HTMLParser import HTMLParser
-import bs4
-from bs4 import BeautifulSoup, __version__
-from bs4.builder import builder_registry
+import bs42
+from bs42 import BeautifulSoup, __version__
+from bs42.builder import builder_registry
 
 import os
 import pstats

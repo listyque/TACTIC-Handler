@@ -227,7 +227,7 @@ class BeautifulSoup(Tag):
         # specify a parser' warning.
         original_builder = builder
         original_features = features
-            
+
         if isinstance(builder, type):
             # A builder class was passed in; it needs to be instantiated.
             builder_class = builder

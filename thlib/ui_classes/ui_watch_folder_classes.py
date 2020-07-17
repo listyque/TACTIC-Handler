@@ -150,7 +150,7 @@ class Ui_projectWatchFoldersWidget(QtGui.QDialog, Ui_ProjectWatchFolder):
             if not current_pipeline:
                 # looks like we don't have pipeline with Search Type name, so we take first of all
                 # Also this is totally wrong, cause we should know exactly the pipeline and its processes, so need to write proper pipeline_code when creating watch folder
-                current_pipeline = pipelines.values()[0]
+                current_pipeline = list(pipelines.values())[0]
 
             current_process = current_pipeline.get_pipeline_process(context)
 

@@ -1,6 +1,7 @@
 # file ui_notes_classes.py
 # Notes panel
 
+import thlib.side.six as six
 from thlib.side.Qt import QtWidgets as QtGui
 from thlib.side.Qt import QtGui as Qt4Gui
 from thlib.side.Qt import QtCore
@@ -520,8 +521,7 @@ class Ui_messageWidget(QtGui.QWidget):
         note_text = self.note.info['note']
 
         if note_text:
-            print('OLD UNICODE CHECK')
-            if isinstance(note_text, str):
+            if isinstance(note_text, six.string_types):
 
                 links_highlighted_text = gf.sub_urls(note_text)
 

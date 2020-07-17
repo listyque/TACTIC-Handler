@@ -743,7 +743,7 @@ class Ui_taskWidget(QtGui.QFrame):
 
         tasks_sobjects, info = query_result
         if tasks_sobjects:
-            self.set_tasks_sobjects(tasks_sobjects.values())
+            self.set_tasks_sobjects(list(tasks_sobjects.values()))
         else:
             self.reset_ui()
             self.set_empty_task()
@@ -1043,7 +1043,7 @@ class Ui_tasksDockWidget(QtGui.QWidget):
         if pipeline_code and stype.pipeline:
             current_pipeline = stype.pipeline.get(pipeline_code)
             if current_pipeline:
-                processes = current_pipeline.pipeline.keys()
+                processes = list(current_pipeline.pipeline.keys())
 
         # if self.ignore_dict:
         #     if self.ignore_dict.get('show_builtins'):

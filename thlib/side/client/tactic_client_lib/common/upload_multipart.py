@@ -8,11 +8,20 @@
 
 __all__ = ['UploadMultipart', 'TacticUploadException']
 
-import httplib, urlparse, socket
+import socket
+
+try:
+    import urlparse
+except:
+    from urllib import parse as urlparse
+
+try:
+    import httplib
+except:
+    from http import client as httplib
+
+
 import os, sys
-
-from thlib.environment import dl
-
 
 class TacticUploadException(Exception):
     pass
@@ -21,50 +30,41 @@ class UploadMultipart(object):
     '''Handles the multipart content type for uploading files.  Will break up
     a file into chunks and upload separately for huge files'''
 
-    def __init__(my):
-        my.count = 0
-        my.chunk_size = 10*1024*1024
-        my.ticket = None
-        my.subdir = None
+    def __init__(self):
+        self.count = 0
+        self.chunk_size = 10*1024*1024
+        self.ticket = None
+        self.subdir = None
 
-        my.server_url = None
-
-
-    def set_upload_server(my, server_url):
-        my.server_url = server_url
+        self.server_url = None
 
 
-    def set_chunk_size(my, size):
+    def set_upload_server(self, server_url):
+        self.server_url = server_url
+
+
+    def set_chunk_size(self, size):
         '''set the chunk size of each upload'''
-        my.chunk_size = size
+        self.chunk_size = size
 
-    def set_ticket(my, ticket):
+    def set_ticket(self, ticket):
         '''set the ticket for security'''
-        my.ticket = ticket
+        self.ticket = ticket
 
-    def set_subdir(my, subdir):
-        my.subdir = subdir
+    def set_subdir(self, subdir):
+        self.subdir = subdir
 
 
-    def execute(my, path):
-        assert my.server_url
-
-        dl.log('opening file: ' + path, group_id='tactic_stub')
-        # f = open(path, 'rb')
-
+    def execute(self, path):
+        assert self.server_url
+        #f = open(path, 'rb')
         import codecs
         f = codecs.open(path, 'rb')
 
-        dl.log('file opened', group_id='tactic_stub')
-
         count = 0
         while 1:
-            dl.log('reading file', group_id='tactic_stub')
-            read_buffer = f.read(my.chunk_size)
-
-            dl.log('file read', group_id='tactic_stub')
-            if not read_buffer:
-                dl.log('NO BUFFER', group_id='tactic_stub')
+            buffer = f.read(self.chunk_size)
+            if not buffer:
                 break
 
             if count == 0:
@@ -76,88 +76,83 @@ class UploadMultipart(object):
                 ("ajax", "true"),
                 ("action", action),
             ]
-            if my.ticket:
-                fields.append( ("ticket", my.ticket) )
-                fields.append( ("login_ticket", my.ticket) )
+            if self.ticket:
+                fields.append(("ticket", self.ticket))
+                fields.append(("login_ticket", self.ticket))
                 basename = os.path.basename(path)
                 from json import dumps as jsondumps
 
-                dl.log('checks for basename', group_id='tactic_stub')
-
                 # Workaround for python inside Maya, maya.Output has no sys.stdout.encoding property
-                if getattr(sys.stdout, "encoding", None) is not None and sys.stdout.encoding:
-                    basename = basename.decode(sys.stdout.encoding)
-                else:
-                    import locale
-                    basename = basename.decode(locale.getpreferredencoding())
+                try:
+                    if getattr(sys.stdout, "encoding", None) is not None and sys.stdout.encoding:
+                        basename = basename.decode(sys.stdout.encoding)
+                    else:
+                        import locale
+                        basename = basename.decode(locale.getpreferredencoding())
+                except AttributeError:
+                    # Python3 has no decode method on strings objects
+                    pass
 
-                dl.log('jsondumps ' + basename, group_id='tactic_stub')
                 basename = jsondumps(basename)
                 basename = basename.strip('"')
                 # the first index begins at 0
-                fields.append( ("file_name0", basename) )
+                fields.append(("file_name0", basename))
 
-            if my.subdir:
-                fields.append( ("subdir", my.subdir) )
+            if self.subdir:
+                fields.append(("subdir", self.subdir))
 
-            files = [("file", path, read_buffer)]
-
-            dl.log('!!! begin upload !!!', group_id='tactic_stub')
-
-            (status, reason, content) = my.upload(my.server_url,fields,files)
+            files = [("file", path, buffer)]
+            (status, reason, content) = self.upload(self.server_url, fields, files)
 
             if reason != "OK":
-                raise TacticUploadException("Upload of '%s' failed: %s %s" % (path, status, reason) )
+                raise TacticUploadException("Upload of '%s' failed: %s %s" % (path, status, reason))
 
             count += 1
 
-        dl.log('CLOSING FILE', group_id='tactic_stub')
         f.close()
 
-        dl.log('File CLOSED', group_id='tactic_stub')
 
 
-    def upload(my, url, fields, files):
+    def upload(self, url, fields, files):
         try:
             while 1:
                 try:
-                    dl.log('posting url ' + url, group_id='tactic_stub')
-                    ret_value = my.posturl(url,fields,files)
-                    dl.log('posting done ' + str(ret_value), group_id='tactic_stub')
+                    ret_value = self.posturl(url, fields, files)
+
                     return ret_value
-                except socket.error, e:
-                    print "Error: ", e
+                except socket.error as e:
+                    print("Error: ", e)
 
                     # retry about 5 times
-                    print "... trying again"
-                    my.count += 1
-                    if my.count == 5:
+                    print("... trying again")
+                    self.count += 1
+                    if self.count == 5:
                         raise
-                    my.upload(url, fields, files)
+                    self.upload(url, fields, files)
         finally:
-            my.count = 0
+            self.count = 0
 
 
 
     # Repurposed from:
     # http://aspn.activestate.com/ASPN/Cookbook/Python/Recipe/146306
 
-    def posturl(my, url, fields, files):
-        #print "URL ", url
+    def posturl(self, url, fields, files):
+        #print("URL ", url)
         urlparts = urlparse.urlsplit(url)
         protocol = urlparts[0]
  
-        return my.post_multipart(urlparts[1], urlparts[2], fields,files, protocol)
+        return self.post_multipart(urlparts[1], urlparts[2], fields,files, protocol)
                 
 
 
-    def post_multipart(my, host, selector, fields, files, protocol):
+    def post_multipart(self, host, selector, fields, files, protocol):
         '''
         Post fields and files to an http host as multipart/form-data.
         fields is a sequence of (name, value) elements for regular form fields.
         files is a sequence of (name, filename, value) elements for data to be uploaded as files.dirk.noteboom@sympatico.ca
         '''
-        content_type, body = my.encode_multipart_formdata(fields, files)
+        content_type, body = self.encode_multipart_formdata(fields, files)
         if protocol == 'https':
             h = httplib.HTTPSConnection(host)  
         else:
@@ -175,7 +170,7 @@ class UploadMultipart(object):
         return res.status, res.reason, res.read()    
 
 
-    def encode_multipart_formdata(my, fields, files):
+    def encode_multipart_formdata(self, fields, files):
         '''
         fields is a sequence of (name, value) elements for regular form fields.
         files is a sequence of (name, filename, value) elements for data to be uploaded as files.
@@ -185,7 +180,14 @@ class UploadMultipart(object):
         CRLF = '\r\n'
         L = []
 
-        import cStringIO
+        try:
+            PY3 = False
+            from cStringIO import StringIO as Buffer
+        except:
+            PY3 = True
+            from io import StringIO as Buffer
+            from io import BytesIO as BufferB
+
 
         import sys
         for (key, value) in fields:
@@ -194,7 +196,7 @@ class UploadMultipart(object):
             L.append('')
             L.append(value)
         for (key, filename, value) in files:
-            #print "len of value: ", len(value)
+            #print("len of value: ", len(value))
             L.append('--' + BOUNDARY)
             L.append('Content-Disposition: form-data; name="%s"; filename="%s"' % (key, filename))
             L.append('')
@@ -205,17 +207,32 @@ class UploadMultipart(object):
 
         M = []
         for l in L:
+            try:
+                l = l.decode()
+            except UnicodeDecodeError as e:
+                pass
+            except AttributeError as e:
+                pass
             M.append(l)
             M.append(CRLF)
 
         # This fails
         #body = "".join(M)
 
-        import cStringIO 
-        buf = cStringIO.StringIO()
+        buf = Buffer()
+        # if PY3:
+        #     buf_bin = BufferB()
+        #     Mb = []
+        #     for m in M:
+        #         if isinstance(m, bytes):
+        #             Mb.append(m)
+        #         else:
+        #             Mb.append(m.encode())
+        #     buf_bin.writelines(Mb)
+        # else:
         buf.writelines(M)
         body = buf.getvalue()
-        #print "len of body: ", len(body), type(body)
+        #print("len of body: ", len(body), type(body))
 
         content_type = 'multipart/form-data; boundary=%s' % BOUNDARY
         return content_type, body 

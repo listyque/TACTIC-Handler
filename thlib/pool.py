@@ -1,5 +1,4 @@
 import sys
-import time
 import traceback
 import logging
 from thlib.side.Qt import QtCore
@@ -112,6 +111,12 @@ class OperationThread(QtCore.QThread):
         self._os_queue = []
         self._started = False
 
+    def exit(self):
+        self._op_queue = []
+        self._started = False
+
+        super(OperationThread, self).exit()
+
     def run(self):
 
         while self._started:
@@ -133,7 +138,7 @@ class OperationWorker(QtCore.QObject):
 
     started = QtCore.Signal()
     finished = QtCore.Signal()
-    error = QtCore.Signal(tuple)
+    error = QtCore.Signal(object)
     result = QtCore.Signal(object)
     progress = QtCore.Signal(object, object)
     stop = QtCore.Signal(object)
@@ -156,9 +161,11 @@ class OperationWorker(QtCore.QObject):
         self._started = True
 
     def do_task(self):
+        self.started.emit()
+
         try:
             if self.signals_enabled:
-                #logger.debug(self._func.func_name)
+
                 self._result = self._func(*self._args, **self._kwargs)
 
                 self.result.emit(self._result)
@@ -177,12 +184,10 @@ class OperationWorker(QtCore.QObject):
             self.error.emit((exception, self))
 
             from thlib.environment import dl
-            # dl.exception(stacktrace, group_id='{0}/{1}'.format(
-            #     'threaded_exceptions',
-            #     self._func.func_name, ))
             dl.exception(stacktrace, group_id='{0}/{1}'.format(
                 'threaded_exceptions',
-                'FUNC NAME', ))
+                self._func.__name__, ))
 
+            self.finished.emit()
 
         self.deleteLater()

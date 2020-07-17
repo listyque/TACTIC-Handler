@@ -44,8 +44,9 @@ import shutil
 
 #  !!! ONLY FOR PYCHARM AUTOCOMPLETER !!!
 if None:
-    from PySide import QtGui, QtCore, QtNetwork
-    QtWidgets = QtGui
+    from PySide2 import QtCore, QtNetwork
+    from PySide2 import QtWidgets as QtGui
+    from PySide2 import QtGui as Qt4Gui
 #  !!! ONLY FOR PYCHARM AUTOCOMPLETER !!!
 
 __version__ = "1.2.0.b2"

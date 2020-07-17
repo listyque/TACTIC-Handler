@@ -6,6 +6,7 @@ import os
 import time
 from stat import ST_SIZE
 import subprocess
+import thlib.side.six as six
 import copy
 import ast
 import json
@@ -86,7 +87,7 @@ class FSObserver(Observer):
 
     def append_watch(self, watch_name, paths=None, repos=None, pipeline=None, recursive=None):
 
-        if watch_name not in self.observers_dict.keys():
+        if watch_name not in list(self.observers_dict.keys()):
 
             for i, path in enumerate(paths):
                 watch = self.schedule(self.event_handler, path=path, recursive=recursive)
@@ -99,7 +100,7 @@ class FSObserver(Observer):
 
     def remove_watch(self, watch_name):
 
-        if watch_name in self.observers_dict.keys():
+        if watch_name in list(self.observers_dict.keys()):
             for observer in self.observers_dict.pop(watch_name):
                 self.unschedule(observer)
                 dl.info(u'Disabling Watch: {0}'.format(observer.path),
@@ -709,33 +710,46 @@ def sizes(size, precision=2):
 
 
 def html_to_hex(text_html):
-    print('PY3 HACK1')
-    # text_html_cmp = zlib.compress(text_html.encode('utf-8'), 9)
-    print(text_html)
-    text_html_cmp = zlib.compress(text_html, 9)
-    # text_html_hex = 'zlib:' + binascii.b2a_hex(text_html_cmp)
-    text_html_hex = text_html
-    # print(text_html_hex)
-    # if len(text_html_hex) > len(text_html):
-    #     text_html_hex = text_html
+    if env_mode.py2:
+        text_html_cmp = zlib.compress(text_html.encode('utf-8'), 9)
+        text_html_hex = 'zlib:' + binascii.b2a_hex(text_html_cmp)
+    else:
+        text_html_cmp = zlib.compress(six.ensure_binary(text_html), 9)
+        text_html_hex = 'zlib:' + six.ensure_str(binascii.b2a_hex(text_html_cmp))
+
+
+        # if isinstance(text_html, six.string_types):
+        #     text_html_cmp = zlib.compress(bytearray(text_html.encode('utf-8')), 9)
+        # else:
+        #     text_html_cmp = zlib.compress(text_html, 9)
+        # text_html_hex = 'zlib:' + binascii.b2a_hex(text_html_cmp)
+
+    if len(text_html_hex) > len(text_html):
+        text_html_hex = text_html
 
     return text_html_hex
 
 
-def hex_to_html(text_hex):
+def hex_to_html(text_hex, return_bytes=False):
     if text_hex:
-        # print(text_hex)
-        # print(type(text_hex))
-        # text_hex = str(text_hex, 'utf-8', 'ignore')
-        # hex_to_text = text_hex
+        text_hex = six.ensure_str(text_hex)
         detect_zlib = text_hex.rfind('zlib:', 0, 5)
         if detect_zlib == 0:
             hex_to_text = zlib.decompress(binascii.a2b_hex(text_hex[5:]))
         else:
             hex_to_text = text_hex
 
-        # print(hex_to_text)
-        return hex_to_text
+        if return_bytes:
+            # For ast end eval parcers
+            return hex_to_text
+        else:
+            # For json
+            return six.ensure_str(hex_to_text, errors='ignore')
+
+        # if isinstance(hex_to_text, six.string_types):
+        #     return hex_to_text
+        # else:
+        #     return hex_to_text.decode('utf-8')
 
 
 def to_json(obj, pretty=False, use_ast=False):
@@ -1809,7 +1823,7 @@ def file_format(ext):
         'mp4': ['mp4', 'MP4 Animation', 'main', 'file'],
     }
     low_case_ext = ext.lower()
-    if low_case_ext in formats.keys():
+    if low_case_ext in list(formats.keys()):
         return formats[low_case_ext]
     else:
         return [low_case_ext, low_case_ext, 'main', 'file']
@@ -2327,7 +2341,7 @@ class FileObject(object):
     def split_template(self, template):
         match_template = MatchTemplate([template])
 
-        template = match_template.split_patterns.values()[0][0]
+        template = list(match_template.split_patterns.values())[0][0]
 
         pattern = template[0]
         separators = template[1]
@@ -2529,7 +2543,7 @@ class FileObject(object):
                     frames_by_udims[udim].append(int(fld['frame']))
                     self._layer = fld.get('layer')
                 self._sequence_frames = frames_by_udims.items()
-                self._tiles = frames_by_udims.keys()
+                self._tiles = list(frames_by_udims.keys())
                 self._tiles_count = len(self._tiles)
 
             return self._sequence_frames

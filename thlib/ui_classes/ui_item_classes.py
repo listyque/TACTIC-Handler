@@ -766,7 +766,7 @@ class Ui_projectLinkWidget(QtGui.QWidget):
 
     def download_and_set_preview_file(self, file_object):
         if not file_object.is_downloaded():
-            if file_object.get_unique_id() not in env_inst.ui_repo_sync_queue.queue_dict.keys():
+            if file_object.get_unique_id() not in list(env_inst.ui_repo_sync_queue.queue_dict.keys()):
                 repo_sync_item = env_inst.ui_repo_sync_queue.schedule_file_object(file_object)
                 repo_sync_item.downloaded.connect(self.set_preview_pixmap)
                 repo_sync_item.download()
@@ -1518,6 +1518,7 @@ class Ui_repoSyncItemWidget(QtGui.QWidget):
 
         if not self.file_already_in_repo():
             url = QtCore.QUrl(self.file_object.get_full_web_path())
+
             request = QtNetwork.QNetworkRequest(url)
             request.setAttribute(QtNetwork.QNetworkRequest.User, self.file_object)
             request.setAttribute(QtNetwork.QNetworkRequest.HttpPipeliningAllowedAttribute, True)
@@ -1529,6 +1530,7 @@ class Ui_repoSyncItemWidget(QtGui.QWidget):
             self.download_progress(0, info_dict)
 
             self.network_manager.get(request)
+
             self.download_progress(1, info_dict)
         else:
             info_dict = {
@@ -2500,13 +2502,13 @@ class Ui_itemWidget(QtGui.QWidget):
 
                     if str(data).lower().startswith(('https://', 'http://', 'ftp://')):
                         info_label = self.get_item_info_html_label()
-                        info_label.setToolTip(unicode(data))
+                        info_label.setToolTip(str(data))
                         info_label.setPixmap(gf.get_icon('crosshairs', color=Qt4Gui.QColor(255, 255, 255)).pixmap(24, 24))
                         info_label.setText(u'<p><a href="{1}" style="color:#66a3ff;text-decoration:none;">{0} Link</a></p>'.format(column.capitalize(), data))
                     elif isinstance(data, bool):
                         info_label = self.get_item_info_html_label()
                         info_label.setToolTip(u'{0}: {1}'.format(column.capitalize(), data))
-                        info_label.setText(unicode(column.capitalize()))
+                        info_label.setText(str(column.capitalize()))
                     else:
                         # at this time we don't need long text, as it will not fit to item
                         info_label.setToolTip(str(data))
@@ -2580,7 +2582,7 @@ class Ui_itemWidget(QtGui.QWidget):
 
     def download_and_set_preview_file(self, file_object):
         if not file_object.is_downloaded():
-            if file_object.get_unique_id() not in env_inst.ui_repo_sync_queue.queue_dict.keys():
+            if file_object.get_unique_id() not in list(env_inst.ui_repo_sync_queue.queue_dict.keys()):
                 repo_sync_item = env_inst.ui_repo_sync_queue.schedule_file_object(file_object)
                 repo_sync_item.downloaded.connect(self.set_preview_pixmap)
                 repo_sync_item.download()
@@ -2933,7 +2935,7 @@ class Ui_itemWidget(QtGui.QWidget):
         if pipeline_code and self.stype.pipeline:
             curent_pipeline = self.stype.pipeline.get(pipeline_code)
             if curent_pipeline:
-                processes = curent_pipeline.pipeline.keys()
+                processes = list(curent_pipeline.pipeline.keys())
 
         if gf.get_value_from_config(cfg_controls.get_checkin(), 'showAllProcessCheckBox') == 1:
             show_builtins = True
@@ -4123,7 +4125,6 @@ class Ui_snapshotItemWidget(QtGui.QWidget):
         self.files = {}
 
         if snapshot:
-            print(snapshot)
             self.snapshot = snapshot[0].snapshot
             self.files = snapshot[0].files
 
@@ -4573,7 +4574,7 @@ class Ui_snapshotItemWidget(QtGui.QWidget):
 
     def download_and_set_preview_file(self, file_object):
         if not file_object.is_downloaded():
-            if file_object.get_unique_id() not in env_inst.ui_repo_sync_queue.queue_dict.keys():
+            if file_object.get_unique_id() not in list(env_inst.ui_repo_sync_queue.queue_dict.keys()):
                 repo_sync_item = env_inst.ui_repo_sync_queue.schedule_file_object(file_object)
                 repo_sync_item.downloaded.connect(self.set_preview_pixmap)
                 repo_sync_item.download()
@@ -4785,7 +4786,7 @@ class Ui_snapshotItemWidget(QtGui.QWidget):
     def get_process_list(self):
         pipeline = self.get_current_process_pipeline()
         if pipeline:
-            return pipeline.process.keys()
+            return list(pipeline.process.keys())
         else:
             return []
 
@@ -5422,9 +5423,6 @@ class Ui_groupItemWidget(QtGui.QWidget):
 
         title = self.group
 
-
-        print(title)
-
         if isinstance(title, (bool, int, list)):
             title = str(title)
 
@@ -5641,8 +5639,6 @@ class Ui_groupItemWidget(QtGui.QWidget):
 
 
     def add_sobjects(self):
-
-        print('GETTING')
 
         if not self.info['is_expanded']:
             self.info['is_expanded'] = True

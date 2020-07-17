@@ -1,8 +1,7 @@
 # file ui_assets_browser_classes.py
 # Assets Browser
 
-from pprint import pprint
-
+import math
 from thlib.side.Qt import QtWidgets as QtGui
 from thlib.side.Qt import QtGui as Qt4Gui
 from thlib.side.Qt import QtCore
@@ -288,48 +287,48 @@ class Ui_assetsBrowserWidget(QtGui.QWidget):
             #     old_path_join = '{0}={1}='.format(*old_path_split) + '"{0}"'.format(image_size)
             #     sobj_widget.picLabel.setText(old_path_join)
 
-    def resizeEvent(self, event):
-        if self.sobjects_widgets:
-            self.scroll_area_contents.setUpdatesEnabled(False)
-
-            width = self.scroll_area_contents.width()-2
-            current = self.sobjects_widgets[0].width()
-            max_width = 300
-            min_width = 200
-
-            if width % 2 != 0:
-                width -= 1
-
-            if current < max_width:
-                self.all_width = width / max_width
-
-            if current > min_width:
-                self.all_width = width / min_width
-
-            wdg_width = width / self.all_width
-
-            if wdg_width < min_width:
-                wdg_width = min_width
-
-            if wdg_width > max_width:
-                wdg_width = max_width
-
-            if wdg_width % 2 != 0:
-                wdg_width -= 1
-
-            print(wdg_width, width, self.all_width)
-
-            for sobj_widget in self.sobjects_widgets:
-                sobj_widget.setFixedSize(wdg_width, wdg_width)
-                # sobj_widget.setMinimumWidth(wdg_width)
-                # sobj_widget.setMinimumHeight(wdg_width)
-
-                # sobj_widget.setMinimumWidth(150 * 150 / 100)
-                # sobj_widget.setMinimumHeight(150 * 150 / 100)
-                # image_size = 140 * self.zoomSpinBox.value() / 100
-
-            self.scroll_area_contents.setUpdatesEnabled(True)
-        event.accept()
+    # def resizeEvent(self, event):
+    #     if self.sobjects_widgets:
+    #         self.scroll_area_contents.setUpdatesEnabled(False)
+    #
+    #         width = self.scroll_area_contents.width()-2
+    #         current = self.sobjects_widgets[0].width()
+    #         max_width = 300
+    #         min_width = 200
+    #
+    #         if width % 2 != 0:
+    #             width -= 1
+    #
+    #         if current < max_width:
+    #             self.all_width = width / max_width
+    #
+    #         if current > min_width:
+    #             self.all_width = width / min_width
+    #
+    #         wdg_width = width / self.all_width
+    #
+    #         if wdg_width < min_width:
+    #             wdg_width = min_width
+    #
+    #         if wdg_width > max_width:
+    #             wdg_width = max_width
+    #
+    #         if wdg_width % 2 != 0:
+    #             wdg_width -= 1
+    #
+    #         print(wdg_width, width, self.all_width)
+    #
+    #         for sobj_widget in self.sobjects_widgets:
+    #             sobj_widget.setFixedSize(wdg_width, wdg_width)
+    #             # sobj_widget.setMinimumWidth(wdg_width)
+    #             # sobj_widget.setMinimumHeight(wdg_width)
+    #
+    #             # sobj_widget.setMinimumWidth(150 * 150 / 100)
+    #             # sobj_widget.setMinimumHeight(150 * 150 / 100)
+    #             # image_size = 140 * self.zoomSpinBox.value() / 100
+    #
+    #         self.scroll_area_contents.setUpdatesEnabled(True)
+    #     event.accept()
 
     def dynamic_query(self, limit=0, offset=0):
 
@@ -406,7 +405,7 @@ class Ui_assetsBrowserWidget(QtGui.QWidget):
         self.scroller = QtGui.QScrollArea()
         self.scroller.setWidgetResizable(True)
         self.scroller.setWidget(self.scroll_area_contents)
-        self.scroller.setVerticalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOff)
+        self.scroller.setVerticalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOn)
 
         self.scroll_area_layout = StretchFlowLayout(self.scroll_area_contents)
         # self.scroll_area_layout = QtGui.QGridLayout(self.scroll_area_contents)
@@ -422,7 +421,7 @@ class Ui_assetsBrowserWidget(QtGui.QWidget):
 
         for i in range(len(self.dyn_list)):
             # QtGui.qApp.processEvents()
-            self.sobj_widget = Ui_sobjectWidget(self.dyn_list.values()[i], self)
+            self.sobj_widget = Ui_sobjectWidget(list(self.dyn_list.values())[i], self)
             # self.sobj_widget = QtGui.QPushButton('SOBJ')
             self.sobj_widget.setMinimumWidth(150 * self.zoomSpinBox.value() / 100)
             self.sobj_widget.setMinimumHeight(150 * self.zoomSpinBox.value() / 100)
@@ -434,18 +433,18 @@ class Ui_assetsBrowserWidget(QtGui.QWidget):
             # effect.setBlurRadius(30)
 
             # self.sobj_widget.setGraphicsEffect(effect)
-            self.sobj_widget.setTitle(self.dyn_list.values()[i].info['name'])
+            self.sobj_widget.setTitle(list(self.dyn_list.values())[i].info['name'])
             try:
                 # web_file = self.dyn_list.values()[i].process['icon'].contexts['icon'].versionless.values()[0].files['web']
                 # web_full_path = '{0}/{1}/{2}'.format(env.Env.get_asset_dir(), web_file[0]['relative_dir'], web_file[0]['file_name'])
-                sobject = self.dyn_list.values()[i]
+                sobject = list(self.dyn_list.values())[i]
 
                 publish_process = sobject.get_process('publish')
                 context = publish_process.contexts.get('publish')
 
                 versionless_snapshots = context.get_versionless()
 
-                file_obj = versionless_snapshots.values()[0].get_previewable_files_objects()
+                file_obj = list(versionless_snapshots.values())[0].get_previewable_files_objects()
 
                 # print file_obj[0].get_full_abs_path()
                 # print file_obj[0].get_web_preview()
@@ -518,97 +517,160 @@ class Ui_assetsBrowserWidget(QtGui.QWidget):
         return tab_names, tc.context_query(tab_names['codes'])
 
 
-class StretchFlowLayout(QtGui.QGridLayout):
-    """
-    Standard PyQt examples FlowLayout modified to work with a scollable parent
-    MODIFIED FOR TACTIC HANDLER
-    """
+class StretchFlowLayout(QtGui.QLayout):
 
     def __init__(self, parent=None):
         super(StretchFlowLayout, self).__init__(parent)
-
         self.itemList = []
+        self.m_hSpace = 0
+        self.m_vSpace = 0
+        self.m_minSize = QtCore.QSize(64, 64)
+        self.m_maxSize = QtCore.QSize(256, 256)
+        self.m_maxItemPerLine = -2
+        self.m_maxItemPerLineDefaultMax = (QtGui.QApplication.desktop().geometry().width() + self.spacing()) // (
+                    self.m_minSize.width() + self.spacing())
+        self.m_maxItemPerLineDefaultMin = (QtGui.QApplication.desktop().geometry().width() + self.spacing()) // (
+                    self.m_minSize.width() + self.spacing())
 
-    def __del__(self):
-        item = self.takeAt(0)
-        while item:
-            item = self.takeAt(0)
+    def maximumItemPerLine(self):
+        return self.m_maxItemPerLine
 
-    def clear_items(self):
-        for i in range(self.count()):
-            item = self.itemAt(i)
-            if item:
-                widget = self.itemAt(i).widget()
-                widget.close()
-                widget.deleteLater()
+    def setMaximumItemPerLine(self, count):
+        self.m_maxItemPerLine = count
 
-        self.itemList = []
+    def minimumItemSize(self):
+        return self.m_minSize
+
+    def setMinimumSize(self, size):
+        self.m_minSize = size
+        self.m_maxItemPerLineDefaultMin = (QtGui.QApplication.desktop().geometry().width() + self.spacing()) // (
+                    self.m_minSize.width() + self.spacing())
+
+    def maximumItemSize(self):
+        return self.m_maxSize
+
+    def setMaximumSize(self, size):
+        self.m_maxSize = size
+        self.m_maxItemPerLineDefaultMax = (QtGui.QApplication.desktop().geometry().width() + self.spacing()) // (
+                    self.m_maxSize.width() + self.spacing())
 
     def addItem(self, item):
         self.itemList.append(item)
+
+    def horizontalSpacing(self):
+        if self.m_hSpace > 0:
+            return self.m_hSpace
+        else:
+            return self.smartSpacing(QtGui.QStyle.PM_LayoutHorizontalSpacing)
+
+    def verticalSpacing(self):
+        if self.m_vSpace > 0:
+            return self.m_vSpace
+        else:
+            return self.smartSpacing(QtGui.QStyle.PM_LayoutVerticalSpacing)
+
+    def expandingDirections(self):
+        return QtCore.Qt.Horizontal | QtCore.Qt.Vertical
+
+    def hasHeightForWidth(self):
+        return True
 
     def count(self):
         return len(self.itemList)
 
     def itemAt(self, index):
-        if index >= 0 and index < len(self.itemList):
+        if 0 <= index < len(self.itemList):
             return self.itemList[index]
         return None
 
-    def takeAt(self, index):
-        if index >= 0 and index < len(self.itemList):
-            return self.itemList.pop(index)
-        return None
-
-    def expandingDirections(self):
-        return QtCore.Qt.Orientations(QtCore.Qt.Orientation(0))
-
-    def hasHeightForWidth(self):
-        return True
-
-    # def heightForWidth(self, width):
-    #     height = self.doLayout(QtCore.QRect(0, 0, width, 0), True)
-    #     return height
+    def minimumSize(self):
+        size = QtCore.QSize()
+        for item in self.itemList:
+            size = size.expandedTo(item.minimumSize())
+            break
+        margins = self.contentsMargins()
+        size += QtCore.QSize(margins.left() + margins.right(), margins.top() + margins.bottom())
+        return size
 
     def setGeometry(self, rect):
-        # super(StretchFlowLayout, self).setGeometry(rect)
+        QtGui.QLayout.setGeometry(self, rect)
         self.doLayout(rect, False)
 
     def sizeHint(self):
         return self.minimumSize()
 
-    def minimumSize(self):
-        size = QtCore.QSize()
+    def takeAt(self, index):
+        if 0 <= index < len(self.itemList):
+            return self.itemList.pop(index)
+        return None
 
-        # Considering all widgets are the same size
-        if self.itemList:
-            size = size.expandedTo(self.itemList[0].minimumSize())
-
-        # uncomment if you want different sizes
-        # for item in self.itemList:
-        #     size = size.expandedTo(item.minimumSize())
-
-        return size
-
-    def doLayout(self, rect, testOnly=True):
-
-        x = rect.x()
-        y = rect.y()
+    def doLayout(self, rect, testOnly=False):
+        left, top, right, bottom = self.getContentsMargins()
+        effectiveRect = rect
+        x = effectiveRect.x()
+        y = effectiveRect.y()
         lineHeight = 0
+        itemSize = self.m_minSize
+        if self.itemList:
+            itemSize = QtCore.QSize(
+                max([self.m_minSize.width(), min([self.m_maxSize.width(), self.itemList[0].sizeHint().width()])]),
+                max([self.m_minSize.height(), min([self.m_maxSize.height(), self.itemList[0].sizeHint().height()])])
+            )
+        lineItemCount = min(
+            [(effectiveRect.width() + self.spacing()) // (itemSize.width() + self.spacing()), self.count()])
+        if self.m_maxItemPerLine >= 1:
+            if lineItemCount > self.m_maxItemPerLine:
+                lineItemCount = self.m_maxItemPerLine
+        elif self.m_maxItemPerLine == -1:
+            if lineItemCount > self.m_maxItemPerLineDefaultMax:
+                lineItemCount = self.m_maxItemPerLineDefaultMax
+        elif self.m_maxItemPerLine < -1:
+            for i in range(self.m_maxItemPerLineDefaultMin):
+                if self.m_minSize.width() * i <= effectiveRect.width() <= self.m_maxSize.width() * i:
+                    lineItemCount = i
+                    break
 
-        for item in self.itemList:
-            spacing = self.spacing()
-            nextX = x + self.sizeHint().width() + spacing
-            if nextX - spacing > rect.right() and lineHeight > 0:
-                x = rect.x()
-                y = y + lineHeight + spacing
-                nextX = x + self.sizeHint().width() + spacing
-                lineHeight = 0
-            if not testOnly:
-                item.setGeometry(QtCore.QRect(QtCore.QPoint(x, y), self.sizeHint()))
+        if lineItemCount < 1:
+            lineItemCount = 1
 
-            x = nextX
-            # lineHeight = max(lineHeight, self.sizeHint().height())
-            lineHeight = self.sizeHint().height()
+        lineCount = math.ceil(len(self.itemList) / lineItemCount)
+        freeWidth = effectiveRect.width() - (itemSize.width() + self.spacing()) * lineItemCount
+        itemSize = QtCore.QSize(
+            max([self.m_minSize.width(), min([self.m_maxSize.width(), itemSize.width() + freeWidth / lineItemCount])]),
+            max([self.m_minSize.height(),
+                 min([self.m_maxSize.height(), itemSize.height() + freeWidth / lineItemCount])])
+        )
+        itemIndex = 0
+        for line in range(lineCount):
+            lineX = x
+            for lineItem in range(lineItemCount):
+                item = self.itemAt(itemIndex)
+                if not item:
+                    break
 
-        return y + lineHeight - rect.y()
+                itemIndex += 1
+                itemWidget = item.widget()
+                if not testOnly:
+                    pos = QtCore.QPoint(lineX, y)
+                    lineX += itemSize.width() + self.spacing()
+                    itemGeometry = QtCore.QRect(pos, itemSize)
+
+                    itemWidget.setSizePolicy(QtGui.QSizePolicy.Preferred, QtGui.QSizePolicy.Preferred)
+                    itemWidget.setMinimumSize(self.m_minSize)
+                    itemWidget.setMaximumSize(self.m_maxSize)
+                    item.setGeometry(itemGeometry)
+
+            y += itemSize.height() + self.spacing()
+
+        return y + lineHeight - rect.y() + bottom
+
+    def smartSpacing(self, pm):
+        parent = self.parent()
+        if not parent:
+            return -1
+        elif parent.isWidgetType():
+            pw = parent
+            return pw.style().pixelMetric(pm, None, pw)
+        else:
+            pl = parent
+            return pl.spacing()

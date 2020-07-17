@@ -13,7 +13,6 @@ import thlib.tactic_classes as tc
 
 import thlib.ui_classes.ui_main_classes as ui_main_classes
 
-
 groups = ['Disabled', 'Active', 'Inactive', 'Normal']
 roles = ['Window',
          'Background',

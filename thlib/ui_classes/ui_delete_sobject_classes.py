@@ -61,7 +61,7 @@ class deleteSobjectWidget(QtGui.QWidget):
 
             # Filtering if the sobject points to self as dependency
             for sobject in self.sobjects:
-                for dep_skey in sobjects.keys():
+                for dep_skey in list(sobjects.keys()):
                     if sobject.get_search_key() == dep_skey:
                         sobjects.pop(dep_skey)
 
