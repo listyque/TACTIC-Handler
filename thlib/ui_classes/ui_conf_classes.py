@@ -1028,7 +1028,7 @@ class Ui_checkinOutPageWidget(QtGui.QWidget, ui_checkinOutPage.Ui_checkinOutPage
 
         all_stypes = []
 
-        for stype in env_inst.projects[project_code].stypes.itervalues():
+        for stype in env_inst.projects[project_code].stypes.values():
             all_stypes.append(stype.info)
 
         grouped = gf.group_dict_by(all_stypes, 'type')

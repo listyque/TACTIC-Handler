@@ -641,7 +641,7 @@ class StretchFlowLayout(QtGui.QLayout):
                  min([self.m_maxSize.height(), itemSize.height() + freeWidth / lineItemCount])])
         )
         itemIndex = 0
-        for line in range(lineCount):
+        for line in range(int(lineCount)):
             lineX = x
             for lineItem in range(lineItemCount):
                 item = self.itemAt(itemIndex)

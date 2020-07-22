@@ -165,16 +165,17 @@ def server_ping():
 def server_fast_ping_predefined(server_url, proxy_dict=None):
     server = TacticServerStub.get(protocol='xmlrpc', setup=False)
 
-    transport = proxy.UrllibTransport()
-    server.set_transport(transport)
-
     if proxy_dict.get('enabled'):
+
+        transport = proxy.UrllibTransport()
+        server.set_transport(transport)
+
         server.transport.update_proxy(proxy_dict)
         server.transport.enable_proxy()
-    else:
-        server.transport.update_proxy(proxy_dict)
-        server.transport.disable_proxy()
-        # server.set_transport(None)
+    # else:
+    #     server.transport.update_proxy(proxy_dict)
+    #     server.transport.disable_proxy()
+    #     server.set_transport(None)
 
     server.set_server(server_url)
 
@@ -379,27 +380,9 @@ class SObject(object):
 
         return server.query(search_type, filters)
 
-    # Notes by search code
-    # DEPRECATED
-    # def query_notes(self, s_code, process=None):
-    #     """
-    #     Query for Notes
-    #     :param s_code: Code of asset related to note
-    #     :param process: Process code
-    #     :return:
-    #     """
-    #     server = server_start(project=self.project.info['code'])
-    #
-    #     search_type = 'sthpw/note'
-    #     if process:
-    #         filters = [('search_code', s_code), ('process', process), ('project_code', self.project.info['code'])]
-    #     else:
-    #         filters = [('search_code', s_code), ('project_code', self.project.info['code'])]
-    #
-    #     return server.query(search_type, filters)
-
     # Query snapshots to update current
     def update_snapshots(self, order_bys=None, filters=None):
+
         if self.info.get('code'):
             snapshot_dict = self.query_snapshots(s_code=self.info['code'], order_bys=order_bys, filters=filters)
         else:
@@ -548,15 +531,6 @@ class SObject(object):
 
     def get_plain_search_type(self):
         return self.info['__search_key__'].split('?')[0]
-
-    # Notes by SObject
-    #DEPRECATED
-    # def get_notes(self):
-    #     notes_list = self.query_notes(self.info['code'])
-    #     process_set = set(note['process'] for note in notes_list)
-    #
-    #     for process in process_set:
-    #         self.notes[process] = Process(notes_list, process, True)
 
     def get_notes_sobjects(self, process=None):
 
@@ -1703,6 +1677,13 @@ class Snapshot(SObject, object):
 
 
 class File(SObject, object):
+    """
+    This class is wrap for TACTIC File SObject
+    It can contain Meta-File object. Which is created from templates and can be complicated:
+    Sequences, UDIM, folder and etc. Meta is more powerful, and is preffered to use instead of File class
+    Typical use: query files > create File class > if there is meta info (only with TH) it creates FileObject class
+    """
+
     def __init__(self, file_dict, snapshot=None):
 
         self.downloaded = False
@@ -1750,6 +1731,7 @@ class File(SObject, object):
             return list(file_object.values())[0][0]
 
     def is_meta_file_obj(self):
+        # for this who interested what is meta object go to class implementation
         return self.meta_file_object
 
     def get_type(self):
@@ -1933,7 +1915,7 @@ def execute_procedure_serverside(func, kwargs, project=None, return_dict=True, s
         if isinstance(ret_val, six.string_types):
             if ret_val.startswith('Traceback'):
                 # TODO need to decide how we handle tracebacks
-                dl.exception(ret_val, group_id='{0}/{1}'.format('exceptions', func.func_name))
+                dl.exception(ret_val, group_id='{0}/{1}'.format('exceptions', func.__name__))
                 final_result = ret_val
             else:
                 # Simple check if this is json dumpable
@@ -1958,7 +1940,11 @@ def execute_procedure_serverside(func, kwargs, project=None, return_dict=True, s
 
 def get_all_projects_and_logins(force=False):
 
-    use_cache = True
+
+    if env_mode.get_mode() == 'api_server':
+        use_cache = False
+    else:
+        use_cache = True
 
     if use_cache and not force:
         # reading cache from file
@@ -1974,13 +1960,17 @@ def get_all_projects_and_logins(force=False):
         )
 
         if projects_cache and logins_cache:
-            projects_dict = loads(gf.hex_to_html(projects_cache, True))
-            logins_dict = loads(gf.hex_to_html(logins_cache, True))
+            try:
+                projects_dict = loads(gf.hex_to_html(projects_cache, True))
+                logins_dict = loads(gf.hex_to_html(logins_cache, True))
 
-            env_inst.projects = projects_dict
-            env_inst.logins = logins_dict
+                env_inst.projects = projects_dict
+                env_inst.logins = logins_dict
 
-            return projects_dict
+                return projects_dict
+            except ValueError as pickle_error:
+                print(pickle_error)
+                return get_all_projects_and_logins(True)
         else:
             return get_all_projects_and_logins(True)
     else:
@@ -2057,7 +2047,7 @@ def get_subscriptions_and_messages(current_login='admin', update_logins=False):
 def delete_sobjects(search_keys, list_dependencies):
     """
     Deletes bunch of sobjects
-    !!! SEARCH KEYS MUST ME SAME TYPE !!!
+    !!! SEARCH KEYS MUST BE SAME SEARCH TYPE !!!
     :param search_keys: ['sthpw/snapshot?code=SNAPSHOT000000']
     :param list_dependencies: {'search_types': [u'sthpw/snapshot', 'sthpw/notes', 'sthps/file']}
     :return: deleted sobjects dict
@@ -2505,7 +2495,7 @@ def snapshot_delete_confirm(snapshot, files):
     delete_snapshot_checkbox.setChecked(True)
     layout.addWidget(delete_snapshot_checkbox)
 
-    for i, fl in enumerate(files.itervalues()):
+    for i, fl in enumerate(files.values()):
         checkboxes.append(QtGui.QCheckBox(fl[0]['file_name']))
         files_list.append(fl[0])
         checkboxes[i].setChecked(True)
@@ -2544,7 +2534,7 @@ def get_dirs_with_naming(search_key, process_list=None):
 
 
 def get_virtual_snapshot(search_key, context, files_dict, snapshot_type='file', is_revision=False, keep_file_name=False,
-                         explicit_filename=None, version=None, checkin_type='file', ignore_keep_file_name=False):
+                         explicit_filename=None, version=None, checkin_type='file', ignore_keep_file_name=False, progress_signal=None):
 
     virtual_snapshot = {'versionless': {'paths': [], 'names': []}, 'versioned': {'paths': [], 'names': []}}
 
@@ -2563,9 +2553,16 @@ def get_virtual_snapshot(search_key, context, files_dict, snapshot_type='file', 
 
     project_code = split_search_key(search_key)
 
-    dl.log('Getting Virtual Snapshot', group_id='server/checkin')
+    # dl.log('Getting Virtual Snapshot', group_id='server/checkin')
+    info_dict = {
+        'status_text': 'Updating Snapshot Info',
+        'total_count': 2
+    }
+    gf.emit_progress(0, info_dict, progress_signal)
 
     virtual_snapshot = execute_procedure_serverside(tq.get_virtual_snapshot_extended, kwargs, project=project_code['project_code'], return_dict=True)
+
+    gf.emit_progress(1, info_dict, progress_signal)
 
     return virtual_snapshot
 
@@ -2635,24 +2632,25 @@ def checkin_snapshot(search_key, context, snapshot_type=None, is_revision=False,
     server = server_start(project=project_code['project_code'])
 
     if mode == 'upload':
+        # TODO, make multiple checkin from queue under single start-finish
         s = gf.time_it()
-        dl.log('Starting Upload Checkin ' + str(server), group_id='server/checkin')
+        # dl.log('Starting Upload Checkin ' + str(server), group_id='server/checkin')
         server.start('Upload Checkin', u'Upload Checkin from Tactic Handler by: {}'.format(env_inst.get_current_login()))
         gf.time_it(s, message='Transaction start: ')
 
         for version_file in files_info['version_files']:
-            print('BEGIN UPLOAD')
-            dl.log('Uploading File ' + version_file + ' ' + str(server), group_id='server/checkin')
+            # dl.log('Uploading File ' + version_file + ' ' + str(server), group_id='server/checkin')
             server.upload_file(version_file)
-            print('UPLOADED')
-            dl.log('Done Uploading File ' + version_file + ' ' + str(server), group_id='server/checkin')
+            # dl.log('Done Uploading File ' + version_file + ' ' + str(server), group_id='server/checkin')
 
         gf.time_it(s, message='Upload time: ')
-        dl.log('Begin Snapshot creation ' + search_key + ' ' + str(server), group_id='server/checkin')
+        # dl.log('Begin Snapshot creation ' + search_key + ' ' + str(server), group_id='server/checkin')
 
         result = execute_procedure_serverside(tq.create_snapshot_extended, kwargs, project=project_code['project_code'], return_dict=False, server=server)
+        # result = server.simple_checkin(search_key, context, files_info['version_files'][0], description=description, create_icon=True)
+
         gf.time_it(s, message='On Server execution: ')
-        dl.log('Upload Finished' + ' ' + str(server), group_id='server/checkin')
+        # dl.log('Upload Finished' + ' ' + str(server), group_id='server/checkin')
         server.finish(u'Upload Checkin from Tactic Handler by: {}. Finished.'.format(env_inst.get_current_login()))
         gf.time_it(s, message='Transaction End: ')
     elif mode in ['inplace', 'preallocate']:
@@ -2665,7 +2663,6 @@ def checkin_snapshot(search_key, context, snapshot_type=None, is_revision=False,
     if result:
         if isinstance(result, six.string_types):
             if result.startswith('Traceback'):
-                dl.exception(result, group_id='{0}/{1}'.format('exceptions', get_virtual_snapshot.func_name))
                 exception = Exception()
                 exception.message = 'Tactic Exception when checkin snapshot'
                 stacktrace_dict = {
@@ -2726,7 +2723,7 @@ def generate_web_and_icon(source_image_path, web_save_path=None, icon_save_path=
 
 
 def inplace_checkin(file_paths, virtual_snapshot, repo_name, update_versionless, only_versionless=False, generate_icons=True,
-                    files_objects=None, padding=None, progress_callback=None):
+                    files_objects=None, padding=None, progress_signal=None):
     check_ok = False
 
     def copy_file(dest_path, source_path):
@@ -2751,12 +2748,11 @@ def inplace_checkin(file_paths, virtual_snapshot, repo_name, update_versionless,
         versions = ['versionless']
 
     for i, (key, val) in enumerate(virtual_snapshot):
-        if progress_callback:
-            info_dict = {
-                'status_text': key,
-                'total_count': len(virtual_snapshot)
-            }
-            progress_callback(i, info_dict)
+        info_dict = {
+            'status_text': key,
+            'total_count': len(virtual_snapshot)
+        }
+        gf.emit_progress(i, info_dict, progress_signal)
         for ver in versions:
             dest_path_vers = repo_name['value'][0] + '/' + val[ver]['paths'][0]
             dest_files_vers = files_objects[i].get_all_new_files_list(val[ver]['names'][0], dest_path_vers, new_frame_padding=padding)
@@ -2768,12 +2764,11 @@ def inplace_checkin(file_paths, virtual_snapshot, repo_name, update_versionless,
             # copy files to dest dir
             for j, fl in enumerate(file_paths[i]):
                 check_ok = copy_file(gf.form_path(dest_files_vers[j]), gf.form_path(fl))
-                if progress_callback:
-                    info_dict = {
-                        'status_text': gf.extract_filename(fl),
-                        'total_count': len(file_paths[i])
-                    }
-                    progress_callback(j, info_dict)
+                info_dict = {
+                    'status_text': gf.extract_filename(fl),
+                    'total_count': len(file_paths[i])
+                }
+                gf.emit_progress(j, info_dict, progress_signal)
 
             if generate_icons and len(val[ver]['paths']) > 1:
                 dest_web_path_vers = gf.form_path(

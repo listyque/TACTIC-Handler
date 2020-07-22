@@ -98,18 +98,20 @@ def startup():
 
     env_inst.ui_super = QtGui.QApplication(sys.argv)
     env_inst.ui_super.setApplicationName('TacticHandler_Client')
-    env_inst.ui_super.setStyle('fusion')
+    if env_mode.qt5:
+        env_inst.ui_super.setStyle('fusion')
+    else:
+        env_inst.ui_super.setStyle('plastique')
+
     setPaletteFromDct(palette)
 
-    def server_ping_agent():
-        return tc.server_ping()
+    env_inst.start_pools()
 
-    ping_worker, thread_pool = gf.get_thread_worker(
-        server_ping_agent,
-        finished_func=create_ui,
-        error_func=create_ui
-    )
-    thread_pool.start(ping_worker)
+    worker = env_inst.server_pool.add_task(tc.server_ping)
+
+    worker.finished.connect(create_ui)
+    worker.error.connect(create_ui)
+    worker.start()
 
     sys.exit(env_inst.ui_super.exec_())
 

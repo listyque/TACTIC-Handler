@@ -18,6 +18,7 @@ from thlib.side.Qt import QtWidgets as QtGui
 from thlib.side.Qt import QtGui as Qt4Gui
 from thlib.side.Qt import QtCore
 
+import thlib.side.six as six
 import thlib.tactic_classes as tc
 import thlib.global_functions as gf
 from thlib.environment import env_inst, env_mode, env_read_config, env_write_config
@@ -548,16 +549,10 @@ class Ui_ScriptEditForm(QtGui.QDialog):
             self.setWindowState(QtCore.Qt.WindowMaximized)
 
         if settings['main_splitter']:
-            if env_mode.py2:
-                self.main_splitter.restoreState(QtCore.QByteArray.fromHex(str(settings['main_splitter'])))
-            else:
-                self.main_splitter.restoreState(QtCore.QByteArray.fromHex(eval(settings['main_splitter'])))
+            self.main_splitter.restoreState(QtCore.QByteArray.fromHex(six.ensure_binary(settings['main_splitter'])))
 
         if settings['splitter']:
-            if env_mode.py2:
-                self.splitter.restoreState(QtCore.QByteArray.fromHex(str(settings['splitter'])))
-            else:
-                self.splitter.restoreState(QtCore.QByteArray.fromHex(eval(settings['splitter'])))
+            self.splitter.restoreState(QtCore.QByteArray.fromHex(six.ensure_binary(settings['splitter'])))
 
         if settings['scripts_tree_widget']:
             self.revert_scripts_tree_state(settings['scripts_tree_widget'])

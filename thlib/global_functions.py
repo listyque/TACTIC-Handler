@@ -131,198 +131,9 @@ class FSObserver(Observer):
         event_queue.task_done()
 
 
-class ThreadSignals(QtCore.QObject):
-    started = QtCore.Signal()
-    finished = QtCore.Signal()
-    error = QtCore.Signal(tuple)
-    result = QtCore.Signal(object)
-    progress = QtCore.Signal(object, object)
-    stop = QtCore.Signal(object)
-
-    def __init__(self, parent=None):
-        super(ThreadSignals, self).__init__(parent=parent)
-
-
-class ThreadWorker(QtCore.QRunnable):
-    """
-    Adapted from: https://martinfitzpatrick.name/article/multithreading-pyqt-applications-with-qthreadpool/
-    Worker thread
-    Inherits from QRunnable to handler worker thread setup, signals and wrap-up.
-    :param agent: This is function which will be started by QRunnable.
-    :type agent: function
-    """
-    def __init__(self, agent, thread_pool, parent=None):
-        super(ThreadWorker, self).__init__(parent=parent)
-        # Settings
-        self.setAutoDelete(False)
-
-        # Vars
-        self.agent = agent
-
-        # we can access thread_worker from running agent func
-        self.agent.thread_worker = self
-
-        self.thread_pool = thread_pool
-        self.signals_enabled = True
-
-        self.failed = False
-        self.error_tuple = None
-
-        # Signals
-        self.signals = ThreadSignals()
-
-    def add_custom_kwargs(self, **kwargs):
-        for kwarg, value in kwargs.items():
-            setattr(self, kwarg, value)
-
-    def disable_signals(self):
-        self.signals_enabled = False
-
-    def is_signals_enabled(self):
-        return self.signals_enabled
-
-    def start(self, priority=0):
-        self.thread_pool.start(self, priority)
-
-    def try_start(self):
-        return self.thread_pool.tryStart(self)
-
-    def get_thread_pool(self):
-        return self.thread_pool
-
-    def is_failed(self):
-        return self.failed
-
-    def set_failed(self, boolean):
-        self.failed = boolean
-
-    def get_error_tuple(self):
-        return self.error_tuple
-
-    def started_func(self, func):
-        if func:
-            vars(func)['thread_worker'] = self
-            self.signals.started.connect(func)
-
-    def finished_func(self, func=None):
-        if func:
-            vars(func)['thread_worker'] = self
-            self.signals.finished.connect(func)
-
-    def error_func(self, func=None):
-        if func:
-            vars(func)['thread_worker'] = self
-            self.signals.error.connect(func)
-
-    def result_func(self, func=None):
-        if func:
-            vars(func)['thread_worker'] = self
-            self.signals.result.connect(func)
-
-    def progress_func(self, func=None):
-        if func:
-            vars(func)['thread_worker'] = self
-            self.signals.progress.connect(func)
-
-    def stop_func(self, func=None):
-        if func:
-            import random
-            vars(func)['thread_worker'] = random.randint(0, 99999)
-            self.signals.stop.connect(func)
-
-    def emit_started(self):
-        if self.signals_enabled:
-            self.signals.started.emit()
-
-    def emit_finished(self):
-        if self.signals_enabled:
-            self.signals.finished.emit()
-
-    def emit_error(self, error):
-        if self.signals_enabled:
-            self.signals.error.emit(error)
-        self.error_tuple = error
-
-    def emit_result(self, result):
-        if self.signals_enabled:
-            # print QtCore.QThread.currentThread(), 'EMIT'
-            # print self.signals.thread(), 'SIGNAL THREAD'
-            self.signals.result.emit(result)
-
-    def emit_progress(self, progress, obj=None):
-        if self.signals_enabled:
-            self.signals.progress.emit(progress, obj)
-
-    def emit_stop(self, stop):
-        self.signals.stop.emit(stop)
-
-    @QtCore.Slot()
-    def run(self):
-        try:
-            if self.signals_enabled:
-                self.emit_started()
-                self.result = self.agent()
-                # current_thread = self.signals.thread()
-                self.signals.result.emit(self.result)
-                # self.emit_result(self.agent())
-                self.set_failed(False)
-        except Exception as expected:
-            if self.signals_enabled:
-                traceback.print_exc(file=sys.stdout)
-            stacktrace = traceback.format_exc()
-
-            exception = {
-                'exception': expected,
-                'stacktrace': stacktrace,
-            }
-
-            # dl.exception(stacktrace, group_id='{0}/{1}'.format(
-            #     'threaded_exceptions',
-            #     self.agent.func_name, ))
-            dl.exception(stacktrace, group_id='{0}/{1}'.format(
-                'threaded_exceptions',
-                'FUNC NAME', ))
-
-            self.set_failed(True)
-            self.emit_error((exception, self))
-        # else:
-            # print QtCore.QThread.currentThread(), 'TRYING EMIT'
-            # self.emit_result(result)
-            # self.set_failed(False)
-        finally:
-            if not self.failed:
-                self.emit_finished()
-                self.set_failed(False)
-
-            # self.setAutoDelete(True)
-            # del self
-
-
-def get_thread_worker(agent_func, thread_pool=None, result_func=None, error_func=None,
-                      finished_func=None, progress_func=None, stop_func=None):
-    """
-    This will create worker with thread pool for you, or you can add worker to your existing thread
-
-    :param agent_func: This will be run, cannot be lambda.
-    :param thread_pool: If no passed, will creates global instance, which can be accessed from worker.
-    :param result_func: This func will be executed when thread finished without error, and should have return
-    :param error_func: Executed when thread will fail
-    :param finished_func: Executed even when thread fail, should not have any return
-    :param progress_func: Emitting progress
-    :return: Worker object
-    """
-
-    worker = ThreadWorker(agent_func, thread_pool)
-    worker.result_func(result_func)
-    worker.error_func(error_func)
-    worker.finished_func(finished_func)
-    worker.progress_func(progress_func)
-    worker.stop_func(stop_func)
-
-    if not thread_pool:
-        thread_pool = QtCore.QThreadPool().globalInstance()
-
-    return worker, thread_pool
+def emit_progress(current_state, info_dict, progress_signal=None):
+    if progress_signal:
+        progress_signal.emit((current_state, info_dict))
 
 
 def catch_error(func):
@@ -339,13 +150,9 @@ def catch_error(func):
                 'stacktrace': stacktrace,
             }
 
-            # dl.exception(stacktrace, group_id='{0}/{1}'.format(
-            #     'exceptions',
-            #     func.func_name,))
-
             dl.exception(stacktrace, group_id='{0}/{1}'.format(
                 'exceptions',
-                'FUNC_NAME',))
+                func.__name__,))
 
             error_handle((exception, None))
 
@@ -379,7 +186,7 @@ def error_handle(args):
             message_type='question',
         )
         if reply == QtGui.QMessageBox.ApplyRole:
-            worker.try_start()
+            worker.start()
 
         return reply
 
@@ -406,7 +213,7 @@ def error_handle(args):
             message_type='critical',
         )
         if reply == QtGui.QMessageBox.ApplyRole:
-            worker.try_start()
+            worker.start()
         if reply == QtGui.QMessageBox.ActionRole:
             env_inst.ui_main.open_config_dialog()
 
@@ -1319,6 +1126,32 @@ def add_project_item(tree_widget, projects, item_info, insert_pos=None):
     return tree_item_widget
 
 
+def get_sobject_item(parent_widget, sobject, stype, item_info, ignore_dict=None):
+
+    from thlib.ui_classes.ui_item_classes import Ui_itemWidget, Ui_layoutWrapWidget
+
+    item_info_dict = {
+        'relates_to': item_info['relates_to'],
+        'is_expanded': False,
+        'sep_versions': item_info['sep_versions'],
+        'children_states': item_info.get('children_states'),
+        'simple_view': item_info['simple_view'],
+        'forced_creation': item_info.get('forced_creation'),
+    }
+    tree_item = QtGui.QTreeWidgetItem()
+    tree_item.setChildIndicatorPolicy(QtGui.QTreeWidgetItem.ShowIndicator)
+
+    tree_item_widget = Ui_itemWidget(sobject, stype, item_info_dict, ignore_dict)
+    tree_item_widget.tree_item = tree_item
+    tree_item_widget.search_widget = parent_widget
+    # tree_item_widget.setHidden(True)
+
+    # add_item_to_tree(parent_item, tree_item, tree_item_widget, insert_pos=insert_pos)
+    tree_item_widget.setParent(tree_item_widget.parent())
+
+    return tree_item, tree_item_widget
+
+
 def add_sobject_item(parent_item, parent_widget, sobject, stype, item_info, insert_pos=None, ignore_dict=None, return_layout_widget=False):
 
     from thlib.ui_classes.ui_item_classes import Ui_itemWidget, Ui_layoutWrapWidget
@@ -1443,6 +1276,7 @@ def add_snapshot_item(tree_widget, parent_widget, sobject, stype, process, pipel
         snapshot_item.setParent(snapshot_item.parent())
 
         if not sep_versions:
+            # TODO ADD THIS FROM SNAPSHOT WIDGET ITSELF!!
             for i, versions in enumerate(context.versions.values()):
                 tree_item_versions = QtGui.QTreeWidgetItem()
                 item_info_dict = {

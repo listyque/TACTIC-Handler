@@ -1,38 +1,8 @@
 __all__ = [
-    "QtCore",
-    "QtGui",
-    "QtWidgets",
-    "QtNetwork"
+    "Qt"
 ]
 
-import os
-import sys
-import site
+from . import Qt
+from .Qt import *
 
-
-module_data = []
-cache = []
-for path in sys.path + site.PREFIXES:
-    path = path.replace("\\", "/").rstrip("/")
-    if path in cache:
-        continue
-
-    cache.append(path)
-
-    if not os.path.isdir(path):
-        continue
-
-    for name in os.listdir(path):
-        if "." in name:
-            name, ext = name.split(".", 1)
-            if ext not in ["py", "pyw", "pyc", "pyd"]:
-                continue
-
-        if name in module_data:
-            continue
-
-        module_data.append(name)
-
-
-available_versions = [name for name in ["PySide", "PyQt4", "PySide2", "PyQt5"] if name in module_data]
-version = available_versions and available_versions[0] or "PySide2"
+__qt_version_info__ = tuple(map(int, Qt.__qt_version__.split(".")))

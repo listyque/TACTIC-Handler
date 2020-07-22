@@ -2,7 +2,7 @@ from thlib.side.Qt import QtWidgets as QtGui
 from thlib.side.Qt import QtCore
 
 from thlib.environment import env_mode, env_inst
-#import thlib.update_functions as uf
+import thlib.update_functions as uf
 import thlib.ui.misc.ui_create_update as ui_create_update
 import thlib.ui.misc.ui_update as ui_update
 
@@ -61,7 +61,8 @@ class Ui_updateDialog(QtGui.QDialog, ui_update.Ui_updateDialog):
 
         self.setupUi(self)
 
-        uf.get_updates_from_server()
+        # Disabled until it will be needed
+        #uf.get_updates_from_server()
 
         self.updates = uf.get_info_from_updates_folder()
 
@@ -82,8 +83,8 @@ class Ui_updateDialog(QtGui.QDialog, ui_update.Ui_updateDialog):
             update_get = update.get
             item = QtGui.QTreeWidgetItem()
             sort_list.append(uf.get_version(sort_sum=True, **update_get('version')))
-            print(uf.get_version(string=True, **update_get('version')))
-            print(uf.get_version(sort_sum=True, **update_get('version')))
+            # print(uf.get_version(string=True, **update_get('version')))
+            # print(uf.get_version(sort_sum=True, **update_get('version')))
 
             item.setText(0, uf.get_version(string=True, **update_get('version')).replace('_', '.'))
             item.setText(1, update_get('date'))
@@ -93,7 +94,7 @@ class Ui_updateDialog(QtGui.QDialog, ui_update.Ui_updateDialog):
         if self.updates:
             self.last_version = self.updates[-1].get('version')
 
-        print(sorted(sort_list))
+        # print(sorted(sort_list))
         self.versionsTreeWidget.sortByColumn(3, QtCore.Qt.DescendingOrder)
         self.versionsTreeWidget.scrollToBottom()
 
@@ -129,7 +130,7 @@ class Ui_updateDialog(QtGui.QDialog, ui_update.Ui_updateDialog):
         # self.current_version = uf.get_current_version()
         # self.check_current_version()
         # archive_path = uf.get_update_archive_from_server(self.updates[-1].get('update_archive'))
-        archive_path = r'D:\APS\OneDrive\MEGAsync\TACTIC-handler\updates\0_4_7_9.zip'
+        # archive_path = r'D:\APS\OneDrive\MEGAsync\TACTIC-handler\updates\0_4_7_9.zip'
 
         # uf.update_from_archive(archive_path)
         env_inst.ui_main.restart_for_update_ui_main()

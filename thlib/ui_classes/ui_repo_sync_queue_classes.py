@@ -1,4 +1,5 @@
 import copy
+from functools import partial
 from thlib.side.Qt import QtWidgets as QtGui
 from thlib.side.Qt import QtGui as Qt4Gui
 from thlib.side.Qt import QtNetwork
@@ -20,6 +21,7 @@ class Ui_repoSyncDialog(QtGui.QDialog):
         self.sobject = sobject
         self.togglers = [False, False, False, False]
         self.repo_sync_items = []
+        self.sync_tasks = 0
         self.sync_in_progress = False
         self.interrupted = False
         self.auto_close = False
@@ -81,6 +83,7 @@ class Ui_repoSyncDialog(QtGui.QDialog):
             self.close()
 
         self.downloads_progress_bar.setVisible(False)
+        self.toggle_ui(True)
 
     def file_download_finished(self, fl):
         if not self.interrupted:
@@ -191,13 +194,11 @@ class Ui_repoSyncDialog(QtGui.QDialog):
 
         self.progress_bar = QtGui.QProgressBar()
         self.progress_bar.setMaximum(100)
-        # self.progressBarLayout.addWidget(self.progressBar)
         self.progress_bar.setTextVisible(True)
         self.progress_bar.setHidden(True)
 
         self.downloads_progress_bar = QtGui.QProgressBar()
         self.downloads_progress_bar.setMaximum(100)
-        # self.progressBarLayout.addWidget(self.progressBar)
         self.downloads_progress_bar.setTextVisible(True)
         self.downloads_progress_bar.setHidden(True)
 
@@ -584,8 +585,13 @@ class Ui_repoSyncDialog(QtGui.QDialog):
         return data
 
     def add_file_objects_to_queue(self, files_objects_list):
+
         for file_object in files_objects_list:
             self.repo_sync_items.append(self.download_queue.schedule_file_object(file_object))
+
+        self.download_queue.files_num_label.setText(
+            str(self.download_queue.files_queue_tree_widget.topLevelItemCount())
+        )
 
     def get_presets_list(self):
         return self.presets_list
@@ -610,7 +616,6 @@ class Ui_repoSyncDialog(QtGui.QDialog):
         self.download_queue.clear_queue()
         self.repo_sync_items = []
 
-    #@env_inst.async_engine
     def start_sync(self, preset_dict=None):
         self.sync_in_progress = True
         # it is recommended to use finished signal
@@ -639,29 +644,76 @@ class Ui_repoSyncDialog(QtGui.QDialog):
             preset_dict = self.get_current_preset_dict()
 
         if self.sobject:
-            if preset_dict.get('only_updates'):
-                self.sobject.update_snapshots(filters=[('timestamp', 'is after', self.get_last_sync_date())])
-            else:
-                self.sobject.update_snapshots()
+            self.progress_bar.setValue(0)
+            self.progress_bar.setFormat(u'Getting: {0}'.format(self.sobject.get_title()))
 
-            self.sync_by_pipeline(self.sobject, preset_dict)
+            self.update_sobject_snapshots_threaded(self.sobject, preset_dict)
+
             self.sync_children(self.sobject, preset_dict)
             self.save_last_sync_date()
         else:
-            stype_sobjects, data = tc.get_sobjects(
-                self.stype.get_code(),
-                [],
-                project_code=self.stype.project.get_code(),
-                get_all_snapshots=True
-            )
-            for sobject in stype_sobjects.values():
-                self.sync_by_pipeline(sobject, preset_dict)
-                self.sync_children(sobject, preset_dict)
-                self.save_last_sync_date(sobject)
+            self.progress_bar.setValue(0)
+            self.progress_bar.setFormat(u'Getting all: {0}'.format(self.stype.get_pretty_name()))
 
-        self.download_files()
-        self.progress_bar.setHidden(True)
-        self.toggle_ui(True)
+            self.update_sobjects_threaded(preset_dict)
+
+        # self.download_files()
+        # self.progress_bar.setHidden(True)
+        # self.toggle_ui(True)
+
+    def check_sync_tasks(self):
+        if self.sync_tasks == 0:
+            self.progress_bar.setHidden(True)
+            self.download_files()
+
+    def do_sync_all_sobjects(self, result):
+
+        sobjects, query_info, preset_dict = result
+
+        for sobject in sobjects.values():
+
+            total = query_info['total_sobjects_query_count']
+            self.progress_bar.setMaximum(total)
+            progress = self.progress_bar.value()
+            self.progress_bar.setValue(progress + 1)
+            self.progress_bar.setFormat(u'%v / %m {}'.format(sobject.get_title()))
+
+            self.update_sobject_snapshots_threaded(sobject, preset_dict)
+            self.sync_children(sobject, preset_dict)
+
+            self.save_last_sync_date(sobject)
+
+        self.sync_tasks -= 1
+        self.check_sync_tasks()
+
+    def update_sobjects_threaded(self, preset_dict):
+        worker = env_inst.server_pool.add_task(
+            tc.get_sobjects,
+            self.stype.get_code(),
+            [],
+            project_code=self.stype.project.get_code(),
+            get_all_snapshots=True
+        )
+
+        worker.add_result_data(preset_dict)
+        worker.result.connect(self.do_sync_all_sobjects)
+        worker.error.connect(gf.error_handle)
+        worker.start()
+
+        self.sync_tasks += 1
+
+    def update_sobject_snapshots_threaded(self, sobject, preset_dict):
+
+        if preset_dict.get('only_updates'):
+            worker = env_inst.server_pool.add_task(sobject.update_snapshots, filters=[('timestamp', 'is after', self.get_last_sync_date())])
+        else:
+            worker = env_inst.server_pool.add_task(sobject.update_snapshots)
+
+        worker.finished.connect(partial(self.sync_by_pipeline, sobject, preset_dict))
+        worker.error.connect(gf.error_handle)
+        worker.start()
+
+        self.sync_tasks += 1
 
     def interrupt_sync_process(self):
         self.interrupted = True
@@ -676,6 +728,7 @@ class Ui_repoSyncDialog(QtGui.QDialog):
         self.download_queue.clear_queue_push_button.setEnabled(enable)
 
     def sync_by_pipeline(self, sobject=None, preset_dict=None):
+
         if not sobject:
             sobject = self.sobject
 
@@ -691,29 +744,54 @@ class Ui_repoSyncDialog(QtGui.QDialog):
         elif current_builtin_preset_dict:
             self.sync_by_sobject(sobject, {}, current_builtin_preset_dict)
 
-    #@env_inst.async_engine
-    def sync_children(self, sobject=None, preset_dict=None):
-        stype = sobject.get_stype()
+        self.sync_tasks -= 1
+        self.check_sync_tasks()
 
+    def sync_children(self, sobject=None, preset_dict=None):
         if not preset_dict:
             preset_dict = self.get_current_preset_dict()
 
         children_preset_dict = self.get_preset_dict_by_type('child', preset_dict, True)
-        project_obj = stype.get_project()
 
         for child_code, children_preset in children_preset_dict.items():
-            related_sobjects, query_info = yield env_inst.async_task(sobject.get_related_sobjects, child_stype=project_obj.stypes.get(child_code), parent_stype=stype, get_all_snapshots=True)
+            self.get_related_sobjects_threaded(sobject, child_code, children_preset)
 
-            if related_sobjects:
-                for related_sobject in related_sobjects.values():
-                    self.sync_by_pipeline(related_sobject, children_preset.get('sub'))
-                    self.sync_children(related_sobject, children_preset.get('sub'))
+    def get_related_sobjects_threaded(self, sobject, child_code, children_preset):
 
-                    total = query_info['total_sobjects_query_count']
-                    self.progress_bar.setMaximum(total)
-                    progress = self.progress_bar.value()
-                    self.progress_bar.setValue(progress + 1)
-                    self.progress_bar.setFormat(u'%v / %m {}'.format(related_sobject.get_title()))
+        stype = sobject.get_stype()
+        project_obj = stype.get_project()
+
+        worker = env_inst.server_pool.add_task(
+            sobject.get_related_sobjects,
+            child_stype=project_obj.stypes.get(child_code),
+            parent_stype=stype,
+            get_all_snapshots=True
+        )
+
+        worker.add_result_data(children_preset)
+        worker.result.connect(self.do_get_related_sobjects)
+        worker.error.connect(gf.error_handle)
+        worker.start()
+
+        self.sync_tasks += 1
+
+    def do_get_related_sobjects(self, result):
+
+        related_sobjects, query_info, children_preset = result
+
+        if related_sobjects:
+            for related_sobject in related_sobjects.values():
+                self.update_sobject_snapshots_threaded(related_sobject, children_preset.get('sub'))
+                self.sync_children(related_sobject, children_preset.get('sub'))
+
+                total = query_info['total_sobjects_query_count']
+                self.progress_bar.setMaximum(total)
+                progress = self.progress_bar.value()
+                self.progress_bar.setValue(progress + 1)
+                self.progress_bar.setFormat(u'%v / %m {}'.format(related_sobject.get_title()))
+
+        self.sync_tasks -= 1
+        self.check_sync_tasks()
 
     def sync_by_sobject(self, sobject=None, sync_preset_dict=None, builtin_preset_dict=None):
 
@@ -726,11 +804,17 @@ class Ui_repoSyncDialog(QtGui.QDialog):
         versionless_only = self.versionlessSyncRadioButton.isChecked()
 
         if builtin_preset_dict:
-            all_precesses = dict(enabled_processes.items() + builtin_preset_dict.items())
+            all_precesses = dict(tuple(enabled_processes.items()) + tuple(builtin_preset_dict.items()))
         else:
             all_precesses = enabled_processes
 
+        self.progress_bar.setMaximum(len(process_objects.items()))
+
         for process_name, process_object in process_objects.items():
+
+            progress = self.progress_bar.value()
+            self.progress_bar.setValue(progress + 1)
+            self.progress_bar.setFormat(u'%v / %m {}'.format('{0}: {1}'.format(sobject.get_title(), process_name)))
 
             if not self.interrupted:
 

@@ -1,5 +1,6 @@
-from .qt import QtCore, QtNetwork
-from .private.p_socket import Socket
+from .qt import QtCore, QtNetwork, __qt_version_info__
+from .private.p_tcpsocket import TcpSocket
+from .private.p_localsocket import LocalSocket
 from .private.p_socketthread import SocketThread
 from .private.p_logger import logger
 
@@ -8,10 +9,11 @@ class Client(QtCore.QObject):
 
     connected = QtCore.Signal()
     disconnected = QtCore.Signal()
-    error = QtCore.Signal(QtNetwork.QAbstractSocket.SocketError)
+    errorOccurred = QtCore.Signal(QtNetwork.QAbstractSocket.SocketError)
     received = QtCore.Signal(QtCore.QByteArray)
+    sent = QtCore.Signal(QtCore.QByteArray)
 
-    def __init__(self, host="127.0.0.1", port=8080):
+    def __init__(self, host="127.0.0.1", port=8080, local=None):
 
         """
         initialise client object
@@ -22,12 +24,12 @@ class Client(QtCore.QObject):
         super(Client, self).__init__()
 
         self.host = host
-        self.port = port
+        self.port = not local and port or 0
 
         self._socket = None
         self._thread = None
 
-        self._attempt_timer = QtCore.QTimer()
+        self._attempt_timer = QtCore.QTimer(self)
         self._attempt_timer.setSingleShot(True)
         self._attempt_timer.timeout.connect(self.check_connection)
 
@@ -35,7 +37,7 @@ class Client(QtCore.QObject):
 
         self.keep_alive = True
 
-    def error_occurred(self, error):
+    def error_occurred_slot(self, error):
 
         """
         handle error
@@ -49,15 +51,24 @@ class Client(QtCore.QObject):
         else:
             logger.warning("no client socket found")
 
-        self._attempt_timer.start(3000)
+        self.errorOccurred.emit(error)
+        self.disconnected_slot()
+
+    def disconnected_slot(self):
+
+        """
+        disconnected slot
+        """
+
+        self.disconnected.emit()
+        if self.keep_alive and not self._manual_close:
+            self._attempt_timer.start(3000)
 
     def check_connection(self):
 
         """
         check connection
         """
-
-        self.disconnected.emit()
 
         if self.keep_alive and not self._manual_close:
             logger.debug("restore connection")
@@ -129,23 +140,29 @@ class Client(QtCore.QObject):
             self.host = host
             self.port = port
 
-            if self._socket is not None:
-                self._socket.abort()
+        is_local = self.port < 1
+        if self._socket is not None:
+            self._socket.close()
 
-            else:
-                self._socket = Socket()
+        if is_local:
+            self._socket = LocalSocket()
 
-            self._socket.received.connect(self.received)
-            self._socket.disconnected.connect(self.check_connection)
-            self._socket.error.connect(self.error_occurred)
-            self._socket.error.connect(self.error.emit)
-            self._socket.connected.connect(self.connected.emit)
+        else:
+            self._socket = TcpSocket()
+
+        self._socket.received.connect(self.received)
+        self._socket.sent.connect(self.sent)
+        self._socket.disconnected.connect(self.disconnected_slot)
+        self._socket.connected.connect(self.connected.emit)
+        if __qt_version_info__ < (5, 15):
+            self._socket.error.connect(self.error_occurred_slot)
+        else:
+            self._socket.errorOccurred.connect(self.error_occurred_slot)
 
         self._thread = SocketThread(self)
 
         self._thread.finished.connect(self._thread.deleteLater)
-
-        self._thread.opening.connect(self._socket.connectToHost)
+        self._thread.opening.connect(self._socket.open)
         self._thread.sending.connect(self._socket.send)
         self._thread.closing.connect(self._socket.close)
 
@@ -171,9 +188,15 @@ class Client(QtCore.QObject):
             self._thread.sending.disconnect()
 
             self._thread.close()
-            self._thread.wait(60)
+            self._thread.wait(10)
             self._thread.quit()
-            self._thread.wait(60)
+            self._thread.wait(10)
+
+            if self._thread.isRunning():
+                self._thread.terminate()
+
+            self._thread.deleteLater()
+            self._socket.close()
 
             self._thread = None
             self._socket = None

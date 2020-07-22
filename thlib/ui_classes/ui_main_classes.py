@@ -456,21 +456,12 @@ class Ui_Main(QtGui.QMainWindow):
         self.ui_settings_dict = {}
         self.created = False
 
-        self.create_thread_pools()
-        env_inst.start_pools()
-
         self.create_ui_raw()
 
         if env_mode.is_offline():
             self.create_ui_main_offline()
         else:
             self.create_ui_main()
-
-    def create_thread_pools(self):
-
-        thread_pool = QtCore.QThreadPool()
-        thread_pool.setMaxThreadCount(1)
-        env_inst.set_thread_pool(thread_pool, 'commit_queue/server_thread_pool')
 
     def create_ui_raw(self):
         self.setObjectName("MainWindow")
@@ -709,6 +700,9 @@ class Ui_Main(QtGui.QMainWindow):
         self.created = True
 
     def create_ui_main(self):
+
+        env_inst.start_pools()
+
         self.setWindowTitle('TACTIC-Handler')
 
         self.projects_docks = collections.OrderedDict()
@@ -745,7 +739,7 @@ class Ui_Main(QtGui.QMainWindow):
 
         execute()
 
-        env_api.start_api_server_app()
+        # env_api.start_api_server_app()
 
     def create_debuglog_widget(self):
         env_inst.ui_debuglog = Ui_debugLogWidget(self)
@@ -909,7 +903,7 @@ class Ui_Main(QtGui.QMainWindow):
         self.close()
 
         # Closing server api
-        env_api.close_server()
+        # env_api.close_server()
 
         if server_preset:
             env_server.set_cur_srv_preset(new_server_preset)
@@ -1008,11 +1002,6 @@ class Ui_Main(QtGui.QMainWindow):
         env_write_config(self.get_settings_dict(), filename='ui_settings', unique_id='ui_main', long_abs_path=True)
 
     def closeEvent(self, event):
-        # Closing server api
-        env_api.close_server(self)
-
-        # Waiting for all threads finished
-        env_inst.exit_pools()
 
         for dock in self.projects_docks.values():
             dock.close()
@@ -1021,6 +1010,12 @@ class Ui_Main(QtGui.QMainWindow):
             # env_inst.cleanup(project_code)
 
         self.writeSettings()
+
+        # Closing server api
+        # env_api.close_server(self)
+
+        # Waiting for all threads finished
+        env_inst.exit_pools()
 
         event.accept()
 

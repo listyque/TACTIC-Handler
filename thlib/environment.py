@@ -13,18 +13,16 @@ import collections
 import platform
 import json
 from pickle import dumps, loads
-from thlib.side.Qt import QtCore, QtNetwork
+from thlib.side.Qt import QtCore, QtNetwork, Qt
 from thlib.pool import ThreadsPool
-# from thlib.side.async_gui.engine import Task
-# from thlib.side.async_gui.toolkits.pyqt import PyQtEngine
 from thlib.side.appconnector.server import Server
 from thlib.side.appconnector.client import Client
 
 
 CFG_FORMAT = 'json'  # set this to 'ini' if you want to use QSettings instead of json
-SERVER_THREADS_COUNT = 4  # max connections to remote tactic server
-HTTP_THREADS_COUNT = 4  # max connections to http
-LOCAL_THREADS_COUNT = 16  # max local threads
+SERVER_THREADS_COUNT = 2  # max connections to remote tactic server (recommended to match number server cores)
+HTTP_THREADS_COUNT = 4  # max connections to http (depending on the speed of internet)
+LOCAL_THREADS_COUNT = 16  # max local threads (recommended to match number of local machine cores)
 MAX_RECURSION_DEPTH = 65535  # maximum recursion for stability reasons
 SPECIALIZED = None  # can be string, made for personal script packs, e.g. to create pre-configured pack
 
@@ -225,8 +223,6 @@ class Inst(object):
     watch_folders = {}
     commit_queue = {}
     thread_pools = {}
-    # async_engine = PyQtEngine().async_
-    # async_task = Task
 
     server_pool = ThreadsPool(max_threads=SERVER_THREADS_COUNT)  # Thread Pool for async tasks
     # http_pool = ThreadsPool(max_threads=HTTP_THREADS_COUNT)
@@ -234,26 +230,27 @@ class Inst(object):
     local_pool = ThreadsPool(max_threads=LOCAL_THREADS_COUNT)
 
     def start_pools(self):
-        self.server_pool.setParent(self.ui_super)
-        # self.http_pool.setParent(self.ui_super)
-        self.commit_pool.setParent(self.ui_super)
-        self.local_pool.setParent(self.ui_super)
+        if self.server_pool.is_stopped:
+            self.server_pool.setParent(self.ui_super)
+            self.server_pool.start()
 
-        self.server_pool.start()
-        # self.http_pool.start()
-        self.commit_pool.start()
-        self.local_pool.start()
+        # if self.http_pool.is_stopped:
+            # self.http_pool.setParent(self.ui_super)
+            # self.http_pool.start()
+
+        if self.commit_pool.is_stopped:
+            self.commit_pool.setParent(self.ui_super)
+            self.commit_pool.start()
+
+        if self.local_pool.is_stopped:
+            self.local_pool.setParent(self.ui_super)
+            self.local_pool.start()
 
     def exit_pools(self):
         self.server_pool.exit()
         # self.http_pool.exit()
         self.commit_pool.exit()
         self.local_pool.exit()
-
-        # self.server_pool.wait()
-        # self.http_pool.wait()
-        # self.commit_pool.wait()
-        # self.local_pool.wait()
 
     def get_current_project(self):
         return self.current_project
@@ -344,22 +341,22 @@ class Inst(object):
             project_code = self.current_project
         return self.commit_queue.get(project_code)
 
-    def set_thread_pool(self, thread_pool=None, name='main'):
-        # first created thread pool will be live until deleted manually
-        if not self.thread_pools.get(name) and not thread_pool:
-            dl.log('Creating new Thread Pool {}'.format(name), group_id='server/log')
-            thread_pool = QtCore.QThreadPool.globalInstance()
-            thread_pool.setMaxThreadCount(env_tactic.max_threads())
-            self.thread_pools[name] = thread_pool
-            return thread_pool
+    # def set_thread_pool(self, thread_pool=None, name='main'):
+    #     # first created thread pool will be live until deleted manually
+    #     if not self.thread_pools.get(name) and not thread_pool:
+    #         dl.log('Creating new Thread Pool {}'.format(name), group_id='server/log')
+    #         thread_pool = QtCore.QThreadPool.globalInstance()
+    #         thread_pool.setMaxThreadCount(env_tactic.max_threads())
+    #         self.thread_pools[name] = thread_pool
+    #         return thread_pool
+    #
+    #     elif thread_pool and not self.thread_pools.get(name):
+    #         dl.log('Creating new Thread Pool {}'.format(name), group_id='server/log')
+    #         self.thread_pools[name] = thread_pool
+    #         return thread_pool
 
-        elif thread_pool and not self.thread_pools.get(name):
-            dl.log('Creating new Thread Pool {}'.format(name), group_id='server/log')
-            self.thread_pools[name] = thread_pool
-            return thread_pool
-
-    def get_thread_pool(self, name='main'):
-        return self.thread_pools.get(name)
+    # def get_thread_pool(self, name='main'):
+    #     return self.thread_pools.get(name)
 
     def cleanup(self, project_code=None):
         if project_code:
@@ -510,6 +507,14 @@ class Mode(object):
     @property
     def py2(self):
         return not PY3
+
+    @property
+    def qt5(self):
+        return Qt.__binding__ in ['PySide2', 'PyQt5']
+
+    @property
+    def qt4(self):
+        return Qt.__binding__ in ['PySide', 'PyQt4']
 
     def set_mode(self, mode):
         if mode in self.modes:
@@ -1134,7 +1139,7 @@ class ApiConnectorWrapper(object):
                 result = self.execute_tc_method(method_name, *args, **kwargs)
             except Exception as expected:
                 print(expected)
-                result = ('__exception__', expected.__dict__)
+                result = ('__exception__', dumps(expected))
             else:
                 result = ('ret_val', result)
 
@@ -1208,7 +1213,7 @@ class ApiConnectorWrapper(object):
 
                 if result[0] == '__exception__':
                     cl.close()
-                    raise Exception(result[1].get('faultString'))
+                    raise loads(result[1])
                 elif result[0] == 'ret_val':
                     cl.close()
                     handoff_method(result[1])

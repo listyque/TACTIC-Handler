@@ -5,7 +5,7 @@ from thlib.side.Qt import QtWidgets as QtGui
 from thlib.side.Qt import QtGui as Qt4Gui
 from thlib.side.Qt import QtCore
 
-from thlib.environment import env_mode, env_write_config, env_read_config
+from thlib.environment import env_mode, env_inst, env_write_config, env_read_config
 import thlib.global_functions as gf
 import thlib.ui.checkin_out.ui_drop_plate as ui_drop_plate
 import thlib.ui.checkin_out.ui_drop_plate_config as ui_drop_plate_config
@@ -148,15 +148,13 @@ class Ui_dropPlateWidget(QtGui.QWidget, ui_drop_plate.Ui_dropPlate):
 
     def threads_fill_items(self, kwargs, exec_after_added=None):
 
-        def get_files_objects_agent():
-            return self.get_files_objects(kwargs)
+        worker = env_inst.local_pool.add_task(self.get_files_objects, kwargs)
 
-        worker, thread_pool = gf.get_thread_worker(get_files_objects_agent)
-        worker.result_func(self.append_items_to_tree)
+        worker.result.connect(self.append_items_to_tree)
         if exec_after_added:
-            worker.finished_func(exec_after_added)
-        worker.error_func(gf.error_handle)
-        thread_pool.start(worker)
+            worker.finished.connect(exec_after_added)
+        worker.error.connect(gf.error_handle)
+        worker.start()
 
     def create_ui(self):
 
@@ -498,7 +496,7 @@ class Ui_dropPlateWidget(QtGui.QWidget, ui_drop_plate.Ui_dropPlate):
             event.accept()
             links = []
             for url in event.mimeData().urls():
-                links.append(unicode(url.toLocalFile()))
+                links.append(url.toLocalFile())
             self.threads_fill_items(links)
         else:
             event.ignore()

@@ -1,19 +1,15 @@
 import sys
 import os
-
-module_location = os.path.abspath(__file__).replace("\\", "/").rsplit("/", 4)[0]
-sys.path.append(module_location)
+import logging
+sys.path.insert(0, os.path.abspath(__file__).replace("\\", "/").rsplit("/", 4)[0])
+from appconnector.qt import QtWidgets, QtGui, QtCore
+from appconnector.client import Client, logger
 
 
 def test(connect=False):
+    logger.setLevel(logging.DEBUG)
 
-    import logging
-    from appconnector.qt import QtWidgets, QtGui, QtCore
-    from appconnector.client import Client, logger
-
-    logger.setLevel(logging.WARNING)
-
-    client = Client("127.0.0.1", 55300)
+    client = Client("127.0.0.1", -1)
 
     timer = QtCore.QTimer()
     timer.setSingleShot(True)

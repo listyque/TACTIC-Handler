@@ -1,15 +1,12 @@
+import multiprocessing
 import sys
 import os
-
-module_location = os.path.abspath(__file__).replace("\\", "/").rsplit("/", 4)[0]
-sys.path.append(module_location)
+sys.path.insert(0, os.path.abspath(__file__).replace("\\", "/").rsplit("/", 4)[0])
+from appconnector.tests.chat import test_client
 
 
 def test(connect=False):
-
-    from appconnector.tests.chat import test_client
-    import multiprocessing
-    for i in range(5):
+    for i in range(100):
         p = multiprocessing.Process(target=test_client.test, kwargs={"connect": connect})
         p.start()
 

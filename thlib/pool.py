@@ -32,6 +32,14 @@ class ThreadsPool(QtCore.QThread):
     def reset_poll_timer(self):
         self.poll_time = self.idle_poll_time
 
+    @property
+    def is_started(self):
+        return self._started
+
+    @property
+    def is_stopped(self):
+        return not self._started
+
     def add_task(self, func, *args, **kwargs):
 
         if self._started:
@@ -140,7 +148,7 @@ class OperationWorker(QtCore.QObject):
     finished = QtCore.Signal()
     error = QtCore.Signal(object)
     result = QtCore.Signal(object)
-    progress = QtCore.Signal(object, object)
+    progress = QtCore.Signal(object)
     stop = QtCore.Signal(object)
 
     def __init__(self, func, *args, **kwargs):
@@ -152,10 +160,25 @@ class OperationWorker(QtCore.QObject):
         self.signals_enabled = True
         self._started = False
         self._result = None
+        self._data = None
 
     @property
     def is_started(self):
         return self._started
+
+    def add_result_data(self, data):
+        # will add another data into result output
+        # only for tuple output
+        self._data = data
+
+    def connect_progress(self, func):
+        # attaching progress signal to kwargs
+        # func should have "progress_signal" kwarg
+        self.progress.connect(func)
+        self._kwargs['progress_signal'] = self.progress
+
+    def get_result_data(self):
+        return self._data
 
     def start(self):
         self._started = True
@@ -168,8 +191,11 @@ class OperationWorker(QtCore.QObject):
 
                 self._result = self._func(*self._args, **self._kwargs)
 
-                self.result.emit(self._result)
+                if self._data:
+                    result = self._result + (self._data, )
+                    self._result = result
 
+                self.result.emit(self._result)
                 self.finished.emit()
 
         except Exception as expected:
@@ -182,11 +208,6 @@ class OperationWorker(QtCore.QObject):
                 'stacktrace': stacktrace,
             }
             self.error.emit((exception, self))
-
-            from thlib.environment import dl
-            dl.exception(stacktrace, group_id='{0}/{1}'.format(
-                'threaded_exceptions',
-                self._func.__name__, ))
 
             self.finished.emit()
 

@@ -3,7 +3,7 @@
 # Main Dock Window interface
 
 from thlib.side.Qt import QtWidgets as QtGui
-from thlib.side.Qt import QtCore
+#from thlib.side.Qt import QtCore
 from thlib.environment import env_inst, env_mode, env_read_config, env_write_config
 import thlib.maya_functions as mf
 import thlib.tactic_classes as tc
@@ -12,7 +12,7 @@ from maya.app.general.mayaMixin import MayaQWidgetDockableMixin
 import maya.cmds as cmds
 import ui_main_classes
 
-reload(ui_main_classes)
+# reload(ui_main_classes)
 
 
 class Ui_DockMain(MayaQWidgetDockableMixin, QtGui.QMainWindow):
@@ -223,13 +223,22 @@ def startup(restart=False, *args, **kwargs):
         main_tab.raise_window()
     except:
 
-        def server_ping_agent():
-            return tc.server_ping()
+        # def server_ping_agent():
+        #     return tc.server_ping()
+        #
+        # ping_worker, thread_pool = gf.get_thread_worker(
+        #     server_ping_agent,
+        #     finished_func=lambda: create_ui(None),
+        #     error_func=create_ui
+        # )
+        #
+        # thread_pool.start(ping_worker)
 
-        ping_worker, thread_pool = gf.get_thread_worker(
-            server_ping_agent,
-            finished_func=lambda: create_ui(None),
-            error_func=create_ui
-        )
+        env_inst.start_pools()
 
-        thread_pool.start(ping_worker)
+        worker = env_inst.server_pool.add_task(tc.server_ping)
+
+        worker.finished.connect(create_ui)
+        worker.error.connect(create_ui)
+        worker.start()
+

@@ -1,20 +1,16 @@
 import sys
 import os
-
-module_location = os.path.abspath(__file__).replace("\\", "/").rsplit("/", 4)[0]
-sys.path.append(module_location)
+import logging
+sys.path.insert(0, os.path.abspath(__file__).replace("\\", "/").rsplit("/", 4)[0])
+from appconnector.server import Server, logger
+from appconnector.qt import QtWidgets, QtCore, QtGui
 
 
 def test(start=False):
+    logger.setLevel(logging.DEBUG)
 
-    import logging
-    from appconnector.server import Server, logger
+    server = Server("127.0.0.1", -1)
 
-    logger.setLevel(logging.WARNING)
-
-    server = Server("127.0.0.1", 55300)
-
-    from appconnector.qt import QtWidgets, QtCore, QtGui
     found_app = QtWidgets.QApplication.instance()
     if not found_app:
         app = QtWidgets.QApplication(sys.argv)
@@ -45,14 +41,13 @@ def test(start=False):
         plain_text.moveCursor(QtGui.QTextCursor.End)
         plain_text.appendHtml("<font color=\"red\">" + str(data) + "</font>")
 
-    def test_receive(*args):
+    def test_receive(client_key, client_data):
 
         plain_text.moveCursor(QtGui.QTextCursor.End)
 
-        con = args[0]
-        con.send("system:hello, it`s me".encode("utf-8"))
+        server.send(client_key, "system:hello, it`s me".encode("utf-8"))
 
-        datab = bytes(args[1])
+        datab = bytes(client_data)
 
         try:
             datas = datab.decode("utf-8")
@@ -67,11 +62,7 @@ def test(start=False):
         else:
             plain_text.appendHtml("<font color=\"black\">" + str(datas) + "</font>")
 
-            for key in server:
-                if key == con.key:
-                    continue
-
-                server[key].send(datab)
+            server.broadcast(datab, owner=client_key)
 
     server.received.connect(test_receive)
 

@@ -5,6 +5,7 @@ from thlib.side.Qt import QtWidgets as QtGui
 from thlib.side.Qt import QtGui as Qt4Gui
 from thlib.side.Qt import QtCore
 
+import thlib.side.six as six
 #import thlib.ui.misc.ui_snapshot_browser as ui_snapshot_browser
 from thlib.ui_classes.ui_custom_qwidgets import Ui_horizontalCollapsableWidget, StyledToolButton
 import thlib.ui_classes.ui_addsobject_classes as addsobject_widget
@@ -53,6 +54,7 @@ class Ui_snapshotBrowserWidget(QtGui.QWidget):
         self.imageViewerLayout.setSpacing(0)
         self.imageViewerLayout.setContentsMargins(0, 0, 0, 0)
         self.imageViewerLayout.setObjectName("imageViewerLayout")
+
         self.previewGraphicsView = QtGui.QGraphicsView(self.verticalLayoutWidget)
         self.previewGraphicsView.setFrameShape(QtGui.QFrame.NoFrame)
         self.previewGraphicsView.setVerticalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOff)
@@ -60,7 +62,8 @@ class Ui_snapshotBrowserWidget(QtGui.QWidget):
         self.previewGraphicsView.setRenderHints(
             Qt4Gui.QPainter.Antialiasing | Qt4Gui.QPainter.HighQualityAntialiasing | Qt4Gui.QPainter.SmoothPixmapTransform | Qt4Gui.QPainter.TextAntialiasing)
         self.previewGraphicsView.setOptimizationFlags(
-            QtGui.QGraphicsView.DontAdjustForAntialiasing | QtGui.QGraphicsView.DontSavePainterState)
+            QtGui.QGraphicsView.DontAdjustForAntialiasing | QtGui.QGraphicsView.DontSavePainterState | QtGui.QGraphicsView.IndirectPainting)
+        self.previewGraphicsView.setViewportUpdateMode(QtGui.QGraphicsView.BoundingRectViewportUpdate)
         self.previewGraphicsView.setObjectName("previewGraphicsView")
         self.imageViewerLayout.addWidget(self.previewGraphicsView)
         self.imageViewerLayout.setStretch(1, 1)
@@ -533,6 +536,34 @@ class Ui_snapshotBrowserWidget(QtGui.QWidget):
 
         self.snapshots = snapshots
 
+    @staticmethod
+    def check_file_object_exists(file_object):
+
+        # TODO This should be more complicated, and check hash not just size
+        # TODO Warning if file did not match local-remote
+        exists = file_object.is_exists()
+        match = file_object.get_file_size() == file_object.get_file_size(True)
+
+        return exists, match, file_object
+
+    def check_file_object_threaded(self, file_object):
+
+        worker = env_inst.local_pool.add_task(self.check_file_object_exists, file_object)
+        worker.result.connect(self.process_checked_file)
+        worker.error.connect(gf.error_handle)
+        worker.start()
+
+    def process_checked_file(self, args=None):
+        exists = args[0]
+        match = args[1]
+        file_object = args[2]
+
+        if exists:
+            if not match:
+                self.download_web_preview(file_object)
+        else:
+            self.download_web_preview(file_object)
+
     def fill_files_tree(self):
         self.filesTreeWidget.clear()
 
@@ -573,11 +604,7 @@ class Ui_snapshotBrowserWidget(QtGui.QWidget):
 
                         if gf.get_value_from_config(cfg_controls.get_checkin(), 'getPreviewsThroughHttpCheckbox') == 1:
                             if file_type in ['icon', 'playblast', 'web', 'image']:
-                                if file_object.is_exists():
-                                    if file_object.get_file_size() != file_object.get_file_size(True):
-                                        self.download_web_preview(file_object)
-                                else:
-                                    self.download_web_preview(file_object)
+                                self.check_file_object_threaded(file_object)
 
                 preview = []
                 if not show_all_files:
@@ -620,9 +647,18 @@ class Ui_snapshotBrowserWidget(QtGui.QWidget):
         meta_file_object = file_object.get_meta_file_object()
         child_item = QtGui.QTreeWidgetItem()
         file_name = file_object.get_filename_with_ext()
-        if not meta_file_object.is_exists():
-            file_name += ' (File Offline)'
-        child_item.setText(0, file_name)
+
+        def set_name(**kwargs):
+            if not kwargs['result']:
+                kwargs['file_name'] += ' (File Offline)'
+            kwargs['child_item'].setText(0, kwargs['file_name'])
+
+        worker = env_inst.local_pool.add_task(meta_file_object.is_exists)
+        worker.result.connect(lambda result=None, child_item=child_item, file_name=file_name:
+                              set_name(result=result, child_item=child_item, file_name=file_name))
+        worker.error.connect(gf.error_handle)
+        worker.start()
+
         child_item.setData(0, QtCore.Qt.UserRole, file_object)
         if show_more_info:
             child_item.setText(1, gf.sizes(file_object.get_file_size()))
@@ -649,8 +685,18 @@ class Ui_snapshotBrowserWidget(QtGui.QWidget):
     def add_item_with_tactic_file_object(self, file_object, show_more_info, show_all_files, snapshot_info, type_item, file_icon):
         child_item = QtGui.QTreeWidgetItem()
         file_name = file_object.get_filename_with_ext()
-        if not file_object.is_exists():
-            file_name += ' (File Offline)'
+
+        def set_name(**kwargs):
+            if not kwargs['result']:
+                kwargs['file_name'] += ' (File Offline)'
+            kwargs['child_item'].setText(0, kwargs['file_name'])
+
+        worker = env_inst.local_pool.add_task(file_object.is_exists)
+        worker.result.connect(lambda result=None, child_item=child_item, file_name=file_name:
+                              set_name(result=result, child_item=child_item, file_name=file_name))
+        worker.error.connect(gf.error_handle)
+        worker.start()
+
         child_item.setText(0, file_name)
         child_item.setData(0, QtCore.Qt.UserRole, file_object)
         if show_more_info:
@@ -790,8 +836,9 @@ class Ui_snapshotBrowserWidget(QtGui.QWidget):
     def get_files_data_list(self):
         self.pm_list = [self.pm1, self.pm2, self.pm3]
         paths_list = []
-        for i, pm in enumerate(self.pm_list):
-            paths_list.append(self.pix_list[i % len(self.pix_list)])
+        if self.pix_list:
+            for i, pm in enumerate(self.pm_list):
+                paths_list.append(self.pix_list[i % len(self.pix_list)])
 
         data_list = []
         for path in paths_list:
@@ -1177,10 +1224,7 @@ class Ui_snapshotBrowserWidget(QtGui.QWidget):
         self.showAllCheckBox.setChecked(settings['showAllCheckBox'])
         self.showMoreInfoCheckBox.setChecked(settings['showMoreInfoCheckBox'])
         if settings['browserSplitter']:
-            if env_mode.py2:
-                self.browserSplitter.restoreState(QtCore.QByteArray.fromHex(str(settings['browserSplitter'])))
-            else:
-                self.browserSplitter.restoreState(QtCore.QByteArray.fromHex(eval(settings['browserSplitter'])))
+            self.browserSplitter.restoreState(QtCore.QByteArray.fromHex(six.ensure_binary(settings['browserSplitter'])))
 
     def get_settings_dict(self):
         settings_dict = {

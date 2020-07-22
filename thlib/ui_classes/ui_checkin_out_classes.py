@@ -5,6 +5,7 @@ from thlib.side.Qt import QtWidgets as QtGui
 from thlib.side.Qt import QtGui as Qt4Gui
 from thlib.side.Qt import QtCore
 
+import thlib.side.six as six
 from thlib.environment import env_mode, env_inst, env_tactic, cfg_controls, dl, env_read_config, env_write_config
 import thlib.tactic_classes as tc
 import thlib.global_functions as gf
@@ -1982,10 +1983,7 @@ class Ui_checkInOutWidget(QtGui.QMainWindow):
 
         splitter_state = settings_dict.get('main_state')
         if splitter_state:
-            if env_mode.py2:
-                self.restoreState(QtCore.QByteArray.fromHex(str(splitter_state)))
-            else:
-                self.restoreState(QtCore.QByteArray.fromHex(eval(splitter_state)))
+            self.restoreState(QtCore.QByteArray.fromHex(six.ensure_binary(splitter_state)))
 
     def get_settings_dict(self, force=False):
 

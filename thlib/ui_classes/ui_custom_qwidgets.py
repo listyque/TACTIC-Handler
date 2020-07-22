@@ -672,17 +672,17 @@ class Ui_extendedTreeWidget(QtGui.QTreeWidget):
         self.setStyleSheet(gf.get_qtreeview_style())
 
         self.scroll_animation = QtCore.QPropertyAnimation(self.verticalScrollBar(), b'value', self)
-        self.scroll_animation.setDuration(200)
+        self.scroll_animation.setDuration(400)
         self.scroll_animation.setStartValue(0)
         self.scroll_animation.setEndValue(0)
-        self.scroll_animation.setEasingCurve(QtCore.QEasingCurve.OutSine)
+        self.scroll_animation.setEasingCurve(QtCore.QEasingCurve.OutExpo)
 
     def wheelEvent(self, event):
         if event.orientation() == QtCore.Qt.Vertical:
             event.ignore()
             value = self.verticalScrollBar().value()
             self.scroll_animation.setStartValue(value)
-            delta_value = self.verticalScrollBar().value() - event.delta()
+            delta_value = self.verticalScrollBar().value() - event.delta()*2
             self.scroll_animation.setEndValue(delta_value)
 
             if self.scroll_animation.state() == QtCore.QAbstractAnimation.State.Stopped:
@@ -2625,4 +2625,3 @@ class Ui_elideLabel(QtGui.QLabel):
         else:
             elided = metrics.elidedText(self.text(), QtCore.Qt.ElideRight, self.width())
             painter.drawText(self.contentsRect(), QtCore.Qt.AlignLeft | QtCore.Qt.AlignVCenter, elided)
-

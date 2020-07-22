@@ -2074,6 +2074,7 @@ class Ui_navigationWidget(QtGui.QWidget):
         if pages:
 
             self.total_pages_count = len(pages)
+            last_page = len(pages)
 
             # guessing how much pages to show in a row
             self.fit_pages_count = widget_width / 32
@@ -2514,10 +2515,7 @@ class Ui_searchResultsWidget(QtGui.QWidget):
         return str(self.items_view_splitter.saveState().toHex())
 
     def set_current_splitter_state(self, splitter_state):
-        if env_mode.py2:
-            self.items_view_splitter.restoreState(QtCore.QByteArray.fromHex(splitter_state))
-        else:
-            self.items_view_splitter.restoreState(QtCore.QByteArray.fromHex(eval(splitter_state)))
+        self.items_view_splitter.restoreState(QtCore.QByteArray.fromHex(six.ensure_binary(splitter_state)))
 
     def get_current_view(self):
         return self.info.get('view')
@@ -2682,9 +2680,11 @@ class Ui_searchResultsWidget(QtGui.QWidget):
         self.resultsTreeWidget.clear()
         self.resultsVersionsTreeWidget.clear()
 
-        self.progress_bar.setVisible(True)
-        total_sobjects = len(self.sobjects.keys()) - 1
-
+        # self.progress_bar.setVisible(True)
+        # total_sobjects = len(self.sobjects.keys()) - 1
+        tree_items_list = []
+        tree_widgets_list = []
+        # s = gf.time_it()
         # Need to rewrite this for performance reasons
         for i, sobject in enumerate(self.sobjects.values()):
             last_state = None
@@ -2697,26 +2697,37 @@ class Ui_searchResultsWidget(QtGui.QWidget):
                 'children_states': last_state,
                 'simple_view': self.info.get('simple_view'),
             }
-            gf.add_sobject_item(
-                self.resultsTreeWidget,
+            # gf.add_sobject_item(
+            #     self.resultsTreeWidget,
+            #     self,
+            #     sobject,
+            #     self.stype,
+            #     item_info,
+            #     ignore_dict=None,
+            # )
+
+            tree_item, tree_widget = gf.get_sobject_item(
                 self,
                 sobject,
                 self.stype,
                 item_info,
                 ignore_dict=None,
             )
-            if total_sobjects:
-                if i+1 % 20 == 0:
-                    self.progress_bar.setValue(int(i+1 * 100 / total_sobjects))
+            tree_items_list.append(tree_item)
+            tree_widgets_list.append(tree_widget)
+
+            # if total_sobjects:
+            #     if i+1 % 20 == 0:
+            #         self.progress_bar.setValue(int(i+1 * 100 / total_sobjects))
 
         # gf.time_it(s)
         # s = gf.time_it()
-        # self.resultsTreeWidget.addTopLevelItems(tree_items_list)
-        # for tree_item, tree_item_widget in zip(tree_items_list, tree_widgets_list):
-        #     tree_item_widget.setParent(self.resultsTreeWidget)
-        #     self.resultsTreeWidget.setItemWidget(tree_item, 0, tree_item_widget)
-        #
-        # # print tree_items_list
+        self.resultsTreeWidget.addTopLevelItems(tree_items_list)
+        for tree_item, tree_item_widget in zip(tree_items_list, tree_widgets_list):
+            tree_item_widget.setParent(self.resultsTreeWidget)
+            self.resultsTreeWidget.setItemWidget(tree_item, 0, tree_item_widget)
+
+        # print tree_items_list
         # gf.time_it(s)
         self.set_items_count(int(self.query_info.get('total_sobjects_query_count')))
 
@@ -2733,7 +2744,7 @@ class Ui_searchResultsWidget(QtGui.QWidget):
 
                 self.info['state'] = None
 
-        self.progress_bar.setVisible(False)
+        # self.progress_bar.setVisible(False)
 
         self.bottom_navigataion_widget.init_navigation(self.query_info)
 

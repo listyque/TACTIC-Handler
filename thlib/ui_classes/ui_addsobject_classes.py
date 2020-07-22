@@ -325,7 +325,6 @@ class Ui_linkSobjectsWidget(QtGui.QDialog):
             self.instances_search_results_widget.set_filters([('_expression', 'in', related_expr)])
             self.instances_search_results_widget.search_query('')
 
-    #@env_inst.async_engine
     def create_instances_widget(self):
         from thlib.ui_classes.ui_search_classes import Ui_searchResultsWidget
 

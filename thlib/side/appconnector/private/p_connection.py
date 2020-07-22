@@ -1,16 +1,16 @@
 import uuid
-from ..qt import QtCore, QtNetwork
+from ..qt import QtCore, QtNetwork, __qt_version_info__
 from .p_socketthread import SocketThread
 from .p_logger import logger
 
 
 class Connection(QtCore.QObject):
 
-    connected = QtCore.Signal()
-    disconnected = QtCore.Signal()
-    error = QtCore.Signal(QtNetwork.QAbstractSocket.SocketError)
-
-    received = QtCore.Signal(QtCore.QByteArray)
+    connected = QtCore.Signal(uuid.UUID)
+    disconnected = QtCore.Signal(uuid.UUID)
+    received = QtCore.Signal(uuid.UUID, QtCore.QByteArray)
+    sent = QtCore.Signal(uuid.UUID, QtCore.QByteArray)
+    errorOccurred = QtCore.Signal(uuid.UUID, QtNetwork.QAbstractSocket.SocketError)
 
     def __init__(self, socket=None):
 
@@ -26,10 +26,51 @@ class Connection(QtCore.QObject):
         self._thread = None
         self._socket = socket
 
-        self._socket.received.connect(self.received)
-        self._socket.disconnected.connect(self.disconnected.emit)
-        self._socket.connected.connect(self.connected.emit)
-        self._socket.error.connect(self.error.emit)
+        self._socket.received.connect(self.received_slot)
+        self._socket.sent.connect(self.sent_slot)
+        self._socket.disconnected.connect(self.disconnected_slot)
+        self._socket.connected.connect(self.connected_slot)
+        if __qt_version_info__ < (5, 15):
+            self._socket.error.connect(self.error_occurred_slot)
+
+        else:
+            self._socket.errorOccurred.connect(self.error_occurred_slot)
+
+    def received_slot(self, data):
+
+        """
+        received data slot
+        """
+
+        self.received.emit(self.key, data)
+
+    def disconnected_slot(self):
+
+        """
+        disconnected slot
+        """
+
+        self.disconnected.emit(self.key)
+
+    def connected_slot(self):
+
+        """
+        connected slot
+        """
+
+        self.connected.emit(self.key)
+
+    def sent_slot(self, data):
+
+        """
+        sent slot
+        """
+
+        self.sent.emit(self.key, data)
+
+    def error_occurred_slot(self, error):
+
+        self.errorOccurred.emit(self.key, error)
 
     def start(self):
 
@@ -42,8 +83,7 @@ class Connection(QtCore.QObject):
         self._thread = SocketThread(self)
 
         self._thread.finished.connect(self._thread.deleteLater)
-
-        self._thread.opening.connect(self._socket.connectToHost)
+        self._thread.opening.connect(self._socket.open)
         self._thread.sending.connect(self._socket.send)
         self._thread.closing.connect(self._socket.close)
 
@@ -93,9 +133,9 @@ class Connection(QtCore.QObject):
             self._thread.sending.disconnect()
 
             self._thread.close()
-            self._thread.wait(60)
+            self._thread.wait(10)
             self._thread.quit()
-            self._thread.wait(60)
+            self._thread.wait(10)
 
             self._thread = None
             self._socket = None

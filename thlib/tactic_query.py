@@ -1481,7 +1481,6 @@ def create_snapshot_extended(search_key, context, project_code=None, snapshot_ty
 
         checkin.file_sizes = files_info['file_sizes']
         checkin.execute()
-
         files_list = checkin.get_file_objects()
 
         for i, fl in enumerate(files_list):
@@ -1508,7 +1507,6 @@ def create_snapshot_extended(search_key, context, project_code=None, snapshot_ty
                                       value=json.dumps(files_info['versionless_metadata'][i], separators=(',', ':')))
                 file_object.set_value(name='source_path', value=original_files_paths[i])
                 file_object.commit(triggers=False, log_transaction=False)
-
     elif mode == 'inplace':
 
         if only_versionless:

@@ -1,6 +1,7 @@
+import uuid
 from .qt import QtCore, QtNetwork
+from .private.p_localserver import LocalServer
 from .private.p_tcpserver import TcpServer
-from .private.p_connection import Connection
 from .private.p_logger import logger
 
 
@@ -8,12 +9,14 @@ class Server(QtCore.QObject):
 
     started = QtCore.Signal()
     finished = QtCore.Signal()
-    accepted = QtCore.Signal(Connection)
-    connected = QtCore.Signal(Connection)
-    disconnected = QtCore.Signal(Connection)
-    received = QtCore.Signal(Connection, QtCore.QByteArray)
+    accepted = QtCore.Signal(uuid.UUID)
+    connected = QtCore.Signal(uuid.UUID)
+    disconnected = QtCore.Signal(uuid.UUID)
+    received = QtCore.Signal(uuid.UUID, QtCore.QByteArray)
+    sent = QtCore.Signal(uuid.UUID, QtCore.QByteArray)
+    errorOccurred = QtCore.Signal(uuid.UUID, QtNetwork.QAbstractSocket.SocketError)
 
-    def __init__(self, host="127.0.0.1", port=8080):
+    def __init__(self, host="127.0.0.1", port=8080, local=None):
 
         """
         initialise server
@@ -27,7 +30,7 @@ class Server(QtCore.QObject):
         super(Server, self).__init__()
 
         self.host = host
-        self.port = port
+        self.port = not local and port or 0
 
         self._attempt_timer = QtCore.QTimer(self)
         self._attempt_timer.setSingleShot(True)
@@ -56,22 +59,37 @@ class Server(QtCore.QObject):
         """
 
         if self._server is None:
-            self._server = TcpServer(self)
+            if self.port < 1:
+                self._server = LocalServer(self)
+
+            else:
+                self._server = TcpServer(self)
 
             self._server.accepted.connect(self.accepted.emit)
             self._server.connected.connect(self.connected.emit)
             self._server.received.connect(self.received.emit)
+            self._server.sent.connect(self.sent.emit)
             self._server.disconnected.connect(self.disconnected.emit)
+            self._server.errorOccurred.connect(self.errorOccurred.emit)
 
         if not self._server.isListening():
             logger.info("begin server listening")
             if self.port != 0 and self.host != "":
                 port = self.port
-                host = QtNetwork.QHostAddress(self.host)
+                host = self.host
+                is_local = port < 1
+
+                if not is_local:
+                    host = QtNetwork.QHostAddress(host)
 
                 while True:
                     logger.info("begin server listening on " + repr(host) + " " + repr(port))
-                    listen = self._server.listen(host, port)
+                    if is_local:
+                        listen = self._server.listen(host)
+
+                    else:
+                        listen = self._server.listen(host, port)
+
                     if not listen:
                         listen = self._server.isListening()
 
@@ -114,6 +132,14 @@ class Server(QtCore.QObject):
         self.finished.emit()
         if self._server:
             logger.info("stop server listening")
+
+            self._server.accepted.disconnect(self.accepted.emit)
+            self._server.connected.disconnect(self.connected.emit)
+            self._server.received.disconnect(self.received.emit)
+            self._server.sent.disconnect(self.sent.emit)
+            self._server.disconnected.disconnect(self.disconnected.emit)
+            self._server.errorOccurred.disconnect(self.errorOccurred.emit)
+
             self._server.close()
             self._server.deleteLater()
             del self._server
@@ -134,16 +160,17 @@ class Server(QtCore.QObject):
         logger.debug("server send message " + repr(key))
         self._server.send(key, data)
 
-    def broadcast(self, data):
+    def broadcast(self, data, owner=None):
 
         """
         send broadcast message
 
         :param data: (QtCore.QByteArray)
+        :param owner: owner connection key (uuid.UUID)
         """
 
         logger.debug("server broadcast message")
-        self._server.broadcast(data)
+        self._server.broadcast(data, owner)
 
     def __getitem__(self, key):
 
