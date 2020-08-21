@@ -1230,7 +1230,7 @@ class Ui_snapshotBrowserWidget(QtGui.QWidget):
         settings_dict = {
             'showAllCheckBox': int(self.showAllCheckBox.isChecked()),
             'showMoreInfoCheckBox': int(self.showMoreInfoCheckBox.isChecked()),
-            'browserSplitter': str(self.browserSplitter.saveState().toHex()),
+            'browserSplitter': gf.do_str(self.browserSplitter.saveState().toHex())
         }
         return settings_dict
 

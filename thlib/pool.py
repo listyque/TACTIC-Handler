@@ -183,6 +183,9 @@ class OperationWorker(QtCore.QObject):
     def start(self):
         self._started = True
 
+    def retry(self):
+        print('This is dummy func, not implemented yet')
+
     def do_task(self):
         self.started.emit()
 
@@ -208,7 +211,5 @@ class OperationWorker(QtCore.QObject):
                 'stacktrace': stacktrace,
             }
             self.error.emit((exception, self))
-
-            self.finished.emit()
 
         self.deleteLater()

@@ -82,16 +82,18 @@ class Ui_tacticSidebarWidget(QtGui.QWidget):
 
         self.tree_widget.clear()
 
-        sidebar = self.project.get_sidebar()
+        sidebar = self.project.get_config_views()
+        current_login = env_inst.get_current_login_object()
+        project_code = self.project.get_code()
 
         if sidebar.has_definition():
 
-            # making shure if there is *special TH* definition
-            project_definition = sidebar.get_definition(bs=True)
-            tactic_handler_definition = sidebar.get_definition('tactic_handler')
+            project_definition = sidebar.get_view('SideBarWdg')
+            # making sure if there is *special TH* definition
+            tactic_handler_definition = sidebar.get_view('SideBarWdg', 'tactic_handler')
 
             if not tactic_handler_definition:
-                tactic_handler_definition = sidebar.get_definition('project_view')
+                tactic_handler_definition = sidebar.get_view('SideBarWdg', 'project_view')
 
             tactic_handler_sidebar = []
             for th_def in tactic_handler_definition:
@@ -101,51 +103,54 @@ class Ui_tacticSidebarWidget(QtGui.QWidget):
                         tactic_handler_sidebar.append(prj_def)
 
             for sidebar_item in tactic_handler_sidebar:
+                access = current_login.check_security(group='link', path='element:{0}'.format(sidebar_item.get('name')), project=project_code)
 
-                stype_code = None
-                view_definition = None
-                sub_definitions = []
-                layout = 'default'
+                if access == 'allow':
 
-                if sidebar_item.search_type:
-                    stype_code = sidebar_item.search_type.string
+                    stype_code = None
+                    view_definition = None
+                    sub_definitions = []
+                    layout = 'default'
 
-                if sidebar_item.layout:
-                    layout = sidebar_item.layout.string
+                    if sidebar_item.search_type:
+                        stype_code = sidebar_item.search_type.string
 
-                if sidebar_item.view:
-                    view_definition = sidebar.get_definition(sidebar_item.view.string)
+                    if sidebar_item.layout:
+                        layout = sidebar_item.layout.string
 
-                    for sub_def in view_definition:
-                        sub_def_name = sub_def['name']
+                    if sidebar_item.view:
+                        view_definition = sidebar.get_view('SideBarWdg', sidebar_item.view.string)
 
-                        for sub_prj_def in project_definition:
-                            if sub_prj_def['name'] == sub_def_name:
-                                sub_definitions.append(sub_prj_def)
+                        for sub_def in view_definition:
+                            sub_def_name = sub_def['name']
 
-                if stype_code and stype_code.startswith('sthpw'):
-                    stype = env_inst.get_stype_by_code(stype_code)
-                else:
-                    stype = self.project.stypes.get(stype_code)
+                            for sub_prj_def in project_definition:
+                                if sub_prj_def['name'] == sub_def_name:
+                                    sub_definitions.append(sub_prj_def)
 
-                item_info = {
-                    'title': sidebar_item.get('title'),
-                    'name': sidebar_item.get('name'),
-                    'display_class': sidebar_item.display.get('class'),
-                    'search_type': stype_code,
-                    'layout': layout,
-                    'view_definition': view_definition,
-                    'sub_definitions': sub_definitions,
-                    'item': sidebar_item,
-                }
+                    if stype_code and stype_code.startswith('sthpw'):
+                        stype = env_inst.get_stype_by_code(stype_code)
+                    else:
+                        stype = self.project.stypes.get(stype_code)
 
-                gf.add_sidebar_item(
-                    tree_widget=self.tree_widget,
-                    stype=stype,
-                    project=self.project,
-                    item_info=item_info,
-                )
-                self.tree_widget.resizeColumnToContents(0)
+                    item_info = {
+                        'title': sidebar_item.get('title'),
+                        'name': sidebar_item.get('name'),
+                        'display_class': sidebar_item.display.get('class'),
+                        'search_type': stype_code,
+                        'layout': layout,
+                        'view_definition': view_definition,
+                        'sub_definitions': sub_definitions,
+                        'item': sidebar_item,
+                    }
+
+                    gf.add_sidebar_item(
+                        tree_widget=self.tree_widget,
+                        stype=stype,
+                        project=self.project,
+                        item_info=item_info,
+                    )
+                    self.tree_widget.resizeColumnToContents(0)
 
 
 class Ui_checkInOutTabWidget(QtGui.QWidget):
@@ -269,8 +274,10 @@ class Ui_checkInOutTabWidget(QtGui.QWidget):
             self.toggle_stype_tab(code=item_widget.get_code(), hide=False)
             self.raise_stype_tab(code=item_widget.get_code())
 
+            print(item_widget.get_filters())
+
             # saving changes to config
-            self.save_ignore_stypes_list()
+            self.save_ignore_stypes_list()  # it is holding state of opened stype-tabs
             self.hide_overlay()
 
     def get_stype_tab_by_widget(self, widget):

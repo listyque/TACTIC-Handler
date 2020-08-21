@@ -560,8 +560,8 @@ class Ui_ScriptEditForm(QtGui.QDialog):
     def get_settings_dict(self):
         settings_dict = {
             'windowState': False,
-            'main_splitter': str(self.main_splitter.saveState().toHex()),
-            'splitter': str(self.splitter.saveState().toHex()),
+            'main_splitter': gf.do_str(self.main_splitter.saveState().toHex()),
+            'splitter': gf.do_str(self.splitter.saveState().toHex()),
             'scripts_tree_widget': self.get_scripts_tree_state(),
         }
 

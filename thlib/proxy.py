@@ -6,13 +6,15 @@ try:
     import urllib2
     import xmlrpclib
     from cookielib import CookieJar
+    from urllib2 import Request, HTTPPasswordMgrWithDefaultRealm, HTTPBasicAuthHandler, ProxyHandler, HTTPCookieProcessor, build_opener, install_opener, urlopen
     from urllib import unquote, splittype, splithost
 except:
     import urllib as urllib2
     import xmlrpc.client as xmlrpclib
-    import http.cookiejar as CookieJar
+    from http.cookiejar import CookieJar
     from urllib.parse import unquote
     from urllib.parse import splithost
+    from urllib.request import Request, HTTPPasswordMgrWithDefaultRealm, HTTPBasicAuthHandler, ProxyHandler, HTTPCookieProcessor, build_opener, install_opener, urlopen
 
 import base64
 
@@ -114,50 +116,50 @@ class UrllibTransport(xmlrpclib.Transport, object):
         host = unquote(host)
         address = "http://%s%s" % (host, handler)
 
-        request = urllib2.Request(address)
-        request.add_data(request_body)
+        request = Request(address, request_body)
+        # request.add_data(request_body)
         request.add_header('User-agent', self.user_agent)
         request.add_header("Content-Type", "text/xml")
 
         # HTTP Auth
-        password_mgr = urllib2.HTTPPasswordMgrWithDefaultRealm()
+        password_mgr = HTTPPasswordMgrWithDefaultRealm()
         top_level_url = serverTopLevelURL
         password_mgr.add_password(None,
                                   top_level_url,
                                   httpAuthName,
                                   httpAuthPassword)
-        handler = urllib2.HTTPBasicAuthHandler(password_mgr)
+        handler = HTTPBasicAuthHandler(password_mgr)
 
         # Cookies
         cj = CookieJar()
 
         if puser_pass:
             # NTLM
-            passman = urllib2.HTTPPasswordMgrWithDefaultRealm()
+            passman = HTTPPasswordMgrWithDefaultRealm()
             passman.add_password(None, serverTopLevelURL, self.proxy_user, self.proxy_pass)
 
             authNTLM = HTTPNtlmAuthHandler.HTTPNtlmAuthHandler(passman)
             request.add_header('Proxy-authorization', 'Basic ' + puser_pass)
 
-            proxy_support = urllib2.ProxyHandler(proxies)
+            proxy_support = ProxyHandler(proxies)
 
-            opener = urllib2.build_opener(handler, proxy_support,
-                                          urllib2.HTTPCookieProcessor(cj),
+            opener = build_opener(handler, proxy_support,
+                                          HTTPCookieProcessor(cj),
                                           authNTLM)
         elif self.proxyurl:
             # Proxy without auth
-            proxy_support = urllib2.ProxyHandler(proxies)
-            opener = urllib2.build_opener(proxy_support,
+            proxy_support = ProxyHandler(proxies)
+            opener = build_opener(proxy_support,
                                           handler,
-                                          urllib2.HTTPCookieProcessor(cj))
+                                          HTTPCookieProcessor(cj))
         else:
             # Direct connection
-            proxy_support = urllib2.ProxyHandler({})
-            opener = urllib2.build_opener(proxy_support,
+            proxy_support = ProxyHandler({})
+            opener = build_opener(proxy_support,
                                           handler,
-                                          urllib2.HTTPCookieProcessor(cj))
+                                          HTTPCookieProcessor(cj))
 
-        urllib2.install_opener(opener)
+        install_opener(opener)
 
-        response = urllib2.urlopen(request, timeout=env_server.get_timeout())
+        response = urlopen(request, timeout=env_server.get_timeout())
         return self.parse_response(response)

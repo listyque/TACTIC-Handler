@@ -2014,17 +2014,10 @@ class SuggestedLineEdit(QtGui.QLineEdit):
 
                 if item_text:
 
-                    if isinstance(item_text, str):
-                        if env_mode.py2:
-                            item_text = item_text.decode('utf-8')
-                    item_dict[self.suggest_column] = item_text
+                    item_dict[self.suggest_column] = six.ensure_text(item_text)
 
                     if item.get('keywords'):
-                        item_dict['keywords'] = item.get('keywords')
-
-                        if isinstance(item_dict['keywords'], str):
-                            if env_mode.py2:
-                                item_dict['keywords'] = item_dict['keywords'].decode('utf-8')
+                        item_dict['keywords'] = six.ensure_text(item.get('keywords'))
 
                         keywords_list = item_dict['keywords'].replace(',', ' ').replace('  ', ' ').split(' ')
                         kwd = ''
@@ -2036,11 +2029,7 @@ class SuggestedLineEdit(QtGui.QLineEdit):
                         keyword = ''
 
                     if item.get('description'):
-                        item_dict['description'] = item.get('description')
-
-                        if isinstance(item_dict['description'], str):
-                            if env_mode.py2:
-                                item_dict['description'] = item_dict['description'].decode('utf-8')
+                        item_dict['description'] = six.ensure_text(item.get('description'))
 
                         description = item_dict['description'].replace('\n', ' ')
                     else:

@@ -552,7 +552,7 @@ class Ui_searchWidget(QtGui.QWidget):
         users_menu = menu.addMenu('Pick User')
         users_menu.setIcon(gf.get_icon('account', icons_set='mdi', scale_factor=1.1))
 
-        for login_group in current_login.get_login_groups():
+        for login_group in current_login.get_all_login_groups():
             group_menu = users_menu.addMenu(login_group.get_pretty_name())
             group_menu.setIcon(gf.get_icon('account-multiple', icons_set='mdi', scale_factor=1.1))
 
@@ -2255,9 +2255,9 @@ class Ui_searchResultsWidget(QtGui.QWidget):
         if self.info.get('view'):
             self.set_results_view(self.info.get('view'), False)
         else:
-            self.set_initial_view()
+            self.set_initial_view(refresh=False)
 
-        self.set_current_splitter_state(self.info.get('splitter_state'))
+        # self.set_current_splitter_state(self.info.get('splitter_state'))
 
         self.customize_ui()
         self.initial_load_results()
@@ -2360,18 +2360,18 @@ class Ui_searchResultsWidget(QtGui.QWidget):
                 offset=offset,
             )
 
-    def set_initial_view(self):
+    def set_initial_view(self, refresh=True):
         self.sep_versions = gf.get_value_from_config(self.checkin_out_config, 'versionsSeparateCheckinCheckBox')
         if self.sep_versions:
             self.sep_versions = bool(int(self.sep_versions))
 
         if self.sep_versions:
             if gf.get_value_from_config(self.checkin_out_config, 'bottomVersionsRadioButton'):
-                self.set_results_view(view='splitted_horizontal', refresh=True)
+                self.set_results_view(view='splitted_horizontal', refresh=refresh)
             else:
-                self.set_results_view(view='splitted_vertical', refresh=True)
+                self.set_results_view(view='splitted_vertical', refresh=refresh)
         else:
-            self.set_results_view(view='continious', refresh=True)
+            self.set_results_view(view='continious', refresh=refresh)
 
     def set_results_view(self, view=None, refresh=True):
 
@@ -2876,7 +2876,6 @@ class Ui_searchResultsWidget(QtGui.QWidget):
         return self.current_results_versions_tree_widget_item
 
     def update_current_items_trees(self, force_full_update=False):
-        print('UPDATING')
         # if env_inst.get_thread_pool('server_query/server_thread_pool'):
         #     if env_inst.get_thread_pool('server_query/server_thread_pool').activeThreadCount() == 0:
         if force_full_update:

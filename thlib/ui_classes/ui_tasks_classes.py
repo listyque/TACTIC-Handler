@@ -14,7 +14,7 @@ from thlib.side.Qt import QtWidgets as QtGui
 from thlib.side.Qt import QtGui as Qt4Gui
 from thlib.side.Qt import QtCore
 
-from thlib.environment import env_inst, env_write_config, env_read_config
+from thlib.environment import env_inst
 import thlib.tactic_classes as tc
 import thlib.global_functions as gf
 from thlib.ui_classes.ui_custom_qwidgets import Ui_horizontalCollapsableWidget, StyledToolButton, Ui_coloredComboBox
@@ -41,18 +41,20 @@ class Ui_taskWidget(QtGui.QFrame):
         self.create_ui()
 
     def controls_actions(self):
-        if self.type == 'extended':
-            self.description_edit.textChanged.connect(self.set_something_changed)
-            self.start_date_time_edit.dateChanged.connect(self.set_something_changed)
-            self.end_date_time_edit.dateChanged.connect(self.set_something_changed)
 
         self.statuses_combo_box.currentIndexChanged.connect(self.statuses_combo_box_changed)
         self.users_combo_box.currentIndexChanged.connect(self.users_combo_box_changed)
 
         self.tasks_options_button.clicked.connect(self.open_task_menu)
         self.save_task_button.clicked.connect(self.simple_save_task)
+
         if self.type == 'simple':
             self.notes_button.clicked.connect(self.show_notes_widget)
+
+        elif self.type == 'extended':
+            self.description_edit.textChanged.connect(self.set_something_changed)
+            self.start_date_time_edit.dateChanged.connect(self.set_something_changed)
+            self.end_date_time_edit.dateChanged.connect(self.set_something_changed)
 
     def create_ui(self):
 
@@ -67,12 +69,10 @@ class Ui_taskWidget(QtGui.QFrame):
         if self.type == 'simple':
             self.create_filler()
 
-            self.controls_actions()
-
         elif self.type == 'extended':
             self.create_extended_filler()
 
-            self.controls_actions()
+        self.controls_actions()
 
     def reset_ui(self):
         self.tasks_sobjects_list = []
@@ -156,6 +156,17 @@ class Ui_taskWidget(QtGui.QFrame):
         else:
             self.main_layout.addWidget(self.save_task_button, 0, 3)
         self.main_layout.addWidget(self.tasks_options_button, 0, 4)
+
+    def create_expand_button(self):
+        self.expand_button = StyledToolButton(size='custom', square_type=True, shadow_enabled=True)
+        self.expand_button.setIcon(gf.get_icon('angle-down', scale_factor=1.2))
+        self.expand_button.setToolTip('Expand')
+        self.expand_button.setToolButtonStyle(QtCore.Qt.ToolButtonTextBesideIcon)
+        self.expand_button.setFixedHeight(34)
+        # self.expand_button.setMinimumWidth(160)
+        self.expand_button.customize_ui()
+
+        self.main_layout.addWidget(self.expand_button, 0, 1)
 
     def create_notes_button(self):
 
@@ -421,11 +432,12 @@ class Ui_taskWidget(QtGui.QFrame):
         if self.current_task_sobject:
             self.customize_statuses_combo(task_sobject)
             self.customize_users_combo(task_sobject)
-            self.customize_process_label()
 
             if self.type == 'extended':
+                self.customize_expand_button()
                 self.customize_task_info(task_sobject)
             else:
+                self.customize_process_label()
                 self.customize_notes_button(task_sobject)
 
     def create_filler(self):
@@ -453,7 +465,8 @@ class Ui_taskWidget(QtGui.QFrame):
         self.main_layout.setContentsMargins(4, 4, 12, 12)
 
         self.create_status_color_line()
-        self.create_process_label()
+        # self.create_process_label()
+        self.create_expand_button()
 
         self.create_tasks_buttons()
 
@@ -512,14 +525,17 @@ class Ui_taskWidget(QtGui.QFrame):
         if process_info:
             process_label = process_info.get('label')
             if process_label:
-                self.process_label.setText(process_label)
-
                 if self.type == 'extended':
-                    font = Qt4Gui.QFont()
-                    font.setFamily("Segoe UI")
-                    font.setPointSize(10)
-                    self.end_date_label.setFont(font)
-                    self.process_label.setFont(font)
+                    self.expand_button.setText(process_label)
+                else:
+                    self.process_label.setText(process_label)
+
+                # if self.type == 'extended':
+                #     font = Qt4Gui.QFont()
+                #     font.setFamily("Segoe UI")
+                #     font.setPointSize(10)
+                #     self.end_date_label.setFont(font)
+                #     self.process_label.setFont(font)
 
             process_color = process_info.get('color')
             if not process_color:
@@ -586,6 +602,14 @@ class Ui_taskWidget(QtGui.QFrame):
         user_index = self.users_combo_box.findData(task_login)
         if user_index != -1:
             self.users_combo_box.setCurrentIndex(user_index+1)
+
+    def customize_expand_button(self):
+        if self.multiple_mode:
+            self.expand_button.setText(u'{} ~'.format(self.get_process_label()))
+        elif len(self.tasks_sobjects_list) > 0:
+            self.expand_button.setText(u'{} | {}'.format(self.get_process_label(), len(self.tasks_sobjects_list)))
+        else:
+            self.expand_button.setText(self.get_process_label())
 
     def customize_process_label(self):
         if self.multiple_mode:
@@ -741,13 +765,16 @@ class Ui_taskWidget(QtGui.QFrame):
 
     def refresh_tasks_sobjects(self, query_result):
 
-        tasks_sobjects, info = query_result
+        tasks_sobjects, _ = query_result
         if tasks_sobjects:
             self.set_tasks_sobjects(list(tasks_sobjects.values()))
         else:
             self.reset_ui()
             self.set_empty_task()
-            self.customize_process_label()
+            if self.type == 'extended':
+                self.customize_expand_button()
+            else:
+                self.customize_process_label()
 
         self.tasks_queried.emit()
 
@@ -796,8 +823,6 @@ class Ui_taskWidget(QtGui.QFrame):
             print(data)
             for sobject in self.parent_sobjects_list:
                 print(sobject.get_search_key())
-
-
 
             tc.server_start(project=self.parent_sobject.project.get_code()).insert_multiple(
                 'sthpw/task',

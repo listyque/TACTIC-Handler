@@ -186,7 +186,7 @@ def error_handle(args):
             message_type='question',
         )
         if reply == QtGui.QMessageBox.ApplyRole:
-            worker.start()
+            worker.retry()
 
         return reply
 
@@ -213,7 +213,7 @@ def error_handle(args):
             message_type='critical',
         )
         if reply == QtGui.QMessageBox.ApplyRole:
-            worker.start()
+            worker.retry()
         if reply == QtGui.QMessageBox.ActionRole:
             env_inst.ui_main.open_config_dialog()
 
@@ -516,6 +516,13 @@ def sizes(size, precision=2):
     return '{1:.{0}f} {2}'.format(precision, size, suffixes[suffix_index])
 
 
+def do_str(string):
+    if env_mode.py2:
+        return str(string)
+    else:
+        return str(string, 'utf-8', 'ignore')
+
+
 def html_to_hex(text_html):
     if env_mode.py2:
         text_html_cmp = zlib.compress(text_html.encode('utf-8'), 9)
@@ -523,13 +530,6 @@ def html_to_hex(text_html):
     else:
         text_html_cmp = zlib.compress(six.ensure_binary(text_html), 9)
         text_html_hex = 'zlib:' + six.ensure_str(binascii.b2a_hex(text_html_cmp))
-
-
-        # if isinstance(text_html, six.string_types):
-        #     text_html_cmp = zlib.compress(bytearray(text_html.encode('utf-8')), 9)
-        # else:
-        #     text_html_cmp = zlib.compress(text_html, 9)
-        # text_html_hex = 'zlib:' + binascii.b2a_hex(text_html_cmp)
 
     if len(text_html_hex) > len(text_html):
         text_html_hex = text_html
@@ -552,11 +552,6 @@ def hex_to_html(text_hex, return_bytes=False):
         else:
             # For json
             return six.ensure_str(hex_to_text, errors='ignore')
-
-        # if isinstance(hex_to_text, six.string_types):
-        #     return hex_to_text
-        # else:
-        #     return hex_to_text.decode('utf-8')
 
 
 def to_json(obj, pretty=False, use_ast=False):
@@ -631,11 +626,18 @@ def minify_code(source):
 
 def time_it(start_time=None, message='Code flow running time:'):
     if start_time:
-        end_time = time.time()
-
-        print('{0} {1}'.format(message, end_time - start_time))
+        print('{0} {1}'.format(message, time.time() - start_time))
     else:
         return time.time()
+
+
+def dtime_it(func):
+    def wrap(*args, **kwargs):
+        start_time = time.time()
+        result = func(*args, **kwargs)
+        print('Code flow running time for {0}: {1}'.format(func.__name__, time.time() - start_time))
+        return result
+    return wrap
 
 
 def get_ver_rev(ver=None, rev=None):

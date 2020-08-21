@@ -332,6 +332,93 @@ def get_projects_and_logins(current_login='admin'):
     return json.dumps(result, separators=(',', ':'))
 
 
+def get_tasks_and_notes(search_code, project_code, process):
+    import json
+    from pyasm.search import Search, SearchKey
+    from pyasm.biz import Snapshot
+
+    server.set_project(project_code)
+
+    def get_sobjects_dict(sobjects):
+        res = []
+        if sobjects:
+            search_keys = SearchKey.get_by_sobjects(sobjects, use_id=False)
+            for j, sobject in enumerate(sobjects):
+                sobj = sobject.get_data()
+
+                sobj['__search_key__'] = search_keys[j]
+                res.append(sobj)
+
+        return res
+
+    def get_sobject_dict(sobject):
+        search_key = SearchKey.get_by_sobject(sobject, use_id=False)
+        sobj = sobject.get_data()
+        sobj['__search_key__'] = search_key
+
+        return sobj
+
+    # Getting Notes from db
+    search = Search('sthpw/note')
+    search.add_filter('search_code', search_code)
+    search.add_filter('project_code', project_code)
+    search.add_filter('process', process)
+    notes_sobjects = search.get_sobjects()
+
+    notes = get_sobjects_dict(notes_sobjects)
+
+    for note, note_sobject in zip(notes, notes_sobjects):
+
+        # Getting snapshots for notes previews
+        snapshots_sobjects = Snapshot.get_by_sobjects(notes_sobjects)
+        connected_snapshots = note_sobject.get_connections(context='attachment')
+
+        if connected_snapshots:
+            for connected_snapshot in connected_snapshots:
+                if connected_snapshot:
+                    snapshots_sobjects.append(connected_snapshot)
+
+        if snapshots_sobjects:
+            snapshots_files_sobjects = Snapshot.get_files_dict_by_snapshots(snapshots_sobjects)
+
+        snapshots_list = []
+        for snapshot in snapshots_sobjects:
+
+            snapshot_dict = get_sobject_dict(snapshot)
+            files_list = []
+            snapshots_files = snapshots_files_sobjects.get(snapshot_dict['code'])
+            if snapshots_files:
+                for fl in snapshots_files:
+                    files_list.append(server.server._get_sobject_dict(fl))
+            snapshot_dict['__files__'] = files_list
+            snapshots_list.append(snapshot_dict)
+
+        note['__snapshots__'] = snapshots_list
+
+    search = Search('sthpw/task')
+    search.add_filter('search_code', search_code)
+    search.add_filter('project_code', project_code)
+    search.add_filter('process', process)
+    tasks_sobjects = search.get_sobjects()
+
+    tasks = get_sobjects_dict(tasks_sobjects)
+
+    for task in tasks:
+
+        status_search = Search('sthpw/status_log')
+        status_search.add_op_filters([('search_code', task['code'])])
+
+        status_sobjects = status_search.get_sobjects()
+
+        if status_sobjects:
+            status_log_list = get_sobjects_dict(status_sobjects)
+            task['__status_log__'] = status_log_list
+
+    result = {'notes': notes, 'tasks': tasks}
+
+    return json.dumps(result, separators=(',', ':'))
+
+
 def get_subscriptions_and_messages(current_login='admin', update_logins=False):
     import json
     from pyasm.search import Search, SearchKey
@@ -493,21 +580,23 @@ def query_search_types_extended(project_code):
         all_stypes.append(stype_dict)
 
         # getting views for columns viewer
-        views = ['table', 'definition', 'color', 'edit', 'edit_definition']
-        definition = {}
-        full_search_type = Project.get_full_search_type(stype)
-        for view in views:
+        # This is because some of built-in views hardcoded in source files
+        if project_code == 'sthpw':
+            views = ['table', 'definition', 'color', 'edit', 'edit_definition']
+            definition = {}
+            full_search_type = Project.get_full_search_type(stype)
+            for view in views:
 
-            db_config = WidgetDbConfig.get_by_search_type(full_search_type, view)
-            if db_config:
-                config = db_config.get_xml()
-            else:
-                config_view = WidgetConfigView.get_by_search_type(stype, view)
-                config = config_view.get_config()
+                db_config = WidgetDbConfig.get_by_search_type(full_search_type, view)
+                if db_config:
+                    config = db_config.get_xml()
+                else:
+                    config_view = WidgetConfigView.get_by_search_type(stype, view)
+                    config = config_view.get_config()
 
-            definition[view] = config.to_string()
+                definition[view] = config.to_string()
 
-        stype_dict['definition'] = definition
+            stype_dict['definition'] = definition
 
     search = Search('sthpw/pipeline')
     search.add_op('begin')
@@ -563,12 +652,16 @@ def query_search_types_extended(project_code):
 
         schema.append(admin_schema_dict)
 
-    configs = WidgetDbConfig('').get_all_by_search_type('SideBarWdg')
-    side_bar_configs = []
-    for config in configs:
-        side_bar_configs.append(get_sobject_dict(config))
+    # configs = WidgetDbConfig('').get_all_by_search_type('SideBarWdg')
 
-    result = {'schema': schema, 'pipelines': pipelines, 'stypes': all_stypes, 'sidebar': side_bar_configs}
+    search = Search(WidgetDbConfig.SEARCH_TYPE)
+    configs = search.get_sobjects()
+
+    views_configs = []
+    for config in configs:
+        views_configs.append(get_sobject_dict(config))
+
+    result = {'schema': schema, 'pipelines': pipelines, 'stypes': all_stypes, 'views': views_configs}
 
     return json.dumps(result, separators=(',', ':'))
 
@@ -763,6 +856,10 @@ def query_sobjects(search_type, filters=[], order_bys=[], project_code=None, lim
     from pyasm.search import Search, SearchKey
     from pyasm.biz import Snapshot
     from pyasm.biz import Schema
+
+    if filters:
+        if not isinstance(filters, list):
+            filters = json.loads(filters)
 
     if project_code:
         server.set_project(project_code)
@@ -1039,26 +1136,26 @@ def insert_sobjects(search_type, project_code, data, metadata={}, parent_key=Non
     else:
         return result
 
-
-def insert_instance_sobjects(search_key, project_code, parent_key=None, instance_type=None):
-
-    from pyasm.search import SearchType
-
-    server.set_project(project_code)
-
-    instance_search_type, instance_code = server.split_search_key(search_key)
-    parent_search_type, parent_code = server.split_search_key(parent_key)
-
-    dst_sobject= server.query(parent_search_type, [('code', parent_code)], return_sobjects=True)[0]
-
-    src_sobject = server.query(instance_search_type, [('code', instance_code)], return_sobjects=True)[0]
-
-    instance = SearchType.create(instance_type)
-    instance.add_related_connection(src_sobject, dst_sobject)
-
-    instance.commit()
-
-    return 'ok'
+#
+# def insert_instance_sobjects(search_key, project_code, parent_key=None, instance_type=None):
+#
+#     from pyasm.search import SearchType
+#
+#     server.set_project(project_code)
+#
+#     instance_search_type, instance_code = server.split_search_key(search_key)
+#     parent_search_type, parent_code = server.split_search_key(parent_key)
+#
+#     dst_sobject= server.query(parent_search_type, [('code', parent_code)], return_sobjects=True)[0]
+#
+#     src_sobject = server.query(instance_search_type, [('code', instance_code)], return_sobjects=True)[0]
+#
+#     instance = SearchType.create(instance_type)
+#     instance.add_related_connection(src_sobject, dst_sobject)
+#
+#     instance.commit()
+#
+#     return 'ok'
 
 
 def edit_multiple_instance_sobjects(project_code, insert_search_keys=[], exclude_search_keys=[], parent_key=None, instance_type=None, path=None):

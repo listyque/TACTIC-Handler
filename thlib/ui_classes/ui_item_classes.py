@@ -222,6 +222,22 @@ class Ui_sidebarItemWidget(QtGui.QWidget):
     def get_code(self):
         return self.stype.get_code()
 
+    def get_info(self):
+        return self.item_info
+
+    def get_filters(self):
+        views = self.project.get_config_views()
+        item_definition = self.item_info['item']
+
+        if item_definition.search_view:
+            search_view = item_definition.search_view.string
+
+            search_view_definition = views.get_view(self.stype.get_code(), search_view, bs=True)
+
+            js_string = search_view_definition.values.string
+            if js_string:
+                return gf.from_json(js_string)
+
     def create_ui_link_widget(self):
 
         # ONLY IF self.item_type IS 'link'
@@ -363,57 +379,62 @@ class Ui_sidebarItemWidget(QtGui.QWidget):
 
         if item_sub_definitions:
 
-            sidebar = self.project.get_sidebar()
-            project_definition = sidebar.get_definition(bs=True)
+            sidebar = self.project.get_config_views()
+            project_definition = sidebar.get_view('SideBarWdg')
+            current_login = env_inst.get_current_login_object()
+            project_code = self.project.get_code()
 
             for sidebar_item in item_sub_definitions:
 
-                stype_code = None
-                view_definition = None
-                sub_definitions = []
-                layout = 'default'
+                access = current_login.check_security(group='link', path='element:{0}'.format(sidebar_item.get('name')), project=project_code)
 
-                if sidebar_item.search_type:
-                    stype_code = sidebar_item.search_type.string
+                if access:
+                    stype_code = None
+                    view_definition = None
+                    sub_definitions = []
+                    layout = 'default'
 
-                if sidebar_item.layout:
-                    layout = sidebar_item.layout.string
+                    if sidebar_item.search_type:
+                        stype_code = sidebar_item.search_type.string
 
-                if sidebar_item.view:
-                    view_definition = sidebar.get_definition(sidebar_item.view.string)
+                    if sidebar_item.layout:
+                        layout = sidebar_item.layout.string
 
-                    for sub_def in view_definition:
-                        sub_def_name = sub_def['name']
+                    if sidebar_item.view:
+                        view_definition = sidebar.get_view('SideBarWdg', sidebar_item.view.string)
 
-                        for sub_prj_def in project_definition:
-                            if sub_prj_def['name'] == sub_def_name:
-                                sub_definitions.append(sub_prj_def)
+                        for sub_def in view_definition:
+                            sub_def_name = sub_def['name']
 
-                    view_definition
+                            for sub_prj_def in project_definition:
+                                if sub_prj_def['name'] == sub_def_name:
+                                    sub_definitions.append(sub_prj_def)
 
-                if stype_code and stype_code.startswith('sthpw'):
-                    stype = env_inst.get_stype_by_code(stype_code)
-                else:
-                    stype = self.project.stypes.get(stype_code)
+                        view_definition
 
-                item_info = {
-                    'title': sidebar_item.get('title'),
-                    'name': sidebar_item.get('name'),
-                    'display_class': sidebar_item.display.get('class'),
-                    'search_type': stype_code,
-                    'layout': layout,
-                    'view_definition': view_definition,
-                    'sub_definitions': sub_definitions,
-                    'item': sidebar_item,
-                }
+                    if stype_code and stype_code.startswith('sthpw'):
+                        stype = env_inst.get_stype_by_code(stype_code)
+                    else:
+                        stype = self.project.stypes.get(stype_code)
 
-                gf.add_sidebar_item(
-                    tree_widget=self.tree_item,
-                    stype=stype,
-                    project=self.project,
-                    item_info=item_info,
-                )
-                self.tree_item.treeWidget().resizeColumnToContents(0)
+                    item_info = {
+                        'title': sidebar_item.get('title'),
+                        'name': sidebar_item.get('name'),
+                        'display_class': sidebar_item.display.get('class'),
+                        'search_type': stype_code,
+                        'layout': layout,
+                        'view_definition': view_definition,
+                        'sub_definitions': sub_definitions,
+                        'item': sidebar_item,
+                    }
+
+                    gf.add_sidebar_item(
+                        tree_widget=self.tree_item,
+                        stype=stype,
+                        project=self.project,
+                        item_info=item_info,
+                    )
+                    self.tree_item.treeWidget().resizeColumnToContents(0)
 
     def get_pretty_name(self):
         title = self.item_info.get('title')
@@ -2527,6 +2548,7 @@ class Ui_itemWidget(QtGui.QWidget):
                         info_label.setToolTip(str(data))
                         data = str(data)[0:30]
                         info_label.setText(data)
+
                     self.item_info_widget.add_item(info_label)
 
     def get_icon_preview_file_object(self):
@@ -3008,8 +3030,6 @@ class Ui_itemWidget(QtGui.QWidget):
         self.fill_child_items()
         self.fill_process_items()
 
-        s = gf.time_it()
-
         # adding snapshots to publish
         for key, val in self.sobject.process.items():
             if key == 'publish':
@@ -3025,7 +3045,7 @@ class Ui_itemWidget(QtGui.QWidget):
                         self.sep_versions,
                         True,
                     ))
-        gf.time_it(s)
+
         # adding snapshots per process
         for proc in self.process_items:
             if proc.process_items:
@@ -3035,7 +3055,7 @@ class Ui_itemWidget(QtGui.QWidget):
             for key, val in self.sobject.process.items():
                 if key == proc.process:
                     proc.snapshots_items.append(proc.add_snapshots_items(val))
-        gf.time_it(s)
+
         self.check_sub_items_expand_state(self.get_children_states())
 
         self.tree_item.treeWidget().resizeColumnToContents(0)

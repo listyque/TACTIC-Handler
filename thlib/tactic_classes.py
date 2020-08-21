@@ -10,9 +10,9 @@ import shutil
 import urllib
 import thlib.side.six as six
 try:
-    import urlparse
+    from urlparse import urlparse, parse_qsl
 except:
-    from urllib.parse import urlparse
+    from urllib.parse import urlparse, parse_qsl
 import collections
 import json
 from pickle import dumps, loads
@@ -38,11 +38,11 @@ if env_mode.get_mode() == 'maya':
 
 def server_auth(host, project=None, login=None, password=None, site=None, get_ticket=False):
     server = TacticServerStub(protocol='xmlrpc', setup=False)
-    # server.set_transport(proxy.UrllibTransport())
-    # if env_server.get_proxy()['enabled']:
-    #     server.transport.enable_proxy()
-    # else:
-    #     server.transport.disable_proxy()
+    server.set_transport(proxy.UrllibTransport())
+    if env_server.get_proxy()['enabled']:
+        server.transport.enable_proxy()
+    else:
+        server.transport.disable_proxy()
 
     server.set_server(host)
     server.set_project(project)
@@ -805,8 +805,8 @@ class Project(SObject):
     def get_workflow(self):
         return self.workflow
 
-    def get_sidebar(self):
-        return self.sidebar
+    def get_config_views(self):
+        return self.views
 
     def get_type(self):
         return self.info.get('type')
@@ -822,7 +822,7 @@ class Project(SObject):
 
     def query_search_types(self, force=False):
 
-        use_cache = True
+        use_cache = False
         stypes_result = None
 
         if use_cache and not force:
@@ -854,7 +854,7 @@ class Project(SObject):
 
         stypes = json.loads(stypes_result)
 
-        sidebar = stypes.get('sidebar')
+        views = stypes.get('views')
         schema = stypes.get('schema')
         pipelines = stypes.get('pipelines')
         stypes = stypes.get('stypes')
@@ -873,9 +873,9 @@ class Project(SObject):
         if not pipelines or not prj_schema:
             return []
         else:
-            return self.get_all_search_types(stypes, pipelines, prj_schema, sidebar)
+            return self.get_all_search_types(stypes, pipelines, prj_schema, views)
 
-    def get_all_search_types(self, stype_list, process_list, schema, sidebar):
+    def get_all_search_types(self, stype_list, process_list, schema, views):
         pipeline = BeautifulSoup(schema, 'html.parser')
         all_connections_list = []
 
@@ -936,7 +936,7 @@ class Project(SObject):
         self.stypes = stypes_objects
 
         # getting definition for sidebar
-        self.sidebar = Sidebar(sidebar)
+        self.views = ViewsConfig(views)
 
         return self.stypes
 
@@ -1030,6 +1030,13 @@ class SType(object):
 
     def get_definition(self, definition='table', processed=True, bs=False):
 
+        # This is because some of built-in views hardcoded in source files
+        definition_xml = self.info.get('definition')
+
+        if not definition_xml:
+            views = self.project.get_config_views()
+            return views.get_view(search_type=self.get_code(), view=definition, processed=processed, bs=bs)
+
         if bs:
             return BeautifulSoup(self.info['definition'].get(definition), 'html.parser')
 
@@ -1065,7 +1072,7 @@ class SType(object):
         return parents_list
 
 
-class Sidebar():
+class ViewsConfig(SObject):
     def __init__(self, config_dict):
 
         self.config_dict = config_dict
@@ -1077,40 +1084,34 @@ class Sidebar():
         else:
             return False
 
-    def get_definition(self, definition='definition', login='', processed=True, bs=False):
+    def get_view(self, search_type, view='definition', login='', processed=True, bs=False):
 
-        definition_xml = ''
+        view_xml = ''
 
         for config in self.config_dict:
-            if login:
-                if config['login'] == login:
-                    if config['view'] == definition:
-                        definition_xml = config['config']
-            elif config['login'] is None:
-                if config['view'] == definition:
-                    definition_xml = config['config']
+            if config['search_type'] == search_type:
+                if login:
+                    if config['login'] == login:
+                        if config['view'] == view:
+                            view_xml = config['config']
+                            break
+                if config['view'] == view:
+                    view_xml = config['config']
+                    break
 
         if bs:
-            definition_bs = BeautifulSoup(definition_xml, 'html.parser')
+            return BeautifulSoup(view_xml, 'html.parser')
+
+        if processed:
+            view_bs = BeautifulSoup(view_xml, 'html.parser')
 
             all_elements = []
-            for element in definition_bs.find_all(name='element'):
+            for element in view_bs.find_all(name='element'):
                 all_elements.append(element)
 
             return all_elements
-
-        if processed:
-
-            definition_bs = BeautifulSoup(definition_xml, 'html.parser')
-
-            all_elements = []
-            for element in definition_bs.find_all(name='element'):
-                all_elements.append(element.attrs)
-
-            return all_elements
-
         else:
-            return definition_xml
+            return view_xml
 
 
 class Schema(object):
@@ -1297,10 +1298,22 @@ class Login(SObject):
     def get_object_type(self):
         return self.object_type
 
-    def get_login_groups(self):
+    def get_all_login_groups(self):
         return self.login_groups
 
+    def get_login_groups(self):
+        # get all login groups related to current login
+        current_login_groups = []
+        for login_group in self.login_groups:
+            for login_in_group in self.login_in_groups:
+                if self.info['login'] == login_in_group['login']:
+                    if login_group.get_login_group() == login_in_group['login_group']:
+                        current_login_groups.append(login_group)
+
+        return current_login_groups
+
     def get_login_group(self, login_group_code):
+        # getting login group by group code
         login_groups = self.login_groups
         for login_group in login_groups:
             if login_group_code == login_group.get_code():
@@ -1322,6 +1335,7 @@ class Login(SObject):
         return self.info
 
     def __init_login_groups(self):
+        # TODO What is this for?
 
         for login_group in self.login_groups:
             for login_in_group in self.login_in_groups:
@@ -1387,6 +1401,21 @@ class Login(SObject):
 
         return subscriptions
 
+    def check_security(self, group, path, project=None):
+        if self.get_code() == 'admin':
+            return 'allow'
+
+        current_login_groups = self.get_login_groups()
+
+        for login_group in current_login_groups:
+            if login_group:
+                security_group = login_group.get_security_group(group, project)
+                if security_group:
+                    for security in security_group:
+                        attr, name = path.split(':')
+                        if security.attrs[attr] == name:
+                            return security.attrs['access']
+
 
 class LoginGroup(SObject):
     object_type = 'login_group'
@@ -1395,6 +1424,8 @@ class LoginGroup(SObject):
 
         self.info = login_group
         self.group_logins = []
+        self.security = {}
+        self.projects_security = {}
 
     def get_object_type(self):
         return self.object_type
@@ -1430,6 +1461,36 @@ class LoginGroup(SObject):
 
     def add_login_to_group(self, login_obj):
         self.group_logins.append(login_obj)
+
+    def get_security(self, project=None):
+        if project:
+            if self.projects_security.get(project):
+                return self.projects_security[project]
+        elif self.security:
+            return self.security
+
+        bs = BeautifulSoup(self.info['access_rules'], 'html.parser')
+
+        self.security = {}
+        for element in bs.find_all(name='rule'):
+            if project:
+                if element.get('project') == project:
+                    self.security.setdefault(element.attrs['group'], []).append(element)
+            else:
+                self.security.setdefault(element.attrs['group'], []).append(element)
+
+        self.projects_security[project] = self.security
+
+        if project:
+            return self.projects_security.get(project)
+        else:
+            return self.security
+
+    def get_security_group(self, group, project=None):
+        security = self.get_security(project)
+
+        if security:
+            return security.get(group)
 
 
 class Subscription(SObject):
@@ -1940,14 +2001,15 @@ def execute_procedure_serverside(func, kwargs, project=None, return_dict=True, s
 
 def get_all_projects_and_logins(force=False):
 
-
     if env_mode.get_mode() == 'api_server':
         use_cache = False
     else:
         use_cache = True
 
+    use_cache = False
+
     if use_cache and not force:
-        # reading cache from file
+        #reading cache from file
         projects_cache = env_read_config(
             filename='projects_cache',
             unique_id='cache',
@@ -2034,6 +2096,43 @@ def get_all_projects_and_logins(force=False):
         return projects_dict
 
 
+def get_tasks_and_notes(sobject=None, search_code=None, project_code=None, process='publish'):
+
+    if sobject:
+        search_code = sobject.get_code()
+        project_code = sobject.get_project().get_code()
+
+    kwargs = {
+        'search_code': search_code,
+        'project_code': project_code,
+        'process': process
+    }
+    tasks_and_notes = execute_procedure_serverside(tq.get_tasks_and_notes, kwargs)
+
+    notes = tasks_and_notes.get('notes')
+
+    # Making Notes sObjects
+    notes_dict = collections.OrderedDict()
+
+    for note in notes:
+        note_sobject = SObject(note)
+        note_sobject.init_snapshots(note['__snapshots__'])
+        notes_dict[note.get('code')] = note_sobject
+
+    # Making Tasks sObjects
+    tasks = tasks_and_notes.get('tasks')
+    tasks_dict = collections.OrderedDict()
+
+    for task in tasks:
+        task_sobject = SObject(task)
+        tasks_dict[task.get('code')] = task_sobject
+        status_log = task.get('__status_log__')
+        if status_log:
+            task_sobject.set_status_log(status_log)
+
+    return tasks_dict, notes_dict
+
+
 def get_subscriptions_and_messages(current_login='admin', update_logins=False):
 
     kwargs = {
@@ -2070,6 +2169,9 @@ def get_sobjects(search_type, filters=[], order_bys=[], project_code=None, limit
     :return: tuple : (dict, dict) of sObjects objects
     """
 
+    if env_mode.py3:
+        filters = json.dumps(filters, ensure_ascii=False).encode('utf-8')
+
     kwargs = {
         'search_type': search_type,
         'filters': filters,
@@ -2084,7 +2186,6 @@ def get_sobjects(search_type, filters=[], order_bys=[], project_code=None, limit
         'compressed_return': compressed_return,
         'include_status_log': include_status_log,
     }
-
     if not project_code:
         if search_type.startswith('sthpw'):
             project_code = 'sthpw'
@@ -2184,6 +2285,7 @@ def get_sobjects_objects(sobjects_list, project_code):
         result[searc_type] = sobjects_dict
 
     return result
+
 
 def server_query(filters, stype, columns=None, project=None, limit=0, offset=0, order_bys='timestamp desc'):
     """
@@ -2346,16 +2448,16 @@ def insert_sobjects(search_type, project_code, data, metadata={}, parent_key=Non
     return execute_procedure_serverside(tq.insert_sobjects, kwargs, project=project_code)
 
 # DEPRECATED
-def insert_instance_sobjects(search_key, project_code, parent_key=None, instance_type=None):
-
-    kwargs = {
-        'search_key': search_key,
-        'project_code': project_code,
-        'parent_key': parent_key,
-        'instance_type': instance_type,
-    }
-
-    return execute_procedure_serverside(tq.insert_instance_sobjects, kwargs, project=project_code)
+# def insert_instance_sobjects(search_key, project_code, parent_key=None, instance_type=None):
+#
+#     kwargs = {
+#         'search_key': search_key,
+#         'project_code': project_code,
+#         'parent_key': parent_key,
+#         'instance_type': instance_type,
+#     }
+#
+#     return execute_procedure_serverside(tq.insert_instance_sobjects, kwargs, project=project_code)
 
 
 def edit_multiple_instance_sobjects(project_code, insert_search_keys=[], exclude_search_keys=[], parent_key=None, instance_type=None, path=None):
@@ -2370,22 +2472,6 @@ def edit_multiple_instance_sobjects(project_code, insert_search_keys=[], exclude
     }
 
     return execute_procedure_serverside(tq.edit_multiple_instance_sobjects, kwargs, project=project_code)
-
-
-# def delete_sobject_snapshot(sobject, delete_snapshot=True, search_keys=None, files_paths=None):
-#     dep_list = {
-#         'related_types': ['sthpw/file'],
-#         'files_list': {'search_key': search_keys,
-#                        'file_path': files_paths,
-#                        'delete_snapshot': delete_snapshot,
-#                        },
-#     }
-#     try:
-#         print server_start().delete_sobject(sobject, list_dependencies=dep_list), 'delete_sobject_snapshot'
-#         return True
-#     except Exception as err:
-#         print(err, 'delete_sobject_snapshot')
-#         return False
 
 
 def sobject_delete_confirm(sobjects):
@@ -2901,8 +2987,8 @@ def parce_skey(skey, get_skey_and_context=False, return_sobject=True):
         skey_list = skey[7:].split('&context=')
         return {'search_key': skey_list[0], 'context': skey_list[1]}
 
-    skey_splitted = urlparse.urlparse(skey)
-    skey_dict = dict(urlparse.parse_qsl(skey_splitted.query))
+    skey_splitted = urlparse(skey)
+    skey_dict = dict(parse_qsl(skey_splitted.query))
     skey_dict['namespace'] = skey_splitted.netloc
     skey_dict['pipeline_code'] = skey_splitted.path[1:]
 

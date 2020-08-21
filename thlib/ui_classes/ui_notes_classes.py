@@ -86,23 +86,7 @@ class Ui_notesBaseWidget(QtGui.QWidget):
         self.sobject = sobject
         self.context = context
 
-        self.clear_notes()
-
-        self.toggle_no_notes_label()
-
-        self.task_widget = Ui_taskWidget(process=context, parent_sobject=sobject, type='extended', parent=self)
-        sizePolicy = QtGui.QSizePolicy(QtGui.QSizePolicy.Preferred, QtGui.QSizePolicy.Preferred)
-        self.task_widget.setSizePolicy(sizePolicy)
-        self.task_widget.setMaximumHeight(170)
-
-        self.main_notes_layout.addWidget(self.task_widget)
-
-        self.notes_widget = Ui_notesWidget(sobject=sobject, context=context, task_widget=self.task_widget, parent=self)
-        self.main_notes_layout.addWidget(self.notes_widget)
-        self.notes_widget.show()
-
-        self.task_widget.query_tasks()
-        self.task_widget.tasks_queried.connect(self.notes_widget.query_notes)
+        self.query_tasks_and_notes()
 
         self.bring_dock_widget_up()
 
@@ -111,22 +95,36 @@ class Ui_notesBaseWidget(QtGui.QWidget):
         self.context = context
 
         if not self.visibleRegion().isEmpty():
-            self.clear_notes()
 
-            self.toggle_no_notes_label()
+            self.query_tasks_and_notes()
 
-            self.task_widget = Ui_taskWidget(process=context, parent_sobject=sobject, type='extended', parent=self)
-            sizePolicy = QtGui.QSizePolicy(QtGui.QSizePolicy.Preferred, QtGui.QSizePolicy.Preferred)
-            self.task_widget.setSizePolicy(sizePolicy)
-            self.task_widget.setMaximumHeight(170)
-            self.main_notes_layout.addWidget(self.task_widget)
+    def fill_tasks_and_notes(self, query_result):
 
-            self.notes_widget = Ui_notesWidget(sobject=sobject, context=context, task_widget=self.task_widget, parent=self)
-            self.main_notes_layout.addWidget(self.notes_widget)
-            self.notes_widget.show()
+        tasks, notes = query_result
 
-            self.task_widget.query_tasks()
-            self.task_widget.tasks_queried.connect(self.notes_widget.query_notes)
+        self.clear_notes()
+
+        self.toggle_no_notes_label()
+
+        self.task_widget = Ui_taskWidget(process=self.context, parent_sobject=self.sobject, type='extended', parent=self)
+        sizePolicy = QtGui.QSizePolicy(QtGui.QSizePolicy.Preferred, QtGui.QSizePolicy.Preferred)
+        self.task_widget.setSizePolicy(sizePolicy)
+        self.task_widget.setMaximumHeight(170)
+        self.main_notes_layout.addWidget(self.task_widget)
+
+        self.notes_widget = Ui_notesWidget(sobject=self.sobject, context=self.context, task_widget=self.task_widget, parent=self)
+        self.main_notes_layout.addWidget(self.notes_widget)
+        self.notes_widget.show()
+
+        self.task_widget.refresh_tasks_sobjects((tasks, None))
+        self.notes_widget.fill_notes((notes, None))
+
+    def query_tasks_and_notes(self):
+
+        worker = env_inst.server_pool.add_task(tc.get_tasks_and_notes, sobject=self.sobject, process=self.context)
+        worker.result.connect(self.fill_tasks_and_notes)
+        worker.error.connect(gf.error_handle)
+        worker.start()
 
 
 class Ui_notesWidget(QtGui.QWidget):
@@ -394,12 +392,21 @@ class Ui_messageWidget(QtGui.QWidget):
         self.main_layout.setContentsMargins(0, 0, 0, 0)
         self.main_layout.setSpacing(0)
 
+        self.message_layout = QtGui.QVBoxLayout()
+        self.message_layout.setContentsMargins(0, 0, 0, 0)
+        self.message_layout.setSpacing(0)
+
+        self.message_frame = QtGui.QFrame()
+        self.message_frame.setLayout(self.message_layout)
+
         self.text_area = QtGui.QTextBrowser()
         self.text_area.setMinimumWidth(40)
         self.text_area.setOpenExternalLinks(True)
         self.text_area.setFrameShape(QtGui.QFrame.NoFrame)
         self.text_area.setHorizontalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOff)
         self.text_area.setTextInteractionFlags(QtCore.Qt.LinksAccessibleByMouse | QtCore.Qt.TextSelectableByKeyboard | QtCore.Qt.TextSelectableByMouse | QtCore.Qt.LinksAccessibleByMouse | QtCore.Qt.LinksAccessibleByKeyboard)
+
+        self.message_layout.addWidget(self.text_area)
 
         self.user_icon_widget = Ui_userIconWidget(self.login)
 
@@ -412,7 +419,7 @@ class Ui_messageWidget(QtGui.QWidget):
 
         if self.message_type == 'in':
             self.main_layout.addLayout(self.user_icon_layout)
-            self.main_layout.addWidget(self.text_area)
+            self.main_layout.addWidget(self.message_frame)
             spacerItem = QtGui.QSpacerItem(0, 0, QtGui.QSizePolicy.Expanding, QtGui.QSizePolicy.Minimum)
             self.main_layout.addItem(spacerItem)
 
@@ -423,13 +430,13 @@ class Ui_messageWidget(QtGui.QWidget):
         if self.message_type == 'out':
             spacerItem = QtGui.QSpacerItem(0, 0, QtGui.QSizePolicy.Expanding, QtGui.QSizePolicy.Minimum)
             self.main_layout.addItem(spacerItem)
-            self.main_layout.addWidget(self.text_area)
+            self.main_layout.addWidget(self.message_frame)
             self.main_layout.addLayout(self.user_icon_layout)
             self.main_layout.setStretch(0, 1)
             self.main_layout.setStretch(1, 0)
             self.main_layout.setStretch(2, 0)
 
-        self.overlay_widget = QtGui.QWidget(self.text_area)
+        self.overlay_widget = QtGui.QWidget(self.message_frame)
         sizePolicy = QtGui.QSizePolicy(QtGui.QSizePolicy.Preferred, QtGui.QSizePolicy.Preferred)
         self.overlay_widget.setSizePolicy(sizePolicy)
 
@@ -444,7 +451,7 @@ class Ui_messageWidget(QtGui.QWidget):
 
         self.overlay_layout.addWidget(self.user_label, 0, 0, 1, 1)
         self.message_options_button = StyledToolButton(size='small')
-        self.message_options_button.setParent(self.text_area)
+        self.message_options_button.setParent(self.message_frame)
         self.message_options_button.setIcon(gf.get_icon('dots-vertical', icons_set='mdi', scale_factor=1.2))
         self.overlay_layout.addWidget(self.message_options_button, 0, 1, 1, 1)
         spacerItem = QtGui.QSpacerItem(0, 0, QtGui.QSizePolicy.Minimum, QtGui.QSizePolicy.Expanding)
@@ -534,6 +541,37 @@ class Ui_messageWidget(QtGui.QWidget):
                 note_text = links_highlighted_text.replace('\n', '<br>')
 
                 self.text_area.setHtml(note_text)
+
+        attachment = self.note.get_process('reference/attachment')
+        if attachment:
+            contexts = attachment.get_contexts()
+
+            snapshots = []
+            for context in contexts.values():
+                snapshots.extend(context.get_versions().values())
+
+            for snapshot in snapshots:
+                # print(snapshot.get_files_objects())
+                # print(snapshot.get_previewable_files_objects())
+                # self.message_layout.addWidget(QtGui.QPushButton('asd'))
+
+                file_object = snapshot.get_previewable_files_objects()
+                if file_object:
+                    file_object = file_object[0]
+
+                    repo_sync_item = env_inst.ui_repo_sync_queue.schedule_file_object(file_object)
+                    # repo_sync_item.downloaded.connect(self.set_preview_pixmap)
+                    repo_sync_item.download()
+
+                    pixmap = Qt4Gui.QPixmap(file_object.get_full_abs_path())
+
+                    pic_label = QtGui.QLabel()
+                    pic_label.setStyleSheet(
+                        "QLabel {background: rgba(175, 175, 175, 16); border: 0px; border-radius: 3px; padding: 0px 0px; }")
+                    pic_label.setAlignment(QtCore.Qt.AlignCenter)
+
+                    pic_label.setPixmap(pixmap.scaledToWidth(64, QtCore.Qt.SmoothTransformation))
+                    self.message_layout.addWidget(pic_label)
 
         self.text_area.setLineWrapColumnOrWidth(self.width())
 
@@ -636,18 +674,18 @@ class Ui_messageWidget(QtGui.QWidget):
         text_width = text_rect.width() + login_rect.width() + 20
 
         if text_width < doc_width:
-            self.text_area.setFixedWidth(text_width)
+            self.message_frame.setFixedWidth(text_width)
         else:
-            self.text_area.setFixedWidth(doc_width + 20)
+            self.message_frame.setFixedWidth(doc_width + 20)
 
         if self.message_type == 'out':
-            x_pos = self.width() - (self.text_area.width() + 60)
+            x_pos = self.width() - (self.message_frame.width() + 60)
 
-            self.text_area.move(x_pos, 0)
+            self.message_frame.move(x_pos, 0)
         else:
-            self.text_area.move(60, 0)
+            self.message_frame.move(60, 0)
 
-        text_area_size = self.text_area.size()
+        text_area_size = self.message_frame.size()
 
         self.overlay_widget.resize(text_area_size)
 

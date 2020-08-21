@@ -290,7 +290,7 @@ class Ui_checkInOutWidget(QtGui.QMainWindow):
         self.fast_controls_tool_bar.setAllowedAreas(QtCore.Qt.BottomToolBarArea | QtCore.Qt.TopToolBarArea)
 
         self.fast_controls_tool_bar.setHidden(True)
-        self.addToolBar(QtCore.Qt.BottomToolBarArea, self.fast_controls_tool_bar)
+        self.addToolBar(QtCore.Qt.TopToolBarArea, self.fast_controls_tool_bar)
 
     @gf.catch_error
     def create_drop_plate_dock(self):
@@ -1846,7 +1846,7 @@ class Ui_checkInOutWidget(QtGui.QMainWindow):
             self.project.get_code(), 'checkin_out', self.stype.get_code())
         dl.info(runtime_command, group_id=self.stype.get_code())
 
-        add_sobject.show()
+        add_sobject.exec_()
 
         return add_sobject
 
@@ -1998,8 +1998,9 @@ class Ui_checkInOutWidget(QtGui.QMainWindow):
             'snapshot_browser_dock': self.snapshot_browser_widget.get_settings_dict(),
             'advanced_search_widget': self.advanced_search_widget.get_settings_dict(),
             'checkin_options_dock': self.checkin_options_widget.get_settings_dict(),
-            'main_state': str(self.saveState().toHex()),
+            'main_state': gf.do_str(self.saveState().toHex()),
         }
+
         return settings_dict
 
     def readSettings(self):
