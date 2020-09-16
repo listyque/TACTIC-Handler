@@ -166,10 +166,10 @@ def error_handle(args):
     error_type = catch_error_type(expected)
 
     exception_text = u'{0}<p>{1}</p><p><b>Catched Error: {2}</b></p>'.format(
-        str(expected.__doc__), str(expected), str(error_type))
+        expected.__doc__, expected, error_type)
 
     if error_type in ['unknown_error', 'attribute_error']:
-        title = u'{0}'.format(str(expected.__doc__))
+        title = u'{0}'.format(expected.__doc__)
         message = u'{0}<p>{1}</p>'.format(
             u"<p>This is not usual type of Exception! See stacktrace for information</p>",
             exception_text)

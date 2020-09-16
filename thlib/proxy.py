@@ -12,8 +12,7 @@ except:
     import urllib as urllib2
     import xmlrpc.client as xmlrpclib
     from http.cookiejar import CookieJar
-    from urllib.parse import unquote
-    from urllib.parse import splithost
+    from urllib.parse import unquote, splittype, splithost
     from urllib.request import Request, HTTPPasswordMgrWithDefaultRealm, HTTPBasicAuthHandler, ProxyHandler, HTTPCookieProcessor, build_opener, install_opener, urlopen
 
 import base64
@@ -108,8 +107,10 @@ class UrllibTransport(xmlrpclib.Transport, object):
                 user_pass, phost = phost.split('@', 1)
                 if ':' in user_pass:
                     self.proxy_user, self.proxy_pass = user_pass.split(':', 1)
-                    puser_pass = base64.encodestring(
-                        '%s:%s' % (unquote(self.proxy_user), unquote(self.proxy_pass))).strip()
+                    puser_pass = '%s:%s' % (unquote(self.proxy_user), unquote(self.proxy_pass))
+
+                    # puser_pass = base64.encodestring(
+                    #     '%s:%s' % (unquote(self.proxy_user), unquote(self.proxy_pass))).strip()
 
             proxies = {'http': 'http://%s' % phost, 'https': None}
 
