@@ -3361,6 +3361,12 @@ class Ui_itemWidget(QtGui.QWidget):
         else:
             self.drag_start_pos = None
 
+        if event.button() == QtCore.Qt.MiddleButton:
+            stype_widget = self.get_current_checkin_widget()
+            search_widget = stype_widget.get_search_widget()
+
+            search_widget.go_by_skey(self.get_skey(True))
+
         super(self.__class__, self).mousePressEvent(event)
 
     def mouseMoveEvent(self, event):

@@ -1,3 +1,4 @@
+import thlib.side.six as six
 from thlib.side.Qt import QtWidgets as QtGui
 from thlib.side.Qt import QtGui as Qt4Gui
 from thlib.side.Qt import QtCore
@@ -119,7 +120,7 @@ class Ui_tacticColumnEditorWidget(QtGui.QWidget):
 
             self.old_data = self.sobject.get_value(self.column)
             self.new_data = self.sobject.get_value(self.column)
-            self.plain_text_editor.setText(unicode(self.old_data))
+            self.plain_text_editor.setText(self.old_data)
 
         self.controls_actions()
 

@@ -2115,7 +2115,7 @@ def get_tasks_and_notes(sobject=None, search_code=None, project_code=None, proce
     notes_dict = collections.OrderedDict()
 
     for note in notes:
-        note_sobject = SObject(note)
+        note_sobject = SObject(note, project=env_inst.projects[project_code])
         note_sobject.init_snapshots(note['__snapshots__'])
         notes_dict[note.get('code')] = note_sobject
 
@@ -2124,7 +2124,7 @@ def get_tasks_and_notes(sobject=None, search_code=None, project_code=None, proce
     tasks_dict = collections.OrderedDict()
 
     for task in tasks:
-        task_sobject = SObject(task)
+        task_sobject = SObject(task, project=env_inst.projects[project_code])
         tasks_dict[task.get('code')] = task_sobject
         status_log = task.get('__status_log__')
         if status_log:
@@ -2655,7 +2655,7 @@ def get_virtual_snapshot(search_key, context, files_dict, snapshot_type='file', 
 
 def checkin_snapshot(search_key, context, snapshot_type=None, is_revision=False, description=None, version=None,
                      update_versionless=True, only_versionless=False, keep_file_name=False, repo_name=None, virtual_snapshot=None,
-                     files_dict=None, mode=None, create_icon=False, files_objects=None):
+                     files_dict=None, mode=None, create_icon=False, files_objects=None, progress_signal=None):
     files_info = {
         'version_files': [],
         'version_files_paths': [],
@@ -2726,7 +2726,7 @@ def checkin_snapshot(search_key, context, snapshot_type=None, is_revision=False,
 
         for version_file in files_info['version_files']:
             # dl.log('Uploading File ' + version_file + ' ' + str(server), group_id='server/checkin')
-            server.upload_file(version_file)
+            server.upload_file(version_file, progress_signal=progress_signal, chunk_size=256*256*64)
             # dl.log('Done Uploading File ' + version_file + ' ' + str(server), group_id='server/checkin')
 
         gf.time_it(s, message='Upload time: ')

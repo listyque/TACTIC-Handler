@@ -1831,7 +1831,7 @@ class TacticServerStub(object):
 
 
 
-    def upload_file(self, path, base_dir=None, chunk_size=None, offset=None):
+    def upload_file(self, path, base_dir=None, chunk_size=None, offset=None, progress_signal=None):
         '''API Function: upload_file(path)
         Use http protocol to upload a file through http
 
@@ -1874,7 +1874,7 @@ class TacticServerStub(object):
 
         while True:
             try:
-                upload.execute(path)
+                upload.execute(path, progress_signal)
             except Exception as e:
                 print("offset: ", upload.offset)
                 raise

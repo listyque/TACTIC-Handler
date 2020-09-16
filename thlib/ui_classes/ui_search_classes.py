@@ -931,6 +931,7 @@ class Ui_searchWidget(QtGui.QWidget):
         )
         tab_label = gf.create_tab_label(search_title)
         tab_label.setParent(self)
+        tab_label.close_clicked.connect(self.close_tab)
         self.results_tab_widget.add_tab(search_results_widget, tab_label)
 
         if not reverting:
@@ -953,9 +954,10 @@ class Ui_searchWidget(QtGui.QWidget):
     def get_results_tab_widget(self):
         return self.results_tab_widget
 
-    def add_to_history_list(self, tab_title, widget):
-        if tab_title:
-            filter_process = QtGui.QAction(tab_title, self.history_tab_button)
+    def add_to_history_list(self, tab_label, widget):
+
+        if tab_label:
+            filter_process = QtGui.QAction(tab_label.get_plain_title(), self.history_tab_button)
             filter_process.triggered.connect(lambda: self.restore_tab_from_history(filter_process, widget))
             filter_process.setData(widget)
 
@@ -984,15 +986,16 @@ class Ui_searchWidget(QtGui.QWidget):
         del self.clear_history
 
     def restore_tab_from_history(self, action, widget):
-
-        self.results_tab_widget.addTab(widget, action.text())
+        tab_label = gf.create_tab_label(widget.info['title'])
+        self.results_tab_widget.add_tab(widget, tab_label)
+        widget.set_tab_title(widget.info['title'])
         self.results_tab_widget.setCurrentWidget(widget)
         self.history_tab_button.removeAction(action)
 
     @gf.catch_error
     def close_tab(self, tab_index):
         if self.results_tab_widget.count() > 1:
-            self.add_to_history_list(self.results_tab_widget.tabText(tab_index), self.results_tab_widget.widget(tab_index))
+            self.add_to_history_list(self.results_tab_widget.get_tab_label(tab_index), self.results_tab_widget.widget(tab_index))
             self.results_tab_widget.removeTab(tab_index)
 
     def current_tab_changed(self, idx):
@@ -1084,8 +1087,6 @@ class Ui_searchWidget(QtGui.QWidget):
     def go_by_skey(self, skey_in=None):
 
         skey, sobject = tc.parce_skey(skey_in)
-
-        print(skey)
 
         common_pipeline_codes = ['snapshot', 'task']
 
@@ -2503,10 +2504,13 @@ class Ui_searchResultsWidget(QtGui.QWidget):
     def get_current_index(self):
         checkin_out_widget = self.get_current_checkin_out_widget()
         search_widget = checkin_out_widget.get_search_widget()
-        results_tab_widget = search_widget.get_results_tab_widget()
-        current_idx = results_tab_widget.indexOf(self)
+        if search_widget:
+            results_tab_widget = search_widget.get_results_tab_widget()
+            current_idx = results_tab_widget.indexOf(self)
 
-        return current_idx
+            return current_idx
+        else:
+            return 0
 
     def set_search_line_text(self, text):
         self.info['search_line_text'] = text
@@ -2544,6 +2548,7 @@ class Ui_searchResultsWidget(QtGui.QWidget):
         tab_label.close()
         tab_label = gf.create_tab_label(tab_title)
         tab_label.setParent(self)
+        tab_label.close_clicked.connect(search_widget.close_tab)
         results_tab_widget.tabBar().setTabButton(current_idx, QtGui.QTabBar.RightSide, tab_label)
 
     def get_filters(self):

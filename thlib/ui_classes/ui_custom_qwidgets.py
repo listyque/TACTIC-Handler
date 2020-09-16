@@ -524,6 +524,9 @@ QTabWidget::tab-bar {
 
         event.accept()
 
+    def get_tab_label(self, idx):
+        return self.tabBar().tabButton(idx, QtGui.QTabBar.RightSide)
+
 
 class Ui_extendedLeftTabBarWidget(QtGui.QTabWidget):
     middle_mouse_pressed = QtCore.Signal(object)
@@ -615,6 +618,8 @@ class Ui_extendedLeftTabBarWidget(QtGui.QTabWidget):
 
 
 class Ui_tabLabel(QtGui.QFrame):
+    close_clicked = QtCore.Signal(object)
+
     def __init__(self, label_title='', stype=None, parent=None):
         super(self.__class__, self).__init__(parent=parent)
 
@@ -627,7 +632,7 @@ class Ui_tabLabel(QtGui.QFrame):
 
     def create_ui(self):
         self.setContentsMargins(0, -2, 0, 0)
-        lay = QtGui.QVBoxLayout()
+        lay = QtGui.QHBoxLayout()
         lay.setSpacing(0)
         lay.setContentsMargins(0, 0, 0, 0)
         self.setLayout(lay)
@@ -646,6 +651,13 @@ class Ui_tabLabel(QtGui.QFrame):
         self.tab_label.setMargin(6)
         self.tab_label.setContentsMargins(0, 0, 0, 0)
 
+        self.close_button = StyledToolButton(size='tiny', shadow_enabled=False, square_type=False)
+        self.close_button.setIcon(gf.get_icon('close', icons_set='mdi', scale_factor=1.1))
+        self.close_button.setToolTip('Close current Search Tab')
+        self.close_button.clicked.connect(self.close_button_clicked)
+
+        lay.addWidget(self.close_button)
+
     def customize_ui(self):
         tab_color = None
         if self.stype:
@@ -660,6 +672,20 @@ class Ui_tabLabel(QtGui.QFrame):
 
     def setText(self, text):
         self.tab_label.setText(text)
+
+    def close_button_clicked(self):
+        tab_bar = self.parent()
+        pos = self.mapTo(tab_bar, QtCore.QPoint(0, 0))
+        tab_pos = tab_bar.tabAt(QtCore.QPoint(pos.x(), pos.y()))
+
+        if tab_pos != -1:
+            self.close_clicked.emit(tab_pos)
+
+    def get_title(self):
+        return self.label_title
+
+    def get_plain_title(self):
+        return gf.to_plain_text(self.label_title)
 
 
 class Ui_extendedTreeWidget(QtGui.QTreeWidget):
@@ -1737,32 +1763,34 @@ class SuggestedLineEdit(QtGui.QLineEdit):
 
             selection = self.custom_tree_view.selectionModel()
             current_index = self.custom_tree_view.currentIndex()
-            if current_index.row() == -1:
+            if current_index.row() == -1 and self.custom_tree_view.model():
                 model_index = self.custom_tree_view.model().indexFromItem(self.custom_tree_view.model().item(0))
             else:
                 model_index = self.custom_tree_view.indexBelow(current_index)
 
-            item = self.custom_tree_view.model().itemFromIndex(model_index)
-            if item:
-                self.item_highlighted.emit(item.data(QtCore.Qt.UserRole))
+            if self.custom_tree_view.model():
+                item = self.custom_tree_view.model().itemFromIndex(model_index)
+                if item:
+                    self.item_highlighted.emit(item.data(QtCore.Qt.UserRole))
 
-            selection.setCurrentIndex(model_index, QtCore.QItemSelectionModel.Rows | QtCore.QItemSelectionModel.ClearAndSelect)
+                selection.setCurrentIndex(model_index, QtCore.QItemSelectionModel.Rows | QtCore.QItemSelectionModel.ClearAndSelect)
 
         elif event.key() == QtCore.Qt.Key_Up:
 
             selection = self.custom_tree_view.selectionModel()
             current_index = self.custom_tree_view.currentIndex()
-            if current_index.row() == -1:
+            if current_index.row() == -1 and self.custom_tree_view.model():
                 rows = self.custom_tree_view.model().rowCount()
                 model_index = self.custom_tree_view.model().indexFromItem(self.custom_tree_view.model().item(rows-1))
             else:
                 model_index = self.custom_tree_view.indexAbove(current_index)
 
-            item = self.custom_tree_view.model().itemFromIndex(model_index)
-            if item:
-                self.item_highlighted.emit(item.data(QtCore.Qt.UserRole))
+            if self.custom_tree_view.model():
+                item = self.custom_tree_view.model().itemFromIndex(model_index)
+                if item:
+                    self.item_highlighted.emit(item.data(QtCore.Qt.UserRole))
 
-            selection.setCurrentIndex(model_index, QtCore.QItemSelectionModel.Rows | QtCore.QItemSelectionModel.ClearAndSelect)
+                selection.setCurrentIndex(model_index, QtCore.QItemSelectionModel.Rows | QtCore.QItemSelectionModel.ClearAndSelect)
 
         else:
             super(SuggestedLineEdit, self).keyPressEvent(event)
@@ -2014,10 +2042,10 @@ class SuggestedLineEdit(QtGui.QLineEdit):
 
                 if item_text:
 
-                    item_dict[self.suggest_column] = six.ensure_text(item_text)
+                    item_dict[self.suggest_column] = six.ensure_text(item_text, errors='ignore')
 
                     if item.get('keywords'):
-                        item_dict['keywords'] = six.ensure_text(item.get('keywords'))
+                        item_dict['keywords'] = six.ensure_text(item.get('keywords'), errors='ignore')
 
                         keywords_list = item_dict['keywords'].replace(',', ' ').replace('  ', ' ').split(' ')
                         kwd = ''
@@ -2029,7 +2057,7 @@ class SuggestedLineEdit(QtGui.QLineEdit):
                         keyword = ''
 
                     if item.get('description'):
-                        item_dict['description'] = six.ensure_text(item.get('description'))
+                        item_dict['description'] = six.ensure_text(item.get('description'), errors='ignore')
 
                         description = item_dict['description'].replace('\n', ' ')
                     else:

@@ -62,7 +62,7 @@ class UploadMultipart(object):
         self.subdir = subdir
 
 
-    def execute(self, path):
+    def execute(self, path, progress_signal=None):
         assert self.server_url
         #f = open(path, 'rb')
         import codecs
@@ -72,6 +72,17 @@ class UploadMultipart(object):
             f.seek(self.offset * self.chunk_size)
         else:
             self.offset = 0
+
+        file_size = os.stat(path).st_size
+        total_count = int(file_size / self.chunk_size)
+        if total_count == 0:
+            total_count = 1
+
+        info_dict = {
+            'status_text': 'Uploading to Server ...',
+            'total_count': total_count
+        }
+        import thlib.global_functions as gf
 
         while 1:
             buffer = f.read(self.chunk_size)
@@ -114,6 +125,13 @@ class UploadMultipart(object):
 
             files = [("file", path, buffer)]
             (status, reason, content) = self.upload(self.server_url, fields, files)
+
+            current_uploaded = self.offset * self.chunk_size
+            info_dict['status_text'] = 'Uploading {1} of {0}'.format(gf.sizes(file_size), gf.sizes(current_uploaded))
+            if self.offset == 0:
+                gf.emit_progress(1, info_dict, progress_signal)
+            else:
+                gf.emit_progress(self.offset, info_dict, progress_signal)
 
             if reason != "OK":
                 raise TacticUploadException("Upload of '%s' failed: %s %s" % (path, status, reason))

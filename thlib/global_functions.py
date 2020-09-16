@@ -1666,7 +1666,7 @@ def file_format(ext):
 
 
 def extract_extension(filename):
-    base_filename = str(os.path.basename(filename))
+    base_filename = six.ensure_text(os.path.basename(filename))
     ext = base_filename.split('.', -1)
     if not os.path.isdir(filename):
         if base_filename == ext[0]:
@@ -1678,7 +1678,7 @@ def extract_extension(filename):
 
 
 def extract_filename(filename, no_ext=False):
-    name = str(os.path.basename(filename)).split('.')
+    name = six.ensure_text(os.path.basename(filename)).split('.')
     if len(name) > 1:
         if no_ext:
             return u'.'.join(name[:-1])
@@ -1689,7 +1689,7 @@ def extract_filename(filename, no_ext=False):
 
 
 def extract_dirname(filename):
-    dir = str(os.path.realpath(filename)).split('.', 1)
+    dir = six.ensure_text(os.path.realpath(filename)).split('.', 1)
     if dir[0] == filename:
         return os.path.dirname(filename)
     if len(dir) == 1 and not os.path.isdir(filename):

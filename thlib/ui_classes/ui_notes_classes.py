@@ -6,7 +6,7 @@ from thlib.side.Qt import QtWidgets as QtGui
 from thlib.side.Qt import QtGui as Qt4Gui
 from thlib.side.Qt import QtCore
 
-from thlib.environment import env_server, env_inst
+from thlib.environment import env_server, env_inst, env_read_config, env_write_config
 from thlib.ui_classes.ui_custom_qwidgets import StyledToolButton, Ui_userIconWidget
 from thlib.ui_classes.ui_tasks_classes import Ui_taskWidget
 import thlib.tactic_classes as tc
@@ -22,6 +22,7 @@ class Ui_notesBaseWidget(QtGui.QWidget):
         self.context = context
         self.notes_widget = None
         self.task_widget = None
+        self.task_widget_expanded = False
         self.sobjects_list = []
 
         self.create_ui()
@@ -111,10 +112,14 @@ class Ui_notesBaseWidget(QtGui.QWidget):
         self.task_widget.setSizePolicy(sizePolicy)
         self.task_widget.setMaximumHeight(170)
         self.main_notes_layout.addWidget(self.task_widget)
+        self.task_widget.expanded = self.task_widget_expanded
 
         self.notes_widget = Ui_notesWidget(sobject=self.sobject, context=self.context, task_widget=self.task_widget, parent=self)
         self.main_notes_layout.addWidget(self.notes_widget)
         self.notes_widget.show()
+
+        self.main_notes_layout.setStretch(0, 0)
+        self.main_notes_layout.setStretch(1, 1)
 
         self.task_widget.refresh_tasks_sobjects((tasks, None))
         self.notes_widget.fill_notes((notes, None))
@@ -125,6 +130,28 @@ class Ui_notesBaseWidget(QtGui.QWidget):
         worker.result.connect(self.fill_tasks_and_notes)
         worker.error.connect(gf.error_handle)
         worker.start()
+
+    def set_settings_from_dict(self, settings_dict=None):
+        if settings_dict:
+            self.task_widget_expanded = settings_dict['task_expanded']
+
+    def get_settings_dict(self):
+        settings_dict = dict()
+        settings_dict['task_expanded'] = self.task_widget_expanded
+
+        return settings_dict
+
+    def readSettings(self):
+
+        self.set_settings_from_dict(env_read_config(filename='ui_notes', unique_id='ui_main', long_abs_path=True))
+
+    def writeSettings(self):
+
+        env_write_config(self.get_settings_dict(), filename='ui_notes', unique_id='ui_main', long_abs_path=True)
+
+    def hideEvent(self, event):
+        self.writeSettings()
+        event.accept()
 
 
 class Ui_notesWidget(QtGui.QWidget):
@@ -374,6 +401,7 @@ class Ui_messageWidget(QtGui.QWidget):
         self.task_sobject = task_sobject
         self.login = env_inst.get_all_logins(self.note.info['login'])
         self.message_type = message_type
+        self.attachment_size = 0
 
         self.create_ui_raw()
 
@@ -385,6 +413,7 @@ class Ui_messageWidget(QtGui.QWidget):
 
     def create_ui_raw(self):
 
+        self.setObjectName('messageWidget')
         self.setMinimumWidth(260)
         self.setMinimumHeight(40)
 
@@ -395,6 +424,21 @@ class Ui_messageWidget(QtGui.QWidget):
         self.message_layout = QtGui.QVBoxLayout()
         self.message_layout.setContentsMargins(0, 0, 0, 0)
         self.message_layout.setSpacing(0)
+
+        # self.attachments_layout = QtGui.QHBoxLayout()
+
+        from thlib.side.flowlayout import FlowLayout
+        # self.scroll_area.setWidgetResizable(True)
+        # self.scroll_area.setFrameShape(QtGui.QFrame.NoFrame)
+        # self.scroll_area.setWidget(self.scroll_area_contents)
+
+        self.attachments_layout = FlowLayout()
+
+        self.attachments_layout.setAlignment(QtCore.Qt.AlignTop)
+
+        # self.attachments_layout = QtGui.QHBoxLayout()
+        self.attachments_layout.setContentsMargins(0, 0, 0, 20)
+        self.attachments_layout.setSpacing(0)
 
         self.message_frame = QtGui.QFrame()
         self.message_frame.setLayout(self.message_layout)
@@ -407,6 +451,7 @@ class Ui_messageWidget(QtGui.QWidget):
         self.text_area.setTextInteractionFlags(QtCore.Qt.LinksAccessibleByMouse | QtCore.Qt.TextSelectableByKeyboard | QtCore.Qt.TextSelectableByMouse | QtCore.Qt.LinksAccessibleByMouse | QtCore.Qt.LinksAccessibleByKeyboard)
 
         self.message_layout.addWidget(self.text_area)
+        self.message_layout.addLayout(self.attachments_layout)
 
         self.user_icon_widget = Ui_userIconWidget(self.login)
 
@@ -484,45 +529,54 @@ class Ui_messageWidget(QtGui.QWidget):
         else:
             customize_dict = {'bottom_left_radius': 0, 'bottom_right_radius': 6}
 
-        self.text_area.setStyleSheet("""
-        QTextEdit, QListView {{
-            font-size: 11pt;
+        # it is hacky, because it making frames around all objects
+
+        self.message_frame.setStyleSheet("""
+        QFrame {{
             border: 0px;
             border-top-left-radius: 6px;
             border-top-right-radius: 6px;
             border-bottom-right-radius: {bottom_right_radius}px;
             border-bottom-left-radius: {bottom_left_radius}px;
+            background: rgb(64, 64, 64);
+            selection-background-color: darkgray;
+        }}""".format(**customize_dict))
+
+        self.text_area.setStyleSheet("""
+        QTextEdit, QListView {
+            font-size: 11pt;
+            border: 0px;
             show-decoration-selected: 0;
             background: rgb(64, 64, 64);
             selection-background-color: darkgray;
             padding-top: 32px;
             padding-right: 8px;
             padding-left: 8px;
-            padding-bottom: 26px;
-        }}
-        QScrollBar:vertical {{
+            padding-bottom: 0px;
+        }
+        QScrollBar:vertical {
             border: 0px ;
             background: transparent;
             width:8px;
             margin: 0px 0px 0px 0px;
-        }}
-        QScrollBar::handle:vertical {{
+        }
+        QScrollBar::handle:vertical {
             background: rgba(255,255,255,64);
             min-height: 0px;
             border-radius: 4px;
-        }}
-        QScrollBar::add-line:vertical {{
+        }
+        QScrollBar::add-line:vertical {
             background: rgba(255,255,255,64);
             height: 0px;
             subcontrol-position: bottom;
             subcontrol-origin: margin;
-        }}
-        QScrollBar::sub-line:vertical {{
+        }
+        QScrollBar::sub-line:vertical {
             background: rgba(255,255,255,64);
             height: 0 px;
             subcontrol-position: top;
             subcontrol-origin: margin;
-        }}""".format(**customize_dict))
+        }""")
 
     def initial_fill(self):
         note_text = self.note.info['note']
@@ -555,9 +609,17 @@ class Ui_messageWidget(QtGui.QWidget):
                 # print(snapshot.get_previewable_files_objects())
                 # self.message_layout.addWidget(QtGui.QPushButton('asd'))
 
-                file_object = snapshot.get_previewable_files_objects()
-                if file_object:
-                    file_object = file_object[0]
+                preview_files_objects = snapshot.get_previewable_files_objects()
+
+                if not preview_files_objects:
+                    # Trying to gen any preview if possible
+                    for fo in snapshot.get_files_objects():
+                        if fo.get_type() == 'web':
+                            if fo not in preview_files_objects:
+                                preview_files_objects.append(fo)
+
+                if preview_files_objects:
+                    file_object = preview_files_objects[0]
 
                     repo_sync_item = env_inst.ui_repo_sync_queue.schedule_file_object(file_object)
                     # repo_sync_item.downloaded.connect(self.set_preview_pixmap)
@@ -570,8 +632,16 @@ class Ui_messageWidget(QtGui.QWidget):
                         "QLabel {background: rgba(175, 175, 175, 16); border: 0px; border-radius: 3px; padding: 0px 0px; }")
                     pic_label.setAlignment(QtCore.Qt.AlignCenter)
 
-                    pic_label.setPixmap(pixmap.scaledToWidth(64, QtCore.Qt.SmoothTransformation))
-                    self.message_layout.addWidget(pic_label)
+                    if pixmap.height() > pixmap.width():
+                        pic_label.setPixmap(pixmap.scaledToWidth(64, QtCore.Qt.SmoothTransformation))
+                    else:
+                        pic_label.setPixmap(pixmap.scaledToHeight(64, QtCore.Qt.SmoothTransformation))
+
+                    pic_label.setMinimumSize(64, 64)
+                    pic_label.setMaximumSize(64, 64)
+
+                    self.attachments_layout.addWidget(pic_label)
+                    self.attachment_size += 64
 
         self.text_area.setLineWrapColumnOrWidth(self.width())
 
@@ -666,7 +736,7 @@ class Ui_messageWidget(QtGui.QWidget):
 
         doc_height = document_size.height() + 64
 
-        self.text_area.setFixedHeight(doc_height)
+        self.text_area.setFixedHeight(doc_height-30)
 
         doc_width = document_size.width()
         text_rect = metrics.boundingRect(QtCore.QRect(), 0, self.text_area.toPlainText())
@@ -694,7 +764,11 @@ class Ui_messageWidget(QtGui.QWidget):
 
         self.overlay_widget.setMask(overlay_reg.subtracted(text_area_reg))
 
-        self.setMinimumHeight(doc_height)
+        # self.setMinimumHeight(doc_height)
+        if self.attachment_size > 0:
+            self.setFixedHeight(doc_height + 74)
+        else:
+            self.setFixedHeight(doc_height)
 
 
 class Ui_statusWidget(QtGui.QWidget):

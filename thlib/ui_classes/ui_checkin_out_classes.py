@@ -159,6 +159,7 @@ class Ui_checkInOutWidget(QtGui.QMainWindow):
         # self.process_tree_widget = None
         self.drop_plate_dock = None
         # self.naming_editor_widget = None
+        self.search_widget = None
 
         self.relates_to = 'checkin_out'
 
@@ -221,8 +222,9 @@ class Ui_checkInOutWidget(QtGui.QMainWindow):
         self.notes_dock.setFeatures(
             QtGui.QDockWidget.DockWidgetMovable | QtGui.QDockWidget.DockWidgetClosable)
 
-        self.notes_dock.setHidden(True)
+        self.notes_dock.setHidden(False)
         self.addDockWidget(QtCore.Qt.RightDockWidgetArea, self.notes_dock)
+        self.tabifyDockWidget(self.snapshot_browser_dock, self.notes_dock)
 
     @gf.catch_error
     def create_tasks_dock(self):
@@ -435,7 +437,8 @@ class Ui_checkInOutWidget(QtGui.QMainWindow):
         return self.drop_plate_widget
 
     def get_search_widget(self):
-        return self.search_widget
+        if self.search_widget:
+            return self.search_widget
 
     def get_advanced_search_widget(self):
         return self.advanced_search_widget
@@ -497,6 +500,10 @@ class Ui_checkInOutWidget(QtGui.QMainWindow):
         copy_skey = QtGui.QAction('Copy Search Key', self)
         copy_skey.setIcon(gf.get_icon('copy'))
         copy_skey.triggered.connect(self.copy_search_key)
+
+        open_on_new_tab = QtGui.QAction('Open On New Tab', self)
+        open_on_new_tab.setIcon(gf.get_icon('tab', icons_set='mdi'))
+        open_on_new_tab.triggered.connect(self.open_sobject_on_new_tab)
 
         edit_db_table = QtGui.QAction('Edit DB Table', self)
         edit_db_table.setIcon(gf.get_icon('edit'))
@@ -713,6 +720,7 @@ class Ui_checkInOutWidget(QtGui.QMainWindow):
 
                 menu.addSeparator()
                 menu.addAction(copy_skey)
+                menu.addAction(open_on_new_tab)
                 menu.addAction(edit_info)
 
                 if multiple_selection:
@@ -1074,7 +1082,7 @@ class Ui_checkInOutWidget(QtGui.QMainWindow):
     @gf.catch_error
     def find_opened_sobject(self):
         skey = mf.get_skey_from_scene()
-        env_inst.ui_main.go_by_skey(skey, 'checkin')
+        self.search_widget.go_by_skey(skey)
 
     def get_current_results_widget(self):
         return self.search_widget.get_current_results_widget()
@@ -1832,6 +1840,12 @@ class Ui_checkInOutWidget(QtGui.QMainWindow):
         print(current_tree_widget_item.get_skey(skey=True))
         clipboard = QtGui.QApplication.instance().clipboard()
         clipboard.setText(current_tree_widget_item.get_skey(skey=True))
+
+    def open_sobject_on_new_tab(self):
+        current_results_widget = self.get_current_results_widget()
+        current_tree_widget_item = current_results_widget.get_current_tree_widget_item()
+        skey = current_tree_widget_item.get_skey(skey=True)
+        self.search_widget.go_by_skey(skey)
 
     @gf.catch_error
     def add_new_sobject(self):

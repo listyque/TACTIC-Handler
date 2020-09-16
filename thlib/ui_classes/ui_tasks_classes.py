@@ -32,6 +32,7 @@ class Ui_taskWidget(QtGui.QFrame):
         self.parent_sobjects_list = parent_sobjects_list
         self.current_task_sobject = None
         self.multiple_mode = False
+        self.expanded = True
         self.total_tasks = 0
         self.type = type
 
@@ -52,6 +53,7 @@ class Ui_taskWidget(QtGui.QFrame):
             self.notes_button.clicked.connect(self.show_notes_widget)
 
         elif self.type == 'extended':
+            self.expand_button.clicked.connect(self.toggle_expand)
             self.description_edit.textChanged.connect(self.set_something_changed)
             self.start_date_time_edit.dateChanged.connect(self.set_something_changed)
             self.end_date_time_edit.dateChanged.connect(self.set_something_changed)
@@ -59,6 +61,7 @@ class Ui_taskWidget(QtGui.QFrame):
     def create_ui(self):
 
         self.setMinimumWidth(160)
+        self.setMaximumHeight(170)
         self.setObjectName('task_widget')
 
         self.setStyleSheet('QFrame#task_widget { border-radius: 3px; background-color: rgba(255,255,255,0);}')
@@ -203,6 +206,48 @@ class Ui_taskWidget(QtGui.QFrame):
         project = self.parent_sobject.get_project()
         notes_widget = env_inst.get_check_tree(project.get_code(), 'checkin_out_instanced_widgets', 'notes_dock')
         notes_widget.show_notes(self.parent_sobject, self.process)
+
+    def set_expanded(self):
+        self.expand_button.setIcon(gf.get_icon('angle-down', scale_factor=1.2))
+        self.expand_button.setToolTip('Expand')
+
+        self.start_date_label.setHidden(False)
+        self.end_date_label.setHidden(False)
+        self.due_days_label.setHidden(False)
+        self.start_date_time_edit.setHidden(False)
+        self.end_date_time_edit.setHidden(False)
+        self.parent_name_label.setHidden(False)
+        self.description_edit.setHidden(False)
+        self.statuses_combo_box.setHidden(False)
+        self.users_combo_box.setHidden(False)
+        self.setMaximumHeight(170)
+
+    def set_collapsed(self):
+        self.start_date_label.setHidden(True)
+        self.end_date_label.setHidden(True)
+        self.due_days_label.setHidden(True)
+        self.start_date_time_edit.setHidden(True)
+        self.end_date_time_edit.setHidden(True)
+        self.parent_name_label.setHidden(True)
+        self.description_edit.setHidden(True)
+        self.statuses_combo_box.setHidden(True)
+        self.users_combo_box.setHidden(True)
+        self.setMaximumHeight(56)
+
+        self.expand_button.setIcon(gf.get_icon('angle-right', scale_factor=1.2))
+        self.expand_button.setToolTip('Collapse')
+
+    def toggle_expand(self):
+        if self.expanded:
+            self.set_collapsed()
+
+            self.expanded = False
+            self.parent().task_widget_expanded = self.expanded
+        else:
+            self.set_expanded()
+
+            self.expanded = True
+            self.parent().task_widget_expanded = self.expanded
 
     def open_task_menu(self):
         menu = self.watch_items_menu()
@@ -436,6 +481,11 @@ class Ui_taskWidget(QtGui.QFrame):
             if self.type == 'extended':
                 self.customize_expand_button()
                 self.customize_task_info(task_sobject)
+
+                if self.expanded:
+                    self.set_expanded()
+                else:
+                    self.set_collapsed()
             else:
                 self.customize_process_label()
                 self.customize_notes_button(task_sobject)
@@ -465,7 +515,6 @@ class Ui_taskWidget(QtGui.QFrame):
         self.main_layout.setContentsMargins(4, 4, 12, 12)
 
         self.create_status_color_line()
-        # self.create_process_label()
         self.create_expand_button()
 
         self.create_tasks_buttons()
@@ -773,6 +822,10 @@ class Ui_taskWidget(QtGui.QFrame):
             self.set_empty_task()
             if self.type == 'extended':
                 self.customize_expand_button()
+                if self.expanded:
+                    self.set_expanded()
+                else:
+                    self.set_collapsed()
             else:
                 self.customize_process_label()
 

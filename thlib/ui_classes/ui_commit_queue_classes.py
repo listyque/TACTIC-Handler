@@ -368,13 +368,12 @@ class commitWidget(QtGui.QWidget):
 
         worker.result.connect(self.checkin_done)
         # worker.finished.connect(self.checkin_done)
-        # worker.connect_progress(self.checkin_progress)
+        worker.connect_progress(self.checkin_progress)
         worker.error.connect(gf.error_handle)
 
         if self.single_threaded:
             self.checkin_done(self.commit_item)
         else:
-            # thread_pool.start(snapshot_checkin_worker)
             worker.start()
 
     @gf.catch_error
@@ -392,7 +391,7 @@ class commitWidget(QtGui.QWidget):
                     self.args_dict['create_icon'],
                     self.args_dict['files_objects'],
                     self.args_dict['padding'],
-                    progress_callback=self.inplace_checkin_worker.emit_progress,
+                    progress_signal=self.inplace_checkin_worker.emit_progress,
                 )
                 return check_ok
 
@@ -480,14 +479,11 @@ class commitWidget(QtGui.QWidget):
             thread_pool.start(snapshot_checkin_worker)
 
     def checkin_done(self, result=None):
-        # print 'checkin done'
 
         run_after_checkin = self.args_dict['run_after_checkin']
         if run_after_checkin:
             setattr(run_after_checkin, 'checkin_widget', self)
             run_after_checkin()
-
-        self.commit_item.set_commit_finished()
 
         commit_queue_ui = self.commit_queue_ui
 
@@ -495,7 +491,7 @@ class commitWidget(QtGui.QWidget):
             project_code = tc.split_search_key(self.args_dict['search_key'])
             commit_queue_ui = env_inst.get_commit_queue(project_code['project_code'])
 
-        # print 'refreshing'
+        self.commit_item.set_commit_finished()
 
         if self.single_commit:
             commit_queue_ui.remove_item_from_queue(self.commit_item)
