@@ -4,6 +4,11 @@ __all__ = ["Stream"]
 
 import sys
 from thlib.side.Qt import QtCore
+from thlib.side import six
+if six.PY2:
+    MAXINT = sys.maxint
+else:
+    MAXINT = sys.maxsize
 
 
 class Stream(QtCore.QObject):
@@ -54,30 +59,31 @@ class Stream(QtCore.QObject):
         
         if Stream.__stream is None:
             Stream.__stream = self
-            from . import OutputCls, ExceptionHook
+            from .output_cls import OutputCls
+            from .exception_hook import ExceptionHook
 
-            # self.out = OutputCls(Stream.__original__stdout, self)
-            # Stream.__stdout = self.out
-            # self.out.written.connect(self.writeOutput)
+            self.out = OutputCls(Stream.__original__stdout, self)
+            Stream.__stdout = self.out
+            self.out.written.connect(self.writeOutput)
 
-            # self.inp = OutputCls(Stream.__original__stdin, self)
-            # Stream.__stdin = self.inp
-            # self.inp.written.connect(self.writeInput)
+            self.inp = OutputCls(Stream.__original__stdin, self)
+            Stream.__stdin = self.inp
+            self.inp.written.connect(self.writeInput)
 
-            # self.err = OutputCls(Stream.__original__stderr, self)
-            # Stream.__stderr = self.err
-            # self.err.written.connect(self.writeError)
+            self.err = OutputCls(Stream.__original__stderr, self)
+            Stream.__stderr = self.err
+            self.err.written.connect(self.writeError)
 
-            # self.excepthandler = ExceptionHook(Stream.__original__excepthook)
-            # Stream.__excepthook = self.excepthandler.excepthook
+            self.excepthandler = ExceptionHook(Stream.__original__excepthook)
+            Stream.__excepthook = self.excepthandler.excepthook
 
-            # sys.stdin = Stream.__stdin
-            # sys.stdout = Stream.__stdout
-            # sys.stderr = Stream.__stderr
-            # sys.excepthook = self.excepthandler.excepthook
+            sys.stdin = Stream.__stdin
+            sys.stdout = Stream.__stdout
+            sys.stderr = Stream.__stderr
+            sys.excepthook = self.excepthandler.excepthook
 
-            # self.excepthandler.excepted.connect(self.writeExcepted)
-            # self.excepthandler.excepted.connect(self.writeErrorToStream)
+            self.excepthandler.excepted.connect(self.writeExcepted)
+            self.excepthandler.excepted.connect(self.writeErrorToStream)
 
             self.err_count = 0
             self.out_count = 0
@@ -89,11 +95,11 @@ class Stream(QtCore.QObject):
         Write string to error output.
         """
         
-        # try:
-        #     text = unicode(text)
-        #
-        # except UnicodeDecodeError or UnicodeEncodeError:
-        #     text = u"Failed to encode error message..."
+        try:
+            text = six.PY2 and unicode(text) or six.u(text)
+
+        except UnicodeDecodeError or UnicodeEncodeError:
+            text = u"Failed to encode error message..."
 
         Stream.__stderr.write(text)
         self.exceptedWritten.emit(text)
@@ -104,11 +110,11 @@ class Stream(QtCore.QObject):
         Write string to output.
         """
         
-        # try:
-        #     text = unicode(text)
-        #
-        # except UnicodeDecodeError or UnicodeEncodeError:
-        #     text = u"Failed to encode error message..."
+        try:
+            text = six.PY2 and unicode(text) or six.u(text)
+
+        except UnicodeDecodeError or UnicodeEncodeError:
+            text = u"Failed to encode error message..."
 
         Stream.__stdout.write(text)
 
@@ -118,11 +124,11 @@ class Stream(QtCore.QObject):
         Write string to input output.
         """
         
-        # try:
-        #     text = unicode(text)
-        #
-        # except UnicodeDecodeError or UnicodeEncodeError:
-        #     text = u"Failed to encode error message..."
+        try:
+            text = six.PY2 and unicode(text) or six.u(text)
+
+        except UnicodeDecodeError or UnicodeEncodeError:
+            text = u"Failed to encode error message..."
 
         Stream.__stdin.write(text)
     
@@ -132,11 +138,11 @@ class Stream(QtCore.QObject):
         Write input text.
         """
 
-        # try:
-        #     text = unicode(text)
-        #
-        # except UnicodeDecodeError or UnicodeEncodeError:
-        #     text = u"Failed to encode error message..."
+        try:
+            text = six.PY2 and unicode(text) or six.u(text)
+
+        except UnicodeDecodeError or UnicodeEncodeError:
+            text = u"Failed to encode error message..."
 
         self.writeInput(text)
         self.writeInput("\n")
@@ -147,16 +153,16 @@ class Stream(QtCore.QObject):
         Handle input text.
         """
 
-        # try:
-        #     text = unicode(text)
-        #
-        # except UnicodeDecodeError or UnicodeEncodeError:
-        #     text = u"Failed to encode error message..."
+        try:
+            text = six.PY2 and unicode(text) or six.u(text)
+
+        except UnicodeDecodeError or UnicodeEncodeError:
+            text = u"Failed to encode error message..."
 
         self.inputWritten.emit(text)
         
-        # if self.in_count < sys.maxint:
-        self.in_count += 1
+        if self.in_count < MAXINT:
+            self.in_count += 1
 
     def writeError(self, text):
 
@@ -164,16 +170,16 @@ class Stream(QtCore.QObject):
         Write error text.
         """
 
-        # try:
-        #     text = unicode(text)
-        #
-        # except UnicodeDecodeError or UnicodeEncodeError:
-        #     text = u"Failed to encode error message..."
+        try:
+            text = six.PY2 and unicode(text) or six.u(text)
+
+        except UnicodeDecodeError or UnicodeEncodeError:
+            text = u"Failed to encode error message..."
 
         self.errorWritten.emit(text)
         
-        # if self.err_count < sys.maxint:
-        self.err_count += 1
+        if self.err_count < MAXINT:
+            self.err_count += 1
 
     def writeOutput(self, text):
 
@@ -181,15 +187,15 @@ class Stream(QtCore.QObject):
         Write output text.
         """
 
-        # try:
-        #     text = unicode(text)
-        #
-        # except UnicodeDecodeError or UnicodeEncodeError:
-        #     text = u"Failed to encode error message..."
+        try:
+            text = six.PY2 and unicode(text) or six.u(text)
+
+        except UnicodeDecodeError or UnicodeEncodeError:
+            text = u"Failed to encode error message..."
 
         self.outputWritten.emit(text)
         
-        if self.out_count < sys.maxint:
+        if self.out_count < MAXINT:
             self.out_count += 1
         
     def writeExcepted(self, text):
@@ -198,13 +204,13 @@ class Stream(QtCore.QObject):
         Write excepted.
         """
         
-        # try:
-        #     text = unicode(text)
-        #
-        # except UnicodeDecodeError or UnicodeEncodeError:
-        #     text = u"Failed to encode error message..."
+        try:
+            text = six.PY2 and unicode(text) or six.u(text)
+
+        except UnicodeDecodeError or UnicodeEncodeError:
+            text = u"Failed to encode error message..."
 
         self.exceptedWritten.emit(text)
         
-        if self.err_count < sys.maxint:
+        if self.err_count < MAXINT:
             self.err_count += 1

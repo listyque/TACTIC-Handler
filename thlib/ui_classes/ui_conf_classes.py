@@ -114,7 +114,7 @@ class Ui_serverPageWidget(QtGui.QWidget, ui_serverPage.Ui_serverPageWidget):
     def apply_and_connect_to_server_error(self, result=None):
         self.set_api_status(False)
         self.set_ticket_status('unknown')
-        self.apply_and_connect_to_server_stop()
+        # self.apply_and_connect_to_server_stop()
         env_inst.ui_conf.need_restart = True
 
         gf.error_handle(result)

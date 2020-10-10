@@ -20,7 +20,6 @@ from thlib.ui_classes.ui_custom_qwidgets import Ui_elideLabel, MenuWithLayout
 import thlib.ui.items.ui_commit_item as ui_commit_item
 import thlib.ui.items.ui_preview_item as ui_preview_item
 import thlib.ui_classes.ui_tasks_classes as tasks_widget
-import thlib.ui_classes.ui_notes_classes as ui_notes_classes
 import thlib.ui_classes.ui_addsobject_classes as ui_addsobject_classes
 
 
@@ -694,48 +693,6 @@ class Ui_projectLinkWidget(QtGui.QWidget):
                         'rgb(128,128,128)', ''))
 
         self.shown = True
-        self.set_indent(0)
-
-    def create_expand_item_tool_button(self):
-        self.expand_item_button = QtGui.QToolButton(self)
-        self.expand_item_button.setMaximumSize(32, 2048)
-        self.expand_item_button.setAutoRaise(True)
-        self.expand_item_button.setStyleSheet("QToolButton { border: 0px; background-color: transparent;}")
-
-        self.horizontal_layout.addWidget(self.expand_item_button)
-
-    def toggle_expand_item_button(self, state=None):
-
-        if state is not None:
-            if self.tree_item.isExpanded():
-                self.expand_item_button.setIcon(gf.get_icon('chevron-down', icons_set='mdi', color=Qt4Gui.QColor(160, 160, 160), scale_factor=1.6))
-            else:
-                self.expand_item_button.setIcon(gf.get_icon('chevron-right', icons_set='mdi', color=Qt4Gui.QColor(160, 160, 160), scale_factor=1.6))
-        else:
-            if self.tree_item.isExpanded():
-                self.tree_item.setExpanded(False)
-                self.expand_item_button.setIcon(gf.get_icon('chevron-right', icons_set='mdi', color=Qt4Gui.QColor(160, 160, 160), scale_factor=1.6))
-            else:
-                self.tree_item.setExpanded(True)
-                self.expand_item_button.setIcon(gf.get_icon('chevron-down', icons_set='mdi', color=Qt4Gui.QColor(160, 160, 160), scale_factor=1.6))
-
-    def get_depth(self):
-        idx = 0
-        item = self.tree_item
-
-        while item.parent():
-            item = item.parent()
-            idx += 1
-
-        return idx
-
-    def create_indent(self):
-        self.indent_spacer = QtGui.QSpacerItem(0, 0, QtGui.QSizePolicy.Minimum, QtGui.QSizePolicy.Expanding)
-        self.horizontal_layout.addItem(self.indent_spacer)
-
-    def set_indent(self, indent=24):
-        result_indent = self.get_depth() * indent
-        self.indent_spacer.changeSize(result_indent, 0)
 
     def set_project(self, project):
 
@@ -5927,4 +5884,345 @@ class Ui_loadingItemWidget(QtGui.QWidget):
         self.time_line.stop()
 
         self.deleteLater()
+        event.accept()
+
+
+class Ui_notesSnapshotWidget(QtGui.QWidget):
+
+    clicked = QtCore.Signal(object)
+
+    def __init__(self, snapshot=None, parent=None):
+        super(self.__class__, self).__init__(parent=parent)
+
+        self.snapshot = snapshot
+        self.main_file_exists = False
+        self.icon_preview_file_object = None
+        self.shown = False
+        self.item_type = 'simple_snapshot'
+
+        self.create_ui()
+
+    def create_ui_link_widget(self):
+
+        self.setObjectName('Ui_notesSnapshotWidget')
+        # self.setMaximumSize(450, 64)
+        # self.setMinimumSize(200, 64)
+        self.setContentsMargins(0, 0, 0, 0)
+
+        self.horizontal_layout = QtGui.QHBoxLayout(self)
+        self.horizontal_layout.setContentsMargins(0, 0, 0, 0)
+        self.horizontal_layout.setSpacing(0)
+
+        # self.indent_spacer = QtGui.QSpacerItem(0, 0, QtGui.QSizePolicy.Minimum, QtGui.QSizePolicy.Expanding)
+        # self.horizontal_layout.addItem(self.indent_spacer)
+
+        self.previewLabel = QtGui.QLabel(self)
+        self.previewLabel.setMinimumSize(QtCore.QSize(64, 64))
+        self.previewLabel.setMaximumSize(QtCore.QSize(64, 64))
+        self.previewLabel.setStyleSheet('QLabel {background: rgb(72,72,72); border: 0px; border-radius: 0px;padding: 0px 0px;}')
+        self.previewLabel.setTextFormat(QtCore.Qt.RichText)
+        self.previewLabel.setAlignment(QtCore.Qt.AlignVCenter | QtCore.Qt.AlignHCenter)
+        sizePolicy = QtGui.QSizePolicy(QtGui.QSizePolicy.Preferred, QtGui.QSizePolicy.Preferred)
+        self.previewLabel.setSizePolicy(sizePolicy)
+
+        # spacerItem = QtGui.QSpacerItem(12, 0, QtGui.QSizePolicy.Expanding, QtGui.QSizePolicy.Ignored)
+        # self.horizontal_layout.addItem(spacerItem)
+
+        self.horizontal_layout.addWidget(self.previewLabel)
+
+        self.item_title_label = QtGui.QLabel(self)
+        self.item_title_label.setMinimumSize(QtCore.QSize(64, 24))
+        self.item_title_label.setMaximumSize(QtCore.QSize(16777215, 60))
+        font = Qt4Gui.QFont()
+        font.setFamily("Segoe UI")
+        font.setPointSize(10)
+        self.item_title_label.setFont(font)
+        self.item_title_label.setStyleSheet("QLabel {background-color: transparent;}")
+        self.item_title_label.setTextFormat(QtCore.Qt.PlainText)
+        self.item_title_label.setIndent(8)
+        self.item_title_label.setWordWrap(True)
+
+        self.item_info_label = QtGui.QLabel(self)
+        self.item_info_label.setMinimumSize(QtCore.QSize(0, 30))
+        self.item_info_label.setMaximumSize(QtCore.QSize(16777215, 30))
+        font = Qt4Gui.QFont()
+        font.setFamily("Segoe UI")
+        font.setPointSize(9)
+        self.item_info_label.setFont(font)
+        self.item_info_label.setStyleSheet("QLabel {background-color: transparent; color: grey;}")
+        self.item_info_label.setTextFormat(QtCore.Qt.PlainText)
+        self.item_info_label.setIndent(12)
+
+        self.info_layout = QtGui.QVBoxLayout()
+        self.info_layout.addWidget(self.item_title_label)
+        self.info_layout.addWidget(self.item_info_label)
+
+        self.horizontal_layout.addLayout(self.info_layout)
+
+        # self.horizontal_layout.setStretch(3, 1)
+
+        self.setCursor(Qt4Gui.QCursor(QtCore.Qt.PointingHandCursor))
+
+    def create_ui(self):
+
+        self.create_ui_link_widget()
+
+
+    def fill_info_with_meta_file_object(self, meta_file_object, tactic_file_object):
+        if not self.main_file_exists:
+            self.item_title_label.setText('{0}, (File Offline)'.format(meta_file_object.get_pretty_file_name()))
+        else:
+            self.item_title_label.setText(meta_file_object.get_pretty_file_name())
+
+        self.item_info_label.setText(gf.sizes(tactic_file_object.get_file_size()))
+        self.set_ext_preview(tactic_file_object)
+
+        if gf.get_value_from_config(cfg_controls.get_checkin(), 'getPreviewsThroughHttpCheckbox') == 1:
+            self.set_web_preview()
+        else:
+            self.set_preview()
+
+        # # getting extra info from meta
+        # seq_range = meta_file_object.get_sequence_frameranges_string(brackets='[]')
+        # frames_count = meta_file_object.get_sequence_lenght()
+        # layer = meta_file_object.get_layer()
+        # tiles = meta_file_object.get_tiles_count()
+        # metadata = tactic_file_object.get_metadata()
+        # maya_version = None
+        # if metadata:
+        #     app_info = metadata.get('app_info')
+        #     if app_info:
+        #         maya_version = app_info.get('p')
+        # snapshot = self.get_snapshot()
+        # if snapshot:
+        #     if snapshot.is_latest():
+        #         self.isLatestLabel = self.get_item_info_label()
+        #         self.isLatestLabel.setTextFormat(QtCore.Qt.RichText)
+        #         self.isLatestLabel.setText('<span style="color:#2eb82e;">Latest</span>')
+        #         self.item_info_widget.add_item(self.isLatestLabel)
+        # if seq_range:
+        #     self.framerange_label = self.get_item_info_label()
+        #     self.item_info_widget.add_item(self.framerange_label)
+        #     self.framerange_label.setText(seq_range)
+        # if frames_count:
+        #     self.frames_count_label = self.get_item_info_label()
+        #     self.item_info_widget.add_item(self.frames_count_label)
+        #     self.frames_count_label.setText('Frames: {0}'.format(frames_count))
+        # if layer:
+        #     self.flayer_label = self.get_item_info_label()
+        #     self.item_info_widget.add_item(self.flayer_label)
+        #     self.flayer_label.setText(layer)
+        # if tiles:
+        #     self.tiles_label = self.get_item_info_label()
+        #     self.item_info_widget.add_item(self.tiles_label)
+        #     self.tiles_label.setText('Tiles: {0}'.format(tiles))
+        # if maya_version:
+        #     self.mayaVerLabel = self.get_item_info_label()
+        #     self.item_info_widget.add_item(self.mayaVerLabel)
+        #     self.mayaVerLabel.setText(maya_version)
+
+    def fill_info_with_tactic_file_object(self, tactic_file_object):
+        if not self.main_file_exists:
+            self.item_title_label.setText('{0}, (File Offline)'.format(tactic_file_object.get_filename_with_ext()))
+        else:
+            self.item_title_label.setText(tactic_file_object.get_filename_with_ext())
+
+        self.item_info_label.setText(gf.sizes(tactic_file_object.get_file_size()))
+        self.set_ext_preview(tactic_file_object)
+
+        if gf.get_value_from_config(cfg_controls.get_checkin(), 'getPreviewsThroughHttpCheckbox') == 1:
+            self.set_web_preview()
+        else:
+            self.set_preview()
+
+    def set_ext_preview(self, tactic_file_object=None):
+        if tactic_file_object:
+            file_ext = tactic_file_object.get_ext()
+            if not file_ext:
+                file_ext = 'err'
+            self.previewLabel.setText(
+                '<span style=" font-size:12pt; font-weight:600; color:#828282;">{0}</span>'.format(file_ext))
+
+            # self.previewLabel_anm_open.start()
+
+
+    def fill_item_info(self):
+
+        effect = QtGui.QGraphicsDropShadowEffect(self)
+        effect.setOffset(0, 0)
+        effect.setColor(Qt4Gui.QColor(0, 0, 0, 64))
+        effect.setBlurRadius(16)
+
+        self.setGraphicsEffect(effect)
+
+        # self.item_title_label.setText(self.snapshot.get_title())
+
+        if self.snapshot:
+
+            files_objects = self.snapshot.get_files_objects(group_by='type')
+
+            for key, fls in files_objects.items():
+                if fls[0].is_meta_file_obj():
+                    file_obj = fls[0].get_meta_file_object()
+                    self.fill_info_with_meta_file_object(file_obj, fls[0])
+                else:
+                    self.fill_info_with_tactic_file_object(fls[0])
+
+            # if self.project.process:
+            #
+            #     if gf.get_value_from_config(cfg_controls.get_checkin(), 'getPreviewsThroughHttpCheckbox') == 1:
+            #         self.set_web_preview()
+            #     else:
+            #         self.set_preview()
+            # else:
+            #     self.previewLabel.setText(
+            #         u'<span style=" font-size:9pt; font-weight:600; color:{0};">{1}</span>'.format(
+            #             'rgb(128,128,128)', gf.gen_acronym(self.project.get_title())))
+        # else:
+        #     self.previewLabel.setText(
+        #         u'<span style=" font-size:9pt; font-weight:600; color:{0};">{1}</span>'.format(
+        #             'rgb(128,128,128)', ''))
+
+        self.shown = True
+
+    def get_icon_preview_file_object(self):
+        if self.snapshot:
+            preview_files_objects = self.snapshot.get_files_objects(group_by='type').get('icon')
+            if preview_files_objects:
+                self.icon_preview_file_object = preview_files_objects[0].get_icon_preview()
+
+                return self.icon_preview_file_object
+
+    def set_preview(self):
+        if self.icon_preview_file_object:
+            self.set_preview_pixmap(self.icon_preview_file_object)
+        else:
+            icon_previw = self.get_icon_preview_file_object()
+            if icon_previw:
+                self.set_preview_pixmap(icon_previw)
+
+            #     self.previewLabel_anm_open.start()
+            # else:
+            #     self.previewLabel.setGraphicsEffect(None)
+
+    # def get_snapshot(self, process='publish'):
+    #
+    #     snapshot_process = self.project.process.get(process)
+    #     if snapshot_process:
+    #         context = list(snapshot_process.contexts.values())[0]
+    #         if context.versionless:
+    #             return list(context.versionless.values())[0]
+    #         else:
+    #             return list(context.versions.values())[0]
+
+    def set_preview(self):
+        if self.icon_preview_file_object:
+            self.set_preview_pixmap(self.icon_preview_file_object)
+        else:
+            icon_previw = self.get_icon_preview_file_object()
+            if icon_previw:
+                self.set_preview_pixmap(icon_previw)
+
+            #     self.previewLabel_anm_open.start()
+            # else:
+            #     self.previewLabel.setGraphicsEffect(None)
+
+    def set_web_preview(self):
+
+        icon_preview = self.get_icon_preview_file_object()
+        if icon_preview:
+            self.check_icon_preview_threaded(icon_preview)
+
+        #     self.previewLabel_anm_open.start()
+        # else:
+        #     self.previewLabel.setGraphicsEffect(None)
+
+    @staticmethod
+    def check_icon_file_exists(icon_preview):
+
+        # TODO This should be more complicated, and check hash not just size
+        # TODO Warning if file did not match local-remote
+        exists = icon_preview.is_exists()
+        match = icon_preview.get_file_size() == icon_preview.get_file_size(True)
+
+        return exists, match
+
+    def check_icon_preview_threaded(self, icon_preview):
+
+        worker = env_inst.local_pool.add_task(self.check_icon_file_exists, icon_preview)
+        worker.result.connect(self.set_checked_preview)
+        worker.error.connect(gf.error_handle)
+        worker.start()
+
+    def set_checked_preview(self, args=None):
+        exists = args[0]
+        match = args[1]
+
+        icon_preview = self.icon_preview_file_object
+
+        if exists:
+            if match:
+                self.set_preview()
+            else:
+                self.download_and_set_preview_file(icon_preview)
+        else:
+            self.download_and_set_preview_file(icon_preview)
+
+    def download_and_set_preview_file(self, file_object):
+        if not file_object.is_downloaded():
+            if file_object.get_unique_id() not in list(env_inst.ui_repo_sync_queue.queue_dict.keys()):
+                repo_sync_item = env_inst.ui_repo_sync_queue.schedule_file_object(file_object)
+                repo_sync_item.downloaded.connect(self.set_preview_pixmap)
+                repo_sync_item.download()
+
+    def set_preview_pixmap(self, file_object):
+        pixmap = self.get_preview_pixmap(file_object.get_full_abs_path())
+        if pixmap:
+            self.previewLabel.setPixmap(pixmap)
+
+    def get_preview_pixmap(self, image_path):
+        pixmap = Qt4Gui.QPixmap(image_path)
+        if not pixmap.isNull():
+            pix_width = 70
+            pix_height = 70
+
+            pixmap = pixmap.scaledToHeight(pix_width, QtCore.Qt.SmoothTransformation)
+
+            painter = Qt4Gui.QPainter()
+            pixmap_mask = Qt4Gui.QPixmap(pix_width, pix_height)
+            pixmap_mask.fill(QtCore.Qt.transparent)
+            painter.begin(pixmap_mask)
+            painter.setRenderHint(Qt4Gui.QPainter.Antialiasing)
+            painter.setBrush(Qt4Gui.QBrush(Qt4Gui.QColor(0, 0, 0, 255)))
+            painter.drawRect(QtCore.QRect(0, 0, pix_width, pix_height))
+            painter.end()
+
+            rounded_pixmap = Qt4Gui.QPixmap(pixmap.size())
+            rounded_pixmap.fill(QtCore.Qt.transparent)
+            painter.begin(rounded_pixmap)
+            painter.setRenderHint(Qt4Gui.QPainter.Antialiasing)
+            painter.drawPixmap(QtCore.QRect((pixmap.width() - pix_width) / 2, 0, pix_width, pix_width), pixmap_mask)
+            painter.setCompositionMode(Qt4Gui.QPainter.CompositionMode_SourceIn)
+            painter.drawPixmap(0, 0, pixmap)
+            painter.end()
+
+            return rounded_pixmap
+
+    def enterEvent(self, event):
+        event.accept()
+
+    def leaveEvent(self, event):
+        event.accept()
+
+    # def mousePressEvent(self, event):
+    #
+    #     if self.item_type == 'link':
+    #         self.clicked.emit(self.project.get_code())
+    #
+    #     super(Ui_projectLinkWidget, self).mousePressEvent(event)
+
+    def showEvent(self, event):
+        if not self.shown:
+            self.fill_item_info()
+
         event.accept()

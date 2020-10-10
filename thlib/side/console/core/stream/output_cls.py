@@ -5,25 +5,22 @@ __all__ = ["OutputCls"]
 
 import locale
 from thlib.side.Qt import QtCore
+from thlib.side import six
 
 
 class OutputCls(QtCore.QObject):
 
     written = QtCore.Signal(object)
-    flushed = QtCore.Signal()
 
     encoding = locale.getpreferredencoding()
 
-    def __init__(self, std, parent_stream=None, parent=None):
+    def __init__(self, std, parent=None):
 
         """
         Initialize default settings.
         """
-        # self.__io = open('D:/APS/OneDrive/MEGAsync/TACTIC-handler/stuff.txt', 'w')
-        self.__parent_stream = parent_stream
 
         super(OutputCls, self).__init__(parent)
-
         self.__std = std
         self.softspace = 0
 
@@ -34,14 +31,6 @@ class OutputCls(QtCore.QObject):
         """
         
         return self.__std.readline(*args, **kwargs)
-        
-    def stream(self):
-        
-        """
-        Get parent stream.
-        """
-        
-        return self.__parent_stream
     
     def write(self, text):
 
@@ -49,29 +38,18 @@ class OutputCls(QtCore.QObject):
         Write text message.
         """
 
-        # if text is not None:
-        #     if isinstance(text, (str, unicode)):
-        #         self.__std.write(text)
-        #     else:
-        #         self.__std.write(repr(text))
+        if text is not None:
+            try:
+                if six.PY2 and isinstance(text, (basestring, unicode)) or not six.PY2 and isinstance(text, str):
+                    self.__std.write(text)
+                else:
+                    self.__std.write(repr(text))
 
-        try:
-            self.__std.write(text)
-            self.written.emit(text)
-        except:
-            pass
-        finally:
-            return text
+                self.written.emit(text)
+            except:
+                pass
 
-        # try:
-        #     # text = unicode(text).encode('utf-8', errors='ignore')
-        #     text = str(text)
-        #
-        # except UnicodeEncodeError or UnicodeDecodeError:
-        #     text = u"Failed to encode error message..."
-
-        # self.written.emit(text)
-        # return result
+        return text
 
     def writelines(self, line_list):
 
@@ -81,11 +59,11 @@ class OutputCls(QtCore.QObject):
 
         result = self.__std.writelines(line_list)
         for line in line_list:
-            # try:
-            #     line = unicode(line)
-            #
-            # except UnicodeEncodeError or UnicodeDecodeError:
-            #     line = u"Failed to encode error message..."
+            try:
+                line = six.PY2 and unicode(line) or six.u(line)
+
+            except UnicodeEncodeError or UnicodeDecodeError:
+                line = u"Failed to encode error message..."
 
             self.written.emit(line)
 
@@ -97,5 +75,4 @@ class OutputCls(QtCore.QObject):
         Flush
         """
         result = self.__std.flush(*args, **kwargs)
-        self.flushed.emit()
         return result

@@ -2,12 +2,14 @@
 
 __all__ = ["ExceptionHook"]
 
-#import exceptions
 import traceback
 import types
 import sys
 
 from thlib.side.Qt import QtCore
+from thlib.side import six
+if six.PY2:
+    from exceptions import BaseException
 
 
 class ExceptionHook(QtCore.QObject):
@@ -30,15 +32,16 @@ class ExceptionHook(QtCore.QObject):
             if isinstance(arg, type):
                 exception_type = arg
 
-            #elif isinstance(arg, exceptions.BaseException):
-            #    exception_value = arg
+            elif isinstance(arg, BaseException):
+                exception_value = arg
 
             elif isinstance(arg, types.TracebackType):
                 exception_traceback = arg
-        
+
+        ZeroDivisionError
         exception_type_string = exception_type is not None and exception_type.__name__ or "UnknownError"
-        exception_value_string = exception_value is not None and exception_value.message or "Unknown error handled"
-        
+        exception_value_string = exception_value is not None and six.PY2 and (hasattr(exception_value, "message") and exception_value.message) or (hasattr(exception_value, "msg") and exception_value.msg) or "Unknown error handled"
+
         result = ""
         if exception_type is not None and exception_value is not None and exception_traceback is not None:
             python_traceback = Traceback.get_traceback(exception_traceback)
@@ -52,7 +55,7 @@ class ExceptionHook(QtCore.QObject):
                     result_temp = [result_temp]
 
                 for result_temp_item in result_temp:
-                    if isinstance(result_temp_item, (basestring, unicode)):
+                    if six.PY2 and isinstance(result_temp_item, (basestring, unicode)) or not six.PY2 and isinstance(result_temp_item, str):
                         result += result_temp_item
 
                     else:

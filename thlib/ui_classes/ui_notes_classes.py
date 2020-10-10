@@ -9,6 +9,7 @@ from thlib.side.Qt import QtCore
 from thlib.environment import env_server, env_inst, env_read_config, env_write_config
 from thlib.ui_classes.ui_custom_qwidgets import StyledToolButton, Ui_userIconWidget
 from thlib.ui_classes.ui_tasks_classes import Ui_taskWidget
+from thlib.ui_classes.ui_item_classes import Ui_notesSnapshotWidget
 import thlib.tactic_classes as tc
 import thlib.global_functions as gf
 
@@ -369,6 +370,7 @@ class Ui_notesWidget(QtGui.QWidget):
             QtGui.QApplication.processEvents()
             self.conversationScrollArea.setWidgetResizable(True)
             self.conversationScrollArea.ensureWidgetVisible(self.widgets_list[-1])
+            self.resize(0, 0)
 
     def reply_note(self):
 
@@ -414,7 +416,7 @@ class Ui_messageWidget(QtGui.QWidget):
     def create_ui_raw(self):
 
         self.setObjectName('messageWidget')
-        self.setMinimumWidth(260)
+        self.setMinimumWidth(300)
         self.setMinimumHeight(40)
 
         self.main_layout = QtGui.QHBoxLayout(self)
@@ -425,26 +427,17 @@ class Ui_messageWidget(QtGui.QWidget):
         self.message_layout.setContentsMargins(0, 0, 0, 0)
         self.message_layout.setSpacing(0)
 
-        # self.attachments_layout = QtGui.QHBoxLayout()
-
-        from thlib.side.flowlayout import FlowLayout
-        # self.scroll_area.setWidgetResizable(True)
-        # self.scroll_area.setFrameShape(QtGui.QFrame.NoFrame)
-        # self.scroll_area.setWidget(self.scroll_area_contents)
-
-        self.attachments_layout = FlowLayout()
-
-        self.attachments_layout.setAlignment(QtCore.Qt.AlignTop)
-
-        # self.attachments_layout = QtGui.QHBoxLayout()
-        self.attachments_layout.setContentsMargins(0, 0, 0, 20)
-        self.attachments_layout.setSpacing(0)
+        self.attachments_layout = QtGui.QVBoxLayout()
+        self.attachments_layout.setAlignment(QtCore.Qt.AlignLeft)
+        self.attachments_layout.setContentsMargins(9, 0, 9, 10)
+        self.attachments_layout.setSpacing(10)
 
         self.message_frame = QtGui.QFrame()
         self.message_frame.setLayout(self.message_layout)
+        self.message_frame.setObjectName('message_frame')
 
         self.text_area = QtGui.QTextBrowser()
-        self.text_area.setMinimumWidth(40)
+        self.text_area.setMinimumWidth(300)
         self.text_area.setOpenExternalLinks(True)
         self.text_area.setFrameShape(QtGui.QFrame.NoFrame)
         self.text_area.setHorizontalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOff)
@@ -499,6 +492,7 @@ class Ui_messageWidget(QtGui.QWidget):
         self.message_options_button.setParent(self.message_frame)
         self.message_options_button.setIcon(gf.get_icon('dots-vertical', icons_set='mdi', scale_factor=1.2))
         self.overlay_layout.addWidget(self.message_options_button, 0, 1, 1, 1)
+
         spacerItem = QtGui.QSpacerItem(0, 0, QtGui.QSizePolicy.Minimum, QtGui.QSizePolicy.Expanding)
         self.overlay_layout.addItem(spacerItem, 1, 0, 1, 2)
 
@@ -532,7 +526,7 @@ class Ui_messageWidget(QtGui.QWidget):
         # it is hacky, because it making frames around all objects
 
         self.message_frame.setStyleSheet("""
-        QFrame {{
+        #message_frame {{
             border: 0px;
             border-top-left-radius: 6px;
             border-top-right-radius: 6px;
@@ -543,13 +537,13 @@ class Ui_messageWidget(QtGui.QWidget):
         }}""".format(**customize_dict))
 
         self.text_area.setStyleSheet("""
-        QTextEdit, QListView {
+        QTextEdit {
             font-size: 11pt;
             border: 0px;
             show-decoration-selected: 0;
-            background: rgb(64, 64, 64);
+            background: rgb(64, 64, 128);
             selection-background-color: darkgray;
-            padding-top: 32px;
+            padding-top: 26px;
             padding-right: 8px;
             padding-left: 8px;
             padding-bottom: 0px;
@@ -609,45 +603,46 @@ class Ui_messageWidget(QtGui.QWidget):
                 # print(snapshot.get_previewable_files_objects())
                 # self.message_layout.addWidget(QtGui.QPushButton('asd'))
 
-                preview_files_objects = snapshot.get_previewable_files_objects()
-
-                if not preview_files_objects:
-                    # Trying to gen any preview if possible
-                    for fo in snapshot.get_files_objects():
-                        if fo.get_type() == 'web':
-                            if fo not in preview_files_objects:
-                                preview_files_objects.append(fo)
-
-                if preview_files_objects:
-                    file_object = preview_files_objects[0]
-
-                    repo_sync_item = env_inst.ui_repo_sync_queue.schedule_file_object(file_object)
-                    # repo_sync_item.downloaded.connect(self.set_preview_pixmap)
-                    repo_sync_item.download()
-
-                    pixmap = Qt4Gui.QPixmap(file_object.get_full_abs_path())
-
-                    pic_label = QtGui.QLabel()
-                    pic_label.setStyleSheet(
-                        "QLabel {background: rgba(175, 175, 175, 16); border: 0px; border-radius: 3px; padding: 0px 0px; }")
-                    pic_label.setAlignment(QtCore.Qt.AlignCenter)
-
-                    if pixmap.height() > pixmap.width():
-                        pic_label.setPixmap(pixmap.scaledToWidth(64, QtCore.Qt.SmoothTransformation))
-                    else:
-                        pic_label.setPixmap(pixmap.scaledToHeight(64, QtCore.Qt.SmoothTransformation))
-
-                    pic_label.setMinimumSize(64, 64)
-                    pic_label.setMaximumSize(64, 64)
-
-                    self.attachments_layout.addWidget(pic_label)
-                    self.attachment_size += 64
+                # preview_files_objects = snapshot.get_previewable_files_objects()
+                #
+                # if not preview_files_objects:
+                #     # Trying to gen any preview if possible
+                #     for fo in snapshot.get_files_objects():
+                #         if fo.get_type() == 'web':
+                #             if fo not in preview_files_objects:
+                #                 preview_files_objects.append(fo)
+                #
+                # if preview_files_objects:
+                #     file_object = preview_files_objects[0]
+                #
+                #     repo_sync_item = env_inst.ui_repo_sync_queue.schedule_file_object(file_object)
+                #     # repo_sync_item.downloaded.connect(self.set_preview_pixmap)
+                #     repo_sync_item.download()
+                #
+                #     pixmap = Qt4Gui.QPixmap(file_object.get_full_abs_path())
+                #
+                #     pic_label = QtGui.QLabel()
+                #     pic_label.setStyleSheet(
+                #         "QLabel {background: rgba(175, 175, 175, 16); border: 0px; border-radius: 3px; padding: 0px 0px; }")
+                #     pic_label.setAlignment(QtCore.Qt.AlignCenter)
+                #
+                #     if pixmap.height() > pixmap.width():
+                #         pic_label.setPixmap(pixmap.scaledToWidth(64, QtCore.Qt.SmoothTransformation))
+                #     else:
+                #         pic_label.setPixmap(pixmap.scaledToHeight(64, QtCore.Qt.SmoothTransformation))
+                #
+                #     pic_label.setMinimumSize(64, 64)
+                #     pic_label.setMaximumSize(64, 64)
+                    snapshot_widget = Ui_notesSnapshotWidget(snapshot, parent=self)
+                    self.attachments_layout.addWidget(snapshot_widget)
+                    self.attachment_size += 74
+                    # print(snapshot_widget.size())
 
         self.text_area.setLineWrapColumnOrWidth(self.width())
 
         text_document = self.text_area.document()
         document_size = text_document.size()
-        doc_height = document_size.height() + 10
+        doc_height = document_size.height() + 48
         self.setMinimumHeight(doc_height)
 
         self.text_area.setLineWrapMode(QtGui.QTextEdit.FixedPixelWidth)
@@ -689,12 +684,6 @@ class Ui_messageWidget(QtGui.QWidget):
         delete_message.setIcon(gf.get_icon('delete-forever', icons_set='mdi', scale_factor=1))
         delete_message.triggered.connect(self.delete_message)
 
-        # enable_watch = QtGui.QAction('Enable Watch', self.tasks_options_button)
-        # enable_watch.setIcon(gf.get_icon('eye'))
-        #
-        # disable_watch = QtGui.QAction('Disable Watch', self.tasks_options_button)
-        # disable_watch.setIcon(gf.get_icon('eye-slash'))
-
         menu = QtGui.QMenu()
 
         menu.addAction(edit_message)
@@ -734,26 +723,33 @@ class Ui_messageWidget(QtGui.QWidget):
 
         document_size = text_document.size()
 
-        doc_height = document_size.height() + 64
+        doc_height = document_size.height() + 48
 
-        self.text_area.setFixedHeight(doc_height-30)
+        # self.text_area.setFixedHeight(doc_height-30)
 
         doc_width = document_size.width()
         text_rect = metrics.boundingRect(QtCore.QRect(), 0, self.text_area.toPlainText())
         login_rect = metrics.boundingRect(QtCore.QRect(), 0, self.user_label.text())
         text_width = text_rect.width() + login_rect.width() + 20
 
-        if text_width < doc_width:
-            self.message_frame.setFixedWidth(text_width)
-        else:
-            self.message_frame.setFixedWidth(doc_width + 20)
+        if self.attachment_size == 0:
+            if text_width < doc_width:
+                self.message_frame.setFixedWidth(text_width)
+            else:
+                self.message_frame.setFixedWidth(doc_width + 20)
 
-        if self.message_type == 'out':
-            x_pos = self.width() - (self.message_frame.width() + 60)
+            if self.message_type == 'out':
+                x_pos = self.width() - (self.message_frame.width() + 60)
+                self.message_frame.move(x_pos, 0)
+            else:
+                self.message_frame.move(60, 0)
 
-            self.message_frame.move(x_pos, 0)
+        # self.setMinimumHeight(doc_height)
+        if self.attachment_size > 0:
+            self.text_area.setFixedHeight(doc_height-18)
+            self.setFixedHeight(doc_height + self.attachment_size)
         else:
-            self.message_frame.move(60, 0)
+            self.setFixedHeight(doc_height)
 
         text_area_size = self.message_frame.size()
 
@@ -763,12 +759,6 @@ class Ui_messageWidget(QtGui.QWidget):
         text_area_reg = Qt4Gui.QRegion(QtCore.QRect(0, 36, text_area_size.width(), text_area_size.height()-60))
 
         self.overlay_widget.setMask(overlay_reg.subtracted(text_area_reg))
-
-        # self.setMinimumHeight(doc_height)
-        if self.attachment_size > 0:
-            self.setFixedHeight(doc_height + 74)
-        else:
-            self.setFixedHeight(doc_height)
 
 
 class Ui_statusWidget(QtGui.QWidget):

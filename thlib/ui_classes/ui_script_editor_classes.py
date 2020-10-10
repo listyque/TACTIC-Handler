@@ -23,7 +23,8 @@ import thlib.tactic_classes as tc
 import thlib.global_functions as gf
 from thlib.environment import env_inst, env_mode, env_read_config, env_write_config
 from thlib.ui_classes.ui_custom_qwidgets import Ui_horizontalCollapsableWidget
-from thlib.side.console.core import console, stream
+from thlib.side.console.core import console
+from thlib.side.console.core.stream import stream
 from thlib.side.console.ui import editor_window, output_window
 
 
@@ -368,12 +369,13 @@ class Ui_ScriptEditForm(QtGui.QDialog):
                 text = self.console.toPlainText()
             else:
                 text = self.console.selectedText()
-                self.stream.input(text)
 
             text = text.replace(u"\u2029", "\n")
             text = text.replace(u"\u2028", "\n")
             if not text or text == "":
                 text = self.console.toPlainText()
+
+            self.stream.input(text)
 
             self.output.moveCursor(Qt4Gui.QTextCursor.End)
 
