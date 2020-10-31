@@ -16,10 +16,10 @@ Can be used with Standalone or with Autodesk Maya 2014-2018+, The Foundry Nuke, 
 * Server-side script editor.
 * Rich customization, server presets, many useful and small things that can help you with your everyday work and etc...
 
-Link to Docs [Tactic-Handler Documentation pages](http://tactic-handler.online/docs/)
+Link to Docs [Tactic-Handler Documentation pages](http://tacitc-handler.online/docs/)
 
-Screenshots [Tactic-Handler Screenshots](http://tactic-handler.online/docs/screenshots/)
+Screenshots [Tactic-Handler Screenshots](http://tacitc-handler.online/docs/screenshots/)
 
-How to Start [Tactic-Handler Installation Guides](http://tactic-handler.online/docs/requirements/)
+How to Start [Tactic-Handler Installation Guides](http://tacitc-handler.online/docs/requirements/)
 
-Api Examples [Tactic-Handler Api Usage Examples](http://tactic-handler.online/docs/api_reference/)
+Api Examples [Tactic-Handler Api Usage Examples](http://tacitc-handler.online/docs/api_reference/)
