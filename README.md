@@ -1,6 +1,7 @@
 # TACTIC-Handler
 PySide based Southpaw TACTIC client that can help you commit assets to TACTIC
 Can be used with Standalone or with Autodesk Maya 2014-2018+, The Foundry Nuke, Autodesk 3DSmax, Houdini, etc...
+```
 For anyone who wants "just try":
 Portable ver, TH+TACTIC: [tactic_team48.zip](http://tacitc-handler.online/docs/tactic_team48.zip)
 How to use: Unpack and run TACTIC-Server.bat
@@ -9,7 +10,7 @@ I also added silent version which is lies in system tray: TACTIC-Server_Silent.b
 
 And Tactic-Handler: TACTIC-Handler.bat
 Tactic Handler should be executed after TACTIC server is fully started and accessible
-
+```
 ![in_action](/screenshots/10.06.2020/in_action.gif)
 
 ## Key Feauters:
