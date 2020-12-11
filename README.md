@@ -20,7 +20,7 @@ Tactic Handler should be executed after TACTIC server is fully started and acces
 ![in_action](/screenshots/10.06.2020/in_action.gif)
 
 ## Key Feauters:
-* Piepeline management for Maya, Assets management, Tasks management, Project management
+* Pipeline management for Maya, Assets management, Tasks management, Project management
 * Qt Based UI
 * Runnable standalone or within any App with Python and PySide, PyQt4+
 * Rich Functionality, like commiting UDIM textures with sequences, or Sequences of animation, with proper naming.
