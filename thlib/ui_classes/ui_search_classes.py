@@ -3039,11 +3039,17 @@ class Ui_searchResultsWidget(QtGui.QWidget):
         checkin_out_widget = self.get_current_checkin_out_widget()
         tasks_widget = checkin_out_widget.get_tasks_widget()
 
+        # adding tasks to mini tasks widget
         tasks_widget.set_sobject(item.sobject)
 
+        # adding task to notes widget
         notes_widget = checkin_out_widget.get_notes_widget()
         process = item.get_current_process_info()
-        notes_widget.set_sobject(item.sobject, process['name'])
+
+        if process.get('builtin') and process['name'] != 'publish':
+            notes_widget.set_sobject(item.sobject, '__latest__')
+        else:
+            notes_widget.set_sobject(item.sobject, process['name'])
 
     @gf.catch_error
     def load_preview(self, selected_items_list, *args):

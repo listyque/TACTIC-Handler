@@ -31,7 +31,7 @@ class OutputCls(QtCore.QObject):
         """
         
         return self.__std.readline(*args, **kwargs)
-    
+
     def write(self, text):
 
         """

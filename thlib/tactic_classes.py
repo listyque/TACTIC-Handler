@@ -392,7 +392,7 @@ class SObject(object):
 
     # Initial Snapshots by process without query
     def init_snapshots(self, snapshot_dict):
-        process_set = set(snapshot['process'] for snapshot in snapshot_dict)
+        process_set = set(snapshot['process'].split('/')[-1] for snapshot in snapshot_dict)
 
         for process in process_set:
             self.process[process] = Process(snapshot_dict, process)
@@ -1614,7 +1614,7 @@ class Process(object):
             items = collections.defaultdict(list)
             for item in in_dict:
                 items[item['context']].append(item)
-                if item['process'] == process:
+                if item['process'].split('/')[-1] == process:
                     contexts.add(item['context'])
             for context in contexts:
                 self.contexts[context] = Contexts(single=items[context])
@@ -1622,11 +1622,11 @@ class Process(object):
             versions = collections.defaultdict(list)
             versionless = collections.defaultdict(list)
             for snapshot in in_dict:
-                if snapshot['process'] == process and (snapshot['version'] == -1 or snapshot['version'] == 0):
+                if snapshot['process'].split('/')[-1] == process and (snapshot['version'] == -1 or snapshot['version'] == 0):
                     versionless[snapshot['context']].append(snapshot)
-                elif snapshot['process'] == process and (snapshot['version'] != -1 or snapshot['version'] != 0):
+                elif snapshot['process'].split('/')[-1] == process and (snapshot['version'] != -1 or snapshot['version'] != 0):
                     versions[snapshot['context']].append(snapshot)
-                if snapshot['process'] == process:
+                if snapshot['process'].split('/')[-1] == process:
                     contexts.add(snapshot['context'])
 
             for context in contexts:
@@ -2105,8 +2105,11 @@ def get_tasks_and_notes(sobject=None, search_code=None, project_code=None, proce
     kwargs = {
         'search_code': search_code,
         'project_code': project_code,
-        'process': process
     }
+
+    if process != '__latest__':
+        kwargs['process'] = process
+
     tasks_and_notes = execute_procedure_serverside(tq.get_tasks_and_notes, kwargs)
 
     notes = tasks_and_notes.get('notes')
@@ -2426,7 +2429,7 @@ def execute_custom_script(script_path, kwargs=None, project=None, local_executio
             source_code = py_file.read()
         py_file.close()
 
-        env_inst.ui_script_editor.execute_source_code(source_code.decode('utf-8'))
+        env_inst.ui_script_editor.execute_source_code(six.ensure_text(source_code))
     else:
         return server_start(project).execute_python_script(script_path, kwargs=kwargs)
 
@@ -2769,7 +2772,7 @@ def update_description(search_key, description):
     return server_start().update(search_key, data)
 
 
-def add_note(search_key, process, context, note, login):
+def add_note(search_key, process, context, note, login, attachments=None):
     search_type = 'sthpw/note'
 
     data = {
@@ -2780,6 +2783,10 @@ def add_note(search_key, process, context, note, login):
     }
     project_code = split_search_key(search_key)
     transaction = server_start(project=project_code['project_code']).insert(search_type, data, parent_key=search_key, triggers=True)
+
+    if attachments:
+        for attachment in attachments:
+            server_start(project=project_code['project_code']).connect_sobjects(attachment, transaction, context='attachment');
 
     return transaction
 

@@ -768,7 +768,7 @@ class QTacticCheckboxWdg(QtGui.QWidget, QTacticBasicInputWdg):
         self.set_control_widget(self.checkbox)
 
     def get_data(self):
-        return int(self.checkbox.isEnabled())
+        return int(self.checkbox.isChecked())
 
     def get_column(self):
         return self.tactic_widget.get_name()
@@ -777,6 +777,7 @@ class QTacticCheckboxWdg(QtGui.QWidget, QTacticBasicInputWdg):
         values = self.tactic_widget.get_display_values()
         if values:
             self.checkbox.setChecked(values[0])
+            self.checkbox.setText('                   ')
 
     def create_checkbox(self):
         self.checkbox = QtGui.QCheckBox()
@@ -797,7 +798,7 @@ class QTacticCurrentCheckboxWdg(QtGui.QWidget, QTacticBasicInputWdg):
         self.set_control_widget(self.checkbox)
 
     def get_data(self):
-        return int(self.checkbox.isEnabled())
+        return int(self.checkbox.isChecked())
 
     def get_column(self):
         return self.tactic_widget.get_name()
@@ -809,6 +810,7 @@ class QTacticCurrentCheckboxWdg(QtGui.QWidget, QTacticBasicInputWdg):
             if isinstance(values, list):
                 if isinstance(values[0], bool):
                     self.checkbox.setChecked(values[0])
+                    self.checkbox.setText('                   ')
 
     def create_checkbox(self):
         self.checkbox = QtGui.QCheckBox()

@@ -7,7 +7,7 @@ from thlib.side.Qt import QtGui as Qt4Gui
 from thlib.side.Qt import QtCore
 
 from thlib.environment import env_server, env_inst, env_read_config, env_write_config
-from thlib.ui_classes.ui_custom_qwidgets import StyledToolButton, Ui_userIconWidget
+from thlib.ui_classes.ui_custom_qwidgets import StyledToolButton, Ui_userIconWidget, Ui_attachmentsEditorWidget, CustomPlainTextEdit
 from thlib.ui_classes.ui_tasks_classes import Ui_taskWidget
 from thlib.ui_classes.ui_item_classes import Ui_notesSnapshotWidget
 import thlib.tactic_classes as tc
@@ -44,6 +44,8 @@ class Ui_notesBaseWidget(QtGui.QWidget):
         self.setLayout(self.main_notes_layout)
 
         self.main_notes_layout.addWidget(self.no_notes_label)
+
+        self.readSettings()
 
     def create_no_notes_label(self):
         self.no_notes_label = QtGui.QLabel()
@@ -93,10 +95,9 @@ class Ui_notesBaseWidget(QtGui.QWidget):
         self.bring_dock_widget_up()
 
     def set_sobject(self, sobject, context='publish'):
-        self.sobject = sobject
-        self.context = context
-
         if not self.visibleRegion().isEmpty():
+            self.sobject = sobject
+            self.context = context
 
             self.query_tasks_and_notes()
 
@@ -107,6 +108,10 @@ class Ui_notesBaseWidget(QtGui.QWidget):
         self.clear_notes()
 
         self.toggle_no_notes_label()
+
+        if tasks:
+            first_task = list(tasks.values())[0]
+            self.context = first_task.get_value('process')
 
         self.task_widget = Ui_taskWidget(process=self.context, parent_sobject=self.sobject, type='extended', parent=self)
         sizePolicy = QtGui.QSizePolicy(QtGui.QSizePolicy.Preferred, QtGui.QSizePolicy.Preferred)
@@ -163,6 +168,9 @@ class Ui_notesWidget(QtGui.QWidget):
 
         self.sobject = sobject
         self.context = context
+        self.links_to_upload_list = []
+        self.screenshots_to_upload_list = []
+        self.attachments_editor_toggled = False
 
         self.task_widget = task_widget
 
@@ -241,7 +249,14 @@ class Ui_notesWidget(QtGui.QWidget):
         self.attachment_tool_button.setIcon(gf.get_icon('paperclip', icons_set='mdi', scale_factor=1.2))
         self.editor_layout.addWidget(self.attachment_tool_button)
 
-        self.reply_text_edit = QtGui.QPlainTextEdit()
+        self.edit_attachments_button = StyledToolButton()
+        self.edit_attachments_button.setIcon(gf.get_icon('chevron-right', icons_set='mdi', scale_factor=1.2))
+        self.edit_attachments_button.setToolButtonStyle(QtCore.Qt.ToolButtonTextBesideIcon)
+        self.edit_attachments_button.setText('0')
+        self.editor_layout.addWidget(self.edit_attachments_button)
+        self.edit_attachments_button.setHidden(True)
+
+        self.reply_text_edit = CustomPlainTextEdit()
         self.reply_text_edit.setFrameShape(QtGui.QFrame.NoFrame)
         self.reply_text_edit.setStyleSheet("""
         QPlainTextEdit, QListView {
@@ -294,8 +309,58 @@ class Ui_notesWidget(QtGui.QWidget):
         self.main_layout.setRowStretch(0, 1)
 
     def controls_actions(self):
+        self.attachment_tool_button.clicked.connect(self.attach_file_to_note)
         self.reply_tool_button.clicked.connect(self.reply_note)
+        self.edit_attachments_button.clicked.connect(self.edit_attachments)
+
         self.reply_text_edit.textChanged.connect(self.reply_text_edit_text_changed)
+        self.reply_text_edit.pasted.connect(self.handle_pasted)
+
+    def handle_pasted(self, clipboard=None):
+        mime_data = clipboard.mimeData()
+
+        if mime_data.hasText():
+            self.reply_text_edit.paste()
+        elif mime_data.hasImage():
+            self.screenshots_to_upload_list.append(mime_data.imageData())
+            print('PICTURE PASTE', mime_data.imageData())
+            print(self.screenshots_to_upload_list)
+
+    def get_attachmnents_files_objects(self):
+        files_list = self.get_upload_list()
+
+        if files_list:
+            match_template = gf.MatchTemplate(['$FILENAME.$EXT'])
+            return match_template.get_files_objects(files_list)
+
+    def get_upload_list(self):
+        return self.links_to_upload_list
+
+    def get_screenshots_to_upload_list(self):
+        return self.screenshots_to_upload_list
+
+    def edit_attachments(self):
+
+        if self.attachments_editor_toggled:
+            self.attachments_editor_toggled = False
+            self.edit_attachments_button.setIcon(gf.get_icon('chevron-right', icons_set='mdi', scale_factor=1.2))
+            self.edit_attachments_widget.close()
+        else:
+            self.attachments_editor_toggled = True
+            self.edit_attachments_button.setIcon(gf.get_icon('chevron-down', icons_set='mdi', scale_factor=1.2))
+
+            files_objects = self.get_attachmnents_files_objects()
+            screenshots = self.get_screenshots_to_upload_list()
+
+            # files_objects = True
+
+            if files_objects or screenshots:
+                self.edit_attachments_widget = Ui_attachmentsEditorWidget(
+                    files_objects=files_objects,
+                    screenshots=screenshots,
+                    parent=self)
+
+                self.main_layout.addWidget(self.edit_attachments_widget)
 
     def create_scroll_area(self):
         self.scrollAreaContents = QtGui.QWidget()
@@ -319,6 +384,22 @@ class Ui_notesWidget(QtGui.QWidget):
         else:
             self.reply_text_edit.setMinimumHeight(32)
             self.reply_text_edit.setMaximumHeight(32)
+
+    def add_files_from_menu(self):
+
+        options = QtGui.QFileDialog.Options()
+        options |= QtGui.QFileDialog.DontUseNativeDialog
+        files_names, filter = QtGui.QFileDialog.getOpenFileNames(self, 'Attaching files to Note',
+                                                                 '',
+                                                                 'All Files (*.*);;',
+                                                                 '', options)
+        if files_names:
+            self.edit_attachments_button.setHidden(False)
+            self.links_to_upload_list.extend(files_names)
+            self.edit_attachments_button.setText(str(len(self.links_to_upload_list)))
+
+    def attach_file_to_note(self):
+        self.add_files_from_menu()
 
     def query_notes(self):
 
@@ -359,10 +440,12 @@ class Ui_notesWidget(QtGui.QWidget):
 
             if sobject.get_plain_search_type() == 'sthpw/note':
                 note_widget = Ui_messageWidget(sobject, message_type, self.sobject, current_task_sobject, self)
+                note_widget.show()
                 self.lay.addWidget(note_widget)
                 self.widgets_list.append(note_widget)
             else:
                 status_widget = Ui_statusWidget(sobject, message_type, self.sobject, current_task_sobject, self)
+                status_widget.show()
                 self.lay.addWidget(status_widget)
                 self.widgets_list.append(status_widget)
 
@@ -374,24 +457,71 @@ class Ui_notesWidget(QtGui.QWidget):
 
     def reply_note(self):
 
+        note = self.reply_text_edit.toPlainText()
+
+        if note or self.links_to_upload_list:
+            if not note.startswith(' ') or self.links_to_upload_list:
+                self.upload_attachments()
+        else:
+            self.reply_text_edit.setPlainText(None)
+
+    def upload_attachments(self):
+        stype = self.sobject.get_stype()
+        search_key = self.sobject.info['__search_key__']
+
+        checkin_widget = env_inst.get_check_tree(tab_code='checkin_out', wdg_code=stype.info.get('code'))
+
+        files_objects = self.get_attachmnents_files_objects()
+
+        if files_objects:
+
+            commit_queue_ui = None
+            for file_object in files_objects.get('file'):
+
+                context = 'attachment/{0}/{1}'.format(self.context, file_object.get_file_name(True))
+
+                commit_queue_ui = checkin_widget.checkin_file_objects(
+                    search_key,
+                    context,
+                    '',
+                    files_objects=[file_object],
+                    checkin_type='file',
+                    keep_file_name=False,
+                    commit_silently=True,
+                    update_versionless=True
+                )
+
+            if commit_queue_ui:
+                commit_queue_ui.finished.connect(self.add_note)
+                commit_queue_ui.commit_queue()
+
+        else:
+            self.add_note()
+            self.query_notes()
+
+    def add_note(self, snapshots_list=None):
+
         search_type = self.sobject.info['__search_key__']
         process = self.context
         context = process
         login = self.current_user
 
         note = self.reply_text_edit.toPlainText()
-        self.reply_text_edit.clear()
 
-        if note:
-            if not note.startswith(' '):
-                new_note = tc.add_note(search_type, process, context, note, login)
-                self.query_notes()
-        else:
-            self.reply_text_edit.setPlainText(None)
+        new_note = tc.add_note(search_type, process, context, note, login, attachments=snapshots_list)
+
+        self.reply_text_edit.clear()
 
     def closeEvent(self, event):
         self.deleteLater()
         event.accept()
+
+    def keyPressEvent(self, event):
+        if event.key() == QtCore.Qt.Key_Return and QtGui.QApplication.keyboardModifiers() == QtCore.Qt.ControlModifier:
+            self.reply_note()
+            event.accept()
+        else:
+            super(self.__class__, self).keyPressEvent(event)
 
 
 class Ui_messageWidget(QtGui.QWidget):
@@ -435,6 +565,8 @@ class Ui_messageWidget(QtGui.QWidget):
         self.message_frame = QtGui.QFrame()
         self.message_frame.setLayout(self.message_layout)
         self.message_frame.setObjectName('message_frame')
+        sizePolicy = QtGui.QSizePolicy(QtGui.QSizePolicy.Preferred, QtGui.QSizePolicy.Preferred)
+        self.message_frame.setSizePolicy(sizePolicy)
 
         self.text_area = QtGui.QTextBrowser()
         self.text_area.setMinimumWidth(300)
@@ -541,7 +673,7 @@ class Ui_messageWidget(QtGui.QWidget):
             font-size: 11pt;
             border: 0px;
             show-decoration-selected: 0;
-            background: rgb(64, 64, 128);
+            background: transparent;
             selection-background-color: darkgray;
             padding-top: 26px;
             padding-right: 8px;
@@ -590,7 +722,9 @@ class Ui_messageWidget(QtGui.QWidget):
 
                 self.text_area.setHtml(note_text)
 
-        attachment = self.note.get_process('reference/attachment')
+        self.attachment_size = 0
+
+        attachment = self.note.get_process('attachment')
         if attachment:
             contexts = attachment.get_contexts()
 
@@ -599,44 +733,10 @@ class Ui_messageWidget(QtGui.QWidget):
                 snapshots.extend(context.get_versions().values())
 
             for snapshot in snapshots:
-                # print(snapshot.get_files_objects())
-                # print(snapshot.get_previewable_files_objects())
-                # self.message_layout.addWidget(QtGui.QPushButton('asd'))
 
-                # preview_files_objects = snapshot.get_previewable_files_objects()
-                #
-                # if not preview_files_objects:
-                #     # Trying to gen any preview if possible
-                #     for fo in snapshot.get_files_objects():
-                #         if fo.get_type() == 'web':
-                #             if fo not in preview_files_objects:
-                #                 preview_files_objects.append(fo)
-                #
-                # if preview_files_objects:
-                #     file_object = preview_files_objects[0]
-                #
-                #     repo_sync_item = env_inst.ui_repo_sync_queue.schedule_file_object(file_object)
-                #     # repo_sync_item.downloaded.connect(self.set_preview_pixmap)
-                #     repo_sync_item.download()
-                #
-                #     pixmap = Qt4Gui.QPixmap(file_object.get_full_abs_path())
-                #
-                #     pic_label = QtGui.QLabel()
-                #     pic_label.setStyleSheet(
-                #         "QLabel {background: rgba(175, 175, 175, 16); border: 0px; border-radius: 3px; padding: 0px 0px; }")
-                #     pic_label.setAlignment(QtCore.Qt.AlignCenter)
-                #
-                #     if pixmap.height() > pixmap.width():
-                #         pic_label.setPixmap(pixmap.scaledToWidth(64, QtCore.Qt.SmoothTransformation))
-                #     else:
-                #         pic_label.setPixmap(pixmap.scaledToHeight(64, QtCore.Qt.SmoothTransformation))
-                #
-                #     pic_label.setMinimumSize(64, 64)
-                #     pic_label.setMaximumSize(64, 64)
                     snapshot_widget = Ui_notesSnapshotWidget(snapshot, parent=self)
                     self.attachments_layout.addWidget(snapshot_widget)
                     self.attachment_size += 74
-                    # print(snapshot_widget.size())
 
         self.text_area.setLineWrapColumnOrWidth(self.width())
 
@@ -667,8 +767,8 @@ class Ui_messageWidget(QtGui.QWidget):
         print('Editing message')
 
     def delete_message(self):
-        self.note.delete_sobject()
-        self.setHidden(True)
+        if self.note.delete_sobject():
+            self.setHidden(True)
 
     def note_options_menu(self):
 
@@ -689,29 +789,6 @@ class Ui_messageWidget(QtGui.QWidget):
         menu.addAction(edit_message)
         menu.addAction(delete_message)
 
-        # if self.tasks_sobjects_list:
-        #
-        #     menu.addAction(edit_task)
-        #     menu.addAction(delete_task)
-        #     menu.addSeparator()
-        #
-        #     for task_sobject in self.tasks_sobjects_list:
-        #         task_action = QtGui.QAction(u'Task: {0} / {1}'.format(
-        #             task_sobject.get_value('context'),
-        #             task_sobject.get_value('assigned')
-        #         ), self.tasks_options_button)
-        #
-        #         task_action.setCheckable(True)
-        #
-        #         if task_sobject == self.current_task_sobject:
-        #             task_action.setChecked(True)
-        #         elif task_sobject.get_value('login') == env_inst.get_current_login():
-        #             task_action.setChecked(True)
-        #
-        #         task_action.triggered.connect(partial(self.customize_by_task_sobject, task_sobject))
-        #
-        #         menu.addAction(task_action)
-
         return menu
 
     def resizeEvent(self, event):
@@ -724,8 +801,6 @@ class Ui_messageWidget(QtGui.QWidget):
         document_size = text_document.size()
 
         doc_height = document_size.height() + 48
-
-        # self.text_area.setFixedHeight(doc_height-30)
 
         doc_width = document_size.width()
         text_rect = metrics.boundingRect(QtCore.QRect(), 0, self.text_area.toPlainText())
@@ -744,7 +819,6 @@ class Ui_messageWidget(QtGui.QWidget):
             else:
                 self.message_frame.move(60, 0)
 
-        # self.setMinimumHeight(doc_height)
         if self.attachment_size > 0:
             self.text_area.setFixedHeight(doc_height-18)
             self.setFixedHeight(doc_height + self.attachment_size)

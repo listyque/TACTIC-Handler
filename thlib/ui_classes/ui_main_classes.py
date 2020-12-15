@@ -455,6 +455,7 @@ class Ui_Main(QtGui.QMainWindow):
         super(self.__class__, self).__init__(parent=parent)
         self.ui_settings_dict = {}
         self.created = False
+        self.app_closing = True
 
         self.create_ui_raw()
 
@@ -723,6 +724,10 @@ class Ui_Main(QtGui.QMainWindow):
         self.menu_bar_actions()
 
         self.readSettings()
+
+        # if env_mode.get_mode() == 'standalone':
+        #     self.create_tray()
+
         self.setIcon()
 
         self.create_script_editor_widget()
@@ -762,9 +767,38 @@ class Ui_Main(QtGui.QMainWindow):
     #     if uf.check_need_update():
     #         self.info_label.setText('<span style=" font-size:8pt; color:#ff0000;">Need update</span>')
 
+    def create_tray(self):
+        self.tray_icon = QtGui.QSystemTrayIcon(self)
+        self.tray_icon.activated.connect(self.tray_activated)
+
+        icon = Qt4Gui.QIcon(':/ui_main/gliph/tactic_favicon.ico')
+        self.tray_icon.setIcon(icon)
+
+        self.tray_menu = QtGui.QMenu(self)
+
+        self.show_main_window = QtGui.QAction('Show Main Window', self, triggered=self.show)
+        self.tray_menu.addAction(self.show_main_window)
+        self.tray_menu.addSeparator()
+
+        self.close_app_action = QtGui.QAction('Exit', self, triggered=self.close_app)
+        self.tray_menu.addAction(self.close_app_action)
+
+        self.tray_icon.setContextMenu(self.tray_menu)
+
+        self.tray_icon.show()
+
     def setIcon(self):
         icon = Qt4Gui.QIcon(':/ui_main/gliph/tactic_favicon.ico')
         self.setWindowIcon(icon)
+
+    def tray_activated(self, reason):
+
+        if reason in [QtGui.QSystemTrayIcon.DoubleClick, QtGui.QSystemTrayIcon.Trigger]:
+            self.show()
+
+    def close_app(self):
+        self.close()
+        self.deleteLater()
 
     # def customize_ui(self):
     #     if env_mode.get_mode() == 'standalone':
@@ -787,6 +821,9 @@ class Ui_Main(QtGui.QMainWindow):
         """
 
         def close_routine():
+
+            self.app_closing = True
+
             if env_mode.get_mode() == 'maya':
 
                 self.close()
@@ -1003,21 +1040,29 @@ class Ui_Main(QtGui.QMainWindow):
 
     def closeEvent(self, event):
 
-        for dock in self.projects_docks.values():
-            dock.close()
-            dock.deleteLater()
-            del dock
-            # env_inst.cleanup(project_code)
+        if self.app_closing:
 
-        self.writeSettings()
+            for dock in self.projects_docks.values():
+                dock.close()
+                dock.deleteLater()
+                del dock
+                # env_inst.cleanup(project_code)
 
-        # Closing server api
-        # env_api.close_server(self)
+            self.writeSettings()
 
-        # Waiting for all threads finished
-        env_inst.exit_pools()
+            # Closing server api
+            # env_api.close_server(self)
 
-        event.accept()
+            # Waiting for all threads finished
+            env_inst.exit_pools()
+
+            event.accept()
+        else:
+            event.ignore()
+            self.hide()
+            self.tray_icon.showMessage('Tactic Handler Is in tray',
+                                       'File > Exit to quit.',
+                                       QtGui.QSystemTrayIcon.Information, 500)
 
     def query_projects_finished(self, result=None):
 

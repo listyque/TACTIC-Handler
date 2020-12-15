@@ -75,6 +75,398 @@ class FadeWidget(QtGui.QLabel):
     Fade = QtCore.Property(float, readPP, setPP, notify=setFade)
 
 
+class CustomPlainTextEdit(QtGui.QPlainTextEdit):
+    pasted = QtCore.Signal(object)
+
+    def __init__(self, parent=None):
+        super(self.__class__, self).__init__(parent=parent)
+
+    def keyPressEvent(self, event):
+        if event.matches(Qt4Gui.QKeySequence.Paste):
+            self.pasted.emit(QtGui.QApplication.clipboard())
+            event.accept()
+        else:
+            super(self.__class__, self).keyPressEvent(event)
+
+
+class Ui_snapshotPreviewWidget(QtGui.QWidget):
+    def __init__(self, snapshot=None, parent=None):
+        super(self.__class__, self).__init__(parent=parent)
+
+        self.create_ui_raw()
+
+        self.snapshot = snapshot
+        self.current_snapshot = snapshot
+        self.main_file_exists = False
+        self.icon_preview_file_object = None
+        self.painted = False
+        self.created = False
+
+        self.create_ui()
+
+    def create_ui_raw(self):
+        self.setObjectName('Ui_snapshotPreviewWidget')
+        self.setMaximumSize(64, 64)
+        self.setMinimumSize(64, 64)
+        self.setContentsMargins(0, 0, 0, 0)
+
+        self.horizontal_layout = QtGui.QHBoxLayout(self)
+        self.horizontal_layout.setContentsMargins(0, 0, 0, 0)
+        self.horizontal_layout.setSpacing(0)
+
+        self.preview_label = QtGui.QLabel(self)
+        self.preview_label.setMinimumSize(QtCore.QSize(64, 64))
+        self.preview_label.setMaximumSize(QtCore.QSize(64, 64))
+        self.preview_label.setStyleSheet('QLabel {background: rgba(175, 175, 175, 16); border: 0px; border-radius: 3px;padding: 0px 0px;}')
+        self.preview_label.setTextFormat(QtCore.Qt.RichText)
+        self.preview_label.setAlignment(QtCore.Qt.AlignVCenter | QtCore.Qt.AlignHCenter)
+        sizePolicy = QtGui.QSizePolicy(QtGui.QSizePolicy.Preferred, QtGui.QSizePolicy.Preferred)
+        self.preview_label.setSizePolicy(sizePolicy)
+
+        effect = QtGui.QGraphicsOpacityEffect(self.preview_label)
+        effect.setOpacity(0)
+
+        self.previewLabel_anm_open = QtCore.QPropertyAnimation(effect, b'opacity', self.preview_label)
+        self.previewLabel_anm_open.setDuration(200)
+        self.previewLabel_anm_open.setStartValue(0)
+        self.previewLabel_anm_open.setEndValue(1)
+        self.previewLabel_anm_open.setEasingCurve(QtCore.QEasingCurve.InSine)
+        self.previewLabel_anm_open.valueChanged.connect(self.hide_preview_label_effect)
+        self.preview_label.setGraphicsEffect(effect)
+
+        self.horizontal_layout.addWidget(self.preview_label)
+
+    def create_ui(self):
+
+        # self.fill_info()
+        self.setCursor(Qt4Gui.QCursor(QtCore.Qt.PointingHandCursor))
+
+    def get_snapshot(self):
+        if self.snapshot:
+            return self.snapshot
+
+    def hide_preview_label_effect(self, value):
+        if value == 1:
+            self.preview_label.setGraphicsEffect(None)
+
+    def fill_info_with_meta_file_object(self, meta_file_object, tactic_file_object):
+        # if not self.main_file_exists:
+        #     self.item_title_label.setText('{0}, (File Offline)'.format(meta_file_object.get_pretty_file_name()))
+        # else:
+        # self.item_title_label.setText(meta_file_object.get_pretty_file_name())
+
+        # self.item_info_label.setText(gf.sizes(tactic_file_object.get_file_size()))
+        self.set_ext_preview(tactic_file_object)
+
+        if gf.get_value_from_config(cfg_controls.get_checkin(), 'getPreviewsThroughHttpCheckbox') == 1:
+            self.set_web_preview()
+        else:
+            self.set_preview()
+
+        # # getting extra info from meta
+        # seq_range = meta_file_object.get_sequence_frameranges_string(brackets='[]')
+        # frames_count = meta_file_object.get_sequence_lenght()
+        # layer = meta_file_object.get_layer()
+        # tiles = meta_file_object.get_tiles_count()
+        # metadata = tactic_file_object.get_metadata()
+        # maya_version = None
+        # if metadata:
+        #     app_info = metadata.get('app_info')
+        #     if app_info:
+        #         maya_version = app_info.get('p')
+        # snapshot = self.get_snapshot()
+        # if snapshot:
+        #     if snapshot.is_latest():
+        #         self.isLatestLabel = self.get_item_info_label()
+        #         self.isLatestLabel.setTextFormat(QtCore.Qt.RichText)
+        #         self.isLatestLabel.setText('<span style="color:#2eb82e;">Latest</span>')
+        #         self.item_info_widget.add_item(self.isLatestLabel)
+        # if seq_range:
+        #     self.framerange_label = self.get_item_info_label()
+        #     self.item_info_widget.add_item(self.framerange_label)
+        #     self.framerange_label.setText(seq_range)
+        # if frames_count:
+        #     self.frames_count_label = self.get_item_info_label()
+        #     self.item_info_widget.add_item(self.frames_count_label)
+        #     self.frames_count_label.setText('Frames: {0}'.format(frames_count))
+        # if layer:
+        #     self.flayer_label = self.get_item_info_label()
+        #     self.item_info_widget.add_item(self.flayer_label)
+        #     self.flayer_label.setText(layer)
+        # if tiles:
+        #     self.tiles_label = self.get_item_info_label()
+        #     self.item_info_widget.add_item(self.tiles_label)
+        #     self.tiles_label.setText('Tiles: {0}'.format(tiles))
+        # if maya_version:
+        #     self.mayaVerLabel = self.get_item_info_label()
+        #     self.item_info_widget.add_item(self.mayaVerLabel)
+        #     self.mayaVerLabel.setText(maya_version)
+
+    def fill_info_with_tactic_file_object(self, tactic_file_object):
+        # if not self.main_file_exists:
+        #     self.item_title_label.setText('{0}, (File Offline)'.format(tactic_file_object.get_filename_with_ext()))
+        # else:
+        # self.item_title_label.setText(tactic_file_object.get_filename_with_ext())
+
+        # self.item_info_label.setText(gf.sizes(tactic_file_object.get_file_size()))
+        self.set_ext_preview(tactic_file_object)
+
+        if gf.get_value_from_config(cfg_controls.get_checkin(), 'getPreviewsThroughHttpCheckbox') == 1:
+            self.set_web_preview()
+        else:
+            self.set_preview()
+
+    def set_ext_preview(self, tactic_file_object=None):
+        if tactic_file_object:
+            file_ext = tactic_file_object.get_ext()
+            if not file_ext:
+                file_ext = 'err'
+            self.preview_label.setText(
+                '<span style=" font-size:12pt; font-weight:600; color:#828282;">{0}</span>'.format(file_ext))
+
+            self.previewLabel_anm_open.start()
+
+    def fill_item_info(self):
+
+        effect = QtGui.QGraphicsDropShadowEffect(self)
+        effect.setOffset(0, 0)
+        effect.setColor(Qt4Gui.QColor(0, 0, 0, 64))
+        effect.setBlurRadius(16)
+
+        self.setGraphicsEffect(effect)
+
+        # self.item_title_label.setText(self.snapshot.get_title())
+
+        if self.snapshot:
+
+            files_objects = self.snapshot.get_files_objects(group_by='type')
+
+            for key, fls in files_objects.items():
+                if fls[0].is_meta_file_obj():
+                    file_obj = fls[0].get_meta_file_object()
+                    self.fill_info_with_meta_file_object(file_obj, fls[0])
+                else:
+                    self.fill_info_with_tactic_file_object(fls[0])
+
+            # if self.project.process:
+            #
+            #     if gf.get_value_from_config(cfg_controls.get_checkin(), 'getPreviewsThroughHttpCheckbox') == 1:
+            #         self.set_web_preview()
+            #     else:
+            #         self.set_preview()
+            # else:
+            #     self.previewLabel.setText(
+            #         u'<span style=" font-size:9pt; font-weight:600; color:{0};">{1}</span>'.format(
+            #             'rgb(128,128,128)', gf.gen_acronym(self.project.get_title())))
+        # else:
+        #     self.previewLabel.setText(
+        #         u'<span style=" font-size:9pt; font-weight:600; color:{0};">{1}</span>'.format(
+        #             'rgb(128,128,128)', ''))
+
+        self.shown = True
+
+    def fill_initial_info(self, file_exists=False):
+        self.main_file_exists = file_exists
+
+        hidden = ['icon', 'web', 'playblast']
+        snapshot = self.get_snapshot()
+        files_objects = snapshot.get_files_objects(group_by='type')
+
+        for key, fls in files_objects.items():
+            if key not in hidden:
+                if len(fls) > 1:
+                    self.fill_info_with_multiple_checkin(fls)
+                elif len(fls) != 0:
+                    if fls[0].is_meta_file_obj():
+                        file_obj = fls[0].get_meta_file_object()
+                        self.fill_info_with_meta_file_object(file_obj, fls[0])
+                    else:
+                        self.fill_info_with_tactic_file_object(fls[0])
+
+    def check_file_threaded(self, file_object):
+
+        worker = env_inst.local_pool.add_task(file_object.is_exists)
+        worker.result.connect(self.fill_initial_info)
+        worker.error.connect(gf.error_handle)
+        worker.start()
+
+    def check_main_file(self):
+        snapshot = self.get_snapshot()
+        if snapshot:
+            files_objects = snapshot.get_files_objects()
+            if files_objects:
+                first_file = files_objects[0]
+                if first_file:
+                    if first_file.is_meta_file_obj():
+                        self.check_file_threaded(first_file.get_meta_file_object())
+                    else:
+                        self.check_file_threaded(first_file)
+
+    def set_multiple_files_view(self):
+        pixmap = gf.get_icon('folder-sign', icons_set='ei', opacity=0.5, scale_factor=0.5).pixmap(64, Qt4Gui.QIcon.Normal)
+        self.preview_label.setPixmap(pixmap.scaledToHeight(64, QtCore.Qt.SmoothTransformation))
+        # self.fileNameLabel.setText('Multiple checkin: {0} '.format(self.context))
+        # self.descriptionLabel.setText('Snapshots count: {0}; Files count: {1};'.format(len(self.get_all_versions_snapshots()), len(self.get_all_versions_files())))
+
+        self.previewLabel_anm_open.start()
+
+    def set_no_versionless_view(self):
+        pixmap = gf.get_icon('exclamation-circle', opacity=0.5, scale_factor=0.6).pixmap(64, Qt4Gui.QIcon.Normal)
+        self.preview_label.setPixmap(pixmap.scaledToHeight(64, QtCore.Qt.SmoothTransformation))
+        # self.fileNameLabel.setText('Commit without versionless in {0}'.format(self.context))
+        # self.descriptionLabel.setText('Versionless for this commit is not present')
+
+        self.previewLabel_anm_open.start()
+
+    def get_icon_preview_file_object(self):
+        if self.snapshot:
+            preview_files_objects = self.snapshot.get_files_objects(group_by='type').get('icon')
+            if preview_files_objects:
+                self.icon_preview_file_object = preview_files_objects[0].get_icon_preview()
+
+                return self.icon_preview_file_object
+
+    def set_preview(self):
+        if self.icon_preview_file_object:
+            self.set_preview_pixmap(self.icon_preview_file_object)
+        else:
+            icon_previw = self.get_icon_preview_file_object()
+            if icon_previw:
+                self.set_preview_pixmap(icon_previw)
+
+                self.previewLabel_anm_open.start()
+            else:
+                self.preview_label.setGraphicsEffect(None)
+
+    def set_web_preview(self):
+
+        icon_preview = self.get_icon_preview_file_object()
+        if icon_preview:
+            self.check_icon_preview_threaded(icon_preview)
+
+            self.previewLabel_anm_open.start()
+        else:
+            self.preview_label.setGraphicsEffect(None)
+
+    @staticmethod
+    def check_icon_file_exists(icon_preview):
+
+        exists = icon_preview.is_exists()
+        match = icon_preview.get_file_size() == icon_preview.get_file_size(True)
+
+        return exists, match
+
+    def check_icon_preview_threaded(self, icon_preview):
+
+        worker = env_inst.local_pool.add_task(self.check_icon_file_exists, icon_preview)
+        worker.result.connect(self.set_checked_preview)
+        worker.error.connect(gf.error_handle)
+        worker.start()
+
+    def set_checked_preview(self, args=None):
+        exists = args[0]
+        match = args[1]
+
+        icon_preview = self.icon_preview_file_object
+
+        if exists:
+            if match:
+                self.set_preview()
+            else:
+                self.download_and_set_preview_file(icon_preview)
+        else:
+            self.download_and_set_preview_file(icon_preview)
+
+    def download_and_set_preview_file(self, file_object):
+        if not file_object.is_downloaded():
+            if file_object.get_unique_id() not in list(env_inst.ui_repo_sync_queue.queue_dict.keys()):
+                repo_sync_item = env_inst.ui_repo_sync_queue.schedule_file_object(file_object)
+                repo_sync_item.downloaded.connect(self.set_preview_pixmap)
+                repo_sync_item.download()
+
+    def set_preview_pixmap(self, file_object):
+
+        worker = env_inst.local_pool.add_task(self.load_preview_from_file, file_object.get_full_abs_path())
+        worker.result.connect(self.set_preview_to_preview_label)
+        worker.error.connect(gf.error_handle)
+        worker.start()
+
+    def set_preview_to_preview_label(self, data=None):
+        if data:
+            pixmap = Qt4Gui.QPixmap()
+            pixmap.loadFromData(data)
+        else:
+            pixmap = None
+
+        if pixmap:
+            pixmap_rounded = self.get_preview_pixmap(pixmap=pixmap)
+
+            if pixmap_rounded:
+                self.preview_label.setPixmap(pixmap_rounded)
+                return True
+            else:
+                return False
+
+    def load_preview_from_file(self, image_path):
+
+        qfile = QtCore.QFile(image_path)
+        qfile.open(QtCore.QIODevice.ReadOnly)
+        data = qfile.readAll()
+        return data
+
+    def get_preview_pixmap(self, image_path=None, pixmap=None):
+        if not pixmap:
+            pixmap = Qt4Gui.QPixmap()
+            pixmap.load(image_path)
+
+        if not pixmap.isNull():
+            pixmap = pixmap.scaledToHeight(64, QtCore.Qt.SmoothTransformation)
+            painter = Qt4Gui.QPainter()
+            pixmap_mask = Qt4Gui.QPixmap(64, 64)
+            pixmap_mask.fill(QtCore.Qt.transparent)
+            painter.begin(pixmap_mask)
+            painter.setRenderHint(Qt4Gui.QPainter.Antialiasing)
+            painter.setBrush(Qt4Gui.QBrush(Qt4Gui.QColor(0, 0, 0, 255)))
+            painter.drawRoundedRect(QtCore.QRect(0, 0, 64, 64), 4, 4)
+            painter.end()
+
+            rounded_pixmap = Qt4Gui.QPixmap(pixmap.size())
+            rounded_pixmap.fill(QtCore.Qt.transparent)
+            painter.begin(rounded_pixmap)
+            painter.setRenderHint(Qt4Gui.QPainter.Antialiasing)
+            painter.drawPixmap(QtCore.QRect((pixmap.width() - 64) / 2, 0, 64, 64), pixmap_mask)
+            painter.setCompositionMode(Qt4Gui.QPainter.CompositionMode_SourceIn)
+            painter.drawPixmap(0, 0, pixmap)
+            painter.end()
+            return rounded_pixmap
+
+    def paintEvent(self, event):
+        if not self.painted:
+            self.painted = True
+
+            # self.create_item_info_widget()
+
+            if self.snapshot:
+                self.check_main_file()
+            else:
+                if self.get_checkin_mode_options() == 'multi_file':
+                    self.set_multiple_files_view()
+                else:
+                    self.set_no_versionless_view()
+
+        event.accept()
+
+    def showEvent(self, event):
+        if not self.created:
+            self.created = True
+            self.create_ui()
+        event.accept()
+
+    def closeEvent(self, event):
+        self.deleteLater()
+        event.accept()
+
+
 class Ui_projectIconWidget(QtGui.QWidget):
     def __init__(self, parent=None):
         super(self.__class__, self).__init__(parent=parent)
@@ -1229,6 +1621,59 @@ class Ui_previewsEditorDialog(QtGui.QDialog):
         if items:
             for screenshot in items:
                 gf.add_preview_item(self.items_tree_widget, screenshot=screenshot)
+
+    def create_widgets(self):
+
+        self.main_layout = QtGui.QVBoxLayout()
+        self.main_layout.setContentsMargins(0, 0, 0, 0)
+
+        self.setLayout(self.main_layout)
+
+        self.items_tree_widget = QtGui.QTreeWidget()
+        self.items_tree_widget.setAlternatingRowColors(True)
+        self.items_tree_widget.setHeaderHidden(True)
+        # self.treeWidget_vls.setSelectionMode(QtGui.QAbstractItemView.NoSelection)
+        self.items_tree_widget.setVerticalScrollMode(QtGui.QAbstractItemView.ScrollPerPixel)
+        self.items_tree_widget.setRootIsDecorated(False)
+        self.items_tree_widget.setStyleSheet(gf.get_qtreeview_style())
+
+        self.main_layout.addWidget(self.items_tree_widget)
+
+
+class Ui_attachmentsEditorWidget(QtGui.QWidget):
+    def __init__(self, files_objects, screenshots, parent=None):
+        super(self.__class__, self).__init__(parent=parent)
+
+        self.files_objects = files_objects
+        self.screenshots = screenshots
+
+        self.create_ui()
+
+    def create_ui(self):
+
+        # self.setMinimumSize(QtCore.QSize(500, 400))
+
+        self.create_widgets()
+
+        self.contorls_actions()
+
+        self.fill_items_tree_widget(self.files_objects)
+        self.fill_screenshot_items_tree_widget(self.screenshots)
+
+    def contorls_actions(self):
+
+        pass
+
+    def fill_items_tree_widget(self, items=None):
+        if items:
+            for file_object in items.get('file'):
+                print(file_object)
+                gf.add_attachment_item(self.items_tree_widget)
+
+    def fill_screenshot_items_tree_widget(self, items=None):
+        if items:
+            for screenshot in items:
+                gf.add_attachment_item(self.items_tree_widget, screenshot=screenshot)
 
     def create_widgets(self):
 
@@ -2603,6 +3048,7 @@ class Ui_elideLabel(QtGui.QLabel):
         self.setSizePolicy(QtGui.QSizePolicy.Ignored, QtGui.QSizePolicy.Preferred)
         self.setWordWrap(False)
         # self.setContentsMargins(8, -10, 0, 0)
+        self.elide_mode = QtCore.Qt.ElideRight
 
     def set_font_size(self, size_int):
         self.font().setPointSize(size_int)
@@ -2612,13 +3058,23 @@ class Ui_elideLabel(QtGui.QLabel):
         self.highlighted_part = text
         self.highlighted_part_color = color
 
+    def set_elide_mode(self, mode='left'):
+        if mode == 'left':
+            self.elide_mode = QtCore.Qt.ElideRight
+        elif mode == 'right':
+            self.elide_mode = QtCore.Qt.ElideRight
+        elif mode == 'middle':
+            self.elide_mode = QtCore.Qt.ElideMiddle
+        elif mode == 'none':
+            self.elide_mode = QtCore.Qt.ElideNone
+
     def paintEvent(self, event):
         painter = QtGui.QStylePainter(self)
         metrics = Qt4Gui.QFontMetrics(self.font())
         if self.highlighted_part:
             doc = Qt4Gui.QTextDocument(self)
             doc.setUndoRedoEnabled(False)
-            elided = metrics.elidedText(self.text(), QtCore.Qt.ElideRight, self.width())
+            elided = metrics.elidedText(self.text(), self.elide_mode, self.width())
 
             until_context = elided.find(self.highlighted_part)
             if until_context != -1:
@@ -2640,5 +3096,5 @@ class Ui_elideLabel(QtGui.QLabel):
             doc.drawContents(painter, self.contentsRect())
             painter.end()
         else:
-            elided = metrics.elidedText(self.text(), QtCore.Qt.ElideRight, self.width())
+            elided = metrics.elidedText(self.text(), self.elide_mode, self.width())
             painter.drawText(self.contentsRect(), QtCore.Qt.AlignLeft | QtCore.Qt.AlignVCenter, elided)

@@ -674,3 +674,4 @@ class StretchFlowLayout(QtGui.QLayout):
         else:
             pl = parent
             return pl.spacing()
+

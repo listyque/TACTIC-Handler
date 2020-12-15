@@ -1066,6 +1066,20 @@ def add_preview_item(parent_item, file_object=None, screenshot=None):
     return tree_item_widget
 
 
+def add_attachment_item(parent_item, file_object=None, screenshot=None):
+    from thlib.ui_classes.ui_item_classes import Ui_attachmentItemWidget
+
+    tree_item = QtGui.QTreeWidgetItem()
+
+    tree_item_widget = Ui_attachmentItemWidget(file_object=file_object, screenshot=screenshot)
+
+    add_item_to_tree(parent_item, tree_item, tree_item_widget)
+
+    tree_item_widget.setParent(tree_item_widget.parent())
+
+    return tree_item_widget
+
+
 def add_commit_item(parent_item, item_widget):
     from thlib.ui_classes.ui_item_classes import Ui_commitItemWidget
 

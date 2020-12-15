@@ -628,7 +628,7 @@ class Ui_repoSyncDialog(QtGui.QDialog):
         self.sync_by_pipeline(self.sobject, preset_dict)
         self.sync_children(self.sobject, preset_dict)
 
-        self.download_files()
+        # self.download_files()
 
     def start_sync_ui(self, preset_dict=None):
 

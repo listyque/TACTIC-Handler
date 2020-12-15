@@ -213,7 +213,7 @@ class Ui_taskWidget(QtGui.QFrame):
 
         self.start_date_label.setHidden(False)
         self.end_date_label.setHidden(False)
-        self.due_days_label.setHidden(False)
+        # self.due_days_label.setHidden(False)
         self.start_date_time_edit.setHidden(False)
         self.end_date_time_edit.setHidden(False)
         self.parent_name_label.setHidden(False)
@@ -225,7 +225,7 @@ class Ui_taskWidget(QtGui.QFrame):
     def set_collapsed(self):
         self.start_date_label.setHidden(True)
         self.end_date_label.setHidden(True)
-        self.due_days_label.setHidden(True)
+        # self.due_days_label.setHidden(True)
         self.start_date_time_edit.setHidden(True)
         self.end_date_time_edit.setHidden(True)
         self.parent_name_label.setHidden(True)
@@ -309,14 +309,16 @@ class Ui_taskWidget(QtGui.QFrame):
         self.task_info_layout = QtGui.QGridLayout()
         self.task_info_layout.setContentsMargins(0, 0, 0, 0)
         self.task_info_layout.setSpacing(9)
-        self.due_days_label = QtGui.QLabel(self)
-        font = Qt4Gui.QFont()
-        font.setFamily("Segoe UI")
-        font.setPointSize(9)
-        self.due_days_label.setFont(font)
-        self.due_days_label.setObjectName("due_days_label")
-
-        self.task_info_layout.addWidget(self.due_days_label, 0, 1, 1, 1)
+        # self.due_days_label = QtGui.QLabel(self)
+        # font = Qt4Gui.QFont()
+        # font.setFamily("Segoe UI")
+        # font.setPointSize(9)
+        # self.due_days_label.setFont(font)
+        # self.due_days_label.setAlignment(QtCore.Qt.AlignCenter)
+        # self.due_days_label.setObjectName("due_days_label")
+        # self.due_days_label.setText('2 Days')
+        #
+        # self.task_info_layout.addWidget(self.due_days_label, 0, 1)
 
         self.parent_name_label = QtGui.QLabel(self)
         font = Qt4Gui.QFont()
@@ -324,7 +326,9 @@ class Ui_taskWidget(QtGui.QFrame):
         font.setPointSize(11)
         self.parent_name_label.setFont(font)
         self.parent_name_label.setObjectName("parent_name_label")
-        self.task_info_layout.addWidget(self.parent_name_label, 0, 0, 1, 1)
+        self.task_info_layout.addWidget(self.parent_name_label, 0, 0, 1, 2)
+        # self.task_info_layout.setColumnStretch(0, 0)
+        # self.task_info_layout.setColumnStretch(1, 0)
 
         self.description_edit = QtGui.QPlainTextEdit(self)
         self.description_edit.setFrameShape(QtGui.QFrame.NoFrame)
@@ -627,9 +631,17 @@ class Ui_taskWidget(QtGui.QFrame):
         if stype_current_pipeline:
             current_pipeline = stype_current_pipeline.get(parent_sobject_pipeline_code)
             process_info = current_pipeline.get_process_info(self.process)
+            process = current_pipeline.get_pipeline_process(self.process)
 
         if process_info:
             assigned_login_group_code = process_info.get('assigned_login_group')
+            if not assigned_login_group_code:
+                process_workflow = process.get('workflow')
+                if process_workflow:
+                    process_properties = process_workflow.get('properties')
+                    if process_properties:
+                        assigned_login_group_code = process_properties.get('assigned_group')
+
             assigned_login_group = current_login.get_login_group(assigned_login_group_code)
 
             if assigned_login_group:

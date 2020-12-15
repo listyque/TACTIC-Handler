@@ -332,7 +332,7 @@ def get_projects_and_logins(current_login='admin'):
     return json.dumps(result, separators=(',', ':'))
 
 
-def get_tasks_and_notes(search_code, project_code, process):
+def get_tasks_and_notes(search_code, project_code, process=None):
     import json
     from pyasm.search import Search, SearchKey
     from pyasm.biz import Snapshot
@@ -357,6 +357,41 @@ def get_tasks_and_notes(search_code, project_code, process):
         sobj['__search_key__'] = search_key
 
         return sobj
+
+    search = Search('sthpw/task')
+    search.add_filter('search_code', search_code)
+    search.add_filter('project_code', project_code)
+    if process:
+        search.add_filter('process', process)
+
+    else:
+        search.add_order_by('timestamp', direction='desc')
+
+        single_task = search.get_sobject()
+        if single_task:
+            process = single_task.get_value('process')
+
+        # if single task we found have process, and it exists we continue with this process
+        if process:
+            search = Search('sthpw/task')
+            search.add_filter('search_code', search_code)
+            search.add_filter('project_code', project_code)
+            search.add_filter('process', process)
+
+    tasks_sobjects = search.get_sobjects()
+
+    tasks = get_sobjects_dict(tasks_sobjects)
+
+    for task in tasks:
+
+        status_search = Search('sthpw/status_log')
+        status_search.add_op_filters([('search_code', task['code'])])
+
+        status_sobjects = status_search.get_sobjects()
+
+        if status_sobjects:
+            status_log_list = get_sobjects_dict(status_sobjects)
+            task['__status_log__'] = status_log_list
 
     # Getting Notes from db
     search = Search('sthpw/note')
@@ -394,25 +429,6 @@ def get_tasks_and_notes(search_code, project_code, process):
             snapshots_list.append(snapshot_dict)
 
         note['__snapshots__'] = snapshots_list
-
-    search = Search('sthpw/task')
-    search.add_filter('search_code', search_code)
-    search.add_filter('project_code', project_code)
-    search.add_filter('process', process)
-    tasks_sobjects = search.get_sobjects()
-
-    tasks = get_sobjects_dict(tasks_sobjects)
-
-    for task in tasks:
-
-        status_search = Search('sthpw/status_log')
-        status_search.add_op_filters([('search_code', task['code'])])
-
-        status_sobjects = status_search.get_sobjects()
-
-        if status_sobjects:
-            status_log_list = get_sobjects_dict(status_sobjects)
-            task['__status_log__'] = status_log_list
 
     result = {'notes': notes, 'tasks': tasks}
 
@@ -1692,7 +1708,9 @@ def create_snapshot_extended(search_key, context, project_code=None, snapshot_ty
 
             versionless.commit(triggers=False, log_transaction=False)
 
-    return 'OK'
+    snapshot_dict = api._get_sobject_dict(snapshot)
+
+    return snapshot_dict
 
 """
 

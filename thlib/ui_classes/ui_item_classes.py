@@ -16,7 +16,7 @@ from thlib.environment import env_tactic, env_inst, cfg_controls, dl
 from thlib.ui_classes.ui_repo_sync_queue_classes import Ui_repoSyncDialog
 import thlib.global_functions as gf
 import thlib.tactic_classes as tc
-from thlib.ui_classes.ui_custom_qwidgets import Ui_elideLabel, MenuWithLayout
+from thlib.ui_classes.ui_custom_qwidgets import Ui_elideLabel, MenuWithLayout, Ui_snapshotPreviewWidget
 import thlib.ui.items.ui_commit_item as ui_commit_item
 import thlib.ui.items.ui_preview_item as ui_preview_item
 import thlib.ui_classes.ui_tasks_classes as tasks_widget
@@ -1142,6 +1142,83 @@ class Ui_previewItemWidget(QtGui.QWidget, ui_preview_item.Ui_previewItem):
 
         self.setupUi(self)
         self.type = 'preview'
+        self.file_object = file_object
+        self.screenshot = screenshot
+
+        self.create_ui()
+
+    def create_ui(self):
+
+        if self.file_object:
+            self.fill_info_with_file_object()
+        if self.screenshot:
+            self.fill_info_with_screenshot()
+
+    def set_title(self, title=u''):
+        self.fileNameLabel.setText(title)
+
+    def fill_info_with_file_object(self):
+        self.set_title(self.file_object.get_pretty_file_name())
+
+        self.set_preview()
+
+    def fill_info_with_screenshot(self):
+        self.set_title('Screen Shot Image')
+
+        self.set_preview(self.screenshot)
+
+    def set_preview(self, pix=None):
+        pixmap = None
+
+        if pix:
+            pixmap = pix
+        else:
+            icon = None
+            if self.file_object.is_exists() and self.file_object.is_previewable():
+                source_image_path = self.file_object.get_all_files_list(True)
+                image = Qt4Gui.QImage(0, 0, Qt4Gui.QImage.Format_ARGB32)
+                icon = None
+                if image.load(source_image_path):
+                    icon = image.scaledToWidth(120, QtCore.Qt.SmoothTransformation)
+
+            if icon:
+                pixmap = Qt4Gui.QPixmap(icon)
+
+        if pixmap:
+            if not pixmap.isNull():
+                pixmap = pixmap.scaledToHeight(64, QtCore.Qt.SmoothTransformation)
+
+                painter = Qt4Gui.QPainter()
+                pixmap_mask = Qt4Gui.QPixmap(64, 64)
+                pixmap_mask.fill(QtCore.Qt.transparent)
+                painter.begin(pixmap_mask)
+                painter.setRenderHint(Qt4Gui.QPainter.Antialiasing)
+                painter.setBrush(Qt4Gui.QBrush(Qt4Gui.QColor(0, 0, 0, 255)))
+                painter.drawRoundedRect(QtCore.QRect(0, 0, 64, 64), 4, 4)
+                painter.end()
+
+                rounded_pixmap = Qt4Gui.QPixmap(pixmap.size())
+                rounded_pixmap.fill(QtCore.Qt.transparent)
+                painter.begin(rounded_pixmap)
+                painter.setRenderHint(Qt4Gui.QPainter.Antialiasing)
+                painter.drawPixmap(QtCore.QRect((pixmap.width() - 64) / 2, 0, 64, 64), pixmap_mask)
+                painter.setCompositionMode(Qt4Gui.QPainter.CompositionMode_SourceIn)
+                painter.drawPixmap(0, 0, pixmap)
+                painter.end()
+
+                self.previewLabel.setPixmap(rounded_pixmap)
+
+    def closeEvent(self, event):
+        self.deleteLater()
+        event.accept()
+
+
+class Ui_attachmentItemWidget(QtGui.QWidget, ui_preview_item.Ui_previewItem):
+    def __init__(self, file_object=None, screenshot=None, parent=None):
+        super(self.__class__, self).__init__(parent=parent)
+
+        self.setupUi(self)
+        self.type = 'attachment'
         self.file_object = file_object
         self.screenshot = screenshot
 
@@ -2838,7 +2915,7 @@ class Ui_itemWidget(QtGui.QWidget):
             process_info = current_pipeline.pipeline.get('publish')
 
         if not process_info:
-            process_info = {'type': 'manual', 'name': 'publish'}
+            process_info = {'type': 'manual', 'name': 'publish', 'builtin': True}
 
         return process_info
 
@@ -5889,8 +5966,6 @@ class Ui_loadingItemWidget(QtGui.QWidget):
 
 class Ui_notesSnapshotWidget(QtGui.QWidget):
 
-    clicked = QtCore.Signal(object)
-
     def __init__(self, snapshot=None, parent=None):
         super(self.__class__, self).__init__(parent=parent)
 
@@ -5898,49 +5973,40 @@ class Ui_notesSnapshotWidget(QtGui.QWidget):
         self.main_file_exists = False
         self.icon_preview_file_object = None
         self.shown = False
-        self.item_type = 'simple_snapshot'
+        self.item_type = 'notes_snapshot'
 
-        self.create_ui()
+        self.create_ui_raw()
 
-    def create_ui_link_widget(self):
+    def create_ui_raw(self):
 
         self.setObjectName('Ui_notesSnapshotWidget')
-        # self.setMaximumSize(450, 64)
-        # self.setMinimumSize(200, 64)
         self.setContentsMargins(0, 0, 0, 0)
+        self.setMaximumHeight(68)
+        self.setMinimumHeight(68)
 
         self.horizontal_layout = QtGui.QHBoxLayout(self)
         self.horizontal_layout.setContentsMargins(0, 0, 0, 0)
         self.horizontal_layout.setSpacing(0)
 
-        # self.indent_spacer = QtGui.QSpacerItem(0, 0, QtGui.QSizePolicy.Minimum, QtGui.QSizePolicy.Expanding)
-        # self.horizontal_layout.addItem(self.indent_spacer)
+        self.snapshot_preview_widget = Ui_snapshotPreviewWidget(self.snapshot)
 
-        self.previewLabel = QtGui.QLabel(self)
-        self.previewLabel.setMinimumSize(QtCore.QSize(64, 64))
-        self.previewLabel.setMaximumSize(QtCore.QSize(64, 64))
-        self.previewLabel.setStyleSheet('QLabel {background: rgb(72,72,72); border: 0px; border-radius: 0px;padding: 0px 0px;}')
-        self.previewLabel.setTextFormat(QtCore.Qt.RichText)
-        self.previewLabel.setAlignment(QtCore.Qt.AlignVCenter | QtCore.Qt.AlignHCenter)
-        sizePolicy = QtGui.QSizePolicy(QtGui.QSizePolicy.Preferred, QtGui.QSizePolicy.Preferred)
-        self.previewLabel.setSizePolicy(sizePolicy)
+        self.horizontal_layout.addWidget(self.snapshot_preview_widget)
 
-        # spacerItem = QtGui.QSpacerItem(12, 0, QtGui.QSizePolicy.Expanding, QtGui.QSizePolicy.Ignored)
-        # self.horizontal_layout.addItem(spacerItem)
-
-        self.horizontal_layout.addWidget(self.previewLabel)
-
-        self.item_title_label = QtGui.QLabel(self)
-        self.item_title_label.setMinimumSize(QtCore.QSize(64, 24))
-        self.item_title_label.setMaximumSize(QtCore.QSize(16777215, 60))
+        self.item_title_label = Ui_elideLabel(self)
+        self.item_title_label.setMinimumSize(QtCore.QSize(64, 25))
+        self.item_title_label.setMaximumSize(QtCore.QSize(16777215, 25))
         font = Qt4Gui.QFont()
         font.setFamily("Segoe UI")
         font.setPointSize(10)
         self.item_title_label.setFont(font)
+        self.item_title_label.set_font_size(10)
+        self.item_title_label.set_elide_mode('middle')
+        self.item_title_label.setSizePolicy(QtGui.QSizePolicy.Preferred, QtGui.QSizePolicy.Preferred)
+        self.item_title_label.setAlignment(QtCore.Qt.AlignLeading | QtCore.Qt.AlignLeft | QtCore.Qt.AlignTop)
         self.item_title_label.setStyleSheet("QLabel {background-color: transparent;}")
         self.item_title_label.setTextFormat(QtCore.Qt.PlainText)
         self.item_title_label.setIndent(8)
-        self.item_title_label.setWordWrap(True)
+        self.item_title_label.setContentsMargins(8, -10, -20, 0)
 
         self.item_info_label = QtGui.QLabel(self)
         self.item_info_label.setMinimumSize(QtCore.QSize(0, 30))
@@ -5963,24 +6029,24 @@ class Ui_notesSnapshotWidget(QtGui.QWidget):
 
         self.setCursor(Qt4Gui.QCursor(QtCore.Qt.PointingHandCursor))
 
-    def create_ui(self):
-
-        self.create_ui_link_widget()
-
+        # palette = Qt4Gui.QPalette()
+        # palette.setColor(Qt4Gui.QPalette.Background, Qt4Gui.QColor(64, 69, 74))
+        # self.setPalette(palette)
 
     def fill_info_with_meta_file_object(self, meta_file_object, tactic_file_object):
-        if not self.main_file_exists:
-            self.item_title_label.setText('{0}, (File Offline)'.format(meta_file_object.get_pretty_file_name()))
-        else:
-            self.item_title_label.setText(meta_file_object.get_pretty_file_name())
+        # if not self.main_file_exists:
+        #     self.item_title_label.setText('{0}, (File Offline)'.format(meta_file_object.get_pretty_file_name()))
+        # else:
+        self.item_title_label.setText(meta_file_object.get_pretty_file_name())
 
         self.item_info_label.setText(gf.sizes(tactic_file_object.get_file_size()))
-        self.set_ext_preview(tactic_file_object)
 
-        if gf.get_value_from_config(cfg_controls.get_checkin(), 'getPreviewsThroughHttpCheckbox') == 1:
-            self.set_web_preview()
-        else:
-            self.set_preview()
+        # self.set_ext_preview(tactic_file_object)
+        #
+        # if gf.get_value_from_config(cfg_controls.get_checkin(), 'getPreviewsThroughHttpCheckbox') == 1:
+        #     self.set_web_preview()
+        # else:
+        #     self.set_preview()
 
         # # getting extra info from meta
         # seq_range = meta_file_object.get_sequence_frameranges_string(brackets='[]')
@@ -6022,18 +6088,19 @@ class Ui_notesSnapshotWidget(QtGui.QWidget):
         #     self.mayaVerLabel.setText(maya_version)
 
     def fill_info_with_tactic_file_object(self, tactic_file_object):
-        if not self.main_file_exists:
-            self.item_title_label.setText('{0}, (File Offline)'.format(tactic_file_object.get_filename_with_ext()))
-        else:
-            self.item_title_label.setText(tactic_file_object.get_filename_with_ext())
+        # if not self.main_file_exists:
+        #     self.item_title_label.setText('{0}, (File Offline)'.format(tactic_file_object.get_filename_with_ext()))
+        # else:
+        self.item_title_label.setText(tactic_file_object.get_filename_with_ext())
 
         self.item_info_label.setText(gf.sizes(tactic_file_object.get_file_size()))
-        self.set_ext_preview(tactic_file_object)
 
-        if gf.get_value_from_config(cfg_controls.get_checkin(), 'getPreviewsThroughHttpCheckbox') == 1:
-            self.set_web_preview()
-        else:
-            self.set_preview()
+        # self.set_ext_preview(tactic_file_object)
+        #
+        # if gf.get_value_from_config(cfg_controls.get_checkin(), 'getPreviewsThroughHttpCheckbox') == 1:
+        #     self.set_web_preview()
+        # else:
+        #     self.set_preview()
 
     def set_ext_preview(self, tactic_file_object=None):
         if tactic_file_object:
@@ -6055,33 +6122,23 @@ class Ui_notesSnapshotWidget(QtGui.QWidget):
 
         self.setGraphicsEffect(effect)
 
-        # self.item_title_label.setText(self.snapshot.get_title())
-
         if self.snapshot:
 
             files_objects = self.snapshot.get_files_objects(group_by='type')
 
-            for key, fls in files_objects.items():
-                if fls[0].is_meta_file_obj():
-                    file_obj = fls[0].get_meta_file_object()
-                    self.fill_info_with_meta_file_object(file_obj, fls[0])
-                else:
-                    self.fill_info_with_tactic_file_object(fls[0])
+            if files_objects.get('main'):
+                files_objects_list = files_objects.get('main')
+            elif files_objects.get('image'):
+                files_objects_list = files_objects.get('image')
+            else:
+                files_objects_list = files_objects.values()
 
-            # if self.project.process:
-            #
-            #     if gf.get_value_from_config(cfg_controls.get_checkin(), 'getPreviewsThroughHttpCheckbox') == 1:
-            #         self.set_web_preview()
-            #     else:
-            #         self.set_preview()
-            # else:
-            #     self.previewLabel.setText(
-            #         u'<span style=" font-size:9pt; font-weight:600; color:{0};">{1}</span>'.format(
-            #             'rgb(128,128,128)', gf.gen_acronym(self.project.get_title())))
-        # else:
-        #     self.previewLabel.setText(
-        #         u'<span style=" font-size:9pt; font-weight:600; color:{0};">{1}</span>'.format(
-        #             'rgb(128,128,128)', ''))
+            for file_object in files_objects_list:
+                if file_object.is_meta_file_obj():
+                    meta_file_object = file_object.get_meta_file_object()
+                    self.fill_info_with_meta_file_object(meta_file_object, file_object)
+                else:
+                    self.fill_info_with_tactic_file_object(file_object)
 
         self.shown = True
 
@@ -6092,6 +6149,12 @@ class Ui_notesSnapshotWidget(QtGui.QWidget):
                 self.icon_preview_file_object = preview_files_objects[0].get_icon_preview()
 
                 return self.icon_preview_file_object
+
+    def get_files_objects(self):
+        if self.snapshot:
+            files_objects = self.snapshot.get_files_objects(group_by='type')
+            if files_objects:
+                return files_objects
 
     def set_preview(self):
         if self.icon_preview_file_object:
@@ -6115,17 +6178,17 @@ class Ui_notesSnapshotWidget(QtGui.QWidget):
     #         else:
     #             return list(context.versions.values())[0]
 
-    def set_preview(self):
-        if self.icon_preview_file_object:
-            self.set_preview_pixmap(self.icon_preview_file_object)
-        else:
-            icon_previw = self.get_icon_preview_file_object()
-            if icon_previw:
-                self.set_preview_pixmap(icon_previw)
-
-            #     self.previewLabel_anm_open.start()
-            # else:
-            #     self.previewLabel.setGraphicsEffect(None)
+    # def set_preview(self):
+    #     if self.icon_preview_file_object:
+    #         self.set_preview_pixmap(self.icon_preview_file_object)
+    #     else:
+    #         icon_previw = self.get_icon_preview_file_object()
+    #         if icon_previw:
+    #             self.set_preview_pixmap(icon_previw)
+    #
+    #         #     self.previewLabel_anm_open.start()
+    #         # else:
+    #         #     self.previewLabel.setGraphicsEffect(None)
 
     def set_web_preview(self):
 
@@ -6208,18 +6271,162 @@ class Ui_notesSnapshotWidget(QtGui.QWidget):
 
             return rounded_pixmap
 
+    @gf.catch_error
+    def open_file(self):
+
+        files_objects = self.get_files_objects()
+
+        if files_objects.get('main'):
+            file_object = files_objects.get('main')[0]
+        elif files_objects.get('image'):
+            file_object = files_objects.get('image')[0]
+        else:
+            file_object = None
+
+        if file_object:
+
+            if gf.get_value_from_config(cfg_controls.get_checkin(), 'checkoutMethodComboBox') == 0:
+                checkout_method = 'local'
+            else:
+                checkout_method = 'http'
+
+            if checkout_method == 'http':
+                repo_sync_widget = env_inst.ui_repo_sync_queue.schedule_file_object(file_object)
+
+                # preventing double opening of the file
+                connected = False
+                if not connected:
+                    repo_sync_widget.downloaded.connect(file_object.open_file)
+                    connected = True
+                repo_sync_widget.download()
+
+            elif checkout_method == 'local':
+                file_object.open_file()
+
+    @gf.catch_error
+    def open_folder(self):
+        files_objects = self.get_files_objects()
+
+        if files_objects.get('main'):
+            file_object = files_objects.get('main')[0]
+        elif files_objects.get('image'):
+            file_object = files_objects.get('image')[0]
+        else:
+            file_object = None
+
+        if file_object:
+
+            if file_object.is_meta_file_obj():
+                meta_file_object = file_object.get_meta_file_object()
+                meta_file_object.open_folder()
+            else:
+                file_object.open_folder()
+
+    def copy_path(self):
+        files_objects = self.get_files_objects()
+
+        if files_objects.get('main'):
+            file_object = files_objects.get('main')[0]
+        elif files_objects.get('image'):
+            file_object = files_objects.get('image')[0]
+        else:
+            file_object = None
+
+        if file_object:
+            clipboard = QtGui.QApplication.instance().clipboard()
+            clipboard.setText(file_object.get_full_abs_path())
+
+    def copy_web_path(self):
+        files_objects = self.get_files_objects()
+
+        if files_objects.get('main'):
+            file_object = files_objects.get('main')[0]
+        elif files_objects.get('image'):
+            file_object = files_objects.get('image')[0]
+        else:
+            file_object = None
+
+        if file_object:
+            clipboard = QtGui.QApplication.instance().clipboard()
+            clipboard.setText(file_object.get_full_web_path())
+
+    def copy_to_clipboard(self):
+        files_objects = self.get_files_objects()
+
+        if files_objects.get('main'):
+            file_object = files_objects.get('main')[0]
+        elif files_objects.get('image'):
+            file_object = files_objects.get('image')[0]
+        else:
+            file_object = None
+
+        if file_object:
+            clipboard = QtGui.QApplication.instance().clipboard()
+
+            image = Qt4Gui.QImage(0, 0, Qt4Gui.QImage.Format_ARGB32)
+            image.load(file_object.get_full_abs_path())
+
+            if not image.isNull():
+                clipboard.setImage(image)
+
+    def execute_context_menu(self):
+
+        open_external = QtGui.QAction('Open File', self)
+        open_external.setIcon(gf.get_icon('folder'))
+        open_external.triggered.connect(self.open_file)
+
+        open_file_folder = QtGui.QAction('Show Folder', self)
+        open_file_folder.setIcon(gf.get_icon('folder-open'))
+        open_file_folder.triggered.connect(self.open_folder)
+
+        copy_path = QtGui.QAction('Copy File Path', self)
+        copy_path.setIcon(gf.get_icon('copy'))
+        copy_path.triggered.connect(self.copy_path)
+
+        copy_web_path = QtGui.QAction('Copy Web Link', self)
+        copy_web_path.setIcon(gf.get_icon('link', icons_set='mdi', scale_factor=1))
+        copy_web_path.triggered.connect(self.copy_web_path)
+
+        copy_to_clipboard = QtGui.QAction('Copy To Clipboard', self)
+        copy_to_clipboard.setIcon(gf.get_icon('link', icons_set='mdi', scale_factor=1))
+        copy_to_clipboard.triggered.connect(self.copy_to_clipboard)
+
+        menu = QtGui.QMenu()
+
+        menu.addAction(open_external)
+        menu.addAction(open_file_folder)
+        menu.addAction(copy_path)
+        menu.addAction(copy_web_path)
+        menu.addAction(copy_to_clipboard)
+
+        return menu
+
     def enterEvent(self, event):
+        font = Qt4Gui.QFont()
+        font.setFamily("Segoe UI")
+        font.setPointSize(10)
+        font.setUnderline(True)
+        self.item_title_label.setFont(font)
         event.accept()
 
     def leaveEvent(self, event):
+        font = Qt4Gui.QFont()
+        font.setFamily("Segoe UI")
+        font.setPointSize(10)
+        font.setUnderline(False)
+        self.item_title_label.setFont(font)
         event.accept()
 
-    # def mousePressEvent(self, event):
-    #
-    #     if self.item_type == 'link':
-    #         self.clicked.emit(self.project.get_code())
-    #
-    #     super(Ui_projectLinkWidget, self).mousePressEvent(event)
+    def mousePressEvent(self, event):
+
+        if event.button() == QtCore.Qt.LeftButton:
+            self.open_file()
+
+        if event.button() == QtCore.Qt.RightButton:
+            menu = self.execute_context_menu()
+            menu.exec_(Qt4Gui.QCursor.pos())
+
+        super(self.__class__, self).mousePressEvent(event)
 
     def showEvent(self, event):
         if not self.shown:
