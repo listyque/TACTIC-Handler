@@ -2729,7 +2729,7 @@ def checkin_snapshot(search_key, context, snapshot_type=None, is_revision=False,
 
         for version_file in files_info['version_files']:
             # dl.log('Uploading File ' + version_file + ' ' + str(server), group_id='server/checkin')
-            server.upload_file(version_file, progress_signal=progress_signal, chunk_size=256*256*64)
+            server.upload_file(version_file, progress_signal=progress_signal)
             # dl.log('Done Uploading File ' + version_file + ' ' + str(server), group_id='server/checkin')
 
         gf.time_it(s, message='Upload time: ')
@@ -2801,6 +2801,14 @@ def get_all_dependency(search_keys, project_code=None, return_sobjects=True):
         return get_sobjects_objects(result, project_code)
     else:
         return result
+
+def generate_image(image, save_path, scaled=640):
+        if scaled:
+            image = image.scaledToWidth(scaled, QtCore.Qt.SmoothTransformation)
+
+        image.save(save_path)
+
+        return save_path
 
 def generate_web_and_icon(source_image_path, web_save_path=None, icon_save_path=None):
 

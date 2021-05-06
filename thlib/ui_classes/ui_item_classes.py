@@ -1213,16 +1213,84 @@ class Ui_previewItemWidget(QtGui.QWidget, ui_preview_item.Ui_previewItem):
         event.accept()
 
 
-class Ui_attachmentItemWidget(QtGui.QWidget, ui_preview_item.Ui_previewItem):
+class Ui_attachmentItemWidget(QtGui.QWidget):
     def __init__(self, file_object=None, screenshot=None, parent=None):
         super(self.__class__, self).__init__(parent=parent)
 
-        self.setupUi(self)
+        self.create_ui_raw()
+
         self.type = 'attachment'
         self.file_object = file_object
         self.screenshot = screenshot
 
         self.create_ui()
+
+    def create_ui_raw(self):
+
+        self.setObjectName('Ui_attachmentItemWidget')
+        self.setContentsMargins(0, 0, 0, 0)
+        self.setMaximumHeight(68)
+        self.setMinimumHeight(68)
+
+        self.horizontal_layout = QtGui.QHBoxLayout(self)
+        self.horizontal_layout.setContentsMargins(0, 0, 0, 0)
+        self.horizontal_layout.setSpacing(0)
+
+        self.previewLabel = QtGui.QLabel(self)
+        self.previewLabel.setMinimumSize(QtCore.QSize(64, 64))
+        self.previewLabel.setMaximumSize(QtCore.QSize(64, 64))
+        self.previewLabel.setStyleSheet("QLabel {\n"
+                                        "    background: qlineargradient(x1: 0, y1: 0, x2: 0, y2: 1, stop: 0 rgba(175, 175, 175, 16), stop: 1 rgba(0, 0, 0, 0));\n"
+                                        "    border: 0px;\n"
+                                        "    border-radius: 4px;\n"
+                                        "    padding: 0px 0px;\n"
+                                        "}")
+        self.previewLabel.setTextFormat(QtCore.Qt.RichText)
+        self.previewLabel.setAlignment(QtCore.Qt.AlignCenter)
+        self.previewLabel.setObjectName("previewLabel")
+
+        self.horizontal_layout.addWidget(self.previewLabel)
+
+        self.item_title_label = Ui_elideLabel(self)
+        self.item_title_label.setMinimumSize(QtCore.QSize(64, 25))
+        self.item_title_label.setMaximumSize(QtCore.QSize(16777215, 25))
+        font = Qt4Gui.QFont()
+        font.setFamily("Segoe UI")
+        font.setPointSize(10)
+        self.item_title_label.setFont(font)
+        self.item_title_label.set_font_size(10)
+        self.item_title_label.set_elide_mode('middle')
+        self.item_title_label.setSizePolicy(QtGui.QSizePolicy.Preferred, QtGui.QSizePolicy.Preferred)
+        self.item_title_label.setAlignment(QtCore.Qt.AlignLeading | QtCore.Qt.AlignLeft | QtCore.Qt.AlignTop)
+        self.item_title_label.setStyleSheet("QLabel {background-color: transparent;}")
+        self.item_title_label.setTextFormat(QtCore.Qt.PlainText)
+        self.item_title_label.setIndent(8)
+        self.item_title_label.setContentsMargins(8, -10, -20, 0)
+
+        self.item_info_label = QtGui.QLabel(self)
+        self.item_info_label.setMinimumSize(QtCore.QSize(0, 30))
+        self.item_info_label.setMaximumSize(QtCore.QSize(16777215, 30))
+        font = Qt4Gui.QFont()
+        font.setFamily("Segoe UI")
+        font.setPointSize(9)
+        self.item_info_label.setFont(font)
+        self.item_info_label.setStyleSheet("QLabel {background-color: transparent; color: grey;}")
+        self.item_info_label.setTextFormat(QtCore.Qt.PlainText)
+        self.item_info_label.setIndent(12)
+
+        self.info_layout = QtGui.QVBoxLayout()
+        self.info_layout.addWidget(self.item_title_label)
+        self.info_layout.addWidget(self.item_info_label)
+
+        self.horizontal_layout.addLayout(self.info_layout)
+
+        # self.horizontal_layout.setStretch(3, 1)
+
+        self.setCursor(Qt4Gui.QCursor(QtCore.Qt.PointingHandCursor))
+
+        # palette = Qt4Gui.QPalette()
+        # palette.setColor(Qt4Gui.QPalette.Background, Qt4Gui.QColor(64, 69, 74))
+        # self.setPalette(palette)
 
     def create_ui(self):
 
@@ -1232,17 +1300,21 @@ class Ui_attachmentItemWidget(QtGui.QWidget, ui_preview_item.Ui_previewItem):
             self.fill_info_with_screenshot()
 
     def set_title(self, title=u''):
-        self.fileNameLabel.setText(title)
+        self.item_title_label.setText(title)
 
     def fill_info_with_file_object(self):
         self.set_title(self.file_object.get_pretty_file_name())
 
+        self.item_info_label.setText(gf.sizes(self.file_object.get_sizes_list(True)))
+
+        self.set_ext_preview(self.file_object)
+
         self.set_preview()
 
     def fill_info_with_screenshot(self):
-        self.set_title('Screen Shot Image')
-
+        self.set_title('Screenshot Image')
         self.set_preview(self.screenshot)
+
 
     def set_preview(self, pix=None):
         pixmap = None
@@ -1262,6 +1334,8 @@ class Ui_attachmentItemWidget(QtGui.QWidget, ui_preview_item.Ui_previewItem):
                 pixmap = Qt4Gui.QPixmap(icon)
 
         if pixmap:
+            if isinstance(pixmap, Qt4Gui.QImage):
+                pixmap = Qt4Gui.QPixmap(pixmap)
             if not pixmap.isNull():
                 pixmap = pixmap.scaledToHeight(64, QtCore.Qt.SmoothTransformation)
 
@@ -1284,6 +1358,14 @@ class Ui_attachmentItemWidget(QtGui.QWidget, ui_preview_item.Ui_previewItem):
                 painter.end()
 
                 self.previewLabel.setPixmap(rounded_pixmap)
+
+    def set_ext_preview(self, file_object=None):
+        if file_object:
+            file_ext = file_object.get_file_ext()
+            if not file_ext:
+                file_ext = 'err'
+            self.previewLabel.setText(
+                '<span style=" font-size:12pt; font-weight:600; color:#828282;">{0}</span>'.format(file_ext))
 
     def closeEvent(self, event):
         self.deleteLater()

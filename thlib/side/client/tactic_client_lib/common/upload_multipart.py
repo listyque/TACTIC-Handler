@@ -126,6 +126,7 @@ class UploadMultipart(object):
             files = [("file", path, buffer)]
             (status, reason, content) = self.upload(self.server_url, fields, files)
 
+            # tactic-handler callbacks
             current_uploaded = self.offset * self.chunk_size
             info_dict['status_text'] = 'Uploading {1} of {0}'.format(gf.sizes(file_size), gf.sizes(current_uploaded))
             if self.offset == 0:
@@ -213,8 +214,6 @@ class UploadMultipart(object):
         L = []
 
         mode = "base64"
-        mode = 'binary'
-
         if mode != "base64":
             CRLF = CRLF.encode("UTF8")
 

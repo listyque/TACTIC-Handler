@@ -1,12 +1,13 @@
 # file ui_notes_classes.py
 # Notes panel
 
+import os
 import thlib.side.six as six
 from thlib.side.Qt import QtWidgets as QtGui
 from thlib.side.Qt import QtGui as Qt4Gui
 from thlib.side.Qt import QtCore
 
-from thlib.environment import env_server, env_inst, env_read_config, env_write_config
+from thlib.environment import env_server, env_inst, env_tactic, env_read_config, env_write_config
 from thlib.ui_classes.ui_custom_qwidgets import StyledToolButton, Ui_userIconWidget, Ui_attachmentsEditorWidget, CustomPlainTextEdit
 from thlib.ui_classes.ui_tasks_classes import Ui_taskWidget
 from thlib.ui_classes.ui_item_classes import Ui_notesSnapshotWidget
@@ -308,6 +309,9 @@ class Ui_notesWidget(QtGui.QWidget):
 
         self.main_layout.setRowStretch(0, 1)
 
+        self.create_overlay_layout()
+        self.create_drop_widget()
+
     def controls_actions(self):
         self.attachment_tool_button.clicked.connect(self.attach_file_to_note)
         self.reply_tool_button.clicked.connect(self.reply_note)
@@ -316,15 +320,207 @@ class Ui_notesWidget(QtGui.QWidget):
         self.reply_text_edit.textChanged.connect(self.reply_text_edit_text_changed)
         self.reply_text_edit.pasted.connect(self.handle_pasted)
 
+    def create_overlay_layout(self):
+
+        self.overlay_layout_widget = QtGui.QWidget(self)
+        sizePolicy = QtGui.QSizePolicy(QtGui.QSizePolicy.Preferred, QtGui.QSizePolicy.Preferred)
+        self.overlay_layout_widget.setSizePolicy(sizePolicy)
+
+        self.overlay_layout = QtGui.QVBoxLayout(self.overlay_layout_widget)
+        self.overlay_layout.setSpacing(0)
+        self.overlay_layout.setContentsMargins(0, 0, 0, 0)
+
+        self.overlay_layout_widget.setLayout(self.overlay_layout)
+        self.overlay_layout_widget.setHidden(True)
+
+    def show_overlay(self):
+
+        # This will bring main ui to Top
+        QtGui.QDialog.activateWindow(self)
+
+        self.overlay_layout_widget.raise_()
+        self.overlay_layout_widget.show()
+
+        self.drop_attachment_label_anm_open.start()
+
+    def hide_overlay(self):
+
+        self.drop_attachment_label_anm_close.start()
+
+    def hide_overlay_at_animation_end(self, val):
+        if val == 0.0:
+            self.overlay_layout_widget.lower()
+            self.overlay_layout_widget.hide()
+
+    def create_drop_widget(self):
+        self.setAcceptDrops(True)
+
+        self.drop_widget = QtGui.QWidget()
+        self.drop_widget_layout = QtGui.QHBoxLayout()
+        self.drop_widget_layout.setSpacing(0)
+        self.drop_widget_layout.setContentsMargins(12, 12, 12, 12)
+        self.drop_widget.setLayout(self.drop_widget_layout)
+
+        style = 'QToolButton{border: 1px;border-radius: 3px;background: solid rgba(64, 64, 64, 240); font-size:14pt; color: grey;}'
+
+        self.drop_attachment_label = QtGui.QToolButton()
+        self.drop_attachment_label.setToolButtonStyle(QtCore.Qt.ToolButtonTextBesideIcon)
+        self.drop_attachment_label.setText('Drop to Attach Files to Note')
+        self.drop_attachment_label.setIcon(gf.get_icon('paperclip', icons_set='mdi', scale_factor=1, color=Qt4Gui.QColor(128, 128, 128, 255)))
+        self.drop_attachment_label.setIconSize(QtCore.QSize(24, 24))
+
+        effect = QtGui.QGraphicsOpacityEffect(self.drop_attachment_label)
+
+        self.drop_attachment_label_anm_close = QtCore.QPropertyAnimation(effect, b'opacity', self.drop_attachment_label)
+        self.drop_attachment_label_anm_close.setDuration(200)
+        self.drop_attachment_label_anm_close.setStartValue(1)
+        self.drop_attachment_label_anm_close.setEndValue(0)
+        self.drop_attachment_label_anm_close.setEasingCurve(QtCore.QEasingCurve.OutSine)
+        self.drop_attachment_label_anm_open = QtCore.QPropertyAnimation(effect, b'opacity', self.drop_attachment_label)
+        self.drop_attachment_label_anm_open.setDuration(200)
+        self.drop_attachment_label_anm_open.setStartValue(0)
+        self.drop_attachment_label_anm_open.setEndValue(1)
+        self.drop_attachment_label_anm_open.setEasingCurve(QtCore.QEasingCurve.InSine)
+
+        self.drop_attachment_label_anm_close.valueChanged.connect(self.hide_overlay_at_animation_end)
+
+        self.drop_attachment_label.setGraphicsEffect(effect)
+        self.drop_attachment_label.setSizePolicy(QtGui.QSizePolicy.Preferred, QtGui.QSizePolicy.Preferred)
+        self.drop_attachment_label.setStyleSheet(style)
+
+        self.drop_widget_layout.addWidget(self.drop_attachment_label)
+
+        self.overlay_layout.addWidget(self.drop_widget)
+
+    def checkin_dropped_files(self, files_list):
+        self.edit_attachments_button.setHidden(False)
+        self.links_to_upload_list.extend(files_list)
+
+        attachments = self.get_attachmnents_files_objects()
+        if attachments:
+            files_objects_count = len(attachments.get('file'))
+        else:
+            files_objects_count = 0
+
+        screenshots_count = len(self.get_screenshots_to_upload_list())
+        self.edit_attachments_button.setText(str(files_objects_count + screenshots_count))
+
+        self.refresh_edit_attachments_widget()
+
+    def checkin_pasted_files(self, data):
+        self.edit_attachments_button.setHidden(False)
+        self.screenshots_to_upload_list.append(data)
+
+        attachments = self.get_attachmnents_files_objects()
+        if attachments:
+            files_objects_count = len(attachments.get('file'))
+        else:
+            files_objects_count = 0
+
+        screenshots_count = len(self.get_screenshots_to_upload_list())
+        self.edit_attachments_button.setText(str(files_objects_count + screenshots_count))
+
+        self.refresh_edit_attachments_widget()
+
+    def analyze_dropped(self, mime_data):
+
+        urls = mime_data.urls()
+        if urls:
+            # TODO Point to expand item
+            # if not self.tree_item.isExpanded():
+            #     self.expand_tree_item()
+
+            if len(urls) > 1:
+                self.drop_attachment_label.setText('Drop to Attach {0} Files to Note'.format(len(urls)))
+            else:
+                self.drop_attachment_label.setText('Drop to Attach {0} to Note'.format(gf.extract_filename(urls[0].toLocalFile())))
+
+    def handle_dopped(self, mime_data):
+        urls = mime_data.urls()
+        if urls:
+            # Determine if dropped is local file
+            is_local_files = False
+            if urls[0].toLocalFile():
+                is_local_files = True
+
+            if is_local_files:
+                local_files_list = []
+                for url in urls:
+                    if os.path.isfile(url.toLocalFile()):
+                        local_files_list.append(url.toLocalFile())
+
+                if local_files_list:
+                    self.checkin_dropped_files(local_files_list)
+
+    def dragEnterEvent(self, event):
+        source = event.source()
+
+        # This is to prevent Strange CRASH
+        if source and source == self:
+            # ignoring self to self drop
+            event.ignore()
+        elif source and event.source().parent():
+            # ignoring in app widgets drop
+            event.ignore()
+        else:
+            # all others drops allowed
+            event.accept()
+
+            self.analyze_dropped(event.mimeData())
+
+            self.show_overlay()
+
+        super(self.__class__, self).dragEnterEvent(event)
+
+    def dragMoveEvent(self, event):
+        event.accept()
+
+        wdg = QtGui.QApplication.widgetAt(Qt4Gui.QCursor.pos())
+        if isinstance(wdg, QtGui.QPushButton):
+            wdg.setFocus()
+
+        super(self.__class__, self).dragMoveEvent(event)
+
+    def dragLeaveEvent(self, event):
+        event.accept()
+
+        self.hide_overlay()
+
+        super(self.__class__, self).dragLeaveEvent(event)
+
+    def dropEvent(self, event):
+        self.hide_overlay()
+
+        self.handle_dopped(event.mimeData())
+
+        super(self.__class__, self).dropEvent(event)
+
     def handle_pasted(self, clipboard=None):
         mime_data = clipboard.mimeData()
 
         if mime_data.hasText():
             self.reply_text_edit.paste()
-        elif mime_data.hasImage():
-            self.screenshots_to_upload_list.append(mime_data.imageData())
-            print('PICTURE PASTE', mime_data.imageData())
-            print(self.screenshots_to_upload_list)
+        if mime_data.hasImage():
+            self.checkin_pasted_files(mime_data.imageData())
+
+    def generate_screenshots_files(self, images_list):
+
+        images_paths = []
+
+        current_repo_path = env_tactic.get_current_repo('path')
+
+        temp_path = u'{0}/temp'.format(current_repo_path)
+        if not os.path.isdir(temp_path):
+            os.makedirs(temp_path)
+
+        for i, image in enumerate(images_list):
+            file_path = u'{0}/screenshot_{1}.png'.format(temp_path, i)
+
+            image_file = tc.generate_image(image, file_path, scaled=False)
+
+            images_paths.append(image_file)
+
+        return images_paths
 
     def get_attachmnents_files_objects(self):
         files_list = self.get_upload_list()
@@ -333,13 +529,41 @@ class Ui_notesWidget(QtGui.QWidget):
             match_template = gf.MatchTemplate(['$FILENAME.$EXT'])
             return match_template.get_files_objects(files_list)
 
+    def get_screenshots_files_objects(self):
+        screenshots_list = self.get_screenshots_to_upload_list()
+
+        if screenshots_list:
+            files_paths_list = self.generate_screenshots_files(screenshots_list)
+
+            match_template = gf.MatchTemplate(['$FILENAME.$EXT'])
+            return match_template.get_files_objects(files_paths_list)
+
     def get_upload_list(self):
         return self.links_to_upload_list
 
     def get_screenshots_to_upload_list(self):
         return self.screenshots_to_upload_list
 
+    def refresh_edit_attachments_widget(self):
+        if self.attachments_editor_toggled:
+            self.edit_attachments_widget.close()
+
+            files_objects = self.get_attachmnents_files_objects()
+            screenshots = self.get_screenshots_to_upload_list()
+
+            # files_objects = True
+
+            if files_objects or screenshots:
+                self.edit_attachments_widget = Ui_attachmentsEditorWidget(
+                    files_objects=files_objects,
+                    screenshots=screenshots,
+                    parent=self)
+
+                self.main_layout.addWidget(self.edit_attachments_widget)
+
     def edit_attachments(self):
+
+        self.resize(self.size())
 
         if self.attachments_editor_toggled:
             self.attachments_editor_toggled = False
@@ -396,7 +620,9 @@ class Ui_notesWidget(QtGui.QWidget):
         if files_names:
             self.edit_attachments_button.setHidden(False)
             self.links_to_upload_list.extend(files_names)
-            self.edit_attachments_button.setText(str(len(self.links_to_upload_list)))
+
+            files_objects = self.get_attachmnents_files_objects()
+            self.edit_attachments_button.setText(str(len(files_objects.get('file'))))
 
     def attach_file_to_note(self):
         self.add_files_from_menu()
@@ -473,23 +699,41 @@ class Ui_notesWidget(QtGui.QWidget):
 
         files_objects = self.get_attachmnents_files_objects()
 
-        if files_objects:
+        screenshots_files_objects = self.get_screenshots_files_objects()
+
+        if files_objects or screenshots_files_objects:
 
             commit_queue_ui = None
-            for file_object in files_objects.get('file'):
+            if files_objects:
+                for file_object in files_objects.get('file'):
 
-                context = 'attachment/{0}/{1}'.format(self.context, file_object.get_file_name(True))
+                    context = 'attachment/{0}/{1}'.format(self.context, file_object.get_file_name(True))
 
-                commit_queue_ui = checkin_widget.checkin_file_objects(
-                    search_key,
-                    context,
-                    '',
-                    files_objects=[file_object],
-                    checkin_type='file',
-                    keep_file_name=False,
-                    commit_silently=True,
-                    update_versionless=True
-                )
+                    commit_queue_ui = checkin_widget.checkin_file_objects(
+                        search_key,
+                        context,
+                        '',
+                        files_objects=[file_object],
+                        checkin_type='file',
+                        keep_file_name=False,
+                        commit_silently=True,
+                        update_versionless=False
+                    )
+            if screenshots_files_objects:
+                for file_object in screenshots_files_objects.get('file'):
+
+                    context = 'attachment/{0}/{1}'.format(self.context, file_object.get_file_name(True))
+
+                    commit_queue_ui = checkin_widget.checkin_file_objects(
+                        search_key,
+                        context,
+                        '',
+                        files_objects=[file_object],
+                        checkin_type='file',
+                        keep_file_name=False,
+                        commit_silently=True,
+                        update_versionless=False
+                    )
 
             if commit_queue_ui:
                 commit_queue_ui.finished.connect(self.add_note)
@@ -522,6 +766,14 @@ class Ui_notesWidget(QtGui.QWidget):
             event.accept()
         else:
             super(self.__class__, self).keyPressEvent(event)
+
+    def resizeEvent(self, event):
+        if self.overlay_layout_widget:
+            scroll_area_size = self.conversationScrollArea.size()
+
+            self.overlay_layout_widget.resize(scroll_area_size)
+
+        event.accept()
 
 
 class Ui_messageWidget(QtGui.QWidget):
@@ -1019,8 +1271,9 @@ class Ui_statusWidget(QtGui.QWidget):
         self.text_area.setCursorWidth(0)
 
         # TODO Add login info, like group etc
-        self.user_label.setText(u'{0} ({1})'.format(self.login.get_display_name(), self.login.get_value('login')))
-        self.user_label.setStyleSheet('QLabel {{padding-left: 8px; font-size: 10pt; color: {0};}}'.format(gf.gen_color(self.login.get_value('login'))))
+        if self.login:
+            self.user_label.setText(u'{0} ({1})'.format(self.login.get_display_name(), self.login.get_value('login')))
+            self.user_label.setStyleSheet('QLabel {{padding-left: 8px; font-size: 10pt; color: {0};}}'.format(gf.gen_color(self.login.get_value('login'))))
 
         self.date_label.setText(self.status.get_timestamp(pretty=True))
 

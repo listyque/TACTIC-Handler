@@ -962,7 +962,7 @@ class Tactic(object):
 
     def get_current_repo(self, value=None):
 
-        from global_functions import get_value_from_config
+        from thlib.global_functions import get_value_from_config
 
         base_dirs = self.get_all_base_dirs()
 

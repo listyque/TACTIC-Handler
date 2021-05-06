@@ -16,9 +16,9 @@
 
 import datetime
 import re
-import os, getpass, shutil, sys, urllib, types, hashlib
+import os, getpass, shutil, sys, types, hashlib
 import six
-from six.moves import input
+from six.moves import input, urllib
 
 
 try:
@@ -284,10 +284,10 @@ class TacticServerStub(object):
     def get_project(self):
         return self.project_code
 
-    def set_transport(my, transport=None):
+    def set_transport(self, transport=None):
         '''Function: set_transport(transport=xmlrpclib.Transport)
             Sets the transport that can be used to setup proxy'''
-        my.transport = transport
+        self.transport = transport
 
     def set_site(self, site=None):
         '''Function: set_site(site=None)
@@ -934,17 +934,6 @@ class TacticServerStub(object):
         ticket = self.server.start(self.ticket, self.project_code, \
             title, description, transaction_ticket)
         self.set_transaction_ticket(ticket)
-
-        #client_version = self.get_client_version()
-        #server_version = self.get_server_version()
-
-        # Switch to using api versions
-        # Disabled as it is not necessary
-        # client_api_version = self.get_client_api_version()
-        # server_api_version = self.get_server_api_version()
-        # if client_api_version != server_api_version:
-        #     raise TacticApiException("Server version [%s] does not match client api version [%s]"
-        #                              % (server_api_version, client_api_version))
 
         self.set_server(self.server_name)
         # clear the handoff dir
@@ -1791,7 +1780,7 @@ class TacticServerStub(object):
                 pass
 
 
-        f = urllib.urlopen(url)
+        f = urllib.request.urlopen(url)
         file = open(to_path, "wb")
         file.write( f.read() )
         file.close()
@@ -1831,7 +1820,7 @@ class TacticServerStub(object):
 
 
 
-    def upload_file(self, path, base_dir=None, chunk_size=None, offset=None, progress_signal=None):
+    def upload_file(self, path, base_dir=None, chunk_size=None, offset=None, num_chunks=0, progress_signal=None):
         '''API Function: upload_file(path)
         Use http protocol to upload a file through http
 
@@ -1841,8 +1830,22 @@ class TacticServerStub(object):
         '''
         from .common import UploadMultipart
         upload = UploadMultipart()
-        if chunk_size:
-            upload.set_chunk_size(chunk_size)
+        if not chunk_size:
+            # set the chunk size based on size of the file
+            size = os.stat(path).st_size
+
+            # try for a chunk size of 1/10 of the file size
+            if not num_chunks:
+                num_chunks = 5
+
+            chunk_size = int(size/num_chunks) + 1024 # add an extra size as a small buffer
+
+            # The mimimum chunk size is 1024Mb
+            if chunk_size < 10*1024*1024:
+                chunk_size = 10*1024*1024
+
+        upload.set_chunk_size(chunk_size)
+
         if offset:
             upload.set_offset(offset)
         upload.set_ticket(self.transaction_ticket)
@@ -1971,6 +1974,8 @@ class TacticServerStub(object):
                                          level_key, is_revision, triggers)
 
 
+
+
     def simple_checkin(self, search_key, context, file_path,
             snapshot_type="file", description="No description",
             use_handoff_dir=False, file_type="main", is_current=True,
@@ -1993,7 +1998,7 @@ class TacticServerStub(object):
         file_path - path of the file that was previously uploaded
 
         @keyparam:
-        snapshot_type - [optional] descibes what kind of a snapshot this is.
+        snapshot_type - [optional] describes what kind of a snapshot this is.
             More information about a snapshot type can be found in the
             prod/snapshot_type sobject
         description - [optional] optional description for this checkin
@@ -4116,6 +4121,8 @@ class TacticServerStub(object):
 
     def get_server_api_version(self):
         '''API Function: get_server_api_version()
+        DEPRECATED: This was introduced at a time when the API was changing a lot.
+                    The server will not return an api version anymore.
         
         @return: 
             string - server API version'''

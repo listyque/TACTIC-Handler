@@ -30,7 +30,7 @@ import thlib.tactic_classes as tc
 from thlib.environment import env_inst, env_server, env_mode, dl, cfg_controls
 import thlib.ui.misc.ui_debuglog as ui_debuglog
 import thlib.ui.misc.ui_messages as ui_messages
-import thlib.ui_classes.ui_richedit_classes
+#import thlib.ui_classes.ui_richedit_classes
 
 
 class FadeWidget(QtGui.QLabel):
@@ -660,7 +660,7 @@ class Ui_userIconWidget(QtGui.QWidget):
             'QLabel {{background: {0}; border: 0px; border-radius: 16px;padding: 0px 0px;}}'.format(gf.gen_color(self.login.get_value('login'))))
 
 
-class Ui_sideBarWidget(QtGui.QWidget):
+class Ui_sideBarWidget(QtGui.QLabel):
     clicked = QtCore.Signal()
     hidden = QtCore.Signal()
 
@@ -1653,7 +1653,7 @@ class Ui_attachmentsEditorWidget(QtGui.QWidget):
 
         # self.setMinimumSize(QtCore.QSize(500, 400))
 
-        self.create_widgets()
+        self.create_tree_widgets()
 
         self.contorls_actions()
 
@@ -1667,15 +1667,14 @@ class Ui_attachmentsEditorWidget(QtGui.QWidget):
     def fill_items_tree_widget(self, items=None):
         if items:
             for file_object in items.get('file'):
-                print(file_object)
-                gf.add_attachment_item(self.items_tree_widget)
+                gf.add_attachment_item(self.items_tree_widget, file_object=file_object)
 
     def fill_screenshot_items_tree_widget(self, items=None):
         if items:
             for screenshot in items:
                 gf.add_attachment_item(self.items_tree_widget, screenshot=screenshot)
 
-    def create_widgets(self):
+    def create_tree_widgets(self):
 
         self.main_layout = QtGui.QVBoxLayout()
         self.main_layout.setContentsMargins(0, 0, 0, 0)
