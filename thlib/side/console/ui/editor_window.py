@@ -102,7 +102,7 @@ class EditorWindow(QtGui.QPlainTextEdit):
         real_indent_end = tab_count + ((space_count / EditorWindow.INDENT_SPACE_COUNT) * EditorWindow.INDENT_SPACE_COUNT)
         need_to_indent = indent_end - real_indent_end
 
-        return indent, indent_end, real_indent_end, need_to_indent
+        return int(indent), int(indent_end), int(real_indent_end), int(need_to_indent)
 
     @staticmethod
     def GetIndentSymbol():

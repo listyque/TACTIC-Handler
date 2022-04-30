@@ -625,7 +625,8 @@ class Ui_repoSyncDialog(QtGui.QDialog):
         self.clear_queue()
         self.sobject.update_snapshots()
 
-        self.sync_by_pipeline(self.sobject, preset_dict)
+        #self.sync_by_pipeline(self.sobject, preset_dict)
+        self.update_sobject_snapshots_threaded(self.sobject, preset_dict)
         self.sync_children(self.sobject, preset_dict)
 
         # self.download_files()
