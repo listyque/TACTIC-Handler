@@ -15,9 +15,9 @@ try:
 except:
     import shiboken2 as shiboken
 
-import tactic_classes as tc
+import thlib.tactic_classes as tc
 from thlib.environment import env_inst, dl
-import global_functions as gf
+import thlib.global_functions as gf
 
 
 def get_maya_window():
@@ -27,7 +27,7 @@ def get_maya_window():
     """
     main_window_ptr = omui.MQtUtil.mainWindow()
     if main_window_ptr is not None:
-        return shiboken.wrapInstance(long(main_window_ptr), QtGui.QMainWindow)
+        return shiboken.wrapInstance(int(main_window_ptr), QtGui.QMainWindow)
 
 
 def get_maya_dock_window():
@@ -410,7 +410,7 @@ class markingMenu():
 
 def exampleFunction(*args):
     '''Example function to demonstrate how to pass functions to menuItems'''
-    print "example function"
+    print('example function')
 
 
 def rebuildMarkingMenu(*args):

@@ -2,6 +2,7 @@
 # file ui_main_classes.py
 # Main Window interface
 
+import importlib
 import collections
 from thlib.side.Qt import QtWidgets as QtGui
 from thlib.side.Qt import QtGui as Qt4Gui
@@ -22,9 +23,10 @@ from thlib.ui_classes.ui_custom_qwidgets import Ui_debugLogWidget, Ui_messagesWi
 import thlib.ui_classes.ui_checkin_out_tabs_classes as ui_checkin_out_tabs_classes
 import thlib.ui_classes.ui_conf_classes as ui_conf_classes
 
+
 if env_mode.get_mode() == 'maya':
     import thlib.maya_functions as mf
-    reload(mf)
+    importlib.reload(mf)
 
 
 # reload(ui_main)

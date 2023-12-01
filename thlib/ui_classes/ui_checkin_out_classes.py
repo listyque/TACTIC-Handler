@@ -1,5 +1,6 @@
 # file ui_checkout_tree_classes.py
 
+import importlib
 from functools import partial
 from thlib.side.Qt import QtWidgets as QtGui
 from thlib.side.Qt import QtGui as Qt4Gui
@@ -26,9 +27,10 @@ from thlib.ui_classes.ui_columns_editor_classes import Ui_columnsEditorWidget
 from thlib.ui_classes.ui_tasks_classes import Ui_tasksDockWidget
 from thlib.ui_classes.ui_item_classes import Ui_stypeIconWidget
 
+
 if env_mode.get_mode() == 'maya':
     import thlib.maya_functions as mf
-    reload(mf)
+    importlib.reload(mf)
 
 # reload(ui_richedit_classes)
 # reload(ui_addsobject_classes)

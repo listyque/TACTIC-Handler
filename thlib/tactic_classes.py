@@ -8,6 +8,7 @@ import io
 import glob
 import shutil
 import urllib
+import importlib
 import thlib.side.six as six
 try:
     from urlparse import urlparse, parse_qsl
@@ -32,8 +33,8 @@ from thlib.side.client.tactic_client_lib.tactic_server_stub import TacticServerS
 
 
 if env_mode.get_mode() == 'maya':
-    import maya_functions as mf
-    reload(mf)
+    import thlib.maya_functions as mf
+    importlib.reload(mf)
 
 
 def server_auth(host, project=None, login=None, password=None, site=None, get_ticket=False):

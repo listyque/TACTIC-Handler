@@ -10,7 +10,7 @@ import thlib.tactic_classes as tc
 import thlib.global_functions as gf
 from maya.app.general.mayaMixin import MayaQWidgetDockableMixin
 import maya.cmds as cmds
-import ui_main_classes
+import thlib.ui_classes.ui_main_classes as ui_main_classes
 
 # reload(ui_main_classes)
 
@@ -88,7 +88,6 @@ class Ui_DockMain(MayaQWidgetDockableMixin, QtGui.QMainWindow):
             height=self.dock_size.height()
         )
         if self.maya_dock:
-            print self.maya_dock
             self.removeDockWidget(self.maya_dock)
             self.maya_dock.close()
             self.maya_dock.deleteLater()
