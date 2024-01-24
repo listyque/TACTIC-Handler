@@ -570,7 +570,6 @@ class Ui_addTacticSobjectWidget(QtGui.QDialog):
         )
 
         for widget_dict in result_dict['InputWidgets']:
-
             tactic_widget_name = tw.get_widget_name(widget_dict['class_name'], 'input')
 
             widget_dict['sobject'] = result_dict['EditWdg'].get('sobject')
@@ -610,7 +609,6 @@ class Ui_addTacticSobjectWidget(QtGui.QDialog):
             self.loading_label.setVisible(True)
 
     def get_widgets(self, kwargs):
-
         worker = env_inst.server_pool.add_task(
             tc.execute_procedure_serverside,
             tq.query_EditWdg,

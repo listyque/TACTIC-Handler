@@ -404,8 +404,6 @@ class QTacticSelectWdg(QtGui.QWidget, QTacticBasicInputWdg):
 
         self.add_items_to_combo_box()
 
-        self.set_default_value()
-
         if not self.set_default_value():
             self.autofill_by_parent()
 
@@ -806,7 +804,6 @@ class QTacticCurrentCheckboxWdg(QtGui.QWidget, QTacticBasicInputWdg):
     def fill_default_values(self):
         values = self.tactic_widget.get_display_values()
         if values:
-            print(values, self, 'values')
             if isinstance(values, list):
                 if isinstance(values[0], bool):
                     self.checkbox.setChecked(values[0])
@@ -1262,3 +1259,69 @@ class QTacticProcessInputWdg(QtGui.QWidget, QTacticBasicInputWdg):
 
         self.statuses_combo_box = Ui_coloredComboBox()
         self.statuses_combo_box.add_item('--{0}--'.format(self.tactic_widget.get_name()), hex_color='#303030')
+
+
+class QTacticPipelineInputWdg(QtGui.QWidget, QTacticBasicInputWdg):
+    def __init__(self, tactic_widget, parent=None):
+        super(self.__class__, self).__init__(parent=parent)
+
+        self.init_ui()
+
+        self.parent_ui = parent
+
+        self.tactic_widget = tactic_widget
+        self.parent_sobject = self.tactic_widget.get_parent_sobject()
+        self.sobject = self.tactic_widget.get_sobject()
+
+        self.create_combo_box()
+
+        self.set_title(self.tactic_widget.get_title())
+        self.set_control_widget(self.combo_box)
+
+        self.add_items_to_combo_box()
+
+        self.set_default_value()
+
+    def set_default_value(self):
+
+        default_label = self.tactic_widget.get_default_values()
+
+        # in case we're editing
+        current_label = self.tactic_widget.get_current_label()
+
+        if current_label:
+            default_label = current_label
+
+        if default_label:
+            for i, label in enumerate(self.tactic_widget.get_labels()):
+                if label == default_label:
+                    self.combo_box.setCurrentIndex(i)
+                    return True
+
+    def get_data(self):
+
+        codes = self.tactic_widget.get_values()
+        index = self.combo_box.currentIndex()
+        if codes:
+            if not codes[index]:
+                return ''
+            else:
+                return codes[index]
+
+    def get_column(self):
+        action_options = self.tactic_widget.get_action_options()
+        column = action_options.get('column')
+        if column:
+            return column
+        else:
+            return self.tactic_widget.get_name()
+
+    def create_combo_box(self):
+        self.combo_box = QtGui.QComboBox()
+        self.combo_box.setEditable(True)
+        self.combo_box.setCurrentIndex(0)
+
+    def add_items_to_combo_box(self):
+        labels = self.tactic_widget.get_labels()
+        for label in labels:
+            self.combo_box.addItem(label)

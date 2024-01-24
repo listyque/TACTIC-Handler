@@ -24,6 +24,7 @@ input_classes = {
         'tactic.ui.input.process_context_wdg.ProcessInputWdg',
         'tactic.ui.input.process_context_wdg.SubContextInputWdg',
         'tactic.ui.widget.misc_input_wdg.TaskStatusSelectWdg',
+        'tactic.ui.input.pipeline_input_wdg.PipelineInputWdg',
     ],
     'handler': [
         'TacticSimpleUploadWdg',
@@ -39,6 +40,7 @@ input_classes = {
         'TacticProcessInputWdg',
         'TacticSubContextInputWdg',
         'TacticTaskStatusSelectWdg',
+        'TacticPipelineInputWdg',
     ],
 }
 
@@ -518,6 +520,77 @@ class TacticTaskStatusSelectWdg(TacticBaseInputWdg):
         super(self.__class__, self).__init__(options_dict=options_dict)
 
         self.set_class_name('pyasm.widget.input_wdg.CheckboxWdg')
+
+
+class TacticPipelineInputWdg(TacticBaseInputWdg):
+    def __init__(self, options_dict=None):
+        super(self.__class__, self).__init__(options_dict=options_dict)
+
+        self.set_class_name('tactic.ui.input.pipeline_input_wdg.PipelineInputWdg')
+
+        self.labels = None
+        self.values = None
+
+        self.required = None
+        self.empty = None
+
+        if options_dict:
+            self.set_select_widget_options(options_dict)
+
+    def set_labels(self, labels):
+        self.labels = labels
+
+    def get_labels(self):
+        return self.labels
+
+    def set_values(self, values):
+        self.values = values
+
+    def get_values(self):
+        return self.values
+
+    def set_required(self, required):
+        self.required = required
+
+    def get_required(self):
+        return self.required
+
+    def set_empty(self, empty):
+        self.empty = empty
+
+    def get_empty(self):
+        return self.empty
+
+    def get_current_value(self):
+        display_values = self.get_display_values()
+        current_value = display_values.get('value')
+
+        if current_value:
+            return current_value
+
+    def get_current_label(self):
+        current_value = self.get_current_value()
+
+        for i, value in enumerate(self.get_values()):
+            if value == current_value:
+                labels = self.get_labels()
+                if labels:
+                    return labels[i]
+
+    def get_default_values(self):
+        default_value = self.get_value('kwargs')
+
+        if default_value:
+            return default_value.get('default')
+
+    def set_select_widget_options(self, options_dict):
+        display_values = self.get_display_values()
+
+        self.set_values(display_values.get('values'))
+        self.set_labels(display_values.get('labels'))
+
+        self.set_required(self.kwargs.get('required'))
+        self.set_empty(self.kwargs.get('empty'))
 
 
 def get_widget_name(tactic_class='', type=''):

@@ -159,6 +159,11 @@ def query_EditWdg(args=None, search_type='', project=''):
 
             widget_dict['task_pipelines'] = task_pipelines_result
 
+        elif widget_dict['class_name'] == 'tactic.ui.input.pipeline_input_wdg.PipelineInputWdg':
+            select_wd = i_widget.get_display()
+            select_wd.get_display()
+            widget_dict['__display_values__'] = select_wd.__dict__
+
         if widget_dict['class_name'] not in temprorary_ignore:
             result_dict['InputWidgets'].append(widget_dict)
 
