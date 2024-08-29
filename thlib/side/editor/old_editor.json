@@ -1,0 +1,21 @@
+{
+  "color": {
+    "background": "#A88627",
+    "line_number": "black",
+    "line_number_background": "#5C5C5C",
+    "indent": "white",
+    "highlight_selected_line": "#4D4225",
+    "highlight_selected": "#665526",
+    "highlight_find_word": "lightgrey",
+    "highlight_similiar_word": "lightgrey"
+  },
+  "indent_space_count": 4,
+  "indent_space_use": 1,
+  "draw_indent_width": 0.5,
+  "draw_indent": 1,
+  "draw_line_number": 1,
+  "draw_line_highlight": 1,
+  "history": 1,
+  "font": "",
+  "font_size": -1
+}

@@ -3,7 +3,6 @@
 # Main Dock Window interface
 
 from thlib.side.Qt import QtWidgets as QtGui
-#from thlib.side.Qt import QtCore
 from thlib.environment import env_inst, env_mode, env_read_config, env_write_config
 import thlib.maya_functions as mf
 import thlib.tactic_classes as tc

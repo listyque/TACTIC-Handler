@@ -28,6 +28,7 @@ import thlib.global_functions as gf
 import thlib.tactic_classes as tc
 from thlib.ui_classes.ui_custom_qwidgets import SuggestedLineEdit, Ui_horizontalCollapsableWidget, Ui_collapsableWidget, Ui_extendedTreeWidget, Ui_extendedTabBarWidget, StyledToolButton, StyledComboBox
 from thlib.ui_classes.ui_assets_browser_classes import Ui_assetsBrowserWidget
+from thlib.ui_classes.ui_filter_editor_classes import Ui_filterEditorDialog
 
 DEFAULT_FILTER = ('name', 'EQI', '')
 EXPR_FILTER = ('_expression', 'in', "@SOBJECT(sthpw/task['assigned', $LOGIN])")
@@ -49,78 +50,6 @@ def get_suggestion_filter(column, search_text, possible_columns, default_filter=
         filters.append('and')
 
     return filters
-
-
-def get_match_list_by_type(column_type):
-    match_list = [
-        ('Is', '='),
-        ('Is not', '!='),
-        ('Contains', 'EQI'),
-        ('Does not contain', 'NEQI'),
-        ('Is empty', None),
-        ('Is not empty', 'like'),
-        ('Starts with', 'like'),
-        ('Ends with', 'like'),
-        ('Does not starts with', 'not like'),
-        ('Does not end with', 'not like'),
-        ('In', 'in'),
-        ('Not in', 'not in'),
-        ('Is distinct', ''),
-    ]
-
-    if column_type == 'boolean':
-        match_list = [
-            ('Is', '='),
-            ('Is not', '!='),
-            ('Is empty', None),
-            ('Is not empty', None),
-        ]
-    elif column_type in ['integer', 'float', 'currency']:
-        match_list = [
-            ('is equal to', ''),
-            ('is greater than', ''),
-            ('is less than', ''),
-            ('in', 'in'),
-            ('not in', 'not in'),
-            ('is empty', None),
-            ('is not empty', ''),
-            ('is distinct', ''),
-        ]
-    elif column_type in ['time', 'timestamp', 'datetime2']:
-        match_list = [
-            ('is newer than', ''),
-            ('is older than', ''),
-            ('is on', ''),
-            ('is empty', None),
-            ('is not empty', ''),
-        ]
-    elif column_type in ['login']:
-        match_list = [
-            ('is', '='),
-            ('is not', '!='),
-            ('contains', 'EQI'),
-            ('does not contain', 'NEQI'),
-            ('is empty', None),
-            ('is not empty', ''),
-            ('starts with', ''),
-            ('ends with', ''),
-        ]
-    elif column_type in ['_expression']:
-        match_list = [
-            ('Have', 'in'),
-            ('Do not have', 'not in'),
-            # ('Match (slow)', 'match'),
-            # ('Do not match (slow)', 'do not match'),
-        ]
-    elif column_type in ['timecode']:
-        match_list = [
-            ('is timecode before', '<='),
-            ('is timecode after', '>='),
-            ('is timecode equal', '='),
-            ('is empty', None),
-        ]
-
-    return match_list
 
 
 class Ui_processFilterDialog(QtGui.QDialog):
@@ -454,12 +383,14 @@ class Ui_processFilterDialog(QtGui.QDialog):
 
 
 class Ui_searchWidget(QtGui.QWidget):
-    def __init__(self, stype, project, parent=None):
+    def __init__(self, stype, project, customized_name=None, parent=None):
         super(self.__class__, self).__init__(parent=parent)
         self.setAttribute(QtCore.Qt.WA_DeleteOnClose)
 
         self.stype = stype
         self.project = project
+        self.multiple_tabs_view = True
+        self.customized_name = customized_name
 
         self.group_by_columns = []
         self.sort_by = None
@@ -545,8 +476,6 @@ class Ui_searchWidget(QtGui.QWidget):
 
         # Filling users tasks filter
         current_login = env_inst.get_current_login_object()
-        # print env_inst.get_all_logins()
-        # print current_login.get_login_groups()
 
         menu.addSeparator()
         users_menu = menu.addMenu('Pick User')
@@ -576,75 +505,94 @@ class Ui_searchWidget(QtGui.QWidget):
         # filling all possible tasks statuses by processes
         if stype_pipelines:
 
+            # Filtering menu items that already in menu
+            added_processes = []
+
             menu.addSeparator()
             for stype_pipeline in stype_pipelines.values():
                 for stype_process in stype_pipeline.get_all_pipeline_names():
-                    process_menu = menu.addMenu(stype_pipeline.get_process_label(stype_process))
 
-                    # colorizing processes
-                    process_info = stype_pipeline.get_process_info(stype_process)
-                    process_hex_color = process_info.get('color')
-                    if process_hex_color:
-                        process_color = gf.hex_to_rgb(process_hex_color, tuple=True)
-                        if process_color:
-                            process_color = Qt4Gui.QColor(*process_color)
-                            process_menu.setIcon(gf.get_icon('circle', color=process_color, scale_factor=0.6))
-                    else:
-                        process_menu.setIcon(gf.get_icon('circle', scale_factor=0.6))
+                    if stype_process not in added_processes:
+                        added_processes.append(stype_process)
+                        
+                        process_menu = menu.addMenu(stype_pipeline.get_process_label(stype_process))
 
-                    task_pipeline = process_info.get('task_pipeline')
+                        # colorizing processes
+                        process_info = stype_pipeline.get_process_info(stype_process)
+                        process_hex_color = process_info.get('color')
+                        if process_hex_color:
+                            process_color = gf.hex_to_rgb(process_hex_color, tuple=True)
+                            if process_color:
+                                process_color = Qt4Gui.QColor(*process_color)
+                                process_menu.setIcon(gf.get_icon('circle', color=process_color, scale_factor=0.6))
+                        else:
+                            process_menu.setIcon(gf.get_icon('circle', scale_factor=0.6))
 
-                    # use default tasks pipeline
-                    if not task_pipeline:
-                        task_pipeline = 'task'
+                        task_pipeline = process_info.get('task_pipeline')
 
-                    default_task_action = QtGui.QAction('Show All Statuses', self)
-                    default_task_action.setIcon(gf.get_icon('circle', scale_factor=0.6))
-                    process_menu.addAction(default_task_action)
-                    process_menu.addSeparator()
-                    if tasks_workflow.get(task_pipeline):
-                        for task_process in tasks_workflow[task_pipeline].get_all_pipeline_names():
-                            task_status_action = QtGui.QAction(task_process, self)
+                        # use default tasks pipeline
+                        if not task_pipeline:
+                            task_pipeline = 'task'
 
-                            # colorizing processes
-                            task_process_info = tasks_workflow[task_pipeline].get_process_info(task_process)
-                            task_process_hex_color = task_process_info.get('color')
-                            if task_process_hex_color:
-                                task_process_color = gf.hex_to_rgb(task_process_hex_color, tuple=True)
-                                if task_process_color:
-                                    task_process_color = Qt4Gui.QColor(*task_process_color)
-                                    task_status_action.setIcon(gf.get_icon('circle', color=task_process_color, scale_factor=0.6))
-                            else:
-                                task_status_action.setIcon(gf.get_icon('circle', scale_factor=0.6))
+                        default_task_action = QtGui.QAction('Show All Statuses', self)
+                        default_task_action.setIcon(gf.get_icon('circle', scale_factor=0.6))
+                        process_menu.addAction(default_task_action)
+                        process_menu.addSeparator()
+                        if tasks_workflow.get(task_pipeline):
+                            for task_process in tasks_workflow[task_pipeline].get_all_pipeline_names():
+                                task_status_action = QtGui.QAction(task_process, self)
 
-                            process_menu.addAction(task_status_action)
+                                # colorizing processes
+                                task_process_info = tasks_workflow[task_pipeline].get_process_info(task_process)
+                                task_process_hex_color = task_process_info.get('color')
+                                if task_process_hex_color:
+                                    task_process_color = gf.hex_to_rgb(task_process_hex_color, tuple=True)
+                                    if task_process_color:
+                                        task_process_color = Qt4Gui.QColor(*task_process_color)
+                                        task_status_action.setIcon(gf.get_icon('circle', color=task_process_color, scale_factor=0.6))
+                                else:
+                                    task_status_action.setIcon(gf.get_icon('circle', scale_factor=0.6))
 
-                menu.addSeparator()
+                                process_menu.addAction(task_status_action)
 
-                # Filling task statuses by all pipelines used with this search type
-                task_pipelines = stype_pipeline.get_all_tasks_pipelines_names()
-                task_pipelines.append('task')
+            menu.addSeparator()
 
-                for task_pipeline in task_pipelines:
-                    pipeline_menu = menu.addMenu(task_pipeline)
-                    if tasks_workflow.get(task_pipeline):
-                        for task_process in tasks_workflow[task_pipeline].get_all_pipeline_names():
+            # Filling task statuses by all pipelines used with this search type
+            task_pipelines = stype_pipeline.get_all_tasks_pipelines_names()
+            task_pipelines.append('task')
 
-                            task_status_action = QtGui.QAction(task_process, self)
+            # gf.pp(stype_pipeline.get_info())
 
-                            # colorizing processes
-                            task_process_info = tasks_workflow[task_pipeline].get_process_info(task_process)
-                            task_process_hex_color = task_process_info.get('color')
-                            if task_process_hex_color:
-                                task_process_color = gf.hex_to_rgb(task_process_hex_color, tuple=True)
-                                if task_process_color:
-                                    task_process_color = Qt4Gui.QColor(*task_process_color)
-                                    task_status_action.setIcon(
-                                        gf.get_icon('circle', color=task_process_color, scale_factor=0.6))
-                            else:
-                                task_status_action.setIcon(gf.get_icon('circle', scale_factor=0.6))
+            for task_pipeline in task_pipelines:
+                # gf.pp(stype_pipeline.pipeline)
+                # print(task_pipeline)
 
-                            pipeline_menu.addAction(task_status_action)
+                if tasks_workflow.get(task_pipeline):
+                    task_workflow = tasks_workflow[task_pipeline]
+
+                    task_workflow_info = task_workflow.get_info()
+                    task_workflow_name = task_workflow_info.get('name')
+                    if not task_workflow_name:
+                        task_workflow_name = task_workflow_info.get('code')
+
+                    pipeline_menu = menu.addMenu(task_workflow_name)
+
+                    for task_process in tasks_workflow[task_pipeline].get_all_pipeline_names():
+                        task_status_action = QtGui.QAction(task_process, self)
+
+                        # colorizing processes
+                        task_process_info = tasks_workflow[task_pipeline].get_process_info(task_process)
+                        task_process_hex_color = task_process_info.get('color')
+                        if task_process_hex_color:
+                            task_process_color = gf.hex_to_rgb(task_process_hex_color, tuple=True)
+                            if task_process_color:
+                                task_process_color = Qt4Gui.QColor(*task_process_color)
+                                task_status_action.setIcon(
+                                    gf.get_icon('circle', color=task_process_color, scale_factor=0.6))
+                        else:
+                            task_status_action.setIcon(gf.get_icon('circle', scale_factor=0.6))
+
+                        pipeline_menu.addAction(task_status_action)
 
     def create_tool_buttons(self):
         self.left_buttons_layout = QtGui.QHBoxLayout()
@@ -687,6 +635,7 @@ class Ui_searchWidget(QtGui.QWidget):
         self.filter_by_preset_menu.setIcon(gf.get_icon('heart', icons_set='mdi', scale_factor=1))
         self.edit_presets_action = QtGui.QAction('Edit Presets', self.add_filter_button)
         self.edit_presets_action.setIcon(gf.get_icon('circle-edit-outline', icons_set='mdi', scale_factor=1))
+        self.edit_presets_action.triggered.connect(self.do_filter_presets_editor_action)
         self.filter_by_preset_menu.addAction(self.edit_presets_action)
 
         self.add_filter_button.addAction(self.filter_by_tasks_menu.menuAction())
@@ -835,9 +784,16 @@ class Ui_searchWidget(QtGui.QWidget):
 
         self.results_tab_widget.setCornerWidget(self.right_buttons_widget, QtCore.Qt.TopRightCorner)
         self.results_tab_widget.setCornerWidget(self.left_buttons_widget, QtCore.Qt.TopLeftCorner)
+    @gf.catch_error
+    def do_filter_presets_editor_action(self):
+        # stype_widget = env_inst.get_check_tree(tab_code='checkin_out', wdg_code=self.get_tab_name())
 
+        # print(stype_widget)
+
+        sync_dialog = Ui_filterEditorDialog(parent=env_inst.ui_main, stype=self.stype, tab_name=self.get_tab_name())
+        sync_dialog.exec_()
     def do_my_tasks_action(self):
-        stype_widget = env_inst.get_check_tree(tab_code='checkin_out', wdg_code=self.stype.get_code())
+        stype_widget = env_inst.get_check_tree(tab_code='checkin_out', wdg_code=self.get_tab_name())
 
         print(stype_widget)
 
@@ -902,11 +858,11 @@ class Ui_searchWidget(QtGui.QWidget):
         if not limit:
             limit = self.get_display_limit()
 
-        # ONLY FOR ANIMATORS!
-        from thlib.environment import SPECIALIZED
-
-        if SPECIALIZED == 'animators':
-            filters = [DEFAULT_FILTER, EXPR_FILTER]
+        # # ONLY FOR ANIMATORS!
+        # from thlib.environment import SPECIALIZED
+        #
+        # if SPECIALIZED == 'animators':
+        #     filters = [DEFAULT_FILTER, EXPR_FILTER]
 
         info = {
             'title': search_title,
@@ -927,8 +883,10 @@ class Ui_searchWidget(QtGui.QWidget):
             project=self.project,
             stype=self.stype,
             info=info,
+            customized_name=self.customized_name,
             parent=self.results_tab_widget
         )
+
         tab_label = gf.create_tab_label(search_title)
         tab_label.setParent(self)
         tab_label.close_clicked.connect(self.close_tab)
@@ -944,6 +902,9 @@ class Ui_searchWidget(QtGui.QWidget):
     def get_current_tab_title(self):
         current_results_widget = self.get_current_results_widget()
         return current_results_widget.get_tab_title()
+
+    def get_tab_name(self):
+        return self.customized_name
 
     def get_display_limit(self):
         display_limit = gf.get_value_from_config(cfg_controls.get_checkin(), 'displayLimitSpinBox')
@@ -998,33 +959,40 @@ class Ui_searchWidget(QtGui.QWidget):
             self.add_to_history_list(self.results_tab_widget.get_tab_label(tab_index), self.results_tab_widget.widget(tab_index))
             self.results_tab_widget.removeTab(tab_index)
 
+    def clear_tabs(self):
+        self.results_tab_widget.clear_tabs()
+
     def current_tab_changed(self, idx):
 
         search_results_widget = self.results_tab_widget.widget(idx)
 
-        checkin_out_widget = self.get_current_checkin_out_widget()
-        adv_search_widget = checkin_out_widget.get_advanced_search_widget()
-        adv_search_widget.clear_all_filters()
-
-        filters = search_results_widget.get_filters()
-        if filters:
-            adv_search_widget.set_filters(filters)
-        else:
-            adv_search_widget.add_default_filter(DEFAULT_FILTER)
-
-        search_line_text = search_results_widget.get_search_line_text()
-        if search_line_text is not None:
-            self.search_line_edit.setText(search_line_text, block_event=True)
-
-        title = search_results_widget.get_tab_title()
-        if title is not None:
+        if search_results_widget:
             checkin_out_widget = self.get_current_checkin_out_widget()
             adv_search_widget = checkin_out_widget.get_advanced_search_widget()
-            tab_search_options_widget = adv_search_widget.get_tab_search_options_widget()
-            tab_search_options_widget.set_edit_tab_title(title)
+            adv_search_widget.clear_all_filters()
+
+            filters = search_results_widget.get_filters()
+            if filters:
+                adv_search_widget.set_filters(filters)
+            else:
+                adv_search_widget.add_default_filter(DEFAULT_FILTER)
+
+            search_line_text = search_results_widget.get_search_line_text()
+            if search_line_text is not None:
+                self.search_line_edit.setText(search_line_text, block_event=True)
+
+            title = search_results_widget.get_tab_title()
+            if title is not None:
+                checkin_out_widget = self.get_current_checkin_out_widget()
+                adv_search_widget = checkin_out_widget.get_advanced_search_widget()
+                tab_search_options_widget = adv_search_widget.get_tab_search_options_widget()
+                tab_search_options_widget.set_edit_tab_title(title)
 
     def get_current_checkin_out_widget(self):
-        return env_inst.get_check_tree(self.project.get_code(), 'checkin_out', self.stype.get_code())
+        if self.customized_name:
+            return env_inst.get_check_tree(self.project.get_code(), 'checkin_out', self.customized_name)
+        else:
+            return env_inst.get_check_tree(self.project.get_code(), 'checkin_out', self.stype.get_code())
 
     def get_current_results_widget(self):
         return self.results_tab_widget.currentWidget()
@@ -1096,9 +1064,9 @@ class Ui_searchWidget(QtGui.QWidget):
                     if skey['pipeline_code'] not in common_pipeline_codes:
                         pipeline_code = u'{namespace}/{pipeline_code}'.format(**skey)
 
-                        parent_stype = self.project.stypes.get(pipeline_code)
+                        # parent_stype = self.project.stypes.get(pipeline_code)
 
-                        stype_widget = env_inst.get_check_tree(tab_code='checkin_out', wdg_code=parent_stype.get_code())
+                        stype_widget = env_inst.get_check_tree(tab_code='checkin_out', wdg_code=self.get_tab_name())
 
                         checkin_out_control = env_inst.get_control_tab(tab_code='checkin_out')
 
@@ -1157,12 +1125,11 @@ class Ui_searchWidget(QtGui.QWidget):
         self.buttons_layout.addWidget(widget)
 
     def set_search_cache(self, search_cache, current_index=0):
-        # print(search_cache)
         search_cache = gf.hex_to_html(search_cache)
 
         # work around for preventing tab widgets showing when tab adding
         self.results_tab_widget.setHidden(True)
-        # print search_cache
+
         if search_cache:
             search_cache = gf.from_json(search_cache, use_ast=True)
 
@@ -1194,6 +1161,20 @@ class Ui_searchWidget(QtGui.QWidget):
 
         self.results_tab_widget.setHidden(False)
 
+    def get_multiple_tabs_state(self):
+
+        return self.multiple_tabs_view
+
+    def set_multiple_tabs_state(self, enabled=True):
+
+        print(enabled)
+        self.multiple_tabs_view = enabled
+
+        if enabled in (1, True):
+            print('Making UI Multi tabbed')
+        else:
+            print('Making UI Single tabbed')
+
     def get_search_cache(self):
 
         tab_info_list = []
@@ -1212,14 +1193,20 @@ class Ui_searchWidget(QtGui.QWidget):
             'additional_collapsable_toolbar': True,
             'search_cache': None,
             'results_tab_widget_current_index': 0,
+            'multiple_tabs_view': True,
         }
 
         settings = gf.check_config(ref_settings_dict, settings_dict)
+
+
+        # gf.pp(settings)
+
 
         self.collapsable_toolbar.setCollapsed(settings['collapsable_toolbar'])
         self.main_collapsable_toolbar.setCollapsed(settings['main_collapsable_toolbar'])
         self.additional_collapsable_toolbar.setCollapsed(settings['additional_collapsable_toolbar'])
         self.set_search_cache(settings['search_cache'], settings['results_tab_widget_current_index'])
+        self.set_multiple_tabs_state(settings['multiple_tabs_view'])
 
     def get_settings_dict(self):
 
@@ -1229,7 +1216,10 @@ class Ui_searchWidget(QtGui.QWidget):
             'additional_collapsable_toolbar': int(self.additional_collapsable_toolbar.isCollapsed()),
             'search_cache': self.get_search_cache(),
             'results_tab_widget_current_index': self.results_tab_widget.currentIndex(),
+            'multiple_tabs_view': int(self.get_multiple_tabs_state())
         }
+
+        gf.pp(settings_dict)
 
         return settings_dict
 
@@ -1245,11 +1235,12 @@ class Ui_searchWidget(QtGui.QWidget):
 
 
 class Ui_filterWidget(QtGui.QWidget):
-    def __init__(self, stype, project, filter, default, op='begin', parent=None):
+    def __init__(self, stype, project, filter, default, op='begin', tab_name=None, parent=None):
         super(self.__class__, self).__init__(parent=parent)
 
         self.stype = stype
         self.project = project
+        self.tab_name = tab_name
 
         self.default = default
         self.filter = filter
@@ -1293,7 +1284,7 @@ class Ui_filterWidget(QtGui.QWidget):
         self.query_line_edit.returnPressed.connect(self.edited_line_edit_text)
 
     def get_checkin_out_widget(self):
-        return env_inst.get_check_tree(self.project.get_code(), 'checkin_out', self.stype.get_code())
+        return env_inst.get_check_tree(self.project.get_code(), 'checkin_out', self.get_tab_name())
 
     def get_search_widget(self):
         checkin_out_widget = self.get_checkin_out_widget()
@@ -1353,7 +1344,7 @@ class Ui_filterWidget(QtGui.QWidget):
 
         column_type = self.stype.get_column_data_type(column)
 
-        match_list = get_match_list_by_type(column_type)
+        match_list = tc.get_match_list_by_type(column_type)
 
         for i, match in enumerate(match_list):
             self.match_combo_box.addItem(match[0])
@@ -1487,6 +1478,8 @@ class Ui_filterWidget(QtGui.QWidget):
         adv_search_widget = self.get_advanced_search_widget()
         adv_search_widget.add_empty_filter()
 
+    def get_tab_name(self):
+        return self.tab_name
     def close_self(self):
         adv_search_widget = self.get_advanced_search_widget()
         adv_search_widget.remove_filter(self)
@@ -1497,11 +1490,12 @@ class Ui_filterWidget(QtGui.QWidget):
 
 
 class Ui_searchOptionsWidget(QtGui.QWidget):
-    def __init__(self, stype, parent=None):
+    def __init__(self, stype, tab_name=None, parent=None):
         super(self.__class__, self).__init__(parent=parent)
 
         self.stype = stype
         self.project = self.stype.get_project()
+        self.tab_name = tab_name
 
         self.create_ui()
 
@@ -1576,7 +1570,7 @@ class Ui_searchOptionsWidget(QtGui.QWidget):
         self.main_layout.addLayout(self.presets_layout, 1, 0)
 
     def get_current_checkin_out_widget(self):
-        return env_inst.get_check_tree(self.project.get_code(), 'checkin_out', self.stype.get_code())
+        return env_inst.get_check_tree(self.project.get_code(), 'checkin_out', self.get_tab_name())
 
     def get_search_widget(self):
         checkin_out_widget = self.get_current_checkin_out_widget()
@@ -1597,13 +1591,16 @@ class Ui_searchOptionsWidget(QtGui.QWidget):
     def get_edit_tab_title(self):
         return self.tab_name_edit.text()
 
+    def get_tab_name(self):
+        return self.tab_name
 
 class Ui_advancedSearchWidget(QtGui.QWidget):
-    def __init__(self, stype, project, parent=None):
+    def __init__(self, stype, project, tab_name=None, parent=None):
         super(self.__class__, self).__init__(parent=parent)
 
         self.stype = stype
         self.project = project
+        self.tab_name = tab_name
 
         self.default_filter_widget = None
         self.filter_widgets = []
@@ -1693,7 +1690,8 @@ class Ui_advancedSearchWidget(QtGui.QWidget):
             stype=self.stype,
             parent=self,
             filter=filter_text,
-            default=True
+            default=True,
+            tab_name=self.get_tab_name(),
         )
         self.filters_scroll_area.setMaximumHeight(filter_widget.height()+4)
         self.filters_scroll_widgets_layout.addWidget(filter_widget)
@@ -1712,6 +1710,7 @@ class Ui_advancedSearchWidget(QtGui.QWidget):
             filter=filter_text,
             default=False,
             op=op,
+            tab_name=self.get_tab_name(),
         )
         self.filters_scroll_area.setMaximumHeight(filter_widget.height() + 4)
         self.filters_scroll_widgets_layout.addWidget(filter_widget)
@@ -1727,7 +1726,8 @@ class Ui_advancedSearchWidget(QtGui.QWidget):
             stype=self.stype,
             parent=self,
             filter=None,
-            default=False
+            default=False,
+            tab_name=self.get_tab_name(),
         )
         self.filters_scroll_area.setMaximumHeight(filter_widget.height() + 4)
         self.filters_scroll_widgets_layout.addWidget(filter_widget)
@@ -1849,11 +1849,14 @@ class Ui_advancedSearchWidget(QtGui.QWidget):
         self.filters_scroll_area.setMaximumHeight(total_height)
 
     def get_checkin_out_widget(self):
-        return env_inst.get_check_tree(self.project.get_code(), 'checkin_out', self.stype.get_code())
+        return env_inst.get_check_tree(self.project.get_code(), 'checkin_out', self.get_tab_name())
 
     def get_search_widget(self):
         checkin_out_widget = self.get_checkin_out_widget()
         return checkin_out_widget.get_search_widget()
+
+    def get_tab_name(self):
+        return self.tab_name
 
     def set_settings_from_dict(self, settings_dict=None):
 
@@ -2156,7 +2159,7 @@ class Ui_navigationWidget(QtGui.QWidget):
 
 
 class Ui_searchResultsWidget(QtGui.QWidget):
-    def __init__(self, project, stype, info, parent=None):
+    def __init__(self, project, stype, info, customized_name=None, parent=None):
         super(self.__class__, self).__init__(parent=parent)
 
         self.setAttribute(QtCore.Qt.WA_DeleteOnClose)
@@ -2172,6 +2175,7 @@ class Ui_searchResultsWidget(QtGui.QWidget):
         self.stype = stype
         self.project = project
         self.created = False
+        self.customized_name = customized_name
 
         self.checkin_out_config = cfg_controls.get_checkin()
 
@@ -2530,6 +2534,9 @@ class Ui_searchResultsWidget(QtGui.QWidget):
     def get_search_line_text(self):
         return self.info.get('search_line_text')
 
+    def get_tab_name(self):
+        return self.customized_name
+
     def get_tab_title(self):
         return self.info['title']
 
@@ -2545,11 +2552,12 @@ class Ui_searchResultsWidget(QtGui.QWidget):
             tab_title = title
 
         tab_label = results_tab_widget.tabBar().tabButton(current_idx, QtGui.QTabBar.RightSide)
-        tab_label.close()
-        tab_label = gf.create_tab_label(tab_title)
-        tab_label.setParent(self)
-        tab_label.close_clicked.connect(search_widget.close_tab)
-        results_tab_widget.tabBar().setTabButton(current_idx, QtGui.QTabBar.RightSide, tab_label)
+        if tab_label:
+            tab_label.close()
+            tab_label = gf.create_tab_label(tab_title)
+            tab_label.setParent(self)
+            tab_label.close_clicked.connect(search_widget.close_tab)
+            results_tab_widget.tabBar().setTabButton(current_idx, QtGui.QTabBar.RightSide, tab_label)
 
     def get_filters(self):
         return self.info['filters']
@@ -2685,11 +2693,9 @@ class Ui_searchResultsWidget(QtGui.QWidget):
         self.resultsTreeWidget.clear()
         self.resultsVersionsTreeWidget.clear()
 
-        # self.progress_bar.setVisible(True)
-        # total_sobjects = len(self.sobjects.keys()) - 1
         tree_items_list = []
         tree_widgets_list = []
-        # s = gf.time_it()
+
         # Need to rewrite this for performance reasons
         for i, sobject in enumerate(self.sobjects.values()):
             last_state = None
@@ -2702,14 +2708,6 @@ class Ui_searchResultsWidget(QtGui.QWidget):
                 'children_states': last_state,
                 'simple_view': self.info.get('simple_view'),
             }
-            # gf.add_sobject_item(
-            #     self.resultsTreeWidget,
-            #     self,
-            #     sobject,
-            #     self.stype,
-            #     item_info,
-            #     ignore_dict=None,
-            # )
 
             tree_item, tree_widget = gf.get_sobject_item(
                 self,
@@ -2721,19 +2719,11 @@ class Ui_searchResultsWidget(QtGui.QWidget):
             tree_items_list.append(tree_item)
             tree_widgets_list.append(tree_widget)
 
-            # if total_sobjects:
-            #     if i+1 % 20 == 0:
-            #         self.progress_bar.setValue(int(i+1 * 100 / total_sobjects))
-
-        # gf.time_it(s)
-        # s = gf.time_it()
         self.resultsTreeWidget.addTopLevelItems(tree_items_list)
         for tree_item, tree_item_widget in zip(tree_items_list, tree_widgets_list):
             tree_item_widget.setParent(self.resultsTreeWidget)
             self.resultsTreeWidget.setItemWidget(tree_item, 0, tree_item_widget)
 
-        # print tree_items_list
-        # gf.time_it(s)
         self.set_items_count(int(self.query_info.get('total_sobjects_query_count')))
 
         if not self.info.get('simple_view'):
@@ -2748,8 +2738,6 @@ class Ui_searchResultsWidget(QtGui.QWidget):
                     self.info['refresh'] = None
 
                 self.info['state'] = None
-
-        # self.progress_bar.setVisible(False)
 
         self.bottom_navigataion_widget.init_navigation(self.query_info)
 
@@ -2867,7 +2855,10 @@ class Ui_searchResultsWidget(QtGui.QWidget):
         self.current_results_versions_tree_widget_item = tree_widget.itemWidget(tree_widget.currentItem(), 0)
 
     def get_current_checkin_out_widget(self):
-        return env_inst.get_check_tree(self.project.get_code(), 'checkin_out', self.stype.get_code())
+        if self.customized_name:
+            return env_inst.get_check_tree(self.project.get_code(), 'checkin_out', self.customized_name)
+        else:
+            return env_inst.get_check_tree(self.project.get_code(), 'checkin_out', self.stype.get_code())
 
     def get_current_tree_widget_item(self):
         if not self.current_tree_widget_item:

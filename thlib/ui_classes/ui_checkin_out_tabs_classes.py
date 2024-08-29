@@ -18,6 +18,7 @@ from thlib.ui_classes.ui_custom_qwidgets import Ui_extendedTabBarWidget, Ui_exte
 
 class Ui_tacticSidebarWidget(QtGui.QWidget):
     clicked = QtCore.Signal(object)
+
     def __init__(self, project, parent=None):
         super(self.__class__, self).__init__(parent=parent)
 
@@ -150,6 +151,7 @@ class Ui_tacticSidebarWidget(QtGui.QWidget):
                         project=self.project,
                         item_info=item_info,
                     )
+
                     self.tree_widget.resizeColumnToContents(0)
 
 
@@ -264,17 +266,18 @@ class Ui_checkInOutTabWidget(QtGui.QWidget):
     def middle_mouse_press(self, tab_pos):
         widget = self.stypes_tab_widget.widget(tab_pos)
         tab = self.get_stype_tab_by_widget(widget)
-        self.toggle_stype_tab(code=tab.stype.get_code(), hide=True)
+        self.toggle_stype_tab(code=tab.get_tab_name(), hide=True)
 
         # saving changes to config
         self.save_ignore_stypes_list()
 
     def tactic_sidebar_item_click(self, item_widget):
         if item_widget.get_type() == 'link':
-            self.toggle_stype_tab(code=item_widget.get_code(), hide=False)
-            self.raise_stype_tab(code=item_widget.get_code())
 
-            print(item_widget.get_filters())
+            self.toggle_stype_tab(code=item_widget.get_item_code(), hide=False)
+            self.raise_stype_tab(code=item_widget.get_item_code())
+
+            self.apply_search_filter(item_widget=item_widget)
 
             # saving changes to config
             self.save_ignore_stypes_list()  # it is holding state of opened stype-tabs
@@ -286,9 +289,24 @@ class Ui_checkInOutTabWidget(QtGui.QWidget):
                 return tab
 
     def get_stype_tab_by_code(self, code):
+
+        search_tab = None
+
         for tab in self.all_search_tabs:
-            if tab.get_tab_code() == code:
-                return tab
+            if tab.get_tab_name() == code:
+                if tab:
+                    search_tab = tab
+
+        if not search_tab:
+            stype_code, customized_name = code.split('@')
+            stype = self.project.stypes.get(stype_code)
+            tab = checkin_out.Ui_checkInOutWidget(stype, self.project, customized_name=code)
+            tab.setParent(self)
+            self.all_search_tabs.append(tab)
+
+            search_tab = tab
+
+        return search_tab
 
     def get_tree_item_by_code(self, code):
 
@@ -301,6 +319,49 @@ class Ui_checkInOutTabWidget(QtGui.QWidget):
                     if item_data.get('code') == code:
                         return child
 
+    def apply_search_filter(self, item_widget=None):
+
+        # getting definition of current tab
+        info = item_widget.get_info()
+        # print(info)
+        # print('filters', item_widget.get_filters())
+        gf.pp(item_widget.get_filters())
+
+        filters_list = item_widget.get_filters()
+
+        if filters_list:
+
+            # match_mode = filters_list[0]
+            filters = filters_list[1:-1]
+            # levels = filters_list[-1]
+
+            tab = self.get_stype_tab_by_code(item_widget.get_item_code())
+            search_widget = tab.get_search_widget()
+            print(search_widget)
+            search_widget.clear_tabs()
+            search_widget.set_multiple_tabs_state(False)
+
+            final_filters_list = []
+
+            for fltr in filters:
+
+                relation_name = fltr['main_body_relation']
+                if relation_name == 'expression':
+                    relation_name = fltr['main_body_op']
+                relation = tc.get_search_relation(relation_name)
+
+                column = fltr['main_body_column']
+                value = fltr['main_body_value']
+
+                filter_list = (column, relation, value)
+
+                final_filters_list.append(filter_list)
+
+            print(final_filters_list)
+
+            search_widget.add_tab(search_title=info.get('title'), filters=final_filters_list)
+
+
     def raise_stype_tab(self, code=None, tab=None):
 
         if code:
@@ -309,7 +370,7 @@ class Ui_checkInOutTabWidget(QtGui.QWidget):
             idx = self.stypes_tab_widget.indexOf(tab)
             self.stypes_tab_widget.setCurrentIndex(idx)
 
-    def toggle_stype_tab(self, code=None, tab=None, hide=False):
+    def toggle_stype_tab(self, code=None, tab=None, name=None, hide=False):
 
         if code:
             tab = self.get_stype_tab_by_code(code)
@@ -326,6 +387,10 @@ class Ui_checkInOutTabWidget(QtGui.QWidget):
 
                     self.set_opened_stypes_tabs_list(code, store=True)
                     self.stypes_tab_widget.tabBar().setTabButton(self.stypes_tab_widget.count()-1, QtGui.QTabBar.LeftSide, tab.get_tab_label())
+
+        if name:
+            print(self.all_search_tabs)
+            print('Getting TAB BY NAME', name)
 
     def apply_current_view_to_all(self):
         current_settings = None
@@ -360,16 +425,16 @@ class Ui_checkInOutTabWidget(QtGui.QWidget):
         self.tactic_sidebar_widget.initial_fill()
 
     def get_opened_stypes_tabs_list(self):
-        ignore_tabs_list = []
+        tabs_list = []
         if self.checkin_out_config and self.checkin_out_config_projects and self.checkin_out_config_projects.get(self.project.get_code()):
             if not gf.get_value_from_config(self.checkin_out_config, 'processTabsFilterGroupBox'):
-                ignore_tabs_list = []
+                tabs_list = []
             else:
-                ignore_tabs_list = self.checkin_out_config_projects[self.project.get_code()]['stypes_list']
-                if not ignore_tabs_list:
-                    ignore_tabs_list = []
+                tabs_list = self.checkin_out_config_projects[self.project.get_code()]['stypes_list']
+                if not tabs_list:
+                    tabs_list = []
 
-        return ignore_tabs_list
+        return tabs_list
 
     def set_opened_stypes_tabs_list(self, stype_code, store=True):
 
@@ -417,21 +482,26 @@ class Ui_checkInOutTabWidget(QtGui.QWidget):
 
         opened_tabs_list = self.get_opened_stypes_tabs_list()
 
+        # we're creating all Stype Widgets, so we can access them if we need in all_search_tabs
+        for tab in opened_tabs_list:
+            stype_code = tab.split('@')[0]
+            tab_widget = checkin_out.Ui_checkInOutWidget(self.project.stypes.get(stype_code), self.project, customized_name=tab)
+            tab_widget.setParent(self)
+            self.all_search_tabs.append(tab_widget)
+
+            self.stypes_tab_widget.add_tab(tab_widget, tab_widget.get_tab_label())
+
+        # create default stype tabs, just for technical purpose, like check-in files, etc.
         stypes_list = list(self.project.stypes.values())
 
         sthpw_stypes = env_inst.get_stypes()
         if sthpw_stypes:
             stypes_list.extend(list(sthpw_stypes.values()))
 
-        # we creating all Stype Widgets, so we can access them if we need in all_search_tabs
         for stype in stypes_list:
             tab = checkin_out.Ui_checkInOutWidget(stype, self.project)
             tab.setParent(self)
             self.all_search_tabs.append(tab)
-
-            # but only adding currenly visible tabs
-            if tab.stype.get_code() in opened_tabs_list:
-                self.stypes_tab_widget.add_tab(tab, tab.get_tab_label())
 
         self.stypes_tab_widget.setCurrentIndex(self.current_tab_idx)
 

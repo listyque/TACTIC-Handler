@@ -469,14 +469,15 @@ class QTacticSelectWdg(QtGui.QWidget, QTacticBasicInputWdg):
 
 
 class QTacticSimpleUploadWdg(QtGui.QWidget, QTacticBasicInputWdg):
-    def __init__(self, tactic_widget, parent=None):
+    def __init__(self, tactic_widget, tab_name=None, parent=None):
         super(self.__class__, self).__init__(parent=parent)
 
         self.init_ui()
 
         self.parent_ui = parent
-
         self.tactic_widget = tactic_widget
+        self.tab_name = tab_name
+
         self.links_to_upload_list = set()
         self.screenshots_to_upload_list = []
 
@@ -636,7 +637,7 @@ class QTacticSimpleUploadWdg(QtGui.QWidget, QTacticBasicInputWdg):
     def checkin_icon_file(self, search_key):
         stype = self.tactic_widget.get_stype()
 
-        checkin_widget = env_inst.get_check_tree(tab_code='checkin_out', wdg_code=stype.info.get('code'))
+        checkin_widget = env_inst.get_check_tree(tab_code='checkin_out', wdg_code=self.get_tab_name())
 
         files_list = self.get_upload_list()
 
@@ -653,6 +654,9 @@ class QTacticSimpleUploadWdg(QtGui.QWidget, QTacticBasicInputWdg):
                 commit_queue_ui.commit_queue()
 
         return files_list
+
+    def get_tab_name(self):
+        return self.tab_name
 
     def dragEnterEvent(self, event):
         if event.mimeData().hasUrls:

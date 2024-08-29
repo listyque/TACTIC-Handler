@@ -1,0 +1,147 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<root>
+    <language name="Number">
+        <name begin_pattern="(\b(0b|0x){0,1}[\d.']+\b)"></name>
+    </language>
+    <language name="Parentheses">
+        <name begin_pattern=":"></name>
+        <name begin_pattern="{" end_pattern="}"></name>
+        <name begin_pattern="\[" end_pattern="\]"></name>
+        <name begin_pattern="\(" end_pattern="\)"></name>
+        <name begin_pattern="&quot;" end_pattern="&quot;"></name>
+        <name begin_pattern="&apos;" end_pattern="&apos;"></name>
+    </language>
+    <language name="Comment">
+        <name begin_pattern="#[^\n]*"></name>
+        <name>#</name>
+    </language>
+    <language name="String">
+        <name begin_pattern="&apos;&apos;&apos;" end_pattern="&apos;&apos;&apos;"></name>
+        <name begin_pattern="&quot;&quot;&quot;" end_pattern="&quot;&quot;&quot;"></name>
+        <name begin_pattern="&quot;[^&quot;\\]*(\\.[^&quot;\\]*)*&quot;" ignore_pattern="&quot;&quot;&quot;"></name>
+        <name begin_pattern="&apos;[^&apos;\\]*(\\.[^&apos;\\]*)*&apos;" ignore_pattern="&apos;&apos;&apos;"></name>
+    </language>
+    <language name="Include">
+        <name begin_pattern="(import) ([A-z_0-9\.]+)">import</name>
+        <name begin_pattern="(from) ([A-z_0-9\.]+)">from</name>
+    </language>
+    <language name="Definition">
+        <name begin_pattern="(def) ([A-z_0-9]+)">import</name>
+        <name begin_pattern="(class) ([A-z_0-9]+)">from</name>
+    </language>
+    <language name="Global">
+        <name>global</name>
+    </language>
+    <language name="Keyword">
+        <name>break</name>
+        <name>continue</name>
+        <name>pass</name>
+        <name>do</name>
+        <name>for</name>
+        <name>while</name>
+        <name>if</name>
+        <name>elif</name>
+        <name>else</name>
+        <name>def</name>
+        <name>from</name>
+        <name>import</name>
+        <name>class</name>
+        <name>return</name>
+        <name>in</name>
+        <name>is</name>
+        <name>not</name>
+        <name>or</name>
+        <name>and</name>
+        <name>enumerate</name>
+    </language>
+    <language name="Function">
+        <name>min</name>
+        <name>max</name>
+        <name>len</name>
+    </language>
+    <language name="Type">
+        <name>self</name>
+    </language>
+    <language name="PrimitiveType">
+        <name>float</name>
+        <name>int</name>
+        <name>bool</name>
+        <name>True</name>
+        <name>False</name>
+        <name>str</name>
+        <name>unicode</name>
+        <name>byte</name>
+        <name>set</name>
+        <name>dict</name>
+        <name>list</name>
+        <name>tuple</name>
+    </language>
+    <style-scheme version="1.0" name="Default">
+        <style name="Text" foreground="#000000" background="#ffffff"/>
+        <style name="Link" foreground="#0000ff"/>
+        <style name="Selection" foreground="#eff0f1" background="#3daee9"/>
+        <style name="SelectionSearch" foreground="#ffef0b" background="#e3801e"/>
+        <style name="LineNumber" foreground="#6272a4"/>
+        <style name="SearchResult" background="#ffef0b"/>
+        <style name="SearchScope" background="#2d5c76"/>
+        <style name="Parentheses" foreground="#ff0000" background="#b4eeb4"/>
+        <style name="ParenthesesMismatch" background="#ff00ff"/>
+        <style name="AutoComplete" foreground="#000080" background="#c0c0ff"/>
+        <style name="CurrentLine" background="#eeeeee"/>
+        <style name="CurrentLineNumber" foreground="#808080" bold="true"/>
+        <style name="Occurrences" background="#b4b4b4"/>
+        <style name="Occurrences.Unused" underlineColor="#808000" underlineStyle="SingleUnderline"/>
+        <style name="Occurrences.Rename" background="#ff6464"/>
+        <style name="Include" foreground="#3f403b"/>
+        <style name="Definition" foreground="#7c4800"/>
+        <style name="Number" foreground="#000080"/>
+        <style name="String" foreground="#008000"/>
+        <style name="Type" foreground="#800080"/>
+        <style name="Local" foreground="#092e64"/>
+        <style name="Global" foreground="#ce5c00"/>
+        <style name="Field" foreground="#800000"/>
+        <style name="Static" foreground="#800080"/>
+        <style name="VirtualMethod" foreground="#00677c" background="#ffffff" italic="true"/>
+        <style name="Function" foreground="#00677c" background="#ffffff"/>
+        <style name="Keyword" foreground="#808000"/>
+        <style name="PrimitiveType" foreground="#808000"/>
+        <style name="Operator"/>
+        <style name="Overloaded Operator"/>
+        <style name="Preprocessor" foreground="#000080"/>
+        <style name="Label" foreground="#800000"/>
+        <style name="Comment" foreground="#008000"/>
+        <style name="Doxygen.Comment" foreground="#000080"/>
+        <style name="Doxygen.Tag" foreground="#0000ff"/>
+        <style name="VisualWhitespace" foreground="#c0c0c0"/>
+        <style name="QmlLocalId" foreground="#000000" background="#ffffff" italic="true"/>
+        <style name="QmlExternalId" foreground="#000080" background="#ffffff" italic="true"/>
+        <style name="QmlTypeId" foreground="#800080"/>
+        <style name="QmlRootObjectProperty" foreground="#000000" background="#ffffff" italic="true"/>
+        <style name="QmlScopeObjectProperty" foreground="#000000" background="#ffffff" italic="true"/>
+        <style name="QmlExternalObjectProperty" foreground="#000080" background="#ffffff" italic="true"/>
+        <style name="JsScopeVar" foreground="#2985c7" background="#ffffff" italic="true"/>
+        <style name="JsImportVar" foreground="#0055af" background="#ffffff" italic="true"/>
+        <style name="JsGlobalVar" foreground="#0055af" background="#ffffff" italic="true"/>
+        <style name="QmlStateName" foreground="#000000" background="#ffffff" italic="true"/>
+        <style name="Binding" foreground="#800000"/>
+        <style name="DisabledCode" background="#efefef"/>
+        <style name="AddedLine" foreground="#00aa00"/>
+        <style name="RemovedLine" foreground="#ff0000"/>
+        <style name="DiffFile" foreground="#000080"/>
+        <style name="DiffLocation" foreground="#0000ff"/>
+        <style name="DiffFileLine" background="#ffff00"/>
+        <style name="DiffContextLine" background="#afd7e7"/>
+        <style name="DiffSourceLine" background="#ffdfdf"/>
+        <style name="DiffSourceChar" background="#ffafaf"/>
+        <style name="DiffDestLine" background="#dfffdf"/>
+        <style name="DiffDestChar" background="#afffaf"/>
+        <style name="LogChangeLine" foreground="#c00000"/>
+        <style name="Warning" underlineColor="#ffbe00" underlineStyle="SingleUnderline"/>
+        <style name="WarningContext" underlineColor="#ffbe00" underlineStyle="DotLine"/>
+        <style name="Error" underlineColor="#ff0000" underlineStyle="SingleUnderline"/>
+        <style name="ErrorContext" underlineColor="#ff0000" underlineStyle="DotLine"/>
+        <style name="Declaration" bold="true"/>
+        <style name="FunctionDefinition"/>
+        <style name="OutputArgument" italic="true"/>
+    </style-scheme>
+</root>

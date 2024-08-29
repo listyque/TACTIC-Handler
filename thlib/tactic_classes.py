@@ -207,6 +207,86 @@ def server_fast_ping():
         return 'ping_fail'
 
 
+def get_match_list_by_type(column_type):
+    match_list = [
+        ('Is', '='),
+        ('Is not', '!='),
+        ('Contains', 'EQI'),
+        ('Does not contain', 'NEQI'),
+        ('Is empty', None),
+        ('Is not empty', 'like'),
+        ('Starts with', 'like'),
+        ('Ends with', 'like'),
+        ('Does not starts with', 'not like'),
+        ('Does not end with', 'not like'),
+        ('In', 'in'),
+        ('Not in', 'not in'),
+        ('Is distinct', ''),
+    ]
+
+    if column_type == 'boolean':
+        match_list = [
+            ('Is', '='),
+            ('Is not', '!='),
+            ('Is empty', None),
+            ('Is not empty', None),
+        ]
+    elif column_type in ['integer', 'float', 'currency']:
+        match_list = [
+            ('is equal to', ''),
+            ('is greater than', ''),
+            ('is less than', ''),
+            ('in', 'in'),
+            ('not in', 'not in'),
+            ('is empty', None),
+            ('is not empty', ''),
+            ('is distinct', ''),
+        ]
+    elif column_type in ['time', 'timestamp', 'datetime2']:
+        match_list = [
+            ('is newer than', ''),
+            ('is older than', ''),
+            ('is on', ''),
+            ('is empty', None),
+            ('is not empty', ''),
+        ]
+    elif column_type in ['login']:
+        match_list = [
+            ('is', '='),
+            ('is not', '!='),
+            ('contains', 'EQI'),
+            ('does not contain', 'NEQI'),
+            ('is empty', None),
+            ('is not empty', ''),
+            ('starts with', ''),
+            ('ends with', ''),
+        ]
+    elif column_type in ['_expression']:
+        match_list = [
+            ('Have', 'in'),
+            ('Do not have', 'not in'),
+            # ('Match (slow)', 'match'),
+            # ('Do not match (slow)', 'do not match'),
+        ]
+    elif column_type in ['timecode']:
+        match_list = [
+            ('is timecode before', '<='),
+            ('is timecode after', '>='),
+            ('is timecode equal', '='),
+            ('is empty', None),
+        ]
+
+    return match_list
+
+
+def get_search_relation(relation):
+
+    possible_relations = get_match_list_by_type('all')
+    for possible_relation in possible_relations:
+        if possible_relation[0].lower() == relation.lower():
+            return possible_relation[1]
+
+
 def split_search_key(search_key):
 
     server = server_start()
@@ -579,7 +659,6 @@ class SObject(object):
                 'include_dependencies': include_dependencies,
                 'list_dependencies': dependencies_dict,
             }
-
             return execute_procedure_serverside(tq.delete_sobjects, kwargs)
         else:
             return False
@@ -1274,8 +1353,11 @@ class Pipeline(object):
         process_info = self.get_process_info(process)
         if process_info:
             process_label = process_info.get('label')
+            process_name = process_info.get('name')
             if process_label:
                 return process_label
+            elif process_name:
+                return process_name
             else:
                 return process.capitalize()
         else:
@@ -2147,6 +2229,25 @@ def get_subscriptions_and_messages(current_login='admin', update_logins=False):
     return execute_procedure_serverside(tq.get_subscriptions_and_messages, kwargs)
 
 
+def duplicate_sobjects(search_keys, data_dict):
+    """
+    Deletes bunch of sobjects
+    !!! SEARCH KEYS MUST BE SAME SEARCH TYPE !!!
+    :param search_keys: ['sthpw/snapshot?code=SNAPSHOT000000']
+    :param data_dict: {'search_types': [u'sthpw/snapshot', 'sthpw/notes', 'sthps/file'], 'new_name': 'name'}
+    :return: deleted sobjects dict
+    """
+
+    kwargs = {
+        'search_keys': search_keys,
+        'data_dict': data_dict,
+    }
+
+    print('Begin duplicating')
+
+    return execute_procedure_serverside(tq.duplicate_sobjects, kwargs)
+
+
 def delete_sobjects(search_keys, list_dependencies):
     """
     Deletes bunch of sobjects
@@ -2611,6 +2712,73 @@ def snapshot_delete_confirm(snapshot, files):
         return True, files_filtered_search_keys, files_filtered_file_paths, delete_snapshot_checkbox.isChecked()
     else:
         return False, None
+
+
+def sobject_duplicate_confirm(sobjects):
+
+    multiple_delete = False
+    if isinstance(sobjects, list):
+        if len(sobjects) > 1:
+            multiple_delete = True
+        else:
+            multiple_delete = False
+    else:
+        sobjects = [sobjects]
+
+    if multiple_delete:
+        sobjects_list = []
+        for i, sobject in enumerate(sobjects):
+            if i > 15:
+                sobjects_list.append(u'and <b>{0}</b> more sobjects'.format(len(sobjects) - i))
+                break
+
+            sobjects_list.append(u'<b>{0}</b>'.format(sobject.get_title()))
+
+        msb = QtGui.QMessageBox(QtGui.QMessageBox.Question, 'Confirm Deleting',
+                                u'<p>Do you really want to delete:<br><b>{0}</b> ?</p><p>Also remove dependencies?</p>'.format(u'<br>'.join(sobjects_list)),
+                                QtGui.QMessageBox.NoButton, env_inst.ui_main)
+    else:
+        msb = QtGui.QMessageBox(QtGui.QMessageBox.Question, 'Duplicate {0} Options'.format(sobjects[0].get_title()),
+                                u'<p>Do you really want to duplicate <b>{0}?</b></p><p>Select dependencies that also should be kept with it.</p>'.format(
+                                    sobjects[0].get_title()),
+                                QtGui.QMessageBox.NoButton, env_inst.ui_main)
+
+    msb.addButton("Duplicate", QtGui.QMessageBox.YesRole)
+    msb.addButton("Cancel", QtGui.QMessageBox.NoRole)
+
+    layout = QtGui.QVBoxLayout()
+
+    widget = QtGui.QWidget()
+    widget.setLayout(layout)
+
+    msb_layot = msb.layout()
+
+    # workaround for pyside2
+    wdg_list = []
+
+    for i in range(msb_layot.count()):
+        wdg = msb_layot.itemAt(i).widget()
+        if wdg:
+            wdg_list.append(wdg)
+
+    msb_layot.addWidget(wdg_list[0], 0, 0)
+    msb_layot.addWidget(wdg_list[1], 0, 1)
+    msb_layot.addWidget(wdg_list[2], 2, 1)
+    msb_layot.addWidget(widget, 1, 1)
+
+    from thlib.ui_classes.ui_duplicate_sobject_classes import duplicateSobjectWidget
+
+    duplicate_sobj_widget = duplicateSobjectWidget(sobjects=sobjects)
+
+    layout.addWidget(duplicate_sobj_widget)
+
+    msb.exec_()
+    reply = msb.buttonRole(msb.clickedButton())
+
+    if reply == QtGui.QMessageBox.YesRole:
+        return duplicate_sobj_widget.get_data_dict()
+    else:
+        return None
 
 
 def get_dirs_with_naming(search_key, process_list=None):

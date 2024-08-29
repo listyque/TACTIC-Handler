@@ -144,7 +144,7 @@ class Ui_checkInOutOptionsWidget(QtGui.QWidget, ui_checkin_out_options_dialog.Ui
 
 
 class Ui_checkInOutWidget(QtGui.QMainWindow):
-    def __init__(self, stype, project, parent=None):
+    def __init__(self, stype, project, customized_name=None, parent=None):
         super(self.__class__, self).__init__(parent=parent)
 
         self.is_created = False
@@ -153,6 +153,8 @@ class Ui_checkInOutWidget(QtGui.QMainWindow):
 
         self.stype = stype
         self.project = project
+
+        self.customized_name = customized_name
 
         self.notes_dock = None
         self.tasks_dock = None
@@ -165,7 +167,10 @@ class Ui_checkInOutWidget(QtGui.QMainWindow):
 
         self.relates_to = 'checkin_out'
 
-        env_inst.set_check_tree(self.project.get_code(), 'checkin_out', self.stype.get_code(), self)
+        if self.customized_name:
+            env_inst.set_check_tree(self.project.get_code(), 'checkin_out', self.customized_name, self)
+        else:
+            env_inst.set_check_tree(self.project.get_code(), 'checkin_out', self.stype.get_code(), self)
 
         self.status_bar = QtGui.QStatusBar(self)
         self.status_bar.setStyleSheet('QStatusBar {background: transparent;}')
@@ -173,20 +178,25 @@ class Ui_checkInOutWidget(QtGui.QMainWindow):
         self.setStatusBar(self.status_bar)
 
     def get_tab_label(self):
-        return Ui_stypeIconWidget(parent=self, stype=self.stype)
+        return Ui_stypeIconWidget(parent=self, sidebar_name=self.customized_name, stype=self.stype)
 
-    def get_tab_code(self):
-        return self.stype.get_code()
+    def get_tab_name(self):
+        if self.customized_name:
+            return self.customized_name
+        else:
+            return self.stype.get_code()
 
     def do_creating_ui(self):
         if not self.is_created:
             self.create_ui()
 
     def create_ui(self):
-
-        dl.log('Creating Checkin / Checkout UI', group_id=self.stype.get_code())
-
-        self.setObjectName(self.stype.get_code())
+        if self.customized_name:
+            dl.log('Creating Checkin / Checkout UI', group_id=self.customized_name)
+            self.setObjectName(self.customized_name)
+        else:
+            dl.log('Creating Checkin / Checkout UI', group_id=self.stype.get_code())
+            self.setObjectName(self.stype.get_code())
 
         self.create_search_widget()
 
@@ -275,7 +285,7 @@ class Ui_checkInOutWidget(QtGui.QMainWindow):
     @gf.catch_error
     def create_search_widget(self):
         dl.log('Creating Search Widget', group_id=self.stype.get_code())
-        self.search_widget = ui_search_classes.Ui_searchWidget(stype=self.stype, project=self.project, parent=self)
+        self.search_widget = ui_search_classes.Ui_searchWidget(stype=self.stype, project=self.project, customized_name=self.customized_name, parent=self)
 
         self.setCentralWidget(self.search_widget)
 
@@ -376,9 +386,9 @@ class Ui_checkInOutWidget(QtGui.QMainWindow):
         self.advanced_search_widget = ui_search_classes.Ui_advancedSearchWidget(
             stype=self.stype,
             project=self.project,
+            tab_name=self.get_tab_name(),
             parent=self
         )
-
         self.search_widget.searchFiltersVerticalLayout.addWidget(self.advanced_search_widget)
 
     @gf.catch_error
@@ -539,6 +549,10 @@ class Ui_checkInOutWidget(QtGui.QMainWindow):
         change_preview.setIcon(gf.get_icon('image', icons_set='mdi', scale_factor=1))
         change_preview.triggered.connect(self.change_preview)
 
+        duplicate_sobject = QtGui.QAction('Duplicate', self)
+        duplicate_sobject.setIcon(gf.get_icon('plus-circle-multiple-outline', icons_set='mdi', scale_factor=1))
+        duplicate_sobject.triggered.connect(self.duplicate_sobject)
+
         paste_snapshot_from_clipboard = QtGui.QAction('Save from Clipboard', self)
         paste_snapshot_from_clipboard.setIcon(gf.get_icon('content-paste', icons_set='mdi', scale_factor=1))
         paste_snapshot_from_clipboard.triggered.connect(self.paste_from_clipboard)
@@ -577,7 +591,6 @@ class Ui_checkInOutWidget(QtGui.QMainWindow):
 
         create_watch_folder = QtGui.QAction('Create Watch Folder', self)
         create_watch_folder.setIcon(gf.get_icon('eye'))
-
         create_watch_folder.triggered.connect(self.create_watch_folder)
 
         edit_watch_folder = QtGui.QAction('Edit Watch Folder', self)
@@ -677,6 +690,7 @@ class Ui_checkInOutWidget(QtGui.QMainWindow):
                     save_snapshot_additional.clicked.connect(self.save_file_options)
 
                 menu.addSeparator()
+                menu.addAction(duplicate_sobject)
                 menu.addAction(change_preview)
 
                 menu.addAction(paste_snapshot_from_clipboard)
@@ -1115,7 +1129,6 @@ class Ui_checkInOutWidget(QtGui.QMainWindow):
                 file_path = gf.form_path(
                     '{0}/{1}/{2}'.format(asset_dir, main_file['relative_dir'], main_file['file_name']))
 
-                # print file_path
                 split_path = main_file['relative_dir'].split('/')
                 dir_path = gf.form_path('{0}/{1}'.format(asset_dir, '{0}/{1}/{2}'.format(*split_path)))
                 all_process = current_tree_widget_item.sobject.all_process
@@ -1124,7 +1137,7 @@ class Ui_checkInOutWidget(QtGui.QMainWindow):
 
     @gf.catch_error
     def create_sync_dialog(self):
-        sync_dialog = Ui_repoSyncDialog(parent=env_inst.ui_main, stype=self.stype, sobject=None)
+        sync_dialog = Ui_repoSyncDialog(parent=env_inst.ui_main, stype=self.stype, sobject=None, tab_name=self.get_tab_name())
         sync_dialog.exec_()
 
     @gf.catch_error
@@ -1691,6 +1704,28 @@ class Ui_checkInOutWidget(QtGui.QMainWindow):
             pass
             # files_names = set(files_names.split('\n'))
             # self.threads_fill_items(files_names, exec_after_added)
+    @gf.catch_error
+    def duplicate_sobject(self):
+        current_results_widget = self.get_current_results_widget()
+        current_tree_widget_item = current_results_widget.get_current_tree_widget_item()
+        current_tree_widget = current_tree_widget_item.get_current_tree_widget()
+
+        sobjects_list = []
+        search_keys_list = []
+        for item in current_tree_widget.selectedItems():
+            item_wdg = current_tree_widget.itemWidget(item, 0)
+            sobject = item_wdg.get_sobject()
+
+            sobjects_list.append(sobject)
+            search_keys_list.append(sobject.get_search_key())
+
+        dup_confirm = tc.sobject_duplicate_confirm(sobjects_list)
+
+        if dup_confirm:
+            print(dup_confirm)
+            print(search_keys_list)
+            tc.duplicate_sobjects(search_keys_list, dup_confirm)
+            self.refresh_current_results()
 
     def change_preview(self):
 
@@ -1854,12 +1889,13 @@ class Ui_checkInOutWidget(QtGui.QMainWindow):
         """
         Open window for adding new sobject
         """
-        add_sobject = ui_addsobject_classes.Ui_addTacticSobjectWidget(stype=self.stype, parent=self)
+
+        add_sobject = ui_addsobject_classes.Ui_addTacticSobjectWidget(stype=self.stype, tab_name=self.get_tab_name(), parent=self)
 
         dl.log('Adding new SObject to {}'.format(self.stype.get_pretty_name()), group_id=self.stype.get_code())
 
         runtime_command = 'thenv.env_inst.get_check_tree("{0}", "{1}", "{2}").add_new_sobject()'.format(
-            self.project.get_code(), 'checkin_out', self.stype.get_code())
+            self.project.get_code(), 'checkin_out', self.get_tab_name())
         dl.info(runtime_command, group_id=self.stype.get_code())
 
         add_sobject.exec_()
@@ -1943,6 +1979,7 @@ class Ui_checkInOutWidget(QtGui.QMainWindow):
             stype=stype,
             parent_stype=self.stype,
             item=current_tree_widget_item,
+            tab_name=self.get_tab_name(),
             view='edit',
             parent=self,
         )
@@ -2021,11 +2058,13 @@ class Ui_checkInOutWidget(QtGui.QMainWindow):
 
     def readSettings(self):
 
-        tab_name = self.objectName().split('/')
+        # tab_name = self.objectName().split('/')
+
         group_path = 'ui_search/{0}/{1}/{2}'.format(
             self.project.info['type'],
             self.project.get_code(),
-            tab_name[1]
+            self.get_tab_name()
+            # tab_name[1]
         )
         self.set_settings_from_dict(
             env_read_config(
@@ -2040,7 +2079,8 @@ class Ui_checkInOutWidget(QtGui.QMainWindow):
         group_path = 'ui_search/{0}/{1}/{2}'.format(
             self.project.info['type'],
             self.project.get_code(),
-            self.stype.get_code().split('/')[1]
+            self.get_tab_name()
+            # self.stype.get_code().split('/')[1]
         )
 
         env_write_config(

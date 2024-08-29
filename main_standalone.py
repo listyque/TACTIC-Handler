@@ -6,6 +6,7 @@ from thlib.side.Qt import QtWidgets as QtGui
 from thlib.side.Qt import QtGui as Qt4Gui
 from thlib.side.Qt import QtCore
 
+
 from thlib.environment import env_mode, env_inst
 
 import thlib.global_functions as gf
@@ -96,11 +97,12 @@ def create_ui(error_tuple=None):
 
 @gf.catch_error
 def startup():
-    QtGui.QApplication.setAttribute(QtCore.Qt.AA_UseOpenGLES)
     QtGui.QApplication.setAttribute(QtCore.Qt.AA_EnableHighDpiScaling)
     QtGui.QApplication.setAttribute(QtCore.Qt.AA_UseHighDpiPixmaps)
+
     env_inst.ui_super = QtGui.QApplication(sys.argv)
     env_inst.ui_super.setApplicationName('TacticHandler_Client')
+
     if env_mode.qt5:
         env_inst.ui_super.setStyle('fusion')
     else:

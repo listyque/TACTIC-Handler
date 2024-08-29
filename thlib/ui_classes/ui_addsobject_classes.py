@@ -76,10 +76,12 @@ class Ui_linkSobjectsWidget(QtGui.QDialog):
 
     def save_instances_state(self):
         instance_type = self.item.child.get('instance_type')
+        # print(instance_type)
 
         # getting path
         path = None
         schema = self.stype.get_schema()
+        # print(self.stype)
 
         parent = schema.get_parent_instance(instance_type, self.stype.get_code())
         if parent:
@@ -379,9 +381,11 @@ class Ui_linkSobjectsWidget(QtGui.QDialog):
         else:
             self.loading_label.setVisible(True)
 
-    def refresh_search_widget(self):
+    def get_tab_name(self):
+        return self.item.search_widget.get_tab_name()
 
-        checkin_out = env_inst.get_check_tree(self.parent_stype.get_project().get_code(), 'checkin_out', self.parent_stype.get_code())
+    def refresh_search_widget(self):
+        checkin_out = env_inst.get_check_tree(self.parent_stype.get_project().get_code(), 'checkin_out', self.get_tab_name())
 
         if checkin_out:
             checkin_out.refresh_current_results()
@@ -440,7 +444,7 @@ class Ui_linkSobjectsWidget(QtGui.QDialog):
 
 
 class Ui_addTacticSobjectWidget(QtGui.QDialog):
-    def __init__(self, stype, parent_stype=None, item=None, view='insert', search_key=None, parent_search_key=None, parent_sobject=None, info_dict=None, parent=None):
+    def __init__(self, stype, parent_stype=None, item=None, tab_name=None, view='insert', search_key=None, parent_search_key=None, parent_sobject=None, info_dict=None, parent=None):
         super(self.__class__, self).__init__(parent=parent)
 
         self.item = item
@@ -449,6 +453,9 @@ class Ui_addTacticSobjectWidget(QtGui.QDialog):
         self.search_type = self.stype.info.get('code')
         self.parent_sobject = parent_sobject
         self.info_dict = info_dict
+
+        self.tab_name = tab_name
+        print('TAB NAME!!!', self.tab_name)
 
         self.view = view
 
@@ -629,6 +636,12 @@ class Ui_addTacticSobjectWidget(QtGui.QDialog):
 
         self.setWindowTitle('Adding new SObject {0} ({1})'.format(title, stype_code))
 
+    def get_tab_name(self):
+        if self.tab_name:
+            return self.tab_name
+        else:
+            return self.stype.get_code()
+
     def add_new_tab(self, sobject):
         checkin_out_tab = self.get_checkin_out_tab()
         search_widget = checkin_out_tab.get_search_widget()
@@ -650,13 +663,18 @@ class Ui_addTacticSobjectWidget(QtGui.QDialog):
         if not stype:
             stype = self.stype
 
+        print(self.get_tab_name())
+        print(stype)
+
         return env_inst.get_check_tree(
             project_code=stype.project.info.get('code'),
             tab_code='checkin_out',
-            wdg_code=stype.info.get('code'))
+            wdg_code=self.get_tab_name())
 
     def refresh_results(self):
         checkin_out_tab = self.get_checkin_out_tab()
+        print(checkin_out_tab.customized_name)
+        gf.pp(checkin_out_tab)
         checkin_out_tab.refresh_current_results()
         # tree_wdg = checkin_out_tab.get_current_tree_widget()
         #

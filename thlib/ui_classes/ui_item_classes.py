@@ -24,12 +24,13 @@ import thlib.ui_classes.ui_addsobject_classes as ui_addsobject_classes
 
 
 class Ui_stypeIconWidget(QtGui.QWidget):
-    def __init__(self, stype=None, parent=None):
+    def __init__(self, stype=None, sidebar_name=None, parent=None):
         super(self.__class__, self).__init__(parent=parent)
 
         self.create_ui_raw()
 
         self.stype = stype
+        self.sidebar_name = sidebar_name
 
         self.tree_item = None
 
@@ -115,9 +116,46 @@ class Ui_stypeIconWidget(QtGui.QWidget):
         event.accept()
 
     def fill_sobject_info(self):
-        self.fileNameLabel.setText(self.stype.get_pretty_name())
-        # text_height = self.fileNameLabel.sizeHint().height()
-        # self.setMinimumHeight(self.height() + text_height)
+
+        if len(self.sidebar_name.split('@')) > 1:
+            stype, tab_name = self.sidebar_name.split('@')
+        else:
+            tab_name = self.sidebar_name
+
+        tab_pretty_name = self.stype.get_pretty_name()
+        sidebar = self.project.get_config_views()
+
+        if sidebar.has_definition():
+
+            project_definition = sidebar.get_view('SideBarWdg')
+            # making sure if there is *special TH* definition
+            tactic_handler_definition = sidebar.get_view('SideBarWdg', 'tactic_handler')
+
+            if not tactic_handler_definition:
+                tactic_handler_definition = sidebar.get_view('SideBarWdg', 'project_view')
+
+            tactic_handler_sidebar = []
+            for th_def in tactic_handler_definition:
+                th_def_name = th_def['name']
+                for prj_def in project_definition:
+                    if prj_def['name'] == th_def_name:
+                        tactic_handler_sidebar.append(prj_def)
+
+            for sidebar_item in tactic_handler_sidebar:
+
+                if sidebar_item.view:
+                    view_definition = sidebar.get_view('SideBarWdg', sidebar_item.view.string)
+
+                    for sub_def in view_definition:
+                        sub_def_name = sub_def['name']
+
+                        for sub_prj_def in project_definition:
+                            if sub_prj_def['name'] == sub_def_name:
+                                if tab_name == sub_prj_def['name']:
+                                    tab_pretty_name = sub_prj_def['title']
+
+
+        self.fileNameLabel.setText(tab_pretty_name)
 
         stype_color = None
         if self.stype:
@@ -126,7 +164,7 @@ class Ui_stypeIconWidget(QtGui.QWidget):
             stype_color = 'rgba(255,255,255,128)'
 
         self.previewLabel.setText(u'<span style=" font-size:9pt; font-weight:600; color:{0};">{1}</span>'.format(
-            stype_color, gf.gen_acronym(self.stype.get_pretty_name())))
+            stype_color, gf.gen_acronym(tab_pretty_name)))
 
         self.itemColorLine.setStyleSheet('QFrame { border: 0px; background-color: %s;}' % stype_color)
 
@@ -211,12 +249,34 @@ class Ui_sidebarItemWidget(QtGui.QWidget):
         self.item_info = item_info
         self.tree_item = tree_item
         self.shown = False
+        self.customized = False
         self.item_type = 'link'
+
+        self.set_customized()
 
         self.create_ui()
 
     def get_type(self):
         return self.item_type
+
+    def get_name(self):
+        return self.item_info.get('name')
+
+    def set_customized(self):
+        if self.get_name():
+            self.customized = True
+        else:
+            self.customized = False
+
+    def get_customized(self):
+        if self.customized:
+            return '{0}@{1}'.format(self.get_code(), self.get_name())
+
+    def get_item_code(self):
+        if self.customized:
+            return self.get_customized()
+        else:
+            return self.get_code()
 
     def get_code(self):
         return self.stype.get_code()
@@ -484,8 +544,6 @@ class Ui_sidebarItemWidget(QtGui.QWidget):
             self.item_title_label.setText(self.item_info['title'])
             self.tree_item.setFlags(QtCore.Qt.ItemIsEnabled)
             sidebar_item = self.item_info['item']
-            # print sidebar_item
-            # print sidebar_item.get('state')
             if sidebar_item.get('state') == 'open':
                 self.tree_item.setExpanded(True)
                 self.toggle_expand_item_button(True)
@@ -2220,10 +2278,12 @@ class Ui_itemWidget(QtGui.QWidget):
 
     def get_current_checkin_widget(self):
         main_stype = self.search_widget.stype
+        tab_name = self.search_widget.get_tab_name()
+
         checkin_widget = env_inst.get_check_tree(
             project_code=main_stype.project.get_code(),
             tab_code='checkin_out',
-            wdg_code=main_stype.get_code(),
+            wdg_code=tab_name,
         )
 
         checkin_widget.do_creating_ui()
@@ -2359,7 +2419,7 @@ class Ui_itemWidget(QtGui.QWidget):
         self.infoHorizontalLayout.addWidget(self.item_info_widget)
 
     def show_sync_menu(self):
-        sync_dialog = Ui_repoSyncDialog(parent=env_inst.ui_main, stype=self.stype, sobject=self.sobject)
+        sync_dialog = Ui_repoSyncDialog(parent=env_inst.ui_main, stype=self.stype, sobject=self.sobject, tab_name=self.search_widget.get_tab_name())
         sync_dialog.set_auto_close(True)
 
         need_update = False
@@ -2425,7 +2485,7 @@ class Ui_itemWidget(QtGui.QWidget):
         sync_dialog.start_sync_ui(preset)
 
     def create_sync_dialog(self):
-        sync_dialog = Ui_repoSyncDialog(parent=env_inst.ui_main, stype=self.stype, sobject=self.sobject)
+        sync_dialog = Ui_repoSyncDialog(parent=env_inst.ui_main, stype=self.stype, sobject=self.sobject, tab_name=self.search_widget.get_tab_name())
         sync_dialog.exec_()
 
     def add_overlay_widget(self, widget):
@@ -4099,7 +4159,7 @@ class Ui_processItemWidget(QtGui.QWidget):
         checkin_widget = env_inst.get_check_tree(
             project_code=main_stype.project.get_code(),
             tab_code='checkin_out',
-            wdg_code=main_stype.get_code(),
+            wdg_code=self.search_widget.get_tab_name(),
         )
 
         checkin_widget.do_creating_ui()
@@ -5401,6 +5461,7 @@ class Ui_childrenItemWidget(QtGui.QWidget):
         self.add_sobject = ui_addsobject_classes.Ui_addTacticSobjectWidget(
             stype=self.stype,
             parent_stype=self.search_widget.stype,
+            tab_name=self.search_widget.get_tab_name(),
             item=self,
             parent=self)
 
@@ -5914,7 +5975,7 @@ class Ui_groupItemWidget(QtGui.QWidget):
         if sobject_item_widget:
             ignore_dict = sobject_item_widget.ignore_dict
 
-        for i, sobject in enumerate(sobjects[0].itervalues()):
+        for i, sobject in enumerate(sobjects[0].values()):
             children_states = None
             if self.info['children_states']:
                 children_states = self.info['children_states'].get(i)

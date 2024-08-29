@@ -7,7 +7,7 @@ from thlib.environment import env_inst
 from thlib.ui_classes.ui_custom_qwidgets import Ui_collapsableWidget
 
 
-class deleteSobjectWidget(QtGui.QWidget):
+class duplicateSobjectWidget(QtGui.QWidget):
     def __init__(self, sobjects, parent=None):
         super(self.__class__, self).__init__(parent=parent)
 
@@ -22,6 +22,8 @@ class deleteSobjectWidget(QtGui.QWidget):
         self.shown = True
 
         self.create_main_layout()
+
+        self.create_new_name_widget()
 
         self.create_dependency_widget()
 
@@ -41,7 +43,8 @@ class deleteSobjectWidget(QtGui.QWidget):
     def get_data_dict(self):
 
         data_dict = {
-            'search_types': self.get_confirmed_to_delete_search_types(),
+            'related_search_type': self.get_confirmed_search_types(),
+            'new_name': self.get_new_name(),
         }
 
         return data_dict
@@ -54,10 +57,31 @@ class deleteSobjectWidget(QtGui.QWidget):
         self.main_layout = QtGui.QGridLayout(self)
         self.main_layout.setContentsMargins(0, 0, 0, 0)
 
-    def create_dependency_widget(self):
-        pos = 0
+    def create_new_name_widget(self):
 
-        check_list = ['sthpw/snapshot', 'sthpw/file', 'sthpw/note', 'sthpw/task', 'sthpw/status_log']
+        if len(self.sobjects) > 1:
+            # search_keys = []
+            for sobject in self.sobjects:
+                print(sobject)
+                # search_keys.append(sobject.get_search_key())
+        else:
+            print(self.sobjects[0])
+
+            self.new_name_layout = QtGui.QHBoxLayout()
+            self.label = QtGui.QLabel('New Name: ')
+            self.new_name_edit = QtGui.QLineEdit()
+
+            self.new_name_layout.addWidget(self.label)
+            self.new_name_layout.addWidget(self.new_name_edit)
+
+            self.main_layout.addLayout(self.new_name_layout, 0, 0)
+
+            self.new_name_edit.setText(u'{0}_new'.format(self.sobjects[0].get_value('name')))
+
+    def create_dependency_widget(self):
+        pos = 1
+
+        check_list = []
 
         self.check_boxes_list = []
 
@@ -92,13 +116,13 @@ class deleteSobjectWidget(QtGui.QWidget):
                 pos += 1
                 layout = QtGui.QHBoxLayout()
 
-                deleting_check_box = QtGui.QCheckBox()
-                deleting_check_box.setObjectName(search_type)
+                duplicate_check_box = QtGui.QCheckBox()
+                duplicate_check_box.setObjectName(search_type)
                 if search_type in check_list:
-                    deleting_check_box.setChecked(True)
-                layout.addWidget(deleting_check_box)
+                    duplicate_check_box.setChecked(True)
+                layout.addWidget(duplicate_check_box)
 
-                self.check_boxes_list.append(deleting_check_box)
+                self.check_boxes_list.append(duplicate_check_box)
 
                 collapse_wdg_files = Ui_collapsableWidget(state=True)
                 layout_files = QtGui.QVBoxLayout()
@@ -116,7 +140,7 @@ class deleteSobjectWidget(QtGui.QWidget):
 
                 self.main_layout.addLayout(layout, pos, 0)
 
-    def get_confirmed_to_delete_search_types(self):
+    def get_confirmed_search_types(self):
 
         search_types = []
 
@@ -124,10 +148,14 @@ class deleteSobjectWidget(QtGui.QWidget):
             if check_box.isChecked():
                 search_types.append(check_box.objectName())
 
-        if not search_types:
-            search_types.append(self.sobjects[0].get_plain_search_type())
+        # if not search_types:
+        #     search_types.append(self.sobjects[0].get_plain_search_type())
 
         return search_types
+
+    def get_new_name(self):
+
+        return self.new_name_edit.text()
 
 
 class Ui_dependencyExpandWidget(QtGui.QWidget):

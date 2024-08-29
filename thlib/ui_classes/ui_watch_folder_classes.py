@@ -130,7 +130,6 @@ class Ui_projectWatchFoldersWidget(QtGui.QDialog, Ui_ProjectWatchFolder):
             project_code=skey_dict['project_code'],
             tab_code='checkin_out',
             wdg_code=skey_dict['pipeline_code'],
-
         )
 
         checkin_widget.do_creating_ui()

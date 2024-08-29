@@ -861,27 +861,27 @@ class Ui_Main(QtGui.QMainWindow):
     def undock_window(self):
         env_inst.ui_maya_dock.toggle_docking()
 
-    def edit_my_account(self):
-
-        print('Edit my Account')
-        from thlib.ui_classes.ui_addsobject_classes import Ui_addTacticSobjectWidget
-
-        login_stype = env_inst.get_stype_by_code('sthpw/login')
-        # parent_stype = self.parent_sobject.get_stype()
-        # search_key = self.parent_sobject.get_search_key()
-
-        # print search_key
-
-        add_sobject = Ui_addTacticSobjectWidget(
-            stype=login_stype,
-            parent_stype=None,
-            # search_key=search_key,
-            parent_search_key=None,
-            # view='edit',
-            parent=self,
-        )
-
-        add_sobject.show()
+    # def edit_my_account(self):
+    #
+    #     print('Edit my Account')
+    #     from thlib.ui_classes.ui_addsobject_classes import Ui_addTacticSobjectWidget
+    #
+    #     login_stype = env_inst.get_stype_by_code('sthpw/login')
+    #     # parent_stype = self.parent_sobject.get_stype()
+    #     # search_key = self.parent_sobject.get_search_key()
+    #
+    #     # print search_key
+    #
+    #     add_sobject = Ui_addTacticSobjectWidget(
+    #         stype=login_stype,
+    #         parent_stype=None,
+    #         # search_key=search_key,
+    #         parent_search_key=None,
+    #         # view='edit',
+    #         parent=self,
+    #     )
+    #
+    #     add_sobject.show()
 
     # def create_ui_float_notify(self):
     #     self.float_notify = ui_float_notify_classes.Ui_floatNotifyWidget(self)

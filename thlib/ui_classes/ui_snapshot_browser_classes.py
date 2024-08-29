@@ -503,12 +503,12 @@ class Ui_snapshotBrowserWidget(QtGui.QWidget):
         item = self.filesTreeWidget.currentItem()
 
         file_object = item.data(0, QtCore.Qt.UserRole)
-
         stype = self.item_widget.stype
         self.edit_sobject = addsobject_widget.Ui_addTacticSobjectWidget(
             stype=stype,
             item=self.item_widget,
             view='edit',
+            tab_name=self.item_widget.search_widget.get_tab_name(),
             search_key=file_object.get_search_key(),
             parent=self
         )

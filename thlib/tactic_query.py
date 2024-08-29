@@ -86,7 +86,6 @@ def get_traceback():
 
     return result
 
-
 def query_EditWdg(args=None, search_type='', project=''):
     import json
     from pyasm.widget.widget_config import WidgetConfigView
@@ -195,6 +194,105 @@ def get_all_dependency(search_keys, project_code=None):
     return json.dumps(result)
 
 
+def duplicate_sobjects(search_keys, data_dict=None):
+    '''Invokes the delete method.  Note: this function may fail due
+    to dependencies.  Tactic will not cascade delete.  This function
+    should be used with extreme caution because, if successful, it will
+    permenently remove the existence of an sobject
+
+    @params
+    search_key - the key identifying
+                  the search_type table.
+    list_dependencies - dependency dict {
+        'related_types': ["sthpw/note", "sthpw/file"],
+    } etc...
+
+    @return
+    sobject - a dictionary that represents values of the sobject in the
+        form name/value pairs
+    '''
+
+    # from pyasm.biz import Project
+    # from pyasm.search import SearchType
+    # from pyasm.common import Common
+    from pyasm.biz import Schema
+
+    if not isinstance(search_keys, list):
+        search_keys = [search_keys]
+
+    sobjects = server.server._get_sobjects(search_keys)
+    if not sobjects:
+        raise Exception("SObject [%s] does not exist" % search_keys[0])
+
+    PROJECT_CODE = sobjects[0].get_project_code()
+
+    server.set_project(PROJECT_CODE)
+
+    schema = Schema.get()
+
+    def duplicate_sobj(search_type, data, new_name=None):
+        # filtering data from unnecessary columns
+        filter_columns = ['code', 'id', 'timestamp']
+        final_data = {}
+
+        for name, value in data.items():
+            if name not in filter_columns:
+                if value:
+                    final_data[name] = value
+
+            if name == 'name':
+                if new_name:
+                    final_data[name] = new_name
+
+        server.set_project(PROJECT_CODE)
+
+        return server.insert(search_type, final_data)
+
+
+    # getting the first one
+    sobject = sobjects[0]
+    search_type = sobject.get_base_search_type()
+    data = sobject.get_data()
+
+    new_sobject = duplicate_sobj(search_type, data, new_name=data_dict.get('new_name'))
+
+    new_sobjects = server.server._get_sobjects(new_sobject)
+    new_sobject = new_sobjects[0]
+
+    # handling related sobjects
+    related_search_types = data_dict.get('related_search_type')
+
+    # potentially can be made for duplicating many sobjects at a time, but it is risky, and not this time
+    new_sobjects = [new_sobject]
+
+    # 'instance' and 'search_code' relationship will be ignored
+    for new_sobject in new_sobjects:
+
+        server.set_project(PROJECT_CODE)
+
+        for related_search_type in related_search_types:
+
+            #TODO Handle 'instance', 'search_code' relationship
+            relationship = None
+
+            if schema.get_relationship(related_search_type, search_type) == 'code':
+                relationship = 'code'
+                from_col, to_col = schema.get_foreign_keys(related_search_type, search_type)
+
+            related_sobjects = sobject.get_related_sobjects(related_search_type)
+
+            for related_sobject in related_sobjects:
+
+                new_data = related_sobject.get_data()
+
+                if relationship == 'code':
+                    new_sobject_data = new_sobject.get_data()
+                    new_data[to_col] = new_sobject_data[from_col]
+                    duplicate_sobj(related_search_type, new_data)
+
+    return 'ok'
+
+
 def delete_sobjects(search_keys, include_dependencies=False, list_dependencies=None):
     '''Invokes the delete method.  Note: this function may fail due
     to dependencies.  Tactic will not cascade delete.  This function
@@ -220,18 +318,23 @@ def delete_sobjects(search_keys, include_dependencies=False, list_dependencies=N
     if not isinstance(search_keys, list):
         search_keys = [search_keys]
 
-    search_type, search_code = server.split_search_key(search_keys[0])
-    project_code = Project.extract_project_code(search_type)
-    server.set_project(project_code)
-
     sobjects = server.server._get_sobjects(search_keys)
     if not sobjects:
         raise Exception("SObject [%s] does not exist" % search_keys[0])
+
+    PROJECT_CODE = sobjects[0].get_project_code()
 
     deleted_sobjects = []
     ex_list = ['sthpw/file']
 
     for sobject in sobjects:
+        # almost any sobject should have project code
+        # so it is better do delete it within their projects env
+        # project_code = sobject.get_value('project_code', no_exception=True)
+
+        if PROJECT_CODE:
+            server.set_project(PROJECT_CODE)
+
         if include_dependencies:
             cmd = DeleteCmd(sobject=sobject, auto_discover=True)
             cmd.execute()
@@ -547,7 +650,7 @@ def get_notes_and_stypes_counts(process, search_key, stypes_list):
 def query_search_types_extended(project_code):
     """
     This crazy stuff made to execute queries on server
-    All needed info is getting almost half time faster
+    All needed info is getting almost half-time faster
     :return:
     """
     import json

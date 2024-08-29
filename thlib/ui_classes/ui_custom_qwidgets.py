@@ -896,6 +896,14 @@ QTabWidget::tab-bar {
     def add_left_corner_widget(self, widget):
         self.setCornerWidget(widget, QtCore.Qt.TopLeftCorner)
 
+    def clear_tabs(self):
+
+        if self.count() >= 1:
+            for i in range(self.count()+1):
+                self.removeTab(i)
+
+        self.clear()
+
     def add_tab(self, widget, label=''):
         if isinstance(label, six.string_types):
             self.addTab(widget, label)

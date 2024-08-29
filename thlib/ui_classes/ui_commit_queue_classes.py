@@ -1094,11 +1094,12 @@ class Ui_commitQueueWidget(QtGui.QMainWindow, Ui_commitQueue):
         for commit_item in self.queue_list:
             item_widget = commit_item.get_args_dict()['item_widget']
             if item_widget:
-                pipeline_code = item_widget.search_widget.stype.get_code()
+                # pipeline_code = item_widget.search_widget.stype.get_code()
+                tab_name = item_widget.search_widget.get_tab_name()
 
                 search_key = tc.split_search_key(commit_item.get_args_dict()['search_key'])
 
-                checkin_ui = env_inst.get_check_tree(search_key['project_code'], 'checkin_out', pipeline_code)
+                checkin_ui = env_inst.get_check_tree(search_key['project_code'], 'checkin_out', tab_name)
 
                 if checkin_ui not in updated_list:
                     checkin_ui.refresh_results()

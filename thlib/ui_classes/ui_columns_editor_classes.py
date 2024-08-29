@@ -160,7 +160,7 @@ class Ui_columnsEditorWidget(QtGui.QWidget):
 
     def set_dock_title(self, title_string):
 
-        checkin_out_widget = env_inst.get_check_tree(self.project.get_code(), 'checkin_out', self.stype.get_code())
+        checkin_out_widget = env_inst.get_check_tree(self.project.get_code(), 'checkin_out', self.get_tab_name())
 
         columns_viewer_widget = checkin_out_widget.get_columns_viewer_widget()
 
@@ -168,6 +168,9 @@ class Ui_columnsEditorWidget(QtGui.QWidget):
         if dock_widget:
             if isinstance(dock_widget, QtGui.QDockWidget):
                 dock_widget.setWindowTitle(title_string)
+
+    def get_tab_name(self):
+        return self.item.search_widget.get_tab_name()
 
     def refresh(self):
         if self.multiple_mode:

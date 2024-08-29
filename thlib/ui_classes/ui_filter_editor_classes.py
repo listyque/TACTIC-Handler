@@ -10,124 +10,64 @@ import thlib.tactic_classes as tc
 from thlib.ui_classes.ui_custom_qwidgets import Ui_collapsableWidget
 
 
-class Ui_repoSyncDialog(QtGui.QDialog):
-    downloads_finished = QtCore.Signal()
-    file_download_done = QtCore.Signal(object)
+class Ui_filterEditorDialog(QtGui.QDialog):
+    # downloads_finished = QtCore.Signal()
+    # file_download_done = QtCore.Signal(object)
 
-    def __init__(self, stype, sobject, tab_name=None, parent=None):
+    def __init__(self, stype, tab_name=None, parent=None):
         super(self.__class__, self).__init__(parent=parent)
 
         self.stype = stype
-        self.sobject = sobject
-        self.togglers = [False, False, False, False]
-        self.repo_sync_items = []
-        self.sync_tasks = 0
-        self.sync_in_progress = False
-        self.interrupted = False
-        self.auto_close = False
+        # self.sobject = sobject
+        # self.togglers = [False, False, False, False]
+        # self.repo_sync_items = []
+        # self.sync_tasks = 0
+        # self.sync_in_progress = False
+        # self.interrupted = False
+        # self.auto_close = False
         self.tab_name = tab_name
 
-        self.get_all_presets_from_server()
+        # self.get_all_presets_from_server()
 
         self.create_ui()
 
     def create_ui(self):
-        if self.sobject:
-            self.setWindowTitle('Sync Repo for: {0}'.format(self.sobject.get_title()))
+        if self.tab_name:
+            self.setWindowTitle('Search Presets Editor: {0}'.format(self.tab_name))
         else:
-            self.setWindowTitle('Sync Repo for: {0}'.format(self.stype.get_pretty_name()))
+            self.setWindowTitle('Search Presets Editor: {0}'.format(self.stype.get_pretty_name()))
+
         self.setSizeGripEnabled(True)
 
         self.setFocusPolicy(QtCore.Qt.StrongFocus)
 
         self.create_tree_widget()
-        self.fill_presets_combo_box()
-        self.fill_tree_widget()
-        self.fit_to_content_tree_widget()
+        # self.fill_presets_combo_box()
+        # self.fill_tree_widget()
+        # self.fit_to_content_tree_widget()
         self.create_controls()
         self.controls_actions()
 
-        self.create_download_queue()
+        self.resize(350, 650)
 
-        self.resize(650, 550)
-
-        self.readSettings()
+        # self.readSettings()
 
     def controls_actions(self):
 
-        self.none_button.clicked.connect(lambda: self.switch_items('none'))
-        self.all_process_button.clicked.connect(lambda: self.switch_items('process'))
-        self.all_with_builtins_button.clicked.connect(lambda: self.switch_items('builtins'))
-        self.all_children_button.clicked.connect(lambda: self.switch_items('children'))
+        # self.none_button.clicked.connect(lambda: self.switch_items('none'))
+        # self.all_process_button.clicked.connect(lambda: self.switch_items('process'))
+        # self.all_with_builtins_button.clicked.connect(lambda: self.switch_items('builtins'))
+        # self.all_children_button.clicked.connect(lambda: self.switch_items('children'))
 
-        self.tree_widget.itemChanged.connect(self.check_tree_items)
-        self.presets_combo_box.currentIndexChanged.connect(self.apply_repo_sync_preset)
+        # self.tree_widget.itemChanged.connect(self.check_tree_items)
+        # self.presets_combo_box.currentIndexChanged.connect(self.apply_repo_sync_preset)
 
-        self.start_sync_button.clicked.connect(self.start_sync_ui)
-
-    def create_download_queue(self):
-        self.download_queue = Ui_repoSyncQueueWidget(embedded=True)
-
-        self.download_queue.downloads_finished.connect(self.files_downloads_finished)
-        self.download_queue.file_download_done.connect(self.file_download_finished)
-
-        self.grid.addWidget(self.download_queue, 0, 2, 4, 2)
-
-    def files_downloads_finished(self):
-
-        self.sync_in_progress = False
-
-        if not self.interrupted:
-            self.downloads_finished.emit()
-
-        if self.auto_close:
-            self.close()
-
-        self.downloads_progress_bar.setVisible(False)
-        self.toggle_ui(True)
-
-    def file_download_finished(self, fl):
-        if not self.interrupted:
-            self.file_download_done.emit(fl)
-
-            progress = self.downloads_progress_bar.value()
-            self.downloads_progress_bar.setValue(progress + 1)
-            self.downloads_progress_bar.setFormat(u'%v / %m {}'.format(fl.get_filename_with_ext()))
+        self.save_current_as_preset_button.clicked.connect(self.save_current_as_preset)
 
     def check_tree_items(self, changed_item):
         if len(self.tree_widget.selectedItems()) > 1:
             for item in self.tree_widget.selectedItems():
                 item.setCheckState(0, changed_item.checkState(0))
-
-    def switch_items(self, item_type='none'):
-        preset_dict = self.get_current_preset_dict()
-
-        if preset_dict:
-
-            if item_type == 'process':
-                gf.set_tree_widget_checked_state(
-                    self.tree_widget, preset_dict, only_types_tuple=(':{pr}'), state=self.togglers[0]
-                )
-                self.togglers[0] = not self.togglers[0]
-
-            elif item_type == 'builtins':
-                gf.set_tree_widget_checked_state(
-                    self.tree_widget, preset_dict, only_types_tuple=(':{b}'), state=self.togglers[1]
-                )
-                self.togglers[1] = not self.togglers[1]
-
-            elif item_type == 'children':
-                gf.set_tree_widget_checked_state(
-                    self.tree_widget, preset_dict, only_types_tuple=(':{s}'), state=self.togglers[2]
-                )
-                self.togglers[2] = not self.togglers[2]
-
-            elif item_type == 'none':
-                gf.set_tree_widget_checked_state(
-                    self.tree_widget, preset_dict, only_types_tuple=(':{s}', ':{pr}', ':{b}'), state=self.togglers[3]
-                )
-                self.togglers[3] = not self.togglers[3]
-
     def create_controls(self):
 
         self.versionChooserHorizontalLayout = QtGui.QHBoxLayout()
@@ -185,28 +125,28 @@ class Ui_repoSyncDialog(QtGui.QDialog):
 
         self.controls_collapsable.collapsed.connect(self.toggle_presets_edit_buttons)
 
-        self.start_sync_button = QtGui.QPushButton('Begin Repo Sync')
-        self.start_sync_button.setFlat(True)
+        self.save_current_as_preset_button = QtGui.QPushButton('Save current as Preset')
+        self.save_current_as_preset_button.setFlat(True)
 
-        start_sync_color = Qt4Gui.QColor(16, 160, 16)
-        start_sync_color_active = Qt4Gui.QColor(16, 220, 16)
+        save_preset_color = Qt4Gui.QColor(16, 160, 16)
+        save_preset_color_active = Qt4Gui.QColor(16, 220, 16)
 
-        self.start_sync_button.setIcon(gf.get_icon('sync', color=start_sync_color, color_active=start_sync_color_active, icons_set='mdi', scale_factor=1))
+        self.save_current_as_preset_button.setIcon(gf.get_icon('content-save', color=save_preset_color, color_active=save_preset_color_active, icons_set='mdi', scale_factor=1))
 
-        self.progress_bar = QtGui.QProgressBar()
-        self.progress_bar.setMaximum(100)
-        self.progress_bar.setTextVisible(True)
-        self.progress_bar.setHidden(True)
+        # self.progress_bar = QtGui.QProgressBar()
+        # self.progress_bar.setMaximum(100)
+        # self.progress_bar.setTextVisible(True)
+        # self.progress_bar.setHidden(True)
+        #
+        # self.downloads_progress_bar = QtGui.QProgressBar()
+        # self.downloads_progress_bar.setMaximum(100)
+        # self.downloads_progress_bar.setTextVisible(True)
+        # self.downloads_progress_bar.setHidden(True)
 
-        self.downloads_progress_bar = QtGui.QProgressBar()
-        self.downloads_progress_bar.setMaximum(100)
-        self.downloads_progress_bar.setTextVisible(True)
-        self.downloads_progress_bar.setHidden(True)
-
-        self.grid.addWidget(self.controls_collapsable, 2, 0, 1, 2)
-        self.grid.addWidget(self.start_sync_button, 3, 0, 1, 2)
-        self.grid.addWidget(self.progress_bar, 4, 0, 1, 4)
-        self.grid.addWidget(self.downloads_progress_bar, 5, 0, 1, 4)
+        self.grid.addWidget(self.controls_collapsable, 2, 0, 1, 1)
+        self.grid.addWidget(self.save_current_as_preset_button, 3, 0, 1, 1)
+        # self.grid.addWidget(self.progress_bar, 4, 0, 1, 4)
+        # self.grid.addWidget(self.downloads_progress_bar, 5, 0, 1, 4)
 
     def toggle_presets_edit_buttons(self, state):
 
@@ -218,9 +158,6 @@ class Ui_repoSyncDialog(QtGui.QDialog):
             self.add_new_preset_button.setHidden(False)
             self.save_new_preset_button.setHidden(False)
             self.remove_preset_button.setHidden(False)
-
-    def set_auto_close(self, auto_close):
-        self.auto_close = auto_close
 
     def create_tree_widget(self):
 
@@ -242,7 +179,7 @@ class Ui_repoSyncDialog(QtGui.QDialog):
         self.tree_widget.setStyleSheet(gf.get_qtreeview_style())
         self.tree_widget.setRootIsDecorated(True)
 
-        self.grid.addWidget(self.tree_widget, 1, 0, 1, 2)
+        self.grid.addWidget(self.tree_widget, 1, 0, 1, 0)
         self.grid.setRowStretch(1, 1)
 
     def create_presets_combo_box(self):
@@ -278,7 +215,7 @@ class Ui_repoSyncDialog(QtGui.QDialog):
 
         self.grid_presets.setColumnStretch(1, 0)
 
-        self.grid.addLayout(self.grid_presets, 0, 0, 1, 2)
+        self.grid.addLayout(self.grid_presets, 0, 0, 1, 0)
 
     def fill_presets_combo_box(self, current_preset=None):
         self.presets_combo_box.clear()
@@ -631,6 +568,9 @@ class Ui_repoSyncDialog(QtGui.QDialog):
         self.sync_children(self.sobject, preset_dict)
 
         # self.download_files()
+
+    def save_current_as_preset(self):
+        print('SAVED PRESET')
 
     def start_sync_ui(self, preset_dict=None):
 
@@ -998,222 +938,7 @@ class Ui_repoSyncDialog(QtGui.QDialog):
         )
 
     def closeEvent(self, event):
-        if not self.sync_in_progress:
-            self.writeSettings()
-            self.deleteLater()
-            self.refresh_search_widget()
-            event.accept()
-        else:
-            buttons = (('Ok', QtGui.QMessageBox.NoRole), ('Interrupt', QtGui.QMessageBox.ActionRole))
-            reply = gf.show_message_predefined(
-                title='Download in Progress',
-                message='Some files are not yet Downloaded.\nInterrupt the Sync Process?.',
-                buttons=buttons,
-                parent=self,
-                message_type='question',
-            )
-
-            if reply == QtGui.QMessageBox.ActionRole:
-                self.interrupt_sync_process()
-                self.deleteLater()
-                event.accept()
-            else:
-                event.ignore()
-
-
-class Ui_repoSyncQueueWidget(QtGui.QMainWindow):
-    downloads_finished = QtCore.Signal()
-    file_download_done = QtCore.Signal(object)
-
-    def __init__(self, embedded=False, parent=None):
-        super(self.__class__, self).__init__(parent=parent)
-
-        self.embedded = embedded
-
-        self.queue_dict = {}
-        self.total_downloading_count = 0
-        self.total_downloaded_count = 0
-        self.network_manager = QtNetwork.QNetworkAccessManager(self)
-        self.network_manager.finished.connect(self.network_manager_finished)
-
-        if self.embedded:
-            self.create_embedded_ui()
-        else:
-            self.create_ui()
-
-    def create_ui(self):
-        self.setWindowTitle('Repository Sync Queue')
-
-        self.statusbar = QtGui.QStatusBar(self)
-        self.statusbar.setObjectName('statusbar')
-        self.setStatusBar(self.statusbar)
-
-        self.setWindowFlags(QtCore.Qt.Window)
-        self.resize(350, 700)
-
-        self.create_main_layout()
-        self.create_controls_layout()
-
-        self.create_controls()
-        self.create_tree_widget()
-
-        self.controls_actions()
-
-    def controls_actions(self):
-        self.clear_queue_push_button.clicked.connect(self.clear_queue)
-
-    def create_embedded_ui(self):
-
-        self.create_main_layout()
-        self.main_layout.setContentsMargins(3, 0, 3, 0)
-        self.create_controls_layout()
-
-        self.create_controls()
-        self.create_tree_widget()
-        self.controls_actions()
-
-    def create_main_layout(self):
-        self.central_widget = QtGui.QWidget(self)
-        self.central_widget.setObjectName('central_widget')
-
-        self.main_layout = QtGui.QGridLayout(self.central_widget)
-        self.main_layout.setContentsMargins(9, 9, 9, 9)
-        self.main_layout.setSpacing(0)
-        self.main_layout.setObjectName('main_layout')
-
-        self.central_widget.setLayout(self.main_layout)
-        self.setCentralWidget(self.central_widget)
-
-    def create_controls_layout(self):
-        self.controls_layout = QtGui.QGridLayout()
-        self.controls_layout.setContentsMargins(0, 0, 0, 0)
-        self.controls_layout.setSpacing(6)
-        self.controls_layout.setObjectName('controls_layout')
-
-        self.main_layout.addLayout(self.controls_layout, 0, 0, 1, 1)
-
-    def create_controls(self):
-
-        self.clear_queue_push_button = QtGui.QPushButton('Clear Queue')
-        self.clear_queue_push_button.setMinimumSize(QtCore.QSize(120, 0))
-        self.clear_queue_push_button.setObjectName('clear_queue_push_button')
-        self.clear_queue_push_button.setIcon(gf.get_icon('delete', icons_set='mdi'))
-        self.clear_queue_push_button.setFlat(True)
-
-        self.files_count_label = QtGui.QLabel('Downloads in Queue: ')
-        self.files_count_label.setObjectName('files_count_label')
-
-        self.files_num_label = QtGui.QLabel('')
-        self.files_num_label.setObjectName("files_num_label")
-
-        self.controls_layout.addWidget(self.files_count_label, 0, 0)
-        self.controls_layout.addWidget(self.files_num_label, 0, 1)
-        self.controls_layout.addWidget(self.clear_queue_push_button, 0, 2)
-
-    def create_tree_widget(self):
-        self.files_queue_tree_widget = QtGui.QTreeWidget()
-        self.files_queue_tree_widget.setMinimumSize(QtCore.QSize(300, 0))
-        self.files_queue_tree_widget.setRootIsDecorated(False)
-        self.files_queue_tree_widget.setHeaderHidden(True)
-        self.files_queue_tree_widget.setObjectName('files_queue_tree_widget')
-        self.files_queue_tree_widget.setSelectionMode(QtGui.QAbstractItemView.ExtendedSelection)
-        self.files_queue_tree_widget.setStyleSheet(gf.get_qtreeview_style())
-        self.main_layout.addWidget(self.files_queue_tree_widget)
-
-    def create_progress_bar_widget(self):
-
-        self.progress_bar_widget = QtGui.QProgressBar()
-        self.progress_bar_widget.setTextVisible(True)
-        self.progress_bar_widget.setVisible(True)
-        self.progress_bar_widget.setHidden(True)
-        self.statusbar.addPermanentWidget(self.progress_bar_widget)
-
-    def set_progress_indicator_on(self):
-        self.progress_bar_widget.setHidden(False)
-
-    def set_progress_indicator_off(self):
-        self.progress_bar_widget.setHidden(True)
-        self.statusbar.showMessage('')
-
-    def set_progress(self, progress, info_dict):
-        self.progress_bar_widget.setMaximum(info_dict['total_count'])
-        self.statusbar.showMessage(info_dict['status_text'])
-        self.progress_bar_widget.setValue(progress + 1)
-        if self.progress_bar_widget.maximum() == progress + 1:
-            self.set_progress_indicator_off()
-
-    def clear_queue(self):
-        self.files_queue_tree_widget.clear()
-        self.queue_dict = {}
-        self.files_num_label.setText('')
-        self.total_downloaded_count = 0
-        self.total_downloading_count = 0
-
-    def remove_item_from_queue(self, commit_item=None):
-
-        self.queue_list.remove(commit_item)
-        commit_item.close()
-        commit_item.deleteLater()
-        self.files_queue_tree_widget.takeTopLevelItem(self.files_queue_tree_widget.currentIndex().row())
-        self.check_queue()
-
-    def network_manager_finished(self, reply):
-        file_object = reply.request().attribute(QtNetwork.QNetworkRequest.User)
-
-        if reply.error() == QtNetwork.QNetworkReply.NoError:
-            self.do_download_file_object(file_object, reply)
-        else:
-            repo_sync_item = self.queue_dict.get(file_object.get_unique_id())
-            repo_sync_item.set_download_failed()
-
-    def emit_if_all_downloads_done(self):
-        if self.total_downloading_count == self.total_downloaded_count:
-            self.downloads_finished.emit()
-
-    def is_all_downloads_done(self):
-        return self.total_downloading_count == self.total_downloaded_count
-
-    def do_download_file_object(self, file_object, reply):
-
-        # print(type(reply.readAll()))
-
-        repo_sync_item = self.queue_dict.get(file_object.get_unique_id())
-
-        info_dict = {
-            'status_text': 'Downloading File',
-            'total_count': 4
-        }
-        repo_sync_item.download_progress(3, info_dict)
-
-        full_abs_path = file_object.prepare_repo()
-        with open(full_abs_path, "wb") as downloaded_file:
-            downloaded_file.write(bytearray(reply.readAll()))
-
-        repo_sync_item.download_progress(4, info_dict)
-
-        downloaded_file.close()
-        repo_sync_item.set_download_finished()
-
-        reply.deleteLater()
-
-    def increment_downloaded(self, fl=None):
-        self.total_downloaded_count += 1
-
-        self.file_download_done.emit(fl)
-
-        self.emit_if_all_downloads_done()
-
-    def schedule_file_object(self, file_object):
-
-        # If we already downloaded particular file object, make a new instance of it
-        if file_object.get_unique_id() in list(self.queue_dict.keys()):
-            file_object = copy.copy(file_object)
-
-        self.total_downloading_count += 1
-        repo_sync_item = gf.add_repo_sync_item(self.files_queue_tree_widget, file_object)
-        self.queue_dict[file_object.get_unique_id()] = repo_sync_item
-        repo_sync_item.set_network_manager(self.network_manager)
-        self.files_queue_tree_widget.scrollToBottom()
-        repo_sync_item.downloaded.connect(self.increment_downloaded)
-
-        return repo_sync_item
+        # self.writeSettings()
+        self.deleteLater()
+        self.refresh_search_widget()
+        event.accept()
