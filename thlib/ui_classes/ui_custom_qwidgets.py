@@ -30,7 +30,7 @@ import thlib.tactic_classes as tc
 from thlib.environment import env_inst, env_server, env_mode, dl, cfg_controls
 import thlib.ui.misc.ui_debuglog as ui_debuglog
 import thlib.ui.misc.ui_messages as ui_messages
-#import thlib.ui_classes.ui_richedit_classes
+from thlib.ui_classes.ui_richedit_classes import Ui_richeditWidget
 
 
 class FadeWidget(QtGui.QLabel):
@@ -88,6 +88,250 @@ class CustomPlainTextEdit(QtGui.QPlainTextEdit):
         else:
             super(self.__class__, self).keyPressEvent(event)
 
+
+class StyledToolButton(QtGui.QToolButton):
+    def __init__(self, size='normal', shadow_enabled=True, square_type=False, parent=None):
+        super(self.__class__, self).__init__(parent=parent)
+
+        self.shadow_enabled = shadow_enabled
+        self.square_type = square_type
+        self.size = size
+        self.setAutoRaise(True)
+
+        self.create_ui()
+
+    def create_ui(self):
+
+        if self.size == 'tiny':
+            if self.shadow_enabled:
+                self.setFixedSize(30, 30)
+            else:
+                self.setFixedSize(22, 22)
+        elif self.size == 'small':
+            if self.shadow_enabled:
+                self.setFixedSize(38, 38)
+            else:
+                self.setFixedSize(34, 34)
+        elif self.size == 'normal':
+            if self.shadow_enabled:
+                self.setFixedSize(42, 42)
+            else:
+                self.setFixedSize(38, 38)
+
+        self.customize_ui()
+        self.setCursor(Qt4Gui.QCursor(QtCore.Qt.PointingHandCursor))
+
+    def customize_ui(self):
+
+        if self.shadow_enabled:
+            if self.square_type:
+                customize_dict = {'radius': int(self.height() / 8)}
+            else:
+                customize_dict = {'radius': int(self.height() / 2) - 4}
+
+            customize_dict['margin'] = 4
+            effect = QtGui.QGraphicsDropShadowEffect(self)
+            effect.setOffset(0, 0)
+            effect.setColor(Qt4Gui.QColor(0, 0, 0, 64))
+            effect.setBlurRadius(16)
+            self.setGraphicsEffect(effect)
+        else:
+            if self.square_type:
+                customize_dict = {'radius': int(self.height() / 4)}
+            else:
+                customize_dict = {'radius': int(self.height() / 2)}
+
+            customize_dict['margin'] = 0
+
+        self.setStyleSheet("""
+        QToolButton {{
+            border: 0px;
+            border-radius: {radius}px;
+            background: transparent;
+            margin: {margin}px;
+        }}
+        QToolButton::menu-indicator {{
+            background: transparent;
+        }}
+        QToolButton:pressed {{
+            background-color: rgb(107, 107, 107);
+        }}
+        /*
+        QToolButton:hover {{
+            background-color: rgb(107, 107, 107);
+        }}
+        */
+        """.format(**customize_dict))
+
+
+class StyledChooserToolButton(QtGui.QToolButton):
+    def __init__(self, small=False, shadow_enabled=True, square_type=False, parent=None):
+        super(self.__class__, self).__init__(parent=parent)
+
+        self.shadow_enabled = shadow_enabled
+        self.square_type = square_type
+        self.small = small
+
+        effect = QtGui.QGraphicsDropShadowEffect(self)
+        effect.setOffset(0, 0)
+        effect.setColor(Qt4Gui.QColor(0, 0, 0, 64))
+        effect.setBlurRadius(16)
+        self.setGraphicsEffect(effect)
+
+        # self.setPopupMode(QtGui.QToolButton.InstantPopup)
+
+        self.setToolButtonStyle(QtCore.Qt.ToolButtonTextBesideIcon)
+        self.setLayoutDirection(QtCore.Qt.RightToLeft)
+        self.setIcon(gf.get_icon('chevron-down', icons_set='mdi', scale_factor=1.2))
+
+        self.create_ui()
+
+    def create_ui(self):
+
+        if self.small:
+            self.setMaximumHeight(32)
+        else:
+            self.setMaximumHeight(38)
+
+        # self.create_menu()
+
+        self.customize_ui()
+        self.setCursor(Qt4Gui.QCursor(QtCore.Qt.PointingHandCursor))
+
+    # def create_menu(self):
+    #
+    #     self.menu = QtGui.QMenu()
+    #     self.menu.setLayoutDirection(QtCore.Qt.LeftToRight)
+    #
+    #     self.setMenu(self.menu)
+    #
+    # def get_menu(self):
+    #     return self.menu
+
+    def customize_ui(self):
+
+        if self.square_type:
+            customize_dict = {'radius': int(self.height() / 8), 'margin': 4}
+        else:
+            customize_dict = {'radius': int(self.height() / 2) - 4, 'margin': 4}
+
+        self.setStyleSheet("""
+        QToolButton {{
+            font-size:11pt;
+            color: rgb(192,192,192);
+            border: 0px;
+            border-radius: {radius}px;
+            background: transparent;
+            margin: {margin}px;
+        }}
+        QToolButton::menu-indicator {{
+        background: transparent;
+        }}
+        QToolButton:pressed {{
+            /*background-color: rgb(44, 44, 44);*/
+        }}
+        QToolButton:hover {{
+            /*background-color: rgb(107, 107, 107);*/
+        }}
+        """.format(**customize_dict))
+
+        if self.shadow_enabled:
+            effect = QtGui.QGraphicsDropShadowEffect(self)
+            effect.setOffset(0, 0)
+            effect.setColor(Qt4Gui.QColor(0, 0, 0, 64))
+            effect.setBlurRadius(16)
+            self.setGraphicsEffect(effect)
+
+
+class StyledComboBox(QtGui.QComboBox):
+    def __init__(self, flat_style=False, parent=None):
+        super(self.__class__, self).__init__(parent=parent)
+
+        self.flat_style = flat_style
+
+        self.create_ui()
+
+    def create_ui(self):
+        self.customize_ui()
+
+        self.controls_actions()
+
+    def controls_actions(self):
+        pass
+
+    def customize_ui(self):
+        self.setMaximumHeight(32)
+
+        effect = QtGui.QGraphicsDropShadowEffect(self)
+        effect.setOffset(0, 0)
+        effect.setColor(Qt4Gui.QColor(0, 0, 0, 64))
+        effect.setBlurRadius(16)
+        self.setGraphicsEffect(effect)
+
+        self.setStyleSheet("""
+        QComboBox {
+            border: 0px;
+            border-radius: 4px;
+            padding-right: 4px;
+            padding-left: 16px;
+            /* min-width: 6em; */
+            font-size:11pt;
+        }
+
+        QComboBox:editable {
+            background: transparent;
+        }
+
+        QComboBox:!editable, QComboBox::drop-down:editable {
+             /*background: rgb(100,100,100);*/
+             background: transparent;
+        }
+
+        QComboBox:!editable:on, QComboBox::drop-down:editable:on {
+            /*background: rgb(120,120,120);*/
+            background: transparent;
+        }
+
+        QComboBox::drop-down {
+            subcontrol-origin: padding;
+            subcontrol-position: top right;
+            width: 10px;
+
+            border-left-width: 0px;
+            border-left-color: darkgray;
+            border-left-style: solid;
+            border-top-right-radius: 4px;
+            border-bottom-right-radius: 4px;
+        }
+
+        QComboBox QAbstractItemView {
+            border: 0px;
+            selection-background-color: rgb(120, 120, 120);
+        }
+        QScrollBar:vertical {
+            border: 0px ;
+            background: rgb(64, 64, 64);
+            width:8px;
+            margin: 0px 0px 0px 0px;
+            }
+        QScrollBar::handle:vertical {
+            background: rgb(100,100,100);
+            min-height: 0px;
+            border-radius: 4px;
+            }
+        QScrollBar::add-line:vertical {
+            background: rgba(0,0,0,64);
+            height: 0px;
+            subcontrol-position: bottom;
+            subcontrol-origin: margin;
+            }
+        QScrollBar::sub-line:vertical {
+            background: rgba(0,0,0,64);
+            height: 0 px;
+            subcontrol-position: top;
+            subcontrol-origin: margin;
+            }
+        """)
 
 class Ui_snapshotPreviewWidget(QtGui.QWidget):
     def __init__(self, snapshot=None, parent=None):
@@ -608,22 +852,25 @@ class Ui_projectIconWidget(QtGui.QWidget):
 
             return rounded_pixmap
 
-
-class Ui_userIconWidget(QtGui.QWidget):
-    def __init__(self, login=None, parent=None):
+class Ui_userIconWidget(QtGui.QToolButton):
+    def __init__(self, login=None, size='normal', shadow_enabled=True, square_type=False, parent=None):
         super(self.__class__, self).__init__(parent=parent)
 
         self.create_ui_raw()
 
         self.login = None
+        self.shadow_enabled = shadow_enabled
+        self.square_type = square_type
+        self.size = size
         self.set_login(login)
 
         self.create_ui()
 
     def create_ui_raw(self):
+
         self.setObjectName('Ui_userIconWidget')
-        self.setMaximumSize(60, 36)
-        self.setMinimumSize(60, 36)
+        # self.setMaximumSize(60, 36)
+        # self.setMinimumSize(60, 36)
         self.setContentsMargins(0, 0, 0, 0)
 
         self.horizontal_layout = QtGui.QHBoxLayout(self)
@@ -631,9 +878,9 @@ class Ui_userIconWidget(QtGui.QWidget):
         self.horizontal_layout.setSpacing(0)
 
         self.previewLabel = QtGui.QLabel(self)
-        self.previewLabel.setMinimumSize(QtCore.QSize(32, 32))
-        self.previewLabel.setMaximumSize(QtCore.QSize(32, 32))
-        self.previewLabel.setStyleSheet('QLabel {background: rgba(175, 175, 175, 64); border: 0px; border-radius: 16px;padding: 0px 0px;}')
+        self.previewLabel.setMinimumSize(QtCore.QSize(36, 36))
+        self.previewLabel.setMaximumSize(QtCore.QSize(36, 36))
+        self.previewLabel.setStyleSheet('QLabel {background: rgba(175, 175, 175, 64); border: 0px; border-radius: 18px;padding: 0px 0px;}')
         self.previewLabel.setPixmap(gf.get_icon('account', icons_set='mdi').pixmap(20, 20))
         self.previewLabel.setTextFormat(QtCore.Qt.RichText)
         self.previewLabel.setAlignment(QtCore.Qt.AlignVCenter | QtCore.Qt.AlignHCenter)
@@ -642,22 +889,393 @@ class Ui_userIconWidget(QtGui.QWidget):
 
         self.horizontal_layout.addWidget(self.previewLabel)
 
+    def create_ui(self):
+
+        if self.size == 'tiny':
+            if self.shadow_enabled:
+                self.setFixedSize(30, 30)
+            else:
+                self.setFixedSize(22, 22)
+        elif self.size == 'small':
+            if self.shadow_enabled:
+                self.setFixedSize(38, 38)
+            else:
+                self.setFixedSize(34, 34)
+        elif self.size == 'normal':
+            if self.shadow_enabled:
+                self.setFixedSize(42, 42)
+            else:
+                self.setFixedSize(38, 38)
+
+        self.customize_ui()
+        self.setCursor(Qt4Gui.QCursor(QtCore.Qt.PointingHandCursor))
+
+    def customize_ui(self):
+
+        if self.shadow_enabled:
+            if self.square_type:
+                customize_dict = {'radius': int(self.height() / 8)}
+            else:
+                customize_dict = {'radius': int(self.height() / 2) - 4}
+
+            customize_dict['margin'] = 4
+            effect = QtGui.QGraphicsDropShadowEffect(self)
+            effect.setOffset(0, 0)
+            effect.setColor(Qt4Gui.QColor(0, 0, 0, 64))
+            effect.setBlurRadius(16)
+            self.setGraphicsEffect(effect)
+        else:
+            if self.square_type:
+                customize_dict = {'radius': int(self.height() / 4)}
+            else:
+                customize_dict = {'radius': int(self.height() / 2)}
+
+            customize_dict['margin'] = 0
+
+        self.setStyleSheet("""
+        QToolButton {{
+            border: 0px;
+            border-radius: {radius}px;
+            background: transparent;
+            margin: {margin}px;
+        }}
+        QToolButton::menu-indicator {{
+            background: transparent;
+        }}
+        QToolButton:pressed {{
+            background-color: rgb(107, 107, 107);
+        }}
+        /*
+        QToolButton:hover {{
+            background-color: rgb(107, 107, 107);
+        }}
+        */
+        """.format(**customize_dict))
+
     def set_login(self, login):
         self.login = login
 
         if self.login:
             self.fill_info()
 
-    def create_ui(self):
-        self.setCursor(Qt4Gui.QCursor(QtCore.Qt.PointingHandCursor))
+    def get_snapshot(self, process='publish'):
+
+        snapshot_process = self.login.process.get(process)
+        if snapshot_process:
+            context = list(snapshot_process.contexts.values())[0]
+            if context.versionless:
+                return list(context.versionless.values())[0]
+            else:
+                return list(context.versions.values())[0]
 
     def fill_info(self):
+        if self.login.process:
+            if gf.get_value_from_config(cfg_controls.get_checkin(), 'getPreviewsThroughHttpCheckbox') == 1:
+                self.set_web_preview()
+            else:
+                self.set_preview()
+        else:
+            self.previewLabel.setText(u'<span style=" font-size:9pt; font-weight:600; color:{0};">{1}</span>'.format('rgb(240, 240, 240)', gf.gen_acronym(self.login.get_display_name())))
+            self.previewLabel.setStyleSheet('QLabel {{background: {0}; border: 0px; border-radius: 18px;padding: 0px 0px;}}'.format(gf.gen_color(self.login.get_value('login'))))
 
-        self.previewLabel.setText(u'<span style=" font-size:9pt; font-weight:600; color:{0};">{1}</span>'.format(
-            'rgb(240, 240, 240)', gf.gen_acronym(self.login.get_display_name())))
+    def set_preview(self):
 
-        self.previewLabel.setStyleSheet(
-            'QLabel {{background: {0}; border: 0px; border-radius: 16px;padding: 0px 0px;}}'.format(gf.gen_color(self.login.get_value('login'))))
+        snapshots = self.get_snapshot('icon')
+        if not snapshots:
+            snapshots = self.get_snapshot('publish')
+
+        if snapshots:
+            preview_files_objects = snapshots.get_files_objects(group_by='type').get('icon')
+            if preview_files_objects:
+                icon_previw = preview_files_objects[0].get_icon_preview()
+                if icon_previw:
+                    pixmap = self.get_preview_pixmap(icon_previw.get_full_abs_path())
+                    if pixmap:
+                        self.previewLabel.setPixmap(pixmap)
+
+    def set_web_preview(self):
+
+        snapshots = self.get_snapshot('icon')
+        if not snapshots:
+            snapshots = self.get_snapshot('publish')
+
+        if snapshots:
+            preview_files_objects = snapshots.get_files_objects(group_by='type').get('icon')
+            if preview_files_objects:
+                icon_previw = preview_files_objects[0].get_icon_preview()
+                if icon_previw:
+                    if icon_previw.is_exists():
+                        if icon_previw.get_file_size() == icon_previw.get_file_size(True):
+                            self.set_preview()
+                        else:
+                            self.download_and_set_preview_file(icon_previw)
+                    else:
+                        self.download_and_set_preview_file(icon_previw)
+
+    def download_and_set_preview_file(self, file_object):
+        if not file_object.is_downloaded():
+            if file_object.get_unique_id() not in list(env_inst.ui_repo_sync_queue.queue_dict.keys()):
+                repo_sync_item = env_inst.ui_repo_sync_queue.schedule_file_object(file_object)
+                repo_sync_item.downloaded.connect(self.set_preview_pixmap)
+                repo_sync_item.download()
+
+    def set_preview_pixmap(self, file_object):
+        pixmap = self.get_preview_pixmap(file_object.get_full_abs_path())
+        if pixmap:
+            self.previewLabel.setPixmap(pixmap)
+
+    def get_preview_pixmap(self, image_path):
+        pixmap = Qt4Gui.QPixmap(image_path)
+        if not pixmap.isNull():
+
+            pix_width = 36
+            pix_height = 36
+
+            pixmap = pixmap.scaledToHeight(pix_width, QtCore.Qt.SmoothTransformation)
+
+            painter = Qt4Gui.QPainter()
+            pixmap_mask = Qt4Gui.QPixmap(pix_width, pix_height)
+            pixmap_mask.fill(QtCore.Qt.transparent)
+            painter.begin(pixmap_mask)
+            painter.setRenderHint(Qt4Gui.QPainter.Antialiasing)
+            painter.setBrush(Qt4Gui.QBrush(Qt4Gui.QColor(0, 0, 0, 255)))
+            painter.drawEllipse(2, 2, 32, 32)
+            painter.end()
+
+            rounded_pixmap = Qt4Gui.QPixmap(pixmap.size())
+            rounded_pixmap.fill(QtCore.Qt.transparent)
+            painter.begin(rounded_pixmap)
+            painter.setRenderHint(Qt4Gui.QPainter.Antialiasing)
+            painter.drawPixmap(QtCore.QRect((pixmap.width() - pix_width) / 2, 0, pix_width, pix_width), pixmap_mask)
+            painter.setCompositionMode(Qt4Gui.QPainter.CompositionMode_SourceIn)
+            painter.drawPixmap(0, 0, pixmap)
+            painter.end()
+
+            return rounded_pixmap
+
+
+class Ui_iconWidget(QtGui.QWidget):
+    def __init__(self, sobject=None, parent=None):
+        super(self.__class__, self).__init__(parent=parent)
+
+        self.create_ui_raw()
+
+        self.sobject = sobject
+
+        self.create_ui()
+
+    def create_ui_raw(self):
+        self.setObjectName('Ui_iconWidget')
+        self.setContentsMargins(0, 0, 0, 0)
+
+        self.horizontal_layout = QtGui.QHBoxLayout(self)
+        self.horizontal_layout.setContentsMargins(0, 0, 0, 0)
+        self.horizontal_layout.setSpacing(0)
+
+        self.previewLabel = QtGui.QLabel(self)
+        self.previewLabel.setMinimumSize(QtCore.QSize(120, 120))
+        self.previewLabel.setMaximumSize(QtCore.QSize(120, 120))
+        self.previewLabel.setStyleSheet('QLabel {background: transparent; border: 0px; border-radius: 0px;padding: 0px 0px;}')
+        self.previewLabel.setTextFormat(QtCore.Qt.RichText)
+        self.previewLabel.setAlignment(QtCore.Qt.AlignVCenter | QtCore.Qt.AlignHCenter)
+        sizePolicy = QtGui.QSizePolicy(QtGui.QSizePolicy.Preferred, QtGui.QSizePolicy.Preferred)
+        self.previewLabel.setSizePolicy(sizePolicy)
+
+        self.horizontal_layout.addWidget(self.previewLabel)
+
+    def create_ui(self):
+
+        self.fill_info()
+
+    def set_sobject(self, sobject):
+
+        self.sobject = sobject
+
+    def get_snapshot(self, process='publish'):
+
+        snapshot_process = self.sobject.process.get(process)
+        if snapshot_process:
+            context = list(snapshot_process.contexts.values())[0]
+            if context.versionless:
+                return list(context.versionless.values())[0]
+            else:
+                return list(context.versions.values())[0]
+
+    def fill_info(self):
+        if self.sobject:
+
+            if self.sobject.process:
+
+                if gf.get_value_from_config(cfg_controls.get_checkin(), 'getPreviewsThroughHttpCheckbox') == 1:
+                    self.set_web_preview()
+                else:
+                    self.set_preview()
+            else:
+                self.previewLabel.setText(u'<span style=" font-size:9pt; font-weight:600; color:{0};">{1}</span>'.format(
+                        'rgb(128,128,128)', 'PIC'))
+        else:
+            self.previewLabel.setText(u'<span style=" font-size:9pt; font-weight:600; color:{0};">{1}</span>'.format(
+                'rgb(128,128,128)', ''))
+
+    def set_preview(self):
+
+        snapshots = self.get_snapshot('icon')
+        if not snapshots:
+            snapshots = self.get_snapshot('publish')
+
+        if snapshots:
+            preview_files_objects = snapshots.get_files_objects(group_by='type').get('icon')
+            if preview_files_objects:
+                icon_previw = preview_files_objects[0].get_icon_preview()
+                if icon_previw:
+                    pixmap = self.get_preview_pixmap(icon_previw.get_full_abs_path())
+                    if pixmap:
+                        self.previewLabel.setPixmap(pixmap)
+
+    def set_web_preview(self):
+
+        snapshots = self.get_snapshot('icon')
+        if not snapshots:
+            snapshots = self.get_snapshot('publish')
+
+        if snapshots:
+            preview_files_objects = snapshots.get_files_objects(group_by='type').get('icon')
+            if preview_files_objects:
+                icon_previw = preview_files_objects[0].get_icon_preview()
+                if icon_previw:
+                    if icon_previw.is_exists():
+                        if icon_previw.get_file_size() == icon_previw.get_file_size(True):
+                            self.set_preview()
+                        else:
+                            self.download_and_set_preview_file(icon_previw)
+                    else:
+                        self.download_and_set_preview_file(icon_previw)
+
+    def download_and_set_preview_file(self, file_object):
+        if not file_object.is_downloaded():
+            if file_object.get_unique_id() not in list(env_inst.ui_repo_sync_queue.queue_dict.keys()):
+                repo_sync_item = env_inst.ui_repo_sync_queue.schedule_file_object(file_object)
+                repo_sync_item.downloaded.connect(self.set_preview_pixmap)
+                repo_sync_item.download()
+
+    def set_preview_pixmap(self, file_object):
+        pixmap = self.get_preview_pixmap(file_object.get_full_abs_path())
+        if pixmap:
+            self.previewLabel.setPixmap(pixmap)
+
+    def get_preview_pixmap(self, image_path):
+        pixmap = Qt4Gui.QPixmap(image_path)
+        if not pixmap.isNull():
+
+            pix_width = 120
+            pix_height = 120
+
+            pixmap = pixmap.scaledToHeight(pix_width, QtCore.Qt.SmoothTransformation)
+
+            painter = Qt4Gui.QPainter()
+            pixmap_mask = Qt4Gui.QPixmap(pix_width, pix_height)
+            pixmap_mask.fill(QtCore.Qt.transparent)
+            painter.begin(pixmap_mask)
+            painter.setRenderHint(Qt4Gui.QPainter.Antialiasing)
+            painter.setBrush(Qt4Gui.QBrush(Qt4Gui.QColor(0, 0, 0, 255)))
+            painter.drawRoundedRect(QtCore.QRect(4, 4, pix_width-8, pix_height-8), 4, 4)
+            painter.end()
+
+            rounded_pixmap = Qt4Gui.QPixmap(pixmap.size())
+            rounded_pixmap.fill(QtCore.Qt.transparent)
+            painter.begin(rounded_pixmap)
+            painter.setRenderHint(Qt4Gui.QPainter.Antialiasing)
+            painter.drawPixmap(QtCore.QRect((pixmap.width() - pix_width) / 2, 0, pix_width, pix_width), pixmap_mask)
+            painter.setCompositionMode(Qt4Gui.QPainter.CompositionMode_SourceIn)
+            painter.drawPixmap(0, 0, pixmap)
+            painter.end()
+
+            return rounded_pixmap
+
+class Ui_notificationWidget(QtGui.QToolButton):
+    def __init__(self, size='normal', shadow_enabled=True, square_type=False, parent=None):
+        super(self.__class__, self).__init__(parent=parent)
+
+        # self.create_ui_raw()
+
+        self.shadow_enabled = shadow_enabled
+        self.square_type = square_type
+        self.size = size
+
+        self.create_ui()
+
+    def create_ui(self):
+
+        if self.size == 'tiny':
+            if self.shadow_enabled:
+                self.setFixedSize(30, 30)
+            else:
+                self.setFixedSize(22, 22)
+        elif self.size == 'small':
+            if self.shadow_enabled:
+                self.setFixedSize(38, 38)
+            else:
+                self.setFixedSize(34, 34)
+        elif self.size == 'normal':
+            if self.shadow_enabled:
+                self.setFixedSize(42, 42)
+            else:
+                self.setFixedSize(38, 38)
+
+        self.customize_ui()
+        self.setCursor(Qt4Gui.QCursor(QtCore.Qt.PointingHandCursor))
+
+    def create_badge(self):
+
+        print('Creating numeric badge')
+
+    def customize_ui(self):
+
+        self.setIcon(gf.get_icon('bell', icons_set='mdi'))
+
+        if self.shadow_enabled:
+            if self.square_type:
+                customize_dict = {'radius': int(self.height() / 8)}
+            else:
+                customize_dict = {'radius': int(self.height() / 2) - 4}
+
+            customize_dict['margin'] = 4
+            effect = QtGui.QGraphicsDropShadowEffect(self)
+            effect.setOffset(0, 0)
+            effect.setColor(Qt4Gui.QColor(0, 0, 0, 64))
+            effect.setBlurRadius(16)
+            self.setGraphicsEffect(effect)
+        else:
+            if self.square_type:
+                customize_dict = {'radius': int(self.height() / 4)}
+            else:
+                customize_dict = {'radius': int(self.height() / 2)}
+
+            customize_dict['margin'] = 0
+
+        self.setStyleSheet("""
+        QToolButton {{
+            border: 0px;
+            border-radius: {radius}px;
+            background: transparent;
+            margin: {margin}px;
+        }}
+        QToolButton::menu-indicator {{
+            background: transparent;
+        }}
+        QToolButton:pressed {{
+            background-color: rgb(107, 107, 107);
+        }}
+        /*
+        QToolButton:hover {{
+            background-color: rgb(107, 107, 107);
+        }}
+        */
+        """.format(**customize_dict))
+
+    def fill_info(self):
+        self.previewLabel.setText(u'<span style=" font-size:9pt; font-weight:600; color:{0};">{1}</span>'.format('rgb(240, 240, 240)', gf.gen_acronym(self.login.get_display_name())))
+        self.previewLabel.setStyleSheet('QLabel {{background: {0}; border: 0px; border-radius: 18px;padding: 0px 0px;}}'.format(gf.gen_color(self.login.get_value('login'))))
 
 
 class Ui_sideBarWidget(QtGui.QLabel):
@@ -2608,254 +3226,6 @@ class Ui_coloredComboBox(QtGui.QComboBox):
                                 }
                                 """)
 
-
-class StyledToolButton(QtGui.QToolButton):
-    def __init__(self, size='normal', shadow_enabled=True, square_type=False, parent=None):
-        super(self.__class__, self).__init__(parent=parent)
-
-        self.shadow_enabled = shadow_enabled
-        self.square_type = square_type
-        self.size = size
-        self.setAutoRaise(True)
-
-        self.create_ui()
-
-    def create_ui(self):
-
-        if self.size == 'tiny':
-            if self.shadow_enabled:
-                self.setFixedSize(30, 30)
-            else:
-                self.setFixedSize(22, 22)
-        elif self.size == 'small':
-            if self.shadow_enabled:
-                self.setFixedSize(38, 38)
-            else:
-                self.setFixedSize(34, 34)
-        elif self.size == 'normal':
-            if self.shadow_enabled:
-                self.setFixedSize(42, 42)
-            else:
-                self.setFixedSize(38, 38)
-
-        self.customize_ui()
-        self.setCursor(Qt4Gui.QCursor(QtCore.Qt.PointingHandCursor))
-
-    def customize_ui(self):
-
-        if self.shadow_enabled:
-            if self.square_type:
-                customize_dict = {'radius': int(self.height() / 8)}
-            else:
-                customize_dict = {'radius': int(self.height() / 2) - 4}
-
-            customize_dict['margin'] = 4
-            effect = QtGui.QGraphicsDropShadowEffect(self)
-            effect.setOffset(0, 0)
-            effect.setColor(Qt4Gui.QColor(0, 0, 0, 64))
-            effect.setBlurRadius(16)
-            self.setGraphicsEffect(effect)
-        else:
-            if self.square_type:
-                customize_dict = {'radius': int(self.height() / 4)}
-            else:
-                customize_dict = {'radius': int(self.height() / 2)}
-
-            customize_dict['margin'] = 0
-
-        self.setStyleSheet("""
-        QToolButton {{
-            border: 0px;
-            border-radius: {radius}px;
-            background: transparent;
-            margin: {margin}px;
-        }}
-        QToolButton::menu-indicator {{
-            background: transparent;
-        }}
-        QToolButton:pressed {{
-            background-color: rgb(107, 107, 107);
-        }}
-        /*
-        QToolButton:hover {{
-            background-color: rgb(107, 107, 107);
-        }}
-        */
-        """.format(**customize_dict))
-
-
-class StyledChooserToolButton(QtGui.QToolButton):
-    def __init__(self, small=False, shadow_enabled=True, square_type=False, parent=None):
-        super(self.__class__, self).__init__(parent=parent)
-
-        self.shadow_enabled = shadow_enabled
-        self.square_type = square_type
-        self.small = small
-
-        effect = QtGui.QGraphicsDropShadowEffect(self)
-        effect.setOffset(0, 0)
-        effect.setColor(Qt4Gui.QColor(0, 0, 0, 64))
-        effect.setBlurRadius(16)
-        self.setGraphicsEffect(effect)
-
-        # self.setPopupMode(QtGui.QToolButton.InstantPopup)
-
-        self.setToolButtonStyle(QtCore.Qt.ToolButtonTextBesideIcon)
-        self.setLayoutDirection(QtCore.Qt.RightToLeft)
-        self.setIcon(gf.get_icon('chevron-down', icons_set='mdi', scale_factor=1.2))
-
-        self.create_ui()
-
-    def create_ui(self):
-
-        if self.small:
-            self.setMaximumHeight(32)
-        else:
-            self.setMaximumHeight(38)
-
-        # self.create_menu()
-
-        self.customize_ui()
-        self.setCursor(Qt4Gui.QCursor(QtCore.Qt.PointingHandCursor))
-
-    # def create_menu(self):
-    #
-    #     self.menu = QtGui.QMenu()
-    #     self.menu.setLayoutDirection(QtCore.Qt.LeftToRight)
-    #
-    #     self.setMenu(self.menu)
-    #
-    # def get_menu(self):
-    #     return self.menu
-
-    def customize_ui(self):
-
-        if self.square_type:
-            customize_dict = {'radius': int(self.height() / 8), 'margin': 4}
-        else:
-            customize_dict = {'radius': int(self.height() / 2)-4, 'margin': 4}
-
-        self.setStyleSheet("""
-        QToolButton {{
-            font-size:11pt;
-            color: rgb(192,192,192);
-            border: 0px;
-            border-radius: {radius}px;
-            background: transparent;
-            margin: {margin}px;
-        }}
-        QToolButton::menu-indicator {{
-        background: transparent;
-        }}
-        QToolButton:pressed {{
-            /*background-color: rgb(44, 44, 44);*/
-        }}
-        QToolButton:hover {{
-            /*background-color: rgb(107, 107, 107);*/
-        }}
-        """.format(**customize_dict))
-
-        if self.shadow_enabled:
-            effect = QtGui.QGraphicsDropShadowEffect(self)
-            effect.setOffset(0, 0)
-            effect.setColor(Qt4Gui.QColor(0, 0, 0, 64))
-            effect.setBlurRadius(16)
-            self.setGraphicsEffect(effect)
-
-
-class StyledComboBox(QtGui.QComboBox):
-    def __init__(self, flat_style=False, parent=None):
-        super(self.__class__, self).__init__(parent=parent)
-
-        self.flat_style = flat_style
-
-        self.create_ui()
-
-    def create_ui(self):
-
-        self.customize_ui()
-
-        self.controls_actions()
-
-    def controls_actions(self):
-        pass
-
-    def customize_ui(self):
-
-        self.setMaximumHeight(32)
-
-        effect = QtGui.QGraphicsDropShadowEffect(self)
-        effect.setOffset(0, 0)
-        effect.setColor(Qt4Gui.QColor(0, 0, 0, 64))
-        effect.setBlurRadius(16)
-        self.setGraphicsEffect(effect)
-
-        self.setStyleSheet("""
-        QComboBox {
-            border: 0px;
-            border-radius: 4px;
-            padding-right: 4px;
-            padding-left: 16px;
-            /* min-width: 6em; */
-            font-size:11pt;
-        }
-        
-        QComboBox:editable {
-            background: transparent;
-        }
-        
-        QComboBox:!editable, QComboBox::drop-down:editable {
-             /*background: rgb(100,100,100);*/
-             background: transparent;
-        }
-        
-        QComboBox:!editable:on, QComboBox::drop-down:editable:on {
-            /*background: rgb(120,120,120);*/
-            background: transparent;
-        }
-        
-        QComboBox::drop-down {
-            subcontrol-origin: padding;
-            subcontrol-position: top right;
-            width: 10px;
-        
-            border-left-width: 0px;
-            border-left-color: darkgray;
-            border-left-style: solid;
-            border-top-right-radius: 4px;
-            border-bottom-right-radius: 4px;
-        }
-        
-        QComboBox QAbstractItemView {
-            border: 0px;
-            selection-background-color: rgb(120, 120, 120);
-        }
-        QScrollBar:vertical {
-            border: 0px ;
-            background: rgb(64, 64, 64);
-            width:8px;
-            margin: 0px 0px 0px 0px;
-            }
-        QScrollBar::handle:vertical {
-            background: rgb(100,100,100);
-            min-height: 0px;
-            border-radius: 4px;
-            }
-        QScrollBar::add-line:vertical {
-            background: rgba(0,0,0,64);
-            height: 0px;
-            subcontrol-position: bottom;
-            subcontrol-origin: margin;
-            }
-        QScrollBar::sub-line:vertical {
-            background: rgba(0,0,0,64);
-            height: 0 px;
-            subcontrol-position: top;
-            subcontrol-origin: margin;
-            }
-        """)
-
-
 class Ui_replyWidget(QtGui.QWidget):
     def __init__(self, parent=None):
         super(self.__class__, self).__init__(parent=parent)
@@ -2885,7 +3255,7 @@ class Ui_replyWidget(QtGui.QWidget):
         pass
 
     def create_rich_edit(self):
-        self.ui_richedit = ui_richedit_classes.Ui_richeditWidget(self.descriptionTextEdit, parent=self.descriptionTextEdit)
+        self.ui_richedit = Ui_richeditWidget(self.descriptionTextEdit, parent=self.descriptionTextEdit)
         self.editorLayout.addWidget(self.ui_richedit)
 
 
@@ -2924,7 +3294,10 @@ class Ui_messagesWidget(QtGui.QDialog, ui_messages.Ui_messages):
         # print env_inst.get_all_login_groups()
         self.usersTreeWidget.clear()
 
-        for login_group in env_inst.get_all_login_groups():
+        current_login = env_inst.get_current_login_object()
+
+
+        for login_group in current_login.get_all_login_groups():
             top_item = QtGui.QTreeWidgetItem()
             top_item.setText(0, login_group.get_pretty_name())
             top_item.setData(0, QtCore.Qt.UserRole, login_group)
@@ -2966,6 +3339,7 @@ class Ui_messagesWidget(QtGui.QDialog, ui_messages.Ui_messages):
             if chat.get_login() == current_login.get_code():
 
                 partner_login_name = chat.get_message_code()
+                print(chat.get_info())
                 for ms_code in current_login.get_subscriptions_by_category('chat'):
                     if ms_code.info['message_code'] == chat.info['message_code'] and ms_code.get_login() != chat.get_login():
                         partner_login_obj = env_inst.get_all_logins(ms_code.get_login())
@@ -2976,6 +3350,8 @@ class Ui_messagesWidget(QtGui.QDialog, ui_messages.Ui_messages):
                             partner_login_name = ms_code.get_login()
 
                 chat_tab = self.create_chat_tab(chat, partner_login)
+                print(partner_login)
+                print(partner_login_name)
 
                 self.chat_tab_widget.addTab(chat_tab, partner_login_name)
 

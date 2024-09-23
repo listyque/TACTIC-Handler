@@ -4,7 +4,7 @@ from thlib.side.Qt import QtCore
 import thlib.tactic_classes as tc
 import thlib.global_functions as gf
 from thlib.environment import env_inst, env_mode, env_tactic, cfg_controls
-from thlib.ui_classes.ui_custom_qwidgets import Ui_previewsEditorDialog, Ui_screenShotMakerDialog, Ui_coloredComboBox, StyledComboBox
+from thlib.ui_classes.ui_custom_qwidgets import Ui_previewsEditorDialog, Ui_screenShotMakerDialog, Ui_coloredComboBox, StyledComboBox, Ui_iconWidget
 
 
 # edit/input widgets
@@ -87,9 +87,11 @@ class QtTacticEditWidget(QtGui.QWidget):
     @gf.catch_error
     def commit_update(self):
         data = self.get_data()
+        print('DATA', data)
 
         if self.check_name_uniqueness(data):
             existing_sobject = self.tactic_widget.commit(data)
+            print(existing_sobject)
 
             if not self.commit_upload_wdg(existing_sobject):
                 self.add_sobj_widget.refresh_results()
@@ -700,6 +702,7 @@ class QTacticTextWdg(QtGui.QWidget, QTacticBasicInputWdg):
         self.set_title(self.tactic_widget.get_title())
         self.fill_default_values()
         self.set_control_widget(self.text_edit)
+        self.set_read_only()
 
     def get_data(self):
         if env_mode.py2:
@@ -721,6 +724,11 @@ class QTacticTextWdg(QtGui.QWidget, QTacticBasicInputWdg):
 
     def create_text_edit(self):
         self.text_edit = QtGui.QLineEdit()
+
+    def set_read_only(self):
+        if self.tactic_widget.kwargs:
+            if self.tactic_widget.kwargs.get('read_only'):
+                self.setEnabled(False)
 
 
 class QTacticTextAreaWdg(QtGui.QWidget, QTacticBasicInputWdg):
@@ -1329,3 +1337,82 @@ class QTacticPipelineInputWdg(QtGui.QWidget, QTacticBasicInputWdg):
         labels = self.tactic_widget.get_labels()
         for label in labels:
             self.combo_box.addItem(label)
+
+
+class QTacticThumbInputWdg(QtGui.QWidget, QTacticBasicInputWdg):
+    def __init__(self, tactic_widget, parent=None):
+        super(self.__class__, self).__init__(parent=parent)
+
+        self.init_ui()
+        self.tactic_widget = tactic_widget
+        self.sobject = self.tactic_widget.get_sobject()
+
+        self.create_icon_widget()
+
+        # self.set_title(self.tactic_widget.get_title())
+        # self.fill_default_values()
+
+        # self.set_control_widget(self.icon_widget)
+
+    def get_data(self):
+         return None
+
+    def get_column(self):
+        return self.tactic_widget.get_name()
+
+    def fill_default_values(self):
+        values = self.tactic_widget.get_display_values()
+        if values:
+            self.checkbox.setChecked(values[0])
+            self.checkbox.setText('                   ')
+
+    def create_icon_widget(self):
+        self.icon_widget = Ui_iconWidget(sobject=self.sobject)
+        print('SOBJECT', self.sobject)
+        # self.icon_widget.set_sobject(self.sobject)
+        # self.icon_widget.previewLabel.setText('ASSA')
+        self.main_layout.addWidget(self.icon_widget)
+
+
+class QTacticPasswordWdg(QtGui.QWidget, QTacticBasicInputWdg):
+    def __init__(self, tactic_widget, parent=None):
+        super(self.__class__, self).__init__(parent=parent)
+
+        self.init_ui()
+        self.tactic_widget = tactic_widget
+
+        self.create_text_edit()
+
+        self.set_title(self.tactic_widget.get_title())
+        # self.fill_default_values()
+        self.set_control_widget(self.text_edit)
+        self.set_read_only()
+
+    def get_data(self):
+        if env_mode.py2:
+            if unicode(self.text_edit.text()) != unicode(''):
+                return unicode(self.text_edit.text())
+        else:
+            if str(self.text_edit.text()) != '':
+                return str(self.text_edit.text())
+
+    def get_column(self):
+        return self.tactic_widget.get_name()
+
+    # def fill_default_values(self):
+    #     if self.tactic_widget.get_default_values():
+    #         if env_mode.py2:
+    #             self.text_edit.setText(unicode(self.tactic_widget.get_default_values()))
+    #         else:
+    #             self.text_edit.setText(str(self.tactic_widget.get_default_values()))
+
+    def create_text_edit(self):
+        self.text_edit = QtGui.QLineEdit()
+
+        self.text_edit.setEchoMode(QtGui.QLineEdit.Password)
+        self.text_edit.setPlaceholderText('Edit to Change Password')
+
+    def set_read_only(self):
+        if self.tactic_widget.kwargs:
+            if self.tactic_widget.kwargs.get('read_only'):
+                self.setEnabled(False)

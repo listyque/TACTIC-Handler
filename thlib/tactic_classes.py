@@ -265,8 +265,8 @@ def get_match_list_by_type(column_type):
         match_list = [
             ('Have', 'in'),
             ('Do not have', 'not in'),
-            # ('Match (slow)', 'match'),
-            # ('Do not match (slow)', 'do not match'),
+            ('Match (slow)', 'match'),
+            ('Do not match (slow)', 'do not match'),
         ]
     elif column_type in ['timecode']:
         match_list = [
@@ -285,6 +285,94 @@ def get_search_relation(relation):
     for possible_relation in possible_relations:
         if possible_relation[0].lower() == relation.lower():
             return possible_relation[1]
+
+
+def unpack_tactic_search_view(search_view):
+    filters_list = []
+
+    js_string = search_view.values.string
+    if js_string:
+        filters_list = gf.from_json(js_string)
+
+    if filters_list:
+
+        filters_dict = {}
+
+        # breaking filters by prefix
+        for fl in filters_list:
+            filters_dict.setdefault(fl['prefix'], []).append(fl)
+
+        filters = filters_dict['main_body']
+
+        final_filters_list = []
+
+        for fltr in filters:
+
+            relation_name = fltr['main_body_relation']
+            if relation_name == 'expression':
+                relation_name = fltr['main_body_op']
+            relation = get_search_relation(relation_name)
+
+            column = fltr['main_body_column']
+            value = fltr['main_body_value']
+
+            filter_list = (column, relation, value)
+
+            final_filters_list.append(filter_list)
+
+        return final_filters_list
+
+
+def pack_tactic_search_view(filters_list):
+    ops_list = []
+
+    # adding filter mode, by now it is always "and"
+    tactic_filters_list = [{'prefix': 'filter_mode', 'filter_mode': 'and'}]
+
+    # breaking filters by prefix
+    for enabled, filters, op in filters_list:
+
+        if op != 'begin':
+            ops_list.append(op)
+
+        filter_dict = {'prefix': 'main_body', 'main_body_enabled': 'on'}
+
+        column = filters[0]
+        relation = filters[1]
+        value = filters[2]
+
+        if column == '_expression':
+
+            filter_dict['main_body_relation'] = 'expression'
+            filter_dict['main_body_op'] = relation
+        elif column == 'timestamp':
+            filter_dict['main_body_relation'] = relation
+            filter_dict['main_body_select'] = ''
+        else:
+            filter_dict['main_body_relation'] = relation
+
+            filter_dict['filter_type'] = '_column'
+
+        filter_dict['filter_type'] = '_column'
+        filter_dict['main_body_column'] = column
+        filter_dict['main_body_value'] = value
+        if enabled:
+            filter_dict['main_body_enabled'] = 'on'
+        else:
+            filter_dict['main_body_enabled'] = ''
+
+        tactic_filters_list.append(filter_dict)
+
+    # adding ops list, looks like it is all dated, and legacy
+    ops_dict = {'prefix': 'search_ops', 'levels': [], 'ops': [], 'modes': []}
+    for op in ops_list:
+        ops_dict['levels'].append(0)
+        ops_dict['ops'].append(op)
+        ops_dict['modes'].append('child')
+
+    tactic_filters_list.append(ops_dict)
+
+    return json.dumps(tactic_filters_list)
 
 
 def split_search_key(search_key):
@@ -348,7 +436,6 @@ def get_snapshots_updates_list(search_type_code, project_code):
 
         return update_snapshots_timestamp_list
 
-
 # SObject class
 class SObject(object):
     """
@@ -406,6 +493,7 @@ class SObject(object):
         self.files_sobjects = None
         self.notes = {}
         self.status_log = []
+        self.progress_counts_dict = {}
 
         # INFO VARS
         self.tasks_count = {'__total__': 0}
@@ -599,6 +687,19 @@ class SObject(object):
         for status in status_log:
             self.status_log.append(SObject(status, project=self.project))
 
+    def set_progress_counts(self, counts_dict):
+        self.progress_counts_dict = counts_dict
+
+    def get_progress_count(self, process, count_type='total_count'):
+        result = self.progress_counts_dict.get(process)
+
+        if result:
+            if count_type == 'total_count':
+                return result['tc']
+
+            if count_type == 'approved_count':
+                return result['ac']
+
     def get_status_log(self):
         return self.status_log
 
@@ -680,8 +781,11 @@ class SObject(object):
     def get_code(self):
         return self.info['code']
 
-    def get_info(self):
-        return self.info
+    def get_info(self, value=None):
+        if value:
+            return self.info.get(value)
+        else:
+            return self.info
 
     def get_value(self, column):
         return self.info.get(column)
@@ -900,6 +1004,9 @@ class Project(SObject):
         else:
             return self.stypes
 
+    def get_search_type(self, search_type):
+        return self.stypes[search_type]
+
     def query_search_types(self, force=False):
 
         use_cache = False
@@ -1016,7 +1123,7 @@ class Project(SObject):
         self.stypes = stypes_objects
 
         # getting definition for sidebar
-        self.views = ViewsConfig(views)
+        self.views = ViewsConfig(views, project=self)
 
         return self.stypes
 
@@ -1153,7 +1260,8 @@ class SType(object):
 
 
 class ViewsConfig(SObject):
-    def __init__(self, config_dict):
+    def __init__(self, config_dict, project=None):
+        super(self.__class__, self).__init__(project=project)
 
         self.config_dict = config_dict
 
@@ -1163,6 +1271,38 @@ class ViewsConfig(SObject):
             return True
         else:
             return False
+
+    def update_views(self, filters=None):
+        if filters:
+            views = self.query_views(filters)
+        else:
+            views = self.query_views([])
+
+        def merge_dict_lists(list1, list2):
+            merged_list = list1.copy()
+
+            for dict2 in list2:
+                if dict2 not in merged_list:
+                    merged_list.append(dict2)
+
+            return merged_list
+
+        if views:
+            if filters:
+                self.config_dict = merge_dict_lists(self.config_dict, views)
+            else:
+                # if there were no filters, so just update whole config
+                self.config_dict = views
+
+            return views
+
+    def query_views(self, filters=None):
+
+        server = server_start(project=self.project.info['code'])
+
+        presets = server.query('config/widget_config', filters)
+
+        return presets
 
     def get_view(self, search_type, view='definition', login='', processed=True, bs=False):
 
@@ -1192,6 +1332,52 @@ class ViewsConfig(SObject):
             return all_elements
         else:
             return view_xml
+
+    def get_views(self, config_list=None, processed=True, bs=False):
+
+        if bs:
+            if config_list:
+
+                out_list = []
+                for config in config_list:
+                    view_xml = config['config']
+                    out_list.append(BeautifulSoup(view_xml, 'html.parser'))
+
+                return out_list
+            else:
+                out_list = []
+                for config in self.config_dict:
+                    view_xml = config['config']
+                    out_list.append(BeautifulSoup(view_xml, 'html.parser'))
+
+                return out_list
+
+        if processed:
+            if config_list:
+
+                out_list = []
+                for config in config_list:
+                    view_xml = config['config']
+
+                    view_bs = BeautifulSoup(view_xml, 'html.parser')
+
+                    all_elements = []
+                    for element in view_bs.find_all(name='element'):
+                        all_elements.append(element)
+
+                    out_list.append(all_elements)
+            else:
+                out_list = []
+                for config in self.config_dict:
+                    view_xml = config['config']
+
+                    view_bs = BeautifulSoup(view_xml, 'html.parser')
+
+                    all_elements = []
+                    for element in view_bs.find_all(name='element'):
+                        all_elements.append(element)
+
+                    out_list.append(all_elements)
 
 
 class Schema(object):
@@ -1349,6 +1535,31 @@ class Pipeline(object):
     def get_process_info(self, process):
         return self.pipeline.get(process)
 
+    def get_processes_info_by_type(self, type):
+        """
+        Returns all possible processes with given type of node:
+        For example to get all "progress" nodes
+        get_processes_info_by_type("progress")
+
+        Args:
+            type: string with node type
+
+        Returns:
+            list of all found processes with info dicts
+
+        """
+
+        processes = self.get_all_pipeline_names()
+
+        processes_list = []
+
+        for process in processes:
+            process_info = self.pipeline.get(process)
+            if process_info['type'] == type:
+                processes_list.append(process_info)
+
+        return processes_list
+
     def get_process_label(self, process):
         process_info = self.get_process_info(process)
         if process_info:
@@ -1375,6 +1586,8 @@ class Login(SObject):
         self.login_in_groups = login_in_groups
         self.all_subscriptions = None
         self.all_messages = None
+
+        self.process = {}
 
         self.__init_login_groups()
 
@@ -2155,10 +2368,12 @@ def get_all_projects_and_logins(force=False):
             login_in_groups_list.append(login_in_group)
 
         for login in logins:
-            login_object = Login(login, login_groups_list, login_in_groups_list)
+            login_sobject = Login(login, login_groups_list, login_in_groups_list)
+            login_sobject.init_snapshots(login['__snapshots__'])
+            logins_dict[login.get('code')] = login_sobject
             # if login_object.get_login() == env_inst.get_current_login():
             #     login_object.all_subscriptions = subscriptions
-            logins_dict[login.get('code')] = login_object
+            # logins_dict[login.get('code')] = login_sobject
 
         env_inst.logins = logins_dict
 
@@ -2243,8 +2458,6 @@ def duplicate_sobjects(search_keys, data_dict):
         'data_dict': data_dict,
     }
 
-    print('Begin duplicating')
-
     return execute_procedure_serverside(tq.duplicate_sobjects, kwargs)
 
 
@@ -2266,7 +2479,7 @@ def delete_sobjects(search_keys, list_dependencies):
     return execute_procedure_serverside(tq.delete_sobjects, kwargs)
 
 
-def get_sobjects(search_type, filters=[], order_bys=[], project_code=None, limit=None, offset=None, process_list=[], get_all_snapshots=False, check_snapshots_updates=False, include_info=True, include_snapshots=True, compressed_return=True, include_status_log=False):
+def get_sobjects(search_type, filters=[], order_bys=[], project_code=None, limit=None, offset=None, process_list=[], get_all_snapshots=False, check_snapshots_updates=False, include_info=True, include_snapshots=True, compressed_return=True, include_status_log=False, include_progress=False):
     """
     Filters snapshot by search codes, and sobjects codes
     :param search_type: search_type or search_key (if using search_type project_code should to be provided)
@@ -2290,6 +2503,7 @@ def get_sobjects(search_type, filters=[], order_bys=[], project_code=None, limit
         'include_snapshots': include_snapshots,
         'compressed_return': compressed_return,
         'include_status_log': include_status_log,
+        'include_progress': include_progress,
     }
     if not project_code:
         if search_type.startswith('sthpw'):
@@ -2337,8 +2551,12 @@ def get_sobjects(search_type, filters=[], order_bys=[], project_code=None, limit
                 else:
                     sobjects[sobject['__search_key__']].set_notes_count('publish', sobject['__notes_count__'])
                 sobjects[sobject['__search_key__']].set_tasks_count('__total__', sobject['__tasks_count__'])
+
             if include_status_log:
                 sobjects[sobject['__search_key__']].set_status_log(sobject['__status_log__'])
+
+            if include_progress:
+                sobjects[sobject['__search_key__']].set_progress_counts(sobject['__progress__'])
 
         if include_info:
             return sobjects, info
@@ -2370,8 +2588,6 @@ def get_group_sobjects(search_type, project_code=None, groups_list=[]):
             kwargs['search_type'] = server_start(project=project_code).build_search_type(search_type, project_code)
 
     result = execute_procedure_serverside(tq.query_group_sobjects, kwargs, project=project_code)
-
-    print(kwargs)
 
     return result
 

@@ -19,7 +19,7 @@ from thlib.ui_classes.ui_script_editor_classes import Ui_ScriptEditForm
 from thlib.ui_classes.ui_update_classes import Ui_updateDialog
 import thlib.ui.misc.ui_create_update as ui_create_update
 from thlib.ui_classes.ui_repo_sync_queue_classes import Ui_repoSyncQueueWidget
-from thlib.ui_classes.ui_custom_qwidgets import Ui_debugLogWidget, Ui_messagesWidget, StyledToolButton, Ui_extendedTreeWidget, StyledChooserToolButton, Ui_projectIconWidget, Ui_userIconWidget
+from thlib.ui_classes.ui_custom_qwidgets import Ui_debugLogWidget, Ui_messagesWidget, StyledToolButton, Ui_extendedTreeWidget, StyledChooserToolButton, Ui_projectIconWidget, Ui_userIconWidget, Ui_notificationWidget
 import thlib.ui_classes.ui_checkin_out_tabs_classes as ui_checkin_out_tabs_classes
 import thlib.ui_classes.ui_conf_classes as ui_conf_classes
 
@@ -154,10 +154,11 @@ class Ui_topBarWidget(QtGui.QWidget):
         self.create_info_label()
 
         self.create_user_icon_widget()
+        self.create_notification_button()
         self.create_config_button()
 
+        self.fill_user_menu()
         self.fill_config_menu()
-        # self.fill_projects_menu()
 
     def create_layout(self):
         self.main_layout = QtGui.QHBoxLayout()
@@ -260,8 +261,17 @@ class Ui_topBarWidget(QtGui.QWidget):
 
     def create_user_icon_widget(self):
         self.user_icon_widget = Ui_userIconWidget()
+        self.user_icon_widget.setPopupMode(QtGui.QToolButton.InstantPopup)
+        self.user_icon_widget.setArrowType(QtCore.Qt.NoArrow)
 
         self.main_layout.addWidget(self.user_icon_widget)
+
+    def create_notification_button(self):
+        self.notification_button = Ui_notificationWidget()
+        # self.notification_button.setPopupMode(QtGui.QToolButton.InstantPopup)
+        # self.notification_button.setArrowType(QtCore.Qt.NoArrow)
+
+        self.main_layout.addWidget(self.notification_button)
 
     def create_projects_combo(self):
         self.projects_chooser_button = StyledChooserToolButton()
@@ -269,13 +279,23 @@ class Ui_topBarWidget(QtGui.QWidget):
 
         self.main_layout.addWidget(self.projects_chooser_button)
 
-    def fill_projects_menu(self):
-        pass
-        # self.menuProject = self.projects_chooser_button.get_menu()
-        # self.menuProject.setObjectName("menuProject")
-        # self.menuProject.setTitle(u"Projects")
+    def fill_user_menu(self):
 
-        # self.projects_chooser_button.setMenu(self.menuProject)
+        self.menuUser = QtGui.QMenu(self.user_icon_widget)
+        self.menuUser.setObjectName("menuUser")
+        self.menuUser.setTitle(u"User Menu")
+
+        self.actionEditAccount = QtGui.QAction(self)
+        self.actionEditAccount.setObjectName("actionEditAccount")
+
+        self.menuUser.addAction(self.actionEditAccount)
+
+        self.actionEditAccount.setText(u"Edit My Account")
+
+        self.actionEditAccount.setIcon(gf.get_icon('account', icons_set='mdi'))
+
+        self.user_icon_widget.setMenu(self.menuUser)
+        self.user_icon_widget.setPopupMode(QtGui.QToolButton.InstantPopup)
 
     def fill_config_menu(self):
 
@@ -733,7 +753,7 @@ class Ui_Main(QtGui.QMainWindow):
         self.setIcon()
 
         self.create_script_editor_widget()
-        # self.create_messages_widget()
+        self.create_messages_widget()
 
         self.created = True
 
@@ -853,35 +873,36 @@ class Ui_Main(QtGui.QMainWindow):
         self.top_bar_widget.actionDebug_Log.triggered.connect(lambda: env_inst.ui_debuglog.show())
 
         # User Menu items
-        # self.top_bar_widget.actionMessages.triggered.connect(lambda: env_inst.ui_messages.show())
-        # self.top_bar_widget.actionEdit_My_Account.triggered.connect(self.edit_my_account)
+        self.top_bar_widget.actionEditAccount.triggered.connect(self.edit_my_account)
+        self.top_bar_widget.notification_button.clicked.connect(lambda: env_inst.ui_messages.show())
 
         self.top_bar_widget.actionDock_undock.triggered.connect(self.undock_window)
 
     def undock_window(self):
         env_inst.ui_maya_dock.toggle_docking()
 
-    # def edit_my_account(self):
-    #
-    #     print('Edit my Account')
-    #     from thlib.ui_classes.ui_addsobject_classes import Ui_addTacticSobjectWidget
-    #
-    #     login_stype = env_inst.get_stype_by_code('sthpw/login')
-    #     # parent_stype = self.parent_sobject.get_stype()
-    #     # search_key = self.parent_sobject.get_search_key()
-    #
-    #     # print search_key
-    #
-    #     add_sobject = Ui_addTacticSobjectWidget(
-    #         stype=login_stype,
-    #         parent_stype=None,
-    #         # search_key=search_key,
-    #         parent_search_key=None,
-    #         # view='edit',
-    #         parent=self,
-    #     )
-    #
-    #     add_sobject.show()
+    def edit_my_account(self):
+
+        from thlib.ui_classes.ui_addsobject_classes import Ui_addTacticSobjectWidget
+
+        login_stype = env_inst.get_stype_by_code('sthpw/login')
+        current_login = env_inst.get_current_login_object()
+        search_key = current_login.get_search_key()
+
+        print(search_key)
+
+        self.edit_sobject = Ui_addTacticSobjectWidget(
+            stype=login_stype,
+            parent_stype=None,
+            sobject=current_login,
+            search_key=search_key,
+            parent_search_key=None,
+            view='edit_account',
+            parent=self,
+        )
+
+        self.edit_sobject.setWindowTitle(u'Editing Account {0}'.format(current_login.get_login()))
+        self.edit_sobject.show()
 
     # def create_ui_float_notify(self):
     #     self.float_notify = ui_float_notify_classes.Ui_floatNotifyWidget(self)

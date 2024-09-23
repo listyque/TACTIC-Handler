@@ -444,13 +444,14 @@ class Ui_linkSobjectsWidget(QtGui.QDialog):
 
 
 class Ui_addTacticSobjectWidget(QtGui.QDialog):
-    def __init__(self, stype, parent_stype=None, item=None, tab_name=None, view='insert', search_key=None, parent_search_key=None, parent_sobject=None, info_dict=None, parent=None):
+    def __init__(self, stype, parent_stype=None, item=None, tab_name=None, view='insert', search_key=None, parent_search_key=None, sobject=None, parent_sobject=None, info_dict=None, parent=None):
         super(self.__class__, self).__init__(parent=parent)
 
         self.item = item
         self.stype = stype
         self.parent_stype = parent_stype
         self.search_type = self.stype.info.get('code')
+        self.sobject = sobject
         self.parent_sobject = parent_sobject
         self.info_dict = info_dict
 
@@ -531,7 +532,7 @@ class Ui_addTacticSobjectWidget(QtGui.QDialog):
                 },
                 'search_type': self.search_type,
             }
-        else:
+        elif self.view == 'insert':
 
             kwargs = {
                 'args': {
@@ -540,6 +541,16 @@ class Ui_addTacticSobjectWidget(QtGui.QDialog):
                     'parent_key': self.parent_search_key,
                     'search_type': self.search_type,
                     'view': 'insert',
+                },
+                'search_type': self.search_type,
+            }
+        else:
+            kwargs = {
+                'args': {
+                    'input_prefix': 'edit',
+                    'search_key': self.search_key,
+                    'parent_key': self.parent_search_key,
+                    'view': self.view,
                 },
                 'search_type': self.search_type,
             }
@@ -554,6 +565,7 @@ class Ui_addTacticSobjectWidget(QtGui.QDialog):
         self.set_title()
 
     def create_widgets_ui(self, result_dict):
+        print('result_dict', result_dict)
         self.toggle_loading_label()
         
         input_widgets_list = []
@@ -566,7 +578,11 @@ class Ui_addTacticSobjectWidget(QtGui.QDialog):
         if self.info_dict:
             result_dict['EditWdg']['info_dict'] = self.info_dict
 
+        if self.stype:
+            result_dict['EditWdg']['stype'] = self.stype
+
         tactic_edit_widget = tw.TacticEditWdg(result_dict['EditWdg'])
+        print('SETTING STYPE', self.stype)
         tactic_edit_widget.set_stype(self.stype)
 
         self.edit_window = twc.QtTacticEditWidget(
@@ -580,7 +596,12 @@ class Ui_addTacticSobjectWidget(QtGui.QDialog):
             tactic_widget_name = tw.get_widget_name(widget_dict['class_name'], 'input')
 
             widget_dict['sobject'] = result_dict['EditWdg'].get('sobject')
+            if not widget_dict['sobject']:
+                widget_dict['sobject'] = self.sobject
+
             widget_dict['parent_sobject'] = result_dict['EditWdg'].get('parent_sobject')
+            if not widget_dict['parent_sobject']:
+                widget_dict['parent_sobject'] = self.parent_sobject
 
             if not tactic_widget_name:
                 tactic_widget_name = 'TacticCurrentCheckboxWdg'
@@ -657,14 +678,17 @@ class Ui_addTacticSobjectWidget(QtGui.QDialog):
             filters=[('code', '=', sobject.get('code'))],
         )
 
-    def get_checkin_out_tab(self):
+    def get_stype(self):
 
         stype = self.parent_stype
         if not stype:
             stype = self.stype
 
-        print(self.get_tab_name())
-        print(stype)
+        return stype
+
+    def get_checkin_out_tab(self):
+
+        stype = self.get_stype()
 
         return env_inst.get_check_tree(
             project_code=stype.project.info.get('code'),
@@ -672,13 +696,14 @@ class Ui_addTacticSobjectWidget(QtGui.QDialog):
             wdg_code=self.get_tab_name())
 
     def refresh_results(self):
-        checkin_out_tab = self.get_checkin_out_tab()
-        print(checkin_out_tab.customized_name)
-        gf.pp(checkin_out_tab)
-        checkin_out_tab.refresh_current_results()
-        # tree_wdg = checkin_out_tab.get_current_tree_widget()
-        #
-        # tree_wdg.update_current_items_trees()
+        stype = self.get_stype()
+
+        if stype.project.info.get('code') != 'sthpw':
+            checkin_out_tab = self.get_checkin_out_tab()
+            checkin_out_tab.refresh_current_results()
+            # tree_wdg = checkin_out_tab.get_current_tree_widget()
+            #
+            # tree_wdg.update_current_items_trees()
 
     def set_settings_from_dict(self, settings_dict=None):
 

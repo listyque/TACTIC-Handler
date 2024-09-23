@@ -1000,6 +1000,22 @@ def add_item_to_tree(tree_widget, tree_item, tree_item_widget=None, insert_pos=N
             tree_widget.treeWidget().setItemWidget(tree_item, 0, tree_item_widget)
 
 
+def add_items_to_tree(tree_widget, tree_item_widgets=None):
+    if isinstance(tree_widget, QtGui.QTreeWidget):
+        tree_items = [QtGui.QTreeWidgetItem() for i in range(len(tree_item_widgets))]
+
+        tree_widget.addTopLevelItems(tree_items)
+        if tree_item_widgets:
+            for tree_item, tree_item_widget in zip(tree_items, tree_item_widgets):
+                tree_widget.setItemWidget(tree_item, 0, tree_item_widget)
+    else:
+        tree_items = [QtGui.QTreeWidgetItem() for i in range(len(tree_item_widgets))]
+        tree_widget.addChilds(tree_items)
+        if tree_item_widgets:
+            for tree_item, tree_item_widget in zip(tree_items, tree_item_widgets):
+                tree_widget.treeWidget().setItemWidget(tree_item, 0, tree_item_widget)
+
+
 def check_tree_items_exists(root_item, item_text):
     if isinstance(root_item, QtGui.QTreeWidget):
         for i in range(root_item.topLevelItemCount()):
@@ -1106,6 +1122,13 @@ def add_repo_sync_item(tree_widget, file_object):
 
     return tree_item_widget
 
+
+def create_repo_sync_item(file_object):
+    from thlib.ui_classes.ui_item_classes import Ui_repoSyncItemWidget
+
+    tree_item_widget = Ui_repoSyncItemWidget(file_object=file_object)
+
+    return tree_item_widget
 
 def add_sidebar_item(tree_widget, stype, project, item_info, insert_pos=None):
 

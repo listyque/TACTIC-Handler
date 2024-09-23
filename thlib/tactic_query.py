@@ -212,9 +212,7 @@ def duplicate_sobjects(search_keys, data_dict=None):
         form name/value pairs
     '''
 
-    # from pyasm.biz import Project
-    # from pyasm.search import SearchType
-    # from pyasm.common import Common
+    import json
     from pyasm.biz import Schema
 
     if not isinstance(search_keys, list):
@@ -254,9 +252,9 @@ def duplicate_sobjects(search_keys, data_dict=None):
     search_type = sobject.get_base_search_type()
     data = sobject.get_data()
 
-    new_sobject = duplicate_sobj(search_type, data, new_name=data_dict.get('new_name'))
+    new_sobject_dict = duplicate_sobj(search_type, data, new_name=data_dict.get('new_name'))
 
-    new_sobjects = server.server._get_sobjects(new_sobject)
+    new_sobjects = server.server._get_sobjects(new_sobject_dict)
     new_sobject = new_sobjects[0]
 
     # handling related sobjects
@@ -290,7 +288,7 @@ def duplicate_sobjects(search_keys, data_dict=None):
                     new_data[to_col] = new_sobject_data[from_col]
                     duplicate_sobj(related_search_type, new_data)
 
-    return 'ok'
+    return json.dumps(new_sobject_dict)
 
 
 def delete_sobjects(search_keys, include_dependencies=False, list_dependencies=None):
@@ -311,9 +309,8 @@ def delete_sobjects(search_keys, include_dependencies=False, list_dependencies=N
         form name/value pairs
     '''
 
-    from pyasm.biz import Project
-    from tactic.ui.tools import DeleteCmd
     import json
+    from tactic.ui.tools import DeleteCmd
 
     if not isinstance(search_keys, list):
         search_keys = [search_keys]
@@ -420,7 +417,39 @@ def get_projects_and_logins(current_login='admin'):
 
     search = Search('sthpw/login')
     search.add_op_filters([])
-    logins = get_sobjects_dict(search.get_sobjects())
+    logins_sobjects = search.get_sobjects()
+
+    # Getting snapshots for logins previews
+    snapshot_search = Search('sthpw/snapshot')
+    snapshot_search.add_relationship_filters(logins_sobjects, op='in')
+    snapshot_search.add_op_filters([('process', ['icon', 'attachment', 'publish'])])
+    snapshots_sobjects = snapshot_search.get_sobjects()
+
+    snapshots_files_sobjects = Snapshot.get_files_dict_by_snapshots(snapshots_sobjects)
+
+    logins = get_sobjects_dict(logins_sobjects)
+
+    for login in logins:
+
+        related_snapshots = []
+        for snapshot in snapshots_sobjects:
+            if snapshot.get_value('search_code') == login['code']:
+                related_snapshots.append(snapshot)
+
+        snapshots_list = []
+        for snapshot in related_snapshots:
+
+            if snapshot.get_version() in [-1, 0, '-1', '0'] or snapshot.is_latest():
+                snapshot_dict = get_sobject_dict(snapshot)
+                files_list = []
+                snapshots_files = snapshots_files_sobjects.get(snapshot_dict['code'])
+                if snapshots_files:
+                    for fl in snapshots_files:
+                        files_list.append(server.server._get_sobject_dict(fl))
+                snapshot_dict['__files__'] = files_list
+                snapshots_list.append(snapshot_dict)
+
+        login['__snapshots__'] = snapshots_list
 
     search = Search('sthpw/login_group')
     search.add_op_filters([])
@@ -960,7 +989,7 @@ def query_sobjects_snapshots_updated(search_type, filters=[], order_bys=[], proj
     return json.dumps(result, separators=(',', ':'))
 
 
-def query_sobjects(search_type, filters=[], order_bys=[], project_code=None, limit=None, offset=None, get_all_snapshots=False, check_snapshots_updates=False, include_info=True, include_snapshots=True, compressed_return=True, include_status_log=False):
+def query_sobjects(search_type, filters=[], order_bys=[], project_code=None, limit=None, offset=None, get_all_snapshots=False, check_snapshots_updates=False, include_info=True, include_snapshots=True, compressed_return=True, include_status_log=False, include_progress=False):
     """
 
     :param search_type:
@@ -1035,11 +1064,30 @@ def query_sobjects(search_type, filters=[], order_bys=[], project_code=None, lim
     if expressions_filters_list:
 
         for op, expression_filter in expressions_filters_list:
-            eval_sobjects = Search.eval(expression_filter)
-            if eval_sobjects:
-                search.add_relationship_filters(eval_sobjects, op=op)
-            elif op == 'in':
-                search.set_null_filter()
+            if op in ['in', 'not in']:
+                eval_sobjects = Search.eval(expression_filter)
+                if eval_sobjects:
+                    search.add_relationship_filters(eval_sobjects, op=op)
+                elif op == 'in':
+                    search.set_null_filter()
+            else:
+                if op == 'do not match':
+                    op = 'not in'
+                else:
+                    op = 'in'
+
+                codes = []
+                sobjects = Search(search.get_search_type()).get_sobjects()
+
+                for sobject in sobjects:
+                    eval_sobjects = Search.eval(expression_filter, sobject, single=True)
+                    if eval_sobjects == True:
+                        codes.append(sobject.get_code())
+
+                if not codes:
+                    search.set_null_filter()
+                else:
+                    search.add_filters('code', codes, op=op)
 
     if include_info:
         total_sobjects_query_count = search.get_count()
@@ -1073,6 +1121,93 @@ def query_sobjects(search_type, filters=[], order_bys=[], project_code=None, lim
     if sobjects_dicts_list:
         if sobjects_dicts_list[0].get('code'):
             have_search_code = True
+
+    if include_progress:
+        progress_results = {}
+        if sobjects_list:
+
+            for sobject in sobjects_list:
+
+                search = Search('sthpw/pipeline')
+
+                pipeline_code = sobject.get_value('pipeline_code', no_exception=True)
+
+                # there is no progress is there is no pipeline
+                if not pipeline_code:
+                    continue
+
+                search.add_filter('search_type', sobject.get_base_search_type())
+                search.add_filter('project_code', sobject.get_project_code())
+                search.add_filter('code', pipeline_code)
+
+                sobject_pipeline = search.get_sobject()
+
+                all_processes = sobject_pipeline.get_process_names(type='progress')
+
+                processes_result = {}
+
+                for process_name in all_processes:
+
+                    assets_pipeline = sobject_pipeline.get_process(process_name)
+
+                    search = Search('config/process')
+                    search.add_filter('code', assets_pipeline.get_attribute('process_code'))
+                    process = search.get_sobject()
+                    workflow = process.get_value('workflow')
+
+                    related_search_type = workflow['search_type']
+
+                    related_sobjects = sobject.get_related_sobjects(related_search_type)
+
+                    related_process = workflow.get('process')
+
+                    if related_process:
+                        related_pipeline_code = workflow.get('pipeline_code')
+
+                        # getting mapping behavior ot this process
+                        search = Search('config/process')
+                        search.add_filter('process', related_process)
+                        search.add_filter('pipeline_code', related_pipeline_code)
+                        process_behavior = search.get_sobject()
+                        workflow_behavior = process_behavior.get_value('workflow')
+
+                        # getting task pipeline related to process
+                        task_pipeline = workflow_behavior.get('task_pipeline')
+                        search = Search('config/process')
+                        search.add_filter('pipeline_code', task_pipeline)
+                        task_process_behaviors = search.get_sobjects()
+                        # task_workflow_behavior = task_process_behaviors.get_value('workflow')
+
+                        # get only Approved behavior
+                        approved_task_process = []
+                        task_statuses = []
+                        for task_process_behavior in task_process_behaviors:
+                            task_workflow_behavior = task_process_behavior.get_value('workflow')
+                            task_process_mapping = task_workflow_behavior.get('mapping')
+                            if task_process_mapping:
+                                approved_task_process.append(task_process_mapping)
+                                task_statuses.append(task_process_behavior.get_value('process'))
+
+                        tasks_filters = [('process', related_process), ('status', 'in', u'|'.join(task_statuses))]
+
+                    approved_tasks = []
+                    for related_sobject in related_sobjects:
+                        related_tasks_sobjects = related_sobject.get_related_sobjects('sthpw/task', filters=tasks_filters)
+                        approved_tasks.extend(related_tasks_sobjects)
+
+                    count_results = {
+                        'tc': 0,
+                        'ac': 0,
+                    }
+
+                    if related_sobjects:
+                        count_results['tc'] = len(related_sobjects)
+                        count_results['ac'] = len(approved_tasks)
+
+                        processes_result[process_name] = count_results
+
+                # if not skip:
+                progress_results[sobject.get_search_key()] = processes_result
 
     if include_snapshots:
 
@@ -1202,6 +1337,12 @@ def query_sobjects(search_type, filters=[], order_bys=[], project_code=None, lim
                     snapshot_dict['__files__'] = files_list
                     snapshots_list.append(snapshot_dict)
             sobject_dict['__snapshots__'] = snapshots_list
+
+        if include_progress:
+            if progress_results:
+                sobject_dict['__progress__'] = progress_results[sobject.get_search_key()]
+            else:
+                sobject_dict['__progress__'] = {}
 
     if compressed_return:
         return '{0}{1}'.format('zlib:', binascii.b2a_hex(zlib.compress(json.dumps(result, separators=(',', ':')).encode(), 9)).decode())
@@ -1650,7 +1791,7 @@ def create_snapshot_extended(search_key, context, project_code=None, snapshot_ty
             file_paths.append('{0}/{1}.{2}'.format(lib_dir, metadata['new_filename'], metadata['new_file_ext']))
             file_types.append(types)
 
-        # generating previews if its not explicitly passed
+        # generating previews if it's not explicitly passed
         if any(i in file_types for i in ['web', 'icon']):
             create_icon = False
 

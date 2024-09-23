@@ -20,7 +20,7 @@ from thlib.side.appconnector.client import Client
 
 
 CFG_FORMAT = 'json'  # set this to 'ini' if you want to use QSettings instead of json
-SERVER_THREADS_COUNT = 1  # max connections to remote tactic server (recommended to match number server cores)
+SERVER_THREADS_COUNT = 4  # max connections to remote tactic server (recommended to match number server cores)
 HTTP_THREADS_COUNT = 1  # max connections to http (depending on the speed of internet)
 LOCAL_THREADS_COUNT = 4  # max local threads (recommended to match number of local machine cores)
 MAX_RECURSION_DEPTH = 65535  # maximum recursion for stability reasons

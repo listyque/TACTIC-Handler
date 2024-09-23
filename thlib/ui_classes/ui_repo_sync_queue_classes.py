@@ -51,6 +51,8 @@ class Ui_repoSyncDialog(QtGui.QDialog):
 
         self.resize(650, 550)
 
+        print('We actually creating dialog')
+
         self.readSettings()
 
     def controls_actions(self):
@@ -587,8 +589,16 @@ class Ui_repoSyncDialog(QtGui.QDialog):
 
     def add_file_objects_to_queue(self, files_objects_list):
 
+        repo_items = []
         for file_object in files_objects_list:
-            self.repo_sync_items.append(self.download_queue.schedule_file_object(file_object))
+
+            repo_item = self.download_queue.schedule_file_object(file_object)
+            self.repo_sync_items.append(repo_item)
+
+            # chunk of objects
+            repo_items.append(repo_item)
+
+        gf.add_items_to_tree(self.download_queue.files_queue_tree_widget, repo_items)
 
         self.download_queue.files_num_label.setText(
             str(self.download_queue.files_queue_tree_widget.topLevelItemCount())
@@ -603,10 +613,11 @@ class Ui_repoSyncDialog(QtGui.QDialog):
 
         if not self.interrupted:
             for repo_sync_item in self.repo_sync_items:
-                repo_sync_item.download()
-                self.download_queue.files_num_label.setText(
-                    str(self.download_queue.files_queue_tree_widget.topLevelItemCount())
-                )
+                if not repo_sync_item.is_download_in_progress():
+                    repo_sync_item.download()
+                    self.download_queue.files_num_label.setText(
+                        str(self.download_queue.files_queue_tree_widget.topLevelItemCount())
+                    )
 
             self.downloads_progress_bar.setMaximum(len(self.repo_sync_items))
 
@@ -747,6 +758,7 @@ class Ui_repoSyncDialog(QtGui.QDialog):
             self.sync_by_sobject(sobject, {}, current_builtin_preset_dict)
 
         self.sync_tasks -= 1
+
         self.check_sync_tasks()
 
     def sync_children(self, sobject=None, preset_dict=None):
@@ -1210,10 +1222,10 @@ class Ui_repoSyncQueueWidget(QtGui.QMainWindow):
             file_object = copy.copy(file_object)
 
         self.total_downloading_count += 1
-        repo_sync_item = gf.add_repo_sync_item(self.files_queue_tree_widget, file_object)
+        repo_sync_item = gf.create_repo_sync_item(file_object)
         self.queue_dict[file_object.get_unique_id()] = repo_sync_item
         repo_sync_item.set_network_manager(self.network_manager)
-        self.files_queue_tree_widget.scrollToBottom()
+        # self.files_queue_tree_widget.scrollToBottom()
         repo_sync_item.downloaded.connect(self.increment_downloaded)
 
         return repo_sync_item

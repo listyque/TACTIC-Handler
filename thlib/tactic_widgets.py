@@ -25,6 +25,8 @@ input_classes = {
         'tactic.ui.input.process_context_wdg.SubContextInputWdg',
         'tactic.ui.widget.misc_input_wdg.TaskStatusSelectWdg',
         'tactic.ui.input.pipeline_input_wdg.PipelineInputWdg',
+        'pyasm.widget.input_wdg.ThumbInputWdg',
+        'pyasm.widget.input_wdg.PasswordWdg',
     ],
     'handler': [
         'TacticSimpleUploadWdg',
@@ -41,6 +43,8 @@ input_classes = {
         'TacticSubContextInputWdg',
         'TacticTaskStatusSelectWdg',
         'TacticPipelineInputWdg',
+        'TacticThumbInputWdg',
+        'TacticPasswordWdg',
     ],
 }
 
@@ -67,6 +71,7 @@ class TacticBaseWidget(object):
         self.type = None
         self.current_index = None
         self.state = None
+        self.read_only = False
 
         self.class_name = None
         self.label = None
@@ -175,7 +180,11 @@ class TacticBaseWidget(object):
         return self.search_key
 
     def set_search_type(self, search_type):
-        self.search_type = search_type
+        if search_type:
+            self.search_type = search_type
+        else:
+            if self.stype:
+                self.search_type = self.stype.get_code()
 
     def get_search_type(self):
         return self.search_type
@@ -257,7 +266,7 @@ class TacticEditWdg(TacticBaseWidget):
         else:
             project = stype.get_project()
 
-        if self.view == 'edit':
+        if self.input_prefix == 'edit':
             # Logging info
             dl.log('Making Commit Update for {}'.format(stype.get_pretty_name()), group_id=stype.get_code())
             runtime_command = 'thenv.get_tc().server_start(project="{0}").update("{1}", {2})'.format(
@@ -591,6 +600,20 @@ class TacticPipelineInputWdg(TacticBaseInputWdg):
 
         self.set_required(self.kwargs.get('required'))
         self.set_empty(self.kwargs.get('empty'))
+
+
+class TacticThumbInputWdg(TacticBaseInputWdg):
+    def __init__(self, options_dict=None):
+        super(self.__class__, self).__init__(options_dict=options_dict)
+
+        self.set_class_name('pyasm.widget.input_wdg.ThumbInputWdg')
+
+
+class TacticPasswordWdg(TacticBaseInputWdg):
+    def __init__(self, options_dict=None):
+        super(self.__class__, self).__init__(options_dict=options_dict)
+
+        self.set_class_name('pyasm.widget.input_wdg.PasswordWdg')
 
 
 def get_widget_name(tactic_class='', type=''):

@@ -432,6 +432,7 @@ class Ui_searchWidget(QtGui.QWidget):
         self.search_line_edit.item_clicked.connect(self.do_search)
 
         self.add_new_tab_button.clicked.connect(self.add_tab_button_click)
+        self.add_filter_button.clicked.connect(self.fill_search_presets)
         self.refresh_tab_button.clicked.connect(self.update_current_search_results)
 
         self.results_tab_widget.tabCloseRequested.connect(self.close_tab)
@@ -561,11 +562,7 @@ class Ui_searchWidget(QtGui.QWidget):
             task_pipelines = stype_pipeline.get_all_tasks_pipelines_names()
             task_pipelines.append('task')
 
-            # gf.pp(stype_pipeline.get_info())
-
             for task_pipeline in task_pipelines:
-                # gf.pp(stype_pipeline.pipeline)
-                # print(task_pipeline)
 
                 if tasks_workflow.get(task_pipeline):
                     task_workflow = tasks_workflow[task_pipeline]
@@ -608,7 +605,7 @@ class Ui_searchWidget(QtGui.QWidget):
         self.add_new_tab_button.setToolTip('Add new Search Tab')
 
         self.add_filter_button = StyledToolButton(size='small', shadow_enabled=True, square_type=True)
-        self.add_filter_button.setPopupMode(QtGui.QToolButton.InstantPopup)
+        # self.add_filter_button.setPopupMode(QtGui.QToolButton.InstantPopup)
         self.add_filter_button.setIcon(gf.get_icon('filter', icons_set='mdi', scale_factor=0.9))
         self.add_filter_button.setToolTip('Add Filter to Tab')
 
@@ -633,10 +630,6 @@ class Ui_searchWidget(QtGui.QWidget):
 
         self.filter_by_preset_menu = QtGui.QMenu('Presets', self.add_filter_button)
         self.filter_by_preset_menu.setIcon(gf.get_icon('heart', icons_set='mdi', scale_factor=1))
-        self.edit_presets_action = QtGui.QAction('Edit Presets', self.add_filter_button)
-        self.edit_presets_action.setIcon(gf.get_icon('circle-edit-outline', icons_set='mdi', scale_factor=1))
-        self.edit_presets_action.triggered.connect(self.do_filter_presets_editor_action)
-        self.filter_by_preset_menu.addAction(self.edit_presets_action)
 
         self.add_filter_button.addAction(self.filter_by_tasks_menu.menuAction())
         self.add_filter_button.addAction(self.filter_by_snapshots_menu.menuAction())
@@ -784,14 +777,16 @@ class Ui_searchWidget(QtGui.QWidget):
 
         self.results_tab_widget.setCornerWidget(self.right_buttons_widget, QtCore.Qt.TopRightCorner)
         self.results_tab_widget.setCornerWidget(self.left_buttons_widget, QtCore.Qt.TopLeftCorner)
+
     @gf.catch_error
     def do_filter_presets_editor_action(self):
-        # stype_widget = env_inst.get_check_tree(tab_code='checkin_out', wdg_code=self.get_tab_name())
+        filter_dialog = Ui_filterEditorDialog(parent=env_inst.ui_main, stype=self.stype, tab_name=self.get_tab_name())
+        filter_dialog.exec_()
 
-        # print(stype_widget)
+    def do_filter_preset_action(self, preset):
+        filters_list = tc.unpack_tactic_search_view(preset['config_xml'])
+        self.add_tab(search_title=preset['title'], filters=filters_list)
 
-        sync_dialog = Ui_filterEditorDialog(parent=env_inst.ui_main, stype=self.stype, tab_name=self.get_tab_name())
-        sync_dialog.exec_()
     def do_my_tasks_action(self):
         stype_widget = env_inst.get_check_tree(tab_code='checkin_out', wdg_code=self.get_tab_name())
 
@@ -857,12 +852,6 @@ class Ui_searchWidget(QtGui.QWidget):
 
         if not limit:
             limit = self.get_display_limit()
-
-        # # ONLY FOR ANIMATORS!
-        # from thlib.environment import SPECIALIZED
-        #
-        # if SPECIALIZED == 'animators':
-        #     filters = [DEFAULT_FILTER, EXPR_FILTER]
 
         info = {
             'title': search_title,
@@ -1167,13 +1156,36 @@ class Ui_searchWidget(QtGui.QWidget):
 
     def set_multiple_tabs_state(self, enabled=True):
 
-        print(enabled)
+        print('set_multiple_tabs_state', enabled)
         self.multiple_tabs_view = enabled
 
         if enabled in (1, True):
             print('Making UI Multi tabbed')
         else:
             print('Making UI Single tabbed')
+
+    def get_search_presets(self):
+        filter_dialog = Ui_filterEditorDialog(parent=env_inst.ui_main, stype=self.stype, tab_name=self.get_tab_name())
+        return filter_dialog.get_presets_list()
+
+    def fill_search_presets(self):
+        search_presets_list = self.get_search_presets()
+
+        self.filter_by_preset_menu.clear()
+
+        self.edit_presets_action = QtGui.QAction('Edit Presets', self.add_filter_button)
+        self.edit_presets_action.setIcon(gf.get_icon('circle-edit-outline', icons_set='mdi', scale_factor=1))
+        self.edit_presets_action.triggered.connect(self.do_filter_presets_editor_action)
+        self.filter_by_preset_menu.addAction(self.edit_presets_action)
+        self.filter_by_preset_menu.addSeparator()
+
+        for preset in search_presets_list:
+            search_preset_action = QtGui.QAction(preset['title'], self.add_filter_button)
+            search_preset_action.setIcon(gf.get_icon('book-search', icons_set='mdi', scale_factor=1))
+            search_preset_action.triggered.connect(partial(self.do_filter_preset_action, preset))
+            self.filter_by_preset_menu.addAction(search_preset_action)
+
+        self.add_filter_button.showMenu()
 
     def get_search_cache(self):
 
@@ -1198,10 +1210,6 @@ class Ui_searchWidget(QtGui.QWidget):
 
         settings = gf.check_config(ref_settings_dict, settings_dict)
 
-
-        # gf.pp(settings)
-
-
         self.collapsable_toolbar.setCollapsed(settings['collapsable_toolbar'])
         self.main_collapsable_toolbar.setCollapsed(settings['main_collapsable_toolbar'])
         self.additional_collapsable_toolbar.setCollapsed(settings['additional_collapsable_toolbar'])
@@ -1218,8 +1226,6 @@ class Ui_searchWidget(QtGui.QWidget):
             'results_tab_widget_current_index': self.results_tab_widget.currentIndex(),
             'multiple_tabs_view': int(self.get_multiple_tabs_state())
         }
-
-        gf.pp(settings_dict)
 
         return settings_dict
 
@@ -1241,6 +1247,7 @@ class Ui_filterWidget(QtGui.QWidget):
         self.stype = stype
         self.project = project
         self.tab_name = tab_name
+        self.advanced_search_widget = parent
 
         self.default = default
         self.filter = filter
@@ -1291,8 +1298,11 @@ class Ui_filterWidget(QtGui.QWidget):
         return checkin_out_widget.get_search_widget()
 
     def get_advanced_search_widget(self):
-        checkin_out_widget = self.get_checkin_out_widget()
-        return checkin_out_widget.get_advanced_search_widget()
+        if self.advanced_search_widget:
+            return self.advanced_search_widget
+        else:
+            checkin_out_widget = self.get_checkin_out_widget()
+            return checkin_out_widget.get_advanced_search_widget()
 
     def create_main_layout(self):
         self.main_layout = QtGui.QHBoxLayout()
@@ -1433,6 +1443,18 @@ class Ui_filterWidget(QtGui.QWidget):
     def get_filter(self):
         return self.filter
 
+    def get_filter_state(self):
+
+        relation = self.match_combo_box.currentText().lower()
+        if self.filter[0] == '_expression':
+            relation = self.filter[1]
+
+        return (
+            self.filter[0],
+            relation,
+            self.query_line_edit.text(),
+        )
+
     def set_filter(self, fltr):
         self.filter = fltr
 
@@ -1480,6 +1502,7 @@ class Ui_filterWidget(QtGui.QWidget):
 
     def get_tab_name(self):
         return self.tab_name
+
     def close_self(self):
         adv_search_widget = self.get_advanced_search_widget()
         adv_search_widget.remove_filter(self)
@@ -1490,12 +1513,13 @@ class Ui_filterWidget(QtGui.QWidget):
 
 
 class Ui_searchOptionsWidget(QtGui.QWidget):
-    def __init__(self, stype, tab_name=None, parent=None):
+    def __init__(self, stype, tab_name=None, editor_mode=False, parent=None):
         super(self.__class__, self).__init__(parent=parent)
 
         self.stype = stype
         self.project = self.stype.get_project()
         self.tab_name = tab_name
+        self.editor_mode = editor_mode
 
         self.create_ui()
 
@@ -1508,7 +1532,6 @@ class Ui_searchOptionsWidget(QtGui.QWidget):
         self.create_main_layout()
 
         self.create_tab_name_editor()
-        self.create_presets_combo_box()
 
     def controls_actions(self):
         self.tab_name_edit.textEdited.connect(self.tab_name_edit_text_edited)
@@ -1534,41 +1557,6 @@ class Ui_searchOptionsWidget(QtGui.QWidget):
 
         self.main_layout.addLayout(self.tab_name_layout, 0, 0)
 
-    def create_presets_combo_box(self):
-        self.presets_layout = QtGui.QGridLayout()
-
-        self.presets_combo_box = QtGui.QComboBox()
-
-        self.add_new_preset_button = QtGui.QToolButton()
-        self.add_new_preset_button.setAutoRaise(True)
-        self.add_new_preset_button.setIcon(gf.get_icon('plus', icons_set='mdi', scale_factor=1.2))
-        # self.add_new_preset_button.clicked.connect(self.add_new_preset)
-        self.add_new_preset_button.setToolTip('Create new Preset and Save (from current state)')
-        # self.add_new_preset_button.setHidden(True)
-
-        self.save_new_preset_button = QtGui.QToolButton()
-        self.save_new_preset_button.setAutoRaise(True)
-        self.save_new_preset_button.setIcon(gf.get_icon('content-save', icons_set='mdi', scale_factor=1))
-        # self.save_new_preset_button.clicked.connect(self.save_preset_to_server)
-        self.save_new_preset_button.setToolTip('Save Current Preset Changes')
-        # self.save_new_preset_button.setHidden(True)
-
-        self.remove_preset_button = QtGui.QToolButton()
-        self.remove_preset_button.setAutoRaise(True)
-        self.remove_preset_button.setIcon(gf.get_icon('delete', icons_set='mdi', scale_factor=1))
-        self.remove_preset_button.clicked.connect(self.close)
-        self.remove_preset_button.setToolTip('Remove Current Preset')
-        # self.remove_preset_button.setHidden(True)
-
-        self.presets_layout.addWidget(self.remove_preset_button, 0, 0, 1, 1)
-        self.presets_layout.addWidget(self.presets_combo_box, 0, 1, 1, 1)
-        self.presets_layout.addWidget(self.save_new_preset_button, 0, 2, 1, 1)
-        self.presets_layout.addWidget(self.add_new_preset_button, 0, 3, 1, 1)
-
-        self.presets_layout.setColumnStretch(1, 0)
-
-        self.main_layout.addLayout(self.presets_layout, 1, 0)
-
     def get_current_checkin_out_widget(self):
         return env_inst.get_check_tree(self.project.get_code(), 'checkin_out', self.get_tab_name())
 
@@ -1584,9 +1572,10 @@ class Ui_searchOptionsWidget(QtGui.QWidget):
         self.tab_name_edit.setText(text)
 
     def tab_name_edit_text_edited(self, text=None):
-        checkin_out_widget = self.get_current_checkin_out_widget()
-        search_widget = checkin_out_widget.get_search_widget()
-        search_widget.set_current_tab_title(self.get_edit_tab_title())
+        if not self.editor_mode:
+            checkin_out_widget = self.get_current_checkin_out_widget()
+            search_widget = checkin_out_widget.get_search_widget()
+            search_widget.set_current_tab_title(self.get_edit_tab_title())
 
     def get_edit_tab_title(self):
         return self.tab_name_edit.text()
@@ -1595,12 +1584,13 @@ class Ui_searchOptionsWidget(QtGui.QWidget):
         return self.tab_name
 
 class Ui_advancedSearchWidget(QtGui.QWidget):
-    def __init__(self, stype, project, tab_name=None, parent=None):
+    def __init__(self, stype, project, tab_name=None, editor_mode=False, parent=None):
         super(self.__class__, self).__init__(parent=parent)
 
         self.stype = stype
         self.project = project
         self.tab_name = tab_name
+        self.editor_mode = editor_mode
 
         self.default_filter_widget = None
         self.filter_widgets = []
@@ -1672,7 +1662,7 @@ class Ui_advancedSearchWidget(QtGui.QWidget):
 
         # self.search_options_collapsable.collapsed.connect(self.fit_to_contets)
 
-        self.tab_search_options_widget = Ui_searchOptionsWidget(self.stype)
+        self.tab_search_options_widget = Ui_searchOptionsWidget(self.stype, tab_name=self.get_tab_name(), editor_mode=self.editor_mode)
         self.search_options_collapsable.add_widget(self.tab_search_options_widget)
 
     def get_tab_search_options_widget(self):
@@ -1727,6 +1717,7 @@ class Ui_advancedSearchWidget(QtGui.QWidget):
             parent=self,
             filter=None,
             default=False,
+            op='and',
             tab_name=self.get_tab_name(),
         )
         self.filters_scroll_area.setMaximumHeight(filter_widget.height() + 4)
@@ -1778,6 +1769,22 @@ class Ui_advancedSearchWidget(QtGui.QWidget):
             else:
                 self.append_filter(filter_widget, filters, len(self.filter_widgets))
         return filters
+
+    def get_filters_state(self):
+        # this is intended for tactic filter_wdg compatibility
+
+        out_list = []
+
+        for filter_widget in self.filter_widgets:
+            filter_set = (
+                filter_widget.valid_filter(),
+                filter_widget.get_filter_state(),
+                filter_widget.get_op(),
+            )
+
+            out_list.append(filter_set)
+
+        return out_list
 
     def get_default_filter(self):
         return self.default_filter_widget.get_filter()
@@ -2420,6 +2427,8 @@ class Ui_searchResultsWidget(QtGui.QWidget):
 
     def update_search_results(self, limit=None, offset=None,  refresh=False):
 
+        print('updating search results')
+
         # collecting new filters, limit, offset, etc...
         self.get_info_dict()
 
@@ -2660,7 +2669,8 @@ class Ui_searchResultsWidget(QtGui.QWidget):
             project_code=project,
             limit=limit,
             offset=offset,
-            check_snapshots_updates=tc.get_snapshots_updates_list(stype, project)
+            check_snapshots_updates=tc.get_snapshots_updates_list(stype, project),
+            include_progress=True,
         )
         worker.result.connect(self.fill_items)
         worker.error.connect(gf.error_handle)

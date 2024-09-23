@@ -323,9 +323,6 @@ class Ui_checkInOutTabWidget(QtGui.QWidget):
 
         # getting definition of current tab
         info = item_widget.get_info()
-        # print(info)
-        # print('filters', item_widget.get_filters())
-        gf.pp(item_widget.get_filters())
 
         filters_list = item_widget.get_filters()
 
@@ -335,13 +332,13 @@ class Ui_checkInOutTabWidget(QtGui.QWidget):
             filters = filters_list[1:-1]
             # levels = filters_list[-1]
 
+            final_filters_list = []
+
             tab = self.get_stype_tab_by_code(item_widget.get_item_code())
             search_widget = tab.get_search_widget()
-            print(search_widget)
+
             search_widget.clear_tabs()
             search_widget.set_multiple_tabs_state(False)
-
-            final_filters_list = []
 
             for fltr in filters:
 
@@ -357,10 +354,12 @@ class Ui_checkInOutTabWidget(QtGui.QWidget):
 
                 final_filters_list.append(filter_list)
 
-            print(final_filters_list)
-
             search_widget.add_tab(search_title=info.get('title'), filters=final_filters_list)
 
+            # adding search presets to list of presets
+            search_presets = search_widget.get_search_presets()
+            for preset in search_presets:
+                search_widget.add_tab(search_title=preset.get('title'), filters=tc.unpack_tactic_search_view(preset['config_xml']))
 
     def raise_stype_tab(self, code=None, tab=None):
 
@@ -484,12 +483,13 @@ class Ui_checkInOutTabWidget(QtGui.QWidget):
 
         # we're creating all Stype Widgets, so we can access them if we need in all_search_tabs
         for tab in opened_tabs_list:
-            stype_code = tab.split('@')[0]
-            tab_widget = checkin_out.Ui_checkInOutWidget(self.project.stypes.get(stype_code), self.project, customized_name=tab)
-            tab_widget.setParent(self)
-            self.all_search_tabs.append(tab_widget)
+            if tab:
+                stype_code = tab.split('@')[0]
+                tab_widget = checkin_out.Ui_checkInOutWidget(self.project.stypes.get(stype_code), self.project, customized_name=tab)
+                tab_widget.setParent(self)
+                self.all_search_tabs.append(tab_widget)
 
-            self.stypes_tab_widget.add_tab(tab_widget, tab_widget.get_tab_label())
+                self.stypes_tab_widget.add_tab(tab_widget, tab_widget.get_tab_label())
 
         # create default stype tabs, just for technical purpose, like check-in files, etc.
         stypes_list = list(self.project.stypes.values())

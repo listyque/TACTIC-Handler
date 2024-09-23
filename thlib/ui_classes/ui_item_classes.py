@@ -1608,10 +1608,13 @@ class Ui_repoSyncItemWidget(QtGui.QWidget):
         self.progress_wdg = QtGui.QWidget(self)
         self.progress_wdg.setHidden(True)
         self.is_downloaded = False
+        self.download_in_progress = False
 
         self.create_ui()
+        self.is_created = False
 
     def create_ui(self):
+        self.is_created = True
         self.setMinimumSize(280, 40)
         self.create_main_layout()
         self.create_file_name_label()
@@ -1669,11 +1672,15 @@ class Ui_repoSyncItemWidget(QtGui.QWidget):
     def is_download_finished(self):
         return self.is_downloaded
 
+    def is_download_in_progress(self):
+        return self.download_in_progress
+
     def set_download_finished(self):
         self.progress_bar_wdg.setStyleSheet('QProgressBar {border:0px; background-color: transparent;}'
                                             'QProgressBar::chunk {background-color: rgba(30,160,30,128);}')
         self.progress_bar_wdg.setFormat('Download Finished')
         self.is_downloaded = True
+        self.download_in_progress = False
         env_inst.ui_main.set_info_status_text('')
         self.downloaded.emit(self.file_object)
 
@@ -1681,18 +1688,21 @@ class Ui_repoSyncItemWidget(QtGui.QWidget):
         self.progress_bar_wdg.setStyleSheet('QProgressBar {border:0px; background-color: transparent;}'
                                             'QProgressBar::chunk {background-color: rgba(30,160,200,64);}')
         self.is_downloaded = False
+        self.download_in_progress = False
 
     def set_download_already_exists(self):
         self.progress_bar_wdg.setStyleSheet('QProgressBar {border:0px; background-color: transparent;}'
                                             'QProgressBar::chunk {background-color: rgba(30,60,120,128);}')
         self.progress_bar_wdg.setFormat('File Already In Repo')
         self.is_downloaded = True
+        self.download_in_progress = False
 
     def set_download_failed(self):
         self.progress_bar_wdg.setStyleSheet('QProgressBar {border:0px; background-color: transparent;}'
                                             'QProgressBar::chunk {background-color: rgba(200,20,10,64);}')
         self.progress_bar_wdg.setFormat('Download Failed')
         self.is_downloaded = False
+        self.download_in_progress = False
         env_inst.ui_main.set_info_status_text('')
         self.downloaded.emit(self.file_object)
 
@@ -1709,6 +1719,7 @@ class Ui_repoSyncItemWidget(QtGui.QWidget):
                 return True
 
     def download(self):
+        self.download_in_progress = True
         env_inst.ui_main.set_info_status_text('<span style=" font-size:8pt; color:#00ff00;">Download in progress</span>')
 
         if not self.file_already_in_repo():
@@ -1737,6 +1748,11 @@ class Ui_repoSyncItemWidget(QtGui.QWidget):
             self.set_download_already_exists()
             env_inst.ui_main.set_info_status_text('')
             self.downloaded.emit(self.file_object)
+
+    def showEvent(self, event):
+        if not self.is_created:
+            self.create_ui()
+        event.accept()
 
     def closeEvent(self, event):
         self.deleteLater()
@@ -2102,6 +2118,57 @@ class Ui_itemWidget(QtGui.QWidget):
             'QFrame { border: 0px; background-color: %s;}' % self.stype.get_stype_color())
 
         self.set_indent(12)
+
+    def create_completion_widget(self):
+
+        pipelines = self.stype.get_pipeline()
+        pipeline_code = self.sobject.get_info('pipeline_code')
+
+        current_pipeline = None
+        if pipeline_code:
+            current_pipeline = pipelines.get(pipeline_code)
+
+        progress_processes = []
+        if current_pipeline:
+            progress_processes = current_pipeline.get_processes_info_by_type('progress')
+
+        for process in progress_processes:
+            process_info = current_pipeline.get_pipeline_process(process['name'])
+
+            process_workflow = process_info.get('workflow')
+            if process_workflow:
+                search_type_code = process_workflow.get('search_type')
+
+                search_type = self.project.get_search_type(search_type_code)
+
+                clr = search_type.get_stype_color(tuple=True)
+                stype_color = None
+                if clr:
+                    stype_color = Qt4Gui.QColor(clr[0], clr[1], clr[2], 255)
+
+                self.completionToolButton = QtGui.QToolButton(self)
+                self.completionToolButton.setToolButtonStyle(QtCore.Qt.ToolButtonTextBesideIcon)
+                self.completionToolButton.setAutoRaise(True)
+                self.completionToolButton.setMinimumSize(30, 30)
+                self.completionToolButton.setMaximumSize(200, 30)
+                font = Qt4Gui.QFont()
+                font.setFamily("Segoe UI")
+                font.setPointSize(10)
+                self.completionToolButton.setFont(font)
+
+                self.completionToolButton.setStyleSheet("QToolButton { border: 0px; background-color: transparent;}")
+                self.completionToolButton.setObjectName("tasksToolButton")
+                self.completionToolButton.setIcon(gf.get_icon('chart-arc', icons_set='mdi', color=stype_color))
+                self.completionToolButton.setCursor(Qt4Gui.QCursor(QtCore.Qt.PointingHandCursor))
+
+                if self.sobject.get_progress_count(process['name']):
+                    counts_text = '{0} / {1}'.format(self.sobject.get_progress_count(process['name'], 'approved_count'), self.sobject.get_progress_count(process['name'], 'total_count'))
+                else:
+                    counts_text = '0 / 0'
+
+                self.completionToolButton.setText(counts_text)
+
+                self.horizontalLayout.addWidget(self.completionToolButton)
 
     def set_indent(self, indent=24):
         result_indent = self.get_depth() * indent
@@ -3503,6 +3570,7 @@ class Ui_itemWidget(QtGui.QWidget):
 
                     self.check_watch_folder()
                     self.create_drop_widget()
+                    self.create_completion_widget()
 
                     # SLOWEST PART:
                     self.fill_info_items()

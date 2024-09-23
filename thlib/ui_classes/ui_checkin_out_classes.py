@@ -178,7 +178,7 @@ class Ui_checkInOutWidget(QtGui.QMainWindow):
         self.setStatusBar(self.status_bar)
 
     def get_tab_label(self):
-        return Ui_stypeIconWidget(parent=self, sidebar_name=self.customized_name, stype=self.stype)
+        return Ui_stypeIconWidget(parent=self, sidebar_name=self.get_tab_name(), stype=self.stype)
 
     def get_tab_name(self):
         if self.customized_name:
@@ -496,6 +496,20 @@ class Ui_checkInOutWidget(QtGui.QMainWindow):
 
     def refresh_current_results(self):
         self.search_widget.update_current_search_results()
+
+    def add_new_tab(self, sobject):
+
+        tab_title = sobject.get('name')
+        if not tab_title:
+            tab_title = sobject.get('code')
+        elif not tab_title:
+            tab_title = 'New created'
+
+        self.search_widget.add_tab(
+            search_title=tab_title,
+            filters=[('code', '=', sobject.get('code'))],
+        )
+
 
     def checkin_context_menu(self, tool_button=True, mode=None):
 
@@ -1722,10 +1736,8 @@ class Ui_checkInOutWidget(QtGui.QMainWindow):
         dup_confirm = tc.sobject_duplicate_confirm(sobjects_list)
 
         if dup_confirm:
-            print(dup_confirm)
-            print(search_keys_list)
-            tc.duplicate_sobjects(search_keys_list, dup_confirm)
-            self.refresh_current_results()
+            new_sobject = tc.duplicate_sobjects(search_keys_list, dup_confirm)
+            self.add_new_tab(new_sobject)
 
     def change_preview(self):
 
