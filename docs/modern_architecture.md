@@ -154,3 +154,12 @@ QML composition root is loaded offscreen with isolated settings and no network,
 then every standalone window is reopened before ordered shutdown. Request/cache
 metrics enforce stable call-count budgets. See `docs/testing_strategy.md` and
 `docs/tactic_test_project.md`.
+
+## Stabilized workflow verticals
+
+Block D validates the application as six user workflows rather than as isolated
+windows: login/configuration, navigation/search, tasks/notes/work hours,
+check-in/files, messages/users/activity, and Handler Server/DCC. Their single
+manifest maps every workflow to contract tests, controller tests, QML components,
+registered windows, and guarded live checks. The shared contract and offscreen QML
+smoke layers run for every vertical. See `docs/vertical_stabilization.md`.
