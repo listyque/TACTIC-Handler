@@ -8,6 +8,7 @@ from thlib.side.six import PY3
 import subprocess
 import locale
 import datetime
+import time
 import inspect
 import collections
 import platform
@@ -231,6 +232,7 @@ class Inst(object):
 
     def start_pools(self):
         if self.server_pool.is_stopped:
+            self.server_pool.reopen()
             self.server_pool.setParent(self.ui_super)
             self.server_pool.start()
 
@@ -239,18 +241,22 @@ class Inst(object):
             # self.http_pool.start()
 
         if self.commit_pool.is_stopped:
+            self.commit_pool.reopen()
             self.commit_pool.setParent(self.ui_super)
             self.commit_pool.start()
 
         if self.local_pool.is_stopped:
+            self.local_pool.reopen()
             self.local_pool.setParent(self.ui_super)
             self.local_pool.start()
 
-    def exit_pools(self):
-        self.server_pool.exit()
-        # self.http_pool.exit()
-        self.commit_pool.exit()
-        self.local_pool.exit()
+    def exit_pools(self, timeout_ms=15000):
+        deadline = time.monotonic() + max(0, int(timeout_ms)) / 1000.0
+        completed = True
+        for pool in (self.server_pool, self.commit_pool, self.local_pool):
+            remaining = max(0, round((deadline - time.monotonic()) * 1000))
+            completed = pool.exit(remaining) and completed
+        return completed
 
     def get_current_project(self):
         return self.current_project
@@ -268,7 +274,7 @@ class Inst(object):
         return env_server.get_user()
 
     def get_current_login_object(self):
-        return self.logins.get(env_server.get_user())
+        return (self.logins or {}).get(env_server.get_user())
 
     def get_all_logins(self, login_code=None):
         if login_code:
@@ -634,6 +640,21 @@ class Env(object):
             self.defaults = self.get_default_preset()
             self.save_defaults(True)
 
+    def load_current_preset(self, preserve_values=False):
+        preserved = None
+        if preserve_values:
+            preserved = (self.user, self.site, self.proxy)
+        self.user = None
+        self.site = None
+        self.server = None
+        self.ticket = None
+        self.proxy = None
+        self.timeout = None
+        self.config_format = None
+        self.get_defaults()
+        if preserved:
+            self.user, self.site, self.proxy = preserved
+
     def save_defaults(self, defaults=False):
         if not defaults:
             self.defaults['user'] = self.user
@@ -774,6 +795,11 @@ class Tactic(object):
         self.base_dirs = None
         self.default_base_dirs = None
 
+        self.custom_dirs = None
+
+    def reset(self):
+        self.base_dirs = None
+        self.default_base_dirs = None
         self.custom_dirs = None
 
     def query_base_dirs(self):
@@ -1012,6 +1038,15 @@ class Controls(object):
         self.checkin_out = None
         self.checkin_out_projects = None
         self.checkin = None
+        self.maya_scene = None
+
+    def reset(self):
+        self.server = None
+        self.project = None
+        self.checkin = None
+        self.checkout = None
+        self.checkin_out = None
+        self.checkin_out_projects = None
         self.maya_scene = None
 
     def get_server(self):

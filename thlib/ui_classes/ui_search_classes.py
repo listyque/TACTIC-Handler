@@ -29,27 +29,10 @@ import thlib.tactic_classes as tc
 from thlib.ui_classes.ui_custom_qwidgets import SuggestedLineEdit, Ui_horizontalCollapsableWidget, Ui_collapsableWidget, Ui_extendedTreeWidget, Ui_extendedTabBarWidget, StyledToolButton, StyledComboBox
 from thlib.ui_classes.ui_assets_browser_classes import Ui_assetsBrowserWidget
 from thlib.ui_classes.ui_filter_editor_classes import Ui_filterEditorDialog
+from thlib.search_helpers import get_suggestion_filter
 
 DEFAULT_FILTER = ('name', 'EQI', '')
 EXPR_FILTER = ('_expression', 'in', "@SOBJECT(sthpw/task['assigned', $LOGIN])")
-
-
-def get_suggestion_filter(column, search_text, possible_columns, default_filter=None):
-    filters = ['begin', (column, 'EQI', search_text)]
-
-    if 'keywords' in possible_columns:
-        filters.append(('keywords', 'EQI', search_text))
-
-    if 'description' in possible_columns:
-        filters.append(('description', 'EQI', search_text))
-
-    filters.append('or')
-
-    if default_filter:
-        filters.append(default_filter)
-        filters.append('and')
-
-    return filters
 
 
 class Ui_processFilterDialog(QtGui.QDialog):

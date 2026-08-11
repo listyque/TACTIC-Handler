@@ -3,7 +3,7 @@ import re
 import sys
 import uuid
 import tempfile
-from imp import new_module
+from types import ModuleType
 from code import InteractiveConsole
 from contextlib import contextmanager
 from PySide2.QtCore import QThread, QMutex, Signal
@@ -45,7 +45,7 @@ class Console(QThread):
         self._mutex = QMutex()
 
         self._console = InteractiveConsole()
-        self._console.superspace = new_module("superspace")
+        self._console.superspace = ModuleType("superspace")
 
         directory = os.path.join(tempfile.gettempdir(), 'code_editor')
         not os.path.isdir(directory) and os.makedirs(directory)

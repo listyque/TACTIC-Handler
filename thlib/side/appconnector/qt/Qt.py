@@ -715,12 +715,14 @@ def _qInstallMessageHandler(handler):
     passObject = messageOutputHandler if handler else handler
     if Qt.IsPySide or Qt.IsPyQt4:
         return Qt._QtCore.qInstallMsgHandler(passObject)
-    elif Qt.IsPySide2 or Qt.IsPyQt5:
+    elif Qt.IsPySide6 or Qt.IsPySide2 or Qt.IsPyQt5:
         return Qt._QtCore.qInstallMessageHandler(passObject)
 
 
 def _getcpppointer(object):
-    if hasattr(Qt, "_shiboken2"):
+    if hasattr(Qt, "_shiboken6"):
+        return getattr(Qt, "_shiboken6").getCppPointer(object)[0]
+    elif hasattr(Qt, "_shiboken2"):
         return getattr(Qt, "_shiboken2").getCppPointer(object)[0]
     elif hasattr(Qt, "_shiboken"):
         return getattr(Qt, "_shiboken").getCppPointer(object)[0]
@@ -750,6 +752,8 @@ def _wrapinstance(ptr, base=None):
 
     if Qt.IsPyQt4 or Qt.IsPyQt5:
         func = getattr(Qt, "_sip").wrapinstance
+    elif Qt.IsPySide6:
+        func = getattr(Qt, "_shiboken6").wrapInstance
     elif Qt.IsPySide2:
         func = getattr(Qt, "_shiboken2").wrapInstance
     elif Qt.IsPySide:
@@ -785,7 +789,10 @@ def _isvalid(object):
 
     assert isinstance(object, Qt.QtCore.QObject)
 
-    if hasattr(Qt, "_shiboken2"):
+    if hasattr(Qt, "_shiboken6"):
+        return getattr(Qt, "_shiboken6").isValid(object)
+
+    elif hasattr(Qt, "_shiboken2"):
         return getattr(Qt, "_shiboken2").isValid(object)
 
     elif hasattr(Qt, "_shiboken"):
@@ -821,7 +828,7 @@ def _translate(context, sourceText, *args):
                 binding=Qt.__binding__,
             )
         )
-    if Qt.__binding__ in ("PySide2", "PyQt5"):
+    if Qt.__binding__ in ("PySide6", "PySide2", "PyQt5"):
         sanitized_args = [context, sourceText, disambiguation, n]
     else:
         sanitized_args = [
@@ -1363,6 +1370,46 @@ def _build_compatibility_members(binding, decorators=None):
         setattr(Qt.QtCompat, classname, compat_class)
 
 
+def _pyside6():
+    """Initialise PySide6 using the existing PySide2 compatibility surface."""
+
+    import PySide6 as module
+    extras = ["QtUiTools"]
+    try:
+        try:
+            import shiboken6
+        except ImportError:
+            from PySide6 import shiboken6
+        extras.append("shiboken6")
+    except ImportError:
+        pass
+
+    _setup(module, extras)
+    Qt.__binding_version__ = module.__version__
+
+    if hasattr(Qt, "_shiboken6"):
+        Qt.QtCompat.wrapInstance = _wrapinstance
+        Qt.QtCompat.getCppPointer = _getcpppointer
+        Qt.QtCompat.delete = shiboken6.delete
+
+    if hasattr(Qt, "_QtUiTools"):
+        Qt.QtCompat.loadUi = _loadUi
+
+    if hasattr(Qt, "_QtCore"):
+        Qt.__qt_version__ = Qt._QtCore.qVersion()
+        Qt.QtCompat.dataChanged = (
+            lambda self, topleft, bottomright, roles=None:
+            self.dataChanged.emit(topleft, bottomright, roles or [])
+        )
+
+    if hasattr(Qt, "_QtWidgets"):
+        Qt.QtCompat.setSectionResizeMode = \
+            Qt._QtWidgets.QHeaderView.setSectionResizeMode
+
+    _reassign_misplaced_members("PySide2")
+    _build_compatibility_members("PySide2")
+
+
 def _pyside2():
     """Initialise PySide2
     These functions serve to test the existence of a binding
@@ -1738,7 +1785,7 @@ class MissingMember(object):
 
 def _install():
     # Default order (customize order and content via QT_PREFERRED_BINDING)
-    default_order = ("PySide2", "PyQt5", "PySide", "PyQt4")
+    default_order = ("PySide6", "PySide2", "PyQt5", "PySide", "PyQt4")
     preferred_order = None
     if QT_PREFERRED_BINDING_JSON:
         # A per-vendor preferred binding customization was defined
@@ -1771,6 +1818,7 @@ def _install():
     order = preferred_order or default_order
 
     available = {
+        "PySide6": _pyside6,
         "PySide2": _pyside2,
         "PyQt5": _pyqt5,
         "PySide": _pyside,
@@ -1855,6 +1903,7 @@ def _install():
 _install()
 
 # Setup Binding Enum states
+Qt.IsPySide6 = Qt.__binding__ == 'PySide6'
 Qt.IsPySide2 = Qt.__binding__ == 'PySide2'
 Qt.IsPyQt5 = Qt.__binding__ == 'PyQt5'
 Qt.IsPySide = Qt.__binding__ == 'PySide'

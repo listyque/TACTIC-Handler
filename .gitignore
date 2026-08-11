@@ -50,6 +50,7 @@ coverage.xml
 
 # Django stuff:
 *.log
+log/modern_session_*.jsonl
 
 # Sphinx documentation
 docs/_build/
@@ -62,3 +63,13 @@ target/
 
 # PyCharm
 .idea/*
+
+# TACTIC-Handler local/user state
+settings/
+log/
+custom_scripts/
+
+# Local transfer and editor artifacts
+*.part
+*.tmp
+*.bak

@@ -1,0 +1,27 @@
+singleton ActionMenuCoordinator 1.0 ActionMenuCoordinator.qml
+Md3Button 1.0 Md3Button.qml
+Md3TextField 1.0 Md3TextField.qml
+Md3TextArea 1.0 Md3TextArea.qml
+Md3CheckBox 1.0 Md3CheckBox.qml
+Md3Switch 1.0 Md3Switch.qml
+Md3TabButton 1.0 Md3TabButton.qml
+Md3SegmentedButton 1.0 Md3SegmentedButton.qml
+Md3DateField 1.0 Md3DateField.qml
+Md3Dialog 1.0 Md3Dialog.qml
+Md3DialogActions 1.0 Md3DialogActions.qml
+Md3Popup 1.0 Md3Popup.qml
+Md3ComboBox 1.0 Md3ComboBox.qml
+Md3ScrollBar 1.0 Md3ScrollBar.qml
+Md3Slider 1.0 Md3Slider.qml
+Md3SpinBox 1.0 Md3SpinBox.qml
+Md3ToolTip 1.0 Md3ToolTip.qml
+Md3FilledActionButton 1.0 Md3FilledActionButton.qml
+ItemCountActionButton 1.0 ItemCountActionButton.qml
+StatusChip 1.0 StatusChip.qml
+PreviewNavigationButton 1.0 PreviewNavigationButton.qml
+CompactIconButton 1.0 CompactIconButton.qml
+MaterialIcon 1.0 MaterialIcon.qml
+MaterialRipple 1.0 MaterialRipple.qml
+SmoothListView 1.0 SmoothListView.qml
+ResponsiveFlow 1.0 ResponsiveFlow.qml
+AttachmentComposerControls 1.0 AttachmentComposerControls.qml

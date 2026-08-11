@@ -1,0 +1,1 @@
+"""Functional parts of ApplicationController."""

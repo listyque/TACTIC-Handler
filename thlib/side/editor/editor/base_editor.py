@@ -1,7 +1,7 @@
 import re
 
 from PySide2.QtWidgets import QPlainTextEdit, QTextEdit, QCompleter, QApplication
-from PySide2.QtGui import QFontDatabase, QTextCursor, QBrush, QTextFormat, QPalette, QTextOption, QTextCharFormat, QPainter
+from PySide2.QtGui import QFont, QTextCursor, QBrush, QTextFormat, QPalette, QTextOption, QTextCharFormat, QPainter
 from PySide2.QtCore import Qt, __version_info__ as QT_VERSION, QSignalBlocker, QRect, QRegExp, Signal, QEvent
 
 from ..language import LanguageHighlighter
@@ -92,7 +92,12 @@ class BaseEditor(QPlainTextEdit):
         self.document().setDefaultTextOption(option)
 
     def init_font(self):
-        fnt = QFontDatabase.systemFont(QFontDatabase.FixedFont)
+        # On current Windows/Qt 6 builds systemFont(FixedFont) may resolve to
+        # the legacy bitmap-only "Fixedsys" face. DirectWrite cannot create
+        # regular/bold faces for it and emits CreateFontFaceFromHDC warnings.
+        # Consolas is a real outline font and is already used by the modern UI.
+        fnt = QFont("Consolas")
+        fnt.setStyleHint(QFont.Monospace)
         fnt.setFixedPitch(True)
         fnt.setPointSize(10)
 

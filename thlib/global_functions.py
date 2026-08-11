@@ -616,12 +616,28 @@ def prettify_text(text, first_letter=False):
 
 
 def minify_code(source):
-    import side.python_minifier as python_minifier
-    return python_minifier.minify(
-        source, remove_literal_statements=False, combine_imports=False,
-        remove_annotations=False, hoist_literals=False, rename_locals=False,
-        remove_pass=False, remove_object_base=False
-    )
+    # The bundled minifier predates ``ast.Constant`` (Python 3.8).  On newer
+    # interpreters it is worse than merely unsupported: for some procedures
+    # it returns syntactically valid but semantically truncated source.  Send
+    # TACTIC the original procedure instead; its execution API accepts the
+    # unminified source and preserves the exact legacy logic.
+    if sys.version_info >= (3, 8):
+        return source
+    try:
+        import side.python_minifier as python_minifier
+        return python_minifier.minify(
+            source, remove_literal_statements=False, combine_imports=False,
+            remove_annotations=False, hoist_literals=False,
+            rename_locals=False, remove_pass=False,
+            remove_object_base=False
+        )
+    except Exception:
+        # Server procedures deliberately end with a top-level ``return``;
+        # TACTIC embeds that source in its own execution wrapper.  Therefore
+        # it cannot be validated with a normal module-level compile here.
+        # The bundled legacy minifier does not understand newer Python AST
+        # nodes, while TACTIC accepts the original, unminified procedure.
+        return source
 
 
 def time_it(start_time=None, message='Code flow running time:'):
@@ -2477,15 +2493,15 @@ class MatchTemplate(object):
     def __init__(self, patterns=None, padding=3, add_default_patterns=False):
 
         if patterns:
-            self.patterns = set(patterns)
+            self.patterns = list(dict.fromkeys(patterns))
         else:
             self.patterns = None
         if add_default_patterns:
             if patterns:
                 patterns.extend(self.default_patterns)
-                self.patterns = set(patterns)
+                self.patterns = list(dict.fromkeys(patterns))
             else:
-                self.patterns = set(self.default_patterns)
+                self.patterns = list(self.default_patterns)
         self.padding = padding
         self.split_patterns = None
 

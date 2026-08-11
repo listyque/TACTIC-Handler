@@ -16,6 +16,7 @@ except:
     from urllib.parse import urlparse, parse_qsl
 import collections
 import json
+from decimal import Decimal, InvalidOperation
 from pickle import dumps, loads
 if sys.version_info[0] > 2:
     from bs4 import BeautifulSoup
@@ -673,6 +674,38 @@ class SObject(object):
 
         return self.tasks_sobjects
 
+    def get_work_hours(self, login=None, start_day=None, end_day=None,
+                       statuses=None):
+        result = query_work_hours(
+            [], self.project.get_code(), login=login,
+            start_day=start_day, end_day=end_day, statuses=statuses,
+            parent_codes=[self.get_code()],
+        )
+        return result['entries']
+
+    @staticmethod
+    def get_multiple_work_hours(sobjects_list, login=None, start_day=None,
+                                end_day=None, statuses=None,
+                                include_rates=False):
+        if not sobjects_list:
+            return {'entries': [], 'permissions': {}, 'rates': {}}
+        project = sobjects_list[0].get_project()
+        task_objects = all(
+            str(sobject.get_search_type() or '').split('?')[0]
+            == Task.SEARCH_TYPE
+            for sobject in sobjects_list
+        )
+        return query_work_hours(
+            [sobject.get_code() for sobject in sobjects_list]
+            if task_objects else [],
+            project.get_code(), login=login, start_day=start_day,
+            end_day=end_day, statuses=statuses,
+            include_rates=include_rates,
+            parent_codes=[] if task_objects else [
+                sobject.get_code() for sobject in sobjects_list
+            ],
+        )
+
     def set_tasks_count(self, process, count):
         self.tasks_count[process] = count
 
@@ -751,6 +784,8 @@ class SObject(object):
             if isinstance(del_confirm, dict):
                 list_dependencies = del_confirm['search_types']
 
+            dependencies_dict = None
+            if list_dependencies:
                 dependencies_dict = {
                     'related_types': list_dependencies
                 }
@@ -1627,6 +1662,12 @@ class Login(SObject):
     def get_project_code(self):
         return self.info['project_code']
 
+    def get_hourly_wage(self):
+        try:
+            return Decimal(str(self.info.get('hourly_wage') or 0))
+        except (InvalidOperation, TypeError, ValueError):
+            return Decimal('0')
+
     def get_info(self):
         return self.info
 
@@ -2229,8 +2270,10 @@ class File(SObject, object):
 
         full_abs_path = self.get_full_abs_path()
 
-        if not os.path.isdir(dest_path):
-            os.makedirs(dest_path)
+        # Repository sync may prepare several files from the same snapshot in
+        # parallel.  The original check-then-create sequence races when two
+        # workers create the shared preview directory at the same time.
+        os.makedirs(dest_path, exist_ok=True)
 
         return full_abs_path
 
@@ -2247,6 +2290,126 @@ class File(SObject, object):
         self.downloaded = True
 
 # End of SObject Class
+
+
+class Task(SObject):
+    SEARCH_TYPE = 'sthpw/task'
+
+    def get_bid_duration(self, unit='hour'):
+        try:
+            duration = Decimal(str(self.get_value('bid_duration') or 0))
+        except (InvalidOperation, TypeError, ValueError):
+            duration = Decimal('0')
+        source_unit = str(
+            self.get_value('__bid_duration_unit__') or 'hour'
+        ).lower()
+        if source_unit == unit:
+            return duration
+        if source_unit == 'minute' and unit == 'hour':
+            return duration / Decimal('60')
+        if source_unit == 'hour' and unit == 'minute':
+            return duration * Decimal('60')
+        return duration
+
+    def log_work_hours(self, day, hours, description='',
+                       category='regular', login=None):
+        return WorkHour.create(
+            self, day, hours, description=description,
+            category=category, login=login,
+        )
+
+    def get_work_hours(self, login=None, start_day=None, end_day=None,
+                       statuses=None):
+        result = query_work_hours(
+            [self.get_code()], self.project.get_code(), login=login,
+            start_day=start_day, end_day=end_day, statuses=statuses,
+        )
+        return result['entries']
+
+
+class WorkHour(SObject):
+    SEARCH_TYPE = 'sthpw/work_hour'
+    REGULAR = 'regular'
+    OVERTIME = 'overtime'
+    APPROVED = 'approved'
+
+    @classmethod
+    def create(cls, task, day, hours, description='', category=REGULAR,
+               login=None, start_time=None, end_time=None, approve=False):
+        project = task.get_project()
+        result = mutate_work_hour(
+            'create', project.get_code(), task_code=task.get_code(),
+            values={
+                'day': day,
+                'straight_time': hours,
+                'description': description,
+                'category': category,
+                'login': login,
+                'start_time': start_time,
+                'end_time': end_time,
+                'approve': bool(approve),
+            },
+        )
+        return cls(result, project=project)
+
+    def get_regular_hours(self):
+        if self.get_value('category') == self.OVERTIME:
+            return 0.0
+        return float(self.get_value('straight_time') or 0)
+
+    def get_overtime_hours(self):
+        value = float(self.get_value('over_time') or 0)
+        if value:
+            return value
+        if self.get_value('category') == self.OVERTIME:
+            return float(self.get_value('straight_time') or 0)
+        return 0.0
+
+    def get_total_hours(self):
+        if self.get_value('category') == self.OVERTIME:
+            return self.get_overtime_hours()
+        return self.get_regular_hours() + float(self.get_value('over_time') or 0)
+
+    def get_labor_cost(self, hourly_rate, overtime_factor=1):
+        try:
+            rate = Decimal(str(hourly_rate or 0))
+            factor = Decimal(str(overtime_factor or 1))
+        except (InvalidOperation, TypeError, ValueError):
+            return Decimal('0')
+        regular = Decimal(str(self.get_regular_hours()))
+        overtime = Decimal(str(self.get_overtime_hours()))
+        return regular * rate + overtime * rate * factor
+
+    def is_approved(self):
+        return str(self.get_value('status') or '').lower() == self.APPROVED
+
+    def can_edit(self):
+        return bool(self.get_value('__can_edit__'))
+
+    def can_approve(self):
+        return bool(self.get_value('__can_approve__'))
+
+    def update_entry(self, **values):
+        result = mutate_work_hour(
+            'update', self.project.get_code(),
+            work_hour_code=self.get_code(), values=values,
+        )
+        self.info.update(result)
+        return self
+
+    def approve(self, approved=True):
+        result = mutate_work_hour(
+            'approve' if approved else 'reject', self.project.get_code(),
+            work_hour_code=self.get_code(),
+        )
+        self.info.update(result)
+        return self
+
+    def delete(self):
+        return mutate_work_hour(
+            'delete', self.project.get_code(),
+            work_hour_code=self.get_code(),
+        )
 
 
 def execute_procedure_serverside(func, kwargs, project=None, return_dict=True, server=None):
@@ -2293,6 +2456,115 @@ def execute_procedure_serverside(func, kwargs, project=None, return_dict=True, s
         final_result = ret_val
 
     return final_result
+
+
+def _project_object(project_code):
+    project = env_inst.projects.get(project_code)
+    if project is None and project_code == 'sthpw':
+        project = env_inst.projects.get(env_server.get_project())
+    return project
+
+
+def _work_hour_objects(values, project_code):
+    project = _project_object(project_code)
+    return [WorkHour(value, project=project) for value in (values or [])]
+
+
+def query_work_hours(task_codes, project_code, login=None, start_day=None,
+                     end_day=None, statuses=None, include_rates=False,
+                     parent_codes=None):
+    result = execute_procedure_serverside(
+        tq.query_work_hours,
+        {
+            'task_codes': list(task_codes or []),
+            'project_code': project_code,
+            'login': login,
+            'start_day': start_day,
+            'end_day': end_day,
+            'statuses': list(statuses or []),
+            'include_rates': bool(include_rates),
+            'parent_codes': list(parent_codes or []),
+        },
+        project=project_code,
+    ) or {}
+    result['entries'] = _work_hour_objects(
+        result.get('entries'), project_code
+    )
+    return result
+
+
+def mutate_user_profile(login, values=None, password=None, groups=None,
+                        group_access_levels=None):
+    return execute_procedure_serverside(
+        tq.mutate_user_profile,
+        {
+            'login': str(login or ''),
+            'values': dict(values or {}),
+            'password': str(password or ''),
+            'groups': None if groups is None else list(groups),
+            'group_access_levels': (
+                None if group_access_levels is None
+                else dict(group_access_levels)
+            ),
+        },
+        project='sthpw',
+    )
+
+
+def create_user_profile(login, values=None, password=None, groups=None):
+    return execute_procedure_serverside(
+        tq.create_user_profile,
+        {
+            'login': str(login or ''),
+            'values': dict(values or {}),
+            'password': str(password or ''),
+            'groups': list(groups or []),
+        },
+        project='sthpw',
+    )
+
+
+def mutate_work_hour(action, project_code, task_code=None,
+                     work_hour_code=None, values=None):
+    return execute_procedure_serverside(
+        tq.mutate_work_hour,
+        {
+            'action': action,
+            'project_code': project_code,
+            'task_code': task_code,
+            'work_hour_code': work_hour_code,
+            'values': dict(values or {}),
+        },
+        project=project_code,
+    )
+
+
+def set_work_hour_statuses(work_hour_codes, approved, project_code):
+    result = execute_procedure_serverside(
+        tq.set_work_hour_statuses,
+        {
+            'work_hour_codes': list(work_hour_codes or []),
+            'approved': bool(approved),
+            'project_code': project_code,
+        },
+        project=project_code,
+    )
+    return _work_hour_objects(result, project_code)
+
+
+def query_work_hour_report(report_key, project_code, start_day=None,
+                           end_day=None, login=None):
+    return execute_procedure_serverside(
+        tq.query_work_hour_report,
+        {
+            'report_key': report_key,
+            'project_code': project_code,
+            'start_day': start_day,
+            'end_day': end_day,
+            'login': login,
+        },
+        project=project_code,
+    )
 
 
 def get_all_projects_and_logins(force=False):
@@ -2394,7 +2666,9 @@ def get_all_projects_and_logins(force=False):
         return projects_dict
 
 
-def get_tasks_and_notes(sobject=None, search_code=None, project_code=None, process='publish'):
+def get_tasks_and_notes(
+        sobject=None, search_code=None, project_code=None,
+        process='publish', include_all_tasks=False):
 
     if sobject:
         search_code = sobject.get_code()
@@ -2407,6 +2681,8 @@ def get_tasks_and_notes(sobject=None, search_code=None, project_code=None, proce
 
     if process != '__latest__':
         kwargs['process'] = process
+    if include_all_tasks:
+        kwargs['include_all_tasks'] = True
 
     tasks_and_notes = execute_procedure_serverside(tq.get_tasks_and_notes, kwargs)
 
@@ -2425,13 +2701,67 @@ def get_tasks_and_notes(sobject=None, search_code=None, project_code=None, proce
     tasks_dict = collections.OrderedDict()
 
     for task in tasks:
-        task_sobject = SObject(task, project=env_inst.projects[project_code])
+        task_sobject = Task(task, project=env_inst.projects[project_code])
         tasks_dict[task.get('code')] = task_sobject
         status_log = task.get('__status_log__')
         if status_log:
             task_sobject.set_status_log(status_log)
 
     return tasks_dict, notes_dict
+
+
+def get_notes_with_attachments(note_codes, project_code):
+    """Batch-load note attachment objects without querying each parent."""
+    payload = execute_procedure_serverside(
+        tq.get_notes_with_attachments,
+        {
+            'note_codes': list(note_codes or []),
+            'project_code': project_code,
+        },
+        project=project_code,
+    )
+    project = env_inst.get_project_by_code(project_code)
+    notes = collections.OrderedDict()
+    for info in (payload or {}).get('notes') or []:
+        note = SObject(info, project=project)
+        note.init_snapshots(info.get('__snapshots__') or [])
+        notes[str(info.get('code') or '')] = note
+    return notes
+
+
+def get_task_workspace_page(filters, order_bys, project_code,
+                            limit=500, offset=0):
+    """Return native Task/SObject instances from one batched RPC."""
+    payload = execute_procedure_serverside(
+        tq.query_task_workspace_page,
+        {
+            'filters': list(filters or []),
+            'order_bys': list(order_bys or []),
+            'project_code': project_code,
+            'limit': limit,
+            'offset': offset,
+        },
+        project=project_code,
+    ) or {}
+    project = env_inst.get_project_by_code(project_code)
+    tasks = []
+    for info in payload.get('tasks') or []:
+        task = Task(info, [], project)
+        task.set_notes_count(
+            str(info.get('process') or 'publish'),
+            int(info.get('__notes_count__') or 0),
+        )
+        tasks.append(task)
+    parents = [
+        SObject(info, [], project) for info in payload.get('parents') or []
+    ]
+    return {
+        'tasks': tasks,
+        'parents': parents,
+        'total': payload.get('total'),
+        'offset': int(payload.get('offset') or 0),
+        'limit': int(payload.get('limit') or 0),
+    }
 
 
 def get_subscriptions_and_messages(current_login='admin', update_logins=False):
@@ -2442,6 +2772,223 @@ def get_subscriptions_and_messages(current_login='admin', update_logins=False):
     }
 
     return execute_procedure_serverside(tq.get_subscriptions_and_messages, kwargs)
+
+
+def get_chat_conversations():
+    return execute_procedure_serverside(
+        tq.query_chat_conversations, {}, project='sthpw'
+    )
+
+
+def create_chat_conversation(recipients, title=''):
+    return execute_procedure_serverside(
+        tq.create_chat_conversation,
+        {
+            'recipients': list(recipients or []),
+            'title': {'value': title},
+        },
+        project='sthpw',
+    )
+
+
+def update_chat_conversation(message_code, title):
+    return execute_procedure_serverside(
+        tq.update_chat_conversation,
+        {'message_code': message_code, 'title': {'value': title}},
+        project='sthpw',
+    )
+
+
+def add_chat_members(message_code, recipients):
+    return execute_procedure_serverside(
+        tq.add_chat_members,
+        {'message_code': message_code, 'recipients': list(recipients or [])},
+        project='sthpw',
+    )
+
+
+def set_chat_members(message_code, recipients):
+    return execute_procedure_serverside(
+        tq.add_chat_members,
+        {
+            'message_code': message_code,
+            'recipients': list(recipients or []),
+            'replace': True,
+        },
+        project='sthpw',
+    )
+
+
+def delete_chat_conversation(message_code):
+    return execute_procedure_serverside(
+        tq.delete_chat_conversation,
+        {'message_code': message_code},
+        project='sthpw',
+    )
+
+
+def clear_personal_chat(message_code):
+    return execute_procedure_serverside(
+        tq.clear_personal_chat,
+        {'message_code': message_code},
+        project='sthpw',
+    )
+
+
+def delete_chat_message(message_log_code):
+    return execute_procedure_serverside(
+        tq.delete_chat_message,
+        {'message_log_code': message_log_code},
+        project='sthpw',
+    )
+
+
+def edit_chat_message(message_log_code, message):
+    return execute_procedure_serverside(
+        tq.edit_chat_message,
+        {'message_log_code': message_log_code, 'message': message},
+        project='sthpw',
+    )
+
+
+def toggle_chat_message_reaction(message_log_code, emoji):
+    return execute_procedure_serverside(
+        tq.toggle_chat_message_reaction,
+        {'message_log_code': message_log_code, 'emoji': emoji},
+        project='sthpw',
+    )
+
+
+def pin_chat_message(message_log_code):
+    return execute_procedure_serverside(
+        tq.pin_chat_message,
+        {'message_log_code': message_log_code},
+        project='sthpw',
+    )
+
+
+def unpin_chat_message(message_log_code):
+    return execute_procedure_serverside(
+        tq.pin_chat_message,
+        {'message_log_code': message_log_code, 'unpin': True},
+        project='sthpw',
+    )
+
+
+def get_chat_history(message_code, limit=31, offset=0, search_text=''):
+    return execute_procedure_serverside(
+        tq.query_chat_history,
+        {
+            'message_code': message_code,
+            'limit': limit,
+            'offset': offset,
+            'search_text': search_text,
+        },
+        project='sthpw',
+    )
+
+
+def mark_chat_read(message_code, timestamp):
+    return execute_procedure_serverside(
+        tq.mark_chat_read,
+        {'message_code': message_code, 'timestamp': timestamp},
+        project='sthpw',
+    )
+
+
+def send_chat_message(message_code, message, attachment_keys=None, reply_to=None):
+    return execute_procedure_serverside(
+        tq.send_chat_message,
+        {
+            'message_code': message_code,
+            'message': message,
+            'attachment_keys': list(attachment_keys or []),
+            'reply_to': reply_to,
+        },
+        project='sthpw',
+    )
+
+
+def forward_chat_messages(message_log_keys, target_message_codes):
+    return execute_procedure_serverside(
+        tq.forward_chat_messages,
+        {
+            'message_log_keys': list(message_log_keys or []),
+            'target_message_codes': list(target_message_codes or []),
+        },
+        project='sthpw',
+    )
+
+
+def authorize_chat_attachment(message_code, snapshot_code):
+    return execute_procedure_serverside(
+        tq.authorize_chat_attachment,
+        {
+            'message_code': message_code,
+            'snapshot_code': snapshot_code,
+        },
+        project='sthpw',
+    )
+
+
+def get_server_updates(message_after='', activity_after='', project_code='',
+                       limit=101, reaction_after='', include_activity=True,
+                       include_reactions=True, include_presence=False,
+                       presence_ttl=360):
+    return execute_procedure_serverside(
+        tq.query_server_updates,
+        {
+            'message_after': message_after,
+            'activity_after': activity_after,
+            'reaction_after': reaction_after,
+            'project_code': project_code,
+            'limit': limit,
+            'include_activity': include_activity,
+            'include_reactions': include_reactions,
+            'include_presence': include_presence,
+            'presence_ttl': int(presence_ttl or 360),
+        },
+        project='sthpw',
+    )
+
+
+def get_user_recent_activity(
+        login='', project_code='', limit=25, offset=0, kinds=None,
+        assigned_login=''):
+    """Return enriched activity using the shared profile/feed API."""
+    return execute_procedure_serverside(
+        tq.query_user_recent_activity,
+        {
+            'login': login,
+            'project_code': project_code,
+            'limit': limit,
+            'offset': offset,
+            'kinds': list(kinds or ()),
+            'assigned_login': assigned_login,
+        },
+        project='sthpw',
+    )
+
+
+def get_user_profile_data(login='', project_code='', activity_limit=25):
+    return execute_procedure_serverside(
+        tq.query_user_profile_data,
+        {
+            'login': login,
+            'project_code': project_code,
+            'activity_limit': activity_limit,
+        },
+        project='sthpw',
+    )
+
+
+def heartbeat_user_presence(ttl_seconds=90):
+    """Refresh current-login presence and return known login states."""
+    return execute_procedure_serverside(
+        tq.heartbeat_user_presence,
+        {'ttl_seconds': int(ttl_seconds or 90)},
+        project='sthpw',
+    )
 
 
 def duplicate_sobjects(search_keys, data_dict):
@@ -2479,7 +3026,7 @@ def delete_sobjects(search_keys, list_dependencies):
     return execute_procedure_serverside(tq.delete_sobjects, kwargs)
 
 
-def get_sobjects(search_type, filters=[], order_bys=[], project_code=None, limit=None, offset=None, process_list=[], get_all_snapshots=False, check_snapshots_updates=False, include_info=True, include_snapshots=True, compressed_return=True, include_status_log=False, include_progress=False):
+def get_sobjects(search_type, filters=[], order_bys=[], project_code=None, limit=None, offset=None, process_list=[], get_all_snapshots=False, check_snapshots_updates=False, include_info=True, include_snapshots=True, compressed_return=True, include_status_log=False, include_progress=False, include_total_count=True):
     """
     Filters snapshot by search codes, and sobjects codes
     :param search_type: search_type or search_key (if using search_type project_code should to be provided)
@@ -2504,6 +3051,7 @@ def get_sobjects(search_type, filters=[], order_bys=[], project_code=None, limit
         'compressed_return': compressed_return,
         'include_status_log': include_status_log,
         'include_progress': include_progress,
+        'include_total_count': include_total_count,
     }
     if not project_code:
         if search_type.startswith('sthpw'):
@@ -2540,7 +3088,20 @@ def get_sobjects(search_type, filters=[], order_bys=[], project_code=None, limit
 
         # Create ordered dict of Sobject class Objects with snapshots, and some counts
         for sobject in sobjects_list['sobjects_list']:
-            sobjects[sobject['__search_key__']] = SObject(sobject, process_codes, env_inst.projects[project_code])
+            object_type = str(
+                sobject.get('__search_type__')
+                or sobject.get('__search_key__') or ''
+            )
+            if object_type.startswith('skey://'):
+                object_type = object_type[7:]
+            object_type = object_type.split('?', 1)[0]
+            object_class = {
+                WorkHour.SEARCH_TYPE: WorkHour,
+                Task.SEARCH_TYPE: Task,
+            }.get(object_type, SObject)
+            sobjects[sobject['__search_key__']] = object_class(
+                sobject, process_codes, env_inst.projects[project_code]
+            )
 
             if include_snapshots:
                 sobjects[sobject['__search_key__']].init_snapshots(sobject['__snapshots__'])
@@ -2793,6 +3354,17 @@ def edit_multiple_instance_sobjects(project_code, insert_search_keys=[], exclude
     }
 
     return execute_procedure_serverside(tq.edit_multiple_instance_sobjects, kwargs, project=project_code)
+
+
+def edit_multiple_tasks_sobjects(project_code, parent_keys=None, data=None):
+    kwargs = {
+        'project_code': project_code,
+        'parent_search_keys': list(parent_keys or []),
+        'data': dict(data or {}),
+    }
+    return execute_procedure_serverside(
+        tq.edit_multiple_tasks_sobjects, kwargs, project=project_code,
+    )
 
 
 def sobject_delete_confirm(sobjects):
@@ -3057,7 +3629,27 @@ def checkin_snapshot(search_key, context, snapshot_type=None, is_revision=False,
 
     repo = repo_name['value'][0]
 
+    if not (
+        len(virtual_snapshot) == len(files_dict) == len(files_objects)
+    ):
+        raise ValueError(
+            'Check-in payload does not match the virtual snapshot'
+        )
+
     for (k1, v1), (k2, v2), file_object in zip(virtual_snapshot, files_dict, files_objects):
+        versioned = v1.get('versioned') or {}
+        versionless = v1.get('versionless') or {}
+        lengths = {
+            len(versioned.get('paths') or []),
+            len(versioned.get('names') or []),
+            len(versionless.get('paths') or []),
+            len(versionless.get('names') or []),
+            len(v2.get('t') or []),
+        }
+        if len(lengths) != 1 or not next(iter(lengths)):
+            raise ValueError(
+                'TACTIC naming returned inconsistent file destinations'
+            )
         for path_v, name_v, path_vs, name_vs, tp in zip(v1['versioned']['paths'],
                                                         v1['versioned']['names'],
                                                         v1['versionless']['paths'],
@@ -3112,27 +3704,56 @@ def checkin_snapshot(search_key, context, snapshot_type=None, is_revision=False,
         server.start('Upload Checkin', u'Upload Checkin from Tactic Handler by: {}'.format(env_inst.get_current_login()))
         gf.time_it(s, message='Transaction start: ')
 
-        for version_file in files_info['version_files']:
-            # dl.log('Uploading File ' + version_file + ' ' + str(server), group_id='server/checkin')
-            server.upload_file(version_file, progress_signal=progress_signal)
-            # dl.log('Done Uploading File ' + version_file + ' ' + str(server), group_id='server/checkin')
+        try:
+            for version_file in files_info['version_files']:
+                server.upload_file(version_file, progress_signal=progress_signal)
 
-        gf.time_it(s, message='Upload time: ')
-        # dl.log('Begin Snapshot creation ' + search_key + ' ' + str(server), group_id='server/checkin')
-
-        result = execute_procedure_serverside(tq.create_snapshot_extended, kwargs, project=project_code['project_code'], return_dict=False, server=server)
-        # result = server.simple_checkin(search_key, context, files_info['version_files'][0], description=description, create_icon=True)
-
-        gf.time_it(s, message='On Server execution: ')
-        # dl.log('Upload Finished' + ' ' + str(server), group_id='server/checkin')
-        server.finish(u'Upload Checkin from Tactic Handler by: {}. Finished.'.format(env_inst.get_current_login()))
+            gf.time_it(s, message='Upload time: ')
+            result = execute_procedure_serverside(
+                tq.create_snapshot_extended,
+                kwargs,
+                project=project_code['project_code'],
+                return_dict=False,
+                server=server,
+            )
+            gf.time_it(s, message='On Server execution: ')
+        except Exception:
+            abort = getattr(server, 'abort', None)
+            if callable(abort):
+                try:
+                    abort()
+                except Exception as abort_error:
+                    dl.exception(
+                        abort_error, group_id='exceptions/checkin_abort'
+                    )
+            raise
+        else:
+            server.finish(u'Upload Checkin from Tactic Handler by: {}. Finished.'.format(env_inst.get_current_login()))
         gf.time_it(s, message='Transaction End: ')
     elif mode in ['inplace', 'preallocate']:
         server.start('Inplace Checkin', u'Inplace Checkin from Tactic Handler by: {}'.format(env_inst.get_current_login()))
-
-        result = execute_procedure_serverside(tq.create_snapshot_extended, kwargs, project=project_code['project_code'], return_dict=False, server=server)
-
-        server.finish(u'Inplace Checkin from Tactic Handler by: {}. Finished.'.format(env_inst.get_current_login()))
+        try:
+            result = execute_procedure_serverside(
+                tq.create_snapshot_extended,
+                kwargs,
+                project=project_code['project_code'],
+                return_dict=False,
+                server=server,
+            )
+        except Exception:
+            abort = getattr(server, 'abort', None)
+            if callable(abort):
+                try:
+                    abort()
+                except Exception as abort_error:
+                    dl.exception(
+                        abort_error, group_id='exceptions/checkin_abort'
+                    )
+            raise
+        else:
+            server.finish(u'Inplace Checkin from Tactic Handler by: {}. Finished.'.format(env_inst.get_current_login()))
+    else:
+        raise ValueError('Unsupported check-in mode: {0}'.format(mode))
 
     if result:
         if isinstance(result, six.string_types):
@@ -3395,7 +4016,11 @@ def parce_skey(skey, get_skey_and_context=False, return_sobject=True):
     if skey_splitted.scheme == 'skey':
         if skey_dict['pipeline_code'] == 'snapshot':
             skey_dict['type'] = 'snapshot'
-            snapshot = server_start().query('sthpw/snapshot', [('code', skey_dict.get('code'))])
+            identifier = 'code' if skey_dict.get('code') else 'id'
+            snapshot = server_start().query(
+                'sthpw/snapshot',
+                [(identifier, skey_dict.get(identifier))],
+            )
             if snapshot:
                 snapshot = snapshot[0]
                 skey_dict['pipeline_code'] = snapshot['search_type'].split('/')[-1].split('?')[0]
@@ -3410,10 +4035,15 @@ def parce_skey(skey, get_skey_and_context=False, return_sobject=True):
                 skey_dict['context'] = '_no_context_'
 
         if return_sobject:
-            filters = [('code', '=', skey_dict.get('code'))]
+            identifier = 'code' if skey_dict.get('code') else 'id'
+            identifier_value = skey_dict.get(identifier)
+            if not identifier_value:
+                return skey_dict, None
+            filters = [(identifier, '=', identifier_value)]
             search_type = server_start().build_search_type(u'{namespace}/{pipeline_code}'.format(**skey_dict), project_code=skey_dict.get('project'))
 
             sobjects = get_sobjects(search_type, filters)[0]
+            sobject = None
             if sobjects:
                 sobject = list(sobjects.values())[0]
             return skey_dict, sobject

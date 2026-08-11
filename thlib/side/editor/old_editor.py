@@ -82,7 +82,10 @@ class Editor(QPlainTextEdit):
         self.setTabStopWidth(self.fontMetrics().width(" " * self._editor_config.get('indent_space_count', 4)))
         font = self._editor_config.get('font')
         if font:
+            if str(font).strip().lower() == "fixedsys":
+                font = "Consolas"
             font = QFont(font)
+            font.setStyleHint(QFont.Monospace)
             font.setFixedPitch(True)
             self.setFont(font)
 

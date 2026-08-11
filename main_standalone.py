@@ -29,6 +29,15 @@ roles = ['Window',
          'ButtonText',
          'BrightText']
 
+palette_role_aliases = {
+    'Background': 'Window',
+    'Foreground': 'WindowText',
+}
+
+
+def getPaletteRole(role):
+    return getattr(Qt4Gui.QPalette, palette_role_aliases.get(role, role))
+
 
 def getPaletteInfo():
     palette = QtGui.QApplication.palette()
@@ -36,8 +45,8 @@ def getPaletteInfo():
     result = {}
     for role in roles:
         for group in groups:
-            qGrp = getattr(QtGui.QPalette, group)
-            qRl = getattr(QtGui.QPalette, role)
+            qGrp = getattr(Qt4Gui.QPalette, group)
+            qRl = getPaletteRole(role)
             result['%s:%s' % (role, group)] = palette.color(qGrp, qRl).rgba()
     return result
 
@@ -48,7 +57,7 @@ def setPaletteFromDct(dct):
         for group in groups:
             color = Qt4Gui.QColor(dct['%s:%s' % (role, group)])
             qGrp = getattr(Qt4Gui.QPalette, group)
-            qRl = getattr(Qt4Gui.QPalette, role)
+            qRl = getPaletteRole(role)
             palette.setColor(qGrp, qRl, color)
 
     QtGui.QApplication.setPalette(palette)

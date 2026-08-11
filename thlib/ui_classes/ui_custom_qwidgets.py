@@ -1791,7 +1791,7 @@ class MenuWithLayout(QtGui.QMenu):
 
         self.edit_label.setAutoFillBackground(True)
 
-        self.edit_label.setBackgroundRole(Qt4Gui.QPalette.Background)
+        self.edit_label.setBackgroundRole(Qt4Gui.QPalette.Window)
 
         sizePolicy = QtGui.QSizePolicy(QtGui.QSizePolicy.Preferred, QtGui.QSizePolicy.Preferred)
         sizePolicy.setHorizontalStretch(0)

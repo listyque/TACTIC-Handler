@@ -17,8 +17,10 @@
 import datetime
 import re
 import os, getpass, shutil, sys, types, hashlib
-import six
-from six.moves import input, urllib
+from thlib.side import six
+from builtins import input
+import urllib
+import urllib.request
 
 
 try:

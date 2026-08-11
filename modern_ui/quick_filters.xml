@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<quick-filters>
+    <search-type code="*">
+        <group key="category" title="ASSET CATEGORIES" source="asset_categories"
+               columns="category,asset_category,asset_category_code,assets_category_code,category_code,parent_code"
+               accent="#26a69a"/>
+        <group key="pipeline" title="PIPELINES" source="pipelines"
+               accent="#607d8b"/>
+        <group key="process" title="PROCESSES" source="task_processes"
+               accent="#2196f3"/>
+        <group key="status" title="STATUSES" source="task_statuses"
+               accent="#7e57c2"/>
+    </search-type>
+    <search-type code="complex/scenes">
+        <group key="duration" title="DURATION" source="ranges"
+               columns="duration,duration_seconds,length" accent="#ff8615">
+            <option key="short" title="20 SECONDS" minimum="0" maximum="20"/>
+            <option key="minute" title="1 MINUTE" minimum="20" maximum="60"/>
+            <option key="two_minutes" title="2 MINUTES" minimum="60" maximum="120"/>
+            <option key="three_minutes" title="3 MINUTES" minimum="120" maximum="180"/>
+        </group>
+    </search-type>
+</quick-filters>

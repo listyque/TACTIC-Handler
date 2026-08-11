@@ -1,6 +1,6 @@
 import re
-from imp import new_module
 from code import InteractiveConsole
+from types import ModuleType
 
 
 class Console(InteractiveConsole):
@@ -17,7 +17,7 @@ class Console(InteractiveConsole):
         names = names or {}
         names["console"] = self
         InteractiveConsole.__init__(self, names)
-        self.superspace = new_module("superspace")
+        self.superspace = ModuleType("superspace")
 
     def enter(self, source):
 

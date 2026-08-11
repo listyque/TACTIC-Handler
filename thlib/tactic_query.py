@@ -1,24 +1,56 @@
 # Internal server-side sctipts
 
 import thlib.global_functions as gf
+import ast
+import io
 import inspect
 import thlib.side.six as six
 from pprint import pformat
 
 
-def prepare_serverside_script(func, kwargs, return_dict=True, has_return=True, shrink=True, catch_traceback=True):
-    func_lines = inspect.getsourcelines(func)
-    if has_return:
-        run_command = func_lines[0][0].replace(u'def ', u'return ')[:-2]
-    else:
-        run_command = func_lines[0][0].replace(u'def ', u'')[:-2]
+def _function_source_lines(func):
+    """Read a top-level function by name from the current source file.
 
-    # TODO multiline bug
+    ``inspect.getsourcelines`` relies on ``co_firstlineno``.  That offset is
+    stale when a running modern client edits/reloads the source file, which
+    previously made unrelated lines get sent to TACTIC as executable code.
+    """
+    try:
+        source_path = inspect.getsourcefile(func) or inspect.getfile(func)
+        with io.open(source_path, 'r', encoding='utf-8') as source_file:
+            source = source_file.read()
+        source_lines = source.splitlines(True)
+        module = ast.parse(source, filename=source_path)
+        function_nodes = (ast.FunctionDef,)
+        if hasattr(ast, 'AsyncFunctionDef'):
+            function_nodes += (ast.AsyncFunctionDef,)
+        node = next(
+            item for item in module.body
+            if isinstance(item, function_nodes)
+            and item.name == func.__name__
+        )
+        start = int(node.lineno) - 1
+        end = getattr(node, 'end_lineno', None)
+        if end is None:
+            following = [
+                int(item.lineno) - 1 for item in module.body
+                if getattr(item, 'lineno', 0) > node.lineno
+            ]
+            end = min(following) if following else len(source_lines)
+            while end > start and not source_lines[end - 1].strip():
+                end -= 1
+        return source_lines[start:int(end)]
+    except Exception:
+        return inspect.getsourcelines(func)[0]
+
+
+def prepare_serverside_script(func, kwargs, return_dict=True, has_return=True, shrink=True, catch_traceback=True):
+    func_lines = _function_source_lines(func)
 
     args_list = []
     for key, arg in kwargs.items():
         if isinstance(arg, six.string_types):
-            args_list.append(u"{}='{}'".format(key, arg.replace('"', '\"').replace('\n', '\\n').replace('\r', '\\r')))
+            args_list.append(u'{}={}'.format(key, pformat(arg)))
         else:
             # args_list.append(u'{}={}'.format(key, arg))
             # Workaround for slow MAKO with long lines
@@ -26,13 +58,14 @@ def prepare_serverside_script(func, kwargs, return_dict=True, has_return=True, s
 
     var_stitch = u', '.join(args_list)
 
-    ready_run_command = u'{0}({1})'.format(run_command[:run_command.find(u'(')], var_stitch)
+    call = u'{0}({1})'.format(func.__name__, var_stitch)
+    ready_run_command = (u'return ' + call) if has_return else call
     if catch_traceback:
-        traceback = inspect.getsourcelines(get_traceback)
-        handle = inspect.getsourcelines(traceback_handle)
-        code = u''.join(traceback[0]) + u''.join(handle[0]) + u'@traceback_handle \n' + ''.join(func_lines[0]) + ready_run_command
+        traceback = _function_source_lines(get_traceback)
+        handle = _function_source_lines(traceback_handle)
+        code = u''.join(traceback) + u''.join(handle) + u'@traceback_handle \n' + ''.join(func_lines) + ready_run_command
     else:
-        code = u''.join(func_lines[0]) + ready_run_command
+        code = u''.join(func_lines) + ready_run_command
     if shrink:
         # minify is a bit slow
         code = gf.minify_code(source=code)
@@ -469,7 +502,8 @@ def get_projects_and_logins(current_login='admin'):
     return json.dumps(result, separators=(',', ':'))
 
 
-def get_tasks_and_notes(search_code, project_code, process=None):
+def get_tasks_and_notes(search_code, project_code, process=None,
+                        include_all_tasks=False):
     import json
     from pyasm.search import Search, SearchKey
     from pyasm.biz import Snapshot
@@ -498,10 +532,10 @@ def get_tasks_and_notes(search_code, project_code, process=None):
     search = Search('sthpw/task')
     search.add_filter('search_code', search_code)
     search.add_filter('project_code', project_code)
-    if process:
+    if process and not include_all_tasks:
         search.add_filter('process', process)
 
-    else:
+    elif not process:
         search.add_order_by('timestamp', direction='desc')
 
         single_task = search.get_sobject()
@@ -519,16 +553,22 @@ def get_tasks_and_notes(search_code, project_code, process=None):
 
     tasks = get_sobjects_dict(tasks_sobjects)
 
-    for task in tasks:
-
+    task_codes = [task.get('code') for task in tasks if task.get('code')]
+    if task_codes:
         status_search = Search('sthpw/status_log')
-        status_search.add_op_filters([('search_code', task['code'])])
-
+        status_search.add_filters('search_code', task_codes)
         status_sobjects = status_search.get_sobjects()
-
-        if status_sobjects:
-            status_log_list = get_sobjects_dict(status_sobjects)
-            task['__status_log__'] = status_log_list
+        status_logs_by_task = {}
+        for status_log in get_sobjects_dict(status_sobjects):
+            task_code = status_log.get('search_code')
+            if task_code:
+                status_logs_by_task.setdefault(task_code, []).append(
+                    status_log
+                )
+        for task in tasks:
+            status_log_list = status_logs_by_task.get(task.get('code'))
+            if status_log_list:
+                task['__status_log__'] = status_log_list
 
     # Getting Notes from db
     search = Search('sthpw/note')
@@ -542,7 +582,7 @@ def get_tasks_and_notes(search_code, project_code, process=None):
     for note, note_sobject in zip(notes, notes_sobjects):
 
         # Getting snapshots for notes previews
-        snapshots_sobjects = Snapshot.get_by_sobjects(notes_sobjects)
+        snapshots_sobjects = Snapshot.get_by_sobjects([note_sobject])
         connected_snapshots = note_sobject.get_connections(context='attachment')
 
         if connected_snapshots:
@@ -634,6 +674,3170 @@ def get_subscriptions_and_messages(current_login='admin', update_logins=False):
         }
 
     return json.dumps(result, separators=(',', ':'))
+
+
+def get_notes_with_attachments(note_codes, project_code):
+    """Return many notes and their native snapshot/connection attachments."""
+    import json
+    from pyasm.search import Search, SearchKey
+    from pyasm.biz import Snapshot
+
+    server.set_project(project_code)
+    codes = list(dict.fromkeys(
+        str(code) for code in (note_codes or []) if code
+    ))
+    if not codes:
+        return json.dumps({'notes': []}, separators=(',', ':'))
+    search = Search('sthpw/note')
+    search.add_filters('code', codes)
+    notes = search.get_sobjects()
+    result = []
+    for note in notes:
+        data = note.get_data()
+        data['__search_key__'] = SearchKey.get_by_sobject(
+            note, use_id=False
+        )
+        snapshots = list(Snapshot.get_by_sobjects([note]) or [])
+        known = set(
+            str(snapshot.get_code() or '') for snapshot in snapshots
+        )
+        for snapshot in note.get_connections(context='attachment') or []:
+            code = str(snapshot.get_code() or '')
+            if snapshot and code not in known:
+                snapshots.append(snapshot)
+                known.add(code)
+        files_by_snapshot = (
+            Snapshot.get_files_dict_by_snapshots(snapshots)
+            if snapshots else {}
+        )
+        decorated = []
+        for snapshot in snapshots:
+            snapshot_data = snapshot.get_data()
+            snapshot_data['__search_key__'] = SearchKey.get_by_sobject(
+                snapshot, use_id=False
+            )
+            snapshot_data['__files__'] = [
+                server.server._get_sobject_dict(file_object)
+                for file_object in (
+                    files_by_snapshot.get(snapshot.get_code()) or []
+                )
+            ]
+            decorated.append(snapshot_data)
+        data['__snapshots__'] = decorated
+        result.append(data)
+    return json.dumps({'notes': result}, separators=(',', ':'))
+
+
+def query_task_workspace_page(filters, order_bys, project_code,
+                              limit=500, offset=0):
+    """Load a task page and all of its parents in one XML-RPC call."""
+    import json
+    from pyasm.search import Search
+
+    server.set_project(project_code)
+    task_search = Search('sthpw/task')
+    if filters:
+        task_search.add_op_filters(filters)
+    for order_by in order_bys or []:
+        task_search.add_order_by(order_by)
+    total = task_search.get_count()
+    if limit:
+        task_search.set_limit(int(limit))
+    if offset:
+        task_search.set_offset(int(offset))
+    task_objects = task_search.get_sobjects()
+    tasks = server.server._get_sobjects_dict(task_objects)
+
+    note_counts = {}
+    search_codes = list(set(
+        str(info.get('search_code') or '') for info in tasks
+        if info.get('search_code')
+    ))
+    processes = list(set(
+        str(info.get('process') or '') for info in tasks
+        if info.get('process')
+    ))
+    if search_codes and processes:
+        note_search = Search('sthpw/note')
+        note_search.add_filters('search_code', search_codes)
+        note_search.add_filters('process', processes)
+        for note in note_search.get_sobjects():
+            key = (
+                str(note.get_value('search_code') or ''),
+                str(note.get_value('process') or ''),
+            )
+            note_counts[key] = note_counts.get(key, 0) + 1
+    for info in tasks:
+        key = (
+            str(info.get('search_code') or ''),
+            str(info.get('process') or ''),
+        )
+        info['__notes_count__'] = note_counts.get(key, 0)
+        info['__tasks_count__'] = 0
+
+    parent_groups = {}
+    for info in tasks:
+        raw_type = str(info.get('search_type') or '')
+        search_type = raw_type.split('?', 1)[0]
+        code = str(info.get('search_code') or '')
+        if search_type and code:
+            parent_groups.setdefault(search_type, set()).add(code)
+    parents = []
+    for search_type, codes in parent_groups.items():
+        parent_search = Search(search_type)
+        parent_search.add_filters('code', list(codes))
+        parents.extend(
+            server.server._get_sobjects_dict(parent_search.get_sobjects())
+        )
+    return json.dumps({
+        'tasks': tasks,
+        'parents': parents,
+        'total': total,
+        'offset': int(offset or 0),
+        'limit': int(limit or 0),
+    }, separators=(',', ':'))
+
+
+def query_work_hours(task_codes, project_code, login=None, start_day=None,
+                     end_day=None, statuses=None, include_rates=False,
+                     parent_codes=None):
+    import json
+    from pyasm.search import Search, SearchKey
+    from pyasm.biz import ProdSetting
+
+    server.set_project(project_code)
+    current_login = str(server.get_login() or '')
+    is_admin = current_login.lower() == 'admin'
+    groups = []
+    if not is_admin:
+        group_search = Search('sthpw/login_in_group')
+        group_search.add_filter('login', current_login)
+        groups = [
+            str(item.get_value('login_group') or '').lower()
+            for item in group_search.get_sobjects()
+        ]
+    privileged = is_admin or any(
+        group == 'admin' or 'supervisor' in group for group in groups
+    )
+    view_costs = is_admin or any(
+        'finance' in group or 'account' in group for group in groups
+    )
+
+    search = Search('sthpw/work_hour')
+    search.add_filter('project_code', project_code)
+    task_codes = [str(value) for value in (task_codes or []) if value]
+    parent_codes = [str(value) for value in (parent_codes or []) if value]
+    if task_codes:
+        search.add_filters('task_code', task_codes)
+    elif parent_codes:
+        search.add_filters('search_code', parent_codes)
+    if login:
+        search.add_filter('login', login)
+    if start_day:
+        search.add_filter('day', start_day, op='>=')
+    if end_day:
+        search.add_filter('day', end_day, op='<=')
+    statuses = [str(value) for value in (statuses or []) if value]
+    if statuses:
+        search.add_filters('status', statuses)
+    search.add_order_by('day')
+    search.add_order_by('start_time')
+
+    entries = []
+    logins = set()
+    for entry in search.get_sobjects():
+        data = entry.get_data()
+        owner = str(data.get('login') or '')
+        status = str(data.get('status') or '').lower()
+        data['__search_key__'] = SearchKey.get_by_sobject(
+            entry, use_id=False
+        )
+        data['__can_edit__'] = bool(
+            privileged or (owner == current_login and status != 'approved')
+        )
+        data['__can_approve__'] = bool(privileged)
+        entries.append(data)
+        if owner:
+            logins.add(owner)
+
+    rates = {}
+    if include_rates and view_costs and logins:
+        login_search = Search('sthpw/login')
+        login_search.add_filters('login', list(logins))
+        for login_object in login_search.get_sobjects():
+            name = str(login_object.get_value('login') or '')
+            rates[name] = login_object.get_value(
+                'hourly_wage', no_exception=True
+            )
+
+    return json.dumps({
+        'entries': entries,
+        'bidDurationUnit': str(
+            ProdSetting.get_value_by_key('bid_duration_unit') or 'hour'
+        ),
+        'permissions': {
+            'manage': bool(privileged),
+            'viewCosts': bool(view_costs),
+        },
+        'rates': rates,
+    }, separators=(',', ':'))
+
+
+def mutate_user_profile(login, values=None, password=None, groups=None,
+                        group_access_levels=None):
+    """Update a TACTIC login through its native security object API."""
+    import json
+    from pyasm.search import Search
+
+    current_login = str(server.get_login() or '')
+    target_login = str(login or '').strip()
+    if not target_login:
+        raise ValueError('A login is required')
+
+    group_search = Search('sthpw/login_in_group')
+    group_search.add_filter('login', current_login)
+    current_groups = [
+        str(item.get_value('login_group') or '').lower()
+        for item in group_search.get_sobjects()
+    ]
+    privileged = current_login.lower() == 'admin' or any(
+        group == 'admin' or 'supervisor' in group
+        for group in current_groups
+    )
+    if target_login != current_login and not privileged:
+        raise PermissionError('You may only edit your own profile')
+
+    search = Search('sthpw/login')
+    search.add_filter('login', target_login)
+    login_object = search.get_sobject()
+    if not login_object:
+        raise ValueError('The selected user does not exist')
+
+    self_fields = {
+        'first_name', 'last_name', 'display_name', 'email',
+        'phone_number', 'department',
+    }
+    supervisor_fields = {
+        'upn', 'namespace', 's_status', 'project_code',
+        'license_type', 'hourly_wage',
+    }
+    allowed = self_fields | (supervisor_fields if privileged else set())
+    changed = False
+    for name, value in dict(values or {}).items():
+        name = str(name or '')
+        if name not in allowed:
+            continue
+        login_object.set_value(name, value if value is not None else '')
+        changed = True
+    if changed:
+        login_object.commit()
+
+    password = str(password or '')
+    if password:
+        setter = getattr(login_object, 'set_password', None)
+        if not callable(setter):
+            raise RuntimeError('This TACTIC server cannot change passwords')
+        setter(password)
+
+    if groups is not None:
+        if not privileged:
+            raise PermissionError('Only a supervisor can change user groups')
+        desired = set(str(value or '') for value in groups if value)
+        membership_search = Search('sthpw/login_in_group')
+        membership_search.add_filter('login', target_login)
+        existing = set(
+            str(item.get_value('login_group') or '')
+            for item in membership_search.get_sobjects()
+        )
+        add_to_group = getattr(login_object, 'add_to_group', None)
+        remove_from_group = getattr(login_object, 'remove_from_group', None)
+        if not callable(add_to_group) or not callable(remove_from_group):
+            raise RuntimeError('This TACTIC server has no group membership API')
+        for group in sorted(desired - existing):
+            add_to_group(group)
+        for group in sorted(existing - desired):
+            remove_from_group(group)
+
+    changed_access_levels = {}
+    if group_access_levels is not None:
+        if not privileged:
+            raise PermissionError(
+                'Only a supervisor can change group access levels'
+            )
+        requested = dict(group_access_levels or {})
+        if len(requested) != len(set(str(key or '') for key in requested)):
+            raise ValueError('Each login group may only be updated once')
+        normalized_access_levels = {}
+        for group_code, access_level in requested.items():
+            group_code = str(group_code or '').strip()
+            access_level = str(access_level or '').strip()
+            if not group_code:
+                raise ValueError('A login group code is required')
+            if len(access_level) > 32 or any(
+                    ord(character) < 32 for character in access_level):
+                raise ValueError('Access level must be at most 32 characters')
+            if access_level not in ('', 'high', 'medium', 'low', 'min', 'none'):
+                raise ValueError(
+                    'Access level must be high, medium, low, min, none, or empty'
+                )
+            normalized_access_levels[group_code] = access_level
+        group_objects = {}
+        if normalized_access_levels:
+            group_search = Search('sthpw/login_group')
+            group_search.add_filters(
+                'login_group', list(normalized_access_levels)
+            )
+            group_objects = {
+                str(item.get_value('login_group') or ''): item
+                for item in group_search.get_sobjects()
+            }
+        for group_code, access_level in normalized_access_levels.items():
+            group_object = group_objects.get(group_code)
+            if not group_object:
+                raise ValueError('Login group does not exist: %s' % group_code)
+            current_level = str(
+                group_object.get_value('access_level', no_exception=True) or ''
+            )
+            if current_level == access_level:
+                continue
+            group_object.set_value('access_level', access_level)
+            group_object.commit()
+            changed_access_levels[group_code] = access_level
+
+    data = login_object.get_data()
+    data.pop('password', None)
+    data['groups'] = sorted(
+        set(str(value or '') for value in groups if value)
+        if groups is not None else set()
+    )
+    data['group_access_levels'] = changed_access_levels
+    return json.dumps(data, separators=(',', ':'), default=str)
+
+
+def create_user_profile(login, values=None, password=None, groups=None):
+    """Create a TACTIC login through the native login sObject API."""
+    import json
+    from pyasm.search import Search, SearchType
+
+    current_login = str(server.get_login() or '')
+    group_search = Search('sthpw/login_in_group')
+    group_search.add_filter('login', current_login)
+    current_groups = [
+        str(item.get_value('login_group') or '').lower()
+        for item in group_search.get_sobjects()
+    ]
+    privileged = current_login.lower() == 'admin' or any(
+        group == 'admin' or 'supervisor' in group
+        for group in current_groups
+    )
+    if not privileged:
+        raise PermissionError('Only an administrator or supervisor can create users')
+
+    target_login = str(login or '').strip()
+    if not target_login:
+        raise ValueError('A login is required')
+    if any(character.isspace() for character in target_login):
+        raise ValueError('A login cannot contain spaces')
+
+    duplicate_search = Search('sthpw/login')
+    duplicate_search.add_filter('login', target_login)
+    if duplicate_search.get_sobject():
+        raise ValueError('A user with this login already exists')
+
+    allowed = {
+        'first_name', 'last_name', 'display_name', 'email',
+        'phone_number', 'department', 'upn', 'namespace', 's_status',
+        'project_code', 'license_type', 'hourly_wage',
+    }
+    login_object = SearchType.create('sthpw/login')
+    login_object.set_value('login', target_login)
+    for name, value in dict(values or {}).items():
+        name = str(name or '')
+        if name in allowed:
+            login_object.set_value(name, value if value is not None else '')
+    login_object.commit()
+
+    password = str(password or '')
+    if password:
+        setter = getattr(login_object, 'set_password', None)
+        if not callable(setter):
+            raise RuntimeError('This TACTIC server cannot set user passwords')
+        setter(password)
+
+    desired_groups = sorted(set(
+        str(value or '') for value in (groups or []) if value
+    ))
+    if desired_groups:
+        add_to_group = getattr(login_object, 'add_to_group', None)
+        if not callable(add_to_group):
+            raise RuntimeError('This TACTIC server has no group membership API')
+        for group in desired_groups:
+            add_to_group(group)
+
+    data = login_object.get_data()
+    data.pop('password', None)
+    data['groups'] = desired_groups
+    return json.dumps(data, separators=(',', ':'), default=str)
+
+
+def mutate_work_hour(action, project_code, task_code=None, work_hour_code=None,
+                     values=None):
+    import datetime
+    from pyasm.search import Search, SearchType, SearchKey
+
+    server.set_project(project_code)
+    values = dict(values or {})
+    current_login = str(server.get_login() or '')
+    is_admin = current_login.lower() == 'admin'
+    groups = []
+    if not is_admin:
+        group_search = Search('sthpw/login_in_group')
+        group_search.add_filter('login', current_login)
+        groups = [
+            str(item.get_value('login_group') or '').lower()
+            for item in group_search.get_sobjects()
+        ]
+    privileged = is_admin or any(
+        group == 'admin' or 'supervisor' in group for group in groups
+    )
+
+    def number(name, default=0.0):
+        raw = values.get(name, default)
+        if raw in (None, ''):
+            return float(default)
+        result = float(raw)
+        if result < 0 or result > 24:
+            raise ValueError('%s must be between 0 and 24 hours' % name)
+        return result
+
+    def clean_day(value):
+        text = str(value or '')[:10]
+        try:
+            datetime.datetime.strptime(text, '%Y-%m-%d')
+        except ValueError:
+            raise ValueError('Work date must use YYYY-MM-DD')
+        return '%s 00:00:00' % text
+
+    action = str(action or '').lower()
+    approve_requested = bool(values.pop('approve', False))
+    if approve_requested and not privileged:
+        raise RuntimeError('Only a supervisor can approve work hours')
+    entry = None
+    if action != 'create':
+        search = Search('sthpw/work_hour')
+        search.add_filter('code', work_hour_code)
+        entry = search.get_sobject()
+        if not entry:
+            raise RuntimeError('Work-hour entry does not exist')
+        owner = str(entry.get_value('login') or '')
+        approved = str(entry.get_value('status') or '').lower() == 'approved'
+        if not privileged and (owner != current_login or approved):
+            raise RuntimeError(
+                'Only a supervisor can change this work-hour entry'
+            )
+
+    if action == 'delete':
+        entry.delete()
+        return {'deleted': str(work_hour_code or '')}
+
+    if action in ('approve', 'reject'):
+        if not privileged:
+            raise RuntimeError('Only a supervisor can approve work hours')
+        entry.set_value('status', 'approved' if action == 'approve' else '')
+        entry.commit()
+        data = entry.get_data()
+        data['__search_key__'] = SearchKey.get_by_sobject(
+            entry, use_id=False
+        )
+        return data
+
+    existing_login = str(entry.get_value('login') or '') if entry else ''
+    target_login = str(
+        values.get('login') or existing_login or current_login
+    )
+    if target_login != current_login and not privileged:
+        raise RuntimeError('Only a supervisor can log time for another user')
+    existing_category = str(
+        entry.get_value('category') or 'regular'
+    ) if entry else 'regular'
+    category = str(values.get('category') or existing_category).lower()
+    if category not in ('regular', 'overtime'):
+        raise ValueError('Unsupported work-hour category')
+    existing_duration = (
+        entry.get_value('straight_time') or 0 if entry else 0
+    )
+    duration = number('straight_time', existing_duration)
+    if duration <= 0:
+        raise ValueError('Duration must be greater than zero')
+    day = clean_day(
+        values.get('day') or (entry.get_value('day') if entry else None)
+    )
+
+    if action == 'create':
+        task_search = Search('sthpw/task')
+        task_search.add_filter('code', task_code)
+        task_search.add_filter('project_code', project_code)
+        task = task_search.get_sobject()
+        if not task:
+            raise RuntimeError('Task does not exist')
+        parent = task.get_parent()
+        if not parent:
+            raise RuntimeError('Task parent does not exist')
+        entry = SearchType.create('sthpw/work_hour')
+        entry.set_parent(parent)
+        entry.set_value('task_code', task.get_code())
+        entry.set_value('process', task.get_value('process'))
+        entry.set_value('project_code', project_code)
+        entry.set_value('login', target_login)
+        entry.set_value('status', 'approved' if approve_requested else '')
+    elif action != 'update':
+        raise ValueError('Unsupported work-hour action')
+
+    entry.set_value('day', day)
+    entry.set_value('category', category)
+    entry.set_value('straight_time', duration)
+    entry.set_value('over_time', duration if category == 'overtime' else 0)
+    description = values.get('description')
+    if description is None and action == 'update':
+        description = entry.get_value('description')
+    entry.set_value('description', str(description or ''))
+    if values.get('start_time'):
+        entry.set_value('start_time', values.get('start_time'))
+    if values.get('end_time'):
+        entry.set_value('end_time', values.get('end_time'))
+    if approve_requested:
+        entry.set_value('status', 'approved')
+
+    daily_search = Search('sthpw/work_hour')
+    daily_search.add_filter('project_code', project_code)
+    daily_search.add_filter('login', target_login)
+    daily_search.add_filter('day', day)
+    daily_total = 0.0
+    for other in daily_search.get_sobjects():
+        if entry.get_code() and other.get_code() == entry.get_code():
+            continue
+        other_value = other.get_value('straight_time') or 0
+        daily_total += float(other_value)
+    if daily_total + duration > 24:
+        raise ValueError('Daily work-hour total cannot exceed 24 hours')
+
+    entry.commit()
+    data = entry.get_data()
+    data['__search_key__'] = SearchKey.get_by_sobject(entry, use_id=False)
+    return data
+
+
+def set_work_hour_statuses(work_hour_codes, approved, project_code):
+    from pyasm.search import Search, SearchKey
+
+    server.set_project(project_code)
+    current_login = str(server.get_login() or '')
+    is_admin = current_login.lower() == 'admin'
+    groups = []
+    if not is_admin:
+        group_search = Search('sthpw/login_in_group')
+        group_search.add_filter('login', current_login)
+        groups = [
+            str(item.get_value('login_group') or '').lower()
+            for item in group_search.get_sobjects()
+        ]
+    privileged = is_admin or any(
+        group == 'admin' or 'supervisor' in group for group in groups
+    )
+    if not privileged:
+        raise RuntimeError('Only a supervisor can approve work hours')
+
+    codes = list(dict.fromkeys(
+        str(value) for value in (work_hour_codes or []) if value
+    ))
+    if not codes:
+        return []
+    search = Search('sthpw/work_hour')
+    search.add_filter('project_code', project_code)
+    search.add_filters('code', codes)
+    entries = search.get_sobjects()
+    found = {str(entry.get_code() or '') for entry in entries}
+    missing = [code for code in codes if code not in found]
+    if missing:
+        raise RuntimeError('Some work-hour entries no longer exist')
+
+    result = []
+    status = 'approved' if approved else ''
+    for entry in entries:
+        entry.set_value('status', status)
+        entry.commit()
+        data = entry.get_data()
+        data['__search_key__'] = SearchKey.get_by_sobject(
+            entry, use_id=False
+        )
+        result.append(data)
+    return result
+
+
+def query_work_hour_report(report_key, project_code, start_day=None,
+                           end_day=None, login=None):
+    import json
+    from pyasm.search import Search
+    from pyasm.biz import ProdSetting
+
+    server.set_project(project_code)
+    current_login = str(server.get_login() or '')
+    is_admin = current_login.lower() == 'admin'
+    groups = []
+    if not is_admin:
+        group_search = Search('sthpw/login_in_group')
+        group_search.add_filter('login', current_login)
+        groups = [
+            str(item.get_value('login_group') or '').lower()
+            for item in group_search.get_sobjects()
+        ]
+    privileged = is_admin or any(
+        group == 'admin' or 'supervisor' in group for group in groups
+    )
+    view_costs = is_admin or any(
+        'finance' in group or 'account' in group for group in groups
+    )
+
+    report_key = str(report_key or 'my_hours')
+    protected = report_key in ('approval', 'team', 'process')
+    if protected and not privileged:
+        raise RuntimeError('This report requires supervisor access')
+    if report_key == 'labor_cost' and not view_costs:
+        raise RuntimeError('This report requires financial reporting access')
+
+    work_search = Search('sthpw/work_hour')
+    work_search.add_filter('project_code', project_code)
+    if start_day:
+        work_search.add_filter('day', start_day, op='>=')
+    if end_day:
+        work_search.add_filter('day', end_day, op='<=')
+    if report_key == 'my_hours':
+        work_search.add_filter('login', login or current_login)
+    work_hours = work_search.get_sobjects()
+
+    rows = {}
+    message = ''
+    if report_key == 'bid_actual':
+        task_search = Search('sthpw/task')
+        task_search.add_filter('project_code', project_code)
+        if start_day:
+            task_search.add_filter('bid_end_date', start_day, op='>=')
+        if end_day:
+            task_search.add_filter('bid_end_date', end_day, op='<=')
+        planned = sum(
+            float(task.get_value('bid_duration') or 0)
+            for task in task_search.get_sobjects()
+        )
+        unit = str(
+            ProdSetting.get_value_by_key('bid_duration_unit') or 'hour'
+        )
+        if unit == 'minute':
+            planned /= 60.0
+        rows['Planned'] = planned
+        rows['Logged'] = sum(
+            float(item.get_value('straight_time') or 0)
+            for item in work_hours
+        )
+    elif report_key == 'approval':
+        for item in work_hours:
+            label = (
+                'Approved'
+                if str(item.get_value('status') or '').lower() == 'approved'
+                else 'Pending'
+            )
+            rows[label] = rows.get(label, 0.0) + float(
+                item.get_value('straight_time') or 0
+            )
+    elif report_key == 'team':
+        for item in work_hours:
+            label = str(item.get_value('login') or 'Unassigned')
+            rows[label] = rows.get(label, 0.0) + float(
+                item.get_value('straight_time') or 0
+            )
+    elif report_key == 'process':
+        for item in work_hours:
+            label = str(item.get_value('process') or 'Unspecified')
+            rows[label] = rows.get(label, 0.0) + float(
+                item.get_value('straight_time') or 0
+            )
+    elif report_key == 'labor_cost':
+        logins = list(set(
+            str(item.get_value('login') or '')
+            for item in work_hours if item.get_value('login')
+        ))
+        rates = {}
+        if logins:
+            login_search = Search('sthpw/login')
+            login_search.add_filters('login', logins)
+            rates = {
+                str(item.get_value('login') or ''):
+                float(item.get_value('hourly_wage') or 0)
+                for item in login_search.get_sobjects()
+            }
+        if not any(rates.values()):
+            message = 'No authorized hourly wages are configured.'
+        for item in work_hours:
+            label = str(item.get_value('login') or 'Unassigned')
+            hours = float(item.get_value('straight_time') or 0)
+            rows[label] = rows.get(label, 0.0) + hours * rates.get(label, 0)
+    else:
+        for item in work_hours:
+            label = str(item.get_value('day') or '')[:10] or 'Unscheduled'
+            rows[label] = rows.get(label, 0.0) + float(
+                item.get_value('straight_time') or 0
+            )
+
+    result = [
+        {'label': label, 'value': value}
+        for label, value in sorted(
+            rows.items(), key=lambda pair: pair[1], reverse=True
+        )
+    ]
+    return json.dumps({
+        'rows': result,
+        'permissions': {
+            'manage': bool(privileged),
+            'viewCosts': bool(view_costs),
+        },
+        'unit': 'cost' if report_key == 'labor_cost' else 'hours',
+        'message': message,
+    }, separators=(',', ':'))
+
+
+def query_chat_conversations():
+    import json
+    import re
+    from pyasm.biz import Snapshot
+    from pyasm.search import Search, SearchKey
+
+    current_login = server.get_login()
+    if str(current_login or '').lower() == 'admin':
+        privileged = True
+    else:
+        group_search = Search('sthpw/login_in_group')
+        group_search.add_filter('login', current_login)
+        group_codes = [
+            str(item.get_value('login_group') or '').lower()
+            for item in group_search.get_sobjects()
+        ]
+        privileged = any(
+            group == 'admin' or 'supervisor' in group
+            for group in group_codes
+        )
+    subscription_search = Search('sthpw/subscription')
+    subscription_search.add_filter('login', current_login)
+    subscription_search.add_filter('category', 'chat')
+    own_subscriptions = subscription_search.get_sobjects()
+    message_codes = list(set(
+        subscription.get_value('message_code')
+        for subscription in own_subscriptions
+        if subscription.get_value('message_code')
+    ))
+    if not message_codes:
+        return json.dumps({
+            'conversations': [],
+            'canCreateGroup': bool(privileged),
+            'canDeleteMessages': bool(privileged),
+        }, separators=(',', ':'))
+
+    message_search = Search('sthpw/message')
+    message_search.add_filters('code', message_codes)
+    message_search.add_filter('category', 'chat')
+    messages = dict(
+        (message.get_code(), message)
+        for message in message_search.get_sobjects()
+    )
+    active_codes = [
+        code for code, message in messages.items()
+        if message.get_value('status', no_exception=True) != 'deleted'
+    ]
+    if not active_codes:
+        return json.dumps({
+            'conversations': [],
+            'canCreateGroup': bool(privileged),
+            'canDeleteMessages': bool(privileged),
+        }, separators=(',', ':'))
+
+    members_search = Search('sthpw/subscription')
+    members_search.add_filters('message_code', active_codes)
+    members_search.add_filter('category', 'chat')
+    members = members_search.get_sobjects()
+    members_by_code = {}
+    login_codes = set()
+    for member in members:
+        code = member.get_value('message_code')
+        login = member.get_value('login')
+        members_by_code.setdefault(code, []).append(member)
+        if login:
+            login_codes.add(login)
+
+    display_names = {}
+    if login_codes:
+        login_search = Search('sthpw/login')
+        login_search.add_filters('login', list(login_codes))
+        for login in login_search.get_sobjects():
+            code = login.get_value('login')
+            display_names[code] = (
+                login.get_value('display_name', no_exception=True) or code
+            )
+
+    metadata_by_code = {}
+    for code, message in messages.items():
+        raw_metadata = message.get_value('metadata') or {}
+        if isinstance(raw_metadata, dict):
+            value = dict(raw_metadata)
+        else:
+            try:
+                value = json.loads(raw_metadata)
+            except (TypeError, ValueError):
+                value = {}
+        metadata_by_code[code] = value
+
+    own_by_code = dict(
+        (subscription.get_value('message_code'), subscription)
+        for subscription in own_subscriptions
+    )
+
+    summaries_by_code = {}
+    missing_summary_codes = []
+    for code in active_codes:
+        summary = dict((metadata_by_code.get(code) or {}).get('summary') or {})
+        if summary:
+            summaries_by_code[code] = summary
+        else:
+            missing_summary_codes.append(code)
+
+    missing_logs_by_code = {}
+    if missing_summary_codes:
+        log_search = Search('sthpw/message_log')
+        log_search.add_filters('message_code', missing_summary_codes)
+        log_search.add_filter('status', 'deleted', op='!=')
+        log_search.add_order_by('timestamp', direction='desc')
+        log_search.add_order_by('id', direction='desc')
+        for message_log in log_search.get_sobjects():
+            missing_logs_by_code.setdefault(
+                message_log.get_value('message_code'), []
+            ).append(message_log)
+
+    attachments_by_code = {}
+    missing_log_codes = [
+        item.get_code()
+        for values in missing_logs_by_code.values()
+        for item in values if item.get_code()
+    ]
+    if missing_log_codes:
+        connection_search = Search('sthpw/connection')
+        connection_search.add_filter('context', 'chat_attachment')
+        connection_search.add_filter('dst_search_type', 'sthpw/message_log')
+        connection_search.add_filters('dst_search_code', missing_log_codes)
+        log_to_chat = dict(
+            (item.get_code(), item.get_value('message_code'))
+            for values in missing_logs_by_code.values() for item in values
+        )
+        for connection in connection_search.get_sobjects():
+            chat_code = log_to_chat.get(connection.get_value('dst_search_code'))
+            if chat_code:
+                attachments_by_code[chat_code] = (
+                    attachments_by_code.get(chat_code, 0) + 1
+                )
+
+    for code in missing_summary_codes:
+        values = missing_logs_by_code.get(code, [])
+        latest = values[0] if values else None
+        latest_metadata = {}
+        if latest:
+            raw_metadata = latest.get_value('metadata') or {}
+            if isinstance(raw_metadata, dict):
+                latest_metadata = dict(raw_metadata)
+            else:
+                try:
+                    latest_metadata = json.loads(raw_metadata)
+                except (TypeError, ValueError):
+                    latest_metadata = {}
+        summary = {
+            'latestCode': str(latest.get_code() or '') if latest else '',
+            'latestBody': str(latest.get_value('message') or '') if latest else '',
+            'latestTimestamp': str(latest.get_value('timestamp') or '') if latest else '',
+            'latestSender': str(latest.get_value('login') or '') if latest else '',
+            'latestForwarded': bool(latest_metadata.get('forwardedFrom')),
+            'messageCount': len(values),
+            'attachmentCount': attachments_by_code.get(code, 0),
+        }
+        summaries_by_code[code] = summary
+        message = messages.get(code)
+        if message:
+            metadata = dict(metadata_by_code.get(code) or {})
+            metadata['summary'] = summary
+            server.update(
+                SearchKey.get_by_sobject(message, use_id=False),
+                {'metadata': metadata}, triggers=False,
+            )
+            metadata_by_code[code] = metadata
+
+    unread_by_code = {}
+    mentions_by_code = {}
+    cleared_values = [
+        str(own_by_code[code].get_value(
+            'last_cleared', no_exception=True
+        ) or '')[:19]
+        for code in active_codes if own_by_code.get(code)
+    ]
+    unread_search = Search('sthpw/message_log')
+    unread_search.add_filters('message_code', active_codes)
+    unread_search.add_filter('status', 'deleted', op='!=')
+    if cleared_values and all(cleared_values):
+        unread_search.add_filter('timestamp', min(cleared_values), op='>')
+    unread_logs = unread_search.get_sobjects()
+    members_count = dict(
+        (code, len(members_by_code.get(code, []))) for code in active_codes
+    )
+    mention_pattern = re.compile(
+        r'(^|[^A-Za-z0-9_.@-])@{0}($|[^A-Za-z0-9_.-])'.format(
+            re.escape(str(current_login or ''))
+        ), re.IGNORECASE,
+    )
+    for message_log in unread_logs:
+        code = message_log.get_value('message_code')
+        own = own_by_code.get(code)
+        if not own or message_log.get_value('login') == current_login:
+            continue
+        timestamp = str(message_log.get_value('timestamp') or '')[:19]
+        cleared = str(own.get_value(
+            'last_cleared', no_exception=True
+        ) or '')[:19]
+        if cleared and timestamp <= cleared:
+            continue
+        unread_by_code[code] = unread_by_code.get(code, 0) + 1
+        if members_count.get(code, 0) > 2 and mention_pattern.search(
+                str(message_log.get_value('message') or '')):
+            mentions_by_code[code] = mentions_by_code.get(code, 0) + 1
+
+    previews_by_code = {}
+    snapshot_search = Search('sthpw/snapshot')
+    snapshot_search.add_filter('search_type', 'sthpw/message')
+    snapshot_search.add_filters('search_code', active_codes)
+    snapshot_search.add_filter('process', 'icon')
+    snapshot_search.add_order_by('timestamp', direction='desc')
+    preview_snapshots = snapshot_search.get_sobjects()
+    preview_files = Snapshot.get_files_dict_by_snapshots(preview_snapshots)
+    for snapshot in preview_snapshots:
+        code = snapshot.get_value('search_code')
+        if code in previews_by_code:
+            continue
+        snapshot_data = snapshot.get_data()
+        snapshot_data['__files__'] = [
+            file_object.get_data()
+            for file_object in (preview_files.get(snapshot.get_code()) or [])
+        ]
+        previews_by_code[code] = snapshot_data
+
+    conversations = []
+    for code in active_codes:
+        own = own_by_code.get(code)
+        if not own:
+            continue
+        recipients = sorted(set(
+            member.get_value('login')
+            for member in members_by_code.get(code, [])
+            if member.get_value('login') not in (None, '', current_login)
+        ))
+        recipient_names = [
+            display_names.get(login, login) for login in recipients
+        ]
+        generated_title = ', '.join(recipient_names) or display_names.get(
+            current_login, current_login
+        )
+        last_cleared = own.get_value('last_cleared', no_exception=True)
+        unread = unread_by_code.get(code, 0)
+        mention_count = mentions_by_code.get(code, 0)
+        summary = summaries_by_code.get(code) or {}
+        participants = len(recipients) + 1
+        message = messages[code]
+        custom_title = (
+            (metadata_by_code.get(code) or {}).get('title') or ''
+        )
+        owner = message.get_value('login', no_exception=True) or ''
+        personal_notes = participants == 1
+        conversations.append({
+            'conversationId': code,
+            'title': 'Notes' if personal_notes else custom_title or generated_title,
+            'customTitle': bool(custom_title) and not personal_notes,
+            'recipients': recipients,
+            'recipientNames': recipient_names,
+            'status': message.get_value('status', no_exception=True) or '',
+            'lastCleared': str(last_cleared or ''),
+            'unread': unread,
+            'mentionCount': mention_count,
+            'lastMessage': (
+                'Forwarded message'
+                if summary.get('latestForwarded')
+                else str(summary.get('latestBody') or '')
+            ),
+            'lastTimestamp': str(summary.get('latestTimestamp') or ''),
+            'lastSender': str(summary.get('latestSender') or ''),
+            'participantCount': participants,
+            'messageCount': int(summary.get('messageCount') or 0),
+            'attachmentCount': int(summary.get('attachmentCount') or 0),
+            'createdBy': owner,
+            'createdAt': str(message.get_value('timestamp', no_exception=True) or ''),
+            'canManage': bool(privileged or owner == current_login),
+            'canRename': bool(not personal_notes and (privileged or owner == current_login)),
+            'canDelete': bool(privileged and not personal_notes),
+            'canAddMembers': bool(privileged and not personal_notes),
+            'canClearPersonal': bool(personal_notes),
+            'isPersonalNotes': bool(personal_notes),
+            'preview': previews_by_code.get(code) or {},
+        })
+    conversations.sort(
+        key=lambda record: (record['lastTimestamp'], record['title']),
+        reverse=True,
+    )
+    return json.dumps(
+        {
+            'conversations': conversations,
+            'canCreateGroup': bool(privileged),
+            'canDeleteMessages': bool(privileged),
+        }, separators=(',', ':')
+    )
+
+
+def create_chat_conversation(recipients, title=''):
+    import json
+    import uuid
+    from pyasm.search import Search
+
+    current_login = server.get_login()
+    if str(current_login or '').lower() == 'admin':
+        privileged = True
+    else:
+        group_search = Search('sthpw/login_in_group')
+        group_search.add_filter('login', current_login)
+        group_codes = [
+            str(item.get_value('login_group') or '').lower()
+            for item in group_search.get_sobjects()
+        ]
+        privileged = any(
+            group == 'admin' or 'supervisor' in group
+            for group in group_codes
+        )
+    participants = set(
+        str(login).strip() for login in (recipients or []) if str(login).strip()
+    )
+    participants.add(current_login)
+    if len(participants) > 2 and not privileged:
+        raise RuntimeError(
+            'Only administrators and supervisors can create group chats'
+        )
+    if isinstance(title, dict):
+        title = title.get('value')
+    title = (title or '').strip()
+    if len(participants) > 2 and not title:
+        raise ValueError('Group chat title is required')
+    login_search = Search('sthpw/login')
+    login_search.add_filters('login', list(participants))
+    existing_logins = set(
+        login.get_value('login') for login in login_search.get_sobjects()
+    )
+    missing = sorted(participants - existing_logins)
+    if missing:
+        raise ValueError('Unknown TACTIC login: {0}'.format(', '.join(missing)))
+
+    own_search = Search('sthpw/subscription')
+    own_search.add_filter('login', current_login)
+    own_search.add_filter('category', 'chat')
+    own_codes = list(set(
+        subscription.get_value('message_code')
+        for subscription in own_search.get_sobjects()
+        if subscription.get_value('message_code')
+    ))
+    if own_codes:
+        message_search = Search('sthpw/message')
+        message_search.add_filters('code', own_codes)
+        message_search.add_filter('category', 'chat')
+        valid_codes = set(
+            message.get_code() for message in message_search.get_sobjects()
+            if message.get_value('status', no_exception=True) != 'deleted'
+        )
+        member_search = Search('sthpw/subscription')
+        member_search.add_filters('message_code', list(valid_codes))
+        member_search.add_filter('category', 'chat')
+        grouped = {}
+        for subscription in member_search.get_sobjects():
+            grouped.setdefault(
+                subscription.get_value('message_code'), set()
+            ).add(subscription.get_value('login'))
+        for code, members in grouped.items():
+            if members == participants:
+                return json.dumps(
+                    {'conversationId': code, 'created': False},
+                    separators=(',', ':'),
+                )
+
+    code = 'CHAT_{0}'.format(uuid.uuid4().hex.upper())
+    metadata = {
+        'summary': {
+            'latestCode': '',
+            'latestBody': '',
+            'latestTimestamp': '',
+            'latestSender': '',
+            'latestForwarded': False,
+            'messageCount': 0,
+            'attachmentCount': 0,
+        },
+    }
+    if title:
+        metadata['title'] = title
+    server.insert('sthpw/message', {
+        'code': code,
+        'category': 'chat',
+        'status': 'in_progress',
+        'login': current_login,
+        'project_code': 'sthpw',
+        'message': '',
+        'metadata': metadata,
+    }, triggers=True)
+    for login in sorted(participants):
+        server.insert('sthpw/subscription', {
+            'message_code': code,
+            'login': login,
+            'project_code': 'sthpw',
+            'category': 'chat',
+        }, triggers=True)
+    return json.dumps(
+        {'conversationId': code, 'created': True}, separators=(',', ':')
+    )
+
+
+def update_chat_conversation(message_code, title):
+    import json
+    from pyasm.search import Search, SearchKey
+
+    current_login = server.get_login()
+    member_search = Search('sthpw/subscription')
+    member_search.add_filter('message_code', message_code)
+    member_search.add_filter('login', current_login)
+    member_search.add_filter('category', 'chat')
+    if not member_search.get_sobject():
+        raise RuntimeError('The current login is not a chat participant')
+    message_search = Search('sthpw/message')
+    message_search.add_filter('code', message_code)
+    message_search.add_filter('category', 'chat')
+    message = message_search.get_sobject()
+    if not message or message.get_value('status', no_exception=True) == 'deleted':
+        raise RuntimeError('Chat does not exist')
+    if str(current_login or '').lower() == 'admin':
+        privileged = True
+    else:
+        group_search = Search('sthpw/login_in_group')
+        group_search.add_filter('login', current_login)
+        group_codes = [
+            str(item.get_value('login_group') or '').lower()
+            for item in group_search.get_sobjects()
+        ]
+        privileged = any(
+            group == 'admin' or 'supervisor' in group
+            for group in group_codes
+        )
+    owner = message.get_value('login', no_exception=True) or ''
+    if owner != current_login and not privileged:
+        raise RuntimeError('Only the chat owner or a supervisor can rename it')
+    members = Search('sthpw/subscription')
+    members.add_filter('message_code', message_code)
+    members.add_filter('category', 'chat')
+    if len(members.get_sobjects()) == 1:
+        raise RuntimeError('The personal notes chat has a fixed title')
+    if isinstance(title, dict):
+        title = title.get('value')
+    title = (title or '').strip()
+    if not title:
+        raise ValueError('Chat title cannot be empty')
+    raw_metadata = message.get_value('metadata') or {}
+    if isinstance(raw_metadata, dict):
+        values = dict(raw_metadata)
+    else:
+        try:
+            values = json.loads(raw_metadata)
+        except (TypeError, ValueError):
+            values = {}
+    values['title'] = title
+    server.update(
+        SearchKey.get_by_sobject(message, use_id=False),
+        {'metadata': values},
+        triggers=True,
+    )
+    return json.dumps({'title': title}, separators=(',', ':'))
+
+
+def add_chat_members(message_code, recipients, replace=False):
+    import json
+    from pyasm.search import Search, SearchKey
+
+    current_login = server.get_login()
+    member_access = Search('sthpw/subscription')
+    member_access.add_filter('message_code', message_code)
+    member_access.add_filter('login', current_login)
+    member_access.add_filter('category', 'chat')
+    if not member_access.get_sobject():
+        raise RuntimeError('The current login is not a chat participant')
+    message_search = Search('sthpw/message')
+    message_search.add_filter('code', message_code)
+    message_search.add_filter('category', 'chat')
+    message = message_search.get_sobject()
+    if not message or message.get_value('status', no_exception=True) == 'deleted':
+        raise RuntimeError('Chat does not exist')
+    all_members = Search('sthpw/subscription')
+    all_members.add_filter('message_code', message_code)
+    all_members.add_filter('category', 'chat')
+    if len(all_members.get_sobjects()) == 1:
+        raise RuntimeError('Members cannot be added to the personal notes chat')
+    if str(current_login or '').lower() == 'admin':
+        privileged = True
+    else:
+        group_search = Search('sthpw/login_in_group')
+        group_search.add_filter('login', current_login)
+        group_codes = [
+            str(item.get_value('login_group') or '').lower()
+            for item in group_search.get_sobjects()
+        ]
+        privileged = any(
+            group == 'admin' or 'supervisor' in group
+            for group in group_codes
+        )
+    if not privileged:
+        raise RuntimeError(
+            'Only administrators and supervisors can add chat members'
+        )
+    recipients = set(
+        str(login).strip() for login in (recipients or []) if str(login).strip()
+    )
+    recipients.discard(current_login)
+    if replace and not recipients:
+        raise ValueError('A group chat must have at least one other member')
+    if not recipients:
+        return json.dumps({'added': []}, separators=(',', ':'))
+    login_search = Search('sthpw/login')
+    login_search.add_filters('login', list(recipients))
+    existing_logins = set(
+        login.get_value('login') for login in login_search.get_sobjects()
+    )
+    missing = sorted(recipients - existing_logins)
+    if missing:
+        raise ValueError('Unknown TACTIC login: {0}'.format(', '.join(missing)))
+    member_search = Search('sthpw/subscription')
+    member_search.add_filter('message_code', message_code)
+    member_search.add_filter('category', 'chat')
+    existing = set(
+        item.get_value('login') for item in member_search.get_sobjects()
+    )
+    added = sorted(recipients - existing)
+    for login in added:
+        server.insert('sthpw/subscription', {
+            'message_code': message_code,
+            'login': login,
+            'project_code': 'sthpw',
+            'category': 'chat',
+        }, triggers=True)
+    removed = []
+    if replace:
+        removed = sorted(existing - recipients - set([current_login]))
+        for subscription in member_search.get_sobjects():
+            if subscription.get_value('login') in removed:
+                server.delete_sobject(
+                    SearchKey.get_by_sobject(subscription, use_id=False)
+                )
+    return json.dumps(
+        {'added': added, 'removed': removed}, separators=(',', ':')
+    )
+
+
+def delete_chat_conversation(message_code):
+    import json
+    from pyasm.search import Search, SearchKey
+
+    current_login = server.get_login()
+    if str(current_login or '').lower() == 'admin':
+        privileged = True
+    else:
+        group_search = Search('sthpw/login_in_group')
+        group_search.add_filter('login', current_login)
+        group_codes = [
+            str(item.get_value('login_group') or '').lower()
+            for item in group_search.get_sobjects()
+        ]
+        privileged = any(
+            group == 'admin' or 'supervisor' in group
+            for group in group_codes
+        )
+    if not privileged:
+        raise RuntimeError('Only administrators and supervisors can delete chats')
+    member_search = Search('sthpw/subscription')
+    member_search.add_filter('message_code', message_code)
+    member_search.add_filter('login', current_login)
+    member_search.add_filter('category', 'chat')
+    if not member_search.get_sobject():
+        raise RuntimeError('The current login is not a chat participant')
+    message_search = Search('sthpw/message')
+    message_search.add_filter('code', message_code)
+    message_search.add_filter('category', 'chat')
+    message = message_search.get_sobject()
+    if not message or message.get_value('status', no_exception=True) == 'deleted':
+        raise RuntimeError('Chat does not exist')
+    all_members = Search('sthpw/subscription')
+    all_members.add_filter('message_code', message_code)
+    all_members.add_filter('category', 'chat')
+    if len(all_members.get_sobjects()) == 1:
+        raise RuntimeError('The personal notes chat cannot be deleted')
+    server.update(
+        SearchKey.get_by_sobject(message, use_id=False),
+        {'status': 'deleted'},
+        triggers=True,
+    )
+    return json.dumps({'deleted': True}, separators=(',', ':'))
+
+
+def clear_personal_chat(message_code):
+    import json
+    from pyasm.search import Search, SearchKey
+
+    current_login = server.get_login()
+    member_search = Search('sthpw/subscription')
+    member_search.add_filter('message_code', message_code)
+    member_search.add_filter('category', 'chat')
+    members = member_search.get_sobjects()
+    member_logins = set(item.get_value('login') for item in members)
+    if member_logins != set([current_login]):
+        raise RuntimeError('Only a personal notes chat can be cleared')
+    log_search = Search('sthpw/message_log')
+    log_search.add_filter('message_code', message_code)
+    cleared = 0
+    for message_log in log_search.get_sobjects():
+        if message_log.get_value('status', no_exception=True) == 'deleted':
+            continue
+        server.update(
+            SearchKey.get_by_sobject(message_log, use_id=False),
+            {'status': 'deleted'},
+            triggers=True,
+        )
+        cleared += 1
+    message_search = Search('sthpw/message')
+    message_search.add_filter('code', message_code)
+    message_search.add_filter('category', 'chat')
+    conversation = message_search.get_sobject()
+    if conversation:
+        raw_metadata = conversation.get_value('metadata') or {}
+        if isinstance(raw_metadata, dict):
+            metadata = dict(raw_metadata)
+        else:
+            try:
+                metadata = json.loads(raw_metadata)
+            except (TypeError, ValueError):
+                metadata = {}
+        metadata['summary'] = {
+            'latestCode': '',
+            'latestBody': '',
+            'latestTimestamp': '',
+            'latestSender': '',
+            'latestForwarded': False,
+            'messageCount': 0,
+            'attachmentCount': 0,
+        }
+        server.update(
+            SearchKey.get_by_sobject(conversation, use_id=False),
+            {'metadata': metadata}, triggers=False,
+        )
+    return json.dumps({'cleared': cleared}, separators=(',', ':'))
+
+
+def delete_chat_message(message_log_code):
+    import json
+    from pyasm.search import Search, SearchKey
+
+    def ensure_message_log_code(message_log):
+        if message_log.get_code():
+            return
+        record_id = message_log.get_id()
+        if not record_id:
+            raise RuntimeError('TACTIC message log has no code')
+        code = 'MESSAGE_LOG{0:05d}'.format(int(record_id))
+        server.update(
+            SearchKey.get_by_sobject(message_log, use_id=True),
+            {'code': code}, triggers=False,
+        )
+        message_log.set_value('code', code)
+
+    current_login = server.get_login()
+    message_log_ref = str(message_log_code or '')
+    message_log = None
+    if message_log_ref.startswith('sthpw/message_log'):
+        search_type = server.split_search_key(message_log_ref)[0]
+        if search_type == 'sthpw/message_log':
+            message_log = Search.get_by_search_key(message_log_ref)
+    else:
+        log_search = Search('sthpw/message_log')
+        log_search.add_filter('code', message_log_ref)
+        message_log = log_search.get_sobject()
+    if not message_log:
+        raise RuntimeError('Message does not exist')
+    ensure_message_log_code(message_log)
+    message_code = message_log.get_value('message_code')
+    member_search = Search('sthpw/subscription')
+    member_search.add_filter('message_code', message_code)
+    member_search.add_filter('category', 'chat')
+    member_logins = set(
+        item.get_value('login') for item in member_search.get_sobjects()
+    )
+    if current_login not in member_logins:
+        raise RuntimeError('The current login is not a chat participant')
+    personal_notes = member_logins == set([current_login])
+    if str(current_login or '').lower() == 'admin':
+        privileged = True
+    else:
+        group_search = Search('sthpw/login_in_group')
+        group_search.add_filter('login', current_login)
+        group_codes = [
+            str(item.get_value('login_group') or '').lower()
+            for item in group_search.get_sobjects()
+        ]
+        privileged = any(
+            group == 'admin' or 'supervisor' in group
+            for group in group_codes
+        )
+    if not privileged and not personal_notes:
+        raise RuntimeError(
+            'Only administrators and supervisors can delete messages'
+        )
+    server.update(
+        SearchKey.get_by_sobject(message_log, use_id=False),
+        {'status': 'deleted'},
+        triggers=True,
+    )
+    attachment_search = Search('sthpw/connection')
+    attachment_search.add_filter('context', 'chat_attachment')
+    attachment_search.add_filter('dst_search_type', 'sthpw/message_log')
+    attachment_search.add_filter('dst_search_code', message_log.get_code())
+    deleted_attachment_count = len(attachment_search.get_sobjects())
+    conversation_search = Search('sthpw/message')
+    conversation_search.add_filter('code', message_code)
+    conversation_search.add_filter('category', 'chat')
+    conversation = conversation_search.get_sobject()
+    if conversation:
+        raw_metadata = conversation.get_value('metadata') or {}
+        if isinstance(raw_metadata, dict):
+            conversation_metadata = dict(raw_metadata)
+        else:
+            try:
+                conversation_metadata = json.loads(raw_metadata)
+            except (TypeError, ValueError):
+                conversation_metadata = {}
+        summary = dict(conversation_metadata.get('summary') or {})
+        summary['messageCount'] = max(
+            0, int(summary.get('messageCount') or 0) - 1
+        )
+        summary['attachmentCount'] = max(
+            0,
+            int(summary.get('attachmentCount') or 0)
+            - deleted_attachment_count,
+        )
+        if str(summary.get('latestCode') or '') == str(message_log.get_code() or ''):
+            latest_search = Search('sthpw/message_log')
+            latest_search.add_filter('message_code', message_code)
+            latest_search.add_filter('status', 'deleted', op='!=')
+            latest_search.add_order_by('timestamp', direction='desc')
+            latest_search.add_order_by('id', direction='desc')
+            latest_search.set_limit(1)
+            latest = latest_search.get_sobject()
+            latest_metadata = {}
+            if latest:
+                raw_latest_metadata = latest.get_value('metadata') or {}
+                if isinstance(raw_latest_metadata, dict):
+                    latest_metadata = dict(raw_latest_metadata)
+                else:
+                    try:
+                        latest_metadata = json.loads(raw_latest_metadata)
+                    except (TypeError, ValueError):
+                        latest_metadata = {}
+            summary.update({
+                'latestCode': str(latest.get_code() or '') if latest else '',
+                'latestBody': str(latest.get_value('message') or '') if latest else '',
+                'latestTimestamp': str(
+                    latest.get_value('timestamp') or ''
+                ) if latest else '',
+                'latestSender': str(
+                    latest.get_value('login') or ''
+                ) if latest else '',
+                'latestForwarded': bool(
+                    latest_metadata.get('forwardedFrom')
+                ),
+            })
+        conversation_metadata['summary'] = summary
+        server.update(
+            SearchKey.get_by_sobject(conversation, use_id=False),
+            {'metadata': conversation_metadata}, triggers=False,
+        )
+    return json.dumps({
+        'deleted': True,
+        'messageCode': message_code,
+    }, separators=(',', ':'))
+
+
+def edit_chat_message(message_log_code, message):
+    import datetime
+    import json
+    from pyasm.search import Search, SearchKey
+
+    def ensure_message_log_code(message_log):
+        if message_log.get_code():
+            return
+        record_id = message_log.get_id()
+        if not record_id:
+            raise RuntimeError('TACTIC message log has no code')
+        code = 'MESSAGE_LOG{0:05d}'.format(int(record_id))
+        server.update(
+            SearchKey.get_by_sobject(message_log, use_id=True),
+            {'code': code}, triggers=False,
+        )
+        message_log.set_value('code', code)
+
+    current_login = server.get_login()
+    message_log_ref = str(message_log_code or '')
+    if message_log_ref.startswith('sthpw/message_log'):
+        message_log = Search.get_by_search_key(message_log_ref)
+    else:
+        log_search = Search('sthpw/message_log')
+        log_search.add_filter('code', message_log_ref)
+        message_log = log_search.get_sobject()
+    if not message_log:
+        raise RuntimeError('Message does not exist')
+    ensure_message_log_code(message_log)
+    message_code = message_log.get_value('message_code')
+    member_search = Search('sthpw/subscription')
+    member_search.add_filter('message_code', message_code)
+    member_search.add_filter('login', current_login)
+    member_search.add_filter('category', 'chat')
+    if not member_search.get_sobject():
+        raise RuntimeError('The current login is not a chat participant')
+    author = message_log.get_value('login')
+    privileged = str(current_login or '').lower() == 'admin'
+    if not privileged:
+        group_search = Search('sthpw/login_in_group')
+        group_search.add_filter('login', current_login)
+        privileged = any(
+            str(item.get_value('login_group') or '').lower() == 'admin'
+            or 'supervisor' in str(item.get_value('login_group') or '').lower()
+            for item in group_search.get_sobjects()
+        )
+    if current_login != author and not privileged:
+        raise RuntimeError('A message can only be edited by its author or a supervisor')
+    value = str(message or '').strip()
+    if not value:
+        raise ValueError('Message text cannot be empty')
+    if value == str(message_log.get_value('message') or ''):
+        return json.dumps({'edited': False}, separators=(',', ':'))
+
+    message_log_key = SearchKey.get_by_sobject(message_log, use_id=False)
+    raw_metadata = message_log.get_value('metadata') or {}
+    if isinstance(raw_metadata, dict):
+        metadata_values = dict(raw_metadata)
+    else:
+        try:
+            metadata_values = json.loads(raw_metadata)
+        except (TypeError, ValueError):
+            metadata_values = {}
+    history = list(metadata_values.get('editHistory') or [])
+    edited_at = datetime.datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')
+    history.append({
+        'body': str(message_log.get_value('message') or ''),
+        'editedBy': current_login,
+        'editedAt': edited_at,
+    })
+    metadata_values['editHistory'] = history
+    server.update(
+        message_log_key,
+        {
+            'message': value,
+            'metadata': metadata_values,
+        },
+        triggers=True,
+    )
+    conversation_search = Search('sthpw/message')
+    conversation_search.add_filter('code', message_code)
+    conversation_search.add_filter('category', 'chat')
+    conversation = conversation_search.get_sobject()
+    if conversation:
+        raw_conversation_metadata = conversation.get_value('metadata') or {}
+        if isinstance(raw_conversation_metadata, dict):
+            conversation_metadata = dict(raw_conversation_metadata)
+        else:
+            try:
+                conversation_metadata = json.loads(raw_conversation_metadata)
+            except (TypeError, ValueError):
+                conversation_metadata = {}
+        summary = dict(conversation_metadata.get('summary') or {})
+        if str(summary.get('latestCode') or '') == str(message_log.get_code() or ''):
+            summary['latestBody'] = value
+            conversation_metadata['summary'] = summary
+            server.update(
+                SearchKey.get_by_sobject(conversation, use_id=False),
+                {'metadata': conversation_metadata}, triggers=False,
+            )
+    return json.dumps({
+        'edited': True,
+        'editedBy': current_login,
+        'editedAt': edited_at,
+        'editHistory': history,
+    }, separators=(',', ':'))
+
+
+def toggle_chat_message_reaction(message_log_code, emoji):
+    import datetime
+    import json
+    from pyasm.search import Search, SearchKey
+
+    current_login = str(server.get_login() or '')
+    emoji = str(emoji or '').strip()
+    if not emoji or len(emoji) > 16 or any(char.isspace() for char in emoji):
+        raise ValueError('Invalid message reaction')
+
+    message_log_ref = str(message_log_code or '')
+    if message_log_ref.startswith('sthpw/message_log'):
+        message_log = Search.get_by_search_key(message_log_ref)
+    else:
+        log_search = Search('sthpw/message_log')
+        log_search.add_filter('code', message_log_ref)
+        message_log = log_search.get_sobject()
+    if not message_log or message_log.get_value(
+            'status', no_exception=True) == 'deleted':
+        raise RuntimeError('Message does not exist')
+
+    message_code = str(message_log.get_value('message_code') or '')
+    member_search = Search('sthpw/subscription')
+    member_search.add_filter('message_code', message_code)
+    member_search.add_filter('login', current_login)
+    member_search.add_filter('category', 'chat')
+    if not member_search.get_sobject():
+        raise RuntimeError('The current login is not a chat participant')
+
+    raw_metadata = message_log.get_value('metadata') or {}
+    if isinstance(raw_metadata, dict):
+        metadata = dict(raw_metadata)
+    else:
+        try:
+            metadata = json.loads(raw_metadata)
+        except (TypeError, ValueError):
+            metadata = {}
+    reactions = dict(metadata.get('reactions') or {})
+    logins = list(dict.fromkeys(
+        str(login) for login in (reactions.get(emoji) or []) if login
+    ))
+    active = current_login not in logins
+    if active:
+        logins.append(current_login)
+        reactions[emoji] = logins
+    else:
+        logins.remove(current_login)
+        if logins:
+            reactions[emoji] = logins
+        else:
+            reactions.pop(emoji, None)
+    updated_at = datetime.datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S.%f')
+    metadata['reactions'] = reactions
+    metadata['reactionUpdatedAt'] = updated_at
+    message_log_key = SearchKey.get_by_sobject(message_log, use_id=False)
+    server.update(
+        message_log_key, {'metadata': metadata}, triggers=True,
+    )
+    return json.dumps({
+        'messageId': message_log_key,
+        'messageCode': message_code,
+        'reactions': reactions,
+        'reactionUpdatedAt': updated_at,
+        'active': active,
+    }, separators=(',', ':'))
+
+
+def pin_chat_message(message_log_code, unpin=False):
+    import datetime
+    import json
+    from pyasm.search import Search, SearchKey
+
+    def ensure_message_log_code(message_log):
+        if message_log.get_code():
+            return
+        record_id = message_log.get_id()
+        if not record_id:
+            raise RuntimeError('TACTIC message log has no code')
+        code = 'MESSAGE_LOG{0:05d}'.format(int(record_id))
+        server.update(
+            SearchKey.get_by_sobject(message_log, use_id=True),
+            {'code': code}, triggers=False,
+        )
+        message_log.set_value('code', code)
+
+    current_login = server.get_login()
+    message_log_ref = str(message_log_code or '')
+    if message_log_ref.startswith('sthpw/message_log'):
+        message_log = Search.get_by_search_key(message_log_ref)
+    else:
+        log_search = Search('sthpw/message_log')
+        log_search.add_filter('code', message_log_ref)
+        message_log = log_search.get_sobject()
+    if not message_log:
+        raise RuntimeError('Message does not exist')
+    ensure_message_log_code(message_log)
+    message_code = message_log.get_value('message_code')
+    member_search = Search('sthpw/subscription')
+    member_search.add_filter('message_code', message_code)
+    member_search.add_filter('login', current_login)
+    member_search.add_filter('category', 'chat')
+    if not member_search.get_sobject():
+        raise RuntimeError('The current login is not a chat participant')
+
+    conversation_search = Search('sthpw/message')
+    conversation_search.add_filter('code', message_code)
+    conversation_search.add_filter('category', 'chat')
+    conversation = conversation_search.get_sobject()
+    if not conversation:
+        raise RuntimeError('Chat does not exist')
+    raw_metadata = conversation.get_value('metadata') or {}
+    if isinstance(raw_metadata, dict):
+        value = dict(raw_metadata)
+    else:
+        try:
+            value = json.loads(raw_metadata)
+        except (TypeError, ValueError):
+            value = {}
+    if unpin:
+        current = dict(value.get('pin') or {})
+        current_id = str(current.get('messageId') or '')
+        message_id = SearchKey.get_by_sobject(message_log, use_id=False)
+        if current_id == message_id:
+            value['pin'] = {}
+            server.update(
+                SearchKey.get_by_sobject(conversation, use_id=False),
+                {'metadata': value},
+                triggers=True,
+            )
+        return json.dumps(value, separators=(',', ':'))
+    pinned_at = datetime.datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')
+    message_id = SearchKey.get_by_sobject(message_log, use_id=False)
+    pinned = {
+        'messageId': message_id,
+        'pinnedBy': str(current_login or ''),
+        'pinnedAt': pinned_at,
+    }
+    history = list(value.get('pinHistory') or [])
+    history.append({
+        'messageId': message_id,
+        'body': str(message_log.get_value('message') or ''),
+        'sender': str(message_log.get_value('login') or ''),
+        'timestamp': str(message_log.get_value('timestamp') or ''),
+        'pinnedBy': str(current_login or ''),
+        'pinnedAt': pinned_at,
+    })
+    value['pin'] = pinned
+    value['pinHistory'] = history
+    server.update(
+        SearchKey.get_by_sobject(conversation, use_id=False),
+        {'metadata': value},
+        triggers=True,
+    )
+    return json.dumps(value, separators=(',', ':'))
+
+
+def query_chat_history(message_code, limit=31, offset=0, search_text=''):
+    import json
+    from pyasm.biz import Snapshot
+    from pyasm.search import Search, SearchKey
+
+    def ensure_message_log_codes(message_logs):
+        updates = {}
+        pending = []
+        for message_log in message_logs:
+            if message_log.get_code():
+                continue
+            record_id = message_log.get_id()
+            if not record_id:
+                raise RuntimeError('TACTIC message log has no code')
+            code = 'MESSAGE_LOG{0:05d}'.format(int(record_id))
+            updates[SearchKey.get_by_sobject(message_log, use_id=True)] = {
+                'code': code,
+            }
+            pending.append((message_log, code))
+        if updates:
+            server.update_multiple(data=updates, triggers=False)
+            for message_log, code in pending:
+                message_log.set_value('code', code)
+
+    current_login = server.get_login()
+    member_search = Search('sthpw/subscription')
+    member_search.add_filter('message_code', message_code)
+    member_search.add_filter('login', current_login)
+    member_search.add_filter('category', 'chat')
+    if not member_search.get_sobject():
+        raise RuntimeError('The current login is not a chat participant')
+
+    history_search = Search('sthpw/message_log')
+    history_search.add_filter('message_code', message_code)
+    history_search.add_filter('status', 'deleted', op='!=')
+    search_text = str(search_text or '').strip()
+    if search_text:
+        history_search.add_filter('message', '%{0}%'.format(search_text), op='like')
+    history_search.add_order_by('timestamp', direction='desc')
+    history_search.add_order_by('id', direction='desc')
+    history_search.set_limit(int(limit))
+    if offset:
+        history_search.set_offset(int(offset))
+    history = history_search.get_sobjects()
+    ensure_message_log_codes(history)
+    history_codes = [item.get_code() for item in history if item.get_code()]
+
+    metadata_by_log = {}
+    target_refs = set()
+    for message_log in history:
+        raw_metadata = message_log.get_value('metadata') or {}
+        if isinstance(raw_metadata, dict):
+            value = dict(raw_metadata)
+        else:
+            try:
+                value = json.loads(raw_metadata)
+            except (TypeError, ValueError):
+                value = {}
+        metadata_by_log[str(message_log.get_code() or '')] = value
+        for field in ('replyTo', 'forwardedFrom'):
+            target_ref = str(value.get(field) or '')
+            if target_ref:
+                target_refs.add(target_ref)
+
+    reply_targets = {}
+    target_codes = []
+    for target_ref in target_refs:
+        search_type, target_code = server.split_search_key(target_ref)
+        if search_type == 'sthpw/message_log' and target_code:
+            target_codes.append(target_code)
+    if target_codes:
+        target_search = Search('sthpw/message_log')
+        target_search.add_filters('code', list(set(target_codes)))
+        for target in target_search.get_sobjects():
+            reply_targets[str(target.get_code())] = target
+
+    attachments_by_log = {}
+    attachment_codes = list(history_codes) + [
+        target.get_code() for target in reply_targets.values() if target.get_code()
+    ]
+    if attachment_codes:
+        connection_search = Search('sthpw/connection')
+        connection_search.add_filter('context', 'chat_attachment')
+        connection_search.add_filter('dst_search_type', 'sthpw/message_log')
+        connection_search.add_filters(
+            'dst_search_code', list(set(attachment_codes))
+        )
+        connections = connection_search.get_sobjects()
+        snapshot_codes = []
+        snapshot_to_logs = {}
+        for connection in connections:
+            if connection.get_value('src_search_type') != 'sthpw/snapshot':
+                continue
+            snapshot_code = connection.get_value('src_search_code')
+            log_code = connection.get_value('dst_search_code')
+            if snapshot_code:
+                snapshot_codes.append(snapshot_code)
+                snapshot_to_logs.setdefault(snapshot_code, []).append(log_code)
+        if snapshot_codes:
+            snapshot_search = Search('sthpw/snapshot')
+            snapshot_search.add_filters('code', list(set(snapshot_codes)))
+            snapshots = snapshot_search.get_sobjects()
+            files = Snapshot.get_files_dict_by_snapshots(snapshots)
+            for snapshot in snapshots:
+                snapshot_data = snapshot.get_data()
+                snapshot_data['__search_key__'] = SearchKey.get_by_sobject(
+                    snapshot, use_id=False
+                )
+                snapshot_data['__files__'] = [
+                    file_object.get_data()
+                    for file_object in (files.get(snapshot.get_code()) or [])
+                ]
+                for log_code in snapshot_to_logs.get(snapshot.get_code(), []):
+                    attachments_by_log.setdefault(log_code, []).append(
+                        snapshot_data
+                    )
+
+    conversation_metadata = {}
+    pin_search = Search('sthpw/message')
+    pin_search.add_filter('code', message_code)
+    pin_search.add_filter('category', 'chat')
+    conversation = pin_search.get_sobject()
+    if conversation:
+        raw_metadata = conversation.get_value('metadata') or {}
+        if isinstance(raw_metadata, dict):
+            conversation_metadata = dict(raw_metadata)
+        else:
+            try:
+                conversation_metadata = json.loads(raw_metadata)
+            except (TypeError, ValueError):
+                conversation_metadata = {}
+    pin_value = dict(conversation_metadata.get('pin') or {})
+    pin_message_id = str(pin_value.get('messageId') or '')
+    if pin_message_id:
+        pin_target = Search.get_by_search_key(pin_message_id)
+        if pin_target and pin_target.get_value(
+                'status', no_exception=True) != 'deleted':
+            pin_value.update({
+                'body': str(pin_target.get_value('message') or ''),
+                'sender': str(pin_target.get_value('login') or ''),
+                'timestamp': str(pin_target.get_value('timestamp') or ''),
+            })
+        else:
+            pin_value = {}
+
+    records = []
+    for message_log in history:
+        data = message_log.get_data()
+        data['__search_key__'] = SearchKey.get_by_sobject(
+            message_log, use_id=False
+        )
+        log_code = str(message_log.get_code() or '')
+        data['__attachments__'] = attachments_by_log.get(log_code, [])
+        message_metadata = metadata_by_log.get(
+            log_code, {}
+        )
+        data['__edit_history__'] = list(
+            message_metadata.get('editHistory') or []
+        )
+        data['__reactions__'] = dict(
+            message_metadata.get('reactions') or {}
+        )
+        reply_ref = str(message_metadata.get('replyTo') or '')
+        if reply_ref:
+            target_code = server.split_search_key(reply_ref)[1]
+            target = reply_targets.get(str(target_code))
+            if target:
+                data['__reply__'] = {
+                    'messageId': SearchKey.get_by_sobject(target, use_id=False),
+                    'sender': str(target.get_value('login') or ''),
+                    'body': str(target.get_value('message') or ''),
+                    'timestamp': str(target.get_value('timestamp') or ''),
+                    'available': target.get_value(
+                        'status', no_exception=True
+                    ) != 'deleted',
+                }
+            else:
+                data['__reply__'] = {
+                    'messageId': reply_ref,
+                    'sender': '',
+                    'body': '',
+                    'timestamp': '',
+                    'available': False,
+                }
+        forward_ref = str(message_metadata.get('forwardedFrom') or '')
+        if forward_ref:
+            target_code = server.split_search_key(forward_ref)[1]
+            target = reply_targets.get(str(target_code))
+            if target:
+                data['__forwarded_from__'] = {
+                    'messageId': SearchKey.get_by_sobject(target, use_id=False),
+                    'conversationId': str(target.get_value('message_code') or ''),
+                    'sender': str(target.get_value('login') or ''),
+                    'body': str(target.get_value('message') or ''),
+                    'timestamp': str(target.get_value('timestamp') or ''),
+                    'available': target.get_value(
+                        'status', no_exception=True
+                    ) != 'deleted',
+                    'attachments': attachments_by_log.get(
+                        str(target.get_code() or ''), []
+                    ),
+                }
+            else:
+                data['__forwarded_from__'] = {
+                    'messageId': forward_ref,
+                    'conversationId': '',
+                    'sender': '',
+                    'body': '',
+                    'timestamp': '',
+                    'available': False,
+                    'attachments': [],
+                }
+        records.append(data)
+    return json.dumps({
+        'messages': records,
+        'pinnedMessage': pin_value,
+        'pinHistory': conversation_metadata.get('pinHistory') or [],
+    }, separators=(',', ':'))
+
+
+def mark_chat_read(message_code, timestamp):
+    from pyasm.search import Search, SearchKey
+
+    current_login = server.get_login()
+    search = Search('sthpw/subscription')
+    search.add_filter('message_code', message_code)
+    search.add_filter('login', current_login)
+    search.add_filter('category', 'chat')
+    subscription = search.get_sobject()
+    if not subscription:
+        raise RuntimeError('The current login is not a chat participant')
+    current_value = subscription.get_value('last_cleared', no_exception=True)
+    timestamp_second = str(timestamp or '')[:19]
+    current_second = str(current_value or '')[:19]
+    if timestamp_second and (
+            not current_second or timestamp_second > current_second):
+        server.update(
+            SearchKey.get_by_sobject(subscription, use_id=False),
+            {'last_cleared': timestamp_second},
+            triggers=True,
+        )
+    return {'lastCleared': str(timestamp_second or current_value or '')}
+
+
+def send_chat_message(message_code, message, attachment_keys=None, reply_to=None):
+    import json
+    from pyasm.search import Search, SearchKey
+
+    def update_message_log(message_log, metadata=None):
+        code = message_log.get_code()
+        values = {}
+        use_id = False
+        if not code:
+            record_id = message_log.get_id()
+            if not record_id:
+                raise RuntimeError('TACTIC message log has no code')
+            code = 'MESSAGE_LOG{0:05d}'.format(int(record_id))
+            values['code'] = code
+            use_id = True
+        if metadata is not None:
+            values['metadata'] = metadata
+        if values:
+            server.update(
+                SearchKey.get_by_sobject(message_log, use_id=use_id),
+                values,
+                triggers=False,
+            )
+            if 'code' in values:
+                message_log.set_value('code', values['code'])
+        return code
+
+    current_login = server.get_login()
+    member_search = Search('sthpw/subscription')
+    member_search.add_filter('message_code', message_code)
+    member_search.add_filter('login', current_login)
+    member_search.add_filter('category', 'chat')
+    if not member_search.get_sobject():
+        raise RuntimeError('The current login is not a chat participant')
+
+    reply_target = None
+    if reply_to:
+        reply_ref = str(reply_to)
+        if reply_ref.startswith('sthpw/message_log'):
+            reply_target = Search.get_by_search_key(reply_ref)
+        else:
+            reply_search = Search('sthpw/message_log')
+            reply_search.add_filter('code', reply_ref)
+            reply_target = reply_search.get_sobject()
+        if (
+            not reply_target
+            or reply_target.get_value('message_code') != message_code
+            or reply_target.get_value('status', no_exception=True) == 'deleted'
+        ):
+            raise RuntimeError('The replied message is not available in this chat')
+        update_message_log(reply_target)
+
+    valid_attachments = []
+    for attachment_key in attachment_keys or []:
+        search_type, code = server.split_search_key(attachment_key)
+        if search_type != 'sthpw/snapshot':
+            continue
+        snapshot_search = Search('sthpw/snapshot')
+        snapshot_search.add_filter('code', code)
+        snapshot = snapshot_search.get_sobject()
+        if not snapshot:
+            continue
+        if (
+            snapshot.get_value('search_type') != 'sthpw/message'
+            or snapshot.get_value('search_code') != message_code
+        ):
+            raise RuntimeError('Attachment does not belong to this chat')
+        valid_attachments.append(attachment_key)
+
+    if not str(message or '').strip() and not valid_attachments:
+        raise ValueError('Message or attachment is required')
+    server.log_message(
+        message_code, message or '', status='in_progress',
+        category='chat', log_history=True,
+    )
+    log_search = Search('sthpw/message_log')
+    log_search.add_filter('message_code', message_code)
+    log_search.add_filter('login', current_login)
+    log_search.add_order_by('timestamp', direction='desc')
+    log_search.set_limit(1)
+    message_log = log_search.get_sobject()
+    if not message_log:
+        raise RuntimeError('TACTIC did not create a message log')
+    metadata_values = {}
+    if reply_target:
+        metadata_values['replyTo'] = SearchKey.get_by_sobject(
+            reply_target, use_id=False
+        )
+    update_message_log(message_log, metadata_values)
+    message_log_key = SearchKey.get_by_sobject(message_log, use_id=False)
+    for attachment_key in valid_attachments:
+        server.connect_sobjects(
+            attachment_key, message_log_key, context='chat_attachment'
+        )
+    data = message_log.get_data()
+    data['__search_key__'] = message_log_key
+    conversation_search = Search('sthpw/message')
+    conversation_search.add_filter('code', message_code)
+    conversation_search.add_filter('category', 'chat')
+    conversation = conversation_search.get_sobject()
+    if conversation:
+        raw_metadata = conversation.get_value('metadata') or {}
+        if isinstance(raw_metadata, dict):
+            conversation_metadata = dict(raw_metadata)
+        else:
+            try:
+                conversation_metadata = json.loads(raw_metadata)
+            except (TypeError, ValueError):
+                conversation_metadata = {}
+        summary = dict(conversation_metadata.get('summary') or {})
+        summary.update({
+            'latestCode': str(message_log.get_code() or ''),
+            'latestBody': str(message or ''),
+            'latestTimestamp': str(message_log.get_value('timestamp') or ''),
+            'latestSender': str(current_login or ''),
+            'latestForwarded': False,
+            'messageCount': int(summary.get('messageCount') or 0) + 1,
+            'attachmentCount': (
+                int(summary.get('attachmentCount') or 0)
+                + len(valid_attachments)
+            ),
+        })
+        conversation_metadata['summary'] = summary
+        server.update(
+            SearchKey.get_by_sobject(conversation, use_id=False),
+            {'metadata': conversation_metadata}, triggers=False,
+        )
+    return json.dumps({'message': data}, separators=(',', ':'))
+
+
+def forward_chat_messages(message_log_keys, target_message_codes):
+    import json
+    from pyasm.search import Search, SearchKey
+
+    def update_message_log(message_log, metadata=None):
+        code = message_log.get_code()
+        values = {}
+        use_id = False
+        if not code:
+            record_id = message_log.get_id()
+            if not record_id:
+                raise RuntimeError('TACTIC message log has no code')
+            code = 'MESSAGE_LOG{0:05d}'.format(int(record_id))
+            values['code'] = code
+            use_id = True
+        if metadata is not None:
+            values['metadata'] = metadata
+        if values:
+            server.update(
+                SearchKey.get_by_sobject(message_log, use_id=use_id),
+                values,
+                triggers=False,
+            )
+            if 'code' in values:
+                message_log.set_value('code', values['code'])
+        return code
+
+    current_login = server.get_login()
+    source_refs = []
+    source_messages = []
+    seen_sources = set()
+    for message_log_key in message_log_keys or []:
+        message_log = Search.get_by_search_key(str(message_log_key or ''))
+        if not message_log or server.split_search_key(
+                SearchKey.get_by_sobject(message_log, use_id=False)
+        )[0] != 'sthpw/message_log':
+            raise RuntimeError('A forwarded message does not exist')
+        if message_log.get_value('status', no_exception=True) == 'deleted':
+            raise RuntimeError('A deleted message cannot be forwarded')
+        update_message_log(message_log)
+        source_ref = SearchKey.get_by_sobject(message_log, use_id=False)
+        if source_ref in seen_sources:
+            continue
+        seen_sources.add(source_ref)
+        source_refs.append(source_ref)
+        source_messages.append(message_log)
+    if not source_messages:
+        raise ValueError('Select at least one message to forward')
+
+    source_chats = set(
+        message_log.get_value('message_code') for message_log in source_messages
+    )
+    access_search = Search('sthpw/subscription')
+    access_search.add_filter('login', current_login)
+    access_search.add_filter('category', 'chat')
+    access_search.add_filters('message_code', list(source_chats))
+    accessible_sources = set(
+        item.get_value('message_code') for item in access_search.get_sobjects()
+    )
+    if accessible_sources != source_chats:
+        raise RuntimeError('The current login cannot access a forwarded message')
+
+    targets = []
+    seen_targets = set()
+    for message_code in target_message_codes or []:
+        message_code = str(message_code or '').strip()
+        if message_code and message_code not in seen_targets:
+            seen_targets.add(message_code)
+            targets.append(message_code)
+    if not targets:
+        raise ValueError('Select at least one destination chat')
+    target_access = Search('sthpw/subscription')
+    target_access.add_filter('login', current_login)
+    target_access.add_filter('category', 'chat')
+    target_access.add_filters('message_code', targets)
+    accessible_targets = set(
+        item.get_value('message_code') for item in target_access.get_sobjects()
+    )
+    if accessible_targets != set(targets):
+        raise RuntimeError('The current login cannot access a destination chat')
+    target_search = Search('sthpw/message')
+    target_search.add_filter('category', 'chat')
+    target_search.add_filter('status', 'deleted', op='!=')
+    target_search.add_filters('code', targets)
+    target_messages = dict(
+        (item.get_code(), item) for item in target_search.get_sobjects()
+    )
+    active_targets = set(target_messages)
+    if active_targets != set(targets):
+        raise RuntimeError('A destination chat is not available')
+
+    created = []
+    for message_code in targets:
+        latest_created = None
+        for source_ref in source_refs:
+            server.log_message(
+                message_code, '', status='in_progress',
+                category='chat', log_history=True,
+            )
+            log_search = Search('sthpw/message_log')
+            log_search.add_filter('message_code', message_code)
+            log_search.add_filter('login', current_login)
+            log_search.add_order_by('timestamp', direction='desc')
+            log_search.set_limit(len(source_refs) + 1)
+            # Keep this as an explicit loop.  The legacy source minifier
+            # corrupts a multiline next(generator, default) expression into
+            # ``if ... not`` without its trailing colon.
+            message_log = None
+            for item in log_search.get_sobjects():
+                item_key = SearchKey.get_by_sobject(item, use_id=False)
+                if item_key not in created:
+                    message_log = item
+                    break
+            if not message_log:
+                raise RuntimeError('TACTIC did not create a forwarded message log')
+            update_message_log(message_log, {'forwardedFrom': source_ref})
+            message_id = SearchKey.get_by_sobject(message_log, use_id=False)
+            created.append(message_id)
+            latest_created = message_log
+        conversation = target_messages.get(message_code)
+        if conversation and latest_created:
+            raw_metadata = conversation.get_value('metadata') or {}
+            if isinstance(raw_metadata, dict):
+                conversation_metadata = dict(raw_metadata)
+            else:
+                try:
+                    conversation_metadata = json.loads(raw_metadata)
+                except (TypeError, ValueError):
+                    conversation_metadata = {}
+            summary = dict(conversation_metadata.get('summary') or {})
+            summary.update({
+                'latestCode': str(latest_created.get_code() or ''),
+                'latestBody': '',
+                'latestTimestamp': str(
+                    latest_created.get_value('timestamp') or ''
+                ),
+                'latestSender': str(current_login or ''),
+                'latestForwarded': True,
+                'messageCount': (
+                    int(summary.get('messageCount') or 0)
+                    + len(source_refs)
+                ),
+                'attachmentCount': int(
+                    summary.get('attachmentCount') or 0
+                ),
+            })
+            conversation_metadata['summary'] = summary
+            server.update(
+                SearchKey.get_by_sobject(conversation, use_id=False),
+                {'metadata': conversation_metadata}, triggers=False,
+            )
+    return json.dumps({
+        'forwarded': len(created),
+        'destinations': len(targets),
+        'messages': len(source_refs),
+    }, separators=(',', ':'))
+
+
+def authorize_chat_attachment(message_code, snapshot_code):
+    import json
+    from pyasm.search import Search
+
+    current_login = server.get_login()
+    member_search = Search('sthpw/subscription')
+    member_search.add_filter('message_code', message_code)
+    member_search.add_filter('login', current_login)
+    member_search.add_filter('category', 'chat')
+    if not member_search.get_sobject():
+        return json.dumps({'allowed': False}, separators=(',', ':'))
+
+    snapshot_search = Search('sthpw/snapshot')
+    snapshot_search.add_filter('code', snapshot_code)
+    snapshot = snapshot_search.get_sobject()
+    if not snapshot:
+        return json.dumps({'allowed': False}, separators=(',', ':'))
+    connection_search = Search('sthpw/connection')
+    connection_search.add_filter('context', 'chat_attachment')
+    connection_search.add_filter('src_search_type', 'sthpw/snapshot')
+    connection_search.add_filter('src_search_code', snapshot_code)
+    connection_search.add_filter('dst_search_type', 'sthpw/message_log')
+    connections = connection_search.get_sobjects()
+    log_codes = [
+        connection.get_value('dst_search_code')
+        for connection in connections if connection.get_value('dst_search_code')
+    ]
+    allowed = False
+    if log_codes:
+        log_search = Search('sthpw/message_log')
+        log_search.add_filters('code', log_codes)
+        log_search.add_filter('message_code', message_code)
+        allowed = bool(log_search.get_sobject())
+    return json.dumps({'allowed': allowed}, separators=(',', ':'))
+
+
+def query_server_updates(message_after='', activity_after='', project_code='',
+                         limit=101, reaction_after='', include_activity=True,
+                         include_reactions=True, include_presence=False,
+                         presence_ttl=360):
+    import hashlib
+    import json
+    from datetime import datetime
+    from json import loads
+    from pyasm.search import Search, SearchKey
+
+    def refresh_presence(ttl_seconds):
+        category = 'online_status'
+        login = str(server.get_login() or '').strip()
+        if not login:
+            return []
+        now = datetime.utcnow()
+        now_value = now.strftime('%Y-%m-%dT%H:%M:%SZ')
+        search = Search('sthpw/message')
+        search.add_filter('category', category)
+        search.add_filter('login', login)
+        search.add_order_by('timestamp', direction='desc')
+        search.set_limit(1)
+        presence = search.get_sobject()
+        metadata = {
+            'schemaVersion': 1,
+            'login': login,
+            'state': 'online',
+            'lastSeen': now_value,
+        }
+        if presence:
+            server.update(
+                SearchKey.get_by_sobject(presence, use_id=False),
+                {
+                    'message': now_value,
+                    'status': 'online',
+                    'metadata': metadata,
+                },
+                triggers=False,
+            )
+        else:
+            digest = hashlib.sha1(login.encode('utf-8')).hexdigest()[:24]
+            server.insert('sthpw/message', {
+                'code': 'ONLINE_STATUS_{0}'.format(digest.upper()),
+                'category': category,
+                'message': now_value,
+                'status': 'online',
+                'login': login,
+                'project_code': 'sthpw',
+                'metadata': metadata,
+            })
+        all_search = Search('sthpw/message')
+        all_search.add_filter('category', category)
+        all_search.add_order_by('timestamp', direction='desc')
+        records = []
+        seen_logins = set()
+        ttl_seconds = max(30, int(ttl_seconds or 360))
+        for item in all_search.get_sobjects():
+            item_login = str(item.get_value('login') or '').strip()
+            if not item_login or item_login in seen_logins:
+                continue
+            seen_logins.add(item_login)
+            raw_metadata = item.get_value('metadata') or {}
+            if isinstance(raw_metadata, dict):
+                item_metadata = dict(raw_metadata)
+            else:
+                try:
+                    item_metadata = json.loads(raw_metadata)
+                except (TypeError, ValueError):
+                    item_metadata = {}
+            last_seen = str(
+                item_metadata.get('lastSeen')
+                or item.get_value('message') or ''
+            )
+            try:
+                parsed = datetime.strptime(last_seen, '%Y-%m-%dT%H:%M:%SZ')
+                age = max(0, int((now - parsed).total_seconds()))
+            except (TypeError, ValueError):
+                age = ttl_seconds + 1
+            records.append({
+                'login': item_login,
+                'lastSeen': last_seen,
+                'online': age <= ttl_seconds,
+            })
+        return records
+
+    def ensure_message_log_codes(message_logs):
+        updates = {}
+        pending = []
+        for message_log in message_logs:
+            if message_log.get_code():
+                continue
+            record_id = message_log.get_id()
+            if not record_id:
+                raise RuntimeError('TACTIC message log has no code')
+            code = 'MESSAGE_LOG{0:05d}'.format(int(record_id))
+            updates[SearchKey.get_by_sobject(message_log, use_id=True)] = {
+                'code': code,
+            }
+            pending.append((message_log, code))
+        if updates:
+            server.update_multiple(data=updates, triggers=False)
+            for message_log, code in pending:
+                message_log.set_value('code', code)
+
+    def event_timestamp(value):
+        try:
+            parsed = loads(value)
+        except (TypeError, ValueError):
+            parsed = value
+        if isinstance(parsed, dict):
+            parsed = parsed.get('view') or parsed.get('value') or ''
+        return str(parsed or '')
+
+    current_login = server.get_login()
+    limit = int(limit or 101)
+    own_search = Search('sthpw/subscription')
+    own_search.add_filter('login', current_login)
+    own_search.add_filter('category', 'chat')
+    message_codes = list(set(
+        subscription.get_value('message_code')
+        for subscription in own_search.get_sobjects()
+        if subscription.get_value('message_code')
+    ))
+    messages = []
+    if message_codes:
+        search = Search('sthpw/message_log')
+        search.add_filters('message_code', message_codes)
+        search.add_filter('status', 'deleted', op='!=')
+        if message_after:
+            search.add_filter('timestamp', message_after, op='>')
+            search.add_order_by('timestamp')
+        else:
+            search.add_order_by('timestamp', direction='desc')
+        search.set_limit(limit)
+        message_logs = search.get_sobjects()
+        ensure_message_log_codes(message_logs)
+        attachment_counts = {}
+        message_log_codes = [
+            item.get_code() for item in message_logs if item.get_code()
+        ]
+        if message_log_codes:
+            connection_search = Search('sthpw/connection')
+            connection_search.add_filter('context', 'chat_attachment')
+            connection_search.add_filter(
+                'dst_search_type', 'sthpw/message_log'
+            )
+            connection_search.add_filters(
+                'dst_search_code', message_log_codes
+            )
+            for connection in connection_search.get_sobjects():
+                code = connection.get_value('dst_search_code')
+                attachment_counts[code] = attachment_counts.get(code, 0) + 1
+        for item in message_logs:
+            data = item.get_data()
+            data['__search_key__'] = SearchKey.get_by_sobject(
+                item, use_id=False
+            )
+            data['__event_timestamp__'] = event_timestamp(
+                data.get('timestamp')
+            )
+            data['__attachment_count__'] = attachment_counts.get(
+                item.get_code(), 0
+            )
+            messages.append(data)
+
+    reactions = []
+    reaction_cursor = str(reaction_after or '')
+    if message_codes and include_reactions:
+        change_search = Search('sthpw/change_timestamp')
+        change_search.add_filter('search_type', 'sthpw/message_log')
+        if reaction_after:
+            change_search.add_filter(
+                'timestamp', str(reaction_after)[:19], op='>='
+            )
+            change_search.add_order_by('timestamp')
+        else:
+            change_search.add_order_by('timestamp', direction='desc')
+        change_search.set_limit(limit)
+        changes = change_search.get_sobjects()
+        changed_codes = []
+        event_by_code = {}
+        for change in changes:
+            code = str(change.get_value('search_code') or '')
+            if not code:
+                continue
+            timestamp = event_timestamp(change.get_value('timestamp'))
+            changed_codes.append(code)
+            if timestamp > event_by_code.get(code, ''):
+                event_by_code[code] = timestamp
+            if timestamp > reaction_cursor:
+                reaction_cursor = timestamp
+        if changed_codes:
+            changed_search = Search('sthpw/message_log')
+            changed_search.add_filters('code', list(set(changed_codes)))
+            for message_log in changed_search.get_sobjects():
+                message_code = str(message_log.get_value('message_code') or '')
+                if (
+                    message_code not in message_codes
+                    or message_log.get_value('status', no_exception=True) == 'deleted'
+                ):
+                    continue
+                raw_metadata = message_log.get_value('metadata') or {}
+                if isinstance(raw_metadata, dict):
+                    metadata = dict(raw_metadata)
+                else:
+                    try:
+                        metadata = loads(raw_metadata)
+                    except (TypeError, ValueError):
+                        metadata = {}
+                reactions.append({
+                    'messageId': SearchKey.get_by_sobject(
+                        message_log, use_id=False
+                    ),
+                    'messageCode': message_code,
+                    'reactions': dict(metadata.get('reactions') or {}),
+                    'reactionUpdatedAt': str(
+                        metadata.get('reactionUpdatedAt') or ''
+                    ),
+                    '__event_timestamp__': event_by_code.get(
+                        str(message_log.get_code() or ''), ''
+                    ),
+                })
+
+    activity = []
+    if project_code and include_activity:
+        sources = (
+            ('sthpw/status_log', 'status'),
+            ('sthpw/snapshot', 'publication'),
+            ('sthpw/note', 'note'),
+            ('sthpw/task', 'task'),
+            ('sthpw/change_timestamp', 'change'),
+        )
+        for search_type, kind in sources:
+            search = Search(search_type)
+            search.add_filter('project_code', project_code)
+            timestamp_column = 'timestamp'
+            if activity_after:
+                search.add_filter(timestamp_column, activity_after, op='>')
+                search.add_order_by(timestamp_column)
+            else:
+                search.add_order_by(timestamp_column, direction='desc')
+            search.set_limit(limit)
+            for item in search.get_sobjects():
+                data = item.get_data()
+                if (
+                    kind == 'change'
+                    and str(data.get('search_type') or '').split('?')[0]
+                    == 'sthpw/task'
+                ):
+                    continue
+                data['__search_key__'] = SearchKey.get_by_sobject(
+                    item, use_id=False
+                )
+                data['__kind__'] = kind
+                data['__event_timestamp__'] = event_timestamp(
+                    data.get(timestamp_column)
+                    or item.get_value(timestamp_column, no_exception=True)
+                )
+                activity.append(data)
+    activity.sort(key=lambda item: item.get('__event_timestamp__') or '')
+    activity_page = activity[:limit] if activity_after else activity[-limit:]
+    presence = refresh_presence(presence_ttl) if include_presence else []
+    return {
+        'messages': messages,
+        'reactions': reactions,
+        'reactionCursor': reaction_cursor,
+        'activity': activity_page,
+        'presence': presence,
+    }
+
+
+def _query_user_recent_activity_legacy(login, project_code='', limit=25):
+    """Return recent user-authored project activity in one server request.
+
+    Status history alone is not an activity feed: it omits publications,
+    notes, and task changes. Merge the existing TACTIC records here so the
+    client does not issue one network request per source table.
+    """
+    from pyasm.search import Search, SearchKey
+
+    login = str(login or '').strip()
+    project_code = str(project_code or '').strip()
+    limit = max(1, min(int(limit or 25), 100))
+    if not login:
+        return []
+
+    records = []
+    sources = (
+        ('sthpw/status_log', 'status'),
+        ('sthpw/snapshot', 'publication'),
+        ('sthpw/note', 'note'),
+        ('sthpw/task', 'task'),
+    )
+    for search_type, kind in sources:
+        search = Search(search_type)
+        search.add_filter('login', login)
+        if project_code:
+            search.add_filter('project_code', project_code)
+        search.add_order_by('timestamp', direction='desc')
+        search.set_limit(limit)
+        for item in search.get_sobjects():
+            data = item.get_data()
+            timestamp = str(data.get('timestamp') or '')
+            search_key = SearchKey.get_by_sobject(
+                item, use_id=(kind == 'status')
+            )
+            if kind == 'status':
+                before = str(data.get('from_status') or '')
+                after = str(
+                    data.get('to_status') or data.get('status') or ''
+                )
+                detail = ' -> '.join(
+                    value for value in (before, after) if value
+                )
+                title = 'Status changed'
+            elif kind == 'publication':
+                context = str(
+                    data.get('context') or data.get('process') or ''
+                )
+                version = data.get('version')
+                title = 'Published {0}'.format(context).strip()
+                detail = (
+                    'Version {0}'.format(version)
+                    if version not in (None, '') else 'New snapshot'
+                )
+            elif kind == 'note':
+                process = str(data.get('process') or '')
+                title = 'Added note{0}'.format(
+                    ' · {0}'.format(process) if process else ''
+                )
+                detail = str(data.get('note') or '')[:240]
+            else:
+                process = str(data.get('process') or '')
+                title = 'Task{0}'.format(
+                    ' · {0}'.format(process) if process else ''
+                )
+                detail = str(
+                    data.get('description') or data.get('status') or ''
+                )[:240]
+            records.append({
+                'searchKey': str(search_key or ''),
+                'kind': kind,
+                'title': title,
+                'detail': detail,
+                'timestamp': timestamp,
+                'project': str(data.get('project_code') or project_code),
+            })
+
+    records.sort(key=lambda record: record.get('timestamp') or '', reverse=True)
+    return records[:limit]
+
+
+def query_user_recent_activity(
+        login='', project_code='', limit=25, offset=0, kinds=None,
+        assigned_login=''):
+    """Return one enriched, pageable activity shape for profiles and feeds."""
+    import json
+    from pyasm.search import Search, SearchKey
+
+    login = str(login or '').strip()
+    project_code = str(project_code or '').strip()
+    limit = max(1, min(int(limit or 25), 100))
+    offset = max(0, int(offset or 0))
+    assigned_login = str(assigned_login or '').strip()
+    allowed_kinds = set(str(value or '') for value in (kinds or ()))
+
+    records = []
+    parent_refs = {}
+    sources = (
+        ('sthpw/status_log', 'status', True),
+        ('sthpw/snapshot', 'publication', True),
+        ('sthpw/note', 'note', True),
+        ('sthpw/task', 'task', True),
+        ('sthpw/message_log', 'message', False),
+    )
+    for search_type, kind, filter_project in sources:
+        if allowed_kinds and kind not in allowed_kinds:
+            continue
+        search = Search(search_type)
+        if kind == 'task' and assigned_login:
+            search.add_filter('assigned', assigned_login)
+        elif login:
+            search.add_filter('login', login)
+        if kind == 'message':
+            search.add_filter('category', 'chat')
+        if project_code and filter_project:
+            search.add_filter('project_code', project_code)
+        search.add_order_by('timestamp', direction='desc')
+        search.set_limit(offset + limit)
+        for item in search.get_sobjects():
+            data = item.get_data()
+            process = str(data.get('process') or '')
+            context = str(data.get('context') or process)
+            version = data.get('version')
+            parent_type = str(data.get('search_type') or '').split('?', 1)[0]
+            parent_code = str(data.get('search_code') or '')
+            if kind == 'message':
+                parent_type = 'sthpw/message'
+                parent_code = str(data.get('message_code') or '')
+            if parent_type and parent_code:
+                parent_refs.setdefault(parent_type, set()).add(parent_code)
+
+            if kind == 'status':
+                before = str(data.get('from_status') or '')
+                after = str(
+                    data.get('to_status') or data.get('status') or ''
+                )
+                title = 'Status changed'
+                detail = ' -> '.join(
+                    value for value in (before, after) if value
+                )
+            elif kind == 'publication':
+                title = 'Published snapshot'
+                detail = (
+                    'Version {0}'.format(version)
+                    if version not in (None, '') else 'New snapshot'
+                )
+            elif kind == 'note':
+                title = 'Added note'
+                detail = str(data.get('note') or '')[:240]
+            elif kind == 'message':
+                title = 'Sent message'
+                detail = str(data.get('message') or '')[:240]
+            else:
+                title = 'Updated task'
+                detail = str(
+                    data.get('description') or data.get('status') or ''
+                )[:240]
+            records.append({
+                'eventId': '{0}:{1}'.format(
+                    kind, data.get('code') or data.get('id') or ''
+                ),
+                'searchKey': str(SearchKey.get_by_sobject(
+                    item, use_id=(kind == 'status')
+                ) or ''),
+                'kind': kind,
+                'title': title,
+                'detail': detail,
+                'actor': str(
+                    data.get('login') or data.get('assigned')
+                    or data.get('changed_by') or ''
+                ),
+                'timestamp': str(data.get('timestamp') or ''),
+                'project': str(data.get('project_code') or project_code),
+                'process': process,
+                'context': context,
+                'version': str(version if version not in (None, '') else ''),
+                '_parentType': parent_type,
+                '_parentCode': parent_code,
+            })
+
+    parents = {}
+    for parent_type, codes in parent_refs.items():
+        parent_query_type = parent_type
+        if (
+            project_code and not parent_type.startswith('sthpw/')
+            and '?project=' not in parent_type
+        ):
+            parent_query_type = '{0}?project={1}'.format(
+                parent_type, project_code
+            )
+        parent_search = Search(parent_query_type)
+        parent_search.add_filters('code', list(codes))
+        for parent in parent_search.get_sobjects():
+            parent_data = parent.get_data()
+            parent_code = str(parent.get_code() or '')
+            try:
+                parent_title = str(parent.get_name() or '')
+            except (AttributeError, TypeError):
+                parent_title = ''
+            parent_title = str(
+                parent_title
+                or parent_data.get('name')
+                or parent_data.get('title')
+                or parent_data.get('code')
+                or parent_code
+            )
+            if parent_type == 'sthpw/message':
+                raw_metadata = parent_data.get('metadata') or {}
+                if isinstance(raw_metadata, dict):
+                    parent_metadata = dict(raw_metadata)
+                else:
+                    try:
+                        parent_metadata = json.loads(str(raw_metadata))
+                    except (TypeError, ValueError):
+                        parent_metadata = {}
+                parent_title = str(
+                    parent_metadata.get('title') or 'Conversation'
+                )
+            parents[(parent_type, parent_code)] = {
+                'searchKey': str(SearchKey.get_by_sobject(
+                    parent, use_id=False
+                ) or ''),
+                'title': parent_title,
+                'type': parent_type,
+            }
+
+    for record in records:
+        parent_type = record.pop('_parentType', '')
+        parent_code = record.pop('_parentCode', '')
+        parent = parents.get((parent_type, parent_code), {})
+        record['targetSearchKey'] = str(parent.get('searchKey') or '')
+        record['targetTitle'] = str(
+            parent.get('title') or parent_code or 'TACTIC object'
+        )
+        record['targetType'] = str(parent.get('type') or parent_type)
+
+    records.sort(key=lambda record: record.get('timestamp') or '', reverse=True)
+    return records[offset:offset + limit]
+
+
+def query_user_profile_data(login, project_code='', activity_limit=25):
+    """Return profile task aggregates and recent activity in one request."""
+    import json
+    from datetime import datetime, timedelta
+    from pyasm.search import Search, SearchKey
+
+    login = str(login or '').strip()
+    project_code = str(project_code or '').strip()
+    activity_limit = max(1, min(int(activity_limit or 25), 100))
+    if not login:
+        return json.dumps({}, separators=(',', ':'))
+
+    task_search = Search('sthpw/task')
+    task_search.add_filter('assigned', login)
+    if project_code:
+        task_search.add_filter('project_code', project_code)
+    task_search.add_order_by('bid_end_date')
+    task_search.add_order_by('timestamp', direction='desc')
+    task_objects = task_search.get_sobjects()
+    status_counts = {}
+    process_counts = {}
+    today = datetime.utcnow().date()
+    week_end = today + timedelta(days=6 - today.weekday())
+    active = 0
+    overdue = 0
+    due_this_week = 0
+    planned_hours = 0.0
+    samples = []
+    for index, task in enumerate(task_objects):
+        data = task.get_data()
+        progress = int(data.get('completion') or 0)
+        if progress < 100:
+            active += 1
+        deadline_text = str(data.get('bid_end_date') or '')[:10]
+        deadline = None
+        try:
+            deadline = datetime.strptime(deadline_text, '%Y-%m-%d').date()
+        except (TypeError, ValueError):
+            pass
+        if deadline and progress < 100:
+            if deadline < today:
+                overdue += 1
+            if today <= deadline <= week_end:
+                due_this_week += 1
+        try:
+            planned_hours += float(data.get('bid_duration') or 0.0)
+        except (TypeError, ValueError):
+            pass
+        status = str(data.get('status') or 'Unspecified')
+        status_entry = status_counts.setdefault(status, {
+            'label': status, 'count': 0,
+            'pipeline_code': str(data.get('pipeline_code') or ''),
+            'search_type': str(data.get('search_type') or ''),
+            'process': str(data.get('process') or ''),
+            'status': status,
+        })
+        status_entry['count'] += 1
+        process = str(data.get('process') or 'Unspecified')
+        process_entry = process_counts.setdefault(process, {
+            'label': process, 'count': 0,
+            'pipeline_code': str(data.get('pipeline_code') or ''),
+            'search_type': str(data.get('search_type') or ''),
+            'process': process,
+            'status': status,
+        })
+        process_entry['count'] += 1
+        if index < 12:
+            data['__search_key__'] = SearchKey.get_by_sobject(
+                task, use_id=False
+            )
+            samples.append(data)
+
+    logged_hours = 0.0
+    approved_hours = 0.0
+    pending_hours = 0.0
+    hour_search = Search('sthpw/work_hour')
+    hour_search.add_filter('login', login)
+    if project_code:
+        hour_search.add_filter('project_code', project_code)
+    for entry in hour_search.get_sobjects():
+        try:
+            value = float(entry.get_value('straight_time') or 0.0)
+        except (TypeError, ValueError):
+            value = 0.0
+        logged_hours += value
+        if str(entry.get_value('status') or '').lower() == 'approved':
+            approved_hours += value
+        else:
+            pending_hours += value
+
+    records = []
+    parent_refs = {}
+    sources = (
+        ('sthpw/status_log', 'status', True),
+        ('sthpw/snapshot', 'publication', True),
+        ('sthpw/note', 'note', True),
+        ('sthpw/task', 'task', True),
+        ('sthpw/message_log', 'message', False),
+    )
+    for search_type, kind, filter_project in sources:
+        search = Search(search_type)
+        search.add_filter('login', login)
+        if kind == 'message':
+            search.add_filter('category', 'chat')
+        if project_code and filter_project:
+            search.add_filter('project_code', project_code)
+        search.add_order_by('timestamp', direction='desc')
+        search.set_limit(activity_limit)
+        for item in search.get_sobjects():
+            data = item.get_data()
+            process = str(data.get('process') or '')
+            context = str(data.get('context') or process)
+            version = data.get('version')
+            parent_type = str(data.get('search_type') or '').split('?', 1)[0]
+            parent_code = str(data.get('search_code') or '')
+            if kind == 'message':
+                parent_type = 'sthpw/message'
+                parent_code = str(data.get('message_code') or '')
+            if parent_type and parent_code:
+                parent_refs.setdefault(parent_type, set()).add(parent_code)
+            titles = {
+                'status': 'Status changed',
+                'publication': 'Published snapshot',
+                'note': 'Added note',
+                'task': 'Updated task',
+                'message': 'Sent message',
+            }
+            if kind == 'status':
+                detail = ' -> '.join(value for value in (
+                    str(data.get('from_status') or ''),
+                    str(data.get('to_status') or data.get('status') or ''),
+                ) if value)
+            elif kind == 'publication':
+                detail = (
+                    'Version {0}'.format(version)
+                    if version not in (None, '') else 'New snapshot'
+                )
+            elif kind == 'note':
+                detail = str(data.get('note') or '')[:240]
+            elif kind == 'message':
+                detail = str(data.get('message') or '')[:240]
+            else:
+                detail = str(data.get('description') or data.get('status') or '')[:240]
+            records.append({
+                'eventId': '{0}:{1}'.format(
+                    kind, data.get('code') or data.get('id') or ''
+                ),
+                'searchKey': str(SearchKey.get_by_sobject(
+                    item, use_id=(kind == 'status')
+                ) or ''),
+                'kind': kind,
+                'title': titles[kind],
+                'detail': detail,
+                'actor': str(data.get('login') or data.get('assigned') or ''),
+                'timestamp': str(data.get('timestamp') or ''),
+                'project': str(data.get('project_code') or project_code),
+                'process': process,
+                'context': context,
+                'version': str(version if version not in (None, '') else ''),
+                '_parentType': parent_type,
+                '_parentCode': parent_code,
+            })
+
+    parents = {}
+    for parent_type, codes in parent_refs.items():
+        query_type = parent_type
+        if project_code and not parent_type.startswith('sthpw/'):
+            query_type = '{0}?project={1}'.format(parent_type, project_code)
+        parent_search = Search(query_type)
+        parent_search.add_filters('code', list(codes))
+        for parent in parent_search.get_sobjects():
+            data = parent.get_data()
+            code = str(parent.get_code() or '')
+            try:
+                title = str(parent.get_name() or '')
+            except (AttributeError, TypeError):
+                title = ''
+            if parent_type == 'sthpw/message':
+                raw_metadata = data.get('metadata') or {}
+                if isinstance(raw_metadata, dict):
+                    metadata = dict(raw_metadata)
+                else:
+                    try:
+                        metadata = json.loads(str(raw_metadata))
+                    except (TypeError, ValueError):
+                        metadata = {}
+                title = str(metadata.get('title') or 'Conversation')
+            parents[(parent_type, code)] = {
+                'searchKey': str(SearchKey.get_by_sobject(parent, use_id=False) or ''),
+                'title': str(title or data.get('name') or data.get('title') or code),
+                'type': parent_type,
+            }
+    for record in records:
+        parent_type = record.pop('_parentType', '')
+        parent_code = record.pop('_parentCode', '')
+        parent = parents.get((parent_type, parent_code), {})
+        record['targetSearchKey'] = str(parent.get('searchKey') or '')
+        record['targetTitle'] = str(parent.get('title') or parent_code or 'TACTIC object')
+        record['targetType'] = str(parent.get('type') or parent_type)
+    records.sort(key=lambda record: record.get('timestamp') or '', reverse=True)
+
+    return json.dumps({
+        'activity': records[:activity_limit],
+        'tasks': samples,
+        'taskTotal': len(task_objects),
+        'taskSummary': {
+            'total': len(task_objects),
+            'loaded': len(samples),
+            'active': active,
+            'overdue': overdue,
+            'dueThisWeek': due_this_week,
+            'plannedHours': round(planned_hours, 2),
+            'loggedHours': round(logged_hours, 2),
+            'approvedHours': round(approved_hours, 2),
+            'pendingHours': round(pending_hours, 2),
+            'workloadPercent': int(round(min(
+                100.0,
+                logged_hours * 100.0 / planned_hours
+            ))) if planned_hours > 0 else 0,
+        },
+        'statusSummary': list(status_counts.values()),
+        'processSummary': list(process_counts.values()),
+    }, separators=(',', ':'))
+
+
+def heartbeat_user_presence(ttl_seconds=90):
+    """Refresh the current login presence and return known user states.
+
+    Presence is stored as one ``sthpw/message`` state container per TACTIC
+    login.  It deliberately does not use ``message_log`` because heartbeats
+    are current state, not user-visible message history.
+    """
+    import hashlib
+    import json
+    from datetime import datetime
+    from pyasm.search import Search, SearchKey
+
+    category = 'online_status'
+    login = str(server.get_login() or '').strip()
+    if not login:
+        return []
+
+    now = datetime.utcnow()
+    now_value = now.strftime('%Y-%m-%dT%H:%M:%SZ')
+    presence_search = Search('sthpw/message')
+    presence_search.add_filter('category', category)
+    presence_search.add_filter('login', login)
+    presence_search.add_order_by('timestamp', direction='desc')
+    presence_search.set_limit(1)
+    presence = presence_search.get_sobject()
+    metadata = {
+        'schemaVersion': 1,
+        'login': login,
+        'state': 'online',
+        'lastSeen': now_value,
+    }
+    if presence:
+        server.update(
+            SearchKey.get_by_sobject(presence, use_id=False),
+            {
+                'message': now_value,
+                'status': 'online',
+                'metadata': metadata,
+            },
+            triggers=False,
+        )
+    else:
+        digest = hashlib.sha1(login.encode('utf-8')).hexdigest()[:24]
+        code = 'ONLINE_STATUS_{0}'.format(digest.upper())
+        server.insert('sthpw/message', {
+            'code': code,
+            'category': category,
+            'message': now_value,
+            'status': 'online',
+            'login': login,
+            'project_code': 'sthpw',
+            'metadata': metadata,
+        })
+
+    all_search = Search('sthpw/message')
+    all_search.add_filter('category', category)
+    all_search.add_order_by('timestamp', direction='desc')
+    records = []
+    seen_logins = set()
+    ttl_seconds = max(30, int(ttl_seconds or 90))
+    for item in all_search.get_sobjects():
+        item_login = str(item.get_value('login') or '').strip()
+        if not item_login or item_login in seen_logins:
+            continue
+        seen_logins.add(item_login)
+        raw_metadata = item.get_value('metadata') or {}
+        if isinstance(raw_metadata, dict):
+            item_metadata = dict(raw_metadata)
+        else:
+            try:
+                item_metadata = json.loads(str(raw_metadata))
+            except (TypeError, ValueError):
+                item_metadata = {}
+        last_seen = str(
+            item_metadata.get('lastSeen')
+            or item.get_value('message') or ''
+        )
+        try:
+            seen_at = datetime.strptime(last_seen, '%Y-%m-%dT%H:%M:%SZ')
+            age_seconds = max(0, int((now - seen_at).total_seconds()))
+            online = age_seconds <= ttl_seconds
+        except (TypeError, ValueError):
+            online = False
+        records.append({
+            'login': item_login,
+            'presenceKnown': True,
+            'online': bool(online),
+            'lastSeen': last_seen,
+        })
+    return records
 
 
 def get_notes_and_stypes_counts(process, search_key, stypes_list):
@@ -989,7 +4193,7 @@ def query_sobjects_snapshots_updated(search_type, filters=[], order_bys=[], proj
     return json.dumps(result, separators=(',', ':'))
 
 
-def query_sobjects(search_type, filters=[], order_bys=[], project_code=None, limit=None, offset=None, get_all_snapshots=False, check_snapshots_updates=False, include_info=True, include_snapshots=True, compressed_return=True, include_status_log=False, include_progress=False):
+def query_sobjects(search_type, filters=[], order_bys=[], project_code=None, limit=None, offset=None, get_all_snapshots=False, check_snapshots_updates=False, include_info=True, include_snapshots=True, compressed_return=True, include_status_log=False, include_progress=False, include_total_count=True):
     """
 
     :param search_type:
@@ -1037,7 +4241,7 @@ def query_sobjects(search_type, filters=[], order_bys=[], project_code=None, lim
 
     search = Search(splitted_search_type)
 
-    if include_info:
+    if include_info and include_total_count:
         # Getting count of all sobjects of this stype
         total_sobjects_count = search.get_count()
 
@@ -1104,7 +4308,9 @@ def query_sobjects(search_type, filters=[], order_bys=[], project_code=None, lim
 
     if include_info:
         result = {
-            'total_sobjects_count': total_sobjects_count,
+            'total_sobjects_count': (
+                total_sobjects_count if include_total_count else None
+            ),
             'total_sobjects_query_count': total_sobjects_query_count,
             'sobjects_list': sobjects_dicts_list,
             'limit': limit,
@@ -1125,89 +4331,193 @@ def query_sobjects(search_type, filters=[], order_bys=[], project_code=None, lim
     if include_progress:
         progress_results = {}
         if sobjects_list:
-
+            # Resolve project pipelines and their config/process records once
+            # per distinct code.  The legacy loop queried the same immutable
+            # workflow rows again for every result item and every progress
+            # process, producing an N x process database query pattern.
+            contexts = []
+            pipeline_codes_by_scope = {}
             for sobject in sobjects_list:
+                search_key = sobject.get_search_key()
+                progress_results[search_key] = {}
+                pipeline_code = sobject.get_value(
+                    'pipeline_code', no_exception=True
+                )
+                scope = (
+                    sobject.get_base_search_type(),
+                    sobject.get_project_code(),
+                )
+                contexts.append((sobject, search_key, scope, pipeline_code))
+                if pipeline_code:
+                    pipeline_codes_by_scope.setdefault(scope, set()).add(
+                        pipeline_code
+                    )
 
+            pipelines = {}
+            for scope, pipeline_codes in pipeline_codes_by_scope.items():
                 search = Search('sthpw/pipeline')
+                search.add_filter('search_type', scope[0])
+                search.add_filter('project_code', scope[1])
+                search.add_filters('code', list(pipeline_codes))
+                for pipeline in search.get_sobjects():
+                    pipelines[(
+                        scope[0], scope[1], pipeline.get_value('code')
+                    )] = pipeline
 
-                pipeline_code = sobject.get_value('pipeline_code', no_exception=True)
-
-                # there is no progress is there is no pipeline
-                if not pipeline_code:
+            process_codes = set()
+            for _sobject, _search_key, scope, pipeline_code in contexts:
+                pipeline = pipelines.get((
+                    scope[0], scope[1], pipeline_code
+                ))
+                if not pipeline:
                     continue
+                for process_name in pipeline.get_process_names(
+                        type='progress'):
+                    pipeline_process = pipeline.get_process(process_name)
+                    if pipeline_process:
+                        process_code = pipeline_process.get_attribute(
+                            'process_code'
+                        )
+                        if process_code:
+                            process_codes.add(process_code)
 
-                search.add_filter('search_type', sobject.get_base_search_type())
-                search.add_filter('project_code', sobject.get_project_code())
-                search.add_filter('code', pipeline_code)
+            processes = {}
+            if process_codes:
+                search = Search('config/process')
+                search.add_filters('code', list(process_codes))
+                for process in search.get_sobjects():
+                    processes[process.get_value('code')] = process
 
-                sobject_pipeline = search.get_sobject()
+            behavior_keys = set()
+            for process in processes.values():
+                workflow = process.get_value('workflow')
+                if not workflow or not workflow.get('process'):
+                    continue
+                behavior_keys.add((
+                    workflow.get('process'), workflow.get('pipeline_code')
+                ))
 
-                all_processes = sobject_pipeline.get_process_names(type='progress')
+            process_behaviors = {}
+            behavior_processes = set(
+                key[0] for key in behavior_keys if key[0]
+            )
+            behavior_pipelines = set(
+                key[1] for key in behavior_keys if key[1]
+            )
+            if behavior_processes and behavior_pipelines:
+                search = Search('config/process')
+                search.add_filters('process', list(behavior_processes))
+                search.add_filters(
+                    'pipeline_code', list(behavior_pipelines)
+                )
+                for process in search.get_sobjects():
+                    key = (
+                        process.get_value('process'),
+                        process.get_value('pipeline_code'),
+                    )
+                    if key in behavior_keys and key not in process_behaviors:
+                        process_behaviors[key] = process
 
-                processes_result = {}
+            task_pipeline_codes = set()
+            for process_behavior in process_behaviors.values():
+                workflow = process_behavior.get_value('workflow')
+                if workflow and workflow.get('task_pipeline'):
+                    task_pipeline_codes.add(workflow.get('task_pipeline'))
 
-                for process_name in all_processes:
+            task_behaviors = {}
+            if task_pipeline_codes:
+                search = Search('config/process')
+                search.add_filters(
+                    'pipeline_code', list(task_pipeline_codes)
+                )
+                for process in search.get_sobjects():
+                    task_behaviors.setdefault(
+                        process.get_value('pipeline_code'), []
+                    ).append(process)
 
-                    assets_pipeline = sobject_pipeline.get_process(process_name)
-
-                    search = Search('config/process')
-                    search.add_filter('code', assets_pipeline.get_attribute('process_code'))
-                    process = search.get_sobject()
+            related_cache = {}
+            related_tasks_cache = {}
+            for sobject, search_key, scope, pipeline_code in contexts:
+                pipeline = pipelines.get((
+                    scope[0], scope[1], pipeline_code
+                ))
+                if not pipeline:
+                    continue
+                processes_result = progress_results[search_key]
+                for process_name in pipeline.get_process_names(
+                        type='progress'):
+                    pipeline_process = pipeline.get_process(process_name)
+                    if not pipeline_process:
+                        continue
+                    process = processes.get(
+                        pipeline_process.get_attribute('process_code')
+                    )
+                    if not process:
+                        continue
                     workflow = process.get_value('workflow')
-
-                    related_search_type = workflow['search_type']
-
-                    related_sobjects = sobject.get_related_sobjects(related_search_type)
-
+                    if not workflow:
+                        continue
+                    related_search_type = workflow.get('search_type')
+                    if not related_search_type:
+                        continue
+                    related_key = (search_key, related_search_type)
+                    if related_key not in related_cache:
+                        related_cache[related_key] = (
+                            sobject.get_related_sobjects(related_search_type)
+                        )
+                    related_sobjects = related_cache[related_key]
                     related_process = workflow.get('process')
-
+                    tasks_filters = []
                     if related_process:
-                        related_pipeline_code = workflow.get('pipeline_code')
-
-                        # getting mapping behavior ot this process
-                        search = Search('config/process')
-                        search.add_filter('process', related_process)
-                        search.add_filter('pipeline_code', related_pipeline_code)
-                        process_behavior = search.get_sobject()
-                        workflow_behavior = process_behavior.get_value('workflow')
-
-                        # getting task pipeline related to process
+                        behavior_key = (
+                            related_process, workflow.get('pipeline_code')
+                        )
+                        process_behavior = process_behaviors.get(behavior_key)
+                        if not process_behavior:
+                            continue
+                        workflow_behavior = process_behavior.get_value(
+                            'workflow'
+                        )
+                        if not workflow_behavior:
+                            continue
                         task_pipeline = workflow_behavior.get('task_pipeline')
-                        search = Search('config/process')
-                        search.add_filter('pipeline_code', task_pipeline)
-                        task_process_behaviors = search.get_sobjects()
-                        # task_workflow_behavior = task_process_behaviors.get_value('workflow')
-
-                        # get only Approved behavior
-                        approved_task_process = []
+                        if not task_pipeline:
+                            continue
                         task_statuses = []
-                        for task_process_behavior in task_process_behaviors:
-                            task_workflow_behavior = task_process_behavior.get_value('workflow')
-                            task_process_mapping = task_workflow_behavior.get('mapping')
-                            if task_process_mapping:
-                                approved_task_process.append(task_process_mapping)
-                                task_statuses.append(task_process_behavior.get_value('process'))
-
-                        tasks_filters = [('process', related_process), ('status', 'in', u'|'.join(task_statuses))]
+                        for task_process_behavior in task_behaviors.get(
+                                task_pipeline, []):
+                            task_workflow = task_process_behavior.get_value(
+                                'workflow'
+                            )
+                            if task_workflow and task_workflow.get('mapping'):
+                                task_statuses.append(
+                                    task_process_behavior.get_value('process')
+                                )
+                        tasks_filters = [('process', related_process)]
+                        if task_statuses:
+                            tasks_filters.append((
+                                'status', 'in', u'|'.join(task_statuses)
+                            ))
 
                     approved_tasks = []
+                    filters_key = tuple(tasks_filters)
                     for related_sobject in related_sobjects:
-                        related_tasks_sobjects = related_sobject.get_related_sobjects('sthpw/task', filters=tasks_filters)
-                        approved_tasks.extend(related_tasks_sobjects)
-
-                    count_results = {
-                        'tc': 0,
-                        'ac': 0,
-                    }
+                        task_key = (
+                            related_sobject.get_search_key(), filters_key
+                        )
+                        if task_key not in related_tasks_cache:
+                            related_tasks_cache[task_key] = (
+                                related_sobject.get_related_sobjects(
+                                    'sthpw/task', filters=tasks_filters
+                                )
+                            )
+                        approved_tasks.extend(related_tasks_cache[task_key])
 
                     if related_sobjects:
-                        count_results['tc'] = len(related_sobjects)
-                        count_results['ac'] = len(approved_tasks)
-
-                        processes_result[process_name] = count_results
-
-                # if not skip:
-                progress_results[sobject.get_search_key()] = processes_result
+                        processes_result[process_name] = {
+                            'tc': len(related_sobjects),
+                            'ac': len(approved_tasks),
+                        }
 
     if include_snapshots:
 
@@ -1244,6 +4554,55 @@ def query_sobjects(search_type, filters=[], order_bys=[], project_code=None, lim
 
         snapshots_files_sobjects = Snapshot.get_files_dict_by_snapshots(snapshots_sobjects)
 
+    notes_count_by_key = {}
+    tasks_count_by_key = {}
+    if include_info and sobjects_dicts_list:
+        if search_type == 'sthpw/task':
+            key_column = 'search_code' if have_search_code else 'search_id'
+            lookup_values = list(set(
+                sobject_dict.get(key_column)
+                for sobject_dict in sobjects_dicts_list
+                if sobject_dict.get(key_column) not in (None, '')
+            ))
+            processes = list(set(
+                sobject_dict.get('process')
+                for sobject_dict in sobjects_dicts_list
+                if sobject_dict.get('process') not in (None, '')
+            ))
+            if lookup_values and processes:
+                note_search = Search('sthpw/note')
+                note_search.add_filters(key_column, lookup_values)
+                note_search.add_filters('process', processes)
+                for note in note_search.get_sobjects():
+                    key = (
+                        note.get_value(key_column),
+                        note.get_value('process'),
+                    )
+                    notes_count_by_key[key] = notes_count_by_key.get(key, 0) + 1
+        else:
+            key_column = 'search_code' if have_search_code else 'search_id'
+            lookup_values = list(set(
+                sobject_dict.get('code' if have_search_code else 'id')
+                for sobject_dict in sobjects_dicts_list
+                if sobject_dict.get('code' if have_search_code else 'id')
+                not in (None, '')
+            ))
+            if lookup_values:
+                note_search = Search('sthpw/note')
+                note_search.add_filter('process', 'publish')
+                note_search.add_filter('search_type', search_type)
+                note_search.add_filters(key_column, lookup_values)
+                for note in note_search.get_sobjects():
+                    key = note.get_value(key_column)
+                    notes_count_by_key[key] = notes_count_by_key.get(key, 0) + 1
+
+                task_search = Search('sthpw/task')
+                task_search.add_filter('search_type', search_type)
+                task_search.add_filters(key_column, lookup_values)
+                for task in task_search.get_sobjects():
+                    key = task.get_value(key_column)
+                    tasks_count_by_key[key] = tasks_count_by_key.get(key, 0) + 1
+
     for sobject_dict, sobject in zip(sobjects_dicts_list, sobjects_list):
 
         if check_snapshots_updates:
@@ -1265,16 +4624,14 @@ def query_sobjects(search_type, filters=[], order_bys=[], project_code=None, lim
 
         if include_info:
             if search_type == 'sthpw/task':
-                # for a task Search Type notes are stored for search id by default
-                note_search = Search('sthpw/note')
-                if have_search_code:
-                    note_search.add_op_filters(
-                        [('process', sobject_dict['process']), ('search_code', sobject_dict['search_code'])])
-                else:
-                    note_search.add_op_filters(
-                        [('process', sobject_dict['process']), ('search_id', sobject_dict['search_id'])])
-
-                sobject_dict['__notes_count__'] = note_search.get_count()
+                key_column = 'search_code' if have_search_code else 'search_id'
+                count_key = (
+                    sobject_dict.get(key_column),
+                    sobject_dict.get('process'),
+                )
+                sobject_dict['__notes_count__'] = notes_count_by_key.get(
+                    count_key, 0
+                )
                 # there is no reason to search for tasks of tasks, this is never used
                 sobject_dict['__tasks_count__'] = 0
 
@@ -1296,23 +4653,15 @@ def query_sobjects(search_type, filters=[], order_bys=[], project_code=None, lim
 
                     sobject_dict['__status_log__'] = status_log_list
             else:
-                note_search = Search('sthpw/note')
-                if have_search_code:
-                    note_search.add_op_filters(
-                        [('process', 'publish'), ('search_type', search_type), ('search_code', sobject_dict['code'])])
-                else:
-                    note_search.add_op_filters(
-                        [('process', 'publish'), ('search_type', search_type), ('search_id', sobject_dict['id'])])
-
-                sobject_dict['__notes_count__'] = note_search.get_count()
-
-                task_search = Search('sthpw/task')
-                if have_search_code:
-                    task_search.add_op_filters([('search_type', search_type), ('search_code', sobject_dict['code'])])
-                else:
-                    task_search.add_op_filters([('search_type', search_type), ('search_id', sobject_dict['id'])])
-
-                sobject_dict['__tasks_count__'] = task_search.get_count()
+                count_key = sobject_dict.get(
+                    'code' if have_search_code else 'id'
+                )
+                sobject_dict['__notes_count__'] = notes_count_by_key.get(
+                    count_key, 0
+                )
+                sobject_dict['__tasks_count__'] = tasks_count_by_key.get(
+                    count_key, 0
+                )
 
         if include_snapshots:
             related_snapshots = []
@@ -1339,10 +4688,10 @@ def query_sobjects(search_type, filters=[], order_bys=[], project_code=None, lim
             sobject_dict['__snapshots__'] = snapshots_list
 
         if include_progress:
-            if progress_results:
-                sobject_dict['__progress__'] = progress_results[sobject.get_search_key()]
-            else:
-                sobject_dict['__progress__'] = {}
+            sobject_dict['__progress__'] = progress_results.get(
+                sobject.get_search_key(),
+                {},
+            )
 
     if compressed_return:
         return '{0}{1}'.format('zlib:', binascii.b2a_hex(zlib.compress(json.dumps(result, separators=(',', ':')).encode(), 9)).decode())
@@ -1472,35 +4821,70 @@ def edit_multiple_instance_sobjects(project_code, insert_search_keys=[], exclude
 
 
 def edit_multiple_tasks_sobjects(project_code, parent_search_keys=None, data=None):
-
-    from pyasm.search import SearchType
+    import json
+    from pyasm.search import SearchKey
 
     server.set_project(project_code)
+    parent_search_keys = list(parent_search_keys or [])
+    values = dict(data or {})
+    process = values.pop('process', None)
+    if not process:
+        raise ValueError('A process is required for task editing')
+    if not parent_search_keys:
+        return json.dumps({'updated': 0, 'created': 0})
 
-    # for search_key in insert_search_keys:
-    #
-    #     child_search_type, child_code = server.split_search_key(search_key)
-    #     parent_search_type, parent_code = server.split_search_key(parent_key)
-    #
-    #     dst_sobject= server.query(parent_search_type, [('code', parent_code)], return_sobjects=True)[0]
-    #     src_sobject = server.query(child_search_type, [('code', child_code)], return_sobjects=True)[0]
-    #
-    #     instance = SearchType.create(instance_type)
-    #     instance.add_related_connection(src_sobject, dst_sobject, src_path=path)
-    #     instance.commit()
-    #
-    # for search_key in exclude_search_keys:
-    #
-    #     child_search_type, child_code = server.split_search_key(search_key)
-    #     parent_search_type, parent_code = server.split_search_key(parent_key)
-    #
-    #     child_sobject = server.query(child_search_type, [('code', child_code)], return_sobjects=True)[0]
-    #     parent_sobject = server.query(parent_search_type, [('code', parent_code)], return_sobjects=True)[0]
-    #
-    #     child_sobject.remove_instance(parent_sobject)
-    #     # parent_sobject.remove_instance(child_sobject)
-    #
-    # return 'ok'
+    parents = []
+    parent_codes = []
+    for parent_key in parent_search_keys:
+        search_type, code = server.split_search_key(parent_key)
+        search_type = search_type.split('?', 1)[0]
+        parents.append((parent_key, search_type, code))
+        parent_codes.append(code)
+
+    filters = [
+        ('search_code', 'in', '|'.join(parent_codes)),
+        ('project_code', project_code),
+        ('process', process),
+    ]
+    tasks = server.query('sthpw/task', filters, return_sobjects=True) or []
+    tasks_by_parent = {}
+    for task in tasks:
+        key = (
+            str(task.get_value('search_type') or '').split('?', 1)[0],
+            str(task.get_value('search_code') or ''),
+        )
+        tasks_by_parent.setdefault(key, []).append(task)
+
+    updates = {}
+    created = 0
+    for parent_key, search_type, code in parents:
+        matches = tasks_by_parent.get((search_type, code), [])
+        if not matches:
+            # Older task rows may not store search_type. Code is still the
+            # canonical relation value, so use it only when unambiguous.
+            code_matches = [
+                task for (task_type, task_code), task_list in tasks_by_parent.items()
+                if not task_type and task_code == code
+                for task in task_list
+            ]
+            matches = code_matches
+        if matches:
+            for task in matches:
+                updates[SearchKey.get_by_sobject(task, use_id=False)] = dict(values)
+            continue
+        insert_data = dict(values)
+        insert_data['process'] = process
+        server.insert(
+            'sthpw/task', insert_data, parent_key=parent_key, triggers=True,
+        )
+        created += 1
+
+    if updates:
+        server.update_multiple(data=updates, triggers=True)
+    return json.dumps({
+        'updated': len(updates),
+        'created': created,
+    }, separators=(',', ':'))
 
 
 def get_virtual_snapshot_extended(search_key, context, files_dict, snapshot_type="file", is_revision=False, level_key=None, keep_file_name=False, explicit_filename=None, version=None, update_versionless=True, ignore_keep_file_name=False, checkin_type='file'):
