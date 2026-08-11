@@ -16,7 +16,6 @@ from PySide6.QtCore import (
     QObject,
     Property,
     QSettings,
-    Qt,
     QTimer,
     QUrl,
     Signal,
@@ -109,39 +108,18 @@ class SnapshotActionsMixin:
                 )
                 worker.start()
             elif command == "edit":
-                # This is the original schema-driven TACTIC EditWdg path,
-                # not the generic placeholder previously opened here.
-                from thlib.ui_classes.ui_addsobject_classes import (
-                    Ui_addTacticSobjectWidget,
-                )
-                sobject = self.workspace_state._selected_sobject
-                stype = sobject.get_stype() if sobject else None
+                stype = file_object.get_stype()
                 if not stype:
                     self._notify("The current search type is unavailable")
                     return
-                tab = self._current_tab()
-                editor = Ui_addTacticSobjectWidget(
-                    stype=stype,
-                    view="edit",
-                    tab_name=tab.title if tab else None,
-                    search_key=file_object.get_search_key(),
-                )
-                editor.setWindowTitle(
-                    "Editing file info for {0}".format(
-                        sobject.get_title() if sobject else "snapshot"
-                    )
-                )
-                editor.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose, True)
-                self._snapshot_editors.append(editor)
-
-                def release_editor(*_args, dialog=editor):
-                    try:
-                        self._snapshot_editors.remove(dialog)
-                    except ValueError:
-                        pass
-
-                editor.destroyed.connect(release_editor)
-                editor.show()
+                self._sobject_editor_request = {
+                    "mode": "edit",
+                    "stype": stype,
+                    "sobject": file_object,
+                    "parent_sobject": None,
+                    "_prepared": True,
+                }
+                self.open_window("add_sobject")
             elif command == "delete":
                 import thlib.tactic_classes as tc
                 delete_confirm = tc.sobject_delete_confirm([file_object])

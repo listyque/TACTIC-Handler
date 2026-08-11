@@ -276,7 +276,6 @@ class ApplicationController(
         self._tag_error = ""
         self._applying_tag_filters = False
         self._snapshot_check_request_id = ""
-        self._snapshot_editors = []
         self._node_load_requests: dict[str, tuple[str, float, str]] = {}
         self._restoring_nodes: set[str] = set()
         self._recursive_node_loads: set[str] = set()
