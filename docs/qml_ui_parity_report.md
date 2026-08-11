@@ -140,9 +140,19 @@ TACTIC, файловыми хранилищами и внешними проце
 - Фиктивных данных, debug prints, test endpoints и известных секретов в
   migration-коде/настройках не найдено. `pass` остаются только внутри
   ограниченных обработчиков исключений, не как заглушки.
-- Git metadata в предоставленной рабочей папке отсутствует, поэтому состояние
-  индекса, tracked logs, полный diff и случайные переименования автоматически
-  проверить нельзя.
+- Git metadata восстановлена в Block A; состояние индекса, tracked files, diff и
+  whitespace теперь входят в строгий Block F release gate.
 - Ручной merge gate: login/смена сервера, проекты и поиск на живом TACTIC;
   check-in/out, commit, Drop Plate, watchers/repositories, mutations/tasks/
   communication/update; Maya/DCC и внешние API tools.
+
+## Block F — итоговый автоматический допуск
+
+- Общий launcher переключён на QML по умолчанию без удаления явного legacy режима.
+- `tests/run_release_gate.py` объединяет `git diff --check`, compileall, полный
+  изолированный regression suite, legacy smoke и прямой/default launcher smoke из
+  внешней рабочей директории.
+- Машиночитаемый контракт отделяет автоматические доказательства от шести
+  обязательных ручных проверок реальной TACTIC/repository/Windows/Maya/visual среды.
+- До прохождения ручного допуска состояние: **автоматически допускается к merge
+  modern-разработки, но не объявлено production release candidate**.

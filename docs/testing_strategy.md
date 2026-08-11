@@ -99,3 +99,18 @@ Each module runs in a fresh process. Qt Quick, font, clipboard, socket, and QML
 engine globals therefore cannot leak into the next module. Plain `unittest discover`
 remains useful for non-QML subsets, but one long process is not a reliable lifecycle
 boundary for the complete PySide6 suite.
+
+## Block F release gate
+
+The strict merge entry point is now:
+
+```powershell
+python tests/run_release_gate.py
+```
+
+It adds worktree/whitespace checks, Python compilation, explicit legacy smoke and
+foreign-working-directory launcher smoke around the isolated suite. It intentionally
+does not turn live mutation, repository, Windows tray, Maya or visual acceptance
+into fake offline tests. Those required checks are declared in
+`tests/contracts/release_acceptance.json` and documented in
+`docs/release_readiness.md`.

@@ -45,4 +45,3 @@ The live adapter is intentionally not invoked by test discovery. It should be wi
 only in a controlled CI environment whose server preset points at the isolated test
 server/project. Before enabling it, run the read-only schema checks documented in
 `docs/tactic_database/06_LIVE_DATABASE_CHECK.md`.
-

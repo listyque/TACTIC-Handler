@@ -179,3 +179,14 @@ deferred Results/ApplicationController splits are recorded in
 `docs/modern_ui_component_policy.md`. Structural tests prevent the hosts from
 absorbing content again and forbid raw common Qt controls outside the shared
 control library.
+
+## Release and cutover gate
+
+Block F makes readiness executable without pretending that offline automation can
+certify a live TACTIC repository or DCC host. `tests/run_release_gate.py` is the
+single strict automated entry point: it checks the worktree, syntax, isolated
+contracts and scenarios, offscreen QML lifecycle, legacy compatibility, and both
+modern entry points from another working directory. Environment-dependent mutation,
+repository, Windows lifecycle, Maya and visual checks remain explicit required
+manual acceptance. See `docs/release_readiness.md` and
+`tests/contracts/release_acceptance.json`.

@@ -59,4 +59,3 @@ class MemorySettings:
 
     def setValue(self, key, value):
         self.values[key] = value
-

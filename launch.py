@@ -11,7 +11,7 @@ SUPPORTED_UIS = {"legacy", "qml"}
 
 
 def _selected_ui(arguments: list[str]) -> tuple[str, list[str]]:
-    selected = os.environ.get(UI_ENVIRONMENT_VARIABLE, "legacy").strip().lower()
+    selected = os.environ.get(UI_ENVIRONMENT_VARIABLE, "qml").strip().lower()
     forwarded = [arguments[0]]
     index = 1
     while index < len(arguments):

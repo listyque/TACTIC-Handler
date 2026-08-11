@@ -72,7 +72,4 @@ class RequestMetrics:
                 state["response_bytes"],
                 state["failed"],
             )
-
-
 request_metrics = RequestMetrics()
-

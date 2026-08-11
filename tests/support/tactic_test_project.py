@@ -107,4 +107,3 @@ def fixture_summary(manifest):
         collection: len(manifest.get(collection) or [])
         for collection in FixtureSeeder.COLLECTIONS
     }
-
