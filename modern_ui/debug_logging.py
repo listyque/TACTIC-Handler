@@ -30,6 +30,8 @@ from PySide6.QtCore import (
 )
 from PySide6.QtGui import QGuiApplication
 
+from .request_metrics import request_metrics
+
 
 LEVELS = (
     "LOG", "INFO", "WARNING", "MISSING", "EXCEPTION", "ERROR", "CRITICAL", "API",
@@ -1072,6 +1074,9 @@ class DebugLogController(QObject):
                 result = original(server, *args, **kwargs)
                 duration = time.perf_counter() - started_at
                 size_kb = self._payload_size_kb(result)
+                request_metrics.record_request(
+                    f"xmlrpc.{name}", duration, int(size_kb * 1024)
+                )
                 self.log(
                     "API",
                     f"{name} completed in {duration:.3f} s ({size_kb:.1f} KB)",
@@ -1085,6 +1090,9 @@ class DebugLogController(QObject):
                 return result
             except Exception as exception:
                 duration = time.perf_counter() - started_at
+                request_metrics.record_request(
+                    f"xmlrpc.{name}", duration, failed=True
+                )
                 stacktrace = traceback.format_exc()
                 self.raise_error(
                     exception,

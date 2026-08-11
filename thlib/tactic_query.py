@@ -2052,19 +2052,6 @@ def delete_chat_message(message_log_code):
     import json
     from pyasm.search import Search, SearchKey
 
-    def ensure_message_log_code(message_log):
-        if message_log.get_code():
-            return
-        record_id = message_log.get_id()
-        if not record_id:
-            raise RuntimeError('TACTIC message log has no code')
-        code = 'MESSAGE_LOG{0:05d}'.format(int(record_id))
-        server.update(
-            SearchKey.get_by_sobject(message_log, use_id=True),
-            {'code': code}, triggers=False,
-        )
-        message_log.set_value('code', code)
-
     current_login = server.get_login()
     message_log_ref = str(message_log_code or '')
     message_log = None
@@ -2078,7 +2065,8 @@ def delete_chat_message(message_log_code):
         message_log = log_search.get_sobject()
     if not message_log:
         raise RuntimeError('Message does not exist')
-    ensure_message_log_code(message_log)
+    if not message_log.get_code():
+        raise RuntimeError('TACTIC message log has no code')
     message_code = message_log.get_value('message_code')
     member_search = Search('sthpw/subscription')
     member_search.add_filter('message_code', message_code)
@@ -2185,19 +2173,6 @@ def edit_chat_message(message_log_code, message):
     import json
     from pyasm.search import Search, SearchKey
 
-    def ensure_message_log_code(message_log):
-        if message_log.get_code():
-            return
-        record_id = message_log.get_id()
-        if not record_id:
-            raise RuntimeError('TACTIC message log has no code')
-        code = 'MESSAGE_LOG{0:05d}'.format(int(record_id))
-        server.update(
-            SearchKey.get_by_sobject(message_log, use_id=True),
-            {'code': code}, triggers=False,
-        )
-        message_log.set_value('code', code)
-
     current_login = server.get_login()
     message_log_ref = str(message_log_code or '')
     if message_log_ref.startswith('sthpw/message_log'):
@@ -2208,7 +2183,8 @@ def edit_chat_message(message_log_code, message):
         message_log = log_search.get_sobject()
     if not message_log:
         raise RuntimeError('Message does not exist')
-    ensure_message_log_code(message_log)
+    if not message_log.get_code():
+        raise RuntimeError('TACTIC message log has no code')
     message_code = message_log.get_value('message_code')
     member_search = Search('sthpw/subscription')
     member_search.add_filter('message_code', message_code)
@@ -2360,19 +2336,6 @@ def pin_chat_message(message_log_code, unpin=False):
     import json
     from pyasm.search import Search, SearchKey
 
-    def ensure_message_log_code(message_log):
-        if message_log.get_code():
-            return
-        record_id = message_log.get_id()
-        if not record_id:
-            raise RuntimeError('TACTIC message log has no code')
-        code = 'MESSAGE_LOG{0:05d}'.format(int(record_id))
-        server.update(
-            SearchKey.get_by_sobject(message_log, use_id=True),
-            {'code': code}, triggers=False,
-        )
-        message_log.set_value('code', code)
-
     current_login = server.get_login()
     message_log_ref = str(message_log_code or '')
     if message_log_ref.startswith('sthpw/message_log'):
@@ -2383,7 +2346,8 @@ def pin_chat_message(message_log_code, unpin=False):
         message_log = log_search.get_sobject()
     if not message_log:
         raise RuntimeError('Message does not exist')
-    ensure_message_log_code(message_log)
+    if not message_log.get_code():
+        raise RuntimeError('TACTIC message log has no code')
     message_code = message_log.get_value('message_code')
     member_search = Search('sthpw/subscription')
     member_search.add_filter('message_code', message_code)
@@ -2449,25 +2413,6 @@ def query_chat_history(message_code, limit=31, offset=0, search_text=''):
     from pyasm.biz import Snapshot
     from pyasm.search import Search, SearchKey
 
-    def ensure_message_log_codes(message_logs):
-        updates = {}
-        pending = []
-        for message_log in message_logs:
-            if message_log.get_code():
-                continue
-            record_id = message_log.get_id()
-            if not record_id:
-                raise RuntimeError('TACTIC message log has no code')
-            code = 'MESSAGE_LOG{0:05d}'.format(int(record_id))
-            updates[SearchKey.get_by_sobject(message_log, use_id=True)] = {
-                'code': code,
-            }
-            pending.append((message_log, code))
-        if updates:
-            server.update_multiple(data=updates, triggers=False)
-            for message_log, code in pending:
-                message_log.set_value('code', code)
-
     current_login = server.get_login()
     member_search = Search('sthpw/subscription')
     member_search.add_filter('message_code', message_code)
@@ -2488,7 +2433,7 @@ def query_chat_history(message_code, limit=31, offset=0, search_text=''):
     if offset:
         history_search.set_offset(int(offset))
     history = history_search.get_sobjects()
-    ensure_message_log_codes(history)
+    history = [item for item in history if item.get_code()]
     history_codes = [item.get_code() for item in history if item.get_code()]
 
     metadata_by_log = {}
@@ -3097,25 +3042,6 @@ def query_server_updates(message_after='', activity_after='', project_code='',
             })
         return records
 
-    def ensure_message_log_codes(message_logs):
-        updates = {}
-        pending = []
-        for message_log in message_logs:
-            if message_log.get_code():
-                continue
-            record_id = message_log.get_id()
-            if not record_id:
-                raise RuntimeError('TACTIC message log has no code')
-            code = 'MESSAGE_LOG{0:05d}'.format(int(record_id))
-            updates[SearchKey.get_by_sobject(message_log, use_id=True)] = {
-                'code': code,
-            }
-            pending.append((message_log, code))
-        if updates:
-            server.update_multiple(data=updates, triggers=False)
-            for message_log, code in pending:
-                message_log.set_value('code', code)
-
     def event_timestamp(value):
         try:
             parsed = loads(value)
@@ -3147,7 +3073,7 @@ def query_server_updates(message_after='', activity_after='', project_code='',
             search.add_order_by('timestamp', direction='desc')
         search.set_limit(limit)
         message_logs = search.get_sobjects()
-        ensure_message_log_codes(message_logs)
+        message_logs = [item for item in message_logs if item.get_code()]
         attachment_counts = {}
         message_log_codes = [
             item.get_code() for item in message_logs if item.get_code()

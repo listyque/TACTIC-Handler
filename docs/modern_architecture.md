@@ -143,3 +143,14 @@ actions. See `docs/handler_server_architecture.md` for protocol details.
 The Snapshot Browser file editor now routes through the existing schema-driven
 modern sObject editor. This removes the only discovered modern-to-legacy QWidget
 window dependency without changing the core TACTIC edit workflow.
+
+## Executable architecture contracts
+
+Block C turns these boundaries into a layered test harness. Server procedures,
+returned shapes, code-based identities, metadata, native object behavior, and the
+public `thlib` API are contract-tested. Deterministic controller scenarios exercise
+worker cancellation, stale results, persistence, and cache invalidation. The real
+QML composition root is loaded offscreen with isolated settings and no network,
+then every standalone window is reopened before ordered shutdown. Request/cache
+metrics enforce stable call-count budgets. See `docs/testing_strategy.md` and
+`docs/tactic_test_project.md`.

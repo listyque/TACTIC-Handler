@@ -11,6 +11,7 @@ from PySide6.QtCore import QObject, QTimer, QUrl, Qt, Signal, Slot
 from PySide6.QtGui import QGuiApplication
 
 from .workspace_models.results_presentation import PresentationMixin
+from .request_metrics import request_metrics
 
 
 SKEY_PATTERN = re.compile(r"skey://[^\s<>\"]+")
@@ -148,6 +149,7 @@ class SearchKeyPreviewResolver(QObject):
         scope = self._scope()
         for search_key in extract_skeys(value):
             cached = self._cache.get((*scope, search_key))
+            request_metrics.record_cache("cache.skey_preview", bool(cached))
             records.append(dict(cached or self._placeholder(search_key)))
             if not cached:
                 unresolved.append(search_key)

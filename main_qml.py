@@ -17,6 +17,7 @@ os.environ.setdefault("QSG_RENDER_LOOP", "threaded")
 from PySide6.QtCore import (
     QEvent,
     QObject,
+    QSettings,
     QTimer,
     QUrl,
     Qt,
@@ -24,7 +25,7 @@ from PySide6.QtCore import (
     Signal,
     qInstallMessageHandler,
 )
-from PySide6.QtGui import QFont, QIcon
+from PySide6.QtGui import QFont, QGuiApplication, QIcon
 from PySide6.QtQml import QQmlApplicationEngine
 from PySide6.QtQuickControls2 import QQuickStyle
 from PySide6.QtWidgets import QApplication
@@ -186,6 +187,17 @@ class QtRuntimeLogBridge(QObject):
 
 
 def main() -> int:
+    smoke_offline = os.environ.get("TACTIC_QML_SMOKE_OFFLINE", "") == "1"
+    test_settings_dir = os.environ.get("TACTIC_QML_TEST_SETTINGS_DIR", "")
+    if test_settings_dir:
+        settings_path = Path(test_settings_dir).resolve()
+        settings_path.mkdir(parents=True, exist_ok=True)
+        QSettings.setDefaultFormat(QSettings.Format.IniFormat)
+        QSettings.setPath(
+            QSettings.Format.IniFormat,
+            QSettings.Scope.UserScope,
+            str(settings_path),
+        )
     QQuickStyle.setStyle("Material")
     # Qt 6 can resolve the Windows fixed-pitch fallback to the bitmap-only
     # Fixedsys face, which DirectWrite cannot instantiate.
@@ -534,6 +546,9 @@ def main() -> int:
         "fontAwesomeRegularGlyphs", regular_icon_glyphs
     )
     engine.rootContext().setContextProperty(
+        "qmlSmokeMode", bool(smoke_offline)
+    )
+    engine.rootContext().setContextProperty(
         "fontAwesomeRegularFontFamily", regular_icon_font_family
     )
     engine.rootContext().setContextProperty(
@@ -833,9 +848,10 @@ def main() -> int:
     handler_server_controller.showWindowRequested.connect(
         tray_controller.show_window
     )
-    QTimer.singleShot(0, controller.bootstrap_server)
-    QTimer.singleShot(0, handler_server_controller.start_server)
-    QTimer.singleShot(0, server_update_service.start)
+    if not smoke_offline:
+        QTimer.singleShot(0, controller.bootstrap_server)
+        QTimer.singleShot(0, handler_server_controller.start_server)
+        QTimer.singleShot(0, server_update_service.start)
 
     startup_hook_pending = {"value": True}
 
@@ -883,7 +899,24 @@ def main() -> int:
                 controller.window_model.show_window(window_id)
             else:
                 controller.window_model.close_window(window_id)
-            QTimer.singleShot(35, advance_window_smoke)
+
+            def verify_and_continue() -> None:
+                for window in QGuiApplication.allWindows():
+                    if not window.isVisible():
+                        continue
+                    minimum_width = int(window.minimumWidth())
+                    minimum_height = int(window.minimumHeight())
+                    if window.width() < minimum_width:
+                        qml_errors.append(
+                            f"{window.title()}: width below minimum"
+                        )
+                    if window.height() < minimum_height:
+                        qml_errors.append(
+                            f"{window.title()}: height below minimum"
+                        )
+                advance_window_smoke()
+
+            QTimer.singleShot(35, verify_and_continue)
 
         QTimer.singleShot(0, advance_window_smoke)
     smoke_exit_ms = int(os.environ.get("TACTIC_QML_SMOKE_EXIT_MS", "0") or 0)

@@ -1,0 +1,14 @@
+{
+  "message": {
+    "allowed": ["attachments", "conversation", "edited", "forwarded", "mentions", "pinned", "reactions", "reply"],
+    "identity": "code"
+  },
+  "note": {
+    "allowed": ["attachments", "edited", "mentions", "reply", "status"],
+    "identity": "code"
+  },
+  "presence": {
+    "allowed": ["heartbeat_at", "login", "session"],
+    "identity": "login"
+  }
+}

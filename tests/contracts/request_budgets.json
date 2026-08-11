@@ -1,0 +1,5 @@
+{
+  "cache.skey_preview": {"cacheMisses": 1, "minimumCacheHits": 1},
+  "server.poll": {"calls": 1},
+  "window.reopen": {"xmlrpcCalls": 0}
+}

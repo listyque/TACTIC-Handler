@@ -8,6 +8,8 @@ from PySide6.QtCore import (
     QObject, Property, QSettings, QTimer, Qt, Signal, Slot,
 )
 
+from .request_metrics import request_metrics
+
 
 class ServerUpdateService(QObject):
     batchReady = Signal(object)
@@ -54,6 +56,7 @@ class ServerUpdateService(QObject):
         self._request_included_activity = False
         self._request_included_presence = False
         self._last_presence_at = 0.0
+        self._request_generation = 0
         application.project_changed.connect(self._project_changed)
 
     @Property(bool, notify=stateChanged)
@@ -116,6 +119,7 @@ class ServerUpdateService(QObject):
 
     @Slot()
     def stop(self) -> None:
+        self._request_generation += 1
         self._running = False
         self._timer.stop()
         cancel = getattr(self._worker, "cancel", None)
@@ -126,6 +130,12 @@ class ServerUpdateService(QObject):
         self.stateChanged.emit()
 
     def _project_changed(self, *_args) -> None:
+        self._request_generation += 1
+        cancel = getattr(self._worker, "cancel", None)
+        if callable(cancel):
+            cancel()
+        self._worker = None
+        self._busy = False
         self._activity_cursor = ""
         self._initial_activity = True
         self._failure_count = 0
@@ -199,17 +209,22 @@ class ServerUpdateService(QObject):
             import thlib.tactic_classes as tc
 
             try:
-                return tc.get_server_updates(
-                    message_after=message_cursor,
-                    activity_after=activity_cursor,
-                    reaction_after=reaction_cursor,
-                    project_code=project_code,
-                    limit=101,
-                    include_activity=include_activity,
-                    include_reactions=include_reactions,
-                    include_presence=include_presence,
-                    presence_ttl=max(360, self._presence_interval * 3),
-                )
+                with request_metrics.measure("server.poll") as metric:
+                    result = tc.get_server_updates(
+                        message_after=message_cursor,
+                        activity_after=activity_cursor,
+                        reaction_after=reaction_cursor,
+                        project_code=project_code,
+                        limit=101,
+                        include_activity=include_activity,
+                        include_reactions=include_reactions,
+                        include_presence=include_presence,
+                        presence_ttl=max(360, self._presence_interval * 3),
+                    )
+                    metric["response_bytes"] = len(
+                        repr(result).encode("utf-8", errors="replace")
+                    )
+                    return result
             except Exception as error:
                 if not self._is_transient_error(error):
                     raise
@@ -224,11 +239,31 @@ class ServerUpdateService(QObject):
             self._schedule(10000)
             return
         self._worker = worker
+        self._request_generation += 1
+        request_generation = self._request_generation
         self._busy = True
         self.stateChanged.emit()
-        worker.result.connect(self._ready, Qt.ConnectionType.QueuedConnection)
-        worker.error.connect(self._failed, Qt.ConnectionType.QueuedConnection)
+        worker.result.connect(
+            lambda result, generation=request_generation:
+                self._ready_for(generation, result),
+            Qt.ConnectionType.QueuedConnection,
+        )
+        worker.error.connect(
+            lambda error, generation=request_generation:
+                self._failed_for(generation, error),
+            Qt.ConnectionType.QueuedConnection,
+        )
         worker.start()
+
+    def _ready_for(self, generation: int, result) -> None:
+        if generation != self._request_generation or not self._running:
+            return
+        self._ready(result)
+
+    def _failed_for(self, generation: int, error) -> None:
+        if generation != self._request_generation or not self._running:
+            return
+        self._failed(error)
 
     @staticmethod
     def _value(result):

@@ -67,8 +67,9 @@ class ItemOperationsMixin:
                 version = max(0, int(snapshot.get("version") or 0))
             except (TypeError, ValueError):
                 version = 0
+        workspace_state = getattr(self, "workspace_state", None)
         pinned_description = str(
-            self.workspace_state.checkinDescription or ""
+            getattr(workspace_state, "checkinDescription", "") or ""
         )
         if pinned_description:
             description = pinned_description

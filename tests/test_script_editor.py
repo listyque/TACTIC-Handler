@@ -207,6 +207,7 @@ class ScriptEditorTests(unittest.TestCase):
                 with self.assertRaisesRegex(RuntimeError, "script boom"):
                     controller._run_server("raise RuntimeError('script boom')")
             self.assertFalse(debug_log.error_visible)
+            debug_log.shutdown()
 
     def test_script_run_suppresses_dialog_from_worker_and_gui_paths(self):
         with TemporaryDirectory() as directory:
@@ -224,6 +225,7 @@ class ScriptEditorTests(unittest.TestCase):
             debug_log.end_inline_error_output("script-editor-run")
             debug_log.raise_error(RuntimeError("ordinary application error"))
             self.assertTrue(debug_log.error_visible)
+            debug_log.shutdown()
 
     def test_run_button_worker_error_stays_in_output(self):
         from thlib.environment import env_inst
@@ -258,6 +260,7 @@ class ScriptEditorTests(unittest.TestCase):
             self.assertIn("run button script error", controller.output)
             self.assertFalse(debug_log.error_visible)
             self.assertFalse(debug_log._inline_error_owners)
+            debug_log.shutdown()
 
 
 if __name__ == "__main__":

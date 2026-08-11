@@ -1131,7 +1131,7 @@ ApplicationWindow {
 
     WindowHost {
         theme: theme
-        workspaceEnabled: window.workspaceAccessible
+        workspaceEnabled: window.workspaceAccessible || qmlSmokeMode
     }
     ErrorDialog {
         ownerWindow: window

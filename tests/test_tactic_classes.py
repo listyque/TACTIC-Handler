@@ -329,7 +329,7 @@ class ChatHistoryTests(unittest.TestCase):
             "search_text": "render ready",
         })
 
-    def test_history_assigns_codes_before_generating_search_keys(self):
+    def test_history_requires_codes_before_generating_search_keys(self):
         code = tq.prepare_serverside_script(
             tq.query_chat_history,
             {
@@ -342,9 +342,9 @@ class ChatHistoryTests(unittest.TestCase):
             catch_traceback=False,
         )["code"]
 
-        self.assertIn("server.update_multiple(data=updates", code)
+        self.assertNotIn("use_id=True", code)
         self.assertLess(
-            code.index("ensure_message_log_codes(history)"),
+            code.index("history = [item for item in history if item.get_code()]"),
             code.index("data['__search_key__'] = SearchKey.get_by_sobject("),
         )
         self.assertNotIn("info.get(\"id\")", code)
