@@ -163,3 +163,19 @@ check-in/files, messages/users/activity, and Handler Server/DCC. Their single
 manifest maps every workflow to contract tests, controller tests, QML components,
 registered windows, and guarded live checks. The shared contract and offscreen QML
 smoke layers run for every vertical. See `docs/vertical_stabilization.md`.
+
+## Structural ownership and UI policy
+
+Block E removes content ownership from application hosts. `FloatingWindowModel`
+is the single standalone-window registry and supplies each component source and
+its construction parameters; `WindowContent.qml` is now only a generic loader.
+`DockHost.qml` owns placement, stacking, detaching, and resizing, while the
+existing dock content components live in `DockContentRegistry.qml`.
+
+Retained UI data has an explicit owner, key, TTL decision, invalidation event,
+refresh entry point, stale-data rule, and maximum size. See
+`docs/cache_invalidation_policy.md`. Shared control rules and the deliberately
+deferred Results/ApplicationController splits are recorded in
+`docs/modern_ui_component_policy.md`. Structural tests prevent the hosts from
+absorbing content again and forbid raw common Qt controls outside the shared
+control library.

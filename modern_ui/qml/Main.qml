@@ -400,12 +400,12 @@ ApplicationWindow {
                         ? 12 : 0
                     spacing: 7
 
-                    BusyIndicator {
+                    Md3BusyIndicator {
+                        uiTheme: theme
                         visible: notificationActivityButton.showingProgress
                         running: visible
                         Layout.preferredWidth: 22
                         Layout.preferredHeight: 22
-                        palette.highlight: theme.action
                     }
                     Label {
                         id: notificationActivityLabel
@@ -968,12 +968,12 @@ ApplicationWindow {
                     border.width: 1
                     border.color: theme.outline
                 }
-                BusyIndicator {
+                Md3BusyIndicator {
+                    uiTheme: theme
                     anchors.centerIn: parent
                     width: 56
                     height: 56
                     running: startupLoadingOverlay.opacity > 0
-                    palette.highlight: theme.action
                 }
             }
 

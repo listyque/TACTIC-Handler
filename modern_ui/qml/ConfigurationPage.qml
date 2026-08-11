@@ -251,7 +251,8 @@ Item {
                                     font.pixelSize: 9
                                     elide: Text.ElideRight
                                 }
-                                BusyIndicator {
+                                Md3BusyIndicator {
+                                    uiTheme: page.theme
                                     visible:
                                         configurationController.server_test_busy
                                     running: visible

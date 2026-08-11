@@ -6,6 +6,7 @@ import json
 import re
 import traceback
 import uuid
+from collections import OrderedDict
 from pathlib import Path
 from urllib.parse import parse_qsl
 
@@ -88,6 +89,7 @@ def _chat_data():
 
 
 class MessagesController(QObject):
+    CONVERSATION_CACHE_LIMIT = 12
     stateChanged = Signal()
     messageSent = Signal()
     newMessage = Signal(str, str, str)
@@ -161,7 +163,8 @@ class MessagesController(QObject):
         self._pending_history_load = None
         self._loaded_conversation_id = ""
         self._loaded_server_timestamp = ""
-        self._conversation_cache = {}
+        self._conversation_cache = OrderedDict()
+        self._conversation_cache_limit = self.CONVERSATION_CACHE_LIMIT
         self._dirty_conversations = set()
         self._read_worker = None
         self._visible = False
@@ -501,6 +504,8 @@ class MessagesController(QObject):
             "previewFiles": dict(self._preview_files),
             "serverTimestamp": self._loaded_server_timestamp,
         }
+        while len(self._conversation_cache) > self._conversation_cache_limit:
+            self._conversation_cache.popitem(last=False)
 
     def _restore_cached_history(self, conversation_id):
         cached = self._conversation_cache.pop(conversation_id, None)

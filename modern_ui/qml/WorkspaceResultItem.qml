@@ -271,12 +271,10 @@ Item {
                 scale: root.nodeLoading ? 1 : 0.72
                 antialiasing: true
                 smooth: true
-                BusyIndicator {
+                Md3BusyIndicator {
+                    uiTheme: root.theme
                     anchors.fill: parent
                     running: root.nodeLoading
-                    palette.highlight: root.theme.action
-                    palette.dark: root.theme.action
-                    palette.light: root.theme.action
                 }
                 Behavior on opacity { NumberAnimation { duration: 150 } }
                 Behavior on scale {

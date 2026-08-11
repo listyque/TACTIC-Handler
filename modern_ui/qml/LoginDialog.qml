@@ -199,7 +199,8 @@ Window {
                         Layout.fillWidth: true
                         spacing: 8
 
-                        BusyIndicator {
+                        Md3BusyIndicator {
+                            uiTheme: root.theme
                             visible: appController.authentication_busy
                             running: visible
                             Layout.preferredWidth: 24

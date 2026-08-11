@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections import OrderedDict
 from collections.abc import Iterable
 from dataclasses import asdict, dataclass, replace
 from pathlib import Path
@@ -331,12 +332,13 @@ class ProjectModel(QAbstractListModel):
     RetiredRole = Qt.UserRole + 7
     filter_changed = Signal()
     preview_ready = Signal(str, str)
+    _preview_cache_limit = 256
 
     def __init__(self) -> None:
         super().__init__()
         self._all_entries: list[object] = []
         self._entries: list[object] = []
-        self._preview_cache: dict[str, str] = {}
+        self._preview_cache: OrderedDict[str, str] = OrderedDict()
         self._pending_preview_paths: dict[str, str] = {}
         self.repository_sync = None
         self._show_retired = False
@@ -481,6 +483,7 @@ class ProjectModel(QAbstractListModel):
     def preview_for(self, project) -> str:
         code = project.get_code()
         if code in self._preview_cache:
+            self._preview_cache.move_to_end(code)
             return self._preview_cache[code]
         preview_url = ""
         for process_name in ("icon", "publish"):
@@ -520,8 +523,14 @@ class ProjectModel(QAbstractListModel):
                     break
             if preview_url:
                 break
-        self._preview_cache[code] = preview_url
+        self._store_preview(code, preview_url)
         return preview_url
+
+    def _store_preview(self, code: str, preview_url: str) -> None:
+        self._preview_cache[code] = preview_url
+        self._preview_cache.move_to_end(code)
+        while len(self._preview_cache) > self._preview_cache_limit:
+            self._preview_cache.popitem(last=False)
 
     def localize_preview(self, local_path: str) -> None:
         resolved = str(Path(local_path).resolve())

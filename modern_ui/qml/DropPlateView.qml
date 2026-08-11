@@ -284,7 +284,8 @@ Item {
                     anchors.centerIn: parent
                     spacing: 7
                     visible: dropPlateController.busy
-                    BusyIndicator {
+                    Md3BusyIndicator {
+                        uiTheme: root.theme
                         anchors.horizontalCenter: parent.horizontalCenter
                         running: visible
                     }

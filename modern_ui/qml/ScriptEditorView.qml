@@ -527,7 +527,8 @@ Item {
                         font.pixelSize: 11
                         font.weight: Font.DemiBold
                     }
-                    BusyIndicator {
+                    Md3BusyIndicator {
+                        uiTheme: root.theme
                         Layout.preferredWidth: 22
                         Layout.preferredHeight: 22
                         visible: scriptEditorController.busy

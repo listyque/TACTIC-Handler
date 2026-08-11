@@ -105,7 +105,8 @@ Item {
         font.pixelSize: root.previewSize > 40 ? 10 : 8
         font.weight: Font.DemiBold
     }
-    BusyIndicator {
+    Md3BusyIndicator {
+        uiTheme: root.theme
         anchors.centerIn: parent
         width: Math.min(24, root.width * 0.45)
         height: width

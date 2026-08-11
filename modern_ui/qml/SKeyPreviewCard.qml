@@ -188,7 +188,8 @@ Rectangle {
         Item {
             Layout.preferredWidth: 28
             Layout.preferredHeight: 28
-            BusyIndicator {
+            Md3BusyIndicator {
+                uiTheme: root.theme
                 anchors.fill: parent
                 visible: root.state === "loading"
                 running: visible
@@ -251,7 +252,8 @@ Rectangle {
             Layout.preferredWidth: 28
             Layout.preferredHeight: 28
 
-            BusyIndicator {
+            Md3BusyIndicator {
+                uiTheme: root.theme
                 anchors.fill: parent
                 visible: root.state === "loading"
                 running: visible

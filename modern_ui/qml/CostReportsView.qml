@@ -33,7 +33,8 @@ Item {
         wrapMode: Text.WordWrap
     }
 
-    BusyIndicator {
+    Md3BusyIndicator {
+        uiTheme: root.theme
         anchors.centerIn: parent
         running: workHoursController.busy
         visible: running

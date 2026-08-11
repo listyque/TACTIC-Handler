@@ -21,6 +21,8 @@ Window {
     required property int stackOrder
     required property bool windowBlocking
     required property string geometryMode
+    required property string contentSource
+    required property var contentProperties
     property bool geometryReady: false
     property bool restoringGeometry: false
 
@@ -92,8 +94,8 @@ Window {
                     Qt.resolvedUrl("WindowContent.qml"),
                     {
                         "theme": root.theme,
-                        "kind": root.kind,
-                        "windowId": root.windowId
+                        "contentSource": root.contentSource,
+                        "contentProperties": root.contentProperties
                     }
                 )
             }

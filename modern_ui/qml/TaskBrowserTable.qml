@@ -845,7 +845,8 @@ Item {
                         Item {
                             Layout.preferredWidth: 30
                             Layout.preferredHeight: 30
-                            BusyIndicator {
+                            Md3BusyIndicator {
+                                uiTheme: root.theme
                                 anchors.centerIn: parent
                                 width: 22
                                 height: 22
@@ -1001,7 +1002,8 @@ Item {
                     height: 30
                     z: 40
 
-                    BusyIndicator {
+                    Md3BusyIndicator {
+                        uiTheme: root.theme
                         anchors.centerIn: parent
                         width: 22
                         height: 22

@@ -338,7 +338,8 @@ Item {
                     }
                 }
 
-                BusyIndicator {
+                Md3BusyIndicator {
+                    uiTheme: root.theme
                     anchors.horizontalCenter: parent.horizontalCenter
                     running: sobjectEditorController.busy
                     visible: running

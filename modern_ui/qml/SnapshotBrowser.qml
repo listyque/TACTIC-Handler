@@ -665,7 +665,8 @@ Item {
                                         || !fileRow.matchesRemote)
                                 Layout.preferredWidth: visible ? 20 : 0
                                 Layout.preferredHeight: 20
-                                BusyIndicator {
+                                Md3BusyIndicator {
+                                    uiTheme: root.theme
                                     anchors.fill: parent
                                     visible: fileRow.checking
                                     running: visible

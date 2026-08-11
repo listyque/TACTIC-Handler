@@ -78,7 +78,8 @@ Item {
                         onActivated:
                             filterEditorController.select_preset(currentIndex)
                     }
-                    BusyIndicator {
+                    Md3BusyIndicator {
+                        uiTheme: root.theme
                         Layout.preferredWidth: 28
                         Layout.preferredHeight: 28
                         running: filterEditorController.busy

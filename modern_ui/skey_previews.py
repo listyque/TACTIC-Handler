@@ -43,6 +43,7 @@ def display_html_without_skeys(value):
 
 
 class SearchKeyPreviewResolver(QObject):
+    CACHE_LIMIT = 768
     previewReady = Signal(str, object)
     previewsReady = Signal(object)
 
@@ -60,7 +61,7 @@ class SearchKeyPreviewResolver(QObject):
         super().__init__(parent or application)
         self._application = application
         self._cache = OrderedDict()
-        self._cache_limit = 768
+        self._cache_limit = self.CACHE_LIMIT
         self._queued = set()
         self._pending = set()
         self._visual_pending = set()

@@ -38,7 +38,8 @@ Item {
                 font.weight: Font.DemiBold
             }
             Item { Layout.fillWidth: true }
-            BusyIndicator {
+            Md3BusyIndicator {
+                uiTheme: root.theme
                 Layout.preferredWidth: 24
                 Layout.preferredHeight: 24
                 running: repositorySync.discovery_active

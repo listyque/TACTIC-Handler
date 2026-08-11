@@ -1,5 +1,6 @@
 singleton ActionMenuCoordinator 1.0 ActionMenuCoordinator.qml
 Md3Button 1.0 Md3Button.qml
+Md3BusyIndicator 1.0 Md3BusyIndicator.qml
 Md3TextField 1.0 Md3TextField.qml
 Md3TextArea 1.0 Md3TextArea.qml
 Md3CheckBox 1.0 Md3CheckBox.qml

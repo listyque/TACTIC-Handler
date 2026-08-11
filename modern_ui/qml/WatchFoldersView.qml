@@ -37,7 +37,8 @@ Item {
                     font.pixelSize: 11
                     font.weight: Font.DemiBold
                 }
-                BusyIndicator {
+                Md3BusyIndicator {
+                    uiTheme: root.theme
                     visible: watchFoldersController.busy
                     running: visible
                     implicitWidth: 22

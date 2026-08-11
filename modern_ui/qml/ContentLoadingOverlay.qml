@@ -29,7 +29,8 @@ Item {
         width: Math.min(420, Math.max(180, root.width - 40))
         spacing: 10
 
-        BusyIndicator {
+        Md3BusyIndicator {
+            uiTheme: root.theme
             Layout.alignment: Qt.AlignHCenter
             running: root.visible
         }

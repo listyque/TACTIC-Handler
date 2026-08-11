@@ -501,7 +501,8 @@ Item {
                 font.pixelSize: 9
                 font.weight: Font.DemiBold
             }
-            BusyIndicator {
+            Md3BusyIndicator {
+                uiTheme: root.theme
                 Layout.preferredWidth: 22
                 Layout.preferredHeight: 22
                 visible: tasksController.busy

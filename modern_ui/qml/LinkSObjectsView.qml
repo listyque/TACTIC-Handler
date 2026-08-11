@@ -127,7 +127,8 @@ Item {
                 anchors.fill: parent
                 anchors.leftMargin: 20
                 anchors.rightMargin: 20
-                BusyIndicator {
+                Md3BusyIndicator {
+                    uiTheme: root.theme
                     running: sobjectLinkController.busy
                     visible: running
                 }

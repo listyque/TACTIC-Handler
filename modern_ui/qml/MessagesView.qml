@@ -1848,7 +1848,8 @@ Item {
                         Item {
                             Layout.preferredWidth: 20
                             Layout.preferredHeight: 20
-                            BusyIndicator {
+                            Md3BusyIndicator {
+                                uiTheme: root.theme
                                 anchors.fill: parent
                                 visible: messagesController.busy
                                 running: visible
@@ -2739,12 +2740,12 @@ Item {
                     Column {
                         anchors.centerIn: parent
                         spacing: 9
-                        BusyIndicator {
+                        Md3BusyIndicator {
+                            uiTheme: root.theme
                             anchors.horizontalCenter: parent.horizontalCenter
                             width: 30
                             height: 30
                             running: parent.parent.visible
-                            palette.highlight: root.theme.action
                         }
                         Label {
                             anchors.horizontalCenter: parent.horizontalCenter

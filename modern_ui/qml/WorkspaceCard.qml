@@ -300,7 +300,8 @@ Item {
                     }
                 }
             }
-            BusyIndicator {
+            Md3BusyIndicator {
+                uiTheme: root.theme
                 anchors.centerIn: parent
                 width: 28
                 height: 28

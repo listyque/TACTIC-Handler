@@ -47,7 +47,48 @@ class FloatingWindowModel(QAbstractListModel):
     ZRole = Qt.UserRole + 9
     BlockingRole = Qt.UserRole + 10
     GeometryModeRole = Qt.UserRole + 11
+    ContentSourceRole = Qt.UserRole + 12
+    ContentPropertiesRole = Qt.UserRole + 13
     _settings_key = "workspace/floatingWindowsV1"
+
+    _configuration_pages = frozenset({
+        "server", "project", "checkin_preferences",
+        "checkinout_preferences", "global_preferences",
+        "maya_preferences",
+    })
+    _content_sources = {
+        "configuration": "ConfigurationView.qml",
+        "asset_browser": "AssetsBrowserView.qml",
+        "sobject_info": "SObjectInfoView.qml",
+        "filter_editor": "FilterEditorView.qml",
+        "columns_editor": "ColumnsEditorView.qml",
+        "naming_editor": "NamingEditorView.qml",
+        "preview_editor": "FilePreparationEditor.qml",
+        "attachments_editor": "FilePreparationEditor.qml",
+        "server_presets": "ServerPresetsView.qml",
+        "screenshot_maker": "ScreenshotMakerView.qml",
+        "handler_server": "HandlerServerView.qml",
+        "script_editor": "ScriptEditorView.qml",
+        "debug_log": "DebugLogView.qml",
+        "repository_sync": "RepositorySyncView.qml",
+        "commit_queue": "CommitQueueView.qml",
+        "messages": "MessagesView.qml",
+        "notifications": "NotificationsView.qml",
+        "activity_feed": "ActivityFeedView.qml",
+        "user_profile": "UserProfileView.qml",
+        "tasks_workspace": "TasksWorkspaceView.qml",
+        "milestone_manager": "MilestoneManagerView.qml",
+        "update": "UpdateView.qml",
+        "create_update": "UpdateView.qml",
+        "matching_templates": "MatchingTemplatesView.qml",
+        "repository_editor": "RepositoryEditorView.qml",
+        "db_table": "DatabaseBatchEditorView.qml",
+        "maya_options": "MayaOptionsView.qml",
+        "add_sobject": "SObjectFieldEditor.qml",
+        "task_editor": "SObjectFieldEditor.qml",
+        "link_sobjects": "LinkSObjectsView.qml",
+        "confirm": "ConfirmationWindow.qml",
+    }
 
     def __init__(self, settings: QSettings) -> None:
         super().__init__()
@@ -131,7 +172,39 @@ class FloatingWindowModel(QAbstractListModel):
             self.XRole: b"windowX", self.YRole: b"windowY", self.WidthRole: b"windowWidth",
             self.HeightRole: b"windowHeight", self.VisibleRole: b"windowVisible", self.ZRole: b"stackOrder",
             self.BlockingRole: b"windowBlocking", self.GeometryModeRole: b"geometryMode",
+            self.ContentSourceRole: b"contentSource",
+            self.ContentPropertiesRole: b"contentProperties",
         }
+
+    @classmethod
+    def _content_source(cls, window: FloatingWindow) -> str:
+        if window.kind in cls._configuration_pages:
+            return "ConfigurationPage.qml"
+        return cls._content_sources.get(window.kind, "UnregisteredWindow.qml")
+
+    @staticmethod
+    def _content_properties(window: FloatingWindow) -> dict[str, object]:
+        if window.kind == "configuration":
+            return {"windowId": window.window_id}
+        if window.kind in FloatingWindowModel._configuration_pages:
+            return {"pageId": window.kind}
+        if window.kind in {"filter_editor", "matching_templates", "repository_editor"}:
+            return {"windowId": window.window_id}
+        if window.kind in {"preview_editor", "attachments_editor"}:
+            return {"editorMode": window.kind}
+        if window.kind in {"update", "create_update"}:
+            return {"createMode": window.kind == "create_update"}
+        if window.kind == "maya_options":
+            operation = {
+                "maya_import": "import",
+                "maya_reference": "reference",
+            }.get(window.window_id, "open")
+            return {"operationMode": operation}
+        if window.kind in {"add_sobject", "task_editor"}:
+            return {"editorWindowId": window.window_id}
+        if window.kind == "confirm":
+            return {"windowId": window.window_id}
+        return {}
 
     def rowCount(self, parent: QModelIndex = QModelIndex()) -> int:
         return 0 if parent.isValid() else len(self._windows)
@@ -145,6 +218,8 @@ class FloatingWindowModel(QAbstractListModel):
             self.XRole: window.x, self.YRole: window.y, self.WidthRole: window.width,
             self.HeightRole: window.height, self.VisibleRole: window.visible, self.ZRole: window.z,
             self.BlockingRole: window.blocking, self.GeometryModeRole: window.geometry_mode,
+            self.ContentSourceRole: self._content_source(window),
+            self.ContentPropertiesRole: self._content_properties(window),
         }.get(role)
 
     def _row(self, window_id: str) -> int | None:
