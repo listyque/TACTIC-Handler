@@ -48,6 +48,60 @@ class FakeDockModel:
         return panel_id != "snapshot" or self.snapshot_visible
 
 
+class FakeRepositorySync(QObject):
+    task_finished = Signal(str, str)
+    task_failed = Signal(str)
+
+    def __init__(self, http_enabled):
+        super().__init__()
+        self.http_enabled = bool(http_enabled)
+        self.scheduled = []
+
+    def previews_through_http_enabled(self):
+        return self.http_enabled
+
+    def schedule_file_object(self, file_object, process="", auto_start=False):
+        self.scheduled.append((file_object, process, auto_start))
+        return type("Handle", (), {"task_id": "preview-task"})()
+
+
+class FakePreviewFile:
+    def __init__(self, local_path):
+        self.local_path = str(local_path)
+
+    def get_filename_with_ext(self):
+        return "task-preview.png"
+
+    def get_full_abs_path(self):
+        return self.local_path
+
+    def get_icon_preview(self):
+        return self
+
+    def get_web_preview(self):
+        return self
+
+
+class FakePreviewSnapshot:
+    def __init__(self, file_object):
+        self.file_object = file_object
+
+    def get_files_objects(self, group_by=None):
+        return {"icon": [self.file_object]}
+
+
+class FakePreviewLogin:
+    def __init__(self, file_object):
+        snapshot = FakePreviewSnapshot(file_object)
+        context = type("Context", (), {
+            "versionless": {"SNAPSHOT": snapshot}, "versions": {},
+        })()
+        process = type("Process", (), {
+            "contexts": {"icon": context},
+        })()
+        self.process = {"icon": process}
+
+
 class FakeStatusPipeline:
     pipeline = {
         "Pending": {"color": "#f0b429"},
@@ -674,6 +728,89 @@ class TasksControllerTests(unittest.TestCase):
             and record["snapshotFileCount"] == 3
             for record in records
         ))
+
+    def test_task_preview_does_not_bypass_disabled_http_setting(self):
+        repository_sync = FakeRepositorySync(http_enabled=False)
+        self.application.repository_sync = repository_sync
+        controller = TasksController(self.application)
+        snapshot = FakePreviewSnapshot(
+            FakePreviewFile("Z:/missing/task-preview.png")
+        )
+
+        self.assertEqual(controller._snapshot_preview_url(snapshot), "")
+        self.assertEqual(repository_sync.scheduled, [])
+
+    def test_task_preview_uses_repository_sync_when_http_is_enabled(self):
+        repository_sync = FakeRepositorySync(http_enabled=True)
+        self.application.repository_sync = repository_sync
+        controller = TasksController(self.application)
+        snapshot = FakePreviewSnapshot(
+            FakePreviewFile("Z:/missing/task-preview.png")
+        )
+
+        preview_url = controller._snapshot_preview_url(snapshot)
+
+        self.assertEqual(preview_url, "pending-preview:preview-task")
+        self.assertEqual(len(repository_sync.scheduled), 1)
+        self.assertEqual(repository_sync.scheduled[0][1:], ("preview", True))
+
+    def test_task_user_avatar_uses_same_repository_preview_policy(self):
+        repository_sync = FakeRepositorySync(http_enabled=False)
+        self.application.repository_sync = repository_sync
+        controller = TasksController(self.application)
+        login = FakePreviewLogin(
+            FakePreviewFile("Z:/missing/user-avatar.png")
+        )
+
+        self.assertEqual(controller._login_avatar_url(login), "")
+        self.assertEqual(repository_sync.scheduled, [])
+
+        repository_sync.http_enabled = True
+        self.assertEqual(
+            controller._login_avatar_url(login),
+            "pending-preview:preview-task",
+        )
+        self.assertEqual(len(repository_sync.scheduled), 1)
+
+    def test_completed_task_preview_replaces_pending_model_urls(self):
+        repository_sync = FakeRepositorySync(http_enabled=True)
+        self.application.repository_sync = repository_sync
+        controller = TasksController(self.application)
+        token = "pending-preview:preview-task"
+        controller._pending_preview_paths[token] = (
+            "Z:/missing/task-preview.png"
+        )
+        controller._advanced_raw = [{
+            "taskCode": "TASK0001", "parentPreviewUrl": token,
+            "assignedAvatar": token,
+            "userChoices": [{"value": "artist", "avatarUrl": token}],
+        }]
+        controller.advanced_model.replace([{
+            "taskCode": "TASK0001", "parentPreviewUrl": token,
+            "assignedAvatar": token,
+            "userChoices": [{"value": "artist", "avatarUrl": token}],
+        }])
+
+        controller._repository_preview_ready(
+            "preview-task", "C:/repo/task-preview.png"
+        )
+
+        ready_url = QUrl.fromLocalFile(
+            str(Path("C:/repo/task-preview.png").resolve())
+        ).toString()
+        self.assertEqual(
+            controller._advanced_raw[0]["parentPreviewUrl"], ready_url
+        )
+        self.assertEqual(
+            controller.advanced_model.get(0)["parentPreviewUrl"], ready_url
+        )
+        self.assertEqual(
+            controller.advanced_model.get(0)["assignedAvatar"], ready_url
+        )
+        self.assertEqual(
+            controller.advanced_model.get(0)["userChoices"][0]["avatarUrl"],
+            ready_url,
+        )
 
     def test_activating_task_reuses_shared_snapshot_browser_loader(self):
         loader = Mock()
@@ -2044,7 +2181,7 @@ class TasksQmlTests(unittest.TestCase):
             "CommitQueueView.qml", "TacticSearchField.qml",
             "WorkspaceCard.qml", "WorkspaceResultItem.qml",
             "FilePreparationEditor.qml", "MayaOptionsView.qml",
-            "FilterEditorView.qml", "SObjectFieldEditor.qml",
+            "ProcessFilterEditorView.qml", "SObjectFieldEditor.qml",
             "ConfigurationPage.qml",
             "MilestoneManagerView.qml",
         ):
@@ -2120,6 +2257,45 @@ class TasksQmlTests(unittest.TestCase):
             icon.property("x"),
             (content.property("width") - icon.property("width")) / 2,
         )
+        window.close()
+        window.deleteLater()
+        button.deleteLater()
+        theme.deleteLater()
+
+    def test_filled_action_button_natural_width_does_not_clip_label(self):
+        engine = QQmlEngine()
+        qml_dir = Path(__file__).parents[1] / "modern_ui" / "qml"
+        engine.addImportPath(str(qml_dir))
+        theme_component = QQmlComponent(
+            engine, QUrl.fromLocalFile(str(qml_dir / "Theme.qml"))
+        )
+        theme = theme_component.createWithInitialProperties({"dark": True})
+        component = QQmlComponent(
+            engine,
+            QUrl.fromLocalFile(str(
+                qml_dir / "controls" / "Md3FilledActionButton.qml"
+            )),
+        )
+        button = component.createWithInitialProperties({
+            "theme": theme,
+            "iconName": "add",
+            "text": "Create",
+        })
+        self.assertIsNotNone(
+            button,
+            "\n".join(error.toString() for error in component.errors()),
+        )
+        window = QQuickWindow()
+        window.setWidth(180)
+        window.setHeight(80)
+        button.setParentItem(window.contentItem())
+        button.setProperty("width", button.property("implicitWidth"))
+        button.setProperty("height", 40)
+        window.show()
+        QTest.qWait(20)
+        label = button.findChild(QObject, "md3FilledActionLabel")
+        self.assertIsNotNone(label)
+        self.assertFalse(label.property("truncated"))
         window.close()
         window.deleteLater()
         button.deleteLater()

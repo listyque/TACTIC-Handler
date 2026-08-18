@@ -1,4 +1,4 @@
-"""Run one Block D workflow through its isolated regression modules."""
+"""Run one user workflow through its isolated regression modules."""
 
 from __future__ import annotations
 

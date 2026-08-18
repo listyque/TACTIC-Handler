@@ -86,7 +86,11 @@ class ProjectStateMixin:
         import thlib.tactic_classes as tc
 
         columns_info = stype.get_columns_info() if stype else {}
-        columns = sorted((columns_info or {}).keys())
+        # Legacy Ui_filterWidget populated the selector directly from
+        # SearchType.get_columns_info().items().  Keep that native TACTIC
+        # schema order (normally name, title, ...); alphabetic sorting changes
+        # the first/default field shown by Advanced Search.
+        columns = list((columns_info or {}).keys())
         self.columns_model.replace([
             {"title": column, "checked": True} for column in columns
         ])

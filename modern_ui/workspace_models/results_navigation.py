@@ -84,10 +84,23 @@ class NavigationMixin:
         node.lazy_versions = list(prepared.lazy_versions)
         node.loaded = True
         node.child_count = prepared.child_count
+        node.has_children = prepared.has_children
         node.needs_sync = prepared.needs_sync
         node.watch_state = prepared.watch_state
         for child in node.children:
             self._register_tree(child)
+        row = self._row_by_node_id.get(node_id, -1)
+        if row >= 0:
+            model_index = self.index(row, 0)
+            self.dataChanged.emit(
+                model_index,
+                model_index,
+                [
+                    self.HasChildrenRole,
+                    self.ChildCountRole,
+                    self.ControlsRole,
+                ],
+            )
         return True
 
     @Slot(str)

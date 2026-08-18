@@ -73,7 +73,7 @@ Item {
     component SectionLabel: Label {
         color: root.theme.secondaryText
         font.family: root.theme.fontFamily
-        font.pixelSize: 9
+        font.pointSize: Typography.label
         font.weight: Font.DemiBold
         font.letterSpacing: 0.5
     }
@@ -145,7 +145,7 @@ Item {
                                 text: String(commitQueueController.count)
                                 color: root.theme.primaryText
                                 font.family: root.theme.fontFamily
-                                font.pixelSize: 8
+                                font.pointSize: Typography.caption
                                 font.weight: Font.DemiBold
                             }
                         }
@@ -298,7 +298,7 @@ Item {
                                     text: queueRow.title
                                     color: root.theme.primaryText
                                     font.family: root.theme.fontFamily
-                                    font.pixelSize: 10
+                                    font.pointSize: Typography.body
                                     font.weight: Font.DemiBold
                                     elide: Text.ElideMiddle
                                 }
@@ -307,7 +307,7 @@ Item {
                                     text: queueRow.objectTitle
                                     color: root.theme.secondaryText
                                     font.family: root.theme.fontFamily
-                                    font.pixelSize: 8
+                                    font.pointSize: Typography.caption
                                     wrapMode: Text.WordWrap
                                     maximumLineCount: 2
                                 }
@@ -320,7 +320,7 @@ Item {
                                                 ? qsTr(" file") : qsTr(" files"))
                                         color: root.theme.secondaryText
                                         font.family: root.theme.fontFamily
-                                        font.pixelSize: 8
+                                        font.pointSize: Typography.caption
                                     }
                                     Rectangle {
                                         Layout.preferredWidth: 3
@@ -334,7 +334,7 @@ Item {
                                             || qsTr("No context")
                                         color: queueRow.error ? root.theme.error : root.statusColor(queueRow.status)
                                         font.family: root.theme.fontFamily
-                                        font.pixelSize: 8
+                                        font.pointSize: Typography.caption
                                         elide: Text.ElideRight
                                     }
                                 }
@@ -396,7 +396,7 @@ Item {
                             text: qsTr("Queue is empty")
                             color: root.theme.secondaryText
                             font.family: root.theme.fontFamily
-                            font.pixelSize: 9
+                            font.pointSize: Typography.label
                         }
                     }
                 }
@@ -476,7 +476,7 @@ Item {
                                     ? String(filesDock.record.fileCount) : "0"
                                 color: root.theme.secondaryText
                                 font.family: root.theme.fontFamily
-                                font.pixelSize: 8
+                                font.pointSize: Typography.caption
                             }
                         }
                         Rectangle {
@@ -534,7 +534,7 @@ Item {
                                             text: root.fileName(fileRow.sourcePath)
                                             color: root.theme.primaryText
                                             font.family: root.theme.fontFamily
-                                            font.pixelSize: 9
+                                            font.pointSize: Typography.label
                                             elide: Text.ElideMiddle
                                         }
                                         Label {
@@ -543,7 +543,7 @@ Item {
                                             text: fileRow.targetPath
                                             color: root.theme.secondaryText
                                             font.family: root.theme.fontFamily
-                                            font.pixelSize: 7
+                                            font.pointSize: Typography.micro
                                             elide: Text.ElideMiddle
                                         }
                                     }
@@ -551,7 +551,7 @@ Item {
                                         text: root.fileExtension(fileRow.sourcePath)
                                         color: root.theme.secondaryText
                                         font.family: root.theme.fontFamily
-                                        font.pixelSize: 7
+                                        font.pointSize: Typography.micro
                                         font.weight: Font.DemiBold
                                     }
                                     CompactIconButton {
@@ -583,7 +583,7 @@ Item {
                                     : qsTr("No files")
                                 color: root.theme.secondaryText
                                 font.family: root.theme.fontFamily
-                                font.pixelSize: 9
+                                font.pointSize: Typography.label
                             }
                         }
                     }
@@ -649,7 +649,7 @@ Item {
                                             || qsTr("No context"))
                                 color: root.theme.secondaryText
                                 font.family: root.theme.fontFamily
-                                font.pixelSize: 9
+                                font.pointSize: Typography.label
                                 elide: Text.ElideRight
                             }
                         }
@@ -690,7 +690,7 @@ Item {
                             text: commitQueueController.duplicateDescription
                             color: root.theme.primaryText
                             font.family: root.theme.fontFamily
-                            font.pixelSize: 9
+                            font.pointSize: Typography.label
                             wrapMode: Text.WordWrap
                         }
                         Md3Button {
@@ -756,7 +756,7 @@ Item {
                                         + qsTr(" checked rows receive every change made below.")
                                     color: root.theme.secondaryText
                                     font.family: root.theme.fontFamily
-                                    font.pixelSize: 8
+                                    font.pointSize: Typography.caption
                                     elide: Text.ElideRight
                                 }
                             }
@@ -879,7 +879,7 @@ Item {
                                         text: qsTr("Context")
                                         color: root.theme.secondaryText
                                         font.family: root.theme.fontFamily
-                                        font.pixelSize: 9
+                                        font.pointSize: Typography.label
                                     }
                                     Md3TextField {
                                         theme: root.theme
@@ -923,7 +923,7 @@ Item {
                                         text: qsTr("Repository")
                                         color: root.theme.secondaryText
                                         font.family: root.theme.fontFamily
-                                        font.pixelSize: 9
+                                        font.pointSize: Typography.label
                                     }
                                     Md3ComboBox {
                                         theme: root.theme
@@ -937,7 +937,7 @@ Item {
                                         text: qsTr("Version")
                                         color: root.theme.secondaryText
                                         font.family: root.theme.fontFamily
-                                        font.pixelSize: 9
+                                        font.pointSize: Typography.label
                                     }
                                     Md3TextField {
                                         theme: root.theme
@@ -952,7 +952,7 @@ Item {
                                         text: qsTr("Method")
                                         color: root.theme.secondaryText
                                         font.family: root.theme.fontFamily
-                                        font.pixelSize: 9
+                                        font.pointSize: Typography.label
                                     }
                                     Md3ComboBox {
                                         id: methodCombo
@@ -968,7 +968,7 @@ Item {
                                         text: qsTr("Filename")
                                         color: root.theme.secondaryText
                                         font.family: root.theme.fontFamily
-                                        font.pixelSize: 9
+                                        font.pointSize: Typography.label
                                     }
                                     Md3TextField {
                                         theme: root.theme
@@ -1117,7 +1117,7 @@ Item {
                                                     text: root.fileName(modelData)
                                                     color: root.theme.primaryText
                                                     font.family: root.theme.fontFamily
-                                                    font.pixelSize: 9
+                                                    font.pointSize: Typography.label
                                                     font.weight: Font.DemiBold
                                                     elide: Text.ElideMiddle
                                                 }
@@ -1132,7 +1132,7 @@ Item {
                                                     )
                                                     color: root.theme.secondaryText
                                                     font.family: root.theme.fontFamily
-                                                    font.pixelSize: 8
+                                                    font.pointSize: Typography.caption
                                                     elide: Text.ElideMiddle
                                                 }
                                                 Label {
@@ -1146,7 +1146,7 @@ Item {
                                                     )
                                                     color: root.theme.secondaryText
                                                     font.family: root.theme.fontFamily
-                                                    font.pixelSize: 8
+                                                    font.pointSize: Typography.caption
                                                     elide: Text.ElideMiddle
                                                 }
                                             }
@@ -1186,7 +1186,7 @@ Item {
                                     color: detailsPanel.record.error
                                         ? root.theme.error : root.theme.secondaryText
                                     font.family: root.theme.fontFamily
-                                    font.pixelSize: 9
+                                    font.pointSize: Typography.label
                                     wrapMode: Text.WordWrap
                                 }
                             }
@@ -1222,7 +1222,7 @@ Item {
                                             : qsTr(" queue items"))
                             color: root.theme.secondaryText
                             font.family: root.theme.fontFamily
-                            font.pixelSize: 9
+                            font.pointSize: Typography.label
                             elide: Text.ElideRight
                         }
                         Md3Button {
@@ -1319,7 +1319,7 @@ Item {
                         text: root.fileName(modelData)
                         color: root.theme.primaryText
                         font.family: root.theme.fontFamily
-                        font.pixelSize: 10
+                        font.pointSize: Typography.body
                         elide: Text.ElideMiddle
                     }
                     CompactIconButton {
@@ -1378,7 +1378,7 @@ Item {
             text: qsTr("All prepared, failed and completed operations will be removed from the queue.")
             color: root.theme.primaryText
             font.family: root.theme.fontFamily
-            font.pixelSize: 11
+            font.pointSize: Typography.bodyLarge
             wrapMode: Text.WordWrap
         }
 

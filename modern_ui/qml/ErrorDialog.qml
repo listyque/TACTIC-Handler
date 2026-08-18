@@ -125,7 +125,7 @@ Window {
                                         .replace(/_/g, " ").toUpperCase()
                                     color: root.theme.red
                                     font.family: root.theme.fontFamily
-                                    font.pixelSize: 8
+                                    font.pointSize: Typography.caption
                                     font.weight: Font.Bold
                                 }
                             }
@@ -180,7 +180,7 @@ Window {
                                 text: debugLog.error_message
                                 color: root.theme.primaryText
                                 font.family: root.theme.fontFamily
-                                font.pixelSize: 11
+                                font.pointSize: Typography.bodyLarge
                                 lineHeight: 1.18
                                 wrapMode: Text.Wrap
                             }
@@ -195,7 +195,7 @@ Window {
                                 text: qsTr("REQUEST")
                                 color: root.theme.secondaryText
                                 font.family: root.theme.fontFamily
-                                font.pixelSize: 9
+                                font.pointSize: Typography.label
                                 font.weight: Font.DemiBold
                             }
 
@@ -219,7 +219,7 @@ Window {
                                     text: debugLog.error_command
                                     color: root.theme.action
                                     font.family: "Consolas"
-                                    font.pixelSize: 9
+                                    font.pointSize: Typography.label
                                     background: Item {}
                                 }
                             }
@@ -266,7 +266,7 @@ Window {
                                     text: debugLog.error_stacktrace
                                     color: root.theme.secondaryText
                                     font.family: "Consolas"
-                                    font.pixelSize: 9
+                                    font.pointSize: Typography.label
                                     background: Item {}
                                 }
                             }

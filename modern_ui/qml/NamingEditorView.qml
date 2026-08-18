@@ -21,7 +21,7 @@ Item {
     component FieldLabel: Label {
         color: root.theme.secondaryText
         font.family: root.theme.fontFamily
-        font.pixelSize: 9
+        font.pointSize: Typography.label
     }
 
     function chooseRule(row) {
@@ -100,7 +100,7 @@ Item {
                                 || qsTr("No search type"))
                         color: root.theme.secondaryText
                         font.family: root.theme.fontFamily
-                        font.pixelSize: 9
+                        font.pointSize: Typography.label
                         elide: Text.ElideRight
                     }
                 }
@@ -268,7 +268,7 @@ Item {
                                         text: ruleRow.title
                                         color: root.theme.primaryText
                                         font.family: root.theme.fontFamily
-                                        font.pixelSize: 10
+                                        font.pointSize: Typography.body
                                         font.weight: Font.DemiBold
                                         elide: Text.ElideRight
                                     }
@@ -277,7 +277,7 @@ Item {
                                         text: ruleRow.summary
                                         color: root.theme.secondaryText
                                         font.family: root.theme.fontFamily
-                                        font.pixelSize: 8
+                                        font.pointSize: Typography.caption
                                         elide: Text.ElideMiddle
                                     }
                                     Label {
@@ -287,7 +287,7 @@ Item {
                                             + (ruleRow.versionless ? "  /  versionless" : "")
                                         color: root.theme.disabledText
                                         font.family: root.theme.fontFamily
-                                        font.pixelSize: 8
+                                        font.pointSize: Typography.caption
                                         elide: Text.ElideRight
                                     }
                                 }
@@ -308,7 +308,7 @@ Item {
                                 : qsTr("Select an sObject")
                             color: root.theme.secondaryText
                             font.family: root.theme.fontFamily
-                            font.pixelSize: 10
+                            font.pointSize: Typography.body
                         }
                     }
                 }
@@ -376,7 +376,7 @@ Item {
                                             text: namingEditorController.previewStatus
                                             color: root.theme.secondaryText
                                             font.family: root.theme.fontFamily
-                                            font.pixelSize: 8
+                                            font.pointSize: Typography.caption
                                         }
                                     }
                                     Label {
@@ -385,7 +385,7 @@ Item {
                                             || qsTr("No preview available")
                                         color: root.theme.primaryText
                                         font.family: root.theme.fontFamily
-                                        font.pixelSize: 11
+                                        font.pointSize: Typography.bodyLarge
                                         font.weight: Font.DemiBold
                                         wrapMode: Text.WrapAnywhere
                                     }
@@ -458,7 +458,7 @@ Item {
                                             text: qsTr("Unsaved changes")
                                             color: root.theme.tertiary
                                             font.family: root.theme.fontFamily
-                                            font.pixelSize: 9
+                                            font.pointSize: Typography.label
                                             font.weight: Font.DemiBold
                                         }
                                     }
@@ -733,7 +733,7 @@ Item {
                                 color: namingEditorController.error.length > 0
                                     ? root.theme.error : root.theme.secondaryText
                                 font.family: root.theme.fontFamily
-                                font.pixelSize: 9
+                                font.pointSize: Typography.label
                                 elide: Text.ElideRight
                             }
                             Md3Button {
@@ -777,7 +777,7 @@ Item {
             text: qsTr("The current naming rule has unsaved changes.")
             color: root.theme.primaryText
             font.family: root.theme.fontFamily
-            font.pixelSize: 11
+            font.pointSize: Typography.bodyLarge
             wrapMode: Text.WordWrap
         }
         footer: DialogButtonBox {
@@ -819,7 +819,7 @@ Item {
             text: qsTr("This changes a config/naming record used by future check-ins in the current project.")
             color: root.theme.primaryText
             font.family: root.theme.fontFamily
-            font.pixelSize: 11
+            font.pointSize: Typography.bodyLarge
             wrapMode: Text.WordWrap
         }
         footer: DialogButtonBox {

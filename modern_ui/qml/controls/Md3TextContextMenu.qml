@@ -100,7 +100,7 @@ Md3Popup {
                         color: actionRow.modelData.enabled === false
                             ? root.theme.disabledText : root.theme.primaryText
                         font.family: root.theme.fontFamily
-                        font.pixelSize: 11
+                        font.pointSize: Typography.bodyLarge
                     }
                 }
                 MouseArea {

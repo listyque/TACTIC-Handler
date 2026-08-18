@@ -206,15 +206,21 @@ class SelectionMixin:
         node = self.workspace_model.node_for(node_id)
         if not node:
             return None
-        root = node
-        while root.parent_id:
-            parent = self.workspace_model.node_for(root.parent_id)
-            if not parent:
+        # Match the legacy Ui_itemWidget.get_sobject() contract: details
+        # belong to the selected item's own sObject.  A relation branch may
+        # contain another fully fledged sObject, so walking to the tree root
+        # would load the outer object's tasks, notes and snapshots instead.
+        detail_owner = node
+        while detail_owner and detail_owner.node_type != "sobject":
+            if not detail_owner.parent_id:
+                detail_owner = None
                 break
-            root = parent
+            detail_owner = self.workspace_model.node_for(
+                detail_owner.parent_id
+            )
         detail_key = (
-            root.search_key
-            if root.node_type == "sobject"
+            detail_owner.search_key
+            if detail_owner and detail_owner.node_type == "sobject"
             else search_key
         )
         if not detail_key:

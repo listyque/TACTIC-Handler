@@ -55,7 +55,7 @@ Item {
                 Label {
                     text: qsTr("Current version  ") + (updateController.currentVersion || "—")
                     color: root.theme.secondaryText
-                    font.pixelSize: 9
+                    font.pointSize: Typography.label
                 }
             }
             RefreshIconButton {
@@ -80,10 +80,10 @@ Item {
             columns: 4
             rowSpacing: 5
             columnSpacing: 8
-            Label { text: qsTr("Major"); color: root.theme.secondaryText; font.pixelSize: 9 }
-            Label { text: qsTr("Minor"); color: root.theme.secondaryText; font.pixelSize: 9 }
-            Label { text: qsTr("Build"); color: root.theme.secondaryText; font.pixelSize: 9 }
-            Label { text: qsTr("Revision"); color: root.theme.secondaryText; font.pixelSize: 9 }
+            Label { text: qsTr("Major"); color: root.theme.secondaryText; font.pointSize: Typography.label }
+            Label { text: qsTr("Minor"); color: root.theme.secondaryText; font.pointSize: Typography.label }
+            Label { text: qsTr("Build"); color: root.theme.secondaryText; font.pointSize: Typography.label }
+            Label { text: qsTr("Revision"); color: root.theme.secondaryText; font.pointSize: Typography.label }
             Md3SpinBox { id: major; theme: root.theme; Layout.fillWidth: true; from: 0; to: 999 }
             Md3SpinBox { id: minor; theme: root.theme; Layout.fillWidth: true; from: 0; to: 999 }
             Md3SpinBox { id: build; theme: root.theme; Layout.fillWidth: true; from: 0; to: 999 }
@@ -137,17 +137,17 @@ Item {
                         Label {
                             text: version
                             color: root.theme.primaryText
-                            font.pixelSize: 11
+                            font.pointSize: Typography.bodyLarge
                             font.weight: Font.DemiBold
                         }
                         Item { Layout.fillWidth: true }
-                        Label { text: date; color: root.theme.secondaryText; font.pixelSize: 8 }
+                        Label { text: date; color: root.theme.secondaryText; font.pointSize: Typography.caption }
                     }
                     Label {
                         Layout.fillWidth: true
                         text: changes || misc || qsTr("No release notes")
                         color: root.theme.secondaryText
-                        font.pixelSize: 9
+                        font.pointSize: Typography.label
                         elide: Text.ElideRight
                     }
                 }
@@ -167,7 +167,7 @@ Item {
                 visible: versions.count === 0 && !updateController.busy
                 text: qsTr("No local update metadata")
                 color: root.theme.secondaryText
-                font.pixelSize: 10
+                font.pointSize: Typography.body
             }
         }
 
@@ -187,7 +187,7 @@ Item {
                 text: updateController.error || updateController.stage
                 color: updateController.error ? root.theme.red
                     : root.theme.secondaryText
-                font.pixelSize: 9
+                font.pointSize: Typography.label
                 wrapMode: Text.WordWrap
             }
         }

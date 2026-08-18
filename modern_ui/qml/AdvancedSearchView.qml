@@ -1,14 +1,17 @@
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
-import Qt5Compat.GraphicalEffects
 
 Item {
     id: root
 
     required property var theme
     property bool filtersExpanded: true
-    property bool optionsExpanded: true
+    readonly property bool compactLayout: width < 560
+    readonly property bool hasSelectedPreset:
+        filterEditorController.selected_preset >= 0
+        && filterEditorController.selected_preset < savedSearchCombo.count
+    property string presetAction: "save"
 
     function columnIndex(value) {
         for (let row = 0; row < filterColumnModel.count(); ++row) {
@@ -18,29 +21,155 @@ Item {
         return -1
     }
 
-    Component.onCompleted: appController.ensure_search_filter()
+    function openPresetDialog(action) {
+        presetAction = action
+        presetName.text = action === "rename"
+            ? filterEditorController.tab_title
+            : action === "duplicate"
+                ? filterEditorController.tab_title + " copy"
+                : appController.current_search_tab_title
+        presetDialog.open()
+        presetName.forceActiveFocus()
+        presetName.selectAll()
+    }
+
+    function reloadPresetsForCurrentSearch() {
+        Qt.callLater(function() {
+            filterEditorController.sync_search_session()
+        })
+    }
+
+    Component.onCompleted: {
+        filterEditorController.sync_search_session()
+    }
+
+    Connections {
+        target: appController
+        function onProject_changed() {
+            root.reloadPresetsForCurrentSearch()
+        }
+        function onSection_state_changed() {
+            root.reloadPresetsForCurrentSearch()
+        }
+    }
 
     Rectangle {
         anchors.fill: parent
         color: root.theme.surfaceContainerLow
     }
 
-    ColumnLayout {
+    Flickable {
+        id: searchFlickable
         anchors.fill: parent
-        anchors.margins: 8
-        spacing: 8
+        clip: true
+        contentWidth: width
+        contentHeight: searchCards.implicitHeight + 20
+        boundsBehavior: Flickable.StopAtBounds
+
+        Column {
+            id: searchCards
+            x: 10
+            y: 10
+            width: Math.max(0, searchFlickable.width - 20)
+            spacing: 10
 
         Rectangle {
-            Layout.fillWidth: true
-            Layout.preferredHeight: 46
-            radius: 14
-            color: root.theme.surfaceContainerHigh
+            width: parent.width
+            height: 56
+            radius: root.theme.itemRadius
+            color: root.theme.panelDeep
 
             RowLayout {
                 anchors.fill: parent
                 anchors.leftMargin: 12
-                anchors.rightMargin: 8
-                spacing: 6
+                anchors.rightMargin: 10
+                spacing: 8
+
+                MaterialIcon {
+                    name: "save"
+                    size: 17
+                    color: root.theme.action
+                }
+
+                Label {
+                    visible: !root.compactLayout
+                    text: qsTr("Saved searches")
+                    color: root.theme.secondaryText
+                    font.family: root.theme.fontFamily
+                    font.pointSize: Typography.body
+                    font.weight: Font.DemiBold
+                }
+
+                Md3ComboBox {
+                    id: savedSearchCombo
+                    Layout.fillWidth: true
+                    Layout.minimumWidth: 0
+                    Layout.preferredHeight: root.theme.controlHeight
+                    theme: root.theme
+                    model: filterPresetModel
+                    textRole: "title"
+                    translateDisplayText: false
+                    currentIndex: filterEditorController.selected_preset
+                    enabled: count > 0 && !filterEditorController.busy
+                    displayText: currentIndex >= 0 && currentIndex < count
+                        ? currentText : qsTr("Select a saved search")
+                    onActivated:
+                        filterEditorController
+                            .select_preset_for_current_search(currentIndex)
+                }
+
+                Md3BusyIndicator {
+                    uiTheme: root.theme
+                    Layout.preferredWidth: 28
+                    Layout.preferredHeight: 28
+                    running: filterEditorController.busy
+                    visible: running
+                }
+
+                CompactIconButton {
+                    theme: root.theme
+                    iconName: "save"
+                    toolTip: qsTr("Update selected preset")
+                    enabled: root.hasSelectedPreset
+                        && !filterEditorController.busy
+                    onClicked:
+                        filterEditorController
+                            .update_selected_from_current_search()
+                }
+                CompactIconButton {
+                    theme: root.theme
+                    iconName: "add"
+                    toolTip: qsTr("Save as new preset")
+                    enabled: !filterEditorController.busy
+                    onClicked: root.openPresetDialog("save")
+                }
+                CompactIconButton {
+                    id: presetMoreButton
+                    theme: root.theme
+                    iconName: "more_vert"
+                    toolTip: qsTr("Saved search actions")
+                    onClicked: presetActions.toggleBelow(presetMoreButton)
+                }
+            }
+        }
+
+        Rectangle {
+            width: parent.width
+            height: 50
+            radius: root.theme.surfaceRadius
+            color: root.theme.surfaceContainerHigh
+
+            MouseArea {
+                anchors.fill: parent
+                cursorShape: Qt.PointingHandCursor
+                onClicked: root.filtersExpanded = !root.filtersExpanded
+            }
+
+            RowLayout {
+                anchors.fill: parent
+                anchors.leftMargin: 14
+                anchors.rightMargin: 10
+                spacing: 8
 
                 MaterialIcon {
                     name: root.filtersExpanded
@@ -58,8 +187,21 @@ Item {
                     text: qsTr("Search Filters")
                     color: root.theme.primaryText
                     font.family: root.theme.fontFamily
-                    font.pixelSize: 12
+                    font.pixelSize: 13
                     font.weight: Font.DemiBold
+                }
+                Md3Button {
+                    Layout.preferredHeight: root.theme.controlHeight
+                    theme: root.theme
+                    highlighted: true
+                    compact: root.compactLayout
+                    enabled: appController.search_state !== "loading"
+                    text: appController.search_state === "loading"
+                        ? qsTr("Searching...") : qsTr("Apply filters")
+                    toolTip: text
+                    icon.name: appController.search_state === "loading"
+                        ? "hourglass_empty" : "search"
+                    onClicked: appController.apply_search_filters()
                 }
                 CompactIconButton {
                     theme: root.theme
@@ -76,28 +218,17 @@ Item {
                     onClicked: appController.clear_search_filters()
                 }
             }
-            MouseArea {
-                anchors.left: parent.left
-                anchors.right: parent.right
-                anchors.top: parent.top
-                anchors.bottom: parent.bottom
-                anchors.rightMargin: 72
-                cursorShape: Qt.PointingHandCursor
-                onClicked: root.filtersExpanded = !root.filtersExpanded
-            }
         }
 
-        ListView {
-            id: filtersList
-            Layout.fillWidth: true
-            Layout.fillHeight: root.filtersExpanded
-            Layout.preferredHeight: root.filtersExpanded ? 180 : 0
-            Layout.minimumHeight: root.filtersExpanded ? 96 : 0
+        Column {
+            id: filtersColumn
+            width: parent.width
+            height: root.filtersExpanded ? implicitHeight : 0
             visible: root.filtersExpanded
-            clip: true
             spacing: 7
-            model: filterModel
-            boundsBehavior: Flickable.StopAtBounds
+
+            Repeater {
+                model: filterModel
 
             delegate: Rectangle {
                 id: filterRow
@@ -112,6 +243,7 @@ Item {
 
                 readonly property var relationChoices:
                     appController.search_filter_relations(column)
+                readonly property bool compact: width < 560
 
                 function relationIndex(value) {
                     for (let row = 0; row < relationChoices.length; ++row) {
@@ -121,26 +253,26 @@ Item {
                     return -1
                 }
 
-                width: filtersList.width
-                height: 118
-                radius: 14
+                width: filtersColumn.width
+                implicitHeight: filterContent.implicitHeight + 20
+                height: implicitHeight
+                radius: root.theme.itemRadius
                 color: root.theme.surfaceContainerHigh
                 border.width: 1
                 border.color: root.theme.outlineVariant
+                clip: true
                 opacity: rowEnabled ? 1 : 0.58
                 Behavior on opacity { NumberAnimation { duration: 120 } }
 
                 ColumnLayout {
+                    id: filterContent
                     anchors.fill: parent
-                    anchors.leftMargin: 8
-                    anchors.rightMargin: 8
-                    anchors.topMargin: 7
-                    anchors.bottomMargin: 7
-                    spacing: 5
+                    anchors.margins: 10
+                    spacing: 7
 
                     RowLayout {
                         Layout.fillWidth: true
-                        spacing: 6
+                        spacing: 8
 
                         Md3CheckBox {
                             theme: root.theme
@@ -168,7 +300,7 @@ Item {
                                     ? qsTr("WHERE") : filterRow.operator.toUpperCase()
                                 color: root.theme.action
                                 font.family: root.theme.fontFamily
-                                font.pixelSize: 9
+                                font.pointSize: Typography.label
                                 font.weight: Font.Bold
                             }
                             MouseArea {
@@ -183,7 +315,18 @@ Item {
                             }
                         }
 
-                        Item { Layout.fillWidth: true }
+                        Label {
+                            Layout.fillWidth: true
+                            text: {
+                                const row = root.columnIndex(filterRow.column)
+                                return row >= 0
+                                    ? filterColumnModel.get(row).label : ""
+                            }
+                            color: root.theme.secondaryText
+                            font.family: root.theme.fontFamily
+                            font.pointSize: Typography.body
+                            elide: Text.ElideRight
+                        }
 
                         CompactIconButton {
                             theme: root.theme
@@ -200,29 +343,40 @@ Item {
                         }
                     }
 
-                    Md3ComboBox {
+                    GridLayout {
                         Layout.fillWidth: true
-                        Layout.minimumWidth: 0
-                        Layout.preferredHeight: 30
-                        theme: root.theme
-                        enabled: filterRow.rowEnabled
-                        model: filterColumnModel
-                        textRole: "label"
-                        valueRole: "value"
-                        currentIndex: root.columnIndex(filterRow.column)
-                        onActivated: appController.set_search_filter_column(
-                            filterRow.index, currentValue)
-                    }
-
-                    RowLayout {
-                        Layout.fillWidth: true
-                        spacing: 6
+                        columns: filterRow.compact ? 1 : 3
+                        columnSpacing: 8
+                        rowSpacing: 7
 
                         Md3ComboBox {
-                            Layout.preferredWidth: Math.min(
-                                154, Math.max(88, filterRow.width * 0.38))
+                            Layout.fillWidth: true
                             Layout.minimumWidth: 0
-                            Layout.preferredHeight: 30
+                            Layout.preferredWidth: filterRow.compact
+                                ? filterRow.width - 20
+                                : filterRow.width * 0.34
+                            Layout.preferredHeight: root.theme.controlHeight
+                            theme: root.theme
+                            enabled: filterRow.rowEnabled
+                            model: filterColumnModel
+                            textRole: "label"
+                            valueRole: "value"
+                            // Column labels come from the active TACTIC
+                            // Search Type schema and are project data.
+                            translateDisplayText: false
+                            currentIndex: root.columnIndex(filterRow.column)
+                            onActivated:
+                                appController.set_search_filter_column(
+                                    filterRow.index, currentValue)
+                        }
+
+                        Md3ComboBox {
+                            Layout.fillWidth: true
+                            Layout.preferredWidth: filterRow.compact
+                                ? filterRow.width - 20
+                                : filterRow.width * 0.24
+                            Layout.minimumWidth: 0
+                            Layout.preferredHeight: root.theme.controlHeight
                             theme: root.theme
                             enabled: filterRow.rowEnabled
                             model: filterRow.relationChoices
@@ -230,7 +384,6 @@ Item {
                             valueRole: "value"
                             currentIndex: filterRow.relationIndex(
                                 filterRow.relation)
-                            font.pixelSize: 9
                             onActivated: filterModel.set_value(
                                 filterRow.index, "relation", currentValue)
                         }
@@ -240,18 +393,13 @@ Item {
                             id: valueField
                             Layout.fillWidth: true
                             Layout.minimumWidth: 0
-                            Layout.preferredHeight: 30
+                            Layout.preferredHeight: root.theme.controlHeight
                             enabled: filterRow.rowEnabled
                             text: filterRow.value === null
                                 || filterRow.value === undefined
                                 ? "" : String(filterRow.value)
                             placeholderText: filterRow.column === "_expression"
                                 ? qsTr("TACTIC expression") : qsTr("Value")
-                            color: root.theme.primaryText
-                            placeholderTextColor: root.theme.secondaryText
-                            selectionColor: root.theme.action
-                            font.family: root.theme.fontFamily
-                            font.pixelSize: 10
                             onTextEdited: filterSuggestionTimer.restart()
                             onActiveFocusChanged: {
                                 if (!activeFocus)
@@ -263,13 +411,6 @@ Item {
                                 filterModel.set_value(
                                     filterRow.index, "value", text)
                                 appController.apply_search_filters()
-                            }
-                            background: Rectangle {
-                                radius: 9
-                                color: root.theme.surfaceContainerLow
-                                border.width: parent.activeFocus ? 2 : 1
-                                border.color: parent.activeFocus
-                                    ? root.theme.action : root.theme.outline
                             }
                         }
                     }
@@ -350,7 +491,7 @@ Item {
                                     text: advancedSuggestionRow.title
                                     color: root.theme.primaryText
                                     font.family: root.theme.fontFamily
-                                    font.pixelSize: 10
+                                    font.pointSize: Typography.body
                                     font.weight: Font.DemiBold
                                     elide: Text.ElideRight
                                 }
@@ -359,7 +500,7 @@ Item {
                                     text: advancedSuggestionRow.description
                                     color: root.theme.secondaryText
                                     font.family: root.theme.fontFamily
-                                    font.pixelSize: 9
+                                    font.pointSize: Typography.label
                                     elide: Text.ElideRight
                                 }
                                 Label {
@@ -368,7 +509,7 @@ Item {
                                     text: qsTr("#") + advancedSuggestionRow.keyword
                                     color: root.theme.action
                                     font.family: root.theme.fontFamily
-                                    font.pixelSize: 9
+                                    font.pointSize: Typography.label
                                     font.weight: Font.DemiBold
                                 }
                             }
@@ -411,118 +552,181 @@ Item {
                 }
             }
 
-            ScrollBar.vertical: Md3ScrollBar {
-                theme: root.theme
-                flickableTarget: filtersList
             }
         }
 
         Rectangle {
-            Layout.fillWidth: true
-            Layout.preferredHeight: root.optionsExpanded ? 116 : 46
-            radius: 14
+            width: parent.width
+            height: 68
+            radius: root.theme.surfaceRadius
             color: root.theme.surfaceContainerHigh
-            clip: true
 
-            ColumnLayout {
+            RowLayout {
                 anchors.fill: parent
-                spacing: 0
+                anchors.leftMargin: 14
+                anchors.rightMargin: 12
+                spacing: 10
 
-                Item {
+                MaterialIcon {
+                    name: "tab"
+                    size: 18
+                    color: root.theme.action
+                }
+
+                ColumnLayout {
                     Layout.fillWidth: true
-                    Layout.preferredHeight: 46
+                    Layout.minimumWidth: 0
+                    spacing: 3
 
-                    RowLayout {
-                        anchors.fill: parent
-                        anchors.leftMargin: 12
-                        anchors.rightMargin: 10
-                        spacing: 7
-                        MaterialIcon {
-                            name: root.optionsExpanded
-                                ? "keyboard_arrow_down"
-                                : "keyboard_arrow_right"
-                            size: 18
-                            color: root.theme.secondaryText
-                        }
-                        MaterialIcon {
-                            name: "tune"
-                            size: 17
-                            color: root.theme.action
-                        }
-                        Label {
-                            Layout.fillWidth: true
-                            text: qsTr("Search Options")
-                            color: root.theme.primaryText
-                            font.family: root.theme.fontFamily
-                            font.pixelSize: 12
-                            font.weight: Font.DemiBold
-                        }
+                    Label {
+                        text: qsTr("Search tab name")
+                        color: root.theme.secondaryText
+                        font.family: root.theme.fontFamily
+                        font.pointSize: Typography.label
                     }
-                    MouseArea {
-                        anchors.fill: parent
-                        cursorShape: Qt.PointingHandCursor
-                        onClicked:
-                            root.optionsExpanded = !root.optionsExpanded
+                    Md3TextField {
+                        theme: root.theme
+                        Layout.fillWidth: true
+                        Layout.minimumWidth: 0
+                        Layout.preferredHeight: root.theme.controlHeight
+                        text: appController.current_search_tab_title
+                        onEditingFinished:
+                            appController.set_search_tab_title(text)
                     }
                 }
 
-                Item {
-                    Layout.fillWidth: true
-                    Layout.preferredHeight: root.optionsExpanded ? 70 : 0
-                    visible: root.optionsExpanded
-                    clip: true
-
-                    ColumnLayout {
-                        anchors.fill: parent
-                        anchors.leftMargin: 12
-                        anchors.rightMargin: 12
-                        anchors.bottomMargin: 10
-                        spacing: 4
-
-                        Label {
-                            text: qsTr("Search tab name")
-                            color: root.theme.secondaryText
-                            font.family: root.theme.fontFamily
-                            font.pixelSize: 9
-                        }
-                        Md3TextField {
-                            theme: root.theme
-                            Layout.fillWidth: true
-                            Layout.minimumWidth: 0
-                            Layout.preferredHeight: 36
-                            text: appController.current_search_tab_title
-                            color: root.theme.primaryText
-                            selectionColor: root.theme.action
-                            font.family: root.theme.fontFamily
-                            font.pixelSize: 11
-                            onEditingFinished:
-                                appController.set_search_tab_title(text)
-                            background: Rectangle {
-                                radius: 10
-                                color: root.theme.surfaceContainerLow
-                                border.width: parent.activeFocus ? 2 : 1
-                                border.color: parent.activeFocus
-                                    ? root.theme.action : root.theme.outline
-                            }
-                        }
-                    }
-                }
             }
         }
 
-        Md3Button {
-            Layout.alignment: Qt.AlignRight
-            Layout.preferredWidth: 132
-            Layout.preferredHeight: 40
-            theme: root.theme
-            highlighted: true
-            enabled: appController.search_state !== "loading"
-            text: appController.search_state === "loading"
-                ? qsTr("Searching...") : qsTr("Apply filters")
-            icon.name: appController.search_state === "loading"
-                ? "hourglass_empty" : "search"
-            onClicked: appController.apply_search_filters()
+        }
 
+        ScrollBar.vertical: Md3ScrollBar {
+            theme: root.theme
+            flickableTarget: searchFlickable
+        }
+    }
+
+    ActionMenu {
+        id: presetActions
+        parent: Overlay.overlay
+        theme: root.theme
+        actions: [
+            {
+                "title": "Saved search actions",
+                "header": true
+            },
+            {
+                "title": "Rename preset",
+                "icon": "rename",
+                "command": "rename",
+                "enabled": root.hasSelectedPreset
+                    && !filterEditorController.busy
+            },
+            {
+                "title": "Duplicate preset",
+                "icon": "duplicate",
+                "command": "duplicate",
+                "enabled": root.hasSelectedPreset
+                    && !filterEditorController.busy
+            },
+            {
+                "title": "Delete preset",
+                "icon": "delete",
+                "command": "delete",
+                "enabled": root.hasSelectedPreset
+                    && !filterEditorController.busy
+            },
+            {"separator": true},
+            {
+                "title": "Refresh saved searches",
+                "icon": "refresh",
+                "command": "refresh",
+                "enabled": !filterEditorController.busy
+            }
+        ]
+        onTriggered: command => {
+            if (command === "rename")
+                root.openPresetDialog("rename")
+            else if (command === "duplicate")
+                root.openPresetDialog("duplicate")
+            else if (command === "delete")
+                deleteDialog.open()
+            else if (command === "refresh")
+                filterEditorController.begin_search_session()
+        }
+    }
+
+    Md3Dialog {
+        id: presetDialog
+        theme: root.theme
+        anchors.centerIn: parent
+        width: Math.min(390, root.width - 24)
+        modal: true
+        title: root.presetAction === "rename" ? qsTr("Rename preset")
+            : root.presetAction === "duplicate" ? qsTr("Duplicate preset")
+            : qsTr("Save filter preset")
+        onAccepted: {
+            if (root.presetAction === "rename")
+                filterEditorController.rename(presetName.text)
+            else if (root.presetAction === "duplicate")
+                filterEditorController.duplicate_current_search(presetName.text)
+            else
+                filterEditorController.save_current_search_as(presetName.text)
+        }
+        contentItem: Md3TextField {
+            id: presetName
+            theme: root.theme
+            width: Math.max(220, presetDialog.width - 48)
+            placeholderText: qsTr("Preset name")
+            Keys.onReturnPressed: presetDialog.accept()
+        }
+        footer: DialogButtonBox {
+            background: Item {}
+            Md3Button {
+                theme: root.theme
+                text: qsTr("Save")
+                highlighted: true
+                enabled: presetName.text.trim().length > 0
+                DialogButtonBox.buttonRole: DialogButtonBox.AcceptRole
+            }
+            Md3Button {
+                theme: root.theme
+                text: qsTr("Cancel")
+                flat: true
+                DialogButtonBox.buttonRole: DialogButtonBox.RejectRole
+            }
+        }
+    }
+
+    Md3Dialog {
+        id: deleteDialog
+        theme: root.theme
+        anchors.centerIn: parent
+        width: Math.min(390, root.width - 24)
+        modal: true
+        title: qsTr("Delete saved filter?")
+        onAccepted: filterEditorController.delete_selected()
+        contentItem: Label {
+            width: Math.max(220, deleteDialog.width - 48)
+            text: qsTr("The preset will be removed from the TACTIC server.")
+            color: root.theme.primaryText
+            font.family: root.theme.fontFamily
+            wrapMode: Text.WordWrap
+        }
+        footer: DialogButtonBox {
+            background: Item {}
+            Md3Button {
+                theme: root.theme
+                text: qsTr("Delete")
+                destructive: true
+                DialogButtonBox.buttonRole: DialogButtonBox.AcceptRole
+            }
+            Md3Button {
+                theme: root.theme
+                text: qsTr("Cancel")
+                flat: true
+                DialogButtonBox.buttonRole: DialogButtonBox.RejectRole
+            }
         }
     }
 }

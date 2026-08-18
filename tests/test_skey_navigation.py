@@ -3,6 +3,7 @@ import unittest
 from modern_ui.controllers.search_suggestions import SearchSuggestionsMixin
 from modern_ui.controllers.types import SearchTabSession, SectionSession
 from modern_ui.models import NavigationEntry, NavigationModel
+from modern_ui.search_contract import records_from_filters
 
 
 class _SObject:
@@ -49,7 +50,7 @@ class _NavigationHarness(SearchSuggestionsMixin):
             search_type=(
                 entry.search_type if entry else key.partition("@")[0]
             ),
-            base_filters=entry.filters if entry else (),
+            base_filters=(),
             tabs=[tab],
             current_tab_id=tab.tab_id,
         )
@@ -136,7 +137,9 @@ class SearchKeyNavigationTests(unittest.TestCase):
                 group="Project",
                 command="open",
                 search_type="demo/asset",
-                filters=(("assigned", "=", "me"),),
+                filter_records=tuple(records_from_filters(
+                    [("assigned", "=", "me")]
+                )),
             ),
             NavigationEntry(
                 key="demo/asset@assets",

@@ -1,7 +1,6 @@
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
-import Qt5Compat.GraphicalEffects
 
 Item {
     id: root
@@ -76,7 +75,10 @@ Item {
     property real lastPointerY: 0
     property real manualDragX: 0
     property real manualDragY: 0
-    property bool dockDragging: titleDragMouse.dragging || resultsDragMouse.dragging
+    property real handlePressHostX: 0
+    property real handlePressHostY: 0
+    property bool dockDragging: resultsDragHandle.dragActive
+        || dockMoveHandle.dragActive
     property bool geometryTransitionsReady: false
     property bool hostGeometryChanging: false
     readonly property real chromeInset: dockArea === "floating" ? 6 : 5
@@ -98,9 +100,35 @@ Item {
             : panelKind === "notes" ? "comment"
             : panelKind === "advanced_search" ? "search"
             : panelKind === "fast_controls" ? "tune"
-            : panelKind === "repo_sync_queue" ? "sync"
+            : panelKind === "repo_sync_queue" ? "repository-sync"
             : panelKind === "watch_folders" ? "folder"
             : panelKind === "description" ? "description" : "view_kanban"
+    }
+
+    function localizedPanelTitle(panelKind, fallbackTitle) {
+        if (panelKind === "results") return qsTr("Search")
+        if (panelKind === "snapshot") return qsTr("Snapshots")
+        if (panelKind === "tasks") return qsTr("Tasks")
+        if (panelKind === "task_calendar") return qsTr("Task Calendar")
+        if (panelKind === "timesheet") return qsTr("Timesheet")
+        if (panelKind === "work_reports") return qsTr("Work Reports")
+        if (panelKind === "cost_reports") return qsTr("Cost Reports")
+        if (panelKind === "notes") return qsTr("Task Inspector")
+        if (panelKind === "drop_plate") return qsTr("Drop Plate")
+        if (panelKind === "advanced_search") return qsTr("Advanced Search")
+        if (panelKind === "fast_controls") return qsTr("Fast Controls")
+        if (panelKind === "watch_folders") return qsTr("Watch Folders")
+        if (panelKind === "db_table") return qsTr("Database Editor")
+        if (panelKind === "description") {
+            const value = String(fallbackTitle || "")
+            const prefix = "Description"
+            return qsTr("Description")
+                + (value.indexOf(prefix) === 0
+                    ? value.slice(prefix.length) : "")
+        }
+        // Unknown titles can be project- or extension-defined data and must
+        // remain unchanged rather than being passed to the app translator.
+        return String(fallbackTitle || "")
     }
 
     x: dockDragging ? Math.max(0, Math.min(host.width - width, dragStartX + manualDragX)) : localX
@@ -275,6 +303,16 @@ Item {
     }
     onVisibleChanged: if (visible) dockModel.raise_panel(panelId)
 
+    TapHandler {
+        target: null
+        acceptedButtons: Qt.AllButtons
+        gesturePolicy: TapHandler.DragThreshold
+        onPressedChanged: {
+            if (pressed && root.dockArea === "floating")
+                dockModel.raise_panel(root.panelId)
+        }
+    }
+
     Connections {
         target: root.host
         function onWidthChanged() {
@@ -313,26 +351,19 @@ Item {
         }
     }
 
-    // One masked body owns both the title bar and the panel content.  Content
-    // components may paint an opaque rectangular background of their own,
-    // but it is clipped to the dock's actual MD3 outline instead of looking
-    // like a second rectangular window placed inside a rounded card.
+    // One direct-rendered body owns both the title bar and panel content.
+    // Rectangular clipping prevents child content from escaping the dock
+    // without rasterizing and resampling every glyph at fractional DPI.
     Item {
         id: panelBody
         z: 100
         anchors.fill: panelSurface
         anchors.margins: panelSurface.border.width
-        layer.enabled: true
-        layer.smooth: true
-        layer.effect: OpacityMask {
-            cached: false
-            maskSource: Rectangle {
-                width: panelBody.width
-                height: panelBody.height
-                radius: Math.max(0, panelSurface.radius - panelSurface.border.width)
-                antialiasing: true
-            }
-        }
+        // Keep text and icons in the direct scene-graph path.  Applying an
+        // OpacityMask here turns the complete dock into an offscreen texture;
+        // at fractional Windows scale factors (notably 125%) that texture is
+        // resampled and native DirectWrite glyphs become visibly soft.
+        clip: true
     }
 
     Rectangle {
@@ -348,7 +379,7 @@ Item {
             ? 0 : root.theme.dockTitleHeight
         visible: height > 0
         radius: root.theme.surfaceRadius
-        color: titleDragMouse.containsMouse
+        color: root.dockDragging
             ? root.theme.surfaceContainerHigh : root.theme.panel
         antialiasing: true
         Behavior on color {
@@ -382,7 +413,7 @@ Item {
             DockTitleLabel {
                 visible: root.stackSize <= 1
                 theme: root.theme
-                titleText: qsTr(root.title)
+                titleText: root.localizedPanelTitle(root.kind, root.title)
                 Layout.fillWidth: true
             }
             Item {
@@ -390,27 +421,35 @@ Item {
                 Layout.fillWidth: true
                 Layout.fillHeight: true
             }
-            CompactIconButton {
+            DockDragGrip {
+                id: dockMoveHandle
                 visible: root.kind !== "results"
                 Layout.preferredWidth: 30
-                Layout.preferredHeight: 30
+                Layout.preferredHeight: 34
                 theme: root.theme
-                round: true
-                iconName: root.dockArea === "floating"
-                    ? "window-restore" : "picture-in-picture"
-                iconSize: 14
-                iconColor: root.theme.secondaryText
-                backgroundColor: root.theme.surfaceContainerHigh
-                toolTip: root.dockArea === "floating"
-                    ? qsTr("Dock ") + qsTr(root.title)
-                    : qsTr("Float ") + qsTr(root.title)
-                        + qsTr(" inside workspace")
-                onClicked: {
-                    if (root.dockArea === "floating")
-                        dockModel.dock_panel(root.panelId)
-                    else
-                        dockModel.float_panel_inside(root.panelId)
+                toolTip: qsTr("Drag to move or dock")
+                onPressed: dockModel.raise_panel(root.panelId)
+                onClicked: dockModel.raise_panel(root.panelId)
+                onDragStarted: (pressX, pressY) => {
+                    const point = dockMoveHandle.mapToItem(
+                        root.host, pressX, pressY
+                    )
+                    root.handlePressHostX = point.x
+                    root.handlePressHostY = point.y
+                    root.manualDragX = 0
+                    root.manualDragY = 0
+                    root.beginPanelDrag()
                 }
+                onDragMoved: (pointerX, pointerY) => root.updatePanelDrag(
+                    dockMoveHandle, pointerX, pointerY,
+                    root.handlePressHostX, root.handlePressHostY
+                )
+                onDragFinished: root.finishPanelDrag(
+                    root.manualDragX, root.manualDragY
+                )
+                onDragCanceled: root.finishPanelDrag(
+                    root.manualDragX, root.manualDragY
+                )
             }
             CompactIconButton {
                 visible: root.kind !== "results"
@@ -422,7 +461,8 @@ Item {
                 iconSize: 14
                 iconColor: root.theme.secondaryText
                 backgroundColor: root.theme.surfaceContainerHigh
-                toolTip: qsTr("Detach ") + qsTr(root.title)
+                toolTip: qsTr("Detach ")
+                    + root.localizedPanelTitle(root.kind, root.title)
                 onClicked: dockModel.detach_panel(root.panelId)
             }
             CompactIconButton {
@@ -435,7 +475,8 @@ Item {
                 iconSize: 14
                 iconColor: root.theme.secondaryText
                 backgroundColor: root.theme.surfaceContainerHigh
-                toolTip: qsTr("Close ") + qsTr(root.title)
+                toolTip: qsTr("Close ")
+                    + root.localizedPanelTitle(root.kind, root.title)
                 onClicked: dockModel.close_panel(root.panelId)
             }
         }
@@ -448,51 +489,6 @@ Item {
             color: root.theme.outlineVariant
         }
 
-        Item {
-            id: titleDragSurface
-            objectName: "dockTitleDrag_" + root.panelId
-            visible: root.stackSize <= 1
-            anchors.fill: parent
-            anchors.rightMargin: root.titleActionCount * 38
-            MouseArea {
-                id: titleDragMouse
-                anchors.fill: parent
-                hoverEnabled: true
-                preventStealing: true
-                cursorShape: dragging ? Qt.ClosedHandCursor : Qt.OpenHandCursor
-                property bool dragging: false
-                property real pressHostX: 0
-                property real pressHostY: 0
-                onPressed: mouse => {
-                    const point = titleDragSurface.mapToItem(root.host, mouse.x, mouse.y)
-                    pressHostX = point.x
-                    pressHostY = point.y
-                    root.manualDragX = 0
-                    root.manualDragY = 0
-                }
-                onPositionChanged: mouse => {
-                    if (!pressed) return
-                    const point = titleDragSurface.mapToItem(root.host, mouse.x, mouse.y)
-                    if (!dragging && Math.hypot(point.x - pressHostX, point.y - pressHostY) >= 6) {
-                        dragging = true
-                        root.beginPanelDrag()
-                    }
-                    if (dragging)
-                        root.updatePanelDrag(titleDragSurface, mouse.x, mouse.y, pressHostX, pressHostY)
-                }
-                onReleased: {
-                    if (dragging)
-                        root.finishPanelDrag(root.manualDragX, root.manualDragY)
-                    else
-                        dockModel.raise_panel(root.panelId)
-                    dragging = false
-                }
-                onCanceled: {
-                    if (dragging) root.finishPanelDrag(root.manualDragX, root.manualDragY)
-                    dragging = false
-                }
-            }
-        }
     }
     Rectangle {
         id: stackTabBar
@@ -544,24 +540,35 @@ Item {
 
                         Rectangle {
                             anchors.fill: parent
-                            anchors.topMargin: 3
-                            anchors.bottomMargin: 3
-                            radius: root.theme.itemRadius
-                            color: stackTab.record.active
-                                ? root.theme.selected
-                                : stackTab.hovered
-                                    ? root.theme.rowHover : "transparent"
-                            Behavior on color {
-                                ColorAnimation { duration: root.theme.motionFast }
+                            color: root.theme.action
+                            opacity: tabDrag.active ? 0.14
+                                : stackTab.record.active ? 0.10
+                                : stackTab.hovered ? 0.07 : 0
+                            Behavior on opacity {
+                                NumberAnimation {
+                                    duration: root.theme.motionFast
+                                    easing.type: Easing.OutCubic
+                                }
                             }
                         }
                         Rectangle {
-                            anchors.left: parent.left
-                            anchors.right: parent.right
                             anchors.bottom: parent.bottom
-                            height: 2
+                            anchors.horizontalCenter: parent.horizontalCenter
+                            width: stackTab.record.active
+                                ? Math.max(48, parent.width - 20) : 0
+                            height: 3
+                            radius: 1.5
                             color: root.theme.action
                             opacity: stackTab.record.active ? 1 : 0
+                            Behavior on width {
+                                NumberAnimation {
+                                    duration: root.theme.motionMedium
+                                    easing.type: Easing.OutCubic
+                                }
+                            }
+                            Behavior on opacity {
+                                NumberAnimation { duration: root.theme.motionFast }
+                            }
                         }
                         RowLayout {
                             anchors.fill: parent
@@ -578,9 +585,12 @@ Item {
                                 id: tabLabel
                                 Layout.fillWidth: true
                                 theme: root.theme
-                                titleText: stackTab.record.kind === "description"
-                                    ? root.descriptionTitle
-                                    : stackTab.record.title
+                                titleText: root.localizedPanelTitle(
+                                    stackTab.record.kind,
+                                    stackTab.record.kind === "description"
+                                        ? root.descriptionTitle
+                                        : stackTab.record.title
+                                )
                                 active: stackTab.record.active
                             }
                         }
@@ -632,84 +642,41 @@ Item {
         }
     }
 
-    Item {
-        id: resultsDragSurface
+    DockDragGrip {
+        id: resultsDragHandle
         parent: panelBody
         objectName: "dockTitleDrag_" + root.panelId
-        visible: root.kind === "results"
+        visible: root.kind === "results" && root.stackSize <= 1
         anchors.left: parent.left
         anchors.top: parent.top
         width: 34
         height: 48
         z: 50
-        Rectangle {
-            id: gripBackground
-            anchors.centerIn: parent
-            width: 24
-            height: 32
-            radius: root.theme.surfaceRadius
-            color: resultsDragMouse.pressed ? root.theme.selected
-                : resultsDragMouse.containsMouse ? root.theme.rowHover : "transparent"
-            Behavior on color {
-                ColorAnimation { duration: root.theme.motionFast }
-            }
-            MaterialRipple {
-                id: gripRipple
-                color: root.theme.rippleStrong
-                shapeRadius: gripBackground.radius
-            }
+        theme: root.theme
+        toolTip: qsTr("Drag to move or dock")
+        property real pressHostX: 0
+        property real pressHostY: 0
+        onPressed: dockModel.raise_panel(root.panelId)
+        onClicked: dockModel.raise_panel(root.panelId)
+        onDragStarted: (pressX, pressY) => {
+            const point = resultsDragHandle.mapToItem(
+                root.host, pressX, pressY
+            )
+            pressHostX = point.x
+            pressHostY = point.y
+            root.manualDragX = 0
+            root.manualDragY = 0
+            root.beginPanelDrag()
         }
-        Column {
-            anchors.centerIn: parent
-            spacing: 3
-            Repeater {
-                model: 3
-                Row {
-                    spacing: 4
-                    Rectangle { width: 3; height: 3; radius: 1.5; color: root.theme.secondaryText; antialiasing: true }
-                    Rectangle { width: 3; height: 3; radius: 1.5; color: root.theme.secondaryText; antialiasing: true }
-                }
-            }
-        }
-        MouseArea {
-            id: resultsDragMouse
-            anchors.fill: parent
-            hoverEnabled: true
-            preventStealing: true
-            cursorShape: dragging ? Qt.ClosedHandCursor : Qt.OpenHandCursor
-            property bool dragging: false
-            property real pressHostX: 0
-            property real pressHostY: 0
-            onPressed: mouse => {
-                gripRipple.burst(mouse.x - gripBackground.x, mouse.y - gripBackground.y)
-                const point = resultsDragSurface.mapToItem(root.host, mouse.x, mouse.y)
-                pressHostX = point.x
-                pressHostY = point.y
-                root.manualDragX = 0
-                root.manualDragY = 0
-            }
-            onPositionChanged: mouse => {
-                if (!pressed) return
-                const point = resultsDragSurface.mapToItem(root.host, mouse.x, mouse.y)
-                if (!dragging && Math.hypot(point.x - pressHostX, point.y - pressHostY) >= 6) {
-                    dragging = true
-                    root.beginPanelDrag()
-                }
-                if (dragging)
-                    root.updatePanelDrag(resultsDragSurface, mouse.x, mouse.y, pressHostX, pressHostY)
-            }
-            onReleased: {
-                if (dragging)
-                    root.finishPanelDrag(root.manualDragX, root.manualDragY)
-                else
-                    dockModel.raise_panel(root.panelId)
-                dragging = false
-            }
-            onCanceled: {
-                if (dragging) root.finishPanelDrag(root.manualDragX, root.manualDragY)
-                dragging = false
-            }
-        }
+        onDragMoved: (pointerX, pointerY) => root.updatePanelDrag(
+            resultsDragHandle, pointerX, pointerY, pressHostX, pressHostY
+        )
+        onDragFinished: root.finishPanelDrag(
+            root.manualDragX, root.manualDragY
+        )
+        onDragCanceled: root.finishPanelDrag(
+            root.manualDragX, root.manualDragY
+        )
     }
     Loader {
         id: panelContentLoader

@@ -42,7 +42,7 @@ Rectangle {
                 text: qsTr("WORK HOURS")
                 color: root.theme.primaryText
                 font.family: root.theme.fontFamily
-                font.pixelSize: 8
+                font.pointSize: Typography.caption
                 font.weight: Font.DemiBold
                 font.letterSpacing: 0.45
                 Layout.alignment: Qt.AlignVCenter
@@ -52,7 +52,7 @@ Rectangle {
                 text: root.summary.label
                 color: root.theme.secondaryText
                 font.family: root.theme.fontFamily
-                font.pixelSize: 9
+                font.pointSize: Typography.label
                 font.weight: Font.DemiBold
                 Layout.alignment: Qt.AlignVCenter
             }
@@ -61,7 +61,7 @@ Rectangle {
                 text: root.summary.pending + qsTr(" h pending")
                 color: root.theme.yellow
                 font.family: root.theme.fontFamily
-                font.pixelSize: 8
+                font.pointSize: Typography.caption
                 Layout.alignment: Qt.AlignVCenter
             }
             Item { Layout.fillWidth: true }
@@ -111,7 +111,7 @@ Rectangle {
                                && Number(modelData.value) > 0
                             ? root.theme.error : root.theme.primaryText
                         font.family: root.theme.fontFamily
-                        font.pixelSize: 9
+                        font.pointSize: Typography.label
                         font.weight: Font.DemiBold
                         horizontalAlignment: Text.AlignHCenter
                     }
@@ -120,7 +120,7 @@ Rectangle {
                         text: modelData.label
                         color: root.theme.secondaryText
                         font.family: root.theme.fontFamily
-                        font.pixelSize: 7
+                        font.pointSize: Typography.micro
                         horizontalAlignment: Text.AlignHCenter
                     }
                 }

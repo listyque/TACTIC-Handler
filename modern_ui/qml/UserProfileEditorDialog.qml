@@ -221,7 +221,7 @@ Md3Dialog {
                         : root.controller.profile.login || ""
                     color: root.theme.secondaryText
                     font.family: root.theme.fontFamily
-                    font.pixelSize: 9
+                    font.pointSize: Typography.label
                 }
             }
             Md3Button {
@@ -340,7 +340,7 @@ Md3Dialog {
                         text: qsTr("ACCOUNT SETTINGS")
                         color: root.theme.secondaryText
                         font.family: root.theme.fontFamily
-                        font.pixelSize: 9
+                        font.pointSize: Typography.label
                         font.weight: Font.DemiBold
                     }
                     Md3TextField {
@@ -398,7 +398,7 @@ Md3Dialog {
                         text: qsTr("Group membership changes affect this user's permissions.")
                         color: root.theme.secondaryText
                         font.family: root.theme.fontFamily
-                        font.pixelSize: 10
+                        font.pointSize: Typography.body
                         wrapMode: Text.WordWrap
                     }
                     Label {
@@ -407,7 +407,7 @@ Md3Dialog {
                         text: qsTr("Access level is shared by every member of the group. Empty uses TACTIC's Low default.")
                         color: root.theme.yellow
                         font.family: root.theme.fontFamily
-                        font.pixelSize: 9
+                        font.pointSize: Typography.label
                         wrapMode: Text.WordWrap
                     }
                     Repeater {
@@ -449,7 +449,7 @@ Md3Dialog {
                                         text: groupRow.label
                                         color: root.theme.primaryText
                                         font.family: root.theme.fontFamily
-                                        font.pixelSize: 10
+                                        font.pointSize: Typography.body
                                         font.weight: Font.DemiBold
                                         elide: Text.ElideRight
                                     }
@@ -459,7 +459,7 @@ Md3Dialog {
                                         text: groupRow.description
                                         color: root.theme.secondaryText
                                         font.family: root.theme.fontFamily
-                                        font.pixelSize: 8
+                                        font.pointSize: Typography.caption
                                         elide: Text.ElideRight
                                     }
                                     Label {
@@ -471,7 +471,7 @@ Md3Dialog {
                                             : qsTr("Default group")
                                         color: root.theme.secondaryText
                                         font.family: root.theme.fontFamily
-                                        font.pixelSize: 8
+                                        font.pointSize: Typography.caption
                                         elide: Text.ElideRight
                                     }
                                 }
@@ -503,7 +503,7 @@ Md3Dialog {
             text: root.controller.editingError
             color: root.theme.error
             font.family: root.theme.fontFamily
-            font.pixelSize: 9
+            font.pointSize: Typography.label
             wrapMode: Text.WordWrap
         }
     }

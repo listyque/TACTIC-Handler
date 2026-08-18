@@ -59,7 +59,7 @@ Item {
                         ? qsTr(" task selected") : qsTr(" tasks selected"))
                 color: root.theme.primaryText
                 font.family: root.theme.fontFamily
-                font.pixelSize: 9
+                font.pointSize: Typography.label
                 font.weight: Font.DemiBold
                 elide: Text.ElideRight
             }
@@ -173,7 +173,7 @@ Item {
                 color: tasksController.bulkPreview.invalid > 0
                     ? root.theme.error : root.theme.secondaryText
                 font.family: root.theme.fontFamily
-                font.pixelSize: 8
+                font.pointSize: Typography.caption
                 horizontalAlignment: Text.AlignRight
                 elide: Text.ElideRight
             }
@@ -222,7 +222,7 @@ Item {
                     text: qsTr("MORE BULK FIELDS")
                     color: root.theme.primaryText
                     font.family: root.theme.fontFamily
-                    font.pixelSize: 9
+                    font.pointSize: Typography.label
                     font.weight: Font.DemiBold
                 }
                 Label {
@@ -230,7 +230,7 @@ Item {
                     text: qsTr("Each checked field replaces its current value")
                     color: root.theme.secondaryText
                     font.family: root.theme.fontFamily
-                    font.pixelSize: 8
+                    font.pointSize: Typography.caption
                 }
             }
 
@@ -416,7 +416,7 @@ Item {
                     text: qsTr("%")
                     color: root.theme.secondaryText
                     font.family: root.theme.fontFamily
-                    font.pixelSize: 9
+                    font.pointSize: Typography.label
                 }
                 Md3CheckBox {
                     theme: root.theme
@@ -455,7 +455,7 @@ Item {
                     color: tasksController.bulkPreview.invalid > 0
                         ? root.theme.error : root.theme.secondaryText
                     font.family: root.theme.fontFamily
-                    font.pixelSize: 8
+                    font.pointSize: Typography.caption
                     elide: Text.ElideRight
                 }
                 Md3Button {

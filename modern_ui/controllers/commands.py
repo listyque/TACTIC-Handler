@@ -71,6 +71,11 @@ class CommandsMixin:
             "cacheProcessTabs": self._search_cache_enabled(),
             "darkTheme": self._dark_theme,
             "themeStyle": self._theme_style,
+            "debugLogLevels": list(
+                getattr(self.debug_log, "recording_levels", [
+                    "ERROR", "CRITICAL",
+                ])
+            ),
             "configPath": str(env_mode.get_current_path() or ""),
         }
 
@@ -82,6 +87,10 @@ class CommandsMixin:
         self.set_dark_theme(bool(values.get("darkTheme")))
         if "themeStyle" in values:
             self.set_theme_style(values.get("themeStyle"))
+        if self.debug_log:
+            self.debug_log.set_recording_levels(
+                values.get("debugLogLevels") or []
+            )
         if not cache_enabled:
             self.flush_search_cache()
         self._settings.sync()
@@ -103,7 +112,11 @@ class CommandsMixin:
                 (candidate for candidate in self.navigation_model._entries if candidate.key == key),
                 None,
             )
-            self._create_section(key, title, entry.accent if entry else "")
+            self._reset_sidebar_section(
+                key,
+                title,
+                entry.accent if entry else "",
+            )
             self.activate_section(key)
             return
         elif command.startswith("show_"):
@@ -148,8 +161,18 @@ class CommandsMixin:
                 }
         elif window_id == "link_sobjects":
             prepared = self._sobject_link_request.pop("_prepared", False)
-            if not prepared:
+            relation = dict(self._sobject_link_request.get("relation") or {})
+            valid_relation = (
+                str(relation.get("relationship") or "") == "instance"
+                and self._sobject_link_request.get("stype") is not None
+                and self._sobject_link_request.get("parent_sobject") is not None
+            )
+            if not prepared or not valid_relation:
                 self._sobject_link_request = {}
+                self._notify(
+                    "Open Link SObjects from an instance relation"
+                )
+                return
         self.window_model.show_window(window_id)
 
     def sobject_editor_context(self) -> dict:

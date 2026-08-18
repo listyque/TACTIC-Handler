@@ -119,7 +119,7 @@ repositories и не должен менять их корневые пути. �
 - переключение проекта и повторное создание `env_inst.watch_folders`;
 - закрытие приложения при активном observer и обрабатываемом событии;
 - Delete с Keep и Remove без удаления пути за пределами repository root.
-## Repository Editor — этап 26
+## Repository Editor
 
 QML Repository Editor заменён отдельными `RepositoryEditorView` и
 `RepositoryEditorController`. Рабочая копия строится из
@@ -136,7 +136,7 @@ directory/read/write без рекурсивного обхода. Save испо
 
 Требуют ручной проверки сетевые shares, Linux paths с Windows-хоста, QWidget
 Repository Editor и активные Repository Sync операции.
-## Watch Folders — этап 27
+## Watch Folders
 
 QML Watch Folders использует отдельные `WatchFoldersController` и
 `WatchFoldersView`, существующий `FSObserver`, repository API, Matching

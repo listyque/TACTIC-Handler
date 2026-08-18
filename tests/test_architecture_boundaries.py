@@ -57,6 +57,43 @@ def _matches(module: str, prefixes: tuple[str, ...]) -> bool:
 
 
 class ArchitectureBoundaryTests(unittest.TestCase):
+    def test_modern_ui_uses_only_pyside6(self):
+        paths = [ROOT / "main_qml.py", *_python_files("modern_ui")]
+        violations = []
+        for path in paths:
+            for module in _imported_modules(path):
+                if (
+                    module.startswith(("PySide", "PyQt"))
+                    and not _matches(module, ("PySide6",))
+                ):
+                    violations.append(
+                        f"{path.relative_to(ROOT)} -> {module}"
+                    )
+        self.assertEqual([], violations, "\n".join(violations))
+
+    def test_modern_entrypoint_pins_pyside6_for_compatibility_core(self):
+        tree = _tree(ROOT / "main_qml.py")
+        assignments = [
+            node for node in ast.walk(tree)
+            if isinstance(node, ast.Assign)
+        ]
+        pinned = any(
+            any(
+                isinstance(target, ast.Subscript)
+                and isinstance(target.value, ast.Attribute)
+                and isinstance(target.value.value, ast.Name)
+                and target.value.value.id == "os"
+                and target.value.attr == "environ"
+                and isinstance(target.slice, ast.Constant)
+                and target.slice.value == "QT_PREFERRED_BINDING"
+                for target in node.targets
+            )
+            and isinstance(node.value, ast.Constant)
+            and node.value.value == "PySide6"
+            for node in assignments
+        )
+        self.assertTrue(pinned)
+
     def test_thlib_does_not_depend_on_modern_ui(self):
         violations = []
         for path in _python_files("thlib", exclude_side=True):

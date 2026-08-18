@@ -10,6 +10,7 @@ Item {
     property string toolTip: ""
     property bool compact: false
     property real horizontalPadding: 15
+    readonly property real surfaceInset: 2
     readonly property bool hasLabel: !compact && text.length > 0
     readonly property real desiredContentWidth:
         (iconName.length > 0 ? 18 : 0)
@@ -23,14 +24,14 @@ Item {
         ? theme.controlHeight
         : Math.max(
             theme.controlHeight,
-            desiredContentWidth + horizontalPadding * 2
+            desiredContentWidth + horizontalPadding * 2 + surfaceInset * 2
         )
     implicitHeight: theme.controlHeight
 
     Rectangle {
         id: buttonSurface
         anchors.fill: parent
-        anchors.margins: 2
+        anchors.margins: root.surfaceInset
         clip: true
         // Filled toolbar actions are rounded squares, not pill buttons.
         // Keep the geometry aligned with the existing filled Add action.

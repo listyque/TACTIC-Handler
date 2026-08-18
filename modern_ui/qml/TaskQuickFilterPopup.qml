@@ -59,7 +59,7 @@ Md3Popup {
                     text: qsTr("QUICK FILTERS")
                     color: root.theme.primaryText
                     font.family: root.theme.fontFamily
-                    font.pixelSize: 11
+                    font.pointSize: Typography.bodyLarge
                     font.weight: Font.DemiBold
                 }
                 QuickFilterChip {
@@ -89,7 +89,7 @@ Md3Popup {
                             text: filterGroup.modelData.title
                             color: root.theme.secondaryText
                             font.family: root.theme.fontFamily
-                            font.pixelSize: 8
+                            font.pointSize: Typography.caption
                             font.weight: Font.DemiBold
                         }
                         CompactIconButton {

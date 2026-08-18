@@ -48,12 +48,51 @@ class LocalizationTests(unittest.TestCase):
         self.assertNotIn("All Sequences", catalog)
         self.assertNotIn("Assets Category", catalog)
         self.assertNotIn("Tasks For: Reef", catalog)
+        self.assertEqual(catalog["Task Manager"], "Диспетчер задач")
+
+        dock_host = (
+            self._ROOT / "modern_ui" / "qml" / "DockHost.qml"
+        ).read_text(encoding="utf-8")
+        self.assertIn('qsTr("Tasks for:")', dock_host)
+
+        dock_menu = (
+            self._ROOT / "modern_ui" / "qml" / "DockMenu.qml"
+        ).read_text(encoding="utf-8")
+        self.assertIn('panelRow.kind === "tasks"', dock_menu)
+        self.assertIn('qsTr("Task Manager")', dock_menu)
 
         drawer_source = (
             self._ROOT / "modern_ui" / "qml" / "NavigationDrawer.qml"
         ).read_text(encoding="utf-8")
-        self.assertIn("text: entry.title", drawer_source)
-        self.assertNotIn("qsTr(entry.title)", drawer_source)
+        sidebar_row_source = (
+            self._ROOT / "modern_ui" / "qml" / "SidebarTreeRow.qml"
+        ).read_text(encoding="utf-8")
+        self.assertIn("SidebarTreeRow", drawer_source)
+        self.assertIn("text: root.title", sidebar_row_source)
+        self.assertNotIn("qsTr(root.title)", sidebar_row_source)
+
+    def test_server_search_columns_are_not_translated(self):
+        advanced_search = (
+            self._ROOT / "modern_ui" / "qml" / "AdvancedSearchView.qml"
+        ).read_text(encoding="utf-8")
+        combo_box = (
+            self._ROOT / "modern_ui" / "qml" / "controls"
+            / "Md3ComboBox.qml"
+        ).read_text(encoding="utf-8")
+
+        self.assertRegex(
+            advanced_search,
+            r"model:\s*filterColumnModel[\s\S]{0,420}"
+            r"translateDisplayText:\s*false",
+        )
+        self.assertIn(
+            "text: control.translateDisplayText",
+            combo_box,
+        )
+        self.assertIn(
+            ": control.textAt(option.index)",
+            combo_box,
+        )
 
     def test_russian_catalog_is_valid_utf8_without_replacement_markers(self):
         catalog_path = (

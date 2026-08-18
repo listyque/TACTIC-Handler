@@ -38,15 +38,29 @@ Item {
                 anchors.margins: 8
                 spacing: 6
 
-                Label {
-                    text: qsTr("REPOSITORIES")
-                    color: root.theme.secondaryText
-                    font.family: root.theme.fontFamily
-                    font.pixelSize: 10
-                    font.weight: Font.DemiBold
-                    leftPadding: 8
-                    topPadding: 6
-                    bottomPadding: 4
+                RowLayout {
+                    Layout.fillWidth: true
+                    Label {
+                        Layout.fillWidth: true
+                        text: qsTr("REPOSITORIES")
+                        color: root.theme.secondaryText
+                        font.family: root.theme.fontFamily
+                        font.pointSize: Typography.body
+                        font.weight: Font.DemiBold
+                        leftPadding: 8
+                        topPadding: 6
+                        bottomPadding: 4
+                    }
+                    CompactIconButton {
+                        theme: root.theme
+                        iconName: "add"
+                        round: false
+                        toolTip: qsTr("Add custom repository")
+                        onClicked: {
+                            repositoryEditorController.add_custom_repository()
+                            root.selectedRow = repositoryEditorModel.count() - 1
+                        }
+                    }
                 }
                 ListView {
                     id: repositoryList
@@ -88,14 +102,14 @@ Item {
                                     elide: Text.ElideRight
                                     color: root.theme.primaryText
                                     font.family: root.theme.fontFamily
-                                    font.pixelSize: 11
+                                    font.pointSize: Typography.bodyLarge
                                     font.weight: Font.DemiBold
                                 }
                                 Label {
                                     text: code
                                     color: root.theme.secondaryText
                                     font.family: root.theme.fontFamily
-                                    font.pixelSize: 9
+                                    font.pointSize: Typography.label
                                 }
                             }
                         }
@@ -155,7 +169,7 @@ Item {
                             text: qsTr("Paths are stored in the active server preset")
                             color: root.theme.secondaryText
                             font.family: root.theme.fontFamily
-                            font.pixelSize: 10
+                            font.pointSize: Typography.body
                         }
                     }
                     Md3CheckBox {
@@ -175,6 +189,25 @@ Item {
                         onToggled: repositoryEditorModel.set_value(
                             root.selectedRow, "isDefault", checked
                         )
+                    }
+                    CompactIconButton {
+                        visible: Boolean(record.custom)
+                        theme: root.theme
+                        iconName: "delete"
+                        round: false
+                        toolTip: qsTr("Remove custom repository")
+                        onClicked: {
+                            repositoryEditorController.remove_custom_repository(
+                                root.selectedRow
+                            )
+                            root.selectedRow = Math.max(
+                                0,
+                                Math.min(
+                                    root.selectedRow,
+                                    repositoryEditorModel.count() - 1
+                                )
+                            )
+                        }
                     }
                 }
 
@@ -223,7 +256,7 @@ Item {
                             text: qsTr("PROJECT MAPPING")
                             color: root.theme.secondaryText
                             font.family: root.theme.fontFamily
-                            font.pixelSize: 9
+                            font.pointSize: Typography.label
                             font.weight: Font.DemiBold
                         }
                         Label {
@@ -232,7 +265,7 @@ Item {
                             wrapMode: Text.WordWrap
                             color: root.theme.primaryText
                             font.family: root.theme.fontFamily
-                            font.pixelSize: 10
+                            font.pointSize: Typography.body
                         }
                     }
                 }
@@ -254,7 +287,7 @@ Item {
                         text: record.statusText || qsTr("Not checked")
                         color: root.theme.secondaryText
                         font.family: root.theme.fontFamily
-                        font.pixelSize: 10
+                        font.pointSize: Typography.body
                     }
                     Md3Button {
                         theme: root.theme
@@ -273,7 +306,7 @@ Item {
                         ? root.theme.green : root.theme.red
                     wrapMode: Text.WordWrap
                     font.family: root.theme.fontFamily
-                    font.pixelSize: 10
+                    font.pointSize: Typography.body
                 }
                 Item { Layout.fillHeight: true }
                 RowLayout {

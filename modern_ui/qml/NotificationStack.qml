@@ -84,7 +84,7 @@ Item {
                             text: notice.message
                             color: root.theme.primaryText
                             font.family: root.theme.fontFamily
-                            font.pixelSize: 11
+                            font.pointSize: Typography.bodyLarge
                             font.weight: Font.Medium
                             wrapMode: Text.WordWrap
                         }
@@ -94,7 +94,7 @@ Item {
                             text: notice.detail
                             color: root.theme.secondaryText
                             font.family: root.theme.fontFamily
-                            font.pixelSize: 10
+                            font.pointSize: Typography.body
                             elide: Text.ElideRight
                         }
                         ProgressBar {

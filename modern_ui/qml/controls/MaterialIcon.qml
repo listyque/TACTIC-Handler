@@ -21,6 +21,12 @@ Item {
     readonly property string regularFontFamily:
         typeof fontAwesomeRegularFontFamily !== "undefined"
         ? fontAwesomeRegularFontFamily : solidFontFamily
+    readonly property var materialGlyphs:
+        typeof materialDesignIconGlyphs !== "undefined"
+        ? materialDesignIconGlyphs : ({})
+    readonly property string materialFontFamily:
+        typeof materialDesignIconFontFamily !== "undefined"
+        ? materialDesignIconFontFamily : solidFontFamily
     implicitWidth: size
     implicitHeight: size
 
@@ -52,13 +58,15 @@ Item {
         "category": "shapes",
         "cached": "sync-alt",
         "check-circle": "check-circle",
+        "check": "check",
         "chevron-left": "chevron-left",
         "chevron-right": "chevron-right",
         "close": "times",
+        "code": "code",
         "cloud-done": "cloud",
         "cloud-download": "cloud-download-alt",
         "cloud-off": "unlink",
-        "cloud-sync": "sync-alt",
+        "cloud-sync": "cloud-sync",
         "checkin": "cloud-upload-alt",
         "checkin-options": "sliders-h",
         "checkout": "cloud-download-alt",
@@ -152,6 +160,7 @@ Item {
         "pages": "file-alt",
         "person": "user",
         "person-add": "user-plus",
+        "unassigned": "user-slash",
         "payments": "money-bill-wave",
         "picture-in-picture": "clone",
         "photo-camera": "camera",
@@ -170,13 +179,16 @@ Item {
         "radio-button-unchecked": "circle",
         "restart-alt": "redo-alt",
         "rename": "edit",
-        "repo-sync": "sync-alt",
+        "repo-sync": "cloud-sync",
         "repository-editor": "folder-open",
-        "repository-sync": "sync-alt",
+        "repository-sync": "cloud-sync",
         "reply": "reply",
         "running": "sync-alt",
         "save": "save",
         "schedule": "clock",
+        "sidebar-link": "link",
+        "sidebar-section": "folder",
+        "sidebar-separator": "grip-lines",
         "select-all": "check-double",
         "science": "flask",
         "schema": "project-diagram",
@@ -190,6 +202,7 @@ Item {
         "snapshot": "camera",
         "sobject": "cube",
         "stopped": "stop-circle",
+        "storage": "hdd",
         "status": "dot-circle",
         "subdirectory-arrow-right": "level-down-alt",
         "success": "check-circle",
@@ -222,6 +235,7 @@ Item {
         "window-restore": "window-restore",
         "visibility": "eye",
         "visibility-off": "eye-slash",
+        "workflow": "project-diagram",
         "zoom-in": "search-plus",
         "zoom-out": "search-minus"
     })
@@ -232,6 +246,7 @@ Item {
         const candidate = aliases[normalized] || normalized
         return solidGlyphs[candidate] !== undefined
                 || regularGlyphs[candidate] !== undefined
+                || materialGlyphs[candidate] !== undefined
             ? candidate : "exclamation-triangle"
     }
 
@@ -240,15 +255,23 @@ Item {
         readonly property bool regularAvailable:
             !root.forceSolid
             && root.regularGlyphs[resolvedName] !== undefined
+        readonly property bool materialAvailable:
+            resolvedName === "cloud-sync"
+            && root.materialGlyphs[resolvedName] !== undefined
         anchors.fill: parent
-        text: regularAvailable
+        text: materialAvailable
+            ? root.materialGlyphs[resolvedName]
+            : regularAvailable
             ? root.regularGlyphs[resolvedName]
             : root.solidGlyphs[resolvedName] || ""
         color: root.color
-        font.family: regularAvailable
+        font.family: materialAvailable
+            ? root.materialFontFamily
+            : regularAvailable
             ? root.regularFontFamily : root.solidFontFamily
         font.pixelSize: Math.max(11, Math.round(root.size * root.opticalScale))
-        font.weight: regularAvailable ? Font.Normal : Font.Black
+        font.weight: materialAvailable || regularAvailable
+            ? Font.Normal : Font.Black
         font.hintingPreference: Font.PreferVerticalHinting
         horizontalAlignment: Text.AlignHCenter
         verticalAlignment: Text.AlignVCenter

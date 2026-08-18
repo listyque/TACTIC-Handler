@@ -145,7 +145,7 @@ Rectangle {
                                     + root.controller.processLabel
                             color: root.theme.primaryText
                             font.family: root.theme.fontFamily
-                            font.pixelSize: 11
+                            font.pointSize: Typography.bodyLarge
                             font.weight: Font.DemiBold
                             elide: Text.ElideRight
                         }
@@ -157,7 +157,7 @@ Rectangle {
                                 || qsTr("Not assigned")
                             color: root.theme.secondaryText
                             font.family: root.theme.fontFamily
-                            font.pixelSize: 8
+                            font.pointSize: Typography.caption
                             elide: Text.ElideRight
                         }
                     }
@@ -318,7 +318,7 @@ Rectangle {
                             ? root.theme.secondaryText
                             : root.theme.disabledText
                         font.family: root.theme.fontFamily
-                        font.pixelSize: 8
+                        font.pointSize: Typography.caption
                         font.weight: Font.DemiBold
                     }
                     Md3Slider {
@@ -355,7 +355,7 @@ Rectangle {
                             ? root.theme.primaryText
                             : root.theme.disabledText
                         font.family: root.theme.fontFamily
-                        font.pixelSize: 9
+                        font.pointSize: Typography.label
                         font.weight: Font.DemiBold
                         horizontalAlignment: Text.AlignRight
                     }
@@ -368,7 +368,7 @@ Rectangle {
                     text: String(root.task.validationError || "")
                     color: root.theme.error
                     font.family: root.theme.fontFamily
-                    font.pixelSize: 8
+                    font.pointSize: Typography.caption
                     elide: Text.ElideRight
                 }
             }
@@ -440,7 +440,7 @@ Rectangle {
                         color: objectTitleMouse.containsMouse
                             ? root.theme.action : root.theme.primaryText
                         font.family: root.theme.fontFamily
-                        font.pixelSize: 9
+                        font.pointSize: Typography.label
                         font.weight: Font.DemiBold
                         elide: Text.ElideRight
                         MouseArea {
@@ -460,7 +460,7 @@ Rectangle {
                         text: root.objectInfo.type || "sObject"
                         color: root.theme.secondaryText
                         font.family: root.theme.fontFamily
-                        font.pixelSize: 8
+                        font.pointSize: Typography.caption
                         elide: Text.ElideRight
                     }
                 }
@@ -495,7 +495,7 @@ Rectangle {
                             text: root.controller.processLabel
                             color: root.theme.primaryText
                             font.family: root.theme.fontFamily
-                            font.pixelSize: 9
+                            font.pointSize: Typography.label
                             font.weight: Font.DemiBold
                             elide: Text.ElideRight
                         }

@@ -31,7 +31,7 @@ Rectangle {
             text: root.text
             color: root.accentColor
             font.family: root.theme.fontFamily
-            font.pixelSize: 8
+            font.pointSize: Typography.caption
             font.weight: Font.DemiBold
         }
     }

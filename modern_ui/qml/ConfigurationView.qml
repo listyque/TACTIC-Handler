@@ -71,7 +71,7 @@ Item {
                     text: qsTr("TACTIC-HANDLER  ·  PREFERENCES")
                     color: root.theme.secondaryText
                     font.family: root.theme.fontFamily
-                    font.pixelSize: 8
+                    font.pointSize: Typography.caption
                     font.letterSpacing: 0.7
                 }
 
@@ -142,7 +142,7 @@ Item {
                                 text: qsTr(pageRow.title)
                                 color: root.theme.primaryText
                                 font.family: root.theme.fontFamily
-                                font.pixelSize: 11
+                                font.pointSize: Typography.bodyLarge
                                 font.weight: pageRow.selected
                                     ? Font.DemiBold : Font.Normal
                             }
@@ -212,7 +212,7 @@ Item {
                                 text: qsTr("Unsaved")
                                 color: root.theme.selectedText
                                 font.family: root.theme.fontFamily
-                                font.pixelSize: 9
+                                font.pointSize: Typography.label
                                 font.weight: Font.DemiBold
                             }
                         }
@@ -224,7 +224,7 @@ Item {
                         )
                         color: root.theme.secondaryText
                         font.family: root.theme.fontFamily
-                        font.pixelSize: 9
+                        font.pointSize: Typography.label
                     }
                 }
             }
@@ -340,7 +340,7 @@ Item {
                     text: qsTr("Save changes before closing Configuration?")
                     color: root.theme.secondaryText
                     font.family: root.theme.fontFamily
-                    font.pixelSize: 10
+                    font.pointSize: Typography.body
                     wrapMode: Text.WordWrap
                 }
             }

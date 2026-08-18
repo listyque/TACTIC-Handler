@@ -1354,6 +1354,11 @@ class CommunicationController(QObject):
                 )
 
     def _attachment_downloaded(self, file_object):
+        if not any(
+            tracked is file_object
+            for tracked in (*self._files.values(), *self._preview_files.values())
+        ):
+            return
         changed = False
         for row, note in enumerate(self._workspace.note_model._records):
             attachments = [dict(record) for record in note.get("attachments") or []]

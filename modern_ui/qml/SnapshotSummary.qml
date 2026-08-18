@@ -1,5 +1,6 @@
 import QtQuick
 import QtQuick.Controls
+import QtQuick.Layouts
 
 Item {
     id: root
@@ -27,20 +28,45 @@ Item {
         anchors.verticalCenter: parent.verticalCenter
         spacing: 4
 
-        Row {
+        RowLayout {
             width: parent.width
             spacing: 7
 
             Label {
-                width: Math.max(80, parent.width - snapshotMeta.implicitWidth - 10)
+                Layout.preferredWidth: Math.min(
+                    implicitWidth,
+                    Math.max(
+                        80,
+                        parent.width - snapshotMeta.implicitWidth
+                            - snapshotOffline.implicitWidth - 20
+                    )
+                )
+                Layout.maximumWidth: Math.max(
+                    80,
+                    parent.width - snapshotMeta.implicitWidth
+                        - snapshotOffline.implicitWidth - 20
+                )
                 text: root.title
                 color: root.selected
                     ? root.theme.selectedText : root.theme.primaryText
                 font.family: root.theme.fontFamily
-                font.pixelSize: 11
+                font.pointSize: Typography.bodyLarge
                 font.weight: Font.DemiBold
                 elide: Text.ElideMiddle
             }
+
+            Label {
+                id: snapshotOffline
+                visible: !root.fileExists && root.title.length > 0
+                Layout.preferredWidth: visible ? implicitWidth : 0
+                text: "(" + qsTr("File Offline") + ")"
+                color: root.theme.missingFile
+                font.family: root.theme.fontFamily
+                font.pointSize: Typography.label
+                font.weight: Font.Normal
+            }
+
+            Item { Layout.fillWidth: true }
 
             Row {
                 id: snapshotMeta
@@ -59,7 +85,7 @@ Item {
                         text: qsTr("LATEST")
                         color: root.theme.action
                         font.family: root.theme.fontFamily
-                        font.pixelSize: 8
+                        font.pointSize: Typography.caption
                         font.weight: Font.Bold
                     }
                 }
@@ -68,7 +94,7 @@ Item {
                     text: root.version
                     color: root.theme.action
                     font.family: root.theme.fontFamily
-                    font.pixelSize: 9
+                    font.pointSize: Typography.label
                     font.weight: Font.DemiBold
                 }
 
@@ -77,7 +103,7 @@ Item {
                     text: root.revision
                     color: root.theme.secondaryText
                     font.family: root.theme.fontFamily
-                    font.pixelSize: 9
+                    font.pointSize: Typography.label
                 }
 
                 Label {
@@ -85,7 +111,7 @@ Item {
                     text: root.repository
                     color: root.repositoryColor || root.theme.action
                     font.family: root.theme.fontFamily
-                    font.pixelSize: 9
+                    font.pointSize: Typography.label
                 }
             }
         }
@@ -100,8 +126,7 @@ Item {
                 model: [
                     {"text": root.fileSize, "alert": false},
                     {"text": root.author, "alert": false},
-                    {"text": root.timestamp, "alert": false},
-                    {"text": root.fileExists ? "" : "FILE OFFLINE", "alert": true}
+                    {"text": root.timestamp, "alert": false}
                 ]
 
                 delegate: Rectangle {
@@ -125,7 +150,7 @@ Item {
                         id: snapshotInfoMetrics
                         text: modelData.text
                         font.family: root.theme.fontFamily
-                        font.pixelSize: 8
+                        font.pointSize: Typography.caption
                         font.weight: modelData.alert ? Font.Bold : Font.Normal
                     }
 
@@ -140,7 +165,7 @@ Item {
                                 ? root.theme.selectedText
                                 : root.theme.secondaryText
                         font.family: root.theme.fontFamily
-                        font.pixelSize: 8
+                        font.pointSize: Typography.caption
                         font.weight: modelData.alert ? Font.Bold : Font.Normal
                         elide: Text.ElideRight
                     }
@@ -161,7 +186,7 @@ Item {
                 text: root.description
                 color: root.theme.secondaryText
                 font.family: root.theme.fontFamily
-                font.pixelSize: 9
+                font.pointSize: Typography.label
                 elide: Text.ElideRight
             }
 
@@ -187,7 +212,7 @@ Item {
                         color: root.selected
                             ? root.theme.selectedText : root.theme.secondaryText
                         font.family: root.theme.fontFamily
-                        font.pixelSize: 8
+                        font.pointSize: Typography.caption
                         elide: Text.ElideRight
                     }
                 }

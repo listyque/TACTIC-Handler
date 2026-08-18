@@ -66,7 +66,7 @@ ApplicationWindow {
                             + (window.backend ? window.backend.endpoint : "Offline")
                         color: theme.secondaryText
                         font.family: theme.fontFamily
-                        font.pixelSize: 10
+                        font.pointSize: Typography.body
                     }
                 }
                 Rectangle {
@@ -92,7 +92,7 @@ ApplicationWindow {
                                 ? "CONNECTED" : "OFFLINE"
                             color: theme.secondaryText
                             font.family: theme.fontFamily
-                            font.pixelSize: 9
+                            font.pointSize: Typography.label
                             font.weight: Font.DemiBold
                         }
                     }
@@ -120,7 +120,7 @@ ApplicationWindow {
                 text: qsTr("CURRENT SCENE")
                 color: theme.secondaryText
                 font.family: theme.fontFamily
-                font.pixelSize: 9
+                font.pointSize: Typography.label
                 font.weight: Font.DemiBold
             }
             Label {
@@ -128,7 +128,7 @@ ApplicationWindow {
                 text: window.backend ? window.backend.currentScene : ""
                 color: theme.primaryText
                 font.family: theme.fontFamily
-                font.pixelSize: 11
+                font.pointSize: Typography.bodyLarge
                 elide: Text.ElideMiddle
             }
         }
@@ -137,7 +137,7 @@ ApplicationWindow {
             text: qsTr("REGISTERED ACTIONS")
             color: theme.secondaryText
             font.family: theme.fontFamily
-            font.pixelSize: 9
+            font.pointSize: Typography.label
             font.weight: Font.DemiBold
         }
 
@@ -185,7 +185,7 @@ ApplicationWindow {
                                 text: modelData.description
                                 color: theme.secondaryText
                                 font.family: theme.fontFamily
-                                font.pixelSize: 9
+                                font.pointSize: Typography.label
                                 wrapMode: Text.WordWrap
                             }
                         }
@@ -212,7 +212,7 @@ ApplicationWindow {
                 text: qsTr("RESULT")
                 color: theme.secondaryText
                 font.family: theme.fontFamily
-                font.pixelSize: 9
+                font.pointSize: Typography.label
                 font.weight: Font.DemiBold
             }
             Md3Button {
@@ -243,7 +243,7 @@ ApplicationWindow {
                     text: window.backend ? window.backend.resultText : ""
                     color: theme.primaryText
                     font.family: "Consolas"
-                    font.pixelSize: 10
+                    font.pointSize: Typography.body
                     wrapMode: TextEdit.WrapAnywhere
                     background: null
                     selectByMouse: true

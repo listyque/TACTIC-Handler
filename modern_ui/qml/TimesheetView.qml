@@ -61,7 +61,7 @@ Rectangle {
                         + workHoursController.weekEnd
                     color: root.theme.secondaryText
                     font.family: root.theme.fontFamily
-                    font.pixelSize: 9
+                    font.pointSize: Typography.label
                 }
                 CompactIconButton {
                     theme: root.theme
@@ -78,7 +78,7 @@ Rectangle {
                         text: workHoursController.selectedCount + qsTr(" selected")
                         color: root.theme.secondaryText
                         font.family: root.theme.fontFamily
-                        font.pixelSize: 8
+                        font.pointSize: Typography.caption
                     }
                     CompactIconButton {
                         theme: root.theme
@@ -149,7 +149,7 @@ Rectangle {
                         text: qsTr("Team member")
                         color: root.theme.secondaryText
                         font.family: root.theme.fontFamily
-                        font.pixelSize: 8
+                        font.pointSize: Typography.caption
                     }
                     Md3UserComboBox {
                         theme: root.theme
@@ -171,7 +171,7 @@ Rectangle {
                         text: workHoursController.selectedCount + qsTr(" selected")
                         color: root.theme.secondaryText
                         font.family: root.theme.fontFamily
-                        font.pixelSize: 8
+                        font.pointSize: Typography.caption
                     }
                     CompactIconButton {
                         visible: workHoursController.selectedCount > 0
@@ -230,7 +230,7 @@ Rectangle {
                                 text: modelData.value + qsTr(" h")
                                 color: root.theme.primaryText
                                 font.family: root.theme.fontFamily
-                                font.pixelSize: 11
+                                font.pointSize: Typography.bodyLarge
                                 font.weight: Font.DemiBold
                             }
                             Label {
@@ -238,7 +238,7 @@ Rectangle {
                                 text: modelData.label
                                 color: root.theme.secondaryText
                                 font.family: root.theme.fontFamily
-                                font.pixelSize: 8
+                                font.pointSize: Typography.caption
                             }
                         }
                     }
@@ -321,7 +321,7 @@ Rectangle {
                                     text: entryDelegate.day.slice(5, 7)
                                     color: root.theme.secondaryText
                                     font.family: root.theme.fontFamily
-                                    font.pixelSize: 7
+                                    font.pointSize: Typography.micro
                                 }
                             }
                         }
@@ -335,7 +335,7 @@ Rectangle {
                                         ? "  ·  " + entryDelegate.process : "")
                                 color: root.theme.primaryText
                                 font.family: root.theme.fontFamily
-                                font.pixelSize: 10
+                                font.pointSize: Typography.body
                                 font.weight: Font.DemiBold
                                 elide: Text.ElideRight
                             }
@@ -345,7 +345,7 @@ Rectangle {
                                     entryDelegate.description].filter(Boolean).join("  ·  ")
                                 color: root.theme.secondaryText
                                 font.family: root.theme.fontFamily
-                                font.pixelSize: 8
+                                font.pointSize: Typography.caption
                                 elide: Text.ElideRight
                             }
                         }
@@ -355,13 +355,13 @@ Rectangle {
                                 + qsTr(" h")
                             color: root.theme.yellow
                             font.family: root.theme.fontFamily
-                            font.pixelSize: 8
+                            font.pointSize: Typography.caption
                         }
                         Label {
                             text: entryDelegate.totalHours + qsTr(" h")
                             color: root.theme.primaryText
                             font.family: root.theme.fontFamily
-                            font.pixelSize: 11
+                            font.pointSize: Typography.bodyLarge
                             font.weight: Font.DemiBold
                         }
                         Rectangle {
@@ -378,7 +378,7 @@ Rectangle {
                                 color: entryDelegate.status === "approved"
                                     ? root.theme.green : root.theme.secondaryText
                                 font.family: root.theme.fontFamily
-                                font.pixelSize: 8
+                                font.pointSize: Typography.caption
                             }
                         }
                         CompactIconButton {
@@ -430,7 +430,7 @@ Rectangle {
                     text: qsTr("No work hours for this week")
                     color: root.theme.secondaryText
                     font.family: root.theme.fontFamily
-                    font.pixelSize: 10
+                    font.pointSize: Typography.body
                 }
             }
 
@@ -449,7 +449,7 @@ Rectangle {
             text: workHoursController.error
             color: root.theme.error
             font.family: root.theme.fontFamily
-            font.pixelSize: 9
+            font.pointSize: Typography.label
             wrapMode: Text.WordWrap
         }
     }

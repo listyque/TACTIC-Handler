@@ -35,10 +35,8 @@ def tool_header(title: str) -> dict:
 
 TEMPORARY_TOOL_WINDOWS = {
     "temporary_configuration": "configuration",
-    "temporary_filter_editor": "filter_editor",
     "temporary_repository_editor": "repository_editor",
     "temporary_add_sobject": "add_sobject",
-    "temporary_link_sobjects": "link_sobjects",
     "temporary_messages": "messages",
     "temporary_chat_messages": "messages",
     "temporary_notifications": "notifications",
@@ -65,12 +63,12 @@ TEMPORARY_TOOL_WINDOWS = {
     "temporary_repository_sync": "repository_sync",
     "temporary_commit_queue": "commit_queue",
     "temporary_tasks": "tasks_workspace",
+    "temporary_watch_folders": "watch_folders",
 }
 
 
 TEMPORARY_TOOL_DOCKS = {
     "temporary_drop_plate": "drop_plate",
-    "temporary_watch_folders": "watch_folders",
     "temporary_database_editor": "db_table",
     "temporary_notes": "notes",
     "temporary_timesheet": "timesheet",
@@ -107,7 +105,7 @@ DEFAULT_MENUS = {
         action("Debug Log", "bug_report", "show_debug_log"),
         action(
             "Repository Sync Queue",
-            "sync",
+            "repository-sync",
             "show_repository_sync",
         ),
         action("TACTIC Handler Server", "hub", "show_handler_server"),
@@ -117,17 +115,15 @@ DEFAULT_MENUS = {
     "temporary_tools": [
         tool_header("Core"),
         tool_action("Configuration", "settings", "temporary_configuration"),
-        tool_action("Filter Editor", "filter_alt", "temporary_filter_editor"),
         tool_action("Commit Queue", "commit-queue", "temporary_commit_queue"),
         tool_action("Drop Plate", "move_to_inbox", "temporary_drop_plate"),
         tool_action("Watch Folders", "folder_special", "temporary_watch_folders"),
         tool_action("Repository Editor", "folder", "temporary_repository_editor"),
-        tool_action("Repository Sync", "sync", "temporary_repository_sync"),
+        tool_action("Repository Sync", "repository-sync", "temporary_repository_sync"),
         tool_action("Database Editor", "table", "temporary_database_editor"),
         tool_action("SObject Info", "info", "temporary_sobject_info", "Experimental"),
         tool_action("Add sObject", "add", "temporary_add_sobject"),
         tool_action("Edit selected sObject", "edit", "temporary_edit_sobject"),
-        tool_action("Link sObjects", "link", "temporary_link_sobjects"),
         tool_action("Tasks", "task_alt", "temporary_tasks"),
         tool_action("Timesheet", "calendar_month", "temporary_timesheet"),
         tool_action("Work Reports", "bar_chart", "temporary_work_reports"),
@@ -167,7 +163,7 @@ DEFAULT_MENUS = {
     ],
     "result_filters": [
         action("Advanced Search", "search", "advanced_search"),
-        action("Edit presets", "settings", "edit_presets"),
+        action("Filter Processes", "filter-alt", "filter_processes"),
     ],
     "sobject": [
         action("Open scene / file", "movie", "open"),
@@ -183,7 +179,6 @@ DEFAULT_MENUS = {
         action("Copy search key", "key", "copy_skey"),
         action("Open on new tab", "tab", "new_tab"),
         action("Edit info", "edit", "edit"),
-        action("Link / unlink sObjects", "link", "link"),
         action("Delete sObject", "delete", "delete"),
         SEPARATOR,
         action("Edit DB table", "view_kanban", "db"),
@@ -227,7 +222,7 @@ DEFAULT_MENUS = {
         action("Paste from clipboard", "content_paste", "paste"),
     ],
     "repo_sync": [
-        action("Sync selected", "sync", "sync"),
+        action("Sync selected", "repository-sync", "sync"),
         action("Remove from queue", "delete", "remove"),
     ],
     "commit": [

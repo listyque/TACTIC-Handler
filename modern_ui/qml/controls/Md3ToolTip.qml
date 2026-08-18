@@ -20,7 +20,7 @@ ToolTip {
         text: control.text
         color: control.theme.tooltipSurface
         font.family: control.theme.fontFamily
-        font.pixelSize: 10
+        font.pointSize: Typography.body
         lineHeight: 1.1
         wrapMode: Text.Wrap
         maximumLineCount: 5

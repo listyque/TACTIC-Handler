@@ -168,17 +168,16 @@ Initial report set:
 - Labor Cost by Object/Process/User (only when rates are configured);
 - Unit Economics and Margin (reserved until unit-price search types exist).
 
-## Delivery stages
+## Delivered capabilities
 
-1. Contract and source audit (this document).
-2. `WorkHour` object API, server validation and batch query.
-3. Work-hours controller, entry/summary models and invalidation rules.
-4. Task Inspector, quick cards and Task Browser hours integration.
-5. My/Supervisor Timesheet dock and approval workflow.
-6. Rate resolver using authorized TACTIC data; effective-rate extension point.
-7. Work and Cost report docks with descriptor-driven filters and summaries.
-8. Configuration exposure for accounting defaults, permission audit, automated
-   tests, QML smoke loading and manual server checks.
+- `WorkHour` object API, server validation and batch query.
+- Work-hours controller, entry/summary models and invalidation rules.
+- Task Inspector, quick cards and Task Browser hours integration.
+- My/Supervisor Timesheet dock and approval workflow.
+- Rate resolver using authorized TACTIC data and an effective-rate extension point.
+- Work and Cost report docks with descriptor-driven filters and summaries.
+- Configuration coverage for accounting defaults, permission audit, automated
+  tests, QML smoke loading and manual server checks.
 
 ## Implementation status
 
@@ -205,7 +204,7 @@ Initial report set:
 
 No new persistent client preference was introduced. The only persisted state
 is the existing shared dock layout, so Configuration does not need a duplicate
-setting for this stage.
+setting for this feature.
 
 ## Verification matrix
 

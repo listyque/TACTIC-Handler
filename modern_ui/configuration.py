@@ -8,6 +8,16 @@ from PySide6.QtCore import QObject, Property, QSettings, Signal, Slot
 
 _CHECKIN_CONTROLS = {
     "previewsThroughHttp": ("QCheckBox", "getPreviewsThroughHttpCheckbox", True),
+    "verifyRepositoryMd5": ("QCheckBox", "verifyRepositoryMd5CheckBox", False),
+    "autoCleanRepositorySync": (
+        "QCheckBox", "autoCleanRepositorySyncCheckBox", False
+    ),
+    "repositorySyncScopeMode": (
+        "QComboBox", "repositorySyncScopeModeComboBox", 0
+    ),
+    "repositorySyncPartialChunkSize": (
+        "QSpinBox", "repositorySyncPartialChunkSizeSpinBox", 10
+    ),
     "doubleClickSave": ("QCheckBox", "doubleClickSaveCheckBox", False),
     "doubleClickOpen": ("QCheckBox", "doubleClickOpenCheckBox", False),
     "showBuiltinProcesses": ("QCheckBox", "showAllProcessCheckBox", False),
@@ -205,8 +215,8 @@ class ConfigurationController(QObject):
         )
         repositories = []
         base_dirs = env_tactic.base_dirs or {}
-        for alias in ("base", "client", "local", "sandbox"):
-            repository = env_tactic.get_base_dir(alias, base_dirs) if base_dirs else None
+        available = env_tactic.get_all_base_dirs() if base_dirs else []
+        for _alias, repository in available:
             data = list((repository or {}).get("value") or [])
             if len(data) > 4 and data[4]:
                 repositories.append({
@@ -410,11 +420,24 @@ class ConfigurationController(QObject):
         from modern_ui.localization import normalize_language
         from modern_ui.theme_catalog import normalize_theme_style
 
+        diagnostic_levels = (
+            "LOG", "INFO", "WARNING", "MISSING", "EXCEPTION", "ERROR",
+            "CRITICAL", "API",
+        )
+        selected_levels = {
+            str(level or "").upper()
+            for level in (values.get("debugLogLevels") or [])
+        }
+
         values = {
             "cacheProcessTabs": bool(values.get("cacheProcessTabs")),
             "darkTheme": bool(values.get("darkTheme")),
             "themeStyle": normalize_theme_style(values.get("themeStyle")),
             "language": normalize_language(values.get("language")),
+            "debugLogLevels": [
+                level for level in diagnostic_levels
+                if level in selected_levels
+            ],
             "configPath": str(values.get("configPath") or ""),
         }
         return values
@@ -499,6 +522,12 @@ class ConfigurationController(QObject):
         )
         normalized["minimumFramePadding"] = max(
             1, min(9, normalized["minimumFramePadding"])
+        )
+        normalized["repositorySyncScopeMode"] = max(
+            0, min(1, normalized["repositorySyncScopeMode"])
+        )
+        normalized["repositorySyncPartialChunkSize"] = max(
+            1, min(250, normalized["repositorySyncPartialChunkSize"])
         )
         normalized["checkinMethod"] = max(
             0, min(4, normalized["checkinMethod"])

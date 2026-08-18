@@ -27,6 +27,11 @@ from PySide6.QtGui import QGuiApplication, QImage
 from ..menu_schema import MenuRegistry
 from ..quick_filters import QuickFilterCatalog
 from ..repository_sync import RepositorySyncController
+from ..search_contract import (
+    create_search_tab,
+    filters_from_records,
+    normalize_records,
+)
 from ..models import NavigationModel, ProjectModel
 from ..workspace import (
     DockPanelModel,
@@ -113,7 +118,7 @@ class NavigationMixin:
                         "tab_kind": tab.tab_kind,
                         "navigation_target": tab.navigation_target,
                         "search_text": tab.search_text,
-                        "extra_filters": tab.extra_filters,
+                        "filter_records": tab.filter_records,
                         "offset": tab.offset,
                         "limit": tab.limit,
                         "tree_state": tab.tree_state,
@@ -159,35 +164,6 @@ class NavigationMixin:
         section: SectionSession,
         cached: dict,
     ) -> None:
-        def sanitize_filters(values) -> list:
-            filters = [
-                tuple(value) if isinstance(value, list) else value
-                for value in (values or [])
-            ]
-            if (
-                len(filters) >= 4
-                and filters[0] == "begin"
-                and filters[-1] == "and"
-                and all(
-                    isinstance(value, tuple)
-                    and len(value) == 3
-                    and value[1] == "="
-                    for value in filters[1:-1]
-                )
-            ):
-                exact = filters[1:-1]
-                columns = {str(value[0]) for value in exact}
-                if columns <= {"name", "title", "code", "keywords", "description"}:
-                    selected = next(
-                        (
-                            value for value in exact
-                            if value[0] == "code" and value[2] not in (None, "")
-                        ),
-                        exact[0],
-                    )
-                    return [selected]
-            return filters
-
         def restored_splitter_ratio(value) -> float:
             try:
                 return max(0.25, min(0.75, float(value or 0.58)))
@@ -196,7 +172,13 @@ class NavigationMixin:
 
         tabs: list[SearchTabSession] = []
         for record in cached.get("tabs") or []:
-            filters = sanitize_filters(record.get("extra_filters"))
+            filter_records = normalize_records(
+                value
+                for value in (record.get("filter_records") or [])
+                if isinstance(value, dict)
+            )
+            if not filter_records:
+                filter_records = [self._default_search_filter_record()]
             tabs.append(SearchTabSession(
                 tab_id=str(record.get("tab_id") or (
                     f"{section.entry_key}:search:{uuid.uuid4().hex[:8]}"
@@ -207,7 +189,8 @@ class NavigationMixin:
                     record.get("navigation_target") or ""
                 ),
                 search_text=str(record.get("search_text") or ""),
-                extra_filters=filters,
+                extra_filters=filters_from_records(filter_records),
+                filter_records=filter_records,
                 offset=(
                     0
                     if self._loading_mode == "infinite"
@@ -276,19 +259,32 @@ class NavigationMixin:
             entry.search_type if entry and entry.search_type
             else key.partition("@")[0]
         )
-        tab = SearchTabSession(
-            tab_id=f"{key}:search:{uuid.uuid4().hex[:8]}",
-            title=title,
+        filter_records = [
+            dict(record)
+            for record in (entry.filter_records if entry else ())
+        ]
+        tab = create_search_tab(
+            key,
+            title,
             tab_kind="base",
             limit=self._page_size,
-            view_mode=self._default_view_mode,
+            view_mode=(
+                entry.view_mode if entry and entry.view_mode
+                else self._default_view_mode
+            ),
+            records=filter_records,
+            ensure_name_row=True,
         )
         section = SectionSession(
             entry_key=key,
             title=title,
             accent=accent or "#607d8b",
             search_type=search_type,
-            base_filters=entry.filters if entry else (),
+            search_view=str(entry.search_view or "") if entry else "",
+            # Sidebar Search View conditions belong to the visible Advanced
+            # Search tab, as in Ui_tacticSidebarWidget.apply_search_filter().
+            # Keeping them out of base_filters prevents a hidden second copy.
+            base_filters=(),
             tabs=[tab],
             current_tab_id=tab.tab_id,
         )
@@ -296,6 +292,164 @@ class NavigationMixin:
         self._sync_section_model()
         self._save_opened_sections()
         return section
+
+    def _cancel_section_searches(self, section: SectionSession) -> None:
+        """Detach searches owned by tabs that are about to be rebuilt."""
+        for tab in section.tabs:
+            self._pending_search_loads.pop(tab.tab_id, None)
+            worker = self._search_workers.get(tab.tab_id)
+            if worker is not None:
+                worker.cancel()
+            quick_worker = self._quick_filter_workers.pop(tab.tab_id, None)
+            if quick_worker is not None:
+                quick_worker.cancel()
+
+    def _reset_sidebar_section(
+        self,
+        key: str,
+        title: str,
+        accent: str = "",
+    ) -> SectionSession:
+        """Rebuild a sidebar search group from its server definition.
+
+        This is the original Handler behavior: clicking a sidebar link clears
+        that Search Type's result tabs and recreates the base Search View plus
+        its saved searches.  Runtime/user tabs are deliberately discarded.
+        """
+        entry = self.navigation_model.entry(key)
+        existing = self._sessions.get(key)
+        # Legacy apply_search_filter() only rebuilt tabs when the sidebar
+        # element actually declared a Search View. Plain Search Type links
+        # simply raised their existing workspace.
+        if existing is not None and not (entry and entry.search_view):
+            return existing
+        if existing is not None:
+            self._cancel_section_searches(existing)
+            del self._sessions[key]
+        section = self._create_section(key, title, accent)
+        if entry and entry.search_view:
+            self._request_sidebar_presets(section)
+        return section
+
+    def _request_sidebar_presets(self, section: SectionSession) -> None:
+        """Load legacy ``link_search`` tabs without blocking the QML thread."""
+        if not self._current_project_code or not section.search_type:
+            return
+        previous = self._sidebar_preset_workers.get(section.entry_key)
+        if previous is not None:
+            previous.cancel()
+        request_id = uuid.uuid4().hex
+        self._sidebar_preset_requests[section.entry_key] = request_id
+        # Ui_sidebarItemWidget.get_item_code() was passed into
+        # Ui_checkInOutWidget as ``customized_name``. Saved searches therefore
+        # belong to the complete ``search_type@sidebar_name`` key, not merely
+        # to the Search Type tail (for example ``assets``).
+        tab_name = self._sidebar_preset_tab_name(section)
+        project_code = self._current_project_code
+        search_type = section.search_type
+
+        def query():
+            from ..search_presets import query_search_presets
+
+            return (
+                section.entry_key,
+                request_id,
+                query_search_presets(
+                    project_code,
+                    search_type,
+                    tab_name,
+                ),
+            )
+
+        try:
+            from thlib.environment import env_inst
+
+            if env_inst.server_pool.is_stopped:
+                env_inst.server_pool.start()
+            worker = env_inst.server_pool.add_task(query)
+            if worker is None:
+                return
+            self._sidebar_preset_workers[section.entry_key] = worker
+            worker.result.connect(self._sidebar_presets_ready)
+            worker.error.connect(self._sidebar_presets_failed)
+            worker.finished.connect(
+                lambda key=section.entry_key, target=worker:
+                self._release_sidebar_preset_worker(key, target)
+            )
+            worker.start()
+        except Exception:
+            if self.debug_log:
+                self.debug_log.log(
+                    "ERROR",
+                    traceback.format_exc(),
+                    group="server/search-presets",
+                    source="NavigationMixin",
+                    caller=2,
+                )
+
+    @staticmethod
+    def _sidebar_preset_tab_name(section: SectionSession) -> str:
+        return section.entry_key
+
+    def _release_sidebar_preset_worker(self, key: str, worker) -> None:
+        if self._sidebar_preset_workers.get(key) is worker:
+            self._sidebar_preset_workers.pop(key, None)
+
+    @Slot(object)
+    def _sidebar_presets_ready(self, payload) -> None:
+        key, request_id, presets = payload
+        if self._sidebar_preset_requests.get(key) != request_id:
+            return
+        section = self._sessions.get(key)
+        if section is None:
+            return
+        for preset in presets or []:
+            records = [
+                dict(record) for record in (preset.get("records") or [])
+            ]
+            section.tabs.append(create_search_tab(
+                key,
+                str(preset.get("title") or section.title),
+                tab_id=(
+                    f"{key}:preset:"
+                    f"{preset.get('code') or uuid.uuid4().hex[:8]}"
+                ),
+                tab_kind="preset",
+                limit=self._page_size,
+                view_mode=(
+                    self.navigation_model.entry(key).view_mode
+                    if self.navigation_model.entry(key)
+                    and self.navigation_model.entry(key).view_mode
+                    else self._default_view_mode
+                ),
+                records=records,
+                ensure_name_row=True,
+            ))
+        # Ui_searchWidget.add_tab() selected every newly added result tab, so
+        # after the loop the final server preset was the active tab.
+        if presets:
+            section.current_tab_id = section.tabs[-1].tab_id
+        if self._current_section_key == key:
+            self._sync_search_tabs()
+            tab_id = section.current_tab_id
+            QTimer.singleShot(
+                0,
+                lambda: self._show_tab_if_current(key, tab_id),
+            )
+        self.section_state_changed.emit()
+        self._save_search_cache()
+
+    @Slot(object)
+    def _sidebar_presets_failed(self, error) -> None:
+        payload, worker = error
+        if self.debug_log:
+            self.debug_log.log(
+                "ERROR",
+                str(payload.get("exception") or error),
+                group="server/search-presets",
+                source="NavigationMixin",
+                caller=2,
+            )
 
     def _sync_section_model(self) -> None:
         self.section_model.replace([
@@ -346,9 +500,16 @@ class NavigationMixin:
             ]
         self.workspace_state.set_tabs(records)
         tab = self._current_tab()
-        filter_records = self._filter_records_from_filters(
-            tab.extra_filters if tab else []
+        filter_records = (
+            [dict(record) for record in tab.filter_records]
+            if tab and tab.filter_records
+            else self._filter_records_from_filters(
+                tab.extra_filters if tab else []
+            )
         )
+        if tab and not filter_records:
+            filter_records = [self._default_search_filter_record()]
+            tab.filter_records = [dict(filter_records[0])]
         self.workspace_state.filter_model.replace(filter_records)
         self._suggestion_request_id = ""
         self._tag_request_id = ""
@@ -378,6 +539,50 @@ class NavigationMixin:
         if tab:
             tab_id = tab.tab_id
             QTimer.singleShot(0, lambda: self._show_tab_if_current(key, tab_id))
+
+    @Slot(str, str, str, str)
+    def edit_sidebar_search_presets(
+        self,
+        search_type: str,
+        entry_name: str,
+        title: str,
+        search_view: str,
+    ) -> None:
+        """Open shared Advanced Search in a sidebar item's Search context."""
+        search_type = str(search_type or "").strip()
+        entry_name = str(entry_name or "").strip()
+        if not search_type:
+            self._notify("Select a Search Type first")
+            return
+        key = f"{search_type}@{entry_name}" if entry_name else search_type
+        section = self._sessions.get(key)
+        if section is None:
+            section = self._create_section(
+                key,
+                str(title or entry_name or search_type),
+            )
+        # Do not invent a second filter editor.  The temporary/real Search
+        # section supplies the same columns, relation choices and exact
+        # TACTIC Handler namespace used by Advanced Search.
+        section.search_type = search_type
+        # The picker edits the Search Type library, so it must expose every
+        # Handler-owned preset that the adjacent dropdown can select.  The
+        # sidebar item's selected Search View is staged separately by the
+        # shared FilterEditorController after the modal opens.
+        section.search_view = ""
+        tab = section.tabs[0] if section.tabs else None
+        if tab is not None:
+            section.current_tab_id = tab.tab_id
+        self.activate_section(key)
+        stype = self._active_stype()
+        if stype is not None:
+            if tab is not None:
+                tab.stype = stype
+            self.workspace_state.load_stype(stype)
+        QTimer.singleShot(
+            0,
+            lambda: self.window_model.show_window("sidebar_advanced_search"),
+        )
 
     def _show_tab_if_current(self, section_key: str, tab_id: str) -> None:
         section = self._sessions.get(section_key)

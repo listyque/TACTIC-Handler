@@ -58,7 +58,8 @@ operations. `thlib` must never import `modern_ui`. Modern Python must not open l
 
 An owner is the only component allowed to authoritatively mutate a state. Other
 copies listed below are derived views or currently duplicated state discovered by
-this audit. Block B records duplicates but deliberately does not consolidate them.
+the architecture audit. Recorded duplicates are not consolidated without a concrete
+behavioral reason.
 
 | State | Authoritative runtime owner | Persisted owner | Derived mirrors / duplicates found |
 |---|---|---|---|
@@ -146,7 +147,7 @@ window dependency without changing the core TACTIC edit workflow.
 
 ## Executable architecture contracts
 
-Block C turns these boundaries into a layered test harness. Server procedures,
+The layered test harness enforces these boundaries. Server procedures,
 returned shapes, code-based identities, metadata, native object behavior, and the
 public `thlib` API are contract-tested. Deterministic controller scenarios exercise
 worker cancellation, stale results, persistence, and cache invalidation. The real
@@ -157,7 +158,7 @@ metrics enforce stable call-count budgets. See `docs/testing_strategy.md` and
 
 ## Stabilized workflow verticals
 
-Block D validates the application as six user workflows rather than as isolated
+Workflow validation exercises the application as six user workflows rather than as isolated
 windows: login/configuration, navigation/search, tasks/notes/work hours,
 check-in/files, messages/users/activity, and Handler Server/DCC. Their single
 manifest maps every workflow to contract tests, controller tests, QML components,
@@ -166,7 +167,7 @@ smoke layers run for every vertical. See `docs/vertical_stabilization.md`.
 
 ## Structural ownership and UI policy
 
-Block E removes content ownership from application hosts. `FloatingWindowModel`
+Application hosts do not own feature content. `FloatingWindowModel`
 is the single standalone-window registry and supplies each component source and
 its construction parameters; `WindowContent.qml` is now only a generic loader.
 `DockHost.qml` owns placement, stacking, detaching, and resizing, while the
@@ -182,7 +183,7 @@ control library.
 
 ## Release and cutover gate
 
-Block F makes readiness executable without pretending that offline automation can
+The release gate makes readiness executable without pretending that offline automation can
 certify a live TACTIC repository or DCC host. `tests/run_release_gate.py` is the
 single strict automated entry point: it checks the worktree, syntax, isolated
 contracts and scenarios, offscreen QML lifecycle, legacy compatibility, and both

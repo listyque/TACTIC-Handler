@@ -392,6 +392,17 @@ class DebugLog(object):
     write_log = True
     session_start = datetime.datetime.today()
 
+    @staticmethod
+    def _accepts(message_type):
+        ui_debuglog = env_inst.ui_debuglog
+        if ui_debuglog and hasattr(ui_debuglog, 'accepts_level'):
+            return ui_debuglog.accepts_level(message_type)
+        # Before the modern diagnostic bus is installed, use the production
+        # default as well so bootstrap INFO/API noise cannot grow unbounded.
+        return str(message_type or '').upper() in {
+            'ERROR', 'CRITICAL'
+        }
+
     def get_trace(self, message_text, message_type, caller=2, group_id=None):
         """
         Getting trace info from code inspecting
@@ -415,6 +426,8 @@ class DebugLog(object):
             })
 
     def info(self, message, caller=2, group_id=None):
+        if not self._accepts('INFO'):
+            return
         self.logs_order += 1
         trace = self.get_trace(message, 'info', caller, group_id)
         if self.info_dict.get(trace[1]['module_path']):
@@ -426,6 +439,8 @@ class DebugLog(object):
             env_inst.ui_debuglog.add_debuglog(trace, '[ INF ]', self.write_log)
 
     def warning(self, message, caller=2, group_id=None):
+        if not self._accepts('WARNING'):
+            return
         self.logs_order += 1
         trace = self.get_trace(message, 'warning', caller, group_id)
         if self.warning_dict.get(trace[1]['module_path']):
@@ -437,6 +452,8 @@ class DebugLog(object):
             env_inst.ui_debuglog.add_debuglog(trace, '[ WRN ]', self.write_log)
 
     def log(self, message, caller=2, group_id=None):
+        if not self._accepts('LOG'):
+            return
         self.logs_order += 1
         trace = self.get_trace(message, 'log', caller, group_id)
         if self.log_dict.get(trace[1]['module_path']):
@@ -448,6 +465,8 @@ class DebugLog(object):
             env_inst.ui_debuglog.add_debuglog(trace, '[ LOG ]', self.write_log)
 
     def exception(self, message, caller=2, group_id=None):
+        if not self._accepts('EXCEPTION'):
+            return
         self.logs_order += 1
         trace = self.get_trace(message, 'exception', caller, group_id)
         if self.exception_dict.get(trace[1]['module_path']):
@@ -459,6 +478,8 @@ class DebugLog(object):
             env_inst.ui_debuglog.add_debuglog(trace, '[ EXC ]', self.write_log)
 
     def error(self, message, caller=2, group_id=None):
+        if not self._accepts('ERROR'):
+            return
         self.logs_order += 1
         trace = self.get_trace(message, 'error', caller, group_id)
         if self.error_dict.get(trace[1]['module_path']):
@@ -470,6 +491,8 @@ class DebugLog(object):
             env_inst.ui_debuglog.add_debuglog(trace, '[ ERR ]', self.write_log)
 
     def critical(self, message, caller=2, group_id=None):
+        if not self._accepts('CRITICAL'):
+            return
         self.logs_order += 1
         trace = self.get_trace(message, 'critical', caller, group_id)
         if self.critical_dict.get(trace[1]['module_path']):
@@ -892,6 +915,17 @@ class Tactic(object):
 
         return self.custom_dirs
 
+    def save_custom_dirs(self):
+        unique_id = '{0}/environment_config/server_presets'.format(env_mode.node)
+        tactic_dirs_filename = 'tactic_dirs_{}'.format(env_server.get_cur_srv_preset())
+        env_write_config(
+            self.custom_dirs,
+            filename=tactic_dirs_filename,
+            unique_id=unique_id,
+            sub_id='TACTIC_CUSTOM_DIRS',
+            update_file=True,
+        )
+
     def get_all_base_dirs(self):
         aliases = ['base', 'client', 'local', 'sandbox']
 
@@ -899,6 +933,30 @@ class Tactic(object):
 
         for alias in aliases:
             all_base_dirs.append((alias, self.get_base_dir(alias)))
+
+        custom = self.get_custom_dir()['value'] if self.custom_dirs else {}
+        if custom.get('enabled'):
+            paths = list(custom.get('path') or [])
+            names = list(custom.get('name') or [])
+            visible = list(custom.get('visible') or [])
+            colors = list(custom.get('color') or [])
+            current = list(custom.get('current') or range(len(paths)))
+            for index in current:
+                if not 0 <= index < len(paths):
+                    continue
+                if index < len(visible) and not visible[index]:
+                    continue
+                alias = 'custom_{0}'.format(index)
+                all_base_dirs.append((alias, {
+                    'name': alias,
+                    'value': [
+                        paths[index],
+                        names[index] if index < len(names) else alias,
+                        colors[index] if index < len(colors) else '',
+                        alias,
+                        True,
+                    ],
+                }))
 
         return all_base_dirs
 
@@ -943,6 +1001,33 @@ class Tactic(object):
                 return {'name': 'linux_server_handoff_dir', 'value': base_dirs['linux_server_handoff_dir']}
             else:
                 return {'name': 'win32_server_handoff_dir', 'value': base_dirs['win32_server_handoff_dir']}
+
+        elif str(repo_name).startswith('custom_'):
+            try:
+                index = int(str(repo_name).split('_', 1)[1])
+            except (TypeError, ValueError):
+                return None
+            custom = self.get_custom_dir()['value']
+            paths = list(custom.get('path') or [])
+            if not 0 <= index < len(paths):
+                return None
+            names = list(custom.get('name') or [])
+            colors = list(custom.get('color') or [])
+            visible = list(custom.get('visible') or [])
+            active = bool(custom.get('enabled')) and (
+                index >= len(visible) or bool(visible[index])
+            )
+            alias = 'custom_{0}'.format(index)
+            return {
+                'name': alias,
+                'value': [
+                    paths[index],
+                    names[index] if index < len(names) else alias,
+                    colors[index] if index < len(colors) else '',
+                    alias,
+                    active,
+                ],
+            }
 
     def set_base_dir(self, repo_name, value, override_base_dirs=None):
 

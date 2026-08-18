@@ -75,7 +75,7 @@ Item {
     component DetailLabel: Label {
         color: root.theme.secondaryText
         font.family: root.theme.fontFamily
-        font.pixelSize: 7
+        font.pointSize: Typography.micro
         font.weight: Font.DemiBold
         font.letterSpacing: 0.35
     }
@@ -237,7 +237,7 @@ Item {
                     text: Math.round(progressSlider.value) + "%"
                     color: root.theme.primaryText
                     font.family: root.theme.fontFamily
-                    font.pixelSize: 8
+                    font.pointSize: Typography.caption
                     font.weight: Font.DemiBold
                     horizontalAlignment: Text.AlignRight
                 }
@@ -439,7 +439,7 @@ Item {
                 readOnly: !root.isNew && !root.descriptionEditing
                 placeholderText: qsTr("Add task description…")
                 rightPadding: root.isNew ? 12 : 42
-                font.pixelSize: 9
+                font.pointSize: Typography.label
 
                 function syncDescription() {
                     if (!activeFocus && text !== root.description)

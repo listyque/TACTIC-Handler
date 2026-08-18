@@ -150,6 +150,14 @@ class CheckinOutController(QObject):
         application_controller.repository_sync.state_changed.connect(
             self._checkout_sync_changed
         )
+        task_updated = getattr(
+            application_controller.repository_sync, "task_updated", None
+        )
+        if task_updated is not None:
+            task_updated.connect(self._checkout_task_updated)
+        application_controller.repository_sync.task_finished.connect(
+            self._checkout_task_updated
+        )
         application_controller.repository_sync.task_failed.connect(
             self._checkout_task_failed
         )
@@ -1879,6 +1887,12 @@ class CheckinOutController(QObject):
         self._checkout_progress = float(record.get("progressValue") or 0.0)
         self._checkout_error = str(record.get("error") or "")
         self.checkoutChanged.emit()
+
+    @Slot(str)
+    @Slot(str, str)
+    def _checkout_task_updated(self, task_id: str, *_args) -> None:
+        if task_id == self._checkout_task_id:
+            self._checkout_sync_changed()
 
     @Slot(str)
     def _checkout_task_failed(self, task_id: str) -> None:

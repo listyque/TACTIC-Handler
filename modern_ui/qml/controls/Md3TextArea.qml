@@ -26,7 +26,7 @@ Basic.TextArea {
     selectionColor: theme.action
     selectedTextColor: theme.selectedText
     font.family: theme.fontFamily
-    font.pixelSize: 10
+    font.pointSize: Typography.body
 
     background: Rectangle {
         radius: theme.surfaceRadius

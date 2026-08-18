@@ -120,11 +120,12 @@ class _SnapshotDetails(SnapshotDetailsMixin):
 
 
 class _SelectionHarness(SelectionMixin):
-    def __init__(self, node):
+    def __init__(self, node, nodes=None):
         self.node = node
+        self.nodes = dict(nodes or {node.node_id: node})
         self.loaded = None
         self.workspace_model = SimpleNamespace(
-            node_for=lambda node_id: self.node if node_id == self.node.node_id else None
+            node_for=lambda node_id: self.nodes.get(node_id)
         )
         self.tab = SimpleNamespace(selected_node_id=node.node_id)
 
@@ -747,6 +748,63 @@ class NotesQmlTests(unittest.TestCase):
 
         self.assertEqual(harness.loaded[0], node.search_key)
         self.assertEqual(harness.loaded[1], "publish")
+
+    def test_selecting_related_sobject_uses_its_own_details(self):
+        root = SimpleNamespace(
+            node_id="root", node_type="sobject", parent_id="",
+            search_key="asset/asset?code=ASSET001", process="",
+        )
+        relation = SimpleNamespace(
+            node_id="relation", node_type="relation", parent_id="root",
+            search_key=root.search_key, process="",
+        )
+        related = SimpleNamespace(
+            node_id="related", node_type="sobject", parent_id="relation",
+            search_key="asset/shot?code=SHOT001", process="",
+        )
+        harness = _SelectionHarness(
+            related,
+            {item.node_id: item for item in (root, relation, related)},
+        )
+
+        harness._load_selected_details(
+            related.node_id, related.search_key
+        )
+
+        self.assertEqual(harness.loaded[0], related.search_key)
+        self.assertEqual(harness.loaded[1], "publish")
+
+    def test_selecting_related_process_uses_nearest_sobject(self):
+        root = SimpleNamespace(
+            node_id="root", node_type="sobject", parent_id="",
+            search_key="asset/asset?code=ASSET001", process="",
+        )
+        relation = SimpleNamespace(
+            node_id="relation", node_type="relation", parent_id="root",
+            search_key=root.search_key, process="",
+        )
+        related = SimpleNamespace(
+            node_id="related", node_type="sobject", parent_id="relation",
+            search_key="asset/shot?code=SHOT001", process="",
+        )
+        process = SimpleNamespace(
+            node_id="process", node_type="process", parent_id="related",
+            search_key=related.search_key, process="animation",
+        )
+        harness = _SelectionHarness(
+            process,
+            {
+                item.node_id: item
+                for item in (root, relation, related, process)
+            },
+        )
+
+        harness._load_selected_details(
+            process.node_id, process.search_key
+        )
+
+        self.assertEqual(harness.loaded[0], related.search_key)
+        self.assertEqual(harness.loaded[1], "animation")
 
     def test_existing_note_can_be_edited(self):
         application = _Application()

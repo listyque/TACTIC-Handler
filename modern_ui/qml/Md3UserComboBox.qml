@@ -113,7 +113,7 @@ Md3ComboBox {
                     text: control.textAt(option.index)
                     color: control.theme.primaryText
                     font.family: control.theme.fontFamily
-                    font.pixelSize: 10
+                    font.pointSize: Typography.body
                     font.weight: Font.DemiBold
                     elide: Text.ElideRight
                 }
@@ -123,7 +123,7 @@ Md3ComboBox {
                     text: option.login
                     color: control.theme.secondaryText
                     font.family: control.theme.fontFamily
-                    font.pixelSize: 8
+                    font.pointSize: Typography.caption
                     elide: Text.ElideRight
                 }
             }

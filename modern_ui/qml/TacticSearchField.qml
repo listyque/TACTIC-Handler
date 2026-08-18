@@ -276,7 +276,7 @@ Item {
                             ? "– " + suggestionRow.description : ""
                         color: root.theme.secondaryText
                         font.family: root.theme.fontFamily
-                        font.pixelSize: 11
+                        font.pointSize: Typography.bodyLarge
                         elide: Text.ElideRight
                     }
                     Rectangle {
@@ -293,7 +293,7 @@ Item {
                             text: qsTr("#") + suggestionRow.keyword
                             color: root.theme.action
                             font.family: root.theme.fontFamily
-                            font.pixelSize: 11
+                            font.pointSize: Typography.bodyLarge
                             font.weight: Font.DemiBold
                         }
                         MouseArea {

@@ -94,7 +94,7 @@ Item {
                     ? root.theme.primaryText : root.theme.selectedText
                 : root.theme.primaryText
             font.family: root.theme.fontFamily
-            font.pixelSize: 10 + Math.round(Math.max(0, root.emphasis) * 8)
+            font.pointSize: Typography.body + Math.round(Math.max(0, root.emphasis) * 8)
             font.weight: Font.DemiBold
             elide: Text.ElideRight
         }

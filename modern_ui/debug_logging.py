@@ -140,6 +140,10 @@ class DebugLogController(QObject):
     authentication_requested = Signal()
     error_dismissed = Signal(str)
     configuration_requested = Signal()
+    configuration_changed = Signal()
+
+    DEFAULT_RECORDING_LEVELS = frozenset({"ERROR", "CRITICAL"})
+    RECORDING_LEVELS_KEY = "debugLog/enabledLevels"
 
     ENTRY_ROLES = (
         "eventId", "timestamp", "level", "message", "module", "functionName",
@@ -152,6 +156,7 @@ class DebugLogController(QObject):
     def __init__(self, root_path: Path) -> None:
         super().__init__()
         self._settings = QSettings("TACTIC-Handler", "modern-qml")
+        self._recording_levels = self._load_recording_levels()
         self._group_panel_width = max(
             170.0,
             min(
@@ -333,6 +338,8 @@ class DebugLogController(QObject):
             level = "MISSING"
         if level not in LEVELS:
             level = "LOG"
+        if not self._accepts_level(level):
+            return
         if not module:
             frame = None
             try:
@@ -389,9 +396,54 @@ class DebugLogController(QObject):
             str(record.get("stacktrace") or ""),
         ):
             record["level"] = "MISSING"
+        if not self._accepts_level(str(record.get("level") or "LOG")):
+            return
         if write:
             self._write_record(record)
         self.entry_queued.emit(record)
+
+    def _accepts_level(self, level: str) -> bool:
+        return str(level or "").upper() in self._recording_levels
+
+    def accepts_level(self, level: str) -> bool:
+        """Return whether a producer should build and retain this event."""
+        return self._accepts_level(level)
+
+    def _load_recording_levels(self) -> set[str]:
+        raw = self._settings.value(self.RECORDING_LEVELS_KEY, None)
+        if raw is None:
+            return set(self.DEFAULT_RECORDING_LEVELS)
+        if isinstance(raw, str):
+            try:
+                raw = json.loads(raw)
+            except (TypeError, ValueError, json.JSONDecodeError):
+                raw = [part.strip() for part in raw.split(",")]
+        if not isinstance(raw, (list, tuple, set)):
+            return set(self.DEFAULT_RECORDING_LEVELS)
+        return {
+            str(level or "").upper() for level in raw
+            if str(level or "").upper() in LEVELS
+        }
+
+    @Property("QVariantList", notify=configuration_changed)
+    def recording_levels(self) -> list[str]:
+        return [level for level in LEVELS if level in self._recording_levels]
+
+    @Slot("QVariantList")
+    def set_recording_levels(self, levels) -> None:
+        normalized = {
+            str(level or "").upper() for level in (levels or [])
+            if str(level or "").upper() in LEVELS
+        }
+        if normalized == self._recording_levels:
+            return
+        self._recording_levels = normalized
+        ordered = [level for level in LEVELS if level in normalized]
+        self._settings.setValue(
+            self.RECORDING_LEVELS_KEY, json.dumps(ordered)
+        )
+        self._settings.sync()
+        self.configuration_changed.emit()
 
     @Slot(object)
     def _append_entry(self, record: dict) -> None:

@@ -1,4 +1,5 @@
 singleton ActionMenuCoordinator 1.0 ActionMenuCoordinator.qml
+singleton Typography 1.0 Typography.qml
 Md3Button 1.0 Md3Button.qml
 Md3BusyIndicator 1.0 Md3BusyIndicator.qml
 Md3TextField 1.0 Md3TextField.qml
@@ -6,6 +7,8 @@ Md3TextArea 1.0 Md3TextArea.qml
 Md3CheckBox 1.0 Md3CheckBox.qml
 Md3Switch 1.0 Md3Switch.qml
 Md3TabButton 1.0 Md3TabButton.qml
+WorkspaceTabButton 1.0 WorkspaceTabButton.qml
+WorkspaceTabVisual 1.0 WorkspaceTabVisual.qml
 Md3SegmentedButton 1.0 Md3SegmentedButton.qml
 Md3DateField 1.0 Md3DateField.qml
 Md3Dialog 1.0 Md3Dialog.qml
@@ -21,8 +24,10 @@ ItemCountActionButton 1.0 ItemCountActionButton.qml
 StatusChip 1.0 StatusChip.qml
 PreviewNavigationButton 1.0 PreviewNavigationButton.qml
 CompactIconButton 1.0 CompactIconButton.qml
+DockDragGrip 1.0 DockDragGrip.qml
 MaterialIcon 1.0 MaterialIcon.qml
 MaterialRipple 1.0 MaterialRipple.qml
 SmoothListView 1.0 SmoothListView.qml
 ResponsiveFlow 1.0 ResponsiveFlow.qml
+SidebarTreeRow 1.0 SidebarTreeRow.qml
 AttachmentComposerControls 1.0 AttachmentComposerControls.qml

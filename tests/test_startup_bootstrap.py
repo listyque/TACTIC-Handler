@@ -68,6 +68,44 @@ class _Controller(ConnectionMixin):
 
 
 class StartupBootstrapTests(unittest.TestCase):
+    def test_native_cache_only_reads_never_fall_back_to_server(self):
+        import thlib.tactic_classes as tc
+
+        project = tc.Project({"code": "demo", "title": "Demo"})
+        with (
+            patch.object(tc.env_mode, "get_mode", return_value="standalone"),
+            patch.object(tc, "env_read_config", return_value=None),
+            patch.object(
+                tc,
+                "execute_procedure_serverside",
+                side_effect=AssertionError("cache restore touched server"),
+            ),
+        ):
+            self.assertEqual(
+                tc.get_all_projects_and_logins(cache_only=True), {}
+            )
+            self.assertEqual(
+                project.query_search_types(cache_only=True), []
+            )
+
+    def test_entrypoint_defers_startup_work_until_after_qml_load(self):
+        from pathlib import Path
+
+        source = Path("main_qml.py").read_text(encoding="utf-8")
+        load_at = source.index("engine.load(")
+        cache_at = source.index("controller.restore_cached_workspace")
+        server_at = source.index("controller.bootstrap_server")
+        self.assertLess(load_at, cache_at)
+        self.assertLess(load_at, server_at)
+        self.assertIn(
+            "controller.project_changed.connect(server_update_service.start)",
+            source,
+        )
+        self.assertIn(
+            "controller.project_changed.connect(watch_folders_controller.reload)",
+            source,
+        )
+        self.assertNotIn("watch_folders_controller.reload()", source)
     def test_bootstrap_enqueues_server_work_without_running_it_inline(self):
         from thlib.environment import env_inst, env_server
 

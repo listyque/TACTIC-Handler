@@ -41,7 +41,16 @@ Window {
     readonly property bool contentRequested: windowVisible
         && (workspaceEnabled || availableWhileSignedOut)
     visible: contentRequested
-    title: qsTr(root.windowTitle)
+    readonly property string effectiveWindowTitle: {
+        if (root.kind !== "watch_folder_editor")
+            return qsTr(root.windowTitle)
+        const target = String(watchFoldersController.editor.title || "")
+        const action = watchFoldersController.editingExisting
+            ? qsTr("Editing Watch Folder")
+            : qsTr("Choose Repositories to Watch")
+        return target.length > 0 ? action + " - " + target : action
+    }
+    title: root.effectiveWindowTitle
     color: root.theme.workspace
     minimumWidth: sizing.windowMinimumWidth(root.kind)
     minimumHeight: sizing.windowMinimumHeight(root.kind)
@@ -113,7 +122,11 @@ Window {
         if (windowVisible) {
             if (root.kind === "configuration")
                 configurationController.begin_session()
-            else if (root.kind === "filter_editor")
+            else if (root.kind === "process_filter_editor")
+                processFilterEditorController.begin_session()
+            else if (root.kind === "repository_sync_editor")
+                repositorySyncEditorController.begin_session()
+            else if (root.kind === "advanced_search")
                 filterEditorController.begin_session()
             else if (root.kind === "add_sobject"
                     || root.kind === "task_editor")
@@ -122,6 +135,12 @@ Window {
                 sobjectLinkController.begin_session()
             else if (root.kind === "user_profile")
                 userController.window_opened()
+            else if (root.kind === "sobject_info")
+                sobjectInfoController.window_opened()
+            else if (root.kind === "sidebar_editor")
+                sidebarEditorController.begin_session()
+            else if (root.kind === "watch_folders")
+                watchFoldersController.reload()
             Qt.callLater(function() { root.requestActivate() })
         }
     }
@@ -130,8 +149,12 @@ Window {
         if (root.kind === "configuration")
             configurationController.request_close()
         else {
-            if (root.kind === "filter_editor")
-                filterEditorController.cancel()
+            if (root.kind === "process_filter_editor")
+                processFilterEditorController.cancel()
+            else if (root.kind === "repository_sync_editor")
+                repositorySyncEditorController.cancel()
+            else if (root.kind === "watch_folder_editor")
+                watchFoldersController.cancel_edit()
             windowModel.close_window(root.windowId)
         }
     }

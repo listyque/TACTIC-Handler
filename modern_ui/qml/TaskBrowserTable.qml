@@ -146,7 +146,7 @@ Item {
     component HeaderLabel: Label {
         color: root.theme.secondaryText
         font.family: root.theme.fontFamily
-        font.pixelSize: 8
+        font.pointSize: Typography.caption
         font.weight: Font.DemiBold
         verticalAlignment: Text.AlignVCenter
         elide: Text.ElideRight
@@ -395,7 +395,7 @@ Item {
                         text: taskDelegate.group.toUpperCase()
                         color: root.theme.primaryText
                         font.family: root.theme.fontFamily
-                        font.pixelSize: 9
+                        font.pointSize: Typography.label
                         font.weight: Font.DemiBold
                         elide: Text.ElideRight
                     }
@@ -412,7 +412,7 @@ Item {
                             text: taskDelegate.groupCount
                             color: root.theme.secondaryText
                             font.family: root.theme.fontFamily
-                            font.pixelSize: 8
+                            font.pointSize: Typography.caption
                             font.weight: Font.DemiBold
                         }
                     }
@@ -449,7 +449,7 @@ Item {
                     objectName: "taskRowSurface_" + taskDelegate.taskCode
                     anchors.fill: parent
                     color: taskDelegate.selected
-                        ? root.theme.selected
+                        ? root.theme.contentSelection
                         : taskDelegate.checked
                             ? root.theme.secondaryContainer
                         : taskDelegate.isNew
@@ -606,7 +606,7 @@ Item {
                                 text: taskDelegate.parentTitle
                                 color: root.theme.primaryText
                                 font.family: root.theme.fontFamily
-                                font.pixelSize: 10
+                                font.pointSize: Typography.body
                                 font.weight: Font.DemiBold
                                 elide: Text.ElideRight
                             }
@@ -619,7 +619,7 @@ Item {
                                         ? " · " + taskDelegate.context : "")
                                 color: root.theme.secondaryText
                                 font.family: root.theme.fontFamily
-                                font.pixelSize: 8
+                                font.pointSize: Typography.caption
                                 elide: Text.ElideRight
                             }
                         }
@@ -686,14 +686,14 @@ Item {
                             text: root.compactDate(taskDelegate.start)
                             color: root.theme.secondaryText
                             font.family: root.theme.fontFamily
-                            font.pixelSize: 8
+                            font.pointSize: Typography.caption
                         }
                         Label {
                             text: root.compactDate(taskDelegate.end)
                             color: taskDelegate.dueState === "overdue"
                                 ? root.theme.error : root.theme.primaryText
                             font.family: root.theme.fontFamily
-                            font.pixelSize: 9
+                            font.pointSize: Typography.label
                         }
                     }
                     ColumnLayout {
@@ -708,7 +708,7 @@ Item {
                             text: taskDelegate.progress + "%"
                             color: root.theme.primaryText
                             font.family: root.theme.fontFamily
-                            font.pixelSize: 8
+                            font.pointSize: Typography.caption
                         }
                         Rectangle {
                             Layout.fillWidth: true
@@ -736,7 +736,7 @@ Item {
                             : taskDelegate.pendingHours > 0
                                 ? root.theme.yellow : root.theme.primaryText
                         font.family: root.theme.fontFamily
-                        font.pixelSize: 9
+                        font.pointSize: Typography.label
                         font.weight: Font.DemiBold
                         verticalAlignment: Text.AlignVCenter
                     }
@@ -1114,7 +1114,7 @@ Item {
                             ? qsTr(" task") : qsTr(" tasks"))
                 color: root.theme.secondaryText
                 font.family: root.theme.fontFamily
-                font.pixelSize: 8
+                font.pointSize: Typography.caption
             }
             Label {
                 visible: tasksController.advancedProcessCount > 0
@@ -1123,7 +1123,7 @@ Item {
                         ? qsTr(" process") : qsTr(" processes"))
                 color: root.theme.secondaryText
                 font.family: root.theme.fontFamily
-                font.pixelSize: 8
+                font.pointSize: Typography.caption
             }
             Label {
                 visible: tasksController.advancedCheckedCount > 0
@@ -1131,7 +1131,7 @@ Item {
                     + qsTr(" checked")
                 color: root.theme.action
                 font.family: root.theme.fontFamily
-                font.pixelSize: 8
+                font.pointSize: Typography.caption
                 font.weight: Font.DemiBold
             }
             Label {
@@ -1141,7 +1141,7 @@ Item {
                     + tasksController.advancedTotalCount + qsTr(" loaded")
                 color: root.theme.secondaryText
                 font.family: root.theme.fontFamily
-                font.pixelSize: 8
+                font.pointSize: Typography.caption
             }
             Item { Layout.fillWidth: true }
             CompactIconButton {
@@ -1161,7 +1161,7 @@ Item {
         text: tasksController.advancedEmptyMessage
         color: root.theme.secondaryText
         font.family: root.theme.fontFamily
-        font.pixelSize: 10
+        font.pointSize: Typography.body
     }
     Connections {
         target: tasksController

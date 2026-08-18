@@ -150,7 +150,7 @@ virtual snapshot и полный жизненный цикл операции.
 - Maya scene, selected objects, playblast, open/import/reference и восстановление
   UI после screenshot maker.
 
-## Этап 15: оболочка и выбранный объект
+## Оболочка и выбранный объект
 
 - **Реализовано:** отдельный dock `Check-in / Check-out`, рабочие вкладки объектов,
   выбранный объект Workspace, переключение check-in/check-out, process, context
@@ -165,7 +165,7 @@ virtual snapshot и полный жизненный цикл операции.
 - **Требует ручной проверки:** context у объектов с пользовательскими process,
   восстановление вкладок после смены проекта и отображение QWidget-интерфейса.
 
-## Этап 16: подготовка check-in
+## Подготовка check-in
 
 - **Реализовано:** выбор и drag-and-drop отдельных файлов, QML-safe файловая
   модель, удаление, размер, расширение и тип через существующий `file_format`.
@@ -184,7 +184,7 @@ virtual snapshot и полный жизненный цикл операции.
 - **Требует ручной проверки:** серверные naming rules, каждый активный repository,
   revision/version и preview-файлы на рабочем сервере.
 
-## Этап 17: выполнение check-in
+## Выполнение check-in
 
 - **Реализовано:** последовательные стадии queued/preparing, copying, upload или
   snapshot и completed/failed. Повторный запуск блокируется до завершения.
@@ -206,7 +206,7 @@ virtual snapshot и полный жизненный цикл операции.
 - **Требует ручной проверки:** inplace/preallocate/upload, большой файл,
   разрыв сети, retry и закрытие приложения во время каждой стадии.
 
-## Этап 18: Check-out, Open, Import и Reference
+## Check-out, Open, Import и Reference
 
 - **Реализовано:** выбор snapshot/version и конкретного файла использует модели
   Snapshot Browser; `Snapshot` и `File` не передаются в QML.

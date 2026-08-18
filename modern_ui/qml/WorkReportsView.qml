@@ -63,7 +63,7 @@ Rectangle {
                                 text: title
                                 color: root.theme.primaryText
                                 font.family: root.theme.fontFamily
-                                font.pixelSize: 9
+                                font.pointSize: Typography.label
                                 font.weight: Font.DemiBold
                                 elide: Text.ElideRight
                             }
@@ -72,7 +72,7 @@ Rectangle {
                                 text: description
                                 color: root.theme.secondaryText
                                 font.family: root.theme.fontFamily
-                                font.pixelSize: 7
+                                font.pointSize: Typography.micro
                                 elide: Text.ElideRight
                             }
                         }
@@ -109,7 +109,7 @@ Rectangle {
                             .replace(/_/g, " ").toUpperCase()
                         color: root.theme.primaryText
                         font.family: root.theme.fontFamily
-                        font.pixelSize: 11
+                        font.pointSize: Typography.bodyLarge
                         font.weight: Font.DemiBold
                     }
                     Label {
@@ -117,7 +117,7 @@ Rectangle {
                             + workHoursController.weekEnd
                         color: root.theme.secondaryText
                         font.family: root.theme.fontFamily
-                        font.pixelSize: 8
+                        font.pointSize: Typography.caption
                     }
                     RefreshIconButton {
                         theme: root.theme
@@ -132,7 +132,7 @@ Rectangle {
                     text: workHoursController.reportMessage
                     color: root.theme.secondaryText
                     font.family: root.theme.fontFamily
-                    font.pixelSize: 9
+                    font.pointSize: Typography.label
                     wrapMode: Text.WordWrap
                 }
 
@@ -163,7 +163,7 @@ Rectangle {
                                 text: label
                                 color: root.theme.primaryText
                                 font.family: root.theme.fontFamily
-                                font.pixelSize: 9
+                                font.pointSize: Typography.label
                                 elide: Text.ElideRight
                             }
                             Rectangle {
@@ -185,7 +185,7 @@ Rectangle {
                                 text: valueLabel
                                 color: root.theme.primaryText
                                 font.family: root.theme.fontFamily
-                                font.pixelSize: 10
+                                font.pointSize: Typography.body
                                 font.weight: Font.DemiBold
                                 horizontalAlignment: Text.AlignRight
                             }

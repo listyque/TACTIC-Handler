@@ -82,7 +82,7 @@ Item {
                 color: root.editorEnabled
                     ? root.theme.primaryText : root.theme.disabledText
                 font.family: root.theme.fontFamily
-                font.pixelSize: 9
+                font.pointSize: Typography.label
                 font.weight: Font.DemiBold
                 elide: Text.ElideRight
             }
@@ -95,7 +95,7 @@ Item {
                     : root.saving ? root.theme.secondaryText
                     : root.theme.action
                 font.family: root.theme.fontFamily
-                font.pixelSize: 8
+                font.pointSize: Typography.caption
                 font.weight: Font.DemiBold
             }
         }
@@ -140,7 +140,7 @@ Item {
                 text: root.errorText
                 color: root.theme.error
                 font.family: root.theme.fontFamily
-                font.pixelSize: 8
+                font.pointSize: Typography.caption
                 elide: Text.ElideRight
                 z: 2
             }

@@ -52,7 +52,7 @@ class DockResizingTests(unittest.TestCase):
 
     def test_active_and_adjacent_panels_stop_at_same_pixel_minimum(self):
         self.resize_results(0.10)
-        expected_boundary = 220 / 1600
+        expected_boundary = 360 / 1600
         self.assertAlmostEqual(self.panel("results").width, expected_boundary)
         self.assertAlmostEqual(self.panel("tasks").x, expected_boundary)
         self.assertAlmostEqual(self.panel("notes").x, 0.66)
@@ -63,19 +63,19 @@ class DockResizingTests(unittest.TestCase):
 
     def test_host_resize_projects_minimums_without_losing_preferred_ratios(self):
         self.resize_results(0.05, host_width=1800, host_height=1000)
-        preferred_boundary = 220 / 1800
+        preferred_boundary = 360 / 1800
         self.assertAlmostEqual(
             self.panel("results").width, preferred_boundary
         )
 
         self.model.ensure_minimum_sizes(760, 640)
 
-        expected_boundary = 220 / (220 + 280 + 300)
+        expected_boundary = 360 / (360 + 320 + 400)
         self.assertAlmostEqual(self.panel("results").width, expected_boundary)
         self.assertAlmostEqual(self.panel("tasks").x, expected_boundary)
         self.assertAlmostEqual(
             self.panel("snapshot").x,
-            (220 + 280) / (220 + 280 + 300),
+            (360 + 320) / (360 + 320 + 400),
         )
 
         self.model.ensure_minimum_sizes(1800, 1000)
@@ -84,11 +84,11 @@ class DockResizingTests(unittest.TestCase):
         )
         self.assertAlmostEqual(self.panel("snapshot").x, 0.66)
 
-    def test_default_three_columns_remain_unmodified_at_1000_pixels(self):
+    def test_default_three_columns_remain_unmodified_when_minimums_fit(self):
         save_calls = []
         self.model._save = lambda: save_calls.append(True)
 
-        self.model.ensure_minimum_sizes(1000, 700)
+        self.model.ensure_minimum_sizes(1800, 700)
 
         self.assertAlmostEqual(self.panel("results").width, 0.66 * 0.34)
         self.assertAlmostEqual(self.panel("tasks").x, 0.66 * 0.34)
@@ -97,23 +97,48 @@ class DockResizingTests(unittest.TestCase):
 
     def test_right_subtree_minimum_clamps_the_same_root_split(self):
         self.resize_work(0.90, host_width=1600, host_height=900)
-        expected_boundary = 1.0 - 300 / 1600
+        expected_boundary = 1.0 - 400 / 1600
         self.assertAlmostEqual(self.panel("notes").x, expected_boundary)
         self.assertAlmostEqual(
             self.panel("tasks").x + self.panel("tasks").width,
             expected_boundary,
         )
 
+    def test_outer_resize_reclamps_every_nested_panel_minimum(self):
+        # First put the inner results/tasks divider at the results minimum.
+        # Shrinking their shared parent afterwards used to keep this stale
+        # ratio, squeezing results below 360 px even though the parent had the
+        # required aggregate width for both children.
+        self.resize_results(360 / 1600, host_width=1600, host_height=900)
+        self.resize_work(
+            (360 + 320) / 1600,
+            host_width=1600,
+            host_height=900,
+        )
+
+        self.assertGreaterEqual(
+            self.panel("results").width + 1e-9,
+            360 / 1600,
+        )
+        self.assertGreaterEqual(
+            self.panel("tasks").width + 1e-9,
+            320 / 1600,
+        )
+        self.assertAlmostEqual(
+            self.panel("notes").x,
+            (360 + 320) / 1600,
+        )
+
     def test_stack_uses_the_largest_member_minimum(self):
         self.resize_work(0.90, host_width=1600, host_height=900)
-        self.assertAlmostEqual(self.panel("notes").x, 1.0 - 300 / 1600)
+        self.assertAlmostEqual(self.panel("notes").x, 1.0 - 400 / 1600)
 
         self.model.reset_layout()
         self.model.close_panel("notes")
         self.resize_work(0.90, host_width=1600, host_height=900)
         self.assertAlmostEqual(
             self.panel("task_calendar").x,
-            1.0 - 300 / 1600,
+            1.0 - 380 / 1600,
         )
 
     def test_nested_resize_keeps_unrelated_ancestor_ratios(self):
@@ -121,7 +146,7 @@ class DockResizingTests(unittest.TestCase):
         results_before = self.panel("results")
         self.model.preview_resize_panel(
             "snapshot", "bottom", 0.66, 0.0, 0.34, 0.30,
-            1600, 2000,
+            1800, 2000,
         )
         self.assertAlmostEqual(self.panel("snapshot").height, 0.30)
         self.assertAlmostEqual(self.panel("notes").height, 0.30)

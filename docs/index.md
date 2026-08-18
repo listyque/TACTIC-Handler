@@ -1,4 +1,9 @@
 # TACTIC-Handler
+
+Modern client documentation:
+
+* [Release readiness](release_readiness.md)
+* [Release acceptance checklist](release_acceptance_checklist.md)
 PySide based Southpaw TACTIC client that can help you commit assets to TACTIC
 Can be used with Standalone or with Autodesk Maya 2014-2018+, The Foundry Nuke, Autodesk 3DSmax, Houdini, etc...
 

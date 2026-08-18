@@ -13,6 +13,10 @@ class SearchTabSession:
     navigation_target: str = ""
     search_text: str = ""
     extra_filters: list = field(default_factory=list)
+    # Exact Advanced Search presentation state. This intentionally differs
+    # from ``extra_filters``: legacy presets may contain enabled blank rows
+    # which must remain visible but must not be sent as server filters.
+    filter_records: list[dict] = field(default_factory=list)
     offset: int = 0
     next_offset: int = 0
     limit: int = 25
@@ -62,6 +66,7 @@ class SectionSession:
     title: str
     accent: str
     search_type: str
+    search_view: str = ""
     base_filters: tuple = ()
     tabs: list[SearchTabSession] = field(default_factory=list)
     closed_tabs: list[SearchTabSession] = field(default_factory=list)

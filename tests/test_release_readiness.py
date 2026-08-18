@@ -1,12 +1,16 @@
 from __future__ import annotations
 
+from contextlib import redirect_stderr, redirect_stdout
+from io import StringIO
 import json
 import os
 from pathlib import Path
+import tempfile
 import unittest
 from unittest import mock
 
 import launch
+from tests import run_release_gate
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -46,9 +50,11 @@ class ReleaseReadinessContractTests(unittest.TestCase):
         manual = {item["id"]: item for item in contract["manual"]}
         expected = {
             "live-session-navigation",
+            "live-server-procedures",
             "live-mutations",
             "repository-checkin",
             "windows-lifecycle",
+            "clean-environment-install",
             "maya-dcc",
             "visual-acceptance",
         }
@@ -61,8 +67,45 @@ class ReleaseReadinessContractTests(unittest.TestCase):
             ROOT / "docs" / "release_readiness.md",
             ROOT / "tests" / "run_release_gate.py",
             ROOT / "tests" / "run_entrypoint_smoke.py",
+            ROOT / "tests" / "run_clean_environment_smoke.py",
+            ROOT / "tests" / "run_live_server_procedure_smoke.py",
+            ROOT / "tests" / "record_release_acceptance.py",
         ):
             self.assertTrue(path.is_file(), str(path))
+
+    def test_runtime_dependencies_are_pinned_and_direct(self):
+        requirements = (ROOT / "requirements-modern.txt").read_text(
+            encoding="utf-8"
+        )
+        dependencies = [
+            line.strip() for line in requirements.splitlines()
+            if line.strip() and not line.lstrip().startswith("#")
+        ]
+        self.assertEqual(["PySide6==6.11.1"], dependencies)
+
+    def test_manual_results_require_status_identity_time_and_evidence(self):
+        contract = json.loads(CONTRACT.read_text(encoding="utf-8"))
+        complete = {
+            "schemaVersion": 1,
+            "checks": {
+                item["id"]: {
+                    "status": "passed",
+                    "tester": "release tester",
+                    "testedAt": "2026-08-11T12:00:00+00:00",
+                    "evidence": "recorded scenario output",
+                }
+                for item in contract["manual"] if item.get("required")
+            },
+        }
+        with tempfile.TemporaryDirectory() as folder:
+            path = Path(folder) / "acceptance.json"
+            path.write_text(json.dumps(complete), encoding="utf-8")
+            with redirect_stdout(StringIO()), redirect_stderr(StringIO()):
+                self.assertEqual(0, run_release_gate._manual_check(contract, path))
+            complete["checks"]["repository-checkin"]["evidence"] = ""
+            path.write_text(json.dumps(complete), encoding="utf-8")
+            with redirect_stdout(StringIO()), redirect_stderr(StringIO()):
+                self.assertEqual(1, run_release_gate._manual_check(contract, path))
 
 
 if __name__ == "__main__":

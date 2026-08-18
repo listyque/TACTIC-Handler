@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "marker": "codex-block-c-v1",
+  "marker": "tactic-handler-test-v1",
   "projectCodePrefix": "th_test_",
   "searchTypes": [
     {"code": "th_test/asset", "pipeline": "th_test/asset"},

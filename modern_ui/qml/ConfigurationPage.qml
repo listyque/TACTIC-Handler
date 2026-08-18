@@ -170,7 +170,7 @@ Item {
                             Label {
                                 text: qsTr("Server address")
                                 color: page.theme.secondaryText
-                                font.pixelSize: 10
+                                font.pointSize: Typography.body
                             }
                             Md3TextField {
                                 theme: page.theme
@@ -196,7 +196,7 @@ Item {
                             Label {
                                 text: qsTr("Server preset")
                                 color: page.theme.secondaryText
-                                font.pixelSize: 10
+                                font.pointSize: Typography.body
                             }
                             RowLayout {
                                 Layout.fillWidth: true
@@ -248,7 +248,7 @@ Item {
                                     text: configurationController.server_test_message
                                         || qsTr("Test changes before saving them.")
                                     color: page.theme.secondaryText
-                                    font.pixelSize: 9
+                                    font.pointSize: Typography.label
                                     elide: Text.ElideRight
                                 }
                                 Md3BusyIndicator {
@@ -310,7 +310,7 @@ Item {
                             Label {
                                 text: qsTr("User")
                                 color: page.theme.secondaryText
-                                font.pixelSize: 10
+                                font.pointSize: Typography.body
                             }
                             Md3TextField {
                                 theme: page.theme
@@ -386,7 +386,7 @@ Item {
                             Label {
                                 text: qsTr("Proxy login")
                                 color: page.theme.secondaryText
-                                font.pixelSize: 10
+                                font.pointSize: Typography.body
                             }
                             Md3TextField {
                                 theme: page.theme
@@ -411,7 +411,7 @@ Item {
                             Label {
                                 text: qsTr("Proxy password")
                                 color: page.theme.secondaryText
-                                font.pixelSize: 10
+                                font.pointSize: Typography.body
                             }
                             Md3TextField {
                                 id: proxyPassword
@@ -444,7 +444,7 @@ Item {
                             Label {
                                 text: qsTr("Connection ping")
                                 color: page.theme.secondaryText
-                                font.pixelSize: 10
+                                font.pointSize: Typography.body
                             }
                             Md3ComboBox {
                                 id: pingInterval
@@ -461,7 +461,7 @@ Item {
                             Label {
                                 text: qsTr("Server updates")
                                 color: page.theme.secondaryText
-                                font.pixelSize: 10
+                                font.pointSize: Typography.body
                             }
                             Md3ComboBox {
                                 id: serverUpdateInterval
@@ -479,7 +479,7 @@ Item {
                             Label {
                                 text: qsTr("Presence heartbeat")
                                 color: page.theme.secondaryText
-                                font.pixelSize: 10
+                                font.pointSize: Typography.body
                             }
                             Md3ComboBox {
                                 id: heartbeatInterval
@@ -499,7 +499,7 @@ Item {
                                 Layout.fillWidth: true
                                 text: qsTr("Presence heartbeat is always enabled so online status remains reliable.")
                                 color: page.theme.secondaryText
-                                font.pixelSize: 9
+                                font.pointSize: Typography.label
                                 wrapMode: Text.WordWrap
                             }
                         }
@@ -602,7 +602,7 @@ Item {
                                         Layout.fillWidth: true
                                         text: projectRow.title
                                         color: page.theme.primaryText
-                                        font.pixelSize: 11
+                                        font.pointSize: Typography.bodyLarge
                                         font.weight: Font.DemiBold
                                         elide: Text.ElideRight
                                     }
@@ -613,14 +613,14 @@ Item {
                                                 ? " · " + projectRow.category
                                                 : "")
                                         color: page.theme.secondaryText
-                                        font.pixelSize: 9
+                                        font.pointSize: Typography.label
                                         elide: Text.ElideRight
                                     }
                                 }
                                 Label {
                                     text: projectRow.status || "UNKNOWN"
                                     color: page.theme.secondaryText
-                                    font.pixelSize: 8
+                                    font.pointSize: Typography.caption
                                     font.weight: Font.DemiBold
                                 }
                             }
@@ -661,7 +661,7 @@ Item {
                         Label {
                             text: qsTr("CURRENT")
                             color: page.theme.secondaryText
-                            font.pixelSize: 8
+                            font.pointSize: Typography.caption
                             font.weight: Font.DemiBold
                         }
                         Label {
@@ -692,7 +692,7 @@ Item {
                                     ? qsTr("SELECTED PROJECT")
                                     : qsTr("SELECT A PROJECT")
                                 color: page.theme.secondaryText
-                                font.pixelSize: 8
+                                font.pointSize: Typography.caption
                                 font.weight: Font.DemiBold
                             }
                             Label {
@@ -702,7 +702,7 @@ Item {
                                 color: projectPanel.selectedTitle.length
                                     ? page.theme.primaryText
                                     : page.theme.disabledText
-                                font.pixelSize: 11
+                                font.pointSize: Typography.bodyLarge
                                 font.weight: Font.DemiBold
                                 elide: Text.ElideRight
                             }
@@ -712,7 +712,7 @@ Item {
                                     + (projectPanel.selectedStatus.length
                                         ? " · " + projectPanel.selectedStatus : "")
                                 color: page.theme.secondaryText
-                                font.pixelSize: 9
+                                font.pointSize: Typography.label
                                 elide: Text.ElideRight
                             }
                         }
@@ -787,7 +787,7 @@ Item {
                                     Layout.fillWidth: true
                                     text: qsTr("Select a project to load its process tabs.")
                                     color: page.theme.secondaryText
-                                    font.pixelSize: 9
+                                    font.pointSize: Typography.label
                                     wrapMode: Text.WordWrap
                                 }
                             }
@@ -820,7 +820,7 @@ Item {
                                     Layout.fillWidth: true
                                     text: qsTr("Panel visibility is still read from the legacy configuration.")
                                     color: page.theme.secondaryText
-                                    font.pixelSize: 9
+                                    font.pointSize: Typography.label
                                     wrapMode: Text.WordWrap
                                 }
                             }
@@ -857,6 +857,28 @@ Item {
         Item {
             id: globalPanel
             property bool loadingValues: true
+            property var diagnosticLevelValues: ({})
+            readonly property var diagnosticLevelOptions: [
+                { "value": "LOG", "label": qsTr("Log") },
+                { "value": "INFO", "label": qsTr("Information") },
+                { "value": "WARNING", "label": qsTr("Warning") },
+                { "value": "MISSING", "label": qsTr("Missing files") },
+                { "value": "EXCEPTION", "label": qsTr("Exception") },
+                { "value": "ERROR", "label": qsTr("Error") },
+                { "value": "CRITICAL", "label": qsTr("Critical") },
+                { "value": "API", "label": qsTr("API") }
+            ]
+
+            function enabledDiagnosticLevels() {
+                const result = []
+                for (let index = 0;
+                        index < diagnosticLevelOptions.length; ++index) {
+                    const level = diagnosticLevelOptions[index].value
+                    if (diagnosticLevelValues[level])
+                        result.push(level)
+                }
+                return result
+            }
 
             function formValues() {
                 return {
@@ -864,6 +886,7 @@ Item {
                     "darkTheme": darkTheme.checked,
                     "themeStyle": themeStyle.currentValue || "md3",
                     "language": interfaceLanguage.currentValue || "en",
+                    "debugLogLevels": enabledDiagnosticLevels(),
                     "configPath": configurationPath.text
                 }
             }
@@ -875,6 +898,12 @@ Item {
                 loadingValues = true
                 cacheProcessTabs.checked = Boolean(values.cacheProcessTabs)
                 darkTheme.checked = Boolean(values.darkTheme)
+                const selectedLevels = values.debugLogLevels
+                    || ["ERROR", "CRITICAL"]
+                const levelValues = {}
+                for (let index = 0; index < selectedLevels.length; ++index)
+                    levelValues[selectedLevels[index]] = true
+                diagnosticLevelValues = levelValues
                 const selectedTheme = values.themeStyle || "md3"
                 for (let row = 0; row < themeStyle.count; ++row) {
                     if (themeStyle.model[row].value === selectedTheme) {
@@ -958,7 +987,7 @@ Item {
                                 text: qsTr("Interface style")
                                 color: page.theme.primaryText
                                 font.family: page.theme.fontFamily
-                                font.pixelSize: 10
+                                font.pointSize: Typography.body
                             }
                             Md3ComboBox {
                                 id: themeStyle
@@ -978,7 +1007,7 @@ Item {
                                 : ""
                             color: page.theme.secondaryText
                             font.family: page.theme.fontFamily
-                            font.pixelSize: 9
+                            font.pointSize: Typography.label
                             wrapMode: Text.WordWrap
                         }
 
@@ -1009,7 +1038,7 @@ Item {
                                 text: qsTr("Interface language")
                                 color: page.theme.primaryText
                                 font.family: page.theme.fontFamily
-                                font.pixelSize: 10
+                                font.pointSize: Typography.body
                             }
                             Md3ComboBox {
                                 id: interfaceLanguage
@@ -1042,6 +1071,49 @@ Item {
                     ConfigurationSection {
                         Layout.fillWidth: true
                         theme: page.theme
+                        title: qsTr("Diagnostics")
+                        description: qsTr(
+                            "Choose which event types are written to the diagnostic log."
+                        )
+                        iconName: "bug_report"
+
+                        GridLayout {
+                            Layout.fillWidth: true
+                            columns: width >= 720 ? 4 : width >= 360 ? 2 : 1
+                            columnSpacing: 12
+                            rowSpacing: 4
+
+                            Repeater {
+                                model: globalPanel.diagnosticLevelOptions
+
+                                delegate: Md3CheckBox {
+                                    required property var modelData
+                                    theme: page.theme
+                                    Layout.fillWidth: true
+                                    text: modelData.label
+                                    checked: Boolean(
+                                        globalPanel.diagnosticLevelValues[
+                                            modelData.value]
+                                    )
+                                    onToggled: {
+                                        if (globalPanel.loadingValues)
+                                            return
+                                        const values = Object.assign(
+                                            {},
+                                            globalPanel.diagnosticLevelValues
+                                        )
+                                        values[modelData.value] = checked
+                                        globalPanel.diagnosticLevelValues = values
+                                        globalPanel.updateValues()
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    ConfigurationSection {
+                        Layout.fillWidth: true
+                        theme: page.theme
                         title: qsTr("Configuration location")
                         description: qsTr("The active legacy configuration root.")
                         iconName: "folder_open"
@@ -1065,7 +1137,7 @@ Item {
                             Layout.fillWidth: true
                             text: qsTr("Changing this path is not supported by the legacy bootstrap.")
                             color: page.theme.secondaryText
-                            font.pixelSize: 9
+                            font.pointSize: Typography.label
                             wrapMode: Text.WordWrap
                         }
                     }
@@ -1206,7 +1278,7 @@ Item {
                             Label {
                                 text: qsTr("View")
                                 color: page.theme.primaryText
-                                font.pixelSize: 10
+                                font.pointSize: Typography.body
                             }
                             Md3ComboBox {
                                 id: defaultTaskView
@@ -1224,7 +1296,7 @@ Item {
                             Label {
                                 text: qsTr("Sort")
                                 color: page.theme.primaryText
-                                font.pixelSize: 10
+                                font.pointSize: Typography.body
                             }
                             Md3ComboBox {
                                 id: defaultTaskSort
@@ -1246,7 +1318,7 @@ Item {
                             Label {
                                 text: qsTr("Group")
                                 color: page.theme.primaryText
-                                font.pixelSize: 10
+                                font.pointSize: Typography.body
                             }
                             Md3ComboBox {
                                 id: defaultTaskGroup
@@ -1324,7 +1396,7 @@ Item {
                                         Layout.fillWidth: true
                                         text: taskColumnRow.label
                                         color: page.theme.primaryText
-                                        font.pixelSize: 10
+                                        font.pointSize: Typography.body
                                         elide: Text.ElideRight
                                     }
                                     Md3SpinBox {
@@ -1378,7 +1450,7 @@ Item {
                         Layout.fillWidth: true
                         text: qsTr("Dock and window geometry is restored separately for each workspace. Active rows, checked tasks and temporary filters are never saved as defaults.")
                         color: page.theme.secondaryText
-                        font.pixelSize: 9
+                        font.pointSize: Typography.label
                         wrapMode: Text.WordWrap
                     }
 
@@ -1478,7 +1550,7 @@ Item {
                             Label {
                                 text: qsTr("Current work directory")
                                 color: page.theme.secondaryText
-                                font.pixelSize: 10
+                                font.pointSize: Typography.body
                             }
                             Md3TextField {
                                 theme: page.theme
@@ -1502,7 +1574,7 @@ Item {
                             Label {
                                 text: qsTr("Maya saving format")
                                 color: page.theme.secondaryText
-                                font.pixelSize: 10
+                                font.pointSize: Typography.body
                             }
                             Md3ComboBox {
                                 id: mayaFormat

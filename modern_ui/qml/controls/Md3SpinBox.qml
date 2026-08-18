@@ -40,7 +40,7 @@ SpinBox {
     leftPadding: 34
     rightPadding: 34
     font.family: theme.fontFamily
-    font.pixelSize: 10
+    font.pointSize: Typography.body
 
     DoubleValidator {
         id: decimalValidator

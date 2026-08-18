@@ -12,6 +12,7 @@ Item {
     property real railWidth: 3
     property real railOpacity: 1
     property color normalColor: theme.row
+    property color selectedColor: theme.selected
     property real inset: 0
     property real cornerRadius: 0
     property bool separatorVisible: true
@@ -20,7 +21,7 @@ Item {
         anchors.fill: parent
         anchors.margins: root.inset
         radius: root.cornerRadius
-        color: root.selected ? root.theme.selected : root.normalColor
+        color: root.selected ? root.selectedColor : root.normalColor
         antialiasing: root.cornerRadius > 0
     }
     Rectangle {

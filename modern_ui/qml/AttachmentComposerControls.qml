@@ -96,7 +96,7 @@ Item {
                 text: qsTr("ATTACHMENTS TO SEND")
                 color: root.theme.secondaryText
                 font.family: root.theme.fontFamily
-                font.pixelSize: 10
+                font.pointSize: Typography.body
                 font.weight: Font.DemiBold
             }
             ListView {
@@ -138,14 +138,14 @@ Item {
                             text: title
                             color: root.theme.primaryText
                             font.family: root.theme.fontFamily
-                            font.pixelSize: 9
+                            font.pointSize: Typography.label
                             elide: Text.ElideMiddle
                         }
                         Label {
                             text: size
                             color: root.theme.secondaryText
                             font.family: root.theme.fontFamily
-                            font.pixelSize: 8
+                            font.pointSize: Typography.caption
                         }
                         CompactIconButton {
                             theme: root.theme

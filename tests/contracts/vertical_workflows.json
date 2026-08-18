@@ -27,7 +27,7 @@
         "tests.test_request_budgets"
       ],
       "qml": ["TacticSearchField.qml", "WorkspaceResultItem.qml", "WorkspaceCard.qml"],
-      "windows": ["filter_editor"],
+      "windows": ["process_filter_editor"],
       "liveChecks": ["search_page", "code_skey"]
     },
     "tasks_notes_work_hours": {

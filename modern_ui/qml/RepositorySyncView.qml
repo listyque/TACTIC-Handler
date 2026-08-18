@@ -6,13 +6,60 @@ Item {
     id: root
     required property var theme
 
+    function phaseLabel(phase, alreadyExists) {
+        if (alreadyExists)
+            return qsTr("Local")
+        if (phase === "completed")
+            return qsTr("Completed")
+        if (phase === "downloading")
+            return qsTr("Downloading")
+        if (phase === "failed")
+            return qsTr("Failed")
+        if (phase === "cancelled")
+            return qsTr("Cancelled")
+        return qsTr("Queued")
+    }
+
+    component SummaryMetric: Rectangle {
+        required property string metricTitle
+        required property string metricValue
+        implicitHeight: 48
+        radius: root.theme.itemRadius
+        color: root.theme.surfaceContainerHigh
+        Column {
+            anchors.fill: parent
+            anchors.leftMargin: 10
+            anchors.rightMargin: 10
+            anchors.topMargin: 7
+            spacing: 2
+            Label {
+                width: parent.width
+                text: parent.parent.metricTitle
+                color: root.theme.secondaryText
+                font.family: root.theme.fontFamily
+                font.pointSize: Typography.label
+                font.weight: Font.DemiBold
+                elide: Text.ElideRight
+            }
+            Label {
+                width: parent.width
+                text: parent.parent.metricValue
+                color: root.theme.primaryText
+                font.family: root.theme.fontFamily
+                font.pixelSize: 13
+                font.weight: Font.DemiBold
+                elide: Text.ElideRight
+            }
+        }
+    }
+
     Rectangle { anchors.fill: parent; color: root.theme.workspace }
 
     Rectangle {
         id: toolbar
         anchors.top: parent.top
         width: parent.width
-        height: 46
+        height: 50
         color: root.theme.panel
         RowLayout {
             anchors.fill: parent
@@ -20,7 +67,7 @@ Item {
             anchors.rightMargin: 8
             spacing: 7
             MaterialIcon {
-                name: "cloud_sync"
+                name: "repository-sync"
                 size: 16
                 color: root.theme.action
             }
@@ -34,7 +81,7 @@ Item {
                         : repositorySync.queue_count + qsTr(" files in queue")
                 color: root.theme.primaryText
                 font.family: root.theme.fontFamily
-                font.pixelSize: 10
+                font.pointSize: Typography.body
                 font.weight: Font.DemiBold
             }
             Item { Layout.fillWidth: true }
@@ -47,11 +94,34 @@ Item {
                 visible: running
             }
             CompactIconButton {
+                visible: repositorySync.discovery_active
+                    && repositorySync.discovery_mode === "partial"
+                theme: root.theme
+                round: true
+                iconName: "close"
+                iconColor: root.theme.red
+                toolTip: qsTr("Stop discovering more files")
+                onClicked: repositorySync.cancel_discovery()
+            }
+            CompactIconButton {
                 theme: root.theme
                 round: true
                 iconName: "sync"
                 toolTip: qsTr("Start checked downloads")
                 onClicked: repositorySync.start_checked()
+            }
+            Md3Switch {
+                id: autoCleanSwitch
+                theme: root.theme
+                text: toolbar.width >= 650 ? qsTr("Auto-clean") : ""
+                checked: repositorySync.auto_clean
+                onToggled: repositorySync.set_auto_clean(checked)
+                Md3ToolTip {
+                    theme: root.theme
+                    visible: autoCleanSwitch.hovered
+                        && !root.theme.suppressToolTips
+                    text: qsTr("Auto-clean completed repository downloads")
+                }
             }
             CompactIconButton {
                 theme: root.theme
@@ -69,16 +139,192 @@ Item {
         }
     }
 
-    ListView {
-        id: queue
+    Rectangle {
+        id: summaryCard
         anchors.top: toolbar.bottom
         anchors.left: parent.left
         anchors.right: parent.right
+        anchors.topMargin: 8
+        anchors.leftMargin: 8
+        anchors.rightMargin: 8
+        height: summaryContent.implicitHeight + 24
+        visible: repositorySync.discovery_active
+            || repositorySync.batch_file_count > 0
+            || repositorySync.queue_count > 0
+        radius: 12
+        color: root.theme.panel
+        border.width: 1
+        border.color: root.theme.outlineVariant
+
+        ColumnLayout {
+            id: summaryContent
+            anchors.fill: parent
+            anchors.margins: 12
+            spacing: 8
+
+            RowLayout {
+                Layout.fillWidth: true
+                spacing: 8
+                MaterialIcon {
+                    name: repositorySync.failed_file_count > 0
+                        ? "warning" : repositorySync.active_count > 0
+                            ? "cloud_download" : "task_alt"
+                    size: 18
+                    color: repositorySync.failed_file_count > 0
+                        ? root.theme.red : repositorySync.active_count > 0
+                            ? root.theme.action : root.theme.green
+                }
+                Label {
+                    Layout.fillWidth: true
+                    text: repositorySync.discovery_active
+                        && repositorySync.discovery_mode === "partial"
+                        ? qsTr("Discovering and downloading in parallel")
+                        : repositorySync.active_count > 0
+                        ? qsTr("Downloading repository files")
+                        : repositorySync.processed_file_count === 0
+                            ? qsTr("Ready to download repository files")
+                        : repositorySync.failed_file_count > 0
+                            ? qsTr("Repository download finished with errors")
+                            : qsTr("Repository download complete")
+                    color: root.theme.primaryText
+                    font.family: root.theme.fontFamily
+                    font.pointSize: Typography.bodyLarge
+                    font.weight: Font.DemiBold
+                    elide: Text.ElideRight
+                }
+                Label {
+                    text: Math.round(repositorySync.overall_progress * 100) + "%"
+                    color: root.theme.action
+                    font.family: root.theme.fontFamily
+                    font.pixelSize: 12
+                    font.weight: Font.Bold
+                }
+            }
+
+            Label {
+                Layout.fillWidth: true
+                visible: repositorySync.discovery_active
+                    && repositorySync.discovery_mode === "partial"
+                text: repositorySync.discovery_total_roots > 0
+                    ? qsTr("Objects discovered: ")
+                        + repositorySync.discovery_processed_roots + " / "
+                        + repositorySync.discovery_total_roots
+                    : qsTr("Objects discovered: ")
+                        + repositorySync.discovery_processed_roots
+                color: root.theme.secondaryText
+                font.family: root.theme.fontFamily
+                font.pointSize: Typography.label
+            }
+
+            Rectangle {
+                Layout.fillWidth: true
+                Layout.preferredHeight: 7
+                radius: height / 2
+                color: root.theme.surfaceContainerHigh
+                Rectangle {
+                    width: parent.width * repositorySync.overall_progress
+                    height: parent.height
+                    radius: height / 2
+                    color: repositorySync.failed_file_count > 0
+                        && repositorySync.active_count === 0
+                        ? root.theme.red : root.theme.action
+                    Behavior on width { NumberAnimation { duration: 120 } }
+                }
+            }
+
+            GridLayout {
+                Layout.fillWidth: true
+                columns: summaryCard.width >= 760 ? 4
+                    : summaryCard.width >= 520 ? 3 : 2
+                columnSpacing: 16
+                rowSpacing: 8
+
+                SummaryMetric {
+                    Layout.fillWidth: true
+                    Layout.preferredHeight: implicitHeight
+                    metricTitle: qsTr("Processed / total files")
+                    metricValue: repositorySync.processed_file_count
+                        + " / " + repositorySync.batch_file_count
+                }
+                SummaryMetric {
+                    Layout.fillWidth: true
+                    Layout.preferredHeight: implicitHeight
+                    metricTitle: qsTr("Total size")
+                    metricValue: repositorySync.total_size_text
+                }
+                SummaryMetric {
+                    Layout.fillWidth: true
+                    Layout.preferredHeight: implicitHeight
+                    metricTitle: qsTr("Downloaded")
+                    metricValue: repositorySync.transferred_size_text
+                }
+                SummaryMetric {
+                    Layout.fillWidth: true
+                    Layout.preferredHeight: implicitHeight
+                    metricTitle: qsTr("Remaining data")
+                    metricValue: repositorySync.remaining_size_text
+                }
+                SummaryMetric {
+                    Layout.fillWidth: true
+                    Layout.preferredHeight: implicitHeight
+                    metricTitle: repositorySync.active_count > 0
+                        ? qsTr("Speed") : qsTr("Average speed")
+                    metricValue: repositorySync.aggregate_speed_text
+                }
+                SummaryMetric {
+                    Layout.fillWidth: true
+                    Layout.preferredHeight: implicitHeight
+                    metricTitle: qsTr("Elapsed")
+                    metricValue: repositorySync.elapsed_text
+                }
+                SummaryMetric {
+                    Layout.fillWidth: true
+                    Layout.preferredHeight: implicitHeight
+                    metricTitle: qsTr("Remaining")
+                    metricValue: repositorySync.eta_text
+                }
+                SummaryMetric {
+                    Layout.fillWidth: true
+                    Layout.preferredHeight: implicitHeight
+                    metricTitle: qsTr("Successful / errors")
+                    metricValue: repositorySync.completed_file_count
+                        + " / " + repositorySync.failed_file_count
+                }
+            }
+        }
+    }
+
+    ListView {
+        id: queue
+        anchors.top: summaryCard.visible ? summaryCard.bottom : toolbar.bottom
+        anchors.left: parent.left
+        anchors.right: parent.right
         anchors.bottom: footer.top
-        anchors.margins: 7
+        anchors.topMargin: 7
+        anchors.leftMargin: 7
+        anchors.rightMargin: 7
+        anchors.bottomMargin: 7
         clip: true
         spacing: 3
         model: repoSyncModel
+        reuseItems: true
+
+        Connections {
+            target: repositorySync
+
+            function onActiveRowChanged() {
+                // Do not fight a user who is inspecting another part of a
+                // large queue. The next throttled active-row notification
+                // resumes following after manual scrolling stops.
+                if (repositorySync.active_row >= 0
+                        && !queue.dragging && !queue.flicking)
+                    queue.positionViewAtIndex(
+                        repositorySync.active_row,
+                        ListView.Contain
+                    )
+            }
+        }
+
         delegate: Item {
             id: row
             required property int index
@@ -105,11 +351,22 @@ Item {
             Rectangle {
                 anchors.fill: parent
                 radius: 9
-                color: rowMouse.containsMouse
-                    ? root.theme.rowHover : root.theme.panel
+                color: row.active
+                    ? root.theme.surfaceContainerHigh
+                    : rowMouse.containsMouse
+                        ? root.theme.rowHover : root.theme.panel
                 border.width: 1
-                border.color: root.theme.outlineVariant
+                border.color: row.active
+                    ? root.theme.action : root.theme.outlineVariant
                 Behavior on color { ColorAnimation { duration: 100 } }
+            }
+            Rectangle {
+                anchors.left: parent.left
+                anchors.top: parent.top
+                anchors.bottom: parent.bottom
+                width: row.active ? 3 : 0
+                radius: 2
+                color: root.theme.action
             }
             Rectangle {
                 anchors.left: parent.left
@@ -141,7 +398,7 @@ Item {
                     name: row.phase === "failed" ? "priority_high"
                         : row.phase === "cancelled" ? "cancel"
                         : row.phase === "completed"
-                            ? "check_circle" : "cloud_sync"
+                            ? "check_circle" : "repository-sync"
                     size: 15
                     color: row.phase === "failed" ? root.theme.red
                         : row.phase === "cancelled" ? root.theme.secondaryText
@@ -156,7 +413,7 @@ Item {
                         text: row.title
                         color: root.theme.primaryText
                         font.family: root.theme.fontFamily
-                        font.pixelSize: 10
+                        font.pointSize: Typography.body
                         font.weight: Font.Medium
                         elide: Text.ElideRight
                     }
@@ -167,7 +424,7 @@ Item {
                         color: row.phase === "failed"
                             ? root.theme.red : root.theme.secondaryText
                         font.family: root.theme.fontFamily
-                        font.pixelSize: 9
+                        font.pointSize: Typography.label
                         elide: Text.ElideRight
                     }
                     Label {
@@ -177,7 +434,7 @@ Item {
                         color: root.theme.secondaryText
                         opacity: 0.72
                         font.family: "Consolas"
-                        font.pixelSize: 8
+                        font.pointSize: Typography.caption
                         elide: Text.ElideMiddle
                         Md3ToolTip {
                             theme: root.theme
@@ -188,19 +445,19 @@ Item {
                     }
                 }
                 Label {
-                    text: row.alreadyExists ? "LOCAL" : row.phase.toUpperCase()
+                    text: root.phaseLabel(row.phase, row.alreadyExists)
                     color: row.phase === "failed" ? root.theme.red
                         : row.phase === "completed" ? root.theme.green
                         : root.theme.secondaryText
                     font.family: root.theme.fontFamily
-                    font.pixelSize: 8
+                    font.pointSize: Typography.caption
                     font.weight: Font.DemiBold
                 }
                 Label {
                     text: row.speed
                     color: root.theme.secondaryText
                     font.family: "Consolas"
-                    font.pixelSize: 8
+                    font.pointSize: Typography.caption
                 }
                 CompactIconButton {
                     visible: row.phase === "failed"
@@ -248,11 +505,13 @@ Item {
             ? qsTr("Discovering files…")
             : repositorySync.discovery_state === "failed"
                 ? repositorySync.discovery_error
-                : qsTr("Repository Sync queue is empty")
+                : repositorySync.batch_file_count > 0
+                    ? qsTr("Completed rows were cleared; the batch summary is retained")
+                    : qsTr("Repository Sync queue is empty")
         color: repositorySync.discovery_state === "failed"
             ? root.theme.red : root.theme.secondaryText
         font.family: root.theme.fontFamily
-        font.pixelSize: 10
+        font.pointSize: Typography.body
     }
 
     Rectangle {
@@ -274,10 +533,12 @@ Item {
             anchors.verticalCenter: parent.verticalCenter
             text: repositorySync.active_count > 0
                 ? qsTr("Background transfers are active — the interface remains responsive")
-                : qsTr("Files are verified before downloading and written atomically")
+                : repositorySync.failed_file_count > 0
+                    ? repositorySync.failed_file_count + qsTr(" failed downloads")
+                    : qsTr("Files are verified before downloading and written atomically")
             color: root.theme.secondaryText
             font.family: root.theme.fontFamily
-            font.pixelSize: 9
+            font.pointSize: Typography.label
         }
     }
 

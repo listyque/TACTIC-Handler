@@ -242,7 +242,7 @@ Item {
                         text: tasksController.advancedTitle
                         color: root.theme.primaryText
                         font.family: root.theme.fontFamily
-                        font.pixelSize: 11
+                        font.pointSize: Typography.bodyLarge
                         font.weight: Font.DemiBold
                         elide: Text.ElideRight
                     }
@@ -252,7 +252,7 @@ Item {
                             + qsTr(" loaded tasks")
                         color: root.theme.secondaryText
                         font.family: root.theme.fontFamily
-                        font.pixelSize: 8
+                        font.pointSize: Typography.caption
                         elide: Text.ElideRight
                     }
                 }
@@ -597,7 +597,7 @@ Item {
                     text: qsTr("ACTIVE FILTERS")
                     color: root.theme.secondaryText
                     font.family: root.theme.fontFamily
-                    font.pixelSize: 8
+                    font.pointSize: Typography.caption
                     font.weight: Font.DemiBold
                 }
                 Flickable {
@@ -667,7 +667,7 @@ Item {
                             : qsTr(" tasks have unsaved changes"))
                     color: root.theme.primaryText
                     font.family: root.theme.fontFamily
-                    font.pixelSize: 9
+                    font.pointSize: Typography.label
                 }
                 CompactIconButton {
                     id: ganttPreviewButton
@@ -745,7 +745,7 @@ Item {
                     color: root.theme.primaryText
                     wrapMode: Text.WordWrap
                     font.family: root.theme.fontFamily
-                    font.pixelSize: 9
+                    font.pointSize: Typography.label
                 }
                 CompactIconButton {
                     theme: root.theme

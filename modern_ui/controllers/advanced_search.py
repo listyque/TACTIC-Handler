@@ -27,6 +27,12 @@ from PySide6.QtGui import QGuiApplication, QImage
 from ..menu_schema import MenuRegistry
 from ..quick_filters import QuickFilterCatalog
 from ..repository_sync import RepositorySyncController
+from ..search_contract import (
+    default_name_record,
+    filters_from_records,
+    records_from_filters,
+    set_primary_name,
+)
 from ..models import NavigationModel, ProjectModel
 from ..workspace import (
     DockPanelModel,
@@ -39,10 +45,50 @@ from ..workspace import (
 from .types import ActionRegistry, SearchTabSession, SectionSession
 
 class AdvancedSearchMixin:
+    @staticmethod
+    def _default_search_filter_record(value: str = "") -> dict:
+        """Return the legacy first-row search condition.
+
+        ``Ui_searchWidget`` always kept an editable ``name contains`` row in
+        front of the tab's predefined conditions.  The main search field only
+        changed this row; it did not replace the preset behind it.
+        """
+        return default_name_record(value)
+
+    def _set_primary_search_filter(
+        self,
+        value: str,
+        *,
+        relation: str = "EQI",
+    ) -> list[dict]:
+        """Update only the first Name condition and preserve tab constraints."""
+        tab = self._current_tab()
+        if not tab:
+            return []
+
+        visible = [
+            dict(record)
+            for record in self.workspace_state.filter_model._records
+        ]
+        records = visible or [
+            dict(record) for record in tab.filter_records
+        ]
+        if not records:
+            records = self._filter_records_from_filters(tab.extra_filters)
+
+        records = set_primary_name(records, value, relation=relation)
+
+        tab.filter_records = [dict(record) for record in records]
+        tab.extra_filters = self._filters_from_records(records)
+        self.workspace_state.filter_model.replace([
+            dict(record) for record in records
+        ])
+        return records
+
     @Slot()
     def add_search_filter(self) -> None:
         columns = self.workspace_state.filter_column_model._records
-        column = ""
+        column = "name"
         if columns:
             preferred = next(
                 (
@@ -55,18 +101,21 @@ class AdvancedSearchMixin:
         records = list(self.workspace_state.filter_model._records)
         is_default = not records
         relations = self.search_filter_relations(column)
-        records.append({
-            "column": column,
-            "relation": (
-                "EQI"
-                if is_default
-                else relations[0].get("value") if relations else "="
-            ),
-            "value": "",
-            "rowEnabled": True,
-            "operator": "begin" if is_default else "and",
-            "isDefault": is_default,
-        })
+        if is_default and column == "name":
+            records.append(self._default_search_filter_record())
+        else:
+            records.append({
+                "column": column,
+                "relation": (
+                    "EQI"
+                    if is_default
+                    else relations[0].get("value") if relations else "="
+                ),
+                "value": "",
+                "rowEnabled": True,
+                "operator": "begin" if is_default else "and",
+                "isDefault": is_default,
+            })
         self.workspace_state.filter_model.replace(records)
 
     @Slot()
@@ -296,56 +345,11 @@ class AdvancedSearchMixin:
 
     @staticmethod
     def _filter_records_from_filters(filters) -> list[dict]:
-        values = list(filters or [])
-        tuples = [
-            (index, value)
-            for index, value in enumerate(values)
-            if isinstance(value, tuple) and len(value) == 3
-        ]
-        records = []
-        for row, (position, value) in enumerate(tuples):
-            operator = "begin" if row == 0 else "and"
-            if row > 0 and position + 1 < len(values):
-                candidate = values[position + 1]
-                if candidate in {"and", "or"}:
-                    operator = candidate
-            records.append({
-                "column": str(value[0]),
-                "relation": value[1],
-                "value": value[2],
-                "rowEnabled": True,
-                "operator": operator,
-                "isDefault": row == 0,
-            })
-        return records
+        return records_from_filters(filters)
 
     @staticmethod
     def _filters_from_records(records) -> list:
-        active_records = []
-        for record in records:
-            column = str(record.get("column") or "")
-            if not record.get("rowEnabled") or not column:
-                continue
-            value = record.get("value")
-            relation = record.get("relation")
-            if str(value or "").strip() == "" and relation is not None:
-                continue
-            active_records.append((
-                record,
-                (column, relation, value),
-            ))
-        filters = []
-        for index, (record, filter_value) in enumerate(active_records):
-            if index == 0:
-                if len(active_records) > 1:
-                    filters.append("begin")
-                filters.append(filter_value)
-                continue
-            filters.append(filter_value)
-            filters.append(
-                "or" if record.get("operator") == "or" else "and"
-            )
-        return filters
+        return filters_from_records(records)
 
     @Slot()
     def apply_search_filters(self) -> None:
@@ -355,10 +359,13 @@ class AdvancedSearchMixin:
         if not self._applying_tag_filters:
             tab.selected_tags.clear()
             tab.tag_column = ""
-        filters = self._filters_from_records(
-            self.workspace_state.filter_model._records
-        )
+        visible_records = [
+            dict(record)
+            for record in self.workspace_state.filter_model._records
+        ]
+        filters = self._filters_from_records(visible_records)
         self._capture_current_tree_state()
+        tab.filter_records = visible_records
         tab.extra_filters = filters
         tab.offset = 0
         tab.next_offset = 0
@@ -368,25 +375,30 @@ class AdvancedSearchMixin:
         tab.workspace_roots.clear()
         self._load_tab(tab, append=False)
 
-    def apply_filter_editor_records(
+    def apply_process_filter_settings(self, process_ignore: dict) -> None:
+        """Apply process/child visibility and rebuild the active result tree."""
+        tab = self._current_tab()
+        if not tab:
+            return
+        tab.process_ignore = dict(process_ignore or {})
+        self.workspace_model.set_process_ignore(tab.process_ignore)
+        self.refresh_current()
+
+    def stage_filter_editor_records(
         self,
         records: list[dict],
         title: str = "",
-        process_ignore: dict | None = None,
     ) -> None:
+        """Show preset conditions without executing a server search."""
         tab = self._current_tab()
         section = self._current_section()
         if not tab or not section:
             return
         tab.title = title.strip() or section.title
-        tab.selected_tags.clear()
-        tab.tag_column = ""
-        tab.process_ignore = dict(process_ignore or {})
-        self.workspace_model.set_process_ignore(tab.process_ignore)
+        tab.filter_records = [dict(record) for record in records]
         self.workspace_state.filter_model.replace([
             dict(record) for record in records
         ])
-        self.apply_search_filters()
 
     def has_active_search_tab(self) -> bool:
         return self._current_tab() is not None
@@ -395,13 +407,27 @@ class AdvancedSearchMixin:
         tab = self._current_tab()
         section = self._current_section()
         stype = self._active_stype()
-        if not tab or not section or not stype:
+        if not tab or not section:
             return {}
+        # Saved Search identity belongs to the selected Search Type, which is
+        # already known from the sidebar/Search Tab contract.  Do not make the
+        # preset list wait for the heavier SearchType object bootstrap: on a
+        # cold start that object may arrive only after Advanced Search has
+        # already opened, leaving the picker permanently empty.
+        project = None
         try:
-            project = stype.get_project()
-            project_type = project.get_type()
+            project = stype.get_project() if stype else None
         except (AttributeError, KeyError, TypeError):
-            project = None
+            pass
+        if project is None:
+            try:
+                from thlib.environment import env_inst
+                project = env_inst.projects.get(self._current_project_code)
+            except (AttributeError, KeyError, TypeError):
+                project = None
+        try:
+            project_type = project.get_type() if project else ""
+        except (AttributeError, KeyError, TypeError):
             project_type = ""
         return {
             "project": project,
@@ -409,7 +435,19 @@ class AdvancedSearchMixin:
             "project_type": project_type,
             "search_type": section.search_type,
             "tab_id": tab.tab_id,
-            "tab_name": section.search_type.rsplit("/", 1)[-1],
+            # Match legacy Ui_searchWidget.get_tab_name(): sidebar-specific
+            # searches use the complete customized ``search_type@name`` key.
+            "tab_name": section.entry_key,
+            # A plain Search Type tab is the preset library and can see every
+            # link_search row for that Search Type. A sidebar item declaring
+            # <search_view> owns an exact legacy namespace instead.
+            "preset_scope": (
+                section.entry_key if section.search_view else ""
+            ),
+            "preset_namespace": (
+                section.entry_key
+                if section.search_view else section.search_type
+            ),
             "tab_title": tab.title,
             "stype": stype,
         }

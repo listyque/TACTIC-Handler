@@ -6,9 +6,8 @@ Item {
     id: root
     required property var theme
     property int selectedRow: -1
-    property int pendingDeleteRow: -1
 
-    Rectangle { anchors.fill: parent; color: root.theme.panelDeep }
+    Rectangle { anchors.fill: parent; color: root.theme.workspace }
 
     ColumnLayout {
         anchors.fill: parent
@@ -26,11 +25,12 @@ Item {
                 CompactIconButton {
                     theme: root.theme
                     iconName: "add"
+                    toolTip: qsTr("Add Watch Folder")
                     enabled: !watchFoldersController.busy
                     onClicked: watchFoldersController.begin_add()
                 }
                 Label {
-                    text: qsTr("Watch folders  ·  ") + appController.current_project_title
+                    text: qsTr("Active Watch Folders  ·  ") + appController.current_project_title
                     Layout.fillWidth: true
                     color: root.theme.primaryText
                     font.family: root.theme.fontFamily
@@ -71,14 +71,12 @@ Item {
                     required property string path
                     required property bool watchEnabled
                     required property string repository
-                    required property string process
-                    required property string context
+                    required property string stype
+                    required property string pipeline
                     required property string watcherStatus
-                    required property string lastCheck
-                    required property string error
                     width: watchList.width - watchList.leftMargin
                         - watchList.rightMargin
-                    height: error ? 82 : 66
+                    height: 72
                     radius: 12
                     color: root.selectedRow === index
                         ? root.theme.selected : hover.hovered
@@ -92,12 +90,11 @@ Item {
                         spacing: 9
                         MaterialIcon {
                             name: watcherStatus === "Watching"
-                                ? "visibility" : watcherStatus === "Error"
-                                    ? "error" : "visibility_off"
+                                ? "visibility" : watcherStatus === "Waiting"
+                                    ? "schedule" : "visibility_off"
                             size: 18
                             color: watcherStatus === "Watching"
-                                ? root.theme.green : watcherStatus === "Error"
-                                    ? root.theme.red : root.theme.secondaryText
+                                ? root.theme.green : root.theme.secondaryText
                         }
                         ColumnLayout {
                             Layout.fillWidth: true
@@ -121,33 +118,34 @@ Item {
                             }
                             Label {
                                 Layout.fillWidth: true
-                                text: process + " / " + context + "  ·  "
-                                    + watcherStatus + "  ·  " + lastCheck
+                                text: stype + "  ·  " + pipeline + "  ·  "
+                                    + watcherStatus
                                 elide: Text.ElideRight
                                 color: root.theme.secondaryText
                                 font.family: root.theme.fontFamily
                                 font.pixelSize: 9
                             }
-                            Label {
-                                Layout.fillWidth: true
-                                visible: error.length > 0
-                                text: error
-                                elide: Text.ElideRight
-                                color: root.theme.red
-                                font.family: root.theme.fontFamily
-                                font.pixelSize: 9
-                            }
+
                         }
                         CompactIconButton {
                             theme: root.theme
-                            iconName: "refresh"
-                            onClicked: watchFoldersController.scan(watchRow.index)
+                            iconName: "edit"
+                            toolTip: qsTr("Edit Watch Folder")
+                            onClicked: watchFoldersController.begin_edit(watchRow.index)
                         }
                         Md3Switch {
                             theme: root.theme
                             checked: watchRow.watchEnabled
                             onToggled: watchFoldersController.set_enabled(
                                 watchRow.index, checked
+                            )
+                        }
+                        CompactIconButton {
+                            theme: root.theme
+                            iconName: "delete"
+                            toolTip: qsTr("Delete Watch Folder")
+                            onClicked: watchFoldersController.request_remove(
+                                watchRow.index, "manager"
                             )
                         }
                     }
@@ -167,184 +165,18 @@ Item {
                 Label {
                     anchors.centerIn: parent
                     visible: watchFoldersModel.count() === 0
-                    text: qsTr("Select an sObject and add its watch folder")
+                    text: qsTr("No active watch folders")
                     color: root.theme.secondaryText
                     font.family: root.theme.fontFamily
                     font.pixelSize: 10
                 }
             }
 
-            Rectangle {
-                SplitView.preferredHeight: watchFoldersController.editor.searchKey
-                    ? 300 : 0
-                SplitView.minimumHeight: watchFoldersController.editor.searchKey
-                    ? 210 : 0
-                visible: Boolean(watchFoldersController.editor.searchKey)
-                color: root.theme.workspace
-                border.color: root.theme.border
-
-                ScrollView {
-                    anchors.fill: parent
-                    anchors.margins: 12
-                    clip: true
-                    ColumnLayout {
-                        width: parent.width
-                        spacing: 8
-                        Label {
-                            text: watchFoldersController.editor.title
-                                || qsTr("Watch folder")
-                            color: root.theme.primaryText
-                            font.family: root.theme.fontFamily
-                            font.pixelSize: 14
-                            font.weight: Font.DemiBold
-                        }
-                        Md3TextField {
-                            theme: root.theme
-                            Layout.fillWidth: true
-                            placeholderText: qsTr("Relative repository path")
-                            text: watchFoldersController.editor.path || ""
-                            onTextEdited: watchFoldersController.set_editor_value(
-                                "path", text
-                            )
-                        }
-                        RowLayout {
-                            Layout.fillWidth: true
-                            Md3TextField {
-                                theme: root.theme
-                                Layout.fillWidth: true
-                                placeholderText: qsTr("Process")
-                                text: watchFoldersController.editor.process || ""
-                                onTextEdited: watchFoldersController.set_editor_value(
-                                    "process", text
-                                )
-                            }
-                            Md3TextField {
-                                theme: root.theme
-                                Layout.fillWidth: true
-                                placeholderText: qsTr("Context")
-                                text: watchFoldersController.editor.context || ""
-                                onTextEdited: watchFoldersController.set_editor_value(
-                                    "context", text
-                                )
-                            }
-                        }
-                        Md3ComboBox {
-                            theme: root.theme
-                            Layout.fillWidth: true
-                            model: watchFoldersController.matchingTemplates
-                            textRole: "label"
-                            valueRole: "value"
-                            currentIndex: indexOfValue(
-                                watchFoldersController.editor.matchingTemplate
-                            )
-                            onActivated: watchFoldersController.set_editor_value(
-                                "matchingTemplate", currentValue
-                            )
-                        }
-                        Label {
-                            text: qsTr("REPOSITORIES")
-                            color: root.theme.secondaryText
-                            font.family: root.theme.fontFamily
-                            font.pixelSize: 9
-                            font.weight: Font.DemiBold
-                        }
-                        Flow {
-                            Layout.fillWidth: true
-                            spacing: 6
-                            Repeater {
-                                model: watchFoldersController.repositories
-                                delegate: Md3CheckBox {
-                                    required property var modelData
-                                    theme: root.theme
-                                    text: modelData.label
-                                    checked: (
-                                        watchFoldersController.editor.repositories
-                                        || []
-                                    ).indexOf(modelData.value) >= 0
-                                    onToggled:
-                                        watchFoldersController.toggle_editor_repository(
-                                            modelData.value, checked
-                                        )
-                                }
-                            }
-                        }
-                        Label {
-                            Layout.fillWidth: true
-                            visible: watchFoldersController.message.length > 0
-                            text: watchFoldersController.message
-                            wrapMode: Text.WordWrap
-                            color: root.theme.red
-                            font.family: root.theme.fontFamily
-                            font.pixelSize: 9
-                        }
-                        RowLayout {
-                            Layout.fillWidth: true
-                            Md3Button {
-                                theme: root.theme
-                                text: qsTr("DELETE")
-                                destructive: true
-                                visible: root.selectedRow >= 0
-                                onClicked: {
-                                    root.pendingDeleteRow = root.selectedRow
-                                    deleteDialog.open()
-                                }
-                            }
-                            Item { Layout.fillWidth: true }
-                            Md3Button {
-                                theme: root.theme
-                                text: qsTr("CANCEL")
-                                onClicked: watchFoldersController.cancel_edit()
-                            }
-                            Md3Button {
-                                theme: root.theme
-                                text: qsTr("SAVE")
-                                highlighted: true
-                                enabled: !watchFoldersController.busy
-                                onClicked: watchFoldersController.save_edit()
-                            }
-                        }
-                    }
-                }
-            }
         }
     }
 
-    Md3Dialog {
-        id: deleteDialog
+    WatchFolderDeleteDialog {
         theme: root.theme
-        modal: true
-        anchors.centerIn: Overlay.overlay
-        width: Math.min(390, root.width - 32)
-        title: qsTr("Remove watch folder?")
-        standardButtons: Dialog.NoButton
-        contentItem: ColumnLayout {
-            spacing: 16
-            Label {
-                Layout.fillWidth: true
-                text: qsTr("The saved watch is removed. Repository files are kept.")
-                wrapMode: Text.WordWrap
-                color: root.theme.primaryText
-                font.family: root.theme.fontFamily
-                font.pixelSize: 11
-            }
-            RowLayout {
-                Layout.alignment: Qt.AlignRight
-                Md3Button {
-                    theme: root.theme
-                    text: qsTr("CANCEL")
-                    onClicked: deleteDialog.close()
-                }
-                Md3Button {
-                    theme: root.theme
-                    text: qsTr("REMOVE")
-                    destructive: true
-                    onClicked: {
-                        watchFoldersController.remove(root.pendingDeleteRow)
-                        root.selectedRow = -1
-                        deleteDialog.close()
-                    }
-                }
-            }
-        }
+        acceptedOrigin: "manager"
     }
 }

@@ -16,6 +16,31 @@ from thlib.environment import env_inst
 
 
 class CommunicationFeedTests(unittest.TestCase):
+    def test_delivery_summary_tracks_per_recipient_state(self):
+        self.assertEqual(
+            MessagesController._delivery_record({
+                "recipients": {
+                    "artist": {"deliveredAt": "2026-08-12 10:00:00", "readAt": ""},
+                    "supervisor": {"deliveredAt": "", "readAt": ""},
+                },
+            }),
+            {
+                "deliveryStatus": "sent",
+                "deliveryRecipientCount": 2,
+                "deliveryDeliveredCount": 1,
+                "deliveryReadCount": 0,
+            },
+        )
+        self.assertEqual(
+            MessagesController._delivery_record({
+                "status": "read",
+                "recipientCount": 2,
+                "deliveredCount": 2,
+                "readCount": 2,
+            })["deliveryStatus"],
+            "read",
+        )
+
     def test_known_user_mention_is_linked_without_touching_email_or_url(self):
         rendered = _link_user_mentions(
             "Hello @Artist, artist@example.test https://example.test/@Artist",

@@ -70,7 +70,7 @@ Item {
                     ? tasksController.targetTitle : qsTr("Select an sObject")
                 color: root.theme.primaryText
                 font.family: root.theme.fontFamily
-                font.pixelSize: 11
+                font.pointSize: Typography.bodyLarge
                 font.weight: Font.DemiBold
                 elide: Text.ElideRight
             }
@@ -210,7 +210,7 @@ Item {
                                 : taskCard.label
                             color: root.theme.primaryText
                             font.family: root.theme.fontFamily
-                            font.pixelSize: 11
+                            font.pointSize: Typography.bodyLarge
                             font.weight: Font.DemiBold
                             elide: Text.ElideRight
                         }
@@ -358,7 +358,7 @@ Item {
                             : taskRow.label
                         color: root.theme.primaryText
                         font.family: root.theme.fontFamily
-                        font.pixelSize: 10
+                        font.pointSize: Typography.body
                         font.weight: Font.DemiBold
                         elide: Text.ElideRight
                     }
@@ -453,7 +453,7 @@ Item {
             text: qsTr("Select an sObject to view its task processes")
             color: root.theme.secondaryText
             font.family: root.theme.fontFamily
-            font.pixelSize: 10
+            font.pointSize: Typography.body
         }
     }
 
@@ -489,7 +489,7 @@ Item {
                 )
                 color: root.theme.secondaryText
                 font.family: root.theme.fontFamily
-                font.pixelSize: 10
+                font.pointSize: Typography.body
                 font.weight: Font.Medium
             }
             Item { Layout.fillWidth: true }
@@ -498,7 +498,7 @@ Item {
                 text: tasksController.dirtyProcessCount + qsTr(" unsaved")
                 color: root.theme.action
                 font.family: root.theme.fontFamily
-                font.pixelSize: 9
+                font.pointSize: Typography.label
                 font.weight: Font.DemiBold
             }
             Md3BusyIndicator {
@@ -542,7 +542,7 @@ Item {
             text: qsTr("This task and its dependent data will be removed.")
             color: root.theme.primaryText
             font.family: root.theme.fontFamily
-            font.pixelSize: 11
+            font.pointSize: Typography.bodyLarge
             wrapMode: Text.WordWrap
         }
         footer: DialogButtonBox {

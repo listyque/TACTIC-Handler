@@ -1014,6 +1014,115 @@ def mutate_user_profile(login, values=None, password=None, groups=None,
     return json.dumps(data, separators=(',', ':'), default=str)
 
 
+def mutate_sidebar_security(project_code, updates=None):
+    """Merge sidebar link visibility into native login-group access rules."""
+    import json
+    from xml.etree import ElementTree
+    from pyasm.search import Search
+    from pyasm.security import Sudo
+
+    project_code = str(project_code or '').strip()
+    if not project_code:
+        raise ValueError('A project code is required')
+
+    current_login = str(server.get_login() or '')
+    membership_search = Search('sthpw/login_in_group')
+    membership_search.add_filter('login', current_login)
+    current_groups = [
+        str(item.get_value('login_group') or '').lower()
+        for item in membership_search.get_sobjects()
+    ]
+    privileged = current_login.lower() == 'admin' or any(
+        group == 'admin' or 'supervisor' in group
+        for group in current_groups
+    )
+    if not privileged:
+        raise PermissionError(
+            'Only an administrator or supervisor can edit sidebar security'
+        )
+
+    normalized = []
+    for update in list(updates or []):
+        element_name = str(update.get('element') or '').strip()
+        group_code = str(update.get('group_code') or '').strip()
+        if not element_name or not group_code:
+            raise ValueError('Sidebar element and login group are required')
+        normalized.append((
+            element_name, group_code, bool(update.get('allowed'))
+        ))
+
+    group_codes = sorted(set(item[1] for item in normalized))
+    if not group_codes:
+        return json.dumps({}, separators=(',', ':'))
+
+    sudo = Sudo()
+    try:
+        group_search = Search('sthpw/login_group')
+        group_search.add_filters('code', group_codes)
+        group_objects = {
+            str(item.get_value('code') or ''): item
+            for item in group_search.get_sobjects()
+        }
+        missing = [code for code in group_codes if code not in group_objects]
+        if missing:
+            fallback_search = Search('sthpw/login_group')
+            fallback_search.add_filters('login_group', missing)
+            for item in fallback_search.get_sobjects():
+                group_objects[str(item.get_value('login_group') or '')] = item
+
+        grouped = {}
+        for element_name, group_code, allowed in normalized:
+            grouped.setdefault(group_code, []).append((element_name, allowed))
+
+        result = {}
+        for group_code, group_updates in grouped.items():
+            group_object = group_objects.get(group_code)
+            if not group_object:
+                raise ValueError('Login group does not exist: %s' % group_code)
+            source = str(
+                group_object.get_value('access_rules', no_exception=True) or ''
+            ).strip()
+            if source:
+                try:
+                    root = ElementTree.fromstring(source)
+                except ElementTree.ParseError:
+                    root = ElementTree.fromstring('<rules>%s</rules>' % source)
+                if root.tag == 'rule':
+                    wrapper = ElementTree.Element('rules')
+                    wrapper.append(root)
+                    root = wrapper
+            else:
+                root = ElementTree.Element('rules')
+
+            for element_name, allowed in group_updates:
+                matches = [
+                    rule for rule in root.iter('rule')
+                    if str(rule.get('group') or '') == 'link'
+                    and str(rule.get('element') or '') == element_name
+                    and str(rule.get('project') or '') == project_code
+                ]
+                for rule in matches:
+                    for parent in root.iter():
+                        if rule in list(parent):
+                            parent.remove(rule)
+                            break
+                if allowed:
+                    ElementTree.SubElement(root, 'rule', {
+                        'group': 'link',
+                        'element': element_name,
+                        'access': 'allow',
+                        'project': project_code,
+                    })
+
+            serialized = ElementTree.tostring(root, encoding='unicode')
+            group_object.set_value('access_rules', serialized)
+            group_object.commit()
+            result[group_code] = serialized
+        return json.dumps(result, separators=(',', ':'))
+    finally:
+        sudo.exit()
+
+
 def create_user_profile(login, values=None, password=None, groups=None):
     """Create a TACTIC login through the native login sObject API."""
     import json
@@ -1410,7 +1519,7 @@ def query_chat_conversations():
     from pyasm.biz import Snapshot
     from pyasm.search import Search, SearchKey
 
-    current_login = server.get_login()
+    current_login = str(server.get_login() or '')
     if str(current_login or '').lower() == 'admin':
         privileged = True
     else:
@@ -1790,7 +1899,6 @@ def create_chat_conversation(recipients, title=''):
     server.insert('sthpw/message', {
         'code': code,
         'category': 'chat',
-        'status': 'in_progress',
         'login': current_login,
         'project_code': 'sthpw',
         'message': '',
@@ -2160,7 +2268,10 @@ def delete_chat_message(message_log_code):
         conversation_metadata['summary'] = summary
         server.update(
             SearchKey.get_by_sobject(conversation, use_id=False),
-            {'metadata': conversation_metadata}, triggers=False,
+            {
+                'metadata': conversation_metadata,
+                'project_code': 'sthpw',
+            }, triggers=False,
         )
     return json.dumps({
         'deleted': True,
@@ -2254,7 +2365,10 @@ def edit_chat_message(message_log_code, message):
             conversation_metadata['summary'] = summary
             server.update(
                 SearchKey.get_by_sobject(conversation, use_id=False),
-                {'metadata': conversation_metadata}, triggers=False,
+                {
+                    'metadata': conversation_metadata,
+                    'project_code': 'sthpw',
+                }, triggers=False,
             )
     return json.dumps({
         'edited': True,
@@ -2410,10 +2524,36 @@ def pin_chat_message(message_log_code, unpin=False):
 
 def query_chat_history(message_code, limit=31, offset=0, search_text=''):
     import json
+    from datetime import datetime
     from pyasm.biz import Snapshot
     from pyasm.search import Search, SearchKey
 
-    current_login = server.get_login()
+    def aggregate_delivery(delivery):
+        recipients = dict((delivery or {}).get('recipients') or {})
+        receipts = list(recipients.values())
+        if receipts and all(item.get('readAt') for item in receipts):
+            return 'read'
+        if receipts and all(item.get('deliveredAt') for item in receipts):
+            return 'delivered'
+        return 'sent'
+
+    def delivery_record(delivery):
+        value = dict(delivery or {})
+        recipients = dict(value.get('recipients') or {})
+        receipts = list(recipients.values())
+        return {
+            'status': aggregate_delivery(value),
+            'sentAt': str(value.get('sentAt') or ''),
+            'recipientCount': len(receipts),
+            'deliveredCount': len([
+                item for item in receipts if item.get('deliveredAt')
+            ]),
+            'readCount': len([
+                item for item in receipts if item.get('readAt')
+            ]),
+        }
+
+    current_login = str(server.get_login() or '')
     member_search = Search('sthpw/subscription')
     member_search.add_filter('message_code', message_code)
     member_search.add_filter('login', current_login)
@@ -2437,6 +2577,8 @@ def query_chat_history(message_code, limit=31, offset=0, search_text=''):
     history_codes = [item.get_code() for item in history if item.get_code()]
 
     metadata_by_log = {}
+    delivery_updates = {}
+    delivered_at = datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')
     target_refs = set()
     for message_log in history:
         raw_metadata = message_log.get_value('metadata') or {}
@@ -2447,11 +2589,35 @@ def query_chat_history(message_code, limit=31, offset=0, search_text=''):
                 value = json.loads(raw_metadata)
             except (TypeError, ValueError):
                 value = {}
+        delivery = dict(value.get('delivery') or {})
+        recipients = dict(delivery.get('recipients') or {})
+        receipt = dict(recipients.get(str(current_login or '')) or {})
+        sender = str(
+            delivery.get('sender') or message_log.get_value('login') or ''
+        )
+        if (
+                sender != current_login and receipt
+                and not receipt.get('deliveredAt')):
+            receipt['deliveredAt'] = delivered_at
+            recipients[current_login] = receipt
+            delivery['recipients'] = recipients
+            value['delivery'] = delivery
+            delivery_updates[SearchKey.get_by_sobject(
+                message_log, use_id=False
+            )] = {
+                'metadata': value,
+                'status': aggregate_delivery(delivery),
+                'project_code': 'sthpw',
+            }
         metadata_by_log[str(message_log.get_code() or '')] = value
         for field in ('replyTo', 'forwardedFrom'):
             target_ref = str(value.get(field) or '')
             if target_ref:
                 target_refs.add(target_ref)
+    if delivery_updates:
+        # Receipt changes must create a change timestamp so the sender can
+        # update the visible ticks without reloading the conversation.
+        server.update_multiple(data=delivery_updates, triggers=True)
 
     reply_targets = {}
     target_codes = []
@@ -2551,6 +2717,9 @@ def query_chat_history(message_code, limit=31, offset=0, search_text=''):
         data['__reactions__'] = dict(
             message_metadata.get('reactions') or {}
         )
+        data['__delivery__'] = delivery_record(
+            message_metadata.get('delivery') or {}
+        )
         reply_ref = str(message_metadata.get('replyTo') or '')
         if reply_ref:
             target_code = server.split_search_key(reply_ref)[1]
@@ -2610,9 +2779,20 @@ def query_chat_history(message_code, limit=31, offset=0, search_text=''):
 
 
 def mark_chat_read(message_code, timestamp):
+    import json
+    from datetime import datetime
     from pyasm.search import Search, SearchKey
 
-    current_login = server.get_login()
+    def aggregate_delivery(delivery):
+        recipients = dict((delivery or {}).get('recipients') or {})
+        receipts = list(recipients.values())
+        if receipts and all(item.get('readAt') for item in receipts):
+            return 'read'
+        if receipts and all(item.get('deliveredAt') for item in receipts):
+            return 'delivered'
+        return 'sent'
+
+    current_login = str(server.get_login() or '')
     search = Search('sthpw/subscription')
     search.add_filter('message_code', message_code)
     search.add_filter('login', current_login)
@@ -2630,7 +2810,48 @@ def mark_chat_read(message_code, timestamp):
             {'last_cleared': timestamp_second},
             triggers=True,
         )
-    return {'lastCleared': str(timestamp_second or current_value or '')}
+    receipt_updates = {}
+    if timestamp_second:
+        log_search = Search('sthpw/message_log')
+        log_search.add_filter('message_code', message_code)
+        log_search.add_filter('login', current_login, op='!=')
+        log_search.add_filter('status', 'deleted', op='!=')
+        log_search.add_filter('timestamp', timestamp_second, op='<=')
+        read_at = datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')
+        for message_log in log_search.get_sobjects():
+            raw_metadata = message_log.get_value('metadata') or {}
+            if isinstance(raw_metadata, dict):
+                metadata = dict(raw_metadata)
+            else:
+                try:
+                    metadata = json.loads(raw_metadata)
+                except (TypeError, ValueError):
+                    metadata = {}
+            delivery = dict(metadata.get('delivery') or {})
+            recipients = dict(delivery.get('recipients') or {})
+            receipt = dict(recipients.get(current_login) or {})
+            if not receipt or receipt.get('readAt'):
+                continue
+            receipt['deliveredAt'] = str(
+                receipt.get('deliveredAt') or read_at
+            )
+            receipt['readAt'] = read_at
+            recipients[current_login] = receipt
+            delivery['recipients'] = recipients
+            metadata['delivery'] = delivery
+            receipt_updates[SearchKey.get_by_sobject(
+                message_log, use_id=False
+            )] = {
+                'metadata': metadata,
+                'status': aggregate_delivery(delivery),
+                'project_code': 'sthpw',
+            }
+    if receipt_updates:
+        server.update_multiple(data=receipt_updates, triggers=True)
+    return {
+        'lastCleared': str(timestamp_second or current_value or ''),
+        'receiptsUpdated': len(receipt_updates),
+    }
 
 
 def send_chat_message(message_code, message, attachment_keys=None, reply_to=None):
@@ -2648,6 +2869,7 @@ def send_chat_message(message_code, message, attachment_keys=None, reply_to=None
             code = 'MESSAGE_LOG{0:05d}'.format(int(record_id))
             values['code'] = code
             use_id = True
+        values['project_code'] = 'sthpw'
         if metadata is not None:
             values['metadata'] = metadata
         if values:
@@ -2660,12 +2882,16 @@ def send_chat_message(message_code, message, attachment_keys=None, reply_to=None
                 message_log.set_value('code', values['code'])
         return code
 
-    current_login = server.get_login()
+    current_login = str(server.get_login() or '')
     member_search = Search('sthpw/subscription')
     member_search.add_filter('message_code', message_code)
-    member_search.add_filter('login', current_login)
     member_search.add_filter('category', 'chat')
-    if not member_search.get_sobject():
+    members = member_search.get_sobjects()
+    member_logins = set(
+        str(item.get_value('login') or '') for item in members
+        if item.get_value('login')
+    )
+    if current_login not in member_logins:
         raise RuntimeError('The current login is not a chat participant')
 
     reply_target = None
@@ -2705,7 +2931,7 @@ def send_chat_message(message_code, message, attachment_keys=None, reply_to=None
     if not str(message or '').strip() and not valid_attachments:
         raise ValueError('Message or attachment is required')
     server.log_message(
-        message_code, message or '', status='in_progress',
+        message_code, message or '', status='sent',
         category='chat', log_history=True,
     )
     log_search = Search('sthpw/message_log')
@@ -2716,7 +2942,19 @@ def send_chat_message(message_code, message, attachment_keys=None, reply_to=None
     message_log = log_search.get_sobject()
     if not message_log:
         raise RuntimeError('TACTIC did not create a message log')
-    metadata_values = {}
+    sent_at = str(message_log.get_value('timestamp') or '')
+    metadata_values = {
+        'delivery': {
+            'schemaVersion': 1,
+            'sender': str(current_login or ''),
+            'sentAt': sent_at,
+            'recipients': dict(
+                (login, {'deliveredAt': '', 'readAt': ''})
+                for login in sorted(member_logins)
+                if login != current_login
+            ),
+        },
+    }
     if reply_target:
         metadata_values['replyTo'] = SearchKey.get_by_sobject(
             reply_target, use_id=False
@@ -2729,6 +2967,7 @@ def send_chat_message(message_code, message, attachment_keys=None, reply_to=None
         )
     data = message_log.get_data()
     data['__search_key__'] = message_log_key
+    data['__delivery__'] = metadata_values['delivery']
     conversation_search = Search('sthpw/message')
     conversation_search.add_filter('code', message_code)
     conversation_search.add_filter('category', 'chat')
@@ -2758,7 +2997,10 @@ def send_chat_message(message_code, message, attachment_keys=None, reply_to=None
         conversation_metadata['summary'] = summary
         server.update(
             SearchKey.get_by_sobject(conversation, use_id=False),
-            {'metadata': conversation_metadata}, triggers=False,
+            {
+                'metadata': conversation_metadata,
+                'project_code': 'sthpw',
+            }, triggers=False,
         )
     return json.dumps({'message': data}, separators=(',', ':'))
 
@@ -2778,6 +3020,7 @@ def forward_chat_messages(message_log_keys, target_message_codes):
             code = 'MESSAGE_LOG{0:05d}'.format(int(record_id))
             values['code'] = code
             use_id = True
+        values['project_code'] = 'sthpw'
         if metadata is not None:
             values['metadata'] = metadata
         if values:
@@ -2790,7 +3033,7 @@ def forward_chat_messages(message_log_keys, target_message_codes):
                 message_log.set_value('code', values['code'])
         return code
 
-    current_login = server.get_login()
+    current_login = str(server.get_login() or '')
     source_refs = []
     source_messages = []
     seen_sources = set()
@@ -2835,11 +3078,17 @@ def forward_chat_messages(message_log_keys, target_message_codes):
     if not targets:
         raise ValueError('Select at least one destination chat')
     target_access = Search('sthpw/subscription')
-    target_access.add_filter('login', current_login)
     target_access.add_filter('category', 'chat')
     target_access.add_filters('message_code', targets)
+    target_members = target_access.get_sobjects()
+    members_by_target = {}
+    for item in target_members:
+        members_by_target.setdefault(
+            str(item.get_value('message_code') or ''), set()
+        ).add(str(item.get_value('login') or ''))
     accessible_targets = set(
-        item.get_value('message_code') for item in target_access.get_sobjects()
+        code for code, logins in members_by_target.items()
+        if current_login in logins
     )
     if accessible_targets != set(targets):
         raise RuntimeError('The current login cannot access a destination chat')
@@ -2859,7 +3108,7 @@ def forward_chat_messages(message_log_keys, target_message_codes):
         latest_created = None
         for source_ref in source_refs:
             server.log_message(
-                message_code, '', status='in_progress',
+                message_code, '', status='sent',
                 category='chat', log_history=True,
             )
             log_search = Search('sthpw/message_log')
@@ -2878,7 +3127,21 @@ def forward_chat_messages(message_log_keys, target_message_codes):
                     break
             if not message_log:
                 raise RuntimeError('TACTIC did not create a forwarded message log')
-            update_message_log(message_log, {'forwardedFrom': source_ref})
+            sent_at = str(message_log.get_value('timestamp') or '')
+            update_message_log(message_log, {
+                'forwardedFrom': source_ref,
+                'delivery': {
+                    'schemaVersion': 1,
+                    'sender': str(current_login or ''),
+                    'sentAt': sent_at,
+                    'recipients': dict(
+                        (login, {'deliveredAt': '', 'readAt': ''})
+                        for login in sorted(
+                            members_by_target.get(message_code, set())
+                        ) if login and login != current_login
+                    ),
+                },
+            })
             message_id = SearchKey.get_by_sobject(message_log, use_id=False)
             created.append(message_id)
             latest_created = message_log
@@ -2912,7 +3175,10 @@ def forward_chat_messages(message_log_keys, target_message_codes):
             conversation_metadata['summary'] = summary
             server.update(
                 SearchKey.get_by_sobject(conversation, use_id=False),
-                {'metadata': conversation_metadata}, triggers=False,
+                {
+                    'metadata': conversation_metadata,
+                    'project_code': 'sthpw',
+                }, triggers=False,
             )
     return json.dumps({
         'forwarded': len(created),
@@ -3051,7 +3317,41 @@ def query_server_updates(message_after='', activity_after='', project_code='',
             parsed = parsed.get('view') or parsed.get('value') or ''
         return str(parsed or '')
 
-    current_login = server.get_login()
+    def metadata_value(item):
+        raw_metadata = item.get_value('metadata') or {}
+        if isinstance(raw_metadata, dict):
+            return dict(raw_metadata)
+        try:
+            return json.loads(raw_metadata)
+        except (TypeError, ValueError):
+            return {}
+
+    def aggregate_delivery(delivery):
+        recipients = dict((delivery or {}).get('recipients') or {})
+        receipts = list(recipients.values())
+        if receipts and all(item.get('readAt') for item in receipts):
+            return 'read'
+        if receipts and all(item.get('deliveredAt') for item in receipts):
+            return 'delivered'
+        return 'sent'
+
+    def delivery_record(delivery):
+        value = dict(delivery or {})
+        recipients = dict(value.get('recipients') or {})
+        receipts = list(recipients.values())
+        return {
+            'status': aggregate_delivery(value),
+            'sentAt': str(value.get('sentAt') or ''),
+            'recipientCount': len(receipts),
+            'deliveredCount': len([
+                item for item in receipts if item.get('deliveredAt')
+            ]),
+            'readCount': len([
+                item for item in receipts if item.get('readAt')
+            ]),
+        }
+
+    current_login = str(server.get_login() or '')
     limit = int(limit or 101)
     own_search = Search('sthpw/subscription')
     own_search.add_filter('login', current_login)
@@ -3074,6 +3374,36 @@ def query_server_updates(message_after='', activity_after='', project_code='',
         search.set_limit(limit)
         message_logs = search.get_sobjects()
         message_logs = [item for item in message_logs if item.get_code()]
+        delivery_by_code = {}
+        delivery_updates = {}
+        delivered_at = datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')
+        for item in message_logs:
+            metadata = metadata_value(item)
+            delivery = dict(metadata.get('delivery') or {})
+            recipients = dict(delivery.get('recipients') or {})
+            receipt = dict(recipients.get(str(current_login or '')) or {})
+            sender = str(
+                delivery.get('sender') or item.get_value('login') or ''
+            )
+            if (
+                    sender != current_login and receipt
+                    and not receipt.get('deliveredAt')):
+                receipt['deliveredAt'] = delivered_at
+                recipients[current_login] = receipt
+                delivery['recipients'] = recipients
+                metadata['delivery'] = delivery
+                delivery_updates[SearchKey.get_by_sobject(
+                    item, use_id=False
+                )] = {
+                    'metadata': metadata,
+                    'status': aggregate_delivery(delivery),
+                    'project_code': 'sthpw',
+                }
+            delivery_by_code[str(item.get_code() or '')] = delivery_record(
+                delivery
+            )
+        if delivery_updates:
+            server.update_multiple(data=delivery_updates, triggers=True)
         attachment_counts = {}
         message_log_codes = [
             item.get_code() for item in message_logs if item.get_code()
@@ -3101,6 +3431,11 @@ def query_server_updates(message_after='', activity_after='', project_code='',
             data['__attachment_count__'] = attachment_counts.get(
                 item.get_code(), 0
             )
+            data['__delivery__'] = delivery_by_code.get(
+                str(item.get_code() or ''), {}
+            )
+            if data['__delivery__']:
+                data['status'] = data['__delivery__'].get('status') or 'sent'
             messages.append(data)
 
     reactions = []
@@ -3153,6 +3488,12 @@ def query_server_updates(message_after='', activity_after='', project_code='',
                     ),
                     'messageCode': message_code,
                     'reactions': dict(metadata.get('reactions') or {}),
+                    'delivery': delivery_record(
+                        metadata.get('delivery') or {}
+                    ),
+                    'status': aggregate_delivery(
+                        metadata.get('delivery') or {}
+                    ),
                     'reactionUpdatedAt': str(
                         metadata.get('reactionUpdatedAt') or ''
                     ),
@@ -4119,7 +4460,7 @@ def query_sobjects_snapshots_updated(search_type, filters=[], order_bys=[], proj
     return json.dumps(result, separators=(',', ':'))
 
 
-def query_sobjects(search_type, filters=[], order_bys=[], project_code=None, limit=None, offset=None, get_all_snapshots=False, check_snapshots_updates=False, include_info=True, include_snapshots=True, compressed_return=True, include_status_log=False, include_progress=False, include_total_count=True):
+def query_sobjects(search_type, filters=[], order_bys=[], project_code=None, limit=None, offset=None, get_all_snapshots=False, check_snapshots_updates=False, include_info=True, include_snapshots=True, compressed_return=True, include_status_log=False, include_progress=False, include_total_count=True, snapshot_timestamps=None):
     """
 
     :param search_type:
@@ -4152,6 +4493,19 @@ def query_sobjects(search_type, filters=[], order_bys=[], project_code=None, lim
         splitted_search_type = server.split_search_key(search_type)[0]
         related_search_types = schema.get_related_search_types(splitted_search_type, 'children')
         check_snapshots_updates_dict = dict(check_snapshots_updates)
+
+    if snapshot_timestamps:
+        if isinstance(snapshot_timestamps, str):
+            snapshot_timestamps = json.loads(snapshot_timestamps)
+        snapshot_timestamps_dict = dict(snapshot_timestamps or {})
+    else:
+        snapshot_timestamps_dict = {}
+
+    def timestamp_key(value):
+        return ''.join(
+            character for character in str(value or '')
+            if character.isdigit()
+        )[:14]
 
     def get_sobject_dict(sobject):
         search_key = SearchKey.get_by_sobject(sobject, use_id=False)
@@ -4451,6 +4805,23 @@ def query_sobjects(search_type, filters=[], order_bys=[], project_code=None, lim
         if get_all_snapshots:
             snapshot_search = Search('sthpw/snapshot')
             snapshot_search.add_relationship_filters(sobjects_list, op='in')
+            object_codes = [
+                sobject_dict.get('code')
+                for sobject_dict in sobjects_dicts_list
+                if sobject_dict.get('code')
+            ]
+            timestamps = [
+                snapshot_timestamps_dict.get(code) for code in object_codes
+            ]
+            if (
+                    object_codes and len(timestamps) == len(object_codes)
+                    and all(timestamps)):
+                snapshot_search.add_op_filters([
+                    (
+                        'timestamp', 'is after',
+                        min(timestamps, key=timestamp_key),
+                    )
+                ])
             snapshots_sobjects = snapshot_search.get_sobjects()
         else:
             thumb_snapshot_search = Search('sthpw/snapshot')
@@ -4479,6 +4850,17 @@ def query_sobjects(search_type, filters=[], order_bys=[], project_code=None, lim
                 snapshots_sobjects.extend(thumbs_list)
 
         snapshots_files_sobjects = Snapshot.get_files_dict_by_snapshots(snapshots_sobjects)
+        snapshots_by_parent = {}
+        parent_column = 'search_code' if have_search_code else 'search_id'
+        for snapshot in snapshots_sobjects:
+            parent_key = snapshot.get_value(parent_column)
+            timestamp = snapshot_timestamps_dict.get(parent_key)
+            if (
+                    timestamp
+                    and timestamp_key(snapshot.get_value('timestamp'))
+                    <= timestamp_key(timestamp)):
+                continue
+            snapshots_by_parent.setdefault(parent_key, []).append(snapshot)
 
     notes_count_by_key = {}
     tasks_count_by_key = {}
@@ -4590,14 +4972,10 @@ def query_sobjects(search_type, filters=[], order_bys=[], project_code=None, lim
                 )
 
         if include_snapshots:
-            related_snapshots = []
-            for snapshot in snapshots_sobjects:
-                if have_search_code:
-                    if snapshot.get_value('search_code') == sobject_dict['code']:
-                        related_snapshots.append(snapshot)
-                else:
-                    if snapshot.get_value('search_id') == sobject_dict['id']:
-                        related_snapshots.append(snapshot)
+            parent_key = sobject_dict.get(
+                'code' if have_search_code else 'id'
+            )
+            related_snapshots = snapshots_by_parent.get(parent_key, [])
 
             snapshots_list = []
             for snapshot in related_snapshots:

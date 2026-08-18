@@ -422,20 +422,32 @@ def get_snapshots_updates_list(search_type_code, project_code):
             env_mode.get_mode(),
             group_path)
 
+        # Modern repository sync stores all per-sObject checkpoints in one
+        # file to avoid thousands of tiny config reads.  Keep accepting the
+        # original one-file-per-sObject format as well: search loading and
+        # legacy tools share this reader.
+        aggregate = env_read_config(
+            filename='repository_sync_state',
+            unique_id=group_path,
+            long_abs_path=True,
+        ) or {}
+        timestamps = dict(aggregate) if isinstance(aggregate, dict) else {}
         json_files = glob.glob1(abs_path, '*.json')
 
-        update_snapshots_timestamp_list = []
-
         for js in json_files:
+            code = js.rsplit('.', 1)[0]
+            if code == 'repository_sync_state' or code in timestamps:
+                continue
             full_path = u'{}/{}'.format(abs_path, js)
-            with open(full_path, 'r') as json_file:
-                date_time_string = json.load(json_file)
+            try:
+                with open(full_path, 'r') as json_file:
+                    date_time_string = json.load(json_file)
+            except (OSError, ValueError, TypeError):
+                continue
+            if isinstance(date_time_string, str) and date_time_string:
+                timestamps[code] = date_time_string
 
-            json_file.close()
-
-            update_snapshots_timestamp_list.append((js.split('.')[0], date_time_string))
-
-        return update_snapshots_timestamp_list
+        return sorted(timestamps.items())
 
 # SObject class
 class SObject(object):
@@ -882,33 +894,47 @@ class SObject(object):
             related_type = child_stype.get_code()
 
 
+        if not relations:
+            raise ValueError(
+                'No {0} relationship between {1} and {2}'.format(
+                    path, parent_stype.get_code(), child_stype.get_code()
+                )
+            )
+
         relationship = relations.get('relationship')
 
         if relationship:
 
-            # if relationship == 'search_type':
-            #     child_col = 'search_code'
-            # TODO Need special case for search_type relationship
             if relationship in ['code', 'search_type']:
-                if relations.get('from_col'):
-                    related_from_column = relations.get('from_col')
+                # Schema relations are directed from child to parent.  A
+                # search_type relationship uses the standard search_code
+                # column; a direct code relationship uses the declared
+                # foreign key (or the conventional <parent>_code column).
+                related_from_column = relations.get('from_col')
+                if not related_from_column:
+                    if relationship == 'search_type':
+                        related_from_column = 'search_code'
+                    else:
+                        related_from_column = '{0}_code'.format(
+                            relations.get('to').split('/')[-1]
+                        )
+                related_to_column = relations.get('to_col') or 'code'
+
+                if path == 'parent':
+                    related_value = self.info.get(related_from_column)
+                    query_column = related_to_column
                 else:
-                    related_from_column = '{0}_code'.format(relations.get('to').split('/')[-1])
+                    related_value = self.info.get(related_to_column)
+                    query_column = related_from_column
 
-                if relations.get('from_col'):
-                    related_to_column = relations.get('to_col')
-                else:
-                    related_to_column = '{0}_code'.format(relations.get('from').split('/')[-1])
-
-                related_from_code = self.info.get(related_from_column)
-                related_to_code = self.info.get(related_to_column)
-
-                # if there is no found code even with explicit columns
-                if not related_from_code:
-                    related_from_code = self.info.get('code')
-
-                if not related_to_code:
-                    related_to_code = self.info.get('code')
+                if related_value is None:
+                    raise ValueError(
+                        'Relationship column {0} is missing on {1}'.format(
+                            related_from_column if path == 'parent'
+                            else related_to_column,
+                            self.get_search_key(),
+                        )
+                    )
 
             elif relationship == 'instance':
 
@@ -948,6 +974,14 @@ class SObject(object):
 
                 related_code = self.info.get('code')
 
+        if relationship not in ('code', 'search_type', 'instance'):
+            raise ValueError(
+                'Unsupported relationship {0} between {1} and {2}'.format(
+                    relationship,
+                    parent_stype.get_code(),
+                    child_stype.get_code(),
+                )
+            )
 
         if relationship == 'instance':
             if path == 'parent':
@@ -955,10 +989,9 @@ class SObject(object):
             else:
                 return u"@SOBJECT({0}['{1}', '{2}'].{3})".format(instance_type, related_to_column, related_code, related_type)
         else:
-            if path == 'parent':
-                return u"@SOBJECT({0}['{1}', '{2}'])".format(related_type, related_to_column, related_from_code)
-            else:
-                return u"@SOBJECT({0}['{1}', '{2}'])".format(related_type, related_from_column, related_to_code)
+            return u"@SOBJECT({0}['{1}', '{2}'])".format(
+                related_type, query_column, related_value
+            )
 
     def get_related_sobjects(self, child_stype=None, parent_stype=None, get_all_snapshots=False, path='child', filters=None):
 
@@ -1042,9 +1075,11 @@ class Project(SObject):
     def get_search_type(self, search_type):
         return self.stypes[search_type]
 
-    def query_search_types(self, force=False):
+    def query_search_types(self, force=False, cache_only=False):
 
-        use_cache = False
+        # Project configuration is safe to restore for presentation while a
+        # fresh authoritative copy is requested in the background.
+        use_cache = env_mode.get_mode() != 'api_server'
         stypes_result = None
 
         if use_cache and not force:
@@ -1056,6 +1091,8 @@ class Project(SObject):
             )
             if stypes_cache:
                 stypes_result = gf.hex_to_html(stypes_cache)
+            elif cache_only:
+                return []
             else:
                 return self.query_search_types(True)
         else:
@@ -1459,6 +1496,7 @@ class Workflow(object):
 
         self.__pipeline_list = pipeline
         self.__pipeline_by_codes = {}
+        self.__pipeline_by_parent_process = {}
 
         self.sort_by_search_types()
 
@@ -1471,10 +1509,18 @@ class Workflow(object):
         return tasks_pipeliens
 
     def sort_by_search_types(self):
+        self.__pipeline_by_codes = {}
+        self.__pipeline_by_parent_process = {}
         for pipe in self.__pipeline_list:
             search_type_code = pipe.get('search_type')
             if search_type_code:
-                self.__pipeline_by_codes[search_type_code] = self.__get_by_stype(search_type_code)
+                pipeline = Pipeline(pipe)
+                self.__pipeline_by_codes.setdefault(search_type_code, {})[
+                    pipe['code']
+                ] = pipeline
+                parent_process = pipe.get('parent_process')
+                if parent_process and parent_process not in self.__pipeline_by_parent_process:
+                    self.__pipeline_by_parent_process[parent_process] = pipeline
 
     def get_all_pipelines(self):
         return self.__pipeline_by_codes
@@ -1492,20 +1538,14 @@ class Workflow(object):
         return self.get_by_stype_code(stype_code).get(node_type)
 
     def get_child_pipeline_by_process_code(self, parent_pipeline, process):
-        parent_process = None
-        if parent_pipeline.get_all_pipeline_process():
-            for proc in parent_pipeline.get_all_pipeline_process():
-                if proc['process'] == process:
-                    parent_process = proc
+        parent_process = parent_pipeline.get_pipeline_process(process)
         if parent_process:
-            # TODO SOMETHING WRONG WITH THIS, may be it query too much pipelines
             return self.get_pipeline_by_parent(parent_process)
 
     def get_pipeline_by_parent(self, parent_process):
-        for pipe in self.__pipeline_list:
-            if pipe.get('parent_process'):
-                if pipe['parent_process'] == parent_process['code']:
-                    return Pipeline(pipe)
+        if isinstance(parent_process, dict):
+            parent_process = parent_process.get('code')
+        return self.__pipeline_by_parent_process.get(parent_process)
 
 
 class Pipeline(object):
@@ -2104,6 +2144,10 @@ class File(SObject, object):
         else:
             return self.info['st_size']
 
+    def get_md5(self):
+        """Return the checksum recorded by TACTIC for this file, if present."""
+        return str(self.info.get('md5') or '').strip().lower()
+
     def get_snapshot(self):
         return self.__snapshot
 
@@ -2412,6 +2456,23 @@ class WorkHour(SObject):
         )
 
 
+class TacticProcedureError(RuntimeError):
+    """A server-side TACTIC procedure returned a Python traceback."""
+
+    def __init__(self, procedure, server_traceback, project=None):
+        self.procedure = str(procedure or 'unknown')
+        self.project = project
+        self.server_traceback = str(server_traceback or '')
+        lines = [line.strip() for line in self.server_traceback.splitlines()
+                 if line.strip()]
+        summary = lines[-1] if lines else 'Unknown server error'
+        super(TacticProcedureError, self).__init__(
+            'TACTIC procedure {0} failed: {1}'.format(
+                self.procedure, summary
+            )
+        )
+
+
 def execute_procedure_serverside(func, kwargs, project=None, return_dict=True, server=None):
     # This is for TACTIC 4.7 compatibility
     if kwargs.get('code'):
@@ -2431,25 +2492,28 @@ def execute_procedure_serverside(func, kwargs, project=None, return_dict=True, s
     else:
         ret_val = result['info']
 
+    if isinstance(ret_val, six.string_types) and ret_val.lstrip().startswith('Traceback'):
+        procedure_name = getattr(func, '__name__', str(func))
+        dl.exception(
+            ret_val,
+            group_id='{0}/{1}'.format('exceptions', procedure_name),
+        )
+        raise TacticProcedureError(procedure_name, ret_val, project=project)
+
     if return_dict:
         if isinstance(ret_val, six.string_types):
-            if ret_val.startswith('Traceback'):
-                # TODO need to decide how we handle tracebacks
-                dl.exception(ret_val, group_id='{0}/{1}'.format('exceptions', func.__name__))
-                final_result = ret_val
+            # Simple check if this is json dumpable
+            if ret_val.startswith(('{', '"', '[')):
+                final_result = json.loads(ret_val, strict=False)
             else:
-                # Simple check if this is json dumpable
-                if ret_val.startswith(('{', '"', '[')):
-                    final_result = json.loads(ret_val, strict=False)
-                else:
-                    final_result = ret_val
+                final_result = ret_val
 
-                if isinstance(final_result, six.string_types) and return_dict:
-                    # Decompress long query
-                    js = gf.hex_to_html(final_result)
-                    if js:
-                        if js.startswith(('{', '"', '[')):
-                            final_result = json.loads(js, strict=False)
+            if isinstance(final_result, six.string_types) and return_dict:
+                # Decompress long query
+                js = gf.hex_to_html(final_result)
+                if js:
+                    if js.startswith(('{', '"', '[')):
+                        final_result = json.loads(js, strict=False)
         else:
             final_result = ret_val
     else:
@@ -2524,6 +2588,17 @@ def create_user_profile(login, values=None, password=None, groups=None):
     )
 
 
+def mutate_sidebar_security(project_code, updates=None):
+    return execute_procedure_serverside(
+        tq.mutate_sidebar_security,
+        {
+            'project_code': str(project_code or ''),
+            'updates': [dict(item) for item in (updates or [])],
+        },
+        project='sthpw',
+    )
+
+
 def mutate_work_hour(action, project_code, task_code=None,
                      work_hour_code=None, values=None):
     return execute_procedure_serverside(
@@ -2567,14 +2642,12 @@ def query_work_hour_report(report_key, project_code, start_day=None,
     )
 
 
-def get_all_projects_and_logins(force=False):
+def get_all_projects_and_logins(force=False, cache_only=False):
 
     if env_mode.get_mode() == 'api_server':
         use_cache = False
     else:
         use_cache = True
-
-    use_cache = False
 
     if use_cache and not force:
         #reading cache from file
@@ -2598,9 +2671,14 @@ def get_all_projects_and_logins(force=False):
                 env_inst.logins = logins_dict
 
                 return projects_dict
-            except ValueError as pickle_error:
+            except (ValueError, TypeError, EOFError, AttributeError,
+                    ImportError) as pickle_error:
                 print(pickle_error)
+                if cache_only:
+                    return collections.OrderedDict()
                 return get_all_projects_and_logins(True)
+        elif cache_only:
+            return collections.OrderedDict()
         else:
             return get_all_projects_and_logins(True)
     else:
@@ -3026,7 +3104,7 @@ def delete_sobjects(search_keys, list_dependencies):
     return execute_procedure_serverside(tq.delete_sobjects, kwargs)
 
 
-def get_sobjects(search_type, filters=[], order_bys=[], project_code=None, limit=None, offset=None, process_list=[], get_all_snapshots=False, check_snapshots_updates=False, include_info=True, include_snapshots=True, compressed_return=True, include_status_log=False, include_progress=False, include_total_count=True):
+def get_sobjects(search_type, filters=[], order_bys=[], project_code=None, limit=None, offset=None, process_list=[], get_all_snapshots=False, check_snapshots_updates=False, include_info=True, include_snapshots=True, compressed_return=True, include_status_log=False, include_progress=False, include_total_count=True, snapshot_timestamps=None):
     """
     Filters snapshot by search codes, and sobjects codes
     :param search_type: search_type or search_key (if using search_type project_code should to be provided)
@@ -3052,6 +3130,7 @@ def get_sobjects(search_type, filters=[], order_bys=[], project_code=None, limit
         'include_status_log': include_status_log,
         'include_progress': include_progress,
         'include_total_count': include_total_count,
+        'snapshot_timestamps': snapshot_timestamps or [],
     }
     if not project_code:
         if search_type.startswith('sthpw'):

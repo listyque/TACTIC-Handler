@@ -23,7 +23,7 @@ TACTIC, файловыми хранилищами и внешними проце
 |---|---|---|---|---|---|---|
 | Главное окно: `Ui_Main`, `Ui_mainTabs`, `Ui_topBarWidget`, `Ui_projectsChooserWidget` | `Main.qml`, `DockHost.qml`, `NavigationDrawer.qml`, `ProjectChooser.qml` | требует ручной проверки | bootstrap, проекты, разделы, вкладки, state, shutdown | QML smoke; static state handlers | несколько проектов, повторный запуск, активные workers | QML использует dock/workspace-компоновку |
 | Авторизация и соединение: `Ui_Main`, `Ui_serverPageWidget` | login/error dialogs в `Main.qml`; connection controller | требует ручной проверки | session, login, неверный пароль, offline, re-login | static signals/retry/dismiss | реальный сервер, смена сервера, истёкший ticket | traceback вынесен в Debug Log |
-| Поиск: `Ui_searchWidget`, `Ui_advancedSearchWidget`, `Ui_searchOptionsWidget`, `Ui_processFilterDialog` | `TacticSearchField.qml`, `AdvancedSearchView.qml`, `FilterEditorView.qml` | частично | query, suggestions, filters/groups, tabs, stale-result guard, restore | static Slots/models; filter contract probes | TEL/process filters и сохранённые серверные фильтры | quick chips ещё содержат локальную view-фильтрацию |
+| Поиск: `Ui_searchWidget`, `Ui_advancedSearchWidget`, `Ui_searchOptionsWidget`, `Ui_processFilterDialog` | `TacticSearchField.qml`, `AdvancedSearchView.qml`, `ProcessFilterEditorView.qml` | частично | query, suggestions, filters/groups, tabs, stale-result guard, restore | static Slots/models; filter contract probes | TEL/process filters и сохранённые серверные фильтры | quick chips ещё содержат локальную view-фильтрацию |
 | Результаты: `Ui_searchResultsWidget`, `Ui_itemWidget`, `Ui_processItemWidget`, `Ui_snapshotItemWidget`, `Ui_childrenItemWidget`, `Ui_groupItemWidget` | `WorkspaceResultItem.qml`, `WorkspaceCard.qml` | требует ручной проверки | tree/list/cards, expand, select, actions, DnD, lazy preview | QML smoke; role/action inspection | большие выборки, DnD, отсутствующие preview | внешний вид и навигация адаптированы под QML |
 | Snapshot/details: `Ui_snapshotBrowserWidget`, `Ui_sobjectInfoWidget` | `SnapshotBrowser.qml`, detail panels в `DockHost.qml` | требует ручной проверки | versions, files, preview, local state, open/download | static model/actions | реальные snapshots/files/repositories | данные представлены QML-safe ролями |
 | Database/object info: `Ui_editDBTableWidget`, `Ui_descriptionWidget` | `DatabaseEditorView.qml`, `SObjectFieldEditor.qml` | требует ручной проверки | load, edit, validation, save, refresh | static field model/submit path | права и server validation | schema-driven форма вместо набора QWidget |
@@ -36,7 +36,7 @@ TACTIC, файловыми хранилищами и внешними проце
 |---|---|---|---|---|---|---|
 | Configuration: `Ui_configuration_dialogWidget` и page widgets | `ConfigurationView.qml`, `ConfigurationPage.qml`, `ConfigurationSection.qml` | частично | load, Apply/OK/Cancel/Reset, validation, window state | static controller/settings | server/global/project/Maya combinations | Check-in Options и Check-in/Out не полностью равны старым страницам |
 | Server Presets: `Ui_serverPresetsEditorWidget` | `ServerPresetsView.qml` | готово | add/edit/delete/default/save, no plaintext secret | static settings/API | визуальная проверка | сохраняются имена/адреса через существующий API |
-| Filter Editor: `Ui_filterEditorDialog`, `Ui_filterWidget`, `Ui_processFilterDialog` | `FilterEditorView.qml` | частично | conditions, AND/OR/groups, presets, options, apply | static model/handlers; contract cases | process expression на сервере | формат фильтра общий; не добавлены новые операторы |
+| Search presets and process visibility | `AdvancedSearchView.qml`, `ProcessFilterEditorView.qml` | частично | conditions, AND/OR, server presets, child/process/built-in visibility | controller and QML contract cases | process expression на сервере | формат фильтра общий; не добавлены новые операторы |
 | Add/Edit sObject: `Ui_addTacticSobjectWidget`, QTactic field widgets | `SObjectFieldEditor.qml` | требует ручной проверки | schema, defaults, types, validation, create/edit, refresh | static schema model/submit guard | реальные schema/rights/triggers | единый schema-driven editor |
 | Link/Unlink: `Ui_linkSobjectsWidget` | `LinkSObjectsView.qml` | требует ручной проверки | search target, link, unlink, cancel, refresh | static async result normalization | реальные relations и permissions | сложные объекты не передаются в QML |
 | Columns: `Ui_columnsEditorWidget` | `ColumnsEditorView.qml` | готово | order, visibility, width/label, save/cancel, refresh | static settings/model | визуальная проверка таблиц | настройки отображения, без schema mutation |
@@ -90,7 +90,7 @@ TACTIC, файловыми хранилищами и внешними проце
 - Qt сообщил только об отсутствии каталога bundled fonts в установленном
   PySide6; это ограничение окружения, а не ошибка QML-компонента.
 
-## Уточнение действий — этап 41
+## Уточнение действий
 
 - Контекстные команды Tasks `Add`, `Edit` и `Delete` подключены к
   `TasksController`; удаление использует существующее подтверждение, а не
@@ -105,7 +105,7 @@ TACTIC, файловыми хранилищами и внешними проце
   schema mutation и DCC-сценарии остаются в прежних статусах: их исправление
   требует отдельных подсистем или реальной среды.
 
-## Legacy-регрессия — этап 42
+## Legacy-регрессия
 
 - Старый контракт `OperationWorker.error → worker.retry()` был нарушен после
   перехода pool на `QThreadPool`: `retry()` возвращал `True`, но повторный
@@ -124,7 +124,7 @@ TACTIC, файловыми хранилищами и внешними проце
   существовавшая до миграции проблема, не подтверждённая как её регрессия,
   поэтому файл не изменялся.
 
-## Финальная проверка перед merge — этап 45
+## Финальная проверка перед merge
 
 - Targeted Python compile, legacy import/retry smoke, прямой `main_qml.py` и
   `launch.py --ui qml` прошли из `D:\code`, вне каталога проекта.
@@ -140,19 +140,30 @@ TACTIC, файловыми хранилищами и внешними проце
 - Фиктивных данных, debug prints, test endpoints и известных секретов в
   migration-коде/настройках не найдено. `pass` остаются только внутри
   ограниченных обработчиков исключений, не как заглушки.
-- Git metadata восстановлена в Block A; состояние индекса, tracked files, diff и
-  whitespace теперь входят в строгий Block F release gate.
-- Ручной merge gate: login/смена сервера, проекты и поиск на живом TACTIC;
-  check-in/out, commit, Drop Plate, watchers/repositories, mutations/tasks/
-  communication/update; Maya/DCC и внешние API tools.
+- Состояние индекса, tracked files, diff и whitespace входят в строгий release gate.
+- Ручной release gate: login/смена сервера, проекты и поиск на живом TACTIC;
+  read-only server procedure smoke; check-in/out, commit, Drop Plate,
+  watchers/repositories, mutations/tasks/communication/update; чистое Python
+  окружение; Maya/DCC, Windows lifecycle и визуальная проверка.
 
-## Block F — итоговый автоматический допуск
+## Итоговый автоматический допуск
 
 - Общий launcher переключён на QML по умолчанию без удаления явного legacy режима.
 - `tests/run_release_gate.py` объединяет `git diff --check`, compileall, полный
   изолированный regression suite, legacy smoke и прямой/default launcher smoke из
   внешней рабочей директории.
-- Машиночитаемый контракт отделяет автоматические доказательства от шести
-  обязательных ручных проверок реальной TACTIC/repository/Windows/Maya/visual среды.
+- Машиночитаемый контракт отделяет автоматические доказательства от восьми
+  обязательных проверок реальной TACTIC/repository/Windows/Maya/visual среды.
+- `requirements-modern.txt` фиксирует прямую modern-зависимость, а
+  `tests/run_clean_environment_smoke.py` создаёт отдельное окружение, устанавливает
+  её и проверяет launchers.
+- Clean-environment smoke пройден на Windows с Python 3.14.6 и PySide6 6.11.1:
+  установка в новый временный venv и foreign-CWD modern/legacy launcher smoke
+  завершились успешно.
+- `tests/run_live_server_procedure_smoke.py` безопасно выполняет основные read-only
+  generated procedures только в проекте `th_test_*`.
+- `tests/record_release_acceptance.py` сохраняет tester, UTC timestamp и конкретное
+  evidence; строгий release candidate gate требует все записи через
+  `--require-manual --manual-results`.
 - До прохождения ручного допуска состояние: **автоматически допускается к merge
   modern-разработки, но не объявлено production release candidate**.

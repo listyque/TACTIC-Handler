@@ -213,7 +213,7 @@ Item {
                         text: qsTr("TASK SCHEDULE")
                         color: root.theme.primaryText
                         font.family: root.theme.fontFamily
-                        font.pixelSize: 9
+                        font.pointSize: Typography.label
                         font.weight: Font.DemiBold
                         elide: Text.ElideRight
                     }
@@ -227,7 +227,7 @@ Item {
                                     + qsTr(" unscheduled") : "")
                         color: root.theme.secondaryText
                         font.family: root.theme.fontFamily
-                        font.pixelSize: 8
+                        font.pointSize: Typography.caption
                         elide: Text.ElideRight
                     }
                 }
@@ -326,7 +326,7 @@ Item {
                                     text: modelData.label
                                     color: root.theme.primaryText
                                     font.family: root.theme.fontFamily
-                                    font.pixelSize: 8
+                                    font.pointSize: Typography.caption
                                     font.weight: Font.DemiBold
                                     elide: Text.ElideRight
                                 }
@@ -335,7 +335,7 @@ Item {
                                     text: modelData.completion + "%"
                                     color: root.theme.tertiary
                                     font.family: root.theme.fontFamily
-                                    font.pixelSize: 8
+                                    font.pointSize: Typography.caption
                                     font.weight: Font.Bold
                                 }
                             }
@@ -378,7 +378,7 @@ Item {
                         text: qsTr("TODAY")
                         color: root.theme.error
                         font.family: root.theme.fontFamily
-                        font.pixelSize: 7
+                        font.pointSize: Typography.micro
                         font.weight: Font.Bold
                     }
                 }
@@ -646,7 +646,7 @@ Item {
                                 : qsTr("UNSCHEDULED TASKS")
                             color: root.theme.secondaryText
                             font.family: root.theme.fontFamily
-                            font.pixelSize: 8
+                            font.pointSize: Typography.caption
                             font.weight: Font.DemiBold
                         }
                     }
@@ -683,7 +683,7 @@ Item {
                             text: taskRow.group.toUpperCase()
                             color: root.theme.primaryText
                             font.family: root.theme.fontFamily
-                            font.pixelSize: 8
+                            font.pointSize: Typography.caption
                             font.weight: Font.DemiBold
                             elide: Text.ElideRight
                         }
@@ -691,7 +691,7 @@ Item {
                             text: taskRow.groupCount
                             color: root.theme.secondaryText
                             font.family: root.theme.fontFamily
-                            font.pixelSize: 8
+                            font.pointSize: Typography.caption
                         }
                     }
                     Item {
@@ -747,7 +747,7 @@ Item {
                         color: taskRow.checked
                             ? root.theme.secondaryContainer
                             : taskRow.selected
-                                ? root.theme.surfaceContainerHigh
+                                ? root.theme.contentSelection
                                 : rowHover.hovered
                                     ? root.theme.rowHover : "transparent"
                         opacity: taskRow.checked ? 0.55 : 1
@@ -817,7 +817,7 @@ Item {
                                 text: taskRow.parentTitle
                                 color: root.theme.primaryText
                                 font.family: root.theme.fontFamily
-                                font.pixelSize: 9
+                                font.pointSize: Typography.label
                                 font.weight: Font.DemiBold
                                 elide: Text.ElideRight
                             }
@@ -829,7 +829,7 @@ Item {
                                         ? "  ·  " + taskRow.assignedLabel : "")
                                 color: root.theme.secondaryText
                                 font.family: root.theme.fontFamily
-                                font.pixelSize: 7
+                                font.pointSize: Typography.micro
                                 elide: Text.ElideRight
                             }
                         }
@@ -900,7 +900,7 @@ Item {
                                         : root.shortDate(taskRow.start)
                                     color: root.theme.primaryText
                                     font.family: root.theme.fontFamily
-                                    font.pixelSize: 7
+                                    font.pointSize: Typography.micro
                                     font.weight: Font.DemiBold
                                 }
                             }
@@ -923,7 +923,7 @@ Item {
                                     text: root.shortDate(taskRow.end)
                                     color: root.theme.primaryText
                                     font.family: root.theme.fontFamily
-                                    font.pixelSize: 7
+                                    font.pointSize: Typography.micro
                                     font.weight: Font.DemiBold
                                 }
                             }
@@ -961,7 +961,7 @@ Item {
                                             : taskRow.progress) + "%"
                                 color: root.theme.primaryText
                                 font.family: root.theme.fontFamily
-                                font.pixelSize: 8
+                                font.pointSize: Typography.caption
                                 font.weight: Font.DemiBold
                                 verticalAlignment: Text.AlignVCenter
                                 elide: Text.ElideRight
@@ -1105,7 +1105,7 @@ Item {
                                     text: taskRow.ganttIssue
                                     color: root.theme.secondaryText
                                     font.family: root.theme.fontFamily
-                                    font.pixelSize: 8
+                                    font.pointSize: Typography.caption
                                     elide: Text.ElideRight
                                 }
                             }
@@ -1556,7 +1556,7 @@ Item {
                 color: tasksController.ganttWarningCount
                     ? root.theme.yellow : root.theme.secondaryText
                 font.family: root.theme.fontFamily
-                font.pixelSize: 8
+                font.pointSize: Typography.caption
                 elide: Text.ElideRight
             }
         }
@@ -1579,7 +1579,7 @@ Item {
                     + qsTr(" SELECTED TASKS")
                 color: root.theme.secondaryText
                 font.family: root.theme.fontFamily
-                font.pixelSize: 8
+                font.pointSize: Typography.caption
                 font.weight: Font.DemiBold
                 leftPadding: 8
                 bottomPadding: 4
@@ -1675,7 +1675,7 @@ Item {
                     + "  —  " + root.compactDate(root.range.rangeEnd)
                 color: root.theme.secondaryText
                 font.family: root.theme.fontFamily
-                font.pixelSize: 8
+                font.pointSize: Typography.caption
                 elide: Text.ElideRight
             }
             Md3Button {
@@ -1771,6 +1771,6 @@ Item {
         text: qsTr("No tasks match the current scope and filters")
         color: root.theme.secondaryText
         font.family: root.theme.fontFamily
-        font.pixelSize: 9
+        font.pointSize: Typography.label
     }
 }

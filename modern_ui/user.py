@@ -534,6 +534,8 @@ class UserController(QObject):
 
     @Slot(str, str)
     def _repository_file_ready(self, _task_id: str, local_path: str) -> None:
+        if not self._pending_avatar_paths:
+            return
         resolved = str(Path(local_path).resolve())
         if resolved not in self._pending_avatar_paths:
             return
@@ -618,7 +620,9 @@ class UserController(QObject):
 
     def _project_changed(self, *_args) -> None:
         self._rebuild()
-        if self._application.window_model.is_window_visible("user_profile"):
+        if any(
+                self._application.window_model.is_window_visible(window_id)
+                for window_id in ("user_profile", "users")):
             self.refresh()
 
     @Slot()
@@ -648,7 +652,13 @@ class UserController(QObject):
         self._directory_visible = bool(directory_visible)
         self._selected_login = login
         self._rebuild()
-        self._application.window_model.show_window("user_profile")
+        window_id = "users" if directory_visible else "user_profile"
+        other_window_id = "user_profile" if directory_visible else "users"
+        # These are two presentation modes of the same controller. Keep only
+        # one mode visible so its shared selection cannot repaint the other,
+        # while the window model still persists their geometry independently.
+        self._application.window_model.close_window(other_window_id)
+        self._application.window_model.show_window(window_id)
         self.refresh()
 
     @Slot()
@@ -1300,6 +1310,7 @@ class UserController(QObject):
     @Slot()
     def logout(self) -> None:
         self._application.window_model.close_window("user_profile")
+        self._application.window_model.close_window("users")
         self._application.logout()
         self._selected_login = ""
         self.tasks.clear()

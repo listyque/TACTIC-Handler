@@ -7,7 +7,7 @@ starts with `th_test_`. Production projects are never valid fixture targets.
 
 `tests/fixtures/tactic_test_project.json` defines two search types/pipelines, isolated
 users and groups, objects, tasks, a milestone, work hours, a note, a snapshot/file,
-and a group chat. Every fixture belongs to the marker `codex-block-c-v1`.
+and a group chat. Every fixture belongs to the marker `tactic-handler-test-v1`.
 
 Create the empty project, search types, pipelines, and security groups through the
 TACTIC Project Manager and security APIs. This follows the database write policy in

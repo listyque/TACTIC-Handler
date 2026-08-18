@@ -6,6 +6,7 @@ Dialog {
     id: control
 
     required property var theme
+    property bool translateTitle: true
 
     modal: false
     spacing: 12
@@ -41,7 +42,7 @@ Dialog {
             anchors.verticalCenter: parent.verticalCenter
             anchors.leftMargin: control.leftPadding
             anchors.rightMargin: control.rightPadding
-            text: qsTr(control.title)
+            text: control.translateTitle ? qsTr(control.title) : control.title
             color: control.theme.primaryText
             font.family: control.theme.fontFamily
             font.pixelSize: 16

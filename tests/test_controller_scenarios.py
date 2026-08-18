@@ -109,6 +109,25 @@ class ControllerScenarioTests(unittest.TestCase):
         self.assertEqual((window.x, window.y, window.width, window.height),
                          (25, 30, 900, 700))
 
+    def test_profile_and_user_directory_keep_independent_geometry(self):
+        settings = MemorySettings()
+        first = FloatingWindowModel(settings)
+        first.set_geometry("user_profile", 20, 30, 760, 620)
+        first.set_geometry("users", 80, 50, 1180, 820)
+
+        restored = FloatingWindowModel(settings)
+        profile = restored._windows[restored._row("user_profile")]
+        users = restored._windows[restored._row("users")]
+
+        self.assertEqual(
+            (profile.x, profile.y, profile.width, profile.height),
+            (20, 30, 760, 620),
+        )
+        self.assertEqual(
+            (users.x, users.y, users.width, users.height),
+            (80, 50, 1180, 820),
+        )
+
     def test_cache_hit_invalidation_and_refresh_are_observable(self):
         resolver = SearchKeyPreviewResolver(_PreviewApplication())
         search_key = "skey://sthpw/task?code=TASK001"

@@ -131,7 +131,7 @@ Window {
                                     || qsTr("Configure a server before signing in")
                                 color: root.theme.secondaryText
                                 font.family: root.theme.fontFamily
-                                font.pixelSize: 10
+                                font.pointSize: Typography.body
                                 elide: Text.ElideMiddle
                             }
                         }
@@ -169,7 +169,7 @@ Window {
                         text: appController.authentication_error
                         color: root.theme.error
                         font.family: root.theme.fontFamily
-                        font.pixelSize: 10
+                        font.pointSize: Typography.body
                         wrapMode: Text.WordWrap
                     }
 

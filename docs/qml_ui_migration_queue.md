@@ -78,7 +78,7 @@ QSettings window-state прошли. Статусы очереди выше не
 TACTIC/DCC прогона. Перед merge вручную проверить login, серверные mutation и
 file/repository операции, Maya и внешние API tools.
 
-## Block F — release/cutover gate
+## Release and cutover gate
 
 - `launch.py` теперь запускает modern QML по умолчанию; legacy сохраняется как
   явный `--ui legacy`/`TACTIC_HANDLER_UI=legacy` и regression oracle.
@@ -86,7 +86,13 @@ file/repository операции, Maya и внешние API tools.
   syntax, все изолированные тесты, legacy compatibility и оба modern entry point
   из другой рабочей директории.
 - Живые mutation/repository/DCC/Windows/visual проверки не выданы за автоматику и
-  перечислены как обязательный ручной допуск в
+  перечислены как обязательный environment-dependent допуск в
   `tests/contracts/release_acceptance.json`.
+- Чистое окружение проверяется `tests/run_clean_environment_smoke.py`; совместимость
+  generated server procedures — `tests/run_live_server_procedure_smoke.py`.
+- Clean-environment smoke пройден на Python 3.14.6/PySide6 6.11.1; live TACTIC,
+  repository, Windows lifecycle и Maya проверки остаются environment-dependent.
+- Результаты допуска записываются через `tests/record_release_acceptance.py` и
+  проверяются строгим режимом `tests/run_release_gate.py --require-manual`.
 - Статусы интерфейсов выше намеренно не повышены только по факту зелёного QML
   smoke; production release остаётся закрыт до ручного допуска.

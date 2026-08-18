@@ -53,7 +53,7 @@ Rectangle {
                     : qsTr("Forwarded message unavailable")
                 color: root.available ? root.theme.tertiary : root.theme.error
                 font.family: root.theme.fontFamily
-                font.pixelSize: 10
+                font.pointSize: Typography.body
                 font.weight: Font.DemiBold
                 elide: Text.ElideRight
             }
@@ -64,7 +64,7 @@ Rectangle {
                 text: root.body
                 color: root.theme.primaryText
                 font.family: root.theme.fontFamily
-                font.pixelSize: 11
+                font.pointSize: Typography.bodyLarge
                 wrapMode: Text.Wrap
                 maximumLineCount: 3
                 elide: Text.ElideRight
@@ -76,7 +76,7 @@ Rectangle {
                     ? qsTr(" attachment") : qsTr(" attachments"))
                 color: root.theme.secondaryText
                 font.family: root.theme.fontFamily
-                font.pixelSize: 9
+                font.pointSize: Typography.label
             }
         }
     }

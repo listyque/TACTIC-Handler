@@ -31,6 +31,11 @@ from ..menu_schema import (
 )
 from ..quick_filters import QuickFilterCatalog
 from ..repository_sync import RepositorySyncController
+from ..window_geometry import (
+    MAIN_WINDOW_MINIMUM_HEIGHT,
+    MAIN_WINDOW_MINIMUM_WIDTH,
+    screen_for_window_rect,
+)
 from ..models import NavigationModel, ProjectModel
 from ..workspace import (
     DockPanelModel,
@@ -188,13 +193,25 @@ class LifecycleMixin:
         visibility: int,
     ) -> None:
         if visibility == 2:
+            screen = screen_for_window_rect(
+                round(x), round(y), round(width), round(height)
+            )
             self._window_state.update({
                 "x": round(x),
                 "y": round(y),
-                "width": max(760, round(width)),
-                "height": max(560, round(height)),
+                "width": max(MAIN_WINDOW_MINIMUM_WIDTH, round(width)),
+                "height": max(MAIN_WINDOW_MINIMUM_HEIGHT, round(height)),
                 "maximized": False,
             })
+            if screen is not None:
+                self._window_state.update({
+                    "screen_identity": screen.identity,
+                    "screen_name": screen.name,
+                    "screen_x": screen.x,
+                    "screen_y": screen.y,
+                    "screen_width": screen.width,
+                    "screen_height": screen.height,
+                })
         elif visibility == 4:
             self._window_state["maximized"] = True
         else:

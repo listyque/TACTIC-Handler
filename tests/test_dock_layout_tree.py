@@ -79,6 +79,38 @@ class DockLayoutTreeTests(unittest.TestCase):
         self.assertIsNotNone(stack)
         self.assertEqual(stack.active_panel_id, "timesheet")
 
+    def test_new_utility_panels_open_as_snapped_stack_tabs(self):
+        expected_targets = {
+            "advanced_search": "results",
+            "fast_controls": "results",
+            "drop_plate": "tasks",
+            "watch_folders": "tasks",
+            "db_table": "tasks",
+        }
+        for panel_id, target_id in expected_targets.items():
+            self.assertFalse(self.panel(panel_id).visible)
+            self.model.show_panel(panel_id)
+            panel = self.panel(panel_id)
+            self.assertNotEqual(panel.dock_area, "floating")
+            stack = stack_for_panel(self.model._layout_root, panel_id)
+            self.assertIsNotNone(stack)
+            self.assertIn(target_id, stack.panel_ids)
+            self.assertEqual(stack.active_panel_id, panel_id)
+            self.model.close_panel(panel_id)
+
+    def test_hidden_legacy_floating_panel_snaps_when_reopened(self):
+        row = self.model._index_for("drop_plate")
+        panel = self.model._panels[row]
+        self.model._panels[row] = type(panel)(
+            panel.panel_id, panel.title, panel.kind,
+            panel.x, panel.y, panel.width, panel.height,
+            False, panel.closable, panel.z, "floating", False, "",
+        )
+        self.model.show_panel("drop_plate")
+        self.assertNotEqual(self.panel("drop_plate").dock_area, "floating")
+        stack = stack_for_panel(self.model._layout_root, "drop_plate")
+        self.assertIn("tasks", stack.panel_ids)
+
     def test_tabify_changes_only_the_target_stack(self):
         root = tabify(default_layout(), "tasks", "drop_plate")
         self.assertIsNotNone(root)
@@ -306,7 +338,9 @@ class DockLayoutTreeTests(unittest.TestCase):
 
         restored = DockPanelModel(settings)
         stack = stack_for_panel(restored._layout_root, "snapshot")
-        self.assertEqual(stack.panel_ids, ("snapshot", "notes"))
+        self.assertEqual(
+            stack.panel_ids, ("snapshot", "notes", "task_calendar")
+        )
         self.assertEqual(stack.active_panel_id, "snapshot")
 
     def test_reset_layout_restores_all_dock_parameters(self):

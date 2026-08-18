@@ -59,7 +59,7 @@ Rectangle {
                 color: root.controller.count > 0
                     ? root.theme.primaryText : root.theme.secondaryText
                 font.family: root.theme.fontFamily
-                font.pixelSize: 9
+                font.pointSize: Typography.label
                 elide: Text.ElideRight
             }
             CompactIconButton {
@@ -131,14 +131,14 @@ Rectangle {
                             text: title
                             color: root.theme.primaryText
                             font.family: root.theme.fontFamily
-                            font.pixelSize: 9
+                            font.pointSize: Typography.label
                             elide: Text.ElideMiddle
                         }
                         Label {
                             text: size
                             color: root.theme.secondaryText
                             font.family: root.theme.fontFamily
-                            font.pixelSize: 8
+                            font.pointSize: Typography.caption
                             visible: draftFlow.cellWidth() >= 230
                         }
                         CompactIconButton {

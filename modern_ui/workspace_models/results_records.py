@@ -49,6 +49,28 @@ class RecordsMixin:
             index = self.index(row, 0)
             self.dataChanged.emit(index, index, [self.SubtitleRole])
 
+    @Slot(str, str)
+    def update_watch_state(self, search_key: str, state: str) -> None:
+        """Update visible copies of an sObject after Watch Folder changes."""
+        normalized = state if state in {"none", "enabled", "disabled"} else "none"
+        for node in self._nodes.values():
+            if node.node_type != "sobject" or node.search_key != search_key:
+                continue
+            if node.watch_state == normalized:
+                continue
+            node.watch_state = normalized
+            node.controls_signature = ()
+            node.controls_cache = []
+            row = self._row_by_node_id.get(node.node_id, -1)
+            if row < 0:
+                continue
+            index = self.index(row, 0)
+            self.dataChanged.emit(
+                index,
+                index,
+                [self.WatchStateRole, self.ControlsRole],
+            )
+
     def roleNames(self) -> dict[int, bytes]:
         return {
             self.SearchKeyRole: b"searchKey",
@@ -91,6 +113,8 @@ class RecordsMixin:
             self.RepositoryColorRole: b"repositoryColor",
             self.PreviewRevealedRole: b"previewRevealed",
             self.PreviewRequestedRole: b"previewRequested",
+            self.CardPreviewUrlRole: b"cardPreviewUrl",
+            self.CardPreviewRequestedRole: b"cardPreviewRequested",
         }
 
     def rowCount(self, parent: QModelIndex = QModelIndex()) -> int:
@@ -104,6 +128,11 @@ class RecordsMixin:
             return (
                 "" if item.preview_url in self._failed_preview_tokens
                 else item.preview_url
+            )
+        if role == self.CardPreviewUrlRole:
+            return (
+                "" if item.card_preview_url in self._failed_preview_tokens
+                else item.card_preview_url
             )
         if role == self.ControlsRole:
             return self._controls_for(item)
@@ -254,7 +283,8 @@ class RecordsMixin:
         self._roots = records
         self._nodes = {item.node_id: item for item in records}
         self._failed_preview_tokens.intersection_update(
-            item.preview_url for item in records
+            url for item in records
+            for url in (item.preview_url, item.card_preview_url)
         )
         self._replace_visible_items(records)
 
@@ -266,7 +296,8 @@ class RecordsMixin:
             self._register_tree(node)
         items = self._flatten()
         self._failed_preview_tokens.intersection_update(
-            item.preview_url for item in items
+            url for item in items
+            for url in (item.preview_url, item.card_preview_url)
         )
         self._replace_visible_items(items)
 

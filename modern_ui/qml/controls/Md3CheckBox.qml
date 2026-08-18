@@ -9,7 +9,7 @@ CheckBox {
 
     spacing: 9
     font.family: theme.fontFamily
-    font.pixelSize: 10
+    font.pointSize: Typography.body
 
     indicator: Rectangle {
         implicitWidth: control.prominent ? 22 : 19

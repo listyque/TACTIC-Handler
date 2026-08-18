@@ -7,22 +7,10 @@ import QtQuick.Window
 
 ApplicationWindow {
     id: window
-    x: Math.max(
-        Screen.virtualX,
-        Math.min(
-            appController.window_x,
-            Screen.virtualX + Screen.width - width
-        )
-    )
-    y: Math.max(
-        Screen.virtualY,
-        Math.min(
-            appController.window_y,
-            Screen.virtualY + Screen.height - height
-        )
-    )
-    width: Math.min(appController.window_width, Screen.width)
-    height: Math.min(appController.window_height, Screen.height)
+    x: appController.window_x
+    y: appController.window_y
+    width: appController.window_width
+    height: appController.window_height
     minimumWidth: 760
     minimumHeight: 640
     visible: true
@@ -45,11 +33,32 @@ ApplicationWindow {
         )
     }
 
-    onXChanged: saveWindowState()
-    onYChanged: saveWindowState()
-    onWidthChanged: saveWindowState()
-    onHeightChanged: saveWindowState()
-    onVisibilityChanged: saveWindowState()
+    property bool windowStateReady: false
+    Timer {
+        id: windowStateSaveTimer
+        interval: 400
+        repeat: false
+        onTriggered: {
+            if (window.windowStateReady
+                    && window.visibility === Window.Windowed)
+                window.saveWindowState()
+        }
+    }
+    function scheduleWindowStateSave() {
+        if (windowStateReady && visibility === Window.Windowed)
+            windowStateSaveTimer.restart()
+    }
+    onXChanged: scheduleWindowStateSave()
+    onYChanged: scheduleWindowStateSave()
+    onWidthChanged: scheduleWindowStateSave()
+    onHeightChanged: scheduleWindowStateSave()
+    onVisibilityChanged: {
+        windowStateSaveTimer.stop()
+        if (windowStateReady && visibility === Window.Maximized)
+            saveWindowState()
+        else
+            scheduleWindowStateSave()
+    }
 
     property bool dark: true
     property string themeStyle: appController.theme_style
@@ -138,6 +147,10 @@ ApplicationWindow {
         onAccepted: appController.submit_checkin_files(selectedFiles)
     }
 
+    WatchFolderDeleteDialog {
+        theme: theme
+        acceptedOrigin: "item"
+    }
     Md3Dialog {
         id: revisionCheckinDialog
         theme: theme
@@ -152,7 +165,7 @@ ApplicationWindow {
                 + qsTr("Use Save snapshot when you need a new version.")
             color: theme.secondaryText
             font.family: theme.fontFamily
-            font.pixelSize: 11
+            font.pointSize: Typography.bodyLarge
             wrapMode: Text.WordWrap
         }
         footer: DialogButtonBox {
@@ -223,8 +236,13 @@ ApplicationWindow {
     }
     Component.onCompleted: {
         window.dark = appController.is_dark_theme()
+        Qt.callLater(function() {
+            window.windowStateReady = true
+        })
     }
     onClosing: function(close) {
+        windowStateSaveTimer.stop()
+        saveWindowState()
         close.accepted = false
         trayController.handle_close(
             handlerServerController.connectedClientCount > 0
@@ -235,18 +253,48 @@ ApplicationWindow {
         id: topAppBar
         anchors.top: parent.top
         width: parent.width
-        height: 64
-        color: theme.topBar
-        Rectangle { anchors.bottom: parent.bottom; width: parent.width; height: 1; color: theme.separator }
+        height: 44
+        color: "transparent"
+        clip: false
+        z: 100
+
+        readonly property real controlExtent: 36
+        readonly property real controlSurfaceExtent: 32
+        readonly property real projectExtent: 36
+        readonly property real projectPreviewExtent: 28
+
+        Rectangle {
+            id: topAppBarSurface
+            anchors.top: parent.top
+            anchors.left: parent.left
+            anchors.right: parent.right
+            height: topAppBar.height
+            color: theme.topBar
+            border.width: 0
+            border.color: theme.outlineVariant
+
+            Rectangle {
+                anchors.bottom: parent.bottom
+                width: parent.width
+                height: 1
+                color: theme.separator
+            }
+
+        }
         RowLayout {
-            anchors.fill: parent
+            id: topAppBarContent
+            anchors.top: parent.top
+            anchors.left: parent.left
+            anchors.right: parent.right
+            height: topAppBar.height
             anchors.leftMargin: 8
             anchors.rightMargin: 12
-            spacing: 4
+            spacing: 2
+
 
             CompactIconButton {
-                Layout.preferredWidth: 48
-                Layout.preferredHeight: 48
+                Layout.preferredWidth: topAppBar.controlExtent
+                Layout.preferredHeight: topAppBar.controlExtent
                 theme: theme
                 iconName: drawer.opened ? "close" : "menu"
                 iconColor: theme.primaryText
@@ -262,11 +310,11 @@ ApplicationWindow {
             Item {
                 id: projectButton
                 Layout.preferredWidth: Math.min(260, Math.max(176, window.width * 0.21))
-                Layout.preferredHeight: 44
+                Layout.preferredHeight: topAppBar.projectExtent
                 Rectangle {
                     id: projectSurface
                     anchors.fill: parent
-                    radius: 14
+                    radius: 12
                     color: projectMouse.pressed ? theme.selected
                         : projectMouse.containsMouse ? theme.rowHover : theme.panel
                     border.width: 1
@@ -284,11 +332,11 @@ ApplicationWindow {
                     anchors.rightMargin: 10
                     spacing: 9
                     ItemPreview {
-                        Layout.preferredWidth: 32
-                        Layout.preferredHeight: 32
+                        Layout.preferredWidth: topAppBar.projectPreviewExtent
+                        Layout.preferredHeight: topAppBar.projectPreviewExtent
                         theme: theme
-                        previewSize: 32
-                        cornerRadius: 7
+                        previewSize: topAppBar.projectPreviewExtent
+                        cornerRadius: 6
                         outlined: true
                         accent: theme.toolBar
                         source: appController.current_project_preview
@@ -301,8 +349,9 @@ ApplicationWindow {
                             text: qsTr("Project")
                             color: theme.secondaryText
                             font.family: theme.fontFamily
-                            font.pixelSize: 9
+                            font.pointSize: Typography.label
                             font.weight: Font.Medium
+                            visible: false
                         }
                         Label {
                             text: window.projectTitle
@@ -343,18 +392,17 @@ ApplicationWindow {
                     && appController.server_state !== "connecting"
                 readonly property string progressText:
                     appController.loading_message || "Working"
+                readonly property real progressExtent: 220
+                property real progressReveal: showingProgress ? 1.0 : 0.0
 
-                Layout.preferredWidth: showingProgress
-                    ? Math.min(
-                        240,
-                        Math.max(136, notificationActivityLabel.implicitWidth + 54)
-                    )
-                    : 48
-                Layout.preferredHeight: 48
+                clip: true
+                Layout.preferredWidth: topAppBar.controlExtent
+                    + (progressExtent - topAppBar.controlExtent) * progressReveal
+                Layout.preferredHeight: topAppBar.controlExtent
 
-                Behavior on Layout.preferredWidth {
+                Behavior on progressReveal {
                     NumberAnimation {
-                        duration: 180
+                        duration: theme.motionMedium
                         easing.type: Easing.OutCubic
                     }
                 }
@@ -363,13 +411,24 @@ ApplicationWindow {
                     id: notificationActivitySurface
                     anchors.centerIn: parent
                     width: parent.width - 2
-                    height: 40
-                    radius: 20
-                    color: notificationActivityButton.showingProgress
-                        ? theme.panel : "transparent"
-                    border.width: notificationActivityButton.showingProgress ? 1 : 0
-                    border.color: theme.outlineVariant
+                    height: topAppBar.controlSurfaceExtent
+                    radius: height / 2
+                    color: "transparent"
+                    border.width: 1
+                    border.color: Qt.rgba(
+                        theme.outlineVariant.r,
+                        theme.outlineVariant.g,
+                        theme.outlineVariant.b,
+                        theme.outlineVariant.a
+                            * notificationActivityButton.progressReveal
+                    )
 
+                    Rectangle {
+                        anchors.fill: parent
+                        radius: parent.radius
+                        color: theme.panel
+                        opacity: notificationActivityButton.progressReveal
+                    }
                     Rectangle {
                         anchors.fill: parent
                         radius: parent.radius
@@ -392,40 +451,39 @@ ApplicationWindow {
                     }
                 }
 
+                MaterialIcon {
+                    anchors.centerIn: parent
+                    name: "system_activity"
+                    size: 20
+                    color: theme.primaryText
+                    opacity: 1.0 - notificationActivityButton.progressReveal
+                    visible: opacity > 0.01
+                }
+
                 RowLayout {
                     anchors.fill: parent
-                    anchors.leftMargin: notificationActivityButton.showingProgress
-                        ? 10 : 0
-                    anchors.rightMargin: notificationActivityButton.showingProgress
-                        ? 12 : 0
+                    anchors.leftMargin: 10
+                    anchors.rightMargin: 12
                     spacing: 7
+                    opacity: notificationActivityButton.progressReveal
+                    visible: opacity > 0.01
 
                     Md3BusyIndicator {
                         uiTheme: theme
-                        visible: notificationActivityButton.showingProgress
-                        running: visible
+                        running: notificationActivityButton.showingProgress
                         Layout.preferredWidth: 22
                         Layout.preferredHeight: 22
                     }
                     Label {
                         id: notificationActivityLabel
-                        visible: notificationActivityButton.showingProgress
                         Layout.fillWidth: true
                         text: notificationActivityButton.progressText
                         color: theme.primaryText
                         font.family: theme.fontFamily
-                        font.pixelSize: 10
+                        font.pointSize: Typography.body
                         font.weight: Font.Medium
                         elide: Text.ElideRight
                         maximumLineCount: 1
-                    }
-                    MaterialIcon {
-                        visible: !notificationActivityButton.showingProgress
-                        Layout.alignment: Qt.AlignHCenter | Qt.AlignVCenter
-                        Layout.fillWidth: true
-                        name: "system_activity"
-                        size: 20
-                        color: theme.primaryText
                     }
                 }
 
@@ -451,18 +509,17 @@ ApplicationWindow {
                     }
                 }
             }
-
             Item {
                 id: connectionButton
                 visible: window.width >= 900
                 Layout.preferredWidth: 106
-                Layout.preferredHeight: 48
+                Layout.preferredHeight: topAppBar.controlExtent
                 Rectangle {
                     id: connectionSurface
                     anchors.centerIn: parent
                     width: parent.width - 2
-                    height: 40
-                    radius: 20
+                    height: topAppBar.controlSurfaceExtent
+                    radius: height / 2
                     color: "transparent"
                     Rectangle {
                         anchors.fill: parent
@@ -502,7 +559,7 @@ ApplicationWindow {
                                 ? qsTr("Offline") : qsTr("Connecting")
                         color: theme.secondaryText
                         font.family: theme.fontFamily
-                        font.pixelSize: 10
+                        font.pointSize: Typography.body
                         font.weight: Font.Medium
                     }
                 }
@@ -538,13 +595,13 @@ ApplicationWindow {
                 readonly property bool expandedLabel: window.width >= 1280
                 visible: handlerServerController.selectedClient.length > 0
                 Layout.preferredWidth: expandedLabel ? 238 : 104
-                Layout.preferredHeight: 48
+                Layout.preferredHeight: topAppBar.controlExtent
                 Rectangle {
                     id: dccClientSurface
                     anchors.centerIn: parent
                     width: parent.width - 2
-                    height: 40
-                    radius: 20
+                    height: topAppBar.controlSurfaceExtent
+                    radius: height / 2
                     color: dccClientMouse.pressed ? theme.selected
                         : dccClientMouse.containsMouse
                             ? theme.rowHover : theme.panel
@@ -576,7 +633,7 @@ ApplicationWindow {
                             text: qsTr("DCC CLIENTS")
                             color: theme.secondaryText
                             font.family: theme.fontFamily
-                            font.pixelSize: 8
+                            font.pointSize: Typography.caption
                             font.weight: Font.DemiBold
                             elide: Text.ElideRight
                         }
@@ -586,7 +643,7 @@ ApplicationWindow {
                                 + qsTr(" connected")
                             color: theme.primaryText
                             font.family: theme.fontFamily
-                            font.pixelSize: 9
+                            font.pointSize: Typography.label
                             elide: Text.ElideRight
                         }
                     }
@@ -610,7 +667,7 @@ ApplicationWindow {
                                         .selectedApplicationType.toUpperCase()
                                 color: theme.action
                                 font.family: theme.fontFamily
-                                font.pixelSize: 7
+                                font.pointSize: Typography.micro
                                 font.weight: Font.DemiBold
                                 elide: Text.ElideRight
                             }
@@ -664,8 +721,8 @@ ApplicationWindow {
             }
 
             CompactIconButton {
-                Layout.preferredWidth: 48
-                Layout.preferredHeight: 48
+                Layout.preferredWidth: topAppBar.controlExtent
+                Layout.preferredHeight: topAppBar.controlExtent
                 theme: theme
                 iconName: "commit_queue"
                 iconColor: commitQueueController.unfinishedCount > 0
@@ -681,8 +738,8 @@ ApplicationWindow {
             }
 
             CompactIconButton {
-                Layout.preferredWidth: 48
-                Layout.preferredHeight: 48
+                Layout.preferredWidth: topAppBar.controlExtent
+                Layout.preferredHeight: topAppBar.controlExtent
                 theme: theme
                 iconName: "dynamic_feed"
                 iconColor: activityFeedController.unreadCount > 0
@@ -693,8 +750,8 @@ ApplicationWindow {
                 onClicked: appController.open_window("activity_feed")
             }
             CompactIconButton {
-                Layout.preferredWidth: 48
-                Layout.preferredHeight: 48
+                Layout.preferredWidth: topAppBar.controlExtent
+                Layout.preferredHeight: topAppBar.controlExtent
                 theme: theme
                 iconName: window.dark ? "light_mode" : "dark_mode"
                 iconColor: theme.primaryText
@@ -705,8 +762,8 @@ ApplicationWindow {
             }
             CompactIconButton {
                 id: settingsButton
-                Layout.preferredWidth: 48
-                Layout.preferredHeight: 48
+                Layout.preferredWidth: topAppBar.controlExtent
+                Layout.preferredHeight: topAppBar.controlExtent
                 theme: theme
                 iconName: "more_vert"
                 iconColor: theme.primaryText
@@ -723,14 +780,14 @@ ApplicationWindow {
 
             Item {
                 id: userButton
-                Layout.preferredWidth: 48
-                Layout.preferredHeight: 48
+                Layout.preferredWidth: topAppBar.controlExtent
+                Layout.preferredHeight: topAppBar.controlExtent
                 Rectangle {
                     id: userSurface
                     anchors.centerIn: parent
-                    width: 40
-                    height: 40
-                    radius: 20
+                    width: topAppBar.controlSurfaceExtent
+                    height: topAppBar.controlSurfaceExtent
+                    radius: width / 2
                     color: userMouse.pressed ? theme.selected
                         : userMouse.containsMouse ? theme.rowHover : theme.panel
                     border.width: 1
@@ -745,14 +802,14 @@ ApplicationWindow {
                         source: userController.avatarUrl
                         fallbackIcon: "person"
                         fallbackText: userController.initials
-                        previewSize: 38
+                        previewSize: topAppBar.controlSurfaceExtent - 2
                         round: true
-                        cornerRadius: 19
+                        cornerRadius: previewSize / 2
                         accent: theme.action
                     }
                     MaterialRipple {
                         id: userRipple
-                        shapeRadius: 20
+                        shapeRadius: userSurface.radius
                         color: theme.rippleStrong
                     }
                 }
@@ -778,7 +835,7 @@ ApplicationWindow {
                             ? "99+" : String(messagesController.unreadCount)
                         color: theme.selectedText
                         font.family: theme.fontFamily
-                        font.pixelSize: 8
+                        font.pointSize: Typography.caption
                         font.weight: Font.Bold
                     }
                 }
@@ -851,6 +908,8 @@ ApplicationWindow {
             id: drawer
             model: navigationModel
             theme: theme
+            sidebarEditingAvailable: userController.canManageUsers
+            onEditSidebarRequested: appController.invoke("show_sidebar_editor")
             onSelected: (key, title, command) => {
                 appController.select_navigation(key, title, command)
                 drawer.close()
@@ -932,15 +991,18 @@ ApplicationWindow {
     }
     Item {
         id: startupLoadingOverlay
-        anchors.fill: parent
-        anchors.topMargin: topAppBar.height
+        anchors.top: topAppBar.bottom
+        anchors.horizontalCenter: parent.horizontalCenter
+        anchors.topMargin: 10
+        width: Math.min(Math.max(0, parent.width - 32), 520)
+        height: 48
         z: 900
         visible: opacity > 0
         opacity: appController.server_state === "connecting" ? 1 : 0
 
         Behavior on opacity {
             NumberAnimation {
-                duration: 200
+                duration: 160
                 easing.type: appController.server_state === "connecting"
                     ? Easing.InSine : Easing.OutSine
             }
@@ -948,58 +1010,36 @@ ApplicationWindow {
 
         Rectangle {
             anchors.fill: parent
-            color: theme.workspace
-            opacity: theme.dark ? 0.92 : 0.88
+            radius: 14
+            color: theme.surfaceContainerHigh
+            border.width: 1
+            border.color: theme.outline
         }
 
-        ColumnLayout {
-            anchors.centerIn: parent
-            spacing: 14
+        RowLayout {
+            anchors.fill: parent
+            anchors.leftMargin: 14
+            anchors.rightMargin: 16
+            spacing: 10
 
-            Item {
-                Layout.alignment: Qt.AlignHCenter
-                Layout.preferredWidth: 80
-                Layout.preferredHeight: 80
-
-                Rectangle {
-                    anchors.fill: parent
-                    radius: width / 2
-                    color: theme.panelRaised
-                    border.width: 1
-                    border.color: theme.outline
-                }
-                Md3BusyIndicator {
-                    uiTheme: theme
-                    anchors.centerIn: parent
-                    width: 56
-                    height: 56
-                    running: startupLoadingOverlay.opacity > 0
-                }
+            Md3BusyIndicator {
+                uiTheme: theme
+                Layout.preferredWidth: 26
+                Layout.preferredHeight: 26
+                running: startupLoadingOverlay.opacity > 0
             }
-
             Label {
-                Layout.alignment: Qt.AlignHCenter
-                text: qsTr("Loading TACTIC-Handler")
+                Layout.fillWidth: true
+                text: appController.loading_message
+                    || qsTr("Refreshing TACTIC workspace")
                 color: theme.primaryText
                 font.family: theme.fontFamily
-                font.pixelSize: 15
-                font.weight: Font.DemiBold
+                font.pointSize: Typography.body
+                elide: Text.ElideRight
+                maximumLineCount: 1
             }
-            Label {
-                Layout.alignment: Qt.AlignHCenter
-                text: appController.loading_message
-                color: theme.secondaryText
-                font.family: theme.fontFamily
-                font.pixelSize: 11
-            }
-        }
-
-        MouseArea {
-            anchors.fill: parent
-            acceptedButtons: Qt.AllButtons
         }
     }
-
     Rectangle {
         id: accessGate
         anchors.fill: parent
@@ -1050,7 +1090,7 @@ ApplicationWindow {
                         || qsTr("Generate a ticket to open the workspace.")
                 color: theme.secondaryText
                 font.family: theme.fontFamily
-                font.pixelSize: 11
+                font.pointSize: Typography.bodyLarge
                 wrapMode: Text.WordWrap
             }
             ColumnLayout {
@@ -1062,7 +1102,7 @@ ApplicationWindow {
                     text: qsTr("TACTIC server preset")
                     color: theme.secondaryText
                     font.family: theme.fontFamily
-                    font.pixelSize: 9
+                    font.pointSize: Typography.label
                     font.weight: Font.DemiBold
                 }
                 Md3ComboBox {

@@ -43,11 +43,12 @@ class RepositoryEditorController(QObject):
         self.model = RecordListModel((
             "alias", "title", "code", "windowsPath", "linuxPath", "active",
             "isDefault", "defaultEligible", "status", "statusText",
-            "projectMapping", "selected",
+            "projectMapping", "selected", "custom", "color",
         ))
         self._checkin_controller = checkin_controller
         self._workspace_state = workspace_state
         self._original = {}
+        self._original_records = []
         self._busy = False
         self._message = ""
         self._worker = None
@@ -87,6 +88,7 @@ class RepositoryEditorController(QObject):
                 for key in (
                     "alias", "title", "windowsPath", "linuxPath", "active",
                     "isDefault",
+                    "code", "custom", "color",
                 )
             }
             for record in self.model._records
@@ -142,11 +144,31 @@ class RepositoryEditorController(QObject):
         base_dirs = copy.deepcopy(
             env_tactic.base_dirs or _empty_base_dirs()
         )
+        custom_dirs = copy.deepcopy(env_tactic.get_custom_dirs() or {})
+        windows_custom = custom_dirs.get("win32_custom_asset_dir") or {}
+        linux_custom = custom_dirs.get("linux_custom_asset_dir") or {}
         active = []
-        for alias, _win_key, _linux_key in _REPOSITORIES[:4]:
-            value = (env_tactic.get_base_dir(alias, base_dirs) or {}).get("value") or []
-            if len(value) > 4 and value[4]:
+        for alias, win_key, linux_key in _REPOSITORIES[:4]:
+            current = self._value(
+                base_dirs, win_key if os.name == "nt" else linux_key
+            )
+            if current[4]:
                 active.append(alias)
+        current_custom = windows_custom if os.name == "nt" else linux_custom
+        if current_custom.get("enabled"):
+            custom_paths = list(current_custom.get("path") or [])
+            custom_visible = list(current_custom.get("visible") or [])
+            custom_current = list(
+                current_custom.get("current") or range(len(custom_paths))
+            )
+            active.extend(
+                f"custom_{index}" for index in custom_current
+                if 0 <= index < len(custom_paths)
+                and (
+                    index >= len(custom_visible)
+                    or bool(custom_visible[index])
+                )
+            )
         try:
             default_index = int(gf.get_value_from_config(
                 cfg_controls.get_checkin() or {}, "repositoryComboBox"
@@ -173,19 +195,109 @@ class RepositoryEditorController(QObject):
                 "statusText": "Not checked",
                 "projectMapping": self._project_mapping(str(current[3] or alias)),
                 "selected": row == 0,
+                "custom": False,
+                "color": current[2] if len(current) > 2 else "",
+            })
+        custom_count = max(
+            len(windows_custom.get("path") or []),
+            len(linux_custom.get("path") or []),
+            len(windows_custom.get("name") or []),
+            len(linux_custom.get("name") or []),
+        )
+        for index in range(custom_count):
+            win_paths = list(windows_custom.get("path") or [])
+            linux_paths = list(linux_custom.get("path") or [])
+            names = list(
+                windows_custom.get("name")
+                or linux_custom.get("name") or []
+            )
+            visible = list(
+                (windows_custom if os.name == "nt" else linux_custom).get(
+                    "visible"
+                ) or []
+            )
+            colors = list(
+                (windows_custom if os.name == "nt" else linux_custom).get(
+                    "color"
+                ) or []
+            )
+            alias = f"custom_{index}"
+            enabled = bool(
+                (windows_custom if os.name == "nt" else linux_custom).get(
+                    "enabled"
+                )
+            ) and (index >= len(visible) or bool(visible[index]))
+            records.append({
+                "alias": alias,
+                "title": str(names[index] if index < len(names) else alias),
+                "code": alias,
+                "windowsPath": str(
+                    win_paths[index] if index < len(win_paths) else ""
+                ),
+                "linuxPath": str(
+                    linux_paths[index] if index < len(linux_paths) else ""
+                ),
+                "active": enabled,
+                "isDefault": alias == default_alias,
+                "defaultEligible": True,
+                "status": "unchecked",
+                "statusText": "Not checked",
+                "projectMapping": self._project_mapping(alias),
+                "selected": False,
+                "custom": True,
+                "color": colors[index] if index < len(colors) else "",
             })
         self.model.replace(records)
         self._original = self._snapshot()
+        self._original_records = copy.deepcopy(records)
         self._set_message("")
         self.dirtyChanged.emit()
 
     @Slot()
     def cancel(self):
-        if self._original:
-            for row, values in enumerate(self._original):
-                self.model._records[row].update(values)
-            self.model.replace(self.model._records)
+        if self._original_records:
+            self.model.replace(copy.deepcopy(self._original_records))
         self._set_message("")
+        self.dirtyChanged.emit()
+
+    @Slot()
+    def add_custom_repository(self):
+        custom_count = sum(
+            1 for record in self.model._records if record.get("custom")
+        )
+        index = custom_count
+        used = {record.get("alias") for record in self.model._records}
+        while f"custom_{index}" in used:
+            index += 1
+        records = list(self.model._records)
+        records.append({
+            "alias": f"custom_{index}",
+            "title": "Custom repository",
+            "code": f"custom_{index}",
+            "windowsPath": "",
+            "linuxPath": "",
+            "active": False,
+            "isDefault": False,
+            "defaultEligible": True,
+            "status": "unchecked",
+            "statusText": "Not checked",
+            "projectMapping": self._project_mapping(f"custom_{index}"),
+            "selected": False,
+            "custom": True,
+            "color": "",
+        })
+        self.model.replace(records)
+        self.dirtyChanged.emit()
+
+    @Slot(int)
+    def remove_custom_repository(self, row):
+        if not 0 <= row < len(self.model._records):
+            return
+        if not self.model._records[row].get("custom"):
+            return
+        records = list(self.model._records)
+        records.pop(row)
+        self.model.replace(records)
         self.dirtyChanged.emit()
 
     @staticmethod
@@ -289,9 +401,12 @@ class RepositoryEditorController(QObject):
         base_dirs = copy.deepcopy(
             env_tactic.base_dirs or _empty_base_dirs()
         )
-        for record, (_alias, win_key, linux_key) in zip(
-            self.model._records, _REPOSITORIES
-        ):
+        fixed_records = {
+            record["alias"]: record for record in self.model._records
+            if not record.get("custom")
+        }
+        for alias, win_key, linux_key in _REPOSITORIES:
+            record = fixed_records[alias]
             if win_key == linux_key:
                 value = self._value(base_dirs, win_key)
                 value[0] = str(record.get(current_role) or "")
@@ -310,9 +425,28 @@ class RepositoryEditorController(QObject):
         env_tactic.base_dirs = base_dirs
         env_tactic.save_base_dirs()
 
+        custom_records = [
+            record for record in self.model._records if record.get("custom")
+        ]
+        custom_dirs = {}
+        for key, role in (
+            ("win32_custom_asset_dir", "windowsPath"),
+            ("linux_custom_asset_dir", "linuxPath"),
+        ):
+            custom_dirs[key] = {
+                "path": [str(record.get(role) or "") for record in custom_records],
+                "name": [str(record.get("title") or "") for record in custom_records],
+                "current": list(range(len(custom_records))),
+                "visible": [bool(record.get("active")) for record in custom_records],
+                "color": [record.get("color") or "" for record in custom_records],
+                "enabled": any(record.get("active") for record in custom_records),
+            }
+        env_tactic.custom_dirs = custom_dirs
+        env_tactic.save_custom_dirs()
+
         default_records = [
-            record for record in self.model._records[:4]
-            if record.get("active")
+            record for record in self.model._records
+            if record.get("active") and record.get("defaultEligible")
         ]
         default_index = 0
         for index, record in enumerate(default_records):
@@ -323,6 +457,7 @@ class RepositoryEditorController(QObject):
         if self._checkin_controller:
             self._checkin_controller.reload_repository_configuration()
         self._original = self._snapshot()
+        self._original_records = copy.deepcopy(self.model._records)
         self._set_message("Repository settings saved.")
         self.dirtyChanged.emit()
         self.saved.emit()

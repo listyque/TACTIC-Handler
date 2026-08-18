@@ -50,6 +50,11 @@ class FloatingWindowModel(QAbstractListModel):
     ContentSourceRole = Qt.UserRole + 12
     ContentPropertiesRole = Qt.UserRole + 13
     _settings_key = "workspace/floatingWindowsV1"
+    # These editors are valid only for an explicitly prepared item/relation.
+    # Restore their geometry, but never restore them open with stale context.
+    _context_required_windows = frozenset({
+        "link_sobjects", "watch_folder_editor",
+    })
 
     _configuration_pages = frozenset({
         "server", "project", "checkin_preferences",
@@ -60,7 +65,8 @@ class FloatingWindowModel(QAbstractListModel):
         "configuration": "ConfigurationView.qml",
         "asset_browser": "AssetsBrowserView.qml",
         "sobject_info": "SObjectInfoView.qml",
-        "filter_editor": "FilterEditorView.qml",
+        "process_filter_editor": "ProcessFilterEditorView.qml",
+        "advanced_search": "AdvancedSearchView.qml",
         "columns_editor": "ColumnsEditorView.qml",
         "naming_editor": "NamingEditorView.qml",
         "preview_editor": "FilePreparationEditor.qml",
@@ -71,11 +77,13 @@ class FloatingWindowModel(QAbstractListModel):
         "script_editor": "ScriptEditorView.qml",
         "debug_log": "DebugLogView.qml",
         "repository_sync": "RepositorySyncView.qml",
+        "repository_sync_editor": "RepositorySyncEditorView.qml",
         "commit_queue": "CommitQueueView.qml",
         "messages": "MessagesView.qml",
         "notifications": "NotificationsView.qml",
         "activity_feed": "ActivityFeedView.qml",
         "user_profile": "UserProfileView.qml",
+        "sidebar_editor": "SidebarEditorView.qml",
         "tasks_workspace": "TasksWorkspaceView.qml",
         "milestone_manager": "MilestoneManagerView.qml",
         "update": "UpdateView.qml",
@@ -87,6 +95,8 @@ class FloatingWindowModel(QAbstractListModel):
         "add_sobject": "SObjectFieldEditor.qml",
         "task_editor": "SObjectFieldEditor.qml",
         "link_sobjects": "LinkSObjectsView.qml",
+        "watch_folders": "WatchFoldersView.qml",
+        "watch_folder_editor": "WatchFolderEditorView.qml",
         "confirm": "ConfirmationWindow.qml",
     }
 
@@ -107,8 +117,9 @@ class FloatingWindowModel(QAbstractListModel):
             FloatingWindow("global_preferences", "Global Settings", "global_preferences", .26, .20, .48, .48),
             FloatingWindow("maya_preferences", "Maya Scene Settings", "maya_preferences", .27, .20, .46, .45),
             FloatingWindow("asset_browser", "Assets Browser", "asset_browser", .12, .10, .72, .72),
-            FloatingWindow("sobject_info", "SObject Info", "sobject_info", .24, .16, .52, .62),
-            FloatingWindow("filter_editor", "Filter Presets", "filter_editor", .27, .20, .46, .48),
+            FloatingWindow("sobject_info", "SObject Report", "sobject_info", .12, .09, .76, .80),
+            FloatingWindow("process_filter_editor", "Filter Processes", "process_filter_editor", .25, .16, .50, .64, blocking=True),
+            FloatingWindow("sidebar_advanced_search", "Advanced Search", "advanced_search", .18, .12, .64, .70, blocking=True),
             FloatingWindow("columns_editor", "Columns Editor", "columns_editor", .26, .16, .48, .58),
             FloatingWindow("preview_editor", "Preview Editor", "preview_editor", .24, .14, .52, .64),
             FloatingWindow("attachments_editor", "Attachments", "attachments_editor", .24, .14, .52, .64),
@@ -118,11 +129,14 @@ class FloatingWindowModel(QAbstractListModel):
             FloatingWindow("script_editor", "Script Editor", "script_editor", .14, .10, .72, .74),
             FloatingWindow("debug_log", "Debug Log", "debug_log", .18, .13, .64, .68),
             FloatingWindow("repository_sync", "Repository Sync Queue", "repository_sync", .18, .13, .64, .68),
+            FloatingWindow("repository_sync_editor", "Repository Sync", "repository_sync_editor", .10, .08, .80, .82, blocking=True),
             FloatingWindow("commit_queue", "Commit Queue", "commit_queue", .18, .13, .64, .68),
             FloatingWindow("messages", "Messages", "messages", .16, .12, .68, .70),
             FloatingWindow("notifications", "Notifications", "notifications", .22, .15, .56, .64),
             FloatingWindow("activity_feed", "Activity Feed", "activity_feed", .18, .12, .64, .70),
             FloatingWindow("user_profile", "User Profile", "user_profile", .18, .12, .64, .72),
+            FloatingWindow("users", "Users", "user_profile", .12, .08, .76, .82),
+            FloatingWindow("sidebar_editor", "Sidebar Editor", "sidebar_editor", .10, .08, .80, .82, blocking=True),
             FloatingWindow("update", "Update", "update", .30, .24, .40, .42),
             FloatingWindow("create_update", "Create Update", "create_update", .28, .21, .44, .50),
             FloatingWindow("repository_editor", "Repository Editor", "repository_editor", .18, .12, .64, .70),
@@ -135,6 +149,8 @@ class FloatingWindowModel(QAbstractListModel):
             FloatingWindow("task_editor", "Task Editor", "task_editor", .23, .16, .54, .64, blocking=True),
             FloatingWindow("milestone_manager", "Project Milestones", "milestone_manager", .24, .16, .52, .62),
             FloatingWindow("link_sobjects", "Link SObjects", "link_sobjects", .22, .16, .56, .64),
+            FloatingWindow("watch_folders", "Watch Folders", "watch_folders", .16, .13, .68, .70, blocking=True),
+            FloatingWindow("watch_folder_editor", "Watch Folder", "watch_folder_editor", .25, .20, .50, .50, blocking=True),
             FloatingWindow("delete_sobject", "Delete SObject", "confirm", .33, .30, .34, .30),
             FloatingWindow("duplicate_sobject", "Duplicate SObject", "confirm", .33, .30, .34, .30),
         ]
@@ -159,6 +175,11 @@ class FloatingWindowModel(QAbstractListModel):
                     title=default.title,
                     kind=default.kind,
                     blocking=default.blocking,
+                    visible=(
+                        False
+                        if default.window_id in self._context_required_windows
+                        else saved.visible
+                    ),
                 )
             result.append(saved or default)
         return result
@@ -188,7 +209,10 @@ class FloatingWindowModel(QAbstractListModel):
             return {"windowId": window.window_id}
         if window.kind in FloatingWindowModel._configuration_pages:
             return {"pageId": window.kind}
-        if window.kind in {"filter_editor", "matching_templates", "repository_editor"}:
+        if window.kind in {
+            "process_filter_editor", "matching_templates",
+            "repository_editor", "repository_sync_editor",
+        }:
             return {"windowId": window.window_id}
         if window.kind in {"preview_editor", "attachments_editor"}:
             return {"editorMode": window.kind}

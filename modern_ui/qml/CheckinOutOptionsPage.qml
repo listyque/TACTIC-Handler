@@ -171,7 +171,7 @@ Item {
                                 Layout.fillWidth: true
                                 text: projectRow.modelData.title
                                 color: root.theme.primaryText
-                                font.pixelSize: 10
+                                font.pointSize: Typography.body
                                 font.weight: Font.DemiBold
                                 elide: Text.ElideRight
                             }
@@ -179,7 +179,7 @@ Item {
                                 Layout.fillWidth: true
                                 text: projectRow.modelData.code
                                 color: root.theme.secondaryText
-                                font.pixelSize: 9
+                                font.pointSize: Typography.label
                                 elide: Text.ElideRight
                             }
                         }
@@ -274,7 +274,7 @@ Item {
                                         Layout.preferredWidth: 120
                                         text: tabRow.modelData.name
                                         color: root.theme.secondaryText
-                                        font.pixelSize: 9
+                                        font.pointSize: Typography.label
                                         elide: Text.ElideRight
                                     }
                                     Md3TextField {
@@ -360,7 +360,7 @@ Item {
                             && root.currentProject().searchTypes.length === 0
                         text: qsTr("Search types have not been loaded for this project yet.")
                         color: root.theme.secondaryText
-                        font.pixelSize: 9
+                        font.pointSize: Typography.label
                         wrapMode: Text.WordWrap
                     }
                 }

@@ -349,6 +349,39 @@ class ChatHistoryTests(unittest.TestCase):
         )
         self.assertNotIn("info.get(\"id\")", code)
 
+    def test_chat_delivery_receipts_compile_and_replace_in_progress_status(self):
+        functions = (
+            tq.create_chat_conversation,
+            tq.send_chat_message,
+            tq.forward_chat_messages,
+            tq.query_chat_history,
+            tq.mark_chat_read,
+            tq.query_server_updates,
+        )
+        source = "\n".join(
+            tq.prepare_serverside_script(
+                function, {}, shrink=False, catch_traceback=False,
+            )["code"]
+            for function in functions
+        )
+
+        for function in functions:
+            code = tq.prepare_serverside_script(
+                function, {}, shrink=False, catch_traceback=False,
+            )["code"]
+            compile(
+                "def execute():\n" + textwrap.indent(code, "    "),
+                "<chat-delivery>",
+                "exec",
+            )
+
+        self.assertNotIn("in_progress", source)
+        self.assertIn("status='sent'", source)
+        self.assertIn("'deliveredAt': ''", source)
+        self.assertIn("'readAt': ''", source)
+        self.assertIn("'project_code': 'sthpw'", source)
+        self.assertIn("server.update_multiple(data=receipt_updates, triggers=True)", source)
+
 
 if __name__ == "__main__":
     unittest.main()

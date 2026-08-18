@@ -30,7 +30,27 @@ class RecordsMixin:
             "timesheet": "right",
             "work_reports": "right",
             "cost_reports": "right",
-        }.get(panel_id, "floating")
+            "drop_plate": "center",
+            "advanced_search": "center",
+            "fast_controls": "center",
+            "db_table": "center",
+        }.get(panel_id, "right")
+
+    @staticmethod
+    def _default_stack_target(panel_id: str) -> str:
+        """Return the existing dock whose tab stack owns a new panel."""
+        return {
+            "advanced_search": "results",
+            "fast_controls": "results",
+            "drop_plate": "tasks",
+            "db_table": "tasks",
+            "snapshot": "notes",
+            "description": "notes",
+            "task_calendar": "notes",
+            "timesheet": "notes",
+            "work_reports": "notes",
+            "cost_reports": "notes",
+        }.get(panel_id, "")
 
     @staticmethod
     def _defaults() -> list[DockPanel]:
@@ -44,11 +64,10 @@ class RecordsMixin:
             DockPanel("timesheet", "Timesheet", "timesheet", 0.6600, 0.00, 0.3400, 1.00, False, True, 14, "right"),
             DockPanel("work_reports", "Work Reports", "work_reports", 0.6600, 0.00, 0.3400, 1.00, False, True, 15, "right"),
             DockPanel("cost_reports", "Cost Reports", "cost_reports", 0.6600, 0.00, 0.3400, 1.00, False, True, 16, "right"),
-            DockPanel("drop_plate", "Drop Plate", "drop_plate", 0.20, 0.16, 0.52, 0.56, False, True, 6, "floating"),
-            DockPanel("advanced_search", "Advanced Search", "advanced_search", 0.12, 0.10, 0.42, 0.56, False, True, 7, "floating"),
-            DockPanel("fast_controls", "Fast Controls", "fast_controls", 0.22, 0.06, 0.56, 0.20, False, True, 9, "floating"),
-            DockPanel("watch_folders", "Watch Folders", "watch_folders", 0.18, 0.15, 0.54, 0.58, False, True, 12, "floating"),
-            DockPanel("db_table", "Database Editor", "db_table", 0.14, 0.10, 0.70, 0.72, False, True, 13, "floating"),
+            DockPanel("drop_plate", "Drop Plate", "drop_plate", 0.2244, 0.00, 0.4356, 1.00, False, True, 6, "center"),
+            DockPanel("advanced_search", "Advanced Search", "advanced_search", 0.0000, 0.00, 0.2244, 1.00, False, True, 7, "center"),
+            DockPanel("fast_controls", "Fast Controls", "fast_controls", 0.0000, 0.00, 0.2244, 1.00, False, True, 9, "center"),
+            DockPanel("db_table", "Database Editor", "db_table", 0.2244, 0.00, 0.4356, 1.00, False, True, 13, "center"),
         ]
 
     def _decode_panels(self, values) -> list[DockPanel] | None:
@@ -76,6 +95,15 @@ class RecordsMixin:
             previous_area = value.get("previous_dock_area")
             if not isinstance(previous_area, str):
                 previous_area = default.previous_dock_area
+            if (
+                dock_area == "floating"
+                and default.dock_area != "floating"
+                and not previous_area
+            ):
+                # Older layouts stored unopened utility docks as floating.
+                # They were not a deliberate user placement, so migrate them
+                # to the current dock-first default.
+                dock_area = default.dock_area
 
             def number(name: str, fallback: float) -> float:
                 try:

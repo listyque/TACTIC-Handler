@@ -54,12 +54,15 @@ Item {
                 focusPolicy: Qt.TabFocus
 
                 contentItem: Item {
+                    clip: true
+
                     Row {
                         id: segmentContent
                         anchors.centerIn: parent
                         spacing: 6
 
                         MaterialIcon {
+                            id: segmentIcon
                             visible: String(segment.modelData.icon || "").length > 0
                             name: String(segment.modelData.icon || "")
                             size: 15
@@ -74,13 +77,27 @@ Item {
                             text: segment.modelData.translate === false
                                 ? String(segment.modelData.label || "")
                                 : qsTr(String(segment.modelData.label || ""))
+                            width: Math.min(
+                                implicitWidth,
+                                Math.max(
+                                    0,
+                                    segment.width
+                                        - (segmentIcon.visible
+                                            ? segmentIcon.width
+                                                + parent.spacing
+                                            : 0)
+                                        - 16
+                                )
+                            )
+                            elide: Text.ElideRight
+                            maximumLineCount: 1
                             color: !segment.enabled
                                 ? root.theme.disabledText
                                 : segment.selected
                                     ? root.theme.selectedText
                                     : root.theme.primaryText
                             font.family: root.theme.fontFamily
-                            font.pixelSize: 10
+                            font.pointSize: Typography.body
                             font.weight: segment.selected
                                 ? Font.DemiBold : Font.Medium
                             anchors.verticalCenter: parent.verticalCenter

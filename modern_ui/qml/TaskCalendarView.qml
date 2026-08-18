@@ -83,7 +83,7 @@ Item {
                     horizontalAlignment: Text.AlignHCenter
                     verticalAlignment: Text.AlignVCenter
                     font.family: root.theme.fontFamily
-                    font.pixelSize: 8
+                    font.pointSize: Typography.caption
                     font.weight: Font.DemiBold
                 }
             }
@@ -175,7 +175,7 @@ Item {
                         horizontalAlignment: Text.AlignHCenter
                         verticalAlignment: Text.AlignVCenter
                         font.family: root.theme.fontFamily
-                        font.pixelSize: 9
+                        font.pointSize: Typography.label
                         font.weight: dayCell.today ? Font.DemiBold : Font.Normal
                     }
 
@@ -210,7 +210,7 @@ Item {
                                 text: dayCell.firstMilestone.label
                                 color: root.theme.primaryText
                                 font.family: root.theme.fontFamily
-                                font.pixelSize: 8
+                                font.pointSize: Typography.caption
                                 font.weight: Font.DemiBold
                                 elide: Text.ElideRight
                             }
@@ -219,7 +219,7 @@ Item {
                                     ? dayCell.firstMilestone.completion + "%" : ""
                                 color: root.theme.tertiary
                                 font.family: root.theme.fontFamily
-                                font.pixelSize: 8
+                                font.pointSize: Typography.caption
                                 font.weight: Font.Bold
                             }
                         }
@@ -244,7 +244,7 @@ Item {
                         color: dayCell.overdueCount > 0
                             ? root.theme.error : root.theme.secondaryText
                         font.family: root.theme.fontFamily
-                        font.pixelSize: 8
+                        font.pointSize: Typography.caption
                         font.weight: Font.DemiBold
                     }
 
@@ -295,7 +295,7 @@ Item {
                                             + " · " + taskMarker.task.processLabel
                                         color: root.theme.primaryText
                                         font.family: root.theme.fontFamily
-                                        font.pixelSize: 8
+                                        font.pointSize: Typography.caption
                                         elide: Text.ElideRight
                                     }
                                 }
@@ -334,7 +334,7 @@ Item {
                             color: root.theme.secondaryText
                             horizontalAlignment: Text.AlignRight
                             font.family: root.theme.fontFamily
-                            font.pixelSize: 8
+                            font.pointSize: Typography.caption
                         }
                     }
 
@@ -383,7 +383,7 @@ Item {
                     : qsTr("Select a day to filter Task Browser")
                 color: root.theme.secondaryText
                 font.family: root.theme.fontFamily
-                font.pixelSize: 8
+                font.pointSize: Typography.caption
                 elide: Text.ElideRight
             }
         }

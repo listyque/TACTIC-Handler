@@ -10,7 +10,6 @@ starts check-in, update, DCC, script, or service operations.
 |---|---|---|---|---|
 | **Core** |||||
 | Configuration | `ConfigurationView.qml` | `ConfigurationController` | singleton window | Available |
-| Filter Editor | `FilterEditorView.qml` | `FilterEditorController` | singleton window | Available |
 | Check-in / Check-out | `CheckinOutView.qml` | `CheckinOutController` | singleton dock | Available; operations are destructive |
 | Commit Queue | `CommitQueueView.qml` | `CommitQueueController` | singleton dock | Available; commit is destructive |
 | Drop Plate | `DropPlateView.qml` | `DropPlateController` | singleton dock | Available |
@@ -27,7 +26,7 @@ starts check-in, update, DCC, script, or service operations.
 | Messages | `MessagesView.qml` | `MessagesController` | singleton window | Experimental: existing TACTIC chat subscriptions |
 | **User and Communication** |||||
 | User Profile | `UserProfileView.qml` | `UserController` | singleton window | Available |
-| Users | `UserProfileView.qml` | `UserController` | alias of singleton `user_profile` | Available |
+| Users | `UserProfileView.qml` | `UserController` | singleton `users`; geometry is independent from `user_profile` | Available |
 | Notifications | `NotificationsView.qml` | `NotificationController` | singleton window plus global overlay | Current-client session history |
 | Activity Feed | `ActivityFeedView.qml` | `ActivityFeedController` | singleton window | Experimental; server-dependent |
 | Chat / Messages | `MessagesView.qml` | `MessagesController` | alias of singleton `messages` | Experimental |

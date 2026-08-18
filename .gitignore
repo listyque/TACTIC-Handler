@@ -73,3 +73,5 @@ custom_scripts/
 *.part
 *.tmp
 *.bak
+# Local release acceptance evidence.
+.release/

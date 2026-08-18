@@ -11,6 +11,7 @@
         "modern_ui",
         "handler_server",
         "tactic_handler_dcc",
+        "tests",
         "main_qml.py",
         "main_standalone.py",
         "launch.py",
@@ -41,6 +42,12 @@
       "required": true
     },
     {
+      "id": "live-server-procedures",
+      "label": "Read-only generated server procedures execute on the supported TACTIC server Python runtime",
+      "environment": "isolated-tactic-project",
+      "required": true
+    },
+    {
       "id": "live-mutations",
       "label": "Add, edit and link sObjects; tasks, notes, messages, users, milestones and work hours with real permissions and triggers",
       "environment": "isolated-tactic-project",
@@ -56,6 +63,12 @@
       "id": "windows-lifecycle",
       "label": "Windows tray restore, close during active background work, restart and persisted geometry on supported displays",
       "environment": "windows-desktop",
+      "required": true
+    },
+    {
+      "id": "clean-environment-install",
+      "label": "Pinned dependencies install and both standalone entry points pass from a clean Python environment",
+      "environment": "clean-windows-python",
       "required": true
     },
     {

@@ -28,7 +28,7 @@ Item {
         text: qsTr("Cost reports require financial reporting permission.")
         color: root.theme.secondaryText
         font.family: root.theme.fontFamily
-        font.pixelSize: 10
+        font.pointSize: Typography.body
         horizontalAlignment: Text.AlignHCenter
         wrapMode: Text.WordWrap
     }

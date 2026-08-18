@@ -1,4 +1,5 @@
 import unittest
+from pathlib import Path
 from unittest.mock import patch
 
 from modern_ui.workspace_models.results import WorkspaceItemModel
@@ -71,6 +72,36 @@ class _Node:
 
 
 class SnapshotBrowserModelTests(unittest.TestCase):
+    def test_snapshot_card_renders_resolved_web_preview(self):
+        qml_path = (
+            Path(__file__).resolve().parents[1]
+            / "modern_ui"
+            / "qml"
+            / "WorkspaceCard.qml"
+        )
+        source = qml_path.read_text(encoding="utf-8")
+        snapshot_component = source.split(
+            "id: snapshotPreviewComponent", 1,
+        )[1].split("id: processPreviewComponent", 1)[0]
+
+        self.assertIn("source: root.cardPreviewUrl", snapshot_component)
+        self.assertIn("fallbackText: root.snapshotExtension", snapshot_component)
+
+    def test_card_preview_prefers_native_web_derivative(self):
+        icon_file = _File("ICON", "file:///icon.png")
+        web_file = _File("WEB", "file:///web.png")
+        icon_file.get_web_preview = lambda: web_file
+        snapshot = _Snapshot("SNAPSHOT00001", icon_file)
+        snapshot.get_files_objects = lambda group_by=None: {
+            "icon": [icon_file],
+        } if group_by == "type" else [icon_file]
+
+        regular = WorkspaceItemModel._snapshot_preview_candidates(snapshot)
+        card = WorkspaceItemModel._snapshot_card_preview_candidates(snapshot)
+
+        self.assertIs(regular[0], icon_file)
+        self.assertIs(card[0], web_file)
+
     def test_duplicate_snapshot_and_file_codes_are_ignored(self):
         state = WorkspaceState()
         file_object = _File("FILE00001")

@@ -82,7 +82,7 @@ Item {
                     : qsTr("Drag over the area to capture")
                 color: root.theme.primaryText
                 font.family: root.theme.fontFamily
-                font.pixelSize: 11
+                font.pointSize: Typography.bodyLarge
                 font.weight: Font.DemiBold
             }
         }

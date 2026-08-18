@@ -8,7 +8,7 @@ Basic.TabButton {
 
     implicitHeight: theme.controlHeight
     font.family: theme.fontFamily
-    font.pixelSize: 10
+    font.pointSize: Typography.body
     font.weight: checked ? Font.DemiBold : Font.Normal
 
     contentItem: Basic.Label {

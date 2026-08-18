@@ -57,7 +57,7 @@ Item {
             text: root.count
             color: root.theme.primaryText
             font.family: root.theme.fontFamily
-            font.pixelSize: 10
+            font.pointSize: Typography.body
             font.weight: Font.DemiBold
         }
     }

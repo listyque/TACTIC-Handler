@@ -10,6 +10,7 @@ Item {
     property string toolTip: ""
     property bool toolTipsAllowed: true
     property color activeColor: theme.action
+    property color badgeColor: activeColor
     signal clicked()
 
     implicitWidth: 30
@@ -42,12 +43,14 @@ Item {
         visible: root.count > 0
         anchors.right: parent.right
         anchors.top: parent.top
-        anchors.rightMargin: -1
-        anchors.topMargin: -1
-        implicitWidth: Math.max(12, countLabel.implicitWidth + 4)
-        implicitHeight: 12
-        radius: 6
-        color: root.activeColor
+        anchors.rightMargin: -3
+        anchors.topMargin: -3
+        implicitWidth: Math.max(17, countLabel.implicitWidth + 7)
+        implicitHeight: 17
+        radius: height / 2
+        color: root.badgeColor
+        border.width: 1
+        border.color: root.theme.panelRaised
 
         Label {
             id: countLabel
@@ -55,7 +58,7 @@ Item {
             text: root.count > 99 ? "99+" : String(root.count)
             color: root.theme.selectedText
             font.family: root.theme.fontFamily
-            font.pixelSize: 7
+            font.pointSize: Typography.label
             font.weight: Font.Bold
         }
     }

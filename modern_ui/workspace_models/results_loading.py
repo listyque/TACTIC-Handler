@@ -10,6 +10,7 @@ from pathlib import Path
 
 from PySide6.QtCore import QModelIndex, QSettings, Qt, QUrl, Slot
 
+from ..sobject_link import configured_instance_relation
 from .results_types import WorkspaceNode
 
 
@@ -379,6 +380,9 @@ class LoadingMixin:
                     depth=node.depth + 1,
                     parent_id=node.node_id,
                     relationship=str(relation.get("relationship") or ""),
+                    linkable_relation=bool(
+                        configured_instance_relation(relation, child_stype)
+                    ),
                     has_children=True,
                     source=sobject,
                     relation={"definition": relation, "stype": child_stype},
@@ -432,6 +436,10 @@ class LoadingMixin:
                 stype_counts = counts.get("stypes") or {}
                 for item in relation_nodes:
                     item.child_count = int(stype_counts.get(item.code) or 0)
+                    # The batched count is authoritative.  Do not leave an
+                    # expansion affordance on relation rows that are already
+                    # known to be empty.
+                    item.has_children = item.child_count > 0
             except Exception:
                 logger.exception(
                     "Unable to load task and note counts for %s",
@@ -471,6 +479,7 @@ class LoadingMixin:
         node.children = children
         node.loaded = True
         node.child_count = len(children)
+        node.has_children = bool(children)
         if register:
             for child in children:
                 self._register_tree(child)
@@ -489,7 +498,11 @@ class LoadingMixin:
                 child_stype=child_stype,
                 parent_stype=node.source.get_stype(),
                 path="child",
-                get_all_snapshots=False,
+                # Relation rows are immediately rendered as normal sObject
+                # items.  Fetch their snapshot metadata in the same batched
+                # relation query so their native preview API has data when
+                # QML requests the preview for the newly inserted row.
+                get_all_snapshots=True,
             )
             if isinstance(related, tuple):
                 related = related[0]
@@ -530,6 +543,7 @@ class LoadingMixin:
                 progress_items=self._progress_items(sobject, child_stype),
                 has_children=True,
                 source=sobject,
+                preview_source=sobject,
                 chips=self._build_info_chips(child_stype, info),
             )
             node.children.append(child)
@@ -538,4 +552,5 @@ class LoadingMixin:
             for child in node.children:
                 self._register_tree(child)
         node.child_count = len(node.children)
+        node.has_children = bool(node.children)
         node.loaded = True

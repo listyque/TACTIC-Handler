@@ -328,7 +328,7 @@ class SnapshotStateMixin:
     ) -> None:
         role_ids = [
             self.snapshot_file_model._role_ids[name]
-            for name in ("exists", "checking", "matchesRemote", "title")
+            for name in ("exists", "checking", "matchesRemote")
         ]
         for row, record in enumerate(self.snapshot_file_model._records):
             if record.get("token") != token:
@@ -336,12 +336,7 @@ class SnapshotStateMixin:
             record["exists"] = bool(exists)
             record["checking"] = False
             record["matchesRemote"] = bool(matches_remote)
-            title = str(record.get("title") or "")
-            suffix = " (File Offline)"
-            if not exists and not title.endswith(suffix):
-                record["title"] = title + suffix
-            elif exists and title.endswith(suffix):
-                record["title"] = title[:-len(suffix)]
+
             index = self.snapshot_file_model.index(row, 0)
             self.snapshot_file_model.dataChanged.emit(
                 index,

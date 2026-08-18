@@ -13,9 +13,15 @@ Item {
     property real cornerRadius: round ? width / 2 : 4
     property bool outlined: false
     property bool selected: false
+    property color selectedBorderColor: theme.selectedText
     property real previewSize: 58
     property int fillMode: Image.PreserveAspectCrop
     property bool animateAppearance: true
+    // Small delegates save memory by decoding to their rendered size.  Large
+    // viewers can disable this so geometry changes only rescale the already
+    // decoded texture instead of re-requesting the same source on every pixel
+    // of a dock resize.
+    property bool decodeAtItemSize: true
     signal appearanceCompleted()
     readonly property bool pending:
         String(root.source).indexOf("pending-preview:") === 0
@@ -38,7 +44,7 @@ Item {
         radius: root.cornerRadius
         color: Qt.darker(root.accent, root.round ? 1.35 : 1.65)
         border.width: root.outlined || sourceImage.status === Image.Ready ? 1 : 0
-        border.color: root.selected ? root.theme.selectedText : root.theme.border
+        border.color: root.selected ? root.selectedBorderColor : root.theme.border
         antialiasing: true
     }
 
@@ -52,8 +58,12 @@ Item {
         cache: true
         smooth: true
         mipmap: true
-        sourceSize.width: Math.max(64, root.width * Screen.devicePixelRatio)
-        sourceSize.height: Math.max(64, root.height * Screen.devicePixelRatio)
+        sourceSize: root.decodeAtItemSize
+            ? Qt.size(
+                Math.max(64, Math.round(root.width * Screen.devicePixelRatio)),
+                Math.max(64, Math.round(root.height * Screen.devicePixelRatio))
+            )
+            : Qt.size(-1, -1)
         onStatusChanged: {
             if (status === Image.Ready && !root.animateAppearance)
                 root.appearanceCompleted()

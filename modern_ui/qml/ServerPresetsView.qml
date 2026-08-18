@@ -24,7 +24,7 @@ Item {
             text: qsTr("Presets store names only. Credentials remain in the existing authentication storage.")
             color: root.theme.secondaryText
             font.family: root.theme.fontFamily
-            font.pixelSize: 10
+            font.pointSize: Typography.body
             wrapMode: Text.WordWrap
         }
         RowLayout {
@@ -74,7 +74,7 @@ Item {
                         text: name
                         color: root.theme.primaryText
                         font.family: root.theme.fontFamily
-                        font.pixelSize: 11
+                        font.pointSize: Typography.bodyLarge
                     }
                     CompactIconButton {
                         theme: root.theme
@@ -91,7 +91,7 @@ Item {
             visible: serverPresetsController.error.length > 0
             text: serverPresetsController.error
             color: root.theme.red
-            font.pixelSize: 9
+            font.pointSize: Typography.label
         }
         RowLayout {
             Layout.fillWidth: true

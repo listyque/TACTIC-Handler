@@ -147,7 +147,7 @@ Rectangle {
                     text: root.kind.replace("_", " ").toUpperCase()
                     color: root.accentColor()
                     font.family: root.theme.fontFamily
-                    font.pixelSize: 8
+                    font.pointSize: Typography.caption
                     font.weight: Font.Bold
                 }
                 Label {
@@ -155,7 +155,7 @@ Rectangle {
                     text: String(root.preview.title || qsTr("TACTIC item"))
                     color: root.theme.primaryText
                     font.family: root.theme.fontFamily
-                    font.pixelSize: 11
+                    font.pointSize: Typography.bodyLarge
                     font.weight: Font.DemiBold
                     elide: Text.ElideRight
                 }
@@ -167,7 +167,7 @@ Rectangle {
                 visible: text.length > 0
                 color: root.theme.secondaryText
                 font.family: root.theme.fontFamily
-                font.pixelSize: 9
+                font.pointSize: Typography.label
                 elide: Text.ElideRight
             }
 
@@ -180,7 +180,7 @@ Rectangle {
                 visible: text.length > 0
                 color: root.failed ? root.theme.error : root.theme.secondaryText
                 font.family: root.theme.fontFamily
-                font.pixelSize: 8
+                font.pointSize: Typography.caption
                 elide: Text.ElideRight
             }
         }
@@ -316,7 +316,7 @@ Rectangle {
                         root.preview.authorColor || root.theme.action
                     )
                     font.family: root.theme.fontFamily
-                    font.pixelSize: 9
+                    font.pointSize: Typography.label
                     font.weight: Font.DemiBold
                     font.underline: messageAuthorMouse.containsMouse
                     elide: Text.ElideRight
@@ -348,7 +348,7 @@ Rectangle {
                                 || root.preview.detail || "")
                     color: root.theme.secondaryText
                     font.family: root.theme.fontFamily
-                    font.pixelSize: 8
+                    font.pointSize: Typography.caption
 
                     MouseArea {
                         id: messageTimeMouse
@@ -412,7 +412,7 @@ Rectangle {
                 )
                 color: String(root.preview.authorColor || root.theme.action)
                 font.family: root.theme.fontFamily
-                font.pixelSize: 9
+                font.pointSize: Typography.label
                 font.weight: Font.DemiBold
                 font.underline: noteAuthorMouse.containsMouse
                 elide: Text.ElideRight
@@ -440,7 +440,7 @@ Rectangle {
                     : String(root.preview.timePretty || root.preview.detail || "")
                 color: root.theme.secondaryText
                 font.family: root.theme.fontFamily
-                font.pixelSize: 8
+                font.pointSize: Typography.caption
 
                 MouseArea {
                     id: noteTimeMouse
@@ -508,7 +508,7 @@ Rectangle {
                             text: String(modelData.title || qsTr("Linked item"))
                             color: root.theme.primaryText
                             font.family: root.theme.fontFamily
-                            font.pixelSize: 9
+                            font.pointSize: Typography.label
                             font.weight: Font.DemiBold
                             elide: Text.ElideRight
                         }
@@ -521,7 +521,7 @@ Rectangle {
                             color: modelData.status === "error"
                                 ? root.theme.error : root.theme.secondaryText
                             font.family: root.theme.fontFamily
-                            font.pixelSize: 8
+                            font.pointSize: Typography.caption
                             elide: Text.ElideRight
                         }
                     }
@@ -554,7 +554,7 @@ Rectangle {
                     : qsTr(" more linked items"))
             color: root.theme.secondaryText
             font.family: root.theme.fontFamily
-            font.pixelSize: 8
+            font.pointSize: Typography.caption
         }
 
         ResponsiveFlow {
@@ -604,7 +604,7 @@ Rectangle {
                     : qsTr(" more attachments"))
             color: root.theme.secondaryText
             font.family: root.theme.fontFamily
-            font.pixelSize: 8
+            font.pointSize: Typography.caption
         }
     }
 

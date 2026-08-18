@@ -1,6 +1,6 @@
 # Vertical workflow stabilization
 
-Block D treats a feature as stable only when its complete user workflow is covered.
+A feature is considered stable only when its complete user workflow is covered.
 The source of truth is `tests/contracts/vertical_workflows.json`; it maps each
 workflow to isolated test modules, real QML components, registered windows, and
 read-only live checks. Every vertical also runs the shared API contracts and the
@@ -19,7 +19,7 @@ python tests/run_vertical_suite.py messages_users_activity
 python tests/run_vertical_suite.py handler_server_dcc
 ```
 
-Run the complete Block D gate:
+Run the complete workflow gate:
 
 ```powershell
 python tests/run_vertical_suite.py all

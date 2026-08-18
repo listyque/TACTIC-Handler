@@ -11,11 +11,18 @@ Item {
     property string toolTip: ""
     property bool round: false
     property bool elevated: false
+    property bool dragHandle: false
+    property real dragThreshold: 6
     property int badgeCount: 0
     property color backgroundColor: elevated
         ? theme.surfaceContainerHigh : "transparent"
     signal pressed()
     signal clicked()
+    signal dragStarted(real pressX, real pressY)
+    signal dragMoved(real pointerX, real pointerY)
+    signal dragFinished()
+    signal dragCanceled()
+    readonly property bool dragActive: mouse.dragging
     implicitWidth: 28
     implicitHeight: 28
 
@@ -62,7 +69,12 @@ Item {
             shapeRadius: buttonBackground.radius
         }
     }
-    MaterialIcon { anchors.centerIn: parent; name: root.iconName; size: root.iconSize; color: root.iconColor }
+    MaterialIcon {
+        anchors.centerIn: parent
+        name: root.iconName
+        size: root.iconSize
+        color: root.enabled ? root.iconColor : root.theme.disabledText
+    }
     Rectangle {
         anchors.right: parent.right
         anchors.top: parent.top
@@ -81,7 +93,7 @@ Item {
             text: root.badgeCount > 99 ? "99+" : String(root.badgeCount)
             color: root.theme.selectedText
             font.family: root.theme.fontFamily
-            font.pixelSize: 8
+            font.pointSize: Typography.caption
             font.weight: Font.Bold
         }
     }
@@ -91,12 +103,52 @@ Item {
         anchors.fill: parent
         hoverEnabled: true
         cursorShape: root.enabled
-            ? Qt.PointingHandCursor : Qt.ArrowCursor
+            ? (root.dragHandle
+                ? (dragging ? Qt.ClosedHandCursor : Qt.OpenHandCursor)
+                : Qt.PointingHandCursor)
+            : Qt.ArrowCursor
+        property bool dragging: false
+        property real pressX: 0
+        property real pressY: 0
         onPressed: mouse => {
             ripple.burst(mouse.x - buttonBackground.x, mouse.y - buttonBackground.y)
+            pressX = mouse.x
+            pressY = mouse.y
+            dragging = false
             root.pressed()
         }
-        onClicked: root.clicked()
+        onPositionChanged: mouse => {
+            if (!root.dragHandle || !pressed)
+                return
+            if (!dragging && Math.hypot(
+                    mouse.x - pressX, mouse.y - pressY
+                ) >= root.dragThreshold) {
+                dragging = true
+                root.dragStarted(pressX, pressY)
+            }
+            if (dragging)
+                root.dragMoved(mouse.x, mouse.y)
+        }
+        onReleased: mouse => {
+            if (!root.dragHandle)
+                return
+            const wasDragging = dragging
+            if (wasDragging)
+                root.dragFinished()
+            dragging = false
+            if (!wasDragging && mouse.x >= 0 && mouse.x <= width
+                    && mouse.y >= 0 && mouse.y <= height)
+                root.clicked()
+        }
+        onCanceled: {
+            if (dragging)
+                root.dragCanceled()
+            dragging = false
+        }
+        onClicked: {
+            if (!root.dragHandle)
+                root.clicked()
+        }
     }
     Md3ToolTip {
         theme: root.theme

@@ -9,7 +9,9 @@ ComboBox {
     property string colorRole: ""
     property bool actionField: false
     property bool showIndicator: !actionField
+    property bool translateDisplayText: true
     property string leadingIcon: ""
+    property string iconRole: ""
     property color leadingIconColor: theme.secondaryText
 
     function optionValue(index, roleName) {
@@ -29,13 +31,17 @@ ComboBox {
     topPadding: 0
     bottomPadding: 0
     font.family: theme.fontFamily
-    font.pixelSize: 10
+    font.pointSize: Typography.body
 
     contentItem: RowLayout {
         spacing: 7
         MaterialIcon {
             visible: control.leadingIcon.length > 0
-            name: control.leadingIcon
+                || (!!control.iconRole
+                    && !!control.optionValue(control.currentIndex, control.iconRole))
+            name: control.leadingIcon.length > 0
+                ? control.leadingIcon
+                : control.optionValue(control.currentIndex, control.iconRole)
             size: control.actionField ? 17 : 15
             color: control.enabled
                 ? control.leadingIconColor : control.theme.disabledText
@@ -43,6 +49,8 @@ ComboBox {
         Rectangle {
             visible: !!control.colorRole
                 && control.leadingIcon.length === 0
+                && (!control.iconRole
+                    || !control.optionValue(control.currentIndex, control.iconRole))
                 && !!control.optionValue(control.currentIndex, control.colorRole)
             Layout.preferredWidth: 9
             Layout.preferredHeight: 9
@@ -51,7 +59,8 @@ ComboBox {
         }
         Label {
             Layout.fillWidth: true
-            text: qsTr(control.displayText)
+            text: control.translateDisplayText
+                ? qsTr(control.displayText) : control.displayText
             color: control.enabled
                 ? control.theme.primaryText : control.theme.disabledText
             font: control.font
@@ -119,8 +128,18 @@ ComboBox {
 
         contentItem: RowLayout {
             spacing: 8
+            MaterialIcon {
+                visible: !!control.iconRole
+                    && !!control.optionValue(option.index, control.iconRole)
+                name: control.optionValue(option.index, control.iconRole)
+                size: 16
+                color: option.highlighted
+                    ? control.theme.action : control.theme.secondaryText
+            }
             Rectangle {
                 visible: !!control.colorRole
+                    && (!control.iconRole
+                        || !control.optionValue(option.index, control.iconRole))
                     && !!control.optionValue(option.index, control.colorRole)
                 Layout.preferredWidth: 9
                 Layout.preferredHeight: 9
@@ -129,7 +148,9 @@ ComboBox {
             }
             Label {
                 Layout.fillWidth: true
-                text: qsTr(control.textAt(option.index))
+                text: control.translateDisplayText
+                    ? qsTr(control.textAt(option.index))
+                    : control.textAt(option.index)
                 color: control.theme.primaryText
                 font: control.font
                 verticalAlignment: Text.AlignVCenter

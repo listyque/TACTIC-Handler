@@ -43,7 +43,7 @@ Item {
                         + handlerServerController.endpoint
                     color: root.theme.secondaryText
                     font.family: root.theme.fontFamily
-                    font.pixelSize: 9
+                    font.pointSize: Typography.label
                 }
             }
             Label {
@@ -51,7 +51,7 @@ Item {
                 color: handlerServerController.state === "running"
                     ? root.theme.green : root.theme.secondaryText
                 font.family: root.theme.fontFamily
-                font.pixelSize: 9
+                font.pointSize: Typography.label
                 font.weight: Font.DemiBold
             }
             Md3Button {
@@ -95,7 +95,7 @@ Item {
                             text: qsTr("CONNECTED CLIENTS")
                             color: root.theme.secondaryText
                             font.family: root.theme.fontFamily
-                            font.pixelSize: 10
+                            font.pointSize: Typography.body
                             font.weight: Font.DemiBold
                         }
                         CompactIconButton {
@@ -155,7 +155,7 @@ Item {
                                         text: clientRow.clientId
                                         color: root.theme.primaryText
                                         font.family: root.theme.fontFamily
-                                        font.pixelSize: 10
+                                        font.pointSize: Typography.body
                                         font.weight: Font.DemiBold
                                         elide: Text.ElideRight
                                     }
@@ -167,7 +167,7 @@ Item {
                                             text: qsTr("ACTIVE")
                                             color: root.theme.action
                                             font.family: root.theme.fontFamily
-                                            font.pixelSize: 7
+                                            font.pointSize: Typography.micro
                                             font.weight: Font.DemiBold
                                         }
                                         Label {
@@ -175,7 +175,7 @@ Item {
                                             text: qsTr("PID ") + clientRow.processId
                                             color: root.theme.secondaryText
                                             font.family: root.theme.fontFamily
-                                            font.pixelSize: 8
+                                            font.pointSize: Typography.caption
                                         }
                                     }
                                 }
@@ -184,7 +184,7 @@ Item {
                                     text: clientRow.capabilityText
                                     color: root.theme.secondaryText
                                     font.family: root.theme.fontFamily
-                                    font.pixelSize: 8
+                                    font.pointSize: Typography.caption
                                     elide: Text.ElideRight
                                 }
                             }
@@ -204,7 +204,7 @@ Item {
                             text: qsTr("No DCC clients connected")
                             color: root.theme.secondaryText
                             font.family: root.theme.fontFamily
-                            font.pixelSize: 10
+                            font.pointSize: Typography.body
                         }
                     }
                     Md3Button {
@@ -229,7 +229,7 @@ Item {
                         text: qsTr("COMMAND")
                         color: root.theme.secondaryText
                         font.family: root.theme.fontFamily
-                        font.pixelSize: 10
+                        font.pointSize: Typography.body
                         font.weight: Font.DemiBold
                     }
                     RowLayout {
@@ -246,7 +246,7 @@ Item {
                             text: qsTr("Timeout (seconds)")
                             color: root.theme.secondaryText
                             font.family: root.theme.fontFamily
-                            font.pixelSize: 9
+                            font.pointSize: Typography.label
                         }
                         Md3SpinBox {
                             id: timeoutInput
@@ -287,7 +287,7 @@ Item {
                             text: qsTr("RESULTS")
                             color: root.theme.secondaryText
                             font.family: root.theme.fontFamily
-                            font.pixelSize: 10
+                            font.pointSize: Typography.body
                             font.weight: Font.DemiBold
                         }
                         CompactIconButton {
@@ -337,14 +337,14 @@ Item {
                                         text: resultRow.timestamp
                                         color: root.theme.secondaryText
                                         font.family: "Consolas"
-                                        font.pixelSize: 8
+                                        font.pointSize: Typography.caption
                                     }
                                     Label {
                                         Layout.fillWidth: true
                                         text: resultRow.target + "  ·  " + resultRow.action
                                         color: root.theme.primaryText
                                         font.family: root.theme.fontFamily
-                                        font.pixelSize: 10
+                                        font.pointSize: Typography.body
                                         font.weight: Font.DemiBold
                                         elide: Text.ElideRight
                                     }
@@ -356,7 +356,7 @@ Item {
                                                 ? root.theme.green
                                                 : root.theme.secondaryText
                                         font.family: root.theme.fontFamily
-                                        font.pixelSize: 8
+                                        font.pointSize: Typography.caption
                                     }
                                 }
                                 Label {
@@ -364,7 +364,7 @@ Item {
                                     text: resultRow.summary
                                     color: root.theme.secondaryText
                                     font.family: root.theme.fontFamily
-                                    font.pixelSize: 9
+                                    font.pointSize: Typography.label
                                     wrapMode: Text.WordWrap
                                 }
                                 Label {
@@ -373,7 +373,7 @@ Item {
                                     text: resultRow.detail
                                     color: root.theme.primaryText
                                     font.family: "Consolas"
-                                    font.pixelSize: 8
+                                    font.pointSize: Typography.caption
                                     wrapMode: Text.WrapAnywhere
                                 }
                             }
@@ -385,7 +385,7 @@ Item {
                         text: handlerServerController.error
                         color: root.theme.red
                         font.family: root.theme.fontFamily
-                        font.pixelSize: 9
+                        font.pointSize: Typography.label
                         wrapMode: Text.WordWrap
                     }
                 }

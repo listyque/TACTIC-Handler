@@ -1,5 +1,6 @@
 import QtQuick
 import QtQuick.Controls
+import QtQuick.Layouts
 
 Item {
     id: root
@@ -81,12 +82,26 @@ Item {
             return value
         return value.slice(0, appController.description_limit).trim() + "…"
     }
+    readonly property bool stackedObjectActions:
+        root.nodeType === "sobject" && !root.compactMode
+    readonly property real relationActionReserve: {
+        if (root.nodeType !== "relation")
+            return 0
+        const count = root.itemControls ? root.itemControls.length : 0
+        return count > 0 ? count * 27 + Math.max(0, count - 1) * 2 + 10 : 0
+    }
     readonly property real contentTrailingReserve: {
         const communicationWidth = communicationControls.visible
             ? communicationControls.implicitWidth : 0
         if (nodeType === "sobject" || nodeType === "process") {
             const hoverWidth = hoverControls.active
                 ? hoverControls.implicitWidth + 4 : 0
+            if (root.stackedObjectActions)
+                return Math.max(
+                    84,
+                    communicationWidth + 12,
+                    hoverWidth + 12
+                )
             return Math.max(
                 compactMode ? 76 : 84,
                 communicationWidth + hoverWidth + 12
@@ -114,6 +129,14 @@ Item {
         && root.hoverAllowed
         && (itemMouse.containsMouse || controlHoverActive)
     )
+    readonly property bool hasPersistentItemControls: {
+        const controls = root.itemControls || []
+        for (let index = 0; index < controls.length; ++index) {
+            if (controls[index].persistent)
+                return true
+        }
+        return false
+    }
     x: ListView.view ? 6 : 0
     width: ListView.view ? Math.max(0, ListView.view.width - 12) : 320
     readonly property bool versionRowHidden: hideVersionSnapshots
@@ -127,14 +150,6 @@ Item {
         : nodeType === "sobject" ? 76
         : nodeType === "snapshot" ? 76
         : nodeType === "process" || nodeType === "relation" ? 47 : 49
-    opacity: nodeType === "snapshot" && !fileExists ? 0.62 : 1
-    scale: !compactMode && nodeType === "sobject"
-        && depth === 0 && root.interactiveHovered
-        ? 1.006 : 1
-    Behavior on scale {
-        NumberAnimation { duration: 140; easing.type: Easing.OutCubic }
-    }
-
     Drag.active: itemDragHandler.active
     Drag.dragType: Drag.Automatic
     Drag.supportedActions: Qt.CopyAction
@@ -215,6 +230,10 @@ Item {
         anchors.fill: parent
         theme: root.theme
         selected: root.selected
+        // Every workspace entity uses the same quiet content selection.
+        // Process, snapshot, file and relation rows must not fall back to the
+        // brighter control/tab selection color.
+        selectedColor: root.theme.contentSelection
         hovered: root.interactiveHovered || root.menuVisible
         pressed: itemMouse.pressed
         accent: root.nodeType === "snapshot" ? Qt.darker(root.accent, 1.25) : root.accent
@@ -394,7 +413,7 @@ Item {
                 color: root.selected
                     ? root.theme.selectedText : root.theme.primaryText
                 font.family: root.theme.fontFamily
-                font.pixelSize: 12
+                font.pixelSize: root.nodeType === "process" ? 9 : 12
                 font.weight: Font.DemiBold
                 maximumLineCount: 1
                 wrapMode: Text.NoWrap
@@ -430,7 +449,7 @@ Item {
                 text: root.compactSubtitle
                 color: root.selected ? "#e2edf3" : root.theme.secondaryText
                 font.family: root.theme.fontFamily
-                font.pixelSize: 9
+                font.pointSize: Typography.label
                 maximumLineCount: 1
                 wrapMode: Text.NoWrap
                 elide: Text.ElideRight
@@ -447,7 +466,7 @@ Item {
                         height: 16
                         spacing: 3
                         MaterialIcon { name: "donut_small"; size: 13; color: modelData.color }
-                        Label { text: modelData.label; color: root.selected ? root.theme.selectedText : root.theme.secondaryText; font.family: root.theme.fontFamily; font.pixelSize: 8 }
+                        Label { text: modelData.label; color: root.selected ? root.theme.selectedText : root.theme.secondaryText; font.family: root.theme.fontFamily; font.pointSize: Typography.caption }
                     }
                 }
                 Repeater {
@@ -467,7 +486,7 @@ Item {
                             text: modelData.label + ": " + modelData.value
                             color: root.selected ? root.theme.selectedText : root.theme.secondaryText
                             font.family: root.theme.fontFamily
-                            font.pixelSize: 8
+                            font.pointSize: Typography.caption
                             elide: Text.ElideRight
                         }
                     }
@@ -481,139 +500,231 @@ Item {
           id: snapshotBodyComponent
           Item {
             anchors.fill: parent
+
             Column {
               anchors.left: parent.left
               anchors.right: parent.right
               anchors.verticalCenter: parent.verticalCenter
-              spacing: 4
-            Row {
+              spacing: 0
+
+              Item {
                 width: parent.width
-                spacing: 7
-                Label {
-                    width: Math.max(80, parent.width - snapshotMeta.implicitWidth - 10)
-                    text: root.compactTitle
-                    color: root.selected ? root.theme.selectedText : root.theme.primaryText
-                    font.family: root.theme.fontFamily
-                    font.pixelSize: 11
-                    font.weight: Font.DemiBold
-                    elide: Text.ElideMiddle
-                }
-                Row {
-                    id: snapshotMeta
+                height: 24
+
+                Item {
+                  anchors.left: parent.left
+                  anchors.right: snapshotSizeBackdrop.left
+                  anchors.rightMargin: 8
+                  height: parent.height
+
+                  RowLayout {
+                    anchors.fill: parent
                     spacing: 5
-                    Rectangle {
-                        visible: root.isLatest
-                        width: visible ? latestLabel.implicitWidth + 10 : 0
-                        height: 16
-                        radius: 8
-                        color: root.theme.selected
-                        Label {
-                            id: latestLabel
-                            anchors.centerIn: parent
-                            text: qsTr("LATEST")
-                            color: root.theme.action
-                            font.family: root.theme.fontFamily
-                            font.pixelSize: 8
-                            font.weight: Font.Bold
-                        }
+
+                    Label {
+                      id: snapshotTitle
+                      Layout.preferredWidth: Math.min(
+                        implicitWidth,
+                        Math.max(
+                          48,
+                          parent.width - snapshotOffline.implicitWidth
+                            - parent.spacing
+                        )
+                      )
+                      Layout.maximumWidth: Math.max(
+                        48,
+                        parent.width - snapshotOffline.implicitWidth
+                          - parent.spacing
+                      )
+                      text: root.compactTitle
+                      color: root.selected
+                        ? root.theme.selectedText : root.theme.primaryText
+                      font.family: root.theme.fontFamily
+                      font.pointSize: Typography.body
+                      font.weight: Font.Normal
+                      elide: Text.ElideMiddle
                     }
-                    Label { text: root.version; color: root.theme.action; font.family: root.theme.fontFamily; font.pixelSize: 9; font.weight: Font.DemiBold }
-                    Label { visible: root.revision.length > 0; text: root.revision; color: root.theme.secondaryText; font.family: root.theme.fontFamily; font.pixelSize: 9 }
-                    Label { visible: root.repository.length > 0; text: root.repository; color: root.repositoryColor || root.accent; font.family: root.theme.fontFamily; font.pixelSize: 9 }
-                }
-            }
-            Row {
-                width: parent.width
-                height: 17
-                spacing: 5
-                clip: true
-                Repeater {
-                    model: [
-                        {"text": root.fileSize, "alert": false},
-                        {"text": root.author, "alert": false},
-                        {"text": root.timestamp, "alert": false},
-                        {"text": root.fileExists ? "" : "FILE OFFLINE", "alert": true}
-                    ]
-                    delegate: Rectangle {
-                        required property var modelData
-                        visible: modelData.text.length > 0
-                        width: visible
-                            ? Math.min(142, snapshotInfoText.implicitWidth + 12) : 0
-                        height: 17
-                        radius: height / 2
-                        color: modelData.alert
-                            ? (root.theme.dark ? "#342020" : "#fdeceb")
-                            : root.selected ? root.theme.selected : "transparent"
-                        border.width: 1
-                        border.color: modelData.alert
-                            ? root.theme.missingFile
-                            : root.selected ? root.theme.action : root.theme.outline
-                        Label {
-                            id: snapshotInfoText
-                            anchors.centerIn: parent
-                            width: parent.width - 10
-                            text: modelData.text
-                            color: modelData.alert
-                                ? root.theme.missingFile
-                                : root.selected
-                                    ? root.theme.selectedText : root.theme.secondaryText
-                            font.family: root.theme.fontFamily
-                            font.pixelSize: 8
-                            font.weight: modelData.alert ? Font.Bold : Font.Normal
-                            elide: Text.ElideRight
-                        }
+
+                    Label {
+                      id: snapshotOffline
+                      visible: !root.fileExists
+                        && root.compactTitle.length > 0
+                      Layout.preferredWidth: visible ? implicitWidth : 0
+                      text: "(" + qsTr("File Offline") + ")"
+                      color: root.theme.missingFile
+                      font.family: root.theme.fontFamily
+                      font.pointSize: Typography.label
+                      font.weight: Font.Normal
                     }
+
+                    Item { Layout.fillWidth: true }
+                  }
                 }
-            }
-            Row {
+
+                Rectangle {
+                  id: snapshotSizeBackdrop
+                  anchors.right: parent.right
+                  anchors.verticalCenter: parent.verticalCenter
+                  width: Math.max(92, snapshotSize.implicitWidth + 22)
+                  height: 22
+                  radius: root.theme.itemRadius
+                  color: "transparent"
+                  gradient: Gradient {
+                    orientation: Gradient.Horizontal
+                    GradientStop {
+                      position: 0
+                      color: Qt.rgba(
+                        root.theme.panelDeep.r,
+                        root.theme.panelDeep.g,
+                        root.theme.panelDeep.b,
+                        0
+                      )
+                    }
+                    GradientStop {
+                      position: 0.42
+                      color: Qt.rgba(
+                        root.theme.panelDeep.r,
+                        root.theme.panelDeep.g,
+                        root.theme.panelDeep.b,
+                        0.30
+                      )
+                    }
+                    GradientStop {
+                      position: 0.76
+                      color: Qt.rgba(
+                        root.theme.panelDeep.r,
+                        root.theme.panelDeep.g,
+                        root.theme.panelDeep.b,
+                        0.68
+                      )
+                    }
+                    GradientStop {
+                      position: 1
+                      color: Qt.rgba(
+                        root.theme.panelDeep.r,
+                        root.theme.panelDeep.g,
+                        root.theme.panelDeep.b,
+                        0.88
+                      )
+                    }
+                  }
+
+                  Label {
+                    id: snapshotSize
+                    anchors.right: parent.right
+                    anchors.rightMargin: 4
+                    anchors.verticalCenter: parent.verticalCenter
+                    text: root.fileSize
+                    color: root.selected
+                      ? root.theme.selectedText : root.theme.secondaryText
+                    font.family: root.theme.fontFamily
+                    font.pointSize: Typography.caption
+                    font.weight: Font.Normal
+                    horizontalAlignment: Text.AlignRight
+                  }
+                }
+              }
+
+              Item {
                 width: parent.width
-                height: 18
-                spacing: 9
-                clip: true
-                Label {
-                    width: visible ? Math.min(
-                        Math.max(48, implicitWidth),
-                        root.infoChips && root.infoChips.length
-                            ? Math.max(48, parent.width * 0.48)
-                            : parent.width
-                    ) : 0
-                    visible: root.subtitle.length > 0
-                    text: root.compactSubtitle
+                height: 24
+
+                Row {
+                  id: snapshotTechnicalInfo
+                  anchors.left: parent.left
+                  anchors.right: snapshotDate.left
+                  anchors.rightMargin: 9
+                  anchors.verticalCenter: parent.verticalCenter
+                  height: parent.height
+                  spacing: 8
+                  clip: true
+
+                  Label {
+                    visible: root.version.length > 0
+                    text: root.version
+                    color: root.theme.action
+                    font.family: root.theme.fontFamily
+                    font.pointSize: Typography.label
+                    font.weight: Font.Normal
+                  }
+                  Label {
+                    visible: root.revision.length > 0
+                    text: root.revision
                     color: root.theme.secondaryText
                     font.family: root.theme.fontFamily
-                    font.pixelSize: 9
-                    elide: Text.ElideRight
+                    font.pointSize: Typography.label
+                  }
+                  Label {
+                    visible: root.repository.length > 0
+                    text: root.repository
+                    color: root.repositoryColor || root.accent
+                    font.family: root.theme.fontFamily
+                    font.pointSize: Typography.label
+                  }
+                  Label {
+                    visible: root.isLatest
+                    text: qsTr("Latest")
+                    color: root.theme.green
+                    font.family: root.theme.fontFamily
+                    font.pointSize: Typography.caption
+                    font.weight: Font.Normal
+                  }
                 }
-                Repeater {
-                    model: root.infoChips || []
-                    delegate: Rectangle {
-                        required property var modelData
-                        height: 17
-                        width: Math.min(132, snapshotChipText.implicitWidth + 12)
-                        radius: height / 2
-                        color: root.selected
-                            ? root.theme.selected : root.theme.panelRaised
-                        border.width: 1
-                        border.color: root.selected
-                            ? root.theme.action : root.theme.outline
-                        Label {
-                            id: snapshotChipText
-                            anchors.centerIn: parent
-                            width: parent.width - 10
-                            text: modelData.label + ": " + modelData.value
-                            color: root.selected
-                                ? root.theme.selectedText : root.theme.secondaryText
-                            font.family: root.theme.fontFamily
-                            font.pixelSize: 8
-                            elide: Text.ElideRight
-                        }
-                    }
+
+                Label {
+                  id: snapshotDate
+                  anchors.right: parent.right
+                  anchors.verticalCenter: parent.verticalCenter
+                  width: Math.max(84, implicitWidth)
+                  text: root.timestamp.replace(" ", "\n")
+                  color: root.theme.secondaryText
+                  font.family: root.theme.fontFamily
+                  font.pointSize: Typography.caption
+                  font.weight: Font.Normal
+                  horizontalAlignment: Text.AlignRight
+                  verticalAlignment: Text.AlignVCenter
+                  maximumLineCount: 2
+                  lineHeight: 0.88
+                }
+              }
+
+              Item {
+                width: parent.width
+                height: 20
+
+                Label {
+                  id: snapshotAuthor
+                  anchors.left: parent.left
+                  anchors.verticalCenter: parent.verticalCenter
+                  visible: root.author.length > 0
+                  text: root.author
+                    + (root.compactSubtitle.length > 0 ? ":" : "")
+                  color: root.theme.secondaryText
+                  font.family: root.theme.fontFamily
+                  font.pointSize: Typography.label
+                  font.weight: Font.Normal
+                  font.italic: true
+                  elide: Text.ElideRight
+                  width: visible
+                    ? Math.min(implicitWidth, parent.width * 0.34) : 0
+                }
+                Label {
+                  anchors.left: snapshotAuthor.right
+                  anchors.leftMargin: snapshotAuthor.visible ? 5 : 0
+                  anchors.right: parent.right
+                  anchors.verticalCenter: parent.verticalCenter
+                  text: root.compactSubtitle
+                  color: root.selected
+                    ? root.theme.selectedText : root.theme.primaryText
+                  font.family: root.theme.fontFamily
+                  font.pointSize: Typography.label
+                  font.weight: Font.Normal
+                  elide: Text.ElideRight
                 }
               }
             }
           }
         }
-
         Component {
           id: processBodyComponent
           Item {
@@ -625,7 +736,7 @@ Item {
                 text: root.compactTitle
                 color: root.selected ? root.theme.selectedText : root.theme.primaryText
                 font.family: root.theme.fontFamily
-                font.pixelSize: 10
+                font.pointSize: Typography.body
                 font.weight: Font.DemiBold
                 elide: Text.ElideRight
             }
@@ -645,19 +756,20 @@ Item {
                 text: root.compactTitle
                 color: root.selected ? root.theme.selectedText : root.theme.primaryText
                 font.family: root.theme.fontFamily
-                font.pixelSize: 10
+                font.pointSize: Typography.body
                 font.weight: Font.DemiBold
                 elide: Text.ElideRight
             }
             Label {
                 id: relationCount
                 anchors.right: parent.right
+                anchors.rightMargin: root.relationActionReserve
                 anchors.verticalCenter: parent.verticalCenter
                 visible: root.childCount > 0
                 text: root.childCount > 0 ? "|  " + root.childCount : ""
                 color: root.theme.secondaryText
                 font.family: root.theme.fontFamily
-                font.pixelSize: 9
+                font.pointSize: Typography.label
             }
           }
         }
@@ -678,19 +790,19 @@ Item {
                     text: root.compactTitle
                     color: root.selected ? root.theme.selectedText : root.theme.primaryText
                     font.family: root.theme.fontFamily
-                    font.pixelSize: 10
+                    font.pointSize: Typography.body
                     font.weight: Font.DemiBold
                     elide: Text.ElideMiddle
                 }
-                Label { id: fileKind; text: root.compactSubtitle; color: root.theme.secondaryText; font.family: root.theme.fontFamily; font.pixelSize: 8 }
-                Label { id: fileBytes; text: root.fileSize; color: root.theme.secondaryText; font.family: root.theme.fontFamily; font.pixelSize: 8 }
+                Label { id: fileKind; text: root.compactSubtitle; color: root.theme.secondaryText; font.family: root.theme.fontFamily; font.pointSize: Typography.caption }
+                Label { id: fileBytes; text: root.fileSize; color: root.theme.secondaryText; font.family: root.theme.fontFamily; font.pointSize: Typography.caption }
             }
             Label {
                 width: parent.width
                 text: root.filePath
                 color: root.theme.secondaryText
                 font.family: root.theme.fontFamily
-                font.pixelSize: 8
+                font.pointSize: Typography.caption
                 elide: Text.ElideMiddle
             }
           }
@@ -699,13 +811,20 @@ Item {
 
     Loader {
         id: hoverControls
-        anchors.right: communicationControls.visible
+        anchors.right: !root.stackedObjectActions
+                && communicationControls.visible
             ? communicationControls.left : parent.right
-        anchors.rightMargin: communicationControls.visible ? 4 : 7
-        anchors.verticalCenter: parent.verticalCenter
+        anchors.rightMargin: !root.stackedObjectActions
+                && communicationControls.visible ? 4 : 7
+        anchors.top: root.stackedObjectActions ? parent.top : undefined
+        anchors.topMargin: root.stackedObjectActions ? 7 : 0
+        anchors.verticalCenter: root.stackedObjectActions
+            ? undefined : parent.verticalCenter
         z: 8
-        active: !root.compactMode
-            && !root.nodeLoading && root.showHoverTools
+        active: !root.nodeLoading
+            && (root.hasPersistentItemControls
+                || (!root.compactMode && root.showHoverTools))
+            && (root.itemControls || []).length > 0
         sourceComponent: hoverControlsComponent
     }
     Component {
@@ -724,78 +843,42 @@ Item {
         }
         Repeater {
             model: root.itemControls || []
-            delegate: Item {
+            delegate: CompactIconButton {
+                id: actionButton
                 required property var modelData
-                width: 27
+                visible: modelData.persistent
+                    || (!root.compactMode && root.showHoverTools)
+                width: visible ? 27 : 0
                 height: 27
-                Rectangle {
-                    anchors.fill: parent
-                    radius: width / 2
-                    color: modelData.active ? root.theme.selected : "transparent"
-                    clip: true
-                    Rectangle {
-                        anchors.fill: parent
-                        radius: parent.radius
-                        color: modelData.active
-                            ? root.theme.action : root.theme.primaryText
-                        opacity: controlMouse.pressed ? 0.12
-                            : controlMouse.containsMouse ? 0.08 : 0
-                        Behavior on opacity {
-                            NumberAnimation {
-                                duration: controlMouse.containsMouse ? 90 : 130
-                                easing.type: Easing.OutCubic
-                            }
-                        }
+                theme: root.theme
+                iconName: modelData.icon
+                iconSize: 16
+                round: true
+                backgroundColor: modelData.success ? "transparent"
+                    : modelData.active ? root.theme.selected : "transparent"
+                iconColor: modelData.success ? root.theme.green
+                    : modelData.active ? root.theme.action
+                    : root.selected ? root.theme.selectedText
+                        : root.theme.secondaryText
+                toolTip: modelData.tip || ""
+                onClicked: {
+                    if (modelData.command === "relations") {
+                        root.actionMenuRequested(
+                            root.nodeId,
+                            appController.relation_menu_actions(root.nodeId),
+                            actionButton, 0, 0, true
+                        )
+                    } else if (modelData.command === "repo_sync") {
+                        root.actionMenuRequested(
+                            root.nodeId,
+                            appController.repo_sync_menu_actions(root.nodeId),
+                            actionButton, 0, 0, true
+                        )
+                    } else {
+                        appController.invoke_item_action(
+                            modelData.command, root.nodeId
+                        )
                     }
-                }
-                MaterialIcon {
-                    anchors.centerIn: parent
-                    name: modelData.icon
-                    size: 16
-                    color: modelData.active ? root.theme.action
-                        : root.selected ? root.theme.selectedText : root.theme.secondaryText
-                }
-                MouseArea {
-                    id: controlMouse
-                    anchors.fill: parent
-                    hoverEnabled: true
-                    cursorShape: Qt.PointingHandCursor
-                    onPressed: mouse => controlRipple.burst(mouse.x, mouse.y)
-                    onEntered: {
-                        controlHoverRelease.stop()
-                        root.controlHoverActive = true
-                    }
-                    onExited: controlHoverRelease.restart()
-                    onClicked: {
-                        if (modelData.command === "relations") {
-                            root.actionMenuRequested(
-                                root.nodeId,
-                                appController.relation_menu_actions(root.nodeId),
-                                parent, 0, 0, true
-                            )
-                        } else if (modelData.command === "repo_sync") {
-                            root.actionMenuRequested(
-                                root.nodeId,
-                                appController.repo_sync_menu_actions(root.nodeId),
-                                parent, 0, 0, true
-                            )
-                        } else {
-                            appController.invoke_item_action(modelData.command, root.nodeId)
-                        }
-                    }
-                    Md3ToolTip {
-                        theme: root.theme
-                        visible: controlMouse.containsMouse
-                            && root.hoverAllowed
-                            && !root.theme.suppressToolTips
-                        text: modelData.tip || ""
-                        delay: 450
-                    }
-                }
-                MaterialRipple {
-                    id: controlRipple
-                    color: root.theme.ripple
-                    shapeRadius: 13.5
                 }
             }
         }
@@ -806,7 +889,10 @@ Item {
         id: communicationControls
         anchors.right: parent.right
         anchors.rightMargin: 7
-        anchors.verticalCenter: parent.verticalCenter
+        anchors.bottom: root.stackedObjectActions ? parent.bottom : undefined
+        anchors.bottomMargin: root.stackedObjectActions ? 7 : 0
+        anchors.verticalCenter: root.stackedObjectActions
+            ? undefined : parent.verticalCenter
         spacing: 3
         visible: root.nodeType === "sobject" || root.nodeType === "process"
         z: 8
@@ -831,6 +917,7 @@ Item {
             theme: root.theme
             iconName: "calendar_check"
             count: root.tasks
+            badgeColor: root.theme.action
             toolTipsAllowed: root.hoverAllowed
             toolTip: qsTr("Open Tasks (") + root.tasks + ")"
             onClicked: appController.invoke_item_action("tasks", root.nodeId)
@@ -839,6 +926,7 @@ Item {
             theme: root.theme
             iconName: "comment_alt"
             count: root.comments
+            badgeColor: root.theme.error
             toolTipsAllowed: root.hoverAllowed
             toolTip: qsTr("Open Notes (") + root.comments + ")"
             onClicked: appController.invoke_item_action("notes", root.nodeId)
@@ -1004,7 +1092,7 @@ Item {
                                 ? root.theme.selectedText
                                 : root.theme.secondaryText
                             font.family: root.theme.fontFamily
-                            font.pixelSize: 9
+                            font.pointSize: Typography.label
                             font.weight: active ? Font.Bold : Font.DemiBold
                         }
                     }

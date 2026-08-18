@@ -196,6 +196,11 @@ class SnapshotDetailsMixin:
 
     @Slot(str)
     def request_item_preview(self, node_id: str) -> None:
+        # Both the tile and row views stay instantiated while switching modes.
+        # Ignore requests from the hidden delegate tree so one visible item
+        # never downloads both icon and web derivatives.
+        if self.results_view_mode == "tiles":
+            return
         for model in (self.workspace_model, self.versions_model):
             request = model.begin_preview_request(node_id)
             if not request:
@@ -227,9 +232,48 @@ class SnapshotDetailsMixin:
                         caller=2,
                     )
 
+    @Slot(str)
+    def request_item_card_preview(self, node_id: str) -> None:
+        if self.results_view_mode != "tiles":
+            return
+        for model in (self.workspace_model, self.versions_model):
+            request = model.begin_card_preview_request(node_id)
+            if not request:
+                continue
+            node_type, source = request
+            try:
+                from thlib.environment import env_inst
+
+                if env_inst.local_pool.is_stopped:
+                    env_inst.local_pool.start()
+                worker = env_inst.local_pool.add_task(
+                    self._prepare_item_card_preview,
+                    node_type,
+                    source,
+                )
+                worker.add_result_data((model, node_id, source))
+                worker.result.connect(self._item_card_preview_ready)
+                worker.error.connect(self._item_card_preview_error)
+                worker.start()
+            except Exception:
+                model.cancel_card_preview_request(node_id, source)
+                if self.debug_log:
+                    self.debug_log.log(
+                        "ERROR",
+                        "Unable to prepare card preview",
+                        group="items/preview",
+                        source="Controller",
+                        stacktrace=traceback.format_exc(),
+                        caller=2,
+                    )
+
     @staticmethod
     def _prepare_item_preview(node_type: str, source):
         return (WorkspaceItemModel.prepare_preview(node_type, source),)
+
+    @staticmethod
+    def _prepare_item_card_preview(node_type: str, source):
+        return (WorkspaceItemModel.prepare_card_preview(node_type, source),)
 
     @Slot(object)
     def _item_preview_ready(self, result) -> None:
@@ -244,6 +288,21 @@ class SnapshotDetailsMixin:
         if metadata:
             model, node_id, source = metadata
             model.cancel_preview_request(node_id, source)
+        self._report_error_payload(payload, "items/preview", worker)
+
+    @Slot(object)
+    def _item_card_preview_ready(self, result) -> None:
+        candidates, metadata = result
+        model, node_id, source = metadata
+        model.apply_card_preview(node_id, source, candidates)
+
+    @Slot(object)
+    def _item_card_preview_error(self, error) -> None:
+        payload, worker = error
+        metadata = worker.get_result_data() if worker else None
+        if metadata:
+            model, node_id, source = metadata
+            model.cancel_card_preview_request(node_id, source)
         self._report_error_payload(payload, "items/preview", worker)
 
     @Slot(str)

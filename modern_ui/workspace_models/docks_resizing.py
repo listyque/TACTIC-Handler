@@ -23,15 +23,19 @@ class ResizingMixin:
                 "task_calendar": (0.30, 0.20),
             }.get(panel.kind, (0.24, 0.16))
         pixel_sizes = {
-            # Docked workspace panels reflow into compact presentations. Their
-            # tiled limits are intentionally smaller than detached-window
-            # limits from WindowSizing.qml.
-            "results": (220, 260),
-            "snapshot": (280, 260),
-            "tasks": (280, 220),
-            "task_calendar": (300, 360),
-            "description": (280, 220),
-            "notes": (300, 300),
+            # These values are the hard tree constraints and intentionally
+            # mirror WindowSizing.qml.  A local QML minimum alone is not
+            # sufficient: resizing an adjacent panel changes the shared tree
+            # split and can otherwise squeeze its sibling below that limit.
+            "results": (360, 260),
+            "snapshot": (320, 260),
+            "tasks": (320, 220),
+            "task_calendar": (380, 360),
+            "description": (320, 220),
+            "notes": (400, 300),
+            "timesheet": (320, 220),
+            "work_reports": (320, 220),
+            "cost_reports": (320, 220),
             "drop_plate": (480, 360),
             "advanced_search": (380, 320),
             "fast_controls": (360, 150),
@@ -151,14 +155,26 @@ class ResizingMixin:
             return
         panels = self._visible_docked_panels()
         available = {panel.panel_id for panel in panels}
+        minimum_sizes = self._tree_minimum_sizes(host_width, host_height)
         updated_root, found = resize_split_for_edge(
             self._layout_root,
             panel_id,
             edge,
             boundary,
             available,
-            self._tree_minimum_sizes(host_width, host_height),
+            minimum_sizes,
         )
+        if found:
+            # Moving an outer divider changes the available rectangle of every
+            # nested split below it.  Clamping only that outer split preserves
+            # enough aggregate space but can still leave one nested panel below
+            # its own minimum.  Re-clamp the complete projected tree so every
+            # visible leaf remains usable while an adjacent dock is dragged.
+            updated_root = clamp_layout_ratios(
+                updated_root,
+                available,
+                minimum_sizes,
+            )
         if not found or updated_root == self._layout_root:
             if save:
                 self._save()

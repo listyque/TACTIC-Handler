@@ -138,7 +138,7 @@ Item {
                                 text: String(priority + 1)
                                 color: root.theme.disabledText
                                 font.family: root.theme.fontFamily
-                                font.pixelSize: 9
+                                font.pointSize: Typography.label
                             }
                             ColumnLayout {
                                 Layout.fillWidth: true
@@ -150,7 +150,7 @@ Item {
                                         ? root.theme.error
                                         : root.theme.primaryText
                                     font.family: root.theme.fontFamily
-                                    font.pixelSize: 10
+                                    font.pointSize: Typography.body
                                     font.weight: Font.DemiBold
                                     elide: Text.ElideMiddle
                                 }
@@ -161,7 +161,7 @@ Item {
                                         ? root.theme.error
                                         : root.theme.secondaryText
                                     font.family: root.theme.fontFamily
-                                    font.pixelSize: 9
+                                    font.pointSize: Typography.label
                                     elide: Text.ElideRight
                                 }
                                 Label {
@@ -171,7 +171,7 @@ Item {
                                         + (context ? " / " + context : "")
                                     color: root.theme.disabledText
                                     font.family: root.theme.fontFamily
-                                    font.pixelSize: 8
+                                    font.pointSize: Typography.caption
                                     elide: Text.ElideRight
                                 }
                             }
@@ -216,7 +216,7 @@ Item {
                     text: qsTr("Pattern")
                     color: root.theme.secondaryText
                     font.family: root.theme.fontFamily
-                    font.pixelSize: 9
+                    font.pointSize: Typography.label
                 }
                 Md3TextField {
                     theme: root.theme
@@ -238,7 +238,7 @@ Item {
                     color: editor.record.validationError
                         ? root.theme.error : root.theme.secondaryText
                     font.family: root.theme.fontFamily
-                    font.pixelSize: 9
+                    font.pointSize: Typography.label
                     wrapMode: Text.WordWrap
                 }
                 GridLayout {
@@ -250,7 +250,7 @@ Item {
                         text: qsTr("Process mapping")
                         color: root.theme.secondaryText
                         font.family: root.theme.fontFamily
-                        font.pixelSize: 9
+                        font.pointSize: Typography.label
                     }
                     Md3ComboBox {
                         theme: root.theme
@@ -277,7 +277,7 @@ Item {
                         text: qsTr("Context mapping")
                         color: root.theme.secondaryText
                         font.family: root.theme.fontFamily
-                        font.pixelSize: 9
+                        font.pointSize: Typography.label
                     }
                     Md3ComboBox {
                         theme: root.theme
@@ -305,7 +305,7 @@ Item {
                     text: qsTr("Test on filename")
                     color: root.theme.secondaryText
                     font.family: root.theme.fontFamily
-                    font.pixelSize: 9
+                    font.pointSize: Typography.label
                 }
                 RowLayout {
                     Layout.fillWidth: true
@@ -336,7 +336,7 @@ Item {
                     color: text === "No match"
                         ? root.theme.error : root.theme.secondaryText
                     font.family: root.theme.fontFamily
-                    font.pixelSize: 9
+                    font.pointSize: Typography.label
                     wrapMode: Text.WordWrap
                 }
                 Item { Layout.fillHeight: true }
@@ -348,7 +348,7 @@ Item {
                             ? qsTr("Unsaved changes") : ""
                         color: root.theme.yellow
                         font.family: root.theme.fontFamily
-                        font.pixelSize: 9
+                        font.pointSize: Typography.label
                     }
                     Md3Button {
                         theme: root.theme

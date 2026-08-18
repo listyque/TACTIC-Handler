@@ -85,7 +85,7 @@ Item {
                             + (milestoneController.projectCode || qsTr("current project"))
                         color: root.theme.secondaryText
                         font.family: root.theme.fontFamily
-                        font.pixelSize: 10
+                        font.pointSize: Typography.body
                         elide: Text.ElideRight
                     }
                 }
@@ -93,7 +93,7 @@ Item {
                     text: milestoneController.count + " " + qsTr("milestones")
                     color: root.theme.secondaryText
                     font.family: root.theme.fontFamily
-                    font.pixelSize: 10
+                    font.pointSize: Typography.body
                 }
                 RefreshIconButton {
                     theme: root.theme
@@ -210,7 +210,7 @@ Item {
                                 text: root.monthPart(milestoneRow.dueDate)
                                 color: root.theme.action
                                 font.family: root.theme.fontFamily
-                                font.pixelSize: 8
+                                font.pointSize: Typography.caption
                                 font.weight: Font.Bold
                             }
                         }
@@ -230,7 +230,7 @@ Item {
                                 color: isNew ? root.theme.action
                                     : root.theme.secondaryText
                                 font.family: root.theme.fontFamily
-                                font.pixelSize: 8
+                                font.pointSize: Typography.caption
                                 font.weight: Font.Bold
                             }
                             Label {
@@ -241,7 +241,7 @@ Item {
                                 color: milestoneRow.saving
                                     ? root.theme.action : root.theme.yellow
                                 font.family: root.theme.fontFamily
-                                font.pixelSize: 8
+                                font.pointSize: Typography.caption
                             }
                         }
                         Md3TextField {
@@ -267,7 +267,7 @@ Item {
                             text: qsTr("DUE DATE")
                             color: root.theme.secondaryText
                             font.family: root.theme.fontFamily
-                            font.pixelSize: 8
+                            font.pointSize: Typography.caption
                             font.weight: Font.Bold
                         }
                         Md3DateField {
@@ -387,7 +387,7 @@ Item {
                                         : qsTr("No tasks"))
                                 color: root.theme.primaryText
                                 font.family: root.theme.fontFamily
-                                font.pixelSize: 9
+                                font.pointSize: Typography.label
                                 font.weight: Font.DemiBold
                             }
                             Label {
@@ -406,7 +406,7 @@ Item {
                                     : qsTr("Assign tasks to build the milestone plan")
                                 color: root.theme.secondaryText
                                 font.family: root.theme.fontFamily
-                                font.pixelSize: 8
+                                font.pointSize: Typography.caption
                                 elide: Text.ElideRight
                             }
                         }
@@ -419,7 +419,7 @@ Item {
                                     text: qsTr("COMPLETION")
                                     color: root.theme.secondaryText
                                     font.family: root.theme.fontFamily
-                                    font.pixelSize: 7
+                                    font.pointSize: Typography.micro
                                     font.weight: Font.Bold
                                 }
                                 Item { Layout.fillWidth: true }
@@ -428,7 +428,7 @@ Item {
                                         ? milestoneRow.completion + "%" : "—"
                                     color: root.theme.primaryText
                                     font.family: root.theme.fontFamily
-                                    font.pixelSize: 10
+                                    font.pointSize: Typography.body
                                     font.weight: Font.DemiBold
                                 }
                             }
@@ -452,7 +452,7 @@ Item {
                                 + qsTr("overdue")
                             color: root.theme.error
                             font.family: root.theme.fontFamily
-                            font.pixelSize: 8
+                            font.pointSize: Typography.caption
                             font.weight: Font.DemiBold
                         }
                     }
@@ -470,7 +470,7 @@ Item {
                     text: qsTr(milestoneRow.error)
                     color: root.theme.error
                     font.family: root.theme.fontFamily
-                    font.pixelSize: 9
+                    font.pointSize: Typography.label
                     elide: Text.ElideRight
                 }
             }
@@ -511,7 +511,7 @@ Item {
                     : qsTr("Create a reusable deadline for project tasks")
                 color: root.theme.secondaryText
                 font.family: root.theme.fontFamily
-                font.pixelSize: 10
+                font.pointSize: Typography.body
             }
             Md3FilledActionButton {
                 visible: !searchField.text
@@ -544,7 +544,7 @@ Item {
             text: qsTr("The milestone will only be deleted when no tasks use it.")
             color: root.theme.secondaryText
             font.family: root.theme.fontFamily
-            font.pixelSize: 11
+            font.pointSize: Typography.bodyLarge
             wrapMode: Text.WordWrap
         }
         footer: Md3DialogActions {
@@ -578,7 +578,7 @@ Item {
             text: qsTr("Refreshing will discard every unsaved milestone change.")
             color: root.theme.secondaryText
             font.family: root.theme.fontFamily
-            font.pixelSize: 11
+            font.pointSize: Typography.bodyLarge
             wrapMode: Text.WordWrap
         }
         footer: Md3DialogActions {

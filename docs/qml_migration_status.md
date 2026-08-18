@@ -4,7 +4,7 @@
 
 | Функция | Legacy UI | QML UI | Статус | Различия | Критичность |
 |---|---|---|---|---|---|
-| Запуск | `main_standalone.py/.pyw`, host launchers | `main_qml.py`, `launch.py`, `TACTIC_HANDLER_UI=qml` | готово | После Block F общий selector запускает QML по умолчанию; legacy доступен явно через `--ui legacy`/`TACTIC_HANDLER_UI=legacy`; используется один `QApplication` | низкая |
+| Запуск | `main_standalone.py/.pyw`, host launchers | `main_qml.py`, `launch.py`, `TACTIC_HANDLER_UI=qml` | готово | Общий launcher запускает QML по умолчанию; legacy доступен явно через `--ui legacy`/`TACTIC_HANDLER_UI=legacy`; используется один `QApplication` | низкая |
 | Login | Полный legacy login/bootstrap | Диалог login, ticket bootstrap, cancel/retry | требует ручной проверки | Пароль не сохраняется; неверный пароль и повторная авторизация требуют проверки на живом сервере | высокая |
 | Server connection | `env_server`, ticket, server pool | Те же `env_server`, ticket и pool через нативные API проекта | требует ручной проверки | Есть ping, понятная ошибка и ограничение повторов; смена сервера требует ручной проверки | высокая |
 | Проекты | Legacy project chooser/cache | `ProjectModel`, асинхронная загрузка и выбор | требует ручной проверки | Серверный источник общий; права доступа и несколько проектов проверить вручную | высокая |

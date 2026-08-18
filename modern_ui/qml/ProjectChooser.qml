@@ -86,7 +86,7 @@ Md3Popup {
                         + root.model.templateCount + qsTr(" templates")
                     color: root.theme.secondaryText
                     font.family: root.theme.fontFamily
-                    font.pixelSize: 11
+                    font.pointSize: Typography.bodyLarge
                 }
             }
             Row {
@@ -102,7 +102,7 @@ Md3Popup {
                     checked: root.model.showRetired
                     onToggled: root.model.setShowRetired(checked)
                     font.family: root.theme.fontFamily
-                    font.pixelSize: 11
+                    font.pointSize: Typography.bodyLarge
                 }
                 Md3CheckBox {
                     id: templatesCheck
@@ -111,7 +111,7 @@ Md3Popup {
                     checked: root.model.showTemplates
                     onToggled: root.model.setShowTemplates(checked)
                     font.family: root.theme.fontFamily
-                    font.pixelSize: 11
+                    font.pointSize: Typography.bodyLarge
                 }
             }
             CompactIconButton {
@@ -239,7 +239,7 @@ Md3Popup {
                                                 text: projectCard.modelData.code
                                                 color: root.theme.secondaryText
                                                 font.family: root.theme.fontFamily
-                                                font.pixelSize: 10
+                                                font.pointSize: Typography.body
                                                 elide: Text.ElideRight
                                             }
                                             Label {
@@ -249,7 +249,7 @@ Md3Popup {
                                                     || categoryDelegate.modelData.title
                                                 color: root.theme.secondaryText
                                                 font.family: root.theme.fontFamily
-                                                font.pixelSize: 9
+                                                font.pointSize: Typography.label
                                                 wrapMode: Text.Wrap
                                                 maximumLineCount: 2
                                                 elide: Text.ElideRight
@@ -268,7 +268,7 @@ Md3Popup {
                                             color: projectCard.modelData.isRetired
                                                 ? root.theme.yellow : root.theme.action
                                             font.family: root.theme.fontFamily
-                                            font.pixelSize: 9
+                                            font.pointSize: Typography.label
                                             font.weight: Font.DemiBold
                                         }
                                         Item { Layout.fillWidth: true }
@@ -277,7 +277,7 @@ Md3Popup {
                                             text: projectCard.modelData.projectType
                                             color: root.theme.secondaryText
                                             font.family: root.theme.fontFamily
-                                            font.pixelSize: 9
+                                            font.pointSize: Typography.label
                                         }
                                     }
                                     RowLayout {
@@ -291,7 +291,7 @@ Md3Popup {
                                             ).slice(0, 10)
                                             color: root.theme.secondaryText
                                             font.family: root.theme.fontFamily
-                                            font.pixelSize: 9
+                                            font.pointSize: Typography.label
                                         }
                                         Label {
                                             visible: projectCard.modelData.userCount > 0
@@ -299,7 +299,7 @@ Md3Popup {
                                                 + qsTr(" users")
                                             color: root.theme.secondaryText
                                             font.family: root.theme.fontFamily
-                                            font.pixelSize: 9
+                                            font.pointSize: Typography.label
                                         }
                                         Label {
                                             visible: !!projectCard.modelData.lead
@@ -309,7 +309,7 @@ Md3Popup {
                                             elide: Text.ElideRight
                                             color: root.theme.secondaryText
                                             font.family: root.theme.fontFamily
-                                            font.pixelSize: 9
+                                            font.pointSize: Typography.label
                                         }
                                     }
                                 }

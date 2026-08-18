@@ -48,7 +48,7 @@ Item {
                         || qsTr("No snapshot file selected")
                     color: root.theme.secondaryText
                     font.family: root.theme.fontFamily
-                    font.pixelSize: 10
+                    font.pointSize: Typography.body
                     elide: Text.ElideMiddle
                 }
             }
@@ -73,7 +73,7 @@ Item {
                         text: root.operationMode === "import"
                             ? qsTr("Import count") : qsTr("Reference count")
                         color: root.theme.primaryText
-                        font.pixelSize: 10
+                        font.pointSize: Typography.body
                     }
                     Md3SpinBox {
                         theme: root.theme
@@ -101,7 +101,7 @@ Item {
                             : qsTr("Each copy is referenced through the current Maya integration.")
                     color: root.theme.secondaryText
                     font.family: root.theme.fontFamily
-                    font.pixelSize: 9
+                    font.pointSize: Typography.label
                     wrapMode: Text.WordWrap
                 }
             }
@@ -128,7 +128,7 @@ Item {
                     Layout.fillWidth: true
                     text: mayaOptionsController.unavailableReason
                     color: root.theme.secondaryText
-                    font.pixelSize: 9
+                    font.pointSize: Typography.label
                     wrapMode: Text.WordWrap
                 }
             }
@@ -139,7 +139,7 @@ Item {
             visible: mayaOptionsController.error.length > 0
             text: mayaOptionsController.error
             color: root.theme.red
-            font.pixelSize: 9
+            font.pointSize: Typography.label
             wrapMode: Text.WordWrap
         }
         Item { Layout.fillHeight: true }

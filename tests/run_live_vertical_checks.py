@@ -1,4 +1,4 @@
-"""Opt-in read-only live checks for the Block D workflow verticals.
+"""Opt-in read-only live checks for the documented user workflows.
 
 The command never creates or deletes data. Mutation scenarios belong only to the
 guarded isolated-project seeder described in docs/tactic_test_project.md.

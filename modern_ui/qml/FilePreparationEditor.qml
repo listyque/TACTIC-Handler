@@ -112,7 +112,7 @@ Item {
                         || qsTr("Select an object in Workspace")
                     color: root.theme.secondaryText
                     font.family: root.theme.fontFamily
-                    font.pixelSize: 10
+                    font.pointSize: Typography.body
                     elide: Text.ElideRight
                 }
             }
@@ -120,7 +120,7 @@ Item {
                 text: checkinOutController.repositoryTitle
                 color: root.theme.secondaryText
                 font.family: root.theme.fontFamily
-                font.pixelSize: 9
+                font.pointSize: Typography.label
             }
         }
 
@@ -143,7 +143,7 @@ Item {
                         text: checkinFileModel.count() + qsTr(" files")
                         color: root.theme.primaryText
                         font.family: root.theme.fontFamily
-                        font.pixelSize: 11
+                        font.pointSize: Typography.bodyLarge
                         font.weight: Font.DemiBold
                     }
                     Item { Layout.fillWidth: true }
@@ -199,7 +199,7 @@ Item {
                                     text: extension || qsTr("FILE")
                                     color: root.theme.action
                                     font.family: root.theme.fontFamily
-                                    font.pixelSize: 8
+                                    font.pointSize: Typography.caption
                                     font.weight: Font.Bold
                                 }
                             }
@@ -211,7 +211,7 @@ Item {
                                     text: name + "  ·  " + size + "  ·  " + fileType
                                     color: root.theme.primaryText
                                     font.family: root.theme.fontFamily
-                                    font.pixelSize: 10
+                                    font.pointSize: Typography.body
                                     elide: Text.ElideRight
                                 }
                                 Label {
@@ -221,7 +221,7 @@ Item {
                                     color: error ? root.theme.red : namingVersioned
                                         ? root.theme.secondaryText : root.theme.action
                                     font.family: root.theme.fontFamily
-                                    font.pixelSize: 9
+                                    font.pointSize: Typography.label
                                     elide: Text.ElideMiddle
                                 }
                                 Label {
@@ -230,7 +230,7 @@ Item {
                                     text: qsTr("Versionless  ") + namingVersionless
                                     color: root.theme.secondaryText
                                     font.family: root.theme.fontFamily
-                                    font.pixelSize: 8
+                                    font.pointSize: Typography.caption
                                     elide: Text.ElideMiddle
                                 }
                             }
@@ -253,7 +253,7 @@ Item {
                         text: qsTr("Add files or drop them here")
                         color: root.theme.secondaryText
                         font.family: root.theme.fontFamily
-                        font.pixelSize: 10
+                        font.pointSize: Typography.body
                     }
                 }
             }
@@ -337,7 +337,7 @@ Item {
                     || checkinOutController.preparationError
                     ? root.theme.red : root.theme.secondaryText
                 font.family: root.theme.fontFamily
-                font.pixelSize: 9
+                font.pointSize: Typography.label
                 wrapMode: Text.WordWrap
             }
         }

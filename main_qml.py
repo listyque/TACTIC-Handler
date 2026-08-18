@@ -9,6 +9,11 @@ import threading
 import traceback
 from pathlib import Path
 
+# The modern application and its legacy-compatible core must share one Qt
+# runtime. Prevent a host environment from making thlib.side.Qt load PySide2
+# or PyQt alongside the PySide6 QML engine.
+os.environ["QT_PREFERRED_BINDING"] = "PySide6"
+
 # Keep rendering away from the GUI thread during interactive window resizing.
 # The old forced "basic" loop rendered synchronously and made every complex
 # QML layout visibly stall while the native resize gesture was in progress.
@@ -27,6 +32,7 @@ from PySide6.QtCore import (
 )
 from PySide6.QtGui import QFont, QGuiApplication, QIcon
 from PySide6.QtQml import QQmlApplicationEngine
+from PySide6.QtQuick import QQuickWindow
 from PySide6.QtQuickControls2 import QQuickStyle
 from PySide6.QtWidgets import QApplication
 
@@ -38,6 +44,7 @@ from modern_ui.drop_plate import DropPlateController
 from modern_ui.matching_templates import MatchingTemplatesController
 from modern_ui.maya_options import MayaOptionsController
 from modern_ui.repository_editor import RepositoryEditorController
+from modern_ui.repository_sync_editor import RepositorySyncEditorController
 from modern_ui.watch_folders import WatchFoldersController
 from modern_ui.update_controller import UpdateController
 from modern_ui.tasks import TasksController
@@ -62,8 +69,12 @@ from modern_ui.editor_tools import (
 from modern_ui.script_editor import ScriptEditorController
 from modern_ui.debug_logging import DebugLogController
 from modern_ui.filter_editor import FilterEditorController
+from modern_ui.process_filter_editor import ProcessFilterEditorController
 from modern_ui.quick_filter_editor import QuickFilterEditorController
-from modern_ui.icon_font import fontawesome_assets
+from modern_ui.icon_font import (
+    fontawesome_assets,
+    material_design_icon_assets,
+)
 from modern_ui.sobject_editor import SObjectEditorController
 from modern_ui.sobject_link import SObjectLinkController
 from modern_ui.handler_server_controller import HandlerServerController
@@ -72,6 +83,8 @@ from modern_ui.user import UserController
 from modern_ui.skey_previews import SearchKeyPreviewResolver
 from modern_ui.naming_editor import NamingEditorController
 from modern_ui.localization import LocalizationController
+from modern_ui.sidebar_editor import SidebarEditorController
+from modern_ui.sobject_info import SObjectInfoController
 
 
 def _is_fixedsys_directwrite_warning(message: str) -> bool:
@@ -199,6 +212,13 @@ def main() -> int:
             str(settings_path),
         )
     QQuickStyle.setStyle("Material")
+    # Use the Windows/DirectWrite rasterizer so small desktop text retains the
+    # platform's native hinting and antialiasing. Dock layers are suspended
+    # while geometry changes, preventing resize-time texture resampling from
+    # making these native glyphs jump between physical pixels.
+    QQuickWindow.setTextRenderType(
+        QQuickWindow.TextRenderType.NativeTextRendering
+    )
     # Qt 6 can resolve the Windows fixed-pitch fallback to the bitmap-only
     # Fixedsys face, which DirectWrite cannot instantiate.
     QFont.insertSubstitution("Fixedsys", "Consolas")
@@ -236,12 +256,20 @@ def main() -> int:
     milestone_controller = MilestoneController(controller)
     tasks_controller.attach_milestone_controller(milestone_controller)
     user_controller = UserController(controller)
+    sidebar_editor_controller = SidebarEditorController(
+        controller, user_controller
+    )
     quick_filter_editor_controller = QuickFilterEditorController(
         controller, user_controller
     )
     user_controller.attach_tasks_controller(tasks_controller)
     skey_preview_resolver = SearchKeyPreviewResolver(controller)
     user_controller.attach_skey_previews(skey_preview_resolver)
+    sobject_info_controller = SObjectInfoController(
+        controller,
+        users=user_controller,
+        navigation=skey_preview_resolver,
+    )
     chat_attachment_controller = ChatAttachmentController(controller)
     note_attachment_controller = AttachmentUploadController(controller)
     communication_controller = CommunicationController(
@@ -370,9 +398,9 @@ def main() -> int:
         checkin_out_controller, drop_plate_controller
     )
     watch_folders_controller = WatchFoldersController(
-        controller, drop_plate_controller, matching_templates_controller
+        controller, checkin_out_controller, commit_queue_controller
     )
-    watch_folders_controller.reload()
+    controller.watch_folders = watch_folders_controller
     configuration_controller = ConfigurationController(
         controller.apply_server_configuration,
         controller._notify,
@@ -389,6 +417,7 @@ def main() -> int:
             controller.refresh_checkin_defaults(),
             checkin_out_controller.reload_repository_configuration(),
             drop_plate_controller.reload_configuration(),
+            controller.repository_sync.reload_configuration(),
         ),
         lambda: {
             **tasks_controller.configuration_values(),
@@ -422,10 +451,30 @@ def main() -> int:
         lambda: controller.workspace_state.filter_model._records,
         lambda: controller.workspace_state.filter_column_model._records,
         controller.search_filter_relations,
-        controller.apply_filter_editor_records,
         controller._notify,
         controller.has_active_search_tab,
         controller.filter_editor_context,
+        controller.stage_filter_editor_records,
+    )
+    filter_editor_controller.presetsChanged.connect(
+        sidebar_editor_controller.invalidate_search_presets
+    )
+    sidebar_editor_controller.attach_filter_editor(
+        filter_editor_controller
+    )
+    process_filter_editor_controller = ProcessFilterEditorController(
+        controller.filter_editor_context,
+        controller.apply_process_filter_settings,
+        controller._notify,
+    )
+    repository_sync_editor_controller = RepositorySyncEditorController(
+        controller.repository_sync_editor_context,
+        controller.repository_sync,
+        controller._notify,
+        debug_log,
+    )
+    controller.repositorySyncEditorRequested.connect(
+        repository_sync_editor_controller.begin_session
     )
     sobject_editor_controller = SObjectEditorController(
         controller.sobject_editor_context,
@@ -434,6 +483,7 @@ def main() -> int:
     sobject_link_controller = SObjectLinkController(
         controller.sobject_link_context,
         controller._notify,
+        controller.repository_sync,
     )
     runtime_log_bridge = QtRuntimeLogBridge()
     runtime_log_bridge.message_received.connect(
@@ -551,6 +601,15 @@ def main() -> int:
     engine.rootContext().setContextProperty(
         "fontAwesomeRegularFontFamily", regular_icon_font_family
     )
+    material_icon_glyphs, material_icon_font_family = (
+        material_design_icon_assets(Path(__file__).parent)
+    )
+    engine.rootContext().setContextProperty(
+        "materialDesignIconGlyphs", material_icon_glyphs
+    )
+    engine.rootContext().setContextProperty(
+        "materialDesignIconFontFamily", material_icon_font_family
+    )
     engine.rootContext().setContextProperty(
         "applicationIconUrl",
         QUrl.fromLocalFile(str(application_icon_path))
@@ -559,6 +618,15 @@ def main() -> int:
     engine.rootContext().setContextProperty("trayController", tray_controller)
     engine.rootContext().setContextProperty("appController", controller)
     engine.rootContext().setContextProperty("userController", user_controller)
+    engine.rootContext().setContextProperty(
+        "sidebarEditorController", sidebar_editor_controller
+    )
+    engine.rootContext().setContextProperty(
+        "sidebarEntryModel", sidebar_editor_controller.entries
+    )
+    engine.rootContext().setContextProperty(
+        "sidebarSecurityGroupModel", sidebar_editor_controller.security_groups
+    )
     engine.rootContext().setContextProperty(
         "serverUpdateService", server_update_service
     )
@@ -569,6 +637,33 @@ def main() -> int:
     engine.rootContext().setContextProperty("userTaskModel", user_controller.tasks)
     engine.rootContext().setContextProperty("userActivityModel", user_controller.activity)
     engine.rootContext().setContextProperty("userGroupModel", user_controller.groups)
+    engine.rootContext().setContextProperty(
+        "sobjectInfoController", sobject_info_controller
+    )
+    engine.rootContext().setContextProperty(
+        "sobjectTaskStatusModel", sobject_info_controller.task_statuses
+    )
+    engine.rootContext().setContextProperty(
+        "sobjectTaskProcessModel", sobject_info_controller.task_processes
+    )
+    engine.rootContext().setContextProperty(
+        "sobjectTaskModel", sobject_info_controller.tasks
+    )
+    engine.rootContext().setContextProperty(
+        "sobjectParticipantModel", sobject_info_controller.participants
+    )
+    engine.rootContext().setContextProperty(
+        "sobjectSnapshotModel", sobject_info_controller.snapshots
+    )
+    engine.rootContext().setContextProperty(
+        "sobjectFileModel", sobject_info_controller.files
+    )
+    engine.rootContext().setContextProperty(
+        "sobjectActivityModel", sobject_info_controller.activity
+    )
+    engine.rootContext().setContextProperty(
+        "sobjectPropertyModel", sobject_info_controller.properties
+    )
     engine.rootContext().setContextProperty(
         "tasksController", tasks_controller
     )
@@ -763,7 +858,21 @@ def main() -> int:
         "filterPresetModel", filter_editor_controller.presets
     )
     engine.rootContext().setContextProperty(
-        "filterProcessModel", filter_editor_controller.processes
+        "processFilterEditorController", process_filter_editor_controller
+    )
+    engine.rootContext().setContextProperty(
+        "processFilterModel", process_filter_editor_controller.model
+    )
+    engine.rootContext().setContextProperty(
+        "repositorySyncEditorController",
+        repository_sync_editor_controller,
+    )
+    engine.rootContext().setContextProperty(
+        "repositorySyncTreeModel", repository_sync_editor_controller.model
+    )
+    engine.rootContext().setContextProperty(
+        "repositorySyncPresetModel",
+        repository_sync_editor_controller.presets,
     )
     engine.rootContext().setContextProperty(
         "sobjectEditorController", sobject_editor_controller
@@ -849,9 +958,16 @@ def main() -> int:
         tray_controller.show_window
     )
     if not smoke_offline:
-        QTimer.singleShot(0, controller.bootstrap_server)
-        QTimer.singleShot(0, handler_server_controller.start_server)
-        QTimer.singleShot(0, server_update_service.start)
+        # Let the first frame reach the screen before any disk or server work.
+        # Cached workspace state is presentation-only; the authoritative
+        # server refresh follows immediately in the background. Polling and
+        # filesystem observers wait for that authoritative project selection.
+        controller.project_changed.connect(server_update_service.start)
+        controller.project_changed.connect(watch_folders_controller.reload)
+        QTimer.singleShot(40, controller.restore_cached_workspace)
+        QTimer.singleShot(80, controller.bootstrap_server)
+        QTimer.singleShot(120, handler_server_controller.start_server)
+
 
     startup_hook_pending = {"value": True}
 

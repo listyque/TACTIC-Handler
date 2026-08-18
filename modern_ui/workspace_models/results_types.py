@@ -33,10 +33,13 @@ class WorkspaceNode:
     repository: str = ""
     repository_color: str = ""
     preview_url: str = ""
+    card_preview_url: str = ""
     preview_source: object = None
     preview_requested: bool = False
+    card_preview_requested: bool = False
     preview_revealed: bool = False
     relationship: str = ""
+    linkable_relation: bool = False
     watch_state: str = "none"
     file_exists: bool = False
     is_latest: bool = False

@@ -80,3 +80,8 @@
   функциональный интерфейс, без отдельного QML-only хранилища.
 - Не дублировать в Configuration служебное состояние: кэши, временное состояние,
   геометрию и индивидуальные параметры пользовательских вкладок и окон.
+- In this project, a requested modal functional window means a separate native
+  top-level `Window` hosted by `WindowHost`/`FloatingWindow`, like the
+  profile window. Do not implement it as an `Md3Dialog`, `Popup`, or an
+  overlay embedded in `Main.qml`. Embedded dialogs are reserved for short
+  confirmations inside an already-open functional window.

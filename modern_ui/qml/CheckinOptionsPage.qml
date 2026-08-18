@@ -20,6 +20,10 @@ Item {
     function formValues() {
         return {
             "previewsThroughHttp": previewsHttp.checked,
+            "verifyRepositoryMd5": verifyRepositoryMd5.checked,
+            "autoCleanRepositorySync": autoCleanRepositorySync.checked,
+            "repositorySyncScopeMode": repositorySyncScopeMode.currentIndex,
+            "repositorySyncPartialChunkSize": repositorySyncPartialChunkSize.value,
             "doubleClickSave": doubleClickSave.checked,
             "doubleClickOpen": doubleClickOpen.checked,
             "showBuiltinProcesses": builtinProcesses.checked,
@@ -58,6 +62,12 @@ Item {
     function loadValues(values) {
         loadingValues = true
         previewsHttp.checked = Boolean(values.previewsThroughHttp)
+        verifyRepositoryMd5.checked = Boolean(values.verifyRepositoryMd5)
+        autoCleanRepositorySync.checked = Boolean(values.autoCleanRepositorySync)
+        repositorySyncScopeMode.currentIndex = Math.max(0,
+            Math.min(1, Number(values.repositorySyncScopeMode || 0)))
+        repositorySyncPartialChunkSize.value = Math.max(1,
+            Number(values.repositorySyncPartialChunkSize || 10))
         doubleClickSave.checked = Boolean(values.doubleClickSave)
         doubleClickOpen.checked = Boolean(values.doubleClickOpen)
         builtinProcesses.checked = Boolean(values.showBuiltinProcesses)
@@ -156,7 +166,7 @@ Item {
                         Label {
                             text: qsTr("Versions position")
                             color: root.theme.secondaryText
-                            font.pixelSize: 10
+                            font.pointSize: Typography.body
                         }
                         Md3ComboBox {
                             id: versionsPosition
@@ -189,7 +199,7 @@ Item {
                             Layout.fillWidth: true
                             text: qsTr("Search results limit")
                             color: root.theme.secondaryText
-                            font.pixelSize: 10
+                            font.pointSize: Typography.body
                         }
                         Md3SpinBox {
                             id: displayLimit
@@ -206,7 +216,7 @@ Item {
                             Layout.fillWidth: true
                             text: qsTr("Default view")
                             color: root.theme.secondaryText
-                            font.pixelSize: 10
+                            font.pointSize: Typography.body
                         }
                         Md3ComboBox {
                             id: defaultViewMode
@@ -232,7 +242,7 @@ Item {
                     columnSpacing: 14
                     rowSpacing: 8
 
-                    Label { text: qsTr("Current repository"); color: root.theme.secondaryText; font.pixelSize: 10 }
+                    Label { text: qsTr("Current repository"); color: root.theme.secondaryText; font.pointSize: Typography.body }
                     RowLayout {
                         Layout.fillWidth: true
                         Md3ComboBox {
@@ -250,7 +260,7 @@ Item {
                             onClicked: windowModel.show_window("repository_editor")
                         }
                     }
-                    Label { text: qsTr("Check-in method"); color: root.theme.secondaryText; font.pixelSize: 10 }
+                    Label { text: qsTr("Check-in method"); color: root.theme.secondaryText; font.pointSize: Typography.body }
                     Md3ComboBox {
                         id: checkinMethod
                         Layout.fillWidth: true
@@ -258,7 +268,7 @@ Item {
                         model: ["Preallocate", "In-Place", "Copy", "Move", "Upload"]
                         onActivated: root.updateValues()
                     }
-                    Label { text: qsTr("Check-out method"); color: root.theme.secondaryText; font.pixelSize: 10 }
+                    Label { text: qsTr("Check-out method"); color: root.theme.secondaryText; font.pointSize: Typography.body }
                     Md3ComboBox {
                         id: checkoutMethod
                         Layout.fillWidth: true
@@ -268,6 +278,49 @@ Item {
                     }
                     OptionCheck { id: updateVersionless; text: qsTr("Update versionless snapshot") }
                     OptionCheck { id: generatePreviews; text: qsTr("Generate previews") }
+                    OptionCheck {
+                        id: verifyRepositoryMd5
+                        text: qsTr("Verify repository files with MD5")
+                        ToolTip.visible: hovered
+                        ToolTip.text: qsTr("Detect changed local files by checksum. This uses additional CPU time.")
+                    }
+                    OptionCheck {
+                        id: autoCleanRepositorySync
+                        text: qsTr("Auto-clean completed repository downloads")
+                        ToolTip.visible: hovered
+                        ToolTip.text: qsTr("Remove completed Repository Sync rows after each download batch.")
+                    }
+                    Label {
+                        text: qsTr("Repository discovery mode")
+                        color: root.theme.secondaryText
+                        font.pointSize: Typography.body
+                    }
+                    Md3ComboBox {
+                        id: repositorySyncScopeMode
+                        Layout.fillWidth: true
+                        theme: root.theme
+                        model: [qsTr("Full scope"), qsTr("Partial scope")]
+                        onActivated: root.updateValues()
+                        ToolTip.visible: hovered
+                        ToolTip.text: currentIndex === 0
+                            ? qsTr("Discover the complete file scope before downloading.")
+                            : qsTr("Discover and download repository files in parallel chunks.")
+                    }
+                    Label {
+                        text: qsTr("Partial scope chunk size")
+                        color: root.theme.secondaryText
+                        font.pointSize: Typography.body
+                    }
+                    Md3SpinBox {
+                        id: repositorySyncPartialChunkSize
+                        Layout.fillWidth: true
+                        theme: root.theme
+                        from: 1
+                        to: 250
+                        stepSize: 1
+                        enabled: repositorySyncScopeMode.currentIndex === 1
+                        onValueChanged: root.updateValues()
+                    }
                     OptionCheck { id: createMayaDirs; text: qsTr("Create Maya directories") }
                     OptionCheck { id: createPlayblast; text: qsTr("Create screenshot (playblast)") }
                     OptionCheck { id: confirmSaving; text: qsTr("Confirm saving") }
@@ -318,7 +371,7 @@ Item {
                             Layout.fillWidth: true
                             text: qsTr("Minimum frame padding")
                             color: root.theme.secondaryText
-                            font.pixelSize: 10
+                            font.pointSize: Typography.body
                         }
                         Md3SpinBox {
                             id: minimumFramePadding

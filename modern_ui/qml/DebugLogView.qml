@@ -191,7 +191,7 @@ Item {
                             text: debugLog.entry_count + " events"
                             color: root.theme.primaryText
                             font.family: root.theme.fontFamily
-                            font.pixelSize: 10
+                            font.pointSize: Typography.body
                             font.weight: Font.DemiBold
                         }
                     }
@@ -226,7 +226,7 @@ Item {
                         text: qsTr("LEVEL")
                         color: root.theme.secondaryText
                         font.family: root.theme.fontFamily
-                        font.pixelSize: 8
+                        font.pointSize: Typography.caption
                         font.weight: Font.DemiBold
                         Layout.rightMargin: 2
                     }
@@ -302,13 +302,13 @@ Item {
                             text: qsTr("Sources")
                             color: root.theme.primaryText
                             font.family: root.theme.fontFamily
-                            font.pixelSize: 11
+                            font.pointSize: Typography.bodyLarge
                             font.weight: Font.DemiBold
                         }
                         Label {
                             text: groupList.count
                             color: root.theme.secondaryText
-                            font.pixelSize: 9
+                            font.pointSize: Typography.label
                         }
                     }
                     Rectangle {
@@ -371,7 +371,7 @@ Item {
                                     elide: Text.ElideMiddle
                                     color: root.theme.primaryText
                                     font.family: root.theme.fontFamily
-                                    font.pixelSize: 10
+                                    font.pointSize: Typography.body
                                 }
                                 Rectangle {
                                     Layout.preferredWidth:
@@ -384,7 +384,7 @@ Item {
                                         anchors.centerIn: parent
                                         text: groupRow.count
                                         color: root.theme.secondaryText
-                                        font.pixelSize: 8
+                                        font.pointSize: Typography.caption
                                     }
                                 }
                             }
@@ -444,14 +444,14 @@ Item {
                                 text: qsTr("Activity")
                                 color: root.theme.primaryText
                                 font.family: root.theme.fontFamily
-                                font.pixelSize: 11
+                                font.pointSize: Typography.bodyLarge
                                 font.weight: Font.DemiBold
                             }
                             Item { Layout.fillWidth: true }
                             Label {
                                 text: qsTr("Newest events appear at the bottom")
                                 color: root.theme.secondaryText
-                                font.pixelSize: 8
+                                font.pointSize: Typography.caption
                             }
                         }
                         Rectangle {
@@ -528,7 +528,7 @@ Item {
                                             text: eventRow.level
                                             color: eventRow.accent
                                             font.family: root.theme.fontFamily
-                                            font.pixelSize: 8
+                                            font.pointSize: Typography.caption
                                             font.weight: Font.DemiBold
                                         }
                                     }
@@ -552,7 +552,7 @@ Item {
                                             elide: Text.ElideRight
                                             color: root.theme.primaryText
                                             font.family: root.theme.fontFamily
-                                            font.pixelSize: 10
+                                            font.pointSize: Typography.body
                                             font.weight: Font.Medium
                                         }
                                         Label {
@@ -565,7 +565,7 @@ Item {
                                             elide: Text.ElideMiddle
                                             color: root.theme.secondaryText
                                             font.family: "Consolas"
-                                            font.pixelSize: 8
+                                            font.pointSize: Typography.caption
                                         }
                                     }
                                     ColumnLayout {
@@ -577,7 +577,7 @@ Item {
                                             text: eventRow.timestamp.slice(11, 23)
                                             color: root.theme.secondaryText
                                             font.family: "Consolas"
-                                            font.pixelSize: 8
+                                            font.pointSize: Typography.caption
                                         }
                                         Label {
                                             Layout.fillWidth: true
@@ -594,7 +594,7 @@ Item {
                                                     : "")
                                             color: root.theme.secondaryText
                                             font.family: "Consolas"
-                                            font.pixelSize: 8
+                                            font.pointSize: Typography.caption
                                         }
                                     }
                                 }
@@ -650,7 +650,7 @@ Item {
                                     : qsTr("Event details")
                                 color: root.theme.primaryText
                                 font.family: root.theme.fontFamily
-                                font.pixelSize: 11
+                                font.pointSize: Typography.bodyLarge
                                 font.weight: Font.DemiBold
                             }
                             CompactIconButton {
@@ -696,7 +696,7 @@ Item {
                                     ? root.theme.primaryText
                                     : root.theme.secondaryText
                                 font.family: "Consolas"
-                                font.pixelSize: 10
+                                font.pointSize: Typography.body
                                 text: {
                                     const entry = detailPanel.entry
                                     if (!entry.eventId)

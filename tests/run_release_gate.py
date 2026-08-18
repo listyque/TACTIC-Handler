@@ -1,4 +1,4 @@
-"""Run the complete non-destructive Block F release gate."""
+"""Run the complete non-destructive release gate."""
 
 from __future__ import annotations
 
@@ -87,6 +87,42 @@ def _git_check(allow_dirty: bool) -> int:
     return 0
 
 
+def _manual_check(contract: dict, results_path: Path | None) -> int:
+    required = [item for item in contract["manual"] if item.get("required")]
+    if results_path is None:
+        print(
+            f"[release] {len(required)} environment-dependent checks remain; "
+            "use --manual-results with --require-manual for a release candidate",
+            flush=True,
+        )
+        return 0
+    try:
+        payload = json.loads(results_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as error:
+        print(f"[release] cannot read manual results: {error}", file=sys.stderr)
+        return 1
+    records = payload.get("checks") if payload.get("schemaVersion") == 1 else None
+    if not isinstance(records, dict):
+        print("[release] unsupported manual results format", file=sys.stderr)
+        return 1
+    failed = []
+    for item in required:
+        record = records.get(item["id"]) or {}
+        if record.get("status") != "passed":
+            failed.append(item["id"])
+            continue
+        if not record.get("tester") or not record.get("testedAt") or not record.get("evidence"):
+            failed.append(item["id"])
+    if failed:
+        print(
+            "[release] manual acceptance is incomplete: " + ", ".join(failed),
+            file=sys.stderr,
+        )
+        return 1
+    print(f"[release] {len(required)} manual checks passed", flush=True)
+    return 0
+
+
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument(
@@ -95,6 +131,16 @@ def main(argv=None) -> int:
         help="allow tracked or untracked work while iterating",
     )
     parser.add_argument("--timeout", type=int, default=300)
+    parser.add_argument(
+        "--manual-results",
+        type=Path,
+        help="acceptance evidence created by tests/record_release_acceptance.py",
+    )
+    parser.add_argument(
+        "--require-manual",
+        action="store_true",
+        help="fail unless every required environment-dependent check has evidence",
+    )
     arguments = parser.parse_args(argv)
     contract = json.loads(CONTRACT.read_text(encoding="utf-8"))
     started_at = time.perf_counter()
@@ -104,11 +150,17 @@ def main(argv=None) -> int:
         command = [sys.executable, *check["command"]]
         if _run(command, arguments.timeout):
             return 1
+    if arguments.require_manual and arguments.manual_results is None:
+        print("[release] --require-manual needs --manual-results", file=sys.stderr)
+        return 2
+    if arguments.manual_results is not None or arguments.require_manual:
+        if _manual_check(contract, arguments.manual_results):
+            return 1
     duration = time.perf_counter() - started_at
     manual = [item for item in contract["manual"] if item.get("required")]
     print(
         f"[release] automated gate passed in {duration:.2f}s; "
-        f"{len(manual)} manual acceptance checks remain",
+        f"{len(manual)} environment-dependent acceptance checks declared",
         flush=True,
     )
     return 0

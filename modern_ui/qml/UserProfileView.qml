@@ -37,7 +37,7 @@ Item {
         required property var theme
         color: theme.secondaryText
         font.family: theme.fontFamily
-        font.pixelSize: 10
+        font.pointSize: Typography.body
         font.weight: Font.DemiBold
         font.letterSpacing: 0.5
     }
@@ -77,7 +77,7 @@ Item {
                 text: chip.label
                 color: chip.theme.primaryText
                 font.family: chip.theme.fontFamily
-                font.pixelSize: 9
+                font.pointSize: Typography.label
             }
             Label {
                 visible: chip.showCount
@@ -85,7 +85,7 @@ Item {
                 text: chip.count
                 color: chip.accent
                 font.family: chip.theme.fontFamily
-                font.pixelSize: 9
+                font.pointSize: Typography.label
                 font.weight: Font.DemiBold
             }
         }
@@ -114,14 +114,14 @@ Item {
                 text: profileRow.label
                 color: profileRow.theme.secondaryText
                 font.family: profileRow.theme.fontFamily
-                font.pixelSize: 8
+                font.pointSize: Typography.caption
             }
             Label {
                 Layout.fillWidth: true
                 text: profileRow.value
                 color: profileRow.theme.primaryText
                 font.family: profileRow.theme.fontFamily
-                font.pixelSize: 10
+                font.pointSize: Typography.body
                 elide: Text.ElideMiddle
             }
         }
@@ -176,7 +176,7 @@ Item {
                         text: userListModel.count()
                         color: root.theme.secondaryText
                         font.family: root.theme.fontFamily
-                        font.pixelSize: 9
+                        font.pointSize: Typography.label
                     }
                     CompactIconButton {
                         theme: root.theme
@@ -280,7 +280,7 @@ Item {
                                         ? root.theme.selectedText
                                         : root.theme.primaryText
                                     font.family: root.theme.fontFamily
-                                    font.pixelSize: 10
+                                    font.pointSize: Typography.body
                                     font.weight: Font.DemiBold
                                     elide: Text.ElideRight
                                 }
@@ -292,7 +292,7 @@ Item {
                                         ? root.theme.selectedText
                                         : root.theme.secondaryText
                                     font.family: root.theme.fontFamily
-                                    font.pixelSize: 8
+                                    font.pointSize: Typography.caption
                                     elide: Text.ElideRight
                                 }
                             }
@@ -404,7 +404,7 @@ Item {
                                     }
                                     color: root.theme.secondaryText
                                     font.family: root.theme.fontFamily
-                                    font.pixelSize: 10
+                                    font.pointSize: Typography.body
                                     elide: Text.ElideRight
                                 }
                             }
@@ -530,7 +530,7 @@ Item {
                                     text: qsTr("No groups or roles returned by TACTIC")
                                     color: root.theme.secondaryText
                                     font.family: root.theme.fontFamily
-                                    font.pixelSize: 9
+                                    font.pointSize: Typography.label
                                 }
                             }
                         }
@@ -633,7 +633,7 @@ Item {
                                             )
                                             color: root.theme.secondaryText
                                             font.family: root.theme.fontFamily
-                                            font.pixelSize: 9
+                                            font.pointSize: Typography.label
                                         }
                                     }
 
@@ -655,7 +655,7 @@ Item {
                                                 text: qsTr("Active")
                                                 color: root.theme.secondaryText
                                                 font.family: root.theme.fontFamily
-                                                font.pixelSize: 9
+                                                font.pointSize: Typography.label
                                             }
                                         }
                                         Rectangle {
@@ -678,7 +678,7 @@ Item {
                                                 text: qsTr("Overdue")
                                                 color: root.theme.secondaryText
                                                 font.family: root.theme.fontFamily
-                                                font.pixelSize: 9
+                                                font.pointSize: Typography.label
                                             }
                                         }
                                         Rectangle {
@@ -700,7 +700,7 @@ Item {
                                                 text: qsTr("Due this week")
                                                 color: root.theme.secondaryText
                                                 font.family: root.theme.fontFamily
-                                                font.pixelSize: 9
+                                                font.pointSize: Typography.label
                                             }
                                         }
                                     }
@@ -767,7 +767,7 @@ Item {
                                                 ))
                                                 color: root.theme.secondaryText
                                                 font.family: root.theme.fontFamily
-                                                font.pixelSize: 9
+                                                font.pointSize: Typography.label
                                             }
                                         }
                                         Rectangle {
@@ -823,7 +823,7 @@ Item {
                                                     text: qsTr("SUPERVISOR SUMMARY")
                                                     color: root.theme.primaryText
                                                     font.family: root.theme.fontFamily
-                                                    font.pixelSize: 9
+                                                    font.pointSize: Typography.label
                                                     font.weight: Font.DemiBold
                                                 }
                                                 Label {
@@ -834,7 +834,7 @@ Item {
                                                     ))
                                                     color: root.theme.secondaryText
                                                     font.family: root.theme.fontFamily
-                                                    font.pixelSize: 9
+                                                    font.pointSize: Typography.label
                                                 }
                                             }
                                         }
@@ -847,7 +847,7 @@ Item {
                                         text: qsTr("No assigned tasks in the current project")
                                         color: root.theme.secondaryText
                                         font.family: root.theme.fontFamily
-                                        font.pixelSize: 9
+                                        font.pointSize: Typography.label
                                     }
                                 }
 
@@ -964,7 +964,7 @@ Item {
                                             : qsTr("No recent activity")
                                         color: root.theme.secondaryText
                                         font.family: root.theme.fontFamily
-                                        font.pixelSize: 9
+                                        font.pointSize: Typography.label
                                     }
                                 }
                             }
@@ -980,7 +980,7 @@ Item {
                             color: root.theme.red
                             wrapMode: Text.WordWrap
                             font.family: root.theme.fontFamily
-                            font.pixelSize: 9
+                            font.pointSize: Typography.label
                         }
                     }
                 }

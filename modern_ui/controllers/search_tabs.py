@@ -27,6 +27,7 @@ from PySide6.QtGui import QGuiApplication, QImage
 from ..menu_schema import MenuRegistry
 from ..quick_filters import QuickFilterCatalog
 from ..repository_sync import RepositorySyncController
+from ..search_contract import create_search_tab
 from ..models import NavigationModel, ProjectModel
 from ..workspace import (
     DockPanelModel,
@@ -125,12 +126,13 @@ class SearchTabsMixin:
         if not section:
             return
         self._capture_current_tree_state()
-        tab = SearchTabSession(
-            tab_id=f"{section.entry_key}:search:{uuid.uuid4().hex[:8]}",
-            title=f"New Search {len(section.tabs) + 1}",
+        tab = create_search_tab(
+            section.entry_key,
+            f"New Search {len(section.tabs) + 1}",
             tab_kind="user",
             limit=self._page_size,
             view_mode=self._default_view_mode,
+            ensure_name_row=True,
         )
         section.tabs.append(tab)
         section.current_tab_id = tab.tab_id

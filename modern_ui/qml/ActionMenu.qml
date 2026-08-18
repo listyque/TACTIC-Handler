@@ -216,7 +216,7 @@ Md3Popup {
                             color: modelData.status === "Experimental"
                                 ? root.theme.action : root.theme.secondaryText
                             font.family: root.theme.fontFamily
-                            font.pixelSize: 9
+                            font.pointSize: Typography.label
                             elide: Text.ElideRight
                         }
                     }
@@ -235,7 +235,7 @@ Md3Popup {
                                 ? "99+" : String(modelData.badgeCount || 0)
                             color: root.theme.selectedText
                             font.family: root.theme.fontFamily
-                            font.pixelSize: 8
+                            font.pointSize: Typography.caption
                             font.weight: Font.Bold
                         }
                     }

@@ -177,7 +177,7 @@ Item {
                         text: qsTr("Script path")
                         color: root.theme.secondaryText
                         font.family: root.theme.fontFamily
-                        font.pixelSize: 9
+                        font.pointSize: Typography.label
                     }
                     Md3TextField {
                         id: folder
@@ -276,7 +276,7 @@ Item {
                                 text: scriptTab.title || qsTr("Untitled")
                                 color: root.theme.primaryText
                                 font.family: root.theme.fontFamily
-                                font.pixelSize: 10
+                                font.pointSize: Typography.body
                                 elide: Text.ElideRight
                             }
                             CompactIconButton {
@@ -333,7 +333,7 @@ Item {
                                     text: qsTr("Source")
                                     color: root.theme.primaryText
                                     font.family: root.theme.fontFamily
-                                    font.pixelSize: 11
+                                    font.pointSize: Typography.bodyLarge
                                     font.weight: Font.DemiBold
                                 }
                             }
@@ -361,7 +361,7 @@ Item {
                                     id: source
                                     theme: root.theme
                                     font.family: "Consolas"
-                                    font.pixelSize: 10
+                                    font.pointSize: Typography.body
                                     wrapMode: TextEdit.NoWrap
                                     onTextChanged: if (!root.applyingEditorState)
                                         draftSave.restart()
@@ -394,7 +394,7 @@ Item {
                                     text: qsTr("Output")
                                     color: root.theme.primaryText
                                     font.family: root.theme.fontFamily
-                                    font.pixelSize: 11
+                                    font.pointSize: Typography.bodyLarge
                                     font.weight: Font.DemiBold
                                 }
                                 CompactIconButton {
@@ -436,7 +436,7 @@ Item {
                                     readOnly: true
                                     text: scriptEditorController.output
                                     font.family: "Consolas"
-                                    font.pixelSize: 9
+                                    font.pointSize: Typography.label
                                     wrapMode: TextEdit.NoWrap
                                     onTextChanged: Qt.callLater(function() {
                                         outputPane.cursorPosition = outputPane.length
@@ -473,7 +473,7 @@ Item {
                         text: qsTr("Execute")
                         color: root.theme.secondaryText
                         font.family: root.theme.fontFamily
-                        font.pixelSize: 9
+                        font.pointSize: Typography.label
                     }
                     Md3ComboBox {
                         id: runMode
@@ -492,7 +492,7 @@ Item {
                     text: scriptEditorController.error
                     color: root.theme.error
                     font.family: root.theme.fontFamily
-                    font.pixelSize: 9
+                    font.pointSize: Typography.label
                     elide: Text.ElideRight
                 }
             }
@@ -524,7 +524,7 @@ Item {
                         text: qsTr("Scripts")
                         color: root.theme.primaryText
                         font.family: root.theme.fontFamily
-                        font.pixelSize: 11
+                        font.pointSize: Typography.bodyLarge
                         font.weight: Font.DemiBold
                     }
                     Md3BusyIndicator {
@@ -592,7 +592,7 @@ Item {
                                     text: treeRow.title
                                     color: root.theme.primaryText
                                     font.family: root.theme.fontFamily
-                                    font.pixelSize: 10
+                                    font.pointSize: Typography.body
                                     font.weight: treeRow.nodeType === "folder"
                                         ? Font.DemiBold : Font.Normal
                                     elide: Text.ElideRight
@@ -603,7 +603,7 @@ Item {
                                     text: treeRow.language.replace("_", " ")
                                     color: root.theme.secondaryText
                                     font.family: root.theme.fontFamily
-                                    font.pixelSize: 8
+                                    font.pointSize: Typography.caption
                                     elide: Text.ElideRight
                                 }
                             }

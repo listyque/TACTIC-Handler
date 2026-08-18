@@ -84,14 +84,14 @@ Item {
                             Layout.fillWidth: true
                             text: qsTr("DISPLAY COLUMN")
                             color: root.theme.secondaryText
-                            font.pixelSize: 9
+                            font.pointSize: Typography.label
                             font.weight: Font.DemiBold
                         }
                         Label {
                             Layout.preferredWidth: 82
                             text: qsTr("WIDTH")
                             color: root.theme.secondaryText
-                            font.pixelSize: 9
+                            font.pointSize: Typography.label
                         }
                         Item { Layout.preferredWidth: 62 }
                     }
@@ -204,7 +204,7 @@ Item {
                         text: qsTr("TACTIC COLUMN")
                         color: root.theme.secondaryText
                         font.family: root.theme.fontFamily
-                        font.pixelSize: 9
+                        font.pointSize: Typography.label
                         font.weight: Font.DemiBold
                     }
                     Label {
@@ -224,7 +224,7 @@ Item {
                             : ""
                         color: root.theme.secondaryText
                         font.family: root.theme.fontFamily
-                        font.pixelSize: 9
+                        font.pointSize: Typography.label
                     }
                     Md3TextArea {
                         id: columnValue
@@ -244,7 +244,7 @@ Item {
                         visible: selectedColumn.readOnly || false
                         text: qsTr("This schema column is read-only.")
                         color: root.theme.secondaryText
-                        font.pixelSize: 9
+                        font.pointSize: Typography.label
                     }
                     Md3Button {
                         Layout.alignment: Qt.AlignRight
@@ -268,7 +268,7 @@ Item {
             color: root.theme.red
             wrapMode: Text.WordWrap
             font.family: root.theme.fontFamily
-            font.pixelSize: 9
+            font.pointSize: Typography.label
         }
 
         RowLayout {

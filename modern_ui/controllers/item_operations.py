@@ -27,6 +27,7 @@ from PySide6.QtGui import QGuiApplication, QImage
 from ..menu_schema import MenuRegistry
 from ..quick_filters import QuickFilterCatalog
 from ..repository_sync import RepositorySyncController
+from ..search_contract import create_search_tab
 from ..models import NavigationModel, ProjectModel
 from ..workspace import (
     DockPanelModel,
@@ -42,6 +43,97 @@ class ItemOperationsMixin:
     def attach_checkin_workflow(self, checkin_controller, drop_plate_controller) -> None:
         self._checkin_controller = checkin_controller
         self._drop_plate_controller = drop_plate_controller
+
+    def repository_sync_editor_context(self) -> dict:
+        """Return the active legacy Repo Sync scope without rebuilding it."""
+        requested_context = getattr(
+            self, "_repository_sync_editor_request", None,
+        )
+        if requested_context is not None:
+            self._repository_sync_editor_request = None
+            return dict(requested_context)
+
+        tab = self._current_tab()
+        node = self._node_for_any(tab.selected_node_id) if tab else None
+        return self._repository_sync_context_for_node(node, tab=tab)
+
+    def _repository_sync_context_for_node(
+        self, node=None, *, tab=None, whole_search_type: bool = False,
+    ) -> dict:
+        """Build a Repo Sync scope from an explicit item or Search Type."""
+        tab = tab or self._current_tab()
+        while node and node.node_type != "sobject" and node.parent_id:
+            node = self._node_for_any(node.parent_id)
+        sobject = (
+            None if whole_search_type
+            else node.source if node and node.node_type == "sobject" else None
+        )
+        stype = None
+        if sobject is not None:
+            try:
+                stype = sobject.get_stype()
+            except AttributeError:
+                pass
+        if stype is None:
+            # A Search Tab owns its Search Type.  Do not fall back to the
+            # previously active global type: switching tabs and reopening an
+            # already visible editor otherwise keeps the old scope.
+            stype = getattr(tab, "stype", None) if tab else None
+        current_section = getattr(self, "_current_section", None)
+        section = current_section() if callable(current_section) else None
+        expected_code = str(
+            getattr(section, "search_type", "") or ""
+        )
+        try:
+            actual_code = str(stype.get_code() or "") if stype else ""
+        except AttributeError:
+            actual_code = ""
+        if expected_code and actual_code != expected_code:
+            try:
+                from thlib.environment import env_inst
+
+                project = env_inst.projects.get(self._current_project_code)
+                stype = (
+                    project.stypes.get(expected_code)
+                    if project and project.stypes else None
+                )
+            except (AttributeError, KeyError, TypeError):
+                stype = None
+        return {
+            "sobject": sobject,
+            "stype": stype,
+            "tab_name": str(tab.title if tab else "default"),
+            "project_code": self._current_project_code,
+        }
+
+    def _open_repository_sync_editor(self, context: dict) -> None:
+        """Open the editor with an explicit scope, avoiding selection races."""
+        self._repository_sync_editor_request = dict(context)
+        window_id = "repository_sync_editor"
+        is_visible = getattr(self.window_model, "is_window_visible", None)
+        if callable(is_visible) and is_visible(window_id):
+            # `windowVisibleChanged` is not emitted for an already open
+            # window, so explicitly restart the session with the new tab.
+            requested = getattr(self, "repositorySyncEditorRequested", None)
+            if requested is not None:
+                requested.emit()
+            raise_window = getattr(self.window_model, "raise_window", None)
+            if callable(raise_window):
+                raise_window(window_id)
+        else:
+            self.window_model.show_window(window_id)
+
+    @Slot()
+    def open_search_type_repository_sync(self) -> None:
+        """Open legacy-style Repo Sync for every sObject in the active type."""
+        tab = self._current_tab()
+        context = self._repository_sync_context_for_node(
+            None, tab=tab, whole_search_type=True,
+        )
+        if context.get("stype") is None:
+            self._notify("No active Search Type is available for Repository Sync")
+            return
+        self._open_repository_sync_editor(context)
 
     def _checkin_target_for_node(self, node):
         selected = node
@@ -327,12 +419,13 @@ class ItemOperationsMixin:
             related_stype.get_stype_color(fmt="hex") or "",
         )
         self.activate_section(section.entry_key)
-        tab = SearchTabSession(
-            tab_id=f"{section.entry_key}:search:{uuid.uuid4().hex[:8]}",
-            title=f"{related_stype.get_pretty_name()} related to {source.get_title()}",
-            extra_filters=[("_expression", "in", expression)],
+        tab = create_search_tab(
+            section.entry_key,
+            f"{related_stype.get_pretty_name()} related to {source.get_title()}",
+            tab_kind="related",
             limit=self._page_size,
             view_mode=self._default_view_mode,
+            filters=[("_expression", "in", expression)],
         )
         section.tabs.append(tab)
         section.current_tab_id = tab.tab_id
@@ -451,6 +544,16 @@ class ItemOperationsMixin:
             return
         if command.startswith(("repo_sync_preset:", "repo_sync_update:")):
             preset_name = command.partition(":")[2]
+            tab = self._current_tab()
+            tab_name = str(tab.title if tab else "default")
+            presets = self.repository_sync.presets(source)
+            preset_index = next((
+                index for index, preset in enumerate(presets)
+                if str(preset.get("preset_name") or "") == preset_name
+            ), 0)
+            self.repository_sync.store_selected_preset(
+                source, tab_name, preset_index, preset_name,
+            )
             self.select_sobject(node.search_key if node else "")
             self.window_model.show_window("repository_sync")
             mode = "updates" if command.startswith("repo_sync_update:") else "preset"
@@ -458,6 +561,7 @@ class ItemOperationsMixin:
                 source,
                 preset_name,
                 mode == "updates",
+                auto_close_on_success=True,
             )
             self._notify(f"Repository Sync: {preset_name} ({mode})")
             return
@@ -532,8 +636,11 @@ class ItemOperationsMixin:
             self._show_process_details(node_id)
             return
         if command == "repo_sync":
-            self.select_sobject(node.search_key if node else "")
-            self.window_model.show_window("repository_sync")
+            context = self._repository_sync_context_for_node(node)
+            if context.get("sobject") is None:
+                self._notify("The selected item cannot be synchronized")
+                return
+            self._open_repository_sync_editor(context)
             return
         if command == "open_watch_folder" and node:
             try:
@@ -567,8 +674,20 @@ class ItemOperationsMixin:
                 self._notify(str(error))
             return
         if command in {"watch_folder", "create_watch", "edit_watch", "delete_watch"}:
-            self.select_sobject(node.search_key if node else "")
-            self.dock_model.show_panel("watch_folders")
+            if not node:
+                self._notify("Select an sObject before managing a watch folder")
+                return
+            self.select_sobject(node.search_key)
+            watch_folders = getattr(self, "watch_folders", None)
+            if not watch_folders:
+                self._notify("Watch Folders are unavailable")
+                return
+            if command in {"watch_folder", "create_watch", "edit_watch"}:
+                watch_folders.begin_add_for_source(node.source, "item")
+            elif command == "delete_watch":
+                watch_folders.request_remove_search_key(
+                    node.search_key, "item"
+                )
             return
         if command in {"add_related", "link_related"}:
             self.select_sobject(node.search_key if node else "")
@@ -582,10 +701,27 @@ class ItemOperationsMixin:
                 }
             elif command == "link_related" and node:
                 relation = node.relation or {}
+                definition = dict(relation.get("definition") or {})
+                relationship = str(
+                    definition.get("relationship")
+                    or node.relationship
+                    or ""
+                )
+                if (
+                    node.node_type != "relation"
+                    or relationship != "instance"
+                    or relation.get("stype") is None
+                    or node.source is None
+                ):
+                    self._sobject_link_request = {}
+                    self._notify(
+                        "Link SObjects is available for instance relations only"
+                    )
+                    return
                 self._sobject_link_request = {
                     "stype": relation.get("stype"),
                     "parent_sobject": node.source,
-                    "relation": relation.get("definition") or {},
+                    "relation": definition,
                     "_prepared": True,
                 }
             self.open_window("link_sobjects" if command == "link_related" else "add_sobject")
@@ -684,7 +820,6 @@ class ItemOperationsMixin:
             return
         window_map = {
             "duplicate": "duplicate_sobject",
-            "link": "link_sobjects",
         }
         if command in {"db", "db_selected"}:
             self.dock_model.show_panel("db_table")
@@ -699,6 +834,10 @@ class ItemOperationsMixin:
                 self._pending_item_node_id = node_id
                 self._pending_item_action = command
             self.open_window(window_map[command])
+        elif command == "link":
+            self._notify(
+                "Open Link SObjects from an instance relation"
+            )
         elif command == "ingest":
             self.dock_model.show_panel("drop_plate")
         elif command == "save":

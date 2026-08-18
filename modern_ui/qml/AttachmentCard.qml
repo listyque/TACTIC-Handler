@@ -105,7 +105,7 @@ Rectangle {
                 text: root.title || qsTr("Attachment")
                 color: root.theme.primaryText
                 font.family: root.theme.fontFamily
-                font.pixelSize: 11
+                font.pointSize: Typography.bodyLarge
                 font.weight: Font.DemiBold
                 elide: Text.ElideMiddle
             }
@@ -116,7 +116,7 @@ Rectangle {
                 text: root.sizeText
                 color: root.theme.secondaryText
                 font.family: root.theme.fontFamily
-                font.pixelSize: 9
+                font.pointSize: Typography.label
                 elide: Text.ElideRight
             }
         }
@@ -167,7 +167,7 @@ Rectangle {
                     text: root.title || qsTr("Image attachment")
                     color: root.theme.primaryText
                     font.family: root.theme.fontFamily
-                    font.pixelSize: 11
+                    font.pointSize: Typography.bodyLarge
                     font.weight: Font.DemiBold
                     elide: Text.ElideMiddle
                 }
@@ -179,7 +179,7 @@ Rectangle {
                     ).join("  ·  ")
                     color: root.theme.secondaryText
                     font.family: root.theme.fontFamily
-                    font.pixelSize: 9
+                    font.pointSize: Typography.label
                     elide: Text.ElideRight
                 }
             }

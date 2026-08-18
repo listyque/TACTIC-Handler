@@ -99,6 +99,10 @@ class WorkspaceItemModel(
 
     PreviewRequestedRole = Qt.UserRole + 40
 
+    CardPreviewUrlRole = Qt.UserRole + 41
+
+    CardPreviewRequestedRole = Qt.UserRole + 42
+
     def __init__(self) -> None:
         super().__init__()
         self._roots: list[WorkspaceNode] = []
@@ -149,4 +153,6 @@ class WorkspaceItemModel(
             self.RepositoryColorRole: "repository_color",
             self.PreviewRevealedRole: "preview_revealed",
             self.PreviewRequestedRole: "preview_requested",
+            self.CardPreviewUrlRole: "card_preview_url",
+            self.CardPreviewRequestedRole: "card_preview_requested",
         }

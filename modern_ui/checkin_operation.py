@@ -28,6 +28,21 @@ def _copy_file(source: Path, destination: Path, cancel_event) -> None:
     shutil.copystat(source, destination)
 
 
+def _copy_file_atomically(source: Path, destination: Path, cancel_event) -> None:
+    if os.path.normcase(str(source)) == os.path.normcase(str(destination)):
+        return
+    temporary = destination.with_name(
+        f"{destination.name}.{uuid.uuid4().hex}.part"
+    )
+    try:
+        _copy_file(source, temporary, cancel_event)
+        _check_cancel(cancel_event)
+        os.replace(temporary, destination)
+    finally:
+        if temporary.exists():
+            temporary.unlink()
+
+
 def prepare_checkin(payload: dict, progress_signal=None, cancel_event=None) -> dict:
     import thlib.global_functions as gf
     import thlib.tactic_classes as tc
@@ -98,6 +113,7 @@ def stage_checkin(
     move_sources = mode == "move"
     copied_destinations = set()
     source_paths = set()
+    preview_cache = {}
     total = max(1, sum(len(paths) for paths in inputs["filePaths"]) * len(versions))
     completed = 0
 
@@ -129,16 +145,7 @@ def stage_checkin(
                 _check_cancel(cancel_event)
                 destination = destination.resolve()
                 if os.path.normcase(str(source)) != os.path.normcase(str(destination)):
-                    temporary = destination.with_name(
-                        f"{destination.name}.{uuid.uuid4().hex}.part"
-                    )
-                    try:
-                        _copy_file(source, temporary, cancel_event)
-                        _check_cancel(cancel_event)
-                        os.replace(temporary, destination)
-                    finally:
-                        if temporary.exists():
-                            temporary.unlink()
+                    _copy_file_atomically(source, destination, cancel_event)
                 if not destination.is_file():
                     raise OSError(f"Repository file was not created: {destination}")
                 copied_destinations.add(os.path.normcase(str(destination)))
@@ -157,9 +164,18 @@ def stage_checkin(
                 icon_files = file_object.get_all_new_files_list(names[2], str(icon_dir))
                 for source, web_file, icon_file in zip(sources, web_files, icon_files):
                     _check_cancel(cancel_event)
-                    tc.generate_web_and_icon(
-                        str(source), str(web_file), str(icon_file)
-                    )
+                    source_key = os.path.normcase(str(source))
+                    web_file = Path(web_file).resolve()
+                    icon_file = Path(icon_file).resolve()
+                    cached = preview_cache.get(source_key)
+                    if cached:
+                        _copy_file_atomically(cached[0], web_file, cancel_event)
+                        _copy_file_atomically(cached[1], icon_file, cancel_event)
+                    else:
+                        tc.generate_web_and_icon(
+                            str(source), str(web_file), str(icon_file)
+                        )
+                        preview_cache[source_key] = (web_file, icon_file)
 
     if move_sources:
         for source in source_paths:

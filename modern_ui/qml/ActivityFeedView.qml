@@ -26,7 +26,7 @@ Item {
                 text: qsTr("ACTIVITY FEED")
                 color: root.theme.secondaryText
                 font.family: root.theme.fontFamily
-                font.pixelSize: 10
+                font.pointSize: Typography.body
                 font.weight: Font.DemiBold
             }
             RefreshIconButton {
@@ -64,7 +64,7 @@ Item {
             text: activityFeedController.error
             color: root.theme.error
             font.family: root.theme.fontFamily
-            font.pixelSize: 10
+            font.pointSize: Typography.body
             wrapMode: Text.WordWrap
         }
 
@@ -135,7 +135,7 @@ Item {
                 text: qsTr("No activity for this filter")
                 color: root.theme.secondaryText
                 font.family: root.theme.fontFamily
-                font.pixelSize: 11
+                font.pointSize: Typography.bodyLarge
             }
         }
 

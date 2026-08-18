@@ -211,7 +211,7 @@ Item {
                                 text: title
                                 color: root.theme.primaryText
                                 font.family: root.theme.fontFamily
-                                font.pixelSize: 10
+                                font.pointSize: Typography.body
                                 font.weight: Font.DemiBold
                                 elide: Text.ElideMiddle
                             }
@@ -222,7 +222,7 @@ Item {
                                     + (size ? "  •  " + size : "")
                                 color: root.theme.secondaryText
                                 font.family: root.theme.fontFamily
-                                font.pixelSize: 9
+                                font.pointSize: Typography.label
                                 elide: Text.ElideRight
                             }
                             Label {
@@ -231,7 +231,7 @@ Item {
                                 color: error ? root.theme.error
                                     : root.theme.disabledText
                                 font.family: root.theme.fontFamily
-                                font.pixelSize: 8
+                                font.pointSize: Typography.caption
                                 elide: Text.ElideMiddle
                             }
                         }
@@ -240,7 +240,7 @@ Item {
                             color: status === "Queued"
                                 ? root.theme.green : root.theme.secondaryText
                             font.family: root.theme.fontFamily
-                            font.pixelSize: 9
+                            font.pointSize: Typography.label
                         }
                         CompactIconButton {
                             theme: root.theme
@@ -277,7 +277,7 @@ Item {
                         text: qsTr("Drop files or directories here")
                         color: root.theme.secondaryText
                         font.family: root.theme.fontFamily
-                        font.pixelSize: 10
+                        font.pointSize: Typography.body
                     }
                 }
                 Column {
@@ -293,7 +293,7 @@ Item {
                         text: qsTr("Matching files…")
                         color: root.theme.secondaryText
                         font.family: root.theme.fontFamily
-                        font.pixelSize: 10
+                        font.pointSize: Typography.body
                     }
                 }
             }
@@ -316,7 +316,7 @@ Item {
             text: dropPlateController.error
             color: root.theme.error
             font.family: root.theme.fontFamily
-            font.pixelSize: 9
+            font.pointSize: Typography.label
             wrapMode: Text.WordWrap
         }
 
@@ -329,7 +329,7 @@ Item {
                     : qsTr("Select an sObject before adding to queue")
                 color: root.theme.secondaryText
                 font.family: root.theme.fontFamily
-                font.pixelSize: 9
+                font.pointSize: Typography.label
                 elide: Text.ElideRight
             }
             Md3Button {

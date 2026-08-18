@@ -88,7 +88,7 @@ extension, frame range, tiles, layer, size, process, checked и error.
 - повторное удаление после удаления нескольких строк;
 - восстановление шаблонов и Drop Plate options после перезапуска.
 
-## Этап 23 — Drop Plate
+## Drop Plate
 
 Реализован отдельный `DropPlateController` с role-based моделью. File dialog,
 Folder dialog и DropArea передают только локальные URL; сбор каталогов и
@@ -115,7 +115,7 @@ payload, Python syntax и QML offscreen loading. Вручную проверит
 dialogs, DnD каталогов, UV/UDIM/layer группы и реальный check-in sequence через
 Commit Queue.
 
-## Этап 24 — Matching Templates Editor
+## Matching Templates Editor
 
 Реализован `MatchingTemplatesController` с отдельной role-based моделью и
 `MatchingTemplatesView`. Поддержаны создание, изменение pattern, duplication,

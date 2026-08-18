@@ -128,7 +128,7 @@ API восьми редакторов. `thlib/side` не анализирова�
 - **Ограничение:** editing naming rules не добавлен: исходный класс его не
   реализует и отдельного контракта правил пока нет.
 
-## Этап 33 — Columns и Tactic Column Editor
+## Columns и Tactic Column Editor
 
 Columns Editor реализован отдельными `ColumnsEditorController` и
 `ColumnsEditorView`. Для колонок текущего search type поддержаны порядок,

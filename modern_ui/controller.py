@@ -15,6 +15,7 @@ from .menu_schema import MenuRegistry
 from .models import NavigationModel, ProjectModel
 from .quick_filters import QuickFilterCatalog
 from .theme_catalog import THEME_STYLES, normalize_theme_style
+from .window_geometry import load_main_window_state
 from .repository_sync import RepositorySyncController
 from .workspace import (
     DockPanelModel,
@@ -119,6 +120,8 @@ class ApplicationController(
 
     revisionCheckinConfirmationRequested = Signal()
 
+    repositorySyncEditorRequested = Signal()
+
     def __init__(self, debug_log=None) -> None:
         super().__init__()
         self.debug_log = debug_log
@@ -128,13 +131,7 @@ class ApplicationController(
         self.section_state_changed.connect(self.selected_node_changed.emit)
         self.section_state_changed.connect(self.results_view_changed.emit)
         self._settings = QSettings("TACTIC-Handler", "modern-qml")
-        self._window_state = {
-            "x": self._settings.value("window/x", 80, type=int),
-            "y": self._settings.value("window/y", 60, type=int),
-            "width": max(760, self._settings.value("window/width", 1280, type=int)),
-            "height": max(560, self._settings.value("window/height", 820, type=int)),
-            "maximized": self._settings.value("window/maximized", False, type=bool),
-        }
+        self._window_state = load_main_window_state(self._settings)
         self._window_state_timer = QTimer(self)
         self._window_state_timer.setSingleShot(True)
         self._window_state_timer.timeout.connect(self._write_window_state)
@@ -240,6 +237,8 @@ class ApplicationController(
         self._active_request_id = ""
         self._search_workers = {}
         self._pending_search_loads = {}
+        self._sidebar_preset_workers = {}
+        self._sidebar_preset_requests = {}
         self._quick_filter_workers = {}
         self._selected_detail_key = ""
         self._selected_detail_process = ""
@@ -463,7 +462,10 @@ class ApplicationController(
             + self.versions_model.refresh_previews()
         ))
         for node_id in preview_nodes:
-            self.request_item_preview(node_id)
+            if self.results_view_mode == "tiles":
+                self.request_item_card_preview(node_id)
+            else:
+                self.request_item_preview(node_id)
         if self._current_project_code:
             project = next(
                 (

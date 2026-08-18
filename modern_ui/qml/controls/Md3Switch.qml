@@ -8,7 +8,7 @@ Switch {
 
     spacing: 10
     font.family: theme.fontFamily
-    font.pixelSize: 10
+    font.pointSize: Typography.body
 
     indicator: Rectangle {
         implicitWidth: 42

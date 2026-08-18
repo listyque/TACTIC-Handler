@@ -146,7 +146,7 @@ Messages API.
 6. Поверх общей communication model добавить notification history, unread
    counter и View/Skip actions; временный toast оставить для кратких событий.
 
-## Этап 29 — Tasks
+## Tasks
 
 QML Tasks использует отдельный `TasksController` и исходные task sObject, которые
 остаются в `WorkspaceState`. Создание выполняется через `insert_sobjects()` с
@@ -166,7 +166,7 @@ commit статуса. Полный traceback серверной ошибки о
 при create/edit/delete и фактическое имя progress-колонки в установленной схеме.
 Notes, Messages, Rich Edit, attachments и notifications этим этапом не изменялись.
 
-## Этап 30 — Notes, Messages и Rich Edit
+## Notes, Messages и Rich Edit
 
 Notes dock и Messages window используют единый `CommunicationController` и одну
 timeline-модель выбранного sObject. Реализованы асинхронная загрузка и retry,
@@ -189,7 +189,7 @@ Messages остаётся альтернативным представлени�
 фиктивных conversations. Требуют ручной проверки server permissions удаления,
 связь note↔snapshot и preview/download на настроенных repositories.
 
-## Этап 31 — уведомления
+## Уведомления
 
 QML использует ограниченную очередь из трёх MD3-уведомлений поверх существующего
 `notification_changed`, `loading_changed`, Repository Sync и Check-in signals.
@@ -226,7 +226,7 @@ Profile workspace открывается сразу в scope выбранног�
 окон. Вручную проверить permissions супервайзера, task pipelines/login groups,
 server triggers и bulk edit на тестовом проекте.
 
-## Tasks Workspace Stage 0 baseline (2026-08-04)
+## Tasks Workspace baseline (2026-08-04)
 
 ### Current quick editor behavior
 
@@ -296,7 +296,7 @@ original UI code and is not confirmed as a current portable column. Direct task
 attachment, dependency and latest-version columns are also unconfirmed; they
 must not be added to the first table without checking the active project schema.
 
-### Automated Stage 0 coverage
+### Automated baseline coverage
 
 - no-task process rows;
 - one task plus an empty process;
@@ -308,7 +308,7 @@ must not be added to the first table without checking the active project schema.
 - one project/user task query and batched parent queries by search type;
 - quick Tasks and Notes QML component loading.
 
-## Tasks Workspace Stage 1 store (2026-08-04)
+## Tasks Workspace shared store (2026-08-04)
 
 The detailed Tasks Workspace now has one Python-owned `TaskWorkspaceStore`.
 It owns source task objects, parent indexes, flat records, paging and worker
@@ -336,7 +336,7 @@ Live server permissions, triggers, exact optional columns and representative
 large-project timings remain manual checks because they depend on the configured
 TACTIC installation and project schema.
 
-## Tasks Workspace Stage 2 browser (2026-08-04)
+## Tasks Workspace browser (2026-08-04)
 
 `TasksWorkspaceView` now presents real tasks through a separate
 `TaskBrowserTable`. Rows show parent identity/preview, task process, pipeline

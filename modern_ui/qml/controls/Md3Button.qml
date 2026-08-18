@@ -18,7 +18,7 @@ Basic.Button {
     rightPadding: compact ? 0 : 16
     spacing: compact ? 0 : 7
     font.family: theme.fontFamily
-    font.pixelSize: 10
+    font.pointSize: Typography.body
     font.weight: Font.DemiBold
     icon.width: 16
     icon.height: 16

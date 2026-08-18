@@ -1166,6 +1166,10 @@ class SearchKeyPreviewResolver(QObject):
         return ""
 
     def _preview_downloaded(self, file_object):
+        if not any(
+            tracked is file_object for tracked in self._preview_files.values()
+        ):
+            return
         for preview_key, tracked in list(self._preview_files.items()):
             if tracked is not file_object or not tracked.is_exists():
                 continue

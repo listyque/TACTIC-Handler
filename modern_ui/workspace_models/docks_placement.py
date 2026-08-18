@@ -151,6 +151,10 @@ class PlacementMixin:
             visible=True,
             dock_area="floating",
             detached=False,
+            previous_dock_area=(
+                self._panels[row].dock_area
+                if was_docked else self._panels[row].previous_dock_area
+            ),
             z=self._z_counter,
         )
         index = self.index(row, 0)

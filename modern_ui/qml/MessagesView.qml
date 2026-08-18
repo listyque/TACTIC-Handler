@@ -306,7 +306,7 @@ Item {
                         text: qsTr("Find people and start a direct or group chat")
                         color: root.theme.secondaryText
                         font.family: root.theme.fontFamily
-                        font.pixelSize: 9
+                        font.pointSize: Typography.label
                     }
                 }
             }
@@ -332,7 +332,7 @@ Item {
                 text: qsTr("Group chats can be created by administrators and supervisors")
                 color: root.theme.yellow
                 font.family: root.theme.fontFamily
-                font.pixelSize: 9
+                font.pointSize: Typography.label
                 wrapMode: Text.WordWrap
             }
             RowLayout {
@@ -341,7 +341,7 @@ Item {
                     text: root.selectedRecipients.length + qsTr(" selected")
                     color: root.theme.secondaryText
                     font.family: root.theme.fontFamily
-                    font.pixelSize: 9
+                    font.pointSize: Typography.label
                 }
                 Item { Layout.fillWidth: true }
                 Md3Button {
@@ -392,7 +392,7 @@ Item {
                 text: qsTr("CHAT MEMBERS")
                 color: root.theme.secondaryText
                 font.family: root.theme.fontFamily
-                font.pixelSize: 10
+                font.pointSize: Typography.body
                 font.weight: Font.DemiBold
             }
             ListView {
@@ -442,7 +442,7 @@ Item {
                                 text: modelData.displayName || modelData.login
                                 color: root.theme.primaryText
                                 font.family: root.theme.fontFamily
-                                font.pixelSize: 10
+                                font.pointSize: Typography.body
                                 font.weight: Font.DemiBold
                                 elide: Text.ElideRight
                             }
@@ -452,7 +452,7 @@ Item {
                                     ? qsTr("You") : modelData.login
                                 color: root.theme.secondaryText
                                 font.family: root.theme.fontFamily
-                                font.pixelSize: 8
+                                font.pointSize: Typography.caption
                                 elide: Text.ElideRight
                             }
                         }
@@ -485,7 +485,7 @@ Item {
                     text: qsTr("CHAT FILES")
                     color: root.theme.secondaryText
                     font.family: root.theme.fontFamily
-                    font.pixelSize: 10
+                    font.pointSize: Typography.body
                     font.weight: Font.DemiBold
                 }
                 Label {
@@ -493,7 +493,7 @@ Item {
                         + qsTr(" loaded")
                     color: root.theme.secondaryText
                     font.family: root.theme.fontFamily
-                    font.pixelSize: 8
+                    font.pointSize: Typography.caption
                 }
             }
             ListView {
@@ -539,7 +539,7 @@ Item {
                                 text: modelData.title || qsTr("File")
                                 color: root.theme.primaryText
                                 font.family: root.theme.fontFamily
-                                font.pixelSize: 10
+                                font.pointSize: Typography.body
                                 font.weight: Font.DemiBold
                                 elide: Text.ElideMiddle
                             }
@@ -550,7 +550,7 @@ Item {
                                         ? "  ·  " + modelData.timestamp : "")
                                 color: root.theme.secondaryText
                                 font.family: root.theme.fontFamily
-                                font.pixelSize: 8
+                                font.pointSize: Typography.caption
                                 elide: Text.ElideRight
                             }
                         }
@@ -572,7 +572,7 @@ Item {
                     text: qsTr("No files in loaded messages")
                     color: root.theme.secondaryText
                     font.family: root.theme.fontFamily
-                    font.pixelSize: 10
+                    font.pointSize: Typography.body
                 }
             }
             Md3Button {
@@ -603,7 +603,7 @@ Item {
                 text: qsTr("SEARCH THIS CONVERSATION")
                 color: root.theme.primaryText
                 font.family: root.theme.fontFamily
-                font.pixelSize: 10
+                font.pointSize: Typography.body
                 font.weight: Font.DemiBold
             }
             RowLayout {
@@ -682,7 +682,7 @@ Item {
                         text: qsTr("Select everyone who should remain in this chat")
                         color: root.theme.secondaryText
                         font.family: root.theme.fontFamily
-                        font.pixelSize: 9
+                        font.pointSize: Typography.label
                     }
                 }
             }
@@ -701,7 +701,7 @@ Item {
                         + qsTr(" members selected")
                     color: root.theme.secondaryText
                     font.family: root.theme.fontFamily
-                    font.pixelSize: 9
+                    font.pointSize: Typography.label
                 }
                 Item { Layout.fillWidth: true }
                 Md3Button {
@@ -738,7 +738,7 @@ Item {
                 text: qsTr("RENAME CHAT")
                 color: root.theme.secondaryText
                 font.family: root.theme.fontFamily
-                font.pixelSize: 10
+                font.pointSize: Typography.body
                 font.weight: Font.DemiBold
             }
             Md3TextField {
@@ -790,7 +790,7 @@ Item {
                 text: qsTr("The chat will be archived for every participant. Message history and attachments remain available for audit.")
                 color: root.theme.primaryText
                 font.family: root.theme.fontFamily
-                font.pixelSize: 10
+                font.pointSize: Typography.body
                 wrapMode: Text.WordWrap
             }
             RowLayout {
@@ -832,7 +832,7 @@ Item {
                 text: qsTr("All messages in your personal notes will be cleared. The Notes chat itself will remain.")
                 color: root.theme.primaryText
                 font.family: root.theme.fontFamily
-                font.pixelSize: 10
+                font.pointSize: Typography.body
                 wrapMode: Text.WordWrap
             }
             RowLayout {
@@ -933,7 +933,7 @@ Item {
                 text: qsTr("Choose one or more destination chats")
                 color: root.theme.secondaryText
                 font.family: root.theme.fontFamily
-                font.pixelSize: 10
+                font.pointSize: Typography.body
                 wrapMode: Text.Wrap
             }
 
@@ -985,7 +985,7 @@ Item {
                                 text: title
                                 color: root.theme.primaryText
                                 font.family: root.theme.fontFamily
-                                font.pixelSize: 10
+                                font.pointSize: Typography.body
                                 font.weight: Font.DemiBold
                                 elide: Text.ElideRight
                             }
@@ -997,7 +997,7 @@ Item {
                                         ? qsTr(" member") : qsTr(" members"))
                                 color: root.theme.secondaryText
                                 font.family: root.theme.fontFamily
-                                font.pixelSize: 8
+                                font.pointSize: Typography.caption
                             }
                         }
                     }
@@ -1025,7 +1025,7 @@ Item {
                             : qsTr(" messages selected"))
                     color: root.theme.secondaryText
                     font.family: root.theme.fontFamily
-                    font.pixelSize: 9
+                    font.pointSize: Typography.label
                 }
                 Md3Button {
                     theme: root.theme
@@ -1064,7 +1064,7 @@ Item {
                 text: qsTr("EDIT HISTORY")
                 color: root.theme.secondaryText
                 font.family: root.theme.fontFamily
-                font.pixelSize: 10
+                font.pointSize: Typography.body
                 font.weight: Font.DemiBold
             }
             ListView {
@@ -1092,14 +1092,14 @@ Item {
                                 + "  ·  " + String(modelData.editedAt || "")
                             color: root.theme.secondaryText
                             font.family: root.theme.fontFamily
-                            font.pixelSize: 8
+                            font.pointSize: Typography.caption
                         }
                         Label {
                             Layout.fillWidth: true
                             text: String(modelData.body || "")
                             color: root.theme.primaryText
                             font.family: root.theme.fontFamily
-                            font.pixelSize: 10
+                            font.pointSize: Typography.body
                             wrapMode: Text.Wrap
                             textFormat: Text.PlainText
                         }
@@ -1123,7 +1123,7 @@ Item {
                 text: qsTr("PIN HISTORY")
                 color: root.theme.secondaryText
                 font.family: root.theme.fontFamily
-                font.pixelSize: 10
+                font.pointSize: Typography.body
                 font.weight: Font.DemiBold
             }
             ListView {
@@ -1158,7 +1158,7 @@ Item {
                                 + "  ·  " + String(modelData.pinnedAt || "")
                             color: root.theme.secondaryText
                             font.family: root.theme.fontFamily
-                            font.pixelSize: 8
+                            font.pointSize: Typography.caption
                         }
                         Label {
                             Layout.fillWidth: true
@@ -1166,7 +1166,7 @@ Item {
                                 || qsTr("Pinned message"))
                             color: root.theme.primaryText
                             font.family: root.theme.fontFamily
-                            font.pixelSize: 10
+                            font.pointSize: Typography.body
                             wrapMode: Text.Wrap
                         }
                     }
@@ -1238,7 +1238,7 @@ Item {
                             text: String(modelData.displayName || modelData.login || "")
                             color: root.theme.primaryText
                             font.family: root.theme.fontFamily
-                            font.pixelSize: 10
+                            font.pointSize: Typography.body
                             elide: Text.ElideRight
                         }
                         Label {
@@ -1246,7 +1246,7 @@ Item {
                             text: qsTr("@") + String(modelData.login || "")
                             color: root.theme.secondaryText
                             font.family: root.theme.fontFamily
-                            font.pixelSize: 8
+                            font.pointSize: Typography.caption
                         }
                     }
                 }
@@ -1282,7 +1282,7 @@ Item {
                 text: qsTr("The message will be removed from the conversation for every participant.")
                 color: root.theme.primaryText
                 font.family: root.theme.fontFamily
-                font.pixelSize: 10
+                font.pointSize: Typography.body
                 wrapMode: Text.WordWrap
             }
             RowLayout {
@@ -1523,7 +1523,7 @@ Item {
                         text: qsTr("CONVERSATIONS")
                         color: root.theme.secondaryText
                         font.family: root.theme.fontFamily
-                        font.pixelSize: 10
+                        font.pointSize: Typography.body
                         font.weight: Font.DemiBold
                     }
                     CompactIconButton {
@@ -1609,7 +1609,7 @@ Item {
                                         ? root.theme.selectedText
                                         : root.theme.primaryText
                                     font.family: root.theme.fontFamily
-                                    font.pixelSize: 10
+                                    font.pointSize: Typography.body
                                     font.weight: Font.DemiBold
                                     elide: Text.ElideRight
                                 }
@@ -1626,7 +1626,7 @@ Item {
                                         ? root.theme.selectedText
                                         : root.theme.secondaryText
                                     font.family: root.theme.fontFamily
-                                    font.pixelSize: 8
+                                    font.pointSize: Typography.caption
                                     elide: Text.ElideRight
                                 }
                                 Label {
@@ -1646,7 +1646,7 @@ Item {
                                         ? root.theme.selectedText
                                         : root.theme.secondaryText
                                     font.family: root.theme.fontFamily
-                                    font.pixelSize: 8
+                                    font.pointSize: Typography.caption
                                     opacity: 0.82
                                     maximumLineCount: 1
                                     wrapMode: Text.NoWrap
@@ -1669,7 +1669,7 @@ Item {
                                         ? root.theme.tertiary
                                         : root.theme.selectedText
                                     font.family: root.theme.fontFamily
-                                    font.pixelSize: 10
+                                    font.pointSize: Typography.body
                                     font.weight: Font.Bold
                                 }
                             }
@@ -1690,7 +1690,7 @@ Item {
                                     color: conversation.selected
                                         ? root.theme.action : root.theme.selectedText
                                     font.family: root.theme.fontFamily
-                                    font.pixelSize: 8
+                                    font.pointSize: Typography.caption
                                     font.weight: Font.Bold
                                 }
                             }
@@ -1782,7 +1782,7 @@ Item {
                                     ) + qsTr(" messages")
                                 color: root.theme.secondaryText
                                 font.family: root.theme.fontFamily
-                                font.pixelSize: 8
+                                font.pointSize: Typography.caption
                                 elide: Text.ElideRight
                             }
                         }
@@ -1911,7 +1911,7 @@ Item {
                                         || qsTr("Pinned message"))
                                 color: root.theme.primaryText
                                 font.family: root.theme.fontFamily
-                                font.pixelSize: 10
+                                font.pointSize: Typography.body
                                 font.weight: Font.DemiBold
                                 elide: Text.ElideRight
                             }
@@ -1927,7 +1927,7 @@ Item {
                                 }
                                 color: root.theme.secondaryText
                                 font.family: root.theme.fontFamily
-                                font.pixelSize: 8
+                                font.pointSize: Typography.caption
                                 elide: Text.ElideRight
                             }
                         }
@@ -1950,7 +1950,7 @@ Item {
                                     messagesController.pinnedMessage.linkedCount || "")
                                 color: root.theme.secondaryText
                                 font.family: root.theme.fontFamily
-                                font.pixelSize: 9
+                                font.pointSize: Typography.label
                             }
                         }
                         RowLayout {
@@ -1968,7 +1968,7 @@ Item {
                                     messagesController.pinnedMessage.attachmentCount || "")
                                 color: root.theme.secondaryText
                                 font.family: root.theme.fontFamily
-                                font.pixelSize: 9
+                                font.pointSize: Typography.label
                             }
                         }
                         MaterialIcon {
@@ -2005,7 +2005,7 @@ Item {
                     )
                     color: root.theme.secondaryText
                     font.family: root.theme.fontFamily
-                    font.pixelSize: 8
+                    font.pointSize: Typography.caption
                     opacity: 0.76
                     elide: Text.ElideRight
                 }
@@ -2036,7 +2036,7 @@ Item {
                                 || messageAttachments.error
                             color: root.theme.primaryText
                             font.family: root.theme.fontFamily
-                            font.pixelSize: 9
+                            font.pointSize: Typography.label
                             elide: Text.ElideRight
                         }
                         CompactIconButton {
@@ -2262,7 +2262,7 @@ Item {
                                 : qsTr("Select a conversation")
                             color: root.theme.secondaryText
                             font.family: root.theme.fontFamily
-                            font.pixelSize: 11
+                            font.pointSize: Typography.bodyLarge
                         }
                         Label {
                             anchors.horizontalCenter: parent.horizontalCenter
@@ -2272,7 +2272,7 @@ Item {
                                 : qsTr("Start the conversation below")
                             color: root.theme.secondaryText
                             font.family: root.theme.fontFamily
-                            font.pixelSize: 9
+                            font.pointSize: Typography.label
                             opacity: 0.7
                         }
                     }
@@ -2306,6 +2306,10 @@ Item {
                         required property bool forwardSelected
                         required property var reactions
                         required property bool reactionPending
+                        required property string deliveryStatus
+                        required property int deliveryRecipientCount
+                        required property int deliveryDeliveredCount
+                        required property int deliveryReadCount
                         width: messages.width
                         height: messageBubble.height
 
@@ -2387,7 +2391,7 @@ Item {
                                                     ? " (" + messageRow.sender + ")" : "")
                                             color: messageRow.senderColor
                                             font.family: root.theme.fontFamily
-                                            font.pixelSize: 9
+                                            font.pointSize: Typography.label
                                             font.weight: Font.DemiBold
                                             font.underline: senderMouse.containsMouse
                                             elide: Text.ElideRight
@@ -2402,13 +2406,44 @@ Item {
                                                     messageRow.sender)
                                             }
                                         }
+                                        MaterialIcon {
+                                            id: deliveryIcon
+                                            visible: messageRow.isOwn
+                                                && messageRow.deliveryRecipientCount > 0
+                                            name: messageRow.deliveryStatus === "sent"
+                                                ? "check" : "done-all"
+                                            color: messageRow.deliveryStatus === "read"
+                                                ? root.theme.action
+                                                : root.theme.secondaryText
+                                            size: 11
+                                            opacity: messageRow.deliveryStatus === "sent"
+                                                ? 0.72 : 1
+                                            MouseArea {
+                                                id: deliveryMouse
+                                                anchors.fill: parent
+                                                hoverEnabled: true
+                                            }
+                                            Md3ToolTip {
+                                                theme: root.theme
+                                                visible: deliveryMouse.containsMouse
+                                                text: messageRow.deliveryStatus === "read"
+                                                    ? qsTr("Read by %1 of %2")
+                                                        .arg(messageRow.deliveryReadCount)
+                                                        .arg(messageRow.deliveryRecipientCount)
+                                                    : messageRow.deliveryStatus === "delivered"
+                                                        ? qsTr("Delivered to %1 of %2")
+                                                            .arg(messageRow.deliveryDeliveredCount)
+                                                            .arg(messageRow.deliveryRecipientCount)
+                                                        : qsTr("Sent")
+                                            }
+                                        }
                                         Label {
                                             text: messageTimeMouse.containsMouse
                                                 ? messageRow.timeSimple
                                                 : messageRow.timePretty
                                             color: root.theme.secondaryText
                                             font.family: root.theme.fontFamily
-                                            font.pixelSize: 8
+                                            font.pointSize: Typography.caption
                                             MouseArea {
                                                 id: messageTimeMouse
                                                 anchors.fill: parent
@@ -2421,7 +2456,7 @@ Item {
                                             text: qsTr("Edited")
                                             color: root.theme.secondaryText
                                             font.family: root.theme.fontFamily
-                                            font.pixelSize: 8
+                                            font.pointSize: Typography.caption
                                             font.underline: editedMouse.containsMouse
                                             MouseArea {
                                                 id: editedMouse
@@ -2752,7 +2787,7 @@ Item {
                             text: qsTr("Loading conversation")
                             color: root.theme.secondaryText
                             font.family: root.theme.fontFamily
-                            font.pixelSize: 10
+                            font.pointSize: Typography.body
                         }
                     }
                 }
@@ -2785,7 +2820,7 @@ Item {
                                     : qsTr(" messages selected"))
                             color: root.theme.primaryText
                             font.family: root.theme.fontFamily
-                            font.pixelSize: 10
+                            font.pointSize: Typography.body
                             font.weight: Font.DemiBold
                         }
                         CompactIconButton {

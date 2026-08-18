@@ -12,6 +12,8 @@ from .docks_tree import (
     normalize_active_panels,
     panel_ids,
     set_active_panel,
+    stack_for_panel,
+    tabify,
 )
 
 
@@ -27,9 +29,27 @@ class LayoutMixin:
         }
         missing = available - set(panel_ids(self._layout_root))
         for panel_id in sorted(missing):
-            self._layout_root = insert_at_root(
-                self._layout_root, panel_id, "center"
-            )
+            target_id = self._default_stack_target(panel_id)
+            if target_id and target_id in panel_ids(self._layout_root):
+                target_stack = stack_for_panel(
+                    self._layout_root, target_id
+                )
+                previous_active = (
+                    target_stack.active_panel_id if target_stack else ""
+                )
+                self._layout_root = tabify(
+                    self._layout_root, target_id, panel_id
+                )
+                if previous_active:
+                    self._layout_root = set_active_panel(
+                        self._layout_root, previous_active
+                    )
+            else:
+                self._layout_root = insert_at_root(
+                    self._layout_root,
+                    panel_id,
+                    self._default_dock_area(panel_id),
+                )
         self._layout_root = normalize_active_panels(
             self._layout_root, available
         )
@@ -94,16 +114,35 @@ class LayoutMixin:
 
     @Slot(str)
     def show_panel(self, panel_id: str) -> None:
+        row = self._index_for(panel_id)
+        if row is None:
+            return
+        was_hidden_floating = (
+            not self._panels[row].visible
+            and not self._panels[row].detached
+            and self._panels[row].dock_area == "floating"
+        )
         self._z_counter += 1
         self._replace(panel_id, visible=True, z=self._z_counter)
-        row = self._index_for(panel_id)
-        if row is not None:
-            self.panelVisibilityChanged.emit(panel_id, True)
-        if row is not None and self._panels[row].dock_area != "floating":
+        if was_hidden_floating:
+            panel = self._panels[row]
+            target_area = self._default_dock_area(panel_id)
+            self._panels[row] = replace(
+                panel,
+                dock_area=target_area,
+                previous_dock_area=target_area,
+            )
+            index = self.index(row, 0)
+            self.dataChanged.emit(index, index)
+        self.panelVisibilityChanged.emit(panel_id, True)
+        if self._panels[row].dock_area != "floating":
             self._layout_root = set_active_panel(
                 self._layout_root, panel_id
             )
             self._reflow_workspace()
+            self._layout_root = set_active_panel(
+                self._layout_root, panel_id
+            )
             self._notify_layout_structure_changed()
 
     @Slot(str)

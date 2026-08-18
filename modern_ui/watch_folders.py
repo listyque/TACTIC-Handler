@@ -1,10 +1,11 @@
 from __future__ import annotations
 
 import os
-from datetime import datetime
+import shutil
+import stat
 from pathlib import Path
 
-from PySide6.QtCore import QObject, Property, QUrl, Qt, Signal, Slot
+from PySide6.QtCore import QObject, Property, QTimer, Qt, Signal, Slot
 
 from .workspace_models.records import RecordListModel
 from .workspace_models.watch_folders import _watch_folder_settings
@@ -12,36 +13,44 @@ from .workspace_models.watch_folders import _watch_folder_settings
 
 _FIELDS = (
     "assets_codes", "assets_names", "assets_stypes", "assets_skeys",
-    "assets_pipelines", "paths", "repos", "statuses", "processes",
-    "contexts", "matching_templates", "last_checks", "errors",
+    "assets_pipelines", "paths", "repos", "statuses",
 )
 
 
 class WatchFoldersController(QObject):
     stateChanged = Signal()
     editorChanged = Signal()
+    deleteChanged = Signal()
 
     def __init__(
-        self, application, drop_plate, matching_templates, parent=None
+        self, application, checkin_controller, commit_queue, parent=None
     ):
         super().__init__(parent)
         self._application = application
         self._workspace = application.workspace_state
-        self._drop_plate = drop_plate
-        self._matching_templates = matching_templates
+        self._checkin = checkin_controller
+        self._commit_queue = commit_queue
         self._project = None
         self._observer = None
         self._observer_owned = False
         self._observer_started = False
         self._editor = {}
+        self._editor_origin = ""
         self._editing_row = -1
+        self._delete_row = -1
+        self._delete_origin = ""
         self._busy = False
         self._message = ""
         self._workers = set()
+        self._repository_retry_timer = QTimer(self)
+        self._repository_retry_timer.setSingleShot(True)
+        self._repository_retry_timer.setInterval(1000)
+        self._repository_retry_timer.timeout.connect(
+            self._retry_repository_starts
+        )
         self.model = RecordListModel((
-            "title", "code", "searchKey", "stype", "path", "watchEnabled", "repository",
-            "repositories", "pipeline", "process", "context",
-            "matchingTemplate", "watcherStatus", "lastCheck", "error",
+            "title", "code", "searchKey", "stype", "path", "watchEnabled",
+            "repository", "repositories", "pipeline", "watcherStatus",
             "selected",
         ))
         application.project_state_changed.connect(self.reload)
@@ -59,12 +68,47 @@ class WatchFoldersController(QObject):
     def editor(self):
         return dict(self._editor)
 
+    @Property(bool, notify=editorChanged)
+    def editorOpen(self):
+        return bool(self._editor)
+
+    @Property(str, notify=editorChanged)
+    def editorOrigin(self):
+        return self._editor_origin
+
+    @Property(bool, notify=editorChanged)
+    def editingExisting(self):
+        return self._editing_row >= 0
+
+    @Property(bool, notify=deleteChanged)
+    def deletePending(self):
+        return self._delete_row >= 0
+
+    @Property(str, notify=deleteChanged)
+    def deleteOrigin(self):
+        return self._delete_origin
+
+    @Property(bool, notify=editorChanged)
+    def canSaveEditor(self):
+        path = str(self._editor.get("path") or "").strip()
+        return bool(
+            self._editor.get("searchKey") and path
+            and self._editor.get("repositories")
+            and not Path(path).is_absolute()
+            and ".." not in Path(path).parts
+            and not self._busy
+        )
+
     @Property("QVariantList", notify=stateChanged)
     def repositories(self):
         from thlib.environment import env_tactic
 
         result = []
-        for alias, repository in env_tactic.get_all_base_dirs():
+        try:
+            repositories = env_tactic.get_all_base_dirs() or []
+        except (AttributeError, KeyError, TypeError):
+            repositories = []
+        for alias, repository in repositories:
             values = repository.get("value") or []
             if len(values) > 4 and values[4]:
                 result.append({
@@ -73,17 +117,19 @@ class WatchFoldersController(QObject):
                 })
         return result
 
-    @Property("QVariantList", notify=stateChanged)
-    def matchingTemplates(self):
-        return [
-            {
-                "label": str(record.get("pattern") or ""),
-                "value": str(record.get("pattern") or ""),
-            }
-            for record in self._matching_templates.model._records
-            if record.get("templateEnabled")
-        ]
+    def _repository_labels(self, codes):
+        labels = {item["value"]: item["label"] for item in self.repositories}
+        return [labels.get(str(code), str(code)) for code in codes]
 
+    def _publish_watch_state(self, search_key, enabled=None):
+        model = getattr(self._application, "workspace_model", None)
+        update = getattr(model, "update_watch_state", None)
+        if not callable(update):
+            return
+        state = "none" if enabled is None else (
+            "enabled" if bool(enabled) else "disabled"
+        )
+        update(str(search_key or ""), state)
     @staticmethod
     def _value(values, key, row, default=""):
         items = list(values.get(key) or [])
@@ -142,7 +188,6 @@ class WatchFoldersController(QObject):
         for row in range(count):
             repos = list(self._value(values, "repos", row, []))
             enabled = bool(self._value(values, "statuses", row, False))
-            error = str(self._value(values, "errors", row, ""))
             record = {
                 "title": str(self._value(values, "assets_names", row)),
                 "code": str(self._value(values, "assets_codes", row)),
@@ -150,25 +195,12 @@ class WatchFoldersController(QObject):
                 "stype": str(self._value(values, "assets_stypes", row)),
                 "path": str(self._value(values, "paths", row)),
                 "watchEnabled": enabled,
-                "repository": ", ".join(repos),
+                "repository": ", ".join(self._repository_labels(repos)),
                 "repositories": repos,
                 "pipeline": str(self._value(
                     values, "assets_pipelines", row
                 )),
-                "process": str(self._value(
-                    values, "processes", row, "publish"
-                ) or "publish"),
-                "context": str(self._value(
-                    values, "contexts", row, "publish"
-                ) or "publish"),
-                "matchingTemplate": str(self._value(
-                    values, "matching_templates", row, "$FILENAME.$EXT"
-                ) or "$FILENAME.$EXT"),
                 "watcherStatus": "Stopped",
-                "lastCheck": str(self._value(
-                    values, "last_checks", row, "Never"
-                ) or "Never"),
-                "error": error,
                 "selected": False,
             }
             records.append(record)
@@ -182,7 +214,7 @@ class WatchFoldersController(QObject):
         for row, record in enumerate(self.model._records):
             if record["searchKey"] == search_key:
                 return {
-                    "asset_code": "",
+                    "asset_code": record["code"],
                     "asset_name": record["title"],
                     "asset_stype": record["stype"],
                     "asset_skey": search_key,
@@ -200,8 +232,13 @@ class WatchFoldersController(QObject):
 
         paths = []
         repos = []
+        if getattr(env_tactic, "base_dirs", None) is None:
+            return paths, repos, True
         for code in record.get("repositories") or []:
-            repository = env_tactic.get_base_dir(code) or {}
+            try:
+                repository = env_tactic.get_base_dir(code) or {}
+            except (AttributeError, KeyError, TypeError):
+                continue
             values = repository.get("value") or []
             if not values or not values[0]:
                 continue
@@ -209,7 +246,22 @@ class WatchFoldersController(QObject):
                 str(values[0]), str(record.get("path") or "")
             )))
             repos.append(code)
-        return paths, repos
+        return paths, repos, False
+
+    def _schedule_repository_retry(self):
+        if not self._repository_retry_timer.isActive():
+            self._repository_retry_timer.start()
+
+    @Slot()
+    def _retry_repository_starts(self):
+        if not self._project:
+            return
+        for row, record in enumerate(list(self.model._records)):
+            if (
+                record.get("watchEnabled")
+                and record.get("watcherStatus") != "Watching"
+            ):
+                self._start_row(row)
 
     def _set_row_state(self, row, status, error=""):
         if not 0 <= row < len(self.model._records):
@@ -226,10 +278,16 @@ class WatchFoldersController(QObject):
             return False
         observer = self._observer_for_project()
         if not observer:
-            self._set_row_state(row, "Error", "Watcher is unavailable")
+            self._set_row_state(row, "Waiting", "Watcher is unavailable")
             return False
         record = self.model._records[row]
-        paths, repos = self._absolute_paths(record)
+        paths, repos, pending = self._absolute_paths(record)
+        if pending:
+            self._set_row_state(
+                row, "Waiting", "Repository configuration is loading"
+            )
+            self._schedule_repository_retry()
+            return False
         missing = [path for path in paths if not Path(path).is_dir()]
         if not paths or missing:
             self._set_row_state(
@@ -249,7 +307,7 @@ class WatchFoldersController(QObject):
             self._set_row_state(row, "Watching")
             return True
         except (OSError, RuntimeError, ValueError) as error:
-            self._set_row_state(row, "Error", str(error))
+            self._set_row_state(row, "Waiting", str(error))
             return False
 
     def _stop_row(self, row):
@@ -262,7 +320,7 @@ class WatchFoldersController(QObject):
                 )
             self._set_row_state(row, "Stopped")
         except (OSError, RuntimeError, ValueError) as error:
-            self._set_row_state(row, "Error", str(error))
+            self._set_row_state(row, "Waiting", str(error))
 
     def _remove_all_watches(self):
         if not self._observer:
@@ -283,13 +341,51 @@ class WatchFoldersController(QObject):
         else:
             self._stop_row(row)
         self._persist()
+        self._publish_watch_state(
+            self.model._records[row]["searchKey"], enabled
+        )
 
     def _selected_source(self):
         return getattr(self._workspace, "_selected_sobject", None)
 
+    @staticmethod
+    def _process_names(sobject):
+        builtins = ["icon", "attachment", "publish"]
+        try:
+            stype = sobject.get_stype()
+            pipelines = stype.get_pipeline() or {}
+            pipeline = pipelines.get(sobject.get_pipeline_code())
+            if not pipeline:
+                return builtins
+            names = list(pipeline.get_all_pipeline_names() or [])
+            workflow = stype.get_workflow()
+            for process, info in (pipeline.pipeline or {}).items():
+                if info.get("type") != "hierarchy":
+                    continue
+                child = workflow.get_child_pipeline_by_process_code(
+                    pipeline, process
+                )
+                if child:
+                    names.extend(child.get_all_pipeline_names() or [])
+            return list(dict.fromkeys(str(name) for name in names if name))
+        except (AttributeError, KeyError, TypeError):
+            return builtins
+
     @Slot()
     def begin_add(self):
-        sobject = self._selected_source()
+        self.begin_add_for_source(self._selected_source(), "manager")
+
+    def _show_editor_window(self):
+        model = getattr(self._application, "window_model", None)
+        if model is not None:
+            model.show_window("watch_folder_editor")
+
+    def _close_editor_window(self):
+        model = getattr(self._application, "window_model", None)
+        if model is not None:
+            model.close_window("watch_folder_editor")
+
+    def begin_add_for_source(self, sobject, origin="item"):
         if not sobject:
             self._message = "Select an sObject before adding a watch folder."
             self.stateChanged.emit()
@@ -298,42 +394,61 @@ class WatchFoldersController(QObject):
             search_key = str(sobject.get_search_key() or "")
             info = dict(sobject.get_info() or {})
             pipeline = str(sobject.get_pipeline_code() or "")
-            title = str(sobject.get_title() or info.get("name") or info.get("code"))
+            title = str(
+                sobject.get_title() or info.get("name") or info.get("code")
+            )
             code = str(info.get("code") or "")
             stype = sobject.get_stype()
             stype_title = str(stype.get_pretty_name() if stype else "")
+            processes = self._process_names(sobject)
         except (AttributeError, KeyError, TypeError) as error:
             self._message = str(error)
             self.stateChanged.emit()
             return
+        existing = next((
+            row for row, record in enumerate(self.model._records)
+            if record["searchKey"] == search_key
+        ), -1)
+        if existing >= 0:
+            self._begin_edit(existing, origin)
+            return
         self._editing_row = -1
+        self._editor_origin = str(origin or "item")
         self._editor = {
             "title": title, "code": code, "searchKey": search_key,
             "stype": stype_title, "pipeline": pipeline, "path": "",
-            "repositories": [
-                item["value"] for item in self.repositories[:1]
-            ],
-            "process": "publish", "context": "publish",
-            "matchingTemplate": "$FILENAME.$EXT", "watchEnabled": True,
+            "repositories": [], "watchEnabled": True,
+            "processes": processes,
         }
         self._message = ""
         self.editorChanged.emit()
+        self._show_editor_window()
         self._load_naming_path(search_key)
+
+    def begin_edit_search_key(self, search_key):
+        row = next((
+            index for index, record in enumerate(self.model._records)
+            if record["searchKey"] == str(search_key or "")
+        ), -1)
+        if row >= 0:
+            self._begin_edit(row, "item")
 
     @Slot(int)
     def begin_edit(self, row):
+        self._begin_edit(row, "manager")
+
+    def _begin_edit(self, row, origin):
         if not 0 <= row < len(self.model._records):
             return
         self._editing_row = row
+        self._editor_origin = str(origin or "manager")
         self._editor = dict(self.model._records[row])
         self.editorChanged.emit()
+        self._show_editor_window()
 
     @Slot(str, "QVariant")
     def set_editor_value(self, key, value):
-        if key not in {
-            "path", "repositories", "process", "context",
-            "matchingTemplate", "watchEnabled",
-        }:
+        if key not in {"path", "repositories", "watchEnabled"}:
             return
         self._editor[key] = value
         self.editorChanged.emit()
@@ -353,9 +468,11 @@ class WatchFoldersController(QObject):
     def cancel_edit(self):
         self._editing_row = -1
         self._editor = {}
+        self._editor_origin = ""
         self._message = ""
         self.editorChanged.emit()
         self.stateChanged.emit()
+        self._close_editor_window()
 
     def _load_naming_path(self, search_key):
         from thlib.environment import env_inst
@@ -369,7 +486,8 @@ class WatchFoldersController(QObject):
         )
         self._workers.add(worker)
         worker.result.connect(
-            lambda result, current=worker: self._naming_ready(current, result),
+            lambda result, current=worker, key=search_key:
+                self._naming_ready(current, result, key),
             Qt.ConnectionType.QueuedConnection,
         )
         worker.error.connect(
@@ -378,16 +496,17 @@ class WatchFoldersController(QObject):
         )
         worker.start()
 
-    def _naming_ready(self, worker, result):
+    def _naming_ready(self, worker, result, search_key):
         self._workers.discard(worker)
-        try:
-            self._editor["path"] = str(
-                ((result or {}).get("versionless") or [""])[0]
-            )
-        except (IndexError, TypeError):
-            self._editor["path"] = ""
+        if self._editor.get("searchKey") == search_key:
+            try:
+                self._editor["path"] = str(
+                    ((result or {}).get("versionless") or [""])[0]
+                )
+            except (IndexError, TypeError):
+                self._editor["path"] = ""
+            self.editorChanged.emit()
         self._busy = bool(self._workers)
-        self.editorChanged.emit()
         self.stateChanged.emit()
 
     def _worker_failed(self, worker, error):
@@ -418,12 +537,7 @@ class WatchFoldersController(QObject):
             self.model._records[self._editing_row].update({
                 "path": path,
                 "repositories": repos,
-                "repository": ", ".join(repos),
-                "process": str(editor.get("process") or "publish"),
-                "context": str(editor.get("context") or "publish"),
-                "matchingTemplate": str(
-                    editor.get("matchingTemplate") or "$FILENAME.$EXT"
-                ),
+                "repository": ", ".join(self._repository_labels(repos)),
                 "watchEnabled": bool(editor.get("watchEnabled")),
             })
             row = self._editing_row
@@ -444,26 +558,59 @@ class WatchFoldersController(QObject):
                 "stype": str(editor.get("stype") or ""),
                 "path": path,
                 "watchEnabled": bool(editor.get("watchEnabled")),
-                "repository": ", ".join(repos), "repositories": repos,
+                "repository": ", ".join(self._repository_labels(repos)), "repositories": repos,
                 "pipeline": str(editor.get("pipeline") or ""),
-                "process": str(editor.get("process") or "publish"),
-                "context": str(editor.get("context") or "publish"),
-                "matchingTemplate": str(
-                    editor.get("matchingTemplate") or "$FILENAME.$EXT"
-                ),
-                "watcherStatus": "Waiting", "lastCheck": "Never",
-                "error": "", "selected": False,
+                "watcherStatus": "Waiting", "selected": False,
             }])
         self._persist()
-        self._create_paths(row)
+        self._publish_watch_state(
+            editor["searchKey"], editor.get("watchEnabled")
+        )
+        self._create_paths(row, editor.get("processes") or [])
         self.cancel_edit()
         return True
 
-    def _create_paths(self, row):
+    def _process_names_for_record(self, record):
+        try:
+            import thlib.tactic_classes as tc
+            parsed = tc.split_search_key(record["searchKey"])
+            stype = (self._project.get_stypes() or {}).get(
+                parsed.get("search_type")
+            )
+            pipeline = (stype.get_pipeline() or {}).get(record["pipeline"])
+            if not pipeline:
+                return ["icon", "attachment", "publish"]
+            names = list(pipeline.get_all_pipeline_names() or [])
+            workflow = stype.get_workflow()
+            for process, info in (pipeline.pipeline or {}).items():
+                if info.get("type") != "hierarchy":
+                    continue
+                child = workflow.get_child_pipeline_by_process_code(
+                    pipeline, process
+                )
+                if child:
+                    names.extend(child.get_all_pipeline_names() or [])
+            return list(dict.fromkeys(str(name) for name in names if name))
+        except (AttributeError, KeyError, TypeError, ValueError):
+            return []
+
+    def _create_paths(self, row, processes=None):
         from thlib.environment import env_inst
 
-        paths, _repos = self._absolute_paths(self.model._records[row])
-        worker = env_inst.local_pool.add_task(self._mkdirs, paths)
+        if not 0 <= row < len(self.model._records):
+            return
+        record = self.model._records[row]
+        paths, _repos, pending = self._absolute_paths(record)
+        if pending:
+            self._set_row_state(
+                row, "Waiting", "Repository configuration is loading"
+            )
+            self._schedule_repository_retry()
+            return
+        process_names = list(processes or self._process_names_for_record(record))
+        worker = env_inst.local_pool.add_task(
+            self._mkdirs, paths, process_names
+        )
         self._workers.add(worker)
         self._busy = True
         worker.result.connect(
@@ -479,9 +626,12 @@ class WatchFoldersController(QObject):
         self.stateChanged.emit()
 
     @staticmethod
-    def _mkdirs(paths):
+    def _mkdirs(paths, processes):
         for value in paths:
-            Path(value).mkdir(parents=True, exist_ok=True)
+            root = Path(value)
+            root.mkdir(parents=True, exist_ok=True)
+            for process in processes:
+                (root / process).mkdir(parents=True, exist_ok=True)
         return True
 
     def _paths_ready(self, worker, row):
@@ -493,40 +643,167 @@ class WatchFoldersController(QObject):
         self.stateChanged.emit()
 
     @Slot(int)
-    def remove(self, row):
+    def request_remove(self, row, origin="manager"):
         if not 0 <= row < len(self.model._records):
             return
+        self._delete_row = row
+        self._delete_origin = str(origin or "manager")
+        self.deleteChanged.emit()
+
+    def request_remove_search_key(self, search_key, origin="item"):
+        row = next((
+            index for index, record in enumerate(self.model._records)
+            if record["searchKey"] == str(search_key or "")
+        ), -1)
+        if row >= 0:
+            self.request_remove(row, origin)
+
+    @Slot()
+    def cancel_remove(self):
+        self._delete_row = -1
+        self._delete_origin = ""
+        self.deleteChanged.emit()
+
+    @Slot(bool)
+    def confirm_remove(self, delete_files):
+        row = self._delete_row
+        if not 0 <= row < len(self.model._records):
+            self.cancel_remove()
+            return
+        record = dict(self.model._records[row])
+        paths, _repos, pending = self._absolute_paths(record)
+        if pending and delete_files:
+            self._message = (
+                "Repository configuration is still loading; "
+                "the watch was removed without deleting local files."
+            )
+            self.stateChanged.emit()
         self._stop_row(row)
         self.model.remove(row)
         self._persist()
+        self._publish_watch_state(record["searchKey"], None)
         self.cancel_edit()
+        self.cancel_remove()
+        if not delete_files or pending:
+            return
+        from thlib.environment import env_inst
+        worker = env_inst.local_pool.add_task(self._remove_paths, paths)
+        self._workers.add(worker)
+        self._busy = True
+        worker.result.connect(
+            lambda _result, current=worker: self._delete_ready(current),
+            Qt.ConnectionType.QueuedConnection,
+        )
+        worker.error.connect(
+            lambda error, current=worker: self._worker_failed(current, error),
+            Qt.ConnectionType.QueuedConnection,
+        )
+        worker.start()
+        self.stateChanged.emit()
+
+    @staticmethod
+    def _remove_paths(paths):
+        def onerror(function, path, _error):
+            if not os.access(path, os.W_OK):
+                os.chmod(path, stat.S_IWUSR)
+                function(path)
+        for value in paths:
+            path = Path(value)
+            if path.exists():
+                shutil.rmtree(path, onerror=onerror)
+        return True
+
+    def _delete_ready(self, worker):
+        self._workers.discard(worker)
+        self._busy = bool(self._workers)
+        self.stateChanged.emit()
 
     @Slot(int)
-    def scan(self, row):
-        if not 0 <= row < len(self.model._records):
-            return
-        record = self.model._records[row]
-        paths, _repos = self._absolute_paths(record)
-        available = [QUrl.fromLocalFile(path) for path in paths if Path(path).is_dir()]
-        now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        record["lastCheck"] = now
-        if not available:
-            record["error"] = "No accessible repository paths"
-            record["watcherStatus"] = "Error"
-        else:
-            self._drop_plate.add_watch_paths(
-                available, record["process"], record["context"],
-                [record["matchingTemplate"]],
+    def remove(self, row):
+        self.request_remove(row)
+
+    @staticmethod
+    def _file_type(path):
+        try:
+            import thlib.global_functions as gf
+            return str(gf.file_format(path.suffix.lstrip("."))[3] or "file")
+        except (AttributeError, IndexError, TypeError):
+            return "file"
+
+    def _watch_checkin_target(self, record, context):
+        try:
+            import thlib.tactic_classes as tc
+            parsed = tc.split_search_key(record["searchKey"])
+            stype = (self._project.get_stypes() or {}).get(
+                parsed.get("search_type")
             )
-            self._application.dock_model.show_panel("drop_plate")
-            record["error"] = ""
-        self.model.replace(self.model._records)
-        self._persist()
+            pipelines = stype.get_pipeline() or {}
+            pipeline = pipelines.get(record.get("pipeline"))
+            if not pipeline and pipelines:
+                pipeline = next(iter(pipelines.values()))
+            if not pipeline:
+                return "publish", "file"
+            process = pipeline.get_pipeline_process(context)
+            if not process:
+                return "publish", "file"
+            return context, str(process.get("checkin_mode") or "file")
+        except (AttributeError, KeyError, TypeError, ValueError):
+            return context or "publish", "file"
+
+    def _watch_payload(self, record, path, repository, context):
+        context, checkin_type = self._watch_checkin_target(record, context)
+        extension = path.suffix.lstrip(".").lower()
+        file_type = self._file_type(path)
+        values = {
+            "t": [file_type], "s": [""], "e": [extension],
+            "p": [""], "m": None,
+        }
+        if file_type == "preview":
+            values["t"].extend(("web", "icon"))
+            values["s"].extend(("", ""))
+            values["e"].extend(("jpg", "png"))
+            values["p"].extend(("", ""))
+        try:
+            mode = str(self._checkin._checkin_mode() or "upload")
+        except (AttributeError, TypeError):
+            mode = "upload"
+        return {
+            "searchKey": record["searchKey"],
+            "context": context,
+            "process": context.split("/", 1)[0] or "publish",
+            "description": "From watch folder",
+            "version": None,
+            "isRevision": False,
+            "updateVersionless": bool(
+                getattr(self._checkin, "updateVersionless", True)
+            ),
+            "onlyVersionless": False,
+            "keepFileName": False,
+            "generatePreviews": bool(
+                getattr(self._checkin, "generatePreviews", True)
+            ),
+            "explicitFilename": "",
+            "contextAsFilename": False,
+            "ignoreKeepFileName": False,
+            "snapshotType": "file",
+            "checkinType": checkin_type,
+            "repository": str(repository or ""),
+            "mode": mode,
+            "sequencePadding": 3,
+            "filesDict": [(path.stem, values)],
+            "files": [{
+                "path": str(path), "paths": [str(path)],
+                "template": "$FILENAME.$EXT", "type": file_type,
+                "extension": extension,
+            }],
+        }
 
     @Slot(object, object)
     def _watch_created(self, event, watch):
-        path = str(getattr(event, "src_path", "") or "")
-        if not path or bool(getattr(event, "is_directory", False)):
+        if bool(getattr(event, "is_directory", False)):
+            return
+        path = Path(str(getattr(event, "src_path", "") or ""))
+        if not path.is_file():
             return
         row = next((
             index for index, record in enumerate(self.model._records)
@@ -535,14 +812,19 @@ class WatchFoldersController(QObject):
         if row < 0:
             return
         record = self.model._records[row]
-        record["lastCheck"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        self.model.replace(self.model._records)
-        self._persist()
-        self._drop_plate.add_watch_paths(
-            [QUrl.fromLocalFile(path)], record["process"], record["context"],
-            [record["matchingTemplate"]],
+        commit_dir = os.path.normcase(os.path.normpath(str(path.parent)))
+        watch_dir = os.path.normcase(os.path.normpath(str(watch.path)))
+        context = (
+            "publish" if commit_dir == watch_dir
+            else path.parent.name or "publish"
         )
-        self._application.dock_model.show_panel("drop_plate")
+        self._commit_queue.add_prepared(
+            self._watch_payload(
+                record, path, getattr(watch, "repo", ""), context
+            ),
+            record["title"],
+        )
+        self._application.window_model.show_window("commit_queue")
 
     def _persist(self):
         if not self._project:
@@ -551,7 +833,7 @@ class WatchFoldersController(QObject):
 
         settings = self._empty_settings()
         for record in self.model._records:
-            values = {
+            row = {
                 "assets_codes": record.get("code") or "",
                 "assets_names": record["title"],
                 "assets_stypes": record["stype"],
@@ -560,14 +842,9 @@ class WatchFoldersController(QObject):
                 "paths": record["path"],
                 "repos": list(record["repositories"]),
                 "statuses": bool(record["watchEnabled"]),
-                "processes": record["process"],
-                "contexts": record["context"],
-                "matching_templates": record["matchingTemplate"],
-                "last_checks": record["lastCheck"],
-                "errors": record["error"],
             }
-            for key, value in values.items():
-                settings[key].append(value)
+            for key in _FIELDS:
+                settings[key].append(row[key])
         env_write_config(
             {"watch_folders_dict": settings},
             filename="ui_watch_folder",
@@ -580,6 +857,7 @@ class WatchFoldersController(QObject):
 
     @Slot()
     def shutdown(self):
+        self._repository_retry_timer.stop()
         self._remove_all_watches()
         if self._observer_owned and self._observer and self._observer.is_started():
             self._observer.stop()

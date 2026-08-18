@@ -138,6 +138,8 @@ class MessagesController(QObject):
             "timePretty", "timeSimple", "canEdit", "edited", "editedBy",
             "editedAt", "editHistory", "pinned", "replyTo", "forwardedFrom",
             "forwardSelected", "reactions", "reactionPending",
+            "deliveryStatus", "deliveryRecipientCount",
+            "deliveryDeliveredCount", "deliveryReadCount",
         ))
         self._conversation_id = ""
         self._busy = False
@@ -655,6 +657,36 @@ class MessagesController(QObject):
             "avatarUrl": str(profile.get("avatarUrl") or ""),
             "initials": str(profile.get("initials") or self._initials(display_name)),
             "senderColor": color,
+        }
+
+    @staticmethod
+    def _delivery_record(value):
+        delivery = dict(value or {})
+        recipients = dict(delivery.get("recipients") or {})
+        recipient_count = int(
+            delivery.get("recipientCount") or len(recipients)
+        )
+        delivered_count = int(delivery.get("deliveredCount") or len([
+            receipt for receipt in recipients.values()
+            if receipt.get("deliveredAt")
+        ]))
+        read_count = int(delivery.get("readCount") or len([
+            receipt for receipt in recipients.values()
+            if receipt.get("readAt")
+        ]))
+        status = str(delivery.get("status") or "")
+        if not status:
+            if recipient_count and read_count == recipient_count:
+                status = "read"
+            elif recipient_count and delivered_count == recipient_count:
+                status = "delivered"
+            else:
+                status = "sent"
+        return {
+            "deliveryStatus": status,
+            "deliveryRecipientCount": recipient_count,
+            "deliveryDeliveredCount": delivered_count,
+            "deliveryReadCount": read_count,
         }
 
     def _reaction_records(self, value):
@@ -1706,6 +1738,7 @@ class MessagesController(QObject):
             "reactions": reactions,
             "reactionPending": pending_reactions is not None,
         }
+        record.update(self._delivery_record(info.get("__delivery__") or {}))
         record.update(self._message_profile(sender))
         return record
 
@@ -2228,6 +2261,13 @@ class MessagesController(QObject):
         self.stateChanged.emit()
 
     def _attachment_downloaded(self, file_object):
+        tracked_files = (
+            *self._conversation_preview_files.values(),
+            *self._files.values(),
+            *self._preview_files.values(),
+        )
+        if not any(tracked is file_object for tracked in tracked_files):
+            return
         changed = False
         for row, conversation in enumerate(self.conversations._records):
             tracked = self._conversation_preview_files.get(
@@ -2284,6 +2324,12 @@ class MessagesController(QObject):
             if reactions != self.messages.get(row).get("reactions"):
                 self.messages.set_value(row, "reactions", reactions)
                 reactions_changed = True
+            delivery = self._delivery_record(update.get("delivery") or {})
+            current_record = self.messages.get(row)
+            for role, value in delivery.items():
+                if current_record.get(role) != value:
+                    self.messages.set_value(row, role, value)
+                    reactions_changed = True
         if not messages:
             if reactions_changed:
                 self.stateChanged.emit()

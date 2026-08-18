@@ -70,7 +70,7 @@ Item {
                     text: qsTr(sobjectEditorController.title)
                     color: root.theme.secondaryText
                     font.family: root.theme.fontFamily
-                    font.pixelSize: 11
+                    font.pointSize: Typography.bodyLarge
                 }
             }
             RefreshIconButton {
@@ -121,7 +121,7 @@ Item {
                             color: parent.fieldError
                                 ? root.theme.error : root.theme.primaryText
                             font.family: root.theme.fontFamily
-                            font.pixelSize: 11
+                            font.pointSize: Typography.bodyLarge
                             font.weight: Font.Medium
                         }
 
@@ -153,7 +153,7 @@ Item {
                             text: fieldError
                             color: root.theme.error
                             font.family: root.theme.fontFamily
-                            font.pixelSize: 10
+                            font.pointSize: Typography.body
                         }
 
                         Component {
@@ -304,7 +304,7 @@ Item {
                                         ? root.theme.primaryText
                                         : root.theme.secondaryText
                                     font.family: root.theme.fontFamily
-                                    font.pixelSize: 10
+                                    font.pointSize: Typography.body
                                     elide: Text.ElideMiddle
                                 }
                                 CompactIconButton {
@@ -331,7 +331,7 @@ Item {
                                     text: qsTr("Current thumbnail")
                                     color: root.theme.secondaryText
                                     font.family: root.theme.fontFamily
-                                    font.pixelSize: 10
+                                    font.pointSize: Typography.body
                                 }
                             }
                         }
@@ -352,7 +352,7 @@ Item {
                     text: sobjectEditorController.error
                     color: root.theme.error
                     font.family: root.theme.fontFamily
-                    font.pixelSize: 11
+                    font.pointSize: Typography.bodyLarge
                     wrapMode: Text.WordWrap
                 }
             }
@@ -381,7 +381,7 @@ Item {
                     color: sobjectFieldModel.valid
                         ? root.theme.secondaryText : root.theme.error
                     font.family: root.theme.fontFamily
-                    font.pixelSize: 10
+                    font.pointSize: Typography.body
                 }
                 Md3Button {
                     theme: root.theme

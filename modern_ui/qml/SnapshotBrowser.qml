@@ -15,6 +15,14 @@ Item {
         appController.snapshot_browser_orientation === "vertical"
     readonly property real splitterRatio:
         appController.snapshot_browser_splitter_ratio
+    property bool splitterDragging: false
+    property real draggedSplitterRatio: splitterRatio
+    readonly property real effectiveSplitterRatio: clampedSplitterRatio(
+        splitterDragging ? draggedSplitterRatio : splitterRatio
+    )
+    readonly property real splitterPosition: (
+        sideBySide ? browserArea.width : browserArea.height
+    ) * effectiveSplitterRatio
     property string contextFileToken: ""
     property int selectedFileRow: -1
     property int displayedFileCount: 0
@@ -26,6 +34,19 @@ Item {
         root.showMoreInfo && filesPanel.width >= 820
     readonly property bool showFileBaseType:
         root.showMoreInfo && filesPanel.width >= 940
+
+    function clampedSplitterRatio(candidate) {
+        const extent = sideBySide ? browserArea.width : browserArea.height
+        const primaryMinimum = sideBySide ? 120 : 90
+        const secondaryMinimum = sideBySide ? 180 : 120
+        if (extent <= 1)
+            return Math.max(0.22, Math.min(0.78, Number(candidate || 0.52)))
+        const lower = Math.max(0.22, (primaryMinimum + 4) / extent)
+        const upper = Math.min(0.78, 1 - (secondaryMinimum + 4) / extent)
+        if (lower > upper)
+            return primaryMinimum / (primaryMinimum + secondaryMinimum)
+        return Math.max(lower, Math.min(upper, Number(candidate || 0.52)))
+    }
 
     function fileExtension(name) {
         const value = String(name || "")
@@ -171,11 +192,11 @@ Item {
             x: 0
             y: 0
             width: root.sideBySide
-                ? Math.max(120, browserArea.width * root.splitterRatio - 4)
+                ? Math.max(0, root.splitterPosition - 4)
                 : browserArea.width
             height: root.sideBySide
                 ? browserArea.height
-                : Math.max(90, browserArea.height * root.splitterRatio - 4)
+                : Math.max(0, root.splitterPosition - 4)
             radius: 12
             color: root.theme.surfaceContainerLow
             border.color: root.theme.outline
@@ -213,6 +234,7 @@ Item {
                         fillMode: Image.PreserveAspectFit
                         round: false
                         cornerRadius: root.theme.itemRadius
+                        decodeAtItemSize: false
                     }
                 }
                 Item {
@@ -227,6 +249,7 @@ Item {
                         fillMode: Image.PreserveAspectFit
                         round: false
                         cornerRadius: root.theme.itemRadius
+                        decodeAtItemSize: false
                     }
                 }
             }
@@ -258,7 +281,7 @@ Item {
                     text: previewArea.currentTitle
                     color: root.theme.primaryText
                     font.family: root.theme.fontFamily
-                    font.pixelSize: 10
+                    font.pointSize: Typography.body
                     elide: Text.ElideMiddle
                 }
             }
@@ -345,7 +368,7 @@ Item {
                         + snapshotPreviewModel.count()
                     color: root.theme.primaryText
                     font.family: root.theme.fontFamily
-                    font.pixelSize: 10
+                    font.pointSize: Typography.body
                     font.weight: Font.DemiBold
                 }
             }
@@ -501,7 +524,7 @@ Item {
                                : qsTr("Published files"))
                         color: root.theme.secondaryText
                         font.family: root.theme.fontFamily
-                        font.pixelSize: 10
+                        font.pointSize: Typography.body
                         font.weight: Font.DemiBold
                         Layout.fillWidth: true
                         Layout.minimumWidth: 40
@@ -514,13 +537,13 @@ Item {
                                 ? qsTr(" file") : qsTr(" files"))
                         color: root.theme.secondaryText
                         font.family: root.theme.fontFamily
-                        font.pixelSize: 9
+                        font.pointSize: Typography.label
                     }
                     Label {
                         visible: root.showFileSize
                         text: qsTr("Size")
                         color: root.theme.secondaryText
-                        font.pixelSize: 9
+                        font.pointSize: Typography.label
                         horizontalAlignment: Text.AlignRight
                         Layout.preferredWidth: 54
                     }
@@ -528,21 +551,21 @@ Item {
                         visible: root.showFilePath
                         text: qsTr("Path")
                         color: root.theme.secondaryText
-                        font.pixelSize: 9
+                        font.pointSize: Typography.label
                         Layout.preferredWidth: 170
                     }
                     Label {
                         visible: root.showFileRepository
                         text: qsTr("Repo")
                         color: root.theme.secondaryText
-                        font.pixelSize: 9
+                        font.pointSize: Typography.label
                         Layout.preferredWidth: 64
                     }
                     Label {
                         visible: root.showFileBaseType
                         text: qsTr("Base Type")
                         color: root.theme.secondaryText
-                        font.pixelSize: 9
+                        font.pointSize: Typography.label
                         Layout.preferredWidth: 70
                         rightPadding: 7
                     }
@@ -584,7 +607,7 @@ Item {
                             radius: 8
                             color: root.selectedFileRow === fileRow.index
                                    && fileRow.rowType === "file"
-                                   ? root.theme.secondaryContainer
+                                   ? root.theme.contentSelection
                                    : fileMouse.containsMouse && fileRow.rowType === "file"
                                      ? root.theme.rowHover
                                    : fileRow.rowType === "snapshot"
@@ -616,7 +639,7 @@ Item {
                                 color: fileRow.exists ? root.theme.primaryText : root.theme.secondaryText
                                 font.bold: fileRow.rowType !== "file"
                                 font.family: root.theme.fontFamily
-                                font.pixelSize: 10
+                                font.pointSize: Typography.body
                                 elide: Text.ElideMiddle
                                 Layout.fillWidth: true
                                 Layout.minimumWidth: 40
@@ -626,7 +649,7 @@ Item {
                                     && fileRow.rowType === "file"
                                 text: fileRow.size
                                 color: root.theme.secondaryText
-                                font.pixelSize: 9
+                                font.pointSize: Typography.label
                                 horizontalAlignment: Text.AlignRight
                                 elide: Text.ElideRight
                                 Layout.preferredWidth: 54
@@ -636,7 +659,7 @@ Item {
                                     && fileRow.rowType === "file"
                                 text: fileRow.path
                                 color: root.theme.secondaryText
-                                font.pixelSize: 9
+                                font.pointSize: Typography.label
                                 elide: Text.ElideMiddle
                                 Layout.preferredWidth: 170
                             }
@@ -645,7 +668,7 @@ Item {
                                     && fileRow.rowType === "file"
                                 text: fileRow.repository
                                 color: root.theme.secondaryText
-                                font.pixelSize: 9
+                                font.pointSize: Typography.label
                                 elide: Text.ElideRight
                                 Layout.preferredWidth: 64
                             }
@@ -654,7 +677,7 @@ Item {
                                     && fileRow.rowType === "file"
                                 text: fileRow.baseType
                                 color: root.theme.secondaryText
-                                font.pixelSize: 9
+                                font.pointSize: Typography.label
                                 elide: Text.ElideRight
                                 Layout.preferredWidth: 70
                             }
@@ -724,8 +747,8 @@ Item {
         Item {
             id: splitterHandle
             z: 20
-            x: root.sideBySide ? previewArea.width : 0
-            y: root.sideBySide ? 0 : previewArea.height
+            x: root.sideBySide ? root.splitterPosition - 4 : 0
+            y: root.sideBySide ? 0 : root.splitterPosition - 4
             width: root.sideBySide ? 8 : browserArea.width
             height: root.sideBySide ? browserArea.height : 8
 
@@ -750,6 +773,10 @@ Item {
                 hoverEnabled: true
                 cursorShape: root.sideBySide
                     ? Qt.SizeHorCursor : Qt.SizeVerCursor
+                onPressed: {
+                    root.draggedSplitterRatio = root.effectiveSplitterRatio
+                    root.splitterDragging = true
+                }
                 onPositionChanged: mouse => {
                     if (!pressed)
                         return
@@ -759,7 +786,17 @@ Item {
                     const ratio = root.sideBySide
                         ? point.x / Math.max(1, browserArea.width)
                         : point.y / Math.max(1, browserArea.height)
+                    root.draggedSplitterRatio = root.clampedSplitterRatio(ratio)
+                }
+                onReleased: {
+                    const ratio = root.clampedSplitterRatio(
+                        root.draggedSplitterRatio
+                    )
+                    root.splitterDragging = false
                     appController.set_snapshot_browser_splitter_ratio(ratio)
+                }
+                onCanceled: {
+                    root.splitterDragging = false
                 }
             }
         }

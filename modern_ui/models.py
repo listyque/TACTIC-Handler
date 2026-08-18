@@ -17,6 +17,8 @@ from PySide6.QtCore import (
     Slot,
 )
 
+from .sidebar_icons import icon_name_from_tactic
+
 
 @dataclass(frozen=True, slots=True)
 class NavigationEntry:
@@ -33,7 +35,9 @@ class NavigationEntry:
     expanded: bool = True
     visible: bool = True
     search_type: str = ""
-    filters: tuple = ()
+    search_view: str = ""
+    view_mode: str = ""
+    filter_records: tuple = ()
 
 
 class NavigationModel(QAbstractListModel):
@@ -123,29 +127,17 @@ class NavigationModel(QAbstractListModel):
 
     @staticmethod
     def _icon_name(server_icon: str, search_type: str) -> str:
-        source = f"{server_icon or ''} {search_type or ''}".lower()
-        if "task" in source or "calendar-check" in source:
-            return "task_alt"
-        if "snapshot" in source or "publish" in source:
-            return "publish"
-        if any(value in source for value in ("film", "scene", "episode")):
-            return "movie"
-        if "login" in source or "user" in source:
-            return "person"
-        if "project" in source:
-            return "project-diagram"
-        if any(value in source for value in ("message", "note", "chat")):
-            return "comment"
-        if "process" in source:
-            return "process"
-        if "asset" in source:
-            return "sobject"
-        if "list" in source:
-            return "view_kanban"
-        return "sobject"
+        """Preserve the icon configured by the project's sidebar XML.
+
+        Icon Manager stores a resolved MaterialIcon/Font Awesome name in the
+        XML.  The Search Type must not silently replace it with a client-side
+        guess.
+        """
+        del search_type
+        return icon_name_from_tactic(server_icon) or "sidebar-link"
 
     @staticmethod
-    def _item_filters(project, item, search_type: str) -> tuple:
+    def _item_filter_records(project, item, search_type: str) -> tuple:
         search_view_node = item.find("search_view")
         if not search_view_node:
             return ()
@@ -155,24 +147,9 @@ class NavigationModel(QAbstractListModel):
             search_view,
             bs=True,
         )
-        values = definition.find("values") if definition else None
-        if not values or not values.string:
-            return ()
-        import thlib.global_functions as gf
-        import thlib.tactic_classes as tc
+        from .search_presets import records_from_definition
 
-        records = gf.from_json(values.string) or []
-        filters = []
-        for record in records[1:-1]:
-            relation = record.get("main_body_relation")
-            if relation == "expression":
-                relation = record.get("main_body_op")
-            filters.append((
-                record.get("main_body_column"),
-                tc.get_search_relation(relation),
-                record.get("main_body_value"),
-            ))
-        return tuple(filters)
+        return tuple(records_from_definition(definition))
 
     @classmethod
     def build_project_entries(
@@ -203,6 +180,9 @@ class NavigationModel(QAbstractListModel):
             entries = []
             for item in items:
                 name = item.get("name") or "untitled"
+                is_visible = str(item.get("is_visible") or "on").lower()
+                if is_visible in {"off", "false", "no", "0"}:
+                    continue
                 access = current_login.check_security(
                     group="link",
                     path=f"element:{name}",
@@ -269,6 +249,38 @@ class NavigationModel(QAbstractListModel):
                     if stype and stype.get_stype_color(fmt="hex")
                     else ""
                 )
+                filter_records = (
+                    cls._item_filter_records(project, item, search_type)
+                    if search_type else ()
+                )
+                search_view_node = item.find("search_view")
+                search_view = (
+                    search_view_node.get_text(strip=True)
+                    if search_view_node else ""
+                )
+                widget_key_node = (
+                    display_node.find("widget_key") if display_node else None
+                )
+                widget_key = (
+                    widget_key_node.get_text(strip=True)
+                    if widget_key_node else ""
+                )
+                view_mode_node = (
+                    display_node.find("view_mode") if display_node else None
+                )
+                view_mode = (
+                    view_mode_node.get_text(strip=True)
+                    if view_mode_node else ""
+                )
+                if view_mode not in {
+                    "continious", "tiles", "compact",
+                    "splitted_vertical", "splitted_horizontal",
+                }:
+                    view_mode = (
+                        "tiles" if widget_key == "tile_layout"
+                        else "compact" if widget_key == "fast_layout"
+                        else ""
+                    )
                 entries.append(NavigationEntry(
                     key=f"{search_type or name}@{name}",
                     title=title,
@@ -281,11 +293,9 @@ class NavigationModel(QAbstractListModel):
                     depth=depth,
                     accent=accent,
                     search_type=search_type,
-                    filters=cls._item_filters(
-                        project,
-                        item,
-                        search_type,
-                    ) if search_type else (),
+                    search_view=search_view,
+                    view_mode=view_mode,
+                    filter_records=filter_records,
                 ))
             return entries
 
@@ -486,6 +496,7 @@ class ProjectModel(QAbstractListModel):
             self._preview_cache.move_to_end(code)
             return self._preview_cache[code]
         preview_url = ""
+        path_resolution_pending = False
         for process_name in ("icon", "publish"):
             process = project.get_process(process_name)
             if not process:
@@ -501,7 +512,14 @@ class ProjectModel(QAbstractListModel):
                 preview = files[0].get_icon_preview()
                 if not preview:
                     continue
-                local_path = str(preview.get_full_abs_path() or "")
+                try:
+                    local_path = str(preview.get_full_abs_path() or "")
+                except (AttributeError, KeyError, TypeError, ValueError):
+                    # ProjectModel is populated before repository configuration
+                    # during the fast startup path. File owns path resolution, so
+                    # defer instead of reconstructing its path or caching a miss.
+                    path_resolution_pending = True
+                    continue
                 if local_path and Path(local_path).is_file():
                     preview_url = QUrl.fromLocalFile(
                         str(Path(local_path).resolve())
@@ -523,6 +541,8 @@ class ProjectModel(QAbstractListModel):
                     break
             if preview_url:
                 break
+        if path_resolution_pending and not preview_url:
+            return ""
         self._store_preview(code, preview_url)
         return preview_url
 

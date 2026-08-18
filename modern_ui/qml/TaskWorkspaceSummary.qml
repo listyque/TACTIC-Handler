@@ -43,7 +43,7 @@ Rectangle {
                     text: qsTr("SCOPE SUMMARY")
                     color: root.theme.secondaryText
                     font.family: root.theme.fontFamily
-                    font.pixelSize: 8
+                    font.pointSize: Typography.caption
                     font.weight: Font.DemiBold
                 }
                 Label {
@@ -58,7 +58,7 @@ Rectangle {
                     color: root.summary.complete
                         ? root.theme.primaryText : root.theme.yellow
                     font.family: root.theme.fontFamily
-                    font.pixelSize: 8
+                    font.pointSize: Typography.caption
                     elide: Text.ElideRight
                 }
             }
@@ -140,7 +140,7 @@ Rectangle {
                 text: qsTr("WORKLOAD")
                 color: root.theme.secondaryText
                 font.family: root.theme.fontFamily
-                font.pixelSize: 8
+                font.pointSize: Typography.caption
                 font.weight: Font.DemiBold
             }
             ListView {
@@ -188,7 +188,7 @@ Rectangle {
                                 text: modelData.label
                                 color: root.theme.primaryText
                                 font.family: root.theme.fontFamily
-                                font.pixelSize: 8
+                                font.pointSize: Typography.caption
                                 font.weight: Font.DemiBold
                                 elide: Text.ElideRight
                             }
@@ -202,7 +202,7 @@ Rectangle {
                                     ? root.theme.error
                                     : root.theme.secondaryText
                                 font.family: root.theme.fontFamily
-                                font.pixelSize: 7
+                                font.pointSize: Typography.micro
                                 elide: Text.ElideRight
                             }
                         }
@@ -228,7 +228,7 @@ Rectangle {
                 text: qsTr("STATUSES")
                 color: root.theme.secondaryText
                 font.family: root.theme.fontFamily
-                font.pixelSize: 8
+                font.pointSize: Typography.caption
                 font.weight: Font.DemiBold
             }
             Flickable {

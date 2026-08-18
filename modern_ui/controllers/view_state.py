@@ -295,7 +295,11 @@ class ViewStateMixin:
 
 
     def _records_without_tag_filters(self, tab) -> list[dict]:
-        records = self._filter_records_from_filters(tab.extra_filters)
+        records = (
+            [dict(record) for record in tab.filter_records]
+            if tab.filter_records
+            else self._filter_records_from_filters(tab.extra_filters)
+        )
         if not tab.tag_column or not tab.selected_tags:
             return records
         generated_values = {

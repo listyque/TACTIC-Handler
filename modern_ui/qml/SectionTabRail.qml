@@ -170,7 +170,7 @@ Item {
                             text: tab.acronym
                             color: "#f2f2f2"
                             font.family: root.theme.fontFamily
-                            font.pixelSize: 8
+                            font.pointSize: Typography.caption
                             font.weight: Font.DemiBold
                         }
                     }
@@ -186,7 +186,7 @@ Item {
                         color: tab.current
                             ? root.theme.selectedText : root.theme.primaryText
                         font.family: root.theme.fontFamily
-                        font.pixelSize: 11
+                        font.pointSize: Typography.bodyLarge
                         font.weight: tab.current ? Font.Bold : Font.DemiBold
                         elide: Text.ElideRight
                         opacity: tab.hovered && tab.width > 96 ? 1 : 0

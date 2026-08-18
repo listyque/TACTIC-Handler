@@ -164,7 +164,7 @@ Item {
                     ) + " " + calendarPopup.visibleMonth.getFullYear()
                     color: root.theme.primaryText
                     font.family: root.theme.fontFamily
-                    font.pixelSize: 11
+                    font.pointSize: Typography.bodyLarge
                     font.weight: Font.DemiBold
                     horizontalAlignment: Text.AlignHCenter
                 }
@@ -194,7 +194,7 @@ Item {
                         text: modelData
                         color: root.theme.secondaryText
                         font.family: root.theme.fontFamily
-                        font.pixelSize: 8
+                        font.pointSize: Typography.caption
                         horizontalAlignment: Text.AlignHCenter
                         verticalAlignment: Text.AlignVCenter
                     }
@@ -242,7 +242,7 @@ Item {
                             color: dayCell.selected
                                 ? root.theme.selectedText : root.theme.primaryText
                             font.family: root.theme.fontFamily
-                            font.pixelSize: 9
+                            font.pointSize: Typography.label
                             font.weight: dayCell.selected
                                 ? Font.DemiBold : Font.Normal
                         }
@@ -270,7 +270,7 @@ Item {
                     text: qsTr("Time")
                     color: root.theme.secondaryText
                     font.family: root.theme.fontFamily
-                    font.pixelSize: 9
+                    font.pointSize: Typography.label
                 }
                 Item { Layout.fillWidth: true }
                 Md3SpinBox {

@@ -73,13 +73,13 @@ Item {
                     + "  ·  " + appController.result_count + qsTr(" items")
                 color: root.theme.secondaryText
                 font.family: root.theme.fontFamily
-                font.pixelSize: 9
+                font.pointSize: Typography.label
             }
             Label {
                 visible: appController.search_state === "loading"
                 text: qsTr("Loading…")
                 color: root.theme.action
-                font.pixelSize: 9
+                font.pointSize: Typography.label
             }
         }
         Item {
@@ -198,7 +198,7 @@ Item {
                 text: appController.search_error || qsTr("No assets found")
                 color: appController.search_error
                     ? root.theme.red : root.theme.secondaryText
-                font.pixelSize: 10
+                font.pointSize: Typography.body
             }
         }
         ProgressBar {

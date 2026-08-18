@@ -1,8 +1,7 @@
 # Modern client test strategy
 
-Block C establishes executable contracts for the modern client. The tests are
-deliberately split by failure type so a regression reports the broken boundary,
-not only a later visual symptom.
+The modern client uses executable contracts split by failure type, so a regression
+reports the broken boundary rather than only a later visual symptom.
 
 ## Test layers
 
@@ -81,7 +80,7 @@ call/byte ceiling once its fixture response is deterministic.
 
 ## Commands
 
-Fast Block C suite:
+Fast contract suite:
 
 ```powershell
 python -m unittest tests.test_contracts tests.test_controller_scenarios `
@@ -100,7 +99,7 @@ engine globals therefore cannot leak into the next module. Plain `unittest disco
 remains useful for non-QML subsets, but one long process is not a reliable lifecycle
 boundary for the complete PySide6 suite.
 
-## Block F release gate
+## Release gate
 
 The strict merge entry point is now:
 

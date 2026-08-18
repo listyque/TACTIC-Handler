@@ -5,8 +5,9 @@ import copy
 import json
 import uuid
 from datetime import date, datetime, timedelta
+from pathlib import Path
 
-from PySide6.QtCore import QObject, Property, QTimer, Qt, Signal, Slot
+from PySide6.QtCore import QObject, Property, QTimer, Qt, QUrl, Signal, Slot
 
 from modern_ui.task_data import (
     calendar_cells,
@@ -242,6 +243,15 @@ class TasksController(QObject):
         self._task_field_catalog_worker = None
         self._task_field_catalog_attempts = {}
         self._milestone_controller = None
+        self._pending_preview_paths = {}
+        repository_sync = getattr(application, "repository_sync", None)
+        if repository_sync is not None:
+            repository_sync.task_finished.connect(
+                self._repository_preview_ready
+            )
+            repository_sync.task_failed.connect(
+                self._repository_preview_failed
+            )
         self._filters = {
             "text": "", "process": "", "status": "", "assigned": "",
             "due": "", "hasNotes": False, "day": "", "priority": "",
@@ -1323,7 +1333,47 @@ class TasksController(QObject):
         return snapshots
 
     @staticmethod
-    def _snapshot_preview_url(snapshot):
+    def _is_preview_image(file_object):
+        try:
+            filename = str(file_object.get_filename_with_ext() or "")
+        except (AttributeError, KeyError, TypeError):
+            return False
+        return Path(filename).suffix.lower() in {
+            ".apng", ".avif", ".bmp", ".gif", ".ico", ".jpeg",
+            ".jpg", ".png", ".svg", ".tga", ".tif", ".tiff", ".webp",
+        }
+
+    def _task_preview_url(self, file_object):
+        if not file_object or not self._is_preview_image(file_object):
+            return ""
+        try:
+            local_path = str(file_object.get_full_abs_path() or "")
+        except (AttributeError, KeyError, TypeError):
+            return ""
+        if local_path and Path(local_path).is_file():
+            return QUrl.fromLocalFile(
+                str(Path(local_path).resolve())
+            ).toString()
+        repository_sync = getattr(
+            self._application, "repository_sync", None
+        )
+        if (
+                not local_path or repository_sync is None
+                or not repository_sync.previews_through_http_enabled()):
+            return ""
+        try:
+            handle = repository_sync.schedule_file_object(
+                file_object, process="preview", auto_start=True
+            )
+        except (
+                AttributeError, KeyError, TypeError, ValueError, OSError,
+                RuntimeError, TimeoutError):
+            return ""
+        token = f"pending-preview:{handle.task_id}"
+        self._pending_preview_paths[token] = local_path
+        return token
+
+    def _snapshot_preview_url(self, snapshot):
         try:
             grouped = snapshot.get_files_objects(group_by="type") or {}
         except (AttributeError, KeyError, TypeError):
@@ -1339,17 +1389,13 @@ class TasksController(QObject):
                     )
                 except (AttributeError, KeyError, TypeError):
                     pass
-                try:
-                    url = str(candidate.get_full_web_path() or "")
-                except (AttributeError, KeyError, TypeError):
-                    url = ""
+                url = self._task_preview_url(candidate)
                 if url:
                     return url
         return ""
 
-    @classmethod
-    def _snapshot_summary_for(cls, parent, process):
-        snapshots = cls._loaded_snapshots(parent, process)
+    def _snapshot_summary_for(self, parent, process):
+        snapshots = self._loaded_snapshots(parent, process)
 
         def version(snapshot):
             try:
@@ -1361,10 +1407,10 @@ class TasksController(QObject):
         latest = max(versioned, key=version, default=None)
         preview_url = ""
         for preview_process in ("icon", process, "publish"):
-            candidates = cls._loaded_snapshots(parent, preview_process)
+            candidates = self._loaded_snapshots(parent, preview_process)
             candidates.sort(key=version, reverse=True)
             for snapshot in candidates:
-                preview_url = cls._snapshot_preview_url(snapshot)
+                preview_url = self._snapshot_preview_url(snapshot)
                 if preview_url:
                     break
             if preview_url:
@@ -1397,6 +1443,82 @@ class TasksController(QObject):
             "snapshotFileCount": file_count,
             "latestVersion": latest_version,
         }
+
+    @classmethod
+    def _replace_preview_value(cls, value, token, preview_url):
+        if isinstance(value, dict):
+            changed = False
+            result = {}
+            for key, item in value.items():
+                replacement, item_changed = cls._replace_preview_value(
+                    item, token, preview_url
+                )
+                result[key] = replacement
+                changed = changed or item_changed
+            return result, changed
+        if isinstance(value, list):
+            changed = False
+            result = []
+            for item in value:
+                replacement, item_changed = cls._replace_preview_value(
+                    item, token, preview_url
+                )
+                result.append(replacement)
+                changed = changed or item_changed
+            return result, changed
+        if isinstance(value, str) and value == token:
+            return preview_url, True
+        return value, False
+
+    def _replace_preview_token(self, token, preview_url):
+        advanced_changed = False
+        for row, record in enumerate(self._advanced_raw):
+            replacement, changed = self._replace_preview_value(
+                record, token, preview_url
+            )
+            if changed:
+                self._advanced_raw[row] = replacement
+                advanced_changed = True
+        for model in (
+                self.advanced_model, self.table_model, self.gantt_model,
+                self.process_model, self.calendar_model):
+            for row, record in enumerate(model._records):
+                replacement, changed = self._replace_preview_value(
+                    record, token, preview_url
+                )
+                if changed:
+                    model.update_record(row, replacement)
+                    advanced_changed = True
+        editor_changed = False
+        for attribute in ("_editor", "_processes", "_users"):
+            value = getattr(self, attribute, None)
+            replacement, changed = self._replace_preview_value(
+                value, token, preview_url
+            )
+            if changed:
+                setattr(self, attribute, replacement)
+                editor_changed = True
+        if advanced_changed:
+            self.advancedChanged.emit()
+        if editor_changed:
+            self.editorChanged.emit()
+            self.stateChanged.emit()
+
+    @Slot(str, str)
+    def _repository_preview_ready(self, task_id, local_path):
+        token = f"pending-preview:{task_id}"
+        expected_path = self._pending_preview_paths.pop(token, "")
+        if not expected_path:
+            return
+        resolved = str(Path(local_path or expected_path).resolve())
+        preview_url = QUrl.fromLocalFile(resolved).toString()
+        self._replace_preview_token(token, preview_url)
+
+    @Slot(str)
+    def _repository_preview_failed(self, task_id):
+        token = f"pending-preview:{task_id}"
+        if self._pending_preview_paths.pop(token, ""):
+            self._replace_preview_token(token, "")
 
     def _status_choices_for(self, target, process):
         stype, pipeline = self._pipeline(target)
@@ -1529,8 +1651,7 @@ class TasksController(QObject):
         )
         return result
 
-    @staticmethod
-    def _login_avatar_url(login_object):
+    def _login_avatar_url(self, login_object):
         processes = getattr(login_object, "process", {}) or {}
         for process_name in ("icon", "publish"):
             process = processes.get(process_name)
@@ -1553,11 +1674,9 @@ class TasksController(QObject):
                                     file_object.get_icon_preview()
                                     or file_object
                                 )
-                                url = str(
-                                    candidate.get_full_web_path() or ""
-                                )
                             except (AttributeError, KeyError, TypeError):
-                                url = ""
+                                candidate = None
+                            url = self._task_preview_url(candidate)
                             if url:
                                 return url
         return ""

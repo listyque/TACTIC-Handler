@@ -20,7 +20,7 @@ Item {
                 text: qsTr("ACTIVITY & NOTIFICATIONS")
                 color: root.theme.secondaryText
                 font.family: root.theme.fontFamily
-                font.pixelSize: 10
+                font.pointSize: Typography.body
                 font.weight: Font.DemiBold
             }
             Md3Button {
@@ -37,7 +37,7 @@ Item {
             text: qsTr("Client events and background operations from this session.")
             color: root.theme.secondaryText
             font.family: root.theme.fontFamily
-            font.pixelSize: 10
+            font.pointSize: Typography.body
             wrapMode: Text.WordWrap
         }
 
@@ -111,7 +111,7 @@ Item {
                             text: row.message
                             color: root.theme.primaryText
                             font.family: root.theme.fontFamily
-                            font.pixelSize: 11
+                            font.pointSize: Typography.bodyLarge
                             wrapMode: Text.WordWrap
                         }
                         Label {
@@ -125,7 +125,7 @@ Item {
                                         : qsTr("Client")
                             color: root.theme.action
                             font.family: root.theme.fontFamily
-                            font.pixelSize: 8
+                            font.pointSize: Typography.caption
                             font.weight: Font.DemiBold
                         }
                         Label {
@@ -134,7 +134,7 @@ Item {
                             text: row.detail
                             color: root.theme.secondaryText
                             font.family: root.theme.fontFamily
-                            font.pixelSize: 9
+                            font.pointSize: Typography.label
                             wrapMode: Text.WordWrap
                         }
                     }
@@ -142,7 +142,7 @@ Item {
                         text: row.timestamp.replace("T", " ").slice(0, 19)
                         color: root.theme.secondaryText
                         font.family: root.theme.fontFamily
-                        font.pixelSize: 9
+                        font.pointSize: Typography.label
                     }
                 }
             }
@@ -153,7 +153,7 @@ Item {
                 text: qsTr("No events in this group")
                 color: root.theme.secondaryText
                 font.family: root.theme.fontFamily
-                font.pixelSize: 11
+                font.pointSize: Typography.bodyLarge
             }
         }
     }

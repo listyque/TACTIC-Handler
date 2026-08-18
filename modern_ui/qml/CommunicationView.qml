@@ -122,7 +122,7 @@ Item {
                     : qsTr("Select an sObject to view notes")
                 color: root.theme.secondaryText
                 font.family: root.theme.fontFamily
-                font.pixelSize: 10
+                font.pointSize: Typography.body
             }
 
             delegate: Item {
@@ -285,7 +285,7 @@ Item {
                                             ? " (" + timelineRow.author + ")" : "")
                                     color: timelineRow.authorColor
                                     font.family: root.theme.fontFamily
-                                    font.pixelSize: 9
+                                    font.pointSize: Typography.label
                                     font.weight: Font.DemiBold
                                     elide: Text.ElideRight
                                     font.underline: authorMouse.containsMouse
@@ -304,7 +304,7 @@ Item {
                                         ? timelineRow.timeSimple : timelineRow.timePretty
                                     color: root.theme.secondaryText
                                     font.family: root.theme.fontFamily
-                                    font.pixelSize: 8
+                                    font.pointSize: Typography.caption
                                     MouseArea {
                                         id: timeMouse
                                         anchors.fill: parent
@@ -529,7 +529,7 @@ Item {
                         color: root.theme.error
                         wrapMode: Text.WordWrap
                         font.family: root.theme.fontFamily
-                        font.pixelSize: 9
+                        font.pointSize: Typography.label
                     }
                     Md3Button {
                         theme: root.theme

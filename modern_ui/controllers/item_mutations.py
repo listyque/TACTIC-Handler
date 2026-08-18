@@ -59,6 +59,18 @@ class ItemMutationsMixin:
 
     @Slot(str, str)
     def _repository_file_ready(self, task_id: str, local_path: str) -> None:
+        token = f"pending-preview:{task_id}"
+        pending_sources = (
+            self.project_model._pending_preview_paths,
+            self.workspace_model._pending_preview_paths,
+            self.versions_model._pending_preview_paths,
+            self.workspace_state._preview_helper._pending_preview_paths,
+        )
+        # A full repository sync emits this signal for every downloaded file.
+        # Only preview tasks owned by these models require localization; the
+        # early O(1) lookup prevents thousands of unrelated model scans.
+        if not any(token in pending for pending in pending_sources):
+            return
         pending_paths = dict(self.workspace_model._pending_preview_paths)
         pending_paths.update(self.versions_model._pending_preview_paths)
         self.project_model.localize_preview(local_path)

@@ -59,7 +59,7 @@ Rectangle {
                     text: root.description
                     color: root.theme.secondaryText
                     font.family: root.theme.fontFamily
-                    font.pixelSize: 9
+                    font.pointSize: Typography.label
                     wrapMode: Text.WordWrap
                 }
             }

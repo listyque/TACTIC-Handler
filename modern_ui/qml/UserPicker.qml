@@ -158,7 +158,7 @@ Item {
                                 ? root.theme.selectedText
                                 : root.theme.primaryText
                             font.family: root.theme.fontFamily
-                            font.pixelSize: 10
+                            font.pointSize: Typography.body
                             font.weight: Font.DemiBold
                             elide: Text.ElideRight
                         }
@@ -172,7 +172,7 @@ Item {
                                 ? root.theme.selectedText
                                 : root.theme.secondaryText
                             font.family: root.theme.fontFamily
-                            font.pixelSize: 8
+                            font.pointSize: Typography.caption
                             elide: Text.ElideRight
                         }
                     }

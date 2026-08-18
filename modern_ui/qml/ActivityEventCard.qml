@@ -104,7 +104,7 @@ Item {
                     text: root.activityTitle(root.kind, root.eventTitle)
                     color: root.theme.primaryText
                     font.family: root.theme.fontFamily
-                    font.pixelSize: 11
+                    font.pointSize: Typography.bodyLarge
                     font.weight: Font.DemiBold
                     elide: Text.ElideRight
                 }
@@ -113,7 +113,7 @@ Item {
                     text: root.actor
                     color: root.theme.action
                     font.family: root.theme.fontFamily
-                    font.pixelSize: 8
+                    font.pointSize: Typography.caption
                     elide: Text.ElideRight
                     Layout.maximumWidth: 140
                 }
@@ -121,7 +121,7 @@ Item {
                     text: root.timestamp
                     color: root.theme.secondaryText
                     font.family: root.theme.fontFamily
-                    font.pixelSize: 8
+                    font.pointSize: Typography.caption
                 }
             }
 
@@ -142,7 +142,7 @@ Item {
                     color: root.canOpenTarget
                         ? root.theme.action : root.theme.secondaryText
                     font.family: root.theme.fontFamily
-                    font.pixelSize: 9
+                    font.pointSize: Typography.label
                     font.weight: Font.Medium
                     elide: Text.ElideRight
 
@@ -159,14 +159,14 @@ Item {
                     visible: text.length > 0
                     color: root.theme.secondaryText
                     font.family: root.theme.fontFamily
-                    font.pixelSize: 8
+                    font.pointSize: Typography.caption
                 }
                 Label {
                     text: root.context.length ? root.context : root.process
                     visible: text.length > 0
                     color: root.theme.secondaryText
                     font.family: root.theme.fontFamily
-                    font.pixelSize: 8
+                    font.pointSize: Typography.caption
                 }
                 Label {
                     text: root.version.length
@@ -174,7 +174,7 @@ Item {
                     visible: text.length > 0
                     color: root.theme.secondaryText
                     font.family: root.theme.fontFamily
-                    font.pixelSize: 8
+                    font.pointSize: Typography.caption
                 }
             }
 
@@ -184,7 +184,7 @@ Item {
                 visible: text.length > 0
                 color: root.theme.secondaryText
                 font.family: root.theme.fontFamily
-                font.pixelSize: 9
+                font.pointSize: Typography.label
                 maximumLineCount: 2
                 wrapMode: Text.WordWrap
                 elide: Text.ElideRight

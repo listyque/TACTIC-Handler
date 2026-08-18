@@ -47,21 +47,21 @@ Item {
                     text: qsTr("Object")
                     Layout.fillWidth: true
                     color: root.theme.secondaryText
-                    font.pixelSize: 9
+                    font.pointSize: Typography.label
                     font.weight: Font.DemiBold
                 }
                 Label {
                     text: qsTr("Code")
                     Layout.preferredWidth: 130
                     color: root.theme.secondaryText
-                    font.pixelSize: 9
+                    font.pointSize: Typography.label
                     font.weight: Font.DemiBold
                 }
                 Label {
                     text: qsTr("Status")
                     Layout.preferredWidth: 100
                     color: root.theme.secondaryText
-                    font.pixelSize: 9
+                    font.pointSize: Typography.label
                     font.weight: Font.DemiBold
                 }
             }
@@ -90,21 +90,21 @@ Item {
                         Layout.fillWidth: true
                         elide: Text.ElideRight
                         color: root.theme.primaryText
-                        font.pixelSize: 10
+                        font.pointSize: Typography.body
                     }
                     Label {
                         text: modelData.code || "—"
                         Layout.preferredWidth: 130
                         elide: Text.ElideRight
                         color: root.theme.secondaryText
-                        font.pixelSize: 9
+                        font.pointSize: Typography.label
                     }
                     Label {
                         text: modelData.status || "—"
                         Layout.preferredWidth: 100
                         elide: Text.ElideRight
                         color: root.theme.secondaryText
-                        font.pixelSize: 9
+                        font.pointSize: Typography.label
                     }
                 }
             }

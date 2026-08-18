@@ -22,7 +22,7 @@ Item {
         Label {
             text: qsTr("No view is registered for this window.")
             color: root.theme.secondaryText
-            font.pixelSize: 10
+            font.pointSize: Typography.body
             wrapMode: Text.WordWrap
             Layout.fillWidth: true
         }

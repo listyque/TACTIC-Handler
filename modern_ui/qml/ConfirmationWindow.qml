@@ -43,7 +43,7 @@ Item {
                 : qsTr("A new server item will be created from the ")
                     + qsTr("selected object.")
             color: root.theme.secondaryText
-            font.pixelSize: 9
+            font.pointSize: Typography.label
             wrapMode: Text.WordWrap
             horizontalAlignment: Text.AlignHCenter
             Layout.fillWidth: true

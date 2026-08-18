@@ -74,7 +74,7 @@ Md3Popup {
                 text: qsTr("Workspace panels")
                 color: root.theme.secondaryText
                 font.family: root.theme.fontFamily
-                font.pixelSize: 10
+                font.pointSize: Typography.body
                 font.weight: Font.DemiBold
             }
 
@@ -97,7 +97,7 @@ Md3Popup {
                         : kind === "description" ? "description"
                         : kind === "advanced_search" ? "search"
                         : kind === "fast_controls" ? "tune"
-                        : kind === "repo_sync_queue" ? "sync"
+                        : kind === "repo_sync_queue" ? "repository-sync"
                         : kind === "commit_queue" ? "publish"
                         : kind === "watch_folders" ? "folder"
                         : kind === "db_table" ? "table"
@@ -130,7 +130,9 @@ Md3Popup {
                         }
                         Label {
                             Layout.fillWidth: true
-                            text: qsTr(panelRow.title)
+                            text: panelRow.kind === "tasks"
+                                ? qsTr("Task Manager")
+                                : qsTr(panelRow.title)
                             color: panelRow.closable || !panelRow.panelVisible
                                 ? root.theme.primaryText
                                 : root.theme.secondaryText

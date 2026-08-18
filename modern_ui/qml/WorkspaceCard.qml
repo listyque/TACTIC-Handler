@@ -23,9 +23,9 @@ Item {
     required property string timestamp
     required property string version
     required property string repository
-    required property string previewUrl
+    required property string cardPreviewUrl
     required property bool previewRevealed
-    required property bool previewRequested
+    required property bool cardPreviewRequested
     required property var progressItems
     required property var infoChips
     required property var itemControls
@@ -50,6 +50,14 @@ Item {
     readonly property bool isRelation: nodeType === "relation"
     readonly property bool hasLargePreview: isSobject || isSnapshot
         || nodeType === "file"
+    readonly property bool hasPersistentItemControls: {
+        const controls = root.itemControls || []
+        for (let index = 0; index < controls.length; ++index) {
+            if (controls[index].persistent)
+                return true
+        }
+        return false
+    }
     readonly property string entityName: {
         if (isRelation)
             return title || "Related items"
@@ -122,10 +130,6 @@ Item {
             appController.invoke_item_action("open", root.nodeId)
     }
 
-    scale: root.interactiveHovered ? 1.018 : 1
-    Behavior on scale {
-        NumberAnimation { duration: 170; easing.type: Easing.OutCubic }
-    }
     transform: Translate {
         x: root.expansionOffsetX
         y: root.expanded ? -8 : 0
@@ -139,8 +143,8 @@ Item {
     }
 
     Component.onCompleted: {
-        if (root.hasLargePreview && !root.previewRequested)
-            appController.request_item_preview(nodeId)
+        if (root.hasLargePreview && !root.cardPreviewRequested)
+            appController.request_item_card_preview(nodeId)
         transientAnimationArm.restart()
     }
     GridView.onPooled: {
@@ -151,8 +155,8 @@ Item {
     GridView.onReused: {
         root.transientAnimationsSuppressed = true
         cardFileDrop.activeZone = -1
-        if (root.hasLargePreview && !root.previewRequested)
-            appController.request_item_preview(root.nodeId)
+        if (root.hasLargePreview && !root.cardPreviewRequested)
+            appController.request_item_card_preview(root.nodeId)
         transientAnimationArm.restart()
     }
 
@@ -184,9 +188,12 @@ Item {
         anchors.fill: parent
         radius: 12
         color: root.selected
-            ? root.theme.surfaceContainerHighest : root.theme.panelRaised
-        border.width: root.selected ? 2 : 0
-        border.color: root.selected ? root.theme.action : "transparent"
+            ? root.theme.contentSelection
+            : root.theme.panelRaised
+        border.width: root.selected ? 1 : 0
+        border.color: root.selected
+            ? root.theme.contentAccent
+            : "transparent"
         Behavior on color {
             ColorAnimation {
                 duration: root.theme.motionFast
@@ -200,15 +207,77 @@ Item {
             }
         }
     }
+    ItemPreview {
+        id: cardPreviewBackground
+        anchors.fill: cardBackground
+        visible: root.isSobject
+        theme: root.theme
+        source: visible ? root.cardPreviewUrl : ""
+        accent: root.accent
+        round: false
+        cornerRadius: cardBackground.radius
+        previewSize: Math.max(width, height)
+        fillMode: Image.PreserveAspectCrop
+        selected: root.selected
+        selectedBorderColor: root.isSobject
+            ? root.theme.contentAccent : root.theme.selectedText
+        fallbackIcon: root.typeIcon
+        fallbackText: ""
+        animateAppearance: !root.previewRevealed && root.hoverAllowed
+        onAppearanceCompleted: {
+            if (!root.previewRevealed)
+                appController.mark_item_preview_revealed(root.nodeId)
+        }
+    }
     Rectangle {
         anchors.fill: cardBackground
+        visible: root.isSobject
         radius: cardBackground.radius
-        color: root.theme.action
-        opacity: root.selected ? 0.08 : 0
-        Behavior on opacity {
-            NumberAnimation {
-                duration: root.theme.motionFast
-                easing.type: Easing.OutCubic
+        gradient: Gradient {
+            orientation: Gradient.Vertical
+            GradientStop {
+                position: 0.32
+                color: Qt.rgba(
+                    root.theme.panelRaised.r,
+                    root.theme.panelRaised.g,
+                    root.theme.panelRaised.b,
+                    0
+                )
+            }
+            GradientStop {
+                position: 0.58
+                color: Qt.rgba(
+                    (root.selected
+                        ? root.theme.contentSelection
+                        : root.theme.panelRaised).r,
+                    (root.selected
+                        ? root.theme.contentSelection
+                        : root.theme.panelRaised).g,
+                    (root.selected
+                        ? root.theme.contentSelection
+                        : root.theme.panelRaised).b,
+                    0.34
+                )
+            }
+            GradientStop {
+                position: 0.78
+                color: Qt.rgba(
+                    (root.selected
+                        ? root.theme.contentSelection
+                        : root.theme.panelRaised).r,
+                    (root.selected
+                        ? root.theme.contentSelection
+                        : root.theme.panelRaised).g,
+                    (root.selected
+                        ? root.theme.contentSelection
+                        : root.theme.panelRaised).b,
+                    0.86
+                )
+            }
+            GradientStop {
+                position: 1
+                color: root.selected
+                    ? root.theme.contentSelection : root.theme.panelRaised
             }
         }
     }
@@ -229,6 +298,8 @@ Item {
                 anchors.fill: parent
                 sourceComponent: root.isSnapshot
                     ? snapshotPreviewComponent
+                    : root.isSobject
+                        ? emptyPreviewComponent
                     : root.hasLargePreview
                         ? imagePreviewComponent
                         : root.isProcess
@@ -295,7 +366,7 @@ Item {
                         text: root.typeLabel
                         color: "#ffffff"
                         font.family: root.theme.fontFamily
-                        font.pixelSize: 8
+                        font.pointSize: Typography.caption
                         font.weight: Font.Bold
                     }
                 }
@@ -311,6 +382,10 @@ Item {
         }
 
         Component {
+            id: emptyPreviewComponent
+            Item {}
+        }
+        Component {
             id: imagePreviewComponent
             Item {
                 ItemPreview {
@@ -318,10 +393,10 @@ Item {
                     height: 154
                     anchors.centerIn: parent
                     theme: root.theme
-                    source: root.previewUrl
+                    source: root.cardPreviewUrl
                     accent: root.accent
-                    round: root.isSobject
-                    cornerRadius: root.isSobject ? 77 : 11
+                    round: false
+                    cornerRadius: 11
                     previewSize: 154
                     selected: root.selected
                     fallbackIcon: root.typeIcon
@@ -337,21 +412,29 @@ Item {
         }
         Component {
             id: snapshotPreviewComponent
-            Rectangle {
+            Item {
                 width: 154
                 height: 154
                 anchors.centerIn: parent
-                radius: 11
-                color: root.theme.panel
-                border.width: 1
-                border.color: root.typeColor
-                Label {
-                    anchors.centerIn: parent
-                    text: root.snapshotExtension
-                    color: root.typeColor
-                    font.family: root.theme.fontFamily
-                    font.pixelSize: 30
-                    font.weight: Font.Bold
+
+                ItemPreview {
+                    anchors.fill: parent
+                    theme: root.theme
+                    source: root.cardPreviewUrl
+                    accent: root.typeColor
+                    cornerRadius: 11
+                    previewSize: 154
+                    fillMode: Image.PreserveAspectCrop
+                    selected: root.selected
+                    selectedBorderColor: root.theme.selectedText
+                    fallbackIcon: "file"
+                    fallbackText: root.snapshotExtension
+                    animateAppearance:
+                        !root.previewRevealed && root.hoverAllowed
+                    onAppearanceCompleted: {
+                        if (!root.previewRevealed)
+                            appController.mark_item_preview_revealed(root.nodeId)
+                    }
                 }
                 Rectangle {
                     visible: root.isLatest
@@ -368,7 +451,7 @@ Item {
                         text: qsTr("LATEST")
                         color: "#ffffff"
                         font.family: root.theme.fontFamily
-                        font.pixelSize: 8
+                        font.pointSize: Typography.caption
                         font.weight: Font.Bold
                     }
                 }
@@ -405,7 +488,7 @@ Item {
                         ? qsTr(" check-in") : qsTr(" check-ins"))
                     color: root.typeColor
                     font.family: root.theme.fontFamily
-                    font.pixelSize: 9
+                    font.pointSize: Typography.label
                     font.weight: Font.DemiBold
                 }
             }
@@ -444,7 +527,7 @@ Item {
                         : ""
                     color: root.typeColor
                     font.family: root.theme.fontFamily
-                    font.pixelSize: 9
+                    font.pointSize: Typography.label
                     font.weight: Font.DemiBold
                 }
             }
@@ -491,7 +574,7 @@ Item {
                         text: modelData.label
                         color: root.theme.secondaryText
                         font.family: root.theme.fontFamily
-                        font.pixelSize: 8
+                        font.pointSize: Typography.caption
                     }
                 }
             }
@@ -516,7 +599,7 @@ Item {
                         text: modelData.label + ": " + modelData.value
                         color: root.theme.secondaryText
                         font.family: root.theme.fontFamily
-                        font.pixelSize: 8
+                        font.pointSize: Typography.caption
                         elide: Text.ElideRight
                     }
                 }
@@ -534,7 +617,7 @@ Item {
                         .filter(function(value) { return Boolean(value) }).join(" · ")
             color: root.theme.secondaryText
             font.family: root.theme.fontFamily
-            font.pixelSize: 9
+            font.pointSize: Typography.label
             elide: Text.ElideRight
         }
         Label {
@@ -547,7 +630,7 @@ Item {
             text: root.displayedSubtitle
             color: root.theme.secondaryText
             font.family: root.theme.fontFamily
-            font.pixelSize: 8
+            font.pointSize: Typography.caption
             elide: Text.ElideRight
             MouseArea {
                 id: descriptionMouse
@@ -574,26 +657,30 @@ Item {
         anchors.rightMargin: 8
         anchors.top: parent.top
         anchors.topMargin: 8
-        active: root.hovered && (root.itemControls || []).length > 0
+        active: (root.hovered || root.hasPersistentItemControls)
+            && (root.itemControls || []).length > 0
         sourceComponent: Row {
             spacing: 2
             Repeater {
                 model: root.itemControls || []
                 delegate: Rectangle {
                     required property var modelData
-                    width: 27
+                    visible: modelData.persistent || root.hovered
+                    width: visible ? 27 : 0
                     height: 27
                     radius: 14
-                    color: modelData.active
-                        ? root.theme.selected : root.theme.panel
-                    border.width: 1
+                    color: modelData.success ? "transparent"
+                        : modelData.active ? root.theme.selected
+                        : root.theme.panel
+                    border.width: modelData.success ? 0 : 1
                     border.color: root.theme.outline
                     MaterialIcon {
                         anchors.centerIn: parent
                         name: modelData.icon
                         size: 15
-                        color: modelData.active
-                            ? root.theme.action : root.theme.secondaryText
+                        color: modelData.success ? root.theme.green
+                            : modelData.active ? root.theme.action
+                            : root.theme.secondaryText
                     }
                     MouseArea {
                         id: cardControlMouse
@@ -652,6 +739,7 @@ Item {
             theme: root.theme
             iconName: "calendar_check"
             count: root.tasks
+            badgeColor: root.theme.action
             toolTip: qsTr("Open Tasks (") + root.tasks + ")"
             onClicked: appController.invoke_item_action("tasks", root.nodeId)
         }
@@ -659,6 +747,7 @@ Item {
             theme: root.theme
             iconName: "comment_alt"
             count: root.comments
+            badgeColor: root.theme.error
             toolTip: qsTr("Open Notes (") + root.comments + ")"
             onClicked: appController.invoke_item_action("notes", root.nodeId)
         }
@@ -822,7 +911,7 @@ Item {
                                     ? root.theme.selectedText
                                     : root.theme.secondaryText
                                 font.family: root.theme.fontFamily
-                                font.pixelSize: 9
+                                font.pointSize: Typography.label
                                 font.weight: active
                                     ? Font.Bold : Font.DemiBold
                                 horizontalAlignment: Text.AlignHCenter

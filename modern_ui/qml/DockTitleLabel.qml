@@ -11,7 +11,7 @@ Label {
     text: titleText.toUpperCase()
     color: theme.primaryText
     font.family: theme.fontFamily
-    font.pixelSize: 9
+    font.pointSize: Typography.label
     font.weight: active ? Font.DemiBold : Font.Medium
     font.letterSpacing: 0.55
     verticalAlignment: Text.AlignVCenter

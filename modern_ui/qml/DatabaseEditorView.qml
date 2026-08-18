@@ -74,7 +74,7 @@ Item {
                 text: qsTr("Database Editor")
                 color: root.theme.primaryText
                 font.family: root.theme.fontFamily
-                font.pixelSize: 11
+                font.pointSize: Typography.bodyLarge
                 font.weight: Font.DemiBold
             }
             Rectangle {
@@ -89,7 +89,7 @@ Item {
                         + qsTr(" selected")
                     color: root.theme.primaryText
                     font.family: root.theme.fontFamily
-                    font.pixelSize: 9
+                    font.pointSize: Typography.label
                     font.weight: Font.DemiBold
                 }
             }
@@ -99,7 +99,7 @@ Item {
                 text: root.dirtyCount + qsTr(" unsaved")
                 color: root.theme.action
                 font.family: root.theme.fontFamily
-                font.pixelSize: 9
+                font.pointSize: Typography.label
             }
             Md3Button {
                 id: saveButton
@@ -146,7 +146,7 @@ Item {
                                 verticalAlignment: Text.AlignVCenter
                                 color: root.theme.secondaryText
                                 font.family: root.theme.fontFamily
-                                font.pixelSize: 9
+                                font.pointSize: Typography.label
                                 font.weight: Font.DemiBold
                             }
                         }
@@ -180,7 +180,7 @@ Item {
                                             text: String(modelData.title || "?")
                                                 .slice(0, 2).toUpperCase()
                                             color: root.theme.primaryText
-                                            font.pixelSize: 9
+                                            font.pointSize: Typography.label
                                             font.weight: Font.Bold
                                         }
                                     }
@@ -193,7 +193,7 @@ Item {
                                             elide: Text.ElideRight
                                             color: root.theme.primaryText
                                             font.family: root.theme.fontFamily
-                                            font.pixelSize: 10
+                                            font.pointSize: Typography.body
                                             font.weight: Font.Medium
                                         }
                                         Label {
@@ -202,7 +202,7 @@ Item {
                                             elide: Text.ElideRight
                                             color: root.theme.secondaryText
                                             font.family: root.theme.fontFamily
-                                            font.pixelSize: 8
+                                            font.pointSize: Typography.caption
                                         }
                                     }
                                 }
@@ -246,7 +246,7 @@ Item {
                                 text: qsTr("FIELD")
                                 Layout.preferredWidth: Math.min(210, parent.width * 0.34)
                                 color: root.theme.secondaryText
-                                font.pixelSize: 9
+                                font.pointSize: Typography.label
                                 font.weight: Font.DemiBold
                             }
                             Label {
@@ -254,7 +254,7 @@ Item {
                                 Layout.fillWidth: true
                                 elide: Text.ElideRight
                                 color: root.theme.secondaryText
-                                font.pixelSize: 9
+                                font.pointSize: Typography.label
                                 font.weight: Font.DemiBold
                             }
                         }
@@ -300,7 +300,7 @@ Item {
                                     elide: Text.ElideRight
                                     color: root.theme.secondaryText
                                     font.family: root.theme.fontFamily
-                                    font.pixelSize: 9
+                                    font.pointSize: Typography.label
                                 }
                                 Md3TextField {
                                     id: valueEditor
@@ -311,7 +311,7 @@ Item {
                                     selectByMouse: true
                                     color: root.theme.primaryText
                                     font.family: root.theme.fontFamily
-                                    font.pixelSize: 10
+                                    font.pointSize: Typography.body
                                     leftPadding: 9
                                     rightPadding: 9
                                     onTextEdited: root.markChanged(
@@ -360,7 +360,7 @@ Item {
                     Label {
                         text: qsTr("APPLY TO ALL SELECTED")
                         color: root.theme.secondaryText
-                        font.pixelSize: 8
+                        font.pointSize: Typography.caption
                         font.weight: Font.DemiBold
                     }
                     Md3ComboBox {
@@ -371,7 +371,7 @@ Item {
                         model: appController.selected_result_fields
                         enabled: count > 0
                         displayText: currentText || "Choose field"
-                        font.pixelSize: 9
+                        font.pointSize: Typography.label
                     }
                 }
                 Md3TextField {
@@ -416,7 +416,7 @@ Item {
             verticalAlignment: Text.AlignVCenter
             color: root.theme.secondaryText
             font.family: root.theme.fontFamily
-            font.pixelSize: 11
+            font.pointSize: Typography.bodyLarge
         }
     }
 }

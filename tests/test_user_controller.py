@@ -51,9 +51,13 @@ class UserActivityTests(unittest.TestCase):
         class WindowModel:
             def __init__(self):
                 self.shown = []
+                self.closed = []
 
             def show_window(self, window_id):
                 self.shown.append(window_id)
+
+            def close_window(self, window_id):
+                self.closed.append(window_id)
 
         class Application:
             def __init__(self):
@@ -81,6 +85,7 @@ class UserActivityTests(unittest.TestCase):
         self.assertEqual(
             controller._application.window_model.shown, ["user_profile"]
         )
+        self.assertEqual(controller._application.window_model.closed, ["users"])
 
     def test_users_mode_keeps_directory_while_selecting_profile(self):
         controller = self._profile_controller()
@@ -90,6 +95,13 @@ class UserActivityTests(unittest.TestCase):
 
         self.assertTrue(controller._directory_visible)
         self.assertEqual(controller._selected_login, "supervisor")
+        self.assertEqual(
+            controller._application.window_model.shown, ["users", "users"]
+        )
+        self.assertEqual(
+            controller._application.window_model.closed,
+            ["user_profile", "user_profile"],
+        )
 
     def test_primary_group_prefers_explicit_access_level(self):
         groups = [

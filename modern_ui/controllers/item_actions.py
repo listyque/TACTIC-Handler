@@ -214,7 +214,7 @@ class ItemActionsMixin:
                 item("Add new Related sObject", "add_circle", "add_related"),
                 *(
                     [item("Link sObjects Interface", "link", "link_related")]
-                    if node.relationship == "instance" else []
+                    if node.linkable_relation else []
                 ),
             ]
 
@@ -260,7 +260,7 @@ class ItemActionsMixin:
             actions.extend([
                 item("Show Watch folder", "folder_open", "open_watch_folder"),
                 item("Edit Watch Folder", "edit", "edit_watch"),
-                item("Delete Watch Folder", "visibility_off", "delete_watch"),
+                item("Delete Watch Folder", "delete", "delete_watch"),
             ])
         actions.extend([
             separator,
@@ -387,7 +387,7 @@ class ItemActionsMixin:
             return []
         actions = [{
             "title": "Open Repo Sync",
-            "icon": "cloud_sync",
+            "icon": "repository-sync",
             "command": "repo_sync",
         }]
         try:
@@ -397,6 +397,20 @@ class ItemActionsMixin:
             return actions
         if not presets:
             return actions
+        tab = self._current_tab()
+        tab_name = str(tab.title if tab else "default")
+        selected_name = self.repository_sync.selected_preset_name(
+            node.source, tab_name,
+        )
+        selected = next((
+            index for index, preset in enumerate(presets)
+            if str(preset.get("preset_name") or "") == selected_name
+        ), self.repository_sync.selected_preset_index(node.source, tab_name))
+        if 0 < selected < len(presets):
+            presets = [
+                presets[selected], *presets[:selected],
+                *presets[selected + 1:],
+            ]
         current = presets[0]
         actions.extend([
             {"header": True, "title": "Current preset:"},

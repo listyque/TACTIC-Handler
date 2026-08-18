@@ -25,7 +25,7 @@ Md3Dialog {
             )
             color: root.theme.secondaryText
             font.family: root.theme.fontFamily
-            font.pixelSize: 10
+            font.pointSize: Typography.body
             wrapMode: Text.WordWrap
         }
 
@@ -35,7 +35,7 @@ Md3Dialog {
             text: root.controller.error
             color: root.theme.error
             font.family: root.theme.fontFamily
-            font.pixelSize: 10
+            font.pointSize: Typography.body
             wrapMode: Text.WordWrap
         }
 
@@ -148,7 +148,7 @@ Md3Dialog {
                                     text: qsTr("Values are provided by the current workflow or search type.")
                                     color: root.theme.secondaryText
                                     font.family: root.theme.fontFamily
-                                    font.pixelSize: 9
+                                    font.pointSize: Typography.label
                                     wrapMode: Text.WordWrap
                                 }
                             }

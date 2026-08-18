@@ -67,6 +67,7 @@ class PresentationMixin:
             node.needs_sync,
             node.watch_state,
             node.relationship,
+            node.linkable_relation,
             node.child_count,
         )
         if node.controls_signature == signature:
@@ -75,7 +76,7 @@ class PresentationMixin:
             controls = [
                 {
                     "command": "repo_sync",
-                    "icon": "cloud_sync",
+                    "icon": "repository-sync",
                     "tip": "Open Repository Sync Dialog",
                     "active": node.needs_sync,
                 },
@@ -83,7 +84,9 @@ class PresentationMixin:
                     "command": "watch_folder",
                     "icon": "visibility" if node.watch_state == "enabled" else "visibility_off",
                     "tip": "Open Watch-Folder Dialog",
-                    "active": node.watch_state != "none",
+                    "active": node.watch_state == "enabled",
+                    "persistent": node.watch_state != "none",
+                    "success": node.watch_state == "enabled",
                 },
             ]
             controls.append({
@@ -102,11 +105,13 @@ class PresentationMixin:
         if node.node_type == "relation":
             controls = [{
                 "command": "add_related",
-                "icon": "add_circle",
+                "icon": "add",
                 "tip": "Add new Related sObject",
-                "active": node.child_count > 0,
+                # A non-zero child count is information, not an active/toggled
+                # state.  The count is rendered separately by the row.
+                "active": False,
             }]
-            if node.relationship == "instance":
+            if node.linkable_relation:
                 controls.insert(0, {
                     "command": "link_related",
                     "icon": "link",
@@ -181,16 +186,23 @@ class PresentationMixin:
         changed_rows = []
         changed_tokens = set()
         for row, node in enumerate(self._items):
-            pending_path = self._pending_preview_paths.get(node.preview_url)
-            if pending_path and str(Path(pending_path).resolve()) == local_path:
-                changed_tokens.add(node.preview_url)
-                node.preview_url = ready_url
+            changed = False
+            for attribute in ("preview_url", "card_preview_url"):
+                token = getattr(node, attribute)
+                pending_path = self._pending_preview_paths.get(token)
+                if not pending_path or str(Path(pending_path).resolve()) != local_path:
+                    continue
+                changed_tokens.add(token)
+                setattr(node, attribute, ready_url)
+                changed = True
+            if changed:
                 node.preview_revealed = False
                 changed_rows.append(row)
         for row in changed_rows:
             index = self.index(row, 0)
             self.dataChanged.emit(
-                index, index, [self.PreviewUrlRole]
+                index, index,
+                [self.PreviewUrlRole, self.CardPreviewUrlRole]
             )
         self._pending_preview_paths = {
             token: path
@@ -204,13 +216,22 @@ class PresentationMixin:
         self._failed_preview_tokens.add(token)
         changed_rows = []
         for row, node in enumerate(self._items):
+            changed = False
             if node.preview_url == token:
                 node.preview_url = ""
+                changed = True
+            if node.card_preview_url == token:
+                node.card_preview_url = ""
+                changed = True
+            if changed:
                 changed_rows.append(row)
         self._pending_preview_paths.pop(token, None)
         for row in changed_rows:
             index = self.index(row, 0)
-            self.dataChanged.emit(index, index, [self.PreviewUrlRole])
+            self.dataChanged.emit(
+                index, index,
+                [self.PreviewUrlRole, self.CardPreviewUrlRole],
+            )
 
     def begin_preview_request(self, node_id: str):
         node = self._nodes.get(node_id)
@@ -224,6 +245,18 @@ class PresentationMixin:
         node.preview_requested = True
         return node.node_type, node.preview_source
 
+    def begin_card_preview_request(self, node_id: str):
+        node = self._nodes.get(node_id)
+        if (
+            not node
+            or node.card_preview_requested
+            or node.card_preview_url
+            or not node.preview_source
+        ):
+            return None
+        node.card_preview_requested = True
+        return node.node_type, node.preview_source
+
     @classmethod
     def prepare_preview(cls, node_type: str, source) -> list:
         if node_type == "sobject":
@@ -232,10 +265,26 @@ class PresentationMixin:
             return cls._snapshot_preview_candidates(source)
         return []
 
+    @classmethod
+    def prepare_card_preview(cls, node_type: str, source) -> list:
+        if node_type == "sobject":
+            return cls._root_card_preview_candidates(source)
+        if node_type == "snapshot":
+            return cls._snapshot_card_preview_candidates(source)
+        return []
+
     def cancel_preview_request(self, node_id: str, source) -> None:
         node = self._nodes.get(node_id)
         if node and node.preview_source is source and not node.preview_url:
             node.preview_requested = False
+
+    def cancel_card_preview_request(self, node_id: str, source) -> None:
+        node = self._nodes.get(node_id)
+        if (
+            node and node.preview_source is source
+            and not node.card_preview_url
+        ):
+            node.card_preview_requested = False
 
     def apply_preview(
         self,
@@ -258,6 +307,27 @@ class PresentationMixin:
         index = self.index(row, 0)
         self.dataChanged.emit(index, index, [self.PreviewUrlRole])
 
+    def apply_card_preview(
+        self,
+        node_id: str,
+        source,
+        candidates: list,
+    ) -> None:
+        node = self._nodes.get(node_id)
+        if not node or node.preview_source is not source:
+            return
+        for candidate in candidates or []:
+            node.card_preview_url = self._preview_url(candidate)
+            if node.card_preview_url:
+                break
+        if not node.card_preview_url:
+            return
+        row = self._row_by_node_id.get(node_id, -1)
+        if row < 0:
+            return
+        index = self.index(row, 0)
+        self.dataChanged.emit(index, index, [self.CardPreviewUrlRole])
+
     def request_preview(self, node_id: str) -> None:
         request = self.begin_preview_request(node_id)
         if not request:
@@ -272,7 +342,7 @@ class PresentationMixin:
     def refresh_previews(self) -> list[str]:
         requested = [
             node.node_id for node in self._nodes.values()
-            if node.preview_requested
+            if node.preview_requested or node.card_preview_requested
         ]
         self._pending_preview_paths.clear()
         self._failed_preview_tokens.clear()
@@ -282,7 +352,9 @@ class PresentationMixin:
             if not node:
                 continue
             node.preview_requested = False
+            node.card_preview_requested = False
             node.preview_url = ""
+            node.card_preview_url = ""
             node.preview_revealed = False
             row = self._row_by_node_id.get(node_id, -1)
             if row >= 0:
@@ -292,7 +364,11 @@ class PresentationMixin:
             self.dataChanged.emit(
                 index,
                 index,
-                [self.PreviewUrlRole, self.PreviewRevealedRole],
+                [
+                    self.PreviewUrlRole,
+                    self.CardPreviewUrlRole,
+                    self.PreviewRevealedRole,
+                ],
             )
         return requested
 
@@ -318,9 +394,21 @@ class PresentationMixin:
         except (AttributeError, KeyError, TypeError, OSError):
             return False
 
+    @staticmethod
+    def _snapshot_size(value) -> str:
+        try:
+            size = float(value or 0)
+        except (TypeError, ValueError):
+            return ""
+        for unit in ("B", "KB", "MB", "GB", "TB"):
+            if size <= 1024 or unit == "TB":
+                return f"{size:.2f} {unit}"
+            size /= 1024
+        return ""
+
     def _file_object_size(self, file_object) -> str:
         try:
-            return self._pretty_size(file_object.get_file_size())
+            return self._snapshot_size(file_object.get_file_size())
         except (AttributeError, KeyError, TypeError, OSError):
             return ""
 
@@ -342,6 +430,37 @@ class PresentationMixin:
                     pass
                 if candidate and cls._is_image_file(candidate):
                     result.append(candidate)
+        return result
+
+    @classmethod
+    def _snapshot_card_preview_candidates(cls, snapshot) -> list:
+        """Prefer the larger native web preview used by tile cards."""
+        try:
+            grouped = snapshot.get_files_objects(group_by="type") or {}
+        except (AttributeError, KeyError, TypeError):
+            return []
+        result = []
+        seen = set()
+        # TACTIC commonly stores icon and web derivatives on the same File
+        # object. Ask that native object for its web preview instead of
+        # reconstructing a path or assuming that a separate `web` row exists.
+        for kind in ("web", "icon", "image", "playblast", "main"):
+            for file_object in grouped.get(kind) or []:
+                try:
+                    candidate = file_object.get_web_preview()
+                except (AttributeError, KeyError, TypeError):
+                    candidate = None
+                if (
+                    candidate and cls._is_image_file(candidate)
+                    and id(candidate) not in seen
+                ):
+                    result.append(candidate)
+                    seen.add(id(candidate))
+        # Old snapshots may not contain a web derivative. Keep their icon as
+        # a final fallback without changing previews used by list/item views.
+        for candidate in cls._snapshot_preview_candidates(snapshot):
+            if id(candidate) not in seen:
+                result.append(candidate)
         return result
 
     def _snapshot_preview(self, snapshot) -> str:
@@ -520,6 +639,22 @@ class PresentationMixin:
                 for snapshot in snapshots:
                     result.extend(
                         cls._snapshot_preview_candidates(snapshot)
+                    )
+        return result
+
+    @classmethod
+    def _root_card_preview_candidates(cls, sobject) -> list:
+        result = []
+        for process_name in ("icon", "publish", "attachment"):
+            process = (sobject.get_all_processes() or {}).get(process_name)
+            if not process:
+                continue
+            for context in (process.get_contexts() or {}).values():
+                snapshots = list((context.get_versionless() or {}).values())
+                snapshots.extend((context.get_versions() or {}).values())
+                for snapshot in snapshots:
+                    result.extend(
+                        cls._snapshot_card_preview_candidates(snapshot)
                     )
         return result
 

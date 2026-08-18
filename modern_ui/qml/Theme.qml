@@ -64,6 +64,14 @@ QtObject {
         ? (dark ? "#655078" : "#9f7fb5")
         : fluent ? (dark ? "#264f78" : "#70a7d0")
         : (dark ? "#4f7e9e" : "#78a6c4")
+    // A quieter slate selection intended for content entities.  Keep this
+    // separate from `selected`: tabs and primary controls still need the
+    // stronger interactive accent, while dense result lists should not turn
+    // into large bright blocks when several sObjects are selected.
+    readonly property color contentSelection:
+        dark ? "#384758" : "#c8d4df"
+    readonly property color contentAccent:
+        dark ? "#7894ad" : "#4f6c86"
     readonly property color selectedText: "#f6f8fa"
     readonly property color primaryText: dark ? "#e2e2e2" : "#22282d"
     readonly property color secondaryText: material5

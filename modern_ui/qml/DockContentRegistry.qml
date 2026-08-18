@@ -132,7 +132,7 @@ Item {
                             text: appController.active_tag_count
                             color: root.theme.selectedText
                             font.family: root.theme.fontFamily
-                            font.pixelSize: 8
+                            font.pointSize: Typography.caption
                             font.weight: Font.Bold
                         }
                     }
@@ -181,7 +181,7 @@ Item {
                             text: appController.active_quick_filter_count
                             color: root.theme.selectedText
                             font.family: root.theme.fontFamily
-                            font.pixelSize: 8
+                            font.pointSize: Typography.caption
                             font.weight: Font.Bold
                         }
                     }
@@ -425,7 +425,7 @@ Item {
                                     ))
                                     color: root.theme.primaryText
                                     font.family: root.theme.fontFamily
-                                    font.pixelSize: 11
+                                    font.pointSize: Typography.bodyLarge
                                     font.weight: Font.DemiBold
                                 }
 
@@ -561,7 +561,7 @@ Item {
                                 text: qsTr("TAGS")
                                 color: root.theme.primaryText
                                 font.family: root.theme.fontFamily
-                                font.pixelSize: 11
+                                font.pointSize: Typography.bodyLarge
                                 font.weight: Font.DemiBold
                             }
                             Md3BusyIndicator {
@@ -586,7 +586,7 @@ Item {
                             text: appController.tag_cloud_error
                             color: root.theme.secondaryText
                             font.family: root.theme.fontFamily
-                            font.pixelSize: 10
+                            font.pointSize: Typography.body
                             wrapMode: Text.WordWrap
                         }
 
@@ -637,7 +637,9 @@ Item {
                     anchors.rightMargin: 4
                     spacing: 2
 
+
                     CompactIconButton {
+                        id: addSearchTabButton
                         Layout.preferredWidth: 40
                         Layout.preferredHeight: 40
                         theme: root.theme
@@ -749,7 +751,7 @@ Item {
                             readonly property real minimumTabWidth: 96
                             readonly property real naturalTabWidth: Math.max(
                                 minimumTabWidth,
-                                tabText.implicitWidth + (closable ? 64 : 32)
+                                tabVisual.labelImplicitWidth + (closable ? 64 : 32)
                             )
                             readonly property real fittedTabWidth: {
                                 const available = searchTabsView.width
@@ -872,51 +874,26 @@ Item {
                                 visible: tabDrag.active
                                 color: root.theme.panelRaised
                             }
-                            Rectangle {
-                                id: tabStateLayer
+                            WorkspaceTabVisual {
+                                id: tabVisual
+                                z: 2
                                 anchors.fill: parent
-                                radius: 0
-                                color: searchTab.current
-                                    ? root.theme.action : root.theme.primaryText
-                                opacity: tabMouse.pressed ? 0.12
-                                    : tabMouse.containsMouse ? 0.08 : 0
-                                Behavior on opacity {
-                                    NumberAnimation {
-                                        duration: tabMouse.containsMouse ? 100 : 140
-                                        easing.type: Easing.OutCubic
-                                    }
-                                }
-                            }
-                            MaterialRipple {
-                                id: tabRipple
-                                shapeRadius: 0
-                                color: searchTab.current
-                                    ? Qt.rgba(
-                                        root.theme.action.r,
-                                        root.theme.action.g,
-                                        root.theme.action.b,
-                                        0.28
-                                    )
-                                    : root.theme.dark ? "#52ffffff" : "#38000000"
-                            }
-                            Rectangle {
-                                anchors.bottom: parent.bottom
-                                anchors.horizontalCenter: parent.horizontalCenter
-                                width: searchTab.current ? parent.width - 24 : 0
-                                height: 3
-                                radius: 1.5
-                                color: root.theme.action
-                                opacity: searchTab.current ? 1 : 0
-                                Behavior on width { NumberAnimation { duration: 180; easing.type: Easing.OutCubic } }
-                                Behavior on opacity { NumberAnimation { duration: 120 } }
+                                theme: root.theme
+                                title: searchTab.title
+                                current: searchTab.current
+                                closable: searchTab.closable
+                                hovered: tabMouse.containsMouse
+                                pressed: tabMouse.pressed
+                                onCloseRequested: workspaceState.close_tab(searchTab.index)
                             }
                             MouseArea {
                                 id: tabMouse
+                                z: 1
                                 anchors.fill: parent
                                 acceptedButtons: Qt.LeftButton | Qt.MiddleButton
                                 hoverEnabled: true
                                 cursorShape: Qt.PointingHandCursor
-                                onPressed: mouse => tabRipple.burst(mouse.x, mouse.y)
+                                onPressed: mouse => tabVisual.burst(mouse.x, mouse.y)
                                 onClicked: mouse => {
                                     if (mouse.button === Qt.MiddleButton) {
                                         if (searchTab.closable)
@@ -926,83 +903,6 @@ Item {
                                     workspaceState.activate_tab(
                                         searchTab.entryKey, searchTab.title
                                     )
-                                }
-                            }
-                            Label {
-                                id: tabText
-                                anchors.horizontalCenter: parent.horizontalCenter
-                                anchors.verticalCenter: parent.verticalCenter
-                                anchors.verticalCenterOffset: -1
-                                width: parent.width - (searchTab.closable ? 58 : 24)
-                                text: searchTab.title
-                                color: searchTab.current ? root.theme.action : root.theme.secondaryText
-                                font.family: root.theme.fontFamily
-                                font.pixelSize: 14
-                                font.weight: Font.Medium
-                                horizontalAlignment: Text.AlignHCenter
-                                verticalAlignment: Text.AlignVCenter
-                                elide: Text.ElideRight
-                                Behavior on color { ColorAnimation { duration: 120 } }
-                            }
-                            Item {
-                                visible: searchTab.closable
-                                opacity: searchTab.current || tabMouse.containsMouse ? 1 : 0.58
-                                anchors.right: parent.right
-                                anchors.rightMargin: 4
-                                anchors.verticalCenter: parent.verticalCenter
-                                width: 32
-                                height: 32
-                                Behavior on opacity { NumberAnimation { duration: 120 } }
-                                Rectangle {
-                                    id: closeCircle
-                                    anchors.centerIn: parent
-                                    width: 28
-                                    height: 28
-                                    radius: 14
-                                    color: "transparent"
-                                    Rectangle {
-                                        anchors.fill: parent
-                                        radius: parent.radius
-                                        color: searchTab.current
-                                            ? root.theme.action : root.theme.primaryText
-                                        opacity: closeMouse.pressed ? 0.12
-                                            : closeMouse.containsMouse ? 0.08 : 0
-                                        Behavior on opacity {
-                                            NumberAnimation {
-                                                duration: closeMouse.containsMouse ? 100 : 140
-                                                easing.type: Easing.OutCubic
-                                            }
-                                        }
-                                    }
-                                    MaterialIcon {
-                                        anchors.centerIn: parent
-                                        name: "close"
-                                        size: 16
-                                        color: searchTab.current ? root.theme.action : root.theme.secondaryText
-                                    }
-                                    MaterialRipple {
-                                        id: closeRipple
-                                        shapeRadius: 14
-                                        color: root.theme.rippleStrong
-                                    }
-                                }
-                                MouseArea {
-                                    id: closeMouse
-                                    anchors.fill: parent
-                                    hoverEnabled: true
-                                    cursorShape: Qt.PointingHandCursor
-                                    onPressed: mouse => closeRipple.burst(
-                                        mouse.x - closeCircle.x,
-                                        mouse.y - closeCircle.y
-                                    )
-                                    onClicked: workspaceState.close_tab(searchTab.index)
-                                    Md3ToolTip {
-                                        theme: root.theme
-                                        visible: closeMouse.containsMouse
-                                            && !root.theme.suppressToolTips
-                                        delay: 500
-                                        text: qsTr("Close search tab")
-                                    }
                                 }
                             }
                         }
@@ -1075,7 +975,7 @@ Item {
                                     ? "99+" : tabHistoryControl.closedTabCount
                                 color: root.theme.selectedText
                                 font.family: root.theme.fontFamily
-                                font.pixelSize: 9
+                                font.pointSize: Typography.label
                                 font.weight: Font.Bold
                             }
                             Behavior on scale {
@@ -1084,12 +984,18 @@ Item {
                             Behavior on opacity { NumberAnimation { duration: 100 } }
                         }
                     }
+
+
                 }
                 Rectangle { anchors.bottom: parent.bottom; width: parent.width; height: 1; color: root.theme.separator }
             }
             Rectangle {
                 id: resultsToolbar
-                property bool compact: width < 840
+                // Switch before the expanded pagination controls reach the
+                // edge.  The previous 840px threshold ignored page buttons,
+                // translated labels and fractional Windows DPI, so the final
+                // actions could be laid out beyond the dock.
+                property bool compact: width < 1160
                 anchors.bottom: parent.bottom
                 width: parent.width
                 height: root.theme.dockWorkspaceFooterHeight
@@ -1125,7 +1031,7 @@ Item {
                                 : appController.result_count + qsTr(" results")
                             color: root.theme.secondaryText
                             font.family: root.theme.fontFamily
-                            font.pixelSize: 11
+                            font.pointSize: Typography.bodyLarge
                             font.weight: Font.Medium
                         }
                     }
@@ -1169,7 +1075,7 @@ Item {
                                         color: Number(modelData) === appController.current_page
                                             ? root.theme.selectedText : root.theme.primaryText
                                         font.family: root.theme.fontFamily
-                                        font.pixelSize: 11
+                                        font.pointSize: Typography.bodyLarge
                                         font.weight: Font.DemiBold
                                     }
                                     MaterialRipple {
@@ -1198,7 +1104,7 @@ Item {
                         text: appController.current_page + " / " + appController.page_count
                         color: root.theme.secondaryText
                         font.family: root.theme.fontFamily
-                        font.pixelSize: 11
+                        font.pointSize: Typography.bodyLarge
                         font.weight: Font.Medium
                     }
                     CompactIconButton {
@@ -1251,7 +1157,7 @@ Item {
                                 text: appController.page_size + qsTr(" / page")
                                 color: root.theme.primaryText
                                 font.family: root.theme.fontFamily
-                                font.pixelSize: 11
+                                font.pointSize: Typography.bodyLarge
                                 font.weight: Font.Medium
                             }
                             MaterialIcon {
@@ -1287,8 +1193,8 @@ Item {
 
                     Item {
                         id: loadModeButton
-                        Layout.preferredWidth: resultsToolbar.compact ? 40 : 148
-                        Layout.maximumWidth: resultsToolbar.compact ? 40 : 148
+                        Layout.preferredWidth: resultsToolbar.compact ? 40 : 164
+                        Layout.maximumWidth: resultsToolbar.compact ? 40 : 164
                         Layout.preferredHeight: 40
 
                         Rectangle {
@@ -1315,8 +1221,8 @@ Item {
                         RowLayout {
                             anchors.fill: parent
                             anchors.leftMargin: resultsToolbar.compact ? 0 : 14
-                            anchors.rightMargin: resultsToolbar.compact ? 0 : 12
-                            spacing: resultsToolbar.compact ? 0 : 9
+                            anchors.rightMargin: resultsToolbar.compact ? 0 : 14
+                            spacing: resultsToolbar.compact ? 0 : 14
                             MaterialIcon {
                                 Layout.fillWidth: resultsToolbar.compact
                                 Layout.alignment: Qt.AlignHCenter | Qt.AlignVCenter
@@ -1383,10 +1289,10 @@ Item {
                         Layout.preferredWidth: 40
                         Layout.preferredHeight: 40
                         theme: root.theme
-                        iconName: "sync"
+                        iconName: "repository-sync"
                         round: true
-                        toolTip: qsTr("Repository sync")
-                        onClicked: appController.open_window("repository_sync")
+                        toolTip: qsTr("Sync current Search Type")
+                        onClicked: appController.open_search_type_repository_sync()
                     }
 
                     Md3FilledActionButton {
@@ -1866,7 +1772,7 @@ Item {
                                         text: modelData.title
                                         color: root.theme.primaryText
                                         font.family: root.theme.fontFamily
-                                        font.pixelSize: 10
+                                        font.pointSize: Typography.body
                                         font.weight: Font.DemiBold
                                     }
                                 }
@@ -1934,7 +1840,7 @@ Item {
                         text: qsTr("Loading more results\u2026")
                         color: root.theme.primaryText
                         font.family: root.theme.fontFamily
-                        font.pixelSize: 10
+                        font.pointSize: Typography.body
                         font.weight: Font.DemiBold
                     }
                     CompactIconButton {
@@ -1984,7 +1890,7 @@ Item {
                             text: qsTr("Versions")
                             color: root.theme.primaryText
                             font.family: root.theme.fontFamily
-                            font.pixelSize: 11
+                            font.pointSize: Typography.bodyLarge
                             font.weight: Font.DemiBold
                         }
                         Rectangle {
@@ -2000,7 +1906,7 @@ Item {
                                 text: versionsList.count
                                 color: root.theme.secondaryText
                                 font.family: root.theme.fontFamily
-                                font.pixelSize: 10
+                                font.pointSize: Typography.body
                                 font.weight: Font.DemiBold
                             }
                         }
@@ -2139,7 +2045,7 @@ Item {
                 Rectangle { anchors.top: parent.top; width: parent.width; height: 1; color: root.theme.separator }
                 RowLayout {
                     anchors.fill: parent; anchors.leftMargin: 7; anchors.rightMargin: 7; spacing: 5
-                    Label { text: qsTr("Showing ") + appController.first_result + "–" + appController.last_result + " of " + appController.result_count; color: root.theme.secondaryText; font.family: root.theme.fontFamily; font.pixelSize: 9 }
+                    Label { text: qsTr("Showing ") + appController.first_result + "–" + appController.last_result + " of " + appController.result_count; color: root.theme.secondaryText; font.family: root.theme.fontFamily; font.pointSize: Typography.label }
                     Item { Layout.fillWidth: true }
                     CompactIconButton { visible: appController.loading_mode === "pages"; enabled: appController.current_page > 1 && appController.search_state !== "loading"; theme: root.theme; iconName: "chevron_right"; rotation: 180; onClicked: appController.previous_page() }
                     Repeater {
@@ -2149,7 +2055,7 @@ Item {
                             Layout.preferredWidth: 24; Layout.preferredHeight: 24
                             radius: 12
                             color: Number(modelData) === appController.current_page ? root.theme.action : pageMouse.containsMouse ? root.theme.rowHover : "transparent"
-                            Label { anchors.centerIn: parent; text: modelData; color: Number(modelData) === appController.current_page ? root.theme.selectedText : root.theme.primaryText; font.family: root.theme.fontFamily; font.pixelSize: 9; font.weight: Font.DemiBold }
+                            Label { anchors.centerIn: parent; text: modelData; color: Number(modelData) === appController.current_page ? root.theme.selectedText : root.theme.primaryText; font.family: root.theme.fontFamily; font.pointSize: Typography.label; font.weight: Font.DemiBold }
                             MouseArea { id: pageMouse; anchors.fill: parent; hoverEnabled: true; enabled: appController.search_state !== "loading"; cursorShape: Qt.PointingHandCursor; onClicked: appController.go_to_page(Number(modelData)) }
                         }
                     }
@@ -2160,7 +2066,7 @@ Item {
                         Layout.preferredWidth: 66; Layout.preferredHeight: 25
                         model: [20, 25, 50, 100]
                         currentIndex: appController.page_size === 20 ? 0 : appController.page_size === 50 ? 2 : appController.page_size === 100 ? 3 : 1
-                        font.pixelSize: 9
+                        font.pointSize: Typography.label
                         onActivated: appController.set_page_size(Number(currentText))
                     }
                 }
@@ -2211,8 +2117,10 @@ Item {
                 id: resultFilters; parent: Overlay.overlay; theme: root.theme
                 actions: appController.menu_actions("result_filters")
                 onTriggered: command => {
-                    if (command === "edit_presets") appController.open_window("filter_editor")
-                    else if (command === "advanced_search") dockModel.show_panel("advanced_search")
+                    if (command === "filter_processes")
+                        appController.open_window("process_filter_editor")
+                    else if (command === "advanced_search")
+                        dockModel.show_panel("advanced_search")
                 }
             }
             ActionMenu {
@@ -2405,7 +2313,7 @@ Item {
                         text: previewArea.currentTitle
                         color: root.theme.secondaryText
                         font.family: root.theme.fontFamily
-                        font.pixelSize: 10
+                        font.pointSize: Typography.body
                         elide: Text.ElideMiddle
                     }
                 }
@@ -2487,6 +2395,7 @@ Item {
                         anchors.fill: parent
                         theme: root.theme
                         selected: snapshotRow.selected
+                        selectedColor: root.theme.contentSelection
                         hovered: snapshotMouse.containsMouse || snapshotPane.contextNodeId === snapshotRow.nodeId
                         accent: snapshotRow.accent
                     }
@@ -2501,11 +2410,11 @@ Item {
                             selected: snapshotRow.selected
                         }
                         ColumnLayout { Layout.fillWidth: true; spacing: 0
-                            Label { text: title; color: snapshotRow.selected ? root.theme.selectedText : root.theme.primaryText; font.family: root.theme.fontFamily; font.pixelSize: 10; elide: Text.ElideRight; Layout.fillWidth: true }
-                            Label { text: context + " · " + path; color: selected ? "#e2edf3" : root.theme.secondaryText; font.family: root.theme.fontFamily; font.pixelSize: 9; elide: Text.ElideRight; Layout.fillWidth: true }
+                            Label { text: title; color: snapshotRow.selected ? root.theme.selectedText : root.theme.primaryText; font.family: root.theme.fontFamily; font.pointSize: Typography.body; elide: Text.ElideRight; Layout.fillWidth: true }
+                            Label { text: context + " · " + path; color: selected ? "#e2edf3" : root.theme.secondaryText; font.family: root.theme.fontFamily; font.pointSize: Typography.label; elide: Text.ElideRight; Layout.fillWidth: true }
                         }
                         MaterialIcon { visible: snapshotRow.isLatest; name: "verified"; size: 13; color: snapshotRow.selected ? root.theme.selectedText : root.theme.accent }
-                        Label { text: version; color: snapshotRow.selected ? root.theme.selectedText : root.theme.secondaryText; font.family: root.theme.fontFamily; font.pixelSize: 10 }
+                        Label { text: version; color: snapshotRow.selected ? root.theme.selectedText : root.theme.secondaryText; font.family: root.theme.fontFamily; font.pointSize: Typography.body }
                     }
                     MouseArea {
                         id: snapshotMouse; anchors.fill: parent; hoverEnabled: true
@@ -2537,16 +2446,16 @@ Item {
                 border.color: root.theme.separator; border.width: 1
                 ColumnLayout { anchors.fill: parent; spacing: 0
                     RowLayout { Layout.fillWidth: true; Layout.preferredHeight: 25; spacing: 5
-                        Label { text: snapshotPane.showAllFiles ? "Files (all)" : "Preview files"; color: root.theme.secondaryText; font.pixelSize: 10; Layout.fillWidth: true; leftPadding: 8 }
-                        Label { text: previewArea.currentFiles.length + " files"; color: root.theme.secondaryText; font.pixelSize: 9 }
+                        Label { text: snapshotPane.showAllFiles ? "Files (all)" : "Preview files"; color: root.theme.secondaryText; font.pointSize: Typography.body; Layout.fillWidth: true; leftPadding: 8 }
+                        Label { text: previewArea.currentFiles.length + " files"; color: root.theme.secondaryText; font.pointSize: Typography.label }
                     }
                     ListView { Layout.fillWidth: true; Layout.fillHeight: true; clip: true; model: previewArea.currentFiles
                         delegate: Item { width: ListView.view.width; height: 24
                             RowLayout { anchors.fill: parent; anchors.leftMargin: 8; anchors.rightMargin: 8; spacing: 6
                                 MaterialIcon { name: modelData.type === "image" || modelData.type === "icon" ? "image" : "insert_drive_file"; size: 14; color: modelData.exists ? root.theme.accent : root.theme.secondaryText }
-                                Label { text: modelData.name || "Unnamed file"; color: root.theme.primaryText; font.pixelSize: 9; elide: Text.ElideMiddle; Layout.fillWidth: true }
-                                Label { visible: snapshotPane.showMoreInfo; text: modelData.size || ""; color: root.theme.secondaryText; font.pixelSize: 9 }
-                                Label { visible: snapshotPane.showMoreInfo; text: modelData.type || ""; color: root.theme.secondaryText; font.pixelSize: 9 }
+                                Label { text: modelData.name || "Unnamed file"; color: root.theme.primaryText; font.pointSize: Typography.label; elide: Text.ElideMiddle; Layout.fillWidth: true }
+                                Label { visible: snapshotPane.showMoreInfo; text: modelData.size || ""; color: root.theme.secondaryText; font.pointSize: Typography.label }
+                                Label { visible: snapshotPane.showMoreInfo; text: modelData.type || ""; color: root.theme.secondaryText; font.pointSize: Typography.label }
                             }
                             MouseArea { anchors.fill: parent; acceptedButtons: Qt.RightButton; onClicked: mouse => { snapshotContext.actions = appController.item_menu_actions(snapshotPane.contextNodeId); snapshotContext.openAt(parent, mouse.x, mouse.y) } }
                         }
@@ -2646,8 +2555,8 @@ Item {
                         required property string value
                         required property string choices
                         width: Math.max(110, Math.min(165, parent.width / 4 - 11)); spacing: 3
-                        Label { text: label; color: root.theme.secondaryText; font.family: root.theme.fontFamily; font.pixelSize: 9 }
-                        Md3ComboBox { theme: root.theme; width: parent.width; height: 27; model: choices.split(","); currentIndex: Math.max(0, model.indexOf(value)); font.family: root.theme.fontFamily; font.pixelSize: 9 }
+                        Label { text: label; color: root.theme.secondaryText; font.family: root.theme.fontFamily; font.pointSize: Typography.label }
+                        Md3ComboBox { theme: root.theme; width: parent.width; height: 27; model: choices.split(","); currentIndex: Math.max(0, model.indexOf(value)); font.family: root.theme.fontFamily; font.pointSize: Typography.label }
                     }
                 }
             }
@@ -2667,9 +2576,9 @@ Item {
                 id: syncToolbar
                 anchors.top: parent.top; width: parent.width; height: 31; color: root.theme.toolBar
                 RowLayout { anchors.fill: parent; anchors.leftMargin: 7; anchors.rightMargin: 5; spacing: 4
-                    Md3ComboBox { theme: root.theme; Layout.preferredWidth: 130; Layout.preferredHeight: 25; model: syncPresetModel; textRole: "label"; font.pixelSize: 9 }
+                    Md3ComboBox { theme: root.theme; Layout.preferredWidth: 130; Layout.preferredHeight: 25; model: syncPresetModel; textRole: "label"; font.pointSize: Typography.label }
                     Item { Layout.fillWidth: true }
-                    CompactIconButton { theme: root.theme; iconName: "sync"; onClicked: root.notice("Starting repository synchronization") }
+                    CompactIconButton { theme: root.theme; iconName: "repository-sync"; onClicked: root.notice("Starting repository synchronization") }
                     CompactIconButton { theme: root.theme; iconName: "close"; onClicked: repoSyncModel.clear() }
                 }
             }
@@ -2691,10 +2600,10 @@ Item {
                         Md3CheckBox { theme: root.theme; checked: syncRow.checked; onToggled: repoSyncModel.toggle_checked(syncRow.index) }
                         MaterialIcon { name: "sync"; size: 15; color: root.theme.cyan }
                         ColumnLayout { Layout.fillWidth: true; spacing: 1
-                            Label { text: title; color: root.theme.primaryText; font.family: root.theme.fontFamily; font.pixelSize: 10; Layout.fillWidth: true; elide: Text.ElideRight }
-                            Label { text: process + " · " + status; color: root.theme.secondaryText; font.family: root.theme.fontFamily; font.pixelSize: 9; Layout.fillWidth: true; elide: Text.ElideRight }
+                            Label { text: title; color: root.theme.primaryText; font.family: root.theme.fontFamily; font.pointSize: Typography.body; Layout.fillWidth: true; elide: Text.ElideRight }
+                            Label { text: process + " · " + status; color: root.theme.secondaryText; font.family: root.theme.fontFamily; font.pointSize: Typography.label; Layout.fillWidth: true; elide: Text.ElideRight }
                         }
-                        Label { text: progress; color: root.theme.secondaryText; font.family: root.theme.fontFamily; font.pixelSize: 9 }
+                        Label { text: progress; color: root.theme.secondaryText; font.family: root.theme.fontFamily; font.pointSize: Typography.label }
                     }
                     MouseArea {
                         id: syncMouse
@@ -2710,7 +2619,7 @@ Item {
                 id: syncFooter
                 anchors.left: parent.left; anchors.right: parent.right; anchors.bottom: parent.bottom; height: 28; color: root.theme.toolBar
                 RowLayout { anchors.fill: parent; anchors.leftMargin: 8; anchors.rightMargin: 6
-                    Label { text: qsTr("Repository sync queue"); color: root.theme.secondaryText; font.family: root.theme.fontFamily; font.pixelSize: 10; Layout.fillWidth: true }
+                    Label { text: qsTr("Repository sync queue"); color: root.theme.secondaryText; font.family: root.theme.fontFamily; font.pointSize: Typography.body; Layout.fillWidth: true }
                     CompactIconButton { theme: root.theme; iconName: "sync"; onClicked: root.notice("Sync selected") }
                 }
             }

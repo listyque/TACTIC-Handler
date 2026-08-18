@@ -28,6 +28,11 @@ from PySide6.QtGui import QGuiApplication, QImage
 from ..menu_schema import MenuRegistry
 from ..quick_filters import QuickFilterCatalog
 from ..repository_sync import RepositorySyncController
+from ..search_contract import (
+    create_search_tab,
+    filters_from_records,
+    records_from_filters,
+)
 from ..models import NavigationModel, ProjectModel
 from ..workspace import (
     DockPanelModel,
@@ -108,17 +113,11 @@ class SearchSuggestionsMixin:
 
     @Slot(str)
     def update_search_text(self, value: str) -> None:
-        """Ui_searchWidget mirrors edited text into the current tab title."""
+        """Keep draft text local until the user submits the search."""
         tab = self._current_tab()
-        section = self._current_section()
-        if not tab or not section:
+        if not tab:
             return
-        title = value.strip() or section.title
         tab.search_text = value
-        if tab.title == title:
-            return
-        tab.title = title
-        self._sync_search_tabs(clear_suggestions=False)
 
     @Slot()
     def clear_search_suggestions(self) -> None:
@@ -259,15 +258,9 @@ class SearchSuggestionsMixin:
         record = records[row]
         values = dict(record.get("values") or {})
         selected_value = values.get(self._suggestion_column) or record.get("title")
-        code = str(record.get("code") or "")
-        filters = [
-            ("code", "=", code)
-            if code else
-            (self._suggestion_column, "=", selected_value)
-        ]
         tab.title = str(record.get("title") or selected_value or "")
         tab.search_text = tab.title
-        tab.extra_filters = filters
+        self._set_primary_search_filter(tab.search_text, relation="=")
         tab.offset = 0
         tab.loaded = False
         tab.workspace_roots.clear()
@@ -291,12 +284,7 @@ class SearchSuggestionsMixin:
         if not section or not tab:
             return
         self._capture_current_tree_state()
-        stype = self._active_stype()
-        if value and stype:
-            _column, _columns, filters = self._suggestion_spec(stype, value)
-            tab.extra_filters = filters
-        else:
-            tab.extra_filters = []
+        self._set_primary_search_filter(value)
         tab.title = value or section.title
         tab.search_text = value
         tab.offset = 0
@@ -459,11 +447,16 @@ class SearchSuggestionsMixin:
         if current in sections:
             sections.remove(current)
             sections.insert(0, current)
+        def is_unfiltered(candidate: SectionSession) -> bool:
+            entry = self.navigation_model.entry(candidate.entry_key)
+            return not entry or not entry.filter_records
+
         section = next(
             (
                 candidate for candidate in sections
                 if candidate.search_type == search_type
                 and not candidate.base_filters
+                and is_unfiltered(candidate)
             ),
             None,
         )
@@ -475,7 +468,7 @@ class SearchSuggestionsMixin:
                 for candidate in self.navigation_model.entries_for_search_type(
                     search_type
                 )
-                if not candidate.filters
+                if not candidate.filter_records
             ),
             None,
         )
@@ -516,22 +509,26 @@ class SearchSuggestionsMixin:
         if tab is None and direct_base:
             tab = section.tabs[0]
         if tab is None:
-            tab = SearchTabSession(
+            tab = create_search_tab(
+                section.entry_key,
+                title,
                 tab_id=(
                     f"{section.entry_key}:navigation:"
                     f"{uuid.uuid4().hex[:8]}"
                 ),
-                title=title,
                 tab_kind="navigation",
                 limit=self._page_size,
                 view_mode=self._default_view_mode,
+                filters=[("code", "=", code)],
+                navigation_target=code,
             )
             section.tabs.append(tab)
         tab.title = title
         tab.tab_kind = "navigation"
         tab.navigation_target = code
         tab.search_text = ""
-        tab.extra_filters = [("code", "=", code)]
+        tab.filter_records = records_from_filters([("code", "=", code)])
+        tab.extra_filters = filters_from_records(tab.filter_records)
         tab.offset = 0
         tab.next_offset = 0
         tab.total = 0
