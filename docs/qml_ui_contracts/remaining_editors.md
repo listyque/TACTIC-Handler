@@ -1,149 +1,143 @@
-# Контракт оставшихся редакторов
+# Editor contracts
 
-Проверены только непосредственно связанные классы, точки открытия, QML-окна и
-API восьми редакторов. `thlib/side` не анализировался. Большинство QWidget
-редакторов строятся программно и не имеют собственной `.ui`-формы.
+This document records the ownership of the remaining focused editors. Obsolete
+WWidget migration notes were removed after the QML implementations became
+authoritative.
 
-## 1. Preview Editor
+## Columns Editor
 
-- **Класс:** `Ui_previewsEditorDialog`; элементы создаёт
-  `Ui_previewItemWidget` через `global_functions.add_preview_item()`.
-- **Форма:** собственной формы нет; элемент использует
-  `thlib/ui/items/ui_preview_item.ui`.
-- **Открытие:** кнопка Edit previews в `commitWidget` и preview-поле
-  `QTacticPreviewWidget`; окно модальное.
-- **Вход:** сгруппированные file objects и список `QPixmap` screenshots.
-- **Результат:** только просмотр текущего набора; диалог не возвращает изменённую
-  коллекцию и не содержит подключённых действий редактирования.
-- **QML:** отдельный Preview Editor использует общую Python-модель файлов,
-  naming preview и асинхронный check-in с progress/cancel/retry.
-- **Зависимости:** Check-in/Commit Queue, file objects, preview classification,
-  repository paths.
-- **Ограничение:** удаление убирает подготовленный файл; серверное удаление
-  preview не добавлено, поскольку его нет в контракте исходного окна.
+`ColumnsEditorController` and `ColumnsEditorView` manage the shared TACTIC
+`table`, `definition`, `edit`, and `edit_definition` views for the current
+Search Type. The table definition drives the optional table result view and
+Database Editor ordering; the edit views also drive EditSObject and inline
+cell editors.
 
-## 2. Attachments Editor
+- Apply writes the project-wide `config/widget_config` row at
+  `search_type + view=table`, then reads it back before updating the UI.
+- Unknown element attributes, nested display/widget options, definition-only
+  elements, and internal elements are preserved. Missing schema columns can
+  be added to the view without changing the physical database schema.
+- Multiple shared rows for the same coordinate are rejected instead of
+  choosing one and overwriting another category or precedence layer.
+- Apply updates the common columns model, table results, and Database Editor.
+- Cancel restores the session snapshot; Reset restores the owned defaults.
+- The result-table prototype renders sObjects only, supports horizontal and
+  vertical scrolling, and uses the configured labels, order, and widths.
+- Simple mode visually edits supported display/input widgets and common input
+  options. It can include or remove a field from `view=edit`. XML mode preserves
+  unsupported, custom, and nested options without flattening them.
+- Column definitions change presentation, not physical database schema or
+  server query semantics.
 
-- **Класс:** `Ui_attachmentsEditorWidget`; элементы создаёт
-  `Ui_attachmentItemWidget`.
-- **Форма:** собственной формы нет.
-- **Открытие:** разворачиваемая область `Ui_notesWidget` после выбора файлов,
-  drop или screenshot.
-- **Вход:** сгруппированные file objects и screenshots.
-- **Результат:** визуальный список; исходные коллекции принадлежат Notes editor.
-- **QML:** Attachments Editor хранит staging в общей Python-модели, принимает
-  выбор/drop файлов и передаёт подготовленную операцию в check-in/Commit Queue.
-- **Зависимости:** Notes, MatchTemplate, Check-in/Commit Queue, Screenshot Maker,
-  attachment snapshots, Repository Sync.
-- **Интеграция:** кнопка вложения в Communication открывает редактор без второго
-  upload workflow.
+## SObject column value editing
 
-## 3. Columns Editor
+The schema-driven field editor edits values of existing columns for one or
+multiple selected SObjects.
 
-- **Класс:** `Ui_columnsEditorWidget`.
-- **Форма:** нет; toolbar, definitions и tabs создаются программно.
-- **Открытие:** скрытый dock `columns_viewer_dock` внутри Check-in/Out; selection
-  search tree передаёт один item либо выбранные items.
-- **Вход:** project, stype, search item(s), definition (`edit`/`table`).
-- **Результат:** single commit через sObject `set_value()/commit()` или
-  `update_multiple(..., triggers=True)` для нескольких объектов.
-- **QML:** `columns_editor` зарегистрирован как floating window, но показывает
-  только `columnsModel`; Move/Apply не подключены к API.
-- **Зависимости:** stype definitions, schema columns, выбранные sObject/snapshot,
-  Tactic Column Editor, multi-update.
-- **Рекомендация:** создать Python model definitions/columns и переиспользовать
-  schema-driven field delegates; отдельно сохранить multiple-edit semantics.
+- Integer and floating-point values validate before submission.
+- System columns remain read-only.
+- Mutations use existing `update_selected_item_fields()` and
+  `update_multiple(..., triggers=True)` paths.
+- Creating or altering a physical database column is intentionally unavailable
+  because no verified schema-mutation and confirmation contract exists.
 
-## 4. Tactic Column Editor
+## Server Presets Editor
 
-- **Класс:** `Ui_tacticColumnEditorWidget`.
-- **Форма:** нет.
-- **Открытие:** создаётся вкладкой `Ui_columnsEditorWidget` для каждой колонки.
-- **Вход:** sObject, column, stype, `multiple_mode`.
-- **Результат:** `get_changed_data()`; сохранение выполняет родительский Columns
-  Editor. В самом классе реально поддержаны только `text` и `varchar`.
-- **QML:** прямого аналога нет; `SObjectFieldEditor` уже имеет более полный набор
-  schema-driven delegates, но не подключён к Columns Editor.
-- **Зависимости:** column info, definitions, rich edit; локальные lock/edit
-  состояния QWidget не являются серверным контрактом.
-- **Рекомендация:** не переносить класс механически; адаптировать существующую
-  QML field model к single/multiple column editing.
+The native MD3 editor uses `env_server` and the existing preset format.
 
-## 5. Server Presets Editor
+- Add/remove, protected `default`, Save, and Cancel are supported.
+- The active preset is marked and must be switched from Configuration before it
+  can be removed; the editor never leaves the live connection pointing at a
+  deleted preset.
+- Opening always starts from persisted values. Cancel and the native close
+  button discard the current draft.
+- Credentials are not stored in the view model or logs.
+- Editing presets does not silently switch the current connection; Configuration
+  owns reconnect/bootstrap.
 
-- **Класс:** `Ui_serverPresetsEditorWidget`.
-- **Форма:** нет.
-- **Открытие:** кнопка Edit Server Presets страницы Server Configuration.
-- **Вход:** `env_server.get_server_presets()` и preset names.
-- **Результат:** add/remove, защита `default`, Save через
-  `save_server_presets_defaults()`; Cancel перечитывает сохранённые presets.
-- **QML:** отдельный MD3 editor поддерживает add/remove, защиту `default`,
-  Save/Cancel и обновляет общий список presets без хранения credentials.
-- **Зависимости:** `env_server`, Configuration controller, server bootstrap;
-  изменение активного сервера требует существующего restart/reconnect сценария.
-- **Реализация:** использует методы `env_server` и существующий preset format;
-  активное подключение меняется только через Configuration.
+## Screenshot Maker
 
-## 6. Screenshot Maker
+The native top-level Screenshot Maker captures an explicitly selected desktop
+region through the Qt screen API and attaches the PNG directly to the selected
+editable Commit Queue operation. It is opened from that operation rather than
+as a standalone catalog tool. Capture and cancel restore and reactivate the
+same Commit Queue window that opened it.
 
-- **Класс:** `Ui_screenShotMakerDialog`.
-- **Форма:** нет.
-- **Открытие:** camera action в Commit Queue и preview field; временно скрывает
-  главное/DCC/queue окна.
-- **Вход:** выбранная пользователем область desktop.
-- **Результат:** `screenshot_pixmap`, затем preview/check-in коллекция.
-- **QML:** maker позволяет выбрать область, использует Qt desktop capture API и
-  передаёт PNG в общую Python-модель подготовки preview.
-- **Зависимости:** desktop capture, multi-screen/DPI, window visibility,
-  QPixmap→file object, Commit Queue; текущий `grabWindow()` устарел для Qt 6.
-- **Проверка:** Windows scaling, несколько экранов и DCC host требуют ручной
-  проверки.
+Multi-screen coordinates, Windows scaling, hidden-window restoration, and DCC
+host behavior require platform testing. Deprecated Qt 5 capture APIs are not
+used as a new implementation path.
 
-## 7. Script Editor
+## Script Editor
 
-- **Класс:** `Ui_ScriptEditForm`.
-- **Форма:** нет; editor/output/tree собираются программно.
-- **Открытие:** Main menu, tray/float notify, TACTIC Server и API Server startup;
-  глобальная ссылка `env_inst.ui_script_editor`.
-- **Вход:** source, language, local/server execution mode, project scripts
-  `config/custom_script`, script path.
-- **Результат:** stdout/stderr, выполнение local/server code, создание и
-  сохранение server scripts, сохранённое состояние окна.
-- **QML:** реализованы загрузка/создание/сохранение, исходные языки и local/server
-  Run с обязательным подтверждением и output.
-- **Зависимости:** console/stream, server execution, permissions, current project,
-  `tactic_classes.execute_procedure_serverside`, script storage.
-- **Ошибки:** краткое состояние остаётся в редакторе, полный traceback пишется
-  в Debug Log; автоматического выполнения нет.
+The Script Editor owns local/server scripts, open tabs, dirty local drafts,
+editor history, syntax support, execution confirmation, and output.
 
-## 8. Naming Editor
+- Unsaved content persists through the project configuration API per tab.
+- Local undo/redo remains separate from server-saved script history. Choosing a
+  saved revision stages its source as an ordinary unsaved edit.
+- The saved language is the default execution target: DCC Python requires the
+  selected capable DCC, Local Python runs in TACTIC Handler, and Server Python
+  remains server-side. Run in can temporarily override that default.
+- DCC execution sends only a validated staging-file path through the Handler
+  Server. Each tab owns one file under `custom_scripts/.temp`; a run overwrites
+  it with the current buffer, including unsaved new or modified source. The
+  selected client executes it on its native main thread. Closing or discarding
+  the tab removes its staging file.
+- DCC stdout and stderr remain visible in the DCC console and are mirrored to
+  the active tab's Output panel.
+- New output for the active tab expands the Output panel, including when its
+  previous saved layout left that panel collapsed.
+- Script Triggers opens from the toolbar as a separate resizable editor. Its
+  ordered project rules use the shared controls, script-tree picker, and
+  persistent scrollbars; only administrators can change the server document.
+  Snapshot open/save are Handler actions and wrap the completed standalone
+  file-open or check-in operation rather than a DCC command.
+- Application Help has a dedicated Script Triggers topic describing ordered
+  before/after execution, the trigger context, failure behavior, and copyable
+  Python examples.
+- Tab inserts four-column spaces. Ctrl+Shift+K deletes selected lines,
+  Ctrl+Y redoes, Ctrl+Shift+O focuses the source outline, Alt+Up/Down moves
+  between symbols, and F12 opens an in-file definition. Ctrl+Enter runs the
+  selection with either Return key.
+- Line numbers use the editor's actual line height. Symbol navigation aligns
+  the destination with the top of the viewport whenever enough source remains.
+- Split sizes, collapsed panels, output wrapping, outline selection, and editor
+  font size survive closing and reopening the window. New reuses an existing
+  untouched draft instead of creating duplicate blank tabs.
+- The right panel switches between server scripts and the current source
+  outline. Python completion statically follows local imports, current classes,
+  `self` members, and the thin Handler API without executing imported modules.
+- Full traceback goes to Debug Log and concise failure remains in the editor.
+- Server scripts are deleted only from the script-tree context menu with
+  confirmation.
+- No script executes automatically on open or restore.
+- Its common tabs, search, scrollbars, controls, theme, and help follow the
+  shared UI contracts.
 
-- **Класс:** `Ui_namingEditorWidget`.
-- **Форма:** нет.
-- **Открытие:** код кнопки в Check-in/Out закомментирован.
-- **Вход/результат:** отсутствуют; конструктор только печатает сообщение.
-- **QML:** Naming Preview выделен в самостоятельное окно; пути рассчитывает
-  `CheckinOutController` через `get_virtual_snapshot()`.
-- **Зависимости:** naming definitions, virtual snapshot и repository mapping.
-- **Ограничение:** editing naming rules не добавлен: исходный класс его не
-  реализует и отдельного контракта правил пока нет.
+## Naming Editor and check-in preview
 
-## Columns и Tactic Column Editor
+`NamingEditorController` and `NamingEditorView` own the existing `config/naming`
+rule list, field editor, local template simulation and explicit server save.
+Administration embeds this same editor in the selected Search Type's Naming tab,
+without a child window or object requirement. Types without rules can create
+their first rule here. Object and Commit Queue entry
+points keep their object-scoped rule list and preview data. Unsaved rules stay
+bound to their original project. See `docs/administration.md` for entry and
+verification contracts.
 
-Columns Editor реализован отдельными `ColumnsEditorController` и
-`ColumnsEditorView`. Для колонок текущего search type поддержаны порядок,
-видимость, display label и ширина. Настройки валидируются, сохраняются по
-project/search type через QSettings, поддерживают Apply, Cancel и Reset.
+The separate check-in naming preview remains backed by `CheckinOutController`
+and `get_virtual_snapshot()`; local editor simulation does not replace TACTIC's
+authoritative check-in naming resolution.
 
-После Apply обновляются общая columns model, представление результатов и Database
-Editor. Database Editor фильтрует и сортирует поля по применённым настройкам;
-формирование серверного search query не изменяется.
+## Common editor requirements
 
-Tactic Column pane редактирует значение существующей schema-колонки выбранного
-sObject. Типы integer/float валидируются до отправки, системные колонки read-only,
-а сохранение использует существующий `update_selected_item_fields()` и
-`update_multiple(..., triggers=True)`.
-
-Создание или alter физической DB-колонки намеренно недоступны: проверенный код не
-содержит принятой schema-mutation обёртки и обязательного подтверждения. Добавление
-колонки в display выполняется включением скрытой колонки действующей схемы.
+- Functional editors are native top-level windows hosted by the shared window
+  infrastructure.
+- Each editor has one Python state owner and uses native TACTIC/configuration
+  APIs directly.
+- Server and filesystem work is asynchronous.
+- Save, Cancel, dirty state, validation, close guard, scrolling, minimum size,
+  symmetric spacing, and help routing are explicit.
+- QML receives safe primitive/model data, never raw server objects or workers.
+- New behavior and shortcuts are documented in the matching English and Russian
+  Markdown files under `thlib/ui/help_articles`.

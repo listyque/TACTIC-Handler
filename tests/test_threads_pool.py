@@ -2,7 +2,7 @@ import threading
 import time
 import unittest
 
-from thlib.side.Qt import QtCore
+from tests.qt_application import gui_test_application
 from thlib.pool import ThreadsPool
 
 
@@ -10,7 +10,7 @@ class ThreadsPoolTest(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
-        cls.app = QtCore.QCoreApplication.instance() or QtCore.QCoreApplication([])
+        cls.app = gui_test_application()
 
     def _wait(self, predicate, timeout=2.0):
         deadline = time.monotonic() + timeout
@@ -20,6 +20,14 @@ class ThreadsPoolTest(unittest.TestCase):
                 return True
             time.sleep(0.005)
         return predicate()
+
+    def test_max_thread_count_can_be_changed_at_runtime(self):
+        pool = ThreadsPool(max_threads=1)
+
+        pool.set_max_threads(4)
+
+        self.assertEqual(pool.max_threads, 4)
+        self.assertEqual(pool._pool.maxThreadCount(), 4)
 
     def test_cancelled_queued_worker_does_not_run(self):
         pool = ThreadsPool(max_threads=1)

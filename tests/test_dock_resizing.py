@@ -1,22 +1,11 @@
-import tempfile
 import unittest
-from pathlib import Path
 
-from PySide6.QtCore import QSettings
-
-from modern_ui.workspace_models.docks import DockPanelModel
+from thlib.ui.workspace_models.docks import DockPanelModel
 
 
 class DockResizingTests(unittest.TestCase):
     def setUp(self):
-        self._temporary_directory = tempfile.TemporaryDirectory()
-        settings_path = Path(self._temporary_directory.name) / "settings.ini"
-        self.model = DockPanelModel(
-            QSettings(str(settings_path), QSettings.Format.IniFormat)
-        )
-
-    def tearDown(self):
-        self._temporary_directory.cleanup()
+        self.model = DockPanelModel({})
 
     def panel(self, panel_id):
         return next(
@@ -94,6 +83,47 @@ class DockResizingTests(unittest.TestCase):
         self.assertAlmostEqual(self.panel("tasks").x, 0.66 * 0.34)
         self.assertAlmostEqual(self.panel("snapshot").x, 0.66)
         self.assertEqual(save_calls, [])
+
+    def test_minimum_host_size_tracks_the_visible_split_tree(self):
+        self.assertEqual(self.model.minimumHostWidth, 1080)
+        self.assertEqual(self.model.minimumHostHeight, 360)
+
+        for panel_id in (
+            "snapshot", "tasks", "notes", "task_calendar",
+        ):
+            self.model.close_panel(panel_id)
+
+        self.assertEqual(self.model.minimumHostWidth, 360)
+        self.assertEqual(self.model.minimumHostHeight, 260)
+
+    def test_opening_a_larger_tab_updates_the_required_cell_size(self):
+        self.model.show_panel("drop_plate")
+
+        self.assertEqual(self.model.minimumHostWidth, 1240)
+        self.assertEqual(self.model.minimumHostHeight, 360)
+
+        self.model.ensure_minimum_sizes(
+            self.model.minimumHostWidth,
+            self.model.minimumHostHeight,
+        )
+        for panel in self.model._visible_docked_panels():
+            minimum_width, minimum_height = (
+                self.model._minimum_panel_pixel_size(panel)
+            )
+            self.assertGreaterEqual(
+                panel.width * self.model.minimumHostWidth + 1e-7,
+                minimum_width,
+            )
+            self.assertGreaterEqual(
+                panel.height * self.model.minimumHostHeight + 1e-7,
+                minimum_height,
+            )
+
+    def test_vertical_dock_split_adds_minimum_height_not_width(self):
+        self.model.place_panel("drop_plate", "snapshot", "bottom")
+
+        self.assertEqual(self.model.minimumHostWidth, 1160)
+        self.assertEqual(self.model.minimumHostHeight, 720)
 
     def test_right_subtree_minimum_clamps_the_same_root_split(self):
         self.resize_work(0.90, host_width=1600, host_height=900)

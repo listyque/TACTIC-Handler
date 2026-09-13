@@ -101,7 +101,7 @@ def _manual_check(contract: dict, results_path: Path | None) -> int:
     except (OSError, json.JSONDecodeError) as error:
         print(f"[release] cannot read manual results: {error}", file=sys.stderr)
         return 1
-    records = payload.get("checks") if payload.get("schemaVersion") == 1 else None
+    records = payload.get("checks") if set(payload) == {"checks"} else None
     if not isinstance(records, dict):
         print("[release] unsupported manual results format", file=sys.stderr)
         return 1

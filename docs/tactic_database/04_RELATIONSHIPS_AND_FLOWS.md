@@ -13,7 +13,7 @@ Search Type Manager
   → security rules
 ```
 
-Нельзя ограничиваться вставкой в `sthpw/search_object`.
+Do not stop after inserting into `sthpw/search_object`.
 
 ## Workflow and tasks
 

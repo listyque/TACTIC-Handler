@@ -88,6 +88,9 @@ def validate_message(message: dict) -> None:
     elif message_type == "client_event":
         if not isinstance(message.get("payload"), dict):
             raise ProtocolError("Client event payload must be an object")
+    elif message_type == "capabilities" and "capabilities" in message:
+        if not isinstance(message.get("capabilities"), list):
+            raise ProtocolError("Capabilities must be a list")
 
 
 def message(message_type: str, **fields) -> dict:

@@ -6,10 +6,13 @@ import unittest
 from types import SimpleNamespace
 from unittest.mock import patch
 
-from modern_ui.watch_folders import WatchFoldersController, _FIELDS
-from modern_ui.controllers.item_operations import ItemOperationsMixin
-from modern_ui.workspace_models.results import WorkspaceItemModel
-from modern_ui.workspace_models.results_types import WorkspaceNode
+from PySide6.QtCore import QObject, Signal
+
+from thlib.ui.watch_folders import WatchFoldersController, _FIELDS
+from thlib.ui.controllers.item_operations import ItemOperationsMixin
+from thlib.ui.controllers.lifecycle import LifecycleMixin
+from thlib.ui.workspace_models.results import WorkspaceItemModel
+from thlib.ui.workspace_models.results_types import WorkspaceNode
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -32,8 +35,8 @@ class _WatchFolderActions:
     def begin_add_for_source(self, source, origin="item"):
         self.added.append((source, origin))
 
-    def begin_edit_search_key(self, search_key):
-        self.edited.append(search_key)
+    def begin_edit_search_key(self, search_key, origin="item"):
+        self.edited.append((search_key, origin))
 
     def request_remove_search_key(self, search_key, origin="item"):
         self.removed.append((search_key, origin))
@@ -78,7 +81,64 @@ class _PayloadHarness:
         return context, "file"
 
 
+class _Workspace(QObject):
+    selection_changed = Signal()
+    _project = None
+    _selected_sobject = None
+
+
+class _Application(QObject):
+    project_state_changed = Signal()
+
+    def __init__(self):
+        super().__init__()
+        self.workspace_state = _Workspace()
+        self.workspace_model = None
+        self.window_model = SimpleNamespace(
+            closed=[],
+            close_window=lambda window_id: self.window_model.closed.append(
+                window_id
+            ),
+        )
+
+
+def _watch_controller():
+    return WatchFoldersController(
+        _Application(), _Checkin(), SimpleNamespace()
+    )
+
+
+def _watch_record(repositories=None):
+    return {
+        "title": "Asset",
+        "code": "ASSET0001",
+        "searchKey": "skey://demo/asset?code=ASSET0001",
+        "stype": "Asset",
+        "path": "assets/ASSET0001",
+        "watchEnabled": True,
+        "repository": "Client",
+        "repositories": list(repositories or []),
+        "pipeline": "asset",
+        "watcherStatus": "Stopped",
+        "selected": False,
+    }
+
+
 class WatchFoldersTests(unittest.TestCase):
+    def test_hidden_editor_defers_workspace_selection_publication(self):
+        controller = _watch_controller()
+        publications = []
+        controller.editorChanged.connect(lambda: publications.append(True))
+
+        controller._workspace.selection_changed.emit()
+
+        self.assertEqual(publications, [])
+        self.assertTrue(controller._selection_presentation_dirty)
+
+        controller.set_presentation_visible(True)
+
+        self.assertEqual(publications, [True])
+
     def test_persistence_contract_matches_legacy_exactly(self):
         self.assertEqual(
             _FIELDS,
@@ -155,9 +215,51 @@ class WatchFoldersTests(unittest.TestCase):
         self.assertEqual(payload["files"][0]["template"], "$FILENAME.$EXT")
         self.assertEqual(payload["mode"], "copy")
 
+    def test_last_repository_can_remove_an_existing_watch_folder(self):
+        controller = _watch_controller()
+        record = _watch_record(["client"])
+        controller.model.replace([record])
+        controller._editing_row = 0
+        controller._editor = dict(record, repositories=[])
+
+        self.assertTrue(controller.canSaveEditor)
+        with patch.object(controller, "_persist") as persist:
+            self.assertTrue(controller.save_edit())
+
+        self.assertEqual(controller.model.count(), 0)
+        persist.assert_called_once_with()
+        self.assertEqual(
+            controller._application.window_model.closed,
+            ["watch_folder_editor"],
+        )
+
+    def test_new_watch_folder_still_requires_a_repository(self):
+        controller = _watch_controller()
+        controller._editing_row = -1
+        controller._editor = _watch_record([])
+
+        self.assertFalse(controller.canSaveEditor)
+
+    def test_save_availability_tracks_busy_state(self):
+        controller = _watch_controller()
+        controller._editing_row = 0
+        controller.model.replace([_watch_record(["client"])])
+        controller._editor = _watch_record([])
+        changes = []
+        controller.canSaveEditorChanged.connect(
+            lambda: changes.append(controller.canSaveEditor)
+        )
+
+        controller._busy = True
+        controller.stateChanged.emit()
+        controller._busy = False
+        controller.stateChanged.emit()
+
+        self.assertEqual(changes, [False, True])
+
     def test_manager_keeps_the_complete_watch_folder_interface(self):
         source = (
-            ROOT / "modern_ui" / "qml" / "WatchFoldersView.qml"
+            ROOT / "thlib" / "ui" / "qml" / "WatchFoldersView.qml"
         ).read_text(encoding="utf-8")
         self.assertIn('text: qsTr("Active Watch Folders  ·  ")', source)
         self.assertIn("required property string path", source)
@@ -165,14 +267,36 @@ class WatchFoldersTests(unittest.TestCase):
         self.assertIn("required property string stype", source)
         self.assertIn("required property string pipeline", source)
         self.assertIn("required property string watcherStatus", source)
-        self.assertIn("watchFoldersController.begin_add()", source)
-        self.assertIn("watchFoldersController.begin_edit(watchRow.index)", source)
+        self.assertNotIn('iconName: "add"', source)
+        self.assertNotIn("watchFoldersController.begin_add()", source)
+        self.assertIn("required property string searchKey", source)
+        self.assertIn("watchFoldersController.begin_edit_search_key(", source)
+        self.assertNotIn("watchFoldersController.begin_edit(watchRow.index)", source)
         self.assertIn("watchFoldersController.set_enabled(", source)
         self.assertIn("WatchFolderDeleteDialog", source)
 
+    def test_primary_menu_opens_complete_manager_after_reload(self):
+        events = []
+        harness = SimpleNamespace(
+            watch_folders=SimpleNamespace(
+                reload=lambda: events.append("reload")
+            ),
+            window_model=SimpleNamespace(
+                show_window=lambda window_id: events.append(window_id)
+            ),
+        )
+
+        LifecycleMixin._show_watch_folders(harness)
+
+        self.assertEqual(events, ["reload", "watch_folders"])
+        menu = (ROOT / "thlib" / "ui" / "menu_schema.py").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn("show_watch_folders", menu)
+
     def test_manager_and_item_editor_are_separate_modal_windows(self):
         source = (
-            ROOT / "modern_ui" / "workspace_models" / "windows.py"
+            ROOT / "thlib" / "ui" / "workspace_models" / "windows.py"
         ).read_text(encoding="utf-8")
         self.assertIn(
             'FloatingWindow("watch_folders", "Watch Folders", '
@@ -210,7 +334,11 @@ class WatchFoldersTests(unittest.TestCase):
 
         controller.invoke_item_action("watch_folder", "asset-node")
 
-        self.assertEqual(controller.watch_folders.added, [(source, "item")])
+        self.assertEqual(
+            controller.watch_folders.edited,
+            [(node.search_key, "item")],
+        )
+        self.assertEqual(controller.watch_folders.added, [])
         self.assertEqual(controller.dock_model.shown, [])
 
     def test_item_edit_reuses_context_editor_for_exact_sobject(self):
@@ -224,7 +352,11 @@ class WatchFoldersTests(unittest.TestCase):
 
         controller.invoke_item_action("edit_watch", "asset-node")
 
-        self.assertEqual(controller.watch_folders.added, [(source, "item")])
+        self.assertEqual(
+            controller.watch_folders.edited,
+            [(node.search_key, "item")],
+        )
+        self.assertEqual(controller.watch_folders.added, [])
         self.assertEqual(controller.dock_model.shown, [])
     def test_item_delete_uses_context_dialog_without_manager_dock(self):
         node = SimpleNamespace(
@@ -243,13 +375,13 @@ class WatchFoldersTests(unittest.TestCase):
         self.assertEqual(controller.dock_model.shown, [])
     def test_editor_dialog_is_shared_by_item_and_manager_hosts(self):
         dialog = (
-            ROOT / "modern_ui" / "qml" / "WatchFolderEditorView.qml"
+            ROOT / "thlib" / "ui" / "qml" / "WatchFolderEditorView.qml"
         ).read_text(encoding="utf-8")
         manager = (
-            ROOT / "modern_ui" / "qml" / "WatchFoldersView.qml"
+            ROOT / "thlib" / "ui" / "qml" / "WatchFoldersView.qml"
         ).read_text(encoding="utf-8")
         main = (
-            ROOT / "modern_ui" / "qml" / "Main.qml"
+            ROOT / "thlib" / "ui" / "qml" / "Main.qml"
         ).read_text(encoding="utf-8")
         self.assertNotIn("WatchFolderEditorDialog", manager)
         self.assertNotIn("WatchFolderEditorDialog", main)
@@ -257,7 +389,7 @@ class WatchFoldersTests(unittest.TestCase):
         self.assertNotIn("id: repositoryDialog", manager)
         self.assertIn('text: qsTr("Relative Watch Path:")', dialog)
     def test_application_wires_watch_events_to_commit_queue(self):
-        source = (ROOT / "main_qml.py").read_text(encoding="utf-8")
+        source = (ROOT / "thlib/ui/application.py").read_text(encoding="utf-8")
         block_start = source.index(
             "watch_folders_controller = WatchFoldersController("
         )
@@ -269,6 +401,19 @@ class WatchFoldersTests(unittest.TestCase):
 
 
     def test_watch_control_is_persistent_and_green_when_enabled(self):
+        missing = WorkspaceNode(
+            node_id="missing", node_type="sobject",
+            search_key="skey://demo/asset?code=ASSET0000",
+            code="ASSET0000", title="Missing", watch_state="none",
+        )
+        missing_control = next(
+            item for item in WorkspaceItemModel._controls_for(missing)
+            if item["command"] == "watch_folder"
+        )
+        self.assertEqual(missing_control["icon"], "visibility_off")
+        self.assertFalse(missing_control["persistent"])
+        self.assertFalse(missing_control["success"])
+
         enabled = WorkspaceNode(
             node_id="asset", node_type="sobject",
             search_key="skey://demo/asset?code=ASSET0001",
@@ -291,10 +436,10 @@ class WatchFoldersTests(unittest.TestCase):
             item for item in WorkspaceItemModel._controls_for(disabled)
             if item["command"] == "watch_folder"
         )
-        self.assertEqual(disabled_control["icon"], "visibility_off")
+        self.assertEqual(disabled_control["icon"], "visibility")
         self.assertTrue(disabled_control["persistent"])
-        self.assertFalse(disabled_control["active"])
-        self.assertFalse(disabled_control["success"])
+        self.assertTrue(disabled_control["active"])
+        self.assertTrue(disabled_control["success"])
 
     def test_workspace_watch_state_updates_without_search_reload(self):
         model = WorkspaceItemModel()
@@ -319,19 +464,19 @@ class WatchFoldersTests(unittest.TestCase):
 
     def test_watch_dialogs_are_modal_and_rows_use_shared_surface(self):
         editor = (
-            ROOT / "modern_ui" / "qml" / "WatchFolderEditorView.qml"
+            ROOT / "thlib" / "ui" / "qml" / "WatchFolderEditorView.qml"
         ).read_text(encoding="utf-8")
         delete = (
-            ROOT / "modern_ui" / "qml" / "WatchFolderDeleteDialog.qml"
+            ROOT / "thlib" / "ui" / "qml" / "WatchFolderDeleteDialog.qml"
         ).read_text(encoding="utf-8")
         result_item = (
-            ROOT / "modern_ui" / "qml" / "WorkspaceResultItem.qml"
+            ROOT / "thlib" / "ui" / "qml" / "WorkspaceResultItem.qml"
         ).read_text(encoding="utf-8")
         card = (
-            ROOT / "modern_ui" / "qml" / "WorkspaceCard.qml"
+            ROOT / "thlib" / "ui" / "qml" / "WorkspaceCard.qml"
         ).read_text(encoding="utf-8")
         self.assertIn("Item {", editor)
-        self.assertNotIn("Md3Dialog {", editor)
+        self.assertNotIn("Controls.Dialog {", editor)
         self.assertIn("modal: true", delete)
         self.assertIn("dim: true", delete)
         self.assertIn("focus: true", delete)
@@ -341,6 +486,12 @@ class WatchFoldersTests(unittest.TestCase):
         self.assertIn('icon.name: "delete"', editor)
         self.assertIn("destructive: true", editor)
         self.assertIn('icon.name: "delete"', delete)
+        self.assertIn('text: qsTr("Delete")', delete)
+        self.assertNotIn('text: qsTr("Keep")', delete)
+        self.assertIn(
+            "watchFoldersController.confirm_remove(false)", delete
+        )
+        self.assertNotIn("confirm_remove(true)", delete)
         self.assertIn("hasPersistentItemControls", result_item)
         self.assertIn("modelData.success ? root.theme.green", result_item)
         self.assertIn("hasPersistentItemControls", card)

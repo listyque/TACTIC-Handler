@@ -1,6 +1,6 @@
 import unittest
 
-from modern_ui.workspace_models.state import WorkspaceState
+from thlib.ui.workspace_models.state import WorkspaceState
 
 
 class _SObject:

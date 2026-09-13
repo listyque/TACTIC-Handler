@@ -49,13 +49,26 @@ class DeferredPool:
         return worker
 
 
-class MemorySettings:
+class MemorySettings(dict):
     def __init__(self):
-        self.values = {}
+        super().__init__()
+        self.values = self
 
     def value(self, key, default=None, type=None):
-        value = self.values.get(key, default)
+        value = self.get(key, default)
         return type(value) if type and value is not None else value
 
     def setValue(self, key, value):
-        self.values[key] = value
+        self[key] = value
+
+    def sync(self):
+        pass
+
+    def allKeys(self):
+        return list(self)
+
+    def remove(self, key):
+        self.pop(key, None)
+
+    def contains(self, key):
+        return key in self

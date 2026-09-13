@@ -4,7 +4,7 @@ import threading
 import unittest
 from unittest.mock import patch
 
-from modern_ui.checkin_operation import (
+from thlib.checkin_operation import (
     CheckinCancelled, execute_checkin_payload,
 )
 
@@ -36,11 +36,11 @@ class CheckinVerticalTests(unittest.TestCase):
         }
         with (
             patch(
-                "modern_ui.checkin_operation.prepare_checkin",
+                "thlib.checkin_operation.prepare_checkin",
                 return_value=prepared,
             ) as prepare,
             patch(
-                "modern_ui.checkin_operation.stage_checkin",
+                "thlib.checkin_operation.stage_checkin",
                 return_value=True,
             ) as stage,
             patch.object(
@@ -83,11 +83,11 @@ class CheckinVerticalTests(unittest.TestCase):
             with (
                 self.subTest(mode=source_mode),
                 patch(
-                    "modern_ui.checkin_operation.prepare_checkin",
+                    "thlib.checkin_operation.prepare_checkin",
                     return_value=prepared,
                 ),
                 patch(
-                    "modern_ui.checkin_operation.stage_checkin",
+                    "thlib.checkin_operation.stage_checkin",
                     return_value=True,
                 ),
                 patch.object(
@@ -115,11 +115,11 @@ class CheckinVerticalTests(unittest.TestCase):
         cancelled.set()
         with (
             patch(
-                "modern_ui.checkin_operation.prepare_checkin",
+                "thlib.checkin_operation.prepare_checkin",
                 return_value=prepared,
             ),
             patch(
-                "modern_ui.checkin_operation.stage_checkin",
+                "thlib.checkin_operation.stage_checkin",
                 return_value=True,
             ),
             patch.object(tc, "checkin_snapshot") as checkin,
@@ -144,11 +144,11 @@ class CheckinVerticalTests(unittest.TestCase):
         }
         with (
             patch(
-                "modern_ui.checkin_operation.prepare_checkin",
+                "thlib.checkin_operation.prepare_checkin",
                 return_value=prepared,
             ),
             patch(
-                "modern_ui.checkin_operation.stage_checkin",
+                "thlib.checkin_operation.stage_checkin",
                 return_value=True,
             ),
             patch.object(tc, "checkin_snapshot", return_value={}),

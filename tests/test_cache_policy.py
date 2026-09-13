@@ -1,9 +1,9 @@
 import unittest
 
-from modern_ui.cache_policy import CACHE_POLICIES, cache_policy
-from modern_ui.communication_feed import MessagesController
-from modern_ui.models import ProjectModel
-from modern_ui.skey_previews import SearchKeyPreviewResolver
+from thlib.ui.cache_policy import CACHE_POLICIES, cache_policy
+from thlib.ui.communication_feed import MessagesController
+from thlib.ui.models import ProjectModel
+from thlib.ui.skey_previews import SearchKeyPreviewResolver
 
 
 class CachePolicyTests(unittest.TestCase):

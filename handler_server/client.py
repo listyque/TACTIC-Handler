@@ -78,7 +78,7 @@ class ThinClient:
         self._command_thread.start()
         self._thread.start()
 
-    def stop(self) -> None:
+    def stop(self, wait=True) -> None:
         self.reconnect = False
         self._running.clear()
         self._connected.clear()
@@ -87,10 +87,11 @@ class ThinClient:
             self._command_queue.put_nowait(None)
         except queue.Full:
             pass
-        if self._thread and self._thread is not threading.current_thread():
+        if wait and self._thread and self._thread is not threading.current_thread():
             self._thread.join(timeout=2.0)
         if (
-            self._command_thread
+            wait
+            and self._command_thread
             and self._command_thread is not threading.current_thread()
         ):
             self._command_thread.join(timeout=2.0)
@@ -167,6 +168,13 @@ class ThinClient:
             action=str(action or ""),
             status=str(status or "info"),
             payload=dict(payload or {}),
+        ))
+
+    def refresh_capabilities(self):
+        self._send(message(
+            "capabilities",
+            client_id=self.client_id,
+            capabilities=self.registry.capabilities(),
         ))
 
     def _connection_loop(self):

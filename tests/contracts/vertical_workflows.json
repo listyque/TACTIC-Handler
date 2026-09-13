@@ -1,5 +1,4 @@
 {
-  "schemaVersion": 1,
   "sharedModules": [
     "tests.test_contracts",
     "tests.test_qml_smoke_harness",
@@ -47,7 +46,7 @@
       "modules": [
         "tests.test_checkin_vertical",
         "tests.test_checkin_operation",
-        "tests.test_modern_commit_queue",
+        "tests.test_commit_queue",
         "tests.test_drop_plate",
         "tests.test_repository_sync",
         "tests.test_snapshot_browser"

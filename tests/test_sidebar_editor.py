@@ -1,6 +1,6 @@
 from xml.etree import ElementTree
 
-from modern_ui.sidebar_editor import (
+from thlib.ui.sidebar_editor import (
     _LINK_CLASS,
     _SECTION_CLASS,
     SidebarEditorController,
@@ -18,11 +18,11 @@ from modern_ui.sidebar_editor import (
     _slug,
     _widget_type,
 )
-from modern_ui.sidebar_icons import (
+from thlib.ui.sidebar_icons import (
     icon_name_for_tactic,
     icon_name_from_tactic,
 )
-from modern_ui.models import NavigationModel
+from thlib.ui.models import NavigationModel
 
 
 def test_sidebar_icon_names_round_trip_through_tactic_format():
@@ -131,6 +131,8 @@ def test_sidebar_session_starts_with_handler_branch_filter_enabled():
 
     assert controller.handlerOnly is True
     assert reloads == [True]
+
+
 
 
 def test_nested_view_elements_match_native_views_config_behavior():
@@ -524,14 +526,86 @@ def test_sidebar_simple_display_fields_write_native_xml():
     element = ElementTree.fromstring(
         "<element name='assets'><display class='LinkWdg'/></element>"
     )
-    from modern_ui.sidebar_editor import _set_display_option
+    from thlib.ui.sidebar_editor import _set_display_option
 
     element.set("is_visible", "off")
     _set_display_option(element, "widget_key", "custom_layout")
     _set_display_option(element, "view", "project/assets")
     _set_display_option(element, "view_mode", "splitted_vertical")
+    _set_display_option(
+        element, "layout_preset", "workspace_layout@review",
+    )
 
     assert element.get("is_visible") == "off"
     assert _widget_type(element) == "custom_layout"
     assert _display_option(element, "view") == "project/assets"
     assert _result_view_mode(element) == "splitted_vertical"
+    assert _display_option(element, "layout_preset") == (
+        "workspace_layout@review"
+    )
+
+
+def test_sidebar_editor_excludes_workspace_layout_config_records():
+    class Registry:
+        def register(self, _name, _callback):
+            pass
+
+    class Application:
+        _registry = Registry()
+        navigation_model = NavigationModel()
+
+    class Users:
+        canManageUsers = True
+
+    controller = SidebarEditorController(Application(), Users())
+    controller._loaded(("demo", "Demo", object(), [{
+        "search_type": "SideBarWdg",
+        "view": "definition",
+        "config": (
+            "<config><element name='assets' title='Assets'>"
+            "<display class='LinkWdg'/></element></config>"
+        ),
+    }, {
+        "search_type": "SideBarWdg",
+        "category": "workspace_layout",
+        "view": "workspace_layout@review",
+        "config": "<config><view name='workspace_layout@review'/></config>",
+    }]))
+
+    assert set(controller._documents) == {"definition"}
+
+
+def test_sidebar_entry_layout_assignment_is_native_display_data():
+    class Registry:
+        def register(self, _name, _callback):
+            pass
+
+    class Application:
+        _registry = Registry()
+        navigation_model = NavigationModel()
+
+    class Users:
+        canManageUsers = True
+
+    controller = SidebarEditorController(Application(), Users())
+    controller._loaded(("demo", "Demo", object(), [{
+        "search_type": "SideBarWdg",
+        "view": "definition",
+        "config": (
+            "<config><element name='assets' title='Assets'>"
+            "<display class='LinkWdg'/><search_type>demo/assets</search_type>"
+            "</element></config>"
+        ),
+    }]))
+    controller.select_entry(0)
+
+    controller.update_selected(
+        "layoutPreset", "workspace_layout@review",
+    )
+
+    assert controller.selectedEntry["layoutPreset"] == (
+        "workspace_layout@review"
+    )
+    assert "<layout_preset>workspace_layout@review</layout_preset>" in (
+        controller.xmlText
+    )

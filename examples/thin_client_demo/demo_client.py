@@ -6,7 +6,7 @@ import queue
 import sys
 from pathlib import Path
 
-from PySide6.QtCore import QObject, Property, QTimer, QUrl, Signal, Slot
+from PySide6.QtCore import QObject, Property, Qt, QUrl, Signal, Slot
 from PySide6.QtGui import QGuiApplication
 from PySide6.QtQml import QQmlApplicationEngine
 
@@ -16,11 +16,11 @@ if str(PROJECT_ROOT) not in sys.path:
 
 from handler_server.client import ThinClient
 from handler_server.demo_maya_adapter import DemoMayaAdapter
-from tactic_handler_dcc import environment as dcc_environment
 
 
 class DemoClientController(QObject):
     stateChanged = Signal()
+    _eventsReady = Signal()
 
     def __init__(self, client, adapter, registry, endpoint, events, parent=None):
         super().__init__(parent)
@@ -33,10 +33,14 @@ class DemoClientController(QObject):
         self._scene_path = str(adapter.current_path)
         self._result = "Ready"
         self._show_request = ""
-        self._timer = QTimer(self)
-        self._timer.setInterval(250)
-        self._timer.timeout.connect(self._refresh)
-        self._timer.start()
+        self._eventsReady.connect(
+            self._refresh, Qt.ConnectionType.QueuedConnection
+        )
+        self._refresh()
+
+    def enqueue_event(self, event):
+        self._events.put(event)
+        self._eventsReady.emit()
 
     @Property(bool, notify=stateChanged)
     def connected(self):
@@ -126,7 +130,7 @@ class DemoClientController(QObject):
             return
         try:
             self._show_request = self._client.send_command(
-                "@modern_ui", "show_handler_window", {}, timeout=5.0
+                "@tactic_handler", "show_handler_window", {}, timeout=5.0
             )
             self._result = "Requesting TACTIC Handler window..."
         except (ConnectionError, OSError) as error:
@@ -174,7 +178,6 @@ class DemoClientController(QObject):
             self.stateChanged.emit()
 
     def shutdown(self):
-        self._timer.stop()
         self._client.stop()
 
 
@@ -208,15 +211,14 @@ def main(argv=None):
     if not client.wait_connected(5.0):
         client.stop()
         raise SystemExit("Could not connect to Handler Server")
-    dcc_environment.configure(client)
-
     controller = DemoClientController(
         client, adapter, registry, f"{client.host}:{client.port}", events,
         parent=app,
     )
+    client.on_event = controller.enqueue_event
     engine = QQmlApplicationEngine()
     engine.rootContext().setContextProperty("thinClientController", controller)
-    qml_path = PROJECT_ROOT / "modern_ui" / "qml" / "DemoThinClientWindow.qml"
+    qml_path = PROJECT_ROOT / "thlib" / "ui" / "qml" / "DemoThinClientWindow.qml"
     engine.load(QUrl.fromLocalFile(str(qml_path)))
     if not engine.rootObjects():
         controller.shutdown()

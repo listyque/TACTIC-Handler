@@ -6,7 +6,7 @@ import unittest
 
 
 ROOT = Path(__file__).resolve().parents[1]
-QML_ROOT = ROOT / "modern_ui" / "qml"
+QML_ROOT = ROOT / "thlib" / "ui" / "qml"
 SMALL_PIXEL_FONT = re.compile(
     r"font\.pixelSize:\s*(?:7|8|9|10|11)(?:\D|$)"
 )
@@ -42,10 +42,10 @@ class TypographyPolicyTests(unittest.TestCase):
             "Typography scale must increase monotonically",
         )
 
-    def test_native_renderer_and_resize_layer_policy(self) -> None:
-        source = (ROOT / "main_qml.py").read_text(encoding="utf-8")
-        self.assertIn("TextRenderType.NativeTextRendering", source)
-        self.assertNotIn("QQuickWindow.TextRenderType.CurveTextRendering", source)
+    def test_scalable_renderer_and_resize_layer_policy(self) -> None:
+        source = (ROOT / "thlib/ui/application.py").read_text(encoding="utf-8")
+        self.assertIn("TextRenderType.QtTextRendering", source)
+        self.assertNotIn("TextRenderType.NativeTextRendering", source)
 
         dock_source = (QML_ROOT / "DockPanel.qml").read_text(encoding="utf-8")
         self.assertNotIn("layer.enabled:", dock_source)

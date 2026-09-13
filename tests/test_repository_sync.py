@@ -8,7 +8,10 @@ from unittest.mock import Mock, patch
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
-from modern_ui.repository_sync import (
+from PySide6.QtGui import QGuiApplication
+from PySide6.QtTest import QSignalSpy, QTest
+
+from thlib.ui.repository_sync import (
     DownloadRunnable,
     PreparedSyncEntry,
     RepositorySyncController,
@@ -21,9 +24,14 @@ from thlib.tactic_classes import get_snapshots_updates_list
 
 
 class _FilePaths:
-    def __init__(self, directory, filename="preview.jpg"):
+    def __init__(
+        self, directory, filename="preview.jpg", expected_size=0,
+        server_timestamp=None,
+    ):
         self.directory = str(directory)
         self.filename = filename
+        self.expected_size = expected_size
+        self.server_timestamp = server_timestamp
 
     def get_abs_path(self):
         return self.directory
@@ -31,8 +39,51 @@ class _FilePaths:
     def get_full_abs_path(self):
         return os.path.join(self.directory, self.filename)
 
+    def get_file_size(self):
+        return self.expected_size
+
+    def get_timestamp(self, obj=False):
+        return self.server_timestamp if obj else ""
+
 
 class RepositorySyncTests(unittest.TestCase):
+    def test_discovery_time_is_included_in_batch_elapsed_time(self):
+        controller = RepositorySyncController()
+
+        with patch("thlib.ui.repository_sync.time.perf_counter", return_value=10):
+            controller._begin_discovery("default", False, "full")
+        with patch("thlib.ui.repository_sync.time.perf_counter", return_value=16):
+            summary = controller._compute_aggregate_summary()
+
+        self.assertTrue(controller._batch_running)
+        self.assertEqual(controller._batch_started_at, 10)
+        self.assertEqual(summary["elapsed"], 6)
+        controller._elapsed_timer.stop()
+
+    def test_presets_are_ui_safe_cached_copies(self):
+        project = Mock()
+        project.get_code.return_value = "demo"
+        stype = Mock()
+        stype.get_code.return_value = "demo/asset"
+        stype.get_project.return_value = project
+        source = Mock()
+        source.get_stype.return_value = stype
+        controller = RepositorySyncController()
+
+        with patch("thlib.tactic_classes.server_start") as server_start:
+            initial = controller.presets(source)
+
+        server_start.assert_not_called()
+        self.assertEqual(initial[0]["preset_name"], "default")
+        controller.cache_presets(source, [{
+            "preset_name": "review", "pretty_preset_name": "Review",
+        }])
+        cached = controller.presets(source)
+        cached[0]["preset_name"] = "mutated"
+        self.assertEqual(
+            controller.presets(source)[0]["preset_name"], "review"
+        )
+
     def test_update_check_reads_aggregate_repository_sync_state(self):
         stype = Mock()
         stype.project.info = {"type": "project", "code": "demo"}
@@ -49,7 +100,6 @@ class RepositorySyncTests(unittest.TestCase):
                     "EPISODE0002": "2026.08.13 11:00:00",
                 },
             ),
-            patch("thlib.tactic_classes.glob.glob1", return_value=[]),
         ):
             result = get_snapshots_updates_list("demo/episode", "demo")
 
@@ -57,6 +107,40 @@ class RepositorySyncTests(unittest.TestCase):
             ("EPISODE0001", "2026.08.13 10:00:00"),
             ("EPISODE0002", "2026.08.13 11:00:00"),
         ])
+
+    def test_update_check_skips_non_project_config_search_types(self):
+        with (
+            patch(
+                "thlib.tactic_classes.env_inst.get_stype_by_code",
+                return_value=None,
+            ),
+            patch("thlib.tactic_classes.env_read_config") as read_config,
+        ):
+            result = get_snapshots_updates_list(
+                "config/widget_config", "demo"
+            )
+
+        self.assertEqual(result, [])
+        read_config.assert_not_called()
+
+    def test_sync_state_reads_only_aggregate_requested_codes(self):
+        with patch(
+            "thlib.environment.env_read_config",
+            return_value={
+                "ASSET001": "2026.08.13 10:00:00",
+                "ASSET002": "2026.08.13 11:00:00",
+            },
+        ) as read_config:
+            result = RepositorySyncController._read_sync_state(
+                "ui_search/demo/assets", ["ASSET002"]
+            )
+
+        self.assertEqual(result, {"ASSET002": "2026.08.13 11:00:00"})
+        read_config.assert_called_once_with(
+            filename="repository_sync_state",
+            unique_id="ui_search/demo/assets",
+            long_abs_path=True,
+        )
 
     def test_partial_stype_discovery_streams_bounded_root_pages(self):
         project = Mock()
@@ -68,23 +152,29 @@ class RepositorySyncTests(unittest.TestCase):
         stype.get_code.return_value = "demo/episode"
 
         roots = []
-        for index in range(5):
+        for index in range(9):
             root = Mock()
             root.get_code.return_value = f"EPISODE{index:04d}"
             root.get_stype.return_value = stype
             root.get_all_processes.return_value = {}
             roots.append(root)
 
-        def get_sobjects(_search_type, _filters, **kwargs):
-            offset = int(kwargs.get("offset") or 0)
-            limit = int(kwargs.get("limit") or 2)
-            page = roots[offset:offset + limit]
-            result = {
-                root.get_code(): root for root in page
+        first_wave = __import__("threading").Barrier(4, timeout=2)
+
+        def get_sobjects(_search_type, filters, **kwargs):
+            if not kwargs.get("get_all_snapshots"):
+                return {root.get_code(): root for root in roots}
+            page_filter = filters[0]
+            codes = (
+                [page_filter[1]] if len(page_filter) == 2
+                else page_filter[2].split("|")
+            )
+            if codes[0] != "EPISODE0008":
+                first_wave.wait()
+            return {
+                root.get_code(): root
+                for root in roots if root.get_code() in codes
             }
-            if kwargs.get("include_info"):
-                return result, {"total_sobjects_query_count": len(roots)}
-            return result
 
         class Progress:
             def __init__(self):
@@ -98,27 +188,47 @@ class RepositorySyncTests(unittest.TestCase):
             "thlib.tactic_classes.get_sobjects", side_effect=get_sobjects,
         ) as query:
             result = RepositorySyncController._discover_stype_files_partial(
-                stype, "default", False, {}, 2, 7,
+                stype, "default", False, {}, 2, 4, 7,
                 __import__("threading").Event(), progress,
             )
 
-        self.assertEqual(result["processedRoots"], 5)
-        self.assertEqual(result["totalRoots"], 5)
+        self.assertEqual(result["processedRoots"], 9)
+        self.assertEqual(result["totalRoots"], 9)
         self.assertEqual(result["checkpoint"]["codes"], [
-            f"EPISODE{index:04d}" for index in range(5)
+            f"EPISODE{index:04d}" for index in range(9)
         ])
         self.assertEqual(
-            [value["processedRoots"] for value in progress.values],
-            [2, 4, 5],
+            [
+                value["processedRoots"] for value in progress.values
+                if value["stage"] == "streaming"
+            ],
+            [2, 4, 6, 8, 9],
         )
-        self.assertEqual(query.call_count, 3)
+        self.assertEqual(query.call_count, 6)
+        page_calls = [
+            call for call in query.call_args_list
+            if call.kwargs.get("get_all_snapshots")
+        ]
         self.assertEqual(
-            [call.kwargs["offset"] for call in query.call_args_list],
-            [0, 2, 4],
+            sorted(
+                tuple(
+                    [call.args[1][0][1]]
+                    if len(call.args[1][0]) == 2
+                    else call.args[1][0][2].split("|")
+                )
+                for call in page_calls
+            ),
+            [
+                ("EPISODE0000", "EPISODE0001"),
+                ("EPISODE0002", "EPISODE0003"),
+                ("EPISODE0004", "EPISODE0005"),
+                ("EPISODE0006", "EPISODE0007"),
+                ("EPISODE0008",),
+            ],
         )
         self.assertTrue(all(
             call.kwargs["get_all_snapshots"]
-            for call in query.call_args_list
+            for call in page_calls
         ))
 
     def test_partial_batch_does_not_finish_between_discovery_chunks(self):
@@ -131,6 +241,34 @@ class RepositorySyncTests(unittest.TestCase):
             self.assertFalse(controller._finish_batch_if_idle())
 
         commit.assert_not_called()
+
+    def test_partial_discovery_rejects_an_incomplete_server_page(self):
+        project = Mock()
+        project.info = {"type": "project", "code": "demo"}
+        project.get_code.return_value = "demo"
+        project.stypes = {}
+        stype = Mock()
+        stype.get_project.return_value = project
+        stype.get_code.return_value = "demo/episode"
+        roots = {}
+        for code in ("EPISODE0001", "EPISODE0002"):
+            root = Mock()
+            root.get_code.return_value = code
+            root.get_stype.return_value = stype
+            root.get_all_processes.return_value = {}
+            roots[code] = root
+
+        with patch(
+            "thlib.tactic_classes.get_sobjects",
+            side_effect=[roots, {"EPISODE0001": roots["EPISODE0001"]}],
+        ):
+            with self.assertRaisesRegex(
+                RuntimeError, "omitted 1 Repository Sync objects",
+            ):
+                RepositorySyncController._discover_stype_files_partial(
+                    stype, "default", False, {}, 2, 1, 7,
+                    __import__("threading").Event(),
+                )
 
     def test_repeated_sync_requeues_terminal_original_and_preview_files(self):
         controller = RepositorySyncController()
@@ -172,6 +310,126 @@ class RepositorySyncTests(unittest.TestCase):
             controller.model.get(row)["status"] == "waiting"
             for row in range(2)
         ))
+
+    def test_file_schedule_uses_native_server_timestamp(self):
+        file_object = Mock()
+        file_object.get_full_abs_path.return_value = (
+            "C:/repository/__preview/icon/asset.jpg"
+        )
+        file_object.get_full_web_path.return_value = (
+            "https://example.invalid/asset.jpg"
+        )
+        file_object.get_filename_with_ext.return_value = "asset.jpg"
+        file_object.get_file_size.return_value = 10
+        file_object.get_md5.return_value = ""
+        file_object.get_unique_id.return_value = "FILE0001"
+        server_timestamp = __import__("datetime").datetime(
+            2026, 8, 20, 12, 30, 0
+        )
+        file_object.get_timestamp.return_value = server_timestamp
+        controller = RepositorySyncController()
+
+        with patch.object(
+            controller, "verify_repository_md5_enabled", return_value=True
+        ):
+            handle = controller.schedule_file_object(
+                file_object, process="preview", auto_start=False,
+                is_ui_preview=True,
+            )
+            batch_entry = controller._prepare_file_object(
+                file_object, "preview"
+            )
+
+        expected = server_timestamp.timestamp()
+        self.assertEqual(
+            controller._tasks[handle.task_id].expected_mtime, expected
+        )
+        self.assertEqual(batch_entry.expected_mtime, expected)
+        self.assertTrue(controller._tasks[handle.task_id].is_ui_preview)
+        self.assertFalse(controller._tasks[handle.task_id].verify_md5)
+        self.assertFalse(batch_entry.is_ui_preview)
+        self.assertEqual(controller.model.rowCount(), 0)
+        self.assertEqual(controller.queue_count, 0)
+        self.assertEqual(controller.queue_dict, {})
+
+        with patch.object(
+            controller, "verify_repository_md5_enabled", return_value=True
+        ):
+            full_sync_handle = controller._schedule_prepared_entry(
+                batch_entry, auto_start=False
+            )
+
+        self.assertNotEqual(full_sync_handle.task_id, handle.task_id)
+        self.assertTrue(controller._tasks[handle.task_id].is_ui_preview)
+        self.assertFalse(controller._tasks[handle.task_id].verify_md5)
+        self.assertFalse(
+            controller._tasks[full_sync_handle.task_id].is_ui_preview
+        )
+        self.assertTrue(
+            controller._tasks[full_sync_handle.task_id].verify_md5
+        )
+        self.assertEqual(controller.model.rowCount(), 1)
+        self.assertEqual(controller.queue_count, 1)
+        self.assertEqual(
+            controller.queue_dict["FILE0001"].task_id,
+            full_sync_handle.task_id,
+        )
+        file_object.get_timestamp.assert_called_with(obj=True)
+
+    def test_fresh_ui_preview_finishes_without_queue_logs_or_batch_notice(self):
+        application = QGuiApplication.instance() or QGuiApplication([])
+        self.assertIsNotNone(application)
+        with TemporaryDirectory() as directory:
+            destination = os.path.join(directory, "preview.jpg")
+            with open(destination, "wb") as stream:
+                stream.write(b"local-preview")
+            local_mtime = os.path.getmtime(destination)
+            debug_log = Mock()
+            file_object = Mock()
+            file_object.get_full_abs_path.return_value = destination
+            file_object.get_full_web_path.return_value = (
+                "https://example.invalid/preview.jpg"
+            )
+            file_object.get_filename_with_ext.return_value = "preview.jpg"
+            file_object.get_file_size.return_value = len(b"local-preview")
+            file_object.get_md5.return_value = ""
+            file_object.get_timestamp.return_value = (
+                __import__("datetime").datetime.fromtimestamp(local_mtime)
+            )
+            file_object.get_unique_id.return_value = "FILE_PREVIEW"
+            file_object.is_exists.return_value = True
+            controller = RepositorySyncController(debug_log=debug_log)
+            finished = QSignalSpy(controller.task_finished)
+            downloaded = []
+            batch_notices = []
+            controller.file_download_done.connect(downloaded.append)
+            controller.downloads_finished.connect(
+                lambda: batch_notices.append(True)
+            )
+
+            with patch(
+                "thlib.ui.repository_sync.urllib.request.urlopen"
+            ) as urlopen:
+                handle = controller.schedule_file_object(
+                    file_object, process="preview", auto_start=True,
+                    is_ui_preview=True,
+                )
+                deadline = time.monotonic() + 2.0
+                while finished.count() == 0 and time.monotonic() < deadline:
+                    QTest.qWait(10)
+                self.assertEqual(finished.count(), 1)
+
+            self.assertEqual(controller.model.rowCount(), 0)
+            self.assertEqual(controller.queue_count, 0)
+            self.assertEqual(controller.queue_dict, {})
+            self.assertEqual(batch_notices, [])
+            self.assertEqual(downloaded, [file_object])
+            self.assertTrue(handle.is_download_finished())
+            self.assertNotIn(handle.task_id, controller._tasks)
+            file_object.prepare_repo.assert_not_called()
+            urlopen.assert_not_called()
+            debug_log.log.assert_not_called()
+            controller.shutdown()
 
     def test_child_collection_inherits_full_sync_versions(self):
         project = Mock()
@@ -300,7 +558,7 @@ class RepositorySyncTests(unittest.TestCase):
         self.assertEqual(controller._active, 4)
         self.assertEqual(len(controller._pending_start_ids), 5)
 
-    def test_stype_full_discovery_uses_one_snapshot_batch(self):
+    def test_stype_full_discovery_balances_four_parallel_pages(self):
         project = Mock()
         project.info = {"type": "project", "code": "demo"}
         project.get_code.return_value = "demo"
@@ -308,31 +566,73 @@ class RepositorySyncTests(unittest.TestCase):
         stype = Mock()
         stype.get_project.return_value = project
         stype.get_code.return_value = "demo/asset"
-        sobject = Mock()
-        sobject.get_code.return_value = "ASSET0001"
-        sobject.get_stype.return_value = stype
-        sobject.get_all_processes.return_value = {}
+        sobjects = {}
+        for index in range(8):
+            sobject = Mock()
+            code = f"ASSET{index:04d}"
+            sobject.get_code.return_value = code
+            sobject.get_stype.return_value = stype
+            sobject.get_all_processes.return_value = {}
+            sobjects[code] = sobject
+        progress = []
+
+        class Progress:
+            @staticmethod
+            def emit(payload):
+                progress.append(dict(payload))
+
+        first_wave = __import__("threading").Barrier(4, timeout=2)
+
+        def get_sobjects(_search_type, filters, **kwargs):
+            if not kwargs.get("get_all_snapshots"):
+                return sobjects
+            first_wave.wait()
+            page_filter = filters[0]
+            codes = (
+                [page_filter[1]] if len(page_filter) == 2
+                else page_filter[2].split("|")
+            )
+            return {code: sobjects[code] for code in codes}
 
         with (
             patch(
                 "thlib.tactic_classes.get_sobjects",
-                return_value=({"ASSET0001": sobject}, {}),
+                side_effect=get_sobjects,
             ) as get_sobjects,
             patch.object(
                 RepositorySyncController, "_load_stype_preset"
             ) as load_preset,
         ):
             files, checkpoint = RepositorySyncController._discover_stype_files(
-                stype, "default", False, preset_data={}
+                stype, "default", False, preset_data={}, max_workers=4,
+                generation=7,
+                progress_signal=Progress(),
             )
 
         self.assertEqual(files, [])
-        self.assertEqual(checkpoint["codes"], ["ASSET0001"])
-        get_sobjects.assert_called_once()
-        self.assertTrue(get_sobjects.call_args.kwargs["get_all_snapshots"])
-        self.assertFalse(get_sobjects.call_args.kwargs["include_info"])
+        self.assertEqual(checkpoint["codes"], list(sobjects))
+        self.assertEqual(get_sobjects.call_count, 5)
+        page_calls = [
+            call for call in get_sobjects.call_args_list
+            if call.kwargs.get("get_all_snapshots")
+        ]
+        self.assertEqual(
+            sorted(tuple(call.args[1][0][2].split("|")) for call in page_calls),
+            [
+                ("ASSET0000", "ASSET0001"),
+                ("ASSET0002", "ASSET0003"),
+                ("ASSET0004", "ASSET0005"),
+                ("ASSET0006", "ASSET0007"),
+            ],
+        )
+        self.assertEqual(progress[0]["stage"], "objects")
+        self.assertEqual(progress[1]["stage"], "scope")
+        self.assertEqual(progress[-1]["processedRoots"], 8)
+        self.assertEqual(progress[-1]["totalRoots"], 8)
+        self.assertTrue(all(item["generation"] == 7 for item in progress))
         load_preset.assert_not_called()
-        sobject.update_snapshots.assert_not_called()
+        for sobject in sobjects.values():
+            sobject.update_snapshots.assert_not_called()
 
     def test_many_direct_children_are_loaded_in_one_relation_batch(self):
         project = Mock()
@@ -387,6 +687,8 @@ class RepositorySyncTests(unittest.TestCase):
             parent.get_related_sobjects.assert_not_called()
 
     def test_many_instance_children_use_two_level_batches(self):
+        from thlib.tactic_classes import Schema
+
         project = Mock()
         project.get_code.return_value = "demo"
         parent_stype = Mock()
@@ -401,11 +703,28 @@ class RepositorySyncTests(unittest.TestCase):
             "instance_type": "demo/asset_in_episode",
         }
         parent_stype.get_schema.return_value = relation_schema
-        instance_schema = Mock()
-        instance_schema.get_child_instance.return_value = {
-            "from": "demo/asset_in_episode", "to": "demo/asset",
-            "from_col": "asset_code", "to_col": "episode_code",
-        }
+        instance_schema = Schema([
+            {"search_type": {"name": "demo/asset_in_episode"}},
+            {
+                "children": [],
+                "parents": [
+                    {
+                        "from": "demo/asset_in_episode",
+                        "to": "demo/asset",
+                        "relationship": "code",
+                        "from_col": "asset_code",
+                        "to_col": "code",
+                    },
+                    {
+                        "from": "demo/asset_in_episode",
+                        "to": "demo/episode",
+                        "relationship": "code",
+                        "from_col": "episode_code",
+                        "to_col": "code",
+                    },
+                ],
+            },
+        ])
         parents = []
         for index in range(219):
             parent = Mock()
@@ -433,9 +752,77 @@ class RepositorySyncTests(unittest.TestCase):
         self.assertEqual(get_sobjects.call_count, 2)
         instance_call, child_call = get_sobjects.call_args_list
         self.assertEqual(instance_call.args[0], "demo/asset_in_episode")
+        self.assertEqual(instance_call.args[1][0][0], "episode_code")
         self.assertFalse(instance_call.kwargs["include_snapshots"])
         self.assertEqual(child_call.args[0], "demo/asset")
         self.assertTrue(child_call.kwargs["get_all_snapshots"])
+        for parent in parents:
+            parent.get_related_sobjects.assert_not_called()
+
+    def test_self_instance_children_use_path_columns_in_two_batches(self):
+        from thlib.tactic_classes import Schema
+
+        project = Mock()
+        project.get_code.return_value = "demo"
+        asset_stype = Mock()
+        asset_stype.get_code.return_value = "demo/asset"
+        asset_stype.get_project.return_value = project
+        relation_schema = Mock()
+        relation_schema.get_child.return_value = {
+            "from": "demo/asset", "to": "demo/asset",
+            "relationship": "instance",
+            "instance_type": "demo/asset_in_asset",
+        }
+        asset_stype.get_schema.return_value = relation_schema
+        instance_schema = Schema([
+            {"search_type": {"name": "demo/asset_in_asset"}},
+            {
+                "children": [{
+                    "from": "demo/asset_in_asset", "to": "demo/asset",
+                    "relationship": "code",
+                    "from_col": "parent_asset_code", "to_col": "code",
+                    "path": "child",
+                }],
+                "parents": [{
+                    "from": "demo/asset_in_asset", "to": "demo/asset",
+                    "relationship": "code",
+                    "from_col": "child_asset_code", "to_col": "code",
+                    "path": "parent",
+                }],
+            },
+        ])
+        parents = []
+        for code in ("ASSET0001", "ASSET0002"):
+            parent = Mock()
+            parent.get_code.return_value = code
+            parent.get_schema.return_value = instance_schema
+            parents.append(parent)
+        instance = Mock()
+        instance.get_value.side_effect = {
+            "child_asset_code": "ASSET0003",
+        }.get
+        child = Mock()
+        child.get_search_key.return_value = "demo/asset?code=ASSET0003"
+        child.get_code.return_value = "ASSET0003"
+
+        with patch(
+            "thlib.tactic_classes.get_sobjects",
+            side_effect=[
+                ({"INSTANCE0001": instance}, {}),
+                ({"ASSET0003": child}, {}),
+            ],
+        ) as get_sobjects:
+            related = RepositorySyncController._query_related_sobjects_batch(
+                parents, asset_stype, asset_stype,
+            )
+
+        self.assertEqual(related, [child])
+        instance_call, child_call = get_sobjects.call_args_list
+        self.assertEqual(
+            instance_call.args[1][0][:2],
+            ("parent_asset_code", "in"),
+        )
+        self.assertEqual(child_call.args[1][0], ("code", "ASSET0003"))
         for parent in parents:
             parent.get_related_sobjects.assert_not_called()
 
@@ -456,8 +843,8 @@ class RepositorySyncTests(unittest.TestCase):
             patch(
                 "thlib.tactic_classes.get_sobjects",
                 side_effect=[
-                    ({"ASSET0001": sobject}, {}),
-                    ({"ASSET0001": sobject}, {}),
+                    {"ASSET0001": sobject},
+                    {"ASSET0001": sobject},
                 ],
             ) as get_sobjects,
             patch.object(
@@ -470,10 +857,10 @@ class RepositorySyncTests(unittest.TestCase):
             )
 
         self.assertEqual(get_sobjects.call_count, 2)
-        first, second = get_sobjects.call_args_list
-        self.assertFalse(first.kwargs["include_snapshots"])
+        scope, snapshots = get_sobjects.call_args_list
+        self.assertFalse(scope.kwargs["include_snapshots"])
         self.assertEqual(
-            second.kwargs["snapshot_timestamps"],
+            snapshots.kwargs["snapshot_timestamps"],
             [("ASSET0001", "2026.08.13 10:00:00")],
         )
         sobject.update_snapshots.assert_not_called()
@@ -591,14 +978,27 @@ class RepositorySyncTests(unittest.TestCase):
     def test_completion_coalesces_aggregate_scan_while_batch_continues(self):
         controller = RepositorySyncController()
         controller._active = 1
+        controller._visible_active = 1
+        controller._batch_running = True
         controller._pending_start_ids.append("next")
+        task = SyncTask(
+            task_id="complete", key="complete", file_object=Mock(),
+            title="complete", process="publish", local_path="complete",
+            web_path="https://example.invalid/complete",
+            expected_size=0,
+        )
+        controller._tasks["next"] = SyncTask(
+            task_id="next", key="next", file_object=Mock(),
+            title="next", process="publish", local_path="next",
+            web_path="https://example.invalid/next", expected_size=0,
+        )
 
         with (
             patch.object(controller, "_pump_downloads"),
             patch.object(controller, "_refresh_aggregate") as refresh,
             patch.object(controller, "_request_aggregate_refresh") as request,
         ):
-            controller._complete_active()
+            controller._complete_active(task)
 
         refresh.assert_not_called()
         request.assert_called_once_with()
@@ -610,6 +1010,7 @@ class RepositorySyncTests(unittest.TestCase):
         controller._auto_close_on_success = True
         controller._auto_close_task_ids = {"complete"}
         controller._batch_task_ids = {"complete"}
+        controller._batch_running = True
         controller._batch_started_at = time.perf_counter() - 1.0
         controller.model.append({
             "taskId": "complete", "status": "finished",
@@ -629,6 +1030,7 @@ class RepositorySyncTests(unittest.TestCase):
         controller._auto_close_on_success = True
         controller._auto_close_task_ids = {"failed"}
         controller._batch_task_ids = {"failed"}
+        controller._batch_running = True
         controller._batch_started_at = time.perf_counter() - 1.0
         controller.model.append({
             "taskId": "failed", "status": "failed",
@@ -706,6 +1108,35 @@ class RepositorySyncTests(unittest.TestCase):
         self.assertTrue(handle.is_download_finished())
         self.assertFalse(handle.is_download_in_progress())
 
+    def test_finished_worker_does_not_require_a_published_model_row(self):
+        debug_log = Mock()
+        controller = RepositorySyncController(debug_log=debug_log)
+        file_object = Mock()
+        task = SyncTask(
+            task_id="unpublished", key="repository/file.jpg",
+            file_object=file_object, title="file.jpg", process="publish",
+            local_path="D:/repository/file.jpg",
+            web_path="https://example.invalid/file.jpg", expected_size=4,
+        )
+        handle = SyncHandle(controller, task.task_id, file_object)
+        task.handle = handle
+        controller._tasks[task.task_id] = task
+        controller._handles[task.task_id] = handle
+        controller._key_to_task[task.key] = task.task_id
+
+        controller._finished(task.task_id, {
+            "bytes": 4, "elapsed": 0.25,
+            "path": task.local_path, "exists": True,
+        })
+
+        self.assertEqual(task.state, "exists")
+        self.assertTrue(handle.is_download_finished())
+        self.assertEqual(controller.model.rowCount(), 0)
+        self.assertIn(
+            "file.jpg: Already in repository",
+            debug_log.log.call_args.args,
+        )
+
     def test_native_prepare_repo_is_idempotent(self):
         with TemporaryDirectory() as directory:
             target = os.path.join(directory, "__preview", "icon")
@@ -717,8 +1148,43 @@ class RepositorySyncTests(unittest.TestCase):
             self.assertEqual(first, second)
             self.assertTrue(os.path.isdir(target))
 
+    def test_native_file_freshness_uses_size_and_server_timestamp(self):
+        with TemporaryDirectory() as directory:
+            path = os.path.join(directory, "preview.jpg")
+            with open(path, "wb") as stream:
+                stream.write(b"same")
+            local_mtime = os.path.getmtime(path)
+            fresh = _FilePaths(
+                directory, expected_size=4,
+                server_timestamp=__import__("datetime").datetime.fromtimestamp(
+                    local_mtime
+                ),
+            )
+            stale_size = _FilePaths(
+                directory, expected_size=5,
+                server_timestamp=fresh.server_timestamp,
+            )
+            stale_time = _FilePaths(
+                directory, expected_size=4,
+                server_timestamp=__import__("datetime").datetime.fromtimestamp(
+                    local_mtime + 60
+                ),
+            )
+            locally_changed = _FilePaths(
+                directory, expected_size=4,
+                server_timestamp=__import__("datetime").datetime.fromtimestamp(
+                    local_mtime - 60
+                ),
+            )
+
+            self.assertTrue(File.is_local_current(fresh))
+            self.assertFalse(File.is_local_current(stale_size))
+            self.assertFalse(File.is_local_current(stale_time))
+            self.assertFalse(File.is_local_current(locally_changed))
+
     def test_prepare_repo_failure_is_reported_by_worker(self):
         file_object = Mock()
+        file_object.is_exists.return_value = False
         file_object.prepare_repo.side_effect = OSError("Repository unavailable")
         task = SyncTask(
             task_id="sync-1",
@@ -743,6 +1209,137 @@ class RepositorySyncTests(unittest.TestCase):
         self.assertEqual(failures[0][0], "sync-1")
         self.assertIn("Repository unavailable", failures[0][1])
         self.assertIn("OSError", failures[0][2])
+
+    def test_fresh_existing_preview_skips_http_and_prepare(self):
+        with TemporaryDirectory() as directory:
+            destination = os.path.join(directory, "preview.jpg")
+            with open(destination, "wb") as stream:
+                stream.write(b"local-preview")
+            local_mtime = os.path.getmtime(destination)
+            file_object = Mock()
+            file_object.is_exists.return_value = True
+            task = SyncTask(
+                task_id="preview-local", key="preview-local",
+                file_object=file_object, title="Preview", process="preview",
+                local_path=destination,
+                web_path="https://example.invalid/preview.jpg",
+                expected_size=len(b"local-preview"),
+                expected_mtime=local_mtime,
+            )
+            signals = WorkerSignals()
+            finished = []
+            signals.finished.connect(
+                lambda _task_id, result: finished.append(result)
+            )
+
+            with patch(
+                "thlib.ui.repository_sync.urllib.request.urlopen"
+            ) as urlopen:
+                DownloadRunnable(task, signals).run()
+
+        file_object.is_exists.assert_called_once_with()
+        file_object.prepare_repo.assert_not_called()
+        urlopen.assert_not_called()
+        self.assertEqual(len(finished), 1)
+        self.assertTrue(finished[0]["exists"])
+        self.assertEqual(finished[0]["path"], destination)
+
+    def test_same_size_preview_with_newer_server_timestamp_is_downloaded(self):
+        class Response(io.BytesIO):
+            def __init__(self, value):
+                super().__init__(value)
+                self.headers = {"Content-Length": str(len(value))}
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *_args):
+                self.close()
+
+        with TemporaryDirectory() as directory:
+            destination = os.path.join(directory, "preview.jpg")
+            with open(destination, "wb") as stream:
+                stream.write(b"old!")
+            local_mtime = os.path.getmtime(destination)
+            server_mtime = local_mtime + 60
+            file_object = Mock()
+            file_object.is_exists.return_value = True
+            file_object.prepare_repo.return_value = destination
+            task = SyncTask(
+                task_id="preview-stale", key="preview-stale",
+                file_object=file_object, title="Preview", process="preview",
+                local_path=destination,
+                web_path="https://example.invalid/preview.jpg",
+                expected_size=4,
+                expected_mtime=server_mtime,
+            )
+            signals = WorkerSignals()
+            finished = []
+            signals.finished.connect(
+                lambda _task_id, result: finished.append(result)
+            )
+
+            with patch(
+                "thlib.ui.repository_sync.urllib.request.urlopen",
+                return_value=Response(b"new!"),
+            ) as urlopen:
+                DownloadRunnable(task, signals).run()
+
+            with open(destination, "rb") as stream:
+                self.assertEqual(stream.read(), b"new!")
+            downloaded_mtime = os.path.getmtime(destination)
+
+        urlopen.assert_called_once()
+        self.assertEqual(len(finished), 1)
+        self.assertFalse(finished[0]["exists"])
+        self.assertAlmostEqual(
+            downloaded_mtime, server_mtime, delta=2.0
+        )
+
+    def test_full_sync_still_redownloads_wrong_sized_local_file(self):
+        class Response(io.BytesIO):
+            def __init__(self, value):
+                super().__init__(value)
+                self.headers = {"Content-Length": str(len(value))}
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *_args):
+                self.close()
+
+        with TemporaryDirectory() as directory:
+            destination = os.path.join(directory, "asset.bin")
+            with open(destination, "wb") as stream:
+                stream.write(b"old")
+            file_object = Mock()
+            file_object.is_exists.return_value = True
+            file_object.prepare_repo.return_value = destination
+            task = SyncTask(
+                task_id="sync-local", key="sync-local",
+                file_object=file_object, title="Asset", process="preview",
+                local_path=destination,
+                web_path="https://example.invalid/asset.bin",
+                expected_size=4,
+            )
+            signals = WorkerSignals()
+            finished = []
+            signals.finished.connect(
+                lambda _task_id, result: finished.append(result)
+            )
+
+            with patch(
+                "thlib.ui.repository_sync.urllib.request.urlopen",
+                return_value=Response(b"new!"),
+            ) as urlopen:
+                DownloadRunnable(task, signals).run()
+
+            with open(destination, "rb") as stream:
+                self.assertEqual(stream.read(), b"new!")
+
+        urlopen.assert_called_once()
+        self.assertEqual(len(finished), 1)
+        self.assertFalse(finished[0]["exists"])
 
     def test_tiny_download_skips_redundant_terminal_progress_event(self):
         class Response(io.BytesIO):
@@ -779,11 +1376,11 @@ class RepositorySyncTests(unittest.TestCase):
 
             with (
                 patch(
-                    "modern_ui.repository_sync.urllib.request.urlopen",
+                    "thlib.ui.repository_sync.urllib.request.urlopen",
                     return_value=Response(b"tiny"),
                 ),
                 patch(
-                    "modern_ui.repository_sync.time.perf_counter",
+                    "thlib.ui.repository_sync.time.perf_counter",
                     side_effect=[10.0, 10.01, 10.02],
                 ),
             ):
@@ -828,7 +1425,7 @@ class RepositorySyncTests(unittest.TestCase):
             signals.finished.connect(lambda _task_id, result: finished.append(result))
 
             with patch(
-                "modern_ui.repository_sync.urllib.request.urlopen",
+                "thlib.ui.repository_sync.urllib.request.urlopen",
                 return_value=Response(expected),
             ):
                 DownloadRunnable(task, signals).run()

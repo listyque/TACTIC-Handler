@@ -10,7 +10,7 @@ import unittest
 from unittest import mock
 
 import launch
-from tests import run_release_gate
+from tests import run_isolated_suite, run_release_gate
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -18,23 +18,20 @@ CONTRACT = ROOT / "tests" / "contracts" / "release_acceptance.json"
 
 
 class ReleaseReadinessContractTests(unittest.TestCase):
-    def test_common_launcher_defaults_to_modern_and_keeps_explicit_legacy(self):
-        with mock.patch.dict(os.environ, {}, clear=True):
-            selected, forwarded = launch._selected_ui(["launch.py"])
-        self.assertEqual(selected, "qml")
-        self.assertEqual(forwarded, ["launch.py"])
-        selected, forwarded = launch._selected_ui(
-            ["launch.py", "--ui", "legacy", "--example"]
-        )
-        self.assertEqual(selected, "legacy")
-        self.assertEqual(forwarded, ["launch.py", "--example"])
+    def test_common_launcher_has_only_the_application_entrypoint(self):
+        source = (ROOT / "launch.py").read_text(encoding="utf-8")
+        self.assertIn("from thlib.ui.application import main as start", source)
+        self.assertNotIn("main_standalone", source)
+        self.assertNotIn("TACTIC_HANDLER_UI", source)
 
     def test_automated_gate_commands_resolve_inside_repository(self):
         contract = json.loads(CONTRACT.read_text(encoding="utf-8"))
         identifiers = [item["id"] for item in contract["automated"]]
         self.assertEqual(len(identifiers), len(set(identifiers)))
+        self.assertIn("python-lint", identifiers)
+        self.assertIn("qml-lint", identifiers)
         self.assertIn("isolated-regression", identifiers)
-        self.assertIn("legacy-smoke", identifiers)
+        self.assertNotIn("legacy-smoke", identifiers)
         self.assertIn("foreign-cwd-entrypoints", identifiers)
         for check in contract["automated"]:
             command = check["command"]
@@ -44,6 +41,36 @@ class ReleaseReadinessContractTests(unittest.TestCase):
             if target == "-m":
                 continue
             self.assertTrue((ROOT / target).is_file(), target)
+
+        isolated = next(
+            item for item in contract["automated"]
+            if item["id"] == "isolated-regression"
+        )
+        self.assertEqual(
+            ["tests/run_isolated_suite.py", "--exclude", "test_qml_lint"],
+            isolated["command"],
+        )
+
+    def test_isolated_runner_can_exclude_an_explicit_module(self):
+        self.assertEqual(
+            [],
+            run_isolated_suite.test_modules(
+                "test_qml_lint.py", excluded=["tests.test_qml_lint"]
+            ),
+        )
+
+    def test_activity_feed_loading_does_not_rediscover_imported_test_cases(self):
+        from tests import test_activity_feed_loading
+
+        suite = unittest.defaultTestLoader.loadTestsFromModule(
+            test_activity_feed_loading
+        )
+        modules = {
+            test.__class__.__module__
+            for group in suite
+            for test in group
+        }
+        self.assertEqual({"tests.test_activity_feed_loading"}, modules)
 
     def test_environment_dependent_checks_remain_explicitly_manual(self):
         contract = json.loads(CONTRACT.read_text(encoding="utf-8"))
@@ -74,7 +101,7 @@ class ReleaseReadinessContractTests(unittest.TestCase):
             self.assertTrue(path.is_file(), str(path))
 
     def test_runtime_dependencies_are_pinned_and_direct(self):
-        requirements = (ROOT / "requirements-modern.txt").read_text(
+        requirements = (ROOT / "requirements.txt").read_text(
             encoding="utf-8"
         )
         dependencies = [
@@ -83,10 +110,19 @@ class ReleaseReadinessContractTests(unittest.TestCase):
         ]
         self.assertEqual(["PySide6==6.11.1"], dependencies)
 
+    def test_development_linter_is_pinned(self):
+        requirements = (ROOT / "requirements-dev.txt").read_text(
+            encoding="utf-8"
+        )
+        dependencies = [
+            line.strip() for line in requirements.splitlines()
+            if line.strip() and not line.lstrip().startswith("#")
+        ]
+        self.assertEqual(["-r requirements.txt", "ruff==0.16.5"], dependencies)
+
     def test_manual_results_require_status_identity_time_and_evidence(self):
         contract = json.loads(CONTRACT.read_text(encoding="utf-8"))
         complete = {
-            "schemaVersion": 1,
             "checks": {
                 item["id"]: {
                     "status": "passed",

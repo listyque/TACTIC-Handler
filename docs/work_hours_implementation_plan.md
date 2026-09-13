@@ -26,7 +26,7 @@ The original reports catalog defines:
 - Labor Cost reports attached to project search types;
 - task schedule, due-date, completion and burndown reports.
 
-The modern implementation keeps these meanings. It does not copy the original
+The QML implementation keeps these meanings. It does not copy the original
 widget limitation that assumed one time entry per task and day: multiple real
 entries are preserved and aggregated.
 
@@ -154,7 +154,7 @@ Two reusable dock surfaces are registered:
 They are driven by report descriptors rather than one QML file per report. The
 initial descriptors reproduce the original report catalog. Each report declares
 its source, date column, measures, grouping, required permission and supported
-filters. This is the modern equivalent of TACTIC report/widget configuration,
+filters. This is the QML equivalent of TACTIC report/widget configuration,
 while calculations remain in Python/server APIs rather than QML.
 
 Initial report set:
@@ -202,9 +202,7 @@ Initial report set:
   access, custom status pipelines, installations without `hourly_wage`, and
   production reporting volumes.
 
-No new persistent client preference was introduced. The only persisted state
-is the existing shared dock layout, so Configuration does not need a duplicate
-setting for this feature.
+Dock placement is stored in the shared dock layout.
 
 ## Verification matrix
 

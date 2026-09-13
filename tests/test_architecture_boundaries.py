@@ -1,12 +1,14 @@
 from __future__ import annotations
 
 import ast
+import json
 import re
 import unittest
 from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[1]
+ARCHITECTURE_DEBT = ROOT / "tests/contracts/ui_architecture_debt.json"
 
 
 def _python_files(folder: str, *, exclude_side: bool = False):
@@ -57,8 +59,81 @@ def _matches(module: str, prefixes: tuple[str, ...]) -> bool:
 
 
 class ArchitectureBoundaryTests(unittest.TestCase):
-    def test_modern_ui_uses_only_pyside6(self):
-        paths = [ROOT / "main_qml.py", *_python_files("modern_ui")]
+    def test_application_facade_debt_does_not_grow(self):
+        budget = json.loads(ARCHITECTURE_DEBT.read_text(encoding="utf-8"))
+        controller_path = ROOT / "thlib/ui/controller.py"
+        controller_tree = _tree(controller_path)
+        imports = {}
+        for node in controller_tree.body:
+            if not isinstance(node, ast.ImportFrom) or not node.module:
+                continue
+            module = (
+                "thlib.ui." + node.module
+                if node.level
+                else node.module
+            )
+            imports.update((alias.name, module) for alias in node.names)
+        controller = next(
+            node for node in controller_tree.body
+            if isinstance(node, ast.ClassDef)
+            and node.name == "ApplicationController"
+        )
+        owners = [(controller_path, controller)]
+        for base in controller.bases:
+            if not isinstance(base, ast.Name) or base.id == "QObject":
+                continue
+            module = imports[base.id]
+            path = ROOT / Path(*module.split(".")).with_suffix(".py")
+            tree = _tree(path)
+            owners.append((path, next(
+                node for node in tree.body
+                if isinstance(node, ast.ClassDef) and node.name == base.id
+            )))
+        methods = {
+            node.name
+            for _path, owner in owners
+            for node in owner.body
+            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
+        }
+        self.assertLessEqual(
+            len(methods),
+            budget["application_controller_max_methods"],
+            "ApplicationController/mixin callable surface grew; put the "
+            "behavior on a feature-owned controller",
+        )
+
+        action_path = ROOT / "thlib/ui/controllers/item_operations.py"
+        action = next(
+            node for node in ast.walk(_tree(action_path))
+            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
+            and node.name == "invoke_item_action"
+        )
+        action_lines = action.end_lineno - action.lineno + 1
+        self.assertLessEqual(
+            action_lines,
+            budget["invoke_item_action_max_lines"],
+            "invoke_item_action grew; move one complete command into its "
+            "feature handler instead of adding another branch",
+        )
+
+    def test_ui_global_environment_dependency_does_not_grow(self):
+        budget = json.loads(ARCHITECTURE_DEBT.read_text(encoding="utf-8"))[
+            "env_inst_max_modules"
+        ]
+        consumers = []
+        for path in _python_files("thlib/ui"):
+            source = path.read_text(encoding="utf-8", errors="replace")
+            if re.search(r"\benv_inst\b", source):
+                consumers.append(str(path.relative_to(ROOT)))
+        self.assertLessEqual(
+            len(consumers),
+            budget,
+            "env_inst service-locator use grew; inject the narrow dependency "
+            "into the feature controller instead:\n" + "\n".join(consumers),
+        )
+
+    def test_application_ui_uses_only_pyside6(self):
+        paths = [ROOT / "thlib/ui/application.py", *_python_files("thlib/ui")]
         violations = []
         for path in paths:
             for module in _imported_modules(path):
@@ -71,8 +146,8 @@ class ArchitectureBoundaryTests(unittest.TestCase):
                     )
         self.assertEqual([], violations, "\n".join(violations))
 
-    def test_modern_entrypoint_pins_pyside6_for_compatibility_core(self):
-        tree = _tree(ROOT / "main_qml.py")
+    def test_application_entrypoint_pins_pyside6_for_core(self):
+        tree = _tree(ROOT / "thlib/ui/application.py")
         assignments = [
             node for node in ast.walk(tree)
             if isinstance(node, ast.Assign)
@@ -94,31 +169,34 @@ class ArchitectureBoundaryTests(unittest.TestCase):
         )
         self.assertTrue(pinned)
 
-    def test_thlib_does_not_depend_on_modern_ui(self):
+    def test_source_does_not_import_removed_ui_namespace(self):
+        removed_namespace = "modern" + "_ui"
         violations = []
-        for path in _python_files("thlib", exclude_side=True):
-            source = path.read_text(encoding="utf-8", errors="replace")
-            if re.search(
-                r"^\s*(?:from\s+modern_ui(?:\.|\s)|import\s+modern_ui(?:\.|\s|$))",
-                source,
-                flags=re.MULTILINE,
-            ):
-                violations.append(str(path.relative_to(ROOT)))
+        for folder in ("thlib", "handler_server", "tactic_handler_dcc"):
+            for path in _python_files(folder, exclude_side=folder == "thlib"):
+                source = path.read_text(encoding="utf-8", errors="replace")
+                if re.search(
+                    rf"^\s*(?:from\s+{removed_namespace}(?:\.|\s)"
+                    rf"|import\s+{removed_namespace}(?:\.|\s|$))",
+                    source,
+                    flags=re.MULTILINE,
+                ):
+                    violations.append(str(path.relative_to(ROOT)))
         self.assertEqual([], violations, "\n".join(violations))
 
-    def test_modern_python_does_not_open_legacy_qwidget_ui(self):
-        forbidden = ("thlib.ui", "thlib.ui_classes", "thlib.ui_misc")
+    def test_ui_python_does_not_open_removed_qwidget_modules(self):
+        forbidden = ("thlib.ui_classes", "thlib.ui_misc")
         violations = []
-        for path in _python_files("modern_ui"):
+        for path in _python_files("thlib/ui"):
             for module in _imported_modules(path):
                 if _matches(module, forbidden):
                     violations.append(f"{path.relative_to(ROOT)} -> {module}")
         self.assertEqual([], violations, "\n".join(violations))
 
-    def test_qtwidgets_is_confined_to_platform_adapter(self):
-        allowed = {Path("modern_ui/tray.py")}
+    def test_qtwidgets_is_confined_to_application_boundaries(self):
+        allowed = {Path("thlib/ui/application.py"), Path("thlib/ui/tray.py")}
         violations = []
-        for path in _python_files("modern_ui"):
+        for path in _python_files("thlib/ui"):
             relative = path.relative_to(ROOT)
             imports = _imported_modules(path)
             if "PySide6.QtWidgets" in imports and relative not in allowed:
@@ -137,7 +215,7 @@ class ArchitectureBoundaryTests(unittest.TestCase):
             "thlib.",
         )
         violations = []
-        for path in (ROOT / "modern_ui/qml").rglob("*.qml"):
+        for path in (ROOT / "thlib/ui/qml").rglob("*.qml"):
             text = path.read_text(encoding="utf-8")
             found = sorted(token for token in forbidden if token in text)
             if found:
@@ -149,9 +227,9 @@ class ArchitectureBoundaryTests(unittest.TestCase):
     def test_thin_dcc_sdk_does_not_depend_on_full_handler(self):
         forbidden = (
             "thlib",
-            "modern_ui",
-            "handler_server",
-            "main_qml",
+            "handler_server.server",
+            "handler_server.router",
+            "handler_server.launcher",
             "main_standalone",
         )
         violations = []
@@ -164,10 +242,10 @@ class ArchitectureBoundaryTests(unittest.TestCase):
     def test_domain_controllers_have_no_import_cycles(self):
         domain: dict[str, Path] = {}
         suffixes = ("Controller", "Service", "Resolver")
-        for path in _python_files("modern_ui"):
+        for path in _python_files("thlib/ui"):
             tree = _tree(path)
             is_application_mixin = (
-                path.parent == ROOT / "modern_ui/controllers"
+                path.parent == ROOT / "thlib" / "ui" / "controllers"
                 and path.name != "__init__.py"
             )
             is_domain_api = any(

@@ -4,5 +4,5 @@
   "serverUpdates": ["activity", "messages", "presence", "reactions"],
   "skeyPreview": ["kind", "openKey", "searchKey", "status", "title"],
   "taskPage": ["limit", "offset", "parents", "tasks", "total"],
-  "userProfile": ["activity", "processSummary", "statusSummary", "taskSummary", "taskTotal", "tasks"]
+  "userProfile": ["permissions", "processSummary", "statusSummary", "taskSummary", "workHourSummary"]
 }

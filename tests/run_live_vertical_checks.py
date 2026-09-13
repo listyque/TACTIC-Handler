@@ -90,9 +90,15 @@ def run(vertical: str) -> dict:
         result["snapshots"] = len(snapshots or [])
     elif vertical == "messages_users_activity":
         from thlib.environment import env_server
+        from thlib.ui.activity import JOURNAL_ACTIVITY_KINDS
         conversations = tc.get_chat_conversations() or {}
         profile = tc.get_user_profile_data(
-            env_server.get_user(), project_code, activity_limit=5,
+            env_server.get_user(), project_code,
+        ) or {}
+        activity = tc.get_user_recent_activity(
+            "", project_code=project_code, limit=5,
+            kinds=JOURNAL_ACTIVITY_KINDS,
+            logins=[env_server.get_user()],
         ) or {}
         updates = tc.get_server_updates(
             project_code=project_code, limit=5,
@@ -100,7 +106,7 @@ def run(vertical: str) -> dict:
         ) or {}
         result.update({
             "conversations": len(conversations.get("conversations") or []),
-            "activity": len(profile.get("activity") or []),
+            "activity": len(activity.get("records") or []),
             "updateKeys": sorted(updates),
         })
     elif vertical == "handler_server_dcc":

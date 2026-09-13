@@ -1,8 +1,7 @@
 import unittest
 
-from PySide6.QtCore import QCoreApplication
-
-from modern_ui.naming_editor import NamingEditorController
+from tests.qt_application import gui_test_application
+from thlib.ui.naming_editor import NamingEditorController
 
 
 class _Application:
@@ -34,7 +33,7 @@ class _CommitQueue:
 class NamingEditorTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        cls.app = QCoreApplication.instance() or QCoreApplication([])
+        cls.app = gui_test_application()
 
     def setUp(self):
         self.controller = NamingEditorController(

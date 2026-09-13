@@ -11,7 +11,7 @@ import tempfile
 
 
 ROOT = Path(__file__).resolve().parents[1]
-REQUIREMENTS = ROOT / "requirements-modern.txt"
+REQUIREMENTS = ROOT / "requirements.txt"
 
 
 def _run(command: list[str], *, timeout: int) -> None:

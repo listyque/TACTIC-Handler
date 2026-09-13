@@ -1,6 +1,19 @@
 {
-  "schemaVersion": 1,
   "automated": [
+    {
+      "id": "python-lint",
+      "label": "Python static analysis",
+      "command": [
+        "-m",
+        "ruff",
+        "check",
+        "thlib/ui",
+        "handler_server",
+        "tactic_handler_dcc",
+        "tests",
+        "launch.py"
+      ]
+    },
     {
       "id": "python-syntax",
       "label": "Python syntax",
@@ -8,25 +21,27 @@
         "-m",
         "compileall",
         "-q",
-        "modern_ui",
+        "thlib/ui",
         "handler_server",
         "tactic_handler_dcc",
         "tests",
-        "main_qml.py",
-        "main_standalone.py",
-        "launch.py",
-        "smoke_legacy_compat.py"
+        "thlib/ui/application.py",
+        "launch.py"
       ]
+    },
+    {
+      "id": "qml-lint",
+      "label": "QML static analysis",
+      "command": ["-m", "unittest", "tests.test_qml_lint", "-q"]
     },
     {
       "id": "isolated-regression",
       "label": "Isolated regression suite",
-      "command": ["tests/run_isolated_suite.py"]
-    },
-    {
-      "id": "legacy-smoke",
-      "label": "Legacy compatibility smoke",
-      "command": ["smoke_legacy_compat.py"]
+      "command": [
+        "tests/run_isolated_suite.py",
+        "--exclude",
+        "test_qml_lint"
+      ]
     },
     {
       "id": "foreign-cwd-entrypoints",

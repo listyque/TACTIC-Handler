@@ -30,17 +30,28 @@ serverTopLevelURL = "http://my.server.com"
 class UrllibTransport(xmlrpclib.Transport, object):
     def __init__(self):
         super(self.__class__, self).__init__(None)
-        self.proxy = env_server.get_proxy()
+        self.proxy = self._normalize_proxy(env_server.get_proxy())
         self.proxy_user = self.proxy['login']
         self.proxy_pass = self.proxy['pass']
         self.proxy_server = self.proxy['server']
         self.proxy_enabled = self.proxy['enabled']
 
+    @staticmethod
+    def _normalize_proxy(proxy_dict=None):
+        values = dict(proxy_dict) if isinstance(proxy_dict, dict) else {}
+        server = str(values.get('server') or '')
+        return {
+            'login': str(values.get('login') or ''),
+            'pass': str(values.get('pass') or ''),
+            'server': server,
+            'enabled': bool(values.get('enabled') and server),
+        }
+
     def update_proxy(self, proxy_dict=None):
-        if proxy_dict:
-            self.proxy = proxy_dict
-        else:
-            self.proxy = env_server.get_proxy()
+        self.proxy = self._normalize_proxy(
+            proxy_dict if proxy_dict is not None
+            else env_server.get_proxy()
+        )
         self.proxy_user = self.proxy['login']
         self.proxy_pass = self.proxy['pass']
         self.proxy_server = self.proxy['server']

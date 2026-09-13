@@ -1,43 +1,51 @@
 # TACTIC 5.0 Database Reference for Codex
 
-Справочник собран из консолидированных PostgreSQL-схем ветки Southpaw TACTIC `5.0` и реестра `sthpw/search_object`. Дата извлечения: 2026-08-06.
+This reference was assembled from the consolidated PostgreSQL schemas and
+`sthpw/search_object` registry in the Southpaw TACTIC `5.0` branch. Extraction
+date: 2026-08-06.
 
-## Что покрыто
+## Coverage
 
-- 6 bootstrap-таблиц;
-- 50 таблиц основной `sthpw`-схемы;
-- 15 project-local таблиц `config/*` (`spt_*`);
-- логические search types, физические имена, зарегистрированные классы и поля;
-- правила безопасной записи и список подсистем-владельцев;
-- связи между workflow, DAM, messaging, security и audit;
-- SQL для сравнения с живой установленной базой.
+- 6 bootstrap tables;
+- 50 tables in the main `sthpw` schema;
+- 15 project-local `config/*` (`spt_*`) tables;
+- logical search types, physical names, registered classes, and fields;
+- safe-write rules and subsystem owners;
+- relationships among workflow, DAM, messaging, security, and audit;
+- SQL for comparison with a live installed database.
 
-## Важное ограничение
+## Important limitation
 
-TACTIC допускает произвольные project search types. Их физические таблицы создаются пользователем/шаблоном и регистрируются в `sthpw/search_object`; поэтому исходники не могут содержать конечный список таблиц конкретной студии. Этот комплект документирует **ядро платформы**, а `tools/live_schema_inventory.sql` должен дополнить его таблицами вашего сервера.
+TACTIC supports arbitrary project search types. Their physical tables are
+created by a user or template and registered in `sthpw/search_object`, so the
+source tree cannot contain a final list of one studio's tables. This package
+documents the **platform core**. `tools/live_schema_inventory.sql` supplements
+it with the tables from a specific server.
 
-## Порядок чтения для Codex
+## Recommended reading order for Codex
 
-1. `01_DATABASE_RULES.md` — модель данных и обязательные правила.
-2. `02_CORE_TABLE_CATALOG.md` — все `sthpw/bootstrap` таблицы.
-3. `03_CONFIG_TABLE_CATALOG.md` — все project-local `config/*` таблицы.
-4. `04_RELATIONSHIPS_AND_FLOWS.md` — типовые цепочки записи.
-5. `05_WRITE_POLICY_MATRIX.md` — короткая матрица «куда и как писать».
-6. `06_LIVE_DATABASE_CHECK.md` — как не доверять слепо старой SQL-схеме.
-7. `07_EVIDENCE_AND_LIMITATIONS.md` — границы доказанности и confidence.
-8. `machine/` — JSON/CSV для автоматического поиска.
+1. `01_DATABASE_RULES.md` - data model and mandatory rules.
+2. `02_CORE_TABLE_CATALOG.md` - all `sthpw` and bootstrap tables.
+3. `03_CONFIG_TABLE_CATALOG.md` - all project-local `config/*` tables.
+4. `04_RELATIONSHIPS_AND_FLOWS.md` - common write flows.
+5. `05_WRITE_POLICY_MATRIX.md` - concise guidance on where and how to write.
+6. `06_LIVE_DATABASE_CHECK.md` - how to avoid blindly trusting an old SQL
+   schema.
+7. `07_EVIDENCE_AND_LIMITATIONS.md` - evidence boundaries and confidence.
+8. `machine/` - JSON and CSV data for automated lookup.
 
-## Главная установка
+## Primary rule
 
-Не проектировать новую таблицу, пока не проверены:
+Do not design a new table until all of the following have been checked:
 
 - `sthpw/search_object`;
-- таблицы и классы в этом каталоге;
-- существующие методы server stub и серверные классы;
-- `sthpw/schema`, `sthpw/connection`, `sthpw/note`, `sthpw/task`, `sthpw/snapshot`, `sthpw/message*`, `config/*`;
-- фактическая схема живой БД.
+- the tables and classes in this catalog;
+- existing server stub methods and server-side classes;
+- `sthpw/schema`, `sthpw/connection`, `sthpw/note`, `sthpw/task`,
+  `sthpw/snapshot`, `sthpw/message*`, and `config/*`;
+- the actual live database schema.
 
-## Первичные источники
+## Primary sources
 
 - https://raw.githubusercontent.com/Southpaw-TACTIC/TACTIC/refs/heads/5.0/src/pyasm/search/upgrade/postgresql/bootstrap_schema.sql
 - https://raw.githubusercontent.com/Southpaw-TACTIC/TACTIC/refs/heads/5.0/src/pyasm/search/upgrade/postgresql/sthpw_schema.sql

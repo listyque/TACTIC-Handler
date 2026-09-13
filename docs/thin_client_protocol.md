@@ -27,6 +27,9 @@ Server replies with `hello` and `accepted: true`, then the client registers:
 ```
 
 The server replies and broadcasts `capabilities` with safe connected-client records.
+A connected client may also send its current capability list after replacing a
+hot-reloaded registry; the server updates only that authenticated client's record
+and rebroadcasts the list.
 The session token is never included in later messages or logs.
 
 ## Command
@@ -40,7 +43,7 @@ The session token is never included in later messages or logs.
   "action": "open_scene",
   "payload": {"path": "D:/work/scene.ma", "force": false},
   "timeout": 60,
-  "sender": "modern-ui-a1"
+  "sender": "tactic-handler-a1"
 }
 ```
 
@@ -75,7 +78,7 @@ client and stored in Debug Log rather than displayed as the main user message.
 |---|---|---|
 | `hello` | both | token handshake and acceptance |
 | `register_client` | client → server | identity and capabilities |
-| `capabilities` | server → clients | registration acknowledgement/client list |
+| `capabilities` | both | registration acknowledgement/client list, or the sender's refreshed allow-list |
 | `command` | sender → server → target | allow-listed action request |
 | `result` | target → server → sender | success or cancellation payload |
 | `error` | either direction | structured failure |
@@ -89,7 +92,22 @@ client and stored in Debug Log rather than displayed as the main user message.
 Demo: `ping`, `get_application_info`, `open_file`, `save_current_file`,
 `get_current_file`, plus test-only `fail` and `sleep`.
 
-Maya: `get_application_info`, `get_current_scene`, `prepare_scene`,
-`validate_scene`, `save_current_scene`, `open_scene`, `import_file`, and
-`reference_file`. Snapshot aliases are normalized
-by the server. No action accepts Python source, module names, or callable expressions.
+DCC file actions use the standard capability names `get_current_scene`,
+`prepare_checkin`, `open_scene`, `import_file`, and `reference_file`; each
+connector registers only the actions it supports. Registering both scene
+capabilities enables the deferred Commit Queue flow. Optional
+`get_temp_playblast` adds a preview to that flow.
+
+Maya also registers `get_application_info`, `prepare_scene`, `validate_scene`,
+`save_current_scene`, `execute_custom_script`, `execute_script_file`, and
+`create_script_shelf`. An unnamed scene is saved only after standalone supplies
+the TACTIC-reserved `path` and optional `preview_path`.
+Snapshot aliases are normalized
+by the server. No action accepts Python source, module names, or callable
+expressions. `execute_script_file` accepts only a `.py` path under the Script
+Editor's application-owned temporary directory. `execute_custom_script`
+accepts only a project code and relative path resolving beneath the local
+synchronized custom-script tree.
+`create_script_shelf` accepts a tab name, structured presentation data, and
+validated project-relative script paths. Maya creates or updates the matching
+native shelf and reports which operation occurred.

@@ -1,6 +1,6 @@
 # Isolated TACTIC test project
 
-The modern client integration suite must use a dedicated TACTIC project whose code
+The application integration suite must use a dedicated TACTIC project whose code
 starts with `th_test_`. Production projects are never valid fixture targets.
 
 ## Fixture definition

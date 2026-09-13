@@ -1,107 +1,5 @@
 {
   "thlib/environment.py": {
-    "ApiConnectorWrapper": {
-      "kind": "class",
-      "methods": {
-        "close_server": {
-          "keywordOnly": [],
-          "kwarg": "",
-          "positional": [
-            "self",
-            "parent"
-          ],
-          "required": [
-            "self"
-          ],
-          "vararg": ""
-        },
-        "execute_method": {
-          "keywordOnly": [],
-          "kwarg": "kwargs",
-          "positional": [
-            "self",
-            "method_name",
-            "parent"
-          ],
-          "required": [
-            "self",
-            "method_name"
-          ],
-          "vararg": "args"
-        },
-        "execute_tc_method": {
-          "keywordOnly": [],
-          "kwarg": "kwargs",
-          "positional": [
-            "method_name"
-          ],
-          "required": [
-            "method_name"
-          ],
-          "vararg": "args"
-        },
-        "get_api_client": {
-          "keywordOnly": [],
-          "kwarg": "",
-          "positional": [],
-          "required": [],
-          "vararg": ""
-        },
-        "get_results": {
-          "keywordOnly": [],
-          "kwarg": "",
-          "positional": [
-            "self",
-            "client",
-            "handoff_method"
-          ],
-          "required": [
-            "self",
-            "client",
-            "handoff_method"
-          ],
-          "vararg": ""
-        },
-        "server_handle_input_data": {
-          "keywordOnly": [],
-          "kwarg": "",
-          "positional": [
-            "self",
-            "socket",
-            "data"
-          ],
-          "required": [
-            "self",
-            "socket",
-            "data"
-          ],
-          "vararg": ""
-        },
-        "spawn_api_server": {
-          "keywordOnly": [],
-          "kwarg": "",
-          "positional": [
-            "self",
-            "parent"
-          ],
-          "required": [
-            "self"
-          ],
-          "vararg": ""
-        },
-        "start_api_server_app": {
-          "keywordOnly": [],
-          "kwarg": "",
-          "positional": [
-            "self"
-          ],
-          "required": [
-            "self"
-          ],
-          "vararg": ""
-        }
-      }
-    },
     "Controls": {
       "kind": "class",
       "methods": {
@@ -1053,50 +951,6 @@
           ],
           "vararg": ""
         },
-        "py2": {
-          "keywordOnly": [],
-          "kwarg": "",
-          "positional": [
-            "self"
-          ],
-          "required": [
-            "self"
-          ],
-          "vararg": ""
-        },
-        "py3": {
-          "keywordOnly": [],
-          "kwarg": "",
-          "positional": [
-            "self"
-          ],
-          "required": [
-            "self"
-          ],
-          "vararg": ""
-        },
-        "qt4": {
-          "keywordOnly": [],
-          "kwarg": "",
-          "positional": [
-            "self"
-          ],
-          "required": [
-            "self"
-          ],
-          "vararg": ""
-        },
-        "qt5": {
-          "keywordOnly": [],
-          "kwarg": "",
-          "positional": [
-            "self"
-          ],
-          "required": [
-            "self"
-          ],
-          "vararg": ""
-        },
         "set_current_path": {
           "keywordOnly": [],
           "kwarg": "",
@@ -1344,26 +1198,6 @@
       "kwarg": "",
       "positional": [],
       "required": [],
-      "vararg": ""
-    },
-    "mf": {
-      "keywordOnly": [],
-      "kind": "function",
-      "kwarg": "",
-      "positional": [],
-      "required": [],
-      "vararg": ""
-    },
-    "singleton": {
-      "keywordOnly": [],
-      "kind": "function",
-      "kwarg": "",
-      "positional": [
-        "cls"
-      ],
-      "required": [
-        "cls"
-      ],
       "vararg": ""
     },
     "tc": {
@@ -2419,8 +2253,7 @@
           "positional": [
             "self",
             "include_dependencies",
-            "list_dependencies",
-            "confirm"
+            "list_dependencies"
           ],
           "required": [
             "self"
@@ -2685,17 +2518,6 @@
           ],
           "vararg": ""
         },
-        "get_tasks": {
-          "keywordOnly": [],
-          "kwarg": "",
-          "positional": [
-            "self"
-          ],
-          "required": [
-            "self"
-          ],
-          "vararg": ""
-        },
         "get_tasks_count": {
           "keywordOnly": [],
           "kwarg": "",
@@ -2812,21 +2634,6 @@
           ],
           "required": [
             "self"
-          ],
-          "vararg": ""
-        },
-        "query_tasks": {
-          "keywordOnly": [],
-          "kwarg": "",
-          "positional": [
-            "self",
-            "s_code",
-            "process",
-            "user"
-          ],
-          "required": [
-            "self",
-            "s_code"
           ],
           "vararg": ""
         },
@@ -4294,7 +4101,6 @@
         "project_code",
         "limit",
         "offset",
-        "process_list",
         "get_all_snapshots",
         "check_snapshots_updates",
         "include_info",
@@ -4477,7 +4283,8 @@
         "instance_type",
         "info",
         "use_id",
-        "triggers"
+        "triggers",
+        "instance_path"
       ],
       "required": [
         "search_type",
@@ -4727,44 +4534,6 @@
         "work_hour_codes",
         "approved",
         "project_code"
-      ],
-      "vararg": ""
-    },
-    "snapshot_delete_confirm": {
-      "keywordOnly": [],
-      "kind": "function",
-      "kwarg": "",
-      "positional": [
-        "snapshot",
-        "files"
-      ],
-      "required": [
-        "snapshot",
-        "files"
-      ],
-      "vararg": ""
-    },
-    "sobject_delete_confirm": {
-      "keywordOnly": [],
-      "kind": "function",
-      "kwarg": "",
-      "positional": [
-        "sobjects"
-      ],
-      "required": [
-        "sobjects"
-      ],
-      "vararg": ""
-    },
-    "sobject_duplicate_confirm": {
-      "keywordOnly": [],
-      "kind": "function",
-      "kwarg": "",
-      "positional": [
-        "sobjects"
-      ],
-      "required": [
-        "sobjects"
       ],
       "vararg": ""
     },
@@ -5203,7 +4972,8 @@
         "instance_type",
         "info",
         "use_id",
-        "triggers"
+        "triggers",
+        "instance_path"
       ],
       "required": [
         "search_type",

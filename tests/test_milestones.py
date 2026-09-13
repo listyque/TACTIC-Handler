@@ -9,7 +9,7 @@ from PySide6.QtCore import QObject, QUrl
 from PySide6.QtGui import QGuiApplication
 from PySide6.QtQml import QQmlComponent, QQmlEngine
 
-from modern_ui.milestones import MilestoneController
+from thlib.ui.milestones import MilestoneController
 
 
 class FakeApplication(QObject):
@@ -43,8 +43,8 @@ class FakeMilestone:
         self.committed = triggers
         return self
 
-    def delete_sobject(self, confirm=False):
-        self.deleted = not confirm
+    def delete_sobject(self):
+        self.deleted = True
         return True
 
 
@@ -191,10 +191,10 @@ class MilestoneControllerTests(unittest.TestCase):
             self.controller._delete_record("demo", "MILESTONE001", item)
         self.assertTrue(item.deleted)
 
-    def test_manager_qml_creates_with_shared_theme(self):
+    def test_manager_qml_centers_empty_state(self):
         self.application._current_project_code = ""
         engine = QQmlEngine()
-        qml_dir = Path(__file__).parents[1] / "modern_ui" / "qml"
+        qml_dir = Path(__file__).parents[1] / "thlib" / "ui" / "qml"
         engine.addImportPath(str(qml_dir))
         engine.rootContext().setContextProperty(
             "milestoneController", self.controller
@@ -214,11 +214,25 @@ class MilestoneControllerTests(unittest.TestCase):
             engine,
             QUrl.fromLocalFile(str(qml_dir / "MilestoneManagerView.qml")),
         )
-        view = component.createWithInitialProperties({"theme": theme})
+        view = component.createWithInitialProperties(
+            {"theme": theme, "width": 800, "height": 640}
+        )
         self.assertIsNotNone(
             view,
             "\n".join(error.toString() for error in component.errors()),
         )
+        empty_state = view.findChild(QObject, "milestoneEmptyState")
+        content = view.findChild(QObject, "milestoneEmptyStateContent")
+        self.assertIsNotNone(empty_state)
+        self.assertIsNotNone(content)
+        for width in (420, 800):
+            view.setProperty("width", width)
+            QGuiApplication.processEvents()
+            self.assertAlmostEqual(
+                content.property("x") + content.property("width") / 2,
+                empty_state.property("width") / 2,
+                delta=1,
+            )
 
 
 if __name__ == "__main__":

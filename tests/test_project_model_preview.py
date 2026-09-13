@@ -1,6 +1,6 @@
 import unittest
 
-from modern_ui.models import ProjectModel
+from thlib.ui.models import ProjectModel
 
 
 class _PreviewFile:
@@ -33,6 +33,8 @@ class _Snapshot:
 class _Context:
     def __init__(self, preview):
         self._snapshot = _Snapshot(preview)
+        self.versionless = {"latest": self._snapshot}
+        self.versions = {}
 
     def get_versionless(self):
         return {"latest": self._snapshot}
@@ -56,8 +58,28 @@ class _Project:
     def get_code(self):
         return "PROJECT"
 
+    def get_title(self):
+        return "Project Title"
+
+    def get_info(self):
+        return {
+            "category": "Production",
+            "status": "Active",
+            "object_count": 24,
+            "user_count": 6,
+        }
+
+    def get_type(self):
+        return "prod"
+
+    def is_template(self):
+        return False
+
     def get_process(self, name):
         return self._process if name == "icon" else None
+
+    def get_all_processes(self):
+        return {"icon": self._process}
 
 
 class ProjectModelPreviewTests(unittest.TestCase):
@@ -72,6 +94,19 @@ class ProjectModelPreviewTests(unittest.TestCase):
         self.assertEqual(model.preview_for(project), "")
         self.assertEqual(preview.calls, 2)
         self.assertIn("PROJECT", model._preview_cache)
+
+    def test_details_role_exposes_preview_and_project_statistics_once(self):
+        model = ProjectModel()
+        model.replace([_Project(_PreviewFile())])
+
+        details = model.data(model.index(0, 0), ProjectModel.DetailsRole)
+
+        self.assertEqual(details["code"], "PROJECT")
+        self.assertEqual(details["title"], "Project Title")
+        self.assertEqual(details["initials"], "PT")
+        self.assertEqual(details["objectCount"], 24)
+        self.assertEqual(details["userCount"], 6)
+        self.assertEqual(details["previewCount"], 1)
 
 
 if __name__ == "__main__":

@@ -1,6 +1,6 @@
-# Modern client test strategy
+# Application test strategy
 
-The modern client uses executable contracts split by failure type, so a regression
+The application client uses executable contracts split by failure type, so a regression
 reports the broken boundary rather than only a later visual symptom.
 
 ## Test layers
@@ -14,7 +14,7 @@ Python, missing function names, and accidental syntax fragments before XML-RPC.
 
 The same module enforces:
 
-- `code`-based identity for modern task, note, message, snapshot, and activity
+- `code`-based identity for task, note, message, snapshot, and activity
   procedures; deprecated `id` links may be read only by explicit legacy link
   parsing code;
 - stable result keys from the batched server-update, task-page, and user-profile
@@ -43,7 +43,7 @@ never advance cursors or mutate models for a dead session.
 
 ### QML smoke harness
 
-`tests/test_qml_smoke_harness.py` launches the real `main_qml.py` composition root
+`tests/test_qml_smoke_harness.py` launches the real `thlib/ui/application.py` composition root
 with the offscreen renderer. It uses a temporary QSettings directory and
 `TACTIC_QML_SMOKE_OFFLINE=1`, therefore it neither reads user window state nor starts
 TACTIC bootstrap, Handler Server, or polling.
@@ -62,13 +62,19 @@ python -m unittest tests.test_qml_smoke_harness -v
 
 ### Request budgets
 
-`modern_ui/request_metrics.py` provides process-wide, thread-safe counters for calls,
+`thlib/ui/request_metrics.py` provides process-wide, thread-safe counters for calls,
 failures, cumulative duration, response bytes, and cache hits/misses. The existing
 TACTIC server diagnostic wrapper records every outer XML-RPC call; the unified
 messages/activity/presence request records one logical `server.poll`; the skey preview
 resolver records cache reuse.
 
-Budgets live in `tests/contracts/request_budgets.json`. Current hard invariants are:
+Request budgets live in `tests/contracts/request_budgets.json`. Architecture debt
+budgets live in `tests/contracts/ui_architecture_debt.json`; they cap global QML
+bindings, `env_inst` consumers, the `ApplicationController`/mixin method surface,
+the giant item-action dispatcher, oversized source files, and `qmllint` warnings.
+A cleanup lowers the stored maximum. Raising one requires an explicit architecture
+decision rather than silently accepting a new baseline. Current hard request
+invariants are:
 
 - reopening a registered window causes zero XML-RPC calls by itself;
 - one update batch is one logical poll;
@@ -77,6 +83,28 @@ Budgets live in `tests/contracts/request_budgets.json`. Current hard invariants 
 Duration and payload size are recorded for profiling but are not compared with a
 machine-dependent wall-clock threshold. A scenario should instead receive a stable
 call/byte ceiling once its fixture response is deterministic.
+
+### Source-coupled test debt
+
+`tests/test_source_assertion_debt.py` measures tests that read implementation text
+with `read_text()` or `inspect.getsource()` and then assert against that text. The
+per-file and total ceilings live in
+`tests/contracts/source_assertion_debt.json`. Existing architecture, localization,
+and generated-procedure contracts remain valid uses, but the baseline cannot grow.
+Behavior changes should use the lowest real boundary available: Python objects,
+QML component creation and input, model wiring, filesystem, or transport. When a
+source assertion is replaced by a behavior test, lower the stored ceiling in the
+same change.
+
+### QML render budgets
+
+`tests/contracts/qml_render_budgets.json` limits the QObject and QQuickItem
+footprint of mass-created QML delegates. The runtime test instantiates the real
+component and verifies that idle ripple effects and drag overlays are not present.
+Construction time remains a diagnostic because it depends on the host and Qt
+shader cache; deterministic object counts prevent the same regression without a
+flaky millisecond threshold. The complete audit and lifecycle rules are documented
+in [QML rendering and lifecycle performance](qml_performance.md).
 
 ## Commands
 
@@ -99,16 +127,27 @@ engine globals therefore cannot leak into the next module. Plain `unittest disco
 remains useful for non-QML subsets, but one long process is not a reliable lifecycle
 boundary for the complete PySide6 suite.
 
+`tests.test_qml_lint` runs the `pyside6-qmllint` shipped with the pinned PySide6
+toolchain over the complete QML tree. Property overrides and layout-positioning
+warnings have a zero budget. Existing dynamically typed `missing-property`,
+`unqualified`, and unused-import warnings are capped in
+`tests/contracts/ui_architecture_debt.json`; the cap may decrease but must not be
+raised to make a regression green. Inline suppression is limited to a named warning
+and documents the verified runtime ownership that makes the diagnostic inapplicable.
+
 ## Release gate
 
-The strict merge entry point is now:
+Install the pinned development tools, then run the strict merge entry point:
 
 ```powershell
+python -m pip install -r requirements-dev.txt
 python tests/run_release_gate.py
 ```
 
-It adds worktree/whitespace checks, Python compilation, explicit legacy smoke and
-foreign-working-directory launcher smoke around the isolated suite. It intentionally
+It adds mandatory Ruff and `qmllint`, worktree/whitespace checks, Python
+compilation, and foreign-working-directory launcher smoke around the isolated
+suite. `qmllint` is an explicit gate step and is excluded from the later isolated
+run so the complete QML tree is not linted twice. It intentionally
 does not turn live mutation, repository, Windows tray, Maya or visual acceptance
 into fake offline tests. Those required checks are declared in
 `tests/contracts/release_acceptance.json` and documented in

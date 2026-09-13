@@ -13,8 +13,8 @@ MANIFEST_PATH = ROOT / "tests" / "contracts" / "vertical_workflows.json"
 
 def load_vertical_manifest() -> dict:
     payload = json.loads(MANIFEST_PATH.read_text(encoding="utf-8"))
-    if payload.get("schemaVersion") != 1:
-        raise ValueError("Unsupported vertical workflow manifest version")
+    if set(payload) != {"sharedModules", "verticals"}:
+        raise ValueError("Invalid vertical workflow manifest")
     verticals = payload.get("verticals")
     if not isinstance(verticals, dict) or not verticals:
         raise ValueError("Vertical workflow manifest has no workflows")

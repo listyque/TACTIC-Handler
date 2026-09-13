@@ -20,9 +20,9 @@ def _contract() -> dict:
 
 def _results(path: Path) -> dict:
     if not path.exists():
-        return {"schemaVersion": 1, "checks": {}}
+        return {"checks": {}}
     payload = json.loads(path.read_text(encoding="utf-8"))
-    if payload.get("schemaVersion") != 1 or not isinstance(
+    if set(payload) != {"checks"} or not isinstance(
             payload.get("checks"), dict):
         raise ValueError("Unsupported acceptance results format")
     return payload

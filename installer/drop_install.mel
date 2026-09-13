@@ -1,4 +1,6 @@
-global proc dummy_func_to_get_path(){}
+global proc tacticHandlerInstallerPathProbe() {}
 
-string $script_path = `whatIs dummy_func_to_get_path`;
-python("drop_path= \"" + $script_path + "\"[24:].replace('drop_install.mel','')\nimport sys\nif drop_path not in sys.path:\n sys.path.append(drop_path)\nimport shelf_install as si\nreload(si)\nsi.begin_shelf_install()");
+string $source = `whatIs tacticHandlerInstallerPathProbe`;
+putenv "TACTIC_HANDLER_INSTALLER_SOURCE" $source;
+
+python("import os, runpy\nsource = os.environ.pop('TACTIC_HANDLER_INSTALLER_SOURCE')\nprefix = 'Mel procedure found in: '\nscript_path = source[len(prefix):] if source.startswith(prefix) else source\ninstaller = runpy.run_path(os.path.join(os.path.dirname(script_path), 'shelf_install.py'))\ninstaller['begin_shelf_install']()\n");

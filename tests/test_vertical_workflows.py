@@ -4,7 +4,7 @@ from types import SimpleNamespace
 import unittest
 from unittest.mock import patch
 
-from modern_ui.workspace_models.windows import FloatingWindowModel
+from thlib.ui.workspace_models.windows import FloatingWindowModel
 from tests.support.async_scenarios import MemorySettings
 from tests.support.vertical_workflows import (
     ROOT, load_vertical_manifest, missing_modules,
@@ -34,7 +34,7 @@ class VerticalWorkflowManifestTests(unittest.TestCase):
 
     def test_all_referenced_test_modules_and_qml_components_exist(self):
         self.assertEqual(missing_modules(), [])
-        qml_root = ROOT / "modern_ui" / "qml"
+        qml_root = ROOT / "thlib" / "ui" / "qml"
         for name, record in self.manifest.items():
             for component in record["qml"]:
                 with self.subTest(vertical=name, component=component):

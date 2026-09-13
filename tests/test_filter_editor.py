@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 import unittest
+from unittest.mock import patch
 
-from modern_ui.filter_editor import FilterEditorController
+from thlib.ui.filter_editor import FilterEditorController
 
 
 class FilterEditorControllerTests(unittest.TestCase):
@@ -94,6 +95,52 @@ class FilterEditorControllerTests(unittest.TestCase):
             "link_search:general_search:demo/asset",
         )])
 
+    def test_search_type_library_is_independent_from_the_tab_scope(self):
+        controller = self.make_controller([], [], [])
+        scoped_context = controller._current_context()
+        scoped_key = controller._key(scoped_context)
+
+        controller.prepare_search_type_library(
+            "link_search:general:demo/asset"
+        )
+        library_context = controller._current_context()
+        library_key = controller._key(library_context)
+
+        self.assertEqual(
+            scoped_context["preset_scope"],
+            "demo/asset@assets",
+        )
+        self.assertEqual(library_context["preset_scope"], "")
+        self.assertEqual(
+            library_context["preset_namespace"],
+            "demo/asset",
+        )
+        self.assertNotEqual(scoped_key, library_key)
+
+        controller._context_key = library_key
+        controller.presets.replace([{
+            "code": "GENERAL",
+            "title": "General",
+            "view": "link_search:general:demo/asset",
+            "records": [],
+        }])
+        controller._presets_loaded(([], scoped_key))
+
+        self.assertEqual(controller.presets._records[0]["code"], "GENERAL")
+
+        restored = []
+        controller._begin_session = lambda: restored.append(
+            controller._current_context()["preset_scope"]
+        )
+        controller.end_search_type_library()
+        self.assertEqual(
+            controller._current_context()["preset_scope"],
+            "demo/asset@assets",
+        )
+        self.assertEqual(restored, [])
+        controller.sync_search_session()
+        self.assertEqual(restored, ["demo/asset@assets"])
+
     def test_advanced_search_does_not_restore_a_stale_preset(self):
         controller = self.make_controller([], [], [])
         controller.load_presets = lambda: None
@@ -133,7 +180,7 @@ class FilterEditorControllerTests(unittest.TestCase):
         self.assertEqual(len(loaded), 2)
         self.assertEqual(
             loaded[-1],
-            ("niki_friends", "dolly3d/assets", "assets-tab"),
+            ("niki_friends", "dolly3d/assets", "assets-tab", ""),
         )
 
     def test_update_from_advanced_search_captures_live_records(self):
@@ -189,6 +236,28 @@ class FilterEditorControllerTests(unittest.TestCase):
         self.assertEqual(staged[0][1], "Published")
         self.assertEqual(staged[0][0][0]["column"], "status")
         self.assertEqual(staged[0][0][0]["value"], "Published")
+
+    def test_selected_saved_search_copies_stable_deep_link(self):
+        notifications = []
+        controller = self.make_controller([], [], notifications)
+        controller.presets.replace([{
+            "code": "WIDGET_CONFIG00002",
+            "title": "Published",
+            "view": "link_search:published:demo/asset@assets",
+            "records": [],
+        }])
+        controller._selected_preset = 0
+
+        with patch("PySide6.QtGui.QGuiApplication.clipboard") as clipboard:
+            controller.copy_selected_search_link()
+
+        copied = clipboard.return_value.setText.call_args.args[0]
+        self.assertEqual(copied, (
+            "tactic-search://open?project=demo&"
+            "search_type=demo%2Fasset&"
+            "view=link_search%3Apublished%3Ademo%2Fasset%40assets"
+        ))
+        self.assertEqual(notifications[-1], "Saved search link copied")
 
     def test_legacy_relation_names_are_unpacked_to_server_codes(self):
         config = (

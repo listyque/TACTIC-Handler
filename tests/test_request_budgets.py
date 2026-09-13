@@ -7,9 +7,9 @@ import unittest
 
 from PySide6.QtCore import QObject, Signal
 
-from modern_ui.request_metrics import RequestMetrics, request_metrics
-from modern_ui.skey_previews import SearchKeyPreviewResolver
-from modern_ui.workspace_models.windows import FloatingWindowModel
+from thlib.ui.request_metrics import RequestMetrics, request_metrics
+from thlib.ui.skey_previews import SearchKeyPreviewResolver
+from thlib.ui.workspace_models.windows import FloatingWindowModel
 from tests.support.async_scenarios import MemorySettings
 
 

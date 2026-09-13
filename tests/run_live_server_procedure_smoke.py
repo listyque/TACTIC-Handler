@@ -39,10 +39,27 @@ def main() -> int:
         if server.fast_ping() != "OK":
             raise RuntimeError("TACTIC fast_ping did not return OK")
 
-        page = tc.get_task_workspace_page([], [], project_code, limit=2)
+        scope = [('project_code', project_code)]
+        page = tc.get_task_workspace_page(scope, [], project_code, limit=2)
+        filtered = tc.get_task_workspace_page(
+            scope, [], project_code, limit=2,
+            query={
+                'filters': {'hasNotes': True}, 'quickFilters': {},
+                'sort': 'object', 'group': 'process',
+                'currentLogin': env_server.get_user(),
+            },
+        )
+        if len(filtered['tasks']) > 2 or 'status' not in filtered['facets']:
+            raise AssertionError('Filtered task page violates the bounded query contract')
         conversations = tc.get_chat_conversations() or {}
         profile = tc.get_user_profile_data(
-            env_server.get_user(), project_code, activity_limit=2,
+            env_server.get_user(), project_code,
+        ) or {}
+        from thlib.ui.activity import JOURNAL_ACTIVITY_KINDS
+        activity = tc.get_user_recent_activity(
+            "", project_code=project_code, limit=2,
+            kinds=JOURNAL_ACTIVITY_KINDS,
+            logins=[env_server.get_user()],
         ) or {}
         updates = tc.get_server_updates(
             project_code=project_code,
@@ -57,10 +74,14 @@ def main() -> int:
                     "tasks": len(page.get("tasks") or []),
                     "parents": len(page.get("parents") or []),
                 },
+                "filtered_task_workspace": {
+                    "tasks": len(filtered['tasks']),
+                    "facets": sorted(filtered['facets']),
+                },
                 "chat_conversations": len(
                     conversations.get("conversations") or []
                 ),
-                "user_activity": len(profile.get("activity") or []),
+                "user_activity": len(activity.get("records") or []),
                 "server_updates": sorted(updates),
             },
         }

@@ -3,7 +3,8 @@ from __future__ import annotations
 from types import SimpleNamespace
 import unittest
 
-from modern_ui.controllers.item_operations import ItemOperationsMixin
+from thlib.ui.controllers.item_operations import ItemOperationsMixin
+from thlib.ui.workspace_models.windows import FloatingWindowModel
 
 
 class _SObject:
@@ -92,6 +93,16 @@ class _Operations(ItemOperationsMixin):
 
 
 class RepositorySyncScopeTests(unittest.TestCase):
+    def test_context_process_windows_are_not_restored_before_search_bootstrap(self):
+        self.assertIn(
+            "repository_sync_editor",
+            FloatingWindowModel._context_required_windows,
+        )
+        self.assertIn(
+            "process_filter_editor",
+            FloatingWindowModel._context_required_windows,
+        )
+
     def test_item_repo_sync_uses_clicked_item_instead_of_old_selection(self):
         operations = _Operations()
 
@@ -103,6 +114,21 @@ class RepositorySyncScopeTests(unittest.TestCase):
         )
         self.assertIs(context["sobject"], operations.clicked_source)
         self.assertIs(context["stype"], operations.clicked_stype)
+
+    def test_item_repo_sync_keeps_child_stype_and_repeatable_context(self):
+        operations = _Operations()
+        operations._current_section = lambda: SimpleNamespace(
+            search_type="demo/asset"
+        )
+
+        operations.invoke_item_action("repo_sync", "clicked")
+        first = operations.repository_sync_editor_context()
+        second = operations.repository_sync_editor_context()
+
+        self.assertIs(first["sobject"], operations.clicked_source)
+        self.assertIs(first["stype"], operations.clicked_stype)
+        self.assertIs(second["sobject"], operations.clicked_source)
+        self.assertIs(second["stype"], operations.clicked_stype)
 
     def test_search_type_repo_sync_has_no_single_sobject_scope(self):
         operations = _Operations()

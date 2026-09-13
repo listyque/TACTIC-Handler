@@ -114,6 +114,33 @@ class HandlerServerTests(unittest.TestCase):
         self.assertEqual(2, self._response(second)["payload"]["value"])
         self.assertEqual(1, state["peak"])
 
+    def test_connected_client_refreshes_capabilities_without_reconnecting(self):
+        self.demo.registry.register(
+            "added_after_start", lambda _payload: {"updated": True}
+        )
+
+        self.demo.refresh_capabilities()
+
+        deadline = time.monotonic() + 3.0
+        while time.monotonic() < deadline:
+            record = next(
+                (
+                    item for item in self.server.clients
+                    if item["client_id"] == "test-demo"
+                ),
+                {},
+            )
+            if "added_after_start" in record.get("capabilities", []):
+                break
+            time.sleep(0.02)
+        else:
+            self.fail("Updated capabilities were not advertised")
+
+        response = self.operator.request(
+            "test-demo", "added_after_start", {}, timeout=2
+        )
+        self.assertTrue(response["updated"])
+
     def test_open_save_and_current_file(self):
         with tempfile.TemporaryDirectory() as directory:
             source = Path(directory) / "source.txt"
@@ -169,6 +196,8 @@ class HandlerServerTests(unittest.TestCase):
     def test_protocol_limits_and_bad_token(self):
         with self.assertRaises(ProtocolError):
             encode_message(message("heartbeat", value="x" * (1024 * 1024)))
+        with self.assertRaisesRegex(ProtocolError, "Capabilities must be"):
+            message("capabilities", capabilities="not-a-list")
         events = queue.Queue()
         bad_client = ThinClient(
             "127.0.0.1", self.port, "wrong-token", "demo",

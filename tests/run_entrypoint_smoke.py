@@ -1,4 +1,4 @@
-"""Load both modern entry points from outside the repository directory."""
+"""Load both application entry points from outside the repository directory."""
 
 from __future__ import annotations
 
@@ -16,6 +16,7 @@ WARNING_MARKERS = (
     "Required property",
     "ReferenceError",
     "TypeError",
+    "QUnifiedTimer::stopAnimationDriver",
 )
 
 
@@ -23,12 +24,20 @@ def _run_entrypoint(command: list[str], working_directory: Path) -> None:
     environment = os.environ.copy()
     environment.update({
         "QT_QPA_PLATFORM": "offscreen",
-        "QSG_RHI_BACKEND": "software",
+        "QT_QUICK_BACKEND": "software",
         "TACTIC_QML_SMOKE_OFFLINE": "1",
         "TACTIC_QML_SMOKE_EXIT_MS": "500",
     })
     with tempfile.TemporaryDirectory(prefix="tactic-entry-settings-") as settings:
         environment["TACTIC_QML_TEST_SETTINGS_DIR"] = settings
+        environment["XDG_CACHE_HOME"] = str(Path(settings) / "cache")
+        environment["XDG_CONFIG_HOME"] = str(Path(settings) / "config")
+        if os.name == "nt":
+            environment["LOCALAPPDATA"] = settings
+            environment["APPDATA"] = settings
+            environment["QT_QPA_FONTDIR"] = str(
+                Path(os.environ.get("WINDIR", "C:/Windows")) / "Fonts"
+            )
         completed = subprocess.run(
             command,
             cwd=working_directory,
@@ -54,11 +63,11 @@ def main() -> int:
     with tempfile.TemporaryDirectory(prefix="tactic-foreign-cwd-") as directory:
         working_directory = Path(directory)
         _run_entrypoint(
-            [sys.executable, str(ROOT / "main_qml.py")],
+            [sys.executable, str(ROOT / "launch.py")],
             working_directory,
         )
         _run_entrypoint(
-            [sys.executable, str(ROOT / "launch.py")],
+            [sys.executable, str(ROOT / "launch.pyw")],
             working_directory,
         )
     print("Foreign working-directory entry points: OK", flush=True)

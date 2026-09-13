@@ -31,6 +31,8 @@ class UploadMultipart(object):
     '''Handles the multipart content type for uploading files.  Will break up
     a file into chunks and upload separately for huge files'''
 
+    max_upload_attempts = 5
+
     def __init__(self):
         self.tries = 0
         self.chunk_size = 10*1024*1024
@@ -64,104 +66,118 @@ class UploadMultipart(object):
 
     def execute(self, path, progress_signal=None):
         assert self.server_url
-        #f = open(path, 'rb')
-        import codecs
-        f = codecs.open(path, 'rb')
-
-        if self.offset:
-            f.seek(self.offset * self.chunk_size)
-        else:
-            self.offset = 0
-
         file_size = os.stat(path).st_size
         total_count = int(file_size / self.chunk_size)
         if total_count == 0:
             total_count = 1
-
         info_dict = {
             'status_text': 'Uploading to Server ...',
             'total_count': total_count
         }
         import thlib.global_functions as gf
 
-        while 1:
-            buffer = f.read(self.chunk_size)
-            if not buffer:
-                break
-
-            if self.offset == 0:
-                action = "create"
+        with open(path, 'rb') as source_file:
+            if self.offset:
+                source_file.seek(self.offset * self.chunk_size)
             else:
-                action = "append"
+                self.offset = 0
 
-            fields = [
-                ("ajax", "true"),
-                ("action", action),
-            ]
-            if self.ticket:
-                fields.append(("ticket", self.ticket))
-                fields.append(("login_ticket", self.ticket))
-                basename = os.path.basename(path)
-                from json import dumps as jsondumps
+            while True:
+                buffer = source_file.read(self.chunk_size)
+                if not buffer:
+                    break
 
-                # Workaround for python inside Maya, maya.Output has no sys.stdout.encoding property
-                try:
-                    if getattr(sys.stdout, "encoding", None) is not None and sys.stdout.encoding:
-                        basename = basename.decode(sys.stdout.encoding)
-                    else:
-                        import locale
-                        basename = basename.decode(locale.getpreferredencoding())
-                except AttributeError:
-                    # Python3 has no decode method on strings objects
-                    pass
+                action = "create" if self.offset == 0 else "append"
+                fields = [
+                    ("ajax", "true"),
+                    ("action", action),
+                ]
+                if self.ticket:
+                    fields.append(("ticket", self.ticket))
+                    fields.append(("login_ticket", self.ticket))
+                    basename = os.path.basename(path)
+                    from json import dumps as jsondumps
 
-                basename = jsondumps(basename)
-                basename = basename.strip('"')
-                # the first index begins at 0
-                fields.append(("file_name0", basename))
+                    # Maya's output stream may not expose an encoding.
+                    try:
+                        if (
+                            getattr(sys.stdout, "encoding", None) is not None
+                            and sys.stdout.encoding
+                        ):
+                            basename = basename.decode(sys.stdout.encoding)
+                        else:
+                            import locale
+                            basename = basename.decode(
+                                locale.getpreferredencoding()
+                            )
+                    except AttributeError:
+                        # Python 3 file names are already strings.
+                        pass
 
-            if self.subdir:
-                fields.append(("subdir", self.subdir))
+                    basename = jsondumps(basename).strip('"')
+                    fields.append(("file_name0", basename))
 
-            files = [("file", path, buffer)]
-            (status, reason, content) = self.upload(self.server_url, fields, files)
+                if self.subdir:
+                    fields.append(("subdir", self.subdir))
 
-            # tactic-handler callbacks
-            current_uploaded = self.offset * self.chunk_size
-            info_dict['status_text'] = 'Uploading {1} of {0}'.format(gf.sizes(file_size), gf.sizes(current_uploaded))
-            if self.offset == 0:
-                gf.emit_progress(1, info_dict, progress_signal)
-            else:
-                gf.emit_progress(self.offset, info_dict, progress_signal)
+                files = [("file", path, buffer)]
+                status, reason, _content = self.upload(
+                    self.server_url, fields, files
+                )
 
-            if reason != "OK":
-                raise TacticUploadException("Upload of '%s' failed: %s %s" % (path, status, reason))
+                current_uploaded = self.offset * self.chunk_size
+                info_dict['status_text'] = 'Uploading {1} of {0}'.format(
+                    gf.sizes(file_size), gf.sizes(current_uploaded)
+                )
+                if self.offset == 0:
+                    gf.emit_progress(1, info_dict, progress_signal)
+                else:
+                    gf.emit_progress(
+                        self.offset, info_dict, progress_signal
+                    )
 
-            self.offset += 1
+                if reason != "OK":
+                    raise TacticUploadException(
+                        "Upload of '%s' failed: %s %s"
+                        % (path, status, reason)
+                    )
 
-        f.close()
+                self.offset += 1
 
 
 
     def upload(self, url, fields, files):
-
+        last_error = None
         try:
-            ret_value = self.posturl(url, fields, files)
-
-            if ret_value[0] != 200:
-                raise Exception(ret_value[1])
-
-            return ret_value
-
-        except Exception as e:
-            print("Error: ", e)
-
-            # retry about 5 times
-            print("... trying again")
-            self.tries += 1
-            if self.tries < 5:
-                self.upload(url, fields, files)
-
+            for attempt in range(1, self.max_upload_attempts + 1):
+                self.tries = attempt
+                try:
+                    result = self.posturl(url, fields, files)
+                    if not isinstance(result, tuple) or len(result) != 3:
+                        raise TacticUploadException(
+                            "The TACTIC upload server returned an invalid "
+                            "response"
+                        )
+                    status, reason, content = result
+                    if status != 200:
+                        raise TacticUploadException(
+                            "The TACTIC upload server returned HTTP "
+                            "%s %s" % (status, reason)
+                        )
+                    return status, reason, content
+                except (UnicodeError, TypeError, ValueError) as error:
+                    raise TacticUploadException(
+                        "TACTIC file upload could not prepare the request: %s"
+                        % error
+                    ) from error
+                except Exception as error:
+                    last_error = error
+                    if attempt == self.max_upload_attempts:
+                        break
+            raise TacticUploadException(
+                "TACTIC file upload failed after %s attempts: %s"
+                % (self.max_upload_attempts, last_error)
+            ) from last_error
         finally:
             self.tries = 0
 
@@ -209,69 +225,33 @@ class UploadMultipart(object):
         files is a sequence of (name, filename, value) elements for data to be uploaded as files.
         Return (content_type, body) ready for httplib.HTTPConnection instance
         '''
-        BOUNDARY = '----------ThIs_Is_tHe_bouNdaRY_---$---'
-        CRLF = '\r\n'
-        L = []
+        boundary = '----------ThIs_Is_tHe_bouNdaRY_---$---'
+        lines = []
 
-        mode = "base64"
-        if mode != "base64":
-            CRLF = CRLF.encode("UTF8")
+        for key, value in fields:
+            lines.extend((
+                '--' + boundary,
+                'Content-Disposition: form-data; name="%s"' % key,
+                '',
+                str(value),
+            ))
+        for key, filename, value in files:
+            filename = os.path.basename(str(filename))
+            filename = filename.replace('\r', '').replace('\n', '')
+            filename = filename.replace('"', '\\"')
+            lines.extend((
+                '--' + boundary,
+                'Content-Disposition: form-data; name="%s"; '
+                'filename="%s"' % (key, filename),
+                '',
+                # TACTIC UploadServer expects this base64 marker.
+                'data:xyz/xyz;base64,',
+                base64.b64encode(value).decode('ascii'),
+            ))
+        lines.extend(('--' + boundary + '--', ''))
 
-        try:
-            from cStringIO import StringIO as Buffer
-        except:
-            if mode == "base64":
-                from io import StringIO as Buffer
-            else:
-                from io import BytesIO as Buffer
-
-
-        import sys
-        for (key, value) in fields:
-            L.append('--' + BOUNDARY)
-            L.append('Content-Disposition: form-data; name="%s"' % key)
-            L.append('')
-            L.append(value)
-        for (key, filename, value) in files:
-            #print("len of value: ", len(value))
-            L.append('--' + BOUNDARY)
-            L.append('Content-Disposition: form-data; name="%s"; filename="%s"' % (key, filename))
-            L.append('')
-
-
-            if mode == "base64":
-                # put in a fake header to show that it is base64 to the server
-                L.append("data:xyz/xyz;base64,")
-                L.append(base64.b64encode(value))
-            else:
-                L.append(value)
-        L.append('--' + BOUNDARY + '--')
-        L.append('')
-
-        M = []
-        for l in L:
-            try:
-                if mode == "binary":
-                    l = l.encode("UTF8")
-                    #l = bytes(l)
-                else:
-                    l = l.decode()
-            except UnicodeDecodeError as e:
-                pass
-            except AttributeError as e:
-                pass
-            M.append(l)
-            M.append(CRLF)
-
-        # This fails
-        #body = "".join(M)
-
-        buf = Buffer()
-        buf.writelines(M)
-        body = buf.getvalue()
-        #print("len of body: ", len(body), type(body))
-
-        content_type = 'multipart/form-data; boundary=%s' % BOUNDARY
+        body = '\r\n'.join(lines).encode('utf-8')
+        content_type = 'multipart/form-data; boundary=%s' % boundary
         return content_type, body 
 
 

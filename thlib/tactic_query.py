@@ -4,7 +4,6 @@ import thlib.global_functions as gf
 import ast
 import io
 import inspect
-import thlib.side.six as six
 from pprint import pformat
 
 
@@ -12,7 +11,7 @@ def _function_source_lines(func):
     """Read a top-level function by name from the current source file.
 
     ``inspect.getsourcelines`` relies on ``co_firstlineno``.  That offset is
-    stale when a running modern client edits/reloads the source file, which
+    stale when a running application edits/reloads the source file, which
     previously made unrelated lines get sent to TACTIC as executable code.
     """
     try:
@@ -49,7 +48,7 @@ def prepare_serverside_script(func, kwargs, return_dict=True, has_return=True, s
 
     args_list = []
     for key, arg in kwargs.items():
-        if isinstance(arg, six.string_types):
+        if isinstance(arg, str):
             args_list.append(u'{}={}'.format(key, pformat(arg)))
         else:
             # args_list.append(u'{}={}'.format(key, arg))
@@ -137,6 +136,23 @@ def query_EditWdg(args=None, search_type='', project=''):
 
         return out_dict
 
+    def expression_values(expression):
+        from pyasm.search import Search
+
+        result = Search.eval(expression, single=False)
+        if result is None:
+            return []
+        if isinstance(result, (list, tuple)):
+            return list(result)
+        return [result]
+
+    def configured_values(value):
+        if value in (None, ''):
+            return []
+        if isinstance(value, (list, tuple)):
+            return list(value)
+        return str(value).split('|')
+
     class_name = 'tactic.ui.panel.EditWdg'
 
     args_array = []
@@ -169,6 +185,53 @@ def query_EditWdg(args=None, search_type='', project=''):
         widget_dict = pop_classes(i_widget.__dict__)
         widget_dict['action_options'] = wdg_config.get_action_options(widget_dict.get('name'))
         widget_dict['class_name'] = i_widget.get_class_name()
+        select_options = getattr(i_widget, 'kwargs', None) or {}
+        option_labels = configured_values(select_options.get('labels'))
+        option_values = configured_values(select_options.get('values'))
+        values_expr = (
+            select_options.get('values_expr')
+            or widget_dict.get('values_expr')
+        )
+        labels_expr = (
+            select_options.get('labels_expr')
+            or widget_dict.get('labels_expr')
+        )
+        if values_expr:
+            option_values = expression_values(values_expr)
+        if labels_expr:
+            option_labels = expression_values(labels_expr)
+        if not option_values and not option_labels:
+            get_select_values = getattr(
+                i_widget, 'get_select_values', None
+            )
+            if get_select_values:
+                native_options = get_select_values()
+                if (
+                        isinstance(native_options, (list, tuple))
+                        and len(native_options) == 2
+                        and all(isinstance(item, (list, tuple))
+                                for item in native_options)
+                ):
+                    option_labels = list(native_options[0])
+                    option_values = list(native_options[1])
+        if option_values or option_labels:
+            option_values = list(option_values or [])
+            option_labels = list(option_labels or [])
+            empty_label = (
+                select_options.get('empty') or widget_dict.get('empty')
+            )
+            empty_flag = str(empty_label or '').strip().lower()
+            if (
+                empty_flag not in ('', '0', 'false', 'no', 'off')
+                and (not option_values or option_values[0] not in ('', None))
+            ):
+                option_values.insert(0, '')
+                option_labels.insert(
+                    0, '' if empty_flag in ('1', 'true', 'yes', 'on')
+                    else str(empty_label)
+                )
+            widget_dict['labels'] = option_labels
+            widget_dict['values'] = option_values
         display_values = i_widget.get_values()
 
         if display_values:
@@ -202,6 +265,169 @@ def query_EditWdg(args=None, search_type='', project=''):
     return json.dumps(result_dict, separators=(',', ':'))
 
 
+def ingest_rule_preflight(
+        search_type, parent_key, filename, column='name',
+        ignore_ext=True, extra_data=None,
+        validation_script='',
+        process_script='', search_key=''):
+    """Run native ingest-rule hooks before TACTIC's IngestUploadCmd.
+
+    The function is serialized and executed inside TACTIC. Keep it
+    self-contained and compatible with the Python runtime shipped by TACTIC
+    5.0. Object insertion and check-in remain owned by IngestUploadCmd; this
+    preflight reproduces the config/ingest_rule script contract.
+    """
+    import os
+
+    from pyasm.common import Environment
+    from pyasm.search import Search, SearchType
+
+    upload_path = os.path.join(Environment.get_upload_dir(), filename)
+    if not os.path.isfile(upload_path):
+        raise RuntimeError(
+            'Uploaded ingest file does not exist: %s' % filename
+        )
+
+    mapped_name = os.path.basename(filename)
+    if ignore_ext:
+        mapped_name = os.path.splitext(mapped_name)[0]
+    sobject = Search.get_by_search_key(search_key) if search_key else None
+    if search_key and sobject is None:
+        return {
+            'accepted': False,
+            'reason': 'Matching item no longer exists',
+        }
+    if sobject is None:
+        sobject = SearchType.create(search_type)
+    if sobject.column_exists(column):
+        sobject.set_value(column, mapped_name)
+
+    for name, value in (extra_data or {}).items():
+        if sobject.column_exists(name):
+            sobject.set_value(name, value)
+
+    parent = Search.get_by_search_key(parent_key) if parent_key else None
+    if parent is not None:
+        try:
+            sobject.set_sobject_value(parent)
+        except Exception:
+            # IngestUploadCmd has the same permissive parent behavior and can
+            # still connect relation types that do not expose a direct column.
+            pass
+
+    snapshot = SearchType.create('sthpw/snapshot')
+    script_input = {
+        'path': upload_path,
+        'sobject': sobject,
+        'parent': parent,
+        'snapshot': snapshot,
+    }
+    if validation_script:
+        from tactic.command import PythonCmd
+        ingest_exception_type = ()
+        try:
+            from tactic.command.ingestion_cmd import IngestException
+            ingest_exception_type = IngestException
+            command = PythonCmd(
+                script_path=validation_script,
+                input=script_input,
+                IngestException=IngestException,
+            )
+        except ImportError:
+            command = PythonCmd(
+                script_path=validation_script,
+                input=script_input,
+            )
+        try:
+            validation_result = command.execute()
+        except ingest_exception_type as error:
+            return {
+                'accepted': False,
+                'reason': str(error),
+            }
+        if not validation_result:
+            return {
+                'accepted': False,
+                'reason': 'Rejected by validation script',
+            }
+
+    if process_script:
+        from tactic.command import PythonCmd
+        command = PythonCmd(
+            script_path=process_script,
+            input=script_input,
+        )
+        if not command.execute():
+            return {
+                'accepted': False,
+                'reason': 'Rejected by process script',
+            }
+
+    search_key = ''
+    try:
+        if int(sobject.get_id() or 0) > 0:
+            search_key = sobject.get_search_key()
+    except (TypeError, ValueError):
+        pass
+    return {
+        'accepted': True,
+        'search_key': search_key,
+        'data': sobject.get_data(),
+        'snapshot_data': snapshot.get_data(),
+    }
+
+
+def link_ingested_sobject(
+        project_code, child_key, parent_key, relationship,
+        instance_type='', instance_path=None):
+    """Attach one newly ingested Search Object to its requested parent."""
+    from pyasm.search import Search, SearchType
+
+    server.set_project(project_code)
+    child = Search.get_by_search_key(child_key)
+    parent = Search.get_by_search_key(parent_key)
+    if child is None or parent is None:
+        raise RuntimeError('The ingested child or its parent no longer exists')
+
+    if relationship == 'instance':
+        if not instance_type:
+            raise RuntimeError('The child relation has no instance Search Type')
+        instance = SearchType.create(instance_type)
+        instance.add_related_connection(
+            child, parent, src_path=instance_path,
+        )
+        instance.commit()
+    elif relationship in ('code', 'search_type', 'search_code', 'search_id'):
+        child.set_sobject_value(parent)
+        child.commit()
+    else:
+        raise RuntimeError(
+            'Unsupported child relationship: %s' % relationship
+        )
+    return child.get_search_key()
+
+
+def query_ingest_relation_matches(
+        project_code, search_type, parent_key, column, names,
+        instance_path=None):
+    """Return filename matches that are children of one exact parent."""
+    from pyasm.search import Search
+
+    server.set_project(project_code)
+    parent = Search.get_by_search_key(parent_key)
+    if parent is None:
+        raise RuntimeError('The ingest parent no longer exists')
+    search = Search(search_type)
+    search.add_relationship_filter(parent, path=instance_path)
+    search.add_filters(column, list(names or []))
+    records = []
+    for sobject in search.get_sobjects():
+        record = dict(sobject.get_data() or {})
+        record['__search_key__'] = sobject.get_search_key()
+        records.append(record)
+    return records
+
+
 def get_all_dependency(search_keys, project_code=None):
     from pyasm.search import Search, SearchType
     from pyasm.biz import Project
@@ -227,101 +453,841 @@ def get_all_dependency(search_keys, project_code=None):
     return json.dumps(result)
 
 
-def duplicate_sobjects(search_keys, data_dict=None):
-    '''Invokes the delete method.  Note: this function may fail due
-    to dependencies.  Tactic will not cascade delete.  This function
-    should be used with extreme caution because, if successful, it will
-    permenently remove the existence of an sobject
-
-    @params
-    search_key - the key identifying
-                  the search_type table.
-    list_dependencies - dependency dict {
-        'related_types': ["sthpw/note", "sthpw/file"],
-    } etc...
-
-    @return
-    sobject - a dictionary that represents values of the sobject in the
-        form name/value pairs
-    '''
-
+def analyze_sobject_duplicate(search_key):
+    """Return editable fields and copyable dependencies for one sObject."""
     import json
-    from pyasm.biz import Schema
+    from pyasm.biz import Schema, Snapshot, Task
+    from pyasm.search import Search, SearchKey, SearchType
+
+    sobject = SearchKey.get_by_search_key(search_key)
+    if not sobject:
+        raise Exception("SObject [%s] does not exist" % search_key)
+
+    search_type = sobject.get_base_search_type()
+    project_code = sobject.get_project_code()
+    schema = Schema.get(project_code=project_code)
+    source_data = dict(sobject.get_data() or {})
+    columns = set(SearchType.get_columns(search_type) or [])
+    protected = set([
+        'id', 'code', 'timestamp', 'last_update', 'project_code',
+        's_status', 'creator',
+    ])
+    try:
+        search_type_object = SearchType.get(search_type)
+        column_info = dict(
+            search_type_object.get_column_info(search_type) or {}
+        )
+    except Exception:
+        column_info = {}
+
+    relationship_columns = set()
+    related_specs = []
+    seen_specs = set()
+    for direction in ('parent', 'children'):
+        related_types = schema.get_related_search_types(
+            search_type, direction=direction
+        ) or []
+        for related_type in related_types:
+            if not related_type or related_type == '*':
+                continue
+            attrs = dict(schema.get_relationship_attrs(
+                search_type, related_type
+            ) or {})
+            relationship = attrs.get('relationship') or 'code'
+            path = attrs.get('path') or ''
+            instance_type = attrs.get('instance_type') or ''
+            key = '|'.join([
+                str(relationship), str(direction), str(related_type),
+                str(instance_type), str(path),
+            ])
+            if relationship == 'instance':
+                key = '|'.join([
+                    'instance', str(related_type), str(instance_type),
+                    str(path),
+                ])
+            if key in seen_specs:
+                continue
+            seen_specs.add(key)
+
+            local_columns = []
+            if attrs.get('from') == search_type:
+                local_column = attrs.get('from_col')
+            elif attrs.get('to') == search_type:
+                local_column = attrs.get('to_col')
+            else:
+                local_column = None
+            if local_column:
+                local_columns.append(local_column)
+            if direction == 'parent':
+                if relationship in ('search_type', 'search_code'):
+                    local_columns.extend([
+                        'search_type', 'search_code', 'search_id'
+                    ])
+                elif relationship == 'search_id':
+                    local_columns.extend(['search_type', 'search_id'])
+                elif relationship == 'parent_code':
+                    local_columns.append('parent_code')
+                elif relationship == 'search_key':
+                    local_columns.append('search_key')
+            for column in local_columns:
+                if column:
+                    relationship_columns.add(column)
+
+            try:
+                related = list(sobject.get_related_sobjects(
+                    related_type, path=path or None
+                ) or [])
+            except Exception:
+                related = []
+            if direction == 'parent' and not related:
+                try:
+                    parent = sobject.get_parent(related_type)
+                except Exception:
+                    parent = None
+                if parent:
+                    related = [parent]
+            if not related:
+                continue
+
+            items = []
+            for item in related[:24]:
+                data = dict(item.get_data() or {})
+                title = (
+                    data.get('name') or data.get('title')
+                    or data.get('code') or item.get_code()
+                )
+                items.append({
+                    'searchKey': SearchKey.get_by_sobject(
+                        item, use_id=False
+                    ),
+                    'title': str(title or ''),
+                })
+            try:
+                stype = SearchType.get(related_type)
+                related_title = (
+                    stype.get_title() or stype.get_value('title')
+                    or related_type
+                )
+            except Exception:
+                related_title = related_type.rsplit('/', 1)[-1]
+            kind = 'instance' if relationship == 'instance' else direction
+            options = [
+                {'value': 'none', 'label': 'Do not copy', 'icon': 'link-off'},
+            ]
+            default_mode = 'none'
+            if kind == 'instance':
+                options.append({
+                    'value': 'link', 'label': 'Keep links', 'icon': 'link',
+                })
+                default_mode = 'link'
+            elif kind == 'parent':
+                options.append({
+                    'value': 'link', 'label': 'Keep parent', 'icon': 'account-tree',
+                })
+                default_mode = 'link'
+            else:
+                options.append({
+                    'value': 'copy', 'label': 'Duplicate children',
+                    'icon': 'content-copy',
+                })
+            related_specs.append({
+                'key': key,
+                'direction': direction,
+                'kind': kind,
+                'relationship': relationship,
+                'searchType': related_type,
+                'title': str(related_title or related_type),
+                'count': len(related),
+                'mode': default_mode,
+                'defaultMode': default_mode,
+                'localColumn': ','.join(
+                    str(column) for column in local_columns if column
+                ),
+                'path': str(path),
+                'instanceType': str(instance_type),
+                'options': options,
+                'items': items,
+            })
+
+    ordered_names = ['name', 'title', 'description', 'keywords']
+    ordered_names.extend(sorted(
+        name for name in source_data
+        if name not in ordered_names
+    ))
+    fields = []
+    for name in ordered_names:
+        if (
+            name in protected or name in relationship_columns
+            or name not in columns or name.startswith('__')
+        ):
+            continue
+        value = source_data.get(name)
+        if isinstance(value, (dict, list, tuple)):
+            continue
+        if value is None:
+            value = ''
+        metadata = dict(column_info.get(name) or {})
+        data_type = str(
+            metadata.get('data_type') or type(value).__name__
+        )
+        label = str(
+            metadata.get('title') or metadata.get('label')
+            or name.replace('_', ' ').strip().title()
+        )
+        fields.append({
+            'name': name,
+            'label': label,
+            'value': str(value),
+            'originalValue': str(value),
+            'dataType': data_type,
+            'multiline': name in ('description', 'keywords', 'notes'),
+        })
+
+    process_records = {}
+
+    def process_record(process):
+        process = str(process or 'publish')
+        return process_records.setdefault(process, {
+            'name': process,
+            'snapshotCount': 0,
+            'fileCount': 0,
+            'taskCount': 0,
+            'processMessageCount': 0,
+            'taskMessageCount': 0,
+            'processAttachmentCount': 0,
+            'taskAttachmentCount': 0,
+        })
+
+    def identity(item):
+        code = str(item.get_code() or '')
+        return code or str(item.get_id() or '')
+
+    def root_notes(target):
+        target_type = str(
+            target.get_base_search_type() or ''
+        ).split('?', 1)[0]
+        target_code = str(target.get_code() or '')
+        target_id = str(target.get_id() or '')
+        if not target_code and not target_id:
+            return []
+        note_search = Search('sthpw/note')
+        note_search.add_filter(
+            'search_code' if target_code else 'search_id',
+            target_code or target_id,
+        )
+        if project_code:
+            note_search.add_filter('project_code', project_code)
+        roots = []
+        for note in note_search.get_sobjects() or []:
+            note_type = str(
+                note.get_value('search_type') or ''
+            ).split('?', 1)[0]
+            if note_type and target_type and note_type != target_type:
+                continue
+            if note.get_value('parent_id') in (None, '', 0, '0'):
+                roots.append(note)
+        return roots
+
+    def flatten_notes(notes):
+        result = []
+        pending = list(notes or [])
+        seen = set()
+        while pending:
+            note = pending.pop(0)
+            key = identity(note)
+            if key and key in seen:
+                continue
+            if key:
+                seen.add(key)
+            result.append(note)
+            try:
+                pending.extend(note.get_child_notes() or [])
+            except Exception:
+                pass
+        return result
+
+    def snapshot_file_count(snapshot):
+        try:
+            paths_by_type = snapshot.get_all_paths_dict() or {}
+        except Exception:
+            return 0
+        count = 0
+        for paths in paths_by_type.values():
+            if isinstance(paths, str):
+                count += bool(paths)
+            else:
+                count += len([path for path in paths or [] if path])
+        return count
+
+    tasks = list(Task.get_by_sobject(sobject) or [])
+    task_processes = {}
+    for task in tasks:
+        process = str(task.get_value('process') or 'publish')
+        record = process_record(process)
+        record['taskCount'] += 1
+        task_processes[identity(task)] = process
+
+    process_notes = root_notes(sobject)
+    process_note_trees = {}
+    for note in process_notes:
+        process = str(note.get_value('process') or 'publish')
+        process_note_trees[identity(note)] = flatten_notes([note])
+        process_record(process)['processMessageCount'] += len(
+            process_note_trees[identity(note)]
+        )
+
+    task_note_trees = {}
+    for task in tasks:
+        task_key = identity(task)
+        task_note_trees[task_key] = flatten_notes(root_notes(task))
+        process = task_processes.get(task_key) or 'publish'
+        process_record(process)['taskMessageCount'] += len(
+            task_note_trees[task_key]
+        )
+
+    attachment_codes = set()
+
+    def count_attachments(notes, process, task_scope=False):
+        for note in notes:
+            attachments = list(Snapshot.get_by_sobjects([note]) or [])
+            known = set(
+                str(snapshot.get_code() or '') for snapshot in attachments
+            )
+            for snapshot in note.get_connections(
+                    context='attachment') or []:
+                code = str(snapshot.get_code() or '')
+                if snapshot and code not in known:
+                    attachments.append(snapshot)
+                    known.add(code)
+            if not attachments:
+                continue
+            count = 0
+            for snapshot in attachments:
+                code = str(snapshot.get_code() or '')
+                if code:
+                    attachment_codes.add(code)
+                count += snapshot_file_count(snapshot)
+            key = (
+                'taskAttachmentCount' if task_scope
+                else 'processAttachmentCount'
+            )
+            process_record(process)[key] += count
+
+    for root in process_notes:
+        process = str(root.get_value('process') or 'publish')
+        count_attachments(
+            process_note_trees.get(identity(root), []), process,
+            task_scope=False,
+        )
+    for task_key, notes in task_note_trees.items():
+        process = task_processes.get(task_key) or 'publish'
+        count_attachments(notes, process, task_scope=True)
+        for snapshot in Snapshot.get_by_sobjects([
+                next(task for task in tasks if identity(task) == task_key)
+        ]) or []:
+            process_record(process)['taskAttachmentCount'] += (
+                snapshot_file_count(snapshot)
+            )
+
+    snapshots = []
+    for snapshot in Snapshot.get_all_current_by_sobject(sobject) or []:
+        if str(snapshot.get_code() or '') in attachment_codes:
+            continue
+        snapshots.append(snapshot)
+    for snapshot in snapshots:
+        context = str(snapshot.get_value('context') or 'publish')
+        process = str(
+            snapshot.get_value('process') or context.split('/', 1)[0]
+            or 'publish'
+        )
+        record = process_record(process)
+        record['snapshotCount'] += 1
+        record['fileCount'] += snapshot_file_count(snapshot)
+
+    processes = []
+    for name in sorted(process_records):
+        record = process_records[name]
+        record.update({
+            'copySnapshots': False,
+            'copyTasks': False,
+            'copyProcessMessages': False,
+            'copyTaskMessages': False,
+            'copyProcessAttachments': False,
+            'copyTaskAttachments': False,
+        })
+        processes.append(record)
+
+    source_title = (
+        source_data.get('name') or source_data.get('title')
+        or source_data.get('code') or sobject.get_code()
+    )
+    return json.dumps({
+        'searchKey': search_key,
+        'searchType': search_type,
+        'projectCode': project_code,
+        'title': str(source_title or ''),
+        'fields': fields,
+        'relations': related_specs,
+        'processes': processes,
+    })
+
+
+def duplicate_sobject_advanced(search_key, options=None):
+    """Duplicate one sObject using explicit relation and content choices."""
+    import json
+    from pyasm.biz import Schema, Snapshot, Task
+    from pyasm.checkin import FileCheckin
+    from pyasm.search import Search, SearchKey, SearchType
+
+    options = dict(options or {})
+    source = SearchKey.get_by_search_key(search_key)
+    if not source:
+        raise Exception("SObject [%s] does not exist" % search_key)
+
+    search_type = source.get_base_search_type()
+    project_code = source.get_project_code()
+    server.set_project(project_code)
+    schema = Schema.get(project_code=project_code)
+    relation_options = dict(options.get('relations') or {})
+    field_values = dict(options.get('fields') or {})
+    process_options = dict(options.get('processes') or {})
+
+    omitted_columns = set(['id', 'code', 'timestamp', 'last_update'])
+    parent_specs = []
+    child_specs = []
+    instance_specs = []
+    seen = set()
+    for direction in ('parent', 'children'):
+        for related_type in schema.get_related_search_types(
+                search_type, direction=direction) or []:
+            if not related_type or related_type == '*':
+                continue
+            attrs = dict(schema.get_relationship_attrs(
+                search_type, related_type
+            ) or {})
+            relationship = attrs.get('relationship') or 'code'
+            path = attrs.get('path') or ''
+            instance_type = attrs.get('instance_type') or ''
+            key = '|'.join([
+                str(relationship), str(direction), str(related_type),
+                str(instance_type), str(path),
+            ])
+            if relationship == 'instance':
+                key = '|'.join([
+                    'instance', str(related_type), str(instance_type),
+                    str(path),
+                ])
+            if key in seen:
+                continue
+            seen.add(key)
+            mode = str(relation_options.get(key) or (
+                'link' if relationship == 'instance'
+                or direction == 'parent' else 'none'
+            ))
+            spec = (related_type, path, attrs, mode)
+            if relationship == 'instance':
+                instance_specs.append(spec)
+            elif direction == 'parent':
+                parent_specs.append(spec)
+                if mode == 'none':
+                    local_columns = []
+                    if attrs.get('from') == search_type:
+                        local_column = attrs.get('from_col')
+                    elif attrs.get('to') == search_type:
+                        local_column = attrs.get('to_col')
+                    else:
+                        local_column = None
+                    if local_column:
+                        local_columns.append(local_column)
+                    if relationship in ('search_type', 'search_code'):
+                        local_columns.extend([
+                            'search_type', 'search_code', 'search_id'
+                        ])
+                    elif relationship == 'search_id':
+                        local_columns.extend([
+                            'search_type', 'search_id'
+                        ])
+                    elif relationship == 'parent_code':
+                        local_columns.append('parent_code')
+                    elif relationship == 'search_key':
+                        local_columns.append('search_key')
+                    omitted_columns.update(
+                        column for column in local_columns if column
+                    )
+            else:
+                child_specs.append(spec)
+
+    def identity(sobject):
+        if not sobject:
+            return ''
+        code = str(sobject.get_code() or '')
+        if code:
+            return code
+        return str(sobject.get_id() or '')
+
+    def require_created(sobject, label):
+        if not identity(sobject):
+            raise RuntimeError('%s was not created by TACTIC' % label)
+        return sobject
+
+    def root_notes(target):
+        target_type = str(
+            target.get_base_search_type() or ''
+        ).split('?', 1)[0]
+        target_code = str(target.get_code() or '')
+        target_id = str(target.get_id() or '')
+        if not target_code and not target_id:
+            return []
+        note_search = Search('sthpw/note')
+        note_search.add_filter(
+            'search_code' if target_code else 'search_id',
+            target_code or target_id,
+        )
+        if project_code:
+            note_search.add_filter('project_code', project_code)
+        roots = []
+        for note in note_search.get_sobjects() or []:
+            note_type = str(
+                note.get_value('search_type') or ''
+            ).split('?', 1)[0]
+            if note_type and target_type and note_type != target_type:
+                continue
+            if note.get_value('parent_id') in (None, '', 0, '0'):
+                roots.append(note)
+        return roots
+
+    source_tasks = list(Task.get_by_sobject(source) or [])
+    process_notes = root_notes(source)
+    task_notes = {}
+    task_snapshots = {}
+    for task in source_tasks:
+        key = identity(task)
+        task_notes[key] = root_notes(task)
+        task_snapshots[key] = list(
+            Snapshot.get_by_sobjects([task]) or []
+        )
+
+    def note_attachments(note):
+        attachments = list(Snapshot.get_by_sobjects([note]) or [])
+        known = set(
+            str(snapshot.get_code() or '') for snapshot in attachments
+        )
+        for snapshot in note.get_connections(context='attachment') or []:
+            code = str(snapshot.get_code() or '')
+            if snapshot and code not in known:
+                attachments.append(snapshot)
+                known.add(code)
+        return attachments
+
+    attachment_codes = set()
+    visited_notes = set()
+
+    def note_tree(notes):
+        result = []
+        pending = list(notes or [])
+        while pending:
+            note = pending.pop(0)
+            key = identity(note)
+            if key and key in visited_notes:
+                continue
+            if key:
+                visited_notes.add(key)
+            result.append(note)
+            try:
+                pending.extend(note.get_child_notes() or [])
+            except Exception:
+                pass
+        return result
+
+    process_note_trees = {}
+    process_note_tree = []
+    for note in process_notes:
+        branch = note_tree([note])
+        process_note_trees[identity(note)] = branch
+        process_note_tree.extend(branch)
+    task_note_trees = {}
+    for task_key, notes in task_notes.items():
+        task_note_trees[task_key] = note_tree(notes)
+    for note in process_note_tree:
+        for snapshot in note_attachments(note):
+            if identity(snapshot):
+                attachment_codes.add(identity(snapshot))
+    for notes in task_note_trees.values():
+        for note in notes:
+            for snapshot in note_attachments(note):
+                if identity(snapshot):
+                    attachment_codes.add(identity(snapshot))
+
+    snapshot_plans = {}
+
+    def snapshot_plan(snapshot):
+        key = identity(snapshot)
+        if key in snapshot_plans:
+            return snapshot_plans[key]
+        try:
+            paths_by_type = dict(snapshot.get_all_paths_dict() or {})
+        except Exception as error:
+            raise RuntimeError(
+                'Could not resolve files for snapshot [%s]: %s'
+                % (key or 'unknown', error)
+            )
+        file_types = []
+        file_paths = []
+        for file_type in sorted(paths_by_type):
+            paths = paths_by_type.get(file_type) or []
+            if isinstance(paths, str):
+                paths = [paths]
+            for path in paths:
+                path = str(path or '')
+                if not path:
+                    continue
+                file_types.append(str(file_type or 'main'))
+                file_paths.append(path)
+        if not file_paths:
+            raise RuntimeError(
+                'Snapshot [%s] has no repository files to duplicate'
+                % (key or 'unknown')
+            )
+        snapshot_plans[key] = (file_types, file_paths)
+        return snapshot_plans[key]
+
+    def checkin_snapshot(snapshot, target):
+        context = str(snapshot.get_value('context') or 'publish')
+        file_types, file_paths = snapshot_plan(snapshot)
+        checkin = FileCheckin(
+            target, context=context, file_paths=file_paths,
+            file_types=file_types,
+            snapshot_type=snapshot.get_value('snapshot_type'),
+            mode='inplace'
+        )
+        created = require_created(
+            checkin.execute(), 'Snapshot [%s]' % identity(snapshot)
+        )
+        return created, len(file_paths)
+
+    source_snapshots = []
+    for snapshot in Snapshot.get_all_current_by_sobject(source) or []:
+        if identity(snapshot) in attachment_codes:
+            continue
+        source_snapshots.append(snapshot)
+
+    # Resolve every selected repository path before the first write. This
+    # avoids creating a root duplicate and only then discovering that a
+    # selected snapshot or attachment cannot be copied.
+    for snapshot in source_snapshots:
+        context = str(snapshot.get_value('context') or 'publish')
+        process = str(
+            snapshot.get_value('process') or context.split('/', 1)[0]
+            or 'publish'
+        )
+        if dict(process_options.get(process) or {}).get('copySnapshots'):
+            snapshot_plan(snapshot)
+    for note in process_notes:
+        process = str(note.get_value('process') or 'publish')
+        if dict(process_options.get(process) or {}).get(
+                'copyProcessAttachments'):
+            for branch_note in process_note_trees.get(identity(note), []):
+                for snapshot in note_attachments(branch_note):
+                    snapshot_plan(snapshot)
+    for task in source_tasks:
+        process = str(task.get_value('process') or 'publish')
+        if not dict(process_options.get(process) or {}).get(
+                'copyTaskAttachments'):
+            continue
+        for snapshot in task_snapshots.get(identity(task), []):
+            snapshot_plan(snapshot)
+        for note in task_note_trees.get(identity(task), []):
+            for snapshot in note_attachments(note):
+                snapshot_plan(snapshot)
+
+    new_sobject = SearchType.create(search_type)
+    columns = set(SearchType.get_columns(search_type) or [])
+    for name, value in (source.get_data() or {}).items():
+        if (
+                name in omitted_columns or name not in columns
+                or value is None):
+            continue
+        if isinstance(value, (dict, list)):
+            new_sobject.set_json_value(name, value)
+        else:
+            new_sobject.set_value(name, value)
+    for name, value in field_values.items():
+        if name in columns and name not in omitted_columns:
+            new_sobject.set_value(name, '' if value is None else value)
+    new_sobject.commit()
+    require_created(new_sobject, 'Duplicate sObject')
+
+    relation_counts = {'linked': 0, 'children': 0}
+    for related_type, path, attrs, mode in instance_specs:
+        if mode != 'link':
+            continue
+        instance_type = str(attrs.get('instance_type') or '')
+        if not instance_type:
+            raise RuntimeError(
+                'Instance relationship to [%s] has no instance type'
+                % related_type
+            )
+        related = source.get_related_sobjects(
+            related_type, path=path or None
+        ) or []
+        for related_sobject in related:
+            from_type = str(attrs.get('from') or '').split('?', 1)[0]
+            if from_type == search_type:
+                from_sobject, to_sobject = new_sobject, related_sobject
+            else:
+                from_sobject, to_sobject = related_sobject, new_sobject
+            instance = SearchType.create(instance_type)
+            instance.add_related_connection(
+                from_sobject, to_sobject, src_path=path or None
+            )
+            instance.commit()
+            require_created(instance, 'Instance relationship')
+            relation_counts['linked'] += 1
+
+    for related_type, path, attrs, mode in child_specs:
+        if mode != 'copy':
+            continue
+        children = source.get_related_sobjects(
+            related_type, path=path or None
+        ) or []
+        for child in children:
+            clone = child.clone(recursive=False, parent=new_sobject)
+            require_created(clone, 'Child sObject')
+            relation_counts['children'] += 1
+
+    copied_snapshots = 0
+    for snapshot in source_snapshots:
+        context = str(snapshot.get_value('context') or 'publish')
+        process = str(
+            snapshot.get_value('process') or context.split('/', 1)[0]
+            or 'publish'
+        )
+        choice = dict(process_options.get(process) or {})
+        if not choice.get('copySnapshots'):
+            continue
+        checkin_snapshot(snapshot, new_sobject)
+        copied_snapshots += 1
+
+    task_map = {}
+    copied_tasks = 0
+    for task in source_tasks:
+        process = str(task.get_value('process') or 'publish')
+        choice = dict(process_options.get(process) or {})
+        if not choice.get('copyTasks'):
+            continue
+        task_clone = require_created(
+            task.clone(recursive=False, parent=new_sobject),
+            'Task [%s]' % identity(task),
+        )
+        task_map[identity(task)] = task_clone
+        copied_tasks += 1
+
+    copied_attachments = 0
+
+    def copy_attachments(note, note_clone):
+        copied = 0
+        for snapshot in note_attachments(note):
+            created, file_count = checkin_snapshot(snapshot, note_clone)
+            require_created(created, 'Note attachment')
+            copied += file_count
+        return copied
+
+    def copy_note_branch(note, target, copy_files, parent_clone=None):
+        clone = require_created(
+            note.copy_note(target, parent=parent_clone),
+            'Message [%s]' % identity(note),
+        )
+        files_copied = copy_attachments(note, clone) if copy_files else 0
+        messages_copied = 1
+        try:
+            children = note.get_child_notes() or []
+        except Exception:
+            children = []
+        for child_note in children:
+            child_count, child_files = copy_note_branch(
+                child_note, target, copy_files, parent_clone=clone
+            )
+            messages_copied += child_count
+            files_copied += child_files
+        return messages_copied, files_copied
+
+    copied_process_messages = 0
+    for note in process_notes:
+        process = str(note.get_value('process') or 'publish')
+        choice = dict(process_options.get(process) or {})
+        if not choice.get('copyProcessMessages'):
+            continue
+        message_count, file_count = copy_note_branch(
+            note, new_sobject,
+            bool(choice.get('copyProcessAttachments')),
+        )
+        copied_process_messages += message_count
+        copied_attachments += file_count
+
+    copied_task_messages = 0
+    if task_map:
+        for task in source_tasks:
+            task_key = identity(task)
+            task_clone = task_map.get(task_key)
+            if not task_clone:
+                continue
+            process = str(task.get_value('process') or 'publish')
+            choice = dict(process_options.get(process) or {})
+            if choice.get('copyTaskAttachments'):
+                for snapshot in task_snapshots.get(task_key, []):
+                    created, file_count = checkin_snapshot(
+                        snapshot, task_clone
+                    )
+                    require_created(created, 'Task attachment')
+                    copied_attachments += file_count
+            if not choice.get('copyTaskMessages'):
+                continue
+            for note in task_notes.get(task_key, []):
+                message_count, file_count = copy_note_branch(
+                    note, task_clone,
+                    bool(choice.get('copyTaskAttachments')),
+                )
+                copied_task_messages += message_count
+                copied_attachments += file_count
+
+    return json.dumps({
+        'searchKey': SearchKey.get_by_sobject(new_sobject, use_id=False),
+        'code': new_sobject.get_code(),
+        'relationsLinked': relation_counts['linked'],
+        'childrenCopied': relation_counts['children'],
+        'snapshotsCopied': copied_snapshots,
+        'tasksCopied': copied_tasks,
+        'processMessagesCopied': copied_process_messages,
+        'taskMessagesCopied': copied_task_messages,
+        'attachmentFilesCopied': copied_attachments,
+    })
+
+
+def duplicate_sobjects(search_keys, data_dict=None):
+    """Preserve the public field-only batch API for external callers."""
+    import json
 
     if not isinstance(search_keys, list):
         search_keys = [search_keys]
-
+    if not search_keys:
+        raise ValueError("At least one sObject search key is required")
+    data_dict = dict(data_dict or {})
     sobjects = server.server._get_sobjects(search_keys)
     if not sobjects:
         raise Exception("SObject [%s] does not exist" % search_keys[0])
-
-    PROJECT_CODE = sobjects[0].get_project_code()
-
-    server.set_project(PROJECT_CODE)
-
-    schema = Schema.get()
-
-    def duplicate_sobj(search_type, data, new_name=None):
-        # filtering data from unnecessary columns
-        filter_columns = ['code', 'id', 'timestamp']
-        final_data = {}
-
-        for name, value in data.items():
-            if name not in filter_columns:
-                if value:
-                    final_data[name] = value
-
-            if name == 'name':
-                if new_name:
-                    final_data[name] = new_name
-
-        server.set_project(PROJECT_CODE)
-
-        return server.insert(search_type, final_data)
-
-
-    # getting the first one
-    sobject = sobjects[0]
-    search_type = sobject.get_base_search_type()
-    data = sobject.get_data()
-
-    new_sobject_dict = duplicate_sobj(search_type, data, new_name=data_dict.get('new_name'))
-
-    new_sobjects = server.server._get_sobjects(new_sobject_dict)
-    new_sobject = new_sobjects[0]
-
-    # handling related sobjects
-    related_search_types = data_dict.get('related_search_type')
-
-    # potentially can be made for duplicating many sobjects at a time, but it is risky, and not this time
-    new_sobjects = [new_sobject]
-
-    # 'instance' and 'search_code' relationship will be ignored
-    for new_sobject in new_sobjects:
-
-        server.set_project(PROJECT_CODE)
-
-        for related_search_type in related_search_types:
-
-            #TODO Handle 'instance', 'search_code' relationship
-            relationship = None
-
-            if schema.get_relationship(related_search_type, search_type) == 'code':
-                relationship = 'code'
-                from_col, to_col = schema.get_foreign_keys(related_search_type, search_type)
-
-            related_sobjects = sobject.get_related_sobjects(related_search_type)
-
-            for related_sobject in related_sobjects:
-
-                new_data = related_sobject.get_data()
-
-                if relationship == 'code':
-                    new_sobject_data = new_sobject.get_data()
-                    new_data[to_col] = new_sobject_data[from_col]
-                    duplicate_sobj(related_search_type, new_data)
-
-    return json.dumps(new_sobject_dict)
+    source = sobjects[0]
+    project_code = source.get_project_code()
+    server.set_project(project_code)
+    final_data = {}
+    for name, value in (source.get_data() or {}).items():
+        if name in ('code', 'id', 'timestamp') or not value:
+            continue
+        final_data[name] = value
+    if data_dict.get('new_name') is not None:
+        final_data['name'] = data_dict.get('new_name')
+    return json.dumps(server.insert(
+        source.get_base_search_type(), final_data
+    ))
 
 
 def delete_sobjects(search_keys, include_dependencies=False, list_dependencies=None):
@@ -408,6 +1374,10 @@ def get_projects_and_logins(current_login='admin'):
     search = Search('sthpw/project')
     search.add_filters('code', ['admin', 'sthpw'], op='in')
     builtin_projects = search.get_sobjects()
+    builtin_project_codes = set(
+        project.get_value('code') for project in builtin_projects
+    )
+
 
     # getting only user projects
     user_projects = Project.get_user_projects()
@@ -425,6 +1395,7 @@ def get_projects_and_logins(current_login='admin'):
     projects = get_sobjects_dict(projects)
 
     for project in projects:
+        project['__builtin__'] = project.get('code') in builtin_project_codes
 
         related_snapshots = []
         for snapshot in snapshots_sobjects:
@@ -461,8 +1432,15 @@ def get_projects_and_logins(current_login='admin'):
     snapshots_files_sobjects = Snapshot.get_files_dict_by_snapshots(snapshots_sobjects)
 
     logins = get_sobjects_dict(logins_sobjects)
+    security = Environment.get_security()
+    session_login = security.get_user_name()
+    session_is_admin = bool(security.is_admin())
 
     for login in logins:
+        # Session authority comes from TACTIC, never a group/display-name guess.
+        login['__is_admin__'] = (
+            login.get('login') == session_login and session_is_admin
+        )
 
         related_snapshots = []
         for snapshot in snapshots_sobjects:
@@ -554,6 +1532,19 @@ def get_tasks_and_notes(search_code, project_code, process=None,
     tasks = get_sobjects_dict(tasks_sobjects)
 
     task_codes = [task.get('code') for task in tasks if task.get('code')]
+    task_process_by_code = dict(
+        (task.get('code'), task.get('process') or 'publish')
+        for task in tasks if task.get('code')
+    )
+    task_count_by_process = {}
+    for task_process in task_process_by_code.values():
+        task_count_by_process[task_process] = (
+            task_count_by_process.get(task_process, 0) + 1
+        )
+    task_note_codes = [
+        task_code for task_code, task_process in task_process_by_code.items()
+        if task_count_by_process.get(task_process, 0) > 1
+    ]
     if task_codes:
         status_search = Search('sthpw/status_log')
         status_search.add_filters('search_code', task_codes)
@@ -570,14 +1561,86 @@ def get_tasks_and_notes(search_code, project_code, process=None,
             if status_log_list:
                 task['__status_log__'] = status_log_list
 
-    # Getting Notes from db
+    # Query the parent notes once for every process.  The caller only needs
+    # full note payloads for the active process, while Task Inspector needs a
+    # count for every task process before a manual refresh.
     search = Search('sthpw/note')
     search.add_filter('search_code', search_code)
     search.add_filter('project_code', project_code)
-    search.add_filter('process', process)
-    notes_sobjects = search.get_sobjects()
+    if not include_all_tasks:
+        search.add_filter('process', process)
+    all_notes_sobjects = search.get_sobjects()
+
+    task_notes_sobjects = []
+    if task_note_codes:
+        task_note_search = Search('sthpw/note')
+        task_note_search.add_filters('search_code', task_note_codes)
+        task_note_search.add_filter('project_code', project_code)
+        if process and not include_all_tasks:
+            task_note_search.add_filter('process', process)
+        task_notes_sobjects = [
+            note for note in task_note_search.get_sobjects()
+            if str(note.get_value('search_type') or '').split('?', 1)[0]
+            in ('', 'sthpw/task')
+        ]
+
+    notes_count_by_process = dict(
+        (task.get('process') or 'publish', 0) for task in tasks
+    )
+    task_note_count_by_code = {}
+    notes_sobjects = []
+    for note_sobject in all_notes_sobjects:
+        note_process = note_sobject.get_value('process')
+        notes_count_by_process[note_process] = (
+            notes_count_by_process.get(note_process, 0) + 1
+        )
+        if not process or note_process == process:
+            notes_sobjects.append(note_sobject)
+
+    for note_sobject in task_notes_sobjects:
+        task_code = note_sobject.get_value('search_code')
+        note_process = (
+            note_sobject.get_value('process')
+            or task_process_by_code.get(task_code) or 'publish'
+        )
+        task_note_count_by_code[task_code] = (
+            task_note_count_by_code.get(task_code, 0) + 1
+        )
+        notes_count_by_process[note_process] = (
+            notes_count_by_process.get(note_process, 0) + 1
+        )
+        if not process or note_process == process:
+            notes_sobjects.append(note_sobject)
 
     notes = get_sobjects_dict(notes_sobjects)
+
+    tasks_by_process = {}
+    for task in tasks:
+        tasks_by_process.setdefault(
+            task.get('process') or 'publish', []
+        ).append(task)
+
+    for task_process, process_tasks in tasks_by_process.items():
+        process_tasks.sort(key=lambda item: (
+            0 if not item.get('context')
+            or item.get('context') == task_process else 1,
+            item.get('timestamp') or '', item.get('code') or '',
+        ))
+        primary_code = (
+            process_tasks[0].get('code') if process_tasks else None
+        )
+        root_count = notes_count_by_process.get(task_process, 0) - sum(
+            task_note_count_by_code.get(item.get('code'), 0)
+            for item in process_tasks
+        )
+        for task in process_tasks:
+            task['__primary_note_branch__'] = (
+                task.get('code') == primary_code
+            )
+            task['__notes_count__'] = (
+                root_count if task.get('code') == primary_code
+                else task_note_count_by_code.get(task.get('code'), 0)
+            )
 
     for note, note_sobject in zip(notes, notes_sobjects):
 
@@ -607,7 +1670,11 @@ def get_tasks_and_notes(search_code, project_code, process=None,
 
         note['__snapshots__'] = snapshots_list
 
-    result = {'notes': notes, 'tasks': tasks}
+    result = {
+        'notes': notes,
+        'tasks': tasks,
+        'noteCounts': notes_count_by_process,
+    }
 
     return json.dumps(result, separators=(',', ':'))
 
@@ -729,15 +1796,257 @@ def get_notes_with_attachments(note_codes, project_code):
 
 
 def query_task_workspace_page(filters, order_bys, project_code,
-                              limit=500, offset=0):
+                              limit=500, offset=0, query=None):
     """Load a task page and all of its parents in one XML-RPC call."""
     import json
     from pyasm.search import Search
 
     server.set_project(project_code)
     task_search = Search('sthpw/task')
+    facets = {}
     if filters:
         task_search.add_op_filters(filters)
+    if query:
+        import re
+        from datetime import date, timedelta
+        from pyasm.search import SearchType, Sql
+
+        query = dict(query)
+        if not 1 <= int(limit) <= 500 or int(offset) < 0:
+            raise ValueError('Task pages require a limit of 1..500 and a non-negative offset')
+        panel = dict(query.get('filters') or {})
+        quick = dict(query.get('quickFilters') or {})
+        labels = dict(query.get('labels') or {})
+        columns = {
+            'process': 'process', 'status': 'status', 'assigned': 'assigned',
+            'supervisor': 'supervisor', 'priority': 'priority',
+            'milestone': 'milestone_code',
+        }
+        for name, values in quick.items():
+            if name not in columns and name != 'preset':
+                raise ValueError('Unknown task quick filter: %s' % name)
+            if not isinstance(values, (list, tuple)):
+                raise ValueError('Task quick filter %s requires a list of values' % name)
+        if set(panel) - (set(columns) | {'text', 'due', 'day', 'hasNotes'}):
+            raise ValueError('Unknown task filter fields')
+        today = date.fromisoformat(str(query['today'])) if query.get('today') else date.today()
+
+        def exact(column, values, search=None):
+            search = search if search is not None else task_search
+            values = list(values)
+            search.add_op('begin')
+            nonempty = [value for value in values if value != '']
+            if nonempty:
+                search.add_filters(column, nonempty)
+            if '' in values:
+                search.add_empty_filter(column)
+            search.add_op('or')
+
+        def due(value, search=None):
+            search = search if search is not None else task_search
+            if value == 'unscheduled':
+                search.add_null_filter('bid_end_date')
+                return
+            boundaries = {
+                'overdue': (None, today),
+                'today': (today, today + timedelta(days=1)),
+                'soon': (today + timedelta(days=1), today + timedelta(days=4)),
+                'scheduled': (today + timedelta(days=4), None),
+            }
+            if value not in boundaries:
+                raise ValueError('Unknown task deadline filter: %s' % value)
+            start, end = boundaries[value]
+            if start:
+                search.add_filter('bid_end_date', start.isoformat(), op='>=')
+            if end:
+                search.add_filter('bid_end_date', end.isoformat(), op='<')
+
+        def apply_preset(search, preset):
+            search.add_op('begin')
+            if preset == 'mine':
+                if query.get('currentLogin'):
+                    exact('assigned', [str(query['currentLogin'])], search)
+                else:
+                    search.add_where('1 = 0')
+            elif preset == 'unassigned':
+                search.add_empty_filter('assigned')
+            elif preset in ('overdue', 'today'):
+                due(preset, search)
+            elif preset == 'recent':
+                search.add_filter('timestamp', (today - timedelta(days=7)).isoformat(), op='>=')
+                search.add_filter('timestamp', (today + timedelta(days=1)).isoformat(), op='<')
+            elif preset == 'review':
+                search.add_op('begin')
+                for column in ('status', 'process', 'context', 'pipeline_code'):
+                    search.add_regex_filter(column, 'approval|review')
+                review_processes = [
+                    item['value'] for item in labels.get('process', [])
+                    if re.search('approval|review', str(item.get('type') or ''), re.I)
+                ]
+                if review_processes:
+                    search.add_filters('process', review_processes)
+                search.add_op('or')
+            else:
+                raise ValueError('Unknown task preset: %s' % preset)
+            search.add_op('and')
+
+        # Scope-wide aggregates keep choices available after filtering. Only
+        # grouped values/counts cross the RPC boundary, not the task inventory.
+        facets = {}
+        for name, column in columns.items():
+            facet_search = Search('sthpw/task')
+            facet_search.add_op_filters(filters or [])
+            facet_search.add_column(column)
+            # TACTIC 4.9 quotes expressions as identifiers unless this Select
+            # uses raw mode. All projection/table names here are fixed above.
+            facet_search.get_select().set_quoted_mode('none')
+            facet_search.add_column('count(*)', as_column='task_count')
+            facet_search.add_group_by(column)
+            label_map = {str(item['value']): item for item in labels.get(name, [])}
+            options = []
+            for item in facet_search.get_sobjects():
+                raw_value = item.get_value(column)
+                value = str(raw_value if raw_value is not None else '')
+                label = label_map.get(value) or {}
+                options.append({
+                    'key': value, 'title': str(label.get('label') or value),
+                    'count': int(item.get_value('task_count') or 0),
+                    'accent': str(label.get('color') or ''),
+                })
+            facets[name] = sorted(options, key=lambda item: item['title'].casefold())
+        facets['preset'] = {}
+        for preset in ('mine', 'unassigned', 'overdue', 'today', 'recent', 'review'):
+            preset_search = Search('sthpw/task')
+            preset_search.add_op_filters(filters or [])
+            apply_preset(preset_search, preset)
+            facets['preset'][preset] = preset_search.get_count()
+
+        for name, column in columns.items():
+            if panel.get(name) not in (None, ''):
+                exact(column, [str(panel[name])])
+            if quick.get(name):
+                exact(column, [str(value) for value in quick[name]])
+        if panel.get('due'):
+            due(panel['due'])
+        if panel.get('day'):
+            day = date.fromisoformat(str(panel['day']))
+            task_search.add_filter('bid_end_date', day.isoformat(), op='>=')
+            task_search.add_filter('bid_end_date', (day + timedelta(days=1)).isoformat(), op='<')
+        presets = list(quick.get('preset') or [])
+        if presets:
+            task_search.add_op('begin')
+            for preset in presets:
+                apply_preset(task_search, preset)
+            task_search.add_op('or')
+
+        text = str(panel.get('text') or '').strip()
+        sort_mode = str(query.get('sort') or 'due')
+        group_mode = str(query.get('group') or 'none')
+        parent_labels = []
+        if text or sort_mode == 'object' or group_mode == 'object':
+            # Discover only distinct parent types, never the task inventory.
+            types_search = Search('sthpw/task')
+            types_search.add_op_filters(filters or [])
+            types_search.add_column('search_type', distinct=True)
+            parent_types = {str(item.get_value('search_type') or '').split('?', 1)[0]
+                            for item in types_search.get_sobjects()}
+            if text:
+                task_search.add_op('begin')
+                for column in ('description', 'process', 'context', 'status', 'assigned', 'supervisor', 'search_code'):
+                    task_search.add_regex_filter(column, re.escape(text))
+                for name, column in columns.items():
+                    matches = [str(item['value']) for item in labels.get(name, [])
+                               if text.casefold() in str(item.get('label') or item['value']).casefold()]
+                    if matches:
+                        exact(column, matches)
+            for parent_type in sorted(parent_types):
+                if not parent_type:
+                    continue
+                parent_search = Search(parent_type)
+                title_column = next((column for column in ('name', 'title', 'code')
+                                     if SearchType.column_exists(parent_type, column)), 'code')
+                parent_search.add_column('code')
+                if text:
+                    parent_search.add_regex_filter(title_column, re.escape(text))
+                    task_search.add_op('begin')
+                    task_search.add_regex_filter('search_type', '^' + re.escape(parent_type) + r'(\?|$)')
+                    task_search.add_search_filter('search_code', parent_search)
+                    task_search.add_op('and')
+                if sort_mode == 'object' or group_mode == 'object':
+                    parent_codes = Search('sthpw/task')
+                    parent_codes.add_op_filters(filters or [])
+                    parent_codes.add_regex_filter('search_type', '^' + re.escape(parent_type) + r'(\?|$)')
+                    parent_codes.add_column('search_code', distinct=True)
+                    ordering_search = Search(parent_type)
+                    ordering_search.add_search_filter('code', parent_codes)
+                    ordering_search.add_column('code')
+                    ordering_search.add_column(title_column)
+                    parent_labels.extend((parent_type, str(item.get_value('code')), str(item.get_value(title_column) or item.get_value('code')))
+                                         for item in ordering_search.get_sobjects())
+            if text:
+                task_search.add_op('or')
+
+        if panel.get('hasNotes'):
+            # Match the same contextual branch used by the returned note count.
+            # All tables here belong to sthpw; values are correlated, not user SQL.
+            table = task_search.search_type_obj.get_table()
+            task = '"%s"' % table.replace('"', '""')
+            task_type = "split_part(%s.search_type, '?', 1)" % task
+            primary_order = "(CASE WHEN {a}.context IS NULL OR {a}.context = '' OR {a}.context = COALESCE(NULLIF({a}.process, ''), 'publish') THEN 0 ELSE 1 END, COALESCE(CAST({a}.timestamp AS TEXT), ''), {a}.code)"
+            primary = "NOT EXISTS (SELECT 1 FROM {table} sibling WHERE sibling.project_code = {task}.project_code AND split_part(sibling.search_type, '?', 1) = split_part({task}.search_type, '?', 1) AND sibling.search_code = {task}.search_code AND COALESCE(NULLIF(sibling.process, ''), 'publish') = COALESCE(NULLIF({task}.process, ''), 'publish') AND {left} < {right})".format(
+                table=task, task=task, left=primary_order.format(a='sibling'), right=primary_order.format(a=task))
+            task_search.add_where("""EXISTS (SELECT 1 FROM note n WHERE n.project_code = {task}.project_code AND (
+                (n.search_code = {task}.search_code AND COALESCE(NULLIF(n.process, ''), 'publish') = COALESCE(NULLIF({task}.process, ''), 'publish')
+                 AND (n.search_type IS NULL OR n.search_type = '' OR split_part(n.search_type, '?', 1) = {parent_type}) AND {primary})
+                OR (n.search_code = {task}.code AND (n.search_type IS NULL OR n.search_type = '' OR split_part(n.search_type, '?', 1) = 'sthpw/task') AND NOT ({primary}))
+            ))""".format(task=task, parent_type=task_type, primary=primary))
+
+        def label_order(mode, descending=False):
+            # Select preserves its native "( CASE ... END )" orders verbatim;
+            # bare CASE/LOWER expressions are quoted as column identifiers.
+            column = {'due': 'bid_end_date', 'recent': 'timestamp', 'user': 'assigned',
+                      'object': 'search_code', 'search_type': 'search_type',
+                      'project': 'project_code'}.get(mode, columns.get(mode))
+            if not column:
+                raise ValueError('Unknown task ordering: %s' % mode)
+            direction = 'DESC' if descending else 'ASC'
+            if mode == 'object' and parent_labels:
+                branches = ["WHEN split_part(search_type, '?', 1) = %s AND search_code = %s THEN %s" %
+                            (Sql.quote(kind), Sql.quote(code), Sql.quote(label.casefold()))
+                            for kind, code, label in parent_labels]
+                expression = '( CASE ' + ' '.join(branches) + ' ELSE LOWER(search_code) END )'
+            elif mode in ('due', 'recent'):
+                expression = '"%s"' % column
+                if mode == 'due':
+                    task_search.get_select().add_order_by('( CASE WHEN "bid_end_date" IS NULL THEN 1 ELSE 0 END )')
+                else:
+                    direction = 'ASC' if descending else 'DESC'
+            else:
+                choices = labels.get('assigned' if mode == 'user' else mode) or []
+                branches = ['WHEN %s THEN %s' % (Sql.quote(str(item['value'])), Sql.quote(str(item.get('label') or item['value']).casefold()))
+                            for item in choices]
+                expression = 'LOWER(CAST("%s" AS TEXT))' % column
+                if branches:
+                    expression = '( CASE CAST("%s" AS TEXT) %s ELSE %s END )' % (column, ' '.join(branches), expression)
+                else:
+                    expression = '( CASE WHEN "%s" IS NOT NULL THEN %s END )' % (column, expression)
+            task_search.get_select().add_order_by(expression, direction=direction)
+
+        if group_mode != 'none':
+            label_order(group_mode, bool(query.get('descending')) and group_mode == sort_mode)
+            group_column = {'user': 'assigned', 'object': 'search_code',
+                            'search_type': 'search_type', 'project': 'project_code'}.get(
+                                group_mode, columns.get(group_mode))
+            if group_mode == 'object':
+                task_search.add_order_by('search_type')
+            task_search.add_order_by(group_column)
+        label_order(sort_mode, bool(query.get('descending')))
+        if sort_mode == 'object':
+            label_order('process', bool(query.get('descending')))
+        if sort_mode != 'due':
+            label_order('due')
+        task_search.add_order_by('code')
+        order_bys = []
     for order_by in order_bys or []:
         task_search.add_order_by(order_by)
     total = task_search.get_count()
@@ -748,32 +2057,124 @@ def query_task_workspace_page(filters, order_bys, project_code,
     task_objects = task_search.get_sobjects()
     tasks = server.server._get_sobjects_dict(task_objects)
 
-    note_counts = {}
-    search_codes = list(set(
-        str(info.get('search_code') or '') for info in tasks
-        if info.get('search_code')
+    page_groups = {}
+    for info in tasks:
+        parent_type = str(info.get('search_type') or '').split('?', 1)[0]
+        parent_code = str(info.get('search_code') or '')
+        process = str(info.get('process') or 'publish')
+        if parent_code:
+            page_groups.setdefault(
+                (parent_type, parent_code, process), []
+            ).append(info)
+
+    all_group_tasks = dict((key, []) for key in page_groups)
+    sibling_group_keys = {
+        key for key, page_tasks in page_groups.items()
+        if len(page_tasks) > 1 or any(
+            task.get('context')
+            and task.get('context') != key[2] for task in page_tasks
+        )
+    }
+    sibling_search_codes = list(set(
+        key[1] for key in sibling_group_keys
     ))
-    processes = list(set(
-        str(info.get('process') or '') for info in tasks
-        if info.get('process')
-    ))
+    sibling_processes = list(set(key[2] for key in sibling_group_keys))
+    if sibling_search_codes and sibling_processes:
+        sibling_search = Search('sthpw/task')
+        sibling_search.add_filters('search_code', sibling_search_codes)
+        sibling_search.add_filters('process', sibling_processes)
+        sibling_search.add_filter('project_code', project_code)
+        for task in sibling_search.get_sobjects():
+            task_data = task.get_data()
+            key = (
+                str(task_data.get('search_type') or '').split('?', 1)[0],
+                str(task_data.get('search_code') or ''),
+                str(task_data.get('process') or 'publish'),
+            )
+            if key in all_group_tasks:
+                all_group_tasks[key].append(task_data)
+
+    for key, page_tasks in page_groups.items():
+        group_tasks = all_group_tasks.get(key) or []
+        known_codes = set(
+            str(task.get('code') or '') for task in group_tasks
+        )
+        group_tasks.extend(
+            task for task in page_tasks
+            if str(task.get('code') or '') not in known_codes
+        )
+        all_group_tasks[key] = group_tasks
+
+    search_codes = list(set(key[1] for key in page_groups))
+    processes = list(set(key[2] for key in page_groups))
+    root_note_counts = dict((key, 0) for key in page_groups)
     if search_codes and processes:
         note_search = Search('sthpw/note')
         note_search.add_filters('search_code', search_codes)
         note_search.add_filters('process', processes)
+        note_search.add_filter('project_code', project_code)
         for note in note_search.get_sobjects():
-            key = (
-                str(note.get_value('search_code') or ''),
-                str(note.get_value('process') or ''),
-            )
-            note_counts[key] = note_counts.get(key, 0) + 1
-    for info in tasks:
-        key = (
-            str(info.get('search_code') or ''),
-            str(info.get('process') or ''),
+            parent_type = str(
+                note.get_value('search_type') or ''
+            ).split('?', 1)[0]
+            parent_code = str(note.get_value('search_code') or '')
+            process = str(note.get_value('process') or 'publish')
+            candidates = [
+                key for key in root_note_counts
+                if key[1] == parent_code and key[2] == process
+                and (not parent_type or key[0] == parent_type)
+            ]
+            for key in candidates:
+                root_note_counts[key] += 1
+
+    task_parent_by_code = {}
+    task_note_counts = {}
+    primary_by_group = {}
+    for key, group_tasks in all_group_tasks.items():
+        group_tasks.sort(key=lambda item: (
+            0 if not item.get('context')
+            or item.get('context') == key[2] else 1,
+            item.get('timestamp') or '', item.get('code') or '',
+        ))
+        primary_by_group[key] = (
+            group_tasks[0].get('code') if group_tasks else None
         )
-        info['__notes_count__'] = note_counts.get(key, 0)
-        info['__tasks_count__'] = 0
+        if len(group_tasks) <= 1:
+            continue
+        for task in group_tasks:
+            task_code = str(task.get('code') or '')
+            if task_code:
+                task_parent_by_code[task_code] = key
+
+    if task_parent_by_code:
+        task_note_search = Search('sthpw/note')
+        task_note_search.add_filters(
+            'search_code', list(task_parent_by_code)
+        )
+        task_note_search.add_filter('project_code', project_code)
+        for note in task_note_search.get_sobjects():
+            parent_type = str(
+                note.get_value('search_type') or ''
+            ).split('?', 1)[0]
+            if parent_type not in ('', 'sthpw/task'):
+                continue
+            task_code = str(note.get_value('search_code') or '')
+            if task_code in task_parent_by_code:
+                task_note_counts[task_code] = (
+                    task_note_counts.get(task_code, 0) + 1
+                )
+
+    for key, page_tasks in page_groups.items():
+        primary_code = primary_by_group.get(key)
+        for info in page_tasks:
+            task_code = str(info.get('code') or '')
+            is_primary = task_code == primary_code
+            info['__primary_note_branch__'] = is_primary
+            info['__notes_count__'] = (
+                root_note_counts.get(key, 0) if is_primary
+                else task_note_counts.get(task_code, 0)
+            )
+            info['__tasks_count__'] = 0
 
     parent_groups = {}
     for info in tasks:
@@ -793,6 +2194,7 @@ def query_task_workspace_page(filters, order_bys, project_code,
         'tasks': tasks,
         'parents': parents,
         'total': total,
+        'facets': facets,
         'offset': int(offset or 0),
         'limit': int(limit or 0),
     }, separators=(',', ':'))
@@ -884,9 +2286,10 @@ def query_work_hours(task_codes, project_code, login=None, start_day=None,
 
 
 def mutate_user_profile(login, values=None, password=None, groups=None,
-                        group_access_levels=None):
+                        group_access_levels=None, require_admin=False):
     """Update a TACTIC login through its native security object API."""
     import json
+    from pyasm.common import Environment
     from pyasm.search import Search
 
     current_login = str(server.get_login() or '')
@@ -894,13 +2297,16 @@ def mutate_user_profile(login, values=None, password=None, groups=None,
     if not target_login:
         raise ValueError('A login is required')
 
+    if require_admin and not Environment.get_security().is_admin():
+        raise PermissionError('Only a TACTIC administrator can manage users')
+
     group_search = Search('sthpw/login_in_group')
     group_search.add_filter('login', current_login)
     current_groups = [
         str(item.get_value('login_group') or '').lower()
         for item in group_search.get_sobjects()
     ]
-    privileged = current_login.lower() == 'admin' or any(
+    privileged = Environment.get_security().is_admin() or current_login.lower() == 'admin' or any(
         group == 'admin' or 'supervisor' in group
         for group in current_groups
     )
@@ -908,14 +2314,19 @@ def mutate_user_profile(login, values=None, password=None, groups=None,
         raise PermissionError('You may only edit your own profile')
 
     search = Search('sthpw/login')
+    search.set_show_retired(privileged)
     search.add_filter('login', target_login)
     login_object = search.get_sobject()
     if not login_object:
         raise ValueError('The selected user does not exist')
 
+    requested_status = dict(values or {}).get('s_status')
+    if target_login == current_login and requested_status == 'retired':
+        raise ValueError('You cannot retire the account you are signed in with')
+
     self_fields = {
         'first_name', 'last_name', 'display_name', 'email',
-        'phone_number', 'department',
+        'phone_number', 'address', 'department',
     }
     supervisor_fields = {
         'upn', 'namespace', 's_status', 'project_code',
@@ -925,12 +2336,23 @@ def mutate_user_profile(login, values=None, password=None, groups=None,
     changed = False
     for name, value in dict(values or {}).items():
         name = str(name or '')
-        if name not in allowed:
+        if name not in allowed or name == 's_status':
             continue
         login_object.set_value(name, value if value is not None else '')
         changed = True
     if changed:
         login_object.commit()
+
+    if privileged and 's_status' in dict(values or {}):
+        old_status = login_object.get_value('s_status', no_exception=True)
+        if requested_status != old_status:
+            if requested_status == 'retired':
+                login_object.retire()
+            elif old_status == 'retired' and not requested_status:
+                login_object.reactivate()
+            else:
+                login_object.set_value('s_status', requested_status or '')
+                login_object.commit()
 
     password = str(password or '')
     if password:
@@ -1004,7 +2426,7 @@ def mutate_user_profile(login, values=None, password=None, groups=None,
             group_object.commit()
             changed_access_levels[group_code] = access_level
 
-    data = login_object.get_data()
+    data = dict(login_object.get_data())
     data.pop('password', None)
     data['groups'] = sorted(
         set(str(value or '') for value in groups if value)
@@ -1123,10 +2545,15 @@ def mutate_sidebar_security(project_code, updates=None):
         sudo.exit()
 
 
-def create_user_profile(login, values=None, password=None, groups=None):
+def create_user_profile(login, values=None, password=None, groups=None, require_admin=False):
     """Create a TACTIC login through the native login sObject API."""
     import json
-    from pyasm.search import Search, SearchType
+    from pyasm.common import Environment
+    from pyasm.search import Search
+    from pyasm.security import Login
+
+    if require_admin and not Environment.get_security().is_admin():
+        raise PermissionError('Only a TACTIC administrator can manage users')
 
     current_login = str(server.get_login() or '')
     group_search = Search('sthpw/login_in_group')
@@ -1135,7 +2562,7 @@ def create_user_profile(login, values=None, password=None, groups=None):
         str(item.get_value('login_group') or '').lower()
         for item in group_search.get_sobjects()
     ]
-    privileged = current_login.lower() == 'admin' or any(
+    privileged = Environment.get_security().is_admin() or current_login.lower() == 'admin' or any(
         group == 'admin' or 'supervisor' in group
         for group in current_groups
     )
@@ -1149,41 +2576,27 @@ def create_user_profile(login, values=None, password=None, groups=None):
         raise ValueError('A login cannot contain spaces')
 
     duplicate_search = Search('sthpw/login')
+    duplicate_search.set_show_retired(True)
     duplicate_search.add_filter('login', target_login)
     if duplicate_search.get_sobject():
         raise ValueError('A user with this login already exists')
 
     allowed = {
         'first_name', 'last_name', 'display_name', 'email',
-        'phone_number', 'department', 'upn', 'namespace', 's_status',
+        'phone_number', 'address', 'department', 'upn', 'namespace', 's_status',
         'project_code', 'license_type', 'hourly_wage',
     }
-    login_object = SearchType.create('sthpw/login')
-    login_object.set_value('login', target_login)
-    for name, value in dict(values or {}).items():
-        name = str(name or '')
-        if name in allowed:
-            login_object.set_value(name, value if value is not None else '')
-    login_object.commit()
+    desired_groups = sorted(set(str(value) for value in (groups or []) if value))
+    payload = {str(key): value for key, value in dict(values or {}).items()
+               if key in allowed and value not in (None, '')}
+    login_object = Login.create(target_login, str(password or ''), groups=desired_groups,
+                                project_code=payload.get('project_code'))
+    for name, value in payload.items():
+        login_object.set_value(name, value)
+    if payload:
+        login_object.commit()
 
-    password = str(password or '')
-    if password:
-        setter = getattr(login_object, 'set_password', None)
-        if not callable(setter):
-            raise RuntimeError('This TACTIC server cannot set user passwords')
-        setter(password)
-
-    desired_groups = sorted(set(
-        str(value or '') for value in (groups or []) if value
-    ))
-    if desired_groups:
-        add_to_group = getattr(login_object, 'add_to_group', None)
-        if not callable(add_to_group):
-            raise RuntimeError('This TACTIC server has no group membership API')
-        for group in desired_groups:
-            add_to_group(group)
-
-    data = login_object.get_data()
+    data = dict(login_object.get_data())
     data.pop('password', None)
     data['groups'] = desired_groups
     return json.dumps(data, separators=(',', ':'), default=str)
@@ -1517,9 +2930,41 @@ def query_chat_conversations():
     import json
     import re
     from pyasm.biz import Snapshot
-    from pyasm.search import Search, SearchKey
+    from pyasm.common import Environment
+    from pyasm.search import Search, SearchKey, SearchType
 
     current_login = str(server.get_login() or '')
+    administrator = bool(Environment.get_security().is_admin())
+    required_schema = (
+        ('sthpw/message', 'metadata'),
+        ('sthpw/message_log', 'metadata'),
+    )
+
+    def available_columns(search_type):
+        try:
+            return set(SearchType.get_columns(search_type) or [])
+        except AttributeError as error:
+            if 'undefined' not in str(error).lower():
+                raise
+            return set()
+
+    missing_columns = []
+    for search_type, column in required_schema:
+        if column not in available_columns(search_type):
+            missing_columns.append({
+                'searchType': search_type,
+                'column': column,
+                'dataType': 'text',
+            })
+    if missing_columns:
+        return json.dumps({
+            'initialized': False,
+            'canInitialize': administrator,
+            'missingColumns': missing_columns,
+            'conversations': [],
+            'canCreateGroup': False,
+            'canDeleteMessages': False,
+        }, separators=(',', ':'))
     if str(current_login or '').lower() == 'admin':
         privileged = True
     else:
@@ -1544,6 +2989,8 @@ def query_chat_conversations():
     ))
     if not message_codes:
         return json.dumps({
+            'initialized': True,
+            'canInitialize': administrator,
             'conversations': [],
             'canCreateGroup': bool(privileged),
             'canDeleteMessages': bool(privileged),
@@ -1562,6 +3009,8 @@ def query_chat_conversations():
     ]
     if not active_codes:
         return json.dumps({
+            'initialized': True,
+            'canInitialize': administrator,
             'conversations': [],
             'canCreateGroup': bool(privileged),
             'canDeleteMessages': bool(privileged),
@@ -1803,6 +3252,8 @@ def query_chat_conversations():
     )
     return json.dumps(
         {
+            'initialized': True,
+            'canInitialize': administrator,
             'conversations': conversations,
             'canCreateGroup': bool(privileged),
             'canDeleteMessages': bool(privileged),
@@ -3226,53 +4677,112 @@ def authorize_chat_attachment(message_code, snapshot_code):
 def query_server_updates(message_after='', activity_after='', project_code='',
                          limit=101, reaction_after='', include_activity=True,
                          include_reactions=True, include_presence=False,
-                         presence_ttl=360):
+                         presence_ttl=360, cache_after='',
+                         include_cache_changes=False, include_messages=True,
+                         heartbeat_presence=True):
     import hashlib
     import json
-    from datetime import datetime
+    from datetime import datetime, timezone
     from json import loads
     from pyasm.search import Search, SearchKey
 
-    def refresh_presence(ttl_seconds):
+    clock_started_utc = datetime.now(timezone.utc)
+    chat_requested = bool(
+        include_messages or include_reactions or include_presence
+    )
+    if chat_requested:
+        from pyasm.search import SearchType
+
+    def chat_search_type_available(search_type):
+        try:
+            columns = set(SearchType.get_columns(search_type) or [])
+        except AttributeError as error:
+            if 'undefined' not in str(error).lower():
+                raise
+            return False
+        return 'metadata' in columns
+
+    messages_initialized = (
+        all(
+            chat_search_type_available(search_type)
+            for search_type in ('sthpw/message', 'sthpw/message_log')
+        )
+        if chat_requested else True
+    )
+    if not messages_initialized:
+        # First-run servers do not have Handler's structured chat metadata.
+        # Keep activity/cache polling alive, but do not read or write chat and
+        # presence records until an administrator confirms schema bootstrap.
+        include_messages = False
+        include_reactions = False
+        include_presence = False
+        heartbeat_presence = False
+
+    def database_local_now():
+        """Read the wall clock used for TACTIC's naive DB timestamps."""
+        try:
+            from pyasm.search import SearchType
+
+            sql = SearchType.get_sql_by_search_type('sthpw/message')
+            rows = sql.do_query('SELECT CURRENT_TIMESTAMP')
+            row = rows[0]
+            if isinstance(row, dict):
+                value = next(iter(row.values()))
+            elif isinstance(row, (list, tuple)):
+                value = row[0]
+            else:
+                value = row
+            if isinstance(value, datetime):
+                return value.replace(tzinfo=None)
+            return datetime.fromisoformat(str(value).strip()).replace(
+                tzinfo=None
+            )
+        except (AttributeError, IndexError, ImportError, TypeError, ValueError):
+            # Old TACTIC SQL adapters do not all expose do_query().  The
+            # process-local sample remains a safe compatibility fallback.
+            return None
+
+    def refresh_presence(ttl_seconds, publish_current):
         category = 'online_status'
         login = str(server.get_login() or '').strip()
         if not login:
             return []
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc).replace(tzinfo=None)
         now_value = now.strftime('%Y-%m-%dT%H:%M:%SZ')
-        search = Search('sthpw/message')
-        search.add_filter('category', category)
-        search.add_filter('login', login)
-        search.add_order_by('timestamp', direction='desc')
-        search.set_limit(1)
-        presence = search.get_sobject()
         metadata = {
             'schemaVersion': 1,
             'login': login,
             'state': 'online',
             'lastSeen': now_value,
         }
-        if presence:
-            server.update(
-                SearchKey.get_by_sobject(presence, use_id=False),
-                {
+        if publish_current:
+            search = Search('sthpw/message')
+            search.add_filter('category', category)
+            search.add_filter('login', login)
+            search.add_order_by('timestamp', direction='desc')
+            search.set_limit(1)
+            presence = search.get_sobject()
+            if presence:
+                server.update(
+                    SearchKey.get_by_sobject(presence, use_id=False),
+                    {
+                        'message': now_value,
+                        'status': 'online',
+                        'metadata': metadata,
+                    },
+                    triggers=False,
+                )
+            else:
+                digest = hashlib.sha1(login.encode('utf-8')).hexdigest()[:24]
+                server.insert('sthpw/message', {
+                    'code': 'ONLINE_STATUS_{0}'.format(digest.upper()),
+                    'category': category,
                     'message': now_value,
                     'status': 'online',
+                    'login': login,
+                    'project_code': 'sthpw',
                     'metadata': metadata,
-                },
-                triggers=False,
-            )
-        else:
-            digest = hashlib.sha1(login.encode('utf-8')).hexdigest()[:24]
-            server.insert('sthpw/message', {
-                'code': 'ONLINE_STATUS_{0}'.format(digest.upper()),
-                'category': category,
-                'message': now_value,
-                'status': 'online',
-                'login': login,
-                'project_code': 'sthpw',
-                'metadata': metadata,
-            })
+                })
         all_search = Search('sthpw/message')
         all_search.add_filter('category', category)
         all_search.add_order_by('timestamp', direction='desc')
@@ -3351,16 +4861,120 @@ def query_server_updates(message_after='', activity_after='', project_code='',
             ]),
         }
 
+    def cache_change_records():
+        """Return compact invalidation records for the persistent cache."""
+        cursor = str(cache_after or '')
+        cursor_timestamp = cursor.split('|', 1)[0]
+        records = []
+        retired = []
+        newest = cursor
+        scopes = list(dict.fromkeys(
+            value for value in (project_code, 'sthpw') if value
+        ))
+
+        def search_type_project(search_type):
+            value = str(search_type or '')
+            base, separator, query = value.partition('?')
+            if separator:
+                for field in query.split('&'):
+                    key, equals, field_value = field.partition('=')
+                    if equals and key == 'project':
+                        return field_value
+            if base.startswith('sthpw/'):
+                return 'sthpw'
+            return ''
+
+        def append_rows(search_type, target, kind, newest_value):
+            for scope in scopes:
+                search = Search(search_type)
+                if kind == 'retire':
+                    # retire_log has no project_code column. Project Search
+                    # Types retain their project in ``?project=...`` while
+                    # core records use the sthpw namespace. Filtering by the
+                    # nonexistent column aborts the PostgreSQL transaction in
+                    # TACTIC 4.9, so every later Search reports a misleading
+                    # schema error for an unrelated table.
+                    search.add_filter(
+                        'search_type',
+                        (
+                            'sthpw/%' if scope == 'sthpw'
+                            else '%project={0}%'.format(scope)
+                        ),
+                        op='like',
+                    )
+                else:
+                    search.add_filter('project_code', scope)
+                if cursor_timestamp:
+                    search.add_filter(
+                        'timestamp', cursor_timestamp, op='>='
+                    )
+                    search.add_order_by('timestamp')
+                else:
+                    search.add_order_by('timestamp', direction='desc')
+                search.set_limit(limit)
+                rows = search.get_sobjects()
+                for item in rows:
+                    data = item.get_data()
+                    timestamp = event_timestamp(data.get('timestamp'))
+                    raw_search_type = str(
+                        data.get('search_type')
+                        or data.get('search_type_code') or ''
+                    )
+                    changed_type = raw_search_type.split('?', 1)[0]
+                    record_project = str(
+                        data.get('project_code')
+                        or search_type_project(raw_search_type)
+                    )
+                    if kind == 'retire' and record_project != scope:
+                        continue
+                    changed_code = str(
+                        data.get('search_code')
+                        or data.get('code') or data.get('id') or ''
+                    )
+                    token = '|'.join((
+                        timestamp, changed_type, changed_code, kind,
+                    ))
+                    if cursor and token <= cursor:
+                        continue
+                    newest_value = max(newest_value, token)
+                    target.append({
+                        'searchType': changed_type,
+                        'searchCode': changed_code,
+                        'projectCode': record_project or scope,
+                        'timestamp': timestamp,
+                    })
+            return newest_value
+
+        newest = append_rows(
+            'sthpw/change_timestamp', records, 'change', newest
+        )
+        newest = append_rows(
+            'sthpw/retire_log', retired, 'retire', newest
+        )
+        if not cursor:
+            records = []
+            retired = []
+        return records, retired, newest
+
     current_login = str(server.get_login() or '')
     limit = int(limit or 101)
-    own_search = Search('sthpw/subscription')
-    own_search.add_filter('login', current_login)
-    own_search.add_filter('category', 'chat')
-    message_codes = list(set(
-        subscription.get_value('message_code')
-        for subscription in own_search.get_sobjects()
-        if subscription.get_value('message_code')
-    ))
+    if include_cache_changes:
+        cache_changes, cache_retired, cache_cursor = cache_change_records()
+    else:
+        cache_changes, cache_retired, cache_cursor = [], [], str(
+            cache_after or ''
+        )
+    message_poll_attempted = bool(include_messages)
+    message_codes = []
+    if message_poll_attempted:
+        own_search = Search('sthpw/subscription')
+        own_search.add_filter('login', current_login)
+        own_search.add_filter('category', 'chat')
+        message_codes = list(set(
+            subscription.get_value('message_code')
+            for subscription in own_search.get_sobjects()
+            if subscription.get_value('message_code')
+        ))
     messages = []
     if message_codes:
         search = Search('sthpw/message_log')
@@ -3376,7 +4990,9 @@ def query_server_updates(message_after='', activity_after='', project_code='',
         message_logs = [item for item in message_logs if item.get_code()]
         delivery_by_code = {}
         delivery_updates = {}
-        delivered_at = datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')
+        delivered_at = datetime.now(timezone.utc).strftime(
+            '%Y-%m-%d %H:%M:%S'
+        )
         for item in message_logs:
             metadata = metadata_value(item)
             delivery = dict(metadata.get('delivery') or {})
@@ -3521,7 +5137,8 @@ def query_server_updates(message_after='', activity_after='', project_code='',
             else:
                 search.add_order_by(timestamp_column, direction='desc')
             search.set_limit(limit)
-            for item in search.get_sobjects():
+            source_items = search.get_sobjects()
+            for item in source_items:
                 data = item.get_data()
                 if (
                     kind == 'change'
@@ -3538,104 +5155,155 @@ def query_server_updates(message_after='', activity_after='', project_code='',
                     or item.get_value(timestamp_column, no_exception=True)
                 )
                 activity.append(data)
+        work_hour_changes = [
+            item for item in activity
+            if item.get('__kind__') == 'change'
+            and str(item.get('search_type') or '').split('?', 1)[0]
+            == 'sthpw/work_hour'
+            and item.get('search_code')
+        ]
+        if work_hour_changes:
+            work_hour_codes = list(set(
+                str(item.get('search_code') or '')
+                for item in work_hour_changes
+            ))
+            work_hour_search = Search('sthpw/work_hour')
+            work_hour_search.add_filters('code', work_hour_codes)
+            work_hours_by_code = {
+                str(item.get_code() or ''): item
+                for item in work_hour_search.get_sobjects()
+            }
+            task_codes = list(set(
+                str(item.get_value('task_code') or '')
+                for item in work_hours_by_code.values()
+                if item.get_value('task_code')
+            ))
+            task_contexts = {}
+            if task_codes:
+                work_task_search = Search('sthpw/task')
+                work_task_search.add_filters('code', task_codes)
+                for task in work_task_search.get_sobjects():
+                    task_data = task.get_data()
+                    parent = task.get_parent()
+                    task_contexts[str(task.get_code() or '')] = {
+                        'process': str(task_data.get('process') or ''),
+                        'context': str(
+                            task_data.get('context')
+                            or task_data.get('process') or ''
+                        ),
+                        'targetSearchKey': str(
+                            SearchKey.get_by_sobject(parent, use_id=False)
+                            if parent else ''
+                        ),
+                        'targetTitle': str((
+                            parent.get_name()
+                            or parent.get_value('name', no_exception=True)
+                            or parent.get_value('title', no_exception=True)
+                            or parent.get_code() or ''
+                        ) if parent else ''),
+                        'targetType': str(
+                            task_data.get('search_type') or ''
+                        ).split('?', 1)[0],
+                    }
+            retained_activity = []
+            for info in activity:
+                if info not in work_hour_changes:
+                    retained_activity.append(info)
+                    continue
+                code = str(info.get('search_code') or '')
+                work_hour = work_hours_by_code.get(code)
+                if not work_hour:
+                    continue
+                event_time = str(info.get('__event_timestamp__') or '')
+                changed_by = info.get('changed_by') or {}
+                if not isinstance(changed_by, dict):
+                    try:
+                        changed_by = loads(changed_by)
+                    except (TypeError, ValueError):
+                        changed_by = {}
+                actor = next((
+                    str(value) for value in changed_by.values() if value
+                ), '') if isinstance(changed_by, dict) else ''
+                data = work_hour.get_data()
+                task_code = str(data.get('task_code') or '')
+                data.update(task_contexts.get(task_code, {}))
+                data['__search_key__'] = str(
+                    SearchKey.get_by_sobject(work_hour, use_id=False) or ''
+                )
+                data['__kind__'] = 'work_hour'
+                data['__event_timestamp__'] = event_time
+                data['__actor__'] = actor
+                data['__work_hour_action__'] = 'change'
+                retained_activity.append(data)
+            activity = retained_activity
+        publication_rows = [
+            item for item in activity
+            if item.get('__kind__') == 'publication' and item.get('code')
+        ]
+        if publication_rows:
+            publication_by_code = dict(
+                (str(item.get('code')), item) for item in publication_rows
+            )
+            file_search = Search('sthpw/file')
+            file_search.add_filters(
+                'snapshot_code', list(publication_by_code.keys())
+            )
+            file_search.add_filter('type', 'main')
+            for file_item in file_search.get_sobjects():
+                file_data = file_item.get_data()
+                publication = publication_by_code.get(
+                    str(file_data.get('snapshot_code') or '')
+                )
+                file_name = str(file_data.get('file_name') or '')
+                if publication is not None and file_name:
+                    publication.setdefault('__main_files__', []).append(
+                        file_name
+                    )
     activity.sort(key=lambda item: item.get('__event_timestamp__') or '')
     activity_page = activity[:limit] if activity_after else activity[-limit:]
-    presence = refresh_presence(presence_ttl) if include_presence else []
+    presence = refresh_presence(
+        presence_ttl, bool(heartbeat_presence)
+    ) if include_presence else []
+    clock_ended_utc = datetime.now(timezone.utc)
+    clock_ended_local = clock_ended_utc.astimezone().replace(tzinfo=None)
+    clock_ended_database = database_local_now()
     return {
         'messages': messages,
         'reactions': reactions,
         'reactionCursor': reaction_cursor,
         'activity': activity_page,
         'presence': presence,
+        'cacheChanges': cache_changes,
+        'cacheRetired': cache_retired,
+        'cacheCursor': cache_cursor,
+        'messagePollAttempted': message_poll_attempted,
+        'messagesInitialized': messages_initialized,
+        'serverClock': {
+            'utcStarted': clock_started_utc.strftime(
+                '%Y-%m-%dT%H:%M:%S.%fZ'
+            ),
+            'utcEnded': clock_ended_utc.strftime(
+                '%Y-%m-%dT%H:%M:%S.%fZ'
+            ),
+            'localEnded': clock_ended_local.strftime(
+                '%Y-%m-%dT%H:%M:%S.%f'
+            ),
+            'databaseEnded': (
+                clock_ended_database.strftime('%Y-%m-%dT%H:%M:%S.%f')
+                if clock_ended_database else ''
+            ),
+        },
     }
-
-
-def _query_user_recent_activity_legacy(login, project_code='', limit=25):
-    """Return recent user-authored project activity in one server request.
-
-    Status history alone is not an activity feed: it omits publications,
-    notes, and task changes. Merge the existing TACTIC records here so the
-    client does not issue one network request per source table.
-    """
-    from pyasm.search import Search, SearchKey
-
-    login = str(login or '').strip()
-    project_code = str(project_code or '').strip()
-    limit = max(1, min(int(limit or 25), 100))
-    if not login:
-        return []
-
-    records = []
-    sources = (
-        ('sthpw/status_log', 'status'),
-        ('sthpw/snapshot', 'publication'),
-        ('sthpw/note', 'note'),
-        ('sthpw/task', 'task'),
-    )
-    for search_type, kind in sources:
-        search = Search(search_type)
-        search.add_filter('login', login)
-        if project_code:
-            search.add_filter('project_code', project_code)
-        search.add_order_by('timestamp', direction='desc')
-        search.set_limit(limit)
-        for item in search.get_sobjects():
-            data = item.get_data()
-            timestamp = str(data.get('timestamp') or '')
-            search_key = SearchKey.get_by_sobject(
-                item, use_id=(kind == 'status')
-            )
-            if kind == 'status':
-                before = str(data.get('from_status') or '')
-                after = str(
-                    data.get('to_status') or data.get('status') or ''
-                )
-                detail = ' -> '.join(
-                    value for value in (before, after) if value
-                )
-                title = 'Status changed'
-            elif kind == 'publication':
-                context = str(
-                    data.get('context') or data.get('process') or ''
-                )
-                version = data.get('version')
-                title = 'Published {0}'.format(context).strip()
-                detail = (
-                    'Version {0}'.format(version)
-                    if version not in (None, '') else 'New snapshot'
-                )
-            elif kind == 'note':
-                process = str(data.get('process') or '')
-                title = 'Added note{0}'.format(
-                    ' · {0}'.format(process) if process else ''
-                )
-                detail = str(data.get('note') or '')[:240]
-            else:
-                process = str(data.get('process') or '')
-                title = 'Task{0}'.format(
-                    ' · {0}'.format(process) if process else ''
-                )
-                detail = str(
-                    data.get('description') or data.get('status') or ''
-                )[:240]
-            records.append({
-                'searchKey': str(search_key or ''),
-                'kind': kind,
-                'title': title,
-                'detail': detail,
-                'timestamp': timestamp,
-                'project': str(data.get('project_code') or project_code),
-            })
-
-    records.sort(key=lambda record: record.get('timestamp') or '', reverse=True)
-    return records[:limit]
 
 
 def query_user_recent_activity(
         login='', project_code='', limit=25, offset=0, kinds=None,
-        assigned_login=''):
+        assigned_login='', include_day_counts=False, day='', logins=None,
+        counts_only=False, counts_from_day='', instance_relations=None,
+        object_scope=None, exclude_login=''):
     """Return one enriched, pageable activity shape for profiles and feeds."""
     import json
+    import xml.etree.ElementTree as ElementTree
     from pyasm.search import Search, SearchKey
 
     login = str(login or '').strip()
@@ -3643,10 +5311,100 @@ def query_user_recent_activity(
     limit = max(1, min(int(limit or 25), 100))
     offset = max(0, int(offset or 0))
     assigned_login = str(assigned_login or '').strip()
+    exclude_login = str(exclude_login or '').strip().casefold()
+    logins = list(dict.fromkeys(
+        str(value or '').strip()
+        for value in (logins or ())
+        if str(value or '').strip()
+    ))
+    instance_relations = {
+        clean_type: tuple(
+            str(endpoint or '').split('?', 1)[0]
+            for endpoint in endpoints or ()
+            if str(endpoint or '').strip()
+        )
+        for raw_type, endpoints in dict(instance_relations or {}).items()
+        for clean_type in (str(raw_type or '').split('?', 1)[0],)
+        if clean_type
+    }
+    object_scope = dict(object_scope or {})
+    scope_search_type = str(
+        object_scope.get('searchType') or ''
+    ).split('?', 1)[0]
+    scope_search_code = str(object_scope.get('searchCode') or '')
+    scope_search_id = str(object_scope.get('searchId') or '')
+    scope_child_types = set(
+        str(value or '').split('?', 1)[0]
+        for value in object_scope.get('childTypes') or ()
+        if str(value or '').strip()
+    )
+    scope_note_codes = set(
+        str(value or '')
+        for value in object_scope.get('noteCodes') or ()
+        if str(value or '').strip()
+    )
+    scope_snapshot_codes = set(
+        str(value or '')
+        for value in object_scope.get('snapshotCodes') or ()
+        if str(value or '').strip()
+    )
+    scope_work_hour_codes = set(
+        str(value or '')
+        for value in object_scope.get('workHourCodes') or ()
+        if str(value or '').strip()
+    )
+    scope_indexed_objects = []
+    for raw_reference in object_scope.get('indexedObjects') or ():
+        reference = dict(raw_reference or {})
+        reference_type = str(
+            reference.get('searchType') or ''
+        ).split('?', 1)[0]
+        reference_code = str(reference.get('searchCode') or '')
+        reference_id = str(reference.get('searchId') or '')
+        if reference_type and (reference_code or reference_id):
+            scope_indexed_objects.append({
+                'searchType': reference_type,
+                'searchCode': reference_code,
+                'searchId': reference_id,
+            })
+    scope_task_ids = set(
+        str(value or '')
+        for value in object_scope.get('taskIds') or ()
+        if str(value or '').strip()
+    )
+    scope_task_code_by_id = {}
+    for reference in scope_indexed_objects:
+        if reference.get('searchType') != 'sthpw/task':
+            continue
+        reference_id = str(reference.get('searchId') or '')
+        reference_code = str(reference.get('searchCode') or '')
+        if reference_id:
+            scope_task_ids.add(reference_id)
+            if reference_code:
+                scope_task_code_by_id[reference_id] = reference_code
+    scope_enabled = bool(scope_search_type and scope_search_code)
+    scope_identity_values = {
+        value for value in (scope_search_code, scope_search_id) if value
+    }
     allowed_kinds = set(str(value or '') for value in (kinds or ()))
+    counts_only = bool(counts_only)
+    include_day_counts = bool(include_day_counts or counts_only)
+    counts_from_day = str(counts_from_day or '').strip()
+    day = str(day or '').strip()
+    next_day = ''
+    if day:
+        import datetime
+        next_day = (
+            datetime.datetime.strptime(day, '%Y-%m-%d')
+            + datetime.timedelta(days=1)
+        ).strftime('%Y-%m-%d')
 
     records = []
     parent_refs = {}
+    relation_refs = {}
+    snapshot_codes = set()
+    day_counts = {}
+    message_codes = None
     sources = (
         ('sthpw/status_log', 'status', True),
         ('sthpw/snapshot', 'publication', True),
@@ -3654,27 +5412,297 @@ def query_user_recent_activity(
         ('sthpw/task', 'task', True),
         ('sthpw/message_log', 'message', False),
     )
+
+    technical_columns = {
+        'id', 'code', 'search_type', 'search_id', 'search_code',
+        'project_code', 'timestamp', 'login', 'transaction_code',
+        'pipeline_code', '__search_key__',
+    }
+
+    def clean_search_type(value):
+        return str(value or '').split('?', 1)[0]
+
+    def actor_is_excluded(value):
+        return bool(
+            exclude_login
+            and str(value or '').strip().casefold() == exclude_login
+        )
+
+    def source_actor(data, kind):
+        if kind == 'task':
+            return str(data.get('login') or data.get('changed_by') or '')
+        return str(
+            data.get('login') or data.get('assigned')
+            or data.get('changed_by') or ''
+        )
+
+    def json_mapping(value):
+        if isinstance(value, dict):
+            return dict(value)
+        if not value:
+            return {}
+        try:
+            decoded = json.loads(str(value))
+        except (TypeError, ValueError):
+            return {}
+        return dict(decoded) if isinstance(decoded, dict) else {}
+
+    def transaction_xml(transaction, data):
+        """Read transaction XML through TACTIC so zlib payloads are expanded."""
+        getter = getattr(transaction, 'get_xml_value', None)
+        if getter:
+            try:
+                xml_value = getter('transaction')
+                serializer = getattr(xml_value, 'to_string', None)
+                if serializer:
+                    try:
+                        value = serializer(pretty=False)
+                    except TypeError:
+                        value = serializer()
+                    if isinstance(value, bytes):
+                        return value.decode('utf-8', errors='replace')
+                    return str(value or '')
+            except (AttributeError, TypeError, ValueError):
+                pass
+        return str(data.get('transaction') or '')
+
+    def parse_transaction(value):
+        """Return the user-facing object mutations from a TACTIC transaction."""
+        text = str(value or '').strip()
+        if not text or '<' not in text:
+            return []
+        try:
+            root = ElementTree.fromstring(text)
+        except (ElementTree.ParseError, TypeError, ValueError):
+            return []
+        mutations = []
+        for node in root.iter('sobject'):
+            action = str(node.get('action') or '').strip().lower()
+            if action not in ('insert', 'create', 'update', 'delete', 'remove'):
+                continue
+            changes = []
+            field_values = {}
+            for column in node.findall('column'):
+                name = str(column.get('name') or '').strip()
+                if not name:
+                    continue
+                before = str(column.get('from') or '').strip()
+                after = str(column.get('to') or '').strip()
+                if before == after:
+                    continue
+                field_values[name] = {
+                    'before': before,
+                    'after': after,
+                }
+                if name.lower() in technical_columns:
+                    continue
+                changes.append({
+                    'field': name.replace('_', ' '),
+                    'before': before,
+                    'after': after,
+                })
+            display_title = ''
+            for preferred_field in ('name', 'title'):
+                title_change = next((
+                    change for change in changes
+                    if str(change.get('field') or '').lower()
+                    == preferred_field
+                ), None)
+                if not title_change:
+                    continue
+                if action in ('delete', 'remove'):
+                    display_title = str(title_change.get('before') or '')
+                else:
+                    display_title = str(
+                        title_change.get('after')
+                        or title_change.get('before') or ''
+                    )
+                break
+            mutations.append({
+                'action': action,
+                'searchType': clean_search_type(node.get('search_type')),
+                'searchCode': str(
+                    node.get('search_code') or node.get('search_id') or ''
+                ),
+                'changes': changes[:4],
+                'fieldValues': field_values,
+                'displayTitle': display_title,
+            })
+        return mutations
+
+    def mutation_value(mutation, field):
+        change = dict(
+            (mutation.get('fieldValues') or {}).get(field) or {}
+        )
+        if mutation_kind(mutation) == 'delete':
+            return str(change.get('before') or change.get('after') or '')
+        return str(change.get('after') or change.get('before') or '')
+
+    def mutation_title(mutation):
+        return str(mutation.get('displayTitle') or '')
+
+    def audit_detail(mutation, transaction_data):
+        changes = mutation.get('changes') or []
+        if changes:
+            parts = []
+            for change in changes:
+                field = change.get('field') or ''
+                before = change.get('before') or ''
+                after = change.get('after') or ''
+                if before and after:
+                    parts.append('{0}: {1} -> {2}'.format(
+                        field, before, after
+                    ))
+                elif after:
+                    parts.append('{0}: {1}'.format(field, after))
+                elif before:
+                    parts.append('{0}: {1} -> empty'.format(field, before))
+            return '; '.join(parts)[:480]
+        return str(
+            transaction_data.get('description')
+            or transaction_data.get('title') or ''
+        )[:480]
+    if not allowed_kinds or 'message' in allowed_kinds:
+        subscription_search = Search('sthpw/subscription')
+        subscription_search.add_filter('login', str(server.get_login() or ''))
+        subscription_search.add_filter('category', 'chat')
+        message_codes = list(set(
+            item.get_value('message_code')
+            for item in subscription_search.get_sobjects()
+            if item.get_value('message_code')
+        ))
+
+    def apply_source_filters(search, kind, filter_project, filter_day=True):
+        if kind == 'task' and assigned_login:
+            search.add_filter('assigned', assigned_login)
+        elif logins:
+            search.add_filters(
+                'assigned' if kind == 'task' else 'login', logins
+            )
+        elif login:
+            search.add_filter('login', login)
+        if exclude_login:
+            search.add_filter('login', exclude_login, op='!=')
+        if kind == 'message':
+            search.add_filter('category', 'chat')
+            search.add_filter('status', 'deleted', op='!=')
+            if message_codes:
+                search.add_filters('message_code', message_codes)
+            else:
+                search.add_filter('message_code', '__no_accessible_chat__')
+        if project_code and filter_project:
+            search.add_filter('project_code', project_code)
+        if scope_enabled:
+            if kind in ('task', 'publication'):
+                search.add_filter('search_type', scope_search_type)
+                if scope_search_id:
+                    search.add_filter('search_id', scope_search_id)
+                else:
+                    search.add_filter('search_code', scope_search_code)
+            elif kind in ('status', 'note'):
+                if scope_search_id or scope_task_ids:
+                    parent_ids = list(scope_task_ids)
+                    if scope_search_id:
+                        parent_ids.append(scope_search_id)
+                    search.add_filters(
+                        'search_id', list(dict.fromkeys(parent_ids))
+                    )
+                else:
+                    parent_codes = list(scope_task_codes)
+                    parent_codes.append(scope_search_code)
+                    search.add_filters(
+                        'search_code', list(dict.fromkeys(parent_codes))
+                    )
+        if filter_day and day:
+            search.add_filter('timestamp', day + ' 00:00:00', op='>=')
+            search.add_filter('timestamp', next_day + ' 00:00:00', op='<')
+        elif not filter_day and counts_from_day:
+            search.add_filter(
+                'timestamp', counts_from_day + ' 00:00:00', op='>='
+            )
+
+    scope_task_codes = {
+        str(value or '')
+        for value in object_scope.get('taskCodes') or ()
+        if str(value or '').strip()
+    }
+    if scope_enabled and not scope_task_codes:
+        scope_task_search = Search('sthpw/task')
+        scope_task_search.add_filter('search_type', scope_search_type)
+        scope_task_search.add_filter('search_code', scope_search_code)
+        if project_code:
+            scope_task_search.add_filter('project_code', project_code)
+        for scope_task in scope_task_search.get_sobjects():
+            scope_task_data = scope_task.get_data()
+            if (
+                    clean_search_type(scope_task_data.get('search_type'))
+                    != scope_search_type
+                    or str(scope_task_data.get('search_code') or '')
+                    != scope_search_code):
+                continue
+            scope_task_code = str(scope_task.get_code() or '')
+            if scope_task_code:
+                scope_task_codes.add(scope_task_code)
+                scope_task_id = str(
+                    scope_task_data.get('id') or scope_task.get_id() or ''
+                )
+                if scope_task_id:
+                    scope_task_ids.add(scope_task_id)
+                    scope_task_code_by_id[scope_task_id] = (
+                        scope_task_code
+                    )
+
+    if scope_enabled and not scope_indexed_objects:
+        scope_indexed_objects.append({
+            'searchType': scope_search_type,
+            'searchCode': scope_search_code,
+            'searchId': scope_search_id,
+        })
+
     for search_type, kind, filter_project in sources:
         if allowed_kinds and kind not in allowed_kinds:
             continue
+        if include_day_counts:
+            calendar_search = Search(search_type)
+            apply_source_filters(
+                calendar_search, kind, filter_project, filter_day=False
+            )
+            calendar_search.add_column('timestamp')
+            for calendar_item in calendar_search.get_sobjects():
+                if actor_is_excluded(source_actor(
+                        calendar_item.get_data(), kind)):
+                    continue
+                day_key = str(
+                    calendar_item.get_value('timestamp') or ''
+                )[:10]
+                if len(day_key) == 10:
+                    day_counts[day_key] = day_counts.get(day_key, 0) + 1
+        if counts_only:
+            continue
         search = Search(search_type)
-        if kind == 'task' and assigned_login:
-            search.add_filter('assigned', assigned_login)
-        elif login:
-            search.add_filter('login', login)
-        if kind == 'message':
-            search.add_filter('category', 'chat')
-        if project_code and filter_project:
-            search.add_filter('project_code', project_code)
+        apply_source_filters(search, kind, filter_project)
         search.add_order_by('timestamp', direction='desc')
         search.set_limit(offset + limit)
         for item in search.get_sobjects():
             data = item.get_data()
+            item_code = str(data.get('code') or data.get('id') or '')
+            if kind == 'publication' and item_code:
+                snapshot_codes.add(item_code)
             process = str(data.get('process') or '')
             context = str(data.get('context') or process)
             version = data.get('version')
             parent_type = str(data.get('search_type') or '').split('?', 1)[0]
             parent_code = str(data.get('search_code') or '')
+            parent_id = str(data.get('search_id') or '')
+            if scope_enabled and not parent_code:
+                if (
+                        clean_search_type(parent_type) == scope_search_type
+                        and parent_id == scope_search_id):
+                    parent_code = scope_search_code
+                elif clean_search_type(parent_type) == 'sthpw/task':
+                    parent_code = str(
+                        scope_task_code_by_id.get(parent_id) or ''
+                    )
             if kind == 'message':
                 parent_type = 'sthpw/message'
                 parent_code = str(data.get('message_code') or '')
@@ -3692,10 +5720,7 @@ def query_user_recent_activity(
                 )
             elif kind == 'publication':
                 title = 'Published snapshot'
-                detail = (
-                    'Version {0}'.format(version)
-                    if version not in (None, '') else 'New snapshot'
-                )
+                detail = str(data.get('description') or '')[:480]
             elif kind == 'note':
                 title = 'Added note'
                 detail = str(data.get('note') or '')[:240]
@@ -3707,6 +5732,15 @@ def query_user_recent_activity(
                 detail = str(
                     data.get('description') or data.get('status') or ''
                 )[:240]
+            if kind == 'publication':
+                item_title = ''
+            elif kind == 'task':
+                item_title = context or process
+            else:
+                item_title = str(
+                    data.get('name') or data.get('title') or item_code
+                )
+            actor = source_actor(data, kind)
             records.append({
                 'eventId': '{0}:{1}'.format(
                     kind, data.get('code') or data.get('id') or ''
@@ -3717,18 +5751,996 @@ def query_user_recent_activity(
                 'kind': kind,
                 'title': title,
                 'detail': detail,
-                'actor': str(
-                    data.get('login') or data.get('assigned')
-                    or data.get('changed_by') or ''
-                ),
+                'actor': actor,
                 'timestamp': str(data.get('timestamp') or ''),
+                'itemCode': item_code,
+                'itemTitle': item_title,
                 'project': str(data.get('project_code') or project_code),
                 'process': process,
                 'context': context,
                 'version': str(version if version not in (None, '') else ''),
+                'statusBefore': before if kind == 'status' else '',
+                'statusAfter': (
+                    after if kind == 'status'
+                    else str(data.get('status') or '') if kind == 'task'
+                    else ''
+                ),
+                'taskCode': item_code if kind == 'task' else (
+                    parent_code if kind == 'status'
+                    and parent_type == 'sthpw/task' else ''
+                ),
+                'serverGenerated': bool(
+                    kind == 'status' and not actor.strip()
+                ),
                 '_parentType': parent_type,
                 '_parentCode': parent_code,
+                '_taskId': str(data.get('id') or '') if kind == 'task' else '',
             })
+
+    task_activity_records = [
+        record for record in records
+        if record.get('kind') == 'task' and record.get('taskCode')
+    ]
+    unresolved_task_codes = {
+        str(record.get('taskCode') or ''): record
+        for record in task_activity_records
+    }
+    if unresolved_task_codes:
+        task_change_search = Search('sthpw/change_timestamp')
+        task_change_search.add_filter('search_type', 'sthpw/task')
+        task_change_search.add_filters(
+            'search_code', list(unresolved_task_codes)
+        )
+        if project_code:
+            task_change_search.add_filter('project_code', project_code)
+        transaction_code_by_task = {}
+        for task_change in task_change_search.get_sobjects():
+            task_change_data = task_change.get_data()
+            task_code = str(task_change_data.get('search_code') or '')
+            transaction_code = str(
+                task_change_data.get('transaction_code') or ''
+            )
+            if task_code in unresolved_task_codes and transaction_code:
+                transaction_code_by_task[task_code] = transaction_code
+
+        transaction_codes = set(transaction_code_by_task.values())
+        transactions_by_code = {}
+        if transaction_codes:
+            task_transaction_search = Search('sthpw/transaction_log')
+            task_transaction_search.add_filters(
+                'code', list(transaction_codes)
+            )
+            for task_transaction in task_transaction_search.get_sobjects():
+                task_transaction_data = task_transaction.get_data()
+                transaction_code = str(
+                    task_transaction_data.get('code') or ''
+                )
+                if transaction_code in transaction_codes:
+                    transactions_by_code[transaction_code] = (
+                        task_transaction_data
+                    )
+
+        resolved_task_codes = set()
+        for task_code, transaction_code in transaction_code_by_task.items():
+            transaction_data = transactions_by_code.get(transaction_code)
+            if transaction_data is None:
+                continue
+            record = unresolved_task_codes[task_code]
+            actor = str(transaction_data.get('login') or '')
+            record['actor'] = actor
+            record['serverGenerated'] = not bool(actor.strip())
+            resolved_task_codes.add(task_code)
+
+        unresolved_task_ids = {
+            str(record.get('_taskId') or ''): record
+            for task_code, record in unresolved_task_codes.items()
+            if task_code not in resolved_task_codes
+            and record.get('_taskId')
+        }
+        if unresolved_task_ids:
+            task_log_search = Search('sthpw/sobject_log')
+            task_log_search.add_filter('search_type', 'sthpw/task')
+            task_log_search.add_filters(
+                'search_id', list(unresolved_task_ids)
+            )
+            task_log_search.add_order_by('timestamp', direction='desc')
+            for task_log in task_log_search.get_sobjects():
+                task_log_data = task_log.get_data()
+                if clean_search_type(
+                        task_log_data.get('search_type')) != 'sthpw/task':
+                    continue
+                task_id = str(task_log_data.get('search_id') or '')
+                record = unresolved_task_ids.pop(task_id, None)
+                if record is None:
+                    continue
+                actor = str(task_log_data.get('login') or '')
+                record['actor'] = actor
+                record['serverGenerated'] = not bool(actor.strip())
+
+    task_parent_records = [
+        record for record in records
+        if record.get('_parentType') == 'sthpw/task'
+        and record.get('_parentCode')
+    ]
+    if task_parent_records:
+        task_codes = list(set(
+            record.get('_parentCode') for record in task_parent_records
+        ))
+        task_search = Search('sthpw/task')
+        task_search.add_filters('code', task_codes)
+        tasks_by_code = {
+            str(item.get_code() or ''): item.get_data()
+            for item in task_search.get_sobjects()
+        }
+        for record in task_parent_records:
+            task_code = str(record.get('_parentCode') or '')
+            task_data = tasks_by_code.get(task_code, {})
+            root_type = clean_search_type(task_data.get('search_type'))
+            root_code = str(task_data.get('search_code') or '')
+            root_id = str(task_data.get('search_id') or '')
+            if (
+                    scope_enabled and not root_code
+                    and root_type == scope_search_type
+                    and root_id == scope_search_id):
+                root_code = scope_search_code
+            if not root_type or not root_code:
+                continue
+            record['_parentType'] = root_type
+            record['_parentCode'] = root_code
+            record['taskCode'] = task_code
+            record['process'] = str(
+                task_data.get('process') or record.get('process') or ''
+            )
+            record['context'] = str(
+                task_data.get('context') or record.get('context')
+                or record.get('process') or ''
+            )
+            record['itemTitle'] = str(
+                record.get('context') or record.get('process') or ''
+            )
+            if record.get('kind') == 'status':
+                record['serverGenerated'] = bool(
+                    not str(record.get('actor') or '').strip()
+                )
+            parent_refs.setdefault(root_type, set()).add(root_code)
+
+    audit_kinds = {'create', 'change', 'delete', 'work_hour'}
+    audit_enabled = not allowed_kinds or bool(allowed_kinds & audit_kinds)
+    if counts_only and not audit_enabled:
+        return {
+            'records': [],
+            'countsFromDay': counts_from_day,
+            'dayCounts': [
+                {'dateKey': day_key, 'count': day_counts[day_key]}
+                for day_key in sorted(day_counts, reverse=True)
+            ],
+        }
+    audited_targets = set()
+    if audit_enabled:
+        def apply_transaction_filters(search, filter_day):
+            if project_code:
+                search.add_filter('namespace', project_code)
+            if logins:
+                search.add_filters('login', logins)
+            elif login:
+                search.add_filter('login', login)
+            if exclude_login:
+                search.add_filter('login', exclude_login, op='!=')
+            if filter_day and day:
+                search.add_filter(
+                    'timestamp', day + ' 00:00:00', op='>='
+                )
+                search.add_filter(
+                    'timestamp', next_day + ' 00:00:00', op='<'
+                )
+            elif not filter_day and counts_from_day:
+                search.add_filter(
+                    'timestamp', counts_from_day + ' 00:00:00', op='>='
+                )
+
+        def mutation_kind(mutation):
+            action = mutation.get('action') or 'update'
+            if action in ('insert', 'create'):
+                return 'create'
+            if action in ('delete', 'remove'):
+                return 'delete'
+            return 'change'
+
+        instance_type_cache = {}
+
+        def instance_relation_refs(mutation):
+            """Resolve both semantic endpoints of an instance mutation."""
+            instance_type = str(mutation.get('searchType') or '')
+            if not instance_type:
+                return None
+            field_values = dict(mutation.get('fieldValues') or {})
+            candidate_columns = [
+                str(column) for column in field_values
+                if str(column).endswith('_code')
+            ]
+            if len(field_values) < 2:
+                return None
+            endpoint_types = instance_type_cache.get(instance_type)
+            if endpoint_types is None:
+                endpoint_types = instance_relations.get(instance_type, ())
+                instance_type_cache[instance_type] = endpoint_types
+            if len(endpoint_types or ()) != 2:
+                return None
+
+            try:
+                from pyasm.biz import Schema
+                schema = Schema.get()
+            except (AttributeError, ImportError, TypeError):
+                schema = None
+
+            used_columns = set()
+            endpoint_refs = []
+            for endpoint_type in endpoint_types:
+                try:
+                    foreign_keys = tuple(
+                        schema.get_foreign_keys(
+                            instance_type, endpoint_type
+                        ) or ()
+                    ) if schema is not None else ()
+                except (AttributeError, KeyError, TypeError, ValueError):
+                    foreign_keys = ()
+
+                instance_column = next((
+                    column for column in foreign_keys
+                    if column in field_values and column not in used_columns
+                ), '')
+                if not instance_column:
+                    conventional = '{0}_code'.format(
+                        str(endpoint_type).split('/')[-1]
+                    )
+                    if (
+                            conventional in field_values
+                            and conventional not in used_columns):
+                        instance_column = conventional
+                if not instance_column:
+                    instance_column = next((
+                        column for column in candidate_columns
+                        if column not in used_columns
+                    ), '')
+                if not instance_column:
+                    return None
+
+                endpoint_column = next((
+                    column for column in foreign_keys
+                    if column != instance_column
+                    and column not in field_values
+                ), 'code')
+                change = dict(field_values.get(instance_column) or {})
+                endpoint_value = str(
+                    change.get('before')
+                    if mutation_kind(mutation) == 'delete'
+                    else change.get('after') or change.get('before') or ''
+                )
+                if not endpoint_value:
+                    return None
+                used_columns.add(instance_column)
+                endpoint_refs.append((
+                    str(endpoint_type), str(endpoint_column), endpoint_value
+                ))
+            return tuple(endpoint_refs)
+
+        def scope_endpoint_matches(endpoint_ref):
+            if not scope_enabled or not endpoint_ref:
+                return False
+            endpoint_type, _endpoint_column, endpoint_value = endpoint_ref
+            return (
+                clean_search_type(endpoint_type) == scope_search_type
+                and str(endpoint_value or '') in scope_identity_values
+            )
+
+        def scoped_mutation_role(mutation, instance_refs=None):
+            """Classify how one audit mutation belongs to the object scope."""
+            if not scope_enabled:
+                return 'object'
+            parent_type = clean_search_type(mutation.get('searchType'))
+            parent_code = str(mutation.get('searchCode') or '')
+            if (
+                    parent_type == scope_search_type
+                    and parent_code == scope_search_code):
+                return 'root'
+            if instance_refs and any(
+                    scope_endpoint_matches(endpoint)
+                    for endpoint in instance_refs):
+                return 'relation'
+
+            field_values = dict(mutation.get('fieldValues') or {})
+            relationship_values = {
+                str(value or '')
+                for field, change in field_values.items()
+                if (
+                    str(field or '').lower()
+                    not in technical_columns
+                    and str(field or '').lower().endswith(('_code', '_id'))
+                )
+                for value in (
+                    dict(change or {}).get('before'),
+                    dict(change or {}).get('after'),
+                )
+                if str(value or '')
+            }
+            parent_reference = bool(
+                relationship_values.intersection(scope_identity_values)
+            )
+            generic_parent_reference = (
+                mutation_value(mutation, 'search_code')
+                in scope_identity_values
+                or mutation_value(mutation, 'search_id')
+                in scope_identity_values
+            )
+            if parent_type == 'sthpw/task':
+                if (
+                        parent_code in scope_task_codes
+                        or mutation_value(mutation, 'search_code')
+                        == scope_search_code):
+                    return 'system'
+                return ''
+            if parent_type in ('sthpw/note', 'sthpw/snapshot'):
+                parent_code_value = mutation_value(
+                    mutation, 'search_code'
+                )
+                if (
+                        parent_code in (
+                            scope_note_codes
+                            if parent_type == 'sthpw/note'
+                            else scope_snapshot_codes
+                        )
+                        or
+                        parent_code_value == scope_search_code
+                        or parent_code_value in scope_task_codes):
+                    return 'system'
+                return ''
+            if parent_type == 'sthpw/work_hour':
+                if (
+                        parent_code in scope_work_hour_codes
+                        or mutation_value(
+                            mutation, 'task_code'
+                        ) in scope_task_codes):
+                    return 'work_hour'
+                return ''
+            if (
+                    parent_type in scope_child_types
+                    and (parent_reference or generic_parent_reference)):
+                return 'child'
+            return ''
+
+        if include_day_counts:
+            calendar_audit_search = Search('sthpw/transaction_log')
+            apply_transaction_filters(calendar_audit_search, False)
+            for calendar_transaction in calendar_audit_search.get_sobjects():
+                calendar_data = calendar_transaction.get_data()
+                if actor_is_excluded(calendar_data.get('login')):
+                    continue
+                day_key = str(calendar_data.get('timestamp') or '')[:10]
+                if len(day_key) != 10:
+                    continue
+                for mutation in parse_transaction(transaction_xml(
+                        calendar_transaction, calendar_data)):
+                    parent_type = mutation.get('searchType') or ''
+                    instance_refs = (
+                        instance_relation_refs(mutation)
+                        if mutation_kind(mutation) in ('create', 'delete')
+                        else None
+                    )
+                    if (
+                            scope_enabled
+                            and not scoped_mutation_role(
+                                mutation, instance_refs
+                            )):
+                        continue
+                    kind = (
+                        'work_hour'
+                        if parent_type == 'sthpw/work_hour'
+                        else mutation_kind(mutation)
+                    )
+                    if (
+                            not parent_type
+                            or parent_type.startswith('sthpw/')
+                            and parent_type != 'sthpw/work_hour'
+                            and not (
+                                scope_enabled
+                                and scoped_mutation_role(
+                                    mutation, instance_refs
+                                ) == 'system'
+                            )
+                            or allowed_kinds and kind not in allowed_kinds):
+                        continue
+                    day_counts[day_key] = day_counts.get(day_key, 0) + 1
+
+        if counts_only:
+            return {
+                'records': [],
+                'countsFromDay': counts_from_day,
+                'dayCounts': [
+                    {'dateKey': day_key, 'count': day_counts[day_key]}
+                    for day_key in sorted(day_counts, reverse=True)
+                ],
+            }
+
+        transaction_limit = max((offset + limit) * 4, 100)
+        scoped_object_logs = []
+        transactions = []
+        if scope_enabled:
+            # transaction_log is project-wide.  Limiting that table before
+            # checking the XML displaced older events of a selected object in
+            # any active project.  sobject_log is the native per-object index;
+            # query it first for all live records in this report, then fetch
+            # the exact transactions it references.
+            indexed_ids_by_type = {}
+            for reference in scope_indexed_objects:
+                reference_type = clean_search_type(
+                    reference.get('searchType')
+                )
+                reference_id = str(reference.get('searchId') or '')
+                if reference_type and reference_id:
+                    indexed_ids_by_type.setdefault(
+                        reference_type, set()
+                    ).add(reference_id)
+
+            indexed_transaction_ids = set()
+            for reference_type, reference_ids in indexed_ids_by_type.items():
+                indexed_log_search = Search('sthpw/sobject_log')
+                indexed_log_search.add_filter(
+                    'search_type', reference_type
+                )
+                indexed_log_search.add_filters(
+                    'search_id', list(reference_ids)
+                )
+                indexed_log_search.add_order_by(
+                    'timestamp', direction='desc'
+                )
+                indexed_log_search.set_limit(transaction_limit)
+                for indexed_log in indexed_log_search.get_sobjects():
+                    indexed_data = indexed_log.get_data()
+                    transaction_id = str(
+                        indexed_data.get('transaction_log_id') or ''
+                    )
+                    if not transaction_id:
+                        continue
+                    indexed_transaction_ids.add(transaction_id)
+                    scoped_object_logs.append(indexed_data)
+
+            if len(indexed_transaction_ids) > transaction_limit:
+                ordered_index_ids = []
+                seen_index_ids = set()
+                for indexed_data in sorted(
+                        scoped_object_logs,
+                        key=lambda item: str(
+                            item.get('timestamp') or ''
+                        ),
+                        reverse=True):
+                    transaction_id = str(
+                        indexed_data.get('transaction_log_id') or ''
+                    )
+                    if (
+                            not transaction_id
+                            or transaction_id in seen_index_ids):
+                        continue
+                    seen_index_ids.add(transaction_id)
+                    ordered_index_ids.append(transaction_id)
+                    if len(ordered_index_ids) >= transaction_limit:
+                        break
+                indexed_transaction_ids = set(ordered_index_ids)
+                scoped_object_logs = [
+                    indexed_data for indexed_data in scoped_object_logs
+                    if str(
+                        indexed_data.get('transaction_log_id') or ''
+                    ) in indexed_transaction_ids
+                ]
+
+            if indexed_transaction_ids:
+                indexed_transaction_search = Search(
+                    'sthpw/transaction_log'
+                )
+                apply_transaction_filters(
+                    indexed_transaction_search, True
+                )
+                indexed_transaction_search.add_filters(
+                    'id', list(indexed_transaction_ids)
+                )
+                indexed_transaction_search.add_order_by(
+                    'timestamp', direction='desc'
+                )
+                indexed_transaction_search.set_limit(transaction_limit)
+                transactions.extend(
+                    indexed_transaction_search.get_sobjects()
+                )
+
+            # Delete and unlink operations intentionally have no sobject_log
+            # row.  Their uncompressed XML still contains the selected root
+            # identity, so query that identity before applying the page limit.
+            # Compressed updates are covered by the native index above.
+            identity_transaction_search = Search(
+                'sthpw/transaction_log'
+            )
+            apply_transaction_filters(
+                identity_transaction_search, True
+            )
+            identity_transaction_search.add_filter(
+                'transaction', '%{0}%'.format(scope_search_code),
+                op='like',
+            )
+            identity_transaction_search.add_order_by(
+                'timestamp', direction='desc'
+            )
+            identity_transaction_search.set_limit(transaction_limit)
+            transactions.extend(
+                identity_transaction_search.get_sobjects()
+            )
+        else:
+            transaction_search = Search('sthpw/transaction_log')
+            apply_transaction_filters(transaction_search, True)
+            transaction_search.add_order_by(
+                'timestamp', direction='desc'
+            )
+            transaction_search.set_limit(transaction_limit)
+            transactions = transaction_search.get_sobjects()
+
+        transaction_by_id = {}
+        for transaction in transactions:
+            transaction_data = transaction.get_data()
+            transaction_data['_expandedTransaction'] = transaction_xml(
+                transaction, transaction_data
+            )
+            transaction_id = str(
+                transaction.get_id() or transaction_data.get('id') or ''
+            )
+            if transaction_id:
+                transaction_by_id[transaction_id] = transaction_data
+        if scope_enabled and len(transaction_by_id) > transaction_limit:
+            ordered_transactions = sorted(
+                transaction_by_id.items(),
+                key=lambda item: str(
+                    item[1].get('timestamp') or ''
+                ),
+                reverse=True,
+            )[:transaction_limit]
+            transaction_by_id = dict(ordered_transactions)
+        if transaction_by_id:
+            object_logs_by_transaction = {}
+            if scope_enabled:
+                object_log_values = scoped_object_logs
+            else:
+                object_log_search = Search('sthpw/sobject_log')
+                object_log_search.add_filters(
+                    'transaction_log_id', list(transaction_by_id.keys())
+                )
+                object_log_values = [
+                    object_log.get_data()
+                    for object_log in object_log_search.get_sobjects()
+                ]
+            for object_data in object_log_values:
+                transaction_id = str(
+                    object_data.get('transaction_log_id') or ''
+                )
+                object_logs_by_transaction.setdefault(
+                    transaction_id, []
+                ).append(object_data)
+
+            for transaction_id, transaction_data in transaction_by_id.items():
+                mutations = parse_transaction(
+                    transaction_data.get('_expandedTransaction')
+                )
+                if not mutations:
+                    continue
+                indexed = object_logs_by_transaction.get(transaction_id, [])
+                indexed_types = set(
+                    clean_search_type(row.get('search_type'))
+                    for row in indexed
+                )
+                for mutation_index, mutation in enumerate(mutations):
+                    parent_type = mutation.get('searchType') or ''
+                    parent_code = mutation.get('searchCode') or ''
+                    mutation_action = mutation_kind(mutation)
+                    instance_refs = (
+                        instance_relation_refs(mutation)
+                        if mutation_action in ('create', 'delete') else None
+                    )
+                    scope_role = scoped_mutation_role(
+                        mutation, instance_refs
+                    )
+                    if scope_enabled and not scope_role:
+                        continue
+                    kind = (
+                        'work_hour'
+                        if parent_type == 'sthpw/work_hour'
+                        else mutation_action
+                    )
+                    if allowed_kinds and kind not in allowed_kinds:
+                        continue
+                    if parent_type == 'sthpw/work_hour':
+                        values = {}
+                        for field, change in dict(
+                                mutation.get('fieldValues') or {}).items():
+                            value = (
+                                change.get('before')
+                                if mutation_action == 'delete'
+                                else change.get('after')
+                                or change.get('before')
+                            )
+                            if field:
+                                values[field] = value
+                        records.append({
+                            'eventId': 'work_hour:{0}:{1}'.format(
+                                transaction_data.get('code') or transaction_id,
+                                mutation_index,
+                            ),
+                            'searchKey': '',
+                            'kind': 'work_hour',
+                            'title': 'Work hours',
+                            'detail': str(values.get('description') or '')[:480],
+                            'changes': [],
+                            'actor': str(transaction_data.get('login') or ''),
+                            'timestamp': str(
+                                transaction_data.get('timestamp') or ''
+                            ),
+                            'itemCode': parent_code,
+                            'itemTitle': '',
+                            'project': project_code,
+                            'process': str(values.get('process') or ''),
+                            'context': str(values.get('process') or ''),
+                            'version': '',
+                            'statusBefore': '',
+                            'statusAfter': '',
+                            'workHourAction': mutation_action,
+                            '_workHourValues': values,
+                            '_workHourCode': parent_code,
+                            '_parentType': '',
+                            '_parentCode': '',
+                            '_fallbackTitle': '',
+                        })
+                        continue
+                    # Outside an object scope, dedicated sources provide
+                    # richer task, note, snapshot, message and status events.
+                    # A scoped history also needs system-record deletions and
+                    # the individual non-status changes of its tasks.
+                    scoped_system_type = (
+                        parent_type
+                        if scope_enabled and scope_role == 'system'
+                        else ''
+                    )
+                    if (
+                            parent_type.startswith('sthpw/')
+                            and not scoped_system_type):
+                        continue
+                    if (
+                            scoped_system_type in ('sthpw/note', 'sthpw/snapshot')
+                            and kind == 'create'):
+                        continue
+                    if (
+                            not scope_enabled and kind != 'delete'
+                            and indexed_types
+                            and parent_type not in indexed_types):
+                        continue
+                    if not parent_type or not parent_code:
+                        continue
+                    audited_targets.add((
+                        str(transaction_data.get('code') or ''),
+                        parent_type,
+                        parent_code,
+                    ))
+                    visible_changes = list(mutation.get('changes') or [])
+                    if scoped_system_type == 'sthpw/task':
+                        visible_changes = [
+                            change for change in visible_changes
+                            if str(change.get('field') or '').lower()
+                            != 'status'
+                        ]
+                        if kind == 'change' and not visible_changes:
+                            continue
+                    item_type = (
+                        parent_type
+                        if scope_enabled
+                        and scope_role in ('child', 'system')
+                        else ''
+                    )
+                    item_title = str(
+                        mutation_title(mutation)
+                        or mutation_value(mutation, 'process')
+                        or mutation_value(mutation, 'context')
+                        or mutation_value(mutation, 'description')
+                        or mutation_value(mutation, 'note')
+                        or parent_code
+                    )
+                    if instance_refs:
+                        for (
+                                endpoint_type, endpoint_column, endpoint_value
+                        ) in instance_refs:
+                            relation_refs.setdefault(
+                                (endpoint_type, endpoint_column), set()
+                            ).add(endpoint_value)
+                    else:
+                        resolved_parent_type = (
+                            scope_search_type if item_type else parent_type
+                        )
+                        resolved_parent_code = (
+                            scope_search_code if item_type else parent_code
+                        )
+                        parent_refs.setdefault(
+                            resolved_parent_type, set()
+                        ).add(resolved_parent_code)
+                        if item_type:
+                            parent_refs.setdefault(
+                                item_type, set()
+                            ).add(parent_code)
+                    records.append({
+                        'eventId': 'audit:{0}:{1}'.format(
+                            transaction_data.get('code') or transaction_id,
+                            mutation_index,
+                        ),
+                        'searchKey': '',
+                        'kind': kind,
+                        'title': (
+                            'Created object' if kind == 'create'
+                            else 'Deleted object' if kind == 'delete'
+                            else 'Updated object'
+                        ),
+                        'detail': (
+                            '' if instance_refs else
+                            audit_detail(mutation, transaction_data)
+                        ),
+                        'changes': [] if instance_refs else visible_changes,
+                        'actor': str(transaction_data.get('login') or ''),
+                        'timestamp': str(
+                            transaction_data.get('timestamp') or ''
+                        ),
+                        'itemCode': '' if instance_refs else parent_code,
+                        'itemTitle': '' if instance_refs else item_title,
+                        'itemType': item_type,
+                        'project': project_code,
+                        'process': (
+                            mutation_value(mutation, 'process')
+                            if scoped_system_type == 'sthpw/task' else ''
+                        ),
+                        'context': (
+                            mutation_value(mutation, 'context')
+                            or mutation_value(mutation, 'process')
+                            if scoped_system_type == 'sthpw/task' else ''
+                        ),
+                        'version': '',
+                        'statusBefore': '',
+                        'statusAfter': '',
+                        'taskCode': (
+                            parent_code
+                            if scoped_system_type == 'sthpw/task' else ''
+                        ),
+                        'statusAfter': (
+                            mutation_value(mutation, 'status')
+                            if scoped_system_type == 'sthpw/task' else ''
+                        ),
+                        '_parentType': (
+                            '' if instance_refs else
+                            scope_search_type if item_type else parent_type
+                        ),
+                        '_parentCode': (
+                            '' if instance_refs else
+                            scope_search_code if item_type else parent_code
+                        ),
+                        '_fallbackTitle': (
+                            '' if instance_refs else mutation_title(mutation)
+                        ),
+                        '_relationFrom': (
+                            instance_refs[0] if instance_refs else None
+                        ),
+                        '_relationTo': (
+                            instance_refs[1] if instance_refs else None
+                        ),
+                        '_scopeItemType': item_type,
+                        '_scopeItemCode': parent_code if item_type else '',
+                        '_scopeItemTitle': item_title if item_type else '',
+                        'relationAction': (
+                            'unlink' if instance_refs and kind == 'delete'
+                            else 'link' if instance_refs else ''
+                        ),
+                    })
+
+        # change_timestamp is only a latest-change index.  Use it to fill gaps
+        # where the transaction index did not yield a readable mutation.
+        change_search = Search('sthpw/change_timestamp')
+        if project_code:
+            change_search.add_filter('project_code', project_code)
+        if scope_enabled:
+            change_search.add_filter('search_type', scope_search_type)
+            change_search.add_filter('search_code', scope_search_code)
+        if day:
+            change_search.add_filter(
+                'timestamp', day + ' 00:00:00', op='>='
+            )
+            change_search.add_filter(
+                'timestamp', next_day + ' 00:00:00', op='<'
+            )
+        change_search.add_order_by('timestamp', direction='desc')
+        change_search.set_limit(max((offset + limit) * 3, 75))
+        requested_actors = set(logins or ([login] if login else []))
+        for changed_item in change_search.get_sobjects():
+            changed_data = changed_item.get_data()
+            parent_type = clean_search_type(changed_data.get('search_type'))
+            parent_code = str(changed_data.get('search_code') or '')
+            transaction_code = str(
+                changed_data.get('transaction_code') or ''
+            )
+            changed_on = json_mapping(changed_data.get('changed_on'))
+            changed_by = json_mapping(changed_data.get('changed_by'))
+            visible_fields = [
+                field for field in changed_on
+                if str(field or '').lower() not in technical_columns
+            ]
+            latest_field = max(
+                visible_fields,
+                key=lambda field: str(changed_on.get(field) or ''),
+                default='',
+            )
+            actor = str(changed_by.get(latest_field) or '')
+            if not actor:
+                actor = next((
+                    str(value) for value in changed_by.values() if value
+                ), '')
+            if actor_is_excluded(actor):
+                continue
+            if requested_actors and actor not in requested_actors:
+                continue
+            if (
+                    not parent_type or not parent_code
+                    or parent_type.startswith('sthpw/')
+                    or scope_enabled and (
+                        parent_type != scope_search_type
+                        or parent_code != scope_search_code
+                    )
+                    or (transaction_code, parent_type, parent_code)
+                    in audited_targets):
+                continue
+            parent_refs.setdefault(parent_type, set()).add(parent_code)
+            records.append({
+                'eventId': 'change:{0}'.format(
+                    changed_data.get('code') or changed_data.get('id') or
+                    '{0}:{1}'.format(parent_type, parent_code)
+                ),
+                'searchKey': '',
+                'kind': 'change',
+                'title': 'Updated object',
+                'detail': '',
+                'changes': [{
+                    'field': str(field).replace('_', ' '),
+                    'before': '',
+                    'after': '',
+                    'valuesKnown': False,
+                } for field in visible_fields[:4]],
+                'actor': actor,
+                'timestamp': str(
+                    changed_data.get('timestamp')
+                    or changed_on.get(latest_field) or ''
+                ),
+                'itemCode': parent_code,
+                'itemTitle': parent_code,
+                'project': str(
+                    changed_data.get('project_code') or project_code
+                ),
+                'process': '',
+                'context': '',
+                'version': '',
+                'statusBefore': '',
+                'statusAfter': '',
+                '_parentType': parent_type,
+                '_parentCode': parent_code,
+                '_fallbackTitle': '',
+            })
+
+    if exclude_login:
+        records = [
+            record for record in records
+            if not actor_is_excluded(record.get('actor'))
+        ]
+
+    work_hour_records = [
+        record for record in records
+        if record.get('kind') == 'work_hour'
+    ]
+    if work_hour_records:
+        work_hour_codes = list(set(
+            str(record.get('_workHourCode') or '')
+            for record in work_hour_records
+            if record.get('_workHourCode')
+        ))
+        current_work_hours = {}
+        if work_hour_codes:
+            work_hour_search = Search('sthpw/work_hour')
+            work_hour_search.add_filters('code', work_hour_codes)
+            for work_hour in work_hour_search.get_sobjects():
+                work_hour_data = work_hour.get_data()
+                work_hour_data['__search_key__'] = str(
+                    SearchKey.get_by_sobject(work_hour, use_id=False) or ''
+                )
+                current_work_hours[str(work_hour.get_code() or '')] = (
+                    work_hour_data
+                )
+
+        task_codes = set()
+        for record in work_hour_records:
+            values = dict(record.pop('_workHourValues', {}) or {})
+            current = current_work_hours.get(
+                str(record.pop('_workHourCode', '') or ''), {}
+            )
+            # Transaction values describe the state at that event; the
+            # current row only fills fields absent from an older mutation.
+            values = dict(current, **values)
+            category = str(values.get('category') or 'regular').lower()
+            try:
+                straight_time = float(values.get('straight_time') or 0)
+            except (TypeError, ValueError):
+                straight_time = 0.0
+            try:
+                over_time = float(values.get('over_time') or 0)
+            except (TypeError, ValueError):
+                over_time = 0.0
+            hours = (
+                over_time
+                if category == 'overtime'
+                else straight_time + over_time
+            )
+            task_code = str(values.get('task_code') or '')
+            if task_code:
+                task_codes.add(task_code)
+            record.update({
+                'searchKey': str(values.get('__search_key__') or ''),
+                'detail': str(values.get('description') or record.get('detail') or '')[:480],
+                'itemTitle': '{0:g} h'.format(hours),
+                'process': str(values.get('process') or record.get('process') or ''),
+                'context': str(values.get('process') or record.get('context') or ''),
+                'taskCode': task_code,
+                'hours': hours,
+                'workDay': str(values.get('day') or ''),
+                'workHourCategory': category,
+                'workHourStatus': str(values.get('status') or ''),
+                'workHourOwner': str(values.get('login') or ''),
+            })
+
+        tasks_by_code = {}
+        if task_codes:
+            work_task_search = Search('sthpw/task')
+            work_task_search.add_filters('code', list(task_codes))
+            tasks_by_code = {
+                str(item.get_code() or ''): item.get_data()
+                for item in work_task_search.get_sobjects()
+            }
+        for record in work_hour_records:
+            task_data = tasks_by_code.get(
+                str(record.get('taskCode') or ''), {}
+            )
+            parent_type = clean_search_type(task_data.get('search_type'))
+            parent_code = str(task_data.get('search_code') or '')
+            parent_id = str(task_data.get('search_id') or '')
+            if (
+                    scope_enabled and not parent_code
+                    and parent_type == scope_search_type
+                    and parent_id == scope_search_id):
+                parent_code = scope_search_code
+            record['process'] = str(
+                task_data.get('process') or record.get('process') or ''
+            )
+            record['context'] = str(
+                task_data.get('context') or record.get('context')
+                or record.get('process') or ''
+            )
+            record['_parentType'] = parent_type
+            record['_parentCode'] = parent_code
+            if parent_type and parent_code:
+                parent_refs.setdefault(parent_type, set()).add(parent_code)
+
+    main_files = {}
+    if snapshot_codes:
+        file_search = Search('sthpw/file')
+        file_search.add_filters('snapshot_code', list(snapshot_codes))
+        file_search.add_filter('type', 'main')
+        for file_item in file_search.get_sobjects():
+            file_data = file_item.get_data()
+            snapshot_code = str(file_data.get('snapshot_code') or '')
+            file_name = str(file_data.get('file_name') or '')
+            if snapshot_code and file_name:
+                main_files.setdefault(snapshot_code, []).append(file_name)
 
     parents = {}
     for parent_type, codes in parent_refs.items():
@@ -3774,33 +6786,187 @@ def query_user_recent_activity(
                 ) or ''),
                 'title': parent_title,
                 'type': parent_type,
+                'pipelineCode': str(
+                    parent_data.get('pipeline_code') or ''
+                ),
             }
 
+    relation_endpoints = {}
+    for (endpoint_type, endpoint_column), values in relation_refs.items():
+        endpoint_query_type = endpoint_type
+        if (
+            project_code and not endpoint_type.startswith('sthpw/')
+            and '?project=' not in endpoint_type
+        ):
+            endpoint_query_type = '{0}?project={1}'.format(
+                endpoint_type, project_code
+            )
+        endpoint_search = Search(endpoint_query_type)
+        endpoint_search.add_filters(endpoint_column, list(values))
+        for endpoint in endpoint_search.get_sobjects():
+            endpoint_data = endpoint.get_data()
+            endpoint_value = str(endpoint_data.get(endpoint_column) or '')
+            if not endpoint_value and endpoint_column == 'code':
+                endpoint_value = str(endpoint.get_code() or '')
+            if not endpoint_value:
+                continue
+            try:
+                endpoint_title = str(endpoint.get_name() or '')
+            except (AttributeError, TypeError):
+                endpoint_title = ''
+            endpoint_title = str(
+                endpoint_title
+                or endpoint_data.get('name')
+                or endpoint_data.get('title')
+                or endpoint_data.get('code')
+                or ''
+            )
+            relation_endpoints[(
+                endpoint_type, endpoint_column, endpoint_value
+            )] = {
+                'searchKey': str(SearchKey.get_by_sobject(
+                    endpoint, use_id=False
+                ) or ''),
+                'title': endpoint_title,
+                'type': endpoint_type,
+                'pipelineCode': str(
+                    endpoint_data.get('pipeline_code') or ''
+                ),
+            }
+
+    scoped_audit_task_codes = {
+        str(record.get('taskCode') or '')
+        for record in records
+        if record.get('_scopeItemType') == 'sthpw/task'
+        and record.get('taskCode')
+    }
+    if scoped_audit_task_codes:
+        records = [
+            record for record in records
+            if not (
+                record.get('kind') == 'task'
+                and str(record.get('taskCode') or '')
+                in scoped_audit_task_codes
+            )
+        ]
+
+    resolved_records = []
     for record in records:
+        relation_from_ref = record.pop('_relationFrom', None)
+        relation_to_ref = record.pop('_relationTo', None)
         parent_type = record.pop('_parentType', '')
         parent_code = record.pop('_parentCode', '')
+        item_type = record.pop('_scopeItemType', '')
+        item_code = record.pop('_scopeItemCode', '')
+        item_fallback_title = record.pop('_scopeItemTitle', '')
+        record.pop('_taskId', None)
+        fallback_title = record.pop('_fallbackTitle', '')
+        if relation_from_ref and relation_to_ref:
+            relation_from = relation_endpoints.get(
+                tuple(relation_from_ref), {}
+            )
+            relation_to = relation_endpoints.get(
+                tuple(relation_to_ref), {}
+            )
+            if scope_enabled and scope_endpoint_matches(relation_from_ref):
+                relation_from, relation_to = relation_to, relation_from
+                relation_from_ref, relation_to_ref = (
+                    relation_to_ref, relation_from_ref
+                )
+            if scope_enabled and not scope_endpoint_matches(relation_to_ref):
+                continue
+            record.update({
+                'searchKey': str(relation_from.get('searchKey') or ''),
+                'itemTitle': str(relation_from.get('title') or ''),
+                'itemType': str(
+                    relation_from.get('type') or relation_from_ref[0]
+                ),
+                'targetSearchKey': str(
+                    relation_to.get('searchKey') or ''
+                ),
+                'targetTitle': str(relation_to.get('title') or ''),
+                'targetType': str(
+                    relation_to.get('type') or relation_to_ref[0]
+                ),
+                'pipelineCode': str(
+                    relation_to.get('pipelineCode') or ''
+                ),
+            })
+            resolved_records.append(record)
+            continue
+        if scope_enabled and (
+                clean_search_type(parent_type) != scope_search_type
+                or str(parent_code or '') != scope_search_code):
+            continue
         parent = parents.get((parent_type, parent_code), {})
         record['targetSearchKey'] = str(parent.get('searchKey') or '')
         record['targetTitle'] = str(
-            parent.get('title') or parent_code or 'TACTIC object'
+            parent.get('title') or fallback_title or parent_code
+            or 'TACTIC object'
         )
         record['targetType'] = str(parent.get('type') or parent_type)
+        record['pipelineCode'] = str(parent.get('pipelineCode') or '')
+        if record.get('kind') == 'publication':
+            record['itemTitle'] = ', '.join(sorted(
+                main_files.get(str(record.get('itemCode') or ''), [])
+            ))
+        if item_type and item_code:
+            item = parents.get((item_type, item_code), {})
+            record['searchKey'] = str(item.get('searchKey') or '')
+            record['itemTitle'] = str(
+                (item_fallback_title or item.get('title') or item_code)
+                if item_type.startswith('sthpw/') else
+                (item.get('title') or item_fallback_title or item_code)
+            )
+            record['itemType'] = str(item.get('type') or item_type)
+        resolved_records.append(record)
 
+    records = resolved_records
     records.sort(key=lambda record: record.get('timestamp') or '', reverse=True)
-    return records[offset:offset + limit]
+    page = records[offset:offset + limit]
+    if include_day_counts:
+        return {
+            'records': page,
+            'dayCounts': [
+                {'dateKey': day_key, 'count': day_counts[day_key]}
+                for day_key in sorted(day_counts, reverse=True)
+            ],
+        }
+    return page
 
 
 def query_user_profile_data(login, project_code='', activity_limit=25):
-    """Return profile task aggregates and recent activity in one request."""
+    """Return profile aggregates; the shared journal owns recent activity."""
     import json
     from datetime import datetime, timedelta
-    from pyasm.search import Search, SearchKey
+    from pyasm.search import Search
 
     login = str(login or '').strip()
     project_code = str(project_code or '').strip()
-    activity_limit = max(1, min(int(activity_limit or 25), 100))
+    # Retain the deployed procedure signature while activity is now queried
+    # through query_user_recent_activity by both profile and feed clients.
+    del activity_limit
     if not login:
         return json.dumps({}, separators=(',', ':'))
+
+    current_login = str(server.get_login() or '').strip()
+    is_admin = current_login.lower() == 'admin'
+    current_groups = []
+    if not is_admin:
+        membership_search = Search('sthpw/login_in_group')
+        membership_search.add_filter('login', current_login)
+        current_groups = [
+            str(item.get_value('login_group') or '').lower()
+            for item in membership_search.get_sobjects()
+        ]
+    can_manage_work_hours = is_admin or any(
+        group == 'admin' or 'supervisor' in group
+        for group in current_groups
+    )
+    can_view_work_hours = (
+        current_login.casefold() == login.casefold()
+        or can_manage_work_hours
+    )
 
     task_search = Search('sthpw/task')
     task_search.add_filter('assigned', login)
@@ -3813,16 +6979,14 @@ def query_user_profile_data(login, project_code='', activity_limit=25):
     process_counts = {}
     today = datetime.utcnow().date()
     week_end = today + timedelta(days=6 - today.weekday())
-    active = 0
+    incomplete = 0
     overdue = 0
     due_this_week = 0
-    planned_hours = 0.0
-    samples = []
-    for index, task in enumerate(task_objects):
+    for task in task_objects:
         data = task.get_data()
         progress = int(data.get('completion') or 0)
         if progress < 100:
-            active += 1
+            incomplete += 1
         deadline_text = str(data.get('bid_end_date') or '')[:10]
         deadline = None
         try:
@@ -3834,10 +6998,6 @@ def query_user_profile_data(login, project_code='', activity_limit=25):
                 overdue += 1
             if today <= deadline <= week_end:
                 due_this_week += 1
-        try:
-            planned_hours += float(data.get('bid_duration') or 0.0)
-        except (TypeError, ValueError):
-            pass
         status = str(data.get('status') or 'Unspecified')
         status_entry = status_counts.setdefault(status, {
             'label': status, 'count': 0,
@@ -3856,159 +7016,50 @@ def query_user_profile_data(login, project_code='', activity_limit=25):
             'status': status,
         })
         process_entry['count'] += 1
-        if index < 12:
-            data['__search_key__'] = SearchKey.get_by_sobject(
-                task, use_id=False
-            )
-            samples.append(data)
-
     logged_hours = 0.0
     approved_hours = 0.0
     pending_hours = 0.0
-    hour_search = Search('sthpw/work_hour')
-    hour_search.add_filter('login', login)
-    if project_code:
-        hour_search.add_filter('project_code', project_code)
-    for entry in hour_search.get_sobjects():
-        try:
-            value = float(entry.get_value('straight_time') or 0.0)
-        except (TypeError, ValueError):
-            value = 0.0
-        logged_hours += value
-        if str(entry.get_value('status') or '').lower() == 'approved':
-            approved_hours += value
-        else:
-            pending_hours += value
-
-    records = []
-    parent_refs = {}
-    sources = (
-        ('sthpw/status_log', 'status', True),
-        ('sthpw/snapshot', 'publication', True),
-        ('sthpw/note', 'note', True),
-        ('sthpw/task', 'task', True),
-        ('sthpw/message_log', 'message', False),
-    )
-    for search_type, kind, filter_project in sources:
-        search = Search(search_type)
-        search.add_filter('login', login)
-        if kind == 'message':
-            search.add_filter('category', 'chat')
-        if project_code and filter_project:
-            search.add_filter('project_code', project_code)
-        search.add_order_by('timestamp', direction='desc')
-        search.set_limit(activity_limit)
-        for item in search.get_sobjects():
-            data = item.get_data()
-            process = str(data.get('process') or '')
-            context = str(data.get('context') or process)
-            version = data.get('version')
-            parent_type = str(data.get('search_type') or '').split('?', 1)[0]
-            parent_code = str(data.get('search_code') or '')
-            if kind == 'message':
-                parent_type = 'sthpw/message'
-                parent_code = str(data.get('message_code') or '')
-            if parent_type and parent_code:
-                parent_refs.setdefault(parent_type, set()).add(parent_code)
-            titles = {
-                'status': 'Status changed',
-                'publication': 'Published snapshot',
-                'note': 'Added note',
-                'task': 'Updated task',
-                'message': 'Sent message',
-            }
-            if kind == 'status':
-                detail = ' -> '.join(value for value in (
-                    str(data.get('from_status') or ''),
-                    str(data.get('to_status') or data.get('status') or ''),
-                ) if value)
-            elif kind == 'publication':
-                detail = (
-                    'Version {0}'.format(version)
-                    if version not in (None, '') else 'New snapshot'
-                )
-            elif kind == 'note':
-                detail = str(data.get('note') or '')[:240]
-            elif kind == 'message':
-                detail = str(data.get('message') or '')[:240]
-            else:
-                detail = str(data.get('description') or data.get('status') or '')[:240]
-            records.append({
-                'eventId': '{0}:{1}'.format(
-                    kind, data.get('code') or data.get('id') or ''
-                ),
-                'searchKey': str(SearchKey.get_by_sobject(
-                    item, use_id=(kind == 'status')
-                ) or ''),
-                'kind': kind,
-                'title': titles[kind],
-                'detail': detail,
-                'actor': str(data.get('login') or data.get('assigned') or ''),
-                'timestamp': str(data.get('timestamp') or ''),
-                'project': str(data.get('project_code') or project_code),
-                'process': process,
-                'context': context,
-                'version': str(version if version not in (None, '') else ''),
-                '_parentType': parent_type,
-                '_parentCode': parent_code,
-            })
-
-    parents = {}
-    for parent_type, codes in parent_refs.items():
-        query_type = parent_type
-        if project_code and not parent_type.startswith('sthpw/'):
-            query_type = '{0}?project={1}'.format(parent_type, project_code)
-        parent_search = Search(query_type)
-        parent_search.add_filters('code', list(codes))
-        for parent in parent_search.get_sobjects():
-            data = parent.get_data()
-            code = str(parent.get_code() or '')
+    week_start = today - timedelta(days=today.weekday())
+    if can_view_work_hours:
+        hour_search = Search('sthpw/work_hour')
+        hour_search.add_filter('login', login)
+        if project_code:
+            hour_search.add_filter('project_code', project_code)
+        hour_search.add_filter('day', week_start.isoformat(), op='>=')
+        hour_search.add_filter('day', week_end.isoformat(), op='<=')
+        for entry in hour_search.get_sobjects():
             try:
-                title = str(parent.get_name() or '')
-            except (AttributeError, TypeError):
-                title = ''
-            if parent_type == 'sthpw/message':
-                raw_metadata = data.get('metadata') or {}
-                if isinstance(raw_metadata, dict):
-                    metadata = dict(raw_metadata)
-                else:
-                    try:
-                        metadata = json.loads(str(raw_metadata))
-                    except (TypeError, ValueError):
-                        metadata = {}
-                title = str(metadata.get('title') or 'Conversation')
-            parents[(parent_type, code)] = {
-                'searchKey': str(SearchKey.get_by_sobject(parent, use_id=False) or ''),
-                'title': str(title or data.get('name') or data.get('title') or code),
-                'type': parent_type,
-            }
-    for record in records:
-        parent_type = record.pop('_parentType', '')
-        parent_code = record.pop('_parentCode', '')
-        parent = parents.get((parent_type, parent_code), {})
-        record['targetSearchKey'] = str(parent.get('searchKey') or '')
-        record['targetTitle'] = str(parent.get('title') or parent_code or 'TACTIC object')
-        record['targetType'] = str(parent.get('type') or parent_type)
-    records.sort(key=lambda record: record.get('timestamp') or '', reverse=True)
+                regular = float(entry.get_value('straight_time') or 0.0)
+            except (TypeError, ValueError):
+                regular = 0.0
+            try:
+                overtime = float(entry.get_value('over_time') or 0.0)
+            except (TypeError, ValueError):
+                overtime = 0.0
+            value = regular + overtime
+            logged_hours += value
+            if str(entry.get_value('status') or '').lower() == 'approved':
+                approved_hours += value
+            else:
+                pending_hours += value
 
     return json.dumps({
-        'activity': records[:activity_limit],
-        'tasks': samples,
-        'taskTotal': len(task_objects),
         'taskSummary': {
             'total': len(task_objects),
-            'loaded': len(samples),
-            'active': active,
+            'incomplete': incomplete,
             'overdue': overdue,
             'dueThisWeek': due_this_week,
-            'plannedHours': round(planned_hours, 2),
+        },
+        'workHourSummary': {
             'loggedHours': round(logged_hours, 2),
             'approvedHours': round(approved_hours, 2),
             'pendingHours': round(pending_hours, 2),
-            'workloadPercent': int(round(min(
-                100.0,
-                logged_hours * 100.0 / planned_hours
-            ))) if planned_hours > 0 else 0,
+            'periodStart': week_start.isoformat(),
+            'periodEnd': week_end.isoformat(),
+        },
+        'permissions': {
+            'viewWorkHours': bool(can_view_work_hours),
+            'manageWorkHours': bool(can_manage_work_hours),
         },
         'statusSummary': list(status_counts.values()),
         'processSummary': list(process_counts.values()),
@@ -4108,41 +7159,146 @@ def heartbeat_user_presence(ttl_seconds=90):
 
 
 def get_notes_and_stypes_counts(process, search_key, stypes_list):
-    # getting notes by search_type process and count of stypes from stypes_list
-    # TODO simplify query and use filtering
-    from pyasm.search import Search
+    # Count every requested process with two table queries rather than issuing
+    # one COUNT query per process and table. Relationship counts still require
+    # one query per child Search Type because they target different tables.
+    from pyasm.search import Search, SearchKey
 
     search_type, search_code = server.split_search_key(search_key)
     search = Search(search_type)
     sobject = search.get_by_search_key(search_key)
+    # Project-owned Search Types do not necessarily expose project_code as a
+    # physical column. The project is transport context in the search key.
+    project_code = ''
+    if 'project=' in search_key:
+        project_code = search_key.split('project=', 1)[1].split('&', 1)[0]
+
+    processes = []
+    for value in process or []:
+        value = str(value or '')
+        if value and value not in processes:
+            processes.append(value)
 
     cnt = {
-        'notes': {},
+        'notes': dict((value, 0) for value in processes),
         'stypes': {},
-        'tasks': {},
+        'tasks': dict((value, 0) for value in processes),
+        'taskDetails': dict((value, []) for value in processes),
     }
 
-    for p in process:
-        search = Search('sthpw/note')
-        search.add_op_filters([('process', p), ('search_type', search_type), ('search_code', search_code)])
-        cnt['notes'][p] = search.get_count(True)
+    if processes:
+        task_search = Search('sthpw/task')
+        task_search.add_op_filters([
+            ('process', processes),
+            ('search_type', search_type),
+            ('search_code', search_code),
+        ])
+        if project_code:
+            task_search.add_filter('project_code', project_code)
+        task_sobjects = task_search.get_sobjects()
+        task_codes = []
+        task_process_by_code = {}
+        for item in task_sobjects:
+            item_process = str(item.get_value('process') or '')
+            item_code = str(item.get_value('code') or '')
+            if item_process not in cnt['tasks']:
+                continue
+            cnt['tasks'][item_process] += 1
+            task_data = item.get_data()
+            task_data['__search_key__'] = SearchKey.get_by_sobject(
+                item, use_id=False
+            )
+            cnt['taskDetails'][item_process].append(task_data)
+            if item_code:
+                task_codes.append(item_code)
+                task_process_by_code[item_code] = item_process
 
-        search = Search('sthpw/task')
-        search.add_op_filters([('process', p), ('search_type', search_type), ('search_code', search_code)])
-        cnt['tasks'][p] = search.get_count(True)
+        note_search = Search('sthpw/note')
+        note_search.add_op_filters([
+            ('process', processes),
+            ('search_type', search_type),
+            ('search_code', search_code),
+        ])
+        if project_code:
+            note_search.add_filter('project_code', project_code)
+        root_note_counts = dict((value, 0) for value in processes)
+        for item in note_search.get_sobjects():
+            item_process = str(item.get_value('process') or '')
+            if item_process in root_note_counts:
+                root_note_counts[item_process] += 1
+                cnt['notes'][item_process] += 1
 
-    # print(stypes_list)
+        task_note_counts = {}
+        task_note_codes = [
+            detail.get('code')
+            for details in cnt['taskDetails'].values()
+            if len(details) > 1
+            for detail in details if detail.get('code')
+        ]
+        if task_note_codes:
+            task_note_search = Search('sthpw/note')
+            task_note_search.add_filters('search_code', task_note_codes)
+            if project_code:
+                task_note_search.add_filter('project_code', project_code)
+            for item in task_note_search.get_sobjects():
+                parent_type = str(
+                    item.get_value('search_type') or ''
+                ).split('?', 1)[0]
+                if parent_type not in ('', 'sthpw/task'):
+                    continue
+                task_code = str(item.get_value('search_code') or '')
+                item_process = str(
+                    item.get_value('process')
+                    or task_process_by_code.get(task_code) or ''
+                )
+                if item_process not in cnt['notes']:
+                    continue
+                task_note_counts[task_code] = (
+                    task_note_counts.get(task_code, 0) + 1
+                )
+                cnt['notes'][item_process] += 1
+
+        for item_process, details in cnt['taskDetails'].items():
+            details.sort(key=lambda item: (
+                0 if not item.get('context')
+                or item.get('context') == item_process else 1,
+                item.get('timestamp') or '', item.get('code') or '',
+            ))
+            primary_code = details[0].get('code') if details else None
+            for detail in details:
+                task_code = detail.get('code')
+                detail['__primary_note_branch__'] = (
+                    task_code == primary_code
+                )
+                detail['__notes_count__'] = (
+                    root_note_counts.get(item_process, 0)
+                    if task_code == primary_code
+                    else task_note_counts.get(task_code, 0)
+                )
 
     for stype in stypes_list:
+        descriptor = stype if isinstance(stype, dict) else {}
+        count_key = str(
+            descriptor.get('key') or descriptor.get('searchType') or stype
+        )
+        search_type = str(descriptor.get('searchType') or stype)
+        expression = str(descriptor.get('expression') or '')
         try:
-            search = Search(stype)
-            search.add_relationship_filter(sobject)
-            count = search.get_count(True)
+            if expression:
+                related = Search.eval(expression) or []
+                count = len(set(
+                    SearchKey.get_by_sobject(item, use_id=False)
+                    for item in related
+                ))
+            else:
+                search = Search(search_type)
+                search.add_relationship_filter(sobject)
+                count = search.get_count(True)
             if count == -1:
                 count = 0
-            cnt['stypes'][stype] = count
-        except:
-            cnt['stypes'][stype] = 0
+            cnt['stypes'][count_key] = count
+        except (AttributeError, KeyError, TypeError, ValueError):
+            cnt['stypes'][count_key] = 0
 
     return cnt
 
@@ -4458,6 +7614,354 @@ def query_sobjects_snapshots_updated(search_type, filters=[], order_bys=[], proj
         sobject['__snapshots__'] = snapshots_list
 
     return json.dumps(result, separators=(',', ':'))
+
+
+def query_table_layout(search_type, search_keys=None, view='table',
+                       project_code=None):
+    """Resolve one table through TACTIC's native widget-config stack."""
+    import json
+    import re
+
+    from pyasm.search import Search, SearchKey, SearchType, WidgetDbConfig
+    from pyasm.widget import WidgetConfigView
+
+    if project_code:
+        server.set_project(project_code)
+    base_search_type = str(search_type or '').split('?', 1)[0]
+    if not base_search_type:
+        raise ValueError('Search Type is required')
+    config = WidgetConfigView.get_by_search_type(
+        base_search_type, view, use_cache=False
+    )
+    definition_config = WidgetConfigView.get_by_search_type(
+        base_search_type, 'definition', use_cache=False
+    )
+    edit_view_config = WidgetConfigView.get_by_search_type(
+        base_search_type, 'edit', use_cache=False, layout='EditWdg'
+    )
+    edit_config = WidgetConfigView.get_by_search_type(
+        base_search_type, 'edit_definition', use_cache=False,
+        layout='EditWdg'
+    )
+
+    def json_value(value):
+        if value is None or isinstance(value, (bool, int, float, str)):
+            return value
+        if isinstance(value, dict):
+            return dict((str(key), json_value(item))
+                        for key, item in value.items())
+        if isinstance(value, (list, tuple)):
+            return [json_value(item) for item in value]
+        return str(value)
+
+    def element_xml(source, element_name):
+        value = source.get_element_xml(element_name)
+        if not value:
+            return ''
+        return value if isinstance(value, str) else value.to_string()
+
+    def object_value(sobject, name):
+        value = sobject.get_value(name, no_exception=True)
+        return '' if value is None else str(value)
+
+    def task_cell_records(widget):
+        records = []
+        colors = getattr(widget, 'status_colors', {}) or {}
+        for task in widget.get_tasks() or []:
+            status = object_value(task, 'status')
+            pipeline_code = object_value(task, 'pipeline_code') or 'task'
+            status_colors = (
+                colors.get(pipeline_code) or colors.get('task') or {}
+            )
+            records.append({
+                'taskSearchKey': SearchKey.get_by_sobject(
+                    task, use_id=False
+                ),
+                'taskCode': str(task.get_code() or ''),
+                'process': object_value(task, 'process'),
+                'context': object_value(task, 'context'),
+                'status': status,
+                'statusColor': str(status_colors.get(status) or ''),
+                'assigned': object_value(task, 'assigned'),
+                'bidStart': object_value(task, 'bid_start_date'),
+                'bidEnd': object_value(task, 'bid_end_date'),
+            })
+        return records
+
+    def action_cell_values(class_name, column, sobject, widget):
+        options = column.get('displayOptions') or {}
+        if class_name.endswith('.TaskElementWdg'):
+            return {'tasks': task_cell_records(widget)}
+        if class_name.endswith('.SObjectDetailElementWdg'):
+            target = sobject
+            if str(options.get('use_parent') or '').lower() == 'true':
+                target = sobject.get_parent() or sobject
+            return {
+                'targetSearchKey': SearchKey.get_by_sobject(
+                    target, use_id=False
+                ),
+            }
+        if class_name.endswith((
+                '.ExploreElementWdg', '.ExplorerElementWdg',
+                '.ExplorerTableElementWdg')):
+            from pyasm.biz import Project
+            mode = str(options.get('mode') or 'sandbox')
+            if mode == 'sandbox':
+                path = Project.get_sandbox_base_dir(
+                    sobject, decrement=int(options.get('decrement') or 0)
+                )
+            else:
+                path = Project.get_project_client_lib_dir(sobject, None)
+            return {
+                'available': bool(path),
+                'path': str(path or ''),
+            }
+        if class_name.endswith((
+                '.SObjectFilesElementWdg', '.MetadataElementWdg')):
+            return {
+                'targetSearchKey': SearchKey.get_by_sobject(
+                    sobject, use_id=False
+                ),
+            }
+        if class_name.endswith('.DeleteElementWdg'):
+            return {'available': not sobject.is_insert()}
+        if not class_name.endswith('.CheckinButtonElementWdg'):
+            return {}
+        target = sobject
+        process = str(options.get('process') or 'publish')
+        context = process
+        if sobject.get_base_search_type() in ('sthpw/task', 'sthpw/note'):
+            process = object_value(sobject, 'process')
+            context = object_value(sobject, 'context')
+            if re.search(r'/(\d+)$', context):
+                context = ''
+            mode = str(options.get('sobject_mode') or 'parent')
+            if mode == 'parent':
+                target = sobject.get_parent()
+            elif mode in ('connect', 'expression'):
+                target = Search.eval('@SOBJECT(connect)', sobject, single=True)
+            if not target:
+                return {'available': False}
+        return {
+            'available': True,
+            'targetSearchKey': SearchKey.get_by_sobject(
+                target, use_id=False
+            ),
+            'process': process,
+            'context': context or process,
+            'checkinMode': str(options.get('mode') or ''),
+            'transferMode': str(options.get('transfer_mode') or ''),
+        }
+
+    element_names = config.get_element_names()
+    available_names = list(element_names)
+    for element_name in definition_config.get_element_names():
+        if element_name not in available_names:
+            available_names.append(element_name)
+    edit_element_names = edit_view_config.get_element_names()
+    for element_name in edit_element_names + edit_config.get_element_names():
+        if element_name not in available_names:
+            available_names.append(element_name)
+    for element_name in SearchType.get_columns(
+            base_search_type, show_hidden=False):
+        if element_name not in available_names:
+            available_names.append(element_name)
+    titles = config.get_element_titles()
+    widths = config.get_element_widths()
+
+    def describe_column(element_name, index=-1):
+        attrs = json_value(config.get_element_attributes(element_name) or {})
+        hidden = str(attrs.get('hidden') or '').lower() in ('true', '1', 'yes')
+        display_handler = config.get_display_handler(element_name) or ''
+        display_widget = config.get_widget_key(element_name, 'display') or ''
+        edit_handler = edit_config.get_display_handler(element_name) or ''
+        edit_widget = edit_config.get_widget_key(element_name, 'display') or ''
+        data_type = config.get_type(element_name)
+        if not data_type:
+            data_type = SearchType.get_tactic_type(
+                base_search_type, element_name
+            )
+        width = attrs.get('width') or (
+            widths[index] if 0 <= index < len(widths) else None
+        ) or 160
+        return {
+            'name': element_name,
+            'title': attrs.get('title') or (
+                titles[index] if 0 <= index < len(titles) else element_name
+            ),
+            'width': width,
+            'selected': element_name in element_names and not hidden,
+            'hidden': hidden,
+            'dataType': data_type or '',
+            'attributes': attrs,
+            'displayWidget': display_widget,
+            'displayClass': display_handler,
+            'displayOptions': json_value(
+                config.get_display_options(element_name) or {}
+            ),
+            'displayXml': element_xml(config, element_name),
+            'editWidget': edit_widget,
+            'editClass': edit_handler,
+            'editOptions': json_value(
+                edit_config.get_display_options(element_name) or {}
+            ),
+            'editXml': element_xml(edit_config, element_name),
+            'editSelected': element_name in edit_element_names,
+            'actionClass': edit_config.get_action_handler(element_name) or '',
+            'actionOptions': json_value(
+                edit_config.get_action_options(element_name) or {}
+            ),
+        }
+
+    available_columns = [
+        describe_column(
+            element_name,
+            element_names.index(element_name)
+            if element_name in element_names else -1,
+        )
+        for element_name in available_names
+    ]
+    available_columns = [
+        column for column in available_columns if not column['hidden']
+    ]
+    columns = [column for column in available_columns if column['selected']]
+
+    sobjects = Search.get_by_search_keys(
+        search_keys or [], keep_order=True
+    ) or []
+    widgets = {}
+    widget_errors = {}
+    for column in columns:
+        name = column['name']
+        column['sortable'] = False
+        try:
+            widget = config.get_display_widget(name)
+            widget.set_sobjects(sobjects)
+            widget.preprocess()
+            widgets[name] = widget
+            column['resolvedClass'] = '%s.%s' % (
+                widget.__class__.__module__, widget.__class__.__name__
+            )
+            if (
+                column['resolvedClass'].endswith('.TaskElementWdg')
+                and not column['attributes'].get('width')
+            ):
+                column['width'] = widget.get_width()
+            is_sortable = getattr(widget, 'is_sortable', None)
+            if is_sortable:
+                column['sortable'] = bool(is_sortable())
+        except Exception as error:
+            column['resolvedClass'] = column['displayClass']
+            widget_errors[name] = str(error)
+
+    rows = {}
+    for index, sobject in enumerate(sobjects):
+        search_key = SearchKey.get_by_sobject(sobject, use_id=False)
+        cells = {}
+        for column in columns:
+            name = column['name']
+            error = widget_errors.get(name, '')
+            value = None
+            widget = widgets.get(name)
+            if widget:
+                try:
+                    widget.set_current_index(index)
+                    value = widget.get_text_value()
+                except Exception as widget_error:
+                    error = str(widget_error)
+            if value is None:
+                value = sobject.get_value(name, no_exception=True)
+            text = '' if value is None else str(value)
+            cell = {
+                'text': text,
+                'error': error,
+            }
+            if widget:
+                try:
+                    cell.update(action_cell_values(
+                        column.get('resolvedClass') or '',
+                        column,
+                        sobject,
+                        widget,
+                    ))
+                except Exception as widget_error:
+                    cell['error'] = str(widget_error)
+            cells[name] = cell
+        rows[search_key] = cells
+
+    database_views = {}
+    for view_name in (view, 'definition', 'edit', 'edit_definition', 'color'):
+        db_config = WidgetDbConfig.get_by_search_type(
+            base_search_type, view_name
+        )
+        if db_config:
+            database_views[view_name] = {
+                'code': db_config.get_code() or '',
+                'config': db_config.get_xml().to_string(),
+            }
+
+    return json.dumps({
+        'searchType': base_search_type,
+        'view': view,
+        'columns': columns,
+        'availableColumns': available_columns,
+        'rows': rows,
+        'databaseViews': database_views,
+    }, separators=(',', ':'))
+
+
+def save_widget_config(search_type, view, config_xml=None,
+                       element_xml=None, project_code=None):
+    """Save a TACTIC view or one element using WidgetConfig semantics."""
+    import json
+
+    from pyasm.common import TacticException, Xml
+    from pyasm.search import Search, SearchType
+    from pyasm.widget import WidgetConfig
+
+    if project_code:
+        server.set_project(project_code)
+    search_type_object = SearchType.get(search_type)
+    base_search_type = search_type_object.get_base_key()
+
+    search = Search('config/widget_config')
+    search.add_filter('search_type', base_search_type)
+    search.add_filter('view', view)
+    config_sobject = search.get_sobject()
+    if config_sobject:
+        source_xml = config_sobject.get_value('config')
+    else:
+        config_sobject = SearchType.create('config/widget_config')
+        config_sobject.set_value('search_type', base_search_type)
+        config_sobject.set_value('view', view)
+        source_xml = '<config><%s/></config>' % view
+
+    if element_xml:
+        element = Xml()
+        element.read_string(element_xml)
+        element_name = element.get_value('element/@name')
+        if not element_name:
+            raise TacticException('Widget element requires a name')
+        config = WidgetConfig.get(view, xml=source_xml)
+        config.alter_xml_element(
+            element_name, config_xml=element.to_string()
+        )
+        output_xml = config.get_xml().to_string()
+    else:
+        config = WidgetConfig.get(view, xml=config_xml)
+        element_names = config.get_element_names()
+        if len(element_names) != len(set(element_names)):
+            raise TacticException('Widget view contains duplicate elements')
+        output_xml = config.get_xml().to_string()
+
+    config_sobject.set_value('config', output_xml)
+    config_sobject.commit()
+    return json.dumps({
+        'code': config_sobject.get_code() or '',
+        'searchType': base_search_type,
+        'view': view,
+        'config': output_xml,
+    }, separators=(',', ':'))
 
 
 def query_sobjects(search_type, filters=[], order_bys=[], project_code=None, limit=None, offset=None, get_all_snapshots=False, check_snapshots_updates=False, include_info=True, include_snapshots=True, compressed_return=True, include_status_log=False, include_progress=False, include_total_count=True, snapshot_timestamps=None):
@@ -4864,6 +8368,11 @@ def query_sobjects(search_type, filters=[], order_bys=[], project_code=None, lim
 
     notes_count_by_key = {}
     tasks_count_by_key = {}
+    notes_count_by_process = {}
+    tasks_count_by_process = {}
+    task_details_by_key = {}
+    task_note_counts_by_code = {}
+    task_primary_by_code = {}
     if include_info and sobjects_dicts_list:
         if search_type == 'sthpw/task':
             key_column = 'search_code' if have_search_code else 'search_id'
@@ -4887,6 +8396,47 @@ def query_sobjects(search_type, filters=[], order_bys=[], project_code=None, lim
                         note.get_value('process'),
                     )
                     notes_count_by_key[key] = notes_count_by_key.get(key, 0) + 1
+
+            task_groups = {}
+            for task_info in sobjects_dicts_list:
+                group_key = (
+                    task_info.get(key_column),
+                    str(task_info.get('process') or 'publish'),
+                )
+                task_groups.setdefault(group_key, []).append(task_info)
+            task_codes = []
+            for group_key, group_tasks in task_groups.items():
+                group_tasks.sort(key=lambda item: (
+                    0 if not item.get('context')
+                    or item.get('context') == group_key[1] else 1,
+                    item.get('timestamp') or '', item.get('code') or '',
+                ))
+                primary_code = (
+                    group_tasks[0].get('code') if group_tasks else None
+                )
+                for task_info in group_tasks:
+                    task_code = task_info.get('code')
+                    if task_code:
+                        if len(group_tasks) > 1:
+                            task_codes.append(task_code)
+                        task_primary_by_code[task_code] = (
+                            task_code == primary_code
+                        )
+            if task_codes:
+                task_note_search = Search('sthpw/note')
+                task_note_search.add_filters('search_code', task_codes)
+                task_note_search.add_column('search_code')
+                task_note_search.add_column('search_type')
+                for note in task_note_search.get_sobjects():
+                    parent_type = str(
+                        note.get_value('search_type') or ''
+                    ).split('?', 1)[0]
+                    if parent_type not in ('', 'sthpw/task'):
+                        continue
+                    task_code = note.get_value('search_code')
+                    task_note_counts_by_code[task_code] = (
+                        task_note_counts_by_code.get(task_code, 0) + 1
+                    )
         else:
             key_column = 'search_code' if have_search_code else 'search_id'
             lookup_values = list(set(
@@ -4896,20 +8446,101 @@ def query_sobjects(search_type, filters=[], order_bys=[], project_code=None, lim
                 not in (None, '')
             ))
             if lookup_values:
-                note_search = Search('sthpw/note')
-                note_search.add_filter('process', 'publish')
-                note_search.add_filter('search_type', search_type)
-                note_search.add_filters(key_column, lookup_values)
-                for note in note_search.get_sobjects():
-                    key = note.get_value(key_column)
-                    notes_count_by_key[key] = notes_count_by_key.get(key, 0) + 1
+                for table, totals, process_counts in (
+                        ('sthpw/note', notes_count_by_key,
+                         notes_count_by_process),
+                        ('sthpw/task', tasks_count_by_key,
+                         tasks_count_by_process)):
+                    count_search = Search(table)
+                    count_search.add_filter('search_type', search_type)
+                    count_search.add_filters(key_column, lookup_values)
+                    count_search.add_column(key_column)
+                    count_search.add_column('process')
+                    if table == 'sthpw/task':
+                        for column in (
+                                'code', 'context', 'assigned',
+                                'status', 'timestamp'):
+                            count_search.add_column(column)
+                    for item in count_search.get_sobjects():
+                        key = item.get_value(key_column)
+                        process = str(
+                            item.get_value('process') or 'publish'
+                        )
+                        totals[key] = totals.get(key, 0) + 1
+                        process_key = (key, process)
+                        process_counts[process_key] = (
+                            process_counts.get(process_key, 0) + 1
+                        )
+                        if table == 'sthpw/task':
+                            task_detail = get_sobject_dict(item)
+                            task_details_by_key.setdefault(
+                                key, {}
+                            ).setdefault(process, []).append(task_detail)
 
-                task_search = Search('sthpw/task')
-                task_search.add_filter('search_type', search_type)
-                task_search.add_filters(key_column, lookup_values)
-                for task in task_search.get_sobjects():
-                    key = task.get_value(key_column)
-                    tasks_count_by_key[key] = tasks_count_by_key.get(key, 0) + 1
+                task_codes = [
+                    detail.get('code')
+                    for process_groups in task_details_by_key.values()
+                    for details in process_groups.values()
+                    if len(details) > 1
+                    for detail in details
+                    if detail.get('code')
+                ]
+                root_notes_count_by_process = dict(notes_count_by_process)
+                task_parent_by_code = dict(
+                    (detail.get('code'), (parent_key, process))
+                    for parent_key, process_groups
+                    in task_details_by_key.items()
+                    for process, details in process_groups.items()
+                    for detail in details
+                    if detail.get('code')
+                )
+                if task_codes:
+                    task_note_search = Search('sthpw/note')
+                    task_note_search.add_filters('search_code', task_codes)
+                    task_note_search.add_column('search_code')
+                    task_note_search.add_column('search_type')
+                    for note in task_note_search.get_sobjects():
+                        parent_type = str(
+                            note.get_value('search_type') or ''
+                        ).split('?', 1)[0]
+                        if parent_type not in ('', 'sthpw/task'):
+                            continue
+                        task_code = note.get_value('search_code')
+                        task_note_counts_by_code[task_code] = (
+                            task_note_counts_by_code.get(task_code, 0) + 1
+                        )
+                        parent_process = task_parent_by_code.get(task_code)
+                        if parent_process:
+                            parent_key, process = parent_process
+                            notes_count_by_key[parent_key] = (
+                                notes_count_by_key.get(parent_key, 0) + 1
+                            )
+                            notes_count_by_process[parent_process] = (
+                                notes_count_by_process.get(parent_process, 0)
+                                + 1
+                            )
+
+                for parent_key, process_groups in task_details_by_key.items():
+                    for process, details in process_groups.items():
+                        details.sort(key=lambda item: (
+                            0 if not item.get('context')
+                            or item.get('context') == process else 1,
+                            item.get('timestamp') or '', item.get('code') or '',
+                        ))
+                        primary_code = (
+                            details[0].get('code') if details else None
+                        )
+                        for detail in details:
+                            task_code = detail.get('code')
+                            detail['__primary_note_branch__'] = (
+                                task_code == primary_code
+                            )
+                            detail['__notes_count__'] = (
+                                root_notes_count_by_process.get(
+                                    (parent_key, process), 0
+                                ) if task_code == primary_code
+                                else task_note_counts_by_code.get(task_code, 0)
+                            )
 
     for sobject_dict, sobject in zip(sobjects_dicts_list, sobjects_list):
 
@@ -4937,8 +8568,12 @@ def query_sobjects(search_type, filters=[], order_bys=[], project_code=None, lim
                     sobject_dict.get(key_column),
                     sobject_dict.get('process'),
                 )
-                sobject_dict['__notes_count__'] = notes_count_by_key.get(
-                    count_key, 0
+                task_code = sobject_dict.get('code')
+                is_primary = task_primary_by_code.get(task_code, True)
+                sobject_dict['__primary_note_branch__'] = is_primary
+                sobject_dict['__notes_count__'] = (
+                    notes_count_by_key.get(count_key, 0) if is_primary
+                    else task_note_counts_by_code.get(task_code, 0)
                 )
                 # there is no reason to search for tasks of tasks, this is never used
                 sobject_dict['__tasks_count__'] = 0
@@ -4969,6 +8604,23 @@ def query_sobjects(search_type, filters=[], order_bys=[], project_code=None, lim
                 )
                 sobject_dict['__tasks_count__'] = tasks_count_by_key.get(
                     count_key, 0
+                )
+                sobject_dict['__notes_count_by_process__'] = dict(
+                    (process, count)
+                    for (key, process), count
+                    in notes_count_by_process.items()
+                    if key == count_key
+                )
+                sobject_dict['__tasks_count_by_process__'] = dict(
+                    (process, count)
+                    for (key, process), count
+                    in tasks_count_by_process.items()
+                    if key == count_key
+                )
+                sobject_dict['__task_details_by_process__'] = dict(
+                    (process, list(details))
+                    for process, details
+                    in task_details_by_key.get(count_key, {}).items()
                 )
 
         if include_snapshots:
@@ -5029,74 +8681,80 @@ def query_group_sobjects(search_type, project_code=None, groups_list=[]):
     return json.dumps(group_bys, separators=(',', ':'))
 
 
-def insert_sobjects(search_type, project_code, data, metadata={}, parent_key=None, instance_type=None, info={}, use_id=False, triggers=True):
+def insert_sobjects(
+        search_type, project_code, data, metadata={}, parent_key=None,
+        instance_type=None, info={}, use_id=False, triggers=True,
+        instance_path=None):
 
     from pyasm.search import SearchType
 
     server.set_project(project_code)
 
-    result = server.insert(search_type, data, metadata, parent_key, info, use_id, triggers)
+    multiple = isinstance(data, (list, tuple))
+    if multiple:
+        metadata_list = metadata
+        if isinstance(metadata, dict):
+            metadata_list = [dict(metadata) for _item in data]
+        result = server.insert_multiple(
+            search_type, list(data), metadata_list or [], parent_key,
+            use_id, triggers)
+        if not isinstance(result, (list, tuple)) or len(result) != len(data):
+            raise RuntimeError(
+                'TACTIC did not return every batch-created sObject')
+    else:
+        result = server.insert(
+            search_type, data, metadata, parent_key, info, use_id, triggers)
 
     if instance_type:
-        instance_search_type, instance_code = server.split_search_key(result['__search_key__'])
-        parent_search_type, parent_code = server.split_search_key(parent_key)
-
-        dst_sobject= server.query(parent_search_type, [('code', parent_code)], return_sobjects=True)[0]
-
-        src_sobject = server.query(instance_search_type, [('code', instance_code)], return_sobjects=True)[0]
-
-        instance = SearchType.create(instance_type)
-        instance.add_related_connection(src_sobject, dst_sobject)
-
-        instance.commit()
+        for inserted in result if multiple else [result]:
+            instance_search_type, instance_code = server.split_search_key(
+                inserted['__search_key__'])
+            parent_search_type, parent_code = server.split_search_key(
+                parent_key)
+            dst_sobject = server.query(
+                parent_search_type, [('code', parent_code)],
+                return_sobjects=True)[0]
+            src_sobject = server.query(
+                instance_search_type, [('code', instance_code)],
+                return_sobjects=True)[0]
+            instance = SearchType.create(instance_type)
+            instance.add_related_connection(
+                src_sobject, dst_sobject, src_path=instance_path)
+            instance.commit()
 
         return result
     else:
         return result
 
-#
-# def insert_instance_sobjects(search_key, project_code, parent_key=None, instance_type=None):
-#
-#     from pyasm.search import SearchType
-#
-#     server.set_project(project_code)
-#
-#     instance_search_type, instance_code = server.split_search_key(search_key)
-#     parent_search_type, parent_code = server.split_search_key(parent_key)
-#
-#     dst_sobject= server.query(parent_search_type, [('code', parent_code)], return_sobjects=True)[0]
-#
-#     src_sobject = server.query(instance_search_type, [('code', instance_code)], return_sobjects=True)[0]
-#
-#     instance = SearchType.create(instance_type)
-#     instance.add_related_connection(src_sobject, dst_sobject)
-#
-#     instance.commit()
-#
-#     return 'ok'
-
-
-def edit_multiple_instance_sobjects(project_code, insert_search_keys=[], exclude_search_keys=[], parent_key=None, instance_type=None, path=None):
+def edit_multiple_instance_sobjects(
+        project_code, insert_search_keys=None, exclude_search_keys=None,
+        parent_key=None, instance_type=None, path=None):
 
     from pyasm.search import SearchType, Search
 
     server.set_project(project_code)
 
-    def remove_instance(to_sobject, from_sobject, instance_type):
-        from_expression = '@SOBJECT(child:{0})'.format(instance_type)
-        to_expression = '@SOBJECT(parent:{0})'.format(instance_type)
+    def related_instances(child_sobject, parent_sobject):
+        parent_relation = instance_type
+        child_relation = instance_type
+        if path:
+            parent_relation = 'child:' + instance_type
+            child_relation = 'parent:' + instance_type
+        parent_instances = Search.eval(
+            '@SOBJECT({0})'.format(parent_relation), parent_sobject
+        ) or []
+        child_instance_keys = {
+            instance.get_search_key()
+            for instance in Search.eval(
+                '@SOBJECT({0})'.format(child_relation), child_sobject
+            ) or []
+        }
+        return [
+            instance for instance in parent_instances
+            if instance.get_search_key() in child_instance_keys
+        ]
 
-        from_instances = Search.eval(from_expression, from_sobject)
-        to_instances = Search.eval(to_expression, to_sobject)
-
-        for from_instance in from_instances:
-            from_search_key = from_instance.get_search_key()
-            for to_instance in to_instances:
-                to_search_key = to_instance.get_search_key()
-                if from_search_key == to_search_key:
-                    to_instance.delete()
-
-    for search_key in insert_search_keys:
+    for search_key in insert_search_keys or ():
 
         child_search_type, child_code = server.split_search_key(search_key)
         parent_search_type, parent_code = server.split_search_key(parent_key)
@@ -5104,11 +8762,14 @@ def edit_multiple_instance_sobjects(project_code, insert_search_keys=[], exclude
         dst_sobject= server.query(parent_search_type, [('code', parent_code)], return_sobjects=True)[0]
         src_sobject = server.query(child_search_type, [('code', child_code)], return_sobjects=True)[0]
 
+        if related_instances(src_sobject, dst_sobject):
+            continue
+
         instance = SearchType.create(instance_type)
         instance.add_related_connection(src_sobject, dst_sobject, src_path=path)
         instance.commit()
 
-    for search_key in exclude_search_keys:
+    for search_key in exclude_search_keys or ():
 
         child_search_type, child_code = server.split_search_key(search_key)
         parent_search_type, parent_code = server.split_search_key(parent_key)
@@ -5117,7 +8778,8 @@ def edit_multiple_instance_sobjects(project_code, insert_search_keys=[], exclude
         parent_sobject = server.query(parent_search_type, [('code', parent_code)], return_sobjects=True)[0]
 
         if path:
-            remove_instance(child_sobject, parent_sobject, instance_type)
+            for instance in related_instances(child_sobject, parent_sobject):
+                instance.delete()
         else:
             child_sobject.remove_instance(parent_sobject)
 
@@ -5474,9 +9136,29 @@ def create_snapshot_extended(search_key, context, project_code=None, snapshot_ty
         original_files_paths = []
         file_types = []
 
-        for metadata, types in zip(files_info['version_metadata'], files_info['files_types']):
-            original_files_paths.append('{0}/{1}.{2}'.format(lib_dir, metadata['filename'], metadata['new_file_ext']))
-            file_paths.append('{0}/{1}.{2}'.format(lib_dir, metadata['new_filename'], metadata['new_file_ext']))
+        upload_file_names = files_info.get('upload_file_names') or []
+
+        def file_name_with_extension(name, extension):
+            name = os.path.basename(str(name or '').replace('\\', '/'))
+            extension = os.path.basename(
+                str(extension or '').replace('\\', '/')
+            ).lstrip('.')
+            if extension:
+                return '{0}.{1}'.format(name, extension)
+            return name
+
+        for index, (metadata, types) in enumerate(zip(
+                files_info['version_metadata'], files_info['files_types'])):
+            original_name = file_name_with_extension(
+                metadata.get('filename'), metadata.get('new_file_ext'))
+            upload_name = (
+                os.path.basename(str(upload_file_names[index]).replace('\\', '/'))
+                if index < len(upload_file_names) and upload_file_names[index]
+                else file_name_with_extension(
+                    metadata.get('new_filename'), metadata.get('new_file_ext'))
+            )
+            original_files_paths.append('{0}/{1}'.format(lib_dir, original_name))
+            file_paths.append('{0}/{1}'.format(lib_dir, upload_name))
             file_types.append(types)
 
         # generating previews if it's not explicitly passed

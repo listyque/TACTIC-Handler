@@ -70,6 +70,7 @@ log/
 custom_scripts/
 
 # Local transfer and editor artifacts
+_tmp/
 *.part
 *.tmp
 *.bak

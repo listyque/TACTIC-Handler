@@ -3,7 +3,7 @@ from __future__ import annotations
 import unittest
 from unittest.mock import patch
 
-from modern_ui.skey_previews import (
+from thlib.ui.skey_previews import (
     SearchKeyPreviewResolver,
     display_html_without_skeys,
     extract_skeys,
@@ -11,6 +11,37 @@ from modern_ui.skey_previews import (
 
 
 class SearchKeyPreviewTests(unittest.TestCase):
+    def test_snapshot_activity_opens_exact_snapshot_in_workspace(self):
+        class DockModel:
+            def __init__(self):
+                self.panels = []
+
+            def show_panel(self, panel):
+                self.panels.append(panel)
+
+        class Application:
+            def __init__(self):
+                self.keys = []
+                self.dock_model = DockModel()
+
+            def open_search_key(self, search_key):
+                self.keys.append(search_key)
+
+        snapshot_key = "skey://sthpw/snapshot?code=SNAP001"
+        resolver = SearchKeyPreviewResolver.__new__(SearchKeyPreviewResolver)
+        resolver._application = Application()
+        resolver._communication = None
+        resolver._cache = {}
+
+        resolver.open_in_context(
+            snapshot_key,
+            "skey://demo/asset?project=demo&code=ASSET001",
+            "render",
+        )
+
+        self.assertEqual(resolver._application.keys, [snapshot_key])
+        self.assertEqual(resolver._application.dock_model.panels, ["snapshot"])
+
     def test_note_activity_opens_parent_in_explicit_process(self):
         class DockModel:
             def __init__(self):
@@ -30,6 +61,10 @@ class SearchKeyPreviewTests(unittest.TestCase):
         class Communication:
             def __init__(self):
                 self.focused = []
+                self.task_contexts = []
+
+            def activate_task_context(self, task_code, parent_key, process):
+                self.task_contexts.append((task_code, parent_key, process))
 
             def show_note(self, search_key):
                 self.focused.append(search_key)
@@ -41,13 +76,19 @@ class SearchKeyPreviewTests(unittest.TestCase):
         resolver._communication = Communication()
         resolver._cache = {}
 
-        resolver.open_in_context(note_key, parent_key, "model")
+        resolver.open_in_context(
+            note_key, parent_key, "model", "TASK001"
+        )
 
         self.assertEqual(
             resolver._application.calls, [(parent_key, "model")]
         )
         self.assertEqual(resolver._application.dock_model.panels, ["notes"])
         self.assertEqual(resolver._communication.focused, [note_key])
+        self.assertEqual(
+            resolver._communication.task_contexts,
+            [("TASK001", parent_key, "model")],
+        )
 
     def test_extracts_unique_keys_without_sentence_punctuation(self):
         snapshot = "skey://sthpw/snapshot?code=SNAP001"
@@ -66,6 +107,94 @@ class SearchKeyPreviewTests(unittest.TestCase):
         self.assertNotIn("skey://", rendered)
         self.assertIn("Review .<br>", rendered)
         self.assertIn('href="https://example.test/details"', rendered)
+
+    def test_display_html_keeps_saved_search_link_clickable(self):
+        value = (
+            "tactic-search://open?project=demo"
+            "&search_type=demo%2Fasset&view=link_search%3Apublished"
+        )
+
+        rendered = display_html_without_skeys(value)
+
+        escaped = value.replace("&", "&amp;")
+        self.assertIn('href="{}"'.format(escaped), rendered)
+        self.assertIn(">{}</a>".format(escaped), rendered)
+
+    def test_display_html_keeps_ftp_link_clickable(self):
+        rendered = display_html_without_skeys(
+            "ftp://files.example.test/reference.mov"
+        )
+        self.assertIn(
+            'href="ftp://files.example.test/reference.mov"', rendered
+        )
+
+    def test_knowledge_search_key_opens_native_knowledge_dock(self):
+        opened = []
+
+        class Knowledge:
+            def open_search_key(self, value):
+                opened.append(value)
+
+        key = "skey://demo/th_knowledge_article?code=DOC0001"
+        resolver = SearchKeyPreviewResolver.__new__(SearchKeyPreviewResolver)
+        resolver._knowledge = Knowledge()
+        resolver._cache = {}
+        resolver._application = None
+        resolver._messages = None
+        resolver._users = None
+        resolver._communication = None
+
+        resolver.open(key)
+
+        self.assertEqual(opened, [key])
+        self.assertEqual(
+            SearchKeyPreviewResolver._guess_kind(key), "knowledge"
+        )
+
+    def test_knowledge_preview_uses_article_content_not_technical_type(self):
+        class SObject:
+            @staticmethod
+            def get_info():
+                return {
+                    "code": "DOC0001",
+                    "name": "Lighting guide",
+                    "description": "How lighting reviews are organized",
+                    "kind": "article",
+                    "content_text": "Prepare references before the review.",
+                    "parent_code": "SEC0001",
+                    "project_code": "demo",
+                }
+
+            @staticmethod
+            def get_title():
+                return "Lighting guide"
+
+            @staticmethod
+            def get_stype():
+                return None
+
+        key = "skey://demo/th_knowledge_article?code=DOC0001"
+        parsed = SearchKeyPreviewResolver._direct_key(key)
+        resolver = SearchKeyPreviewResolver.__new__(
+            SearchKeyPreviewResolver
+        )
+
+        descriptor = resolver._describe(key, parsed, SObject())
+
+        self.assertEqual(descriptor["kind"], "knowledge")
+        self.assertEqual(descriptor["articleKind"], "article")
+        self.assertEqual(descriptor["title"], "Lighting guide")
+        self.assertEqual(
+            descriptor["description"],
+            "How lighting reviews are organized",
+        )
+        self.assertEqual(
+            descriptor["excerpt"],
+            "Prepare references before the review.",
+        )
+        self.assertEqual(descriptor["parentCode"], "SEC0001")
+        self.assertEqual(descriptor["detail"], "")
+        self.assertEqual(descriptor["subtitle"], "")
 
     def test_all_supported_builtin_types_have_distinct_kinds(self):
         expected = {

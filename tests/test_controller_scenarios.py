@@ -6,11 +6,14 @@ from unittest.mock import patch
 
 from PySide6.QtCore import QObject, Signal
 
-from modern_ui.request_metrics import request_metrics
-from modern_ui.server_updates import ServerUpdateService
-from modern_ui.skey_previews import SearchKeyPreviewResolver
-from modern_ui.task_workspace.store import TaskWorkspaceStore
-from modern_ui.workspace_models.windows import FloatingWindowModel
+from thlib.ui.request_metrics import request_metrics
+from thlib.ui.server_updates import ServerUpdateService
+from thlib.ui.skey_previews import SearchKeyPreviewResolver
+from thlib.ui.task_workspace.store import TaskWorkspaceStore
+from thlib.ui.workspace_models.windows import (
+    FloatingWindowModel,
+    VisibleFloatingWindowModel,
+)
 from tests.support.async_scenarios import DeferredWorker, MemorySettings
 
 
@@ -20,6 +23,10 @@ class _Application(QObject):
     def __init__(self):
         super().__init__()
         self.current_project_code = "test_project"
+        self._settings = {}
+
+    def _write_settings(self):
+        pass
 
 
 class _RepositorySync(QObject):
@@ -41,6 +48,71 @@ class _Task:
 
 
 class ControllerScenarioTests(unittest.TestCase):
+    def test_help_routes_topics_through_one_reused_native_window(self):
+        model = FloatingWindowModel(MemorySettings())
+        changed_topics = []
+        visibility = []
+        model.helpTopicChanged.connect(
+            lambda: changed_topics.append(model.helpTopic)
+        )
+        model.windowVisibilityChanged.connect(
+            lambda window_id, visible:
+                visibility.append((window_id, visible))
+        )
+
+        model.open_help("dock.tasks")
+
+        self.assertTrue(model.is_window_visible("help"))
+        self.assertEqual(model.helpTopic, "dock.tasks")
+        self.assertEqual(changed_topics, ["dock.tasks"])
+        help_rows = [
+            window for window in model._windows
+            if window.window_id == "help"
+        ]
+        self.assertEqual(len(help_rows), 1)
+        self.assertEqual(
+            FloatingWindowModel._content_source(help_rows[0]),
+            "HelpView.qml",
+        )
+
+        model.open_help("script_editor")
+
+        self.assertEqual(model.helpTopic, "script_editor")
+        self.assertEqual(changed_topics, ["dock.tasks", "script_editor"])
+        self.assertEqual(
+            len([
+                window for window in model._windows
+                if window.window_id == "help"
+            ]),
+            1,
+        )
+        model.close_window("help")
+        self.assertEqual(
+            visibility,
+            [("help", True), ("help", False)],
+        )
+
+    def test_closed_windows_are_not_instantiated_by_the_qml_projection(self):
+        settings = MemorySettings()
+        source = FloatingWindowModel(settings)
+        visible = VisibleFloatingWindowModel(source)
+
+        self.assertGreater(source.rowCount(), 40)
+        self.assertEqual(visible.rowCount(), 0)
+
+        source.show_window("debug_log")
+        self.assertEqual(visible.rowCount(), 1)
+        self.assertEqual(
+            visible.data(
+                visible.index(0, 0), FloatingWindowModel.IdRole
+            ),
+            "debug_log",
+        )
+
+        source.close_window("debug_log")
+        visible._release_hidden_rows()
+        self.assertEqual(visible.rowCount(), 0)
+
     def test_selection_change_invalidates_inflight_task_result(self):
         store = TaskWorkspaceStore()
         store.set_scope("object", target_key="skey://demo/asset?code=A")
@@ -126,6 +198,49 @@ class ControllerScenarioTests(unittest.TestCase):
         self.assertEqual(
             (users.x, users.y, users.width, users.height),
             (80, 50, 1180, 820),
+        )
+
+    def test_reset_layout_restores_window_geometry_and_keeps_visibility(self):
+        settings = MemorySettings()
+        model = FloatingWindowModel(settings)
+        model.show_window("messages")
+        model.set_geometry("messages", 5000, 4000, 1200, 900)
+        model.set_geometry("task_editor", -3000, 2500, 980, 760)
+        reset_events = []
+        model.layoutReset.connect(lambda: reset_events.append(True))
+
+        model.reset_layout()
+
+        defaults = {
+            window.window_id: window for window in model._defaults()
+        }
+        for window_id in ("messages", "task_editor"):
+            current = model._windows[model._row(window_id)]
+            default = defaults[window_id]
+            self.assertEqual(
+                (current.x, current.y, current.width, current.height,
+                 current.geometry_mode),
+                (default.x, default.y, default.width, default.height,
+                 default.geometry_mode),
+            )
+        self.assertTrue(
+            model._windows[model._row("messages")].visible
+        )
+        self.assertFalse(
+            model._windows[model._row("task_editor")].visible
+        )
+        self.assertEqual(reset_events, [True])
+
+        restored = FloatingWindowModel(settings)
+        restored_messages = restored._windows[
+            restored._row("messages")
+        ]
+        self.assertEqual(
+            (restored_messages.x, restored_messages.y,
+             restored_messages.width, restored_messages.height),
+            (defaults["messages"].x, defaults["messages"].y,
+             defaults["messages"].width,
+             defaults["messages"].height),
         )
 
     def test_cache_hit_invalidation_and_refresh_are_observable(self):

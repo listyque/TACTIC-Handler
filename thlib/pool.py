@@ -43,10 +43,6 @@ class ThreadsPool(QtCore.QObject):
         self._pool = QtCore.QThreadPool(self)
         self._pool.setMaxThreadCount(self.max_threads)
 
-    def reset_poll_timer(self):
-        # Kept for source compatibility. QThreadPool wakes immediately.
-        return None
-
     @property
     def is_started(self):
         return self._started
@@ -59,6 +55,10 @@ class ThreadsPool(QtCore.QObject):
         if not self._started or self._stopping or self._closed:
             return None
         return OperationWorker(self, func, *args, **kwargs)
+
+    def set_max_threads(self, value):
+        self.max_threads = max(1, int(value))
+        self._pool.setMaxThreadCount(self.max_threads)
 
     def start(self):
         if self._started:

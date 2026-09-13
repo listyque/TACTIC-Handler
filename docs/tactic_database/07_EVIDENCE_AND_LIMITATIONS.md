@@ -1,26 +1,36 @@
 # Evidence Levels and Limitations
 
-Этот справочник не подменяет исходный код и живую схему. Для каждой таблицы используются три уровня доказательств:
+This reference does not replace the source code or live schema. Three evidence
+levels are used for each table:
 
-1. **DDL evidence** — таблица и поля присутствуют в консолидированной PostgreSQL-схеме ветки `5.0`.
-2. **Registry evidence** — `sthpw/search_object` связывает logical search type, физическую таблицу и Python-класс.
-3. **Behavior evidence** — найден owning class/manager/command, который реально создаёт или изменяет записи.
+1. **DDL evidence** - the table and fields exist in the consolidated PostgreSQL
+   schema for the `5.0` branch.
+2. **Registry evidence** - `sthpw/search_object` connects the logical search
+   type, physical table, and Python class.
+3. **Behavior evidence** - an owning class, manager, or command was found that
+   actually creates or changes the records.
 
-## Значения confidence
+## Confidence values
 
-- `high` — подтверждены DDL, registry и/или явный owning API.
-- `medium` — назначение следует из DDL/registry и частичного использования, но полный lifecycle не прослежен.
-- `low` — таблица присутствует в схеме, однако её современный владелец или актуальность не подтверждены. Перед записью обязательна трассировка кода на установленной версии.
+- `high` - confirmed by DDL, the registry, and/or an explicit owning API.
+- `medium` - the purpose follows from DDL/registry and partial usage, but the
+  complete lifecycle has not been traced.
+- `low` - the table exists in the schema, but its current owner or relevance is
+  unconfirmed. Trace the installed version's code before writing to it.
 
-## Что не включено как конечный список
+## What is not included as a final list
 
-- произвольные project search types и их таблицы;
-- таблицы плагинов;
-- изменения коммерческих/закрытых веток;
-- локальные migrations конкретной студии;
-- колонки, добавленные поздними upgrade-скриптами после консолидированного schema snapshot;
-- deployment-specific repository/configuration storage.
+- arbitrary project search types and their tables;
+- plugin tables;
+- changes from commercial or closed branches;
+- studio-specific local migrations;
+- columns added by later upgrade scripts after the consolidated schema
+  snapshot;
+- deployment-specific repository or configuration storage.
 
-## Правило для Codex
+## Rule for Codex
 
-Даже при `high` confidence не писать прямым SQL из прикладного модуля. Сначала найти owning API. Если его нет или он не покрывает нужную операцию, документировать это как gap и предложить server-side command/migration, а не обходить lifecycle таблицы.
+Even with `high` confidence, application modules must not write through direct
+SQL. Find the owning API first. If it does not exist or does not cover the
+required operation, document the gap and propose a server-side command or
+migration instead of bypassing the table lifecycle.

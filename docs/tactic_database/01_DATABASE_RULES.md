@@ -1,45 +1,68 @@
 # TACTIC Database Rules
 
-## 1. Search type важнее физической таблицы
+## 1. The search type matters more than the physical table
 
-Код должен работать с логическим именем вроде `sthpw/task`, `config/process` или `my_project/asset`, а не с голым именем таблицы. `sthpw/search_object` определяет DB, физическую таблицу и Python-класс. Для `config/*` физические таблицы называются `spt_*` и находятся в каждой project DB.
+Code must use a logical name such as `sthpw/task`, `config/process`, or
+`my_project/asset`, not a bare table name. `sthpw/search_object` defines the
+database, physical table, and Python class. For `config/*`, the physical tables
+are named `spt_*` and exist in every project database.
 
-## 2. Прямой SQL — не штатный способ записи
+## 2. Direct SQL is not the normal write path
 
-Штатная цепочка: `SearchType.create()`/специализированный factory → `SObject.set_value()` → `commit()` или команда/ServerStub API. Это сохраняет security, triggers, transaction log, change timestamps и кэши. Прямой SQL допустим только для миграций и диагностического ремонта.
+The standard flow is
+`SearchType.create()`/a specialized factory -> `SObject.set_value()` ->
+`commit()`, or the command/ServerStub API. This preserves security, triggers,
+the transaction log, change timestamps, and caches. Direct SQL is allowed only
+for migrations and diagnostic repair.
 
-## 3. Не создавать вручную производные записи
+## 3. Do not create derived records manually
 
-- `snapshot` и `file` создаются check-in системой;
-- `status_log`, `transaction_log`, `sobject_log`, `change_timestamp`, notification logs создаются системой;
-- `message_log` создаётся messaging API;
-- `process_state` создаётся workflow engine;
-- `login`/`ticket` изменяются security API.
+- `snapshot` and `file` records are created by the check-in system.
+- `status_log`, `transaction_log`, `sobject_log`, `change_timestamp`, and
+  notification logs are created by the system.
+- `message_log` is created by the messaging API.
+- `process_state` is created by the workflow engine.
+- `login` and `ticket` are changed through the security API.
 
-## 4. Полиморфная привязка
+## 4. Polymorphic relationships
 
-Многие таблицы используют `search_type + search_id`, а новые участки также `search_code`. Не добавлять собственный FK к каждой project table. Передавать search key/SObject в нативный API и позволять TACTIC заполнить связь.
+Many tables use `search_type + search_id`; newer areas also use `search_code`.
+Do not add a custom foreign key to every project table. Pass a search key or
+SObject to the native API and let TACTIC populate the relationship.
 
-## 5. Retire вместо удаления
+## 5. Retire instead of delete
 
-Для пользовательских/config SObjects обычно использовать retire (`s_status`) и нативный retire API. Hard delete оставлять системному cleanup/uninstall, иначе теряются audit, dependencies и references.
+For user and configuration SObjects, normally use retirement (`s_status`) and
+the native retire API. Reserve hard deletion for system cleanup or uninstall
+operations; otherwise audit records, dependencies, and references are lost.
 
-## 6. `project_code` и область данных
+## 6. `project_code` and data scope
 
-`sthpw/*` — глобальные таблицы, но многие строки принадлежат проекту через `project_code`. `config/*` — физически находятся в project DB. Не смешивать global и project-scoped определения.
+`sthpw/*` tables are global, but many rows belong to a project through
+`project_code`. `config/*` tables physically reside in a project database. Do
+not mix global definitions with project-scoped definitions.
 
-## 7. XML/JSON — контракт подсистемы
+## 7. XML and JSON are subsystem contracts
 
-Поля `pipeline`, `schema`, `config`, `snapshot`, `access_rules`, `manifest`, `status`, `data`, `metadata` не являются свободными текстовыми корзинами. Сохранять неизвестные ключи, использовать owning parser/manager и не переписывать payload частично без merge.
+The `pipeline`, `schema`, `config`, `snapshot`, `access_rules`, `manifest`,
+`status`, `data`, and `metadata` fields are not unrestricted text containers.
+Preserve unknown keys, use the owning parser or manager, and do not partially
+rewrite a payload without merging it.
 
-## 8. Кэш и reload
+## 8. Cache and reload behavior
 
-Изменения `config/naming`, `config/widget_config`, triggers, security groups, pipeline/process и settings могут кэшироваться. После административной записи использовать штатный manager/command, который инвалидирует или перезагружает кэш.
+Changes to `config/naming`, `config/widget_config`, triggers, security groups,
+pipeline/process definitions, and settings may be cached. After an
+administrative write, use the standard manager or command that invalidates or
+reloads the cache.
 
-## 9. Security всегда серверная
+## 9. Security is always server-side
 
-Скрытие кнопки клиентом — только UX. Любая mutation должна выполняться под пользовательским ticket и проверяться серверным `AccessManager`.
+Hiding a button in the client is only a UX measure. Every mutation must execute
+under the user's ticket and be checked by the server-side `AccessManager`.
 
-## 10. Источник истины — живая база плюс код
+## 10. The source of truth is the live database plus code
 
-Консолидированный SQL описывает ветку 5.0, но установленный сервер мог пройти дополнительные upgrades или иметь плагины. Перед новым модулем запускать live inventory и сравнивать registry/columns.
+The consolidated SQL describes the 5.0 branch, but an installed server may have
+additional upgrades or plugins. Before implementing a new module, run the live
+inventory and compare the registry and columns.

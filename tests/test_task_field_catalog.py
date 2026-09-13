@@ -1,6 +1,6 @@
 import unittest
 
-from modern_ui.task_workspace.field_catalog import (
+from thlib.ui.task_workspace.field_catalog import (
     _choices,
     _ensure_empty_choice,
 )

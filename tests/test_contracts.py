@@ -48,7 +48,7 @@ class ServerProcedureContractTests(unittest.TestCase):
                     f"<{name}>", "exec",
                 )
 
-    def test_modern_identity_procedures_generate_code_skeys(self):
+    def test_identity_procedures_generate_code_skeys(self):
         procedures = (
             tq.query_server_updates,
             tq.query_task_workspace_page,
@@ -78,6 +78,21 @@ class ServerProcedureContractTests(unittest.TestCase):
                 with self.subTest(contract=contract, key=key):
                     self.assertIn(repr(key), source)
 
+    def test_user_profile_uses_scoped_hours_without_a_second_activity_source(self):
+        source = inspect.getsource(tq.query_user_profile_data)
+
+        self.assertNotIn("sthpw/message_log", source)
+        self.assertNotIn("sthpw/status_log", source)
+        self.assertNotIn("sthpw/snapshot", source)
+        self.assertNotIn("sthpw/note", source)
+        self.assertNotIn("'activity':", source)
+        self.assertNotIn("'tasks':", source)
+        self.assertNotIn("'taskTotal':", source)
+        self.assertIn("'viewWorkHours'", source)
+        self.assertIn("week_start.isoformat(), op='>='", source)
+        self.assertIn("entry.get_value('over_time')", source)
+        self.assertIn("week_end.isoformat(), op='<='", source)
+
 
 class NativeObjectContractTests(unittest.TestCase):
     def test_domain_objects_remain_native_sobjects(self):
@@ -88,6 +103,7 @@ class NativeObjectContractTests(unittest.TestCase):
     def test_native_file_repository_and_preview_api_is_available(self):
         required = {
             "prepare_repo", "get_icon_preview", "get_file_size",
+            "is_local_current",
             "get_filename_with_ext", "get_repo_path", "get_abs_path",
         }
         self.assertTrue(required.issubset(set(dir(tc.File))))

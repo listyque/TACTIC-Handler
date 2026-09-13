@@ -195,6 +195,17 @@ class HandlerServer:
         client.last_heartbeat = time.monotonic()
         if message_type == "heartbeat":
             client.send(message("heartbeat", timestamp=time.time()))
+        elif message_type == "capabilities":
+            capabilities = sorted({
+                str(value) for value in payload.get("capabilities") or []
+                if str(value)
+            })
+            with self._lock:
+                client.capabilities = capabilities
+            self._broadcast_capabilities()
+            self.logger.info(
+                "Client capabilities updated: %s", client.client_id
+            )
         elif message_type == "command":
             payload = self._normalize_command(payload)
             payload = self._resolve_target(payload)
@@ -207,7 +218,7 @@ class HandlerServer:
             )
         elif message_type == "client_disconnected":
             target = str(payload.get("client_id") or "")
-            if client.application_type not in {"modern_ui", "operator"}:
+            if client.application_type not in {"tactic_handler", "operator"}:
                 client.send(structured_error(
                     str(payload.get("request_id") or ""),
                     "permission_denied", "Client cannot disconnect peers",
@@ -215,7 +226,7 @@ class HandlerServer:
             elif target and target != client.client_id:
                 self._remove(target, "operator_request")
         elif message_type == "server_shutdown":
-            if client.application_type not in {"modern_ui", "operator"}:
+            if client.application_type not in {"tactic_handler", "operator"}:
                 client.send(structured_error(
                     str(payload.get("request_id") or ""),
                     "permission_denied", "Client cannot stop Handler Server",
@@ -319,7 +330,7 @@ class HandlerServer:
         with self._lock:
             client_ids = [
                 client.client_id for client in self._clients.values()
-                if client.application_type in {"modern_ui", "operator"}
+                if client.application_type in {"tactic_handler", "operator"}
             ]
         for client_id in client_ids:
             self._send_to(client_id, payload)

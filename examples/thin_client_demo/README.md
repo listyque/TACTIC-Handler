@@ -1,6 +1,6 @@
 # Simulated Maya thin client
 
-Start the modern TACTIC-Handler application. Its local Handler Server starts in the
+Start the TACTIC-Handler application. Its local Handler Server starts in the
 background automatically. Then run as many demo clients as needed:
 
 ```powershell

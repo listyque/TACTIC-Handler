@@ -1,15 +1,23 @@
+import json
 import os
 import unittest
 from decimal import Decimal
+from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
-from PySide6.QtCore import QObject, Signal
+from PySide6.QtCore import QObject, QUrl, Signal
+from PySide6.QtGui import QGuiApplication
+from PySide6.QtQml import QQmlComponent, QQmlEngine
+from PySide6.QtQuick import QQuickWindow
+from PySide6.QtTest import QTest
 
 import thlib.tactic_classes as tc
-from modern_ui.work_hours import WorkHoursController
+from thlib.ui.work_hours import WorkHoursController
+from thlib.ui.localization import CatalogTranslator
+from thlib.ui.workspace_models.records import RecordListModel
 
 
 class _DockModel:
@@ -284,6 +292,115 @@ class WorkHoursControllerTests(unittest.TestCase):
         self.assertEqual(self.controller.selectedCount, 2)
         self.controller.clear_timesheet_selection()
         self.assertEqual(self.controller.selectedCount, 0)
+
+
+class WorkHoursQmlTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.application = QGuiApplication.instance() or QGuiApplication([])
+
+    def test_timesheet_and_work_reports_create_with_the_shared_footer(self):
+        qml_dir = Path(__file__).parents[1] / "thlib" / "ui" / "qml"
+        translator = CatalogTranslator(
+            Path(__file__).parents[1]
+            / "thlib" / "ui" / "translations" / "ru.json"
+        )
+        self.application.installTranslator(translator)
+        self.addCleanup(self.application.removeTranslator, translator)
+        engine = QQmlEngine()
+        engine.addImportPath(str(qml_dir))
+        controller = WorkHoursController(_Application())
+        self.addCleanup(controller.shutdown)
+        engine.rootContext().setContextProperty(
+            "workHoursController", controller
+        )
+        engine.rootContext().setContextProperty(
+            "timesheetModel", controller.timesheet_entries
+        )
+        engine.rootContext().setContextProperty(
+            "workReportModel", controller.report_descriptors
+        )
+        engine.rootContext().setContextProperty(
+            "workReportValueModel", controller.report_values
+        )
+        users = RecordListModel(("login", "displayName"))
+        engine.rootContext().setContextProperty(
+            "userListModel", users
+        )
+        theme_component = QQmlComponent(
+            engine, QUrl.fromLocalFile(str(qml_dir / "Theme.qml"))
+        )
+        theme = theme_component.createWithInitialProperties({"dark": True})
+        self.assertIsNotNone(theme)
+
+        for file_name in ("TimesheetView.qml", "WorkReportsView.qml"):
+            with self.subTest(file_name=file_name):
+                component = QQmlComponent(
+                    engine, QUrl.fromLocalFile(str(qml_dir / file_name))
+                )
+                view = component.createWithInitialProperties({"theme": theme})
+                self.assertIsNotNone(
+                    view,
+                    "\n".join(
+                        error.toString() for error in component.errors()
+                    ),
+                )
+                view.setProperty("width", 760)
+                view.setProperty("height", 420)
+                window = QQuickWindow()
+                window.resize(760, 420)
+                view.setParentItem(window.contentItem())
+                window.show()
+                QTest.qWait(40)
+                self.application.processEvents()
+                rendered_text = {
+                    str(item.property("text"))
+                    for item in view.findChildren(QObject)
+                    if item.property("text") is not None
+                }
+                if file_name == "TimesheetView.qml":
+                    self.assertIn("Выберите пользователя", rendered_text)
+                else:
+                    self.assertIn("Мои рабочие часы", rendered_text)
+                window.close()
+                window.deleteLater()
+                view.deleteLater()
+
+        theme.deleteLater()
+
+    def test_builtin_work_hour_terms_use_the_russian_catalog(self):
+        root = Path(__file__).parents[1]
+        qml_dir = root / "thlib" / "ui" / "qml"
+        timesheet = (qml_dir / "TimesheetView.qml").read_text(
+            encoding="utf-8"
+        )
+        summary = (qml_dir / "WorkHoursSummary.qml").read_text(
+            encoding="utf-8"
+        )
+        reports = (qml_dir / "WorkReportsView.qml").read_text(
+            encoding="utf-8"
+        )
+
+        self.assertIn('"label": qsTr("Logged")', timesheet)
+        self.assertIn('qsTr("Approved")', timesheet)
+        self.assertIn('qsTr("Pending")', timesheet)
+        self.assertIn('"label": qsTr("Planned")', summary)
+        self.assertIn('"label": qsTr("Over plan")', summary)
+        self.assertIn('"my_hours": qsTr("My Work Hours")', reports)
+        self.assertIn("root.localizedValueLabel(label)", reports)
+        self.assertNotIn(".replace(/_/g", reports)
+
+        catalog = json.loads(
+            (root / "thlib" / "ui" / "translations" / "ru.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        self.assertEqual(catalog["Logged"], "Записано")
+        self.assertEqual(catalog["Approved"], "Одобрено")
+        self.assertEqual(catalog["Pending"], "Ожидает одобрения")
+        self.assertEqual(catalog["My Work Hours"], "Мои рабочие часы")
+        self.assertEqual(catalog["Bid vs Actual"], "План и факт")
+        self.assertEqual(catalog["Labor Cost"], "Стоимость труда")
 
 
 if __name__ == "__main__":

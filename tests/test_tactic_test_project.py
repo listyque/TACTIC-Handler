@@ -26,11 +26,11 @@ class TacticTestProjectTests(unittest.TestCase):
     def test_mutation_requires_explicit_opt_in(self):
         with patch.dict(os.environ, {}, clear=True):
             with self.assertRaises(UnsafeTestProject):
-                validate_test_project("th_test_modern", self.manifest)
+                validate_test_project("th_test_handler", self.manifest)
         with patch.dict(os.environ, {ALLOW_ENV: "1"}, clear=True):
             self.assertEqual(
-                validate_test_project("th_test_modern", self.manifest),
-                "th_test_modern",
+                validate_test_project("th_test_handler", self.manifest),
+                "th_test_handler",
             )
 
     def test_seed_is_idempotent_and_cleanup_is_marker_scoped(self):

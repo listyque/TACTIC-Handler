@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import unittest
 
-from modern_ui.window_geometry import ScreenGeometry, resolve_window_state
+from thlib.ui.window_geometry import ScreenGeometry, resolve_window_state
 
 
 class MainWindowGeometryTests(unittest.TestCase):
@@ -66,6 +66,28 @@ class MainWindowGeometryTests(unittest.TestCase):
         self.assertEqual(state["width"], self.right.width)
         self.assertEqual(state["height"], self.right.height)
         self.assertEqual((state["x"], state["y"]), (self.right.x, self.right.y))
+
+    def test_runtime_geometry_fully_outside_desktop_returns_to_primary(self) -> None:
+        state = resolve_window_state(
+            {
+                "x": 9000,
+                "y": 7000,
+                "width": 1280,
+                "height": 820,
+            },
+            [self.primary, self.right, self.left],
+            self.primary.identity,
+        )
+        self.assertGreaterEqual(state["x"], self.primary.x)
+        self.assertGreaterEqual(state["y"], self.primary.y)
+        self.assertLessEqual(
+            state["x"] + state["width"],
+            self.primary.x + self.primary.width,
+        )
+        self.assertLessEqual(
+            state["y"] + state["height"],
+            self.primary.y + self.primary.height,
+        )
 
 
 if __name__ == "__main__":

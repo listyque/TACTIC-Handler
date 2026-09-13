@@ -1,1 +1,1 @@
-"""Reusable deterministic test helpers for the modern client."""
+"""Reusable deterministic test helpers for the application client."""

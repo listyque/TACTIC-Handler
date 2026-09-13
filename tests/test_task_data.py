@@ -1,7 +1,7 @@
 import unittest
 from datetime import date
 
-from modern_ui.task_data import (
+from thlib.ui.task_data import (
     calendar_cells,
     due_state,
     filtered_records,
@@ -150,6 +150,89 @@ class TaskDataTests(unittest.TestCase):
         self.assertTrue(all(item["groupCollapsed"] for item in pending))
         self.assertEqual(
             [item["taskCode"] for item in pending], ["TASK3", "TASK1"]
+        )
+
+    def test_process_group_uses_one_header_when_pipeline_labels_differ(self):
+        records = [
+            {
+                "taskCode": "TASK1", "process": "light",
+                "processLabel": "LIGHT", "processColor": "#607d8b",
+            },
+            {
+                "taskCode": "TASK2", "process": "model",
+                "processLabel": "MODEL", "processColor": "#ef5350",
+            },
+            {
+                "taskCode": "TASK3", "process": "light",
+                "processLabel": "СВЕТ", "processColor": "#5e4db2",
+            },
+            {
+                "taskCode": "TASK4", "process": "light",
+                "processLabel": "LIGHT", "processColor": "#607d8b",
+            },
+        ]
+
+        grouped = sort_and_group(records, "due", "process")
+        light = [item for item in grouped if item["groupKey"] == "light"]
+
+        self.assertEqual(len(light), 3)
+        self.assertEqual(sum(item["groupFirst"] for item in light), 1)
+        self.assertTrue(all(item["group"] == "LIGHT" for item in light))
+        self.assertTrue(all(item["groupCount"] == 3 for item in light))
+        self.assertTrue(all(item["groupColor"] == "#607d8b" for item in light))
+        self.assertEqual(
+            [item["groupKey"] for item in grouped],
+            ["light", "light", "light", "model"],
+        )
+        collapsed = sort_and_group(
+            records, "due", "process", collapsed_groups={"light"}
+        )
+        self.assertTrue(all(
+            item["groupCollapsed"]
+            for item in collapsed if item["groupKey"] == "light"
+        ))
+
+    def test_search_type_group_uses_configured_title_and_code_identity(self):
+        records = [{
+            "taskCode": "TASK1",
+            "parentSearchType": "complex/scenes",
+            "parentSearchTypeLabel": "Scenes",
+        }, {
+            "taskCode": "TASK2",
+            "parentSearchType": "complex/shot",
+            "parentSearchTypeLabel": "Shots",
+        }]
+
+        grouped = sort_and_group(records, "due", "search_type")
+
+        self.assertEqual(
+            [(item["groupKey"], item["group"]) for item in grouped],
+            [("complex/scenes", "Scenes"), ("complex/shot", "Shots")],
+        )
+
+    def test_column_sort_direction_reverses_text_and_group_order(self):
+        records = [
+            {
+                "taskCode": "TASK1", "status": "Approved",
+                "end": "2026-08-05",
+            },
+            {
+                "taskCode": "TASK2", "status": "Pending",
+                "end": "2026-08-04",
+            },
+            {
+                "taskCode": "TASK3", "status": "In Progress",
+                "end": "2026-08-03",
+            },
+        ]
+
+        descending = sort_and_group(
+            records, "status", "status", descending=True
+        )
+
+        self.assertEqual(
+            [item["status"] for item in descending],
+            ["Pending", "In Progress", "Approved"],
         )
 
     def test_tasks_on_same_process_keep_distinct_code_identity(self):
@@ -362,6 +445,23 @@ class TaskDataTests(unittest.TestCase):
         self.assertEqual(
             layout["records"][2]["ganttIssue"], "Deadline precedes start"
         )
+
+    def test_gantt_layout_keeps_a_valid_draft_in_its_persisted_section(self):
+        layout = gantt_layout([{
+            "taskCode": "TASK1",
+            "start": "2026-08-04",
+            "end": "2026-08-05",
+            "_ganttSectionScheduled": False,
+            "groupKey": "model",
+            "group": "Model",
+        }], today=date(2026, 8, 4))
+
+        record = layout["records"][0]
+        self.assertTrue(record["ganttScheduled"])
+        self.assertEqual(record["ganttSection"], "unscheduled")
+        self.assertEqual(record["ganttDurationDays"], 2)
+        self.assertEqual(layout["scheduled"], 0)
+        self.assertEqual(layout["unscheduled"], 1)
 
     def test_gantt_layout_builds_overview_summaries_and_warnings(self):
         layout = gantt_layout([
