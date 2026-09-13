@@ -5,11 +5,9 @@ import re
 import glob
 import zipfile
 import json
-from thlib.environment import env_mode, env_server, env_inst
-if env_mode.py3:
-    import urllib as urllib2
-else:
-    import urllib2
+from urllib import request as urllib_request
+
+from thlib.environment import env_server, env_inst
 import thlib.global_functions as gf
 # import thlib.tactic_classes as tc
 
@@ -93,13 +91,15 @@ def download_from_url(url):
         proxy_dict = {
             'http': 'http://{login}:{pass}@{0}'.format(server, **proxy)
         }
-        proxy_handler = urllib2.ProxyHandler(proxy_dict)
-        auth = urllib2.HTTPBasicAuthHandler()
-        opener = urllib2.build_opener(proxy_handler, auth, urllib2.HTTPHandler)
-        urllib2.install_opener(opener)
+        proxy_handler = urllib_request.ProxyHandler(proxy_dict)
+        auth = urllib_request.HTTPBasicAuthHandler()
+        opener = urllib_request.build_opener(
+            proxy_handler, auth, urllib_request.HTTPHandler
+        )
+        urllib_request.install_opener(opener)
 
     def url_open_agent(url=url, timeout=1):
-        return urllib2.urlopen(url=url, timeout=timeout)
+        return urllib_request.urlopen(url=url, timeout=timeout)
 
     query_worker = gf.get_thread_worker(
         url_open_agent,
@@ -153,11 +153,6 @@ def get_update_archive_from_server(archive_name):
         return archive_path
 
 
-def delete_files_from_list(files_list):
-    pass
-    # print(files_list)
-
-
 def create_app_update_list():
     ignore_list = [
         '.idea',
@@ -165,9 +160,6 @@ def create_app_update_list():
         'settings',
         'screenshots',
         'updates',
-        'asd.txt',
-        'asd2.txt',
-        'asd4.txt',
         'backup',
         'design',
         'deprecated',

@@ -1,1 +1,1 @@
-__author__ = 'Krivospitskiy Alexey'
+"""PySide6/QML presentation layer for the TACTIC-Handler application."""

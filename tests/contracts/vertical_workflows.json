@@ -1,0 +1,83 @@
+{
+  "sharedModules": [
+    "tests.test_contracts",
+    "tests.test_qml_smoke_harness",
+    "tests.test_vertical_workflows"
+  ],
+  "verticals": {
+    "login_configuration": {
+      "title": "Login and Configuration",
+      "modules": [
+        "tests.test_login_configuration",
+        "tests.test_startup_bootstrap",
+        "tests.test_localization",
+        "tests.test_server_updates"
+      ],
+      "qml": ["LoginDialog.qml", "ConfigurationView.qml", "ConfigurationPage.qml"],
+      "windows": ["configuration"],
+      "liveChecks": ["server_ping", "session_identity", "repository_configuration"]
+    },
+    "navigation_search": {
+      "title": "Navigation, Search and skey",
+      "modules": [
+        "tests.test_skey_navigation",
+        "tests.test_quick_filters",
+        "tests.test_task_workspace_store",
+        "tests.test_request_budgets"
+      ],
+      "qml": ["TacticSearchField.qml", "WorkspaceResultItem.qml", "WorkspaceCard.qml"],
+      "windows": ["process_filter_editor"],
+      "liveChecks": ["search_page", "code_skey"]
+    },
+    "tasks_notes_work_hours": {
+      "title": "Tasks, Notes and Work Hours",
+      "modules": [
+        "tests.test_tasks_controller",
+        "tests.test_notes_qml",
+        "tests.test_work_hours",
+        "tests.test_milestones"
+      ],
+      "qml": ["TasksWorkspaceView.qml", "TaskInspector.qml", "CommunicationView.qml"],
+      "windows": ["task_editor", "milestone_manager"],
+      "liveChecks": ["task_page", "task_notes", "work_hours"]
+    },
+    "checkin_files": {
+      "title": "Check-in and Files",
+      "modules": [
+        "tests.test_checkin_vertical",
+        "tests.test_checkin_operation",
+        "tests.test_commit_queue",
+        "tests.test_drop_plate",
+        "tests.test_repository_sync",
+        "tests.test_snapshot_browser"
+      ],
+      "qml": ["CommitQueueView.qml", "DropPlateView.qml", "SnapshotBrowser.qml"],
+      "windows": ["commit_queue", "repository_sync", "screenshot_maker"],
+      "liveChecks": ["repository_configuration", "snapshot_catalog"]
+    },
+    "messages_users_activity": {
+      "title": "Messages, Users and Activity",
+      "modules": [
+        "tests.test_communication_feed",
+        "tests.test_user_controller",
+        "tests.test_server_updates",
+        "tests.test_topbar_activity"
+      ],
+      "qml": ["MessagesView.qml", "UserProfileView.qml", "ActivityFeedView.qml"],
+      "windows": ["messages", "user_profile", "activity_feed"],
+      "liveChecks": ["conversation_catalog", "user_profile", "server_updates"]
+    },
+    "handler_server_dcc": {
+      "title": "Handler Server and DCC",
+      "modules": [
+        "tests.test_handler_server",
+        "tests.test_handler_server_controller",
+        "tests.test_handler_server_discovery",
+        "tests.test_tactic_dcc_sdk"
+      ],
+      "qml": ["HandlerServerView.qml", "DemoThinClientWindow.qml"],
+      "windows": ["handler_server"],
+      "liveChecks": ["local_handler_server"]
+    }
+  }
+}

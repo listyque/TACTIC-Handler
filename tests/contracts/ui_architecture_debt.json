@@ -1,0 +1,50 @@
+{
+  "qml_threshold": 800,
+  "python_threshold": 1000,
+  "context_property_max": 179,
+  "env_inst_max_modules": 65,
+  "application_controller_max_methods": 473,
+  "invoke_item_action_max_lines": 410,
+  "qmllint_max_warnings": {
+    "Quick.layout-positioning": 0,
+    "missing-property": 101,
+    "property-override": 0,
+    "unqualified": 6616,
+    "unused-imports": 23
+  },
+  "qml_max_lines": {
+    "thlib/ui/qml/CommitQueueView.qml": 1404,
+    "thlib/ui/qml/DockPanel.qml": 809,
+    "thlib/ui/qml/Main.qml": 1235,
+    "thlib/ui/qml/MessagesView.qml": 2828,
+    "thlib/ui/qml/ScriptEditorView.qml": 1041,
+    "thlib/ui/qml/SearchWorkspaceView.qml": 2513,
+    "thlib/ui/qml/SidebarEditorView.qml": 944,
+    "thlib/ui/qml/SnapshotBrowser.qml": 857,
+    "thlib/ui/qml/SObjectInfoView.qml": 1139,
+    "thlib/ui/qml/TaskBrowserTable.qml": 1467,
+    "thlib/ui/qml/TaskGanttView.qml": 1834,
+    "thlib/ui/qml/TasksWorkspaceView.qml": 1016,
+    "thlib/ui/qml/UserProfileView.qml": 968,
+    "thlib/ui/qml/WorkspaceCard.qml": 921,
+    "thlib/ui/qml/WorkspaceResultItem.qml": 1160,
+    "thlib/ui/qml/controls/ScriptCodeEditor.qml": 811
+  },
+  "python_max_lines": {
+    "thlib/ui/application.py": 1111,
+    "thlib/ui/checkin_out.py": 1947,
+    "thlib/ui/commit_queue.py": 1070,
+    "thlib/ui/communication_feed.py": 3174,
+    "thlib/ui/communication.py": 1617,
+    "thlib/ui/controller.py": 1090,
+    "thlib/ui/debug_logging.py": 1376,
+    "thlib/ui/repository_sync.py": 2941,
+    "thlib/ui/script_editor.py": 1110,
+    "thlib/ui/sidebar_editor.py": 1407,
+    "thlib/ui/skey_previews.py": 1231,
+    "thlib/ui/sobject_info.py": 1136,
+    "thlib/ui/sobject_link.py": 1144,
+    "thlib/ui/tasks.py": 6038,
+    "thlib/ui/user.py": 1305
+  }
+}

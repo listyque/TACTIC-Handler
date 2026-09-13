@@ -4,40 +4,133 @@
 import sys
 import os
 import io
-from thlib.side.six import PY3
-import subprocess
 import locale
 import datetime
+import time
 import inspect
 import collections
 import platform
 import json
-from pickle import dumps, loads
-from thlib.side.Qt import QtCore, QtNetwork, Qt
-from thlib.pool import ThreadsPool
-from thlib.side.appconnector.server import Server
-from thlib.side.appconnector.client import Client
+import tempfile
+import threading
 
 
 CFG_FORMAT = 'json'  # set this to 'ini' if you want to use QSettings instead of json
 SERVER_THREADS_COUNT = 4  # max connections to remote tactic server (recommended to match number server cores)
 HTTP_THREADS_COUNT = 1  # max connections to http (depending on the speed of internet)
 LOCAL_THREADS_COUNT = 4  # max local threads (recommended to match number of local machine cores)
-MAX_RECURSION_DEPTH = 65535  # maximum recursion for stability reasons
 SPECIALIZED = 'full'  # can be string, made for personal script packs, e.g. to create pre-configured pack
 
-sys.setrecursionlimit(MAX_RECURSION_DEPTH)
+THREAD_COUNT_MIN = 1
+THREAD_COUNT_MAX = 32
 
 
-def singleton(cls):
-    instances = {}
+_CONFIG_IO_LOCK = threading.RLock()
+_CONFIG_REPLACE_RETRY_DELAYS = (0.01, 0.02, 0.04, 0.08, 0.16)
 
-    def get_instance():
-        if cls not in instances:
-            instances[cls] = cls
-        return instances[cls]
-    return get_instance()
 
+def _write_json_atomic(full_path, obj):
+    """Write one JSON document without exposing a partially written file."""
+    directory = os.path.dirname(full_path)
+    descriptor, temporary_path = tempfile.mkstemp(
+        prefix=u'.{0}.'.format(os.path.basename(full_path)),
+        suffix=u'.tmp',
+        dir=directory,
+    )
+    try:
+        with io.open(descriptor, 'w', encoding='utf-8') as json_file:
+            json.dump(
+                obj,
+                json_file,
+                indent=2,
+                separators=(',', ': '),
+                ensure_ascii=False,
+            )
+            json_file.flush()
+            os.fsync(json_file.fileno())
+        for attempt in range(len(_CONFIG_REPLACE_RETRY_DELAYS) + 1):
+            try:
+                os.replace(temporary_path, full_path)
+                break
+            except OSError as error:
+                # Windows/SMB readers outside our process lock can briefly
+                # deny delete-sharing (including WinError 5 on rename).
+                # Retry only the completed file's atomic replacement: never
+                # truncate the destination or repeat the caller's operation.
+                if (
+                    getattr(error, 'winerror', None) not in (5, 32, 33)
+                    or attempt == len(_CONFIG_REPLACE_RETRY_DELAYS)
+                ):
+                    raise
+                time.sleep(_CONFIG_REPLACE_RETRY_DELAYS[attempt])
+    except Exception:
+        try:
+            os.remove(temporary_path)
+        except OSError:
+            pass
+        raise
+
+
+def _config_base_path(long_abs_path):
+    root = os.path.abspath(env_mode.get_current_path())
+    if not long_abs_path:
+        return os.path.join(root, 'settings')
+    components = (
+        env_mode.node,
+        env_server.get_cur_srv_preset(),
+        env_mode.get_mode(),
+    )
+    normalized = []
+    for component in components:
+        value = str(component or '')
+        if (
+            not value
+            or value in ('.', '..')
+            or '/' in value
+            or '\\' in value
+            or os.path.isabs(value)
+            or bool(os.path.splitdrive(value)[0])
+        ):
+            raise ValueError('Invalid config path component: {0!r}'.format(value))
+        normalized.append(value)
+    return os.path.join(root, 'settings', *normalized)
+
+
+def _config_directory(abs_path, unique_id):
+    value = str(unique_id or '').replace('\\', '/')
+    parts = [part for part in value.split('/') if part]
+    if any(part in ('.', '..') for part in parts):
+        raise ValueError('Config unique_id cannot escape settings: {0!r}'.format(
+            unique_id
+        ))
+    directory = os.path.abspath(os.path.join(abs_path, *parts))
+    try:
+        contained = os.path.commonpath((os.path.abspath(abs_path), directory))
+    except ValueError:
+        contained = ''
+    if contained != os.path.abspath(abs_path):
+        raise ValueError('Config unique_id cannot escape settings: {0!r}'.format(
+            unique_id
+        ))
+    return directory
+
+
+def _remove_json_documents(directory):
+    """Remove owned JSON documents below one validated config directory."""
+    if not os.path.isdir(directory):
+        return
+    for entry in os.scandir(directory):
+        if entry.is_dir(follow_symlinks=False):
+            _remove_json_documents(entry.path)
+            try:
+                os.rmdir(entry.path)
+            except OSError:
+                pass
+        elif (
+            entry.is_file(follow_symlinks=False)
+            and entry.name.endswith('.json')
+        ):
+            os.remove(entry.path)
 
 def tc():
     import thlib.tactic_classes
@@ -49,12 +142,9 @@ def gf():
     return thlib.global_functions
 
 
-def mf():
-    import thlib.maya_functions
-    return thlib.maya_functions
-
-
-def env_write_config(obj=None, filename='settings', unique_id='', sub_id=None, update_file=False, long_abs_path=False):
+def env_write_config(
+        obj=None, filename='settings', unique_id='', sub_id=None,
+        update_file=False, long_abs_path=False, remove=False):
     """
     Converts python objects to json, then writes it to disk.
     Supported writing formats: 'json', 'ini'. Format can be set via global var CFG_FORMAT.
@@ -66,64 +156,94 @@ def env_write_config(obj=None, filename='settings', unique_id='', sub_id=None, u
     :param sub_id: unique id inside dump. 'abc'
     :param update_file: updates json instead of rewriting
     :param long_abs_path: if set to true path for saving will match current environment paths
+    :param remove: remove the exact JSON file, or every JSON document below
+        the exact ``unique_id`` directory when ``filename`` is empty
     """
 
-    filename = filename.replace('/', '_').replace('\\', '_')
+    filename = str(filename or '').replace('/', '_').replace('\\', '_')
 
-    if long_abs_path:
-        abs_path = u'{0}/settings/{1}/{2}/{3}'.format(
-                    env_mode.get_current_path(),
-                    env_mode.node,
-                    env_server.get_cur_srv_preset(),
-                    env_mode.get_mode())
-    else:
-        abs_path = u'{0}/settings'.format(env_mode.get_current_path())
+    abs_path = _config_base_path(long_abs_path)
 
     if CFG_FORMAT == u'json':
-        full_abs_path = u'{0}/{1}'.format(abs_path, unique_id)
+        full_abs_path = _config_directory(abs_path, unique_id)
+        if remove:
+            if sub_id or update_file:
+                raise ValueError(
+                    'Config removal does not accept sub_id or update_file'
+                )
+            with _CONFIG_IO_LOCK:
+                if filename:
+                    full_path = os.path.join(
+                        full_abs_path, u'{0}.json'.format(filename)
+                    )
+                    try:
+                        os.remove(full_path)
+                    except FileNotFoundError:
+                        pass
+                    return
+                if not str(unique_id or '').strip():
+                    raise ValueError('Refusing to remove the settings root')
+                if not os.path.isdir(full_abs_path):
+                    return
+                _remove_json_documents(full_abs_path)
+                try:
+                    os.rmdir(full_abs_path)
+                except OSError:
+                    # The group may contain a nested config scope or a
+                    # non-JSON file that this API does not own.
+                    pass
+                return
         if not os.path.isdir(full_abs_path):
-            os.makedirs(full_abs_path)
+            try:
+                os.makedirs(full_abs_path)
+            except OSError:
+                if not os.path.isdir(full_abs_path):
+                    raise
 
-        full_path = u'{0}/{1}.json'.format(full_abs_path, filename)
+        full_path = os.path.join(full_abs_path, u'{0}.json'.format(filename))
 
-        obj_from_file = None
+        with _CONFIG_IO_LOCK:
+            obj_from_file = None
 
-        if update_file and sub_id:
-            if os.path.isfile(full_path):
-                with open(full_path, 'r') as json_file:
-                    obj_from_file = json.load(json_file)
+            if update_file and sub_id and os.path.isfile(full_path):
+                try:
+                    with io.open(full_path, 'r', encoding='utf-8') as json_file:
+                        obj_from_file = json.load(json_file)
+                except Exception as expected:
+                    dl.exception(expected, group_id='configs')
+                    raise
 
-                json_file.close()
-
-        if sub_id:
-            if obj_from_file:
-                obj_from_file[sub_id] = obj
-                obj = obj_from_file
-            else:
-                obj = {sub_id: obj}
-
-        with open(full_path, 'w') as json_file:
+            if sub_id:
+                if isinstance(obj_from_file, dict):
+                    obj_from_file[sub_id] = obj
+                    obj = obj_from_file
+                elif obj_from_file is not None:
+                    raise TypeError(
+                        'Config with sub_id must contain a JSON object: {0}'.format(
+                            full_path
+                        )
+                    )
+                else:
+                    obj = {sub_id: obj}
 
             obj_str = obj
+            if isinstance(obj, (bytes, bytearray)):
+                obj_str = obj.decode('utf-8', errors='ignore')
 
-            if PY3:
-                if isinstance(obj, (bytes, bytearray)):
-                    obj_str = obj.decode('utf-8', errors='ignore')
-
-            json.dump(obj_str, json_file, indent=2, separators=(',', ': '))
-
-        json_file.close()
+            _write_json_atomic(full_path, obj_str)
 
     elif CFG_FORMAT == u'ini':
+        if remove:
+            raise ValueError('Config removal is only supported for JSON')
         full_path = u'{0}/{1}.ini'.format(abs_path, filename)
+        from thlib.side.Qt import QtCore
         settings = QtCore.QSettings(full_path, QtCore.QSettings.IniFormat)
         settings.beginGroup(filename)
         if sub_id:
             settings.beginGroup(sub_id)
 
-        if PY3:
-            if isinstance(obj, (str, bytes, bytearray)):
-                obj = str(obj, 'utf-8', 'ignore')
+        if isinstance(obj, (bytes, bytearray)):
+            obj = obj.decode('utf-8', 'ignore')
 
         settings.setValue(unique_id, json.dumps(obj, separators=(',', ':')))
         settings.endGroup()
@@ -133,30 +253,22 @@ def env_read_config(filename='settings', unique_id='', sub_id=None, long_abs_pat
 
     filename = filename.replace('/', '_').replace('\\', '_')
 
-    if long_abs_path:
-        abs_path = u'{0}/settings/{1}/{2}/{3}'.format(
-                    env_mode.get_current_path(),
-                    env_mode.node,
-                    env_server.get_cur_srv_preset(),
-                    env_mode.get_mode())
-    else:
-        abs_path = u'{0}/settings'.format(env_mode.get_current_path())
+    abs_path = _config_base_path(long_abs_path)
 
     if CFG_FORMAT == u'json':
-        if unique_id:
-            full_path = u'{0}/{1}/{2}.json'.format(abs_path, unique_id, filename)
-        else:
-            full_path = u'{0}/{1}.json'.format(abs_path, filename)
+        full_path = os.path.join(
+            _config_directory(abs_path, unique_id),
+            u'{0}.json'.format(filename),
+        )
 
         if os.path.isfile(full_path):
-            with open(full_path, 'r') as json_file:
+            with _CONFIG_IO_LOCK:
                 try:
-                    obj = json.load(json_file)
+                    with io.open(full_path, 'r', encoding='utf-8') as json_file:
+                        obj = json.load(json_file)
                 except Exception as expected:
                     dl.exception(expected, group_id='configs')
                     obj = {}
-
-            json_file.close()
 
             if sub_id:
                 return obj.get(sub_id)
@@ -165,6 +277,7 @@ def env_read_config(filename='settings', unique_id='', sub_id=None, long_abs_pat
 
     elif CFG_FORMAT == u'ini':
         full_path = u'{0}/{1}.ini'.format(abs_path, filename)
+        from thlib.side.Qt import QtCore
         settings = QtCore.QSettings(full_path, QtCore.QSettings.IniFormat)
         settings.beginGroup(filename)
 
@@ -179,7 +292,38 @@ def env_read_config(filename='settings', unique_id='', sub_id=None, long_abs_pat
             return obj
 
 
-def env_write_file(data, file_relative_path, file_name, sub_path=''):
+def configured_thread_counts():
+    settings = env_read_config(
+        filename='ui_settings', unique_id='ui_main', long_abs_path=True
+    ) or {}
+
+    def count(key, default):
+        try:
+            value = int(settings.get(key, default))
+        except (TypeError, ValueError):
+            value = default
+        return max(THREAD_COUNT_MIN, min(THREAD_COUNT_MAX, value))
+
+    return {
+        'server': count('performance/serverThreads', SERVER_THREADS_COUNT),
+        'local': count('performance/localThreads', LOCAL_THREADS_COUNT),
+    }
+
+
+def _file_timestamp(value):
+    if not value:
+        return None
+    if isinstance(value, datetime.datetime):
+        parsed = value
+    else:
+        text = str(value).strip()
+        normalized = text[:-1] + '+00:00' if text.endswith(('Z', 'z')) else text
+        parsed = datetime.datetime.fromisoformat(normalized)
+    return parsed.timestamp()
+
+
+def env_write_file(data, file_relative_path, file_name, sub_path='',
+                   modified_at=None):
     if sub_path:
         relative_path = u'{0}/{1}'.format(sub_path, file_relative_path)
     else:
@@ -193,44 +337,82 @@ def env_write_file(data, file_relative_path, file_name, sub_path=''):
     if not os.path.isdir(file_path):
         os.makedirs(file_path)
 
-    with io.open(u'{0}/{1}'.format(file_path, file_name), 'w+', encoding='utf8') as data_file:
+    full_path = u'{0}/{1}'.format(file_path, file_name)
+    try:
+        modified_timestamp = _file_timestamp(modified_at)
+    except (TypeError, ValueError):
+        modified_timestamp = None
+    if modified_timestamp is not None and os.path.isfile(full_path):
+        if abs(os.path.getmtime(full_path) - modified_timestamp) < 0.001:
+            return False
+
+    with io.open(full_path, 'w+', encoding='utf8') as data_file:
         data_file.write(data)
-    data_file.close()
+    if modified_timestamp is not None:
+        try:
+            os.utime(full_path, (modified_timestamp, modified_timestamp))
+        except OSError:
+            pass
+    return True
 
 
-@singleton
 class Inst(object):
     """
     This class stores all instances of interfaces classes
     """
-    projects = None  # all projects Classes
-    logins = None  # all users Classes
-    current_project = None  # current project activates with project dock show event
-    ui_debuglog = None
-    ui_script_editor = None  # Script editor Ui
-    ui_messages = None
-    ui_notify = None
-    ui_super = None  # maya main window, or standalone main window
-    ui_maya_dock = None  # maya docked window
-    ui_main = None  # main widget inside dock, or standalone main window
-    ui_main_tabs = {}  # tabbed widgets, with check-in/checkout etc.
-    ui_tasks = None
-    ui_notes = None
-    ui_conf = None  # configuration window instance
-    ui_repo_sync_queue = None
-    check_tree = {}
-    control_tabs = {}
-    watch_folders = {}
-    commit_queue = {}
-    thread_pools = {}
+    def __init__(self):
+        self.projects = None
+        self.logins = None
+        self.current_project = None
+        self.ui_debuglog = None
+        self.ui_script_editor = None
+        self.ui_messages = None
+        self.ui_notify = None
+        self.ui_super = None
+        self.ui_maya_dock = None
+        self.ui_main = None
+        self.ui_main_tabs = {}
+        self.ui_tasks = None
+        self.ui_notes = None
+        self.ui_conf = None
+        self.ui_repo_sync_queue = None
+        self.check_tree = {}
+        self.control_tabs = {}
+        self.watch_folders = {}
+        self.commit_queue = {}
+        self.thread_pools = {}
+        self._pool_lock = threading.Lock()
 
-    server_pool = ThreadsPool(max_threads=SERVER_THREADS_COUNT)  # Thread Pool for async tasks
-    # http_pool = ThreadsPool(max_threads=HTTP_THREADS_COUNT)
-    commit_pool = ThreadsPool(max_threads=SERVER_THREADS_COUNT)
-    local_pool = ThreadsPool(max_threads=LOCAL_THREADS_COUNT)
+    def __getattr__(self, name):
+        # Legacy UI pools are constructed only when a UI consumer asks for one.
+        counts = configured_thread_counts()
+        sizes = {
+            'server_pool': counts['server'],
+            'commit_pool': counts['server'],
+            'local_pool': counts['local'],
+        }
+        if name not in sizes:
+            raise AttributeError(name)
+        with self._pool_lock:
+            if name not in self.__dict__:
+                from thlib.pool import ThreadsPool
+                self.__dict__[name] = ThreadsPool(max_threads=sizes[name])
+            return self.__dict__[name]
+
+    def set_thread_counts(self, server, local):
+        sizes = {
+            'server_pool': server,
+            'commit_pool': server,
+            'local_pool': local,
+        }
+        for name, size in sizes.items():
+            pool = self.__dict__.get(name)
+            if pool is not None:
+                pool.set_max_threads(size)
 
     def start_pools(self):
         if self.server_pool.is_stopped:
+            self.server_pool.reopen()
             self.server_pool.setParent(self.ui_super)
             self.server_pool.start()
 
@@ -239,18 +421,25 @@ class Inst(object):
             # self.http_pool.start()
 
         if self.commit_pool.is_stopped:
+            self.commit_pool.reopen()
             self.commit_pool.setParent(self.ui_super)
             self.commit_pool.start()
 
         if self.local_pool.is_stopped:
+            self.local_pool.reopen()
             self.local_pool.setParent(self.ui_super)
             self.local_pool.start()
 
-    def exit_pools(self):
-        self.server_pool.exit()
-        # self.http_pool.exit()
-        self.commit_pool.exit()
-        self.local_pool.exit()
+    def exit_pools(self, timeout_ms=15000):
+        deadline = time.monotonic() + max(0, int(timeout_ms)) / 1000.0
+        completed = True
+        for name in ('server_pool', 'commit_pool', 'local_pool'):
+            pool = self.__dict__.get(name)
+            if pool is None:
+                continue
+            remaining = max(0, round((deadline - time.monotonic()) * 1000))
+            completed = pool.exit(remaining) and completed
+        return completed
 
     def get_current_project(self):
         return self.current_project
@@ -268,7 +457,7 @@ class Inst(object):
         return env_server.get_user()
 
     def get_current_login_object(self):
-        return self.logins.get(env_server.get_user())
+        return (self.logins or {}).get(env_server.get_user())
 
     def get_all_logins(self, login_code=None):
         if login_code:
@@ -341,23 +530,6 @@ class Inst(object):
             project_code = self.current_project
         return self.commit_queue.get(project_code)
 
-    # def set_thread_pool(self, thread_pool=None, name='main'):
-    #     # first created thread pool will be live until deleted manually
-    #     if not self.thread_pools.get(name) and not thread_pool:
-    #         dl.log('Creating new Thread Pool {}'.format(name), group_id='server/log')
-    #         thread_pool = QtCore.QThreadPool.globalInstance()
-    #         thread_pool.setMaxThreadCount(env_tactic.max_threads())
-    #         self.thread_pools[name] = thread_pool
-    #         return thread_pool
-    #
-    #     elif thread_pool and not self.thread_pools.get(name):
-    #         dl.log('Creating new Thread Pool {}'.format(name), group_id='server/log')
-    #         self.thread_pools[name] = thread_pool
-    #         return thread_pool
-
-    # def get_thread_pool(self, name='main'):
-    #     return self.thread_pools.get(name)
-
     def cleanup(self, project_code=None):
         if project_code:
             if self.ui_main_tabs.get(project_code):
@@ -371,7 +543,6 @@ class Inst(object):
 env_inst = Inst()
 
 
-@singleton
 class DebugLog(object):
     """
     This is Debug Log singleton
@@ -385,6 +556,17 @@ class DebugLog(object):
     logs_order = 0
     write_log = True
     session_start = datetime.datetime.today()
+
+    @staticmethod
+    def _accepts(message_type):
+        ui_debuglog = env_inst.ui_debuglog
+        if ui_debuglog and hasattr(ui_debuglog, 'accepts_level'):
+            return ui_debuglog.accepts_level(message_type)
+        # Before the application diagnostic bus is installed, use the production
+        # default as well so bootstrap INFO/API noise cannot grow unbounded.
+        return str(message_type or '').upper() in {
+            'ERROR', 'CRITICAL'
+        }
 
     def get_trace(self, message_text, message_type, caller=2, group_id=None):
         """
@@ -409,6 +591,8 @@ class DebugLog(object):
             })
 
     def info(self, message, caller=2, group_id=None):
+        if not self._accepts('INFO'):
+            return
         self.logs_order += 1
         trace = self.get_trace(message, 'info', caller, group_id)
         if self.info_dict.get(trace[1]['module_path']):
@@ -420,6 +604,8 @@ class DebugLog(object):
             env_inst.ui_debuglog.add_debuglog(trace, '[ INF ]', self.write_log)
 
     def warning(self, message, caller=2, group_id=None):
+        if not self._accepts('WARNING'):
+            return
         self.logs_order += 1
         trace = self.get_trace(message, 'warning', caller, group_id)
         if self.warning_dict.get(trace[1]['module_path']):
@@ -431,6 +617,8 @@ class DebugLog(object):
             env_inst.ui_debuglog.add_debuglog(trace, '[ WRN ]', self.write_log)
 
     def log(self, message, caller=2, group_id=None):
+        if not self._accepts('LOG'):
+            return
         self.logs_order += 1
         trace = self.get_trace(message, 'log', caller, group_id)
         if self.log_dict.get(trace[1]['module_path']):
@@ -442,6 +630,8 @@ class DebugLog(object):
             env_inst.ui_debuglog.add_debuglog(trace, '[ LOG ]', self.write_log)
 
     def exception(self, message, caller=2, group_id=None):
+        if not self._accepts('EXCEPTION'):
+            return
         self.logs_order += 1
         trace = self.get_trace(message, 'exception', caller, group_id)
         if self.exception_dict.get(trace[1]['module_path']):
@@ -453,6 +643,8 @@ class DebugLog(object):
             env_inst.ui_debuglog.add_debuglog(trace, '[ EXC ]', self.write_log)
 
     def error(self, message, caller=2, group_id=None):
+        if not self._accepts('ERROR'):
+            return
         self.logs_order += 1
         trace = self.get_trace(message, 'error', caller, group_id)
         if self.error_dict.get(trace[1]['module_path']):
@@ -464,6 +656,8 @@ class DebugLog(object):
             env_inst.ui_debuglog.add_debuglog(trace, '[ ERR ]', self.write_log)
 
     def critical(self, message, caller=2, group_id=None):
+        if not self._accepts('CRITICAL'):
+            return
         self.logs_order += 1
         trace = self.get_trace(message, 'critical', caller, group_id)
         if self.critical_dict.get(trace[1]['module_path']):
@@ -478,7 +672,6 @@ class DebugLog(object):
 dl = DebugLog()
 
 
-@singleton
 class Mode(object):
     """
     Current working environment
@@ -500,22 +693,6 @@ class Mode(object):
         else:
             return platform.node()
 
-    @property
-    def py3(self):
-        return PY3
-
-    @property
-    def py2(self):
-        return not PY3
-
-    @property
-    def qt5(self):
-        return Qt.__binding__ in ['PySide2', 'PyQt5']
-
-    @property
-    def qt4(self):
-        return Qt.__binding__ in ['PySide', 'PyQt4']
-
     def set_mode(self, mode):
         if mode in self.modes:
             self.current_mode = mode
@@ -533,7 +710,14 @@ class Mode(object):
             else:
                 return self.current_path.decode(locale.getpreferredencoding())
         else:
-            self.current_path = os.path.dirname(os.path.split(__file__)[0])
+            isolated_path = os.environ.get(
+                'TACTIC_QML_TEST_SETTINGS_DIR', ''
+            ).strip()
+            self.current_path = (
+                os.path.abspath(isolated_path)
+                if isolated_path
+                else os.path.dirname(os.path.split(__file__)[0])
+            )
             if isinstance(self.current_path, str):
                 return self.current_path
             else:
@@ -541,20 +725,10 @@ class Mode(object):
 
     def get_current_python_path(self):
         if self.current_python_path:
-            if self.py2:
-                return self.current_python_path.decode(locale.getpreferredencoding())
-            else:
-                return self.current_python_path
+            return self.current_python_path
         else:
             self.current_python_path = sys.executable
-            if self.current_mode == 'maya':
-                # TODO Maya for Linux and MacOS
-                self.current_python_path = sys.executable.replace('maya.exe', 'mayapy.exe')
-
-            if self.py2:
-                return self.current_python_path.decode(locale.getpreferredencoding())
-            else:
-                return self.current_python_path
+            return self.current_python_path
 
     def get_platform(self):
         return self.platform
@@ -587,7 +761,6 @@ class Mode(object):
 env_mode = Mode()
 
 
-@singleton
 class Env(object):
     default_preset = {
             'user': 'admin',
@@ -634,6 +807,21 @@ class Env(object):
             self.defaults = self.get_default_preset()
             self.save_defaults(True)
 
+    def load_current_preset(self, preserve_values=False):
+        preserved = None
+        if preserve_values:
+            preserved = (self.user, self.site, self.proxy)
+        self.user = None
+        self.site = None
+        self.server = None
+        self.ticket = None
+        self.proxy = None
+        self.timeout = None
+        self.config_format = None
+        self.get_defaults()
+        if preserved:
+            self.user, self.site, self.proxy = preserved
+
     def save_defaults(self, defaults=False):
         if not defaults:
             self.defaults['user'] = self.user
@@ -647,11 +835,20 @@ class Env(object):
         env_write_config(self.defaults, filename=self.get_cur_srv_preset(), unique_id=unique_id)
 
     def get_proxy(self):
-        if self.proxy:
-            return self.proxy
-        else:
-            self.proxy = self.defaults.get('proxy')
-            return self.proxy
+        configured = self.proxy
+        if not isinstance(configured, dict):
+            configured = (self.defaults or {}).get('proxy')
+        normalized = dict(self.default_preset['proxy'])
+        if isinstance(configured, dict):
+            normalized.update(configured)
+        normalized['login'] = str(normalized.get('login') or '')
+        normalized['pass'] = str(normalized.get('pass') or '')
+        normalized['server'] = str(normalized.get('server') or '')
+        normalized['enabled'] = bool(
+            normalized.get('enabled') and normalized['server']
+        )
+        self.proxy = normalized
+        return self.proxy
 
     def set_proxy(self, proxy_login, proxy_pass, proxy_server, enabled=False):
         proxy = {
@@ -683,11 +880,18 @@ class Env(object):
         self.user = user_name
 
     def get_site(self):
-        if self.site:
-            return self.site
-        else:
-            self.site = self.defaults.get('site')
-            return self.site
+        configured = self.site
+        if not isinstance(configured, dict):
+            configured = (self.defaults or {}).get('site')
+        normalized = dict(self.default_preset['site'])
+        if isinstance(configured, dict):
+            normalized.update(configured)
+        normalized['site_name'] = str(normalized.get('site_name') or '')
+        normalized['enabled'] = bool(
+            normalized.get('enabled') and normalized['site_name']
+        )
+        self.site = normalized
+        return self.site
 
     def set_site(self, site_name, enabled=False):
         site = {
@@ -717,10 +921,9 @@ class Env(object):
             self.server_presets_defaults = {'server_presets': {'presets_list': ['default'], 'current': 'default'}}
 
     def get_server_presets(self):
-        if self.server_presets:
-            return self.server_presets
-        else:
+        if not self.server_presets:
             self.server_presets = self.server_presets_defaults['server_presets']
+        return self.server_presets
 
     @staticmethod
     def get_server_preset(preset_name):
@@ -766,7 +969,6 @@ class Env(object):
 env_server = Env()
 
 
-@singleton
 class Tactic(object):
 
     def __init__(self):
@@ -774,6 +976,11 @@ class Tactic(object):
         self.base_dirs = None
         self.default_base_dirs = None
 
+        self.custom_dirs = None
+
+    def reset(self):
+        self.base_dirs = None
+        self.default_base_dirs = None
         self.custom_dirs = None
 
     def query_base_dirs(self):
@@ -866,6 +1073,17 @@ class Tactic(object):
 
         return self.custom_dirs
 
+    def save_custom_dirs(self):
+        unique_id = '{0}/environment_config/server_presets'.format(env_mode.node)
+        tactic_dirs_filename = 'tactic_dirs_{}'.format(env_server.get_cur_srv_preset())
+        env_write_config(
+            self.custom_dirs,
+            filename=tactic_dirs_filename,
+            unique_id=unique_id,
+            sub_id='TACTIC_CUSTOM_DIRS',
+            update_file=True,
+        )
+
     def get_all_base_dirs(self):
         aliases = ['base', 'client', 'local', 'sandbox']
 
@@ -873,6 +1091,30 @@ class Tactic(object):
 
         for alias in aliases:
             all_base_dirs.append((alias, self.get_base_dir(alias)))
+
+        custom = self.get_custom_dir()['value'] if self.custom_dirs else {}
+        if custom.get('enabled'):
+            paths = list(custom.get('path') or [])
+            names = list(custom.get('name') or [])
+            visible = list(custom.get('visible') or [])
+            colors = list(custom.get('color') or [])
+            current = list(custom.get('current') or range(len(paths)))
+            for index in current:
+                if not 0 <= index < len(paths):
+                    continue
+                if index < len(visible) and not visible[index]:
+                    continue
+                alias = 'custom_{0}'.format(index)
+                all_base_dirs.append((alias, {
+                    'name': alias,
+                    'value': [
+                        paths[index],
+                        names[index] if index < len(names) else alias,
+                        colors[index] if index < len(colors) else '',
+                        alias,
+                        True,
+                    ],
+                }))
 
         return all_base_dirs
 
@@ -917,6 +1159,33 @@ class Tactic(object):
                 return {'name': 'linux_server_handoff_dir', 'value': base_dirs['linux_server_handoff_dir']}
             else:
                 return {'name': 'win32_server_handoff_dir', 'value': base_dirs['win32_server_handoff_dir']}
+
+        elif str(repo_name).startswith('custom_'):
+            try:
+                index = int(str(repo_name).split('_', 1)[1])
+            except (TypeError, ValueError):
+                return None
+            custom = self.get_custom_dir()['value']
+            paths = list(custom.get('path') or [])
+            if not 0 <= index < len(paths):
+                return None
+            names = list(custom.get('name') or [])
+            colors = list(custom.get('color') or [])
+            visible = list(custom.get('visible') or [])
+            active = bool(custom.get('enabled')) and (
+                index >= len(visible) or bool(visible[index])
+            )
+            alias = 'custom_{0}'.format(index)
+            return {
+                'name': alias,
+                'value': [
+                    paths[index],
+                    names[index] if index < len(names) else alias,
+                    colors[index] if index < len(colors) else '',
+                    alias,
+                    active,
+                ],
+            }
 
     def set_base_dir(self, repo_name, value, override_base_dirs=None):
 
@@ -968,33 +1237,44 @@ class Tactic(object):
 
         active_repos = []
 
-        for key, val in base_dirs:
-            if val['value'][4]:
+        for _key, val in base_dirs:
+            values = val.get('value') or []
+            if len(values) > 4 and values[4]:
                 active_repos.append(val)
 
-        current_repo = get_value_from_config(cfg_controls.get_checkin(), 'repositoryComboBox')
+        if not active_repos:
+            return None
 
-        if active_repos:
-            if value == 'path':
-                return active_repos[current_repo]['value'][0]
-            elif value == 'title':
-                return active_repos[current_repo]['value'][1]
-            elif value == 'color':
-                return active_repos[current_repo]['value'][2]
-            elif value == 'name':
-                return active_repos[current_repo]['value'][3]
-            elif value == 'active':
-                return active_repos[current_repo]['value'][4]
-            elif value == 'base_name':
-                return active_repos[current_repo]['name']
-            else:
-                return active_repos[current_repo]
+        try:
+            current_repo = int(get_value_from_config(
+                cfg_controls.get_checkin(), 'repositoryComboBox'
+            ))
+        except (TypeError, ValueError):
+            current_repo = 0
+        if not 0 <= current_repo < len(active_repos):
+            current_repo = 0
+
+        repository = active_repos[current_repo]
+        values = repository['value']
+        if value == 'path':
+            return values[0]
+        elif value == 'title':
+            return values[1]
+        elif value == 'color':
+            return values[2]
+        elif value == 'name':
+            return values[3]
+        elif value == 'active':
+            return values[4]
+        elif value == 'base_name':
+            return repository['name']
+        return repository
 
 
     @staticmethod
     def max_threads(type='xmlrpc'):
         if type == 'xmlrpc':
-            return SERVER_THREADS_COUNT
+            return configured_thread_counts()['server']
         elif type == 'http':
             return HTTP_THREADS_COUNT
 
@@ -1002,7 +1282,6 @@ class Tactic(object):
 env_tactic = Tactic()
 
 
-@singleton
 class Controls(object):
     def __init__(self):
         self.server = None
@@ -1012,6 +1291,15 @@ class Controls(object):
         self.checkin_out = None
         self.checkin_out_projects = None
         self.checkin = None
+        self.maya_scene = None
+
+    def reset(self):
+        self.server = None
+        self.project = None
+        self.checkin = None
+        self.checkout = None
+        self.checkin_out = None
+        self.checkin_out_projects = None
         self.maya_scene = None
 
     def get_server(self):
@@ -1066,9 +1354,10 @@ class Controls(object):
             self.checkin_out_projects = env_read_config(filename='checkin_out_projects', unique_id='ui_conf', long_abs_path=True)
             return self.checkin_out_projects
 
-    def set_checkin_out_projects(self, checkin_out_projects):
+    def set_checkin_out_projects(self, checkin_out_projects, persist=True):
         self.checkin_out_projects = checkin_out_projects
-        env_write_config(filename='checkin_out_projects', unique_id='ui_conf', obj=checkin_out_projects, long_abs_path=True)
+        if persist:
+            env_write_config(filename='checkin_out_projects', unique_id='ui_conf', obj=checkin_out_projects, long_abs_path=True)
 
     def get_maya_scene(self):
         self.maya_scene = env_read_config(filename='maya_scene', unique_id='ui_conf', long_abs_path=True)
@@ -1080,182 +1369,3 @@ class Controls(object):
 
 
 cfg_controls = Controls()
-
-
-@singleton
-class ApiConnectorWrapper(object):
-    """
-    This class allow execute tactic_classes methods remotely
-
-    Usage example:
-
-    from thlib.environment import env_api
-
-    client = env_api.execute_method('get_sobjects',
-        search_type='sthpw/login?project=sthpw',
-        filters=[])
-
-    def handoff(result=None):
-        print(result)
-
-    env_api.get_results(client, handoff)
-
-    """
-    api_server = None
-    starting_api_server = False
-
-    def spawn_api_server(self, parent=None):
-
-        if self.api_server:
-            self.api_server.stop()
-
-        self.api_server = Server('127.0.0.1', 6000)
-        self.api_server.received.connect(self.server_handle_input_data)
-
-        if parent:
-            self.api_server.setParent(parent)
-        else:
-            self.api_server.setParent(env_inst.ui_main)
-
-        self.api_server.start()
-
-    def server_handle_input_data(self, socket, data):
-
-        method_name, args, kwargs = loads(data)
-
-        if method_name == 'close_server':
-            print('Got closing server Command')
-            print('---')
-            result = ('ret_val', 'closing_server')
-            self.api_server.send(socket, dumps(result))
-            self.api_server.stop()
-
-            print('Closing Server')
-            env_inst.ui_super.quit()
-        else:
-            t = gf().time_it()
-            print('Executing method: {0}'.format(method_name))
-            try:
-                result = self.execute_tc_method(method_name, *args, **kwargs)
-            except Exception as expected:
-                print(expected)
-                result = ('__exception__', dumps(expected))
-            else:
-                result = ('ret_val', result)
-
-            gf().time_it(t, message='Duration: ')
-            dumped_data = dumps(result)
-            print('Sending: {0}'.format(gf().sizes(len(dumped_data))))
-            print('---')
-
-            self.api_server.send(socket, dumped_data)
-
-    def close_server(self, parent=None):
-
-        def close_client(client, result=None):
-            client.close()
-
-        client = self.execute_method('close_server')
-
-        if parent:
-            client.setParent(parent)
-        else:
-            client.setParent(env_inst.ui_main)
-
-        client.connected.connect(lambda cl=client: close_client(cl))
-        client.error.connect(lambda cl=client: close_client(cl))
-
-        client.open()
-
-        client._socket.waitForReadyRead()
-
-        return client
-
-    @staticmethod
-    def execute_tc_method(method_name, *args, **kwargs):
-        method = getattr(tc(), method_name)
-        return method(*args, **kwargs)
-
-    @staticmethod
-    def get_api_client():
-        return Client('127.0.0.1', 6000)
-
-    def execute_method(self, method_name, parent=None, *args, **kwargs):
-
-        # ensure server is running
-        if method_name != 'close_server':
-            self.start_api_server_app()
-
-        api_client = self.get_api_client()
-
-        def send(client):
-            client.send(dumps((method_name, args, kwargs)))
-
-        api_client.connected.connect(lambda client=api_client: send(client))
-
-        if parent:
-            api_client.setParent(parent)
-        else:
-            api_client.setParent(env_inst.ui_main)
-
-        return api_client
-
-    def get_results(self, client, handoff_method):
-        catch_error = gf().catch_error
-
-        @catch_error
-        def handoff(cl, data=None):
-
-            in_data = str(data)
-            if not in_data.startswith('key:'):
-
-                result = loads(data)
-
-                if result[0] == '__exception__':
-                    cl.close()
-                    raise loads(result[1])
-                elif result[0] == 'ret_val':
-                    cl.close()
-                    handoff_method(result[1])
-
-            cl.close()
-
-        client.received.connect(lambda data, cl=client: handoff(cl, data))
-        client.open()
-
-    def start_api_server_app(self):
-
-        # Special case for linux and Mac
-        use_api_server = True
-        if env_mode.get_platform() != 'Windows':
-            use_api_server = False
-
-        # Checking if we already trying to execute new process of api_server
-        if not self.starting_api_server and use_api_server:
-            self.starting_api_server = True
-
-            server_api_socket = QtNetwork.QLocalSocket()
-
-            def start_api():
-                filepath = u'{0}/tactic_api_server.py'.format(env_mode.get_current_path())
-
-                if PY3:
-                    subprocess.Popen((env_mode.get_current_python_path(), filepath), shell=False)
-                else:
-                    subprocess.Popen((env_mode.get_current_python_path(), filepath), shell=True, stdin=subprocess.PIPE,
-                                     stderr=subprocess.PIPE, stdout=subprocess.PIPE)
-
-                self.starting_api_server = False
-
-            def api_running():
-                self.starting_api_server = False
-
-            server_api_socket.error.connect(start_api)
-            server_api_socket.connected.connect(api_running)
-
-            server_api_socket.connectToServer('TacticHandler_TacticApiServer', QtCore.QIODevice.ReadOnly)
-
-            server_api_socket.close()
-
-
-env_api = ApiConnectorWrapper()

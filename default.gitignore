@@ -51,6 +51,7 @@ coverage.xml
 
 # Django stuff:
 *.log
+log/session_*.jsonl
 
 # Sphinx documentation
 docs/_build/
@@ -60,3 +61,13 @@ target/
 
 #Ipython Notebook
 .ipynb_checkpoints
+
+# TACTIC-Handler local/user state
+settings/
+log/
+custom_scripts/
+
+# Local transfer and editor artifacts
+*.part
+*.tmp
+*.bak

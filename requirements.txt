@@ -1,0 +1,3 @@
+# Direct runtime dependency for the standalone TACTIC-Handler application.
+# TACTIC client libraries and compatibility packages are bundled in thlib/side.
+PySide6==6.11.1

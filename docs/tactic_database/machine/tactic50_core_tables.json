@@ -1,0 +1,4747 @@
+[
+  {
+    "table": "access_log",
+    "columns": [
+      {
+        "name": "id",
+        "type": "serial PRIMARY KEY"
+      },
+      {
+        "name": "code",
+        "type": "character varying(256)"
+      },
+      {
+        "name": "url",
+        "type": "character varying(256)"
+      },
+      {
+        "name": "data",
+        "type": "character varying(256)"
+      },
+      {
+        "name": "start_time",
+        "type": "timestamp"
+      },
+      {
+        "name": "end_time",
+        "type": "timestamp"
+      },
+      {
+        "name": "duration",
+        "type": "float"
+      }
+    ],
+    "source_schema_file": "sthpw_schema.sql",
+    "physical_db": "sthpw",
+    "category": "audit/internal",
+    "purpose": "Request/access timing log used by the web/runtime layer.",
+    "write_policy": "read_only_system",
+    "preferred_write_path": "Do not create from application modules; let the request/access logger own it.",
+    "cautions": "Not a user activity feed; retention may be short and fields are technical.",
+    "relations": "url; start_time/end_time/duration",
+    "status": "internal",
+    "confidence": "medium"
+  },
+  {
+    "table": "cache",
+    "columns": [
+      {
+        "name": "id",
+        "type": "serial PRIMARY KEY"
+      },
+      {
+        "name": "key",
+        "type": "character varying(256)"
+      },
+      {
+        "name": "mtime",
+        "type": "timestamp"
+      }
+    ],
+    "source_schema_file": "sthpw_schema.sql",
+    "physical_db": "sthpw",
+    "search_types": [
+      {
+        "code": "sthpw/cache",
+        "search_type": "sthpw/cache",
+        "namespace": "sthpw",
+        "description": "Cache",
+        "database": "sthpw",
+        "table_name": "{public}.cache",
+        "class_name": "pyasm.search.SObject",
+        "title": "",
+        "schema": "public"
+      }
+    ],
+    "category": "audit/internal",
+    "purpose": "Small system cache/mtime registry.",
+    "write_policy": "read_only_system",
+    "preferred_write_path": "Use the owning cache subsystem.",
+    "cautions": "Never use as application data or durable state.",
+    "relations": "key -> cached resource",
+    "status": "internal",
+    "confidence": "high"
+  },
+  {
+    "table": "change_timestamp",
+    "columns": [
+      {
+        "name": "id",
+        "type": "serial PRIMARY KEY"
+      },
+      {
+        "name": "code",
+        "type": "character varying(256)"
+      },
+      {
+        "name": "search_type",
+        "type": "character varying(256)"
+      },
+      {
+        "name": "search_code",
+        "type": "character varying(256)"
+      },
+      {
+        "name": "changed_on",
+        "type": "text"
+      },
+      {
+        "name": "changed_by",
+        "type": "text"
+      },
+      {
+        "name": "project_code",
+        "type": "character varying(256)"
+      },
+      {
+        "name": "transaction_code",
+        "type": "character varying(256)"
+      }
+    ],
+    "source_schema_file": "sthpw_schema.sql",
+    "physical_db": "sthpw",
+    "category": "audit/internal",
+    "purpose": "Last-change/index records used to detect modified objects and transactions.",
+    "write_policy": "read_only_system",
+    "preferred_write_path": "Let transaction/commit machinery update it.",
+    "cautions": "Do not use as full audit history; it is an invalidation/change-detection structure.",
+    "relations": "search_type+search_code; transaction_code",
+    "status": "active internal",
+    "confidence": "high"
+  },
+  {
+    "table": "clipboard",
+    "columns": [
+      {
+        "name": "id",
+        "type": "serial PRIMARY KEY"
+      },
+      {
+        "name": "project_code",
+        "type": "character varying(256)"
+      },
+      {
+        "name": "login",
+        "type": "character varying(256)"
+      },
+      {
+        "name": "search_type",
+        "type": "character varying(256)"
+      },
+      {
+        "name": "search_id",
+        "type": "integer"
+      },
+      {
+        "name": "timestamp",
+        "type": "timestamp without time zone DEFAULT now() NOT NULL"
+      },
+      {
+        "name": "category",
+        "type": "character varying(256)"
+      }
+    ],
+    "source_schema_file": "sthpw_schema.sql",
+    "physical_db": "sthpw",
+    "search_types": [
+      {
+        "code": "sthpw/clipboard",
+        "search_type": "sthpw/clipboard",
+        "namespace": "sthpw",
+        "description": "Clipboard",
+        "database": "sthpw",
+        "table_name": "{public}.clipboard",
+        "class_name": "pyasm.biz.Clipboard",
+        "title": "",
+        "schema": "public"
+      }
+    ],
+    "category": "user productivity",
+    "purpose": "Server-side user clipboard entries referencing arbitrary SObjects.",
+    "write_policy": "class_api",
+    "preferred_write_path": "Use pyasm.biz.Clipboard or existing clipboard server APIs.",
+    "cautions": "Do not duplicate object data; store only the reference and category.",
+    "relations": "login + search_type/search_id",
+    "status": "active optional",
+    "confidence": "high"
+  },
+  {
+    "table": "command_log",
+    "columns": [
+      {
+        "name": "id",
+        "type": "serial PRIMARY KEY"
+      },
+      {
+        "name": "code",
+        "type": "character varying(256)"
+      },
+      {
+        "name": "class_name",
+        "type": "character varying(100) NOT NULL"
+      },
+      {
+        "name": "paramaters",
+        "type": "character varying(256)"
+      },
+      {
+        "name": "login",
+        "type": "character varying(100) NOT NULL"
+      },
+      {
+        "name": "timestamp",
+        "type": "timestamp without time zone DEFAULT now() NOT NULL"
+      }
+    ],
+    "source_schema_file": "sthpw_schema.sql",
+    "physical_db": "sthpw",
+    "search_types": [
+      {
+        "code": "sthpw/command_log",
+        "search_type": "sthpw/command_log",
+        "namespace": "sthpw",
+        "description": "Historical log of all of the commands executed",
+        "database": "sthpw",
+        "table_name": "command_log",
+        "class_name": "pyasm.command.CommandLog",
+        "title": "Command Log",
+        "schema": "public"
+      }
+    ],
+    "category": "audit/internal",
+    "purpose": "Historical record of executed TACTIC commands.",
+    "write_policy": "read_only_system",
+    "preferred_write_path": "Written by command execution framework.",
+    "cautions": "Field name paramaters is legacy; do not build new business logic on it.",
+    "relations": "login; class_name; timestamp",
+    "status": "legacy/internal",
+    "confidence": "high"
+  },
+  {
+    "table": "connection",
+    "columns": [
+      {
+        "name": "id",
+        "type": "serial PRIMARY KEY"
+      },
+      {
+        "name": "code",
+        "type": "character varying(256)"
+      },
+      {
+        "name": "context",
+        "type": "character varying(60)"
+      },
+      {
+        "name": "project_code",
+        "type": "character varying(30)"
+      },
+      {
+        "name": "src_search_type",
+        "type": "character varying(200)"
+      },
+      {
+        "name": "src_search_id",
+        "type": "integer"
+      },
+      {
+        "name": "dst_search_type",
+        "type": "character varying(200)"
+      },
+      {
+        "name": "dst_search_id",
+        "type": "integer"
+      },
+      {
+        "name": "login",
+        "type": "character varying(30)"
+      },
+      {
+        "name": "timestamp",
+        "type": "timestamp without time zone DEFAULT now() NOT NULL"
+      }
+    ],
+    "source_schema_file": "sthpw_schema.sql",
+    "physical_db": "sthpw",
+    "search_types": [
+      {
+        "code": "sthpw/connection",
+        "search_type": "sthpw/connection",
+        "namespace": "sthpw",
+        "description": "Connections",
+        "database": "sthpw",
+        "table_name": "connection",
+        "class_name": "pyasm.biz.SObjectConnection",
+        "title": "Connections",
+        "schema": null
+      }
+    ],
+    "category": "relationships",
+    "purpose": "Generic directed relationship between two arbitrary SObjects with a context.",
+    "write_policy": "subsystem_api",
+    "preferred_write_path": "Use SObjectConnection / server.connect_sobjects and disconnect APIs.",
+    "cautions": "Never hand-insert without resolving source/destination identity; modern deployments may add search_code columns.",
+    "relations": "src_search_type/src_search_id -> dst_search_type/dst_search_id; context",
+    "status": "active core",
+    "confidence": "high"
+  },
+  {
+    "table": "custom_property",
+    "columns": [
+      {
+        "name": "id",
+        "type": "serial PRIMARY KEY"
+      },
+      {
+        "name": "code",
+        "type": "character varying(256)"
+      },
+      {
+        "name": "search_type",
+        "type": "character varying(256)"
+      },
+      {
+        "name": "name",
+        "type": "character varying(256)"
+      },
+      {
+        "name": "description",
+        "type": "character varying(256)"
+      },
+      {
+        "name": "login",
+        "type": "character varying(256)"
+      }
+    ],
+    "source_schema_file": "sthpw_schema.sql",
+    "physical_db": "sthpw",
+    "search_types": [
+      {
+        "code": "config/custom_property",
+        "search_type": "config/custom_property",
+        "namespace": "sthpw",
+        "description": "Custom Property",
+        "database": "{project}",
+        "table_name": "custom_property",
+        "class_name": "pyasm.biz.CustomProperty",
+        "title": "Custom Property",
+        "schema": "public"
+      }
+    ],
+    "category": "configuration",
+    "purpose": "Project-local custom property definitions for a search type.",
+    "write_policy": "manager_or_generic",
+    "preferred_write_path": "Use the custom-property/property manager; generic SObject write is acceptable only if its expected schema is preserved.",
+    "cautions": "This does not itself add a physical DB column in every workflow; coordinate with search-type/schema tools.",
+    "relations": "search_type; name",
+    "status": "active config",
+    "confidence": "medium"
+  },
+  {
+    "table": "db_resource",
+    "columns": [
+      {
+        "name": "id",
+        "type": "serial PRIMARY KEY"
+      },
+      {
+        "name": "code",
+        "type": "character varying(256)"
+      },
+      {
+        "name": "host",
+        "type": "text"
+      },
+      {
+        "name": "port",
+        "type": "integer"
+      },
+      {
+        "name": "vendor",
+        "type": "character varying(256)"
+      },
+      {
+        "name": "login",
+        "type": "character varying(256)"
+      },
+      {
+        "name": "password",
+        "type": "text"
+      }
+    ],
+    "source_schema_file": "sthpw_schema.sql",
+    "physical_db": "sthpw",
+    "search_types": [
+      {
+        "code": "sthpw/db_resource",
+        "search_type": "sthpw/db_resource",
+        "namespace": "sthpw",
+        "description": "Database Resource",
+        "database": "sthpw",
+        "table_name": "db_resource",
+        "class_name": "pyasm.search.SObject",
+        "title": "Database Resource",
+        "schema": "public"
+      }
+    ],
+    "category": "bootstrap/meta",
+    "purpose": "Database connection resource used by projects/search types.",
+    "write_policy": "admin_manager",
+    "preferred_write_path": "Use project/database-resource administration APIs.",
+    "cautions": "Contains credentials; never expose password to clients or logs.",
+    "relations": "project.db_resource; search_object.database",
+    "status": "active admin",
+    "confidence": "high"
+  },
+  {
+    "table": "debug_log",
+    "columns": [
+      {
+        "name": "id",
+        "type": "serial PRIMARY KEY"
+      },
+      {
+        "name": "code",
+        "type": "character varying(256)"
+      },
+      {
+        "name": "category",
+        "type": "character varying(256)"
+      },
+      {
+        "name": "level",
+        "type": "character varying(256)"
+      },
+      {
+        "name": "message",
+        "type": "text"
+      },
+      {
+        "name": "timestamp",
+        "type": "timestamp without time zone DEFAULT now() NOT NULL"
+      },
+      {
+        "name": "login",
+        "type": "character varying(256)"
+      },
+      {
+        "name": "s_status",
+        "type": "character varying(30)"
+      }
+    ],
+    "source_schema_file": "sthpw_schema.sql",
+    "physical_db": "sthpw",
+    "search_types": [
+      {
+        "code": "sthpw/debug_log",
+        "search_type": "sthpw/debug_log",
+        "namespace": "sthpw",
+        "description": "Debug Log",
+        "database": "sthpw",
+        "table_name": "debug_log",
+        "class_name": "pyasm.biz.DebugLog",
+        "title": "Debug Log",
+        "schema": "public"
+      }
+    ],
+    "category": "audit/internal",
+    "purpose": "Application debug log with category and level.",
+    "write_policy": "append_via_api",
+    "preferred_write_path": "Use DebugLog/logger APIs.",
+    "cautions": "Not a durable activity/audit feed; can be retired/cleaned.",
+    "relations": "category; level; login",
+    "status": "active internal",
+    "confidence": "high"
+  },
+  {
+    "table": "department",
+    "columns": [
+      {
+        "name": "id",
+        "type": "serial PRIMARY KEY"
+      },
+      {
+        "name": "code",
+        "type": "character varying(256)"
+      },
+      {
+        "name": "name",
+        "type": "character varying(256)"
+      },
+      {
+        "name": "timestamp",
+        "type": "timestamp without time zone DEFAULT now() NOT NULL"
+      }
+    ],
+    "source_schema_file": "sthpw_schema.sql",
+    "physical_db": "sthpw",
+    "search_types": [
+      {
+        "code": "sthpw/department",
+        "search_type": "sthpw/department",
+        "namespace": "sthpw",
+        "description": "Department",
+        "database": "sthpw",
+        "table_name": "department",
+        "class_name": "pyasm.search.SObject",
+        "title": "Department",
+        "schema": "public"
+      }
+    ],
+    "category": "organization",
+    "purpose": "Simple department directory.",
+    "write_policy": "generic_sobject",
+    "preferred_write_path": "Generic insert/update through TACTIC API is acceptable.",
+    "cautions": "Keep code stable if referenced from login.department or custom logic.",
+    "relations": "login.department (logical)",
+    "status": "optional",
+    "confidence": "medium"
+  },
+  {
+    "table": "doc",
+    "columns": [
+      {
+        "name": "id",
+        "type": "serial PRIMARY KEY"
+      },
+      {
+        "name": "code",
+        "type": "character varying(256)"
+      },
+      {
+        "name": "alias",
+        "type": "character varying(1024)"
+      },
+      {
+        "name": "rel_path",
+        "type": "text"
+      }
+    ],
+    "source_schema_file": "sthpw_schema.sql",
+    "physical_db": "sthpw",
+    "search_types": [
+      {
+        "code": "sthpw/doc",
+        "search_type": "sthpw/doc",
+        "namespace": "sthpw",
+        "description": "Documentation",
+        "database": "sthpw",
+        "table_name": "doc",
+        "class_name": "pyasm.search.SObject",
+        "title": "Documentation",
+        "schema": "public"
+      }
+    ],
+    "category": "configuration",
+    "purpose": "Documentation alias/path registry.",
+    "write_policy": "generic_sobject",
+    "preferred_write_path": "Use generic SObject APIs or the documentation manager.",
+    "cautions": "Stores references/paths, not document file contents.",
+    "relations": "alias; rel_path",
+    "status": "optional",
+    "confidence": "medium"
+  },
+  {
+    "table": "exception_log",
+    "columns": [
+      {
+        "name": "id",
+        "type": "serial PRIMARY KEY"
+      },
+      {
+        "name": "class",
+        "type": "character varying(100)"
+      },
+      {
+        "name": "message",
+        "type": "text"
+      },
+      {
+        "name": "stack_trace",
+        "type": "text"
+      },
+      {
+        "name": "login",
+        "type": "character varying(100) NOT NULL"
+      },
+      {
+        "name": "timestamp",
+        "type": "timestamp without time zone DEFAULT now() NOT NULL"
+      }
+    ],
+    "source_schema_file": "sthpw_schema.sql",
+    "physical_db": "sthpw",
+    "search_types": [
+      {
+        "code": "sthpw/exception_log",
+        "search_type": "sthpw/exception_log",
+        "namespace": "sthpw",
+        "description": "Exception Log",
+        "database": "sthpw",
+        "table_name": "exception_log",
+        "class_name": "pyasm.search.SObject",
+        "title": "Exception Log",
+        "schema": "public"
+      }
+    ],
+    "category": "audit/internal",
+    "purpose": "Unhandled/server exception records.",
+    "write_policy": "read_only_system",
+    "preferred_write_path": "Written by exception logging framework.",
+    "cautions": "May contain stack traces and sensitive data; admin-only access and retention.",
+    "relations": "login; class; timestamp",
+    "status": "active internal",
+    "confidence": "high"
+  },
+  {
+    "table": "file",
+    "columns": [
+      {
+        "name": "id",
+        "type": "serial PRIMARY KEY"
+      },
+      {
+        "name": "file_name",
+        "type": "character varying(512)"
+      },
+      {
+        "name": "search_type",
+        "type": "character varying(100) NOT NULL"
+      },
+      {
+        "name": "search_id",
+        "type": "integer NOT NULL"
+      },
+      {
+        "name": "timestamp",
+        "type": "timestamp without time zone DEFAULT now() NOT NULL"
+      },
+      {
+        "name": "st_size",
+        "type": "integer"
+      },
+      {
+        "name": "file_range",
+        "type": "text"
+      },
+      {
+        "name": "code",
+        "type": "character varying(30)"
+      },
+      {
+        "name": "snapshot_code",
+        "type": "character varying(30)"
+      },
+      {
+        "name": "project_code",
+        "type": "character varying(100)"
+      },
+      {
+        "name": "md5",
+        "type": "character varying(32)"
+      },
+      {
+        "name": "checkin_dir",
+        "type": "text"
+      },
+      {
+        "name": "source_path",
+        "type": "text"
+      },
+      {
+        "name": "relative_dir",
+        "type": "text"
+      },
+      {
+        "name": "type",
+        "type": "character varying(256)"
+      },
+      {
+        "name": "base_type",
+        "type": "character varying(256)"
+      },
+      {
+        "name": "metadata",
+        "type": "text"
+      },
+      {
+        "name": "metadata_search",
+        "type": "text"
+      },
+      {
+        "name": "repo_type",
+        "type": "character varying(256)"
+      },
+      {
+        "name": "base_dir_alias",
+        "type": "character varying(256)"
+      }
+    ],
+    "source_schema_file": "sthpw_schema.sql",
+    "physical_db": "sthpw",
+    "search_types": [
+      {
+        "code": "sthpw/file",
+        "search_type": "sthpw/file",
+        "namespace": "sthpw",
+        "description": "A record of all files that are tracked",
+        "database": "sthpw",
+        "table_name": "file",
+        "class_name": "pyasm.biz.file.File",
+        "title": "File",
+        "schema": "public"
+      }
+    ],
+    "category": "DAM/check-in",
+    "purpose": "One tracked physical/logical file belonging to a snapshot.",
+    "write_policy": "checkin_api_only",
+    "preferred_write_path": "Create/update only through FileCheckin/FileAppendCheckin/Snapshot/file APIs.",
+    "cautions": "Never insert file rows directly: naming, repository paths, snapshot XML, versionless files and triggers must stay consistent.",
+    "relations": "snapshot_code; search_type/search_id; repo/base_dir_alias/relative_dir",
+    "status": "active core",
+    "confidence": "high"
+  },
+  {
+    "table": "file_access",
+    "columns": [
+      {
+        "name": "id",
+        "type": "serial PRIMARY KEY"
+      },
+      {
+        "name": "code",
+        "type": "character varying(256)"
+      },
+      {
+        "name": "file_code",
+        "type": "integer NOT NULL"
+      },
+      {
+        "name": "login",
+        "type": "character varying(100)"
+      },
+      {
+        "name": "timestamp",
+        "type": "timestamp without time zone DEFAULT now() NOT NULL"
+      }
+    ],
+    "source_schema_file": "sthpw_schema.sql",
+    "physical_db": "sthpw",
+    "search_types": [
+      {
+        "code": "sthpw/file_access",
+        "search_type": "sthpw/file_access",
+        "namespace": "sthpw",
+        "description": "File Access Log",
+        "database": "sthpw",
+        "table_name": "file_access",
+        "class_name": "pyasm.biz.FileAccess",
+        "title": "File Access Log",
+        "schema": "public"
+      }
+    ],
+    "category": "DAM/check-in",
+    "purpose": "Audit of file access/download by login.",
+    "write_policy": "subsystem_api",
+    "preferred_write_path": "Use FileAccess/file-serving subsystem.",
+    "cautions": "file_code is legacy-typed; do not repurpose as permissions.",
+    "relations": "file_code -> file",
+    "status": "optional/internal",
+    "confidence": "high"
+  },
+  {
+    "table": "group_notification",
+    "columns": [
+      {
+        "name": "id",
+        "type": "serial PRIMARY KEY"
+      },
+      {
+        "name": "login_group",
+        "type": "character varying(100) NOT NULL"
+      },
+      {
+        "name": "notification_id",
+        "type": "integer NOT NULL"
+      }
+    ],
+    "source_schema_file": "sthpw_schema.sql",
+    "physical_db": "sthpw",
+    "search_types": [
+      {
+        "code": "sthpw/group_notification",
+        "search_type": "sthpw/group_notification",
+        "namespace": "sthpw",
+        "description": "Associate one of more kinds of notification with groups",
+        "database": "sthpw",
+        "table_name": "group_notification",
+        "class_name": "pyasm.biz.GroupNotification",
+        "title": "Group Notification",
+        "schema": "public"
+      }
+    ],
+    "category": "notifications",
+    "purpose": "Association between a notification definition and a login group.",
+    "write_policy": "notification_api",
+    "preferred_write_path": "Use GroupNotification/notification administration APIs.",
+    "cautions": "This is configuration, not an inbox row.",
+    "relations": "login_group -> notification_id",
+    "status": "active config",
+    "confidence": "high"
+  },
+  {
+    "table": "interaction",
+    "columns": [
+      {
+        "name": "id",
+        "type": "serial PRIMARY KEY"
+      },
+      {
+        "name": "code",
+        "type": "character varying(256)"
+      },
+      {
+        "name": "project_code",
+        "type": "character varying(256)"
+      },
+      {
+        "name": "login",
+        "type": "character varying(256)"
+      },
+      {
+        "name": "key",
+        "type": "character varying(1024)"
+      },
+      {
+        "name": "data",
+        "type": "text"
+      },
+      {
+        "name": "timestamp",
+        "type": "timestamp without time zone DEFAULT now() NOT NULL"
+      }
+    ],
+    "source_schema_file": "sthpw_schema.sql",
+    "physical_db": "sthpw",
+    "search_types": [
+      {
+        "code": "sthpw/interaction",
+        "search_type": "sthpw/interaction",
+        "namespace": "sthpw",
+        "description": "User Interaction",
+        "database": "sthpw",
+        "table_name": "interaction",
+        "class_name": "pyasm.search.SObject",
+        "title": "User Interaction",
+        "schema": "public"
+      }
+    ],
+    "category": "user productivity",
+    "purpose": "Generic per-user interaction/state store keyed by a string.",
+    "write_policy": "owning_subsystem",
+    "preferred_write_path": "Use only through the feature that defines the key/data contract.",
+    "cautions": "Do not turn it into an unversioned dumping ground; namespace keys.",
+    "relations": "login+project_code+key",
+    "status": "optional/internal",
+    "confidence": "medium"
+  },
+  {
+    "table": "login",
+    "columns": [
+      {
+        "name": "id",
+        "type": "serial PRIMARY KEY"
+      },
+      {
+        "name": "code",
+        "type": "character varying(512)"
+      },
+      {
+        "name": "login",
+        "type": "character varying(100) NOT NULL"
+      },
+      {
+        "name": "password",
+        "type": "character varying(255)"
+      },
+      {
+        "name": "upn",
+        "type": "character varying(100) NOT NULL"
+      },
+      {
+        "name": "login_groups",
+        "type": "text"
+      },
+      {
+        "name": "first_name",
+        "type": "character varying(100)"
+      },
+      {
+        "name": "last_name",
+        "type": "character varying(100)"
+      },
+      {
+        "name": "display_name",
+        "type": "character varying(256)"
+      },
+      {
+        "name": "email",
+        "type": "character varying(200)"
+      },
+      {
+        "name": "phone_number",
+        "type": "character varying(32)"
+      },
+      {
+        "name": "department",
+        "type": "character varying(256)"
+      },
+      {
+        "name": "namespace",
+        "type": "character varying(255)"
+      },
+      {
+        "name": "snapshot",
+        "type": "text"
+      },
+      {
+        "name": "s_status",
+        "type": "character varying(30)"
+      },
+      {
+        "name": "project_code",
+        "type": "text"
+      },
+      {
+        "name": "license_type",
+        "type": "character varying(256)"
+      },
+      {
+        "name": "hourly_wage",
+        "type": "float"
+      },
+      {
+        "name": "data",
+        "type": "jsonb"
+      }
+    ],
+    "source_schema_file": "bootstrap_schema.sql",
+    "physical_db": "sthpw",
+    "search_types": [
+      {
+        "code": "sthpw/login",
+        "search_type": "sthpw/login",
+        "namespace": "sthpw",
+        "description": "List of users",
+        "database": "sthpw",
+        "table_name": "login",
+        "class_name": "pyasm.security.Login",
+        "title": "Users",
+        "schema": "public"
+      }
+    ],
+    "category": "security/users",
+    "purpose": "User/account record and profile.",
+    "write_policy": "security_api_only",
+    "preferred_write_path": "Use pyasm.security.Login, password/authentication and user-management APIs.",
+    "cautions": "Never write password directly; preserve external-auth/UPN/status semantics.",
+    "relations": "login_in_group; ticket; task.assigned; note.login",
+    "status": "active core",
+    "confidence": "high"
+  },
+  {
+    "table": "login_group",
+    "columns": [
+      {
+        "name": "id",
+        "type": "serial PRIMARY KEY"
+      },
+      {
+        "name": "code",
+        "type": "character varying(256)"
+      },
+      {
+        "name": "login_group",
+        "type": "character varying(100) NOT NULL"
+      },
+      {
+        "name": "name",
+        "type": "text"
+      },
+      {
+        "name": "sub_groups",
+        "type": "text"
+      },
+      {
+        "name": "access_rules",
+        "type": "text"
+      },
+      {
+        "name": "redirect_url",
+        "type": "text"
+      },
+      {
+        "name": "namespace",
+        "type": "character varying(255)"
+      },
+      {
+        "name": "description",
+        "type": "text"
+      },
+      {
+        "name": "project_code",
+        "type": "text"
+      },
+      {
+        "name": "s_status",
+        "type": "character varying(256)"
+      },
+      {
+        "name": "start_link",
+        "type": "text"
+      },
+      {
+        "name": "access_level",
+        "type": "character varying(32)"
+      },
+      {
+        "name": "is_default",
+        "type": "boolean"
+      },
+      {
+        "name": "data",
+        "type": "jsonb"
+      }
+    ],
+    "source_schema_file": "sthpw_schema.sql",
+    "physical_db": "sthpw",
+    "search_types": [
+      {
+        "code": "sthpw/login_group",
+        "search_type": "sthpw/login_group",
+        "namespace": "sthpw",
+        "description": "List of groups that user belong to",
+        "database": "sthpw",
+        "table_name": "login_group",
+        "class_name": "pyasm.security.LoginGroup",
+        "title": "Groups",
+        "schema": "public"
+      }
+    ],
+    "category": "security/users",
+    "purpose": "Security group with XML access_rules and project/default metadata.",
+    "write_policy": "security_api_only",
+    "preferred_write_path": "Use LoginGroup/Security Manager APIs.",
+    "cautions": "Do not treat group name as authorization; effective access is computed by AccessManager.",
+    "relations": "login_in_group; group_notification",
+    "status": "active core",
+    "confidence": "high"
+  },
+  {
+    "table": "login_in_group",
+    "columns": [
+      {
+        "name": "id",
+        "type": "serial PRIMARY KEY"
+      },
+      {
+        "name": "code",
+        "type": "character varying(256)"
+      },
+      {
+        "name": "login",
+        "type": "character varying(100) NOT NULL"
+      },
+      {
+        "name": "login_group",
+        "type": "character varying(100) NOT NULL"
+      }
+    ],
+    "source_schema_file": "sthpw_schema.sql",
+    "physical_db": "sthpw",
+    "search_types": [
+      {
+        "code": "sthpw/login_in_group",
+        "search_type": "sthpw/login_in_group",
+        "namespace": "sthpw",
+        "description": "Users in groups",
+        "database": "sthpw",
+        "table_name": "login_in_group",
+        "class_name": "pyasm.security.LoginInGroup",
+        "title": "Users in groups",
+        "schema": "public"
+      }
+    ],
+    "category": "security/users",
+    "purpose": "Membership link between login and login_group.",
+    "write_policy": "security_api_only",
+    "preferred_write_path": "Use Login.add_to_group/remove_from_group or group membership APIs.",
+    "cautions": "Avoid duplicates; changes affect effective security and caches.",
+    "relations": "login -> login_group",
+    "status": "active core",
+    "confidence": "high"
+  },
+  {
+    "table": "message",
+    "columns": [
+      {
+        "name": "id",
+        "type": "serial PRIMARY KEY"
+      },
+      {
+        "name": "code",
+        "type": "character varying(256)"
+      },
+      {
+        "name": "category",
+        "type": "character varying(256)"
+      },
+      {
+        "name": "message",
+        "type": "text"
+      },
+      {
+        "name": "status",
+        "type": "character varying(32)"
+      },
+      {
+        "name": "login",
+        "type": "character varying(256)"
+      },
+      {
+        "name": "project_code",
+        "type": "character varying(32)"
+      },
+      {
+        "name": "timestamp",
+        "type": "timestamp without time zone DEFAULT now() NOT NULL"
+      }
+    ],
+    "source_schema_file": "sthpw_schema.sql",
+    "physical_db": "sthpw",
+    "search_types": [
+      {
+        "code": "sthpw/message",
+        "search_type": "sthpw/message",
+        "namespace": "sthpw",
+        "description": "Messages",
+        "database": "sthpw",
+        "table_name": "message",
+        "class_name": "pyasm.search.SObject",
+        "title": "Message",
+        "schema": "public"
+      }
+    ],
+    "category": "messaging",
+    "purpose": "Message channel/container and latest/current message state; used for chat, sobject, script and progress categories.",
+    "write_policy": "message_api",
+    "preferred_write_path": "Use the messaging/chat subsystem; create channel/container through its server command.",
+    "cautions": "A row is not necessarily one chat message. Do not use it as arbitrary notifications table.",
+    "relations": "message_log.message_code; subscription.message_code",
+    "status": "active core",
+    "confidence": "high"
+  },
+  {
+    "table": "message_log",
+    "columns": [
+      {
+        "name": "id",
+        "type": "serial PRIMARY KEY"
+      },
+      {
+        "name": "code",
+        "type": "character varying(256)"
+      },
+      {
+        "name": "message_code",
+        "type": "character varying(256)"
+      },
+      {
+        "name": "category",
+        "type": "character varying(256)"
+      },
+      {
+        "name": "message",
+        "type": "text"
+      },
+      {
+        "name": "status",
+        "type": "character varying(32)"
+      },
+      {
+        "name": "login",
+        "type": "character varying(256)"
+      },
+      {
+        "name": "project_code",
+        "type": "character varying(32)"
+      },
+      {
+        "name": "timestamp",
+        "type": "timestamp without time zone DEFAULT now() NOT NULL"
+      }
+    ],
+    "source_schema_file": "sthpw_schema.sql",
+    "physical_db": "sthpw",
+    "search_types": [
+      {
+        "code": "sthpw/message_log",
+        "search_type": "sthpw/message_log",
+        "namespace": "sthpw",
+        "description": "Message Log",
+        "database": "sthpw",
+        "table_name": "message_log",
+        "class_name": "pyasm.search.SObject",
+        "title": "Message Log",
+        "schema": "public"
+      }
+    ],
+    "category": "messaging",
+    "purpose": "Append-only message entries/history for a message channel.",
+    "write_policy": "message_api",
+    "preferred_write_path": "Use server.log_message / ChatCmd / message logging API.",
+    "cautions": "Do not direct-insert: channel state, category, subscriptions and polling semantics can diverge.",
+    "relations": "message_code -> message",
+    "status": "active core",
+    "confidence": "high"
+  },
+  {
+    "table": "milestone",
+    "columns": [
+      {
+        "name": "id",
+        "type": "serial PRIMARY KEY"
+      },
+      {
+        "name": "code",
+        "type": "character varying(256)"
+      },
+      {
+        "name": "project_code",
+        "type": "character varying(256)"
+      },
+      {
+        "name": "description",
+        "type": "text"
+      },
+      {
+        "name": "due_date",
+        "type": "timestamp"
+      }
+    ],
+    "source_schema_file": "sthpw_schema.sql",
+    "physical_db": "sthpw",
+    "search_types": [
+      {
+        "code": "sthpw/milestone",
+        "search_type": "sthpw/milestone",
+        "namespace": "sthpw",
+        "description": "Project Milestones",
+        "database": "sthpw",
+        "table_name": "milestone",
+        "class_name": "pyasm.biz.Milestone",
+        "title": "Project Milestones",
+        "schema": "public"
+      }
+    ],
+    "category": "workflow/tasks",
+    "purpose": "Project milestone/due-date object.",
+    "write_policy": "class_api",
+    "preferred_write_path": "Use pyasm.biz.Milestone or generic SObject APIs when no extra behavior is needed.",
+    "cautions": "Tasks reference milestone_code logically.",
+    "relations": "task.milestone_code",
+    "status": "active optional",
+    "confidence": "high"
+  },
+  {
+    "table": "note",
+    "columns": [
+      {
+        "name": "id",
+        "type": "serial PRIMARY KEY"
+      },
+      {
+        "name": "code",
+        "type": "character varying(256)"
+      },
+      {
+        "name": "project_code",
+        "type": "character varying(30)"
+      },
+      {
+        "name": "search_type",
+        "type": "character varying(200)"
+      },
+      {
+        "name": "search_id",
+        "type": "integer"
+      },
+      {
+        "name": "login",
+        "type": "character varying(30)"
+      },
+      {
+        "name": "context",
+        "type": "character varying(60)"
+      },
+      {
+        "name": "timestamp",
+        "type": "timestamp without time zone DEFAULT now() NOT NULL"
+      },
+      {
+        "name": "note",
+        "type": "text"
+      },
+      {
+        "name": "title",
+        "type": "character varying(1024)"
+      },
+      {
+        "name": "parent_id",
+        "type": "integer"
+      },
+      {
+        "name": "status",
+        "type": "character varying(256)"
+      },
+      {
+        "name": "label",
+        "type": "character varying(256)"
+      },
+      {
+        "name": "process",
+        "type": "character varying(60)"
+      },
+      {
+        "name": "sort_order",
+        "type": "integer"
+      },
+      {
+        "name": "access",
+        "type": "character varying(256)"
+      }
+    ],
+    "source_schema_file": "sthpw_schema.sql",
+    "physical_db": "sthpw",
+    "search_types": [
+      {
+        "code": "sthpw/note",
+        "search_type": "sthpw/note",
+        "namespace": "sthpw",
+        "description": "Notes",
+        "database": "sthpw",
+        "table_name": "note",
+        "class_name": "pyasm.biz.Note",
+        "title": "Notes",
+        "schema": null
+      }
+    ],
+    "category": "messaging",
+    "purpose": "Comment/note attached polymorphically to any SObject, optionally by process/context and parent thread.",
+    "write_policy": "class_api",
+    "preferred_write_path": "Use Note.create/add_note APIs.",
+    "cautions": "Do not create a parallel task_comments table; preserve access/private and parent_id semantics.",
+    "relations": "search_type/search_id; parent_id; process/context",
+    "status": "active core",
+    "confidence": "high"
+  },
+  {
+    "table": "notification",
+    "columns": [
+      {
+        "name": "id",
+        "type": "serial PRIMARY KEY"
+      },
+      {
+        "name": "code",
+        "type": "character varying(30)"
+      },
+      {
+        "name": "event",
+        "type": "character varying(256)"
+      },
+      {
+        "name": "listen_event",
+        "type": "character varying(256)"
+      },
+      {
+        "name": "data",
+        "type": "text"
+      },
+      {
+        "name": "description",
+        "type": "text"
+      },
+      {
+        "name": "process",
+        "type": "character varying(256)"
+      },
+      {
+        "name": "type",
+        "type": "character varying(30) NOT NULL"
+      },
+      {
+        "name": "search_type",
+        "type": "character varying(100)"
+      },
+      {
+        "name": "project_code",
+        "type": "character varying(30)"
+      },
+      {
+        "name": "rules",
+        "type": "text"
+      },
+      {
+        "name": "subject",
+        "type": "text"
+      },
+      {
+        "name": "message",
+        "type": "text"
+      },
+      {
+        "name": "email_handler_cls",
+        "type": "character varying(200)"
+      },
+      {
+        "name": "mail_to",
+        "type": "text"
+      },
+      {
+        "name": "mail_cc",
+        "type": "text"
+      },
+      {
+        "name": "mail_bcc",
+        "type": "text"
+      },
+      {
+        "name": "s_status",
+        "type": "character varying(30)"
+      },
+      {
+        "name": "title",
+        "type": "character varying(256)"
+      },
+      {
+        "name": "status",
+        "type": "character varying(256)"
+      }
+    ],
+    "source_schema_file": "bootstrap_schema.sql",
+    "physical_db": "sthpw",
+    "search_types": [
+      {
+        "code": "sthpw/notification",
+        "search_type": "sthpw/notification",
+        "namespace": "sthpw",
+        "description": "Different types of Notification",
+        "database": "sthpw",
+        "table_name": "notification",
+        "class_name": "pyasm.biz.Notification",
+        "title": "Notification",
+        "schema": "public"
+      }
+    ],
+    "category": "notifications",
+    "purpose": "Notification definition/rule: event/listen_event, recipients, template and handler configuration.",
+    "write_policy": "notification_api",
+    "preferred_write_path": "Use pyasm.biz.Notification / notification manager.",
+    "cautions": "Not a per-user inbox item. Do not insert one row per delivered notification.",
+    "relations": "group_notification; notification_log",
+    "status": "active core",
+    "confidence": "high"
+  },
+  {
+    "table": "notification_log",
+    "columns": [
+      {
+        "name": "id",
+        "type": "serial PRIMARY KEY"
+      },
+      {
+        "name": "project_code",
+        "type": "character varying(256)"
+      },
+      {
+        "name": "login",
+        "type": "character varying(256)"
+      },
+      {
+        "name": "command_cls",
+        "type": "character varying(256)"
+      },
+      {
+        "name": "subject",
+        "type": "text"
+      },
+      {
+        "name": "message",
+        "type": "text"
+      },
+      {
+        "name": "timestamp",
+        "type": "timestamp without time zone DEFAULT now() NOT NULL"
+      }
+    ],
+    "source_schema_file": "sthpw_schema.sql",
+    "physical_db": "sthpw",
+    "search_types": [
+      {
+        "code": "sthpw/notification_log",
+        "search_type": "sthpw/notification_log",
+        "namespace": "sthpw",
+        "description": "Notification Log",
+        "database": "sthpw",
+        "table_name": "{public}.notification_log",
+        "class_name": "pyasm.search.SObject",
+        "title": "Notification Log",
+        "schema": "public"
+      }
+    ],
+    "category": "notifications",
+    "purpose": "Delivery/execution log for generated notifications.",
+    "write_policy": "read_only_system",
+    "preferred_write_path": "Written by notification subsystem.",
+    "cautions": "Treat as audit/history; do not use as notification definition.",
+    "relations": "notification_login.notification_log_id",
+    "status": "active internal",
+    "confidence": "high"
+  },
+  {
+    "table": "notification_login",
+    "columns": [
+      {
+        "name": "id",
+        "type": "serial PRIMARY KEY"
+      },
+      {
+        "name": "notification_log_id",
+        "type": "integer"
+      },
+      {
+        "name": "login",
+        "type": "character varying(256)"
+      },
+      {
+        "name": "type",
+        "type": "character varying(256)"
+      },
+      {
+        "name": "project_code",
+        "type": "character varying(256)"
+      },
+      {
+        "name": "timestamp",
+        "type": "timestamp without time zone DEFAULT now() NOT NULL"
+      }
+    ],
+    "source_schema_file": "sthpw_schema.sql",
+    "physical_db": "sthpw",
+    "search_types": [
+      {
+        "code": "sthpw/notification_login",
+        "search_type": "sthpw/notification_login",
+        "namespace": "sthpw",
+        "description": "Notification Login",
+        "database": "sthpw",
+        "table_name": "{public}.notification_login",
+        "class_name": "pyasm.search.SObject",
+        "title": "",
+        "schema": "public"
+      }
+    ],
+    "category": "notifications",
+    "purpose": "Per-login delivery association/status for a notification_log entry.",
+    "write_policy": "read_only_system",
+    "preferred_write_path": "Written by notification delivery subsystem.",
+    "cautions": "Not equivalent to chat read receipts.",
+    "relations": "notification_log_id; login",
+    "status": "active internal",
+    "confidence": "high"
+  },
+  {
+    "table": "pipeline",
+    "columns": [
+      {
+        "name": "id",
+        "type": "serial PRIMARY KEY"
+      },
+      {
+        "name": "code",
+        "type": "character varying(256)"
+      },
+      {
+        "name": "pipeline",
+        "type": "text"
+      },
+      {
+        "name": "timestamp",
+        "type": "timestamp without time zone DEFAULT now() NOT NULL"
+      },
+      {
+        "name": "search_type",
+        "type": "character varying(100)"
+      },
+      {
+        "name": "project_code",
+        "type": "character varying(30)"
+      },
+      {
+        "name": "description",
+        "type": "text"
+      },
+      {
+        "name": "color",
+        "type": "character varying(256)"
+      },
+      {
+        "name": "s_status",
+        "type": "character varying(30)"
+      },
+      {
+        "name": "autocreate_tasks",
+        "type": "boolean"
+      },
+      {
+        "name": "use_workflow",
+        "type": "boolean default true"
+      }
+    ],
+    "source_schema_file": "sthpw_schema.sql",
+    "physical_db": "sthpw",
+    "search_types": [
+      {
+        "code": "sthpw/pipeline",
+        "search_type": "sthpw/pipeline",
+        "namespace": "sthpw",
+        "description": "List of piplines available for sobjects",
+        "database": "sthpw",
+        "table_name": "pipeline",
+        "class_name": "pyasm.biz.Pipeline",
+        "title": "Pipelines",
+        "schema": "public"
+      }
+    ],
+    "category": "workflow",
+    "purpose": "Global/system pipeline XML and metadata; historically the primary Pipeline table.",
+    "write_policy": "pipeline_api",
+    "preferred_write_path": "Use pyasm.biz.Pipeline and pipeline editor/synchronization routines.",
+    "cautions": "Do not edit XML and related process rows independently; config/pipeline also exists in project DBs.",
+    "relations": "task.pipeline_code; config/process.pipeline_code",
+    "status": "active compatibility/core",
+    "confidence": "high"
+  },
+  {
+    "table": "pref_list",
+    "columns": [
+      {
+        "name": "id",
+        "type": "serial PRIMARY KEY"
+      },
+      {
+        "name": "code",
+        "type": "character varying(256)"
+      },
+      {
+        "name": "key",
+        "type": "character varying(256)"
+      },
+      {
+        "name": "description",
+        "type": "character varying(256)"
+      },
+      {
+        "name": "options",
+        "type": "character varying(256)"
+      },
+      {
+        "name": "type",
+        "type": "character varying(256)"
+      },
+      {
+        "name": "category",
+        "type": "character varying(256)"
+      },
+      {
+        "name": "timestamp",
+        "type": "timestamp without time zone DEFAULT now() NOT NULL"
+      },
+      {
+        "name": "title",
+        "type": "character varying(256)"
+      }
+    ],
+    "source_schema_file": "sthpw_schema.sql",
+    "physical_db": "sthpw",
+    "search_types": [
+      {
+        "code": "sthpw/pref_list",
+        "search_type": "sthpw/pref_list",
+        "namespace": "sthpw",
+        "description": "Preferences List",
+        "database": "sthpw",
+        "table_name": "{public}.pref_list",
+        "class_name": "pyasm.biz.PrefList",
+        "title": "",
+        "schema": "public"
+      }
+    ],
+    "category": "preferences",
+    "purpose": "Definition/catalog of available preference keys and options.",
+    "write_policy": "class_api",
+    "preferred_write_path": "Use PrefList/preference administration.",
+    "cautions": "Not the user value store; values belong in pref_setting.",
+    "relations": "pref_setting.key",
+    "status": "optional config",
+    "confidence": "high"
+  },
+  {
+    "table": "pref_setting",
+    "columns": [
+      {
+        "name": "id",
+        "type": "serial PRIMARY KEY"
+      },
+      {
+        "name": "project_code",
+        "type": "character varying(256)"
+      },
+      {
+        "name": "login",
+        "type": "character varying(256)"
+      },
+      {
+        "name": "key",
+        "type": "character varying(256)"
+      },
+      {
+        "name": "value",
+        "type": "text"
+      },
+      {
+        "name": "timestamp",
+        "type": "timestamp without time zone DEFAULT now() NOT NULL"
+      }
+    ],
+    "source_schema_file": "sthpw_schema.sql",
+    "physical_db": "sthpw",
+    "search_types": [
+      {
+        "code": "sthpw/pref_setting",
+        "search_type": "sthpw/pref_setting",
+        "namespace": "sthpw",
+        "description": "Preference Setting",
+        "database": "sthpw",
+        "table_name": "{public}.pref_setting",
+        "class_name": "pyasm.biz.PrefSetting",
+        "title": "Pref Setting",
+        "schema": "public"
+      }
+    ],
+    "category": "preferences",
+    "purpose": "Per-user/project preference key-value values.",
+    "write_policy": "class_api",
+    "preferred_write_path": "Use PrefSetting APIs.",
+    "cautions": "Namespace keys; do not store security- or workflow-authoritative state.",
+    "relations": "login+project_code+key",
+    "status": "active core",
+    "confidence": "high"
+  },
+  {
+    "table": "project",
+    "columns": [
+      {
+        "name": "id",
+        "type": "serial PRIMARY KEY"
+      },
+      {
+        "name": "code",
+        "type": "character varying(30) NOT NULL"
+      },
+      {
+        "name": "title",
+        "type": "character varying(100)"
+      },
+      {
+        "name": "sobject_mapping_cls",
+        "type": "character varying(100)"
+      },
+      {
+        "name": "dir_naming_cls",
+        "type": "character varying(200)"
+      },
+      {
+        "name": "code_naming_cls",
+        "type": "character varying(200)"
+      },
+      {
+        "name": "pipeline",
+        "type": "character varying(30)"
+      },
+      {
+        "name": "snapshot",
+        "type": "text"
+      },
+      {
+        "name": "type",
+        "type": "character varying(30)"
+      },
+      {
+        "name": "last_db_update",
+        "type": "timestamp "
+      },
+      {
+        "name": "description",
+        "type": "text"
+      },
+      {
+        "name": "initials",
+        "type": "character varying(30)"
+      },
+      {
+        "name": "file_naming_cls",
+        "type": "character varying(200)"
+      },
+      {
+        "name": "reg_hours",
+        "type": "integer"
+      },
+      {
+        "name": "node_naming_cls",
+        "type": "character varying(200)"
+      },
+      {
+        "name": "s_status",
+        "type": "character varying(30)"
+      },
+      {
+        "name": "status",
+        "type": "character varying(256)"
+      },
+      {
+        "name": "last_version_update",
+        "type": "character varying(256)"
+      },
+      {
+        "name": "palette",
+        "type": "character varying(256)"
+      },
+      {
+        "name": "category",
+        "type": "character varying(256)"
+      },
+      {
+        "name": "is_template",
+        "type": "boolean"
+      },
+      {
+        "name": "db_resource",
+        "type": "text"
+      }
+    ],
+    "source_schema_file": "bootstrap_schema.sql",
+    "physical_db": "sthpw",
+    "search_types": [
+      {
+        "code": "sthpw/project",
+        "search_type": "sthpw/project",
+        "namespace": "sthpw",
+        "description": "Projects",
+        "database": "sthpw",
+        "table_name": "project",
+        "class_name": "pyasm.biz.Project",
+        "title": "Projects",
+        "schema": null
+      }
+    ],
+    "category": "bootstrap/meta",
+    "purpose": "Registered TACTIC project/template and its DB/naming/runtime metadata.",
+    "write_policy": "project_manager_only",
+    "preferred_write_path": "Use pyasm.biz.Project/project creation and upgrade tools.",
+    "cautions": "Creating a row alone does not create the project database, schema, config or permissions.",
+    "relations": "db_resource; search_object database={project}",
+    "status": "active core",
+    "confidence": "high"
+  },
+  {
+    "table": "project_type",
+    "columns": [
+      {
+        "name": "id",
+        "type": "serial PRIMARY KEY"
+      },
+      {
+        "name": "code",
+        "type": "character varying(30)"
+      },
+      {
+        "name": "dir_naming_cls",
+        "type": "character varying(200)"
+      },
+      {
+        "name": "file_naming_cls",
+        "type": "character varying(200)"
+      },
+      {
+        "name": "code_naming_cls",
+        "type": "character varying(200)"
+      },
+      {
+        "name": "node_naming_cls",
+        "type": "character varying(200)"
+      },
+      {
+        "name": "sobject_mapping_cls",
+        "type": "character varying(200)"
+      },
+      {
+        "name": "s_status",
+        "type": "character varying(32)"
+      },
+      {
+        "name": "type",
+        "type": "character varying(100) NOT NULL"
+      },
+      {
+        "name": "repo_handler_cls",
+        "type": "character varying(200)"
+      }
+    ],
+    "source_schema_file": "sthpw_schema.sql",
+    "physical_db": "sthpw",
+    "search_types": [
+      {
+        "code": "sthpw/project_type",
+        "search_type": "sthpw/project_type",
+        "namespace": "sthpw",
+        "description": "Project Type",
+        "database": "sthpw",
+        "table_name": "project_type",
+        "class_name": "pyasm.biz.ProjectType",
+        "title": "Project Type",
+        "schema": "public"
+      }
+    ],
+    "category": "bootstrap/meta",
+    "purpose": "Project-type strategy class registry (naming, mapping, repository handlers).",
+    "write_policy": "admin_manager",
+    "preferred_write_path": "Use ProjectType/plugin/admin setup APIs.",
+    "cautions": "Stores importable class names; invalid values can break project behavior.",
+    "relations": "project.type",
+    "status": "legacy/extension",
+    "confidence": "high"
+  },
+  {
+    "table": "queue",
+    "columns": [
+      {
+        "name": "id",
+        "type": "serial PRIMARY KEY"
+      },
+      {
+        "name": "code",
+        "type": "character varying(256)"
+      },
+      {
+        "name": "queue",
+        "type": "character varying(30) NOT NULL"
+      },
+      {
+        "name": "priority",
+        "type": "character varying(10) NOT NULL"
+      },
+      {
+        "name": "description",
+        "type": "character varying(256)"
+      },
+      {
+        "name": "state",
+        "type": "character varying(30) DEFAULT 'pending' NOT NULL"
+      },
+      {
+        "name": "login",
+        "type": "character varying(30) NOT NULL"
+      },
+      {
+        "name": "timestamp",
+        "type": "timestamp without time zone DEFAULT now() NOT NULL"
+      },
+      {
+        "name": "command",
+        "type": "character varying(200) NOT NULL"
+      },
+      {
+        "name": "serialized",
+        "type": "character varying(256)"
+      },
+      {
+        "name": "s_status",
+        "type": "character varying(30)"
+      },
+      {
+        "name": "project_code",
+        "type": "character varying(100)"
+      },
+      {
+        "name": "search_id",
+        "type": "integer"
+      },
+      {
+        "name": "search_type",
+        "type": "character varying(100)"
+      },
+      {
+        "name": "dispatcher_id",
+        "type": "integer"
+      },
+      {
+        "name": "policy_code",
+        "type": "character varying(30)"
+      },
+      {
+        "name": "host",
+        "type": "character varying(256)"
+      }
+    ],
+    "source_schema_file": "sthpw_schema.sql",
+    "physical_db": "sthpw",
+    "search_types": [
+      {
+        "code": "sthpw/queue",
+        "search_type": "sthpw/queue",
+        "namespace": "sthpw",
+        "description": "Tactic Dispatcher",
+        "database": "sthpw",
+        "table_name": "queue",
+        "class_name": "pyasm.search.SObject",
+        "title": "Tactic Dispatcher",
+        "schema": null
+      }
+    ],
+    "category": "dispatcher/jobs",
+    "purpose": "Dispatcher/job queue record.",
+    "write_policy": "owning_subsystem",
+    "preferred_write_path": "Use dispatcher/queue command APIs.",
+    "cautions": "Do not insert jobs manually unless implementing the dispatcher contract including serialized command and state.",
+    "relations": "dispatcher_id; policy_code; target search_type/search_id",
+    "status": "active internal",
+    "confidence": "high"
+  },
+  {
+    "table": "remote_repo",
+    "columns": [
+      {
+        "name": "id",
+        "type": "serial PRIMARY KEY"
+      },
+      {
+        "name": "code",
+        "type": "character varying(30)"
+      },
+      {
+        "name": "ip_address",
+        "type": "character varying(30)"
+      },
+      {
+        "name": "ip_mask",
+        "type": "character varying(30)"
+      },
+      {
+        "name": "repo_base_dir",
+        "type": "character varying(200)"
+      },
+      {
+        "name": "sandbox_base_dir",
+        "type": "character varying(200)"
+      },
+      {
+        "name": "login",
+        "type": "character varying(100)"
+      }
+    ],
+    "source_schema_file": "sthpw_schema.sql",
+    "physical_db": "sthpw",
+    "search_types": [
+      {
+        "code": "sthpw/remote_repo",
+        "search_type": "sthpw/remote_repo",
+        "namespace": "sthpw",
+        "description": "Remote Repositories",
+        "database": "sthpw",
+        "table_name": "remote_repo",
+        "class_name": "pyasm.biz.RemoteRepo",
+        "title": "Remote Repositories",
+        "schema": null
+      }
+    ],
+    "category": "DAM/check-in",
+    "purpose": "Legacy/optional remote repository endpoint mapping.",
+    "write_policy": "repository_manager",
+    "preferred_write_path": "Use RemoteRepo/repository administration.",
+    "cautions": "Do not confuse with sthpw/repo or modern repo definitions/configuration.",
+    "relations": "login; network masks/paths",
+    "status": "legacy optional",
+    "confidence": "medium"
+  },
+  {
+    "table": "repo",
+    "columns": [
+      {
+        "name": "id",
+        "type": "serial PRIMARY KEY"
+      },
+      {
+        "name": "code",
+        "type": "character varying(256) NOT NULL"
+      },
+      {
+        "name": "description",
+        "type": "character varying(256) NOT NULL"
+      },
+      {
+        "name": "handler",
+        "type": "character varying(100) NOT NULL"
+      },
+      {
+        "name": "web_dir",
+        "type": "character varying(256) NOT NULL"
+      },
+      {
+        "name": "lib_dir",
+        "type": "character varying(256) NOT NULL"
+      }
+    ],
+    "source_schema_file": "sthpw_schema.sql",
+    "physical_db": "sthpw",
+    "search_types": [
+      {
+        "code": "sthpw/repo",
+        "search_type": "sthpw/repo",
+        "namespace": "sthpw",
+        "description": "Repository List",
+        "database": "sthpw",
+        "table_name": "repo",
+        "class_name": "pyasm.search.SObject",
+        "title": "Repository List",
+        "schema": null
+      }
+    ],
+    "category": "DAM/check-in",
+    "purpose": "Legacy repository handler/path registry.",
+    "write_policy": "repository_manager",
+    "preferred_write_path": "Use repository administration/configuration APIs.",
+    "cautions": "Repository configuration may also live outside this table; inspect deployment before relying on it.",
+    "relations": "file repo/base alias (logical)",
+    "status": "legacy optional",
+    "confidence": "medium"
+  },
+  {
+    "table": "retire_log",
+    "columns": [
+      {
+        "name": "id",
+        "type": "serial PRIMARY KEY"
+      },
+      {
+        "name": "code",
+        "type": "character varying(256)"
+      },
+      {
+        "name": "search_type",
+        "type": "character varying(100)"
+      },
+      {
+        "name": "search_id",
+        "type": "character varying(100)"
+      },
+      {
+        "name": "login",
+        "type": "character varying(100) NOT NULL"
+      },
+      {
+        "name": "timestamp",
+        "type": "timestamp without time zone DEFAULT now() NOT NULL"
+      }
+    ],
+    "source_schema_file": "sthpw_schema.sql",
+    "physical_db": "sthpw",
+    "search_types": [
+      {
+        "code": "sthpw/retire_log",
+        "search_type": "sthpw/retire_log",
+        "namespace": "sthpw",
+        "description": "Retire SObject log",
+        "database": "sthpw",
+        "table_name": "retire_log",
+        "class_name": "pyasm.search.RetireLog",
+        "title": "Retire SObject log",
+        "schema": "public"
+      }
+    ],
+    "category": "audit/internal",
+    "purpose": "Log of retired SObjects.",
+    "write_policy": "read_only_system",
+    "preferred_write_path": "Written by retire/delete machinery.",
+    "cautions": "Do not use as the retired object itself or manually append.",
+    "relations": "search_type/search_id",
+    "status": "active internal",
+    "confidence": "high"
+  },
+  {
+    "table": "schema",
+    "columns": [
+      {
+        "name": "id",
+        "type": "serial PRIMARY KEY"
+      },
+      {
+        "name": "code",
+        "type": "character varying(256)"
+      },
+      {
+        "name": "description",
+        "type": "text"
+      },
+      {
+        "name": "schema",
+        "type": "text"
+      },
+      {
+        "name": "timestamp",
+        "type": "timestamp without time zone DEFAULT now() NOT NULL"
+      },
+      {
+        "name": "login",
+        "type": "character varying(256)"
+      },
+      {
+        "name": "s_status",
+        "type": "character varying(30)"
+      }
+    ],
+    "source_schema_file": "bootstrap_schema.sql",
+    "physical_db": "sthpw",
+    "search_types": [
+      {
+        "code": "sthpw/schema",
+        "search_type": "sthpw/schema",
+        "namespace": "sthpw",
+        "description": "Schema",
+        "database": "sthpw",
+        "table_name": "schema",
+        "class_name": "pyasm.biz.Schema",
+        "title": "Schema",
+        "schema": "public"
+      }
+    ],
+    "category": "bootstrap/meta",
+    "purpose": "XML project/data-model relationship schema.",
+    "write_policy": "schema_manager_only",
+    "preferred_write_path": "Use pyasm.biz.Schema/schema editor and project setup tools.",
+    "cautions": "Do not update independently of search types/physical columns; validate XML.",
+    "relations": "search_object types and relationships",
+    "status": "active core",
+    "confidence": "high"
+  },
+  {
+    "table": "search_object",
+    "columns": [
+      {
+        "name": "id",
+        "type": "serial PRIMARY KEY"
+      },
+      {
+        "name": "code",
+        "type": "character varying(256)"
+      },
+      {
+        "name": "search_type",
+        "type": "character varying(100) NOT NULL"
+      },
+      {
+        "name": "namespace",
+        "type": "character varying(200) NOT NULL"
+      },
+      {
+        "name": "description",
+        "type": "text"
+      },
+      {
+        "name": "database",
+        "type": "character varying(100) NOT NULL"
+      },
+      {
+        "name": "table_name",
+        "type": "character varying(100) NOT NULL"
+      },
+      {
+        "name": "class_name",
+        "type": "character varying(100) NOT NULL"
+      },
+      {
+        "name": "title",
+        "type": "character varying(100)"
+      },
+      {
+        "name": "schema",
+        "type": "character varying(100)"
+      },
+      {
+        "name": "color",
+        "type": "character varying(256)"
+      },
+      {
+        "name": "id_column",
+        "type": "character varying(256)"
+      },
+      {
+        "name": "default_layout",
+        "type": "character varying(32)"
+      }
+    ],
+    "source_schema_file": "bootstrap_schema.sql",
+    "physical_db": "sthpw",
+    "search_types": [
+      {
+        "code": "sthpw/search_object",
+        "search_type": "sthpw/search_object",
+        "namespace": "sthpw",
+        "description": "Search Types",
+        "database": "sthpw",
+        "table_name": "search_object",
+        "class_name": "pyasm.search.SearchType",
+        "title": "Search Objects",
+        "schema": "public"
+      }
+    ],
+    "category": "bootstrap/meta",
+    "purpose": "Search-type registry mapping logical search_type to DB/table/class/schema.",
+    "write_policy": "search_type_manager_only",
+    "preferred_write_path": "Use SearchType/search-type creator and database schema tools.",
+    "cautions": "A row alone does not create/migrate the physical table or views; class_name is executable configuration.",
+    "relations": "all SObject resolution",
+    "status": "active core",
+    "confidence": "high"
+  },
+  {
+    "table": "snapshot",
+    "columns": [
+      {
+        "name": "id",
+        "type": "serial PRIMARY KEY"
+      },
+      {
+        "name": "search_type",
+        "type": "character varying(100) NOT NULL"
+      },
+      {
+        "name": "search_id",
+        "type": "integer NOT NULL"
+      },
+      {
+        "name": "column_name",
+        "type": "character varying(100) NOT NULL"
+      },
+      {
+        "name": "snapshot",
+        "type": "text NOT NULL"
+      },
+      {
+        "name": "description",
+        "type": "text"
+      },
+      {
+        "name": "process",
+        "type": "character varying(256)"
+      },
+      {
+        "name": "login",
+        "type": "character varying(100) NOT NULL"
+      },
+      {
+        "name": "lock_login",
+        "type": "character varying(100)"
+      },
+      {
+        "name": "timestamp",
+        "type": "timestamp without time zone DEFAULT now() NOT NULL"
+      },
+      {
+        "name": "lock_date",
+        "type": "timestamp"
+      },
+      {
+        "name": "context",
+        "type": "character varying(256)"
+      },
+      {
+        "name": "version",
+        "type": "integer"
+      },
+      {
+        "name": "s_status",
+        "type": "character varying(30)"
+      },
+      {
+        "name": "snapshot_type",
+        "type": "character varying(30)"
+      },
+      {
+        "name": "code",
+        "type": "character varying(30)"
+      },
+      {
+        "name": "repo",
+        "type": "character varying(30)"
+      },
+      {
+        "name": "is_current",
+        "type": "boolean"
+      },
+      {
+        "name": "label",
+        "type": "character varying(100)"
+      },
+      {
+        "name": "revision",
+        "type": "integer"
+      },
+      {
+        "name": "level_type",
+        "type": "character varying(256)"
+      },
+      {
+        "name": "level_id",
+        "type": "integer"
+      },
+      {
+        "name": "metadata",
+        "type": "text"
+      },
+      {
+        "name": "is_latest",
+        "type": "boolean"
+      },
+      {
+        "name": "status",
+        "type": "character varying(256)"
+      },
+      {
+        "name": "project_code",
+        "type": "character varying(256)"
+      },
+      {
+        "name": "search_code",
+        "type": "character varying(256)"
+      },
+      {
+        "name": "is_synced",
+        "type": "boolean"
+      }
+    ],
+    "source_schema_file": "sthpw_schema.sql",
+    "physical_db": "sthpw",
+    "search_types": [
+      {
+        "code": "sthpw/snapshot",
+        "search_type": "sthpw/snapshot",
+        "namespace": "sthpw",
+        "description": "All versions of snapshots of assets",
+        "database": "sthpw",
+        "table_name": "snapshot",
+        "class_name": "pyasm.biz.Snapshot",
+        "title": "Snapshot",
+        "schema": "public"
+      }
+    ],
+    "category": "DAM/check-in",
+    "purpose": "Version/revision publication attached to an SObject; owns snapshot XML and file set.",
+    "write_policy": "checkin_api_only",
+    "preferred_write_path": "Use Snapshot.create and check-in commands, normally FileCheckin/FileAppendCheckin.",
+    "cautions": "Never direct-insert: version allocation, current/latest, files, naming, repository and triggers must be atomic.",
+    "relations": "file.snapshot_code; search_type/search_id/search_code; level",
+    "status": "active core",
+    "confidence": "high"
+  },
+  {
+    "table": "snapshot_type",
+    "columns": [
+      {
+        "name": "id",
+        "type": "serial PRIMARY KEY"
+      },
+      {
+        "name": "code",
+        "type": "character varying(256)"
+      },
+      {
+        "name": "pipeline_code",
+        "type": "character varying(256)"
+      },
+      {
+        "name": "timestamp",
+        "type": "timestamp without time zone DEFAULT now() NOT NULL"
+      },
+      {
+        "name": "login",
+        "type": "character varying(256)"
+      },
+      {
+        "name": "s_status",
+        "type": "character varying(256)"
+      },
+      {
+        "name": "relpath",
+        "type": "character varying(256)"
+      },
+      {
+        "name": "project_code",
+        "type": "character varying(256)"
+      },
+      {
+        "name": "subcontext",
+        "type": "character varying(256)"
+      },
+      {
+        "name": "snapshot_flavor",
+        "type": "character varying(256)"
+      },
+      {
+        "name": "relfile",
+        "type": "character varying(256)"
+      }
+    ],
+    "source_schema_file": "sthpw_schema.sql",
+    "physical_db": "sthpw",
+    "search_types": [
+      {
+        "code": "sthpw/snapshot_type",
+        "search_type": "sthpw/snapshot_type",
+        "namespace": "sthpw",
+        "description": "Snapshot Type",
+        "database": "sthpw",
+        "table_name": "snapshot_type",
+        "class_name": "pyasm.biz.SnapshotType",
+        "title": "Snapshot Type",
+        "schema": "public"
+      }
+    ],
+    "category": "DAM/check-in",
+    "purpose": "Snapshot/check-in type configuration and optional pipeline/path flavor.",
+    "write_policy": "class_api",
+    "preferred_write_path": "Use SnapshotType/check-in configuration manager.",
+    "cautions": "Legacy/optional in many projects; do not confuse snapshot_type with process/context.",
+    "relations": "snapshot.snapshot_type; pipeline_code",
+    "status": "active optional",
+    "confidence": "medium"
+  },
+  {
+    "table": "sobject_list",
+    "columns": [
+      {
+        "name": "id",
+        "type": "serial PRIMARY KEY"
+      },
+      {
+        "name": "code",
+        "type": "character varying(256)"
+      },
+      {
+        "name": "search_type",
+        "type": "character varying(256)"
+      },
+      {
+        "name": "search_id",
+        "type": "integer"
+      },
+      {
+        "name": "keywords",
+        "type": "text"
+      },
+      {
+        "name": "timestamp",
+        "type": "timestamp without time zone DEFAULT now() NOT NULL"
+      },
+      {
+        "name": "project_code",
+        "type": "character varying(256)"
+      }
+    ],
+    "source_schema_file": "sthpw_schema.sql",
+    "physical_db": "sthpw",
+    "search_types": [
+      {
+        "code": "sthpw/sobject_list",
+        "search_type": "sthpw/sobject_list",
+        "namespace": "sthpw",
+        "description": "SObject List",
+        "database": "sthpw",
+        "table_name": "sobject_list",
+        "class_name": "pyasm.search.SObject",
+        "title": "SObjectList",
+        "schema": "public"
+      }
+    ],
+    "category": "search/index",
+    "purpose": "Auxiliary indexed/list representation of SObject references and keywords.",
+    "write_policy": "owning_subsystem",
+    "preferred_write_path": "Let indexing/search-list subsystem maintain it.",
+    "cautions": "Not a business collection or relation table.",
+    "relations": "search_type/search_id",
+    "status": "internal/optional",
+    "confidence": "medium"
+  },
+  {
+    "table": "sobject_log",
+    "columns": [
+      {
+        "name": "id",
+        "type": "serial PRIMARY KEY"
+      },
+      {
+        "name": "code",
+        "type": "character varying(256)"
+      },
+      {
+        "name": "search_type",
+        "type": "character varying(100) NOT NULL"
+      },
+      {
+        "name": "search_id",
+        "type": "integer NOT NULL"
+      },
+      {
+        "name": "data",
+        "type": "text"
+      },
+      {
+        "name": "login",
+        "type": "character varying(100) NOT NULL"
+      },
+      {
+        "name": "timestamp",
+        "type": "timestamp without time zone DEFAULT now() NOT NULL"
+      },
+      {
+        "name": "transaction_log_id",
+        "type": "integer"
+      }
+    ],
+    "source_schema_file": "sthpw_schema.sql",
+    "physical_db": "sthpw",
+    "search_types": [
+      {
+        "code": "sthpw/sobject_log",
+        "search_type": "sthpw/sobject_log",
+        "namespace": "sthpw",
+        "description": "Log of actions on an sobject",
+        "database": "sthpw",
+        "table_name": "sobject_log",
+        "class_name": "pyasm.search.SObject",
+        "title": "SObject Log",
+        "schema": "public"
+      }
+    ],
+    "category": "audit/internal",
+    "purpose": "Per-SObject index of actions linked to a transaction log.",
+    "write_policy": "read_only_system",
+    "preferred_write_path": "Written by transaction logging.",
+    "cautions": "Incomplete by design for some operations/large transactions; do not use as sole source of truth.",
+    "relations": "transaction_log_id; search_type/search_id",
+    "status": "active internal",
+    "confidence": "high"
+  },
+  {
+    "table": "special_day",
+    "columns": [
+      {
+        "name": "id",
+        "type": "serial PRIMARY KEY"
+      },
+      {
+        "name": "code",
+        "type": "character varying(256)"
+      },
+      {
+        "name": "week",
+        "type": "integer"
+      },
+      {
+        "name": "mon",
+        "type": "float"
+      },
+      {
+        "name": "tue",
+        "type": "float"
+      },
+      {
+        "name": "wed",
+        "type": "float"
+      },
+      {
+        "name": "thu",
+        "type": "float"
+      },
+      {
+        "name": "fri",
+        "type": "float"
+      },
+      {
+        "name": "sat",
+        "type": "float"
+      },
+      {
+        "name": "sun",
+        "type": "float"
+      },
+      {
+        "name": "year",
+        "type": "integer"
+      },
+      {
+        "name": "login",
+        "type": "character varying(256)"
+      },
+      {
+        "name": "description",
+        "type": "character varying(256)"
+      },
+      {
+        "name": "type",
+        "type": "character varying(256)"
+      },
+      {
+        "name": "project_code",
+        "type": "character varying(256)"
+      }
+    ],
+    "source_schema_file": "sthpw_schema.sql",
+    "physical_db": "sthpw",
+    "category": "scheduling",
+    "purpose": "Calendar/work-schedule exception or special-day configuration.",
+    "write_policy": "generic_or_schedule_api",
+    "preferred_write_path": "Use scheduling/calendar APIs; generic write only if contract is understood.",
+    "cautions": "Fields are legacy weekly/hour values; verify feature before extending.",
+    "relations": "project_code/login/year/week",
+    "status": "optional legacy",
+    "confidence": "medium"
+  },
+  {
+    "table": "spt_client_trigger",
+    "columns": [
+      {
+        "name": "id",
+        "type": "serial PRIMARY KEY"
+      },
+      {
+        "name": "code",
+        "type": "character varying(256)"
+      },
+      {
+        "name": "event",
+        "type": "character varying(256)"
+      },
+      {
+        "name": "callback",
+        "type": "character varying(256)"
+      },
+      {
+        "name": "description",
+        "type": "text"
+      },
+      {
+        "name": "timestamp",
+        "type": "timestamp without time zone DEFAULT now() NOT NULL"
+      },
+      {
+        "name": "s_status",
+        "type": "character varying(32)"
+      }
+    ],
+    "source_schema_file": "config_schema.sql",
+    "physical_db": "{project}",
+    "search_types": [
+      {
+        "code": "config/client_trigger",
+        "search_type": "config/client_trigger",
+        "namespace": "config",
+        "description": "Client Trigger",
+        "database": "{project}",
+        "table_name": "spt_client_trigger",
+        "class_name": "pyasm.search.SObject",
+        "title": "Client Trigger",
+        "schema": "public"
+      }
+    ],
+    "category": "configuration/triggers",
+    "purpose": "Client-side event-to-callback trigger configuration.",
+    "write_policy": "trigger_manager",
+    "preferred_write_path": "Use client-trigger/view configuration tools.",
+    "cautions": "Callback is executable client configuration; validate and restrict permissions.",
+    "relations": "event -> callback",
+    "status": "active config",
+    "confidence": "medium"
+  },
+  {
+    "table": "spt_custom_script",
+    "columns": [
+      {
+        "name": "id",
+        "type": "serial PRIMARY KEY"
+      },
+      {
+        "name": "code",
+        "type": "character varying(256)"
+      },
+      {
+        "name": "title",
+        "type": "character varying(256)"
+      },
+      {
+        "name": "description",
+        "type": "text"
+      },
+      {
+        "name": "folder",
+        "type": "character varying(1024)"
+      },
+      {
+        "name": "script",
+        "type": "text"
+      },
+      {
+        "name": "login",
+        "type": "character varying(256)"
+      },
+      {
+        "name": "timestamp",
+        "type": "timestamp without time zone DEFAULT now() NOT NULL"
+      },
+      {
+        "name": "language",
+        "type": "character varying(256)"
+      },
+      {
+        "name": "s_status",
+        "type": "character varying(256)"
+      }
+    ],
+    "source_schema_file": "config_schema.sql",
+    "physical_db": "{project}",
+    "search_types": [
+      {
+        "code": "config/custom_script",
+        "search_type": "config/custom_script",
+        "namespace": "config",
+        "description": "Custom Script",
+        "database": "{project}",
+        "table_name": "spt_custom_script",
+        "class_name": "pyasm.search.SObject",
+        "title": "Custom Script",
+        "schema": "public"
+      }
+    ],
+    "category": "configuration/scripts",
+    "purpose": "Project custom script source and metadata.",
+    "write_policy": "script_manager",
+    "preferred_write_path": "Use custom script editor/manager.",
+    "cautions": "Executable code: security-review, version and permission controls required.",
+    "relations": "trigger/script_path references",
+    "status": "active config",
+    "confidence": "high"
+  },
+  {
+    "table": "spt_ingest_rule",
+    "columns": [
+      {
+        "name": "id",
+        "type": "serial PRIMARY KEY"
+      },
+      {
+        "name": "code",
+        "type": "character varying(256)"
+      },
+      {
+        "name": "spt_ingest_session_code",
+        "type": "character varying(256)"
+      },
+      {
+        "name": "title",
+        "type": "text"
+      },
+      {
+        "name": "base_dir",
+        "type": "character varying(1024)"
+      },
+      {
+        "name": "rule",
+        "type": "character varying(1024)"
+      },
+      {
+        "name": "data",
+        "type": "text"
+      }
+    ],
+    "source_schema_file": "config_schema.sql",
+    "physical_db": "{project}",
+    "search_types": [
+      {
+        "code": "config/ingest_rule",
+        "search_type": "config/ingest_rule",
+        "namespace": "config",
+        "description": "Ingest Rules",
+        "database": "{project}",
+        "table_name": "spt_ingest_rule",
+        "class_name": "pyasm.search.SObject",
+        "title": "Ingest Rules",
+        "schema": "public"
+      }
+    ],
+    "category": "ingest",
+    "purpose": "Ingest rule definition tied to a session and base directory.",
+    "write_policy": "ingest_api",
+    "preferred_write_path": "Use ingest manager/session APIs.",
+    "cautions": "Rule/data formats are subsystem contracts; do not ad-hoc mutate.",
+    "relations": "spt_ingest_session_code; naming.ingest_rule_code",
+    "status": "active optional",
+    "confidence": "medium"
+  },
+  {
+    "table": "spt_ingest_session",
+    "columns": [
+      {
+        "name": "id",
+        "type": "serial PRIMARY KEY"
+      },
+      {
+        "name": "code",
+        "type": "character varying(256)"
+      },
+      {
+        "name": "title",
+        "type": "text"
+      },
+      {
+        "name": "base_dir",
+        "type": "character varying(1024)"
+      },
+      {
+        "name": "location",
+        "type": "character varying(256)"
+      },
+      {
+        "name": "data",
+        "type": "text"
+      }
+    ],
+    "source_schema_file": "config_schema.sql",
+    "physical_db": "{project}",
+    "search_types": [
+      {
+        "code": "config/ingest_session",
+        "search_type": "config/ingest_session",
+        "namespace": "config",
+        "description": "Ingest Sessions",
+        "database": "{project}",
+        "table_name": "spt_ingest_session",
+        "class_name": "pyasm.search.SObject",
+        "title": "Ingest Sessions",
+        "schema": "public"
+      }
+    ],
+    "category": "ingest",
+    "purpose": "Ingest session/configuration root.",
+    "write_policy": "ingest_api",
+    "preferred_write_path": "Use ingest manager.",
+    "cautions": "Not a generic upload session unless ingest subsystem owns it.",
+    "relations": "ingest_rule session code",
+    "status": "active optional",
+    "confidence": "medium"
+  },
+  {
+    "table": "spt_naming",
+    "columns": [
+      {
+        "name": "id",
+        "type": "serial PRIMARY KEY"
+      },
+      {
+        "name": "search_type",
+        "type": "character varying(100)"
+      },
+      {
+        "name": "dir_naming",
+        "type": "text"
+      },
+      {
+        "name": "file_naming",
+        "type": "text"
+      },
+      {
+        "name": "sandbox_dir_naming",
+        "type": "text"
+      },
+      {
+        "name": "snapshot_type",
+        "type": "character varying(256)"
+      },
+      {
+        "name": "context",
+        "type": "character varying(256)"
+      },
+      {
+        "name": "code",
+        "type": "character varying(256)"
+      },
+      {
+        "name": "latest_versionless",
+        "type": "boolean"
+      },
+      {
+        "name": "current_versionless",
+        "type": "boolean"
+      },
+      {
+        "name": "manual_version",
+        "type": "boolean"
+      },
+      {
+        "name": "ingest_rule_code",
+        "type": "character varying(256)"
+      },
+      {
+        "name": "condition",
+        "type": "text"
+      },
+      {
+        "name": "class_name",
+        "type": "text"
+      },
+      {
+        "name": "script_path",
+        "type": "text"
+      },
+      {
+        "name": "checkin_type",
+        "type": "character varying(256)"
+      },
+      {
+        "name": "base_dir_alias",
+        "type": "character varying(256)"
+      },
+      {
+        "name": "sandbox_dir_alias",
+        "type": "character varying(256)"
+      }
+    ],
+    "source_schema_file": "config_schema.sql",
+    "physical_db": "{project}",
+    "search_types": [
+      {
+        "code": "config/naming",
+        "search_type": "config/naming",
+        "namespace": "config",
+        "description": "Naming",
+        "database": "{project}",
+        "table_name": "{public}.spt_naming",
+        "class_name": "pyasm.biz.Naming",
+        "title": "",
+        "schema": "public"
+      }
+    ],
+    "category": "DAM/naming",
+    "purpose": "Project naming rule for repository directories, files, sandbox and versionless behavior.",
+    "write_policy": "naming_manager",
+    "preferred_write_path": "Use Naming/naming editor APIs, then invalidate/reload naming caches if required.",
+    "cautions": "Avoid duplicate overlapping defaults; checkin_type/context/snapshot_type/condition determine selection.",
+    "relations": "search_type/context/snapshot_type/checkin_type; ingest_rule",
+    "status": "active core",
+    "confidence": "high"
+  },
+  {
+    "table": "spt_pipeline",
+    "columns": [
+      {
+        "name": "id",
+        "type": "serial PRIMARY KEY"
+      },
+      {
+        "name": "code",
+        "type": "character varying(256)"
+      },
+      {
+        "name": "pipeline",
+        "type": "text"
+      },
+      {
+        "name": "timestamp",
+        "type": "timestamp without time zone DEFAULT now() NOT NULL"
+      },
+      {
+        "name": "search_type",
+        "type": "character varying(256)"
+      },
+      {
+        "name": "description",
+        "type": "text"
+      },
+      {
+        "name": "s_status",
+        "type": "character varying(32)"
+      },
+      {
+        "name": "color",
+        "type": "character varying(256)"
+      },
+      {
+        "name": "autocreate_tasks",
+        "type": "boolean"
+      },
+      {
+        "name": "data",
+        "type": "jsonb"
+      }
+    ],
+    "source_schema_file": "config_schema.sql",
+    "physical_db": "{project}",
+    "search_types": [
+      {
+        "code": "config/pipeline",
+        "search_type": "config/pipeline",
+        "namespace": "config",
+        "description": "Pipelines",
+        "database": "{project}",
+        "table_name": "spt_pipeline",
+        "class_name": "pyasm.search.SObject",
+        "title": "Pipelines",
+        "schema": "public"
+      }
+    ],
+    "category": "workflow",
+    "purpose": "Project-local pipeline XML/configuration.",
+    "write_policy": "pipeline_api",
+    "preferred_write_path": "Use pipeline editor and Pipeline synchronization routines.",
+    "cautions": "Do not update XML without synchronizing config/process and workflow behavior.",
+    "relations": "spt_process.pipeline_code; task.pipeline_code",
+    "status": "active core",
+    "confidence": "high"
+  },
+  {
+    "table": "spt_plugin",
+    "columns": [
+      {
+        "name": "id",
+        "type": "serial PRIMARY KEY"
+      },
+      {
+        "name": "code",
+        "type": "character varying(256)"
+      },
+      {
+        "name": "description",
+        "type": "text"
+      },
+      {
+        "name": "manifest",
+        "type": "text"
+      },
+      {
+        "name": "timestamp",
+        "type": "timestamp without time zone DEFAULT now() NOT NULL"
+      },
+      {
+        "name": "version",
+        "type": "character varying(256)"
+      },
+      {
+        "name": "rel_dir",
+        "type": "text"
+      },
+      {
+        "name": "s_status",
+        "type": "character varying(256)"
+      }
+    ],
+    "source_schema_file": "config_schema.sql",
+    "physical_db": "{project}",
+    "search_types": [
+      {
+        "code": "config/plugin",
+        "search_type": "config/plugin",
+        "namespace": "config",
+        "description": "Plugin",
+        "database": "{project}",
+        "table_name": "spt_plugin",
+        "class_name": "pyasm.search.SObject",
+        "title": "Plugin",
+        "schema": "public"
+      }
+    ],
+    "category": "plugins",
+    "purpose": "Installed plugin manifest/version/location record.",
+    "write_policy": "plugin_installer_only",
+    "preferred_write_path": "Use plugin installer/manager.",
+    "cautions": "A row alone does not install files, content or migrations.",
+    "relations": "spt_plugin_content.plugin_code",
+    "status": "active config",
+    "confidence": "high"
+  },
+  {
+    "table": "spt_plugin_content",
+    "columns": [
+      {
+        "name": "id",
+        "type": "serial PRIMARY KEY"
+      },
+      {
+        "name": "code",
+        "type": "character varying(256)"
+      },
+      {
+        "name": "plugin_code",
+        "type": "character varying(256)"
+      },
+      {
+        "name": "search_type",
+        "type": "character varying(256)"
+      },
+      {
+        "name": "search_code",
+        "type": "character varying(256)"
+      }
+    ],
+    "source_schema_file": "config_schema.sql",
+    "physical_db": "{project}",
+    "search_types": [
+      {
+        "code": "config/plugin_content",
+        "search_type": "config/plugin_content",
+        "namespace": "config",
+        "description": "Plugin Contents",
+        "database": "{project}",
+        "table_name": "spt_plugin_content",
+        "class_name": "pyasm.search.SObject",
+        "title": "Plugin Contents",
+        "schema": "public"
+      }
+    ],
+    "category": "plugins",
+    "purpose": "Mapping of a plugin to content SObjects it installed/owns.",
+    "write_policy": "plugin_installer_only",
+    "preferred_write_path": "Use plugin installer.",
+    "cautions": "Do not manually delete before plugin uninstall/rollback logic.",
+    "relations": "plugin_code -> arbitrary search_type/search_code",
+    "status": "active internal",
+    "confidence": "high"
+  },
+  {
+    "table": "spt_process",
+    "columns": [
+      {
+        "name": "id",
+        "type": "serial PRIMARY KEY"
+      },
+      {
+        "name": "code",
+        "type": "character varying(256)"
+      },
+      {
+        "name": "pipeline_code",
+        "type": "character varying(256)"
+      },
+      {
+        "name": "process",
+        "type": "character varying(256)"
+      },
+      {
+        "name": "color",
+        "type": "character varying(256)"
+      },
+      {
+        "name": "sort_order",
+        "type": "integer"
+      },
+      {
+        "name": "timestamp",
+        "type": "timestamp without time zone DEFAULT now() NOT NULL"
+      },
+      {
+        "name": "s_status",
+        "type": "character varying(256)"
+      },
+      {
+        "name": "checkin_mode",
+        "type": "text"
+      },
+      {
+        "name": "subcontext_options",
+        "type": "text"
+      },
+      {
+        "name": "checkin_validate_script_path",
+        "type": "text"
+      },
+      {
+        "name": "checkin_options_view",
+        "type": "text"
+      },
+      {
+        "name": "sandbox_create_script_path",
+        "type": "text"
+      },
+      {
+        "name": "context_options",
+        "type": "text"
+      },
+      {
+        "name": "description",
+        "type": "text"
+      },
+      {
+        "name": "repo_type",
+        "type": "character varying(256)"
+      },
+      {
+        "name": "transfer_mode",
+        "type": "character varying(256)"
+      }
+    ],
+    "source_schema_file": "config_schema.sql",
+    "physical_db": "{project}",
+    "search_types": [
+      {
+        "code": "config/process",
+        "search_type": "config/process",
+        "namespace": "config",
+        "description": "Processes",
+        "database": "{project}",
+        "table_name": "spt_process",
+        "class_name": "pyasm.search.SObject",
+        "title": "Processes",
+        "schema": "public"
+      }
+    ],
+    "category": "workflow",
+    "purpose": "Per-process configuration supplement for a pipeline node: check-in, contexts, repository and transfer behavior.",
+    "write_policy": "pipeline_api",
+    "preferred_write_path": "Use pipeline/process editor and synchronization APIs.",
+    "cautions": "This is node configuration, not a task instance. Keep process+pipeline_code aligned with pipeline XML.",
+    "relations": "pipeline_code+process; task/process; naming/checkin",
+    "status": "active core",
+    "confidence": "high"
+  },
+  {
+    "table": "spt_process_state",
+    "columns": [
+      {
+        "name": "id",
+        "type": "serial PRIMARY KEY"
+      },
+      {
+        "name": "code",
+        "type": "character varying(256)"
+      },
+      {
+        "name": "pipeline_code",
+        "type": "character varying(256)"
+      },
+      {
+        "name": "process",
+        "type": "character varying(256)"
+      },
+      {
+        "name": "search_type",
+        "type": "character varying(256)"
+      },
+      {
+        "name": "search_code",
+        "type": "character varying(256)"
+      },
+      {
+        "name": "timestamp",
+        "type": "timestamp without time zone DEFAULT now() NOT NULL"
+      },
+      {
+        "name": "status",
+        "type": "jsonb"
+      },
+      {
+        "name": "state",
+        "type": "character varying(256)"
+      },
+      {
+        "name": "data",
+        "type": "jsonb"
+      },
+      {
+        "name": "s_status",
+        "type": "character varying(32)"
+      }
+    ],
+    "source_schema_file": "config_schema.sql",
+    "physical_db": "{project}",
+    "search_types": [
+      {
+        "code": "config/process_state",
+        "search_type": "config/process_state",
+        "namespace": "config",
+        "description": "Process State",
+        "database": "{project}",
+        "table_name": "spt_process_state",
+        "class_name": "pyasm.search.SObject",
+        "title": "Process State",
+        "schema": "public"
+      }
+    ],
+    "category": "workflow",
+    "purpose": "Runtime workflow state for one SObject/process.",
+    "write_policy": "workflow_engine_only",
+    "preferred_write_path": "Let workflow engine create/update it.",
+    "cautions": "Do not use as task status or UI cache; status/data are engine-owned JSON.",
+    "relations": "search_type/search_code+pipeline_code+process",
+    "status": "active internal/core",
+    "confidence": "high"
+  },
+  {
+    "table": "spt_prod_setting",
+    "columns": [
+      {
+        "name": "id",
+        "type": "serial PRIMARY KEY"
+      },
+      {
+        "name": "code",
+        "type": "character varying(256)"
+      },
+      {
+        "name": "key",
+        "type": "character varying(100)"
+      },
+      {
+        "name": "value",
+        "type": "text"
+      },
+      {
+        "name": "description",
+        "type": "text"
+      },
+      {
+        "name": "type",
+        "type": "character varying(30)"
+      },
+      {
+        "name": "search_type",
+        "type": "character varying(200)"
+      },
+      {
+        "name": "category",
+        "type": "character varying(256)"
+      }
+    ],
+    "source_schema_file": "config_schema.sql",
+    "physical_db": "{project}",
+    "search_types": [
+      {
+        "code": "config/prod_setting",
+        "search_type": "config/prod_setting",
+        "namespace": "config",
+        "description": "Production Settings",
+        "database": "{project}",
+        "table_name": "spt_prod_setting",
+        "class_name": "pyasm.prod.biz.ProdSetting",
+        "title": "Production Settings",
+        "schema": "public"
+      }
+    ],
+    "category": "configuration",
+    "purpose": "Project production/application setting catalog.",
+    "write_policy": "class_api",
+    "preferred_write_path": "Use ProdSetting/ProjectSetting APIs.",
+    "cautions": "Keys may be cached and interpreted globally; avoid duplicates and arbitrary semantics.",
+    "relations": "key; search_type/category",
+    "status": "active config",
+    "confidence": "high"
+  },
+  {
+    "table": "spt_translation",
+    "columns": [
+      {
+        "name": "id",
+        "type": "serial PRIMARY KEY"
+      },
+      {
+        "name": "code",
+        "type": "character varying(256)"
+      },
+      {
+        "name": "name",
+        "type": "character varying(256)"
+      },
+      {
+        "name": "en",
+        "type": "text"
+      },
+      {
+        "name": "fr",
+        "type": "text"
+      },
+      {
+        "name": "ja",
+        "type": "text"
+      },
+      {
+        "name": "es",
+        "type": "text"
+      },
+      {
+        "name": "login",
+        "type": "character varying(256)"
+      },
+      {
+        "name": "timestamp",
+        "type": "timestamp without time zone DEFAULT now() NOT NULL"
+      }
+    ],
+    "source_schema_file": "config_schema.sql",
+    "physical_db": "{project}",
+    "search_types": [
+      {
+        "code": "config/translation",
+        "search_type": "config/translation",
+        "namespace": "config",
+        "description": "Translation",
+        "database": "{project}",
+        "table_name": "spt_translation",
+        "class_name": "pyasm.search.SObject",
+        "title": "Translation",
+        "schema": "public"
+      }
+    ],
+    "category": "localization",
+    "purpose": "Project-local translation table with language columns.",
+    "write_policy": "translation_manager",
+    "preferred_write_path": "Use translation/localization manager.",
+    "cautions": "Schema is language-column based and may not scale to arbitrary locales without migration.",
+    "relations": "name",
+    "status": "optional",
+    "confidence": "medium"
+  },
+  {
+    "table": "spt_trigger",
+    "columns": [
+      {
+        "name": "id",
+        "type": "serial PRIMARY KEY"
+      },
+      {
+        "name": "code",
+        "type": "character varying(256)"
+      },
+      {
+        "name": "class_name",
+        "type": "character varying(256)"
+      },
+      {
+        "name": "script_path",
+        "type": "character varying(256)"
+      },
+      {
+        "name": "title",
+        "type": "character varying(256)"
+      },
+      {
+        "name": "description",
+        "type": "text"
+      },
+      {
+        "name": "event",
+        "type": "character varying(256)"
+      },
+      {
+        "name": "mode",
+        "type": "character varying(256)"
+      },
+      {
+        "name": "process",
+        "type": "character varying(256)"
+      },
+      {
+        "name": "listen_process",
+        "type": "character varying(256)"
+      },
+      {
+        "name": "trigger_type",
+        "type": "character varying(256)"
+      },
+      {
+        "name": "data",
+        "type": "text"
+      },
+      {
+        "name": "timestamp",
+        "type": "timestamp without time zone DEFAULT now() NOT NULL"
+      },
+      {
+        "name": "search_type",
+        "type": "character varying(256)"
+      },
+      {
+        "name": "s_status",
+        "type": "character varying(256)"
+      }
+    ],
+    "source_schema_file": "config_schema.sql",
+    "physical_db": "{project}",
+    "search_types": [
+      {
+        "code": "config/trigger",
+        "search_type": "config/trigger",
+        "namespace": "config",
+        "description": "Triggers",
+        "database": "{project}",
+        "table_name": "spt_trigger",
+        "class_name": "pyasm.biz.TriggerSObj",
+        "title": "Triggers",
+        "schema": "public"
+      }
+    ],
+    "category": "configuration/triggers",
+    "purpose": "Project-local server trigger definition.",
+    "write_policy": "trigger_manager",
+    "preferred_write_path": "Use TriggerSObj/trigger manager and trigger installation APIs.",
+    "cautions": "Executable class/script configuration; event/process/listen_process semantics must be validated.",
+    "relations": "event/process/search_type",
+    "status": "active core",
+    "confidence": "high"
+  },
+  {
+    "table": "spt_url",
+    "columns": [
+      {
+        "name": "id",
+        "type": "serial PRIMARY KEY"
+      },
+      {
+        "name": "code",
+        "type": "character varying(256)"
+      },
+      {
+        "name": "url",
+        "type": "character varying(256)"
+      },
+      {
+        "name": "widget",
+        "type": "text"
+      },
+      {
+        "name": "description",
+        "type": "text"
+      },
+      {
+        "name": "timestamp",
+        "type": "timestamp without time zone DEFAULT now() NOT NULL"
+      },
+      {
+        "name": "s_status",
+        "type": "character varying(256)"
+      }
+    ],
+    "source_schema_file": "config_schema.sql",
+    "physical_db": "{project}",
+    "search_types": [
+      {
+        "code": "config/url",
+        "search_type": "config/url",
+        "namespace": "config",
+        "description": "Custom URL",
+        "database": "{project}",
+        "table_name": "spt_url",
+        "class_name": "pyasm.search.SObject",
+        "title": "Custom URL",
+        "schema": "public"
+      }
+    ],
+    "category": "configuration/UI",
+    "purpose": "Custom URL route to widget/configuration.",
+    "write_policy": "view_manager",
+    "preferred_write_path": "Use URL/widget configuration manager.",
+    "cautions": "Widget content is executable UI configuration; restrict write permissions.",
+    "relations": "url -> widget",
+    "status": "active config",
+    "confidence": "medium"
+  },
+  {
+    "table": "spt_widget_config",
+    "columns": [
+      {
+        "name": "id",
+        "type": "serial PRIMARY KEY"
+      },
+      {
+        "name": "code",
+        "type": "character varying(256)"
+      },
+      {
+        "name": "view",
+        "type": "character varying(256)"
+      },
+      {
+        "name": "category",
+        "type": "character varying(256)"
+      },
+      {
+        "name": "search_type",
+        "type": "character varying(256)"
+      },
+      {
+        "name": "login",
+        "type": "character varying(256)"
+      },
+      {
+        "name": "config",
+        "type": "text"
+      },
+      {
+        "name": "timestamp",
+        "type": "timestamp without time zone DEFAULT now() NOT NULL"
+      },
+      {
+        "name": "widget_type",
+        "type": "character varying(256)"
+      },
+      {
+        "name": "s_status",
+        "type": "character varying(32)"
+      }
+    ],
+    "source_schema_file": "config_schema.sql",
+    "physical_db": "{project}",
+    "search_types": [
+      {
+        "code": "config/widget_config",
+        "search_type": "config/widget_config",
+        "namespace": "config",
+        "description": "Widget Config",
+        "database": "{project}",
+        "table_name": "spt_widget_config",
+        "class_name": "pyasm.search.WidgetDbConfig",
+        "title": "Widget Config",
+        "schema": "public"
+      }
+    ],
+    "category": "configuration/UI",
+    "purpose": "Project view/form/table/widget XML configuration.",
+    "write_policy": "widget_config_api",
+    "preferred_write_path": "Use WidgetDbConfig/View Manager APIs.",
+    "cautions": "Do not overwrite configs blindly: category/view/search_type/login precedence matters and XML must remain valid.",
+    "relations": "search_type+view+category+login",
+    "status": "active core",
+    "confidence": "high"
+  },
+  {
+    "table": "status_log",
+    "columns": [
+      {
+        "name": "id",
+        "type": "serial PRIMARY KEY"
+      },
+      {
+        "name": "search_type",
+        "type": "character varying(256) NOT NULL"
+      },
+      {
+        "name": "search_id",
+        "type": "integer NOT NULL"
+      },
+      {
+        "name": "status",
+        "type": "text"
+      },
+      {
+        "name": "login",
+        "type": "character varying(256) NOT NULL"
+      },
+      {
+        "name": "timestamp",
+        "type": "timestamp without time zone DEFAULT now() NOT NULL"
+      },
+      {
+        "name": "to_status",
+        "type": "character varying(256)"
+      },
+      {
+        "name": "from_status",
+        "type": "character varying(256)"
+      },
+      {
+        "name": "project_code",
+        "type": "character varying(256)"
+      }
+    ],
+    "source_schema_file": "sthpw_schema.sql",
+    "physical_db": "sthpw",
+    "search_types": [
+      {
+        "code": "sthpw/status_log",
+        "search_type": "sthpw/status_log",
+        "namespace": "sthpw",
+        "description": "Log of status changes",
+        "database": "sthpw",
+        "table_name": "status_log",
+        "class_name": "pyasm.search.SObject",
+        "title": "Status Log",
+        "schema": "public"
+      }
+    ],
+    "category": "workflow/tasks",
+    "purpose": "Append-only status transition history for an SObject, commonly task.",
+    "write_policy": "read_only_system",
+    "preferred_write_path": "Let Task/status-change/trigger machinery append it.",
+    "cautions": "Do not update old rows or use as current status; current value lives on the target object/task.",
+    "relations": "search_type/search_id; from_status/to_status",
+    "status": "active core",
+    "confidence": "high"
+  },
+  {
+    "table": "subscription",
+    "columns": [
+      {
+        "name": "id",
+        "type": "serial PRIMARY KEY"
+      },
+      {
+        "name": "code",
+        "type": "character varying(256)"
+      },
+      {
+        "name": "category",
+        "type": "character varying(256)"
+      },
+      {
+        "name": "message_code",
+        "type": "character varying(256)"
+      },
+      {
+        "name": "login",
+        "type": "character varying(256)"
+      },
+      {
+        "name": "project_code",
+        "type": "character varying(32)"
+      },
+      {
+        "name": "status",
+        "type": "character varying(32)"
+      },
+      {
+        "name": "last_cleared",
+        "type": "timestamp without time zone DEFAULT now() NOT NULL"
+      },
+      {
+        "name": "timestamp",
+        "type": "timestamp without time zone DEFAULT now() NOT NULL"
+      }
+    ],
+    "source_schema_file": "sthpw_schema.sql",
+    "physical_db": "sthpw",
+    "search_types": [
+      {
+        "code": "sthpw/subscription",
+        "search_type": "sthpw/subscription",
+        "namespace": "sthpw",
+        "description": "Subscription",
+        "database": "sthpw",
+        "table_name": "subscription",
+        "class_name": "pyasm.search.SObject",
+        "title": "Subscription",
+        "schema": "public"
+      }
+    ],
+    "category": "messaging",
+    "purpose": "User subscription/membership to a message channel with last-cleared read cursor.",
+    "write_policy": "message_api",
+    "preferred_write_path": "Use Subscription/message APIs.",
+    "cautions": "Do not use as universal arbitrary subscription without message_code semantics; last_cleared is a watermark.",
+    "relations": "message_code+login",
+    "status": "active core",
+    "confidence": "high"
+  },
+  {
+    "table": "sync_job",
+    "columns": [
+      {
+        "name": "id",
+        "type": "serial PRIMARY KEY"
+      },
+      {
+        "name": "code",
+        "type": "character varying(256)"
+      },
+      {
+        "name": "login",
+        "type": "character varying(256)"
+      },
+      {
+        "name": "timestamp",
+        "type": "timestamp without time zone DEFAULT now() NOT NULL"
+      },
+      {
+        "name": "command",
+        "type": "text"
+      },
+      {
+        "name": "data",
+        "type": "text"
+      },
+      {
+        "name": "state",
+        "type": "character varying(256)"
+      },
+      {
+        "name": "host",
+        "type": "character varying(256)"
+      },
+      {
+        "name": "project_code",
+        "type": "character varying(256)"
+      },
+      {
+        "name": "error_log",
+        "type": "text"
+      },
+      {
+        "name": "server_code",
+        "type": "character varying(256)"
+      },
+      {
+        "name": "transaction_code",
+        "type": "character varying(256)"
+      }
+    ],
+    "source_schema_file": "sthpw_schema.sql",
+    "physical_db": "sthpw",
+    "search_types": [
+      {
+        "code": "sthpw/sync_job",
+        "search_type": "sthpw/sync_job",
+        "namespace": "sthpw",
+        "description": "Sync Job",
+        "database": "sthpw",
+        "table_name": "sync_job",
+        "class_name": "pyasm.search.SObject",
+        "title": "Sync Job",
+        "schema": "public"
+      }
+    ],
+    "category": "sync",
+    "purpose": "Outgoing/incoming remote synchronization job.",
+    "write_policy": "sync_engine_only",
+    "preferred_write_path": "Use synchronization engine.",
+    "cautions": "Command/data/state and transaction linkage are engine contracts.",
+    "relations": "sync_server/server_code; transaction_code",
+    "status": "active optional",
+    "confidence": "high"
+  },
+  {
+    "table": "sync_log",
+    "columns": [
+      {
+        "name": "id",
+        "type": "serial PRIMARY KEY"
+      },
+      {
+        "name": "code",
+        "type": "character varying(256)"
+      },
+      {
+        "name": "transaction_code",
+        "type": "character varying(256)"
+      },
+      {
+        "name": "status",
+        "type": "character varying(256)"
+      },
+      {
+        "name": "error",
+        "type": "character varying(256)"
+      },
+      {
+        "name": "login",
+        "type": "character varying(256)"
+      },
+      {
+        "name": "timestamp",
+        "type": "timestamp without time zone DEFAULT now() NOT NULL"
+      },
+      {
+        "name": "project_code",
+        "type": "character varying(256)"
+      }
+    ],
+    "source_schema_file": "sthpw_schema.sql",
+    "physical_db": "sthpw",
+    "search_types": [
+      {
+        "code": "sthpw/sync_log",
+        "search_type": "sthpw/sync_log",
+        "namespace": "sthpw",
+        "description": "List of all processed incoming sync jobs",
+        "database": "sthpw",
+        "table_name": "sync_log",
+        "class_name": "pyasm.search.SObject",
+        "title": "Sync Log",
+        "schema": "public"
+      }
+    ],
+    "category": "sync",
+    "purpose": "Processed synchronization transaction/result log.",
+    "write_policy": "read_only_system",
+    "preferred_write_path": "Written by sync engine.",
+    "cautions": "Do not retry by editing rows; use sync job/recovery APIs.",
+    "relations": "transaction_code; project_code",
+    "status": "active optional",
+    "confidence": "high"
+  },
+  {
+    "table": "sync_server",
+    "columns": [
+      {
+        "name": "id",
+        "type": "serial PRIMARY KEY"
+      },
+      {
+        "name": "code",
+        "type": "character varying(256)"
+      },
+      {
+        "name": "host",
+        "type": "character varying(256)"
+      },
+      {
+        "name": "login",
+        "type": "character varying(256)"
+      },
+      {
+        "name": "timestamp",
+        "type": "timestamp without time zone DEFAULT now() NOT NULL"
+      },
+      {
+        "name": "state",
+        "type": "character varying(256)"
+      },
+      {
+        "name": "ticket",
+        "type": "character varying(256)"
+      },
+      {
+        "name": "access_rules",
+        "type": "text"
+      },
+      {
+        "name": "description",
+        "type": "text"
+      },
+      {
+        "name": "sync_mode",
+        "type": "character varying(256)"
+      },
+      {
+        "name": "base_dir",
+        "type": "text"
+      },
+      {
+        "name": "file_mode",
+        "type": "character varying(256)"
+      }
+    ],
+    "source_schema_file": "sthpw_schema.sql",
+    "physical_db": "sthpw",
+    "search_types": [
+      {
+        "code": "sthpw/sync_server",
+        "search_type": "sthpw/sync_server",
+        "namespace": "sthpw",
+        "description": "Sync Server",
+        "database": "sthpw",
+        "table_name": "sync_server",
+        "class_name": "pyasm.search.SObject",
+        "title": "Sync Server",
+        "schema": "public"
+      }
+    ],
+    "category": "sync",
+    "purpose": "Remote TACTIC synchronization peer and credentials/rules.",
+    "write_policy": "sync_admin",
+    "preferred_write_path": "Use sync-server administration.",
+    "cautions": "Contains ticket/access rules and connectivity data; protect as secret config.",
+    "relations": "sync_job.server_code",
+    "status": "active optional",
+    "confidence": "high"
+  },
+  {
+    "table": "task",
+    "columns": [
+      {
+        "name": "id",
+        "type": "serial PRIMARY KEY"
+      },
+      {
+        "name": "assigned",
+        "type": "character varying(100)"
+      },
+      {
+        "name": "description",
+        "type": "text"
+      },
+      {
+        "name": "status",
+        "type": "character varying(32)"
+      },
+      {
+        "name": "discussion",
+        "type": "text"
+      },
+      {
+        "name": "bid_start_date",
+        "type": "timestamp"
+      },
+      {
+        "name": "bid_end_date",
+        "type": "timestamp"
+      },
+      {
+        "name": "bid_duration",
+        "type": "float"
+      },
+      {
+        "name": "actual_start_date",
+        "type": "timestamp"
+      },
+      {
+        "name": "actual_end_date",
+        "type": "timestamp"
+      },
+      {
+        "name": "search_type",
+        "type": "character varying(100)"
+      },
+      {
+        "name": "search_id",
+        "type": "integer"
+      },
+      {
+        "name": "timestamp",
+        "type": "timestamp without time zone DEFAULT now() NOT NULL"
+      },
+      {
+        "name": "s_status",
+        "type": "character varying(30)"
+      },
+      {
+        "name": "priority",
+        "type": "integer"
+      },
+      {
+        "name": "process",
+        "type": "character varying(256)"
+      },
+      {
+        "name": "context",
+        "type": "character varying(256)"
+      },
+      {
+        "name": "milestone_code",
+        "type": "character varying(200)"
+      },
+      {
+        "name": "pipeline_code",
+        "type": "character varying(256)"
+      },
+      {
+        "name": "parent_id",
+        "type": "integer"
+      },
+      {
+        "name": "sort_order",
+        "type": "integer"
+      },
+      {
+        "name": "depend_id",
+        "type": "integer"
+      },
+      {
+        "name": "project_code",
+        "type": "character varying(100)"
+      },
+      {
+        "name": "supervisor",
+        "type": "character varying(100)"
+      },
+      {
+        "name": "code",
+        "type": "character varying(256)"
+      },
+      {
+        "name": "login",
+        "type": "character varying(256)"
+      },
+      {
+        "name": "completion",
+        "type": "float"
+      }
+    ],
+    "source_schema_file": "sthpw_schema.sql",
+    "physical_db": "sthpw",
+    "search_types": [
+      {
+        "code": "sthpw/task",
+        "search_type": "sthpw/task",
+        "namespace": "sthpw",
+        "description": "User Tasks",
+        "database": "sthpw",
+        "table_name": "task",
+        "class_name": "pyasm.biz.Task",
+        "title": "User Tasks",
+        "schema": null
+      }
+    ],
+    "category": "workflow/tasks",
+    "purpose": "Concrete work item for one target SObject and process.",
+    "write_policy": "class_api",
+    "preferred_write_path": "Use Task.create/task APIs and status methods.",
+    "cautions": "Do not create a parallel task table; preserve search target, process, pipeline, assignee and status triggers.",
+    "relations": "search_type/search_id; pipeline_code/process; milestone/dependency",
+    "status": "active core",
+    "confidence": "high"
+  },
+  {
+    "table": "ticket",
+    "columns": [
+      {
+        "name": "id",
+        "type": "serial PRIMARY KEY"
+      },
+      {
+        "name": "code",
+        "type": "character varying(256)"
+      },
+      {
+        "name": "ticket",
+        "type": "character varying(100) NOT NULL"
+      },
+      {
+        "name": "login",
+        "type": "character varying(100)"
+      },
+      {
+        "name": "timestamp",
+        "type": "timestamp without time zone DEFAULT now() NOT NULL"
+      },
+      {
+        "name": "expiry",
+        "type": "timestamp"
+      },
+      {
+        "name": "category",
+        "type": "character varying(256)"
+      }
+    ],
+    "source_schema_file": "sthpw_schema.sql",
+    "physical_db": "sthpw",
+    "search_types": [
+      {
+        "code": "sthpw/ticket",
+        "search_type": "sthpw/ticket",
+        "namespace": "sthpw",
+        "description": "Valid login tickets to enter the system",
+        "database": "sthpw",
+        "table_name": "ticket",
+        "class_name": "pyasm.security.Ticket",
+        "title": "Ticket",
+        "schema": "public"
+      }
+    ],
+    "category": "security/users",
+    "purpose": "Authentication/session ticket with expiry/category.",
+    "write_policy": "security_api_only",
+    "preferred_write_path": "Use Ticket/authentication/session APIs.",
+    "cautions": "Never mint or update tickets directly from clients.",
+    "relations": "login",
+    "status": "active core",
+    "confidence": "high"
+  },
+  {
+    "table": "transaction_log",
+    "columns": [
+      {
+        "name": "id",
+        "type": "serial PRIMARY KEY"
+      },
+      {
+        "name": "code",
+        "type": "character varying(256)"
+      },
+      {
+        "name": "transaction",
+        "type": "text"
+      },
+      {
+        "name": "login",
+        "type": "character varying(100) NOT NULL"
+      },
+      {
+        "name": "timestamp",
+        "type": "timestamp without time zone DEFAULT now() NOT NULL"
+      },
+      {
+        "name": "description",
+        "type": "text"
+      },
+      {
+        "name": "command",
+        "type": "character varying(100)"
+      },
+      {
+        "name": "title",
+        "type": "text"
+      },
+      {
+        "name": "type",
+        "type": "character varying(30)"
+      },
+      {
+        "name": "namespace",
+        "type": "character varying(100)"
+      }
+    ],
+    "source_schema_file": "sthpw_schema.sql",
+    "physical_db": "sthpw",
+    "search_types": [
+      {
+        "code": "sthpw/transaction_log",
+        "search_type": "sthpw/transaction_log",
+        "namespace": "sthpw",
+        "description": null,
+        "database": "sthpw",
+        "table_name": "transaction_log",
+        "class_name": "pyasm.search.TransactionLog",
+        "title": "Transaction Log",
+        "schema": "public"
+      }
+    ],
+    "category": "audit/internal",
+    "purpose": "Full transaction/command log including XML change payload and undo-related metadata.",
+    "write_policy": "read_only_system",
+    "preferred_write_path": "Written by transaction manager.",
+    "cautions": "Large/sensitive; do not mutate, and do not treat every row as user-facing activity.",
+    "relations": "sobject_log.transaction_log_id; transaction_code references",
+    "status": "active core/internal",
+    "confidence": "high"
+  },
+  {
+    "table": "transaction_state",
+    "columns": [
+      {
+        "name": "id",
+        "type": "serial PRIMARY KEY"
+      },
+      {
+        "name": "ticket",
+        "type": "character varying(100)"
+      },
+      {
+        "name": "timestamp",
+        "type": "timestamp without time zone DEFAULT now() NOT NULL"
+      },
+      {
+        "name": "data",
+        "type": "text"
+      }
+    ],
+    "source_schema_file": "sthpw_schema.sql",
+    "physical_db": "sthpw",
+    "search_types": [
+      {
+        "code": "sthpw/transaction_state",
+        "search_type": "sthpw/transaction_state",
+        "namespace": "sthpw",
+        "description": "XMLRPC State",
+        "database": "sthpw",
+        "table_name": "transaction_state",
+        "class_name": "pyasm.search.TransactionState",
+        "title": "transaction_state",
+        "schema": "public"
+      }
+    ],
+    "category": "audit/internal",
+    "purpose": "Temporary XML-RPC/transaction state keyed by ticket.",
+    "write_policy": "internal_only",
+    "preferred_write_path": "Use transaction/XML-RPC state subsystem.",
+    "cautions": "Ephemeral internal state, not user settings.",
+    "relations": "ticket",
+    "status": "internal",
+    "confidence": "high"
+  },
+  {
+    "table": "translation",
+    "columns": [
+      {
+        "name": "id",
+        "type": "serial PRIMARY KEY"
+      },
+      {
+        "name": "code",
+        "type": "character varying(256)"
+      },
+      {
+        "name": "language",
+        "type": "character varying(256)"
+      },
+      {
+        "name": "msgid",
+        "type": "character varying(256)"
+      },
+      {
+        "name": "msgstr",
+        "type": "character varying(256)"
+      },
+      {
+        "name": "line",
+        "type": "character varying(256)"
+      },
+      {
+        "name": "login",
+        "type": "character varying(256)"
+      },
+      {
+        "name": "timestamp",
+        "type": "timestamp without time zone DEFAULT now() NOT NULL"
+      }
+    ],
+    "source_schema_file": "sthpw_schema.sql",
+    "physical_db": "sthpw",
+    "search_types": [
+      {
+        "code": "sthpw/translation",
+        "search_type": "sthpw/translation",
+        "namespace": "sthpw",
+        "description": "Locale Translations",
+        "database": "sthpw",
+        "table_name": "{public}.translation",
+        "class_name": "pyasm.search.SObject",
+        "title": "",
+        "schema": "public"
+      }
+    ],
+    "category": "localization",
+    "purpose": "Global locale msgid/msgstr translation records.",
+    "write_policy": "translation_manager",
+    "preferred_write_path": "Use localization manager.",
+    "cautions": "Do not mix with config/translation semantics without deciding global vs project scope.",
+    "relations": "language+msgid",
+    "status": "optional",
+    "confidence": "medium"
+  },
+  {
+    "table": "trigger",
+    "columns": [
+      {
+        "name": "id",
+        "type": "serial PRIMARY KEY"
+      },
+      {
+        "name": "code",
+        "type": "character varying(256)"
+      },
+      {
+        "name": "class_name",
+        "type": "character varying(256)"
+      },
+      {
+        "name": "script_path",
+        "type": "character varying(256)"
+      },
+      {
+        "name": "description",
+        "type": "text"
+      },
+      {
+        "name": "event",
+        "type": "character varying(256)"
+      },
+      {
+        "name": "mode",
+        "type": "character varying(256)"
+      },
+      {
+        "name": "project_code",
+        "type": "character varying(256)"
+      },
+      {
+        "name": "s_status",
+        "type": "character varying(256)"
+      },
+      {
+        "name": "process",
+        "type": "character varying(256)"
+      },
+      {
+        "name": "data",
+        "type": "jsonb"
+      }
+    ],
+    "source_schema_file": "bootstrap_schema.sql",
+    "physical_db": "sthpw",
+    "search_types": [
+      {
+        "code": "sthpw/trigger",
+        "search_type": "sthpw/trigger",
+        "namespace": "sthpw",
+        "description": "Triggers",
+        "database": "sthpw",
+        "table_name": "trigger",
+        "class_name": "pyasm.biz.TriggerSObj",
+        "title": "Triggers",
+        "schema": "public"
+      }
+    ],
+    "category": "configuration/triggers",
+    "purpose": "Global/system trigger definition.",
+    "write_policy": "trigger_manager",
+    "preferred_write_path": "Use TriggerSObj/trigger administration.",
+    "cautions": "Prefer config/trigger for project-scoped behavior; executable configuration must be secured.",
+    "relations": "event/process/project_code",
+    "status": "active compatibility/core",
+    "confidence": "high"
+  },
+  {
+    "table": "watch_folder",
+    "columns": [
+      {
+        "name": "id",
+        "type": "serial PRIMARY KEY"
+      },
+      {
+        "name": "code",
+        "type": "character varying(256)"
+      },
+      {
+        "name": "name",
+        "type": "character varying(256)"
+      },
+      {
+        "name": "project_code",
+        "type": "character varying(256)"
+      },
+      {
+        "name": "base_dir",
+        "type": "text"
+      },
+      {
+        "name": "search_type",
+        "type": "character varying(256)"
+      },
+      {
+        "name": "process",
+        "type": "character varying(256)"
+      },
+      {
+        "name": "timestamp",
+        "type": "timestamp without time zone DEFAULT now() NOT NULL"
+      },
+      {
+        "name": "script_path",
+        "type": "character varying(1024)"
+      }
+    ],
+    "source_schema_file": "sthpw_schema.sql",
+    "physical_db": "sthpw",
+    "search_types": [
+      {
+        "code": "sthpw/watch_folder",
+        "search_type": "sthpw/watch_folder",
+        "namespace": "sthpw",
+        "description": "Watch Folder",
+        "database": "sthpw",
+        "table_name": "watch_folder",
+        "class_name": "pyasm.search.SObject",
+        "title": "Watch Folder",
+        "schema": "public"
+      }
+    ],
+    "category": "ingest/watch",
+    "purpose": "Watched folder configuration that launches a script/process for incoming files.",
+    "write_policy": "watch_folder_api",
+    "preferred_write_path": "Use watch-folder/ingest manager.",
+    "cautions": "Do not treat as a generic filesystem bookmark; script and service lifecycle matter.",
+    "relations": "project_code+search_type+process",
+    "status": "active optional",
+    "confidence": "medium"
+  },
+  {
+    "table": "wdg_settings",
+    "columns": [
+      {
+        "name": "id",
+        "type": "serial PRIMARY KEY"
+      },
+      {
+        "name": "key",
+        "type": "character varying(255) NOT NULL"
+      },
+      {
+        "name": "login",
+        "type": "character varying(100) NOT NULL"
+      },
+      {
+        "name": "data",
+        "type": "text"
+      },
+      {
+        "name": "timestamp",
+        "type": "timestamp without time zone DEFAULT now() NOT NULL"
+      },
+      {
+        "name": "project_code",
+        "type": "character varying(30)"
+      }
+    ],
+    "source_schema_file": "sthpw_schema.sql",
+    "physical_db": "sthpw",
+    "search_types": [
+      {
+        "code": "sthpw/wdg_settings",
+        "search_type": "sthpw/wdg_settings",
+        "namespace": "sthpw",
+        "description": "Persistent store for widgets to remember user settings",
+        "database": "sthpw",
+        "table_name": "wdg_settings",
+        "class_name": "pyasm.web.WidgetSettings",
+        "title": "Widget Settings",
+        "schema": "public"
+      }
+    ],
+    "category": "preferences",
+    "purpose": "Persistent per-user widget state.",
+    "write_policy": "class_api",
+    "preferred_write_path": "Use WidgetSettings.",
+    "cautions": "UI-only state; namespace keys and avoid authoritative business data.",
+    "relations": "login+project_code+key",
+    "status": "active core",
+    "confidence": "high"
+  },
+  {
+    "table": "work_hour",
+    "columns": [
+      {
+        "name": "id",
+        "type": "serial PRIMARY KEY"
+      },
+      {
+        "name": "code",
+        "type": "character varying(256)"
+      },
+      {
+        "name": "project_code",
+        "type": "character varying(256)"
+      },
+      {
+        "name": "description",
+        "type": "text"
+      },
+      {
+        "name": "category",
+        "type": "character varying(256)"
+      },
+      {
+        "name": "process",
+        "type": "character varying(256)"
+      },
+      {
+        "name": "login",
+        "type": "character varying(256)"
+      },
+      {
+        "name": "day",
+        "type": "timestamp"
+      },
+      {
+        "name": "start_time",
+        "type": "timestamp"
+      },
+      {
+        "name": "end_time",
+        "type": "timestamp"
+      },
+      {
+        "name": "straight_time",
+        "type": "float"
+      },
+      {
+        "name": "over_time",
+        "type": "float"
+      },
+      {
+        "name": "search_type",
+        "type": "character varying(256)"
+      },
+      {
+        "name": "search_id",
+        "type": "integer"
+      },
+      {
+        "name": "status",
+        "type": "character varying(256)"
+      },
+      {
+        "name": "task_code",
+        "type": "character varying(256)"
+      }
+    ],
+    "source_schema_file": "sthpw_schema.sql",
+    "physical_db": "sthpw",
+    "search_types": [
+      {
+        "code": "sthpw/work_hour",
+        "search_type": "sthpw/work_hour",
+        "namespace": "sthpw",
+        "description": "Work Hours",
+        "database": "sthpw",
+        "table_name": "work_hour",
+        "class_name": "pyasm.biz.WorkHour",
+        "title": "Work Hours",
+        "schema": "public"
+      }
+    ],
+    "category": "time tracking",
+    "purpose": "Time/work-hour entry linked to an SObject/task/process.",
+    "write_policy": "class_api",
+    "preferred_write_path": "Use WorkHour/timecard APIs.",
+    "cautions": "Durations, dates and task linkage may drive reports/payroll; validate rather than ad-hoc insert.",
+    "relations": "search_type/search_id; task_code; login",
+    "status": "active optional",
+    "confidence": "high"
+  }
+]

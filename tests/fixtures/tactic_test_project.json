@@ -1,0 +1,34 @@
+{
+  "version": 1,
+  "marker": "tactic-handler-test-v1",
+  "projectCodePrefix": "th_test_",
+  "searchTypes": [
+    {"code": "th_test/asset", "pipeline": "th_test/asset"},
+    {"code": "th_test/shot", "pipeline": "th_test/shot"}
+  ],
+  "groups": ["th_test_artists", "th_test_supervisors"],
+  "users": ["th_test_artist", "th_test_supervisor"],
+  "objects": [
+    {"key": "asset.hero", "searchType": "th_test/asset", "name": "Fixture Hero"},
+    {"key": "shot.010", "searchType": "th_test/shot", "name": "Fixture Shot 010"}
+  ],
+  "tasks": [
+    {"key": "task.model", "parent": "asset.hero", "process": "model", "status": "In Progress", "assigned": "th_test_artist", "bidDuration": 24},
+    {"key": "task.publish", "parent": "shot.010", "process": "publish", "status": "Assignment", "assigned": "th_test_artist", "bidDuration": 8}
+  ],
+  "milestones": [
+    {"key": "milestone.delivery", "name": "Fixture Delivery", "completion": 25}
+  ],
+  "workHours": [
+    {"key": "hours.model", "task": "task.model", "login": "th_test_artist", "hours": 2.5}
+  ],
+  "notes": [
+    {"key": "note.model", "parent": "asset.hero", "process": "model", "message": "Fixture model note"}
+  ],
+  "snapshots": [
+    {"key": "snapshot.model", "parent": "asset.hero", "context": "model/main", "file": "fixture_model.txt"}
+  ],
+  "chats": [
+    {"key": "chat.review", "title": "Fixture Review", "members": ["th_test_artist", "th_test_supervisor"], "messages": ["Fixture review message"]}
+  ]
+}

@@ -1,0 +1,5340 @@
+{
+  "thlib/environment.py": {
+    "Controls": {
+      "kind": "class",
+      "methods": {
+        "get_checkin": {
+          "keywordOnly": [],
+          "kwarg": "",
+          "positional": [
+            "self"
+          ],
+          "required": [
+            "self"
+          ],
+          "vararg": ""
+        },
+        "get_checkin_out": {
+          "keywordOnly": [],
+          "kwarg": "",
+          "positional": [
+            "self"
+          ],
+          "required": [
+            "self"
+          ],
+          "vararg": ""
+        },
+        "get_checkin_out_projects": {
+          "keywordOnly": [],
+          "kwarg": "",
+          "positional": [
+            "self"
+          ],
+          "required": [
+            "self"
+          ],
+          "vararg": ""
+        },
+        "get_maya_scene": {
+          "keywordOnly": [],
+          "kwarg": "",
+          "positional": [
+            "self"
+          ],
+          "required": [
+            "self"
+          ],
+          "vararg": ""
+        },
+        "get_project": {
+          "keywordOnly": [],
+          "kwarg": "",
+          "positional": [
+            "self"
+          ],
+          "required": [
+            "self"
+          ],
+          "vararg": ""
+        },
+        "get_server": {
+          "keywordOnly": [],
+          "kwarg": "",
+          "positional": [
+            "self"
+          ],
+          "required": [
+            "self"
+          ],
+          "vararg": ""
+        },
+        "reset": {
+          "keywordOnly": [],
+          "kwarg": "",
+          "positional": [
+            "self"
+          ],
+          "required": [
+            "self"
+          ],
+          "vararg": ""
+        },
+        "set_checkin": {
+          "keywordOnly": [],
+          "kwarg": "",
+          "positional": [
+            "self",
+            "checkin"
+          ],
+          "required": [
+            "self",
+            "checkin"
+          ],
+          "vararg": ""
+        },
+        "set_checkin_out": {
+          "keywordOnly": [],
+          "kwarg": "",
+          "positional": [
+            "self",
+            "checkin_out"
+          ],
+          "required": [
+            "self",
+            "checkin_out"
+          ],
+          "vararg": ""
+        },
+        "set_checkin_out_projects": {
+          "keywordOnly": [],
+          "kwarg": "",
+          "positional": [
+            "self",
+            "checkin_out_projects"
+          ],
+          "required": [
+            "self",
+            "checkin_out_projects"
+          ],
+          "vararg": ""
+        },
+        "set_maya_scene": {
+          "keywordOnly": [],
+          "kwarg": "",
+          "positional": [
+            "self",
+            "maya_scene"
+          ],
+          "required": [
+            "self",
+            "maya_scene"
+          ],
+          "vararg": ""
+        },
+        "set_project": {
+          "keywordOnly": [],
+          "kwarg": "",
+          "positional": [
+            "self",
+            "project"
+          ],
+          "required": [
+            "self",
+            "project"
+          ],
+          "vararg": ""
+        },
+        "set_server": {
+          "keywordOnly": [],
+          "kwarg": "",
+          "positional": [
+            "self",
+            "server"
+          ],
+          "required": [
+            "self",
+            "server"
+          ],
+          "vararg": ""
+        }
+      }
+    },
+    "DebugLog": {
+      "kind": "class",
+      "methods": {
+        "critical": {
+          "keywordOnly": [],
+          "kwarg": "",
+          "positional": [
+            "self",
+            "message",
+            "caller",
+            "group_id"
+          ],
+          "required": [
+            "self",
+            "message"
+          ],
+          "vararg": ""
+        },
+        "error": {
+          "keywordOnly": [],
+          "kwarg": "",
+          "positional": [
+            "self",
+            "message",
+            "caller",
+            "group_id"
+          ],
+          "required": [
+            "self",
+            "message"
+          ],
+          "vararg": ""
+        },
+        "exception": {
+          "keywordOnly": [],
+          "kwarg": "",
+          "positional": [
+            "self",
+            "message",
+            "caller",
+            "group_id"
+          ],
+          "required": [
+            "self",
+            "message"
+          ],
+          "vararg": ""
+        },
+        "get_trace": {
+          "keywordOnly": [],
+          "kwarg": "",
+          "positional": [
+            "self",
+            "message_text",
+            "message_type",
+            "caller",
+            "group_id"
+          ],
+          "required": [
+            "self",
+            "message_text",
+            "message_type"
+          ],
+          "vararg": ""
+        },
+        "info": {
+          "keywordOnly": [],
+          "kwarg": "",
+          "positional": [
+            "self",
+            "message",
+            "caller",
+            "group_id"
+          ],
+          "required": [
+            "self",
+            "message"
+          ],
+          "vararg": ""
+        },
+        "log": {
+          "keywordOnly": [],
+          "kwarg": "",
+          "positional": [
+            "self",
+            "message",
+            "caller",
+            "group_id"
+          ],
+          "required": [
+            "self",
+            "message"
+          ],
+          "vararg": ""
+        },
+        "warning": {
+          "keywordOnly": [],
+          "kwarg": "",
+          "positional": [
+            "self",
+            "message",
+            "caller",
+            "group_id"
+          ],
+          "required": [
+            "self",
+            "message"
+          ],
+          "vararg": ""
+        }
+      }
+    },
+    "Env": {
+      "kind": "class",
+      "methods": {
+        "add_server_preset": {
+          "keywordOnly": [],
+          "kwarg": "",
+          "positional": [
+            "self",
+            "preset_name",
+            "set_current"
+          ],
+          "required": [
+            "self",
+            "preset_name"
+          ],
+          "vararg": ""
+        },
+        "get_config_format": {
+          "keywordOnly": [],
+          "kwarg": "",
+          "positional": [
+            "self"
+          ],
+          "required": [
+            "self"
+          ],
+          "vararg": ""
+        },
+        "get_cur_srv_preset": {
+          "keywordOnly": [],
+          "kwarg": "",
+          "positional": [
+            "self"
+          ],
+          "required": [
+            "self"
+          ],
+          "vararg": ""
+        },
+        "get_default_preset": {
+          "keywordOnly": [],
+          "kwarg": "",
+          "positional": [
+            "self"
+          ],
+          "required": [
+            "self"
+          ],
+          "vararg": ""
+        },
+        "get_defaults": {
+          "keywordOnly": [],
+          "kwarg": "",
+          "positional": [
+            "self"
+          ],
+          "required": [
+            "self"
+          ],
+          "vararg": ""
+        },
+        "get_proxy": {
+          "keywordOnly": [],
+          "kwarg": "",
+          "positional": [
+            "self"
+          ],
+          "required": [
+            "self"
+          ],
+          "vararg": ""
+        },
+        "get_server": {
+          "keywordOnly": [],
+          "kwarg": "",
+          "positional": [
+            "self"
+          ],
+          "required": [
+            "self"
+          ],
+          "vararg": ""
+        },
+        "get_server_preset": {
+          "keywordOnly": [],
+          "kwarg": "",
+          "positional": [
+            "preset_name"
+          ],
+          "required": [
+            "preset_name"
+          ],
+          "vararg": ""
+        },
+        "get_server_presets": {
+          "keywordOnly": [],
+          "kwarg": "",
+          "positional": [
+            "self"
+          ],
+          "required": [
+            "self"
+          ],
+          "vararg": ""
+        },
+        "get_server_presets_defaults": {
+          "keywordOnly": [],
+          "kwarg": "",
+          "positional": [
+            "self"
+          ],
+          "required": [
+            "self"
+          ],
+          "vararg": ""
+        },
+        "get_site": {
+          "keywordOnly": [],
+          "kwarg": "",
+          "positional": [
+            "self"
+          ],
+          "required": [
+            "self"
+          ],
+          "vararg": ""
+        },
+        "get_ticket": {
+          "keywordOnly": [],
+          "kwarg": "",
+          "positional": [
+            "self"
+          ],
+          "required": [
+            "self"
+          ],
+          "vararg": ""
+        },
+        "get_timeout": {
+          "keywordOnly": [],
+          "kwarg": "",
+          "positional": [
+            "self"
+          ],
+          "required": [
+            "self"
+          ],
+          "vararg": ""
+        },
+        "get_user": {
+          "keywordOnly": [],
+          "kwarg": "",
+          "positional": [
+            "self"
+          ],
+          "required": [
+            "self"
+          ],
+          "vararg": ""
+        },
+        "load_current_preset": {
+          "keywordOnly": [],
+          "kwarg": "",
+          "positional": [
+            "self",
+            "preserve_values"
+          ],
+          "required": [
+            "self"
+          ],
+          "vararg": ""
+        },
+        "reload": {
+          "keywordOnly": [],
+          "kwarg": "",
+          "positional": [
+            "self"
+          ],
+          "required": [
+            "self"
+          ],
+          "vararg": ""
+        },
+        "remove_server_preset": {
+          "keywordOnly": [],
+          "kwarg": "",
+          "positional": [
+            "self",
+            "preset_name"
+          ],
+          "required": [
+            "self",
+            "preset_name"
+          ],
+          "vararg": ""
+        },
+        "save_default_preset": {
+          "keywordOnly": [],
+          "kwarg": "",
+          "positional": [
+            "self"
+          ],
+          "required": [
+            "self"
+          ],
+          "vararg": ""
+        },
+        "save_defaults": {
+          "keywordOnly": [],
+          "kwarg": "",
+          "positional": [
+            "self",
+            "defaults"
+          ],
+          "required": [
+            "self"
+          ],
+          "vararg": ""
+        },
+        "save_server_presets_defaults": {
+          "keywordOnly": [],
+          "kwarg": "",
+          "positional": [
+            "self"
+          ],
+          "required": [
+            "self"
+          ],
+          "vararg": ""
+        },
+        "set_config_format": {
+          "keywordOnly": [],
+          "kwarg": "",
+          "positional": [
+            "self",
+            "config_format"
+          ],
+          "required": [
+            "self",
+            "config_format"
+          ],
+          "vararg": ""
+        },
+        "set_cur_srv_preset": {
+          "keywordOnly": [],
+          "kwarg": "",
+          "positional": [
+            "self",
+            "current"
+          ],
+          "required": [
+            "self",
+            "current"
+          ],
+          "vararg": ""
+        },
+        "set_proxy": {
+          "keywordOnly": [],
+          "kwarg": "",
+          "positional": [
+            "self",
+            "proxy_login",
+            "proxy_pass",
+            "proxy_server",
+            "enabled"
+          ],
+          "required": [
+            "self",
+            "proxy_login",
+            "proxy_pass",
+            "proxy_server"
+          ],
+          "vararg": ""
+        },
+        "set_server": {
+          "keywordOnly": [],
+          "kwarg": "",
+          "positional": [
+            "self",
+            "server_name"
+          ],
+          "required": [
+            "self",
+            "server_name"
+          ],
+          "vararg": ""
+        },
+        "set_site": {
+          "keywordOnly": [],
+          "kwarg": "",
+          "positional": [
+            "self",
+            "site_name",
+            "enabled"
+          ],
+          "required": [
+            "self",
+            "site_name"
+          ],
+          "vararg": ""
+        },
+        "set_ticket": {
+          "keywordOnly": [],
+          "kwarg": "",
+          "positional": [
+            "self",
+            "ticket_name"
+          ],
+          "required": [
+            "self",
+            "ticket_name"
+          ],
+          "vararg": ""
+        },
+        "set_timeout": {
+          "keywordOnly": [],
+          "kwarg": "",
+          "positional": [
+            "self",
+            "timeout"
+          ],
+          "required": [
+            "self"
+          ],
+          "vararg": ""
+        },
+        "set_user": {
+          "keywordOnly": [],
+          "kwarg": "",
+          "positional": [
+            "self",
+            "user_name"
+          ],
+          "required": [
+            "self",
+            "user_name"
+          ],
+          "vararg": ""
+        }
+      }
+    },
+    "Inst": {
+      "kind": "class",
+      "methods": {
+        "cleanup": {
+          "keywordOnly": [],
+          "kwarg": "",
+          "positional": [
+            "self",
+            "project_code"
+          ],
+          "required": [
+            "self"
+          ],
+          "vararg": ""
+        },
+        "exit_pools": {
+          "keywordOnly": [],
+          "kwarg": "",
+          "positional": [
+            "self",
+            "timeout_ms"
+          ],
+          "required": [
+            "self"
+          ],
+          "vararg": ""
+        },
+        "get_all_logins": {
+          "keywordOnly": [],
+          "kwarg": "",
+          "positional": [
+            "self",
+            "login_code"
+          ],
+          "required": [
+            "self"
+          ],
+          "vararg": ""
+        },
+        "get_check_tree": {
+          "keywordOnly": [],
+          "kwarg": "",
+          "positional": [
+            "self",
+            "project_code",
+            "tab_code",
+            "wdg_code"
+          ],
+          "required": [
+            "self"
+          ],
+          "vararg": ""
+        },
+        "get_commit_queue": {
+          "keywordOnly": [],
+          "kwarg": "",
+          "positional": [
+            "self",
+            "project_code"
+          ],
+          "required": [
+            "self"
+          ],
+          "vararg": ""
+        },
+        "get_control_tab": {
+          "keywordOnly": [],
+          "kwarg": "",
+          "positional": [
+            "self",
+            "project_code",
+            "tab_code"
+          ],
+          "required": [
+            "self"
+          ],
+          "vararg": ""
+        },
+        "get_current_login": {
+          "keywordOnly": [],
+          "kwarg": "",
+          "positional": [
+            "self"
+          ],
+          "required": [
+            "self"
+          ],
+          "vararg": ""
+        },
+        "get_current_login_object": {
+          "keywordOnly": [],
+          "kwarg": "",
+          "positional": [
+            "self"
+          ],
+          "required": [
+            "self"
+          ],
+          "vararg": ""
+        },
+        "get_current_project": {
+          "keywordOnly": [],
+          "kwarg": "",
+          "positional": [
+            "self"
+          ],
+          "required": [
+            "self"
+          ],
+          "vararg": ""
+        },
+        "get_current_stype_by_code": {
+          "keywordOnly": [],
+          "kwarg": "",
+          "positional": [
+            "self",
+            "code"
+          ],
+          "required": [
+            "self",
+            "code"
+          ],
+          "vararg": ""
+        },
+        "get_current_stypes": {
+          "keywordOnly": [],
+          "kwarg": "",
+          "positional": [
+            "self"
+          ],
+          "required": [
+            "self"
+          ],
+          "vararg": ""
+        },
+        "get_project_by_code": {
+          "keywordOnly": [],
+          "kwarg": "",
+          "positional": [
+            "self",
+            "project_code"
+          ],
+          "required": [
+            "self"
+          ],
+          "vararg": ""
+        },
+        "get_stype_by_code": {
+          "keywordOnly": [],
+          "kwarg": "",
+          "positional": [
+            "self",
+            "code",
+            "project_code"
+          ],
+          "required": [
+            "self",
+            "code"
+          ],
+          "vararg": ""
+        },
+        "get_stypes": {
+          "keywordOnly": [],
+          "kwarg": "",
+          "positional": [
+            "self",
+            "project_code"
+          ],
+          "required": [
+            "self"
+          ],
+          "vararg": ""
+        },
+        "get_watch_folder": {
+          "keywordOnly": [],
+          "kwarg": "",
+          "positional": [
+            "self",
+            "project_code"
+          ],
+          "required": [
+            "self"
+          ],
+          "vararg": ""
+        },
+        "set_check_tree": {
+          "keywordOnly": [],
+          "kwarg": "",
+          "positional": [
+            "self",
+            "project_code",
+            "tab_code",
+            "wdg_code",
+            "widget"
+          ],
+          "required": [
+            "self",
+            "project_code",
+            "tab_code",
+            "wdg_code",
+            "widget"
+          ],
+          "vararg": ""
+        },
+        "set_control_tab": {
+          "keywordOnly": [],
+          "kwarg": "",
+          "positional": [
+            "self",
+            "project_code",
+            "tab_code",
+            "tab_widget"
+          ],
+          "required": [
+            "self",
+            "project_code",
+            "tab_code",
+            "tab_widget"
+          ],
+          "vararg": ""
+        },
+        "set_current_project": {
+          "keywordOnly": [],
+          "kwarg": "",
+          "positional": [
+            "self",
+            "project_code"
+          ],
+          "required": [
+            "self",
+            "project_code"
+          ],
+          "vararg": ""
+        },
+        "start_pools": {
+          "keywordOnly": [],
+          "kwarg": "",
+          "positional": [
+            "self"
+          ],
+          "required": [
+            "self"
+          ],
+          "vararg": ""
+        }
+      }
+    },
+    "Mode": {
+      "kind": "class",
+      "methods": {
+        "get_current_path": {
+          "keywordOnly": [],
+          "kwarg": "",
+          "positional": [
+            "self"
+          ],
+          "required": [
+            "self"
+          ],
+          "vararg": ""
+        },
+        "get_current_python_path": {
+          "keywordOnly": [],
+          "kwarg": "",
+          "positional": [
+            "self"
+          ],
+          "required": [
+            "self"
+          ],
+          "vararg": ""
+        },
+        "get_mode": {
+          "keywordOnly": [],
+          "kwarg": "",
+          "positional": [
+            "self"
+          ],
+          "required": [
+            "self"
+          ],
+          "vararg": ""
+        },
+        "get_node": {
+          "keywordOnly": [],
+          "kwarg": "",
+          "positional": [
+            "self"
+          ],
+          "required": [
+            "self"
+          ],
+          "vararg": ""
+        },
+        "get_platform": {
+          "keywordOnly": [],
+          "kwarg": "",
+          "positional": [
+            "self"
+          ],
+          "required": [
+            "self"
+          ],
+          "vararg": ""
+        },
+        "is_offline": {
+          "keywordOnly": [],
+          "kwarg": "",
+          "positional": [
+            "self"
+          ],
+          "required": [
+            "self"
+          ],
+          "vararg": ""
+        },
+        "is_online": {
+          "keywordOnly": [],
+          "kwarg": "",
+          "positional": [
+            "self"
+          ],
+          "required": [
+            "self"
+          ],
+          "vararg": ""
+        },
+        "node": {
+          "keywordOnly": [],
+          "kwarg": "",
+          "positional": [
+            "self"
+          ],
+          "required": [
+            "self"
+          ],
+          "vararg": ""
+        },
+        "set_current_path": {
+          "keywordOnly": [],
+          "kwarg": "",
+          "positional": [
+            "self",
+            "current_path"
+          ],
+          "required": [
+            "self",
+            "current_path"
+          ],
+          "vararg": ""
+        },
+        "set_mode": {
+          "keywordOnly": [],
+          "kwarg": "",
+          "positional": [
+            "self",
+            "mode"
+          ],
+          "required": [
+            "self",
+            "mode"
+          ],
+          "vararg": ""
+        },
+        "set_offline": {
+          "keywordOnly": [],
+          "kwarg": "",
+          "positional": [
+            "self"
+          ],
+          "required": [
+            "self"
+          ],
+          "vararg": ""
+        },
+        "set_online": {
+          "keywordOnly": [],
+          "kwarg": "",
+          "positional": [
+            "self"
+          ],
+          "required": [
+            "self"
+          ],
+          "vararg": ""
+        }
+      }
+    },
+    "Tactic": {
+      "kind": "class",
+      "methods": {
+        "get_all_base_dirs": {
+          "keywordOnly": [],
+          "kwarg": "",
+          "positional": [
+            "self"
+          ],
+          "required": [
+            "self"
+          ],
+          "vararg": ""
+        },
+        "get_base_dir": {
+          "keywordOnly": [],
+          "kwarg": "",
+          "positional": [
+            "self",
+            "repo_name",
+            "override_base_dirs"
+          ],
+          "required": [
+            "self",
+            "repo_name"
+          ],
+          "vararg": ""
+        },
+        "get_base_dirs": {
+          "keywordOnly": [],
+          "kwarg": "",
+          "positional": [
+            "self",
+            "force"
+          ],
+          "required": [
+            "self"
+          ],
+          "vararg": ""
+        },
+        "get_current_repo": {
+          "keywordOnly": [],
+          "kwarg": "",
+          "positional": [
+            "self",
+            "value"
+          ],
+          "required": [
+            "self"
+          ],
+          "vararg": ""
+        },
+        "get_custom_dir": {
+          "keywordOnly": [],
+          "kwarg": "",
+          "positional": [
+            "self"
+          ],
+          "required": [
+            "self"
+          ],
+          "vararg": ""
+        },
+        "get_custom_dirs": {
+          "keywordOnly": [],
+          "kwarg": "",
+          "positional": [
+            "self"
+          ],
+          "required": [
+            "self"
+          ],
+          "vararg": ""
+        },
+        "get_default_base_dirs": {
+          "keywordOnly": [],
+          "kwarg": "",
+          "positional": [
+            "self",
+            "force"
+          ],
+          "required": [
+            "self"
+          ],
+          "vararg": ""
+        },
+        "max_threads": {
+          "keywordOnly": [],
+          "kwarg": "",
+          "positional": [
+            "type"
+          ],
+          "required": [],
+          "vararg": ""
+        },
+        "query_base_dirs": {
+          "keywordOnly": [],
+          "kwarg": "",
+          "positional": [
+            "self"
+          ],
+          "required": [
+            "self"
+          ],
+          "vararg": ""
+        },
+        "reset": {
+          "keywordOnly": [],
+          "kwarg": "",
+          "positional": [
+            "self"
+          ],
+          "required": [
+            "self"
+          ],
+          "vararg": ""
+        },
+        "save_base_dirs": {
+          "keywordOnly": [],
+          "kwarg": "",
+          "positional": [
+            "self"
+          ],
+          "required": [
+            "self"
+          ],
+          "vararg": ""
+        },
+        "set_base_dir": {
+          "keywordOnly": [],
+          "kwarg": "",
+          "positional": [
+            "self",
+            "repo_name",
+            "value",
+            "override_base_dirs"
+          ],
+          "required": [
+            "self",
+            "repo_name",
+            "value"
+          ],
+          "vararg": ""
+        }
+      }
+    },
+    "env_read_config": {
+      "keywordOnly": [],
+      "kind": "function",
+      "kwarg": "",
+      "positional": [
+        "filename",
+        "unique_id",
+        "sub_id",
+        "long_abs_path"
+      ],
+      "required": [],
+      "vararg": ""
+    },
+    "env_write_config": {
+      "keywordOnly": [],
+      "kind": "function",
+      "kwarg": "",
+      "positional": [
+        "obj",
+        "filename",
+        "unique_id",
+        "sub_id",
+        "update_file",
+        "long_abs_path"
+      ],
+      "required": [],
+      "vararg": ""
+    },
+    "env_write_file": {
+      "keywordOnly": [],
+      "kind": "function",
+      "kwarg": "",
+      "positional": [
+        "data",
+        "file_relative_path",
+        "file_name",
+        "sub_path"
+      ],
+      "required": [
+        "data",
+        "file_relative_path",
+        "file_name"
+      ],
+      "vararg": ""
+    },
+    "gf": {
+      "keywordOnly": [],
+      "kind": "function",
+      "kwarg": "",
+      "positional": [],
+      "required": [],
+      "vararg": ""
+    },
+    "tc": {
+      "keywordOnly": [],
+      "kind": "function",
+      "kwarg": "",
+      "positional": [],
+      "required": [],
+      "vararg": ""
+    }
+  },
+  "thlib/tactic_classes.py": {
+    "Contexts": {
+      "kind": "class",
+      "methods": {
+        "get_versionless": {
+          "keywordOnly": [],
+          "kwarg": "",
+          "positional": [
+            "self"
+          ],
+          "required": [
+            "self"
+          ],
+          "vararg": ""
+        },
+        "get_versions": {
+          "keywordOnly": [],
+          "kwarg": "",
+          "positional": [
+            "self"
+          ],
+          "required": [
+            "self"
+          ],
+          "vararg": ""
+        }
+      }
+    },
+    "File": {
+      "kind": "class",
+      "methods": {
+        "download_file": {
+          "keywordOnly": [],
+          "kwarg": "",
+          "positional": [
+            "self",
+            "dest_path"
+          ],
+          "required": [
+            "self"
+          ],
+          "vararg": ""
+        },
+        "get_abs_path": {
+          "keywordOnly": [],
+          "kwarg": "",
+          "positional": [
+            "self"
+          ],
+          "required": [
+            "self"
+          ],
+          "vararg": ""
+        },
+        "get_base_type": {
+          "keywordOnly": [],
+          "kwarg": "",
+          "positional": [
+            "self"
+          ],
+          "required": [
+            "self"
+          ],
+          "vararg": ""
+        },
+        "get_dict": {
+          "keywordOnly": [],
+          "kwarg": "",
+          "positional": [
+            "self"
+          ],
+          "required": [
+            "self"
+          ],
+          "vararg": ""
+        },
+        "get_ext": {
+          "keywordOnly": [],
+          "kwarg": "",
+          "positional": [
+            "self"
+          ],
+          "required": [
+            "self"
+          ],
+          "vararg": ""
+        },
+        "get_file_size": {
+          "keywordOnly": [],
+          "kwarg": "",
+          "positional": [
+            "self",
+            "check_real_size"
+          ],
+          "required": [
+            "self"
+          ],
+          "vararg": ""
+        },
+        "get_filename": {
+          "keywordOnly": [],
+          "kwarg": "",
+          "positional": [
+            "self"
+          ],
+          "required": [
+            "self"
+          ],
+          "vararg": ""
+        },
+        "get_filename_no_type_prefix": {
+          "keywordOnly": [],
+          "kwarg": "",
+          "positional": [
+            "self"
+          ],
+          "required": [
+            "self"
+          ],
+          "vararg": ""
+        },
+        "get_filename_with_ext": {
+          "keywordOnly": [],
+          "kwarg": "",
+          "positional": [
+            "self"
+          ],
+          "required": [
+            "self"
+          ],
+          "vararg": ""
+        },
+        "get_full_abs_path": {
+          "keywordOnly": [],
+          "kwarg": "",
+          "positional": [
+            "self"
+          ],
+          "required": [
+            "self"
+          ],
+          "vararg": ""
+        },
+        "get_full_web_path": {
+          "keywordOnly": [],
+          "kwarg": "",
+          "positional": [
+            "self"
+          ],
+          "required": [
+            "self"
+          ],
+          "vararg": ""
+        },
+        "get_icon_preview": {
+          "keywordOnly": [],
+          "kwarg": "",
+          "positional": [
+            "self"
+          ],
+          "required": [
+            "self"
+          ],
+          "vararg": ""
+        },
+        "get_meta_file_object": {
+          "keywordOnly": [],
+          "kwarg": "",
+          "positional": [
+            "self"
+          ],
+          "required": [
+            "self"
+          ],
+          "vararg": ""
+        },
+        "get_metadata": {
+          "keywordOnly": [],
+          "kwarg": "",
+          "positional": [
+            "self"
+          ],
+          "required": [
+            "self"
+          ],
+          "vararg": ""
+        },
+        "get_repo_path": {
+          "keywordOnly": [],
+          "kwarg": "",
+          "positional": [
+            "self"
+          ],
+          "required": [
+            "self"
+          ],
+          "vararg": ""
+        },
+        "get_snapshot": {
+          "keywordOnly": [],
+          "kwarg": "",
+          "positional": [
+            "self"
+          ],
+          "required": [
+            "self"
+          ],
+          "vararg": ""
+        },
+        "get_type": {
+          "keywordOnly": [],
+          "kwarg": "",
+          "positional": [
+            "self"
+          ],
+          "required": [
+            "self"
+          ],
+          "vararg": ""
+        },
+        "get_unique_id": {
+          "keywordOnly": [],
+          "kwarg": "",
+          "positional": [
+            "self"
+          ],
+          "required": [
+            "self"
+          ],
+          "vararg": ""
+        },
+        "get_web_path": {
+          "keywordOnly": [],
+          "kwarg": "",
+          "positional": [
+            "self"
+          ],
+          "required": [
+            "self"
+          ],
+          "vararg": ""
+        },
+        "get_web_preview": {
+          "keywordOnly": [],
+          "kwarg": "",
+          "positional": [
+            "self"
+          ],
+          "required": [
+            "self"
+          ],
+          "vararg": ""
+        },
+        "is_downloaded": {
+          "keywordOnly": [],
+          "kwarg": "",
+          "positional": [
+            "self"
+          ],
+          "required": [
+            "self"
+          ],
+          "vararg": ""
+        },
+        "is_exists": {
+          "keywordOnly": [],
+          "kwarg": "",
+          "positional": [
+            "self"
+          ],
+          "required": [
+            "self"
+          ],
+          "vararg": ""
+        },
+        "is_meta_file_obj": {
+          "keywordOnly": [],
+          "kwarg": "",
+          "positional": [
+            "self"
+          ],
+          "required": [
+            "self"
+          ],
+          "vararg": ""
+        },
+        "is_previewable": {
+          "keywordOnly": [],
+          "kwarg": "",
+          "positional": [
+            "self"
+          ],
+          "required": [
+            "self"
+          ],
+          "vararg": ""
+        },
+        "open_file": {
+          "keywordOnly": [],
+          "kwarg": "",
+          "positional": [
+            "self"
+          ],
+          "required": [
+            "self"
+          ],
+          "vararg": ""
+        },
+        "open_folder": {
+          "keywordOnly": [],
+          "kwarg": "",
+          "positional": [
+            "self"
+          ],
+          "required": [
+            "self"
+          ],
+          "vararg": ""
+        },
+        "prepare_repo": {
+          "keywordOnly": [],
+          "kwarg": "",
+          "positional": [
+            "self",
+            "dest_path"
+          ],
+          "required": [
+            "self"
+          ],
+          "vararg": ""
+        },
+        "set_downloaded": {
+          "keywordOnly": [],
+          "kwarg": "",
+          "positional": [
+            "self"
+          ],
+          "required": [
+            "self"
+          ],
+          "vararg": ""
+        }
+      }
+    },
+    "Login": {
+      "kind": "class",
+      "methods": {
+        "check_message_exists": {
+          "keywordOnly": [],
+          "kwarg": "",
+          "positional": [
+            "self",
+            "mess"
+          ],
+          "required": [
+            "self",
+            "mess"
+          ],
+          "vararg": ""
+        },
+        "check_security": {
+          "keywordOnly": [],
+          "kwarg": "",
+          "positional": [
+            "self",
+            "group",
+            "path",
+            "project"
+          ],
+          "required": [
+            "self",
+            "group",
+            "path"
+          ],
+          "vararg": ""
+        },
+        "check_subscription_exists": {
+          "keywordOnly": [],
+          "kwarg": "",
+          "positional": [
+            "self",
+            "subs"
+          ],
+          "required": [
+            "self",
+            "subs"
+          ],
+          "vararg": ""
+        },
+        "get_all_login_groups": {
+          "keywordOnly": [],
+          "kwarg": "",
+          "positional": [
+            "self"
+          ],
+          "required": [
+            "self"
+          ],
+          "vararg": ""
+        },
+        "get_code": {
+          "keywordOnly": [],
+          "kwarg": "",
+          "positional": [
+            "self"
+          ],
+          "required": [
+            "self"
+          ],
+          "vararg": ""
+        },
+        "get_display_name": {
+          "keywordOnly": [],
+          "kwarg": "",
+          "positional": [
+            "self"
+          ],
+          "required": [
+            "self"
+          ],
+          "vararg": ""
+        },
+        "get_hourly_wage": {
+          "keywordOnly": [],
+          "kwarg": "",
+          "positional": [
+            "self"
+          ],
+          "required": [
+            "self"
+          ],
+          "vararg": ""
+        },
+        "get_info": {
+          "keywordOnly": [],
+          "kwarg": "",
+          "positional": [
+            "self"
+          ],
+          "required": [
+            "self"
+          ],
+          "vararg": ""
+        },
+        "get_login": {
+          "keywordOnly": [],
+          "kwarg": "",
+          "positional": [
+            "self"
+          ],
+          "required": [
+            "self"
+          ],
+          "vararg": ""
+        },
+        "get_login_group": {
+          "keywordOnly": [],
+          "kwarg": "",
+          "positional": [
+            "self",
+            "login_group_code"
+          ],
+          "required": [
+            "self",
+            "login_group_code"
+          ],
+          "vararg": ""
+        },
+        "get_login_groups": {
+          "keywordOnly": [],
+          "kwarg": "",
+          "positional": [
+            "self"
+          ],
+          "required": [
+            "self"
+          ],
+          "vararg": ""
+        },
+        "get_object_type": {
+          "keywordOnly": [],
+          "kwarg": "",
+          "positional": [
+            "self"
+          ],
+          "required": [
+            "self"
+          ],
+          "vararg": ""
+        },
+        "get_project_code": {
+          "keywordOnly": [],
+          "kwarg": "",
+          "positional": [
+            "self"
+          ],
+          "required": [
+            "self"
+          ],
+          "vararg": ""
+        },
+        "get_subscriptions_and_messages": {
+          "keywordOnly": [],
+          "kwarg": "",
+          "positional": [
+            "self",
+            "force_update"
+          ],
+          "required": [
+            "self"
+          ],
+          "vararg": ""
+        },
+        "get_subscriptions_by_category": {
+          "keywordOnly": [],
+          "kwarg": "",
+          "positional": [
+            "self",
+            "category"
+          ],
+          "required": [
+            "self"
+          ],
+          "vararg": ""
+        },
+        "query_subscriptions_and_messages": {
+          "keywordOnly": [],
+          "kwarg": "",
+          "positional": [
+            "self"
+          ],
+          "required": [
+            "self"
+          ],
+          "vararg": ""
+        }
+      }
+    },
+    "LoginGroup": {
+      "kind": "class",
+      "methods": {
+        "add_login_to_group": {
+          "keywordOnly": [],
+          "kwarg": "",
+          "positional": [
+            "self",
+            "login_obj"
+          ],
+          "required": [
+            "self",
+            "login_obj"
+          ],
+          "vararg": ""
+        },
+        "get_code": {
+          "keywordOnly": [],
+          "kwarg": "",
+          "positional": [
+            "self"
+          ],
+          "required": [
+            "self"
+          ],
+          "vararg": ""
+        },
+        "get_description": {
+          "keywordOnly": [],
+          "kwarg": "",
+          "positional": [
+            "self"
+          ],
+          "required": [
+            "self"
+          ],
+          "vararg": ""
+        },
+        "get_info": {
+          "keywordOnly": [],
+          "kwarg": "",
+          "positional": [
+            "self"
+          ],
+          "required": [
+            "self"
+          ],
+          "vararg": ""
+        },
+        "get_login_group": {
+          "keywordOnly": [],
+          "kwarg": "",
+          "positional": [
+            "self"
+          ],
+          "required": [
+            "self"
+          ],
+          "vararg": ""
+        },
+        "get_logins": {
+          "keywordOnly": [],
+          "kwarg": "",
+          "positional": [
+            "self"
+          ],
+          "required": [
+            "self"
+          ],
+          "vararg": ""
+        },
+        "get_object_type": {
+          "keywordOnly": [],
+          "kwarg": "",
+          "positional": [
+            "self"
+          ],
+          "required": [
+            "self"
+          ],
+          "vararg": ""
+        },
+        "get_pretty_name": {
+          "keywordOnly": [],
+          "kwarg": "",
+          "positional": [
+            "self"
+          ],
+          "required": [
+            "self"
+          ],
+          "vararg": ""
+        },
+        "get_project_code": {
+          "keywordOnly": [],
+          "kwarg": "",
+          "positional": [
+            "self"
+          ],
+          "required": [
+            "self"
+          ],
+          "vararg": ""
+        },
+        "get_security": {
+          "keywordOnly": [],
+          "kwarg": "",
+          "positional": [
+            "self",
+            "project"
+          ],
+          "required": [
+            "self"
+          ],
+          "vararg": ""
+        },
+        "get_security_group": {
+          "keywordOnly": [],
+          "kwarg": "",
+          "positional": [
+            "self",
+            "group",
+            "project"
+          ],
+          "required": [
+            "self",
+            "group"
+          ],
+          "vararg": ""
+        }
+      }
+    },
+    "Message": {
+      "kind": "class",
+      "methods": {
+        "get_category": {
+          "keywordOnly": [],
+          "kwarg": "",
+          "positional": [
+            "self"
+          ],
+          "required": [
+            "self"
+          ],
+          "vararg": ""
+        },
+        "get_code": {
+          "keywordOnly": [],
+          "kwarg": "",
+          "positional": [
+            "self"
+          ],
+          "required": [
+            "self"
+          ],
+          "vararg": ""
+        },
+        "get_info": {
+          "keywordOnly": [],
+          "kwarg": "",
+          "positional": [
+            "self"
+          ],
+          "required": [
+            "self"
+          ],
+          "vararg": ""
+        },
+        "get_login": {
+          "keywordOnly": [],
+          "kwarg": "",
+          "positional": [
+            "self"
+          ],
+          "required": [
+            "self"
+          ],
+          "vararg": ""
+        },
+        "get_message": {
+          "keywordOnly": [],
+          "kwarg": "",
+          "positional": [
+            "self"
+          ],
+          "required": [
+            "self"
+          ],
+          "vararg": ""
+        },
+        "get_message_log": {
+          "keywordOnly": [],
+          "kwarg": "",
+          "positional": [
+            "self",
+            "force"
+          ],
+          "required": [
+            "self"
+          ],
+          "vararg": ""
+        },
+        "get_project_code": {
+          "keywordOnly": [],
+          "kwarg": "",
+          "positional": [
+            "self"
+          ],
+          "required": [
+            "self"
+          ],
+          "vararg": ""
+        },
+        "get_status": {
+          "keywordOnly": [],
+          "kwarg": "",
+          "positional": [
+            "self"
+          ],
+          "required": [
+            "self"
+          ],
+          "vararg": ""
+        },
+        "query_message_log": {
+          "keywordOnly": [],
+          "kwarg": "",
+          "positional": [
+            "self"
+          ],
+          "required": [
+            "self"
+          ],
+          "vararg": ""
+        }
+      }
+    },
+    "MessageLog": {
+      "kind": "class",
+      "methods": {}
+    },
+    "Pipeline": {
+      "kind": "class",
+      "methods": {
+        "get_all_pipeline_names": {
+          "keywordOnly": [],
+          "kwarg": "",
+          "positional": [
+            "self"
+          ],
+          "required": [
+            "self"
+          ],
+          "vararg": ""
+        },
+        "get_all_pipeline_process": {
+          "keywordOnly": [],
+          "kwarg": "",
+          "positional": [
+            "self"
+          ],
+          "required": [
+            "self"
+          ],
+          "vararg": ""
+        },
+        "get_all_tasks_pipelines_names": {
+          "keywordOnly": [],
+          "kwarg": "",
+          "positional": [
+            "self"
+          ],
+          "required": [
+            "self"
+          ],
+          "vararg": ""
+        },
+        "get_info": {
+          "keywordOnly": [],
+          "kwarg": "",
+          "positional": [
+            "self"
+          ],
+          "required": [
+            "self"
+          ],
+          "vararg": ""
+        },
+        "get_pipeline_process": {
+          "keywordOnly": [],
+          "kwarg": "",
+          "positional": [
+            "self",
+            "process_code"
+          ],
+          "required": [
+            "self",
+            "process_code"
+          ],
+          "vararg": ""
+        },
+        "get_process_info": {
+          "keywordOnly": [],
+          "kwarg": "",
+          "positional": [
+            "self",
+            "process"
+          ],
+          "required": [
+            "self",
+            "process"
+          ],
+          "vararg": ""
+        },
+        "get_process_label": {
+          "keywordOnly": [],
+          "kwarg": "",
+          "positional": [
+            "self",
+            "process"
+          ],
+          "required": [
+            "self",
+            "process"
+          ],
+          "vararg": ""
+        },
+        "get_processes_info_by_type": {
+          "keywordOnly": [],
+          "kwarg": "",
+          "positional": [
+            "self",
+            "type"
+          ],
+          "required": [
+            "self",
+            "type"
+          ],
+          "vararg": ""
+        },
+        "init_pipeline": {
+          "keywordOnly": [],
+          "kwarg": "",
+          "positional": [
+            "self"
+          ],
+          "required": [
+            "self"
+          ],
+          "vararg": ""
+        }
+      }
+    },
+    "Process": {
+      "kind": "class",
+      "methods": {
+        "get_contexts": {
+          "keywordOnly": [],
+          "kwarg": "",
+          "positional": [
+            "self"
+          ],
+          "required": [
+            "self"
+          ],
+          "vararg": ""
+        }
+      }
+    },
+    "Project": {
+      "kind": "class",
+      "methods": {
+        "get_all_search_types": {
+          "keywordOnly": [],
+          "kwarg": "",
+          "positional": [
+            "self",
+            "stype_list",
+            "process_list",
+            "schema",
+            "views"
+          ],
+          "required": [
+            "self",
+            "stype_list",
+            "process_list",
+            "schema",
+            "views"
+          ],
+          "vararg": ""
+        },
+        "get_config_views": {
+          "keywordOnly": [],
+          "kwarg": "",
+          "positional": [
+            "self"
+          ],
+          "required": [
+            "self"
+          ],
+          "vararg": ""
+        },
+        "get_search_type": {
+          "keywordOnly": [],
+          "kwarg": "",
+          "positional": [
+            "self",
+            "search_type"
+          ],
+          "required": [
+            "self",
+            "search_type"
+          ],
+          "vararg": ""
+        },
+        "get_stypes": {
+          "keywordOnly": [],
+          "kwarg": "",
+          "positional": [
+            "self"
+          ],
+          "required": [
+            "self"
+          ],
+          "vararg": ""
+        },
+        "get_title": {
+          "keywordOnly": [],
+          "kwarg": "",
+          "positional": [
+            "self",
+            "pretty"
+          ],
+          "required": [
+            "self"
+          ],
+          "vararg": ""
+        },
+        "get_type": {
+          "keywordOnly": [],
+          "kwarg": "",
+          "positional": [
+            "self"
+          ],
+          "required": [
+            "self"
+          ],
+          "vararg": ""
+        },
+        "get_workflow": {
+          "keywordOnly": [],
+          "kwarg": "",
+          "positional": [
+            "self"
+          ],
+          "required": [
+            "self"
+          ],
+          "vararg": ""
+        },
+        "is_template": {
+          "keywordOnly": [],
+          "kwarg": "",
+          "positional": [
+            "self"
+          ],
+          "required": [
+            "self"
+          ],
+          "vararg": ""
+        },
+        "query_search_types": {
+          "keywordOnly": [],
+          "kwarg": "",
+          "positional": [
+            "self",
+            "force"
+          ],
+          "required": [
+            "self"
+          ],
+          "vararg": ""
+        }
+      }
+    },
+    "SObject": {
+      "kind": "class",
+      "methods": {
+        "commit": {
+          "keywordOnly": [],
+          "kwarg": "",
+          "positional": [
+            "self",
+            "triggers"
+          ],
+          "required": [
+            "self"
+          ],
+          "vararg": ""
+        },
+        "delete_sobject": {
+          "keywordOnly": [],
+          "kwarg": "",
+          "positional": [
+            "self",
+            "include_dependencies",
+            "list_dependencies"
+          ],
+          "required": [
+            "self"
+          ],
+          "vararg": ""
+        },
+        "get_all_processes": {
+          "keywordOnly": [],
+          "kwarg": "",
+          "positional": [
+            "self"
+          ],
+          "required": [
+            "self"
+          ],
+          "vararg": ""
+        },
+        "get_code": {
+          "keywordOnly": [],
+          "kwarg": "",
+          "positional": [
+            "self"
+          ],
+          "required": [
+            "self"
+          ],
+          "vararg": ""
+        },
+        "get_files_sobjects": {
+          "keywordOnly": [],
+          "kwarg": "",
+          "positional": [
+            "self",
+            "type"
+          ],
+          "required": [
+            "self"
+          ],
+          "vararg": ""
+        },
+        "get_info": {
+          "keywordOnly": [],
+          "kwarg": "",
+          "positional": [
+            "self",
+            "value"
+          ],
+          "required": [
+            "self"
+          ],
+          "vararg": ""
+        },
+        "get_multiple_tasks_sobjects": {
+          "keywordOnly": [],
+          "kwarg": "",
+          "positional": [
+            "sobjects_list",
+            "process"
+          ],
+          "required": [
+            "sobjects_list"
+          ],
+          "vararg": ""
+        },
+        "get_multiple_work_hours": {
+          "keywordOnly": [],
+          "kwarg": "",
+          "positional": [
+            "sobjects_list",
+            "login",
+            "start_day",
+            "end_day",
+            "statuses",
+            "include_rates"
+          ],
+          "required": [
+            "sobjects_list"
+          ],
+          "vararg": ""
+        },
+        "get_notes_count": {
+          "keywordOnly": [],
+          "kwarg": "",
+          "positional": [
+            "self",
+            "process"
+          ],
+          "required": [
+            "self"
+          ],
+          "vararg": ""
+        },
+        "get_notes_sobjects": {
+          "keywordOnly": [],
+          "kwarg": "",
+          "positional": [
+            "self",
+            "process"
+          ],
+          "required": [
+            "self"
+          ],
+          "vararg": ""
+        },
+        "get_pipeline_code": {
+          "keywordOnly": [],
+          "kwarg": "",
+          "positional": [
+            "self"
+          ],
+          "required": [
+            "self"
+          ],
+          "vararg": ""
+        },
+        "get_plain_search_type": {
+          "keywordOnly": [],
+          "kwarg": "",
+          "positional": [
+            "self"
+          ],
+          "required": [
+            "self"
+          ],
+          "vararg": ""
+        },
+        "get_process": {
+          "keywordOnly": [],
+          "kwarg": "",
+          "positional": [
+            "self",
+            "process"
+          ],
+          "required": [
+            "self",
+            "process"
+          ],
+          "vararg": ""
+        },
+        "get_progress_count": {
+          "keywordOnly": [],
+          "kwarg": "",
+          "positional": [
+            "self",
+            "process",
+            "count_type"
+          ],
+          "required": [
+            "self",
+            "process"
+          ],
+          "vararg": ""
+        },
+        "get_project": {
+          "keywordOnly": [],
+          "kwarg": "",
+          "positional": [
+            "self"
+          ],
+          "required": [
+            "self"
+          ],
+          "vararg": ""
+        },
+        "get_related_sobjects": {
+          "keywordOnly": [],
+          "kwarg": "",
+          "positional": [
+            "self",
+            "child_stype",
+            "parent_stype",
+            "get_all_snapshots",
+            "path",
+            "filters"
+          ],
+          "required": [
+            "self"
+          ],
+          "vararg": ""
+        },
+        "get_related_sobjects_tel_string": {
+          "keywordOnly": [],
+          "kwarg": "",
+          "positional": [
+            "self",
+            "child_stype",
+            "parent_stype",
+            "path"
+          ],
+          "required": [
+            "self"
+          ],
+          "vararg": ""
+        },
+        "get_schema": {
+          "keywordOnly": [],
+          "kwarg": "",
+          "positional": [
+            "self",
+            "stype"
+          ],
+          "required": [
+            "self"
+          ],
+          "vararg": ""
+        },
+        "get_search_key": {
+          "keywordOnly": [],
+          "kwarg": "",
+          "positional": [
+            "self"
+          ],
+          "required": [
+            "self"
+          ],
+          "vararg": ""
+        },
+        "get_snapshots": {
+          "keywordOnly": [],
+          "kwarg": "",
+          "positional": [
+            "self",
+            "order_bys"
+          ],
+          "required": [
+            "self"
+          ],
+          "vararg": ""
+        },
+        "get_snapshots_sobjects": {
+          "keywordOnly": [],
+          "kwarg": "",
+          "positional": [
+            "self",
+            "process"
+          ],
+          "required": [
+            "self"
+          ],
+          "vararg": ""
+        },
+        "get_status_log": {
+          "keywordOnly": [],
+          "kwarg": "",
+          "positional": [
+            "self"
+          ],
+          "required": [
+            "self"
+          ],
+          "vararg": ""
+        },
+        "get_stype": {
+          "keywordOnly": [],
+          "kwarg": "",
+          "positional": [
+            "self",
+            "code"
+          ],
+          "required": [
+            "self"
+          ],
+          "vararg": ""
+        },
+        "get_tasks_count": {
+          "keywordOnly": [],
+          "kwarg": "",
+          "positional": [
+            "self",
+            "process"
+          ],
+          "required": [
+            "self"
+          ],
+          "vararg": ""
+        },
+        "get_tasks_sobjects": {
+          "keywordOnly": [],
+          "kwarg": "",
+          "positional": [
+            "self",
+            "process",
+            "include_status_log"
+          ],
+          "required": [
+            "self"
+          ],
+          "vararg": ""
+        },
+        "get_timestamp": {
+          "keywordOnly": [],
+          "kwarg": "",
+          "positional": [
+            "self",
+            "obj",
+            "pretty",
+            "simple"
+          ],
+          "required": [
+            "self"
+          ],
+          "vararg": ""
+        },
+        "get_title": {
+          "keywordOnly": [],
+          "kwarg": "",
+          "positional": [
+            "self",
+            "pretty"
+          ],
+          "required": [
+            "self"
+          ],
+          "vararg": ""
+        },
+        "get_value": {
+          "keywordOnly": [],
+          "kwarg": "",
+          "positional": [
+            "self",
+            "column"
+          ],
+          "required": [
+            "self",
+            "column"
+          ],
+          "vararg": ""
+        },
+        "get_work_hours": {
+          "keywordOnly": [],
+          "kwarg": "",
+          "positional": [
+            "self",
+            "login",
+            "start_day",
+            "end_day",
+            "statuses"
+          ],
+          "required": [
+            "self"
+          ],
+          "vararg": ""
+        },
+        "init_snapshots": {
+          "keywordOnly": [],
+          "kwarg": "",
+          "positional": [
+            "self",
+            "snapshot_dict"
+          ],
+          "required": [
+            "self",
+            "snapshot_dict"
+          ],
+          "vararg": ""
+        },
+        "is_snapshots_need_update": {
+          "keywordOnly": [],
+          "kwarg": "",
+          "positional": [
+            "self"
+          ],
+          "required": [
+            "self"
+          ],
+          "vararg": ""
+        },
+        "query_snapshots": {
+          "keywordOnly": [],
+          "kwarg": "",
+          "positional": [
+            "self",
+            "s_code",
+            "s_id",
+            "process",
+            "order_bys",
+            "filters"
+          ],
+          "required": [
+            "self"
+          ],
+          "vararg": ""
+        },
+        "set_notes_count": {
+          "keywordOnly": [],
+          "kwarg": "",
+          "positional": [
+            "self",
+            "process",
+            "count"
+          ],
+          "required": [
+            "self",
+            "process",
+            "count"
+          ],
+          "vararg": ""
+        },
+        "set_progress_counts": {
+          "keywordOnly": [],
+          "kwarg": "",
+          "positional": [
+            "self",
+            "counts_dict"
+          ],
+          "required": [
+            "self",
+            "counts_dict"
+          ],
+          "vararg": ""
+        },
+        "set_status_log": {
+          "keywordOnly": [],
+          "kwarg": "",
+          "positional": [
+            "self",
+            "status_log"
+          ],
+          "required": [
+            "self",
+            "status_log"
+          ],
+          "vararg": ""
+        },
+        "set_tasks_count": {
+          "keywordOnly": [],
+          "kwarg": "",
+          "positional": [
+            "self",
+            "process",
+            "count"
+          ],
+          "required": [
+            "self",
+            "process",
+            "count"
+          ],
+          "vararg": ""
+        },
+        "set_value": {
+          "keywordOnly": [],
+          "kwarg": "",
+          "positional": [
+            "self",
+            "column",
+            "data"
+          ],
+          "required": [
+            "self",
+            "column",
+            "data"
+          ],
+          "vararg": ""
+        },
+        "update_snapshots": {
+          "keywordOnly": [],
+          "kwarg": "",
+          "positional": [
+            "self",
+            "order_bys",
+            "filters"
+          ],
+          "required": [
+            "self"
+          ],
+          "vararg": ""
+        }
+      }
+    },
+    "SType": {
+      "kind": "class",
+      "methods": {
+        "get_children_stypes": {
+          "keywordOnly": [],
+          "kwarg": "",
+          "positional": [
+            "self"
+          ],
+          "required": [
+            "self"
+          ],
+          "vararg": ""
+        },
+        "get_code": {
+          "keywordOnly": [],
+          "kwarg": "",
+          "positional": [
+            "self"
+          ],
+          "required": [
+            "self"
+          ],
+          "vararg": ""
+        },
+        "get_column_data_type": {
+          "keywordOnly": [],
+          "kwarg": "",
+          "positional": [
+            "self",
+            "column"
+          ],
+          "required": [
+            "self",
+            "column"
+          ],
+          "vararg": ""
+        },
+        "get_column_info": {
+          "keywordOnly": [],
+          "kwarg": "",
+          "positional": [
+            "self",
+            "column"
+          ],
+          "required": [
+            "self",
+            "column"
+          ],
+          "vararg": ""
+        },
+        "get_columns_info": {
+          "keywordOnly": [],
+          "kwarg": "",
+          "positional": [
+            "self"
+          ],
+          "required": [
+            "self"
+          ],
+          "vararg": ""
+        },
+        "get_definition": {
+          "keywordOnly": [],
+          "kwarg": "",
+          "positional": [
+            "self",
+            "definition",
+            "processed",
+            "bs"
+          ],
+          "required": [
+            "self"
+          ],
+          "vararg": ""
+        },
+        "get_info": {
+          "keywordOnly": [],
+          "kwarg": "",
+          "positional": [
+            "self"
+          ],
+          "required": [
+            "self"
+          ],
+          "vararg": ""
+        },
+        "get_parent_stypes": {
+          "keywordOnly": [],
+          "kwarg": "",
+          "positional": [
+            "self"
+          ],
+          "required": [
+            "self"
+          ],
+          "vararg": ""
+        },
+        "get_pipeline": {
+          "keywordOnly": [],
+          "kwarg": "",
+          "positional": [
+            "self"
+          ],
+          "required": [
+            "self"
+          ],
+          "vararg": ""
+        },
+        "get_pretty_name": {
+          "keywordOnly": [],
+          "kwarg": "",
+          "positional": [
+            "self"
+          ],
+          "required": [
+            "self"
+          ],
+          "vararg": ""
+        },
+        "get_project": {
+          "keywordOnly": [],
+          "kwarg": "",
+          "positional": [
+            "self"
+          ],
+          "required": [
+            "self"
+          ],
+          "vararg": ""
+        },
+        "get_schema": {
+          "keywordOnly": [],
+          "kwarg": "",
+          "positional": [
+            "self"
+          ],
+          "required": [
+            "self"
+          ],
+          "vararg": ""
+        },
+        "get_stype_color": {
+          "keywordOnly": [],
+          "kwarg": "",
+          "positional": [
+            "self",
+            "fmt",
+            "alpha",
+            "tuple"
+          ],
+          "required": [
+            "self"
+          ],
+          "vararg": ""
+        },
+        "get_workflow": {
+          "keywordOnly": [],
+          "kwarg": "",
+          "positional": [
+            "self"
+          ],
+          "required": [
+            "self"
+          ],
+          "vararg": ""
+        }
+      }
+    },
+    "Schema": {
+      "kind": "class",
+      "methods": {
+        "get_child": {
+          "keywordOnly": [],
+          "kwarg": "",
+          "positional": [
+            "self",
+            "child_stype",
+            "parent_stype"
+          ],
+          "required": [
+            "self",
+            "child_stype",
+            "parent_stype"
+          ],
+          "vararg": ""
+        },
+        "get_child_instance": {
+          "keywordOnly": [],
+          "kwarg": "",
+          "positional": [
+            "self",
+            "instance_type",
+            "related_type"
+          ],
+          "required": [
+            "self",
+            "instance_type",
+            "related_type"
+          ],
+          "vararg": ""
+        },
+        "get_children": {
+          "keywordOnly": [],
+          "kwarg": "",
+          "positional": [
+            "self"
+          ],
+          "required": [
+            "self"
+          ],
+          "vararg": ""
+        },
+        "get_info": {
+          "keywordOnly": [],
+          "kwarg": "",
+          "positional": [
+            "self"
+          ],
+          "required": [
+            "self"
+          ],
+          "vararg": ""
+        },
+        "get_parent": {
+          "keywordOnly": [],
+          "kwarg": "",
+          "positional": [
+            "self",
+            "parent_stype",
+            "child_stype"
+          ],
+          "required": [
+            "self",
+            "parent_stype",
+            "child_stype"
+          ],
+          "vararg": ""
+        },
+        "get_parent_instance": {
+          "keywordOnly": [],
+          "kwarg": "",
+          "positional": [
+            "self",
+            "instance_type",
+            "related_type"
+          ],
+          "required": [
+            "self",
+            "instance_type",
+            "related_type"
+          ],
+          "vararg": ""
+        },
+        "get_parents": {
+          "keywordOnly": [],
+          "kwarg": "",
+          "positional": [
+            "self"
+          ],
+          "required": [
+            "self"
+          ],
+          "vararg": ""
+        }
+      }
+    },
+    "Snapshot": {
+      "kind": "class",
+      "methods": {
+        "get_code": {
+          "keywordOnly": [],
+          "kwarg": "",
+          "positional": [
+            "self"
+          ],
+          "required": [
+            "self"
+          ],
+          "vararg": ""
+        },
+        "get_files": {
+          "keywordOnly": [],
+          "kwarg": "",
+          "positional": [
+            "self"
+          ],
+          "required": [
+            "self"
+          ],
+          "vararg": ""
+        },
+        "get_files_objects": {
+          "keywordOnly": [],
+          "kwarg": "",
+          "positional": [
+            "self",
+            "group_by"
+          ],
+          "required": [
+            "self"
+          ],
+          "vararg": ""
+        },
+        "get_previewable_files_objects": {
+          "keywordOnly": [],
+          "kwarg": "",
+          "positional": [
+            "self"
+          ],
+          "required": [
+            "self"
+          ],
+          "vararg": ""
+        },
+        "get_search_key": {
+          "keywordOnly": [],
+          "kwarg": "",
+          "positional": [
+            "self"
+          ],
+          "required": [
+            "self"
+          ],
+          "vararg": ""
+        },
+        "get_snapshot": {
+          "keywordOnly": [],
+          "kwarg": "",
+          "positional": [
+            "self"
+          ],
+          "required": [
+            "self"
+          ],
+          "vararg": ""
+        },
+        "get_version": {
+          "keywordOnly": [],
+          "kwarg": "",
+          "positional": [
+            "self"
+          ],
+          "required": [
+            "self"
+          ],
+          "vararg": ""
+        },
+        "is_latest": {
+          "keywordOnly": [],
+          "kwarg": "",
+          "positional": [
+            "self"
+          ],
+          "required": [
+            "self"
+          ],
+          "vararg": ""
+        },
+        "is_versionless": {
+          "keywordOnly": [],
+          "kwarg": "",
+          "positional": [
+            "self"
+          ],
+          "required": [
+            "self"
+          ],
+          "vararg": ""
+        }
+      }
+    },
+    "Subscription": {
+      "kind": "class",
+      "methods": {
+        "get_category": {
+          "keywordOnly": [],
+          "kwarg": "",
+          "positional": [
+            "self"
+          ],
+          "required": [
+            "self"
+          ],
+          "vararg": ""
+        },
+        "get_code": {
+          "keywordOnly": [],
+          "kwarg": "",
+          "positional": [
+            "self"
+          ],
+          "required": [
+            "self"
+          ],
+          "vararg": ""
+        },
+        "get_info": {
+          "keywordOnly": [],
+          "kwarg": "",
+          "positional": [
+            "self"
+          ],
+          "required": [
+            "self"
+          ],
+          "vararg": ""
+        },
+        "get_last_cleared": {
+          "keywordOnly": [],
+          "kwarg": "",
+          "positional": [
+            "self"
+          ],
+          "required": [
+            "self"
+          ],
+          "vararg": ""
+        },
+        "get_login": {
+          "keywordOnly": [],
+          "kwarg": "",
+          "positional": [
+            "self"
+          ],
+          "required": [
+            "self"
+          ],
+          "vararg": ""
+        },
+        "get_message_code": {
+          "keywordOnly": [],
+          "kwarg": "",
+          "positional": [
+            "self"
+          ],
+          "required": [
+            "self"
+          ],
+          "vararg": ""
+        },
+        "get_messages": {
+          "keywordOnly": [],
+          "kwarg": "",
+          "positional": [
+            "self"
+          ],
+          "required": [
+            "self"
+          ],
+          "vararg": ""
+        },
+        "get_project_code": {
+          "keywordOnly": [],
+          "kwarg": "",
+          "positional": [
+            "self"
+          ],
+          "required": [
+            "self"
+          ],
+          "vararg": ""
+        },
+        "query_messages": {
+          "keywordOnly": [],
+          "kwarg": "",
+          "positional": [
+            "self"
+          ],
+          "required": [
+            "self"
+          ],
+          "vararg": ""
+        }
+      }
+    },
+    "Task": {
+      "kind": "class",
+      "methods": {
+        "get_bid_duration": {
+          "keywordOnly": [],
+          "kwarg": "",
+          "positional": [
+            "self",
+            "unit"
+          ],
+          "required": [
+            "self"
+          ],
+          "vararg": ""
+        },
+        "get_work_hours": {
+          "keywordOnly": [],
+          "kwarg": "",
+          "positional": [
+            "self",
+            "login",
+            "start_day",
+            "end_day",
+            "statuses"
+          ],
+          "required": [
+            "self"
+          ],
+          "vararg": ""
+        },
+        "log_work_hours": {
+          "keywordOnly": [],
+          "kwarg": "",
+          "positional": [
+            "self",
+            "day",
+            "hours",
+            "description",
+            "category",
+            "login"
+          ],
+          "required": [
+            "self",
+            "day",
+            "hours"
+          ],
+          "vararg": ""
+        }
+      }
+    },
+    "ViewsConfig": {
+      "kind": "class",
+      "methods": {
+        "get_view": {
+          "keywordOnly": [],
+          "kwarg": "",
+          "positional": [
+            "self",
+            "search_type",
+            "view",
+            "login",
+            "processed",
+            "bs"
+          ],
+          "required": [
+            "self",
+            "search_type"
+          ],
+          "vararg": ""
+        },
+        "get_views": {
+          "keywordOnly": [],
+          "kwarg": "",
+          "positional": [
+            "self",
+            "config_list",
+            "processed",
+            "bs"
+          ],
+          "required": [
+            "self"
+          ],
+          "vararg": ""
+        },
+        "has_definition": {
+          "keywordOnly": [],
+          "kwarg": "",
+          "positional": [
+            "self"
+          ],
+          "required": [
+            "self"
+          ],
+          "vararg": ""
+        },
+        "query_views": {
+          "keywordOnly": [],
+          "kwarg": "",
+          "positional": [
+            "self",
+            "filters"
+          ],
+          "required": [
+            "self"
+          ],
+          "vararg": ""
+        },
+        "update_views": {
+          "keywordOnly": [],
+          "kwarg": "",
+          "positional": [
+            "self",
+            "filters"
+          ],
+          "required": [
+            "self"
+          ],
+          "vararg": ""
+        }
+      }
+    },
+    "WorkHour": {
+      "kind": "class",
+      "methods": {
+        "approve": {
+          "keywordOnly": [],
+          "kwarg": "",
+          "positional": [
+            "self",
+            "approved"
+          ],
+          "required": [
+            "self"
+          ],
+          "vararg": ""
+        },
+        "can_approve": {
+          "keywordOnly": [],
+          "kwarg": "",
+          "positional": [
+            "self"
+          ],
+          "required": [
+            "self"
+          ],
+          "vararg": ""
+        },
+        "can_edit": {
+          "keywordOnly": [],
+          "kwarg": "",
+          "positional": [
+            "self"
+          ],
+          "required": [
+            "self"
+          ],
+          "vararg": ""
+        },
+        "create": {
+          "keywordOnly": [],
+          "kwarg": "",
+          "positional": [
+            "cls",
+            "task",
+            "day",
+            "hours",
+            "description",
+            "category",
+            "login",
+            "start_time",
+            "end_time",
+            "approve"
+          ],
+          "required": [
+            "cls",
+            "task",
+            "day",
+            "hours"
+          ],
+          "vararg": ""
+        },
+        "delete": {
+          "keywordOnly": [],
+          "kwarg": "",
+          "positional": [
+            "self"
+          ],
+          "required": [
+            "self"
+          ],
+          "vararg": ""
+        },
+        "get_labor_cost": {
+          "keywordOnly": [],
+          "kwarg": "",
+          "positional": [
+            "self",
+            "hourly_rate",
+            "overtime_factor"
+          ],
+          "required": [
+            "self",
+            "hourly_rate"
+          ],
+          "vararg": ""
+        },
+        "get_overtime_hours": {
+          "keywordOnly": [],
+          "kwarg": "",
+          "positional": [
+            "self"
+          ],
+          "required": [
+            "self"
+          ],
+          "vararg": ""
+        },
+        "get_regular_hours": {
+          "keywordOnly": [],
+          "kwarg": "",
+          "positional": [
+            "self"
+          ],
+          "required": [
+            "self"
+          ],
+          "vararg": ""
+        },
+        "get_total_hours": {
+          "keywordOnly": [],
+          "kwarg": "",
+          "positional": [
+            "self"
+          ],
+          "required": [
+            "self"
+          ],
+          "vararg": ""
+        },
+        "is_approved": {
+          "keywordOnly": [],
+          "kwarg": "",
+          "positional": [
+            "self"
+          ],
+          "required": [
+            "self"
+          ],
+          "vararg": ""
+        },
+        "update_entry": {
+          "keywordOnly": [],
+          "kwarg": "values",
+          "positional": [
+            "self"
+          ],
+          "required": [
+            "self"
+          ],
+          "vararg": ""
+        }
+      }
+    },
+    "Workflow": {
+      "kind": "class",
+      "methods": {
+        "get_all_pipelines": {
+          "keywordOnly": [],
+          "kwarg": "",
+          "positional": [
+            "self"
+          ],
+          "required": [
+            "self"
+          ],
+          "vararg": ""
+        },
+        "get_by_pipeline_code": {
+          "keywordOnly": [],
+          "kwarg": "",
+          "positional": [
+            "self",
+            "stype_code",
+            "pipeline_code"
+          ],
+          "required": [
+            "self",
+            "stype_code",
+            "pipeline_code"
+          ],
+          "vararg": ""
+        },
+        "get_by_process_node_type": {
+          "keywordOnly": [],
+          "kwarg": "",
+          "positional": [
+            "self",
+            "stype_code",
+            "node_type"
+          ],
+          "required": [
+            "self",
+            "stype_code",
+            "node_type"
+          ],
+          "vararg": ""
+        },
+        "get_by_stype_code": {
+          "keywordOnly": [],
+          "kwarg": "",
+          "positional": [
+            "self",
+            "code"
+          ],
+          "required": [
+            "self",
+            "code"
+          ],
+          "vararg": ""
+        },
+        "get_child_pipeline_by_process_code": {
+          "keywordOnly": [],
+          "kwarg": "",
+          "positional": [
+            "self",
+            "parent_pipeline",
+            "process"
+          ],
+          "required": [
+            "self",
+            "parent_pipeline",
+            "process"
+          ],
+          "vararg": ""
+        },
+        "get_pipeline_by_parent": {
+          "keywordOnly": [],
+          "kwarg": "",
+          "positional": [
+            "self",
+            "parent_process"
+          ],
+          "required": [
+            "self",
+            "parent_process"
+          ],
+          "vararg": ""
+        },
+        "sort_by_search_types": {
+          "keywordOnly": [],
+          "kwarg": "",
+          "positional": [
+            "self"
+          ],
+          "required": [
+            "self"
+          ],
+          "vararg": ""
+        }
+      }
+    },
+    "add_chat_members": {
+      "keywordOnly": [],
+      "kind": "function",
+      "kwarg": "",
+      "positional": [
+        "message_code",
+        "recipients"
+      ],
+      "required": [
+        "message_code",
+        "recipients"
+      ],
+      "vararg": ""
+    },
+    "add_note": {
+      "keywordOnly": [],
+      "kind": "function",
+      "kwarg": "",
+      "positional": [
+        "search_key",
+        "process",
+        "context",
+        "note",
+        "login",
+        "attachments"
+      ],
+      "required": [
+        "search_key",
+        "process",
+        "context",
+        "note",
+        "login"
+      ],
+      "vararg": ""
+    },
+    "authorize_chat_attachment": {
+      "keywordOnly": [],
+      "kind": "function",
+      "kwarg": "",
+      "positional": [
+        "message_code",
+        "snapshot_code"
+      ],
+      "required": [
+        "message_code",
+        "snapshot_code"
+      ],
+      "vararg": ""
+    },
+    "checkin_file": {
+      "keywordOnly": [],
+      "kind": "function",
+      "kwarg": "",
+      "positional": [
+        "search_key",
+        "context",
+        "snapshot_type",
+        "is_revision",
+        "description",
+        "version",
+        "only_versionless",
+        "update_versionless",
+        "file_types",
+        "file_names",
+        "file_paths",
+        "exts",
+        "subfolders",
+        "postfixes",
+        "metadata",
+        "padding",
+        "keep_file_name",
+        "repo_name",
+        "mode",
+        "create_icon",
+        "ignore_keep_file_name",
+        "checkin_app",
+        "selected_objects",
+        "ext_type",
+        "setting_workspace",
+        "checkin_type",
+        "files_dict",
+        "item_widget",
+        "files_objects",
+        "explicit_filename",
+        "commit_silently",
+        "run_before_checkin",
+        "run_after_checkin",
+        "single_threaded"
+      ],
+      "required": [
+        "search_key",
+        "context"
+      ],
+      "vararg": ""
+    },
+    "checkin_snapshot": {
+      "keywordOnly": [],
+      "kind": "function",
+      "kwarg": "",
+      "positional": [
+        "search_key",
+        "context",
+        "snapshot_type",
+        "is_revision",
+        "description",
+        "version",
+        "update_versionless",
+        "only_versionless",
+        "keep_file_name",
+        "repo_name",
+        "virtual_snapshot",
+        "files_dict",
+        "mode",
+        "create_icon",
+        "files_objects",
+        "progress_signal"
+      ],
+      "required": [
+        "search_key",
+        "context"
+      ],
+      "vararg": ""
+    },
+    "clear_personal_chat": {
+      "keywordOnly": [],
+      "kind": "function",
+      "kwarg": "",
+      "positional": [
+        "message_code"
+      ],
+      "required": [
+        "message_code"
+      ],
+      "vararg": ""
+    },
+    "create_chat_conversation": {
+      "keywordOnly": [],
+      "kind": "function",
+      "kwarg": "",
+      "positional": [
+        "recipients",
+        "title"
+      ],
+      "required": [
+        "recipients"
+      ],
+      "vararg": ""
+    },
+    "create_user_profile": {
+      "keywordOnly": [],
+      "kind": "function",
+      "kwarg": "",
+      "positional": [
+        "login",
+        "values",
+        "password",
+        "groups"
+      ],
+      "required": [
+        "login"
+      ],
+      "vararg": ""
+    },
+    "delete_chat_conversation": {
+      "keywordOnly": [],
+      "kind": "function",
+      "kwarg": "",
+      "positional": [
+        "message_code"
+      ],
+      "required": [
+        "message_code"
+      ],
+      "vararg": ""
+    },
+    "delete_chat_message": {
+      "keywordOnly": [],
+      "kind": "function",
+      "kwarg": "",
+      "positional": [
+        "message_log_code"
+      ],
+      "required": [
+        "message_log_code"
+      ],
+      "vararg": ""
+    },
+    "delete_sobjects": {
+      "keywordOnly": [],
+      "kind": "function",
+      "kwarg": "",
+      "positional": [
+        "search_keys",
+        "list_dependencies"
+      ],
+      "required": [
+        "search_keys",
+        "list_dependencies"
+      ],
+      "vararg": ""
+    },
+    "duplicate_sobjects": {
+      "keywordOnly": [],
+      "kind": "function",
+      "kwarg": "",
+      "positional": [
+        "search_keys",
+        "data_dict"
+      ],
+      "required": [
+        "search_keys",
+        "data_dict"
+      ],
+      "vararg": ""
+    },
+    "edit_chat_message": {
+      "keywordOnly": [],
+      "kind": "function",
+      "kwarg": "",
+      "positional": [
+        "message_log_code",
+        "message"
+      ],
+      "required": [
+        "message_log_code",
+        "message"
+      ],
+      "vararg": ""
+    },
+    "edit_multiple_instance_sobjects": {
+      "keywordOnly": [],
+      "kind": "function",
+      "kwarg": "",
+      "positional": [
+        "project_code",
+        "insert_search_keys",
+        "exclude_search_keys",
+        "parent_key",
+        "instance_type",
+        "path"
+      ],
+      "required": [
+        "project_code"
+      ],
+      "vararg": ""
+    },
+    "edit_multiple_tasks_sobjects": {
+      "keywordOnly": [],
+      "kind": "function",
+      "kwarg": "",
+      "positional": [
+        "project_code",
+        "parent_keys",
+        "data"
+      ],
+      "required": [
+        "project_code"
+      ],
+      "vararg": ""
+    },
+    "execute_custom_script": {
+      "keywordOnly": [],
+      "kind": "function",
+      "kwarg": "",
+      "positional": [
+        "script_path",
+        "kwargs",
+        "project",
+        "local_execution",
+        "refresh_scripts"
+      ],
+      "required": [
+        "script_path"
+      ],
+      "vararg": ""
+    },
+    "execute_procedure_serverside": {
+      "keywordOnly": [],
+      "kind": "function",
+      "kwarg": "",
+      "positional": [
+        "func",
+        "kwargs",
+        "project",
+        "return_dict",
+        "server"
+      ],
+      "required": [
+        "func",
+        "kwargs"
+      ],
+      "vararg": ""
+    },
+    "forward_chat_messages": {
+      "keywordOnly": [],
+      "kind": "function",
+      "kwarg": "",
+      "positional": [
+        "message_log_keys",
+        "target_message_codes"
+      ],
+      "required": [
+        "message_log_keys",
+        "target_message_codes"
+      ],
+      "vararg": ""
+    },
+    "generate_image": {
+      "keywordOnly": [],
+      "kind": "function",
+      "kwarg": "",
+      "positional": [
+        "image",
+        "save_path",
+        "scaled"
+      ],
+      "required": [
+        "image",
+        "save_path"
+      ],
+      "vararg": ""
+    },
+    "generate_new_ticket": {
+      "keywordOnly": [],
+      "kind": "function",
+      "kwarg": "",
+      "positional": [
+        "explicit_username",
+        "parent"
+      ],
+      "required": [],
+      "vararg": ""
+    },
+    "generate_skey": {
+      "keywordOnly": [],
+      "kind": "function",
+      "kwarg": "",
+      "positional": [
+        "pipeline_code",
+        "code"
+      ],
+      "required": [],
+      "vararg": ""
+    },
+    "generate_web_and_icon": {
+      "keywordOnly": [],
+      "kind": "function",
+      "kwarg": "",
+      "positional": [
+        "source_image_path",
+        "web_save_path",
+        "icon_save_path"
+      ],
+      "required": [
+        "source_image_path"
+      ],
+      "vararg": ""
+    },
+    "get_all_dependency": {
+      "keywordOnly": [],
+      "kind": "function",
+      "kwarg": "",
+      "positional": [
+        "search_keys",
+        "project_code",
+        "return_sobjects"
+      ],
+      "required": [
+        "search_keys"
+      ],
+      "vararg": ""
+    },
+    "get_all_projects_and_logins": {
+      "keywordOnly": [],
+      "kind": "function",
+      "kwarg": "",
+      "positional": [
+        "force"
+      ],
+      "required": [],
+      "vararg": ""
+    },
+    "get_chat_conversations": {
+      "keywordOnly": [],
+      "kind": "function",
+      "kwarg": "",
+      "positional": [],
+      "required": [],
+      "vararg": ""
+    },
+    "get_chat_history": {
+      "keywordOnly": [],
+      "kind": "function",
+      "kwarg": "",
+      "positional": [
+        "message_code",
+        "limit",
+        "offset",
+        "search_text"
+      ],
+      "required": [
+        "message_code"
+      ],
+      "vararg": ""
+    },
+    "get_custom_scripts": {
+      "keywordOnly": [],
+      "kind": "function",
+      "kwarg": "",
+      "positional": [
+        "store_locally",
+        "project",
+        "scripts_codes_list"
+      ],
+      "required": [],
+      "vararg": ""
+    },
+    "get_dirs_with_naming": {
+      "keywordOnly": [],
+      "kind": "function",
+      "kwarg": "",
+      "positional": [
+        "search_key",
+        "process_list"
+      ],
+      "required": [
+        "search_key"
+      ],
+      "vararg": ""
+    },
+    "get_group_sobjects": {
+      "keywordOnly": [],
+      "kind": "function",
+      "kwarg": "",
+      "positional": [
+        "search_type",
+        "project_code",
+        "groups_list"
+      ],
+      "required": [
+        "search_type"
+      ],
+      "vararg": ""
+    },
+    "get_match_list_by_type": {
+      "keywordOnly": [],
+      "kind": "function",
+      "kwarg": "",
+      "positional": [
+        "column_type"
+      ],
+      "required": [
+        "column_type"
+      ],
+      "vararg": ""
+    },
+    "get_notes_count": {
+      "keywordOnly": [],
+      "kind": "function",
+      "kwarg": "",
+      "positional": [
+        "sobject",
+        "process",
+        "children_stypes"
+      ],
+      "required": [
+        "sobject",
+        "process",
+        "children_stypes"
+      ],
+      "vararg": ""
+    },
+    "get_notes_with_attachments": {
+      "keywordOnly": [],
+      "kind": "function",
+      "kwarg": "",
+      "positional": [
+        "note_codes",
+        "project_code"
+      ],
+      "required": [
+        "note_codes",
+        "project_code"
+      ],
+      "vararg": ""
+    },
+    "get_search_relation": {
+      "keywordOnly": [],
+      "kind": "function",
+      "kwarg": "",
+      "positional": [
+        "relation"
+      ],
+      "required": [
+        "relation"
+      ],
+      "vararg": ""
+    },
+    "get_server_updates": {
+      "keywordOnly": [],
+      "kind": "function",
+      "kwarg": "",
+      "positional": [
+        "message_after",
+        "activity_after",
+        "project_code",
+        "limit",
+        "reaction_after",
+        "include_activity",
+        "include_reactions",
+        "include_presence",
+        "presence_ttl"
+      ],
+      "required": [],
+      "vararg": ""
+    },
+    "get_snapshots_updates_list": {
+      "keywordOnly": [],
+      "kind": "function",
+      "kwarg": "",
+      "positional": [
+        "search_type_code",
+        "project_code"
+      ],
+      "required": [
+        "search_type_code",
+        "project_code"
+      ],
+      "vararg": ""
+    },
+    "get_sobjects": {
+      "keywordOnly": [],
+      "kind": "function",
+      "kwarg": "",
+      "positional": [
+        "search_type",
+        "filters",
+        "order_bys",
+        "project_code",
+        "limit",
+        "offset",
+        "get_all_snapshots",
+        "check_snapshots_updates",
+        "include_info",
+        "include_snapshots",
+        "compressed_return",
+        "include_status_log",
+        "include_progress",
+        "include_total_count"
+      ],
+      "required": [
+        "search_type"
+      ],
+      "vararg": ""
+    },
+    "get_sobjects_objects": {
+      "keywordOnly": [],
+      "kind": "function",
+      "kwarg": "",
+      "positional": [
+        "sobjects_list",
+        "project_code"
+      ],
+      "required": [
+        "sobjects_list",
+        "project_code"
+      ],
+      "vararg": ""
+    },
+    "get_subscriptions_and_messages": {
+      "keywordOnly": [],
+      "kind": "function",
+      "kwarg": "",
+      "positional": [
+        "current_login",
+        "update_logins"
+      ],
+      "required": [],
+      "vararg": ""
+    },
+    "get_task_workspace_page": {
+      "keywordOnly": [],
+      "kind": "function",
+      "kwarg": "",
+      "positional": [
+        "filters",
+        "order_bys",
+        "project_code",
+        "limit",
+        "offset"
+      ],
+      "required": [
+        "filters",
+        "order_bys",
+        "project_code"
+      ],
+      "vararg": ""
+    },
+    "get_tasks_and_notes": {
+      "keywordOnly": [],
+      "kind": "function",
+      "kwarg": "",
+      "positional": [
+        "sobject",
+        "search_code",
+        "project_code",
+        "process",
+        "include_all_tasks"
+      ],
+      "required": [],
+      "vararg": ""
+    },
+    "get_user_profile_data": {
+      "keywordOnly": [],
+      "kind": "function",
+      "kwarg": "",
+      "positional": [
+        "login",
+        "project_code",
+        "activity_limit"
+      ],
+      "required": [],
+      "vararg": ""
+    },
+    "get_user_recent_activity": {
+      "keywordOnly": [],
+      "kind": "function",
+      "kwarg": "",
+      "positional": [
+        "login",
+        "project_code",
+        "limit",
+        "offset",
+        "kinds",
+        "assigned_login"
+      ],
+      "required": [],
+      "vararg": ""
+    },
+    "get_virtual_snapshot": {
+      "keywordOnly": [],
+      "kind": "function",
+      "kwarg": "",
+      "positional": [
+        "search_key",
+        "context",
+        "files_dict",
+        "snapshot_type",
+        "is_revision",
+        "keep_file_name",
+        "explicit_filename",
+        "version",
+        "checkin_type",
+        "ignore_keep_file_name",
+        "progress_signal"
+      ],
+      "required": [
+        "search_key",
+        "context",
+        "files_dict"
+      ],
+      "vararg": ""
+    },
+    "group_sobject_by": {
+      "keywordOnly": [],
+      "kind": "function",
+      "kwarg": "",
+      "positional": [
+        "sobjects_dict",
+        "group_by"
+      ],
+      "required": [
+        "sobjects_dict",
+        "group_by"
+      ],
+      "vararg": ""
+    },
+    "heartbeat_user_presence": {
+      "keywordOnly": [],
+      "kind": "function",
+      "kwarg": "",
+      "positional": [
+        "ttl_seconds"
+      ],
+      "required": [],
+      "vararg": ""
+    },
+    "inplace_checkin": {
+      "keywordOnly": [],
+      "kind": "function",
+      "kwarg": "",
+      "positional": [
+        "file_paths",
+        "virtual_snapshot",
+        "repo_name",
+        "update_versionless",
+        "only_versionless",
+        "generate_icons",
+        "files_objects",
+        "padding",
+        "progress_signal"
+      ],
+      "required": [
+        "file_paths",
+        "virtual_snapshot",
+        "repo_name",
+        "update_versionless"
+      ],
+      "vararg": ""
+    },
+    "insert_sobjects": {
+      "keywordOnly": [],
+      "kind": "function",
+      "kwarg": "",
+      "positional": [
+        "search_type",
+        "project_code",
+        "data",
+        "metadata",
+        "parent_key",
+        "instance_type",
+        "info",
+        "use_id",
+        "triggers",
+        "instance_path"
+      ],
+      "required": [
+        "search_type",
+        "project_code",
+        "data"
+      ],
+      "vararg": ""
+    },
+    "mark_chat_read": {
+      "keywordOnly": [],
+      "kind": "function",
+      "kwarg": "",
+      "positional": [
+        "message_code",
+        "timestamp"
+      ],
+      "required": [
+        "message_code",
+        "timestamp"
+      ],
+      "vararg": ""
+    },
+    "mutate_user_profile": {
+      "keywordOnly": [],
+      "kind": "function",
+      "kwarg": "",
+      "positional": [
+        "login",
+        "values",
+        "password",
+        "groups",
+        "group_access_levels"
+      ],
+      "required": [
+        "login"
+      ],
+      "vararg": ""
+    },
+    "mutate_work_hour": {
+      "keywordOnly": [],
+      "kind": "function",
+      "kwarg": "",
+      "positional": [
+        "action",
+        "project_code",
+        "task_code",
+        "work_hour_code",
+        "values"
+      ],
+      "required": [
+        "action",
+        "project_code"
+      ],
+      "vararg": ""
+    },
+    "pack_tactic_search_view": {
+      "keywordOnly": [],
+      "kind": "function",
+      "kwarg": "",
+      "positional": [
+        "filters_list"
+      ],
+      "required": [
+        "filters_list"
+      ],
+      "vararg": ""
+    },
+    "parce_skey": {
+      "keywordOnly": [],
+      "kind": "function",
+      "kwarg": "",
+      "positional": [
+        "skey",
+        "get_skey_and_context",
+        "return_sobject"
+      ],
+      "required": [
+        "skey"
+      ],
+      "vararg": ""
+    },
+    "pin_chat_message": {
+      "keywordOnly": [],
+      "kind": "function",
+      "kwarg": "",
+      "positional": [
+        "message_log_code"
+      ],
+      "required": [
+        "message_log_code"
+      ],
+      "vararg": ""
+    },
+    "query_work_hour_report": {
+      "keywordOnly": [],
+      "kind": "function",
+      "kwarg": "",
+      "positional": [
+        "report_key",
+        "project_code",
+        "start_day",
+        "end_day",
+        "login"
+      ],
+      "required": [
+        "report_key",
+        "project_code"
+      ],
+      "vararg": ""
+    },
+    "query_work_hours": {
+      "keywordOnly": [],
+      "kind": "function",
+      "kwarg": "",
+      "positional": [
+        "task_codes",
+        "project_code",
+        "login",
+        "start_day",
+        "end_day",
+        "statuses",
+        "include_rates",
+        "parent_codes"
+      ],
+      "required": [
+        "task_codes",
+        "project_code"
+      ],
+      "vararg": ""
+    },
+    "send_chat_message": {
+      "keywordOnly": [],
+      "kind": "function",
+      "kwarg": "",
+      "positional": [
+        "message_code",
+        "message",
+        "attachment_keys",
+        "reply_to"
+      ],
+      "required": [
+        "message_code",
+        "message"
+      ],
+      "vararg": ""
+    },
+    "server_auth": {
+      "keywordOnly": [],
+      "kind": "function",
+      "kwarg": "",
+      "positional": [
+        "host",
+        "project",
+        "login",
+        "password",
+        "site",
+        "get_ticket"
+      ],
+      "required": [
+        "host"
+      ],
+      "vararg": ""
+    },
+    "server_fast_ping": {
+      "keywordOnly": [],
+      "kind": "function",
+      "kwarg": "",
+      "positional": [],
+      "required": [],
+      "vararg": ""
+    },
+    "server_fast_ping_predefined": {
+      "keywordOnly": [],
+      "kind": "function",
+      "kwarg": "",
+      "positional": [
+        "server_url",
+        "proxy_dict"
+      ],
+      "required": [
+        "server_url"
+      ],
+      "vararg": ""
+    },
+    "server_ping": {
+      "keywordOnly": [],
+      "kind": "function",
+      "kwarg": "",
+      "positional": [],
+      "required": [],
+      "vararg": ""
+    },
+    "server_query": {
+      "keywordOnly": [],
+      "kind": "function",
+      "kwarg": "",
+      "positional": [
+        "filters",
+        "stype",
+        "columns",
+        "project",
+        "limit",
+        "offset",
+        "order_bys"
+      ],
+      "required": [
+        "filters",
+        "stype"
+      ],
+      "vararg": ""
+    },
+    "server_start": {
+      "keywordOnly": [],
+      "kind": "function",
+      "kwarg": "",
+      "positional": [
+        "get_ticket",
+        "project"
+      ],
+      "required": [],
+      "vararg": ""
+    },
+    "set_chat_members": {
+      "keywordOnly": [],
+      "kind": "function",
+      "kwarg": "",
+      "positional": [
+        "message_code",
+        "recipients"
+      ],
+      "required": [
+        "message_code",
+        "recipients"
+      ],
+      "vararg": ""
+    },
+    "set_work_hour_statuses": {
+      "keywordOnly": [],
+      "kind": "function",
+      "kwarg": "",
+      "positional": [
+        "work_hour_codes",
+        "approved",
+        "project_code"
+      ],
+      "required": [
+        "work_hour_codes",
+        "approved",
+        "project_code"
+      ],
+      "vararg": ""
+    },
+    "split_search_key": {
+      "keywordOnly": [],
+      "kind": "function",
+      "kwarg": "",
+      "positional": [
+        "search_key"
+      ],
+      "required": [
+        "search_key"
+      ],
+      "vararg": ""
+    },
+    "toggle_chat_message_reaction": {
+      "keywordOnly": [],
+      "kind": "function",
+      "kwarg": "",
+      "positional": [
+        "message_log_code",
+        "emoji"
+      ],
+      "required": [
+        "message_log_code",
+        "emoji"
+      ],
+      "vararg": ""
+    },
+    "unpack_tactic_search_view": {
+      "keywordOnly": [],
+      "kind": "function",
+      "kwarg": "",
+      "positional": [
+        "search_view"
+      ],
+      "required": [
+        "search_view"
+      ],
+      "vararg": ""
+    },
+    "unpin_chat_message": {
+      "keywordOnly": [],
+      "kind": "function",
+      "kwarg": "",
+      "positional": [
+        "message_log_code"
+      ],
+      "required": [
+        "message_log_code"
+      ],
+      "vararg": ""
+    },
+    "update_chat_conversation": {
+      "keywordOnly": [],
+      "kind": "function",
+      "kwarg": "",
+      "positional": [
+        "message_code",
+        "title"
+      ],
+      "required": [
+        "message_code",
+        "title"
+      ],
+      "vararg": ""
+    },
+    "update_description": {
+      "keywordOnly": [],
+      "kind": "function",
+      "kwarg": "",
+      "positional": [
+        "search_key",
+        "description"
+      ],
+      "required": [
+        "search_key",
+        "description"
+      ],
+      "vararg": ""
+    }
+  },
+  "thlib/tactic_query.py": {
+    "add_chat_members": {
+      "keywordOnly": [],
+      "kind": "function",
+      "kwarg": "",
+      "positional": [
+        "message_code",
+        "recipients",
+        "replace"
+      ],
+      "required": [
+        "message_code",
+        "recipients"
+      ],
+      "vararg": ""
+    },
+    "authorize_chat_attachment": {
+      "keywordOnly": [],
+      "kind": "function",
+      "kwarg": "",
+      "positional": [
+        "message_code",
+        "snapshot_code"
+      ],
+      "required": [
+        "message_code",
+        "snapshot_code"
+      ],
+      "vararg": ""
+    },
+    "clear_personal_chat": {
+      "keywordOnly": [],
+      "kind": "function",
+      "kwarg": "",
+      "positional": [
+        "message_code"
+      ],
+      "required": [
+        "message_code"
+      ],
+      "vararg": ""
+    },
+    "create_chat_conversation": {
+      "keywordOnly": [],
+      "kind": "function",
+      "kwarg": "",
+      "positional": [
+        "recipients",
+        "title"
+      ],
+      "required": [
+        "recipients"
+      ],
+      "vararg": ""
+    },
+    "create_snapshot_extended": {
+      "keywordOnly": [],
+      "kind": "function",
+      "kwarg": "",
+      "positional": [
+        "search_key",
+        "context",
+        "project_code",
+        "snapshot_type",
+        "is_revision",
+        "is_latest",
+        "is_current",
+        "description",
+        "version",
+        "level_key",
+        "update_versionless",
+        "only_versionless",
+        "keep_file_name",
+        "repo_name",
+        "files_info",
+        "mode",
+        "create_icon"
+      ],
+      "required": [
+        "search_key",
+        "context"
+      ],
+      "vararg": ""
+    },
+    "create_user_profile": {
+      "keywordOnly": [],
+      "kind": "function",
+      "kwarg": "",
+      "positional": [
+        "login",
+        "values",
+        "password",
+        "groups"
+      ],
+      "required": [
+        "login"
+      ],
+      "vararg": ""
+    },
+    "delete_chat_conversation": {
+      "keywordOnly": [],
+      "kind": "function",
+      "kwarg": "",
+      "positional": [
+        "message_code"
+      ],
+      "required": [
+        "message_code"
+      ],
+      "vararg": ""
+    },
+    "delete_chat_message": {
+      "keywordOnly": [],
+      "kind": "function",
+      "kwarg": "",
+      "positional": [
+        "message_log_code"
+      ],
+      "required": [
+        "message_log_code"
+      ],
+      "vararg": ""
+    },
+    "delete_sobjects": {
+      "keywordOnly": [],
+      "kind": "function",
+      "kwarg": "",
+      "positional": [
+        "search_keys",
+        "include_dependencies",
+        "list_dependencies"
+      ],
+      "required": [
+        "search_keys"
+      ],
+      "vararg": ""
+    },
+    "duplicate_sobjects": {
+      "keywordOnly": [],
+      "kind": "function",
+      "kwarg": "",
+      "positional": [
+        "search_keys",
+        "data_dict"
+      ],
+      "required": [
+        "search_keys"
+      ],
+      "vararg": ""
+    },
+    "edit_chat_message": {
+      "keywordOnly": [],
+      "kind": "function",
+      "kwarg": "",
+      "positional": [
+        "message_log_code",
+        "message"
+      ],
+      "required": [
+        "message_log_code",
+        "message"
+      ],
+      "vararg": ""
+    },
+    "edit_multiple_instance_sobjects": {
+      "keywordOnly": [],
+      "kind": "function",
+      "kwarg": "",
+      "positional": [
+        "project_code",
+        "insert_search_keys",
+        "exclude_search_keys",
+        "parent_key",
+        "instance_type",
+        "path"
+      ],
+      "required": [
+        "project_code"
+      ],
+      "vararg": ""
+    },
+    "edit_multiple_tasks_sobjects": {
+      "keywordOnly": [],
+      "kind": "function",
+      "kwarg": "",
+      "positional": [
+        "project_code",
+        "parent_search_keys",
+        "data"
+      ],
+      "required": [
+        "project_code"
+      ],
+      "vararg": ""
+    },
+    "forward_chat_messages": {
+      "keywordOnly": [],
+      "kind": "function",
+      "kwarg": "",
+      "positional": [
+        "message_log_keys",
+        "target_message_codes"
+      ],
+      "required": [
+        "message_log_keys",
+        "target_message_codes"
+      ],
+      "vararg": ""
+    },
+    "get_all_dependency": {
+      "keywordOnly": [],
+      "kind": "function",
+      "kwarg": "",
+      "positional": [
+        "search_keys",
+        "project_code"
+      ],
+      "required": [
+        "search_keys"
+      ],
+      "vararg": ""
+    },
+    "get_dirs_with_naming": {
+      "keywordOnly": [],
+      "kind": "function",
+      "kwarg": "",
+      "positional": [
+        "search_key",
+        "process_list"
+      ],
+      "required": [],
+      "vararg": ""
+    },
+    "get_notes_and_stypes_counts": {
+      "keywordOnly": [],
+      "kind": "function",
+      "kwarg": "",
+      "positional": [
+        "process",
+        "search_key",
+        "stypes_list"
+      ],
+      "required": [
+        "process",
+        "search_key",
+        "stypes_list"
+      ],
+      "vararg": ""
+    },
+    "get_notes_with_attachments": {
+      "keywordOnly": [],
+      "kind": "function",
+      "kwarg": "",
+      "positional": [
+        "note_codes",
+        "project_code"
+      ],
+      "required": [
+        "note_codes",
+        "project_code"
+      ],
+      "vararg": ""
+    },
+    "get_projects_and_logins": {
+      "keywordOnly": [],
+      "kind": "function",
+      "kwarg": "",
+      "positional": [
+        "current_login"
+      ],
+      "required": [],
+      "vararg": ""
+    },
+    "get_subscriptions_and_messages": {
+      "keywordOnly": [],
+      "kind": "function",
+      "kwarg": "",
+      "positional": [
+        "current_login",
+        "update_logins"
+      ],
+      "required": [],
+      "vararg": ""
+    },
+    "get_tasks_and_notes": {
+      "keywordOnly": [],
+      "kind": "function",
+      "kwarg": "",
+      "positional": [
+        "search_code",
+        "project_code",
+        "process",
+        "include_all_tasks"
+      ],
+      "required": [
+        "search_code",
+        "project_code"
+      ],
+      "vararg": ""
+    },
+    "get_traceback": {
+      "keywordOnly": [],
+      "kind": "function",
+      "kwarg": "",
+      "positional": [],
+      "required": [],
+      "vararg": ""
+    },
+    "get_virtual_snapshot_extended": {
+      "keywordOnly": [],
+      "kind": "function",
+      "kwarg": "",
+      "positional": [
+        "search_key",
+        "context",
+        "files_dict",
+        "snapshot_type",
+        "is_revision",
+        "level_key",
+        "keep_file_name",
+        "explicit_filename",
+        "version",
+        "update_versionless",
+        "ignore_keep_file_name",
+        "checkin_type"
+      ],
+      "required": [
+        "search_key",
+        "context",
+        "files_dict"
+      ],
+      "vararg": ""
+    },
+    "heartbeat_user_presence": {
+      "keywordOnly": [],
+      "kind": "function",
+      "kwarg": "",
+      "positional": [
+        "ttl_seconds"
+      ],
+      "required": [],
+      "vararg": ""
+    },
+    "insert_sobjects": {
+      "keywordOnly": [],
+      "kind": "function",
+      "kwarg": "",
+      "positional": [
+        "search_type",
+        "project_code",
+        "data",
+        "metadata",
+        "parent_key",
+        "instance_type",
+        "info",
+        "use_id",
+        "triggers",
+        "instance_path"
+      ],
+      "required": [
+        "search_type",
+        "project_code",
+        "data"
+      ],
+      "vararg": ""
+    },
+    "mark_chat_read": {
+      "keywordOnly": [],
+      "kind": "function",
+      "kwarg": "",
+      "positional": [
+        "message_code",
+        "timestamp"
+      ],
+      "required": [
+        "message_code",
+        "timestamp"
+      ],
+      "vararg": ""
+    },
+    "mutate_user_profile": {
+      "keywordOnly": [],
+      "kind": "function",
+      "kwarg": "",
+      "positional": [
+        "login",
+        "values",
+        "password",
+        "groups",
+        "group_access_levels"
+      ],
+      "required": [
+        "login"
+      ],
+      "vararg": ""
+    },
+    "mutate_work_hour": {
+      "keywordOnly": [],
+      "kind": "function",
+      "kwarg": "",
+      "positional": [
+        "action",
+        "project_code",
+        "task_code",
+        "work_hour_code",
+        "values"
+      ],
+      "required": [
+        "action",
+        "project_code"
+      ],
+      "vararg": ""
+    },
+    "pin_chat_message": {
+      "keywordOnly": [],
+      "kind": "function",
+      "kwarg": "",
+      "positional": [
+        "message_log_code",
+        "unpin"
+      ],
+      "required": [
+        "message_log_code"
+      ],
+      "vararg": ""
+    },
+    "prepare_serverside_script": {
+      "keywordOnly": [],
+      "kind": "function",
+      "kwarg": "",
+      "positional": [
+        "func",
+        "kwargs",
+        "return_dict",
+        "has_return",
+        "shrink",
+        "catch_traceback"
+      ],
+      "required": [
+        "func",
+        "kwargs"
+      ],
+      "vararg": ""
+    },
+    "query_EditWdg": {
+      "keywordOnly": [],
+      "kind": "function",
+      "kwarg": "",
+      "positional": [
+        "args",
+        "search_type",
+        "project"
+      ],
+      "required": [],
+      "vararg": ""
+    },
+    "query_chat_conversations": {
+      "keywordOnly": [],
+      "kind": "function",
+      "kwarg": "",
+      "positional": [],
+      "required": [],
+      "vararg": ""
+    },
+    "query_chat_history": {
+      "keywordOnly": [],
+      "kind": "function",
+      "kwarg": "",
+      "positional": [
+        "message_code",
+        "limit",
+        "offset",
+        "search_text"
+      ],
+      "required": [
+        "message_code"
+      ],
+      "vararg": ""
+    },
+    "query_group_sobjects": {
+      "keywordOnly": [],
+      "kind": "function",
+      "kwarg": "",
+      "positional": [
+        "search_type",
+        "project_code",
+        "groups_list"
+      ],
+      "required": [
+        "search_type"
+      ],
+      "vararg": ""
+    },
+    "query_search_types_extended": {
+      "keywordOnly": [],
+      "kind": "function",
+      "kwarg": "",
+      "positional": [
+        "project_code"
+      ],
+      "required": [
+        "project_code"
+      ],
+      "vararg": ""
+    },
+    "query_server_updates": {
+      "keywordOnly": [],
+      "kind": "function",
+      "kwarg": "",
+      "positional": [
+        "message_after",
+        "activity_after",
+        "project_code",
+        "limit",
+        "reaction_after",
+        "include_activity",
+        "include_reactions",
+        "include_presence",
+        "presence_ttl"
+      ],
+      "required": [],
+      "vararg": ""
+    },
+    "query_sobjects": {
+      "keywordOnly": [],
+      "kind": "function",
+      "kwarg": "",
+      "positional": [
+        "search_type",
+        "filters",
+        "order_bys",
+        "project_code",
+        "limit",
+        "offset",
+        "get_all_snapshots",
+        "check_snapshots_updates",
+        "include_info",
+        "include_snapshots",
+        "compressed_return",
+        "include_status_log",
+        "include_progress",
+        "include_total_count"
+      ],
+      "required": [
+        "search_type"
+      ],
+      "vararg": ""
+    },
+    "query_sobjects_snapshots_updated": {
+      "keywordOnly": [],
+      "kind": "function",
+      "kwarg": "",
+      "positional": [
+        "search_type",
+        "filters",
+        "order_bys",
+        "project_code",
+        "last_timestamp"
+      ],
+      "required": [
+        "search_type"
+      ],
+      "vararg": ""
+    },
+    "query_task_workspace_page": {
+      "keywordOnly": [],
+      "kind": "function",
+      "kwarg": "",
+      "positional": [
+        "filters",
+        "order_bys",
+        "project_code",
+        "limit",
+        "offset"
+      ],
+      "required": [
+        "filters",
+        "order_bys",
+        "project_code"
+      ],
+      "vararg": ""
+    },
+    "query_user_profile_data": {
+      "keywordOnly": [],
+      "kind": "function",
+      "kwarg": "",
+      "positional": [
+        "login",
+        "project_code",
+        "activity_limit"
+      ],
+      "required": [
+        "login"
+      ],
+      "vararg": ""
+    },
+    "query_user_recent_activity": {
+      "keywordOnly": [],
+      "kind": "function",
+      "kwarg": "",
+      "positional": [
+        "login",
+        "project_code",
+        "limit",
+        "offset",
+        "kinds",
+        "assigned_login"
+      ],
+      "required": [],
+      "vararg": ""
+    },
+    "query_work_hour_report": {
+      "keywordOnly": [],
+      "kind": "function",
+      "kwarg": "",
+      "positional": [
+        "report_key",
+        "project_code",
+        "start_day",
+        "end_day",
+        "login"
+      ],
+      "required": [
+        "report_key",
+        "project_code"
+      ],
+      "vararg": ""
+    },
+    "query_work_hours": {
+      "keywordOnly": [],
+      "kind": "function",
+      "kwarg": "",
+      "positional": [
+        "task_codes",
+        "project_code",
+        "login",
+        "start_day",
+        "end_day",
+        "statuses",
+        "include_rates",
+        "parent_codes"
+      ],
+      "required": [
+        "task_codes",
+        "project_code"
+      ],
+      "vararg": ""
+    },
+    "send_chat_message": {
+      "keywordOnly": [],
+      "kind": "function",
+      "kwarg": "",
+      "positional": [
+        "message_code",
+        "message",
+        "attachment_keys",
+        "reply_to"
+      ],
+      "required": [
+        "message_code",
+        "message"
+      ],
+      "vararg": ""
+    },
+    "set_work_hour_statuses": {
+      "keywordOnly": [],
+      "kind": "function",
+      "kwarg": "",
+      "positional": [
+        "work_hour_codes",
+        "approved",
+        "project_code"
+      ],
+      "required": [
+        "work_hour_codes",
+        "approved",
+        "project_code"
+      ],
+      "vararg": ""
+    },
+    "toggle_chat_message_reaction": {
+      "keywordOnly": [],
+      "kind": "function",
+      "kwarg": "",
+      "positional": [
+        "message_log_code",
+        "emoji"
+      ],
+      "required": [
+        "message_log_code",
+        "emoji"
+      ],
+      "vararg": ""
+    },
+    "traceback_handle": {
+      "keywordOnly": [],
+      "kind": "function",
+      "kwarg": "",
+      "positional": [
+        "func"
+      ],
+      "required": [
+        "func"
+      ],
+      "vararg": ""
+    },
+    "update_chat_conversation": {
+      "keywordOnly": [],
+      "kind": "function",
+      "kwarg": "",
+      "positional": [
+        "message_code",
+        "title"
+      ],
+      "required": [
+        "message_code",
+        "title"
+      ],
+      "vararg": ""
+    }
+  }
+}

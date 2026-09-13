@@ -1,0 +1,14 @@
+{
+  "WorkspaceResultItem": {
+    "sobject": {"qobjects": 155, "quickItems": 70},
+    "snapshot": {"qobjects": 137, "quickItems": 63},
+    "file": {"qobjects": 88, "quickItems": 38},
+    "relation": {"qobjects": 87, "quickItems": 35}
+  },
+  "WorkspaceCard": {
+    "sobject": {"qobjects": 142, "quickItems": 73},
+    "snapshot": {"qobjects": 119, "quickItems": 58},
+    "file": {"qobjects": 116, "quickItems": 57},
+    "relation": {"qobjects": 106, "quickItems": 51}
+  }
+}

@@ -5,36 +5,22 @@
 import os
 import sys
 import io
-import glob
 import shutil
 import urllib
-import importlib
-import thlib.side.six as six
-try:
-    from urlparse import urlparse, parse_qsl
-except:
-    from urllib.parse import urlparse, parse_qsl
+from urllib.parse import urlparse, parse_qsl
 import collections
+import copy
 import json
-from pickle import dumps, loads
-if sys.version_info[0] > 2:
-    from bs4 import BeautifulSoup
-else:
-    from bs42 import BeautifulSoup
+import datetime
+from decimal import Decimal, InvalidOperation
+from thlib.tactic_xml import parse_tactic_xml
 import time
-from thlib.side.Qt import QtWidgets as QtGui
-from thlib.side.Qt import QtGui as Qt4Gui
-from thlib.side.Qt import QtCore
 import thlib.proxy as proxy
+from thlib.request_retry import run_read_only_request
 from thlib.environment import env_mode, env_server, env_inst, env_tactic, env_write_config, env_read_config, env_write_file, dl
 import thlib.global_functions as gf
 import thlib.tactic_query as tq
 from thlib.side.client.tactic_client_lib.tactic_server_stub import TacticServerStub
-
-
-if env_mode.get_mode() == 'maya':
-    import thlib.maya_functions as mf
-    importlib.reload(mf)
 
 
 def server_auth(host, project=None, login=None, password=None, site=None, get_ticket=False):
@@ -79,6 +65,7 @@ def server_start(get_ticket=False, project=None):
 
 
 def generate_new_ticket(explicit_username=None, parent=None):
+    from thlib.side.Qt import QtWidgets as QtGui
     login_pass_dlg = QtGui.QMessageBox(
         QtGui.QMessageBox.Question,
         'Updating ticket',
@@ -363,7 +350,7 @@ def pack_tactic_search_view(filters_list):
 
         tactic_filters_list.append(filter_dict)
 
-    # adding ops list, looks like it is all dated, and legacy
+    # TACTIC Search Views store flat operators in a parallel search_ops row.
     ops_dict = {'prefix': 'search_ops', 'levels': [], 'ops': [], 'modes': []}
     for op in ops_list:
         ops_dict['levels'].append(0)
@@ -407,6 +394,11 @@ def split_search_key(search_key):
 def get_snapshots_updates_list(search_type_code, project_code):
 
         search_type_object = env_inst.get_stype_by_code(search_type_code, project_code)
+        if search_type_object is None:
+            # System/config tables can be opened and queried without a
+            # project SearchType object. They do not own repository-sync
+            # snapshot state, so there is no local update list to read.
+            return []
 
         group_path = u'ui_search/{0}/{1}/{2}/sobjects_conf'.format(
             search_type_object.project.info['type'],
@@ -414,27 +406,16 @@ def get_snapshots_updates_list(search_type_code, project_code):
             search_type_object.get_code().split('/')[1]
         )
 
-        abs_path = u'{0}/settings/{1}/{2}/{3}/{4}'.format(
-            env_mode.get_current_path(),
-            env_mode.node,
-            env_server.get_cur_srv_preset(),
-            env_mode.get_mode(),
-            group_path)
+        # Repository Sync stores all per-sObject checkpoints in one
+        # file to avoid thousands of tiny config reads.
+        aggregate = env_read_config(
+            filename='repository_sync_state',
+            unique_id=group_path,
+            long_abs_path=True,
+        ) or {}
+        timestamps = dict(aggregate) if isinstance(aggregate, dict) else {}
 
-        json_files = glob.glob1(abs_path, '*.json')
-
-        update_snapshots_timestamp_list = []
-
-        for js in json_files:
-            full_path = u'{}/{}'.format(abs_path, js)
-            with open(full_path, 'r') as json_file:
-                date_time_string = json.load(json_file)
-
-            json_file.close()
-
-            update_snapshots_timestamp_list.append((js.split('.')[0], date_time_string))
-
-        return update_snapshots_timestamp_list
+        return sorted(timestamps.items())
 
 # SObject class
 class SObject(object):
@@ -464,30 +445,24 @@ class SObject(object):
     # .process['sculpt'].snapshots['maya']()  # gets all versionless snapshots per context typed 'maya'
     # .process['sculpt'].snapshots['context'].versions() # gets all dependent to context versions
 
-    # .get_tasks()
-    # .tasks['sculpt'].contexts['sculpt'].task['context'].get_notes() # gets notes per task context
-    # .tasks['sculpt'].contexts['sculpt'].task['context'].notes # return all notes per task context
-
     # .get_notes()
     # .notes['sculpt'].notes()
     """
 
-    def __init__(self, in_sobj=None, in_process=None, project=None):
+    def __init__(self, in_sobj=None, project=None):
         """
         :param in_sobj: input list with info on particular sobject
-        :param in_process: list of current sobject possible process, need to query tasks per process
         :return:
         """
 
         # INPUT VARS
         self.info = in_sobj
-        self.all_process = in_process  # TODO Should be deprecated almost not used
         self.project = project
 
         # OUTPUT VARS
         self.process = {}
-        self.tasks = {}
         self.tasks_sobjects = None
+        self.task_summaries = {}
         self.notes_sobjects = None
         self.snapshots_sobjects = None
         self.files_sobjects = None
@@ -529,34 +504,41 @@ class SObject(object):
 
         return server_start(project=self.project.info['code']).query_snapshots(filters=filters_expr, order_bys=order_bys, include_files=True)
 
-    # Tasks by search code
-    # DEPRECATED
-    def query_tasks(self, s_code, process=None, user=None):
-        """
-        Query for Task
-        :param s_code: Code of asset related to task
-        :param process: Process code
-        :param user: Optional users names
-        :return:
-        """
-        server = server_start(project=self.project.info['code'])
-
-        search_type = 'sthpw/task'
-        if process:
-            filters = [('search_code', s_code), ('process', process), ('project_code', self.project.info['code'])]
-        else:
-            filters = [('search_code', s_code), ('project_code', self.project.info['code'])]
-
-        return server.query(search_type, filters)
-
     # Query snapshots to update current
-    def update_snapshots(self, order_bys=None, filters=None):
+    def update_snapshots(self, order_bys=None, filters=None, force=False):
 
-        if self.info.get('code'):
-            snapshot_dict = self.query_snapshots(s_code=self.info['code'], order_bys=order_bys, filters=filters)
-        else:
-            snapshot_dict = self.query_snapshots(s_id=self.info['id'], order_bys=order_bys, filters=filters)
+        from thlib import server_cache
 
+        project_code = str(self.project.get_code() or '')
+        cache_key = json.dumps({
+            'target': self.get_search_key(),
+            'orderBys': list(order_bys or []),
+            'filters': list(filters or []),
+        }, ensure_ascii=False, default=str, separators=(',', ':'),
+            sort_keys=True)
+        if force:
+            server_cache.invalidate_domains(('snapshots',), project_code)
+        cache_token = server_cache.token('snapshots', project_code)
+        snapshot_dict = None if force else server_cache.read_entry(
+            'snapshots', cache_key, project_code,
+        )
+        if not isinstance(snapshot_dict, list):
+            if self.info.get('code'):
+                snapshot_dict = self.query_snapshots(
+                    s_code=self.info['code'], order_bys=order_bys,
+                    filters=filters,
+                )
+            else:
+                snapshot_dict = self.query_snapshots(
+                    s_id=self.info['id'], order_bys=order_bys,
+                    filters=filters,
+                )
+            if cache_token is not None:
+                server_cache.write_entry(
+                    'snapshots', cache_key, snapshot_dict, project_code,
+                    expected_token=cache_token,
+                )
+        self.process = {}
         self.init_snapshots(snapshot_dict)
 
     # Initial Snapshots by process without query
@@ -627,15 +609,6 @@ class SObject(object):
 
         return self.files_sobjects
 
-    # Tasks by SObject
-    # DEPRECATED
-    def get_tasks(self):
-        tasks_list = self.query_tasks(self.info['code'])
-        process_set = set(task['process'] for task in tasks_list)
-
-        for process in process_set:
-            self.tasks[process] = Process(tasks_list, process, True)
-
     def is_snapshots_need_update(self):
         return self.info.get('__have_updates__')
 
@@ -673,6 +646,38 @@ class SObject(object):
 
         return self.tasks_sobjects
 
+    def get_work_hours(self, login=None, start_day=None, end_day=None,
+                       statuses=None):
+        result = query_work_hours(
+            [], self.project.get_code(), login=login,
+            start_day=start_day, end_day=end_day, statuses=statuses,
+            parent_codes=[self.get_code()],
+        )
+        return result['entries']
+
+    @staticmethod
+    def get_multiple_work_hours(sobjects_list, login=None, start_day=None,
+                                end_day=None, statuses=None,
+                                include_rates=False):
+        if not sobjects_list:
+            return {'entries': [], 'permissions': {}, 'rates': {}}
+        project = sobjects_list[0].get_project()
+        task_objects = all(
+            str(sobject.get_search_type() or '').split('?')[0]
+            == Task.SEARCH_TYPE
+            for sobject in sobjects_list
+        )
+        return query_work_hours(
+            [sobject.get_code() for sobject in sobjects_list]
+            if task_objects else [],
+            project.get_code(), login=login, start_day=start_day,
+            end_day=end_day, statuses=statuses,
+            include_rates=include_rates,
+            parent_codes=[] if task_objects else [
+                sobject.get_code() for sobject in sobjects_list
+            ],
+        )
+
     def set_tasks_count(self, process, count):
         self.tasks_count[process] = count
 
@@ -681,6 +686,19 @@ class SObject(object):
             return self.tasks_count.get(process)
         else:
             return self.tasks_count
+
+    def set_task_summaries(self, process, records):
+        self.task_summaries[str(process or 'publish')] = [
+            dict(record or {}) for record in (records or [])
+        ]
+
+    def get_task_summaries(self, process=None):
+        if process:
+            return list(self.task_summaries.get(str(process), ()))
+        return {
+            key: list(records)
+            for key, records in self.task_summaries.items()
+        }
 
     def set_status_log(self, status_log):
 
@@ -738,31 +756,21 @@ class SObject(object):
     def get_search_key(self):
         return self.info.get('__search_key__')
 
-    def delete_sobject(self, include_dependencies=False, list_dependencies=None, confirm=True):
+    def delete_sobject(self, include_dependencies=False,
+                       list_dependencies=None):
+        """Delete this object after the calling UI has confirmed the action."""
+        dependencies_dict = None
         if list_dependencies:
-            confirm = False
-
-        if confirm:
-            del_confirm = sobject_delete_confirm(self)
-        else:
-            del_confirm = True
-
-        if del_confirm:
-            if isinstance(del_confirm, dict):
-                list_dependencies = del_confirm['search_types']
-
-                dependencies_dict = {
-                    'related_types': list_dependencies
-                }
-
-            kwargs = {
-                'search_keys': self.get_search_key(),
-                'include_dependencies': include_dependencies,
-                'list_dependencies': dependencies_dict,
+            dependencies_dict = {
+                'related_types': list_dependencies
             }
-            return execute_procedure_serverside(tq.delete_sobjects, kwargs)
-        else:
-            return False
+
+        kwargs = {
+            'search_keys': self.get_search_key(),
+            'include_dependencies': include_dependencies,
+            'list_dependencies': dependencies_dict,
+        }
+        return execute_procedure_serverside(tq.delete_sobjects, kwargs)
 
     def get_pipeline_code(self):
         return self.info.get('pipeline_code')
@@ -802,7 +810,7 @@ class SObject(object):
             return gf.get_pretty_datetime(dateime)
         elif simple:
             dateime = gf.parce_timestamp(self.info['timestamp'])
-            return dateime.strftime('%Y %B %d %H:%M:%S')
+            return gf.get_full_datetime(dateime)
         else:
             return self.info['timestamp']
 
@@ -847,33 +855,47 @@ class SObject(object):
             related_type = child_stype.get_code()
 
 
+        if not relations:
+            raise ValueError(
+                'No {0} relationship between {1} and {2}'.format(
+                    path, parent_stype.get_code(), child_stype.get_code()
+                )
+            )
+
         relationship = relations.get('relationship')
 
         if relationship:
 
-            # if relationship == 'search_type':
-            #     child_col = 'search_code'
-            # TODO Need special case for search_type relationship
             if relationship in ['code', 'search_type']:
-                if relations.get('from_col'):
-                    related_from_column = relations.get('from_col')
+                # Schema relations are directed from child to parent.  A
+                # search_type relationship uses the standard search_code
+                # column; a direct code relationship uses the declared
+                # foreign key (or the conventional <parent>_code column).
+                related_from_column = relations.get('from_col')
+                if not related_from_column:
+                    if relationship == 'search_type':
+                        related_from_column = 'search_code'
+                    else:
+                        related_from_column = '{0}_code'.format(
+                            relations.get('to').split('/')[-1]
+                        )
+                related_to_column = relations.get('to_col') or 'code'
+
+                if path == 'parent':
+                    related_value = self.info.get(related_from_column)
+                    query_column = related_to_column
                 else:
-                    related_from_column = '{0}_code'.format(relations.get('to').split('/')[-1])
+                    related_value = self.info.get(related_to_column)
+                    query_column = related_from_column
 
-                if relations.get('from_col'):
-                    related_to_column = relations.get('to_col')
-                else:
-                    related_to_column = '{0}_code'.format(relations.get('from').split('/')[-1])
-
-                related_from_code = self.info.get(related_from_column)
-                related_to_code = self.info.get(related_to_column)
-
-                # if there is no found code even with explicit columns
-                if not related_from_code:
-                    related_from_code = self.info.get('code')
-
-                if not related_to_code:
-                    related_to_code = self.info.get('code')
+                if related_value is None:
+                    raise ValueError(
+                        'Relationship column {0} is missing on {1}'.format(
+                            related_from_column if path == 'parent'
+                            else related_to_column,
+                            self.get_search_key(),
+                        )
+                    )
 
             elif relationship == 'instance':
 
@@ -913,6 +935,14 @@ class SObject(object):
 
                 related_code = self.info.get('code')
 
+        if relationship not in ('code', 'search_type', 'instance'):
+            raise ValueError(
+                'Unsupported relationship {0} between {1} and {2}'.format(
+                    relationship,
+                    parent_stype.get_code(),
+                    child_stype.get_code(),
+                )
+            )
 
         if relationship == 'instance':
             if path == 'parent':
@@ -920,12 +950,11 @@ class SObject(object):
             else:
                 return u"@SOBJECT({0}['{1}', '{2}'].{3})".format(instance_type, related_to_column, related_code, related_type)
         else:
-            if path == 'parent':
-                return u"@SOBJECT({0}['{1}', '{2}'])".format(related_type, related_to_column, related_from_code)
-            else:
-                return u"@SOBJECT({0}['{1}', '{2}'])".format(related_type, related_from_column, related_to_code)
+            return u"@SOBJECT({0}['{1}', '{2}'])".format(
+                related_type, query_column, related_value
+            )
 
-    def get_related_sobjects(self, child_stype=None, parent_stype=None, get_all_snapshots=False, path='child', filters=None):
+    def get_related_sobjects(self, child_stype=None, parent_stype=None, get_all_snapshots=False, path='child', filters=None, force=False):
 
         if not child_stype:
             child_stype = self.get_stype()
@@ -944,12 +973,59 @@ class SObject(object):
         if filters:
             expr_filters.extend(filters)
 
-        return get_sobjects(
+        from thlib import server_cache
+
+        project_code = str(self.project.get_code() or '')
+        cache_key = json.dumps({
+            'target': self.get_search_key(),
+            'childType': child_stype.get_code(),
+            'parentType': parent_stype.get_code(),
+            'path': path,
+            'filters': list(filters or []),
+            'snapshots': bool(get_all_snapshots),
+        }, ensure_ascii=False, default=str, separators=(',', ':'),
+            sort_keys=True)
+        if force:
+            server_cache.invalidate_domains(('relations',), project_code)
+        cache_token = server_cache.token('relations', project_code)
+        can_cache = bool(
+            cache_token is not None
+            and (
+                not get_all_snapshots
+                or server_cache.domain_enabled('snapshots')
+            )
+        )
+        payload = None if force or not can_cache else server_cache.read_entry(
+            'relations', cache_key, project_code,
+        )
+        if isinstance(payload, dict):
+            return hydrate_sobjects_payload(
+                payload, project_code, include_info=True,
+                include_snapshots=True,
+            )
+        fetched = get_sobjects(
             search_type=built_process,
             filters=expr_filters,
             order_bys=order_bys,
+            project_code=project_code,
             get_all_snapshots=get_all_snapshots,
+            return_payload=True,
         )
+        if not fetched:
+            result = (collections.OrderedDict(), {})
+            payload = {
+                'sobjects_list': [], 'limit': 0, 'offset': 0,
+                'total_sobjects_count': 0,
+                'total_sobjects_query_count': 0,
+            }
+        else:
+            result, payload = fetched
+        if can_cache:
+            server_cache.write_entry(
+                'relations', cache_key, payload, project_code,
+                expected_token=cache_token,
+            )
+        return result
 
     def commit(self, triggers=True):
 
@@ -971,9 +1047,11 @@ class Project(SObject):
         self.info = project
         self.stypes = None
         self.workflow = None
+        self.views = ViewsConfig([], project=self)
         self.sidebar = None
 
         self.process = {}
+        self.update_dict = {}
 
     def get_title(self, pretty=False):
         title = self.info.get('name')
@@ -998,8 +1076,26 @@ class Project(SObject):
     def is_template(self):
         return self.info.get('is_template')
 
+    def is_builtin(self):
+        return bool(self.info.get('__builtin__'))
+
+    def commit(self, triggers=True):
+        data = dict(self.update_dict)
+        if not data:
+            return self.info
+        result = server_start(project='sthpw').update(
+            self.get_search_key(),
+            data=data,
+            triggers=triggers,
+        )
+        self.info.update(data)
+        self.update_dict.clear()
+        if isinstance(result, dict):
+            self.info.update(result)
+        return result
+
     def get_stypes(self):
-        if not self.stypes:
+        if self.stypes is None:
             return self.query_search_types()
         else:
             return self.stypes
@@ -1007,63 +1103,61 @@ class Project(SObject):
     def get_search_type(self, search_type):
         return self.stypes[search_type]
 
-    def query_search_types(self, force=False):
+    def query_search_types(self, force=False, cache_only=False):
 
-        use_cache = False
+        # Project configuration is safe to restore for presentation while a
+        # fresh authoritative copy is requested in the background.
+        use_cache = env_mode.get_mode() != 'api_server'
         stypes_result = None
+        cache_key = 'search_types:{0}'.format(self.get_code())
 
         if use_cache and not force:
-            # reading cache from file
-            stypes_cache = env_read_config(
-                filename='stypes_cache',
-                unique_id='cache/{0}'.format(self.get_code()),
-                long_abs_path=True
+            from thlib import server_cache
+
+            stypes_result = server_cache.read_entry(
+                'reference', cache_key, self.get_code(),
             )
-            if stypes_cache:
-                stypes_result = gf.hex_to_html(stypes_cache)
-            else:
+            if not stypes_result and cache_only:
+                return []
+            if not stypes_result:
                 return self.query_search_types(True)
         else:
+            from thlib import server_cache
+
+            if use_cache and force:
+                server_cache.invalidate_domains(
+                    ('reference',), self.get_code()
+                )
+            cache_token = (
+                server_cache.token('reference', self.get_code())
+                if use_cache else None
+            )
             kwargs = {
                 'project_code': self.get_code(),
             }
 
             stypes_result = execute_procedure_serverside(tq.query_search_types_extended, kwargs, project=self.get_code(), return_dict=False)
 
-            if stypes_result:
-                # writing result to cache
-                env_write_config(
-                    gf.html_to_hex(stypes_result),
-                    filename='stypes_cache',
-                    unique_id='cache/{0}'.format(self.get_code()),
-                    long_abs_path=True
+            if stypes_result and cache_token is not None:
+                server_cache.write_entry(
+                    'reference', cache_key, stypes_result, self.get_code(),
+                    expected_token=cache_token,
                 )
 
         stypes = json.loads(stypes_result)
 
-        views = stypes.get('views')
+        views = stypes.get('views') or []
         schema = stypes.get('schema')
-        pipelines = stypes.get('pipelines')
-        stypes = stypes.get('stypes')
+        pipelines = stypes.get('pipelines') or []
+        stypes = stypes.get('stypes') or []
+        prj_schema = (schema[0]['schema'] if schema else '') or ''
 
-
-        if schema:
-            prj_schema = schema[0]['schema']
-        else:
-            prj_schema = None
-
-        # Empty until it needed
-        if self.get_code() == 'sthpw':
-            prj_schema = 'dummy'
-            pipelines = [{None: None}]
-
-        if not pipelines or not prj_schema:
-            return []
-        else:
-            return self.get_all_search_types(stypes, pipelines, prj_schema, views)
+        # System and newly created projects need not have a production schema
+        # or pipelines. Their Search Types and views are still valid metadata.
+        return self.get_all_search_types(stypes, pipelines, prj_schema, views)
 
     def get_all_search_types(self, stype_list, process_list, schema, views):
-        pipeline = BeautifulSoup(schema, 'html.parser')
+        pipeline = parse_tactic_xml(schema)
         all_connections_list = []
 
         dct = collections.OrderedDict()
@@ -1104,7 +1198,7 @@ class Project(SObject):
             dct.setdefault(pipe.attrs['name'], []).append(conn)
 
         # getting workflow here
-        self.workflow = Workflow(process_list)
+        workflow = Workflow(process_list)
 
         # getting stypes processes here
         stypes_objects = collections.OrderedDict()
@@ -1113,14 +1207,14 @@ class Project(SObject):
             stype_schema = dct.get(stype['code'])
 
             for process in process_list:
-                if dct.get(stype['code']):
-                    if process['search_type'] == dct.get(stype['code'])[0]['search_type']['name']:
-                        stype_process[process['code']] = process
+                if process.get('search_type') == stype['code']:
+                    stype_process[process['code']] = process
 
             stype_obj = SType(stype, stype_schema, stype_process, project=self)
             stypes_objects[stype['code']] = stype_obj
 
         self.stypes = stypes_objects
+        self.workflow = workflow
 
         # getting definition for sidebar
         self.views = ViewsConfig(views, project=self)
@@ -1225,11 +1319,11 @@ class SType(object):
             return views.get_view(search_type=self.get_code(), view=definition, processed=processed, bs=bs)
 
         if bs:
-            return BeautifulSoup(self.info['definition'].get(definition), 'html.parser')
+            return parse_tactic_xml(self.info['definition'].get(definition))
 
         if processed:
 
-            definition_bs = BeautifulSoup(self.info['definition'].get(definition), 'html.parser')
+            definition_bs = parse_tactic_xml(self.info['definition'].get(definition))
 
             all_elements = []
             for element in definition_bs.find_all(name='element'):
@@ -1320,10 +1414,10 @@ class ViewsConfig(SObject):
                     break
 
         if bs:
-            return BeautifulSoup(view_xml, 'html.parser')
+            return parse_tactic_xml(view_xml)
 
         if processed:
-            view_bs = BeautifulSoup(view_xml, 'html.parser')
+            view_bs = parse_tactic_xml(view_xml)
 
             all_elements = []
             for element in view_bs.find_all(name='element'):
@@ -1341,14 +1435,14 @@ class ViewsConfig(SObject):
                 out_list = []
                 for config in config_list:
                     view_xml = config['config']
-                    out_list.append(BeautifulSoup(view_xml, 'html.parser'))
+                    out_list.append(parse_tactic_xml(view_xml))
 
                 return out_list
             else:
                 out_list = []
                 for config in self.config_dict:
                     view_xml = config['config']
-                    out_list.append(BeautifulSoup(view_xml, 'html.parser'))
+                    out_list.append(parse_tactic_xml(view_xml))
 
                 return out_list
 
@@ -1359,7 +1453,7 @@ class ViewsConfig(SObject):
                 for config in config_list:
                     view_xml = config['config']
 
-                    view_bs = BeautifulSoup(view_xml, 'html.parser')
+                    view_bs = parse_tactic_xml(view_xml)
 
                     all_elements = []
                     for element in view_bs.find_all(name='element'):
@@ -1371,7 +1465,7 @@ class ViewsConfig(SObject):
                 for config in self.config_dict:
                     view_xml = config['config']
 
-                    view_bs = BeautifulSoup(view_xml, 'html.parser')
+                    view_bs = parse_tactic_xml(view_xml)
 
                     all_elements = []
                     for element in view_bs.find_all(name='element'):
@@ -1424,6 +1518,7 @@ class Workflow(object):
 
         self.__pipeline_list = pipeline
         self.__pipeline_by_codes = {}
+        self.__pipeline_by_parent_process = {}
 
         self.sort_by_search_types()
 
@@ -1436,10 +1531,18 @@ class Workflow(object):
         return tasks_pipeliens
 
     def sort_by_search_types(self):
+        self.__pipeline_by_codes = {}
+        self.__pipeline_by_parent_process = {}
         for pipe in self.__pipeline_list:
             search_type_code = pipe.get('search_type')
             if search_type_code:
-                self.__pipeline_by_codes[search_type_code] = self.__get_by_stype(search_type_code)
+                pipeline = Pipeline(pipe)
+                self.__pipeline_by_codes.setdefault(search_type_code, {})[
+                    pipe['code']
+                ] = pipeline
+                parent_process = pipe.get('parent_process')
+                if parent_process and parent_process not in self.__pipeline_by_parent_process:
+                    self.__pipeline_by_parent_process[parent_process] = pipeline
 
     def get_all_pipelines(self):
         return self.__pipeline_by_codes
@@ -1457,20 +1560,14 @@ class Workflow(object):
         return self.get_by_stype_code(stype_code).get(node_type)
 
     def get_child_pipeline_by_process_code(self, parent_pipeline, process):
-        parent_process = None
-        if parent_pipeline.get_all_pipeline_process():
-            for proc in parent_pipeline.get_all_pipeline_process():
-                if proc['process'] == process:
-                    parent_process = proc
+        parent_process = parent_pipeline.get_pipeline_process(process)
         if parent_process:
-            # TODO SOMETHING WRONG WITH THIS, may be it query too much pipelines
             return self.get_pipeline_by_parent(parent_process)
 
     def get_pipeline_by_parent(self, parent_process):
-        for pipe in self.__pipeline_list:
-            if pipe.get('parent_process'):
-                if pipe['parent_process'] == parent_process['code']:
-                    return Pipeline(pipe)
+        if isinstance(parent_process, dict):
+            parent_process = parent_process.get('code')
+        return self.__pipeline_by_parent_process.get(parent_process)
 
 
 class Pipeline(object):
@@ -1518,7 +1615,7 @@ class Pipeline(object):
 
         all_connectionslist = []
 
-        pipeline = BeautifulSoup(self.info['pipeline'], 'html.parser')
+        pipeline = parse_tactic_xml(self.info['pipeline'])
 
         for pipe in pipeline.find_all(name='connect'):
             all_connectionslist.append(pipe.attrs)
@@ -1627,12 +1724,18 @@ class Login(SObject):
     def get_project_code(self):
         return self.info['project_code']
 
+    def get_hourly_wage(self):
+        try:
+            return Decimal(str(self.info.get('hourly_wage') or 0))
+        except (InvalidOperation, TypeError, ValueError):
+            return Decimal('0')
+
     def get_info(self):
         return self.info
 
     def __init_login_groups(self):
-        # TODO What is this for?
-
+        # Build the reverse LoginGroup -> Login membership once. Task and
+        # editor user pickers consume LoginGroup.get_logins().
         for login_group in self.login_groups:
             for login_in_group in self.login_in_groups:
                 if self.info['login'] == login_in_group['login']:
@@ -1765,7 +1868,7 @@ class LoginGroup(SObject):
         elif self.security:
             return self.security
 
-        bs = BeautifulSoup(self.info['access_rules'], 'html.parser')
+        bs = parse_tactic_xml(self.info['access_rules'])
 
         self.security = {}
         for element in bs.find_all(name='rule'):
@@ -1902,53 +2005,41 @@ class MessageLog(Message):
 
 
 class Process(object):
-    def __init__(self, in_dict, process, single=False):
+    def __init__(self, in_dict, process):
         # Contexts
         self.contexts = {}
         contexts = set()
-        if single:
-            items = collections.defaultdict(list)
-            for item in in_dict:
-                items[item['context']].append(item)
-                if item['process'].split('/')[-1] == process:
-                    contexts.add(item['context'])
-            for context in contexts:
-                self.contexts[context] = Contexts(single=items[context])
-        else:
-            versions = collections.defaultdict(list)
-            versionless = collections.defaultdict(list)
-            for snapshot in in_dict:
-                if snapshot['process'].split('/')[-1] == process and (snapshot['version'] == -1 or snapshot['version'] == 0):
-                    versionless[snapshot['context']].append(snapshot)
-                elif snapshot['process'].split('/')[-1] == process and (snapshot['version'] != -1 or snapshot['version'] != 0):
-                    versions[snapshot['context']].append(snapshot)
-                if snapshot['process'].split('/')[-1] == process:
-                    contexts.add(snapshot['context'])
+        versions = collections.defaultdict(list)
+        versionless = collections.defaultdict(list)
+        for snapshot in in_dict:
+            if snapshot['process'].split('/')[-1] == process and (
+                    snapshot['version'] == -1 or snapshot['version'] == 0):
+                versionless[snapshot['context']].append(snapshot)
+            elif snapshot['process'].split('/')[-1] == process:
+                versions[snapshot['context']].append(snapshot)
+            if snapshot['process'].split('/')[-1] == process:
+                contexts.add(snapshot['context'])
 
-            for context in contexts:
-                self.contexts[context] = Contexts(versionless[context], versions[context])
+        for context in contexts:
+            self.contexts[context] = Contexts(
+                versionless[context], versions[context]
+            )
 
     def get_contexts(self):
         return self.contexts
 
 
 class Contexts(object):
-    def __init__(self, versionless=None, versions=None, single=None):
+    def __init__(self, versionless=None, versions=None):
 
         self.versions = None
         self.versionless = None
-
-        if single:
-            self.items = collections.OrderedDict()
-            for item in single:
-                self.items[item['code']] = SObject(item)
-        else:
-            self.versions = collections.OrderedDict()
-            self.versionless = collections.OrderedDict()
-            for sn in versions:
-                self.versions[sn['code']] = Snapshot(sn)
-            for sn in versionless:
-                self.versionless[sn['code']] = Snapshot(sn)
+        self.versions = collections.OrderedDict()
+        self.versionless = collections.OrderedDict()
+        for sn in versions or ():
+            self.versions[sn['code']] = Snapshot(sn)
+        for sn in versionless or ():
+            self.versionless[sn['code']] = Snapshot(sn)
 
     def get_versions(self):
         return self.versions
@@ -2063,13 +2154,17 @@ class File(SObject, object):
         else:
             return self.info['st_size']
 
+    def get_md5(self):
+        """Return the checksum recorded by TACTIC for this file, if present."""
+        return str(self.info.get('md5') or '').strip().lower()
+
     def get_snapshot(self):
         return self.__snapshot
 
     def get_metadata(self):
         metadata = self.info.get('metadata')
         # Simple check if this is json dumpable
-        if isinstance(metadata, six.string_types):
+        if isinstance(metadata, str):
             if metadata.startswith(('{', '"', '[')):
                 metadata = json.loads(metadata)
 
@@ -2157,7 +2252,7 @@ class File(SObject, object):
 
     def get_web_path(self):
         server_address = env_server.get_server()
-        if not server_address.startswith('http://'):
+        if not server_address.startswith(('http://', 'https://')):
             server_address = u'http://{}'.format(server_address)
         asset_path = u'{0}/{1}'.format(server_address, env_tactic.get_base_dir('web')['value'][0])
 
@@ -2169,6 +2264,34 @@ class File(SObject, object):
 
     def is_exists(self):
         return os.path.isfile(self.get_full_abs_path())
+
+    def is_local_current(self, timestamp_tolerance=2.0):
+        """Return whether the repository copy matches this TACTIC file row."""
+        try:
+            local_stat = os.stat(self.get_full_abs_path())
+        except OSError:
+            return False
+
+        try:
+            expected_size = int(self.get_file_size() or 0)
+        except (KeyError, TypeError, ValueError):
+            expected_size = 0
+        if expected_size > 0 and local_stat.st_size != expected_size:
+            return False
+
+        try:
+            server_timestamp = self.get_timestamp(obj=True)
+            server_mtime = (
+                server_timestamp.timestamp()
+                if isinstance(server_timestamp, datetime.datetime) else 0.0
+            )
+        except (KeyError, TypeError, ValueError, OSError):
+            server_mtime = 0.0
+        return (
+            server_mtime <= 0
+            or abs(local_stat.st_mtime - server_mtime)
+            <= float(timestamp_tolerance or 0.0)
+        )
 
     def is_previewable(self):
         if self.previewable:
@@ -2229,8 +2352,10 @@ class File(SObject, object):
 
         full_abs_path = self.get_full_abs_path()
 
-        if not os.path.isdir(dest_path):
-            os.makedirs(dest_path)
+        # Repository sync may prepare several files from the same snapshot in
+        # parallel.  The original check-then-create sequence races when two
+        # workers create the shared preview directory at the same time.
+        os.makedirs(dest_path, exist_ok=True)
 
         return full_abs_path
 
@@ -2247,6 +2372,143 @@ class File(SObject, object):
         self.downloaded = True
 
 # End of SObject Class
+
+
+class Task(SObject):
+    SEARCH_TYPE = 'sthpw/task'
+
+    def get_bid_duration(self, unit='hour'):
+        try:
+            duration = Decimal(str(self.get_value('bid_duration') or 0))
+        except (InvalidOperation, TypeError, ValueError):
+            duration = Decimal('0')
+        source_unit = str(
+            self.get_value('__bid_duration_unit__') or 'hour'
+        ).lower()
+        if source_unit == unit:
+            return duration
+        if source_unit == 'minute' and unit == 'hour':
+            return duration / Decimal('60')
+        if source_unit == 'hour' and unit == 'minute':
+            return duration * Decimal('60')
+        return duration
+
+    def log_work_hours(self, day, hours, description='',
+                       category='regular', login=None):
+        return WorkHour.create(
+            self, day, hours, description=description,
+            category=category, login=login,
+        )
+
+    def get_work_hours(self, login=None, start_day=None, end_day=None,
+                       statuses=None):
+        result = query_work_hours(
+            [self.get_code()], self.project.get_code(), login=login,
+            start_day=start_day, end_day=end_day, statuses=statuses,
+        )
+        return result['entries']
+
+
+class WorkHour(SObject):
+    SEARCH_TYPE = 'sthpw/work_hour'
+    REGULAR = 'regular'
+    OVERTIME = 'overtime'
+    APPROVED = 'approved'
+
+    @classmethod
+    def create(cls, task, day, hours, description='', category=REGULAR,
+               login=None, start_time=None, end_time=None, approve=False):
+        project = task.get_project()
+        result = mutate_work_hour(
+            'create', project.get_code(), task_code=task.get_code(),
+            values={
+                'day': day,
+                'straight_time': hours,
+                'description': description,
+                'category': category,
+                'login': login,
+                'start_time': start_time,
+                'end_time': end_time,
+                'approve': bool(approve),
+            },
+        )
+        return cls(result, project=project)
+
+    def get_regular_hours(self):
+        if self.get_value('category') == self.OVERTIME:
+            return 0.0
+        return float(self.get_value('straight_time') or 0)
+
+    def get_overtime_hours(self):
+        value = float(self.get_value('over_time') or 0)
+        if value:
+            return value
+        if self.get_value('category') == self.OVERTIME:
+            return float(self.get_value('straight_time') or 0)
+        return 0.0
+
+    def get_total_hours(self):
+        if self.get_value('category') == self.OVERTIME:
+            return self.get_overtime_hours()
+        return self.get_regular_hours() + float(self.get_value('over_time') or 0)
+
+    def get_labor_cost(self, hourly_rate, overtime_factor=1):
+        try:
+            rate = Decimal(str(hourly_rate or 0))
+            factor = Decimal(str(overtime_factor or 1))
+        except (InvalidOperation, TypeError, ValueError):
+            return Decimal('0')
+        regular = Decimal(str(self.get_regular_hours()))
+        overtime = Decimal(str(self.get_overtime_hours()))
+        return regular * rate + overtime * rate * factor
+
+    def is_approved(self):
+        return str(self.get_value('status') or '').lower() == self.APPROVED
+
+    def can_edit(self):
+        return bool(self.get_value('__can_edit__'))
+
+    def can_approve(self):
+        return bool(self.get_value('__can_approve__'))
+
+    def update_entry(self, **values):
+        result = mutate_work_hour(
+            'update', self.project.get_code(),
+            work_hour_code=self.get_code(), values=values,
+        )
+        self.info.update(result)
+        return self
+
+    def approve(self, approved=True):
+        result = mutate_work_hour(
+            'approve' if approved else 'reject', self.project.get_code(),
+            work_hour_code=self.get_code(),
+        )
+        self.info.update(result)
+        return self
+
+    def delete(self):
+        return mutate_work_hour(
+            'delete', self.project.get_code(),
+            work_hour_code=self.get_code(),
+        )
+
+
+class TacticProcedureError(RuntimeError):
+    """A server-side TACTIC procedure returned a Python traceback."""
+
+    def __init__(self, procedure, server_traceback, project=None):
+        self.procedure = str(procedure or 'unknown')
+        self.project = project
+        self.server_traceback = str(server_traceback or '')
+        lines = [line.strip() for line in self.server_traceback.splitlines()
+                 if line.strip()]
+        summary = lines[-1] if lines else 'Unknown server error'
+        super(TacticProcedureError, self).__init__(
+            'TACTIC procedure {0} failed: {1}'.format(
+                self.procedure, summary
+            )
+        )
 
 
 def execute_procedure_serverside(func, kwargs, project=None, return_dict=True, server=None):
@@ -2268,25 +2530,28 @@ def execute_procedure_serverside(func, kwargs, project=None, return_dict=True, s
     else:
         ret_val = result['info']
 
-    if return_dict:
-        if isinstance(ret_val, six.string_types):
-            if ret_val.startswith('Traceback'):
-                # TODO need to decide how we handle tracebacks
-                dl.exception(ret_val, group_id='{0}/{1}'.format('exceptions', func.__name__))
-                final_result = ret_val
-            else:
-                # Simple check if this is json dumpable
-                if ret_val.startswith(('{', '"', '[')):
-                    final_result = json.loads(ret_val, strict=False)
-                else:
-                    final_result = ret_val
+    if isinstance(ret_val, str) and ret_val.lstrip().startswith('Traceback'):
+        procedure_name = getattr(func, '__name__', str(func))
+        dl.exception(
+            ret_val,
+            group_id='{0}/{1}'.format('exceptions', procedure_name),
+        )
+        raise TacticProcedureError(procedure_name, ret_val, project=project)
 
-                if isinstance(final_result, six.string_types) and return_dict:
-                    # Decompress long query
-                    js = gf.hex_to_html(final_result)
-                    if js:
-                        if js.startswith(('{', '"', '[')):
-                            final_result = json.loads(js, strict=False)
+    if return_dict:
+        if isinstance(ret_val, str):
+            # Simple check if this is json dumpable
+            if ret_val.startswith(('{', '"', '[')):
+                final_result = json.loads(ret_val, strict=False)
+            else:
+                final_result = ret_val
+
+            if isinstance(final_result, str) and return_dict:
+                # Decompress long query
+                js = gf.hex_to_html(final_result)
+                if js:
+                    if js.startswith(('{', '"', '[')):
+                        final_result = json.loads(js, strict=False)
         else:
             final_result = ret_val
     else:
@@ -2295,106 +2560,230 @@ def execute_procedure_serverside(func, kwargs, project=None, return_dict=True, s
     return final_result
 
 
-def get_all_projects_and_logins(force=False):
+def _execute_read_only_procedure_serverside(
+        func, kwargs, project=None, return_dict=True, server=None):
+    """Execute a procedure whose server implementation is strictly read-only."""
+    procedure_name = getattr(func, '__name__', str(func))
+
+    def report_retry(exception, attempt, attempts, delay):
+        dl.warning(
+            'Temporary server failure while reading {0}; attempt {1}/{2} '
+            'failed, retrying in {3:.2f} s: {4}'.format(
+                procedure_name, attempt, attempts, delay, exception
+            ),
+            caller=3,
+            group_id='server/retry/{0}'.format(procedure_name),
+        )
+
+    return run_read_only_request(
+        lambda: execute_procedure_serverside(
+            func, kwargs, project=project, return_dict=return_dict,
+            server=server,
+        ),
+        on_retry=report_retry,
+    )
+
+
+def _project_object(project_code):
+    project = env_inst.projects.get(project_code)
+    if project is None and project_code == 'sthpw':
+        project = env_inst.projects.get(env_server.get_project())
+    return project
+
+
+def _work_hour_objects(values, project_code):
+    project = _project_object(project_code)
+    return [WorkHour(value, project=project) for value in (values or [])]
+
+
+def query_work_hours(task_codes, project_code, login=None, start_day=None,
+                     end_day=None, statuses=None, include_rates=False,
+                     parent_codes=None, return_payload=False, payload=None):
+    if payload is None:
+        result = execute_procedure_serverside(
+            tq.query_work_hours,
+            {
+            'task_codes': list(task_codes or []),
+            'project_code': project_code,
+            'login': login,
+            'start_day': start_day,
+            'end_day': end_day,
+            'statuses': list(statuses or []),
+            'include_rates': bool(include_rates),
+            'parent_codes': list(parent_codes or []),
+            },
+            project=project_code,
+        ) or {}
+    else:
+        result = copy.deepcopy(payload)
+    raw_payload = copy.deepcopy(result)
+    result['entries'] = _work_hour_objects(
+        result.get('entries'), project_code
+    )
+    return (result, raw_payload) if return_payload else result
+
+
+def mutate_user_profile(login, values=None, password=None, groups=None,
+                        group_access_levels=None, require_admin=False):
+    return execute_procedure_serverside(
+        tq.mutate_user_profile,
+        {
+            'login': str(login or ''),
+            'values': dict(values or {}),
+            'password': str(password or ''),
+            'groups': None if groups is None else list(groups),
+            'group_access_levels': (
+                None if group_access_levels is None
+                else dict(group_access_levels)
+            ),
+            'require_admin': bool(require_admin),
+        },
+        project='sthpw',
+    )
+
+
+def create_user_profile(login, values=None, password=None, groups=None, require_admin=False):
+    return execute_procedure_serverside(
+        tq.create_user_profile,
+        {
+            'login': str(login or ''),
+            'values': dict(values or {}),
+            'password': str(password or ''),
+            'groups': list(groups or []),
+            'require_admin': bool(require_admin),
+        },
+        project='sthpw',
+    )
+
+
+def mutate_sidebar_security(project_code, updates=None):
+    return execute_procedure_serverside(
+        tq.mutate_sidebar_security,
+        {
+            'project_code': str(project_code or ''),
+            'updates': [dict(item) for item in (updates or [])],
+        },
+        project='sthpw',
+    )
+
+
+def mutate_work_hour(action, project_code, task_code=None,
+                     work_hour_code=None, values=None):
+    return execute_procedure_serverside(
+        tq.mutate_work_hour,
+        {
+            'action': action,
+            'project_code': project_code,
+            'task_code': task_code,
+            'work_hour_code': work_hour_code,
+            'values': dict(values or {}),
+        },
+        project=project_code,
+    )
+
+
+def set_work_hour_statuses(work_hour_codes, approved, project_code):
+    result = execute_procedure_serverside(
+        tq.set_work_hour_statuses,
+        {
+            'work_hour_codes': list(work_hour_codes or []),
+            'approved': bool(approved),
+            'project_code': project_code,
+        },
+        project=project_code,
+    )
+    return _work_hour_objects(result, project_code)
+
+
+def query_work_hour_report(report_key, project_code, start_day=None,
+                           end_day=None, login=None):
+    return execute_procedure_serverside(
+        tq.query_work_hour_report,
+        {
+            'report_key': report_key,
+            'project_code': project_code,
+            'start_day': start_day,
+            'end_day': end_day,
+            'login': login,
+        },
+        project=project_code,
+    )
+
+
+def get_all_projects_and_logins(force=False, cache_only=False):
 
     if env_mode.get_mode() == 'api_server':
         use_cache = False
     else:
         use_cache = True
 
-    use_cache = False
+    from thlib import server_cache
 
+    cache_key = 'projects_and_logins'
+    projects_and_users = None
     if use_cache and not force:
-        #reading cache from file
-        projects_cache = env_read_config(
-            filename='projects_cache',
-            unique_id='cache',
-            long_abs_path=True
+        projects_and_users = server_cache.read_entry(
+            'reference', cache_key, 'sthpw',
         )
-        logins_cache = env_read_config(
-            filename='logins_cache',
-            unique_id='cache',
-            long_abs_path=True
-        )
-
-        if projects_cache and logins_cache:
-            try:
-                projects_dict = loads(gf.hex_to_html(projects_cache, True))
-                logins_dict = loads(gf.hex_to_html(logins_cache, True))
-
-                env_inst.projects = projects_dict
-                env_inst.logins = logins_dict
-
-                return projects_dict
-            except ValueError as pickle_error:
-                print(pickle_error)
-                return get_all_projects_and_logins(True)
-        else:
+        if not isinstance(projects_and_users, dict):
+            if cache_only:
+                return collections.OrderedDict()
             return get_all_projects_and_logins(True)
-    else:
+    if projects_and_users is None:
+        if use_cache and force:
+            server_cache.invalidate_domains(('reference',), 'sthpw')
+        cache_token = (
+            server_cache.token('reference', 'sthpw') if use_cache else None
+        )
         kwargs = {
             'current_login': env_inst.get_current_login()
         }
         projects_and_users = execute_procedure_serverside(tq.get_projects_and_logins, kwargs)
 
-        projects = projects_and_users.get('projects')
-        logins = projects_and_users.get('logins')
-        login_groups = projects_and_users.get('login_groups')
-        login_in_groups = projects_and_users.get('login_in_groups')
-        # subscriptions = projects_and_users.get('subscriptions')
+        if cache_token is not None and isinstance(projects_and_users, dict):
+            server_cache.write_entry(
+                'reference', cache_key, projects_and_users, 'sthpw',
+                expected_token=cache_token,
+            )
 
-        # Making Projects objects
-        projects_dict = collections.OrderedDict()
-        exclude_list = ['unittest', 'admin']
-        if len(projects) == 2:
-            exclude_list = []
+    projects = projects_and_users.get('projects') or []
+    logins = projects_and_users.get('logins') or []
+    login_groups = projects_and_users.get('login_groups') or []
+    login_in_groups = projects_and_users.get('login_in_groups') or []
 
-        for project in projects:
-            if project.get('code') not in exclude_list:
-                project_sobject = Project(project)
-                project_sobject.init_snapshots(project['__snapshots__'])
-                projects_dict[project.get('code')] = project_sobject
+    projects_dict = collections.OrderedDict()
 
-        env_inst.projects = projects_dict
+    for project in projects:
+        project_sobject = Project(project)
+        project_sobject.init_snapshots(project.get('__snapshots__') or [])
+        projects_dict[project.get('code')] = project_sobject
 
-        logins_dict = collections.OrderedDict()
-        login_groups_list = []
-        login_in_groups_list = []
+    env_inst.projects = projects_dict
 
-        for login_group in login_groups:
-            login_groups_list.append(LoginGroup(login_group))
+    logins_dict = collections.OrderedDict()
+    login_groups_list = []
+    login_in_groups_list = []
 
-        for login_in_group in login_in_groups:
-            login_in_groups_list.append(login_in_group)
+    for login_group in login_groups:
+        login_groups_list.append(LoginGroup(login_group))
 
-        for login in logins:
-            login_sobject = Login(login, login_groups_list, login_in_groups_list)
-            login_sobject.init_snapshots(login['__snapshots__'])
-            logins_dict[login.get('code')] = login_sobject
-            # if login_object.get_login() == env_inst.get_current_login():
-            #     login_object.all_subscriptions = subscriptions
-            # logins_dict[login.get('code')] = login_sobject
+    for login_in_group in login_in_groups:
+        login_in_groups_list.append(login_in_group)
 
-        env_inst.logins = logins_dict
+    for login in logins:
+        login_sobject = Login(login, login_groups_list, login_in_groups_list)
+        login_sobject.init_snapshots(login.get('__snapshots__') or [])
+        logins_dict[login.get('code')] = login_sobject
 
-        # writing result to cache
-        env_write_config(
-            gf.html_to_hex(dumps(projects_dict)),
-            filename='projects_cache',
-            unique_id='cache',
-            long_abs_path=True
-        )
-        env_write_config(
-            gf.html_to_hex(dumps(logins_dict)),
-            filename='logins_cache',
-            unique_id='cache',
-            long_abs_path=True
-        )
+    env_inst.logins = logins_dict
 
-        return projects_dict
+    return projects_dict
 
 
-def get_tasks_and_notes(sobject=None, search_code=None, project_code=None, process='publish'):
+def get_tasks_and_notes(
+        sobject=None, search_code=None, project_code=None,
+        process='publish', include_all_tasks=False, return_payload=False,
+        payload=None):
 
     if sobject:
         search_code = sobject.get_code()
@@ -2407,10 +2796,18 @@ def get_tasks_and_notes(sobject=None, search_code=None, project_code=None, proce
 
     if process != '__latest__':
         kwargs['process'] = process
+    if include_all_tasks:
+        kwargs['include_all_tasks'] = True
 
-    tasks_and_notes = execute_procedure_serverside(tq.get_tasks_and_notes, kwargs)
+    if payload is None:
+        tasks_and_notes = execute_procedure_serverside(
+            tq.get_tasks_and_notes, kwargs
+        )
+    else:
+        tasks_and_notes = copy.deepcopy(payload)
+    raw_payload = copy.deepcopy(tasks_and_notes or {})
 
-    notes = tasks_and_notes.get('notes')
+    notes = tasks_and_notes.get('notes') or []
 
     # Making Notes sObjects
     notes_dict = collections.OrderedDict()
@@ -2421,17 +2818,96 @@ def get_tasks_and_notes(sobject=None, search_code=None, project_code=None, proce
         notes_dict[note.get('code')] = note_sobject
 
     # Making Tasks sObjects
-    tasks = tasks_and_notes.get('tasks')
+    tasks = tasks_and_notes.get('tasks') or []
     tasks_dict = collections.OrderedDict()
 
     for task in tasks:
-        task_sobject = SObject(task, project=env_inst.projects[project_code])
+        task_sobject = Task(task, project=env_inst.projects[project_code])
+        task_process = str(task.get('process') or 'publish')
+        note_count = int(task.get('__notes_count__') or 0)
+        task_sobject.set_notes_count(task_process, note_count)
         tasks_dict[task.get('code')] = task_sobject
         status_log = task.get('__status_log__')
         if status_log:
             task_sobject.set_status_log(status_log)
 
-    return tasks_dict, notes_dict
+    if sobject:
+        # Make aggregate branch counts visible before selection_changed emits.
+        note_counts = dict(raw_payload.get('noteCounts') or {})
+        if not note_counts:
+            for task in tasks:
+                task_process = str(task.get('process') or 'publish')
+                note_counts[task_process] = (
+                    note_counts.get(task_process, 0)
+                    + int(task.get('__notes_count__') or 0)
+                )
+        for task_process, note_count in note_counts.items():
+            sobject.set_notes_count(task_process, int(note_count or 0))
+        for task_process in set(
+                str(task.get('process') or 'publish') for task in tasks):
+            sobject.set_task_summaries(task_process, [
+                task for task in tasks
+                if str(task.get('process') or 'publish') == task_process
+            ])
+
+    hydrated = (tasks_dict, notes_dict)
+    return (hydrated, raw_payload) if return_payload else hydrated
+
+
+def get_notes_with_attachments(note_codes, project_code):
+    """Batch-load note attachment objects without querying each parent."""
+    payload = execute_procedure_serverside(
+        tq.get_notes_with_attachments,
+        {
+            'note_codes': list(note_codes or []),
+            'project_code': project_code,
+        },
+        project=project_code,
+    )
+    project = env_inst.get_project_by_code(project_code)
+    notes = collections.OrderedDict()
+    for info in (payload or {}).get('notes') or []:
+        note = SObject(info, project=project)
+        note.init_snapshots(info.get('__snapshots__') or [])
+        notes[str(info.get('code') or '')] = note
+    return notes
+
+
+def get_task_workspace_page(filters, order_bys, project_code,
+                            limit=500, offset=0, query=None):
+    """Return native Task/SObject instances from one batched RPC."""
+    payload = execute_procedure_serverside(
+        tq.query_task_workspace_page,
+        {
+            'filters': list(filters or []),
+            'order_bys': list(order_bys or []),
+            'project_code': project_code,
+            'limit': limit,
+            'offset': offset,
+            'query': dict(query or {}),
+        },
+        project=project_code,
+    ) or {}
+    project = env_inst.get_project_by_code(project_code)
+    tasks = []
+    for info in payload.get('tasks') or []:
+        task = Task(info, project)
+        task.set_notes_count(
+            str(info.get('process') or 'publish'),
+            int(info.get('__notes_count__') or 0),
+        )
+        tasks.append(task)
+    parents = [
+        SObject(info, project) for info in payload.get('parents') or []
+    ]
+    return {
+        'tasks': tasks,
+        'parents': parents,
+        'total': payload.get('total'),
+        'facets': dict(payload.get('facets') or {}),
+        'offset': int(payload.get('offset') or 0),
+        'limit': int(payload.get('limit') or 0),
+    }
 
 
 def get_subscriptions_and_messages(current_login='admin', update_logins=False):
@@ -2444,6 +2920,238 @@ def get_subscriptions_and_messages(current_login='admin', update_logins=False):
     return execute_procedure_serverside(tq.get_subscriptions_and_messages, kwargs)
 
 
+def get_chat_conversations():
+    return execute_procedure_serverside(
+        tq.query_chat_conversations, {}, project='sthpw'
+    )
+
+
+def create_chat_conversation(recipients, title=''):
+    return execute_procedure_serverside(
+        tq.create_chat_conversation,
+        {
+            'recipients': list(recipients or []),
+            'title': {'value': title},
+        },
+        project='sthpw',
+    )
+
+
+def update_chat_conversation(message_code, title):
+    return execute_procedure_serverside(
+        tq.update_chat_conversation,
+        {'message_code': message_code, 'title': {'value': title}},
+        project='sthpw',
+    )
+
+
+def add_chat_members(message_code, recipients):
+    return execute_procedure_serverside(
+        tq.add_chat_members,
+        {'message_code': message_code, 'recipients': list(recipients or [])},
+        project='sthpw',
+    )
+
+
+def set_chat_members(message_code, recipients):
+    return execute_procedure_serverside(
+        tq.add_chat_members,
+        {
+            'message_code': message_code,
+            'recipients': list(recipients or []),
+            'replace': True,
+        },
+        project='sthpw',
+    )
+
+
+def delete_chat_conversation(message_code):
+    return execute_procedure_serverside(
+        tq.delete_chat_conversation,
+        {'message_code': message_code},
+        project='sthpw',
+    )
+
+
+def clear_personal_chat(message_code):
+    return execute_procedure_serverside(
+        tq.clear_personal_chat,
+        {'message_code': message_code},
+        project='sthpw',
+    )
+
+
+def delete_chat_message(message_log_code):
+    return execute_procedure_serverside(
+        tq.delete_chat_message,
+        {'message_log_code': message_log_code},
+        project='sthpw',
+    )
+
+
+def edit_chat_message(message_log_code, message):
+    return execute_procedure_serverside(
+        tq.edit_chat_message,
+        {'message_log_code': message_log_code, 'message': message},
+        project='sthpw',
+    )
+
+
+def toggle_chat_message_reaction(message_log_code, emoji):
+    return execute_procedure_serverside(
+        tq.toggle_chat_message_reaction,
+        {'message_log_code': message_log_code, 'emoji': emoji},
+        project='sthpw',
+    )
+
+
+def pin_chat_message(message_log_code):
+    return execute_procedure_serverside(
+        tq.pin_chat_message,
+        {'message_log_code': message_log_code},
+        project='sthpw',
+    )
+
+
+def unpin_chat_message(message_log_code):
+    return execute_procedure_serverside(
+        tq.pin_chat_message,
+        {'message_log_code': message_log_code, 'unpin': True},
+        project='sthpw',
+    )
+
+
+def get_chat_history(message_code, limit=31, offset=0, search_text=''):
+    return execute_procedure_serverside(
+        tq.query_chat_history,
+        {
+            'message_code': message_code,
+            'limit': limit,
+            'offset': offset,
+            'search_text': search_text,
+        },
+        project='sthpw',
+    )
+
+
+def mark_chat_read(message_code, timestamp):
+    return execute_procedure_serverside(
+        tq.mark_chat_read,
+        {'message_code': message_code, 'timestamp': timestamp},
+        project='sthpw',
+    )
+
+
+def send_chat_message(message_code, message, attachment_keys=None, reply_to=None):
+    return execute_procedure_serverside(
+        tq.send_chat_message,
+        {
+            'message_code': message_code,
+            'message': message,
+            'attachment_keys': list(attachment_keys or []),
+            'reply_to': reply_to,
+        },
+        project='sthpw',
+    )
+
+
+def forward_chat_messages(message_log_keys, target_message_codes):
+    return execute_procedure_serverside(
+        tq.forward_chat_messages,
+        {
+            'message_log_keys': list(message_log_keys or []),
+            'target_message_codes': list(target_message_codes or []),
+        },
+        project='sthpw',
+    )
+
+
+def authorize_chat_attachment(message_code, snapshot_code):
+    return execute_procedure_serverside(
+        tq.authorize_chat_attachment,
+        {
+            'message_code': message_code,
+            'snapshot_code': snapshot_code,
+        },
+        project='sthpw',
+    )
+
+
+def get_server_updates(message_after='', activity_after='', project_code='',
+                       limit=101, reaction_after='', include_activity=True,
+                       include_reactions=True, include_presence=False,
+                       presence_ttl=360, cache_after='',
+                       include_messages=True, heartbeat_presence=True):
+    return execute_procedure_serverside(
+        tq.query_server_updates,
+        {
+            'message_after': message_after,
+            'activity_after': activity_after,
+            'reaction_after': reaction_after,
+            'project_code': project_code,
+            'limit': limit,
+            'include_activity': include_activity,
+            'include_reactions': include_reactions,
+            'include_presence': include_presence,
+            'heartbeat_presence': bool(heartbeat_presence),
+            'presence_ttl': int(presence_ttl or 360),
+            'cache_after': str(cache_after or ''),
+            'include_cache_changes': True,
+            'include_messages': bool(include_messages),
+        },
+        project='sthpw',
+    )
+
+
+def get_user_recent_activity(
+        login='', project_code='', limit=25, offset=0, kinds=None,
+        assigned_login='', include_day_counts=False, day='', logins=None,
+        counts_only=False, counts_from_day='', instance_relations=None,
+        object_scope=None, exclude_login=''):
+    """Return enriched activity using the shared profile/feed API."""
+    return _execute_read_only_procedure_serverside(
+        tq.query_user_recent_activity,
+        {
+            'login': login,
+            'project_code': project_code,
+            'limit': limit,
+            'offset': offset,
+            'kinds': list(kinds or ()),
+            'assigned_login': assigned_login,
+            'include_day_counts': bool(include_day_counts),
+            'counts_only': bool(counts_only),
+            'counts_from_day': str(counts_from_day or ''),
+            'day': str(day or ''),
+            'logins': list(logins or ()),
+            'instance_relations': dict(instance_relations or {}),
+            'object_scope': dict(object_scope or {}),
+            'exclude_login': str(exclude_login or ''),
+        },
+        project='sthpw',
+    )
+
+
+def get_user_profile_data(login='', project_code='', activity_limit=25):
+    return _execute_read_only_procedure_serverside(
+        tq.query_user_profile_data,
+        {
+            'login': login,
+            'project_code': project_code,
+            'activity_limit': activity_limit,
+        },
+        project='sthpw',
+    )
+
+
+def heartbeat_user_presence(ttl_seconds=90):
+    """Refresh current-login presence and return known login states."""
+    return execute_procedure_serverside(
+        tq.heartbeat_user_presence,
+        {'ttl_seconds': int(ttl_seconds or 90)},
+        project='sthpw',
+    )
+
+
 def duplicate_sobjects(search_keys, data_dict):
     """
     Deletes bunch of sobjects
@@ -2453,12 +3161,37 @@ def duplicate_sobjects(search_keys, data_dict):
     :return: deleted sobjects dict
     """
 
-    kwargs = {
-        'search_keys': search_keys,
-        'data_dict': data_dict,
-    }
+    if not isinstance(search_keys, list):
+        search_keys = [search_keys]
+    if not search_keys:
+        raise ValueError('At least one sObject search key is required')
+    data_dict = dict(data_dict or {})
+    fields = {}
+    if data_dict.get('new_name') is not None:
+        fields['name'] = data_dict.get('new_name')
+    return duplicate_sobject_advanced(
+        search_keys[0], {'fields': fields}
+    )
 
-    return execute_procedure_serverside(tq.duplicate_sobjects, kwargs)
+
+def analyze_sobject_duplicate(search_key):
+    """Inspect editable values, schema relations and copyable content."""
+    project_code = split_search_key(search_key).get('project_code')
+    return _execute_read_only_procedure_serverside(
+        tq.analyze_sobject_duplicate,
+        {'search_key': search_key},
+        project=project_code,
+    )
+
+
+def duplicate_sobject_advanced(search_key, options=None):
+    """Duplicate one sObject using the explicit wizard selections."""
+    project_code = split_search_key(search_key).get('project_code')
+    return execute_procedure_serverside(
+        tq.duplicate_sobject_advanced,
+        {'search_key': search_key, 'options': dict(options or {})},
+        project=project_code,
+    )
 
 
 def delete_sobjects(search_keys, list_dependencies):
@@ -2479,7 +3212,85 @@ def delete_sobjects(search_keys, list_dependencies):
     return execute_procedure_serverside(tq.delete_sobjects, kwargs)
 
 
-def get_sobjects(search_type, filters=[], order_bys=[], project_code=None, limit=None, offset=None, process_list=[], get_all_snapshots=False, check_snapshots_updates=False, include_info=True, include_snapshots=True, compressed_return=True, include_status_log=False, include_progress=False):
+def hydrate_sobjects_payload(
+        payload, project_code, include_info=True, include_snapshots=True,
+        include_status_log=False, include_progress=False):
+    """Build native Handler objects from a raw ``query_sobjects`` payload.
+
+    Persistent caches store only server dictionaries.  Rehydrating through
+    this function preserves the native SObject/File/Snapshot API and avoids
+    serializing live QObject-adjacent object graphs.
+    """
+    sobjects_list = copy.deepcopy(payload or {})
+    if not isinstance(sobjects_list, dict):
+        return (collections.OrderedDict(), {}) if include_info else collections.OrderedDict()
+
+    info = {
+        'total_sobjects_count': sobjects_list.get('total_sobjects_count'),
+        'total_sobjects_query_count': sobjects_list.get(
+            'total_sobjects_query_count'
+        ),
+        'limit': sobjects_list.get('limit'),
+        'offset': sobjects_list.get('offset'),
+    }
+    sobjects = collections.OrderedDict()
+    project = env_inst.projects.get(project_code)
+    if project is None:
+        project = _project_object(project_code)
+    for sobject in sobjects_list.get('sobjects_list') or []:
+        object_type = str(
+            sobject.get('__search_type__')
+            or sobject.get('__search_key__') or ''
+        )
+        if object_type.startswith('skey://'):
+            object_type = object_type[7:]
+        object_type = object_type.split('?', 1)[0]
+        object_class = {
+            WorkHour.SEARCH_TYPE: WorkHour,
+            Task.SEARCH_TYPE: Task,
+        }.get(object_type, SObject)
+        search_key = sobject.get('__search_key__')
+        if not search_key:
+            continue
+        native = object_class(sobject, project)
+        sobjects[search_key] = native
+
+        if include_snapshots:
+            native.init_snapshots(sobject.get('__snapshots__') or [])
+        if include_info:
+            if object_type == Task.SEARCH_TYPE:
+                process = str(sobject.get('process') or 'publish')
+                native.set_notes_count(
+                    process, int(sobject.get('__notes_count__') or 0)
+                )
+                native.set_tasks_count('__total__', 0)
+            else:
+                native.notes_count = {}
+                native.tasks_count = {}
+                for process, count in dict(
+                        sobject.get('__notes_count_by_process__') or {}
+                ).items():
+                    native.set_notes_count(str(process), int(count or 0))
+                for process, count in dict(
+                        sobject.get('__tasks_count_by_process__') or {}
+                ).items():
+                    native.set_tasks_count(str(process), int(count or 0))
+                for process, records in dict(
+                        sobject.get('__task_details_by_process__') or {}
+                ).items():
+                    native.set_task_summaries(str(process), records)
+                native.set_tasks_count(
+                    '__total__', int(sobject.get('__tasks_count__') or 0)
+                )
+        if include_status_log:
+            native.set_status_log(sobject.get('__status_log__') or [])
+        if include_progress:
+            native.set_progress_counts(sobject.get('__progress__') or {})
+
+    return (sobjects, info) if include_info else sobjects
+
+
+def get_sobjects(search_type, filters=[], order_bys=[], project_code=None, limit=None, offset=None, get_all_snapshots=False, check_snapshots_updates=False, include_info=True, include_snapshots=True, compressed_return=True, include_status_log=False, include_progress=False, include_total_count=True, snapshot_timestamps=None, return_payload=False):
     """
     Filters snapshot by search codes, and sobjects codes
     :param search_type: search_type or search_key (if using search_type project_code should to be provided)
@@ -2487,8 +3298,7 @@ def get_sobjects(search_type, filters=[], order_bys=[], project_code=None, limit
     :return: tuple : (dict, dict) of sObjects objects
     """
 
-    if env_mode.py3:
-        filters = json.dumps(filters, ensure_ascii=False).encode('utf-8')
+    filters = json.dumps(filters, ensure_ascii=False).encode('utf-8')
 
     kwargs = {
         'search_type': search_type,
@@ -2504,6 +3314,8 @@ def get_sobjects(search_type, filters=[], order_bys=[], project_code=None, limit
         'compressed_return': compressed_return,
         'include_status_log': include_status_log,
         'include_progress': include_progress,
+        'include_total_count': include_total_count,
+        'snapshot_timestamps': snapshot_timestamps or [],
     }
     if not project_code:
         if search_type.startswith('sthpw'):
@@ -2516,57 +3328,72 @@ def get_sobjects(search_type, filters=[], order_bys=[], project_code=None, limit
         if search_type.find('?') == -1:
             kwargs['search_type'] = server_start(project=project_code).build_search_type(search_type, project_code)
 
-    sobjects_list = execute_procedure_serverside(tq.query_sobjects, kwargs, project=project_code)
+    sobjects_list = _execute_read_only_procedure_serverside(
+        tq.query_sobjects, kwargs, project=project_code
+    )
 
     if sobjects_list:
-        if isinstance(sobjects_list, six.string_types):
+        if isinstance(sobjects_list, str):
             if sobjects_list.startswith('Traceback'):
                 sobjects_list = {'sobjects_list': []}
-                info = None
-        else:
-            info = {
-                'total_sobjects_count': sobjects_list.get('total_sobjects_count'),
-                'total_sobjects_query_count': sobjects_list.get('total_sobjects_query_count'),
-                'limit': sobjects_list['limit'],
-                'offset': sobjects_list['offset'],
-            }
+        if not isinstance(sobjects_list, dict):
+            return None
+        raw_payload = copy.deepcopy(sobjects_list)
+        hydrated = hydrate_sobjects_payload(
+            raw_payload,
+            project_code,
+            include_info=include_info,
+            include_snapshots=include_snapshots,
+            include_status_log=include_status_log,
+            include_progress=include_progress,
+        )
+        if return_payload:
+            return hydrated, raw_payload
+        return hydrated
 
-        sobjects = collections.OrderedDict()
 
-        process_codes = list(process_list)
-        for builtin in ['icon', 'attachment', 'publish']:
-            if builtin not in process_codes:
-                process_codes.append(builtin)
-
-        # Create ordered dict of Sobject class Objects with snapshots, and some counts
-        for sobject in sobjects_list['sobjects_list']:
-            sobjects[sobject['__search_key__']] = SObject(sobject, process_codes, env_inst.projects[project_code])
-
-            if include_snapshots:
-                sobjects[sobject['__search_key__']].init_snapshots(sobject['__snapshots__'])
-
-            if include_info:
-                if sobject.get('process'):
-                    sobjects[sobject['__search_key__']].set_notes_count(sobject['process'], sobject['__notes_count__'])
-                else:
-                    sobjects[sobject['__search_key__']].set_notes_count('publish', sobject['__notes_count__'])
-                sobjects[sobject['__search_key__']].set_tasks_count('__total__', sobject['__tasks_count__'])
-
-            if include_status_log:
-                sobjects[sobject['__search_key__']].set_status_log(sobject['__status_log__'])
-
-            if include_progress:
-                sobjects[sobject['__search_key__']].set_progress_counts(sobject['__progress__'])
-
-        if include_info:
-            return sobjects, info
-        else:
-            return sobjects
-
-# TEMPORARY
+# Legacy custom scripts use this public name.
 get_sobjects_new = get_sobjects
-# TEMPORARY
 
+
+def get_table_layout(search_type, search_keys=None, view='table',
+                     project_code=None):
+    """Return native TACTIC table definitions and rendered text cells."""
+    if not project_code:
+        project_code = (
+            'sthpw' if search_type.startswith('sthpw')
+            else split_search_key(search_type)['project_code']
+        )
+    return _execute_read_only_procedure_serverside(
+        tq.query_table_layout,
+        {
+            'search_type': search_type,
+            'search_keys': list(search_keys or []),
+            'view': str(view or 'table'),
+            'project_code': project_code,
+        },
+        project=project_code,
+    )
+
+
+def save_widget_config(search_type, view, config_xml=None,
+                       element_xml=None, project_code=None):
+    if not project_code:
+        project_code = (
+            'sthpw' if search_type.startswith('sthpw')
+            else split_search_key(search_type)['project_code']
+        )
+    return execute_procedure_serverside(
+        tq.save_widget_config,
+        {
+            'search_type': search_type,
+            'view': str(view or 'table'),
+            'config_xml': config_xml,
+            'element_xml': element_xml,
+            'project_code': project_code,
+        },
+        project=project_code,
+    )
 
 def get_group_sobjects(search_type, project_code=None, groups_list=[]):
 
@@ -2601,7 +3428,9 @@ def get_sobjects_objects(sobjects_list, project_code):
         # Create ordered dict of Sobject class Objects
         for sobjects in sobjects_list:
             for sobject in sobjects:
-                sobjects_dict[sobject['__search_key__']] = SObject(sobject, [], env_inst.projects[project_code])
+                sobjects_dict[sobject['__search_key__']] = SObject(
+                    sobject, env_inst.projects[project_code]
+                )
 
         result[searc_type] = sobjects_dict
 
@@ -2619,6 +3448,46 @@ def server_query(filters, stype, columns=None, project=None, limit=0, offset=0, 
 
     built_process = server.build_search_type(stype, project)
 
+    # TACTIC's XML-RPC query implementation passes the result of an
+    # _expression filter to add_relationship_filters one object at a time on
+    # some server versions. A Task is therefore treated as an iterable and
+    # the request fails with "'Task' object is not iterable".
+    # Our normal query_sobjects procedure evaluates TEL as one relationship
+    # collection, so keep expression queries on that native Handler path.
+    has_expression = any(
+        isinstance(value, (list, tuple))
+        and len(value) >= 1
+        and value[0] == '_expression'
+        for value in (filters or [])
+    )
+    if has_expression:
+        order_by_values = (
+            [order_bys] if isinstance(order_bys, str)
+            else list(order_bys or [])
+        )
+        sobjects = get_sobjects(
+            built_process,
+            filters=filters,
+            order_bys=order_by_values,
+            project_code=project,
+            limit=limit or None,
+            offset=offset or None,
+            include_info=False,
+            include_snapshots=False,
+        ) or collections.OrderedDict()
+        if columns:
+            return [
+                {
+                    column: sobject.get_value(column)
+                    for column in columns
+                }
+                for sobject in sobjects.values()
+            ]
+        return [
+            dict(sobject.get_info() or {})
+            for sobject in sobjects.values()
+        ]
+
     return server.query(built_process, filters, columns, order_bys, limit=limit, offset=offset)
 
 
@@ -2633,7 +3502,117 @@ def get_notes_count(sobject, process, children_stypes):
     project_code = split_search_key(kwargs['search_key'])
     result = execute_procedure_serverside(tq.get_notes_and_stypes_counts, kwargs, project_code['project_code'])
 
+    for task_process, records in (
+            (result or {}).get('taskDetails') or {}).items():
+        sobject.set_task_summaries(task_process, records)
+
     return result
+
+
+def _custom_script_value(script, name):
+    if isinstance(script, dict):
+        return script.get(name)
+    return script.get_value(name)
+
+
+def normalize_custom_script_path(folder, title):
+    path = '{}/{}'.format(folder or '', title or '').replace('\\', '/')
+    parts = [part.strip() for part in path.split('/') if part.strip()]
+    if not parts or any(part in ('.', '..') for part in parts):
+        raise ValueError('Invalid custom script path: {!r}'.format(path))
+    return '/'.join(parts[:-1]), parts[-1]
+
+
+def _custom_script_local_path(script, project):
+    folder, title = normalize_custom_script_path(
+        _custom_script_value(script, 'folder'),
+        _custom_script_value(script, 'title'),
+    )
+    extension = (
+        'js' if _custom_script_value(script, 'language') == 'javascript'
+        else 'py'
+    )
+    root = os.path.abspath(os.path.join(
+        env_mode.get_current_path(), 'custom_scripts', str(project or '')
+    ))
+    path = os.path.abspath(os.path.join(root, folder, '{}.{}'.format(
+        title, extension
+    )))
+    if os.path.commonpath((root, path)) != root:
+        raise ValueError('Custom script path escapes its project directory')
+    return path
+
+
+def _custom_script_mirror_is_current(scripts, project):
+    expected = set()
+    for script in scripts:
+        path = _custom_script_local_path(script, project)
+        expected.add(os.path.normcase(path))
+        try:
+            timestamp = gf.parce_timestamp(
+                _custom_script_value(script, 'timestamp')
+            )
+        except (TypeError, ValueError):
+            return False
+        if (
+                timestamp is None
+                or not os.path.isfile(path)
+                or abs(os.path.getmtime(path) - timestamp.timestamp()) >= 0.001):
+            return False
+
+    root = os.path.abspath(os.path.join(
+        env_mode.get_current_path(), 'custom_scripts', str(project or '')
+    ))
+    if not os.path.isdir(root):
+        return not expected
+    for folder, _directories, files in os.walk(root):
+        for file_name in files:
+            if file_name == '__init__.py' or not file_name.endswith(('.py', '.js')):
+                continue
+            if os.path.normcase(os.path.join(folder, file_name)) not in expected:
+                return False
+    return True
+
+
+def get_custom_scripts_manifest(project=None):
+    project = project or env_inst.get_current_project()
+    tactic = server_start(project=project)
+    search_type = tactic.build_search_type(
+        'config/custom_script', project_code=project
+    )
+    scripts = tactic.query(
+        search_type,
+        columns=['code', 'folder', 'title', 'language', 'timestamp'],
+        order_bys=['folder', 'title'],
+    ) or []
+    return list(scripts)
+
+
+def sync_custom_scripts(project=None):
+    project = project or env_inst.get_current_project()
+    manifest = get_custom_scripts_manifest(project)
+    if _custom_script_mirror_is_current(manifest, project):
+        return None, False
+    return get_custom_scripts(store_locally=True, project=project), True
+
+
+def _prune_custom_script_mirror(scripts, project):
+    expected = {
+        os.path.normcase(_custom_script_local_path(script, project))
+        for script in scripts
+    }
+    root = os.path.abspath(os.path.join(
+        env_mode.get_current_path(), 'custom_scripts', str(project or '')
+    ))
+    if not os.path.isdir(root):
+        return
+    for folder, _directories, files in os.walk(root):
+        for file_name in files:
+            if file_name == '__init__.py' or not file_name.endswith(('.py', '.js')):
+                continue
+            path = os.path.abspath(os.path.join(folder, file_name))
+            if os.path.normcase(path) not in expected:
+                os.remove(path)
 
 
 def get_custom_scripts(store_locally=True, project=None, scripts_codes_list=None):
@@ -2663,35 +3642,32 @@ def get_custom_scripts(store_locally=True, project=None, scripts_codes_list=None
         paths_to_create_init_set = set()
         scripts_sobjects_by_folder = group_sobject_by(scripts_sobjects, 'folder')
 
-        for folder_path, sobjects_list in scripts_sobjects_by_folder.items():
+        for _folder_path, sobjects_list in scripts_sobjects_by_folder.items():
             for sobject in sobjects_list:
+                folder_path, title = normalize_custom_script_path(
+                    sobject.get_value('folder'), sobject.get_value('title')
+                )
                 ext = 'py'
                 if sobject.get_value('language') == 'javascript':
                     ext = 'js'
-                file_name = u'{}.{}'.format(sobject.get_value('title'), ext)
+                file_name = u'{}.{}'.format(title, ext)
                 env_write_file(
                     sobject.get_value('script'),
                     folder_path,
                     file_name,
-                    project
+                    project,
+                    modified_at=sobject.get_value('timestamp'),
                 )
-            paths_list = folder_path.split('/')
-
-            if paths_list:
                 path_parts = u''
-                for path in paths_list:
+                for path in filter(None, folder_path.split('/')):
                     path_parts = u'{}/{}'.format(path_parts, path)
-                    if path_parts:
-                        if project:
-                            full_path = u'{0}/custom_scripts/{1}/{2}/__init__.py'.format(
-                                env_mode.get_current_path(),
-                                project,
-                                path_parts)
-                        else:
-                            full_path = u'{0}/custom_scripts/{1}/__init__.py'.format(
-                                env_mode.get_current_path(),
-                                path_parts)
-                        paths_to_create_init_set.add(full_path)
+                    if project:
+                        full_path = u'{0}/custom_scripts/{1}/{2}/__init__.py'.format(
+                            env_mode.get_current_path(), project, path_parts)
+                    else:
+                        full_path = u'{0}/custom_scripts/{1}/__init__.py'.format(
+                            env_mode.get_current_path(), path_parts)
+                    paths_to_create_init_set.add(full_path)
 
         if project:
             paths_to_create_init_set.add(u'{0}/custom_scripts/{1}/__init__.py'.format(
@@ -2712,47 +3688,68 @@ def get_custom_scripts(store_locally=True, project=None, scripts_codes_list=None
                     init_py_file.write(u'')
                 init_py_file.close()
 
+        if not scripts_codes_list:
+            _prune_custom_script_mirror(
+                list(scripts_sobjects.values())
+                if isinstance(scripts_sobjects, dict)
+                else list(scripts_sobjects or []),
+                project,
+            )
+
     return scripts_sobjects
 
 
-def execute_custom_script(script_path, kwargs=None, project=None, local_execution=True, refresh_scripts=True):
-    """
-    Use example:
-    import thlib.environment as thenv
-    thenv.tc().execute_custom_script('tools/runners/render_setup_runner', project='project_code')
+def execute_custom_script(script_path, kwargs=None, project=None,
+                          local_execution=True, refresh_scripts=True):
+    """Execute a published custom script or an explicit local Python file.
 
-    :param script_path: path to script e.g. 'folder/title'
-    :param kwargs: kwarg for script executed on server
-    :param project: project code string
-    :param local_execution: execute locally or server-side
-    :return:
+    ``folder/title`` keeps the legacy TACTIC-backed workflow. An existing
+    local file path is executed directly and is never refreshed from TACTIC;
+    this is the development path for scripts that have not been published.
     """
 
-    if local_execution:
+    if not local_execution:
+        return server_start(project).execute_python_script(
+            script_path, kwargs=kwargs
+        )
 
-        if project:
-            # making shure we have all environment for project ready
-            env_inst.set_current_project(project)
-            project_obj = env_inst.get_project_by_code(project)
-            project_obj.get_stypes()
+    requested_path = os.path.abspath(os.path.expandvars(os.path.expanduser(
+        os.fsdecode(script_path)
+    )))
+    explicit_local_file = os.path.isfile(requested_path)
 
-            if refresh_scripts:
-                get_custom_scripts(project=project)
+    if project:
+        # Keep the project environment identical to the legacy runner.
+        env_inst.set_current_project(project)
+        project_obj = env_inst.get_project_by_code(project)
+        project_obj.get_stypes()
 
-            module_path = u'{0}/custom_scripts/{1}/{2}.py'.format(env_mode.get_current_path(), project, script_path)
-        else:
-            module_path = u'{0}/custom_scripts/{1}.py'.format(env_mode.get_current_path(), script_path)
+        if refresh_scripts and not explicit_local_file:
+            get_custom_scripts(project=project)
 
-        with open(module_path, 'r') as py_file:
-            source_code = py_file.read()
-        py_file.close()
-
-        env_inst.ui_script_editor.execute_source_code(six.ensure_text(source_code))
+    if explicit_local_file:
+        module_path = requested_path
+    elif project:
+        module_path = u'{0}/custom_scripts/{1}/{2}.py'.format(
+            env_mode.get_current_path(), project, script_path
+        )
     else:
-        return server_start(project).execute_python_script(script_path, kwargs=kwargs)
+        module_path = u'{0}/custom_scripts/{1}.py'.format(
+            env_mode.get_current_path(), script_path
+        )
+
+    with io.open(module_path, 'r', encoding='utf-8') as py_file:
+        source_code = py_file.read()
+
+    return env_inst.ui_script_editor.execute_source_code(
+        str(source_code)
+    )
 
 
-def insert_sobjects(search_type, project_code, data, metadata={}, parent_key=None, instance_type=None,  info={}, use_id=False, triggers=True):
+def insert_sobjects(
+        search_type, project_code, data, metadata={}, parent_key=None,
+        instance_type=None, info={}, use_id=False, triggers=True,
+        instance_path=None):
 
     kwargs = {
         'search_type': search_type,
@@ -2763,23 +3760,11 @@ def insert_sobjects(search_type, project_code, data, metadata={}, parent_key=Non
         'instance_type': instance_type,
         'info': info,
         'use_id': use_id,
-        'triggers': triggers
+        'triggers': triggers,
+        'instance_path': instance_path,
     }
 
     return execute_procedure_serverside(tq.insert_sobjects, kwargs, project=project_code)
-
-# DEPRECATED
-# def insert_instance_sobjects(search_key, project_code, parent_key=None, instance_type=None):
-#
-#     kwargs = {
-#         'search_key': search_key,
-#         'project_code': project_code,
-#         'parent_key': parent_key,
-#         'instance_type': instance_type,
-#     }
-#
-#     return execute_procedure_serverside(tq.insert_instance_sobjects, kwargs, project=project_code)
-
 
 def edit_multiple_instance_sobjects(project_code, insert_search_keys=[], exclude_search_keys=[], parent_key=None, instance_type=None, path=None):
 
@@ -2795,206 +3780,15 @@ def edit_multiple_instance_sobjects(project_code, insert_search_keys=[], exclude
     return execute_procedure_serverside(tq.edit_multiple_instance_sobjects, kwargs, project=project_code)
 
 
-def sobject_delete_confirm(sobjects):
-
-    multiple_delete = False
-    if isinstance(sobjects, list):
-        if len(sobjects) > 1:
-            multiple_delete = True
-        else:
-            multiple_delete = False
-    else:
-        sobjects = [sobjects]
-
-    if multiple_delete:
-        sobjects_list = []
-        for i, sobject in enumerate(sobjects):
-            if i > 15:
-                sobjects_list.append(u'and <b>{0}</b> more sobjects'.format(len(sobjects) - i))
-                break
-
-            sobjects_list.append(u'<b>{0}</b>'.format(sobject.get_title()))
-
-        msb = QtGui.QMessageBox(QtGui.QMessageBox.Question, 'Confirm Deleting',
-                                u'<p>Do you really want to delete:<br><b>{0}</b> ?</p><p>Also remove dependencies?</p>'.format(u'<br>'.join(sobjects_list)),
-                                QtGui.QMessageBox.NoButton, env_inst.ui_main)
-    else:
-        msb = QtGui.QMessageBox(QtGui.QMessageBox.Question, 'Confirm Deleting',
-                                u'<p>Do you really want to delete:<br><b>{0}</b>?</p><p>Also remove dependencies?</p>'.format(
-                                    sobjects[0].get_title()),
-                                QtGui.QMessageBox.NoButton, env_inst.ui_main)
-
-    msb.addButton("Delete", QtGui.QMessageBox.YesRole)
-    msb.addButton("Cancel", QtGui.QMessageBox.NoRole)
-
-    layout = QtGui.QVBoxLayout()
-
-    widget = QtGui.QWidget()
-    widget.setLayout(layout)
-
-    msb_layot = msb.layout()
-
-    # workaround for pyside2
-    wdg_list = []
-
-    for i in range(msb_layot.count()):
-        wdg = msb_layot.itemAt(i).widget()
-        if wdg:
-            wdg_list.append(wdg)
-
-    msb_layot.addWidget(wdg_list[0], 0, 0)
-    msb_layot.addWidget(wdg_list[1], 0, 1)
-    msb_layot.addWidget(wdg_list[2], 2, 1)
-    msb_layot.addWidget(widget, 1, 1)
-
-    from thlib.ui_classes.ui_delete_sobject_classes import deleteSobjectWidget
-
-    delete_sobj_widget = deleteSobjectWidget(sobjects=sobjects)
-
-    layout.addWidget(delete_sobj_widget)
-
-    msb.exec_()
-    reply = msb.buttonRole(msb.clickedButton())
-
-    if reply == QtGui.QMessageBox.YesRole:
-        return delete_sobj_widget.get_data_dict()
-    else:
-        return None
-
-
-def snapshot_delete_confirm(snapshot, files):
-    ver_rev = gf.get_ver_rev(snapshot['version'], snapshot['revision'])
-
-    msb = QtGui.QMessageBox(QtGui.QMessageBox.Question, 'Confirm deleting',
-                            '<p><p>Do you really want to delete snapshot, with context:</p>{0}<p>Version: {1}</p>Also remove selected Files?</p>'.format(
-                                snapshot['context'], ver_rev),
-                            QtGui.QMessageBox.NoButton, env_inst.ui_main)
-
-    msb.addButton("Delete", QtGui.QMessageBox.YesRole)
-    msb.addButton("Cancel", QtGui.QMessageBox.NoRole)
-
-    layout = QtGui.QVBoxLayout()
-
-    widget = QtGui.QWidget()
-    widget.setLayout(layout)
-
-    msb_layot = msb.layout()
-
-    # workaround for pyside2
-    wdg_list = []
-
-    for i in range(msb_layot.count()):
-        wdg = msb_layot.itemAt(i).widget()
-        if wdg:
-            wdg_list.append(wdg)
-
-    msb_layot.addWidget(wdg_list[0], 0, 0)
-    msb_layot.addWidget(wdg_list[1], 0, 1)
-    msb_layot.addWidget(wdg_list[2], 2, 1)
-    msb_layot.addWidget(widget, 1, 1)
-
-    checkboxes = []
-    files_list = []
-    files_filtered_search_keys = []
-    files_filtered_file_paths = []
-
-    delete_snapshot_checkbox = QtGui.QCheckBox('Delete snapshot')
-    delete_snapshot_checkbox.setChecked(True)
-    layout.addWidget(delete_snapshot_checkbox)
-
-    for i, fl in enumerate(files.values()):
-        checkboxes.append(QtGui.QCheckBox(fl[0]['file_name']))
-        files_list.append(fl[0])
-        checkboxes[i].setChecked(True)
-        layout.addWidget(checkboxes[i])
-
-    msb.exec_()
-    reply = msb.buttonRole(msb.clickedButton())
-
-    if reply == QtGui.QMessageBox.YesRole:
-
-        if snapshot.get('repo'):
-            asset_dir = env_server.rep_dirs[snapshot.get('repo')][0]
-        else:
-            asset_dir = env_server.rep_dirs['asset_base_dir'][0]
-
-        for i, checkbox in enumerate(checkboxes):
-            if checkbox.isChecked():
-                files_filtered_search_keys.append(files_list[i]['__search_key__'])
-                files_filtered_file_paths.append(
-                    gf.form_path(
-                        '{0}/{1}/{2}'.format(asset_dir, files_list[i]['relative_dir'], files_list[i]['file_name'])))
-
-        return True, files_filtered_search_keys, files_filtered_file_paths, delete_snapshot_checkbox.isChecked()
-    else:
-        return False, None
-
-
-def sobject_duplicate_confirm(sobjects):
-
-    multiple_delete = False
-    if isinstance(sobjects, list):
-        if len(sobjects) > 1:
-            multiple_delete = True
-        else:
-            multiple_delete = False
-    else:
-        sobjects = [sobjects]
-
-    if multiple_delete:
-        sobjects_list = []
-        for i, sobject in enumerate(sobjects):
-            if i > 15:
-                sobjects_list.append(u'and <b>{0}</b> more sobjects'.format(len(sobjects) - i))
-                break
-
-            sobjects_list.append(u'<b>{0}</b>'.format(sobject.get_title()))
-
-        msb = QtGui.QMessageBox(QtGui.QMessageBox.Question, 'Confirm Deleting',
-                                u'<p>Do you really want to delete:<br><b>{0}</b> ?</p><p>Also remove dependencies?</p>'.format(u'<br>'.join(sobjects_list)),
-                                QtGui.QMessageBox.NoButton, env_inst.ui_main)
-    else:
-        msb = QtGui.QMessageBox(QtGui.QMessageBox.Question, 'Duplicate {0} Options'.format(sobjects[0].get_title()),
-                                u'<p>Do you really want to duplicate <b>{0}?</b></p><p>Select dependencies that also should be kept with it.</p>'.format(
-                                    sobjects[0].get_title()),
-                                QtGui.QMessageBox.NoButton, env_inst.ui_main)
-
-    msb.addButton("Duplicate", QtGui.QMessageBox.YesRole)
-    msb.addButton("Cancel", QtGui.QMessageBox.NoRole)
-
-    layout = QtGui.QVBoxLayout()
-
-    widget = QtGui.QWidget()
-    widget.setLayout(layout)
-
-    msb_layot = msb.layout()
-
-    # workaround for pyside2
-    wdg_list = []
-
-    for i in range(msb_layot.count()):
-        wdg = msb_layot.itemAt(i).widget()
-        if wdg:
-            wdg_list.append(wdg)
-
-    msb_layot.addWidget(wdg_list[0], 0, 0)
-    msb_layot.addWidget(wdg_list[1], 0, 1)
-    msb_layot.addWidget(wdg_list[2], 2, 1)
-    msb_layot.addWidget(widget, 1, 1)
-
-    from thlib.ui_classes.ui_duplicate_sobject_classes import duplicateSobjectWidget
-
-    duplicate_sobj_widget = duplicateSobjectWidget(sobjects=sobjects)
-
-    layout.addWidget(duplicate_sobj_widget)
-
-    msb.exec_()
-    reply = msb.buttonRole(msb.clickedButton())
-
-    if reply == QtGui.QMessageBox.YesRole:
-        return duplicate_sobj_widget.get_data_dict()
-    else:
-        return None
+def edit_multiple_tasks_sobjects(project_code, parent_keys=None, data=None):
+    kwargs = {
+        'project_code': project_code,
+        'parent_search_keys': list(parent_keys or []),
+        'data': dict(data or {}),
+    }
+    return execute_procedure_serverside(
+        tq.edit_multiple_tasks_sobjects, kwargs, project=project_code,
+    )
 
 
 def get_dirs_with_naming(search_key, process_list=None):
@@ -3051,13 +3845,34 @@ def checkin_snapshot(search_key, context, snapshot_type=None, is_revision=False,
         'versionless_files_paths': [],
         'files_types': [],
         'file_sizes': [],
+        'upload_file_names': [],
         'version_metadata': [],
         'versionless_metadata': []
     }
 
     repo = repo_name['value'][0]
 
+    if not (
+        len(virtual_snapshot) == len(files_dict) == len(files_objects)
+    ):
+        raise ValueError(
+            'Check-in payload does not match the virtual snapshot'
+        )
+
     for (k1, v1), (k2, v2), file_object in zip(virtual_snapshot, files_dict, files_objects):
+        versioned = v1.get('versioned') or {}
+        versionless = v1.get('versionless') or {}
+        lengths = {
+            len(versioned.get('paths') or []),
+            len(versioned.get('names') or []),
+            len(versionless.get('paths') or []),
+            len(versionless.get('names') or []),
+            len(v2.get('t') or []),
+        }
+        if len(lengths) != 1 or not next(iter(lengths)):
+            raise ValueError(
+                'TACTIC naming returned inconsistent file destinations'
+            )
         for path_v, name_v, path_vs, name_vs, tp in zip(v1['versioned']['paths'],
                                                         v1['versioned']['names'],
                                                         v1['versionless']['paths'],
@@ -3066,6 +3881,9 @@ def checkin_snapshot(search_key, context, snapshot_type=None, is_revision=False,
             file_path_v = u'{0}/{1}'.format(repo, path_v)
             file_full_path_v = u'{0}/{1}'.format(file_path_v, ''.join(name_v))
             files_info['version_files'].append(gf.form_path(file_full_path_v, 'linux'))
+            files_info['upload_file_names'].append(os.path.basename(
+                files_info['version_files'][-1]
+            ))
             files_info['version_files_paths'].append(gf.form_path(path_v, 'linux'))
             file_path_vs = u'{0}/{1}'.format(repo, path_vs)
             file_full_path_vs = u'{0}/{1}'.format(file_path_vs, ''.join(name_vs))
@@ -3106,36 +3924,66 @@ def checkin_snapshot(search_key, context, snapshot_type=None, is_revision=False,
     server = server_start(project=project_code['project_code'])
 
     if mode == 'upload':
-        # TODO, make multiple checkin from queue under single start-finish
+        # Every queue operation owns its transaction so a failed or cancelled
+        # snapshot cannot roll back unrelated operations in the queue.
         s = gf.time_it()
         # dl.log('Starting Upload Checkin ' + str(server), group_id='server/checkin')
         server.start('Upload Checkin', u'Upload Checkin from Tactic Handler by: {}'.format(env_inst.get_current_login()))
         gf.time_it(s, message='Transaction start: ')
 
-        for version_file in files_info['version_files']:
-            # dl.log('Uploading File ' + version_file + ' ' + str(server), group_id='server/checkin')
-            server.upload_file(version_file, progress_signal=progress_signal)
-            # dl.log('Done Uploading File ' + version_file + ' ' + str(server), group_id='server/checkin')
+        try:
+            for version_file in files_info['version_files']:
+                server.upload_file(version_file, progress_signal=progress_signal)
 
-        gf.time_it(s, message='Upload time: ')
-        # dl.log('Begin Snapshot creation ' + search_key + ' ' + str(server), group_id='server/checkin')
-
-        result = execute_procedure_serverside(tq.create_snapshot_extended, kwargs, project=project_code['project_code'], return_dict=False, server=server)
-        # result = server.simple_checkin(search_key, context, files_info['version_files'][0], description=description, create_icon=True)
-
-        gf.time_it(s, message='On Server execution: ')
-        # dl.log('Upload Finished' + ' ' + str(server), group_id='server/checkin')
-        server.finish(u'Upload Checkin from Tactic Handler by: {}. Finished.'.format(env_inst.get_current_login()))
+            gf.time_it(s, message='Upload time: ')
+            result = execute_procedure_serverside(
+                tq.create_snapshot_extended,
+                kwargs,
+                project=project_code['project_code'],
+                return_dict=False,
+                server=server,
+            )
+            gf.time_it(s, message='On Server execution: ')
+        except Exception:
+            abort = getattr(server, 'abort', None)
+            if callable(abort):
+                try:
+                    abort()
+                except Exception as abort_error:
+                    dl.exception(
+                        abort_error, group_id='exceptions/checkin_abort'
+                    )
+            raise
+        else:
+            server.finish(u'Upload Checkin from Tactic Handler by: {}. Finished.'.format(env_inst.get_current_login()))
         gf.time_it(s, message='Transaction End: ')
     elif mode in ['inplace', 'preallocate']:
         server.start('Inplace Checkin', u'Inplace Checkin from Tactic Handler by: {}'.format(env_inst.get_current_login()))
-
-        result = execute_procedure_serverside(tq.create_snapshot_extended, kwargs, project=project_code['project_code'], return_dict=False, server=server)
-
-        server.finish(u'Inplace Checkin from Tactic Handler by: {}. Finished.'.format(env_inst.get_current_login()))
+        try:
+            result = execute_procedure_serverside(
+                tq.create_snapshot_extended,
+                kwargs,
+                project=project_code['project_code'],
+                return_dict=False,
+                server=server,
+            )
+        except Exception:
+            abort = getattr(server, 'abort', None)
+            if callable(abort):
+                try:
+                    abort()
+                except Exception as abort_error:
+                    dl.exception(
+                        abort_error, group_id='exceptions/checkin_abort'
+                    )
+            raise
+        else:
+            server.finish(u'Inplace Checkin from Tactic Handler by: {}. Finished.'.format(env_inst.get_current_login()))
+    else:
+        raise ValueError('Unsupported check-in mode: {0}'.format(mode))
 
     if result:
-        if isinstance(result, six.string_types):
+        if isinstance(result, str):
             if result.startswith('Traceback'):
                 exception = Exception()
                 exception.message = 'Tactic Exception when checkin snapshot'
@@ -3157,7 +4005,8 @@ def update_description(search_key, description):
     return server_start().update(search_key, data)
 
 
-def add_note(search_key, process, context, note, login, attachments=None):
+def add_note(search_key, process, context, note, login, attachments=None,
+             project_code=None):
     search_type = 'sthpw/note'
 
     data = {
@@ -3166,14 +4015,24 @@ def add_note(search_key, process, context, note, login, attachments=None):
         'note': note,
         'login': login,
     }
-    project_code = split_search_key(search_key)
-    transaction = server_start(project=project_code['project_code']).insert(search_type, data, parent_key=search_key, triggers=True)
+    target_project = str(
+        project_code or split_search_key(search_key)['project_code'] or ''
+    )
+    server = server_start(project=target_project)
+    transaction = server.insert(
+        search_type, data, parent_key=search_key, triggers=True
+    )
+    if not transaction:
+        raise RuntimeError('TACTIC did not create the note')
 
     if attachments:
         for attachment in attachments:
-            server_start(project=project_code['project_code']).connect_sobjects(attachment, transaction, context='attachment');
+            server.connect_sobjects(
+                attachment, transaction, context='attachment'
+            )
 
     return transaction
+
 
 def get_all_dependency(search_keys, project_code=None, return_sobjects=True):
 
@@ -3188,6 +4047,7 @@ def get_all_dependency(search_keys, project_code=None, return_sobjects=True):
         return result
 
 def generate_image(image, save_path, scaled=640):
+        from thlib.side.Qt import QtCore
         if scaled:
             image = image.scaledToWidth(scaled, QtCore.Qt.SmoothTransformation)
 
@@ -3196,16 +4056,27 @@ def generate_image(image, save_path, scaled=640):
         return save_path
 
 def generate_web_and_icon(source_image_path, web_save_path=None, icon_save_path=None):
+    from thlib.side.Qt import QtCore, QtGui as Qt4Gui
 
     image = Qt4Gui.QImage(0, 0, Qt4Gui.QImage.Format_ARGB32)
 
-    if image.load(source_image_path):
-        if web_save_path:
-            web = image.scaledToWidth(640, QtCore.Qt.SmoothTransformation)
-            web.save(web_save_path)
-        if icon_save_path:
-            icon = image.scaledToWidth(120, QtCore.Qt.SmoothTransformation)
-            icon.save(icon_save_path)
+    if not image.load(source_image_path):
+        raise ValueError(
+            'Unable to decode preview image: {0}'.format(source_image_path)
+        )
+    if web_save_path:
+        web = image.scaledToWidth(640, QtCore.Qt.SmoothTransformation)
+        if not web.save(web_save_path):
+            raise OSError(
+                'Unable to save web preview: {0}'.format(web_save_path)
+            )
+    if icon_save_path:
+        icon = image.scaledToWidth(120, QtCore.Qt.SmoothTransformation)
+        if not icon.save(icon_save_path):
+            raise OSError(
+                'Unable to save icon preview: {0}'.format(icon_save_path)
+            )
+    return True
 
 
 def inplace_checkin(file_paths, virtual_snapshot, repo_name, update_versionless, only_versionless=False, generate_icons=True,
@@ -3355,11 +4226,10 @@ def checkin_file(search_key, context, snapshot_type='file', is_revision=False, d
         search_key_split['pipeline_code'])
 
     if commit_silently:
+        from thlib.side.Qt import QtCore
         commit_queue = env_inst.get_commit_queue('global_commit_queue')
         if not commit_queue:
-            from thlib.ui_classes.ui_commit_queue_classes import Ui_commitQueueWidget
-            commit_queue = Ui_commitQueueWidget(parent=checkin_wdg)
-            env_inst.commit_queue['global_commit_queue'] = commit_queue
+            raise RuntimeError('No check-in queue is registered')
 
         commit_queue.setParent(checkin_wdg)
         commit_queue.add_item_to_queue(args_dict, commit_queue)
@@ -3395,7 +4265,11 @@ def parce_skey(skey, get_skey_and_context=False, return_sobject=True):
     if skey_splitted.scheme == 'skey':
         if skey_dict['pipeline_code'] == 'snapshot':
             skey_dict['type'] = 'snapshot'
-            snapshot = server_start().query('sthpw/snapshot', [('code', skey_dict.get('code'))])
+            identifier = 'code' if skey_dict.get('code') else 'id'
+            snapshot = server_start().query(
+                'sthpw/snapshot',
+                [(identifier, skey_dict.get(identifier))],
+            )
             if snapshot:
                 snapshot = snapshot[0]
                 skey_dict['pipeline_code'] = snapshot['search_type'].split('/')[-1].split('?')[0]
@@ -3410,10 +4284,15 @@ def parce_skey(skey, get_skey_and_context=False, return_sobject=True):
                 skey_dict['context'] = '_no_context_'
 
         if return_sobject:
-            filters = [('code', '=', skey_dict.get('code'))]
+            identifier = 'code' if skey_dict.get('code') else 'id'
+            identifier_value = skey_dict.get(identifier)
+            if not identifier_value:
+                return skey_dict, None
+            filters = [(identifier, '=', identifier_value)]
             search_type = server_start().build_search_type(u'{namespace}/{pipeline_code}'.format(**skey_dict), project_code=skey_dict.get('project'))
 
             sobjects = get_sobjects(search_type, filters)[0]
+            sobject = None
             if sobjects:
                 sobject = list(sobjects.values())[0]
             return skey_dict, sobject

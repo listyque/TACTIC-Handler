@@ -1,0 +1,8 @@
+{
+  "activity": ["activityType", "timestamp", "title"],
+  "chatMessage": ["code", "conversationId", "message", "metadata", "timestamp"],
+  "serverUpdates": ["activity", "messages", "presence", "reactions"],
+  "skeyPreview": ["kind", "openKey", "searchKey", "status", "title"],
+  "taskPage": ["limit", "offset", "parents", "tasks", "total"],
+  "userProfile": ["permissions", "processSummary", "statusSummary", "taskSummary", "workHourSummary"]
+}

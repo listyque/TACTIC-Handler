@@ -1,0 +1,102 @@
+{
+  "automated": [
+    {
+      "id": "python-lint",
+      "label": "Python static analysis",
+      "command": [
+        "-m",
+        "ruff",
+        "check",
+        "thlib/ui",
+        "handler_server",
+        "tactic_handler_dcc",
+        "tests",
+        "launch.py"
+      ]
+    },
+    {
+      "id": "python-syntax",
+      "label": "Python syntax",
+      "command": [
+        "-m",
+        "compileall",
+        "-q",
+        "thlib/ui",
+        "handler_server",
+        "tactic_handler_dcc",
+        "tests",
+        "thlib/ui/application.py",
+        "launch.py"
+      ]
+    },
+    {
+      "id": "qml-lint",
+      "label": "QML static analysis",
+      "command": ["-m", "unittest", "tests.test_qml_lint", "-q"]
+    },
+    {
+      "id": "isolated-regression",
+      "label": "Isolated regression suite",
+      "command": [
+        "tests/run_isolated_suite.py",
+        "--exclude",
+        "test_qml_lint"
+      ]
+    },
+    {
+      "id": "foreign-cwd-entrypoints",
+      "label": "Standalone entry points from another working directory",
+      "command": ["tests/run_entrypoint_smoke.py"]
+    }
+  ],
+  "manual": [
+    {
+      "id": "live-session-navigation",
+      "label": "Login, logout, server preset, projects, search and skey navigation on the target TACTIC server",
+      "environment": "live-tactic",
+      "required": true
+    },
+    {
+      "id": "live-server-procedures",
+      "label": "Read-only generated server procedures execute on the supported TACTIC server Python runtime",
+      "environment": "isolated-tactic-project",
+      "required": true
+    },
+    {
+      "id": "live-mutations",
+      "label": "Add, edit and link sObjects; tasks, notes, messages, users, milestones and work hours with real permissions and triggers",
+      "environment": "isolated-tactic-project",
+      "required": true
+    },
+    {
+      "id": "repository-checkin",
+      "label": "Repository mapping and sync, Check-in/Out, Commit Queue, Drop Plate, attachments, previews, retry and cancellation",
+      "environment": "isolated-tactic-project-and-repository",
+      "required": true
+    },
+    {
+      "id": "windows-lifecycle",
+      "label": "Windows tray restore, close during active background work, restart and persisted geometry on supported displays",
+      "environment": "windows-desktop",
+      "required": true
+    },
+    {
+      "id": "clean-environment-install",
+      "label": "Pinned dependencies install and both standalone entry points pass from a clean Python environment",
+      "environment": "clean-windows-python",
+      "required": true
+    },
+    {
+      "id": "maya-dcc",
+      "label": "Maya thin-client discovery, client switching, open/import/reference/save/playblast and standalone result routing",
+      "environment": "maya",
+      "required": true
+    },
+    {
+      "id": "visual-acceptance",
+      "label": "Dark/light themes, English/Russian localization and responsive layouts at supported minimum sizes",
+      "environment": "windows-desktop",
+      "required": true
+    }
+  ]
+}

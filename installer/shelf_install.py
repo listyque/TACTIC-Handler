@@ -1,307 +1,422 @@
-import os
-import sys
-import random
-import urllib
-import zipfile
-import maya.mel as mel
+"""Maya drag-and-drop installer based on the legacy Niki shelf installer."""
 
+import os
+import posixpath
+import shutil
+import stat
+import tempfile
+import threading
+import traceback
+import urllib.parse
+import urllib.request
+import zipfile
 
 try:
-    import PySide.QtGui as QtGui
-except:
-    import PySide2.QtWidgets as QtGui
+    from PySide6 import QtCore, QtWidgets
+except ImportError:
+    from PySide2 import QtCore, QtWidgets
 
 
-def get_file_path():
-    return os.path.dirname(__file__)
-
-
-SHELF_NAME = 'TacticHandler'
-
-# This can be used to create preconfigured installations, with custom shelf buttons and configs,
-# just add more presets and urls
+SHELF_NAME = "Niki_And_Friends"
+INSTALL_DIR_NAME = "TACTIC-handler"
+TACTIC_URL = "akaleich.fvds.ru"
 INSTALL_PRESETS = {
-    'Default': 'https://github.com/listyque/TACTIC-Handler/archive/stable.zip',
+    "Animation": "http://{}/assets/niki_friends/assets/pipeline/"
+    "Tactic-Handler_animators.zip".format(TACTIC_URL),
+    "Modelling/Rig": "http://{}/assets/niki_friends/assets/pipeline/"
+    "Tactic-Handler_modellers.zip".format(TACTIC_URL),
+    "Full": "http://{}/assets/niki_friends/assets/pipeline/"
+    "Tactic-Handler_full.zip".format(TACTIC_URL),
 }
-DROP_PATH = get_file_path()
-INSTALLED_PATH = ''
-SERVER_NAME = 'localhost:9123'
-
-
-def preconfigure_tactic_handler(repo_path=None, login=None, server_url=None):
-
-    if INSTALLED_PATH not in sys.path:
-        sys.path.append(INSTALLED_PATH)
-
-    import thlib.environment as thenv
-    thenv.env_mode.set_current_path(INSTALLED_PATH)
-    thenv.env_mode.set_mode('maya')
-
-    if login:
-        print 'setting login', login
-        thenv.env_server.set_server(
-            server_name=server_url,
-        )
-        thenv.env_server.set_timeout(
-            timeout=180,
-        )
-        thenv.env_server.set_user(
-            user_name=login,
-        )
-
-        thenv.env_server.set_site(
-            site_name='',
-            enabled=False,
-        )
-
-        thenv.env_server.set_proxy(
-            proxy_login='',
-            proxy_pass='',
-            proxy_server='',
-            enabled=False,
-        )
-
-        kwargs = thenv.tc().generate_new_ticket(login)
-        thenv.tc().server_auth(**kwargs)
-
-        if thenv.env_server.get_ticket():
-            thenv.env_server.set_ticket(thenv.env_server.get_ticket())
-
-        thenv.env_server.save_server_presets_defaults()
-        thenv.env_server.save_defaults()
-
-    if repo_path:
-        thenv.env_tactic.get_base_dirs()
-
-        print 'setting repo', repo_path
-        base_dir = [u'{0}'.format(repo_path), u'General', [128, 128, 128], u'base', True]
-        thenv.env_tactic.set_base_dir('base', base_dir)
-        thenv.env_tactic.save_base_dirs()
-
-
-def check_shelf_exists(shelf_name):
-    mel.eval("""
-global proc int check_shelf_exists(string $shelf_name)
-//procedure from validateShelfName
-{
-    int $fileExists = false;
-    string $shelfDirs = `internalVar -userShelfDir`;
-    string $shelfArray[];
-    string $PATH_SEPARATOR = `about -win`? ";" : ":";
-    tokenize($shelfDirs, $PATH_SEPARATOR, $shelfArray);
-    for( $i = 0; $i < size($shelfArray); $i++ ) {
-        string $fileName = ($shelfArray[$i] + "shelf_" + $shelf_name + ".mel");
-        if (`file -q -exists $fileName`) {
-            $fileExists = true;
-            break;
-        }
-    }
-    return $fileExists;
+BUTTONS = {
+    "save": (
+        "Append Save Current Scene",
+        "Click to Save Current Scene As a new Version",
+        "save",
+        "content-save-edit.png",
+        "tools/runners/save_similar_runner",
+    ),
+    "create_cache": (
+        "Create nCache",
+        "Click to Create nCache for all Objects",
+        "CC",
+        "animation.png",
+        "tools/runners/cache_create_runner",
+    ),
+    "save_cache": (
+        "Save nCache and Current Scene",
+        "Click to Save Created nCache and Current Scene",
+        "SC",
+        "content-save-all.png",
+        "tools/runners/cache_checkin_runner",
+    ),
+    "textures": (
+        "Checkin / Check Textures",
+        "Click Checkin / Check all Textures in Current Scene",
+        "TEX",
+        "buffer.png",
+        "tools/runners/textures_checkin_runner",
+    ),
+    "references": (
+        "Attach References",
+        "Connect all Referenced Assets to Current Scene",
+        "REF",
+        "buffer.png",
+        "tools/runners/connect_assets_to_scene_runner",
+    ),
+    "unpack_cache": (
+        "Unpack All Caches",
+        "Click to Unpack all Caches for Current Episode",
+        "GET",
+        "download.png",
+        "tools/runners/cache_fetcher_runner",
+    ),
+    "apply_cache": (
+        "Apply All Caches",
+        "Click to Apply all Caches to Current Episode",
+        "APL",
+        "run.png",
+        "tools/runners/cache_apply_runner",
+    ),
+    "render_setup": (
+        "Render Setup for Episodes",
+        "Click to Open Render Setup Dialog",
+        "RS",
+        "tune.png",
+        "tools/runners/render_setup_runner",
+    ),
 }
-""")
-    exists = mel.eval('int $shelf_exists = check_shelf_exists("{0}");'.format(shelf_name))
-    return bool(int(exists))
+PRESET_BUTTONS = {
+    "Animation": ("save", "create_cache", "save_cache", "render_setup"),
+    "Modelling/Rig": ("save", "textures", "references"),
+    "Full": (
+        "save",
+        "create_cache",
+        "save_cache",
+        "textures",
+        "references",
+        "unpack_cache",
+        "apply_cache",
+        "render_setup",
+    ),
+}
+MAX_EXTRACTED_SIZE = 4 * 1024 * 1024 * 1024
+
+_dialog = None
 
 
-def download_archive(url=None, dest_path=None):
-    archive_path = u'{0}/TACTIC-handler.zip'.format(dest_path)
-
-    if os.path.exists(archive_path):
-        os.remove(archive_path)
-
-    rand_url = u'{0}?{1}'.format(url, random.randint(0, 99999))
-
-    urllib.urlretrieve(rand_url, archive_path)
-
-    return archive_path
+def _maya_modules():
+    from maya import cmds, mel
+    return cmds, mel
 
 
-def unpdack_archive(install_path, url=None):
-
-    from_git = False
-    if url.find('github.com') != -1:
-        from_git = True
-
-    archive_path = download_archive(url, install_path)
-
-    extract_path = u'{0}/TACTIC-handler'.format(install_path)
-
-    if from_git:
-        with zipfile.ZipFile(archive_path, 'r') as zip_ref:
-            members = []
-            for member in zip_ref.infolist():
-                sub_dir = member.filename.split('/')[0]
-                member.filename = member.filename.replace(sub_dir, '')
-                members.append(member)
-
-            zip_ref.extractall(extract_path, members)
-        zip_ref.close()
-    else:
-        with zipfile.ZipFile(archive_path, 'r') as zip_ref:
-            zip_ref.extractall(extract_path)
-
-    if os.path.exists(archive_path):
-        os.remove(archive_path)
+def _maya_main_window():
+    try:
+        from maya import OpenMayaUI
+        try:
+            from shiboken6 import wrapInstance
+        except ImportError:
+            from shiboken2 import wrapInstance
+    except ImportError:
+        return None
+    pointer = OpenMayaUI.MQtUtil.mainWindow()
+    return wrapInstance(int(pointer), QtWidgets.QWidget) if pointer else None
 
 
-def add_shelf(shelf):
-    delete_shelf(shelf)
-    if not check_shelf_exists(shelf):
-        mel.eval('addNewShelfTab "{0}";'.format(shelf))
+def _remove(path):
+    if os.path.islink(path) or os.path.isfile(path):
+        os.unlink(path)
+    elif os.path.isdir(path):
+        shutil.rmtree(path)
 
 
-def delete_shelf(shelf):
-    if check_shelf_exists(shelf):
-        mel.eval('deleteShelfTab "{}";'.format(shelf))
-        mel.eval('global proc shelf_{} () '.format(shelf) + '{global string $gBuffStr;global string $gBuffStr0;global string $gBuffStr1;}')
+def _extract(archive_path, destination):
+    with zipfile.ZipFile(archive_path) as archive:
+        members = archive.infolist()
+        if sum(member.file_size for member in members) > MAX_EXTRACTED_SIZE:
+            raise ValueError("Package expands beyond the 4 GiB safety limit")
+        for member in members:
+            name = posixpath.normpath(member.filename.replace("\\", "/"))
+            first = name.split("/", 1)[0]
+            if (
+                not name
+                or "\x00" in name
+                or name.startswith("/")
+                or name == ".."
+                or name.startswith("../")
+                or ":" in first
+                or stat.S_ISLNK(member.external_attr >> 16)
+            ):
+                raise ValueError("Unsafe package entry: {!r}".format(member.filename))
+        archive.extractall(destination)
 
 
-def add_button_to_maya_shelf(shelf, procedure='', image=u'', annotation='', label='', overlay_label=''):
+def _handler_root(extracted):
+    matches = []
+    for root, _directories, files in os.walk(extracted):
+        if (
+            "launch.pyw" in files
+            and os.path.isfile(os.path.join(root, "tactic_handler_dcc", "maya.py"))
+        ):
+            matches.append(root)
+    if len(matches) != 1:
+        raise ValueError(
+            "Package must contain exactly one TACTIC Handler application root"
+        )
+    return matches[0]
 
-    mel_command = """shelfButton -parent {0}
--command "{1}"
--image1 "{2}"
--ann "{3}"
--label "{4}"
--imageOverlayLabel "{5}"
--sourceType "python"
--overlayLabelColor 0.89 0.89 0.89
--overlayLabelBackColor 0 0 0 0.6
--style `shelfLayout -q -style "{0}"`
--width `shelfLayout -q -cellWidth "{0}"`
--height `shelfLayout -q -cellHeight "{0}"`;
-""".format(
-        shelf,
-        procedure,
-        image,
-        annotation,
-        label,
-        overlay_label
+
+def install_archive(archive_path, install_parent):
+    install_parent = os.path.abspath(os.path.expanduser(install_parent))
+    os.makedirs(install_parent, exist_ok=True)
+    target = os.path.join(install_parent, INSTALL_DIR_NAME)
+    staging = tempfile.mkdtemp(prefix=".tactic-handler-install-", dir=install_parent)
+    backup = None
+    try:
+        extracted = os.path.join(staging, "extracted")
+        _extract(archive_path, extracted)
+        payload = os.path.join(staging, "payload")
+        os.replace(_handler_root(extracted), payload)
+
+        if os.path.lexists(target):
+            backup = tempfile.mkdtemp(
+                prefix=".tactic-handler-backup-", dir=install_parent
+            )
+            os.rmdir(backup)
+            os.replace(target, backup)
+        try:
+            os.replace(payload, target)
+        except Exception:
+            if backup and os.path.lexists(backup):
+                _remove(target)
+                os.replace(backup, target)
+            raise
+        if backup:
+            _remove(backup)
+        return target
+    finally:
+        _remove(staging)
+
+
+def _valid_url(url):
+    parsed = urllib.parse.urlsplit(url)
+    return parsed.scheme in ("http", "https") and bool(parsed.netloc)
+
+
+def download_and_install(url, install_parent):
+    if not _valid_url(url):
+        raise ValueError("Package URL must use HTTP or HTTPS")
+    install_parent = os.path.abspath(os.path.expanduser(install_parent))
+    os.makedirs(install_parent, exist_ok=True)
+    with tempfile.TemporaryDirectory(
+        prefix=".tactic-handler-download-", dir=install_parent
+    ) as download_dir:
+        archive_path = os.path.join(download_dir, "TACTIC-handler.zip")
+        request = urllib.request.Request(
+            url,
+            headers={
+                "Cache-Control": "no-cache",
+                "User-Agent": "TACTIC-Handler-Maya-Installer",
+            },
+        )
+        with urllib.request.urlopen(request, timeout=120) as response, open(
+            archive_path, "wb"
+        ) as output:
+            shutil.copyfileobj(response, output)
+        return install_archive(archive_path, install_parent)
+
+
+def shelf_command(handler_root):
+    handler_root = os.path.normpath(handler_root).replace("\\", "/")
+    return "\n".join(
+        (
+            "import importlib",
+            "import sys",
+            "CURRENT_PATH = {!r}".format(handler_root),
+            "if CURRENT_PATH not in sys.path:",
+            "    sys.path.insert(0, CURRENT_PATH)",
+            "from tactic_handler_dcc import maya as tactic_handler_maya",
+            "tactic_handler_maya = importlib.reload(tactic_handler_maya)",
+            "tactic_handler_maya.startup(CURRENT_PATH)",
+        )
     )
 
-    mel.eval(mel_command)
 
-
-def add_th_button(shelf):
-
-    extract_path = u'{0}/TACTIC-handler'.format(DROP_PATH)
-    path_to_app = "CURRENT_PATH = '{0}'".format(extract_path)
-    procedure = r"{0}\nimport sys\nif CURRENT_PATH not in sys.path:\n    sys.path.append(CURRENT_PATH)\nimport thlib.environment as thenv\nthenv.env_mode.set_current_path(CURRENT_PATH)\nthenv.env_mode.set_mode('maya')\nimport thlib.ui_classes.ui_maya_dock as main\nreload(main)\nmain.startup(hotkeys=None)".format(path_to_app)
-
-    global INSTALLED_PATH
-    INSTALLED_PATH = extract_path
-
-    image = u'{0}/thlib/ui/gliph/maya_shelf/tactic_logo.png'.format(extract_path)
-    annotation = 'This will Start Main Window of Tactic Handler'
-    label = 'Tactic Handler'
-    overlay_label = ''
-
-    add_button_to_maya_shelf(
-        shelf=shelf,
-        procedure=procedure,
-        image=image,
-        annotation=annotation,
-        label=label,
-        overlay_label=overlay_label
+def custom_script_command(handler_root, script_path):
+    return "{}\ntactic_handler_maya.execute_custom_script({!r}, project={!r})".format(
+        shelf_command(handler_root), script_path, "niki_friends"
     )
 
 
-def add_append_save_button(shelf):
-    procedure = r"\nimport thlib.environment as thenv\n\ndef append_checkin_current_scene():\n    search_key = thenv.mf().get_skey_from_scene()\n        \n    skey = thenv.tc().parce_skey(search_key, True)\n    split_skey = thenv.tc().split_search_key(skey['search_key'])\n    sobject, add_data1 = thenv.tc().get_sobjects_new(search_type=split_skey['search_type'], filters=[(u'code', split_skey['asset_code'])], order_bys=['name'])\n    if sobject:\n        sobject = sobject.values()[0]\n        print u'Making server checkin for current scene {}'.format(sobject.get_title())\n        search_key = sobject.get_search_key()\n        scene_search_key = thenv.mf().get_skey_from_scene()\n        skey = thenv.tc().parce_skey(scene_search_key, True)\n        skey_dict = thenv.tc().parce_skey(scene_search_key, return_sobject=False)\n        # Opening project and creating desired checkin UI\n\n        thenv.env_inst.ui_main.create_project_dock(skey_dict['project'])\n        checkin_widget = thenv.env_inst.get_check_tree(project_code=skey_dict['project'], tab_code='checkin_out', wdg_code='{0}/{1}'.format(skey_dict['namespace'], skey_dict['pipeline_code']))\n        checkin_widget.do_creating_ui()\n        \n        commit_queue_ui = checkin_widget.checkin_from_maya(search_key, skey['context'], 'Fast Save')\n        \nappend_checkin_current_scene()\n"
+def create_shelf(handler_root, preset, cmds=None, mel=None):
+    if preset not in PRESET_BUTTONS:
+        raise ValueError("Unknown shelf preset: {}".format(preset))
+    if cmds is None or mel is None:
+        cmds, mel = _maya_modules()
 
-    image = u'{0}/TACTIC-handler/thlib/ui/gliph/maya_shelf/content-save-edit.png'.format(DROP_PATH)
-    annotation = 'Click to Save Current Scene As a new Version'
-    label = 'Append Save Current Scene'
-    overlay_label = 'save'
-
-    add_button_to_maya_shelf(
-        shelf=shelf,
-        procedure=procedure,
-        image=image,
-        annotation=annotation,
-        label=label,
-        overlay_label=overlay_label
+    shelf_top = mel.eval("$tmp = $gShelfTopLevel")
+    if cmds.shelfLayout(SHELF_NAME, exists=True):
+        cmds.deleteUI(SHELF_NAME)
+    shelf = cmds.shelfLayout(SHELF_NAME, parent=shelf_top)
+    icon_dir = os.path.join(handler_root, "thlib", "ui", "gliph", "maya_shelf")
+    logo = os.path.join(icon_dir, "tactic_logo.png")
+    cmds.shelfButton(
+        parent=shelf,
+        label="Tactic Handler",
+        annotation="This will Start Main Window of Tactic Handler",
+        image1=logo if os.path.isfile(logo) else "pythonFamily.png",
+        imageOverlayLabel="" if os.path.isfile(logo) else "TH",
+        command=shelf_command(handler_root),
+        sourceType="python",
     )
+    for button_code in PRESET_BUTTONS[preset]:
+        label, annotation, overlay, image_name, script_path = BUTTONS[button_code]
+        image = os.path.join(icon_dir, image_name)
+        cmds.shelfButton(
+            parent=shelf,
+            label=label,
+            annotation=annotation,
+            image1=image if os.path.isfile(image) else "pythonFamily.png",
+            imageOverlayLabel=overlay,
+            command=custom_script_command(handler_root, script_path),
+            sourceType="python",
+        )
+    mel.eval("saveAllShelves $gShelfTopLevel;")
+    return shelf
 
 
-def add_buttons(shelf_name, preset):
-    add_th_button(shelf_name)
-
-    if preset == 'Default':
-        add_append_save_button(shelf_name)
-
-
-def create_main_dialog():
-    main_window = QtGui.QDialog()
-    main_window.setWindowTitle('Drag and Drop Installation')
-    main_window.resize(550, 80)
-    main_layout = QtGui.QGridLayout()
-
-    main_window.setLayout(main_layout)
-
-    input_label = QtGui.QLabel('Install Path: ')
-    install_path_line_edit = QtGui.QLineEdit(main_window)
-    install_path_line_edit.setText(get_file_path())
-
-    server_path_label = QtGui.QLabel('TACTIC Server Url : ')
-    server_path_line_edit = QtGui.QLineEdit(main_window)
-    server_path_line_edit.setText(SERVER_NAME)
-
-    repo_path_label = QtGui.QLabel('Repository Path (empty if reinstall) : ')
-    repo_path_line_edit = QtGui.QLineEdit(main_window)
-    repo_path_line_edit.setText('')
-
-    login_label = QtGui.QLabel('Tactic Login (empty if reinstall): ')
-    login_line_edit = QtGui.QLineEdit(main_window)
-    login_line_edit.setText('')
-
-    install_button = QtGui.QPushButton('Install / Reinstall')
-    uninstall_button = QtGui.QPushButton('Uninstall')
-
-    main_layout.addWidget(input_label, 0, 0)
-    main_layout.addWidget(install_path_line_edit, 0, 1)
-
-    main_layout.addWidget(server_path_label, 1, 0)
-    main_layout.addWidget(server_path_line_edit, 1, 1)
-
-    main_layout.addWidget(repo_path_label, 2, 0)
-    main_layout.addWidget(repo_path_line_edit, 2, 1)
-
-    main_layout.addWidget(login_label, 3, 0)
-    main_layout.addWidget(login_line_edit, 3, 1)
-
-    buttons_layout = QtGui.QHBoxLayout()
-    buttons_layout.addWidget(install_button)
-    buttons_layout.addWidget(uninstall_button)
-    main_layout.addLayout(buttons_layout, 4, 0, 1, 0)
-
-    presets_combo_box = QtGui.QComboBox()
-
-    for preset in INSTALL_PRESETS.keys():
-        presets_combo_box.addItem(preset)
-
-    main_layout.addWidget(presets_combo_box, 5, 0, 1, 0)
-
-    install_button.clicked.connect(lambda: install(install_path_line_edit.text(), server_path_line_edit.text(), presets_combo_box.currentText(), repo_path_line_edit.text(), login_line_edit.text()))
-    uninstall_button.clicked.connect(lambda: delete_shelf(SHELF_NAME))
-
-    return main_window
+def remove_shelf():
+    cmds, mel = _maya_modules()
+    if not cmds.shelfLayout(SHELF_NAME, exists=True):
+        return False
+    cmds.deleteUI(SHELF_NAME)
+    mel.eval("saveAllShelves $gShelfTopLevel;")
+    return True
 
 
-def install(install_path, server_url, preset=None, repo_path=None, login=None):
+class InstallerDialog(QtWidgets.QDialog):
+    installed = QtCore.Signal(str)
+    failed = QtCore.Signal(str)
 
-    main_window.close()
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("Drag and Drop Installation")
+        self.resize(550, 80)
+        self._busy = False
+        self._installing_preset = ""
+        self._installing_root = ""
 
-    url = INSTALL_PRESETS.get(preset)
+        self.path_edit = QtWidgets.QLineEdit(os.path.dirname(__file__))
+        self.preset_combo = QtWidgets.QComboBox()
+        self.preset_combo.addItems(list(INSTALL_PRESETS))
+        self.preset_combo.setCurrentText("Modelling/Rig")
+        self.install_button = QtWidgets.QPushButton("Install / Reinstall")
+        self.uninstall_button = QtWidgets.QPushButton("Uninstall")
+        self.status_label = QtWidgets.QLabel("Ready")
 
-    unpdack_archive(install_path, url=url)
-    add_shelf(SHELF_NAME)
-    add_buttons(SHELF_NAME, preset)
+        layout = QtWidgets.QGridLayout(self)
+        layout.addWidget(QtWidgets.QLabel("Install Path:"), 0, 0)
+        layout.addWidget(self.path_edit, 0, 1)
+        layout.addWidget(QtWidgets.QLabel("Shelf preset:"), 1, 0)
+        layout.addWidget(self.preset_combo, 1, 1)
+        layout.addWidget(self.install_button, 2, 0)
+        layout.addWidget(self.uninstall_button, 2, 1)
+        layout.addWidget(self.status_label, 3, 0, 1, 2)
 
-    preconfigure_tactic_handler(repo_path, login, server_url)
+        self.installed.connect(self._installed)
+        self.failed.connect(self._failed)
+        self.install_button.clicked.connect(self._install)
+        self.uninstall_button.clicked.connect(self._uninstall)
+
+    def _set_busy(self, busy):
+        self._busy = busy
+        self.path_edit.setEnabled(not busy)
+        self.preset_combo.setEnabled(not busy)
+        self.install_button.setEnabled(not busy)
+        self.uninstall_button.setEnabled(not busy)
+
+    def closeEvent(self, event):
+        if self._busy:
+            event.ignore()
+        else:
+            super().closeEvent(event)
+
+    def _install(self):
+        install_parent = self.path_edit.text().strip()
+        if not install_parent:
+            QtWidgets.QMessageBox.warning(
+                self, "TACTIC Handler", "Choose an install directory."
+            )
+            return
+        self._installing_preset = self.preset_combo.currentText()
+        self._installing_root = os.path.join(
+            os.path.abspath(os.path.expanduser(install_parent)),
+            INSTALL_DIR_NAME,
+        )
+        try:
+            create_shelf(self._installing_root, self._installing_preset)
+        except Exception:
+            self.status_label.setText("Shelf creation failed")
+            self._show_error("The shelf could not be created.", traceback.format_exc())
+            return
+
+        url = INSTALL_PRESETS[self._installing_preset]
+        self._set_busy(True)
+        self.status_label.setText(
+            "Shelf ready. Downloading {}...".format(self._installing_preset)
+        )
+
+        def run():
+            try:
+                self.installed.emit(download_and_install(url, install_parent))
+            except Exception:
+                self.failed.emit(traceback.format_exc())
+
+        threading.Thread(target=run, name="tactic-handler-install", daemon=True).start()
+
+    def _installed(self, handler_root):
+        self._set_busy(False)
+        self.status_label.setText("Installed: {}".format(handler_root))
+        QtWidgets.QMessageBox.information(
+            self, "TACTIC Handler", "The {} shelf is ready.".format(SHELF_NAME)
+        )
+
+    def _failed(self, details):
+        self._set_busy(False)
+        self.status_label.setText("Shelf ready; download failed")
+        self._show_error(
+            "The shelf was created, but the package could not be installed.",
+            details,
+            "Copy TACTIC Handler files to {}.".format(self._installing_root),
+        )
+
+    def _show_error(self, text, details, information=""):
+        message = QtWidgets.QMessageBox(self)
+        message.setIcon(QtWidgets.QMessageBox.Critical)
+        message.setWindowTitle("TACTIC Handler installation failed")
+        message.setText(text)
+        if information:
+            message.setInformativeText(information)
+        message.setDetailedText(details)
+        (getattr(message, "exec", None) or message.exec_)()
+
+    def _uninstall(self):
+        self.status_label.setText(
+            "Shelf removed" if remove_shelf() else "Shelf is not installed"
+        )
 
 
 def begin_shelf_install():
-    main_window = create_main_dialog()
-    global main_window
-    main_window.exec_()
+    global _dialog
+    if _dialog is not None and _dialog._busy:
+        _dialog.raise_()
+        _dialog.activateWindow()
+        return _dialog
+    if _dialog is not None:
+        _dialog.close()
+        _dialog.deleteLater()
+    _dialog = InstallerDialog(_maya_main_window())
+    _dialog.show()
+    _dialog.raise_()
+    _dialog.activateWindow()
+    return _dialog

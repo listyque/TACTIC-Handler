@@ -6,7 +6,6 @@ import os
 import time
 from stat import ST_SIZE
 import subprocess
-import thlib.side.six as six
 import copy
 import ast
 import json
@@ -17,59 +16,19 @@ import collections
 import re
 import traceback
 import datetime
-import thlib.side.qtawesome as qta
-import thlib.side.natsort as natsort
-from thlib.side.timelapsed import timelapsed
-if sys.version_info[0] > 2:
-    from bs4 import BeautifulSoup
-else:
-    from bs42 import BeautifulSoup
-from thlib.side.Qt import QtWidgets as QtGui
-from thlib.side.Qt import QtGui as Qt4Gui
-from thlib.side.Qt import QtCore
 #from thlib.side.Qt import QtNetwork
-from thlib.side.colorhash import ColorHash
+from thlib.color_hash import color_hash
+from thlib.time_presentation import get_full_datetime, get_pretty_datetime
 from thlib.side.watchdog.observers import Observer
-from thlib.side.watchdog.events import FileSystemEventHandler, EVENT_TYPE_MOVED, EVENT_TYPE_CREATED, EVENT_TYPE_DELETED, EVENT_TYPE_MODIFIED
 
-from thlib.environment import env_mode, env_tactic, env_inst, dl
+from thlib.environment import env_mode, env_tactic, dl
 
 
-class EventHandler(FileSystemEventHandler, QtCore.QObject):
-    created = QtCore.Signal(object, object)
-    deleted = QtCore.Signal(object, object)
-    moved = QtCore.Signal(object, object)
-    modified = QtCore.Signal(object, object)
-    any = QtCore.Signal(object, object)
-
-    def __init__(self):
-        super(EventHandler, self).__init__()
-
-    def dispatch(self, event, watch):
-        self.on_any_event(event, watch)
-        _method_map = {
-            EVENT_TYPE_MODIFIED: self.on_modified,
-            EVENT_TYPE_MOVED: self.on_moved,
-            EVENT_TYPE_CREATED: self.on_created,
-            EVENT_TYPE_DELETED: self.on_deleted,
-        }
-        event_type = event.event_type
-        _method_map[event_type](event, watch)
-
-    def on_any_event(self, event, watch):
-        self.any.emit(event, watch)
-
-    def on_created(self, event, watch):
-        self.created.emit(event, watch)
-
-    def on_deleted(self, event, watch):
-        self.deleted.emit(event, watch)
-
-    def on_moved(self, event, watch):
-        self.moved.emit(event, watch)
-
-    def on_modified(self, event, watch):
-        self.modified.emit(event, watch)
+def __getattr__(name):
+    if name == 'EventHandler':
+        from thlib.filesystem_signals import EventHandler
+        return EventHandler
+    raise AttributeError(name)
 
 
 class FSObserver(Observer):
@@ -77,6 +36,7 @@ class FSObserver(Observer):
     def __init__(self, timeout=1):
         super(self.__class__, self).__init__(timeout=timeout)
 
+        from thlib.filesystem_signals import EventHandler
         self.event_handler = EventHandler()
         self.started = False
 
@@ -160,253 +120,14 @@ def catch_error(func):
 
 
 def error_handle(args):
-    stacktrace_dict, worker = args
-    expected = stacktrace_dict['exception']
-
-    error_type = catch_error_type(expected)
-
-    exception_text = u'{0}<p>{1}</p><p><b>Catched Error: {2}</b></p>'.format(
-        expected.__doc__, expected, error_type)
-
-    if error_type in ['unknown_error', 'attribute_error']:
-        title = u'{0}'.format(expected.__doc__)
-        message = u'{0}<p>{1}</p>'.format(
-            u"<p>This is not usual type of Exception! See stacktrace for information</p>",
-            exception_text)
-        buttons = [('Ok', QtGui.QMessageBox.NoRole)]
-        if worker:
-            buttons.append(('Retry', QtGui.QMessageBox.ApplyRole))
-
-        reply = show_message_predefined(
-            title=title,
-            message=message,
-            stacktrace=stacktrace_dict['stacktrace'],
-            buttons=buttons,
-            parent=env_inst.ui_main,
-            message_type='question',
-        )
-        if reply == QtGui.QMessageBox.ApplyRole:
-            worker.retry()
-
-        return reply
-
-    if error_type in ['connection_refused', 'connection_timeout']:
-        title = '{0}, {1}'.format("Cannot connect to TACTIC Server!", error_type)
-        message = u'{0}<p>{1}</p>'.format(
-            u"<p>There is no Network connection to TACTIC Server, or Connection Timed Out</p>"
-            u"<p>May be you set wrong server address?</p>",
-            exception_text)
-        buttons = [('Ok', QtGui.QMessageBox.NoRole)]
-
-        if worker:
-            buttons.append(('Retry', QtGui.QMessageBox.ApplyRole))
-
-        if not env_inst.ui_conf:
-            buttons.append(('Open Config', QtGui.QMessageBox.ActionRole))
-
-        reply = show_message_predefined(
-            title=title,
-            message=message,
-            stacktrace=stacktrace_dict['stacktrace'],
-            buttons=buttons,
-            parent=env_inst.ui_main,
-            message_type='critical',
-        )
-        if reply == QtGui.QMessageBox.ApplyRole:
-            worker.retry()
-        if reply == QtGui.QMessageBox.ActionRole:
-            env_inst.ui_main.open_config_dialog()
-
-        return reply
-
-    if error_type == 'ticket_error':
-        title = '{0}, {1}'.format("Ticket Error!", error_type)
-        message = u'{0}<p>{1}</p>'.format(
-            u"<p>Wrong ticket, or session may have expired!</p> <p>Generate new ticket?</p>",
-            exception_text)
-        buttons = [('Yes', QtGui.QMessageBox.YesRole),
-                   ('No', QtGui.QMessageBox.NoRole)]
-
-        if not env_inst.ui_conf and env_inst.ui_main:
-            buttons.append(('Open Config', QtGui.QMessageBox.ActionRole))
-
-        reply = show_message_predefined(
-            title=title,
-            message=message,
-            stacktrace=stacktrace_dict['stacktrace'],
-            buttons=buttons,
-            parent=None,
-            message_type='question',
-        )
-        if reply == QtGui.QMessageBox.YesRole:
-            env_inst.ui_main.open_config_dialog()
-            env_inst.ui_conf.hide()
-            env_inst.ui_conf.create_server_page()
-            env_inst.ui_conf.serverPageWidget.generate_ticket()
-        if reply == QtGui.QMessageBox.ActionRole:
-            env_inst.ui_main.open_config_dialog()
-
-        return reply
-
-    if error_type == 'no_project_error':
-        title = '{0}, {1}'.format("This Project does not exists!", error_type)
-        message = u'{0}<p>{1}</p>'.format(
-            u"<p>Project from previous session currently not Exists!</p>",
-            exception_text)
-        buttons = [('Ok', QtGui.QMessageBox.NoRole)]
-
-        if not env_inst.ui_conf:
-            buttons.append(('Open Config', QtGui.QMessageBox.ActionRole))
-
-        reply = show_message_predefined(
-            title=title,
-            message=message,
-            stacktrace=stacktrace_dict['stacktrace'],
-            buttons=buttons,
-            parent=None,
-            message_type='critical',
-        )
-        if reply == QtGui.QMessageBox.NoRole:
-            env_inst.ui_main.restart_ui_main()
-        if reply == QtGui.QMessageBox.ActionRole:
-            env_inst.ui_main.open_config_dialog()
-
-        return reply
-
-    if error_type == 'login_pass_error':
-        title = '{0}, {1}'.format("Wrong user Login or Password for TACTIC Server!", error_type)
-        message = u'{0}<p>{1}</p>'.format(
-            u"<p>You need to open config, and type correct Login and Password!</p>",
-            exception_text)
-        buttons = [('Ok', QtGui.QMessageBox.NoRole), ('Retry', QtGui.QMessageBox.ApplyRole)]
-
-        if not env_inst.ui_conf:
-            buttons.append(('Open Config', QtGui.QMessageBox.ActionRole))
-
-        reply = show_message_predefined(
-            title=title,
-            message=message,
-            stacktrace=stacktrace_dict['stacktrace'],
-            buttons=buttons,
-            parent=None,
-            message_type='critical',
-        )
-        if reply == QtGui.QMessageBox.ActionRole:
-            env_inst.ui_main.open_config_dialog()
-
-        return reply
-
-    if error_type == 'sql_connection_error':
-        title = '{0}, {1}'.format("SQL Server Error!", error_type)
-        message = u'{0}<p>{1}</p>'.format(
-            u"<p>TACTIC Server can't connect to SQL server, may be SQL Server Down! Or wrong server port/ip </p>",
-            exception_text)
-        buttons = [('Ok', QtGui.QMessageBox.NoRole)]
-
-        if not env_inst.ui_conf:
-            buttons.append(('Open Config', QtGui.QMessageBox.ActionRole))
-
-        reply = show_message_predefined(
-            title=title,
-            message=message,
-            stacktrace=stacktrace_dict['stacktrace'],
-            buttons=buttons,
-            parent=None,
-            message_type='critical',
-        )
-        if reply == QtGui.QMessageBox.ActionRole:
-            env_inst.ui_main.open_config_dialog()
-
-        return reply
-
-    if error_type == 'protocol_error':
-        title = '{0}, {1}'.format("Error with the Protocol!", error_type)
-        message = u'{0}<p>{1}</p>'.format(u"<p>Something wrong!</p>", exception_text)
-        buttons = [('Ok', QtGui.QMessageBox.NoRole),
-                   ('Retry', QtGui.QMessageBox.ApplyRole)]
-
-        if not env_inst.ui_conf:
-            buttons.append(('Open Config', QtGui.QMessageBox.ActionRole))
-
-        reply = show_message_predefined(
-            title=title,
-            message=message,
-            stacktrace=stacktrace_dict['stacktrace'],
-            buttons=buttons,
-            parent=None,
-            message_type='critical',
-        )
-        if reply == QtGui.QMessageBox.ActionRole:
-            env_inst.ui_main.open_config_dialog()
-
-        return reply
-
-
-def show_message_predefined(title, message, stacktrace=None, buttons=None, parent=None, message_type='question'):
-    """
-    Showing message with title, text and returns pressed button
-    :param title: 'Message Title'
-    :param message: 'Message Text'
-    :param message_type: 'question', 'warning', etc...
-    :param buttons: tuple of buttons: (('Yes', QtGui.QMessageBox.YesRole), ('No', QtGui.QMessageBox.NoRole)), etc...
-    :return: button role
-    """
-    if not buttons:
-        buttons = (('Yes', QtGui.QMessageBox.YesRole), ('No', QtGui.QMessageBox.NoRole))
-
-    if message_type == 'warning':
-        msb_type = QtGui.QMessageBox.Warning
-    elif message_type == 'information':
-        msb_type = QtGui.QMessageBox.Information
-    elif message_type == 'critical':
-        msb_type = QtGui.QMessageBox.Critical
-    else:
-        msb_type = QtGui.QMessageBox.Question
-
-    message_box = QtGui.QMessageBox(
-        msb_type,
-        title,
-        message,
-        QtGui.QMessageBox.NoButton,
-        parent,
+    stacktrace_dict, _worker = args
+    stacktrace = stacktrace_dict.get('stacktrace') or repr(
+        stacktrace_dict.get('exception')
     )
+    dl.exception(stacktrace, group_id='exceptions/error_handle')
 
-    if stacktrace:
-        layout = QtGui.QVBoxLayout()
 
-        from thlib.ui_classes.ui_custom_qwidgets import Ui_collapsableWidget
 
-        collapse_wdg = Ui_collapsableWidget(state=True)
-        collapse_wdg.setLayout(layout)
-        collapse_wdg.setText('Hide Stacktrace')
-        collapse_wdg.setCollapsedText('Show Stacktrace')
-
-        msb_layot = message_box.layout()
-
-        # workaround for pyside2
-        wdg_list = []
-
-        for i in range(msb_layot.count()):
-            wdg = msb_layot.itemAt(i).widget()
-            if wdg:
-                wdg_list.append(wdg)
-
-        msb_layot.addWidget(wdg_list[0], 0, 0)
-        msb_layot.addWidget(wdg_list[1], 0, 1)
-        msb_layot.addWidget(wdg_list[2], 2, 1)
-        msb_layot.addWidget(collapse_wdg, 1, 1)
-
-        text_edit = QtGui.QPlainTextEdit()
-        text_edit.setMinimumWidth(600)
-        text_edit.setPlainText(stacktrace)
-
-        layout.addWidget(text_edit)
-
-    for title, role in buttons:
-        message_box.addButton(title, role)
-
-    message_box.exec_()
-    return message_box.buttonRole(message_box.clickedButton())
 
 
 def catch_error_type(exception):
@@ -453,11 +174,22 @@ def catch_error_type(exception):
 
 
 def parce_timestamp(timestamp):
-    if timestamp:
-        if len(timestamp.split('.')) > 1:
-            return datetime.datetime.strptime(timestamp, '%Y-%m-%d %H:%M:%S.%f')
-        else:
-            return datetime.datetime.strptime(timestamp, '%Y-%m-%d %H:%M:%S')
+    """Parse TACTIC and ISO-8601 timestamps for shared UI presentation."""
+    if isinstance(timestamp, datetime.datetime):
+        return timestamp
+    text = str(timestamp or '').strip()
+    if not text:
+        return None
+
+    # Presence and newer server procedures use UTC ISO-8601, while legacy
+    # TACTIC objects commonly return a space-separated naive timestamp.
+    normalized = text[:-1] + '+00:00' if text.endswith(('Z', 'z')) else text
+    try:
+        return datetime.datetime.fromisoformat(normalized)
+    except ValueError as error:
+        raise ValueError(
+            'Unsupported timestamp format: {!r}'.format(text)
+        ) from error
 
 
 def restart_app():
@@ -517,19 +249,17 @@ def sizes(size, precision=2):
 
 
 def do_str(string):
-    if env_mode.py2:
-        return str(string)
-    else:
-        return str(string, 'utf-8', 'ignore')
+    return string.decode('utf-8', 'ignore') if isinstance(string, bytes) else str(string)
 
 
 def html_to_hex(text_html):
-    if env_mode.py2:
-        text_html_cmp = zlib.compress(text_html.encode('utf-8'), 9)
-        text_html_hex = 'zlib:' + binascii.b2a_hex(text_html_cmp)
-    else:
-        text_html_cmp = zlib.compress(six.ensure_binary(text_html), 9)
-        text_html_hex = 'zlib:' + six.ensure_str(binascii.b2a_hex(text_html_cmp))
+    source = (
+        bytes(text_html)
+        if isinstance(text_html, (bytes, bytearray))
+        else str(text_html).encode('utf-8')
+    )
+    text_html_cmp = zlib.compress(source, 9)
+    text_html_hex = 'zlib:' + binascii.hexlify(text_html_cmp).decode('ascii')
 
     if len(text_html_hex) > len(text_html):
         text_html_hex = text_html
@@ -539,7 +269,8 @@ def html_to_hex(text_html):
 
 def hex_to_html(text_hex, return_bytes=False):
     if text_hex:
-        text_hex = six.ensure_str(text_hex)
+        if isinstance(text_hex, bytes):
+            text_hex = text_hex.decode('utf-8', 'ignore')
         detect_zlib = text_hex.rfind('zlib:', 0, 5)
         if detect_zlib == 0:
             hex_to_text = zlib.decompress(binascii.a2b_hex(text_hex[5:]))
@@ -551,7 +282,9 @@ def hex_to_html(text_hex, return_bytes=False):
             return hex_to_text
         else:
             # For json
-            return six.ensure_str(hex_to_text, errors='ignore')
+            if isinstance(hex_to_text, bytes):
+                return hex_to_text.decode('utf-8', 'ignore')
+            return str(hex_to_text)
 
 
 def to_json(obj, pretty=False, use_ast=False):
@@ -598,8 +331,14 @@ def gen_acronym(word, length=2):
 
 
 def gen_color(word):
-    color = ColorHash(word, lightness=0.5, saturation=0.3)
-    return color.hex
+    return color_hash(word)
+
+
+def natural_sort_key(value):
+    return tuple(
+        int(part) if part.isdigit() else part.casefold()
+        for part in re.split(r'(\d+)', value)
+    )
 
 
 def prettify_text(text, first_letter=False):
@@ -616,12 +355,7 @@ def prettify_text(text, first_letter=False):
 
 
 def minify_code(source):
-    import side.python_minifier as python_minifier
-    return python_minifier.minify(
-        source, remove_literal_statements=False, combine_imports=False,
-        remove_annotations=False, hoist_literals=False, rename_locals=False,
-        remove_pass=False, remove_object_base=False
-    )
+    return source
 
 
 def time_it(start_time=None, message='Code flow running time:'):
@@ -663,37 +397,6 @@ def group_dict_by(dicts_list, group_by):
     return grouped
 
 
-def get_controls_dict(ignore_list=None):
-    controls_dict = {
-        'QLineEdit': {'obj_name': [], 'value': []},
-        'QCheckBox': {'obj_name': [], 'value': []},
-        'QComboBox': {'obj_name': [], 'value': []},
-        'QTreeWidget': {'obj_name': [], 'value': []},
-        'QToolButton': {'obj_name': [], 'value': []},
-        'QRadioButton': {'obj_name': [], 'value': []},
-        'QGroupBox': {'obj_name': [], 'value': []},
-        'QSpinBox': {'obj_name': [], 'value': []},
-    }
-    if ignore_list:
-        for item in ignore_list:
-            if item == QtGui.QLineEdit:
-                controls_dict.pop('QLineEdit')
-            if item == QtGui.QCheckBox:
-                controls_dict.pop('QCheckBox')
-            if item == QtGui.QComboBox:
-                controls_dict.pop('QComboBox')
-            if item == QtGui.QTreeWidget:
-                controls_dict.pop('QTreeWidget')
-            if item == QtGui.QToolButton:
-                controls_dict.pop('QToolButton')
-            if item == QtGui.QRadioButton:
-                controls_dict.pop('QRadioButton')
-            if item == QtGui.QGroupBox:
-                controls_dict.pop('QGroupBox')
-            if item == QtGui.QGroupBox:
-                controls_dict.pop('QSpinBox')
-
-    return copy.deepcopy(controls_dict)
 
 
 def get_value_from_config(config_dict, control, default_value=None):
@@ -718,952 +421,74 @@ def get_value_from_config(config_dict, control, default_value=None):
         return default_value
 
 
-def walk_through_layouts(args=None, ignore_list=None):
-    all_widgets = []
-    if not ignore_list:
-        ignore_list = []
-    for layout in args:
-        for i in range(layout.count()):
-            widget = layout.itemAt(i).widget()
-            # TODO This may Shoot sometimes
-            if type(widget) not in ignore_list:
-                all_widgets.append(layout.itemAt(i).widget())
-
-    return all_widgets
 
 
-def clear_property_dict(in_dict):
-    # clearing all dict
-    for i in in_dict.values():
-        for val in i.values():
-            val[:] = []
 
 
-def campare_dicts(dict_one, dict_two):
-    result = True
-
-    for key, val in dict_one.items():
-        for key1, val1 in dict_two.items():
-            if key == key1:
-                for i, j in enumerate(val['value']):
-                    if j != val1['value'][i]:
-                        result = False
-                        break
-
-    return result
 
 
-def store_property_by_widget_type(widget, in_dict):
-    if isinstance(widget, QtGui.QLineEdit):
-        if not in_dict.get('QLineEdit'):
-            in_dict['QLineEdit'] = {'value': [], 'obj_name': []}
-        in_dict['QLineEdit']['value'].append(str(widget.text()))
-        in_dict['QLineEdit']['obj_name'].append(widget.objectName())
-
-    if isinstance(widget, QtGui.QCheckBox):
-        if not in_dict.get('QCheckBox'):
-            in_dict['QCheckBox'] = {'value': [], 'obj_name': []}
-        in_dict['QCheckBox']['value'].append(int(bool(widget.checkState())))
-        in_dict['QCheckBox']['obj_name'].append(widget.objectName())
-
-    if isinstance(widget, QtGui.QComboBox):
-        if not in_dict.get('QComboBox'):
-            in_dict['QComboBox'] = {'value': [], 'obj_name': []}
-        in_dict['QComboBox']['value'].append(int(widget.currentIndex()))
-        in_dict['QComboBox']['obj_name'].append(widget.objectName())
-
-    if isinstance(widget, QtGui.QTreeWidget):
-        if not in_dict.get('QTreeWidget'):
-            in_dict['QTreeWidget'] = {'value': [], 'obj_name': []}
-        in_dict['QTreeWidget']['value'].append(int(widget.topLevelItemCount()))
-        in_dict['QTreeWidget']['obj_name'].append(widget.objectName())
-
-    if isinstance(widget, QtGui.QToolButton):
-        if not in_dict.get('QToolButton'):
-            in_dict['QToolButton'] = {'value': [], 'obj_name': []}
-        in_dict['QToolButton']['value'].append(str(widget.styleSheet()))
-        in_dict['QToolButton']['obj_name'].append(widget.objectName())
-
-    if isinstance(widget, QtGui.QGroupBox):
-        if not in_dict.get('QGroupBox'):
-            in_dict['QGroupBox'] = {'value': [], 'obj_name': []}
-        in_dict['QGroupBox']['value'].append(int(bool(widget.isChecked())))
-        in_dict['QGroupBox']['obj_name'].append(widget.objectName())
-
-    if isinstance(widget, QtGui.QRadioButton):
-        if not in_dict.get('QRadioButton'):
-            in_dict['QRadioButton'] = {'value': [], 'obj_name': []}
-        in_dict['QRadioButton']['value'].append(int(bool(widget.isChecked())))
-        in_dict['QRadioButton']['obj_name'].append(widget.objectName())
-
-    if isinstance(widget, QtGui.QSpinBox):
-        if not in_dict.get('QSpinBox'):
-            in_dict['QSpinBox'] = {'value': [], 'obj_name': []}
-        in_dict['QSpinBox']['value'].append(int(widget.value()))
-        in_dict['QSpinBox']['obj_name'].append(widget.objectName())
 
 
-def change_property_by_widget_type(widget, in_dict):
-    if isinstance(widget, QtGui.QLineEdit) and in_dict.get('QLineEdit'):
-        if widget.objectName() in in_dict['QLineEdit']['obj_name']:
-            val = in_dict['QLineEdit']['value'][in_dict['QLineEdit']['obj_name'].index(widget.objectName())]
-            widget.setText(val)
-
-    elif isinstance(widget, QtGui.QCheckBox) and in_dict.get('QCheckBox'):
-        if widget.objectName() in in_dict['QCheckBox']['obj_name']:
-            val = in_dict['QCheckBox']['value'][in_dict['QCheckBox']['obj_name'].index(widget.objectName())]
-            widget.setChecked(val)
-
-    elif isinstance(widget, QtGui.QGroupBox) and in_dict.get('QGroupBox'):
-        if widget.objectName() in in_dict['QGroupBox']['obj_name']:
-            val = in_dict['QGroupBox']['value'][in_dict['QGroupBox']['obj_name'].index(widget.objectName())]
-            widget.setChecked(val)
-
-    elif isinstance(widget, QtGui.QRadioButton) and in_dict.get('QRadioButton'):
-        if widget.objectName() in in_dict['QRadioButton']['obj_name']:
-            val = in_dict['QRadioButton']['value'][in_dict['QRadioButton']['obj_name'].index(widget.objectName())]
-            widget.setChecked(val)
-
-    elif isinstance(widget, QtGui.QSpinBox) and in_dict.get('QSpinBox'):
-        if widget.objectName() in in_dict['QSpinBox']['obj_name']:
-            val = in_dict['QSpinBox']['value'][in_dict['QSpinBox']['obj_name'].index(widget.objectName())]
-            widget.setValue(int(val))
-
-    elif isinstance(widget, QtGui.QComboBox) and in_dict.get('QComboBox'):
-        if widget.objectName() in in_dict['QComboBox']['obj_name']:
-            val = in_dict['QComboBox']['value'][in_dict['QComboBox']['obj_name'].index(widget.objectName())]
-            widget.setCurrentIndex(int(val))
-
-    elif isinstance(widget, QtGui.QToolButton) and in_dict.get('QToolButton'):
-        if widget.objectName() in in_dict['QToolButton']['obj_name']:
-            val = in_dict['QToolButton']['value'][in_dict['QToolButton']['obj_name'].index(widget.objectName())]
-            widget.setStyleSheet(val)
 
 
-def dockwidget_area_to_str(main_window, dockwidget):
-    if main_window.dockWidgetArea(dockwidget) == QtCore.Qt.TopDockWidgetArea:
-        return 'top'
-    if main_window.dockWidgetArea(dockwidget) == QtCore.Qt.BottomDockWidgetArea:
-        return 'bottom'
-    if main_window.dockWidgetArea(dockwidget) == QtCore.Qt.LeftDockWidgetArea:
-        return 'left'
-    if main_window.dockWidgetArea(dockwidget) == QtCore.Qt.RightDockWidgetArea:
-        return 'right'
 
 
-def str_to_dockwidget_area(area):
-    if area == 'top':
-        return QtCore.Qt.TopDockWidgetArea
-    elif area == 'bottom':
-        return QtCore.Qt.BottomDockWidgetArea
-    elif area == 'left':
-        return QtCore.Qt.LeftDockWidgetArea
-    elif area == 'right':
-        return QtCore.Qt.RightDockWidgetArea
 
 
-def toolbar_area_to_str(main_window, toolbar):
-    if main_window.toolBarArea(toolbar) == QtCore.Qt.TopToolBarArea:
-        return 'top'
-    elif main_window.toolBarArea(toolbar) == QtCore.Qt.BottomToolBarArea:
-        return 'bottom'
-    elif main_window.toolBarArea(toolbar) == QtCore.Qt.LeftToolBarArea:
-        return 'left'
-    elif main_window.toolBarArea(toolbar) == QtCore.Qt.RightToolBarArea:
-        return 'right'
 
 
-def str_to_toolbar_area(area):
-    if area == 'top':
-        return QtCore.Qt.TopToolBarArea
-    elif area == 'bottom':
-        return QtCore.Qt.BottomToolBarArea
-    elif area == 'left':
-        return QtCore.Qt.LeftToolBarArea
-    elif area == 'right':
-        return QtCore.Qt.RightToolBarArea
 
 
-def store_dict_values(widgets, out_dict, parent=None):
-    clear_property_dict(out_dict)
-    for widget in widgets:
-        if isinstance(widget,
-                      (QtGui.QLineEdit,
-                       QtGui.QCheckBox,
-                       QtGui.QComboBox,
-                       QtGui.QTreeWidget,
-                       QtGui.QToolButton,
-                       QtGui.QRadioButton,
-                       QtGui.QGroupBox,
-                       QtGui.QSpinBox,)):
-            store_property_by_widget_type(widget, out_dict)
-            if parent:
-                widget.installEventFilter(parent)
 
 
-def apply_dict_values(widgets, in_dict):
-    for widget in widgets:
-        if isinstance(widget,
-                      (QtGui.QLineEdit,
-                       QtGui.QCheckBox,
-                       QtGui.QComboBox,
-                       QtGui.QTreeWidget,
-                       QtGui.QToolButton,
-                       QtGui.QRadioButton,
-                       QtGui.QGroupBox,
-                       QtGui.QSpinBox,)):
-            change_property_by_widget_type(widget, in_dict)
 
 
-def collect_defaults(defaults_dict=None, init_dict=None, layouts_list=None, get_values=False, apply_values=False,
-                     store_defaults=False, undo_changes=False, parent=None, ignore_list=None):
-    widgets = walk_through_layouts(layouts_list, ignore_list)
-
-    if not init_dict:
-        init_dict = get_controls_dict(ignore_list)
-
-    if undo_changes:
-        apply_dict_values(widgets, defaults_dict)
-
-    if apply_values:
-        apply_dict_values(widgets, init_dict)
-
-    if get_values:
-        store_dict_values(widgets, init_dict, parent)
-
-    if store_defaults:
-        store_dict_values(widgets, defaults_dict, parent)
-
-    if not defaults_dict:
-        defaults_dict = get_controls_dict(ignore_list)
-        store_dict_values(widgets, defaults_dict, parent)
-
-    return defaults_dict, init_dict
 
 
-def create_tab_label(tab_name, stype=None):
-    from thlib.ui_classes.ui_custom_qwidgets import Ui_tabLabel
-    return Ui_tabLabel(tab_name, stype)
 
 
-def get_icon(icon_name=None, icon_name_active=None, color=None, color_active=None, icons_set='fa', spin=None, tactic_icon=None, **kwargs):
-
-    if tactic_icon:
-        splitted = tactic_icon.split('_')
-        icons_set = splitted[0].lower()
-        icon_name = '-'.join(splitted[1:]).lower()
-
-        if icons_set in ['fas', 'far', 'fa']:
-            icons_set = 'fa5s'
-
-    if not color:
-        color = Qt4Gui.QColor(200, 200, 200)
-    if not color_active:
-        color_active = Qt4Gui.QColor(240, 240, 240)
-    if not icon_name_active:
-        icon_name_active = icon_name
-    if spin:
-        spin = qta.Spin(spin[0], interval=spin[1], step=spin[2])
-
-    styling_icon = qta.icon(
-        '{0}.{1}'.format(icons_set, icon_name),
-        active='{0}.{1}'.format(icons_set, icon_name_active),
-        color=color,
-        color_active=color_active,
-        animation=spin,
-        **kwargs)
-
-    return styling_icon
-
-
-def handle_drop_mime_data(mime_data):
-    print(mime_data)
 
 
 # New QTreeWidget funcs
 
-def add_item_to_tree(tree_widget, tree_item, tree_item_widget=None, insert_pos=None):
-    if isinstance(tree_widget, QtGui.QTreeWidget):
-
-        if insert_pos is not None:
-            tree_widget.insertTopLevelItem(insert_pos, tree_item)
-        else:
-            tree_widget.addTopLevelItem(tree_item)
-        if tree_item_widget:
-            tree_widget.setItemWidget(tree_item, 0, tree_item_widget)
-    else:
-        if insert_pos is not None:
-            tree_widget.insertChild(insert_pos, tree_item)
-        else:
-            tree_widget.addChild(tree_item)
-        if tree_item_widget:
-            tree_widget.treeWidget().setItemWidget(tree_item, 0, tree_item_widget)
-
-
-def add_items_to_tree(tree_widget, tree_item_widgets=None):
-    if isinstance(tree_widget, QtGui.QTreeWidget):
-        tree_items = [QtGui.QTreeWidgetItem() for i in range(len(tree_item_widgets))]
-
-        tree_widget.addTopLevelItems(tree_items)
-        if tree_item_widgets:
-            for tree_item, tree_item_widget in zip(tree_items, tree_item_widgets):
-                tree_widget.setItemWidget(tree_item, 0, tree_item_widget)
-    else:
-        tree_items = [QtGui.QTreeWidgetItem() for i in range(len(tree_item_widgets))]
-        tree_widget.addChilds(tree_items)
-        if tree_item_widgets:
-            for tree_item, tree_item_widget in zip(tree_items, tree_item_widgets):
-                tree_widget.treeWidget().setItemWidget(tree_item, 0, tree_item_widget)
 
 
-def check_tree_items_exists(root_item, item_text):
-    if isinstance(root_item, QtGui.QTreeWidget):
-        for i in range(root_item.topLevelItemCount()):
-            top_item = root_item.topLevelItem(i)
-            if item_text == top_item.data(0, 12):
-                return top_item
-    else:
-        for i in range(root_item.childCount()):
-            top_item = root_item.child(i)
-            if item_text == top_item.data(0, 12):
-                return top_item
 
 
-def add_child_items(root_item, sobject):
-    child_item = QtGui.QTreeWidgetItem(root_item)
-    child_item.setText(0, sobject.get_title())
-    child_item.setText(1, sobject.get_value('language'))
-    child_item.setData(0, QtCore.Qt.UserRole, sobject)
-    if sobject.get_value('language') in ['python']:
-        child_item.setIcon(0, get_icon('language-python', icons_set='mdi', color=Qt4Gui.QColor(100, 100, 200)))
-    elif sobject.get_value('language') in ['local_python']:
-        child_item.setIcon(0, get_icon('language-python', icons_set='mdi', color=Qt4Gui.QColor(200, 100, 100)))
-    elif sobject.get_value('language') == 'javascript':
-        child_item.setIcon(0, get_icon('language-javascript', icons_set='mdi'))
-    else:
-        child_item.setIcon(0, get_icon('text', icons_set='mdi'))
-    root_item.addChild(child_item)
 
 
-def recursive_add_items(root_item, subgroup_list, sobjects_list):
-    item_text = subgroup_list.pop()
-    if check_tree_items_exists(root_item, item_text):
-        group_item = check_tree_items_exists(root_item, item_text)
-    else:
-        group_item = QtGui.QTreeWidgetItem(root_item)
-        root_item.addChild(group_item)
-        val = root_item.data(0, QtCore.Qt.UserRole)
-        if val:
-            group_item.setText(0, item_text)
-        else:
-            group_item.setText(0, item_text)
-        group_item.setData(0, 12, item_text)
-        group_item.setData(0, QtCore.Qt.UserRole, val)
-        group_item.setIcon(0, root_item.icon(0))
 
-    if subgroup_list:
-        return recursive_add_items(group_item, subgroup_list, sobjects_list)
-    else:
-        for sobject in sobjects_list:
-            add_child_items(group_item, sobject)
 
 
-def add_preview_item(parent_item, file_object=None, screenshot=None):
-    from thlib.ui_classes.ui_item_classes import Ui_previewItemWidget
 
-    tree_item = QtGui.QTreeWidgetItem()
 
-    tree_item_widget = Ui_previewItemWidget(file_object=file_object, screenshot=screenshot)
 
-    add_item_to_tree(parent_item, tree_item, tree_item_widget)
 
-    tree_item_widget.setParent(tree_item_widget.parent())
 
-    return tree_item_widget
 
 
-def add_attachment_item(parent_item, file_object=None, screenshot=None):
-    from thlib.ui_classes.ui_item_classes import Ui_attachmentItemWidget
 
-    tree_item = QtGui.QTreeWidgetItem()
 
-    tree_item_widget = Ui_attachmentItemWidget(file_object=file_object, screenshot=screenshot)
 
-    add_item_to_tree(parent_item, tree_item, tree_item_widget)
 
-    tree_item_widget.setParent(tree_item_widget.parent())
 
-    return tree_item_widget
 
 
-def add_commit_item(parent_item, item_widget):
-    from thlib.ui_classes.ui_item_classes import Ui_commitItemWidget
 
-    tree_item = QtGui.QTreeWidgetItem()
 
-    tree_item_widget = Ui_commitItemWidget(item_widget=item_widget)
-    tree_item_widget.tree_item = tree_item
 
-    add_item_to_tree(parent_item, tree_item, tree_item_widget)
 
-    tree_item_widget.setParent(tree_item_widget.parent())
 
-    return tree_item_widget
 
 
-def add_repo_sync_item(tree_widget, file_object):
-    from thlib.ui_classes.ui_item_classes import Ui_repoSyncItemWidget
 
-    tree_item = QtGui.QTreeWidgetItem()
 
-    tree_item_widget = Ui_repoSyncItemWidget(file_object=file_object)
 
-    add_item_to_tree(tree_widget, tree_item, tree_item_widget)
 
-    return tree_item_widget
 
-
-def create_repo_sync_item(file_object):
-    from thlib.ui_classes.ui_item_classes import Ui_repoSyncItemWidget
-
-    tree_item_widget = Ui_repoSyncItemWidget(file_object=file_object)
-
-    return tree_item_widget
-
-def add_sidebar_item(tree_widget, stype, project, item_info, insert_pos=None):
-
-    from thlib.ui_classes.ui_item_classes import Ui_sidebarItemWidget
-
-    tree_item = QtGui.QTreeWidgetItem()
-
-    tree_item_widget = Ui_sidebarItemWidget(stype, project, item_info)
-
-    tree_item_widget.tree_item = tree_item
-
-    add_item_to_tree(tree_widget, tree_item, tree_item_widget, insert_pos=insert_pos)
-
-    tree_item_widget.setParent(tree_item_widget.parent())
-    # tree_item_widget.setHidden(True)
-
-    return tree_item_widget
-
-
-def add_project_item(tree_widget, projects, item_info, insert_pos=None):
-
-    from thlib.ui_classes.ui_item_classes import Ui_projectItemWidget
-
-    tree_item = QtGui.QTreeWidgetItem()
-
-    tree_item_widget = Ui_projectItemWidget(projects, item_info)
-
-    tree_item_widget.tree_item = tree_item
-
-    add_item_to_tree(tree_widget, tree_item, tree_item_widget, insert_pos=insert_pos)
-
-    tree_item_widget.setParent(tree_item_widget.parent())
-
-    return tree_item_widget
-
-
-def get_sobject_item(parent_widget, sobject, stype, item_info, ignore_dict=None):
-
-    from thlib.ui_classes.ui_item_classes import Ui_itemWidget, Ui_layoutWrapWidget
-
-    item_info_dict = {
-        'relates_to': item_info['relates_to'],
-        'is_expanded': False,
-        'sep_versions': item_info['sep_versions'],
-        'children_states': item_info.get('children_states'),
-        'simple_view': item_info['simple_view'],
-        'forced_creation': item_info.get('forced_creation'),
-    }
-    tree_item = QtGui.QTreeWidgetItem()
-    tree_item.setChildIndicatorPolicy(QtGui.QTreeWidgetItem.ShowIndicator)
-
-    tree_item_widget = Ui_itemWidget(sobject, stype, item_info_dict, ignore_dict)
-    tree_item_widget.tree_item = tree_item
-    tree_item_widget.search_widget = parent_widget
-    # tree_item_widget.setHidden(True)
-
-    # add_item_to_tree(parent_item, tree_item, tree_item_widget, insert_pos=insert_pos)
-    tree_item_widget.setParent(tree_item_widget.parent())
-
-    return tree_item, tree_item_widget
-
-
-def add_sobject_item(parent_item, parent_widget, sobject, stype, item_info, insert_pos=None, ignore_dict=None, return_layout_widget=False):
-
-    from thlib.ui_classes.ui_item_classes import Ui_itemWidget, Ui_layoutWrapWidget
-
-    item_info_dict = {
-        'relates_to': item_info['relates_to'],
-        'is_expanded': False,
-        'sep_versions': item_info['sep_versions'],
-        'children_states': item_info.get('children_states'),
-        'simple_view': item_info['simple_view'],
-        'forced_creation': item_info.get('forced_creation'),
-    }
-    tree_item = QtGui.QTreeWidgetItem()
-    tree_item.setChildIndicatorPolicy(QtGui.QTreeWidgetItem.ShowIndicator)
-
-    tree_item_widget = Ui_itemWidget(sobject, stype, item_info_dict, ignore_dict)
-    tree_item_widget.tree_item = tree_item
-    tree_item_widget.search_widget = parent_widget
-    # tree_item_widget.setHidden(True)
-
-    if return_layout_widget:
-        layout_widget = Ui_layoutWrapWidget()
-        layout_widget.set_widget(tree_item_widget)
-        add_item_to_tree(parent_item, tree_item, layout_widget, insert_pos=insert_pos)
-        return layout_widget
-    else:
-        add_item_to_tree(parent_item, tree_item, tree_item_widget, insert_pos=insert_pos)
-        tree_item_widget.setParent(tree_item_widget.parent())
-
-        return tree_item_widget
-
-
-def add_group_by_item(parent_item, parent_widget, group, column, sub_columns, stype, item_info):
-
-    from thlib.ui_classes.ui_item_classes import Ui_groupItemWidget
-
-    tree_item = QtGui.QTreeWidgetItem()
-    tree_item.setChildIndicatorPolicy(QtGui.QTreeWidgetItem.ShowIndicator)
-    item_info_dict = {
-        'relates_to': item_info['relates_to'],
-        'is_expanded': False,
-        'sep_versions': item_info['sep_versions'],
-        'children_states': item_info.get('children_states')
-    }
-    tree_item_widget = Ui_groupItemWidget(group, column, sub_columns, stype, item_info_dict)
-
-    tree_item_widget.tree_item = tree_item
-    tree_item_widget.search_widget = parent_widget
-
-    add_item_to_tree(parent_item, tree_item, tree_item_widget)
-
-    tree_item_widget.setParent(tree_item_widget.parent())
-    tree_item_widget.setHidden(True)
-
-    return tree_item_widget
-
-
-def add_process_item(tree_widget, parent_widget, sobject, stype, process, item_info, insert_pos=None, pipeline=None):
-
-    from thlib.ui_classes.ui_item_classes import Ui_processItemWidget
-
-    tree_item = QtGui.QTreeWidgetItem()
-    item_info_dict = {
-        'relates_to': item_info['relates_to'],
-        'is_expanded': False,
-        'sep_versions': item_info['sep_versions'],
-        'children_states': item_info.get('children_states'),
-    }
-
-    tree_item_widget = Ui_processItemWidget(sobject, stype, process, item_info_dict, pipeline)
-
-    tree_item_widget.tree_item = tree_item
-    tree_item_widget.search_widget = parent_widget
-
-    add_item_to_tree(tree_widget, tree_item, tree_item_widget, insert_pos=insert_pos)
-
-    tree_item_widget.setParent(tree_item_widget.parent())
-    tree_item_widget.setHidden(True)
-
-    return tree_item_widget
-
-
-def add_snapshot_item(tree_widget, parent_widget, sobject, stype, process, pipeline, snapshots, item_info,
-                      sep_versions=False, insert_at_top=True):
-
-    from thlib.ui_classes.ui_item_classes import Ui_snapshotItemWidget
-
-    snapshots_list = []
-
-    if sep_versions:
-        expandable = False
-    else:
-        expandable = True
-
-    for key, context in snapshots.contexts.items():
-        tree_item = QtGui.QTreeWidgetItem()
-        item_info_dict = {
-            'relates_to': item_info['relates_to'],
-            'is_expanded': False,
-            'expandable': expandable,
-            'sep_versions': item_info['sep_versions'],
-            'children_states': item_info.get('children_states')
-        }
-        snapshot_item = Ui_snapshotItemWidget(
-            sobject,
-            stype,
-            process,
-            pipeline,
-            key,
-            list(context.versionless.values()),
-            item_info_dict
-        )
-        snapshot_item.tree_item = tree_item
-        snapshot_item.search_widget = parent_widget
-
-        insert_pos = 0
-        if insert_at_top:
-            add_item_to_tree(tree_widget, tree_item, snapshot_item, insert_pos)
-        else:
-            add_item_to_tree(tree_widget, tree_item, snapshot_item)
-
-        snapshot_item.setParent(snapshot_item.parent())
-
-        if not sep_versions:
-            # TODO ADD THIS FROM SNAPSHOT WIDGET ITSELF!!
-            for i, versions in enumerate(context.versions.values()):
-                tree_item_versions = QtGui.QTreeWidgetItem()
-                item_info_dict = {
-                    'relates_to': item_info['relates_to'],
-                    'is_expanded': False,
-                    'expandable': False,
-                    'sep_versions': item_info['sep_versions']
-                }
-                snapshot_item_versions = Ui_snapshotItemWidget(
-                    sobject,
-                    stype,
-                    process,
-                    pipeline,
-                    key,
-                    [versions],
-                    item_info_dict,
-                )
-                snapshot_item_versions.tree_item = tree_item_versions
-                snapshot_item_versions.search_widget = parent_widget
-
-                add_item_to_tree(tree_item, tree_item_versions, snapshot_item_versions)
-
-                snapshot_item_versions.setParent(snapshot_item_versions.parent())
-
-        snapshots_list.append(snapshot_item)
-        snapshot_item.setHidden(True)
-
-    return snapshots_list
-
-
-def add_versions_snapshot_item(tree_widget, parent_widget, sobject, stype, pipeline, snapshots, item_info):
-
-    from thlib.ui_classes.ui_item_classes import Ui_snapshotItemWidget
-
-    for i, (key, snapshot) in enumerate(snapshots.items()):
-        tree_item = QtGui.QTreeWidgetItem()
-        item_info_dict = {
-            'relates_to': item_info['relates_to'],
-            'is_expanded': False,
-            'sep_versions': item_info['sep_versions'],
-        }
-        snapshot_item = Ui_snapshotItemWidget(
-            sobject,
-            stype,
-            snapshot.get_value('process'),
-            pipeline,
-            snapshot.get_value('context'),
-            [snapshot],
-            item_info_dict,
-        )
-        snapshot_item.tree_item = tree_item
-        snapshot_item.search_widget = parent_widget
-
-        add_item_to_tree(tree_widget, tree_item, snapshot_item)
-
-        snapshot_item.setParent(snapshot_item.parent())
-        snapshot_item.setHidden(True)
-
-
-def add_child_item(tree_widget, parent_widget, sobject, stype, child, item_info):
-
-    from thlib.ui_classes.ui_item_classes import Ui_childrenItemWidget
-
-    tree_item = QtGui.QTreeWidgetItem()
-    item_info_dict = {
-        'relates_to': item_info['relates_to'],
-        'is_expanded': False,
-        'sep_versions': item_info['sep_versions'],
-        'children_states': item_info.get('children_states')
-    }
-
-    tree_item_widget = Ui_childrenItemWidget(sobject, stype, child, item_info_dict)
-
-    tree_item_widget.tree_item = tree_item
-    tree_item_widget.search_widget = parent_widget
-
-    add_item_to_tree(tree_widget, tree_item, tree_item_widget)
-
-    tree_item_widget.setParent(tree_item_widget.parent())
-    tree_item_widget.setHidden(True)
-
-    return tree_item_widget
-
-
-# TODO MAY BE USELESS
-def get_all_tree_item_widgets(wdg, items_list=None):
-
-    if not items_list:
-        items_list = []
-
-    if isinstance(wdg,  QtGui.QTreeWidget):
-        items_count = wdg.topLevelItemCount()
-        tree_item = wdg.topLevelItem
-        tree_wdg = wdg
-    else:
-        items_count = wdg.childCount()
-        tree_item = wdg.child
-        tree_wdg = wdg.treeWidget()
-
-    for i in range(items_count):
-        item = tree_item(i)
-        item_wdg = tree_wdg.itemWidget(item, 0)
-        items_list.append(item_wdg)
-
-        if item.childCount() > 0:
-            get_all_tree_item_widgets(item, items_list)
-
-    return items_list
-
-
-def recursive_close_tree_item_widgets(wdg):
-    if isinstance(wdg, QtGui.QTreeWidget) :
-        items_count = wdg.topLevelItemCount()
-        tree_item = wdg.topLevelItem
-        tree_wdg = wdg
-    else:
-        items_count = wdg.childCount()
-        tree_item = wdg.child
-        tree_wdg = wdg.treeWidget()
-
-    for i in range(items_count):
-        item = tree_item(i)
-        item_wdg = tree_wdg.itemWidget(item, 0)
-        if item_wdg:
-            item_wdg.close()
-
-        if item.childCount() > 0:
-            recursive_close_tree_item_widgets(item)
-
-
-def tree_recursive_expand(wdg, state):
-    """ Expanding tree to the ground"""
-
-    if isinstance(wdg, QtGui.QTreeWidget):
-        items_count = wdg.topLevelItemCount()
-        tree_item = wdg.topLevelItem
-        tree_wdg = wdg
-    else:
-        items_count = wdg.childCount()
-        tree_item = wdg.child
-        tree_wdg = wdg.treeWidget()
-
-    for i in range(items_count):
-        item = tree_item(i)
-        item.setExpanded(state)
-        item_wdg = tree_wdg.itemWidget(item, 0)
-        if state:
-            item_wdg.expand_recursive()
-        else:
-            item_wdg.collapse_recursive()
-
-
-def get_tree_widget_checked_state(wdg, state_dict):
-    """
-    Recursive getting checked state from each tree item storing names of checked items
-    This func is slower than it could be, but produce more readable look
-    """
-
-    if isinstance(wdg, QtGui.QTreeWidget):
-        lv = wdg.topLevelItemCount()
-        for i in range(lv):
-            item = wdg.topLevelItem(i)
-
-            state = False
-            if item.checkState(0) == QtCore.Qt.Checked:
-                state = True
-
-            item_data = item.data(1, 0)
-            if not item_data:
-                item_data = i
-
-            d = {
-                'state':  state,
-            }
-
-            if item.childCount() > 0:
-                get_tree_widget_checked_state(item, d)
-
-            state_dict[item_data] = d
-    else:
-        lv = wdg.childCount()
-        for i in range(lv):
-            item = wdg.child(i)
-
-            state = False
-            if item.checkState(0) == QtCore.Qt.Checked:
-                state = True
-
-            item_data = item.data(1, 0)
-            if not item_data:
-                item_data = i
-
-            d = {
-                'state': state,
-            }
-
-            if item.childCount() > 0:
-                get_tree_widget_checked_state(item, d)
-
-            if not state_dict.get('sub'):
-                state_dict['sub'] = {}
-                state_dict['sub'][item_data] = d
-            else:
-                state_dict['sub'][item_data] = d
-
-    return state_dict
-
-
-def set_tree_widget_checked_state(wdg, state_dict, ignore_types_tuple=None, only_types_tuple=None, state=None):
-    """
-    Recursively setting checked state to each tree item by names
-    """
-
-    if isinstance(wdg, QtGui.QTreeWidget):
-        lv = wdg.topLevelItemCount()
-        tree_item = wdg.topLevelItem
-    else:
-        lv = wdg.childCount()
-        tree_item = wdg.child
-
-    for i in range(lv):
-        item = tree_item(i)
-        item_data = item.data(1, 0)
-
-        if state_dict.get(item_data):
-            if ignore_types_tuple:
-                if not item_data.endswith(ignore_types_tuple):
-                    if state_dict[item_data]['state']:
-                        item.setCheckState(0, QtCore.Qt.Checked)
-                    else:
-                        item.setCheckState(0, QtCore.Qt.Unchecked)
-
-            elif only_types_tuple:
-                if item_data.endswith(only_types_tuple):
-                    if state:
-                        item.setCheckState(0, QtCore.Qt.Checked)
-                    else:
-                        item.setCheckState(0, QtCore.Qt.Unchecked)
-            else:
-                if state_dict[item_data]['state']:
-                    item.setCheckState(0, QtCore.Qt.Checked)
-                else:
-                    item.setCheckState(0, QtCore.Qt.Unchecked)
-
-            if item.childCount() > 0:
-                if state_dict[item_data].get('sub'):
-                    set_tree_widget_checked_state(item, state_dict[item_data]['sub'], ignore_types_tuple, only_types_tuple, state)
-
-
-def tree_state(wdg, state_dict):
-    """ Recursive getting data from each tree item"""
-
-    if isinstance(wdg, QtGui.QTreeWidget):
-        lv = wdg.topLevelItemCount()
-        for i in range(lv):
-            item = wdg.topLevelItem(i)
-            d = {
-                'd': {'s': item.isSelected(), 'e': item.isExpanded()},
-                's': {}
-            }
-            if item.childCount() > 0:
-                tree_state(item, d)
-            state_dict[i] = d
-    else:
-        lv = wdg.childCount()
-        for i in range(lv):
-            item = wdg.child(i)
-            d = {
-                'd': {'s': item.isSelected(), 'e': item.isExpanded()},
-                's': {}
-            }
-            if item.childCount() > 0:
-                tree_state(item, d)
-            state_dict['s'][i] = d
-
-    return state_dict
-
-
-def filter_multiple_selected_items(tree_widget, items_list, last_item):
-
-    # First we cut off all items in different rows, and allow only similar items
-    current_row_items_list = []
-    excluded_types = ['child', 'process']
-
-    for item in items_list:
-
-        item_index = tree_widget.indexFromItem(item)
-        last_item_index = tree_widget.indexFromItem(last_item)
-        if item_index.parent() == last_item_index.parent():
-
-            # Then we check it this items widgets is same type
-            item_widget = tree_widget.itemWidget(item, 0)
-            last_item_widget = tree_widget.itemWidget(last_item, 0)
-
-            # excluding types that should not be selected together
-            if item_widget.type == last_item_widget.type and last_item_widget.type not in excluded_types:
-                current_row_items_list.append(item)
-            else:
-                if item_index != last_item_index:
-                    tree_widget.setItemSelected(item, False)
-        else:
-            if item_index != last_item_index:
-                tree_widget.setItemSelected(item, False)
-
-
-def tree_state_revert(wdg, state_dict, use_item_widgets=True):
-    """ Recursive setting data to each tree item"""
-    if isinstance(wdg, QtGui.QTreeWidget):
-        lv = wdg.topLevelItemCount()
-        tree_item = wdg.topLevelItem
-        tree_wdg = wdg
-    else:
-        lv = wdg.childCount()
-        tree_item = wdg.child
-        tree_wdg = wdg.treeWidget()
-
-    for i in range(lv):
-        if state_dict.get(i):
-            item = tree_item(i)
-            if use_item_widgets:
-                item_widget = tree_wdg.itemWidget(item, 0)
-                item_widget.set_expand_state(state_dict[i]['d']['e'])
-                item_widget.set_selected_state(state_dict[i]['d']['s'])
-                item_widget.set_children_states(state_dict[i]['s'])
-            else:
-                item.setExpanded(state_dict[i]['d']['e'])
-                item.setSelected(state_dict[i]['d']['s'])
-            if item.childCount() > 0:
-                tree_state_revert(item, state_dict[i]['s'], use_item_widgets)
-            # Scrolling to item
-            if item.isSelected():
-                tree_wdg.scrollToItem(item)
 
 
 # files etc routine
-
-def split_files_and_dirs(filename):
-    dirs_list = []
-    files_list = []
-    for single in filename:
-        if os.path.isdir(single):
-            dirs_list.append(single)
-        else:
-            files_list.append(single)
-
-    return dirs_list, files_list
-
-
 def file_format(ext):
     formats = {
         'ma': ['ma', 'mayaAscii', 'main', 'file'],
@@ -1703,7 +528,7 @@ def file_format(ext):
 
 
 def extract_extension(filename):
-    base_filename = six.ensure_text(os.path.basename(filename))
+    base_filename = os.fsdecode(os.path.basename(filename))
     ext = base_filename.split('.', -1)
     if not os.path.isdir(filename):
         if base_filename == ext[0]:
@@ -1715,7 +540,7 @@ def extract_extension(filename):
 
 
 def extract_filename(filename, no_ext=False):
-    name = six.ensure_text(os.path.basename(filename)).split('.')
+    name = os.fsdecode(os.path.basename(filename)).split('.')
     if len(name) > 1:
         if no_ext:
             return u'.'.join(name[:-1])
@@ -1726,7 +551,7 @@ def extract_filename(filename, no_ext=False):
 
 
 def extract_dirname(filename):
-    dir = six.ensure_text(os.path.realpath(filename)).split('.', 1)
+    dir = os.fsdecode(os.path.realpath(filename)).split('.', 1)
     if dir[0] == filename:
         return os.path.dirname(filename)
     if len(dir) == 1 and not os.path.isdir(filename):
@@ -1782,10 +607,6 @@ def form_date_time(datetime_string, return_obj=False):
         return datetime_object
     else:
         return datetime_object.strftime('%Y-%m-%d %H:%M:%S')
-
-
-def get_pretty_datetime(date_time_object):
-    return timelapsed.Timelapsed.from_timestamp(date_time_object)
 
 
 def form_path(path, tp=None):
@@ -1882,15 +703,8 @@ def get_abs_file_path_name(snapshot_dict, file_dict):
     return file_path
 
 
-def simplify_html(html, pretty=False):
-    soup = BeautifulSoup(html, "html.parser")
-    if pretty:
-        return unicode(soup.body.prettify())
-    else:
-        return unicode(soup.body)
-
-
 def to_plain_text(html, strip=80):
+    from thlib.side.Qt import QtGui as Qt4Gui
     text_doc = Qt4Gui.QTextDocument()
     text_doc.setHtml(html)
     if strip:
@@ -1908,6 +722,7 @@ def qsize_to_tuple(qsize):
 
 
 def tuple_to_qsize(qtuple, qtype='size'):
+    from thlib.side.Qt import QtCore
     if qtype == 'size':
         return QtCore.QSize(qtuple[0], qtuple[1])
     elif qtype == 'pos':
@@ -2477,15 +1292,15 @@ class MatchTemplate(object):
     def __init__(self, patterns=None, padding=3, add_default_patterns=False):
 
         if patterns:
-            self.patterns = set(patterns)
+            self.patterns = list(dict.fromkeys(patterns))
         else:
             self.patterns = None
         if add_default_patterns:
             if patterns:
                 patterns.extend(self.default_patterns)
-                self.patterns = set(patterns)
+                self.patterns = list(dict.fromkeys(patterns))
             else:
-                self.patterns = set(self.default_patterns)
+                self.patterns = list(self.default_patterns)
         self.padding = padding
         self.split_patterns = None
 
@@ -2682,7 +1497,7 @@ class MatchTemplate(object):
 
     def get_files_objects(self, files_list, allow_single_sequence=False, allow_single_udim=False, sort=True):
         if sort:
-            found_files = self.get_files(natsort.realsorted(files_list))
+            found_files = self.get_files(sorted(files_list, key=natural_sort_key))
         else:
             found_files = self.get_files(files_list)
         out_dict = collections.OrderedDict()
@@ -2821,56 +1636,3 @@ class MatchTemplate(object):
 
 
 # Widgets Styles
-
-def get_qtreeview_style(disable_branch=False):
-
-    branch = 'QTreeView::branch {background: transparent;}'
-
-    style = """
-QAbstractItemView {
-    show-decoration-selected: 0;
-    selection-background-color:	rgb(57, 68, 81);
-    selection-color: rgb(245,245,245);
-    alternate-background-color: rgb(58,58,58);
-    background: rgb(52,52,52);
-}
-QAbstractItemView::item:hover {
-    background-color: rgb(64, 69, 74);
-    border: 0px;
-}
-QTreeView::item {
-    padding: 2px;
-}
-QTreeView {
-    paint-alternating-row-colors-for-empty-area: 0;
-    border: 0px;
-}
-QScrollBar:vertical {
-    border: 0px;
-    background: rgba(128,128,128,16);
-    width:8px;
-    margin: 0px 0px 0px 0px;
-    }
-QScrollBar::handle:vertical {
-    background: rgba(255,255,255,48);
-    min-height: 0px;
-    border-radius: 4px;
-    }
-QScrollBar::add-line:vertical {
-    background: rgba(255,255,255,48);
-    height: 0px;
-    subcontrol-position: bottom;
-    subcontrol-origin: margin;
-    }
-QScrollBar::sub-line:vertical {
-    background: rgba(255,255,255,48);
-    height: 0 px;
-    subcontrol-position: top;
-    subcontrol-origin: margin;
-    }
-
-"""
-    if disable_branch:
-        style += branch
-
-    return style

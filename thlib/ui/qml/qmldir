@@ -1,0 +1,6 @@
+SidebarTreeRow 1.0 SidebarTreeRow.qml
+AttachmentComposerControls 1.0 AttachmentComposerControls.qml
+SnapshotPreviewLayers 1.0 SnapshotPreviewLayers.qml
+WorkspaceFileDropTarget 1.0 WorkspaceFileDropTarget.qml
+IngestFilesView 1.0 IngestFilesView.qml
+IngestRuleEditor 1.0 IngestRuleEditor.qml
