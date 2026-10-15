@@ -1,3 +1,4 @@
+import "../tactic_frame/core/interaction.mjs" as Interaction
 import "../tactic_frame/core/foundation.mjs" as Foundation
 import QtQuick
 import QtQuick.Controls
@@ -12,11 +13,22 @@ QtControls.CheckBox {
     property bool compact: false
     property bool wrapText: false
     property real indicatorOffset: 0
+    readonly property bool mixed: checkState === Qt.PartiallyChecked
+    readonly property var paint: Interaction.checkVisual({
+        enabled: enabled,
+        checked: checked,
+        mixed: mixed,
+        focused: visualFocus,
+        prominent: prominent
+    })
 
     spacing: compact ? Foundation.controls.checkBox.compactSpacing : Foundation.controls.checkBox.spacing
     implicitHeight: compact ? Foundation.controls.checkBox.compactHeight : Math.max(Foundation.controls.checkBox.height, contentItem.implicitHeight)
-    font.family: theme.fontFamily
-    font.pointSize: compact ? Typography.label : Typography.body
+    font: Qt.font({
+        family: theme.fontFamily,
+        hintingPreference: Font.PreferVerticalHinting,
+        pixelSize: compact ? Foundation.textStyles.secondary : Foundation.textStyles.body
+    })
 
     indicator: Rectangle {
         implicitWidth: control.prominent ? Foundation.controls.checkBox.prominentIndicator : control.compact ? Foundation.controls.checkBox.compactIndicator : Foundation.controls.checkBox.indicator
@@ -24,16 +36,16 @@ QtControls.CheckBox {
         x: control.leftPadding + control.indicatorOffset
         y: (control.height - height) / 2
         radius: Math.min(Foundation.controls.checkBox.radius, theme.itemRadius)
-        color: control.checked ? theme.action : control.prominent ? theme.surfaceContainerHighest : "transparent"
-        border.width: control.activeFocus || control.prominent ? 2 : 1
-        border.color: control.checked || control.activeFocus ? theme.action : control.prominent ? theme.secondaryText : theme.outline
+        color: control.paint.background === "transparent" ? "transparent" : theme[control.paint.background]
+        border.width: control.paint.borderWidth
+        border.color: theme[control.paint.border]
 
         Controls.MaterialIcon {
             anchors.centerIn: parent
-            visible: control.checked
-            name: "check"
+            visible: control.checked || control.mixed
+            name: control.mixed ? "minus" : "check"
             size: control.prominent ? Foundation.controls.checkBox.prominentIconSize : control.compact ? Foundation.controls.checkBox.compactIconSize : Foundation.controls.checkBox.iconSize
-            color: theme.selectedText
+            color: theme[control.paint.mark]
         }
         Behavior on color {
             ColorAnimation {
@@ -54,6 +66,6 @@ QtControls.CheckBox {
 
     HoverHandler {
         objectName: "checkBoxCursorHandler"
-        cursorShape: Qt.PointingHandCursor
+        cursorShape: control.enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
     }
 }

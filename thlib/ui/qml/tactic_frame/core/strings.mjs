@@ -1,5 +1,14 @@
 // Shared Frame labels from the existing Handler/Stream EN/RU catalogs.
 const russian = {
+    Display: 'Вид',
+    Enabled: 'Включено',
+    'Start date': 'Дата начала',
+    'Assigned to': 'Исполнитель',
+    Actions: 'Действия',
+    Loading: 'Загрузка',
+    Size: 'Размер',
+    Assets: 'Ассеты',
+
     Thumbnail: 'Миниатюра',
     'Delete the selected sidebar item?':
         'Удалить выбранный элемент бокового меню?',

@@ -549,6 +549,9 @@ class UiStructureTests(unittest.TestCase):
         icons = (QML / "controls" / "MaterialIcon.qml").read_text(
             encoding="utf-8"
         )
+        icon_aliases = (QML / "tactic_frame" / "core" / "icons.mjs").read_text(encoding="utf-8")
+        self.assertIn('import "../tactic_frame/core/icons.mjs" as Icons', icons)
+        self.assertIn("Icons.resolve(", icons)
         icon_loader = (ROOT / "thlib" / "ui" / "icon_font.py").read_text(
             encoding="utf-8"
         )
@@ -560,7 +563,7 @@ class UiStructureTests(unittest.TestCase):
             "script-python", "script-javascript", "script-expression",
             "script-xml", "scripts-tree", "wrap-lines",
         ):
-            self.assertIn('"' + semantic_icon + '":', icons)
+            self.assertIn("'" + semantic_icon + "':", icon_aliases)
         for material_glyph in (
             "language-python", "language-javascript", "wrap", "xml",
         ):

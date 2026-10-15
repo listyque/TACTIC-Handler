@@ -19,8 +19,24 @@ requires the same semantics.
 
 ## Shared controls
 
-`thlib/ui/qml/controls` contains application-wide primitives. Feature views may
-depend on these controls; controls never import feature QML.
+The base kit includes primitives and neutral composite controls: buttons and
+fields, but also menus, ComboBox, date/calendar selection, user selection,
+TabRail and label/help/control rows. A composite does not become a form merely
+because it contains several controls. It receives neutral data and emits events;
+its owner loads, validates and saves domain data. Infrastructure owns input,
+rendering and window/dock lifetime; a business form or fragment owns a scenario.
+
+Classify by responsibility rather than filename or directory. ProjectCard,
+ProjectFilterToggles and ProcessSelectionTree still live under controls/ but know
+projects/processes and are domain fragments. Task Calendar is a work panel;
+a date picker is a control. A neutral header offers action slots; a task mode
+switcher calling tasksController is a feature fragment. Shared controls must
+not import feature QML.
+
+The Stream development tool tools/frame_controls/elements.py produces a complete
+source index and reviewed family/variant atlas. Presence, paired visual evidence
+and behavior acceptance are separate. The 372-state gallery is a verified subset,
+not completion of the whole control library.
 
 ### Actions and input
 
@@ -215,3 +231,19 @@ Before accepting a QML change:
 - Does the component use shared theme, typography, motion, icons, input, popup,
   and scroll behavior?
 - Do architecture, QML smoke, and affected domain tests pass?
+
+
+## Tactic Frame controls
+
+The native renderer is `qml/tactic_frame/core/FrameView.qml`; specialized list,
+grid and form adapters live under `qml/tactic_frame/controls`. Its portable
+contract and executable control examples are documented in
+`qml/tactic_frame/README.md`. State paint is resolved by `core/interaction.mjs`,
+geometry and typography by `core/foundation.mjs`, and strict calendar arithmetic
+by `controls/forms/calendar.mjs`. Keep native input/focus in the house control.
+
+DateChoice distinguishes editing and acceptance; UserChoice receives existing
+records and emits a login without requests. Sidebar Editor uses the common tree
+row and navigation. Real Qt regressions are `tests/test_frame_controls.py` and
+`tests/test_frame_platform.py`; validate them at 1/1.5/2 scales together with the
+independent Stream platform gate. Matching declarations alone are insufficient.

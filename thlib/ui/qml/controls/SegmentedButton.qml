@@ -1,3 +1,4 @@
+import "../tactic_frame/core/foundation.mjs" as Foundation
 import QtQuick
 import QtQuick.Controls.Basic as Basic
 import QtQuick.Layouts
@@ -16,13 +17,9 @@ Item {
     property string segmentObjectNamePrefix: "segmentedButtonSegment_"
     signal activated(string value)
 
-    readonly property int segmentCount: model && model.length
-        ? model.length : 0
+    readonly property int segmentCount: model && model.length ? model.length : 0
 
-    implicitWidth: Math.max(
-        minimumSegmentWidth * segmentCount + contentPadding * 2,
-        segmentWidth * segmentCount + contentPadding * 2
-    )
+    implicitWidth: Math.max(minimumSegmentWidth * segmentCount + contentPadding * 2, segmentWidth * segmentCount + contentPadding * 2)
     implicitHeight: theme.controlHeight
 
     Rectangle {
@@ -46,8 +43,7 @@ Item {
 
                 required property var modelData
                 objectName: root.segmentObjectNamePrefix + modelData.value
-                readonly property bool selected:
-                    String(modelData.value || "") === root.currentValue
+                readonly property bool selected: String(modelData.value || "") === root.currentValue
 
                 Layout.fillWidth: true
                 Layout.fillHeight: true
@@ -73,41 +69,19 @@ Item {
                             visible: String(segment.modelData.icon || "").length > 0
                             name: String(segment.modelData.icon || "")
                             size: 15
-                            color: !segment.enabled
-                                ? root.theme.disabledText
-                                : segment.selected
-                                    ? root.theme.selectedText
-                                    : root.theme.secondaryText
+                            color: !segment.enabled ? root.theme.disabledText : segment.selected ? root.theme.selectedText : root.theme.secondaryText
                             anchors.verticalCenter: parent.verticalCenter
                         }
                         Basic.Label {
                             visible: !root.iconOnly
-                            text: segment.modelData.translate === false
-                                ? String(segment.modelData.label || "")
-                                : qsTr(String(segment.modelData.label || ""))
-                            width: Math.min(
-                                implicitWidth,
-                                Math.max(
-                                    0,
-                                    segment.width
-                                        - (segmentIcon.visible
-                                            ? segmentIcon.width
-                                                + parent.spacing
-                                            : 0)
-                                        - 16
-                                )
-                            )
+                            text: segment.modelData.translate === false ? String(segment.modelData.label || "") : qsTr(String(segment.modelData.label || ""))
+                            width: Math.min(implicitWidth, Math.max(0, segment.width - (segmentIcon.visible ? segmentIcon.width + parent.spacing : 0) - 16))
                             elide: Text.ElideRight
                             maximumLineCount: 1
-                            color: !segment.enabled
-                                ? root.theme.disabledText
-                                : segment.selected
-                                    ? root.theme.selectedText
-                                    : root.theme.primaryText
+                            color: !segment.enabled ? root.theme.disabledText : segment.selected ? root.theme.selectedText : root.theme.primaryText
                             font.family: root.theme.fontFamily
-                            font.pointSize: Typography.body
-                            font.weight: segment.selected
-                                ? Font.DemiBold : Font.Medium
+                            font.pixelSize: Foundation.textStyles.body
+                            font.weight: segment.selected ? Font.DemiBold : Font.Medium
                             anchors.verticalCenter: parent.verticalCenter
                         }
                     }
@@ -115,15 +89,7 @@ Item {
 
                 background: Rectangle {
                     radius: Math.max(3, root.theme.itemRadius - 2)
-                    color: !segment.enabled
-                        ? "transparent"
-                        : segment.down
-                            ? root.theme.surfaceContainerHighest
-                            : segment.selected
-                                ? root.theme.selected
-                                : segment.hovered
-                                    ? root.theme.rowHover : "transparent"
-
+                    color: !segment.enabled ? "transparent" : segment.down ? root.theme.surfaceContainerHighest : segment.selected ? root.theme.selected : segment.hovered ? root.theme.rowHover : "transparent"
                 }
 
                 HoverHandler {
@@ -132,7 +98,7 @@ Item {
 
                 onClicked: {
                     if (!selected || modelData.reselectable === true)
-                        root.activated(String(modelData.value || ""))
+                        root.activated(String(modelData.value || ""));
                 }
             }
         }

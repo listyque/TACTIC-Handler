@@ -1,3 +1,4 @@
+import "tactic_frame/core/foundation.mjs" as Foundation
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Controls as QtControls
@@ -18,7 +19,7 @@ Controls.ComboBox {
         target: control.userModel
         function onContentReplaced() {
             if (userPopup.opened)
-                control.rebuildPopupOptions()
+                control.rebuildPopupOptions();
         }
     }
 
@@ -29,131 +30,112 @@ Controls.ComboBox {
 
     function modelRecord(modelObject, index) {
         if (!modelObject || index < 0)
-            return ({})
+            return ({});
         if (typeof modelObject.get === "function")
-            return modelObject.get(index) || ({})
-        return modelObject[index] || ({})
+            return modelObject.get(index) || ({});
+        return modelObject[index] || ({});
     }
 
     function profileFor(login) {
-        const wantedLogin = String(login || "")
+        const wantedLogin = String(login || "");
         if (!wantedLogin || !control.userModel)
-            return ({})
-        return control.userModel.lookup("login", wantedLogin)
+            return ({});
+        return control.userModel.lookup("login", wantedLogin);
     }
 
     function initialsFor(label) {
-        const parts = String(label || "").trim().split(/\s+/)
+        const parts = String(label || "").trim().split(/\s+/);
         if (!parts.length || !parts[0])
-            return ""
-        return (parts[0].charAt(0)
-            + (parts.length > 1 ? parts[parts.length - 1].charAt(0) : ""))
-            .toUpperCase()
+            return "";
+        return (parts[0].charAt(0) + (parts.length > 1 ? parts[parts.length - 1].charAt(0) : "")).toUpperCase();
     }
 
     function popupIndexForSource(sourceIndex) {
         for (let index = 0; index < popupUsers.count; ++index) {
             if (Number(popupUsers.get(index).sourceIndex) === sourceIndex)
-                return index
+                return index;
         }
-        return popupUsers.count > 0 ? 0 : -1
+        return popupUsers.count > 0 ? 0 : -1;
     }
 
     function rebuildPopupOptions() {
-        const query = control.searchText.trim().toLowerCase()
-        const options = []
-        const seen = ({})
+        const query = control.searchText.trim().toLowerCase();
+        const options = [];
+        const seen = ({});
         for (let index = 0; index < control.count; ++index) {
-            const choice = control.modelRecord(control.model, index)
-            const login = String(
-                control.optionValue(index, control.valueRole) || "")
-            const label = String(
-                control.textAt(index) || (login ? login : qsTr("Not assigned"))
-            )
-            const profile = control.profileFor(login)
-            if (!UserSearch.matches(login, label + " " + String(profile.email || ""),
-                                    profile.groups, query))
-                continue
-            const identity = "login:" + login
+            const choice = control.modelRecord(control.model, index);
+            const login = String(control.optionValue(index, control.valueRole) || "");
+            const label = String(control.textAt(index) || (login ? login : qsTr("Not assigned")));
+            const profile = control.profileFor(login);
+            if (!UserSearch.matches(login, label + " " + String(profile.email || ""), profile.groups, query))
+                continue;
+            const identity = "login:" + login;
             if (seen[identity])
-                continue
-            seen[identity] = true
+                continue;
+            seen[identity] = true;
             options.push({
                 "sourceIndex": index,
                 "label": label,
                 "login": login,
-                "avatarUrl": String(
-                    choice.avatarUrl || profile.avatarUrl || ""),
-                "initials": String(
-                    profile.initials || control.initialsFor(label)),
-                "avatarColor": String(
-                    choice.avatarColor || profile.avatarColor || ""),
-                "primaryGroup": String(
-                    profile.primaryGroup || "Ungrouped")
-            })
+                "avatarUrl": String(choice.avatarUrl || profile.avatarUrl || ""),
+                "initials": String(profile.initials || control.initialsFor(label)),
+                "avatarColor": String(choice.avatarColor || profile.avatarColor || ""),
+                "primaryGroup": String(profile.primaryGroup || "Ungrouped")
+            });
         }
-        options.sort(function(left, right) {
-            const leftEmpty = !left.login
-            const rightEmpty = !right.login
+        options.sort(function (left, right) {
+            const leftEmpty = !left.login;
+            const rightEmpty = !right.login;
             if (leftEmpty !== rightEmpty)
-                return leftEmpty ? -1 : 1
-            const groupOrder = left.primaryGroup.toLowerCase().localeCompare(
-                right.primaryGroup.toLowerCase())
+                return leftEmpty ? -1 : 1;
+            const groupOrder = left.primaryGroup.toLowerCase().localeCompare(right.primaryGroup.toLowerCase());
             if (groupOrder)
-                return groupOrder
-            return left.label.toLowerCase().localeCompare(
-                right.label.toLowerCase())
-        })
-        popupUsers.clear()
+                return groupOrder;
+            return left.label.toLowerCase().localeCompare(right.label.toLowerCase());
+        });
+        popupUsers.clear();
         for (let index = 0; index < options.length; ++index)
-            popupUsers.append(options[index])
-        userList.currentIndex = control.popupIndexForSource(
-            control.currentIndex)
+            popupUsers.append(options[index]);
+        userList.currentIndex = control.popupIndexForSource(control.currentIndex);
         if (userList.currentIndex >= 0)
-            userList.positionViewAtIndex(
-                userList.currentIndex, ListView.Contain)
+            userList.positionViewAtIndex(userList.currentIndex, ListView.Contain);
     }
 
     function activatePopupRow(popupIndex) {
         if (popupIndex < 0 || popupIndex >= popupUsers.count)
-            return
-        const sourceIndex = Number(
-            popupUsers.get(popupIndex).sourceIndex)
-        control.cancelOpeningTransaction()
-        control.currentIndex = sourceIndex
-        control.activated(sourceIndex)
-        control._restoreFocusAfterClose = true
-        userPopup.close()
+            return;
+        const sourceIndex = Number(popupUsers.get(popupIndex).sourceIndex);
+        control.cancelOpeningTransaction();
+        control.currentIndex = sourceIndex;
+        control.activated(sourceIndex);
+        control._restoreFocusAfterClose = true;
+        userPopup.close();
     }
 
     function movePopupHighlight(step) {
         if (popupUsers.count <= 0)
-            return
-        const current = userList.currentIndex >= 0
-            ? userList.currentIndex : 0
-        userList.currentIndex = (
-            current + step + popupUsers.count
-        ) % popupUsers.count
-        userList.positionViewAtIndex(
-            userList.currentIndex, ListView.Contain)
+            return;
+        const current = userList.currentIndex >= 0 ? userList.currentIndex : 0;
+        userList.currentIndex = (current + step + popupUsers.count) % popupUsers.count;
+        userList.positionViewAtIndex(userList.currentIndex, ListView.Contain);
     }
 
     function activatePopupHighlight() {
-        control.activatePopupRow(userList.currentIndex)
-        control.forceActiveFocus(Qt.PopupFocusReason)
+        control.activatePopupRow(userList.currentIndex);
+        control.forceActiveFocus(Qt.PopupFocusReason);
     }
 
     onSearchTextChanged: {
         if (userPopup.opened)
-            control.rebuildPopupOptions()
+            control.rebuildPopupOptions();
     }
     onActivationPressedChanged: {
         if (control.activationPressed && !userPopup.opened)
-            control.rebuildPopupOptions()
+            control.rebuildPopupOptions();
     }
     onCountChanged: {
         if (userPopup.opened)
-            control.rebuildPopupOptions()
+            control.rebuildPopupOptions();
     }
 
     contentItem: RowLayout {
@@ -174,15 +156,12 @@ Controls.ComboBox {
             objectName: "userComboBoxDisplayLabel"
             Layout.fillWidth: true
             text: control.displayText || qsTr("Select user")
-            color: control.enabled
-                ? control.theme.primaryText : control.theme.disabledText
+            color: control.enabled ? control.theme.primaryText : control.theme.disabledText
             font: control.font
             verticalAlignment: Text.AlignVCenter
             elide: Text.ElideRight
         }
     }
-
-
 
     popup: Controls.Popup {
         id: userPopup
@@ -194,32 +173,26 @@ Controls.ComboBox {
         openingAnchorItem: control
         restoreOwnerActivationOnClose: false
         function cancelOpeningRecovery() {
-            control.cancelOpeningTransaction()
+            control.cancelOpeningTransaction();
         }
-        settledClosePolicy: QtControls.Popup.CloseOnEscape
-            | QtControls.Popup.CloseOnPressOutsideParent
+        settledClosePolicy: QtControls.Popup.CloseOnEscape | QtControls.Popup.CloseOnPressOutsideParent
         y: control.height + 4
-        width: Math.min(
-            Math.max(control.width, 250, control.preferredPopupWidth + 44),
-            control.maximumPopupWidth,
-            userPopup.maximumAvailableWidth
-        )
-        implicitHeight: 286
+        width: Math.min(Math.max(control.width, 250, control.preferredPopupWidth + 44), control.maximumPopupWidth, userPopup.maximumAvailableWidth)
+        implicitHeight: Foundation.controls.userPicker.popupHeight
         padding: 6
         onAboutToShow: {
-            userPopup.preparePositionAtItem(
-                control, 0, control.height + 4)
-            searchField.text = ""
-            control.searchText = ""
-            control.rebuildPopupOptions()
+            userPopup.preparePositionAtItem(control, 0, control.height + 4);
+            searchField.text = "";
+            control.searchText = "";
+            control.rebuildPopupOptions();
         }
         onOpened: {
-            Qt.callLater(function() {
-                searchField.forceActiveFocus()
-            })
+            Qt.callLater(function () {
+                searchField.forceActiveFocus();
+            });
         }
         onClosed: {
-            control.handlePopupClosed()
+            control.handlePopupClosed();
         }
         Shortcut {
             sequence: "Down"
@@ -227,11 +200,10 @@ Controls.ComboBox {
             enabled: userPopup.visible
             onActivated: {
                 if (searchField.activeFocus) {
-                    userList.currentIndex = Math.max(
-                        0, userList.currentIndex)
-                    userList.forceActiveFocus(Qt.TabFocusReason)
+                    userList.currentIndex = Math.max(0, userList.currentIndex);
+                    userList.forceActiveFocus(Qt.TabFocusReason);
                 } else {
-                    control.movePopupHighlight(1)
+                    control.movePopupHighlight(1);
                 }
             }
         }
@@ -264,8 +236,8 @@ Controls.ComboBox {
             context: Qt.WindowShortcut
             enabled: userPopup.visible
             onActivated: {
-                control._restoreFocusAfterClose = true
-                userPopup.close()
+                control._restoreFocusAfterClose = true;
+                userPopup.close();
             }
         }
         contentItem: ColumnLayout {
@@ -280,20 +252,17 @@ Controls.ComboBox {
                 Keys.priority: Keys.BeforeItem
                 Keys.onDownPressed: {
                     if (popupUsers.count <= 0)
-                        return
-                    userList.currentIndex = Math.max(
-                        0, userList.currentIndex)
-                    userList.forceActiveFocus()
+                        return;
+                    userList.currentIndex = Math.max(0, userList.currentIndex);
+                    userList.forceActiveFocus();
                 }
                 Keys.onReturnPressed: {
                     if (popupUsers.count > 0)
-                        control.activatePopupRow(
-                            Math.max(0, userList.currentIndex))
+                        control.activatePopupRow(Math.max(0, userList.currentIndex));
                 }
                 Keys.onEnterPressed: {
                     if (popupUsers.count > 0)
-                        control.activatePopupRow(
-                            Math.max(0, userList.currentIndex))
+                        control.activatePopupRow(Math.max(0, userList.currentIndex));
                 }
                 Keys.onEscapePressed: userPopup.close()
             }
@@ -328,14 +297,14 @@ Controls.ComboBox {
                     required property string avatarColor
 
                     width: userList.width
-                    height: 48
+                    height: Foundation.controls.userPicker.rowHeight
                     leftPadding: 8
                     rightPadding: 9
                     hoverEnabled: true
                     highlighted: ListView.isCurrentItem || hovered
                     onHoveredChanged: {
                         if (hovered)
-                            userList.currentIndex = option.index
+                            userList.currentIndex = option.index;
                     }
                     onClicked: control.activatePopupRow(option.index)
 
@@ -343,18 +312,17 @@ Controls.ComboBox {
                         spacing: 9
                         Controls.ItemPreview {
                             objectName: "userComboBoxAvatar_" + option.login
-                            Layout.preferredWidth: 32
-                            Layout.preferredHeight: 32
+                            Layout.preferredWidth: Foundation.controls.userPicker.avatarSize
+                            Layout.preferredHeight: Foundation.controls.userPicker.avatarSize
                             theme: control.theme
                             source: option.avatarUrl
                             fallbackIcon: "person"
                             fallbackText: option.initials
-                            previewSize: 32
+                            previewSize: Foundation.controls.userPicker.avatarSize
                             round: true
                             outlined: true
                             animateAppearance: false
-                            accent: option.avatarColor.length
-                                ? option.avatarColor : control.theme.action
+                            accent: option.avatarColor.length ? option.avatarColor : control.theme.action
                         }
                         ColumnLayout {
                             Layout.fillWidth: true
@@ -364,7 +332,7 @@ Controls.ComboBox {
                                 text: option.label
                                 color: control.theme.primaryText
                                 font.family: control.theme.fontFamily
-                                font.pointSize: Controls.Typography.body
+                                font.pixelSize: Foundation.textStyles.body
                                 font.weight: Font.DemiBold
                                 elide: Text.ElideRight
                             }
@@ -374,13 +342,12 @@ Controls.ComboBox {
                                 text: option.login
                                 color: control.theme.secondaryText
                                 font.family: control.theme.fontFamily
-                                font.pointSize: Controls.Typography.caption
+                                font.pixelSize: Foundation.textStyles.caption
                                 elide: Text.ElideRight
                             }
                         }
                         Controls.MaterialIcon {
-                            visible: option.sourceIndex
-                                === control.currentIndex
+                            visible: option.sourceIndex === control.currentIndex
                             name: "check-circle"
                             size: 16
                             color: control.theme.action
@@ -388,17 +355,12 @@ Controls.ComboBox {
                     }
                     background: Rectangle {
                         radius: control.theme.itemRadius
-                        color: option.highlighted
-                            ? control.theme.secondaryContainer
-                            : "transparent"
+                        color: option.highlighted ? control.theme.secondaryContainer : "transparent"
                     }
                 }
-                Keys.onReturnPressed:
-                    control.activatePopupRow(currentIndex)
-                Keys.onEnterPressed:
-                    control.activatePopupRow(currentIndex)
-                Keys.onSpacePressed:
-                    control.activatePopupRow(currentIndex)
+                Keys.onReturnPressed: control.activatePopupRow(currentIndex)
+                Keys.onEnterPressed: control.activatePopupRow(currentIndex)
+                Keys.onSpacePressed: control.activatePopupRow(currentIndex)
                 Keys.onEscapePressed: userPopup.close()
                 boundsBehavior: Flickable.StopAtBounds
                 ScrollBar.vertical: Controls.ScrollBar {

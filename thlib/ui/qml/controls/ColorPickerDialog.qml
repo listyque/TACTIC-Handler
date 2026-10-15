@@ -1,3 +1,4 @@
+import "../tactic_frame/core/foundation.mjs" as Foundation
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
@@ -13,21 +14,24 @@ Controls.Dialog {
     property real brightness: 1
 
     function setColor(color) {
-        hue = Math.max(0, color.hsvHue)
-        saturation = color.hsvSaturation
-        brightness = color.hsvValue
+        hue = Math.max(0, color.hsvHue);
+        saturation = color.hsvSaturation;
+        brightness = color.hsvValue;
     }
 
+    padding: Foundation.controls.colorPicker.padding
     modal: true
     focus: true
     title: qsTr("Choose a color")
-    width: Math.min(380, parent ? parent.width - 32 : 380)
+    width: Math.min(Foundation.controls.colorPicker.popupWidth, parent ? parent.width - 32 : Foundation.controls.colorPicker.popupWidth)
     height: Math.min(implicitHeight, parent ? parent.height - 32 : implicitHeight)
     x: parent ? (parent.width - width) / 2 : 0
     y: parent ? (parent.height - height) / 2 : 0
     closePolicy: Popup.CloseOnEscape
     onAboutToShow: setColor(initialColor)
-    Overlay.modal: Rectangle { color: root.theme.scrim }
+    Overlay.modal: Rectangle {
+        color: root.theme.scrim
+    }
 
     contentItem: Flickable {
         id: viewport
@@ -45,16 +49,16 @@ Controls.Dialog {
                 id: plane
                 objectName: root.objectName + "_plane"
                 Layout.fillWidth: true
-                Layout.preferredHeight: 190
+                Layout.preferredHeight: Foundation.controls.colorPicker.planeHeight
                 color: Qt.hsva(root.hue, 1, 1, 1)
                 activeFocusOnTab: true
                 Accessible.role: Accessible.Slider
                 Accessible.name: qsTr("Saturation and brightness")
                 Accessible.description: qsTr("Use the arrow keys to adjust the color")
                 function choose(x, y) {
-                    root.saturation = Math.max(0, Math.min(1, x / width))
-                    root.brightness = Math.max(0, Math.min(1, 1 - y / height))
-                    forceActiveFocus()
+                    root.saturation = Math.max(0, Math.min(1, x / width));
+                    root.brightness = Math.max(0, Math.min(1, 1 - y / height));
+                    forceActiveFocus();
                 }
                 Keys.onLeftPressed: root.saturation = Math.max(0, root.saturation - 0.01)
                 Keys.onRightPressed: root.saturation = Math.min(1, root.saturation + 0.01)
@@ -65,21 +69,35 @@ Controls.Dialog {
                     anchors.fill: parent
                     gradient: Gradient {
                         orientation: Gradient.Horizontal
-                        GradientStop { position: 0; color: Qt.rgba(1, 1, 1, 1) }
-                        GradientStop { position: 1; color: Qt.rgba(1, 1, 1, 0) }
+                        GradientStop {
+                            position: 0
+                            color: Qt.rgba(1, 1, 1, 1)
+                        }
+                        GradientStop {
+                            position: 1
+                            color: Qt.rgba(1, 1, 1, 0)
+                        }
                     }
                 }
                 Rectangle {
                     anchors.fill: parent
                     gradient: Gradient {
-                        GradientStop { position: 0; color: Qt.rgba(0, 0, 0, 0) }
-                        GradientStop { position: 1; color: Qt.rgba(0, 0, 0, 1) }
+                        GradientStop {
+                            position: 0
+                            color: Qt.rgba(0, 0, 0, 0)
+                        }
+                        GradientStop {
+                            position: 1
+                            color: Qt.rgba(0, 0, 0, 1)
+                        }
                     }
                 }
                 Rectangle {
                     x: Math.max(0, Math.min(plane.width - width, root.saturation * plane.width - width / 2))
                     y: Math.max(0, Math.min(plane.height - height, (1 - root.brightness) * plane.height - height / 2))
-                    width: 12; height: 12; radius: 6
+                    width: 12
+                    height: 12
+                    radius: 6
                     color: root.selectedColor
                     border.width: 2
                     border.color: root.theme.readableText(root.selectedColor)
@@ -90,14 +108,21 @@ Controls.Dialog {
                     border.width: plane.activeFocus ? 2 : 1
                     border.color: plane.activeFocus ? root.theme.action : root.theme.outlineVariant
                 }
-                Controls.ActivationHandler { onActivated: (modifiers, x, y) => plane.choose(x, y) }
+                Controls.ActivationHandler {
+                    onActivated: (modifiers, x, y) => plane.choose(x, y)
+                }
                 DragHandler {
                     target: null
-                    onActiveChanged: if (active) plane.choose(centroid.position.x, centroid.position.y)
-                    onCentroidChanged: if (active) plane.choose(centroid.position.x, centroid.position.y)
+                    onActiveChanged: if (active)
+                        plane.choose(centroid.position.x, centroid.position.y)
+                    onCentroidChanged: if (active)
+                        plane.choose(centroid.position.x, centroid.position.y)
                 }
             }
-            Controls.SectionLabel { theme: root.theme; text: qsTr("Hue") }
+            Controls.SectionLabel {
+                theme: root.theme
+                text: qsTr("Hue")
+            }
             Controls.Slider {
                 id: hueSlider
                 objectName: root.objectName + "_hue"
@@ -105,7 +130,9 @@ Controls.Dialog {
                 Layout.minimumHeight: root.theme.controlHeight
                 theme: root.theme
                 Accessible.name: qsTr("Hue")
-                from: 0; to: 1; stepSize: 0.005
+                from: 0
+                to: 1
+                stepSize: 0.005
                 value: root.hue
                 onMoved: root.hue = value
                 background: Rectangle {
@@ -116,13 +143,34 @@ Controls.Dialog {
                     radius: 3
                     gradient: Gradient {
                         orientation: Gradient.Horizontal
-                        GradientStop { position: 0; color: Qt.hsva(0, 1, 1, 1) }
-                        GradientStop { position: 1/6; color: Qt.hsva(1/6, 1, 1, 1) }
-                        GradientStop { position: 2/6; color: Qt.hsva(2/6, 1, 1, 1) }
-                        GradientStop { position: 3/6; color: Qt.hsva(3/6, 1, 1, 1) }
-                        GradientStop { position: 4/6; color: Qt.hsva(4/6, 1, 1, 1) }
-                        GradientStop { position: 5/6; color: Qt.hsva(5/6, 1, 1, 1) }
-                        GradientStop { position: 1; color: Qt.hsva(1, 1, 1, 1) }
+                        GradientStop {
+                            position: 0
+                            color: Qt.hsva(0, 1, 1, 1)
+                        }
+                        GradientStop {
+                            position: 1 / 6
+                            color: Qt.hsva(1 / 6, 1, 1, 1)
+                        }
+                        GradientStop {
+                            position: 2 / 6
+                            color: Qt.hsva(2 / 6, 1, 1, 1)
+                        }
+                        GradientStop {
+                            position: 3 / 6
+                            color: Qt.hsva(3 / 6, 1, 1, 1)
+                        }
+                        GradientStop {
+                            position: 4 / 6
+                            color: Qt.hsva(4 / 6, 1, 1, 1)
+                        }
+                        GradientStop {
+                            position: 5 / 6
+                            color: Qt.hsva(5 / 6, 1, 1, 1)
+                        }
+                        GradientStop {
+                            position: 1
+                            color: Qt.hsva(1, 1, 1, 1)
+                        }
                     }
                 }
             }
@@ -143,21 +191,35 @@ Controls.Dialog {
                     theme: root.theme
                     Accessible.name: qsTr("Color in HEX format")
                     text: root.selectedColor.toString()
-                    validator: RegularExpressionValidator { regularExpression: /^#[0-9a-fA-F]{6}$/ }
-                    onEditingFinished: if (acceptableInput) root.setColor(Qt.color(text))
+                    validator: RegularExpressionValidator {
+                        regularExpression: /^#[0-9a-fA-F]{6}$/
+                    }
+                    onEditingFinished: if (acceptableInput)
+                        root.setColor(Qt.color(text))
                 }
             }
         }
-        ScrollBar.vertical: Controls.ScrollBar { id: bar; theme: root.theme; flickableTarget: viewport }
+        ScrollBar.vertical: Controls.ScrollBar {
+            id: bar
+            theme: root.theme
+            flickableTarget: viewport
+        }
     }
     footer: Controls.DialogActions {
         theme: root.theme
-        Controls.Button { theme: root.theme; text: qsTr("Cancel"); onClicked: root.reject() }
+        Controls.Button {
+            theme: root.theme
+            text: qsTr("Cancel")
+            onClicked: root.reject()
+        }
         Controls.Button {
             theme: root.theme
             text: qsTr("OK")
             enabled: hex.acceptableInput
-            onClicked: { root.setColor(Qt.color(hex.text)); root.accept() }
+            onClicked: {
+                root.setColor(Qt.color(hex.text));
+                root.accept();
+            }
         }
     }
 }

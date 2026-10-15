@@ -128,3 +128,21 @@ selection with its record. Input-method composition stays in the editor until
 committed; Enter during composition does not submit the form. If the edited
 record is removed, its text is never assigned to the next row. Scrolling and
 resizing retain a valid viewport when the list becomes shorter or empty.
+
+## Shared control behavior
+
+Buttons, fields, choices and checkboxes use the same sizes, typography and
+interaction states in Handler and Stream. Long button labels are elided within
+the button. A mixed checkbox displays a dash; the next activation chooses a
+normal value. Disabled controls preserve their values and cannot issue actions.
+An open picker closes if its owner becomes disabled.
+
+The icon library opens beside its button. Search or choose an icon set, use the
+arrow keys to move through the grid and Enter to choose. Escape cancels and
+returns focus. The color dialog previews a draft: OK accepts it; Cancel keeps
+the previous color. An empty color starts with the current theme accent.
+
+Use arrows in the Sidebar Editor tree to select rows and expand or collapse
+sections; Home and End select the first and last visible rows. Editing guards
+remain active. A responsive view decides whether its splitter is useful on a
+phone; narrow width alone does not disable a visible splitter.

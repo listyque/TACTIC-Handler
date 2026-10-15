@@ -1,4 +1,5 @@
 import { documentEvent, policy } from '../admin.document.mjs';
+import { navigate } from '../../../controls/lists/tree.ui.mjs';
 
 export const initial = () => ({
     page: 'item',
@@ -26,6 +27,22 @@ export function completed(ui, command) {
     return next;
 }
 export function transition(ui, model, event) {
+    if (event.type === 'treeKey') {
+        const rows = model.entries.map((record) => ({
+            id: String(record.index),
+            depth: record.displayDepth || record.depth || 0,
+            hasChildren: record.entryType === 'section',
+            expanded: record.expanded
+        }));
+        const action = navigate(rows, String(event.index), event.key);
+        if (!action) return { ui: Object.assign({}, ui), commands: [] };
+        const result = transition(ui, model, {
+            type: action.type === 'select' ? 'select' : 'toggle',
+            index: Number(action.id)
+        });
+        result.ui.editing = ui.editing;
+        return result;
+    }
     const next = Object.assign({}, ui),
         commands = [],
         allow = policy(model);

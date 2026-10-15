@@ -89,6 +89,8 @@ Flickable {
     }
 
     objectName: node.id
+    Accessible.role: node.role === "tree" ? Accessible.Tree : Accessible.List
+    Accessible.name: node.label || ""
     clip: true
     contentWidth: width
     contentHeight: records.length * node.rowHeight

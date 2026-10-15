@@ -128,7 +128,11 @@ Item {
         }
         ui = result.ui;
         controller.set_presentation_dirty(State.pending(ui));
-        if (["select", "field"].includes(action.type))
+        if (action.type === "treeKey")
+            Qt.callLater(function () {
+                body.focusControl("sidebarEditorEntry_" + root.frameModel.selected);
+            });
+        if (["select", "field"].includes(action.type) || (action.type === "treeKey" && result.commands.some(command => command.type === "select")))
             Qt.callLater(controller.refresh_search_presets);
     }
     function requestSave() {

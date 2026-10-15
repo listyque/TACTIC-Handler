@@ -7,7 +7,7 @@ Controls.TextField {
     property bool clearOnEscape: true
     property string searchIconObjectName: "searchFieldIcon"
     signal searchEdited(string query)
-    signal cleared()
+    signal cleared
 
     leftPadding: 38
     rightPadding: 38
@@ -17,17 +17,17 @@ Controls.TextField {
 
     function clearSearch() {
         if (!enabled || readOnly || text.length === 0)
-            return
-        clear()
-        searchEdited("")
-        cleared()
-        forceActiveFocus()
+            return;
+        clear();
+        searchEdited("");
+        cleared();
+        forceActiveFocus();
     }
 
     Keys.onEscapePressed: event => {
-        event.accepted = root.clearOnEscape && !root.readOnly && root.text.length > 0
+        event.accepted = root.clearOnEscape && !root.readOnly && root.text.length > 0;
         if (event.accepted)
-            root.clearSearch()
+            root.clearSearch();
     }
 
     Controls.MaterialIcon {

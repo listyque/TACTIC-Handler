@@ -1,6 +1,7 @@
 pragma ComponentBehavior: Bound
 import QtQuick
 import ".."
+import "../controls/forms" as Forms
 import "frame.mjs" as Contract
 import QtQuick.Controls
 import "../../controls" as Controls
@@ -29,6 +30,7 @@ Item {
             family: definition.monospace ? "Consolas" : effectiveTheme.fontFamily,
             pixelSize: definition.fontSize,
             weight: definition.weight,
+            hintingPreference: Font.PreferVerticalHinting,
             strikeout: !!definition.strike
         });
     }
@@ -236,6 +238,10 @@ Item {
                         return scrollBrick;
                     case "Choice":
                         return choiceBrick;
+                    case "DateChoice":
+                        return dateChoiceBrick;
+                    case "UserChoice":
+                        return userChoiceBrick;
                     case "Grid":
                         return gridBrick;
                     case "Graph":
@@ -394,26 +400,17 @@ Item {
                         property string description: wrapper.node.description || ""
                         Accessible.name: text
                         Accessible.description: description
-                        Accessible.role: wrapper.node.role === "checkbox" ? Accessible.CheckBox : Accessible.Button
+                        Accessible.role: wrapper.node.role === "treeitem" ? Accessible.TreeItem : wrapper.node.role === "checkbox" ? Accessible.CheckBox : Accessible.Button
+                        Accessible.selectable: wrapper.node.role === "treeitem"
+                        Accessible.selected: !!wrapper.node.selected
                         checked: wrapper.node.checked || false
                         Accessible.checkable: wrapper.node.role === "checkbox"
                         Accessible.checked: !!wrapper.node.checked
-                        Keys.onLeftPressed: event => {
-                            event.accepted = root.keyboard(Qt.Key_Left, wrapper.node);
-                        }
-                        Keys.onRightPressed: event => {
-                            event.accepted = root.keyboard(Qt.Key_Right, wrapper.node);
-                        }
-                        Keys.onUpPressed: event => {
-                            event.accepted = root.keyboard(Qt.Key_Up, wrapper.node);
-                        }
-                        Keys.onDownPressed: event => {
-                            event.accepted = root.keyboard(Qt.Key_Down, wrapper.node);
-                        }
+                        keyHandler: key => root.keyboard(key, wrapper.node)
                         background: Controls.ItemSurface {
                             theme: root.effectiveTheme
                             selected: actionControl.selected
-                            hovered: actionControl.hovered
+                            hovered: actionControl.hovered || actionControl.visualFocus
                             pressed: actionControl.down
                             normalColor: root.color(wrapper.node.normalColor)
                             selectedColor: root.color(wrapper.node.selectedColor)
@@ -440,7 +437,7 @@ Item {
                         objectName: wrapper.node.id
                         theme: root.effectiveTheme
                         text: wrapper.node.text
-                        checked: !!wrapper.node.checked
+                        checkState: wrapper.node.mixed ? Qt.PartiallyChecked : wrapper.node.checked ? Qt.Checked : Qt.Unchecked
                         enabled: !!wrapper.node.enabled
                         padding: 0
                         topPadding: 0
@@ -497,6 +494,7 @@ Item {
                         readOnly: !!wrapper.node.readOnly
                         horizontalAlignment: wrapper.node.align === "center" ? TextInput.AlignHCenter : TextInput.AlignLeft
                         tableCell: !!wrapper.node.tableCell
+                        errorState: !!wrapper.node.error
                         Keys.priority: Keys.BeforeItem
                         Keys.onPressed: event => {
                             event.accepted = !fieldControl.inputMethodComposing && event.modifiers === Qt.NoModifier && root.keyboard(event.key, wrapper.node);
@@ -525,6 +523,8 @@ Item {
                         enabled: !!wrapper.node.enabled
                         padding: 0
                         font: root.controlFont(wrapper.node)
+                        contentWidth: availableWidth - 12
+                        contentHeight: editor.height
                         property alias text: editor.text
                         property alias readOnly: editor.readOnly
                         property alias color: editor.color
@@ -535,30 +535,35 @@ Item {
                             color: root.effectiveTheme.surfaceContainerHigh
                             radius: root.effectiveTheme.surfaceRadius
                             border.width: wrapper.node.notice ? 0 : editor.activeFocus ? 2 : 1
-                            border.color: editor.activeFocus ? root.effectiveTheme.action : root.effectiveTheme.outline
+                            border.color: wrapper.node.error ? root.effectiveTheme.error : editor.activeFocus ? root.effectiveTheme.action : root.effectiveTheme.outline
                         }
-                        Controls.TextArea {
-                            id: editor
-                            width: area.width - 12
-                            height: Math.max(area.height, implicitHeight)
-                            theme: root.effectiveTheme
-                            readOnly: !!wrapper.node.readOnly
-                            textFormat: TextEdit.PlainText
-                            property string modelText: wrapper.node.text
-                            onModelTextChanged: if (text !== modelText)
-                                text = modelText
-                            Component.onCompleted: text = modelText
-                            placeholderText: wrapper.node.placeholder || ""
-                            color: root.color(wrapper.node.color)
-                            font: root.controlFont(wrapper.node)
-                            Accessible.name: wrapper.node.label || ""
-                            background: null
-                            onActiveFocusChanged: if (activeFocus)
-                                root.reveal(area)
-                            onTextChanged: if (activeFocus && !readOnly && text !== wrapper.node.text) {
-                                if (wrapper.node.maxLength && text.length > wrapper.node.maxLength)
-                                    text = text.slice(0, wrapper.node.maxLength);
-                                Qt.callLater(root.send, wrapper.node.action, text);
+                        Item {
+                            width: area.availableWidth - 12
+                            height: editor.height
+                            Controls.TextArea {
+                                id: editor
+                                width: parent.width
+                                height: Math.max(area.height, implicitHeight)
+                                theme: root.effectiveTheme
+                                readOnly: !!wrapper.node.readOnly
+                                textFormat: TextEdit.PlainText
+                                property string modelText: wrapper.node.text
+                                onModelTextChanged: if (text !== modelText)
+                                    text = modelText
+                                Component.onCompleted: text = modelText
+                                placeholderText: wrapper.node.placeholder || ""
+                                errorState: !!wrapper.node.error
+                                color: root.color(wrapper.node.color)
+                                font: root.controlFont(wrapper.node)
+                                Accessible.name: wrapper.node.label || ""
+                                background: null
+                                onActiveFocusChanged: if (activeFocus)
+                                    root.reveal(area)
+                                onTextChanged: if (activeFocus && !readOnly && text !== wrapper.node.text) {
+                                    if (wrapper.node.maxLength && text.length > wrapper.node.maxLength)
+                                        text = text.slice(0, wrapper.node.maxLength);
+                                    Qt.callLater(root.send, wrapper.node.action, text);
+                                }
                             }
                         }
                         ScrollBar.vertical: Controls.ScrollBar {
@@ -583,6 +588,47 @@ Item {
                         animateAppearance: false
                         previewSize: wrapper.node.width
                         fillMode: wrapper.node.fit === "contain" ? Image.PreserveAspectFit : Image.PreserveAspectCrop
+                    }
+                }
+                Component {
+                    id: dateChoiceBrick
+                    Controls.DateField {
+                        objectName: wrapper.node.id
+                        theme: root.effectiveTheme
+                        text: wrapper.node.text
+                        font: root.controlFont(wrapper.node)
+                        language: wrapper.node.language || (typeof localizationController !== "undefined" ? localizationController.current_language : "en")
+                        property bool textWasEdited: false
+                        includeTime: !!wrapper.node.includeTime
+                        allowClear: wrapper.node.allowClear !== false
+                        readOnly: !!wrapper.node.readOnly
+                        enabled: !!wrapper.node.enabled
+                        Accessible.name: wrapper.node.label || ""
+                        onTextEdited: value => {
+                            textWasEdited = true;
+                            root.send(wrapper.node.action, value);
+                        }
+                        onEditingFinished: {
+                            if (textWasEdited)
+                                root.send(wrapper.node.commitAction, text);
+                            textWasEdited = false;
+                        }
+                        onAccepted: value => {
+                            textWasEdited = false;
+                            const canonical = includeTime ? value.replace(" ", "T").slice(0, 16) : value;
+                            root.send(wrapper.node.action, canonical);
+                            root.send(wrapper.node.commitAction, canonical);
+                        }
+                    }
+                }
+                Component {
+                    id: userChoiceBrick
+                    Forms.FrameUserChoice {
+                        node: wrapper.node
+                        theme: root.effectiveTheme
+                        font: root.controlFont(wrapper.node)
+                        enabled: !!wrapper.node.enabled
+                        onEvent: action => root.send(action)
                     }
                 }
                 Component {
@@ -636,7 +682,8 @@ Item {
                     Item {
                         id: splitter
                         objectName: wrapper.node.id
-                        activeFocusOnTab: true
+                        enabled: !!wrapper.node.enabled
+                        activeFocusOnTab: enabled
                         Accessible.role: Accessible.Separator
                         Accessible.name: wrapper.node.text
                         function set(value) {

@@ -3,6 +3,16 @@
 Each completed change receives a new version and a dated entry below.
 Versions use `major.minor.build.revision`; routine updates increment `revision`.
 
+## 0.6.0.98 - 2026-10-15
+
+- Unify Frame control paint and metrics across the independent native and browser products: button states, field errors, mixed checkboxes, disabled switches, tooltips and pickers. Resolve house-control fonts as complete pixel values without conflicting with existing custom fonts.
+- Share strict local-date validation and calendar arithmetic, including leap years and years below 100; retain valid server precision/zone suffixes until the user changes a value. Expose DateChoice and UserChoice with separate edit/acceptance semantics.
+- Share Sidebar tree rows and keyboard navigation; preserve edit guards and stable public control names. Close popups when owners become unavailable and add keyboard activation to compact icons and user selections.
+- Share semantic icon aliases and fallback policy, verify actual font-family/glyph identity, and align fractional text advances and inner control positions. Remove duplicate TextArea padding and reserve its scrollbar space.
+- Add executable native/Vue control examples, paired state captures and real pointer, touch, keyboard, popup, tree and table regressions. Extend the platform gate and keep independent packaging and existing Administration checks.
+
+- Clarify primitives, neutral composite controls, infrastructure and business forms; add a source-linked UI atlas and explicit verification gaps. The 372-state control gallery remains a verified subset; phase 1 is still in progress.
+
 ## 0.6.0.97 - 2026-10-15
 
 - Harden the Frame preparation contract: named pixel typography roles, validated scene bindings, unique record keys and finite viewport geometry. Replace inherited fonts as complete values to remove point/pixel conflicts without changing deployed Frame sizes.

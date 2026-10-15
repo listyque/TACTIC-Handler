@@ -1,3 +1,4 @@
+import "../tactic_frame/core/foundation.mjs" as Foundation
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Controls as QtControls
@@ -14,35 +15,36 @@ QtControls.SpinBox {
     signal realValueEdited(real value)
 
     function scaledValue(realValue) {
-        return Math.round(Number(realValue || 0) * valueScale)
+        return Math.round(Number(realValue || 0) * valueScale);
     }
 
     function commitTextValue() {
-        const parsed = valueFromText(spinInput.text, locale)
-        value = Math.max(from, Math.min(to, parsed))
-        spinInput.text = formattedValue
-        realValueEdited(realValue)
+        const parsed = valueFromText(spinInput.text, locale);
+        value = Math.max(from, Math.min(to, parsed));
+        spinInput.text = formattedValue;
+        realValueEdited(realValue);
     }
 
-    textFromValue: function(value, locale) {
+    textFromValue: function (value, locale) {
         if (control.decimals <= 0)
-            return Number(value).toLocaleString(locale, "f", 0)
-        let text = Number(value / control.valueScale).toLocaleString(
-            locale, "f", control.decimals
-        )
-        return text.replace(/([,.]\d*?)0+$/, "$1").replace(/[,.]$/, "")
+            return Number(value).toLocaleString(locale, "f", 0);
+        let text = Number(value / control.valueScale).toLocaleString(locale, "f", control.decimals);
+        return text.replace(/([,.]\d*?)0+$/, "$1").replace(/[,.]$/, "");
     }
-    valueFromText: function(text, locale) {
-        const number = Number.fromLocaleString(locale, text)
-        return Math.round((isNaN(number) ? 0 : number) * control.valueScale)
+    valueFromText: function (text, locale) {
+        const number = Number.fromLocaleString(locale, text);
+        return Math.round((isNaN(number) ? 0 : number) * control.valueScale);
     }
 
     implicitHeight: theme.controlHeight
     editable: true
     leftPadding: 34
     rightPadding: 34
-    font.family: theme.fontFamily
-    font.pointSize: Typography.body
+    font: Qt.font({
+        family: theme.fontFamily,
+        hintingPreference: Font.PreferVerticalHinting,
+        pixelSize: Foundation.textStyles.body
+    })
 
     DoubleValidator {
         id: decimalValidator
@@ -56,8 +58,7 @@ QtControls.SpinBox {
         id: spinInput
         objectName: "spinBoxTextInput"
         text: control.formattedValue
-        color: control.enabled
-            ? control.theme.primaryText : control.theme.disabledText
+        color: control.enabled ? control.theme.primaryText : control.theme.disabledText
         selectionColor: control.theme.action
         selectedTextColor: control.theme.selectedText
         font: control.font
@@ -65,15 +66,13 @@ QtControls.SpinBox {
         verticalAlignment: Text.AlignVCenter
         readOnly: !control.editable
         selectByMouse: true
-        validator: control.decimals > 0
-            ? decimalValidator : control.validator
+        validator: control.decimals > 0 ? decimalValidator : control.validator
         inputMethodHints: Qt.ImhFormattedNumbersOnly
         onEditingFinished: control.commitTextValue()
 
         HoverHandler {
             objectName: "spinBoxCursorHandler"
-            cursorShape: control.enabled && control.editable
-                ? Qt.IBeamCursor : Qt.ArrowCursor
+            cursorShape: control.enabled && control.editable ? Qt.IBeamCursor : Qt.ArrowCursor
         }
     }
 
@@ -87,11 +86,8 @@ QtControls.SpinBox {
         round: true
         enabled: control.enabled && control.value < control.to
         onClicked: {
-            control.value = Math.min(
-                control.to,
-                control.value + control.stepSize
-            )
-            control.realValueEdited(control.realValue)
+            control.value = Math.min(control.to, control.value + control.stepSize);
+            control.realValueEdited(control.realValue);
         }
     }
     down.indicator: Controls.CompactIconButton {
@@ -103,11 +99,8 @@ QtControls.SpinBox {
         round: true
         enabled: control.enabled && control.value > control.from
         onClicked: {
-            control.value = Math.max(
-                control.from,
-                control.value - control.stepSize
-            )
-            control.realValueEdited(control.realValue)
+            control.value = Math.max(control.from, control.value - control.stepSize);
+            control.realValueEdited(control.realValue);
         }
     }
 
@@ -115,7 +108,6 @@ QtControls.SpinBox {
         radius: control.theme.fieldRadius
         color: control.theme.surfaceContainerHigh
         border.width: control.activeFocus ? 2 : 1
-        border.color: control.activeFocus
-            ? control.theme.action : control.theme.outline
+        border.color: control.activeFocus ? control.theme.action : control.theme.outline
     }
 }

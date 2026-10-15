@@ -1,3 +1,4 @@
+import "tactic_frame/core/foundation.mjs" as Foundation
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
@@ -28,11 +29,7 @@ Item {
         visible: !modelData.separator && !modelData.header
         anchors.fill: parent
         color: menu.processPickerStyle ? primaryActionTarget.pressed ? menu.theme.surfaceContainerHighest : primaryActionTarget.hovered ? menu.theme.surfaceContainerHigh : menu.theme.blend(menu.surfaceColor, menu.theme.primaryText, menu.theme.dark ? 0.05 : 0.08) : actionRow.hasAccent && !!modelData.checked ? actionRow.actionAccent : menu.theme.primaryText
-        opacity: menu.processPickerStyle ? 1
-            : actionRow.hasAccent && !!modelData.checked ? 0.14
-            : primaryActionTarget.pressed ? 0.12
-            : menu.hoveredAction === actionRow ? 0.08
-            : !menu.hoveredAction && primaryActionTarget.activeFocus ? 0.10 : 0
+        opacity: menu.processPickerStyle ? 1 : actionRow.hasAccent && !!modelData.checked ? 0.14 : primaryActionTarget.pressed ? 0.12 : menu.hoveredAction === actionRow ? 0.08 : !menu.hoveredAction && primaryActionTarget.activeFocus ? 0.10 : 0
         border.width: menu.processPickerStyle ? 1 : 0
         border.color: menu.processPickerStyle ? menu.theme.blend(menu.surfaceColor, menu.theme.primaryText, menu.theme.dark ? 0.10 : 0.15) : menu.theme.outlineVariant
         Behavior on opacity {
@@ -92,9 +89,7 @@ Item {
             Label {
                 objectName: "actionMenuTitleLabel"
                 Layout.fillWidth: true
-                text: modelData.translate === false
-                    ? String(modelData.title || "")
-                    : menu.translate(modelData.title || "", modelData.titleArgs)
+                text: modelData.translate === false ? String(modelData.title || "") : menu.translate(modelData.title || "", modelData.titleArgs)
                 color: modelData.header || !actionRow.actionEnabled ? menu.processPickerStyle && modelData.header ? menu.theme.disabledText : menu.theme.secondaryText : actionRow.hasAccent && !!modelData.checked ? actionRow.actionAccent : menu.theme.primaryText
                 font.family: menu.theme.fontFamily
                 font.pixelSize: menu.processPickerStyle ? 11 : modelData.header ? 10 : 12
@@ -107,7 +102,7 @@ Item {
                 text: modelData.statusTranslate === false ? String(modelData.status || "") : menu.translate(modelData.status || "")
                 color: modelData.status === "Experimental" ? menu.theme.action : menu.theme.secondaryText
                 font.family: menu.theme.fontFamily
-                font.pointSize: Controls.Typography.label
+                font.pixelSize: Foundation.textStyles.secondary
                 elide: Text.ElideRight
             }
         }
@@ -168,15 +163,13 @@ Item {
         Keys.onRightPressed: menu.openSubmenu(actionRow)
         Keys.onLeftPressed: event => {
             if (menu.parentMenu)
-                menu.close()
+                menu.close();
             else
-                event.accepted = false
+                event.accepted = false;
         }
         Keys.onDownPressed: menu.focusRelativeAction(1)
         Keys.onUpPressed: menu.focusRelativeAction(-1)
-        Accessible.name: modelData.translate === false
-            ? String(modelData.title || "")
-            : menu.translate(modelData.title || "", modelData.titleArgs)
+        Accessible.name: modelData.translate === false ? String(modelData.title || "") : menu.translate(modelData.title || "", modelData.titleArgs)
         onActiveFocusChanged: {
             if (activeFocus)
                 menu.revealAction(actionRow);

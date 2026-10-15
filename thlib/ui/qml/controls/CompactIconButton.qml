@@ -32,8 +32,48 @@ Item {
     readonly property bool pointerHovered: pointerHover.hovered
     readonly property bool lastActivationWasTouch: activation.lastActivationWasTouch
     readonly property double lastActivationAt: activation.lastActivationAt
-    readonly property real interactionOpacity: pointerPressed ? 0.12 : pointerHovered ? 0.08 : 0
+    readonly property real interactionOpacity: !enabled ? 0 : pointerPressed || pendingActivationKey ? Foundation.controls.iconButton.pressedOpacity : pointerHovered || activeFocus ? Foundation.controls.iconButton.hoveredOpacity : 0
     readonly property color interactionBackgroundColor: interactionOpacity > 0 ? theme.overlay(backgroundColor, iconColor, interactionOpacity) : backgroundColor
+    property int pendingActivationKey: 0
+    activeFocusOnTab: enabled && !dragHandle
+    Accessible.role: Accessible.Button
+    Accessible.name: toolTip || iconName
+    Accessible.ignored: dragHandle
+    Accessible.onPressAction: {
+        if (root.enabled && !root.dragHandle) {
+            root.pressed();
+            root.activateFromKeyboard();
+        }
+    }
+    function activateFromKeyboard() {
+        activation.lastActivationWasTouch = false;
+        activation.lastActivationAt = Date.now();
+        root.activate(Qt.NoModifier);
+    }
+    Keys.onPressed: event => {
+        if (!root.enabled || root.dragHandle || ![Qt.Key_Space, Qt.Key_Return, Qt.Key_Enter].includes(event.key))
+            return;
+        event.accepted = true;
+        if (!event.isAutoRepeat) {
+            root.pendingActivationKey = event.key;
+            root.pressed();
+        }
+    }
+    Keys.onReleased: event => {
+        if (event.key !== root.pendingActivationKey)
+            return;
+        event.accepted = true;
+        if (event.isAutoRepeat)
+            return;
+        root.pendingActivationKey = 0;
+        if (root.enabled && root.activeFocus)
+            root.activateFromKeyboard();
+    }
+    onActiveFocusChanged: if (!activeFocus)
+        pendingActivationKey = 0
+    onEnabledChanged: if (!enabled)
+        pendingActivationKey = 0
+
     function activate(modifiers) {
         root.clicked();
         root.clickedWithModifiers(modifiers);
@@ -103,7 +143,7 @@ Item {
                 text: root.badgeCount > 99 ? "99+" : String(root.badgeCount)
                 color: root.theme.selectedText
                 font.family: root.theme.fontFamily
-                font.pointSize: Typography.caption
+                font.pixelSize: Foundation.textStyles.caption
                 font.weight: Font.Bold
             }
         }

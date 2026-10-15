@@ -8,13 +8,17 @@ RowLayout {
     property string value: ""
     property string title: qsTr("Choose a color")
     signal colorChosen(string value)
+    function focusEditor() { chooseButton.forceActiveFocus(); }
 
+    implicitHeight: theme.controlHeight
     spacing: 8
-    onVisibleChanged: if (!visible && pickerLoader.item) pickerLoader.item.close()
+    onEnabledChanged: if (!enabled && pickerLoader.picker) pickerLoader.picker.close()
+    onVisibleChanged: if (!visible && pickerLoader.picker) pickerLoader.picker.close()
 
     Rectangle {
-        Layout.preferredWidth: root.theme.controlHeight
-        Layout.preferredHeight: root.theme.controlHeight
+        Layout.preferredWidth: root.height
+        Layout.preferredHeight: root.height
+        Layout.minimumHeight: 0
         radius: root.theme.itemRadius
         color: root.value || root.theme.action
         border.width: 1
@@ -22,22 +26,26 @@ RowLayout {
         Accessible.ignored: true
     }
     Button {
+        id: chooseButton
         objectName: root.objectName + "_choose"
         Layout.fillWidth: true
+        Layout.fillHeight: true
+        Layout.minimumHeight: 0
         theme: root.theme
         text: qsTr("Choose color")
         icon.name: "palette"
         Accessible.description: root.value
         onClicked: {
-            if (pickerLoader.item) pickerLoader.item.open()
+            if (pickerLoader.picker) pickerLoader.picker.open()
             else pickerLoader.active = true
         }
     }
     Loader {
         id: pickerLoader
+        readonly property ColorPickerDialog picker: item as ColorPickerDialog
         visible: false
         active: false
-        onLoaded: item.open()
+        onLoaded: picker.open()
         sourceComponent: ColorPickerDialog {
             objectName: root.objectName + "_dialog"
             parent: root.Window.window ? root.Window.window.contentItem : null

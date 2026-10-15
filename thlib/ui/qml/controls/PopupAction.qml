@@ -8,12 +8,17 @@ QtControls.AbstractButton {
     id: root
 
     property int _pendingActivationKey: 0
+    property var keyHandler: null
 
     hoverEnabled: true
     focusPolicy: Qt.StrongFocus
 
     Keys.priority: Keys.BeforeItem
     Keys.onPressed: event => {
+        if (root.keyHandler && root.keyHandler(event.key)) {
+            event.accepted = true
+            return
+        }
         if (event.key !== Qt.Key_Return
                 && event.key !== Qt.Key_Enter
                 && event.key !== Qt.Key_Space)

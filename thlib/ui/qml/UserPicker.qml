@@ -1,3 +1,4 @@
+import "tactic_frame/core/foundation.mjs" as Foundation
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
@@ -15,8 +16,7 @@ Item {
     signal selectionChanged(var logins)
 
     function isExcluded(login, current) {
-        return (!root.includeCurrent && current)
-            || root.excludedLogins.indexOf(login) >= 0
+        return (!root.includeCurrent && current) || root.excludedLogins.indexOf(login) >= 0;
     }
 
     UserFilter {
@@ -27,32 +27,32 @@ Item {
     }
 
     function toggle(login) {
-        const user = userListModel.lookup("login", login)
+        const user = userListModel.lookup("login", login);
         if (!user.login || root.isExcluded(user.login, user.current))
-            return
-        let values = root.selectedLogins.slice()
-        const index = values.indexOf(login)
+            return;
+        let values = root.selectedLogins.slice();
+        const index = values.indexOf(login);
         if (index >= 0)
-            values.splice(index, 1)
+            values.splice(index, 1);
         else if (root.multiple)
-            values.push(login)
+            values.push(login);
         else
-            values = [login]
-        root.selectedLogins = values
-        root.selectionChanged(values)
+            values = [login];
+        root.selectedLogins = values;
+        root.selectionChanged(values);
     }
 
     function reset() {
-        searchField.clear()
-        root.selectedLogins = []
-        root.selectionChanged([])
+        searchField.clear();
+        root.selectedLogins = [];
+        root.selectionChanged([]);
     }
 
     function setSelection(logins, notify) {
-        searchField.clear()
-        root.selectedLogins = Array.from(logins || [])
+        searchField.clear();
+        root.selectedLogins = Array.from(logins || []);
         if (notify === undefined || notify)
-            root.selectionChanged(root.selectedLogins)
+            root.selectionChanged(root.selectedLogins);
     }
 
     ColumnLayout {
@@ -85,9 +85,7 @@ Item {
             section.delegate: UserGroupSection {
                 required property string section
                 objectName: "userPickerSection_" + section
-                width: Math.max(
-                    0, usersList.width - usersList.scrollGutter
-                )
+                width: Math.max(0, usersList.width - usersList.scrollGutter)
                 theme: root.theme
                 title: section
             }
@@ -108,12 +106,9 @@ Item {
                 required property var groups
                 required property string primaryGroup
                 required property bool current
-                readonly property bool currentUnavailable:
-                    userRow.current && !root.includeCurrent
-                readonly property bool selectable:
-                    !root.isExcluded(userRow.login, userRow.current)
-                readonly property bool chosen:
-                    root.selectedLogins.indexOf(userRow.login) >= 0
+                readonly property bool currentUnavailable: userRow.current && !root.includeCurrent
+                readonly property bool selectable: !root.isExcluded(userRow.login, userRow.current)
+                readonly property bool chosen: root.selectedLogins.indexOf(userRow.login) >= 0
                 width: Math.max(0, usersList.width - usersList.scrollGutter)
                 height: 54
 
@@ -121,8 +116,8 @@ Item {
                     anchors.fill: parent
                     theme: root.theme
                     selected: userRow.chosen
-                    hovered: userRow.selectable && userMouse.containsMouse
-                    pressed: userRow.selectable && userMouse.pressed
+                    hovered: userRow.selectable && userAction.hovered || userAction.visualFocus
+                    pressed: userRow.selectable && userAction.down
                     accent: root.theme.action
                     cornerRadius: 12
                     railVisible: false
@@ -146,8 +141,7 @@ Item {
                         round: true
                         outlined: true
                         selected: userRow.chosen
-                        accent: userRow.avatarColor.length
-                            ? userRow.avatarColor : root.theme.action
+                        accent: userRow.avatarColor.length ? userRow.avatarColor : root.theme.action
                         opacity: userRow.selectable ? 1 : 0.58
                     }
                     ColumnLayout {
@@ -156,29 +150,18 @@ Item {
                         Label {
                             Layout.fillWidth: true
                             text: userRow.displayName || userRow.login
-                            color: userRow.chosen
-                                ? root.theme.selectedText
-                                : userRow.selectable
-                                    ? root.theme.primaryText
-                                    : root.theme.disabledText
+                            color: userRow.chosen ? root.theme.selectedText : userRow.selectable ? root.theme.primaryText : root.theme.disabledText
                             font.family: root.theme.fontFamily
-                            font.pointSize: Controls.Typography.body
+                            font.pixelSize: Foundation.textStyles.body
                             font.weight: Font.DemiBold
                             elide: Text.ElideRight
                         }
                         Label {
                             Layout.fillWidth: true
-                            text: userRow.login + (
-                                userRow.groups.length > 0
-                                ? "  ·  " + userRow.groups.join(", ") : ""
-                            )
-                            color: userRow.chosen
-                                ? root.theme.selectedText
-                                : userRow.selectable
-                                    ? root.theme.secondaryText
-                                    : root.theme.disabledText
+                            text: userRow.login + (userRow.groups.length > 0 ? "  ·  " + userRow.groups.join(", ") : "")
+                            color: userRow.chosen ? root.theme.selectedText : userRow.selectable ? root.theme.secondaryText : root.theme.disabledText
                             font.family: root.theme.fontFamily
-                            font.pointSize: Controls.Typography.caption
+                            font.pixelSize: Foundation.textStyles.caption
                             elide: Text.ElideRight
                         }
                     }
@@ -197,13 +180,16 @@ Item {
                         accentColor: root.theme.disabledText
                     }
                 }
-                MouseArea {
-                    id: userMouse
+                Controls.PopupAction {
+                    id: userAction
+                    objectName: "userPickerAction_" + userRow.login
+                    background: null
+                    contentItem: null
+                    Accessible.role: Accessible.CheckBox
+                    Accessible.name: userRow.displayName || userRow.login
+                    Accessible.checked: userRow.chosen
                     anchors.fill: parent
                     enabled: userRow.selectable
-                    hoverEnabled: true
-                    cursorShape: userRow.selectable
-                        ? Qt.PointingHandCursor : Qt.ArrowCursor
                     onClicked: root.toggle(userRow.login)
                 }
             }

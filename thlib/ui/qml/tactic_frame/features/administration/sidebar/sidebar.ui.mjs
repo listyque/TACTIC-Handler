@@ -1,3 +1,4 @@
+import { row as treeRow } from '../../../controls/lists/tree.ui.mjs';
 import { button } from '../../../core/frame.mjs';
 import { node } from '../../../core/frame.mjs';
 import {
@@ -18,6 +19,7 @@ const list = (id, bounds, source, rowHeight) =>
         rowHeight,
         keyField: 'index',
         fields: [],
+        role: source === 'entries' ? 'tree' : undefined,
         scrollbarId: id + 'ScrollBar'
     });
 export function describe(model, ui, width, height, language) {
@@ -869,93 +871,49 @@ export function row(listNode, record, model, ui, language) {
                 )
             ]
         };
-    const width = listNode.width - 16,
-        selected = record.index === model.selected,
-        x = 12 + Math.min(record.displayDepth || record.depth || 0, 5) * 16,
-        dim = !record.isVisible || record.included === false;
-    const children = [
-        node(
-            'Action',
-            'sidebarEditorEntry_' + record.index,
-            rect(0, 0, width, 60),
-            {
-                text: record.title,
-                selected,
-                enabled: !model.busy && !ui.confirmation,
-                opacity: dim ? 0.5 : 1,
-                selectedColor: 'contentSelection',
-                normalColor: 'transparent',
-                rail: false,
-                action: {
-                    type: 'select',
-                    index: record.index
-                },
-                children: [
-                    node(
-                        'Preview',
-                        'sidebarEntryIcon_' + record.index,
-                        rect(x, 14, 32, 32),
-                        {
-                            icon: record.glyph || record.icon || 'link',
-                            accent: record.accent || '',
-                            outlined: false
-                        }
-                    ),
-                    label(
-                        'sidebarEntryTitle_' + record.index,
-                        rect(
-                            x + 32,
-                            record.searchType ? 8 : 18,
-                            Math.max(1, width - x - 88),
-                            24
-                        ),
-                        record.entryType === 'separator'
-                            ? translate('Separator', language)
-                            : record.title,
-                        {
-                            weight: 600
-                        }
-                    ),
-                    ...(record.searchType
-                        ? [
-                              label(
-                                  'sidebarEntryType_' + record.index,
-                                  rect(
-                                      x + 32,
-                                      32,
-                                      Math.max(1, width - x - 88),
-                                      20
-                                  ),
-                                  record.searchType,
-                                  muted
-                              )
-                          ]
-                        : [])
-                ]
+    return treeRow(
+        'sidebarEditorEntry_' + record.index,
+        listNode.width - 16,
+        {
+            title:
+                record.entryType === 'separator'
+                    ? translate('Separator', language)
+                    : record.title,
+            subtitle: record.searchType,
+            depth: record.displayDepth || record.depth || 0,
+            icon: record.glyph || record.icon || 'link',
+            accent: record.accent || '',
+            hasChildren: record.entryType === 'section',
+            expanded: record.expanded
+        },
+        {
+            selected: record.index === model.selected,
+            enabled: !model.busy && !ui.confirmation,
+            dim: !record.isVisible || record.included === false,
+            select: { type: 'select', index: record.index },
+            keys: [
+                'ArrowUp',
+                'ArrowDown',
+                'ArrowLeft',
+                'ArrowRight',
+                'Home',
+                'End'
+            ].reduce((keys, key) => {
+                keys[key] = { type: 'treeKey', index: record.index, key };
+                return keys;
+            }, {}),
+            toggle: { type: 'toggle', index: record.index },
+            toggleEnabled: !model.busy,
+            toggleLabel: translate(
+                record.expanded ? 'Collapse section' : 'Expand section',
+                language
+            ),
+            ids: {
+                icon: 'sidebarEntryIcon_' + record.index,
+                title: 'sidebarEntryTitle_' + record.index,
+                detail: 'sidebarEntryType_' + record.index,
+                toggle: 'sidebarEntryToggle_' + record.index
             }
-        )
-    ];
-    if (record.entryType === 'section')
-        children.push(
-            button(
-                'sidebarEntryToggle_' + record.index,
-                rect(width - 42, 11, 38, 38),
-                translate(
-                    record.expanded ? 'Collapse section' : 'Expand section',
-                    language
-                ),
-                record.expanded ? 'chevron-down' : 'chevron-right',
-                {
-                    type: 'toggle',
-                    index: record.index
-                },
-                !model.busy,
-                {
-                    iconOnly: true
-                }
-            )
-        );
-    return {
-        nodes: children
-    };
+        }
+    );
 }

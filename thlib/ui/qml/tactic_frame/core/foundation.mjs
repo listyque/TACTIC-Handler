@@ -1,4 +1,6 @@
-// Product-independent values. Pixels describe geometry; typography uses points.
+import { fieldVisual, checkVisual, switchVisual } from './interaction.mjs';
+
+// Point typography remains for feature labels that have not migrated yet.
 export const typography = {
     micro: 8,
     caption: 8.25,
@@ -26,17 +28,44 @@ export const textStyles = Object.freeze({
 
 // House-control geometry comes from Handler; hosts supply native input and paint.
 export const controls = {
+    field: { padding: 12, areaPadding: 10 },
+    choice: { rowHeight: 34, visibleRows: 8, popupPadding: 4, popupGap: 4 },
+    tooltip: {
+        delay: 500,
+        timeout: 5000,
+        margin: 8,
+        paddingX: 12,
+        paddingY: 7,
+        radius: 6
+    },
+    userPicker: {
+        popupWidth: 294,
+        popupHeight: 286,
+        rowHeight: 48,
+        avatarSize: 32
+    },
+    calendar: { popupWidth: 304, padding: 10, rowHeight: 30, daySize: 28 },
+    colorPicker: { popupWidth: 380, planeHeight: 190, padding: 20 },
+    iconPicker: { popupWidth: 560, popupHeight: 440 },
     button: {
         minimumWidth: 72,
         padding: 16,
         iconPadding: 12,
         spacing: 7,
         segmentedSpacing: 6,
+        segmentedPaddingStart: 3,
+        segmentedPaddingEnd: 7,
         iconSize: 16,
         compactIconSize: 18,
         segmentedIconSize: 15
     },
-    iconButton: { extent: 28, iconSize: 17, surfaceInset: 2 },
+    iconButton: {
+        extent: 28,
+        iconSize: 17,
+        surfaceInset: 2,
+        hoveredOpacity: 0.08,
+        pressedOpacity: 0.12
+    },
     checkBox: {
         height: 36,
         compactHeight: 30,
@@ -351,6 +380,8 @@ export const cssRoles = {
     surfaceContainerLow: '--surface',
     surfaceContainer: '--surface-container',
     surfaceContainerHigh: '--surface-high',
+    surfaceContainerHighest: '--surface-highest',
+    secondaryContainer: '--secondary-container',
     outline: '--outline',
     outlineVariant: '--outline-variant',
     error: '--error',
@@ -389,6 +420,45 @@ export function cssVariables(style, dark, base, accent, preferences) {
             name.replace(/[A-Z]/g, (letter) => '-' + letter.toLowerCase());
         result[cssName] = typography[name] + 'pt';
     }
+    result['--control-text-size'] = textStyles.body + 'px';
+    result['--control-compact-text-size'] = textStyles.secondary + 'px';
+    const states = {
+        field: {
+            idle: fieldVisual(),
+            focus: fieldVisual({ focused: true }),
+            error: fieldVisual({ error: true }),
+            disabled: fieldVisual({ enabled: false })
+        },
+        check: {
+            idle: checkVisual(),
+            checked: checkVisual({ checked: true }),
+            focus: checkVisual({ focused: true }),
+            disabled: checkVisual({ enabled: false }),
+            disabledChecked: checkVisual({ checked: true, enabled: false })
+        },
+        switch: {
+            idle: switchVisual(),
+            checked: switchVisual({ checked: true }),
+            focus: switchVisual({ focused: true }),
+            disabled: switchVisual({ enabled: false })
+        }
+    };
+    for (const [kind, variants] of Object.entries(states)) {
+        for (const [state, paint] of Object.entries(variants)) {
+            for (const [part, value] of Object.entries(paint)) {
+                const name = ('--' + kind + '-' + state + '-' + part).replace(
+                    /[A-Z]/g,
+                    (letter) => '-' + letter.toLowerCase()
+                );
+                result[name] =
+                    typeof value === 'number'
+                        ? value + 'px'
+                        : value === 'transparent'
+                          ? value
+                          : cssColor(colors[value]);
+            }
+        }
+    }
     for (const kind of Object.keys(controls)) {
         for (const name of Object.keys(controls[kind])) {
             const cssName =
@@ -398,7 +468,12 @@ export function cssVariables(style, dark, base, accent, preferences) {
                     (letter) => '-' + letter.toLowerCase()
                 );
             result[cssName] =
-                controls[kind][name] + (name.endsWith('Opacity') ? '' : 'px');
+                controls[kind][name] +
+                (name.endsWith('Opacity') || name === 'visibleRows'
+                    ? ''
+                    : name === 'delay' || name === 'timeout'
+                      ? 'ms'
+                      : 'px');
         }
     }
     const timings = motion(style, preferences);
