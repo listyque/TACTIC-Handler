@@ -6,15 +6,18 @@ from dataclasses import replace
 
 from PySide6.QtCore import Slot
 
+from .docks_projection import decode, runtime
+
 from .docks_tree import (
     default_layout,
     insert_at_root,
     insert_relative,
     panel_ids,
-    reorder_stack_panel as reorder_panel_in_stack,
     set_active_panel,
     swap_panels,
     tabify,
+    serialize_layout,
+    stack_for_panel,
 )
 
 
@@ -42,9 +45,18 @@ class PlacementMixin:
 
     @Slot(str, int)
     def reorder_stack_panel(self, panel_id: str, target_index: int) -> None:
-        updated_root = reorder_panel_in_stack(
-            self._layout_root, panel_id, target_index
-        )
+        target = stack_for_panel(self._layout_root, panel_id)
+        if target is None:
+            return
+        available = {panel.panel_id for panel in self._visible_docked_panels()}
+        order = [value for value in target.panel_ids if value in available]
+        if panel_id not in order:
+            return
+        order.remove(panel_id)
+        order.insert(max(0, min(len(order), target_index)), panel_id)
+        updated_root = decode(runtime().call(
+            "reorder", serialize_layout(self._layout_root), panel_id, order,
+        ))
         if updated_root == self._layout_root:
             return
         self._layout_root = updated_root

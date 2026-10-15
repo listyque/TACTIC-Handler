@@ -1,4 +1,5 @@
 import unittest
+from tests.qt_application import gui_test_application
 
 from thlib.ui.workspace_models.docks import DockPanelModel
 from tests.dock_layout_fixture import three_column_settings
@@ -6,6 +7,7 @@ from tests.dock_layout_fixture import three_column_settings
 
 class DockResizingTests(unittest.TestCase):
     def setUp(self):
+        self.application = gui_test_application()
         self.model = DockPanelModel(three_column_settings())
 
     def panel(self, panel_id):

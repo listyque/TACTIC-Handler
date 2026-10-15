@@ -1,5 +1,6 @@
 import json
 import unittest
+from tests.qt_application import gui_test_application
 from dataclasses import asdict
 from unittest.mock import patch
 
@@ -27,6 +28,7 @@ from tests.dock_layout_fixture import three_column_layout, three_column_settings
 
 class DockLayoutTreeTests(unittest.TestCase):
     def setUp(self):
+        self.application = gui_test_application()
         self.settings = three_column_settings()
         self.model = DockPanelModel(self.settings)
 
@@ -327,8 +329,8 @@ class DockLayoutTreeTests(unittest.TestCase):
         self.assertEqual(
             stack.panel_ids,
             (
-                "task_calendar", "timesheet", "work_reports",
-                "cost_reports", "snapshot", "description", "notes",
+                "timesheet", "work_reports", "cost_reports",
+                "task_calendar", "description", "snapshot", "notes",
             ),
         )
 
@@ -355,8 +357,8 @@ class DockLayoutTreeTests(unittest.TestCase):
         self.assertEqual(
             stack.panel_ids,
             (
-                "task_calendar", "timesheet", "work_reports",
-                "cost_reports", "snapshot", "description", "notes",
+                "timesheet", "work_reports", "cost_reports",
+                "task_calendar", "description", "snapshot", "notes",
             ),
         )
         self.assertEqual(stack.active_panel_id, "snapshot")

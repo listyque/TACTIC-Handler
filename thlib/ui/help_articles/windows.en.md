@@ -20,6 +20,19 @@ Move a floating dock by its title; use its six-dot grip to dock it. Dropping ont
 exchanges positions; its center creates a tab stack. Edges split the target. Escape or a cancelled
 pointer gesture restores the previous position or split; it does not accept the preview.
 
+## Dock sizes and tab order
+
+Dock dividers respect the minimum size of both adjacent subtrees, including nested
+splits and the largest visible tab in a stack. Hiding a panel frees its space without
+removing its saved slot. Narrowing the workspace projects a usable layout; widening
+it restores the preferred proportions. When the host cannot fit all minimums, space
+is shared proportionally; Stream's phone presentation remains a single active panel.
+
+Drag a dock tab horizontally to reorder the visible tabs. Hidden tabs retain their
+saved slots. Escape cancels the gesture without changing the saved order. A floating
+dock can be resized by all four edges and four corners; its opposite edge stays fixed
+and the panel's own minimum size applies.
+
 ## Common window behavior
 
 Every functional window uses the operating system frame for moving, resizing, minimizing and closing.

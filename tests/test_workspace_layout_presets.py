@@ -1,4 +1,6 @@
 import unittest
+from tests.qt_application import gui_test_application
+from tests.dock_layout_fixture import three_column_settings
 from types import SimpleNamespace
 from unittest.mock import patch
 
@@ -113,6 +115,10 @@ def _controller(records, dock_model):
 
 
 class WorkspaceLayoutPresetTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.app = gui_test_application()
+
     @staticmethod
     def _sidebar_controller(records):
         registry = SimpleNamespace(register=lambda *_args: None)
@@ -136,7 +142,7 @@ class WorkspaceLayoutPresetTests(unittest.TestCase):
         self.assertEqual(restored, layout)
 
     def test_project_cache_projects_presets_and_assignments(self):
-        source = DockPanelModel({})
+        source = DockPanelModel(three_column_settings())
         source.resize_panel(
             "results", "right", 0.0, 0.0, 0.33, 1.0, 1600, 900,
         )
@@ -170,7 +176,7 @@ class WorkspaceLayoutPresetTests(unittest.TestCase):
         )
 
     def test_save_replace_and_delete_use_one_server_record(self):
-        dock_model = DockPanelModel({})
+        dock_model = DockPanelModel(three_column_settings())
         records = []
         application, project, controller = _controller(
             records, dock_model,

@@ -476,9 +476,11 @@ Item {
         self.assertEqual(self.warnings, [])
 
     def test_dock_layout_switch_keeps_delegate_and_loaded_content(self):
+        from tests.dock_layout_fixture import three_column_settings
+
         controller = self.application
-        baseline = controller.dock_model.capture_layout()
-        hidden = DockPanelModel({})
+        baseline = DockPanelModel(three_column_settings()).capture_layout()
+        hidden = DockPanelModel(three_column_settings())
         hidden.close_panel("tasks")
         hidden_layout = hidden.capture_layout()
         controller.dock_model.apply_layout(hidden_layout)
@@ -649,7 +651,7 @@ Item {
             panel, "dockPanelContentRelease_tasks"
         ))
 
-        swapped = DockPanelModel({})
+        swapped = DockPanelModel(three_column_settings())
         swapped.place_panel("results", "tasks", "swap")
         swapped_layout = swapped.capture_layout()
         results_panel = find_item(view, "retainedDockPanel_results")

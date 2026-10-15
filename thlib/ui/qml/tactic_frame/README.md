@@ -247,3 +247,17 @@ checks the four font files and all five catalogs; the native/browser icon driver
 compares actual selected families and Unicode values. The controls gallery also
 checks text origins/baselines/advances and visible icon geometry, with a 0.6 px
 position tolerance. This does not claim identical rasterizer antialiasing.
+
+`shell/dock.layout.mjs` projects the structural dock tree, computes recursive
+minimum sizes, clamps shared dividers, resizes floating edges and orders visible
+tabs without moving hidden slots. Projection is immutable: shrinking the host
+must not overwrite preferred split ratios. Minimums come from the existing
+`shell/window.sizing.mjs`, including the largest visible member of each stack.
+
+The native Python dock model retains its dataclasses, settings and signals.
+Its narrow `workspace_models/docks_projection.py` boundary converts geometry
+calls to the portable module using one application-owned Qt JavaScript evaluator.
+It requires the owning Qt application thread, owns no layout or UI objects, and
+loads no browser or external checkout. Vue calls the same portable functions
+directly. The whole-layout reference and real input drivers live in
+`tools/frame_docks` and `frontend/tests/frame_dock*.mjs`.

@@ -3,6 +3,13 @@
 Each completed change receives a new version and a dated entry below.
 Versions use `major.minor.build.revision`; routine updates increment `revision`.
 
+## 0.6.0.100 - 2026-10-16
+
+- Execute dock tree projection, recursive minimum constraints and floating-edge sizing from the same portable Frame module as Stream. Preserve preferred split ratios, native Python state ownership, detached-window capability and saved layout format.
+- Preserve hidden tab slots when reordering visible dock tabs. Share the reorder threshold, cancel unfinished tab gestures with Escape, and avoid accessing deleted QML delegates after committing their new order.
+- Add the three missing floating resize corners and put all resize handles above the panel body so title movement cannot steal their input.
+- Verify whole-layout geometry against the archived Handler algorithm and actual Qt/browser panels; cover real mouse/touch, eight handles, nested minimums, restore and cancellation at three native scales.
+
 ## 0.6.0.99 - 2026-10-16
 
 - Move Help to one shared Frame composition and state contract with Stream. Retain the native window and per-article positions; preserve filters, contextual navigation and language changes across reopening. Add atomic local Markdown export and shared document typography metrics.

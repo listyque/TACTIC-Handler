@@ -10,6 +10,7 @@ from .docks_tree import (
     subtree_minimum_size,
 )
 from .docks_types import DockPanel
+from .docks_projection import runtime
 
 
 class ResizingMixin:
@@ -28,27 +29,7 @@ class ResizingMixin:
 
     @staticmethod
     def _minimum_panel_pixel_size(panel: DockPanel) -> tuple[int, int]:
-        pixel_sizes = {
-            # These values are the hard tree constraints and intentionally
-            # mirror WindowSizing.qml.  A local QML minimum alone is not
-            # sufficient: resizing an adjacent panel changes the shared tree
-            # split and can otherwise squeeze its sibling below that limit.
-            "results": (360, 260),
-            "snapshot": (320, 260),
-            "tasks": (320, 220),
-            "task_calendar": (380, 360),
-            "description": (320, 220),
-            "notes": (400, 300),
-            "timesheet": (320, 220),
-            "work_reports": (320, 220),
-            "cost_reports": (320, 220),
-            "drop_plate": (480, 360),
-            "advanced_search": (380, 320),
-            "watch_folders": (680, 420),
-            "db_table": (620, 460),
-            "commit_queue": (720, 480),
-        }
-        return pixel_sizes.get(panel.kind, (320, 220))
+        return tuple(runtime().call("minimum", panel.kind))
 
     @classmethod
     def _minimum_panel_size(

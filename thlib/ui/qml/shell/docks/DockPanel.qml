@@ -6,6 +6,7 @@ import "../../controls" as Controls
 import "../../tactic_frame/controls/tabs/tab_layout.mjs" as TabLayout
 import "../../tactic_frame/shell/dock_chrome.ui.mjs" as DockChrome
 import "../../tactic_frame/shell/dock.placement.mjs" as Placement
+import "../../tactic_frame/shell/dock.layout.mjs" as DockLayout
 
 Item {
     id: root
@@ -34,6 +35,19 @@ Item {
     required property Component contentComponent
     property string descriptionTitle: "Description"
     property bool retainContent: false
+    property bool tabDragging: false
+    property int tabDragEpoch: 0
+
+    function cancelTabDrag() {
+        tabDragEpoch++;
+        tabDragging = false;
+    }
+    Shortcut {
+        sequence: "Escape"
+        enabled: root.tabDragging
+        context: Qt.WindowShortcut
+        onActivated: root.cancelTabDrag()
+    }
 
     function syncPanelContent() {
         if (root.panelOpen) {
@@ -221,27 +235,8 @@ Item {
         const point = surface.mapToItem(host, pointerX, pointerY);
         const dx = point.x - resizePressHostX;
         const dy = point.y - resizePressHostY;
-        const minimumWidth = root.minimumPanelWidth;
-        const minimumHeight = root.minimumPanelHeight;
-        let nextX = resizeStartX;
-        let nextY = resizeStartY;
-        let nextWidth = resizeStartWidth;
-        let nextHeight = resizeStartHeight;
-
-        if (resizeEdge.indexOf("left") >= 0) {
-            const right = resizeStartX + resizeStartWidth;
-            nextX = Math.max(0, Math.min(right - minimumWidth, resizeStartX + dx));
-            nextWidth = right - nextX;
-        } else if (resizeEdge.indexOf("right") >= 0) {
-            nextWidth = Math.max(minimumWidth, Math.min(host.width - resizeStartX, resizeStartWidth + dx));
-        }
-        if (resizeEdge.indexOf("top") >= 0) {
-            const bottom = resizeStartY + resizeStartHeight;
-            nextY = Math.max(0, Math.min(bottom - minimumHeight, resizeStartY + dy));
-            nextHeight = bottom - nextY;
-        } else if (resizeEdge.indexOf("bottom") >= 0) {
-            nextHeight = Math.max(minimumHeight, Math.min(host.height - resizeStartY, resizeStartHeight + dy));
-        }
+        const geometry = DockLayout.floatingResize([resizeStartX, resizeStartY, resizeStartWidth, resizeStartHeight], resizeEdge, dx, dy, root.kind, host.width, host.height);
+        const nextX = geometry[0], nextY = geometry[1], nextWidth = geometry[2], nextHeight = geometry[3];
         if (dockArea === "floating") {
             localX = nextX;
             localY = nextY;
@@ -272,6 +267,7 @@ Item {
         dockMoveHandle.cancel();
         titleDrag.cancel();
         cancelResize();
+        cancelTabDrag();
     }
     function finishResize() {
         if (!resizing)
@@ -560,20 +556,21 @@ Item {
                     model: root.stackPanels
                     delegate: Item {
                         id: stackTab
+                        objectName: "dockTab_" + root.panelId + "_" + record.panelId
                         property var record: modelData
                         property int targetIndex: index
                         property bool hovered: tabHover.hovered
                         width: TabLayout.dockTabWidth(tabLabel.implicitWidth, stackTabBar.width, root.stackSize)
                         height: stackTabsRow.height
-                        z: tabDrag.active ? 10 : 1
+                        z: (tabDrag.active && tabDrag.epoch === root.tabDragEpoch) ? 10 : 1
                         transform: Translate {
-                            x: tabDrag.active ? tabDrag.translation.x : 0
+                            x: (tabDrag.active && tabDrag.epoch === root.tabDragEpoch) ? tabDrag.translation.x : 0
                         }
 
                         Rectangle {
                             anchors.fill: parent
                             color: root.theme.action
-                            opacity: tabDrag.active ? TabLayout.dockTab.draggingOpacity : stackTab.record.active ? TabLayout.dockTab.selectedOpacity : stackTab.hovered ? TabLayout.dockTab.hoveredOpacity : 0
+                            opacity: (tabDrag.active && tabDrag.epoch === root.tabDragEpoch) ? TabLayout.dockTab.draggingOpacity : stackTab.record.active ? TabLayout.dockTab.selectedOpacity : stackTab.hovered ? TabLayout.dockTab.hoveredOpacity : 0
                         }
                         Rectangle {
                             anchors.bottom: parent.bottom
@@ -611,28 +608,35 @@ Item {
                         }
                         DragHandler {
                             id: tabDrag
+                            property int epoch: -1
                             target: null
                             acceptedButtons: Qt.LeftButton
                             dragThreshold: TabLayout.dockTab.dragThreshold
                             onTranslationChanged: {
-                                const center = stackTab.x + stackTab.width / 2 + translation.x;
-                                let nextIndex = 0;
+                                const centers = [];
                                 for (let itemIndex = 0; itemIndex < stackTabRepeater.count; ++itemIndex) {
                                     const item = stackTabRepeater.itemAt(itemIndex);
-                                    if (item && center > item.x + item.width / 2)
-                                        nextIndex = itemIndex;
+                                    centers.push(item.x + item.width / 2);
                                 }
-                                stackTab.targetIndex = nextIndex;
+                                stackTab.targetIndex = DockLayout.tabTarget(centers, index, translation.x);
                             }
                             onActiveChanged: {
+                                root.tabDragging = active;
                                 if (active)
+                                    epoch = root.tabDragEpoch;
+                            }
+                            onGrabChanged: (transition, point) => {
+                                if (transition !== PointerDevice.UngrabExclusive || epoch !== root.tabDragEpoch)
                                     return;
+                                const identity = stackTab.record.panelId;
+                                const destination = stackTab.targetIndex;
+                                const position = index;
+                                stackTab.targetIndex = position;
                                 if (Math.abs(translation.y) > titleBar.height) {
-                                    dockModel.float_panel_inside(stackTab.record.panelId);
-                                } else if (stackTab.targetIndex !== index) {
-                                    dockModel.reorder_stack_panel(stackTab.record.panelId, stackTab.targetIndex);
+                                    dockModel.float_panel_inside(identity);
+                                } else if (destination !== position) {
+                                    dockModel.reorder_stack_panel(identity, destination);
                                 }
-                                stackTab.targetIndex = index;
                             }
                         }
                     }
@@ -746,7 +750,7 @@ Item {
     DockResizeEdge {
         panel: root
         edge: "left"
-        z: 90
+        z: panelBody.z + 10
         visible: root.dockArea === "floating" || root.canResizeLeft || (root.resizing && root.resizeEdge === "left")
         enabled: visible
         width: root.dockArea === "floating" ? 10 : 9
@@ -759,7 +763,7 @@ Item {
     DockResizeEdge {
         panel: root
         edge: "right"
-        z: 90
+        z: panelBody.z + 10
         visible: root.dockArea === "floating" || root.canResizeRight || (root.resizing && root.resizeEdge === "right")
         enabled: visible
         width: root.dockArea === "floating" ? 10 : 9
@@ -772,7 +776,7 @@ Item {
     DockResizeEdge {
         panel: root
         edge: "top"
-        z: 90
+        z: panelBody.z + 10
         visible: root.dockArea === "floating" || root.canResizeTop || (root.resizing && root.resizeEdge === "top")
         enabled: visible
         height: root.dockArea === "floating" ? 10 : 9
@@ -785,7 +789,7 @@ Item {
     DockResizeEdge {
         panel: root
         edge: "bottom"
-        z: 90
+        z: panelBody.z + 10
         visible: root.dockArea === "floating" || root.canResizeBottom || (root.resizing && root.resizeEdge === "bottom")
         enabled: visible
         height: root.dockArea === "floating" ? 10 : 9
@@ -795,15 +799,19 @@ Item {
         anchors.leftMargin: 8
         anchors.rightMargin: 8
     }
-    DockResizeEdge {
-        panel: root
-        edge: "bottom_right"
-        z: 92
-        visible: root.dockArea === "floating"
-        enabled: visible
-        width: 14
-        height: 14
-        anchors.right: parent.right
-        anchors.bottom: parent.bottom
+    Repeater {
+        model: ["top_left", "top_right", "bottom_left", "bottom_right"]
+        delegate: DockResizeEdge {
+            required property string modelData
+            panel: root
+            edge: modelData
+            z: panelBody.z + 12
+            visible: root.dockArea === "floating"
+            enabled: visible
+            width: 14
+            height: 14
+            x: edge.indexOf("right") >= 0 ? root.width - width : 0
+            y: edge.indexOf("bottom") >= 0 ? root.height - height : 0
+        }
     }
 }

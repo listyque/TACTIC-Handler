@@ -51,6 +51,7 @@
     "features/administration/workflow/workflow.fields.mjs": "222da521eeba55ef77b59a9f1c4113b85a8ab93ce376b3e45a27ea0156c8220d",
     "features/support/help/help.state.mjs": "7058d360fec35bb307e1491b792aa4588135aa7bfe4be6c22ab2c8db6bf0a991",
     "features/support/help/help.ui.mjs": "1e2fb85fcdb987933dc1125a2a65e5134d4af6d7a779a280ec52b830534cbfac",
+    "shell/dock.layout.mjs": "991daa38c0a43564530155c373bc19b2040671c71787f2e44d8f998d3a4a760b",
     "shell/dock.placement.mjs": "6789b7b6883eeb78d77f04eaa5795c3ccc87baae1f53fe5dbf6c03ba37661da4",
     "shell/dock_chrome.ui.mjs": "e329ce2345dba16c2c2860433f346792640657edd366882cd24c16ffa7183e91",
     "shell/main_toolbar.ui.mjs": "7de67b65ef5bdcaf18aa94b1582c8b2e62b357ca87711afdd5e09b67b8d8eb48",

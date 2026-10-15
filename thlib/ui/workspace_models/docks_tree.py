@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass, replace
 
+from .docks_projection import decode, runtime
+
 
 @dataclass(frozen=True, slots=True)
 class DockStack:
@@ -189,26 +191,6 @@ def set_active_panel(
     )
 
 
-def reorder_stack_panel(
-        node: DockNode | None, panel_id: str, target_index: int,
-) -> DockNode | None:
-    if node is None:
-        return None
-    if isinstance(node, DockStack):
-        if panel_id not in node.panel_ids:
-            return node
-        values = list(node.panel_ids)
-        values.remove(panel_id)
-        target_index = max(0, min(len(values), target_index))
-        values.insert(target_index, panel_id)
-        return replace(node, panel_ids=tuple(values))
-    return replace(
-        node,
-        first=reorder_stack_panel(node.first, panel_id, target_index),
-        second=reorder_stack_panel(node.second, panel_id, target_index),
-    )
-
-
 def normalize_active_panels(
         node: DockNode | None, available: set[str],
 ) -> DockNode | None:
@@ -365,32 +347,11 @@ def layout_rectangles(
         node: DockNode | None, available: set[str],
         rect: DockRect = (0.0, 0.0, 1.0, 1.0),
 ) -> dict[str, DockRect]:
-    if node is None:
-        return {}
-    active = set(panel_ids(node)) & available
-    if not active:
-        return {}
-    if isinstance(node, DockStack):
-        return {panel_id: rect for panel_id in node.panel_ids if panel_id in active}
-
-    first_active = set(panel_ids(node.first)) & active
-    second_active = set(panel_ids(node.second)) & active
-    if not first_active:
-        return layout_rectangles(node.second, available, rect)
-    if not second_active:
-        return layout_rectangles(node.first, available, rect)
-
+    values = runtime().call("project", serialize_layout(node), list(available), {})["rectangles"]
     x, y, width, height = rect
-    ratio = max(0.05, min(0.95, node.ratio))
-    if node.orientation == "horizontal":
-        first_rect = (x, y, width * ratio, height)
-        second_rect = (x + width * ratio, y, width * (1.0 - ratio), height)
-    else:
-        first_rect = (x, y, width, height * ratio)
-        second_rect = (x, y + height * ratio, width, height * (1.0 - ratio))
     return {
-        **layout_rectangles(node.first, available, first_rect),
-        **layout_rectangles(node.second, available, second_rect),
+        panel_id: (x + value[0] * width, y + value[1] * height, value[2] * width, value[3] * height)
+        for panel_id, value in values.items()
     }
 
 
@@ -439,59 +400,11 @@ def resize_split_for_edge(
 ) -> tuple[DockNode, bool]:
     """Resize the deepest split that owns one visible edge of a panel."""
 
-    def visit(current: DockNode, rect: DockRect) -> tuple[DockNode, bool]:
-        if isinstance(current, DockStack):
-            return current, False
-        first_active = set(panel_ids(current.first)) & available
-        second_active = set(panel_ids(current.second)) & available
-        if not first_active:
-            second, found = visit(current.second, rect)
-            return replace(current, second=second), found
-        if not second_active:
-            first, found = visit(current.first, rect)
-            return replace(current, first=first), found
-
-        first_rect, second_rect = _child_rectangles(current, rect)
-        if panel_id in first_active:
-            first, found = visit(current.first, first_rect)
-            if found:
-                return replace(current, first=first), True
-        else:
-            second, found = visit(current.second, second_rect)
-            if found:
-                return replace(current, second=second), True
-
-        matches = (
-            current.orientation == "horizontal"
-            and (
-                (edge == "right" and panel_id in first_active)
-                or (edge == "left" and panel_id in second_active)
-            )
-        ) or (
-            current.orientation == "vertical"
-            and (
-                (edge == "bottom" and panel_id in first_active)
-                or (edge == "top" and panel_id in second_active)
-            )
-        )
-        if not matches:
-            return current, False
-        axis = 0 if current.orientation == "horizontal" else 1
-        extent_axis = 2 if current.orientation == "horizontal" else 3
-        extent = rect[extent_axis]
-        if extent <= 0:
-            return current, False
-        desired_ratio = (boundary - rect[axis]) / extent
-        ratio = _clamp_ratio(
-            current,
-            rect,
-            available,
-            minimum_sizes,
-            desired_ratio,
-        )
-        return replace(current, ratio=ratio), True
-
-    return visit(node, (0.0, 0.0, 1.0, 1.0))
+    result = runtime().call(
+        "resizeEdge", serialize_layout(node), panel_id, edge, boundary,
+        list(available), {key: list(value) for key, value in minimum_sizes.items()},
+    )
+    return decode(result["tree"]), result["found"]
 
 
 def clamp_layout_ratios(
@@ -501,31 +414,8 @@ def clamp_layout_ratios(
 ) -> DockNode:
     """Clamp every visible split after the host window changes size."""
 
-    def visit(current: DockNode, rect: DockRect) -> DockNode:
-        if isinstance(current, DockStack):
-            return current
-        first_active = set(panel_ids(current.first)) & available
-        second_active = set(panel_ids(current.second)) & available
-        if not first_active:
-            return replace(current, second=visit(current.second, rect))
-        if not second_active:
-            return replace(current, first=visit(current.first, rect))
-        ratio = _clamp_ratio(
-            current,
-            rect,
-            available,
-            minimum_sizes,
-            current.ratio,
-        )
-        updated = replace(current, ratio=ratio)
-        first_rect, second_rect = _child_rectangles(updated, rect)
-        return replace(
-            updated,
-            first=visit(updated.first, first_rect),
-            second=visit(updated.second, second_rect),
-        )
-
-    return visit(node, (0.0, 0.0, 1.0, 1.0))
+    result = runtime().call("project", serialize_layout(node), list(available), {key: list(value) for key, value in minimum_sizes.items()})
+    return decode(result["tree"])
 
 
 def subtree_minimum_size(
@@ -533,67 +423,7 @@ def subtree_minimum_size(
         available: set[str],
         minimum_sizes: dict[str, tuple[float, float]],
 ) -> tuple[float, float]:
-    if isinstance(node, DockStack):
-        sizes = [
-            minimum_sizes.get(panel_id, (0.0, 0.0))
-            for panel_id in node.panel_ids if panel_id in available
-        ]
-        if not sizes:
-            return 0.0, 0.0
-        return max(value[0] for value in sizes), max(value[1] for value in sizes)
-    first = subtree_minimum_size(node.first, available, minimum_sizes)
-    second = subtree_minimum_size(node.second, available, minimum_sizes)
-    if first == (0.0, 0.0):
-        return second
-    if second == (0.0, 0.0):
-        return first
-    if node.orientation == "horizontal":
-        return first[0] + second[0], max(first[1], second[1])
-    return max(first[0], second[0]), first[1] + second[1]
-
-
-def _clamp_ratio(
-        node: DockSplit,
-        rect: DockRect,
-        available: set[str],
-        minimum_sizes: dict[str, tuple[float, float]],
-        ratio: float,
-) -> float:
-    first_minimum = subtree_minimum_size(
-        node.first, available, minimum_sizes
-    )
-    second_minimum = subtree_minimum_size(
-        node.second, available, minimum_sizes
-    )
-    extent_axis = 2 if node.orientation == "horizontal" else 3
-    minimum_axis = 0 if node.orientation == "horizontal" else 1
-    extent = rect[extent_axis]
-    if extent <= 0:
-        return node.ratio
-    first_extent = first_minimum[minimum_axis]
-    second_extent = second_minimum[minimum_axis]
-    lower = first_extent / extent
-    upper = 1.0 - second_extent / extent
-    if lower > upper:
-        total = first_extent + second_extent
-        return first_extent / total if total > 0 else 0.5
-    return max(lower, min(upper, ratio))
-
-
-def _child_rectangles(
-        node: DockSplit, rect: DockRect,
-) -> tuple[DockRect, DockRect]:
-    x, y, width, height = rect
-    ratio = max(0.0, min(1.0, node.ratio))
-    if node.orientation == "horizontal":
-        return (
-            (x, y, width * ratio, height),
-            (x + width * ratio, y, width * (1.0 - ratio), height),
-        )
-    return (
-        (x, y, width, height * ratio),
-        (x, y + height * ratio, width, height * (1.0 - ratio)),
-    )
+    return tuple(runtime().call("minimumSize", serialize_layout(node), list(available), {key: list(value) for key, value in minimum_sizes.items()}))
 
 
 def _union(first: DockRect, second: DockRect) -> DockRect:
