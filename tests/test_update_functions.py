@@ -90,19 +90,24 @@ class UpdateArchiveTests(unittest.TestCase):
 
     def test_update_ships_frame_modules_and_native_renderer_without_checkout_paths(self):
         app = make_app(self.root)
-        source = Path(__file__).resolve().parents[1] / 'thlib/ui/qml/tactic_frame'
-        target = app / 'thlib/ui/qml/tactic_frame'
-        target.mkdir()
-        files = tuple(sorted(path.name for path in source.iterdir() if path.suffix in ('.qml', '.mjs') or path.name == 'manifest.json'))
-        for name in files:
-            data = (source / name).read_bytes()
-            self.assertNotIn(b'D:/code/', data)
-            (target / name).write_bytes(data)
+        source = Path(__file__).resolve().parents[1] / 'thlib/ui/qml'
+        files = [source / 'qmldir']
+        for directory in ('tactic_frame', 'features/administration', 'shell'):
+            files.extend(path for path in (source / directory).rglob('*') if path.is_file())
+        for path in files:
+            name = path.relative_to(source).as_posix()
+            data = path.read_bytes()
+            if path.suffix in ('.qml', '.mjs'):
+                self.assertNotIn(b'D:/code/', data)
+            target = app / 'thlib/ui/qml' / name
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_bytes(data)
         archive = self.root / 'frame-1_2_3_5.zip'
         updates.create_update_archive(app, archive, (1, 2, 3, 5))
         with zipfile.ZipFile(archive) as packaged:
-            for name in files:
-                self.assertEqual(packaged.read('thlib/ui/qml/tactic_frame/' + name), (source / name).read_bytes())
+            for path in files:
+                name = path.relative_to(source).as_posix()
+                self.assertEqual(packaged.read('thlib/ui/qml/' + name), path.read_bytes())
 
     def test_archive_requires_a_changelog_entry_for_its_version(self):
         app = make_app(self.root)

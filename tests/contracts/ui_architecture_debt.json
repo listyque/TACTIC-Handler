@@ -14,12 +14,10 @@
   },
   "qml_max_lines": {
     "thlib/ui/qml/CommitQueueView.qml": 1404,
-    "thlib/ui/qml/DockPanel.qml": 809,
     "thlib/ui/qml/Main.qml": 1235,
     "thlib/ui/qml/MessagesView.qml": 2828,
     "thlib/ui/qml/ScriptEditorView.qml": 1041,
     "thlib/ui/qml/SearchWorkspaceView.qml": 2513,
-    "thlib/ui/qml/SidebarEditorView.qml": 944,
     "thlib/ui/qml/SnapshotBrowser.qml": 857,
     "thlib/ui/qml/SObjectInfoView.qml": 1139,
     "thlib/ui/qml/TaskBrowserTable.qml": 1467,

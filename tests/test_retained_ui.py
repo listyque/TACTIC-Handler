@@ -122,7 +122,7 @@ class RetainedUiTests(TestCase):
         component = QQmlComponent(
             self.engine, QUrl.fromLocalFile(str(QML / "SearchWorkspaceView.qml"))
         )
-        window, view = self._show(component, {"theme": self.theme, "pageTitle": "Search"})
+        window, view = self._show(component, {"theme": self.theme, "pageTitle": "Search", "shelfController": None})
         return controller, state, groups, window, view, (users, filters, editor)
 
     def test_closed_quick_filters_do_not_read_or_build_the_catalog(self):
@@ -1002,6 +1002,8 @@ Item {
         self.assertEqual(self.warnings, [])
 
     def test_shared_dock_resize_grip_starts_on_first_press(self):
+        self.application.dock_model.place_panel("notes", "results", "right")
+        self.application.dock_model.place_panel("snapshot", "notes", "bottom")
         self.application.dock_model.place_panel(
             "drop_plate", "snapshot", "bottom"
         )
@@ -1396,7 +1398,7 @@ ApplicationWindow {
     width: 900; height: 650; visible: true
     Loader {
         anchors.fill: parent
-        Component.onCompleted: setSource(Qt.resolvedUrl("WindowContent.qml"), {
+        Component.onCompleted: setSource(Qt.resolvedUrl("shell/windows/WindowContent.qml"), {
             "theme": window.theme,
             "contentSource": "MessagesView.qml",
             "contentProperties": {"objectName": "testedMessagesView"}

@@ -49,9 +49,11 @@ order: 38
 окна: переключение раздела не сбрасывает правки. «Сохранить/Сбросить» относятся к открытому
 разделу; точка отмечает разделы с незавершённой работой. При закрытии окно сначала показывает
 незавершённый редактор. Проект заблокирован, пока в любом разделе есть правки или операция.
-Список воркфлоу находится внутри страницы «Воркфлоу» и скрывается своей кнопкой.
-У инспектора нод тоже есть кнопка сворачивания. Разделители позволяют независимо менять ширину
-раскрытых панелей. В узком окне список воркфлоу изначально свёрнут.
+В разделе «Воркфлоу» библиотека находится в левой панели администрирования под иконками разделов,
+как в исходном ТХ. Её стрелка скрывает и показывает содержимое списка; стрелка навигации сворачивает
+всю левую панель, освобождая место для графа. Разделители независимо меняют ширину левой панели
+и инспектора. Библиотека доступна и на странице «Техническое». В узком окне она переходит во вкладку
+«Воркфлоу» внутри редактора. Поиск и раскрытые группы сохраняются при этих переходах.
 
 Администрирование доступно администраторам и супервайзерам TACTIC. Права проверяются при
 входе. Несохранённый или выполняющийся редактор временно блокирует смену проекта, чтобы черновик не
@@ -262,6 +264,11 @@ Esc или повторный клик по исходному порту отм
 
 ## Воркфлоу
 
+Во вкладке **Параметры** находятся форма процесса и выбор штатного типа ноды.
+Координаты ноды перенесены в **Расширенный JSON**. Кнопка **Настройки пайплайна**
+в панели команд снимает выбор ноды/связи и открывает параметры всего пайплайна;
+перед переключением завершите или сбросьте несохранённую правку инспектора.
+
 Параметры выбранной ноды редактируются справа, канвас остаётся виден. Кнопка «Настройки пайплайна»
 рядом с переключателями канваса и масштабом открывает в том же инспекторе параметры всего пайплайна.
 
@@ -409,14 +416,14 @@ replay описаны в справке «Check-in» и «Модель ядра�
 
 | Раздел | Актуальный исходник ТХ → Stream | Штатная операция / проверенный сценарий |
 | --- | --- | --- |
-| Общее окно | `qml/AdministrationView.qml`, `administration.py` → оболочка Administration в `App.vue`, `AdminSaveBar` | В Chromium проверены восемь разделов, навигация 250/56 px, независимые черновики, блокировка проекта, закрытие и восстановление рабочего пространства. |
-| Серч-тайпы | `qml/AdminSearchTypesView.qml`, `admin/search_types.py` → `SearchTypes`, `SearchTypeSummary`, `SearchTypeFields`, `NamingEditor` | `SearchTypesCmd`, `NamingCmd`: реестр/таблица/default views, поля, конфликт ревизий и штатный preview нейминга; создание и редактирование в Chromium. |
-| Схема | `qml/AdminGraphView.qml`, `admin/schema_api.py`, `admin/schema_connections.py` → `SchemaEditor`, `SchemaTypeDeletion` | `SchemaCmd`, `SchemaDeleteCmd`: ключи, прямая/M:N-связь, instance-таблицы, создание и review удаления, повторная проверка использования, потеря ответа и откат. |
-| Воркфлоу | `qml/AdminGraphView.qml`, `qml/AdminProcessSettings.qml`, `admin/workflow_api.py` → `WorkflowEditor`, `WorkflowProcessSettings`, `ProcessRules` | `WorkflowCmd`, `ProcessRulesCmd`, команды процессов ядра: параметры процессов/статусов, записи правил, зависимости, сохранность packages; сохранение/чтение, круглый Progress и input/output-порты в Chromium. |
-| Колонки | `qml/ColumnsEditorView.qml`, `columns_editor.py` → `ColumnsEditor` | `/admin/columns-editor` → `server/columns_editor.py`, штатные Command и WidgetDbConfig: каталог определений, Мастер/XML, сохранность неизвестного XML, конфликты и повторное открытие. Между списком колонок и свойствами — горизонтальный splitter. |
-| Sidebar | `qml/SidebarEditorView.qml`, `sidebar_editor.py` → `SidebarEditor` | `/admin/sidebar` → `server/sidebar_editor.py`, штатные Command и WidgetDbConfig: документы TH/TACTIC, вложенность/порядок, вкладки пункта/доступа/технических свойств, видимость для групп, точный XML, preview поиска/фильтра и сохранение/открытие. |
-| Пользователи / группы | `qml/AdminUsersView.qml`, `qml/AdminUserDetails.qml`, `admin/users.py` → `SecurityUsers`, `SecurityGroups` | `/admin/security-users`, `/admin/security-groups` → адаптеры и штатные Command/SearchType: профиль/учётные поля, пароль, членство, создание/правка/архивирование, конфликт и откат. Учётные записи общие для сервера. |
-| Права | `qml/AdminSecurityView.qml`, `qml/AdminSecurityMatrix.qml`, `admin/security.py` → `SecurityRules` | `/admin/security-rules` → `server/security_rules.py`, штатные Command и access rules: проекты/типы/процессы/статусы/действия, наследуемые/заблокированные/особые правила, сохранность XML и запреты доступа. |
+| Общее окно | `qml/features/administration/AdministrationView.qml`, `administration.py` → оболочка Administration в `App.vue`, `AdminSaveBar` | В Chromium проверены восемь разделов, навигация 250/56 px, независимые черновики, блокировка проекта, закрытие и восстановление рабочего пространства. |
+| Серч-тайпы | `qml/features/administration/search_types/AdminSearchTypesView.qml`, `admin/search_types.py` → `SearchTypes`, `SearchTypeSummary`, `SearchTypeFields`, `NamingEditor` | `SearchTypesCmd`, `NamingCmd`: реестр/таблица/default views, поля, конфликт ревизий и штатный preview нейминга; создание и редактирование в Chromium. |
+| Схема | `qml/features/administration/workflow/AdminGraphView.qml`, `admin/schema_api.py`, `admin/schema_connections.py` → `SchemaEditor`, `SchemaTypeDeletion` | `SchemaCmd`, `SchemaDeleteCmd`: ключи, прямая/M:N-связь, instance-таблицы, создание и review удаления, повторная проверка использования, потеря ответа и откат. |
+| Воркфлоу | `qml/features/administration/workflow/AdminGraphView.qml`, `qml/features/administration/workflow/AdminProcessSettings.qml`, `admin/workflow_api.py` → `WorkflowEditor`, `WorkflowProcessSettings`, `ProcessRules` | `WorkflowCmd`, `ProcessRulesCmd`, команды процессов ядра: параметры процессов/статусов, записи правил, зависимости, сохранность packages; сохранение/чтение, круглый Progress и input/output-порты в Chromium. |
+| Колонки | `qml/features/administration/columns/ColumnsEditorView.qml`, `columns_editor.py` → `ColumnsEditor` | `/admin/columns-editor` → `server/columns_editor.py`, штатные Command и WidgetDbConfig: каталог определений, Мастер/XML, сохранность неизвестного XML, конфликты и повторное открытие. Между списком колонок и свойствами — горизонтальный splitter. |
+| Sidebar | `qml/features/administration/sidebar/SidebarEditorView.qml`, `sidebar_editor.py` → `SidebarEditor` | `/admin/sidebar` → `server/sidebar_editor.py`, штатные Command и WidgetDbConfig: документы TH/TACTIC, вложенность/порядок, вкладки пункта/доступа/технических свойств, видимость для групп, точный XML, preview поиска/фильтра и сохранение/открытие. |
+| Пользователи / группы | `qml/features/administration/users/AdminUsersView.qml`, `qml/AdminUserDetails.qml`, `admin/users.py` → `SecurityUsers`, `SecurityGroups` | `/admin/security-users`, `/admin/security-groups` → адаптеры и штатные Command/SearchType: профиль/учётные поля, пароль, членство, создание/правка/архивирование, конфликт и откат. Учётные записи общие для сервера. |
+| Права | `qml/features/administration/security/AdminSecurityView.qml`, `qml/features/administration/security/AdminSecurityMatrix.qml`, `admin/security.py` → `SecurityRules` | `/admin/security-rules` → `server/security_rules.py`, штатные Command и access rules: проекты/типы/процессы/статусы/действия, наследуемые/заблокированные/особые правила, сохранность XML и запреты доступа. |
 
 ### Порты графа и Progress
 

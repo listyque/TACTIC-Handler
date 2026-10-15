@@ -1,3 +1,4 @@
+import "../tactic_frame/core/foundation.mjs" as Foundation
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Controls as QtControls
@@ -18,73 +19,63 @@ QtControls.ScrollBar {
     // content and must never become an implicit request for another page.
     property bool _paginationArmed: false
     property bool _paginationReleasePending: false
-    readonly property bool paginationBlocked:
-        pressed || _paginationReleasePending
-    readonly property bool paginationArmed:
-        _paginationArmed && !paginationBlocked
-    readonly property real reservedExtent: 12
-    readonly property real visualExtent: expanded ? 11 : 6
-    readonly property real thumbExtent: expanded ? 8 : 5
-    readonly property bool verticalBar:
-        orientation === Qt.Vertical
+    readonly property bool paginationBlocked: pressed || _paginationReleasePending
+    readonly property bool paginationArmed: _paginationArmed && !paginationBlocked
+    readonly property real reservedExtent: Foundation.controls.scrollBar.extent
+    readonly property real visualExtent: expanded ? Foundation.controls.scrollBar.expandedTrack : Foundation.controls.scrollBar.restingTrack
+    readonly property real thumbExtent: expanded ? Foundation.controls.scrollBar.expandedThumb : Foundation.controls.scrollBar.restingThumb
+    readonly property bool verticalBar: orientation === Qt.Vertical
     readonly property real viewportExtent: {
         if (!flickableTarget)
-            return 0
-        return verticalBar
-            ? Number(flickableTarget.height || 0)
-            : Number(flickableTarget.width || 0)
+            return 0;
+        return verticalBar ? Number(flickableTarget.height || 0) : Number(flickableTarget.width || 0);
     }
     readonly property real contentExtent: {
         if (!flickableTarget)
-            return 0
-        return verticalBar
-            ? Number(flickableTarget.contentHeight || 0)
-            : Number(flickableTarget.contentWidth || 0)
+            return 0;
+        return verticalBar ? Number(flickableTarget.contentHeight || 0) : Number(flickableTarget.contentWidth || 0);
     }
-    readonly property bool hasOverflow:
-        viewportExtent > 0
-        && contentExtent > viewportExtent + 0.5
+    readonly property bool hasOverflow: viewportExtent > 0 && contentExtent > viewportExtent + 0.5
 
     function armPagination() {
         if (!paginationBlocked)
-            _paginationArmed = true
+            _paginationArmed = true;
     }
 
     function resetPagination() {
-        _paginationArmed = false
+        _paginationArmed = false;
     }
 
     function takePaginationPermit(allowUnderfilled) {
-        if (paginationBlocked
-                || (!allowUnderfilled && !_paginationArmed))
-            return false
-        _paginationArmed = false
-        return true
+        if (paginationBlocked || (!allowUnderfilled && !_paginationArmed))
+            return false;
+        _paginationArmed = false;
+        return true;
     }
 
     function releasePaginationGuard() {
         // Qt can emit the final content-position and extent notifications
         // after pressed becomes false.  Keep those release frames blocked.
-        Qt.callLater(function() {
-            Qt.callLater(function() {
+        Qt.callLater(function () {
+            Qt.callLater(function () {
                 if (!root.pressed)
-                    root._paginationReleasePending = false
-            })
-        })
+                    root._paginationReleasePending = false;
+            });
+        });
     }
 
     onPressedChanged: {
         if (pressed) {
-            _paginationReleasePending = true
-            resetPagination()
+            _paginationReleasePending = true;
+            resetPagination();
             if (!flickableTarget)
-                return
+                return;
             if (typeof flickableTarget.cancelWheelScroll === "function")
-                flickableTarget.cancelWheelScroll()
+                flickableTarget.cancelWheelScroll();
             if (typeof flickableTarget.cancelFlick === "function")
-                flickableTarget.cancelFlick()
+                flickableTarget.cancelFlick();
         } else if (_paginationReleasePending) {
-            releasePaginationGuard()
+            releasePaginationGuard();
         }
     }
 
@@ -93,21 +84,20 @@ QtControls.ScrollBar {
         ignoreUnknownSignals: true
 
         function onMovementStarted() {
-            root.armPagination()
+            root.armPagination();
         }
 
         function onWheelScrollRequested() {
-            root.armPagination()
+            root.armPagination();
         }
 
         function onFlickStarted() {
-            root.armPagination()
+            root.armPagination();
         }
 
         function onInteractionMovingChanged() {
-            if (root.flickableTarget
-                    && root.flickableTarget.interactionMoving)
-                root.armPagination()
+            if (root.flickableTarget && root.flickableTarget.interactionMoving)
+                root.armPagination();
         }
     }
 
@@ -152,7 +142,7 @@ QtControls.ScrollBar {
             height: root.verticalBar ? parent.height : root.visualExtent
             radius: Math.min(width, height) / 2
             color: root.theme.outline
-            opacity: root.expanded ? 0.15 : 0.055
+            opacity: root.expanded ? Foundation.controls.scrollBar.expandedTrackOpacity : Foundation.controls.scrollBar.restingTrackOpacity
 
             Behavior on width {
                 enabled: !root.theme.suppressTransientMotion
@@ -170,7 +160,9 @@ QtControls.ScrollBar {
             }
             Behavior on opacity {
                 enabled: !root.theme.suppressTransientMotion
-                NumberAnimation { duration: root.theme.hoverMotionFast }
+                NumberAnimation {
+                    duration: root.theme.hoverMotionFast
+                }
             }
         }
     }
@@ -182,9 +174,7 @@ QtControls.ScrollBar {
             height: root.verticalBar ? parent.height : root.thumbExtent
             radius: Math.min(width, height) / 2
             color: root.theme.secondaryText
-            opacity: !root.enabled ? 0.18
-                : root.pressed ? 0.90
-                : root.hovered ? 0.72 : 0.42
+            opacity: !root.enabled ? Foundation.controls.scrollBar.disabledThumbOpacity : root.pressed ? Foundation.controls.scrollBar.pressedThumbOpacity : root.hovered ? Foundation.controls.scrollBar.hoveredThumbOpacity : Foundation.controls.scrollBar.restingThumbOpacity
 
             Behavior on width {
                 enabled: !root.theme.suppressTransientMotion
@@ -202,13 +192,14 @@ QtControls.ScrollBar {
             }
             Behavior on opacity {
                 enabled: !root.theme.suppressTransientMotion
-                NumberAnimation { duration: root.theme.hoverMotionFast }
+                NumberAnimation {
+                    duration: root.theme.hoverMotionFast
+                }
             }
         }
     }
 
     HoverHandler {
-        cursorShape: root.enabled && root.interactive
-            ? Qt.PointingHandCursor : Qt.ArrowCursor
+        cursorShape: root.enabled && root.interactive ? Qt.PointingHandCursor : Qt.ArrowCursor
     }
 }

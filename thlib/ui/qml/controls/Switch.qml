@@ -1,3 +1,4 @@
+import "../tactic_frame/core/foundation.mjs" as Foundation
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Controls as QtControls
@@ -8,13 +9,13 @@ QtControls.Switch {
 
     required property var theme
 
-    spacing: 10
+    spacing: Foundation.controls.switch.spacing
     font.family: theme.fontFamily
     font.pointSize: Typography.body
 
     indicator: Rectangle {
-        implicitWidth: 42
-        implicitHeight: 24
+        implicitWidth: Foundation.controls.switch.width
+        implicitHeight: Foundation.controls.switch.height
         x: control.leftPadding
         y: (control.height - height) / 2
         radius: height / 2
@@ -23,11 +24,11 @@ QtControls.Switch {
         border.color: control.checked ? theme.action : theme.outline
 
         Rectangle {
-            width: 18
-            height: 18
-            radius: 9
-            y: 3
-            x: control.checked ? parent.width - width - 3 : 3
+            width: Foundation.controls.switch.thumb
+            height: Foundation.controls.switch.thumb
+            radius: width / 2
+            y: Foundation.controls.switch.inset
+            x: control.checked ? parent.width - width - Foundation.controls.switch.inset : Foundation.controls.switch.inset
             color: control.checked ? theme.selectedText : theme.secondaryText
             Behavior on x {
                 NumberAnimation {
@@ -37,7 +38,9 @@ QtControls.Switch {
             }
         }
         Behavior on color {
-            ColorAnimation { duration: theme.clickMotionFast }
+            ColorAnimation {
+                duration: theme.clickMotionFast
+            }
         }
     }
 

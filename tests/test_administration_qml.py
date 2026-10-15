@@ -103,7 +103,8 @@ class AdministrationQmlTests(unittest.TestCase):
                 self.fixture.choose_combo_option(self.window, picker, target)
                 return
         item = self.item(name)
-        if name.startswith('adminSection_'):
+        if name.startswith('adminSection_') and any(item.objectName() == 'administrationNavigation' and item.isVisible()
+                for item in windows_fixture.SidebarEditorQmlTests.descendants(self.window.contentItem())):
             navigation = self.item('administrationNavigation')
             top = item.mapToItem(navigation, QPointF()).y()
             if top < 0 or top + item.height() > navigation.height():
@@ -112,6 +113,16 @@ class AdministrationQmlTests(unittest.TestCase):
                     navigation.property('contentHeight') - navigation.height())))
                 frame(self.window)
         self.fixture.click(self.window, item)
+
+    def test_project_choice_keeps_a_server_value_missing_from_the_catalog(self):
+        self.admin._project = 'external_only'
+        self.admin.stateChanged.emit()
+        frame(self.window)
+        selector = self.item('administrationProjectSelector')
+        self.assertEqual(selector.property('currentIndex'), -1)
+        self.assertEqual(selector.property('displayText'), 'external_only')
+        self.assertEqual(self.admin.project, 'external_only')
+        self.assertEqual(self.fixture.warnings, [])
 
     def test_configuration_style_shell_keeps_aligned_headers_and_navigation(self):
         self.click('adminSection_types')
@@ -199,10 +210,30 @@ class AdministrationQmlTests(unittest.TestCase):
         graph=self.item('adminGraphCanvas');width=graph.width()
         self.click('adminToggleGraphProperties');self.assertGreater(self.item('adminGraphCanvas').width(),width)
         self.click('adminToggleGraphProperties');self.assertAlmostEqual(self.item('adminGraphCanvas').width(),width)
-        self.click('adminToggleWorkflowList');self.assertGreater(self.item('adminGraphCanvas').width(),width)
-        self.assertTrue(self.item('administrationNavigation').isVisible())
-        self.click('adminToggleWorkflowList');self.assertAlmostEqual(self.item('adminGraphCanvas').width(),width)
-        self.assertEqual(self.fixture.warnings,[])
+        library = self.item('adminWorkflowCatalogPanel')
+        sidebar = self.item('administrationSidebar')
+        self.assertLess(library.mapToScene(QPointF(library.width(), 0)).x(), self.item('adminGraphCanvas').mapToScene(QPointF()).x())
+        self.assertLessEqual(library.width(), sidebar.width())
+        self.click('adminToggleWorkflowList')
+        self.assertAlmostEqual(self.item('adminGraphCanvas').width(), width)
+        with self.assertRaises(StopIteration): self.item('adminWorkflowSearch')
+        self.assertTrue(self.item('adminSection_groups').isVisible())
+        self.click('adminToggleWorkflowList')
+        self.assertTrue(self.item('adminWorkflowSearch').isVisible())
+        self.click('adminToggleNavigation')
+        self.assertGreater(self.item('adminGraphCanvas').width(), width)
+        self.click('adminToggleNavigation')
+        self.assertAlmostEqual(self.item('adminGraphCanvas').width(), width)
+        sidebar_width = sidebar.width()
+        split = self.item('administrationNavigationSplit')
+        start = split.mapToScene(QPointF(split.width() / 2, split.height() / 2)).toPoint()
+        QTest.mousePress(self.window, Qt.LeftButton, pos=start)
+        QTest.mouseMove(self.window, start + QPoint(45, 0), 40)
+        QTest.mouseRelease(self.window, Qt.LeftButton, pos=start + QPoint(45, 0))
+        frame(self.window)
+        self.assertGreater(self.item('administrationSidebar').width(), sidebar_width + 30)
+        self.assertLess(self.item('adminGraphCanvas').width(), width)
+        self.assertEqual(self.fixture.warnings, [])
 
     def test_sidebar_entry_selects_groups_even_after_another_admin_section(self):
         self.click('adminSection_types')

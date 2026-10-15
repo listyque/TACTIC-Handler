@@ -109,7 +109,7 @@ class FloatingWindowModel(QAbstractListModel):
         "process_filter_editor": "ProcessFilterEditorView.qml",
         "quick_filter_editor": "QuickFilterEditorView.qml",
         "advanced_search": "AdvancedSearchView.qml",
-        "naming_editor": "NamingEditorView.qml",
+        "naming_editor": "features/administration/naming/NamingEditorView.qml",
         "server_presets": "ServerPresetsView.qml",
         "screenshot_maker": "ScreenshotMakerView.qml",
         "handler_server": "HandlerServerView.qml",
@@ -128,10 +128,10 @@ class FloatingWindowModel(QAbstractListModel):
         "notifications": "NotificationsView.qml",
         "activity_feed": "ActivityFeedView.qml",
         "user_profile": "UserProfileView.qml",
-        "administration": "AdministrationView.qml",
-        "schema_search_type": "AdminSchemaTypeView.qml",
-        "raw_cell": "RawCellEditorView.qml",
-        "process_dependencies": "AdminProcessRulesView.qml",
+        "administration": "features/administration/AdministrationView.qml",
+        "schema_search_type": "features/administration/schema/AdminSchemaTypeView.qml",
+        "raw_cell": "features/administration/database/RawCellEditorView.qml",
+        "process_dependencies": "features/administration/workflow/AdminProcessRulesView.qml",
         "sidebar_search_preview": "SidebarSearchPreview.qml",
         "tasks_workspace": "TasksWorkspaceView.qml",
         "milestone_manager": "MilestoneManagerView.qml",
@@ -272,7 +272,7 @@ class FloatingWindowModel(QAbstractListModel):
     def _content_source(cls, window: FloatingWindow) -> str:
         if window.kind in cls._configuration_page_ids():
             return "ConfigurationPage.qml"
-        return cls._content_sources.get(window.kind, "UnregisteredWindow.qml")
+        return cls._content_sources.get(window.kind, "shell/windows/UnregisteredWindow.qml")
 
     @staticmethod
     def _content_properties(window: FloatingWindow) -> dict[str, object]:

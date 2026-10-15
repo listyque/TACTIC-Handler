@@ -204,3 +204,13 @@ accessibility requirements specific to UI work:
 
 - [Accessibility for Qt Quick Applications](https://doc.qt.io/qt-6/accessible-qtquick.html)
 - [Web Content Accessibility Guidelines 2.2](https://www.w3.org/TR/WCAG22/)
+
+## Tactic Frame source layout
+
+- Keep portable modules under `tactic_frame/core`, `controls`, `shell` and
+  `features/<domain>`; native adapters follow `qml/features/<domain>` and
+  `qml/shell`. Preserve public QML names through the type indexes.
+- Follow `qml/tactic_frame/README.md` for readable source. Do not pack UI trees,
+  state branches or handlers into dense one-line statements. Use the pinned
+  Frame formatter and its check mode from the Stream development checkout;
+  neither product may import that checkout at runtime.

@@ -256,7 +256,7 @@ class UiStructureTests(unittest.TestCase):
                 (QML / source).is_file(), (window.window_id, source)
             )
 
-        host = (QML / "WindowContent.qml").read_text(encoding="utf-8")
+        host = (QML / "shell/windows/WindowContent.qml").read_text(encoding="utf-8")
         self.assertNotIn("Component {", host)
         self.assertNotIn("ConfigurationView", host)
         self.assertNotIn("MessagesView", host)
@@ -312,7 +312,7 @@ class UiStructureTests(unittest.TestCase):
         view = (QML / "ServerPresetsView.qml").read_text(
             encoding="utf-8"
         )
-        host = (QML / "FloatingWindow.qml").read_text(encoding="utf-8")
+        host = (QML / "shell/windows/FloatingWindow.qml").read_text(encoding="utf-8")
         configuration = (QML / "ConfigurationServerPage.qml").read_text(
             encoding="utf-8"
         )
@@ -421,8 +421,8 @@ class UiStructureTests(unittest.TestCase):
 
         help_view = (QML / "HelpView.qml").read_text(encoding="utf-8")
         help_articles = QML.parent / "help_articles"
-        dock_panel = (QML / "DockPanel.qml").read_text(encoding="utf-8")
-        detached = (QML / "DetachedDockWindow.qml").read_text(
+        dock_panel = (QML / "shell/docks/DockPanel.qml").read_text(encoding="utf-8")
+        detached = (QML / "shell/windows/DetachedDockWindow.qml").read_text(
             encoding="utf-8"
         )
         grip = (QML / "controls" / "DockDragGrip.qml").read_text(
@@ -479,9 +479,9 @@ class UiStructureTests(unittest.TestCase):
         )
 
         content = (QML / "ErrorDialog.qml").read_text(encoding="utf-8")
-        floating = (QML / "FloatingWindow.qml").read_text(encoding="utf-8")
+        floating = (QML / "shell/windows/FloatingWindow.qml").read_text(encoding="utf-8")
         main = (QML / "Main.qml").read_text(encoding="utf-8")
-        sizing = (QML / "WindowSizing.qml").read_text(encoding="utf-8")
+        sizing = (QML / "tactic_frame/shell/window.sizing.mjs").read_text(encoding="utf-8")
         self.assertIn("Item {", content)
         self.assertNotIn("FramelessWindowHint", content)
         self.assertNotIn("Window {", content)
@@ -494,8 +494,8 @@ class UiStructureTests(unittest.TestCase):
         self.assertIn('root.kind === "error"', floating)
         self.assertIn('windowModel.show_window("error")', main)
         self.assertNotIn("    ErrorDialog {", main)
-        self.assertIn('"error": 560', sizing)
-        self.assertIn('"error": 400', sizing)
+        self.assertIn('error: 560', sizing)
+        self.assertIn('error: 400', sizing)
 
     def test_quick_filter_editor_uses_owned_modal_window_host(self):
         windows = {
@@ -520,8 +520,8 @@ class UiStructureTests(unittest.TestCase):
         content = (QML / "QuickFilterEditorView.qml").read_text(
             encoding="utf-8"
         )
-        host = (QML / "FloatingWindow.qml").read_text(encoding="utf-8")
-        sizing = (QML / "WindowSizing.qml").read_text(encoding="utf-8")
+        host = (QML / "shell/windows/FloatingWindow.qml").read_text(encoding="utf-8")
+        sizing = (QML / "tactic_frame/shell/window.sizing.mjs").read_text(encoding="utf-8")
 
         self.assertIn(
             'windowModel.show_window("quick_filter_editor")', search
@@ -536,8 +536,8 @@ class UiStructureTests(unittest.TestCase):
         self.assertNotIn("quickFilterEditorController.begin_session()", host)
         self.assertNotIn("quickFilterEditorController.discard()", host)
         self.assertNotIn("Component.onCompleted:", content)
-        self.assertIn('"quick_filter_editor": 620', sizing)
-        self.assertIn('"quick_filter_editor": 520', sizing)
+        self.assertIn('quick_filter_editor: 620', sizing)
+        self.assertIn('quick_filter_editor: 520', sizing)
 
     def test_script_editor_reuses_workspace_tabs_and_semantic_icons(self):
         script_editor = (QML / "ScriptEditorView.qml").read_text(
@@ -669,7 +669,7 @@ class UiStructureTests(unittest.TestCase):
         combo = (QML / "controls" / "ComboBox.qml").read_text(
             encoding="utf-8"
         )
-        dock_panel = (QML / "DockPanel.qml").read_text(encoding="utf-8")
+        dock_panel = (QML / "shell/docks/DockPanel.qml").read_text(encoding="utf-8")
         handler = (
             ROOT / "thlib" / "ui" / "handler_server_controller.py"
         ).read_text(encoding="utf-8")
@@ -755,9 +755,9 @@ class UiStructureTests(unittest.TestCase):
         )
         self.assertEqual((window.width, window.height), (.26, .50))
 
-        sizing = (QML / "WindowSizing.qml").read_text(encoding="utf-8")
-        self.assertEqual(sizing.count('"process_filter_editor": 440'), 1)
-        self.assertEqual(sizing.count('"process_filter_editor": 360'), 1)
+        sizing = (QML / "tactic_frame/shell/window.sizing.mjs").read_text(encoding="utf-8")
+        self.assertEqual(sizing.count('process_filter_editor: 440'), 1)
+        self.assertEqual(sizing.count('process_filter_editor: 360'), 1)
 
     def test_result_tools_and_saved_search_picker_live_with_search_tabs(self):
         source = (QML / "SearchWorkspaceView.qml").read_text(
@@ -917,11 +917,7 @@ class UiStructureTests(unittest.TestCase):
         self.assertIn(
             "spacing: resultsToolbar.narrow ? 4 : 8", footer
         )
-        self.assertIn(
-            "text: resultsToolbar.narrow\n"
-            "                        ? String(appController.result_count)",
-            footer,
-        )
+        self.assertRegex(footer, r"text: resultsToolbar\.narrow\s*\? String\(appController\.result_count\)")
         self.assertIn('objectName: "searchCreateItemButton"', footer)
         self.assertIn("Layout.maximumWidth: 40", footer)
         self.assertIn(
@@ -944,7 +940,7 @@ class UiStructureTests(unittest.TestCase):
         drawer_source = (QML / "NavigationDrawer.qml").read_text(
             encoding="utf-8"
         )
-        for name in ("NavigationDrawer.qml", "SidebarEditorView.qml"):
+        for name in ("NavigationDrawer.qml", "features/administration/sidebar/SidebarEditorView.qml"):
             source = (QML / name).read_text(encoding="utf-8")
             self.assertIn("SidebarTreeRow {", source)
 
@@ -960,7 +956,7 @@ class UiStructureTests(unittest.TestCase):
         self.assertIn("onWheel: wheel => wheel.accepted = true", drawer_source)
 
     def test_dock_content_registry_only_routes_feature_views(self):
-        registry = (QML / "DockContentRegistry.qml").read_text(
+        registry = (QML / "shell/docks/DockContentRegistry.qml").read_text(
             encoding="utf-8"
         )
         self.assertLess(len(registry.splitlines()), 600)
@@ -981,7 +977,7 @@ class UiStructureTests(unittest.TestCase):
         surface = (QML / "SearchResultSurface.qml").read_text(
             encoding="utf-8"
         )
-        dock_panel = (QML / "DockPanel.qml").read_text(encoding="utf-8")
+        dock_panel = (QML / "shell/docks/DockPanel.qml").read_text(encoding="utf-8")
 
         self.assertIn("surfacesModel: workspaceResultSurfacesModel", search)
         pane = (QML / "SearchResultsPane.qml").read_text(encoding="utf-8")
@@ -999,8 +995,8 @@ class UiStructureTests(unittest.TestCase):
         self.assertIn("searchTabsView.dragSourceIndex >= 0", search)
         self.assertIn("opacity: modelVisible ? 1 : 0", dock_panel)
     def test_dock_host_only_owns_layout_and_routes_content(self):
-        host = (QML / "DockHost.qml").read_text(encoding="utf-8")
-        panel = (QML / "DockPanel.qml").read_text(encoding="utf-8")
+        host = (QML / "shell/docks/DockHost.qml").read_text(encoding="utf-8")
+        panel = (QML / "shell/docks/DockPanel.qml").read_text(encoding="utf-8")
         self.assertLess(len(host.splitlines()), 600)
         self.assertIn("DockContentRegistry", host)
         self.assertNotIn("TaskDockView", host)
@@ -1022,15 +1018,15 @@ class UiStructureTests(unittest.TestCase):
             "onPressed: dockModel.raise_panel(root.panelId)", panel
         )
 
-        window_host = (QML / "WindowHost.qml").read_text(
+        window_host = (QML / "shell/windows/WindowHost.qml").read_text(
             encoding="utf-8"
         )
         self.assertIn("model: visibleWindowModel", window_host)
         self.assertNotIn("model: windowModel", window_host)
 
     def test_knowledge_dock_and_workspace_menu_share_book_icon(self):
-        panel = (QML / "DockPanel.qml").read_text(encoding="utf-8")
-        menu = (QML / "DockMenu.qml").read_text(encoding="utf-8")
+        panel = (QML / "shell/docks/DockPanel.qml").read_text(encoding="utf-8")
+        menu = (QML / "shell/docks/DockMenu.qml").read_text(encoding="utf-8")
         help_view = (QML / "HelpView.qml").read_text(encoding="utf-8")
         knowledge_help = (
             QML.parent / "help_articles" / "dock.knowledge.en.md"
@@ -1106,9 +1102,9 @@ class UiStructureTests(unittest.TestCase):
             "MessageReactionChip.qml",
             "SidebarTreeRow.qml",
             "AttachmentCard.qml",
-            "ColumnsEditorView.qml",
+            "features/administration/columns/ColumnsEditorView.qml",
             "SearchWorkspaceView.qml",
-            "DockPanel.qml",
+            "shell/docks/DockPanel.qml",
             "MessageForwardPreview.qml",
             "MessageReplyPreview.qml",
             "MessagesView.qml",
@@ -1163,7 +1159,7 @@ class UiStructureTests(unittest.TestCase):
         self.assertNotIn("self.reload()", presets_init)
         self.assertIn(
             "columnsEditorController.load_definition_catalog(projectCode)",
-            (QML / "ColumnsEditorView.qml").read_text(encoding="utf-8"),
+            (QML / "features/administration/columns/ColumnsEditorView.qml").read_text(encoding="utf-8"),
         )
         self.assertIn(
             "serverPresetsController.begin_session()",
@@ -1190,14 +1186,12 @@ class UiStructureTests(unittest.TestCase):
         self.assertNotIn("if (!root.visible)", advanced)
 
     def test_commit_queue_dock_uses_its_own_header(self):
-        source = (QML / "DockPanel.qml").read_text(encoding="utf-8")
-        self.assertIn(
-            'kind === "results" || kind === "commit_queue"', source
-        )
-        self.assertIn(
-            "height: root.headerlessSinglePanel ? 0", source
-        )
-        host = (QML / "DockHost.qml").read_text(encoding="utf-8")
+        source = (QML / "shell/docks/DockPanel.qml").read_text(encoding="utf-8")
+        shared = (QML / "tactic_frame/shell/dock_chrome.ui.mjs").read_text(encoding="utf-8")
+        self.assertIn("model.kind === 'commit_queue' && capabilities.queueOwnChrome", shared)
+        self.assertIn("queueOwnChrome: true", source)
+        self.assertIn("height: root.chrome.height", source)
+        host = (QML / "shell/docks/DockHost.qml").read_text(encoding="utf-8")
         self.assertIn(
             'target.kind !== "commit_queue"', host)
 
@@ -1221,9 +1215,9 @@ class UiStructureTests(unittest.TestCase):
         top_bar = source.split("id: topAppBar", 1)[1].split(
             "id: workspaceLayer", 1
         )[0]
-        self.assertIn("height: 44", top_bar)
-        self.assertIn("controlExtent: 36", top_bar)
-        self.assertIn("controlSurfaceExtent: 32", top_bar)
+        self.assertIn("height: composition.height", top_bar)
+        self.assertIn("controlExtent: MainToolbar.dimensions.controlExtent", top_bar)
+        self.assertIn("controlSurfaceExtent: MainToolbar.dimensions.surfaceExtent", top_bar)
         self.assertIn("height: topAppBar.height", top_bar)
         self.assertNotIn("expansionProgress", top_bar)
         self.assertNotIn("topAppBarHover", top_bar)
@@ -1236,9 +1230,9 @@ class UiStructureTests(unittest.TestCase):
         self.assertIn("dockModel.minimumHostWidth + sectionRail.width", source)
         self.assertIn('sizing.windowMinimumHeight("main")', source)
         self.assertIn("dockModel.minimumHostHeight + topAppBar.height", source)
-        sizing = (QML / "WindowSizing.qml").read_text(encoding="utf-8")
-        self.assertIn('"main": 560', sizing)
-        self.assertIn('"main": 480', sizing)
+        sizing = (QML / "tactic_frame/shell/window.sizing.mjs").read_text(encoding="utf-8")
+        self.assertIn('main: 560', sizing)
+        self.assertIn('main: 480', sizing)
 
     def test_main_window_clamps_native_geometry_before_persistence(self):
         source = (QML / "Main.qml").read_text(encoding="utf-8")
@@ -1255,7 +1249,7 @@ class UiStructureTests(unittest.TestCase):
 
     def test_notifications_use_an_independent_custom_toast_window(self):
         main = (QML / "Main.qml").read_text(encoding="utf-8")
-        toast = (QML / "NotificationToastWindow.qml").read_text(
+        toast = (QML / "shell/windows/NotificationToastWindow.qml").read_text(
             encoding="utf-8"
         )
         tray = (ROOT / "thlib" / "ui" / "tray.py").read_text(
@@ -1348,7 +1342,7 @@ class UiStructureTests(unittest.TestCase):
         knowledge = (QML / "KnowledgeBaseView.qml").read_text(
             encoding="utf-8"
         )
-        dock_panel = (QML / "DockPanel.qml").read_text(encoding="utf-8")
+        dock_panel = (QML / "shell/docks/DockPanel.qml").read_text(encoding="utf-8")
 
         self.assertIn("Controls.DockWorkspaceFooter {", knowledge)
         self.assertIn('objectName: "knowledgeDockSurface"', knowledge)

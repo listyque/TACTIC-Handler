@@ -144,12 +144,12 @@ class LocalizationTests(unittest.TestCase):
         self.assertEqual(catalog["Task Manager"], "Диспетчер задач")
 
         dock_host = (
-            self._ROOT / "thlib" / "ui" / "qml" / "DockHost.qml"
+            self._ROOT / "thlib" / "ui" / "qml" / "shell/docks/DockHost.qml"
         ).read_text(encoding="utf-8")
         self.assertIn('qsTr("Tasks for:")', dock_host)
 
         dock_menu = (
-            self._ROOT / "thlib" / "ui" / "qml" / "DockMenu.qml"
+            self._ROOT / "thlib" / "ui" / "qml" / "shell/docks/DockMenu.qml"
         ).read_text(encoding="utf-8")
         self.assertIn('panel.kind === "tasks"', dock_menu)
         self.assertIn('qsTr("Task Manager")', dock_menu)

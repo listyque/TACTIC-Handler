@@ -566,7 +566,6 @@ Rectangle {
 
         Controls.ResizeGripVisual {
             objectName: "resultsSplitterGripVisual"
-            anchors.centerIn: parent
             theme: root.theme
             vertical: root.splitRight
             hovered: dividerMouse.containsMouse

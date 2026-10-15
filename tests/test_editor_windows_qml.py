@@ -177,7 +177,7 @@ ApplicationWindow {
     def test_restored_window_is_recovered_from_disconnected_screen(self):
         self.enterContext(patch.dict(
             self.application.window_model._content_sources,
-            {'help': 'UnregisteredWindow.qml'},
+            {'help': 'shell/windows/UnregisteredWindow.qml'},
         ))
         self.application.window_model.set_geometry(
             'help', 1654, 1158, 832, 539,

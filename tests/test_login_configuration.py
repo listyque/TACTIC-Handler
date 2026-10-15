@@ -359,7 +359,7 @@ class LoginConfigurationTests(unittest.TestCase):
         login = (root / "thlib/ui/qml/LoginDialog.qml").read_text(
             encoding="utf-8"
         )
-        floating = (root / "thlib/ui/qml/FloatingWindow.qml").read_text(
+        floating = (root / "thlib/ui/qml/shell/windows/FloatingWindow.qml").read_text(
             encoding="utf-8"
         )
 

@@ -27,11 +27,12 @@ class TypographyPolicyTests(unittest.TestCase):
         )
 
     def test_typography_scale_has_readable_96_dpi_floor(self) -> None:
-        source = (QML_ROOT / "Typography.js").read_text(encoding="utf-8")
+        source = (QML_ROOT / "tactic_frame/core/foundation.mjs").read_text(encoding="utf-8")
+        source = source.split("export const typography = {", 1)[1].split("};", 1)[0]
         values = {
             name: float(value)
             for name, value in re.findall(
-                r"var\s+(micro|caption|label|body|bodyLarge)\s*=\s*([0-9.]+)",
+                r"\b(micro|caption|label|body|bodyLarge)\s*:\s*([0-9.]+)",
                 source,
             )
         }
@@ -47,7 +48,7 @@ class TypographyPolicyTests(unittest.TestCase):
         self.assertIn("TextRenderType.QtTextRendering", source)
         self.assertNotIn("TextRenderType.NativeTextRendering", source)
 
-        dock_source = (QML_ROOT / "DockPanel.qml").read_text(encoding="utf-8")
+        dock_source = (QML_ROOT / "shell/docks/DockPanel.qml").read_text(encoding="utf-8")
         self.assertNotIn("layer.enabled:", dock_source)
         self.assertNotIn("layer.effect:", dock_source)
         self.assertNotIn("Qt5Compat.GraphicalEffects", dock_source)

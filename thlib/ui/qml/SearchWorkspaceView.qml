@@ -3,23 +3,22 @@ import QtQuick.Controls
 import QtQuick.Layouts
 import QtQuick.Window
 import "controls" as Controls
+import "tactic_frame/controls/tabs/tab_layout.mjs" as TabLayout
+
 Item {
     id: root
     required property var theme
     required property string pageTitle
-    property var columnsController: typeof columnsEditorController !== "undefined"
-        ? columnsEditorController : null
+    property var columnsController: typeof columnsEditorController !== "undefined" ? columnsEditorController : null
     property var shelfController: sidebarEditorController.scriptShelf
     property bool shelfOpen: false
     signal requestDockMenu(var sourceItem)
-    readonly property bool presentationActive:
-        parent ? parent.visible : visible
+    readonly property bool presentationActive: parent ? parent.visible : visible
     readonly property bool compactTabActions: width < 720
     readonly property var activeResultSurface: resultsArea.activeResultSurface
     property var lastTabTiming: ({})
     property bool tabTimingVisible: false
     property bool tabTimingMeasuring: false
-
 
     Component.onCompleted: appController.restore_current_result_viewport()
 
@@ -27,33 +26,26 @@ Item {
         target: appController
 
         function onResult_viewport_capture_requested() {
-            const surface = root.activeResultSurface
+            const surface = root.activeResultSurface;
             // Reading retained coordinates is also needed after the window
             // hides, just before teardown; it does not render hidden content.
             if (surface) {
-                appController.capture_current_result_viewport(
-                    surface.listContentY, surface.tileContentY
-                )
+                appController.capture_current_result_viewport(surface.listContentY, surface.tileContentY);
             }
         }
 
-        function onResult_viewport_restore_requested(
-            listContentY, tileContentY, listValid, tileValid
-        ) {
-            const surface = root.activeResultSurface
+        function onResult_viewport_restore_requested(listContentY, tileContentY, listValid, tileValid) {
+            const surface = root.activeResultSurface;
             if (surface) {
-                surface.restoreContentY(
-                    listContentY, tileContentY, listValid, tileValid
-                )
+                surface.restoreContentY(listContentY, tileContentY, listValid, tileValid);
             }
         }
 
         function onResult_node_reveal_requested(nodeId) {
-            const surface = root.activeResultSurface
+            const surface = root.activeResultSurface;
             if (surface)
-                surface.revealNode(nodeId)
+                surface.revealNode(nodeId);
         }
-
     }
 
     Connections {
@@ -61,24 +53,23 @@ Item {
         enabled: root.presentationActive && target.recording
 
         function onChanged() {
-            const monitor = appController.search_tab_switch_monitor
-            const metrics = monitor.metrics || {}
+            const monitor = appController.search_tab_switch_monitor;
+            const metrics = monitor.metrics || {};
             if (monitor.switching) {
-                root.lastTabTiming = metrics
-                root.tabTimingMeasuring = true
-                root.tabTimingVisible = true
-                tabTimingHideTimer.stop()
-                return
+                root.lastTabTiming = metrics;
+                root.tabTimingMeasuring = true;
+                root.tabTimingVisible = true;
+                tabTimingHideTimer.stop();
+                return;
             }
-            if (metrics.firstFrameMs === undefined)
-            {
-                root.tabTimingVisible = false
-                return
+            if (metrics.firstFrameMs === undefined) {
+                root.tabTimingVisible = false;
+                return;
             }
-            root.lastTabTiming = metrics
-            root.tabTimingMeasuring = false
-            root.tabTimingVisible = true
-            tabTimingHideTimer.restart()
+            root.lastTabTiming = metrics;
+            root.tabTimingMeasuring = false;
+            root.tabTimingVisible = true;
+            tabTimingHideTimer.restart();
         }
     }
 
@@ -90,31 +81,29 @@ Item {
     }
 
     function timingMs(name) {
-        const value = Number(root.lastTabTiming[name] || 0)
-        return (Math.round(value * 10) / 10).toFixed(1)
+        const value = Number(root.lastTabTiming[name] || 0);
+        return (Math.round(value * 10) / 10).toFixed(1);
     }
 
     function resultViewIcon(mode) {
         if (mode === "tiles")
-            return "dashboard"
+            return "dashboard";
         if (mode === "compact")
-            return "view-list"
+            return "view-list";
         if (mode === "table")
-            return "table"
+            return "table";
         if (mode === "splitted_vertical")
-            return "columns"
+            return "columns";
         if (mode === "splitted_horizontal")
-            return "align-justify"
-        return "list-alt"
+            return "align-justify";
+        return "list-alt";
     }
 
     Controls.ActivationHandler {
         onPressedChanged: {
             if (!pressed || !root.activeResultSurface)
-                return
-            root.activeResultSurface.handleOutsidePress(
-                root, point.position.x, point.position.y
-            )
+                return;
+            root.activeResultSurface.handleOutsidePress(root, point.position.x, point.position.y);
         }
     }
 
@@ -161,10 +150,8 @@ Item {
             controller: appController
             openSuggestionsInNewTab: true
             placeholderText: {
-                var scope = root.pageTitle.split("/")[0].trim()
-                return scope.length > 0
-                    ? qsTr("Search ") + qsTr(scope).toLowerCase()
-                    : qsTr("Search")
+                var scope = root.pageTitle.split("/")[0].trim();
+                return scope.length > 0 ? qsTr("Search ") + qsTr(scope).toLowerCase() : qsTr("Search");
             }
         }
         Controls.CompactIconButton {
@@ -178,16 +165,14 @@ Item {
             visible: !root.compactTabActions && Boolean(root.shelfController)
             theme: root.theme
             iconName: "code"
-            iconColor: root.shelfOpen
-                ? root.theme.action : root.theme.primaryText
-            backgroundColor: root.shelfOpen
-                ? root.theme.secondaryContainer : "transparent"
+            iconColor: root.shelfOpen ? root.theme.action : root.theme.primaryText
+            backgroundColor: root.shelfOpen ? root.theme.secondaryContainer : "transparent"
             round: true
             toolTip: qsTr("Script shelf")
             onClicked: {
-                root.shelfOpen = !root.shelfOpen
-                quickFilterPopup.close()
-                tagCloudPopup.close()
+                root.shelfOpen = !root.shelfOpen;
+                quickFilterPopup.close();
+                tagCloudPopup.close();
             }
         }
         Controls.CompactIconButton {
@@ -201,22 +186,17 @@ Item {
             visible: !root.compactTabActions
             theme: root.theme
             iconName: "tags"
-            iconColor: tagCloudPopup.opened
-                || appController.active_tag_count > 0
-                ? root.theme.action : root.theme.primaryText
-            backgroundColor: tagCloudPopup.opened
-                ? root.theme.secondaryContainer : "transparent"
+            iconColor: tagCloudPopup.opened || appController.active_tag_count > 0 ? root.theme.action : root.theme.primaryText
+            backgroundColor: tagCloudPopup.opened ? root.theme.secondaryContainer : "transparent"
             round: true
             toolTip: qsTr("Tags")
-            onPressed:
-                tagCloudPopup.sourceWasOpen = tagCloudPopup.opened
+            onPressed: tagCloudPopup.sourceWasOpen = tagCloudPopup.opened
             onClicked: {
-                const opening = !tagCloudPopup.sourceWasOpen
-                    && !tagCloudPopup.opened
-                quickFilterPopup.close()
+                const opening = !tagCloudPopup.sourceWasOpen && !tagCloudPopup.opened;
+                quickFilterPopup.close();
                 if (opening)
-                    appController.request_tag_cloud(false)
-                tagCloudPopup.toggleBelow(tagCloudButton)
+                    appController.request_tag_cloud(false);
+                tagCloudPopup.toggleBelow(tagCloudButton);
             }
 
             Rectangle {
@@ -252,22 +232,17 @@ Item {
             enabled: true
             theme: root.theme
             iconName: "filter"
-            iconColor: quickFilterPopup.opened
-                || appController.active_quick_filter_count > 0
-                ? root.theme.action : root.theme.primaryText
-            backgroundColor: quickFilterPopup.opened
-                ? root.theme.secondaryContainer : "transparent"
+            iconColor: quickFilterPopup.opened || appController.active_quick_filter_count > 0 ? root.theme.action : root.theme.primaryText
+            backgroundColor: quickFilterPopup.opened ? root.theme.secondaryContainer : "transparent"
             round: true
             toolTip: qsTr("Quick filters")
-            onPressed:
-                quickFilterPopup.sourceWasOpen
-                    = quickFilterPopup.opened
+            onPressed: quickFilterPopup.sourceWasOpen = quickFilterPopup.opened
             onClicked: {
-                const opening = !quickFilterPopup.sourceWasOpen && !quickFilterPopup.opened
-                tagCloudPopup.close()
+                const opening = !quickFilterPopup.sourceWasOpen && !quickFilterPopup.opened;
+                tagCloudPopup.close();
                 if (opening)
-                    appController.request_quick_filter_data(false)
-                quickFilterPopup.toggleBelow(quickFilterButton)
+                    appController.request_quick_filter_data(false);
+                quickFilterPopup.toggleBelow(quickFilterButton);
             }
 
             Rectangle {
@@ -318,18 +293,16 @@ Item {
             theme: root.theme
             iconName: "more-vert"
             round: true
-            toolTip: root.compactTabActions
-                ? qsTr("More search actions") : qsTr("Workspace panels")
-            onPressed: searchHeaderOverflowMenu.sourceWasOpen
-                = searchHeaderOverflowMenu.opened
+            toolTip: root.compactTabActions ? qsTr("More search actions") : qsTr("Workspace panels")
+            onPressed: searchHeaderOverflowMenu.sourceWasOpen = searchHeaderOverflowMenu.opened
             onClicked: {
                 if (!root.compactTabActions) {
-                    root.requestDockMenu(searchGear)
-                    return
+                    root.requestDockMenu(searchGear);
+                    return;
                 }
-                quickFilterPopup.close()
-                tagCloudPopup.close()
-                searchHeaderOverflowMenu.toggleBelow(searchGear)
+                quickFilterPopup.close();
+                tagCloudPopup.close();
+                searchHeaderOverflowMenu.toggleBelow(searchGear);
             }
         }
     }
@@ -339,29 +312,50 @@ Item {
         parent: Overlay.overlay
         theme: root.theme
         actions: [
-            { "title": "Refresh current results", "icon": "refresh", "command": "refresh" },
-            { "title": "Script shelf", "icon": "code", "command": "shelf",
-              "visible": Boolean(root.shelfController), "checked": root.shelfOpen },
-            { "title": "Tags", "icon": "tags", "command": "tags",
-              "badgeCount": appController.active_tag_count },
-            { "title": "Help", "icon": "help", "command": "help" },
-            { "title": "Workspace panels", "icon": "more-vert", "command": "panels" }
+            {
+                "title": "Refresh current results",
+                "icon": "refresh",
+                "command": "refresh"
+            },
+            {
+                "title": "Script shelf",
+                "icon": "code",
+                "command": "shelf",
+                "visible": Boolean(root.shelfController),
+                "checked": root.shelfOpen
+            },
+            {
+                "title": "Tags",
+                "icon": "tags",
+                "command": "tags",
+                "badgeCount": appController.active_tag_count
+            },
+            {
+                "title": "Help",
+                "icon": "help",
+                "command": "help"
+            },
+            {
+                "title": "Workspace panels",
+                "icon": "more-vert",
+                "command": "panels"
+            }
         ]
-        onTriggered: function(command) {
+        onTriggered: function (command) {
             if (command === "refresh")
-                appController.refresh_current()
+                appController.refresh_current();
             else if (command === "shelf") {
-                root.shelfOpen = !root.shelfOpen
-                quickFilterPopup.close()
-                tagCloudPopup.close()
+                root.shelfOpen = !root.shelfOpen;
+                quickFilterPopup.close();
+                tagCloudPopup.close();
             } else if (command === "tags") {
-                quickFilterPopup.close()
-                appController.request_tag_cloud(false)
-                tagCloudPopup.openBelow(searchGear)
+                quickFilterPopup.close();
+                appController.request_tag_cloud(false);
+                tagCloudPopup.openBelow(searchGear);
             } else if (command === "help")
-                windowModel.open_help("search")
+                windowModel.open_help("search");
             else if (command === "panels")
-                root.requestDockMenu(searchGear)
+                root.requestDockMenu(searchGear);
         }
     }
     SearchQuickFilterPopup {
@@ -413,7 +407,6 @@ Item {
             anchors.rightMargin: 4
             spacing: 2
 
-
             Controls.CompactIconButton {
                 id: addSearchTabButton
                 Layout.preferredWidth: 40
@@ -423,8 +416,8 @@ Item {
                 round: true
                 toolTip: qsTr("Add new search tab")
                 onClicked: {
-                    workspaceState.add_search_tab()
-                    searchField.beginSearchInput()
+                    workspaceState.add_search_tab();
+                    searchField.beginSearchInput();
                 }
             }
             Controls.CompactIconButton {
@@ -447,72 +440,73 @@ Item {
                 property var naturalWidths: ({})
                 property int nextNaturalWidthToken: 0
                 readonly property real naturalContentWidth: {
-                    let total = 0
-                    const keys = Object.keys(naturalWidths)
+                    let total = 0;
+                    const keys = Object.keys(naturalWidths);
                     for (let i = 0; i < keys.length; ++i)
-                        total += Number(naturalWidths[keys[i]].width) || 0
-                    return total
+                        total += Number(naturalWidths[keys[i]].width) || 0;
+                    return total;
                 }
                 readonly property real activeNaturalWidth: {
-                    const keys = Object.keys(naturalWidths)
+                    const keys = Object.keys(naturalWidths);
                     for (let i = 0; i < keys.length; ++i) {
-                        const entry = naturalWidths[keys[i]]
+                        const entry = naturalWidths[keys[i]];
                         if (entry.current)
-                            return Number(entry.width) || 0
+                            return Number(entry.width) || 0;
                     }
-                    return 0
+                    return 0;
                 }
                 function allocateNaturalWidthToken() {
-                    nextNaturalWidthToken += 1
-                    return nextNaturalWidthToken
+                    nextNaturalWidthToken += 1;
+                    return nextNaturalWidthToken;
                 }
                 function registerNaturalWidth(key, value, token, current) {
-                    const widths = Object.assign({}, naturalWidths)
+                    const widths = Object.assign({}, naturalWidths);
                     widths[key] = {
                         "width": value,
                         "token": token,
                         "current": current
-                    }
-                    naturalWidths = widths
+                    };
+                    naturalWidths = widths;
                 }
                 function unregisterNaturalWidth(key, token) {
-                    if (naturalWidths[key] === undefined
-                            || naturalWidths[key].token !== token)
-                        return
-                    const widths = Object.assign({}, naturalWidths)
-                    delete widths[key]
-                    naturalWidths = widths
+                    if (naturalWidths[key] === undefined || naturalWidths[key].token !== token)
+                        return;
+                    const widths = Object.assign({}, naturalWidths);
+                    delete widths[key];
+                    naturalWidths = widths;
                 }
                 function schedulePositionAtIndex(row) {
-                    const stableRow = Number(row)
+                    const stableRow = Number(row);
                     if (stableRow >= 0 && stableRow < count)
-                        positionViewAtIndex(stableRow, ListView.Contain)
+                        positionViewAtIndex(stableRow, ListView.Contain);
                 }
                 function allTabActions() {
                     const actions = [
-                        { "title": "Open search tabs", "header": true }
-                    ]
+                        {
+                            "title": "Open search tabs",
+                            "header": true
+                        }
+                    ];
                     for (let i = 0; i < count; ++i) {
-                        const record = workspaceTabsModel.get(i)
+                        const record = workspaceTabsModel.get(i);
                         actions.push({
                             "title": record.title || "Search tab",
                             "icon": "tab",
                             "command": "tab:" + i,
                             "checked": !!record.current,
-                            "secondaryCommand": record.closable
-                                ? "close-tab:" + i : "",
+                            "secondaryCommand": record.closable ? "close-tab:" + i : "",
                             "secondaryIcon": "close",
                             "secondaryToolTip": "Close search tab"
-                        })
+                        });
                     }
-                    return actions
+                    return actions;
                 }
                 function revealTab(index) {
-                    const record = workspaceTabsModel.get(index)
+                    const record = workspaceTabsModel.get(index);
                     if (!record || !record.entryKey)
-                        return
-                    workspaceState.activate_tab(record.entryKey, record.title || "")
-                    positionViewAtIndex(index, ListView.Contain)
+                        return;
+                    workspaceState.activate_tab(record.entryKey, record.title || "");
+                    positionViewAtIndex(index, ListView.Contain);
                 }
                 Layout.fillWidth: true
                 Layout.fillHeight: true
@@ -534,54 +528,19 @@ Item {
                     required property bool current
                     property int dragTargetIndex: index
                     property int naturalWidthToken: 0
-                    readonly property real minimumTabWidth:
-                        root.compactTabActions ? 84 : 96
-                    readonly property bool showClose:
-                        closable && (!root.compactTabActions || current)
-                    readonly property real idealTabWidth:
-                        tabVisual.labelImplicitWidth + (showClose ? 64 : 32)
-                    readonly property real naturalTabWidth: Math.max(
-                        minimumTabWidth,
-                        root.compactTabActions
-                            ? Math.min(180, idealTabWidth) : idealTabWidth
-                    )
-                    readonly property real fittedTabWidth: {
-                        const available = searchTabsView.width
-                        const naturalTotal = searchTabsView.naturalContentWidth
-                        const minimumTotal = searchTabsView.count * minimumTabWidth
-                        if (naturalTotal <= available || naturalTotal <= minimumTotal)
-                            return naturalTabWidth
-                        if (current)
-                            return naturalTabWidth
-                        const activeWidth = searchTabsView.activeNaturalWidth
-                        const inactiveCount = Math.max(0, searchTabsView.count - 1)
-                        const inactiveMinimumTotal = inactiveCount * minimumTabWidth
-                        const inactiveNaturalTotal = Math.max(
-                            inactiveMinimumTotal,
-                            naturalTotal - activeWidth
-                        )
-                        const inactiveAvailable = available - activeWidth
-                        if (inactiveAvailable <= inactiveMinimumTotal)
-                            return minimumTabWidth
-                        const ratio = (inactiveAvailable - inactiveMinimumTotal)
-                            / (inactiveNaturalTotal - inactiveMinimumTotal)
-                        return minimumTabWidth
-                            + (naturalTabWidth - minimumTabWidth) * ratio
-                    }
-                    property real displacedX: {
-                        if (searchTabsView.dragSourceIndex < 0
-                                || searchTabsView.dragTargetIndex < 0)
-                            return 0
-                        if (searchTabsView.dragSourceIndex < searchTabsView.dragTargetIndex
-                                && index > searchTabsView.dragSourceIndex
-                                && index <= searchTabsView.dragTargetIndex)
-                            return -searchTabsView.draggedTabWidth
-                        if (searchTabsView.dragSourceIndex > searchTabsView.dragTargetIndex
-                                && index >= searchTabsView.dragTargetIndex
-                                && index < searchTabsView.dragSourceIndex)
-                            return searchTabsView.draggedTabWidth
-                        return 0
-                    }
+                    readonly property real minimumTabWidth: root.compactTabActions ? 84 : 96
+                    readonly property bool showClose: closable && (!root.compactTabActions || current)
+                    readonly property real idealTabWidth: tabVisual.labelImplicitWidth + (showClose ? 64 : 32)
+                    readonly property real naturalTabWidth: Math.max(minimumTabWidth, root.compactTabActions ? Math.min(180, idealTabWidth) : idealTabWidth)
+                    readonly property real fittedTabWidth: TabLayout.fitTabWidth(naturalTabWidth, current, {
+                        available: searchTabsView.width,
+                        total: searchTabsView.naturalContentWidth,
+                        count: searchTabsView.count,
+                        activeWidth: searchTabsView.activeNaturalWidth,
+                        activeCount: 1,
+                        minimum: minimumTabWidth
+                    })
+                    property real displacedX: TabLayout.displacedTabOffset(index, searchTabsView.dragSourceIndex, searchTabsView.dragTargetIndex, searchTabsView.draggedTabWidth)
 
                     width: fittedTabWidth
                     height: searchTabsView.height
@@ -591,31 +550,29 @@ Item {
                     transform: Translate {
                         x: tabDrag.active ? tabDrag.translation.x : searchTab.displacedX
                         Behavior on x {
-                            enabled: !tabDrag.active
-                                && searchTabsView.dragSourceIndex >= 0
-                            NumberAnimation { duration: theme.motionMedium; easing.type: Easing.OutCubic }
+                            enabled: !tabDrag.active && searchTabsView.dragSourceIndex >= 0
+                            NumberAnimation {
+                                duration: theme.motionMedium
+                                easing.type: Easing.OutCubic
+                            }
                         }
                     }
-                    Behavior on scale { NumberAnimation { duration: theme.motionFast } }
+                    Behavior on scale {
+                        NumberAnimation {
+                            duration: theme.motionFast
+                        }
+                    }
 
                     Component.onCompleted: {
-                        naturalWidthToken = searchTabsView.allocateNaturalWidthToken()
-                        searchTabsView.registerNaturalWidth(
-                            entryKey, naturalTabWidth, naturalWidthToken, current
-                        )
+                        naturalWidthToken = searchTabsView.allocateNaturalWidthToken();
+                        searchTabsView.registerNaturalWidth(entryKey, naturalTabWidth, naturalWidthToken, current);
                     }
-                    Component.onDestruction: searchTabsView.unregisterNaturalWidth(
-                        entryKey, naturalWidthToken
-                    )
-                    onNaturalTabWidthChanged: searchTabsView.registerNaturalWidth(
-                        entryKey, naturalTabWidth, naturalWidthToken, current
-                    )
+                    Component.onDestruction: searchTabsView.unregisterNaturalWidth(entryKey, naturalWidthToken)
+                    onNaturalTabWidthChanged: searchTabsView.registerNaturalWidth(entryKey, naturalTabWidth, naturalWidthToken, current)
                     onCurrentChanged: {
-                        searchTabsView.registerNaturalWidth(
-                            entryKey, naturalTabWidth, naturalWidthToken, current
-                        )
+                        searchTabsView.registerNaturalWidth(entryKey, naturalTabWidth, naturalWidthToken, current);
                         if (current)
-                            searchTabsView.schedulePositionAtIndex(index)
+                            searchTabsView.schedulePositionAtIndex(index);
                     }
 
                     DragHandler {
@@ -625,30 +582,29 @@ Item {
                         yAxis.enabled: false
                         onTranslationChanged: {
                             if (!active)
-                                return
-                            var center = searchTab.x + searchTab.width / 2 + translation.x
-                            var target = searchTabsView.indexAt(center, searchTab.height / 2)
+                                return;
+                            var center = searchTab.x + searchTab.width / 2 + translation.x;
+                            var target = searchTabsView.indexAt(center, searchTab.height / 2);
                             if (target < 0)
-                                target = center < 0 ? 0 : searchTabsView.count - 1
-                            searchTab.dragTargetIndex = target
-                            searchTabsView.dragTargetIndex = target
+                                target = center < 0 ? 0 : searchTabsView.count - 1;
+                            searchTab.dragTargetIndex = target;
+                            searchTabsView.dragTargetIndex = target;
                         }
                         onActiveChanged: {
                             if (active) {
-                                searchTab.dragTargetIndex = searchTab.index
-                                searchTabsView.dragSourceIndex = searchTab.index
-                                searchTabsView.dragTargetIndex = searchTab.index
-                                searchTabsView.draggedTabWidth = searchTab.width
+                                searchTab.dragTargetIndex = searchTab.index;
+                                searchTabsView.dragSourceIndex = searchTab.index;
+                                searchTabsView.dragTargetIndex = searchTab.index;
+                                searchTabsView.draggedTabWidth = searchTab.width;
                             } else {
-                                const sourceIndex = searchTabsView.dragSourceIndex
-                                const targetIndex = searchTabsView.dragTargetIndex
-                                searchTabsView.dragSourceIndex = -1
-                                searchTabsView.dragTargetIndex = -1
-                                searchTabsView.draggedTabWidth = 0
-                                searchTab.dragTargetIndex = searchTab.index
-                                if (sourceIndex >= 0 && targetIndex >= 0
-                                        && sourceIndex !== targetIndex)
-                                    workspaceState.reorder_tab(sourceIndex, targetIndex)
+                                const sourceIndex = searchTabsView.dragSourceIndex;
+                                const targetIndex = searchTabsView.dragTargetIndex;
+                                searchTabsView.dragSourceIndex = -1;
+                                searchTabsView.dragTargetIndex = -1;
+                                searchTabsView.draggedTabWidth = 0;
+                                searchTab.dragTargetIndex = searchTab.index;
+                                if (sourceIndex >= 0 && targetIndex >= 0 && sourceIndex !== targetIndex)
+                                    workspaceState.reorder_tab(sourceIndex, targetIndex);
                             }
                         }
                     }
@@ -682,17 +638,14 @@ Item {
                         onClicked: mouse => {
                             if (mouse.button === Qt.MiddleButton) {
                                 if (searchTab.closable)
-                                    workspaceState.close_tab(searchTab.index)
-                                return
+                                    workspaceState.close_tab(searchTab.index);
+                                return;
                             }
-                            workspaceState.activate_tab(
-                                searchTab.entryKey, searchTab.title
-                            )
+                            workspaceState.activate_tab(searchTab.entryKey, searchTab.title);
                         }
                         Controls.ToolTip {
                             theme: root.theme
-                            visible: tabMouse.containsMouse
-                                && !root.theme.suppressToolTips
+                            visible: tabMouse.containsMouse && !root.theme.suppressToolTips
                             delay: 500
                             text: searchTab.title
                         }
@@ -712,8 +665,8 @@ Item {
                 toolTip: qsTr("All search tabs")
                 onPressed: tabOverflowMenu.sourceWasOpen = tabOverflowMenu.opened
                 onClicked: {
-                    tabOverflowMenu.actions = searchTabsView.allTabActions()
-                    tabOverflowMenu.toggleBelow(tabOverflowButton)
+                    tabOverflowMenu.actions = searchTabsView.allTabActions();
+                    tabOverflowMenu.toggleBelow(tabOverflowButton);
                 }
             }
 
@@ -731,11 +684,8 @@ Item {
                 Layout.preferredHeight: 40
                 theme: root.theme
                 iconName: "sort-items"
-                iconColor: resultMenus.sortOpened
-                    || appController.result_sort_mode !== "name_asc"
-                    ? root.theme.action : root.theme.primaryText
-                backgroundColor: resultMenus.sortOpened
-                    ? root.theme.secondaryContainer : "transparent"
+                iconColor: resultMenus.sortOpened || appController.result_sort_mode !== "name_asc" ? root.theme.action : root.theme.primaryText
+                backgroundColor: resultMenus.sortOpened ? root.theme.secondaryContainer : "transparent"
                 round: true
                 toolTip: qsTr("Sort items")
                 onClicked: resultMenus.openSort(resultSortButton)
@@ -747,11 +697,8 @@ Item {
                 Layout.preferredHeight: 40
                 theme: root.theme
                 iconName: "group-items"
-                iconColor: resultMenus.groupOpened
-                    || appController.result_group_mode !== "none"
-                    ? root.theme.action : root.theme.primaryText
-                backgroundColor: resultMenus.groupOpened
-                    ? root.theme.secondaryContainer : "transparent"
+                iconColor: resultMenus.groupOpened || appController.result_group_mode !== "none" ? root.theme.action : root.theme.primaryText
+                backgroundColor: resultMenus.groupOpened ? root.theme.secondaryContainer : "transparent"
                 round: true
                 toolTip: qsTr("Group items")
                 onClicked: resultMenus.openGroup(resultGroupButton)
@@ -762,13 +709,10 @@ Item {
                 Layout.preferredWidth: visible ? 40 : 0
                 Layout.preferredHeight: 40
                 theme: root.theme
-                iconName: root.resultViewIcon(
-                    appController.results_view_mode
-                )
+                iconName: root.resultViewIcon(appController.results_view_mode)
                 round: true
                 toolTip: qsTr("Change search results view")
-                onClicked:
-                    resultsViewMenu.openBelow(resultsViewButton)
+                onClicked: resultsViewMenu.openBelow(resultsViewButton)
             }
 
             Controls.CompactIconButton {
@@ -781,18 +725,13 @@ Item {
                 iconName: "more-vert"
                 round: true
                 toolTip: qsTr("Result actions")
-                onPressed: searchTabActionsMenu.sourceWasOpen
-                    = searchTabActionsMenu.opened
-                onClicked: searchTabActionsMenu.toggleBelow(
-                    searchTabActionsOverflowButton
-                )
+                onPressed: searchTabActionsMenu.sourceWasOpen = searchTabActionsMenu.opened
+                onClicked: searchTabActionsMenu.toggleBelow(searchTabActionsOverflowButton)
             }
 
             Item {
                 id: tabHistoryControl
-                readonly property int closedTabCount: Math.max(
-                    0, appController.closed_search_tabs.length - 2
-                )
+                readonly property int closedTabCount: Math.max(0, appController.closed_search_tabs.length - 2)
                 visible: closedTabCount > 0
                 Layout.preferredWidth: visible ? 40 : 0
                 Layout.preferredHeight: 40
@@ -805,19 +744,13 @@ Item {
                     theme: root.theme
                     iconName: "history"
                     round: true
-                    toolTip: enabled
-                        ? tabHistoryControl.closedTabCount
-                            + (tabHistoryControl.closedTabCount === 1
-                                ? qsTr(" recently closed search tab")
-                                : qsTr(" recently closed search tabs"))
-                        : qsTr("No recently closed search tabs")
-                    onPressed: tabHistoryMenu.sourceWasOpen
-                        = tabHistoryMenu.opened
-                    onClicked: tabHistoryMenu.toggleBelow(
-                        tabHistoryButton
-                    )
+                    toolTip: enabled ? tabHistoryControl.closedTabCount + (tabHistoryControl.closedTabCount === 1 ? qsTr(" recently closed search tab") : qsTr(" recently closed search tabs")) : qsTr("No recently closed search tabs")
+                    onPressed: tabHistoryMenu.sourceWasOpen = tabHistoryMenu.opened
+                    onClicked: tabHistoryMenu.toggleBelow(tabHistoryButton)
                     Behavior on opacity {
-                        NumberAnimation { duration: theme.motionFast }
+                        NumberAnimation {
+                            duration: theme.motionFast
+                        }
                     }
                 }
                 Rectangle {
@@ -837,8 +770,7 @@ Item {
                     Label {
                         id: badgeText
                         anchors.centerIn: parent
-                        text: tabHistoryControl.closedTabCount > 99
-                            ? "99+" : tabHistoryControl.closedTabCount
+                        text: tabHistoryControl.closedTabCount > 99 ? "99+" : tabHistoryControl.closedTabCount
                         color: root.theme.selectedText
                         font.family: root.theme.fontFamily
                         font.pointSize: Controls.Typography.label
@@ -851,14 +783,19 @@ Item {
                         }
                     }
                     Behavior on opacity {
-                        NumberAnimation { duration: theme.motionFast }
+                        NumberAnimation {
+                            duration: theme.motionFast
+                        }
                     }
                 }
             }
-
-
         }
-        Rectangle { anchors.bottom: parent.bottom; width: parent.width; height: 1; color: root.theme.separator }
+        Rectangle {
+            anchors.bottom: parent.bottom
+            width: parent.width
+            height: 1
+            color: root.theme.separator
+        }
     }
     Controls.DockWorkspaceFooter {
         id: resultsToolbar
@@ -900,13 +837,7 @@ Item {
                 Label {
                     id: showingValue
                     anchors.centerIn: parent
-                    text: resultsToolbar.narrow
-                        ? String(appController.result_count)
-                        : appController.loading_mode === "pages"
-                        ? appController.first_result + "–"
-                            + appController.last_result + qsTr(" of ")
-                            + appController.result_count
-                        : appController.result_count + qsTr(" results")
+                    text: resultsToolbar.narrow ? String(appController.result_count) : appController.loading_mode === "pages" ? appController.first_result + "–" + appController.last_result + qsTr(" of ") + appController.result_count : appController.result_count + qsTr(" results")
                     color: root.theme.secondaryText
                     font.family: root.theme.fontFamily
                     font.pointSize: Controls.Typography.bodyLarge
@@ -914,12 +845,13 @@ Item {
                 }
             }
 
-            Item { Layout.fillWidth: true }
+            Item {
+                Layout.fillWidth: true
+            }
 
             Controls.CompactIconButton {
                 visible: appController.loading_mode === "pages"
-                enabled: appController.current_page > 1
-                    && appController.search_state !== "loading"
+                enabled: appController.current_page > 1 && appController.search_state !== "loading"
                 Layout.preferredWidth: 36
                 Layout.minimumWidth: 36
                 Layout.maximumWidth: 36
@@ -946,14 +878,11 @@ Item {
                             width: 32
                             height: 32
                             radius: 16
-                            color: Number(modelData) === appController.current_page
-                                ? root.theme.action
-                                : bottomPageMouse.containsMouse ? root.theme.rowHover : "transparent"
+                            color: Number(modelData) === appController.current_page ? root.theme.action : bottomPageMouse.containsMouse ? root.theme.rowHover : "transparent"
                             Label {
                                 anchors.centerIn: parent
                                 text: modelData
-                                color: Number(modelData) === appController.current_page
-                                    ? root.theme.selectedText : root.theme.primaryText
+                                color: Number(modelData) === appController.current_page ? root.theme.selectedText : root.theme.primaryText
                                 font.family: root.theme.fontFamily
                                 font.pointSize: Controls.Typography.bodyLarge
                                 font.weight: Font.DemiBold
@@ -971,10 +900,7 @@ Item {
                             hoverEnabled: true
                             enabled: appController.search_state !== "loading"
                             cursorShape: Qt.PointingHandCursor
-                            onPressed: mouse => bottomPageRipple.burst(
-                                mouse.x - bottomPageButton.x,
-                                mouse.y - bottomPageButton.y
-                            )
+                            onPressed: mouse => bottomPageRipple.burst(mouse.x - bottomPageButton.x, mouse.y - bottomPageButton.y)
                             onClicked: appController.go_to_page(Number(modelData))
                         }
                     }
@@ -991,8 +917,7 @@ Item {
             }
             Controls.CompactIconButton {
                 visible: appController.loading_mode === "pages"
-                enabled: appController.current_page < appController.page_count
-                    && appController.search_state !== "loading"
+                enabled: appController.current_page < appController.page_count && appController.search_state !== "loading"
                 Layout.preferredWidth: 36
                 Layout.minimumWidth: 36
                 Layout.maximumWidth: 36
@@ -1006,9 +931,7 @@ Item {
             Item {
                 id: pageSizeButton
                 visible: appController.loading_mode === "pages" && !resultsToolbar.compact
-                implicitWidth: Math.max(
-                    106, pageSizeContent.implicitWidth + 23
-                )
+                implicitWidth: Math.max(106, pageSizeContent.implicitWidth + 23)
                 Layout.preferredWidth: visible ? implicitWidth : 0
                 Layout.minimumWidth: Layout.preferredWidth
                 Layout.maximumWidth: Layout.preferredWidth
@@ -1019,22 +942,20 @@ Item {
                     radius: 20
                     color: "transparent"
                     border.width: 1
-                    border.color: pageSizeMenu.opened
-                        ? root.theme.action : root.theme.outline
-                    Behavior on border.color { ColorAnimation { duration: theme.clickMotionFast } }
+                    border.color: pageSizeMenu.opened ? root.theme.action : root.theme.outline
+                    Behavior on border.color {
+                        ColorAnimation {
+                            duration: theme.clickMotionFast
+                        }
+                    }
                     Rectangle {
                         anchors.fill: parent
                         radius: parent.radius
                         color: root.theme.primaryText
-                        opacity: pageSizeMouse.pressed ? 0.12
-                            : pageSizeMouse.containsMouse ? 0.08 : 0
+                        opacity: pageSizeMouse.pressed ? 0.12 : pageSizeMouse.containsMouse ? 0.08 : 0
                         Behavior on opacity {
                             NumberAnimation {
-                                duration: pageSizeMouse.pressed
-                                    ? theme.clickMotionFast
-                                    : pageSizeMouse.containsMouse
-                                        ? theme.hoverMotionFast
-                                        : theme.hoverMotionMedium
+                                duration: pageSizeMouse.pressed ? theme.clickMotionFast : pageSizeMouse.containsMouse ? theme.hoverMotionFast : theme.hoverMotionMedium
                                 easing.type: Easing.OutCubic
                             }
                         }
@@ -1084,8 +1005,8 @@ Item {
                     hoverEnabled: true
                     cursorShape: Qt.PointingHandCursor
                     onPressed: mouse => {
-                        pageSizeMenu.sourceWasOpen = pageSizeMenu.opened
-                        pageSizeRipple.burst(mouse.x, mouse.y)
+                        pageSizeMenu.sourceWasOpen = pageSizeMenu.opened;
+                        pageSizeRipple.burst(mouse.x, mouse.y);
                     }
                     onClicked: pageSizeMenu.toggleBelow(pageSizeButton)
                 }
@@ -1104,20 +1025,19 @@ Item {
                     color: "transparent"
                     border.width: 1
                     border.color: loadModeMenu.opened ? root.theme.action : root.theme.outline
-                    Behavior on border.color { ColorAnimation { duration: theme.clickMotionFast } }
+                    Behavior on border.color {
+                        ColorAnimation {
+                            duration: theme.clickMotionFast
+                        }
+                    }
                     Rectangle {
                         anchors.fill: parent
                         radius: parent.radius
                         color: root.theme.primaryText
-                        opacity: loadModeMouse.pressed ? 0.12
-                            : loadModeMouse.containsMouse ? 0.08 : 0
+                        opacity: loadModeMouse.pressed ? 0.12 : loadModeMouse.containsMouse ? 0.08 : 0
                         Behavior on opacity {
                             NumberAnimation {
-                                duration: loadModeMouse.pressed
-                                    ? theme.clickMotionFast
-                                    : loadModeMouse.containsMouse
-                                        ? theme.hoverMotionFast
-                                        : theme.hoverMotionMedium
+                                duration: loadModeMouse.pressed ? theme.clickMotionFast : loadModeMouse.containsMouse ? theme.hoverMotionFast : theme.hoverMotionMedium
                                 easing.type: Easing.OutCubic
                             }
                         }
@@ -1131,16 +1051,14 @@ Item {
                     Controls.MaterialIcon {
                         Layout.fillWidth: resultsToolbar.compact
                         Layout.alignment: Qt.AlignHCenter | Qt.AlignVCenter
-                        name: appController.loading_mode === "pages"
-                            ? "view_kanban" : "layers"
+                        name: appController.loading_mode === "pages" ? "view_kanban" : "layers"
                         size: 18
                         color: loadModeMenu.opened ? root.theme.action : root.theme.secondaryText
                     }
                     Label {
                         visible: !resultsToolbar.compact
                         Layout.fillWidth: true
-                        text: appController.loading_mode === "pages"
-                            ? qsTr("Pages") : qsTr("Continuous")
+                        text: appController.loading_mode === "pages" ? qsTr("Pages") : qsTr("Continuous")
                         color: root.theme.primaryText
                         font.family: root.theme.fontFamily
                         font.pixelSize: 12
@@ -1153,7 +1071,10 @@ Item {
                         color: root.theme.secondaryText
                         rotation: loadModeMenu.opened ? 180 : 0
                         Behavior on rotation {
-                            NumberAnimation { duration: theme.clickMotionMedium; easing.type: Easing.OutCubic }
+                            NumberAnimation {
+                                duration: theme.clickMotionMedium
+                                easing.type: Easing.OutCubic
+                            }
                         }
                     }
                 }
@@ -1169,18 +1090,15 @@ Item {
                     hoverEnabled: true
                     cursorShape: Qt.PointingHandCursor
                     onPressed: mouse => {
-                        loadModeMenu.sourceWasOpen = loadModeMenu.opened
-                        loadModeRipple.burst(mouse.x, mouse.y)
+                        loadModeMenu.sourceWasOpen = loadModeMenu.opened;
+                        loadModeRipple.burst(mouse.x, mouse.y);
                     }
                     onClicked: loadModeMenu.toggleBelow(loadModeButton)
                     Controls.ToolTip {
                         theme: root.theme
-                        visible: resultsToolbar.compact
-                            && loadModeMouse.containsMouse
-                            && !root.theme.suppressToolTips
+                        visible: resultsToolbar.compact && loadModeMouse.containsMouse && !root.theme.suppressToolTips
                         delay: 450
-                        text: appController.loading_mode === "pages"
-                            ? qsTr("Pages") : qsTr("Continuous")
+                        text: appController.loading_mode === "pages" ? qsTr("Pages") : qsTr("Continuous")
                     }
                 }
             }
@@ -1206,8 +1124,7 @@ Item {
 
             Controls.FilledActionButton {
                 objectName: "searchCreateItemButton"
-                Layout.preferredWidth: resultsToolbar.compact
-                    ? 40 : implicitWidth
+                Layout.preferredWidth: resultsToolbar.compact ? 40 : implicitWidth
                 Layout.minimumWidth: resultsToolbar.compact ? 40 : 0
                 Layout.maximumWidth: resultsToolbar.compact ? 40 : 160
                 Layout.preferredHeight: 40
@@ -1215,12 +1132,16 @@ Item {
                 compact: resultsToolbar.compact
                 iconName: "add"
                 text: qsTr("New item")
-                toolTip: resultsToolbar.compact
-                    ? qsTr("New item") : ""
+                toolTip: resultsToolbar.compact ? qsTr("New item") : ""
                 onClicked: appController.open_window("add_sobject")
             }
         }
-        Rectangle { anchors.top: parent.top; width: parent.width; height: 1; color: root.theme.separator }
+        Rectangle {
+            anchors.top: parent.top
+            width: parent.width
+            height: 1
+            color: root.theme.separator
+        }
     }
     SearchResultsPane {
         id: resultsArea
@@ -1244,17 +1165,13 @@ Item {
         anchors.topMargin: 10
         anchors.rightMargin: 14
         width: Math.min(implicitWidth, Math.max(0, root.width - 28))
-        implicitWidth: Math.max(
-            timingTitle.implicitWidth,
-            timingDetails.implicitWidth
-        ) + 24
+        implicitWidth: Math.max(timingTitle.implicitWidth, timingDetails.implicitWidth) + 24
         height: root.tabTimingMeasuring ? 36 : 52
         radius: 10
         color: root.theme.panelRaised
         border.width: 1
         border.color: root.theme.outlineVariant
-        visible: appController.search_tab_switch_monitor.recording
-            && root.tabTimingVisible
+        visible: appController.search_tab_switch_monitor.recording && root.tabTimingVisible
         z: 1000
 
         Column {
@@ -1267,11 +1184,7 @@ Item {
             Label {
                 id: timingTitle
                 width: parent.width
-                text: String(root.lastTabTiming.tab || qsTr("Search tab"))
-                    + " · " + (root.tabTimingMeasuring
-                        ? qsTr("Measuring...")
-                        : root.timingMs("firstFrameMs")
-                            + " " + qsTr("ms"))
+                text: String(root.lastTabTiming.tab || qsTr("Search tab")) + " · " + (root.tabTimingMeasuring ? qsTr("Measuring...") : root.timingMs("firstFrameMs") + " " + qsTr("ms"))
                 color: root.theme.primaryText
                 font.family: root.theme.fontFamily
                 font.pointSize: Controls.Typography.body
@@ -1282,12 +1195,7 @@ Item {
                 id: timingDetails
                 width: parent.width
                 visible: !root.tabTimingMeasuring
-                text: qsTr("capture") + " " + root.timingMs("captureMs")
-                    + " · " + qsTr("sync") + " " + root.timingMs("syncMs")
-                    + " · " + qsTr("projection") + " "
-                        + root.timingMs("projectionMs")
-                    + " · " + qsTr("frame") + " "
-                        + root.timingMs("afterPythonMs")
+                text: qsTr("capture") + " " + root.timingMs("captureMs") + " · " + qsTr("sync") + " " + root.timingMs("syncMs") + " · " + qsTr("projection") + " " + root.timingMs("projectionMs") + " · " + qsTr("frame") + " " + root.timingMs("afterPythonMs")
                 color: root.theme.secondaryText
                 font.family: root.theme.fontFamily
                 font.pointSize: Controls.Typography.label
@@ -1303,33 +1211,84 @@ Item {
     }
     Rectangle {
         id: pageNavigation
-        anchors.left: parent.left; anchors.right: parent.right; anchors.bottom: parent.bottom
+        anchors.left: parent.left
+        anchors.right: parent.right
+        anchors.bottom: parent.bottom
         height: 0
         color: root.theme.toolBar
         visible: false
-        Behavior on height { NumberAnimation { duration: theme.motionMedium; easing.type: Easing.OutCubic } }
-        Rectangle { anchors.top: parent.top; width: parent.width; height: 1; color: root.theme.separator }
+        Behavior on height {
+            NumberAnimation {
+                duration: theme.motionMedium
+                easing.type: Easing.OutCubic
+            }
+        }
+        Rectangle {
+            anchors.top: parent.top
+            width: parent.width
+            height: 1
+            color: root.theme.separator
+        }
         RowLayout {
-            anchors.fill: parent; anchors.leftMargin: 7; anchors.rightMargin: 7; spacing: 5
-            Label { text: qsTr("Showing ") + appController.first_result + "–" + appController.last_result + " of " + appController.result_count; color: root.theme.secondaryText; font.family: root.theme.fontFamily; font.pointSize: Controls.Typography.label }
-            Item { Layout.fillWidth: true }
-            Controls.CompactIconButton { visible: appController.loading_mode === "pages"; enabled: appController.current_page > 1 && appController.search_state !== "loading"; theme: root.theme; iconName: "chevron_right"; rotation: 180; onClicked: appController.previous_page() }
+            anchors.fill: parent
+            anchors.leftMargin: 7
+            anchors.rightMargin: 7
+            spacing: 5
+            Label {
+                text: qsTr("Showing ") + appController.first_result + "–" + appController.last_result + " of " + appController.result_count
+                color: root.theme.secondaryText
+                font.family: root.theme.fontFamily
+                font.pointSize: Controls.Typography.label
+            }
+            Item {
+                Layout.fillWidth: true
+            }
+            Controls.CompactIconButton {
+                visible: appController.loading_mode === "pages"
+                enabled: appController.current_page > 1 && appController.search_state !== "loading"
+                theme: root.theme
+                iconName: "chevron_right"
+                rotation: 180
+                onClicked: appController.previous_page()
+            }
             Repeater {
                 model: appController.loading_mode === "pages" ? appController.page_numbers : []
                 delegate: Rectangle {
                     required property var modelData
-                    Layout.preferredWidth: 24; Layout.preferredHeight: 24
+                    Layout.preferredWidth: 24
+                    Layout.preferredHeight: 24
                     radius: 12
                     color: Number(modelData) === appController.current_page ? root.theme.action : pageMouse.containsMouse ? root.theme.rowHover : "transparent"
-                    Label { anchors.centerIn: parent; text: modelData; color: Number(modelData) === appController.current_page ? root.theme.selectedText : root.theme.primaryText; font.family: root.theme.fontFamily; font.pointSize: Controls.Typography.label; font.weight: Font.DemiBold }
-                    MouseArea { id: pageMouse; anchors.fill: parent; hoverEnabled: true; enabled: appController.search_state !== "loading"; cursorShape: Qt.PointingHandCursor; onClicked: appController.go_to_page(Number(modelData)) }
+                    Label {
+                        anchors.centerIn: parent
+                        text: modelData
+                        color: Number(modelData) === appController.current_page ? root.theme.selectedText : root.theme.primaryText
+                        font.family: root.theme.fontFamily
+                        font.pointSize: Controls.Typography.label
+                        font.weight: Font.DemiBold
+                    }
+                    MouseArea {
+                        id: pageMouse
+                        anchors.fill: parent
+                        hoverEnabled: true
+                        enabled: appController.search_state !== "loading"
+                        cursorShape: Qt.PointingHandCursor
+                        onClicked: appController.go_to_page(Number(modelData))
+                    }
                 }
             }
-            Controls.CompactIconButton { visible: appController.loading_mode === "pages"; enabled: appController.current_page < appController.page_count && appController.search_state !== "loading"; theme: root.theme; iconName: "chevron_right"; onClicked: appController.next_page() }
+            Controls.CompactIconButton {
+                visible: appController.loading_mode === "pages"
+                enabled: appController.current_page < appController.page_count && appController.search_state !== "loading"
+                theme: root.theme
+                iconName: "chevron_right"
+                onClicked: appController.next_page()
+            }
             Controls.ComboBox {
                 theme: root.theme
                 visible: appController.loading_mode === "pages"
-                Layout.preferredWidth: 66; Layout.preferredHeight: 25
+                Layout.preferredWidth: 66
+                Layout.preferredHeight: 25
                 model: [20, 25, 50, 100]
                 currentIndex: appController.page_size === 20 ? 0 : appController.page_size === 50 ? 2 : appController.page_size === 100 ? 3 : 1
                 font.pointSize: Controls.Typography.label
@@ -1374,24 +1333,19 @@ Item {
             },
             {
                 "title": "Change search results view",
-                "icon": root.resultViewIcon(
-                    appController.results_view_mode
-                ),
+                "icon": root.resultViewIcon(appController.results_view_mode),
                 "children": resultsViewMenu.actions
             }
         ]
-        onTriggered: function(command) {
+        onTriggered: function (command) {
             if (command === "filters")
-                resultMenus.openFilters(searchTabActionsOverflowButton)
-            else if (appController.result_sort_actions.some(
-                    action => action.command === command))
-                appController.set_result_sort_mode(command)
-            else if (appController.result_group_actions.some(
-                    action => action.command === command))
-                appController.set_result_group_mode(command)
-            else if (resultsViewMenu.actions.some(
-                    action => action.command === command))
-                appController.set_results_view_mode(command)
+                resultMenus.openFilters(searchTabActionsOverflowButton);
+            else if (appController.result_sort_actions.some(action => action.command === command))
+                appController.set_result_sort_mode(command);
+            else if (appController.result_group_actions.some(action => action.command === command))
+                appController.set_result_group_mode(command);
+            else if (resultsViewMenu.actions.some(action => action.command === command))
+                appController.set_results_view_mode(command);
         }
     }
     ActionMenu {
@@ -1403,8 +1357,7 @@ Item {
                 "title": "Continuous tree",
                 "icon": "list-alt",
                 "command": "continious",
-                "checked": appController.results_view_mode
-                    === "continious"
+                "checked": appController.results_view_mode === "continious"
             },
             {
                 "title": "Cards",
@@ -1422,26 +1375,23 @@ Item {
                 "title": "Compact rows",
                 "icon": "view-list",
                 "command": "compact",
-                "checked": appController.results_view_mode
-                    === "compact"
+                "checked": appController.results_view_mode === "compact"
             },
             {
                 "title": "Versions on the right",
                 "icon": "columns",
                 "command": "splitted_vertical",
-                "checked": appController.results_view_mode
-                    === "splitted_vertical"
+                "checked": appController.results_view_mode === "splitted_vertical"
             },
             {
                 "title": "Versions at the bottom",
                 "icon": "align-justify",
                 "command": "splitted_horizontal",
-                "checked": appController.results_view_mode
-                    === "splitted_horizontal"
+                "checked": appController.results_view_mode === "splitted_horizontal"
             }
         ]
-        onTriggered: function(command) {
-            appController.set_results_view_mode(command)
+        onTriggered: function (command) {
+            appController.set_results_view_mode(command);
         }
     }
     ActionMenu {
@@ -1449,7 +1399,10 @@ Item {
         parent: Overlay.overlay
         theme: root.theme
         actions: [
-            { "title": "Result loading", "header": true },
+            {
+                "title": "Result loading",
+                "header": true
+            },
             {
                 "title": "Pages",
                 "icon": "view_kanban",
@@ -1470,7 +1423,10 @@ Item {
         parent: Overlay.overlay
         theme: root.theme
         actions: [
-            { "title": "Items per page", "header": true },
+            {
+                "title": "Items per page",
+                "header": true
+            },
             {
                 "title": "20 items",
                 "icon": "list",
@@ -1498,7 +1454,7 @@ Item {
         ]
         onTriggered: command => {
             if (command.indexOf("page_size:") === 0)
-                appController.set_page_size(Number(command.slice(10)))
+                appController.set_page_size(Number(command.slice(10)));
         }
     }
     ActionMenu {
@@ -1508,12 +1464,12 @@ Item {
         theme: root.theme
         onTriggered: command => {
             if (command.indexOf("tab:") !== 0)
-                return
-            searchTabsView.revealTab(Number(command.slice(4)))
+                return;
+            searchTabsView.revealTab(Number(command.slice(4)));
         }
         onSecondaryTriggered: command => {
             if (command.indexOf("close-tab:") === 0)
-                appController.close_search_tab(Number(command.slice(10)))
+                appController.close_search_tab(Number(command.slice(10)));
         }
     }
     ActionMenu {
@@ -1523,13 +1479,11 @@ Item {
         actions: appController.closed_search_tabs
         onTriggered: command => {
             if (command === "clear_history") {
-                appController.clear_search_tab_history()
-                return
+                appController.clear_search_tab_history();
+                return;
             }
             if (command.indexOf("restore_tab:") === 0)
-                appController.restore_closed_search_tab(
-                    Number(command.slice(12))
-                )
+                appController.restore_closed_search_tab(Number(command.slice(12)));
         }
     }
 }

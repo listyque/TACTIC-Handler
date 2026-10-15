@@ -350,7 +350,7 @@ class NotificationsQmlTests(unittest.TestCase):
         theme = theme_component.createWithInitialProperties({"dark": True})
         component = QQmlComponent(
             engine,
-            QUrl.fromLocalFile(str(QML / "NotificationToastWindow.qml")),
+            QUrl.fromLocalFile(str(QML / "shell/windows/NotificationToastWindow.qml")),
         )
         toast = component.createWithInitialProperties({
             "theme": theme,

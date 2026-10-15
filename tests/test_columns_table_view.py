@@ -3821,7 +3821,7 @@ Item {
             )
             theme = theme_component.createWithInitialProperties({"dark": True})
             component = QQmlComponent(
-                engine, QUrl.fromLocalFile(str(QML / "ColumnsEditorView.qml"))
+                engine, QUrl.fromLocalFile(str(QML / "features/administration/columns/ColumnsEditorView.qml"))
             )
             editor = component.createWithInitialProperties({
                 "theme": theme, "projectCode": "demo",

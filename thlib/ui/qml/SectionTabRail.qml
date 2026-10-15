@@ -2,6 +2,7 @@ import QtQuick
 import QtQuick.Controls
 import Qt5Compat.GraphicalEffects
 import "controls" as Controls
+import "tactic_frame/controls/tabs/tab_layout.mjs" as TabLayout
 
 Item {
     id: root
@@ -17,13 +18,12 @@ Item {
     readonly property real reservedWidth: 48
 
     function updateHoverState() {
-        const active = panelHover.hovered
-            || rail.hoveredIndex >= 0 || rail.dragSourceIndex >= 0
+        const active = panelHover.hovered || rail.hoveredIndex >= 0 || rail.dragSourceIndex >= 0;
         if (active) {
-            collapseTimer.stop()
-            hoverLatched = true
+            collapseTimer.stop();
+            hoverLatched = true;
         } else if (hoverLatched) {
-            collapseTimer.restart()
+            collapseTimer.restart();
         }
     }
 
@@ -32,11 +32,10 @@ Item {
         interval: 350
         repeat: false
         onTriggered: {
-            if (panelHover.hovered || rail.hoveredIndex >= 0
-                    || rail.dragSourceIndex >= 0)
-                return
-            root.hoverLatched = false
-            root.revealedIndex = -1
+            if (panelHover.hovered || rail.hoveredIndex >= 0 || rail.dragSourceIndex >= 0)
+                return;
+            root.hoverLatched = false;
+            root.revealedIndex = -1;
         }
     }
 
@@ -73,19 +72,12 @@ Item {
                 target: null
                 blocking: true
                 enabled: rail.contentHeight > rail.height
-                onWheel: function(event) {
-                    const delta = event.pixelDelta.y !== 0
-                        ? event.pixelDelta.y : event.angleDelta.y / 2
-                    const minimumY = rail.originY
-                    const maximumY = Math.max(
-                        minimumY,
-                        minimumY + rail.contentHeight - rail.height
-                    )
-                    rail.contentY = Math.max(
-                        minimumY,
-                        Math.min(maximumY, rail.contentY - delta)
-                    )
-                    event.accepted = true
+                onWheel: function (event) {
+                    const delta = event.pixelDelta.y !== 0 ? event.pixelDelta.y : event.angleDelta.y / 2;
+                    const minimumY = rail.originY;
+                    const maximumY = Math.max(minimumY, minimumY + rail.contentHeight - rail.height);
+                    rail.contentY = Math.max(minimumY, Math.min(maximumY, rail.contentY - delta));
+                    event.accepted = true;
                 }
             }
         }
@@ -116,39 +108,24 @@ Item {
                 required property bool current
                 required property string glyph
                 property int dragTargetIndex: index
-                property bool hovered: tabHover.hovered
-                    || tabMouse.containsMouse || closeButton.pointerHovered
-                property bool revealed: index === root.revealedIndex
-                    && (root.hoverLatched || hovered || tabDrag.active)
-                property real expandedWidth: Math.min(
-                    320, Math.max(260, titleLabel.implicitWidth + 112))
+                property bool hovered: tabHover.hovered || tabMouse.containsMouse || closeButton.pointerHovered
+                property bool revealed: index === root.revealedIndex && (root.hoverLatched || hovered || tabDrag.active)
+                property real expandedWidth: Math.min(320, Math.max(260, titleLabel.implicitWidth + 112))
                 onHoveredChanged: {
                     if (hovered) {
-                        rail.hoveredIndex = index
-                        root.revealedIndex = index
+                        rail.hoveredIndex = index;
+                        root.revealedIndex = index;
                     } else if (rail.hoveredIndex === index) {
-                        rail.hoveredIndex = -1
+                        rail.hoveredIndex = -1;
                     }
-                    root.updateHoverState()
+                    root.updateHoverState();
                 }
                 HoverHandler {
                     id: tabHover
                     cursorShape: Qt.PointingHandCursor
                 }
 
-                property real displacedY: {
-                    if (rail.dragSourceIndex < 0 || rail.dragTargetIndex < 0)
-                        return 0
-                    if (rail.dragSourceIndex < rail.dragTargetIndex
-                            && index > rail.dragSourceIndex
-                            && index <= rail.dragTargetIndex)
-                        return -height - rail.spacing
-                    if (rail.dragSourceIndex > rail.dragTargetIndex
-                            && index >= rail.dragTargetIndex
-                            && index < rail.dragSourceIndex)
-                        return height + rail.spacing
-                    return 0
-                }
+                property real displacedY: TabLayout.displacedTabOffset(index, rail.dragSourceIndex, rail.dragTargetIndex, height + rail.spacing)
 
                 width: revealed ? expandedWidth : root.reservedWidth
                 height: 42
@@ -217,10 +194,7 @@ Item {
                     width: 30
                     height: 30
                     radius: 15
-                    color: Qt.darker(
-                        tab.accent || root.theme.action,
-                        tab.current ? 1.35 : 1.65
-                    )
+                    color: Qt.darker(tab.accent || root.theme.action, tab.current ? 1.35 : 1.65)
                     border.width: 1
                     border.color: tab.accent || root.theme.action
                     Controls.MaterialIcon {
@@ -240,15 +214,16 @@ Item {
                     anchors.rightMargin: 7
                     anchors.verticalCenter: parent.verticalCenter
                     text: tab.title
-                    color: tab.current
-                        ? root.theme.selectedText : root.theme.primaryText
+                    color: tab.current ? root.theme.selectedText : root.theme.primaryText
                     font.family: root.theme.fontFamily
                     font.pointSize: Controls.Typography.bodyLarge
                     font.weight: tab.current ? Font.Bold : Font.DemiBold
                     elide: Text.ElideRight
                     opacity: tab.revealed && tab.width > 96 ? 1 : 0
                     Behavior on opacity {
-                        NumberAnimation { duration: theme.hoverMotionFast }
+                        NumberAnimation {
+                            duration: theme.hoverMotionFast
+                        }
                     }
                 }
 
@@ -262,29 +237,28 @@ Item {
                     xAxis.enabled: false
                     onTranslationChanged: {
                         if (!active)
-                            return
-                        const center = tab.y + tab.height / 2 + translation.y
-                        let target = rail.indexAt(rail.width / 2, center)
+                            return;
+                        const center = tab.y + tab.height / 2 + translation.y;
+                        let target = rail.indexAt(rail.width / 2, center);
                         if (target < 0)
-                            target = center < 0 ? 0 : rail.count - 1
-                        tab.dragTargetIndex = target
-                        rail.dragTargetIndex = target
+                            target = center < 0 ? 0 : rail.count - 1;
+                        tab.dragTargetIndex = target;
+                        rail.dragTargetIndex = target;
                     }
                     onActiveChanged: {
                         if (active) {
-                            tab.dragTargetIndex = tab.index
-                            root.revealedIndex = tab.index
-                            rail.dragSourceIndex = tab.index
-                            rail.dragTargetIndex = tab.index
+                            tab.dragTargetIndex = tab.index;
+                            root.revealedIndex = tab.index;
+                            rail.dragSourceIndex = tab.index;
+                            rail.dragTargetIndex = tab.index;
                         } else {
-                            const sourceRow = rail.dragSourceIndex
-                            const targetRow = rail.dragTargetIndex
-                            rail.dragSourceIndex = -1
-                            rail.dragTargetIndex = -1
-                            if (sourceRow >= 0 && targetRow >= 0
-                                    && sourceRow !== targetRow)
-                                root.reordered(sourceRow, targetRow)
-                            root.updateHoverState()
+                            const sourceRow = rail.dragSourceIndex;
+                            const targetRow = rail.dragTargetIndex;
+                            rail.dragSourceIndex = -1;
+                            rail.dragTargetIndex = -1;
+                            if (sourceRow >= 0 && targetRow >= 0 && sourceRow !== targetRow)
+                                root.reordered(sourceRow, targetRow);
+                            root.updateHoverState();
                         }
                     }
                 }
@@ -297,11 +271,11 @@ Item {
                     hoverEnabled: true
                     acceptedButtons: Qt.LeftButton | Qt.MiddleButton
                     cursorShape: Qt.PointingHandCursor
-                    onClicked: function(mouse) {
+                    onClicked: function (mouse) {
                         if (mouse.button === Qt.MiddleButton)
-                            root.closed(tab.entryKey)
+                            root.closed(tab.entryKey);
                         else
-                            root.selected(tab.entryKey)
+                            root.selected(tab.entryKey);
                     }
                 }
 

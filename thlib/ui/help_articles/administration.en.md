@@ -50,9 +50,11 @@ Section buttons keep their names as tooltips. Each visited section retains its o
 the window closes. Switching sections does not discard edits. Save/Discard applies to the visible
 section; a dot marks sections with pending work. Closing returns to an unfinished editor before
 asking you to discard it. Project selection remains locked while any section is dirty or busy.
-The workflow list stays inside the Workflow page, where its own button hides or
-shows it. The node inspector has its own collapse button. Drag the dividers to resize the expanded
-list and inspector independently. In a narrow window the workflow list starts collapsed.
+In Workflow, the library occupies the left Administration panel below the section icons,
+as in the original Handler. Its own arrow hides or shows the list contents; the navigation arrow
+collapses the whole sidebar to give the canvas more room. Drag the sidebar and inspector dividers
+to resize them independently. The library remains available on the Technical page. In a narrow
+window it moves into the editor's Workflows tab. Search and expanded groups survive these changes.
 
 Administration is available to TACTIC administrators and supervisors. Permission is checked
 at sign-in. An unsaved or busy editor temporarily locks project selection so its draft cannot be
@@ -255,6 +257,11 @@ administration project and includes inherited parent and system relationships.
 
 ## Workflow
 
+**Parameters** contains the process form and its native node-type choices. Node
+coordinates are under **Advanced JSON**. **Pipeline settings** in the command
+bar clears the node/connection selection and opens settings for the whole
+pipeline; finish or discard pending inspector edits before switching.
+
 Workflow keeps the canvas visible while you edit a selected node in the right inspector. Pipeline
 settings, beside the canvas tabs and zoom controls, opens the same inspector for the whole pipeline.
 
@@ -400,14 +407,14 @@ server class has been migrated.
 
 | Section | Current Handler source → Stream | Native operation / verified scenario |
 | --- | --- | --- |
-| Shell | `qml/AdministrationView.qml`, `administration.py` → Administration shell in `App.vue`, `AdminSaveBar` | All eight sections, 250/56 px navigation, independent drafts, project lock, closing and workspace restoration in Chromium. |
-| Search Types | `qml/AdminSearchTypesView.qml`, `admin/search_types.py` → `SearchTypes`, `SearchTypeSummary`, `SearchTypeFields`, `NamingEditor` | `SearchTypesCmd`, `NamingCmd`: create registry/table/default views, field changes, revision conflicts and native Naming preview; Chromium creation and editing. |
-| Project schema | `qml/AdminGraphView.qml`, `admin/schema_api.py`, `admin/schema_connections.py` → `SchemaEditor`, `SchemaTypeDeletion` | `SchemaCmd`, `SchemaDeleteCmd`: keys, direct/M:N conversion, instance tables, creation/deletion review, late usage recheck, lost response protection and rollback. |
-| Workflow | `qml/AdminGraphView.qml`, `qml/AdminProcessSettings.qml`, `admin/workflow_api.py` → `WorkflowEditor`, `WorkflowProcessSettings`, `ProcessRules` | `WorkflowCmd`, `ProcessRulesCmd` and core process commands: process/status settings, native rule records, dependencies, preservation of packages; save/readback and circular Progress/input-output ports in Chromium. |
-| Columns | `qml/ColumnsEditorView.qml`, `columns_editor.py` → `ColumnsEditor` | `/admin/columns-editor` → `server/columns_editor.py`, native Command and WidgetDbConfig: saved definition catalog, Wizard/XML, unknown XML retention, revision conflicts and save/reopen. Column list and properties have a vertical splitter. |
-| Sidebar | `qml/SidebarEditorView.qml`, `sidebar_editor.py` → `SidebarEditor` | `/admin/sidebar` → `server/sidebar_editor.py`, native Command and WidgetDbConfig: TH/TACTIC documents, nesting/reordering, item/access/technical pages, native group visibility, exact XML, saved search/filter preview and save/reopen. |
-| Users / Groups | `qml/AdminUsersView.qml`, `qml/AdminUserDetails.qml`, `admin/users.py` → `SecurityUsers`, `SecurityGroups` | `/admin/security-users` / `/admin/security-groups` → server adapters and native Command/SearchType: account/profile, password, memberships, create/edit/retire, conflict and rollback checks. These accounts remain server-wide. |
-| Access rules | `qml/AdminSecurityView.qml`, `qml/AdminSecurityMatrix.qml`, `admin/security.py` → `SecurityRules` | `/admin/security-rules` → `server/security_rules.py`, native Command and access rules: project/type/process/status/action matrix, inherited/locked/custom rules, native XML preservation and permission denials. |
+| Shell | `qml/features/administration/AdministrationView.qml`, `administration.py` → Administration shell in `App.vue`, `AdminSaveBar` | All eight sections, 250/56 px navigation, independent drafts, project lock, closing and workspace restoration in Chromium. |
+| Search Types | `qml/features/administration/search_types/AdminSearchTypesView.qml`, `admin/search_types.py` → `SearchTypes`, `SearchTypeSummary`, `SearchTypeFields`, `NamingEditor` | `SearchTypesCmd`, `NamingCmd`: create registry/table/default views, field changes, revision conflicts and native Naming preview; Chromium creation and editing. |
+| Project schema | `qml/features/administration/workflow/AdminGraphView.qml`, `admin/schema_api.py`, `admin/schema_connections.py` → `SchemaEditor`, `SchemaTypeDeletion` | `SchemaCmd`, `SchemaDeleteCmd`: keys, direct/M:N conversion, instance tables, creation/deletion review, late usage recheck, lost response protection and rollback. |
+| Workflow | `qml/features/administration/workflow/AdminGraphView.qml`, `qml/features/administration/workflow/AdminProcessSettings.qml`, `admin/workflow_api.py` → `WorkflowEditor`, `WorkflowProcessSettings`, `ProcessRules` | `WorkflowCmd`, `ProcessRulesCmd` and core process commands: process/status settings, native rule records, dependencies, preservation of packages; save/readback and circular Progress/input-output ports in Chromium. |
+| Columns | `qml/features/administration/columns/ColumnsEditorView.qml`, `columns_editor.py` → `ColumnsEditor` | `/admin/columns-editor` → `server/columns_editor.py`, native Command and WidgetDbConfig: saved definition catalog, Wizard/XML, unknown XML retention, revision conflicts and save/reopen. Column list and properties have a vertical splitter. |
+| Sidebar | `qml/features/administration/sidebar/SidebarEditorView.qml`, `sidebar_editor.py` → `SidebarEditor` | `/admin/sidebar` → `server/sidebar_editor.py`, native Command and WidgetDbConfig: TH/TACTIC documents, nesting/reordering, item/access/technical pages, native group visibility, exact XML, saved search/filter preview and save/reopen. |
+| Users / Groups | `qml/features/administration/users/AdminUsersView.qml`, `qml/AdminUserDetails.qml`, `admin/users.py` → `SecurityUsers`, `SecurityGroups` | `/admin/security-users` / `/admin/security-groups` → server adapters and native Command/SearchType: account/profile, password, memberships, create/edit/retire, conflict and rollback checks. These accounts remain server-wide. |
+| Access rules | `qml/features/administration/security/AdminSecurityView.qml`, `qml/features/administration/security/AdminSecurityMatrix.qml`, `admin/security.py` → `SecurityRules` | `/admin/security-rules` → `server/security_rules.py`, native Command and access rules: project/type/process/status/action matrix, inherited/locked/custom rules, native XML preservation and permission denials. |
 
 ### Graph ports and Progress
 

@@ -1,13 +1,13 @@
 pragma Singleton
 
 import QtQuick
-import "../Typography.js" as Scale
+import "../tactic_frame/core/foundation.mjs" as Foundation
 
 QtObject {
-    readonly property real micro: Scale.micro
-    readonly property real caption: Scale.caption
-    readonly property real label: Scale.label
-    readonly property real body: Scale.body
-    readonly property real bodyLarge: Scale.bodyLarge
-    readonly property real title: Scale.title
+    readonly property real micro: Foundation.typography.micro
+    readonly property real caption: Foundation.typography.caption
+    readonly property real label: Foundation.typography.label
+    readonly property real body: Foundation.typography.body
+    readonly property real bodyLarge: Foundation.typography.bodyLarge
+    readonly property real title: Foundation.typography.title
 }

@@ -1,3 +1,4 @@
+import "../tactic_frame/core/foundation.mjs" as Foundation
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Controls as QtControls
@@ -12,33 +13,32 @@ QtControls.CheckBox {
     property bool wrapText: false
     property real indicatorOffset: 0
 
-    spacing: compact ? 6 : 9
-    implicitHeight: compact ? 30 : Math.max(36, contentItem.implicitHeight)
+    spacing: compact ? Foundation.controls.checkBox.compactSpacing : Foundation.controls.checkBox.spacing
+    implicitHeight: compact ? Foundation.controls.checkBox.compactHeight : Math.max(Foundation.controls.checkBox.height, contentItem.implicitHeight)
     font.family: theme.fontFamily
     font.pointSize: compact ? Typography.label : Typography.body
 
     indicator: Rectangle {
-        implicitWidth: control.prominent ? 22 : control.compact ? 17 : 19
-        implicitHeight: control.prominent ? 22 : control.compact ? 17 : 19
+        implicitWidth: control.prominent ? Foundation.controls.checkBox.prominentIndicator : control.compact ? Foundation.controls.checkBox.compactIndicator : Foundation.controls.checkBox.indicator
+        implicitHeight: control.prominent ? Foundation.controls.checkBox.prominentIndicator : control.compact ? Foundation.controls.checkBox.compactIndicator : Foundation.controls.checkBox.indicator
         x: control.leftPadding + control.indicatorOffset
         y: (control.height - height) / 2
-        radius: Math.min(5, theme.itemRadius)
-        color: control.checked ? theme.action
-            : control.prominent ? theme.surfaceContainerHighest : "transparent"
+        radius: Math.min(Foundation.controls.checkBox.radius, theme.itemRadius)
+        color: control.checked ? theme.action : control.prominent ? theme.surfaceContainerHighest : "transparent"
         border.width: control.activeFocus || control.prominent ? 2 : 1
-        border.color: control.checked || control.activeFocus
-            ? theme.action
-            : control.prominent ? theme.secondaryText : theme.outline
+        border.color: control.checked || control.activeFocus ? theme.action : control.prominent ? theme.secondaryText : theme.outline
 
         Controls.MaterialIcon {
             anchors.centerIn: parent
             visible: control.checked
             name: "check"
-            size: control.prominent ? 17 : control.compact ? 13 : 15
+            size: control.prominent ? Foundation.controls.checkBox.prominentIconSize : control.compact ? Foundation.controls.checkBox.compactIconSize : Foundation.controls.checkBox.iconSize
             color: theme.selectedText
         }
         Behavior on color {
-            ColorAnimation { duration: theme.clickMotionFast }
+            ColorAnimation {
+                duration: theme.clickMotionFast
+            }
         }
     }
 

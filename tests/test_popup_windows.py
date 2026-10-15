@@ -1837,7 +1837,7 @@ Window {
         action_menu = (qml_dir / "ActionMenu.qml").read_text(
             encoding="utf-8"
         )
-        dock_menu = (qml_dir / "DockMenu.qml").read_text(
+        dock_menu = (qml_dir / "shell/docks/DockMenu.qml").read_text(
             encoding="utf-8"
         )
         text_menu = (

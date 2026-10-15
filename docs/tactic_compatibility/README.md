@@ -38,7 +38,7 @@ The local ownership is intentionally small:
 - `thlib/ui/tactic_definition.py`: lossless visual-form/XML transformations for
   `definition`, `edit_definition`, and `edit`;
 - `thlib/ui/qml/SearchResultTable.qml`: Qt cell presentation;
-- `thlib/ui/qml/ColumnsEditorView.qml`: Administration project definition catalog
+- `thlib/ui/qml/features/administration/columns/ColumnsEditorView.qml`: Administration project definition catalog
   with wizard and lossless XML editing.
 
 See [Table views](table_views.md) and [Widget support](widget_support.md).

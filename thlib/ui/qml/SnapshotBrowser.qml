@@ -726,7 +726,6 @@ Item {
 
             Controls.ResizeGripVisual {
                 objectName: "snapshotSplitterGripVisual"
-                anchors.centerIn: parent
                 theme: root.theme
                 vertical: root.sideBySide
                 hovered: splitMouse.containsMouse

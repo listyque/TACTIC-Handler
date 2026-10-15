@@ -455,7 +455,6 @@ Item {
 
                     Controls.ResizeGripVisual {
                         objectName: "commitQueueFilesGripVisual"
-                        anchors.centerIn: parent
                         theme: root.theme
                         vertical: false
                         hovered: filesResizeMouse.containsMouse

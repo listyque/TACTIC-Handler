@@ -3,6 +3,13 @@
 Each completed change receives a new version and a dated entry below.
 Versions use `major.minor.build.revision`; routine updates increment `revision`.
 
+## 0.6.0.96 - 2026-10-15
+
+- Organize portable Frame modules into core, controls, shell and Administration domains; move native Administration and window/dock adapters into matching folders while retaining public QML type names. Format source and keep stable LF endings for independent product copies.
+- Share Handler theme, typography, motion, control metrics, tab sizing, window geometry/minimum sizes, dock-header composition and main-toolbar positions with Stream. Preserve native controllers, scripts, ownership and persistence; this is a foundation checkpoint, not completion of all five UI migration blocks.
+- Restore graph connections, Parameters/Advanced JSON order, Pipeline settings guards and the Workflow library in the Administration sidebar. Keep catalog search/drafts across responsive host changes and prevent narrow graph actions from overlapping layout controls.
+- Verify independent original/Frame comparisons, native mouse/touch/keyboard behavior, paired Administration captures and recursive update packaging. Keep existing unrelated architecture/lint failures explicit without increasing their budgets.
+
 ## 0.6.0.94 - 2026-10-15
 
 - Establish continuous Git tracking for completed Handler and Stream work while preserving Handler history. Exclude local settings, file-transfer databases, caches, logs and build/test artifacts; retain source, tests, documentation and shipped resources.

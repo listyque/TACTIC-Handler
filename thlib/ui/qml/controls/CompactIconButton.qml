@@ -1,3 +1,4 @@
+import "../tactic_frame/core/foundation.mjs" as Foundation
 import QtQuick
 import QtQuick.Controls
 import Qt5Compat.GraphicalEffects
@@ -8,7 +9,7 @@ Item {
     property var theme
     property string iconName: ""
     property color iconColor: theme.primaryText
-    property real iconSize: 17
+    property real iconSize: Foundation.controls.iconButton.iconSize
     property bool forceSolidIcon: false
     property string toolTip: ""
     property bool round: false
@@ -18,36 +19,28 @@ Item {
     property int duplicateWindow: 180
     property int badgeCount: 0
     property color badgeColor: theme.error
-    property color backgroundColor: elevated
-        ? theme.surfaceContainerHigh : "transparent"
-    signal pressed()
-    signal clicked()
+    property color backgroundColor: elevated ? theme.surfaceContainerHigh : "transparent"
+    signal pressed
+    signal clicked
     signal clickedWithModifiers(int modifiers)
     signal dragStarted(real pressX, real pressY)
     signal dragMoved(real pointerX, real pointerY)
-    signal dragFinished()
-    signal dragCanceled()
+    signal dragFinished
+    signal dragCanceled
     readonly property bool dragActive: dragArea.dragging
     readonly property bool pointerPressed: activation.pressed || dragArea.pressed
     readonly property bool pointerHovered: pointerHover.hovered
-    readonly property bool lastActivationWasTouch:
-        activation.lastActivationWasTouch
+    readonly property bool lastActivationWasTouch: activation.lastActivationWasTouch
     readonly property double lastActivationAt: activation.lastActivationAt
-    readonly property real interactionOpacity: pointerPressed
-        ? 0.12 : pointerHovered ? 0.08 : 0
-    readonly property color interactionBackgroundColor:
-        interactionOpacity > 0
-            ? theme.overlay(
-                backgroundColor, iconColor, interactionOpacity
-            )
-            : backgroundColor
+    readonly property real interactionOpacity: pointerPressed ? 0.12 : pointerHovered ? 0.08 : 0
+    readonly property color interactionBackgroundColor: interactionOpacity > 0 ? theme.overlay(backgroundColor, iconColor, interactionOpacity) : backgroundColor
     function activate(modifiers) {
-        root.clicked()
-        root.clickedWithModifiers(modifiers)
+        root.clicked();
+        root.clickedWithModifiers(modifiers);
     }
 
-    implicitWidth: 28
-    implicitHeight: 28
+    implicitWidth: Foundation.controls.iconButton.extent
+    implicitHeight: Foundation.controls.iconButton.extent
 
     Loader {
         anchors.fill: buttonBackground
@@ -66,27 +59,20 @@ Item {
     Rectangle {
         id: buttonBackground
         anchors.centerIn: parent
-        width: Math.min(parent.width, parent.height) - 2
+        width: Math.min(parent.width, parent.height) - Foundation.controls.iconButton.surfaceInset
         height: width
         radius: root.round ? width / 2 : root.theme.iconButtonRadius
         color: root.interactionBackgroundColor
         Behavior on color {
             ColorAnimation {
-                duration: root.pointerPressed
-                    ? root.theme.clickMotionFast
-                    : root.theme.hoverMotionFast
+                duration: root.pointerPressed ? root.theme.clickMotionFast : root.theme.hoverMotionFast
                 easing.type: Easing.OutCubic
             }
         }
         Controls.MaterialRipple {
             id: ripple
             theme: root.theme
-            color: Qt.rgba(
-                root.iconColor.r,
-                root.iconColor.g,
-                root.iconColor.b,
-                0.28
-            )
+            color: Qt.rgba(root.iconColor.r, root.iconColor.g, root.iconColor.b, 0.28)
             shapeRadius: buttonBackground.radius
         }
     }
@@ -114,8 +100,7 @@ Item {
             Label {
                 id: badgeLabel
                 anchors.centerIn: parent
-                text: root.badgeCount > 99
-                    ? "99+" : String(root.badgeCount)
+                text: root.badgeCount > 99 ? "99+" : String(root.badgeCount)
                 color: root.theme.selectedText
                 font.family: root.theme.fontFamily
                 font.pointSize: Typography.caption
@@ -137,12 +122,9 @@ Item {
         cursorShape: Qt.PointingHandCursor
         onPressedChanged: {
             if (!pressed)
-                return
-            ripple.burst(
-                point.position.x - buttonBackground.x,
-                point.position.y - buttonBackground.y
-            )
-            root.pressed()
+                return;
+            ripple.burst(point.position.x - buttonBackground.x, point.position.y - buttonBackground.y);
+            root.pressed();
         }
         onActivated: modifiers => root.activate(modifiers)
     }
@@ -158,45 +140,40 @@ Item {
         property real pressX: 0
         property real pressY: 0
         onPressed: mouse => {
-            ripple.burst(mouse.x - buttonBackground.x, mouse.y - buttonBackground.y)
-            pressX = mouse.x
-            pressY = mouse.y
-            dragging = false
-            root.pressed()
+            ripple.burst(mouse.x - buttonBackground.x, mouse.y - buttonBackground.y);
+            pressX = mouse.x;
+            pressY = mouse.y;
+            dragging = false;
+            root.pressed();
         }
         onPositionChanged: mouse => {
             if (!pressed)
-                return
-            if (!dragging && Math.hypot(
-                    mouse.x - pressX, mouse.y - pressY
-                ) >= root.dragThreshold) {
-                dragging = true
-                root.dragStarted(pressX, pressY)
+                return;
+            if (!dragging && Math.hypot(mouse.x - pressX, mouse.y - pressY) >= root.dragThreshold) {
+                dragging = true;
+                root.dragStarted(pressX, pressY);
             }
             if (dragging)
-                root.dragMoved(mouse.x, mouse.y)
+                root.dragMoved(mouse.x, mouse.y);
         }
         onReleased: mouse => {
-            const wasDragging = dragging
+            const wasDragging = dragging;
             if (wasDragging)
-                root.dragFinished()
-            dragging = false
-            if (!wasDragging && mouse.x >= 0 && mouse.x <= width
-                    && mouse.y >= 0 && mouse.y <= height)
-                root.activate(mouse.modifiers)
+                root.dragFinished();
+            dragging = false;
+            if (!wasDragging && mouse.x >= 0 && mouse.x <= width && mouse.y >= 0 && mouse.y <= height)
+                root.activate(mouse.modifiers);
         }
         onCanceled: {
             if (dragging)
-                root.dragCanceled()
-            dragging = false
+                root.dragCanceled();
+            dragging = false;
         }
     }
     Loader {
         objectName: "compactIconButtonToolTipLoader"
         anchors.fill: parent
-        active: root.pointerHovered
-            && root.toolTip.length > 0
-            && !root.theme.suppressToolTips
+        active: root.pointerHovered && root.toolTip.length > 0 && !root.theme.suppressToolTips
         sourceComponent: Controls.ToolTip {
             theme: root.theme
             visible: true

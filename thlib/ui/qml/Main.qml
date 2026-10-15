@@ -4,6 +4,7 @@ import QtQuick.Controls.Material
 import QtQuick.Layouts
 import QtQuick.Window
 import "controls" as Controls
+import "tactic_frame/shell/main_toolbar.ui.mjs" as MainToolbar
 
 ApplicationWindow {
     id: window
@@ -17,60 +18,35 @@ ApplicationWindow {
     y: appController.window_y
     width: appController.window_width
     height: appController.window_height
-    minimumWidth: Math.max(
-        sizing.windowMinimumWidth("main"),
-        dockModel.minimumHostWidth + sectionRail.width
-    )
-    minimumHeight: Math.max(
-        sizing.windowMinimumHeight("main"),
-        dockModel.minimumHostHeight + topAppBar.height
-    )
+    minimumWidth: Math.max(sizing.windowMinimumWidth("main"), dockModel.minimumHostWidth + sectionRail.width)
+    minimumHeight: Math.max(sizing.windowMinimumHeight("main"), dockModel.minimumHostHeight + topAppBar.height)
     visible: true
-    visibility: appController.window_maximized
-        ? Window.Maximized : Window.Windowed
-    title: handlerServerController.selectedClient
-        ? qsTr("TACTIC-Handler · Connected to ")
-            + handlerServerController.selectedApplicationType
-                .charAt(0).toUpperCase()
-            + handlerServerController.selectedApplicationType.slice(1)
-        : "TACTIC-Handler"
+    visibility: appController.window_maximized ? Window.Maximized : Window.Windowed
+    title: handlerServerController.selectedClient ? qsTr("TACTIC-Handler · Connected to ") + handlerServerController.selectedApplicationType.charAt(0).toUpperCase() + handlerServerController.selectedApplicationType.slice(1) : "TACTIC-Handler"
 
     function saveWindowState() {
-        appController.save_window_state(
-            window.x,
-            window.y,
-            window.width,
-            window.height,
-            Number(window.visibility)
-        )
+        appController.save_window_state(window.x, window.y, window.width, window.height, Number(window.visibility));
     }
 
     function syncNativeFrame() {
-        windowAppearanceController.apply(
-            window,
-            window.dark,
-            theme.topBar,
-            theme.primaryText
-        )
+        windowAppearanceController.apply(window, window.dark, theme.topBar, theme.primaryText);
     }
 
     function syncErrorWindow() {
         if (debugLog.error_visible)
-            windowModel.show_window("error")
+            windowModel.show_window("error");
         else
-            windowModel.close_window("error")
+            windowModel.close_window("error");
     }
 
     function clampToAvailableScreen() {
-        const safe = appController.clamp_main_window_geometry(
-            window.x, window.y, window.width, window.height
-        )
+        const safe = appController.clamp_main_window_geometry(window.x, window.y, window.width, window.height);
         if (!safe)
-            return
-        window.width = safe.width
-        window.height = safe.height
-        window.x = safe.x
-        window.y = safe.y
+            return;
+        window.width = safe.width;
+        window.height = safe.height;
+        window.x = safe.x;
+        window.y = safe.y;
     }
 
     property bool windowStateReady: false
@@ -79,27 +55,26 @@ ApplicationWindow {
         interval: 400
         repeat: false
         onTriggered: {
-            if (window.windowStateReady
-                    && window.visibility === Window.Windowed)
-                window.saveWindowState()
+            if (window.windowStateReady && window.visibility === Window.Windowed)
+                window.saveWindowState();
         }
     }
     function scheduleWindowStateSave() {
         if (windowStateReady && visibility === Window.Windowed)
-            windowStateSaveTimer.restart()
+            windowStateSaveTimer.restart();
     }
     onXChanged: scheduleWindowStateSave()
     onYChanged: scheduleWindowStateSave()
     onWidthChanged: scheduleWindowStateSave()
     onHeightChanged: scheduleWindowStateSave()
-    onVisibilityChanged: function(visibility) {
-        windowStateSaveTimer.stop()
+    onVisibilityChanged: function (visibility) {
+        windowStateSaveTimer.stop();
         if (visibility !== Window.Hidden)
-            Qt.callLater(window.syncNativeFrame)
+            Qt.callLater(window.syncNativeFrame);
         if (windowStateReady && visibility === Window.Maximized)
-            saveWindowState()
+            saveWindowState();
         else
-            scheduleWindowStateSave()
+            scheduleWindowStateSave();
     }
 
     property bool dark: true
@@ -111,50 +86,84 @@ ApplicationWindow {
     property string pendingPageKey: pageKey
     property string pendingPageTitle: pageTitle
     property string projectTitle: appController.current_project_title
-    readonly property bool workspaceAccessible:
-        appController.server_state === "online"
-        && appController.has_ticket
-        && !appController.authentication_required
-    readonly property bool serverConfigured:
-        appController.server_url.indexOf("http://") === 0
-        || appController.server_url.indexOf("https://") === 0
+    readonly property bool workspaceAccessible: appController.server_state === "online" && appController.has_ticket && !appController.authentication_required
+    readonly property bool serverConfigured: appController.server_url.indexOf("http://") === 0 || appController.server_url.indexOf("https://") === 0
     function userActionsWithMessageBadge(actions, unreadCount) {
         return actions.map(action => {
-            const copy = Object.assign({}, action)
+            const copy = Object.assign({}, action);
             if (copy.command === "show_messages")
-                copy.badgeCount = unreadCount
-            return copy
-        })
+                copy.badgeCount = unreadCount;
+            return copy;
+        });
     }
-    property var userMenuActions: window.userActionsWithMessageBadge(
-        appController.menu_actions("user"), messagesController.unreadCount
-    )
+    property var userMenuActions: window.userActionsWithMessageBadge(appController.menu_actions("user"), messagesController.unreadCount)
     property var configMenuActions: appController.menu_actions("configuration")
     property var connectionMenuActions: [
-        {"title": "Connection", "header": true},
-        {"title": "Ping now", "icon": "sync", "command": "ping_now"},
-        {"separator": true},
-        {"title": "Server updates", "header": true},
-        {"title": "Messages, reactions, activity, tasks and presence",
-            "status": serverUpdateService.update_mode === "sse" ? "Server push (SSE)" : "One batched server request", "icon": "dynamic_feed",
-            "enabled": false},
-        {"title": "Periodic checks", "icon": "schedule", "command": "update_mode_poll",
-            "checked": serverUpdateService.update_mode === "poll"},
-        {"title": "Server push (SSE)", "icon": "dynamic_feed", "command": "update_mode_sse",
-            "checked": serverUpdateService.update_mode === "sse"}
+        {
+            "title": "Connection",
+            "header": true
+        },
+        {
+            "title": "Ping now",
+            "icon": "sync",
+            "command": "ping_now"
+        },
+        {
+            "separator": true
+        },
+        {
+            "title": "Server updates",
+            "header": true
+        },
+        {
+            "title": "Messages, reactions, activity, tasks and presence",
+            "status": serverUpdateService.update_mode === "sse" ? "Server push (SSE)" : "One batched server request",
+            "icon": "dynamic_feed",
+            "enabled": false
+        },
+        {
+            "title": "Periodic checks",
+            "icon": "schedule",
+            "command": "update_mode_poll",
+            "checked": serverUpdateService.update_mode === "poll"
+        },
+        {
+            "title": "Server push (SSE)",
+            "icon": "dynamic_feed",
+            "command": "update_mode_sse",
+            "checked": serverUpdateService.update_mode === "sse"
+        }
     ].concat(serverUpdateService.update_mode === "poll" ? [
-        {"title": "Every 5 seconds", "icon": "schedule", "command": "updates_5",
-            "checked": serverUpdateService.poll_interval === 5},
-        {"title": "Every 10 seconds", "icon": "schedule", "command": "updates_10",
-            "checked": serverUpdateService.poll_interval === 10},
-        {"title": "Every 30 seconds", "icon": "schedule", "command": "updates_30",
-            "checked": serverUpdateService.poll_interval === 30},
-        {"title": "Every 60 seconds", "icon": "schedule", "command": "updates_60",
-            "checked": serverUpdateService.poll_interval === 60}
+        {
+            "title": "Every 5 seconds",
+            "icon": "schedule",
+            "command": "updates_5",
+            "checked": serverUpdateService.poll_interval === 5
+        },
+        {
+            "title": "Every 10 seconds",
+            "icon": "schedule",
+            "command": "updates_10",
+            "checked": serverUpdateService.poll_interval === 10
+        },
+        {
+            "title": "Every 30 seconds",
+            "icon": "schedule",
+            "command": "updates_30",
+            "checked": serverUpdateService.poll_interval === 30
+        },
+        {
+            "title": "Every 60 seconds",
+            "icon": "schedule",
+            "command": "updates_60",
+            "checked": serverUpdateService.poll_interval === 60
+        }
     ] : [])
     color: theme.workspace
 
-    WindowSizing { id: sizing }
+    WindowSizing {
+        id: sizing
+    }
 
     Theme {
         id: theme
@@ -167,12 +176,7 @@ ApplicationWindow {
         fadeAnimationsEnabled: appController.fade_animations_enabled
         popupAnimationsEnabled: appController.popup_animations_enabled
         onTopBarChanged: Qt.callLater(window.syncNativeFrame)
-        suppressToolTips: drawer.opened
-            || projectChooser.opened
-            || userMenu.opened
-            || configMenu.opened
-            || connectionMenu.opened
-            || dccClientMenu.opened
+        suppressToolTips: drawer.opened || projectChooser.opened || userMenu.opened || configMenu.opened || connectionMenu.opened || dccClientMenu.opened
     }
     Material.theme: window.dark ? Material.Dark : Material.Light
     Material.accent: theme.action
@@ -197,60 +201,75 @@ ApplicationWindow {
         smokeMode: qmlSmokeMode
     }
     function changePage(key, title) {
-        if (key === pageKey && title === pageTitle) return
-        pendingPageKey = key
-        pendingPageTitle = title
-        workspaceTransition.restart()
+        if (key === pageKey && title === pageTitle)
+            return;
+        pendingPageKey = key;
+        pendingPageTitle = title;
+        workspaceTransition.restart();
     }
-    function showNotice(message) { notificationController.notify(message) }
+    function showNotice(message) {
+        notificationController.notify(message);
+    }
     function closeTopBarPopups(exceptPopup) {
-        if (projectChooser !== exceptPopup && projectChooser.opened) projectChooser.close()
-        if (userMenu !== exceptPopup && userMenu.opened) userMenu.close()
-        if (configMenu !== exceptPopup && configMenu.opened) configMenu.close()
-        if (connectionMenu !== exceptPopup && connectionMenu.opened) connectionMenu.close()
-        if (dccClientMenu !== exceptPopup && dccClientMenu.opened) dccClientMenu.close()
+        if (projectChooser !== exceptPopup && projectChooser.opened)
+            projectChooser.close();
+        if (userMenu !== exceptPopup && userMenu.opened)
+            userMenu.close();
+        if (configMenu !== exceptPopup && configMenu.opened)
+            configMenu.close();
+        if (connectionMenu !== exceptPopup && connectionMenu.opened)
+            connectionMenu.close();
+        if (dccClientMenu !== exceptPopup && dccClientMenu.opened)
+            dccClientMenu.close();
     }
     function projectAcronym() {
-        const words = window.projectTitle.replace(/_/g, " ").split(/\s+/)
-        return words.slice(0, 2).map(word => word.length ? word[0] : "").join("").toUpperCase()
+        const words = window.projectTitle.replace(/_/g, " ").split(/\s+/);
+        return words.slice(0, 2).map(word => word.length ? word[0] : "").join("").toUpperCase();
     }
 
     Connections {
         target: appController
-        function onDark_theme_changed(enabled) { window.dark = enabled }
-        function onServer_state_changed() {
-            window.configMenuActions = appController.menu_actions("configuration")
+        function onDark_theme_changed(enabled) {
+            window.dark = enabled;
         }
-        function onPage_changed(key, title) { window.changePage(key, title); drawer.selectedKey = key }
-        function onProject_changed(code, title) { window.projectTitle = title }
+        function onServer_state_changed() {
+            window.configMenuActions = appController.menu_actions("configuration");
+        }
+        function onPage_changed(key, title) {
+            window.changePage(key, title);
+            drawer.selectedKey = key;
+        }
+        function onProject_changed(code, title) {
+            window.projectTitle = title;
+        }
     }
     Connections {
         target: handlerServerController
         function onClientActionReported(kind, message, detail) {
-            notificationController.push(kind, message, detail)
+            notificationController.push(kind, message, detail);
         }
     }
     Connections {
         target: debugLog
         function onError_changed() {
-            window.syncErrorWindow()
+            window.syncErrorWindow();
         }
     }
     Component.onCompleted: {
-        window.dark = appController.is_dark_theme()
-        window.syncErrorWindow()
-        Qt.callLater(window.syncNativeFrame)
-        Qt.callLater(function() {
+        window.dark = appController.is_dark_theme();
+        window.syncErrorWindow();
+        Qt.callLater(window.syncNativeFrame);
+        Qt.callLater(function () {
             if (!qmlSmokeMode && window.visibility === Window.Windowed)
-                window.clampToAvailableScreen()
-            window.windowStateReady = true
-        })
+                window.clampToAvailableScreen();
+            window.windowStateReady = true;
+        });
     }
-    onClosing: function(close) {
-        windowStateSaveTimer.stop()
+    onClosing: function (close) {
+        windowStateSaveTimer.stop();
         if (windowStateReady)
-            saveWindowState()
-        close.accepted = trayController.handle_close()
+            saveWindowState();
+        close.accepted = trayController.handle_close();
     }
 
     Rectangle {
@@ -258,15 +277,21 @@ ApplicationWindow {
         objectName: "topAppBar"
         anchors.top: parent.top
         width: parent.width
-        height: 44
+        height: composition.height
+        readonly property var composition: MainToolbar.describe({
+            width: window.width,
+            dccClient: handlerServerController.selectedClient.length > 0,
+            progressReveal: notificationActivityButton.progressReveal
+        })
+        readonly property var controls: MainToolbar.positions(composition)
         color: "transparent"
         clip: false
         z: 100
 
-        readonly property real controlExtent: 36
-        readonly property real controlSurfaceExtent: 32
-        readonly property real projectExtent: 36
-        readonly property real projectPreviewExtent: 28
+        readonly property real controlExtent: MainToolbar.dimensions.controlExtent
+        readonly property real controlSurfaceExtent: MainToolbar.dimensions.surfaceExtent
+        readonly property real projectExtent: MainToolbar.dimensions.controlExtent
+        readonly property real projectPreviewExtent: MainToolbar.dimensions.projectPreviewExtent
 
         Rectangle {
             id: topAppBarSurface
@@ -284,55 +309,52 @@ ApplicationWindow {
                 height: 1
                 color: theme.separator
             }
-
         }
-        RowLayout {
+        Item {
             id: topAppBarContent
-            anchors.top: parent.top
-            anchors.left: parent.left
-            anchors.right: parent.right
-            height: topAppBar.height
-            anchors.leftMargin: 8
-            anchors.rightMargin: 12
-            spacing: 2
-
-
+            anchors.fill: parent
             Controls.CompactIconButton {
-                Layout.preferredWidth: topAppBar.controlExtent
-                Layout.preferredHeight: topAppBar.controlExtent
+                readonly property var frameGeometry: topAppBar.controls.mainNavigation
+                property string frameId: "mainNavigation"
+                x: frameGeometry.x
+                y: frameGeometry.y
+                width: frameGeometry.width
+                height: frameGeometry.height
+                visible: frameGeometry.visible !== false
                 theme: theme
                 iconName: drawer.opened ? "close" : "menu"
                 iconColor: theme.primaryText
                 round: true
-                toolTip: drawer.opened
-                    ? qsTr("Close navigation") : qsTr("Open navigation")
+                toolTip: drawer.opened ? qsTr("Close navigation") : qsTr("Open navigation")
                 onClicked: {
-                    window.closeTopBarPopups(null)
-                    drawer.opened ? drawer.close() : drawer.open()
+                    window.closeTopBarPopups(null);
+                    drawer.opened ? drawer.close() : drawer.open();
                 }
             }
 
             Item {
                 id: projectButton
-                readonly property bool lastActivationWasTouch:
-                    projectActivation.lastActivationWasTouch
-                readonly property double lastActivationAt:
-                    projectActivation.lastActivationAt
-                Layout.preferredWidth: Math.min(
-                    260,
-                    Math.max(window.width < 640 ? 132 : 176,
-                        window.width * 0.21)
-                )
-                Layout.preferredHeight: topAppBar.projectExtent
+                readonly property var frameGeometry: topAppBar.controls.mainProject
+                property string frameId: "mainProject"
+                x: frameGeometry.x
+                y: frameGeometry.y
+                width: frameGeometry.width
+                height: frameGeometry.height
+                visible: frameGeometry.visible !== false
+                readonly property bool lastActivationWasTouch: projectActivation.lastActivationWasTouch
+                readonly property double lastActivationAt: projectActivation.lastActivationAt
                 Rectangle {
                     id: projectSurface
                     anchors.fill: parent
                     radius: 12
-                    color: projectActivation.pressed ? theme.selected
-                        : projectHover.hovered ? theme.rowHover : theme.panel
+                    color: projectActivation.pressed ? theme.selected : projectHover.hovered ? theme.rowHover : theme.panel
                     border.width: 1
                     border.color: theme.outline
-                    Behavior on color { ColorAnimation { duration: theme.hoverMotionFast } }
+                    Behavior on color {
+                        ColorAnimation {
+                            duration: theme.hoverMotionFast
+                        }
+                    }
                     Controls.MaterialRipple {
                         id: projectRipple
                         theme: theme
@@ -350,7 +372,7 @@ ApplicationWindow {
                         Layout.preferredHeight: topAppBar.projectPreviewExtent
                         theme: theme
                         previewSize: topAppBar.projectPreviewExtent
-                        cornerRadius: 6
+                        cornerRadius: MainToolbar.dimensions.projectPreviewRadius
                         outlined: true
                         accent: theme.toolBar
                         source: appController.current_project_preview
@@ -377,7 +399,11 @@ ApplicationWindow {
                             elide: Text.ElideRight
                         }
                     }
-                    Controls.MaterialIcon { name: "keyboard_arrow_down"; size: 18; color: theme.secondaryText }
+                    Controls.MaterialIcon {
+                        name: "keyboard_arrow_down"
+                        size: 18
+                        color: theme.secondaryText
+                    }
                 }
                 Controls.ActivationHandler {
                     id: projectActivation
@@ -385,16 +411,15 @@ ApplicationWindow {
                     cursorShape: Qt.PointingHandCursor
                     onPressedChanged: {
                         if (!pressed)
-                            return
-                        projectChooser.sourceWasOpen = projectChooser.opened
-                        projectRipple.burst(
-                            point.position.x, point.position.y)
+                            return;
+                        projectChooser.sourceWasOpen = projectChooser.opened;
+                        projectRipple.burst(point.position.x, point.position.y);
                     }
                     onActivated: {
                         if (drawer.opened)
-                            drawer.close()
-                        window.closeTopBarPopups(projectChooser)
-                        projectChooser.toggle(projectButton)
+                            drawer.close();
+                        window.closeTopBarPopups(projectChooser);
+                        projectChooser.toggle(projectButton);
                     }
                 }
                 HoverHandler {
@@ -403,26 +428,22 @@ ApplicationWindow {
                 }
             }
 
-            Item { Layout.fillWidth: true }
-
             Item {
                 id: notificationActivityButton
-                readonly property bool showingProgress:
-                    appController.loading
-                    || appController.server_state === "connecting"
-                readonly property string progressText:
-                    qsTr(appController.loading_message
-                        || appController.server_message
-                        || "Loading TACTIC workspace")
-                readonly property bool compactProgress: window.width < 760
-                readonly property real progressExtent: compactProgress
-                    ? topAppBar.controlExtent : 220
+                readonly property var frameGeometry: topAppBar.controls.mainActivity
+                property string frameId: "mainActivity"
+                x: frameGeometry.x
+                y: frameGeometry.y
+                width: frameGeometry.width
+                height: frameGeometry.height
+                visible: frameGeometry.visible !== false
+                readonly property bool showingProgress: appController.loading || appController.server_state === "connecting"
+                readonly property string progressText: qsTr(appController.loading_message || appController.server_message || "Loading TACTIC workspace")
+                readonly property bool compactProgress: topAppBar.composition.compactProgress
+                readonly property real progressExtent: compactProgress ? topAppBar.controlExtent : 220
                 property real progressReveal: showingProgress ? 1.0 : 0.0
 
                 clip: true
-                Layout.preferredWidth: topAppBar.controlExtent
-                    + (progressExtent - topAppBar.controlExtent) * progressReveal
-                Layout.preferredHeight: topAppBar.controlExtent
 
                 Behavior on progressReveal {
                     NumberAnimation {
@@ -439,13 +460,7 @@ ApplicationWindow {
                     radius: height / 2
                     color: "transparent"
                     border.width: 1
-                    border.color: Qt.rgba(
-                        theme.outlineVariant.r,
-                        theme.outlineVariant.g,
-                        theme.outlineVariant.b,
-                        theme.outlineVariant.a
-                            * notificationActivityButton.progressReveal
-                    )
+                    border.color: Qt.rgba(theme.outlineVariant.r, theme.outlineVariant.g, theme.outlineVariant.b, theme.outlineVariant.a * notificationActivityButton.progressReveal)
 
                     Rectangle {
                         anchors.fill: parent
@@ -457,13 +472,10 @@ ApplicationWindow {
                         anchors.fill: parent
                         radius: parent.radius
                         color: theme.primaryText
-                        opacity: notificationActivityMouse.pressed ? 0.12
-                            : notificationActivityMouse.containsMouse ? 0.08 : 0
+                        opacity: notificationActivityMouse.pressed ? 0.12 : notificationActivityMouse.containsMouse ? 0.08 : 0
                         Behavior on opacity {
                             NumberAnimation {
-                                duration: notificationActivityMouse.pressed
-                                    ? theme.clickMotionFast
-                                    : theme.hoverMotionFast
+                                duration: notificationActivityMouse.pressed ? theme.clickMotionFast : theme.hoverMotionFast
                                 easing.type: Easing.OutCubic
                             }
                         }
@@ -488,10 +500,8 @@ ApplicationWindow {
 
                 RowLayout {
                     anchors.fill: parent
-                    anchors.leftMargin:
-                        notificationActivityButton.compactProgress ? 7 : 10
-                    anchors.rightMargin:
-                        notificationActivityButton.compactProgress ? 7 : 12
+                    anchors.leftMargin: notificationActivityButton.compactProgress ? 7 : 10
+                    anchors.rightMargin: notificationActivityButton.compactProgress ? 7 : 12
                     spacing: 7
                     opacity: notificationActivityButton.progressReveal
                     visible: opacity > 0.01
@@ -521,37 +531,31 @@ ApplicationWindow {
                     anchors.fill: parent
                     hoverEnabled: true
                     cursorShape: Qt.PointingHandCursor
-                    onPressed: mouse => notificationActivityRipple.burst(
-                        mouse.x - notificationActivitySurface.x,
-                        mouse.y - notificationActivitySurface.y
-                    )
+                    onPressed: mouse => notificationActivityRipple.burst(mouse.x - notificationActivitySurface.x, mouse.y - notificationActivitySurface.y)
                     onClicked: appController.open_window("notifications")
 
                     Controls.ToolTip {
                         theme: theme
-                        visible: notificationActivityMouse.containsMouse
-                            && !theme.suppressToolTips
+                        visible: notificationActivityMouse.containsMouse && !theme.suppressToolTips
                         delay: 450
-                        text: notificationActivityButton.showingProgress
-                            ? notificationActivityButton.progressText
-                            : qsTr("System activity")
+                        text: notificationActivityButton.showingProgress ? notificationActivityButton.progressText : qsTr("System activity")
                     }
                 }
             }
+
             Item {
                 id: connectionButton
-                readonly property bool lastActivationWasTouch:
-                    connectionActivation.lastActivationWasTouch
-                readonly property double lastActivationAt:
-                    connectionActivation.lastActivationAt
-                readonly property bool expandedLabel: window.width >= 900
-                readonly property color statusColor:
-                    appController.server_state === "online" ? theme.green
-                    : appController.server_state === "error"
-                        ? theme.red : theme.yellow
-                Layout.preferredWidth: expandedLabel
-                    ? 106 : topAppBar.controlExtent
-                Layout.preferredHeight: topAppBar.controlExtent
+                readonly property var frameGeometry: topAppBar.controls.mainConnection
+                property string frameId: "mainConnection"
+                x: frameGeometry.x
+                y: frameGeometry.y
+                width: frameGeometry.width
+                height: frameGeometry.height
+                visible: frameGeometry.visible !== false
+                readonly property bool lastActivationWasTouch: connectionActivation.lastActivationWasTouch
+                readonly property double lastActivationAt: connectionActivation.lastActivationAt
+                readonly property bool expandedLabel: topAppBar.composition.connectionExpanded
+                readonly property color statusColor: appController.server_state === "online" ? theme.green : appController.server_state === "error" ? theme.red : theme.yellow
                 Rectangle {
                     id: connectionSurface
                     anchors.centerIn: parent
@@ -563,15 +567,10 @@ ApplicationWindow {
                         anchors.fill: parent
                         radius: parent.radius
                         color: theme.primaryText
-                        opacity: connectionActivation.pressed ? 0.12
-                            : connectionHover.hovered ? 0.08 : 0
+                        opacity: connectionActivation.pressed ? 0.12 : connectionHover.hovered ? 0.08 : 0
                         Behavior on opacity {
                             NumberAnimation {
-                                duration: connectionActivation.pressed
-                                    ? theme.clickMotionFast
-                                    : connectionHover.hovered
-                                        ? theme.hoverMotionFast
-                                        : theme.hoverMotionMedium
+                                duration: connectionActivation.pressed ? theme.clickMotionFast : connectionHover.hovered ? theme.hoverMotionFast : theme.hoverMotionMedium
                                 easing.type: Easing.OutCubic
                             }
                         }
@@ -604,10 +603,7 @@ ApplicationWindow {
                     Label {
                         visible: connectionButton.expandedLabel
                         anchors.verticalCenter: parent.verticalCenter
-                        text: appController.server_state === "online"
-                            ? qsTr("Connected")
-                            : appController.server_state === "error"
-                                ? qsTr("Offline") : qsTr("Connecting")
+                        text: appController.server_state === "online" ? qsTr("Connected") : appController.server_state === "error" ? qsTr("Offline") : qsTr("Connecting")
                         color: theme.secondaryText
                         font.family: theme.fontFamily
                         font.pointSize: Controls.Typography.body
@@ -620,16 +616,13 @@ ApplicationWindow {
                     cursorShape: Qt.PointingHandCursor
                     onPressedChanged: {
                         if (!pressed)
-                            return
-                        connectionMenu.sourceWasOpen = connectionMenu.opened
-                        connectionRipple.burst(
-                            point.position.x - connectionSurface.x,
-                            point.position.y - connectionSurface.y
-                        )
+                            return;
+                        connectionMenu.sourceWasOpen = connectionMenu.opened;
+                        connectionRipple.burst(point.position.x - connectionSurface.x, point.position.y - connectionSurface.y);
                     }
                     onActivated: {
-                        window.closeTopBarPopups(connectionMenu)
-                        connectionMenu.toggleBelow(connectionButton)
+                        window.closeTopBarPopups(connectionMenu);
+                        connectionMenu.toggleBelow(connectionButton);
                     }
                 }
                 HoverHandler {
@@ -638,26 +631,25 @@ ApplicationWindow {
                 }
                 Controls.ToolTip {
                     theme: theme
-                    visible: connectionHover.hovered
-                        && !theme.suppressToolTips
+                    visible: connectionHover.hovered && !theme.suppressToolTips
                     delay: 450
-                    text: qsTr(appController.server_message)
-                        + "\n" + appController.server_url
+                    text: qsTr(appController.server_message) + "\n" + appController.server_url
                 }
             }
 
             Item {
                 id: dccClientButton
-                readonly property bool lastActivationWasTouch:
-                    dccClientActivation.lastActivationWasTouch
-                readonly property double lastActivationAt:
-                    dccClientActivation.lastActivationAt
-                readonly property bool expandedLabel: window.width >= 1280
+                readonly property var frameGeometry: topAppBar.controls.mainDcc
+                property string frameId: "mainDcc"
+                x: frameGeometry.x
+                y: frameGeometry.y
+                width: frameGeometry.width
+                height: frameGeometry.height
+                visible: frameGeometry.visible !== false
+                readonly property bool lastActivationWasTouch: dccClientActivation.lastActivationWasTouch
+                readonly property double lastActivationAt: dccClientActivation.lastActivationAt
+                readonly property bool expandedLabel: topAppBar.composition.dccExpanded
                 readonly property bool compactIconOnly: window.width < 720
-                visible: handlerServerController.selectedClient.length > 0
-                Layout.preferredWidth: expandedLabel ? 238
-                    : compactIconOnly ? topAppBar.controlExtent : 104
-                Layout.preferredHeight: topAppBar.controlExtent
                 clip: true
                 Rectangle {
                     id: dccClientSurface
@@ -665,12 +657,14 @@ ApplicationWindow {
                     width: parent.width - 2
                     height: topAppBar.controlSurfaceExtent
                     radius: height / 2
-                    color: dccClientActivation.pressed ? theme.selected
-                        : dccClientHover.hovered
-                            ? theme.rowHover : theme.panel
+                    color: dccClientActivation.pressed ? theme.selected : dccClientHover.hovered ? theme.rowHover : theme.panel
                     border.width: 1
                     border.color: theme.outlineVariant
-                    Behavior on color { ColorAnimation { duration: theme.hoverMotionFast } }
+                    Behavior on color {
+                        ColorAnimation {
+                            duration: theme.hoverMotionFast
+                        }
+                    }
                     Controls.MaterialRipple {
                         id: dccClientRipple
                         theme: theme
@@ -711,8 +705,7 @@ ApplicationWindow {
                         }
                         Label {
                             Layout.fillWidth: true
-                            text: handlerServerController.connectedClientCount
-                                + qsTr(" connected")
+                            text: handlerServerController.connectedClientCount + qsTr(" connected")
                             color: theme.primaryText
                             font.family: theme.fontFamily
                             font.pointSize: Controls.Typography.label
@@ -721,8 +714,7 @@ ApplicationWindow {
                     }
                     Rectangle {
                         Layout.fillWidth: !dccClientButton.expandedLabel
-                        Layout.preferredWidth: dccClientButton.expandedLabel
-                            ? 105 : 62
+                        Layout.preferredWidth: dccClientButton.expandedLabel ? 105 : 62
                         Layout.preferredHeight: 30
                         radius: 15
                         color: theme.secondaryContainer
@@ -734,9 +726,7 @@ ApplicationWindow {
                             Label {
                                 visible: dccClientButton.expandedLabel
                                 Layout.fillWidth: true
-                                text: qsTr("ACTIVE · ")
-                                    + handlerServerController
-                                        .selectedApplicationType.toUpperCase()
+                                text: qsTr("ACTIVE · ") + handlerServerController.selectedApplicationType.toUpperCase()
                                 color: theme.action
                                 font.family: theme.fontFamily
                                 font.pointSize: Controls.Typography.micro
@@ -745,17 +735,12 @@ ApplicationWindow {
                             }
                             Label {
                                 Layout.fillWidth: true
-                                text: dccClientButton.expandedLabel
-                                    ? handlerServerController.selectedClient
-                                    : handlerServerController
-                                        .selectedApplicationType.toUpperCase()
+                                text: dccClientButton.expandedLabel ? handlerServerController.selectedClient : handlerServerController.selectedApplicationType.toUpperCase()
                                 color: theme.primaryText
                                 font.family: theme.fontFamily
-                                font.pixelSize: dccClientButton.expandedLabel
-                                    ? 8 : 9
+                                font.pixelSize: dccClientButton.expandedLabel ? 8 : 9
                                 font.weight: Font.DemiBold
-                                horizontalAlignment: dccClientButton.expandedLabel
-                                    ? Text.AlignLeft : Text.AlignHCenter
+                                horizontalAlignment: dccClientButton.expandedLabel ? Text.AlignLeft : Text.AlignHCenter
                                 elide: Text.ElideRight
                             }
                         }
@@ -772,16 +757,13 @@ ApplicationWindow {
                     cursorShape: Qt.PointingHandCursor
                     onPressedChanged: {
                         if (!pressed)
-                            return
-                        dccClientMenu.sourceWasOpen = dccClientMenu.opened
-                        dccClientRipple.burst(
-                            point.position.x - dccClientSurface.x,
-                            point.position.y - dccClientSurface.y
-                        )
+                            return;
+                        dccClientMenu.sourceWasOpen = dccClientMenu.opened;
+                        dccClientRipple.burst(point.position.x - dccClientSurface.x, point.position.y - dccClientSurface.y);
                     }
                     onActivated: {
-                        window.closeTopBarPopups(dccClientMenu)
-                        dccClientMenu.toggleBelow(dccClientButton)
+                        window.closeTopBarPopups(dccClientMenu);
+                        dccClientMenu.toggleBelow(dccClientButton);
                     }
                 }
                 HoverHandler {
@@ -790,57 +772,71 @@ ApplicationWindow {
                 }
                 Controls.ToolTip {
                     theme: theme
-                    visible: dccClientHover.hovered
-                        && !theme.suppressToolTips
+                    visible: dccClientHover.hovered && !theme.suppressToolTips
                     delay: 450
                     text: handlerServerController.selectedClientLabel
                 }
             }
 
             Controls.CompactIconButton {
-                Layout.preferredWidth: topAppBar.controlExtent
-                Layout.preferredHeight: topAppBar.controlExtent
+                readonly property var frameGeometry: topAppBar.controls.mainQueue
+                property string frameId: "mainQueue"
+                x: frameGeometry.x
+                y: frameGeometry.y
+                width: frameGeometry.width
+                height: frameGeometry.height
+                visible: frameGeometry.visible !== false
                 theme: theme
                 iconName: "commit_queue"
-                iconColor: commitQueueController.unfinishedCount > 0
-                    ? theme.action : theme.primaryText
+                iconColor: commitQueueController.unfinishedCount > 0 ? theme.action : theme.primaryText
                 round: true
                 badgeCount: commitQueueController.unfinishedCount
-                toolTip: fileWorkspaceController.enabled ? qsTr("Perforce-like workspace") : commitQueueController.unfinishedCount > 0
-                    ? qsTr("Commit Queue · ")
-                        + commitQueueController.unfinishedCount
-                        + qsTr(" unfinished")
-                    : qsTr("Commit Queue")
+                toolTip: fileWorkspaceController.enabled ? qsTr("Perforce-like workspace") : commitQueueController.unfinishedCount > 0 ? qsTr("Commit Queue · ") + commitQueueController.unfinishedCount + qsTr(" unfinished") : qsTr("Commit Queue")
                 onClicked: appController.open_window("commit_queue")
             }
 
             Controls.CompactIconButton {
-                Layout.preferredWidth: topAppBar.controlExtent
-                Layout.preferredHeight: topAppBar.controlExtent
+                readonly property var frameGeometry: topAppBar.controls.mainFeed
+                property string frameId: "mainFeed"
+                x: frameGeometry.x
+                y: frameGeometry.y
+                width: frameGeometry.width
+                height: frameGeometry.height
+                visible: frameGeometry.visible !== false
                 theme: theme
                 iconName: "activity-feed"
-                iconColor: activityFeedController.unreadCount > 0
-                    ? theme.action : theme.primaryText
+                iconColor: activityFeedController.unreadCount > 0 ? theme.action : theme.primaryText
                 round: true
                 badgeCount: activityFeedController.unreadCount
                 toolTip: qsTr("Activity Feed")
                 onClicked: appController.open_window("activity_feed")
             }
+
             Controls.CompactIconButton {
-                Layout.preferredWidth: topAppBar.controlExtent
-                Layout.preferredHeight: topAppBar.controlExtent
+                readonly property var frameGeometry: topAppBar.controls.mainAppearance
+                property string frameId: "mainAppearance"
+                x: frameGeometry.x
+                y: frameGeometry.y
+                width: frameGeometry.width
+                height: frameGeometry.height
+                visible: frameGeometry.visible !== false
                 theme: theme
                 iconName: "theme_mode"
                 iconColor: theme.primaryText
                 round: true
-                toolTip: window.dark
-                    ? qsTr("Use light theme") : qsTr("Use dark theme")
+                toolTip: window.dark ? qsTr("Use light theme") : qsTr("Use dark theme")
                 onClicked: appController.toggle_theme()
             }
+
             Controls.CompactIconButton {
                 id: settingsButton
-                Layout.preferredWidth: topAppBar.controlExtent
-                Layout.preferredHeight: topAppBar.controlExtent
+                readonly property var frameGeometry: topAppBar.controls.mainSettings
+                property string frameId: "mainSettings"
+                x: frameGeometry.x
+                y: frameGeometry.y
+                width: frameGeometry.width
+                height: frameGeometry.height
+                visible: frameGeometry.visible !== false
                 theme: theme
                 iconName: "more_vert"
                 iconColor: theme.primaryText
@@ -849,35 +845,40 @@ ApplicationWindow {
                 onPressed: configMenu.sourceWasOpen = configMenu.opened
                 onClicked: {
                     if (drawer.opened)
-                        drawer.close()
-                    window.configMenuActions = appController.menu_actions("configuration")
-                    window.closeTopBarPopups(configMenu)
-                    configMenu.toggleBelow(settingsButton)
+                        drawer.close();
+                    window.configMenuActions = appController.menu_actions("configuration");
+                    window.closeTopBarPopups(configMenu);
+                    configMenu.toggleBelow(settingsButton);
                 }
             }
 
             Item {
                 id: userButton
+                readonly property var frameGeometry: topAppBar.controls.mainAccount
+                property string frameId: "mainAccount"
+                x: frameGeometry.x
+                y: frameGeometry.y
+                width: frameGeometry.width
+                height: frameGeometry.height
+                visible: frameGeometry.visible !== false
                 objectName: "topBarUserButton"
-                readonly property bool lastActivationWasTouch:
-                    userActivation.lastActivationWasTouch
-                readonly property double lastActivationAt:
-                    userActivation.lastActivationAt
-                Layout.preferredWidth: topAppBar.controlExtent
-                Layout.preferredHeight: topAppBar.controlExtent
+                readonly property bool lastActivationWasTouch: userActivation.lastActivationWasTouch
+                readonly property double lastActivationAt: userActivation.lastActivationAt
                 Rectangle {
                     id: userSurface
                     anchors.centerIn: parent
                     width: topAppBar.controlSurfaceExtent
                     height: topAppBar.controlSurfaceExtent
                     radius: width / 2
-                    color: userActivation.pressed ? theme.selected
-                        : userHover.hovered ? theme.rowHover : theme.panel
+                    color: userActivation.pressed ? theme.selected : userHover.hovered ? theme.rowHover : theme.panel
                     border.width: 1
-                    border.color: userHover.hovered
-                        ? theme.action : theme.outline
+                    border.color: userHover.hovered ? theme.action : theme.outline
                     clip: true
-                    Behavior on color { ColorAnimation { duration: theme.hoverMotionFast } }
+                    Behavior on color {
+                        ColorAnimation {
+                            duration: theme.hoverMotionFast
+                        }
+                    }
                     Controls.ItemPreview {
                         id: currentUserAvatar
                         anchors.fill: parent
@@ -904,9 +905,7 @@ ApplicationWindow {
                     anchors.rightMargin: -1
                     anchors.topMargin: -1
                     visible: messagesController.unreadCount > 0
-                    implicitWidth: Math.max(
-                        16, userUnreadLabel.implicitWidth + 7
-                    )
+                    implicitWidth: Math.max(16, userUnreadLabel.implicitWidth + 7)
                     implicitHeight: 16
                     radius: 8
                     color: theme.error
@@ -916,8 +915,7 @@ ApplicationWindow {
                     Label {
                         id: userUnreadLabel
                         anchors.centerIn: parent
-                        text: messagesController.unreadCount > 99
-                            ? "99+" : String(messagesController.unreadCount)
+                        text: messagesController.unreadCount > 99 ? "99+" : String(messagesController.unreadCount)
                         color: theme.selectedText
                         font.family: theme.fontFamily
                         font.pointSize: Controls.Typography.caption
@@ -931,18 +929,15 @@ ApplicationWindow {
                     cursorShape: Qt.PointingHandCursor
                     onPressedChanged: {
                         if (!pressed)
-                            return
-                        userMenu.sourceWasOpen = userMenu.opened
-                        userRipple.burst(
-                            point.position.x - userSurface.x,
-                            point.position.y - userSurface.y
-                        )
+                            return;
+                        userMenu.sourceWasOpen = userMenu.opened;
+                        userRipple.burst(point.position.x - userSurface.x, point.position.y - userSurface.y);
                     }
                     onActivated: {
                         if (drawer.opened)
-                            drawer.close()
-                        window.closeTopBarPopups(userMenu)
-                        userMenu.toggleBelow(userButton)
+                            drawer.close();
+                        window.closeTopBarPopups(userMenu);
+                        userMenu.toggleBelow(userButton);
                     }
                 }
                 HoverHandler {
@@ -951,12 +946,9 @@ ApplicationWindow {
                 }
                 Controls.ToolTip {
                     theme: theme
-                    visible: userHover.hovered
-                        && !theme.suppressToolTips
+                    visible: userHover.hovered && !theme.suppressToolTips
                     delay: 500
-                    text: userController.displayName
-                        + (userController.login
-                            ? "\n" + userController.login : "")
+                    text: userController.displayName + (userController.login ? "\n" + userController.login : "")
                 }
             }
         }
@@ -978,20 +970,22 @@ ApplicationWindow {
             model: sectionTabsModel
             onSelected: key => appController.activate_section(key)
             onClosed: key => appController.close_section(key)
-            onReordered: (sourceRow, targetRow) =>
-                appController.reorder_section(sourceRow, targetRow)
+            onReordered: (sourceRow, targetRow) => appController.reorder_section(sourceRow, targetRow)
         }
         DockHost {
             id: workspace
             anchors.top: parent.top
-            anchors.left: parent.left; anchors.leftMargin: sectionRail.reservedWidth
+            anchors.left: parent.left
+            anchors.leftMargin: sectionRail.reservedWidth
             anchors.right: parent.right
             anchors.bottom: parent.bottom
             theme: theme
             pageTitle: window.pageTitle
             projectTitle: window.projectTitle
             workspaceActive: Boolean(appController.current_section_key) || fileWorkspaceController.enabled
-            onNotice: function(message) { window.showNotice(message) }
+            onNotice: function (message) {
+                window.showNotice(message);
+            }
             onRequestDockMenu: sourceItem => dockMenu.toggleBelow(sourceItem)
         }
         // In the source Ui_checkInOutTabWidget the overlay belongs to the
@@ -1003,29 +997,47 @@ ApplicationWindow {
             sidebarEditingAvailable: userController.canManageUsers
             onEditSidebarRequested: appController.invoke("show_sidebar_editor")
             onSelected: (key, title, command) => {
-                appController.select_navigation(key, title, command)
-                drawer.close()
+                appController.select_navigation(key, title, command);
+                drawer.close();
             }
         }
     }
     SequentialAnimation {
         id: workspaceTransition
-        NumberAnimation { target: workspaceLayer; property: "opacity"; to: 0; duration: theme.motionInstant }
-        ScriptAction { script: { window.pageKey = window.pendingPageKey; window.pageTitle = window.pendingPageTitle } }
-        NumberAnimation { target: workspaceLayer; property: "opacity"; to: 1; duration: theme.motionFast; easing.type: Easing.OutCubic }
+        NumberAnimation {
+            target: workspaceLayer
+            property: "opacity"
+            to: 0
+            duration: theme.motionInstant
+        }
+        ScriptAction {
+            script: {
+                window.pageKey = window.pendingPageKey;
+                window.pageTitle = window.pendingPageTitle;
+            }
+        }
+        NumberAnimation {
+            target: workspaceLayer
+            property: "opacity"
+            to: 1
+            duration: theme.motionFast
+            easing.type: Easing.OutCubic
+        }
     }
 
     ProjectChooser {
-        id: projectChooser; model: projectModel; theme: theme
+        id: projectChooser
+        model: projectModel
+        theme: theme
         onProjectSelected: code => appController.select_project(code)
     }
     DockMenu {
         id: dockMenu
         parent: Overlay.overlay
         theme: theme
-        panelModel: dockModel; layoutPresetController: workspaceLayoutPresets
-        onResetLayoutRequested:
-            appController.invoke("reset_workspace_layout")
+        panelModel: dockModel
+        layoutPresetController: workspaceLayoutPresets
+        onResetLayoutRequested: appController.invoke("reset_workspace_layout")
         x: Math.max(8, window.width - width - 58)
         y: topAppBar.height - 2
     }
@@ -1051,13 +1063,11 @@ ApplicationWindow {
         actions: window.connectionMenuActions
         onTriggered: command => {
             if (command === "ping_now")
-                appController.ping_server()
+                appController.ping_server();
             else if (command.indexOf("update_mode_") === 0)
-                serverUpdateService.set_update_mode(command.slice(12))
+                serverUpdateService.set_update_mode(command.slice(12));
             else if (command.indexOf("updates_") === 0)
-                serverUpdateService.set_poll_interval(
-                    Number(command.slice(8))
-                )
+                serverUpdateService.set_poll_interval(Number(command.slice(8)));
         }
     }
     ActionMenu {
@@ -1069,15 +1079,14 @@ ApplicationWindow {
         onOpened: handlerServerController.refresh_client_details()
         onTriggered: command => {
             if (command.indexOf("dcc_client:") === 0)
-                handlerServerController.select_client_id(command.slice(11))
+                handlerServerController.select_client_id(command.slice(11));
         }
     }
     Rectangle {
         id: accessGate
         anchors.fill: parent
         z: 950
-        visible: appController.server_state !== "connecting"
-            && !window.workspaceAccessible
+        visible: appController.server_state !== "connecting" && !window.workspaceAccessible
         color: theme.workspace
 
         ColumnLayout {
@@ -1102,12 +1111,7 @@ ApplicationWindow {
             Label {
                 Layout.fillWidth: true
                 horizontalAlignment: Text.AlignHCenter
-                text: !window.serverConfigured
-                    ? qsTr("Configure TACTIC server")
-                    : !appController.has_ticket
-                        || appController.authentication_required
-                        ? qsTr("Sign in to TACTIC")
-                        : qsTr("TACTIC is unavailable")
+                text: !window.serverConfigured ? qsTr("Configure TACTIC server") : !appController.has_ticket || appController.authentication_required ? qsTr("Sign in to TACTIC") : qsTr("TACTIC is unavailable")
                 color: theme.primaryText
                 font.family: theme.fontFamily
                 font.pixelSize: 20
@@ -1116,10 +1120,7 @@ ApplicationWindow {
             Label {
                 Layout.fillWidth: true
                 horizontalAlignment: Text.AlignHCenter
-                text: !window.serverConfigured
-                    ? qsTr("Set a server address and account before opening the workspace.")
-                    : qsTr(appController.server_message)
-                        || qsTr("Generate a ticket to open the workspace.")
+                text: !window.serverConfigured ? qsTr("Set a server address and account before opening the workspace.") : qsTr(appController.server_message) || qsTr("Generate a ticket to open the workspace.")
                 color: theme.secondaryText
                 font.family: theme.fontFamily
                 font.pointSize: Controls.Typography.bodyLarge
@@ -1145,19 +1146,18 @@ ApplicationWindow {
                     model: serverPresetModel
                     textRole: "label"
                     currentIndex: {
-                        const current = appController.server_preset
+                        const current = appController.server_preset;
                         for (let row = 0; row < serverPresetModel.count(); ++row) {
                             if (serverPresetModel.get(row).label === current)
-                                return row
+                                return row;
                         }
-                        return serverPresetModel.count() ? 0 : -1
+                        return serverPresetModel.count() ? 0 : -1;
                     }
                     onActivated: {
-                        const presetName = currentText
-                        if (!presetName.length
-                                || presetName === appController.server_preset)
-                            return
-                        appController.select_server_preset(presetName)
+                        const presetName = currentText;
+                        if (!presetName.length || presetName === appController.server_preset)
+                            return;
+                        appController.select_server_preset(presetName);
                     }
                 }
             }
@@ -1177,15 +1177,12 @@ ApplicationWindow {
                     visible: window.serverConfigured
                     text: qsTr("Sign in")
                     icon.name: "key"
-                    highlighted: !appController.has_ticket
-                        || appController.authentication_required
+                    highlighted: !appController.has_ticket || appController.authentication_required
                     onClicked: appController.request_authentication()
                 }
                 Controls.Button {
                     theme: theme
-                    visible: window.serverConfigured
-                        && appController.has_ticket
-                        && !appController.authentication_required
+                    visible: window.serverConfigured && appController.has_ticket && !appController.authentication_required
                     text: qsTr("Retry")
                     icon.name: "refresh"
                     highlighted: true
