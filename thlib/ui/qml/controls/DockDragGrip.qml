@@ -19,6 +19,13 @@ Item {
     implicitWidth: 30
     implicitHeight: 34
 
+    function cancel() {
+        const wasDragging = pointerArea.dragging
+        pointerArea.dragging = false
+        pointerArea.pressButton = Qt.NoButton
+        if (wasDragging) root.dragCanceled()
+    }
+
     Column {
         anchors.centerIn: parent
         spacing: 4

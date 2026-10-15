@@ -158,10 +158,10 @@ class LocalizationTests(unittest.TestCase):
             self._ROOT / "thlib" / "ui" / "qml" / "NavigationDrawer.qml"
         ).read_text(encoding="utf-8")
         sidebar_row_source = (
-            self._ROOT / "thlib" / "ui" / "qml" / "SidebarTreeRow.qml"
+            self._ROOT / "thlib" / "ui" / "qml" / "controls" / "NavigationRow.qml"
         ).read_text(encoding="utf-8")
         self.assertIn("SidebarTreeRow", drawer_source)
-        self.assertIn("text: root.title", sidebar_row_source)
+        self.assertIn("title: title", sidebar_row_source)
         self.assertNotIn("qsTr(root.title)", sidebar_row_source)
 
     def test_server_search_columns_are_not_translated(self):

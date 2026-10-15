@@ -414,12 +414,12 @@ class UiStructureTests(unittest.TestCase):
         self.assertNotIn("script_editor_help", windows)
         self.assertEqual(
             FloatingWindowModel._content_source(windows["help"]),
-            "HelpView.qml",
+            "features/support/help/HelpView.qml",
         )
-        self.assertTrue((QML / "HelpView.qml").is_file())
+        self.assertTrue((QML / "features/support/help/HelpView.qml").is_file())
         self.assertFalse((QML / "ScriptEditorHelpView.qml").exists())
 
-        help_view = (QML / "HelpView.qml").read_text(encoding="utf-8")
+        help_view = (QML / "features/support/help/HelpView.qml").read_text(encoding="utf-8")
         help_articles = QML.parent / "help_articles"
         dock_panel = (QML / "shell/docks/DockPanel.qml").read_text(encoding="utf-8")
         detached = (QML / "shell/windows/DetachedDockWindow.qml").read_text(
@@ -445,7 +445,7 @@ class UiStructureTests(unittest.TestCase):
             self.assertTrue((help_articles / f"{topic}.en.md").is_file())
             self.assertTrue((help_articles / f"{topic}.ru.md").is_file())
         self.assertIn("helpController.topics", help_view)
-        self.assertIn("TextEdit.MarkdownText", help_view)
+        self.assertIn("TextEdit.MarkdownText", (QML / "controls/DocumentPane.qml").read_text(encoding="utf-8"))
         self.assertIn("helpController.open_current_file()", help_view)
         self.assertNotIn("readonly property var topics", help_view)
         self.assertIn('windowModel.open_help("dock." + root.kind)', dock_panel)
@@ -943,17 +943,19 @@ class UiStructureTests(unittest.TestCase):
         drawer_source = (QML / "NavigationDrawer.qml").read_text(
             encoding="utf-8"
         )
-        for name in ("NavigationDrawer.qml", "features/administration/sidebar/SidebarEditorView.qml"):
-            source = (QML / name).read_text(encoding="utf-8")
-            self.assertIn("SidebarTreeRow {", source)
+        self.assertIn("SidebarTreeRow {", drawer_source)
+        editor = (QML / "features/administration/sidebar/SidebarEditorView.qml").read_text(encoding="utf-8")
+        self.assertIn("UI.row(", editor)
+        sidebar_ui = (QML / "tactic_frame/features/administration/sidebar/sidebar.ui.mjs").read_text(encoding="utf-8")
+        self.assertIn("controls/lists/tree.ui.mjs", sidebar_ui)
 
-        shared_row = (QML / "SidebarTreeRow.qml").read_text(
+        shared_row = (QML / "controls/NavigationRow.qml").read_text(
             encoding="utf-8"
         )
-        self.assertIn("ItemPreview {", shared_row)
+        self.assertIn("Tree.navigationRow(", shared_row)
         self.assertIn("Controls.MaterialRipple {", shared_row)
-        self.assertIn("id: rowActivation", shared_row)
-        self.assertIn("rowHover.hovered", shared_row)
+        self.assertIn("id: activation", shared_row)
+        self.assertIn("hover.hovered", shared_row)
         self.assertNotIn("rowMouse", shared_row)
         self.assertIn("Controls.SmoothListView {", drawer_source)
         self.assertIn("onWheel: wheel => wheel.accepted = true", drawer_source)
@@ -1030,7 +1032,7 @@ class UiStructureTests(unittest.TestCase):
     def test_knowledge_dock_and_workspace_menu_share_book_icon(self):
         panel = (QML / "shell/docks/DockPanel.qml").read_text(encoding="utf-8")
         menu = (QML / "shell/docks/DockMenu.qml").read_text(encoding="utf-8")
-        help_view = (QML / "HelpView.qml").read_text(encoding="utf-8")
+        help_view = (QML / "features/support/help/HelpView.qml").read_text(encoding="utf-8")
         knowledge_help = (
             QML.parent / "help_articles" / "dock.knowledge.en.md"
         ).read_text(encoding="utf-8")
@@ -1103,7 +1105,7 @@ class UiStructureTests(unittest.TestCase):
             "controls/PreviewNavigationButton.qml",
             "controls/StatusChip.qml",
             "MessageReactionChip.qml",
-            "SidebarTreeRow.qml",
+            "controls/NavigationRow.qml",
             "AttachmentCard.qml",
             "features/administration/columns/ColumnsEditorView.qml",
             "SearchWorkspaceView.qml",

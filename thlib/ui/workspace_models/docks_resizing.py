@@ -13,6 +13,19 @@ from .docks_types import DockPanel
 
 
 class ResizingMixin:
+    @Slot(str)
+    def begin_resize(self, panel_id: str) -> None:
+        if self._index_for(panel_id) is not None and self._resize_restore is None:
+            self._resize_restore = (panel_id, self._layout_root)
+
+    @Slot(str)
+    def cancel_resize(self, panel_id: str) -> None:
+        if self._resize_restore is None or self._resize_restore[0] != panel_id:
+            return
+        self._layout_root = self._resize_restore[1]
+        self._resize_restore = None
+        self._reflow_workspace(save=False)
+
     @staticmethod
     def _minimum_panel_pixel_size(panel: DockPanel) -> tuple[int, int]:
         pixel_sizes = {
@@ -121,6 +134,7 @@ class ResizingMixin:
             host_height: float = 1.0,
     ) -> None:
         """Commit one split ratio when the pointer is released."""
+        self._resize_restore = None
         row = self._index_for(panel_id)
         if row is None:
             return

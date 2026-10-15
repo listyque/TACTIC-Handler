@@ -1,5 +1,14 @@
 // Shared Frame labels from the existing Handler/Stream EN/RU catalogs.
 const russian = {
+    Guide: 'Руководство',
+    Reference: 'Справочник',
+    'Help topics': 'Разделы справки',
+    'Search help': 'Поиск по справке',
+    'Close help topics': 'Закрыть разделы справки',
+    'Reload help articles': 'Перезагрузить статьи справки',
+    'Open article file': 'Открыть файл статьи',
+    'Download article': 'Скачать статью',
+    'No help topics match your search': 'Подходящие разделы справки не найдены',
     Display: 'Вид',
     Enabled: 'Включено',
     'Start date': 'Дата начала',

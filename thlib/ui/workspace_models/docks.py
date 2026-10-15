@@ -103,6 +103,7 @@ class DockPanelModel(
                 if not panel.detached and panel.dock_area != "floating"
             })
         self._layout_root = restored_layout or default_layout()
+        self._resize_restore = None
         self._z_counter = max((panel.z for panel in self._panels), default=0)
         if restored:
             layout_before_reflow = self._layout_root

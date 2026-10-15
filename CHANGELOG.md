@@ -3,6 +3,13 @@
 Each completed change receives a new version and a dated entry below.
 Versions use `major.minor.build.revision`; routine updates increment `revision`.
 
+## 0.6.0.99 - 2026-10-16
+
+- Move Help to one shared Frame composition and state contract with Stream. Retain the native window and per-article positions; preserve filters, contextual navigation and language changes across reopening. Add atomic local Markdown export and shared document typography metrics.
+- Share docking targets and previews with Stream, preserve native detach, and cancel unfinished grip/resize gestures without saving their preview. Move floating panels by the title while retaining the grip for docking.
+- Share the neutral project-navigation row with Stream, including section/link/separator geometry, badges, icons and selection. Keep routing, model filtering and runtime procedural menu definitions with their existing owners.
+- Extend actual native/browser checks for Help, first mouse/touch activation, window ownership and focus, gesture cancellation, navigation and layout restoration. Keep original/current/browser evidence separate from unverified full-workspace and control-atlas coverage.
+
 ## 0.6.0.98 - 2026-10-15
 
 - Unify Frame control paint and metrics across the independent native and browser products: button states, field errors, mixed checkboxes, disabled switches, tooltips and pickers. Resolve house-control fonts as complete pixel values without conflicting with existing custom fonts.

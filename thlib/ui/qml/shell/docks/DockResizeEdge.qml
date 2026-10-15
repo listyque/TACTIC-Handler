@@ -34,6 +34,6 @@ Item {
                 root.panel.updateResize(handle, mouse.x, mouse.y);
         }
         onReleased: root.panel.finishResize()
-        onCanceled: root.panel.finishResize()
+        onCanceled: root.panel.cancelResize()
     }
 }

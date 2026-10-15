@@ -4790,5 +4790,10 @@
   "Changes apply to the draft. Save to server to publish them.": "Изменения остаются в черновике. Сохраните на сервер, чтобы применить их.",
   "Delete the selected sidebar item?": "Удалить выбранный элемент бокового меню?",
   "Discard unsaved sidebar changes?": "Отменить несохранённые изменения бокового меню?",
-  "Columns list width": "Ширина списка колонок"
+  "Columns list width": "Ширина списка колонок",
+  "Download article": "Скачать статью",
+  "Choose a local file for the article.": "Выберите локальный файл для статьи.",
+  "Could not save the article: ": "Не удалось сохранить статью: ",
+  "Switch workspace": "Переключить рабочее пространство",
+  "Delete Search Type from project": "Удалить серч-тайп из проекта"
 }

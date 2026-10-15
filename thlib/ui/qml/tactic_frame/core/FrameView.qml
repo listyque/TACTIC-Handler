@@ -765,7 +765,7 @@ Item {
                                 return value[wrapper.node.keyField] === undefined || value[wrapper.node.keyField] === null ? null : value;
                             }
                             width: list.width - 16
-                            height: wrapper.node.rowHeight - 4
+                            height: Contract.listRowHeight(wrapper.node)
                             theme: root.effectiveTheme
                             models: root.models
                             views: root.views

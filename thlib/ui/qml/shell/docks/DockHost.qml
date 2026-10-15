@@ -5,6 +5,7 @@ import QtQuick.Layouts
 import QtQuick.Window
 import QtQml.Models
 import "../../controls" as Controls
+import "../../tactic_frame/shell/dock.placement.mjs" as Placement
 
 Item {
     id: root
@@ -58,53 +59,15 @@ Item {
     }
 
     function rootSnapZoneAt(pointerX, pointerY) {
-        const edge = 24;
-        if (pointerX <= edge)
-            return "left";
-        if (pointerX >= width - edge)
-            return "right";
-        if (pointerY <= edge)
-            return "top";
-        if (pointerY >= height - edge)
-            return "bottom";
-        return "";
+        return Placement.rootZone(pointerX, pointerY, width, height);
     }
-
     function rootSnapRectFor(zone) {
-        if (zone === "left")
-            return ({
-                    "x": 0,
-                    "y": 0,
-                    "width": width * 0.28,
-                    "height": height
-                });
-        if (zone === "right")
-            return ({
-                    "x": width * 0.66,
-                    "y": 0,
-                    "width": width * 0.34,
-                    "height": height
-                });
-        if (zone === "top")
-            return ({
-                    "x": 0,
-                    "y": 0,
-                    "width": width,
-                    "height": height * 0.28
-                });
-        if (zone === "bottom")
-            return ({
-                    "x": 0,
-                    "y": height * 0.70,
-                    "width": width,
-                    "height": height * 0.30
-                });
-        return ({
-                "x": 0,
-                "y": 0,
-                "width": 0,
-                "height": 0
-            });
+        return Placement.preview(zone, {
+            x: 0,
+            y: 0,
+            width: width,
+            height: height
+        }, true);
     }
 
     function targetAt(pointerX, pointerY, excludedPanelId) {
@@ -129,65 +92,10 @@ Item {
     }
 
     function targetZoneAt(pointerX, pointerY, rect, allowCenter) {
-        const localX = pointerX - rect.x;
-        const localY = pointerY - rect.y;
-        const horizontalEdge = Math.min(88, rect.width * 0.27);
-        const verticalEdge = Math.min(76, rect.height * 0.27);
-        const titleHeight = Math.min(root.theme.dockTitleHeight, rect.height * 0.18);
-        if (allowCenter && localY <= titleHeight && localX > horizontalEdge && localX < rect.width - horizontalEdge)
-            return "swap";
-        const distances = [
-            {
-                "zone": "left",
-                "value": localX / Math.max(1, horizontalEdge)
-            },
-            {
-                "zone": "right",
-                "value": (rect.width - localX) / Math.max(1, horizontalEdge)
-            },
-            {
-                "zone": "top",
-                "value": localY / Math.max(1, verticalEdge)
-            },
-            {
-                "zone": "bottom",
-                "value": (rect.height - localY) / Math.max(1, verticalEdge)
-            }
-        ];
-        distances.sort((first, second) => first.value - second.value);
-        return distances[0].value <= 1 || !allowCenter ? distances[0].zone : "center";
+        return Placement.targetZone(pointerX, pointerY, rect, theme.dockTitleHeight, allowCenter);
     }
-
     function targetSnapRectFor(zone, rect) {
-        if (zone === "left")
-            return ({
-                    "x": rect.x,
-                    "y": rect.y,
-                    "width": rect.width * 0.5,
-                    "height": rect.height
-                });
-        if (zone === "right")
-            return ({
-                    "x": rect.x + rect.width * 0.5,
-                    "y": rect.y,
-                    "width": rect.width * 0.5,
-                    "height": rect.height
-                });
-        if (zone === "top")
-            return ({
-                    "x": rect.x,
-                    "y": rect.y,
-                    "width": rect.width,
-                    "height": rect.height * 0.5
-                });
-        if (zone === "bottom")
-            return ({
-                    "x": rect.x,
-                    "y": rect.y + rect.height * 0.5,
-                    "width": rect.width,
-                    "height": rect.height * 0.5
-                });
-        return rect;
+        return Placement.preview(zone, rect, false);
     }
 
     function beginDockDrag(panelId) {
@@ -195,6 +103,35 @@ Item {
         activeSnapZone = "";
         activeSnapTargetId = "";
         dockDragActive = true;
+    }
+
+    function cancelDockDrag(panelId) {
+        if (draggingPanelId !== panelId)
+            return;
+        dockDragActive = false;
+        draggingPanelId = "";
+        activeSnapZone = "";
+        activeSnapTargetId = "";
+    }
+    function cancelActiveGesture() {
+        for (let index = 0; index < dockRepeater.count; index++) {
+            const panel = dockRepeater.itemAt(index);
+            if (panel)
+                panel.cancelGesture();
+        }
+    }
+    Shortcut {
+        sequence: "Escape"
+        enabled: root.dockDragActive || root.dockResizeActive
+        context: Qt.WindowShortcut
+        onActivated: root.cancelActiveGesture()
+    }
+    Connections {
+        target: root.ownerWindow
+        function onActiveChanged() {
+            if (!root.ownerWindow.active)
+                root.cancelActiveGesture();
+        }
     }
 
     function beginDockResize(panelId, orientation, boundary, spanStart, spanEnd, shared) {
@@ -313,11 +250,12 @@ Item {
     function finishDockDrag(panelId, panelX, panelY, panelWidth, panelHeight, wasFloating) {
         if (!dockDragActive || draggingPanelId !== panelId)
             return;
-        if (activeSnapZone.length && activeSnapTargetId.length)
-            dockModel.place_panel(panelId, activeSnapTargetId, activeSnapZone);
-        else if (activeSnapZone.length)
-            dockModel.snap_panel(panelId, activeSnapZone);
-        else if (wasFloating)
+        const command = Placement.finishDrop(activeSnapZone, activeSnapTargetId, wasFloating);
+        if (command.type === "place")
+            dockModel.place_panel(panelId, command.target, command.zone);
+        else if (command.type === "snap")
+            dockModel.snap_panel(panelId, command.zone);
+        else if (command.type === "move")
             dockModel.set_geometry(panelId, panelX / Math.max(1, width), panelY / Math.max(1, height), panelWidth / Math.max(1, width), panelHeight / Math.max(1, height));
         dockDragActive = false;
         draggingPanelId = "";

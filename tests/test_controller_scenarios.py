@@ -133,7 +133,7 @@ class ControllerScenarioTests(unittest.TestCase):
         self.assertEqual(len(help_rows), 1)
         self.assertEqual(
             FloatingWindowModel._content_source(help_rows[0]),
-            "HelpView.qml",
+            "features/support/help/HelpView.qml",
         )
 
         model.open_help("script_editor")

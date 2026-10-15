@@ -1,5 +1,122 @@
 import { node, rect, label, button, muted } from '../../core/frame.mjs';
 
+// Neutral navigation row. The feature owns expansion, routing and availability.
+export function navigationRow(width, record, state = {}) {
+    const section = record.kind === 'section',
+        separator = record.kind === 'separator';
+    const height = separator ? 16 : section ? 48 : 56;
+    if (separator)
+        return {
+            width,
+            height,
+            nodes: [
+                node(
+                    'Box',
+                    'navigationSeparator',
+                    rect(20, 7, Math.max(0, width - 40), 1),
+                    { background: 'separator' }
+                )
+            ]
+        };
+    const selected = !!state.selected,
+        x = 28 + Math.max(0, record.depth || 0) * 16;
+    const count = record.badge > 99 ? '99+' : String(record.badge || '');
+    const badgeWidth =
+        record.badge > 0 ? Math.max(24, count.length * 7 + 12) : 0;
+    const radius = state.radius === undefined ? 12 : state.radius;
+    const nodes = [
+        node(
+            'Box',
+            'sidebarRowSurface',
+            rect(12, 4, Math.max(0, width - 24), height - 8),
+            {
+                background: selected ? 'contentSelection' : 'transparent',
+                radius
+            }
+        ),
+        node(
+            'Box',
+            'navigationRowOverlay',
+            rect(12, 4, Math.max(0, width - 24), height - 8),
+            {
+                background: selected ? 'action' : 'primaryText',
+                opacity: state.pressed ? 0.12 : state.hovered ? 0.08 : 0,
+                radius
+            }
+        ),
+        section
+            ? node(
+                  'Icon',
+                  'navigationRowIcon',
+                  rect(x + 7.5, (height - 17) / 2, 17, 17),
+                  {
+                      icon: record.expanded ? 'chevron-down' : 'chevron-right',
+                      color: 'secondaryText'
+                  }
+              )
+            : node(
+                  'Preview',
+                  'navigationRowIcon',
+                  rect(x, (height - 32) / 2, 32, 32),
+                  {
+                      icon: record.icon || 'link',
+                      accent: record.accent || 'action',
+                      outlined: false
+                  }
+              ),
+        label(
+            'sidebarRowTitle',
+            rect(
+                x + 44,
+                (height - 24) / 2,
+                Math.max(
+                    0,
+                    width - x - 72 - (badgeWidth ? badgeWidth + 12 : 0)
+                ),
+                24
+            ),
+            record.title,
+            {
+                fontRole: section ? 'secondary' : 'bodyLarge',
+                weight: section ? 600 : selected ? 500 : 400,
+                color: selected ? 'contentSelectionText' : 'primaryText'
+            }
+        )
+    ];
+    if (badgeWidth)
+        nodes.push(
+            node(
+                'Box',
+                'navigationRowBadge',
+                rect(
+                    Math.max(0, width - 28 - badgeWidth),
+                    (height - 24) / 2,
+                    badgeWidth,
+                    24
+                ),
+                {
+                    background: selected ? 'action' : 'rowHover',
+                    radius: 12,
+                    children: [
+                        label(
+                            'navigationRowCount',
+                            rect(0, 0, badgeWidth, 24),
+                            count,
+                            {
+                                weight: 600,
+                                align: 'center',
+                                color: selected
+                                    ? 'selectedText'
+                                    : 'secondaryText'
+                            }
+                        )
+                    ]
+                }
+            )
+        );
+    return { width, height, nodes };
+}
+
 // Input is an owned, flat preorder snapshot. Expansion never mutates a record.
 export function visibleRows(rows) {
     const visible = [];

@@ -3458,7 +3458,7 @@ class TasksQmlTests(unittest.TestCase):
             "TasksWorkspaceView.qml", "TaskDockView.qml",
             "ActivityFeedView.qml",
             "features/administration/columns/ColumnsEditorView.qml", "features/administration/naming/NamingEditorView.qml",
-            "MessagesView.qml", "ScriptEditorView.qml", "HelpView.qml",
+            "MessagesView.qml", "ScriptEditorView.qml", "features/support/help/HelpView.qml",
             "DeleteSObjectView.qml",
             "UpdateView.qml", "UserProfileView.qml",
             "TimesheetView.qml", "WorkReportsView.qml",
@@ -4307,12 +4307,13 @@ class TasksQmlTests(unittest.TestCase):
         localization = LocalizationController(self.app, settings_owner)
         help_controller = HelpController(qml_dir.parent / "help_articles", localization)
         engine.rootContext().setContextProperty("helpController", help_controller)
+        engine.rootContext().setContextProperty("localizationController", localization)
         theme_component = QQmlComponent(
             engine, QUrl.fromLocalFile(str(qml_dir / "Theme.qml"))
         )
         theme = theme_component.createWithInitialProperties({"dark": True})
         component = QQmlComponent(
-            engine, QUrl.fromLocalFile(str(qml_dir / "HelpView.qml"))
+            engine, QUrl.fromLocalFile(str(qml_dir / "features/support/help/HelpView.qml"))
         )
         help_view = component.createWithInitialProperties({
             "theme": theme,
@@ -4330,15 +4331,18 @@ class TasksQmlTests(unittest.TestCase):
         window.show()
         QTest.qWait(50)
 
-        topic_list = help_view.findChild(QObject, "helpTopicList")
-        topic_search = help_view.findChild(QObject, "helpTopicSearch")
-        article = help_view.findChild(QObject, "helpArticleScroll")
+        from tests import test_sidebar_editor_qml as sidebar_fixture
+        def help_control(name):
+            return next((item for item in sidebar_fixture.SidebarEditorQmlTests.descendants(help_view) if item.objectName() == name), None)
+        topic_list = help_control("helpTopicList")
+        topic_search = help_control("helpTopicSearch")
+        article = help_control("helpDocument")
         self.assertIsNotNone(topic_list)
         self.assertIsNotNone(topic_search)
         self.assertIsNotNone(article)
         topics = help_controller.topics
         self.assertGreater(len(topics), 0)
-        self.assertEqual(topic_list.property("count"), len(topics))
+        self.assertEqual(float(topic_list.property("contentHeight")), len(topics)*61)
         self.assertEqual(help_controller.selected_topic_id, "dock.tasks")
         self.assertGreater(
             float(topic_list.property("contentY")), 0,
@@ -4351,7 +4355,8 @@ class TasksQmlTests(unittest.TestCase):
         window_model.open_help("overview")
         QTest.qWait(20)
         self.assertLessEqual(float(topic_list.property("contentY")), 1)
-        topic_search.setProperty("text", "overview")
+        topic_search.forceActiveFocus()
+        for letter in "overview": QTest.keyClick(window, letter)
         window_model.open_help("script_triggers")
         QTest.qWait(60)
         self.assertEqual(
@@ -4368,10 +4373,10 @@ class TasksQmlTests(unittest.TestCase):
         self.assertGreater(float(topic_list.property("width")), 210)
         self.assertGreater(float(topic_list.property("height")), 360)
         self.assertGreater(float(article.property("width")), 420)
-        self.assertGreater(float(article.property("height")), 420)
-        article_body = help_view.findChild(QObject, "helpArticleBody")
-        article_summary = help_view.findChild(QObject, "helpArticleSummary")
-        summary_text = help_view.findChild(QObject, "helpArticleSummaryText")
+        self.assertGreater(float(article.property("height")), 400)
+        article_body = help_control("documentBody")
+        article_summary = help_control("documentSummary")
+        summary_text = help_control("documentSummaryText")
         self.assertIsNotNone(article_body)
         self.assertIsNotNone(article_summary)
         self.assertIsNotNone(summary_text)

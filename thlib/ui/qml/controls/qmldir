@@ -69,3 +69,7 @@ InitialBatchPresentation 1.0 InitialBatchPresentation.qml
 NodeGraph 1.0 NodeGraph.qml
 NodeGraphSelectionArea 1.0 NodeGraphSelectionArea.qml
 GraphPort 1.0 GraphPort.qml
+
+DocumentPane 1.0 DocumentPane.qml
+
+NavigationRow 1.0 NavigationRow.qml

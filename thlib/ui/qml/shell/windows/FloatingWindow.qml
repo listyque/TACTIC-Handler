@@ -37,7 +37,7 @@ Window {
     flags: Qt.Dialog | Qt.WindowTitleHint | Qt.WindowSystemMenuHint | Qt.WindowMinMaxButtonsHint | Qt.WindowCloseButtonHint
     readonly property bool availableWhileSignedOut: kind === "configuration" || kind === "server_presets" || kind === "repository_editor" || kind === "help" || kind === "error" || kind === "debug_log"
     readonly property bool contentRequested: windowVisible && (workspaceEnabled || availableWhileSignedOut)
-    readonly property bool keepWorkspaceWarm: workspaceEnabled && ["tasks_workspace", "messages", "activity_feed", "notifications"].indexOf(kind) >= 0
+    readonly property bool keepWorkspaceWarm: kind === "help" || workspaceEnabled && ["tasks_workspace", "messages", "activity_feed", "notifications"].indexOf(kind) >= 0
     visible: contentRequested
     function localizedErrorTitle(errorType) {
         const titles = {

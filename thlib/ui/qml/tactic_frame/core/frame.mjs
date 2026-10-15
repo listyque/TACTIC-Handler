@@ -202,10 +202,13 @@ export function validateScene(scene, models, views) {
                 !value.keyField ||
                 typeof value.rowHeight !== 'number' ||
                 !isFinite(value.rowHeight) ||
-                value.rowHeight <= 4)
+                listRowHeight(value) <= 0 ||
+                (value.rowGap !== undefined &&
+                    (!Number.isFinite(value.rowGap) || value.rowGap < 0)))
         )
             throw Error(
-                'List needs keyField and positive rowHeight: ' + value.id
+                'List needs keyField, positive rowHeight and valid rowGap: ' +
+                    value.id
             );
         if (value.kind === 'List' && !sequence(value.fields))
             throw Error('List needs declared model fields: ' + value.id);
@@ -271,6 +274,13 @@ function sequence(value) {
         typeof value === 'object' &&
         Number.isInteger(value.length) &&
         value.length >= 0
+    );
+}
+
+export function listRowHeight(definition) {
+    return (
+        definition.rowHeight -
+        (definition.rowGap === undefined ? 4 : definition.rowGap)
     );
 }
 

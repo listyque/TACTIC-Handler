@@ -67,6 +67,7 @@ class FloatingWindowModel(QAbstractListModel):
         "geometry_mode": (GeometryModeRole,),
     }
     helpTopicChanged = Signal()
+    helpRequested = Signal(str)
     layoutReset = Signal()
     windowVisibilityChanged = Signal(str, bool)
     _settings_key = "workspace/floatingWindows"
@@ -116,7 +117,7 @@ class FloatingWindowModel(QAbstractListModel):
         "script_editor": "ScriptEditorView.qml",
         "script_shelf_editor": "ScriptShelfEditorView.qml",
         "script_trigger_editor": "ScriptTriggerEditorView.qml",
-        "help": "HelpView.qml",
+        "help": "features/support/help/HelpView.qml",
         "debug_log": "DebugLogView.qml",
         "ui_performance": "UiPerformanceView.qml",
         "error": "ErrorDialog.qml",
@@ -154,7 +155,7 @@ class FloatingWindowModel(QAbstractListModel):
         super().__init__()
         self._settings = settings
         self._parent_windows: dict[str, str] = {}
-        self._help_topic = "overview"
+        self._help_topic = ""
         self._windows = self._restore() or self._defaults()
         self._z_counter = max((window.z for window in self._windows), default=0)
 
@@ -401,13 +402,15 @@ class FloatingWindowModel(QAbstractListModel):
     def helpTopic(self) -> str:
         return self._help_topic
 
+    @Slot()
     @Slot(str)
-    def open_help(self, topic: str = "overview") -> None:
-        topic = str(topic or "overview").strip() or "overview"
+    def open_help(self, topic: str = "") -> None:
+        topic = str(topic or "").strip()
         if self._help_topic != topic:
             self._help_topic = topic
             self.helpTopicChanged.emit()
         self.show_window("help")
+        self.helpRequested.emit(topic)
 
     @Slot(str)
     def close_window(self, window_id: str) -> None:
@@ -481,7 +484,7 @@ class FloatingWindowModel(QAbstractListModel):
 class VisibleFloatingWindowModel(QSortFilterProxyModel):
     """Floating windows currently presented by the native window host."""
 
-    RETAINED_WORKSPACES = {"tasks_workspace", "messages", "activity_feed", "notifications"}
+    RETAINED_WORKSPACES = {"tasks_workspace", "messages", "activity_feed", "notifications", "help"}
 
     def __init__(self, source: FloatingWindowModel, parent=None) -> None:
         super().__init__(parent)

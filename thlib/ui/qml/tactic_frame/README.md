@@ -12,11 +12,17 @@ Neither product imports the other checkout at runtime.
 | `controls` | Reusable controls, graph geometry and input, code toolbar | Core; no feature modules |
 | `shell` | Window/dock/workspace composition | Core and controls |
 | `features/administration` | Administration shell, forms and document guards | Core and controls |
+| `features/support/help` | Help composition, filtering, navigation and document positions | Core and controls |
 | `features/administration/<section>` | A section's UI and state | Shared admin helpers and its own domain |
 
 `shell` currently owns window geometry, main-toolbar positions and dock-header
-composition. Hosts retain native input, application commands, lifecycle and
-persistence. Dock trees and complete main-window menus are not migrated yet.
+composition, shared docking zones and previews. The neutral navigation row is
+under `controls/lists`; document metrics are under `core/foundation`. Hosts retain
+native input, application commands, lifecycle and persistence. Dock trees and complete main-window menus are not migrated yet.
+
+Lists default to a four-pixel row gap; `rowGap` preserves a different existing
+spacing, such as Help's three pixels. `listRowHeight` is shared by both adapters,
+and validation rejects a negative gap or one that consumes the entire row.
 
 ## One screen
 

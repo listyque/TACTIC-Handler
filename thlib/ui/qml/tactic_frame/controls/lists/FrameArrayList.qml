@@ -68,7 +68,7 @@ Flickable {
         for (let index = range.first; index < range.last; index++) {
             const record = records[index];
             const key = String(record[node.keyField]);
-            nodes.push(Contract.node("Box", "row:" + key, Contract.rect(0, index * node.rowHeight, Math.max(0, width - 16), node.rowHeight - 4), {
+            nodes.push(Contract.node("Box", "row:" + key, Contract.rect(0, index * node.rowHeight, Math.max(0, width - 16), Contract.listRowHeight(node)), {
                 recordKey: key,
                 background: "transparent",
                 children: describeRow(node, record).nodes

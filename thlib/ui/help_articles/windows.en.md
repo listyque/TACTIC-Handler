@@ -8,6 +8,18 @@ order: 25
 > Functional tools open in native windows with themed content. Ordinary utility windows can stay
 > beside the workspace; modal editors block their owner until their prepared operation is applied or cancelled.
 
+## Help and unfinished gestures
+
+Help keeps the selected article, search and each article's scroll position when closed and reopened.
+A contextual Help button selects its article in the same window. Search includes article contents.
+Reload rereads the files and preserves the current position; changing the interface language while
+Help is closed is applied when it next opens. **Open article file** opens the source; **Download article**
+saves a Markdown copy. On a narrow screen, **Help topics** switches between the topic list and the reader.
+
+Move a floating dock by its title; use its six-dot grip to dock it. Dropping onto another dock's title
+exchanges positions; its center creates a tab stack. Edges split the target. Escape or a cancelled
+pointer gesture restores the previous position or split; it does not accept the preview.
+
 ## Common window behavior
 
 Every functional window uses the operating system frame for moving, resizing, minimizing and closing.

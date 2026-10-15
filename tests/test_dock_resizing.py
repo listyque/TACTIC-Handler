@@ -203,6 +203,19 @@ class DockResizingTests(unittest.TestCase):
         )
         self.assertEqual(len(save_calls), 1)
 
+    def test_cancel_preview_restores_the_tree_without_persisting(self):
+        from thlib.ui.workspace_models.docks_tree import serialize_layout
+        before = serialize_layout(self.model._layout_root)
+        saved = []; self.model._save = lambda: saved.append(True)
+        self.model.begin_resize("results")
+        self.resize_results(0.30)
+        self.assertNotEqual(serialize_layout(self.model._layout_root), before)
+        self.model.cancel_resize("tasks")
+        self.assertNotEqual(serialize_layout(self.model._layout_root), before)
+        self.model.cancel_resize("results")
+        self.assertEqual(serialize_layout(self.model._layout_root), before)
+        self.assertEqual(saved, [])
+
     def test_each_shared_divider_has_one_handle_owner(self):
         results = self.panel("results")
         tasks = self.panel("tasks")

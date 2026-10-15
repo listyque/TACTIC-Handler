@@ -28,6 +28,15 @@ export const textStyles = Object.freeze({
 
 // House-control geometry comes from Handler; hosts supply native input and paint.
 export const controls = {
+    document: {
+        bodySize: 12,
+        lineHeight: 17,
+        headingSize: 18,
+        headingLineHeight: 22.5,
+        paragraphGap: 8,
+        headingGap: 14,
+        cellPadding: 4
+    },
     field: { padding: 12, areaPadding: 10 },
     choice: { rowHeight: 34, visibleRows: 8, popupPadding: 4, popupGap: 4 },
     tooltip: {

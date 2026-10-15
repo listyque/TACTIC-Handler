@@ -5,6 +5,7 @@ import QtQuick.Layouts
 import "../../controls" as Controls
 import "../../tactic_frame/controls/tabs/tab_layout.mjs" as TabLayout
 import "../../tactic_frame/shell/dock_chrome.ui.mjs" as DockChrome
+import "../../tactic_frame/shell/dock.placement.mjs" as Placement
 
 Item {
     id: root
@@ -201,6 +202,7 @@ Item {
         const point = surface.mapToItem(host, pointerX, pointerY);
         const vertical = edge === "left" || edge === "right";
         const boundary = vertical ? localX + (edge === "right" ? localWidth : 0) : localY + (edge === "bottom" ? localHeight : 0);
+        dockModel.begin_resize(panelId);
         resizeEdge = edge;
         resizePressHostX = point.x;
         resizePressHostY = point.y;
@@ -253,6 +255,24 @@ Item {
         dockModel.preview_resize_panel(panelId, resizeEdge, nextX / Math.max(1, host.width), nextY / Math.max(1, host.height), nextWidth / Math.max(1, host.width), nextHeight / Math.max(1, host.height), host.width, host.height);
     }
 
+    function cancelResize() {
+        if (!resizing)
+            return;
+        dockModel.cancel_resize(panelId);
+        resizing = false;
+        resizeEdge = "";
+        localX = scaledX();
+        localY = scaledY();
+        localWidth = scaledWidth();
+        localHeight = scaledHeight();
+        host.endDockResize();
+    }
+    function cancelGesture() {
+        resultsDragHandle.cancel();
+        dockMoveHandle.cancel();
+        titleDrag.cancel();
+        cancelResize();
+    }
     function finishResize() {
         if (!resizing)
             return;
@@ -378,6 +398,11 @@ Item {
             color: parent.color
         }
 
+        DockTitleDrag {
+            id: titleDrag
+            anchors.fill: parent
+            panel: root
+        }
         Item {
             id: titleLayout
             anchors.fill: parent
@@ -419,6 +444,7 @@ Item {
                 objectName: "dockStackDrag_" + root.panelId
                 theme: root.theme
                 toolTip: qsTr("Drag to move or dock")
+                dragThreshold: Placement.dragThreshold
                 onPressed: dockModel.raise_panel(root.panelId)
                 onClicked: dockModel.raise_panel(root.panelId)
                 onDragStarted: (pressX, pressY) => {
@@ -431,7 +457,7 @@ Item {
                 }
                 onDragMoved: (pointerX, pointerY) => root.updatePanelDrag(dockMoveHandle, pointerX, pointerY, root.handlePressHostX, root.handlePressHostY)
                 onDragFinished: root.finishPanelDrag(root.manualDragX, root.manualDragY)
-                onDragCanceled: root.finishPanelDrag(root.manualDragX, root.manualDragY)
+                onDragCanceled: root.host.cancelDockDrag(root.panelId)
                 onContextRequested: (pointerX, pointerY) => dockHandleMenu.openAt(dockMoveHandle, pointerX, pointerY)
             }
 
@@ -627,6 +653,7 @@ Item {
         z: 50
         theme: root.theme
         toolTip: qsTr("Drag to move or dock")
+        dragThreshold: Placement.dragThreshold
         property real pressHostX: 0
         property real pressHostY: 0
         onPressed: dockModel.raise_panel(root.panelId)
@@ -641,7 +668,7 @@ Item {
         }
         onDragMoved: (pointerX, pointerY) => root.updatePanelDrag(resultsDragHandle, pointerX, pointerY, pressHostX, pressHostY)
         onDragFinished: root.finishPanelDrag(root.manualDragX, root.manualDragY)
-        onDragCanceled: root.finishPanelDrag(root.manualDragX, root.manualDragY)
+        onDragCanceled: root.host.cancelDockDrag(root.panelId)
         onContextRequested: (pointerX, pointerY) => dockHandleMenu.openAt(resultsDragHandle, pointerX, pointerY)
     }
     ActionMenu {

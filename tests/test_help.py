@@ -41,6 +41,7 @@ class HelpControllerTests(unittest.TestCase):
         controller = HelpController(article_root, localization)
         self.assertEqual(len(controller.topics), len(english))
         self.assertFalse(controller.error)
+        controller.set_active(True)
         localization.use("ru")
         self.assertEqual(len(controller.topics), len(russian))
         self.assertEqual(controller.article["title"], "Обзор")
@@ -246,6 +247,7 @@ class HelpControllerTests(unittest.TestCase):
             )
             self.assertNotIn("First summary line", controller.article["body"])
             self.assertIn("```python", controller.article["body"])
+            controller.set_active(True)
             localization.use("ru")
             self.assertEqual(controller.article["title"], "Обзор")
             self.assertEqual(
