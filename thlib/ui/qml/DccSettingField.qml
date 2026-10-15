@@ -17,6 +17,8 @@ Controls.SettingsRow {
     description: qsTr(String(field.description || ""))
 
     Loader {
+        Layout.preferredWidth: root.field.type === "text" ? 320 : -1
+        Layout.maximumWidth: Math.max(0, root.width - 8)
         sourceComponent: root.field.type === "boolean" ? booleanEditor
             : root.field.type === "choice" ? choiceEditor
             : root.field.type === "integer" ? integerEditor
@@ -82,6 +84,7 @@ Controls.SettingsRow {
             Layout.preferredWidth: 320
             Layout.preferredHeight: 40
             text: String(root.value ?? "")
+            placeholderText: qsTr(String(root.field.placeholder || ""))
             readOnly: Boolean(root.field.read_only)
             selectByMouse: true
             onEditingFinished: root.valueEdited(text)

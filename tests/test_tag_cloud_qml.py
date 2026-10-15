@@ -112,14 +112,33 @@ class TagCloudQmlTests(unittest.TestCase):
             self.assertTrue(stopped.wait(2000))
         self.settle(view.window())
 
+    def tag_action(self, view):
+        if view.width() >= 720:
+            return view.findChild(QQuickItem, "searchTagButton")
+        self.click(view.findChild(QQuickItem, "searchHeaderOverflowButton"))
+        menu = view.findChild(QObject, "searchHeaderOverflowMenu")
+        if not menu.property("opened"):
+            self.assertTrue(QSignalSpy(menu.opened).wait(1000))
+        QCoreApplication.processEvents()
+        return next(
+            item for item in menus.visual_items(menu.property("contentItem"))
+            if item.objectName() == "actionMenuPrimaryTarget"
+            and item.isVisible()
+            and item.parentItem().property("modelData").toVariant().get("title") == "Tags"
+        )
+
     def measure_open(self, window, view):
-        button = view.findChild(QQuickItem, "searchTagButton")
-        button.findChild(QObject, "compactIconButtonCursorArea").setProperty("lastActivationAt", -1000.)
+        button = self.tag_action(view)
+        cursor = button.findChild(QObject, "compactIconButtonCursorArea")
+        if cursor:
+            cursor.setProperty("lastActivationAt", -1000.)
+        source_window = self.live_window(button.window())
         popup = view.findChild(QObject, "searchTagCloudPopup")
         popup.setProperty("sameSourceToggleWindow", 0)
         position = button.mapToScene(QPointF(button.width() / 2, button.height() / 2))
         probe = menus._PopupFrameProbe(
-            popup.findChild(QObject, "tagCloudRows"), window, popup.property("usePopupWindow"),
+            popup.findChild(QObject, "tagCloudRows"), source_window,
+            popup.property("usePopupWindow"),
         )
         self.app.installEventFilter(probe)
         guard = QTimer()
@@ -131,8 +150,9 @@ class TagCloudQmlTests(unittest.TestCase):
                 (QEvent.MouseButtonPress, Qt.LeftButton),
                 (QEvent.MouseButtonRelease, Qt.NoButton),
             ):
-                QCoreApplication.postEvent(window, QMouseEvent(
-                    kind, position, window.mapToGlobal(position), Qt.LeftButton, buttons, Qt.NoModifier,
+                QCoreApplication.postEvent(source_window, QMouseEvent(
+                    kind, position, source_window.mapToGlobal(position),
+                    Qt.LeftButton, buttons, Qt.NoModifier,
                 ))
             QCoreApplication.postEvent(probe, QEvent(QEvent.User))
             guard.start(5000)
@@ -446,7 +466,7 @@ class TagCloudQmlTests(unittest.TestCase):
     def test_empty_cache_has_no_tag_widgets_and_dismisses_with_escape(self):
         self.set_catalog(0)
         with self.workspace.scene(animated=False) as (window, view):
-            self.click(view.findChild(QQuickItem, "searchTagButton"))
+            self.click(self.tag_action(view))
             popup = view.findChild(QObject, "searchTagCloudPopup")
             self.assertTrue(popup.property("opened"))
             self.assertFalse(self.chips(popup))

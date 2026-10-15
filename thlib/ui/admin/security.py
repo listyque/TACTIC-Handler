@@ -20,9 +20,25 @@ class SecurityRulesEditor(AdminDocumentEditor):
         self._selected = -1
         self._group_rules = {}
         self._selected_group = ''
+        self._message = ''
         super().__init__(application, security_request, parent)
         self._matrix = SecurityMatrixModel(self)
+        self.committed.connect(self._saved)
         self.stateChanged.connect(self.rulesChanged.emit)
+        self._matrix.modelReset.connect(self.rulesChanged.emit)
+
+    @Property(str, notify=rulesChanged)
+    def message(self):
+        return self._message
+
+    @Slot()
+    def _saved(self):
+        self._message = 'Access rules saved on server'
+        self.stateChanged.emit()
+
+    def _request(self, *args, **parameters):
+        self._message = ''
+        super()._request(*args, **parameters)
 
     @Property(QObject, constant=True)
     def matrix(self):
@@ -40,11 +56,21 @@ class SecurityRulesEditor(AdminDocumentEditor):
     def groupDocument(self):
         return self._document.get('groups', {}).get(self._selected_group, {})
 
+    @Property('QVariantList', notify=rulesChanged)
+    def matrixTargets(self):
+        return self._matrix.targets
+
+    @Property('QVariantList', notify=rulesChanged)
+    def matrixGroups(self):
+        return self._matrix.groups
+
     @Slot()
-    def reload(self):
-        if not self.busy and not self.dirty:
+    @Slot(bool)
+    def reload(self, force=False):
+        if not self.busy and (force or not self.dirty):
             self._request('load', self._project)
 
+    @Slot(str)
     def fail(self, error: str) -> None:
         super().fail(self.tr(str(error)))
 
@@ -63,6 +89,7 @@ class SecurityRulesEditor(AdminDocumentEditor):
     @Slot(str, 'QVariant')
     def set_group_field(self, name: str, value) -> None:
         if not self.busy and self.canWrite and name in self.groupDocument and name != 'xml':
+            self._message = ''
             self.groupDocument[name] = value
             self._matrix.refresh()
             self.stateChanged.emit()
@@ -86,6 +113,7 @@ class SecurityRulesEditor(AdminDocumentEditor):
         return json.loads(self.ruleText)
 
     def _document_loaded(self):
+        self._message = ''
         self._rules, self._records, self._selected = None, [], -1
         self._group_rules = {}
         try:
@@ -99,11 +127,17 @@ class SecurityRulesEditor(AdminDocumentEditor):
         self._matrix.refresh(reset=True)
 
     def _changed(self):
+        self._message = ''
         self._group_rules[self._selected_group] = self._rules
         self.group_rules_changed(self._selected_group)
 
     def group_rules_changed(self, identity: str) -> None:
-        self._document['groups'][identity]['xml'] = self._group_rules[identity].xml()
+        self._message = ''
+        xml = self._group_rules[identity].xml()
+        original = self._original.get('groups', {}).get(identity, {}).get('xml')
+        if original and RulesDocument(original).xml() == xml:
+            xml = original
+        self._document['groups'][identity]['xml'] = xml
         if identity == self._selected_group:
             self._records = self._rules.records()
         self._matrix.refresh()

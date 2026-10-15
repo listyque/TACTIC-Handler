@@ -9,6 +9,8 @@ QtControls.CheckBox {
     required property var theme
     property bool prominent: false
     property bool compact: false
+    property bool wrapText: false
+    property real indicatorOffset: 0
 
     spacing: compact ? 6 : 9
     implicitHeight: compact ? 30 : Math.max(36, contentItem.implicitHeight)
@@ -18,7 +20,7 @@ QtControls.CheckBox {
     indicator: Rectangle {
         implicitWidth: control.prominent ? 22 : control.compact ? 17 : 19
         implicitHeight: control.prominent ? 22 : control.compact ? 17 : 19
-        x: control.leftPadding
+        x: control.leftPadding + control.indicatorOffset
         y: (control.height - height) / 2
         radius: Math.min(5, theme.itemRadius)
         color: control.checked ? theme.action
@@ -46,7 +48,8 @@ QtControls.CheckBox {
         color: control.enabled ? theme.primaryText : theme.disabledText
         font: control.font
         verticalAlignment: Text.AlignVCenter
-        elide: Text.ElideRight
+        elide: control.wrapText ? Text.ElideNone : Text.ElideRight
+        wrapMode: control.wrapText ? Text.Wrap : Text.NoWrap
     }
 
     HoverHandler {

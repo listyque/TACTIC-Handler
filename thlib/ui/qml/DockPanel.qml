@@ -98,8 +98,15 @@ Item {
     readonly property real chromeInset: dockArea === "floating" ? 6 : 5
     readonly property real minimumPanelWidth: Math.min(sizing.dockMinimumWidth(root.kind), root.host.width)
     readonly property real minimumPanelHeight: Math.min(sizing.dockMinimumHeight(root.kind), root.host.height)
-    readonly property int titleActionCount: (kind === "results" ? 0 : 3) + (closable ? 1 : 0)
+    readonly property int titleActionCount: (kind === "results" ? 0 : 3)
+        + (closable ? 1 : 0)
     readonly property bool headerlessSinglePanel: stackSize <= 1 && (kind === "results" || kind === "commit_queue")
+    readonly property bool resizeHighlighted: {
+        if (!host || typeof host.dockSharesActiveResize !== "function")
+            return resizing
+        return host.dockSharesActiveResize(
+            panelId, localX, localY, localWidth, localHeight)
+    }
 
     function panelIcon(panelKind) {
         return panelKind === "snapshot" ? "movie" : panelKind === "tasks" ? "tasks" : panelKind === "task_calendar" ? "calendar-month" : panelKind === "drop_plate" || panelKind === "commit_queue" ? "publish" : panelKind === "notes" ? "comment" : panelKind === "knowledge" ? "book-open" : panelKind === "advanced_search" ? "search" : panelKind === "repo_sync_queue" ? "repository-sync" : panelKind === "watch_folders" ? "folder" : panelKind === "description" ? "description" : "view_kanban";
@@ -175,11 +182,17 @@ Item {
     function finishPanelDrag(deltaX, deltaY) {
         localX = Math.max(0, Math.min(host.width - width, dragStartX + deltaX));
         localY = Math.max(0, Math.min(host.height - height, dragStartY + deltaY));
-        host.finishDockDrag(panelId, localX, localY, width, height);
+        host.finishDockDrag(
+            panelId, localX, localY, width, height,
+            dockArea === "floating");
     }
 
     function beginResize(edge, surface, pointerX, pointerY) {
         const point = surface.mapToItem(host, pointerX, pointerY);
+        const vertical = edge === "left" || edge === "right";
+        const boundary = vertical
+            ? localX + (edge === "right" ? localWidth : 0)
+            : localY + (edge === "bottom" ? localHeight : 0);
         resizeEdge = edge;
         resizePressHostX = point.x;
         resizePressHostY = point.y;
@@ -188,7 +201,13 @@ Item {
         resizeStartWidth = width;
         resizeStartHeight = height;
         resizing = true;
-        host.beginDockResize();
+        host.beginDockResize(
+            panelId,
+            vertical ? "vertical" : "horizontal",
+            boundary,
+            vertical ? localY : localX,
+            vertical ? localY + localHeight : localX + localWidth,
+            dockArea !== "floating");
         dockModel.raise_panel(panelId);
     }
 
@@ -224,6 +243,16 @@ Item {
             localY = nextY;
             localWidth = nextWidth;
             localHeight = nextHeight;
+        }
+        if (typeof host.updateDockResizeBoundary === "function") {
+            const vertical = resizeEdge.indexOf("left") >= 0
+                || resizeEdge.indexOf("right") >= 0;
+            host.updateDockResizeBoundary(
+                vertical
+                    ? nextX + (resizeEdge === "right" ? nextWidth : 0)
+                    : nextY + (resizeEdge === "bottom" ? nextHeight : 0),
+                vertical ? nextY : nextX,
+                vertical ? nextY + nextHeight : nextX + nextWidth);
         }
         dockModel.preview_resize_panel(panelId, resizeEdge, nextX / Math.max(1, host.width), nextY / Math.max(1, host.height), nextWidth / Math.max(1, host.width), nextHeight / Math.max(1, host.height), host.width, host.height);
     }
@@ -265,6 +294,7 @@ Item {
     }
     TapHandler {
         target: null
+        enabled: root.dockArea === "floating"
         acceptedButtons: Qt.AllButtons
         gesturePolicy: TapHandler.DragThreshold
         onPressedChanged: {
@@ -297,7 +327,8 @@ Item {
         anchors.margins: root.chromeInset
         radius: root.theme.surfaceRadius
         color: root.theme.panel
-        border.color: root.dockDragging || root.resizing ? root.theme.action : root.theme.outlineVariant
+        border.color: root.dockDragging || root.resizeHighlighted
+            ? root.theme.action : root.theme.outlineVariant
         border.width: 1
         antialiasing: true
         Behavior on border.color {
@@ -378,6 +409,7 @@ Item {
             }
             Controls.DockDragGrip {
                 id: dockMoveHandle
+                objectName: "dockStackDrag_" + root.panelId
                 visible: root.kind !== "results"
                 Layout.preferredWidth: 30
                 Layout.preferredHeight: 34
@@ -453,7 +485,8 @@ Item {
         anchors.top: parent.top
         anchors.left: parent.left
         anchors.right: parent.right
-        anchors.leftMargin: 6
+        anchors.leftMargin: root.kind === "results"
+            ? resultsDragHandle.width + 6 : 6
         anchors.rightMargin: root.titleActionCount * 38 + 6
         height: root.stackSize > 1 ? parent.height : 0
         visible: height > 0
@@ -570,7 +603,7 @@ Item {
         id: resultsDragHandle
         parent: panelBody
         objectName: "dockTitleDrag_" + root.panelId
-        visible: root.kind === "results" && root.stackSize <= 1
+        visible: root.kind === "results"
         anchors.left: parent.left
         anchors.top: parent.top
         width: 34
@@ -673,8 +706,8 @@ Item {
         z: 90
         visible: root.dockArea === "floating" || root.canResizeLeft || (root.resizing && root.resizeEdge === "left")
         enabled: visible
-        width: 6
-        anchors.left: parent.left
+        width: root.dockArea === "floating" ? 10 : 9
+        x: -width / 2
         anchors.top: parent.top
         anchors.bottom: parent.bottom
         anchors.topMargin: 8
@@ -686,8 +719,8 @@ Item {
         z: 90
         visible: root.dockArea === "floating" || root.canResizeRight || (root.resizing && root.resizeEdge === "right")
         enabled: visible
-        width: 6
-        anchors.right: parent.right
+        width: root.dockArea === "floating" ? 10 : 9
+        x: parent.width - width / 2
         anchors.top: parent.top
         anchors.bottom: parent.bottom
         anchors.topMargin: 8
@@ -699,10 +732,10 @@ Item {
         z: 90
         visible: root.dockArea === "floating" || root.canResizeTop || (root.resizing && root.resizeEdge === "top")
         enabled: visible
-        height: 6
+        height: root.dockArea === "floating" ? 10 : 9
         anchors.left: parent.left
         anchors.right: parent.right
-        anchors.top: parent.top
+        y: -height / 2
         anchors.leftMargin: 8
         anchors.rightMargin: 8
     }
@@ -712,10 +745,10 @@ Item {
         z: 90
         visible: root.dockArea === "floating" || root.canResizeBottom || (root.resizing && root.resizeEdge === "bottom")
         enabled: visible
-        height: 6
+        height: root.dockArea === "floating" ? 10 : 9
         anchors.left: parent.left
         anchors.right: parent.right
-        anchors.bottom: parent.bottom
+        y: parent.height - height / 2
         anchors.leftMargin: 8
         anchors.rightMargin: 8
     }

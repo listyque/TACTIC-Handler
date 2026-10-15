@@ -14,10 +14,10 @@ from PySide6.QtCore import (
     Signal,
     Slot,
     Qt,
+    QTimer,
     QUrl,
 )
 from PySide6.QtGui import (
-    QColor,
     QFont,
     QTextBlockFormat,
     QTextCharFormat,
@@ -37,6 +37,7 @@ from .rich_text import (
     plain_text_from_html,
     sanitize_rich_html,
 )
+from .script_editor_features import PythonSyntaxHighlighter
 
 
 _IMAGE_MINIMUM_SIZE = 24.0
@@ -46,14 +47,20 @@ _IMAGE_CONFIGURED_HEIGHT = int(QTextFormat.UserProperty) + 2
 _IMAGE_STORAGE_SOURCE = int(QTextFormat.UserProperty) + 3
 _IMAGE_CONTENT_WIDTH = int(QTextFormat.UserProperty) + 4
 _IMAGE_MAXIMUM_WIDTH = int(QTextFormat.Property.ImageMaxWidth)
+_IMAGE_PLACEHOLDER = (
+    "data:image/png;base64,"
+    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAACXBIWXMAAA9h"
+    "AAAPYQGoP6dpAAAAC0lEQVQImWNgAAIAAAUAAWJVMogAAAAASUVORK5CYII="
+)
 
 _MARKDOWN_IMAGE = re.compile(
     r"(?P<image>!\[(?:\\.|[^\]])*\]\((?:\\.|[^)\n])+\))"
     r"(?:\{(?P<attributes>[^}\n]+)\})?"
 )
-_MARKDOWN_IMAGE_SOURCE = re.compile(
-    r"!\[(?:\\.|[^\]])*\]\((?P<source>(?:\\.|[^)\s])+)",
-    re.IGNORECASE,
+_MARKDOWN_IMAGE_DETAILS = re.compile(
+    r"!\[(?P<alt>(?:\\.|[^\]])*)\]\(\s*"
+    r"(?P<source><[^>\n]+>|(?:\\.|[^\s)\"']+))"
+    r"(?:\s+[\"'](?P<caption>.*?)[\"'])?\s*\)"
 )
 _MARKDOWN_UNDERLINE = re.compile(
     r"<u>(?P<content>.*?)</u>", re.IGNORECASE | re.DOTALL
@@ -64,17 +71,86 @@ _MARKDOWN_ALIGNMENT = re.compile(
 )
 _UNDERLINE_START = "\ue100"
 _UNDERLINE_END = "\ue101"
+_BLANK_LINE_MARKER = "\ue120"
 _ALIGNMENT_MARKERS = {
     "center": "\ue110",
     "right": "\ue111",
     "justify": "\ue112",
 }
+_CODE_LANGUAGE = re.compile(r"[a-zA-Z0-9_+.#-]{1,32}")
+_MARKDOWN_FENCE = re.compile(r"^[ \t]{0,3}(`{3,}|~{3,})")
+_MARKDOWN_BLANK_LINE = re.compile(
+    r"^[ \t]*<br\s*/?>[ \t]*(?=\n|$)", re.IGNORECASE | re.MULTILINE
+)
+_EXTRA_BLANK_LINES = re.compile(r"\n(?:[ \t]*\n){2,}")
+
+
+def _safe_code_language(value) -> str:
+    language = str(value or "").strip().casefold()
+    return language if _CODE_LANGUAGE.fullmatch(language) else ""
+
+
+def _preserve_extra_blank_lines(value: str) -> str:
+    """Make Markdown blank rows explicit without changing fenced code."""
+    result = []
+    prose = []
+    fence_character = ""
+    fence_length = 0
+
+    def flush_prose() -> None:
+        if not prose:
+            return
+
+        def preserve(match: re.Match) -> str:
+            extra_lines = match.group(0).count("\n") - 2
+            return "\n\n" + (
+                _BLANK_LINE_MARKER + "\n\n"
+            ) * extra_lines
+
+        value = "".join(prose)
+        spans_fence_boundary = bool(
+            result and result[-1].endswith("\n")
+        )
+        if spans_fence_boundary:
+            value = "\n" + value
+        value = _MARKDOWN_BLANK_LINE.sub(_BLANK_LINE_MARKER, value)
+        value = _EXTRA_BLANK_LINES.sub(preserve, value)
+        result.append(value[1:] if spans_fence_boundary else value)
+        prose.clear()
+
+    source = str(value or "").replace("\r\n", "\n").replace("\r", "\n")
+    for line in source.splitlines(keepends=True):
+        match = _MARKDOWN_FENCE.match(line)
+        if not fence_character:
+            if match is None:
+                prose.append(line)
+                continue
+            flush_prose()
+            marker = match.group(1)
+            fence_character = marker[0]
+            fence_length = len(marker)
+            result.append(line)
+            continue
+        result.append(line)
+        if (
+            match is not None
+            and match.group(1)[0] == fence_character
+            and len(match.group(1)) >= fence_length
+        ):
+            fence_character = ""
+            fence_length = 0
+    flush_prose()
+    return "".join(result)
 
 
 class RichTextDocumentController(QObject):
     """Apply semantic formatting without embedding a browser engine."""
 
     stateChanged = Signal()
+    documentChanged = Signal()
+    imageOverlaysChanged = Signal()
+    layoutChanged = Signal()
+    imageLoadFailed = Signal(str)
 
     def __init__(self, parent=None) -> None:
         super().__init__(parent)
@@ -92,21 +168,21 @@ class RichTextDocumentController(QObject):
         self._selected_image_natural_height = 0.0
         self._selected_image_content_width = False
         self._refreshing_image_layout = False
+        self._last_image_maximum_width = 560.0
         self._typing_format: QTextCharFormat | None = None
         self._typing_position = -1
         self._applying_typing_format = False
-
-    def _trace(self, stage: str, details: str = "") -> None:
-        debug_log = getattr(self.parent(), "debug_log", None)
-        if debug_log is None:
-            return
-        debug_log.log(
-            "LOG",
-            f"Knowledge editor: {stage}",
-            group="knowledge/editor",
-            source="Rich text document",
-            details=details,
-            caller=2,
+        self._format_state = self._default_format_state()
+        self._syntax_colors = {}
+        self._syntax_highlighter = None
+        self._image_display_sources: dict[str, str] = {}
+        self._image_natural_sizes: dict[str, tuple[float, float]] = {}
+        self._image_overlay_refresh_pending = False
+        self._layout_revision = 0
+        self._image_overlay_timer = QTimer(self)
+        self._image_overlay_timer.setSingleShot(True)
+        self._image_overlay_timer.timeout.connect(
+            self._refresh_image_overlays
         )
 
     @Property(bool, notify=stateChanged)
@@ -138,6 +214,60 @@ class RichTextDocumentController(QObject):
             return QRectF()
         _cursor, image, image_position = selected
         return self._image_rect(document, image, image_position)
+
+    @Property("QVariantList", notify=imageOverlaysChanged)
+    def imageOverlays(self) -> list[dict]:
+        """Return QML overlays for transparent inline image placeholders."""
+        document = self._live_document()
+        if document is None:
+            return []
+        overlays = []
+        for _cursor, image, position in self._image_cursors(document):
+            source = str(
+                image.property(_IMAGE_STORAGE_SOURCE) or image.name() or ""
+            ).strip()
+            display_source = self._image_display_sources.get(source, source)
+            if QUrl(display_source).scheme().casefold() not in {
+                "data", "file", "http", "https",
+            }:
+                continue
+            rect = self._image_rect(document, image, position)
+            overlays.append({
+                "position": position,
+                "source": display_source,
+                "storageSource": source,
+                "title": image.toolTip(),
+                "x": rect.x(),
+                "y": rect.y(),
+                "width": rect.width(),
+                "height": rect.height(),
+            })
+        return overlays
+
+    @Property(int, notify=layoutChanged)
+    def layoutRevision(self) -> int:
+        return self._layout_revision
+
+    def _schedule_image_overlay_refresh(self) -> None:
+        if self._image_overlay_refresh_pending:
+            return
+        self._image_overlay_refresh_pending = True
+        self._image_overlay_timer.start(0)
+
+    def _refresh_image_overlays(self) -> None:
+        self._image_overlay_refresh_pending = False
+        self._notify_layout_changed()
+        self.imageOverlaysChanged.emit()
+
+    def _notify_layout_changed(self) -> None:
+        self._layout_revision += 1
+        self.layoutChanged.emit()
+
+    @Slot(str)
+    def report_image_load_failure(self, source: str) -> None:
+        source = str(source or "").strip()
+        if source:
+            self.imageLoadFailed.emit(source)
 
     @staticmethod
     def _image_rect(
@@ -200,9 +330,84 @@ class RichTextDocumentController(QObject):
 
     @Property("QVariantMap", notify=stateChanged)
     def formatState(self) -> dict:
+        return dict(self._format_state)
+
+    @Property("QVariantList", notify=documentChanged)
+    def blockDecorations(self) -> list[dict]:
+        document = self._live_document()
+        if document is None:
+            return []
+        decorations = []
+        block = document.begin()
+        while block.isValid():
+            formatting = block.blockFormat()
+            if formatting.hasProperty(QTextFormat.BlockCodeFence):
+                kind = "code"
+                language = _safe_code_language(formatting.property(
+                    QTextFormat.BlockCodeLanguage
+                ))
+            elif formatting.hasProperty(QTextFormat.BlockQuoteLevel):
+                kind = (
+                    "pull-quote"
+                    if formatting.alignment() == Qt.AlignHCenter
+                    else "quote"
+                )
+                language = ""
+            else:
+                block = block.next()
+                continue
+            start = block.position()
+            end = start + max(0, block.length() - 2)
+            next_block = block.next()
+            while next_block.isValid():
+                next_format = next_block.blockFormat()
+                next_language = _safe_code_language(next_format.property(
+                    QTextFormat.BlockCodeLanguage
+                ))
+                same_kind = (
+                    kind == "code"
+                    and next_format.hasProperty(QTextFormat.BlockCodeFence)
+                    and next_language == language
+                    or kind in {"quote", "pull-quote"}
+                    and next_format.hasProperty(QTextFormat.BlockQuoteLevel)
+                    and (
+                        next_format.alignment() == Qt.AlignHCenter
+                    ) == (kind == "pull-quote")
+                )
+                if not same_kind:
+                    break
+                block = next_block
+                end = block.position() + max(0, block.length() - 2)
+                next_block = block.next()
+            decorations.append({
+                "kind": kind,
+                "language": language,
+                "start": start,
+                "end": end,
+            })
+            block = next_block
+        return decorations
+
+    @staticmethod
+    def _default_format_state() -> dict:
+        return {
+            "bold": False,
+            "italic": False,
+            "underline": False,
+            "strike": False,
+            "smallText": False,
+            "heading": 0,
+            "quote": False,
+            "pullQuote": False,
+            "codeBlock": False,
+            "listStyle": "",
+            "alignment": "left",
+        }
+
+    def _read_format_state(self) -> dict:
         cursor = self._cursor()
         if cursor is None:
-            return {}
+            return self._default_format_state()
         character = (
             self._typing_format
             if not cursor.hasSelection() and self._typing_format is not None
@@ -246,6 +451,18 @@ class RichTextDocumentController(QObject):
             ),
         }
 
+    def _refresh_format_state(self) -> bool:
+        state = self._read_format_state()
+        if state == self._format_state:
+            return False
+        self._format_state = state
+        return True
+
+    def _emit_format_state_changed(self) -> None:
+        self._refresh_format_state()
+        self.stateChanged.emit()
+        self.documentChanged.emit()
+
     @staticmethod
     def _valid_object(value: QObject | None) -> bool:
         return bool(value is not None and shiboken6.isValid(value))
@@ -286,6 +503,7 @@ class RichTextDocumentController(QObject):
         self._cursor_position = 0
         self._typing_format = None
         self._typing_position = -1
+        self._format_state = self._default_format_state()
         self._reset_image_selection()
 
     def _reset_image_selection(self) -> None:
@@ -299,49 +517,21 @@ class RichTextDocumentController(QObject):
         self._selected_image_natural_height = 0.0
         self._selected_image_content_width = False
 
-    def _editor_image_sources(
-        self,
-        markdown: str,
-        display_sources,
-    ) -> dict[str, str]:
-        self._trace(
-            "images.prepare.begin",
-            f"markdown_chars={len(str(markdown or ''))} "
-            f"display_sources={len(dict(display_sources or {}))}",
-        )
-        previews = {
-            str(source or "").strip(): str(display or "").strip()
-            for source, display in dict(display_sources or {}).items()
-            if str(source or "").strip()
-        }
-        sources = {}
-        for match in _MARKDOWN_IMAGE_SOURCE.finditer(str(markdown or "")):
-            stored_source = str(match.group("source") or "").strip()
-            display_source = (
-                previews.get(stored_source)
-                or stored_source
-            )
-            if QUrl(display_source).scheme().casefold() not in {
-                "data", "file", "http", "https",
-            }:
-                display_source = stored_source
-            if QUrl(display_source).scheme().casefold() not in {
-                "data", "file", "http", "https",
-            }:
-                continue
-            sources[stored_source] = display_source
-        self._trace(
-            "images.prepare.end",
-            f"images={len(sources)}",
-        )
-        return sources
-
     def _release_document(self, *, disconnect: bool) -> bool:
         source = self._document_source
         if source is None:
             return False
         document = self._document_for_source(source)
+        highlighter = self._syntax_highlighter
+        self._syntax_highlighter = None
+        if highlighter is not None:
+            try:
+                highlighter.setDocument(None)
+            except RuntimeError:
+                pass
         self._document_source = None
+        self._image_display_sources.clear()
+        self._image_natural_sizes.clear()
         self._reset_selection()
         if disconnect and self._valid_object(source):
             try:
@@ -369,8 +559,13 @@ class RichTextDocumentController(QObject):
         if self._document_source is None:
             return
         self._document_source = None
+        self._syntax_highlighter = None
+        self._image_display_sources.clear()
+        self._image_natural_sizes.clear()
         self._reset_selection()
+        self._schedule_image_overlay_refresh()
         self.stateChanged.emit()
+        self.documentChanged.emit()
 
     def _live_document(self) -> QTextDocument | None:
         source = self._document_source
@@ -378,22 +573,22 @@ class RichTextDocumentController(QObject):
         if document is not None:
             return document
         if self._release_document(disconnect=False):
+            self._schedule_image_overlay_refresh()
             self.stateChanged.emit()
         return None
 
     @Slot(QQuickTextDocument)
-    def attach(self, wrapper: QObject | None) -> None:
-        self._trace(
-            "document.attach.begin",
-            f"wrapper={type(wrapper).__name__} "
-            f"already_attached={wrapper is self._document_source}",
-        )
+    @Slot(QQuickTextDocument, "QVariantMap")
+    def attach(self, wrapper: QObject | None, colors=None) -> None:
+        if colors is not None:
+            self._syntax_colors = dict(colors)
         source = self._source_from_wrapper(wrapper)
         if (
             source is self._document_source
             and self._live_document() is not None
         ):
-            self._trace("document.attach.already_attached")
+            if self._syntax_highlighter is not None:
+                self._syntax_highlighter.set_colors(self._syntax_colors)
             return
         self._release_document(disconnect=True)
         self._document_source = source
@@ -402,23 +597,30 @@ class RichTextDocumentController(QObject):
             source.destroyed.connect(self._document_destroyed)
             document = self._document_for_source(source)
             if document is not None:
+                self._syntax_highlighter = PythonSyntaxHighlighter(
+                    document,
+                    self._syntax_colors,
+                    code_blocks_only=True,
+                )
                 document.contentsChange.connect(
                     self._document_contents_changed
                 )
                 document.documentLayout().documentSizeChanged.connect(
                     self._document_layout_changed
                 )
+        self._refresh_format_state()
+        self._schedule_image_overlay_refresh()
         self.stateChanged.emit()
-        self._trace(
-            "document.attach.end",
-            f"attached={self._live_document() is not None}",
-        )
+        self.documentChanged.emit()
 
     def _document_layout_changed(self, *_args) -> None:
         if self._refreshing_image_layout:
             return
+        self._notify_layout_changed()
         selected = self._selected_image_cursor()
         document = self._live_document()
+        if document is not None and self._image_display_sources:
+            self._schedule_image_overlay_refresh()
         if selected is None or document is None:
             return
         cursor, image, image_position = selected
@@ -465,7 +667,13 @@ class RichTextDocumentController(QObject):
     @Slot()
     def detach(self) -> None:
         if self._release_document(disconnect=True):
+            self._schedule_image_overlay_refresh()
             self.stateChanged.emit()
+
+    @Slot(QQuickTextDocument)
+    def detach_from(self, wrapper: QObject | None) -> None:
+        if self._source_from_wrapper(wrapper) is self._document_source:
+            self.detach()
 
     @Slot(int, int, int)
     def sync_selection(self, cursor_position: int, start: int, end: int) -> None:
@@ -490,9 +698,10 @@ class RichTextDocumentController(QObject):
             self._typing_format = None
             self._typing_position = -1
             changed = True
+        format_changed = self._refresh_format_state()
         image_position = self._selected_image_position
         if image_position < 0:
-            if changed:
+            if changed or format_changed:
                 self.stateChanged.emit()
             return
         selection_start = min(self._selection_start, self._selection_end)
@@ -501,7 +710,7 @@ class RichTextDocumentController(QObject):
             selection_start == image_position
             and selection_end == image_position + 1
         ):
-            if changed:
+            if changed or format_changed:
                 self.stateChanged.emit()
             return
         self._reset_image_selection()
@@ -510,6 +719,9 @@ class RichTextDocumentController(QObject):
     def _document_contents_changed(
         self, position: int, removed: int, added: int,
     ) -> None:
+        self.documentChanged.emit()
+        if self._image_display_sources:
+            self._schedule_image_overlay_refresh()
         if self._typing_format is None or self._applying_typing_format:
             return
         position = int(position)
@@ -521,16 +733,16 @@ class RichTextDocumentController(QObject):
             and position + removed == self._typing_position
         ):
             self._typing_position = position
-            self.stateChanged.emit()
+            self._emit_format_state_changed()
             return
         if position != self._typing_position:
             self._typing_format = None
             self._typing_position = -1
-            self.stateChanged.emit()
+            self._emit_format_state_changed()
             return
         self._typing_position = position + added
         if added <= 0:
-            self.stateChanged.emit()
+            self._emit_format_state_changed()
             return
         document = self._live_document()
         if document is None:
@@ -539,7 +751,7 @@ class RichTextDocumentController(QObject):
         if position < 0 or end > document.characterCount() - 1:
             self._typing_format = None
             self._typing_position = -1
-            self.stateChanged.emit()
+            self._emit_format_state_changed()
             return
         cursor = QTextCursor(document)
         cursor.setPosition(position)
@@ -549,7 +761,7 @@ class RichTextDocumentController(QObject):
             cursor.mergeCharFormat(self._typing_format)
         finally:
             self._applying_typing_format = False
-        self.stateChanged.emit()
+        self._emit_format_state_changed()
 
     def _image_cursor_at(
         self, position: int,
@@ -634,14 +846,19 @@ class RichTextDocumentController(QObject):
         except (TypeError, ValueError):
             return 0.0
 
-    @staticmethod
     def _image_resource_dimensions(
+        self,
         document: QTextDocument,
         image: QTextImageFormat,
     ) -> tuple[float, float]:
-        source = str(image.name() or "").strip()
+        source = str(
+            image.property(_IMAGE_STORAGE_SOURCE) or image.name() or ""
+        ).strip()
         if not source:
             return 0.0, 0.0
+        natural_size = self._image_natural_sizes.get(source)
+        if natural_size is not None:
+            return natural_size
         try:
             resource = document.resource(
                 QTextDocument.ImageResource, QUrl(source)
@@ -777,18 +994,15 @@ class RichTextDocumentController(QObject):
 
     @Slot(float, result=bool)
     def fit_images_to_width(self, maximum_width: float) -> bool:
-        self._trace(
-            "images.fit.begin", f"maximum_width={maximum_width:.2f}"
+        self._last_image_maximum_width = max(
+            _IMAGE_MINIMUM_SIZE, float(maximum_width or 560.0)
         )
         document = self._live_document()
         if document is None:
-            self._trace("images.fit.no_document")
             return False
         changed = False
         selected_metrics = None
-        image_count = 0
         for cursor, image, image_position in self._image_cursors(document):
-            image_count += 1
             image, metrics, image_changed = self._fit_image_format(
                 document, image, maximum_width
             )
@@ -801,11 +1015,8 @@ class RichTextDocumentController(QObject):
             self._apply_selected_image_metrics(*selected_metrics)
         if changed or selected_metrics is not None:
             self.stateChanged.emit()
-        self._trace(
-            "images.fit.end",
-            f"images={image_count} changed={changed} "
-            f"selected={selected_metrics is not None}",
-        )
+        if changed:
+            self._schedule_image_overlay_refresh()
         return changed
 
     @Slot(int, float, result=bool)
@@ -827,6 +1038,9 @@ class RichTextDocumentController(QObject):
         document = self._live_document()
         if document is None:
             return False
+        self._last_image_maximum_width = max(
+            _IMAGE_MINIMUM_SIZE, float(maximum_width or 560.0)
+        )
         image, metrics, changed = self._fit_image_format(
             document, image, maximum_width
         )
@@ -854,25 +1068,32 @@ class RichTextDocumentController(QObject):
         y: float,
         maximum_width: float,
     ) -> bool:
-        """Select the inline image painted at a document-space point.
-
-        A QML ``TextEdit.positionAt()`` returns a caret boundary. For a large
-        inline image that boundary can legally be before or after the object,
-        so deriving image selection from the caret is unreliable. The text
-        document layout owns the painted geometry and exposes the exact image
-        hit test used here.
-        """
+        """Select only an inline image whose painted rectangle contains point."""
         document = self._live_document()
         if document is None:
             return False
         point = QPointF(max(0.0, float(x)), max(0.0, float(y)))
-        layout = document.documentLayout()
-        if not str(layout.imageAt(point) or ""):
+        selected = self._image_cursor_at_point(document, point)
+        if selected is not None:
+            return self._select_image_cursor(selected, maximum_width)
+        return False
+
+    @Slot(float, float, result=bool)
+    def image_at_point(self, x: float, y: float) -> bool:
+        document = self._live_document()
+        if document is None:
             return False
-        position = layout.hitTest(point, Qt.FuzzyHit)
-        if position < 0:
-            return False
-        return self.try_select_image_at(position, maximum_width)
+        point = QPointF(max(0.0, float(x)), max(0.0, float(y)))
+        return self._image_cursor_at_point(document, point) is not None
+
+    def _image_cursor_at_point(
+        self, document: QTextDocument, point: QPointF,
+    ) -> tuple[QTextCursor, QTextImageFormat, int] | None:
+        for selected in self._image_cursors(document):
+            _cursor, image, position = selected
+            if self._image_rect(document, image, position).contains(point):
+                return selected
+        return None
 
     @Slot()
     def clear_image_selection(self) -> None:
@@ -1044,7 +1265,7 @@ class RichTextDocumentController(QObject):
             current.merge(formatting)
             self._typing_format = current
             self._typing_position = cursor.position()
-        self.stateChanged.emit()
+        self._emit_format_state_changed()
 
     @Slot()
     def toggle_bold(self) -> None:
@@ -1151,7 +1372,7 @@ class RichTextDocumentController(QObject):
             }.get(level, 11.0)
         )
         cursor.mergeCharFormat(formatting)
-        self.stateChanged.emit()
+        self._emit_format_state_changed()
 
     @Slot(str)
     def set_alignment(self, value: str) -> None:
@@ -1166,7 +1387,7 @@ class RichTextDocumentController(QObject):
         block = cursor.blockFormat()
         block.setAlignment(alignment)
         cursor.mergeBlockFormat(block)
-        self.stateChanged.emit()
+        self._emit_format_state_changed()
 
     @staticmethod
     def _remove_selected_lists(cursor: QTextCursor) -> None:
@@ -1201,7 +1422,7 @@ class RichTextDocumentController(QObject):
             formatting.setStyle(wanted)
             formatting.setIndent(max(1, cursor.blockFormat().indent() + 1))
             cursor.createList(formatting)
-        self.stateChanged.emit()
+        self._emit_format_state_changed()
 
     @Slot()
     def toggle_check_list(self) -> None:
@@ -1225,7 +1446,7 @@ class RichTextDocumentController(QObject):
                 block = cursor.blockFormat()
             block.setMarker(QTextBlockFormat.MarkerType.Unchecked)
             cursor.setBlockFormat(block)
-        self.stateChanged.emit()
+        self._emit_format_state_changed()
 
     @Slot(str)
     def set_quote(self, style: str) -> None:
@@ -1240,7 +1461,7 @@ class RichTextDocumentController(QObject):
             and pull_quote == current_is_pull
         ):
             cursor.setBlockFormat(QTextBlockFormat())
-            self.stateChanged.emit()
+            self._emit_format_state_changed()
             return
         code_block = bool(current.property(QTextFormat.BlockCodeFence))
         formatting = QTextBlockFormat()
@@ -1249,14 +1470,83 @@ class RichTextDocumentController(QObject):
         formatting.setRightMargin(40.0)
         formatting.setTopMargin(6.0)
         formatting.setBottomMargin(6.0)
-        formatting.setBackground(QColor(128, 128, 128, 32))
         formatting.setAlignment(
             Qt.AlignHCenter if pull_quote else Qt.AlignLeft
         )
         cursor.setBlockFormat(formatting)
         if code_block or current.headingLevel():
             self._restore_default_font(cursor)
-        self.stateChanged.emit()
+        self._emit_format_state_changed()
+
+    @Slot(result=str)
+    def selected_text(self) -> str:
+        cursor = self._cursor()
+        return (
+            cursor.selectedText().replace("\u2029", "\n")
+            if cursor is not None else ""
+        )
+
+    def _replace_selection(self, value: str) -> QTextCursor | None:
+        cursor = self._cursor()
+        if cursor is None:
+            return None
+        value = str(value or "").replace("\r\n", "\n").replace("\r", "\n")
+        had_selection = cursor.hasSelection()
+        if not had_selection and cursor.block().text():
+            cursor.insertBlock(QTextBlockFormat())
+        start = cursor.selectionStart()
+        cursor.removeSelectedText()
+        cursor.insertText(value)
+        end = cursor.position()
+        if not had_selection:
+            cursor.insertBlock(QTextBlockFormat())
+        cursor.setPosition(start)
+        cursor.setPosition(end, QTextCursor.KeepAnchor)
+        self._cursor_position = end
+        self._selection_start = self._selection_end = end
+        return cursor
+
+    @Slot(str, str)
+    def insert_quote(self, value: str, style: str) -> None:
+        cursor = self._replace_selection(value)
+        if cursor is None:
+            return
+        pull_quote = str(style or "").casefold() == "pull"
+        formatting = QTextBlockFormat()
+        formatting.setProperty(QTextFormat.BlockQuoteLevel, 1)
+        formatting.setLeftMargin(40.0)
+        formatting.setRightMargin(40.0)
+        formatting.setTopMargin(10.0)
+        formatting.setBottomMargin(10.0)
+        formatting.setAlignment(
+            Qt.AlignHCenter if pull_quote else Qt.AlignLeft
+        )
+        cursor.setBlockFormat(formatting)
+        self._restore_default_font(cursor)
+        self._emit_format_state_changed()
+
+    @Slot(str, str)
+    def insert_code_block(self, value: str, language: str) -> None:
+        cursor = self._replace_selection(value)
+        if cursor is None:
+            return
+        language = _safe_code_language(language) or "python"
+        formatting = QTextBlockFormat()
+        formatting.setNonBreakableLines(True)
+        formatting.setProperty(QTextFormat.BlockCodeFence, "`")
+        formatting.setProperty(QTextFormat.BlockCodeLanguage, language)
+        formatting.setLeftMargin(16.0)
+        formatting.setRightMargin(16.0)
+        formatting.setTopMargin(8.0)
+        formatting.setBottomMargin(8.0)
+        cursor.setBlockFormat(formatting)
+        character = QTextCharFormat()
+        character.setFontFamilies(["Consolas", "monospace"])
+        character.setFontFixedPitch(True)
+        cursor.mergeCharFormat(character)
+        if self._syntax_highlighter is not None:
+            self._syntax_highlighter.rehighlight()
+        self._emit_format_state_changed()
 
     @Slot()
     def set_code_block(self) -> None:
@@ -1267,26 +1557,28 @@ class RichTextDocumentController(QObject):
         if current.property(QTextFormat.BlockCodeFence):
             cursor.setBlockFormat(QTextBlockFormat())
             self._restore_default_font(cursor)
-            self.stateChanged.emit()
+            self._emit_format_state_changed()
             return
         formatting = QTextBlockFormat()
         formatting.setNonBreakableLines(True)
         formatting.setProperty(QTextFormat.BlockCodeFence, "`")
+        formatting.setProperty(QTextFormat.BlockCodeLanguage, "python")
         formatting.setLeftMargin(14.0)
         formatting.setRightMargin(14.0)
         formatting.setTopMargin(8.0)
         formatting.setBottomMargin(8.0)
-        formatting.setBackground(QColor(128, 128, 128, 32))
         cursor.setBlockFormat(formatting)
         if current.headingLevel():
             self._restore_default_font(cursor)
         if not cursor.hasSelection():
             cursor.select(QTextCursor.BlockUnderCursor)
         character = QTextCharFormat()
-        character.setFontFamilies(["monospace"])
+        character.setFontFamilies(["Consolas", "monospace"])
         character.setFontFixedPitch(True)
         cursor.mergeCharFormat(character)
-        self.stateChanged.emit()
+        if self._syntax_highlighter is not None:
+            self._syntax_highlighter.rehighlight()
+        self._emit_format_state_changed()
 
     @Slot()
     def set_small_text(self) -> None:
@@ -1314,9 +1606,10 @@ class RichTextDocumentController(QObject):
         if cursor.hasSelection():
             cursor.removeSelectedText()
         cursor.insertHtml("<hr>")
+        cursor.insertBlock(QTextBlockFormat(), QTextCharFormat())
         self._cursor_position = cursor.position()
         self._selection_start = self._selection_end = self._cursor_position
-        self.stateChanged.emit()
+        self._emit_format_state_changed()
 
     @Slot()
     def insert_table(self) -> None:
@@ -1338,7 +1631,7 @@ class RichTextDocumentController(QObject):
         first_cell = table.cellAt(0, 0).firstCursorPosition()
         self._cursor_position = first_cell.position()
         self._selection_start = self._selection_end = self._cursor_position
-        self.stateChanged.emit()
+        self._emit_format_state_changed()
 
     @staticmethod
     def _supported_link_target(target: str) -> bool:
@@ -1443,7 +1736,7 @@ class RichTextDocumentController(QObject):
             cursor.insertText(text, formatting)
         self._cursor_position = cursor.position()
         self._selection_start = self._selection_end = self._cursor_position
-        self.stateChanged.emit()
+        self._emit_format_state_changed()
 
     @Slot(int, int, str, str, result=bool)
     def update_link(
@@ -1471,18 +1764,16 @@ class RichTextDocumentController(QObject):
         cursor.insertText(str(label or "").strip() or previous_label, formatting)
         self._cursor_position = cursor.position()
         self._selection_start = self._selection_end = self._cursor_position
-        self.stateChanged.emit()
+        self._emit_format_state_changed()
         return True
 
     @Slot(str, str)
     @Slot(str, str, float)
-    @Slot(str, str, float, str)
     def insert_image(
         self,
         source: str,
         title: str = "",
         maximum_width: float = 560.0,
-        display_source: str = "",
     ) -> None:
         cursor = self._cursor()
         source = str(source or "").strip()
@@ -1493,13 +1784,8 @@ class RichTextDocumentController(QObject):
         ):
             return
         image = QTextImageFormat()
-        display_source = str(display_source or "").strip()
-        display_url = QUrl(display_source)
-        if display_url.scheme().casefold() not in {"file", "http", "https"}:
-            display_source = source
-        image.setName(QUrl(display_source or source).toString())
-        if display_source and display_source != source:
-            image.setProperty(_IMAGE_STORAGE_SOURCE, source)
+        image.setName(_IMAGE_PLACEHOLDER)
+        image.setProperty(_IMAGE_STORAGE_SOURCE, QUrl(source).toString())
         image.setToolTip(str(title or ""))
         image.setProperty(_IMAGE_CONTENT_WIDTH, False)
         image.setWidth(max(
@@ -1507,6 +1793,8 @@ class RichTextDocumentController(QObject):
             min(float(maximum_width or 560.0), _IMAGE_MAXIMUM_SIZE),
         ))
         cursor.insertImage(image)
+        self._image_display_sources.setdefault(source, source)
+        self._schedule_image_overlay_refresh()
         self._cursor_position = cursor.position()
         self._selection_start = self._selection_end = self._cursor_position
         image_position = max(0, cursor.position() - 1)
@@ -1515,38 +1803,6 @@ class RichTextDocumentController(QObject):
             self._selected_image_width = float(image.width())
             self._selected_image_configured_width = float(image.width())
             self.stateChanged.emit()
-
-    @Slot("QVariantMap", result=bool)
-    def apply_image_display_sources(self, sources) -> bool:
-        """Use bounded editor previews without changing stored image URLs."""
-        document = self._live_document()
-        if document is None:
-            return False
-        mapping = {
-            str(source or "").strip(): str(display or "").strip()
-            for source, display in dict(sources or {}).items()
-            if str(source or "").strip()
-        }
-        changed = False
-        for cursor, image, _position in self._image_cursors(document):
-            stored_source = str(
-                image.property(_IMAGE_STORAGE_SOURCE) or image.name() or ""
-            ).strip()
-            display_source = mapping.get(stored_source, stored_source)
-            display_url = QUrl(display_source)
-            if display_url.scheme().casefold() not in {
-                "file", "http", "https",
-            }:
-                display_source = stored_source
-            if str(image.name() or "") == display_source:
-                continue
-            image.setProperty(_IMAGE_STORAGE_SOURCE, stored_source)
-            image.setName(display_source)
-            cursor.setCharFormat(image)
-            changed = True
-        if changed:
-            self.stateChanged.emit()
-        return changed
 
     @Slot(str)
     def insert_html(self, value: str) -> None:
@@ -1566,21 +1822,21 @@ class RichTextDocumentController(QObject):
         cursor.setCharFormat(QTextCharFormat())
         block = QTextBlockFormat()
         cursor.setBlockFormat(block)
-        self.stateChanged.emit()
+        self._emit_format_state_changed()
 
     @Slot()
     def undo(self) -> None:
         document = self._live_document()
         if document is not None:
             document.undo()
-            self.stateChanged.emit()
+            self._emit_format_state_changed()
 
     @Slot()
     def redo(self) -> None:
         document = self._live_document()
         if document is not None:
             document.redo()
-            self.stateChanged.emit()
+            self._emit_format_state_changed()
 
     @Slot(result=str)
     def html(self) -> str:
@@ -1594,7 +1850,6 @@ class RichTextDocumentController(QObject):
             ).strip()
             if storage_source:
                 image.setName(storage_source)
-                image.clearProperty(_IMAGE_STORAGE_SOURCE)
             configured_width = self._format_property(
                 image, _IMAGE_CONFIGURED_WIDTH
             )
@@ -1612,7 +1867,12 @@ class RichTextDocumentController(QObject):
             else:
                 image.clearProperty(_IMAGE_MAXIMUM_WIDTH)
             cursor.setCharFormat(image)
-        return sanitize_rich_html(storage_document.toHtml(), linkify=True)
+        return sanitize_rich_html(
+            _annotate_code_languages(
+                storage_document.toHtml(), storage_document
+            ),
+            linkify=True,
+        )
 
     @Slot(str, result=str)
     def html_from_markdown(self, value: str) -> str:
@@ -1620,28 +1880,122 @@ class RichTextDocumentController(QObject):
 
     @Slot(str, "QVariantMap", result=bool)
     def load_markdown(self, value: str, display_sources) -> bool:
-        self._trace(
-            "markdown.load.begin",
-            f"characters={len(str(value or ''))} "
-            f"display_sources={len(dict(display_sources or {}))}",
-        )
         document = self._live_document()
         if document is None:
-            self._trace("markdown.load.no_document")
             return False
         self._typing_format = None
         self._typing_position = -1
-        sources = self._editor_image_sources(value, display_sources)
+        self._image_natural_sizes.clear()
+        self._image_display_sources = {
+            str(source or "").strip(): str(display or "").strip()
+            for source, display in dict(display_sources or {}).items()
+            if str(source or "").strip()
+        }
         _load_markdown_document(
-            document,
-            value,
-            sources,
-            trace=self._trace,
+            document, value, image_placeholders=True
         )
+        for _cursor, image, _position in self._image_cursors(document):
+            source = str(
+                image.property(_IMAGE_STORAGE_SOURCE) or ""
+            ).strip()
+            if source:
+                self._image_display_sources.setdefault(source, source)
         self._reset_selection()
+        self._refresh_format_state()
+        if self._syntax_highlighter is not None:
+            self._syntax_highlighter.rehighlight()
+        self._schedule_image_overlay_refresh()
         self.stateChanged.emit()
-        self._trace("markdown.load.end")
+        self.documentChanged.emit()
         return True
+
+    @Slot(str, float, float)
+    def set_image_natural_size(
+        self, storage_source: str, width: float, height: float,
+    ) -> None:
+        storage_source = str(storage_source or "").strip()
+        width = max(0.0, float(width or 0.0))
+        height = max(0.0, float(height or 0.0))
+        if not storage_source or width <= 0.0 or height <= 0.0:
+            return
+        natural_size = (width, height)
+        if self._image_natural_sizes.get(storage_source) == natural_size:
+            return
+        self._image_natural_sizes[storage_source] = natural_size
+        document = self._live_document()
+        if document is None:
+            return
+        changed = False
+        for cursor, image, position in self._image_cursors(document):
+            source = str(
+                image.property(_IMAGE_STORAGE_SOURCE) or image.name() or ""
+            ).strip()
+            if source != storage_source:
+                continue
+            configured_width = self._format_property(
+                image, _IMAGE_CONFIGURED_WIDTH
+            ) or max(_IMAGE_MINIMUM_SIZE, float(image.width()))
+            configured_height = self._format_property(
+                image, _IMAGE_CONFIGURED_HEIGHT
+            )
+            if configured_height <= 0.0:
+                configured_height = configured_width * height / width
+                displayed_width = max(
+                    _IMAGE_MINIMUM_SIZE, float(image.width())
+                )
+                image.setProperty(
+                    _IMAGE_CONFIGURED_HEIGHT, configured_height
+                )
+                image.setHeight(displayed_width * height / width)
+                cursor.setCharFormat(image)
+                changed = True
+            if position == self._selected_image_position:
+                self._selected_image_natural_width = width
+                self._selected_image_natural_height = height
+                self._selected_image_height = float(image.height())
+                self._selected_image_ratio = height / width
+        if changed:
+            document.markContentsDirty(0, document.characterCount())
+            self._schedule_image_overlay_refresh()
+        self.stateChanged.emit()
+
+    @Slot(str)
+    def apply_markdown_blocks(self, value: str) -> None:
+        document = self._live_document()
+        if document is None:
+            return
+        source = QTextDocument()
+        markdown, _image_specs = _markdown_source(value)
+        source.setMarkdown(markdown)
+        _infer_code_languages(source)
+        for block, source_block in zip(
+            _document_blocks(document), _document_blocks(source)
+        ):
+            source_format = source_block.blockFormat()
+            formatting = block.blockFormat()
+            cursor = QTextCursor(block)
+            if source_format.hasProperty(QTextFormat.BlockCodeFence):
+                formatting.setProperty(QTextFormat.BlockCodeFence, "`")
+                formatting.setProperty(
+                    QTextFormat.BlockCodeLanguage,
+                    _safe_code_language(source_format.property(
+                        QTextFormat.BlockCodeLanguage
+                    )) or "python",
+                )
+                cursor.setBlockFormat(formatting)
+                cursor.select(QTextCursor.BlockUnderCursor)
+                character = QTextCharFormat()
+                character.setFontFamilies(["Consolas", "monospace"])
+                character.setFontFixedPitch(True)
+                cursor.mergeCharFormat(character)
+            elif source_format.hasProperty(QTextFormat.BlockQuoteLevel):
+                formatting.setProperty(QTextFormat.BlockQuoteLevel, 1)
+                formatting.setAlignment(source_format.alignment())
+                cursor.setBlockFormat(formatting)
+        _style_semantic_blocks(document)
+        if self._syntax_highlighter is not None:
+            self._syntax_highlighter.rehighlight()
+        self.documentChanged.emit()
 
     @Slot(result=str)
     def markdown(self) -> str:
@@ -1658,16 +2012,10 @@ class RichTextDocumentController(QObject):
 
 def _markdown_source(
     value: str,
-    display_sources=None,
+    *,
+    image_placeholders: bool = False,
 ) -> tuple[str, list[dict]]:
     image_specs = []
-    previews = {
-        str(source or "").strip(): str(display or "").strip()
-        for source, display in dict(display_sources or {}).items()
-        if str(source or "").strip()
-        and QUrl(str(display or "").strip()).scheme().casefold()
-        in {"data", "file", "http", "https"}
-    }
 
     def image(match: re.Match) -> str:
         attributes = {
@@ -1677,27 +2025,25 @@ def _markdown_source(
                 str(match.group("attributes") or ""),
             )
         }
-        image_source = match.group("image")
-        for stored_source, display_source in previews.items():
-            marker = "](" + stored_source
-            marker_at = image_source.find(marker)
-            if marker_at < 0 or display_source == stored_source:
-                continue
-            source_at = marker_at + 2
-            image_source = (
-                image_source[:source_at]
-                + display_source
-                + image_source[source_at + len(stored_source):]
+        details = _MARKDOWN_IMAGE_DETAILS.fullmatch(match.group("image"))
+        if details is not None:
+            attributes["source"] = details.group("source").strip("<>")
+            attributes["title"] = (
+                details.group("caption") or details.group("alt")
             )
-            attributes["storage_source"] = stored_source
-            break
         image_specs.append(attributes)
+        if image_placeholders:
+            title = details.group("alt") if details is not None else "Image"
+            return f"![{title}]({_IMAGE_PLACEHOLDER})"
         return (
-            "![Image](" + image_source[4:]
-            if image_source.startswith("![](") else image_source
+            "![Image](" + match.group("image")[4:]
+            if match.group("image").startswith("![](")
+            else match.group("image")
         )
 
-    source = _MARKDOWN_IMAGE.sub(image, str(value or ""))
+    source = _MARKDOWN_IMAGE.sub(
+        image, _preserve_extra_blank_lines(value)
+    )
     source = _MARKDOWN_UNDERLINE.sub(
         lambda match: (
             _UNDERLINE_START + match.group("content") + _UNDERLINE_END
@@ -1711,13 +2057,137 @@ def _markdown_source(
     return source, image_specs
 
 
+def _document_blocks(document: QTextDocument):
+    block = document.begin()
+    while block.isValid():
+        yield block
+        block = block.next()
+
+
+def _infer_code_languages(document: QTextDocument) -> None:
+    group = []
+
+    def finish_group() -> None:
+        if not group:
+            return
+        language = next((
+            _safe_code_language(block.blockFormat().property(
+                QTextFormat.BlockCodeLanguage
+            ))
+            for block in group
+            if _safe_code_language(block.blockFormat().property(
+                QTextFormat.BlockCodeLanguage
+            ))
+        ), "")
+        source = "\n".join(block.text() for block in group)
+        if not language and re.search(
+            r"(?m)^\s*(?:from\s+[\w.]+\s+import\b|import\s+[\w.]|"
+            r"(?:async\s+)?def\s+\w+\s*\(|class\s+\w+|"
+            r"(?:if|elif|for|while|try|except|with)\b[^\n]*:\s*$)",
+            source,
+        ):
+            language = "python"
+        if language:
+            for code_block in group:
+                formatting = code_block.blockFormat()
+                formatting.setProperty(
+                    QTextFormat.BlockCodeLanguage, language
+                )
+                QTextCursor(code_block).setBlockFormat(formatting)
+        group.clear()
+
+    for block in _document_blocks(document):
+        if block.blockFormat().hasProperty(QTextFormat.BlockCodeFence):
+            group.append(block)
+        else:
+            finish_group()
+    finish_group()
+
+
+def _style_semantic_blocks(document: QTextDocument) -> None:
+    blocks = list(_document_blocks(document))
+    for block in blocks:
+        formatting = block.blockFormat()
+        if formatting.hasProperty(QTextFormat.BlockQuoteLevel):
+            formatting.setLeftMargin(40.0)
+            formatting.setRightMargin(40.0)
+            formatting.setTopMargin(10.0)
+            formatting.setBottomMargin(10.0)
+        elif formatting.hasProperty(QTextFormat.BlockCodeFence):
+            language = _safe_code_language(formatting.property(
+                QTextFormat.BlockCodeLanguage
+            ))
+
+            def matching_code(candidate) -> bool:
+                if not candidate.isValid():
+                    return False
+                candidate_format = candidate.blockFormat()
+                return (
+                    candidate_format.hasProperty(QTextFormat.BlockCodeFence)
+                    and _safe_code_language(candidate_format.property(
+                        QTextFormat.BlockCodeLanguage
+                    )) == language
+                )
+
+            formatting.setLeftMargin(16.0)
+            formatting.setRightMargin(16.0)
+            formatting.setTopMargin(
+                38.0 if not matching_code(block.previous()) else 0.0
+            )
+            formatting.setBottomMargin(
+                12.0 if not matching_code(block.next()) else 0.0
+            )
+        else:
+            continue
+        cursor = QTextCursor(block)
+        cursor.setBlockFormat(formatting)
+        if formatting.hasProperty(QTextFormat.BlockCodeFence):
+            cursor.select(QTextCursor.BlockUnderCursor)
+            character = QTextCharFormat()
+            character.setFontFamilies(["Consolas", "monospace"])
+            character.setFontFixedPitch(True)
+            cursor.mergeCharFormat(character)
+
+
+def _annotate_code_languages(
+    value: str,
+    document: QTextDocument,
+) -> str:
+    languages = iter([
+        _safe_code_language(block.blockFormat().property(
+            QTextFormat.BlockCodeLanguage
+        ))
+        for block in _document_blocks(document)
+        if block.blockFormat().hasProperty(QTextFormat.BlockCodeFence)
+    ])
+
+    def annotate(match: re.Match) -> str:
+        language = next(languages, "")
+        return (
+            f'<pre data-language="{language}"'
+            if language else match.group(0)
+        )
+
+    return re.sub(r"<pre(?=[ >])", annotate, str(value or ""))
+
+
 def _apply_markdown_images(
     document: QTextDocument,
     image_specs: list[dict],
+    *,
+    image_placeholders: bool = False,
 ) -> None:
     for (cursor, image, _position), attributes in zip(
         RichTextDocumentController._image_cursors(document), image_specs
     ):
+        storage_source = str(attributes.get("source") or "").strip()
+        if storage_source:
+            image.setName(
+                _IMAGE_PLACEHOLDER if image_placeholders
+                else storage_source
+            )
+            image.setProperty(_IMAGE_STORAGE_SOURCE, storage_source)
+            image.setToolTip(str(attributes.get("title") or ""))
         width = RichTextDocumentController._format_property(
             image, _IMAGE_CONFIGURED_WIDTH
         )
@@ -1749,11 +2219,6 @@ def _apply_markdown_images(
             image.setProperty(_IMAGE_CONFIGURED_WIDTH, width)
         if height > 0.0 and not image.hasProperty(_IMAGE_CONFIGURED_HEIGHT):
             image.setProperty(_IMAGE_CONFIGURED_HEIGHT, height)
-        storage_source = str(
-            attributes.get("storage_source") or ""
-        ).strip()
-        if storage_source:
-            image.setProperty(_IMAGE_STORAGE_SOURCE, storage_source)
         cursor.setCharFormat(image)
 
 
@@ -1782,6 +2247,16 @@ def _remove_markdown_markers(document: QTextDocument) -> None:
             marker.setPosition(position)
             marker.setPosition(position + 1, QTextCursor.KeepAnchor)
             marker.removeSelectedText()
+
+    plain_text = document.toPlainText()
+    position = plain_text.rfind(_BLANK_LINE_MARKER)
+    while position >= 0:
+        marker = QTextCursor(document)
+        marker.setPosition(position)
+        marker.setPosition(position + 1, QTextCursor.KeepAnchor)
+        marker.removeSelectedText()
+        plain_text = plain_text[:position] + plain_text[position + 1:]
+        position = plain_text.rfind(_BLANK_LINE_MARKER, 0, position)
 
     markers = {value: key for key, value in _ALIGNMENT_MARKERS.items()}
     block = document.begin()
@@ -1816,62 +2291,31 @@ def markdown_document(value: str) -> QTextDocument:
 def _load_markdown_document(
     document: QTextDocument,
     value: str,
-    display_sources=None,
-    trace=None,
+    *,
+    image_placeholders: bool = False,
 ) -> None:
-    if trace is not None:
-        trace("markdown.parse.begin")
-    source, image_specs = _markdown_source(value, display_sources)
-    if trace is not None:
-        trace(
-            "markdown.parse.end",
-            f"source_chars={len(source)} images={len(image_specs)}",
-        )
-        trace("markdown.set_document.begin")
+    source, image_specs = _markdown_source(
+        value, image_placeholders=image_placeholders
+    )
     document.setMarkdown(source)
-    if trace is not None:
-        trace(
-            "markdown.set_document.end",
-            f"characters={document.characterCount()}",
-        )
-        trace("markdown.apply_images.begin")
-    _apply_markdown_images(document, image_specs)
-    if trace is not None:
-        trace("markdown.apply_images.end")
-        trace("markdown.remove_markers.begin")
+    _apply_markdown_images(
+        document,
+        image_specs,
+        image_placeholders=image_placeholders,
+    )
     _remove_markdown_markers(document)
-    if trace is not None:
-        trace("markdown.remove_markers.end")
-        trace("markdown.style_blocks.begin")
-    block = document.begin()
-    block_count = 0
-    while block.isValid():
-        block_count += 1
-        formatting = block.blockFormat()
-        if formatting.property(QTextFormat.BlockQuoteLevel):
-            formatting.setTopMargin(6.0)
-            formatting.setBottomMargin(6.0)
-            formatting.setBackground(QColor(128, 128, 128, 32))
-        elif formatting.property(QTextFormat.BlockCodeFence):
-            formatting.setLeftMargin(14.0)
-            formatting.setRightMargin(14.0)
-            formatting.setTopMargin(8.0)
-            formatting.setBottomMargin(8.0)
-            formatting.setBackground(QColor(128, 128, 128, 32))
-        else:
-            block = block.next()
-            continue
-        cursor = QTextCursor(block)
-        cursor.setBlockFormat(formatting)
-        block = block.next()
-    if trace is not None:
-        trace("markdown.style_blocks.end", f"blocks={block_count}")
+    _infer_code_languages(document)
+    _style_semantic_blocks(document)
 
 
 def rich_html_from_markdown(value: str) -> str:
     if not str(value or "").strip():
         return ""
-    return sanitize_rich_html(markdown_document(value).toHtml(), linkify=True)
+    document = markdown_document(value)
+    return sanitize_rich_html(
+        _annotate_code_languages(document.toHtml(), document),
+        linkify=True,
+    )
 
 
 def plain_text_from_markdown(value: str) -> str:

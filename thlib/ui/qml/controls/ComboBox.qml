@@ -10,13 +10,16 @@ QtControls.ComboBox {
 
     required property var theme
     property string colorRole: ""
+    property string currentColorFallback: ""
+    property bool instantHover: false
+    property bool hoverHighlighted: hovered
     property bool actionField: false
     property bool showIndicator: !actionField
     property bool translateDisplayText: true
     property string leadingIcon: ""
     property string iconRole: ""
     property color leadingIconColor: theme.secondaryText
-    property real maximumPopupWidth: 560
+    property real maximumPopupWidth: Number.POSITIVE_INFINITY
     property real popupHorizontalPadding: 34
     property bool activationPressed: false
     property bool _popupWasVisibleOnPress: false
@@ -27,13 +30,16 @@ QtControls.ComboBox {
     property double _lastTouchActivationAt: -1000
     readonly property real popupDecorationWidth:
         popupHorizontalPadding
+        + optionsScrollBar.reservedExtent + 4
         + (iconRole.length > 0 || colorRole.length > 0 ? 24 : 0)
         + 2 * optionsPopup.effectiveShadowMargin
     readonly property real widestOptionTextWidth: {
         const optionCount = control.count
         let widest = 0
         for (let index = 0; index < optionCount; ++index) {
-            const value = control.textAt(index)
+            const value = control.textRole
+                ? (control.optionValue(index, control.textRole) || control.textAt(index))
+                : control.textAt(index)
             const label = control.translateDisplayText
                 ? qsTr(value) : value
             widest = Math.max(
@@ -304,11 +310,13 @@ QtControls.ComboBox {
                 && control.leadingIcon.length === 0
                 && (!control.iconRole
                     || !control.optionValue(control.currentIndex, control.iconRole))
-                && !!control.optionValue(control.currentIndex, control.colorRole)
+                && (!!control.optionValue(control.currentIndex, control.colorRole)
+                    || control.currentColorFallback.length > 0)
             Layout.preferredWidth: 9
             Layout.preferredHeight: 9
             radius: 4.5
             color: control.optionValue(control.currentIndex, control.colorRole)
+                || control.currentColorFallback
         }
         Label {
             objectName: "comboBoxDisplayLabel"
@@ -334,6 +342,7 @@ QtControls.ComboBox {
     }
 
     background: Rectangle {
+        objectName: "comboBoxBackground"
         radius: control.actionField
             ? Math.min(height / 2, control.theme.itemRadius)
             : control.theme.fieldRadius
@@ -342,7 +351,7 @@ QtControls.ComboBox {
                 ? control.theme.surfaceContainerLow
                 : control.down || control.activationPressed
                     ? control.theme.surfaceContainer
-                    : control.hovered
+                    : control.hoverHighlighted
                         ? control.theme.surfaceContainerHigh
                         : control.theme.surfaceContainerLow
             : !control.enabled
@@ -354,6 +363,8 @@ QtControls.ComboBox {
             ? control.theme.action : control.theme.outlineVariant
 
         Behavior on color {
+            enabled: !control.instantHover
+                || control.down || control.activationPressed
             ColorAnimation {
                 duration: control.down || control.activationPressed
                     ? control.theme.clickMotionFast
@@ -471,7 +482,7 @@ QtControls.ComboBox {
             control.cancelOpeningTransaction()
         }
         settledClosePolicy: QtControls.Popup.CloseOnEscape
-            | QtControls.Popup.CloseOnPressOutside
+            | QtControls.Popup.CloseOnPressOutsideParent
         y: control.height + 4
         width: Math.min(
             control.preferredPopupWidth,

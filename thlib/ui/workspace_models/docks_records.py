@@ -43,6 +43,7 @@ class RecordsMixin:
             "advanced_search": "results",
             "drop_plate": "tasks",
             "db_table": "tasks",
+            "commit_queue": "results",
             "snapshot": "notes",
             "description": "notes",
             "task_calendar": "notes",
@@ -55,18 +56,19 @@ class RecordsMixin:
     @staticmethod
     def _defaults() -> list[DockPanel]:
         return [
-            DockPanel("results", "Results", "results", 0.0000, 0.00, 0.2244, 1.00, True, False, 1, "center"),
-            DockPanel("snapshot", "Snapshot Browser", "snapshot", 0.6600, 0.00, 0.3400, 1.00, True, True, 2, "right"),
-            DockPanel("tasks", "Tasks", "tasks", 0.2244, 0.00, 0.4356, 1.00, True, True, 3, "center"),
+            DockPanel("results", "Results", "results", 0.0000, 0.00, 1.0000, 1.00, True, False, 1, "center"),
+            DockPanel("snapshot", "Snapshot Browser", "snapshot", 0.6600, 0.00, 0.3400, 1.00, False, True, 2, "right"),
+            DockPanel("tasks", "Tasks", "tasks", 0.2244, 0.00, 0.4356, 1.00, False, True, 3, "center"),
             DockPanel("description", "Description", "description", 0.6600, 0.00, 0.3400, 1.00, False, True, 4, "right"),
-            DockPanel("notes", "Task Inspector", "notes", 0.6600, 0.00, 0.3400, 1.00, True, True, 5, "right"),
-            DockPanel("task_calendar", "Task Calendar", "task_calendar", 0.6600, 0.00, 0.3400, 1.00, True, True, 8, "right"),
+            DockPanel("notes", "Task Inspector", "notes", 0.6600, 0.00, 0.3400, 1.00, False, True, 5, "right"),
+            DockPanel("task_calendar", "Task Calendar", "task_calendar", 0.6600, 0.00, 0.3400, 1.00, False, True, 8, "right"),
             DockPanel("timesheet", "Timesheet", "timesheet", 0.6600, 0.00, 0.3400, 1.00, False, True, 14, "right"),
             DockPanel("work_reports", "Work Reports", "work_reports", 0.6600, 0.00, 0.3400, 1.00, False, True, 15, "right"),
             DockPanel("cost_reports", "Cost Reports", "cost_reports", 0.6600, 0.00, 0.3400, 1.00, False, True, 16, "right"),
             DockPanel("knowledge", "Knowledge Base", "knowledge", 0.6600, 0.00, 0.3400, 1.00, False, True, 17, "right"),
             DockPanel("drop_plate", "Drop Plate", "drop_plate", 0.2244, 0.00, 0.4356, 1.00, False, True, 6, "center"),
             DockPanel("advanced_search", "Advanced Search", "advanced_search", 0.0000, 0.00, 0.2244, 1.00, False, True, 7, "center"),
+            DockPanel("commit_queue", "Commit Queue", "commit_queue", 0, 0, .2244, 1, False, True, 18, "center"),
             DockPanel("db_table", "Database Editor", "db_table", 0.2244, 0.00, 0.4356, 1.00, False, True, 13, "center"),
         ]
 
@@ -192,6 +194,9 @@ class RecordsMixin:
         if layout is None:
             return False
 
+        if self._maximized_panel:
+            self._maximized_panel = ""
+            self._notify_layout_structure_changed()
         if panels == self._panels and layout == self._layout_root:
             return True
 
@@ -314,10 +319,16 @@ class RecordsMixin:
             or stack is None
             or stack.active_panel_id == panel.panel_id
         )
+        if self._maximized_panel and not panel.detached:
+            stack_active = panel.panel_id == self._maximized_panel
+            if stack_active:
+                stack_members = [{'panelId': panel.panel_id, 'title': self._stack_panel_title(panel),
+                                  'kind': panel.kind, 'closable': panel.closable, 'active': True}]
+        maximized = panel.panel_id == self._maximized_panel
         return {
             self.IdRole: panel.panel_id, self.TitleRole: panel.title, self.KindRole: panel.kind,
-            self.XRole: panel.x, self.YRole: panel.y, self.WidthRole: panel.width,
-            self.HeightRole: panel.height, self.VisibleRole: panel.visible,
+            self.XRole: 0 if maximized else panel.x, self.YRole: 0 if maximized else panel.y, self.WidthRole: 1 if maximized else panel.width,
+            self.HeightRole: 1 if maximized else panel.height, self.VisibleRole: panel.visible,
             self.ClosableRole: panel.closable, self.ZRole: panel.z,
             self.DockAreaRole: panel.dock_area,
             self.CanResizeLeftRole: self._can_resize_edge(panel, "left"),
@@ -362,6 +373,8 @@ class RecordsMixin:
         panel = self._panels[row]
         if not panel.visible:
             return False
+        if self._maximized_panel and not panel.detached:
+            return panel.panel_id == self._maximized_panel
         if panel.detached or panel.dock_area == "floating":
             return True
         stack = stack_for_panel(self._layout_root, panel.panel_id)
@@ -369,6 +382,8 @@ class RecordsMixin:
 
     def _can_resize_edge(self, panel: DockPanel, edge: str) -> bool:
         """Return whether a visible split node owns this panel edge."""
+        if self._maximized_panel:
+            return False
         if not panel.visible or panel.detached or panel.dock_area == "floating":
             return False
         available = {

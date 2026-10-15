@@ -2,8 +2,13 @@
 
 from __future__ import annotations
 
+import builtins
 import html
+import io
+import keyword
 import re
+import token as token_types
+import tokenize
 from html.parser import HTMLParser
 from urllib.parse import urlparse
 
@@ -194,6 +199,12 @@ class _RichTextSanitizer(HTMLParser):
                     value = str(max(0, min(24, int(float(value)))))
                 except (TypeError, ValueError):
                     continue
+            elif tag == "pre" and name == "data-language":
+                value = value.strip().casefold()
+                if not re.fullmatch(r"[a-z0-9_+.#-]{1,32}", value):
+                    continue
+            elif name == "data-language":
+                continue
             elif name not in {
                 "align", "alt", "height", "href", "src", "style", "title",
                 "width",
@@ -418,7 +429,9 @@ class _RichTextBlockParser(HTMLParser):
         self._parts = []
         if value and (
             plain_text_from_html(value)
-            or any(marker in value for marker in ("<hr", "<table", "<br"))
+            or any(marker in value for marker in (
+                "<hr", "<table", "<br", "<pre",
+            ))
         ):
             if re.match(r"^\s*<(?:ol|ul)(?:\s[^>]*)?>", value, re.I):
                 list_items = _rich_text_list_items(value)
@@ -453,22 +466,52 @@ class _RichTextBlockParser(HTMLParser):
                 outer_match.group(0) if outer_match else "",
                 flags=re.IGNORECASE,
             )
+            code_match = re.match(
+                r"^\s*<pre(?:\s[^>]*)?>.*</pre>\s*$",
+                value,
+                flags=re.DOTALL | re.IGNORECASE,
+            )
+            quote_match = re.match(
+                r"^\s*<blockquote(?:\s[^>]*)?>.*</blockquote>\s*$",
+                value,
+                flags=re.DOTALL | re.IGNORECASE,
+            ) or re.match(
+                r"^\s*<p(?:\s[^>]*)?style=\"[^\"]*"
+                r"margin-left\s*:\s*40px[^\"]*\"[^>]*>.*</p>\s*$",
+                value,
+                flags=re.DOTALL | re.IGNORECASE,
+            )
+            alignment = (
+                next((
+                    part.casefold()
+                    for part in alignment_match.groups()
+                    if part
+                ), "left")
+                if alignment_match else "left"
+            )
+            language_match = re.search(
+                r"\bdata-language=\"([a-z0-9_+.#-]{1,32})\"",
+                value,
+                flags=re.IGNORECASE,
+            )
             self.blocks.append({
-                "kind": "html",
+                "kind": (
+                    "code" if code_match
+                    else "pull-quote" if quote_match and alignment == "center"
+                    else "quote" if quote_match
+                    else "html"
+                ),
                 "html": value,
                 "plainText": plain_text,
-                "lightweight": lightweight,
+                "lightweight": lightweight and not quote_match,
+                "language": (
+                    language_match.group(1).casefold()
+                    if language_match else ""
+                ),
                 "headingLevel": (
                     int(heading_match.group(1)) if heading_match else 0
                 ),
-                "alignment": (
-                    next((
-                        part.casefold()
-                        for part in alignment_match.groups()
-                        if part
-                    ), "left")
-                    if alignment_match else "left"
-                ),
+                "alignment": alignment,
             })
 
     def _append_image(self, attributes) -> None:
@@ -533,7 +576,23 @@ class _RichTextBlockParser(HTMLParser):
 
     def finish(self) -> list[dict]:
         self._flush_text()
-        return [dict(block) for block in self.blocks]
+        result = []
+        for block in self.blocks:
+            if (
+                result
+                and block.get("kind") == "code"
+                and result[-1].get("kind") == "code"
+                and block.get("language") == result[-1].get("language")
+            ):
+                result[-1]["plainText"] += "\n" + block["plainText"]
+                continue
+            result.append(dict(block))
+        for block in result:
+            if block.get("kind") == "code":
+                block["syntaxSegments"] = python_syntax_segments(
+                    block["plainText"]
+                ) if block.get("language") in {"py", "python", "python3"} else []
+        return result
 
 
 def rich_text_blocks(
@@ -555,6 +614,90 @@ def rich_text_blocks(
     parser.feed(fitted)
     parser.close()
     return parser.finish()
+
+
+def python_syntax_segments(value: str) -> list[dict]:
+    """Return theme-independent Python token roles for QML code blocks."""
+    source = str(value or "")
+    if not source:
+        return []
+    lines = source.splitlines(keepends=True) or [source]
+    offsets = [0]
+    for line in lines:
+        offsets.append(offsets[-1] + len(line))
+
+    def absolute(position) -> int:
+        line, column = position
+        return min(len(source), offsets[min(max(0, line - 1), len(lines))] + column)
+
+    try:
+        tokens = list(tokenize.generate_tokens(io.StringIO(source).readline))
+    except (IndentationError, tokenize.TokenError):
+        return [{"text": source, "role": ""}]
+    significant = [
+        token for token in tokens
+        if token.type not in {
+            token_types.ENCODING,
+            token_types.ENDMARKER,
+            token_types.INDENT,
+            token_types.DEDENT,
+            token_types.NL,
+            token_types.NEWLINE,
+        }
+    ]
+    next_by_start = {
+        token.start: significant[index + 1]
+        for index, token in enumerate(significant[:-1])
+    }
+    imported = False
+    definition = False
+    ranges = []
+    for token in tokens:
+        if token.type in {token_types.NEWLINE, token_types.NL}:
+            imported = False
+            definition = False
+            continue
+        role = ""
+        if token.type == token_types.NAME:
+            if keyword.iskeyword(token.string):
+                role = "keyword"
+                imported = token.string in {"from", "import"} or imported
+                definition = token.string in {"class", "def"}
+            elif definition:
+                role = "definition"
+                definition = False
+            elif imported:
+                role = "module"
+            elif token.string in {"self", "cls"}:
+                role = "self"
+            elif token.string in dir(builtins):
+                role = "type"
+            elif (
+                next_by_start.get(token.start) is not None
+                and next_by_start[token.start].string == "("
+            ):
+                role = "function"
+        elif token.type == token_types.STRING:
+            role = "string"
+        elif token.type == token_types.COMMENT:
+            role = "comment"
+        elif token.type == token_types.NUMBER:
+            role = "number"
+        start = absolute(token.start)
+        end = absolute(token.end)
+        if end > start and role:
+            ranges.append((start, end, role))
+
+    result = []
+    offset = 0
+    for start, end, role in ranges:
+        if start > offset:
+            result.append({"text": source[offset:start], "role": ""})
+        result.append({"text": source[start:end], "role": role})
+        offset = end
+    if offset < len(source):
+        result.append({"text": source[offset:], "role": ""})
+    return result
 
 
 class _PlainTextExtractor(HTMLParser):
@@ -832,16 +975,17 @@ def _markdown_block(node: dict) -> str:
     tag = node["tag"]
     if tag == "img":
         return _markdown_inline(node)
+    if tag == "p" and node["children"] and all(
+        isinstance(child, dict) and child["tag"] == "br"
+        for child in node["children"]
+    ):
+        return "<br />"
     if tag in {"ol", "ul"}:
         return _markdown_list(node)
     if tag == "table":
         cells = _markdown_table_cells(node)
         if len(cells) == 1:
-            return "\n\n".join(filter(None, (
-                _markdown_block(child)
-                if isinstance(child, dict) else _markdown_escape(child.strip())
-                for child in cells[0]["children"]
-            )))
+            return _markdown_children(cells[0]["children"])
         return _markdown_table(node)
     content = "".join(
         _markdown_inline(
@@ -858,7 +1002,8 @@ def _markdown_block(node: dict) -> str:
     elif tag == "blockquote":
         content = "\n".join("> " + line for line in content.splitlines())
     elif tag == "pre":
-        content = "```\n" + content + "\n```"
+        language = node["attrs"].get("data-language", "")
+        content = "```" + language + "\n" + content + "\n```"
     elif tag == "hr":
         content = "---"
     elif tag == "p" and re.search(
@@ -873,19 +1018,58 @@ def _markdown_block(node: dict) -> str:
     return content
 
 
+def _markdown_children(raw_children) -> str:
+    children = [
+        child for child in raw_children
+        if not isinstance(child, str) or child.strip()
+    ]
+    blocks = []
+    index = 0
+    while index < len(children):
+        child = children[index]
+        if isinstance(child, str):
+            text = child.strip()
+            if text:
+                blocks.append(_markdown_escape(text))
+            index += 1
+            continue
+        if child["tag"] == "pre":
+            language = child["attrs"].get("data-language", "")
+            code_lines = []
+            while (
+                index < len(children)
+                and isinstance(children[index], dict)
+                and children[index]["tag"] == "pre"
+                and children[index]["attrs"].get(
+                    "data-language", ""
+                ) == language
+            ):
+                code_lines.append("".join(
+                    "" if isinstance(part, dict) and part["tag"] == "br"
+                    else _markdown_inline(part, preformatted=True)
+                    for part in children[index]["children"]
+                ))
+                index += 1
+            blocks.append(
+                "```" + language + "\n"
+                + "\n".join(code_lines).strip("\n")
+                + "\n```"
+            )
+            continue
+        rendered = _markdown_block(child)
+        if rendered:
+            blocks.append(rendered)
+        index += 1
+    while blocks and blocks[0] == "<br />":
+        blocks.pop(0)
+    while blocks and blocks[-1] == "<br />":
+        blocks.pop()
+    return "\n\n".join(blocks).strip()
+
+
 def markdown_from_rich_html(value: str) -> str:
     """Serialize the visual editor's safe HTML as editable Markdown."""
     parser = _MarkdownTreeParser()
     parser.feed(sanitize_rich_html(value, linkify=True))
     parser.close()
-    blocks = []
-    for child in parser.root["children"]:
-        if isinstance(child, str):
-            text = child.strip()
-            if text:
-                blocks.append(_markdown_escape(text))
-            continue
-        rendered = _markdown_block(child)
-        if rendered:
-            blocks.append(rendered)
-    return "\n\n".join(blocks).strip()
+    return _markdown_children(parser.root["children"])

@@ -67,7 +67,7 @@ Controls.Menu {
     readonly property real menuHeightLimit:
         usePopupWindow && availableScreenHeight > 0
             ? maximumAvailableHeight
-            : Math.min(
+            : parentMenu ? parentMenu.menuHeightLimit : Math.min(
                 parent && parent.height > 0
                     ? Math.max(0, parent.height - 8)
                     : maximumAvailableHeight,

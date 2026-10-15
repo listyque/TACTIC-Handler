@@ -1,50 +1,86 @@
 # Internal server-side sctipts
 
-import thlib.global_functions as gf
 import ast
 import io
 import inspect
+from pathlib import Path
 from pprint import pformat
+from functools import lru_cache
+
+
+@lru_cache(maxsize=4)
+def _parse_procedure_module(source, source_path):
+    # Cache syntax only; current arguments and script execution remain per call.
+    return source.splitlines(True), ast.parse(source, filename=source_path)
 
 
 def _function_source_lines(func):
-    """Read a top-level function by name from the current source file.
+    """Read a top-level function from source or its bundled Nuitka copy.
 
     ``inspect.getsourcelines`` relies on ``co_firstlineno``.  That offset is
     stale when a running application edits/reloads the source file, which
     previously made unrelated lines get sent to TACTIC as executable code.
     """
+    source_path = '<unknown>'
     try:
         source_path = inspect.getsourcefile(func) or inspect.getfile(func)
-        with io.open(source_path, 'r', encoding='utf-8') as source_file:
-            source = source_file.read()
-        source_lines = source.splitlines(True)
-        module = ast.parse(source, filename=source_path)
-        function_nodes = (ast.FunctionDef,)
-        if hasattr(ast, 'AsyncFunctionDef'):
-            function_nodes += (ast.AsyncFunctionDef,)
-        node = next(
-            item for item in module.body
-            if isinstance(item, function_nodes)
-            and item.name == func.__name__
-        )
-        start = int(node.lineno) - 1
-        end = getattr(node, 'end_lineno', None)
-        if end is None:
-            following = [
-                int(item.lineno) - 1 for item in module.body
-                if getattr(item, 'lineno', 0) > node.lineno
-            ]
-            end = min(following) if following else len(source_lines)
-            while end > start and not source_lines[end - 1].strip():
-                end -= 1
-        return source_lines[start:int(end)]
-    except Exception:
+        try:
+            with io.open(source_path, 'r', encoding='utf-8') as source_file:
+                source = source_file.read()
+        except FileNotFoundError:
+            source_path = str(Path(source_path).with_suffix('.source'))
+            with io.open(source_path, 'r', encoding='utf-8') as source_file:
+                source = source_file.read()
+        source_lines, module = _parse_procedure_module(source, source_path)
+    except FileNotFoundError as error:
+        try:
+            return inspect.getsourcelines(func)[0]
+        except (OSError, TypeError):
+            raise RuntimeError(
+                'Server procedure source is missing from this build: {0}'.format(
+                    source_path
+                )
+            ) from error
+    except (OSError, TypeError, SyntaxError, UnicodeError):
         return inspect.getsourcelines(func)[0]
+
+    function_nodes = (ast.FunctionDef,)
+    if hasattr(ast, 'AsyncFunctionDef'):
+        function_nodes += (ast.AsyncFunctionDef,)
+    node = next((
+        item for item in module.body
+        if isinstance(item, function_nodes)
+        and item.name == func.__name__
+    ), None)
+    if node is None:
+        raise RuntimeError(
+            'Server procedure {0} no longer exists in {1}; restart the '
+            'application to load the current code'.format(
+                func.__name__, source_path
+            )
+        )
+
+    start = int(node.lineno) - 1
+    end = getattr(node, 'end_lineno', None)
+    if end is None:
+        following = [
+            int(item.lineno) - 1 for item in module.body
+            if getattr(item, 'lineno', 0) > node.lineno
+        ]
+        end = min(following) if following else len(source_lines)
+        while end > start and not source_lines[end - 1].strip():
+            end -= 1
+    return source_lines[start:int(end)]
 
 
 def prepare_serverside_script(func, kwargs, return_dict=True, has_return=True, shrink=True, catch_traceback=True):
     func_lines = _function_source_lines(func)
+    if func is query_sobjects and kwargs.get('include_details'):
+        func_lines = _function_source_lines(get_tasks_and_notes) + func_lines
+    if func is query_sobjects and kwargs.get('include_details'):
+        func_lines = _function_source_lines(get_tasks_and_notes) + func_lines
+    if func is get_virtual_snapshots_extended:
+        func_lines = _function_source_lines(get_virtual_snapshot_extended) + func_lines
 
     args_list = []
     for key, arg in kwargs.items():
@@ -67,6 +103,7 @@ def prepare_serverside_script(func, kwargs, return_dict=True, has_return=True, s
         code = u''.join(func_lines) + ready_run_command
     if shrink:
         # minify is a bit slow
+        import thlib.global_functions as gf
         code = gf.minify_code(source=code)
     if return_dict:
         code_dict = {
@@ -75,6 +112,65 @@ def prepare_serverside_script(func, kwargs, return_dict=True, has_return=True, s
         return code_dict
     else:
         return code
+
+
+def set_team_repository_path(path, repo_name):
+    """Point one TACTIC repository alias at its shared local folder."""
+    import os
+    from pyasm.common import Config, Environment
+
+    security = Environment.get_security()
+    groups = [
+        str(group).lower() for group in (security.get_group_names() or [])
+    ]
+    if not security.is_admin() and not any(
+        group == 'admin' or 'supervisor' in group for group in groups
+    ):
+        raise PermissionError(
+            'Only a TACTIC administrator or supervisor can change its '
+            'repository path'
+        )
+    keys = {
+        'client': 'client_repo_dir',
+        'local': 'local_repo_dir',
+        'sandbox': 'sandbox_dir',
+    }
+    repo_name = str(repo_name or '').strip()
+    if not repo_name or not all(
+        char.isalnum() or char in '_-' for char in repo_name
+    ):
+        raise ValueError('Invalid TACTIC repository alias')
+    path = str(path or '').strip()
+    if not os.path.isabs(path) or not os.path.isdir(path):
+        raise ValueError(
+            'The repository path is not accessible to the TACTIC server'
+        )
+
+    alias = 'default' if repo_name == 'base' else repo_name
+    repositories = Config.get_dict_value('checkin', 'asset_base_dir')
+    changed = False
+    normalized_path = os.path.normcase(os.path.normpath(path))
+    current_asset_path = os.path.normcase(os.path.normpath(
+        repositories.get(alias) or ''
+    ))
+    if current_asset_path != normalized_path:
+        repositories[alias] = path
+        Config.set_value('checkin', 'asset_base_dir', repositories)
+        changed = True
+    if repo_name in keys:
+        key = ('win32_' if os.name == 'nt' else 'linux_') + keys[repo_name]
+        current = Config.get_value('checkin', key)
+        current_platform_path = os.path.normcase(os.path.normpath(
+            current or ''
+        ))
+        if current_platform_path != normalized_path:
+            Config.set_value('checkin', key, path)
+            changed = True
+    if not changed:
+        return 'unchanged'
+    Config.save_config()
+    Config.reload_config()
+    return 'updated'
 
 
 def traceback_handle(func):
@@ -1345,10 +1441,86 @@ def delete_sobjects(search_keys, include_dependencies=False, list_dependencies=N
     return json.dumps(deleted_sobjects)
 
 
+def get_project_creation_catalog():
+    """Catalog used by TACTIC's ProjectCreateWdg and template manager."""
+    try:
+        from tactic_stream.server.project_creation import get_project_creation_catalog as native_catalog
+    except ImportError:
+        pass
+    else:
+        return native_catalog()
+    import os
+    import re
+    from pyasm.biz import Project, PluginUtil
+    from pyasm.common import Common, Environment
+    from pyasm.search import Search
+
+    search = Search('sthpw/project')
+    search.add_filter('is_template', True)
+    projects = search.get_sobjects()
+    templates = [{
+        'value': item.get_value('code'),
+        'label': item.get_value('title') or item.get_value('code'),
+        'kind': 'project',
+    } for item in projects]
+    codes = [item['value'] for item in templates]
+    template_dir = Environment.get_template_dir()
+    paths = os.listdir(template_dir) if os.path.isdir(template_dir) else []
+    installed = []
+    for filename in sorted(paths):
+        path = os.path.join(template_dir, filename)
+        if os.path.isdir(path):
+            installed.append({'code': filename, 'path': path})
+        if not filename.endswith('.zip'):
+            continue
+        code = filename[:-4].split('-')[0]
+        if code in codes or re.sub('_template$', '', code) in codes:
+            continue
+        templates.append({
+            'value': code + '|' + path,
+            'label': Common.get_display_title(code), 'kind': 'file',
+        })
+    # These are the two built-in choices in native ProjectCreateWdg.
+    builtin_dir = os.path.join(Environment.get_install_dir(), 'src/plugins/TACTIC')
+    for code in ('vfx', 'scrum'):
+        path = os.path.join(builtin_dir, code)
+        if os.path.isdir(path):
+            templates.append({
+                'value': code + '|' + path,
+                'label': Common.get_display_title(code), 'kind': 'builtin',
+            })
+    data = dict(PluginUtil().get_plugins_data('theme'))
+    data.update(PluginUtil(
+        base_dir=Environment.get_builtin_plugin_dir()
+    ).get_plugins_data('theme'))
+    themes = [{
+        'value': code, 'label': code,
+        'description': str(data[code].get('description') or ''),
+        'preview': '/tactic/%s/%s/media/screenshot.jpg' % (
+            'builtin_plugins' if Environment.is_builtin_plugin(code) else 'plugins',
+            code,
+        ),
+    } for code in sorted(data)]
+    default_code = Project.get_default_project()
+    default_project = Project.get_by_code(default_code) if default_code else None
+    all_projects = Project.get_all_projects()
+    all_codes = Search('sthpw/project')
+    all_codes.set_show_retired(True)
+    return {
+        'templates': templates, 'installedTemplates': installed, 'themes': themes,
+        'projectCodes': [item.get_value('code') for item in all_codes.get_sobjects()],
+        'defaultProject': {
+            'code': default_code or '',
+            'title': default_project.get_value('title') if default_project else '',
+        },
+        'isMainProject': not default_project and not all_projects,
+    }
+
+
 def get_projects_and_logins(current_login='admin'):
     import json
     from pyasm.search import Search, SearchKey
-    from pyasm.biz import Snapshot, Project
+    from pyasm.biz import Snapshot
     from pyasm.common import Environment
 
     def get_sobjects_dict(sobjects):
@@ -1370,19 +1542,26 @@ def get_projects_and_logins(current_login='admin'):
 
         return sobj
 
-    # Getting all Projects from db
+    # The native user-project helper uses Search's default retired filter.
+    # Keep TACTIC's project permission check, but include retired/template rows
+    # so the client-side project toggles can actually reveal them.
     search = Search('sthpw/project')
-    search.add_filters('code', ['admin', 'sthpw'], op='in')
-    builtin_projects = search.get_sobjects()
-    builtin_project_codes = set(
-        project.get_value('code') for project in builtin_projects
+    search.set_show_retired(True)
+    security = Environment.get_security()
+    all_projects = search.get_sobjects()
+    builtin_project_codes = {'admin', 'sthpw'}
+    all_allowed = security.check_access(
+        'project', {'code': '*'}, 'allow', default='deny'
     )
-
-
-    # getting only user projects
-    user_projects = Project.get_user_projects()
-
-    projects = builtin_projects + user_projects
+    projects = [
+        project for project in all_projects
+        if project.get_value('code') in builtin_project_codes
+        or all_allowed
+        or security.check_access(
+            'project', {'code': project.get_value('code')},
+            'allow', default='deny'
+        )
+    ]
 
     # Getting snapshots for projects previews
     snapshot_search = Search('sthpw/snapshot')
@@ -1432,7 +1611,6 @@ def get_projects_and_logins(current_login='admin'):
     snapshots_files_sobjects = Snapshot.get_files_dict_by_snapshots(snapshots_sobjects)
 
     logins = get_sobjects_dict(logins_sobjects)
-    security = Environment.get_security()
     session_login = security.get_user_name()
     session_is_admin = bool(security.is_admin())
 
@@ -1481,7 +1659,7 @@ def get_projects_and_logins(current_login='admin'):
 
 
 def get_tasks_and_notes(search_code, project_code, process=None,
-                        include_all_tasks=False):
+                        include_all_tasks=False, search_id=None, search_type=None):
     import json
     from pyasm.search import Search, SearchKey
     from pyasm.biz import Snapshot
@@ -1507,13 +1685,19 @@ def get_tasks_and_notes(search_code, project_code, process=None,
 
         return sobj
 
+    parent_column = 'search_code' if search_code else 'search_id'
+    parent_value = search_code if search_code else search_id
+    if parent_value is None:
+        raise ValueError('A parent code or id is required')
     search = Search('sthpw/task')
-    search.add_filter('search_code', search_code)
+    search.add_filter(parent_column, parent_value)
+    if search_type:
+        search.add_filter('search_type', search_type)
     search.add_filter('project_code', project_code)
     if process and not include_all_tasks:
         search.add_filter('process', process)
 
-    elif not process:
+    elif not process and not include_all_tasks:
         search.add_order_by('timestamp', direction='desc')
 
         single_task = search.get_sobject()
@@ -1523,7 +1707,9 @@ def get_tasks_and_notes(search_code, project_code, process=None,
         # if single task we found have process, and it exists we continue with this process
         if process:
             search = Search('sthpw/task')
-            search.add_filter('search_code', search_code)
+            search.add_filter(parent_column, parent_value)
+            if search_type:
+                search.add_filter('search_type', search_type)
             search.add_filter('project_code', project_code)
             search.add_filter('process', process)
 
@@ -1565,7 +1751,9 @@ def get_tasks_and_notes(search_code, project_code, process=None,
     # full note payloads for the active process, while Task Inspector needs a
     # count for every task process before a manual refresh.
     search = Search('sthpw/note')
-    search.add_filter('search_code', search_code)
+    search.add_filter(parent_column, parent_value)
+    if search_type:
+        search.add_filter('search_type', search_type)
     search.add_filter('project_code', project_code)
     if not include_all_tasks:
         search.add_filter('process', process)
@@ -1895,6 +2083,7 @@ def query_task_workspace_page(filters, order_bys, project_code,
         facets = {}
         for name, column in columns.items():
             facet_search = Search('sthpw/task')
+            facet_search.order_by = False  # TACTIC adds sort columns to GROUP BY.
             facet_search.add_op_filters(filters or [])
             facet_search.add_column(column)
             # TACTIC 4.9 quotes expressions as identifiers unless this Select
@@ -2926,6 +3115,37 @@ def query_work_hour_report(report_key, project_code, start_day=None,
     }, separators=(',', ':'))
 
 
+def query_application_update_snapshots(search_key):
+    """Return ZIP snapshots of one explicitly configured TACTIC sObject."""
+    from pyasm.biz import Snapshot
+    from pyasm.search import Search, SearchKey
+
+    source = Search.get_by_search_key(search_key)
+    if source is None:
+        raise ValueError('Update source sObject was not found')
+    search = Search('sthpw/snapshot')
+    search.add_filter('search_type', source.get_search_type())
+    search.add_filter('search_code', source.get_code())
+    search.add_filter('project_code', source.get_project_code())
+    search.add_order_by('timestamp', direction='desc')
+    search.set_limit(100)
+    snapshots = search.get_sobjects()
+    files = Snapshot.get_files_dict_by_snapshots(snapshots)
+    result = []
+    for snapshot in snapshots:
+        zip_files = [file_object.get_data() for file_object in
+                     files.get(snapshot.get_code(), [])
+                     if str(file_object.get_value('file_name') or '').lower().endswith('.zip')]
+        if not zip_files:
+            continue
+        data = snapshot.get_data()
+        data['__search_key__'] = SearchKey.get_by_sobject(snapshot, use_id=False)
+        data['__files__'] = zip_files
+        data['snapshot'] = {}
+        result.append(data)
+    return result
+
+
 def query_chat_conversations():
     import json
     import re
@@ -2942,6 +3162,15 @@ def query_chat_conversations():
 
     def available_columns(search_type):
         try:
+            sql_factory = getattr(
+                SearchType, 'get_sql_by_search_type', None
+            )
+            if callable(sql_factory):
+                sql = sql_factory(search_type)
+                table_exists = getattr(sql, 'table_exists', None)
+                table = str(search_type).rsplit('/', 1)[-1]
+                if callable(table_exists) and not table_exists(table):
+                    return set()
             return set(SearchType.get_columns(search_type) or [])
         except AttributeError as error:
             if 'undefined' not in str(error).lower():
@@ -2965,7 +3194,7 @@ def query_chat_conversations():
             'canCreateGroup': False,
             'canDeleteMessages': False,
         }, separators=(',', ':'))
-    if str(current_login or '').lower() == 'admin':
+    if administrator or str(current_login or '').lower() == 'admin':
         privileged = True
     else:
         group_search = Search('sthpw/login_in_group')
@@ -3078,22 +3307,22 @@ def query_chat_conversations():
             ).append(message_log)
 
     attachments_by_code = {}
-    missing_log_codes = [
-        item.get_code()
+    missing_log_ids = [
+        item.get_id()
         for values in missing_logs_by_code.values()
-        for item in values if item.get_code()
+        for item in values if item.get_id()
     ]
-    if missing_log_codes:
+    if missing_log_ids:
         connection_search = Search('sthpw/connection')
         connection_search.add_filter('context', 'chat_attachment')
         connection_search.add_filter('dst_search_type', 'sthpw/message_log')
-        connection_search.add_filters('dst_search_code', missing_log_codes)
+        connection_search.add_filters('dst_search_id', missing_log_ids)
         log_to_chat = dict(
-            (item.get_code(), item.get_value('message_code'))
+            (item.get_id(), item.get_value('message_code'))
             for values in missing_logs_by_code.values() for item in values
         )
         for connection in connection_search.get_sobjects():
-            chat_code = log_to_chat.get(connection.get_value('dst_search_code'))
+            chat_code = log_to_chat.get(connection.get_value('dst_search_id'))
             if chat_code:
                 attachments_by_code[chat_code] = (
                     attachments_by_code.get(chat_code, 0) + 1
@@ -3607,8 +3836,86 @@ def clear_personal_chat(message_code):
     return json.dumps({'cleared': cleared}, separators=(',', ':'))
 
 
-def delete_chat_message(message_log_code):
+def change_note(note_search_key, action, body=''):
+    import datetime
     import json
+    from pyasm.common import Environment
+    from pyasm.search import Search, SearchKey
+
+    if action not in ('edit', 'delete'):
+        raise ValueError('Unsupported note action')
+    note = Search.get_by_search_key(str(note_search_key or ''))
+    if not note or note.get_base_search_type() != 'sthpw/note':
+        raise RuntimeError('Note does not exist')
+    current_login = str(server.get_login() or '')
+    author = str(note.get_value('login') or '')
+    if not current_login or not author:
+        raise RuntimeError('Note author is unavailable')
+    if current_login == author:
+        created = note.get_value('timestamp')
+        if not isinstance(created, datetime.datetime):
+            try:
+                created = datetime.datetime.fromisoformat(
+                    str(created).replace('Z', '+00:00')
+                )
+            except (TypeError, ValueError):
+                created = None
+        if created is not None and created.tzinfo is None:
+            created = created.replace(tzinfo=datetime.timezone.utc)
+        age = (datetime.datetime.now(datetime.timezone.utc) - created).total_seconds() if created else -1
+        if not 0 <= age < 3600:
+            raise RuntimeError('Own notes can only be changed within one hour')
+    else:
+        privileged = Environment.get_security().is_admin() or current_login.lower() == 'admin'
+        if not privileged:
+            group_search = Search('sthpw/login_in_group')
+            group_search.add_filter('login', current_login)
+            privileged = any(
+                str(item.get_value('login_group') or '').lower() == 'admin'
+                or 'supervisor' in str(item.get_value('login_group') or '').lower()
+                for item in group_search.get_sobjects()
+            )
+        if not privileged:
+            raise RuntimeError('Only administrators and supervisors can change other notes')
+
+    if action == 'delete':
+        note.delete()
+        return json.dumps({'deleted': True}, separators=(',', ':'))
+
+    value = str(body or '')
+    if not value.strip():
+        raise ValueError('A note cannot be empty')
+    previous = str(note.get_value('note') or '')
+    if value == previous:
+        return json.dumps({'edited': False}, separators=(',', ':'))
+    raw_metadata = note.get_value('metadata') or {}
+    if isinstance(raw_metadata, dict):
+        metadata = dict(raw_metadata)
+    else:
+        try:
+            metadata = json.loads(raw_metadata)
+        except (TypeError, ValueError):
+            metadata = {}
+    history = list(metadata.get('editHistory') or [])
+    history.append({
+        'body': previous,
+        'editedBy': current_login,
+        'editedAt': datetime.datetime.now(datetime.timezone.utc).strftime(
+            '%Y-%m-%d %H:%M:%S'
+        ),
+    })
+    metadata['editHistory'] = history
+    server.update(
+        SearchKey.get_by_sobject(note, use_id=False),
+        {'note': value, 'metadata': metadata}, triggers=True,
+    )
+    return json.dumps({'edited': True}, separators=(',', ':'))
+
+
+def delete_chat_message(message_log_code):
+    import datetime
+    import json
+    from pyasm.common import Environment
     from pyasm.search import Search, SearchKey
 
     current_login = server.get_login()
@@ -3635,8 +3942,7 @@ def delete_chat_message(message_log_code):
     )
     if current_login not in member_logins:
         raise RuntimeError('The current login is not a chat participant')
-    personal_notes = member_logins == set([current_login])
-    if str(current_login or '').lower() == 'admin':
+    if Environment.get_security().is_admin() or str(current_login or '').lower() == 'admin':
         privileged = True
     else:
         group_search = Search('sthpw/login_in_group')
@@ -3649,10 +3955,23 @@ def delete_chat_message(message_log_code):
             group == 'admin' or 'supervisor' in group
             for group in group_codes
         )
-    if not privileged and not personal_notes:
-        raise RuntimeError(
-            'Only administrators and supervisors can delete messages'
-        )
+    author = str(message_log.get_value('login') or '')
+    if author == current_login:
+        created = message_log.get_value('timestamp')
+        if not isinstance(created, datetime.datetime):
+            try:
+                created = datetime.datetime.fromisoformat(
+                    str(created).replace('Z', '+00:00')
+                )
+            except (TypeError, ValueError):
+                created = None
+        if created is not None and created.tzinfo is None:
+            created = created.replace(tzinfo=datetime.timezone.utc)
+        age = (datetime.datetime.now(datetime.timezone.utc) - created).total_seconds() if created else -1
+        if not 0 <= age < 3600:
+            raise RuntimeError('Own messages can only be deleted within one hour')
+    elif not privileged:
+        raise RuntimeError('Only administrators and supervisors can delete other messages')
     server.update(
         SearchKey.get_by_sobject(message_log, use_id=False),
         {'status': 'deleted'},
@@ -3661,7 +3980,7 @@ def delete_chat_message(message_log_code):
     attachment_search = Search('sthpw/connection')
     attachment_search.add_filter('context', 'chat_attachment')
     attachment_search.add_filter('dst_search_type', 'sthpw/message_log')
-    attachment_search.add_filter('dst_search_code', message_log.get_code())
+    attachment_search.add_filter('dst_search_id', message_log.get_id())
     deleted_attachment_count = len(attachment_search.get_sobjects())
     conversation_search = Search('sthpw/message')
     conversation_search.add_filter('code', message_code)
@@ -3733,12 +4052,16 @@ def delete_chat_message(message_log_code):
 def edit_chat_message(message_log_code, message):
     import datetime
     import json
+    from pyasm.common import Environment
     from pyasm.search import Search, SearchKey
 
     current_login = server.get_login()
     message_log_ref = str(message_log_code or '')
+    message_log = None
     if message_log_ref.startswith('sthpw/message_log'):
-        message_log = Search.get_by_search_key(message_log_ref)
+        search_type = server.split_search_key(message_log_ref)[0]
+        if search_type == 'sthpw/message_log':
+            message_log = Search.get_by_search_key(message_log_ref)
     else:
         log_search = Search('sthpw/message_log')
         log_search.add_filter('code', message_log_ref)
@@ -3755,7 +4078,7 @@ def edit_chat_message(message_log_code, message):
     if not member_search.get_sobject():
         raise RuntimeError('The current login is not a chat participant')
     author = message_log.get_value('login')
-    privileged = str(current_login or '').lower() == 'admin'
+    privileged = Environment.get_security().is_admin() or str(current_login or '').lower() == 'admin'
     if not privileged:
         group_search = Search('sthpw/login_in_group')
         group_search.add_filter('login', current_login)
@@ -3764,8 +4087,22 @@ def edit_chat_message(message_log_code, message):
             or 'supervisor' in str(item.get_value('login_group') or '').lower()
             for item in group_search.get_sobjects()
         )
-    if current_login != author and not privileged:
-        raise RuntimeError('A message can only be edited by its author or a supervisor')
+    if current_login == author:
+        created = message_log.get_value('timestamp')
+        if not isinstance(created, datetime.datetime):
+            try:
+                created = datetime.datetime.fromisoformat(
+                    str(created).replace('Z', '+00:00')
+                )
+            except (TypeError, ValueError):
+                created = None
+        if created is not None and created.tzinfo is None:
+            created = created.replace(tzinfo=datetime.timezone.utc)
+        age = (datetime.datetime.now(datetime.timezone.utc) - created).total_seconds() if created else -1
+        if not 0 <= age < 3600:
+            raise RuntimeError('Own messages can only be edited within one hour')
+    elif not privileged:
+        raise RuntimeError('Only administrators and supervisors can edit other messages')
     value = str(message or '').strip()
     if not value:
         raise ValueError('Message text cannot be empty')
@@ -3782,7 +4119,7 @@ def edit_chat_message(message_log_code, message):
         except (TypeError, ValueError):
             metadata_values = {}
     history = list(metadata_values.get('editHistory') or [])
-    edited_at = datetime.datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')
+    edited_at = datetime.datetime.now(datetime.timezone.utc).strftime('%Y-%m-%d %H:%M:%S')
     history.append({
         'body': str(message_log.get_value('message') or ''),
         'editedBy': current_login,
@@ -4024,9 +4361,18 @@ def query_chat_history(message_code, limit=31, offset=0, search_text=''):
     if offset:
         history_search.set_offset(int(offset))
     history = history_search.get_sobjects()
-    history = [item for item in history if item.get_code()]
-    history_codes = [item.get_code() for item in history if item.get_code()]
-
+    for message_log in history:
+        if message_log.get_code():
+            continue
+        record_id = message_log.get_id()
+        if not record_id:
+            raise RuntimeError('TACTIC message log has no code or id')
+        code = 'MESSAGE_LOG{0:05d}'.format(int(record_id))
+        server.update(
+            SearchKey.get_by_sobject(message_log, use_id=True),
+            {'code': code, 'project_code': 'sthpw'}, triggers=False,
+        )
+        message_log.set_value('code', code)
     metadata_by_log = {}
     delivery_updates = {}
     delivered_at = datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')
@@ -4083,30 +4429,34 @@ def query_chat_history(message_code, limit=31, offset=0, search_text=''):
             reply_targets[str(target.get_code())] = target
 
     attachments_by_log = {}
-    attachment_codes = list(history_codes) + [
-        target.get_code() for target in reply_targets.values() if target.get_code()
-    ]
-    if attachment_codes:
+    attachment_logs = history + list(reply_targets.values())
+    log_codes_by_id = {
+        item.get_id(): item.get_code() for item in attachment_logs
+        if item.get_id() and item.get_code()
+    }
+    if log_codes_by_id:
         connection_search = Search('sthpw/connection')
         connection_search.add_filter('context', 'chat_attachment')
         connection_search.add_filter('dst_search_type', 'sthpw/message_log')
         connection_search.add_filters(
-            'dst_search_code', list(set(attachment_codes))
+            'dst_search_id', list(log_codes_by_id)
         )
         connections = connection_search.get_sobjects()
-        snapshot_codes = []
+        snapshot_ids = []
         snapshot_to_logs = {}
         for connection in connections:
             if connection.get_value('src_search_type') != 'sthpw/snapshot':
                 continue
-            snapshot_code = connection.get_value('src_search_code')
-            log_code = connection.get_value('dst_search_code')
-            if snapshot_code:
-                snapshot_codes.append(snapshot_code)
-                snapshot_to_logs.setdefault(snapshot_code, []).append(log_code)
-        if snapshot_codes:
+            snapshot_id = connection.get_value('src_search_id')
+            log_code = log_codes_by_id.get(
+                connection.get_value('dst_search_id')
+            )
+            if snapshot_id and log_code:
+                snapshot_ids.append(snapshot_id)
+                snapshot_to_logs.setdefault(snapshot_id, []).append(log_code)
+        if snapshot_ids:
             snapshot_search = Search('sthpw/snapshot')
-            snapshot_search.add_filters('code', list(set(snapshot_codes)))
+            snapshot_search.add_filters('id', list(set(snapshot_ids)))
             snapshots = snapshot_search.get_sobjects()
             files = Snapshot.get_files_dict_by_snapshots(snapshots)
             for snapshot in snapshots:
@@ -4118,7 +4468,8 @@ def query_chat_history(message_code, limit=31, offset=0, search_text=''):
                     file_object.get_data()
                     for file_object in (files.get(snapshot.get_code()) or [])
                 ]
-                for log_code in snapshot_to_logs.get(snapshot.get_code(), []):
+                snapshot_data['snapshot'] = {}
+                for log_code in snapshot_to_logs.get(snapshot.get_id(), []):
                     attachments_by_log.setdefault(log_code, []).append(
                         snapshot_data
                     )
@@ -4366,12 +4717,12 @@ def send_chat_message(message_code, message, attachment_keys=None, reply_to=None
     for attachment_key in attachment_keys or []:
         search_type, code = server.split_search_key(attachment_key)
         if search_type != 'sthpw/snapshot':
-            continue
+            raise ValueError('Chat attachment must be a TACTIC snapshot')
         snapshot_search = Search('sthpw/snapshot')
         snapshot_search.add_filter('code', code)
         snapshot = snapshot_search.get_sobject()
         if not snapshot:
-            continue
+            raise ValueError('Chat attachment snapshot was not found')
         if (
             snapshot.get_value('search_type') != 'sthpw/message'
             or snapshot.get_value('search_code') != message_code
@@ -4381,16 +4732,29 @@ def send_chat_message(message_code, message, attachment_keys=None, reply_to=None
 
     if not str(message or '').strip() and not valid_attachments:
         raise ValueError('Message or attachment is required')
+    log_search = Search('sthpw/message_log')
+    sqlite = log_search.get_database_impl().get_database_type() == 'Sqlite'
     server.log_message(
         message_code, message or '', status='sent',
-        category='chat', log_history=True,
+        category='chat', log_history=not sqlite,
     )
-    log_search = Search('sthpw/message_log')
-    log_search.add_filter('message_code', message_code)
-    log_search.add_filter('login', current_login)
-    log_search.add_order_by('timestamp', direction='desc')
-    log_search.set_limit(1)
-    message_log = log_search.get_sobject()
+    if sqlite:
+        # TACTIC 5.0 does not commit message_log in its SQLite branch.
+        from pyasm.search import SearchType
+        message_log = SearchType.create('sthpw/message_log')
+        message_log.set_value('message_code', message_code)
+        message_log.set_value('message', message or '')
+        message_log.set_value('status', 'sent')
+        message_log.set_value('login', current_login)
+        message_log.set_value('project_code', 'sthpw')
+        message_log.set_value('timestamp', 'NOW')
+        message_log.commit(triggers=False)
+    else:
+        log_search.add_filter('message_code', message_code)
+        log_search.add_filter('login', current_login)
+        log_search.add_order_by('id', direction='desc')
+        log_search.set_limit(1)
+        message_log = log_search.get_sobject()
     if not message_log:
         raise RuntimeError('TACTIC did not create a message log')
     sent_at = str(message_log.get_value('timestamp') or '')
@@ -4412,10 +4776,18 @@ def send_chat_message(message_code, message, attachment_keys=None, reply_to=None
         )
     update_message_log(message_log, metadata_values)
     message_log_key = SearchKey.get_by_sobject(message_log, use_id=False)
-    for attachment_key in valid_attachments:
-        server.connect_sobjects(
-            attachment_key, message_log_key, context='chat_attachment'
+    try:
+        for attachment_key in valid_attachments:
+            connection = server.connect_sobjects(
+                attachment_key, message_log_key, context='chat_attachment'
+            )
+            if not connection:
+                raise RuntimeError('Could not attach the file to the chat message')
+    except Exception:
+        server.update(
+            message_log_key, {'status': 'deleted'}, triggers=True,
         )
+        raise
     data = message_log.get_data()
     data['__search_key__'] = message_log_key
     data['__delivery__'] = metadata_values['delivery']
@@ -4558,24 +4930,36 @@ def forward_chat_messages(message_log_keys, target_message_codes):
     for message_code in targets:
         latest_created = None
         for source_ref in source_refs:
+            log_search = Search('sthpw/message_log')
+            sqlite = log_search.get_database_impl().get_database_type() == 'Sqlite'
             server.log_message(
                 message_code, '', status='sent',
-                category='chat', log_history=True,
+                category='chat', log_history=not sqlite,
             )
-            log_search = Search('sthpw/message_log')
-            log_search.add_filter('message_code', message_code)
-            log_search.add_filter('login', current_login)
-            log_search.add_order_by('timestamp', direction='desc')
-            log_search.set_limit(len(source_refs) + 1)
-            # Keep this as an explicit loop.  The legacy source minifier
-            # corrupts a multiline next(generator, default) expression into
-            # ``if ... not`` without its trailing colon.
-            message_log = None
-            for item in log_search.get_sobjects():
-                item_key = SearchKey.get_by_sobject(item, use_id=False)
-                if item_key not in created:
-                    message_log = item
-                    break
+            if sqlite:
+                # TACTIC 5.0 does not commit message_log in its SQLite branch.
+                from pyasm.search import SearchType
+                message_log = SearchType.create('sthpw/message_log')
+                message_log.set_value('message_code', message_code)
+                message_log.set_value('message', '')
+                message_log.set_value('status', 'sent')
+                message_log.set_value('login', current_login)
+                message_log.set_value('project_code', 'sthpw')
+                message_log.set_value('timestamp', 'NOW')
+                message_log.commit(triggers=False)
+            else:
+                log_search.add_filter('message_code', message_code)
+                log_search.add_filter('login', current_login)
+                log_search.add_order_by('timestamp', direction='desc')
+                log_search.set_limit(len(source_refs) + 1)
+                # Keep this explicit: the source minifier corrupts a
+                # multiline next(generator, default) expression.
+                message_log = None
+                for item in log_search.get_sobjects():
+                    item_key = SearchKey.get_by_sobject(item, use_id=False)
+                    if item_key not in created:
+                        message_log = item
+                        break
             if not message_log:
                 raise RuntimeError('TACTIC did not create a forwarded message log')
             sent_at = str(message_log.get_value('timestamp') or '')
@@ -4658,17 +5042,17 @@ def authorize_chat_attachment(message_code, snapshot_code):
     connection_search = Search('sthpw/connection')
     connection_search.add_filter('context', 'chat_attachment')
     connection_search.add_filter('src_search_type', 'sthpw/snapshot')
-    connection_search.add_filter('src_search_code', snapshot_code)
+    connection_search.add_filter('src_search_id', snapshot.get_id())
     connection_search.add_filter('dst_search_type', 'sthpw/message_log')
     connections = connection_search.get_sobjects()
-    log_codes = [
-        connection.get_value('dst_search_code')
-        for connection in connections if connection.get_value('dst_search_code')
+    log_ids = [
+        connection.get_value('dst_search_id')
+        for connection in connections if connection.get_value('dst_search_id')
     ]
     allowed = False
-    if log_codes:
+    if log_ids:
         log_search = Search('sthpw/message_log')
-        log_search.add_filters('code', log_codes)
+        log_search.add_filters('id', log_ids)
         log_search.add_filter('message_code', message_code)
         allowed = bool(log_search.get_sobject())
     return json.dumps({'allowed': allowed}, separators=(',', ':'))
@@ -4695,6 +5079,15 @@ def query_server_updates(message_after='', activity_after='', project_code='',
 
     def chat_search_type_available(search_type):
         try:
+            sql_factory = getattr(
+                SearchType, 'get_sql_by_search_type', None
+            )
+            if callable(sql_factory):
+                sql = sql_factory(search_type)
+                table_exists = getattr(sql, 'table_exists', None)
+                table = str(search_type).rsplit('/', 1)[-1]
+                if callable(table_exists) and not table_exists(table):
+                    return False
             columns = set(SearchType.get_columns(search_type) or [])
         except AttributeError as error:
             if 'undefined' not in str(error).lower():
@@ -4717,30 +5110,6 @@ def query_server_updates(message_after='', activity_after='', project_code='',
         include_reactions = False
         include_presence = False
         heartbeat_presence = False
-
-    def database_local_now():
-        """Read the wall clock used for TACTIC's naive DB timestamps."""
-        try:
-            from pyasm.search import SearchType
-
-            sql = SearchType.get_sql_by_search_type('sthpw/message')
-            rows = sql.do_query('SELECT CURRENT_TIMESTAMP')
-            row = rows[0]
-            if isinstance(row, dict):
-                value = next(iter(row.values()))
-            elif isinstance(row, (list, tuple)):
-                value = row[0]
-            else:
-                value = row
-            if isinstance(value, datetime):
-                return value.replace(tzinfo=None)
-            return datetime.fromisoformat(str(value).strip()).replace(
-                tzinfo=None
-            )
-        except (AttributeError, IndexError, ImportError, TypeError, ValueError):
-            # Old TACTIC SQL adapters do not all expose do_query().  The
-            # process-local sample remains a safe compatibility fallback.
-            return None
 
     def refresh_presence(ttl_seconds, publish_current):
         category = 'online_status'
@@ -5021,21 +5390,25 @@ def query_server_updates(message_after='', activity_after='', project_code='',
         if delivery_updates:
             server.update_multiple(data=delivery_updates, triggers=True)
         attachment_counts = {}
-        message_log_codes = [
-            item.get_code() for item in message_logs if item.get_code()
-        ]
-        if message_log_codes:
+        message_log_ids = {
+            item.get_id(): item.get_code() for item in message_logs
+            if item.get_id() and item.get_code()
+        }
+        if message_log_ids:
             connection_search = Search('sthpw/connection')
             connection_search.add_filter('context', 'chat_attachment')
             connection_search.add_filter(
                 'dst_search_type', 'sthpw/message_log'
             )
             connection_search.add_filters(
-                'dst_search_code', message_log_codes
+                'dst_search_id', list(message_log_ids)
             )
             for connection in connection_search.get_sobjects():
-                code = connection.get_value('dst_search_code')
-                attachment_counts[code] = attachment_counts.get(code, 0) + 1
+                code = message_log_ids.get(
+                    connection.get_value('dst_search_id')
+                )
+                if code:
+                    attachment_counts[code] = attachment_counts.get(code, 0) + 1
         for item in message_logs:
             data = item.get_data()
             data['__search_key__'] = SearchKey.get_by_sobject(
@@ -5265,8 +5638,6 @@ def query_server_updates(message_after='', activity_after='', project_code='',
         presence_ttl, bool(heartbeat_presence)
     ) if include_presence else []
     clock_ended_utc = datetime.now(timezone.utc)
-    clock_ended_local = clock_ended_utc.astimezone().replace(tzinfo=None)
-    clock_ended_database = database_local_now()
     return {
         'messages': messages,
         'reactions': reactions,
@@ -5284,13 +5655,6 @@ def query_server_updates(message_after='', activity_after='', project_code='',
             ),
             'utcEnded': clock_ended_utc.strftime(
                 '%Y-%m-%dT%H:%M:%S.%fZ'
-            ),
-            'localEnded': clock_ended_local.strftime(
-                '%Y-%m-%dT%H:%M:%S.%f'
-            ),
-            'databaseEnded': (
-                clock_ended_database.strftime('%Y-%m-%dT%H:%M:%S.%f')
-                if clock_ended_database else ''
             ),
         },
     }
@@ -5904,6 +6268,19 @@ def query_user_recent_activity(
                 )
             parent_refs.setdefault(root_type, set()).add(root_code)
 
+    page_cutoff = ''
+    page_candidate_count = offset + limit
+    page_timestamps = sorted(
+        (
+            str(record.get('timestamp') or '')
+            for record in records
+            if record.get('timestamp')
+        ),
+        reverse=True,
+    )
+    if len(page_timestamps) >= page_candidate_count:
+        page_cutoff = page_timestamps[page_candidate_count - 1]
+
     audit_kinds = {'create', 'change', 'delete', 'work_hour'}
     audit_enabled = not allowed_kinds or bool(allowed_kinds & audit_kinds)
     if counts_only and not audit_enabled:
@@ -5937,6 +6314,8 @@ def query_user_recent_activity(
                 search.add_filter(
                     'timestamp', counts_from_day + ' 00:00:00', op='>='
                 )
+            if filter_day and page_cutoff:
+                search.add_filter('timestamp', page_cutoff, op='>=')
 
         def mutation_kind(mutation):
             action = mutation.get('action') or 'update'
@@ -5969,7 +6348,7 @@ def query_user_recent_activity(
 
             try:
                 from pyasm.biz import Schema
-                schema = Schema.get()
+                schema = Schema.get(project_code=project_code)
             except (AttributeError, ImportError, TypeError):
                 schema = None
 
@@ -6553,6 +6932,8 @@ def query_user_recent_activity(
             change_search.add_filter(
                 'timestamp', next_day + ' 00:00:00', op='<'
             )
+        if page_cutoff:
+            change_search.add_filter('timestamp', page_cutoff, op='>=')
         change_search.add_order_by('timestamp', direction='desc')
         change_search.set_limit(max((offset + limit) * 3, 75))
         requested_actors = set(logins or ([login] if login else []))
@@ -6938,15 +7319,15 @@ def query_user_recent_activity(
 def query_user_profile_data(login, project_code='', activity_limit=25):
     """Return profile aggregates; the shared journal owns recent activity."""
     import json
-    from datetime import datetime, timedelta
-    from pyasm.search import Search
+    from datetime import datetime, timedelta, timezone
+    from pyasm.search import Search, SearchType
 
     login = str(login or '').strip()
     project_code = str(project_code or '').strip()
     # Retain the deployed procedure signature while activity is now queried
     # through query_user_recent_activity by both profile and feed clients.
     del activity_limit
-    if not login:
+    if not login or not project_code:
         return json.dumps({}, separators=(',', ':'))
 
     current_login = str(server.get_login() or '').strip()
@@ -6970,22 +7351,52 @@ def query_user_profile_data(login, project_code='', activity_limit=25):
 
     task_search = Search('sthpw/task')
     task_search.add_filter('assigned', login)
-    if project_code:
-        task_search.add_filter('project_code', project_code)
+    task_search.add_filter('project_code', project_code)
     task_search.add_order_by('bid_end_date')
     task_search.add_order_by('timestamp', direction='desc')
     task_objects = task_search.get_sobjects()
+    task_rows = [(task, task.get_data()) for task in task_objects]
+    status_keys = {
+        (str(data.get('pipeline_code') or 'task'), str(data['status']))
+        for _, data in task_rows if data.get('status')
+    }
+    project_processes = {}
+    if status_keys:
+        process_search = Search(SearchType.build_search_type('config/process', project_code))
+        process_search.add_filters('pipeline_code', sorted({code for code, _ in status_keys}))
+        process_search.add_filters('process', sorted({status for _, status in status_keys}))
+        project_processes = {
+            (row.get_value('pipeline_code'), row.get_value('process')): row
+            for row in process_search.get_sobjects()
+        }
     status_counts = {}
     process_counts = {}
-    today = datetime.utcnow().date()
+    today = datetime.now(timezone.utc).date()
     week_end = today + timedelta(days=6 - today.weekday())
     incomplete = 0
     overdue = 0
     due_this_week = 0
-    for task in task_objects:
-        data = task.get_data()
-        progress = int(data.get('completion') or 0)
-        if progress < 100:
+    completed_statuses = {}
+    for task, data in task_rows:
+        status = str(data.get('status') or '')
+        status_key = (data.get('project_code'), data.get('pipeline_code'), status)
+        if status_key not in completed_statuses:
+            pipeline = task.get_pipeline()
+            node = pipeline.get_process(status) if pipeline else None
+            mapping = node.get_attribute('mapping') if node else None
+            if node and not mapping:
+                process = project_processes.get((str(data.get('pipeline_code') or 'task'), status))
+                if process is None:
+                    process = pipeline.get_process_sobject(status)
+                workflow = process.get_json_value('workflow', {}) if process else {}
+                mapping = workflow.get('mapping') or (workflow.get('default') or {}).get('mapping')
+            # Match native workflow behavior, not completion percentages or
+            # translated/custom status names. An explicit mapping takes priority.
+            completed_statuses[status_key] = bool(node) and str(
+                mapping or status
+            ).strip().lower() in ('complete', 'approved')
+        completed = completed_statuses[status_key]
+        if not completed:
             incomplete += 1
         deadline_text = str(data.get('bid_end_date') or '')[:10]
         deadline = None
@@ -6993,23 +7404,23 @@ def query_user_profile_data(login, project_code='', activity_limit=25):
             deadline = datetime.strptime(deadline_text, '%Y-%m-%d').date()
         except (TypeError, ValueError):
             pass
-        if deadline and progress < 100:
+        if deadline and not completed:
             if deadline < today:
                 overdue += 1
             if today <= deadline <= week_end:
                 due_this_week += 1
-        status = str(data.get('status') or 'Unspecified')
+        status = str(data.get('status') or '')
         status_entry = status_counts.setdefault(status, {
-            'label': status, 'count': 0,
+            'label': status or 'Unspecified', 'count': 0,
             'pipeline_code': str(data.get('pipeline_code') or ''),
             'search_type': str(data.get('search_type') or ''),
             'process': str(data.get('process') or ''),
             'status': status,
         })
         status_entry['count'] += 1
-        process = str(data.get('process') or 'Unspecified')
+        process = str(data.get('process') or '')
         process_entry = process_counts.setdefault(process, {
-            'label': process, 'count': 0,
+            'label': process or 'Unspecified', 'count': 0,
             'pipeline_code': str(data.get('pipeline_code') or ''),
             'search_type': str(data.get('search_type') or ''),
             'process': process,
@@ -7023,8 +7434,7 @@ def query_user_profile_data(login, project_code='', activity_limit=25):
     if can_view_work_hours:
         hour_search = Search('sthpw/work_hour')
         hour_search.add_filter('login', login)
-        if project_code:
-            hour_search.add_filter('project_code', project_code)
+        hour_search.add_filter('project_code', project_code)
         hour_search.add_filter('day', week_start.isoformat(), op='>=')
         hour_search.add_filter('day', week_end.isoformat(), op='<=')
         for entry in hour_search.get_sobjects():
@@ -7325,37 +7735,24 @@ def query_search_types_extended(project_code):
 
         return sobj
 
-    if project_code == 'sthpw':
-        search = Search('sthpw/search_object')
-        search.add_filters('code', ['sthpw/task', 'sthpw/login', 'sthpw/snapshot', 'sthpw/file', 'sthpw/search_type',
-                                    'sthpw/search_object', 'sthpw/schema', 'sthpw/retire_log', 'sthpw/repo',
-                                    'sthpw/project_type', 'sthpw/project', 'sthpw/pref_setting', 'sthpw/pref_list',
-                                    'sthpw/pipeline', 'sthpw/notification_login', 'sthpw/notification_log',
-                                    'sthpw/notification', 'sthpw/note', 'sthpw/milestone', 'sthpw/message_log',
-                                    'sthpw/message', 'sthpw/login_in_group', 'sthpw/login_group', 'sthpw/login',
-                                    'sthpw/exception_log', 'sthpw/debug_log', 'sthpw/custom_script', 'sthpw/clipboard',
-                                    'sthpw/change_timestamp', 'config/custom_property', 'sthpw/ticket',
-                                    'sthpw/transaction_log', 'sthpw/wdg_settings', 'sthpw/subscription',
-                                    'sthpw/status_log', 'sthpw/sobject_log', 'sthpw/sobject_list', 'sthpw/connection',
-                                    'sthpw/work_hour',])
-        search.add_order_by('search_type')
-        stypes = search.get_sobjects()
+    prj = Project.get_by_code(project_code)
+    if project_code in ('sthpw', 'admin'):
+        stypes = prj.get_search_types(
+            include_sthpw=True,
+            include_config=True,
+            include_multi_project=True,
+        )
     else:
-        prj = Project.get_by_code(project_code)
         stypes = prj.get_search_types(include_multi_project=True)
-
-    # add_config_tables = False
-    #
-    # if add_config_tables:
-    #     search = Search('sthpw/search_object')
-    #     search.add_filters('code', ['config/naming'])
-    #     search.add_order_by('search_type')
-    #     stypes.extend(search.get_sobjects())
 
     all_stypes = []
     # longest time consuming part, don't know how to optimize yet
     for stype in stypes:
+        if project_code in ('sthpw', 'admin') and not prj.has_table(stype):
+            continue
         stype_dict = get_sobject_dict(stype)
+        if hasattr(stype, 'get_record_read_options'):
+            stype_dict['__record_read__'] = stype.get_record_read_options()
         stype_dict['column_info'] = stype.get_column_info(stype.get_code())
         all_stypes.append(stype_dict)
 
@@ -7690,6 +8087,37 @@ def query_table_layout(search_type, search_keys=None, view='table',
 
     def action_cell_values(class_name, column, sobject, widget):
         options = column.get('displayOptions') or {}
+        if class_name.endswith((
+                '.ArrayTableElementWdg', '.XmlWdg', '.JsonElementWdg',
+                '.SnapshotVersionElementWdg')):
+            native = getattr(widget, 'get_cell_value', None)
+            if native:
+                return native()
+            # Original servers have HTML presenters; transport the same values.
+            from pyasm.common import Common, Config, Xml, XmlException, jsondumps
+            name = column['name']
+            if class_name.endswith('.JsonElementWdg'):
+                data = sobject.get_json_value(name)
+                return {'text': json.dumps(data, indent=2, sort_keys=True) if data else '', 'language': 'json'}
+            if class_name.endswith('.XmlWdg'):
+                value = sobject.get_value(name)
+                if not isinstance(value, str):
+                    value = jsondumps(value)
+                elif value.startswith('zlib:'):
+                    value = Common.decompress_transaction(value)
+                diagnostic = ''
+                try:
+                    Xml(string=value)
+                except XmlException as error:
+                    diagnostic = str(error)
+                return {'text': value, 'language': 'xml', 'diagnostic': diagnostic}
+            if class_name.endswith('.SnapshotVersionElementWdg'):
+                version = sobject.get_value(name)
+                text = 'No version' if version in ('', None) else 'Latest' if version == -1 else 'Current' if version == 0 else '%s%0*d' % (name[0], int(Config.get_value('checkin', 'version_padding') or 3), version)
+                return {'text': text, 'label': text if version in ('', None, -1, 0) else ''}
+            if sobject.get_value(name) is None:
+                return {'text': '', 'error': ''}
+            return {'text': widget.get_text_value()}
         if class_name.endswith('.TaskElementWdg'):
             return {'tasks': task_cell_records(widget)}
         if class_name.endswith('.SObjectDetailElementWdg'):
@@ -7826,9 +8254,21 @@ def query_table_layout(search_type, search_keys=None, view='table',
     ]
     columns = [column for column in available_columns if column['selected']]
 
-    sobjects = Search.get_by_search_keys(
-        search_keys or [], keep_order=True
-    ) or []
+    from contextlib import nullcontext
+    scope = nullcontext()
+    record_read = SearchType.get(base_search_type).get_record_read_options() if hasattr(SearchType, 'get_record_read_options') else {}
+    if record_read.get('command'):
+        from pyasm.security.security import _require_admin
+        from pyasm.biz.file_project import access
+        from pyasm.biz import Project
+        _require_admin()
+        if project_code != Project.get_project_code() or len(search_keys or []) > 500:
+            raise ValueError('Select at most 500 records in the current project')
+        scope = access(project_code)
+    with scope:
+        sobjects = Search.get_by_search_keys(
+            search_keys or [], keep_order=True
+        ) or []
     widgets = {}
     widget_errors = {}
     for column in columns:
@@ -7910,61 +8350,7 @@ def query_table_layout(search_type, search_keys=None, view='table',
     }, separators=(',', ':'))
 
 
-def save_widget_config(search_type, view, config_xml=None,
-                       element_xml=None, project_code=None):
-    """Save a TACTIC view or one element using WidgetConfig semantics."""
-    import json
-
-    from pyasm.common import TacticException, Xml
-    from pyasm.search import Search, SearchType
-    from pyasm.widget import WidgetConfig
-
-    if project_code:
-        server.set_project(project_code)
-    search_type_object = SearchType.get(search_type)
-    base_search_type = search_type_object.get_base_key()
-
-    search = Search('config/widget_config')
-    search.add_filter('search_type', base_search_type)
-    search.add_filter('view', view)
-    config_sobject = search.get_sobject()
-    if config_sobject:
-        source_xml = config_sobject.get_value('config')
-    else:
-        config_sobject = SearchType.create('config/widget_config')
-        config_sobject.set_value('search_type', base_search_type)
-        config_sobject.set_value('view', view)
-        source_xml = '<config><%s/></config>' % view
-
-    if element_xml:
-        element = Xml()
-        element.read_string(element_xml)
-        element_name = element.get_value('element/@name')
-        if not element_name:
-            raise TacticException('Widget element requires a name')
-        config = WidgetConfig.get(view, xml=source_xml)
-        config.alter_xml_element(
-            element_name, config_xml=element.to_string()
-        )
-        output_xml = config.get_xml().to_string()
-    else:
-        config = WidgetConfig.get(view, xml=config_xml)
-        element_names = config.get_element_names()
-        if len(element_names) != len(set(element_names)):
-            raise TacticException('Widget view contains duplicate elements')
-        output_xml = config.get_xml().to_string()
-
-    config_sobject.set_value('config', output_xml)
-    config_sobject.commit()
-    return json.dumps({
-        'code': config_sobject.get_code() or '',
-        'searchType': base_search_type,
-        'view': view,
-        'config': output_xml,
-    }, separators=(',', ':'))
-
-
-def query_sobjects(search_type, filters=[], order_bys=[], project_code=None, limit=None, offset=None, get_all_snapshots=False, check_snapshots_updates=False, include_info=True, include_snapshots=True, compressed_return=True, include_status_log=False, include_progress=False, include_total_count=True, snapshot_timestamps=None):
+def query_sobjects(search_type, filters=[], order_bys=[], project_code=None, limit=None, offset=None, get_all_snapshots=False, check_snapshots_updates=False, include_info=True, include_snapshots=True, compressed_return=True, include_status_log=False, include_progress=False, include_total_count=True, snapshot_timestamps=None, include_details=False, details_search_key=None):
     """
 
     :param search_type:
@@ -7981,7 +8367,7 @@ def query_sobjects(search_type, filters=[], order_bys=[], project_code=None, lim
     import zlib
     import binascii
 
-    from pyasm.search import Search, SearchKey
+    from pyasm.search import Search, SearchKey, SearchType
     from pyasm.biz import Snapshot
     from pyasm.biz import Schema
 
@@ -7991,6 +8377,30 @@ def query_sobjects(search_type, filters=[], order_bys=[], project_code=None, lim
 
     if project_code:
         server.set_project(project_code)
+
+    # Read policy is authoritative on the server, regardless of client caches.
+    read_options = (
+        SearchType.get(search_type.split('?', 1)[0]).get_record_read_options()
+        if hasattr(SearchType, 'get_record_read_options') else {}
+    )
+    if read_options.get('command'):
+        response = server.execute_cmd(read_options['command'], {
+            'action': read_options['action'], 'operation': 'query', 'payload': {
+                'search_type': search_type, 'filters': filters or [],
+                'order_bys': order_bys, 'limit': limit or 50,
+                'offset': offset or 0, 'include_total': include_info,
+            },
+        })['info']
+        count = response.get('total') if isinstance(response, dict) else None
+        result = {
+            'sobjects_list': response['records'] if isinstance(response, dict) else response,
+            'limit': limit or 50, 'offset': offset or 0,
+            'total_sobjects_count': count if include_total_count else None,
+            'total_sobjects_query_count': count,
+        }
+        payload = json.dumps(result, separators=(',', ':'))
+        return ('zlib:' + binascii.b2a_hex(zlib.compress(payload.encode(), 9)).decode()
+                if compressed_return else payload)
 
     if check_snapshots_updates:
         schema = Schema.get()
@@ -8017,6 +8427,31 @@ def query_sobjects(search_type, filters=[], order_bys=[], project_code=None, lim
         sobj['__search_key__'] = search_key
 
         return sobj
+
+    def grouped_note_counts(search, columns, apply_retirement=False):
+        # Keep native note ACLs; group rows instead of constructing every note.
+        note_class = SearchType.get('sthpw/note').get_class()
+        if note_class not in ('pyasm.biz.Note', 'pyasm.biz.note.Note',
+                              'pyasm.search.SObject', 'pyasm.search.search.SObject'):
+            if not apply_retirement:
+                for column in columns:
+                    search.add_column(column)
+            return [dict(dict((column, item.get_value(column))
+                              for column in columns), note_count=1)
+                    for item in search.get_sobjects()]
+        search.set_show_retired(not apply_retirement)
+        if hasattr(search, 'get_group_counts'):
+            return [dict(zip([*columns, 'note_count'], row))
+                    for row in search.get_group_counts(columns)]
+        # Legacy note ordering adds timestamp to GROUP BY.
+        search.order_by = False
+        if apply_retirement and 's_status' in search.get_columns():
+            columns = [*columns, 's_status']
+        for column in columns:
+            search.add_column(column)
+            search.add_group_by(column)
+        search.add_column('COUNT(*)', quoted=False, as_column='note_count')
+        return [item.get_data() for item in search.get_sobjects()]
 
     if search_type.startswith('sthpw'):
         splitted_search_type = search_type
@@ -8107,6 +8542,13 @@ def query_sobjects(search_type, filters=[], order_bys=[], project_code=None, lim
             'offset': offset,
         }
 
+    detail_object = None
+    if include_details and sobjects_list:
+        detail_object = next((
+            item for item in sobjects_list
+            if item.get_search_key() == str(details_search_key or '').replace('skey://', '', 1)
+        ), sobjects_list[0])
+
     have_search_code = False
     if sobjects_dicts_list:
         if sobjects_dicts_list[0].get('code'):
@@ -8174,7 +8616,7 @@ def query_sobjects(search_type, filters=[], order_bys=[], project_code=None, lim
 
             behavior_keys = set()
             for process in processes.values():
-                workflow = process.get_value('workflow')
+                workflow = process.get_json_value('workflow', {})
                 if not workflow or not workflow.get('process'):
                     continue
                 behavior_keys.add((
@@ -8204,7 +8646,7 @@ def query_sobjects(search_type, filters=[], order_bys=[], project_code=None, lim
 
             task_pipeline_codes = set()
             for process_behavior in process_behaviors.values():
-                workflow = process_behavior.get_value('workflow')
+                workflow = process_behavior.get_json_value('workflow', {})
                 if workflow and workflow.get('task_pipeline'):
                     task_pipeline_codes.add(workflow.get('task_pipeline'))
 
@@ -8238,11 +8680,14 @@ def query_sobjects(search_type, filters=[], order_bys=[], project_code=None, lim
                     )
                     if not process:
                         continue
-                    workflow = process.get_value('workflow')
+                    workflow = process.get_json_value('workflow', {})
                     if not workflow:
                         continue
                     related_search_type = workflow.get('search_type')
                     if not related_search_type:
+                        continue
+                    if not Schema.get(project_code=scope[1]).get_relationship(
+                            scope[0], related_search_type):
                         continue
                     related_key = (search_key, related_search_type)
                     if related_key not in related_cache:
@@ -8259,8 +8704,8 @@ def query_sobjects(search_type, filters=[], order_bys=[], project_code=None, lim
                         process_behavior = process_behaviors.get(behavior_key)
                         if not process_behavior:
                             continue
-                        workflow_behavior = process_behavior.get_value(
-                            'workflow'
+                        workflow_behavior = process_behavior.get_json_value(
+                            'workflow', {}
                         )
                         if not workflow_behavior:
                             continue
@@ -8270,8 +8715,8 @@ def query_sobjects(search_type, filters=[], order_bys=[], project_code=None, lim
                         task_statuses = []
                         for task_process_behavior in task_behaviors.get(
                                 task_pipeline, []):
-                            task_workflow = task_process_behavior.get_value(
-                                'workflow'
+                            task_workflow = task_process_behavior.get_json_value(
+                                'workflow', {}
                             )
                             if task_workflow and task_workflow.get('mapping'):
                                 task_statuses.append(
@@ -8306,9 +8751,17 @@ def query_sobjects(search_type, filters=[], order_bys=[], project_code=None, lim
     if include_snapshots:
 
         snapshots_sobjects = []
-        if get_all_snapshots:
-            snapshot_search = Search('sthpw/snapshot')
+        snapshot_search = Search('sthpw/snapshot')
+        if sobjects_list and not have_search_code:
+            snapshot_search.add_filter(
+                'search_type', sobjects_list[0].get_search_type()
+            )
+            snapshot_search.add_filters(
+                'search_id', [sobject.get_id() for sobject in sobjects_list]
+            )
+        else:
             snapshot_search.add_relationship_filters(sobjects_list, op='in')
+        if get_all_snapshots:
             object_codes = [
                 sobject_dict.get('code')
                 for sobject_dict in sobjects_dicts_list
@@ -8328,10 +8781,7 @@ def query_sobjects(search_type, filters=[], order_bys=[], project_code=None, lim
                 ])
             snapshots_sobjects = snapshot_search.get_sobjects()
         else:
-            thumb_snapshot_search = Search('sthpw/snapshot')
-            thumb_snapshot_search.add_relationship_filters(sobjects_list, op='in')
-
-            thumb_snapshots_sobjects = thumb_snapshot_search.get_sobjects()
+            thumb_snapshots_sobjects = snapshot_search.get_sobjects()
 
             if thumb_snapshots_sobjects:
                 thumbs_list = []
@@ -8341,7 +8791,12 @@ def query_sobjects(search_type, filters=[], order_bys=[], project_code=None, lim
                     search_code = snapshot.get_value('search_code')
                     process = snapshot.get_value('process')
 
-                    if process in ['icon', 'publish', 'attachment']:
+                    detail_snapshot = (detail_object is not None and (
+                        snapshot.get_value('search_code') == detail_object.get_code()
+                        if detail_object.get_code() else
+                        snapshot.get_value('search_id') == detail_object.get_id()
+                    ))
+                    if detail_snapshot or process in ['icon', 'publish', 'attachment']:
                         thumbs_list.append(snapshot)
                         if search_code not in added_list:
                             added_list.append(search_code)
@@ -8390,12 +8845,17 @@ def query_sobjects(search_type, filters=[], order_bys=[], project_code=None, lim
                 note_search = Search('sthpw/note')
                 note_search.add_filters(key_column, lookup_values)
                 note_search.add_filters('process', processes)
-                for note in note_search.get_sobjects():
+                for note in grouped_note_counts(
+                        note_search, [key_column, 'process'],
+                        apply_retirement=True):
                     key = (
-                        note.get_value(key_column),
-                        note.get_value('process'),
+                        note.get(key_column),
+                        note.get('process'),
                     )
-                    notes_count_by_key[key] = notes_count_by_key.get(key, 0) + 1
+                    notes_count_by_key[key] = (
+                        notes_count_by_key.get(key, 0)
+                        + note.get('note_count')
+                    )
 
             task_groups = {}
             for task_info in sobjects_dicts_list:
@@ -8425,17 +8885,16 @@ def query_sobjects(search_type, filters=[], order_bys=[], project_code=None, lim
             if task_codes:
                 task_note_search = Search('sthpw/note')
                 task_note_search.add_filters('search_code', task_codes)
-                task_note_search.add_column('search_code')
-                task_note_search.add_column('search_type')
-                for note in task_note_search.get_sobjects():
+                for note in grouped_note_counts(
+                        task_note_search, ['search_code', 'search_type']):
                     parent_type = str(
-                        note.get_value('search_type') or ''
+                        note.get('search_type') or ''
                     ).split('?', 1)[0]
                     if parent_type not in ('', 'sthpw/task'):
                         continue
-                    task_code = note.get_value('search_code')
+                    task_code = note.get('search_code')
                     task_note_counts_by_code[task_code] = (
-                        task_note_counts_by_code.get(task_code, 0) + 1
+                        task_note_counts_by_code.get(task_code, 0) + note.get('note_count')
                     )
         else:
             key_column = 'search_code' if have_search_code else 'search_id'
@@ -8454,22 +8913,29 @@ def query_sobjects(search_type, filters=[], order_bys=[], project_code=None, lim
                     count_search = Search(table)
                     count_search.add_filter('search_type', search_type)
                     count_search.add_filters(key_column, lookup_values)
-                    count_search.add_column(key_column)
-                    count_search.add_column('process')
                     if table == 'sthpw/task':
+                        count_search.add_column(key_column)
+                        count_search.add_column('process')
                         for column in (
                                 'code', 'context', 'assigned',
                                 'status', 'timestamp'):
                             count_search.add_column(column)
-                    for item in count_search.get_sobjects():
-                        key = item.get_value(key_column)
-                        process = str(
-                            item.get_value('process') or 'publish'
-                        )
-                        totals[key] = totals.get(key, 0) + 1
+                    if table == 'sthpw/note':
+                        count_rows = grouped_note_counts(
+                            count_search, [key_column, 'process'])
+                    else:
+                        count_rows = count_search.get_sobjects()
+                    for item in count_rows:
+                        get_value = (item.get if table == 'sthpw/note'
+                                     else item.get_value)
+                        item_count = (get_value('note_count')
+                                      if table == 'sthpw/note' else 1)
+                        key = get_value(key_column)
+                        process = str(get_value('process') or 'publish')
+                        totals[key] = totals.get(key, 0) + item_count
                         process_key = (key, process)
                         process_counts[process_key] = (
-                            process_counts.get(process_key, 0) + 1
+                            process_counts.get(process_key, 0) + item_count
                         )
                         if table == 'sthpw/task':
                             task_detail = get_sobject_dict(item)
@@ -8497,27 +8963,26 @@ def query_sobjects(search_type, filters=[], order_bys=[], project_code=None, lim
                 if task_codes:
                     task_note_search = Search('sthpw/note')
                     task_note_search.add_filters('search_code', task_codes)
-                    task_note_search.add_column('search_code')
-                    task_note_search.add_column('search_type')
-                    for note in task_note_search.get_sobjects():
+                    for note in grouped_note_counts(
+                            task_note_search, ['search_code', 'search_type']):
                         parent_type = str(
-                            note.get_value('search_type') or ''
+                            note.get('search_type') or ''
                         ).split('?', 1)[0]
                         if parent_type not in ('', 'sthpw/task'):
                             continue
-                        task_code = note.get_value('search_code')
+                        task_code = note.get('search_code')
                         task_note_counts_by_code[task_code] = (
-                            task_note_counts_by_code.get(task_code, 0) + 1
+                            task_note_counts_by_code.get(task_code, 0) + note.get('note_count')
                         )
                         parent_process = task_parent_by_code.get(task_code)
                         if parent_process:
                             parent_key, process = parent_process
                             notes_count_by_key[parent_key] = (
-                                notes_count_by_key.get(parent_key, 0) + 1
+                                notes_count_by_key.get(parent_key, 0) + note.get('note_count')
                             )
                             notes_count_by_process[parent_process] = (
                                 notes_count_by_process.get(parent_process, 0)
-                                + 1
+                                + note.get('note_count')
                             )
 
                 for parent_key, process_groups in task_details_by_key.items():
@@ -8543,6 +9008,14 @@ def query_sobjects(search_type, filters=[], order_bys=[], project_code=None, lim
                             )
 
     for sobject_dict, sobject in zip(sobjects_dicts_list, sobjects_list):
+
+        if sobject is detail_object:
+            details = json.loads(get_tasks_and_notes(
+                sobject.get_code(), project_code, process=None,
+                include_all_tasks=True, search_id=sobject.get_id(),
+                search_type=sobject.get_search_type(),
+            ))
+            sobject_dict['__details__'] = details
 
         if check_snapshots_updates:
             timestamp = check_snapshots_updates_dict.get(sobject_dict.get('code'))
@@ -8632,7 +9105,7 @@ def query_sobjects(search_type, filters=[], order_bys=[], project_code=None, lim
             snapshots_list = []
             for snapshot in related_snapshots:
 
-                if snapshot.get_version() in [-1, 0, '-1', '0'] or snapshot.is_latest() or get_all_snapshots:
+                if snapshot.get_version() in [-1, 0, '-1', '0'] or snapshot.is_latest() or get_all_snapshots or sobject is detail_object:
                     snapshot_dict = get_sobject_dict(snapshot)
                     files_list = []
                     snapshots_files = snapshots_files_sobjects.get(snapshot_dict['code'])
@@ -8642,6 +9115,10 @@ def query_sobjects(search_type, filters=[], order_bys=[], project_code=None, lim
                     snapshot_dict['__files__'] = files_list
                     snapshots_list.append(snapshot_dict)
             sobject_dict['__snapshots__'] = snapshots_list
+            sobject_dict['__snapshots_complete__'] = (
+                (get_all_snapshots or sobject is detail_object)
+                and not snapshot_timestamps_dict
+            )
 
         if include_progress:
             sobject_dict['__progress__'] = progress_results.get(
@@ -8918,8 +9395,8 @@ def get_virtual_snapshot_extended(search_key, context, files_dict, snapshot_type
     def get_max_version(context, search_key):
         # faster way to get max snapshot version
         search = Search('sthpw/snapshot')
-        search_type, search_code = server.split_search_key(search_key)
-        search.add_op_filters([('context', context), ('search_code', search_code), ('search_type', search_type)])
+        search.add_sobject_filter(sobject)
+        search.add_filter('context', context)
         snaps = search.get_sobjects()
         versions = []
         for sn in snaps:
@@ -9042,7 +9519,20 @@ def get_virtual_snapshot_extended(search_key, context, files_dict, snapshot_type
     return json.dumps(result_list, separators=(',', ':'))
 
 
-def create_snapshot_extended(search_key, context, project_code=None, snapshot_type=None, is_revision=False, is_latest=True, is_current=False, description=None, version=None, level_key=None, update_versionless=True, only_versionless=False, keep_file_name=True, repo_name=None, files_info=None, mode=None, create_icon=True):
+def get_virtual_snapshots_extended(operations):
+    import json
+
+    if not isinstance(operations, list) or not 1 <= len(operations) <= 50:
+        raise ValueError('Naming preview requires between 1 and 50 operations')
+    results = []
+    # Let a failed naming callback abort the native request transaction.
+    for arguments in operations:
+        value = get_virtual_snapshot_extended(**arguments)
+        results.append({'result': json.loads(value), 'error': ''})
+    return json.dumps(results, separators=(',', ':'))
+
+
+def create_snapshot_extended(search_key, context, project_code=None, snapshot_type=None, is_revision=False, is_latest=True, is_current=False, description=None, version=None, level_key=None, update_versionless=True, only_versionless=False, keep_file_name=True, repo_name=None, files_info=None, mode=None, create_icon=True, transaction_title=None, transaction_description=None):
     import os
     import shutil
     import json
@@ -9054,7 +9544,9 @@ def create_snapshot_extended(search_key, context, project_code=None, snapshot_ty
     if project_code:
         server.set_project(project_code)
 
-    # mode = 'local'
+    if transaction_title:
+        # Local SDK start names the enclosing Command; it does not open another RPC.
+        server.start(transaction_title, transaction_description)
 
     api = server.server
 
@@ -9080,8 +9572,8 @@ def create_snapshot_extended(search_key, context, project_code=None, snapshot_ty
     def get_max_version(context, search_key):
         # faster way to get max snapshot version
         search = Search('sthpw/snapshot')
-        search_type, search_code = server.split_search_key(search_key)
-        search.add_op_filters([('context', context), ('search_code', search_code), ('search_type', search_type)])
+        search.add_sobject_filter(sobject)
+        search.add_filter('context', context)
         snaps = search.get_sobjects()
         versions = []
         for sn in snaps:
@@ -9330,236 +9822,3 @@ def create_snapshot_extended(search_key, context, project_code=None, snapshot_ty
     snapshot_dict = api._get_sobject_dict(snapshot)
 
     return snapshot_dict
-
-"""
-
-# get all snapshots dicts with files dicts ver 1
-
-import collections
-from pyasm.search import Search
-from pyasm.prod.service import ApiXMLRPC
-xml_api = ApiXMLRPC()
-search = Search('sthpw/snapshot')
-filters = [('process', [u'Concept', u'Sculpt', u'Rigging', u'Hairs', u'Texturing', u'Final', u'Modeling', u'Dynamics', u'Blocking', 'icon', 'attachment', 'publish']), ('project_code', u'the_pirate'), ('search_code', [u'CHARACTERS00003', u'CHARACTERS00002', u'CHARACTERS00001'])]
-search.add_op_filters(filters)
-snapshots_sobjects = search.get_sobjects()
-
-snapshots_def = collections.defaultdict(list)
-files_def = collections.defaultdict(list)
-
-for snapshot in snapshots_sobjects:
-   snapshot_dict = xml_api.get_sobject_dict(snapshot)
-   snapshot_files = snapshot.get_files_by_snapshots([snapshot])
-   files_list = []
-   for file in snapshot_files:
-      files_list.append(xml_api.get_sobject_dict(file))
-   snapshots_def[snapshot_dict['code']].append(snapshot_dict)
-   files_def[snapshot_dict['code']].append(files_list)
-
-return 'OK'
-
-
-# get all snapshots dicts with files dicts ver 2 (Faster)
-
-import collections
-from pyasm.search import Search
-from pyasm.biz import Snapshot
-from pyasm.prod.service import ApiXMLRPC
-
-xml_api = ApiXMLRPC()
-search = Search('sthpw/snapshot')
-filters = [('process',
-            [u'Concept', u'Sculpt', u'Rigging', u'Hairs', u'Texturing', u'Final', u'Modeling', u'Dynamics',
-             u'Blocking', 'icon', 'attachment', 'publish']), ('project_code', u'the_pirate'),
-           ('search_code', [u'CHARACTERS00003', u'CHARACTERS00002', u'CHARACTERS00001'])]
-search.add_op_filters(filters)
-snapshots_sobjects = search.get_sobjects()
-snapshots_files = Snapshot.get_files_dict_by_snapshots(snapshots_sobjects)
-
-snapshots_def = collections.defaultdict(list)
-
-for snapshot in snapshots_sobjects:
-    snapshot_dict = xml_api.get_sobject_dict(snapshot, use_id=True)
-    snapshot_files = snapshots_files.get(snapshot_dict['code'])
-    files_list = []
-    if snapshot_files:
-        for file in snapshot_files:
-            files_list.append(xml_api.get_sobject_dict(file, use_id=True))
-    snapshot_dict['files'] = files_list
-    snapshots_def[snapshot_dict['code']].append(snapshot_dict)
-
-return snapshots_def.values()
-
-"""
-
-# from pyasm.biz import Snapshot
-# import time
-# start = time.time()
-# api = server.server
-# search_key = 'cgshort/props?project=portfolio&code=PROPS00012'
-#
-# for i in range(100):
-#     sobjects = api._get_sobjects(search_key)
-#     sobject = sobjects[0]
-#     Snapshot.create(sobject, snapshot_type='file', context='publish', description='', is_revision=False, level_type=None, level_id=None, commit=False, version=None)
-#
-# end = time.time()
-# return(end - start)
-# 13.653764963150024 CHERRYPY
-
-
-# class_name = 'tactic.ui.manager.EditElementDefinitionWdg'
-#
-# args = {
-# 	'config_xml': '',
-# 	'element_name': 'priority',
-# 	'path': '/Edit/priority',
-# 	'search_type': 'sthpw/task',
-# 	'view': 'edit_definition',
-# }
-# args_array = []
-# from pyasm.common import Common
-# from pyasm.common import Container
-# widget = Common.create_from_class_path(class_name, args_array, args)
-#
-# Container.put("request_top_wdg", widget)
-# html = widget.get_buffer_display()
-# m = Container.get_instance()
-# print m.get('WidgetConfigView:display_options_cache')
-# return str(m.info)
-#
-# #widget_html = server.get_widget(class_name, args, [])
-# #return widget_html
-
-# class_name = 'tactic.ui.panel.EditWdg'
-#
-# args = {
-# 	'input_prefix': 'edit',
-# 	'search_key': 'cgshort/scenes?project=the_pirate&id=2',
-# 	'view': 'edit',
-# }
-# args_array = []
-# from pyasm.common import Common
-# from pyasm.common import Container
-# widget = Common.create_from_class_path(class_name, args_array, args)
-#
-# Container.put("request_top_wdg", widget)
-# html = widget.get_buffer_display()
-# m = Container.get_instance()
-# #print m.get('WidgetConfigView:display_options_cache')
-# return str(m.get_data())
-#
-# #widget_html = server.get_widget(class_name, args, [])
-# #return widget_html
-
-
-# class_name = 'tactic.ui.panel.EditWdg'
-#
-# args = {
-# 	'input_prefix': 'edit',
-# 	'search_key': 'cgshort/textures?project=the_pirate&id=1',
-# 	'view': 'edit',
-# }
-# args_array = []
-# from pyasm.common import Common
-# from pyasm.common import Container
-# widget = Common.create_from_class_path(class_name, args_array, args)
-#
-# Container.put("request_top_wdg", widget)
-# #widget.get_buffer_display()
-# widget.explicit_display()
-# m = Container.get_instance()
-# return m.get_data().keys()
-# #return (m.get('WidgetConfigView:display_options_cache'))
-# return str(m.get("Expression:@GET(cgshort/props.name)|['cgshort/props']|[]"))
-# return str(m.get("Expression:@GET(cgshort/applications_list.name)|['cgshort/applications_list']|[]"))
-# return str(m.get("Expression:@GET(cgshort/applications_list.code)|['cgshort/applications_list']|[]"))
-# return str(m.get("Expression:@GET(cgshort/props.name)|['cgshort/props']|[]"))
-# return str(m.get("Expression:@GET(cgshort/props.code)|['cgshort/props']|[]"))
-#
-# widget_html = server.get_widget(class_name, args, [])
-# return widget_html
-
-
-# class_name = 'tactic.ui.panel.EditWdg'
-#
-# args = {
-# 	'input_prefix': 'edit',
-# 	'search_key': 'cgshort/textures?project=the_pirate&id=1',
-# 	'view': 'edit',
-# }
-# args_array = []
-# from pyasm.common import Common
-# from pyasm.common import Container
-# widget = Common.create_from_class_path(class_name, args_array, args)
-#
-# Container.put("request_top_wdg", widget)
-# #widget.get_buffer_display()
-# widget.explicit_display()
-# edit_widgets = widget.get_widgets()
-# return (edit_widgets[5].values)
-# m = Container.get_instance()
-# return m.get_data().keys()
-# return (m.get('WidgetConfigView:display_options_cache'))
-# return str(m.get("Expression:@GET(cgshort/props.name)|['cgshort/props']|[]"))
-# return str(m.get("Expression:@GET(cgshort/applications_list.name)|['cgshort/applications_list']|[]"))
-# return str(m.get("Expression:@GET(cgshort/applications_list.code)|['cgshort/applications_list']|[]"))
-# return str(m.get("Expression:@GET(cgshort/props.name)|['cgshort/props']|[]"))
-# return str(m.get("Expression:@GET(cgshort/props.code)|['cgshort/props']|[]"))
-#
-# widget_html = server.get_widget(class_name, args, [])
-# return widget_html
-
-# from tactic.ui.app import SearchWdg
-# server.set_project('dolly3d')
-#
-# search_type = 'complex/scenes'
-# view = 'auto_search:table'
-#
-# filter = [
-#  {'filter_mode': 'or', 'prefix': 'filter_mode'},
-#  {'prefix': 'quick', 'quick_enabled': '', 'quick_search_text': ''},
-#  {'main_body_column': 'name',
-#   'main_body_enabled': 'on',
-#   'main_body_relation': 'is',
-#   'main_body_value': 'Episode01',
-#   'prefix': 'main_body'},
-#  {'main_body_column': 'description',
-#   'main_body_enabled': '',
-#   'main_body_relation': 'contains',
-#   'main_body_value': 'description',
-#   'prefix': 'main_body'},
-#  {'main_body_column': 'keywords',
-#   'main_body_enabled': '',
-#   'main_body_relation': 'starts with',
-#   'main_body_value': 'epica',
-#   'prefix': 'main_body'},
-#  {'children_column': 'assigned',
-#   'children_enabled': '',
-#   'children_relation': 'is',
-#   'children_search_type': 'sthpw/task',
-#   'children_value': '{$LOGIN}',
-#   'prefix': 'children'},
-#  {'levels': [0, 0],
-#   'modes': ['sobject', 'sobject'],
-#   'ops': ['and', 'and'],
-#   'prefix': 'search_ops'},
-#  {'': '', 'prefix': 'keyword', 'value': ''},
-#  {'Next': '',
-#   'Prev': '',
-#   'Showing': '',
-#   'Showing_last_search_offset': '0',
-#   'custom_limit': '',
-#   'limit_select': '50',
-#   'prefix': 'search_limit',
-#   'search_limit': '20'},
-#   ]
-#
-# search_wdg = SearchWdg(search_type=search_type, use_last_search=False, view=view, filter=filter)
-#
-# #search_wdg.explicit_display()
-#
-# search = search_wdg.search
-# sobjects = search.get_sobjects()
-#
-# return str(search_wdg.filters[1].prefix)

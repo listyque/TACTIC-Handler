@@ -96,6 +96,8 @@ DCC_MANIFEST = {
                             "description": "Workspace directory supplied by the Maya integration.",
                             "default": "",
                             "read_only": True,
+                            "runtime_key": "project",
+                            "placeholder": "No work directory selected",
                         },
                         {
                             "key": "scene_type",

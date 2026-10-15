@@ -9,6 +9,22 @@ Rectangle {
 
     signal newConversationRequested()
     signal conversationSelected(int index)
+    signal conversationContextRequested(int index, var source, real x, real y)
+
+    function selectConversation(index) {
+        const retainedY = conversations.contentY
+        root.conversationSelected(index)
+        Qt.callLater(function() {
+            const minimum = conversations.originY
+            const maximum = Math.max(
+                minimum,
+                conversations.originY + conversations.contentHeight
+                    - conversations.height
+            )
+            conversations.contentY = Math.max(
+                minimum, Math.min(maximum, retainedY))
+        })
+    }
 
     function chatColor(index) {
         return [
@@ -49,6 +65,7 @@ Rectangle {
         }
         ListView {
             id: conversations
+            objectName: "messagesConversationListView"
             Layout.fillWidth: true
             Layout.fillHeight: true
             clip: true
@@ -113,7 +130,8 @@ Rectangle {
                         spacing: 1
                         Label {
                             Layout.fillWidth: true
-                            text: conversation.title
+                            text: conversation.isPersonalNotes
+                                ? qsTr("Favorites") : conversation.title
                             color: conversation.selected
                                 ? root.theme.selectedText
                                 : root.theme.primaryText
@@ -208,10 +226,15 @@ Rectangle {
                     id: conversationMouse
                     anchors.fill: parent
                     hoverEnabled: true
+                    acceptedButtons: Qt.LeftButton | Qt.RightButton
                     cursorShape: Qt.PointingHandCursor
-                    onClicked: messagesController.select_conversation(
-                        conversation.index
-                    )
+                    onClicked: mouse => {
+                        if (mouse.button === Qt.RightButton)
+                            root.conversationContextRequested(
+                                conversation.index, conversationMouse, mouse.x, mouse.y)
+                        else
+                            root.selectConversation(conversation.index)
+                    }
                 }
             }
         }

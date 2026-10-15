@@ -19,8 +19,11 @@ Item {
             ColumnLayout {
                 Layout.fillWidth: true
                 Label {
+                    objectName: "previewSearchContextTitle"
                     Layout.fillWidth: true
-                    text: String(sidebarEditorController.selectedEntry.title || "")
+                    text: qsTr("Search setup: %1").arg(String(
+                        sidebarEditorController.selectedEntry.title || ""
+                    ))
                     color: root.theme.primaryText
                     font.family: root.theme.fontFamily
                     font.pointSize: Controls.Typography.bodyLarge

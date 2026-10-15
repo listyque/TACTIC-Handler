@@ -24,6 +24,7 @@ os.environ.setdefault("QSG_RENDER_LOOP", "threaded")
 from PySide6.QtCore import (
     QEvent,
     QObject,
+    QProcess,
     QTimer,
     QUrl,
     Qt,
@@ -196,6 +197,10 @@ class QtRuntimeLogBridge(QObject):
 
 
 def main() -> int:
+    if sys.argv[1:2] == ["--handler-server"]:
+        from handler_server.launcher import main as run_handler_server
+        return run_handler_server(sys.argv[2:])
+
     if sys.platform == "win32":
         import ctypes
 
@@ -279,6 +284,22 @@ def main() -> int:
         server_pool=env_inst.server_pool,
     )
     controller = runtime.controller
+
+    def restart_for_identity_change() -> None:
+        arguments = list(
+            sys.argv[1:] if getattr(sys, "frozen", False) else sys.argv
+        )
+        single_instance.close()
+        started, _pid = QProcess.startDetached(
+            sys.executable, arguments, str(PROJECT_ROOT),
+        )
+        if started:
+            app.quit()
+            return
+        single_instance.start()
+        controller._notify("Could not restart TACTIC-Handler")
+
+    controller.restart_requested.connect(restart_for_identity_change)
     controller.ui_performance.install()
     localization_controller = runtime.localization
     debug_log = runtime.debug_log
@@ -424,7 +445,15 @@ def main() -> int:
         def start_after_first_frame() -> None:
             controller.restore_cached_workspace()
             controller.bootstrap_server()
-            runtime.handler_server.start_server()
+            runtime.update.sync_authentication()
+            if controller.handler_server_autostart_enabled():
+                runtime.handler_server.start_server()
+            health_file = os.environ.pop("TACTIC_UPDATE_HEALTH_FILE", "")
+            if health_file:
+                marker = Path(health_file).resolve()
+                update_dir = (PROJECT_ROOT.parent / "_updates").resolve()
+                if marker.parent == update_dir and marker.name.startswith("ready-"):
+                    marker.write_text("ready", encoding="utf-8")
 
         root_window.frameSwapped.connect(
             start_after_first_frame,

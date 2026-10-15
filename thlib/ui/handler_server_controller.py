@@ -215,14 +215,16 @@ class HandlerServerController(QObject):
         self._server.setProcessEnvironment(environment)
         self._server.setWorkingDirectory(str(self._root))
         self._server.setProgram(sys.executable)
-        self._server.setArguments([
-            "-m", "handler_server.launcher", "--host", self._host,
-            "--port", "0",
-        ])
+        arguments = ["--host", self._host, "--port", "0"]
+        if hasattr(sys.modules.get("__main__"), "__compiled__"):
+            arguments.insert(0, "--handler-server")
+        else:
+            arguments[:0] = ["-m", "handler_server.launcher"]
+        self._server.setArguments(arguments)
         self._append_result("", "handler-server", "start", "starting",
                             "Starting local Handler Server", "")
-        self._server.start()
         self._startup_timer.start()
+        self._server.start()
         self.stateChanged.emit()
 
     @Slot()
@@ -483,6 +485,12 @@ class HandlerServerController(QObject):
                 if action in capabilities and (client_id, action) not in pending:
                     self.send_client_command(client_id, action, {}, 10.0)
 
+    def selected_scene_info(self, application: str) -> dict:
+        record = self._selected_record()
+        if record.get("applicationType") != application:
+            return {}
+        return dict(record.get("sceneInfo") or {})
+
     def has_dcc_capability(self, action):
         capability = {
             "open": "open_scene", "import": "import_file",
@@ -650,6 +658,9 @@ class HandlerServerController(QObject):
                 "sceneName": str(
                     previous.get(client_id, {}).get("sceneName") or ""
                 ),
+                "sceneInfo": dict(
+                    previous.get(client_id, {}).get("sceneInfo") or {}
+                ),
                 "selected": client_id == self._selected_client,
             })
         self.clients.replace(records)
@@ -660,6 +671,8 @@ class HandlerServerController(QObject):
             self.capabilities.clear()
         if not self._selected_client and records:
             self.select_client(0)
+        if any(record["clientId"] not in previous for record in records):
+            self.refresh_client_details()
 
     def _remove_client(self, client_id):
         records = [
@@ -729,6 +742,7 @@ class HandlerServerController(QObject):
                 path.replace("\\", "/").rsplit("/", 1)[-1]
                 if path else "Untitled"
             )
+            updated["sceneInfo"] = dict(payload)
         else:
             return
         self.clients.replace([
@@ -887,7 +901,9 @@ class HandlerServerController(QObject):
             )
         self.stateChanged.emit()
 
-    def _server_error(self, _error):
+    def _server_error(self, error):
+        if error == QProcess.ProcessError.FailedToStart:
+            self._startup_timer.stop()
         self._set_error(self._server.errorString() or "Handler Server process failed")
 
     def _startup_failed(self):

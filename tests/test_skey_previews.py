@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import unittest
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 from thlib.ui.skey_previews import (
     SearchKeyPreviewResolver,
@@ -11,6 +11,24 @@ from thlib.ui.skey_previews import (
 
 
 class SearchKeyPreviewTests(unittest.TestCase):
+    def test_deleted_item_preview_is_logged_without_error_popup(self):
+        debug_log = Mock()
+        resolver = SearchKeyPreviewResolver.__new__(SearchKeyPreviewResolver)
+        resolver._application = type(
+            "Application", (), {"debug_log": debug_log}
+        )()
+
+        resolver._log_error("TACTIC item was not found")
+
+        debug_log.log.assert_called_once_with(
+            "WARNING",
+            "TACTIC item was not found",
+            stacktrace="",
+            group="communication/skey-preview",
+            source="SearchKeyPreviewResolver",
+        )
+        debug_log.raise_error.assert_not_called()
+
     def test_snapshot_activity_opens_exact_snapshot_in_workspace(self):
         class DockModel:
             def __init__(self):

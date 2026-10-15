@@ -42,6 +42,7 @@ StatusChip 1.0 StatusChip.qml
 SummaryChip 1.0 SummaryChip.qml
 SectionLabel 1.0 SectionLabel.qml
 PreviewNavigationButton 1.0 PreviewNavigationButton.qml
+SettingsNavigationItem 1.0 SettingsNavigationItem.qml
 MaterialIcon 1.0 MaterialIcon.qml
 MaterialRipple 1.0 MaterialRipple.qml
 SmoothListView 1.0 SmoothListView.qml

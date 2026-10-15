@@ -42,6 +42,36 @@ class IconFontCatalogTests(unittest.TestCase):
         self.assertTrue(icon["glyph"])
         self.assertTrue(icon["fontFamily"])
 
+    def test_activity_and_search_use_semantic_glyphs(self):
+        engine = QQmlEngine()
+        for name, value in self.bindings.items():
+            engine.rootContext().setContextProperty(name, value)
+        component = QQmlComponent(
+            engine, QUrl.fromLocalFile(str(QML / "controls" / "MaterialIcon.qml"))
+        )
+        for semantic, glyph in (("activity-feed", "history"), ("advanced-search", "filter")):
+            icon = component.createWithInitialProperties({"name": semantic, "color": "white"})
+            self.assertIsNotNone(icon, component.errors())
+            text = next(child for child in icon.children() if child.property("text"))
+            self.assertEqual(text.property("text"), self.catalog.resolve("material-design", glyph)["glyph"])
+            for icon_set in ("fluent-regular", "fluent-filled", "fontawesome-solid"):
+                self.assertTrue(self.catalog.resolve(icon_set, glyph)["glyph"])
+            icon.deleteLater()
+
+    def test_people_and_object_grouping_use_different_glyphs(self):
+        engine = QQmlEngine()
+        for name, value in self.bindings.items():
+            engine.rootContext().setContextProperty(name, value)
+        component = QQmlComponent(
+            engine, QUrl.fromLocalFile(str(QML / "controls" / "MaterialIcon.qml"))
+        )
+        for semantic, glyph in (("group", "account-group"), ("group-items", "group")):
+            icon = component.createWithInitialProperties({"name": semantic, "color": "white"})
+            self.assertIsNotNone(icon, component.errors())
+            rendered = icon.findChild(QObject, "materialIconGlyph")
+            self.assertEqual(rendered.property("text"), self.catalog.resolve("material-design", glyph)["glyph"])
+            icon.deleteLater()
+
     def test_picker_sets_keep_tactic_and_local_fonts_distinct(self):
         values = [record["value"] for record in self.catalog.sets]
         self.assertEqual(values, [

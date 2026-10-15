@@ -267,6 +267,66 @@ class ActivityFeedQmlTests(unittest.TestCase):
             pending.extend(item.childItems())
         return None
 
+    def test_long_multiline_change_is_compact_until_expanded(self):
+        record = _activity_record(
+            "long-change", "2026-08-22", "Admin", "Widget config"
+        )
+        record["kind"] = "change"
+        record["detail"] = ""
+        record["changes"] = [{
+            "field": "config",
+            "before": "OLD\n\n" + "A" * 100,
+            "after": "NEW\n\n" + "B" * 100,
+            "valuesKnown": True,
+        }]
+        model = RecordListModel(ACTIVITY_ROLES, [record])
+        (
+            engine, theme_component, component, theme,
+            controller, model, users, localization, view,
+        ) = self._create_view(model=model)
+        window = QQuickWindow()
+        window.resize(1000, 520)
+        view.setParentItem(window.contentItem())
+        view.setSize(window.size())
+        window.show()
+        try:
+            QTest.qWait(80)
+            card = self._visual_item(view, "activityEventCard")
+            change_text = self._visual_item(view, "activityChangeText_0")
+            expand = self._visual_item(view, "activityTextExpandButton")
+            self.assertIsNotNone(card)
+            self.assertIsNotNone(change_text)
+            self.assertIsNotNone(expand)
+            collapsed_height = card.height()
+            collapsed = str(QQmlExpression(
+                engine.rootContext(), change_text,
+                "getText(0, length)",
+            ).evaluate()[0])
+            self.assertNotIn("\n", collapsed)
+            self.assertLessEqual(len(collapsed), 81)
+            self.assertTrue(collapsed.endswith("…"))
+
+            QTest.mouseClick(
+                window, Qt.LeftButton, Qt.NoModifier,
+                expand.mapToScene(QPointF(
+                    expand.width() / 2, expand.height() / 2
+                )).toPoint(),
+            )
+            QTest.qWait(40)
+            self.assertTrue(card.property("detailsExpanded"))
+            expanded = str(QQmlExpression(
+                engine.rootContext(), change_text,
+                "getText(0, length)",
+            ).evaluate()[0])
+            self.assertIn("B" * 100, expanded)
+            self.assertGreater(card.height(), collapsed_height)
+        finally:
+            window.close()
+            view.setParentItem(None)
+            view.deleteLater()
+            window.deleteLater()
+            engine.deleteLater()
+
     def test_feed_reflows_without_losing_search_calendar_or_refresh(self):
         (
             engine, theme_component, component, theme,

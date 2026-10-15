@@ -192,6 +192,20 @@ class TaskDataTests(unittest.TestCase):
             for item in collapsed if item["groupKey"] == "light"
         ))
 
+    def test_paginated_server_rows_keep_one_header_per_group(self):
+        records = [
+            {"taskCode": "TASK1", "process": "compositing", "processLabel": "Comp"},
+            {"taskCode": "TASK2", "process": "sound", "processLabel": "Sound"},
+            {"taskCode": "TASK3", "process": "compositing", "processLabel": "Comp"},
+        ]
+
+        grouped = sort_and_group(records, "due", "process", presorted=True)
+
+        self.assertEqual(
+            [row["taskCode"] for row in grouped], ["TASK1", "TASK3", "TASK2"]
+        )
+        self.assertEqual(sum(row["groupFirst"] for row in grouped), 2)
+
     def test_search_type_group_uses_configured_title_and_code_identity(self):
         records = [{
             "taskCode": "TASK1",

@@ -99,17 +99,7 @@ def stack(panel_id: str) -> DockStack:
 
 
 def default_layout() -> DockNode:
-    work = DockSplit(
-        "horizontal", 0.34, stack("results"), stack("tasks")
-    )
-    details = DockStack(
-        (
-            "notes", "task_calendar", "timesheet", "work_reports",
-            "cost_reports", "snapshot", "description",
-        ),
-        "notes",
-    )
-    return DockSplit("horizontal", 0.66, work, details)
+    return stack("results")
 
 
 def layout_from_rectangles(rectangles: dict[str, DockRect]) -> DockNode | None:
@@ -410,6 +400,7 @@ def has_resizable_edge(
         edge: str,
         available: set[str],
 ) -> bool:
+    """Give each shared divider to its first child's trailing edge."""
     if node is None or panel_id not in available:
         return False
 
@@ -427,16 +418,12 @@ def has_resizable_edge(
             return True
         return (
             current.orientation == "horizontal"
-            and (
-                (edge == "right" and panel_id in first_active)
-                or (edge == "left" and panel_id in second_active)
-            )
+            and edge == "right"
+            and panel_id in first_active
         ) or (
             current.orientation == "vertical"
-            and (
-                (edge == "bottom" and panel_id in first_active)
-                or (edge == "top" and panel_id in second_active)
-            )
+            and edge == "bottom"
+            and panel_id in first_active
         )
 
     return visit(node)

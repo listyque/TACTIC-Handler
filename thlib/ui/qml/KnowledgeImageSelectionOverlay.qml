@@ -117,6 +117,7 @@ Rectangle {
             width: 32
             height: 32
             acceptedButtons: Qt.LeftButton
+            preventStealing: true
             cursorShape: Qt.SizeFDiagCursor
             property real startWidth: 0
             property real startHeight: 0

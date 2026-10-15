@@ -267,15 +267,8 @@ Item {
             Layout.fillWidth: true
             Layout.fillHeight: true
             orientation: Qt.Horizontal
-            handle: Rectangle {
-                implicitWidth: 10
-                color: "transparent"
-                Rectangle {
-                    anchors.centerIn: parent
-                    width: 1
-                    height: Math.max(0, parent.height - 18)
-                    color: root.theme.outlineVariant
-                }
+            handle: Controls.SplitterHandle {
+                theme: root.theme
             }
 
             Rectangle {
@@ -411,15 +404,9 @@ Item {
             SplitView {
                 SplitView.fillWidth: true
                 orientation: Qt.Vertical
-                handle: Rectangle {
-                    implicitHeight: 10
-                    color: "transparent"
-                    Rectangle {
-                        anchors.centerIn: parent
-                        width: Math.max(0, parent.width - 18)
-                        height: 1
-                        color: root.theme.outlineVariant
-                    }
+                handle: Controls.SplitterHandle {
+                    theme: root.theme
+                    vertical: false
                 }
 
                 Rectangle {
@@ -696,7 +683,7 @@ Item {
                                 theme: root.theme
                                 readOnly: true
                                 selectByMouse: true
-                                wrapMode: TextEdit.NoWrap
+                                wrapMode: TextEdit.WrapAnywhere
                                 color: detailPanel.entry.eventId
                                     ? root.theme.primaryText
                                     : root.theme.secondaryText

@@ -14,6 +14,7 @@ from tests import test_administration_api as native_fixture
 
 class SchemaDeletionApiTests(unittest.TestCase):
     def setUp(self):
+        self.enterContext(patch('thlib.ui.admin.schema_delete_api.server', SimpleNamespace(get_login=lambda: 'artist'), create=True))
         self.fixture = native_fixture.AdministrationApiTests()
         self.fixture.setUp()
         self.addCleanup(self.fixture.doCleanups)

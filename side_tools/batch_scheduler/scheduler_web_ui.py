@@ -1,0 +1,639 @@
+"""Browser UI kept as Python data so the custom script ships only .py files."""
+
+ACCESS_REQUIRED_HTML = r"""<!doctype html>
+<html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Доступ к батч-диспетчеру</title><style>
+:root { color-scheme: light dark; font: 16px "Segoe UI",system-ui,sans-serif }
+body { min-height: 100vh; margin: 0; display: grid; place-items: center; background: #152127; color: #f3f7f9 }
+main { width: min(440px,calc(100vw - 40px)); padding: 28px; border: 1px solid #405159; border-radius: 10px; background: #202d34 }
+h1 { margin: 0 0 12px; font-size: 22px } p { color: #a9bbc4; line-height: 1.5 }
+form { display: flex; gap: 8px; margin-top: 20px } input,button { min-height: 38px; border-radius: 6px; font: inherit }
+input { min-width: 0; flex: 1; padding: 0 11px; color: inherit; border: 1px solid #405159; background: #35434a }
+button { padding: 0 16px; border: 0; color: white; background: #60b6da; cursor: pointer }
+</style></head><body><main><h1>Нужна защищённая ссылка</h1>
+<p>На компьютере с Handler нажмите «Скопировать LAN-ссылку» и откройте её здесь целиком. Либо вставьте код из части <code>?token=...</code>.</p>
+<form action="/" method="get"><input name="token" placeholder="Код доступа" required autofocus><button>Открыть</button></form>
+</main></body></html>"""
+
+WEB_HTML = r"""<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Диспетчер батч-рендера</title>
+<style>
+@font-face { font-family: HandlerIconSolid; src: url('/assets/icons-solid.ttf') format('truetype'); font-display: block }
+@font-face { font-family: HandlerIconRegular; src: url('/assets/icons-regular.ttf') format('truetype'); font-display: block }
+@font-face { font-family: HandlerIconMaterial; src: url('/assets/icons-material.ttf') format('truetype'); font-display: block }
+:root {
+  color-scheme: dark;
+  font: 15px "Segoe UI", system-ui, sans-serif;
+  --bg: #152127; --header: #18252b; --panel: #202d34; --panel-deep: #172228; --surface: #35434a;
+  --card: #223038; --card-hover: #293a43; --line: #405159; --line-soft: #33434b;
+  --text: #f3f7f9; --muted: #a9bbc4; --faint: #738891; --accent: #60b6da;
+  --accent-dark: #355f72; --accent-text: #f3f7f9; --good: #31a66a; --warn: #c9973f; --bad: #ef5f70;
+  --detail-height: 280px; --catalog-width: 350px;
+  --field-radius: 7px; --button-radius: 6px; --item-radius: 8px;
+  --surface-radius: 9px; --menu-radius: 9px; --icon-radius: 4px;
+  --control-height: 36px; --compact-height: 32px;
+}
+* { box-sizing: border-box }
+html, body { height: 100%; margin: 0; overflow: hidden; background: var(--bg); color: var(--text) }
+button, input, select { font: inherit; color: inherit }
+button { min-height: var(--compact-height); border: 1px solid transparent; border-radius: var(--button-radius); background: var(--surface); padding: 7px 11px; cursor: pointer }
+button:hover:not(:disabled) { background: var(--card-hover); border-color: var(--line) }
+button:disabled { opacity: .32; cursor: default }
+button.primary { display: inline-flex; align-items: center; gap: 8px; color: var(--accent-text); background: var(--accent); font-weight: 600 }
+button.primary:hover { background: var(--accent) }
+.app-icon { display: inline-block; font-size: 12px; font-style: normal; font-weight: normal; line-height: 1; text-align: center; vertical-align: middle; text-rendering: auto }
+.app-icon.solid { font-family: HandlerIconSolid }
+.app-icon.regular { font-family: HandlerIconRegular }
+.app-icon.material { font-family: HandlerIconMaterial }
+.icon { display: inline-grid; place-items: center; width: var(--control-height); height: var(--control-height); padding: 0; border-radius: var(--icon-radius) }
+.icon .app-icon { font-size: 13px }
+.flat { background: transparent }
+.danger { color: var(--bad) }
+.app { height: 100%; display: grid; grid-template-rows: 68px 44px 1fr }
+.app-header { display: flex; align-items: center; gap: 8px; padding: 9px 17px; background: var(--header); border-bottom: 1px solid #26353c }
+.brand-icon { color: var(--accent); margin-right: 2px }
+.brand-icon .app-icon { font-size: 19px }
+.brand { min-width: 240px; margin-right: auto }
+.brand h1 { margin: 0; font-size: 20px; font-weight: 600 }
+.brand small { display: block; margin-top: 2px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis }
+.summary { margin: 0 14px; padding: 0 14px; display: grid; grid-template-columns: repeat(4,minmax(130px,1fr)) minmax(220px,2fr); align-items: center; gap: 16px; background: var(--surface); border-radius: var(--surface-radius) }
+.metric { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; min-width: 0 }
+.metric span { color: var(--muted); font-size: 12px; text-transform: uppercase; white-space: nowrap }
+.metric b { font-weight: 600; white-space: nowrap }
+.overall { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 10px }
+.bar { height: 5px; overflow: hidden; border-radius: 4px; background: #405058 }
+.bar i { display: block; height: 100%; background: var(--accent); transition: width .2s }
+.error { position: fixed; z-index: 20; top: 118px; left: 50%; transform: translateX(-50%); max-width: 75%; padding: 8px 12px; border: 1px solid var(--bad); border-radius: var(--field-radius); background: var(--card); color: var(--bad) }
+.error:empty { display: none }
+.content { min-height: 0; display: grid; grid-template-columns: var(--catalog-width) 7px minmax(0,1fr); padding: 10px 14px 14px }
+.splitter { position: relative; cursor: col-resize }
+.splitter::after { content: ""; position: absolute; inset: 0 2px; border-radius: 4px; background: #465860 }
+.panel { min-height: 0; overflow: hidden; border: 1px solid var(--line); border-radius: var(--surface-radius); background: var(--panel) }
+.catalog-panel { display: grid; grid-template-rows: 56px 1fr }
+.panel-head { display: flex; align-items: center; gap: 6px; padding: 8px 10px; border-bottom: 1px solid var(--line-soft) }
+.panel-title { font-size: 14px; letter-spacing: .03em; text-transform: uppercase; white-space: nowrap }
+.search { min-width: 80px; flex: 1; height: var(--control-height); border: 2px solid var(--line); border-radius: var(--field-radius); outline: 0; background: var(--surface); padding: 0 11px }
+.search:focus { border-color: var(--accent) }
+.count { color: var(--muted); min-width: 25px; text-align: center }
+.scroll { min-height: 0; overflow: auto; padding: 9px; scrollbar-gutter: stable }
+::-webkit-scrollbar { width: 11px; height: 11px }
+::-webkit-scrollbar-track { background: var(--panel-deep) }
+::-webkit-scrollbar-thumb { border: 3px solid var(--panel-deep); border-radius: 7px; background: var(--faint) }
+.catalog-card { position: relative; display: grid; grid-template-columns: 5px 66px minmax(0,1fr) 68px; gap: 9px; align-items: center; min-height: 94px; margin-bottom: 9px; padding: 9px 7px 9px 0; border: 1px solid var(--line); border-radius: var(--item-radius); background: var(--card); box-shadow: 0 2px 2px #0004 }
+.catalog-card:hover { background: var(--card-hover) }
+.catalog-card .stripe, .queue-row .stripe { align-self: stretch; border-radius: 4px; background: var(--status, var(--faint)) }
+.thumb { width: 66px; height: 66px; border-radius: 6px; object-fit: cover; background: #4a7c93 }
+.initials { display: grid; place-items: center; font-size: 13px }
+.title { overflow: hidden; font-weight: 600; white-space: nowrap; text-overflow: ellipsis }
+.description { margin-top: 4px; overflow: hidden; color: var(--muted); font-size: 13px; white-space: nowrap; text-overflow: ellipsis }
+.stage { margin-top: 4px; color: var(--status, var(--accent)); font-size: 13px }
+.empty { padding: 28px 16px; color: var(--muted); text-align: center }
+.main { min-width: 0; min-height: 0; display: grid; grid-template-rows: 48px minmax(150px,1fr) 7px var(--detail-height) }
+.queue-tools { display: flex; align-items: center; gap: 5px; padding: 0 8px }
+.queue-tools .panel-title { margin-right: auto }
+.check { display: inline-flex; align-items: center; gap: 7px; padding: 6px 8px; border-radius: 6px; color: var(--text); cursor: pointer; white-space: nowrap }
+.check input { width: 19px; height: 19px; accent-color: var(--accent) }
+.queue-panel { display: grid; grid-template-rows: 37px 1fr; margin: 0 8px; background: var(--surface); border: 0 }
+.columns, .queue-row { display: grid; grid-template-columns: 24px 30px 68px minmax(260px,1fr) 180px 105px 130px 260px; gap: 10px; align-items: center }
+.columns { padding: 0 13px; color: var(--muted); font-size: 12px; text-transform: uppercase }
+.columns .task { grid-column: 4 }
+.queue-scroll { padding: 0 10px 10px }
+.queue-row { position: relative; min-height: 92px; margin-bottom: 10px; padding: 9px 11px 9px 13px; border: 1px solid var(--line-soft); border-radius: var(--item-radius); background: var(--card); box-shadow: 0 2px 1px #0005 }
+.queue-row:hover { background: var(--card-hover) }
+.queue-row.selected { background: var(--accent-dark); border-color: var(--accent) }
+.queue-row.child { margin-left: 30px; min-height: 88px }
+.queue-row.dragging { opacity: .45; outline: 2px solid var(--accent) }
+.queue-row.drop-before { border-top: 3px solid var(--accent) }
+.queue-row > .stripe { position: absolute; left: 3px; top: 11px; bottom: 11px; width: 4px }
+.grip { display: grid; place-items: center; color: #71848d; cursor: grab; user-select: none }
+.grip-dots { display: grid; grid-template-columns: repeat(2,3px); gap: 4px 5px }
+.grip-dots b { width: 3px; height: 3px; border-radius: 50%; background: currentColor }
+.grip:active { cursor: grabbing }
+.expand { display: grid; place-items: center; color: var(--text); cursor: pointer; user-select: none }
+.queue-copy { min-width: 0 }
+.queue-copy .description { white-space: normal; line-height: 1.25 }
+.progress-copy { font-size: 13px }
+.progress-copy .bar { margin-top: 8px }
+.frames, .time { color: var(--muted) }
+.time b { display: block; color: var(--text); font-weight: 400 }
+.row-actions { display: flex; align-items: center; justify-content: flex-end; gap: 3px }
+.row-actions button { display: inline-grid; place-items: center; background: transparent; width: 31px; height: 31px; padding: 0; color: var(--text) }
+.row-actions .app-icon { font-size: 13px }
+.row-actions button:hover { background: var(--card-hover) }
+.detail-splitter { cursor: row-resize; margin: 0 8px }
+.detail-splitter::after { inset: 2px 0 }
+.detail { display: grid; grid-template-rows: 45px 1fr; margin: 0 8px; background: var(--surface); border: 0 }
+.detail.hidden { display: none }
+.detail-head { display: flex; align-items: center; gap: 4px; padding: 0 10px; border-bottom: 1px solid var(--line-soft) }
+.tab { min-width: 100px; background: transparent }
+.tab.active { color: var(--accent-text); background: var(--accent) }
+.detail-title { min-width: 0; margin: 0 auto 0 8px; color: var(--muted); overflow: hidden; white-space: nowrap; text-overflow: ellipsis }
+.detail-body { min-height: 0; overflow: hidden }
+.log { height: 100%; margin: 0; overflow: auto; padding: 16px; white-space: pre-wrap; user-select: text; font: 13px Consolas, monospace }
+.preview-page { height: 100%; display: grid; grid-template-columns: minmax(180px,25%) 1fr; min-height: 0 }
+.preview-list { overflow: auto; padding: 8px; border-right: 1px solid var(--line-soft) }
+.preview-tile { display: grid; grid-template-columns: 72px 1fr; gap: 8px; align-items: center; width: 100%; margin-bottom: 7px; padding: 5px; text-align: left; background: var(--card) }
+.preview-tile.active { border-color: var(--accent); background: var(--accent-dark) }
+.preview-tile img { width: 72px; height: 48px; object-fit: cover; border-radius: 4px }
+.viewer { display: grid; place-items: center; min-width: 0; min-height: 0; overflow: auto; background: var(--panel-deep) }
+.viewer img { display: block; max-width: 100%; max-height: 100%; object-fit: contain }
+.parameters { height: 100%; overflow: auto; padding: 12px 16px }
+.parameters dl { display: grid; grid-template-columns: 130px minmax(0,1fr); gap: 8px 14px; margin: 0 }
+.parameters dt { color: var(--muted) }.parameters dd { margin: 0; overflow-wrap: anywhere; user-select: text }
+.popover, dialog { color: var(--text); border: 1px solid var(--line); border-radius: var(--menu-radius); background: var(--surface); box-shadow: 0 8px 25px #0008 }
+.popover { position: fixed; z-index: 12; min-width: 290px; padding: 8px }
+.popover[hidden] { display: none }
+.filter-row { display: flex; align-items: center; gap: 9px; width: 100%; margin-bottom: 3px; padding: 9px; text-align: left; background: transparent }
+.filter-row.active { background: var(--card-hover) }.dot { width: 12px; height: 12px; border-radius: 50%; background: var(--status) }
+.filter-row b { margin-left: auto; font-weight: 400 }
+dialog { width: min(760px,90vw); padding: 0 }
+dialog.compact { width: min(520px,90vw) }
+dialog::backdrop { background: #0a1015cc }
+.dialog-head { padding: 18px 22px; border-bottom: 1px solid var(--line-soft); font-size: 20px; font-weight: 600 }
+.dialog-body { display: grid; gap: 13px; max-height: calc(100vh - 150px); overflow: auto; padding: 22px; scrollbar-gutter: stable }
+.dialog-body label { display: grid; gap: 6px; color: var(--muted) }
+.dialog-body input[type=text], .dialog-body input[type=number], .dialog-body select { height: var(--control-height); padding: 0 10px; color: var(--text); border: 1px solid var(--line); border-radius: var(--field-radius); background: var(--surface) }
+.dialog-actions { display: flex; justify-content: flex-end; gap: 8px; padding: 12px 18px; border-top: 1px solid var(--line-soft) }
+.menu { position: fixed; z-index: 15; min-width: 220px; padding: 6px }
+.menu button { display: block; width: 100%; text-align: left; background: transparent }
+.menu button .app-icon { width: 20px; margin-right: 8px; color: var(--muted); font-size: 14px }
+.menu hr { border: 0; border-top: 1px solid var(--line); margin: 5px }
+.hidden { display: none !important }
+@media (max-width: 1250px) {
+  .columns, .queue-row { grid-template-columns: 22px 28px 58px minmax(220px,1fr) 150px 95px 220px }
+  .columns .time-head, .queue-row .time { display: none }
+}
+@media (max-width: 900px) {
+  html, body { overflow: auto }.app { height: auto; min-height: 100%; grid-template-rows: auto auto auto }
+  .app-header { flex-wrap: wrap }.summary { margin-top: 8px; grid-template-columns: repeat(2,1fr); padding: 9px }
+  .content { display: block; padding-top: 10px }.catalog-panel { height: 48vh }.splitter { display: none }
+  .main { height: 100vh; margin-top: 10px }.columns, .queue-row { grid-template-columns: 18px 25px 48px minmax(170px,1fr) 120px 180px }
+  .columns .frames-head, .queue-row .frames { display: none }
+}
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="app-header">
+    <div class="brand-icon"><i class="app-icon" data-icon="list"></i></div>
+    <div class="brand"><h1>Диспетчер батч-рендера</h1><small id="status"></small></div>
+    <button id="scheduler" class="primary" data-action="toggle"></button>
+    <button id="stop" class="icon" data-action="stop" title="Остановить очередь сейчас"><i class="app-icon" data-icon="stop"></i></button>
+    <button class="icon" data-action="open-root-output" title="Открыть общую папку секвенций"><i class="app-icon" data-icon="folderOpen"></i></button>
+    <button class="icon" data-action="settings-open" title="Настройки рендера"><i class="app-icon" data-icon="settings"></i></button>
+  </header>
+  <div id="summary" class="summary"></div>
+  <div class="content" id="content">
+    <aside class="panel catalog-panel">
+      <div class="panel-head">
+        <input id="search" class="search" placeholder="Найти эпизод">
+        <span id="episode-count" class="count"></span>
+        <button id="filter-button" class="icon flat" data-action="filters" title="Фильтры"><i class="app-icon" data-icon="filter"></i></button>
+        <button class="icon flat" data-action="refresh" title="Обновить"><i class="app-icon" data-icon="refresh"></i></button>
+      </div>
+      <div id="catalog" class="scroll"></div>
+    </aside>
+    <div id="catalog-splitter" class="splitter"></div>
+    <main class="main" id="main">
+      <div class="queue-tools">
+        <span class="panel-title">Очередь рендера</span>
+        <button class="icon flat" data-selected-action="top" title="В самое начало"><i class="app-icon" data-icon="top"></i></button>
+        <button class="icon flat" data-selected-action="up" title="Выше"><i class="app-icon" data-icon="up"></i></button>
+        <button class="icon flat" data-selected-action="down" title="Ниже"><i class="app-icon" data-icon="down"></i></button>
+        <button class="icon flat" data-selected-action="bottom" title="В самый конец"><i class="app-icon" data-icon="bottom"></i></button>
+        <label class="check"><input id="auto-clear" type="checkbox" data-action="auto">Автоочистка</label>
+        <button id="detail-toggle" class="icon" data-action="detail-toggle" title="Показать или скрыть панель"><i class="app-icon" data-icon="terminal"></i></button>
+        <button data-action="clear"><i class="app-icon" data-icon="clear"></i> Очистить завершённые</button>
+      </div>
+      <section class="panel queue-panel">
+        <div class="columns"><span></span><span></span><span class="task">Задача / этап</span><span>Прогресс</span><span class="frames-head">Кадры</span><span class="time-head">Прошло / осталось</span></div>
+        <div id="queue" class="scroll queue-scroll"></div>
+      </section>
+      <div id="detail-splitter" class="splitter detail-splitter"></div>
+      <section id="detail" class="panel detail">
+        <div class="detail-head">
+          <button class="tab" data-tab="log">Лог</button>
+          <button class="tab" data-tab="preview">Превью</button>
+          <button class="tab" data-tab="parameters">Параметры</button>
+          <span id="detail-title" class="detail-title">Все задачи</span>
+          <button class="icon flat" data-action="open-log" title="Открыть файл лога"><i class="app-icon" data-icon="open"></i></button>
+          <label class="check"><input id="follow" type="checkbox">Следить</label>
+          <label class="check"><input id="freeze" type="checkbox">Зафиксировать</label>
+          <button class="icon flat" data-action="detail-toggle" title="Скрыть панель"><i class="app-icon" data-icon="chevronDown"></i></button>
+        </div>
+        <div id="detail-body" class="detail-body"></div>
+      </section>
+    </main>
+  </div>
+</div>
+<div id="error" class="error"></div>
+<div id="filters" class="popover" hidden></div>
+<div id="menu" class="popover menu" hidden></div>
+<dialog id="settings-dialog">
+  <form id="settings-form">
+    <div class="dialog-head">Настройки рендера</div>
+    <div class="dialog-body">
+      <label>Maya Render.exe<input name="mayaPath" type="text" required></label>
+      <label>Папка вывода<input name="savePath" type="text" required></label>
+      <label>Камера (пусто — настройки сцены)<input name="camera" type="text"></label>
+      <label>Ограничение времени шота, минут (0 — без ограничения)<input name="timeout" type="number" min="0"></label>
+      <label>Чек-ин логов в TACTIC<select name="logCheckin"><option value="always">Всегда</option><option value="failed">Только при ошибке</option><option value="never">Никогда</option></select></label>
+      <label class="check"><input name="skipDependencyErrors" type="checkbox">Пропускать недоступные зависимости</label>
+      <label>Проверка серверной очереди, секунды<input name="pollInterval" type="number" min="5" max="3600" required></label>
+      <label class="check"><input name="webEnabled" type="checkbox">Запускать веб-диспетчер</label>
+      <label>Порт веб-диспетчера<input name="webPort" type="number" min="1" max="65535" required></label>
+      <label class="check"><input name="webSecurity" type="checkbox">Требовать защищённую ссылку</label>
+      <label class="check"><input name="stopOnError" type="checkbox">Поставить очередь на паузу после ошибки</label>
+    </div>
+    <div class="dialog-actions"><button type="button" data-action="settings-close">Отмена</button><button class="primary" type="submit">Сохранить</button></div>
+  </form>
+</dialog>
+<dialog id="frames-dialog" class="compact">
+  <form id="frames-form">
+    <div class="dialog-head">Кадры шота</div>
+    <div class="dialog-body">
+      <label>Диапазоны и отдельные кадры<input name="frames" type="text" placeholder="1-20, 50, 66, 68, 70-150" required></label>
+    </div>
+    <div class="dialog-actions"><button type="button" data-action="frames-close">Отмена</button><button class="primary" type="submit">Применить</button></div>
+  </form>
+</dialog>
+<script>
+const token = new URLSearchParams(location.search).get('token') || '';
+const byId = id => document.getElementById(id);
+const escapeHtml = value => String(value ?? '').replace(/[&<>"']/g, char => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
+const statusColors = {waiting:'#aab8be',held:'#c9973f',discovering:'#60b6da',preparing:'#60b6da',rendering:'#60b6da',paused:'#e1b64e',saving:'#60b6da',completed:'#31a66a',failed:'#ef5f70',cancelled:'#aab8be',skipped:'#778991',stopping:'#ef9b5f'};
+const iconCodes = {
+  list:{solid:'F03A',material:'F572'}, play:{solid:'F04B',material:'F40A'},
+  pause:{solid:'F04C'}, resume:{solid:'F144',regular:'F144'},
+  stop:{solid:'F04D',material:'F4DB'}, folderOpen:{solid:'F07C',regular:'F07C',material:'F76F',automatic:true},
+  settings:{solid:'F013',material:'F8D5'}, filter:{solid:'F0B0',material:'F232'},
+  refresh:{solid:'F2F9',material:'F450'}, sync:{solid:'F2F1',material:'F4E6'},
+  plus:{solid:'F067'}, playlist:{solid:'F0CA',material:'F412'},
+  more:{solid:'F142',material:'F1D9'}, right:{solid:'F054',material:'F142'},
+  chevronDown:{solid:'F078',material:'F140'},
+  checked:{solid:'F058',regular:'F058',material:'F5E0',automatic:true},
+  flask:{solid:'F0C3'}, open:{solid:'F35D',material:'F3CC'},
+  folder:{solid:'F07B',regular:'F07B',material:'F24B',automatic:true},
+  frames:{solid:'F044',regular:'F044',automatic:true}, remove:{solid:'F2ED',regular:'F2ED',material:'F9E6'},
+  top:{solid:'F102'}, up:{solid:'F062',material:'F05D'},
+  down:{solid:'F063',material:'F045'}, bottom:{solid:'F103'},
+  terminal:{solid:'F120'}, clear:{solid:'F51A',material:'F5E9'}
+};
+function resolvedIcon(name) {
+  const value = iconCodes[name], iconSet = state.theme?.iconSet || 'automatic';
+  if (iconSet === 'material-design' && value.material) return ['material', value.material];
+  if (value.regular && (iconSet === 'fontawesome-outline' || (iconSet === 'automatic' && value.automatic))) return ['regular', value.regular];
+  return ['solid', value.solid];
+}
+function icon(name) {
+  const [font, code] = resolvedIcon(name);
+  return `<i class="app-icon ${font}" data-icon="${name}">&#x${code};</i>`;
+}
+function applyIcons() {
+  document.querySelectorAll('[data-icon]').forEach(node => {
+    const [font, code] = resolvedIcon(node.dataset.icon);
+    node.className = `app-icon ${font}`;
+    node.textContent = String.fromCodePoint(parseInt(code, 16));
+  });
+}
+function applyTheme(theme = {}) {
+  const root = document.documentElement;
+  const colors = {
+    '--bg':'workspace', '--header':'topBar', '--surface':'toolBar',
+    '--panel':'panel', '--panel-deep':'panelDeep', '--card':'row',
+    '--card-hover':'rowHover', '--line':'outline', '--line-soft':'separator',
+    '--text':'primaryText', '--muted':'secondaryText', '--faint':'disabledText',
+    '--accent':'action', '--accent-dark':'contentSelection',
+    '--accent-text':'selectedText', '--good':'green', '--warn':'yellow', '--bad':'red'
+  };
+  for (const [property, key] of Object.entries(colors)) if (theme[key]) root.style.setProperty(property, theme[key]);
+  const sizes = {
+    '--field-radius':'fieldRadius', '--button-radius':'buttonRadius',
+    '--item-radius':'itemRadius', '--surface-radius':'surfaceRadius',
+    '--menu-radius':'menuRadius', '--icon-radius':'iconButtonRadius',
+    '--control-height':'controlHeight', '--compact-height':'compactControlHeight'
+  };
+  for (const [property, key] of Object.entries(sizes)) if (Number.isFinite(theme[key])) root.style.setProperty(property, theme[key] + 'px');
+  if (theme.fontFamily) root.style.fontFamily = `"${theme.fontFamily}", system-ui, sans-serif`;
+  root.style.colorScheme = theme.dark === false ? 'light' : 'dark';
+}
+const saved = JSON.parse(localStorage.getItem('batch-web-ui') || '{}');
+let state = {}, selected = '', expanded = new Set(), tab = saved.tab || 'log';
+let detailVisible = saved.detailVisible !== false, previewIndex = -1;
+let loading = false, dragged = '', draggedParent = '';
+
+function saveUi() {
+  localStorage.setItem('batch-web-ui', JSON.stringify({
+    tab, detailVisible,
+    catalogWidth: getComputedStyle(document.documentElement).getPropertyValue('--catalog-width'),
+    detailHeight: getComputedStyle(document.documentElement).getPropertyValue('--detail-height'),
+    follow: byId('follow').checked, freeze: byId('freeze').checked
+  }));
+}
+if (saved.catalogWidth) document.documentElement.style.setProperty('--catalog-width', saved.catalogWidth);
+if (saved.detailHeight) document.documentElement.style.setProperty('--detail-height', saved.detailHeight);
+byId('follow').checked = saved.follow !== false;
+byId('freeze').checked = !!saved.freeze;
+
+async function request(path, options = {}) {
+  const separator = path.includes('?') ? '&' : '?';
+  const response = await fetch(path + separator + 'token=' + encodeURIComponent(token), {
+    ...options,
+    headers: {'Content-Type':'application/json', 'X-Batch-Token':token, ...(options.headers || {})}
+  });
+  const value = await response.json();
+  if (!response.ok) throw Error(value.error || response.statusText);
+  return value;
+}
+function showError(error) { byId('error').textContent = error?.message || String(error || '') }
+async function command(action, values = {}) {
+  try {
+    await request('/api/action', {method:'POST', body:JSON.stringify({action, ...values})});
+    await load();
+  } catch (error) { showError(error) }
+}
+function patch(id, html) {
+  const node = byId(id);
+  if (node._html === html) return;
+  const top = node.scrollTop;
+  node.innerHTML = html;
+  node.scrollTop = top;
+  node._html = html;
+}
+function initials(title) {
+  return String(title || '').split(/[_\s]+/).filter(Boolean).slice(0, 2).map(word => word[0]).join('').slice(0, 2);
+}
+function image(url, title, identity, className = 'thumb') {
+  if (url) url = `/api/thumb?identity=${encodeURIComponent(identity)}&token=${encodeURIComponent(token)}`;
+  return url ? `<img class="${className}" src="${escapeHtml(url)}">` : `<div class="${className} initials">${escapeHtml(initials(title))}</div>`;
+}
+function actionButton(action, iconName, title, id, enabled = true) {
+  return `<button data-action="${action}" data-id="${escapeHtml(id || '')}" title="${escapeHtml(title)}" ${enabled ? '' : 'disabled'}>${icon(iconName)}</button>`;
+}
+function catalogCard(row) {
+  const choices = (row.statusChoices || []).map(choice => escapeHtml(choice.title)).join('|');
+  return `<article class="catalog-card" style="--status:${escapeHtml(row.statusColor || '#60b6da')}" data-catalog="${escapeHtml(row.searchKey)}">
+    <i class="stripe"></i>${image(row.previewUrl, row.title, row.searchKey)}
+    <div><div class="title">${escapeHtml(row.title)}</div><div class="description">${escapeHtml(row.subtitle)}</div><div class="stage">${escapeHtml(row.renderStatus)}</div></div>
+    <div class="row-actions"><button class="icon flat" data-action="add" data-id="${escapeHtml(row.searchKey)}" title="Добавить в очередь">${icon('plus')}</button><button class="icon flat" data-menu-episode="${escapeHtml(row.searchKey)}" data-statuses="${choices}" title="Действия">${icon('more')}</button></div>
+  </article>`;
+}
+function queueRow(row, child) {
+  const actions = new Set(row.actions || []), color = statusColors[row.state] || '#778991';
+  const movable = actions.has('move');
+  let controls = '';
+  if (actions.has('only')) controls += actionButton('only', 'play', 'Запустить только это', row.jobId);
+  if (actions.has('hold')) controls += actionButton('hold', ['held','paused'].includes(row.state) ? 'resume' : 'pause', row.state === 'paused' ? 'Продолжить рендер' : 'Удержать / поставить на паузу', row.jobId);
+  if (actions.has('retry')) controls += actionButton('retry', 'refresh', 'Повторить ошибки / отменённые', row.jobId);
+  if (actions.has('frames')) controls += `<button data-action="frames" data-id="${escapeHtml(row.jobId)}" data-value="${escapeHtml(row.frameSpec || '')}" title="Изменить кадры">${icon('frames')}</button>`;
+  if (actions.has('cancel')) controls += actionButton('cancel', 'stop', 'Отмена', row.jobId);
+  if (actions.has('remove')) controls += actionButton('remove', 'remove', 'Удалить из очереди', row.jobId);
+  controls += actionButton('row-menu', 'more', 'Другие действия', row.jobId);
+  const expand = child ? (actions.has('include') ? `<input type="checkbox" data-action="include" data-id="${escapeHtml(row.jobId)}" ${row.included ? 'checked' : ''}>` : '') : `<span class="expand" data-expand="${escapeHtml(row.jobId)}">${icon(expanded.has(row.jobId) ? 'chevronDown' : 'right')}</span>`;
+  return `<article class="queue-row ${child ? 'child' : ''} ${row.jobId === selected ? 'selected' : ''}" data-select="${escapeHtml(row.jobId)}" data-target="${escapeHtml(row.jobId)}" data-parent="${escapeHtml(row.parentId || '')}" style="--status:${color}">
+    <span class="grip" draggable="${movable}" data-drag="${escapeHtml(row.jobId)}" title="Перетащить"><i class="grip-dots"><b></b><b></b><b></b><b></b><b></b><b></b></i></span>
+    <span>${expand}</span>${image(row.previewUrl, row.title, row.jobId)}
+    <div class="queue-copy"><div class="title">${escapeHtml(row.title)}</div><div class="stage">${escapeHtml(row.stage)}</div><div class="description">${escapeHtml(row.subtitle)}</div></div>
+    <div class="progress-copy"><span>${Math.round((row.progress || 0) * 100)}%</span><div class="bar"><i style="width:${Math.round((row.progress || 0) * 100)}%"></i></div></div>
+    <div class="frames">${escapeHtml(row.frames)}</div><div class="time"><b>${escapeHtml(row.elapsed)}</b>${escapeHtml(row.eta)}</div><div class="row-actions">${controls}</div><i class="stripe"></i>
+  </article>`;
+}
+function renderSummary() {
+  const value = state.summary || {}, progress = Math.round((value.progress || 0) * 100);
+  byId('summary').innerHTML = `<div class="metric"><span>В очереди</span><b>${value.pending || 0}</b></div><div class="metric"><span>Готово / ошибки</span><b>${value.completed || 0} / ${value.failed || 0}</b></div><div class="metric"><span>Прошло</span><b>${escapeHtml(value.elapsed || '0:00')}</b></div><div class="metric"><span>Осталось</span><b>${escapeHtml(value.eta || '—')}</b></div><div class="overall"><div class="bar"><i style="width:${progress}%"></i></div><span>Всего: ${progress}%</span></div>`;
+}
+function renderCatalog() {
+  const query = byId('search').value.trim().toLocaleLowerCase();
+  const rows = (state.episodes || []).filter(row => !query || `${row.title} ${row.subtitle}`.toLocaleLowerCase().includes(query));
+  byId('episode-count').textContent = rows.length;
+  patch('catalog', rows.map(catalogCard).join('') || '<div class="empty">Подходящих эпизодов нет</div>');
+}
+function renderQueue() {
+  const html = [];
+  for (const group of state.queue || []) {
+    html.push(queueRow(group.episode, false));
+    if (expanded.has(group.episode.jobId)) for (const shot of group.shots) html.push(queueRow(shot, true));
+  }
+  patch('queue', html.join('') || '<div class="empty">Добавьте эпизоды слева — очередь пока пуста</div>');
+  const detail = state.selected || {};
+  const canMove = (detail.actions || []).includes('move');
+  document.querySelectorAll('[data-selected-action]').forEach(button => button.disabled = !canMove);
+}
+function renderFilters() {
+  patch('filters', (state.filters || []).map(row => `<button class="filter-row ${row.active ? 'active' : ''}" data-action="filter" data-value="${escapeHtml(row.value)}" style="--status:${escapeHtml(row.statusAccent || '#778991')}"><i class="dot"></i><span>${escapeHtml(row.title)}</span><b>${row.count}</b><span>${row.active ? icon('checked') : ''}</span></button>`).join('') + `<hr><button class="filter-row ${state.watchServer ? 'active' : ''}" data-action="watch">${icon('sync')}<span>Следить за серверной очередью</span><span>${state.watchServer ? icon('checked') : ''}</span></button>`);
+}
+function previewUrl(item, index) {
+  return `/api/preview?job=${encodeURIComponent(item.jobId)}&index=${index}&token=${encodeURIComponent(token)}`;
+}
+function renderDetail() {
+  byId('detail').classList.toggle('hidden', !detailVisible);
+  byId('detail-splitter').classList.toggle('hidden', !detailVisible);
+  byId('main').style.gridTemplateRows = detailVisible ? '' : '48px minmax(150px,1fr) 0 0';
+  if (!detailVisible) return;
+  document.querySelectorAll('[data-tab]').forEach(button => button.classList.toggle('active', button.dataset.tab === tab));
+  const detail = state.selected || {};
+  byId('detail-title').textContent = detail.title || 'Все задачи';
+  const body = byId('detail-body');
+  if (tab === 'log') {
+    if (!body.querySelector('.log')) body.innerHTML = '<pre class="log"></pre>';
+    const log = body.querySelector('.log'), text = state.log || '';
+    if (!byId('freeze').checked && log.textContent !== text) {
+      const follow = byId('follow').checked;
+      log.textContent = text;
+      if (follow) log.scrollTop = log.scrollHeight;
+    }
+    return;
+  }
+  if (tab === 'parameters') {
+    const pairs = [['Этап',detail.stage],['Состояние',detail.state],['Кадры',detail.frames],['Попытка',detail.attempt],['PID',detail.pid],['Код выхода',detail.exitCode],['Прошло',detail.elapsed],['Сцена',detail.scene],['Вывод',detail.output],['Лог',detail.logPath],['Команда',detail.command],['Ошибка',detail.error]];
+    body.innerHTML = `<div class="parameters"><dl>${pairs.filter(pair => pair[1] !== '' && pair[1] != null).map(pair => `<dt>${escapeHtml(pair[0])}</dt><dd>${escapeHtml(pair[1])}</dd>`).join('')}</dl></div>`;
+    return;
+  }
+  const items = state.previews || [];
+  if (!items.length) {
+    previewIndex = -1;
+    body.innerHTML = '<div class="empty">Кадры появятся здесь во время рендера</div>';
+    return;
+  }
+  if (previewIndex < 0 || previewIndex >= items.length) previewIndex = 0;
+  const list = items.map((item, index) => `<button class="preview-tile ${index === previewIndex ? 'active' : ''}" data-preview="${index}">${`<img src="${previewUrl(item,index)}">`}<span>${escapeHtml(item.title)}</span></button>`).join('');
+  if (!body.querySelector('.preview-page')) {
+    body.innerHTML = '<div class="preview-page"><div class="preview-list"></div><div class="viewer"><img></div></div>';
+  }
+  const listNode = body.querySelector('.preview-list'), top = listNode.scrollTop;
+  if (listNode._html !== list) { listNode.innerHTML = list; listNode.scrollTop = top; listNode._html = list }
+  const viewer = body.querySelector('.viewer img'), source = previewUrl(items[previewIndex],previewIndex);
+  if (viewer.getAttribute('src') !== source) viewer.src = source;
+}
+function render() {
+  applyTheme(state.theme);
+  byId('status').textContent = state.status || '';
+  byId('error').textContent = state.error || '';
+  byId('scheduler').innerHTML = (state.paused ? icon('play') + ' Запустить очередь' : icon('pause') + ' Пауза после шота');
+  byId('scheduler').disabled = !state.ready;
+  byId('stop').disabled = !state.running;
+  byId('auto-clear').checked = !!state.autoClear;
+  renderSummary(); renderFilters(); renderCatalog(); renderQueue(); renderDetail();
+  applyIcons();
+}
+async function load() {
+  if (loading) return;
+  loading = true;
+  try {
+    state = await request('/api/state?selected=' + encodeURIComponent(selected));
+    if (selected && !state.selected?.id) { selected = ''; previewIndex = -1 }
+    render();
+  } catch (error) { showError(error) } finally { loading = false }
+}
+function positionPopover(node, anchor) {
+  const rect = anchor.getBoundingClientRect();
+  node.hidden = false;
+  const width = node.offsetWidth, height = node.offsetHeight;
+  node.style.left = Math.max(8, Math.min(innerWidth - width - 8, rect.right - width)) + 'px';
+  node.style.top = Math.max(8, Math.min(innerHeight - height - 8, rect.bottom + 5)) + 'px';
+}
+function showEpisodeMenu(button) {
+  const id = button.dataset.menuEpisode, statuses = (button.dataset.statuses || '').split('|').filter(Boolean);
+  const menu = byId('menu');
+  menu.innerHTML = `<button data-action="add" data-id="${escapeHtml(id)}">${icon('playlist')}Добавить в очередь</button><hr>${statuses.map(status => `<button data-action="status" data-id="${escapeHtml(id)}" data-value="${escapeHtml(status)}">Статус: ${escapeHtml(status)}</button>`).join('')}`;
+  positionPopover(menu, button);
+}
+function showRowMenu(button) {
+  const id = button.dataset.id, detail = state.selected?.id === id ? state.selected : {};
+  const actions = new Set(detail.actions || []), menu = byId('menu');
+  let html = '';
+  if (actions.has('test')) html += `<button data-action="test" data-id="${escapeHtml(id)}">${icon('flask')}Тестовый рендер первого кадра</button>`;
+  html += `<button data-action="open-output" data-id="${escapeHtml(id)}">${icon('folder')}Открыть папку секвенции</button>`;
+  if (detail.logPath) html += `<button data-action="open-log" data-id="${escapeHtml(id)}">${icon('open')}Открыть файл лога</button>`;
+  if (actions.has('frames')) html += `<button data-action="frames" data-id="${escapeHtml(id)}" data-value="${escapeHtml(detail.frameSpec || '')}">${icon('frames')}Кадры…</button>`;
+  if (actions.has('move')) html += `<hr><button data-action="top" data-id="${escapeHtml(id)}">${icon('top')}В самое начало</button><button data-action="up" data-id="${escapeHtml(id)}">${icon('up')}Выше</button><button data-action="down" data-id="${escapeHtml(id)}">${icon('down')}Ниже</button><button data-action="bottom" data-id="${escapeHtml(id)}">${icon('bottom')}В самый конец</button>`;
+  menu.innerHTML = html;
+  positionPopover(menu, button);
+}
+function openSettings() {
+  const values = state.settings || {}, form = byId('settings-form');
+  form.elements.mayaPath.value = values.mayaPath || '';
+  form.elements.savePath.value = values.savePath || '';
+  form.elements.camera.value = values.camera || '';
+  form.elements.timeout.value = values.timeout || 0;
+  form.elements.logCheckin.value = values.logCheckin || 'always';
+  form.elements.skipDependencyErrors.checked = !!values.skipDependencyErrors;
+  form.elements.pollInterval.value = values.pollInterval || 10;
+  form.elements.webEnabled.checked = values.webEnabled !== false;
+  form.elements.webPort.value = values.webPort || 92;
+  form.elements.webSecurity.checked = !!values.webSecurity;
+  form.elements.stopOnError.checked = !!values.stopOnError;
+  byId('settings-dialog').showModal();
+}
+function openFrames(id, value) {
+  const form = byId('frames-form');
+  form.dataset.id = id;
+  form.elements.frames.value = value;
+  byId('frames-dialog').showModal();
+  form.elements.frames.select();
+}
+function resize(splitter, axis, property, minimum, maximum) {
+  splitter.addEventListener('pointerdown', event => {
+    event.preventDefault(); splitter.setPointerCapture(event.pointerId);
+    const move = current => {
+      const rect = byId('content').getBoundingClientRect();
+      const value = axis === 'x' ? current.clientX - rect.left : rect.bottom - current.clientY;
+      document.documentElement.style.setProperty(property, Math.max(minimum, Math.min(maximum(), value)) + 'px');
+    };
+    splitter.addEventListener('pointermove', move);
+    splitter.addEventListener('pointerup', () => { splitter.removeEventListener('pointermove', move); saveUi() }, {once:true});
+  });
+}
+resize(byId('catalog-splitter'), 'x', '--catalog-width', 260, () => Math.min(600, innerWidth * .45));
+resize(byId('detail-splitter'), 'y', '--detail-height', 130, () => Math.max(130, innerHeight * .7));
+
+byId('search').addEventListener('input', renderCatalog);
+byId('follow').addEventListener('change', saveUi);
+byId('freeze').addEventListener('change', saveUi);
+byId('settings-form').addEventListener('submit', event => {
+  event.preventDefault(); const form = event.currentTarget;
+  command('settings', {values:{
+    mayaPath:form.elements.mayaPath.value,
+    savePath:form.elements.savePath.value,
+    camera:form.elements.camera.value,
+    timeout:Number(form.elements.timeout.value),
+    logCheckin:form.elements.logCheckin.value,
+    skipDependencyErrors:form.elements.skipDependencyErrors.checked,
+    pollInterval:Number(form.elements.pollInterval.value),
+    webEnabled:form.elements.webEnabled.checked,
+    webPort:Number(form.elements.webPort.value),
+    webSecurity:form.elements.webSecurity.checked,
+    stopOnError:form.elements.stopOnError.checked
+  }});
+  byId('settings-dialog').close();
+});
+byId('frames-form').addEventListener('submit', event => {
+  event.preventDefault(); const form = event.currentTarget;
+  command('frames', {id:form.dataset.id, value:form.elements.frames.value.trim()});
+  byId('frames-dialog').close();
+});
+document.addEventListener('click', event => {
+  const episodeMenu = event.target.closest('[data-menu-episode]');
+  if (episodeMenu) { showEpisodeMenu(episodeMenu); return }
+  const actionNode = event.target.closest('[data-action]');
+  if (actionNode) {
+    const action = actionNode.dataset.action, id = actionNode.dataset.id || selected;
+    if (!['filters','row-menu'].includes(action)) { byId('filters').hidden = true; byId('menu').hidden = true }
+    if (action === 'filters') { positionPopover(byId('filters'), actionNode); return }
+    if (action === 'row-menu') { if (selected !== id) { selected = id; previewIndex = -1; load().then(() => { const anchor = [...document.querySelectorAll('[data-action="row-menu"]')].find(node => node.dataset.id === id); if (anchor) showRowMenu(anchor) }) } else showRowMenu(actionNode); return }
+    if (action === 'settings-open') { openSettings(); return }
+    if (action === 'settings-close') { byId('settings-dialog').close(); return }
+    if (action === 'frames-close') { byId('frames-dialog').close(); return }
+    if (action === 'detail-toggle') { detailVisible = !detailVisible; saveUi(); renderDetail(); return }
+    if (action === 'frames') { openFrames(id, actionNode.dataset.value || ''); return }
+    if (action === 'filter' || action === 'status') command(action,{id,value:actionNode.dataset.value});
+    else if (action === 'top' || action === 'bottom') command(action,{id,delta:action === 'top' ? -1000000 : 1000000});
+    else command(action,{id});
+    return;
+  }
+  const selectedAction = event.target.closest('[data-selected-action]');
+  if (selectedAction && selected) { const action = selectedAction.dataset.selectedAction; command(action,{id:selected,delta:action === 'top' ? -1000000 : action === 'bottom' ? 1000000 : undefined}); return }
+  const tabNode = event.target.closest('[data-tab]');
+  if (tabNode) { tab = tabNode.dataset.tab; saveUi(); renderDetail(); return }
+  const previewNode = event.target.closest('[data-preview]');
+  if (previewNode) { previewIndex = Number(previewNode.dataset.preview); renderDetail(); return }
+  const expandNode = event.target.closest('[data-expand]');
+  if (expandNode) { const id = expandNode.dataset.expand; expanded.has(id) ? expanded.delete(id) : expanded.add(id); renderQueue(); return }
+  const row = event.target.closest('[data-select]');
+  if (row) { selected = row.dataset.select; previewIndex = -1; load() }
+});
+document.addEventListener('dblclick', event => {
+  const row = event.target.closest('.queue-row:not(.child)');
+  if (row) { const id = row.dataset.select; expanded.has(id) ? expanded.delete(id) : expanded.add(id); renderQueue(); return }
+  const card = event.target.closest('[data-catalog]');
+  if (card) command('add',{id:card.dataset.catalog});
+});
+document.addEventListener('dragstart', event => {
+  const grip = event.target.closest('[data-drag]');
+  if (!grip || grip.getAttribute('draggable') !== 'true') { event.preventDefault(); return }
+  dragged = grip.dataset.drag; draggedParent = grip.closest('.queue-row').dataset.parent; event.dataTransfer.effectAllowed = 'move'; event.dataTransfer.setData('text/plain', dragged);
+  grip.closest('.queue-row').classList.add('dragging');
+});
+document.addEventListener('dragover', event => {
+  const target = event.target.closest('[data-target]');
+  if (!target || !dragged || target.dataset.target === dragged || target.dataset.parent !== draggedParent) return;
+  event.preventDefault(); target.classList.add('drop-before');
+});
+document.addEventListener('dragleave', event => event.target.closest('[data-target]')?.classList.remove('drop-before'));
+document.addEventListener('drop', event => {
+  const target = event.target.closest('[data-target]'); document.querySelectorAll('.drop-before').forEach(node => node.classList.remove('drop-before'));
+  if (target && dragged && target.dataset.target !== dragged && target.dataset.parent === draggedParent) { event.preventDefault(); command('move-to',{id:dragged,target:target.dataset.target}) }
+});
+document.addEventListener('dragend', () => { dragged = ''; draggedParent = ''; document.querySelectorAll('.dragging,.drop-before').forEach(node => node.classList.remove('dragging','drop-before')) });
+document.addEventListener('pointerdown', event => {
+  if (!event.target.closest('.popover') && !event.target.closest('[data-menu-episode]') && !event.target.closest('[data-action="filters"]')) { byId('filters').hidden = true; byId('menu').hidden = true }
+});
+load();
+setInterval(load, 1000);
+</script>
+</body>
+</html>"""

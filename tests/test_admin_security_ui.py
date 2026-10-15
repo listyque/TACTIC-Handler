@@ -49,7 +49,7 @@ class AdminSecurityUiTests(unittest.TestCase):
         for scope in ('project', 'link', 'gear_menu', 'search_type', 'process', 'tasks'):
             self.click('adminSecurityTab_' + scope)
             self.assertEqual(self.editor.matrix.scope, scope)
-            self.assertEqual(self.item('adminSecurityMatrix').property('columns'), 3)
+            self.assertEqual(self.item('adminSecurityMatrixViewport').property('columns'), 3)
             self.assertFalse(any(item.objectName() == 'adminSecurityAdvancedGroup'
                                  and item.isVisible() for item in self.items()))
         self.assertEqual(self.editor.groupDocument['xml'], RULES)
@@ -82,7 +82,12 @@ class AdminSecurityUiTests(unittest.TestCase):
         self.assertFalse(self.item('adminSecurityCell_0_0').isEnabled())
         self.assertEqual(self.editor.rules[2]['access'], 'view')
         self.click('adminSecurityTab_technical')
-        self.click('adminGroupAccessLevel_high')
+        self.click('adminSecurityGroup_accessLevel')
+        QTest.keyClick(self.window, Qt.Key_Down)
+        QTest.keyClick(self.window, Qt.Key_Down)
+        QTest.keyClick(self.window, Qt.Key_Return)
+        frame(self.window)
+        self.assertEqual(self.editor.groupDocument['accessLevel'], 'high')
         self.click('adminSecurityTab_project')
         # A specific project deny can override the wildcard: only the wildcard
         # grant itself is controlled by this group's high access level.
@@ -98,6 +103,7 @@ class AdminSecurityUiTests(unittest.TestCase):
         self.click('adminSecurityCell_0_1')
         self.assertTrue(self.editor.dirty)
         self.click('adminDiscardDocument')
+        self.click('adminConfirmSave')
         self.assertFalse(self.editor.dirty)
         self.assertFalse(self.editor.matrix.cell_at(0, 1)['checked'])
         self.assertEqual(self.editor.groupDocument['xml'], RULES)
@@ -108,12 +114,37 @@ class AdminSecurityUiTests(unittest.TestCase):
         self.assertEqual(self.editor.selectedAttributes['group'], 'search_filter')
         self.assertNotIn('access', self.editor.selectedAttributes)
         self.click('adminDiscardDocument')
+        self.click('adminConfirmSave')
         self.click('adminSecurityTab_technical')
-        self.click('adminCustomAccessRule_5')
-        self.assertEqual(json.loads(self.item('adminNativeDocumentText').property('text'))['extra'], 'keep')
+        self.click('adminAccessRule_5')
+        self.assertEqual(json.loads(self.item('adminSecuritySource').property('text'))['extra'], 'keep')
         self.editor.apply_rule(self.editor.ruleText.replace('"keep"', '"updated"'))
         self.assertIn('<!--preserve-->', self.editor.groupDocument['xml'])
         self.assertIn('<extension name="unchanged"', self.editor.groupDocument['xml'])
+        self.assertEqual(self.fixture.warnings, [])
+
+    def test_unapplied_text_is_guarded_and_remains_editable(self):
+        self.click('adminSecurityTab_technical')
+        self.click('adminSecurityTechnicalPages_xml')
+        self.click('adminSecuritySource')
+        QTest.keyClick(self.window, Qt.Key_A, Qt.ControlModifier)
+        for char in 'broken':
+            QTest.keyClick(self.window, char)
+            frame(self.window)
+        self.assertEqual(self.item('adminSecuritySource').property('text'), 'broken')
+        self.assertTrue(self.editor.dirty)
+        self.assertFalse(self.item('adminSaveDocument').isEnabled())
+        self.assertFalse(self.item('adminSecurityTab_project').isEnabled())
+        self.click('adminSecurityApplyText')
+        self.assertTrue(self.editor.error)
+        self.assertEqual(self.item('adminSecuritySource').property('text'), 'broken')
+        self.assertEqual(self.editor.groupDocument['xml'], RULES)
+        self.click('adminReloadDocument')
+        self.click('adminCancelSave')
+        self.assertEqual(self.item('adminSecuritySource').property('text'), 'broken')
+        self.click('adminSecurityDiscardText')
+        self.assertFalse(self.editor.dirty)
+        self.assertEqual(self.item('adminSecuritySource').property('text'), RULES)
         self.assertEqual(self.fixture.warnings, [])
 
     def test_narrow_wide_virtualization_and_scroll_gutters(self):
@@ -122,7 +153,7 @@ class AdminSecurityUiTests(unittest.TestCase):
         for width, height in ((900, 700), (1400, 940)):
             self.window.resize(width, height)
             frame(self.window)
-            grid = self.item('adminSecurityMatrix')
+            grid = self.item('adminSecurityMatrixViewport')
             self.assertGreater(grid.height(), 100)
             for suffix in ('Vertical', 'Horizontal'):
                 bar = self.item('adminSecurityMatrix' + suffix + 'Bar')
@@ -172,7 +203,7 @@ class AdminSecurityUiTests(unittest.TestCase):
         self.assertTrue(self.item('adminSecurityCell_1_2').property('activeFocus'),
                         (self.fixture.warnings, [item.objectName() for item in self.items()
                                                  if item.property('activeFocus')]))
-        grid = self.item('adminSecurityMatrix')
+        grid = self.item('adminSecurityMatrixViewport')
         for _ in range(8):
             QTest.keyClick(self.window, Qt.Key_Right)
             frame(self.window)
@@ -197,7 +228,7 @@ class AdminSecurityUiTests(unittest.TestCase):
         self.assertFalse(self.item('adminSaveDocument').isEnabled())
         self.click('adminSecurityCell_1_1')
         self.assertTrue(self.item('adminSaveDocument').isEnabled())
-        self.assertFalse(self.item('adminReloadDocument').isEnabled())
+        self.assertTrue(self.item('adminReloadDocument').isEnabled())
         self.editor._can_write = False
         self.editor.stateChanged.emit()
         frame(self.window)
@@ -211,6 +242,7 @@ class AdminSecurityUiTests(unittest.TestCase):
         frame(self.window)
         self.assertEqual(self.item('adminDocumentError').property('text'), 'Server rejected this draft')
         self.click('adminDiscardDocument')
+        self.click('adminConfirmSave')
         self.assertFalse(self.editor.dirty)
         self.assertEqual(self.editor.error, '')
         self.assertEqual(self.fixture.warnings, [])

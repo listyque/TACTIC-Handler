@@ -92,6 +92,7 @@ Item {
                 }
 
                 Loader {
+                    anchors.fill: parent
                     active: pointer.containsMouse
                         && !root.theme.suppressToolTips
                     sourceComponent: Controls.ToolTip {

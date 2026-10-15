@@ -8,8 +8,11 @@ from tempfile import TemporaryDirectory
 from types import SimpleNamespace
 from unittest.mock import Mock, patch
 
-from PySide6.QtCore import QObject, QEventLoop, QThread, QTimer, Signal
+from PySide6.QtCore import QObject, QEventLoop, QThread, QTimer, QUrl, Qt, Signal
 from PySide6.QtGui import QTextDocument
+from PySide6.QtQml import QQmlComponent, QQmlEngine
+from PySide6.QtQuick import QQuickItem, QQuickWindow
+from PySide6.QtTest import QTest
 
 from tests.qt_application import gui_test_application
 from thlib.ui.script_editor import ScriptEditorController
@@ -27,6 +30,14 @@ from thlib.pool import ThreadsPool
 class _DebugLog:
     def raise_error(self, *_args, **_kwargs):
         return None
+
+
+class _Users(QObject):
+    stateChanged = Signal()
+
+    def __init__(self, can_manage=False):
+        super().__init__()
+        self.canManageUsers = can_manage
 
 
 class _DccBridge(QObject):
@@ -122,6 +133,48 @@ class ScriptEditorTests(unittest.TestCase):
             ["pipeline", "tools", "First", "Second"],
         )
 
+    def test_regular_user_can_view_but_not_change_or_run_editor_scripts(self):
+        users = _Users()
+        viewer = ScriptEditorController(None, _DebugLog(), users=users)
+        viewer._objects = dict(self.controller._objects)
+        viewer._scripts = list(self.controller._scripts)
+        opened = viewer.script("SCRIPT1")
+
+        self.assertFalse(viewer.canEdit)
+        self.assertEqual(opened["source"], "print('first')")
+        self.assertFalse(viewer.save("SCRIPT1", "pipeline", "First",
+                                     "local_python", "changed"))
+        self.assertFalse(viewer.confirm_close_all_save())
+        self.assertFalse(viewer.restore_saved_revision("REV1"))
+        viewer.update_editor_state(
+            "SCRIPT1", "pipeline", "Changed", "local_python", "changed"
+        )
+        self.assertEqual(viewer.currentEditor["source"], "print('first')")
+        self.assertNotIn("delete", [
+            item.get("command") for item in viewer.open_menu("SCRIPT1")
+        ])
+        viewer.request_delete_script("SCRIPT1")
+        self.assertEqual(viewer._pending_delete, "")
+        viewer.request_run("server", "python", "print('unsafe')")
+        self.assertEqual(viewer._pending, {})
+        viewer.create_new_script()
+        self.assertEqual(viewer.currentTabId, opened["tabId"])
+
+        users.canManageUsers = True
+        users.stateChanged.emit()
+        self.assertTrue(viewer.canEdit)
+        self.assertIn("delete", [
+            item.get("command") for item in viewer.open_menu("SCRIPT1")
+        ])
+
+    def test_native_administrator_can_edit_without_supervisor_group(self):
+        application = _Application()
+        application.can_administer = True
+        viewer = ScriptEditorController(
+            application, _DebugLog(), users=_Users()
+        )
+        self.assertTrue(viewer.canEdit)
+
     def test_tree_filter_finds_nested_scripts_and_restores_folders(self):
         self.controller.set_tree_filter(r"TOOLS\FIR")
         self.assertEqual(
@@ -137,6 +190,80 @@ class ScriptEditorTests(unittest.TestCase):
             [row["title"] for row in self.controller.model._records],
             ["pipeline"],
         )
+
+    def test_empty_script_tree_keeps_search_at_top(self):
+        qml_dir = Path(__file__).parents[1] / "thlib" / "ui" / "qml"
+        engine = QQmlEngine()
+        engine.addImportPath(str(qml_dir))
+        warnings = []
+        engine.warnings.connect(
+            lambda errors: warnings.extend(error.toString() for error in errors)
+        )
+        theme_component = QQmlComponent(
+            engine, QUrl.fromLocalFile(str(qml_dir / "Theme.qml"))
+        )
+        theme = theme_component.createWithInitialProperties({"dark": True})
+        empty_controller = ScriptEditorController(None, _DebugLog())
+        component = QQmlComponent(
+            engine, QUrl.fromLocalFile(str(qml_dir / "ScriptTree.qml"))
+        )
+        tree = component.createWithInitialProperties({
+            "theme": theme,
+            "controller": empty_controller,
+            "treeModel": empty_controller.model,
+        })
+        self.assertIsNotNone(tree, component.errors())
+        window = QQuickWindow()
+        try:
+            tree.setParentItem(window.contentItem())
+            window.show()
+            search = tree.findChild(QQuickItem, "scriptEditorTreeSearch")
+            scripts = tree.findChild(QQuickItem, "scriptEditorTreeList")
+            self.assertIsNotNone(search)
+            self.assertIsNotNone(scripts)
+            for width in (180, 320):
+                window.resize(width, 500)
+                tree.setWidth(width)
+                tree.setHeight(500)
+                QTest.qWait(20)
+                self.assertEqual(scripts.property("count"), 0)
+                self.assertTrue(scripts.isVisible())
+                self.assertLess(search.y(), 20)
+                self.assertGreater(scripts.height(), 350)
+
+            empty_controller._done({
+                "kind": "load",
+                "objects": {"SCRIPT1": _ScriptObject(
+                    "SCRIPT1", "", "First", "python", "pass"
+                )},
+                "rows": [{
+                    "token": "SCRIPT1", "folder": "", "title": "First",
+                    "language": "python",
+                }],
+            })
+            QTest.qWait(20)
+            self.assertEqual(scripts.property("count"), 1)
+            self.assertTrue(scripts.isVisible())
+            self.assertLess(search.y(), 20)
+            search.forceActiveFocus()
+            for key in (Qt.Key_M, Qt.Key_I, Qt.Key_S, Qt.Key_S,
+                        Qt.Key_I, Qt.Key_N, Qt.Key_G):
+                QTest.keyClick(window, key)
+            QTest.qWait(20)
+            self.assertEqual(scripts.property("count"), 0)
+            self.assertTrue(scripts.isVisible())
+            self.assertLess(search.y(), 20)
+            self.assertFalse(window.grabWindow().isNull())
+            tree_warnings = [
+                warning for warning in warnings if "/ScriptTree.qml:" in warning
+            ]
+            self.assertFalse(tree_warnings, "\n".join(tree_warnings))
+        finally:
+            window.close()
+            tree.setParentItem(None)
+            tree.deleteLater()
+            theme.deleteLater()
+            window.deleteLater()
 
     def test_nested_title_is_loaded_and_saved_as_a_nested_folder(self):
         item = _ScriptObject(
@@ -515,6 +642,32 @@ class ScriptEditorTests(unittest.TestCase):
             for value in second
         }
         self.assertEqual(colors[0], "#123456")
+
+    def test_python_highlighter_closes_triple_quotes_at_start_of_line(self):
+        for quote in ('"""', "'''"):
+            for indentation in ("", "  "):
+                with self.subTest(quote=quote, indentation=indentation):
+                    document = QTextDocument()
+                    document.setPlainText(
+                        f"{quote}description\ncontinued\n{indentation}{quote}"
+                        "\nimport random"
+                    )
+                    highlighter = PythonSyntaxHighlighter(document, {
+                        "keyword": "#c0a000",
+                        "string": "#00aa00",
+                    })
+                    highlighter.rehighlight()
+
+                    closing = document.findBlockByNumber(2)
+                    following = closing.next()
+                    self.assertEqual(closing.userState(), 0)
+                    self.assertEqual(following.userState(), 0)
+                    colors = {
+                        span.format.foreground().color().name()
+                        for span in following.layout().formats()
+                        if span.start <= 0 < span.start + span.length
+                    }
+                    self.assertEqual(colors, {"#c0a000"})
 
     def test_completion_indexes_python_locals_and_handler_api(self):
         local = completion_items(

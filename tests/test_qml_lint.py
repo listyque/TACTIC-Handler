@@ -32,29 +32,34 @@ class QmlLintTests(unittest.TestCase):
             "qmllint_max_warnings"
         ]
         qml_files = sorted(str(path) for path in QML_ROOT.rglob("*.qml"))
-        result = subprocess.run(
-            [
-                _qmllint_path(), "--json", "-", "-I", str(QML_ROOT),
-                *qml_files,
-            ],
-            cwd=ROOT,
-            capture_output=True,
-            text=True,
-            encoding="utf-8",
-            errors="replace",
-            check=False,
-        )
-        self.assertEqual(
-            result.returncode,
-            0,
-            "qmllint could not analyze the QML tree:\n" + result.stderr,
-        )
-        try:
-            report = json.loads(result.stdout)
-        except json.JSONDecodeError as error:
-            self.fail(f"qmllint returned invalid JSON: {error}\n{result.stdout}")
+        reports = []
+        for offset in range(0, len(qml_files), 25):
+            result = subprocess.run(
+                [
+                    _qmllint_path(), "--json", "-", "-I", str(QML_ROOT),
+                    *qml_files[offset:offset + 25],
+                ],
+                cwd=ROOT,
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+                errors="replace",
+                check=False,
+            )
+            self.assertEqual(
+                result.returncode,
+                0,
+                "qmllint could not analyze the QML tree:\n" + result.stderr,
+            )
+            try:
+                reports.append(json.loads(result.stdout))
+            except json.JSONDecodeError as error:
+                self.fail(
+                    f"qmllint returned invalid JSON: {error}\n{result.stdout}"
+                )
         counts = Counter(
             warning.get("id", "")
+            for report in reports
             for file_result in report.get("files", [])
             for warning in file_result.get("warnings", [])
         )

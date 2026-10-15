@@ -22,11 +22,12 @@ from thlib.ui.workspace_models.docks_tree import (
     swap_panels,
     tabify,
 )
+from tests.dock_layout_fixture import three_column_layout, three_column_settings
 
 
 class DockLayoutTreeTests(unittest.TestCase):
     def setUp(self):
-        self.settings = {}
+        self.settings = three_column_settings()
         self.model = DockPanelModel(self.settings)
 
     def panel(self, panel_id):
@@ -34,6 +35,34 @@ class DockLayoutTreeTests(unittest.TestCase):
             panel for panel in self.model._panels
             if panel.panel_id == panel_id
         )
+
+    def test_commit_queue_can_stack_with_search_and_maximize_without_changing_layout(self):
+        model = DockPanelModel({})
+        model.show_panel('commit_queue')
+        model.place_panel('commit_queue', 'results', 'center')
+        self.assertEqual(set(stack_for_panel(model._layout_root, 'results').panel_ids), {'results','commit_queue'})
+        model.show_panel('snapshot')
+        before = model.capture_layout()
+        model.maximize_panel('commit_queue')
+        self.assertEqual(model.maximizedPanelId, 'commit_queue')
+        self.assertFalse(model.is_panel_presented('snapshot'))
+        row = model._index_for('commit_queue')
+        self.assertEqual([model.data(model.index(row,0),role) for role in (model.XRole,model.YRole,model.WidthRole,model.HeightRole)], [0,0,1,1])
+        self.assertEqual(model.capture_layout(), before)
+        model.maximize_panel('commit_queue')
+        self.assertEqual(model.maximizedPanelId, '')
+        self.assertEqual(model.capture_layout(), before)
+        self.assertTrue(model.is_panel_presented('snapshot'))
+
+    def test_fresh_workspace_contains_only_full_width_search(self):
+        fresh = DockPanelModel({})
+        self.assertEqual(fresh._layout_root, default_layout())
+        self.assertEqual(panel_ids(fresh._layout_root), ("results",))
+        self.assertEqual(
+            [panel.panel_id for panel in fresh._panels if panel.visible],
+            ["results"],
+        )
+        self.assertEqual(fresh._panels[0].width, 1.0)
 
     def test_qml_projections_exclude_hidden_and_inactive_native_windows(self):
         visible = VisibleDockPanelModel(self.model)
@@ -56,9 +85,9 @@ class DockLayoutTreeTests(unittest.TestCase):
         self.model.show_panel("drop_plate")
         self.assertEqual(visible.rowCount(), 5)
 
-    def test_default_tree_reproduces_the_three_column_workspace(self):
+    def test_populated_tree_reproduces_the_three_column_workspace(self):
         rectangles = layout_rectangles(
-            default_layout(), {
+            three_column_layout(), {
                 "results", "tasks", "notes", "task_calendar", "snapshot",
             }
         )
@@ -139,7 +168,7 @@ class DockLayoutTreeTests(unittest.TestCase):
             self.model.close_panel(panel_id)
 
     def test_tabify_changes_only_the_target_stack(self):
-        root = tabify(default_layout(), "tasks", "drop_plate")
+        root = tabify(three_column_layout(), "tasks", "drop_plate")
         self.assertIsNotNone(root)
         self.assertIn("drop_plate", panel_ids(root))
 
@@ -191,7 +220,7 @@ class DockLayoutTreeTests(unittest.TestCase):
 
     def test_relative_insert_splits_only_the_target_cell(self):
         root = insert_relative(
-            default_layout(), "tasks", "drop_plate", "bottom"
+            three_column_layout(), "tasks", "drop_plate", "bottom"
         )
         rectangles = layout_rectangles(
             root,
@@ -207,7 +236,7 @@ class DockLayoutTreeTests(unittest.TestCase):
         self.assertAlmostEqual(rectangles["notes"][0], 0.66)
 
     def test_swap_exchanges_panel_cells_without_changing_ratios(self):
-        root = default_layout()
+        root = three_column_layout()
         before = layout_rectangles(
             root, {"results", "tasks", "snapshot", "description"}
         )
@@ -562,7 +591,7 @@ class DockLayoutTreeTests(unittest.TestCase):
         restored = DockPanelModel(settings)
         stack = stack_for_panel(restored._layout_root, "snapshot")
         self.assertEqual(
-            stack.panel_ids, ("snapshot", "notes", "task_calendar")
+            stack.panel_ids, ("snapshot", "notes")
         )
         self.assertEqual(stack.active_panel_id, "snapshot")
 
@@ -618,8 +647,10 @@ class DockLayoutTreeTests(unittest.TestCase):
         saved = json.loads(
             self.model._settings.get("workspace/dockLayout", "")
         )
-        self.assertEqual(saved["layout"]["type"], "split")
-        self.assertIn(("snapshot", True), visibility_changes)
+        self.assertEqual(saved["layout"]["type"], "stack")
+        self.assertEqual(saved["layout"]["panels"], ["results"])
+        self.assertIn(("tasks", False), visibility_changes)
+        self.assertNotIn(("snapshot", True), visibility_changes)
         self.assertIn(("description", False), visibility_changes)
 
     def test_top_bar_menu_exposes_workspace_layout_reset(self):

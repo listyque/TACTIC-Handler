@@ -26,7 +26,7 @@ def _empty_base_dirs():
     }
     for _alias, win_key, linux_key in _REPOSITORIES[1:]:
         title = _alias.replace("_", " ").title()
-        active = _alias == "local"
+        active = False
         defaults[win_key] = ["", title, "", _alias, active]
         defaults[linux_key] = ["", title, "", _alias, active]
     return defaults
@@ -96,6 +96,12 @@ class RepositoryEditorController(QObject):
     @Property(str, notify=configurationChanged)
     def current_path(self):
         return self._current_path
+
+    @Property(bool, notify=configurationChanged)
+    def team_local_repository(self):
+        from thlib.environment import env_server
+
+        return env_server.is_team_local_repository()
 
     @staticmethod
     def _configuration_summary(records, platform_role):
@@ -378,7 +384,15 @@ class RepositoryEditorController(QObject):
     def _check_paths(paths):
         result = {}
         for key, raw_path in paths.items():
-            path = Path(str(raw_path or "")).expanduser()
+            if not str(raw_path or "").strip():
+                result[key] = {"ok": False, "text": "Repository path is empty"}
+                continue
+            path = Path(str(raw_path)).expanduser()
+            try:
+                path.mkdir(parents=True, exist_ok=True)
+            except OSError as error:
+                result[key] = {"ok": False, "text": "Could not create repository folder", "details": str(error)}
+                continue
             exists = path.is_dir()
             readable = exists and os.access(path, os.R_OK)
             writable = exists and os.access(path, os.W_OK)
@@ -417,7 +431,9 @@ class RepositoryEditorController(QObject):
             if not status:
                 continue
             record["status"] = "available" if status["ok"] else "unavailable"
-            record["statusText"] = status["text"]
+            record["statusText"] = self.tr(status["text"])
+            if status.get("details"):
+                record["statusText"] += ": " + status["details"]
             index = self.model.index(row, 0)
             self.model.dataChanged.emit(index, index)
         self._busy = False
@@ -537,3 +553,44 @@ class RepositoryEditorController(QObject):
         self.dirtyChanged.emit()
         self.saved.emit()
         return True
+
+    @staticmethod
+    def _set_team_repository_path(path, repo_name):
+        from thlib import tactic_classes as tc, tactic_query as tq
+
+        return tc.execute_procedure_serverside(
+            tq.set_team_repository_path,
+            {"path": path, "repo_name": repo_name},
+            project="sthpw",
+            return_dict=False,
+        )
+
+    @Slot()
+    def sync_team_repository_path(self):
+        from thlib.environment import env_inst
+
+        path = str(self._current_path or "")
+        repo_name = str(self._current_code or "")
+        if self._busy or not self.team_local_repository or self.dirty:
+            return
+        self._busy = True
+        self.busyChanged.emit()
+        self._worker = env_inst.server_pool.add_task(
+            self._set_team_repository_path, path, repo_name
+        )
+        self._worker.result.connect(self._team_repository_synced)
+        self._worker.error.connect(self._path_check_failed)
+        self._worker.start()
+
+    @Slot(object)
+    def _team_repository_synced(self, result):
+        from thlib.environment import env_tactic
+
+        env_tactic.default_base_dirs = None
+        self._busy = False
+        self._worker = None
+        self.busyChanged.emit()
+        self._set_message(
+            "TACTIC repository path updated. Restart TACTIC if its web view still uses the old path."
+            if result == "updated" else "TACTIC already uses this repository path."
+        )

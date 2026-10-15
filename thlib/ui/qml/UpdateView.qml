@@ -7,6 +7,7 @@ Item {
     required property var theme
     required property bool createMode
     property bool versionInitialized: false
+    property string currentPage: "updates"
 
     function syncVersion() {
         if (!createMode || versionInitialized
@@ -18,10 +19,12 @@ Item {
             minor.value = Number(parts[1])
             build.value = Number(parts[2])
             revision.value = Number(parts[3])
+            changes.text = updateController.currentChanges
             versionInitialized = true
         }
     }
 
+    Component.onCompleted: root.syncVersion()
     onVisibleChanged: if (visible) updateController.load()
     Rectangle { anchors.fill: parent; color: root.theme.panelDeep }
     ColumnLayout {
@@ -52,25 +55,44 @@ Item {
                     font.weight: Font.DemiBold
                 }
                 Label {
+                    id: currentVersionLabel
+                    objectName: "currentVersionLabel"
                     text: qsTr("Current version  ") + (updateController.currentVersion || "—")
                     color: root.theme.secondaryText
                     font.pointSize: Controls.Typography.label
+                    MouseArea {
+                        anchors.fill: parent
+                        acceptedButtons: Qt.LeftButton
+                        onDoubleClicked: mouse => {
+                            if (mouse.modifiers & Qt.ControlModifier)
+                                updateController.open_generator()
+                        }
+                    }
                 }
             }
             RefreshIconButton {
                 theme: root.theme
-                toolTip: qsTr("Reload local update history")
+                visible: root.createMode || root.currentPage === "updates"
+                toolTip: qsTr("Check TACTIC update snapshots")
                 enabled: !updateController.busy
                 onClicked: updateController.load()
             }
-            Controls.CompactIconButton {
-                theme: root.theme
-                visible: !root.createMode
-                iconName: "cloud_download"
-                toolTip: qsTr("Check update source")
-                enabled: !updateController.busy
-                onClicked: updateController.refresh_remote()
-            }
+        }
+
+        Controls.SegmentedButton {
+            objectName: "updatePages"
+            visible: !root.createMode
+            Layout.fillWidth: true
+            theme: root.theme
+            currentValue: root.currentPage
+            segmentObjectNamePrefix: "updatePage_"
+            model: [
+                {"value": "updates", "label": qsTr("Available updates"),
+                 "icon": "system_update"},
+                {"value": "changelog", "label": qsTr("Changelog"),
+                 "icon": "history"}
+            ]
+            onActivated: value => root.currentPage = value
         }
 
         GridLayout {
@@ -86,15 +108,29 @@ Item {
             Controls.SpinBox { id: major; theme: root.theme; Layout.fillWidth: true; from: 0; to: 999 }
             Controls.SpinBox { id: minor; theme: root.theme; Layout.fillWidth: true; from: 0; to: 999 }
             Controls.SpinBox { id: build; theme: root.theme; Layout.fillWidth: true; from: 0; to: 999 }
-            Controls.SpinBox { id: revision; theme: root.theme; Layout.fillWidth: true; from: 0; to: 999 }
+            Controls.SpinBox { id: revision; objectName: "updateRevision"; theme: root.theme; Layout.fillWidth: true; from: 0; to: 999 }
         }
-        Controls.TextArea {
-            id: changes
-            theme: root.theme
+        ScrollView {
+            id: changesScroll
+            objectName: "updateChangesScroll"
             visible: root.createMode
             Layout.fillWidth: true
             Layout.preferredHeight: 76
-            placeholderText: qsTr("Changes")
+            clip: true
+            rightPadding: 14
+            ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
+            ScrollBar.vertical: Controls.ScrollBar {
+                objectName: "updateChangesScrollbar"
+                theme: root.theme
+                flickableTarget: changesScroll
+            }
+            Controls.TextArea {
+                id: changes
+                objectName: "updateChanges"
+                theme: root.theme
+                width: changesScroll.availableWidth
+                placeholderText: qsTr("Changes")
+            }
         }
         Controls.TextArea {
             id: misc
@@ -107,11 +143,13 @@ Item {
 
         ListView {
             id: versions
+            visible: root.createMode || root.currentPage === "updates"
             Layout.fillWidth: true
             Layout.fillHeight: true
             model: updateModel
             clip: true
             spacing: 5
+            rightMargin: 14
             delegate: Rectangle {
                 required property int index
                 required property string version
@@ -119,7 +157,7 @@ Item {
                 required property string changes
                 required property string misc
                 required property bool selected
-                width: versions.width
+                width: Math.max(0, versions.width - versions.rightMargin)
                 height: 72
                 radius: 13
                 color: selected ? root.theme.secondaryContainer
@@ -164,17 +202,48 @@ Item {
             Label {
                 anchors.centerIn: parent
                 visible: versions.count === 0 && !updateController.busy
-                text: qsTr("No local update metadata")
+                text: updateController.sourceSearchKey.length
+                    ? qsTr("No release ZIP snapshots found")
+                    : qsTr("Configure an update sObject in Server configuration")
                 color: root.theme.secondaryText
                 font.pointSize: Controls.Typography.body
             }
         }
 
+        ScrollView {
+            id: changelogScroll
+            objectName: "updateChangelogScroll"
+            visible: !root.createMode && root.currentPage === "changelog"
+            Layout.fillWidth: true
+            Layout.fillHeight: true
+            contentWidth: availableWidth
+            clip: true
+            rightPadding: 14
+            ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
+            ScrollBar.vertical: Controls.ScrollBar {
+                objectName: "updateChangelogScrollbar"
+                theme: root.theme
+                flickableTarget: changelogScroll
+            }
+            Controls.SelectableText {
+                objectName: "updateChangelogText"
+                theme: root.theme
+                width: changelogScroll.availableWidth
+                height: contentHeight
+                text: updateController.changelog
+                textFormat: TextEdit.MarkdownText
+                wrapMode: TextEdit.WordWrap
+            }
+        }
+
         ColumnLayout {
             Layout.fillWidth: true
-            visible: updateController.busy || updateController.error.length > 0
+            visible: (root.createMode || root.currentPage === "updates")
+                && (updateController.busy || updateController.error.length > 0
+                    || updateController.stage.length > 0)
             ProgressBar {
                 Layout.fillWidth: true
+                visible: updateController.busy
                 from: 0
                 to: 1
                 value: updateController.progress
@@ -190,17 +259,26 @@ Item {
                 wrapMode: Text.WordWrap
             }
         }
+        Label {
+            Layout.fillWidth: true
+            visible: !root.createMode && root.currentPage === "updates"
+                && !updateController.portable
+            text: qsTr("Automatic installation requires a portable build")
+            color: root.theme.secondaryText
+            wrapMode: Text.WordWrap
+        }
         RowLayout {
             Layout.fillWidth: true
             Controls.Button {
                 theme: root.theme
-                visible: updateController.busy
+                visible: updateController.cancelable
                 text: qsTr("Cancel")
                 icon.name: "stop"
                 onClicked: updateController.cancel()
             }
             Item { Layout.fillWidth: true }
             Controls.Button {
+                objectName: "createUpdateArchiveButton"
                 theme: root.theme
                 visible: root.createMode
                 text: qsTr("Create archive")
@@ -213,11 +291,11 @@ Item {
             }
             Controls.Button {
                 theme: root.theme
-                visible: !root.createMode
-                text: qsTr("Update and restart")
+                visible: !root.createMode && root.currentPage === "updates"
+                text: qsTr("Install selected version")
                 icon.name: "restart_alt"
                 highlighted: true
-                enabled: !updateController.busy && versions.count > 0
+                enabled: updateController.canInstall
                 onClicked: updateConfirmation.open()
             }
         }
@@ -228,11 +306,11 @@ Item {
         theme: root.theme
         modal: true
         anchors.centerIn: parent
-        width: 410
-        title: qsTr("Restart for update?")
+        width: Math.min(410, root.width - 24)
+        title: qsTr("Install selected version?")
         contentItem: Label {
-            width: 362
-            text: qsTr("The existing application update mechanism will close and restart TACTIC-Handler.")
+            width: Math.max(0, updateConfirmation.width - 48)
+            text: qsTr("TACTIC-Handler will close, install this version, then reopen. Your saved workspace and settings are preserved. The previous version remains available for rollback.")
             color: root.theme.primaryText
             wrapMode: Text.WordWrap
         }
@@ -240,7 +318,7 @@ Item {
             background: Item {}
             Controls.Button {
                 theme: root.theme
-                text: qsTr("Update and restart")
+                text: qsTr("Install and restart")
                 highlighted: true
                 DialogButtonBox.buttonRole: DialogButtonBox.AcceptRole
             }
@@ -251,7 +329,7 @@ Item {
                 DialogButtonBox.buttonRole: DialogButtonBox.RejectRole
             }
         }
-        onAccepted: updateController.restart_to_update()
+        onAccepted: updateController.install_selected()
     }
     Connections {
         target: updateController

@@ -5,6 +5,22 @@ late visual cleanup. The hot paths are recyclable search delegates, task rows,
 message timeline entries, retained dock content, and report pages with nested
 models.
 
+## Native resize and overdraw
+
+The desktop `Main.qml` disables `ApplicationWindow`'s automatic top safe-area
+padding: Windows already places the content below its native title bar, and a
+changing inset moved the entire top of the workspace while leaving its bottom
+edge fixed during resize. The offline `tests.profile_main_resize` probe records
+the real main window's top padding, top-bar origin, and frame intervals across
+narrow and wide sizes; `tests.test_main_resize_qml` guards the layout contract.
+
+The dock host no longer paints an extra window-sized background over the
+window's own background. The empty-task arrow Canvas is limited to its drawing
+bounds instead of allocating a surface as large as its dock. Other effects
+found in the QML tree need a populated GPU capture before further changes.
+Offscreen software frame timings are diagnostic only; inspect a live scene with
+Qt's `QSG_VISUALIZE=overdraw` before claiming a device-specific FPS gain.
+
 ## Approved complexity review hot paths
 
 `tests.profile_ui_responsiveness.review_hot_paths_benchmark()` reports seven-run
@@ -229,6 +245,72 @@ scroll frames measured 5.52 ms median and 11.27 ms maximum. The narrow real-QML
 regression caps the initial tree and proves that off-screen controls stay lazy.
 
 ## Verification procedure
+
+### Search table: task calendars and batch projection
+
+`TacticTaskCards` creates its date editor on activation and releases it when
+closed. Closed rows must not instantiate two DateFields (and their calendar
+grids) each. The click-to-edit regression checks absence before activation,
+successful date staging, and release after closing. Status, assignee and date
+editing continue through the existing controller draft/save path.
+
+`ColumnsEditorController._map_rows` indexes the current batch's sObjects once
+by native search key. Task enrichment receives the matching object directly;
+it does not scan the entire result list for every row. Cells without task
+records do not resolve workflow choices. The index is local to publication,
+not another persistent cache requiring invalidation.
+
+Run `python -m tests.profile_result_table` for the isolated offline benchmark.
+On Windows/Python 3.14 with Qt's software renderer, 500 result rows, 12 columns,
+five tasks per row and a 1600 x 900 viewport produced these before/after results:
+
+| Measurement | Before | After |
+| --- | ---: | ---: |
+| First presented table, median of three creations | 394 ms | 153 ms |
+| Worst one-row scroll frame across 24 steps and three runs | 89 ms | 39 ms |
+| First creation's native working-set increase | 107 MiB | 49 MiB |
+| Eager date editors for ten initial row delegates | 10 | 0 |
+| Median ordinary scroll frame | 8.9 ms | 9.4 ms |
+
+The ordinary scroll median did not improve; the gain is first presentation and
+delegate-creation spikes. Preview requests remained zero in this no-image
+fixture, with the same 50 task cards. Visible-item counts alone miss the closed
+calendar trees, so the benchmark also counts date editors and native memory.
+Working-set deltas include allocator reuse and are not exact retained heap sizes.
+
+A separate 2,000-row task-projection fixture with empty task lists isolates the
+identity join: 277 ms and 2,001,000 identity reads became 3 ms and 2,000 reads.
+It does not measure real workflow/date-label costs. These measurements exclude
+server latency, image transfers and hardware-renderer behavior on live projects.
+
+### Search table: grouped row recycling
+
+The grouped benchmark now uses distinct task identities in every result row;
+the previous repeated task payload hid delegate-recreation costs. It sends real
+mouse clicks through `SearchResultTable` and `ResultTreeMixin.toggle_result_node`.
+Only debounced persistence is replaced by a counter. Frame measurement ignores
+frames emitted during input dispatch and waits for presentation after dispatch.
+
+`TacticTaskCards` repeats the visible card count and binds each retained card to
+its current record. Reassigning a recycled table row must not destroy all task
+editors and avatars merely because its record array changed. Editors reset when
+their task identity changes; date editing captures the owning node and closes
+when its row is reassigned. Drafts remain controller-owned.
+
+At 1800 x 1600, with 500 objects, ten groups and five distinct tasks per object,
+six collapse/expand cycles in the offline software renderer measured:
+
+| Measurement | Array-backed card repeater | Retained card slots |
+| --- | ---: | ---: |
+| Median collapse input-to-frame | 200 ms | 64 ms |
+| New cards per collapse | 85 | 5 |
+| Median expansion input-to-frame | 193 ms | 47 ms |
+| New cards per warm expansion | 80 | 0 |
+
+First expansion still creates new visible rows (278 ms in this fixture); this
+change does not claim instantaneous cold creation. The regression uses object
+identity and creation counts, not hardware-dependent timing limits, and checks
+that a reused editor sends mutations to the new task only.
 
 For changes to mass UI:
 

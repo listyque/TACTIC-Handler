@@ -3,12 +3,13 @@ import tempfile
 import unittest
 from pathlib import Path
 from types import SimpleNamespace
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
-from PySide6.QtCore import QObject, QPointF, QUrl, Slot
+from PySide6.QtCore import QObject, QPoint, QPointF, Qt, QUrl, Slot
 from PySide6.QtGui import QGuiApplication, QImage
-from PySide6.QtQuick import QQuickWindow
+from PySide6.QtQuick import QQuickItem, QQuickWindow
 from PySide6.QtQml import QQmlComponent, QQmlEngine, QQmlExpression
+from PySide6.QtTest import QTest
 
 from thlib import tactic_widgets as tw
 from thlib.ui.checkin_out import CheckinOutController
@@ -108,6 +109,27 @@ class _ItemHarness(ItemOperationsMixin):
 
 
 class SObjectEditorLifecycleTests(unittest.TestCase):
+    def test_task_edit_view_receives_project_in_server_arguments(self):
+        worker = SimpleNamespace(
+            result=_Emitter(), error=_Emitter(), start=lambda: None,
+        )
+        pool = SimpleNamespace(add_task=Mock(return_value=worker))
+        context = {
+            "mode": "edit",
+            "stype": SimpleNamespace(get_pretty_name=lambda: "Task"),
+            "project_code": "demo",
+            "search_type": "sthpw/task",
+            "sobject": SimpleNamespace(get_search_key=lambda: (
+                "sthpw/task?project=demo&code=TASK001"
+            )),
+        }
+        controller = SObjectEditorController(lambda: context)
+
+        with patch("thlib.environment.env_inst.server_pool", pool):
+            controller.begin_session()
+
+        self.assertEqual(pool.add_task.call_args.args[2]["project"], "demo")
+
     def test_create_context_reuses_search_key_navigation(self):
         controller = _CommandsHarness()
         project = SimpleNamespace(get_code=lambda: "demo")
@@ -326,6 +348,16 @@ class _EditorSObject:
 
 
 class SObjectWidgetContractTests(unittest.TestCase):
+    def test_keywords_use_tags_editor_in_insert_and_edit(self):
+        for mode in ("insert", "edit"):
+            field = SObjectEditorController.describe_field(
+                _EditorStype({"keywords": "text"}), {},
+                {"name": "tag_alias", "class_name": "pyasm.widget.input_wdg.TextAreaWdg",
+                 "action_options": {"column": "keywords"}}, mode=mode,
+            )
+            self.assertEqual(field["fieldType"], "tags")
+            self.assertEqual(field["submitName"], "keywords")
+
     def test_batch_preview_builds_editable_numbered_drafts(self):
         controller = SObjectEditorController(lambda: {})
         controller._mode = "insert"
@@ -505,6 +537,25 @@ class SObjectWidgetContractTests(unittest.TestCase):
         self.assertEqual(widget.get_editor_options(), [
             {"label": "In progress", "value": "ip"},
             {"label": "Complete", "value": "done"},
+        ])
+
+    def test_select_omits_unlabeled_blank_but_keeps_named_default(self):
+        widget = tw.TacticSelectWdg({
+            "name": "storyboard",
+            "values": ["", "(With Storyboard)", "(No Storyboard)"],
+            "labels": ["", "(With Storyboard)", "(No Storyboard)"],
+            "kwargs": {},
+        })
+        self.assertEqual(widget.get_editor_options(), [
+            {"label": "(With Storyboard)", "value": "(With Storyboard)"},
+            {"label": "(No Storyboard)", "value": "(No Storyboard)"},
+        ])
+
+        widget.set_values(["", "saved"])
+        widget.set_labels(["-- Default --", ""])
+        self.assertEqual(widget.get_editor_options(), [
+            {"label": "-- Default --", "value": ""},
+            {"label": "saved", "value": "saved"},
         ])
 
     def test_pipeline_submits_display_code_instead_of_pipeline_label(self):
@@ -944,6 +995,74 @@ class SObjectEditorQmlTests(unittest.TestCase):
             if nested is not None:
                 return nested
         return None
+
+    def test_storyboard_choice_popup_contains_only_named_server_options(self):
+        descriptor = SObjectEditorController.describe_field(
+            _EditorStype({"storyboard": "text"}),
+            {},
+            {
+                "name": "storyboard",
+                "title": "Storyboard",
+                "class_name": "pyasm.widget.input_wdg.SelectWdg",
+                "values": ["", "(With Storyboard)", "(No Storyboard)"],
+                "labels": ["", "(With Storyboard)", "(No Storyboard)"],
+                "__display_values__": {"value": "(No Storyboard)"},
+                "kwargs": {},
+            },
+            mode="insert",
+        )
+        qml_dir = Path(__file__).parents[1] / "thlib" / "ui" / "qml"
+        engine = QQmlEngine()
+        engine.addImportPath(str(qml_dir))
+        theme = QQmlComponent(
+            engine, QUrl.fromLocalFile(str(qml_dir / "Theme.qml"))
+        ).createWithInitialProperties({"dark": True})
+        component = QQmlComponent(
+            engine, QUrl.fromLocalFile(str(qml_dir / "SObjectValueEditor.qml"))
+        )
+        editor = component.createWithInitialProperties({
+            "theme": theme,
+            "fieldType": descriptor["fieldType"],
+            "fieldValue": descriptor["fieldValue"],
+            "fieldOptions": descriptor["fieldOptions"],
+            "width": 320,
+            "height": 48,
+        })
+        self.assertIsNotNone(
+            editor, "\n".join(error.toString() for error in component.errors())
+        )
+        window = QQuickWindow()
+        window.resize(320, 48)
+        editor.setParentItem(window.contentItem())
+        window.show()
+        QTest.qWait(40)
+        try:
+            combo = editor.findChild(QObject, "sobjectValueChoiceEditor")
+            self.assertIsNotNone(combo)
+            self.assertEqual(combo.property("count"), 2)
+            self.assertEqual(combo.property("currentValue"), "(No Storyboard)")
+
+            QTest.mouseClick(
+                window, Qt.LeftButton, Qt.NoModifier, QPoint(160, 24)
+            )
+            QTest.qWait(80)
+            options = combo.findChild(QQuickItem, "comboBoxPopupList")
+            self.assertIsNotNone(options)
+            self.assertEqual(options.property("count"), 2)
+            QTest.keyClick(options.window(), Qt.Key_Escape)
+            QTest.qWait(20)
+
+            editor.setProperty("width", 640)
+            window.resize(640, 48)
+            QTest.mouseClick(
+                window, Qt.LeftButton, Qt.NoModifier, QPoint(320, 24)
+            )
+            QTest.qWait(80)
+            self.assertEqual(options.property("count"), 2)
+        finally:
+            window.close()
+            editor.deleteLater()
+            engine.deleteLater()
 
     def test_real_form_reflows_without_moving_footer_or_clipping_fields(self):
         engine = QQmlEngine()

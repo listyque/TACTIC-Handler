@@ -431,7 +431,7 @@ def sort_and_group(
             label, color, _count = canonical
         return key, label, color
 
-    if group_mode != "none" and not presorted:
+    if group_mode != "none":
         values.sort(
             key=lambda record: (
                 canonical_group_identity(record)[1].casefold(),

@@ -644,6 +644,8 @@ class SearchSuggestionsMixin:
         parsed: dict,
         navigation_process: str = "",
     ) -> SearchTabSession:
+        current = self._current_tab()
+        self._capture_current_workspace_layout()
         tab = next(
             (
                 candidate for candidate in section.tabs
@@ -675,6 +677,8 @@ class SearchSuggestionsMixin:
                 navigation_target=code,
             )
             section.tabs.append(tab)
+        if current is not None and not tab.workspace_layout:
+            tab.workspace_layout = deepcopy(current.workspace_layout)
         tab.title = title
         tab.tab_kind = "navigation"
         tab.navigation_target = code

@@ -340,17 +340,45 @@ class AdminGraphFormsTests(unittest.TestCase):
         self.assertTrue(editor.dirty)
         self.assertEqual(self.fixture.fixture.warnings, [])
 
+    def test_collapsed_schema_displays_all_nodes_xml_and_layout_tools(self):
+        self.click('adminSection_schema')
+        editor = self.admin.schemaEditor
+        xml = '<schema><!--keep-->' + ''.join('<search_type name="files/n%d" xpos="0" ypos="0"/>' % i for i in range(10)) + '<custom value="preserved"/></schema>'
+        editor._document = {'xml':xml}
+        editor._original = {'xml':xml}
+        editor._document_loaded()
+        editor.stateChanged.emit()
+        frame(self.window)
+        self.assertEqual(len({(row['nodeX'],row['nodeY']) for row in editor.nodes}),10)
+        self.assertFalse(editor.dirty)
+        self.click('adminArrangeGraph')
+        menu = self.window.findChild(QObject,'adminArrangeMenu')
+        self.assertTrue(menu.property('visible'))
+        menu.close()
+        frame(self.window)
+        self.click('segmentedButtonSegment_technical')
+        frame(self.window)
+        text = self.item('adminNativeDocumentText').property('text')
+        self.assertIn('\n  <search_type',text)
+        self.assertEqual(text.count('<search_type '),10)
+        self.assertIn('<!--keep-->',text)
+        self.assertFalse(editor.dirty)
+        self.assertEqual(self.fixture.fixture.warnings,[])
+
     def test_schema_creation_is_the_top_left_document_action(self):
         self.click('adminSection_schema')
-        toolbar = self.item('adminDocumentToolbar')
+        toolbar = self.item('administrationHeaderSaveBar')
         create = self.item('adminCreateSchemaType')
         reload_action = self.item('adminReloadDocument')
         self.assertLess(create.mapToScene(QPointF()).x(),
                         reload_action.mapToScene(QPointF()).x())
         self.assertGreaterEqual(create.mapToScene(QPointF()).x(),
                                 toolbar.mapToScene(QPointF()).x())
-        self.assertAlmostEqual(create.mapToScene(QPointF()).y(),
-                               reload_action.mapToScene(QPointF()).y(), delta=1)
+        self.assertAlmostEqual(
+            create.mapToScene(QPointF(0, create.height() / 2)).y(),
+            reload_action.mapToScene(QPointF(0, reload_action.height() / 2)).y(),
+            delta=1,
+        )
 
         self.click('adminCreateSchemaType')
 
@@ -624,6 +652,14 @@ class AdminGraphFormsTests(unittest.TestCase):
         self.assertEqual(editor.document['xml'], original)
         self.assertFalse(editor.dirty)
         self.assertEqual(self.item(('adminSelectionAttributesEditor', 'adminNativeDocumentText')).property('text'), '{"name":12}')
+        self.enter(('adminSelectionAttributesEditor', 'adminNativeDocumentText'),
+                   json.dumps(dict(editor.selectedAttributes, name='lighting')))
+        self.click(('adminSelectionAttributesEditor', 'adminApplyNativeDocument'))
+        self.assertEqual(editor.error, editor.tr(
+            'Saved process identifiers cannot be renamed. Change the display label instead.'))
+        self.assertEqual(editor.document['xml'], original)
+        self.assertEqual(editor.selectedNode, 'model')
+        self.assertFalse(editor.dirty)
         self.click('graphNode_review')
         self.click('segmentedButtonSegment_native_json')
         editor._can_write = False

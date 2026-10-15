@@ -10,9 +10,12 @@ Item {
     property bool dirty: false
     property bool canWrite: false
     property bool saveEnabled: true
+    property bool showActions: true
+    property bool showStatus: true
+    property string discardObjectName: "adminDiscardDocument"
     property string saveObjectName: "adminSaveDocument"
     property alias leadingActions: leadingActionRow.data
-    readonly property bool compact: width < 480
+    property bool compact: width < 480
     signal saveRequested()
     signal discardRequested()
 
@@ -29,7 +32,7 @@ Item {
         RowLayout {
             Layout.fillWidth: true
             Layout.minimumWidth: 0
-            visible: root.busy || root.dirty || !root.canWrite
+            visible: root.showStatus && (root.busy || root.dirty || !root.canWrite)
             spacing: 8
             Controls.BusyIndicator {
                 uiTheme: root.theme
@@ -58,17 +61,19 @@ Item {
         }
         RowLayout {
             Layout.alignment: Qt.AlignRight
+            visible: root.showActions
             spacing: 8
             Controls.Button {
-                objectName: "adminDiscardDocument"
+                objectName: root.showActions ? root.discardObjectName : ""
                 theme: root.theme
                 text: qsTr("Discard")
+                icon.name: "undo"
                 compact: root.compact
                 enabled: root.dirty && !root.busy
                 onClicked: root.discardRequested()
             }
             Controls.Button {
-                objectName: root.saveObjectName
+                objectName: root.showActions ? root.saveObjectName : ""
                 theme: root.theme
                 text: qsTr("Save to server")
                 icon.name: "save"

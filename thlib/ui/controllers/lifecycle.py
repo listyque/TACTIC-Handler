@@ -8,7 +8,6 @@ import math
 import re
 import sys
 import time
-import traceback
 import uuid
 
 from PySide6.QtCore import (
@@ -22,7 +21,6 @@ from PySide6.QtCore import (
 )
 from PySide6.QtGui import QGuiApplication, QImage
 
-from ..menu_schema import TOOL_WINDOWS
 from ..quick_filters import QuickFilterCatalog
 from ..repository_sync import RepositorySyncController
 from ..window_geometry import (
@@ -96,16 +94,9 @@ class LifecycleMixin:
             lambda: self.window_model.open_help("overview"),
         )
         self._registry.register(
-            "show_tools",
-            self.tools_requested.emit,
+            "show_update",
+            lambda: self.window_model.show_window("update"),
         )
-        for command, window_id in TOOL_WINDOWS.items():
-            self._registry.register(
-                command,
-                lambda current_id=window_id: self._open_tool_window(
-                    current_id
-                ),
-            )
         self._registry.register("exit", QGuiApplication.quit)
 
     @Slot()
@@ -119,31 +110,13 @@ class LifecycleMixin:
             controller.reload()
         self.window_model.show_window("watch_folders")
 
-    def _tool_error(self, target: str) -> None:
-        stacktrace = traceback.format_exc()
-        if self.debug_log:
-            self.debug_log.log(
-                "ERROR",
-                f"Could not open tool: {target}",
-                group="ui/tools",
-                source="ApplicationController",
-                stacktrace=stacktrace,
-                caller=2,
-            )
-        self._notify(f"Could not open {target}. See Debug Log.")
-
-    def _open_tool_window(self, window_id: str) -> None:
-        try:
-            self.open_window(window_id)
-        except Exception:
-            self._tool_error(window_id)
-
     @Slot()
     def refresh_widget_state(self) -> None:
         self.bootstrap_server()
 
     @Slot()
     def shutdown(self) -> None:
+        self._cancel_project_catalog()
         self._search_tab_switch_monitor.cancel()
         self._performance.shutdown()
         if self._section_state_save_timer.isActive():

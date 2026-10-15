@@ -132,11 +132,11 @@ class SearchTypesEditor(AdminDocumentEditor):
 
     def attach_checkin_controller(self, checkin, commit_queue=None) -> None:
         if self._commit_queue is not None:
-            self._commit_queue.operationCompleted.disconnect(self._preview_committed)
+            self._commit_queue.presentationRefreshRequested.disconnect(self._preview_committed)
         self._checkin = checkin
         self._commit_queue = commit_queue
         if commit_queue is not None:
-            commit_queue.operationCompleted.connect(self._preview_committed)
+            commit_queue.presentationRefreshRequested.connect(self._preview_committed)
 
     @Property(str, notify=previewChanged)
     def previewUrl(self) -> str:
@@ -200,13 +200,17 @@ class SearchTypesEditor(AdminDocumentEditor):
             self._read_preview()
 
     @Slot()
-    def reload(self) -> None:
-        if self.busy or self.dirty:
+    @Slot(bool)
+    def reload(self, force=False) -> None:
+        if self.busy or self.dirty and not force:
             return
         if self._previews and self._metadata.get('searchKey'):
             self._previews.retry(self._metadata['searchKey'])
         self._queued_preview = ''
-        super().reload()
+        if force:
+            self._request('list')
+        else:
+            super().reload()
 
     @Slot('QVariant')
     def set_preview_path(self, value) -> None:
@@ -277,7 +281,7 @@ class SearchTypesEditor(AdminDocumentEditor):
 
     def shutdown(self) -> None:
         if self._commit_queue is not None:
-            self._commit_queue.operationCompleted.disconnect(self._preview_committed)
+            self._commit_queue.presentationRefreshRequested.disconnect(self._preview_committed)
         if self._previews is not None:
             self._previews.previewReady.disconnect(self._preview_ready)
             self._previews.previewsReady.disconnect(self._previews_ready)

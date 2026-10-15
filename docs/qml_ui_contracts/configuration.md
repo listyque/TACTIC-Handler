@@ -231,6 +231,15 @@ Changes that require restart or reconnect state this explicitly.
 
 ## Acceptance
 
+Configuration > Projects owns activation, deactivation, editing, creation and template archive
+export for the selected project. Deactivation invalidates pending project/detail requests and
+clears project-dependent workspace models without dropping the login or server project catalog.
+Archive export uses ProjectTemplateCreatorCmd in the project creation worker controller and
+accepts ordinary editable projects, not only template-flagged ones. The wizard template manager
+only installs, downloads and removes packages. Narrow layouts keep the actions as tooltip-labeled
+icons; wide layouts show full labels. Tests cover native command dispatch, workspace deactivation,
+late completions and real Configuration page clicks at narrow and wide sizes.
+
 Automated checks cover QML creation, page scrolling, narrow/wide layout,
 session reset, close guard, supported persistence paths, and absence of
 overlapping controls.

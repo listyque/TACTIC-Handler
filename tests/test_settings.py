@@ -155,12 +155,16 @@ class EnvironmentConfigTests(unittest.TestCase):
                 environment.env_mode, "get_mode",
                 return_value="standalone",
             ),
+            patch.object(
+                environment.env_server, "get_user",
+                return_value="artist",
+            ),
         )
 
     def test_long_path_round_trip_uses_project_config_tree(self):
         with TemporaryDirectory() as directory:
             scopes = self.config_scope(directory)
-            with scopes[0], scopes[1], scopes[2]:
+            with scopes[0], scopes[1], scopes[2], scopes[3]:
                 value = {"language": "Русский", "enabled": True, "size": 12}
                 environment.env_write_config(
                     value,
@@ -176,7 +180,7 @@ class EnvironmentConfigTests(unittest.TestCase):
 
             path = (
                 Path(directory) / "settings" / "full" / "test-preset"
-                / "standalone" / "ui_main" / "ui_settings.json"
+                / "artist" / "standalone" / "ui_main" / "ui_settings.json"
             )
             self.assertTrue(path.is_file())
             self.assertEqual(restored, value)
@@ -184,10 +188,94 @@ class EnvironmentConfigTests(unittest.TestCase):
                 json.loads(path.read_text(encoding="utf-8")), value
             )
 
+    def test_long_path_keeps_user_configs_separate(self):
+        with TemporaryDirectory() as directory:
+            scopes = self.config_scope(directory)
+            with scopes[0], scopes[1], scopes[2], scopes[3] as user:
+                environment.env_write_config(
+                    {"owner": "artist"}, filename="ui_settings",
+                    unique_id="ui_main", long_abs_path=True,
+                )
+                user.return_value = "admin"
+                self.assertIsNone(environment.env_read_config(
+                    filename="ui_settings", unique_id="ui_main",
+                    long_abs_path=True,
+                ))
+                environment.env_write_config(
+                    {"owner": "admin"}, filename="ui_settings",
+                    unique_id="ui_main", long_abs_path=True,
+                )
+                user.return_value = "artist"
+                restored = environment.env_read_config(
+                    filename="ui_settings", unique_id="ui_main",
+                    long_abs_path=True,
+                )
+
+            self.assertEqual(restored, {"owner": "artist"})
+            admin_path = (
+                Path(directory) / "settings" / "full" / "test-preset"
+                / "admin" / "standalone" / "ui_main" / "ui_settings.json"
+            )
+            self.assertEqual(
+                json.loads(admin_path.read_text(encoding="utf-8")),
+                {"owner": "admin"},
+            )
+
+    def test_long_path_without_login_has_no_synthetic_user(self):
+        with TemporaryDirectory() as directory:
+            scopes = self.config_scope(directory)
+            with scopes[0], scopes[1], scopes[2], scopes[3] as user:
+                user.return_value = None
+                environment.env_write_config(
+                    {"scope": "prelogin"}, filename="ui_settings",
+                    unique_id="ui_main", long_abs_path=True,
+                )
+                user.return_value = "artist"
+                self.assertIsNone(environment.env_read_config(
+                    filename="ui_settings", unique_id="ui_main",
+                    long_abs_path=True,
+                ))
+                user.return_value = None
+                self.assertEqual(environment.env_read_config(
+                    filename="ui_settings", unique_id="ui_main",
+                    long_abs_path=True,
+                ), {"scope": "prelogin"})
+
+            self.assertTrue((
+                Path(directory) / "settings" / "full" / "test-preset"
+                / "standalone" / "ui_main" / "ui_settings.json"
+            ).is_file())
+            self.assertFalse((
+                Path(directory) / "settings" / "full" / "test-preset"
+                / "_anonymous"
+            ).exists())
+
+    def test_installation_scope_is_independent_of_login_and_preset(self):
+        with TemporaryDirectory() as directory:
+            scopes = self.config_scope(directory)
+            with scopes[0], scopes[1] as preset, scopes[2], scopes[3] as user:
+                user.return_value = None
+                environment.env_write_config(
+                    {"mode": "plugin"}, filename="server_query",
+                    unique_id="ui_conf", long_abs_path=True,
+                    scope="installation",
+                )
+                user.return_value = "artist"
+                preset.return_value = "other-preset"
+                self.assertEqual(environment.env_read_config(
+                    filename="server_query", unique_id="ui_conf",
+                    long_abs_path=True, scope="installation",
+                ), {"mode": "plugin"})
+
+            self.assertTrue((
+                Path(directory) / "settings" / "full"
+                / "ui_conf" / "server_query.json"
+            ).is_file())
+
     def test_failed_serialization_keeps_previous_file_intact(self):
         with TemporaryDirectory() as directory:
             scopes = self.config_scope(directory)
-            with scopes[0], scopes[1], scopes[2]:
+            with scopes[0], scopes[1], scopes[2], scopes[3]:
                 environment.env_write_config(
                     {"safe": True}, filename="atomic", unique_id="cache",
                     long_abs_path=True,
@@ -206,7 +294,7 @@ class EnvironmentConfigTests(unittest.TestCase):
     def test_concurrent_sub_id_updates_do_not_lose_values(self):
         with TemporaryDirectory() as directory:
             scopes = self.config_scope(directory)
-            with scopes[0], scopes[1], scopes[2]:
+            with scopes[0], scopes[1], scopes[2], scopes[3]:
                 threads = [
                     threading.Thread(
                         target=environment.env_write_config,
@@ -237,7 +325,7 @@ class EnvironmentConfigTests(unittest.TestCase):
     def test_sub_id_update_does_not_replace_non_mapping_document(self):
         with TemporaryDirectory() as directory:
             scopes = self.config_scope(directory)
-            with scopes[0], scopes[1], scopes[2]:
+            with scopes[0], scopes[1], scopes[2], scopes[3]:
                 environment.env_write_config(
                     ["keep", "this"], filename="shared",
                     unique_id="cache", long_abs_path=True,
@@ -265,7 +353,7 @@ class EnvironmentConfigTests(unittest.TestCase):
     def test_unique_id_cannot_escape_settings_directory(self):
         with TemporaryDirectory() as directory:
             scopes = self.config_scope(directory)
-            with scopes[0], scopes[1], scopes[2]:
+            with scopes[0], scopes[1], scopes[2], scopes[3]:
                 with self.assertRaises(ValueError):
                     environment.env_write_config(
                         {"unsafe": True},
@@ -275,10 +363,22 @@ class EnvironmentConfigTests(unittest.TestCase):
                     )
             self.assertFalse((Path(directory) / "outside").exists())
 
+    def test_login_cannot_escape_its_config_directory(self):
+        with TemporaryDirectory() as directory:
+            scopes = self.config_scope(directory)
+            with scopes[0], scopes[1], scopes[2], scopes[3] as user:
+                user.return_value = "../admin"
+                with self.assertRaises(ValueError):
+                    environment.env_write_config(
+                        {"unsafe": True}, filename="ui_settings",
+                        unique_id="ui_main", long_abs_path=True,
+                    )
+            self.assertFalse((Path(directory) / "admin").exists())
+
     def test_remove_group_deletes_only_owned_json_documents(self):
         with TemporaryDirectory() as directory:
             scopes = self.config_scope(directory)
-            with scopes[0], scopes[1], scopes[2]:
+            with scopes[0], scopes[1], scopes[2], scopes[3]:
                 environment.env_write_config(
                     {"entries": [1]}, filename="search",
                     unique_id="cache/server_data/scope",
@@ -291,7 +391,8 @@ class EnvironmentConfigTests(unittest.TestCase):
                 )
                 group = (
                     Path(directory) / "settings" / "full" / "test-preset"
-                    / "standalone" / "cache" / "server_data" / "scope"
+                    / "artist" / "standalone" / "cache"
+                    / "server_data" / "scope"
                 )
                 keep = group / "keep.txt"
                 keep.write_text("not a config", encoding="utf-8")

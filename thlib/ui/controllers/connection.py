@@ -33,6 +33,11 @@ from ..workspace import (
 )
 from .types import ActionRegistry, SearchTabSession, SectionSession
 class ConnectionMixin:
+    def _flush_config_writes(self) -> None:
+        queue = getattr(self, "_config_write_queue", None)
+        if queue is not None:
+            queue.flush()
+
     @staticmethod
     def _load_projects(*, force=True, cache_only=False):
         import thlib.tactic_classes as tc
@@ -48,23 +53,6 @@ class ConnectionMixin:
             return []
         if not cache_only:
             env_mode.set_online()
-        retired = []
-        if force:
-            try:
-                retired = tc.server_start(project="sthpw").query(
-                    "sthpw/project",
-                    filters=[("s_status", "retired")],
-                    show_retired=True,
-                )
-            except Exception:
-                retired = []
-        for info in retired or []:
-            code = info.get("code")
-            if not code or code == "sthpw" or code in env_inst.projects:
-                continue
-            project = tc.Project(info)
-            project.init_snapshots([])
-            env_inst.projects[code] = project
         return sorted(
             (
                 project
@@ -155,6 +143,7 @@ class ConnectionMixin:
             )
             self._request_authentication()
             return
+        self._cancel_project_catalog()
         self._bootstrap_started_at = time.perf_counter()
         self._set_loading(True, "Loading TACTIC projects and workspace")
         self._set_server_state(
@@ -170,6 +159,7 @@ class ConnectionMixin:
             worker = env_inst.server_pool.add_task(
                 self._bootstrap_server_task,
                 saved_project,
+                request_id,
             )
             if worker is None:
                 raise RuntimeError("Server worker pool is unavailable")
@@ -188,31 +178,18 @@ class ConnectionMixin:
         except Exception as error:
             self._bootstrap_failed(error, stacktrace=traceback.format_exc())
 
-    def _bootstrap_server_task(self, saved_project: str):
+    def _bootstrap_server_task(self, saved_project: str, request_id: str):
         import thlib.tactic_classes as tc
         from thlib import server_cache
         from thlib.environment import env_inst, env_server
 
-        cache_cursor = server_cache.read_cursor(
-            "server_changes", saved_project
-        )
-        updates = tc.get_server_updates(
-            project_code=saved_project,
-            include_activity=False,
-            include_messages=False,
-            include_reactions=False,
-            include_presence=False,
-            heartbeat_presence=False,
-            cache_after=cache_cursor,
-        ) or {}
-        changes = list(updates.get("cacheChanges") or [])
-        retired = list(updates.get("cacheRetired") or [])
-        cold_cache = not cache_cursor
-        invalidated = server_cache.apply_change_batch(changes, retired)
-
-        projects = self._load_projects(
-            force=cold_cache or "reference" in invalidated.get("sthpw", ())
-        )
+        if request_id != self._bootstrap_request_id:
+            return None
+        # A saved project may belong to the previous server. Resolve it from
+        # the new server's catalog before sending any project-scoped request.
+        projects = self._load_projects(force=True)
+        if request_id != self._bootstrap_request_id:
+            return None
         if not projects:
             raise RuntimeError("TACTIC returned no available projects")
         login = (env_inst.logins or {}).get(env_server.get_user())
@@ -240,24 +217,49 @@ class ConnectionMixin:
             ),
             (active or regular or selectable or projects)[0],
         )
+        project_code = selected.get_code()
+        cache_cursor = server_cache.read_cursor(
+            "server_changes", project_code
+        )
+        if request_id != self._bootstrap_request_id:
+            return None
+        updates = tc.get_server_updates(
+            project_code=project_code,
+            include_activity=False,
+            include_messages=False,
+            include_reactions=False,
+            include_presence=False,
+            heartbeat_presence=False,
+            cache_after=cache_cursor,
+        ) or {}
+        changes = list(updates.get("cacheChanges") or [])
+        retired = list(updates.get("cacheRetired") or [])
+        cold_cache = not cache_cursor
+        invalidated = server_cache.apply_change_batch(changes, retired)
+        if request_id != self._bootstrap_request_id:
+            return None
         selection = self._prepare_project_selection(
-            selected.get_code(),
-            selected.get_title() or selected.get_code(),
+            project_code,
+            selected.get_title() or project_code,
             force_search_types=(
                 cold_cache
                 or "reference" in invalidated.get(selected.get_code(), ())
             ),
         )
+        if request_id != self._bootstrap_request_id:
+            return None
         next_cache_cursor = str(updates.get("cacheCursor") or "")
         if next_cache_cursor:
             server_cache.write_cursor(
-                "server_changes", next_cache_cursor, selected.get_code()
+                "server_changes", next_cache_cursor, project_code
             )
         can_administer = bool(login and login.get_info().get('__is_admin__') is True)
         return (projects, display_name, *selection, can_administer)
 
     @Slot(object)
     def _async_bootstrap_result(self, result) -> None:
+        if not self._bootstrap_request_id or result[-1] != self._bootstrap_request_id:
+            return
         (
             projects,
             display_name,
@@ -268,8 +270,6 @@ class ConnectionMixin:
             can_administer,
             request_id,
         ) = result
-        if request_id != self._bootstrap_request_id:
-            return
         self._bootstrap_worker = None
         self._bootstrap_request_id = ""
         try:
@@ -328,7 +328,8 @@ class ConnectionMixin:
         retry_worker=None,
     ) -> None:
         self._bootstrap_worker = None
-        self._bootstrap_request_id = ""
+        if retry_worker is None:
+            self._bootstrap_request_id = ""
         self.project_model.replace([])
         self.navigation_model.replace([])
         self.workspace_model.clear()
@@ -368,6 +369,64 @@ class ConnectionMixin:
         self._bootstrap_request_id = ""
         if worker is not None:
             worker.cancel()
+
+    @Slot()
+    def refresh_projects(self) -> None:
+        """Refresh the catalog without rebuilding the active workspace."""
+        if (
+            self._bootstrap_worker is not None
+            or self._project_catalog_worker is not None
+        ):
+            return
+        from thlib.environment import env_inst, env_server
+
+        if not env_server.get_ticket():
+            return
+        if env_inst.server_pool.is_stopped:
+            env_inst.server_pool.start()
+        worker = env_inst.server_pool.add_task(self._load_projects, force=True)
+        if worker is None:
+            return
+        request_id = uuid.uuid4().hex
+        self._project_catalog_request_id = request_id
+        self._project_catalog_worker = worker
+        worker.add_result_data(request_id)
+        worker.result.connect(
+            self._async_project_catalog_result,
+            Qt.ConnectionType.QueuedConnection,
+        )
+        worker.error.connect(
+            self._async_project_catalog_error,
+            Qt.ConnectionType.QueuedConnection,
+        )
+        worker.start()
+
+    @Slot(object)
+    def _async_project_catalog_result(self, result) -> None:
+        projects, request_id = result
+        if request_id != self._project_catalog_request_id:
+            return
+        self._project_catalog_worker = None
+        self._project_catalog_request_id = ""
+        if projects:
+            self.project_model.replace(projects)
+
+    @Slot(object)
+    def _async_project_catalog_error(self, error) -> None:
+        payload, worker = error
+        if worker.get_result_data() != self._project_catalog_request_id:
+            return
+        self._project_catalog_worker = None
+        self._project_catalog_request_id = ""
+        self._report_error_payload(payload, "server/projects", worker)
+
+    def _cancel_project_catalog(self) -> None:
+        worker = self._project_catalog_worker
+        self._project_catalog_worker = None
+        self._project_catalog_request_id = ""
+        if worker is not None:
+            worker.cancel()
+
     @Slot(str)
     def edit_project(self, project_code: str) -> None:
         from thlib.environment import env_inst
@@ -389,6 +448,48 @@ class ConnectionMixin:
         }
         self.window_model.show_window("project_editor")
         self.projectEditRequested.emit()
+
+    @Slot()
+    def deactivate_project(self) -> None:
+        from thlib.environment import env_inst
+
+        self._persist_current_project_workspace()
+        self._cancel_bootstrap()
+        self._project_request_id = ""
+        self._active_request_id = ""
+        self._skey_request_id = ""
+        self._suggestion_request_id = ""
+        self._invalidate_sidebar_preset_requests()
+        self._selection_load_timer.stop()
+        self._pending_selection_load = None
+        self._pending_versions_node_id = ""
+        self._detail_request_id = ""
+        self._versions_request_id = ""
+        self._cancel_selected_payload_worker()
+        self._cancel_versions_worker()
+        self.workspace_state.clear_selection()
+        self.workspace_state.load_project(None)
+        self.workspace_state.load_stype(None)
+        self.versions_model.clear()
+        self.workspace_state.set_result_surfaces([])
+        self._dispose_all_tab_workspace_models()
+        self._sessions.clear()
+        self.workspace_state.set_tabs([])
+        self.workspace_model.clear()
+        self.navigation_model.replace([])
+        self.section_model.replace([])
+        self._current_section_key = ""
+        self._current_project_code = ""
+        self._current_project_title = ""
+        self._current_project_preview = ""
+        env_inst.set_current_project(None)
+        self._settings["server/currentProject"] = ""
+        self._write_settings()
+        self._clear_result_state()
+        self._set_loading(False, self.tr("Project deactivated"))
+        self.project_changed.emit("", "")
+        self.project_state_changed.emit()
+        self.section_state_changed.emit()
 
     def project_editor_context(self) -> dict:
         return dict(self._project_editor_request or {})
@@ -440,6 +541,10 @@ class ConnectionMixin:
         self.project_state_changed.emit()
     @Slot(str)
     def select_project(self, project_code: str) -> None:
+        files = getattr(self, 'file_workspace', None)
+        if files and project_code != self._current_project_code and not files.can_leave():
+            self._notify(self.tr('Save or reset Depot and Storage changes before leaving this project.'))
+            return
         self._skey_request_id = ""
         self._suggestion_request_id = ""
         try:
@@ -587,8 +692,6 @@ class ConnectionMixin:
             key for key in self._opened_section_keys(project_code)
             if key in links
         ]
-        if not restored and links:
-            restored = [next(iter(links))]
         for key in restored:
             entry = links[key]
             section = self._create_section(
@@ -611,6 +714,8 @@ class ConnectionMixin:
                 self._apply_tab_workspace_layout(active_section, active_tab)
             self._sync_section_model()
             self._sync_search_tabs()
+        else:
+            self._clear_result_state()
         self.project_state_changed.emit()
         self.section_state_changed.emit()
     @Slot(object)
@@ -676,8 +781,6 @@ class ConnectionMixin:
         search_cache = self._load_search_cache(project_code)
         restored = [key for key in self._opened_section_keys(project_code) if key in links]
         saved_active = self._saved_active_section_key(project_code)
-        if not restored and links:
-            restored = [next(iter(links))]
         for key in restored:
             entry = links[key]
             section = self._create_section(entry.key, entry.title, entry.accent)
@@ -693,6 +796,9 @@ class ConnectionMixin:
             self.activate_section(
                 saved_active if saved_active in restored else restored[0]
             )
+        else:
+            self._clear_result_state()
+            self.section_state_changed.emit()
 
     @Slot(str, str)
     def _project_preview_ready(self, project_code: str, preview_url: str) -> None:
@@ -752,21 +858,22 @@ class ConnectionMixin:
             ),
         )
         self._notify(message)
-    @Slot(int)
-    def set_ping_interval(self, seconds: int) -> None:
-        seconds = seconds if seconds in {0, 10, 60} else 0
-        if self._ping_interval == seconds:
+    @Slot(bool)
+    def server_updates_connection_checked(self, online: bool) -> None:
+        if not self.has_ticket or self._authentication_required:
             return
-        self._ping_interval = seconds
-        self._settings["server/pingInterval"] = seconds
-        self._write_settings()
-        if seconds:
-            self._ping_timer.start(seconds * 1000)
-            self._append_activity(f"Automatic ping: every {seconds} seconds")
-        else:
-            self._ping_timer.stop()
-            self._append_activity("Automatic ping: off")
-        self.connection_settings_changed.emit()
+        if (
+            online
+            and self._server_state == "error"
+            and self._server_message in {
+                "Cannot reach TACTIC server",
+                "TACTIC server did not respond",
+            }
+        ):
+            self._set_server_state("online", "Connected")
+        elif not online and self._server_state == "online":
+            self._set_server_state("error", "Cannot reach TACTIC server")
+
     def _notify(self, text: str) -> None:
         if self.debug_log and text:
             level = "ERROR" if any(
@@ -820,7 +927,6 @@ class ConnectionMixin:
             if env_server.get_ticket()
             else "Enter your TACTIC login and password to generate a ticket."
         )
-        self._ping_timer.stop()
         if self._server_state != "authentication":
             self._set_server_state(
                 "authentication", "Generate a ticket to continue"
@@ -855,18 +961,35 @@ class ConnectionMixin:
         self._authentication_error = ""
         self.authentication_changed.emit()
 
+    def _cancel_authentication(self) -> None:
+        self._authentication_request_id = ""
+        worker = self._authentication_worker
+        self._authentication_worker = None
+        self._authentication_busy = False
+        if worker is not None:
+            try:
+                worker.cancel()
+            except RuntimeError:
+                pass
+
     @Slot()
     def logout(self) -> None:
-        from thlib.environment import env_server
+        from thlib.environment import env_inst, env_server
 
         self._persist_current_project_workspace()
         self._invalidate_sidebar_preset_requests()
         self._cancel_bootstrap()
-        self._ping_timer.stop()
+        self._cancel_project_catalog()
         self._active_request_id = ""
         self._project_request_id = ""
+        self._cancel_authentication()
+        self.signing_out.emit()
+        self._flush_config_writes()
         env_server.set_ticket(None)
+        env_server.set_user(None)
         env_server.save_defaults()
+        env_inst.logins = {}
+        env_inst.projects = {}
         self.project_model.replace([])
         self.navigation_model.replace([])
         self.section_model.replace([])
@@ -881,7 +1004,6 @@ class ConnectionMixin:
         self._current_project_code = ""
         self._current_project_title = ""
         self._current_user_initials = ""
-        self._authentication_busy = False
         self._authentication_required = True
         self._authentication_dialog_visible = True
         self._authentication_error = (
@@ -907,6 +1029,8 @@ class ConnectionMixin:
         self._authentication_busy = True
         self._authentication_error = ""
         self._authentication_started_at = time.perf_counter()
+        request_id = uuid.uuid4().hex
+        self._authentication_request_id = request_id
         self.authentication_changed.emit()
         self._set_loading(True, "Generating a new TACTIC ticket")
         try:
@@ -916,14 +1040,36 @@ class ConnectionMixin:
             worker = env_inst.server_pool.add_task(
                 self._authenticate_task, login, password
             )
-            worker.result.connect(self._authentication_result)
-            worker.error.connect(self._authentication_error_result)
+            self._authentication_worker = worker
+            worker.result.connect(
+                lambda result: self._authentication_result_for(request_id, result),
+                Qt.ConnectionType.QueuedConnection,
+            )
+            worker.error.connect(
+                lambda error: self._authentication_error_result_for(request_id, error),
+                Qt.ConnectionType.QueuedConnection,
+            )
             worker.start()
         except Exception as error:
-            self._authentication_error_result(({
+            self._authentication_error_result_for(request_id, ({
                 "exception": error,
                 "stacktrace": traceback.format_exc(),
             }, None))
+
+    def _authentication_result_for(self, request_id: str, result) -> None:
+        if request_id != self._authentication_request_id:
+            return
+        self._authentication_request_id = ""
+        self._authentication_worker = None
+        self._authentication_result(result)
+
+    def _authentication_error_result_for(self, request_id: str, error) -> None:
+        if request_id != self._authentication_request_id:
+            return
+        self._authentication_request_id = ""
+        self._authentication_worker = None
+        self._authentication_error_result(error)
+
     @staticmethod
     def _authenticate_task(login: str, password: str):
         import thlib.tactic_classes as tc
@@ -947,12 +1093,20 @@ class ConnectionMixin:
     def _authentication_result(self, result) -> None:
         login, ticket = result
         from thlib.environment import env_server
+        self._flush_config_writes()
         env_server.set_user(login)
+        env_server.set_ticket(ticket)
+        env_server.save_defaults()
+        config_identity = str(getattr(self, "_config_identity", "") or "")
+        if login != config_identity:
+            # The new process reads every controller from the new user's tree.
+            # Keep shutdown writes in the tree that owns the live UI state.
+            env_server.set_user(config_identity or None)
+            self.restart_requested.emit()
+            return
         self._reset_cached_sidebar_presets_for_identity(
             self._bootstrap_cache_identity()
         )
-        env_server.set_ticket(ticket)
-        env_server.save_defaults()
         self._settings["server/lastLogin"] = login
         self._write_settings()
         self._login_name = login
@@ -1051,9 +1205,11 @@ class ConnectionMixin:
             ),
         )
     @Slot(str, str)
+    @Slot(str, str, bool, str)
     def apply_server_configuration(
         self, server_url: str, preset_name: str,
         preserve_values: bool = False,
+        rpc_transport: str | None = None,
     ) -> None:
         from thlib.ui.server_address import (
             is_valid_tactic_server_url,
@@ -1062,24 +1218,35 @@ class ConnectionMixin:
 
         server_url = normalize_tactic_server_url(server_url)
         preset_name = str(preset_name or "").strip()
+        if rpc_transport not in (None, "xmlrpc", "json"):
+            self._notify("Select XML-RPC or JSON (TACTIC Stream)")
+            return
         if not is_valid_tactic_server_url(server_url):
             self._notify("Enter a valid TACTIC server address")
             return
-        from thlib.environment import cfg_controls, env_server, env_tactic
+        from thlib.environment import cfg_controls, env_inst, env_server, env_tactic
 
         self._cancel_bootstrap()
+        self._cancel_project_catalog()
         presets = env_server.get_server_presets().get("presets_list", [])
         if preset_name not in presets:
             self._notify("Select an existing server preset")
             return
+        self._cancel_authentication()
+        self.signing_out.emit()
+        self._flush_config_writes()
         env_server.set_cur_srv_preset(preset_name)
         env_server.save_server_presets_defaults()
         env_server.load_current_preset(preserve_values)
         cfg_controls.reset()
         env_tactic.reset()
         env_server.set_server(server_url)
+        if rpc_transport is not None:
+            env_server.set_rpc_transport(rpc_transport)
         env_server.set_ticket(None)
         env_server.save_defaults()
+        env_inst.logins = {}
+        env_inst.projects = {}
         self._authentication_required = False
         self._authentication_error = ""
         self.authentication_changed.emit()

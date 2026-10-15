@@ -13,6 +13,7 @@ Rectangle {
     property real maximumImageWidth: 560
     property string contentMode: "visual"
     property bool insertPanelVisible: false
+    property string blockPanelMode: ""
     property int editLinkStart: -1
     property int editLinkEnd: -1
     signal attachRequested()
@@ -20,20 +21,38 @@ Rectangle {
     signal imageInserted()
     signal contentModeRequested(string mode)
 
-    readonly property bool compactToolbar: width < 460
-    readonly property bool minimalToolbar: width < 560
+    readonly property bool compactToolbar: width < 760
+    readonly property bool minimalToolbar: width < 640
+    readonly property bool showAlignmentActions: width >= 1000
     readonly property bool editingLink: editLinkStart >= 0
         && editLinkEnd > editLinkStart
+    readonly property bool blockPanelVisible:
+        blockPanelMode === "quote"
+        || blockPanelMode === "pullquote"
+        || blockPanelMode === "code-block"
     readonly property var formatState: documentController.formatState || ({})
     readonly property var historyActions: [
         { "icon": "undo", "tip": qsTr("Undo"), "action": "undo" },
         { "icon": "redo", "tip": qsTr("Redo"), "action": "redo" }
     ]
-    readonly property var primaryActions: [
-        { "icon": "bold", "tip": qsTr("Bold · Ctrl+B"), "action": "bold" },
-        { "icon": "italic", "tip": qsTr("Italic · Ctrl+I"), "action": "italic" },
-        { "icon": "link", "tip": qsTr("Insert link · Ctrl+K"), "action": "link" },
-        { "icon": "attachments-editor", "tip": qsTr("Show attached files"), "action": "attach" }
+    readonly property var textActions: [
+        { "icon": "bold", "tip": qsTr("Bold · Ctrl+B"), "action": "bold", "minimumWidth": 0 },
+        { "icon": "italic", "tip": qsTr("Italic · Ctrl+I"), "action": "italic", "minimumWidth": 640 },
+        { "icon": "underline", "tip": qsTr("Underline"), "action": "underline", "minimumWidth": 650 },
+        { "icon": "strikethrough", "tip": qsTr("Strikethrough"), "action": "strike", "minimumWidth": 690 },
+        { "icon": "small-text", "tip": qsTr("Small text"), "action": "small-text", "minimumWidth": 730 }
+    ]
+    readonly property var insertActions: [
+        { "icon": "link", "tip": qsTr("Insert link · Ctrl+K"), "action": "link", "minimumWidth": 0 },
+        { "icon": "attachments-editor", "tip": qsTr("Show attached files"), "action": "attach", "minimumWidth": 640 },
+        { "icon": "format-quote", "tip": qsTr("Insert quote"), "action": "quote", "minimumWidth": 770 },
+        { "icon": "code-block", "tip": qsTr("Insert code block"), "action": "code-block", "minimumWidth": 810 },
+        { "icon": "checkbox-multiple-marked-outline", "tip": qsTr("Checklist"), "action": "checklist", "minimumWidth": 850 }
+    ]
+    readonly property var alignmentActions: [
+        { "icon": "align-left", "tip": qsTr("Align left"), "action": "left" },
+        { "icon": "align-center", "tip": qsTr("Align center"), "action": "center" },
+        { "icon": "align-right", "tip": qsTr("Align right"), "action": "right" }
     ]
 
     function actionChecked(action) {
@@ -72,15 +91,15 @@ Rectangle {
         else if (action === "number") root.documentController.toggle_list("ordered")
         else if (action === "checklist") root.documentController.toggle_check_list()
         else if (action === "table") root.documentController.insert_table()
-        else if (action === "quote") root.documentController.set_quote("quote")
-        else if (action === "pullquote") root.documentController.set_quote("pull")
-        else if (action === "code-block") root.documentController.set_code_block()
+        else if (action === "quote" || action === "pullquote"
+                || action === "code-block") root.openBlockPanel(action)
         else if (action === "small-text") root.documentController.set_small_text()
         else if (action === "divider") root.documentController.insert_divider()
         else if (action === "left") root.documentController.set_alignment("left")
         else if (action === "center") root.documentController.set_alignment("center")
         else if (action === "right") root.documentController.set_alignment("right")
         else if (action === "link") {
+            root.closeBlockPanel()
             if (root.insertPanelVisible) {
                 root.closeLinkPanel()
             } else {
@@ -106,6 +125,21 @@ Rectangle {
         labelField.clear()
     }
 
+    function openBlockPanel(mode) {
+        root.closeLinkPanel()
+        root.blockPanelMode = mode
+        blockText.text = root.documentController.selected_text()
+        if (mode === "code-block")
+            languageChoice.currentIndex = 0
+        blockText.forceActiveFocus()
+        blockText.selectAll()
+    }
+
+    function closeBlockPanel() {
+        root.blockPanelMode = ""
+        blockText.clear()
+    }
+
     function editLink(details) {
         if (!details || Number(details.start) < 0)
             return
@@ -120,6 +154,7 @@ Rectangle {
 
     implicitHeight: formatRow.implicitHeight + 12
         + (insertPanelVisible ? insertPanel.implicitHeight + 7 : 0)
+        + (blockPanelVisible ? blockInsertPanel.implicitHeight + 7 : 0)
     radius: root.theme.surfaceRadius
     color: root.theme.surfaceContainer
     border.width: 1
@@ -150,6 +185,14 @@ Rectangle {
                     toolTip: modelData.tip
                     onClicked: root.runAction(modelData.action)
                 }
+            }
+
+            Rectangle {
+                objectName: "knowledgeToolbarSeparator-history"
+                Layout.preferredWidth: 1
+                Layout.preferredHeight: 22
+                visible: root.contentMode === "visual"
+                color: root.theme.outlineVariant
             }
 
             Controls.CompactIconButton {
@@ -188,7 +231,7 @@ Rectangle {
             }
 
             Repeater {
-                model: root.primaryActions
+                model: root.textActions
                 delegate: Controls.CompactIconButton {
                     required property var modelData
                     readonly property bool formatChecked:
@@ -197,9 +240,7 @@ Rectangle {
                     Layout.preferredWidth: 32
                     Layout.preferredHeight: 32
                     visible: root.contentMode === "visual"
-                        && (!root.minimalToolbar
-                            || modelData.action !== "italic"
-                            && modelData.action !== "attach")
+                        && root.width >= modelData.minimumWidth
                     theme: root.theme
                     iconName: modelData.icon
                     backgroundColor: formatChecked
@@ -208,8 +249,40 @@ Rectangle {
                         ? root.theme.selectedText : root.theme.primaryText
                     forceSolidIcon: true
                     toolTip: modelData.tip
-                    Accessible.checkable: modelData.action === "bold"
-                        || modelData.action === "italic"
+                    Accessible.checkable: true
+                    Accessible.checked: formatChecked
+                    onClicked: root.runAction(modelData.action)
+                }
+            }
+
+            Rectangle {
+                objectName: "knowledgeToolbarSeparator-text"
+                Layout.preferredWidth: 1
+                Layout.preferredHeight: 22
+                visible: root.contentMode === "visual"
+                color: root.theme.outlineVariant
+            }
+
+            Repeater {
+                model: root.insertActions
+                delegate: Controls.CompactIconButton {
+                    required property var modelData
+                    readonly property bool formatChecked:
+                        root.actionChecked(modelData.action)
+                    objectName: "knowledgeToolbarAction-" + modelData.action
+                    Layout.preferredWidth: 32
+                    Layout.preferredHeight: 32
+                    visible: root.contentMode === "visual"
+                        && root.width >= modelData.minimumWidth
+                    theme: root.theme
+                    iconName: modelData.icon
+                    backgroundColor: formatChecked
+                        ? root.theme.selected : "transparent"
+                    iconColor: formatChecked
+                        ? root.theme.selectedText : root.theme.primaryText
+                    forceSolidIcon: true
+                    toolTip: modelData.tip
+                    Accessible.checkable: modelData.action === "checklist"
                     Accessible.checked: formatChecked
                     onClicked: root.runAction(modelData.action)
                 }
@@ -241,11 +314,57 @@ Rectangle {
                 Layout.preferredWidth: 32
                 Layout.preferredHeight: 32
                 visible: root.contentMode === "visual"
+                    && !root.compactToolbar
                 theme: root.theme
                 iconName: "table-view"
                 forceSolidIcon: true
                 toolTip: qsTr("Insert table")
                 onClicked: root.runAction("table")
+            }
+
+            Controls.CompactIconButton {
+                objectName: "knowledgeToolbarAction-divider"
+                Layout.preferredWidth: 32
+                Layout.preferredHeight: 32
+                visible: root.contentMode === "visual"
+                theme: root.theme
+                iconName: "divider"
+                forceSolidIcon: true
+                toolTip: qsTr("Insert divider")
+                onClicked: root.runAction("divider")
+            }
+
+            Rectangle {
+                objectName: "knowledgeToolbarSeparator-blocks"
+                Layout.preferredWidth: 1
+                Layout.preferredHeight: 22
+                visible: root.contentMode === "visual"
+                color: root.theme.outlineVariant
+            }
+
+            Repeater {
+                model: root.alignmentActions
+                delegate: Controls.CompactIconButton {
+                    required property var modelData
+                    readonly property bool formatChecked:
+                        root.actionChecked(modelData.action)
+                    objectName: "knowledgeToolbarAction-" + modelData.action
+                    Layout.preferredWidth: 32
+                    Layout.preferredHeight: 32
+                    visible: root.contentMode === "visual"
+                        && root.showAlignmentActions
+                    theme: root.theme
+                    iconName: modelData.icon
+                    backgroundColor: formatChecked
+                        ? root.theme.selected : "transparent"
+                    iconColor: formatChecked
+                        ? root.theme.selectedText : root.theme.primaryText
+                    forceSolidIcon: true
+                    toolTip: modelData.tip
+                    Accessible.checkable: true
+                    Accessible.checked: formatChecked
+                    onClicked: root.runAction(modelData.action)
+                }
             }
 
             Controls.CompactIconButton {
@@ -263,6 +382,7 @@ Rectangle {
             }
 
             Rectangle {
+                objectName: "knowledgeToolbarSeparator-mode"
                 Layout.preferredWidth: 1
                 Layout.preferredHeight: 22
                 visible: root.contentMode === "visual"
@@ -365,6 +485,124 @@ Rectangle {
                 }
             }
         }
+
+        Rectangle {
+            id: blockInsertPanel
+            objectName: "knowledgeBlockInsertPanel"
+            Layout.fillWidth: true
+            visible: root.blockPanelVisible
+            implicitHeight: blockInsertFields.implicitHeight + 14
+            radius: root.theme.itemRadius
+            color: root.theme.surfaceContainerHigh
+
+            ColumnLayout {
+                id: blockInsertFields
+                anchors.fill: parent
+                anchors.margins: 7
+                spacing: 6
+
+                Label {
+                    Layout.fillWidth: true
+                    text: root.blockPanelMode === "code-block"
+                        ? qsTr("Insert code block")
+                        : root.blockPanelMode === "pullquote"
+                            ? qsTr("Insert pull quote")
+                            : qsTr("Insert quote")
+                    color: root.theme.primaryText
+                    font.family: root.theme.fontFamily
+                    font.pointSize: Controls.Typography.label
+                    font.weight: Font.DemiBold
+                }
+
+                Flickable {
+                    id: blockTextFlickable
+                    Layout.fillWidth: true
+                    Layout.preferredHeight: 112
+                    clip: true
+                    contentWidth: width - blockTextScrollBar.reservedExtent
+                    contentHeight: Math.max(
+                        height,
+                        blockText.contentHeight
+                            + blockText.topPadding + blockText.bottomPadding)
+                    boundsBehavior: Flickable.StopAtBounds
+
+                    Controls.ScrollBar.vertical: Controls.ScrollBar {
+                        id: blockTextScrollBar
+                        theme: root.theme
+                        flickableTarget: blockTextFlickable
+                    }
+
+                    Controls.TextArea {
+                        id: blockText
+                        objectName: "knowledgeBlockText"
+                        width: blockTextFlickable.contentWidth
+                        height: Math.max(
+                            blockTextFlickable.height,
+                            contentHeight + topPadding + bottomPadding)
+                        theme: root.theme
+                        placeholderText: root.blockPanelMode === "code-block"
+                            ? qsTr("Paste or type code")
+                            : qsTr("Quote text")
+                        font.family: root.blockPanelMode === "code-block"
+                            ? "Consolas" : root.theme.fontFamily
+                    }
+                }
+
+                RowLayout {
+                    Layout.fillWidth: true
+                    spacing: 7
+
+                    Controls.ComboBox {
+                        id: languageChoice
+                        objectName: "knowledgeCodeLanguage"
+                        visible: root.blockPanelMode === "code-block"
+                        Layout.preferredWidth: 170
+                        theme: root.theme
+                        model: [
+                            {"label": "Python", "value": "python"},
+                            {"label": "JavaScript", "value": "javascript"},
+                            {"label": "JSON", "value": "json"},
+                            {"label": "Bash", "value": "bash"},
+                            {"label": "SQL", "value": "sql"},
+                            {"label": qsTr("Plain text"), "value": "text"}
+                        ]
+                        textRole: "label"
+                        valueRole: "value"
+                        translateDisplayText: false
+                    }
+                    Item { Layout.fillWidth: true }
+                    Controls.Button {
+                        objectName: "knowledgeBlockCancel"
+                        theme: root.theme
+                        text: qsTr("Cancel")
+                        icon.name: "close"
+                        onClicked: root.closeBlockPanel()
+                    }
+                    Controls.Button {
+                        objectName: "knowledgeBlockApply"
+                        theme: root.theme
+                        text: qsTr("Insert")
+                        icon.name: root.blockPanelMode === "code-block"
+                            ? "code-block" : "format-quote"
+                        highlighted: true
+                        enabled: blockText.text.trim().length > 0
+                        onClicked: {
+                            root.editorActionRequested()
+                            if (root.blockPanelMode === "code-block")
+                                root.documentController.insert_code_block(
+                                    blockText.text,
+                                    String(languageChoice.currentValue || "python"))
+                            else
+                                root.documentController.insert_quote(
+                                    blockText.text,
+                                    root.blockPanelMode === "pullquote"
+                                        ? "pull" : "quote")
+                            root.closeBlockPanel()
+                        }
+                    }
+                }
+            }
+        }
     }
 
     ActionMenu {
@@ -386,8 +624,7 @@ Rectangle {
             { "title": qsTr("Quote"), "command": "quote", "icon": "format-quote", "checked": root.actionChecked("quote") },
             { "title": qsTr("Pull quote"), "command": "pullquote", "icon": "format-quote", "checked": root.actionChecked("pullquote") },
             { "title": qsTr("Code block"), "command": "code-block", "icon": "code-block", "checked": root.actionChecked("code-block") },
-            { "title": qsTr("Small text"), "command": "small-text", "icon": "small-text", "checked": root.actionChecked("small-text") },
-            { "title": qsTr("Divider"), "command": "divider", "icon": "divider" }
+            { "title": qsTr("Small text"), "command": "small-text", "icon": "small-text", "checked": root.actionChecked("small-text") }
         ]
         onTriggered: command => root.runAction(command)
     }
@@ -412,14 +649,15 @@ Rectangle {
         theme: root.theme
         preferredWidth: 220
         actions: [
+            { "title": qsTr("Insert table"), "command": "table", "icon": "table-view", "visible": root.compactToolbar },
             { "title": qsTr("Italic · Ctrl+I"), "command": "italic", "icon": "italic", "visible": root.minimalToolbar, "checked": root.actionChecked("italic") },
             { "title": qsTr("Show attached files"), "command": "attach", "icon": "attachments-editor", "visible": root.minimalToolbar },
-            { "title": qsTr("Underline"), "command": "underline", "icon": "underline", "checked": root.actionChecked("underline") },
-            { "title": qsTr("Strikethrough"), "command": "strike", "icon": "strikethrough", "checked": root.actionChecked("strike") },
+            { "title": qsTr("Underline"), "command": "underline", "icon": "underline", "visible": root.width < 650, "checked": root.actionChecked("underline") },
+            { "title": qsTr("Strikethrough"), "command": "strike", "icon": "strikethrough", "visible": root.width < 690, "checked": root.actionChecked("strike") },
             { "separator": true },
-            { "title": qsTr("Align left"), "command": "left", "icon": "align-left", "checked": root.actionChecked("left") },
-            { "title": qsTr("Align center"), "command": "center", "icon": "align-center", "checked": root.actionChecked("center") },
-            { "title": qsTr("Align right"), "command": "right", "icon": "align-right", "checked": root.actionChecked("right") },
+            { "title": qsTr("Align left"), "command": "left", "icon": "align-left", "visible": !root.showAlignmentActions, "checked": root.actionChecked("left") },
+            { "title": qsTr("Align center"), "command": "center", "icon": "align-center", "visible": !root.showAlignmentActions, "checked": root.actionChecked("center") },
+            { "title": qsTr("Align right"), "command": "right", "icon": "align-right", "visible": !root.showAlignmentActions, "checked": root.actionChecked("right") },
             { "separator": true },
             { "title": qsTr("Clear formatting"), "command": "clear", "icon": "eraser" }
         ]

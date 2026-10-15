@@ -9,6 +9,9 @@ Item {
     required property var theme
     property bool managed: true
     property bool loadingValues: true
+    property bool teamLocalRepository: false
+    readonly property string teamLockDescription:
+        qsTr("Locked by TACTIC TEAM Mode in the active server preset.")
     property string sequenceNamingValue: ""
 
     component OptionSwitch: Controls.Switch {
@@ -39,6 +42,8 @@ Item {
             "snapshotContentMode": ["both", "preview", "files"][
                 snapshotContentMode.currentIndex
             ],
+            "snapshotImageMode": snapshotImageMode.currentIndex === 1
+                ? "fill" : "fit",
             "snapshotOrientation": snapshotOrientation.currentIndex === 1
                 ? "vertical" : "horizontal",
             "commitQueueAutoClean": commitQueueAutoClean.checked,
@@ -47,6 +52,7 @@ Item {
             "checkinMethod": checkinMethod.currentIndex,
             "checkoutMethod": checkoutMethod.currentIndex,
             "updateVersionless": updateVersionless.checked,
+            "versionlessMode": versionlessMode.currentIndex,
             "generatePreviews": generatePreviews.checked,
             "confirmSaving": confirmSaving.checked,
             "confirmRevision": confirmRevision.checked,
@@ -67,6 +73,7 @@ Item {
 
     function loadValues(values) {
         loadingValues = true
+        teamLocalRepository = Boolean(values.teamLocalRepository)
         previewsHttp.checked = Boolean(values.previewsThroughHttp)
         verifyRepositoryMd5.checked = Boolean(values.verifyRepositoryMd5)
         autoCleanRepositorySync.checked = Boolean(values.autoCleanRepositorySync)
@@ -88,6 +95,8 @@ Item {
         snapshotContentMode.currentIndex = values.snapshotContentMode
                 === "preview" ? 1
             : values.snapshotContentMode === "files" ? 2 : 0
+        snapshotImageMode.currentIndex = values.snapshotImageMode
+                === "fill" ? 1 : 0
         snapshotOrientation.currentIndex = values.snapshotOrientation
                 === "vertical" ? 1 : 0
         commitQueueAutoClean.checked = Boolean(values.commitQueueAutoClean)
@@ -95,6 +104,7 @@ Item {
         checkinMethod.currentIndex = Number(values.checkinMethod || 0)
         checkoutMethod.currentIndex = Number(values.checkoutMethod || 0)
         updateVersionless.checked = Boolean(values.updateVersionless)
+        versionlessMode.currentIndex = Number(values.versionlessMode || 0)
         generatePreviews.checked = Boolean(values.generatePreviews)
         confirmSaving.checked = Boolean(values.confirmSaving)
         confirmRevision.checked = Boolean(values.confirmRevision)
@@ -163,8 +173,14 @@ Item {
                 Controls.SettingsRow {
                     theme: root.theme
                     title: qsTr("Preview delivery")
-                    description: qsTr("Load preview files through the TACTIC HTTP endpoint instead of relying only on repository access.")
-                    OptionSwitch { id: previewsHttp }
+                    description: root.teamLocalRepository
+                        ? root.teamLockDescription
+                        : qsTr("Load preview files through the TACTIC HTTP endpoint instead of relying only on repository access.")
+                    OptionSwitch {
+                        id: previewsHttp
+                        objectName: "previewsThroughHttpSwitch"
+                        enabled: !root.teamLocalRepository
+                    }
                 }
                 Controls.SettingsRow {
                     theme: root.theme
@@ -317,6 +333,18 @@ Item {
                 }
                 Controls.SettingsRow {
                     theme: root.theme
+                    title: qsTr("Preview scaling")
+                    description: qsTr("Fit shows the whole image; Fill covers all available space and crops the edges.")
+                    Controls.ComboBox {
+                        id: snapshotImageMode
+                        Layout.preferredWidth: 170
+                        theme: root.theme
+                        model: [qsTr("Fit"), qsTr("Fill")]
+                        onActivated: root.updateValues()
+                    }
+                }
+                Controls.SettingsRow {
+                    theme: root.theme
                     title: qsTr("Initial orientation")
                     description: qsTr("Arrange preview and file content side by side or from top to bottom.")
                     showDivider: false
@@ -340,25 +368,33 @@ Item {
                 Controls.SettingsRow {
                     theme: root.theme
                     title: qsTr("Check-in method")
-                    description: qsTr("Choose whether new files are preallocated, kept in place, copied, moved, or uploaded.")
+                    description: root.teamLocalRepository
+                        ? root.teamLockDescription
+                        : qsTr("Choose whether new files are preallocated, kept in place, copied, moved, or uploaded.")
                     Controls.ComboBox {
                         id: checkinMethod
+                        objectName: "checkinMethodComboBox"
                         Layout.preferredWidth: 190
                         theme: root.theme
                         model: [qsTr("Preallocate"), qsTr("In-Place"), qsTr("Copy"), qsTr("Move"), qsTr("Upload")]
+                        enabled: !root.teamLocalRepository
                         onActivated: root.updateValues()
                     }
                 }
                 Controls.SettingsRow {
                     theme: root.theme
                     title: qsTr("Check-out method")
-                    description: qsTr("Use direct local repository access or download files through the TACTIC HTTP endpoint.")
+                    description: root.teamLocalRepository
+                        ? root.teamLockDescription
+                        : qsTr("Use direct local repository access or download files through the TACTIC HTTP endpoint.")
                     showDivider: false
                     Controls.ComboBox {
                         id: checkoutMethod
+                        objectName: "checkoutMethodComboBox"
                         Layout.preferredWidth: 190
                         theme: root.theme
                         model: [qsTr("Local"), qsTr("HTTP")]
+                        enabled: !root.teamLocalRepository
                         onActivated: root.updateValues()
                     }
                 }
@@ -376,6 +412,20 @@ Item {
                     title: qsTr("Update versionless snapshot")
                     description: qsTr("Refresh the versionless snapshot whenever a new numbered version is checked in.")
                     OptionSwitch { id: updateVersionless }
+                }
+                Controls.SettingsRow {
+                    theme: root.theme
+                    title: qsTr("Local versionless files")
+                    description: qsTr("Copy is the default. Links point to the numbered version, including previews. Symbolic links on Windows need Developer Mode or privileges; hard links need the same volume. Versionless-only check-ins use copies. Remote server aliases follow its own configuration.")
+                    Controls.ComboBox {
+                        id: versionlessMode
+                        objectName: "versionlessModeComboBox"
+                        Layout.preferredWidth: 190
+                        theme: root.theme
+                        model: [qsTr("Copy"), qsTr("Symbolic link"), qsTr("Hard link")]
+                        enabled: updateVersionless.checked
+                        onActivated: root.updateValues()
+                    }
                 }
                 Controls.SettingsRow {
                     theme: root.theme

@@ -7,6 +7,9 @@ import "controls" as Controls
 
 ApplicationWindow {
     id: window
+    // The native desktop frame already reserves its title bar. Qt's automatic
+    // safe-area padding can briefly move the whole workspace during resizing.
+    topPadding: 0
     readonly property string applicationThemeStyleName: theme.styleName
     readonly property color applicationThemeAccentColor: theme.accentColor
     readonly property color applicationThemeBaseColor: theme.baseColor
@@ -127,23 +130,19 @@ ApplicationWindow {
         appController.menu_actions("user"), messagesController.unreadCount
     )
     property var configMenuActions: appController.menu_actions("configuration")
-    property var toolsActions: appController.menu_actions("tools")
     property var connectionMenuActions: [
         {"title": "Connection", "header": true},
         {"title": "Ping now", "icon": "sync", "command": "ping_now"},
         {"separator": true},
-        {"title": "Automatic connection check", "header": true},
-        {"title": "Off", "icon": "visibility_off", "command": "ping_0",
-            "checked": appController.ping_interval === 0},
-        {"title": "Every 10 seconds", "icon": "schedule", "command": "ping_10",
-            "checked": appController.ping_interval === 10},
-        {"title": "Every 60 seconds", "icon": "schedule", "command": "ping_60",
-            "checked": appController.ping_interval === 60},
-        {"separator": true},
         {"title": "Server updates", "header": true},
-        {"title": "Messages, reactions, activity and tasks",
-            "status": "One batched server request", "icon": "dynamic_feed",
+        {"title": "Messages, reactions, activity, tasks and presence",
+            "status": serverUpdateService.update_mode === "sse" ? "Server push (SSE)" : "One batched server request", "icon": "dynamic_feed",
             "enabled": false},
+        {"title": "Periodic checks", "icon": "schedule", "command": "update_mode_poll",
+            "checked": serverUpdateService.update_mode === "poll"},
+        {"title": "Server push (SSE)", "icon": "dynamic_feed", "command": "update_mode_sse",
+            "checked": serverUpdateService.update_mode === "sse"}
+    ].concat(serverUpdateService.update_mode === "poll" ? [
         {"title": "Every 5 seconds", "icon": "schedule", "command": "updates_5",
             "checked": serverUpdateService.poll_interval === 5},
         {"title": "Every 10 seconds", "icon": "schedule", "command": "updates_10",
@@ -151,18 +150,8 @@ ApplicationWindow {
         {"title": "Every 30 seconds", "icon": "schedule", "command": "updates_30",
             "checked": serverUpdateService.poll_interval === 30},
         {"title": "Every 60 seconds", "icon": "schedule", "command": "updates_60",
-            "checked": serverUpdateService.poll_interval === 60},
-        {"separator": true},
-        {"title": "Presence heartbeat", "header": true},
-        {"title": "Every 30 seconds", "icon": "system_activity", "command": "heartbeat_30",
-            "checked": userController.heartbeat_interval === 30},
-        {"title": "Every 60 seconds", "icon": "system_activity", "command": "heartbeat_60",
-            "checked": userController.heartbeat_interval === 60},
-        {"title": "Every 120 seconds", "icon": "system_activity", "command": "heartbeat_120",
-            "checked": userController.heartbeat_interval === 120},
-        {"title": "Every 300 seconds", "icon": "system_activity", "command": "heartbeat_300",
-            "checked": userController.heartbeat_interval === 300}
-    ]
+            "checked": serverUpdateService.poll_interval === 60}
+    ] : [])
     color: theme.workspace
 
     WindowSizing { id: sizing }
@@ -182,7 +171,6 @@ ApplicationWindow {
             || projectChooser.opened
             || userMenu.opened
             || configMenu.opened
-            || toolsMenu.opened
             || connectionMenu.opened
             || dccClientMenu.opened
     }
@@ -209,7 +197,7 @@ ApplicationWindow {
         smokeMode: qmlSmokeMode
     }
     function changePage(key, title) {
-        if (key === pageKey) return
+        if (key === pageKey && title === pageTitle) return
         pendingPageKey = key
         pendingPageTitle = title
         workspaceTransition.restart()
@@ -219,7 +207,6 @@ ApplicationWindow {
         if (projectChooser !== exceptPopup && projectChooser.opened) projectChooser.close()
         if (userMenu !== exceptPopup && userMenu.opened) userMenu.close()
         if (configMenu !== exceptPopup && configMenu.opened) configMenu.close()
-        if (toolsMenu !== exceptPopup && toolsMenu.opened) toolsMenu.close()
         if (connectionMenu !== exceptPopup && connectionMenu.opened) connectionMenu.close()
         if (dccClientMenu !== exceptPopup && dccClientMenu.opened) dccClientMenu.close()
     }
@@ -236,11 +223,6 @@ ApplicationWindow {
         }
         function onPage_changed(key, title) { window.changePage(key, title); drawer.selectedKey = key }
         function onProject_changed(code, title) { window.projectTitle = title }
-        function onTools_requested() {
-            window.toolsActions = appController.menu_actions("tools")
-            window.closeTopBarPopups(toolsMenu)
-            toolsMenu.toggleBelow(settingsButton)
-        }
     }
     Connections {
         target: handlerServerController
@@ -273,6 +255,7 @@ ApplicationWindow {
 
     Rectangle {
         id: topAppBar
+        objectName: "topAppBar"
         anchors.top: parent.top
         width: parent.width
         height: 44
@@ -823,7 +806,7 @@ ApplicationWindow {
                     ? theme.action : theme.primaryText
                 round: true
                 badgeCount: commitQueueController.unfinishedCount
-                toolTip: commitQueueController.unfinishedCount > 0
+                toolTip: fileWorkspaceController.enabled ? qsTr("Perforce-like workspace") : commitQueueController.unfinishedCount > 0
                     ? qsTr("Commit Queue · ")
                         + commitQueueController.unfinishedCount
                         + qsTr(" unfinished")
@@ -835,7 +818,7 @@ ApplicationWindow {
                 Layout.preferredWidth: topAppBar.controlExtent
                 Layout.preferredHeight: topAppBar.controlExtent
                 theme: theme
-                iconName: "dynamic_feed"
+                iconName: "activity-feed"
                 iconColor: activityFeedController.unreadCount > 0
                     ? theme.action : theme.primaryText
                 round: true
@@ -867,6 +850,7 @@ ApplicationWindow {
                 onClicked: {
                     if (drawer.opened)
                         drawer.close()
+                    window.configMenuActions = appController.menu_actions("configuration")
                     window.closeTopBarPopups(configMenu)
                     configMenu.toggleBelow(settingsButton)
                 }
@@ -1006,6 +990,7 @@ ApplicationWindow {
             theme: theme
             pageTitle: window.pageTitle
             projectTitle: window.projectTitle
+            workspaceActive: Boolean(appController.current_section_key) || fileWorkspaceController.enabled
             onNotice: function(message) { window.showNotice(message) }
             onRequestDockMenu: sourceItem => dockMenu.toggleBelow(sourceItem)
         }
@@ -1059,14 +1044,6 @@ ApplicationWindow {
         onTriggered: command => appController.invoke(command)
     }
     ActionMenu {
-        id: toolsMenu
-        parent: Overlay.overlay
-        theme: theme
-        preferredWidth: 340
-        actions: window.toolsActions
-        onTriggered: command => appController.invoke(command)
-    }
-    ActionMenu {
         id: connectionMenu
         parent: Overlay.overlay
         theme: theme
@@ -1075,15 +1052,11 @@ ApplicationWindow {
         onTriggered: command => {
             if (command === "ping_now")
                 appController.ping_server()
-            else if (command.indexOf("ping_") === 0)
-                appController.set_ping_interval(Number(command.slice(5)))
+            else if (command.indexOf("update_mode_") === 0)
+                serverUpdateService.set_update_mode(command.slice(12))
             else if (command.indexOf("updates_") === 0)
                 serverUpdateService.set_poll_interval(
                     Number(command.slice(8))
-                )
-            else if (command.indexOf("heartbeat_") === 0)
-                userController.set_heartbeat_interval(
-                    Number(command.slice(10))
                 )
         }
     }
@@ -1242,5 +1215,11 @@ ApplicationWindow {
         controller: notificationController
         notifications: notificationModel
         screen: window.screen
+    }
+    UpdatePrompt {
+        anchors.fill: parent
+        theme: theme
+        controller: updateController
+        windows: windowModel
     }
 }

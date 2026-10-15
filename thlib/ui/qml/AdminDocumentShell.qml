@@ -18,12 +18,29 @@ ColumnLayout {
     property var createAction: null
     property bool allowReload: true
     property bool allowSave: true
+    property bool saveActionsInHeader: false
     property string confirmationMessage: qsTr("These changes will be saved on the server and will affect other users of the project.")
     property string confirmationDetails: ""
     property bool showSelector: true
     property bool showDocumentChrome: true
+    readonly property bool canCreateDocument: root.allowCreate
+        && (root.controller.canWrite || root.controller.metadata.canCreate === true)
+        && !root.controller.busy
+        && (!root.createRequiresCleanDocument || !root.controller.dirty)
+    readonly property bool canReloadDocument: root.allowReload
+        && !root.controller.busy && !root.controller.dirty
     property alias editorContent: body.data
     spacing: 8
+
+    function createDocument() {
+        if (!root.canCreateDocument) return
+        if (root.createAction) root.createAction()
+        else root.controller.new_document()
+    }
+
+    function reloadDocument() {
+        if (root.canReloadDocument) root.controller.reload()
+    }
 
     function requestSave() {
         if (!root.visible || !root.enabled || !root.allowSave || !root.controller.canWrite
@@ -33,13 +50,14 @@ ColumnLayout {
 
     AdminSaveBar {
         objectName: "adminDocumentToolbar"
-        visible: root.showDocumentChrome
+        visible: root.showDocumentChrome && !root.saveActionsInHeader
         Layout.fillWidth: true
         theme: root.theme
         busy: root.controller.busy
         dirty: root.controller.dirty
         canWrite: root.controller.canWrite
         saveEnabled: root.allowSave
+        showActions: !root.saveActionsInHeader
         onDiscardRequested: root.controller.discard()
         onSaveRequested: root.requestSave()
         leadingActions: [
@@ -66,27 +84,22 @@ ColumnLayout {
                 onActivated: root.controller.select(String(currentValue))
             },
             Controls.Button {
-                objectName: root.createObjectName
+                objectName: root.saveActionsInHeader ? "" : root.createObjectName
                 theme: root.theme
                 text: root.createText
                 icon.name: "add"
                 visible: root.allowCreate
-                enabled: (root.controller.canWrite || root.controller.metadata.canCreate === true)
-                    && !root.controller.busy
-                    && (!root.createRequiresCleanDocument || !root.controller.dirty)
-                onClicked: {
-                    if (root.createAction) root.createAction()
-                    else root.controller.new_document()
-                }
+                enabled: root.canCreateDocument
+                onClicked: root.createDocument()
             },
             Controls.CompactIconButton {
-                objectName: "adminReloadDocument"
+                objectName: root.saveActionsInHeader ? "" : "adminReloadDocument"
                 theme: root.theme
                 iconName: "refresh"
                 toolTip: qsTr("Reload from server")
                 visible: root.allowReload
-                enabled: !root.controller.busy && !root.controller.dirty
-                onClicked: root.controller.reload()
+                enabled: root.canReloadDocument
+                onClicked: root.reloadDocument()
             }
         ]
     }

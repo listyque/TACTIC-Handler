@@ -158,6 +158,7 @@ Item {
                 textRole: "label"
                 valueRole: "value"
                 colorRole: "color"
+                translateDisplayText: false
                 currentIndex: root.choiceIndex(root.statusChoices, root.status)
                 displayText: currentIndex >= 0
                     ? currentText : qsTr("No status")

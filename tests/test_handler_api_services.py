@@ -5,6 +5,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 import threading
 from types import SimpleNamespace
+from urllib.error import HTTPError
 from unittest.mock import Mock, patch
 import xml.etree.ElementTree as ET
 
@@ -273,6 +274,28 @@ class ServiceTests(helpers._WorkerTestCase):
         self.assertIn("OSError: transfer failed", details)
         self.assertIn("Traceback", details)
         self.assertEqual(list(destination.parent.glob("*.part")), [])
+
+    def test_missing_repository_file_is_not_retried(self):
+        from thlib.repository_download import DownloadOperation, SyncTask
+
+        destination = Path(self.directory.name) / "missing.png"
+        signals = SimpleNamespace(
+            failed=Mock(), finished=Mock(), cancelled=Mock(), progress=Mock()
+        )
+        native = SimpleNamespace(
+            is_exists=lambda: False, prepare_repo=lambda: str(destination)
+        )
+        task = SyncTask(
+            "missing", "file", native, "Preview", "preview",
+            str(destination), "http://example.invalid/missing.png", 0,
+            is_ui_preview=True,
+        )
+        missing = HTTPError(task.web_path, 404, "Not Found", {}, None)
+        with patch("urllib.request.urlopen", side_effect=missing) as request:
+            DownloadOperation(task, signals).run()
+
+        request.assert_called_once()
+        signals.failed.emit.assert_called_once()
 
 
 class ObserverTests(helpers._WorkerTestCase):

@@ -26,7 +26,7 @@ class SchemaTypeEditor(SearchTypesEditor):
 
     @Slot(float, float)
     def open(self, x: float, y: float) -> None:
-        if (not self._application.can_administer or self._closed or self.busy
+        if (not self._application.can_manage_tools or self._closed or self.busy
                 or self._schema.busy or not self._schema.canWrite
                 or self._schema.identity != self._schema._project
                 or not all(math.isfinite(value) for value in (x, y))):

@@ -44,8 +44,10 @@ flowchart LR
 ## Lifecycle
 
 1. The application UI generates a cryptographically random session token.
-2. It starts `python -m handler_server.launcher` in a separate process and passes the
-   token only through the child environment.
+2. It starts `python -m handler_server.launcher` from source, or relaunches the
+   compiled application with `--handler-server` in a Nuitka build. The entry
+   point dispatches to the same launcher before UI initialization. The token
+   is passed only through the child environment.
 3. The server binds an ephemeral port on `127.0.0.1` and atomically publishes a
    per-user discovery record under local application data. The record is readable
    only in the user's local session and contains the random handshake token.
@@ -71,7 +73,9 @@ flowchart LR
 10. Server restart is rediscovered on the next reconnect. Application shutdown removes
    the discovery record and stops clients, demo process, and server process in order.
 
-The standalone UI starts Handler Server automatically after QML has loaded. A manual
+The standalone UI starts Handler Server after QML has loaded when
+`application/autoStartHandlerServer` is enabled (the default) in `ui_main` settings.
+Disabling it leaves manual startup available and takes effect on the next launch. A manual
 stop uses the authenticated local operator connection; process termination is only a
 bounded fallback when graceful shutdown does not complete.
 

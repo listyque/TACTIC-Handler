@@ -10,6 +10,14 @@ Item {
     required property var theme
     readonly property var hostWindow: root.Window.window
 
+    readonly property var syntaxColors: ({
+        keyword: String(theme.syntaxKeyword), string: String(theme.syntaxString),
+        comment: String(theme.syntaxComment), number: String(theme.syntaxNumber),
+        type: String(theme.syntaxType), function: String(theme.syntaxFunction),
+        definition: String(theme.syntaxDefinition), decorator: String(theme.syntaxDefinition),
+        self: String(theme.syntaxSelf), module: String(theme.syntaxSelf)
+    })
+
     function localizedErrorType(errorType) {
         const labels = {
             "ticket_error": qsTr("Authentication error"),
@@ -138,6 +146,7 @@ Item {
 
                 Flickable {
                     id: bodyFlickable
+                    objectName: "errorBodyFlickable"
                     Layout.fillWidth: true
                     Layout.fillHeight: true
                     contentWidth: width
@@ -183,36 +192,76 @@ Item {
                             Layout.fillWidth: true
                             spacing: 7
 
-                            Label {
-                                text: qsTr("REQUEST")
-                                color: root.theme.secondaryText
-                                font.family: root.theme.fontFamily
-                                font.pointSize: Controls.Typography.label
-                                font.weight: Font.DemiBold
-                            }
+                            Repeater {
+                                model: debugLog.error_request_blocks
+                                delegate: ColumnLayout {
+                                    required property var modelData
+                                    Layout.fillWidth: true
+                                    spacing: 7
 
-                            Rectangle {
-                                Layout.fillWidth: true
-                                Layout.preferredHeight:
-                                    Math.min(110, commandText.implicitHeight + 22)
-                                radius: 12
-                                color: root.theme.workspace
-                                border.width: 1
-                                border.color: root.theme.outlineVariant
+                                    Label {
+                                        Layout.fillWidth: true
+                                        text: modelData.name
+                                            ? qsTr("Multiline argument") + ": " + modelData.name
+                                            : qsTr("REQUEST")
+                                        color: root.theme.secondaryText
+                                        font.family: root.theme.fontFamily
+                                        font.pointSize: Controls.Typography.label
+                                        font.weight: Font.DemiBold
+                                        elide: Text.ElideRight
+                                    }
 
-                                Controls.TextArea {
-                                    theme: root.theme
-                                    id: commandText
-                                    anchors.fill: parent
-                                    anchors.margins: 7
-                                    readOnly: true
-                                    selectByMouse: true
-                                    wrapMode: TextEdit.WrapAnywhere
-                                    text: debugLog.error_command
-                                    color: root.theme.action
-                                    font.family: "Consolas"
-                                    font.pointSize: Controls.Typography.label
-                                    background: Item {}
+                                    Rectangle {
+                                        Layout.fillWidth: true
+                                        Layout.preferredHeight: Math.min(
+                                            Math.max(160, bodyFlickable.height * 0.55),
+                                            commandText.implicitHeight + 30)
+                                        radius: 12
+                                        color: root.theme.workspace
+                                        border.width: 1
+                                        border.color: root.theme.outlineVariant
+
+                                        ScrollView {
+                                            objectName: "errorRequestScrollView"
+                                            anchors.fill: parent
+                                            anchors.margins: 7
+                                            clip: true
+                                            ScrollBar.vertical: Controls.ScrollBar {
+                                                objectName: "errorRequestVerticalScrollBar"
+                                                theme: root.theme
+                                            }
+                                            ScrollBar.horizontal: Controls.ScrollBar {
+                                                objectName: "errorRequestHorizontalScrollBar"
+                                                theme: root.theme
+                                            }
+
+                                            Controls.TextArea {
+                                                id: commandText
+                                                objectName: "errorRequestCode"
+                                                theme: root.theme
+                                                rightPadding: 24
+                                                bottomPadding: 22
+                                                readOnly: true
+                                                selectByMouse: true
+                                                textFormat: TextEdit.PlainText
+                                                wrapMode: TextEdit.WrapAnywhere
+                                                text: modelData.text
+                                                font.family: "Consolas"
+                                                font.pointSize: Controls.Typography.label
+                                                background: Item {}
+                                                Component.onCompleted:
+                                                    debugLog.attach_request_document(
+                                                        textDocument, root.syntaxColors)
+                                                Connections {
+                                                    target: root
+                                                    function onSyntaxColorsChanged() {
+                                                        debugLog.attach_request_document(
+                                                            commandText.textDocument, root.syntaxColors)
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
                                 }
                             }
                         }
@@ -279,7 +328,7 @@ Item {
                                     theme: root.theme
                                     readOnly: true
                                     selectByMouse: true
-                                    wrapMode: TextEdit.NoWrap
+                                    wrapMode: TextEdit.WrapAnywhere
                                     text: debugLog.error_stacktrace
                                     color: root.theme.secondaryText
                                     font.family: "Consolas"

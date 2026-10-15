@@ -369,6 +369,9 @@ class CheckinOutController(QObject):
                 "type": str(tab.get("type") or "sObject"),
                 "process": str(tab.get("process") or ""),
                 "context": str(tab.get("context") or ""),
+                "keepPublishProcessCollapsed": bool(
+                    tab.get("keepPublishProcessCollapsed", False)
+                ),
                 "available": False,
             }
             for tab in tabs
@@ -458,7 +461,10 @@ class CheckinOutController(QObject):
     @classmethod
     def _source_processes(cls, source, current_process: str = "") -> list[str]:
         pipeline = cls._pipeline_for_process(source, current_process)
-        names = list((getattr(pipeline, "pipeline", None) or {}).keys())
+        names = [
+            name for name in (getattr(pipeline, "pipeline", None) or {})
+            if not cls._is_progress_process(source, name)
+        ]
         if cls._show_builtin_processes():
             names.extend(
                 process for process in cls._builtin_processes
@@ -467,6 +473,17 @@ class CheckinOutController(QObject):
         if not names:
             names = list(cls._builtin_processes)
         return list(dict.fromkeys(str(name) for name in names if name))
+
+    @classmethod
+    def _is_progress_process(cls, source, process: str) -> bool:
+        pipeline = cls._pipeline_for_process(source, process)
+        if pipeline is None:
+            return False
+        try:
+            info = pipeline.get_process_info(process) or {}
+        except (AttributeError, KeyError, TypeError):
+            info = {}
+        return info.get("type") == "progress"
 
     @classmethod
     def _source_contexts(cls, source, process: str) -> list[str]:
@@ -544,6 +561,7 @@ class CheckinOutController(QObject):
             "type": "sobject",
             "process": selected_process,
             "context": selected_context,
+            "keepPublishProcessCollapsed": selected.node_type == "sobject",
             "available": True,
         }
         row = next(
@@ -605,11 +623,14 @@ class CheckinOutController(QObject):
         code: str, process: str, context: str, description: str = "",
         save_revision: bool = False, snapshot_version=None,
         checkin_type: str = "", transfer_mode: str = "",
+        keep_publish_process_collapsed: bool = False,
     ) -> None:
         search_key = str(search_key or "").strip()
         if not search_key or source is None:
             raise ValueError("A valid sObject is required for check-in")
         process = str(process or "publish").strip() or "publish"
+        if self._is_progress_process(source, process):
+            raise ValueError("Progress processes do not accept snapshots")
         context = self._full_context(process, context)
         tab = {
             "nodeId": f"checkin:{search_key}",
@@ -619,6 +640,9 @@ class CheckinOutController(QObject):
             "type": "sobject",
             "process": process,
             "context": context,
+            "keepPublishProcessCollapsed": bool(
+                keep_publish_process_collapsed
+            ),
             "available": True,
         }
         row = next((
@@ -668,6 +692,8 @@ class CheckinOutController(QObject):
 
     def set_process_and_context(self, process: str, context: str) -> None:
         process = str(process or "publish").strip() or "publish"
+        if self._is_progress_process(self._source, process):
+            raise ValueError("Progress processes do not accept snapshots")
         context = self._full_context(process, context)
         if process not in self._processes:
             self._processes.append(process)
@@ -725,6 +751,7 @@ class CheckinOutController(QObject):
     def actionAvailable(self) -> bool:
         return bool(
             self._source and self._process and self._context
+            and not self._is_progress_process(self._source, self._process)
         )
 
     @Slot(int)
@@ -794,6 +821,8 @@ class CheckinOutController(QObject):
             raise ValueError("At least one file is required for check-in")
 
         process = context.split("/", 1)[0] or context
+        if self._is_progress_process(source, process):
+            raise ValueError("Progress processes do not accept snapshots")
         tab = {
             "nodeId": f"external:{search_key}",
             "searchKey": search_key,
@@ -1315,6 +1344,8 @@ class CheckinOutController(QObject):
 
     @Slot(result="QVariantMap")
     def operation_payload(self) -> dict:
+        if self._is_progress_process(self._source, self._process):
+            raise ValueError("Progress processes do not accept snapshots")
         tab = self._tabs[self._current_tab] if self._tabs else {}
         repo_values = self._repository.get("value") or []
         checkin_type = self._source_checkin_type(
@@ -1367,6 +1398,10 @@ class CheckinOutController(QObject):
             "mode": str(
                 getattr(self, "_transfer_mode_override", "") or ""
             ) or self._checkin_mode(),
+            "_keepPublishProcessCollapsed": bool(
+                tab.get("keepPublishProcessCollapsed", False)
+                and self._process == "publish"
+            ),
             "sequencePadding": sequence_padding,
             "filesDict": self._files_dict(),
             "files": [
@@ -1577,6 +1612,40 @@ class CheckinOutController(QObject):
         )
         worker.start()
 
+    def validate_prepared_operations(self, operations: list[tuple[str, dict]]) -> None:
+        from thlib.environment import env_inst
+
+        worker = env_inst.commit_pool.add_task(self._validate_prepared_payloads,
+                                              [payload for request_id, payload in operations])
+        if worker is None:
+            for request_id, payload in operations:
+                self.preparedValidationFinished.emit(request_id, False, {}, 'Check-in worker pool is unavailable')
+            return
+
+        def finished(results):
+            for (request_id, payload), value in zip(operations, results):
+                debug_log = getattr(self._application, 'debug_log', None)
+                if value['error'] and debug_log:
+                    debug_log.log('EXCEPTION', value['error'], group='checkin/naming',
+                                  details=payload, stacktrace=value.get('stacktrace', ''))
+                self.preparedValidationFinished.emit(request_id, not bool(value['error']),
+                                                     value['result'] or {}, value['error'])
+
+        def failed(error):
+            for request_id, payload in operations:
+                self.preparedValidationFinished.emit(request_id, False, {}, self._worker_error_text(error))
+
+        worker.result.connect(finished, Qt.ConnectionType.QueuedConnection)
+        worker.error.connect(failed, Qt.ConnectionType.QueuedConnection)
+        worker.start()
+
+    @classmethod
+    def _validate_prepared_payloads(cls, payloads: list[dict]) -> list[dict]:
+        from thlib.checkin_operation import prepare_checkins
+
+        return [dict(result=cls._validation_result(value['result']) if not value['error'] else None,
+                     error=value['error'], stacktrace=value.get('stacktrace', '')) for value in prepare_checkins(payloads)]
+
     @staticmethod
     def _worker_error_text(error) -> str:
         payload = error[0] if isinstance(error, tuple) and error else error
@@ -1590,9 +1659,13 @@ class CheckinOutController(QObject):
         from thlib.checkin_operation import prepare_checkin
 
         inputs = prepare_checkin(payload, progress_signal=progress_signal)
+        return CheckinOutController._validation_result(inputs['virtualSnapshot'])
+
+    @staticmethod
+    def _validation_result(virtual_snapshot: list) -> dict:
         versioned_paths = []
         versionless_paths = []
-        for _key, snapshot in inputs["virtualSnapshot"]:
+        for _key, snapshot in virtual_snapshot:
             for destination, target in (
                 (snapshot.get("versioned") or {}, versioned_paths),
                 (snapshot.get("versionless") or {}, versionless_paths),
@@ -1604,7 +1677,7 @@ class CheckinOutController(QObject):
         return {
             "versionedPaths": versioned_paths,
             "versionlessPaths": versionless_paths,
-            "virtualSnapshot": inputs["virtualSnapshot"],
+            "virtualSnapshot": virtual_snapshot,
         }
 
     @staticmethod
@@ -1692,6 +1765,7 @@ class CheckinOutController(QObject):
         return prepare_checkin(
             payload, progress_signal=progress_signal,
             cancel_event=cancel_event,
+            refresh_naming=not bool(payload.get("dccScene")),
         )
 
     def _connect_operation_worker(
@@ -1819,6 +1893,7 @@ class CheckinOutController(QObject):
             mode=snapshot_mode,
             create_icon=payload["generatePreviews"],
             files_objects=inputs["filesObjects"],
+            defer_refresh=self._queue_operation,
         )
         if worker is None:
             self._operation_failed(
@@ -1831,13 +1906,15 @@ class CheckinOutController(QObject):
         worker.start()
 
     @staticmethod
-    def _create_snapshot(**kwargs):
+    def _create_snapshot(*, defer_refresh=False, **kwargs):
         from thlib import server_cache
         import thlib.tactic_classes as tc
 
         result = tc.checkin_snapshot(**kwargs)
         if result is None:
             raise RuntimeError("TACTIC did not return the created snapshot")
+        if defer_refresh:
+            return result
         try:
             project_code = str(
                 tc.split_search_key(kwargs.get("search_key") or "").get(
@@ -1878,8 +1955,8 @@ class CheckinOutController(QObject):
             context = self._trigger_context(payload)
             triggers.run_after("snapshot.save", context)
         self.operationResult.emit(deepcopy(result))
-        self.operationFinished.emit(True, "")
         self._queue_operation = False
+        self.operationFinished.emit(True, "")
 
     def _operation_failed(
         self, operation_id: int, error, worker=None
@@ -1960,8 +2037,8 @@ class CheckinOutController(QObject):
         self._operation_payload = None
         self._operation_repository = {}
         self.preparationChanged.emit()
-        self.operationFinished.emit(False, "")
         self._queue_operation = False
+        self.operationFinished.emit(False, "")
 
     @Property(str, notify=checkoutChanged)
     def checkoutState(self) -> str:
@@ -2084,6 +2161,10 @@ class CheckinOutController(QObject):
     def start_dcc_scene_checkin(
         self, target: dict, payload: dict, capability: str
     ) -> bool:
+        if self._is_progress_process(
+            target.get("source"), str(target.get("process") or "")
+        ):
+            return False
         bridge = getattr(self, "_dcc_bridge", None)
         if not bridge:
             return False

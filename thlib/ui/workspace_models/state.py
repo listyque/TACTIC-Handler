@@ -93,7 +93,8 @@ class WorkspaceState(
             "previewItems", "files",
         ))
         self.snapshot_preview_model = RecordListModel((
-            "token", "title", "url", "kind", "snapshotNodeId",
+            "token", "title", "url", "qualityUrl", "qualityRequested",
+            "kind", "snapshotNodeId",
         ))
         self.snapshot_file_model = RecordListModel((
             "rowType", "token", "title", "fileType", "size", "path",

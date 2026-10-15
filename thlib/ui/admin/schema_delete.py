@@ -17,16 +17,23 @@ class SchemaTypeDeletion(AdminDocumentEditor):
     # A newly declared QML property needs its own notify signal here. Using
     # the inherited signal crashes PySide 6.11's QML meta-object lookup.
     deletingChanged = Signal()
+    reviewChanged = Signal()
 
     def __init__(self, application, schema: GraphEditor) -> None:
         super().__init__(application, schema_delete_request, schema)
         self._schema = schema
         self._deleting = False
         self.committed.connect(self._deleted)
+        self.stateChanged.connect(self.reviewChanged.emit)
+        schema.stateChanged.connect(self.reviewChanged.emit)
 
     @Property(bool, notify=deletingChanged)
     def deleting(self) -> bool:
         return self._deleting
+
+    @Property(str, notify=reviewChanged)
+    def schemaRevision(self):
+        return self._schema._revision
 
     def _set_deleting(self, value: bool) -> None:
         if self._deleting != value:
@@ -48,8 +55,15 @@ class SchemaTypeDeletion(AdminDocumentEditor):
             graph.fail(self.tr('Save or discard the schema changes before deleting a Search Type'))
             return False
         self.reset(graph._project)
+        self._identity = identity
         self._request('load', identity)
         return True
+
+    @Slot()
+    @Slot(bool)
+    def reload(self, force=False):
+        if not self.busy and not self.writeUncertain and self.identity and (force or not self.dirty):
+            self._request('load', self.identity)
 
     @Slot()
     def cancel(self) -> None:
@@ -76,8 +90,9 @@ class SchemaTypeDeletion(AdminDocumentEditor):
         graph._document = {'xml': self.metadata['schema']['xml']}
         graph._original = dict(graph._document)
         graph._revision = self.metadata['schema']['revision']
-        graph._metadata['searchTypes'] = [row for row in graph.metadata.get('searchTypes', [])
-                                        if row['identity'] != self.identity]
+        if not self.metadata.get('sharedRegistration'):
+            graph._metadata['searchTypes'] = [row for row in graph.metadata.get('searchTypes', [])
+                                            if row['identity'] != self.identity]
         graph._document_loaded()
         graph.stateChanged.emit()
         graph.committed.emit()

@@ -7,6 +7,7 @@ import unittest
 from PySide6.QtCore import (
     QCoreApplication,
     QEvent,
+    QEventLoop,
     QMimeData,
     QObject,
     QMetaObject,
@@ -14,6 +15,7 @@ from PySide6.QtCore import (
     QPointF,
     Property,
     QTemporaryDir,
+    QTimer,
     Signal,
     Qt,
     QUrl,
@@ -28,8 +30,8 @@ from PySide6.QtGui import (
     QImage,
 )
 from PySide6.QtQml import QQmlComponent, QQmlEngine
-from PySide6.QtQuick import QQuickItem, QQuickWindow
-from PySide6.QtTest import QTest
+from PySide6.QtQuick import QQuickItem, QQuickWindow, QSGRendererInterface
+from PySide6.QtTest import QSignalSpy, QTest
 
 from thlib.ui.workspace_models.results import WorkspaceItemModel
 from thlib.ui.workspace_models.records import RecordListModel
@@ -208,6 +210,147 @@ class _WorkspaceAppController(QObject):
 
 
 class WorkspaceResultItemTests(unittest.TestCase):
+    def test_relation_card_exposes_actions_without_hover(self):
+        class Controller(_WorkspaceAppController):
+            @Slot(str, int, result=bool)
+            def handle_item_double_click(self, node_id, modifiers):
+                return False
+
+            @Slot(str)
+            def enter_card_node(self, node_id):
+                self.item_actions.append(("enter", node_id))
+
+        controller = Controller()
+        engine = QQmlEngine()
+        engine.rootContext().setContextProperty("appController", controller)
+        qml_dir = ROOT / "thlib/ui/qml"
+        theme_component = QQmlComponent(engine, QUrl.fromLocalFile(str(qml_dir / "Theme.qml")))
+        theme = theme_component.createWithInitialProperties({"dark": True})
+        model = WorkspaceItemModel()
+        node = WorkspaceNode(node_id="relation", node_type="relation", code="texture",
+                             search_key="demo/asset?code=ASSET001", title="Texture", linkable_relation=True)
+        controls = model._controls_for(node)
+        self.assertEqual({item["command"] for item in controls}, {"link_related", "add_related"})
+        self.assertTrue(all(item["persistent"] for item in controls))
+        component = QQmlComponent(engine, QUrl.fromLocalFile(str(qml_dir / "WorkspaceCard.qml")))
+        card = component.createWithInitialProperties(self.card_properties(
+            theme, nodeId="relation", nodeType="relation", title="Texture",
+            hasChildren=True, childCount=1, height=160, itemControls=controls,
+        ))
+        self.assertIsNotNone(card, component.errors())
+        window = QQuickWindow()
+        card.setParentItem(window.contentItem())
+        window.resize(260, 160)
+        window.show()
+        try:
+            QTest.qWait(30)
+            button = card.findChild(QQuickItem, "openRelatedItemsButton")
+            self.assertTrue(button.isVisible())
+            self.assertTrue(card.property("hasPersistentItemControls"))
+            QTest.mouseClick(window, Qt.LeftButton, Qt.NoModifier,
+                             button.mapToScene(QPointF(button.width() / 2, button.height() / 2)).toPoint())
+            self.assertEqual(controller.item_actions, [("enter", "relation")])
+            card.setProperty("hasChildren", False)
+            self.assertFalse(button.isVisible())
+            self.assertTrue(card.property("hasPersistentItemControls"))
+        finally:
+            window.close()
+            card.setParentItem(None)
+            card.deleteLater()
+            window.deleteLater()
+
+    def test_card_text_is_above_footer_even_with_zero_counts(self):
+        engine = QQmlEngine()
+        controller = _WorkspaceAppController()
+        engine.rootContext().setContextProperty("appController", controller)
+        qml_dir = ROOT / "thlib/ui/qml"
+        theme_component = QQmlComponent(engine, QUrl.fromLocalFile(str(qml_dir / "Theme.qml")))
+        theme = theme_component.createWithInitialProperties({"dark": True})
+        component = QQmlComponent(engine, QUrl.fromLocalFile(str(qml_dir / "WorkspaceCard.qml")))
+        warnings = []
+        engine.warnings.connect(lambda errors: warnings.extend(errors))
+        card = component.createWithInitialProperties(self.card_properties(
+            theme, subtitle="Закешированное разрушение шара с длинным описанием " * 3,
+        ))
+        self.assertIsNotNone(card, component.errors())
+        try:
+            for height in (164, 244):
+                card.setHeight(height)
+                self.app.processEvents()
+                title = card.findChild(QQuickItem, "workspaceCardTitle")
+                description = card.findChild(QQuickItem, "workspaceCardDescription")
+                footer = card.findChild(QQuickItem, "workspaceCardCountControls")
+                self.assertLess(title.mapToItem(card, QPointF()).y(), 60)
+                self.assertGreater(description.height(), 0)
+                self.assertLessEqual(
+                    description.mapToItem(card, QPointF(0, description.height())).y() + 8,
+                    footer.mapToItem(card, QPointF()).y(),
+                )
+            self.assertEqual(warnings, [])
+        finally:
+            card.deleteLater()
+
+    def test_tile_click_and_action_reach_card(self):
+        class Controller(_WorkspaceAppController):
+            @Property(str, constant=True)
+            def results_view_mode(self):
+                return "tiles"
+
+            @Slot(str, str, str, int, bool)
+            def select_result_node(self, *args):
+                self.selection = args
+
+            @Slot()
+            def clear_result_selection(self):
+                self.selection = None
+
+        controller = Controller()
+        controller.selection = None
+        engine = QQmlEngine()
+        engine.rootContext().setContextProperty("appController", controller)
+        qml_dir = ROOT / "thlib/ui/qml"
+        theme_component = QQmlComponent(engine, QUrl.fromLocalFile(str(qml_dir / "Theme.qml")))
+        theme = theme_component.createWithInitialProperties({"dark": True})
+        model = WorkspaceItemModel()
+        model.replace_nodes([WorkspaceNode(node_id="asset", node_type="sobject", code="ASSET",
+                                          search_key="demo/asset?code=ASSET", title="Asset")])
+        component = QQmlComponent(engine, QUrl.fromLocalFile(str(qml_dir / "SearchResultSurface.qml")))
+        surface = component.createWithInitialProperties({
+            "theme": theme, "controller": controller, "resultModel": model,
+            "current": True, "viewMode": "tiles", "splitterRatio": .5,
+            "presentationActive": True, "width": 500, "height": 400,
+        })
+        self.assertIsNotNone(surface, component.errors())
+        window = QQuickWindow()
+        surface.setParentItem(window.contentItem())
+        window.resize(500, 400)
+        window.show()
+        try:
+            QTest.qWait(60)
+            QTest.mouseClick(window, Qt.LeftButton, Qt.NoModifier, QPoint(110, 110))
+            self.assertIsNotNone(controller.selection)
+            self.assertEqual(controller.selection[0], "asset")
+            grid = _visual_child(surface, "searchResultsGridView")
+            card = next(item for item in grid.property("contentItem").childItems()
+                        if item.property("nodeId") == "asset")
+            card.setProperty("itemControls", [{
+                "command": "edit", "icon": "edit", "persistent": True,
+                "active": False, "success": False, "title": "Edit",
+            }])
+            QTest.qWait(self.app.styleHints().mouseDoubleClickInterval() + 1)
+            QTest.mouseClick(window, Qt.LeftButton, Qt.NoModifier,
+                             card.mapToScene(QPointF(card.width() - 21, 21)).toPoint())
+            self.assertEqual(controller.item_actions, [("edit", "asset")])
+            self.assertEqual(controller.selection[0], "asset")
+            QTest.qWait(200)  # Beyond the shared activation de-duplication window.
+            QTest.mouseClick(window, Qt.LeftButton, Qt.NoModifier, QPoint(470, 350))
+            self.assertIsNone(controller.selection)
+        finally:
+            window.close()
+            surface.setParentItem(None)
+            surface.deleteLater()
+            window.deleteLater()
+
     @classmethod
     def setUpClass(cls):
         cls.app = gui_test_application()
@@ -303,6 +446,56 @@ class WorkspaceResultItemTests(unittest.TestCase):
         }
         properties.update(updates)
         return properties
+
+    def test_missing_versionless_has_no_offline_status_but_real_missing_file_does(self):
+        qml_dir = ROOT / 'thlib/ui/qml'
+        engine = QQmlEngine()
+        controller = _WorkspaceAppController()
+        engine.rootContext().setContextProperty('appController', controller)
+        theme_component = QQmlComponent(engine, QUrl.fromLocalFile(str(qml_dir / 'Theme.qml')))
+        theme = theme_component.createWithInitialProperties({'dark': True})
+        component = QQmlComponent(engine, QUrl.fromLocalFile(str(qml_dir / 'WorkspaceResultItem.qml')))
+        missing = WorkspaceItemModel._missing_snapshot_node('animation', 'animation', 1, '#607d8b', 'asset:1')
+        item = component.createWithInitialProperties(self.item_properties(
+            theme, nodeType=missing.node_type, nodeId=missing.node_id,
+            searchKey=missing.search_key, itemCode=missing.code, title=missing.title,
+            subtitle=missing.subtitle, fileExists=missing.file_exists,
+            isVersionless=missing.is_versionless, previewRequested=True, compactMode=False,
+        ))
+        self.assertIsNotNone(item, str(component.errors()))
+        window = QQuickWindow()
+        item.setParentItem(window.contentItem())
+        window.show()
+        try:
+            for width in (320, 960):
+                window.resize(width, 180)
+                item.setWidth(width)
+                self.app.processEvents()
+                label = _visual_child(item, 'workspaceSnapshotOffline')
+                self.assertIsNotNone(label)
+                self.assertFalse(label.isVisible())
+                self.assertEqual(item.property('subtitle'), missing.subtitle)
+                item.setProperty('searchKey', 'sthpw/snapshot?code=SNAPSHOT001')
+                item.setProperty('itemCode', 'SNAPSHOT001')
+                item.setProperty('title', 'shot_animation_v001.ma')
+                self.app.processEvents()
+                self.assertTrue(label.isVisible())
+                item.setProperty('fileExists', True)
+                self.app.processEvents()
+                self.assertFalse(label.isVisible())
+                item.setProperty('searchKey', missing.search_key)
+                item.setProperty('itemCode', missing.code)
+                item.setProperty('title', missing.title)
+                item.setProperty('fileExists', missing.file_exists)
+                self.app.processEvents()
+                self.assertFalse(label.isVisible())
+        finally:
+            window.hide()
+            item.setParentItem(None)
+            item.deleteLater()
+            window.deleteLater()
+            theme.deleteLater()
+            self.app.sendPostedEvents(None, QEvent.DeferredDelete)
 
     def test_child_relation_rows_are_taller_than_process_rows(self):
         qml_dir = ROOT / "thlib" / "ui" / "qml"
@@ -875,25 +1068,19 @@ class WorkspaceResultItemTests(unittest.TestCase):
         temporary.remove()
 
     def test_search_width_and_compact_view_share_the_compact_density(self):
-        search_view = (
-            ROOT / "thlib" / "ui" / "qml" / "SearchWorkspaceView.qml"
+        results_pane = (
+            ROOT / "thlib" / "ui" / "qml" / "SearchResultsPane.qml"
         ).read_text(encoding="utf-8")
         result_surface = (
             ROOT / "thlib" / "ui" / "qml" / "SearchResultSurface.qml"
         ).read_text(encoding="utf-8")
-        self.assertIn("readonly property bool autoCompact: width < 445", search_view)
+        self.assertIn("readonly property bool autoCompact: width < 445", results_pane)
         self.assertIn(
-            'autoCompact || appController.results_view_mode === "compact"',
-            search_view,
+            'effectiveViewMode === "compact"', results_pane,
         )
         self.assertIn("compactMode: root.compactRows", result_surface)
-        results_area_start = search_view.index("id: resultsArea")
-        results_area = search_view[
-            results_area_start:
-            search_view.index("id: results", results_area_start + 1)
-        ]
-        self.assertIn("color: root.theme.workspace", results_area)
-        self.assertNotIn("remove: Transition", results_area)
+        self.assertIn("color: root.theme.workspace", results_pane)
+        self.assertNotIn("remove: Transition", results_pane)
 
     def test_snapshot_date_shows_pretty_value_and_exact_value_on_hover(self):
         qml_dir = ROOT / "thlib" / "ui" / "qml"
@@ -1626,8 +1813,9 @@ Item {{
         QTest.qWait(int(theme.property("motionMedium")) + 30)
         self.assertAlmostEqual(reveal.property("progress"), 1.0, places=2)
         self.assertTrue(QMetaObject.invokeMethod(host, "startCollapse"))
-        QTest.qWait(max(20, int(theme.property("motionMedium")) // 3))
-        self.assertLess(reveal.property("progress"), 1.0)
+        collapse = host.findChild(QObject, "hierarchyCollapseAnimation")
+        self.assertIsNotNone(collapse)
+        self.assertTrue(collapse.property("running"))
         self.assertTrue(QMetaObject.invokeMethod(host, "cancelCollapse"))
         QTest.qWait(int(theme.property("motionFast")) + 30)
         self.assertAlmostEqual(reveal.property("progress"), 1.0, places=2)
@@ -2818,6 +3006,52 @@ Item {{
         item.deleteLater()
         theme.deleteLater()
 
+    def test_compact_sobject_metadata_stays_inside_card(self):
+        qml_dir = ROOT / "thlib" / "ui" / "qml"
+        engine = QQmlEngine()
+        warnings = []
+        engine.warnings.connect(lambda errors: warnings.extend(errors))
+        controller = _WorkspaceAppController()
+        engine.rootContext().setContextProperty("appController", controller)
+        theme_component = QQmlComponent(
+            engine, QUrl.fromLocalFile(str(qml_dir / "Theme.qml"))
+        )
+        theme = theme_component.createWithInitialProperties({"dark": True})
+        component = QQmlComponent(
+            engine, QUrl.fromLocalFile(str(qml_dir / "WorkspaceResultItem.qml"))
+        )
+        item = component.createWithInitialProperties(self.item_properties(
+            theme, nodeId="episode:compact", nodeType="sobject",
+            title="Episode 001 — A New Beginning: The Old Harbor",
+            subtitle="Synthetic episode for interface demonstration",
+            depth=0, tasks=4, comments=9,
+            progressItems=[{"name": "assets", "label": "0 / 0"}],
+            width=260,
+        ))
+        self.assertIsNotNone(item, component.errors())
+        for width in (260, 420):
+            item.setWidth(width)
+            QTest.qWait(30)
+            metadata = item.findChild(QQuickItem, "workspaceObjectMetadata")
+            title = item.findChild(QQuickItem, "workspaceObjectTitle")
+            subtitle = item.findChild(QQuickItem, "workspaceObjectSubtitle")
+            badge = _visual_child(item, "completionChip_0")
+            self.assertIsNotNone(badge)
+            self.assertLessEqual(title.property("font").pixelSize(), 12)
+            self.assertLessEqual(subtitle.property("font").pointSizeF(), 8.25)
+            self.assertLessEqual(metadata.height(), 20)
+            self.assertLessEqual(
+                badge.mapToItem(metadata, QPointF(badge.width(), 0)).x(),
+                metadata.width(),
+            )
+            self.assertLessEqual(
+                badge.mapToItem(item, QPointF(0, badge.height())).y(),
+                item.height() - 3,
+            )
+        self.assertEqual(warnings, [])
+        item.deleteLater()
+        theme.deleteLater()
+
     def test_result_views_keep_the_workspace_model_while_hidden(self):
         source = (
             ROOT / "thlib" / "ui" / "qml" / "SearchResultSurface.qml"
@@ -3406,6 +3640,138 @@ class ItemPreviewLifecycleTests(unittest.TestCase):
     def setUpClass(cls):
         cls.app = gui_test_application()
 
+    def test_software_renderer_paints_preview_image(self):
+        qml_dir = ROOT / "thlib/ui/qml"
+        temporary = QTemporaryDir()
+        image_path = Path(temporary.path()) / "preview.png"
+        source_image = QImage(64, 64, QImage.Format.Format_RGB32)
+        source_image.fill(QColor("#00ff00"))
+        self.assertTrue(source_image.save(str(image_path)))
+        engine = QQmlEngine()
+        theme_component = QQmlComponent(
+            engine, QUrl.fromLocalFile(str(qml_dir / "Theme.qml"))
+        )
+        theme = theme_component.createWithInitialProperties({"dark": True})
+        component = QQmlComponent(
+            engine, QUrl.fromLocalFile(str(qml_dir / "controls/ItemPreview.qml"))
+        )
+        preview = component.createWithInitialProperties({
+            "theme": theme,
+            "source": QUrl.fromLocalFile(str(image_path)),
+            "round": True,
+            "width": 64,
+            "height": 64,
+        })
+        self.assertIsNotNone(preview, component.errors())
+        window = QQuickWindow()
+        window.resize(64, 64)
+        preview.setParentItem(window.contentItem())
+        window.show()
+        try:
+            self.assertTrue(QTest.qWaitForWindowExposed(window))
+            self.assertEqual(
+                window.rendererInterface().graphicsApi(),
+                QSGRendererInterface.GraphicsApi.Software,
+            )
+            image = preview.findChild(QObject, "previewSourceImage")
+            for _attempt in range(40):
+                if image.property("progress") == 1.0:
+                    break
+                QTest.qWait(25)
+            self.assertEqual(image.property("progress"), 1.0)
+            pixels = window.grabWindow()
+            self.assertEqual(pixels.pixelColor(32, 32), QColor("#00ff00"))
+        finally:
+            window.close()
+            preview.setParentItem(None)
+            preview.deleteLater()
+            window.deleteLater()
+            theme.deleteLater()
+            engine.deleteLater()
+
+    def test_hidden_preview_does_not_render_unbounded_layout_size_hints(self):
+        qml_dir = ROOT / "thlib" / "ui" / "qml"
+        temporary = QTemporaryDir()
+        image_path = Path(temporary.path()) / "preview.png"
+        source_image = QImage(96, 96, QImage.Format.Format_RGB32)
+        source_image.fill(0xff2e9b62)
+        self.assertTrue(source_image.save(str(image_path)))
+        engine = QQmlEngine()
+        theme_component = QQmlComponent(
+            engine, QUrl.fromLocalFile(str(qml_dir / "Theme.qml"))
+        )
+        theme = theme_component.createWithInitialProperties({"dark": True})
+        component = QQmlComponent(
+            engine, QUrl.fromLocalFile(str(
+                qml_dir / "controls" / "ItemPreview.qml"
+            ))
+        )
+        # The compact attachment's hidden full-size layout supplied these
+        # dimensions in the hang dump. Its OpacityMask overflowed Qt's texture
+        # size, leaving the render thread in a zero-doubling infinite loop.
+        parent = QQuickItem()
+        parent.setVisible(False)
+        preview = component.createWithInitialProperties({
+            "theme": theme,
+            "parent": parent,
+            "source": QUrl.fromLocalFile(str(image_path)),
+            "width": 9.971579107439409e307,
+            "height": 3,
+        })
+        self.assertIsNotNone(preview, component.errors())
+        image = preview.findChild(QObject, "previewSourceImage")
+        mask = preview.findChild(QObject, "previewMaskLoader")
+        window = QQuickWindow()
+        try:
+            # Check before rendering so the regression fails instead of
+            # locking the test process inside the native renderer.
+            self.assertTrue(image.property("source").isEmpty())
+            self.assertFalse(mask.property("active"))
+            window.resize(96, 96)
+            parent.setParentItem(window.contentItem())
+            window.show()
+            self.assertTrue(QTest.qWaitForWindowExposed(window))
+            self.assertFalse(window.grabWindow().isNull())
+
+            for size in (64, 96):
+                preview.setWidth(size)
+                preview.setHeight(size)
+                ready = QSignalSpy(preview.imageReady)
+                parent.setVisible(True)
+                if not ready.count():
+                    self.assertTrue(ready.wait(2000))
+                self.assertEqual(image.property("progress"), 1.0)
+                self.assertFalse(mask.property("active"))
+                self.assertTrue(image.property("visible"))
+                self.assertFalse(window.grabWindow().isNull())
+                rendered = QSignalSpy(window.frameSwapped)
+                parent.setVisible(False)
+                preview.setWidth(9.971579107439409e307)
+                preview.setHeight(3)
+                self.assertTrue(image.property("source").isEmpty())
+                self.assertFalse(mask.property("active"))
+                # QSignalSpy.wait()/grabWindow() can hold Python's GIL while
+                # Qt tears down render resources. Use the real event loop.
+                loop = QEventLoop()
+                timeout = QTimer()
+                timeout.setSingleShot(True)
+                timeout.timeout.connect(loop.quit)
+                window.frameSwapped.connect(loop.quit)
+                timeout.start(2000)
+                loop.exec()
+                timeout.stop()
+                window.frameSwapped.disconnect(loop.quit)
+                self.assertGreater(rendered.count(), 0)
+        finally:
+            window.close()
+            parent.setParentItem(None)
+            preview.deleteLater()
+            parent.deleteLater()
+            window.deleteLater()
+            theme.deleteLater()
+            engine.deleteLater()
+            self.app.sendPostedEvents(None, QEvent.DeferredDelete)
+
     def test_inactive_preview_unloads_the_internal_image_source(self):
         qml_dir = ROOT / "thlib" / "ui" / "qml"
         temporary = QTemporaryDir()
@@ -3444,6 +3810,7 @@ class ItemPreviewLifecycleTests(unittest.TestCase):
         mask_loader = preview.findChild(QObject, "previewMaskLoader")
         self.assertIsNotNone(mask_loader)
         self.assertTrue(mask_loader.property("active"))
+        preview.setProperty("cornerRadius", 0)
         preview.setProperty("effectsEnabled", False)
         self.app.processEvents()
         self.assertFalse(mask_loader.property("active"))
@@ -3542,6 +3909,12 @@ class ItemPreviewLifecycleTests(unittest.TestCase):
         self.assertEqual(mask_loader.property("item"), mask_item)
         self.assertFalse(image.property("visible"))
 
+        preview.setProperty("round", False)
+        preview.setProperty("cornerRadius", 12)
+        self.app.processEvents()
+        self.assertTrue(mask_loader.property("active"))
+        self.assertEqual(mask_loader.property("item"), mask_item)
+
         window = QQuickWindow()
         window.setColor(QColor("#ff00ff"))
         window.resize(64, 64)
@@ -3550,14 +3923,23 @@ class ItemPreviewLifecycleTests(unittest.TestCase):
         QTest.qWait(30)
         rendered = window.grabWindow()
         self.assertFalse(rendered.isNull())
-        corner = rendered.pixelColor(0, rendered.height() - 1)
-        center = rendered.pixelColor(
-            rendered.width() // 2, rendered.height() // 2
-        )
-        self.assertGreater(corner.red(), 200)
-        self.assertGreater(corner.blue(), 200)
-        self.assertGreater(center.green(), center.red())
-        self.assertNotEqual(center.name(), corner.name())
+        if not mask_loader.property("active"):
+            self.assertFalse(mask_loader.property("active"))
+            self.assertTrue(image.property("visible"))
+            self.assertGreater(
+                rendered.pixelColor(32, 32).green(),
+                rendered.pixelColor(32, 32).red(),
+            )
+        else:
+            self.assertTrue(mask_loader.property("active"))
+            corner = rendered.pixelColor(0, rendered.height() - 1)
+            center = rendered.pixelColor(
+                rendered.width() // 2, rendered.height() // 2
+            )
+            self.assertGreater(corner.red(), 200)
+            self.assertGreater(corner.blue(), 200)
+            self.assertGreater(center.green(), center.red())
+            self.assertNotEqual(center.name(), corner.name())
 
         window.close()
         window.deleteLater()

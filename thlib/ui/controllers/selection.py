@@ -138,6 +138,7 @@ class SelectionMixin:
         )
         if old_current != node_id:
             tab.clear_details()
+            tab.detail_process_override = ""
         if selection_changed:
             self.selected_node_changed.emit()
             self._cancel_selected_payload_worker()
@@ -166,6 +167,7 @@ class SelectionMixin:
         tab.selected_node_id = ""
         tab.selected_node_ids = []
         tab.selection_anchor_id = ""
+        tab.detail_process_override = ""
         self._versions_request_id = ""
         self._detail_request_id = ""
         self._cancel_selected_payload_worker()
@@ -239,7 +241,8 @@ class SelectionMixin:
         detail_process = (
             node.process or None
             if node.node_type in {"process", "snapshot"}
-            else "publish" if node.node_type == "sobject" else None
+            else (tab.detail_process_override or "publish")
+            if node.node_type == "sobject" else None
         )
         return (
             detail_key,

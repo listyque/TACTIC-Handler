@@ -4692,7 +4692,9 @@
         "repo_name",
         "files_info",
         "mode",
-        "create_icon"
+        "create_icon",
+        "transaction_title",
+        "transaction_description"
       ],
       "required": [
         "search_key",

@@ -1,6 +1,7 @@
 """Schema-owned type creation through the real native window and worker path."""
 
 import copy
+import json
 import hashlib
 import os
 from pathlib import Path
@@ -8,6 +9,7 @@ import unittest
 from unittest.mock import Mock, patch
 
 from PySide6.QtCore import QObject, QPointF, Qt, QUrl, Signal
+from PySide6.QtQml import QQmlEngine, QQmlExpression
 from PySide6.QtGui import QColor, QImage
 from PySide6.QtTest import QTest
 
@@ -38,6 +40,13 @@ class SchemaTypeCreationTests(unittest.TestCase):
         self.checkin = Mock()
         self.creator.attach_checkin_controller(self.checkin)
 
+    def accept_preview(self, path):
+        view = self.item('adminSearchTypesView')
+        source = 'previewDialog.selectedFile = ' + json.dumps(QUrl.fromLocalFile(str(path)).toString()) + '; previewDialog.accepted()'
+        expression = QQmlExpression(QQmlEngine.contextForObject(view), view, source)
+        expression.evaluate()
+        self.assertFalse(expression.hasError(), expression.error().toString())
+
     def select_preview(self):
         from thlib.environment import env_mode
         path = Path(env_mode.current_path) / 'new_type_preview.png'
@@ -45,13 +54,7 @@ class SchemaTypeCreationTests(unittest.TestCase):
         image.fill(QColor('#54a878'))
         self.assertTrue(image.save(str(path)))
         self.assertTrue(self.item('adminSearchTypeChoosePreview').isVisible())
-        preview = self.item('adminSearchTypePreview')
-        owner = preview.parentItem()
-        while owner is not None and owner.findChild(QObject, 'adminSearchTypePreviewDialog') is None:
-            owner = owner.parentItem()
-        dialog = owner.findChild(QObject, 'adminSearchTypePreviewDialog')
-        dialog.setProperty('selectedFile', QUrl.fromLocalFile(str(path)))
-        dialog.accepted.emit()
+        self.accept_preview(path)
         frame(self.window)
         self.assertEqual(Path(self.creator.document['previewPath']), path)
         self.checkin.prepare_external_checkin.assert_not_called()
@@ -135,6 +138,7 @@ class SchemaTypeCreationTests(unittest.TestCase):
             self.type_text('adminSearchTypeTitle', 'Unsaved type')
             self.assertEqual(self.creator.document['title'], 'Unsaved type')
             self.click('adminDiscardDocument')
+            self.click('adminConfirmSave')
             frame(self.ui.window)
             rpc.assert_not_called()
         self.assertFalse(self.windows.is_window_visible('schema_search_type'))
@@ -326,7 +330,7 @@ class SchemaTypeCreationTests(unittest.TestCase):
             self.assertLess(field.mapToScene(QPointF(field.width(), 0)).x(), width - 14)
             save = self.item('adminSaveDocument')
             self.assertLessEqual(save.mapToScene(QPointF(save.width(), save.height())).y(), height - 14)
-            self.click('segmentedButtonSegment_entity_fields')
+            self.click('searchTypePages_fields')
             frame(self.window)
             self.assertTrue(viewport.property('clip'))
             defaults = self.item('adminAutomaticFieldNames')
@@ -338,7 +342,7 @@ class SchemaTypeCreationTests(unittest.TestCase):
             if output:
                 Path(output).mkdir(parents=True, exist_ok=True)
                 self.window.grabWindow().save(str(Path(output) / ('default_fields_%s.png' % width)))
-            self.click('segmentedButtonSegment_entity_details')
+            self.click('searchTypePages_details')
             viewport.setProperty('contentY', max(0, viewport.property('contentHeight') - viewport.height()))
             frame(self.window)
             for name in ('adminSearchTypePreview', 'adminSearchTypeChoosePreview',
@@ -359,10 +363,10 @@ class SchemaTypeCreationTests(unittest.TestCase):
     def test_wizard_validates_steps_preserves_fields_and_reviews_the_actual_draft(self):
         self.open_creator()
         self.assertFalse(self.item('adminSaveDocument').isEnabled())
-        back = self.window.contentItem().findChild(QObject, 'adminTypeWizardBack')
-        self.assertFalse(back.isVisible())
+        back = next((item for item in admin_fixture.windows_fixture.SidebarEditorQmlTests.descendants(self.window.contentItem()) if item.objectName() == 'adminTypeWizardBack' and item.isVisible()), None)
+        self.assertTrue(back is None or not back.isVisible())
         self.click('adminTypeWizardNext')
-        self.assertTrue(self.creator.error)
+        self.assertTrue(self.item('adminDocumentError').property('text'))
         self.assertTrue(self.item('adminSearchTypeTitle').isVisible())
         self.type_text('adminSearchTypeTitle', 'Episodes')
         self.type_text('adminSearchTypeDescription', 'Animated episodes for the show')
@@ -381,12 +385,12 @@ class SchemaTypeCreationTests(unittest.TestCase):
         self.assertEqual(self.item('adminSearchTypeCreationPreview').property('source').toString(),
                          self.creator.previewUrl)
         self.assertIn('duration_minutes (integer)',
-                      self.item('adminSearchTypeCreationAdditionalFields').property('description'))
+                      self.item('adminSearchTypeCreationAdditionalFields').property('text'))
         self.assertIn('relative_dir',
-                      self.item('adminSearchTypeCreationStandardFields').property('description'))
+                      self.item('adminSearchTypeCreationStandardFields').property('text'))
         self.assertTrue(self.item('adminSaveDocument').isEnabled())
-        next_action = self.window.contentItem().findChild(QObject, 'adminTypeWizardNext')
-        self.assertFalse(next_action.isVisible())
+        next_action = next((item for item in admin_fixture.windows_fixture.SidebarEditorQmlTests.descendants(self.window.contentItem()) if item.objectName() == 'adminTypeWizardNext' and item.isVisible()), None)
+        self.assertTrue(next_action is None or not next_action.isVisible())
         for width, height in ((600, 560), (980, 800)):
             self.window.resize(width, height)
             frame(self.window)

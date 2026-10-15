@@ -49,6 +49,7 @@ class ServerPresetsController(QObject):
         proxy = dict(payload.get("proxy") or {})
         return {
             "serverUrl": str(payload.get("server") or ""),
+            "rpcTransport": payload.get("rpc_transport", "xmlrpc"),
             "storedUser": str(payload.get("user") or ""),
             "hasTicket": bool(payload.get("ticket")),
             "siteEnabled": bool(site.get("enabled")),
@@ -58,6 +59,7 @@ class ServerPresetsController(QObject):
             "proxyServer": str(proxy.get("server") or ""),
             "proxyPassword": "",
             "hasProxyPassword": bool(proxy.get("pass")),
+            "teamLocalRepository": bool(payload.get("team_local_repository")),
         }
 
     @staticmethod
@@ -193,6 +195,10 @@ class ServerPresetsController(QObject):
         site = dict(payload.get("site") or {})
         proxy = dict(payload.get("proxy") or {})
         payload["server"] = str(values.get("serverUrl") or "").strip()
+        payload["rpc_transport"] = values.get("rpcTransport", payload.get("rpc_transport", "xmlrpc"))
+        payload["team_local_repository"] = bool(
+            values.get("teamLocalRepository")
+        )
         site.update({
             "enabled": bool(values.get("siteEnabled")),
             "site_name": str(values.get("siteName") or "").strip(),
@@ -223,6 +229,8 @@ class ServerPresetsController(QObject):
             server_url = str(payload.get("server") or "").strip()
             if not is_valid_tactic_server_url(server_url):
                 return "Enter a valid server address for every preset"
+            if payload.get("rpc_transport", "xmlrpc") not in ("xmlrpc", "json"):
+                return "Select XML-RPC or JSON (TACTIC Stream)"
             site = dict(payload.get("site") or {})
             if site.get("enabled") and not str(
                 site.get("site_name") or ""
@@ -246,6 +254,7 @@ class ServerPresetsController(QObject):
     def save(self):
         from copy import deepcopy
         from thlib.environment import (
+            cfg_controls,
             env_mode,
             env_server,
             env_write_config,
@@ -279,6 +288,12 @@ class ServerPresetsController(QObject):
             env_server.server_presets
         )
         env_server.save_server_presets_defaults()
+        if current in self._drafts:
+            env_server.defaults["team_local_repository"] = bool(
+                self._drafts[current].get("team_local_repository")
+            )
+            if env_server.is_team_local_repository():
+                cfg_controls.set_checkin(cfg_controls.get_checkin())
         self._workspace_state.server_preset_model.replace([
             {"label": name} for name in names
         ])

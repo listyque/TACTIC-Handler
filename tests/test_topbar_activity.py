@@ -52,13 +52,20 @@ class _Application(QObject):
 
 class _Messages(QObject):
     newMessageNotification = Signal("QVariantMap")
+    quickReplySent = Signal(str)
+    quickReplyFailed = Signal(str, str)
 
     def __init__(self):
         super().__init__()
         self.opened = []
+        self.quick_replies = []
 
     def open_conversation(self, conversation_id):
         self.opened.append(str(conversation_id))
+
+    def send_quick_reply(self, notification_id, conversation_id, body):
+        self.quick_replies.append((notification_id, conversation_id, body))
+        return True
 
 
 def _users(records=()):
@@ -469,16 +476,19 @@ class TopBarActivityTests(unittest.TestCase):
             application, messages=messages
         )
 
-        messages.newMessageNotification.emit({
-            "conversationId": "conversation-7",
-            "conversationTitle": "Lighting",
-            "senderLogin": "supervisor",
-            "senderTitle": "Sam Supervisor",
-            "excerpt": "The render is ready for review.",
-            "avatarUrl": "file:///avatars/sam.png",
-            "initials": "SS",
-            "avatarColor": "#78909c",
-        })
+        with patch("thlib.ui.notifications.QApplication.beep") as beep:
+            messages.newMessageNotification.emit({
+                "conversationId": "conversation-7",
+                "conversationTitle": "Lighting",
+                "senderLogin": "supervisor",
+                "senderTitle": "Sam Supervisor",
+                "excerpt": "The render is ready for review.",
+                "avatarUrl": "file:///avatars/sam.png",
+                "initials": "SS",
+                "avatarColor": "#78909c",
+            })
+
+        beep.assert_called_once_with()
 
         self.assertEqual(notifications.model.count(), 1)
         notice = notifications.model.get(0)
@@ -494,6 +504,39 @@ class TopBarActivityTests(unittest.TestCase):
 
         self.assertEqual(messages.opened, ["conversation-7"])
         self.assertEqual(notifications.model.count(), 0)
+        notifications.shutdown()
+
+    def test_message_toast_pauses_timeout_while_replying_and_dismisses_after_send(self):
+        application = _Application()
+        messages = _Messages()
+        notifications = NotificationController(application, messages=messages)
+        messages.newMessageNotification.emit({
+            "conversationId": "CHAT001", "senderTitle": "Sam",
+            "excerpt": "Can you review it?",
+        })
+        notice = notifications.model.get(0)
+        notification_id = notice["notificationId"]
+        self.assertEqual(notifications._timers[notification_id].interval(), 15000)
+
+        notifications.begin_reply(0)
+        self.assertTrue(notifications.replyEditing)
+        self.assertNotIn(notification_id, notifications._timers)
+        for index in range(3):
+            notifications.push("info", f"Other alert {index}")
+        self.assertEqual(notifications.model.get(0)["notificationId"], notification_id)
+        self.assertTrue(notifications.send_reply(0, "I can"))
+        self.assertEqual(messages.quick_replies, [
+            (notification_id, "CHAT001", "I can"),
+        ])
+        messages.quickReplyFailed.emit(notification_id, "Offline")
+        self.assertEqual(notifications.model.get(0)["replyError"], "Offline")
+        self.assertFalse(notifications.model.get(0)["replySending"])
+        self.assertTrue(notifications.send_reply(0, "I can"))
+        messages.quickReplySent.emit(notification_id)
+        self.assertFalse(any(
+            record["notificationId"] == notification_id
+            for record in notifications.model._records
+        ))
         notifications.shutdown()
 
     def test_own_live_activity_refreshes_history_but_not_badge(self):
@@ -732,9 +775,10 @@ class TopBarActivityTests(unittest.TestCase):
             QLocale.setDefault(previous_locale)
 
         self.assertTrue(record["timestampPretty"])
-        self.assertEqual(
-            record["timestampFull"], "4 August 2026, 12:00:00"
-        )
+        local_time = datetime(
+            2026, 8, 4, 12, tzinfo=timezone.utc
+        ).astimezone().strftime("%H:%M:%S")
+        self.assertIn(local_time, record["timestampFull"])
 
     def test_loaded_activity_is_reprojected_after_clock_synchronizes(self):
         clock = ServerClock()

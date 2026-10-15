@@ -2,7 +2,12 @@
 
 ## Scope and precedence
 
+- For shared QML/Vue interfaces, read and follow `docs/shared_ui_contract.md`: one shared skeleton and state rules, native house controls in both engines, and real paired input/geometry/screenshot checks. Do not embed WebEngine, WebView or HTML in QML without an explicit user instruction; record incomplete features and platform limits.
+
+- User clarification, 2026-10-13: implement corresponding Handler and Stream interfaces identically in layout, dimensions, actions and behavior. Compare both on the same data, theme, language, scale and window size; resolve differences in the same change. Never claim parity after checking only one implementation. Record unavoidable platform differences explicitly.
+
 - This file defines repository-wide engineering rules. A nested `AGENTS.md` may add stricter domain-specific requirements but must not weaken this baseline.
+- User clarification, 2026-10-11: review and apply user-reported fixes in both TACTIC-Handler and TACTIC Stream (`D:/code/TACTIC_VUE/tactic_stream`). Synchronize equivalent behavior, regression checks and user help; explicitly identify a missing counterpart instead of claiming parity.
 - Follow explicit user requirements first, then the nearest applicable `AGENTS.md`, then established local conventions. When two rules appear to conflict, preserve the more specific safety, data-integrity, or project requirement and document the decision.
 - Inspect the current implementation, call sites, tests, configuration, and relevant original workflow before changing code. Conversation history is context, not proof of the current state.
 - Never infer behavior from file, module, class, or function names alone. Verify the implementation, call sites, and actual execution flow before drawing conclusions.
@@ -16,6 +21,13 @@
 - Do not add speculative abstractions, one-use wrappers, unused extension points, parallel workflows, or configuration paths. Prefer explicit domain code over generic machinery.
 - When the task intentionally replaces a format, API, control, storage path, or workflow, remove the superseded implementation, fallback, migration, reader, adapter, and dead tests completely. This repository is in closed active development; compatibility is added only when the user explicitly requests it.
 - Keep behavior changes, their tests, and their documentation in the same change. Delete documentation and tests that describe a removed path.
+
+## Changelog and versioning
+
+- Every completed change must add a factual entry to `CHANGELOG.md` and increment the `revision` in `thlib/version.json` once for that delivered change, including fixes, refactors, documentation, and test changes.
+- Keep releases newest first under `## major.minor.build.revision - YYYY-MM-DD` headings. Write release notes in English and preserve previous entries.
+- The newest changelog version must match `thlib/version.json`. Update both in the same change; the Update window and release ZIP use this changelog.
+- Rebuilding the same release archive does not create another version. Advance the version when the application changes, before packaging it.
 
 ## Architecture and ownership
 
@@ -110,3 +122,11 @@ These primary sources inform the general rules above. Project-specific rules in 
 - [Google Engineering Practices: What to Look For](https://google.github.io/eng-practices/review/reviewer/looking-for.html)
 - [Microsoft Architectural Principles](https://learn.microsoft.com/dotnet/architecture/modern-web-apps-azure/architectural-principles)
 - [OWASP Logging Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/Logging_Cheat_Sheet.html)
+
+## Git workflow
+
+- Commit every completed task after reviewing its diff and running relevant checks. Include its tests, documentation, changelog and version metadata; stage explicit paths or hunks and preserve unrelated work from other tasks.
+- Keep this repository independent from TACTIC Stream at `D:/code/TACTIC_VUE`. For shared changes, commit both projects and report both commit ids.
+- Never stage credentials, runtime databases, user settings, transfer journals, caches, logs or generated build/test artifacts. Review new files and the staged diff; ignored files remain on disk.
+- Preserve existing history and the configured upstream. Do not rewrite history or force-push; push only to an explicitly authorized destination. Local Git history does not replace backups of user data.
+- The user authorized NAS backups under `\\ListyNAS\home\codex_backups`. Push completed commits and tags to the configured `backup` remote without force. If NAS is unavailable, retain local commits and report the pending backup. Do not publish to the public `upstream` by default.

@@ -7,11 +7,13 @@ Item {
     required property var theme
     objectName: "root"
     readonly property bool compactLayout: width < 900
-    readonly property bool iconOnlyActions: width < 520
+    readonly property bool iconOnlyActions: compactLayout
     property string selectedCode: ""
     property string selectedTitle: ""
     property string selectedStatus: ""
     property bool selectedBuiltin: false
+
+    Component.onCompleted: appController.refresh_projects()
 
     RowLayout {
         anchors.fill: parent
@@ -76,6 +78,7 @@ Item {
                     }
                 }
                 RowLayout {
+                    objectName: "projectCompactActions"
                     Layout.fillWidth: true
                     spacing: 8
                     Item {
@@ -105,6 +108,25 @@ Item {
                         root.selectedCode)
                 }
                 Controls.Button {
+                    objectName: "deactivateProjectCompactButton"
+                    theme: root.theme
+                    text: root.iconOnlyActions ? "" : qsTr("Deactivate")
+                    toolTip: qsTr("Deactivate current project")
+                    icon.name: "close"
+                    enabled: appController.current_project_code.length > 0
+                    onClicked: appController.deactivate_project()
+                }
+                Controls.Button {
+                    objectName: "exportProjectTemplateCompactButton"
+                    theme: root.theme
+                    text: root.iconOnlyActions ? "" : qsTr("Template archive")
+                    toolTip: qsTr("Create template archive from selected project")
+                    icon.name: "inventory-2"
+                    enabled: root.selectedCode.length > 0 && !root.selectedBuiltin
+                        && !projectCreationController.busy
+                    onClicked: projectCreationController.export_project(root.selectedCode)
+                }
+                Controls.Button {
                     theme: root.theme
                     tonal: true
                     text: root.iconOnlyActions
@@ -117,12 +139,22 @@ Item {
                 }
             }
 
+            Label {
+                Layout.fillWidth: true
+                visible: projectCreationController.busy || projectCreationController.error.length > 0
+                text: projectCreationController.error || qsTr("Creating template archive...")
+                color: projectCreationController.error.length ? root.theme.error : root.theme.secondaryText
+                wrapMode: Text.WordWrap
+                font.family: root.theme.fontFamily
+                font.pointSize: Controls.Typography.body
+            }
             ListView {
                 id: projectList
                 objectName: "configurationProjectList"
                 Layout.minimumWidth: 0
                 Layout.fillWidth: true
                 Layout.fillHeight: true
+                Layout.topMargin: 12
                 clip: true
                 spacing: 4
                 model: projectModel
@@ -191,6 +223,7 @@ Item {
             }
 
             Rectangle {
+                objectName: "projectSelectedSummary"
                 Layout.fillWidth: true
                 Layout.preferredHeight: 92
                 radius: 12
@@ -236,6 +269,7 @@ Item {
             ColumnLayout {
                 objectName: "projectWorkspaceActions"
                 Layout.fillWidth: true
+                Layout.topMargin: 12
                 spacing: 8
 
                 Controls.Button {
@@ -261,6 +295,26 @@ Item {
                     icon.name: "edit"
                     onClicked:
                         appController.edit_project(root.selectedCode)
+                }
+                Controls.Button {
+                    objectName: "deactivateProjectButton"
+                    theme: root.theme
+                    Layout.fillWidth: true
+                    text: qsTr("Deactivate current project")
+                    icon.name: "close"
+                    enabled: appController.current_project_code.length > 0
+                    onClicked: appController.deactivate_project()
+                }
+                Controls.Button {
+                    objectName: "exportProjectTemplateButton"
+                    theme: root.theme
+                    Layout.fillWidth: true
+                    text: qsTr("Create template archive")
+                    toolTip: qsTr("Create template archive from selected project")
+                    icon.name: "inventory-2"
+                    enabled: root.selectedCode.length > 0 && !root.selectedBuiltin
+                        && !projectCreationController.busy
+                    onClicked: projectCreationController.export_project(root.selectedCode)
                 }
                 Controls.Button {
                     objectName: "createProjectButton"

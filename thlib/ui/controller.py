@@ -118,6 +118,7 @@ class ApplicationController(
     taskContextRequested = Signal(str, str, str)
 
     results_view_changed = Signal()
+    item_fields_updated = Signal(str, object)
 
     paging_state_changed = Signal()
 
@@ -125,7 +126,6 @@ class ApplicationController(
 
     activity_log_changed = Signal()
 
-    connection_settings_changed = Signal()
 
     search_text_changed = Signal()
 
@@ -134,6 +134,8 @@ class ApplicationController(
     advanced_filter_suggestions_changed = Signal()
 
     authentication_changed = Signal()
+    signing_out = Signal()
+    restart_requested = Signal()
 
     snapshot_browser_changed = Signal()
 
@@ -145,7 +147,7 @@ class ApplicationController(
 
     tag_cloud_changed = Signal()
 
-    tools_requested = Signal()
+    columnsEditorRequested = Signal()
 
     checkinFilesRequested = Signal()
 
@@ -173,6 +175,9 @@ class ApplicationController(
         # whole section UI is not invalidated on every click.
         self.section_state_changed.connect(self.selected_node_changed.emit)
         self.section_state_changed.connect(self.results_view_changed.emit)
+        from thlib.environment import env_server
+
+        self._config_identity = str(env_server.get_user() or "")
         self._settings = dict(env_read_config(
             filename="ui_settings",
             unique_id="ui_main",
@@ -229,6 +234,7 @@ class ApplicationController(
         self._server_state = "connecting"
         self._server_message = ""
         self._administration_identity = None
+        self._user_controller = None
         self._result_count = 0
         self._current_page_key = ""
         self._current_page_title = ""
@@ -249,6 +255,8 @@ class ApplicationController(
         self._authentication_busy = False
         self._authentication_error = ""
         self._authentication_started_at = 0.0
+        self._authentication_request_id = ""
+        self._authentication_worker = None
         self._login_name = str(self._settings.get("server/lastLogin", "") or "")
         if not self._login_name:
             try:
@@ -259,18 +267,13 @@ class ApplicationController(
         self._activity_log: list[str] = []
         self._bootstrap_request_id = ""
         self._bootstrap_worker = None
+        self._project_catalog_request_id = ""
+        self._project_catalog_worker = None
         self._bootstrap_started_at = 0.0
         self._project_request_id = ""
         self._project_started_at: dict[str, float] = {}
-        self._ping_interval = int(self._settings.get("server/pingInterval", 0) or 0)
-        if self._ping_interval not in {0, 10, 60}:
-            self._ping_interval = 0
         self._ping_in_progress = False
         self._ping_started_at = 0.0
-        self._ping_timer = QTimer(self)
-        self._ping_timer.timeout.connect(self.ping_server)
-        if self._ping_interval:
-            self._ping_timer.start(self._ping_interval * 1000)
         self._loading_mode = str(
             self._settings.get("search/loadingMode", "pages") or "pages"
         )
@@ -295,6 +298,11 @@ class ApplicationController(
             "both", "preview", "files",
         }:
             self._snapshot_browser_content_mode = "both"
+        self._snapshot_browser_image_mode = str(
+            self._settings.get("snapshotBrowser/imageMode", "fit") or "fit"
+        )
+        if self._snapshot_browser_image_mode not in {"fit", "fill"}:
+            self._snapshot_browser_image_mode = "fit"
         self._snapshot_browser_orientation = str(
             self._settings.get("snapshotBrowser/orientation", "horizontal")
             or "horizontal"
@@ -398,6 +406,7 @@ class ApplicationController(
         self._workspace_model.setParent(self)
         self.versions_model = WorkspaceItemModel()
         self.workspace_state = WorkspaceState()
+        self._server_clock = None
         self.repository_sync = RepositorySyncController(
             debug_log=self.debug_log,
             parent=self,
@@ -494,6 +503,15 @@ class ApplicationController(
                 continue
             seen.add(id(model))
             yield model
+
+    def attach_server_clock(self, clock) -> None:
+        self._server_clock = clock
+        for model in (
+            *self._workspace_models(),
+            self.versions_model,
+            self.workspace_state._preview_helper,
+        ):
+            model.set_clock(clock)
 
     @Slot(str, str, int, object)
     def update_workspace_note_count(
@@ -938,6 +956,10 @@ class ApplicationController(
         return self._snapshot_browser_content_mode
 
     @Property(str, notify=snapshot_browser_changed)
+    def snapshot_browser_image_mode(self) -> str:
+        return self._snapshot_browser_image_mode
+
+    @Property(str, notify=snapshot_browser_changed)
     def snapshot_browser_orientation(self) -> str:
         return self._snapshot_browser_orientation
 
@@ -1061,6 +1083,16 @@ class ApplicationController(
             and self._administration_identity == (self.server_url, self.server_user)
         )
 
+    @Property(bool, notify=server_state_changed)
+    def can_manage_tools(self) -> bool:
+        users = self._user_controller
+        return self.can_administer or bool(
+            self._server_state == "online" and self.has_ticket
+            and users and users.canManageUsers)
+
+    def attach_user_controller(self, users) -> None:
+        self._user_controller = users
+
     @Property(str, notify=server_state_changed)
     def server_preset(self) -> str:
         from thlib.environment import env_server
@@ -1140,10 +1172,6 @@ class ApplicationController(
     @Property(str, notify=server_state_changed)
     def server_message(self) -> str:
         return self._server_message
-
-    @Property(int, notify=connection_settings_changed)
-    def ping_interval(self) -> int:
-        return self._ping_interval
 
     @Property(int, notify=result_count_changed)
     def result_count(self) -> int:

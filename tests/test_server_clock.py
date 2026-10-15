@@ -14,13 +14,13 @@ class ServerClockTests(unittest.TestCase):
             tzinfo=timezone.utc
         ).timestamp()
 
-    def test_server_timezone_and_clock_drift_are_both_corrected(self):
+    def test_utc_naive_timestamp_and_server_clock_drift_are_corrected(self):
         clock = ServerClock()
         client_started = self._epoch("2026-08-30 10:00:00")
         changed = clock.observe(
             {
-                # The server UTC clock is two hours fast and its local
-                # timezone is UTC+3.
+                # The server clock is two hours fast. TACTIC has already
+                # converted database timestamps to UTC before XML-RPC.
                 "utcStarted": "2026-08-30T12:00:00.050000Z",
                 "utcEnded": "2026-08-30T12:00:00.150000Z",
                 "localEnded": "2026-08-30T15:00:00.150000",
@@ -32,7 +32,7 @@ class ServerClockTests(unittest.TestCase):
 
         self.assertTrue(changed)
         naive_event = clock.presentation_datetime(
-            "2026-08-30 15:10:00"
+            "2026-08-30 12:10:00"
         )
         aware_event = clock.presentation_datetime(
             "2026-08-30T12:10:00Z"
@@ -65,27 +65,27 @@ class ServerClockTests(unittest.TestCase):
             QLocale.setDefault(QLocale("en_US"))
             record = activity_record({
                 "eventId": "snapshot:SNAPSHOT00001",
-                "timestamp": "2026-08-30 15:10:00",
+                "timestamp": "2026-08-30 12:10:00",
             }, clock=clock)
         finally:
             QLocale.setDefault(previous_locale)
 
-        self.assertEqual(record["timestamp"], "2026-08-30 15:10:00")
+        self.assertEqual(record["timestamp"], "2026-08-30 12:10:00")
         self.assertTrue(record["timestampPretty"])
         local_time = clock.presentation_datetime(
-            "2026-08-30 15:10:00"
+            "2026-08-30 12:10:00"
         ).strftime("%H:%M:%S")
         self.assertIn(local_time, record["timestampFull"])
 
-    def test_database_timezone_wins_over_python_process_timezone(self):
+    def test_database_timezone_does_not_shift_normalized_tactic_timestamp(self):
         clock = ServerClock()
         client_started = self._epoch("2026-08-30 12:00:00")
         clock.observe(
             {
                 "utcStarted": "2026-08-30T12:00:00.050000Z",
                 "utcEnded": "2026-08-30T12:00:00.150000Z",
-                # The Python process runs in UTC while its database session,
-                # which owns TACTIC object timestamps, runs in UTC+3.
+                # These legacy sample fields must not alter timestamps that
+                # TACTIC has already normalized to UTC.
                 "localEnded": "2026-08-30T12:00:00.150000",
                 "databaseEnded": "2026-08-30T15:00:00.150000",
             },
@@ -94,7 +94,7 @@ class ServerClockTests(unittest.TestCase):
             session=("server", "artist"),
         )
 
-        event = clock.presentation_datetime("2026-08-30 15:10:00")
+        event = clock.presentation_datetime("2026-08-30 12:10:00")
 
         self.assertEqual(
             event.astimezone(timezone.utc),
@@ -106,8 +106,9 @@ class ServerClockTests(unittest.TestCase):
 
         self.assertFalse(clock.observe({}, None, None, session="server"))
         self.assertEqual(
-            clock.presentation_datetime("2026-08-30 15:10:00"),
-            datetime(2026, 8, 30, 15, 10),
+            clock.presentation_datetime("2026-08-30 15:10:00")
+            .astimezone(timezone.utc),
+            datetime(2026, 8, 30, 15, 10, tzinfo=timezone.utc),
         )
 
 

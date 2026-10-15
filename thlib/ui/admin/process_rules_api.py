@@ -13,7 +13,12 @@ def process_rules_request(action: str, project_code: str, identity: str = '',
     from tactic.ui.tools import trigger_wdg
 
     if not Environment.get_security().is_admin():
-        raise PermissionError('Administration requires administrator access')
+        memberships = Search('sthpw/login_in_group')
+        memberships.add_filter('login', server.get_login())  # noqa: F821 - injected by execute_python_script
+        if not any(group == 'admin' or 'supervisor' in group for group in (
+                str(row.get_value('login_group') or '').lower()
+                for row in memberships.get_sobjects())):
+            raise PermissionError('Administration requires administrator or supervisor access')
     if not project_code or Project.get_project_code() != project_code:
         raise ValueError('Select a project before editing workflows')
     if action not in ('load', 'save'):
@@ -164,10 +169,13 @@ def process_rules_request(action: str, project_code: str, identity: str = '',
                     raise ValueError('Select at least one destination process and status')
                 for target in rule['targets']:
                     statuses = next((row['statuses'] for row in processes if row['identity'] == target.get('process')), [])
-                    if target.get('status') not in statuses:
+                    retained = old and old['action'] == 'task_status' and target in old['targets']
+                    if target.get('status') not in statuses and not retained:
                         raise ValueError('Choose a status from the destination task workflow')
             if rule['action'] == 'task_create' and (not rule.get('outputs') or any(
-                    output not in outputs for output in rule['outputs'])):
+                    output not in outputs and not (
+                        old and old['action'] == 'task_create' and output in old['outputs'])
+                    for output in rule['outputs'])):
                 raise ValueError('Choose output processes connected to this node')
             if rule['action'] == 'task_date' and rule.get('column') not in ('actual_start_date', 'actual_end_date'):
                 raise ValueError('Choose the actual start or end date')

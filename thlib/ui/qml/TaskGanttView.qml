@@ -1025,7 +1025,8 @@ Item {
                             }
                             Label {
                                 anchors.fill: parent
-                                anchors.leftMargin: 7
+                                anchors.leftMargin:
+                                    tasksController.progressSupported ? 30 : 7
                                 anchors.rightMargin: 7
                                 text: taskRow.editingSchedule
                                     ? root.dateForDay(taskRow.editStartDay)
@@ -1044,28 +1045,40 @@ Item {
                             }
 
                             Rectangle {
-                                visible: scheduleHover.hovered
-                                    || taskRow.editingSchedule
-                                anchors.left: parent.left
-                                anchors.leftMargin: 2
+                                objectName: "ganttStartGrip"
+                                x: -8
                                 anchors.verticalCenter: parent.verticalCenter
-                                width: 6
-                                height: 17
-                                radius: 3
-                                color: root.theme.primaryText
-                                opacity: 0.68
+                                width: 12
+                                height: 22
+                                radius: 5
+                                color: root.theme.surfaceContainerHighest
+                                border.width: 1
+                                border.color: root.theme.primaryText
+                                Rectangle {
+                                    anchors.centerIn: parent
+                                    width: 2
+                                    height: 10
+                                    radius: 1
+                                    color: root.theme.primaryText
+                                }
                             }
                             Rectangle {
-                                visible: scheduleHover.hovered
-                                    || taskRow.editingSchedule
-                                anchors.right: parent.right
-                                anchors.rightMargin: 2
+                                objectName: "ganttEndGrip"
+                                x: scheduleBar.width - 4
                                 anchors.verticalCenter: parent.verticalCenter
-                                width: 6
-                                height: 17
-                                radius: 3
-                                color: root.theme.primaryText
-                                opacity: 0.68
+                                width: 12
+                                height: 22
+                                radius: 5
+                                color: root.theme.surfaceContainerHighest
+                                border.width: 1
+                                border.color: root.theme.primaryText
+                                Rectangle {
+                                    anchors.centerIn: parent
+                                    width: 2
+                                    height: 10
+                                    radius: 1
+                                    color: root.theme.primaryText
+                                }
                             }
                             TaskGanttProgressHandle {
                                 id: progressHandle

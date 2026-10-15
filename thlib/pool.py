@@ -276,6 +276,8 @@ class OperationWorker(QtCore.QObject):
                 succeeded = True
                 return
             if self._data:
+                if not isinstance(self._result, tuple):
+                    self._result = (self._result,)
                 self._result = self._result + (self._data,)
             self.result.emit(self._result)
             self.finished.emit()

@@ -466,9 +466,12 @@ Item {
             }
         }
 
-        Controls.ActivationHandler {
-            onActivated: function(modifiers, x, y) {
-                const viewPoint = Qt.point(x, y)
+        MouseArea {
+            anchors.fill: parent
+            acceptedButtons: Qt.LeftButton
+            // Reject card presses before grabbing, so their own controls receive them.
+            onPressed: function(mouse) {
+                const viewPoint = Qt.point(mouse.x, mouse.y)
                 const contentPoint = Qt.point(
                     viewPoint.x + resultTiles.contentX,
                     viewPoint.y + resultTiles.contentY
@@ -478,20 +481,18 @@ Item {
                 )
                 const item = itemIndex >= 0
                     ? resultTiles.itemAtIndex(itemIndex) : null
-                if (!item) {
-                    controller.clear_result_selection()
+                if (!item)
                     return
-                }
                 const localPoint = item.mapFromItem(
                     resultTiles, viewPoint.x, viewPoint.y
                 )
-                if (
+                mouse.accepted = (
                     localPoint.x < 0 || localPoint.y < 0
                     || localPoint.x > item.width
                     || localPoint.y > item.height
                 )
-                    controller.clear_result_selection()
             }
+            onClicked: controller.clear_result_selection()
         }
 
         delegate: WorkspaceCard {

@@ -23,14 +23,15 @@ from PySide6.QtQuick import QQuickItem, QQuickWindow
 from PySide6.QtTest import QSignalSpy, QTest
 from shiboken6 import isValid
 
+from thlib import tactic_classes as tc
 from thlib.environment import env_mode
 from thlib.ui.icon_font import qml_icon_bindings
 from thlib.ui.localization import CatalogTranslator
 from thlib.ui.models import NavigationEntry, NavigationModel
 from thlib.ui.sidebar_editor import SidebarEditorController
-from thlib.ui.workspace_models.windows import FloatingWindowModel, VisibleFloatingWindowModel
+from thlib.ui.workspace_models.windows import FloatingWindowModel
 from tests.profile_ui_responsiveness import frame
-from tests.qt_application import gui_test_application
+from tests.qt_application import gui_test_application, run_native_windows_test
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -91,6 +92,10 @@ class SidebarEditorQmlTests(unittest.TestCase):
             "config": """<config><element name="my_tasks" title="My tasks" icon="FAS_BOX">
                 <display class="LinkWdg"><layout_preset>workspace_layout@review</layout_preset></display><search_type>demo/assets</search_type>
                 </element></config>""",
+        }, {
+            "code": "CONFIG0002", "search_type": "SideBarWdg",
+            "view": "tactic_handler",
+            "config": "<config><element name='my_tasks'/></config>",
         }]))
         self.controller.select_entry(0)
 
@@ -171,19 +176,14 @@ ApplicationWindow {
 
     def test_form_pages_and_actions_fit_narrow_and_wide_windows(self):
         self.scene(860, 600)
-        help_button = self.item("sidebarEditorHelpButton")
-        self.click(help_button)
-        self.assertEqual(
-            self.application.window_model.helpTopic, "sidebar_editor"
-        )
         for width, height in ((860, 600), (1300, 900)):
             self.window.resize(width, height)
             frame(self.window)
             for page in ("item", "access", "technical"):
-                self.click(self.item("segmentedButtonSegment_" + page))
-                viewport = self.item("sidebarSettingsViewport")
+                self.click(self.item("sidebarPages_" + page))
+                viewport = self.item("sidebarAccessGroups" if page == "access" else "sidebarSettingsViewport")
                 self.assertGreater(viewport.width(), 300)
-                self.assertGreater(viewport.height(), 250)
+                self.assertGreater(viewport.height(), 150 if page == "access" else 250)
                 for item in self.descendants(viewport):
                     if not item.isVisible():
                         continue
@@ -192,10 +192,10 @@ ApplicationWindow {
                         point = item.mapToItem(viewport, QPointF(0, 0))
                         self.assertGreaterEqual(point.x(), 0, kind)
                         self.assertLessEqual(point.x() + item.width(), viewport.width() - 12, kind)
-                save = self.item("sidebarSaveButton")
+                save = self.item("adminSaveDocument")
                 bottom = save.mapToScene(QPointF(0, save.height())).y()
                 self.assertLessEqual(bottom, height)
-            self.click(self.item("segmentedButtonSegment_item"))
+            self.click(self.item("sidebarPages_item"))
             target = os.environ.get("SIDEBAR_EDITOR_SCREENSHOT")
             if target:
                 self.window.grabWindow().save(str(Path(target).with_stem(
@@ -208,12 +208,118 @@ ApplicationWindow {
         QTest.keyClick(self.window, Qt.Key_A, Qt.ControlModifier)
         for key in "Ready assets":
             QTest.keyClick(self.window, key)
+        self.assertTrue(self.controller.dirty)
+        self.assertEqual(field.property("text"), "Ready assets")
+        self.click(self.item("sidebarPages_technical"))
         self.assertEqual(self.controller.selectedEntry["title"], "Ready assets")
         self.assertEqual(self.controller.selectedEntry["name"], "my_tasks")
-        self.assertTrue(self.item("sidebarSaveButton").isEnabled())
+        self.assertTrue(self.item("adminSaveDocument").isEnabled())
+        self.click(self.item("sidebarPages_item"))
         self.assertFalse(self.item("sidebarSearchSetupButton").isEnabled())
 
+    def test_unapplied_invalid_xml_is_dirty_and_survives_mode_change_until_discard(self):
+        self.scene()
+        self.click(self.item('sidebarModeSelector_xml'))
+        area = self.item('sidebarXml')
+        self.window.requestActivate()
+        area.focusEditor()
+        QTest.keyClick(self.window, Qt.Key_A, Qt.ControlModifier)
+        for character in '<element name="broken">':
+            QTest.keyClick(self.window, character)
+            frame(self.window)
+        self.assertTrue(self.controller.dirty)
+        self.click(self.item('sidebarModeSelector_simple'))
+        self.assertTrue(self.controller.error)
+        self.assertIsNotNone(self.item('sidebarXml'))
+        self.assertEqual(self.controller.selectedEntry['name'], 'my_tasks')
+        self.click(self.item('adminDiscardDocument'))
+        self.click(self.item('adminConfirmSave'))
+        self.assertFalse(self.controller.dirty)
+        self.assertEqual(self.controller.error, '')
+        self.assertIsNotNone(self.item('sidebarTitleField'))
+
+    def test_source_switch_and_group_preview_use_the_live_tree(self):
+        class Group:
+            @staticmethod
+            def get_info():
+                return {
+                    "access_rules": (
+                        "<rules><rule group='link' element='my_tasks' "
+                        "access='allow' project='demo'/></rules>"
+                    )
+                }
+
+            @staticmethod
+            def get_login_group():
+                return "animator"
+
+            @staticmethod
+            def get_pretty_name():
+                return "Animators"
+
+        self.controller._security_objects = {"animator": Group()}
+        self.controller._rebuild_entries()
+        self.scene()
+
+        self.click(self.item("sidebarSourceSelector_tactic"))
+        self.assertEqual(self.controller.sidebarSource, "tactic")
+        self.click(self.item("sidebarSourceSelector_handler"))
+        self.assertEqual(self.controller.sidebarSource, "handler")
+
+        preview = self.item("sidebarGroupPreview")
+        self.assertGreaterEqual(preview.width(), 220)
+        preview.forceActiveFocus(Qt.TabFocusReason)
+        QTest.keyClick(self.window, Qt.Key_Down)
+        frame(self.window)
+        self.assertEqual(self.controller.previewGroup, "animator")
+        self.assertEqual(self.controller.visibleEntryCount, 1)
+
+    def test_hidden_entry_stays_dimmed_and_editable_in_group_preview(self):
+        class Group:
+            @staticmethod
+            def get_info():
+                return {
+                    "access_rules": (
+                        "<rules><rule group='link' element='my_tasks' "
+                        "access='allow' project='demo'/></rules>"
+                    )
+                }
+
+            @staticmethod
+            def get_login_group():
+                return "animator"
+
+            @staticmethod
+            def get_pretty_name():
+                return "Animators"
+
+        self.controller._security_objects = {"animator": Group()}
+        self.controller.set_preview_group("animator")
+        self.scene()
+
+        check = self.item("sidebarEntryVisibleCheck")
+        viewport = self.item("sidebarSettingsViewport")
+        viewport.setProperty("contentY", check.mapToItem(viewport, QPointF()).y() - 12)
+        frame(self.window)
+        self.click(check)
+
+        row = self.item("sidebarEditorEntry_0")
+        self.assertTrue(row.isVisible())
+        opacity = 1
+        parent = row
+        while parent:
+            opacity *= parent.opacity()
+            parent = parent.parentItem()
+        self.assertFalse(self.controller.selectedEntry["isVisible"])
+        self.assertEqual(opacity, 0.5)
+        self.assertFalse(self.controller.selectedEntry["isVisible"])
+
     def test_preset_dropdown_keeps_rows_inside_viewport_and_reserves_scrollbar(self):
+        # Offscreen's first native popup loses focus during activation. Exercise
+        # Popup.Window on Windows, isolated from other suites' Qt global state.
+        if run_native_windows_test(self):
+            return
+
         self.controller._replace_search_preset_options([
             {"view": "query_%s" % i, "title": "Saved search %s" % i}
             for i in range(20)
@@ -221,10 +327,10 @@ ApplicationWindow {
         self.scene()
         viewport = self.item("sidebarSettingsViewport")
         combo = self.item("sidebarSearchPreset")
-        viewport.setProperty("contentY", 230)
+        viewport.setProperty("contentY", combo.mapToItem(viewport, QPointF()).y() + viewport.property("contentY") - 12)
         frame(self.window)
-        popup = next(obj for obj in combo.findChildren(QObject)
-                     if obj.metaObject().className().startswith("Popup_QML"))
+        popup = combo.findChild(QObject, "comboBoxPopup")
+        self.assertIsNotNone(popup)
         opened = QSignalSpy(popup.opened)
         self.click(combo)
         if not popup.property("opened"):
@@ -257,49 +363,46 @@ ApplicationWindow {
             self.controller.selectedEntry["layoutPreset"], "",
         )
 
-    def test_access_list_uses_available_height_and_opens_group_manager(self):
+    def test_access_list_uses_available_height_and_requests_group_section(self):
         self.controller.security_groups.replace([
             {'code': 'G%s' % i, 'label': 'Group %s' % i, 'allowed': False}
             for i in range(50)
         ])
         self.scene(1300, 900)
-        self.click(self.item('segmentedButtonSegment_access'))
+        self.click(self.item('sidebarPages_access'))
         groups = self.item('sidebarAccessGroups')
         for width, height in ((1300, 900), (860, 600)):
             self.window.resize(width, height)
             frame(self.window)
-            viewport = self.item('sidebarSettingsViewport')
-            self.assertLessEqual(viewport.property('contentHeight'), viewport.height() + 1)
+            viewport = groups.parentItem().parentItem()
             # Native Windows clamps a requested 900-DIP window to the screen
             # at high DPI. Check the actual remaining height, not the request.
             bottom = groups.mapToItem(viewport, QPointF(0, groups.height())).y()
             self.assertGreaterEqual(bottom, viewport.height() - 24)
             self.assertGreater(groups.height(), 120)
             if self.window.height() >= 850:
-                self.assertGreater(groups.height(), 400)
+                self.assertGreater(groups.height(), 360)
+        requested = QSignalSpy(self.controller.groupManagementRequested)
         self.click(self.item('manageSidebarGroups'))
-        model = self.application.window_model
-        self.assertTrue(next(window for window in model._windows
-                             if window.window_id == 'administration').visible)
+        self.assertEqual(requested.count(), 1)
 
     def test_sidebar_selection_uses_theme_but_keeps_server_item_color(self):
         self.scene()
         theme = self.window.findChild(QObject, "testTheme")
-        surface = self.item("sidebarRowSurface")
-        title = self.item("sidebarRowTitle")
-        row = next(item for item in self.descendants(self.window.contentItem())
-                   if item.metaObject().className().startswith("SidebarTreeRow"))
+        row = self.item("sidebarEditorEntry_0")
+        surface = next(item for item in self.descendants(row) if item.metaObject().className().startswith("ItemSurface"))
+        title = self.item("sidebarEntryTitle_0")
         colors = []
         for dark in (True, False):
             self.window.setProperty("darkTheme", dark)
             frame(self.window)
-            self.assertEqual(surface.property("color"), theme.property("contentSelection"))
-            self.assertEqual(title.property("color"), theme.property("contentSelectionText"))
-            self.assertEqual(row.property("accent"), "#e35062")
-            colors.append(surface.property("color"))
+            self.assertEqual(surface.property("baseColor"), theme.property("contentSelection"))
+            self.assertEqual(title.property("color"), theme.property("primaryText"))
+            self.assertEqual(self.item("sidebarEntryIcon_0").property("accent"), "#e35062")
+            colors.append(surface.property("baseColor"))
         self.assertNotEqual(colors[0], colors[1])
         row.forceActiveFocus()
-        self.assertEqual(QQmlProperty.read(surface, "border.width"), 1)
+        self.assertTrue(row.hasActiveFocus())
         QTest.keyClick(self.window, Qt.Key_Space)
         self.assertEqual(self.controller.selectedEntry["name"], "my_tasks")
 
@@ -367,67 +470,50 @@ ApplicationWindow {
             self.assertEqual(selected.at(before), [SEARCH_KEY, 'Naming', 'open_sidebar_item'])
             self.assertFalse(drawer.property('opened'))
 
-    def test_native_window_host_starts_one_editor_session_on_each_open(self):
-        self.scene()
-        del self.controller.begin_session
-        reloads = []
-        self.controller.reload = lambda: reloads.append(True)
-        self.windows = self.application.window_model
-        self.visible_windows = VisibleFloatingWindowModel(self.windows)
-        context = self.engine.rootContext()
-        context.setContextProperty("windowModel", self.windows)
-        context.setContextProperty("visibleWindowModel", self.visible_windows)
-        component = QQmlComponent(self.engine)
-        component.setData(b'''
-import QtQuick
-import "." as App
-Item {
-    id: root
-    required property var owner
-    required property var theme
-    QtObject {
-        id: windowAppearanceController
-        function apply(window, dark, background, foreground) {}
-    }
-    QtObject { id: configurationController; signal closeAllowed() }
-    App.WindowHost {
-        ownerWindow: root.owner
-        theme: root.theme
-        workspaceEnabled: true
-    }
-}
-''', QUrl.fromLocalFile(str(QML / "_SidebarHostTest.qml")))
-        host = component.createWithInitialProperties({
-            "owner": self.window, "theme": self.window.findChild(QObject, "testTheme"),
-        })
-        self.assertIsNotNone(host, [error.toString() for error in component.errors()])
-        host.setParent(self.window)
-        host.setParentItem(self.window.contentItem())
-        self.native_host = host
-        self.windows.show_window("sidebar_editor")
-        native = next(window for window in self.app.allWindows()
-                      if window.property("kind") == "sidebar_editor")
-        frame(native)
-        self.assertEqual(reloads, [True])
-        self.assertEqual(native.modality(), Qt.WindowModal)
-        self.assertIs(native.transientParent(), self.window)
-        self.windows.close_window("sidebar_editor")
-        self.windows.show_window("sidebar_editor")
-        frame(native)
-        self.assertEqual(reloads, [True, True])
-        self.windows.close_window("sidebar_editor")
+    def test_builtin_catalog_links_render_and_open_without_sidebar_widget(self):
+        project = tc.Project({'code': 'admin', 'name': 'Admin'})
+        project.get_all_search_types([{
+            'code': 'admin/item', 'title': 'Admin Items', 'color': '#e35062',
+            'table_name': 'item', 'column_info': {},
+        }], [], '', [])
+        login = SimpleNamespace(check_security=lambda **_: 'allow')
+        self.scene(640, 600)
+        drawer = self.item('testDrawer')
+        model = NavigationModel(NavigationModel.build_project_entries(project, login))
+        model.setParent(self.window)
+        drawer.setProperty('model', model)
+        selected = QSignalSpy(drawer.selected)
+
+        for width in (640, 1200):
+            self.window.resize(width, 600)
+            drawer.setProperty('opened', True)
+            frame(self.window)
+            row = next(item for item in self.descendants(drawer)
+                       if item.metaObject().className().startswith('SidebarTreeRow')
+                       and item.property('title') == 'Admin Items')
+            self.assertTrue(row.property('interactive'))
+            if width == 640:
+                self.click(row)
+            else:
+                row.forceActiveFocus()
+                QTest.keyClick(self.window, Qt.Key_Return)
+                frame(self.window)
+            self.assertEqual(selected.at(selected.count() - 1), [
+                'admin/item@admin/item', 'Admin Items', 'open_sidebar_item',
+            ])
+            self.assertFalse(drawer.property('opened'))
 
     def test_add_separator_uses_its_own_icon_and_can_be_selected(self):
         self.scene()
-        button = self.item("sidebarAddSeparatorButton")
-        self.assertEqual(button.property("iconName"), "sidebar-separator")
+        button = self.item("sidebarAdd_separator")
+        self.assertEqual(QQmlProperty.read(button, "icon.name"), "sidebar-separator")
         self.click(button)
         self.assertEqual(self.controller.selectedEntry["entryType"], "separator")
-        separator = next(item for item in self.descendants(self.window.contentItem())
-                         if item.metaObject().className().startswith("SidebarTreeRow")
-                         and item.property("rowType") == "separator")
+        separator = self.item("sidebarEditorEntry_" + str(self.controller.selectedRow))
+        row_id = separator.objectName()
         self.controller.select_entry(0)
-        self.click(separator)
+        frame(self.window)
+        self.click(self.item(row_id))
         self.assertEqual(self.controller.selectedEntry["entryType"], "separator")
 
     def test_scroll_to_search_actions_and_open_exact_sidebar_filters(self):
@@ -468,13 +554,20 @@ Item {
         frame(self.window)
         self.assertGreater(viewport.property("contentY"), 0)
         button = self.item("sidebarSearchSetupButton")
+        preset = self.item("sidebarSearchPreset")
+        position = button.mapToItem(viewport, QPointF(0, 0))
+        viewport.setProperty(
+            "contentY",
+            max(0, viewport.property("contentY") + position.y() - 12),
+        )
+        frame(self.window)
         position = button.mapToItem(viewport, QPointF(0, 0))
         self.assertGreaterEqual(position.y(), 0)
         self.assertLessEqual(position.y() + button.height(), viewport.height())
         self.click(button)
         self.assertEqual(events, [
             ("create", "demo/assets@my_tasks"),
-            ("show", "sidebar_search_preview", "sidebar_editor"),
+            ("show", "sidebar_search_preview", "administration"),
         ])
 
     def test_icon_picker_has_grid_width_and_scrollbar_gutter(self):

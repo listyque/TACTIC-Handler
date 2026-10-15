@@ -232,6 +232,83 @@ Item {
                 QTest.mouseMove(self.window, QPoint(width - 20, 600))
                 self.wait_for(lambda: not self.cell.property("editorLoaded"))
 
+    def test_empty_status_has_same_translation_before_and_during_hover(self):
+        from thlib.ui.localization import CatalogTranslator
+
+        catalog = self.qml_dir.parent / "translations" / "ru.json"
+        translator = CatalogTranslator(catalog)
+        self.app.installTranslator(translator)
+        try:
+            self.create_task_table()
+            self.controller.table_model.set_value(0, "status", "")
+            self.controller.table_model.set_value(0, "statusLabel", "No status")
+            self.app.processEvents()
+            cell = next(item for item in self.visual_items()
+                        if item.objectName() == "taskTableEditorCell"
+                        and item.property("showAccent"))
+            self.assertEqual(cell.property("displayText"), "Без статуса")
+            center = cell.mapToScene(QPointF(
+                cell.width() / 2, cell.height() / 2)).toPoint()
+            QTest.mouseMove(self.window, center)
+            self.wait_for(lambda: cell.property("editorLoaded"))
+            editor = cell.findChild(QObject, "taskStatusEditor")
+            self.assertEqual(editor.property("displayText"), "Без статуса")
+        finally:
+            self.app.removeTranslator(translator)
+
+    def test_task_hover_keeps_editor_content_fixed_and_highlights_immediately(self):
+        self.create_task_table()
+        for width in (1400, 600):
+            with self.subTest(width=width):
+                self.view.setWidth(width)
+                self.window.resize(width, 640)
+                self.app.processEvents()
+                surfaces = [item for item in self.visual_items()
+                            if item.objectName().startswith("taskRowSurface_")]
+                cells = [item for item in self.visual_items()
+                         if item.objectName() == "taskTableEditorCell"
+                         and item.isVisible()
+                         and (item.property("showAccent")
+                              or item.property("showAvatar"))]
+                first_row_y = min(
+                    item.mapToScene(QPointF()).y() for item in cells)
+                cells = [item for item in cells if abs(
+                    item.mapToScene(QPointF()).y() - first_row_y) < 2]
+                self.assertEqual(len(cells), 2)
+                for cell in cells:
+                    with self.subTest(avatar=cell.property("showAvatar")):
+                        QTest.mouseMove(self.window, QPoint(width - 20, 600))
+                        self.wait_for(lambda: not cell.property("editorLoaded"))
+                        preview = cell.findChild(
+                            QObject, "taskTableCellDisplayLabel")
+                        preview_x = preview.mapToScene(QPointF()).x()
+                        center = cell.mapToScene(QPointF(
+                            cell.width() / 2, cell.height() / 2)).toPoint()
+                        surface = next(item for item in surfaces if
+                                       item.mapToScene(QPointF()).y() <= center.y()
+                                       < item.mapToScene(QPointF()).y()
+                                       + item.height())
+                        QTest.mouseMove(self.window, center)
+                        self.wait_for(lambda: cell.property("editorLoaded"))
+                        label_name = ("userComboBoxDisplayLabel"
+                                      if cell.property("showAvatar")
+                                      else "comboBoxDisplayLabel")
+                        editor = cell.findChild(QObject, label_name)
+                        self.assertIsNotNone(editor)
+                        self.assertAlmostEqual(
+                            editor.mapToScene(QPointF()).x(), preview_x,
+                            delta=1,
+                        )
+                        self.assertEqual(surface.property("color"),
+                                         self.theme.property("rowHover"))
+                        background = cell.findChild(
+                            QObject, "comboBoxBackground")
+                        self.assertIsNotNone(background)
+                        self.assertEqual(
+                            background.property("color"),
+                            self.theme.property("surfaceContainerHigh"),
+                        )
+
     def test_task_avatars_resolve_live_profiles_before_hover(self):
         self.create_task_table()
         self.controller.set_task_column_visible("supervisor", True)

@@ -1,8 +1,11 @@
 from __future__ import annotations
 
+import json
 import os
 from pathlib import Path
 import re
+import subprocess
+import sys
 import unittest
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
@@ -361,6 +364,54 @@ Window {
         ]
         self.assertEqual(painter_errors, [])
 
+    def test_material_busy_indicator_has_paint_area_at_small_sizes(self):
+        # QQuickStyle must be selected before another QML engine loads Controls.
+        code = '''import json
+import os
+from pathlib import Path
+from PySide6.QtCore import QUrl, qInstallMessageHandler
+from PySide6.QtGui import QGuiApplication
+from PySide6.QtQml import QQmlComponent, QQmlEngine
+from PySide6.QtQuick import QQuickItem
+from PySide6.QtTest import QTest
+app = QGuiApplication([])
+warnings = []
+qInstallMessageHandler(lambda kind, context, message: warnings.append(message))
+engine = QQmlEngine()
+component = QQmlComponent(engine)
+component.setData(b\'''import QtQuick
+import QtQuick.Window
+import "controls" as Controls
+Window {
+ width: 80; height: 80; visible: true
+ QtObject { id: theme; property color action: "blue" }
+ Controls.BusyIndicator {
+  objectName: "probe"; width: 10; height: 10
+  uiTheme: theme; running: true
+ }
+}\''', QUrl.fromLocalFile(str(Path(os.environ['TACTIC_TEST_QML']) / 'MaterialSpinnerProbe.qml')))
+window = component.create()
+assert window, [error.toString() for error in component.errors()]
+QTest.qWait(40)
+indicator = window.findChild(QQuickItem, 'busyIndicatorArc')
+paint_item = indicator.property('contentItem')
+print(json.dumps({'width': paint_item.width(), 'height': paint_item.height(),
+                  'warnings': [item for item in warnings if item.startswith('QPainter::')]}))
+window.close()
+'''
+        environment = dict(os.environ, QT_QPA_PLATFORM="offscreen",
+                           QT_QUICK_BACKEND="software",
+                           QT_QUICK_CONTROLS_STYLE="Material",
+                           TACTIC_TEST_QML=str(QML))
+        result = subprocess.run(
+            [sys.executable, "-c", code], capture_output=True, text=True,
+            env=environment, timeout=15, check=True,
+        )
+        paint = json.loads(result.stdout)
+        self.assertGreaterEqual(paint["width"], 4)
+        self.assertGreaterEqual(paint["height"], 4)
+        self.assertEqual(paint["warnings"], [])
+
     def test_material_ripple_has_no_idle_effect_or_animation_graph(self):
         messages = []
 
@@ -468,16 +519,18 @@ import "controls" as Controls
 Window {
     id: window
     width: 120
-    height: 80
+    height: 160
     visible: true
-    property bool showTip: false
     Theme { id: theme; dark: true }
-    Controls.ToolTip {
-        objectName: "testedLazyToolTip"
+    Controls.CompactIconButton {
+        objectName: "tooltipTarget"
+        x: 40
+        y: 8
+        width: 40
+        height: 40
         theme: theme
-        visible: window.showTip
-        delay: 0
-        text: "Details"
+        iconName: "help"
+        toolTip: "Details"
     }
 }
 ''',
@@ -488,20 +541,32 @@ Window {
             owner,
             "\n".join(error.toString() for error in component.errors()),
         )
-        tooltip = owner.findChild(QQuickItem, "testedLazyToolTip")
+        target = owner.findChild(QQuickItem, "tooltipTarget")
+        tooltip_loader = target.findChild(
+            QQuickItem, "compactIconButtonToolTipLoader"
+        )
+        self.assertFalse(tooltip_loader.property("active"))
+        QTest.qWait(30)
+        QTest.mouseMove(
+            owner,
+            target.mapToScene(QPointF(
+                target.width() / 2, target.height() / 2
+            )).toPoint(),
+        )
+        QTest.qWait(550)
+        self.assertTrue(tooltip_loader.property("active"))
+        tooltip = tooltip_loader.property("item")
         self.assertIsNotNone(tooltip)
-        self.assertFalse(tooltip.property("active"))
-        self.assertIsNone(tooltip.property("item"))
+        popup = tooltip.property("item")
+        self.assertIsNotNone(popup)
+        self.assertGreaterEqual(
+            popup.property("y"),
+            target.height() + tooltip.property("margins"),
+        )
 
-        owner.setProperty("showTip", True)
+        QTest.mouseMove(owner, QPointF(4, 140).toPoint())
         self.app.processEvents()
-        self.assertTrue(tooltip.property("active"))
-        self.assertIsNotNone(tooltip.property("item"))
-
-        owner.setProperty("showTip", False)
-        self.app.processEvents()
-        self.assertFalse(tooltip.property("active"))
-        self.assertIsNone(tooltip.property("item"))
+        self.assertFalse(tooltip_loader.property("active"))
 
         owner.close()
         owner.deleteLater()

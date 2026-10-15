@@ -1,127 +1,77 @@
 import QtQuick
-import QtQuick.Controls
-import QtQuick.Layouts
-import "controls" as Controls
+import "tactic_frame" as Frame
+import "tactic_frame/features/administration/users/users.ui.mjs" as UI
+import "tactic_frame/features/administration/users/users.state.mjs" as State
 
-AdminDocumentShell {
+Item {
     id: root
-    readonly property bool compact: width < 780
-    title: qsTr("Users")
-    description: qsTr("Server accounts, profiles and contact details")
-    iconName: "person"
-    showSelector: false
-    allowCreate: true
+    required property var theme
+    required property var controller
+    property bool saveActionsInHeader: false
+    property string language: "en"
+    property var ui: State.initial()
+    readonly property string createText: UI.translate("Create user", language)
+    readonly property string createObjectName: "adminCreateDocument"
+    readonly property bool allowCreate: true
+    readonly property bool allowReload: true
+    readonly property bool allowSave: true
+    readonly property bool canCreateDocument: State.permissions(frameModel).create
+    readonly property bool canReloadDocument: State.permissions(frameModel).reload
+    readonly property string currentIdentity: controller.identity
+    readonly property var frameModel: ({
+        draft: controller.document.login === undefined ? null : controller.document,
+        identity: controller.identity, profile: UI.profile(controller.document, controller.identity ? controller.profile : null),
+        ready: controller.metadata.fields !== undefined, canWrite: controller.canWrite, canLoad: true,
+        busy: controller.busy, dirty: controller.dirty, uncertain: controller.uncertain,
+        error: controller.error, message: controller.message,
+        userCount: controller.usersModel.count(), groupCount: controller.groupsModel.count()
+    })
+    onCurrentIdentityChanged: ui = Object.assign({}, ui, {page: "profile"})
 
-    editorContent: RowLayout {
-        // The alias reparents this item into AdminDocumentShell's plain Item.
-        anchors.fill: parent // qmllint disable Quick.layout-positioning
-        spacing: 12
-        Controls.EditorPanel {
-            Layout.preferredWidth: root.compact ? 220 : 290
-            Layout.fillHeight: true
-            theme: root.theme
-            title: qsTr("User directory")
-            iconName: "groups"
-            Controls.SearchField {
-                objectName: "adminUserSearch"
-                Layout.fillWidth: true
-                theme: root.theme
-                placeholderText: qsTr("Name, login or email")
-                onSearchEdited: query => root.controller.set_query(query)
-            }
-            Controls.CheckBox {
-                objectName: "adminShowRetiredUsers"
-                Layout.fillWidth: true
-                theme: root.theme
-                text: qsTr("Show retired users")
-                checked: root.controller.showRetired
-                onToggled: root.controller.set_show_retired(checked)
-            }
-            ListView {
-                id: users
-                objectName: "adminUsersList"
-                Layout.fillWidth: true
-                Layout.fillHeight: true
-                clip: true
-                spacing: 4
-                boundsBehavior: Flickable.StopAtBounds
-                model: root.controller.usersModel
-                delegate: Controls.PopupAction {
-                    id: userRow
-                    required property string login
-                    required property string displayName
-                    required property string avatarUrl
-                    required property string avatarColor
-                    required property string initials
-                    required property bool retired
-                    readonly property bool selected: root.controller.identity === login
-                    objectName: "adminUser_" + login
-                    width: users.width - usersBar.reservedExtent - 4
-                    implicitHeight: identity.implicitHeight + 20
-                    padding: 10
-                    text: displayName
-                    Accessible.name: displayName + " " + login
-                    Accessible.description: retired ? qsTr("Retired user") : ""
-                    enabled: !root.controller.dirty
-                    background: Controls.ItemSurface {
-                        theme: root.theme
-                        selected: userRow.selected
-                        hovered: userRow.hovered
-                        pressed: userRow.down
-                        normalColor: "transparent"
-                        selectedColor: root.theme.selected
-                        railVisible: userRow.selected
-                        cornerRadius: root.theme.itemRadius
-                        separatorVisible: false
-                        borderWidth: userRow.visualFocus ? 1 : 0
-                        borderColor: root.theme.action
-                    }
-                    contentItem: ColumnLayout {
-                        id: identity
-                        spacing: 5
-                        UserIdentity {
-                            Layout.fillWidth: true
-                            theme: root.theme
-                            login: userRow.login
-                            displayName: userRow.displayName
-                            initials: userRow.initials
-                            avatarUrl: userRow.avatarUrl
-                            avatarColor: userRow.avatarColor
-                            retired: userRow.retired
-                        }
-                        Label {
-                            Layout.fillWidth: true
-                            visible: userRow.retired
-                            text: qsTr("Retired user")
-                            color: root.theme.secondaryText
-                            font.family: root.theme.fontFamily
-                            font.pointSize: Controls.Typography.label
-                        }
-                    }
-                    onClicked: root.controller.select(login)
-                }
-                ScrollBar.vertical: Controls.ScrollBar {
-                    id: usersBar
-                    objectName: "adminUsersScrollBar"
-                    theme: root.theme
-                    flickableTarget: users
-                }
-                Controls.EmptyState {
-                    anchors.centerIn: parent
-                    width: parent.width - usersBar.reservedExtent - 8
-                    visible: users.count === 0 && !root.controller.busy
-                    theme: root.theme
-                    iconName: "person"
-                    title: qsTr("No users match the search")
-                }
+    function rowScene(list, record) {return UI.row(list, record, frameModel, ui, language)}
+    function toolbarScene(width) {return UI.toolbar(frameModel, ui, width, language)}
+    function dispatch(action) {
+        const result = State.transition(ui, frameModel, action)
+        ui = result.ui
+        for (const command of result.commands) {
+            switch (command.type) {
+            case "create": controller.new_document(); break
+            case "select": controller.select(command.login); break
+            case "query": controller.set_query(command.value); break
+            case "showRetired": controller.set_show_retired(command.value); break
+            case "field": controller.set_field(command.field, command.value); break
+            case "member": controller.set_group(command.name, command.value); break
+            case "save": controller.save(); break
+            case "reload": controller.reload(command.force); break
+            case "discard": controller.discard(); break
+            case "error": controller.fail(command.text); break
+            case "focus": Qt.callLater(() => body.focusControl(command.id)); break
+            default: throw Error("Unsupported Users command: " + command.type)
             }
         }
-        AdminUserDetails {
-            Layout.fillWidth: true
-            Layout.fillHeight: true
-            Layout.minimumWidth: 0
-            theme: root.theme
-            controller: root.controller
-        }
+    }
+    function createDocument() {dispatch({type: "create"})}
+    function reloadDocument() {dispatch({type: "reload"})}
+    function requestSave() {dispatch({type: "save"})}
+    function discardChanges() {dispatch({type: "discard"})}
+
+    Frame.FrameView {
+        id: toolbar
+        objectName: "adminUserToolbar"
+        width: root.width; height: root.saveActionsInHeader ? 0 : UI.metrics.control
+        visible: !root.saveActionsInHeader
+        theme: root.theme
+        scene: root.saveActionsInHeader ? ({nodes: []}) : root.toolbarScene(width)
+        onEvent: action => root.dispatch(action)
+    }
+    Frame.FrameView {
+        id: body
+        y: toolbar.height ? toolbar.height + UI.metrics.toolbarGap : 0
+        width: root.width; height: Math.max(1, root.height - y)
+        theme: root.theme
+        models: ({users: root.controller.usersModel, groups: root.controller.groupsModel})
+        describeRow: root.rowScene
+        scene: UI.describe(root.frameModel, root.ui, width, height, root.language)
+        onEvent: action => root.dispatch(action)
     }
 }

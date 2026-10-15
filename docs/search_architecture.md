@@ -14,6 +14,12 @@ The XML editor still edits the selected native element, not a parallel format.
 `SidebarEditorController` starts a session from the window model's visibility
 signal. Neither the QML loader nor `FloatingWindow` starts a second reload;
 first opening and reopening a retained window each start exactly one session.
+The editor switches between two native roots: `tactic_handler` is the standalone
+Handler navigation and `project_view` remains the TACTIC web sidebar. TH group
+preview derives directly from the pending native link-access rules; it does not
+store per-group sidebar copies. A configured empty `tactic_handler` view remains
+empty at runtime, while projects without that view retain the native
+`project_view` fallback.
 
 `SidebarSearchMixin` owns the Search Type preset-library workflow and the native
 modal `sidebar_search_preview` window. The single **Configure search** button

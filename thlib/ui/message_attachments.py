@@ -411,10 +411,22 @@ class AttachmentUploadController(QObject):
     @Slot(str, result=bool)
     def begin(self, conversation_code: str) -> bool:
         conversation_code = str(conversation_code or "")
-        return self.begin_target(
+        if not conversation_code or not self.model._records:
+            return False
+        try:
+            batch_token = uuid.UUID(
+                str(self.model._records[0].get("token") or "")
+            ).hex
+        except ValueError:
+            self._error = "Attachment draft has no valid identity"
+            self.stateChanged.emit()
+            return False
+        chat_code = re.sub(r"[^A-Za-z0-9_-]+", "_", conversation_code)
+        return self.begin_named_target(
             "sthpw/message?code={0}".format(conversation_code),
-            "attachment/chat",
+            "attachment/chat/{0}/{1}".format(chat_code, batch_token),
             "Chat attachment",
+            conversation_code,
         )
 
     @Slot(str, str, str, result=bool)
@@ -639,6 +651,11 @@ class AttachmentUploadController(QObject):
         if self._draft_context == self._upload_context:
             self.model.replace(finished_records)
         self._upload_records = []
+        if any(record["status"] != "uploaded" for record in finished_records):
+            self._error = "Attachment upload did not complete"
+            self.stateChanged.emit()
+            self.failed.emit(self._error, "")
+            return
         self.stateChanged.emit()
         self.uploaded.emit([
             snapshots.get(record.get("token"))

@@ -1,7 +1,8 @@
 import os
 from pathlib import Path
+from types import SimpleNamespace
 import unittest
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
@@ -61,6 +62,46 @@ class FakeProject:
 
 
 class UserActivityTests(unittest.TestCase):
+    def test_profile_badges_clear_when_project_changes_during_load(self):
+        controller = UserController.__new__(UserController)
+        QObject.__init__(controller)
+        controller._application = SimpleNamespace(
+            _current_project_code="demo", server_state="online"
+        )
+        controller._selected_login = "artist"
+        controller._current_login = lambda: "artist"
+        controller._busy = True
+        controller._loading_scope = ("artist", "other")
+        controller._loaded_scope = ("artist", "other")
+        controller._queued_refresh = False
+        controller._request_id = "old"
+        controller._task_summary = {"total": 42}
+        controller._work_hour_summary = {"loggedHours": 8}
+        controller._can_view_work_hours = True
+        controller._task_status_summary = [{"label": "Other", "count": 42}]
+        controller._task_process_summary = [{"label": "model", "count": 42}]
+        controller.activity = RecordListModel(("value",))
+        controller.activity.replace([{"value": "other-project"}])
+
+        controller.refresh()
+
+        self.assertTrue(controller._queued_refresh)
+        self.assertEqual(controller.taskSummary["total"], 0)
+        self.assertEqual(controller.taskStatusSummary, [])
+        self.assertEqual(controller.taskProcessSummary, [])
+        self.assertEqual(controller.activity.count(), 0)
+
+        controller.refresh = Mock()
+        controller._loaded("old", {"taskSummary": {"total": 42}})
+        self.assertEqual(controller.taskSummary["total"], 0)
+        controller.refresh.assert_called_once_with()
+
+        controller.refresh = UserController.refresh.__get__(controller)
+        controller._application._current_project_code = ""
+        controller._task_summary = {"total": 42}
+        controller.refresh()
+        self.assertEqual(controller.taskSummary["total"], 0)
+
     @staticmethod
     def _profile_controller():
         class WindowModel:
@@ -317,7 +358,13 @@ class UserActivityTests(unittest.TestCase):
                         "periodEnd": "2026-08-16",
                     },
                     "permissions": {"viewWorkHours": True},
-                    "statusSummary": [], "processSummary": [],
+                    "statusSummary": [{
+                        "label": "Paid", "status": "Paid", "count": 1,
+                    }],
+                    "processSummary": [{
+                        "label": "animation", "process": "animation",
+                        "count": 1,
+                    }],
                 },
             ) as profile_query,
             patch(
@@ -343,6 +390,8 @@ class UserActivityTests(unittest.TestCase):
         self.assertNotIn("tasks", result)
         self.assertNotIn("taskTotal", result)
         self.assertEqual(result["taskSummary"]["incomplete"], 2)
+        self.assertEqual(result["statusSummary"][0]["value"], "Paid")
+        self.assertEqual(result["processSummary"][0]["value"], "animation")
         self.assertEqual(result["workHourSummary"]["loggedHours"], 8.0)
         self.assertTrue(result["canViewWorkHours"])
 

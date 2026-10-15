@@ -6,14 +6,15 @@ try:
     import urllib2
     import xmlrpclib
     from cookielib import CookieJar
-    from urllib2 import Request, HTTPPasswordMgrWithDefaultRealm, HTTPBasicAuthHandler, ProxyHandler, HTTPCookieProcessor, build_opener, install_opener, urlopen
-    from urllib import unquote, splittype, splithost
+    from urllib2 import Request, HTTPPasswordMgrWithDefaultRealm, HTTPBasicAuthHandler, ProxyHandler, HTTPCookieProcessor, build_opener
+    from urllib import unquote
+    from urlparse import urlsplit
 except:
     import urllib as urllib2
     import xmlrpc.client as xmlrpclib
     from http.cookiejar import CookieJar
-    from urllib.parse import unquote, splittype, splithost
-    from urllib.request import Request, HTTPPasswordMgrWithDefaultRealm, HTTPBasicAuthHandler, ProxyHandler, HTTPCookieProcessor, build_opener, install_opener, urlopen
+    from urllib.parse import unquote, urlsplit
+    from urllib.request import Request, HTTPPasswordMgrWithDefaultRealm, HTTPBasicAuthHandler, ProxyHandler, HTTPCookieProcessor, build_opener
 
 import base64
 
@@ -35,6 +36,8 @@ class UrllibTransport(xmlrpclib.Transport, object):
         self.proxy_pass = self.proxy['pass']
         self.proxy_server = self.proxy['server']
         self.proxy_enabled = self.proxy['enabled']
+        self._opener = None
+        self._opener_key = None
 
     @staticmethod
     def _normalize_proxy(proxy_dict=None):
@@ -95,7 +98,21 @@ class UrllibTransport(xmlrpclib.Transport, object):
 
     def request(self, host, handler, request_body, verbose=0):
         self.verbose = verbose
+        address = "http://%s%s" % (unquote(host), handler)
+        request = Request(address, request_body)
+        request.add_header('User-agent', self.user_agent)
+        request.add_header("Content-Type", "text/xml")
+        response = self.open(request, timeout=env_server.get_timeout())
+        try:
+            return self.parse_response(response)
+        finally:
+            response.close()
 
+    def open(self, request, timeout=None):
+        """Open RPC or repository requests with this transport's proxy settings."""
+        if not isinstance(request, Request):
+            request = Request(request)
+        address = urlsplit(request.get_full_url())
         if self.proxy_enabled:
             if self.proxy_server.startswith('http://'):
                 proxy_server = self.proxy_server[7:]
@@ -111,8 +128,8 @@ class UrllibTransport(xmlrpclib.Transport, object):
         puser_pass = None
 
         if self.proxyurl is not None:
-            type, r_type = splittype(self.proxyurl)
-            phost, XXX = splithost(r_type)
+            proxy_address = self.proxyurl if '://' in self.proxyurl else 'http://' + self.proxyurl
+            phost = urlsplit(proxy_address).netloc
 
             if '@' in phost:
                 user_pass, phost = phost.split('@', 1)
@@ -125,53 +142,51 @@ class UrllibTransport(xmlrpclib.Transport, object):
 
             proxies = {'http': 'http://%s' % phost, 'https': None}
 
-        host = unquote(host)
-        address = "http://%s%s" % (host, handler)
-
-        request = Request(address, request_body)
-        # request.add_data(request_body)
-        request.add_header('User-agent', self.user_agent)
-        request.add_header("Content-Type", "text/xml")
-
-        # HTTP Auth
-        password_mgr = HTTPPasswordMgrWithDefaultRealm()
-        top_level_url = serverTopLevelURL
-        password_mgr.add_password(None,
-                                  top_level_url,
-                                  httpAuthName,
-                                  httpAuthPassword)
-        handler = HTTPBasicAuthHandler(password_mgr)
-
-        # Cookies
-        cj = CookieJar()
-
+        key = (address.scheme, address.netloc, self.proxy_enabled,
+               self.proxy_server, self.proxy_user, self.proxy_pass,
+               useAuthOnProxy, httpAuthName, httpAuthPassword, serverTopLevelURL)
         if puser_pass:
-            # NTLM
-            passman = HTTPPasswordMgrWithDefaultRealm()
-            passman.add_password(None, serverTopLevelURL, self.proxy_user, self.proxy_pass)
-
-            authNTLM = HTTPNtlmAuthHandler.HTTPNtlmAuthHandler(passman)
             request.add_header('Proxy-authorization', 'Basic ' + puser_pass)
+        if self._opener_key != key:
+            # HTTP Auth
+            password_mgr = HTTPPasswordMgrWithDefaultRealm()
+            top_level_url = serverTopLevelURL
+            password_mgr.add_password(None,
+                                      top_level_url,
+                                      httpAuthName,
+                                      httpAuthPassword)
+            handler = HTTPBasicAuthHandler(password_mgr)
 
-            proxy_support = ProxyHandler(proxies)
+            # Cookies
+            cj = CookieJar()
 
-            opener = build_opener(handler, proxy_support,
-                                          HTTPCookieProcessor(cj),
-                                          authNTLM)
-        elif self.proxyurl:
-            # Proxy without auth
-            proxy_support = ProxyHandler(proxies)
-            opener = build_opener(proxy_support,
-                                          handler,
-                                          HTTPCookieProcessor(cj))
-        else:
-            # Direct connection
-            proxy_support = ProxyHandler({})
-            opener = build_opener(proxy_support,
-                                          handler,
-                                          HTTPCookieProcessor(cj))
+            if puser_pass:
+                # NTLM
+                passman = HTTPPasswordMgrWithDefaultRealm()
+                passman.add_password(None, serverTopLevelURL, self.proxy_user, self.proxy_pass)
 
-        install_opener(opener)
+                authNTLM = HTTPNtlmAuthHandler.HTTPNtlmAuthHandler(passman)
 
-        response = urlopen(request, timeout=env_server.get_timeout())
-        return self.parse_response(response)
+                proxy_support = ProxyHandler(proxies)
+
+                opener = build_opener(handler, proxy_support,
+                                              HTTPCookieProcessor(cj),
+                                              authNTLM)
+            elif self.proxyurl:
+                # Proxy without auth
+                proxy_support = ProxyHandler(proxies)
+                opener = build_opener(proxy_support,
+                                              handler,
+                                              HTTPCookieProcessor(cj))
+            else:
+                # Direct connection
+                proxy_support = ProxyHandler({})
+                opener = build_opener(proxy_support,
+                                              handler,
+                                              HTTPCookieProcessor(cj))
+
+            self._opener = opener
+            self._opener_key = key
+        if timeout is None:
+            timeout = env_server.get_timeout()
+        return self._opener.open(request, timeout=timeout)

@@ -1,4 +1,5 @@
 import QtQuick
+import QtQuick.Window
 
 Rectangle {
     id: root
@@ -6,8 +7,12 @@ Rectangle {
     required property var theme
     property bool roundTopLeft: false
     property bool roundTopRight: false
-    property bool roundBottomLeft: true
-    property bool roundBottomRight: true
+    // Native dialog frames own their exterior corners; rounding the content
+    // a second time exposes a strip of the window background underneath.
+    readonly property bool nativeDialog: Window.window !== null
+        && (Window.window.flags & Qt.WindowType_Mask) === Qt.Dialog
+    property bool roundBottomLeft: !nativeDialog
+    property bool roundBottomRight: !nativeDialog
     property bool topDividerVisible: true
     readonly property real cornerRadius: Math.max(
         0, theme.surfaceRadius - 1

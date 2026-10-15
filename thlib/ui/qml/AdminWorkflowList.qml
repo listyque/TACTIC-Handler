@@ -61,11 +61,6 @@ ColumnLayout {
 
     spacing: 6
 
-    Controls.SectionLabel {
-        Layout.fillWidth: true
-        theme: root.theme
-        text: qsTr("Workflows")
-    }
     ListView {
         id: workflowList
         objectName: "adminWorkflowList"

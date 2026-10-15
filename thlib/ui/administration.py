@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from .layout_editor import LayoutEditorHost
 from collections.abc import Callable
 import copy
 from typing import TYPE_CHECKING
@@ -14,6 +15,7 @@ from .admin.search_types import SearchTypesEditor
 from .admin.schema_type import SchemaTypeEditor
 from .admin.security import SecurityRulesEditor
 from .admin.users import AdminUsersEditor
+from .admin.raw_database import RawDatabaseEditor
 from .user_identity import user_avatar_color, user_initials
 
 if TYPE_CHECKING:
@@ -29,7 +31,8 @@ class AdministrationController(QObject):
         self._application = application
         self._users = users
         self._naming_editor = None
-        self.groups = RecordListModel(('code', 'name', 'description', 'memberCount'))
+        self._sidebar_editor = None
+        self.groups = RecordListModel(('code', 'name', 'description', 'memberCount', 'revision'))
         self.members = RecordListModel(('login', 'displayName', 'member', 'initials',
                                         'avatarUrl', 'avatarColor', 'retired'))
         self._catalog = {'groups': [], 'memberships': [], 'users': []}
@@ -38,6 +41,11 @@ class AdministrationController(QObject):
         self._members = set()
         self._original_members = set()
         self._query = ''
+        self._group_catalog_loaded = False
+        self._group_uncertain = False
+        self._group_message = ''
+        self._group_saving = False
+        self._group_save_acknowledged = False
         self._error = ''
         self._worker = None
         self._worker_callbacks = None
@@ -58,13 +66,18 @@ class AdministrationController(QObject):
         self._workflow_editor.rulesEditor.stateChanged.connect(self.stateChanged.emit)
         self._security_editor = SecurityRulesEditor(application, self)
         self._users_editor = AdminUsersEditor(application, users, self)
-        self._editors = {'types': self._types_editor, 'schema': self._schema_editor,
+        self._raw_editor = RawDatabaseEditor(application, self)
+        self._editors = {'raw': self._raw_editor, 'types': self._types_editor, 'schema': self._schema_editor,
                          'workflow': self._workflow_editor, 'rules': self._security_editor,
                          'users': self._users_editor}
+        self._layout_editor = LayoutEditorHost(application, self, previews=previews)
+        self._editors['layouts'] = self._layout_editor
         for editor in self._editors.values():
             editor.stateChanged.connect(self.stateChanged.emit)
+        application._registry.register('show_layout_editor', self.open_layout_editor)
         for editor in (self._types_editor, self._schema_editor, self._workflow_editor):
             editor.committed.connect(self._project_document_saved)
+        self._raw_editor.committed.connect(self._project_document_saved)
         self._security_editor.committed.connect(self._security_document_saved)
         self._users_editor.committed.connect(self._user_document_saved)
         users.users.contentReplaced.connect(self._rebuild_members)
@@ -76,7 +89,15 @@ class AdministrationController(QObject):
 
     @Property(bool, notify=stateChanged)
     def canManage(self) -> bool:
-        return self._application.can_administer
+        return self._application.can_manage_tools
+
+    @Property(QObject, constant=True)
+    def layoutEditor(self):
+        return self._layout_editor
+
+    @Property(QObject, constant=True)
+    def rawEditor(self):
+        return self._raw_editor
 
     @Property(QObject, constant=True)
     def typesEditor(self):
@@ -85,6 +106,12 @@ class AdministrationController(QObject):
     def attach_naming_editor(self, editor: NamingEditorController) -> None:
         self._naming_editor = editor
         editor.stateChanged.connect(self.stateChanged.emit)
+
+    def attach_sidebar_editor(self, editor) -> None:
+        self._sidebar_editor = editor
+        editor.stateChanged.connect(self.stateChanged.emit)
+        self._application._registry.register(
+            'show_sidebar_editor', self.open_sidebar_editor)
 
     @Property(QObject, constant=True)
     def namingEditor(self):
@@ -120,14 +147,18 @@ class AdministrationController(QObject):
 
     @Property(bool, notify=stateChanged)
     def projectLocked(self):
+        if any(self._application.window_model.is_window_visible(kind)
+               for kind in ('schema_search_type', 'process_dependencies')):
+            return True
         has_draft = (
-            self.dirty
-            or self._schema_type_editor.dirty
-            or self._workflow_editor.rulesEditor.dirty
-            or (self._naming_editor is not None and self._naming_editor.dirty)
-            or any(editor.dirty for editor in self._editors.values())
+            self.dirty or self._group_uncertain
+            or self._schema_type_editor.dirty or self._schema_type_editor.writeUncertain
+            or self._workflow_editor.rulesEditor.dirty or self._workflow_editor.rulesEditor.writeUncertain
+            or (self._naming_editor is not None and (self._naming_editor.dirty or self._naming_editor.writeUncertain))
+            or (self._sidebar_editor is not None and self._sidebar_editor.dirty)
+            or any(editor.dirty or editor.writeUncertain for editor in self._editors.values())
         )
-        if has_draft:
+        if has_draft or (self._sidebar_editor is not None and self._sidebar_editor.busy):
             return True
         active_editor = self._editors.get(self._section)
         if active_editor is not None and active_editor.projectUnavailable:
@@ -145,12 +176,16 @@ class AdministrationController(QObject):
 
     @Slot(str)
     def select_section(self, section: str) -> None:
-        if not self.canManage or section not in {'groups', *self._editors}:
+        if not self.canManage or section not in {
+            'columns', 'groups', 'sidebar', *self._editors,
+        }:
             return
         self._section = section
         if section in self._editors:
             self._editors[section].activate(self._project)
-        elif not self.groups.rowCount():
+        elif section == 'sidebar' and self._sidebar_editor is not None:
+            self._sidebar_editor.activate(self._project)
+        elif section == 'groups' and not self._group_catalog_loaded:
             self.reload()
         self.stateChanged.emit()
 
@@ -226,6 +261,23 @@ class AdministrationController(QObject):
     def error(self) -> str:
         return self._error
 
+    @Property(bool, notify=stateChanged)
+    def groupCatalogLoaded(self):
+        return self._group_catalog_loaded
+
+    @Property(bool, notify=stateChanged)
+    def groupUncertain(self):
+        return self._group_uncertain
+
+    @Property(str, notify=stateChanged)
+    def groupMessage(self):
+        return self._group_message
+
+    @Slot(str)
+    def set_group_error(self, message):
+        self._error = message
+        self.stateChanged.emit()
+
     @Property('QVariantMap', notify=stateChanged)
     def draft(self) -> dict:
         return dict(self._draft)
@@ -244,11 +296,46 @@ class AdministrationController(QObject):
         if self.canManage:
             self._application.window_model.show_window('administration')
         else:
-            self._application._notify(self.tr('Administration requires administrator access'))
+            self._application._notify(self.tr('Administration requires administrator or supervisor access'))
 
     @Slot()
     def show_groups(self) -> None:
         self.select_section('groups')
+
+    @Slot()
+    def open_columns_editor(self) -> None:
+        project = getattr(self._application, 'current_project_code', '')
+        if project and project != self._project:
+            if self.projectLocked:
+                self._application._notify(self.tr(
+                    'Save or discard the administration draft before switching projects'))
+                return
+            self.select_project(project)
+        self.select_section('columns')
+        self.open()
+
+    @Slot()
+    def open_layout_editor(self) -> None:
+        project = getattr(self._application, 'current_project_code', '')
+        if project and project != self._project:
+            if self.projectLocked:
+                self._application._notify(self.tr('Save or discard the administration draft before switching projects'))
+                return
+            self.select_project(project)
+        self.select_section('layouts')
+        self.open()
+
+    @Slot()
+    def open_sidebar_editor(self) -> None:
+        project = getattr(self._application, 'current_project_code', '')
+        if project and project != self._project:
+            if self.projectLocked:
+                self._application._notify(self.tr(
+                    'Save or discard the administration draft before switching projects'))
+                return
+            self.select_project(project)
+        self.select_section('sidebar')
+        self.open()
 
     @Slot()
     def _user_document_saved(self) -> None:
@@ -366,6 +453,8 @@ class AdministrationController(QObject):
 
     @Slot(str, bool)
     def _visibility_changed(self, window_id: str, visible: bool) -> None:
+        if window_id in {'schema_search_type', 'process_dependencies'}:
+            self.stateChanged.emit()
         if window_id == 'administration' and not visible:
             self._users_editor.clear_password()
         if window_id == 'administration' and visible:
@@ -389,11 +478,17 @@ class AdministrationController(QObject):
         self._project = ''
         for editor in self._editors.values():
             editor.reset()
+        if self._sidebar_editor is not None:
+            self._sidebar_editor.reset_session()
         self._schema_type_editor.reset()
         self._application.window_model.close_window(self._schema_type_editor.WINDOW_ID)
         self._generation += 1
         self._release_worker(cancel=True)
         self._catalog = {'groups': [], 'memberships': [], 'users': []}
+        self._group_catalog_loaded = False
+        self._group_uncertain = self._group_saving = False
+        self._group_save_acknowledged = False
+        self._group_message = ''
         self.groups.clear()
         self._set_group('')
 
@@ -421,6 +516,7 @@ class AdministrationController(QObject):
             env_inst.server_pool.start()
         worker = env_inst.server_pool.add_task(operation)
         if worker is None:
+            self._group_saving = False
             self._error = self.tr('Server worker pool is unavailable')
             self.stateChanged.emit()
             return
@@ -439,7 +535,20 @@ class AdministrationController(QObject):
                 return
             self._release_worker()
             payload, _worker = error
-            self._error = str(payload.get('exception') or error)
+            exception = payload.get('exception')
+            self._error = str(exception or error)
+            if self._group_saving:
+                from xmlrpc.client import Fault
+                rejected = isinstance(exception, (ValueError, PermissionError)) or (
+                    isinstance(exception, Fault) and any(text in exception.faultString for text in (
+                        'Group details changed.', 'Invalid group', 'Group details are too large',
+                        'Enter a group identifier', 'cannot be added and removed', 'no longer exists',
+                        'cannot be changed', 'already exists', 'Users no longer exist:',
+                        'Only administrators', 'AuthenticationError', 'SecurityException')))
+                self._group_uncertain = self._group_save_acknowledged or not rejected
+                self._group_saving = False
+                if self._group_uncertain:
+                    self._error = 'The save result is unknown. Reload groups before trying again.'
             self.stateChanged.emit()
             if self._application.debug_log:
                 self._application.debug_log.raise_error(
@@ -455,8 +564,9 @@ class AdministrationController(QObject):
         worker.start()
 
     @Slot()
-    def reload(self) -> None:
-        if not self.canManage or self.dirty:
+    @Slot(bool)
+    def reload(self, force=False) -> None:
+        if not self.canManage or ((self.dirty or self._group_uncertain) and not force):
             return
         from thlib import tactic_classes as tc
         from .security_store import query_security_groups
@@ -465,6 +575,9 @@ class AdministrationController(QObject):
 
     def _loaded(self, payload: dict) -> None:
         self._catalog = payload
+        self._group_catalog_loaded = True
+        self._group_uncertain = self._group_saving = False
+        self._group_message = ''
         counts = {}
         for item in payload['memberships']:
             key = item['login_group']
@@ -472,6 +585,7 @@ class AdministrationController(QObject):
         self.groups.replace(sorted(({
             'code': str(row['code']), 'name': str(row['login_group']),
             'description': str(row.get('description') or ''),
+            'revision': str(row.get('revision') or ''),
             'memberCount': len(counts.get(row['login_group'], ())),
         } for row in payload['groups']), key=lambda row: row['name'].casefold()))
         self._publish_catalog()
@@ -497,6 +611,8 @@ class AdministrationController(QObject):
         self._users._rebuild()
 
     def _set_group(self, code: str) -> None:
+        self._group_message = ''
+        self._error = ''
         self._draft = next((dict(row) for row in self.groups.records()
                             if row['code'] == code), {})
         self._original = dict(self._draft)
@@ -509,12 +625,12 @@ class AdministrationController(QObject):
 
     @Slot(str)
     def select_group(self, code: str) -> None:
-        if not self.busy and not self.dirty:
+        if not self.busy and not self.dirty and not self._group_uncertain:
             self._set_group(code)
 
     @Slot()
     def new_group(self) -> None:
-        if not self.canManage or self.busy or self.dirty:
+        if not self.canManage or self.busy or self.dirty or self._group_uncertain:
             return
         self._set_group('')
         self._draft = {'code': '', 'name': '', 'description': ''}
@@ -522,9 +638,10 @@ class AdministrationController(QObject):
 
     @Slot(str, str)
     def set_field(self, field: str, value: str) -> None:
-        if (self.busy or not self.canManage or field not in {'name', 'description'}
+        if (self.busy or self._group_uncertain or not self.canManage or field not in {'name', 'description'}
                 or (field == 'name' and self._draft.get('code'))):
             return
+        self._group_message = ''
         self._draft[field] = value
         self.stateChanged.emit()
 
@@ -532,6 +649,7 @@ class AdministrationController(QObject):
     def set_user_query(self, value: str) -> None:
         self._query = value.casefold().strip()
         self._rebuild_members()
+        self.stateChanged.emit()
 
     def _rebuild_members(self) -> None:
         identities = {row['login']: row for row in self._users.users.records()}
@@ -547,10 +665,11 @@ class AdministrationController(QObject):
 
     @Slot(str, bool)
     def set_member(self, login: str, selected: bool) -> None:
-        if self.busy or not self.canManage or not self._draft:
+        if self.busy or self._group_uncertain or not self.canManage or not self._draft:
             return
         if login not in {row['login'] for row in self._catalog['users']}:
             return
+        self._group_message = ''
         if selected:
             self._members.add(login)
         else:
@@ -560,12 +679,12 @@ class AdministrationController(QObject):
 
     @Slot()
     def discard(self) -> None:
-        if not self.busy:
+        if not self.busy and not self._group_uncertain:
             self._set_group(str(self._original.get('code') or ''))
 
     @Slot()
     def save(self) -> None:
-        if not self.canManage or self.busy or not self.dirty:
+        if not self.canManage or self.busy or self._group_uncertain or not self.dirty:
             return
         name = str(self._draft.get('name') or '').strip()
         if not name:
@@ -576,14 +695,20 @@ class AdministrationController(QObject):
         from .security_store import query_security_groups, save_security_group
         arguments = {
             'group_code': self._draft.get('code', ''), 'login_group': name,
+            'expected_revision': self._draft.get('revision', ''),
             'description': self._draft.get('description', ''),
             'add_members': sorted(self._members - self._original_members),
             'remove_members': sorted(self._original_members - self._members),
         }
 
+        self._group_message = ''
+        self._group_saving = True
+        self._group_save_acknowledged = False
+
         def operation():
             result = tc.execute_procedure_serverside(
                 save_security_group, arguments, project='sthpw')
+            self._group_save_acknowledged = True
             server_cache.invalidate_domains(('reference',), 'sthpw')
             return result, tc.execute_procedure_serverside(
                 query_security_groups, {}, project='sthpw')
@@ -592,6 +717,7 @@ class AdministrationController(QObject):
             identity, catalog = result
             self._draft['code'] = identity['code']
             self._loaded(catalog)
+            self._group_message = 'Group saved on server'
 
         self._run(operation, saved)
 

@@ -165,12 +165,28 @@ class NavigationModel(QAbstractListModel):
         current_login,
     ) -> list[NavigationEntry]:
         views = project.get_config_views()
-        if not views or not views.has_definition() or not current_login:
+        if not current_login:
             return []
-        definitions = views.get_view("SideBarWdg")
-        requested = views.get_view("SideBarWdg", "tactic_handler")
-        if not requested:
-            requested = views.get_view("SideBarWdg", "project_view")
+        handler_configured = False
+        if not views or not views.has_definition():
+            definitions, requested = [], []
+        else:
+            definitions = views.get_view("SideBarWdg")
+            records = getattr(views, "config_dict", None)
+            if records is None:
+                requested = views.get_view("SideBarWdg", "tactic_handler")
+                if not requested:
+                    requested = views.get_view("SideBarWdg", "project_view")
+            else:
+                handler_configured = any(
+                    str(record.get("search_type") or "") == "SideBarWdg"
+                    and str(record.get("view") or "") == "tactic_handler"
+                    for record in records
+                )
+                requested = views.get_view(
+                    "SideBarWdg",
+                    "tactic_handler" if handler_configured else "project_view",
+                )
         by_name = {
             definition["name"]: definition
             for definition in definitions
@@ -234,6 +250,9 @@ class NavigationModel(QAbstractListModel):
                     search_node.get_text(strip=True)
                     if search_node else ""
                 )
+                type_info = project.get_stypes().get(search_type)
+                if type_info and type_info.get_info().get('__record_read__', {}).get('available') is False:
+                    continue
                 if search_type.startswith("sthpw"):
                     from thlib.environment import env_inst
                     # Building the project sidebar must not pull the complete
@@ -325,7 +344,29 @@ class NavigationModel(QAbstractListModel):
                 ))
             return entries
 
-        return flatten(selected(requested))
+        sidebar_items = selected(requested)
+        entries = flatten(sidebar_items)
+        # Missing navigation is not an empty project. An explicit Handler view
+        # (even empty) or access-filtered sidebar must remain authoritative.
+        # Native project_view can contain unresolved built-in links such as
+        # _home without definitions. Those do not constitute a usable sidebar.
+        if (not handler_configured and not sidebar_items) or (not entries and any(stype.get_info().get('__record_read__', {}).get('command')
+                                      and stype.get_info().get('__record_read__', {}).get('available') is not False
+                                      for stype in (getattr(project, 'stypes', None) or {}).values())):
+            for code, stype in (getattr(project, "stypes", None) or {}).items():
+                if (stype.get_info().get('__record_read__', {}).get('available') is False
+                        or stype.get_info().get('__record_read__', {}).get('project_mode') not in (None, project.get_type())):
+                    continue
+                entries.append(NavigationEntry(
+                    key=f"{code}@{code}",
+                    title=stype.get_info().get("title") or stype.get_pretty_name(),
+                    glyph=cls._icon_name("", code),
+                    group="",
+                    command="open_sidebar_item",
+                    search_type=code,
+                    accent=stype.get_stype_color(fmt="hex") or "",
+                ))
+        return entries
 
     def _recalculate_visibility(self) -> None:
         expanded_by_depth: dict[int, bool] = {}

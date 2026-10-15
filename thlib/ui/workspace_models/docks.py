@@ -78,6 +78,10 @@ class DockPanelModel(
     panelVisibilityChanged = Signal(str, bool)
     panelPresentationChanged = Signal(str, bool)
     minimumHostSizeChanged = Signal()
+    @Property(str, notify=minimumHostSizeChanged)
+    def maximizedPanelId(self) -> str:
+        return self._maximized_panel
+
     @Property(int, notify=minimumHostSizeChanged)
     def minimumHostWidth(self) -> int:
         return ceil(self._minimum_host_pixel_size()[0])
@@ -89,6 +93,7 @@ class DockPanelModel(
     def __init__(self, settings: dict) -> None:
         super().__init__()
         self._settings = settings
+        self._maximized_panel = ""
         restored, restored_layout, needs_save = self._restore()
         self._panels = restored or self._defaults()
         if restored and restored_layout is None:

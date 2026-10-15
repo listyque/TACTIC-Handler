@@ -4,18 +4,21 @@ Item {
     id: root
 
     property int duplicateWindow: 180
+    property bool repeatPointerTaps:false
     property double lastActivationAt: -1000
     property bool lastActivationWasTouch: false
     property int cursorShape: Qt.PointingHandCursor
     readonly property bool pressed: pointerTap.pressed || touchTap.pressed
     readonly property var point: touchTap.pressed ? touchTap.point : pointerTap.point
     signal activated(int modifiers, real x, real y)
+    signal doubleActivated()
 
     anchors.fill: parent
 
     function activate(handler, eventPoint) {
         const now = Date.now()
-        if (now - root.lastActivationAt < root.duplicateWindow)
+        if (now - root.lastActivationAt < root.duplicateWindow
+                && !(root.repeatPointerTaps && handler === pointerTap && !root.lastActivationWasTouch))
             return
         root.lastActivationAt = now
         root.lastActivationWasTouch = handler === touchTap
@@ -35,6 +38,7 @@ Item {
         gesturePolicy: TapHandler.DragThreshold
         cursorShape: root.cursorShape
         onTapped: eventPoint => root.activate(pointerTap, eventPoint)
+        onDoubleTapped: root.doubleActivated()
     }
 
     TapHandler {
@@ -46,5 +50,6 @@ Item {
         acceptedButtons: Qt.LeftButton
         gesturePolicy: TapHandler.DragThreshold
         onTapped: eventPoint => root.activate(touchTap, eventPoint)
+        onDoubleTapped: root.doubleActivated()
     }
 }

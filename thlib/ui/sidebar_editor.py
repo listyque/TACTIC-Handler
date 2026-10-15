@@ -7,7 +7,7 @@ import re
 import traceback
 from xml.etree import ElementTree
 
-from PySide6.QtCore import QCoreApplication, QObject, Property, QSortFilterProxyModel, Signal, Slot
+from PySide6.QtCore import QCoreApplication, QObject, Property, QSortFilterProxyModel, Qt, Signal, Slot
 
 from .sidebar_icons import icon_name_for_tactic
 from .sidebar_search import SidebarSearchMixin
@@ -253,7 +253,7 @@ class SidebarEditorController(SidebarSearchMixin, QObject):
         "key", "name", "title", "entryType", "icon", "searchType",
         "searchView", "targetView", "ownerView", "depth", "displayDepth",
         "selected", "glyph", "accent", "included", "expanded", "entryVisible",
-        "hasChildren", "handlerBranch", "isVisible", "widgetType",
+        "hasChildren", "isVisible", "widgetType",
         "displayView", "displayClassName", "resultViewMode",
         "layoutPreset", "scriptShelf",
     )
@@ -285,18 +285,24 @@ class SidebarEditorController(SidebarSearchMixin, QObject):
         self._security_pending: dict[tuple[str, str], bool] = {}
         self._security_objects: dict[str, object] = {}
         self._collapsed_folders: set[str] = set()
-        self._handler_only = False
+        self._sidebar_source = "handler"
+        self._preview_group = ""
         self._selected_row = -1
         self._root_view = "tactic_handler"
         self._xml_view = ""
         self._xml_text = ""
         self._mode = "simple"
+        self._presentation_dirty = False
+        self._write_uncertain = False
+        self._saving = False
         self._busy = False
         self._error = ""
         self._project_code = ""
+        self._requested_project_code = ""
         self._project_title = ""
         self._project = None
         self._workers = set()
+        self._generation = 0
         self._filter_editor = None
         self._pending_search_open: tuple[str, str] | None = None
         self._preview_context: tuple[str, str] | None = None
@@ -313,7 +319,8 @@ class SidebarEditorController(SidebarSearchMixin, QObject):
             users.stateChanged.connect(self.stateChanged.emit)
         except (AttributeError, TypeError):
             pass
-        self._application._registry.register("show_sidebar_editor", self.open)
+        if hasattr(application, "server_state_changed"):
+            application.server_state_changed.connect(self.stateChanged.emit)
 
     def attach_filter_editor(self, controller) -> None:
         self._filter_editor = controller
@@ -337,13 +344,13 @@ class SidebarEditorController(SidebarSearchMixin, QObject):
     @Property(bool, notify=stateChanged)
     def canEdit(self) -> bool:
         try:
-            return bool(self._users.canManageUsers)
+            return bool(self._application.can_administer or self._users.canManageUsers)
         except (AttributeError, RuntimeError):
             return False
 
     @Property(bool, notify=stateChanged)
     def canManageGroups(self) -> bool:
-        return self._application.can_administer
+        return self.canEdit
 
     @Property(bool, notify=stateChanged)
     def busy(self) -> bool:
@@ -360,12 +367,34 @@ class SidebarEditorController(SidebarSearchMixin, QObject):
 
     @Property(bool, notify=stateChanged)
     def dirty(self) -> bool:
-        return any(
+        return self._presentation_dirty or self._write_uncertain or any(
             _serialize(document) != self._original_xml.get(view, "")
             for view, document in self._documents.items()
         ) or any(view not in self._records for view in self._documents) or bool(
             self._security_pending
         )
+
+    @Property(bool, notify=stateChanged)
+    def uncertain(self) -> bool:
+        return self._write_uncertain
+
+    @Property("QVariantList", notify=stateChanged)
+    def entryRecords(self) -> list[dict]:
+        return [dict(row, index=index) for index, row in enumerate(self.entries._records)]
+
+    @Property("QVariantList", notify=stateChanged)
+    def groupRecords(self) -> list[dict]:
+        return [dict(row) for row in self.security_groups._records]
+
+    @Property(bool, notify=stateChanged)
+    def ready(self) -> bool:
+        return bool(self._project_code and self._documents)
+
+    @Slot(bool)
+    def set_presentation_dirty(self, value: bool) -> None:
+        if self._presentation_dirty != value:
+            self._presentation_dirty = value
+            self.stateChanged.emit()
 
     @Property(str, notify=stateChanged)
     def error(self) -> str:
@@ -375,9 +404,35 @@ class SidebarEditorController(SidebarSearchMixin, QObject):
     def mode(self) -> str:
         return self._mode
 
-    @Property(bool, notify=stateChanged)
-    def handlerOnly(self) -> bool:
-        return self._handler_only
+    @Property(str, notify=stateChanged)
+    def sidebarSource(self) -> str:
+        return self._sidebar_source
+
+    @Property(str, notify=stateChanged)
+    def previewGroup(self) -> str:
+        return self._preview_group
+
+    @Property("QVariantList", notify=stateChanged)
+    def previewGroupOptions(self) -> list[dict]:
+        translate = QCoreApplication.translate
+        options = [{
+            "value": "",
+            "label": translate("TacticHandler", "All groups"),
+            "icon": "groups",
+        }]
+        for code, group in self._security_objects.items():
+            try:
+                label = str(group.get_pretty_name() or code)
+            except AttributeError:
+                label = code
+            options.append({
+                "value": code,
+                "label": label,
+                "icon": "person",
+            })
+        return [options[0], *sorted(
+            options[1:], key=lambda option: option["label"].casefold()
+        )]
 
     @Property(str, notify=stateChanged)
     def projectTitle(self) -> str:
@@ -386,6 +441,13 @@ class SidebarEditorController(SidebarSearchMixin, QObject):
     @Property(int, notify=stateChanged)
     def selectedRow(self) -> int:
         return self._selected_row
+
+    @Property(int, notify=stateChanged)
+    def visibleEntryCount(self) -> int:
+        return sum(
+            bool(record.get("entryVisible"))
+            for record in self.entries._records
+        )
 
     @Property("QVariantMap", notify=stateChanged)
     def selectedEntry(self) -> dict:
@@ -480,26 +542,47 @@ class SidebarEditorController(SidebarSearchMixin, QObject):
     def xmlText(self) -> str:
         return self._xml_text
 
-    @Slot()
-    def open(self) -> None:
-        if not self.canEdit:
-            self._application._notify("Sidebar editing requires supervisor access")
-            return
-        self._application.window_model.show_window("sidebar_editor")
+    @Slot(str)
+    def activate(self, project_code: str) -> None:
+        if project_code != self._requested_project_code or (
+            not self._project_code and not self._busy):
+            self.begin_session(project_code)
 
-    @Slot()
-    def begin_session(self) -> None:
+    def begin_session(self, project_code: str = "") -> None:
         if not self.canEdit:
             return
+        self._requested_project_code = str(
+            project_code or self._application.current_project_code or "")
         self._pending_search_open = None
-        self._handler_only = True
+        self._sidebar_source = "handler"
+        self._root_view = "tactic_handler"
+        self._preview_group = ""
         self.reload()
+
+    def reset_session(self) -> None:
+        self._presentation_dirty = self._write_uncertain = self._saving = False
+        self._generation += 1
+        for worker in tuple(self._workers):
+            worker.cancel()
+        self._busy = False
+        self._requested_project_code = ""
+        self._project_code = ""
+        self._project_title = ""
+        self._project = None
+        self._documents.clear()
+        self._records.clear()
+        self._original_xml.clear()
+        self._security_pending.clear()
+        self._security_objects.clear()
+        self._selected_row = -1
+        self._rebuild_entries()
+        self._rebuild_security_groups()
+        self.stateChanged.emit()
 
     @Slot()
     def open_group_manager(self) -> None:
         if self.canManageGroups:
             self.groupManagementRequested.emit()
-            self._application.window_model.show_child_window("administration", "sidebar_editor")
 
     @Slot()
     def refresh_security_groups(self) -> None:
@@ -508,14 +591,13 @@ class SidebarEditorController(SidebarSearchMixin, QObject):
         self._security_objects = {
             str(group.get_code()): group for group in groups or []
         }
-        self._rebuild_security_groups()
-        self.stateChanged.emit()
+        if self._preview_group not in self._security_objects:
+            self._preview_group = ""
+        self._rebuild_entries()
 
     @Slot(str, bool)
     def _window_visibility_changed(self, window_id: str, visible: bool) -> None:
-        if window_id == "sidebar_editor" and visible:
-            self.begin_session()
-        elif window_id == "sidebar_search_preview" and not visible:
+        if window_id == "sidebar_search_preview" and not visible:
             self._close_search_preview()
 
     @Slot()
@@ -524,7 +606,7 @@ class SidebarEditorController(SidebarSearchMixin, QObject):
             return
         try:
             from thlib.environment import env_inst
-            project_code = str(self._application.current_project_code or "")
+            project_code = self._requested_project_code
             project = (env_inst.projects or {}).get(project_code)
         except (AttributeError, ImportError):
             project_code, project = "", None
@@ -553,7 +635,8 @@ class SidebarEditorController(SidebarSearchMixin, QObject):
                         WORKSPACE_LAYOUT_CATEGORY, SCRIPT_SHELF_CATEGORY,
                     }
                 ]
-            return project_code, self._application.current_project_title, project, records
+            title = project.get_title() or project_code
+            return project_code, title, project, records
 
         self._run(operation, self._loaded)
 
@@ -570,17 +653,35 @@ class SidebarEditorController(SidebarSearchMixin, QObject):
         self._mode = value
         self.stateChanged.emit()
 
-    @Slot(bool)
-    def set_handler_only(self, enabled: bool) -> None:
-        enabled = bool(enabled)
-        if enabled == self._handler_only:
+    @Slot(str)
+    def set_sidebar_source(self, source: str) -> None:
+        source = str(source or "handler")
+        if source not in {"handler", "tactic"} or source == self._sidebar_source:
             return
+        if self._mode == "xml" and self._selected_row >= 0:
+            if not self._apply_xml_text():
+                return
+        self._sidebar_source = source
+        self._root_view = (
+            "tactic_handler" if source == "handler" else "project_view"
+        )
+        self._selected_row = -1
+        self._xml_view = self._root_view
+        self._rebuild_entries()
+
+    @Slot(str)
+    def set_preview_group(self, group_code: str) -> None:
+        group_code = str(group_code or "")
+        if group_code and group_code not in self._security_objects:
+            return
+        if group_code == self._preview_group:
+            return
+        self._preview_group = group_code
         selected_id = None
         if 0 <= self._selected_row < len(self._flat_refs):
             selector = self._flat_refs[self._selected_row][1]
             element = self._flat_refs[self._selected_row][2]
             selected_id = id(selector if selector is not None else element)
-        self._handler_only = enabled
         self._rebuild_entries(selected_element_id=selected_id)
 
     @Slot(int)
@@ -649,7 +750,7 @@ class SidebarEditorController(SidebarSearchMixin, QObject):
     def set_group_allowed(self, group_code: str, allowed: bool) -> None:
         if not self.canEdit or not 0 <= self._selected_row < len(self._flat_refs):
             return
-        element = self._flat_refs[self._selected_row][2]
+        _owner, selector, element = self._flat_refs[self._selected_row]
         element_name = str(element.get("name") or "")
         group_code = str(group_code or "")
         group = self._security_objects.get(group_code)
@@ -661,8 +762,9 @@ class SidebarEditorController(SidebarSearchMixin, QObject):
             self._security_pending.pop(key, None)
         else:
             self._security_pending[key] = bool(allowed)
-        self._rebuild_security_groups()
-        self.stateChanged.emit()
+        self._rebuild_entries(selected_element_id=id(
+            selector if selector is not None else element
+        ))
 
     @Slot(bool)
     def set_selected_in_sidebar(self, included: bool) -> None:
@@ -885,6 +987,11 @@ class SidebarEditorController(SidebarSearchMixin, QObject):
         else:
             _set_display_class(element, _LINK_CLASS)
             _set_direct_text(element, "search_type", "")
+        if self._sidebar_source == "handler" and self._preview_group:
+            for group_code, group in self._security_objects.items():
+                allowed = group_code == self._preview_group
+                if allowed != self._group_rule_allowed(group, name):
+                    self._security_pending[(name, group_code)] = allowed
         selector = element if owner == "definition" else ElementTree.SubElement(
             _element_container(self._documents[owner]),
             "element",
@@ -937,6 +1044,9 @@ class SidebarEditorController(SidebarSearchMixin, QObject):
 
     @Slot()
     def discard(self) -> None:
+        if self._busy or self._write_uncertain:
+            return
+        self._presentation_dirty = False
         self._documents = {
             view: _parse_document(value)
             for view, value in self._original_xml.items()
@@ -948,7 +1058,7 @@ class SidebarEditorController(SidebarSearchMixin, QObject):
 
     @Slot()
     def save(self) -> None:
-        if not self.canEdit or self._busy or not self._project_code:
+        if not self.canEdit or self._busy or self._write_uncertain or self._presentation_dirty or not self._project_code:
             return
         documents = {view: _serialize(root) for view, root in self._documents.items()}
         records = deepcopy(self._records)
@@ -998,6 +1108,7 @@ class SidebarEditorController(SidebarSearchMixin, QObject):
             )
             return documents, saved, project, security_result
 
+        self._saving = True
         self._run(operation, self._saved)
 
     def _unique_view_name(self, prefix: str) -> str:
@@ -1019,9 +1130,14 @@ class SidebarEditorController(SidebarSearchMixin, QObject):
             if env_inst.server_pool.is_stopped:
                 env_inst.server_pool.start()
             worker = env_inst.server_pool.add_task(callback)
+            generation = self._generation
             self._workers.add(worker)
-            worker.result.connect(handler)
-            worker.error.connect(self._failed)
+            worker.result.connect(
+                lambda result: handler(result) if generation == self._generation else None,
+                Qt.QueuedConnection)
+            worker.error.connect(
+                lambda error: self._failed(error) if generation == self._generation else None,
+                Qt.QueuedConnection)
             worker.finished.connect(lambda: self._workers.discard(worker))
             worker.start()
             self._set_busy(True)
@@ -1030,6 +1146,7 @@ class SidebarEditorController(SidebarSearchMixin, QObject):
 
     @Slot(object)
     def _loaded(self, payload) -> None:
+        self._presentation_dirty = self._write_uncertain = self._saving = False
         project_code, title, project, records = payload
         self._project_code = project_code
         self._project_title = str(title or project_code)
@@ -1048,6 +1165,8 @@ class SidebarEditorController(SidebarSearchMixin, QObject):
                 continue
             if code:
                 self._security_objects[code] = group
+        if self._preview_group not in self._security_objects:
+            self._preview_group = ""
         self._records = {}
         for record in records:
             if (
@@ -1062,19 +1181,11 @@ class SidebarEditorController(SidebarSearchMixin, QObject):
             view: _parse_document(record.get("config"))
             for view, record in self._records.items()
         }
-        # The editor mirrors TACTIC's complete Project Views tree.  The
-        # ``tactic_handler`` view is one branch of that tree and remains the
-        # source used by the runtime navigation model; it is not the editor
-        # root.
-        if "project_view" in self._documents:
-            self._root_view = "project_view"
-        elif "definition" in self._documents:
-            self._root_view = "definition"
-        elif "tactic_handler" in self._documents:
-            self._root_view = "tactic_handler"
-        else:
-            self._root_view = "project_view"
-            self._documents[self._root_view] = ElementTree.Element("config")
+        self._root_view = (
+            "tactic_handler"
+            if self._sidebar_source == "handler"
+            else "project_view"
+        )
         self._original_xml = {
             view: _serialize(document)
             for view, document in self._documents.items()
@@ -1086,6 +1197,7 @@ class SidebarEditorController(SidebarSearchMixin, QObject):
 
     @Slot(object)
     def _saved(self, payload) -> None:
+        self._presentation_dirty = self._write_uncertain = self._saving = False
         documents, saved, project, security_result = payload
         views = project.get_config_views()
         saved_by_view = {str(record.get("view") or ""): record for record in saved}
@@ -1097,7 +1209,8 @@ class SidebarEditorController(SidebarSearchMixin, QObject):
             )
         ]
         views.config_dict = [*untouched, *saved]
-        if self._layout_presets is not None:
+        current_project = self._project_code == self._application.current_project_code
+        if current_project and self._layout_presets is not None:
             self._layout_presets.reload_from_project()
         self._records.update(saved_by_view)
         self._original_xml = dict(documents)
@@ -1114,16 +1227,17 @@ class SidebarEditorController(SidebarSearchMixin, QObject):
         self._security_pending.clear()
         self._rebuild_security_groups()
         self._set_busy(False)
-        entries = self._application.navigation_model.build_project_entries(
-            project,
-            self._current_login_object(),
-        )
-        self._application._apply_selected_project(
-            self._project_code,
-            self._project_title,
-            entries,
-            project,
-        )
+        if current_project:
+            entries = self._application.navigation_model.build_project_entries(
+                project,
+                self._current_login_object(),
+            )
+            self._application._apply_selected_project(
+                self._project_code,
+                self._project_title,
+                entries,
+                project,
+            )
         self._application._notify("Sidebar saved")
 
     def _current_login_object(self):
@@ -1151,6 +1265,9 @@ class SidebarEditorController(SidebarSearchMixin, QObject):
                 stacktrace=stacktrace,
                 caller=2,
             )
+        if self._saving:
+            self._write_uncertain = True
+            self._saving = False
         self._set_busy(False, message)
 
     def _sync_xml_text(self) -> None:
@@ -1168,6 +1285,15 @@ class SidebarEditorController(SidebarSearchMixin, QObject):
             access_rules = ""
         return _sidebar_rule_allowed(
             access_rules, element_name, self._project_code
+        )
+
+    def _group_allowed(self, element_name: str, group_code: str) -> bool:
+        group = self._security_objects.get(group_code)
+        if group is None:
+            return False
+        return self._security_pending.get(
+            (element_name, group_code),
+            self._group_rule_allowed(group, element_name),
         )
 
     def _rebuild_security_groups(self) -> None:
@@ -1215,9 +1341,7 @@ class SidebarEditorController(SidebarSearchMixin, QObject):
                 selectors: list[ElementTree.Element],
                 depth: int,
                 path: str,
-                view_ancestors: tuple[str, ...],
-                handler_branch: bool = False,
-                handler_root_depth: int = 0) -> None:
+                view_ancestors: tuple[str, ...]) -> None:
             for index, selector in enumerate(selectors):
                 name = str(selector.get("name") or "")
                 element = definitions.get(name, selector)
@@ -1228,16 +1352,6 @@ class SidebarEditorController(SidebarSearchMixin, QObject):
                     else "link"
                 )
                 target = _direct_text(element, "view")
-                is_handler_root = target == "tactic_handler"
-                in_handler_branch = (
-                    handler_branch or is_handler_root
-                    or owner == "tactic_handler"
-                    or self._root_view == "tactic_handler"
-                )
-                branch_root_depth = (
-                    depth if is_handler_root and not handler_branch
-                    else handler_root_depth
-                )
                 selector_children = _nested_elements(selector)
                 definition_children = (
                     _nested_elements(element) if element is not selector else []
@@ -1268,10 +1382,7 @@ class SidebarEditorController(SidebarSearchMixin, QObject):
                     "targetView": target,
                     "ownerView": owner,
                     "depth": depth,
-                    "displayDepth": (
-                        max(0, depth - branch_root_depth)
-                        if in_handler_branch else depth
-                    ),
+                    "displayDepth": depth,
                     "selected": is_selected,
                     "glyph": self._application.navigation_model._icon_name(
                         str(element.get("icon") or ""),
@@ -1284,7 +1395,6 @@ class SidebarEditorController(SidebarSearchMixin, QObject):
                     "expanded": key not in self._collapsed_folders,
                     "entryVisible": True,
                     "hasChildren": has_children,
-                    "handlerBranch": in_handler_branch,
                     "isVisible": str(
                         element.get("is_visible") or "on"
                     ).strip().lower() not in {"off", "false", "no", "0"},
@@ -1307,18 +1417,17 @@ class SidebarEditorController(SidebarSearchMixin, QObject):
                 if selector_children:
                     walk_elements(
                         owner, selector_children, depth + 1, key,
-                        view_ancestors, in_handler_branch, branch_root_depth,
+                        view_ancestors,
                     )
                 elif definition_children:
                     walk_elements(
                         "definition", definition_children, depth + 1, key,
-                        view_ancestors, in_handler_branch, branch_root_depth,
+                        view_ancestors,
                     )
                 elif target_children and target not in view_ancestors:
                     walk_elements(
                         target, target_children, depth + 1, key,
                         (*view_ancestors, target),
-                        in_handler_branch, branch_root_depth,
                     )
 
         root_document = self._documents.get(self._root_view)
@@ -1331,31 +1440,42 @@ class SidebarEditorController(SidebarSearchMixin, QObject):
                 (self._root_view,),
             )
 
-        if self._handler_only:
-            branch = [
-                (record, reference)
-                for record, reference in zip(records, refs)
-                if record.get("handlerBranch")
-            ]
-            records = [record for record, _reference in branch]
-            refs = [reference for _record, reference in branch]
-            if records and not any(record["selected"] for record in records):
-                records[0]["selected"] = True
-
+        preview_group = (
+            self._preview_group
+            if self._sidebar_source == "handler" else ""
+        )
         expanded_by_depth: dict[int, bool] = {}
         for record in records:
             depth = int(record.get("depth") or 0)
             for ancestor_depth in tuple(expanded_by_depth):
                 if ancestor_depth >= depth:
                     del expanded_by_depth[ancestor_depth]
-            record["entryVisible"] = all(expanded_by_depth.values())
+            preview_visible = (
+                not preview_group
+                or self._group_allowed(record["name"], preview_group)
+            )
+            record["entryVisible"] = bool(
+                preview_visible and all(expanded_by_depth.values())
+            )
             if record.get("entryType") == "section":
-                expanded_by_depth[depth] = bool(record.get("expanded"))
+                expanded_by_depth[depth] = bool(
+                    preview_visible and record.get("expanded")
+                )
+        selected_row = next((
+            index for index, record in enumerate(records)
+            if record["selected"] and record["entryVisible"]
+        ), -1)
+        if selected_row < 0:
+            for record in records:
+                record["selected"] = False
+            selected_row = next((
+                index for index, record in enumerate(records)
+                if record["entryVisible"]
+            ), -1)
+            if selected_row >= 0:
+                records[selected_row]["selected"] = True
         self._flat_refs = refs
-        self._selected_row = next(
-            (index for index, record in enumerate(records) if record["selected"]),
-            -1,
-        )
+        self._selected_row = selected_row
         self.entries.replace(records)
         if self._selected_row >= 0:
             self._xml_view = refs[self._selected_row][0]

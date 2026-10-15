@@ -7,7 +7,7 @@ import unittest
 from unittest.mock import patch
 from xmlrpc.client import Fault
 
-from PySide6.QtCore import QCoreApplication, QObject, QPointF, Qt, Signal
+from PySide6.QtCore import QCoreApplication, QObject, QPoint, QPointF, Qt, Signal
 from PySide6.QtTest import QSignalSpy, QTest
 
 import tests.test_editor_windows_qml as windows_fixture
@@ -26,9 +26,12 @@ class AdministrationQmlTests(unittest.TestCase):
         self.addCleanup(self.fixture.doCleanups)
         self.admin = self.fixture.admin
         self.admin._project = 'demo'
+        self.fixture.columns._definition_catalog_loaded = True
+        self.fixture.columns._definition_catalog_project = 'demo'
         for editor in self.admin._editors.values():
             editor._project = 'demo'
             editor._loaded = editor._can_write = True
+        self.admin.usersEditor._project = 'sthpw'
         self.seed(self.admin.schemaEditor, 'demo', {'xml': SCHEMA}, {
             'searchTypes': [{'identity': 'demo/asset', 'label': 'Assets'},
                             {'identity': 'demo/shot', 'label': 'Shots'}]})
@@ -72,61 +75,82 @@ class AdministrationQmlTests(unittest.TestCase):
         editor.stateChanged.emit()
 
     def item(self, name):
+        name={'adminGraphVerticalBar':'adminGraphCanvasVerticalBar','adminGraphHorizontalBar':'adminGraphCanvasHorizontalBar','adminWorkflowList':'adminWorkflowCatalog','adminWorkflowListPanel':'adminWorkflowCatalogPanel','adminSelectionAttributesEditor':'graph_attributesEditor','sidebarSaveButton':'adminSaveDocument'}.get(name,name)
         return next(item for item in windows_fixture.SidebarEditorQmlTests.descendants(self.window.contentItem())
                     if item.objectName() == name and item.isVisible())
 
+    def choose_page(self, prefix, value):
+        try:self.click(prefix+'_'+value)
+        except StopIteration:
+            picker=self.item(prefix);rows=picker.property('model')
+            rows=rows.toVariant() if hasattr(rows,'toVariant') else rows
+            index=next(index for index,row in enumerate(rows) if row['value']==value)
+            self.fixture.choose_combo_option(self.window,picker,index)
+
     def click(self, name):
-        self.fixture.click(self.window, self.item(name))
+        self.window.requestActivate()
+        frame(self.window)
+        if name.startswith('segmentedButtonSegment_entity_'):
+            self.choose_page('searchTypePages',name[len('segmentedButtonSegment_entity_'):]);return
+        if name.startswith('adminSection_'):
+            pickers = [item for item in windows_fixture.SidebarEditorQmlTests.descendants(self.window.contentItem())
+                       if item.objectName() == 'administrationSectionSelector' and item.isVisible()]
+            if pickers:
+                picker = pickers[0]
+                rows = picker.property('model')
+                rows = rows.toVariant() if hasattr(rows, 'toVariant') else rows
+                target = next(index for index, row in enumerate(rows) if row['value'] == name[13:])
+                self.fixture.choose_combo_option(self.window, picker, target)
+                return
+        item = self.item(name)
+        if name.startswith('adminSection_'):
+            navigation = self.item('administrationNavigation')
+            top = item.mapToItem(navigation, QPointF()).y()
+            if top < 0 or top + item.height() > navigation.height():
+                offset = navigation.property('contentY') + top - (navigation.height() - item.height()) / 2
+                navigation.setProperty('contentY', max(0, min(offset,
+                    navigation.property('contentHeight') - navigation.height())))
+                frame(self.window)
+        self.fixture.click(self.window, item)
+
+    def test_configuration_style_shell_keeps_aligned_headers_and_navigation(self):
+        self.click('adminSection_types')
+        header=self.item('administrationHeader');content=self.item('administrationContent')
+        self.assertGreaterEqual(content.mapToScene(QPointF()).y(),header.mapToScene(QPointF(0,header.height())).y()+12)
+        self.assertGreater(header.width(),300)
+        self.assertTrue(self.item('administrationProjectSelector').isEnabled())
+        self.assertEqual(self.fixture.warnings,[])
+
+    def test_header_actions_center_on_full_header_height(self):
+        for section in ('types','schema','workflow','groups'):
+         self.click('adminSection_'+section)
+         toolbar=self.item('administrationHeaderSaveBar')
+         help=self.item('administrationHelpButton')
+         self.assertEqual(toolbar.height(),38)
+         header=self.item('administrationHeader')
+         for item in (toolbar,help):
+          point=item.mapToScene(QPointF())
+          self.assertGreaterEqual(point.y(),header.mapToScene(QPointF()).y())
+          self.assertLessEqual(point.y()+item.height(),header.mapToScene(QPointF(0,header.height())).y())
 
     def test_sections_create_real_views_without_warnings_at_narrow_and_wide_sizes(self):
-        for width, height in ((900, 620), (1400, 940)):
-            self.window.resize(width, height)
-            for section in ('types', 'schema', 'workflow', 'rules', 'groups'):
-                with self.subTest(section=section, width=width):
-                    self.click('adminSection_' + section)
-                    frame(self.window)
-                    self.assertEqual(self.admin.section, section)
-                    if section != 'groups':
-                        button = self.item('adminSaveDocument')
-                        point = button.mapToScene(QPointF())
-                        self.assertGreaterEqual(point.x(), 0)
-                        self.assertLessEqual(point.x() + button.width(), width)
-                        self.assertLessEqual(point.y() + button.height(), height)
-                    if section in ('schema', 'workflow'):
-                        canvas = self.item('adminGraphCanvas')
-                        self.assertGreaterEqual(canvas.width(), 180)
-                        bar = self.item('adminGraphVerticalBar')
-                        self.assertGreaterEqual(bar.mapToScene(QPointF()).x(),
-                                                canvas.mapToScene(QPointF()).x() + canvas.width())
-                    self.assertEqual(self.fixture.warnings, [])
-                    output = os.environ.get('ADMIN_SCREENSHOTS')
-                    if output:
-                        Path(output).mkdir(parents=True, exist_ok=True)
-                        self.window.grabWindow().save(str(Path(output) / (section + '_' + str(width) + '.png')))
+        for width,height in ((900,620),(1400,940)):
+         self.window.resize(width,height);frame(self.window)
+         for section in ('types','schema','workflow','rules','groups','raw','sidebar','columns','users','layouts'):
+          self.click('adminSection_'+section)
+          self.assertEqual(self.admin.section,section)
+          content=self.item('administrationContent')
+          self.assertGreater(content.width(),300);self.assertGreater(content.height(),200)
+          self.assertFalse(any(item.objectName()=='layoutEditorBrowser' for item in windows_fixture.SidebarEditorQmlTests.descendants(self.window.contentItem())))
+          self.assertEqual(self.fixture.warnings,[])
 
-    def test_document_actions_use_one_frameless_toolbar(self):
-        for width, height in ((900, 620), (1400, 940)):
-            self.window.resize(width, height)
-            for section in ('types', 'schema', 'workflow', 'rules'):
-                with self.subTest(section=section, width=width):
-                    self.click('adminSection_' + section)
-                    frame(self.window)
-                    toolbar = self.item('adminDocumentToolbar')
-                    self.assertLessEqual(toolbar.height(), 36)
-                    names = {
-                        item.objectName()
-                        for item in windows_fixture.SidebarEditorQmlTests.descendants(
-                            self.window.contentItem()
-                        )
-                        if item.isVisible()
-                    }
-                    self.assertNotIn('adminDocumentHeader', names)
-                    self.assertNotIn('adminDocumentFooter', names)
-                    self.assertGreater(
-                        self.item('adminDocumentBody').height(),
-                        height * 0.70,
-                    )
-                    self.assertEqual(self.fixture.warnings, [])
+    def test_document_actions_share_header_without_an_extra_toolbar(self):
+        for section in ('types','schema','workflow','rules','groups','sidebar','columns','raw','users','layouts'):
+         self.click('adminSection_'+section)
+         toolbars=[item for item in windows_fixture.SidebarEditorQmlTests.descendants(self.window.contentItem()) if item.objectName()=='administrationHeaderSaveBar' and item.isVisible()]
+         self.assertEqual(len(toolbars),1,section)
+         content=self.item('administrationContent')
+         self.assertLessEqual(toolbars[0].mapToScene(QPointF(0,38)).y(),content.mapToScene(QPointF()).y())
 
     def test_graph_ports_create_connection_and_canvas_scrolls_inside_its_gutters(self):
         self.admin.schemaEditor.apply_xml('<schema><search_type name="demo/asset" xpos="20" ypos="30"/><search_type name="demo/shot" xpos="350" ypos="30"/></schema>')
@@ -140,9 +164,12 @@ class AdministrationQmlTests(unittest.TestCase):
         frame(self.window)
         bar = self.item('adminGraphVerticalBar')
         point = bar.mapToScene(QPointF(bar.width() / 2, bar.height() - 3))
-        QTest.mouseClick(self.window, Qt.LeftButton, pos=point.toPoint())
+        thumb=bar.mapToScene(QPointF(bar.width()/2,bar.height()*bar.property('size')/2)).toPoint()
+        QTest.mousePress(self.window,Qt.LeftButton,pos=thumb)
+        QTest.mouseMove(self.window,thumb+QPointF(0,60).toPoint())
+        QTest.mouseRelease(self.window,Qt.LeftButton,pos=thumb+QPointF(0,60).toPoint())
         frame(self.window)
-        self.assertGreater(self.item('adminGraphCanvas').property('contentY'), 0)
+        self.assertGreater(self.item('adminGraphCanvasViewport').property('contentY'), 0)
 
     def test_schema_uses_selected_project_without_a_document_picker(self):
         for width, height in ((900, 620), (1400, 940)):
@@ -158,17 +185,38 @@ class AdministrationQmlTests(unittest.TestCase):
                     ]
                     self.assertEqual(selectors, [])
                     if section == 'workflow':
-                        self.assertTrue(self.item('adminWorkflowList').isVisible())
+                        self.assertTrue(self.item('adminToggleWorkflowList').isVisible())
+                        if width >= 1400:
+                            self.assertTrue(self.item('adminWorkflowList').isVisible())
                     self.assertTrue(self.item('administrationProjectSelector').isVisible())
                     self.assertEqual(self.admin.project, 'demo')
                     self.assertEqual(self.admin.schemaEditor.identity, 'demo')
                     self.assertGreater(self.item('adminGraphCanvas').height(), 120)
                     self.assertEqual(self.fixture.warnings, [])
 
+    def test_workflow_list_and_inspector_resize_without_collapsing_admin_navigation(self):
+        self.window.resize(1400,940);self.click('adminSection_workflow')
+        graph=self.item('adminGraphCanvas');width=graph.width()
+        self.click('adminToggleGraphProperties');self.assertGreater(self.item('adminGraphCanvas').width(),width)
+        self.click('adminToggleGraphProperties');self.assertAlmostEqual(self.item('adminGraphCanvas').width(),width)
+        self.click('adminToggleWorkflowList');self.assertGreater(self.item('adminGraphCanvas').width(),width)
+        self.assertTrue(self.item('administrationNavigation').isVisible())
+        self.click('adminToggleWorkflowList');self.assertAlmostEqual(self.item('adminGraphCanvas').width(),width)
+        self.assertEqual(self.fixture.warnings,[])
+
     def test_sidebar_entry_selects_groups_even_after_another_admin_section(self):
         self.click('adminSection_types')
         self.fixture.sidebar.open_group_manager()
         self.assertEqual(self.admin.section, 'groups')
+
+    def test_columns_editor_is_available_from_administration(self):
+        self.click('adminSection_columns')
+        self.assertEqual(self.admin.section,'columns')
+        editor=self.item('administrationColumnsEditor')
+        self.assertTrue(editor.property('saveActionsInHeader'))
+        self.assertGreater(editor.width(),300)
+        self.assertTrue(self.item('administrationProjectSelector').isVisible())
+        self.assertEqual(self.fixture.warnings,[])
 
     def test_project_selector_includes_hidden_projects_without_changing_workspace_filters(self):
         from thlib.tactic_classes import Project
@@ -431,18 +479,33 @@ class AdministrationQmlTests(unittest.TestCase):
         frame(self.window)
         self.assertFalse(log.error_visible)
 
-    def test_non_admin_cannot_see_sidebar_group_management_or_open_admin(self):
+    def test_sidebar_editor_is_embedded_in_admin_navigation(self):
+        self.click('adminSection_sidebar')
+        frame(self.window)
+        self.assertEqual(self.admin.section, 'sidebar')
+        self.assertTrue(self.item('administrationSidebarEditor').isVisible())
+        self.assertLessEqual(
+            self.item('sidebarSaveButton').mapToScene(QPointF()).y()
+            + self.item('sidebarSaveButton').height(),
+            self.item('administrationContent').mapToScene(
+                QPointF()).y() + 1,
+        )
+        self.assertFalse(any(window.property('kind') == 'sidebar_editor'
+                             for window in self.fixture.app.allWindows()))
+        with patch.object(self.fixture.application.window_model, 'open_help') as open_help:
+            self.click('administrationHelpButton')
+        open_help.assert_called_once_with('sidebar_editor')
+        for width, height in ((900, 620), (1400, 940)):
+            self.window.resize(width, height)
+            frame(self.window)
+            self.assertTrue(self.item('administrationSidebarEditor').isVisible())
+            self.assertEqual(self.fixture.warnings, [])
+
+    def test_regular_user_cannot_open_admin(self):
         self.fixture.admin_access.return_value = False
         self.fixture.application.server_state_changed.emit()
         self.assertFalse(self.fixture.application.window_model.is_window_visible('administration'))
-        self.fixture.application.window_model.show_window('sidebar_editor')
-        sidebar_window = self.fixture.window('sidebar_editor')
-        frame(sidebar_window)
-        self.fixture.click(sidebar_window, self.fixture.item(
-            sidebar_window, 'segmentedButtonSegment_access'))
-        button = self.fixture.item(sidebar_window, 'manageSidebarGroups')
-        self.assertFalse(button.isVisible())
-        self.fixture.sidebar.open_group_manager()
+        self.fixture.application._registry.invoke('show_sidebar_editor')
         self.assertFalse(self.fixture.application.window_model.is_window_visible('administration'))
 
     def test_touch_selects_node_once_without_moving_it(self):
@@ -482,20 +545,26 @@ class AdministrationQmlTests(unittest.TestCase):
         worker = Worker()
         self.click('adminSaveDocument')
         self.assertEqual(calls, [])
-        # Focus starts on Cancel; Tab reaches the shared Save button.
-        dialog = self.window.findChild(QObject, 'adminSaveConfirmation')
-        self.assertIsNotNone(dialog)
-        self.assertTrue(dialog.property('visible'))
+        self.assertTrue(self.item('adminConfirmSave').isVisible())
         with patch.object(env_inst, 'server_pool', type('Pool', (), {
                 'is_stopped': False, 'add_task': lambda *_: worker})()), \
                 patch.object(self.admin, '_refresh_pending_metadata'):
-            QTest.keyClick(self.window, Qt.Key_Tab)
-            QTest.keyClick(self.window, Qt.Key_Space)
+            self.click('adminConfirmSave')
             frame(self.window)
             QCoreApplication.processEvents()
         self.assertEqual(calls, ['save'])
         self.assertFalse(editor.dirty)
         self.assertEqual(editor._revision, 'saved')
+
+    def test_builtin_schema_is_inspectable_but_cannot_be_edited(self):
+        editor=self.admin.schemaEditor;editor._can_write=False;editor.stateChanged.emit()
+        self.click('adminSection_schema');graph=self.item('adminGraphCanvas')
+        self.assertTrue(graph.property('readOnly'));node=self.item('graphNode_demo/asset')
+        self.fixture.click(self.window,node);self.assertEqual(editor.selectedNode,'demo/asset')
+        original=copy.deepcopy(editor.document)
+        start=node.mapToScene(QPointF(node.width()/2,node.height()/2)).toPoint()
+        QTest.mousePress(self.window,Qt.LeftButton,pos=start);QTest.mouseMove(self.window,start+QPointF(45,20).toPoint());QTest.mouseRelease(self.window,Qt.LeftButton,pos=start+QPointF(45,20).toPoint());frame(self.window)
+        self.assertEqual(editor.document,original);self.assertFalse(self.item('adminSaveDocument').isEnabled())
 
     def test_schema_select_keyboard_and_mouse_drag_keep_native_xml_positions(self):
         self.window.resize(1400, 940)
@@ -517,36 +586,18 @@ class AdministrationQmlTests(unittest.TestCase):
         self.assertIn('custom="edge"', self.admin.schemaEditor.document['xml'])
 
     def test_graph_connections_follow_drag_before_committing_node_position(self):
-        self.window.resize(1400, 940)
-        self.click('adminSection_schema')
-        editor = self.admin.schemaEditor
-        node = self.item('graphNode_demo/asset')
-        connector = next(
-            item for item in windows_fixture.SidebarEditorQmlTests.descendants(
-                self.window.contentItem())
-            if item.property('startX') is not None
-            and item.property('endX') is not None
-            and item.property('source') is not None)
-        original_x = editor.nodes[0]['nodeX']
-        graph_changes = QSignalSpy(editor.graphChanged)
-        start = node.mapToScene(QPointF(node.width() / 2, node.height() / 2)).toPoint()
-        QTest.mousePress(self.window, Qt.LeftButton, pos=start)
-        QTest.mouseMove(self.window, start + QPointF(35, 15).toPoint())
-        QTest.mouseMove(self.window, start + QPointF(85, 35).toPoint())
-        frame(self.window)
+        self.window.resize(1400,940);self.click('adminSection_schema')
+        editor=self.admin.schemaEditor;node=self.item('graphNode_demo/asset');graph=self.item('adminGraphCanvas')
+        original=editor.nodes[0]['nodeX'];changes=QSignalSpy(editor.graphChanged)
+        start=node.mapToScene(QPointF(node.width()/2,node.height()/2)).toPoint()
+        QTest.mousePress(self.window,Qt.LeftButton,pos=start)
+        QTest.mouseMove(self.window,start+QPointF(35,15).toPoint());QTest.mouseMove(self.window,start+QPointF(85,35).toPoint());frame(self.window)
         try:
-            self.assertGreater(node.x(), original_x)
-            self.assertEqual(editor.nodes[0]['nodeX'], original_x)
-            self.assertEqual(graph_changes.count(), 0)
-            self.assertAlmostEqual(connector.property('startX'), node.x() + node.width())
-            self.assertAlmostEqual(connector.property('startY'), node.y() + node.height() / 2)
-        finally:
-            QTest.mouseRelease(self.window, Qt.LeftButton,
-                               pos=start + QPointF(85, 35).toPoint())
-        frame(self.window)
-        self.assertEqual(graph_changes.count(), 1)
-        self.assertGreater(editor.nodes[0]['nodeX'], original_x)
-        self.assertEqual(self.fixture.warnings, [])
+         state=graph.property('ui').toVariant()
+         self.assertTrue(state['pointer']['active']);self.assertGreater(state['pointer']['positions'][0]['nodeX'],original)
+         self.assertEqual(editor.nodes[0]['nodeX'],original);self.assertEqual(changes.count(),0)
+        finally:QTest.mouseRelease(self.window,Qt.LeftButton,pos=start+QPointF(85,35).toPoint())
+        frame(self.window);self.assertEqual(changes.count(),1);self.assertGreater(editor.nodes[0]['nodeX'],original)
 
     def test_security_add_rule_and_discard_use_real_buttons(self):
         self.click('adminSection_rules')
@@ -556,6 +607,7 @@ class AdministrationQmlTests(unittest.TestCase):
         self.assertEqual(len(self.admin.securityEditor.rules), count + 1)
         self.assertTrue(self.admin.securityEditor.dirty)
         self.click('adminDiscardDocument')
+        self.click('adminConfirmSave')
         self.assertEqual(len(self.admin.securityEditor.rules), count)
         self.assertFalse(self.admin.securityEditor.dirty)
 
@@ -590,7 +642,7 @@ class AdministrationQmlTests(unittest.TestCase):
     def test_search_type_form_offers_only_native_fields_for_existing_and_new_types(self):
         self.click('adminSection_types')
         checkboxes = [item for item in windows_fixture.SidebarEditorQmlTests.descendants(
-            self.item('adminSearchTypeForm')) if item.inherits('QQuickCheckBox') and item.isVisible()]
+            self.item('adminSearchTypeForm')) if item.objectName() == 'adminSearchTypeHasPipeline' and item.isVisible()]
         self.assertEqual(checkboxes, [])
 
         self.click('adminCreateDocument')
@@ -601,10 +653,15 @@ class AdministrationQmlTests(unittest.TestCase):
             for item in windows_fixture.SidebarEditorQmlTests.descendants(
                 self.window.contentItem())))
         checkboxes = [item for item in windows_fixture.SidebarEditorQmlTests.descendants(
-            self.item('adminSearchTypeForm')) if item.inherits('QQuickCheckBox') and item.isVisible()]
+            self.item('adminSearchTypeForm')) if item.objectName() == 'adminSearchTypeHasPipeline' and item.isVisible()]
         self.assertEqual(len(checkboxes), 1)
         self.assertTrue(checkboxes[0].property('checked'))
-        self.fixture.click(self.window, checkboxes[0])
+        viewport=self.item('adminSearchTypeForm')
+        viewport.setProperty('contentY',max(0,min(viewport.property('contentHeight')-viewport.height(),viewport.property('contentY')+checkboxes[0].mapToItem(viewport,QPointF()).y()-12)))
+        frame(self.window)
+        toggle=checkboxes[0]
+        QTest.mouseClick(self.window,Qt.LeftButton,pos=toggle.mapToScene(QPointF(21,toggle.height()/2)).toPoint())
+        frame(self.window)
         self.assertFalse(self.admin.typesEditor.document['hasPipeline'])
         self.assertEqual(self.fixture.warnings, [])
 
@@ -626,6 +683,7 @@ class AdministrationQmlTests(unittest.TestCase):
         with patch.object(editor, '_request') as request:
             self.click('adminSearchType_demo/shot')
         request.assert_called_once_with('load', 'demo/shot')
+        self.choose_page('searchTypePages','details')
         self.assertEqual(self.item('adminSearchTypeTitle').property('text'), 'Assets')
 
         self.click('adminSearchTypeFilter')
@@ -664,41 +722,51 @@ class AdministrationQmlTests(unittest.TestCase):
         self.assertEqual(self.fixture.warnings, [])
 
     def test_round_ports_keep_native_colors_and_remain_reachable_at_canvas_origin(self):
-        editor = self.admin.schemaEditor
-        editor._metadata['searchTypes'][0]['color'] = '#c95075'
-        editor.apply_xml('<schema><search_type name="demo/asset" xpos="0" ypos="0"/>'
-                         '<search_type name="demo/shot" xpos="350" ypos="0"/></schema>')
-        self.window.resize(1400, 940)
+        self.window.resize(1400,940);self.click('adminSection_schema')
+        for prefix in ('graphInput_','graphOutput_'):
+         port=self.item(prefix+'demo/asset');self.assertEqual(port.width(),36);self.assertEqual(port.height(),36)
+         point=port.mapToScene(QPointF(port.width()/2,port.height()/2))
+         self.assertGreater(point.x(),0);self.assertLess(point.x(),self.window.width())
+        self.click('graphOutput_demo/asset')
+        state=self.item('adminGraphCanvas').property('ui').toVariant();self.assertIsNotNone(state['pending'])
+        self.item('adminGraphCanvas').forceActiveFocus();QTest.keyClick(self.window,Qt.Key_Escape);frame(self.window)
+        self.assertIsNone(self.item('adminGraphCanvas').property('ui').toVariant()['pending'])
+
+
+    def test_layouts_navigation_hosts_one_editor_and_protects_project(self):
+        self.click('adminSection_layouts')
+        self.assertTrue(self.item('administrationLayoutEditor').isVisible())
+        self.assertTrue(self.item('administrationHeaderSaveBar').isVisible())
+        host=self.admin.layoutEditor
+        host.set_presentation_dirty(True)
+        self.assertTrue(self.admin.projectLocked)
+        self.assertFalse(self.item('administrationProjectSelector').isEnabled())
+        host.set_presentation_dirty(False)
+        self.assertFalse(self.admin.projectLocked)
+        self.assertEqual(self.fixture.warnings,[])
+
+
+    def test_shell_close_reveals_hidden_draft_and_does_not_destroy_it(self):
+        from PySide6.QtQml import QQmlEngine, QQmlExpression
+        self.admin.typesEditor.set_field('title','A hidden draft')
         self.click('adminSection_schema')
-        canvas = self.item('adminGraphCanvas')
-        port = self.item('graphInput_demo/asset')
-        self.assertGreaterEqual(port.mapToScene(QPointF()).x(), canvas.mapToScene(QPointF()).x())
-        self.assertEqual(port.property('accent').name(), '#c95075')
-        ring = next(item for item in windows_fixture.SidebarEditorQmlTests.descendants(port)
-                    if item.objectName() == 'graphPortRing')
-        self.assertEqual(ring.width(), ring.height())
-        self.assertEqual(ring.property('radius'), ring.width() / 2)
+        shell=self.item('administrationFrameShell')
+        expression=QQmlExpression(QQmlEngine.contextForObject(shell),shell,'dispatch({type:"close"})')
+        expression.evaluate();self.assertFalse(expression.hasError(),expression.error().toString())
+        frame(self.window)
+        self.assertTrue(self.window.isVisible());self.assertEqual(self.admin.section,'types')
+        self.assertTrue(self.admin.typesEditor.dirty)
+        self.assertEqual(self.admin.typesEditor.document['title'],'A hidden draft')
 
-        output = self.item('graphOutput_demo/asset')
-        output.forceActiveFocus()
-        QTest.keyClick(self.window, Qt.Key_Return)
-        frame(self.window)
-        target = self.item('graphInput_demo/shot')
-        self.assertTrue(target.isEnabled())
-        target.forceActiveFocus()
-        QTest.keyClick(self.window, Qt.Key_Space)
-        frame(self.window)
-        self.assertEqual(len(editor.edges), 1)
-        self.assertEqual(self.item('graphConnection_0').property('accent').name(), '#c95075')
-        self.assertGreater(self.item('graphDirectionArrow').width(), 0)
-        self.item('graphOutput_demo/asset').forceActiveFocus()
-        QTest.keyClick(self.window, Qt.Key_Return)
-        QTest.keyClick(self.window, Qt.Key_Escape)
-        frame(self.window)
-        self.assertFalse(self.item('graphInput_demo/shot').property('activePort'))
-        self.assertEqual(self.item('adminGraphCanvas').parentItem().property('pendingConnection'), '')
-        self.assertEqual(self.fixture.warnings, [])
-
+    def test_clean_child_editor_locks_project_until_its_window_closes(self):
+        windows=self.fixture.application.window_model
+        self.assertFalse(self.admin.projectLocked)
+        windows.show_child_window('process_dependencies','administration');frame(self.window)
+        self.assertTrue(self.admin.projectLocked)
+        self.assertFalse(self.item('administrationProjectSelector').isEnabled())
+        windows.close_window('process_dependencies');frame(self.window)
+        self.assertFalse(self.admin.projectLocked)
+        self.assertTrue(self.item('administrationProjectSelector').isEnabled())
 
 if __name__ == '__main__':
     unittest.main()

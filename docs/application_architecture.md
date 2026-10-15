@@ -54,7 +54,7 @@ operations. Core `thlib` modules outside `thlib.ui` must not import presentation
 | `thlib/ui/workspace_models/` | Qt models and mutable workspace presentation state, including results, selection, docks, floating windows, and their persisted geometry/layout. | QtCore and value/data helpers. |
 | `thlib/ui/tasks.py`, `task_workspace/` | Task workspace orchestration, normalized task store, catalogs, filters, bulk edits, Gantt/calendar/table projections, and task workers. Pure Gantt date transformations live in `task_workspace/gantt_schedule.py`; the controller owns QML slots, state, history, and persistence. | Application selection context and `thlib` task APIs. |
 | `thlib/ui/communication.py`, `communication_feed.py` | Notes, Messages, Activity Feed, unread state, incremental server updates, and navigation intents. | Shared message/attachment helpers and `thlib` communication APIs. |
-| `thlib/ui/server_updates.py` | One incremental polling loop for messages, activity, reactions, and presence heartbeat. Owns cursors, retry policy, and timer lifecycle. | Application session/project identity and one batched core API. |
+| `thlib/ui/server_updates.py` | One update owner for XML-RPC polling or optional Stream SSE. Owns cursors, subscribed Search Types/channels, reconnect backoff and lifecycle; server_event_stream.py owns asynchronous Qt HTTP and coalesced reads. | Application session/project identity and one batched core API. |
 | `thlib/ui/configuration.py` | Editing façade for user-visible settings. Reads/writes the same keys and invokes the same apply callbacks as functional owners. | Project `env_read_config` / `env_write_config` API and application/controller callbacks. |
 | Specialized `thlib/ui/*_controller.py` modules | Feature-specific operations such as commit queue, check-in/out, repository sync, work hours, users, milestones, scripts, and Handler Server. | Native TACTIC objects/core APIs and shared Qt models. |
 | `thlib/tactic_classes.py`, `tactic_query.py` | TACTIC object model, server-side procedures, repository/file/snapshot semantics, and public core API. | `thlib` infrastructure and the complete bundled legacy TACTIC client transport. |
@@ -83,7 +83,7 @@ behavioral reason.
 | Docks | `DockPanelModel` and its layout tree | `workspace/dockLayout` in `ui_main/ui_settings` through the project config API | QML dock hosts own pointer/hover state only; stack selection, placement, ratios, and visibility belong to the model. |
 | Background operations | The feature controller that starts the operation; the current `env_inst` compatibility adapter owns instance-local thread pools | No persistent operation state unless the feature explicitly queues work | Busy/progress/error flags exist per controller. New UI dependencies are injected by composition; existing `env_inst` consumers are migrated by vertical feature slices and may not increase. |
 | Caches | The component that defines the cached value: search sessions and Search Type facet projections in `ApplicationController`, task catalogs in task workspace, skey previews in their resolver, native objects in `env_inst` | Server-backed facet catalogs use the shared `reference` cache; only explicitly durable caches use their component key | Several target/project identity mirrors exist. A future consolidation must preserve cache scope and invalidation, not create a generic global cache. |
-| User-visible configuration | The functional controller that consumes each key | Project `env_read_config` / `env_write_config` namespaces such as `ui_main` and `ui_conf` | `ConfigurationController` is an editor façade, not a second source of truth. Key ownership stays explicit. |
+| User-visible configuration | The functional controller that consumes each key | Login-scoped `env_read_config` / `env_write_config` namespaces under `settings/<node>/<server>/<login>/<mode>`, such as `ui_main` and `ui_conf`; before login, the path omits `<login>` instead of inventing an anonymous user | `ConfigurationController` is an editor façade, not a second source of truth. The server query mode uses the installation scope under `settings/<node>/ui_conf/server_query.json`, keyed by server URL so login changes do not reset it. |
 | Qt Quick rendering backend | `thlib/ui/rendering.py` normalizes and applies the preference before `QApplication` is created | `appearance/renderBackend` in `ui_main/ui_settings`; `QSG_RHI_BACKEND` and `QT_QUICK_BACKEND` remain explicit process-level overrides | Automatic mode selects OpenGL on Windows to avoid full-display DXGI/MPO/HDR flicker and otherwise leaves Qt's native platform default unchanged. Software selects the Qt Quick software scene-graph adaptation rather than an invalid RHI backend. |
 
 ## Lifecycle
@@ -126,6 +126,16 @@ behavioral reason.
    error with the dump path and terminates the unrecoverable process.
 
 Project metadata hydration belongs to `tactic_classes.Project`, not the sidebar.
+Project creation is owned by `ProjectCreationController`, composed alongside the existing project
+editor. Its four steps follow native `ProjectCreateWdg`, not the unused prototype
+`ProjectWizardWdg`. Server catalogs come from `get_project_creation_catalog`; creation delegates
+to `CreateProjectCmd` or `ProjectTemplateInstallerCmd`, including native image preparation,
+theme/schema setup and template installation. Mutations run once in the server pool. Catalog
+results carry a generation; teardown cancels subscriptions. Successful creation and subsequent
+project activation are separate stages so retrying activation cannot repeat creation.
+`tests/test_project_creation.py` verifies command arguments, image upload, retry semantics and
+real QML input/layout at narrow and wide sizes.
+
 Every project has an initialized `ViewsConfig`; loading its Search Types and views
 does not require a production schema or pipelines. This includes `admin`, `sthpw`
 and newly created projects. Native system schema/pipelines are retained, never
@@ -180,6 +190,9 @@ the actual drawer with mouse, keyboard and touch.
   attachment workers, watch/screenshot work, Handler Server, notifications and
   commit queue, then `ApplicationController`; the latter flushes settings/cache,
   stops repository sync, and exits shared pools. Debug Log is closed last.
+- Signing in as a different login restarts the UI process after persisting the
+  new ticket. This recreates every controller against that login's settings tree;
+  shutdown writes remain scoped to the identity that owns the outgoing UI state.
 - The UI hang watchdog stops immediately after `app.exec()` returns. It owns no
   feature state; feature controllers remain responsible for non-blocking
   checkpoints of user-authored drafts before a fatal stall.
@@ -258,6 +271,16 @@ control library.
 
 ## Release and cutover gate
 
+`CHANGELOG.md` is the canonical release history; its newest version must match
+`thlib/version.json`. Each completed change advances the revision and prepends
+a dated entry, as required by `AGENTS.md`. `UpdateController` exposes the bundled
+Markdown to the offline Changelog tab and seeds the release generator's notes.
+`update_functions.create_update_archive` packages the history and uses the exact
+version's entry when no description is supplied. The release tests verify version
+agreement, Markdown section boundaries, ZIP inclusion, and staged history. Archive
+creation rejects versions without a changelog entry;
+`tests.test_update_controller` exercises the real QML tabs and scrolling.
+
 The release gate makes readiness executable without pretending that offline automation can
 certify a live TACTIC repository or DCC host. `tests/run_release_gate.py` is the
 single strict automated entry point: it checks the worktree, syntax, isolated
@@ -266,3 +289,48 @@ application entry points from another working directory. Environment-dependent m
 repository, Windows lifecycle, Maya and visual checks remain explicit required
 manual acceptance. See `docs/release_readiness.md` and
 `tests/contracts/release_acceptance.json`.
+
+
+SSE update delivery uses one monitored collector in the Stream server, not one database reader per connected client. Native transaction rows provide routing metadata without post-commit SQL. The clients fetch their own authorized data after matching invalidations. Chat notifications remain active with the window closed; activity notifications intentionally subscribe to project activity. Type-level routing, incomplete legacy metadata, local shared cache and post-commit publication gaps are documented in Server configuration help. Verify using tests.test_server_event_stream, tests.test_server_updates, configuration QML and Stream tests.test_handler_events.
+
+## File-project workspace
+
+`FileWorkspaceController` owns the project-selected file workflow independently of Classic CommitQueueController. Delivery composition exports fileWorkspaceController; CommitWorkspaceView loads either FileWorkspaceView or the original queue. Project type comes from the native project object. Both busy states suppress unrelated server-update refreshes through the existing collaboration controller.
+
+The desktop SDK is synchronized from Stream's tactic_client_lib/file_transfer.py and file_workspace.py. It uses the existing Handler proxy transport per worker, fixed native FileProjectCmd metadata, streaming byte endpoints, disk reconciliation and resumable upload journals. No file hashing, disk traversal or HTTP request runs in QML. State/progress returns over queued, generation-scoped signals; shutdown cancels and detaches workers. File pages cap at 200, manifests at 1000; published history caps at 1000 revisions and text preview at 256 KiB.
+
+The Stream counterpart is a browser inspector/server administrator; desktop local files stay in Handler. Native active-upload guards prevent publication of a partially staged package and restore the original changelist roots on cancellation/failure. Project mode does not replace or migrate Classic data.
+
+File-project layout reuses the house compact icon controls, action menus, modal editors and splitters. Files occupy the main panel, History/Conflicts/Transfers occupy a resizable lower panel, and the narrow layout hides the tree until requested. Native command payloads and Classic routing are unchanged by the presentation change. GUI checks include actual menu activation and keyboard description editing.
+
+
+## Shared declarative layout editor
+
+Administration includes Layout Editor. `layout_editor.py` owns the selected
+project, URL, generation and a read-only mirror of dirty/busy/uncertain state.
+`LayoutEditorView.qml` hosts the same Vue editor and renderer served by Stream in
+Qt WebEngine. It forwards the authorized ticket through WebChannel, never URL
+parameters, and uses an off-the-record profile destroyed at session reset.
+Server commands continue to own validation, permissions, transactions and XML
+revisions. A separate URL signal prevents draft-state notifications from reloading
+the page. Native project/close guards consume the mirrored state.
+
+The browser and Handler share templates, controls, kind-specific properties,
+element ordering, table preview, grid/layer placement and EN/RU recipes. Advanced
+XML/style settings remain folded. Custom views open in the embedded Stream
+workspace; the original native SObject Item and standard views stay separate.
+This requires a Stream server with layout endpoints and does not add those
+endpoints to Legacy TACTIC. Native theme, palette, icons and language flow to the
+shared editor. Downloads use a native save dialog; user-initiated new-window
+links open externally without replacing the editor.
+
+Verification: `tests.test_layout_editor` covers lifecycle, URL scope, permissions,
+generation guards and download cancellation. The Administration QML check covers
+one editor host and project locking at two widths. Stream's
+`test_item_layout_handler.py` uses an owned private server and the actual Qt
+host: matching editor geometry at 1190×903 and 850×700, EN/RU, light/dark MD3 and
+100% scale; real mouse/keyboard input; copy/check/save; Help download/open-file;
+and saved cards plus ready table/tree views. Native and Chromium font
+rasterization/window chrome remain platform differences. The all-window offline
+smoke check passes. The broader Help/schema suite also reports unrelated
+Changelist-catalog and XML-format expectations; these are not claimed as passing.

@@ -127,6 +127,29 @@ engine globals therefore cannot leak into the next module. Plain `unittest disco
 remains useful for non-QML subsets, but one long process is not a reliable lifecycle
 boundary for the complete PySide6 suite.
 
+Editor input/layout fixtures select `QSG_RENDER_LOOP=basic` before importing the
+application entry point. Otherwise its production `threaded` default leaks into
+the offscreen software fixture and can deadlock synchronous input or deferred
+window deletion. This does not change production rendering; rendering benchmarks
+may still explicitly select their loop. View-mode workflow tests use keyboard
+selection and await a rendered frame between changes that reflow the focused view.
+
+`tests/test_editor_windows_lifecycle.py` runs the complete editor class in a fresh
+offscreen process with a 45-second timeout, covering repeated creation, real
+input, and cleanup without depending on another test's Qt initialization.
+
+On Windows, the sidebar and preview saved-search dropdown tests use
+`tests.qt_application.run_native_windows_test` to run their real mouse/popup
+scenarios in separate `windows` QPA processes with a 30-second timeout. The
+`offscreen` platform can close the first native `Popup.Window` during its focus
+handoff, making this check depend on which popup test ran first. Other sidebar
+layout checks remain headless; the native scenario must also pass on its own:
+
+```powershell
+python -m unittest tests.test_sidebar_editor_qml.SidebarEditorQmlTests.test_preset_dropdown_keeps_rows_inside_viewport_and_reserves_scrollbar -v
+python -m unittest tests.test_editor_windows_lifecycle -v
+```
+
 `tests.test_qml_lint` runs the `pyside6-qmllint` shipped with the pinned PySide6
 toolchain over the complete QML tree. Property overrides and layout-positioning
 warnings have a zero budget. Existing dynamically typed `missing-property`,

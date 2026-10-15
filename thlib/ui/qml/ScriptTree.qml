@@ -67,7 +67,6 @@ Item {
             Layout.fillWidth: true
             Layout.fillHeight: true
             model: root.treeModel
-            visible: count > 0
             clip: true
             spacing: 1
             boundsBehavior: Flickable.StopAtBounds
@@ -173,20 +172,19 @@ Item {
                 theme: root.theme
                 flickableTarget: scripts
             }
-        }
 
-        Label {
-            Layout.fillWidth: true
-            Layout.fillHeight: true
-            Layout.margins: 8
-            visible: treeSearch.text.length > 0 && scripts.count === 0
-            text: qsTr("No scripts found")
-            color: root.theme.secondaryText
-            font.family: root.theme.fontFamily
-            font.pointSize: Controls.Typography.body
-            horizontalAlignment: Text.AlignHCenter
-            verticalAlignment: Text.AlignVCenter
-            wrapMode: Text.WordWrap
+            Label {
+                parent: scripts
+                anchors.centerIn: scripts
+                width: scripts.width - 16
+                visible: treeSearch.text.length > 0 && scripts.count === 0
+                text: qsTr("No scripts found")
+                color: root.theme.secondaryText
+                font.family: root.theme.fontFamily
+                font.pointSize: Controls.Typography.body
+                horizontalAlignment: Text.AlignHCenter
+                wrapMode: Text.WordWrap
+            }
         }
     }
 }

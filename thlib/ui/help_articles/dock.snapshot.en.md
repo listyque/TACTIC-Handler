@@ -18,12 +18,15 @@ sObject by itself.
 
 The options menu provides **Preview and Files**, **Preview Only** and **Files Only**. The selected mode
 is remembered. A splitter controls the space shared by preview and file list; preview work and file
-state discovery run outside the UI thread.
+state discovery run outside the UI thread. **Fit** shows the complete image, while **Fill** uses the
+whole preview area and crops the overflow.
 
 ## Version and preview controls
 
 - Choose the context and snapshot version from the header.
 - Use previous and next preview arrows to move through the selected snapshot's previewable files.
+- The browser starts with the web preview and requests the original image only when the displayed
+  physical pixel size, including display scaling, exceeds that preview.
 - The preview action opens the original local file or its linked object.
 - Edit info opens the owning sObject editor rather than editing a detached file record.
 

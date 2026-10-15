@@ -1299,6 +1299,15 @@ class SearchKeyPreviewResolver(QObject):
     def _log_error(self, message, stacktrace=""):
         debug_log = getattr(self._application, "debug_log", None)
         if debug_log:
+            if str(message) == "TACTIC item was not found":
+                debug_log.log(
+                    "WARNING",
+                    message,
+                    stacktrace=stacktrace,
+                    group="communication/skey-preview",
+                    source="SearchKeyPreviewResolver",
+                )
+                return
             debug_log.raise_error(
                 message,
                 stacktrace=stacktrace,

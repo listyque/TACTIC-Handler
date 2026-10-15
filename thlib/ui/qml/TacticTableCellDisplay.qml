@@ -27,12 +27,16 @@ Item {
     required property var displayOptions
     property bool effectsEnabled: true
     property bool scrolling: false
+    property bool selectedTaskPreviewActive: false
+    signal taskPreviewHoverChanged(bool hovered)
 
     signal processCountMenuRequested(string panel, var anchorItem)
 
     Loader {
         anchors.fill: parent
         sourceComponent: {
+            if (root.kind === "structured")
+                return structuredCell
             if (root.kind === "boolean")
                 return booleanCell
             if (root.kind === "thumbnail")
@@ -62,7 +66,10 @@ Item {
                 leftPadding: root.columnIndex === 0 ? 14 : 10
                 rightPadding: 10
                 verticalAlignment: Text.AlignVCenter
-                text: root.textValue
+                text: root.cell.label === "No version" ? qsTr("No version")
+                    : root.cell.label === "Latest" ? qsTr("Latest")
+                    : root.cell.label === "Current" ? qsTr("Current")
+                    : root.textValue
                 elide: Text.ElideRight
                 color: root.kind === "link"
                     ? root.theme.action : root.theme.primaryText
@@ -81,6 +88,7 @@ Item {
             HoverHandler {
                 id: hover
                 enabled: root.kind === "link"
+                    || String(root.cell.tooltip || "").length > 0
                     || String(root.cell.error || "").length > 0
                     || label.truncated
                 cursorShape: root.kind === "link"
@@ -90,10 +98,23 @@ Item {
                 theme: root.theme
                 visible: hover.hovered && (
                     String(root.cell.error || "").length > 0
+                    || String(root.cell.tooltip || "").length > 0
                     || label.truncated
                 )
-                text: String(root.cell.error || "") || root.textValue
+                text: String(root.cell.error || root.cell.tooltip || "")
+                    || root.textValue
             }
+        }
+    }
+
+    Component {
+        id: structuredCell
+
+        TacticStructuredTableCell {
+            theme: root.theme
+            cell: root.cell
+            maximumHeight: Number(String(root.displayOptions.height
+                || (root.cell.language === "xml" ? 600 : 300)).replace("px", ""))
         }
     }
 
@@ -113,27 +134,29 @@ Item {
     Component {
         id: thumbnailCell
 
-        Controls.ItemPreview {
-            objectName: "tableCellPreview"
-            anchors.centerIn: parent
-            width: Math.max(20, Math.min(64, parent.width - 20,
-                                        parent.height - 12))
-            height: width
-            theme: root.theme
-            active: root.previewActive
-            source: root.previewUrl
-            previewSize: width
-            fallbackIcon: "sobject"
-            fallbackText: root.title
-            accent: root.accent
-            round: false
-            outlined: false
-            animateAppearance: !root.previewRevealed && root.previewActive
-            effectsEnabled: root.effectsEnabled
-            Accessible.ignored: true
-            onImageReady: {
-                if (!root.previewRevealed)
-                    root.controller.mark_item_preview_revealed(root.nodeId)
+        Item {
+            Controls.ItemPreview {
+                objectName: "tableCellPreview"
+                anchors.centerIn: parent
+                width: Math.max(0, Math.min(parent.width, parent.height) - 8)
+                height: width
+                theme: root.theme
+                active: root.previewActive
+                source: root.previewUrl
+                previewSize: width
+                fallbackIcon: "sobject"
+                fallbackText: root.title
+                accent: root.accent
+                round: true
+                outlined: false
+                fillMode: Image.PreserveAspectCrop
+                animateAppearance: !root.previewRevealed && root.previewActive
+                effectsEnabled: root.effectsEnabled
+                Accessible.ignored: true
+                onImageReady: {
+                    if (!root.previewRevealed)
+                        root.controller.mark_item_preview_revealed(root.nodeId)
+                }
             }
         }
     }
@@ -154,54 +177,85 @@ Item {
                 objectName: "tableNoteList"
                 anchors.left: parent.left
                 anchors.right: parent.right
-                anchors.top: parent.top
-                anchors.bottom: parent.bottom
                 anchors.leftMargin: 7
                 anchors.rightMargin: contentHeight > height ? 16 : 7
-                anchors.topMargin: 4
-                anchors.bottomMargin: 4
+                y: Math.round(Math.max(4, (parent.height - height) / 2))
+                height: Math.min(
+                    Math.max(0, parent.height - 8),
+                    noteCell.noteRecords.length * 26
+                        + Math.max(0, noteCell.noteRecords.length - 1) * spacing
+                )
                 visible: noteCell.noteRecords.length > 0
                 model: noteCell.noteRecords
-                spacing: 1
+                spacing: 2
                 clip: true
                 reuseItems: true
                 boundsBehavior: Flickable.StopAtBounds
 
-                delegate: Item {
+                delegate: Rectangle {
                         id: noteRecord
 
                         required property int index
                         required property var modelData
+                        readonly property color accentColor:
+                            String(modelData.accent || "").length > 0
+                                ? modelData.accent : root.theme.action
+                        readonly property string processTitle: String(
+                            modelData.title || modelData.process || "publish"
+                        )
                         objectName: "tableNoteRecord_" + index
                         width: noteList.width
-                        height: 22
+                        height: 26
+                        radius: root.theme.itemRadius
+                        color: root.theme.overlay(
+                            root.theme.surfaceContainerHigh,
+                            accentColor, noteHover.hovered ? 0.16 : 0.08
+                        )
+                        border.width: 1
+                        border.color: root.theme.overlay(
+                            root.theme.outlineVariant, accentColor, 0.32
+                        )
                         Accessible.role: Accessible.Button
-                        Accessible.name: String(
-                            modelData.process || "publish"
-                        ) + " (" + Number(modelData.badgeCount || 0) + ")"
+                        Accessible.name: processTitle + " ("
+                            + Number(modelData.badgeCount || 0) + ")"
+
+                        Rectangle {
+                            anchors.left: parent.left
+                            anchors.top: parent.top
+                            anchors.bottom: parent.bottom
+                            width: 3
+                            radius: width / 2
+                            color: noteRecord.accentColor
+                        }
 
                         RowLayout {
                             anchors.fill: parent
+                            anchors.leftMargin: 7
+                            anchors.rightMargin: 7
                             spacing: 5
                             Controls.MaterialIcon {
                                 Layout.preferredWidth: 16
                                 name: "comment"
-                                size: 15
-                                color: root.theme.secondaryText
+                                size: 14
+                                color: noteRecord.accentColor
                             }
                             Label {
                                 Layout.fillWidth: true
-                                text: String(
-                                    noteRecord.modelData.process || "publish"
-                                ) + " (" + Number(
-                                    noteRecord.modelData.badgeCount || 0
-                                ) + ")"
+                                text: noteRecord.processTitle
                                 elide: Text.ElideRight
-                                color: noteHover.hovered
-                                    ? root.theme.action
-                                    : root.theme.primaryText
+                                color: root.theme.primaryText
                                 font.family: root.theme.fontFamily
                                 font.pointSize: Controls.Typography.body
+                                font.weight: Font.DemiBold
+                            }
+                            Label {
+                                objectName: "tableNoteCount_" + noteRecord.index
+                                text: "(" + Number(
+                                    noteRecord.modelData.badgeCount || 0
+                                ) + ")"
+                                color: noteRecord.accentColor
+                                font.family: root.theme.fontFamily
+                                font.pointSize: Controls.Typography.label
                                 font.weight: Font.DemiBold
                             }
                         }
@@ -271,7 +325,10 @@ Item {
 
         TacticTaskCell {
             anchors.fill: parent
-            anchors.margins: 6
+            anchors.leftMargin: 6
+            anchors.rightMargin: 6
+            anchors.topMargin: 3
+            anchors.bottomMargin: 3
             theme: root.theme
             controller: root.controller
             columnsController: root.columnsController
@@ -281,9 +338,8 @@ Item {
             options: root.displayOptions
             taskCount: root.tasks
             scrolling: root.scrolling
-            onProcessPickerRequested: function(anchorItem) {
-                root.processCountMenuRequested("tasks", anchorItem)
-            }
+            selectedPreviewActive: root.selectedTaskPreviewActive
+            onPreviewHoverChanged: hovered => root.taskPreviewHoverChanged(hovered)
         }
     }
 }

@@ -460,6 +460,10 @@ class TacticSelectWdg(TacticBaseInputWdg):
         options = []
         for index, value in enumerate(self.values):
             label = self.labels[index] if index < len(self.labels) else value
+            if label is None or not str(label).strip():
+                if value is None or not str(value).strip():
+                    continue
+                label = value
             options.append({'label': str(label), 'value': value})
         return options
 

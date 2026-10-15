@@ -315,12 +315,15 @@ Item {
         anchors.leftMargin: 8
         anchors.rightMargin: 8
         anchors.topMargin: 8
-        anchors.bottomMargin: 11
+        anchors.bottomMargin: relationOpenButton.visible
+            ? relationOpenButton.height + 15
+            : countControls.active ? countControls.height + 15 : 11
         spacing: 4
 
         Item {
             width: parent.width
-            height: root.hasLargePreview ? 158 : 76
+            height: root.isSobject ? 30 : root.isRelation ? 50
+                : root.hasLargePreview ? 158 : 76
 
             Loader {
                 anchors.fill: parent
@@ -567,6 +570,7 @@ Item {
 
         Label {
             id: titleLabel
+            objectName: "workspaceCardTitle"
             width: parent.width
             text: String(root.title || root.searchKey || qsTr("Untitled"))
                 .replace(/[\r\n\t]+/g, " ")
@@ -612,6 +616,7 @@ Item {
         }
         Label {
             width: parent.width
+            visible: text.length > 0
             text: root.isSnapshot
                 ? [root.version, root.process, root.repository]
                     .filter(function(value) { return Boolean(value) }).join(" · ")
@@ -627,8 +632,11 @@ Item {
         }
         Label {
             id: descriptionLabel
-            width: Math.max(40, parent.width
-                - ((root.tasks > 0 || root.comments > 0) ? 68 : 0))
+            objectName: "workspaceCardDescription"
+            width: parent.width
+            visible: text.length > 0
+            wrapMode: Text.Wrap
+            maximumLineCount: root.isSobject && root.height >= 200 ? 2 : 1
             leftPadding: 4
             rightPadding: 8
             bottomPadding: 2
@@ -778,6 +786,23 @@ Item {
                 )
             }
         }
+    }
+
+    Controls.Button {
+        id: relationOpenButton
+        objectName: "openRelatedItemsButton"
+        anchors.left: parent.left
+        anchors.right: parent.right
+        anchors.bottom: parent.bottom
+        anchors.margins: 8
+        height: 28
+        z: 4
+        visible: root.isRelation && root.hasChildren
+        enabled: !root.nodeLoading
+        theme: root.theme
+        text: qsTr("Open")
+        icon.name: "chevron_right"
+        onClicked: root.openCard(Qt.NoModifier)
     }
 
     MouseArea {

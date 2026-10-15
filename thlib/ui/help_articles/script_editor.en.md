@@ -8,6 +8,9 @@ order: 19
 > Script Editor stores and runs scripts with syntax highlighting, line numbers, search and replace,
 > occurrence highlighting, completion, scrollbars, output, and server-backed script folders.
 
+Administrators and supervisors can edit, save, delete, and run code in the editor. Other users can
+open and copy scripts, but the editor is read-only and cannot save or execute edited source.
+
 ## Main controls
 
 The source editor supports Python keywords and built-ins, names declared in the current script, and
@@ -16,6 +19,7 @@ TACTIC Handler gf and tc APIs. Open scripts use the shared workspace tabs.
 The scripts tree can be hidden with the directional arrow; Local Python and Server Python use the
 same Python glyph with distinct colors. Unsaved source from new and server-backed tabs is restored
 locally for the current project.
+The tree search stays at the top even when the current project has no scripts.
 
 Local Python runs on Qt's GUI thread, so trusted scripts can import or reload native PySide6 UI
 modules and show their windows directly.

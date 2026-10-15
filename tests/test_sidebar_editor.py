@@ -58,6 +58,7 @@ def test_sidebar_icon_selection_stores_tactic_name_and_exposes_clean_glyph():
         "view": "project_view",
         "config": "<config><element name='assets'/></config>",
     }]))
+    controller.set_sidebar_source("tactic")
     controller.select_entry(0)
 
     controller.update_selected("icon", "project-diagram")
@@ -112,7 +113,7 @@ def test_sidebar_names_are_stable_codes():
     assert _slug("", "sidebar_section") == "sidebar_section"
 
 
-def test_sidebar_session_starts_with_handler_branch_filter_enabled():
+def test_sidebar_session_starts_with_handler_source():
     class Registry:
         def register(self, _name, _callback):
             pass
@@ -129,7 +130,7 @@ def test_sidebar_session_starts_with_handler_branch_filter_enabled():
 
     controller.begin_session()
 
-    assert controller.handlerOnly is True
+    assert controller.sidebarSource == "handler"
     assert reloads == [True]
 
 
@@ -243,6 +244,7 @@ def test_sidebar_editor_uses_project_view_as_complete_native_tree():
             },
         ],
     ))
+    controller.set_sidebar_source("tactic")
 
     assert [item["name"] for item in controller.entries._records] == [
         "episodes", "assets",
@@ -310,6 +312,7 @@ def test_sidebar_editor_folders_toggle_child_visibility():
             },
         ],
     ))
+    controller.set_sidebar_source("tactic")
 
     assert controller.entries._records[0]["entryType"] == "section"
     assert controller.entries._records[1]["depth"] == 1
@@ -378,6 +381,14 @@ def test_sidebar_editor_preserves_folder_subfolder_order_from_views():
     ]))
 
     assert [item["name"] for item in controller.entries._records] == [
+        "handler_episodes", "ready",
+    ]
+    assert [item["displayDepth"] for item in controller.entries._records] == [
+        0, 1,
+    ]
+
+    controller.set_sidebar_source("tactic")
+    assert [item["name"] for item in controller.entries._records] == [
         "dashboard", "assets", "episodes", "separator",
         "handler", "handler_episodes", "ready",
     ]
@@ -385,20 +396,91 @@ def test_sidebar_editor_preserves_folder_subfolder_order_from_views():
         0, 1, 1, 0, 0, 1, 2,
     ]
 
-    controller.set_handler_only(True)
-    assert controller.handlerOnly is True
-    assert [item["name"] for item in controller.entries._records] == [
-        "handler", "handler_episodes", "ready",
-    ]
-    assert [item["displayDepth"] for item in controller.entries._records] == [
-        0, 1, 2,
-    ]
 
-    controller.set_handler_only(False)
-    assert [item["name"] for item in controller.entries._records] == [
-        "dashboard", "assets", "episodes", "separator",
-        "handler", "handler_episodes", "ready",
-    ]
+def test_handler_sidebar_group_preview_filters_and_scopes_new_items():
+    class Registry:
+        def register(self, _name, _callback):
+            pass
+
+    class Navigation:
+        @staticmethod
+        def _icon_name(icon, _search_type):
+            return icon or "sobject"
+
+    class Application:
+        _registry = Registry()
+        navigation_model = Navigation()
+
+    class Users:
+        canManageUsers = True
+
+    class Group:
+        def __init__(self, name, element):
+            self.name = name
+            self.rules = (
+                "<rules><rule group='link' element='{}' "
+                "access='allow' project='demo'/></rules>"
+            ).format(element)
+
+        def get_info(self):
+            return {"access_rules": self.rules}
+
+        def get_login_group(self):
+            return self.name
+
+        def get_pretty_name(self):
+            return self.name.title()
+
+    controller = SidebarEditorController(Application(), Users())
+    controller._loaded(("demo", "Demo", object(), [{
+        "search_type": "SideBarWdg",
+        "view": "definition",
+        "config": (
+            "<config>"
+            "<element name='assets' title='Assets'><display class='LinkWdg'/>"
+            "</element>"
+            "<element name='rigging' title='Rigging'><display class='LinkWdg'/>"
+            "</element>"
+            "<element name='web' title='Web'><display class='LinkWdg'/>"
+            "</element>"
+            "</config>"
+        ),
+    }, {
+        "search_type": "SideBarWdg",
+        "view": "tactic_handler",
+        "config": (
+            "<config><element name='assets'/>"
+            "<element name='rigging'/></config>"
+        ),
+    }, {
+        "search_type": "SideBarWdg",
+        "view": "project_view",
+        "config": "<config><element name='web'/></config>",
+    }]))
+    controller._security_objects = {
+        "animator": Group("animator", "assets"),
+        "rigger": Group("rigger", "rigging"),
+    }
+
+    controller.set_preview_group("animator")
+    assert [
+        row["name"] for row in controller.entries._records
+        if row["entryVisible"]
+    ] == ["assets"]
+    controller.set_group_allowed("animator", False)
+    assert controller.visibleEntryCount == 0
+
+    controller.set_preview_group("rigger")
+    controller.add_entry("link")
+    created = controller.selectedEntry["name"]
+    assert controller._security_pending[(created, "rigger")] is True
+    assert (created, "animator") not in controller._security_pending
+
+    controller.set_sidebar_source("tactic")
+    assert [
+        row["name"] for row in controller.entries._records
+        if row["entryVisible"]
+    ] == ["web"]
 
 
 def test_sidebar_xml_editor_targets_only_the_effective_element():
@@ -438,6 +520,7 @@ def test_sidebar_xml_editor_targets_only_the_effective_element():
             "config": "<config><element name='project_help'/></config>",
         },
     ]))
+    controller.set_sidebar_source("tactic")
     controller.select_entry(0)
 
     xml = ElementTree.fromstring(controller.xmlText)
@@ -484,6 +567,7 @@ def test_sidebar_xml_apply_replaces_definition_and_keeps_reference():
             "config": "<config><element name='assets'/></config>",
         },
     ]))
+    controller.set_sidebar_source("tactic")
     controller.select_entry(0)
     controller.set_xml_text(
         "<element name='assets' title='Asset Cards' is_visible='off'>"
@@ -596,6 +680,10 @@ def test_sidebar_entry_layout_assignment_is_native_display_data():
             "<display class='LinkWdg'/><search_type>demo/assets</search_type>"
             "</element></config>"
         ),
+    }, {
+        "search_type": "SideBarWdg",
+        "view": "tactic_handler",
+        "config": "<config><element name='assets'/></config>",
     }]))
     controller.select_entry(0)
 

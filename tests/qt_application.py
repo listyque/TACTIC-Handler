@@ -2,6 +2,10 @@
 
 import ctypes
 import os
+from pathlib import Path
+import subprocess
+import sys
+import unittest
 
 from PySide6.QtCore import QCoreApplication
 from PySide6.QtGui import QGuiApplication
@@ -33,3 +37,20 @@ def gui_test_application() -> QGuiApplication:
     os.environ.setdefault('QT_QPA_PLATFORM', 'offscreen')
     os.environ.setdefault('QT_QUICK_BACKEND', 'software')
     return QGuiApplication([])
+
+
+def run_native_windows_test(test_case: unittest.TestCase) -> bool:
+    """Run a native-popup scenario outside the headless application's state."""
+    if os.name != 'nt' or QGuiApplication.platformName() == 'windows':
+        return False
+    environment = os.environ.copy()
+    environment['QT_QPA_PLATFORM'] = 'windows'
+    completed = subprocess.run(
+        [sys.executable, '-m', 'unittest', '-v', test_case.id()],
+        cwd=Path(__file__).resolve().parents[1], env=environment,
+        capture_output=True, text=True, timeout=30, check=False,
+    )
+    test_case.assertEqual(
+        completed.returncode, 0, completed.stdout + completed.stderr,
+    )
+    return True

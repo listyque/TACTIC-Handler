@@ -10,9 +10,12 @@ order: 61
 
 ## What the server does
 
-Handler starts the router as a separate local process bound to `127.0.0.1` on an available port. A
+By default, Handler starts the router as a separate local process bound to `127.0.0.1` on an available port. A
 fresh random access token is passed to that process for the current session. DCC runtime discovery
 finds the live Handler session and uses its endpoint and token; users do not enter either value.
+This automatic startup also applies to a new portable installation with no saved configuration.
+To use only the standalone app, turn off **Start Handler Server automatically** in Configuration →
+Global. The change takes effect on the next launch; the **Start** button remains available.
 
 The server:
 
@@ -105,6 +108,7 @@ grants the target PID foreground permission; opening may send `focus_application
 | **Timeout** | Check for a native modal prompt or a blocked DCC UI thread. |
 | **Client disconnected** | The exact target exited or lost transport; work is not silently reassigned. |
 | **Startup timeout** | The process did not publish a valid ready response and capabilities in time. Inspect Debug Log and process output. |
+| **Process failed to start** | The router process could not be launched. Check that the portable executable and its bundled files are present; this is not caused by missing TACTIC settings. |
 
 ## Safe diagnostic sequence
 

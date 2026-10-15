@@ -78,6 +78,7 @@ Item {
                     textRole: "label"
                     valueRole: "value"
                     colorRole: "color"
+                    translateDisplayText: false
                     enabled: !!tasksController.bulkEditor.statusEnabled
                         && !tasksController.bulkBusy
                     currentIndex: root.choiceIndex(

@@ -16,12 +16,15 @@ Rectangle {
     required property string columnsError
     required property int rowCount
     required property real rowHeight
+    required property bool automaticRowHeight
     required property real viewportContentX
     required property real viewportWidth
     required property real selectionColumnWidth
     required property real actionColumnWidth
     required property var columnWidthProvider
+    required property bool autoFitColumns
     property var columnContext: ({})
+    property var tableViewPresetMenu: null
     property int draggedColumn: -1
     property int dropColumn: -1
 
@@ -31,6 +34,7 @@ Rectangle {
     signal columnsEditorRequested(int row, string target)
     signal selectAllRequested(bool selected)
     signal rowHeightRequested(real height)
+    signal autoFitRequested()
 
     function columnWidth(column) {
         return Number(columnWidthProvider(column))
@@ -90,7 +94,9 @@ Rectangle {
         const dataType = String(column.dataType || "").toLowerCase()
         const dateSort = ["date", "datetime", "time"].indexOf(dataType) >= 0
         const sortMode = String(controller.result_sort_mode || "")
+        const groupMode = String(controller.result_group_mode || "")
         const modePrefix = "column:" + String(column.name || "") + ":"
+        const columnGroupMode = "column:" + String(column.name || "")
         const actions = [{
             "title": label + " · Column",
             "header": true,
@@ -98,19 +104,32 @@ Rectangle {
         }]
         if (Boolean(column.sortable)) {
             actions.push({
-                "title": dateSort ? "Order by oldest" : "Order by ascending",
+                "title": dateSort ? "Sort oldest first" : "Sort A to Z",
                 "icon": "sort-ascending",
                 "command": "sort:ascending",
                 "checked": sortMode === modePrefix + "asc"
             })
             actions.push({
-                "title": dateSort ? "Order by newest" : "Order by descending",
+                "title": dateSort ? "Sort newest first" : "Sort Z to A",
                 "icon": "sort-descending",
                 "command": "sort:descending",
                 "checked": sortMode === modePrefix + "desc"
             })
             actions.push({"separator": true})
         }
+        actions.push({
+            "title": "Group by this column",
+            "icon": "group-items",
+            "command": "group",
+            "checked": groupMode === columnGroupMode
+        })
+        actions.push({
+            "title": "Remove grouping",
+            "icon": "ungroup-items",
+            "command": "ungroup",
+            "enabled": groupMode !== "none"
+        })
+        actions.push({"separator": true})
         actions.push({
             "title": "Edit Column Definition",
             "icon": "edit",
@@ -126,36 +145,88 @@ Rectangle {
             "title": "Remove Column",
             "icon": "visibility-off",
             "command": "remove",
-            "enabled": columns.length > 1 && !columnsBusy,
-            "status": columns.length > 1
+            "enabled": columnsController.visibleColumns.length > 1
+                && !columnsBusy,
+            "status": columnsController.visibleColumns.length > 1
                 ? "" : qsTr("At least one column must remain visible")
         })
         actions.push({"separator": true})
         actions.push({"title": "Row height", "header": true})
         actions.push({
+            "title": "Fit to Preview", "command": "row_height:0",
+            "checked": automaticRowHeight
+        })
+        actions.push({
             "title": "Compact rows", "command": "row_height:52",
-            "checked": rowHeight === 52
+            "checked": !automaticRowHeight && rowHeight === 52
         })
         actions.push({
             "title": "Comfortable rows", "command": "row_height:68",
-            "checked": rowHeight === 68
+            "checked": !automaticRowHeight && rowHeight === 68
         })
         actions.push({
             "title": "Large rows", "command": "row_height:84",
-            "checked": rowHeight === 84
+            "checked": !automaticRowHeight && rowHeight === 84
         })
         return actions
     }
 
+    function currentTableViewTitle() {
+        const views = columnsController.tableViews || []
+        for (let index = 0; index < views.length; ++index) {
+            if (
+                Boolean(views[index].current)
+                && String(views[index].view || "") === "table"
+            )
+                return qsTr("Default table")
+            if (Boolean(views[index].current))
+                return String(views[index].title || views[index].view || "")
+        }
+        return qsTr("Default table")
+    }
+
+    function openTableViewPresetMenu(anchor) {
+        if (!tableViewPresetMenu) {
+            const component = Qt.createComponent(
+                Qt.resolvedUrl("TableViewPresetMenu.qml")
+            )
+            if (component.status !== Component.Ready)
+                return
+            tableViewPresetMenu = component.createObject(root, {
+                "theme": root.theme,
+                "columnsController": root.columnsController
+            })
+            tableViewPresetMenu.configureRequested.connect(function() {
+                root.columnsEditorRequested(-1, "definition")
+            })
+            tableViewPresetMenu.closeRequested.connect(function() {
+                const menu = root.tableViewPresetMenu
+                root.tableViewPresetMenu = null
+                Qt.callLater(function() { menu.destroy() })
+            })
+        }
+        tableViewPresetMenu.openBelow(anchor)
+    }
+
     objectName: "searchResultTableHeader"
     radius: theme.itemRadius
-    color: theme.surfaceContainer
+    color: theme.background
+
+    Rectangle {
+        objectName: "tableHeaderSurface"
+        x: root.viewportContentX
+        width: root.viewportWidth
+        height: root.height - 3
+        radius: root.radius
+        color: root.theme.surfaceContainer
+    }
 
     Row {
         anchors.left: parent.left
         anchors.leftMargin: root.selectionColumnWidth
         anchors.top: parent.top
         anchors.bottom: parent.bottom
+        anchors.bottomMargin: 3
 
         Repeater {
             id: headerRepeater
@@ -165,8 +236,11 @@ Rectangle {
                 id: headerCell
                 required property int index
                 required property var modelData
+                readonly property bool grouped:
+                    String(root.controller.result_group_mode || "")
+                        === "column:" + String(modelData.name || "")
                 width: root.columnWidth(modelData)
-                height: root.height
+                height: parent.height
 
                 Rectangle {
                     anchors.fill: parent
@@ -175,26 +249,34 @@ Rectangle {
                     visible: root.draggedColumn === headerCell.index
                 }
                 Label {
+                    objectName: "tableColumnHeaderLabel_"
+                        + String(headerCell.modelData.name || "")
                     anchors.fill: parent
                     leftPadding: headerCell.index === 0 ? 14 : 10
-                    rightPadding: 12
                     verticalAlignment: Text.AlignVCenter
                     text: String(
                         headerCell.modelData.label
                         || headerCell.modelData.name || ""
-                    )
+                    ).toUpperCase()
                     elide: Text.ElideRight
-                    color: root.theme.secondaryText
+                    color: headerCell.grouped
+                        ? root.theme.action : root.theme.secondaryText
                     font.family: root.theme.fontFamily
                     font.pointSize: Controls.Typography.caption
                     font.weight: Font.DemiBold
+                    rightPadding: headerCell.grouped ? 30 : 12
                 }
-                Rectangle {
+                Controls.MaterialIcon {
+                    objectName: "tableColumnGroupIndicator_"
+                        + String(headerCell.modelData.name || "")
                     anchors.right: parent.right
+                    anchors.rightMargin: 14
                     anchors.verticalCenter: parent.verticalCenter
-                    width: 1
-                    height: parent.height - 12
-                    color: root.theme.separator
+                    visible: headerCell.grouped
+                    name: "group-items"
+                    size: 14
+                    color: root.theme.action
+                    Accessible.ignored: true
                 }
                 MouseArea {
                     objectName: "tableColumnContextArea_"
@@ -209,6 +291,8 @@ Rectangle {
                     Accessible.role: Accessible.Button
                     Accessible.name: qsTr("Move column") + " "
                         + String(headerCell.modelData.label || "")
+                    Accessible.description: headerCell.grouped
+                        ? qsTr("Group by this column") : ""
                     property real pressSceneX: 0
                     property bool leftPressed: false
 
@@ -352,18 +436,18 @@ Rectangle {
         x: root.viewportContentX
         anchors.top: parent.top
         anchors.bottom: parent.bottom
+        anchors.bottomMargin: 3
         width: root.selectionColumnWidth
         z: 5
         color: root.theme.surfaceContainer
-        border.width: 1
-        border.color: root.theme.separator
+        radius: root.radius
 
         Controls.CheckBox {
             objectName: "tableSelectionAll"
             anchors.centerIn: parent
             width: 28
             height: 28
-            compact: true
+            leftPadding: 4
             theme: root.theme
             checked: root.rowCount > 0
                 && root.selectedIds.length >= root.rowCount
@@ -378,13 +462,13 @@ Rectangle {
         )
         anchors.top: parent.top
         anchors.bottom: parent.bottom
+        anchors.bottomMargin: 3
         width: root.actionColumnWidth
 
         Rectangle {
             anchors.fill: parent
             color: root.theme.surfaceContainer
-            border.width: 1
-            border.color: root.theme.separator
+            radius: root.radius
         }
         Controls.BusyIndicator {
             anchors.centerIn: parent
@@ -394,19 +478,39 @@ Rectangle {
             running: visible
             uiTheme: root.theme
         }
-        Controls.CompactIconButton {
-            objectName: "configureTableColumnsButton"
+        Row {
             anchors.centerIn: parent
+            spacing: 4
             visible: !root.columnsBusy
-            theme: root.theme
-            iconName: root.columnsError.length > 0
-                ? "error" : "view_column"
-            iconColor: root.columnsError.length > 0
-                ? root.theme.error : root.theme.secondaryText
-            toolTip: root.columnsError.length > 0
-                ? root.columnsError : qsTr("Configure columns")
-            Accessible.name: qsTr("Configure columns")
-            onClicked: root.columnsEditorRequested(-1, "definition")
+
+            Controls.CompactIconButton {
+                objectName: "autoFitTableColumnsButton"
+                theme: root.theme
+                backgroundColor: root.autoFitColumns
+                    ? root.theme.secondaryContainer
+                    : root.theme.surfaceContainerHigh
+                iconName: "fit-width"
+                iconColor: root.autoFitColumns
+                    ? root.theme.action : root.theme.secondaryText
+                toolTip: qsTr("Auto Fit columns")
+                Accessible.name: qsTr("Auto Fit columns")
+                onClicked: root.autoFitRequested()
+            }
+            Controls.CompactIconButton {
+                objectName: "configureTableColumnsButton"
+                theme: root.theme
+                backgroundColor: root.theme.surfaceContainerHigh
+                iconName: root.columnsError.length > 0
+                    ? "error" : "view_column"
+                iconColor: root.columnsError.length > 0
+                    ? root.theme.error : root.theme.secondaryText
+                toolTip: root.columnsError.length > 0
+                    ? root.columnsError
+                    : qsTr("Table view: %1")
+                        .arg(root.currentTableViewTitle())
+                Accessible.name: qsTr("Table views and columns")
+                onClicked: root.openTableViewPresetMenu(this)
+            }
         }
     }
 
@@ -423,6 +527,10 @@ Rectangle {
                 root.columnsController.sort_column(row, false)
             else if (command === "sort:descending")
                 root.columnsController.sort_column(row, true)
+            else if (command === "group")
+                root.columnsController.group_column(row)
+            else if (command === "ungroup")
+                root.controller.set_result_group_mode("none")
             else if (command === "edit_definition")
                 root.columnsEditorRequested(row, "edit_definition")
             else if (command === "columns")

@@ -62,6 +62,22 @@ class ThreadsPoolTest(unittest.TestCase):
         self.assertEqual(["ok"], results)
         self.assertTrue(pool.exit(1000))
 
+    def test_result_data_wraps_a_list_result_as_one_payload(self):
+        pool = ThreadsPool(max_threads=1)
+        pool.start()
+        worker = pool.add_task(lambda: [{"code": "ASSET001"}])
+        results = []
+        errors = []
+        worker.add_result_data("request-1")
+        worker.result.connect(results.append)
+        worker.error.connect(errors.append)
+        worker.start()
+
+        self.assertTrue(self._wait(lambda: bool(results or errors)))
+        self.assertEqual(([{"code": "ASSET001"}], "request-1"), results[0])
+        self.assertEqual([], errors)
+        self.assertTrue(pool.exit(1000))
+
     def test_cancelled_running_worker_suppresses_late_error(self):
         pool = ThreadsPool(max_threads=1)
         pool.start()

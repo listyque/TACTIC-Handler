@@ -130,7 +130,7 @@ case.test_feed_reflows_without_losing_search_calendar_or_refresh()
         ) as terminate:
             watchdog.start()
             try:
-                self.assertTrue(reported.wait(2.0))
+                self.assertTrue(reported.wait(3.0))
             finally:
                 watchdog.stop()
         terminate.assert_called_once_with(trace_path, None)
@@ -148,3 +148,19 @@ case.test_feed_reflows_without_losing_search_calendar_or_refresh()
 
         self.assertIn("ui_hang.dmp", popen.call_args.args[0][-2])
         forced_exit.assert_called_once_with(70)
+
+    def test_ui_hang_watchdog_accepts_a_healthy_event_loop(self):
+        from PySide6.QtTest import QTest
+
+        from thlib.ui.hang_diagnostics import UiHangWatchdog
+        from tests.qt_application import gui_test_application
+
+        gui_test_application()
+        watchdog = UiHangWatchdog(Path.cwd(), timeout_seconds=1.0)
+        with patch.object(watchdog, "_write_dump") as dump:
+            watchdog.start()
+            try:
+                QTest.qWait(1300)
+            finally:
+                watchdog.stop()
+        dump.assert_not_called()

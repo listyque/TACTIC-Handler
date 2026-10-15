@@ -27,25 +27,40 @@ updated time. **Change history** loads TACTIC transactions on demand and preview
 summary and body without changing the current article.
 
 Opening a section shows its complete contents as an expanded outline with labeled, indented
-subsections. **Back to articles** appears only when the viewer or editor replaces navigation.
+subsections. **Back to articles** appears whenever the viewer or editor replaces or hides navigation.
+Hiding navigation on a wide dock switches to the same single-page flow as a narrow dock: **Back to
+articles** opens the full-width tree, and choosing an article returns to the article page.
+If navigation is hidden from the header, resizing the dock does not show it again; only pressing the
+same button changes that choice.
 
 ## Write and format
 
 Article bodies are stored as ordinary Markdown. Use Visual for the formatted editor or Markdown to
 edit the same source directly; switching modes synchronizes one draft rather than keeping a second
 HTML copy. Image size settings remain editable as `{width=… height=… fit=content}` after the image.
+CommonMark normally collapses repeated blank rows between blocks. Knowledge Base preserves extra
+rows as empty paragraphs, so spacing between text, images, quotes, or code remains visible after
+publication.
 Articles left by the former rich-text editor are converted in memory when opened. This does not
 change server data until you explicitly save the article.
 Bold, italic, underline, and strikethrough buttons follow the current selection or caret. Without a
-selection, an active button formats the text you type until you switch it off. Quote and Code block
-apply to the selected paragraphs; select the active menu style again to return to normal text.
-Divider inserts a horizontal rule at the caret.
+selection, an active button formats the text you type until you switch it off. Quote, Pull quote,
+and Code block open an insertion panel and prefill it from the current selection. Choose the code
+language there; Python blocks receive syntax highlighting. Quotes have visible quote marks and a
+distinct surface, while code is shown as one framed block with a language header.
+The dedicated Divider button inserts a horizontal rule and leaves an editable paragraph after it.
+History, text, block, and alignment actions are separated into groups. When space permits, alignment
+and other formatting actions appear directly. On a narrow toolbar, the Visual / Markdown switch
+collapses to icons and remains within the panel. Visual mode uses the same background, typography,
+spacing and formatted surfaces as the saved article; only the caret, selection and editor controls
+are added.
 
 The new-article flow collects title and summary before content. Existing articles keep those fields
 collapsed until requested. Save, Cancel and Delete remain in the editor header; labels compact to
 icons when space is tight. Unsaved edits are checkpointed in the background and remain as local
 drafts in the tree when another page is selected. A forced restart restores the latest checkpoint,
 so navigation or an application failure does not silently discard the article text.
+Moving the caret or changing selection does not leave edit mode.
 
 ## Links
 
@@ -61,6 +76,7 @@ never intercepts or continuously synchronizes ordinary mouse selection.
 
 The paperclip in the formatting row shows or hides the attachment library; the library does not
 reserve editor height while it is closed. Attach files or drop any files onto the staging area.
+Hidden library thumbnails do not load; images inserted into the article remain visible in the text.
 Images appear there immediately as local previews; other file types use an extension tile. Files
 are then uploaded into the article's server-backed library. The same area also accepts an image
 from the clipboard and can clear the pending selection.
@@ -78,12 +94,14 @@ Inserted images start no wider than 560 pixels or the current text area. Select 
 displayed, article, and original pixel sizes.
 
 Enable Stretch to content width to keep the image as wide as the article; leave it disabled to use
-the fixed-width slider and resize handle. The reader loads each image independently, tries the
-lightweight preview before the full attachment, and always keeps images inside the available text
-width.
+the fixed-width slider and resize handle. The handle keeps the resize active even when a fast drag
+crosses the image or editor boundary. The reader loads each image independently, tries the
+original first and uses the lightweight preview only on failure, and always keeps images inside the
+available text width.
 
-The visual editor renders that lightweight preview directly in the rich-text document while keeping
-the permanent original URL in Markdown.
+The visual editor also renders the original over a transparent document placeholder and keeps its
+permanent URL in Markdown. On failure it switches to the lightweight preview without blocking the
+article editor.
 
 Large article images use a bounded viewing texture and stay loaded. Ordinary paragraphs and headings
 use small plain-text layouts; rich formatting is laid out only for the affected block.
@@ -99,9 +117,9 @@ are also listed after the body as file cards.
 Images are inserted at the current text caret. Drag a selected image itself to move it to another
 caret position in the article.
 
-When an attachment preview is available, the visual editor loads it directly when the article
-opens; the full repository image remains the saved link and is not decoded by the window. If an
-image cannot be decoded, the editor reports that image and keeps the rest of the article editable.
+The visual editor and reader prefer reduced attachment previews and keep original URLs in Markdown;
+the permanent file remains the fallback and the target opened from the article. Compact attachment
+cards use the same previews.
 
 Article titles and original upload names never become technical file names. Stored attachments
 combine the stable article code with an opaque attachment identity, while the library keeps showing

@@ -25,9 +25,24 @@ NATIVE = Path(__file__).resolve().parents[1] / '.cache/tactic-source/src/pyasm/s
 
 class SecurityMatrixTests(unittest.TestCase):
     def setUp(self):
-        self.editor = SecurityRulesEditor(SimpleNamespace(can_administer=True))
+        self.editor = SecurityRulesEditor(SimpleNamespace(
+            can_administer=True, can_manage_tools=True))
         self.addCleanup(self.editor.shutdown)
         seed_security(self.editor)
+
+    def test_save_status_is_cleared_when_the_document_changes(self):
+        self.editor._saved()
+        self.assertEqual(self.editor.message, 'Access rules saved on server')
+        self.editor.matrix.set_allowed(1, 1, True)
+        self.assertEqual(self.editor.message, '')
+
+    def test_inheriting_restores_the_original_xml_and_clears_format_only_dirty(self):
+        original = self.editor.document['groups']['G1']['xml']
+        self.editor.matrix.set_allowed(1, 1, True)
+        self.assertTrue(self.editor.dirty)
+        self.editor.matrix.inherit(1, 1)
+        self.assertEqual(self.editor.document['groups']['G1']['xml'], original)
+        self.assertFalse(self.editor.dirty)
 
     def test_duplicate_rules_are_replaced_once_and_extensions_survive(self):
         editor = self.editor

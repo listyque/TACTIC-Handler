@@ -90,6 +90,9 @@ class ProcessRulesApiTests(unittest.TestCase):
         exec(compile(classes, str(NATIVE_SOURCE), 'exec'), namespace)
         callbacks = SimpleNamespace(**{name: namespace[name] for name in names})
         self.enterContext(patch.dict(sys.modules, {'tactic.ui.tools': SimpleNamespace(trigger_wdg=callbacks)}))
+        self.enterContext(patch.dict(process_rules_request.__globals__, {
+            'server': SimpleNamespace(get_login=lambda: 'operator'),
+        }))
 
     def load(self, **kwargs):
         return json.loads(process_rules_request('load', 'demo', 'PR1', **kwargs))
@@ -179,6 +182,33 @@ class ProcessRulesApiTests(unittest.TestCase):
             self.save(loaded)
         self.assertEqual(self.fixture.calls, [])
 
+    def test_existing_stale_targets_and_outputs_survive_unrelated_rule_edits(self):
+        loaded = self.load()
+        loaded['document']['rules'].extend([
+            self.rule('task_status', targets=[{'process': 'review', 'status': 'Done'}]),
+            self.rule('task_create', outputs=['review']),
+        ])
+        self.save(loaded)
+        self.tables['sthpw/pipeline'][1]['pipeline'] = '<pipeline><process name="Work"/></pipeline>'
+        self.tables['sthpw/pipeline'][0]['pipeline'] = (
+            '<pipeline><process name="model"/><process name="review"/></pipeline>')
+        loaded = self.load()
+        for rule in loaded['document']['rules']:
+            rule['title'] = 'Renamed rule'
+        saved = self.save(loaded)
+        self.assertEqual(saved['document']['rules'][0]['targets'],
+                         [{'process': 'review', 'status': 'Done'}])
+        self.assertEqual(saved['document']['rules'][1]['outputs'], ['review'])
+        for index, field, value in (
+                (0, 'targets', [{'process': 'review', 'status': 'Invented'}]),
+                (1, 'outputs', ['invented'])):
+            with self.subTest(field=field):
+                edited = copy.deepcopy(saved)
+                edited['document']['rules'][index][field] = value
+                self.fixture.calls.clear()
+                with self.assertRaises(ValueError):
+                    self.save(edited)
+                self.assertEqual(self.fixture.calls, [])
     def test_generated_action_trigger_has_one_owner(self):
         self.tables['config/trigger'].append(dict(code='native', process='PR1', event='process|action', data={}))
         loaded = self.load()

@@ -9,6 +9,7 @@ Basic.Dialog {
 
     required property var theme
     property bool translateTitle: true
+    property bool draggable: false
 
     modal: false
     spacing: 12
@@ -28,6 +29,21 @@ Basic.Dialog {
         implicitHeight: control.title.length > 0 ? 62 : 0
         visible: implicitHeight > 0
         clip: true
+        DragHandler {
+            enabled: control.draggable
+            target: null
+            property point startPointer
+            property point startPosition
+            onActiveChanged: if (active) {
+                startPointer=control.parent.mapFromItem(null,centroid.scenePosition.x,centroid.scenePosition.y)
+                startPosition=Qt.point(control.x,control.y)
+            }
+            onCentroidChanged: if (active) {
+                const point=control.parent.mapFromItem(null,centroid.scenePosition.x,centroid.scenePosition.y)
+                control.x=Math.max(0,Math.min(control.parent.width-control.width,startPosition.x+point.x-startPointer.x))
+                control.y=Math.max(0,Math.min(control.parent.height-control.height,startPosition.y+point.y-startPointer.y))
+            }
+        }
 
         Rectangle {
             anchors.left: parent.left

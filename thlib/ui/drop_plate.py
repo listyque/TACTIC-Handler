@@ -8,6 +8,7 @@ from PySide6.QtCore import QObject, Property, QUrl, Signal, Slot, Qt
 from PySide6.QtGui import QGuiApplication
 
 from thlib.environment import env_read_config, env_write_config
+from thlib.checkin_operation import apply_checkin_type_options
 from .workspace_models.records import RecordListModel
 
 
@@ -604,6 +605,7 @@ class DropPlateController(QObject):
             and self._objects.get(record.get("groupId")) is not None
         ]
         added = 0
+        prepared = []
         queued_groups = set()
         group_checkin = (
             self._group_checkin
@@ -626,6 +628,8 @@ class DropPlateController(QObject):
                 grouped_records.setdefault(key, []).append(record)
             for (process, context), group_records in grouped_records.items():
                 payload = dict(base_payload)
+                payload["groupCheckin"] = True
+                apply_checkin_type_options(payload)
                 payload["process"] = process
                 payload["context"] = context
                 payload["files"] = []
@@ -638,7 +642,7 @@ class DropPlateController(QObject):
                     payload["files"].extend(files)
                     payload["filesDict"].extend(files_dict)
                     payload["dropPlateGroupIds"].append(record["groupId"])
-                self._commit_queue.add_prepared(payload, title)
+                prepared.append((payload, title))
                 queued_groups.update(
                     record["groupId"] for record in group_records
                 )
@@ -671,10 +675,11 @@ class DropPlateController(QObject):
                 file_object
             )
             payload["dropPlateGroupIds"] = [record["groupId"]]
-            self._commit_queue.add_prepared(payload, title)
+            prepared.append((payload, title))
             self._objects.pop(record["groupId"], None)
             added += 1
         if added:
+            self._commit_queue.add_prepared_many(prepared)
             self.model.replace(records)
             self._application.window_model.show_window("commit_queue")
             self._error = ""

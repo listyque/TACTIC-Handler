@@ -71,15 +71,22 @@ def _write_json_atomic(full_path, obj):
         raise
 
 
-def _config_base_path(long_abs_path):
+def _config_base_path(long_abs_path, scope='user'):
     root = os.path.abspath(env_mode.get_current_path())
     if not long_abs_path:
+        if scope != 'user':
+            raise ValueError('Installation scope requires long_abs_path=True')
         return os.path.join(root, 'settings')
-    components = (
-        env_mode.node,
-        env_server.get_cur_srv_preset(),
-        env_mode.get_mode(),
-    )
+    if scope == 'installation':
+        components = [env_mode.node]
+    elif scope == 'user':
+        components = [env_mode.node, env_server.get_cur_srv_preset()]
+        user = env_server.get_user()
+        if user:
+            components.append(user)
+        components.append(env_mode.get_mode())
+    else:
+        raise ValueError('Unknown config scope: {!r}'.format(scope))
     normalized = []
     for component in components:
         value = str(component or '')
@@ -144,7 +151,8 @@ def gf():
 
 def env_write_config(
         obj=None, filename='settings', unique_id='', sub_id=None,
-        update_file=False, long_abs_path=False, remove=False):
+        update_file=False, long_abs_path=False, remove=False,
+        scope='user'):
     """
     Converts python objects to json, then writes it to disk.
     Supported writing formats: 'json', 'ini'. Format can be set via global var CFG_FORMAT.
@@ -156,13 +164,14 @@ def env_write_config(
     :param sub_id: unique id inside dump. 'abc'
     :param update_file: updates json instead of rewriting
     :param long_abs_path: if set to true path for saving will match current environment paths
+    :param scope: 'user' for login-scoped data, 'installation' for data shared across logins
     :param remove: remove the exact JSON file, or every JSON document below
         the exact ``unique_id`` directory when ``filename`` is empty
     """
 
     filename = str(filename or '').replace('/', '_').replace('\\', '_')
 
-    abs_path = _config_base_path(long_abs_path)
+    abs_path = _config_base_path(long_abs_path, scope)
 
     if CFG_FORMAT == u'json':
         full_abs_path = _config_directory(abs_path, unique_id)
@@ -249,11 +258,12 @@ def env_write_config(
         settings.endGroup()
 
 
-def env_read_config(filename='settings', unique_id='', sub_id=None, long_abs_path=False):
+def env_read_config(filename='settings', unique_id='', sub_id=None,
+                    long_abs_path=False, scope='user'):
 
     filename = filename.replace('/', '_').replace('\\', '_')
 
-    abs_path = _config_base_path(long_abs_path)
+    abs_path = _config_base_path(long_abs_path, scope)
 
     if CFG_FORMAT == u'json':
         full_path = os.path.join(
@@ -319,6 +329,8 @@ def _file_timestamp(value):
         text = str(value).strip()
         normalized = text[:-1] + '+00:00' if text.endswith(('Z', 'z')) else text
         parsed = datetime.datetime.fromisoformat(normalized)
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=datetime.timezone.utc)
     return parsed.timestamp()
 
 
@@ -738,8 +750,12 @@ class Mode(object):
 
     def set_online(self):
         self.status = True
-        # if we online, lets get defaults, from server
-        env_tactic.get_base_dirs()
+        server_web_base_dir = env_tactic.query_base_dirs().get('web_base_dir')
+        base_dirs = env_tactic.get_base_dirs()
+        if (server_web_base_dir is not None
+                and base_dirs['web_base_dir'][0] != server_web_base_dir):
+            base_dirs['web_base_dir'][0] = server_web_base_dir
+            env_tactic.save_base_dirs()
         env_tactic.get_custom_dirs()
 
     def set_offline(self):
@@ -770,6 +786,8 @@ class Env(object):
             'proxy': {'login': '', 'pass': '', 'server': '', 'enabled': False},
             'timeout': 120,
             'config_format': 'json',
+            'rpc_transport': 'xmlrpc',
+            'team_local_repository': False,
         }
 
     def __init__(self):
@@ -794,6 +812,9 @@ class Env(object):
 
     def get_default_preset(self):
         return self.default_preset.copy()
+
+    def is_team_local_repository(self):
+        return bool((self.defaults or {}).get('team_local_repository'))
 
     def save_default_preset(self):
         self.defaults = self.get_default_preset()
@@ -910,6 +931,17 @@ class Env(object):
     def set_server(self, server_name):
         self.server = server_name
 
+    def get_rpc_transport(self):
+        value = (self.defaults or {}).get('rpc_transport', 'xmlrpc')
+        if value not in ('xmlrpc', 'json'):
+            raise ValueError('Select XML-RPC or JSON (TACTIC Stream)')
+        return value
+
+    def set_rpc_transport(self, value):
+        if value not in ('xmlrpc', 'json'):
+            raise ValueError('Select XML-RPC or JSON (TACTIC Stream)')
+        self.defaults['rpc_transport'] = value
+
     def save_server_presets_defaults(self):
         unique_id = '{0}/environment_config'.format(env_mode.node)
         env_write_config(self.server_presets_defaults, filename='presets_conf', unique_id=unique_id)
@@ -986,6 +1018,9 @@ class Tactic(object):
     def query_base_dirs(self):
         import thlib.tactic_classes as tc
         default_base_dirs = tc.server_start().get_base_dirs()
+        asset_dirs = default_base_dirs.get('asset_base_dir')
+        if isinstance(asset_dirs, dict):
+            default_base_dirs['asset_base_dir'] = asset_dirs.get('default', '')
         self.default_base_dirs = default_base_dirs
 
         unique_id = '{0}/environment_config/server_presets'.format(env_mode.node)
@@ -1031,8 +1066,8 @@ class Tactic(object):
                         'linux_sandbox_dir': [base_dirs['linux_sandbox_dir'], 'Sandbox', (128, 64, 64), 'sandbox', False],
                         'win32_client_repo_dir': [base_dirs['win32_client_repo_dir'], 'Client', (31, 143, 0), 'client', False],
                         'linux_client_repo_dir': [base_dirs['linux_client_repo_dir'], 'Client', (31, 143, 0), 'client', False],
-                        'win32_local_repo_dir': [base_dirs[win32_local_dir], 'Local', (255, 140, 40), 'local', True],
-                        'linux_local_repo_dir': [base_dirs[linux_local_dir], 'Local', (255, 140, 40), 'local', True],
+                        'win32_local_repo_dir': [base_dirs[win32_local_dir], 'Local', (255, 140, 40), 'local', False],
+                        'linux_local_repo_dir': [base_dirs[linux_local_dir], 'Local', (255, 140, 40), 'local', False],
                         'win32_client_handoff_dir': [base_dirs['win32_client_handoff_dir'], 'Handoff', '', 'client_handoff', False],
                         'linux_client_handoff_dir': [base_dirs['linux_client_handoff_dir'], 'Handoff', '', 'client_handoff', False],
                         'win32_server_handoff_dir': [base_dirs['win32_server_handoff_dir'], 'Handoff', '', 'server_handoff', False],
@@ -1325,11 +1360,33 @@ class Controls(object):
         env_write_config(project, 'project', unique_id='ui_conf', long_abs_path=True)
 
     def get_checkin(self):
-        if self.checkin:
-            return self.checkin
-        else:
+        if not self.checkin:
             self.checkin = env_read_config(filename='checkin', unique_id='ui_conf', long_abs_path=True)
+        if not env_server.is_team_local_repository():
             return self.checkin
+
+        from copy import deepcopy
+
+        config = deepcopy(self.checkin or {})
+        for group, values in {
+            'QCheckBox': {'getPreviewsThroughHttpCheckbox': 0},
+            'QComboBox': {'checkinMethodComboBox': 1, 'checkoutMethodComboBox': 0},
+        }.items():
+            bucket = config.setdefault(group, {'obj_name': [], 'value': []})
+            names = list(bucket.get('obj_name') or [])
+            data = list(bucket.get('value') or [])
+            for name, value in values.items():
+                if name in names:
+                    index = names.index(name)
+                    while len(data) <= index:
+                        data.append(None)
+                    data[index] = value
+                else:
+                    names.append(name)
+                    data.append(value)
+            bucket['obj_name'] = names
+            bucket['value'] = data
+        return config
 
     def set_checkin(self, checkin):
 

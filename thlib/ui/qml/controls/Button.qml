@@ -11,6 +11,7 @@ Basic.Button {
     property bool destructive: false
     property bool tonal: false
     property bool compact: false
+    property bool segmented: false
     property string toolTip: ""
     property bool lastActivationWasTouch: false
     property double lastActivationAt: -1000
@@ -21,16 +22,17 @@ Basic.Button {
     implicitHeight: effectiveTheme.controlHeight
     leftPadding: compact ? 0 : (icon.name.length ? 12 : 16)
     rightPadding: compact ? 0 : 16
-    spacing: compact ? 0 : 7
+    spacing: segmented ? 6 : compact ? 0 : 7
     font.family: effectiveTheme.fontFamily
     font.pointSize: Typography.body
     font.weight: Font.DemiBold
-    icon.width: 16
-    icon.height: 16
+    icon.width: segmented ? 15 : 16
+    icon.height: segmented ? 15 : 16
     icon.color: contentColor
 
     readonly property color contentColor: !enabled
         ? effectiveTheme.disabledText
+        : segmented ? checked ? effectiveTheme.selectedText : effectiveTheme.secondaryText
         : destructive && highlighted ? effectiveTheme.onError
         : destructive ? effectiveTheme.error
         : highlighted ? effectiveTheme.selectedText
@@ -51,7 +53,7 @@ Basic.Button {
             Controls.MaterialIcon {
                 visible: control.icon.name.length > 0
                 name: control.icon.name
-                size: control.compact ? 18 : 16
+                size: control.segmented ? 15 : control.compact ? 18 : 16
                 color: control.contentColor
                 anchors.verticalCenter: parent.verticalCenter
             }
@@ -66,8 +68,14 @@ Basic.Button {
     }
 
     background: Rectangle {
-        radius: Math.min(height / 2, control.effectiveTheme.buttonRadius)
-        color: !control.enabled
+        radius: control.segmented ? Math.max(3, control.effectiveTheme.itemRadius - 2)
+            : Math.min(height / 2, control.effectiveTheme.buttonRadius)
+        color: control.segmented
+            ? !control.enabled ? "transparent"
+                : control.down ? control.effectiveTheme.surfaceContainerHighest
+                : control.checked ? control.effectiveTheme.selected
+                : control.hovered ? control.effectiveTheme.rowHover : "transparent"
+            : !control.enabled
             ? control.effectiveTheme.surfaceContainerHigh
             : control.down
                 ? control.destructive && control.highlighted
@@ -83,7 +91,7 @@ Basic.Button {
             : control.hovered ? control.effectiveTheme.rowHover
             : control.tonal ? control.effectiveTheme.secondaryContainer
             : control.effectiveTheme.surfaceContainerHigh
-        border.width: control.highlighted || control.flat ? 0 : 1
+        border.width: control.segmented || control.highlighted || control.flat ? 0 : 1
         border.color: control.destructive
             ? control.effectiveTheme.error
             : control.effectiveTheme.outlineVariant

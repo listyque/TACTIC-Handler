@@ -11,13 +11,17 @@ Rectangle {
     property color accent: theme.action
     property bool showDot: true
     property bool showCount: true
+    property bool clickable: false
+    signal clicked()
 
     implicitWidth: content.implicitWidth + 20
     implicitHeight: 30
     radius: height / 2
-    color: theme.surfaceContainerHigh
+    color: clickable && chipAction.hovered
+        ? theme.rowHover : theme.surfaceContainerHigh
     border.width: 1
-    border.color: theme.outlineVariant
+    border.color: clickable && chipAction.activeFocus
+        ? theme.action : theme.outlineVariant
 
     Row {
         id: content
@@ -49,5 +53,16 @@ Rectangle {
             font.pointSize: Controls.Typography.label
             font.weight: Font.DemiBold
         }
+    }
+
+    Controls.PopupAction {
+        id: chipAction
+        objectName: "summaryChipAction"
+        anchors.fill: parent
+        visible: root.clickable
+        background: Item {}
+        contentItem: Item {}
+        Accessible.name: root.label + " " + root.count
+        onClicked: root.clicked()
     }
 }

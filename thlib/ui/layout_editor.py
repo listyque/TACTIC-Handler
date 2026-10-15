@@ -1,0 +1,427 @@
+"""Native layout authoring; Frame owns the UI and all structural XML edits."""
+from __future__ import annotations
+
+import copy
+import re
+from urllib.parse import quote, urlencode, urlsplit
+from xml.dom import minidom
+
+from PySide6.QtCore import QObject, Property, Qt, Signal, Slot, QUrl
+from PySide6.QtGui import QDesktopServices
+
+from .admin.layout_editor_api import layout_editor_request
+from .server_address import normalize_tactic_server_url, is_valid_tactic_server_url
+from .source_editor import SourceEditorService
+
+
+def layout_tree(source):
+    if not isinstance(source, str) or not source.strip():
+        raise ValueError('Select a SObject layout configuration')
+    if len(source.encode('utf8')) > 512 * 1024:
+        raise ValueError('Invalid configuration XML')
+    if re.search(r'<!DOCTYPE|<!ENTITY', source, re.I):
+        raise ValueError('Document types and XML entities are not supported')
+    document = minidom.parseString(source)
+    if document.documentElement.tagName != 'config':
+        raise ValueError('Invalid configuration XML')
+
+    def convert(node):
+        if node.nodeType == 1:
+            return dict(type=1, name=node.tagName,
+                        attributes=[[name, node.getAttribute(name)] for name in node.attributes.keys()],
+                        children=[convert(child) for child in node.childNodes])
+        if node.nodeType == 9:
+            return dict(type=9, children=[convert(child) for child in node.childNodes])
+        if node.nodeType in (3, 4, 7, 8):
+            value = dict(type=node.nodeType, text=node.data)
+            if node.nodeType == 7:
+                value['name'] = node.target
+            return value
+        raise ValueError('Unsupported XML node')
+
+    try:
+        return convert(document)
+    finally:
+        document.unlink()
+
+
+class LayoutEditorHost(QObject):
+    stateChanged = Signal()
+    committed = Signal()
+
+    def __init__(self, application, parent=None, *, previews=None):
+        super().__init__(parent)
+        self._application = application
+        self._previews = previews
+        self._source_editor = SourceEditorService(self)
+        self._project = ''
+        self._generation = 0
+        self._worker = self._callbacks = None
+        self._closed = False
+        self._reset_state()
+        if previews is not None:
+            previews.previewReady.connect(self._preview_ready)
+            previews.previewsReady.connect(self._previews_ready)
+
+    def _reset_state(self):
+        self._loaded = False
+        self._loaded_scope = None
+        self._types = []
+        self._search_type = self._preferred_type = ''
+        self._view = 'continuous_example'
+        self._configuration = None
+        self._source = ''
+        self._xml = self._baseline = ''
+        self._tree = None
+        self._parse_error = ''
+        self._templates = []
+        self._sample_items = []
+        self._sample_error = ''
+        self._preview = None
+        self._checked = self._diff = self._error = self._message = ''
+        self._uncertain = self._presentation_dirty = self._project_unavailable = False
+        self._pending_template = None
+
+    @Property(QObject, constant=True)
+    def sourceEditor(self):
+        return self._source_editor
+
+    @Property(bool, notify=stateChanged)
+    def dirty(self):
+        return self._xml != self._baseline or self._presentation_dirty or self._uncertain
+
+    @Property(bool, notify=stateChanged)
+    def busy(self):
+        return self._worker is not None
+
+    @Property(bool, notify=stateChanged)
+    def projectUnavailable(self):
+        return self._project_unavailable
+
+    @Property(bool, notify=stateChanged)
+    def canWrite(self):
+        return bool(self._application.can_manage_tools and self._configuration and self._loaded_scope == (self._project, self._search_type, self._view))
+
+    @Property(bool, notify=stateChanged)
+    def writeUncertain(self):
+        return self._uncertain
+
+    @Property('QVariantMap', notify=stateChanged)
+    def model(self):
+        from thlib.environment import env_server
+        base = normalize_tactic_server_url(env_server.get_server())
+        parts = urlsplit(base)
+        return dict(project=self._project, searchTypes=copy.deepcopy(self._types),
+                    searchType=self._search_type, view=self._view, configuration=copy.deepcopy(self._configuration),
+                    source=self._source, xml=self._xml, tree=copy.deepcopy(self._tree), parseError=self._parse_error,
+                    templates=copy.deepcopy(self._templates), sampleItems=copy.deepcopy(self._sample_items),
+                    sampleError=self._sample_error, preview=copy.deepcopy(self._preview), checked=self._checked,
+                    diff=self._diff, error=self._error, message=self._message, busy=self.busy,
+                    dirty=self.dirty, uncertain=self._uncertain, canWrite=self.canWrite,
+                    canLoad=bool(self._application.can_manage_tools and self._project),
+                    assetBase=parts.scheme + '://' + parts.netloc if parts.netloc else '', externalView=True)
+
+    def activate(self, project):
+        if project != self._project:
+            self.reset(project)
+        if not self._loaded and not self.busy and project:
+            self.reload()
+
+    def reset(self, project=''):
+        self._generation += 1
+        self._release(cancel=True)
+        self._project = project
+        self._reset_state()
+        if project and self._application.can_manage_tools:
+            from thlib.environment import env_inst
+            selected = env_inst.get_project_by_code(project) if env_inst.projects else None
+            stypes = getattr(selected, 'stypes', None) or {}
+            for stype in (stypes or {}).values():
+                info = stype.get_info() or {}
+                if (info.get('__record_read__') or {}).get('available') is not False:
+                    self._types.append(dict(value=stype.get_code(), label=info.get('title') or stype.get_code()))
+            self._types.sort(key=lambda row: row['label'].lower())
+            tab = self._application._current_tab()
+            self._preferred_type = tab.stype.get_code() if tab and tab.stype else ''
+            self._select_type()
+        self.stateChanged.emit()
+
+    def _select_type(self):
+        self._search_type = self._preferred_type if self._preferred_type in {row['value'] for row in self._types} else (self._types[0]['value'] if self._types else '')
+
+    def _release(self, cancel=False):
+        if self._worker:
+            if self._callbacks:
+                self._worker.result.disconnect(self._callbacks[0])
+                self._worker.error.disconnect(self._callbacks[1])
+            if cancel:
+                self._worker.cancel()
+        self._worker = self._callbacks = None
+
+    def _parse(self):
+        self._tree = None
+        self._parse_error = ''
+        try:
+            self._tree = layout_tree(self._xml)
+        except Exception as error:
+            self._parse_error = str(error)
+
+    @Slot(str)
+    def set_xml(self, text):
+        if self.busy or self._uncertain or not self._configuration or not self._application.can_manage_tools or self._loaded_scope != (self._project, self._search_type, self._view) or text == self._xml:
+            return
+        self._xml = text
+        self._checked = self._diff = self._error = self._message = ''
+        self._preview = None
+        self._parse()
+        self.stateChanged.emit()
+
+    @Slot(str)
+    def initialize_xml(self, text):
+        if self._configuration and not self.busy and not self._xml and not self._baseline and self._loaded_scope == (self._project, self._search_type, self._view):
+            self._xml = self._baseline = text
+            self._parse()
+            self.stateChanged.emit()
+
+    @Slot(bool)
+    def set_presentation_dirty(self, pending):
+        if self._presentation_dirty != bool(pending):
+            self._presentation_dirty = bool(pending)
+            self.stateChanged.emit()
+
+    def _select_source(self, source):
+        self._source = source
+        configuration = self._configuration or {}
+        selected = next((row['xml'] for row in configuration.get('sources', []) if row['id'] == source), None)
+        inherited = next((row['xml'] for row in configuration.get('layers', []) if row.get('view') == self._view and 'sobject-layout' in row.get('xml', '')), None)
+        # A generated blank override is supplied by the common reducer when needed.
+        self._xml = self._baseline = selected or inherited or ''
+        self._checked = self._diff = self._error = self._message = ''
+        self._preview = None
+        self._presentation_dirty = False
+        self._parse()
+
+    @Slot('QVariant')
+    def select_source(self, source):
+        if not self.busy and not self.dirty and self._configuration:
+            if source != '':
+                # QML QVariant numbers arrive as doubles; retain the server's integer id.
+                selected = next((row for row in self._configuration.get('sources', [])
+                                 if row['id'] == source and not isinstance(source, bool)), None)
+                if selected is None:
+                    return
+                source = selected['id']
+            self._select_source(source)
+            self.stateChanged.emit()
+
+    @Slot(str, str)
+    def set_context(self, field, value):
+        if self.busy or self.dirty or field not in ('searchType', 'view'):
+            return
+        if field == 'searchType':
+            if value not in {row['value'] for row in self._types}:
+                return
+            self._search_type = value
+        elif not re.fullmatch(r'[A-Za-z_][\w.@-]{0,127}', value):
+            return
+        else:
+            self._view = value
+        self._pending_template = None
+        self._loaded = False
+        self.reload()
+
+    @Slot(str, str)
+    def new_view(self, view, xml):
+        if self.busy or self.dirty or not self._configuration or not re.fullmatch(r'[A-Za-z_][\w.@-]{0,127}', view):
+            return
+        self._view = view
+        self._loaded = False
+        self._pending_template = (self._search_type, view, xml)
+        self.reload()
+
+    @Slot()
+    @Slot(bool)
+    def reload(self, force=False):
+        if self.busy or self.dirty and not force:
+            return
+        self._request('read' if self._search_type else 'catalog')
+
+    @Slot()
+    def discard(self):
+        if self.busy:
+            return
+        if self._uncertain:
+            self.reload(True)
+        else:
+            self._presentation_dirty = False
+            self._select_source(self._source)
+            self.stateChanged.emit()
+
+    @Slot()
+    def check(self):
+        if not self.busy and not self._uncertain and self._configuration and self._loaded_scope == (self._project, self._search_type, self._view) and not self._presentation_dirty and not self._parse_error:
+            self._request('preview')
+
+    @Slot()
+    def save(self):
+        if not self.busy and not self._uncertain and self._configuration and self._loaded_scope == (self._project, self._search_type, self._view) and self.dirty and not self._presentation_dirty and self._checked == self._xml:
+            self._request('save')
+
+    def _request(self, action):
+        if self._closed or self.busy or not self._application.can_manage_tools or not self._project or (action != 'catalog' and not self._search_type):
+            return
+        from thlib import tactic_classes as tc
+        from thlib.environment import env_inst
+        try:
+            server = tc.server_start(project=self._project)
+        except Exception as error:
+            self._error = str(error)
+            self.stateChanged.emit()
+            return
+        self._generation += 1
+        generation, project, search_type, view, xml = self._generation, self._project, self._search_type, self._view, self._xml
+        procedure = tc.tq.query_search_types_extended if action == 'catalog' else layout_editor_request
+        parameters = dict(project_code=project) if action == 'catalog' else dict(action=action, project_code=project, search_type=search_type, view=view)
+        if action not in ('read', 'catalog'):
+            parameters.update(source_id=self._source if self._source != '' else None, xml=xml, revision=self._configuration['revision'])
+        self._error = self._message = ''
+        self._project_unavailable = False
+        if action == 'read':
+            self._loaded = False
+            self._configuration = None
+
+        def operation():
+            if generation != self._generation or self._closed:
+                raise RuntimeError('Layout request was cancelled')
+            execute = tc.execute_procedure_serverside if action == 'save' else tc._execute_read_only_procedure_serverside
+            result = execute(procedure, parameters, project=project, server=server)
+            if action == 'save':
+                from thlib import server_cache
+                server_cache.invalidate_domains(('reference', 'search'), project)
+            return result
+
+        if env_inst.server_pool.is_stopped:
+            env_inst.server_pool.start()
+        worker = env_inst.server_pool.add_task(operation)
+        if worker is None:
+            self._error = self.tr('Server worker pool is unavailable')
+            self.stateChanged.emit()
+            return
+        self._worker = worker
+
+        def loaded(result):
+            if generation != self._generation or self._closed:
+                return
+            self._release()
+            try:
+                if action == 'catalog':
+                    records = result['stypes']
+                    if not isinstance(records, list) or any(not isinstance(row, dict) or not isinstance(row.get('code'), str) or not row['code'] or not isinstance(row.get('__record_read__') or {}, dict) for row in records):
+                        raise ValueError('Invalid Search Type catalog response')
+                    options = [dict(value=row['code'], label=str(row.get('title') or row['code'])) for row in records if (row.get('__record_read__') or {}).get('available') is not False]
+                elif action == 'preview':
+                    if not isinstance(result['interface'], dict):
+                        raise ValueError('Invalid layout preview response')
+                else:
+                    configuration = result['configuration'] if action == 'read' else result
+                    if not isinstance(configuration.get('revision'), str) or not isinstance(configuration.get('sources'), list):
+                        raise ValueError('Invalid layout configuration response')
+                    templates = [dict(row, tree=layout_tree(row['xml'])) for row in configuration.get('layout_templates', [])]
+            except Exception as error:
+                self._uncertain = action == 'save'
+                self._error = 'The save result is unknown. Refresh before trying again.' if self._uncertain else str(error)
+                self.stateChanged.emit()
+                return
+            if action == 'catalog':
+                self._types = sorted(options, key=lambda row: row['label'].lower())
+                self._select_type()
+                self._loaded = not bool(self._search_type)
+                self.stateChanged.emit()
+                if self._search_type:
+                    self.reload()
+                return
+            if action == 'preview':
+                self._preview, self._checked, self._diff = result['interface'], xml, result.get('diff', '')
+            else:
+                self._configuration = configuration
+                self._loaded_scope = (project, search_type, view)
+                self._templates = templates
+                self._uncertain = False
+                self._loaded = True
+                self._select_source(configuration.get('sources', [{}])[0].get('id', '') if configuration.get('sources') else '')
+                if action == 'read':
+                    self._sample_items = copy.deepcopy(result.get('sampleItems', []))
+                    self._sample_error = str(result.get('sampleError') or '')
+                    for item in self._sample_items:
+                        if isinstance(item.get('preview'), dict):
+                            item['preview'].pop('local', None)
+                    if self._pending_template and self._pending_template[:2] == (search_type, view):
+                        self._xml = self._pending_template[2]
+                        self._baseline = ''
+                        self._source = ''
+                        self._pending_template = None
+                        self._parse()
+                    self._resolve_previews()
+                else:
+                    self._message = 'Layout saved'
+                    self.committed.emit()
+            self.stateChanged.emit()
+
+        def failed(error):
+            if generation != self._generation or self._closed:
+                return
+            self._release()
+            payload, _worker = error
+            self._uncertain = action == 'save'
+            exception = payload.get('exception') or error
+            self._error = 'The save result is unknown. Refresh before trying again.' if self._uncertain else str(exception)
+            lowered = str(exception).lower()
+            self._project_unavailable = 'database [' in lowered and '] does not exist' in lowered
+            self.stateChanged.emit()
+            if self._application.debug_log:
+                self._application.debug_log.raise_error(exception, stacktrace=payload.get('stacktrace', ''), group='administration/layouts')
+
+        self._callbacks = loaded, failed
+        worker.result.connect(loaded, Qt.QueuedConnection)
+        worker.error.connect(failed, Qt.QueuedConnection)
+        self.stateChanged.emit()
+        try:
+            worker.start()
+        except Exception as error:
+            self._release()
+            self._error = str(error)
+            self.stateChanged.emit()
+
+    def _resolve_previews(self):
+        if self._previews is None or self._closed:
+            return
+        for item in self._sample_items:
+            key = (item.get('record') or {}).get('__search_key__')
+            if not key:
+                continue
+            rows = self._previews.records_for_text('skey://' + key)
+            if rows and rows[0].get('previewUrl'):
+                item['preview'] = dict(item.get('preview') or {}, image=rows[0]['previewUrl'], local=True)
+
+    def _preview_ready(self, _key, _record):
+        self._resolve_previews()
+        self.stateChanged.emit()
+
+    def _previews_ready(self, _records):
+        self._resolve_previews()
+        self.stateChanged.emit()
+
+    @Slot()
+    def open_view(self):
+        if self.dirty or self.busy or not self._configuration or not self._configuration.get('resolved', {}).get('configured'):
+            return
+        from thlib.environment import env_server
+        base = normalize_tactic_server_url(env_server.get_server())
+        if is_valid_tactic_server_url(base):
+            QDesktopServices.openUrl(QUrl(base + '/projects/' + quote(self._project, safe='') + '/?' + urlencode(dict(search_type=self._search_type, view=self._view))))
+
+    def shutdown(self):
+        self._closed = True
+        self._generation += 1
+        self._release(cancel=True)
+        self._reset_state()

@@ -180,14 +180,18 @@ def frame(window, action=lambda: None):
     guard.timeout.connect(loop.quit)
     elapsed = []
     started = time.perf_counter()
+    action_finished = False
 
     def presented():
+        if not action_finished:
+            return
         elapsed.append((time.perf_counter() - started) * 1000)
         loop.quit()
 
     window.frameSwapped.connect(presented)
     action()
     dispatch = (time.perf_counter() - started) * 1000
+    action_finished = True
     window.update()
     guard.start(3000)
     loop.exec()

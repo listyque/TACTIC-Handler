@@ -132,6 +132,7 @@ Item {
 
         Rectangle {
             Layout.fillWidth: true
+            Layout.minimumWidth: 0
             Layout.fillHeight: true
             radius: 12
             color: root.theme.workspace
@@ -314,24 +315,87 @@ Item {
                     font.pointSize: Controls.Typography.body
                 }
                 Item { Layout.fillHeight: true }
-                RowLayout {
-                    Layout.alignment: Qt.AlignRight
-                    spacing: 8
-                    Controls.Button {
-                        theme: root.theme
-                        text: qsTr("CANCEL")
-                        enabled: repositoryEditorController.dirty
-                        onClicked: repositoryEditorController.cancel()
-                    }
-                    Controls.Button {
-                        theme: root.theme
-                        text: qsTr("SAVE")
-                        highlighted: true
-                        enabled: repositoryEditorController.dirty
-                            && !repositoryEditorController.busy
-                        onClicked: repositoryEditorController.save()
+                Item {
+                    Layout.fillWidth: true
+                    Layout.minimumWidth: 0
+                    Layout.maximumWidth: parent.width
+                    implicitHeight: footerButtons.implicitHeight
+                    Row {
+                        id: footerButtons
+                        anchors.right: parent.right
+                        spacing: 8
+                        Controls.Button {
+                            theme: root.theme
+                            text: qsTr("CANCEL")
+                            visible: repositoryEditorController.dirty
+                            enabled: repositoryEditorController.dirty
+                            onClicked: repositoryEditorController.cancel()
+                        }
+                        Controls.Button {
+                            objectName: "teamRepositorySyncButton"
+                            theme: root.theme
+                            text: qsTr("Sync")
+                            toolTip: qsTr("Sync TACTIC repository path")
+                            visible: repositoryEditorController.team_local_repository
+                                && !repositoryEditorController.dirty
+                            enabled: !repositoryEditorController.busy
+                            onClicked: teamRepositoryDialog.open()
+                        }
+                        Controls.Button {
+                            theme: root.theme
+                            text: qsTr("SAVE")
+                            highlighted: true
+                            visible: repositoryEditorController.dirty
+                            enabled: repositoryEditorController.dirty
+                                && !repositoryEditorController.busy
+                            onClicked: {
+                                if (repositoryEditorController.save()
+                                        && repositoryEditorController.team_local_repository)
+                                    teamRepositoryDialog.open()
+                            }
+                        }
                     }
                 }
+            }
+        }
+    }
+
+    Controls.Dialog {
+        id: teamRepositoryDialog
+        objectName: "teamRepositorySyncDialog"
+        theme: root.theme
+        title: qsTr("Update TACTIC repository path?")
+        modal: true
+        anchors.centerIn: parent
+        width: Math.min(480, root.width - 32)
+        onAccepted: repositoryEditorController.sync_team_repository_path()
+
+        contentItem: Label {
+            width: teamRepositoryDialog.width
+                - teamRepositoryDialog.leftPadding
+                - teamRepositoryDialog.rightPadding
+            text: qsTr("TACTIC's server-wide repository path will be set to:")
+                + "\n" + repositoryEditorController.current_code
+                + " → " + repositoryEditorController.current_path
+                + "\n\n" + qsTr("This affects every TACTIC client. Confirm only if the server can access this folder.")
+            color: root.theme.primaryText
+            font.family: root.theme.fontFamily
+            font.pointSize: Controls.Typography.body
+            wrapMode: Text.WrapAnywhere
+        }
+        footer: Controls.DialogActions {
+            theme: root.theme
+            Controls.Button {
+                theme: root.theme
+                text: qsTr("Cancel")
+                flat: true
+                onClicked: teamRepositoryDialog.reject()
+            }
+            Controls.Button {
+                theme: root.theme
+                text: qsTr("Update server path")
+                highlighted: true
+                onClicked: teamRepositoryDialog.accept()
             }
         }
     }

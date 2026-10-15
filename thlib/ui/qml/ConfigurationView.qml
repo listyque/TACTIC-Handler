@@ -8,6 +8,8 @@ Item {
 
     required property var theme
     required property string windowId
+    readonly property int headerHeight: 76
+    readonly property bool compactHeaderActions: width < 960
 
     function pageTitle(pageId) {
         for (let row = 0; row < configPageModel.count(); ++row) {
@@ -52,43 +54,58 @@ Item {
 
             ColumnLayout {
                 anchors.fill: parent
-                anchors.topMargin: 18
-                spacing: 6
+                spacing: 0
 
-                Label {
+                Item {
                     Layout.fillWidth: true
-                    Layout.leftMargin: 20
-                    Layout.rightMargin: 16
-                    text: qsTr("Configuration")
-                    color: root.theme.primaryText
-                    font.family: root.theme.fontFamily
-                    font.pixelSize: 17
-                    font.weight: Font.DemiBold
-                }
+                    Layout.preferredHeight: root.headerHeight + 1
 
-                Label {
-                    Layout.fillWidth: true
-                    Layout.leftMargin: 20
-                    Layout.rightMargin: 16
-                    text: qsTr("TACTIC-HANDLER  ·  PREFERENCES")
-                    color: root.theme.secondaryText
-                    font.family: root.theme.fontFamily
-                    font.pointSize: Controls.Typography.caption
-                    font.letterSpacing: 0.7
-                }
+                    ColumnLayout {
+                        anchors.left: parent.left
+                        anchors.right: parent.right
+                        anchors.top: parent.top
+                        anchors.topMargin: 18
+                        spacing: 6
 
-                Rectangle {
-                    Layout.fillWidth: true
-                    Layout.preferredHeight: 1
-                    Layout.topMargin: 10
-                    Layout.bottomMargin: 6
-                    color: root.theme.outlineVariant
+                        Label {
+                            Layout.fillWidth: true
+                            Layout.minimumWidth: 0
+                            Layout.leftMargin: 20
+                            Layout.rightMargin: 16
+                            text: qsTr("Configuration")
+                            color: root.theme.primaryText
+                            font.family: root.theme.fontFamily
+                            font.pixelSize: 17
+                            font.weight: Font.DemiBold
+                        }
+
+                        Label {
+                            Layout.fillWidth: true
+                            Layout.leftMargin: 20
+                            Layout.rightMargin: 16
+                            text: qsTr("TACTIC-HANDLER  ·  PREFERENCES")
+                            color: root.theme.secondaryText
+                            font.family: root.theme.fontFamily
+                            font.pointSize: Controls.Typography.caption
+                            font.letterSpacing: 0.7
+                        }
+                    }
+
+                    Rectangle {
+                        objectName: "configurationSidebarHeaderDivider"
+                        anchors.left: parent.left
+                        anchors.right: parent.right
+                        anchors.bottom: parent.bottom
+                        height: 1
+                        color: root.theme.outlineVariant
+                    }
                 }
 
                 ListView {
                     id: pageList
                     Layout.fillWidth: true
                     Layout.fillHeight: true
+                    Layout.topMargin: 12
                     clip: true
                     spacing: 4
                     leftMargin: 8
@@ -100,73 +117,17 @@ Item {
                         flickableTarget: pageList
                     }
                     model: configPageModel
-                    delegate: Item {
-                        id: pageRow
-                        required property string title
-                        required property string target
-                        required property string icon
-                        objectName: "configurationPage_" + target
+                    delegate: Controls.SettingsNavigationItem {
+                        required property var model
+                        objectName: "configurationPage_" + model.target
                         width: pageList.width - pageList.leftMargin
                             - pageList.rightMargin
-                        height: 48
-                        readonly property bool selected:
-                            configurationController.current_page === target
-
-                        Rectangle {
-                            anchors.fill: parent
-                            radius: 14
-                            color: pageRow.selected
-                                ? root.theme.selected
-                                : pageMouse.containsMouse
-                                    ? root.theme.rowHover : "transparent"
-                        }
-                        Rectangle {
-                            visible: pageRow.selected
-                            anchors.left: parent.left
-                            anchors.verticalCenter: parent.verticalCenter
-                            width: 3
-                            height: 22
-                            radius: 2
-                            color: root.theme.action
-                        }
-                        RowLayout {
-                            anchors.fill: parent
-                            anchors.leftMargin: 14
-                            anchors.rightMargin: 14
-                            spacing: 12
-                            Controls.MaterialIcon {
-                                name: pageRow.icon
-                                size: 18
-                                color: pageRow.selected
-                                    ? root.theme.action
-                                    : root.theme.secondaryText
-                            }
-                            Label {
-                                Layout.fillWidth: true
-                                text: qsTr(pageRow.title)
-                                color: root.theme.primaryText
-                                font.family: root.theme.fontFamily
-                                font.pointSize: Controls.Typography.bodyLarge
-                                font.weight: pageRow.selected
-                                    ? Font.DemiBold : Font.Normal
-                            }
-                            Rectangle {
-                                visible: pageRow.selected
-                                    && configurationController.current_page_dirty
-                                Layout.preferredWidth: 7
-                                Layout.preferredHeight: 7
-                                radius: 4
-                                color: root.theme.action
-                            }
-                        }
-                        MouseArea {
-                            id: pageMouse
-                            anchors.fill: parent
-                            hoverEnabled: true
-                            cursorShape: Qt.PointingHandCursor
-                            onClicked:
-                                configurationController.select_page(pageRow.target)
-                        }
+                        theme: root.theme
+                        text: qsTr(model.title)
+                        iconName: model.icon
+                        selected: configurationController.current_page === model.target
+                        dirty: configurationController.current_page_dirty
+                        onClicked: configurationController.select_page(model.target)
                     }
                 }
             }
@@ -179,7 +140,7 @@ Item {
 
             Rectangle {
                 Layout.fillWidth: true
-                Layout.preferredHeight: 76
+                Layout.preferredHeight: root.headerHeight
                 color: root.theme.surfaceContainerLow
 
                 ColumnLayout {
@@ -195,6 +156,7 @@ Item {
                         spacing: 10
                         Label {
                             Layout.fillWidth: true
+                            Layout.minimumWidth: 0
                             text: root.pageTitle(
                                 configurationController.current_page
                             )
@@ -220,6 +182,43 @@ Item {
                                 font.weight: Font.DemiBold
                             }
                         }
+                        RowLayout {
+                            spacing: 6
+                            Controls.Button {
+                                objectName: "configurationReset"
+                                theme: root.theme
+                                text: qsTr("Reset")
+                                icon.name: "undo"
+                                toolTip: text
+                                compact: root.compactHeaderActions
+                                flat: true
+                                enabled: configurationController.can_reset_current_page
+                                    && configurationController.current_page_dirty
+                                onClicked: configurationController.reset_current()
+                            }
+                            Controls.Button {
+                                objectName: "configurationApply"
+                                theme: root.theme
+                                text: qsTr("Apply")
+                                icon.name: "check"
+                                toolTip: text
+                                compact: root.compactHeaderActions
+                                flat: true
+                                enabled: configurationController.current_page_dirty
+                                onClicked: configurationController.apply_current()
+                            }
+                            Controls.Button {
+                                objectName: "configurationSave"
+                                theme: root.theme
+                                text: qsTr("Save")
+                                icon.name: "save"
+                                toolTip: text
+                                compact: root.compactHeaderActions
+                                highlighted: true
+                                enabled: configurationController.dirty
+                                onClicked: configurationController.save_all()
+                            }
+                        }
                         Controls.CompactIconButton {
                             objectName: "configurationHelpButton"
                             theme: root.theme
@@ -231,6 +230,14 @@ Item {
                                     configurationController.current_page
                                 )
                             )
+                        }
+                        Controls.CompactIconButton {
+                            objectName: "configurationCancel"
+                            theme: root.theme
+                            iconName: "close"
+                            toolTip: qsTr("Close")
+                            Accessible.name: toolTip
+                            onClicked: configurationController.request_close()
                         }
                     }
                     Label {
@@ -246,6 +253,7 @@ Item {
             }
 
             Rectangle {
+                objectName: "configurationPageHeaderDivider"
                 Layout.fillWidth: true
                 Layout.preferredHeight: 1
                 color: root.theme.outlineVariant
@@ -259,60 +267,6 @@ Item {
                 managed: true
             }
 
-            Rectangle {
-                Layout.fillWidth: true
-                Layout.preferredHeight: 72
-                color: root.theme.surfaceContainerLow
-
-                Rectangle {
-                    anchors.left: parent.left
-                    anchors.right: parent.right
-                    anchors.top: parent.top
-                    height: 1
-                    color: root.theme.outlineVariant
-                }
-
-                RowLayout {
-                    anchors.fill: parent
-                    anchors.leftMargin: 20
-                    anchors.rightMargin: 20
-                    spacing: 10
-
-                    Controls.Button {
-                        theme: root.theme
-                        text: qsTr("Reset")
-                        objectName: "configurationReset"
-                        flat: true
-                        enabled:
-                            configurationController.can_reset_current_page
-                            && configurationController.current_page_dirty
-                        onClicked: configurationController.reset_current()
-                    }
-                    Item {
-                        Layout.fillWidth: true
-                    }
-                    Controls.Button {
-                        theme: root.theme
-                        text: qsTr("Apply")
-                        objectName: "configurationApply"
-                        flat: true
-                        enabled: configurationController.current_page_dirty
-                        onClicked: configurationController.apply_current()
-                    }
-                    Controls.Button {
-                        theme: root.theme
-                        text: qsTr("Save")
-                        highlighted: true
-                        onClicked: configurationController.save_and_close()
-                    }
-                    Controls.Button {
-                        theme: root.theme
-                        text: qsTr("Cancel")
-                        flat: true
-                        onClicked: configurationController.request_close()
-                    }
-                }
-            }
         }
     }
 

@@ -23,7 +23,7 @@ tabs.
 - Launching it again restores the existing main window, including when it is hidden in the system
   tray.
 - On Windows, both launchers use the Handler taskbar icon.
-- Restart Handler completely after an update to apply startup changes.
+- In a portable build, installing an application update closes and reopens Handler automatically.
 
 ## First connection
 
@@ -41,6 +41,11 @@ ticket, and a saved ticket can expire while the server remains reachable.
 Open the project selector, filter retired, template or built-in projects only when needed, then
 activate one project. Activation reloads sidebar Search Types, saved searches, tasks and project
 metadata. Merely selecting a project card does not switch the workspace.
+
+The built-in `sthpw` and `admin` projects show every Search Type in their project catalog that has
+an existing table, even without a configured sidebar. Configured sidebar links keep their labels
+and placement; any remaining Search Types appear as additional links.
+Explicitly hidden or access-restricted sidebar links remain hidden.
 
 ## Find and inspect work
 

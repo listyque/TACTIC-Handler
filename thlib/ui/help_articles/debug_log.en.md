@@ -58,3 +58,23 @@ is not rewritten as a TACTIC error, but routed DCC tracebacks are retained.
 Passwords, tickets, tokens, cookies and known credential fields are redacted before display and disk
 serialization. Do not paste secrets into ordinary untyped message fields. Session retention is
 bounded, but a single diagnostic event is not silently truncated.
+
+Long request and stacktrace lines wrap to the viewport in the error window and Debug Log.
+This avoids rendering one enormous off-screen line after a large group check-in fails.
+Wrapping changes only the display: keyboard selection/copy, Copy stacktrace, Copy runtime command
+and the structured session log retain the complete original diagnostic text.
+
+## Server RPC request log
+
+JSON calls to `/admin/rpc` and XML-RPC calls to `/tactic/{project}/Api/` use the same `tactic_stream.server.api` logger at **INFO** level and the original TACTIC block format. Each call reaching the API dispatcher writes one block, including failed calls:
+
+- `request_id`, `timestamp`, `user`, `simple method` and the legacy `ticket` header;
+- arguments in method-signature order, including arguments received through JSON `kwargs`;
+- `error` with the exception class when the call fails;
+- `Duration`, `Memory`, `Increment` and `Total Duration`.
+
+`Duration` measures the method after API initialization and authentication. `Total Duration` measures the whole API dispatch; HTTP body decoding and response serialization are outside this timer. Passwords and known secret fields in arguments are redacted. The `ticket` header retains the legacy representation; this server log is separate from the client JSONL log that redacts tickets. Argument display remains bounded by the existing logger.
+
+Other browser endpoints, such as `/admin/search-configuration/query`, do not pass through `/admin/rpc`. Their HTTP access records are separate. Requests rejected before API dispatch also do not have a method block.
+
+This logging does not switch Handler's transport. Handler continues using XML-RPC, including connections to Legacy TACTIC.

@@ -6,28 +6,16 @@ authoritative.
 
 ## Columns Editor
 
-`ColumnsEditorController` and `ColumnsEditorView` manage the shared TACTIC
-`table`, `definition`, `edit`, and `edit_definition` views for the current
-Search Type. The table definition drives the optional table result view and
-Database Editor ordering; the edit views also drive EditSObject and inline
-cell editors.
+The retained Administration Columns Editor reads `config/widget_config` for
+the project selected in Administration, independently of the active search tab.
+It lists all saved definitions by default and can filter them by Search Type.
+The wizard edits supported native table elements; XML mode preserves custom
+structure and nested options. Save updates the selected definition by stable
+search key or code, without changing the physical database schema.
 
-- Apply writes the project-wide `config/widget_config` row at
-  `search_type + view=table`, then reads it back before updating the UI.
-- Unknown element attributes, nested display/widget options, definition-only
-  elements, and internal elements are preserved. Missing schema columns can
-  be added to the view without changing the physical database schema.
-- Multiple shared rows for the same coordinate are rejected instead of
-  choosing one and overwriting another category or precedence layer.
-- Apply updates the common columns model, table results, and Database Editor.
-- Cancel restores the session snapshot; Reset restores the owned defaults.
-- The result-table prototype renders sObjects only, supports horizontal and
-  vertical scrolling, and uses the configured labels, order, and widths.
-- Simple mode visually edits supported display/input widgets and common input
-  options. It can include or remove a field from `view=edit`. XML mode preserves
-  unsupported, custom, and nested options without flattening them.
-- Column definitions change presentation, not physical database schema or
-  server query semantics.
+`ColumnsEditorController` also owns the active-tab table projection used by
+search results and the Database Editor. That runtime projection remains
+separate from the Administration catalog and its project selection.
 
 ## SObject column value editing
 

@@ -348,12 +348,20 @@ Item {
         TaskBrowserTable {
             theme: root.theme
             footerHorizontalOverflow: root.embedded ? 6 : 0
+            onInitialPresentationReadyChanged:
+                taskSurfaceLoader.firstBatchReady = initialPresentationReady
+            Component.onCompleted:
+                taskSurfaceLoader.firstBatchReady = initialPresentationReady
             onColumnContextRequested: function(
                     sourceItem, columnKey, columnLabel) {
                 root.openTaskColumnContext(
                     sourceItem, columnKey, columnLabel
                 )
             }
+            onColumnsPressed: root.rememberPopupState(taskColumnsMenuLoader)
+            onColumnsRequested: sourceItem => root.togglePopupBelow(
+                taskColumnsMenuLoader, sourceItem
+            )
             onTaskDeleteRequested: function(taskCode, checkedTasks) {
                 root.confirmTaskDelete(taskCode, checkedTasks)
             }
@@ -525,9 +533,7 @@ Item {
                     Layout.preferredHeight: root.theme.controlHeight
                     compact: true
                     iconName: "add"
-                    toolTip: tasksController.canCreateAdvancedTask
-                        ? qsTr("Create a task for the selected sObject")
-                        : qsTr("Select an sObject with a task process first")
+                    toolTip: qsTr("Create task")
                     enabled: tasksController.canCreateAdvancedTask
                         && !tasksController.advancedBusy
                         && !tasksController.advancedSaving
@@ -582,6 +588,7 @@ Item {
                     Layout.preferredWidth: visible ? Layout.minimumWidth : 0
                     Layout.preferredHeight: root.theme.controlHeight
                     placeholderText: qsTr("Search tasks")
+                    text: String(tasksController.advancedFilters.text || "")
                     onSearchEdited: query => tasksController.set_filter("text", query)
                 }
                 Controls.CompactIconButton {
@@ -593,9 +600,17 @@ Item {
                         ? root.theme.controlHeight : 0
                     Layout.preferredHeight: root.theme.controlHeight
                     iconName: "filter_alt"
+                    iconColor: tasksController.advancedFiltersActive
+                        ? root.theme.green : root.theme.primaryText
                     badgeCount: tasksController.activeQuickFilterCount
-                    toolTip: qsTr("Quick task filters")
-                    backgroundColor: root.theme.surfaceContainerHigh
+                    toolTip: tasksController.advancedFiltersActive
+                        ? qsTr("Task filters active")
+                        : qsTr("Quick task filters")
+                    backgroundColor: tasksController.advancedFiltersActive
+                        ? root.theme.overlay(
+                            root.theme.surfaceContainerHigh,
+                            root.theme.green, 0.18
+                        ) : root.theme.surfaceContainerHigh
                     onPressed: root.rememberPopupState(quickFilterPopupLoader)
                     onClicked: root.togglePopupBelow(
                         quickFilterPopupLoader, quickFilterButton
@@ -613,10 +628,7 @@ Item {
                     iconSize: 17
                     toolTip: qsTr("Clear task filters")
                     enabled: tasksController.advancedFiltersActive
-                    onClicked: {
-                        taskSearchField.clear()
-                        tasksController.clear_filters()
-                    }
+                    onClicked: tasksController.reset_filters()
                 }
                 Controls.SegmentedButton {
                     id: embeddedScopeSwitcher
@@ -727,22 +739,6 @@ Item {
                         tasksController.groupOptions[index].value
                     )
                 }
-                Controls.CompactIconButton {
-                    id: taskColumnsButton
-                    objectName: "taskWorkspaceColumnsButton"
-                    visible: !root.compactHeaderActions
-                    theme: root.theme
-                    Layout.preferredWidth: visible
-                        ? root.theme.controlHeight : 0
-                    Layout.preferredHeight: root.theme.controlHeight
-                    iconName: "view_column"
-                    iconSize: 17
-                    toolTip: qsTr("Choose visible task columns")
-                    onPressed: root.rememberPopupState(taskColumnsMenuLoader)
-                    onClicked: root.togglePopupBelow(
-                        taskColumnsMenuLoader, taskColumnsButton
-                    )
-                }
             }
 
             RowLayout {
@@ -770,6 +766,9 @@ Item {
                         anchors.fill: parent
                         theme: root.theme
                         iconName: "more_vert"
+                        iconColor: root.condensedToolbar
+                                && tasksController.advancedFiltersActive
+                            ? root.theme.green : root.theme.primaryText
                         toolTip: qsTr("Task view, sorting and grouping")
                         onPressed: root.rememberPopupState(
                             taskWorkspaceMenuLoader
@@ -896,11 +895,15 @@ Item {
                 anchors.fill: parent
                 active: root.hasTaskRows
                 asynchronous: true
+                property bool firstBatchReady: false
+                onActiveChanged: if (!active) firstBatchReady = false
                 enabled: tasksController.viewMode === "list"
                 opacity: !active ? 0
                     : tasksController.viewMode === "list" ? 1
                     : ganttSurfaceLoader.status === Loader.Ready ? 0 : 1
-                visible: active && opacity > 0.001
+                visible: active && status === Loader.Ready
+                    && firstBatchReady
+                    && opacity > 0.001
                 sourceComponent: taskTableSurface
 
                 Behavior on opacity {
@@ -967,7 +970,9 @@ Item {
                     Label {
                         objectName: "taskWorkspaceEmptyTitle"
                         Layout.alignment: Qt.AlignHCenter
-                        text: qsTr("Create a task")
+                        text: tasksController.advancedFiltersActive
+                            ? qsTr("No tasks match the current filters")
+                            : qsTr("Create a task")
                         color: root.theme.primaryText
                         font.family: root.theme.fontFamily
                         font.pointSize: Controls.Typography.bodyLarge
@@ -976,7 +981,9 @@ Item {
                     Label {
                         objectName: "taskWorkspaceEmptyHint"
                         Layout.alignment: Qt.AlignHCenter
-                        text: qsTr("Use the + button above")
+                        text: tasksController.advancedFiltersActive
+                            ? qsTr("Clear filters to see all tasks")
+                            : qsTr("Use the + button above")
                         color: root.theme.secondaryText
                         font.family: root.theme.fontFamily
                         font.pointSize: Controls.Typography.label
@@ -986,6 +993,7 @@ Item {
                     Canvas {
                         id: emptyCreateArrow
                         objectName: "taskWorkspaceEmptyArrow"
+                    visible: !tasksController.advancedFiltersActive
                     property color strokeColor: root.theme.action
                     readonly property real targetX:
                         taskWorkspaceToolbar.x
@@ -1010,8 +1018,10 @@ Item {
                             - emptyCreateArrow.y
                     x: 0
                     y: taskWorkspaceToolbar.y - taskSurfaceSlot.y
-                    width: parent.width
-                    height: parent.height - y
+                    width: Math.min(parent.width,
+                        Math.max(sourceX, targetX) + 48)
+                    height: Math.min(parent.height - y,
+                        Math.max(sourceY, targetY) + 52)
                     antialiasing: true
 
                     onStrokeColorChanged: requestPaint()
@@ -1226,10 +1236,8 @@ Item {
                     tasksController.set_sort_mode(command.slice(5))
                 else if (command.indexOf("group:") === 0)
                     tasksController.set_group_mode(command.slice(6))
-                else if (command === "clear") {
-                    taskSearchField.clear()
-                    tasksController.clear_filters()
-                }
+                else if (command === "clear")
+                    tasksController.reset_filters()
             }
         }
     }
@@ -1238,6 +1246,7 @@ Item {
         id: taskColumnsMenuLoader
         active: false
         sourceComponent: ActionMenu {
+            objectName: "taskColumnsMenu"
             parent: Overlay.overlay
             theme: root.theme
             preferredWidth: 270
@@ -1245,8 +1254,10 @@ Item {
             onTriggered: command => {
                 if (command.indexOf("column:") === 0)
                     tasksController.toggle_task_column(command.slice(7))
-                else if (command === "configure")
+                else if (command === "configure") {
+                    configurationController.select_page("tasks_preferences")
                     appController.invoke("open_configuration")
+                }
             }
         }
     }
@@ -1287,6 +1298,7 @@ Item {
                         )
                     })
                 } else if (command === "configure") {
+                    configurationController.select_page("tasks_preferences")
                     appController.invoke("open_configuration")
                 }
             }
@@ -1305,12 +1317,16 @@ Item {
     }
 
     ContentLoadingOverlay {
+        objectName: "taskWorkspaceLoadingOverlay"
         anchors.fill: parent
         z: 200
         visible: tasksController.advancedBusy
+            || (root.hasTaskRows && tasksController.viewMode === "list"
+                && (taskSurfaceLoader.status !== Loader.Ready
+                    || !taskSurfaceLoader.firstBatchReady))
         theme: root.theme
         message: "Loading tasks…"
-        cancellable: true
+        cancellable: tasksController.advancedBusy
         onCancelRequested: tasksController.cancel_advanced_load()
     }
 

@@ -3,9 +3,9 @@ import unittest
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
-from PySide6.QtCore import QObject, QPointF, Property, Qt, QUrl, Signal, Slot
+from PySide6.QtCore import QCoreApplication, QObject, QPointF, Property, Qt, QUrl, Signal, Slot
 from PySide6.QtQml import QQmlComponent, QQmlEngine
-from PySide6.QtTest import QTest
+from PySide6.QtTest import QSignalSpy, QTest
 
 from tests.profile_ui_responsiveness import frame
 from tests import test_process_menu_latency as workspace
@@ -270,6 +270,33 @@ class ScriptShelfQmlTests(unittest.TestCase):
         QTest.mouseClick(window, Qt.LeftButton, pos=center.toPoint())
         frame(window)
 
+    def _open_shelf(self, window, view):
+        if view.width() >= 720:
+            self._click(window, self._item(view, "scriptShelfButton"))
+            return
+        menu = view.findChild(QObject, "searchHeaderOverflowMenu")
+        opened = QSignalSpy(menu.opened)
+        self._click(window, self._item(view, "searchHeaderOverflowButton"))
+        if not menu.property("opened"):
+            self.assertTrue(opened.wait(1000))
+        QCoreApplication.processEvents()
+        toggle = next(
+            item for item in workspace.visual_items(menu.property("contentItem"))
+            if item.objectName() == "actionMenuPrimaryTarget"
+            and item.isVisible()
+            and item.parentItem().property("modelData").toVariant().get(
+                "title"
+            ) == "Script shelf"
+        )
+        shelf_opened = QSignalSpy(view.shelfOpenChanged)
+        closed = QSignalSpy(menu.closed)
+        self._click(toggle.window(), toggle)
+        if menu.property("visible"):
+            self.assertTrue(closed.wait(1000))
+        if not view.property("shelfOpen"):
+            self.assertTrue(shelf_opened.wait(1000))
+        frame(window)
+
     def test_toolbar_button_opens_shelf_and_runs_its_saved_script(self):
         shelf = _Shelf()
         with self.fixture.scene(width=720, shelf=shelf) as (window, view):
@@ -324,7 +351,7 @@ class ScriptShelfQmlTests(unittest.TestCase):
             with self.subTest(width=width):
                 shelf = _Shelf()
                 with self.fixture.scene(width=width, shelf=shelf) as (window, view):
-                    self._click(window, self._item(view, "scriptShelfButton"))
+                    self._open_shelf(window, view)
 
                     self.assertGreater(
                         self._item(view, "scriptShelfButtons").width(), 0
@@ -360,7 +387,7 @@ class ScriptShelfQmlTests(unittest.TestCase):
     def test_overflowing_shelf_exposes_horizontal_scrollbar(self):
         shelf = _Shelf(button_count=12)
         with self.fixture.scene(width=480, shelf=shelf) as (window, view):
-            self._click(window, self._item(view, "scriptShelfButton"))
+            self._open_shelf(window, view)
             buttons = self._item(view, "scriptShelfButtons")
             scroll_bar = self._item(view, "scriptShelfScrollBar")
 

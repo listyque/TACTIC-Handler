@@ -139,8 +139,9 @@ Item {
             anchors.left: parent.left
             anchors.leftMargin: 38
             anchors.verticalCenter: parent.verticalCenter
-            width: 38
+            width: visible ? 38 : 0
             height: 38
+            visible: !root.compactTabActions
             theme: root.theme
             toolTip: qsTr("Refresh current results")
             onClicked: appController.refresh_current()
@@ -170,11 +171,11 @@ Item {
             id: scriptShelfButton
             objectName: "scriptShelfButton"
             anchors.right: tagCloudButton.left
-            anchors.rightMargin: 3
+            anchors.rightMargin: visible ? 3 : 0
             anchors.verticalCenter: parent.verticalCenter
             width: visible ? 38 : 0
             height: 38
-            visible: Boolean(root.shelfController)
+            visible: !root.compactTabActions && Boolean(root.shelfController)
             theme: root.theme
             iconName: "code"
             iconColor: root.shelfOpen
@@ -193,11 +194,11 @@ Item {
             id: tagCloudButton
             objectName: "searchTagButton"
             anchors.right: quickFilterButton.left
-            anchors.rightMargin: 3
+            anchors.rightMargin: visible ? 3 : 0
             anchors.verticalCenter: parent.verticalCenter
             width: visible ? 38 : 0
             height: 38
-            visible: true
+            visible: !root.compactTabActions
             theme: root.theme
             iconName: "tags"
             iconColor: tagCloudPopup.opened
@@ -294,10 +295,11 @@ Item {
             id: searchHelp
             objectName: "searchWorkspaceHelpButton"
             anchors.right: searchGear.left
-            anchors.rightMargin: 3
+            anchors.rightMargin: visible ? 3 : 0
             anchors.verticalCenter: parent.verticalCenter
-            width: 38
+            width: visible ? 38 : 0
             height: 38
+            visible: !root.compactTabActions
             theme: root.theme
             iconName: "help"
             round: true
@@ -307,6 +309,7 @@ Item {
         }
         Controls.CompactIconButton {
             id: searchGear
+            objectName: "searchHeaderOverflowButton"
             anchors.right: parent.right
             anchors.rightMargin: 7
             anchors.verticalCenter: parent.verticalCenter
@@ -315,8 +318,50 @@ Item {
             theme: root.theme
             iconName: "more-vert"
             round: true
-            toolTip: qsTr("Workspace panels")
-            onClicked: root.requestDockMenu(searchGear)
+            toolTip: root.compactTabActions
+                ? qsTr("More search actions") : qsTr("Workspace panels")
+            onPressed: searchHeaderOverflowMenu.sourceWasOpen
+                = searchHeaderOverflowMenu.opened
+            onClicked: {
+                if (!root.compactTabActions) {
+                    root.requestDockMenu(searchGear)
+                    return
+                }
+                quickFilterPopup.close()
+                tagCloudPopup.close()
+                searchHeaderOverflowMenu.toggleBelow(searchGear)
+            }
+        }
+    }
+    ActionMenu {
+        id: searchHeaderOverflowMenu
+        objectName: "searchHeaderOverflowMenu"
+        parent: Overlay.overlay
+        theme: root.theme
+        actions: [
+            { "title": "Refresh current results", "icon": "refresh", "command": "refresh" },
+            { "title": "Script shelf", "icon": "code", "command": "shelf",
+              "visible": Boolean(root.shelfController), "checked": root.shelfOpen },
+            { "title": "Tags", "icon": "tags", "command": "tags",
+              "badgeCount": appController.active_tag_count },
+            { "title": "Help", "icon": "help", "command": "help" },
+            { "title": "Workspace panels", "icon": "more-vert", "command": "panels" }
+        ]
+        onTriggered: function(command) {
+            if (command === "refresh")
+                appController.refresh_current()
+            else if (command === "shelf") {
+                root.shelfOpen = !root.shelfOpen
+                quickFilterPopup.close()
+                tagCloudPopup.close()
+            } else if (command === "tags") {
+                quickFilterPopup.close()
+                appController.request_tag_cloud(false)
+                tagCloudPopup.openBelow(searchGear)
+            } else if (command === "help")
+                windowModel.open_help("search")
+            else if (command === "panels")
+                root.requestDockMenu(searchGear)
         }
     }
     SearchQuickFilterPopup {
@@ -384,7 +429,8 @@ Item {
             }
             Controls.CompactIconButton {
                 id: tabFilterButton
-                Layout.preferredWidth: 40
+                visible: !root.compactTabActions
+                Layout.preferredWidth: visible ? 40 : 0
                 Layout.preferredHeight: 40
                 theme: root.theme
                 iconName: "advanced-search"
@@ -488,10 +534,16 @@ Item {
                     required property bool current
                     property int dragTargetIndex: index
                     property int naturalWidthToken: 0
-                    readonly property real minimumTabWidth: 96
+                    readonly property real minimumTabWidth:
+                        root.compactTabActions ? 84 : 96
+                    readonly property bool showClose:
+                        closable && (!root.compactTabActions || current)
+                    readonly property real idealTabWidth:
+                        tabVisual.labelImplicitWidth + (showClose ? 64 : 32)
                     readonly property real naturalTabWidth: Math.max(
                         minimumTabWidth,
-                        tabVisual.labelImplicitWidth + (closable ? 64 : 32)
+                        root.compactTabActions
+                            ? Math.min(180, idealTabWidth) : idealTabWidth
                     )
                     readonly property real fittedTabWidth: {
                         const available = searchTabsView.width
@@ -614,7 +666,7 @@ Item {
                         title: searchTab.title
                         current: searchTab.current
                         animateSelection: false
-                        closable: searchTab.closable
+                        closable: searchTab.showClose
                         hovered: tabMouse.containsMouse
                         pressed: tabMouse.pressed
                         onCloseRequested: workspaceState.close_tab(searchTab.index)
@@ -636,6 +688,13 @@ Item {
                             workspaceState.activate_tab(
                                 searchTab.entryKey, searchTab.title
                             )
+                        }
+                        Controls.ToolTip {
+                            theme: root.theme
+                            visible: tabMouse.containsMouse
+                                && !root.theme.suppressToolTips
+                            delay: 500
+                            text: searchTab.title
                         }
                     }
                 }
@@ -734,7 +793,8 @@ Item {
                 readonly property int closedTabCount: Math.max(
                     0, appController.closed_search_tabs.length - 2
                 )
-                Layout.preferredWidth: 40
+                visible: closedTabCount > 0
+                Layout.preferredWidth: visible ? 40 : 0
                 Layout.preferredHeight: 40
 
                 Controls.CompactIconButton {
@@ -1298,11 +1358,10 @@ Item {
                 "header": true
             },
             {
-                "title": "Refresh current results",
-                "icon": "refresh",
-                "command": "refresh"
+                "title": "Search filters and presets",
+                "icon": "advanced-search",
+                "command": "filters"
             },
-            { "separator": true },
             {
                 "title": "Sort items",
                 "icon": "sort-items",
@@ -1318,22 +1377,21 @@ Item {
                 "icon": root.resultViewIcon(
                     appController.results_view_mode
                 ),
-                "command": "view"
+                "children": resultsViewMenu.actions
             }
         ]
         onTriggered: function(command) {
-            if (command === "refresh") {
-                appController.refresh_current()
-                return
-            }
-            if (appController.result_sort_actions.some(
+            if (command === "filters")
+                resultMenus.openFilters(searchTabActionsOverflowButton)
+            else if (appController.result_sort_actions.some(
                     action => action.command === command))
                 appController.set_result_sort_mode(command)
             else if (appController.result_group_actions.some(
                     action => action.command === command))
                 appController.set_result_group_mode(command)
-            else if (command === "view")
-                resultsViewMenu.openBelow(searchTabActionsOverflowButton)
+            else if (resultsViewMenu.actions.some(
+                    action => action.command === command))
+                appController.set_results_view_mode(command)
         }
     }
     ActionMenu {

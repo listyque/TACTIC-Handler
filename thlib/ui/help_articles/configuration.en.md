@@ -16,13 +16,16 @@ differs from the saved configuration.
 
 ## Common actions
 
+The current page's Reset and Apply buttons, plus Save and Close for the window, are in the top
+header beside the page title. In a narrow window they show icons with tooltips.
+
 | Control | What it does |
 | --- | --- |
 | **Help** | Opens the article for the page currently shown, not a generic settings article. |
 | **Reset** | Restores the current page's saved values. It is enabled only when that page has unsaved changes. |
 | **Apply** | Applies the current page without closing Configuration. |
-| **Save** | Saves pending configuration changes and closes the window. |
-| **Cancel** | Requests to close Configuration. If drafts exist, choose Save, Discard, or return to editing. |
+| **Save** | Saves pending configuration changes without closing the window. It becomes disabled when all changes are saved. |
+| **Close** | Requests to close Configuration. If drafts exist, choose Save, Discard, or return to editing. |
 
 Settings on one page do not overwrite another page. Long pages retain a visible scrollbar, and
 server-defined names such as projects, processes, repositories, and Search Types are shown exactly

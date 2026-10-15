@@ -254,6 +254,7 @@ class TasksController(QObject):
         self._worker = None
         self._request_id = ""
         self._full_target_key = ""
+        self._compact_selection_payload = None
         self._compact_visible = False
         self._compact_selection_dirty = True
         self._advanced_selection_dirty = True
@@ -277,7 +278,6 @@ class TasksController(QObject):
         self._advanced_object_process = ""
         self._pending_object_scope_key = ""
         self._pending_context_task_code = ""
-        self._pending_context_filter = ("", "")
         self._advanced_request_id = ""
         self._advanced_worker = None
         self._advanced_tasks = {}
@@ -785,16 +785,17 @@ class TasksController(QObject):
             self._quick_view_mode = quick_view_mode
         if workspace_surface in {"quick", "browser"}:
             self._workspace_surface = workspace_surface
-        self._task_columns = self._normalize_task_columns(
-            values.get("columns")
-        )
+        if "columns" in values:
+            self._task_columns = self._normalize_task_columns(
+                values["columns"]
+            )
         self._store_workspace_preferences()
         self.stateChanged.emit()
         self.sync_presentation()
         self._rebuild_advanced_models()
 
     def attach_commit_queue(self, commit_queue):
-        signal = getattr(commit_queue, "operationCompleted", None)
+        signal = getattr(commit_queue, "presentationRefreshRequested", None)
         if signal is not None:
             signal.connect(self._checkin_completed)
 
@@ -1067,6 +1068,8 @@ class TasksController(QObject):
 
     @Property(bool, notify=advancedChanged)
     def advancedFiltersActive(self):
+        if self._advanced_scope == "user" and not self.personalScope:
+            return True
         return any(bool(value) for value in self._filters.values()) or any(
             bool(values) for values in self._quick_filters.values()
         )
@@ -1109,7 +1112,15 @@ class TasksController(QObject):
     def _advanced_creation_target(self):
         task = self._advanced_tasks.get(self._selected_advanced_code)
         target = self.task_store.parent_for_task(task) if task else None
-        return target or self._workspace._selected_sobject
+        target = target or self._workspace._selected_sobject
+        if target is not None:
+            return target
+        from thlib.environment import env_inst
+        from thlib.tactic_classes import SObject
+        project = env_inst.get_project_by_code(self._application._current_project_code)
+        if project is None:
+            return None
+        return SObject(dict(project.get_info()), project=project)
 
     @Property(bool, notify=advancedChanged)
     def canCreateAdvancedTask(self):
@@ -1305,6 +1316,36 @@ class TasksController(QObject):
             self._store_workspace_preferences()
             self.advancedChanged.emit()
             return
+
+    @Slot(str, int)
+    def set_task_column_width(self, key, width):
+        columns = [dict(item) for item in self._task_columns]
+        for item in columns:
+            if item["key"] == key:
+                item["width"] = width
+                break
+        else:
+            return
+        normalized = self._normalize_task_columns(columns)
+        if normalized != self._task_columns:
+            self._task_columns = normalized
+            self._store_workspace_preferences()
+            self.advancedChanged.emit()
+
+    @Slot(str, int)
+    def move_task_column(self, key, direction):
+        columns = [dict(item) for item in self._task_columns]
+        index = next((index for index, item in enumerate(columns)
+                      if item["key"] == key), -1)
+        target = index + direction
+        if index < 0 or target < 0 or target >= len(columns):
+            return
+        columns.insert(target, columns.pop(index))
+        for order, item in enumerate(columns):
+            item["order"] = order
+        self._task_columns = columns
+        self._store_workspace_preferences()
+        self.advancedChanged.emit()
 
     @Slot(str, bool)
     def set_task_column_sort(self, key, descending):
@@ -1529,8 +1570,31 @@ class TasksController(QObject):
         return self._bulk_plan()[0]
 
     def _selection_changed(self):
+        target_key = self.targetSearchKey
+        payload = (
+            str(self._application._current_project_code or ""),
+            target_key,
+            self.targetTitle,
+            self._selected_object_process(target_key),
+            tuple(
+                str(target.get_search_key() or "")
+                for target in self._selected_workspace_targets()
+            ),
+            tuple(sorted(
+                (
+                    (str(task.get_search_key() or ""), dict(task.get_info() or {}))
+                    for task in self._workspace._task_sobjects
+                ),
+                key=lambda item: item[0],
+            )),
+        )
+        if (payload == self._compact_selection_payload
+                and target_key != self._pending_object_scope_key):
+            self.searchScopeChanged.emit()
+            return
+        self._compact_selection_payload = payload
         self._request_id = uuid.uuid4().hex
-        self._full_target_key = self.targetSearchKey
+        self._full_target_key = target_key
         self._process_drafts.clear()
         self._compact_selection_dirty = True
         self._advanced_selection_dirty = True
@@ -1616,7 +1680,7 @@ class TasksController(QObject):
 
     @staticmethod
     def _pipeline(target):
-        if not target:
+        if not target or TasksController._project_task_target(target):
             return None, None
         try:
             stype = target.get_stype()
@@ -1639,6 +1703,8 @@ class TasksController(QObject):
     def _process_task_defaults(self, target, process):
         _stype, pipeline = self._pipeline(target)
         values = self._process_task_configuration(pipeline, process)
+        if self._project_task_target(target):
+            values = {"task_pipeline": "task", "assigned": self._current_login()}
         duration = max(0.0, self._number(values.get("duration")))
         planned_hours = max(
             0.0, self._number(values.get("bid_duration"))
@@ -1692,7 +1758,14 @@ class TasksController(QObject):
         if progress_column and int(defaults.get("progress") or 0) > 0:
             data[progress_column] = int(defaults["progress"])
         return data
+    @staticmethod
+    def _project_task_target(target):
+        return bool(target and TasksController._target_value(target, "get_plain_search_type") == "sthpw/project")
+
     def _process_choices_for(self, target):
+        if self._project_task_target(target):
+            return [{"value": "task", "label": "task", "type": "manual",
+                     "color": "#607d8b", "taskPipeline": "task"}]
         _stype, pipeline = self._pipeline(target)
         result = []
         for code in pipeline.pipeline if pipeline else ():
@@ -1934,12 +2007,16 @@ class TasksController(QObject):
             self._replace_preview_token(token, "")
 
     def _status_choices_for(self, target, process):
+        if self._project_task_target(target):
+            catalog = self._task_field_catalogs.get(self._application._current_project_code) or {}
+            if "statusChoices" in catalog and target.get_project().get_workflow() is None:
+                return [dict(item, color=item.get("color") or "#607d8b") for item in catalog["statusChoices"]]
         stype, pipeline = self._pipeline(target)
-        if not stype or not pipeline:
+        if not self._project_task_target(target) and (not stype or not pipeline):
             return []
         try:
             info = self._process_task_configuration(pipeline, process)
-            workflow = stype.get_workflow()
+            workflow = target.get_project().get_workflow() if self._project_task_target(target) else stype.get_workflow()
             pipeline_code = info.get("task_pipeline")
             task_pipeline = (
                 workflow.get_by_pipeline_code("sthpw/task", pipeline_code)
@@ -2791,7 +2868,7 @@ class TasksController(QObject):
     def _parent_search_type_label(parent, search_type):
         """Return the configured Search Type title without changing identity."""
         search_type = str(search_type or "").split("?", 1)[0]
-        if parent is None:
+        if parent is None or search_type == "sthpw/project":
             return search_type
         try:
             stype = parent.get_stype()
@@ -3527,6 +3604,8 @@ class TasksController(QObject):
                 self.use_current_search_type()
             return
         if self._advanced_scope == "multiple":
+            if not self._multiple_targets:
+                return
             if len(self._multiple_targets) > 1:
                 self.refresh_advanced()
             else:
@@ -3725,6 +3804,15 @@ class TasksController(QObject):
 
     @Slot()
     def use_current_object(self):
+        if self._advanced_scope not in {"object", "multiple"}:
+            if self._advanced_drafts:
+                self._advanced_error = (
+                    "Save or discard task changes before changing the selected object."
+                )
+                self.advancedChanged.emit()
+                return
+            if self.advancedFiltersActive:
+                self.clear_filters()
         targets = self._selected_workspace_targets()
         if len(targets) > 1:
             self._use_multiple_targets(targets)
@@ -3772,6 +3860,38 @@ class TasksController(QObject):
         self.task_store.set_scope("multiple", targets=targets)
         self.refresh_advanced()
 
+    def use_related_objects(self, search_keys: list[str]) -> None:
+        """Show tasks of schema-related objects in the selected-object scope."""
+        keys = list(dict.fromkeys(str(key) for key in search_keys if key))
+        scope = "object" if len(keys) == 1 else "multiple"
+        changed = self._scope_will_change(
+            scope,
+            target_key=keys[0] if scope == "object" else "",
+            targets=keys if scope == "multiple" else None,
+        )
+        if not changed:
+            return
+        if self._advanced_drafts:
+            self._advanced_error = (
+                "Save or discard task changes before changing the selected objects."
+            )
+            self.advancedChanged.emit()
+            return
+        if self._advanced_scope not in {"object", "multiple"} and self.advancedFiltersActive:
+            self.clear_filters()
+        self._reset_advanced_interaction()
+        self._advanced_object_process = ""
+        if scope == "object":
+            self.task_store.set_scope(
+                "object", target_key=keys[0], target_title=keys[0],
+            )
+        else:
+            self.task_store.set_scope("multiple", targets=keys)
+        self._advanced_selection_dirty = False
+        self.task_store.clear()
+        if self._advanced_visible and keys:
+            self.refresh_advanced()
+
     @Slot(str)
     def use_object(self, search_key):
         search_key = str(search_key or "").strip()
@@ -3792,18 +3912,12 @@ class TasksController(QObject):
         if not search_key:
             return
         self._pending_context_task_code = str(task_code or "").strip()
-        self._pending_context_filter = (
-            "process", str(process or "").strip()
-        ) if process and not task_code else ("", "")
-        self._show_workspace_surface("browser")
-        if (
-                self._advanced_scope == "object"
-                and self._advanced_target_key == search_key
-                and self._advanced_raw
-                and not self._advanced_busy):
-            self._apply_pending_object_context()
-            return
+        if self.advancedFiltersActive:
+            self.clear_filters()
+        if process and not task_code:
+            self._filters["process"] = str(process).strip()
         self.use_object(search_key)
+        self._show_workspace_surface("browser")
 
     @Slot(str, str, str)
     def open_object_filter(self, search_key, field, value):
@@ -3814,26 +3928,14 @@ class TasksController(QObject):
         if not search_key or field not in {"process", "status"}:
             return
         self._pending_context_task_code = ""
-        self._pending_context_filter = (field, value)
-        self._show_workspace_surface("browser")
-        if (
-                self._advanced_scope == "object"
-                and self._advanced_target_key == search_key
-                and self._advanced_raw
-                and not self._advanced_busy):
-            self._apply_pending_object_context()
-            return
+        self.clear_filters()
+        self._filters[field] = value
         self.use_object(search_key)
+        self._show_workspace_surface("browser")
 
     def _apply_pending_object_context(self):
         task_code = self._pending_context_task_code
-        field, value = self._pending_context_filter
         self._pending_context_task_code = ""
-        self._pending_context_filter = ("", "")
-        if field in {"process", "status"}:
-            self.clear_filters()
-            self._filters[field] = value
-            self._rebuild_advanced_models()
         if task_code and task_code in self._advanced_tasks:
             self.activate_advanced_task(task_code)
             self._application.dock_model.show_panel("notes")
@@ -3841,15 +3943,24 @@ class TasksController(QObject):
     def open_for_user(self, login):
         self._open_user_scope(login, show_window=True)
 
+    @Slot(str, str, str)
+    def open_for_user_filter(self, login, field, value):
+        if field not in {"status", "process"}:
+            return
+        self._open_user_scope(
+            login, show_window=True,
+            filter_field=field, filter_value=str(value or ""),
+        )
+
     def prepare_user_scope(self, login):
         return self._open_user_scope(login, show_window=False)
 
-    def _open_user_scope(self, login, show_window):
+    def _open_user_scope(self, login, show_window, filter_field="", filter_value=""):
         login = str(login or self._current_login())
         if not login:
             return False
         scope_changed = self._scope_will_change("user", user=login)
-        if scope_changed and self._advanced_drafts:
+        if (scope_changed or filter_field) and self._advanced_drafts:
             self._advanced_error = (
                 "Save or discard task changes before changing the task scope."
             )
@@ -3863,9 +3974,15 @@ class TasksController(QObject):
             )
             self._advanced_raw = []
             self._rebuild_advanced_models()
+        if filter_field:
+            self.clear_filters()
+            if filter_value:
+                self._filters[filter_field] = filter_value
+            else:
+                self._quick_filters[filter_field].add("")
         if show_window:
             self._show_workspace_surface("browser")
-        if scope_changed or (
+        if filter_field or scope_changed or (
                 not self._advanced_raw and not self._advanced_busy):
             self.refresh_advanced()
         return True
@@ -3969,6 +4086,8 @@ class TasksController(QObject):
                 self._advanced_scope == "object"
                 and self._advanced_target is None
                 and not self._advanced_target_key):
+            return
+        if self._advanced_scope == "multiple" and not self._multiple_targets:
             return
         project_code = str(self._application._current_project_code or "")
         if not project_code:
@@ -4158,8 +4277,7 @@ class TasksController(QObject):
         if self._advanced_checked:
             self._sync_bulk_selection(preserve=True)
         self._rebuild_advanced_models()
-        if (self._pending_context_task_code
-                or any(self._pending_context_filter)):
+        if self._pending_context_task_code:
             self._apply_pending_object_context()
         self.bulkChanged.emit()
         if (
@@ -4300,6 +4418,7 @@ class TasksController(QObject):
             record["hoursLabel"] = format_hours_label(
                 self._number(record.get("loggedHours")), planned_hours
             )
+            record["statusChoices"] = self._status_choices_for(target, process)
             supervisor_choices = self._supervisor_choices_for(
                 target, process,
                 include_login=record.get("supervisor"),
@@ -6060,6 +6179,13 @@ class TasksController(QObject):
             values.clear()
         self._queue_query_reload()
 
+    @Slot()
+    def reset_filters(self):
+        if self._advanced_scope == "user" and not self.personalScope:
+            self.use_current_object()
+        else:
+            self.clear_filters()
+
     @Slot(str, str)
     def toggle_quick_filter(self, group, value):
         group = str(group or "")
@@ -6291,7 +6417,10 @@ class TasksController(QObject):
         self.taskActivated.emit(task_code, parent_key, process)
         if parent_key and parent_key != self.targetSearchKey:
             self._application._selected_detail_process = process
-            self._application.select_sobject(parent_key)
+            if parent_key.split("?", 1)[0] == "sthpw/project":
+                self._application.open_search_key_in_process(parent_key, process)
+            else:
+                self._application.select_sobject(parent_key)
         self._sync_snapshot_context(task_code)
 
     @Slot(str)
@@ -6820,7 +6949,9 @@ class TasksController(QObject):
         def operation():
             import thlib.tactic_classes as tc
             server = tc.server_start(project=project_code)
-            server.update_multiple(data=payload, triggers=True)
+            tc.update_multiple_compatible(
+                server, data=payload, triggers=True
+            )
             return {"completed": list(changes_by_code)}
 
         self._bulk_busy = True

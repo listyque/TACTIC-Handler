@@ -12,6 +12,7 @@ from PySide6.QtQml import QQmlComponent, QQmlEngine
 from PySide6.QtQuick import QQuickWindow
 from PySide6.QtTest import QTest
 
+from thlib.tactic_classes import Pipeline
 from thlib.ui.workspace_models.results_presentation import PresentationMixin
 
 
@@ -148,15 +149,6 @@ class WorkspaceInfoItemPresentationTests(unittest.TestCase):
         )
 
     def test_completion_keeps_its_related_search_type(self):
-        class Pipeline:
-            @staticmethod
-            def get_processes_info_by_type(kind):
-                return [{"name": "Completion"}] if kind == "progress" else []
-
-            @staticmethod
-            def get_pipeline_process(_name):
-                return {"workflow": {"search_type": "demo/shot"}}
-
         class TargetType:
             @staticmethod
             def get_stype_color(fmt="hex"):
@@ -171,7 +163,7 @@ class WorkspaceInfoItemPresentationTests(unittest.TestCase):
         class SearchType:
             @staticmethod
             def get_pipeline():
-                return {"main": Pipeline()}
+                return {"main": pipeline}
 
             @staticmethod
             def get_stype_color(fmt="hex"):
@@ -190,17 +182,32 @@ class WorkspaceInfoItemPresentationTests(unittest.TestCase):
             def get_progress_count(_name, count_type):
                 return {"approved_count": 4, "total_count": 6}[count_type]
 
-        self.assertEqual(
-            PresentationMixin._progress_items(SObject(), SearchType()),
-            [{
-                "name": "Completion",
-                "label": "4 / 6",
-                "color": "#2e9f68",
-                "approved": 4,
-                "total": 6,
-                "searchType": "demo/shot",
-            }],
-        )
+        expected = [{
+            "name": "Completion",
+            "label": "4 / 6",
+            "color": "#2e9f68",
+            "approved": 4,
+            "total": 6,
+            "searchType": "demo/shot",
+        }]
+        for workflow in (
+            {"search_type": "demo/shot"},
+            '{"search_type": "demo/shot"}',
+        ):
+            with self.subTest(workflow_type=type(workflow).__name__):
+                pipeline = Pipeline({
+                    "pipeline": (
+                        '<pipeline><process name="Completion" '
+                        'type="progress" /></pipeline>'
+                    ),
+                    "stypes_processes": [
+                        {"process": "Completion", "workflow": workflow}
+                    ],
+                })
+                self.assertEqual(
+                    PresentationMixin._progress_items(SObject(), SearchType()),
+                    expected,
+                )
 
 
 class WorkspaceInfoItemQmlTests(unittest.TestCase):

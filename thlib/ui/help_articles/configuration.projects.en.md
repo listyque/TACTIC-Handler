@@ -8,6 +8,9 @@ order: 32
 > Projects selects the workspace project and provides direct access to project creation and editing.
 > The selection is shared with the project chooser in the main window.
 
+Opening this page refreshes the project catalog from TACTIC, so newly created, retired, and
+template projects are shown according to the filters without restarting the application.
+
 ## Available projects
 
 | Control | What it does |
@@ -22,6 +25,6 @@ order: 32
 **Current** identifies the project used by the workspace now. **Activate selected project** switches
 the entire workspace to the selected project, so Search Types, navigation, tasks, and project data
 reload for that context. **Edit selected project** opens the project editor and is disabled for
-built-in projects. **Create new project** opens a blank project editor.
+built-in projects. **Create new project** opens the four-step TACTIC project creation wizard.
 
 Selecting a card is harmless; the project changes only after activation or a double-click.

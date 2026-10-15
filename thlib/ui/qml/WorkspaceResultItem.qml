@@ -613,7 +613,7 @@ Item {
                 color: root.selected
                     ? root.theme.contentSelectionText : root.theme.primaryText
                 font.family: root.theme.fontFamily
-                font.pixelSize: root.compactObjectCard ? 13 : 15
+                font.pixelSize: root.compactObjectCard ? 12 : 15
                 font.weight: Font.DemiBold
                 maximumLineCount: 1
                 wrapMode: Text.NoWrap
@@ -658,7 +658,7 @@ Item {
                     : root.theme.secondaryText
                 font.family: root.theme.fontFamily
                 font.pointSize: root.compactObjectCard
-                    ? Controls.Typography.label : Controls.Typography.body
+                    ? Controls.Typography.caption : Controls.Typography.body
                 maximumLineCount: 1
                 wrapMode: Text.NoWrap
                 elide: Text.ElideRight
@@ -666,7 +666,7 @@ Item {
               Row {
                 objectName: "workspaceObjectMetadata"
                 width: Math.max(48, parent.width - root.contentTrailingReserve)
-                height: 24
+                height: root.compactObjectCard ? 20 : 24
                 spacing: root.compactObjectCard ? 4 : 6
                 clip: true
                 Controls.CompletionStrip {
@@ -674,6 +674,8 @@ Item {
                   theme: root.theme
                   items: root.progressItems || []
                   maximumItems: root.compactObjectCard ? 1 : 0
+                  dense: root.compactObjectCard
+                  maximumWidth: root.compactObjectCard ? parent.width : 0
                   onCompletionRequested: searchType => {
                     if (root.controller)
                       root.controller.open_completion(root.nodeId, searchType)
@@ -778,7 +780,8 @@ Item {
 
                     Label {
                       id: snapshotOffline
-                      visible: !root.fileExists
+                      objectName: "workspaceSnapshotOffline"
+                      visible: root.searchKey.length > 0 && !root.fileExists
                         && root.compactTitle.length > 0
                       Layout.preferredWidth: visible ? implicitWidth : 0
                       text: "(" + qsTr("File Offline") + ")"

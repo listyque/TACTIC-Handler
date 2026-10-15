@@ -39,6 +39,9 @@ Item {
                 required property string avatarText
                 required property string avatarColor
                 required property string sourceIcon
+                required property bool replyOpen
+                required property bool replySending
+                required property string replyError
                 width: stack.width
                 height: content.implicitHeight + 24
                 Accessible.role: Accessible.Button
@@ -74,7 +77,7 @@ Item {
                     cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
                     onActivated: root.controller.activate(notice.index)
                 }
-                RowLayout {
+                ColumnLayout {
                     id: content
                     anchors.left: parent.left
                     anchors.right: parent.right
@@ -82,121 +85,154 @@ Item {
                     anchors.leftMargin: 14
                     anchors.rightMargin: 8
                     spacing: 10
-                    Rectangle {
-                        Layout.preferredWidth: 46
-                        Layout.preferredHeight: 46
-                        radius: notice.sourceType === "message"
-                                || notice.sourceType === "activity"
-                            ? width / 2 : root.theme.itemRadius
-                        color: notice.avatarColor.length > 0
-                            ? notice.avatarColor
-                            : root.theme.blend(
-                                root.theme.action,
-                                root.theme.surfaceContainerHigh,
-                                0.18)
-                        border.width: 1
-                        border.color: root.theme.outlineVariant
-                        clip: true
-
-                        Image {
-                            id: sourcePreview
-                            anchors.fill: parent
+                    RowLayout {
+                        Layout.fillWidth: true
+                        spacing: 10
+                        Controls.ItemPreview {
+                            objectName: "notificationAvatar"
+                            Layout.preferredWidth: 46
+                            Layout.preferredHeight: 46
+                            theme: root.theme
+                            previewSize: 46
                             source: notice.previewUrl
-                            fillMode: Image.PreserveAspectCrop
-                            asynchronous: true
-                            cache: true
-                            visible: status === Image.Ready
-                        }
-                        Label {
-                            objectName: "notificationAvatarText"
-                            anchors.centerIn: parent
-                            visible: !sourcePreview.visible
-                                && notice.avatarText.length > 0
-                            text: notice.avatarText.slice(0, 2).toUpperCase()
-                            color: root.theme.selectedText
-                            font.family: root.theme.fontFamily
-                            font.pointSize: Controls.Typography.body
-                            font.weight: Font.Bold
-                        }
-                        Controls.MaterialIcon {
-                            objectName: "notificationSourceIcon"
-                            anchors.centerIn: parent
-                            visible: !sourcePreview.visible
-                                && notice.avatarText.length === 0
-                            name: notice.sourceIcon.length > 0
+                            fallbackText: notice.avatarText.slice(0, 2).toUpperCase()
+                            fallbackIcon: notice.sourceIcon.length > 0
                                 ? notice.sourceIcon
                                 : notice.kind === "error" ? "priority-high"
                                 : notice.kind === "warning" ? "warning"
                                 : notice.kind === "progress" ? "sync"
                                 : notice.kind === "complete" ? "check-circle"
                                 : "info"
-                            size: notice.sourceType.length > 0 ? 20 : 19
-                            color: notice.kind === "error" ? root.theme.error
+                            accent: notice.avatarColor.length > 0
+                                ? notice.avatarColor
+                                : notice.kind === "error" ? root.theme.error
                                 : notice.kind === "warning" ? root.theme.yellow
                                 : notice.kind === "complete" ? root.theme.green
                                 : root.theme.action
+                            round: notice.sourceType === "message"
+                                || notice.sourceType === "activity"
+                            outlined: true
+                            animateAppearance: false
                         }
-                    }
-                    ColumnLayout {
-                        Layout.fillWidth: true
-                        spacing: 3
-                        Label {
-                            objectName: "notificationSource"
+                        ColumnLayout {
                             Layout.fillWidth: true
-                            visible: notice.sourceType.length > 0
-                            text: notice.sourceType === "message"
-                                ? qsTr("Message")
-                                    + (notice.sourceTitle.length > 0
-                                        ? " · " + notice.sourceTitle : "")
-                                : notice.sourceType === "activity"
-                                    ? qsTr("Activity Feed")
+                            spacing: 3
+                            Label {
+                                objectName: "notificationSource"
+                                Layout.fillWidth: true
+                                visible: notice.sourceType.length > 0
+                                text: notice.sourceType === "message"
+                                    ? qsTr("Message")
                                         + (notice.sourceTitle.length > 0
-                                            ? " · "
-                                                + notice.sourceTitle
-                                            : "")
-                                    : notice.sourceTitle
-                            color: root.theme.action
-                            font.family: root.theme.fontFamily
-                            font.pointSize: Controls.Typography.caption
-                            font.weight: Font.DemiBold
-                            elide: Text.ElideRight
+                                            ? " · " + notice.sourceTitle : "")
+                                    : notice.sourceType === "activity"
+                                        ? qsTr("Activity Feed")
+                                            + (notice.sourceTitle.length > 0
+                                                ? " · " + notice.sourceTitle : "")
+                                        : notice.sourceTitle
+                                color: root.theme.action
+                                font.family: root.theme.fontFamily
+                                font.pointSize: Controls.Typography.caption
+                                font.weight: Font.DemiBold
+                                elide: Text.ElideRight
+                            }
+                            Label {
+                                objectName: "notificationMessage"
+                                Layout.fillWidth: true
+                                text: notice.sourceType.length > 0
+                                    ? notice.message : qsTr(notice.message)
+                                color: root.theme.primaryText
+                                font.family: root.theme.fontFamily
+                                font.pointSize: Controls.Typography.body
+                                font.weight: Font.DemiBold
+                                wrapMode: Text.WordWrap
+                            }
+                            Label {
+                                objectName: "notificationDetail"
+                                Layout.fillWidth: true
+                                visible: notice.detail.length > 0
+                                text: notice.detail
+                                color: root.theme.secondaryText
+                                font.family: root.theme.fontFamily
+                                font.pointSize: Controls.Typography.caption
+                                wrapMode: Text.Wrap
+                                maximumLineCount: 2
+                                elide: Text.ElideRight
+                            }
+                            ProgressBar {
+                                Layout.fillWidth: true
+                                visible: notice.kind === "progress"
+                                indeterminate: notice.progress < 0
+                                value: notice.progress
+                                Material.accent: root.theme.action
+                            }
                         }
-                        Label {
-                            objectName: "notificationMessage"
-                            Layout.fillWidth: true
-                            text: notice.sourceType.length > 0
-                                ? notice.message : qsTr(notice.message)
-                            color: root.theme.primaryText
-                            font.family: root.theme.fontFamily
-                            font.pointSize: Controls.Typography.body
-                            font.weight: Font.DemiBold
-                            wrapMode: Text.WordWrap
-                        }
-                        Label {
-                            objectName: "notificationDetail"
-                            Layout.fillWidth: true
-                            visible: notice.detail.length > 0
-                            text: notice.detail
-                            color: root.theme.secondaryText
-                            font.family: root.theme.fontFamily
-                            font.pointSize: Controls.Typography.caption
-                            wrapMode: Text.Wrap
-                            maximumLineCount: 2
-                            elide: Text.ElideRight
-                        }
-                        ProgressBar {
-                            Layout.fillWidth: true
-                            visible: notice.kind === "progress"
-                            indeterminate: notice.progress < 0
-                            value: notice.progress
-                            Material.accent: root.theme.action
+                        Controls.CompactIconButton {
+                            theme: root.theme
+                            iconName: "close"
+                            visible: notice.dismissible
+                            onClicked: root.controller.dismiss(notice.index)
                         }
                     }
-                    Controls.CompactIconButton {
+                    Controls.Button {
+                        objectName: "notificationReplyButton"
+                        Layout.alignment: Qt.AlignRight
                         theme: root.theme
-                        iconName: "close"
-                        visible: notice.dismissible
-                        onClicked: root.controller.dismiss(notice.index)
+                        text: qsTr("Reply")
+                        visible: notice.sourceType === "message"
+                            && notice.actionData.length > 0
+                            && !notice.replyOpen
+                        onClicked: root.controller.begin_reply(notice.index)
+                    }
+                    RowLayout {
+                        Layout.fillWidth: true
+                        visible: notice.replyOpen
+                        spacing: 6
+                        Controls.TextField {
+                            id: replyField
+                            objectName: "notificationReplyField"
+                            Layout.fillWidth: true
+                            theme: root.theme
+                            placeholderText: qsTr("Write a reply")
+                            enabled: !notice.replySending
+                            onAccepted: root.controller.send_reply(
+                                notice.index, text)
+                            Keys.onEscapePressed: root.controller.cancel_reply(
+                                notice.index)
+                            onVisibleChanged: {
+                                if (visible)
+                                    Qt.callLater(() => forceActiveFocus())
+                            }
+                        }
+                        Controls.Button {
+                            objectName: "notificationSendReplyButton"
+                            theme: root.theme
+                            text: qsTr("Send")
+                            enabled: !notice.replySending
+                                && replyField.text.trim().length > 0
+                            onClicked: root.controller.send_reply(
+                                notice.index, replyField.text)
+                        }
+                        Controls.CompactIconButton {
+                            theme: root.theme
+                            iconName: "close"
+                            toolTip: qsTr("Cancel")
+                            enabled: !notice.replySending
+                            onClicked: root.controller.cancel_reply(notice.index)
+                        }
+                    }
+                    Label {
+                        Layout.fillWidth: true
+                        visible: notice.replyError.length > 0
+                        text: notice.replyError === "Unable to send message"
+                            ? qsTr("Unable to send message")
+                            : notice.replyError
+                        color: root.theme.error
+                        font.family: root.theme.fontFamily
+                        font.pointSize: Controls.Typography.caption
+                        wrapMode: Text.WordWrap
+                        maximumLineCount: 2
+                        elide: Text.ElideRight
                     }
                 }
             }

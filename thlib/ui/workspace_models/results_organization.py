@@ -6,7 +6,7 @@ import re
 
 from PySide6.QtCore import QCoreApplication
 
-from ..search_contract import parse_column_sort_mode
+from ..search_contract import parse_column_group_mode, parse_column_sort_mode
 from .results_types import WorkspaceNode
 
 
@@ -45,7 +45,7 @@ class OrganizationMixin:
         self._group_mode = (
             group_mode if group_mode in {
                 "none", "status", "pipeline", "task_status",
-            } else "none"
+            } or parse_column_group_mode(group_mode) else "none"
         )
         self._task_group_process = str(task_process or "")
         self._task_group_records = {
@@ -133,6 +133,22 @@ class OrganizationMixin:
 
     def _group_value(self, node: WorkspaceNode) -> tuple[str, str, int]:
         info = self._source_info(node)
+        column = parse_column_group_mode(self._group_mode)
+        if column:
+            value = (node.values or {}).get(column)
+            if value is None:
+                value = info.get(column)
+            if value is None and column == "code":
+                value = node.code
+            if value is None and column in {"name", "title"}:
+                value = node.title
+            if isinstance(value, (list, tuple, set)):
+                value = ", ".join(str(item) for item in value)
+            value = str(value or "")
+            return (
+                value or self._translated("No value"), node.accent,
+                0 if value else 10_000,
+            )
         if self._group_mode == "task_status":
             return self._task_group_value(node)
         if self._group_mode == "pipeline":
@@ -196,7 +212,8 @@ class OrganizationMixin:
         for group in self._root_groups:
             self._nodes[group.node_id] = group
         self._replace_visible_items(
-            self._flatten(), preserve_slots=preserve_slots
+            self._project_visible_rows(self._flatten()),
+            preserve_slots=preserve_slots,
         )
 
     def organized_flatten(self) -> list[WorkspaceNode] | None:

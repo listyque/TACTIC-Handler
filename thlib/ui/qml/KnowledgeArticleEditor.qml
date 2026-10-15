@@ -26,22 +26,34 @@ Rectangle {
     property bool fittingImages: false
     property int imageDropPosition: -1
     property bool movingImage: false
+    property bool hoveredImage: false
     property var hoveredLink: ({})
     property string contentMode: "visual"
     property bool loadingSource: false
     readonly property bool contentStep: root.article && root.editorStep === 1
     readonly property bool hoveredLinkActive: String(root.hoveredLink.target || "").length > 0
-    readonly property real imageMaximumWidth: Math.max(24, documentFlickable.width - 40)
+    readonly property real imageMaximumWidth: Math.max(
+        24, documentFlickable.contentWidth)
     readonly property real imageInitialWidth: Math.min(560, root.imageMaximumWidth)
-    readonly property int imageWidthBucket: Math.floor(root.imageMaximumWidth / 64)
+    readonly property var syntaxColors: ({
+        "keyword": root.theme.syntaxKeyword,
+        "string": root.theme.syntaxString,
+        "comment": root.theme.syntaxComment,
+        "number": root.theme.syntaxNumber,
+        "type": root.theme.syntaxType,
+        "function": root.theme.syntaxFunction,
+        "definition": root.theme.syntaxDefinition,
+        "self": root.theme.syntaxSelf,
+        "module": root.theme.syntaxSelf
+    })
+
+    onSyntaxColorsChanged: {
+        if (knowledgeRichText.attached)
+            knowledgeRichText.attach(
+                articleEditor.textDocument, root.syntaxColors);
+    }
 
     color: root.theme.workspace
-
-    function trace(stage) {
-        if (root.controller
-                && typeof root.controller.trace_editor === "function")
-            root.controller.trace_editor(stage);
-    }
 
     function syncSelection() {
         knowledgeRichText.sync_selection(articleEditor.cursorPosition, articleEditor.selectionStart, articleEditor.selectionEnd);
@@ -81,10 +93,7 @@ Rectangle {
         if (!root.richTextDocument.select_image_at_point(
                 x - articleEditor.leftPadding,
                 y - articleEditor.topPadding,
-                root.imageMaximumWidth)
-                && !root.richTextDocument.try_select_image_at(
-                    articleEditor.positionAt(x, y),
-                    root.imageMaximumWidth)) {
+                root.imageMaximumWidth)) {
             return false;
         }
         const imagePosition = root.richTextDocument.selectedImagePosition;
@@ -131,43 +140,27 @@ Rectangle {
     }
 
     function attachEditorDocument() {
-        root.trace("editor.attach.begin");
-        knowledgeRichText.attach(articleEditor.textDocument);
-        root.trace("editor.attach.returned attached="
-            + knowledgeRichText.attached);
+        knowledgeRichText.attach(
+            articleEditor.textDocument, root.syntaxColors);
         root.loadEditorDocument();
-        root.trace("editor.attach.end");
     }
 
     function loadEditorDocument() {
-        root.trace("editor.load.begin mode=" + root.contentMode
-            + " markdown_chars="
-            + String(root.controller.editorMarkdown || "").length);
         if (root.contentMode === "markdown") {
             root.loadingSource = true;
-            root.trace("editor.source.assign.begin");
             markdownEditor.text = String(root.controller.editorMarkdown || "");
-            root.trace("editor.source.assign.end");
             root.loadingSource = false;
             root.contentDirty = false;
-            root.trace("editor.load.end mode=markdown");
             return;
         }
         root.fittingImages = true;
-        root.trace("editor.markdown.load.call.begin");
         knowledgeRichText.load_markdown(
             String(root.controller.editorMarkdown || ""),
             root.controller.editorImageSources || ({}));
-        root.trace("editor.markdown.load.call.end");
-        root.trace("editor.images.initial_fit.begin");
-        root.fitImagesToContentWidth();
-        root.trace("editor.images.initial_fit.end");
         root.fittingImages = false;
-        root.trace("editor.selection.sync.begin");
+        Qt.callLater(root.fitImagesToContentWidth);
         root.syncSelection();
-        root.trace("editor.selection.sync.end");
         root.contentDirty = false;
-        root.trace("editor.load.end mode=visual");
     }
 
     function setContentMode(mode) {
@@ -184,19 +177,13 @@ Rectangle {
     }
 
     function fitImagesToContentWidth() {
-        root.trace("editor.images.fit.enter width="
-            + root.imageMaximumWidth + " attached="
-            + knowledgeRichText.attached);
-        if (!knowledgeRichText.attached) {
-            root.trace("editor.images.fit.skipped");
+        if (!knowledgeRichText.attached)
             return;
-        }
         const wasDirty = root.contentDirty;
         root.fittingImages = true;
         knowledgeRichText.fit_images_to_width(root.imageMaximumWidth);
         root.fittingImages = false;
         root.contentDirty = wasDirty;
-        root.trace("editor.images.fit.returned");
     }
 
     function imageSizeText(width, height) {
@@ -265,14 +252,11 @@ Rectangle {
         root.metadataExpanded = !root.metadataExpanded;
     }
 
-    Component.onCompleted: root.trace("editor.component.completed")
     Component.onDestruction: {
-        root.trace("editor.component.destruction.begin");
         selectionSync.stop();
         draftCheckpoint.stop();
         root.checkpointDraft();
         knowledgeRichText.detach();
-        root.trace("editor.component.destruction.end");
     }
     onContentDirtyChanged: {
         if (root.contentDirty)
@@ -280,15 +264,11 @@ Rectangle {
         else
             draftCheckpoint.stop();
     }
-    onImageWidthBucketChanged: {
-        root.trace("editor.image_width_bucket.changed bucket="
-            + root.imageWidthBucket + " resize=" + root.resizeActive);
+    onImageMaximumWidthChanged: {
         if (!root.resizeActive)
             root.fitImagesToContentWidth();
     }
     onResizeActiveChanged: {
-        root.trace("editor.resize_active.changed value="
-            + root.resizeActive);
         if (!root.resizeActive)
             root.fitImagesToContentWidth();
     }
@@ -296,9 +276,14 @@ Rectangle {
         target: root.controller
 
         function onEditorDocumentChanged() {
-            root.trace("editor.document_changed.received");
             root.loadEditorDocument();
-            root.trace("editor.document_changed.returned");
+        }
+    }
+    Connections {
+        target: root.richTextDocument
+
+        function onImageLoadFailed(source) {
+            root.controller.report_editor_image_error(source);
         }
     }
 
@@ -622,15 +607,16 @@ Rectangle {
                     Layout.preferredHeight: root.contentStep ? Math.max(360, formFlickable.height - toolbar.implicitHeight - 18) : 0
                     visible: root.contentStep
                     radius: root.theme.surfaceRadius
-                    color: root.theme.surfaceContainerHigh
-                    border.width: articleEditor.activeFocus || markdownEditor.activeFocus ? 2 : 1
+                    color: root.contentMode === "visual"
+                        ? root.theme.workspace : root.theme.surfaceContainerHigh
+                    border.width: root.contentMode === "visual" ? 0
+                        : articleEditor.activeFocus || markdownEditor.activeFocus ? 2 : 1
                     border.color: articleEditor.activeFocus || markdownEditor.activeFocus ? root.theme.action : root.theme.outline
 
                     Flickable {
                         id: documentFlickable
                         visible: root.contentMode === "visual"
                         anchors.fill: parent
-                        anchors.margins: 2
                         clip: true
                         contentWidth: width - 12
                         contentHeight: Math.max(height, articleEditor.contentHeight + 24)
@@ -641,25 +627,54 @@ Rectangle {
                             flickableTarget: documentFlickable
                         }
 
+                        KnowledgeRichTextBlockDecorations {
+                            objectName: "knowledgeRichTextBlockDecorations"
+                            anchors.fill: articleEditor
+                            theme: root.theme
+                            editor: articleEditor
+                            documentController: knowledgeRichText
+                            z: 0
+                        }
+
+                        Repeater {
+                            objectName: "knowledgeEditorImageRepeater"
+                            model: knowledgeRichText.imageOverlays || []
+
+                            delegate: KnowledgeEditorImageOverlay {
+                                required property var modelData
+
+                                theme: root.theme
+                                documentController: knowledgeRichText
+                                imageData: modelData
+                                horizontalOffset: articleEditor.leftPadding
+                                verticalOffset: articleEditor.topPadding
+                                z: 2
+                            }
+                        }
+
                         TextEdit {
                             id: articleEditor
                             objectName: "knowledgeRichTextEditor"
                             width: documentFlickable.contentWidth
                             height: Math.max(documentFlickable.height, contentHeight + 24)
-                            leftPadding: 13
-                            rightPadding: 13
-                            topPadding: 12
-                            bottomPadding: 12
+                            leftPadding: 0
+                            rightPadding: 0
+                            topPadding: 0
+                            bottomPadding: 0
                             text: "<p></p>"
                             textFormat: TextEdit.RichText
                             wrapMode: TextEdit.Wrap
                             selectByMouse: true
                             persistentSelection: true
                             color: root.theme.primaryText
-                            selectionColor: root.theme.action
+                            selectionColor: knowledgeRichText.imageSelected
+                                && selectionStart === knowledgeRichText.selectedImagePosition
+                                && selectionEnd === knowledgeRichText.selectedImagePosition + 1
+                                ? "transparent" : root.theme.action
                             selectedTextColor: root.theme.selectedText
                             font.family: root.theme.fontFamily
                             font.pointSize: Controls.Typography.body
+                            z: 1
                             onCursorPositionChanged: root.scheduleSelectionSync()
                             onSelectionStartChanged: root.scheduleSelectionSync()
                             onSelectionEndChanged: root.scheduleSelectionSync()
@@ -677,17 +692,28 @@ Rectangle {
                                 }
                             }
                             Component.onCompleted: {
-                                root.trace("editor.text_edit.completed");
                                 root.attachEditorDocument();
-                                root.trace("editor.text_edit.ready");
                             }
 
                             onLinkHovered: link => root.updateHoveredLink(link, editorHover.point.position.x, editorHover.point.position.y)
 
                             HoverHandler {
                                 id: editorHover
-                                cursorShape: root.movingImage ? Qt.ClosedHandCursor : String(articleEditor.hoveredLink || "").length > 0 ? Qt.PointingHandCursor : Qt.IBeamCursor
+                                cursorShape: root.movingImage
+                                    ? Qt.ClosedHandCursor
+                                    : root.hoveredImage
+                                        ? Qt.OpenHandCursor
+                                        : String(articleEditor.hoveredLink || "").length > 0
+                                            ? Qt.PointingHandCursor
+                                            : Qt.IBeamCursor
+                                onHoveredChanged: {
+                                    if (!hovered)
+                                        root.hoveredImage = false;
+                                }
                                 onPointChanged: {
+                                    root.hoveredImage = root.richTextDocument.image_at_point(
+                                        point.position.x - articleEditor.leftPadding,
+                                        point.position.y - articleEditor.topPadding);
                                     if (root.hoveredLinkActive && String(articleEditor.hoveredLink || "").length === 0 && !root.editLinkButtonContains(point.position.x, point.position.y))
                                         root.clearHoveredLink();
                                 }
@@ -728,37 +754,6 @@ Rectangle {
                                 }
                             }
 
-                            KnowledgeImageSelectionOverlay {
-                                id: imageSelectionFrame
-                                theme: root.theme
-                                editor: articleEditor
-                                documentController: knowledgeRichText
-                                maximumWidth: root.imageMaximumWidth
-                                active: root.contentStep
-                                moving: root.movingImage
-                                dropPosition: root.imageDropPosition
-                                onContentChanged: root.syncContent()
-                                onMoveStarted: {
-                                    root.clearHoveredLink();
-                                    root.movingImage = true;
-                                    root.imageDropPosition = root.richTextDocument.selectedImagePosition;
-                                }
-                                onMoveUpdated: position => root.imageDropPosition = position
-                                onMoveFinished: position => {
-                                    if (position >= 0 && root.richTextDocument.move_selected_image(position)) {
-                                        root.selectEditorImage(root.richTextDocument.selectedImagePosition);
-                                        root.contentDirty = true;
-                                        root.syncContent();
-                                    }
-                                    root.imageDropPosition = -1;
-                                    root.movingImage = false;
-                                }
-                                onMoveCanceled: {
-                                    root.imageDropPosition = -1;
-                                    root.movingImage = false;
-                                }
-                            }
-
                             Controls.CompactIconButton {
                                 id: editHoveredLink
                                 objectName: "knowledgeEditHoveredLink"
@@ -781,6 +776,38 @@ Rectangle {
                                     toolbar.editLink(root.hoveredLink);
                                     root.clearHoveredLink();
                                 }
+                            }
+                        }
+
+                        KnowledgeImageSelectionOverlay {
+                            id: imageSelectionFrame
+                            theme: root.theme
+                            editor: articleEditor
+                            documentController: knowledgeRichText
+                            maximumWidth: root.imageMaximumWidth
+                            active: root.contentStep
+                            moving: root.movingImage
+                            dropPosition: root.imageDropPosition
+                            z: 4
+                            onContentChanged: root.syncContent()
+                            onMoveStarted: {
+                                root.clearHoveredLink();
+                                root.movingImage = true;
+                                root.imageDropPosition = root.richTextDocument.selectedImagePosition;
+                            }
+                            onMoveUpdated: position => root.imageDropPosition = position
+                            onMoveFinished: position => {
+                                if (position >= 0 && root.richTextDocument.move_selected_image(position)) {
+                                    root.selectEditorImage(root.richTextDocument.selectedImagePosition);
+                                    root.contentDirty = true;
+                                    root.syncContent();
+                                }
+                                root.imageDropPosition = -1;
+                                root.movingImage = false;
+                            }
+                            onMoveCanceled: {
+                                root.imageDropPosition = -1;
+                                root.movingImage = false;
                             }
                         }
                     }

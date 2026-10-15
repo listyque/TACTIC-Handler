@@ -1,6 +1,11 @@
 from __future__ import annotations
 
 import unittest
+from datetime import datetime, timedelta, timezone
+import json
+import sys
+import textwrap
+from types import ModuleType, SimpleNamespace
 from unittest.mock import Mock, patch
 
 from PySide6.QtCore import QObject, Signal
@@ -12,8 +17,10 @@ from thlib.ui.communication_feed import (
     _message_identity,
     _message_skey,
 )
+from thlib.ui.communication_permissions import can_change_published_text
 from thlib.environment import env_inst
 from thlib.ui.workspace_models.records import RecordListModel
+from tests.support.async_scenarios import DeferredPool
 
 
 class CommunicationFeedTests(unittest.TestCase):
@@ -30,6 +37,271 @@ class CommunicationFeedTests(unittest.TestCase):
                 self.repository_sync = Repository(self)
 
         return Application()
+
+    def test_published_text_permission_has_a_strict_one_hour_boundary(self):
+        now = datetime(2026, 9, 22, 12, tzinfo=timezone.utc)
+        fresh = now - timedelta(minutes=59, seconds=59)
+        expired = now - timedelta(hours=1)
+        self.assertTrue(can_change_published_text(
+            "artist", fresh, "artist", False, now=now
+        ))
+        self.assertFalse(can_change_published_text(
+            "artist", expired, "artist", True, now=now
+        ))
+        self.assertFalse(can_change_published_text(
+            "artist", now + timedelta(seconds=1), "artist", False, now=now
+        ))
+        self.assertFalse(can_change_published_text(
+            "artist", None, "artist", False, now=now
+        ))
+        self.assertFalse(can_change_published_text(
+            "artist", fresh, "other", False, now=now
+        ))
+        self.assertTrue(can_change_published_text(
+            "artist", expired, "other", True, now=now
+        ))
+        clock = Mock()
+        clock.presentation_datetime.return_value = fresh
+        self.assertTrue(can_change_published_text(
+            "artist", "server timestamp", "artist", False,
+            clock=clock, now=now,
+        ))
+        clock.presentation_datetime.assert_called_once_with("server timestamp")
+
+    def test_message_actions_recheck_current_rights(self):
+        from thlib.environment import env_server
+
+        application = self._application()
+        controller = MessagesController(application)
+        controller.messages.replace([{
+            "messageId": "MSG001", "sender": "artist", "body": "Original",
+            "timestamp": datetime.now(timezone.utc).strftime(
+                "%Y-%m-%d %H:%M:%S"
+            ),
+            "canEdit": True,
+        }])
+        controller._run_mutation = Mock()
+        with patch.object(env_server, "get_user", return_value="artist"):
+            self.assertTrue(controller.can_change_message("MSG001"))
+            self.assertTrue(controller.delete_message("MSG001"))
+            controller._run_mutation.assert_called_once()
+            controller._run_mutation.reset_mock()
+            controller.messages.set_value(
+                0, "timestamp",
+                (datetime.now(timezone.utc) - timedelta(hours=2)).strftime(
+                    "%Y-%m-%d %H:%M:%S"
+                ),
+            )
+            self.assertFalse(controller.can_change_message("MSG001"))
+            self.assertFalse(controller.edit_message("MSG001", "Changed"))
+            self.assertFalse(controller.delete_message("MSG001"))
+            controller._run_mutation.assert_not_called()
+
+        with patch.object(env_server, "get_user", return_value="other"):
+            self.assertFalse(controller.can_change_message("MSG001"))
+            application.can_manage_tools = True
+            self.assertTrue(controller.can_change_message("MSG001"))
+
+    def test_chat_server_rechecks_author_role_and_age(self):
+        from thlib import tactic_query as tq
+
+        message = {
+            "code": "MSG001", "message_code": "CHAT001",
+            "login": "artist", "message": "Original",
+            "timestamp": (datetime.now(timezone.utc) - timedelta(hours=2))
+                .strftime("%Y-%m-%d %H:%M:%S"),
+        }
+        identity = {"login": "artist", "admin": False}
+        updates = Mock()
+
+        class MessageLog:
+            def get_code(self):
+                return message["code"]
+
+            def get_id(self):
+                return 3
+
+            def get_value(self, key):
+                return message.get(key)
+
+        class Search:
+            def __init__(self, search_type):
+                self.search_type = search_type
+
+            def add_filter(self, *_args, **_kwargs):
+                pass
+
+            def get_sobject(self):
+                if self.search_type == "sthpw/message_log":
+                    return MessageLog()
+                if self.search_type == "sthpw/subscription":
+                    return object()
+                return None
+
+            def get_sobjects(self):
+                if self.search_type == "sthpw/subscription":
+                    return [SimpleNamespace(get_value=lambda _key: identity["login"])]
+                return []
+
+        search_module = ModuleType("pyasm.search")
+        search_module.Search = Search
+        search_module.SearchKey = SimpleNamespace(
+            get_by_sobject=lambda *_args, **_kwargs: "sthpw/message_log?code=MSG001"
+        )
+        common_module = ModuleType("pyasm.common")
+        common_module.Environment = SimpleNamespace(
+            get_security=lambda: SimpleNamespace(is_admin=lambda: identity["admin"])
+        )
+        pyasm_module = ModuleType("pyasm")
+        pyasm_module.search = search_module
+        pyasm_module.common = common_module
+        server = SimpleNamespace(
+            get_login=lambda: identity["login"], update=updates,
+        )
+        with patch.dict(sys.modules, {
+            "pyasm": pyasm_module, "pyasm.search": search_module,
+            "pyasm.common": common_module,
+        }), patch.object(tq, "server", server, create=True):
+            for mutate in (
+                lambda: tq.edit_chat_message("MSG001", "Changed"),
+                lambda: tq.delete_chat_message("MSG001"),
+            ):
+                with self.assertRaisesRegex(RuntimeError, "within one hour"):
+                    mutate()
+            identity["admin"] = True
+            with self.assertRaisesRegex(RuntimeError, "within one hour"):
+                tq.delete_chat_message("MSG001")
+            identity["admin"] = False
+            updates.assert_not_called()
+
+            identity["login"] = "other"
+            for mutate in (
+                lambda: tq.edit_chat_message("MSG001", "Changed"),
+                lambda: tq.delete_chat_message("MSG001"),
+            ):
+                with self.assertRaisesRegex(RuntimeError, "administrators"):
+                    mutate()
+            updates.assert_not_called()
+
+            identity["admin"] = True
+            self.assertTrue(json.loads(tq.delete_chat_message("MSG001"))["deleted"])
+            self.assertTrue(json.loads(tq.edit_chat_message("MSG001", "Changed"))["edited"])
+            self.assertEqual(updates.call_count, 2)
+
+            identity.update(login="artist", admin=False)
+            message["timestamp"] = datetime.now(timezone.utc).strftime(
+                "%Y-%m-%d %H:%M:%S"
+            )
+            updates.reset_mock()
+            self.assertTrue(json.loads(tq.delete_chat_message("MSG001"))["deleted"])
+            updates.assert_called_once()
+
+    def test_note_server_rechecks_rights_and_preserves_edit_history(self):
+        from thlib import tactic_query as tq
+
+        note = {
+            "login": "artist", "note": "Original", "metadata": {},
+            "timestamp": (datetime.now(timezone.utc) - timedelta(hours=2))
+                .strftime("%Y-%m-%d %H:%M:%S"),
+        }
+        identity = {"login": "artist", "admin": False}
+        delete = Mock()
+        update = Mock()
+
+        class Note:
+            def get_base_search_type(self):
+                return "sthpw/note"
+
+            def get_value(self, key):
+                return note.get(key)
+
+            def delete(self):
+                delete()
+
+        class Search:
+            @staticmethod
+            def get_by_search_key(_key):
+                return Note()
+
+            def __init__(self, _search_type):
+                pass
+
+            def add_filter(self, *_args):
+                pass
+
+            def get_sobjects(self):
+                return []
+
+        search_module = ModuleType("pyasm.search")
+        search_module.Search = Search
+        search_module.SearchKey = SimpleNamespace(
+            get_by_sobject=lambda *_args, **_kwargs: "sthpw/note?code=NOTE001"
+        )
+        common_module = ModuleType("pyasm.common")
+        common_module.Environment = SimpleNamespace(
+            get_security=lambda: SimpleNamespace(is_admin=lambda: identity["admin"])
+        )
+        pyasm_module = ModuleType("pyasm")
+        pyasm_module.search = search_module
+        pyasm_module.common = common_module
+        server = SimpleNamespace(
+            get_login=lambda: identity["login"], update=update,
+        )
+        with patch.dict(sys.modules, {
+            "pyasm": pyasm_module, "pyasm.search": search_module,
+            "pyasm.common": common_module,
+        }), patch.object(tq, "server", server, create=True):
+            with self.assertRaisesRegex(RuntimeError, "within one hour"):
+                tq.change_note("sthpw/note?code=NOTE001", "delete")
+            identity["admin"] = True
+            with self.assertRaisesRegex(RuntimeError, "within one hour"):
+                tq.change_note("sthpw/note?code=NOTE001", "edit", "Changed")
+            identity["admin"] = False
+            identity["login"] = "other"
+            with self.assertRaisesRegex(RuntimeError, "administrators"):
+                tq.change_note("sthpw/note?code=NOTE001", "edit", "Changed")
+            delete.assert_not_called()
+            update.assert_not_called()
+
+            identity["admin"] = True
+            self.assertTrue(json.loads(tq.change_note(
+                "sthpw/note?code=NOTE001", "edit", "Changed"
+            ))["edited"])
+            changes = update.call_args.args[1]
+            self.assertEqual(changes["note"], "Changed")
+            self.assertEqual(changes["metadata"]["editHistory"][0]["body"], "Original")
+            self.assertEqual(changes["metadata"]["editHistory"][0]["editedBy"], "other")
+
+            identity.update(login="artist", admin=False)
+            note["timestamp"] = datetime.now(timezone.utc).strftime(
+                "%Y-%m-%d %H:%M:%S"
+            )
+            self.assertTrue(json.loads(tq.change_note(
+                "sthpw/note?code=NOTE001", "delete"
+            ))["deleted"])
+            delete.assert_called_once()
+
+    def test_changed_server_procedures_serialize_as_valid_python(self):
+        from thlib import tactic_query as tq
+
+        for procedure, arguments in (
+            (tq.change_note, {
+                "note_search_key": "sthpw/note?code=NOTE001",
+                "action": "edit", "body": "Changed",
+            }),
+            (tq.edit_chat_message, {
+                "message_log_code": "MSG001", "message": "Changed",
+            }),
+            (tq.delete_chat_message, {"message_log_code": "MSG001"}),
+        ):
+            with self.subTest(procedure=procedure.__name__):
+                script = tq.prepare_serverside_script(
+                    procedure, arguments, shrink=False, catch_traceback=False,
+                )["code"]
+                compile(
+                    "def execute():\n" + textwrap.indent(script, "    "),
+                    "<TACTIC server procedure>", "exec",
+                )
 
     def test_message_timestamps_use_the_shared_server_clock(self):
         clock = Mock()
@@ -76,6 +348,250 @@ class CommunicationFeedTests(unittest.TestCase):
         self.assertFalse(controller.busy)
         self.assertEqual(controller.conversations.count(), 0)
         self.assertEqual(controller.error, "")
+
+    def test_authentication_refreshes_hidden_conversation_summaries(self):
+        from thlib.environment import env_server
+
+        controller = MessagesController(self._application())
+        controller.load = Mock()
+        controller.refresh = Mock()
+
+        with (
+            patch.object(env_server, "get_ticket", return_value="ticket"),
+            patch.object(env_inst, "logins", {"artist": object()}),
+        ):
+            controller.sync_authentication()
+
+        controller.refresh.assert_called_once_with()
+        controller.load.assert_not_called()
+
+    def test_expired_ticket_does_not_requeue_hidden_chat_reads(self):
+        from pathlib import Path
+        from thlib.environment import env_mode, env_server
+        from thlib.ui.debug_logging import DebugLogController
+
+        application = self._application()
+        application.authentication_required = False
+        application.debug_log = DebugLogController(Path(env_mode.current_path))
+        self.addCleanup(application.debug_log.shutdown)
+        controller = MessagesController(application)
+        pool = DeferredPool()
+
+        def require_authentication():
+            application.authentication_required = True
+            controller.sync_authentication()
+
+        application.debug_log.authentication_requested.connect(require_authentication)
+        with (
+            patch.object(env_inst, "server_pool", pool),
+            patch.object(env_inst, "logins", {"artist": object()}),
+            patch.object(env_server, "get_ticket", return_value="rejected-ticket"),
+        ):
+            controller.sync_authentication()
+            controller._conversation_id = "CHAT001"
+            controller._activate_draft_context()
+            controller.set_draft_text("Unsent text")
+            controller.load()  # An update arrives during the rejected request.
+            self.assertTrue(controller._pending_refresh)
+            pool.workers[0].reject({
+                "message": "Invalid or expired ticket. Session may have expired.",
+            })
+            self.assertTrue(application.authentication_required)
+            self.assertFalse(controller.busy)
+            self.assertFalse(controller._pending_refresh)
+            self.assertEqual(controller.draftText, "Unsent text")
+            self.assertEqual(len(pool.workers), 1)
+            controller.sync_authentication()
+            controller.load()
+            controller.refresh()
+            controller._conversation_id = "CHAT001"
+            controller._conversation_opened = controller._visible = True
+            controller._sync_active_polling()
+            controller._poll_active_conversation()
+            self.assertFalse(controller._active_poll_timer.isActive())
+            self.assertEqual(len(pool.workers), 1)
+            application.authentication_required = False
+            controller.sync_authentication()
+            self.assertEqual(len(pool.workers), 2)
+            controller._active_poll_timer.stop()
+
+    def test_refresh_reads_server_even_with_stale_conversation_cache(self):
+        from thlib import server_cache
+        import thlib.tactic_classes as tc
+
+        fresh = {"conversations": [
+            {"conversationId": "CHAT001", "unread": 2},
+            {"conversationId": "FAVORITES", "isPersonalNotes": True},
+        ]}
+        with (
+            patch.object(env_inst, "get_current_login_object", return_value=object()),
+            patch.object(server_cache, "invalidate_domains"),
+            patch.object(server_cache, "token", return_value=None),
+            patch.object(server_cache, "read_entry", return_value={
+                "conversations": [{"conversationId": "CHAT001", "unread": 0}],
+            }) as cached,
+            patch.object(tc, "get_chat_conversations", return_value=fresh) as fetch,
+        ):
+            result = _chat_data(True)
+
+        self.assertEqual(result, fresh)
+        cached.assert_not_called()
+        fetch.assert_called_once_with()
+
+    def test_missing_favorites_is_created_for_regular_user_even_with_stale_cache(self):
+        from thlib import server_cache
+        import thlib.tactic_classes as tc
+
+        missing = {"initialized": True, "conversations": [{
+            "conversationId": "CHAT001", "isPersonalNotes": False,
+        }]}
+        with_favorites = {"initialized": True, "conversations": [
+            missing["conversations"][0],
+            {"conversationId": "FAVORITES", "isPersonalNotes": True,
+             "messageCount": 0},
+        ]}
+        with (
+            patch.object(env_inst, "get_current_login_object", return_value=object()),
+            patch.object(server_cache, "token", return_value=None),
+            patch.object(server_cache, "read_entry", return_value=missing),
+            patch.object(tc, "get_chat_conversations", side_effect=[
+                missing, with_favorites,
+            ]) as fetch,
+            patch.object(tc, "create_chat_conversation", return_value={
+                "conversationId": "FAVORITES", "created": True,
+            }) as create,
+        ):
+            result = _chat_data()
+
+        self.assertEqual(result, with_favorites)
+        create.assert_called_once_with([])
+        self.assertEqual(fetch.call_count, 2)
+
+    def test_existing_or_uninitialized_favorites_do_not_create_a_chat(self):
+        from thlib import server_cache
+        import thlib.tactic_classes as tc
+
+        for cached in (
+            {"initialized": True, "conversations": [{
+                "conversationId": "FAVORITES", "isPersonalNotes": True,
+                "messageCount": 0,
+            }]},
+            {"initialized": False, "conversations": []},
+        ):
+            with self.subTest(cached=cached):
+                with (
+                    patch.object(env_inst, "get_current_login_object", return_value=object()),
+                    patch.object(server_cache, "token", return_value=None),
+                    patch.object(server_cache, "read_entry", return_value=cached),
+                    patch.object(tc, "get_chat_conversations") as fetch,
+                    patch.object(tc, "create_chat_conversation") as create,
+                ):
+                    self.assertEqual(_chat_data(), cached)
+                    fetch.assert_not_called()
+                    create.assert_not_called()
+
+    def test_logout_clears_messages_and_rejects_previous_session_response(self):
+        from thlib.environment import env_server
+
+        controller = MessagesController(self._application())
+        controller._notification_session = ("server", "artist")
+        controller._request_id = "old-request"
+        controller._busy = True
+        controller._conversation_id = "CHAT001"
+        controller._conversation_opened = True
+        controller.conversations.replace([{
+            "conversationId": "CHAT001", "unread": 1,
+        }])
+        controller.messages.replace([{
+            "messageId": "MSG001", "body": "Private message",
+        }])
+
+        with patch.object(env_server, "get_ticket", return_value=None):
+            controller.sync_authentication()
+
+        self.assertEqual(controller.conversations.count(), 0)
+        self.assertEqual(controller.messages.count(), 0)
+        self.assertEqual(controller._conversation_id, "")
+        self.assertFalse(controller._busy)
+
+        with (
+            patch.object(env_server, "get_server", return_value="server"),
+            patch.object(env_server, "get_user", return_value="another-user"),
+        ):
+            controller._conversations_ready("old-request", {
+                "initialized": True,
+                "conversations": [{
+                    "conversationId": "CHAT001", "unread": 1,
+                }],
+            })
+
+        self.assertEqual(controller.conversations.count(), 0)
+        self.assertEqual(controller._notification_session, None)
+
+    def test_initial_hidden_load_publishes_unread_badge_and_notification(self):
+        from thlib.environment import env_server
+
+        controller = MessagesController(self._application())
+        controller._request_id = "login"
+        controller._busy = True
+        notifications = []
+        controller.newMessageNotification.connect(
+            lambda payload: notifications.append(dict(payload))
+        )
+
+        with (
+            patch.object(env_server, "get_server", return_value="server"),
+            patch.object(env_server, "get_user", return_value="artist"),
+        ):
+            controller._conversations_ready("login", {
+                "initialized": True,
+                "conversations": [{
+                    "conversationId": "CHAT001",
+                    "title": "Lighting",
+                    "lastMessage": "Please review",
+                    "lastTimestamp": "2026-09-21 13:40:00",
+                    "lastSender": "supervisor",
+                    "participantCount": 2,
+                    "unread": 1,
+                }],
+            })
+
+        self.assertEqual(controller.unreadCount, 1)
+        self.assertEqual(len(notifications), 1)
+        self.assertEqual(notifications[0]["conversationId"], "CHAT001")
+        self.assertEqual(notifications[0]["excerpt"], "Please review")
+
+    def test_quick_reply_uses_message_sender_without_switching_chat(self):
+        from thlib.environment import env_server
+
+        controller = MessagesController(self._application())
+        controller._conversation_id = "CHAT_OPEN"
+        controller._composer.set_text("Unsaved draft")
+        sent = []
+        controller.quickReplySent.connect(sent.append)
+        controller.refresh = Mock()
+        pool = DeferredPool()
+        result = {"message": {"code": "MSG_SENT", "message_code": "CHAT_REPLY"}}
+
+        with (
+            patch.object(env_inst, "server_pool", pool),
+            patch.object(env_server, "get_ticket", return_value="ticket"),
+            patch.object(controller, "_cache_message_mutation", side_effect=lambda value: value),
+            patch("thlib.tactic_classes.send_chat_message", return_value=result) as send,
+        ):
+            self.assertTrue(controller.send_quick_reply(
+                "notice-1", "CHAT_REPLY", "  On it  "
+            ))
+            worker = pool.workers[0]
+            self.assertTrue(worker.started)
+            self.assertEqual(worker.operation(), result)
+            worker.resolve(result)
+
+        send.assert_called_once_with("CHAT_REPLY", "On it")
+        self.assertEqual(sent, ["notice-1"])
+        self.assertEqual(controller._conversation_id, "CHAT_OPEN")
+        self.assertEqual(controller._composer.text, "Unsaved draft")
+        controller.refresh.assert_called_once_with()
 
     def test_shared_initialization_defers_hidden_message_reload(self):
         controller = MessagesController(self._application())
@@ -237,6 +753,35 @@ class CommunicationFeedTests(unittest.TestCase):
             })["deliveryStatus"],
             "read",
         )
+
+    def test_server_receipt_update_changes_visible_message_to_read(self):
+        controller = MessagesController(self._application())
+        controller._conversation_id = "CHAT001"
+        controller.messages.replace([{
+            "messageId": "skey://sthpw/message_log?code=LOG001",
+            "deliveryStatus": "sent",
+            "deliveryRecipientCount": 1,
+            "deliveryDeliveredCount": 0,
+            "deliveryReadCount": 0,
+        }])
+
+        controller.apply_server_batch({
+            "reactions": [{
+                "messageId": "sthpw/message_log?code=LOG001",
+                "messageCode": "CHAT001",
+                "reactions": {},
+                "delivery": {
+                    "status": "read",
+                    "recipientCount": 1,
+                    "deliveredCount": 1,
+                    "readCount": 1,
+                },
+            }],
+        })
+
+        record = controller.messages.get(0)
+        self.assertEqual(record["deliveryStatus"], "read")
+        self.assertEqual(record["deliveryReadCount"], 1)
 
     def test_known_user_mention_is_linked_without_touching_email_or_url(self):
         rendered = _link_user_mentions(
@@ -724,7 +1269,7 @@ class CommunicationFeedTests(unittest.TestCase):
         changing.assert_not_called()
         restored.assert_called_once_with("CHAT002")
         controller._load_messages.assert_called_once_with(
-            reset=True, background=True
+            reset=True, background=True, bypass_cache=False
         )
         self.assertEqual(
             controller.messages.get(0)["body"], "Cached message"
@@ -826,6 +1371,147 @@ class CommunicationFeedTests(unittest.TestCase):
         self.assertEqual(rich_notifications[0]["senderTitle"], "admin")
         self.assertEqual(rich_notifications[0]["excerpt"], "New message")
         controller.refresh.assert_called_once_with()
+
+    def test_unseen_message_notifies_after_summary_timestamp_race(self):
+        from thlib.environment import env_server
+
+        controller = MessagesController(self._application())
+        controller.conversations.replace([{
+            "conversationId": "CHAT001",
+            "title": "Production",
+            "lastTimestamp": "2026-09-21 14:00:00",
+            "participantCount": 2,
+            "unread": 1,
+        }])
+        controller._notification_cursors["CHAT001"] = (
+            "2026-09-21 14:00:00"
+        )
+        notifications = []
+        controller.newMessageNotification.connect(
+            lambda payload: notifications.append(dict(payload))
+        )
+
+        with patch.object(env_server, "get_user", return_value="artist"):
+            controller.apply_server_batch({
+                "initialMessages": False,
+                "messages": [{
+                    "code": "MESSAGE_LOG_RACE",
+                    "message_code": "CHAT001",
+                    "message": "Arrived before the delta poll",
+                    "login": "admin",
+                    "timestamp": "2026-09-21 14:00:00",
+                }],
+            })
+
+        self.assertEqual(len(notifications), 1)
+        self.assertEqual(
+            notifications[0]["excerpt"], "Arrived before the delta poll"
+        )
+
+    def test_only_visible_active_conversation_polls_every_five_seconds(self):
+        controller = MessagesController(self._application())
+        controller._conversation_id = "CHAT001"
+        controller._loaded_conversation_id = "CHAT001"
+        controller._conversation_opened = True
+        controller._load_messages = Mock()
+        self.assertEqual(controller._active_poll_timer.interval(), 5000)
+        timer = Mock()
+        timer.isActive.return_value = False
+        controller._active_poll_timer = timer
+
+        controller.set_visible(True)
+
+        timer.start.assert_called_once_with()
+        controller._poll_active_conversation()
+        controller._load_messages.assert_called_once_with(
+            reset=True,
+            background=True,
+            bypass_cache=True,
+        )
+
+        controller.set_visible(False)
+        timer.stop.assert_called_once_with()
+
+    def test_background_history_catches_up_without_losing_loaded_pages(self):
+        controller = MessagesController(self._application())
+        self.addCleanup(controller.shutdown)
+        controller._conversation_id = "CHAT001"
+        controller._loaded_conversation_id = "CHAT001"
+        controller._offset = 60
+        controller._has_more = True
+        rows = [{
+            "code": f"MSG{index:03}", "login": "artist",
+            "message": str(index), "timestamp": "2026-09-21 10:00:00",
+        } for index in range(100)]
+        controller.messages.replace([
+            controller._message_record(row, "", "artist") for row in rows[:60]
+        ])
+        pool = Mock(is_stopped=False)
+        with (
+            patch.object(env_inst, "server_pool", pool),
+            patch("thlib.server_cache.token", return_value=None),
+            patch("thlib.tactic_classes.get_chat_history") as history,
+        ):
+            history.side_effect = lambda _chat, limit, **_: {
+                "messages": list(reversed(rows))[:limit],
+            }
+            controller._load_messages(reset=True, background=True, bypass_cache=True)
+            result = pool.add_task.call_args.args[0]()
+        self.assertEqual([call.kwargs["limit"] for call in history.call_args_list], [31, 61])
+        controller._messages_ready(
+            controller._history_request_id, result, True, 0, "CHAT001",
+        )
+        self.assertEqual(
+            [record["messageId"] for record in controller.messages._records],
+            [row["code"] for row in rows],
+        )
+        self.assertEqual(controller._offset, 100)
+        self.assertTrue(controller._has_more)
+
+        # A complete server response is authoritative, including deletions.
+        controller._history_background = True
+        controller._messages_ready(
+            controller._history_request_id, {"messages": [rows[-1]]},
+            True, 0, "CHAT001",
+        )
+        self.assertEqual(controller.messages.rowCount(), 1)
+        self.assertEqual(controller._offset, 1)
+        self.assertFalse(controller._has_more)
+
+    def test_reopening_chat_loads_background_history_without_forcing_focus(self):
+        controller = MessagesController(self._application())
+        self.addCleanup(controller.shutdown)
+        controller._conversation_id = "CHAT001"
+        controller._conversation_opened = True
+        controller._loaded_conversation_id = "CHAT001"
+        controller._load_messages = Mock()
+        controller._mark_read = Mock()
+        controller._active_poll_timer = Mock()
+        controller.conversations.replace([{
+            "conversationId": "CHAT001", "selected": True, "unread": 2,
+            "lastTimestamp": "2026-09-21 12:00:00",
+        }])
+        controller.messages.replace([
+            controller._message_record({
+                "code": "old", "login": "artist", "message": "Already read",
+            }, "", "artist"),
+        ])
+        focused = []
+        controller.messageFocusRequested.connect(focused.append)
+
+        controller.set_visible(True)
+
+        self.assertEqual(focused, [])
+        controller._load_messages.assert_called_once_with(
+            reset=True, background=True, bypass_cache=True,
+        )
+        controller._history_request_id = "refresh"
+        controller._history_background = True
+        controller._messages_ready("refresh", {"messages": [{
+            "code": code, "login": "colleague", "message": code,
+            "timestamp": "2026-09-21 12:00:00",
+        } for code in ("newest", "new", "old")]}, True, 0, "CHAT001")
+        self.assertEqual(focused, [])
 
     def test_message_notification_preference_persists_and_only_hides_popups(self):
         from thlib.environment import env_server
@@ -952,6 +1638,38 @@ class CommunicationFeedTests(unittest.TestCase):
         conversation = controller.conversations.get(0)
         self.assertEqual(conversation["messageCount"], 6)
         self.assertEqual(conversation["attachmentCount"], 0)
+
+    def test_empty_history_clears_stale_personal_notes_preview(self):
+        controller = MessagesController(self._application())
+        controller.conversations.replace([{
+            "conversationId": "CHAT001", "isPersonalNotes": True,
+            "lastMessage": "stale note", "lastSender": "admin",
+            "lastMessageSummary": "stale note", "lastMessageLinkedCount": 0,
+            "lastTimestamp": "2026-09-22 12:00:00", "messageCount": 1,
+            "attachmentCount": 0,
+        }])
+        controller._has_more = False
+        controller._message_search = ""
+
+        controller._reconcile_complete_history_counts("CHAT001", [])
+
+        record = controller.conversations.get(0)
+        self.assertEqual(record["messageCount"], 0)
+        self.assertEqual(record["lastMessage"], "")
+        self.assertEqual(record["lastSender"], "")
+        self.assertEqual(record["lastMessageSummary"], "")
+
+    def test_incomplete_attachment_upload_never_sends_text_only(self):
+        controller = MessagesController(self._application())
+        controller._sending = True
+        controller._pending_send = {"attachmentCount": 2}
+        controller._send_payload = Mock()
+
+        controller._attachments_uploaded(["sthpw/snapshot?code=SNAP001"])
+
+        controller._send_payload.assert_not_called()
+        self.assertFalse(controller._sending)
+        self.assertIn("Attachment", controller.error)
 
     def test_incomplete_history_keeps_server_attachment_summary(self):
         class Repository(QObject):

@@ -54,10 +54,13 @@ class ScriptEditorController(QObject):
         {"label": "Expression", "value": "expression", "runnable": True},
         {"label": "XML", "value": "xml", "runnable": False},
     ]
-    def __init__(self, application, debug_log, parent=None):
+    def __init__(self, application, debug_log, parent=None, *, users=None):
         super().__init__(parent)
         self._application = application
         self._debug_log = debug_log
+        self._users = users
+        if users is not None:
+            users.stateChanged.connect(self.stateChanged.emit)
         self._settings = dict(env_read_config(
             filename="ui_script_editor",
             unique_id="ui_main",
@@ -120,6 +123,13 @@ class ScriptEditorController(QObject):
     @Property(bool, notify=stateChanged)
     def busy(self):
         return self._busy
+
+    @Property(bool, notify=stateChanged)
+    def canEdit(self):
+        return self._users is None or bool(
+            getattr(self._application, "can_administer", False)
+            or self._users.canManageUsers
+        )
 
     @Property(bool, notify=stateChanged)
     def loaded(self):
@@ -764,7 +774,7 @@ class ScriptEditorController(QObject):
     def update_editor_state(
         self, token, folder, title, language, source, run_mode=None
     ):
-        if not self._current_tab_id:
+        if not self.canEdit or not self._current_tab_id:
             return
         state = self._sessions[self._current_tab_id]
         changed = any((
@@ -805,6 +815,8 @@ class ScriptEditorController(QObject):
 
     @Slot()
     def create_new_script(self):
+        if not self.canEdit:
+            return
         state = self._new_editor_state()
         self._sessions[state["tabId"]] = state
         self._activate_session(state["tabId"], notify=False)
@@ -828,7 +840,7 @@ class ScriptEditorController(QObject):
 
     @Slot(result=bool)
     def confirm_close_all_save(self):
-        if self._busy:
+        if self._busy or not self.canEdit:
             return False
         payloads = []
         valid_languages = {item["value"] for item in self.languages}
@@ -881,6 +893,8 @@ class ScriptEditorController(QObject):
 
     @Slot(str, str, str, str, str, result=bool)
     def save(self, token, folder, title, language, source):
+        if not self.canEdit:
+            return False
         folder = str(folder or "").strip().strip("/")
         title = str(title or "").strip()
         language = str(language or "local_python")
@@ -1023,6 +1037,8 @@ class ScriptEditorController(QObject):
 
     @Slot(str, result=bool)
     def restore_saved_revision(self, revision_id):
+        if not self.canEdit:
+            return False
         revision_id = str(revision_id or "")
         token = str(self._editor_state.get("token") or "")
         if (
@@ -1057,13 +1073,17 @@ class ScriptEditorController(QObject):
     def scripts_context_menu(self, token):
         if str(token or "") not in self._objects:
             return []
-        return [
+        actions = [
             {"title": "Copy Script Runner", "icon": "content_copy",
              "command": "copy_runner"},
-            {"separator": True},
-            {"title": "Delete from server", "icon": "delete",
-             "command": "delete", "enabled": not self._busy},
         ]
+        if self.canEdit:
+            actions.extend((
+                {"separator": True},
+                {"title": "Delete from server", "icon": "delete",
+                 "command": "delete", "enabled": not self._busy},
+            ))
+        return actions
 
     @Slot(str, result="QVariantList")
     def open_menu(self, token):
@@ -1095,6 +1115,8 @@ class ScriptEditorController(QObject):
 
     @Slot(str)
     def request_delete_script(self, token):
+        if not self.canEdit:
+            return
         item = self._objects.get(str(token or ""))
         if not item or self._busy:
             return
@@ -1107,6 +1129,9 @@ class ScriptEditorController(QObject):
 
     @Slot()
     def confirm_delete_script(self):
+        if not self.canEdit:
+            self._pending_delete = ""
+            return
         token, self._pending_delete = self._pending_delete, ""
         item = self._objects.get(token)
         if not item:
@@ -1127,6 +1152,8 @@ class ScriptEditorController(QObject):
     @Slot(str, str, str)
     @Slot(str, str)
     def request_run(self, mode, language, source=None):
+        if not self.canEdit:
+            return
         if source is None:
             source = language
             language = mode
@@ -1225,6 +1252,9 @@ class ScriptEditorController(QObject):
     @Slot()
     def confirm_run(self):
         if not self._pending:
+            return
+        if not self.canEdit and not self._pending.get("savedScript"):
+            self._pending = {}
             return
         payload, self._pending = self._pending, {}
         from thlib.environment import env_inst

@@ -62,6 +62,29 @@ class SchemaNodeActionsQmlTests(unittest.TestCase):
                              'aliases': [], 'references': [], 'otherSchemas': [],
                              'sharedRegistration': True, 'schemaRevision': self.graph._revision}}
 
+    def test_add_node_list_fills_inspector_between_search_and_action(self):
+        pages = self.ui.item('adminGraphInspectorPages')
+        QTest.mouseClick(self.window, Qt.LeftButton, pos=pages.mapToScene(
+            QPointF(pages.width() * 0.75, pages.height() / 2)).toPoint())
+        frame(self.window)
+        previous_height = 0
+        for width, height in ((900, 620), (1400, 940)):
+            self.window.resize(width, height)
+            frame(self.window)
+            types = self.ui.item('adminGraphAvailableTypes')
+            viewport = self.ui.item('adminGraphPropertiesViewport')
+            bottom = types.mapToScene(QPointF(0, types.height())).y()
+            viewport_bottom = viewport.mapToScene(QPointF(0, viewport.height())).y()
+            self.assertAlmostEqual(bottom, viewport_bottom - 4, delta=1)
+            self.assertGreater(types.height(), previous_height)
+            previous_height = types.height()
+            self.ui.assert_inside('adminAddGraphNode')
+        self.ui.enter('adminGraphTypeFilter', 'no matching type')
+        frame(self.window)
+        self.assertEqual(types.property('count'), 0)
+        self.assertAlmostEqual(types.height(), previous_height, delta=1)
+        self.assertEqual(self.ui.fixture.fixture.warnings, [])
+
     def respond(self, payload):
         self.workers[-1].result.emit(payload)
         frame(self.window)

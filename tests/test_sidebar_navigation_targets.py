@@ -90,12 +90,123 @@ class SidebarNavigationTargetTests(unittest.TestCase):
                 self.assertEqual(entries[1].search_type, 'config/naming')
         self.rpc.assert_not_called()
 
+    def test_configured_empty_handler_sidebar_does_not_show_web_sidebar(self):
+        project = sidebar_project()
+        project.get_config_views().config_dict.append({
+            "search_type": "SideBarWdg",
+            "view": "tactic_handler",
+            "config": "<config/>",
+            "login": "",
+        })
+
+        self.assertEqual(sidebar_entries(project), [])
+
+    def test_project_without_sidebar_lists_its_native_search_types(self):
+        for code in ('cafe', 'admin', 'sthpw'):
+            for config in (
+                [],
+                [{'search_type': 'cafe/item', 'view': 'definition', 'config': '<config/>'}],
+                [{'search_type': 'SideBarWdg', 'view': 'project_view',
+                  'config': '<config><project_view><element name="_home" title="Examples"/></project_view></config>'}],
+            ):
+                with self.subTest(project=code, config=config):
+                    project = tc.Project({'code': code, 'name': 'Cafe', 'type': 'cafe'})
+                    project.get_all_search_types([], [], '', config)
+                    stype = Mock()
+                    stype.get_info.return_value = {'title': 'Menu items'}
+                    stype.get_stype_color.return_value = '#778899'
+                    project.stypes = {'cafe/item': stype}
+                    entries = sidebar_entries(project)
+                    self.assertEqual([entry.search_type for entry in entries], ['cafe/item'])
+                    self.assertEqual(entries[0].title, 'Menu items')
+                    self.assertEqual(entries[0].command, 'open_sidebar_item')
+                    self.controller.navigation_model.replace(entries)
+                    self.controller._current_project_code = code
+                    self.controller.select_navigation(entries[0].key, entries[0].title, entries[0].command)
+                    self.assertEqual(self.shown_targets[-1], 'cafe/item')
+                    self.controller._sessions.clear()
+        self.rpc.assert_not_called()
+
+    def test_file_project_keeps_object_tabs_and_filters_managed_file_tables(self):
+        from thlib.ui.file_workspace import FileWorkspaceController
+
+        project = sidebar_project()
+        project.info.update(code='files', type='file_project')
+        env_inst.projects['files'] = project
+        workspace = FileWorkspaceController(self.controller)
+        self.addCleanup(workspace.shutdown)
+        saved = {'files': {'stypes_list': [SEARCH_KEY, 'file_project/depot@file_project/depot'],
+                           'active_stype': SEARCH_KEY}}
+        with (patch.object(env_inst, 'get_current_login_object', return_value=SimpleNamespace(check_security=lambda **kwargs:'allow')),
+              patch.object(project, 'query_search_types', return_value=True) as metadata,
+              patch.object(cfg_controls, 'get_checkin_out_projects', return_value=saved),
+              patch.object(workspace, 'action') as action,
+              patch.object(self.controller, 'open_window')):
+            prepared = self.controller._prepare_project_selection('files', 'Files')
+            self.controller._apply_cached_project_shell(*prepared)
+            self.assertTrue(workspace.enabled)
+            action.assert_not_called()
+            self.controller._apply_selected_project(*prepared)
+            action.assert_called_once_with('refresh', {})
+            self.assertEqual(list(self.controller._sessions), [SEARCH_KEY])
+            self.assertEqual(self.shown_targets, ['config/naming'])
+            metadata.assert_called_once()
+        self.rpc.assert_not_called()
+
+    def test_file_project_administrator_sees_managed_search_types_with_empty_sidebar(self):
+        project = tc.Project({'code':'files','type':'file_project'})
+        types = [{'code':'file_project/'+name,'search_type':'file_project/'+name,'title':name.title(),'table_name':name,'color':'','__record_read__':{'command':'native.reader','available':True}}
+                 for name in ('depot','stream','workspace','change','page','blob','chunk','version','checkout','sync')]
+        project.get_all_search_types(types, [], '', [{'search_type':'SideBarWdg','view':'tactic_handler',
+                                                     'config':'<config><tactic_handler/></config>'}])
+        login = SimpleNamespace(get_info=lambda:{'__is_admin__':True}, check_security=lambda **_:'allow')
+        entries = NavigationModel.build_project_entries(project, login)
+        env_inst.projects['files'] = project
+        self.controller._current_project_code = 'files'
+        self.assertEqual(len(entries),10)
+        self.assertEqual(entries[0].search_type,'file_project/depot')
+        self.controller.navigation_model.replace(entries)
+        self.controller.select_navigation(entries[0].key, entries[0].title, entries[0].command)
+        self.assertEqual(self.shown_targets,['file_project/depot'])
+        self.rpc.assert_not_called()
+
+    def test_file_project_mode_is_ready_when_controller_starts_after_cached_project(self):
+        from thlib.ui.file_workspace import FileWorkspaceController
+        env_inst.projects['files'] = tc.Project({'code':'files','type':'file_project'})
+        self.controller._current_project_code = 'files'
+        workspace = FileWorkspaceController(self.controller)
+        self.addCleanup(workspace.shutdown)
+        self.assertTrue(workspace.enabled)
+        self.controller.open_window('commit_queue')
+        self.assertTrue(self.controller.dock_model.is_panel_presented('commit_queue'))
+        self.assertFalse(self.controller.window_model.is_window_visible('commit_queue'))
+
     def test_direct_entry_cannot_infer_search_type_from_sidebar_name(self):
         entries = sidebar_entries(sidebar_project())
         self.controller.navigation_model.replace(entries)
         with self.assertRaisesRegex(ValueError, 'Search Type'):
             self.controller._create_section(UNCONFIGURED_KEY, 'Column Manager')
         self.assertEqual(self.controller._sessions, {})
+        self.rpc.assert_not_called()
+
+    def test_deactivation_clears_workspace_but_keeps_project_catalog_and_login(self):
+        project = sidebar_project()
+        env_inst.projects['admin'] = project
+        self.controller._apply_selected_project('admin', 'Admin', sidebar_entries(project), project)
+        self.controller.select_navigation(SEARCH_KEY, 'Naming', 'open_sidebar_item')
+        self.controller._project_request_id = 'late-project-request'
+        self.controller.deactivate_project()
+        self.assertEqual(self.controller.current_project_code, '')
+        self.assertEqual(self.controller.current_project_title, '')
+        self.assertIsNone(env_inst.current_project)
+        self.assertIs(env_inst.projects['admin'], project)
+        self.assertEqual(self.controller.navigation_model.rowCount(), 0)
+        self.assertEqual(self.controller._sessions, {})
+        self.assertEqual(self.controller._settings['server/currentProject'], '')
+        self.assertEqual(self.controller._project_request_id, '')
+        self.assertIsNone(self.controller.workspace_state._project)
+        self.controller._async_project_result(('admin', 'Admin', sidebar_entries(project), project, 'late-project-request'))
+        self.assertEqual(self.controller.current_project_code, '')
         self.rpc.assert_not_called()
 
     def test_unavailable_and_stale_clicks_do_not_create_or_activate_searches(self):
@@ -132,10 +243,35 @@ class SidebarNavigationTargetTests(unittest.TestCase):
                         apply('admin', 'Admin', entries, project)
                         self.app.processEvents()
                     self.assertEqual(self.controller._current_project_code, 'admin')
-                    self.assertEqual(list(self.controller._sessions),
-                                     [SEARCH_KEY] if with_search else [])
+                    self.assertEqual(list(self.controller._sessions), [])
                     self.assertNotIn('Column_Manager', self.shown_targets)
         self.rpc.assert_not_called()
+
+    def test_empty_project_workspace_stays_empty_until_sidebar_selection(self):
+        project = sidebar_project()
+        env_inst.projects['admin'] = project
+        entries = sidebar_entries(project)
+        for apply in (
+            self.controller._apply_cached_project_shell,
+            self.controller._apply_selected_project,
+        ):
+            with self.subTest(apply=apply.__name__):
+                self.controller._current_page_title = 'Naming / Last search'
+                apply('admin', 'Admin', entries, project)
+                self.app.processEvents()
+                self.assertEqual(self.controller.current_section_key, '')
+                self.assertEqual(self.controller.current_page_title, '')
+                self.assertEqual(self.controller.section_model.rowCount(), 0)
+                self.assertEqual(self.shown_targets, [])
+
+        self.controller.select_navigation(SEARCH_KEY, 'Naming', 'open_sidebar_item')
+        self.controller._current_page_key = SEARCH_KEY
+        self.controller._current_page_title = 'Naming / Last search'
+        self.controller.close_section(SEARCH_KEY)
+        self.app.processEvents()
+        self.assertEqual(self.controller.current_section_key, '')
+        self.assertEqual(self.controller.section_model.rowCount(), 0)
+        self.assertEqual(self.controller.current_page_title, '')
 
     def test_configured_sidebar_click_keeps_explicit_search_target(self):
         self.controller.navigation_model.replace(sidebar_entries(sidebar_project()))

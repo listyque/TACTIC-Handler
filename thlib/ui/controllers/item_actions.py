@@ -28,6 +28,7 @@ from ..menu_schema import MenuRegistry
 from ..quick_filters import QuickFilterCatalog
 from ..repository_sync import RepositorySyncController
 from ..sidebar_icons import icon_name_from_tactic
+from ..sobject_delete import can_delete_recent_sobject
 from ..models import NavigationModel, ProjectModel
 from ..workspace import (
     DockPanelModel,
@@ -237,13 +238,21 @@ class ItemActionsMixin:
                     "table_edit",
                     "db_selected",
                 ) | {"titleArgs": [len(selected_ids)]},
-                separator,
-                item(
-                    "Delete All Selected (%1)",
-                    "delete",
-                    "delete_selected",
-                ) | {"titleArgs": [len(selected_ids)]},
             ]
+            selected_nodes = [self._node_for_any(selected_id) for selected_id in selected_ids]
+            if all(
+                selected and selected.source and can_delete_recent_sobject(
+                    selected.source, getattr(self, "server_user", ""),
+                    getattr(self, "_server_clock", None),
+                )
+                for selected in selected_nodes
+            ):
+                actions.extend([
+                    separator,
+                    item(
+                        "Delete All Selected (%1)", "delete", "delete_selected",
+                    ) | {"titleArgs": [len(selected_ids)]},
+                ])
             if node.node_type == "sobject":
                 actions[0:0] = [
                     item("SObject Info", "info", "sobject_info"),
@@ -286,13 +295,18 @@ class ItemActionsMixin:
                 item("Show Folder", "folder", "folder"),
                 item("Copy Search Key", "content_copy", "copy_skey"),
                 item("Edit Info", "edit", "edit"),
-                separator,
-                item("Delete", "delete", "delete"),
             ])
-            if node.is_versionless:
-                actions.append(item("Delete Whole Tree", "delete_forever", "delete_tree"))
+            if can_delete_recent_sobject(
+                node.source, getattr(self, "server_user", ""),
+                getattr(self, "_server_clock", None),
+            ):
+                actions.extend([separator, item("Delete", "delete", "delete")])
+                if node.is_versionless:
+                    actions.append(item("Delete Whole Tree", "delete_forever", "delete_tree"))
             return actions
         if node.node_type == "process":
+            if getattr(node, "subtitle", "") == "progress":
+                return []
             actions = self._dcc_actions_for_node(node)
             actions.extend([
                 item("Save snapshot", "save", "save"),
@@ -377,9 +391,13 @@ class ItemActionsMixin:
         ])
         if node.relationship == "instance":
             actions.extend([separator, item("Unlink", "link_off", "unlink")])
-        actions.extend([separator, item(
-            "Delete", "delete", "delete", advanced=node.relationship == "instance",
-        )])
+        if can_delete_recent_sobject(
+            node.source, getattr(self, "server_user", ""),
+            getattr(self, "_server_clock", None),
+        ):
+            actions.extend([separator, item(
+                "Delete", "delete", "delete", advanced=node.relationship == "instance",
+            )])
         return actions
 
     @Slot(str, result="QVariantList")

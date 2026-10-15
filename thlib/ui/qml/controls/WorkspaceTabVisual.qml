@@ -7,6 +7,7 @@ Item {
 
     required property var theme
     property string title: ""
+    property string iconName: ""
     property bool current: false
     property bool closable: false
     property bool dirty: false
@@ -70,13 +71,17 @@ Item {
         }
     }
 
+    Controls.MaterialIcon {
+        anchors.left:parent.left;anchors.leftMargin:10;anchors.verticalCenter:parent.verticalCenter
+        visible:root.iconName.length>0;name:root.iconName;size:18;color:root.current ? root.theme.action : root.theme.secondaryText
+    }
     Label {
         id: tabText
         objectName: "workspaceTabSelectionLabel"
         anchors.horizontalCenter: parent.horizontalCenter
         anchors.verticalCenter: parent.verticalCenter
         anchors.verticalCenterOffset: -1
-        width: parent.width - (root.closable ? 58 : 24)
+        width: parent.width - (root.closable ? 58 : 24) - (root.iconName ? 24 : 0)
         text: root.title
         color: root.current ? root.theme.action : root.theme.secondaryText
         font.family: root.theme.fontFamily

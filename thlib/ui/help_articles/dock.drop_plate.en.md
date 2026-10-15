@@ -49,3 +49,20 @@ Editor own reusable server rules; Drop Plate only applies the selected rule to t
 - Removing a prepared row removes it from this plate; it does not delete the source file.
 - A directory scan or match request runs outside the UI thread and ignores stale results after scope changes.
 - Commit Queue remains the owner of transfer, retry and final check-in.
+
+## Preparing many Separate files
+
+Separate adds the selected operations with one queue-model insertion and one pending-cache save.
+Legacy naming preview runs in portions of up to 50 operations, with one portion in flight.
+Each file still executes its own native naming rules and callbacks; results are not shared or cached across files.
+Editing a row invalidates its older response. Removing a row does not start further previews for it; shutting down Handler stops dispatching new portions.
+Preview updates coalesce into cache saves; closing Handler flushes pending state.
+A local preparation failure affects that row. A server naming failure aborts its whole request portion
+through the native transaction, including callback writes; other portions can continue. Fix the cause before retrying.
+Actual legacy check-in resolves naming again, so the preview reserves neither a version nor a final path.
+With **Server queue** enabled there are no client virtual-snapshot preview requests.
+Restart Handler after updating. If Server Queries uses the optional plugin mode, deploy the matching query plugin from the updated client.
+
+## Versionless behavior
+
+A grouped operation saves only a numbered snapshot, without latest/versionless copies. The same applies to the legacy `multi_file`, `dir` and `sequence` check-in types. Grouping retains the existing source-name and naming-template behavior. Separate ordinary file operations keep their versionless preference.

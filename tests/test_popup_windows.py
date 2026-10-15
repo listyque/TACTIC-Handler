@@ -5,6 +5,7 @@ from pathlib import Path
 import unittest
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
+os.environ.setdefault("QT_QUICK_CONTROLS_STYLE", "Basic")
 
 from PySide6.QtCore import (
     QMetaObject, QObject, QPoint, QPointF, Qt, QUrl, Slot,
@@ -32,6 +33,140 @@ class _TestPointerController(QObject):
 
 
 class PopupWindowTests(unittest.TestCase):
+    def test_shared_sobject_tags_field_opens_editor_on_click(self):
+        engine = QQmlEngine()
+        qml_dir = Path(__file__).parents[1] / "thlib/ui/qml"
+        engine.addImportPath(str(qml_dir))
+        component = QQmlComponent(engine)
+        component.setData(b'''
+import QtQuick
+Window {
+    width: 800; height: 650; visible: true
+    property string draft: "house"
+    Theme { id: theme; dark: true; popupAnimationsEnabled: false }
+    SObjectValueEditor {
+        x: 30; y: 30; width: 300; height: 40
+        theme: theme; fieldType: "tags"; fieldValue: draft; fieldOptions: []
+        onValueEdited: value => draft = value
+    }
+}
+''', QUrl.fromLocalFile(str(qml_dir / "_SharedTagsTest.qml")))
+        owner = component.create()
+        self.assertIsNotNone(owner, str(component.errors()))
+        try:
+            QTest.qWait(20)
+            long_value = "medicine, ambulance, emergency, environment, bag"
+            owner.setProperty("draft", long_value)
+            QTest.qWait(10)
+            button = owner.findChild(QObject, "sobjectTagsEditorButton")
+            self.assertTrue(button.property("clip"))
+            self.assertIsNone(owner.findChild(QObject, "tableTagInput"))
+            QTest.mouseClick(owner, Qt.LeftButton, Qt.NoModifier, QPoint(100, 50))
+            QTest.qWait(40)
+            self.assertTrue(button.property("editing"))
+            self.assertEqual(button.property("text"), "")
+            field = owner.findChild(QObject, "tableTagInput")
+            self.assertIsNotNone(field)
+            field.setProperty("text", "farm")
+            self.assertEqual(owner.property("draft"), long_value)
+            QMetaObject.invokeMethod(owner.findChild(QObject, "tableTextEditorSave"), "clicked")
+            QTest.qWait(10)
+            self.assertEqual(owner.property("draft"), long_value + ", farm")
+        finally:
+            owner.close()
+            owner.deleteLater()
+
+    def test_table_tag_editor_keeps_draft_until_save(self):
+        engine = QQmlEngine()
+        qml_dir = Path(__file__).parents[1] / "thlib/ui/qml"
+        engine.addImportPath(str(qml_dir))
+        component = QQmlComponent(engine)
+        component.setData(b'''
+import QtQuick
+Window {
+    width: 800; height: 650; visible: true
+    property string savedValue: "unchanged"
+    Theme { id: theme; dark: true; popupAnimationsEnabled: false }
+    TableTextEditor {
+        id: editor; objectName: "editor"
+        x: 30; y: 30; width: 100; height: 40
+        theme: theme; value: "house, farm"; tagsMode: true
+        onSaved: value => savedValue = value
+    }
+}
+''', QUrl.fromLocalFile(str(qml_dir / "_TagEditorTest.qml")))
+        warnings = []
+        engine.warnings.connect(lambda errors: warnings.extend(str(e) for e in errors))
+        owner = component.create()
+        self.assertIsNotNone(owner, str(component.errors()))
+        try:
+            QTest.qWait(30)
+            editor = owner.findChild(QObject, "editor")
+            field = owner.findChild(QObject, "tableTagInput")
+            field.setProperty("text", "farm, barn, дом")
+            QMetaObject.invokeMethod(editor, "addTags")
+            self.assertEqual(owner.property("savedValue"), "unchanged")
+            popup = owner.findChild(QObject, "tableTextEditorPopup")
+            self.assertTrue(popup.property("opened"))
+            self.assertGreater(popup.property("width"), 500)
+            button = owner.findChild(QObject, "tableTextEditorSave")
+            QMetaObject.invokeMethod(button, "clicked")
+            self.assertEqual(owner.property("savedValue"), "house, farm, barn, дом")
+            editor.setProperty("tagsMode", False)
+            owner.setProperty("savedValue", "unchanged")
+            description = owner.findChild(QObject, "tableDescriptionInput")
+            description.setProperty("text", "First line\nSecond line")
+            self.assertEqual(owner.property("savedValue"), "unchanged")
+            QMetaObject.invokeMethod(button, "clicked")
+            self.assertEqual(owner.property("savedValue"), "First line\nSecond line")
+            self.assertEqual(warnings, [])
+        finally:
+            owner.close()
+            owner.deleteLater()
+
+    def test_combo_fits_dynamic_labels_and_same_trigger_closes(self):
+        engine = QQmlEngine()
+        qml_dir = Path(__file__).parents[1] / "thlib/ui/qml"
+        engine.addImportPath(str(qml_dir))
+        component = QQmlComponent(engine)
+        component.setData(b'''
+import QtQuick
+import "controls" as Controls
+Window {
+    width: 700; height: 400; visible: true
+    property bool opened: combo.popup.opened
+    Theme { id: theme; dark: true; popupAnimationsEnabled: false }
+    function replaceOptions() {
+        combo.model = [{label: "Environment and Pipeline Files", value: "env"}]
+    }
+    Controls.ComboBox {
+        id: combo; objectName: "combo"
+        x: 40; y: 40; width: 110; theme: theme
+        textRole: "label"; valueRole: "value"; translateDisplayText: false
+        model: [{label: "Short", value: "short"}]
+    }
+}
+''', QUrl.fromLocalFile(str(qml_dir / "_ComboSizingTest.qml")))
+        owner = component.create()
+        self.assertIsNotNone(owner, str(component.errors()))
+        try:
+            QMetaObject.invokeMethod(owner, "replaceOptions")
+            QTest.qWait(20)
+            combo = owner.findChild(QQuickItem, "combo")
+            QTest.mouseClick(owner, Qt.LeftButton, Qt.NoModifier, QPoint(70, 55))
+            QTest.qWait(60)
+            self.assertTrue(owner.property("opened"))
+            popup = owner.findChild(QObject, "comboBoxPopup")
+            self.assertGreater(popup.property("width"), 250)
+            self.assertGreaterEqual(popup.property("width"),
+                                    combo.property("preferredPopupWidth"))
+            QTest.mouseClick(owner, Qt.LeftButton, Qt.NoModifier, QPoint(70, 55))
+            QTest.qWait(60)
+            self.assertFalse(owner.property("opened"))
+        finally:
+            owner.close()
+            owner.deleteLater()
+
     @classmethod
     def setUpClass(cls):
         cls.app = gui_test_application()

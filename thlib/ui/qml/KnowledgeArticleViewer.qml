@@ -218,13 +218,7 @@ Rectangle {
                     toolTip: text
                     icon.name: "edit"
                     tonal: true
-                    onClicked: {
-                        if (typeof root.controller.trace_editor === "function")
-                            root.controller.trace_editor("viewer.edit.clicked");
-                        root.controller.begin_edit();
-                        if (typeof root.controller.trace_editor === "function")
-                            root.controller.trace_editor("viewer.edit.returned");
-                    }
+                    onClicked: root.controller.begin_edit()
                 }
             }
         }
@@ -323,6 +317,7 @@ Rectangle {
                         theme: root.theme
                         controller: root.controller
                         contentWidth: articleFlickable.contentWidth
+                        resizeActive: root.resizeActive
                     }
 
                     Item {

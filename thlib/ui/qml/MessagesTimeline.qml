@@ -3,7 +3,7 @@ import QtQuick.Controls
 import QtQuick.Layouts
 import "controls" as Controls
 
-ListView {
+Flickable {
     id: messages
     required property var theme
     required property var host
@@ -12,29 +12,42 @@ ListView {
     required property bool current
     required property bool historyHasMore
     property bool presented: false
+    property string lastRevealedMessageId: ""
+    readonly property int count: messageItems.count
+    property int currentIndex: -1
+    readonly property var currentItem: messageItems.itemAt(currentIndex)
+    property bool followBottom: true
+    property var viewportAnchor: null
+    property real viewportAnchorOffset: 0
     objectName: "messageTimelineList"
     anchors.fill: parent
     property real wheelTargetY: contentY
-    readonly property real minimumContentY:
-        originY - topMargin
+    readonly property real minimumContentY: 0
     readonly property real maximumContentY: Math.max(
         minimumContentY,
-        originY + contentHeight + bottomMargin - height)
+        contentHeight - height)
     readonly property bool awayFromEnd: contentHeight > height
         && contentY < maximumContentY - 36
     clip: true
     opacity: !messages.current || host.messagePresentationReady ? 1 : 0
-    spacing: 0
-    model: messages.timelineModel
     visible: messages.current
     boundsBehavior: Flickable.StopAtBounds
     flickDeceleration: 3600
     maximumFlickVelocity: 4800
     pixelAligned: false
-    cacheBuffer: 280
-    reuseItems: true
-    topMargin: Math.max(0, height - contentHeight)
-    ScrollBar.vertical: Controls.ScrollBar { theme: messages.theme }
+    contentWidth: width
+    contentHeight: Math.max(height, messageColumn.height)
+    flickableDirection: Flickable.VerticalFlick
+    ScrollBar.vertical: Controls.ScrollBar {
+        id: timelineScrollBar
+        theme: messages.theme
+    }
+    Connections {
+        target: timelineScrollBar
+        function onPressedChanged() {
+            messages.followBottom = !timelineScrollBar.pressed && messages.atYEnd
+        }
+    }
 
     Image {
         parent: messages
@@ -60,7 +73,7 @@ ListView {
         opacity: messages.theme.dark ? 0.74 : 0.82
     }
 
-    function cancelScrollAnimation() {
+    function cancelWheelScroll() {
         wheelScroll.stop()
         jumpToLatestAnimation.stop()
         wheelTargetY = contentY
@@ -72,6 +85,7 @@ ListView {
             : (angleDelta / 120) * 148
         if (delta === 0)
             return
+        followBottom = false
         jumpToLatestAnimation.stop()
         const baseY = wheelScroll.running
             ? wheelTargetY : contentY
@@ -90,36 +104,72 @@ ListView {
         cancelFlick()
         if (count <= 0)
             return
-        forceLayout()
-        const startY = contentY
-        positionViewAtIndex(count - 1, ListView.End)
-        positionViewAtEnd()
-        const endY = contentY
-        const distance = Math.abs(endY - startY)
-        if (distance > height * 2.5) {
-            settleAtLatest()
-            return
-        }
-        contentY = startY
-        jumpToLatestAnimation.to = endY
+        followBottom = false
+        messageColumn.forceLayout()
+        jumpToLatestAnimation.to = maximumContentY
         jumpToLatestAnimation.start()
     }
 
     function settleAtLatest() {
-        if (count <= 0)
-            return
-        forceLayout()
-        positionViewAtIndex(count - 1, ListView.End)
-        positionViewAtEnd()
+        followBottom = true
+        messageColumn.forceLayout()
+        contentY = maximumContentY
         wheelTargetY = contentY
     }
 
-    function positionCachedAtLatest() {
+    function keepBottomAfterLayout() {
+        if (followBottom && !moving && !timelineScrollBar.pressed)
+            contentY = maximumContentY
+    }
+
+    function captureViewportAnchor() {
+        if (followBottom)
+            return
+        const top = contentY - messageColumn.y
+        for (let row = 0; row < count; ++row) {
+            const item = messageItems.itemAt(row)
+            if (item && item.y + item.height > top) {
+                viewportAnchor = item
+                viewportAnchorOffset = messageColumn.y + item.y - contentY
+                return
+            }
+        }
+    }
+
+    function restoreViewportAnchor() {
+        if (!followBottom && viewportAnchor && !moving
+                && !wheelScroll.running && !timelineScrollBar.pressed)
+            contentY = Math.max(0, Math.min(maximumContentY,
+                messageColumn.y + viewportAnchor.y - viewportAnchorOffset))
+    }
+
+    Connections {
+        target: messages.viewportAnchor
+        function onYChanged() { Qt.callLater(messages.restoreViewportAnchor) }
+    }
+
+    function revealLatestOnce() {
         if (count <= 0)
             return
-        positionViewAtIndex(count - 1, ListView.End)
-        positionViewAtEnd()
-        wheelTargetY = contentY
+        const messageId = String(timelineModel.get(count - 1).messageId || "")
+        if (!messageId.length || messageId === lastRevealedMessageId)
+            return
+        lastRevealedMessageId = messageId
+        cancelWheelScroll()
+        cancelFlick()
+        settleAtLatest()
+    }
+
+    function focusMessage(row) {
+        cancelWheelScroll()
+        messageColumn.forceLayout()
+        const item = messageItems.itemAt(row)
+        if (!item)
+            return
+        followBottom = row === count - 1
+        contentY = followBottom ? maximumContentY : Math.max(0, Math.min(
+            maximumContentY, messageColumn.y + item.y - (height - item.height) / 2))
+        currentIndex = row
     }
 
     NumberAnimation {
@@ -128,6 +178,7 @@ ListView {
         property: "contentY"
         duration: theme.scrollMotion
         easing.type: Easing.OutCubic
+        onFinished: messages.followBottom = messages.atYEnd
     }
 
     NumberAnimation {
@@ -151,32 +202,23 @@ ListView {
         }
     }
 
-    onFlickStarted: cancelScrollAnimation()
+    onFlickStarted: cancelWheelScroll()
+    onMovementStarted: followBottom = false
+    onMovementEnded: followBottom = atYEnd
+    onContentYChanged: {
+        if (contentY < maximumContentY - 0.5)
+            followBottom = false
+        captureViewportAnchor()
+    }
+    onHeightChanged: Qt.callLater(messages.keepBottomAfterLayout)
     onCountChanged: {
         if (messages.current && !host.messagePresentationReady)
             host.finishConversationPresentation()
     }
     onContentHeightChanged: {
+        Qt.callLater(messages.keepBottomAfterLayout)
         if (messages.current && !host.messagePresentationReady)
             host.finishConversationPresentation()
-    }
-    header: Item {
-        width: messages.width
-        height: messages.historyHasMore ? 56 : 12
-        Controls.Button {
-            anchors.centerIn: parent
-            visible: messages.historyHasMore
-            theme: messages.theme
-            text: qsTr("Earlier messages")
-            icon.name: "history"
-            tonal: true
-            enabled: messages.current && !controller.busy
-            onClicked: controller.load_more()
-        }
-    }
-    footer: Item {
-        width: messages.width
-        height: 12
     }
     Column {
         anchors.centerIn: parent
@@ -214,7 +256,33 @@ ListView {
             opacity: 0.7
         }
     }
-    delegate: Item {
+    // Lay out only loaded pages, using exact card heights. A virtualized
+    // ListView estimates unseen rich-text heights and changes its scroll range
+    // while scrolling. The retained column never recreates cards on a wheel step.
+    // ponytail: cost grows with loaded pages; virtualization needs exact row heights.
+    Column {
+        id: messageColumn
+        objectName: "messageCardsColumn"
+        width: messages.width
+        y: Math.max(0, messages.height - height)
+        Item {
+            width: messages.width
+            height: messages.historyHasMore ? 56 : 12
+            Controls.Button {
+                anchors.centerIn: parent
+                visible: messages.historyHasMore
+                theme: messages.theme
+                text: qsTr("Earlier messages")
+                icon.name: "history"
+                tonal: true
+                enabled: messages.current && !controller.busy
+                onClicked: controller.load_more()
+            }
+        }
+        Repeater {
+            id: messageItems
+            model: messages.timelineModel
+            delegate: Item {
         id: messageRow
         required property string messageId
         required property int index
@@ -271,6 +339,10 @@ ListView {
             unread: messageRow.unread
             selectionMode:
                 messages.current && controller.forwardSelectionCount > 0
+            mediaAttachments: messageRow.attachments
+                && messageRow.attachments.some(attachment =>
+                    /^(jpe?g|png|webp|gif|bmp|tiff?|tga|exr|hdr|svg|heic|avif)$/i
+                        .test(String(attachment.extension || "")))
             onContextRequested: (localX, localY) => {
                 host.prepareMessageActions(
                     messageRow, messageFrame.bubbleItem)
@@ -283,9 +355,12 @@ ListView {
                 )
 
                     RowLayout {
+                        objectName: "messageMetadataRow"
                         Layout.fillWidth: true
                         Label {
+                            objectName: "messageSenderLabel"
                             Layout.fillWidth: true
+                            Layout.alignment: Qt.AlignTop
                             visible: messageRow.groupFirst
                             text: messageRow.senderDisplay
                                 + (messageRow.sender
@@ -317,6 +392,7 @@ ListView {
                         }
                         Controls.MaterialIcon {
                             id: deliveryIcon
+                            Layout.alignment: Qt.AlignTop
                             visible: messageRow.isOwn
                                 && messageRow.deliveryRecipientCount > 0
                             name: messageRow.deliveryStatus === "sent"
@@ -347,6 +423,8 @@ ListView {
                             }
                         }
                         Label {
+                            objectName: "messageTimeLabel"
+                            Layout.alignment: Qt.AlignTop
                             text: messageRow.timePretty
                             color: messages.theme.secondaryText
                             font.family: messages.theme.fontFamily
@@ -365,6 +443,7 @@ ListView {
                         }
                         Label {
                             id: editedLabel
+                            Layout.alignment: Qt.AlignTop
                             visible: messageRow.edited
                             text: qsTr("Edited")
                             color: messages.theme.secondaryText
@@ -392,73 +471,88 @@ ListView {
                                     + messageRow.editedAt
                             }
                         }
-                        Controls.CompactIconButton {
-                            visible: controller.forwardSelectionCount > 0
-                            theme: messages.theme
-                            iconName: messageRow.forwardSelected
-                                ? "check-circle" : "circle"
-                            iconColor: messageRow.forwardSelected
-                                ? messages.theme.tertiary
-                                : messages.theme.secondaryText
-                            toolTip: messageRow.forwardSelected
-                                ? qsTr("Remove from forwarding")
-                                : qsTr("Add to forwarding")
-                            enabled: !controller.busy
-                            onClicked: controller.toggle_forward_selection(
-                                messageRow.messageId)
-                        }
-                        Controls.CompactIconButton {
-                            visible: messageRow.pinned
-                            theme: messages.theme
-                            iconName: "push-pin"
-                            iconColor: messages.theme.tertiary
-                            backgroundColor: messages.theme.tertiaryContainer
-                            round: true
-                            toolTip: qsTr("Unpin message")
-                            enabled: !controller.busy
-                            onClicked: controller.unpin_message(
-                                messageRow.messageId)
-                        }
-                        Controls.CompactIconButton {
-                            id: addReactionButton
-                            opacity: messageFrame.hovered
-                                || host.timelineReactions.messageId
-                                    === messageRow.messageId
-                                ? 1 : 0
-                            enabled: opacity > 0
-                                && !messageRow.reactionPending
-                            theme: messages.theme
-                            iconName: "emoji"
-                            toolTip: qsTr("Add reaction")
-                            Behavior on opacity {
-                                NumberAnimation {
-                                    duration: messages.theme.hoverMotionFast
-                                    easing.type: Easing.OutCubic
+                        Item {
+                            Layout.preferredWidth: messageButtons.implicitWidth
+                            Layout.preferredHeight: 18
+                            Row {
+                                id: messageButtons
+                                parent: messageFrame.bubbleItem
+                                anchors.top: parent.top
+                                anchors.right: parent.right
+                                anchors.topMargin: 2
+                                anchors.rightMargin:
+                                    messageFrame.bubblePadding - 3
+                                z: 10
+                                Controls.CompactIconButton {
+                                    visible: controller.forwardSelectionCount > 0
+                                    theme: messages.theme
+                                    iconName: messageRow.forwardSelected
+                                        ? "check-circle" : "circle"
+                                    iconColor: messageRow.forwardSelected
+                                        ? messages.theme.tertiary
+                                        : messages.theme.secondaryText
+                                    toolTip: messageRow.forwardSelected
+                                        ? qsTr("Remove from forwarding")
+                                        : qsTr("Add to forwarding")
+                                    enabled: !controller.busy
+                                    onClicked: controller.toggle_forward_selection(
+                                        messageRow.messageId)
                                 }
-                            }
-                            onClicked: host.openReactionPicker(
-                                messageRow.messageId,
-                                addReactionButton)
-                        }
-                        Controls.CompactIconButton {
-                            id: messageActionsButton
-                            opacity: messageFrame.hovered ? 1 : 0
-                            enabled: opacity > 0
-                                && !controller.busy
-                            theme: messages.theme
-                            iconName: "more-vert"
-                            toolTip: qsTr("Message actions")
-                            Behavior on opacity {
-                                NumberAnimation {
-                                    duration: messages.theme.hoverMotionFast
-                                    easing.type: Easing.OutCubic
+                                Controls.CompactIconButton {
+                                    visible: messageRow.pinned
+                                    theme: messages.theme
+                                    iconName: "push-pin"
+                                    iconColor: messages.theme.tertiary
+                                    backgroundColor: messages.theme.tertiaryContainer
+                                    round: true
+                                    toolTip: qsTr("Unpin message")
+                                    enabled: !controller.busy
+                                    onClicked: controller.unpin_message(
+                                        messageRow.messageId)
                                 }
-                            }
-                            onClicked: {
-                                host.prepareMessageActions(
-                                    messageRow, messageActionsButton)
-                                host.timelineActions.toggleBelow(
-                                    messageActionsButton)
+                                Controls.CompactIconButton {
+                                    id: addReactionButton
+                                    opacity: messageFrame.hovered
+                                        || host.timelineReactions.messageId
+                                            === messageRow.messageId
+                                        ? 1 : 0
+                                    enabled: opacity > 0
+                                        && !messageRow.reactionPending
+                                    theme: messages.theme
+                                    iconName: "emoji"
+                                    toolTip: qsTr("Add reaction")
+                                    Behavior on opacity {
+                                        NumberAnimation {
+                                            duration: messages.theme.hoverMotionFast
+                                            easing.type: Easing.OutCubic
+                                        }
+                                    }
+                                    onClicked: host.openReactionPicker(
+                                        messageRow.messageId,
+                                        addReactionButton)
+                                }
+                                Controls.CompactIconButton {
+                                    id: messageActionsButton
+                                    objectName: "messageActionsButton"
+                                    opacity: messageFrame.hovered ? 1 : 0
+                                    enabled: opacity > 0
+                                        && !controller.busy
+                                    theme: messages.theme
+                                    iconName: "more-vert"
+                                    toolTip: qsTr("Message actions")
+                                    Behavior on opacity {
+                                        NumberAnimation {
+                                            duration: messages.theme.hoverMotionFast
+                                            easing.type: Easing.OutCubic
+                                        }
+                                    }
+                                    onClicked: {
+                                        host.prepareMessageActions(
+                                            messageRow, messageActionsButton)
+                                        host.timelineActions.toggleBelow(
+                                            messageActionsButton)
+                                    }
+                                }
                             }
                         }
                     }
@@ -503,18 +597,6 @@ ListView {
                             String(
                                 messageRow.forwardedFrom.messageId || ""
                             ))
-                    }
-
-                    MessageBodyText {
-                        objectName: "messageBodyText"
-                        Layout.fillWidth: true
-                        Layout.preferredHeight: contentHeight
-                        theme: messages.theme
-                        sourceHtml: messageRow.displayHtml
-                        rawText: messageRow.body
-                        visible: sourceHtml.length > 0
-                        onLinkActivated: link =>
-                            controller.open_link(link)
                     }
 
                     ColumnLayout {
@@ -585,12 +667,15 @@ ListView {
                             model: messageRow.attachments
                             delegate: AttachmentCard {
                                 id: attachmentCard
+                                objectName: "messageAttachmentCard-" + token
                                 required property string token
                                 required property int size
+                                required property bool hasWebPreview
                                 width: imageAttachment
                                     ? messageAttachmentFlow.width
                                     : messageAttachmentFlow.cellWidth()
                                 theme: messages.theme
+                                webPreview: hasWebPreview
                                 sizeText: host.formatFileSize(size)
                                 animatePreview: false
                                 onActivated:
@@ -609,10 +694,22 @@ ListView {
                         }
                     }
 
+                    MessageBodyText {
+                        objectName: "messageBodyText"
+                        Layout.fillWidth: true
+                        Layout.preferredHeight: contentHeight
+                        theme: messages.theme
+                        sourceHtml: messageRow.displayHtml
+                        rawText: messageRow.body
+                        visible: sourceHtml.length > 0
+                        onLinkActivated: link =>
+                            controller.open_link(link)
+                    }
+
                     Flow {
                         Layout.fillWidth: true
-                        Layout.preferredHeight: visible
-                            ? childrenRect.height : 0
+                        // Flow owns its implicit height even when the whole chat
+                        // is hidden. Effective visibility must not change geometry.
                         visible: messageRow.reactions
                             && messageRow.reactions.length > 0
                         layoutDirection: Qt.RightToLeft
@@ -638,6 +735,10 @@ ListView {
                         }
                     }
         }
+    }
+
+        }
+        Item { width: messages.width; height: 12 }
     }
 
     Controls.CompactIconButton {

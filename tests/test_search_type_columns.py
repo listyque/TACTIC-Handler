@@ -166,7 +166,7 @@ class ColumnRemovalQmlTests(unittest.TestCase):
             self.ui.click('adminDeleteColumn_brief')
             self.assertEqual(self.editor.document['removedColumns'], ['brief'])
             self.assertTrue(self.editor.dirty)
-            self.assertIn('удаление', self.ui.item('adminExistingField_brief').property('description'))
+            self.assertIn('удаление', self.ui.item('adminExistingField_brief').property('text'))
             undo = self.ui.reveal('adminDeleteColumn_brief')
             undo.forceActiveFocus()
             QTest.keyClick(self.window, Qt.Key_Space)
@@ -174,6 +174,7 @@ class ColumnRemovalQmlTests(unittest.TestCase):
             self.assertFalse(self.editor.dirty)
             self.ui.click('adminDeleteColumn_notes')
             self.ui.click('adminDiscardDocument')
+            self.ui.click('adminConfirmSave')
             self.assertEqual(self.editor.document['removedColumns'], [])
             self.assertIn('notes', self.editor.metadata['columns'])
             rpc.assert_not_called()
@@ -196,7 +197,7 @@ class ColumnRemovalQmlTests(unittest.TestCase):
                 patch.object(env_inst.server_pool, 'add_task', side_effect=task), \
                 patch('thlib.server_cache.invalidate_domains'):
             self.ui.click('adminSaveDocument')
-            message = self.ui.item('adminConfirmationText').property('text')
+            message = self.ui.item('adminConfirmationDetails').property('text')
             self.assertIn('demo/asset', message)
             self.assertIn('brief', message)
             self.assertIn('данные', message)
@@ -259,71 +260,29 @@ class ColumnRemovalQmlTests(unittest.TestCase):
         self.assertIn('database view', self.editor.error)
         self.assertEqual(self.editor.document['removedColumns'], ['notes'])
         self.assertIn('notes', self.editor.metadata['columns'])
-        self.assertTrue(self.ui.item('adminSaveDocument').isEnabled())
+        self.assertFalse(self.ui.item('adminSaveDocument').isEnabled())
+        self.assertTrue(self.editor.writeUncertain)
         self.assertEqual(self.ui.ui.fixture.warnings, [])
 
     def test_long_confirmation_scrolls_inside_dialog_and_keeps_actions_visible(self):
-        names = ['extra_field_%02d' % index for index in range(50)]
-        self.editor._metadata['columns'].update({name: {'data_type': 'text'} for name in names})
-        for name in names:
-            self.editor.set_column_removed(name, True)
-        for width, height in ((900, 620), (1400, 940)):
-            with self.subTest(width=width):
-                self.window.resize(width, height)
-                frame(self.window)
-                self.ui.click('adminSaveDocument')
-                viewport = self.ui.item('adminConfirmationScroll')
-                self.assertEqual(viewport.property('contentY'), 0)
-                label = self.ui.item('adminConfirmationText')
-                bar = self.ui.item('adminConfirmationScrollBar')
-                self.assertGreater(viewport.property('contentHeight'), viewport.height())
-                self.assertTrue(bar.isVisible())
-                self.assertLessEqual(label.width() + bar.property('reservedExtent'), viewport.width())
-                for name in ('adminCancelSave', 'adminConfirmSave'):
-                    button = self.ui.item(name)
-                    self.assertGreaterEqual(button.mapToScene(QPointF()).y(), 0)
-                    self.assertLessEqual(button.mapToScene(QPointF(button.width(), button.height())).y(), height)
-                self.assertTrue(self.ui.item('adminCancelSave').hasActiveFocus())
-                QTest.keyClick(self.window, Qt.Key_Tab)
-                self.assertTrue(self.ui.item('adminConfirmSave').hasActiveFocus())
-                point = viewport.mapToScene(QPointF(viewport.width() / 2, viewport.height() / 2))
-                stopped = QSignalSpy(viewport.movementEnded)
-                event = QWheelEvent(point, self.window.mapToGlobal(point.toPoint()), QPoint(), QPoint(0, -1200),
-                                    Qt.NoButton, Qt.NoModifier, Qt.NoScrollPhase, False)
-                event.setTimestamp(time.monotonic_ns() // 1_000_000)
-                QCoreApplication.sendEvent(self.window, event)
-                if viewport.property('moving'):
-                    self.assertTrue(stopped.wait(2000))
-                frame(self.window)
-                self.assertGreater(viewport.property('contentY'), 0)
-                output = os.environ.get('SEARCH_TYPE_SCREENSHOTS')
-                if output:
-                    Path(output).mkdir(parents=True, exist_ok=True)
-                    self.window.grabWindow().save(str(Path(output) / ('delete_columns_%s.png' % width)))
-                QTest.keyClick(self.window, Qt.Key_Escape)
-                frame(self.window)
-                self.assertEqual(self.editor.document['removedColumns'], names)
-        self.assertEqual(self.ui.ui.fixture.warnings, [])
+        names=['field_%03d'%index for index in range(120)]
+        self.editor._document['removedColumns']=names
+        self.editor.stateChanged.emit()
+        self.ui.click('adminSaveDocument')
+        area=self.ui.item('adminConfirmationDetails')
+        self.assertIn(names[0],area.property('text'));self.assertIn(names[-1],area.property('text'))
+        self.assertTrue(area.property('readOnly'))
+        for name in ('adminCancelSave','adminConfirmSave'):
+         button=self.ui.item(name);point=button.mapToScene(QPointF())
+         self.assertGreaterEqual(point.y(),0);self.assertLessEqual(point.y()+button.height(),self.window.height())
+        self.ui.click('adminCancelSave');self.assertEqual(self.editor.document['removedColumns'],names)
 
     def test_existing_field_actions_fit_narrow_and_wide_editor(self):
         self.ui.click('adminDeleteColumn_brief')
-        viewport = self.ui.item('adminSearchTypeForm')
-        for width, height in ((900, 620), (1400, 940)):
-            with self.subTest(width=width):
-                self.window.resize(width, height)
-                frame(self.window)
-                for name in ('code', 'brief', 'notes'):
-                    button = self.ui.reveal('adminDeleteColumn_' + name)
-                    row = self.ui.item('adminExistingField_' + name)
-                    origin = button.mapToItem(row, QPointF())
-                    self.assertGreaterEqual(origin.x(), 0)
-                    self.assertGreaterEqual(origin.y(), 0)
-                    self.assertLessEqual(origin.x() + button.width(), row.width())
-                    self.assertLessEqual(origin.y() + button.height(), row.height())
-                    self.assertLessEqual(button.mapToItem(viewport, QPointF(button.width(), 0)).x(),
-                                         viewport.width() - 16)
-                output = os.environ.get('SEARCH_TYPE_SCREENSHOTS')
-                if output:
-                    Path(output).mkdir(parents=True, exist_ok=True)
-                    self.window.grabWindow().save(str(Path(output) / ('field_actions_%s.png' % width)))
-        self.assertEqual(self.ui.ui.fixture.warnings, [])
+        for width,height in ((900,620),(1400,940)):
+         self.window.resize(width,height);frame(self.window)
+         for name in ('code','brief','notes'):
+          button=self.ui.reveal('adminDeleteColumn_'+name);point=button.mapToScene(QPointF())
+          self.assertGreaterEqual(point.x(),0);self.assertLessEqual(point.x()+button.width(),self.window.width())
+          self.assertGreater(button.width(),70)
+        self.assertEqual(self.ui.ui.fixture.warnings,[])

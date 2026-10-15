@@ -421,6 +421,7 @@ class SObjectEditorController(QObject):
                     "view": self._mode,
                 },
                 "search_type": search_type,
+                "project": project_code,
             },
             project=project_code,
         )
@@ -560,6 +561,8 @@ class SObjectEditorController(QObject):
             widget.get_editor_kind(original_type)
             if widget is not None else "unsupported"
         )
+        if column == "keywords" and field_type in {"string", "multiline"}:
+            field_type = "tags"
         if (
             class_name == "tactic.ui.widget.calendar_wdg.CalendarInputWdg"
             and original_type.lower() == "date"

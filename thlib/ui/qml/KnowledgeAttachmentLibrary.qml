@@ -177,7 +177,7 @@ Rectangle {
                         onActivated: {
                             root.insertionRequested();
                             if (attachmentItem.isImage)
-                                root.documentController.insert_image(attachmentItem.webUrl, attachmentItem.title, root.maximumImageWidth, attachmentItem.previewUrl);
+                                root.documentController.insert_image(attachmentItem.webUrl, attachmentItem.title, root.maximumImageWidth);
                             else
                                 root.documentController.insert_link(attachmentItem.webUrl, attachmentItem.title);
                             if (attachmentItem.isImage)

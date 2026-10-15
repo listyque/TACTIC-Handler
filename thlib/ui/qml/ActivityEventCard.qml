@@ -5,6 +5,7 @@ import "controls" as Controls
 
 Item {
     id: root
+    objectName: "activityEventCard"
 
     required property var theme
     property string kind: "activity"
@@ -49,6 +50,8 @@ Item {
     property bool serverGenerated: false
     property bool canOpenActivity: false
     property bool canOpenTarget: false
+    property bool detailsExpanded: false
+    readonly property int collapsedTextLimit: 80
 
     signal activityRequested()
     signal targetRequested()
@@ -61,6 +64,15 @@ Item {
     readonly property bool showsChangeRows: (
         kind === "create" || kind === "change" || kind === "delete"
     ) && !relationAction.length && (changes || []).length > 0
+    readonly property bool hasExpandableText: {
+        if (textNeedsExpansion(detail) || textNeedsExpansion(eventTitle))
+            return true
+        for (let index = 0; index < (changes || []).length; ++index) {
+            if (textNeedsExpansion(plainChangeValue(changes[index])))
+                return true
+        }
+        return false
+    }
     readonly property real avatarExtent: width < 380 ? 34 : 40
     readonly property real bubbleExtent: Math.max(
         0,
@@ -196,10 +208,30 @@ Item {
     }
 
     function detailPhrase() {
+        const value = root.detailsExpanded
+            ? root.detail : root.compactText(root.detail)
         if (typeof appController !== "undefined"
                 && appController.rich_text_html)
-            return appController.rich_text_html(root.detail)
-        return root.escapeHtml(root.detail).replace(/\r?\n/g, "<br>")
+            return appController.rich_text_html(value)
+        return root.escapeHtml(value).replace(/\r?\n/g, "<br>")
+    }
+
+    function normalizedText(value) {
+        return String(value || "").replace(/\s+/g, " ").trim()
+    }
+
+    function compactText(value) {
+        const normalized = root.normalizedText(value)
+        if (normalized.length <= root.collapsedTextLimit)
+            return normalized
+        return normalized.slice(0, root.collapsedTextLimit)
+            .replace(/\s+$/, "") + "…"
+    }
+
+    function textNeedsExpansion(value) {
+        const raw = String(value || "")
+        return /[\r\n]/.test(raw)
+            || root.normalizedText(raw).length > root.collapsedTextLimit
     }
 
     function richValue(value) {
@@ -237,7 +269,27 @@ Item {
         }
     }
 
+    function plainChangeValue(change) {
+        if (change.valuesKnown === false)
+            return qsTr("Changed")
+        const before = String(change.before || "")
+        const after = String(change.after || "")
+        if (root.kind === "create" && after.length)
+            return after
+        if (root.kind === "delete" && before.length)
+            return qsTr("Previous value: %1").arg(before)
+        if (before.length || after.length) {
+            return (before.length ? before : qsTr("empty")) + " → "
+                + (after.length ? after : qsTr("empty"))
+        }
+        return qsTr("Changed")
+    }
+
     function changeValue(change) {
+        if (!root.detailsExpanded)
+            return root.escapeHtml(root.compactText(
+                root.plainChangeValue(change)
+            ))
         if (change.valuesKnown === false)
             return qsTr("Changed")
         const before = root.richValue(change.before || "")
@@ -370,7 +422,10 @@ Item {
                 .arg(root.showsChangeRows || !detail.length
                     ? "" : " " + detail)
         default:
-            return detail.length ? detail : root.escapeHtml(root.eventTitle)
+            return detail.length ? detail : root.escapeHtml(
+                root.detailsExpanded
+                    ? root.eventTitle : root.compactText(root.eventTitle)
+            )
         }
     }
 
@@ -508,6 +563,7 @@ Item {
 
                         delegate: Rectangle {
                             id: changeDelegate
+                            required property int index
                             required property var modelData
 
                             Layout.fillWidth: true
@@ -541,6 +597,8 @@ Item {
                                 }
                                 Controls.SelectableText {
                                     id: changeText
+                                    objectName: "activityChangeText_"
+                                        + changeDelegate.index
                                     Layout.fillWidth: true
                                     Layout.preferredHeight: contentHeight
                                     theme: root.theme
@@ -564,6 +622,20 @@ Item {
                             }
                         }
                     }
+                }
+
+                Controls.Button {
+                    objectName: "activityTextExpandButton"
+                    visible: root.hasExpandableText
+                    Layout.alignment: Qt.AlignRight
+                    Layout.preferredHeight: root.theme.compactControlHeight
+                    theme: root.theme
+                    tonal: true
+                    text: root.detailsExpanded
+                        ? qsTr("Collapse") : qsTr("Expand")
+                    icon.name: root.detailsExpanded
+                        ? "chevron-up" : "chevron-down"
+                    onClicked: root.detailsExpanded = !root.detailsExpanded
                 }
             }
         }

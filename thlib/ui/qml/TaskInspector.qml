@@ -10,6 +10,8 @@ Rectangle {
     required property var controller
     property var task: controller.currentTask
     property var objectInfo: controller.selectedObject
+    property var related: controller.relatedTasks
+    readonly property bool isProgress: processRecord().type === "progress"
     readonly property bool hasTask: String(task.code || "").length > 0
     readonly property int processRow: task.processRow === undefined
         || task.processRow === null ? -1 : Number(task.processRow)
@@ -67,13 +69,18 @@ Rectangle {
                 ? qsTr("Built-in") : processType
             const noteLabel = String(noteCount)
                 + qsTr(noteCount === 1 ? " note" : " notes")
+            const progressLabel = String(Number(process.approved || 0))
+                + " / " + String(Number(process.total || 0))
             actions.push({
                 // Process labels are project data. Never translate them.
                 "title": String(process.label || process.value || ""),
                 "translate": false,
-                "status": typeLabel.length
+                "status": processType === "progress"
+                    ? qsTr("Related tasks") + " · " + progressLabel
+                    : typeLabel.length
                     ? typeLabel + " · " + noteLabel : noteLabel,
                 "statusTranslate": false,
+                "icon": processType === "progress" ? "donut-small" : "",
                 "accent": process.color || root.theme.action,
                 "command": "process:" + process.value,
                 "checked": process.value === controller.process
@@ -122,7 +129,7 @@ Rectangle {
             objectName: "taskInspectorTaskSurface"
             Layout.row: 2
             Layout.column: 0
-            visible: root.expanded
+            visible: root.expanded && !root.isProgress
             Layout.fillWidth: true
             Layout.preferredHeight: visible ? 148 : 0
             radius: root.theme.itemRadius
@@ -236,11 +243,13 @@ Rectangle {
                         textRole: "label"
                         valueRole: "value"
                         colorRole: "color"
+                        translateDisplayText: false
                         currentIndex: root.choiceIndex(
                             root.task.statusChoices, root.task.status
                         )
                         displayText: currentIndex >= 0
-                            ? currentText : root.task.status || "Select status"
+                            ? currentText : root.task.status
+                                || qsTr("Select status")
                         enabled: !tasksController.busy
                         onActivated: tasksController.set_process_draft(
                             root.processRow, "status", currentValue
@@ -380,6 +389,124 @@ Rectangle {
             }
         }
 
+        Rectangle {
+            objectName: "taskInspectorRelatedTasks"
+            Layout.row: 2
+            Layout.column: 0
+            visible: root.expanded && root.isProgress
+            Layout.fillWidth: true
+            Layout.preferredHeight: visible ? 148 : 0
+            radius: root.theme.itemRadius
+            color: root.theme.panelDeep
+            border.width: 1
+            border.color: root.theme.outlineVariant
+
+            ColumnLayout {
+                anchors.fill: parent
+                anchors.margins: 8
+                spacing: 5
+
+                RowLayout {
+                    Layout.fillWidth: true
+                    Controls.MaterialIcon {
+                        name: "donut-small"
+                        size: 17
+                        color: root.processRecord().color || root.theme.action
+                    }
+                    Label {
+                        Layout.fillWidth: true
+                        text: qsTr("Related object tasks")
+                        color: root.theme.primaryText
+                        font.family: root.theme.fontFamily
+                        font.pointSize: Controls.Typography.label
+                        font.weight: Font.DemiBold
+                    }
+                    Controls.StatusChip {
+                        theme: root.theme
+                        dense: true
+                        iconName: "donut-small"
+                        text: String(Number(root.processRecord().approved || 0))
+                            + " / " + String(Number(root.processRecord().total || 0))
+                        accentColor: root.processRecord().color || root.theme.action
+                    }
+                }
+
+                Label {
+                    objectName: "taskInspectorRelatedEmpty"
+                    visible: root.related.state !== "ready"
+                        || !(root.related.items || []).length
+                    Layout.fillWidth: true
+                    Layout.fillHeight: true
+                    verticalAlignment: Text.AlignVCenter
+                    wrapMode: Text.WordWrap
+                    text: root.related.state === "loading"
+                        ? qsTr("Loading related tasks…")
+                        : root.related.state === "unrelated"
+                        ? qsTr("No schema relationship to ")
+                            + String(root.related.searchType || "")
+                        : root.related.state === "missingType"
+                        ? qsTr("Search Type is unavailable: ")
+                            + String(root.related.searchType || "")
+                        : root.related.state === "unconfigured"
+                        ? qsTr("No related Search Type configured for this progress")
+                        : root.related.state === "error"
+                        ? qsTr("Could not load related tasks. Refresh to retry.")
+                        : Number(root.related.objectCount || 0) === 0
+                        ? qsTr("No related objects")
+                        : qsTr("No tasks on related objects")
+                    color: root.theme.secondaryText
+                    font.family: root.theme.fontFamily
+                    font.pointSize: Controls.Typography.caption
+                }
+
+                ListView {
+                    id: relatedTaskList
+                    objectName: "taskInspectorRelatedTaskList"
+                    visible: root.related.state === "ready"
+                        && (root.related.items || []).length > 0
+                    Layout.fillWidth: true
+                    Layout.fillHeight: true
+                    clip: true
+                    model: root.related.items || []
+                    spacing: 3
+                    boundsBehavior: Flickable.StopAtBounds
+                    ScrollBar.vertical: Controls.ScrollBar {
+                        objectName: "taskInspectorRelatedScrollbar"
+                        theme: root.theme
+                        flickableTarget: relatedTaskList
+                    }
+                    delegate: RowLayout {
+                        required property var modelData
+                        width: relatedTaskList.width - 16
+                        height: 28
+                        spacing: 6
+                        Label {
+                            Layout.fillWidth: true
+                            text: modelData.parentTitle + " · " + modelData.process
+                            color: root.theme.primaryText
+                            font.family: root.theme.fontFamily
+                            font.pointSize: Controls.Typography.caption
+                            elide: Text.ElideRight
+                        }
+                        Label {
+                            text: modelData.assigned || ""
+                            color: root.theme.secondaryText
+                            font.family: root.theme.fontFamily
+                            font.pointSize: Controls.Typography.caption
+                            elide: Text.ElideRight
+                        }
+                        Controls.StatusChip {
+                            theme: root.theme
+                            dense: true
+                            text: modelData.status || qsTr("No status")
+                            accentColor: root.processRecord().color
+                                || root.theme.action
+                        }
+                    }
+                }
+            }
+        }
+
         WorkHoursSummary {
             objectName: "taskInspectorWorkHours"
             Layout.row: 1
@@ -490,7 +617,14 @@ Rectangle {
                         anchors.leftMargin: 10
                         anchors.rightMargin: 8
                         spacing: 7
+                        Controls.MaterialIcon {
+                            visible: root.isProgress
+                            name: "donut-small"
+                            size: 15
+                            color: root.processRecord().color || root.theme.action
+                        }
                         Rectangle {
+                            visible: !root.isProgress
                             Layout.preferredWidth: 8
                             Layout.preferredHeight: 8
                             radius: 4

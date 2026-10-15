@@ -117,18 +117,15 @@ class LoadingMixin:
             children=children,
         )
 
-    @staticmethod
-    def _snapshot_timestamp_values(snapshot, fallback: str) -> tuple[str, str]:
-        """Use the native TACTIC date presentation without changing its value."""
+    def _snapshot_timestamp_values(self, fallback: str) -> tuple[str, str]:
+        """Present TACTIC's UTC timestamp with optional clock correction."""
         timestamp = str(fallback or "").split(".")[0]
         if not timestamp:
             return "", ""
-        try:
-            pretty = str(snapshot.get_timestamp(pretty=True) or timestamp)
-            simple = str(snapshot.get_timestamp(simple=True) or timestamp)
-        except (AttributeError, KeyError, TypeError, ValueError):
-            return timestamp, timestamp
-        return pretty, simple
+        from thlib.ui.activity import activity_timestamp_labels
+
+        pretty, full = activity_timestamp_labels(timestamp, self._clock)
+        return pretty or timestamp, full or timestamp
 
     def _make_snapshot_node(
         self,
@@ -173,9 +170,7 @@ class LoadingMixin:
         )
         primary = primary_group[0] if primary_group else None
         timestamp = str(info.get("timestamp") or "").split(".")[0]
-        timestamp_pretty, timestamp_simple = self._snapshot_timestamp_values(
-            snapshot, timestamp,
-        )
+        timestamp_pretty, timestamp_simple = self._snapshot_timestamp_values(timestamp)
         multiple_checkin = len(primary_group) > 1
         title = str(context_name)
         if multiple_checkin:

@@ -10,6 +10,7 @@ from unittest.mock import patch
 import tests.test_security_groups as groups_fixture
 from thlib import tactic_query as tq
 from thlib.ui.admin.users_api import query_admin_users
+from thlib.ui.admin import users_api
 
 
 class AdminUserApiTests(groups_fixture.SecurityStoreTests):
@@ -35,6 +36,7 @@ class AdminUserApiTests(groups_fixture.SecurityStoreTests):
         self.enterContext(patch.dict(sys.modules, {'pyasm.biz': SimpleNamespace(
             Snapshot=self.snapshot_api)}))
         self.enterContext(patch.object(tq, 'server', self.server, create=True))
+        self.enterContext(patch.object(users_api, 'server', self.server, create=True))
         self.native_object = type(self.native_search.Search('sthpw/login').get_sobject())
         self.native_object.get_code = lambda item: item.get_value('code')
         self.native_object.get_version = lambda item: item.get_value('version')
@@ -87,6 +89,13 @@ class AdminUserApiTests(groups_fixture.SecurityStoreTests):
             with self.assertRaises(PermissionError):
                 tq.create_user_profile('new', require_admin=True)
         self.assertEqual(self.tables, original)
+
+    def test_supervisor_can_read_admin_directory(self):
+        self.server.get_login = lambda: 'alice'
+        self.tables['sthpw/login_in_group'].append(
+            dict(login='alice', login_group='supervisor'))
+        result = json.loads(query_admin_users())
+        self.assertIn('retired_artist', [row['identity'] for row in result['catalog']])
 
     def test_directory_carries_available_groups_not_only_selected_memberships(self):
         self.tables['sthpw/login_group'].append(dict(

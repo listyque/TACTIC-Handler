@@ -174,22 +174,26 @@ def catch_error_type(exception):
 
 
 def parce_timestamp(timestamp):
-    """Parse TACTIC and ISO-8601 timestamps for shared UI presentation."""
+    """Parse TACTIC's UTC-naive timestamps into local aware datetimes."""
     if isinstance(timestamp, datetime.datetime):
-        return timestamp
-    text = str(timestamp or '').strip()
-    if not text:
-        return None
+        parsed = timestamp
+    else:
+        text = str(timestamp or '').strip()
+        if not text:
+            return None
 
-    # Presence and newer server procedures use UTC ISO-8601, while legacy
-    # TACTIC objects commonly return a space-separated naive timestamp.
-    normalized = text[:-1] + '+00:00' if text.endswith(('Z', 'z')) else text
-    try:
-        return datetime.datetime.fromisoformat(normalized)
-    except ValueError as error:
-        raise ValueError(
-            'Unsupported timestamp format: {!r}'.format(text)
-        ) from error
+        # TACTIC normalizes database timestamps to UTC but serializes them
+        # without a timezone; newer procedures include the UTC suffix.
+        normalized = text[:-1] + '+00:00' if text.endswith(('Z', 'z')) else text
+        try:
+            parsed = datetime.datetime.fromisoformat(normalized)
+        except ValueError as error:
+            raise ValueError(
+                'Unsupported timestamp format: {!r}'.format(text)
+            ) from error
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=datetime.timezone.utc)
+    return parsed.astimezone()
 
 
 def restart_app():
@@ -900,7 +904,7 @@ class FileObject(object):
             files_list = self.get_all_files_list()
         for fl in files_list:
             size = get_st_size(fl)
-            if size:
+            if size is not None:
                 sizes_list.append(size)
 
         if sizes_list:

@@ -158,6 +158,7 @@ class LoginLocalizationQmlTests(unittest.TestCase):
             "kind", "message", "detail", "progress", "dismissible",
             "action", "actionData", "sourceType", "sourceTitle",
             "previewUrl", "avatarText", "avatarColor", "sourceIcon",
+            "replyOpen", "replySending", "replyError",
         ), [{
             "kind": "error",
             "message": "Select an existing server preset",
@@ -172,6 +173,9 @@ class LoginLocalizationQmlTests(unittest.TestCase):
             "avatarText": "",
             "avatarColor": "",
             "sourceIcon": "",
+            "replyOpen": False,
+            "replySending": False,
+            "replyError": "",
         }])
         controller = _NotificationController()
         context = engine.rootContext()

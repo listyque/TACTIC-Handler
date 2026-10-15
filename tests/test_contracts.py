@@ -6,6 +6,7 @@ import json
 from pathlib import Path
 import textwrap
 import unittest
+from tempfile import TemporaryDirectory
 # Import before thlib extends sys.path with its Python 2 compatibility bundle.
 from unittest import mock as _stdlib_mock
 
@@ -19,6 +20,40 @@ CONTRACTS = ROOT / "tests" / "contracts"
 
 
 class ServerProcedureContractTests(unittest.TestCase):
+    def test_compiled_procedure_uses_bundled_source(self):
+        source = inspect.getsource(tq.get_projects_and_logins)
+        with TemporaryDirectory() as directory:
+            source_path = Path(directory) / "tactic_query.py"
+            source_path.with_suffix(".source").write_text(
+                source, encoding="utf-8"
+            )
+            with _stdlib_mock.patch.object(
+                tq.inspect, "getsourcefile", return_value=str(source_path)
+            ), _stdlib_mock.patch.object(
+                tq.inspect, "getsourcelines", side_effect=OSError("no source")
+            ):
+                code = tq.prepare_serverside_script(
+                    tq.get_projects_and_logins, {}, shrink=False,
+                    catch_traceback=False,
+                )["code"]
+        self.assertIn("def get_projects_and_logins(", code)
+
+    def test_compiled_procedure_reports_missing_bundle(self):
+        with TemporaryDirectory() as directory:
+            source_path = Path(directory) / "tactic_query.py"
+            with _stdlib_mock.patch.object(
+                tq.inspect, "getsourcefile", return_value=str(source_path)
+            ), _stdlib_mock.patch.object(
+                tq.inspect, "getsourcelines", side_effect=OSError("no source")
+            ):
+                with self.assertRaisesRegex(
+                    RuntimeError, "source is missing from this build"
+                ):
+                    tq.prepare_serverside_script(
+                        tq.get_projects_and_logins, {}, shrink=False,
+                        catch_traceback=False,
+                    )
+
     def test_every_core_server_procedure_used_by_thlib_compiles(self):
         source_path = ROOT / "thlib" / "tactic_classes.py"
         tree = ast.parse(source_path.read_text(encoding="utf-8-sig"))

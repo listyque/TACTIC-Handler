@@ -6,13 +6,114 @@ import textwrap
 import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
-from types import ModuleType
-from unittest.mock import Mock, patch
+from types import ModuleType, SimpleNamespace
+from unittest.mock import Mock, call, patch
 
 from thlib import tactic_classes as tc
 from thlib import tactic_query as tq
 from thlib import global_functions as gf
 from thlib import environment
+from thlib import server_cache
+
+
+class CompatibleUpdateTests(unittest.TestCase):
+    def test_failed_forced_catalog_refresh_preserves_existing_cache(self):
+        with (
+            patch.object(tc.env_mode, "get_mode", return_value="standalone"),
+            patch.object(server_cache, "invalidate_domains") as invalidate,
+            patch.object(server_cache, "token", return_value=None),
+            patch.object(
+                tc, "execute_procedure_serverside",
+                side_effect=ConnectionError("server unavailable"),
+            ),
+        ):
+            with self.assertRaises(ConnectionError):
+                tc.get_all_projects_and_logins(force=True)
+        invalidate.assert_not_called()
+
+    def test_late_reference_request_does_not_restore_old_user_catalogs(self):
+        identity = {"user": "old-user"}
+        previous_projects = {"new": object()}
+        previous_logins = {"new": object()}
+
+        def finish_old_request(*_args, **_kwargs):
+            identity["user"] = "new-user"
+            return {"projects": [], "logins": []}
+
+        with (
+            patch.object(tc.env_server, "get_server", return_value="server"),
+            patch.object(tc.env_server, "get_user", side_effect=lambda: identity["user"]),
+            patch.object(tc.env_server, "get_ticket", return_value="ticket"),
+            patch.object(tc.env_inst, "get_current_login", return_value="old-user"),
+            patch.object(tc.env_inst, "projects", previous_projects),
+            patch.object(tc.env_inst, "logins", previous_logins),
+            patch.object(server_cache, "invalidate_domains"),
+            patch.object(server_cache, "token", return_value=None),
+            patch.object(tc, "execute_procedure_serverside", side_effect=finish_old_request),
+        ):
+            tc.get_all_projects_and_logins(force=True)
+            self.assertIs(tc.env_inst.projects, previous_projects)
+            self.assertIs(tc.env_inst.logins, previous_logins)
+
+    def test_explicit_authentication_does_not_publish_unverified_ticket(self):
+        server = Mock()
+        server.get_ticket.return_value = "new-ticket"
+
+        with (
+            patch.object(tc, "TacticServerStub", return_value=server),
+            patch.object(tc.env_server, "get_proxy", return_value={"enabled": False}),
+            patch.object(tc.env_server, "get_ticket", return_value="old-ticket"),
+            patch.object(tc.env_server, "set_ticket") as set_ticket,
+        ):
+            tc.server_auth(
+                "server", project="sthpw", login="artist",
+                password="password", get_ticket=True,
+            )
+
+        server.set_ticket.assert_called_once_with("new-ticket")
+        set_ticket.assert_not_called()
+
+    def test_signed_out_session_does_not_request_ticket_with_empty_password(self):
+        server = Mock()
+
+        with (
+            patch.object(tc, "TacticServerStub", return_value=server),
+            patch.object(tc.env_server, "get_proxy", return_value={"enabled": False}),
+            patch.object(tc.env_server, "get_ticket", return_value=None),
+        ):
+            with self.assertRaisesRegex(PermissionError, "signed out"):
+                tc.server_start()
+
+        server.get_ticket.assert_not_called()
+
+    def test_code_and_id_search_keys_are_sent_in_separate_requests(self):
+        server = Mock()
+        server.update_multiple.side_effect = [
+            [{"__search_key__": "sthpw/task?code=TASK001"}],
+            [{"__search_key__": "sthpw/task?id=17"}],
+        ]
+        data = {
+            "sthpw/task?code=TASK001": {"status": "Ready"},
+            "sthpw/task?code=TASK002": {"status": "Ready"},
+            "sthpw/task?id=17": {"status": "Ready"},
+        }
+
+        result = tc.update_multiple_compatible(server, data, triggers=True)
+
+        self.assertEqual(server.update_multiple.call_args_list, [
+            call(data={
+                "sthpw/task?code=TASK001": {"status": "Ready"},
+                "sthpw/task?code=TASK002": {"status": "Ready"},
+            }, triggers=True),
+            call(data={
+                "sthpw/task?id=17": {"status": "Ready"},
+            }, triggers=True),
+        ])
+        server.update.assert_not_called()
+        self.assertEqual(result, [
+            {"__search_key__": "sthpw/task?code=TASK001"},
+            {"__search_key__": "sthpw/task?id=17"},
+        ])
 
 
 class CustomScriptMirrorTests(unittest.TestCase):
@@ -535,6 +636,65 @@ class CustomScriptExecutionTests(unittest.TestCase):
 
 
 class ServerProcedureTests(unittest.TestCase):
+    def test_sobjects_without_code_load_snapshots_by_search_id(self):
+        record = Mock()
+        record.get_id.return_value = 17
+        record.get_search_type.return_value = "sthpw/transaction_state"
+        searches = []
+
+        class Search:
+            def __init__(self, search_type):
+                self.search_type = search_type
+                self.filters = []
+                searches.append(self)
+
+            def add_op(self, *_args):
+                pass
+
+            def add_filter(self, name, value):
+                self.filters.append((name, value))
+
+            def add_filters(self, name, values):
+                self.filters.append((name, list(values)))
+
+            def add_relationship_filters(self, *_args, **_kwargs):
+                raise AssertionError("code-less objects cannot use this relationship")
+
+            def get_sobjects(self):
+                return [record] if self.search_type == "sthpw/transaction_state" else []
+
+        search_module = ModuleType("pyasm.search")
+        search_module.Search = Search
+        search_module.SearchKey = Mock()
+        search_module.SearchType = SimpleNamespace()
+        biz_module = ModuleType("pyasm.biz")
+        biz_module.Snapshot = Mock()
+        biz_module.Snapshot.get_files_dict_by_snapshots.return_value = {}
+        biz_module.Schema = Mock()
+        fake_server = Mock()
+        fake_server.server._get_sobjects_dict.return_value = [{"id": 17}]
+
+        for get_all_snapshots in (False, True):
+            with (
+                self.subTest(get_all_snapshots=get_all_snapshots),
+                patch.dict(sys.modules, {
+                    "pyasm.search": search_module,
+                    "pyasm.biz": biz_module,
+                }),
+                patch.object(tq, "server", fake_server, create=True),
+            ):
+                result = json.loads(tq.query_sobjects(
+                    "sthpw/transaction_state", project_code="sthpw",
+                    include_info=False, include_snapshots=True,
+                    get_all_snapshots=get_all_snapshots,
+                    compressed_return=False,
+                ))
+                self.assertEqual(result["sobjects_list"][0]["__snapshots__"], [])
+                self.assertEqual(searches[-1].filters, [
+                    ("search_type", "sthpw/transaction_state"),
+                    ("search_id", [17]),
+                ])
+
     def test_application_python_does_not_use_removed_ast_minifier(self):
         source = "# keep server procedure layout\nvalue = 1\n"
 
@@ -831,6 +991,96 @@ class ServerProcedureTests(unittest.TestCase):
             "<query-sobjects-progress>", "exec",
         )
 
+    def test_progress_query_reads_sqlite_and_postgres_workflow_json(self):
+        episode = Mock()
+        episode.get_search_key.return_value = "first_project/episode?code=EP001"
+        episode.get_value.return_value = "first_project/episode"
+        episode.get_base_search_type.return_value = "first_project/episode"
+        episode.get_project_code.return_value = "first_project"
+        related = Mock()
+        related.get_search_key.return_value = "first_project/shot?code=SHOT001"
+        related.get_related_sobjects.return_value = []
+        episode.get_related_sobjects.return_value = [related]
+
+        pipeline_process = Mock()
+        pipeline_process.get_attribute.return_value = "PROC001"
+        pipeline = Mock()
+        pipeline.get_value.return_value = "first_project/episode"
+        pipeline.get_process_names.return_value = ["progress"]
+        pipeline.get_process.return_value = pipeline_process
+
+        search_module = ModuleType("pyasm.search")
+        biz_module = ModuleType("pyasm.biz")
+        search_module.SearchKey = Mock()
+        search_module.SearchType = SimpleNamespace()
+        biz_module.Snapshot = Mock()
+        biz_module.Schema = Mock()
+        fake_server = Mock()
+        fake_server.split_search_key.return_value = (
+            "first_project/episode", "first_project"
+        )
+        fake_server.server._get_sobjects_dict.return_value = [{"code": "EP001"}]
+
+        for workflow, related_to_episode in (
+            ({"search_type": "first_project/shot"}, True),
+            ('{"search_type": "first_project/shot"}', True),
+            ({"search_type": "first_project/shot"}, False),
+        ):
+            with self.subTest(
+                workflow_type=type(workflow).__name__,
+                related_to_episode=related_to_episode,
+            ):
+                biz_module.Schema.get.return_value.get_relationship.return_value = (
+                    related_to_episode
+                )
+                episode.get_related_sobjects.reset_mock()
+                process = Mock()
+                process.get_value.side_effect = lambda name: (
+                    "PROC001" if name == "code" else workflow
+                )
+                process.get_json_value.side_effect = lambda name, default=None: (
+                    json.loads(workflow) if isinstance(workflow, str)
+                    else workflow
+                )
+
+                class Search:
+                    def __init__(self, search_type):
+                        self.search_type = search_type
+
+                    def __getattr__(self, name):
+                        return lambda *_args, **_kwargs: None
+
+                    def get_sobjects(self):
+                        return {
+                            "first_project/episode": [episode],
+                            "sthpw/pipeline": [pipeline],
+                            "config/process": [process],
+                        }.get(self.search_type, [])
+
+                search_module.Search = Search
+                with patch.dict(sys.modules, {
+                    "pyasm.search": search_module,
+                    "pyasm.biz": biz_module,
+                }), patch.object(tq, "server", fake_server, create=True):
+                    result = json.loads(tq.query_sobjects(
+                        "first_project/episode",
+                        project_code="first_project",
+                        limit=1,
+                        include_info=False,
+                        include_snapshots=False,
+                        include_progress=True,
+                        compressed_return=False,
+                    ))
+
+                self.assertEqual(
+                    result["sobjects_list"][0]["__progress__"],
+                    {"progress": {"tc": 1, "ac": 0}}
+                    if related_to_episode else {},
+                )
+                if not related_to_episode:
+                    episode.get_related_sobjects.assert_not_called()
+                process.get_json_value.assert_called_with("workflow", {})
+
     def test_sobject_payload_retains_counts_for_every_process(self):
         payload = {
             "sobjects_list": [{
@@ -1002,14 +1252,6 @@ class ServerProcedureTests(unittest.TestCase):
                     "view": "table", "project_code": "demo",
                 },
             ),
-            (
-                tq.save_widget_config,
-                {
-                    "search_type": "demo/asset", "view": "definition",
-                    "element_xml": '<element name="name"/>',
-                    "project_code": "demo",
-                },
-            ),
         )
         for function, kwargs in procedures:
             with self.subTest(function=function.__name__):
@@ -1038,6 +1280,370 @@ class ServerProcedureTests(unittest.TestCase):
 
 
 class ChatHistoryTests(unittest.TestCase):
+    def test_sqlite_chat_send_and_forward_commit_missing_message_logs(self):
+        server = Mock()
+        server.get_login.return_value = "artist"
+        server.split_search_key.return_value = ("sthpw/message_log", "LOGSRC")
+
+        def log_record(code, message_code):
+            values = {
+                "code": code, "message_code": message_code,
+                "message": "Hello", "status": "sent",
+                "timestamp": "2026-09-24 12:00:00", "metadata": {},
+            }
+            record = Mock()
+            record.get_code.side_effect = lambda: values["code"]
+            record.get_id.return_value = 1
+            record.get_value.side_effect = lambda key, **_kwargs: values.get(key)
+            record.set_value.side_effect = lambda key, value: values.__setitem__(key, value)
+            record.get_data.side_effect = lambda: dict(values)
+            return record
+
+        source = log_record("LOGSRC", "CHAT001")
+        old_target = log_record("LOGOLD", "CHAT002")
+        created = [log_record("LOGSEND", "CHAT001"),
+                   log_record("LOGFORWARD", "CHAT002")]
+        members = [
+            SimpleNamespace(get_value=lambda key, code=code: {
+                "login": "artist", "message_code": code,
+            }.get(key))
+            for code in ("CHAT001", "CHAT002")
+        ]
+        destination = Mock()
+        destination.get_code.return_value = "CHAT002"
+        destination.get_value.return_value = {}
+
+        class FakeSearch:
+            get_by_search_key = staticmethod(lambda _key: source)
+
+            def __init__(self, search_type):
+                self.search_type = search_type
+                self.codes = None
+
+            def add_filter(self, field, value, **_kwargs):
+                if field == "message_code":
+                    self.codes = {value}
+
+            def add_filters(self, field, values, **_kwargs):
+                if field == "message_code":
+                    self.codes = set(values)
+
+            def add_order_by(self, *_args, **_kwargs):
+                pass
+
+            def set_limit(self, _limit):
+                pass
+
+            def get_database_impl(self):
+                return SimpleNamespace(get_database_type=lambda: "Sqlite")
+
+            def get_sobjects(self):
+                if self.search_type == "sthpw/subscription":
+                    return [item for item in members
+                            if self.codes is None or item.get_value("message_code") in self.codes]
+                if self.search_type == "sthpw/message":
+                    return [destination]
+                if self.search_type == "sthpw/message_log":
+                    return [old_target]
+                return []
+
+            def get_sobject(self):
+                return source if self.search_type == "sthpw/message_log" else None
+
+        search_module = ModuleType("pyasm.search")
+        search_module.Search = FakeSearch
+        search_module.SearchType = SimpleNamespace(create=Mock(side_effect=created))
+        search_module.SearchKey = SimpleNamespace(
+            get_by_sobject=lambda item, use_id=False:
+                "sthpw/message_log?code=" + item.get_code()
+        )
+        pyasm_module = ModuleType("pyasm")
+        pyasm_module.__path__ = []
+        with (
+            patch.dict(sys.modules, {
+                "pyasm": pyasm_module, "pyasm.search": search_module,
+            }),
+            patch.object(tq, "server", server, create=True),
+        ):
+            sent = json.loads(tq.send_chat_message("CHAT001", "Hello"))
+            forwarded = json.loads(tq.forward_chat_messages(
+                ["sthpw/message_log?code=LOGSRC"], ["CHAT002"]
+            ))
+
+        self.assertEqual(sent["message"]["code"], "LOGSEND")
+        self.assertEqual(forwarded["forwarded"], 1)
+        self.assertEqual(search_module.SearchType.create.call_count, 2)
+        self.assertEqual(
+            [entry.kwargs["log_history"] for entry in server.log_message.call_args_list],
+            [False, False],
+        )
+        self.assertEqual([item.commit.call_args.kwargs for item in created],
+                         [{"triggers": False}, {"triggers": False}])
+
+    def test_chat_history_keeps_older_logs_without_codes(self):
+        class OldLog:
+            code = None
+
+            def get_code(self):
+                return self.code
+
+            def get_id(self):
+                return 19
+
+            def get_value(self, key, **_kwargs):
+                return {
+                    "message": "вкап", "login": "admin", "metadata": {},
+                    "message_code": "CHAT001", "timestamp": "2026-09-22 12:00:00",
+                }.get(key)
+
+            def get_data(self):
+                return {"message": "вкап", "login": "admin", "code": self.code}
+
+            def set_value(self, key, value):
+                setattr(self, key, value)
+
+        old_log = OldLog()
+
+        class FakeSearch:
+            def __init__(self, search_type):
+                self.search_type = search_type
+
+            def add_filter(self, *_args, **_kwargs):
+                pass
+
+            def add_filters(self, *_args, **_kwargs):
+                pass
+
+            def add_order_by(self, *_args, **_kwargs):
+                pass
+
+            def set_limit(self, _limit):
+                pass
+
+            def get_sobjects(self):
+                if self.search_type == "sthpw/message_log":
+                    return [old_log]
+                return []
+
+            def get_sobject(self):
+                return object() if self.search_type == "sthpw/subscription" else None
+
+        search_module = ModuleType("pyasm.search")
+        search_module.Search = FakeSearch
+        search_module.SearchKey = SimpleNamespace(
+            get_by_sobject=lambda item, use_id=False:
+            "sthpw/message_log?id=19" if use_id else
+            f"sthpw/message_log?code={item.get_code()}"
+        )
+        biz_module = ModuleType("pyasm.biz")
+        biz_module.Snapshot = SimpleNamespace(
+            get_files_dict_by_snapshots=lambda _snapshots: {}
+        )
+        pyasm_module = ModuleType("pyasm")
+        pyasm_module.__path__ = []
+        server = Mock()
+        server.get_login.return_value = "artist"
+        with (
+            patch.dict(sys.modules, {
+                "pyasm": pyasm_module, "pyasm.search": search_module,
+                "pyasm.biz": biz_module,
+            }),
+            patch.object(tq, "server", server, create=True),
+        ):
+            history = json.loads(tq.query_chat_history("CHAT001"))
+
+        self.assertEqual(history["messages"][0]["message"], "вкап")
+        self.assertEqual(old_log.get_code(), "MESSAGE_LOG00019")
+
+    def test_chat_history_attachment_can_be_opened_as_snapshot(self):
+        class Row:
+            def __init__(self, search_type, code, record_id=0, **values):
+                self.search_type = search_type
+                self.code = code
+                self.record_id = record_id
+                self.values = values
+
+            def get_code(self):
+                return self.code
+
+            def get_id(self):
+                return self.record_id
+
+            def get_value(self, key, **_kwargs):
+                return self.values.get(key)
+
+            def get_data(self):
+                return {"code": self.code, **self.values}
+
+        member = Row("sthpw/subscription", "MEMBER", login="artist")
+        log = Row(
+            "sthpw/message_log", "LOG001", record_id=3, login="artist",
+            message_code="CHAT001", message="", metadata={},
+        )
+        connection = Row(
+            "sthpw/connection", "CON001", src_search_type="sthpw/snapshot",
+            src_search_id=37, dst_search_id=3,
+        )
+        snapshot = Row("sthpw/snapshot", "SNAP001", record_id=37)
+        file_row = Row(
+            "sthpw/file", "FILE001", type="main", base_type="file",
+            file_name="image.png", st_size=4, relative_dir="attachment/chat",
+        )
+        rows = {
+            "sthpw/subscription": [member],
+            "sthpw/message_log": [log],
+            "sthpw/connection": [connection],
+            "sthpw/snapshot": [snapshot],
+        }
+
+        class FakeSearch:
+            def __init__(self, search_type):
+                self.search_type = search_type
+
+            def add_filter(self, *_args, **_kwargs):
+                pass
+
+            def add_filters(self, *_args, **_kwargs):
+                pass
+
+            def add_order_by(self, *_args, **_kwargs):
+                pass
+
+            def set_limit(self, _limit):
+                pass
+
+            def get_sobjects(self):
+                return rows.get(self.search_type, [])
+
+            def get_sobject(self):
+                return next(iter(self.get_sobjects()), None)
+
+        search_module = ModuleType("pyasm.search")
+        search_module.Search = FakeSearch
+        search_module.SearchKey = SimpleNamespace(
+            get_by_sobject=lambda item, use_id=False:
+            f"{item.search_type}?code={item.code}"
+        )
+        biz_module = ModuleType("pyasm.biz")
+        biz_module.Snapshot = SimpleNamespace(
+            get_files_dict_by_snapshots=lambda _snapshots: {"SNAP001": [file_row]}
+        )
+        pyasm_module = ModuleType("pyasm")
+        pyasm_module.__path__ = []
+        server = Mock()
+        server.get_login.return_value = "artist"
+        with (
+            patch.dict(sys.modules, {
+                "pyasm": pyasm_module, "pyasm.search": search_module,
+                "pyasm.biz": biz_module,
+            }),
+            patch.object(tq, "server", server, create=True),
+        ):
+            history = json.loads(tq.query_chat_history("CHAT001"))
+            authorization = json.loads(tq.authorize_chat_attachment(
+                "CHAT001", "SNAP001"
+            ))
+
+        attachment = history["messages"][0]["__attachments__"][0]
+        self.assertTrue(authorization["allowed"])
+        wrapped = tc.Snapshot(attachment)
+        self.assertEqual(wrapped.get_code(), "SNAP001")
+        self.assertEqual(
+            wrapped.get_files_objects()[0].get_filename_with_ext(), "image.png"
+        )
+
+    def test_chat_attachment_is_validated_and_connected_to_newest_log(self):
+        snapshot_present = {"value": False}
+        server = Mock()
+        server.get_login.return_value = "artist"
+        server.split_search_key.return_value = ("sthpw/snapshot", "SNAP001")
+        member = SimpleNamespace(get_value=lambda key: "artist")
+        snapshot = SimpleNamespace(get_value=lambda key: {
+            "search_type": "sthpw/message", "search_code": "CHAT001",
+        }.get(key))
+
+        def log_record(code, record_id):
+            return SimpleNamespace(
+                get_code=lambda: code,
+                get_id=lambda: record_id,
+                get_value=lambda key: "2026-09-22 12:00:00",
+                get_data=lambda: {"code": code},
+            )
+
+        old_log = log_record("LOG001", 1)
+        new_log = log_record("LOG002", 2)
+
+        class FakeSearch:
+            def __init__(self, search_type):
+                self.search_type = search_type
+                self.order = ""
+
+            def add_filter(self, *_args):
+                pass
+
+            def add_order_by(self, field, direction="asc"):
+                self.order = field
+
+            def set_limit(self, _limit):
+                pass
+
+            def get_database_impl(self):
+                return SimpleNamespace(get_database_type=lambda: "Postgres")
+
+            def get_sobjects(self):
+                return [member] if self.search_type == "sthpw/subscription" else []
+
+            def get_sobject(self):
+                if self.search_type == "sthpw/snapshot":
+                    return snapshot if snapshot_present["value"] else None
+                if self.search_type == "sthpw/message_log":
+                    return new_log if self.order == "id" else old_log
+                return None
+
+        search_module = ModuleType("pyasm.search")
+        search_module.Search = FakeSearch
+        search_module.SearchKey = SimpleNamespace(
+            get_by_sobject=lambda item, use_id=False:
+                "sthpw/message_log?code=" + item.get_code()
+        )
+        pyasm_module = ModuleType("pyasm")
+        pyasm_module.__path__ = []
+        with (
+            patch.dict(sys.modules, {
+                "pyasm": pyasm_module, "pyasm.search": search_module,
+            }),
+            patch.object(tq, "server", server, create=True),
+        ):
+            with self.assertRaisesRegex(ValueError, "attachment.*not found"):
+                tq.send_chat_message(
+                    "CHAT001", "Picture", ["sthpw/snapshot?code=SNAP001"]
+                )
+            server.log_message.assert_not_called()
+
+            snapshot_present["value"] = True
+            server.connect_sobjects.return_value = None
+            with self.assertRaisesRegex(RuntimeError, "attach.*message"):
+                tq.send_chat_message(
+                    "CHAT001", "Picture", ["sthpw/snapshot?code=SNAP001"]
+                )
+            self.assertTrue(any(
+                call.args[1] == {"status": "deleted"}
+                for call in server.update.call_args_list
+            ))
+            server.connect_sobjects.reset_mock()
+            server.connect_sobjects.return_value = {"code": "CON001"}
+            result = json.loads(tq.send_chat_message(
+                "CHAT001", "Picture", ["sthpw/snapshot?code=SNAP001"]
+            ))
+
+        self.assertEqual(result["message"]["code"], "LOG002")
+        self.assertTrue(server.log_message.call_args.kwargs["log_history"])
+        server.connect_sobjects.assert_called_once_with(
+            "sthpw/snapshot?code=SNAP001",
+            "sthpw/message_log?code=LOG002",
+            context="chat_attachment",
+        )
+
     def test_send_chat_message_preserves_reply_target(self):
         with patch.object(
                 tc, "execute_procedure_serverside", return_value={}) as execute:
@@ -1183,7 +1789,7 @@ class ChatHistoryTests(unittest.TestCase):
             "search_text": "render ready",
         })
 
-    def test_history_requires_codes_before_generating_search_keys(self):
+    def test_history_assigns_codes_before_generating_display_search_keys(self):
         code = tq.prepare_serverside_script(
             tq.query_chat_history,
             {
@@ -1196,9 +1802,8 @@ class ChatHistoryTests(unittest.TestCase):
             catch_traceback=False,
         )["code"]
 
-        self.assertNotIn("use_id=True", code)
         self.assertLess(
-            code.index("history = [item for item in history if item.get_code()]"),
+            code.index("message_log.set_value('code', code)"),
             code.index("data['__search_key__'] = SearchKey.get_by_sobject("),
         )
         self.assertNotIn("info.get(\"id\")", code)

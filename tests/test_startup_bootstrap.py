@@ -28,6 +28,9 @@ class _Worker:
     def start(self):
         self.started = True
 
+    def cancel(self):
+        self.cancelled = True
+
 
 class _Pool:
     is_stopped = False
@@ -36,10 +39,12 @@ class _Pool:
         self.worker = _Worker()
         self.task = None
         self.args = ()
+        self.kwargs = {}
 
-    def add_task(self, task, *args):
+    def add_task(self, task, *args, **kwargs):
         self.task = task
         self.args = args
+        self.kwargs = kwargs
         return self.worker
 
 
@@ -56,6 +61,8 @@ class _Controller(ConnectionMixin):
         self._settings = _Settings()
         self._bootstrap_request_id = ""
         self._bootstrap_worker = None
+        self._project_catalog_request_id = ""
+        self._project_catalog_worker = None
         self._bootstrap_started_at = 0.0
         self.loading = []
         self.states = []
@@ -74,6 +81,67 @@ class _Controller(ConnectionMixin):
 
 
 class StartupBootstrapTests(unittest.TestCase):
+    def test_failed_bootstrap_keeps_request_id_for_retry(self):
+        controller = _Controller()
+        controller._bootstrap_request_id = "retry-me"
+        controller.project_model = SimpleNamespace(replace=lambda _value: None)
+        controller.navigation_model = SimpleNamespace(replace=lambda _value: None)
+        controller.workspace_model = SimpleNamespace(clear=lambda: None)
+        controller.debug_log = None
+        controller.notification_changed = SimpleNamespace(emit=lambda _value: None)
+        controller._transaction_metrics = lambda *_args: "0 ms"
+
+        ConnectionMixin._bootstrap_failed(
+            controller, RuntimeError("server error"), retry_worker=_Worker()
+        )
+
+        self.assertEqual(controller._bootstrap_request_id, "retry-me")
+        self.assertIsNone(controller._bootstrap_worker)
+
+    def test_stale_short_bootstrap_result_is_ignored_before_unpack(self):
+        controller = _Controller()
+        controller._bootstrap_request_id = "current"
+        controller._async_bootstrap_result((None, "stale"))
+        self.assertEqual(controller._bootstrap_request_id, "current")
+
+    def test_project_catalog_refresh_updates_model_without_switching_project(self):
+        from thlib.environment import env_inst, env_server
+
+        updates = []
+        controller = _Controller()
+        controller.project_model = SimpleNamespace(replace=updates.append)
+        pool = _Pool()
+        with (
+            patch.object(env_inst, "server_pool", pool),
+            patch.object(env_server, "get_ticket", return_value="ticket"),
+        ):
+            controller.refresh_projects()
+        controller._async_project_catalog_result(
+            (["fresh"], controller._project_catalog_request_id)
+        )
+        self.assertEqual(updates, [["fresh"]])
+        self.assertIsNone(controller._project_catalog_worker)
+
+    def test_project_catalog_refresh_uses_server_and_ignores_cancelled_response(self):
+        from thlib.environment import env_inst, env_server
+
+        updates = []
+        controller = _Controller()
+        controller.project_model = SimpleNamespace(replace=updates.append)
+        pool = _Pool()
+        with (
+            patch.object(env_inst, "server_pool", pool),
+            patch.object(env_server, "get_ticket", return_value="ticket"),
+        ):
+            controller.refresh_projects()
+        self.assertTrue(pool.worker.started)
+        self.assertEqual(pool.kwargs, {"force": True})
+        request_id = controller._project_catalog_request_id
+        controller._cancel_project_catalog()
+        controller._async_project_catalog_result((["stale"], request_id))
+        self.assertEqual(updates, [])
+        self.assertTrue(pool.worker.cancelled)
+
     def test_qt_bootstrap_logging_survives_missing_stderr(self):
         from thlib.ui.application import (
             _bootstrap_message_handler,
@@ -169,7 +237,7 @@ class StartupBootstrapTests(unittest.TestCase):
             controller.bootstrap_server()
 
         self.assertIsNotNone(pool.task)
-        self.assertEqual(pool.args, ("demo",))
+        self.assertEqual(pool.args, ("demo", controller._bootstrap_request_id))
         self.assertTrue(pool.worker.started)
         self.assertIs(controller._bootstrap_worker, pool.worker)
         self.assertEqual(
@@ -178,7 +246,61 @@ class StartupBootstrapTests(unittest.TestCase):
         )
         self.assertTrue(controller.loading[-1][0])
 
-    def test_bootstrap_reuses_reference_cache_without_server_changes(self):
+    def test_cancelled_bootstrap_stops_before_next_server_request(self):
+        import thlib.tactic_classes as tc
+        from thlib import server_cache
+
+        controller = _Controller()
+        controller._bootstrap_request_id = "active"
+
+        def cancel_after_projects(*, force):
+            self.assertTrue(force)
+            controller._bootstrap_request_id = ""
+            return []
+
+        with (
+            patch.object(tc, "get_server_updates") as get_updates,
+            patch.object(server_cache, "read_cursor") as read_cursor,
+            patch.object(controller, "_load_projects", side_effect=cancel_after_projects),
+        ):
+            self.assertIsNone(controller._bootstrap_server_task("demo", "active"))
+
+        get_updates.assert_not_called()
+        read_cursor.assert_not_called()
+
+    def test_bootstrap_ignores_project_saved_for_another_server(self):
+        import thlib.tactic_classes as tc
+        from thlib import server_cache
+        from thlib.environment import env_inst, env_server
+
+        controller = _Controller()
+        controller._bootstrap_request_id = "active"
+        project = SimpleNamespace(
+            get_code=lambda: "sqlite_demo",
+            get_title=lambda: "SQLite Demo",
+            get_info=lambda: {},
+            is_template=lambda: False,
+            is_builtin=lambda: False,
+        )
+        with (
+            patch.object(controller, "_load_projects", return_value=[project]),
+            patch.object(controller, "_prepare_project_selection", return_value=(
+                "sqlite_demo", "SQLite Demo", [], project,
+            )),
+            patch.object(server_cache, "read_cursor", return_value="") as read_cursor,
+            patch.object(server_cache, "apply_change_batch", return_value={}),
+            patch.object(server_cache, "write_cursor"),
+            patch.object(tc, "get_server_updates", return_value={}) as get_updates,
+            patch.object(env_inst, "logins", {}),
+            patch.object(env_server, "get_user", return_value="artist"),
+        ):
+            result = controller._bootstrap_server_task("niki_friends", "active")
+
+        self.assertEqual(result[2], "sqlite_demo")
+        read_cursor.assert_called_once_with("server_changes", "sqlite_demo")
+        self.assertEqual(get_updates.call_args.kwargs["project_code"], "sqlite_demo")
+
+    def test_bootstrap_refreshes_project_catalog_without_reloading_search_types(self):
         import thlib.tactic_classes as tc
         from thlib import server_cache
         from thlib.environment import env_inst, env_server
@@ -215,9 +337,10 @@ class StartupBootstrapTests(unittest.TestCase):
             patch.object(env_inst, "logins", {"artist": login}),
             patch.object(env_server, "get_user", return_value="artist"),
         ):
-            controller._bootstrap_server_task("demo")
+            controller._bootstrap_request_id = "active"
+            controller._bootstrap_server_task("demo", "active")
 
-        load_projects.assert_called_once_with(force=False)
+        load_projects.assert_called_once_with(force=True)
         prepare_project.assert_called_once_with(
             "demo", "Demo", force_search_types=False
         )
@@ -265,7 +388,8 @@ class StartupBootstrapTests(unittest.TestCase):
             patch.object(env_inst, "logins", {"artist": login}),
             patch.object(env_server, "get_user", return_value="artist"),
         ):
-            controller._bootstrap_server_task("demo")
+            controller._bootstrap_request_id = "active"
+            controller._bootstrap_server_task("demo", "active")
 
         load_projects.assert_called_once_with(force=True)
         prepare_project.assert_called_once_with(

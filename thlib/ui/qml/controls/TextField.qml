@@ -8,14 +8,16 @@ Basic.TextField {
 
     required property var theme
     property bool errorState: false
+    property bool tableCell: false
+    property var contextMenu: null
 
     // The Basic style installs its own TextEditingContextMenu. This control
     // provides the shared themed menu below, so the style menu must stay disabled.
     T.ContextMenu.menu: null
 
     implicitHeight: theme.controlHeight
-    leftPadding: 12
-    rightPadding: 12
+    leftPadding: tableCell ? 8 : 12
+    rightPadding: tableCell ? 8 : 12
     selectByMouse: true
     persistentSelection: true
     color: enabled ? theme.primaryText : theme.disabledText
@@ -26,9 +28,9 @@ Basic.TextField {
     font.pointSize: Typography.body
 
     background: Rectangle {
-        radius: theme.fieldRadius
-        color: theme.surfaceContainerHigh
-        border.width: control.activeFocus ? 2 : 1
+        radius: control.tableCell ? 0 : theme.fieldRadius
+        color: control.tableCell && !control.activeFocus ? "transparent" : theme.surfaceContainerHigh
+        border.width: control.activeFocus ? 2 : control.tableCell ? 0 : 1
         border.color: control.errorState
             ? theme.error
             : control.activeFocus ? theme.action : theme.outline
@@ -47,16 +49,20 @@ Basic.TextField {
         cursorShape: control.enabled
             ? Qt.IBeamCursor : Qt.ArrowCursor
         onPressed: mouse => {
-            contextMenu.openForEditor(
+            if (!control.contextMenu)
+                control.contextMenu = contextMenuComponent.createObject(control)
+            control.contextMenu.openForEditor(
                 control, mouse.x, mouse.y, control.positionAt(mouse.x))
         }
     }
 
-    Controls.TextContextMenu {
-        id: contextMenu
-        theme: control.theme
-        editor: control
-        readOnly: control.readOnly
-        allowCopy: control.echoMode === TextInput.Normal
+    Component {
+        id: contextMenuComponent
+        Controls.TextContextMenu {
+            theme: control.theme
+            editor: control
+            readOnly: control.readOnly
+            allowCopy: control.echoMode === TextInput.Normal
+        }
     }
 }

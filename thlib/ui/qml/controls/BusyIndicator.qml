@@ -17,6 +17,7 @@ Item {
         id: nativeIndicator
         objectName: "busyIndicatorArc"
         anchors.fill: parent
+        padding: 0
         running: root.canRender
         visible: root.canRender
         palette.highlight: root.uiTheme.action

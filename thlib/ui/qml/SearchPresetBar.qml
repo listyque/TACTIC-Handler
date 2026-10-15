@@ -99,6 +99,7 @@ Rectangle {
         }
         Controls.CompactIconButton {
             id: presetMoreButton
+            objectName: "searchPresetMoreButton"
             theme: root.theme
             iconName: "more_vert"
             toolTip: qsTr("Saved search actions")
@@ -107,6 +108,7 @@ Rectangle {
     }
     ActionMenu {
         id: presetActions
+        objectName: "searchPresetActions"
         parent: Overlay.overlay
         theme: root.theme
         actions: [
@@ -161,7 +163,7 @@ Rectangle {
             else if (command === "delete")
                 deleteDialog.open()
             else if (command === "refresh")
-                root.controller.begin_search_session()
+                root.controller.load_presets()
         }
     }
 

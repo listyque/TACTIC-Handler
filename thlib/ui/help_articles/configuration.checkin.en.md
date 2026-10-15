@@ -52,6 +52,11 @@ the server endpoint. Copy and In-Place preserve the source, while Move deliberat
 **Check-out method** uses **Local** for direct repository-path access or **HTTP** to download through
 TACTIC. Use HTTP when the workstation cannot see repository paths directly.
 
+When **TACTIC TEAM Mode (local repository)** is enabled in the active Server Preset,
+preview delivery, check-in method, and check-out method are locked to local,
+In-Place, and Local respectively. Turning the mode off unlocks those controls;
+you can choose other values again.
+
 ## Snapshot creation
 
 | Setting | What it controls |
@@ -62,6 +67,9 @@ TACTIC. Use HTTP when the workstation cannot see repository paths directly.
 | **Confirm saving** | Asks before saving a prepared check-in operation. |
 | **Confirm revision saving** | Adds a separate confirmation before saving a revision rather than a new version. |
 | **Sequence padding** | Enables fixed 1–9 digit frame numbers for generated sequence names. The number is editable only while the switch is on. |
+
+**Local versionless files** defaults to **Copy**. Choose **Symbolic link** or **Hard link** to share numbered-version storage, including previews. Links are replaced atomically; failed creation keeps the previous alias. Windows symbolic links need Developer Mode or privileges; hard links require the same volume. Versionless-only check-ins use copies because there is no numbered target. Remote server aliases use the server configuration (`checkin/versionless_mode` in TACTIC Stream). Editing through either kind of link also changes its target; always publish a new numbered version.
+
 
 ## Repository synchronization
 

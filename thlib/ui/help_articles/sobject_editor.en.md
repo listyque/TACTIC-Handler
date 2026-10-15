@@ -7,6 +7,10 @@ order: 12
 
 > The object editor uses the active TACTIC EditWdg definition.
 
+Keywords use the same tag editor as the results table. Click the field to add
+or remove individual tags. Save applies the tags to the form draft; submit the
+object form to write them to TACTIC. Cancel leaves the field unchanged.
+
 ## Main controls
 
 Each field keeps the server title, order, column, required and read-only state, option labels and
@@ -17,12 +21,14 @@ Status and process colors and task assignees follow the selected object's workfl
 
 ## Usage notes
 
+- Opening a newly created object keeps the current dock arrangement; its Search tab retains its own layout afterward.
 - Fields stack in one ordered column in a narrow window.
 - Widening either the Create or Edit window flows the existing field cards into two or three columns
   instead of stretching every control across the window.
 - Each card still aligns its label beside the control when its own width allows it.
 - The form and multiline fields show theme-aware scrollbars whenever their content exceeds the
   available height.
+- Select lists hide unnamed blank entries; a named empty or default option remains available.
 - Password editing never reveals the current value; leave it empty to keep the existing password.
 - Unsupported custom server widgets remain visible and read-only instead of writing an incorrect
   fallback value.

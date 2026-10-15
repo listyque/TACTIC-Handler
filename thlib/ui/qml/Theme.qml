@@ -92,15 +92,15 @@ QtObject {
     readonly property real communicationGroupedBubbleRadius: material5
         ? 10 : fluent ? 4 : 8
     readonly property int baseMotionInstant:
-        fluent ? 60 : material5 ? 90 : 70
+        fluent ? 24 : material5 ? 36 : 28
     readonly property int baseMotionFast:
-        fluent ? 90 : material5 ? 150 : 120
+        fluent ? 36 : material5 ? 60 : 48
     readonly property int baseMotionMedium:
-        fluent ? 120 : material5 ? 190 : 140
+        fluent ? 48 : material5 ? 76 : 56
     readonly property int baseMotionSlow:
-        fluent ? 160 : material5 ? 240 : 180
+        fluent ? 64 : material5 ? 96 : 72
     readonly property int baseMotionExtended:
-        fluent ? 220 : material5 ? 320 : 260
+        fluent ? 88 : material5 ? 128 : 104
 
     // Existing motion tokens represent view transitions and fades. Pointer
     // feedback has dedicated tokens so each preference stays independent.

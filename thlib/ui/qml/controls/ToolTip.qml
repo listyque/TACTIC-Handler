@@ -1,6 +1,7 @@
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Controls as QtControls
+import QtQuick.Window
 import Qt5Compat.GraphicalEffects
 import "." as Controls
 
@@ -13,6 +14,7 @@ Loader {
     property int timeout: 5000
     property int margins: 8
 
+    anchors.fill: parent
     visible: false
     active: visible
     onLoaded: Qt.callLater(function() {
@@ -22,6 +24,20 @@ Loader {
     sourceComponent: QtControls.ToolTip {
         id: control
 
+        readonly property point anchorOrigin:
+            root.mapToItem(null, 0, 0)
+
+        parent: root
+        x: Math.round((root.width - width) / 2)
+        y: {
+            const window = root.Window.window
+            const below = anchorOrigin.y + root.height
+                + root.margins + height
+            if (window && below > window.height - root.margins
+                    && anchorOrigin.y >= height + root.margins * 2)
+                return -height - root.margins
+            return root.height + root.margins
+        }
         visible: false
         text: root.text
         delay: root.delay

@@ -21,6 +21,26 @@ from thlib.ui.checkin_out import (
 
 class CheckinOperationTest(unittest.TestCase):
 
+
+    def test_file_sizes_preserve_empty_files_and_sequence_order(self):
+        from thlib.global_functions import FileObject
+
+        with tempfile.TemporaryDirectory() as directory:
+            empty = Path(directory) / 'empty.bin'
+            filled = Path(directory) / 'filled.bin'
+            empty.write_bytes(b'')
+            filled.write_bytes(b'content')
+            obj = FileObject()
+            self.assertEqual(obj.get_sizes_list(files_list=[str(empty)]), [0])
+            self.assertEqual(obj.get_sizes_list(True, [str(empty)]), 0)
+            paths = [str(empty), str(filled), str(empty)]
+            self.assertEqual(obj.get_sizes_list(files_list=paths), [0, 7, 0])
+            self.assertEqual(obj.get_sizes_list(True, paths), 7)
+            self.assertIsNone(obj.get_sizes_list(files_list=[str(empty) + '.missing']))
+            obj.set_sizes_list([0])
+            self.assertEqual(obj.get_sizes_list(), [0])
+            self.assertEqual(obj.get_sizes_list(together=True), 0)
+
     def test_checkin_strips_public_skey_scheme_at_tactic_boundary(self):
         import thlib.tactic_classes as tc
 
@@ -177,6 +197,51 @@ class CheckinOperationTest(unittest.TestCase):
                 metadata["app_info"]["p"], "Autodesk Maya 2026"
             )
 
+    def test_execution_refreshes_preview_and_preserves_previous_file(self):
+        import thlib.tactic_classes as tc
+        from thlib.ui.checkin_out import CheckinOutController
+
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            source = root / "source.md"
+            source.write_bytes(b"new content")
+            repository = root / "repository"
+            old_file = repository / "versions/shot_v001.md"
+            old_file.parent.mkdir(parents=True)
+            old_file.write_bytes(b"previous version")
+
+            def plan(version):
+                return [["source", {
+                    "versioned": {"paths": ["versions"],
+                                  "names": [[f"shot_v{version:03d}", "", ".md"]]},
+                    "versionless": {"paths": ["latest"],
+                                    "names": [["shot", "", ".md"]]},
+                }]]
+
+            payload = {
+                "searchKey": "demo/shot?project=demo&code=SHOT001",
+                "context": "publish", "mode": "copy",
+                "versionlessMode": "copy", "updateVersionless": False,
+                "files": [{"path": str(source), "template": "$FILENAME.$EXT"}],
+                "filesDict": [["source", {"t": ["main"], "s": [""],
+                                          "e": ["md"], "p": [""], "m": None}]],
+                "virtualSnapshot": plan(1),
+            }
+            snapshot = {"__search_key__": "sthpw/snapshot?code=S2"}
+            with patch.object(tc, "get_virtual_snapshot", return_value=plan(2)) as naming:
+                inputs = CheckinOutController._prepare_checkin(payload)
+                self.assertEqual(inputs["virtualSnapshot"], plan(2))
+                with patch.object(tc, "checkin_snapshot", return_value=snapshot):
+                    execute_checkin_payload(payload, {"value": [str(repository)]})
+                self.assertEqual(naming.call_count, 2)
+                reserved = {**payload, "dccScene": {"applicationType": "maya"}}
+                reserved_inputs = CheckinOutController._prepare_checkin(reserved)
+                self.assertEqual(reserved_inputs["virtualSnapshot"], plan(1))
+                self.assertEqual(naming.call_count, 2)
+            self.assertEqual(old_file.read_bytes(), b"previous version")
+            self.assertEqual((repository / "versions/shot_v002.md").read_bytes(), b"new content")
+            self.assertEqual(payload["virtualSnapshot"], plan(1))
+
     def test_preparation_reuses_the_path_reserved_before_dcc_save(self):
         import thlib.tactic_classes as tc
 
@@ -255,7 +320,10 @@ class CheckinOperationTest(unittest.TestCase):
             self.assertEqual(metadata["name_part"], "")
 
             repository_root = root / "repository"
-            repository = {"value": [str(repository_root), "", "", "base"]}
+            repository = {
+                "name": "asset_base_dir",
+                "value": [str(repository_root), "", "", "base"],
+            }
             self.assertTrue(stage_checkin(inputs, repository))
             staged = repository_root / "assets/versions/aid_kit_model_v001"
             self.assertTrue(staged.is_file())
@@ -263,6 +331,9 @@ class CheckinOperationTest(unittest.TestCase):
 
             server = Mock()
             server.split_search_key.return_value = ("demo/asset", "ASSET001")
+            server.get_base_dirs.return_value = {
+                "asset_base_dir": str(root / "different_repository"),
+            }
             snapshot = {"__search_key__": "sthpw/snapshot?code=SNAP001"}
             with (patch.object(tc, "server_start", return_value=server),
                   patch.object(
@@ -293,6 +364,50 @@ class CheckinOperationTest(unittest.TestCase):
             server.upload_file.assert_called_once_with(
                 files_info["version_files"][0], progress_signal=None
             )
+
+            server.upload_file.reset_mock()
+            server.start.reset_mock()
+            server.finish.reset_mock()
+            server.get_base_dirs.return_value = {
+                "asset_base_dir": str(repository_root),
+            }
+            with (patch.object(tc, "server_start", return_value=server),
+                  patch.object(
+                      tc, "execute_procedure_serverside", return_value=snapshot
+                  ) as execute):
+                tc.checkin_snapshot(
+                    search_key=payload["searchKey"],
+                    context=payload["context"],
+                    update_versionless=False,
+                    repo_name=repository,
+                    virtual_snapshot=inputs["virtualSnapshot"],
+                    files_dict=inputs["filesDict"],
+                    mode="upload",
+                    create_icon=False,
+                    files_objects=inputs["filesObjects"],
+                )
+
+            server.upload_file.assert_not_called()
+            self.assertEqual(execute.call_args.args[1]["mode"], "inplace")
+            self.assertEqual(execute.call_args.args[1]["transaction_title"], "Inplace Checkin")
+            self.assertIn("Finished.", execute.call_args.args[1]["transaction_description"])
+            server.start.assert_not_called()
+            server.finish.assert_not_called()
+
+            for mode in ("inplace", "preallocate"):
+                server.abort.reset_mock()
+                with (patch.object(tc, "server_start", return_value=server),
+                      patch.object(tc, "execute_procedure_serverside", side_effect=RuntimeError("save failed"))):
+                    with self.assertRaisesRegex(RuntimeError, "save failed"):
+                        tc.checkin_snapshot(
+                            search_key=payload["searchKey"], context=payload["context"],
+                            update_versionless=False, repo_name=repository,
+                            virtual_snapshot=inputs["virtualSnapshot"], files_dict=inputs["filesDict"],
+                            mode=mode, create_icon=False, files_objects=inputs["filesObjects"],
+                        )
+                server.start.assert_not_called()
+                server.finish.assert_not_called()
+                server.abort.assert_not_called()
 
     def test_extended_server_upload_opens_extensionless_temp_name(self):
         import thlib.tactic_query as tq
@@ -407,6 +522,57 @@ class CheckinOperationTest(unittest.TestCase):
             name="source_path", value="/upload/aid_kit_model"
         )
         self.assertEqual(result["__search_key__"], "sthpw/snapshot?code=SNAP001")
+
+    def test_optional_versionless_links_preserve_numbered_files(self):
+        class FileObject:
+            @staticmethod
+            def get_all_new_files_list(name, directory, **_kwargs):
+                return [str(Path(directory) / str(name))]
+
+        import os
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            source = root / "source.png"
+            repository = root / "repository"
+            for mode in ("copy", "hardlink", "symlink"):
+                latest = repository / mode / "latest/image.png"
+                inputs = {
+                    "payload": {"updateVersionless": True,
+                                "generatePreviews": True, "versionlessMode": mode},
+                    "filesObjects": [FileObject()], "filePaths": [[str(source)]],
+                }
+                for version in (1, 2):
+                    source.write_bytes(bytes([version]))
+                    numbered = repository / mode / ("v%s/image.png" % version)
+                    inputs["virtualSnapshot"] = [["image", {
+                        "versioned": {"paths": [mode + "/v%s" % version,
+                            mode + "/v%s/web" % version, mode + "/v%s/icon" % version],
+                            "names": ["image.png"] * 3},
+                        "versionless": {"paths": [mode + "/latest", mode + "/latest/web", mode + "/latest/icon"],
+                            "names": ["image.png"] * 3}}]]
+                    def generate(_source, web, icon):
+                        Path(web).write_bytes(b"web" + bytes([version]))
+                        Path(icon).write_bytes(b"icon" + bytes([version]))
+                    with patch("thlib.tactic_classes.generate_web_and_icon", side_effect=generate):
+                        try:
+                            stage_checkin(inputs, {"value": [str(repository)]})
+                        except OSError as error:
+                            if mode == "symlink" and getattr(error, "winerror", None) == 1314:
+                                break
+                            raise
+                    self.assertEqual(latest.read_bytes(), bytes([version]))
+                    for suffix in ("", "web/", "icon/"):
+                        self.assertEqual(os.path.samefile(numbered.parent / suffix / "image.png",
+                            latest.parent / suffix / "image.png"), mode != "copy")
+                    if version == 2:
+                        self.assertEqual((repository / mode / "v1/image.png").read_bytes(), bytes([1]))
+                inputs["payload"]["onlyVersionless"] = True
+                inputs["payload"]["generatePreviews"] = False
+                source.write_bytes(b"only versionless")
+                stage_checkin(inputs, {"value": [str(repository)]})
+                self.assertEqual(latest.read_bytes(), b"only versionless")
+                self.assertFalse(latest.is_symlink())
+                self.assertFalse(list(repository.rglob("*.part")))
 
     def test_preview_is_generated_once_for_versioned_and_versionless(self):
         class FileObject:

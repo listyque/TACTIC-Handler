@@ -91,7 +91,7 @@ def query_search_presets(
     search_type: str,
     tab_name: str = "",
 ) -> list[dict]:
-    """Query all Search Type presets or one exact Search View namespace."""
+    """Query Handler presets for a Search Type or one sidebar namespace."""
     import thlib.tactic_classes as tc
 
     # Search Type fields in config/widget_config contain the plain server
@@ -105,8 +105,8 @@ def query_search_presets(
     server = tc.server_start(project=project_code)
     # A scoped sidebar entry follows the original Ui_filterEditorDialog
     # contract: ``tab_name`` is its complete customized Search View name.
-    # A plain Search Type tab intentionally omits it and acts as the editor's
-    # library of every link_search row for that Search Type.
+    # A plain Search Type tab intentionally omits it; the parser below keeps
+    # only Handler-owned namespaces for that Search Type.
     filters = [("search_type", search_type)]
     if tab_name:
         filters.insert(0, ("view", "like", f"%{tab_name}"))
@@ -164,11 +164,8 @@ def presets_from_rows(
         view = str(row.get("view") or "")
         if not view.startswith("link_search:"):
             continue
-        # TACTIC's web UI stores its own link_search rows in the same table
-        # and Search Type. TACTIC Handler deliberately owns only the namespace
-        # encoded by the third view segment:
-        #   link_search:<preset>:<search_type>[@<sidebar_entry>]
-        # This prevents native web presets from leaking into Advanced Search.
+        # Native TACTIC searches share this table and Search Type. Handler
+        # searches identify themselves by the final view namespace.
         parts = view.split(":", 2)
         namespace = parts[2] if len(parts) == 3 else ""
         if search_type and not (

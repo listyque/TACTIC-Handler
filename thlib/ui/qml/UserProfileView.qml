@@ -39,10 +39,10 @@ Item {
         anchors.fill: parent
         anchors.margins: 12
         orientation: Qt.Horizontal
-        handle: Rectangle {
+        handle: Controls.SplitterHandle {
             visible: userController.directoryVisible
-            implicitWidth: visible ? 8 : 0
-            color: "transparent"
+            implicitWidth: visible ? 10 : 0
+            theme: root.theme
         }
 
         Rectangle {
@@ -237,12 +237,16 @@ Item {
                 spacing: 10
 
                 Rectangle {
+                    objectName: "profileSummaryCard"
                     Layout.fillWidth: true
-                    Layout.preferredHeight: 194
+                    Layout.preferredHeight: Math.max(
+                        194, profileContent.implicitHeight + 26
+                    )
                     radius: 9
                     color: root.theme.surfaceContainerHigh
 
                     GridLayout {
+                        id: profileContent
                         anchors.fill: parent
                         anchors.leftMargin: 16
                         anchors.rightMargin: 12
@@ -333,6 +337,7 @@ Item {
                                     text: qsTr("PROFILE")
                                 }
                                 GridLayout {
+                                    objectName: "profileInfoGrid"
                                     Layout.fillWidth: true
                                     columns: width >= 560 ? 3 : 2
                                     columnSpacing: 14
@@ -374,6 +379,7 @@ Item {
                                         value: userController.profile.department || ""
                                     }
                                     Controls.ProfileInfoRow {
+                                        objectName: "profileServerInfo"
                                         Layout.fillWidth: true
                                         theme: root.theme
                                         iconName: "server"

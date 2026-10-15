@@ -23,7 +23,7 @@ from PySide6.QtCore import (
 )
 from PySide6.QtGui import QGuiApplication, QImage
 
-from tactic_handler_dcc.connectors import dcc_manifest_for, dcc_tool_actions
+from tactic_handler_dcc.connectors import dcc_tool_actions
 
 from ..menu_schema import MenuRegistry
 from ..quick_filters import QuickFilterCatalog
@@ -109,6 +109,7 @@ class CommandsMixin:
 
         return {
             "closeToTray": self.close_to_tray_enabled(),
+            "autoStartHandlerServer": self.handler_server_autostart_enabled(),
             "serverThreads": thread_counts["server"],
             "localThreads": thread_counts["local"],
             "debugLogLevels": list(
@@ -144,6 +145,9 @@ class CommandsMixin:
 
         self._settings["application/closeToTray"] = bool(
             values.get("closeToTray", True)
+        )
+        self._settings["application/autoStartHandlerServer"] = bool(
+            values.get("autoStartHandlerServer", True)
         )
         server_threads = max(
             1, min(32, int(values.get("serverThreads", 4) or 4))
@@ -232,6 +236,9 @@ class CommandsMixin:
     def close_to_tray_enabled(self) -> bool:
         return bool(self._settings.get("application/closeToTray", True))
 
+    def handler_server_autostart_enabled(self) -> bool:
+        return bool(self._settings.get("application/autoStartHandlerServer", True))
+
     def flush_search_cache(self) -> None:
         self._search_cache.clear()
         self._write_search_cache_config()
@@ -268,6 +275,14 @@ class CommandsMixin:
 
     @Slot(str)
     def invoke(self, command: str) -> None:
+        if (
+            not self.can_manage_tools
+            and (
+                command in {"show_ui_performance", "show_handler_server"}
+                or command.startswith(("tool_", "dcc_tool:"))
+            )
+        ):
+            return
         if self.debug_log:
             self.debug_log.log(
                 "LOG",
@@ -303,6 +318,18 @@ class CommandsMixin:
 
     @Slot(str)
     def open_window(self, window_id: str) -> None:
+        if not self.can_manage_tools and window_id in {
+            "handler_server", "ui_performance", "create_update"
+        }:
+            return
+        if window_id == "commit_queue":
+            from thlib.environment import env_inst
+            project = (env_inst.projects or {}).get(self.current_project_code)
+            if project and project.get_type() == 'file_project':
+                self.window_model.close_window(window_id)
+                self.dock_model.show_panel(window_id)
+                self.dock_model.place_panel(window_id, 'results', 'center')
+                return
         if window_id == "db_table":
             self.dock_model.show_panel("db_table")
             return
@@ -368,6 +395,10 @@ class CommandsMixin:
                 return  # The existing window has the new session.
         self.window_model.show_window(window_id)
 
+    @Slot()
+    def open_columns_editor(self) -> None:
+        self.columnsEditorRequested.emit()
+
     def sobject_editor_context(self) -> dict:
         request = dict(self._sobject_editor_request or {})
         stype = request.get("stype")
@@ -415,36 +446,19 @@ class CommandsMixin:
 
     @Slot(str, result="QVariantList")
     def menu_actions(self, menu_id: str) -> list[dict]:
+        if menu_id == "tools":
+            return []
         actions = [
             action for action in self._menus.actions(menu_id)
             if action.get("command") != "show_administration"
-            or self.can_administer
+            or self.can_manage_tools
         ]
-        if menu_id != "tools":
-            return actions
-        bridge = getattr(self, "_dcc_bridge", None)
-        application_type = str(
-            getattr(bridge, "selectedApplicationType", "") or ""
-        ).lower()
-        tools = [
-            action for action in dcc_tool_actions(application_type)
-            if bridge and bridge.has_dcc_capability(action["capability"])
-        ]
-        if not tools:
-            return actions
-        manifest = dcc_manifest_for(application_type)
-        actions.extend((
-            {"separator": True},
-            {"title": manifest.get("title") or application_type.title(), "header": True},
-            *(
-                {
-                    "title": action["title"],
-                    "icon": action["icon"],
-                    "command": f"dcc_tool:{action['id']}",
-                }
-                for action in tools
-            ),
-        ))
+        if menu_id == "configuration" and not self.can_manage_tools:
+            hidden = {"show_ui_performance", "show_handler_server"}
+            actions = [
+                action for action in actions
+                if action.get("command") not in hidden
+            ]
         return actions
 
     @Slot(bool, result="QVariantList")

@@ -46,7 +46,9 @@ message columns exist, chat, reactions, delivery receipts, and presence polling
 stay idle while unrelated activity/cache polling continues.
 TACTIC versions that expose an unregistered Search Type as an `Undefined`
 object follow this same uninitialized path; schema discovery never turns that
-expected first-run state into an XML-RPC fault.
+expected first-run state into an XML-RPC fault. A registered Search Type whose
+physical table is absent follows the same path without issuing TACTIC's failing
+`SELECT ... LIMIT 0` column probe.
 
 | Capability | Source / rule | Current status |
 |---|---|---|
@@ -63,6 +65,9 @@ expected first-run state into an XML-RPC fault.
 | linked sObject / task | `skey://` text delegates to the normal workspace search-key path | implemented |
 | new conversation | `sthpw/message` plus chat subscriptions for the exact participant set | implemented; duplicate participant sets are reused |
 
+Selecting a conversation preserves the conversation-list viewport while the
+selection roles update; switching chats never jumps that list back to the top.
+
 No password or server object is exposed to QML. Refresh, send, attachment and read
 operations use the existing server/commit pools. A shared configurable incremental
 poll (30 seconds by default, selectable from 5 to 60 seconds) supplies message and
@@ -76,11 +81,70 @@ the notification subscription. **Message notifications** in Global Settings
 independently disables those pop-up cards without pausing subscription polling,
 conversation history, or unread counters. The value is owned by
 `MessagesController` and persisted through the configuration API.
+Live message popups are deduplicated by message identity. A conversation
+summary may reach the client before its message delta, so its latest timestamp
+must not suppress that unseen message's popup.
+While one conversation is visible and its window is active, its latest history
+page is refreshed every five seconds. This scoped refresh updates messages,
+reactions, and delivery/read receipts without accelerating polling for other
+conversations; it stops when Messages is hidden or inactive. New-message cards
+also play the platform's standard application beep.
+Background history refreshes retain the loaded older prefix and pagination
+offset instead of replacing it with the latest page. A burst that exceeds one
+page is fetched through to an overlapping message before merging by identity.
+The timeline exposes the shared scrollbar's `cancelWheelScroll` hook so grabbing
+the thumb stops wheel and jump animations before native dragging takes over.
+Loaded message cards use a Column inside a Flickable, not a virtualized ListView.
+Rich text, emoji, reactions, and previews produce different row heights; estimating
+unseen heights changed the scroll extent during wheel input. The column exposes
+its measured height, keeping the scrollbar range independent of scroll position.
+An end anchor follows real layout/viewport height changes until the reader scrolls
+away. Away from the end, a retained card and its viewport offset anchor older-page
+insertion. Server pagination and the 12-conversation cache still bound initial
+loading; rendering cost now grows with loaded pages, not just visible rows.
+The regression uses unequal-height messages and checks invariant contentHeight
+during wheel events, last-card viewport coordinates after resize/layout changes,
+and the visible anchor after prepending history.
+Each retained timeline owns the identity of its last automatically revealed
+message. Activation, history completion, and message notifications request a
+reveal, but only a different latest message can move that timeline. Background
+arrivals wait for the visible, active window; a reveal is immediate after layout
+and never highlights a message. Explicit search/reply navigation alone uses
+`messageFocusRequested`. Neither activation nor unread flags issue that signal.
+Switching chats, duplicate notifications, and delayed read receipts leave an
+already presented message and the reader's scroll position unchanged.
+A conversation's first presentation waits for the history request and
+deferred delegate layout before positioning at the end and revealing the list.
+Leaving a timeline cancels its scroll animations and flick rather than letting
+them change its retained position while hidden. The full MessagesView regression
+exercises real conversation clicks, initial asynchronous loading, a background
+arrival, window reactivation, duplicate notifications, and an empty Favorites
+chat, checking both retained contentY and the absence of automatic highlights.
+The regression loads the view through the production `WindowContent` loader with
+history already populated. `WindowContent` waits until its initial properties are
+installed before creating content once; loading on initial property notifications
+created and destroyed intermediate views with pending presentation callbacks.
+Server-cache invalidation marks conversations dirty without discarding their
+retained models or QML surfaces. Returning to a dirty chat refreshes its data in
+the background with the transport cache bypassed, keeping the same viewport.
+The regression invalidates message data while another chat is selected and checks
+surface identity, scroll position, and the background refresh request.
+Reaction rows use Flow's natural implicit height. Their preferred height must not
+depend on effective `visible`: hiding an ancestor chat otherwise collapses every
+reaction row, changes the scroll range, and lets anchor restoration move contentY
+before those rows expand again. The mixed-content regression includes reactions,
+emoji-only messages, missing-link previews, replies, and image attachments. It
+observes card-height and content-height signals as well as contentY across chat
+switches, so a transient collapse cannot pass by returning to the same final size.
 The online roster is read on every shared poll so newly connected peers appear
 within one poll interval. The current login's heartbeat is still written only at
 the configured presence interval, avoiding a write on every roster refresh.
 
 ## 3. Activity Feed
+
+Instance endpoints use `Schema.get(project_code=project_code)`, even when the journal procedure
+runs in `sthpw`. A real XML-RPC regression in Stream exercises both procedure bodies with custom
+link columns; Handler query tests assert the requested project reaches schema lookup.
 
 The feed is a read-only aggregation over existing TACTIC records. It has no event
 database. New incremental events from other logins are projected into the existing
@@ -167,6 +231,9 @@ Push/WebSocket transport and typing state remain outside this stage.
 The first page never waits for calendar aggregation: it requests only the bounded
 activity page. Full-history day counts are requested by a separate worker when the
 calendar is opened and are cached for the current project, category, and user scope.
+When direct activity already fills the requested page, its oldest candidate becomes
+the lower timestamp bound for transaction and change-log enrichment; older audit XML
+cannot enter that page and is not loaded or parsed.
 Normal activity-cache invalidation marks calendar counts stale without discarding
 known historical days. An open calendar requests a full recount; a closed one
 defers work until opened. Invalidation during an active recount retains its
@@ -223,7 +290,6 @@ snapshot state, which exists only for project Search Types.
 ## Entry points and isolation
 
 - Top bar: Messages, Activity Feed, and Notifications have separate buttons.
-- The Tools menu does not duplicate those top-bar entry points.
 - Notes remains an object-scoped dock and is not presented as chat.
 - Toast visibility never changes TACTIC unread state; visible loaded message
   history advances only that conversation's `last_cleared` value.
@@ -246,3 +312,9 @@ snapshot state, which exists only for project Search Types.
 - Verify `status_log.search_type/search_code` navigation for each project schema.
 - Verify snapshot navigation and paging with more than 25 publications.
 - Verify attachment upload/download against a non-admin login and its repository.
+
+### Expired session suspension
+
+`ApplicationController.authentication_required` is authoritative while an expired ticket and cached login objects remain present. MessagesController stops its active-history timer and clears deferred summary/history reads when authentication is requested; load, refresh, history and read receipts remain idle until sign-in. Explicit sign-out still clears session models. ServerUpdateService stops both polling and SSE during re-authentication. Successful authentication resumes the existing lifecycle; expiry does not erase composer drafts.
+
+`test_expired_ticket_does_not_requeue_hidden_chat_reads` exercises the real Debug Log authentication signal while a summary request and a deferred refresh are pending. The update-service test keeps the old ticket/login objects to verify suspension and restart. Stream's matching JSON authentication failure closes its background-read gate before notifying the application; `frontend/tests/session_expiry.mjs` checks cancellation, focus/timers and sign-in without a live server.

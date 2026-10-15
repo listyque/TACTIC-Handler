@@ -29,18 +29,26 @@ def _copy_file(source: Path, destination: Path, cancel_event) -> None:
     shutil.copystat(source, destination)
 
 
-def _copy_file_atomically(source: Path, destination: Path, cancel_event) -> None:
+def _copy_file_atomically(source: Path, destination: Path, cancel_event,
+                          mode: str = "copy") -> None:
     if os.path.normcase(str(source)) == os.path.normcase(str(destination)):
         return
     temporary = destination.with_name(
         f"{destination.name}.{uuid.uuid4().hex}.part"
     )
     try:
-        _copy_file(source, temporary, cancel_event)
+        if mode == "symlink":
+            os.symlink(os.path.relpath(source, destination.parent), temporary)
+        elif mode == "hardlink":
+            os.link(source, temporary)
+        elif mode == "copy":
+            _copy_file(source, temporary, cancel_event)
+        else:
+            raise ValueError("Versionless files must use copy, symlink or hardlink")
         _check_cancel(cancel_event)
         os.replace(temporary, destination)
     finally:
-        if temporary.exists():
+        if os.path.lexists(temporary):
             temporary.unlink()
 
 
@@ -83,17 +91,74 @@ def _generate_previews_atomically(
                 pass
 
 
-def prepare_checkin(payload: dict, progress_signal=None, cancel_event=None) -> dict:
+def versionless_allowed(payload: dict) -> bool:
+    return (payload.get('checkinType') not in {'multi_file', 'dir', 'sequence'}
+            and not payload.get('groupCheckin'))
+
+
+def apply_checkin_type_options(payload: dict) -> None:
+    # Resumed uploads must keep the manifest already accepted by the server.
+    if payload.get('_serverQueue'):
+        return
+    if not versionless_allowed(payload):
+        payload['updateVersionless'] = False
+        payload['onlyVersionless'] = False
+
+
+def _naming_options(payload: dict) -> dict:
+    return dict(snapshot_type=payload.get('snapshotType') or 'file',
+                is_revision=payload.get('isRevision', False),
+                keep_file_name=payload.get('keepFileName', False),
+                explicit_filename=payload.get('explicitFilename') or None,
+                version=payload.get('version'), checkin_type=payload.get('checkinType') or 'file',
+                ignore_keep_file_name=payload.get('ignoreKeepFileName', False))
+
+
+def prepare_checkins(payloads: list[dict]) -> list[dict]:
+    import traceback
+    import thlib.tactic_classes as tc
+
+    if not 1 <= len(payloads) <= 50:
+        raise ValueError('Naming preview requires between 1 and 50 operations')
+    results = [None] * len(payloads)
+    prepared = []
+    for index, payload in enumerate(payloads):
+        try:
+            inputs = prepare_checkin(payload, resolve_naming=False)
+            prepared.append((index, inputs))
+        except Exception as error:
+            results[index] = {'result': None, 'error': str(error), 'stacktrace': traceback.format_exc()}
+    if prepared:
+        arguments = [dict(_naming_options(inputs['payload']), search_key=inputs['payload']['searchKey'],
+                          context=inputs['payload']['context'], files_dict=inputs['filesDict'])
+                     for index, inputs in prepared]
+        values = tc.get_virtual_snapshots(arguments)
+        for (index, inputs), value in zip(prepared, values):
+            results[index] = value
+    return results
+
+
+def prepare_checkin(payload: dict, progress_signal=None, cancel_event=None,
+                    refresh_naming: bool = False, resolve_naming: bool = True) -> dict:
     import thlib.global_functions as gf
     import thlib.tactic_classes as tc
 
     payload = dict(payload or {})
+    apply_checkin_type_options(payload)
     search_key = str(payload.get("searchKey") or "").strip()
     if search_key.startswith("skey://"):
         search_key = search_key[len("skey://"):]
     if not search_key or "://" in search_key:
         raise ValueError("Check-in requires a TACTIC Search Object key")
     payload["searchKey"] = search_key
+    if "versionlessMode" not in payload:
+        from thlib.environment import cfg_controls
+        index = int(gf.get_value_from_config(
+            cfg_controls.get_checkin() or {}, "versionlessModeComboBox", 0
+        ) or 0)
+        if index not in (0, 1, 2):
+            raise ValueError("Invalid versionless file preference")
+        payload["versionlessMode"] = ("copy", "symlink", "hardlink")[index]
     files_objects = []
     file_paths = []
     files_dict = deepcopy(list(payload["filesDict"]))
@@ -135,23 +200,18 @@ def prepare_checkin(payload: dict, progress_signal=None, cancel_event=None) -> d
                 values["m"] = metadata
             files_dict[index] = (key, values)
     _check_cancel(cancel_event)
-    prepared_naming = payload.get("virtualSnapshot")
+    # Queue previews can predate an earlier check-in to the same context.
+    prepared_naming = None if refresh_naming else payload.get("virtualSnapshot")
     virtual_snapshot = deepcopy(prepared_naming)
-    if prepared_naming is None:
+    if prepared_naming is None and resolve_naming:
         virtual_snapshot = tc.get_virtual_snapshot(
             payload["searchKey"],
             payload["context"],
             files_dict,
-            snapshot_type=payload.get("snapshotType") or "file",
-            is_revision=payload.get("isRevision", False),
-            keep_file_name=payload.get("keepFileName", False),
-            explicit_filename=payload.get("explicitFilename") or None,
-            version=payload.get("version"),
-            checkin_type=payload.get("checkinType") or "file",
-            ignore_keep_file_name=payload.get("ignoreKeepFileName", False),
+            **_naming_options(payload),
             progress_signal=progress_signal,
         )
-    elif (
+    elif prepared_naming is not None and (
         not isinstance(virtual_snapshot, (list, tuple))
         or len(virtual_snapshot) != len(files_objects)
         or any(
@@ -176,6 +236,9 @@ def stage_checkin(
     import thlib.global_functions as gf
 
     payload = inputs["payload"]
+    link_mode = str(payload.get("versionlessMode") or "copy")
+    if link_mode not in ("copy", "symlink", "hardlink"):
+        raise ValueError("Versionless files must use copy, symlink or hardlink")
     repository_values = repository.get("value") or []
     if not repository_values or not repository_values[0]:
         raise ValueError("The selected repository has no local path")
@@ -198,6 +261,7 @@ def stage_checkin(
         file_object = inputs["filesObjects"][index]
         sources = [Path(path).resolve(strict=True) for path in inputs["filePaths"][index]]
         source_paths.update(os.path.normcase(str(path)) for path in sources)
+        versioned_files = []
         for version_name in versions:
             _check_cancel(cancel_event)
             version = snapshot.get(version_name) or {}
@@ -217,11 +281,15 @@ def stage_checkin(
                     "TACTIC naming returned a different number of destination files"
                 )
             destination_dir.mkdir(parents=True, exist_ok=True)
-            for source, destination in zip(sources, destinations):
+            alias_mode = link_mode if version_name == "versionless" and versioned_files else "copy"
+            file_sources = versioned_files if alias_mode != "copy" else sources
+            for source, destination in zip(file_sources, destinations):
                 _check_cancel(cancel_event)
-                destination = destination.resolve()
+                # Resolve the parent only: following yesterday's alias would
+                # overwrite the numbered version instead of replacing its link.
+                destination = destination.parent.resolve() / destination.name
                 if os.path.normcase(str(source)) != os.path.normcase(str(destination)):
-                    _copy_file_atomically(source, destination, cancel_event)
+                    _copy_file_atomically(source, destination, cancel_event, alias_mode)
                 if not destination.is_file():
                     raise OSError(f"Repository file was not created: {destination}")
                 copied_destinations.add(os.path.normcase(str(destination)))
@@ -230,6 +298,8 @@ def stage_checkin(
                     "total_count": total,
                 }, progress_signal)
                 completed += 1
+            if version_name == "versioned":
+                versioned_files = [path.parent.resolve() / path.name for path in destinations]
 
             if payload.get("generatePreviews") and len(paths) > 2 and len(names) > 2:
                 web_dir = repository_root / str(paths[1])
@@ -241,12 +311,12 @@ def stage_checkin(
                 for source, web_file, icon_file in zip(sources, web_files, icon_files):
                     _check_cancel(cancel_event)
                     source_key = os.path.normcase(str(source))
-                    web_file = Path(web_file).resolve()
-                    icon_file = Path(icon_file).resolve()
+                    web_file = Path(web_file).parent.resolve() / Path(web_file).name
+                    icon_file = Path(icon_file).parent.resolve() / Path(icon_file).name
                     cached = preview_cache.get(source_key)
                     if cached:
-                        _copy_file_atomically(cached[0], web_file, cancel_event)
-                        _copy_file_atomically(cached[1], icon_file, cancel_event)
+                        _copy_file_atomically(cached[0], web_file, cancel_event, alias_mode)
+                        _copy_file_atomically(cached[1], icon_file, cancel_event, alias_mode)
                     else:
                         _generate_previews_atomically(
                             source, web_file, icon_file, cancel_event,
@@ -270,7 +340,8 @@ def execute_checkin_payload(
     import thlib.tactic_classes as tc
 
     inputs = prepare_checkin(
-        payload, progress_signal=progress_signal, cancel_event=cancel_event
+        payload, progress_signal=progress_signal, cancel_event=cancel_event,
+        refresh_naming=not bool(payload.get("dccScene")),
     )
     payload = inputs["payload"]
     copied = stage_checkin(

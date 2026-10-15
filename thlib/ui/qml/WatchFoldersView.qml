@@ -50,6 +50,7 @@ Item {
             Layout.fillWidth: true
             Layout.fillHeight: true
             orientation: Qt.Vertical
+            handle: Controls.SplitterHandle { theme: root.theme; vertical: false }
 
             ListView {
                 id: watchList

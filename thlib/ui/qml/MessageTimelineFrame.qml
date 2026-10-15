@@ -1,6 +1,7 @@
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
+import QtQuick.Shapes
 import "controls" as Controls
 
 Item {
@@ -17,18 +18,20 @@ Item {
     property bool current: false
     property bool unread: false
     property bool selectionMode: false
+    property bool mediaAttachments: false
     default property alias contentData: bubbleContent.data
     readonly property alias bubbleItem: messageBubble
     readonly property bool hovered: bubbleHover.hovered
     readonly property real avatarExtent: width < 380 ? 34 : 40
     readonly property real outerMargin: width < 380 ? 8 : 12
-    readonly property real bubblePadding: width < 380 ? 7 : 8
+    readonly property real bubblePadding:
+        theme.communicationBubblePadding + (width < 380 ? 0 : 3)
     readonly property real bubbleSpacing: Math.max(
-        3, theme.communicationContentSpacing - 2)
+        2, theme.communicationContentSpacing - 4)
     readonly property real maximumBubbleExtent: Math.max(
         0,
         Math.min(
-            520,
+            mediaAttachments ? width : 520,
             width * 0.70,
             width - avatarExtent - theme.communicationAvatarSpacing
                 - outerMargin * 2
@@ -38,11 +41,10 @@ Item {
         bubbleContent.implicitWidth + bubblePadding * 2
     readonly property real bubbleExtent: Math.min(
         maximumBubbleExtent,
-        Math.max(width < 380 ? 104 : 116, naturalBubbleExtent)
+        mediaAttachments ? maximumBubbleExtent
+            : Math.max(width < 380 ? 104 : 116, naturalBubbleExtent)
     )
-    readonly property real bubbleCornerRadius: groupFirst && groupLast
-        ? theme.communicationBubbleRadius
-        : theme.communicationGroupedBubbleRadius
+    readonly property real bubbleCornerRadius: theme.communicationBubbleRadius
 
     signal contextRequested(real localX, real localY)
     signal selectionRequested()
@@ -74,7 +76,7 @@ Item {
         animateAppearance: false
     }
 
-    Rectangle {
+    Item {
         id: messageBubble
         objectName: "messageTimelineBubble"
         x: root.outgoing
@@ -84,71 +86,68 @@ Item {
         width: root.bubbleExtent
         height: bubbleContent.implicitHeight
             + root.bubblePadding * 2
-        radius: root.bubbleCornerRadius
-        topLeftRadius: root.bubbleCornerRadius
-        topRightRadius: root.bubbleCornerRadius
-        bottomLeftRadius: root.groupLast && !root.outgoing
-            ? 0 : root.bubbleCornerRadius
-        bottomRightRadius: root.groupLast && root.outgoing
-            ? 0 : root.bubbleCornerRadius
-        color: root.outgoing
+        readonly property color fillColor: root.outgoing
             ? root.theme.secondaryContainer
             : root.theme.surfaceContainerHigh
-        border.width: root.forwardSelected || root.current
+        property real outlineWidth: root.forwardSelected || root.current
             ? 2 : root.unread ? 1 : 0
-        border.color: root.forwardSelected
+        readonly property color outlineColor: root.forwardSelected
             ? root.theme.tertiary : root.theme.action
 
-        Behavior on border.width {
+        Behavior on outlineWidth {
             NumberAnimation {
                 duration: root.theme.motionFast
                 easing.type: Easing.OutCubic
             }
         }
 
-        Loader {
-            anchors.left: root.outgoing ? undefined : parent.left
-            anchors.right: root.outgoing ? parent.right : undefined
-            anchors.bottom: parent.bottom
-            active: root.groupLast
-            z: -1
-            anchors.leftMargin: root.outgoing ? 0
-                : -root.theme.communicationGroupTailSize - 2
-            anchors.rightMargin: root.outgoing
-                ? -root.theme.communicationGroupTailSize - 2 : 0
-            sourceComponent: Canvas {
-                objectName: "messageTimelineGroupTail"
-                property color tailColor: messageBubble.color
-                property bool mirrored: root.outgoing
-                width: root.theme.communicationGroupTailSize + 4
-                height: root.theme.communicationGroupTailSize + 5
-
-                onTailColorChanged: requestPaint()
-                onMirroredChanged: requestPaint()
-                onPaint: {
-                    const context = getContext("2d")
-                    context.clearRect(0, 0, width, height)
-                    context.fillStyle = tailColor
-                    context.beginPath()
-                    if (root.outgoing) {
-                        context.moveTo(0, 1)
-                        context.lineTo(0, height)
-                        context.lineTo(width - 1, height)
-                        context.bezierCurveTo(
-                            width * 0.58, height - 1,
-                            width * 0.18, height - 7,
-                            0, 3)
-                    } else {
-                        context.moveTo(width, 1)
-                        context.lineTo(width, height)
-                        context.lineTo(1, height)
-                        context.bezierCurveTo(
-                            width * 0.42, height - 1,
-                            width * 0.82, height - 7,
-                            width, 3)
+        Shape {
+            id: bubbleOutline
+            objectName: "messageTimelineOutline"
+            readonly property real tailExtent: root.groupLast
+                ? Math.min(root.theme.communicationGroupTailSize,
+                           root.theme.communicationAvatarSpacing - 2) : 0
+            readonly property real inset: tailExtent + 2
+            x: -inset
+            y: -2
+            width: messageBubble.width + inset * 2
+            height: messageBubble.height + 4
+            preferredRendererType: Shape.CurveRenderer
+            transform: Scale {
+                origin.x: bubbleOutline.width / 2
+                xScale: root.outgoing ? -1 : 1
+            }
+            // One closed contour owns both fill and outline, including the tail.
+            ShapePath {
+                fillColor: messageBubble.fillColor
+                strokeColor: messageBubble.outlineColor
+                strokeWidth: messageBubble.outlineWidth
+                joinStyle: ShapePath.RoundJoin
+                PathSvg {
+                    path: {
+                        const l = bubbleOutline.inset
+                        const t = 2
+                        const r = l + messageBubble.width
+                        const b = t + messageBubble.height
+                        const radius = Math.min(root.bubbleCornerRadius,
+                            messageBubble.height / 2, messageBubble.width / 2)
+                        const arc = " A " + radius + " " + radius + " 0 0 1 "
+                        let contour = "M " + (l + radius) + " " + t
+                            + " H " + (r - radius) + arc + r + " " + (t + radius)
+                            + " V " + (b - radius) + arc + (r - radius) + " " + b
+                            + " H " + (l + radius)
+                        if (root.groupLast) {
+                            const tip = l - bubbleOutline.tailExtent
+                            contour += " C " + l + " " + b + " " + tip + " " + b
+                                + " " + tip + " " + (b - 2)
+                                + " C " + tip + " " + (b - 4) + " " + l + " "
+                                + (b - 4) + " " + l + " " + (b - radius)
+                        } else {
+                            contour += arc + l + " " + (b - radius)
+                        }
+                        return contour + " V " + (t + radius)
+                            + arc + (l + radius) + " " + t + " Z"
                     }
-                    context.closePath()
-                    context.fill()
                 }
             }
         }

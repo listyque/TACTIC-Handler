@@ -13,11 +13,21 @@ def schema_request(action: str, project_code: str, identity: str = '',
     from pyasm.search import Search, SearchType
 
     if not Environment.get_security().is_admin():
-        raise PermissionError('TACTIC administrator access is required')
+        memberships = Search('sthpw/login_in_group')
+        memberships.add_filter('login', server.get_login())  # noqa: F821 - injected by execute_python_script
+        if not any(group == 'admin' or 'supervisor' in group for group in (
+                str(row.get_value('login_group') or '').lower()
+                for row in memberships.get_sobjects())):
+            raise PermissionError('TACTIC administrator or supervisor access is required')
     if not project_code or Project.get_project_code() != project_code:
         raise ValueError('Select a project before editing its schema')
     if action not in ('list', 'load', 'save'):
         raise ValueError('Unknown schema operation')
+    # Native Schema.get resolves these projects to the predefined system
+    # document, which TACTIC deliberately does not allow DB rows to override.
+    builtin = project_code in ('admin', 'sthpw')
+    if action == 'save' and builtin:
+        raise PermissionError('The built-in system schema is read-only')
     catalog = [{'identity': project_code, 'label': project_code}]
 
     def metadata():
@@ -28,11 +38,11 @@ def schema_request(action: str, project_code: str, identity: str = '',
                                for row in types]}
 
     if action == 'list':
-        return json.dumps({'catalog': catalog, 'metadata': metadata(), 'canWrite': True})
+        return json.dumps({'catalog': catalog, 'metadata': metadata(), 'canWrite': not builtin})
     identity = identity or project_code
     if identity != project_code:
         raise ValueError('This schema is not part of the selected project')
-    item = Schema.get_by_code(project_code)
+    item = Schema.get(project_code=project_code) if builtin else Schema.get_by_code(project_code)
     original = item.get_value('schema') if item else '<schema/>'
     revision = hashlib.sha256(original.encode()).hexdigest()
     if action == 'save':
@@ -163,7 +173,7 @@ def schema_request(action: str, project_code: str, identity: str = '',
         original = item.get_value('schema')
         revision = hashlib.sha256(original.encode()).hexdigest()
     return json.dumps({'identity': identity, 'catalog': catalog, 'metadata': metadata(),
-                       'canWrite': True, 'revision': revision,
+                       'canWrite': not builtin, 'revision': revision,
                        'document': {'xml': original}}, default=str)
 
 
@@ -172,10 +182,15 @@ def schema_columns_request(project_code: str, search_types: list) -> str:
     import json
     from pyasm.biz import Project
     from pyasm.common import Environment
-    from pyasm.search import SearchType
+    from pyasm.search import Search, SearchType
 
     if not Environment.get_security().is_admin():
-        raise PermissionError('TACTIC administrator access is required')
+        memberships = Search('sthpw/login_in_group')
+        memberships.add_filter('login', server.get_login())  # noqa: F821 - injected by execute_python_script
+        if not any(group == 'admin' or 'supervisor' in group for group in (
+                str(row.get_value('login_group') or '').lower()
+                for row in memberships.get_sobjects())):
+            raise PermissionError('TACTIC administrator or supervisor access is required')
     if not project_code or Project.get_project_code() != project_code:
         raise ValueError('Select a project before editing its schema')
     if not isinstance(search_types, list) or not 1 <= len(search_types) <= 2:

@@ -2,11 +2,11 @@ pragma ComponentBehavior: Bound
 
 import QtQuick
 import QtQuick.Controls
-import QtQuick.Layouts
 import "controls" as Controls
 
 Item {
     id: root
+    objectName: "tableTaskCell"
 
     required property var theme
     required property var controller
@@ -17,271 +17,246 @@ Item {
     property var options: ({})
     property int taskCount: 0
     property bool scrolling: false
-    readonly property int cardWidth: 100
+    property bool selectedPreviewActive: false
+    property bool hoverPreviewEnabled: true
+    readonly property int cardSpacing: 4
+    readonly property int cardWidth: 107
+    readonly property int menuWidth: 32
+    readonly property int recordCount: records ? records.length : 0
     readonly property int fullCardCount: Math.max(
-        0, Math.floor(width / cardWidth)
+        0, Math.floor(
+            (width + cardSpacing) / (cardWidth + cardSpacing)
+        )
     )
     readonly property bool showMenuButton:
-        !records || records.length === 0
-        || records.length > fullCardCount
+        recordCount === 0 || recordCount > fullCardCount
     readonly property int visibleCardCount: Math.max(
-        0, Math.floor(
-            (width - (showMenuButton ? 32 : 0)) / cardWidth
+        0, Math.min(
+            recordCount,
+            showMenuButton ? fullCardCount : recordCount,
+            Math.floor(
+                (width - (showMenuButton ? menuWidth : 0) + cardSpacing)
+                    / (cardWidth + cardSpacing)
+            )
         )
+    )
+    readonly property real visibleCardsWidth: Math.max(
+        0,
+        visibleCardCount * cardWidth
+            + Math.max(0, visibleCardCount - 1) * cardSpacing
     )
     readonly property int effectiveCount: Math.max(
         taskCount, records ? records.filter(
             record => Boolean(record.hasTask)
         ).length : 0
     )
+    readonly property real previewCardsWidth: Math.max(
+        cardWidth,
+        recordCount * cardWidth + Math.max(0, recordCount - 1) * cardSpacing
+    )
+    readonly property bool pointerHovered:
+        cellHover.hovered || taskPreview.contentHovered
+    readonly property bool hoverActive: selectedPreviewActive || pointerHovered
+    signal previewHoverChanged(bool hovered)
+    onPointerHoveredChanged: previewHoverChanged(pointerHovered)
+    Component.onDestruction: previewHoverChanged(false)
 
-    signal processPickerRequested(var anchorItem)
-
-    function choiceIndex(choices, value) {
-        const wanted = String(value || "")
-        for (let index = 0; index < (choices || []).length; ++index) {
-            if (String(choices[index].value || "") === wanted)
-                return index
-        }
-        return -1
+    function openTaskPreview(pinned) {
+        if (recordCount <= 0)
+            return
+        previewOpenTimer.stop()
+        previewCloseTimer.stop()
+        taskPreview.pinned = Boolean(pinned)
+        taskPreview.reopenAtItem(
+            root, -taskPreview.leftPadding, -taskPreview.topPadding, false
+        )
     }
 
-    function openTask(record) {
-        const process = String(record.process || "publish")
-        const taskCode = String(record.taskCode || "")
-        if (taskCode) {
-            controller.open_process_task_details(
-                nodeId, "tasks", process, taskCode
-            )
+    function openTaskManager() {
+        previewOpenTimer.stop()
+        previewCloseTimer.stop()
+        taskPreview.close()
+        controller.open_process_details(nodeId, "tasks", "")
+    }
+
+    function schedulePreviewClose() {
+        if (!hoverActive && !taskPreview.contentHovered && !taskPreview.pinned)
+            previewCloseTimer.restart()
+    }
+
+    onHoverActiveChanged: {
+        if (
+            hoverActive && hoverPreviewEnabled && showMenuButton
+            && recordCount > 0 && !scrolling && !taskPreview.visible
+        ) {
+            previewCloseTimer.stop()
+            previewOpenTimer.restart()
         } else {
-            controller.open_process_details(nodeId, "tasks", process)
+            previewOpenTimer.stop()
+            schedulePreviewClose()
+        }
+    }
+    onScrollingChanged: {
+        if (scrolling) {
+            previewOpenTimer.stop()
+            taskPreview.close()
         }
     }
 
     clip: true
 
-    TaskEditorReleaseCoordinator {
-        id: editorReleaseCoordinator
-        theme: root.theme
+    HoverHandler {
+        id: cellHover
     }
 
-    Row {
+    TacticTaskCards {
+        objectName: "tableInlineTaskCards"
+        opacity: taskPreview.visible ? 0 : 1
         anchors.left: parent.left
         anchors.top: parent.top
         anchors.bottom: parent.bottom
-        spacing: 4
-
-        Repeater {
-            model: (root.records || []).slice(0, root.visibleCardCount)
-
-            delegate: Rectangle {
-                id: taskCard
-
-                required property int index
-                required property var modelData
-                readonly property color taskColor:
-                    String(modelData.statusColor || "").length > 0
-                        ? modelData.statusColor
-                        : String(modelData.processColor || "").length > 0
-                            ? modelData.processColor : root.theme.action
-                readonly property string processLabel: String(
-                    modelData.processLabel || modelData.process
-                    || modelData.context || qsTr("Task")
-                )
-                readonly property real editorHeight: Math.max(
-                    15, Math.min(22, (height - 18) / 2)
-                )
-
-                objectName: "tableTaskRecord_" + index
-                anchors.verticalCenter: parent.verticalCenter
-                width: root.cardWidth - 5
-                height: Math.min(62, root.height - 2)
-                radius: root.theme.itemRadius
-                color: root.theme.overlay(
-                    root.theme.surfaceContainerHigh, taskColor, 0.1
-                )
-                border.width: 1
-                border.color: root.theme.overlay(
-                    root.theme.outlineVariant, taskColor, 0.34
-                )
-
-                HoverHandler {
-                    id: taskCardHover
-                }
-
-                Rectangle {
-                    anchors.left: parent.left
-                    anchors.top: parent.top
-                    anchors.bottom: parent.bottom
-                    width: 3
-                    radius: width / 2
-                    color: taskCard.taskColor
-                }
-
-                ColumnLayout {
-                    anchors.fill: parent
-                    anchors.leftMargin: 6
-                    anchors.rightMargin: 2
-                    anchors.topMargin: 2
-                    anchors.bottomMargin: 2
-                    spacing: 1
-
-                    Item {
-                        id: taskHeader
-                        objectName: "tableTaskHeader_" + taskCard.index
-                        Layout.fillWidth: true
-                        Layout.preferredHeight: 12
-                        Accessible.role: Accessible.Button
-                        Accessible.name: qsTr("Open task") + ": "
-                            + taskCard.processLabel
-
-                        Label {
-                            anchors.fill: parent
-                            horizontalAlignment: Text.AlignHCenter
-                            verticalAlignment: Text.AlignVCenter
-                            text: taskCard.processLabel.toUpperCase()
-                            elide: Text.ElideRight
-                            color: root.theme.primaryText
-                            font.family: root.theme.fontFamily
-                            font.pointSize: Controls.Typography.caption
-                            font.weight: Font.DemiBold
-                        }
-                        HoverHandler {
-                            cursorShape: Qt.PointingHandCursor
-                        }
-                        Controls.ActivationHandler {
-                            onActivated: root.openTask(taskCard.modelData)
-                        }
-                    }
-
-                    TaskTableEditorCell {
-                        objectName: "tableTaskStatus_" + taskCard.index
-                        Layout.fillWidth: true
-                        Layout.preferredHeight: taskCard.editorHeight
-                        theme: root.theme
-                        releaseCoordinator: editorReleaseCoordinator
-                        editorActive: taskCardHover.hovered
-                        editingAllowed: !root.columnsController.busy
-                        scrolling: root.scrolling
-                        actionField: true
-                        showAccent: true
-                        accentColor: taskCard.taskColor
-                        displayText: String(
-                            taskCard.modelData.status || qsTr("Select status")
-                        )
-                        textPointSize: Controls.Typography.caption
-                        editorComponent: Component {
-                            Controls.ComboBox {
-                                objectName: "tableTaskStatusEditor_"
-                                    + taskCard.index
-                                readonly property var editorRecord:
-                                    root.columnsController.task_editor(
-                                        root.nodeId,
-                                        String(taskCard.modelData.process || ""),
-                                        String(taskCard.modelData.status || ""),
-                                        String(taskCard.modelData.assigned || "")
-                                    )
-                                theme: root.theme
-                                actionField: true
-                                font.pointSize: Controls.Typography.caption
-                                model: editorRecord.statusChoices || []
-                                textRole: "label"
-                                valueRole: "value"
-                                colorRole: "color"
-                                currentIndex: root.choiceIndex(
-                                    model,
-                                    String(taskCard.modelData.status || "")
-                                )
-                                displayText: currentIndex >= 0
-                                    ? currentText : qsTr("Select status")
-                                onActivated:
-                                    root.columnsController.set_task_value(
-                                        root.nodeId,
-                                        String(
-                                            taskCard.modelData.taskSearchKey
-                                            || ""
-                                        ),
-                                        String(taskCard.modelData.process || ""),
-                                        "status", currentValue
-                                    )
-                            }
-                        }
-                    }
-
-                    TaskTableEditorCell {
-                        objectName: "tableTaskAssignee_" + taskCard.index
-                        Layout.fillWidth: true
-                        Layout.preferredHeight: taskCard.editorHeight
-                        theme: root.theme
-                        releaseCoordinator: editorReleaseCoordinator
-                        editorActive: taskCardHover.hovered
-                        editingAllowed: !root.columnsController.busy
-                        scrolling: root.scrolling
-                        actionField: true
-                        displayText: String(
-                            taskCard.modelData.assignedLabel
-                            || taskCard.modelData.assigned
-                            || qsTr("Select user")
-                        )
-                        showAvatar: true
-                        userModel: root.userModel
-                        avatarLogin: String(taskCard.modelData.assigned || "")
-                        textPointSize: Controls.Typography.caption
-                        editorComponent: Component {
-                            UserComboBox {
-                                objectName: "tableTaskAssigneeEditor_"
-                                    + taskCard.index
-                                readonly property var editorRecord:
-                                    root.columnsController.task_editor(
-                                        root.nodeId,
-                                        String(taskCard.modelData.process || ""),
-                                        String(taskCard.modelData.status || ""),
-                                        String(taskCard.modelData.assigned || "")
-                                    )
-                                theme: root.theme
-                                actionField: true
-                                font.pointSize: Controls.Typography.caption
-                                userModel: root.userModel
-                                model: editorRecord.userChoices || []
-                                textRole: "label"
-                                valueRole: "value"
-                                currentIndex: root.choiceIndex(
-                                    model,
-                                    String(taskCard.modelData.assigned || "")
-                                )
-                                displayText: currentIndex >= 0
-                                    ? currentText : qsTr("Select user")
-                                onActivated:
-                                    root.columnsController.set_task_value(
-                                        root.nodeId,
-                                        String(
-                                            taskCard.modelData.taskSearchKey
-                                            || ""
-                                        ),
-                                        String(taskCard.modelData.process || ""),
-                                        "assigned", currentValue
-                                    )
-                            }
-                        }
-                    }
-                }
-            }
-        }
+        width: root.visibleCardsWidth
+        theme: root.theme
+        controller: root.controller
+        columnsController: root.columnsController
+        userModel: root.userModel
+        nodeId: root.nodeId
+        records: (root.records || []).slice(0, root.visibleCardCount)
+        cardWidth: root.cardWidth
+        cardSpacing: root.cardSpacing
+        scrolling: root.scrolling
     }
 
     Controls.ItemCountActionButton {
         id: taskButton
         objectName: "tableCellTasks"
-        anchors.right: parent.right
+        x: Math.round(
+            root.visibleCardsWidth
+                + (root.width - root.visibleCardsWidth - width) / 2
+        )
         anchors.verticalCenter: parent.verticalCenter
         visible: root.showMenuButton
+        opacity: taskPreview.visible ? 0 : 1
         width: 28
         height: 28
         theme: root.theme
-        iconName: "task_alt"
+        iconName: "tasks"
         count: root.effectiveCount
-        toolTip: count > 0
-            ? qsTr("Open Tasks (") + count + ")" : qsTr("Add task")
-        onClicked: root.processPickerRequested(taskButton)
+        toolTipsAllowed: !taskPreview.visible
+        toolTip: qsTr("Task Manager")
+        onClicked: root.openTaskManager()
+    }
+
+    Timer {
+        id: previewOpenTimer
+        interval: 260
+        onTriggered: {
+            if (
+                root.hoverActive && root.hoverPreviewEnabled
+                && root.showMenuButton && root.recordCount > 0
+                && !root.scrolling
+            )
+                root.openTaskPreview(false)
+        }
+    }
+
+    Timer {
+        id: previewCloseTimer
+        interval: 180
+        onTriggered: {
+            if (
+                !root.hoverActive && !taskPreview.contentHovered
+                && !taskPreview.pinned
+            )
+                taskPreview.close()
+        }
+    }
+
+    Controls.Popup {
+        id: taskPreview
+        objectName: "tableTaskCardsPreview"
+        parent: Overlay.overlay
+        theme: root.theme
+        usePopupWindow: false
+        coordinateGlobally: false
+        modal: false
+        focus: false
+        padding: 8
+        width: Math.min(
+            root.previewCardsWidth + leftPadding + rightPadding,
+            parent && parent.width > 0
+                ? Math.max(180, parent.width - 8)
+                : root.previewCardsWidth + leftPadding + rightPadding
+        )
+        height: root.height + topPadding + bottomPadding
+            + (root.previewCardsWidth > availableWidth ? 16 : 0)
+        settledClosePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
+        property bool pinned: false
+        property bool contentHovered: false
+
+        onContentHoveredChanged: {
+            if (contentHovered)
+                previewCloseTimer.stop()
+            else
+                root.schedulePreviewClose()
+        }
+        onClosed: {
+            pinned = false
+            contentHovered = false
+        }
+
+        contentItem: Loader {
+            id: previewLoader
+            active: taskPreview.visible
+
+            sourceComponent: Item {
+                id: previewSurface
+
+                HoverHandler {
+                    onHoveredChanged:
+                        taskPreview.contentHovered = hovered
+                }
+                TapHandler {
+                    onTapped: taskPreview.pinned = true
+                }
+
+                Flickable {
+                    id: previewFlick
+                    anchors.left: parent.left
+                    anchors.right: parent.right
+                    anchors.top: parent.top
+                    anchors.bottom: parent.bottom
+                    anchors.bottomMargin: previewBar.hasOverflow
+                        ? previewBar.reservedExtent + 4 : 0
+                    clip: true
+                    contentWidth: root.previewCardsWidth
+                    contentHeight: height
+                    boundsBehavior: Flickable.StopAtBounds
+                    flickableDirection: Flickable.HorizontalFlick
+
+                    TacticTaskCards {
+                        width: root.previewCardsWidth
+                        height: previewFlick.height
+                        theme: root.theme
+                        controller: root.controller
+                        columnsController: root.columnsController
+                        userModel: root.userModel
+                        nodeId: root.nodeId
+                        records: root.records || []
+                        cardWidth: root.cardWidth
+                        cardSpacing: root.cardSpacing
+                    }
+                }
+
+                Controls.ScrollBar {
+                    id: previewBar
+                    objectName: "tableTaskCardsPreviewScrollBar"
+                    parent: previewSurface
+                    orientation: Qt.Horizontal
+                    theme: root.theme
+                    flickableTarget: previewFlick
+                }
+            }
+        }
     }
 }

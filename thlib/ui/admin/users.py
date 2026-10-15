@@ -22,15 +22,40 @@ class AdminUsersEditor(AdminDocumentEditor):
         self._users = users
         self._objects = {}
         self._identities = {}
+        self._uncertain = False
+        self._saving = False
+        self._message = ''
         self._query = ''
         self._show_retired = False
         self._avatars_dirty = False
         self._model = RecordListModel(('login', 'displayName', 'initials', 'avatarUrl',
                                       'avatarColor', 'email', 'retired'))
-        self._groups_model = RecordListModel(('code', 'label', 'description', 'accessLevel',
+        self._groups_model = RecordListModel(('code', 'name', 'label', 'description', 'accessLevel',
                                              'projectCode', 'isDefault'))
         users.avatarsChanged.connect(self._avatar_files_changed)
         self.committed.connect(self._publish_saved)
+
+    @Property(bool, notify=profileChanged)
+    def uncertain(self):
+        return self._uncertain
+
+    @Property(str, notify=profileChanged)
+    def message(self):
+        return self._message
+
+    @Slot()
+    @Slot(bool)
+    def reload(self, force=False):
+        if not self.busy and (force or self._uncertain):
+            self._request('list')
+        else:
+            super().reload()
+
+    def fail(self, error):
+        if self._saving:
+            self._uncertain = True
+            self._saving = False
+        super().fail(error)
 
     @Property(QObject, constant=True)
     def usersModel(self):
@@ -70,11 +95,14 @@ class AdminUsersEditor(AdminDocumentEditor):
         self._identities.clear()
         self._model.clear()
         self._groups_model.clear()
+        self._uncertain = False
+        self._saving = False
+        self._message = ''
         super().reset('sthpw' if project else '')
 
     def _request(self, action: str, identity: str = '') -> None:
         if action == 'load':
-            if self._closed or self.busy or not self._application.can_administer:
+            if self._closed or self.busy or not self._application.can_manage_tools:
                 return
             # The directory already carries these small profiles. Row selection
             # never queries TACTIC or changes the profile window/session login.
@@ -87,6 +115,10 @@ class AdminUsersEditor(AdminDocumentEditor):
                 self._error = ''
                 self.stateChanged.emit()
             return
+        if action == 'save' and self._uncertain:
+            return
+        self._saving = action == 'save'
+        self._message = ''
         super()._request(action, identity)
 
     def _execute_request(self, arguments: dict, project: str, original: dict) -> dict:
@@ -100,11 +132,11 @@ class AdminUsersEditor(AdminDocumentEditor):
                 membership = ({'groups': list(data['groups'])}
                               if data['groups'] != original.get('groups', []) else {})
                 tc.mutate_user_profile(identity, values=values, password=data.get('password', ''),
-                                       require_admin=True, **membership)
+                                       **membership)
             else:
                 identity = str(data.get('login') or '').strip()
                 tc.create_user_profile(identity, values=values, password=data.get('password', ''),
-                                       groups=list(data['groups']), require_admin=True)
+                                       groups=list(data['groups']))
             # A failed directory refresh must not leave committed account data
             # hidden behind a valid persistent reference cache.
             server_cache.invalidate_domains(('reference',), 'sthpw')
@@ -116,6 +148,8 @@ class AdminUsersEditor(AdminDocumentEditor):
         return tc.execute_procedure_serverside(query_admin_users, {}, project='sthpw')
 
     def _catalog_loaded(self) -> None:
+        self._uncertain = False
+        self._saving = False
         from thlib.tactic_classes import Login, LoginGroup
         self._objects = {}
         for row in self._catalog:
@@ -126,7 +160,7 @@ class AdminUsersEditor(AdminDocumentEditor):
         for info in self._metadata.get('groupCatalog', []):
             group = LoginGroup(info)
             groups.append({
-                'code': group.get_login_group(), 'label': group.get_pretty_name(),
+                'code': group.get_login_group(), 'name': group.get_login_group(), 'label': group.get_pretty_name(),
                 'description': group.get_description() or '',
                 'accessLevel': info.get('access_level') or '',
                 'projectCode': info.get('project_code') or '',
@@ -137,7 +171,7 @@ class AdminUsersEditor(AdminDocumentEditor):
 
     @Slot(str, bool)
     def set_group(self, code: str, selected: bool) -> None:
-        if self.busy or not self.canWrite or not self._application.can_administer or not self._document:
+        if self.busy or not self.canWrite or not self._application.can_manage_tools or not self._document:
             return
         if not any(row['code'] == code for row in self._groups_model.records()):
             return
@@ -184,6 +218,7 @@ class AdminUsersEditor(AdminDocumentEditor):
     def set_query(self, query: str) -> None:
         self._query = query.strip().casefold()
         self._rebuild_model()
+        self.profileChanged.emit()
 
     @Slot(bool)
     def set_show_retired(self, show: bool) -> None:
@@ -210,6 +245,8 @@ class AdminUsersEditor(AdminDocumentEditor):
 
     @Slot()
     def save(self) -> None:
+        if self._uncertain:
+            return
         if not str(self._document.get('login') or '').strip():
             self.fail(self.tr('A login is required'))
             return
@@ -221,6 +258,8 @@ class AdminUsersEditor(AdminDocumentEditor):
             self.stateChanged.emit()
 
     def _publish_saved(self) -> None:
+        self._message = 'User saved on server'
+        self.stateChanged.emit()
         from thlib.environment import env_inst
         login = self._objects[self._identity]
         existing = next((obj for obj in (env_inst.get_all_logins() or {}).values()

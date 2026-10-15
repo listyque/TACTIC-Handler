@@ -1,12 +1,19 @@
 from __future__ import annotations
 
 from copy import deepcopy
+import re
 import traceback
+import unicodedata
 from xml.etree import ElementTree
 
 from PySide6.QtCore import QObject, Property, Signal, Slot
 
+from thlib.time_presentation import get_compact_date, get_full_date
+from thlib.ui.task_data import parse_datetime
+
 from . import tactic_definition
+from .activity import activity_timestamp_labels
+from .search_contract import parse_column_group_mode
 from .workspace_models.records import RecordListModel
 
 
@@ -22,13 +29,18 @@ class ColumnsEditorController(QObject):
         "__search_key__", "__search_type__", "__tasks_count__",
         "__notes_count__", "__snapshots__",
     }
+    _task_record_fields = {
+        "bid_start_date": "bidStart",
+        "bid_end_date": "bidEnd",
+    }
     def __init__(self, application, tasks_controller=None, parent=None):
         super().__init__(parent)
         self._application = application
         self._tasks_controller = tasks_controller
         self.model = RecordListModel((
             "name", "label", "dataType", "displayVisible", "displayWidth",
-            "order", "readOnly", "widgetClass", "widgetKey", "cellKind",
+            "hideOrder", "order", "readOnly", "widgetClass", "widgetKey",
+            "cellKind",
             "resolvedClass", "sortable", "editable",
             "displayOptions", "displayXml", "editClass", "editWidget",
             "editOptions", "editXml", "editVisible", "actionClass",
@@ -41,30 +53,47 @@ class ColumnsEditorController(QObject):
         self._definition_xml = ""
         self._database_views = {}
         self._definition_catalog = []
+        self._definition_catalog_titles = {}
         self._definition_catalog_loaded = False
         self._definition_catalog_project = ""
         self._definition_catalog_project_object = None
+        self._catalog_request_id = 0
+        self._catalog_uncertain = False
+        self._catalog_saving = False
+        self._catalog_loading_project = ""
         self._cells = {}
+        self._task_drafts = {}
         self._cell_revision = 0
         self._table_widgets = {}
         self._data_types = {}
         self._row_worker = None
         self._row_request_id = 0
         self._row_sync_pending = False
+        self._changed_row_keys = set()
         self._edit_sources = {}
         self._stype_code = ""
+        self._view = "table"
+        self._table_views = []
         self._title = "Columns"
         self._dirty = False
         self._busy = False
         self._error = ""
+        self._presentation_visible = False
         self._workers = set()
         self._reload_pending = False
         self._requested_row = 0
         self._requested_name = ""
         self._requested_definition_target = "definition"
+        self._requested_stype = ""
+        self._requested_view = "table"
+        self._requested_config_code = ""
+        self._focus_pending = False
         application.selected_node_changed.connect(self._reload_if_in_use)
         application.project_changed.connect(self._reload_if_in_use)
         application.results_view_changed.connect(self._reload_table_if_active)
+        item_fields_updated = getattr(application, "item_fields_updated", None)
+        if item_fields_updated is not None:
+            item_fields_updated.connect(self._refresh_changed_rows)
         search_state_changed = getattr(application, "search_state_changed", None)
         if search_state_changed is not None:
             search_state_changed.connect(self._sync_table_rows)
@@ -93,6 +122,14 @@ class ColumnsEditorController(QObject):
     def searchType(self):
         return self._stype_code
 
+    @Property(str, notify=stateChanged)
+    def currentTableView(self):
+        return self._view
+
+    @Property("QVariantList", notify=stateChanged)
+    def tableViews(self):
+        return [dict(record) for record in self._table_views]
+
     @Property("QVariantList", notify=stateChanged)
     def definitionCatalog(self):
         return [dict(record) for record in self._definition_catalog]
@@ -109,21 +146,24 @@ class ColumnsEditorController(QObject):
                 if not code:
                     continue
                 title = str(stype.get_pretty_name() or code)
-                values[code] = (
-                    code if title == code else f"{code} ({title})"
-                )
+                values[code] = title
         except (AttributeError, TypeError):
             pass
+        values.update(self._definition_catalog_titles)
         for record in self._definition_catalog:
             code = str(record.get("searchType") or "")
             if code:
                 values.setdefault(code, code)
         return [
-            {"value": code, "label": label}
-            for code, label in sorted(
+            {"value": code, "label": f"{title} · {code}" if title != code else code}
+            for code, title in sorted(
                 values.items(), key=lambda item: item[1].lower()
             )
         ]
+
+    @Property(bool, notify=stateChanged)
+    def catalogUncertain(self):
+        return self._catalog_uncertain
 
     @Property(bool, notify=stateChanged)
     def definitionCatalogLoaded(self):
@@ -163,6 +203,7 @@ class ColumnsEditorController(QObject):
                 "name": record["name"],
                 "label": record["label"],
                 "width": record["displayWidth"],
+                "hideOrder": record["hideOrder"],
                 "kind": record["cellKind"],
                 "dataType": record["dataType"],
                 "sortable": record["sortable"],
@@ -192,6 +233,22 @@ class ColumnsEditorController(QObject):
     def requestedDefinitionTarget(self):
         return self._requested_definition_target
 
+    @Property(str, notify=focusRequested)
+    def requestedSearchType(self):
+        return self._requested_stype
+
+    @Property(str, notify=focusRequested)
+    def requestedView(self):
+        return self._requested_view
+
+    @Property(str, notify=focusRequested)
+    def requestedDefinitionCode(self):
+        return self._requested_config_code
+
+    @Property(bool, notify=focusRequested)
+    def focusPending(self):
+        return self._focus_pending
+
     def _current_stype(self):
         tab = self._current_tab()
         if tab and getattr(tab, "stype", None):
@@ -214,28 +271,206 @@ class ColumnsEditorController(QObject):
             if sobject.get_search_key()
         ]
 
+    @staticmethod
+    def _find_view(root, view):
+        return next((node for node in root.iter() if node.tag == view), None)
+
+    @classmethod
+    def _table_view_records(
+        cls, records, search_type, current_view="table",
+    ):
+        views = {}
+        search_type = str(search_type or "").split("?", 1)[0]
+        for source in records or []:
+            if not isinstance(source, dict):
+                continue
+            if (
+                str(source.get("search_type") or "").split("?", 1)[0]
+                != search_type
+            ):
+                continue
+            view = str(source.get("view") or "")
+            config = str(source.get("config") or "")
+            if not view or not config:
+                continue
+            try:
+                root = ElementTree.fromstring(config)
+            except ElementTree.ParseError:
+                continue
+            node = cls._find_view(root, view)
+            if not (
+                view == "table"
+                or view.startswith("th_table_")
+                or node is not None and (
+                    node.get("layout") == "TableLayoutWdg"
+                    or node.find("element") is not None
+                )
+            ):
+                continue
+            views.setdefault(view, {
+                "view": view,
+                "title": str(root.get("th_table_view_title") or view),
+            })
+        current_view = str(current_view or "table")
+        views.setdefault(current_view, {
+            "view": current_view,
+            "title": current_view,
+        })
+        ordered = sorted(
+            views.values(),
+            key=lambda item: (
+                item["view"] != "table", item["title"].casefold()
+            ),
+        )
+        for record in ordered:
+            record["current"] = record["view"] == current_view
+        return ordered
+
+    @staticmethod
+    def _table_view_code(title):
+        value = unicodedata.normalize("NFKC", str(title or "")).strip()
+        slug = re.sub(r"[^\w]+", "_", value, flags=re.UNICODE).strip("_")
+        return "th_table_" + slug.casefold()[:55] if slug else ""
+
+    def _remember_table_view(self, view):
+        tab = self._current_tab()
+        if tab is not None:
+            tab.table_view = str(view or "table")
+        self._view = str(view or "table")
+        save_cache = getattr(self._application, "_save_search_cache", None)
+        if callable(save_cache):
+            save_cache()
+
+    @Slot(int, result=bool)
+    def select_table_view(self, row):
+        if self._busy or not 0 <= row < len(self._table_views):
+            return False
+        if self._dirty:
+            self._error = self.tr(
+                "Save or discard column changes before selecting a view."
+            )
+            self.stateChanged.emit()
+            self._application._notify(self._error)
+            return False
+        view = str(self._table_views[row].get("view") or "table")
+        if view == self._view:
+            return True
+        self._remember_table_view(view)
+        self.stateChanged.emit()
+        self.reload()
+        return True
+
+    @Slot(str, result=bool)
+    def save_table_view_as(self, title):
+        if self._busy:
+            return False
+        if self._dirty:
+            self._error = self.tr(
+                "Save or discard column changes before creating a view."
+            )
+            self.stateChanged.emit()
+            self._application._notify(self._error)
+            return False
+        title = str(title or "").strip()
+        try:
+            view = self._table_view_code(title)
+            if not view:
+                raise ValueError(self.tr(
+                    "Table view name requires letters or numbers."
+                ))
+            if any(
+                record["view"] == view
+                or record["title"].casefold() == title.casefold()
+                for record in self._table_views
+            ):
+                raise ValueError(self.tr(
+                    "A table view with this name already exists."
+                ))
+            root = ElementTree.fromstring(self._serialize(
+                [dict(record) for record in self.model._records]
+            ))
+            node = self._find_view(root, self._view)
+            if node is None:
+                raise ValueError(self.tr("The current table view is missing."))
+            node.tag = view
+            root.set("th_table_view_title", title)
+            config_xml = ElementTree.tostring(root, encoding="unicode")
+        except (ElementTree.ParseError, TypeError, ValueError) as error:
+            self._error = str(error)
+            self.stateChanged.emit()
+            self._application._notify(self._error)
+            return False
+        project_code = str(self._application._current_project_code or "")
+        stype_code = self._stype_code
+
+        def operation():
+            import thlib.tactic_classes as tc
+            result = tc.save_widget_config(
+                stype_code, view, config_xml=config_xml,
+                project_code=project_code,
+            )
+            result["title"] = title
+            return result
+
+        self._run(operation, self._table_view_saved)
+        return True
+
+    @Slot(object)
+    def _table_view_saved(self, payload):
+        payload = dict(payload or {})
+        view = str(payload.get("view") or "table")
+        stype = self._current_stype()
+        try:
+            records = stype.get_project().get_config_views().config_dict
+            records[:] = [
+                record for record in records
+                if not (
+                    str(record.get("search_type") or "") == self._stype_code
+                    and str(record.get("view") or "") == view
+                )
+            ]
+            records.append({
+                "code": str(payload.get("code") or ""),
+                "search_type": self._stype_code,
+                "view": view,
+                "config": str(payload.get("config") or ""),
+            })
+        except AttributeError:
+            records = []
+        self._table_views = self._table_view_records(
+            records, self._stype_code, view
+        )
+        self._remember_table_view(view)
+        self._reload_pending = True
+        self._error = ""
+        self.stateChanged.emit()
+        self._application._notify(self.tr("Table view preset saved"))
+
     def _reload_if_in_use(self, *_args):
-        windows = getattr(self._application, "window_model", None)
         docks = getattr(self._application, "dock_model", None)
         if (
-            windows and windows.is_window_visible("columns_editor")
+            self._presentation_visible
             or docks and docks.is_panel_presented("db_table")
         ):
             self.reload()
 
     def _reload_table_if_active(self, *_args):
         tab = self._current_tab()
-        if tab and getattr(tab, "view_mode", "") == "table":
+        if (self._stype_code and tab
+                and getattr(tab, "view_mode", "") == "table"):
             self.reload()
 
     @Slot()
     def begin_session(self):
         self.reload()
 
+    @Slot(bool)
+    def set_presentation_visible(self, visible: bool) -> None:
+        self._presentation_visible = visible
+
     @staticmethod
-    def _definition_catalog_records(records, current_search_type):
+    def _definition_catalog_records(records):
         catalog = []
-        current_base = str(current_search_type or "").split("?", 1)[0]
         for source_row, source in enumerate(records or []):
             if not isinstance(source, dict):
                 continue
@@ -259,10 +494,9 @@ class ColumnsEditorController(QObject):
                 "category": str(source.get("category") or ""),
                 "widgetType": str(source.get("widget_type") or ""),
                 "config": str(source.get("config") or ""),
-                "current": search_type.split("?", 1)[0] == current_base,
             })
         catalog.sort(key=lambda record: (
-            not record["current"], record["searchType"].lower(),
+            record["searchType"].lower(),
             record["view"].lower(), record["login"].lower(),
             record["code"].lower(),
         ))
@@ -270,61 +504,97 @@ class ColumnsEditorController(QObject):
             record["row"] = row
         return catalog
 
-    def _set_definition_catalog(self, project_code, project, records):
-        self._definition_catalog = self._definition_catalog_records(
-            records, self._stype_code
-        )
+    def _set_definition_catalog(self, project_code, project, records, titles):
+        self._catalog_uncertain = False
+        self._definition_catalog = self._definition_catalog_records(records)
+        self._definition_catalog_titles = dict(titles)
         self._definition_catalog_project = str(project_code or "")
         self._definition_catalog_project_object = project
         self._definition_catalog_loaded = True
         self._error = ""
         self.stateChanged.emit()
 
-    @Slot()
-    def load_definition_catalog(self):
-        self._load_definition_catalog(False)
+    @Slot(str)
+    def load_definition_catalog(self, project_code: str) -> None:
+        self._load_definition_catalog(project_code, False)
 
-    @Slot()
-    def reload_definition_catalog(self):
-        self._load_definition_catalog(True)
+    @Slot(str)
+    def reload_definition_catalog(self, project_code: str) -> None:
+        self._load_definition_catalog(project_code, True)
 
-    def _load_definition_catalog(self, force):
-        stype = self._current_stype()
-        if stype is None or self._busy:
-            return
-        project_code = str(self._application._current_project_code or "")
+    def _load_definition_catalog(self, project_code: str, force: bool) -> None:
+        project_code = str(project_code or "")
         if (
             not force and self._definition_catalog_loaded
             and self._definition_catalog_project == project_code
         ):
             return
-        try:
-            project = stype.get_project()
-        except AttributeError:
-            project = getattr(stype, "project", None)
+        if not force and project_code and self._catalog_loading_project == project_code:
+            return
+        self._catalog_request_id += 1
+        request_id = self._catalog_request_id
+        self._catalog_loading_project = project_code
+        self._definition_catalog = []
+        self._definition_catalog_titles = {}
+        self._definition_catalog_loaded = False
+        self._definition_catalog_project = project_code
+        self._definition_catalog_project_object = None
+        self.stateChanged.emit()
+        if not project_code:
+            return
+        from thlib.environment import env_inst
+        project = env_inst.get_project_by_code(project_code)
 
         def operation():
             import thlib.tactic_classes as tc
-            records = tc.server_start(project=project_code).query(
+            server = tc.server_start(project=project_code)
+            records = server.query(
                 "config/widget_config", []
             ) or []
-            return project_code, project, records
+            codes = sorted({
+                str(record.get("search_type") or "")
+                for record in records if isinstance(record, dict)
+                and record.get("search_type")
+            })
+            titles = {}
+            if codes:
+                for row in server.query(
+                    "sthpw/search_object", [("code", tuple(codes))],
+                    columns=["code", "title"],
+                ) or []:
+                    code = str(row.get("code") or "")
+                    title = str(row.get("title") or "").strip()
+                    if code and title:
+                        titles[code] = title
+            return request_id, project_code, project, records, titles
 
-        self._run(operation, self._definition_catalog_loaded_from_server)
+        def failed(error):
+            if request_id != self._catalog_request_id:
+                return
+            self._catalog_loading_project = ""
+            self._failed(error)
+
+        if not self._run(
+            operation, self._definition_catalog_loaded_from_server,
+            reload_table=False, error_slot=failed,
+        ):
+            self._catalog_loading_project = ""
 
     @Slot(object)
     def _definition_catalog_loaded_from_server(self, payload):
-        project_code, project, records = payload
-        if project_code != str(self._application._current_project_code or ""):
+        request_id, project_code, project, records, titles = payload
+        if request_id != self._catalog_request_id:
             return
-        try:
-            project.get_config_views().config_dict = [
-                dict(record) for record in records
-                if isinstance(record, dict)
-            ]
-        except AttributeError:
-            pass
-        self._set_definition_catalog(project_code, project, records)
+        self._catalog_loading_project = ""
+        if project is not None:
+            try:
+                project.get_config_views().config_dict = [
+                    dict(record) for record in records
+                    if isinstance(record, dict)
+                ]
+            except AttributeError:
+                pass
+        self._set_definition_catalog(project_code, project, records, titles)
 
     def _catalog_xml_node(self, root, path):
         node = root
@@ -340,81 +610,105 @@ class ColumnsEditorController(QObject):
             node = children[index]
         return node
 
-    @Slot(str, result="QVariantList")
-    def catalog_simple_rows(self, xml):
-        """Flatten any widget_config XML into editable visual rows."""
+    @staticmethod
+    def _catalog_xml_root(source):
+        if not source:
+            return ElementTree.Element("config")
+        parser = ElementTree.XMLParser(target=ElementTree.TreeBuilder(
+            insert_comments=True, insert_pis=True,
+        ))
+        return ElementTree.fromstring(source, parser=parser)
+
+    @Slot(str, result="QVariantMap")
+    def catalog_wizard(self, xml):
+        """Project a native TACTIC table view without replacing its XML."""
         try:
             source = str(xml or "").strip()
-            root = (
-                ElementTree.fromstring(source)
-                if source else ElementTree.Element("config")
-            )
+            root = self._catalog_xml_root(source)
         except ElementTree.ParseError as error:
-            self._error = str(error)
+            self._error = "Invalid configuration XML"
             self.stateChanged.emit()
-            return []
+            return {"supported": False, "elements": [], "error": "Invalid configuration XML"}
 
-        rows = []
+        view = None
+        view_path = ""
 
-        def append_node(node, path, depth):
-            rows.append({
-                "kind": "element",
-                "name": node.tag,
-                "value": "",
-                "path": path,
-                "depth": depth,
-                "detail": str(node.get("name") or node.get("class") or ""),
-            })
-            for name, value in node.attrib.items():
-                rows.append({
-                    "kind": "attribute",
+        def find_view(node, path=""):
+            nonlocal view, view_path
+            if (
+                node.tag in {"table", "definition", "edit", "edit_definition"}
+                or node.get("layout") == "TableLayoutWdg"
+            ):
+                view, view_path = node, path
+                return
+            for index, child in enumerate(node):
+                find_view(child, f"{path}/{index}" if path else str(index))
+                if view is not None:
+                    return
+
+        find_view(root)
+        elements = []
+        if view is not None:
+            for index, element in enumerate(view):
+                if element.tag != "element":
+                    continue
+                path = f"{view_path}/{index}" if view_path else str(index)
+                display = element.find("display")
+                widget = ""
+                if display is not None:
+                    widget = display.get("class") or display.get("widget") or ""
+                name = str(element.get("name") or "")
+                elements.append({
+                    "path": path,
                     "name": name,
-                    "value": str(value),
-                    "path": path,
-                    "depth": depth + 1,
-                    "detail": "",
+                    "title": str(element.get("title") or name),
+                    "visible": not tactic_definition.flag(
+                        element.get("hidden")
+                    ),
+                    "width": tactic_definition.width(element.get("width")),
+                    "widget": str(widget),
                 })
-            children = list(node)
-            if not children or str(node.text or "").strip():
-                rows.append({
-                    "kind": "text",
-                    "name": "# text",
-                    "value": str(node.text or "").strip(),
-                    "path": path,
-                    "depth": depth + 1,
-                    "detail": "",
-                })
-            for index, child in enumerate(children):
-                child_path = f"{path}/{index}" if path else str(index)
-                append_node(child, child_path, depth + 1)
-
-        append_node(root, "", 0)
         had_error = bool(self._error)
         self._error = ""
         if had_error:
             self.stateChanged.emit()
-        return rows
+        return {
+            "supported": view is not None,
+            "view": str(view.tag if view is not None else ""),
+            "layout": str(view.get("layout") or "") if view is not None else "",
+            "elements": elements,
+        }
 
-    @Slot(str, str, str, str, str, result=str)
-    def update_catalog_simple_value(self, xml, path, kind, name, value):
+    @Slot(str, str, str, str, result=str)
+    def update_catalog_wizard(self, xml, path, field, value):
         try:
             source = str(xml or "").strip()
-            root = (
-                ElementTree.fromstring(source)
-                if source else ElementTree.Element("config")
-            )
+            root = self._catalog_xml_root(source)
             node = self._catalog_xml_node(root, path)
-            if kind == "attribute":
-                if name not in node.attrib:
-                    raise ValueError(self.tr(
-                        "Definition XML attribute no longer exists."
-                    ))
-                node.set(name, str(value or ""))
-            elif kind == "text":
-                node.text = str(value or "")
+            if node.tag != "element":
+                raise ValueError(self.tr(
+                    "Definition XML path no longer points to a column."
+                ))
+            if field == "title":
+                title = str(value or "").strip()
+                if not title:
+                    raise ValueError(self.tr("Column label cannot be empty."))
+                node.set("title", title)
+            elif field == "visible":
+                node.set(
+                    "hidden",
+                    "false" if tactic_definition.flag(value) else "true",
+                )
+            elif field == "width":
+                node.set("width", str(tactic_definition.width(value)))
+            elif field == "widget":
+                display = node.find("display")
+                if display is None:
+                    display = ElementTree.SubElement(node, "display")
+                tactic_definition.set_widget(display, value)
             else:
                 raise ValueError(self.tr(
-                    "Only XML values can be edited in Simple mode."
+                    "This column setting is only available in XML mode."
                 ))
         except (ElementTree.ParseError, TypeError, ValueError) as error:
             self._error = str(error)
@@ -424,11 +718,12 @@ class ColumnsEditorController(QObject):
         self._error = ""
         if had_error:
             self.stateChanged.emit()
-        return ElementTree.tostring(root, encoding="unicode")
+        from xml.dom import minidom
+        return minidom.parseString(ElementTree.tostring(root)).documentElement.toxml()
 
     @Slot(int, str, result=bool)
     def save_catalog_xml(self, row, xml):
-        if self._busy or not 0 <= row < len(self._definition_catalog):
+        if self._busy or self._catalog_uncertain or not 0 <= row < len(self._definition_catalog):
             return False
         xml = str(xml or "").strip()
         try:
@@ -463,11 +758,15 @@ class ColumnsEditorController(QObject):
                 "config": xml,
             }
 
-        self._run(operation, self._catalog_xml_saved)
+        self._catalog_saving = True
+        if self._run(operation, self._catalog_xml_saved, reload_table=False) is False:
+            self._catalog_saving = False
+            return False
         return True
 
     @Slot(object)
     def _catalog_xml_saved(self, payload):
+        self._catalog_saving = self._catalog_uncertain = False
         payload = dict(payload or {})
         identity = str(payload.get("identity") or "")
         xml = str(payload.get("config") or "")
@@ -492,7 +791,11 @@ class ColumnsEditorController(QObject):
                 record["config"] = xml
                 record["__search_key__"] = search_key
                 break
-        self._reload_pending = True
+        self._reload_pending = bool(
+            self._stype_code
+            and self._definition_catalog_project
+                == self._application._current_project_code
+        )
         self._error = ""
         self.stateChanged.emit()
         self._application.results_view_changed.emit()
@@ -505,7 +808,7 @@ class ColumnsEditorController(QObject):
             if str(value or "").strip()
             else ElementTree.Element("config")
         )
-        view_node = root if root.tag == view else root.find(f".//{view}")
+        view_node = ColumnsEditorController._find_view(root, view)
         if view_node is None:
             view_node = ElementTree.SubElement(root, view)
         return root, view_node
@@ -514,14 +817,26 @@ class ColumnsEditorController(QObject):
     def _width(value):
         return tactic_definition.width(value)
 
+    @staticmethod
+    def _hide_order(value, name, order, visible_count):
+        if value not in (None, ""):
+            try:
+                return max(0, min(99, int(value)))
+            except (TypeError, ValueError):
+                pass
+        if name in {"code", "name", "title"}:
+            return 0
+        return max(1, min(99, visible_count - order))
+
     def _build_records(self, stype, payload):
         from thlib import tactic_table_widgets as table_widgets
 
         database_views = dict(payload.get("databaseViews") or {})
-        table_xml = str(
-            dict(database_views.get("table") or {}).get("config") or ""
-        )
-        root, table = self._view_tree(table_xml)
+        table_view = str(payload.get("view") or "table")
+        table_xml = str(dict(
+            database_views.get(table_view) or {}
+        ).get("config") or "")
+        root, table = self._view_tree(table_xml, table_view)
         sources = {}
         unmanaged = []
         for element in table.findall("element"):
@@ -577,8 +892,13 @@ class ColumnsEditorController(QObject):
             attrs = dict(item.get("attributes") or {})
             editable = str(attrs.get("edit", "true")).lower() != "false"
             table_widget = table_widgets.create_widget(item)
-            edit_source = (
-                input_sources.get(name) or tactic_definition.edit_source(item)
+            submit_column = str(
+                (item.get("actionOptions") or {}).get("column") or name
+            )
+            edit_source = dict(
+                input_sources.get(name)
+                or input_sources.get(submit_column)
+                or tactic_definition.edit_source(item) or {}
             )
             if edit_source:
                 edit_source.update({
@@ -601,6 +921,10 @@ class ColumnsEditorController(QObject):
                 ),
                 "displayVisible": name in selected_names,
                 "displayWidth": self._width(item.get("width")),
+                "hideOrder": self._hide_order(
+                    attrs.get("th_hide_order"), name, order,
+                    len(selected_names),
+                ),
                 "order": order,
                 "readOnly": name in self._protected or not editable,
                 "widgetClass": str(item.get("displayClass") or ""),
@@ -647,11 +971,19 @@ class ColumnsEditorController(QObject):
             self._reload_pending = True
             return
         project_code = str(self._application._current_project_code or "")
-        if project_code != self._definition_catalog_project:
-            self._definition_catalog = []
-            self._definition_catalog_loaded = False
-            self._definition_catalog_project_object = None
+        tab = self._current_tab()
+        table_view = str(getattr(tab, "table_view", "table") or "table")
+        try:
+            config_records = list(
+                stype.get_project().get_config_views().config_dict or []
+            )
+        except AttributeError:
+            config_records = []
+        table_views = self._table_view_records(
+            config_records, stype_code, table_view
+        )
         search_keys = self._current_search_keys()
+        self._changed_row_keys.clear()
         self._row_request_id += 1
         self._row_sync_pending = False
         if self._row_worker is not None:
@@ -664,16 +996,18 @@ class ColumnsEditorController(QObject):
         def operation():
             import thlib.tactic_classes as tc
             from thlib import tactic_query as tq
+            from thlib.request_retry import run_read_only_request
 
             layout = tc.get_table_layout(
                 stype_code,
                 search_keys=[],
-                view="table",
+                view=table_view,
                 project_code=project_code,
             )
+            layout["tableViews"] = table_views
             if "inputWidgets" not in layout and search_keys:
                 try:
-                    schema = tc.execute_procedure_serverside(
+                    schema = run_read_only_request(lambda: tc.execute_procedure_serverside(
                         tq.query_EditWdg,
                         {
                             "args": {
@@ -687,7 +1021,7 @@ class ColumnsEditorController(QObject):
                             "project": project_code,
                         },
                         project=project_code,
-                    )
+                    ))
                     layout["inputWidgets"] = list(
                         (schema or {}).get("InputWidgets") or []
                     )
@@ -708,6 +1042,13 @@ class ColumnsEditorController(QObject):
         if current_code != str(stype.get_code() or ""):
             self._reload_pending = True
             return
+        tab = self._current_tab()
+        loaded_view = str(payload.get("view") or "table")
+        if loaded_view != str(
+            getattr(tab, "table_view", "table") or "table"
+        ):
+            self._reload_pending = True
+            return
         try:
             (
                 root, sources, unmanaged, table_xml, database_views, records,
@@ -718,20 +1059,11 @@ class ColumnsEditorController(QObject):
             self.stateChanged.emit()
             return
         self._stype_code = str(stype.get_code() or "")
+        self._view = loaded_view
+        self._table_views = [
+            dict(record) for record in payload.get("tableViews") or []
+        ]
         self._title = str(stype.get_pretty_name() or self._stype_code)
-        if self._definition_catalog_loaded:
-            current_base = self._stype_code.split("?", 1)[0]
-            for record in self._definition_catalog:
-                record["current"] = (
-                    record["searchType"].split("?", 1)[0] == current_base
-                )
-            self._definition_catalog.sort(key=lambda record: (
-                not record["current"], record["searchType"].lower(),
-                record["view"].lower(), record["login"].lower(),
-                record["code"].lower(),
-            ))
-            for row, record in enumerate(self._definition_catalog):
-                record["row"] = row
         self._definition_root = root
         self._source_elements = sources
         self._unmanaged_elements = unmanaged
@@ -772,31 +1104,34 @@ class ColumnsEditorController(QObject):
             }
             for search_key, row in dict(payload.get("rows") or {}).items()
         }
+        tab = self._current_tab()
+        targets = {
+            str(target.get_search_key() or ""): target
+            for target in (getattr(tab, "sobjects", None) or [])
+        } if self._tasks_controller is not None else {}
         for search_key, cells in rows.items():
-            self._add_task_workflow_rows(search_key, cells)
+            for name, cell in cells.items():
+                data_type = self._data_types.get(name, "").lower().split("(", 1)[0].strip()
+                if data_type in {"date", "datetime", "timestamptz"} or data_type.startswith("timestamp"):
+                    cell["text"], cell["tooltip"] = activity_timestamp_labels(
+                        cell.get("text")
+                    )
+            self._add_task_workflow_rows(targets.get(search_key), cells)
         return rows
 
-    def _sobject_for_search_key(self, search_key):
-        tab = self._current_tab()
-        return next((
-            sobject for sobject in (getattr(tab, "sobjects", None) or [])
-            if str(sobject.get_search_key() or "") == str(search_key or "")
-        ), None)
-
-    def _add_task_workflow_rows(self, search_key, cells):
+    def _add_task_workflow_rows(self, target, cells):
         """Fill native TaskElementWdg rows with the object's empty processes."""
         tasks = self._tasks_controller
-        target = self._sobject_for_search_key(search_key)
-        if tasks is None or target is None:
+        task_cells = [cell for cell in cells.values()
+                      if isinstance(cell.get("tasks"), list)]
+        if tasks is None or target is None or not task_cells:
             return
         try:
             processes = tasks._process_choices_for(target)
         except (AttributeError, KeyError, TypeError, ValueError):
             processes = []
-        for cell in cells.values():
-            records = cell.get("tasks")
-            if not isinstance(records, list):
-                continue
+        for cell in task_cells:
+            records = cell["tasks"]
             remaining = [dict(record or {}) for record in records]
             ordered = []
             for process_info in processes:
@@ -850,7 +1185,16 @@ class ColumnsEditorController(QObject):
                     or self.tr("Not assigned")
                 )
                 ordered.append(record)
+            for record in ordered:
+                self._update_task_date_labels(record)
             cell["tasks"] = ordered
+
+    @staticmethod
+    def _update_task_date_labels(record):
+        record["bidStartLabel"] = get_compact_date(record.get("bidStart"))
+        record["bidEndLabel"] = get_compact_date(record.get("bidEnd"))
+        record["bidStartFull"] = get_full_date(record.get("bidStart"))
+        record["bidEndFull"] = get_full_date(record.get("bidEnd"))
 
     def _task_target(self, node_id):
         node = self._application.workspace_model.node_for(str(node_id or ""))
@@ -886,7 +1230,10 @@ class ColumnsEditorController(QObject):
     def set_task_value(
         self, node_id, task_search_key, process, field, value,
     ):
-        if self._busy or field not in {"status", "assigned"}:
+        allowed_fields = {
+            "status", "assigned", "bid_start_date", "bid_end_date",
+        }
+        if self._busy or field not in allowed_fields:
             return False
         if self._tasks_controller is None:
             return False
@@ -895,6 +1242,16 @@ class ColumnsEditorController(QObject):
         if not process:
             return False
         value = str(value or "")
+        if (
+            field in self._task_record_fields
+            and value
+            and not parse_datetime(value)
+        ):
+            self._error = self.tr(
+                "Task dates must use YYYY-MM-DD or YYYY-MM-DD HH:MM:SS."
+            )
+            self.stateChanged.emit()
+            return False
         node_id = str(node_id or "")
         target = self._task_target(node_id)
         if target is None:
@@ -968,22 +1325,23 @@ class ColumnsEditorController(QObject):
                 )
                 self.stateChanged.emit()
                 return False
-            editor = self.task_editor(
-                target_node_id, process,
-                str(record.get("status") or ""),
-                str(record.get("assigned") or ""),
-            )
-            choices = editor.get(
-                "statusChoices" if field == "status" else "userChoices"
-            ) or []
-            if value not in {
-                str(choice.get("value") or "") for choice in choices
-            }:
-                self._error = self.tr(
-                    "The selected task value is unavailable for a selected row."
+            if field in {"status", "assigned"}:
+                editor = self.task_editor(
+                    target_node_id, process,
+                    str(record.get("status") or ""),
+                    str(record.get("assigned") or ""),
                 )
-                self.stateChanged.emit()
-                return False
+                choices = editor.get(
+                    "statusChoices" if field == "status" else "userChoices"
+                ) or []
+                if value not in {
+                    str(choice.get("value") or "") for choice in choices
+                }:
+                    self._error = self.tr(
+                        "The selected task value is unavailable for a selected row."
+                    )
+                    self.stateChanged.emit()
+                    return False
             try:
                 project_code = str(
                     edit_target.get_project().get_code() or ""
@@ -998,15 +1356,74 @@ class ColumnsEditorController(QObject):
                 "parentSearchKey": edit_parent_key,
                 "taskSearchKey": str(record.get("taskSearchKey") or ""),
                 "projectCode": project_code,
+                "process": process,
+                "context": context,
+                "originalStart": str(record.get("bidStart") or ""),
+                "originalEnd": str(record.get("bidEnd") or ""),
+                "original": record,
             })
             seen_parent_keys.add(edit_parent_key)
         if not plans:
             return False
 
+        for plan in plans:
+            key = (plan["parentSearchKey"], plan["taskSearchKey"], context)
+            draft = self._task_drafts.get(key, {**plan, "changes": {}})
+            record_field = self._task_record_fields.get(field, field)
+            if value == str(plan["original"].get(record_field) or ""):
+                draft["changes"].pop(field, None)
+            else:
+                draft["changes"][field] = value
+            draft.pop("original", None)
+            if draft["changes"]:
+                self._task_drafts[key] = draft
+            else:
+                self._task_drafts.pop(key, None)
+        self._cell_revision += 1
+        self.cellRevisionChanged.emit()
+        self.stateChanged.emit()
+        return True
+
+    @Property(int, notify=stateChanged)
+    def dirtyTaskCount(self):
+        return len(self._task_drafts)
+
+    @Slot()
+    def discard_task_changes(self):
+        if self._busy:
+            return
+        self._task_drafts.clear()
+        self._cell_revision += 1
+        self.cellRevisionChanged.emit()
+        self.stateChanged.emit()
+
+    @Slot(result=bool)
+    def save_task_changes(self):
+        if self._busy or not self._task_drafts:
+            return False
+        plans = [
+            {**plan, "changes": dict(plan["changes"])}
+            for plan in self._task_drafts.values()
+        ]
+        for plan in plans:
+            changes = plan["changes"]
+            start = parse_datetime(changes.get(
+                "bid_start_date", plan.get("originalStart")
+            ))
+            end = parse_datetime(changes.get(
+                "bid_end_date", plan.get("originalEnd")
+            ))
+            if start and end and end < start:
+                self._error = self.tr(
+                    "Task deadline cannot be earlier than its start date."
+                )
+                self.stateChanged.emit()
+                return False
+        payloads = []
+
         def operation():
             from thlib import server_cache
             import thlib.tactic_classes as tc
-            payloads = []
             existing = {}
             for plan in plans:
                 key = plan["taskSearchKey"]
@@ -1014,10 +1431,11 @@ class ColumnsEditorController(QObject):
                     existing.setdefault(plan["projectCode"], []).append(plan)
                     continue
                 data = self._tasks_controller._native_process_task_defaults(
-                    plan["target"], process
+                    plan["target"], plan["process"]
                 )
                 data.update({
-                    "process": process, "context": context, field: value,
+                    "process": plan["process"], "context": plan["context"],
+                    **plan["changes"],
                 })
                 result = tc.insert_sobjects(
                     "sthpw/task", plan["projectCode"], data,
@@ -1035,12 +1453,13 @@ class ColumnsEditorController(QObject):
                 if len(plans) == 1:
                     plan = project_plans[0]
                     server.update(
-                        plan["taskSearchKey"], {field: value}, triggers=True
+                        plan["taskSearchKey"], plan["changes"], triggers=True
                     )
                 else:
-                    server.update_multiple(
+                    tc.update_multiple_compatible(
+                        server,
                         data={
-                            plan["taskSearchKey"]: {field: value}
+                            plan["taskSearchKey"]: plan["changes"]
                             for plan in project_plans
                         },
                         triggers=True,
@@ -1056,28 +1475,49 @@ class ColumnsEditorController(QObject):
                     project_code,
                 )
             for payload in payloads:
-                payload.update({
-                    "process": process, "context": context,
-                    "field": field, "value": value,
-                })
                 payload.pop("target", None)
                 payload.pop("projectCode", None)
             return payloads
 
-        self._run(operation, self._task_value_saved)
+        def guarded_operation():
+            error_payload = None
+            try:
+                operation()
+            except Exception as error:
+                # Retain confirmed writes when a later request fails, so a
+                # second Save cannot recreate tasks already inserted.
+                error_payload = {
+                    "exception": str(error), "traceback": traceback.format_exc(),
+                }
+                from thlib import server_cache
+                for project in {item["projectCode"] for item in payloads if "projectCode" in item}:
+                    server_cache.invalidate_domains(
+                        ("tasks", "notes", "search", "activity", "work_hours"), project,
+                    )
+            for payload in payloads:
+                payload.pop("target", None)
+                payload.pop("projectCode", None)
+            return payloads, error_payload
+
+        self._run(guarded_operation, self._task_drafts_saved)
         return True
 
-    @Slot(object)
-    def _task_value_saved(self, payloads):
-        changed = False
-        for payload in (
-            payloads if isinstance(payloads, list) else [payloads]
-        ):
-            changed = self._apply_task_value_result(payload) or changed
-        if changed:
-            self._cell_revision += 1
-            self.cellRevisionChanged.emit()
-        self._application._notify(self.tr("Task saved"))
+    def _task_drafts_saved(self, result):
+        payloads, error = result
+        for payload in payloads:
+            key = (payload["parentSearchKey"], payload["taskSearchKey"], payload["context"])
+            self._task_drafts.pop(key, None)
+            for field, value in payload["changes"].items():
+                self._apply_task_value_result({**payload, "field": field, "value": value})
+                if not payload["taskSearchKey"]:
+                    payload["taskSearchKey"] = payload["result"]["__search_key__"]
+        self._cell_revision += 1
+        self.cellRevisionChanged.emit()
+        self.stateChanged.emit()
+        if error:
+            self._failed((error, None))
+        else:
+            self._application._notify(self.tr("Task saved"))
 
     def _apply_task_value_result(self, payload):
         payload = dict(payload or {})
@@ -1092,6 +1532,7 @@ class ColumnsEditorController(QObject):
         process = str(payload.get("process") or "")
         context = str(payload.get("context") or process)
         field = str(payload.get("field") or "")
+        record_field = self._task_record_fields.get(field, field)
         value = str(payload.get("value") or "")
         row = self._cells.get(str(payload.get("parentSearchKey") or "")) or {}
         changed = False
@@ -1111,7 +1552,7 @@ class ColumnsEditorController(QObject):
                 )
                 if not same_task and not new_process:
                     continue
-                record[field] = value
+                record[record_field] = value
                 record["hasTask"] = True
                 record["taskSearchKey"] = task_search_key
                 if task_code:
@@ -1133,10 +1574,12 @@ class ColumnsEditorController(QObject):
                         for item in editor.get("statusChoices") or []
                         if str(item.get("value") or "") == value
                     ), str(record.get("processColor") or ""))
+                elif field in self._task_record_fields:
+                    self._update_task_date_labels(record)
                 changed = True
                 break
         target = self._task_target(str(payload.get("nodeId") or ""))
-        if target is not None:
+        if target is not None and str(target.get_search_key() or "") == str(payload.get("parentSearchKey") or ""):
             try:
                 summaries = list(target.get_task_summaries(process) or [])
                 summary = next((
@@ -1176,6 +1619,31 @@ class ColumnsEditorController(QObject):
                     pass
         return changed
 
+    @Slot(str, object)
+    def _refresh_changed_rows(self, project, search_keys):
+        if project != self._application._current_project_code:
+            return
+        self._changed_row_keys.update(
+            key for key in search_keys
+            if key in self._cells or key in self._current_search_keys()
+        )
+        self._sync_table_rows()
+
+    def _publish_group_values(self, rows, column, rebuild=False):
+        model = self._application.workspace_model
+        changed = False
+        for node in getattr(model, "_roots", ()):
+            cell = dict((rows.get(node.search_key) or {}).get(column) or {})
+            if "text" not in cell:
+                continue
+            value = str(cell.get("text") or "")
+            if node.values.get(column) == value:
+                continue
+            node.values[column] = value
+            changed = True
+        if changed and rebuild:
+            model._rebuild_organized_rows()
+
     @Slot()
     def _sync_table_rows(self):
         tab = self._current_tab()
@@ -1184,15 +1652,23 @@ class ColumnsEditorController(QObject):
             or not self._stype_code
         ):
             return
+        group_column = parse_column_group_mode(
+            str(getattr(self._application, "result_group_mode", "") or "")
+        )
+        if group_column:
+            self._publish_group_values(
+                self._cells, group_column, rebuild=True
+            )
         if self._row_worker is not None:
             self._row_sync_pending = True
             return
-        missing = [
+        missing = list(self._changed_row_keys) + [
             key for key in self._current_search_keys()
             if key not in self._cells
         ]
         if not missing:
             return
+        self._changed_row_keys.difference_update(missing)
         project_code = str(self._application._current_project_code or "")
         stype_code = self._stype_code
         request_id = self._row_request_id
@@ -1202,7 +1678,7 @@ class ColumnsEditorController(QObject):
             return tc.get_table_layout(
                 stype_code,
                 search_keys=missing,
-                view="table",
+                view=self._view,
                 project_code=project_code,
             )
 
@@ -1233,6 +1709,11 @@ class ColumnsEditorController(QObject):
         if not mapped:
             return
         self._cells.update(mapped)
+        group_column = parse_column_group_mode(
+            str(getattr(self._application, "result_group_mode", "") or "")
+        )
+        if group_column:
+            self._publish_group_values(mapped, group_column, rebuild=True)
         self._cell_revision += 1
         self.cellRevisionChanged.emit()
 
@@ -1266,6 +1747,7 @@ class ColumnsEditorController(QObject):
             self._sync_table_rows()
 
     def _clear(self, error=""):
+        self._changed_row_keys.clear()
         self._row_request_id += 1
         self._row_sync_pending = False
         if self._row_worker is not None:
@@ -1275,6 +1757,8 @@ class ColumnsEditorController(QObject):
                 pass
             self._row_worker = None
         self._stype_code = ""
+        self._view = "table"
+        self._table_views = []
         self._title = "Columns"
         self._source_records = []
         self._source_elements = {}
@@ -1282,10 +1766,6 @@ class ColumnsEditorController(QObject):
         self._definition_root = None
         self._definition_xml = ""
         self._database_views = {}
-        self._definition_catalog = []
-        self._definition_catalog_loaded = False
-        self._definition_catalog_project = ""
-        self._definition_catalog_project_object = None
         self._cells = {}
         self._table_widgets = {}
         self._data_types = {}
@@ -1308,7 +1788,24 @@ class ColumnsEditorController(QObject):
     @Slot(str, int, result="QVariantMap")
     def row_cells(self, search_key, _revision=0):
         """Cross the QML boundary once per visible row, not once per cell."""
-        return dict(self._cells.get(str(search_key or "")) or {})
+        cells = deepcopy(self._cells.get(str(search_key or "")) or {})
+        for cell in cells.values():
+            for record in cell.get("tasks") or []:
+                key = (search_key, str(record.get("taskSearchKey") or ""),
+                       str(record.get("context") or record.get("process") or ""))
+                draft = self._task_drafts.get(key)
+                if draft:
+                    for field, value in draft["changes"].items():
+                        record[self._task_record_fields.get(field, field)] = value
+                    record["dirty"] = True
+                    if "assigned" in draft["changes"]:
+                        record["assignedLabel"] = self._tasks_controller._login_label(record["assigned"]) or self.tr("Not assigned")
+                    if "status" in draft["changes"]:
+                        choices = self.task_editor(draft["nodeId"], draft["process"], record["status"], record.get("assigned", ""))
+                        record["statusColor"] = next((choice.get("color", "") for choice in choices.get("statusChoices", []) if choice.get("value") == record["status"]), "")
+                    if self._task_record_fields.keys() & draft["changes"].keys():
+                        self._update_task_date_labels(record)
+        return cells
 
     @Slot(str, str, result="QVariantMap")
     def cell_editor(self, node_id, column):
@@ -1372,6 +1869,16 @@ class ColumnsEditorController(QObject):
             f"column:{record['name']}:{direction}"
         )
 
+    @Slot(int)
+    def group_column(self, row):
+        if not 0 <= row < len(self.model._records):
+            return
+        column = self.model._records[row]["name"]
+        self._publish_group_values(self._cells, column)
+        self._application.set_result_group_mode(
+            f"column:{column}"
+        )
+
     @Slot(int, result=bool)
     def remove_column(self, row):
         visible = [
@@ -1385,19 +1892,40 @@ class ColumnsEditorController(QObject):
 
     @Slot(int, str)
     def request_column_focus(self, row, target):
-        if not 0 <= row < len(self.model._records):
+        if not self._stype_code or row < -1 or row >= len(self.model._records):
             return
         self._requested_row = row
-        self._requested_name = str(self.model._records[row]["name"])
+        self._requested_name = (
+            str(self.model._records[row]["name"]) if row >= 0 else ""
+        )
         self._requested_definition_target = (
             target if target in {"definition", "edit_definition"}
             else "definition"
         )
+        self._requested_stype = self._stype_code
+        self._requested_view = self._view
+        view = (
+            "edit_definition" if self._requested_definition_target
+            == "edit_definition" else self._view
+        )
+        self._requested_config_code = str(
+            dict(self._database_views.get(view) or {}).get("code") or ""
+        )
+        self._focus_pending = True
+        self.focusRequested.emit()
+
+    @Slot()
+    def consume_definition_focus(self):
+        self._focus_pending = False
         self.focusRequested.emit()
 
     @Slot(int, int)
     def set_width(self, row, width):
         self._set_record(row, displayWidth=self._width(width))
+
+    @Slot(int, int)
+    def set_hide_order(self, row, order):
+        self._set_record(row, hideOrder=max(0, min(99, int(order))))
 
     @Slot(int, str)
     def set_label(self, row, label):
@@ -1430,9 +1958,9 @@ class ColumnsEditorController(QObject):
             if self._definition_root is not None
             else ElementTree.Element("config")
         )
-        table = root if root.tag == "table" else root.find(".//table")
+        table = self._find_view(root, self._view)
         if table is None:
-            table = ElementTree.SubElement(root, "table")
+            table = ElementTree.SubElement(root, self._view)
         for element in list(table.findall("element")):
             table.remove(element)
         for record in records:
@@ -1446,6 +1974,7 @@ class ColumnsEditorController(QObject):
                 element.set("name", record["name"])
                 element.set("title", record["label"])
                 element.set("width", str(record["displayWidth"]))
+                element.set("th_hide_order", str(record["hideOrder"]))
                 table.append(element)
         for element in self._unmanaged_elements:
             table.append(deepcopy(element))
@@ -1474,7 +2003,7 @@ class ColumnsEditorController(QObject):
             import thlib.tactic_classes as tc
             return tc.save_widget_config(
                 self._stype_code,
-                "table",
+                self._view,
                 config_xml=config_xml,
                 project_code=project_code,
             )
@@ -1624,7 +2153,8 @@ class ColumnsEditorController(QObject):
         self._run(operation, self._element_saved)
         return True
 
-    def _run(self, operation, result_slot):
+    def _run(self, operation, result_slot, *, reload_table=True,
+             error_slot=None):
         try:
             from thlib.environment import env_inst
             if env_inst.server_pool.is_stopped:
@@ -1634,16 +2164,20 @@ class ColumnsEditorController(QObject):
                 raise RuntimeError(self.tr("Server worker is unavailable"))
             self._workers.add(worker)
             worker.result.connect(result_slot)
-            worker.error.connect(self._failed)
-            worker.finished.connect(lambda: self._release(worker))
+            worker.error.connect(error_slot or self._failed)
+            worker.finished.connect(
+                lambda: self._release(worker, reload_table)
+            )
             self._busy = True
             self._error = ""
             self.stateChanged.emit()
             worker.start()
+            return True
         except Exception as error:
             self._busy = False
             self._error = str(error)
             self.stateChanged.emit()
+            return False
 
     @Slot(object)
     def _saved(self, _payload):
@@ -1660,20 +2194,24 @@ class ColumnsEditorController(QObject):
         self._application.results_view_changed.emit()
         self._application._notify(self.tr("TACTIC element definition saved"))
 
-    def _release(self, worker):
+    def _release(self, worker, reload_table=True):
         self._workers.discard(worker)
         self._busy = bool(self._workers)
         self.stateChanged.emit()
-        current = self._current_stype()
+        current = self._current_stype() if reload_table else None
         current_code = str(current.get_code() or "") if current else ""
         if not self._busy and (
-            self._reload_pending or current_code != self._stype_code
+            self._reload_pending
+            or reload_table and current_code != self._stype_code
         ):
             self._reload_pending = False
             self.reload()
 
     @Slot(object)
     def _failed(self, error):
+        if self._catalog_saving:
+            self._catalog_uncertain = True
+            self._catalog_saving = False
         payload, worker = error
         self._workers.discard(worker)
         self._busy = bool(self._workers)

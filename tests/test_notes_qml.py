@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from tempfile import TemporaryDirectory
 import threading
@@ -19,6 +20,7 @@ from PySide6.QtTest import QSignalSpy, QTest
 from thlib.ui.communication import CommunicationController
 from thlib.ui.controllers.item_operations import ItemOperationsMixin
 from thlib.ui.controllers.selection import SelectionMixin
+from thlib.ui.controllers.types import SearchTabSession
 from thlib.ui.controllers.snapshot_details import SnapshotDetailsMixin
 from thlib.ui.message_attachments import (
     AttachmentUploadController,
@@ -50,6 +52,9 @@ class _Workspace(QObject):
         super().__init__()
         self._selected_sobject = None
         self._task_sobjects = []
+        self._note_sobjects = []
+        self._notes_loaded = False
+        self._notes_process = None
         self.note_model = RecordListModel((
             "noteId", "searchKey", "author", "time", "body", "bodyHtml",
             "status", "process", "isOwn", "unread", "attachments",
@@ -137,7 +142,10 @@ class _SelectionHarness(SelectionMixin):
         self.workspace_model = SimpleNamespace(
             node_for=lambda node_id: self.nodes.get(node_id)
         )
-        self.tab = SimpleNamespace(selected_node_id=node.node_id)
+        self.tab = SimpleNamespace(
+            selected_node_id=node.node_id,
+            detail_process_override="",
+        )
 
     def _current_tab(self):
         return self.tab
@@ -147,6 +155,93 @@ class _SelectionHarness(SelectionMixin):
 
 
 class NotesQmlTests(unittest.TestCase):
+
+    def test_same_selected_context_does_not_reset_task_inspector(self):
+        application = _Application()
+        target = _SObject(
+            {"code": "ASSET001"}, "asset/asset?code=ASSET001"
+        )
+        task = _Task({
+            "code": "TASK001", "process": "publish", "status": "Pending",
+        }, [])
+        other_task = _Task({
+            "code": "TASK002", "process": "publish", "status": "Pending",
+        }, [])
+        application.workspace_state._selected_sobject = target
+        application.workspace_state._task_sobjects = [task, other_task]
+        with patch("thlib.ui.communication.env_read_config", return_value={}):
+            controller = CommunicationController(application)
+        controller._visible = True
+        controller._process_tasks = [task, other_task]
+        controller._selected_task_code = "TASK001"
+        controller._loaded_task_context = (
+            target.get_search_key(), "publish", "TASK001"
+        )
+        controller._note_records = [{"noteId": "NOTE001"}]
+        controller._sync_selection_presentation()
+        state_changes = QSignalSpy(controller.stateChanged)
+
+        with patch.object(controller, "refresh") as refresh, patch.object(
+            controller, "_refresh_process_counts"
+        ):
+            application.workspace_state.selection_changed.emit()
+            application.workspace_state._selected_sobject = _SObject(
+                dict(target.info), target.get_search_key()
+            )
+            replacement = _Task(dict(task.info), [])
+            application.workspace_state._task_sobjects = [
+                _Task(dict(other_task.info), []), replacement,
+            ]
+            application.workspace_state.selection_changed.emit()
+            refresh.assert_not_called()
+            self.assertEqual(state_changes.count(), 0)
+            self.assertEqual(controller._note_records, [{"noteId": "NOTE001"}])
+            self.assertEqual(controller.selectedTaskCode, "TASK001")
+            self.assertEqual(
+                controller._loaded_task_context,
+                (target.get_search_key(), "publish", "TASK001"),
+            )
+
+            controller._visible = False
+            controller._selection_presentation_dirty = False
+            application.workspace_state.selection_changed.emit()
+            self.assertTrue(controller._selection_presentation_dirty)
+            controller.set_visible(True)
+            refresh.assert_not_called()
+
+            controller._loading = True
+            controller._request_id = "still-loading"
+            application.workspace_state.selection_changed.emit()
+            self.assertEqual(controller._request_id, "still-loading")
+            self.assertTrue(controller.loading)
+            controller._loading = False
+
+            controller._process = "model"
+            controller._loading = True
+            application.workspace_state.selection_changed.emit()
+            self.assertEqual(controller.process, "publish")
+            refresh.assert_called_once_with()
+            refresh.reset_mock()
+
+            replacement.info["status"] = "Complete"
+            application.workspace_state.selection_changed.emit()
+            refresh.assert_called_once_with()
+            self.assertEqual(controller._note_records, [])
+
+            application._selected_detail_process = "model"
+            application.workspace_state.selection_changed.emit()
+            self.assertEqual(controller.process, "model")
+            self.assertEqual(refresh.call_count, 2)
+
+            application.workspace_state._selected_sobject = _SObject(
+                {"code": "ASSET002"}, "asset/asset?code=ASSET002"
+            )
+            application.workspace_state._task_sobjects = []
+            application._selected_detail_process = ""
+            application.workspace_state.selection_changed.emit()
+            self.assertEqual(controller.process, "publish")
+            self.assertEqual(refresh.call_count, 3)
+
 
     def test_note_text_drafts_follow_sobject_and_task_context(self):
         application = _Application()
@@ -341,6 +436,30 @@ class NotesQmlTests(unittest.TestCase):
             )
             self.assertEqual(controller.count, 1)
 
+    def test_partial_upload_reports_failure_instead_of_uploaded(self):
+        with patch(
+            "thlib.ui.message_attachments.env_read_config", return_value={}
+        ), patch("thlib.ui.message_attachments.env_write_config"):
+            controller = ChatAttachmentController(_Application())
+            records = [
+                {"token": "one", "title": "one.png", "path": "one.png"},
+                {"token": "two", "title": "two.png", "path": "two.png"},
+            ]
+            controller._upload_records = records
+            controller.model.replace(records)
+            controller._busy = True
+            uploaded = QSignalSpy(controller.uploaded)
+            failed = QSignalSpy(controller.failed)
+
+            controller._ready({
+                "target": "sthpw/message?code=CHAT001\nattachment/chat",
+                "snapshots": {"one": "sthpw/snapshot?code=SNAP001"},
+            })
+
+            self.assertEqual(uploaded.count(), 0)
+            self.assertEqual(failed.count(), 1)
+            self.assertEqual(controller.model._records[1]["status"], "failed")
+
     def test_open_notes_on_sobject_resets_process_to_publish(self):
         node = SimpleNamespace(
             node_id="skey://demo/asset?code=ASSET001",
@@ -420,6 +539,73 @@ class NotesQmlTests(unittest.TestCase):
         self.assertEqual(seen, [(node.node_id, "notes", "rig")])
         self.assertEqual(controller._selected_detail_process, "rig")
         self.assertEqual(opened, ["notes"])
+
+    def test_closed_task_inspector_keeps_picked_process_during_delayed_load(self):
+        node = SimpleNamespace(
+            node_id="asset", node_type="sobject", parent_id="",
+            search_key="demo/asset?code=ASSET001", process="", context="",
+        )
+        tab = SearchTabSession(tab_id="tab", title="Assets")
+        tab.selected_node_id = "previous"
+        opened = []
+        controller = SimpleNamespace(
+            workspace_model=SimpleNamespace(node_for=lambda _id: node),
+            workspace_state=SimpleNamespace(
+                selection_changed=SimpleNamespace(emit=lambda: None),
+            ),
+            dock_model=SimpleNamespace(show_panel=opened.append),
+            _registry=SimpleNamespace(invoke=lambda _command: False),
+            _selected_detail_process="publish",
+            _current_tab=lambda: tab,
+            select_result_node=lambda node_id, *_args: setattr(
+                tab, "selected_node_id", node_id
+            ),
+        )
+
+        ItemOperationsMixin._show_process_details(
+            controller, node.node_id, "tasks", process_override="light"
+        )
+        details = SelectionMixin._selected_detail_parameters(
+            controller, node.node_id, node.search_key
+        )
+
+        self.assertEqual(details[1], "light")
+        self.assertEqual(opened, ["tasks"])
+
+    def test_selecting_another_object_clears_picked_process(self):
+        first = SimpleNamespace(
+            node_id="first", node_type="sobject", source=None,
+            search_key="demo/asset?code=ASSET001", process="", context="",
+        )
+        second = SimpleNamespace(
+            node_id="second", node_type="sobject", source=None,
+            search_key="demo/asset?code=ASSET002", process="", context="",
+        )
+        nodes = {first.node_id: first, second.node_id: second}
+        tab = SearchTabSession(tab_id="tab", title="Assets")
+        tab.selected_node_id = first.node_id
+        tab.selected_node_ids = [first.node_id]
+        tab.detail_process_override = "light"
+        controller = SimpleNamespace(
+            workspace_model=SimpleNamespace(node_for=nodes.get),
+            _current_tab=lambda: tab,
+            selected_node_changed=SimpleNamespace(emit=lambda: None),
+            _cancel_selected_payload_worker=lambda: None,
+            _cancel_versions_worker=lambda: None,
+            versions_model=SimpleNamespace(clear=lambda: None),
+            _selection_load_timer=SimpleNamespace(start=lambda: None),
+            _save_search_cache=lambda: None,
+        )
+
+        SelectionMixin.select_result_node(
+            controller, second.node_id, second.search_key, "sobject"
+        )
+        details = SelectionMixin._selected_detail_parameters(
+            controller, second.node_id, second.search_key
+        )
+
+        self.assertEqual(tab.detail_process_override, "")
+        self.assertEqual(details[1], "publish")
 
     def test_task_picker_opens_exact_task_context(self):
         root = SimpleNamespace(
@@ -650,6 +836,7 @@ Window {
             self.app.processEvents()
             timeline = window.findChild(QObject, "messageTimelineList")
             self.assertIsNotNone(timeline)
+            self.assertFalse(timeline.property("reuseItems"))
             def visual_items(parent):
                 pending = [parent]
                 while pending:
@@ -926,20 +1113,21 @@ Window {
             self.app.processEvents()
             avatar = frame.findChild(QQuickItem, "messageTimelineAvatar")
             bubble = frame.findChild(QQuickItem, "messageTimelineBubble")
-            tail = frame.findChild(QQuickItem, "messageTimelineGroupTail")
+            outline = frame.findChild(QQuickItem, "messageTimelineOutline")
             self.assertIsNotNone(avatar)
             self.assertIsNotNone(bubble)
-            self.assertIsNone(tail)
+            self.assertIsNotNone(outline)
+            self.assertEqual(outline.property("tailExtent"), 0)
+            radius = frame.property("bubbleCornerRadius")
             self.assertFalse(avatar.property("visible"))
 
             frame.setProperty("groupFirst", False)
             frame.setProperty("groupLast", True)
             self.app.processEvents()
 
-            tail = frame.findChild(QQuickItem, "messageTimelineGroupTail")
-            self.assertIsNotNone(tail)
             self.assertTrue(avatar.property("visible"))
-            self.assertTrue(tail.property("visible"))
+            self.assertGreater(outline.property("tailExtent"), 0)
+            self.assertEqual(frame.property("bubbleCornerRadius"), radius)
             avatar_bottom = (
                 avatar.mapToScene(QPointF()).y()
                 - frame.mapToScene(QPointF()).y()
@@ -947,19 +1135,12 @@ Window {
             )
             self.assertAlmostEqual(avatar_bottom, frame.property("height"))
             self.assertLess(
-                tail.mapToItem(frame, QPointF()).x(),
-                bubble.mapToItem(frame, QPointF()).x(),
+                outline.property("tailExtent"), avatar.property("width") / 2
             )
-            self.assertLess(
-                tail.property("width"), avatar.property("width") / 2
-            )
-            self.assertEqual(bubble.property("bottomLeftRadius"), 0.0)
-            self.assertGreater(bubble.property("bottomRightRadius"), 0.0)
 
             frame.setProperty("outgoing", True)
             self.app.processEvents()
-            self.assertGreater(bubble.property("bottomLeftRadius"), 0.0)
-            self.assertEqual(bubble.property("bottomRightRadius"), 0.0)
+            self.assertEqual(frame.property("bubbleCornerRadius"), radius)
         finally:
             frame.deleteLater()
             theme.deleteLater()
@@ -1003,6 +1184,7 @@ Item {
             self.app.processEvents()
             frame = owner.findChild(QQuickItem, "compactMessageFrame")
             bubble = frame.findChild(QQuickItem, "messageTimelineBubble")
+            self.assertGreaterEqual(frame.property("bubblePadding"), 7)
             self.assertLess(bubble.property("width"), 280)
             self.assertLess(bubble.property("height"), 80)
         finally:
@@ -1864,6 +2046,51 @@ Window {
         self.assertEqual(payload["context"], "attachment/chat/image")
         self.assertNotIn("CHAT001", payload["context"])
 
+    def test_message_attachments_use_stable_unique_batch_context_and_names(self):
+        batch_token = "a" * 32
+        controller = SimpleNamespace(
+            model=SimpleNamespace(_records=[
+                {"token": batch_token, "path": "C:/files/image.png"},
+                {"token": "b" * 32, "path": "C:/other/image.png"},
+            ]),
+            begin_named_target=Mock(return_value=True),
+        )
+
+        self.assertTrue(ChatAttachmentController.begin(controller, "CHAT001"))
+        self.assertTrue(ChatAttachmentController.begin(controller, "CHAT001"))
+
+        self.assertEqual(controller.begin_named_target.call_count, 2)
+        first = controller.begin_named_target.call_args_list[0]
+        self.assertEqual(first, controller.begin_named_target.call_args_list[1])
+        self.assertEqual(first.args[0], "sthpw/message?code=CHAT001")
+        self.assertEqual(
+            first.args[1], "attachment/chat/CHAT001/" + batch_token
+        )
+        self.assertEqual(first.args[3], "CHAT001")
+        filenames = [
+            AttachmentUploadController._target_payload(
+                first.args[0], first.args[1], first.args[2], record,
+                first.args[3],
+            )["explicitFilename"]
+            for record in controller.model._records
+        ]
+        self.assertEqual(filenames, [
+            "CHAT001_" + batch_token, "CHAT001_" + "b" * 32,
+        ])
+        controller.model._records = [
+            {"token": "c" * 32, "path": "C:/files/image.png"}
+        ]
+        ChatAttachmentController.begin(controller, "CHAT001")
+        self.assertNotEqual(
+            controller.begin_named_target.call_args.args[1], first.args[1]
+        )
+        controller.model._records = [
+            {"token": "../unsafe", "path": "C:/files/image.png"}
+        ]
+        controller.stateChanged = SimpleNamespace(emit=Mock())
+        self.assertFalse(ChatAttachmentController.begin(controller, "CHAT001"))
+        self.assertEqual(controller.begin_named_target.call_count, 3)
+
     def test_attachment_collision_retries_once_with_next_version(self):
         controller = SimpleNamespace(
             _cancel=threading.Event(),
@@ -2007,6 +2234,149 @@ Window {
             choices = controller._build_process_choices(sobject)
 
         self.assertEqual(choices[0]["color"], "#5966d9")
+
+    def test_progress_choice_keeps_completion_counts(self):
+        application = _Application()
+        controller = CommunicationController(application)
+        pipeline = SimpleNamespace(
+            get_all_pipeline_names=lambda: ["assets_progress"],
+            get_process_info=lambda _name: {"type": "progress"},
+            get_pipeline_process=lambda _name: {},
+            get_process_label=lambda _name: "Assets progress",
+        )
+        sobject = _SObject({}, "project/episode?code=EP001")
+        sobject.get_stype = lambda: SimpleNamespace(
+            get_pipeline=lambda: {"episode": pipeline}
+        )
+        sobject.get_pipeline_code = lambda: "episode"
+        sobject.get_progress_count = lambda _name, kind: (
+            2 if kind == "approved_count" else 3
+        )
+
+        choices = controller._build_process_choices(sobject)
+
+        self.assertEqual(choices[0]["type"], "progress")
+        self.assertEqual((choices[0]["approved"], choices[0]["total"]), (2, 3))
+
+    def test_progress_tasks_require_real_schema_relationship(self):
+        child_type = SimpleNamespace(
+            get_code=lambda: "project/asset",
+            get_schema=lambda: SimpleNamespace(
+                get_parent=lambda _parent, _child: None
+            ),
+        )
+        schema = SimpleNamespace(get_child=lambda _child, _parent: None)
+        pipeline = SimpleNamespace(
+            get_process_info=lambda _name: {"type": "progress"},
+            get_pipeline_process=lambda _name: {
+                "workflow": {"search_type": "project/asset"}
+            },
+        )
+        stype = SimpleNamespace(
+            get_code=lambda: "project/episode",
+            get_schema=lambda: schema,
+            get_pipeline=lambda: {"episode": pipeline},
+        )
+        project = SimpleNamespace(get_search_type=lambda _code: child_type)
+        sobject = SimpleNamespace(
+            get_stype=lambda: stype,
+            get_pipeline_code=lambda: "episode",
+            get_project=lambda: project,
+            get_related_sobjects=Mock(side_effect=AssertionError(
+                "must not guess a relationship"
+            )),
+        )
+
+        result = CommunicationController._load_related_tasks(
+            sobject, "assets_progress"
+        )
+
+        self.assertEqual(result["state"], "unrelated")
+        sobject.get_related_sobjects.assert_not_called()
+
+    def test_progress_tasks_show_tasks_of_related_objects(self):
+        child_type = SimpleNamespace(get_code=lambda: "project/asset")
+        pipeline = SimpleNamespace(
+            get_process_info=lambda _name: {"type": "progress"},
+            get_pipeline_process=lambda _name: {
+                "workflow": {"search_type": "project/asset"}
+            },
+        )
+        stype = SimpleNamespace(
+            get_code=lambda: "project/episode",
+            get_schema=lambda: SimpleNamespace(
+                get_child=lambda _child, _parent: {"relationship": "code"}
+            ),
+            get_pipeline=lambda: {"episode": pipeline},
+        )
+        project = SimpleNamespace(
+            get_search_type=lambda _code: child_type,
+            get_code=lambda: "project",
+        )
+        child = SimpleNamespace(
+            get_code=lambda: "ASSET001",
+            get_title=lambda: "Hero",
+            get_search_key=lambda: "project/asset?code=ASSET001",
+        )
+        sobject = SimpleNamespace(
+            get_stype=lambda: stype,
+            get_pipeline_code=lambda: "episode",
+            get_project=lambda: project,
+            get_related_sobjects=lambda _stype, path: ({"child": child}, {}),
+        )
+        task = SimpleNamespace(get_info=lambda: {
+            "search_code": "ASSET001", "search_type": "project/asset",
+            "process": "model", "status": "Ready", "assigned": "artist",
+        })
+        with patch("thlib.tactic_classes.get_sobjects", return_value=(
+            {"task": task}, {}
+        )) as query:
+            result = CommunicationController._load_related_tasks(
+                sobject, "assets_progress"
+            )
+
+        self.assertEqual(result["objectCount"], 1)
+        self.assertEqual(result["items"][0]["parentTitle"], "Hero")
+        self.assertEqual(result["items"][0]["process"], "model")
+        self.assertEqual(
+            result["parentKeys"], ["project/asset?code=ASSET001"]
+        )
+        self.assertEqual(query.call_count, 1)
+
+        stype.get_schema = lambda: SimpleNamespace(
+            get_child=lambda _child, _parent: None
+        )
+        child_type.get_schema = lambda: SimpleNamespace(
+            get_parent=lambda _parent, _child: {"relationship": "code"}
+        )
+        paths = []
+        sobject.get_related_sobjects = lambda _stype, path: (
+            paths.append(path) or {"parent": child}, {}
+        )
+        with patch("thlib.tactic_classes.get_sobjects", return_value=(
+            {"task": task}, {}
+        )):
+            CommunicationController._load_related_tasks(
+                sobject, "assets_progress"
+            )
+        self.assertEqual(paths, ["parent"])
+
+    def test_stale_progress_tasks_do_not_change_task_manager_scope(self):
+        controller = CommunicationController(_Application())
+        tasks = Mock()
+        controller._tasks_controller = tasks
+        controller._related_tasks_request_id = "current"
+        result = {
+            "state": "ready", "items": [], "objectCount": 1,
+            "parentKeys": ["project/asset?code=ASSET001"],
+        }
+
+        controller._related_tasks_ready("stale", result)
+        tasks.use_related_objects.assert_not_called()
+        controller._related_tasks_ready("current", result)
+        tasks.use_related_objects.assert_called_once_with(
+            ["project/asset?code=ASSET001"]
+        )
 
     def test_note_process_counts_update_menu_data(self):
         application = _Application()
@@ -2169,19 +2539,464 @@ Window {
         self.assertEqual(harness.loading_calls, [])
 
     def test_existing_note_can_be_edited(self):
+        import thlib.tactic_classes as tc
         application = _Application()
         controller = CommunicationController(application)
-        note = _SObject({"note": "Before"}, "sthpw/note?code=NOTE001")
+        from thlib.environment import env_server
+        author = str(env_server.get_user() or "artist")
+        note = _SObject({
+            "note": "Before", "login": author,
+            "timestamp": datetime.now(timezone.utc).strftime(
+                "%Y-%m-%d %H:%M:%S"
+            ),
+        }, "sthpw/note?code=NOTE001")
         application.workspace_state.note_model.replace([{
             "searchKey": note.get_search_key(), "body": "Before",
             "entryType": "note", "canEdit": True,
         }])
         controller._notes[note.get_search_key()] = note
         controller._run = lambda callback, clear_composer=False: callback()
-        self.assertTrue(controller.edit(0, "After"))
-        self.assertEqual(note.get_info()["note"], "After")
-        metadata = note.get_info()["metadata"]
-        self.assertEqual(metadata["editHistory"][0]["body"], "Before")
+        with patch.object(env_server, "get_user", return_value=author), patch.object(
+                tc, "change_note", return_value={"edited": True}) as change_note:
+            self.assertTrue(controller.edit(0, "After"))
+        change_note.assert_called_once_with(
+            note.get_search_key(), "edit", "After", project_code=None
+        )
+
+    def test_message_menu_uses_live_permission_from_controller(self):
+        from thlib.environment import env_server
+        from thlib.ui.communication_feed import MessagesController
+
+        class MessageApplication(_Application):
+            project_changed = Signal(str, str)
+
+        application = MessageApplication()
+        controller = MessagesController(application)
+        controller.load = Mock()
+        controller.set_visible = Mock()
+        controller.messages.replace([{
+            "messageId": "MSG001", "sender": "artist", "body": "Hello",
+            "timestamp": datetime.now(timezone.utc).strftime(
+                "%Y-%m-%d %H:%M:%S"
+            ),
+        }])
+        qml_dir = Path(__file__).parents[1] / "thlib" / "ui" / "qml"
+        engine = QQmlEngine()
+        engine.addImportPath(str(qml_dir))
+        context = engine.rootContext()
+        context.setContextProperty("messagesController", controller)
+        context.setContextProperty("messageConversationModel", controller.conversations)
+        context.setContextProperty("messageSurfaceModel", controller.message_surfaces)
+        context.setContextProperty("userController", QObject())
+        theme_component = QQmlComponent(
+            engine, QUrl.fromLocalFile(str(qml_dir / "Theme.qml"))
+        )
+        theme = theme_component.createWithInitialProperties({"dark": True})
+        component = QQmlComponent(
+            engine, QUrl.fromLocalFile(str(qml_dir / "MessagesView.qml"))
+        )
+        view = component.createWithInitialProperties({
+            "theme": theme, "width": 1100, "height": 700,
+        })
+        self.assertIsNotNone(
+            view, "\n".join(error.toString() for error in component.errors())
+        )
+        try:
+            with patch.object(env_server, "get_user", return_value="artist"):
+                view.prepareMessageActions({
+                    "messageId": "MSG001", "body": "Hello",
+                    "pinned": False, "editHistory": [],
+                }, None)
+                self.assertTrue(view.property("actionMessageCanEdit"))
+                self.assertTrue(view.property("actionMessageCanDelete"))
+                actions = view.property("timelineActions").property(
+                    "displayedActions"
+                ).toVariant()
+                visible_titles = [
+                    action.get("title") for action in actions
+                    if action.get("visible") is not False
+                ]
+                self.assertIn("Edit message", visible_titles)
+                self.assertIn("Delete message", visible_titles)
+                controller.messages.set_value(
+                    0, "timestamp",
+                    (datetime.now(timezone.utc) - timedelta(hours=2))
+                        .strftime("%Y-%m-%d %H:%M:%S"),
+                )
+                view.prepareMessageActions({
+                    "messageId": "MSG001", "body": "Hello",
+                    "pinned": False, "editHistory": [],
+                }, None)
+                self.assertFalse(view.property("actionMessageCanEdit"))
+                self.assertFalse(view.property("actionMessageCanDelete"))
+                actions = view.property("timelineActions").property(
+                    "displayedActions"
+                ).toVariant()
+                visible_titles = [
+                    action.get("title") for action in actions
+                    if action.get("visible") is not False
+                ]
+                self.assertNotIn("Edit message", visible_titles)
+                self.assertNotIn("Delete message", visible_titles)
+        finally:
+            view.deleteLater()
+            theme.deleteLater()
+            engine.deleteLater()
+
+    def test_message_text_has_compact_header_gap_and_side_padding(self):
+        from thlib.ui.communication_feed import MessagesController
+
+        class MessageApplication(_Application):
+            project_changed = Signal(str, str)
+
+        application = MessageApplication()
+        controller = MessagesController(application)
+        controller.load = Mock()
+        controller.set_visible = Mock()
+        controller._initialized = True
+        controller._conversation_id = "CHAT001"
+        controller.conversations.replace([{
+            "conversationId": "CHAT001", "title": "Notes",
+            "isPersonalNotes": True, "messageCount": 1,
+        }])
+        controller.messages.replace([{
+            "messageId": "MSG001", "sender": "testuser",
+            "senderDisplay": "Test User", "avatarUrl": "", "initials": "TU",
+            "senderColor": "#ba68c8", "body": "Админ верни ленту!",
+            "bodyHtml": "Админ верни ленту!",
+            "displayHtml": "Админ верни ленту!", "skeyPreviews": [],
+            "timestamp": "2026-09-22 10:00:00", "timePretty": "1 min ago",
+            "timeSimple": "", "isOwn": False, "unread": False,
+            "attachments": [], "canEdit": False, "edited": False,
+            "pinned": False, "editedBy": "", "editedAt": "",
+            "editHistory": [], "replyTo": {}, "forwardedFrom": {},
+            "forwardSelected": False, "reactions": [],
+            "reactionPending": False, "deliveryStatus": "sent",
+            "deliveryRecipientCount": 0, "deliveryDeliveredCount": 0,
+            "deliveryReadCount": 0, "groupFirst": True, "groupLast": True,
+        }])
+        qml_dir = Path(__file__).parents[1] / "thlib" / "ui" / "qml"
+        engine = QQmlEngine()
+        engine.addImportPath(str(qml_dir))
+        context = engine.rootContext()
+        context.setContextProperty("messagesController", controller)
+        context.setContextProperty("messageConversationModel", controller.conversations)
+        context.setContextProperty("messageSurfaceModel", controller.message_surfaces)
+        context.setContextProperty("userController", QObject())
+        component = QQmlComponent(engine)
+        component.setData(b'''
+import QtQuick
+import QtQuick.Window
+import "."
+Window {
+    width: 920; height: 500; visible: true
+    Theme { id: appTheme; dark: true; hoverAnimationsEnabled: false }
+    MessagesView {
+        objectName: "spacingMessagesView"
+        anchors.fill: parent
+        theme: appTheme
+    }
+}
+''', QUrl.fromLocalFile(str(qml_dir / "_MessageSpacingTest.qml")))
+        window = component.create()
+        self.assertIsNotNone(
+            window, "\n".join(error.toString() for error in component.errors())
+        )
+        try:
+            self.assertTrue(QTest.qWaitForWindowExposed(window))
+            for _pass in range(3):
+                self.app.processEvents()
+            pending = [window.contentItem()]
+            found = {}
+            while pending:
+                item = pending.pop()
+                if item.objectName() in (
+                    "messageTimelineBubble", "messageSenderLabel",
+                    "messageBodyText", "messageActionsButton",
+                    "messageTimeLabel", "messagesChatHeader",
+                    "chatActionsButton", "chatBusySlot",
+                    "messageViewport", "messagesTimelinePane",
+                ):
+                    found[item.objectName()] = item
+                pending.extend(item.childItems())
+            bubble = found["messageTimelineBubble"]
+            sender = found["messageSenderLabel"]
+            body = found["messageBodyText"]
+            for width, minimum_inset in ((920, 12), (520, 10)):
+                window.setWidth(width)
+                self.app.processEvents()
+                left_inset = (
+                    body.mapToScene(QPointF()).x()
+                    - bubble.mapToScene(QPointF()).x()
+                )
+                header_gap = (
+                    body.mapToScene(QPointF()).y()
+                    - sender.mapToScene(QPointF(0, sender.height())).y()
+                )
+                self.assertGreaterEqual(header_gap, 6)
+                self.assertLessEqual(header_gap, 10)
+                self.assertGreaterEqual(left_inset, minimum_inset)
+
+            window.setWidth(920)
+            self.app.processEvents()
+            if os.environ.get("TH_MESSAGE_SPACING_PREVIEW"):
+                self.assertTrue(window.grabWindow().save(
+                    os.environ["TH_MESSAGE_SPACING_PREVIEW"]
+                ))
+            button = found["messageActionsButton"]
+            self.assertGreaterEqual(button.width(), 28)
+            self.assertGreaterEqual(button.height(), 28)
+            QTest.mouseMove(
+                window, bubble.mapToScene(QPointF(20, 12)).toPoint()
+            )
+            self.app.processEvents()
+            self.assertTrue(button.property("enabled"))
+            if os.environ.get("TH_MESSAGE_HOVER_PREVIEW"):
+                self.assertTrue(window.grabWindow().save(
+                    os.environ["TH_MESSAGE_HOVER_PREVIEW"]
+                ))
+            QTest.mouseClick(
+                window, Qt.LeftButton,
+                pos=button.mapToScene(QPointF(
+                    button.width() / 2, button.height() - 2
+                )).toPoint(),
+            )
+            self.app.processEvents()
+            view = window.findChild(QObject, "spacingMessagesView")
+            self.assertEqual(view.property("actionMessageId"), "MSG001")
+
+            header = found["messagesChatHeader"]
+            chat_action = found["chatActionsButton"]
+            busy_slot = found["chatBusySlot"]
+            viewport = found["messageViewport"]
+            pane = found["messagesTimelinePane"]
+            for width in (920, 700):
+                window.setWidth(width)
+                window.grabWindow()
+                self.assertAlmostEqual(
+                    viewport.mapToScene(QPointF()).x(),
+                    header.mapToScene(QPointF()).x(), delta=1,
+                )
+                self.assertAlmostEqual(
+                    viewport.mapToScene(QPointF(viewport.width(), 0)).x(),
+                    header.mapToScene(QPointF(header.width(), 0)).x(),
+                    delta=1,
+                )
+                scrollbar_room = (
+                    pane.mapToScene(QPointF(pane.width(), 0)).x()
+                    - viewport.mapToScene(
+                        QPointF(viewport.width(), 0)
+                    ).x()
+                )
+                self.assertGreaterEqual(scrollbar_room, 9)
+                self.assertLessEqual(scrollbar_room, 12)
+                self.assertFalse(busy_slot.isVisible())
+                idle_inset = (
+                    header.mapToScene(QPointF(header.width(), 0)).x()
+                    - chat_action.mapToScene(
+                        QPointF(chat_action.width(), 0)
+                    ).x()
+                )
+                self.assertLessEqual(idle_inset, 14)
+                controller._busy = True
+                controller.stateChanged.emit()
+                window.grabWindow()
+                self.assertTrue(busy_slot.isVisible())
+                busy_inset = (
+                    header.mapToScene(QPointF(header.width(), 0)).x()
+                    - chat_action.mapToScene(
+                        QPointF(chat_action.width(), 0)
+                    ).x()
+                )
+                self.assertGreater(busy_inset, idle_inset + 20)
+                controller._busy = False
+                controller.stateChanged.emit()
+                window.grabWindow()
+
+            controller.messages.set_value(0, "groupFirst", False)
+            controller.messages.set_value(0, "isOwn", True)
+            self.app.processEvents()
+            time_label = found["messageTimeLabel"]
+            time_gap = (
+                body.mapToScene(QPointF()).y()
+                - time_label.mapToScene(QPointF(0, time_label.height())).y()
+            )
+            self.assertGreaterEqual(time_gap, 6)
+            self.assertLessEqual(time_gap, 10)
+            self.assertGreaterEqual(
+                body.mapToScene(QPointF()).x()
+                - bubble.mapToScene(QPointF()).x(), 12,
+            )
+            media_message = dict(controller.messages._records[0])
+            media_message["attachments"] = [{
+                "token": "wide-image", "title": "wide.png", "size": 1024,
+                "extension": "PNG", "previewUrl": "", "local": True,
+                "hasWebPreview": True, "snapshotCode": "SNAP001",
+            }]
+            controller.messages.replace([media_message])
+            self.app.processEvents()
+            window.grabWindow()
+            frame = bubble.parentItem()
+            self.assertTrue(frame.property("mediaAttachments"))
+            pending = [window.contentItem()]
+            attachment = None
+            while pending:
+                item = pending.pop()
+                if item.objectName() == "messageAttachmentCard-wide-image":
+                    attachment = item
+                    break
+                pending.extend(item.childItems())
+            self.assertIsNotNone(attachment)
+            self.assertAlmostEqual(bubble.width(), frame.width() * 0.7, delta=1)
+            self.assertGreater(
+                body.mapToScene(QPointF()).y(),
+                attachment.mapToScene(QPointF()).y() + attachment.height(),
+            )
+        finally:
+            window.close()
+            window.deleteLater()
+            engine.deleteLater()
+
+    def test_empty_favorites_chat_is_visible_in_conversation_list(self):
+        qml_dir = Path(__file__).parents[1] / "thlib" / "ui" / "qml"
+        engine = QQmlEngine()
+        engine.addImportPath(str(qml_dir))
+        model = RecordListModel((
+            "title", "status", "lastMessage", "lastMessageSummary",
+            "lastMessageLinkedCount", "lastSender", "unread",
+            "mentionCount", "selected", "avatarUrl", "initials",
+            "participantCount", "memberSummary", "acronym", "colorIndex",
+            "isPersonalNotes",
+        ))
+        model.replace([{
+            "title": "Notes", "status": "", "lastMessage": "",
+            "lastMessageSummary": "", "lastMessageLinkedCount": 0,
+            "lastSender": "", "unread": 0, "mentionCount": 0,
+            "selected": False, "avatarUrl": "", "initials": "",
+            "participantCount": 1, "memberSummary": "",
+            "acronym": "", "colorIndex": 0, "isPersonalNotes": True,
+        }])
+        engine.rootContext().setContextProperty("favoriteModel", model)
+        component = QQmlComponent(engine)
+        component.setData(b'''
+import QtQuick
+import QtQuick.Window
+import "."
+
+Window {
+    width: 300
+    height: 400
+    visible: true
+    Theme { id: appTheme; dark: true }
+    MessagesConversationList {
+        anchors.fill: parent
+        theme: appTheme
+        conversationModel: favoriteModel
+    }
+}
+''', QUrl.fromLocalFile(str(qml_dir / "_FavoritesListTest.qml")))
+        view = component.create()
+        self.assertIsNotNone(
+            view, "\n".join(error.toString() for error in component.errors())
+        )
+        try:
+            self.assertTrue(QTest.qWaitForWindowExposed(view))
+            for _pass in range(3):
+                self.app.processEvents()
+            list_view = view.findChild(QObject, "messagesConversationListView")
+            self.assertEqual(list_view.property("count"), 1)
+            pending = [list_view]
+            visible_text = []
+            while pending:
+                item = pending.pop()
+                if item.property("text") is not None:
+                    visible_text.append(item.property("text"))
+                pending.extend(item.childItems())
+            self.assertIn(
+                "Favorites",
+                visible_text,
+            )
+        finally:
+            view.close()
+            view.deleteLater()
+            engine.deleteLater()
+
+    def test_note_menu_hides_edit_and_delete_when_not_allowed(self):
+        application = _Application()
+        controller = CommunicationController(application)
+        qml_dir = Path(__file__).parents[1] / "thlib" / "ui" / "qml"
+        engine = QQmlEngine()
+        engine.addImportPath(str(qml_dir))
+        context = engine.rootContext()
+        context.setContextProperty("communicationController", controller)
+        context.setContextProperty("noteModel", application.workspace_state.note_model)
+        context.setContextProperty("noteAttachmentDraftModel", RecordListModel(()))
+        context.setContextProperty("emojiCatalog", QObject())
+        context.setContextProperty("tasksController", QObject())
+        context.setContextProperty("userController", QObject())
+        context.setContextProperty("messagesController", QObject())
+        theme_component = QQmlComponent(
+            engine, QUrl.fromLocalFile(str(qml_dir / "Theme.qml"))
+        )
+        theme = theme_component.createWithInitialProperties({"dark": True})
+        component = QQmlComponent(
+            engine, QUrl.fromLocalFile(str(qml_dir / "CommunicationView.qml"))
+        )
+        view = component.createWithInitialProperties({
+            "theme": theme, "visible": False, "width": 700, "height": 500,
+        })
+        self.assertIsNotNone(
+            view, "\n".join(error.toString() for error in component.errors())
+        )
+        try:
+            self.assertEqual(
+                [action["title"] for action in view.messageMenuActions().toVariant()
+                 if "title" in action],
+                ["Copy sKey"],
+            )
+            view.setProperty("messageMenuCanEdit", True)
+            view.setProperty("messageMenuCanDelete", True)
+            self.assertEqual(
+                [action["title"] for action in view.messageMenuActions().toVariant()
+                 if "title" in action],
+                ["Copy sKey", "Edit note", "Delete note"],
+            )
+        finally:
+            view.deleteLater()
+            theme.deleteLater()
+            engine.deleteLater()
+
+    def test_note_actions_check_author_role_and_publication_time(self):
+        from thlib.environment import env_server
+
+        application = _Application()
+        controller = CommunicationController(application)
+        note = _SObject({
+            "note": "Original", "login": "artist",
+            "timestamp": (datetime.now(timezone.utc) - timedelta(minutes=30))
+                .strftime("%Y-%m-%d %H:%M:%S"),
+        }, "sthpw/note?code=NOTE001")
+        application.workspace_state.note_model.replace([{
+            "searchKey": note.get_search_key(), "body": "Original",
+            "entryType": "note", "canEdit": True, "canDelete": True,
+        }])
+        controller._notes[note.get_search_key()] = note
+        controller._run = Mock()
+
+        with patch.object(env_server, "get_user", return_value="artist"):
+            self.assertTrue(controller.can_change_note(0))
+            note.info["timestamp"] = (
+                datetime.now(timezone.utc) - timedelta(hours=2)
+            ).strftime("%Y-%m-%d %H:%M:%S")
+            self.assertFalse(controller.can_change_note(0))
+            self.assertFalse(controller.edit(0, "Changed"))
+            controller.remove(0)
+            controller._run.assert_not_called()
+
+        with patch.object(env_server, "get_user", return_value="other"):
+            self.assertFalse(controller.can_change_note(0))
+            application.can_manage_tools = True
+            self.assertTrue(controller.can_change_note(0))
 
 
 if __name__ == "__main__":

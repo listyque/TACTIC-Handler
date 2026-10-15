@@ -83,6 +83,7 @@ class ApplicationRuntime:
     server_updates: Any
     watch_folders: Any
     script_editor: Any
+    update: Any
     bindings: QmlBindingRegistry
     lifecycle: LifecycleRegistry
     bundles: tuple[Any, ...] = field(default_factory=tuple)

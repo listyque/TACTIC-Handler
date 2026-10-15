@@ -9,13 +9,8 @@ Item {
     readonly property bool narrow: width < 720
     property bool navigationPage: true
     property bool navigationExpanded: true
+    readonly property bool singlePane: root.narrow || !root.navigationExpanded
     property bool dockResizeActive: false
-
-    function traceEditor(stage) {
-        if (knowledgeController
-                && typeof knowledgeController.trace_editor === "function")
-            knowledgeController.trace_editor(stage);
-    }
 
     function consumeOpenArticleRequest() {
         if (!knowledgeController.openArticlePending)
@@ -38,7 +33,7 @@ Item {
         target: knowledgeController
         function onStateChanged() {
             root.consumeOpenArticleRequest();
-            if (root.narrow && (knowledgeController.identity.length > 0 || knowledgeController.creating))
+            if (root.singlePane && (knowledgeController.identity.length > 0 || knowledgeController.creating))
                 root.navigationPage = false;
         }
     }
@@ -192,16 +187,15 @@ Item {
                 anchors.left: parent.left
                 anchors.top: parent.top
                 anchors.bottom: parent.bottom
-                width: root.narrow ? parent.width : Math.min(310, parent.width * 0.34)
-                visible: root.narrow
-                    ? root.navigationPage : root.navigationExpanded
+                width: root.singlePane ? parent.width : Math.min(310, parent.width * 0.34)
+                visible: !root.singlePane || root.navigationPage
                 theme: root.theme
                 controller: knowledgeController
                 onArticleRequested: root.navigationPage = false
             }
 
             Rectangle {
-                visible: !root.narrow && root.navigationExpanded
+                visible: !root.singlePane
                 anchors.left: navigation.right
                 anchors.leftMargin: 8
                 anchors.top: parent.top
@@ -213,37 +207,27 @@ Item {
             Loader {
                 id: articleLoader
                 objectName: "knowledgeArticleLoader"
-                anchors.left: root.narrow || !root.navigationExpanded
+                anchors.left: root.singlePane
                     ? parent.left : navigation.right
-                anchors.leftMargin: root.narrow || !root.navigationExpanded
+                anchors.leftMargin: root.singlePane
                     ? 0 : 17
                 anchors.right: parent.right
                 anchors.top: parent.top
                 anchors.bottom: parent.bottom
-                visible: !root.narrow || !root.navigationPage
+                visible: !root.singlePane || !navigation.visible
                 active: knowledgeController.identity.length > 0 || knowledgeController.creating
                 sourceComponent: knowledgeController.editing ? editorComponent : viewerComponent
-                onActiveChanged: root.traceEditor(
-                    "loader.active active=" + active)
-                onSourceComponentChanged: root.traceEditor(
-                    "loader.source_changed editing="
-                    + knowledgeController.editing)
-                onStatusChanged: root.traceEditor(
-                    "loader.status status=" + status
-                    + " progress=" + progress)
-                onItemChanged: root.traceEditor(
-                    "loader.item_changed item=" + Boolean(item))
             }
 
             Controls.EmptyState {
-                anchors.left: root.narrow || !root.navigationExpanded
+                anchors.left: root.singlePane
                     ? parent.left : navigation.right
-                anchors.leftMargin: root.narrow || !root.navigationExpanded
+                anchors.leftMargin: root.singlePane
                     ? 0 : 17
                 anchors.right: parent.right
                 anchors.top: parent.top
                 anchors.bottom: parent.bottom
-                visible: (!root.narrow || !root.navigationPage) && knowledgeController.identity.length === 0 && !knowledgeController.creating && !knowledgeController.busy
+                visible: (!root.singlePane || !navigation.visible) && knowledgeController.identity.length === 0 && !knowledgeController.creating && !knowledgeController.busy
                 theme: root.theme
                 iconName: "file"
                 title: qsTr("Choose an article")
@@ -281,7 +265,7 @@ Item {
             theme: root.theme
             controller: knowledgeController
             resizeActive: root.dockResizeActive
-            backNavigationAvailable: root.narrow && !navigation.visible
+            backNavigationAvailable: !navigation.visible
             onBackRequested: root.navigationPage = true
         }
     }
@@ -291,7 +275,7 @@ Item {
             theme: root.theme
             controller: knowledgeController
             resizeActive: root.dockResizeActive
-            backNavigationAvailable: root.narrow && !navigation.visible
+            backNavigationAvailable: !navigation.visible
             onBackRequested: root.navigationPage = true
         }
     }

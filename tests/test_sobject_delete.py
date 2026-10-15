@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import unittest
 from collections import OrderedDict
+from datetime import datetime, timedelta, timezone
 from unittest.mock import Mock, patch
 
 import thlib.tactic_classes as tc
@@ -9,6 +10,7 @@ from thlib.environment import env_inst
 
 from thlib.ui.sobject_delete import (
     SObjectDeleteController,
+    can_delete_recent_sobject,
     dependency_records,
 )
 from tests.support.async_scenarios import DeferredWorker
@@ -131,6 +133,62 @@ class _CapturingPool:
 
 
 class SObjectDeleteTests(unittest.TestCase):
+    def test_creator_and_one_hour_boundary(self):
+        now = datetime(2026, 9, 22, 12, tzinfo=timezone.utc)
+        source = _SObject("prod/asset?code=ASSET001", "Asset")
+        source.info = {
+            "login": "artist",
+            "timestamp": (now - timedelta(seconds=3599)).isoformat(),
+        }
+        self.assertTrue(can_delete_recent_sobject(
+            source, "artist", now=now
+        ))
+        self.assertFalse(can_delete_recent_sobject(
+            source, "other", now=now
+        ))
+        source.info["timestamp"] = (now - timedelta(hours=1)).isoformat()
+        self.assertFalse(can_delete_recent_sobject(
+            source, "artist", now=now
+        ))
+        source.info["timestamp"] = (now + timedelta(seconds=1)).isoformat()
+        self.assertFalse(can_delete_recent_sobject(
+            source, "artist", now=now
+        ))
+        source.info.pop("timestamp")
+        self.assertFalse(can_delete_recent_sobject(
+            source, "artist", now=now
+        ))
+        source.info["timestamp"] = "2026-09-22 09:50:00"
+        clock = Mock(presentation_datetime=Mock(
+            return_value=now - timedelta(minutes=10)
+        ))
+        self.assertTrue(can_delete_recent_sobject(
+            source, "artist", clock, now=now
+        ))
+
+    def test_result_delete_rechecks_age_after_confirmation_opens(self):
+        application = _Application()
+        application.server_user = "artist"
+        source = _SObject("prod/asset?code=ASSET001", "Asset", info={
+            "login": "artist",
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+        })
+        controller = SObjectDeleteController(application)
+        pool = _CapturingPool()
+        with patch.object(env_inst, "server_pool", pool):
+            source.info["login"] = "other"
+            self.assertFalse(controller.begin([source], "items"))
+            self.assertEqual(pool.calls, [])
+            source.info["login"] = "artist"
+            self.assertTrue(controller.begin([source], "items"))
+            pool.workers[0].resolve([])
+            source.info["timestamp"] = (
+                datetime.now(timezone.utc) - timedelta(hours=2)
+            ).isoformat()
+            controller.confirm_delete()
+        self.assertEqual(len(pool.calls), 1)
+        self.assertIn("last hour", controller.error)
+
     def test_legacy_defaults_include_builtin_and_instance_dependencies(self):
         schema = _Schema({
             ("prod/asset_in_asset", "prod/asset"): {
@@ -318,6 +376,7 @@ class SObjectDeleteTests(unittest.TestCase):
         )
         note_key = "sthpw/note?project=demo&code=NOTE001"
         controller._sources = [task]
+        controller._context = "tasks"
         controller._ready = True
         controller.model.reset_records([{
             "searchType": "sthpw/note",

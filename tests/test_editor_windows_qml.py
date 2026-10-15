@@ -10,6 +10,9 @@ os.environ.setdefault('QT_QPA_PLATFORM', 'offscreen')
 os.environ.setdefault('QT_QUICK_BACKEND', 'software')
 os.environ.setdefault('QT_QUICK_CONTROLS_STYLE', 'Material')
 os.environ.setdefault('QT_QPA_FONTDIR', 'C:/Windows/Fonts')
+# These input/layout fixtures do not benchmark render-thread concurrency.
+# Select their loop before application.py supplies its production default.
+os.environ.setdefault('QSG_RENDER_LOOP', 'basic')
 
 from PySide6.QtCore import QCoreApplication, QEvent, QObject, QPointF, Qt, QUrl, Signal
 from PySide6.QtGui import QFont, QGuiApplication
@@ -19,16 +22,19 @@ from PySide6.QtTest import QTest
 from shiboken6 import getCppPointer
 
 from thlib.ui.administration import AdministrationController
+from thlib.ui.columns_editor import ColumnsEditorController
 from thlib.tactic_classes import execute_procedure_serverside as execute_server_procedure
 from thlib.ui.application import _destroy_transient_windows
 from thlib.ui.filter_editor import FilterEditorController
 from thlib.ui.process_filter_editor import ProcessFilterEditorController
 from thlib.ui.localization import CatalogTranslator
+from thlib.ui.tasks import TasksController
 from thlib.ui.user import UserController
 from thlib.ui.workspace_models.windows import VisibleFloatingWindowModel
 from tests.test_sidebar_search_workspace import SidebarSearchWorkspaceTests
 from tests.test_sidebar_editor_qml import SidebarEditorQmlTests
 from tests.profile_ui_responsiveness import frame
+from tests.qt_application import run_native_windows_test
 
 QML = Path(__file__).resolve().parents[1] / 'thlib/ui/qml'
 
@@ -57,6 +63,8 @@ class EditorWindowQmlTests(unittest.TestCase):
         self.state = self.application.workspace_state
         self.users = UserController(self.application)
         self.admin = AdministrationController(self.application, self.users)
+        self.tasks = TasksController(self.application)
+        self.admin.attach_sidebar_editor(self.sidebar)
         self.enterContext(patch.object(self.admin, '_publish_catalog'))
         self.admin._loaded({
             'groups': [dict(code='G%s' % n, login_group='group_%02d' % n, description='Team %s' % n)
@@ -75,6 +83,7 @@ class EditorWindowQmlTests(unittest.TestCase):
         )
         self.enterContext(patch.object(self.filter_editor, 'load_presets'))
         self.sidebar.attach_filter_editor(self.filter_editor)
+        self.columns = ColumnsEditorController(self.application)
         self.process_filters = ProcessFilterEditorController(
             self.application.filter_editor_context,
             self.application.apply_process_filter_settings,
@@ -95,10 +104,12 @@ class EditorWindowQmlTests(unittest.TestCase):
             'versionsModel': self.application.versions_model,
             'windowModel': self.application.window_model, 'visibleWindowModel': self.visible_windows,
             'sidebarEditorController': self.sidebar,
+            'columnsEditorController': self.columns,
             'sidebarEntryModel': self.sidebar.entries,
             'sidebarSecurityGroupModel': self.sidebar.security_groups,
             'administrationController': self.admin, 'administrationGroupModel': self.admin.groups,
             'administrationMemberModel': self.admin.members,
+            'tasksController': self.tasks,
             'filterEditorController': self.filter_editor, 'filterPresetModel': self.filter_editor.presets,
             'processFilterEditorController': self.process_filters,
             'processFilterModel': self.process_filters.model,
@@ -146,43 +157,75 @@ ApplicationWindow {
         self.fixture.tearDown()
         self.assertEqual(self.warnings, [])
 
-    def test_nested_modals_are_owned_by_the_invoking_editor(self):
-        self.application.window_model.show_window('sidebar_editor')
-        sidebar_window = self.window('sidebar_editor')
+    def test_nested_modals_are_owned_by_administration(self):
+        self.admin.select_section('sidebar')
+        self.application.window_model.show_window('administration')
+        administration_window = self.window('administration')
         self.sidebar.open_group_manager()
-        groups_window = self.window('administration')
-        self.assertIs(groups_window.transientParent(), sidebar_window)
-        self.application.window_model.close_window('administration')
+        self.assertEqual(self.admin.section, 'groups')
+        self.admin.select_section('sidebar')
         self.sidebar.open_search()
         QCoreApplication.processEvents()
         preview_window = self.window('sidebar_search_preview')
-        self.assertIs(preview_window.transientParent(), sidebar_window)
+        self.assertIs(preview_window.transientParent(), administration_window)
         self.application.window_model.show_child_window('quick_filter_editor', 'sidebar_search_preview')
         filters_window = self.window('quick_filter_editor')
         self.assertIs(filters_window.transientParent(), preview_window)
         self.application.window_model.close_window('sidebar_search_preview')
         self.assertFalse(self.application.window_model.is_window_visible('quick_filter_editor'))
 
+    def test_restored_window_is_recovered_from_disconnected_screen(self):
+        self.enterContext(patch.dict(
+            self.application.window_model._content_sources,
+            {'help': 'UnregisteredWindow.qml'},
+        ))
+        self.application.window_model.set_geometry(
+            'help', 1654, 1158, 832, 539,
+        )
+        try:
+            self.application.window_model.show_window('help')
+            window = self.window('help')
+            area = window.screen().availableGeometry()
+            self.assertGreaterEqual(window.x(), area.left())
+            self.assertGreaterEqual(window.y(), area.top())
+            self.assertLessEqual(
+                window.x() + window.width(), area.right() + 8,
+                (window.x(), window.width(), area),
+            )
+            self.assertLessEqual(
+                window.y() + window.height(), area.bottom() + 8,
+                (window.y(), window.height(), area),
+            )
+            QCoreApplication.processEvents()
+            saved = self.application.window_model._windows[
+                self.application.window_model._row('help')
+            ]
+            self.assertEqual(saved.geometry_mode, 'absolute')
+            self.assertLessEqual(saved.y, area.bottom())
+        finally:
+            self.application.window_model.close_window('help')
+
     def test_teardown_destroys_nested_windows_before_their_owner(self):
-        self.application.window_model.show_window('sidebar_editor')
-        sidebar_window = self.window('sidebar_editor')
-        self.sidebar.open_group_manager()
+        self.application.window_model.show_window('administration')
         administration_window = self.window('administration')
+        self.sidebar.open_search()
+        QCoreApplication.processEvents()
+        preview_window = self.window('sidebar_search_preview')
         hidden = []
+        preview_window.visibleChanged.connect(
+            lambda visible: hidden.append('sidebar_search_preview') if not visible else None
+        )
         administration_window.visibleChanged.connect(
             lambda visible: hidden.append('administration') if not visible else None
-        )
-        sidebar_window.visibleChanged.connect(
-            lambda visible: hidden.append('sidebar_editor') if not visible else None
         )
 
         _destroy_transient_windows(self.owner)
         QCoreApplication.processEvents()
 
         self.assertFalse(administration_window.isVisible())
-        self.assertFalse(sidebar_window.isVisible())
+        self.assertFalse(preview_window.isVisible())
         self.assertTrue(self.owner.isVisible())
-        self.assertEqual(hidden, ['administration', 'sidebar_editor'])
+        self.assertEqual(hidden, ['sidebar_search_preview', 'administration'])
 
     def test_debug_log_filters_wrap_inside_the_narrow_window(self):
         from thlib.environment import env_mode
@@ -221,6 +264,92 @@ ApplicationWindow {
                     self.assertLessEqual(
                         position.x() + chip.width(), window.width() - 12
                     )
+
+    def test_error_request_has_python_highlighting_and_scrollable_script(self):
+        from thlib.environment import env_mode
+        from thlib.ui.debug_logging import DebugLogController
+
+        debug_log = DebugLogController(Path(env_mode.current_path))
+        self.debug_log = debug_log
+        self.addCleanup(debug_log.shutdown)
+        self.engine.rootContext().setContextProperty('debugLog', debug_log)
+        script = ('# Preserve server-side comments\n'
+                  'def query():\n'
+                  '    value = ' + repr('long-value-' * 100) + '\n'
+                  '    return value\n' + '# diagnostic line\n' * 100)
+        command = (
+            "import thlib.environment as thenv\n"
+            "thenv.tc().server_start(project='demo').execute_python_script("
+            "script_path='', kwargs=" + repr({'code': script}) + ')'
+        )
+        debug_log.raise_error(ValueError('Request failed'), command=command)
+        self.application.window_model.show_window('error')
+        self.addCleanup(self.application.window_model.close_window, 'error')
+        window = self.window('error')
+        for width, height in ((640, 580), (1100, 880)):
+            with self.subTest(width=width):
+                window.resize(width, height)
+                frame(window)
+                items = list(SidebarEditorQmlTests.descendants(window.contentItem()))
+                editors = [item for item in items if item.objectName() == 'errorRequestCode']
+                self.assertEqual(len(editors), 2)
+                editor = next(item for item in editors if item.property('text') == script)
+                quick_document = editor.property('textDocument')
+                document = quick_document.textDocument()
+                self.assertEqual(document.toPlainText(), script)
+                self.assertTrue(document.findBlockByNumber(1).layout().formats())
+                keyword = next(part for part in document.findBlockByNumber(1).layout().formats()
+                               if part.start == 0 and part.length == 3)
+                theme = editor.property('theme')
+                self.assertEqual(keyword.format.foreground().color(),
+                                 theme.property('syntaxKeyword'))
+                self.assertTrue(editor.property('readOnly'))
+                self.assertGreaterEqual(editor.property('rightPadding'), 12)
+                scroll = editor.parentItem()
+                while scroll.objectName() != 'errorRequestScrollView':
+                    scroll = scroll.parentItem()
+                bars = [item for item in items if item.objectName() in {
+                    'errorRequestVerticalScrollBar', 'errorRequestHorizontalScrollBar'}
+                    and item.property('hasOverflow')]
+                self.assertGreaterEqual(len(bars), 2)
+                for bar in bars:
+                    self.assertTrue(bar.isVisible())
+                    self.assertEqual(bar.opacity(), 1)
+                position = scroll.mapToScene(QPointF())
+                self.assertGreaterEqual(position.x(), 24)
+                self.assertLessEqual(position.x() + scroll.width(), window.width() - 24)
+                screenshots = os.environ.get('EDITOR_WINDOW_SCREENSHOTS')
+                if screenshots:
+                    window.grabWindow().save(str(
+                        Path(screenshots) / f'error-request-{width}.png'))
+                body = self.item(window, 'errorBodyFlickable')
+                body.setProperty('contentY', max(0, position.y() - 120))
+                frame(window)
+                point = scroll.mapToScene(QPointF(35, 35))
+                QTest.mouseClick(window, Qt.LeftButton, pos=point.toPoint())
+                frame(window)
+                self.assertTrue(editor.hasActiveFocus())
+                QTest.keyClick(window, Qt.Key_A, Qt.ControlModifier)
+                QTest.keyClick(window, Qt.Key_C, Qt.ControlModifier)
+                self.assertEqual(QGuiApplication.clipboard().text(), script)
+                horizontal = next(bar for bar in bars
+                                  if bar.objectName() == 'errorRequestHorizontalScrollBar')
+                horizontal_point = horizontal.mapToScene(
+                    QPointF(horizontal.width() - 5, horizontal.height() / 2))
+                QTest.mouseClick(window, Qt.LeftButton, pos=horizontal_point.toPoint())
+                frame(window)
+                self.assertGreater(horizontal.property('position'), 0)
+                self.assertEqual(debug_log.error_command, command)
+        self.application.window_model.close_window('error')
+        frame(self.owner)
+        self.application.window_model.show_window('error')
+        window = self.window('error')
+        frame(window)
+        self.assertEqual(len(debug_log._request_highlighters), 2)
+        debug_log.raise_error(ValueError('Another request failed'), command='print(1)')
+        frame(window)
+        self.assertEqual(len(debug_log._request_highlighters), 1)
+        self.assertEqual(self.item(window, 'errorRequestCode').property('text'), 'print(1)')
 
     def test_server_change_cancels_group_draft_and_stale_worker(self):
         self.admin.set_member('user_1', True)
@@ -312,18 +441,17 @@ ApplicationWindow {
         frame(window)
 
     def choose_combo_option(self, window, combo, index):
-        self.click(window, combo)
-        self.native_windows = self.app.allWindows()
-        popup_window = next(w for w in self.native_windows
-                            if w.isVisible() and w.transientParent() is window
-                            and (w.flags() & Qt.WindowType_Mask) == Qt.Popup)
-        options = combo.findChild(QQuickItem, 'comboBoxPopupList')
-        option = next(item for item in SidebarEditorQmlTests.descendants(options)
-                      if item.metaObject().className().startswith('ItemDelegate')
-                      and item.property('index') == index)
-        point = option.mapToScene(QPointF(option.width() / 2, option.height() / 2))
-        QTest.mouseClick(popup_window, Qt.LeftButton, pos=point.toPoint())
+        # Test the view-selection workflow through real keyboard input. Native
+        # popup activation is covered separately on the Windows QPA platform.
+        combo.forceActiveFocus(Qt.TabFocusReason)
+        current = combo.property('currentIndex')
+        key = Qt.Key_Down if index > current else Qt.Key_Up
+        for _ in range(abs(index - current)):
+            combo.forceActiveFocus(Qt.TabFocusReason)
+            QTest.keyClick(window, key)
+            frame(window)
         frame(window)
+        self.assertEqual(combo.property('currentIndex'), index)
 
     def open_preview_filter_menu(self):
         self.sidebar.open_search()
@@ -430,6 +558,33 @@ ApplicationWindow {
         self.assertTrue(self.filter_editor._search_type_library)
         self.assertEqual(self.filter_editor._current_context()['preset_scope'], '')
         self.application._load_tab.assert_not_called()
+
+    def test_preview_preset_bar_refresh_preserves_search_type_library(self):
+        self.sidebar.open_search()
+        QCoreApplication.processEvents()
+        window = self.window('sidebar_search_preview')
+        title = self.item(window, 'previewSearchContextTitle')
+        self.assertEqual(
+            title.property('text'),
+            'Настройка поиска: My tasks',
+        )
+        self.filter_editor._search_type_library = True
+        self.filter_editor.load_presets.reset_mock()
+        self.click(window, self.item(window, 'searchPresetMoreButton'))
+        menu = window.findChild(QObject, 'searchPresetActions')
+        self.assertTrue(menu.property('opened'))
+        popup = next(
+            candidate for candidate in self.app.allWindows()
+            if candidate.isVisible()
+            and candidate.transientParent() is window
+            and (candidate.flags() & Qt.WindowType_Mask) == Qt.Popup
+        )
+        self.click_filter_menu_action(popup, 'refresh')
+        self.filter_editor.load_presets.assert_called_once()
+        self.assertTrue(self.filter_editor._search_type_library)
+        self.assertEqual(
+            self.filter_editor._current_context()['preset_scope'], ''
+        )
 
     def test_preview_long_preset_menu_reserves_its_scrollbar_gutter(self):
         _window, menu, popup = self.open_preview_filter_menu()
@@ -621,6 +776,7 @@ ApplicationWindow {
     def test_create_group_form_keeps_members_and_save_reachable(self):
         self.admin.open()
         window = self.window('administration')
+        frame(window)
         self.click(window, self.item(window, 'createSecurityGroup'))
         name = self.item(window, 'securityGroupName')
         self.assertFalse(name.property('readOnly'))
@@ -637,6 +793,8 @@ ApplicationWindow {
         self.assertFalse(self.admin.dirty)
 
     def test_preview_has_real_preset_query_quick_filters_and_modal_lifetime(self):
+        if run_native_windows_test(self):
+            return
         self.sidebar.open_search()
         QCoreApplication.processEvents()
         window = self.window('sidebar_search_preview')

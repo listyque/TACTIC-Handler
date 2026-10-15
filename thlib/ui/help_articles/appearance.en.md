@@ -22,6 +22,8 @@ order: 35
 | **Fades and transitions** | Animates appearing content, view changes, expansion, and other interface fades. |
 | **Menu and popup animations** | Animates menus, combo boxes, popups, and tooltips. Disable it for instant opening and dismissal. |
 
+Enabled interface animations use short durations across all styles: about 2.5 times faster than the previous motion timing. The switches above still disable their respective animations completely.
+
 ## Language
 
 **Interface language** changes application labels and selects the matching help articles. Project
@@ -40,3 +42,6 @@ names, Search Types, processes, statuses, and other server-defined data are neve
 
 Restart TACTIC Handler after changing the backend. On supported Windows versions, switching between
 light and dark mode also updates native window title bars.
+If OpenGL stutters while resizing and Vulkan works on this computer, select Vulkan explicitly;
+Automatic currently selects OpenGL on Windows.
+Software rendering shows preview images without rounded clipping because Qt's graphical effects are unavailable there.

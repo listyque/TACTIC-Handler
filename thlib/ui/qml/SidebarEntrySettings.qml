@@ -139,6 +139,7 @@ ColumnLayout {
                     description: qsTr("Hide this item without deleting its settings.")
                     showDivider: false
                     Controls.CheckBox {
+                        objectName: "sidebarEntryVisibleCheck"
                         theme: root.theme
                         checked: Boolean(root.entry.isVisible)
                         Accessible.name: qsTr("Visible in navigation")
@@ -174,6 +175,8 @@ ColumnLayout {
                     description: qsTr("Choose a saved query or leave the list unfiltered. Configure search opens the Search Type's shared library and results.")
                     Controls.ComboBox {
                         objectName: "sidebarSearchPreset"
+                        Layout.fillWidth: true
+                        Layout.minimumWidth: 140
                         Layout.preferredWidth: 230
                         theme: root.theme
                         textRole: "label"; valueRole: "value"
@@ -182,6 +185,14 @@ ColumnLayout {
                         enabled: !root.controller.searchPresetsBusy && Boolean(root.entry.searchType)
                         currentIndex: root.optionIndex(model, root.entry.searchView)
                         onActivated: root.controller.update_selected("searchView", currentValue)
+                    }
+                    Controls.Button {
+                        objectName: "sidebarSearchSetupButton"
+                        theme: root.theme
+                        text: qsTr("Configure search")
+                        icon.name: "edit"
+                        enabled: root.controller.canOpenSearch
+                        onClicked: root.controller.open_search()
                     }
                 }
                 Controls.SettingsRow {
@@ -243,14 +254,6 @@ ColumnLayout {
                             "scriptShelf", currentValue
                         )
                     }
-                }
-                Controls.Button {
-                    objectName: "sidebarSearchSetupButton"
-                    theme: root.theme
-                    text: qsTr("Configure search")
-                    icon.name: "edit"
-                    enabled: root.controller.canOpenSearch
-                    onClicked: root.controller.open_search()
                 }
                 Label {
                     Layout.fillWidth: true

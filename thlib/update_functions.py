@@ -1,225 +1,175 @@
-import os
-import random
-import fnmatch
-import re
-import glob
-import zipfile
+"""Portable application release archives and validation."""
+
+from __future__ import annotations
+
 import json
-from urllib import request as urllib_request
-
-from thlib.environment import env_server, env_inst
-import thlib.global_functions as gf
-# import thlib.tactic_classes as tc
-
-
-def get_version(major=0, minor=0, build=0, revision=0, string=False, sort_sum=False):
-    version_dict = {
-        'major': major,
-        'minor': minor,
-        'build': build,
-        'revision': revision,
-    }
-    if string:
-        return '{major}_{minor}_{build}_{revision}'.format(**version_dict)
-    elif sort_sum:
-        return int(major)*1000 + int(minor)*100 + int(build)*10 + int(revision)
-    else:
-        return version_dict
+import os
+import re
+import shutil
+import stat
+import zipfile
+from pathlib import Path, PurePosixPath
 
 
-def read_json_from_path(file_path):
-    if os.path.isfile(file_path):
-        json_file = open(file_path)
-        fl = json.load(json_file)
-        json_file.close()
-        return fl
-    else:
-        return get_version()
+VERSION_FIELDS = ("major", "minor", "build", "revision")
+VERSION_PATTERN = re.compile(r"(\d+)[._-](\d+)[._-](\d+)[._-](\d+)\.zip$", re.I)
+MAX_ARCHIVE_SIZE = 2 * 1024 * 1024 * 1024
+MAX_MEMBERS = 20000
+RELEASE_ROOT_DIRS = {
+    "handler_server", "installer", "project_templates", "scripts",
+    "server_plugin", "side_tools", "tactic_handler_api",
+    "tactic_handler_dcc", "thlib",
+}
+RELEASE_ROOT_FILES = {
+    "__init__.py", "default.gitattributes", "default.gitignore",
+    "execute_after_start.py", "launch.py", "launch.pyw", "LICENSE",
+    "README.md", "README.ru.md", "requirements.txt", "release.json",
+    "CHANGELOG.md",
+}
+EXCLUDED_PARTS = {
+    ".git", ".idea", "__pycache__", ".pytest_cache", ".mypy_cache",
+    ".ruff_cache", "settings", "log", "updates", "backup", "_tmp",
+    ".cache", ".release", "custom_scripts", "tests", "docs", ".agents",
+    ".codex", ".artifacts", ".tmp", "node_modules", "venv", ".venv",
+}
 
 
-def save_json_to_path(file_path, data):
-    updates_dir = '{0}/updates'.format(env_mode.get_current_path())
-    if not os.path.isdir(updates_dir):
-        os.makedirs(updates_dir)
-    with open(file_path, mode='w+') as json_file:
-        json.dump(data, json_file, indent=4)
+def version_tuple(data: dict) -> tuple[int, int, int, int]:
+    return tuple(int(data[field]) for field in VERSION_FIELDS)
 
 
-def get_current_version():
-    file_path = '{0}/thlib/version.json'.format(env_mode.get_current_path())
-    return read_json_from_path(file_path)
+def version_text(version: tuple[int, int, int, int]) -> str:
+    return ".".join(map(str, version))
 
 
-def check_need_update():
-    server_ver = check_for_last_version()
-    if not server_ver:
-        return False
-    current_ver = get_current_version()
-
-    if get_version(**server_ver) != get_version(**current_ver):
-        return True
+def version_from_filename(filename: str) -> tuple[int, int, int, int] | None:
+    match = VERSION_PATTERN.search(Path(filename).name)
+    return tuple(map(int, match.groups())) if match else None
 
 
-def save_current_version(data):
-    file_path = '{0}/thlib/version.json'.format(env_mode.get_current_path())
-    save_json_to_path(file_path, data)
+def current_version(app_dir: Path | None = None) -> tuple[int, int, int, int]:
+    if app_dir is None:
+        app_dir = Path(__file__).resolve().parents[1]
+    with (app_dir / "thlib" / "version.json").open(encoding="utf-8") as stream:
+        return version_tuple(json.load(stream))
 
 
-def get_info_from_updates_folder(files_list=False):
-    updates_dir = '{0}/updates'.format(env_mode.get_current_path())
-    json_files = glob.glob1(updates_dir, '*.json')
-    if files_list:
-        return json_files
-    updates_list = []
-    for jf in json_files:
-        if jf != 'versions.json':
-            # print('{0}/{1}'.format(updates_dir, jf))
-            updates_list.append(read_json_from_path('{0}/{1}'.format(updates_dir, jf)))
-
-    return updates_list
+def read_changelog(app_dir: Path | None = None) -> str:
+    """Read the release history bundled with this application."""
+    app_dir = Path(app_dir or Path(__file__).resolve().parents[1])
+    return (app_dir / "CHANGELOG.md").read_text(encoding="utf-8")
 
 
-def create_updates_list():
-    file_path = '{0}/updates/versions.json'.format(env_mode.get_current_path())
-    save_json_to_path(file_path, get_info_from_updates_folder(files_list=True))
-
-
-def download_from_url(url):
-    proxy = env_server.get_proxy()
-    if proxy['enabled']:
-        server = proxy['server'].replace('http://', '')
-        proxy_dict = {
-            'http': 'http://{login}:{pass}@{0}'.format(server, **proxy)
-        }
-        proxy_handler = urllib_request.ProxyHandler(proxy_dict)
-        auth = urllib_request.HTTPBasicAuthHandler()
-        opener = urllib_request.build_opener(
-            proxy_handler, auth, urllib_request.HTTPHandler
-        )
-        urllib_request.install_opener(opener)
-
-    def url_open_agent(url=url, timeout=1):
-        return urllib_request.urlopen(url=url, timeout=timeout)
-
-    query_worker = gf.get_thread_worker(
-        url_open_agent,
-        error_func=gf.error_handle
+def release_notes(changelog: str, version: tuple[int, int, int, int]) -> str:
+    """Return the Markdown body under an exact version heading."""
+    match = re.search(
+        r"^## " + re.escape(version_text(version))
+        + r" - [^\n]+\n(.*?)(?=^## |\Z)",
+        changelog, re.MULTILINE | re.DOTALL,
     )
-    query_worker.try_start()
-    thread_pool = query_worker.get_thread_pool()
-    thread_pool.waitForDone()
-
-    if query_worker.is_failed():
-        return False
-    # else:
-    #     return result_thread.result
+    return match.group(1).strip() if match else ""
 
 
-def check_for_last_version():
-    last_ver = download_from_url('http://tactic-handler.tk/th/version.json?{0}'.format(random.randint(0, 99999)))
-    if last_ver:
-        update_str = json.loads(last_ver.read())
-        return update_str
+def portable_root(app_dir: Path | None = None) -> Path | None:
+    app_dir = Path(app_dir or Path(__file__).resolve().parents[1]).resolve()
+    root = app_dir.parent
+    if (app_dir.name.lower() == "app" and (root / "_launcher.pyw").is_file()
+            and (root / "_runtime" / "pythonw.exe").is_file()):
+        return root
+    return None
 
 
-def get_updates_from_server():
-    updates_list = download_from_url('http://tactic-handler.tk/th/versions.json?{0}'.format(random.randint(0, 99999)))
-    if updates_list:
-        versions_list = json.loads(updates_list.read())
-        path_to_save = '{0}/updates'.format(env_mode.get_current_path())
-
-        if not os.path.exists(path_to_save):
-            os.makedirs(path_to_save)
-
-        for vl in versions_list:
-            update_file = download_from_url('http://tactic-handler.tk/th/{0}'.format(vl))
-            with open('{0}/{1}'.format(path_to_save, vl), 'wb') as output:
-                output.write(update_file.read())
-
-            output.close()
-
-
-def get_update_archive_from_server(archive_name):
-
-    archive_path = '{0}/updates/{1}'.format(env_mode.get_current_path(), archive_name)
-
-    update_archive_file = download_from_url('http://tactic-handler.tk/th/{0}'.format(archive_name))
-    if update_archive_file:
-        with open(archive_path, 'wb') as output:
-            output.write(update_archive_file.read())
-
-        output.close()
-
-        return archive_path
-
-
-def create_app_update_list():
-    ignore_list = [
-        '.idea',
-        '!not_in_project!',
-        'settings',
-        'screenshots',
-        'updates',
-        'backup',
-        'design',
-        'deprecated',
-    ]
-    include_list = [
-        '*.py',
-        '*.pyw',
-        '*.ui',
-        '*.json',
-        '*.png',
-        '*.psd',
-        '*.py',
-        '*.qrc',
-        '*.ico',
-        '*.tga',
-        '*.txt',
-        '*.tif',
-        '*.rgb',
-        '*.j2k',
-        '*.jpg',
-        '*.zip',
-        '*.ttf',
-        '*VERSION*',
-    ]
-
-    include_list = r'|'.join([fnmatch.translate(x) for x in include_list])
-    ignore_list = '|'.join(ignore_list)
-
-    files_list = []
-    for root, dirs, files in os.walk(env_mode.get_current_path()):
-        if not re.search(ignore_list, root):
-            files = [os.path.join(root, f) for f in files]
-            files = [f for f in files if not re.search(ignore_list, f)]
-            files = [f for f in files if re.search(include_list, f)]
-
-            for fl in files:
-                files_list.append(fl)
-
-    return files_list
+def archive_members(archive: zipfile.ZipFile) -> list[zipfile.ZipInfo]:
+    members = archive.infolist()
+    if len(members) > MAX_MEMBERS:
+        raise ValueError("Update archive contains too many entries")
+    seen = set()
+    total = 0
+    for member in members:
+        name = member.filename
+        path = PurePosixPath(name)
+        parts = name.rstrip("/").split("/")
+        if (not name or "\\" in name or name.startswith("/")
+                or ":" in name or any(part in {"", ".", ".."} for part in parts)
+                or any(part in EXCLUDED_PARTS for part in path.parts)
+                or (parts[0] not in RELEASE_ROOT_DIRS
+                    and (len(parts) != 1 or parts[0] not in RELEASE_ROOT_FILES))
+                or any(part.rstrip(". ") != part or part.split(".")[0].upper()
+                       in {"CON", "PRN", "AUX", "NUL", *(f"COM{i}" for i in range(1, 10)),
+                           *(f"LPT{i}" for i in range(1, 10))} for part in parts)
+                or stat.S_ISLNK(member.external_attr >> 16)):
+            raise ValueError(f"Unsafe update archive entry: {name}")
+        folded = str(path).casefold().rstrip("/")
+        if folded in seen:
+            raise ValueError(f"Duplicate update archive entry: {name}")
+        seen.add(folded)
+        total += member.file_size
+        if total > MAX_ARCHIVE_SIZE:
+            raise ValueError("Update archive exceeds the size limit")
+    if "launch.py" not in seen or "thlib/version.json" not in seen:
+        raise ValueError("Update archive must contain launch.py and thlib/version.json")
+    return members
 
 
-def create_update_archive(archive_path):
-    with zipfile.ZipFile(archive_path, 'w', compression=zipfile.ZIP_DEFLATED) as zp:
-        files_list = create_app_update_list()
-        abs_path = env_mode.get_current_path()
+def stage_archive(archive_path: Path, destination: Path,
+                  expected_version: tuple[int, int, int, int]) -> None:
+    """Validate and extract a release outside the live application directory."""
+    destination = Path(destination)
+    with zipfile.ZipFile(archive_path) as archive:
+        members = archive_members(archive)
+        version = json.loads(archive.read("thlib/version.json"))
+        if version_tuple(version) != expected_version:
+            raise ValueError("Archive version does not match the selected release")
+        destination.mkdir(parents=True, exist_ok=False)
+        try:
+            for member in members:
+                target = destination.joinpath(*PurePosixPath(member.filename).parts)
+                if member.is_dir():
+                    target.mkdir(parents=True, exist_ok=True)
+                else:
+                    target.parent.mkdir(parents=True, exist_ok=True)
+                    with archive.open(member) as source, target.open("wb") as output:
+                        shutil.copyfileobj(source, output)
+        except Exception:
+            shutil.rmtree(destination)
+            raise
 
-        for fl in files_list:
-            fl_rep = fl.replace
-            zp.write(fl, arcname=fl_rep(abs_path, ''))
 
-    zp.close()
-
-
-def update_from_archive(archive_path):
-    with zipfile.ZipFile(archive_path, "r") as zp:
-        members = []
-        for member in zp.infolist():
-            member.filename = member.filename.replace('\\', '/')
-            members.append(member)
-
-        zp.extractall(env_mode.get_current_path(), members)
-
-    zp.close()
+def create_update_archive(app_dir: Path, archive_path: Path,
+                          version: tuple[int, int, int, int],
+                          changes: str = "", misc: str = "") -> None:
+    """Publish app code only; never package settings or modify the running version."""
+    app_dir = Path(app_dir)
+    archive_path = Path(archive_path)
+    archive_path.parent.mkdir(parents=True, exist_ok=True)
+    version_bytes = json.dumps(dict(zip(VERSION_FIELDS, version))).encode("utf-8")
+    changelog = read_changelog(app_dir)
+    notes = release_notes(changelog, version)
+    if not notes:
+        raise ValueError(
+            f"Add release notes for {version_text(version)} to CHANGELOG.md "
+            "before creating its update archive"
+        )
+    changes = changes.strip() or notes
+    with zipfile.ZipFile(archive_path, "w", zipfile.ZIP_DEFLATED) as archive:
+        for root, dirs, files in os.walk(app_dir):
+            if Path(root) == app_dir:
+                dirs[:] = [name for name in dirs if name in RELEASE_ROOT_DIRS]
+            else:
+                dirs[:] = [name for name in dirs if name not in EXCLUDED_PARTS]
+            for filename in files:
+                source = Path(root) / filename
+                relative = source.relative_to(app_dir).as_posix()
+                if (filename in EXCLUDED_PARTS or filename == "release.json"
+                        or filename.endswith((".pyc", ".pyo"))
+                        or (Path(root) == app_dir
+                            and filename not in RELEASE_ROOT_FILES)
+                        or source.is_symlink()):
+                    continue
+                if relative == "thlib/version.json":
+                    continue
+                archive.write(source, relative)
+        archive.writestr("thlib/version.json", version_bytes)
+        archive.writestr("release.json", json.dumps({
+            "version": version_text(version), "changes": changes, "misc": misc,
+        }, ensure_ascii=False).encode("utf-8"))

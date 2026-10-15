@@ -11,6 +11,7 @@ Item {
     required property var theme
     required property string projectTitle
     required property string pageTitle
+    property bool workspaceActive: true
     property var ownerWindow: Window.window
     signal notice(string message)
     signal requestDockMenu(var sourceItem)
@@ -18,6 +19,12 @@ Item {
     property bool dockDragActive: false
     property bool dockResizeActive: false
     property bool windowResizeActive: false
+    property string resizingPanelId: ""
+    property string activeResizeOrientation: ""
+    property real activeResizeBoundary: -1
+    property real activeResizeSpanStart: -1
+    property real activeResizeSpanEnd: -1
+    property bool activeResizeShared: false
     property string draggingPanelId: ""
     property string activeSnapZone: ""
     property string activeSnapTargetId: ""
@@ -119,12 +126,53 @@ Item {
         dockDragActive = true
     }
 
-    function beginDockResize() {
+    function beginDockResize(
+            panelId, orientation, boundary, spanStart, spanEnd,
+            shared) {
+        resizingPanelId = panelId
+        activeResizeOrientation = orientation
+        activeResizeBoundary = boundary
+        activeResizeSpanStart = spanStart
+        activeResizeSpanEnd = spanEnd
+        activeResizeShared = shared
         dockResizeActive = true
+    }
+
+    function dockSharesActiveResize(panelId, x, y, width, height) {
+        if (!dockResizeActive)
+            return false
+        if (panelId === resizingPanelId)
+            return true
+        if (!activeResizeShared)
+            return false
+        const vertical = activeResizeOrientation === "vertical"
+        const firstEdge = vertical ? x : y
+        const secondEdge = firstEdge + (vertical ? width : height)
+        const spanStart = vertical ? y : x
+        const spanEnd = spanStart + (vertical ? height : width)
+        return (
+            Math.abs(firstEdge - activeResizeBoundary) <= 1
+            || Math.abs(secondEdge - activeResizeBoundary) <= 1
+        ) && spanEnd > activeResizeSpanStart
+            && spanStart < activeResizeSpanEnd
+    }
+
+    function updateDockResizeBoundary(boundary, spanStart, spanEnd) {
+        if (!dockResizeActive)
+            return
+        activeResizeBoundary = boundary
+        activeResizeSpanStart = spanStart
+        activeResizeSpanEnd = spanEnd
     }
 
     function endDockResize() {
         dockResizeActive = false
+        resizingPanelId = ""
+        activeResizeOrientation = ""
+        activeResizeBoundary = -1
+        activeResizeSpanStart = -1
+        activeResizeSpanEnd = -1
+        activeResizeShared = false
     }
 
     function ensureDockMinimumSizes() {
@@ -183,14 +231,16 @@ Item {
         activeSnapRect = ({ "x": 0, "y": 0, "width": 0, "height": 0 })
     }
 
-    function finishDockDrag(panelId, panelX, panelY, panelWidth, panelHeight) {
+    function finishDockDrag(
+            panelId, panelX, panelY, panelWidth, panelHeight,
+            wasFloating) {
         if (!dockDragActive || draggingPanelId !== panelId) return
         if (activeSnapZone.length && activeSnapTargetId.length)
             dockModel.place_panel(panelId, activeSnapTargetId, activeSnapZone)
         else if (activeSnapZone.length)
             dockModel.snap_panel(panelId, activeSnapZone)
-        else
-            dockModel.float_panel(
+        else if (wasFloating)
+            dockModel.set_geometry(
                 panelId,
                 panelX / Math.max(1, width),
                 panelY / Math.max(1, height),
@@ -205,14 +255,15 @@ Item {
         activeSnapRect = ({ "x": 0, "y": 0, "width": 0, "height": 0 })
     }
 
-    Rectangle { anchors.fill: parent; color: root.theme.workspace }
     Item {
         id: dockCanvas
+        objectName: "dockCanvas"
         anchors.fill: parent
         clip: true
+        visible: root.workspaceActive
         Repeater {
             id: dockRepeater
-            model: visibleDockModel
+            model: root.workspaceActive ? visibleDockModel : 0
             delegate: Item {
                 id: dockDelegate
                 objectName: "dockDelegate_" + panelId
@@ -295,6 +346,7 @@ Item {
     }
 
     Instantiator {
+        active: root.workspaceActive
         model: detachedDockModel
         delegate: DetachedDockWindow {
             ownerWindow: root.ownerWindow
@@ -317,6 +369,16 @@ Item {
                 : kind === "knowledge" ? dockContents.knowledge
                 : dockContents.description
         }
+    }
+
+    Controls.EmptyState {
+        objectName: "workspaceNoSearchType"
+        anchors.fill: parent
+        visible: !root.workspaceActive
+        theme: root.theme
+        iconName: "search"
+        title: qsTr("No Search Type open")
+        message: qsTr("Open the menu and choose a Search Type to start searching.")
     }
 
     Rectangle {

@@ -5,6 +5,37 @@ from __future__ import annotations
 import datetime
 
 
+def _date_value(value) -> datetime.date | None:
+    if isinstance(value, datetime.datetime):
+        return value.date()
+    if isinstance(value, datetime.date):
+        return value
+    try:
+        return datetime.date.fromisoformat(str(value or "")[:10])
+    except ValueError:
+        return None
+
+
+def get_compact_date(value) -> str:
+    parsed = _date_value(value)
+    if parsed is None:
+        return ""
+    from thlib.side.Qt import QtCore
+    return QtCore.QLocale().toString(
+        QtCore.QDate(parsed.year, parsed.month, parsed.day), "d MMM"
+    )
+
+
+def get_full_date(value) -> str:
+    parsed = _date_value(value)
+    if parsed is None:
+        return ""
+    from thlib.side.Qt import QtCore
+    return QtCore.QLocale().toString(
+        QtCore.QDate(parsed.year, parsed.month, parsed.day), "d MMMM yyyy"
+    )
+
+
 def get_full_datetime(date_time_object: datetime.datetime) -> str:
     from thlib.side.Qt import QtCore
     if not isinstance(date_time_object, datetime.datetime):

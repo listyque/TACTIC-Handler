@@ -5,6 +5,10 @@ order: 7
 ---
 # Common controls
 
+Combo boxes open on click and close when the same field is clicked again.
+Their lists fit the longest label within the available screen width, including
+when the field sits in a narrow table column.
+
 > The same controls and visual states are reused throughout the application. Use the cross in a search
 > field to clear its query. Escape clears ordinary searches; suggestion fields keep their own keyboard
 > navigation.
@@ -16,7 +20,13 @@ Search fields support suggestions and tags. Tabs isolate work contexts.
 Filter chips show active constraints. Badges show task, note, queue, or notification counts.
 
 Three-dot buttons contain secondary actions. A six-dot grip moves a dock; right-click it for Help,
-docking, detaching, and closing actions.
+docking, detaching, and closing actions. Release it on a highlighted docking zone to move the dock;
+release it elsewhere to return the dock to its current place. Adjacent docks share one resize grip.
+The grip sits on its owning dock's side of the divider, so pressing it starts resizing immediately.
+Stacked docks keep one shared move grip beside their tabs, including when Search is the active tab.
+Dragging that centered grip highlights both docks whose boundary will move.
+Splitters throughout the application use the same short centered resize grip. Drag it to resize
+adjacent panels; it highlights on hover and press.
 
 Right-clicking selected text keeps the selection available for Cut or Copy. Right-clicking outside
 the selection moves the text cursor to the clicked position.

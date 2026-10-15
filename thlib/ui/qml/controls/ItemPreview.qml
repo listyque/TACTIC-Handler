@@ -15,14 +15,14 @@ Item {
     property bool round: false
     property real cornerRadius: round ? width / 2 : 4
     property bool outlined: false
+    property bool readyBorderEnabled: true
     property bool selected: false
     // Views explicitly deactivate pooled delegates so decoded images and
     // scene-graph textures are released instead of accumulating while the
     // user scrolls through an infinite result set.
     property bool active: true
-    // Moving views may render non-round images directly. Circular sObject
-    // previews keep their mask alive so scrolling never changes their shape
-    // or repeatedly destroys and recreates the effect item.
+    // Scrolling may disable decoration, but rounded clipping is geometry:
+    // retain its mask for both circular and rounded-rectangle previews.
     property bool effectsEnabled: true
     property color selectedBorderColor: theme.selectedText
     property real previewSize: 58
@@ -38,13 +38,20 @@ Item {
     // decoded texture instead of re-requesting the same source on every pixel
     // of a dock resize.
     property bool decodeAtItemSize: true
+    property bool preserveDecodeAspect: false
     signal imageReady()
     signal appearanceCompleted()
     readonly property bool pending:
         String(root.source).indexOf("pending-preview:") === 0
     readonly property bool supportedSource: root.isSupportedSource(root.source)
     readonly property bool maskEnabled:
-        root.active && (root.effectsEnabled || root.round)
+        root.active && root.visible
+        && GraphicsInfo.api !== GraphicsInfo.Software
+        && (root.effectsEnabled || root.cornerRadius > 0)
+    readonly property real sourcePixelWidth:
+        sourceImage.status === Image.Ready ? sourceImage.sourceSize.width : 0
+    readonly property real sourcePixelHeight:
+        sourceImage.status === Image.Ready ? sourceImage.sourceSize.height : 0
 
     function isSupportedSource(value) {
         const text = String(value || "")
@@ -77,7 +84,9 @@ Item {
         anchors.fill: parent
         radius: root.cornerRadius
         color: Qt.darker(root.accent, root.round ? 1.35 : 1.65)
-        border.width: root.outlined || sourceImage.status === Image.Ready ? 1 : 0
+        border.width: root.outlined || (
+            root.readyBorderEnabled && sourceImage.status === Image.Ready
+        ) ? 1 : 0
         border.color: root.selected ? root.selectedBorderColor : root.theme.border
         antialiasing: true
     }
@@ -86,7 +95,11 @@ Item {
         id: sourceImage
         objectName: "previewSourceImage"
         anchors.fill: parent
-        source: !root.active || root.pending || !root.supportedSource
+        // Hidden layouts can probe near-DBL_MAX widths while calculating size
+        // hints. A mask still renders its invisible source, and Qt's texture
+        // sizing loop hangs when that width overflows. Do not load or mask a
+        // preview until its presentation is visible.
+        source: !root.active || !root.visible || root.pending || !root.supportedSource
             ? "" : root.source
         visible: root.active && !root.maskEnabled
             && status === Image.Ready
@@ -104,7 +117,8 @@ Item {
         sourceSize: root.decodeAtItemSize
             ? Qt.size(
                 Math.max(64, Math.round(root.width * Screen.devicePixelRatio)),
-                Math.max(64, Math.round(root.height * Screen.devicePixelRatio))
+                root.preserveDecodeAspect ? -1
+                    : Math.max(64, Math.round(root.height * Screen.devicePixelRatio))
             )
             : Qt.size(-1, -1)
         onStatusChanged: {

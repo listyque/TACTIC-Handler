@@ -24,6 +24,8 @@ class AdminDocumentEditor(QObject):
         self._original = {}
         self._revision = ''
         self._error = ''
+        self._presentation_dirty = False
+        self._write_uncertain = False
         self._project_unavailable = False
         self._can_write = False
         self._loaded = False
@@ -58,7 +60,17 @@ class AdminDocumentEditor(QObject):
 
     @Property(bool, notify=stateChanged)
     def dirty(self):
-        return self._document != self._original
+        return self._presentation_dirty or self._document != self._original
+
+    @Property(bool, notify=stateChanged)
+    def writeUncertain(self):
+        return self._write_uncertain
+
+    @Slot(bool)
+    def set_presentation_dirty(self, pending):
+        if self._presentation_dirty != bool(pending):
+            self._presentation_dirty = bool(pending)
+            self.stateChanged.emit()
 
     @Property(bool, notify=stateChanged)
     def busy(self):
@@ -87,6 +99,8 @@ class AdminDocumentEditor(QObject):
         self._can_write = False
         self._error = ''
         self._project_unavailable = False
+        self._presentation_dirty = False
+        self._write_uncertain = False
         self._document_loaded()
         self.stateChanged.emit()
 
@@ -109,10 +123,10 @@ class AdminDocumentEditor(QObject):
     def _request(self, action: str, identity: str = '', **parameters) -> None:
         from thlib import server_cache
         from thlib.environment import env_inst
-        if self.busy or self._closed:
+        if self.busy or self._closed or (action == 'save' and (self._write_uncertain or self._presentation_dirty)):
             return
-        if not self._application.can_administer:
-            self.fail(self.tr('Administration requires administrator access'))
+        if not self._application.can_manage_tools:
+            self.fail(self.tr('Administration requires administrator or supervisor access'))
             return
         self._generation += 1
         generation = self._generation
@@ -145,6 +159,8 @@ class AdminDocumentEditor(QObject):
                 return
             self._release()
             self._loaded = True
+            self._write_uncertain = False
+            self._presentation_dirty = False
             self._catalog = result.get('catalog', self._catalog)
             self._metadata = result.get('metadata', {})
             self._can_write = bool(result.get('canWrite'))
@@ -174,6 +190,8 @@ class AdminDocumentEditor(QObject):
             if self._closed or generation != self._generation:
                 return
             self._release()
+            if action == 'save':
+                self._write_uncertain = True
             payload, _worker = error
             exception = payload.get('exception') or error
             detail = str(exception)
@@ -199,6 +217,7 @@ class AdminDocumentEditor(QObject):
         self.stateChanged.emit()
         worker.start()
 
+    @Slot(str)
     def fail(self, error: str) -> None:
         self._error = str(error)
         self.stateChanged.emit()
@@ -219,6 +238,7 @@ class AdminDocumentEditor(QObject):
     @Slot()
     def discard(self) -> None:
         if not self.busy:
+            self._presentation_dirty = False
             self._document = copy.deepcopy(self._original)
             self._error = ''
             self._document_loaded()

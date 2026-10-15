@@ -76,3 +76,20 @@ _tmp/
 *.bak
 # Local release acceptance evidence.
 .release/
+
+# Local machine state and generated verification/build artifacts
+/cache/
+/settings1/
+/temp/
+/temp_custom_scripts/
+/updates/
+/.artifacts/
+/.tmp/
+/.codex-smoke-*/
+/.ruff_cache/
+/.venv/
+.env
+.env.*
+!.env.example
+!.env.sample
+*.prof

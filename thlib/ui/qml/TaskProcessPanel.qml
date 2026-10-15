@@ -263,11 +263,12 @@ Item {
                         textRole: "label"
                         valueRole: "value"
                         colorRole: "color"
+                        translateDisplayText: false
                         currentIndex: root.choiceIndex(
                             taskCard.statusChoices, taskCard.status
                         )
                         displayText: currentIndex >= 0
-                            ? currentText : "Select status"
+                            ? currentText : qsTr("Select status")
                         onActivated: tasksController.set_process_draft(
                             taskCard.index, "status", currentValue
                         )
@@ -371,11 +372,12 @@ Item {
                         textRole: "label"
                         valueRole: "value"
                         colorRole: "color"
+                        translateDisplayText: false
                         currentIndex: root.choiceIndex(
                             taskRow.statusChoices, taskRow.status
                         )
                         displayText: currentIndex >= 0
-                            ? currentText : "Status"
+                            ? currentText : qsTr("Status")
                         onActivated: tasksController.set_process_draft(
                             taskRow.index, "status", currentValue
                         )

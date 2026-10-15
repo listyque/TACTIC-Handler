@@ -10,9 +10,9 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 os.environ.setdefault("QT_QUICK_CONTROLS_STYLE", "Basic")
 
 from PySide6.QtCore import (
-    QCoreApplication, QEvent, QMetaObject, QObject, QPointF, Qt, QUrl,
+    QCoreApplication, QEvent, QMetaObject, QObject, QPoint, QPointF, Qt, QUrl,
 )
-from PySide6.QtGui import QGuiApplication
+from PySide6.QtGui import QGuiApplication, QWheelEvent
 from PySide6.QtQml import QQmlComponent, QQmlEngine
 from PySide6.QtQuick import QQuickItem, QQuickWindow
 from PySide6.QtTest import QSignalSpy, QTest
@@ -370,6 +370,111 @@ Item {
         self.assertEqual(active_record()["nodeId"], "node-a")
         self.assertEqual(self.warnings, [])
 
+    def test_unsnapped_dock_title_drag_keeps_the_dock_in_its_layout(self):
+        controller = self.application
+        for name, value in {
+            "dockModel": controller.dock_model,
+            "visibleDockModel": [],
+            "detachedDockModel": [],
+            "windowModel": controller.window_model,
+            "workspaceState": controller.workspace_state,
+        }.items():
+            self.engine.rootContext().setContextProperty(name, value)
+        component = QQmlComponent(self.engine)
+        component.setData(b'''import QtQuick
+import "." as App
+Item {
+    id: harness
+    required property var theme
+    property bool resizeOwnerHighlighted: false
+    property bool resizeNeighborHighlighted: false
+    property bool resizeUnrelatedHighlighted: false
+    function releaseWithoutTarget() {
+        dockHost.beginDockDrag("tasks")
+        dockHost.finishDockDrag("tasks", 280, 120, 360, 400, false)
+    }
+    function inspectSharedResize() {
+        dockHost.beginDockResize(
+            "results", "vertical", 300, 0, 600, true)
+        resizeOwnerHighlighted = dockHost.dockSharesActiveResize(
+            "results", 0, 0, 300, 600)
+        resizeNeighborHighlighted = dockHost.dockSharesActiveResize(
+            "tasks", 300, 0, 400, 600)
+        resizeUnrelatedHighlighted = dockHost.dockSharesActiveResize(
+            "notes", 700, 0, 200, 600)
+        dockHost.updateDockResizeBoundary(360, 0, 600)
+        resizeNeighborHighlighted = resizeNeighborHighlighted
+            && dockHost.dockSharesActiveResize(
+                "tasks", 360, 0, 340, 600)
+        dockHost.endDockResize()
+    }
+    App.DockHost {
+        id: dockHost
+        anchors.fill: parent
+        theme: harness.theme
+        projectTitle: "Demo"
+        pageTitle: "Search"
+    }
+}''', QUrl.fromLocalFile(str(QML / "DockDropHarness.qml")))
+        window, view = self._show(component, {"theme": self.theme})
+        before = controller.dock_model.capture_layout()
+
+        self.assertTrue(QMetaObject.invokeMethod(
+            view, "releaseWithoutTarget"
+        ))
+        frame(window)
+
+        self.assertEqual(controller.dock_model.capture_layout(), before)
+        self.assertTrue(QMetaObject.invokeMethod(
+            view, "inspectSharedResize"
+        ))
+        self.assertTrue(view.property("resizeOwnerHighlighted"))
+        self.assertTrue(view.property("resizeNeighborHighlighted"))
+        self.assertFalse(view.property("resizeUnrelatedHighlighted"))
+        self.assertEqual(self.warnings, [])
+
+    def test_empty_search_workspace_hides_previous_docks_and_prompts_for_menu(self):
+        controller = self.application
+        for name, value in {
+            "dockModel": controller.dock_model,
+            "visibleDockModel": controller.visible_dock_model,
+            "detachedDockModel": controller.detached_dock_model,
+            "windowModel": controller.window_model,
+            "workspaceState": controller.workspace_state,
+        }.items():
+            self.engine.rootContext().setContextProperty(name, value)
+        component = QQmlComponent(self.engine)
+        component.setData(b'''import QtQuick
+import "." as App
+Item {
+    id: harness
+    required property var theme
+    property bool searchOpened: false
+    App.DockHost {
+        anchors.fill: parent
+        theme: harness.theme
+        projectTitle: "Demo"
+        pageTitle: "Search"
+        workspaceActive: harness.searchOpened
+    }
+}''', QUrl.fromLocalFile(str(QML / "EmptySearchWorkspaceHarness.qml")))
+        window, view = self._show(component, {"theme": self.theme})
+        empty = view.findChild(QQuickItem, "workspaceNoSearchType")
+        canvas = view.findChild(QQuickItem, "dockCanvas")
+        self.assertIsNotNone(empty)
+        self.assertIsNotNone(canvas)
+        self.assertTrue(empty.isVisible())
+        self.assertFalse(canvas.isVisible())
+        self.assertIn("menu", empty.findChild(
+            QObject, "emptyStateMessage"
+        ).property("text").lower())
+        for width in (420, 1400):
+            window.resize(width, 650)
+            view.setSize(window.size())
+            frame(window)
+            self.assertEqual(empty.width(), view.width())
+        self.assertEqual(self.warnings, [])
+
     def test_dock_layout_switch_keeps_delegate_and_loaded_content(self):
         controller = self.application
         baseline = controller.dock_model.capture_layout()
@@ -679,6 +784,96 @@ Item {
         self.assertEqual(loader_status_changes.count(), 0)
         self.assertEqual(self.warnings, [])
 
+    def test_stacked_search_dock_keeps_move_grip_at_fixed_position(self):
+        self.engine.rootContext().setContextProperty(
+            "dockModel", self.application.dock_model
+        )
+        self.engine.rootContext().setContextProperty(
+            "windowModel", self.application.window_model
+        )
+        component = QQmlComponent(self.engine)
+        component.setData(b'''import QtQuick
+import "." as App
+Item {
+    id: harness
+    required property var theme
+    property bool dockResizeActive: false
+    property bool windowResizeActive: false
+    property int dragStarts: 0
+    property int stackCount: 1
+    function beginDockDrag(panelId) { dragStarts += 1 }
+    function updateDockDrag(panelId, pointerX, pointerY) {}
+    function finishDockDrag(panelId, x, y, width, height) {}
+    function beginDockResize() {}
+    function endDockResize() {}
+    App.DockPanel {
+        anchors.fill: parent
+        host: harness
+        theme: harness.theme
+        panelId: "results"
+        title: "Search"
+        kind: "results"
+        panelX: 0
+        panelY: 0
+        panelWidth: 1
+        panelHeight: 1
+        modelVisible: true
+        panelOpen: true
+        stackActive: true
+        closable: false
+        stackOrder: 1
+        dockArea: "left"
+        canResizeLeft: false
+        canResizeRight: false
+        canResizeTop: false
+        canResizeBottom: false
+        stackPanels: [
+            {"panelId": "results", "title": "Search",
+             "kind": "results", "active": true},
+            {"panelId": "snapshot", "title": "Snapshots",
+             "kind": "snapshot", "active": false}
+        ]
+        stackSize: harness.stackCount
+        contentComponent: Component { Item {} }
+    }
+}''', QUrl.fromLocalFile(str(QML / "StackedSearchDockHarness.qml")))
+        window, view = self._show(component, {"theme": self.theme})
+
+        def find_item(parent, object_name):
+            if parent.objectName() == object_name:
+                return parent
+            for child in parent.childItems():
+                found = find_item(child, object_name)
+                if found is not None:
+                    return found
+            return None
+
+        grip = find_item(view, "dockTitleDrag_results")
+        self.assertIsNotNone(grip, self.warnings)
+        self.assertTrue(grip.isVisible())
+        original_position = grip.mapToScene(QPointF(0, 0))
+
+        view.setProperty("stackCount", 2)
+        frame(window)
+
+        self.assertTrue(grip.isVisible())
+        self.assertEqual(grip.mapToScene(QPointF(0, 0)), original_position)
+        center = grip.mapToScene(QPointF(
+            grip.width() / 2, grip.height() / 2
+        )).toPoint()
+        frame(window, lambda: QTest.mousePress(
+            window, Qt.LeftButton, Qt.NoModifier, center
+        ))
+        frame(window, lambda: QTest.mouseMove(
+            window, center + QPointF(12, 0).toPoint()
+        ))
+        frame(window, lambda: QTest.mouseRelease(
+            window, Qt.LeftButton, Qt.NoModifier,
+            center + QPointF(12, 0).toPoint(),
+        ))
+        self.assertEqual(view.property("dragStarts"), 1)
+        self.assertEqual(self.warnings, [])
+
     def test_dock_content_reflows_live_during_resize(self):
         self.engine.rootContext().setContextProperty(
             "dockModel", self.application.dock_model
@@ -747,8 +942,19 @@ Item {
 
         panel = find_item(view, "knowledgeResizePanel")
         loader = find_item(view, "dockPanelContentLoader_knowledge")
+        right_edge = find_item(panel, "dockResizeEdge_right")
         self.assertIsNotNone(panel, self.warnings)
         self.assertIsNotNone(loader, self.warnings)
+        self.assertIsNotNone(right_edge, self.warnings)
+        grip = find_item(right_edge, "dockResizeGripVisual")
+        self.assertEqual(right_edge.width(), 10)
+        self.assertAlmostEqual(
+            right_edge.x() + right_edge.width() / 2, panel.width()
+        )
+        self.assertAlmostEqual(
+            grip.x() + grip.width() / 2, right_edge.width() / 2
+        )
+        self.assertGreaterEqual(grip.width(), 3)
         for _attempt in range(8):
             if loader.property("item") is not None:
                 break
@@ -758,7 +964,7 @@ Item {
         initial_loader_width = loader.width()
         changes = QSignalSpy(content.widthChanged)
         press_point = panel.mapToScene(QPointF(
-            panel.width() - 2,
+            panel.width() + 3,
             panel.height() / 2,
         )).toPoint()
         frame(
@@ -793,6 +999,130 @@ Item {
         self.assertAlmostEqual(content.width(), loader.width())
         self.assertIs(loader.property("item"), content)
         self.assertFalse(content.property("dockResizeActive"))
+        self.assertEqual(self.warnings, [])
+
+    def test_shared_dock_resize_grip_starts_on_first_press(self):
+        self.application.dock_model.place_panel(
+            "drop_plate", "snapshot", "bottom"
+        )
+        self.engine.rootContext().setContextProperty(
+            "dockModel", self.application.dock_model
+        )
+        self.engine.rootContext().setContextProperty(
+            "visibleDockModel", self.application.visible_dock_model
+        )
+        self.engine.rootContext().setContextProperty(
+            "windowModel", self.application.window_model
+        )
+        component = QQmlComponent(self.engine)
+        component.setData(b'''import QtQuick
+import "." as App
+Item {
+    id: harness
+    required property var theme
+    property int resizeStarts: 0
+    function beginDockResize() { resizeStarts += 1 }
+    function updateDockResizeBoundary() {}
+    function endDockResize() {}
+    function dockSharesActiveResize() { return false }
+    function beginDockDrag() {}
+    function updateDockDrag() {}
+    function finishDockDrag() {}
+    Component { id: content; Item {} }
+    Repeater {
+        model: visibleDockModel
+        delegate: Item {
+            required property string panelId
+            required property string title
+            required property string kind
+            required property real panelX
+            required property real panelY
+            required property real panelWidth
+            required property real panelHeight
+            required property bool panelVisible
+            required property bool closable
+            required property int stackOrder
+            required property string dockArea
+            required property bool canResizeLeft
+            required property bool canResizeRight
+            required property bool canResizeTop
+            required property bool canResizeBottom
+            required property bool detached
+            required property bool stackActive
+            required property var stackPanels
+            required property int stackSize
+            App.DockPanel {
+                host: harness
+                theme: harness.theme
+                panelId: parent.panelId
+                title: parent.title
+                kind: parent.kind
+                panelX: parent.panelX
+                panelY: parent.panelY
+                panelWidth: parent.panelWidth
+                panelHeight: parent.panelHeight
+                modelVisible: parent.panelVisible && parent.stackActive && !parent.detached
+                panelOpen: modelVisible
+                stackActive: parent.stackActive
+                closable: parent.closable
+                stackOrder: parent.stackOrder
+                dockArea: parent.dockArea
+                canResizeLeft: parent.canResizeLeft
+                canResizeRight: parent.canResizeRight
+                canResizeTop: parent.canResizeTop
+                canResizeBottom: parent.canResizeBottom
+                stackPanels: parent.stackPanels
+                stackSize: parent.stackSize
+                contentComponent: content
+            }
+        }
+    }
+}''', QUrl.fromLocalFile(str(QML / "DockResizePressHarness.qml")))
+        window, view = self._show(component, {"theme": self.theme})
+        def find_item(item, name):
+            if item.objectName() == name:
+                return item
+            for child in item.childItems():
+                found = find_item(child, name)
+                if found is not None:
+                    return found
+            return None
+
+        panel = find_item(view, "dockPanel_results")
+        self.assertIsNotNone(panel, self.warnings)
+        edge = find_item(panel, "dockResizeEdge_right")
+        grip = find_item(edge, "dockResizeGripVisual")
+        grip_center = grip.mapToItem(panel, QPointF(
+            grip.width() / 2, grip.height() / 2
+        ))
+        self.assertAlmostEqual(grip_center.x(), panel.width())
+        self.assertAlmostEqual(grip_center.y(), panel.height() / 2)
+        point = grip.mapToScene(QPointF(grip.width() / 2, grip.height() / 2)).toPoint()
+
+        frame(window, lambda: QTest.mousePress(window, Qt.LeftButton, Qt.NoModifier, point))
+        self.assertEqual(view.property("resizeStarts"), 1, self.warnings)
+        frame(window, lambda: QTest.mouseRelease(window, Qt.LeftButton, Qt.NoModifier, point))
+        content_point = panel.mapToScene(QPointF(
+            panel.width() - 10, panel.height() / 2
+        )).toPoint()
+        frame(window, lambda: QTest.mouseClick(
+            window, Qt.LeftButton, Qt.NoModifier, content_point
+        ))
+        self.assertEqual(view.property("resizeStarts"), 1, self.warnings)
+
+        panel = find_item(view, "dockPanel_notes")
+        self.assertIsNotNone(panel, self.warnings)
+        edge = find_item(panel, "dockResizeEdge_bottom")
+        grip = find_item(edge, "dockResizeGripVisual")
+        grip_center = grip.mapToItem(panel, QPointF(
+            grip.width() / 2, grip.height() / 2
+        ))
+        self.assertAlmostEqual(grip_center.x(), panel.width() / 2)
+        self.assertAlmostEqual(grip_center.y(), panel.height())
+        point = grip.mapToScene(QPointF(grip.width() / 2, grip.height() / 2)).toPoint()
+        frame(window, lambda: QTest.mousePress(window, Qt.LeftButton, Qt.NoModifier, point))
+        self.assertEqual(view.property("resizeStarts"), 2, self.warnings)
+        frame(window, lambda: QTest.mouseRelease(window, Qt.LeftButton, Qt.NoModifier, point))
         self.assertEqual(self.warnings, [])
 
     def test_search_tab_selection_visual_changes_without_late_motion(self):
@@ -869,6 +1199,18 @@ Item {
     property bool messagePresentationReady: true
     property var timelineReactions: ({messageId: ""})
     property var currentTimeline: null
+    Connections {
+        target: messagesController
+        function onVisibilityChanged(visible) {
+            if (visible)
+                Qt.callLater(function() { timelineHost.currentTimeline.revealLatestOnce() })
+        }
+        function onMessageFocusRequested(messageId) {
+            Qt.callLater(function() {
+                timelineHost.currentTimeline.focusMessage(messagesController.message_index(messageId))
+            })
+        }
+    }
     Row {
         Controls.Button { objectName: "chatFirst"; theme: timelineHost.theme; text: "First"; onClicked: messagesController.select_conversation(0) }
         Controls.Button { objectName: "chatSecond"; theme: timelineHost.theme; text: "Second"; onClicked: messagesController.select_conversation(1) }
@@ -907,6 +1249,429 @@ Item {
         self.assertAlmostEqual(first_timeline.property("contentY"), original_y)
         self.assertIn(first_item, first_timeline.property("contentItem").childItems())
         controller._load_messages.assert_not_called()
+        self.assertEqual(self.warnings, [])
+
+        # The active-chat poll refreshes the latest page, not the loaded past.
+        controller._history_request_id = "poll"
+        controller._history_background = True
+        controller._offset = 40
+        controller._has_more = False
+        refreshed = [{
+            "code": f"first-{row}", "login": "artist",
+            "message": f"Message {row}", "timestamp": "2026-08-20 10:00:00",
+        } for row in range(39, 8, -1)]
+        frame(window, lambda: controller._messages_ready(
+            "poll", {"messages": refreshed}, True, 0, "first",
+        ))
+        self.assertEqual(controller.messages.rowCount(), 40)
+        self.assertEqual(controller._offset, 40)
+        self.assertFalse(controller._has_more)
+        self.assertAlmostEqual(first_timeline.property("contentY"), original_y)
+        self.assertIn(first_item, first_timeline.property("contentItem").childItems())
+        self.assertEqual(self.warnings, [])
+
+        # A thumb drag must take ownership from an in-flight wheel animation.
+        point = first_timeline.mapToScene(QPointF(200, 200))
+        wheel = QWheelEvent(
+            point, point, QPoint(), QPoint(0, -120),
+            Qt.NoButton, Qt.NoModifier, Qt.NoScrollPhase, False,
+        )
+        QCoreApplication.sendEvent(window, wheel)
+        animations = [item for item in first_timeline.findChildren(QObject)
+                      if item.property("property") == "contentY"]
+        self.assertTrue(any(item.property("running") for item in animations))
+        scrollbar = next(item for item in first_timeline.childItems()
+                         if item.property("reservedExtent") is not None)
+        thumb_y = scrollbar.height() * (
+            scrollbar.property("visualPosition") + scrollbar.property("visualSize") / 2
+        )
+        thumb = scrollbar.mapToScene(QPointF(scrollbar.width() / 2, thumb_y)).toPoint()
+        QTest.mousePress(window, Qt.LeftButton, Qt.NoModifier, thumb)
+        self.assertTrue(scrollbar.property("pressed"))
+        self.assertFalse(any(item.property("running") for item in animations))
+        QTest.mouseRelease(window, Qt.LeftButton, Qt.NoModifier, thumb)
+        self.assertEqual(self.warnings, [])
+
+        controller._mark_read = Mock()
+        controller._conversation_opened = True
+        frame(window, lambda: first_timeline.setProperty("contentY", 300.))
+        controller._append_live_message({
+            "code": "first-new", "login": "colleague", "message": "New in background",
+            "timestamp": "2026-09-21 12:00:00",
+        })
+        frame(window, lambda: controller.set_visible(True))
+        self.assertEqual(first_timeline.property("currentIndex"), -1)
+        self.assertTrue(first_timeline.property("atYEnd"))
+        self.assertEqual(first_timeline.property("lastRevealedMessageId"), "first-new")
+
+        # Reopening without a new message preserves the reader's position.
+        for row in range(controller.messages.rowCount()):
+            controller.messages.update_record(row, {"unread": False})
+        controller.set_visible(False)
+        frame(window, lambda: first_timeline.setProperty("contentY", 300.))
+        frame(window, lambda: controller.set_visible(True))
+        self.assertEqual(first_timeline.property("currentIndex"), -1)
+        self.assertAlmostEqual(first_timeline.property("contentY"), 300.)
+        self.assertEqual(self.warnings, [])
+
+    def test_messages_window_keeps_each_chat_position_when_switching(self):
+        from thlib.ui.emoji import EmojiCatalog
+        from thlib.ui.message_attachments import ChatAttachmentController
+
+        users = UserController(self.application)
+        attachments = ChatAttachmentController(self.application)
+        self.addCleanup(attachments.shutdown)
+        emoji = EmojiCatalog(QML.parents[2])
+        controller = MessagesController(self.application)
+        self.addCleanup(controller.shutdown)
+        controller.load = Mock()
+        controller._load_messages = Mock()
+        controller._mark_read = Mock()
+        controller._remember_conversation = Mock()
+        controller._activate_draft_context = Mock()
+        controller._initialized = True
+        controller.conversations.replace([
+            {"conversationId": value, "title": value, "lastTimestamp": "", "selected": False,
+             "avatarUrl": "", "acronym": value[0], "canRename": value == "first",
+             "canClearPersonal": value == "second", "isPersonalNotes": value == "second"}
+            for value in ("first", "second")
+        ])
+        for name, value in {
+            "messagesController": controller,
+            "messageConversationModel": controller.conversations,
+            "messageSurfaceModel": controller.message_surfaces,
+            "messageAttachments": attachments,
+            "messageAttachmentDraftModel": attachments.model,
+            "userController": users,
+            "userListModel": users.users,
+            "emojiCatalog": emoji, "emojiCatalogModel": emoji,
+        }.items():
+            self.engine.rootContext().setContextProperty(name, value)
+
+        def load_chat_history(count):
+            controller._history_request_id = "load"
+            conversation = controller._conversation_id
+            controller._messages_ready("load", {"messages": [{
+                "code": f"{conversation}-{index}", "login": "artist",
+                "message": ("Message " + str(index) + "\n") * (1 + index % 7),
+                "timestamp": "2026-09-21 10:00:00",
+            } for index in reversed(range(count))]}, True, 0, conversation)
+            for row in range(controller.messages.rowCount()):
+                controller.messages.update_record(row, {"reactions": [{
+                    "emoji": "😆", "count": 1, "reactedByMe": True,
+                    "namesText": "Artist",
+                }]})
+                if row % 5 == 0:
+                    controller.messages.update_record(row, {
+                        "body": "😆", "displayHtml": "😆",
+                    })
+                elif row % 5 == 1:
+                    controller.messages.update_record(row, {"skeyPreviews": [{
+                        "kind": "knowledge", "status": "error",
+                        "title": "Missing article", "error": "TACTIC item was not found",
+                    }]})
+                elif row % 5 == 2:
+                    controller.messages.update_record(row, {"replyTo": {
+                        "messageId": "previous", "senderDisplay": "Artist",
+                        "body": "Earlier message being quoted",
+                    }})
+                elif row % 5 == 3:
+                    controller.messages.update_record(row, {"attachments": [{
+                        "token": "fixture", "size": 1234, "title": "Picture",
+                        "extension": "PNG", "previewUrl": "", "local": False,
+                    }]})
+                else:
+                    controller.messages.update_record(row, {"reactions": []})
+
+        # Production can preload the selected conversation before opening its window.
+        controller.select_conversation(0)
+        load_chat_history(30)
+        component = QQmlComponent(self.engine)
+        component.setData(b'''import QtQuick
+import QtQuick.Controls
+import "." as App
+ApplicationWindow {
+    id: window
+    required property var theme
+    width: 900; height: 650; visible: true
+    Loader {
+        anchors.fill: parent
+        Component.onCompleted: setSource(Qt.resolvedUrl("WindowContent.qml"), {
+            "theme": window.theme,
+            "contentSource": "MessagesView.qml",
+            "contentProperties": {"objectName": "testedMessagesView"}
+        })
+    }
+}''', QUrl.fromLocalFile(str(QML / "MessagesWindowTest.qml")))
+        self.components.append(component)
+        window = component.createWithInitialProperties({"theme": self.theme})
+        self.assertIsNotNone(window, [e.toString() for e in component.errors()])
+        self.addCleanup(window.deleteLater)
+        self.addCleanup(window.close)
+        frame(window)
+        view = window.findChild(QQuickItem, "testedMessagesView")
+        controller.load.assert_called_once()
+
+        def select_chat(row):
+            conversations = view.findChild(QQuickItem, "messagesConversationListView")
+            delegate = next(item for item in conversations.property("contentItem").childItems()
+                            if item.property("index") == row)
+            self._click(window, delegate)
+
+        def open_chat(row, count):
+            controller._load_messages.side_effect = lambda **_: setattr(controller, "_history_busy", True)
+            select_chat(row)
+            load_chat_history(count)
+
+        open_chat(0, 30)
+        frame(window)
+        first = view.property("messages")
+        frame(window)
+        self.assertTrue(first.property("atYEnd"), (
+            first.property("contentY"), first.property("maximumContentY"),
+            first.property("count"), first.property("height"), first.property("contentHeight")))
+        measured_height = first.property("contentHeight")
+        for _ in range(3):
+            point = first.mapToScene(QPointF(150, 150))
+            event = QWheelEvent(point, point, QPoint(), QPoint(0, 1200),
+                                Qt.NoButton, Qt.NoModifier, Qt.NoScrollPhase, False)
+            frame(window, lambda: QCoreApplication.sendEvent(window, event))
+            self.assertAlmostEqual(first.property("contentHeight"), measured_height, delta=0.5)
+        QMetaObject.invokeMethod(first, "cancelWheelScroll")
+        frame(window, lambda: first.setProperty("contentY", 300.))
+        retained_y = first.property("contentY")
+        geometry_changes = []
+        first.contentHeightChanged.connect(lambda: geometry_changes.append((
+            first.property("current"), first.property("contentY"),
+            first.property("contentHeight"),
+        )))
+        card_height_changes = []
+        column = first.findChild(QQuickItem, "messageCardsColumn")
+        for card in column.childItems():
+            if card.property("messageId"):
+                card.heightChanged.connect(lambda item=card: card_height_changes.append(
+                    (item.property("messageId"), item.height())))
+        open_chat(1, 0)
+        frame(window)
+        select_chat(0)
+        self.assertIs(view.property("messages"), first)
+        self.assertAlmostEqual(first.property("contentY"), retained_y, msg=str(geometry_changes))
+        self.assertEqual(geometry_changes, [])
+        self.assertEqual(card_height_changes, [])
+        movements = []
+        first.contentYChanged.connect(lambda: movements.append(first.property("contentY")))
+        extents = []
+        first.contentHeightChanged.connect(lambda: extents.append(first.property("contentHeight")))
+        for _ in range(3):
+            select_chat(1)
+            select_chat(0)
+        self.assertEqual(extents, [])
+        self.assertEqual(card_height_changes, [])
+        self.assertEqual(movements, [])
+        self.assertEqual(controller._load_messages.call_count, 2)
+
+        # Server updates invalidate data, not the hidden chat's QML surface.
+        select_chat(1)
+        frame(window, lambda: controller.apply_cache_invalidation({"sthpw": ["messages"]}))
+        select_chat(0)
+        self.assertIs(view.property("messages"), first)
+        controller._load_messages.assert_called_with(
+            reset=True, background=True, bypass_cache=True,
+        )
+        load_chat_history(30)
+        frame(window)
+        self.assertAlmostEqual(first.property("contentY"), retained_y)
+        self.assertEqual(movements, [])
+
+        # Taking a screenshot/reactivating the window is not a new message.
+        focus_requests = QSignalSpy(controller.messageFocusRequested)
+        controller.set_visible(False)
+        frame(window, lambda: controller.set_visible(True))
+        self.assertEqual(focus_requests.count(), 0)
+        self.assertAlmostEqual(first.property("contentY"), retained_y)
+        self.assertEqual(movements, [])
+
+        frame(window, lambda: QMetaObject.invokeMethod(first, "settleAtLatest"))
+        retained_end = first.property("contentY")
+        movements.clear()
+        select_chat(1)
+        select_chat(0)
+        self.assertTrue(first.property("atYEnd"))
+        self.assertAlmostEqual(first.property("contentY"), retained_end)
+        self.assertEqual(movements, [])
+        self.assertEqual(self.warnings, [])
+
+        # A hidden arrival is revealed once, without selecting the message.
+        window.hide()
+        self.app.processEvents()
+        controller._append_live_message({
+            "code": "first-new", "login": "colleague", "message": "Background arrival",
+            "timestamp": "2026-09-21 12:00:00",
+        })
+        self.app.processEvents()
+        self.assertNotEqual(first.property("lastRevealedMessageId"), "first-new")
+        window.show()
+        window.requestActivate()
+        frame(window)
+        self.assertTrue(window.isActive())
+        self.assertTrue(first.property("atYEnd"))
+        self.assertEqual(first.property("lastRevealedMessageId"), "first-new")
+        self.assertEqual(first.property("currentIndex"), -1)
+        self.assertEqual(focus_requests.count(), 0)
+
+        frame(window, lambda: first.setProperty("contentY", 300.))
+        movements.clear()
+        for _ in range(2):
+            select_chat(1)
+            select_chat(0)
+            controller.messageAppendedForConversation.emit("first")
+            controller.conversationLoaded.emit()
+            frame(window)
+        window.hide()
+        self.app.processEvents()
+        window.show()
+        window.requestActivate()
+        frame(window)
+        self.assertEqual(first.property("currentIndex"), -1)
+        self.assertAlmostEqual(first.property("contentY"), 300.)
+        self.assertEqual(movements, [])
+        self.assertEqual(focus_requests.count(), 0)
+
+        menu = view.findChild(QObject, "chatActionsMenu")
+        conversations = view.findChild(QQuickItem, "messagesConversationListView")
+        for row, command in ((1, "clear"), (0, "delete")):
+            delegate = next(item for item in conversations.property("contentItem").childItems()
+                            if item.property("index") == row)
+            point = delegate.mapToScene(QPointF(40, 30)).toPoint()
+            frame(window, lambda: QTest.mouseClick(window, Qt.RightButton, Qt.NoModifier, point))
+            self.assertTrue(menu.property("visible"))
+            self.assertEqual(controller.conversationId, ("first", "second")[row])
+            actions = menu.property("actions").toVariant()
+            self.assertEqual(actions[-1]["command"], command)
+            self.assertEqual(actions[0]["enabled"], row == 0)
+            QMetaObject.invokeMethod(menu, "close")
+            frame(window)
+        self.assertEqual(self.warnings, [])
+
+        column = first.findChild(QQuickItem, "messageCardsColumn")
+        last_card = next(item for item in column.childItems()
+                         if item.property("messageId") == "first-new")
+        frame(window, lambda: QMetaObject.invokeMethod(first, "settleAtLatest"))
+        frame(window, lambda: window.resize(760, 560))
+        frame(window)
+        self.assertTrue(first.property("atYEnd"))
+        self.assertAlmostEqual(
+            last_card.mapToItem(first, QPointF(0, last_card.height())).y(),
+            first.height() - 12, delta=1,
+        )
+        frame(window, lambda: controller.messages.update_record(
+            controller.messages.rowCount() - 1,
+            {"displayHtml": "More lines<br>after<br>layout<br>changes"},
+        ))
+        frame(window)
+        self.assertAlmostEqual(
+            last_card.mapToItem(first, QPointF(0, last_card.height())).y(),
+            first.height() - 12, delta=1,
+        )
+
+        frame(window, lambda: first.setProperty("contentY", 300.))
+        anchor = first.property("viewportAnchor")
+        anchor_y = anchor.mapToItem(first, QPointF()).y()
+        earlier = controller._message_record({
+            "code": "earlier", "login": "artist", "message": "Earlier\nmessage",
+            "timestamp": "2026-09-20 12:00:00",
+        }, "", "artist")
+        frame(window, lambda: controller.messages.replace(
+            controller._group_message_records([earlier] + controller.messages.records())))
+        frame(window)
+        self.assertAlmostEqual(anchor.mapToItem(first, QPointF()).y(), anchor_y, delta=1)
+        retained_y = first.property("contentY")
+        geometry_changes.clear()
+        card_height_changes.clear()
+        movements.clear()
+        select_chat(1)
+        select_chat(0)
+        self.assertAlmostEqual(first.property("contentY"), retained_y)
+        self.assertEqual(geometry_changes, [])
+        self.assertEqual(card_height_changes, [])
+        self.assertEqual(movements, [])
+        self.assertEqual(self.warnings, [])
+
+    def test_conversation_selection_keeps_list_scroll_position(self):
+        component = QQmlComponent(self.engine)
+        component.setData(b'''import QtQuick
+import "." as App
+Item {
+    id: harness
+    required property var theme
+    function switchConversation() { conversations.selectConversation(12) }
+    ListModel {
+        id: chats
+        Component.onCompleted: {
+            for (let row = 0; row < 30; ++row)
+                chats.append({
+                    conversationId: "chat-" + row,
+                    title: "Chat " + row,
+                    status: "",
+                    lastMessage: "Message",
+                    lastMessageSummary: "Message",
+                    lastMessageLinkedCount: 0,
+                    lastSender: "artist",
+                    unread: 0,
+                    mentionCount: 0,
+                    selected: row === 0,
+                    avatarUrl: "",
+                    initials: "A",
+                    participantCount: 2,
+                    memberSummary: "",
+                    acronym: "C",
+                    colorIndex: 0,
+                    isPersonalNotes: false
+                })
+        }
+    }
+    App.MessagesConversationList {
+        id: conversations
+        anchors.fill: parent
+        theme: harness.theme
+        conversationModel: chats
+        onConversationSelected: {
+            chats.clear()
+            for (let row = 0; row < 30; ++row)
+                chats.append({
+                    conversationId: "chat-" + row,
+                    title: "Chat " + row,
+                    status: "",
+                    lastMessage: "Message",
+                    lastMessageSummary: "Message",
+                    lastMessageLinkedCount: 0,
+                    lastSender: "artist",
+                    unread: 0,
+                    mentionCount: 0,
+                    selected: row === index,
+                    avatarUrl: "",
+                    initials: "A",
+                    participantCount: 2,
+                    memberSummary: "",
+                    acronym: "C",
+                    colorIndex: 0,
+                    isPersonalNotes: false
+                })
+        }
+    }
+}''', QUrl.fromLocalFile(str(QML / "ConversationScrollTest.qml")))
+        window, view = self._show(component, {"theme": self.theme})
+        conversations = view.findChild(
+            QQuickItem, "messagesConversationListView"
+        )
+        self.assertIsNotNone(conversations, self.warnings)
+        frame(window, lambda: conversations.setProperty("contentY", 480.))
+        retained_y = conversations.property("contentY")
+
+        self.assertTrue(QMetaObject.invokeMethod(view, "switchConversation"))
+        frame(window)
+
+        self.assertAlmostEqual(conversations.property("contentY"), retained_y)
         self.assertEqual(self.warnings, [])
 
     def test_notes_scroll_is_restored_after_context_change_and_reopen(self):

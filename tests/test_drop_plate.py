@@ -26,6 +26,9 @@ class _Checkin(QObject):
             "searchKey": "skey://project/asset?code=ASSET001",
             "process": "publish",
             "context": "publish",
+            "checkinType": "file",
+            "updateVersionless": True,
+            "onlyVersionless": False,
         }
 
 
@@ -35,6 +38,9 @@ class _Queue(QObject):
     def __init__(self):
         super().__init__()
         self.payloads = []
+
+    def add_prepared_many(self, entries):
+        return [self.add_prepared(payload, title) for payload, title in entries]
 
     def add_prepared(self, payload, title):
         self.payloads.append((payload, title))
@@ -188,6 +194,52 @@ class DropPlateTest(unittest.TestCase):
             "sequence",
         )
 
+    def test_progress_process_is_not_a_checkin_target(self):
+        class Pipeline:
+            pipeline = {"model": {}, "assets_progress": {}}
+
+            @staticmethod
+            def get_process_info(process):
+                return {"type": "progress" if process == "assets_progress"
+                        else "manual"}
+
+        source = SimpleNamespace(
+            get_stype=lambda: SimpleNamespace(
+                get_pipeline=lambda: {"asset_pipe": Pipeline()},
+                get_workflow=lambda: None,
+            ),
+            get_pipeline_code=lambda: "asset_pipe",
+        )
+        controller = CheckinOutController.__new__(CheckinOutController)
+        QObject.__init__(controller)
+        controller._source = source
+        controller._process = "assets_progress"
+        controller._context = "assets_progress"
+
+        self.assertEqual(
+            CheckinOutController._source_processes(source), ["model"]
+        )
+        self.assertFalse(controller.actionAvailable)
+        with self.assertRaisesRegex(ValueError, "do not accept snapshots"):
+            controller.prepare_workspace_target(
+                "project/asset?code=ASSET001", source, "project",
+                "Asset", "ASSET001", "assets_progress", "assets_progress",
+            )
+        with self.assertRaisesRegex(ValueError, "do not accept snapshots"):
+            controller.prepare_external_checkin(
+                "project/asset?code=ASSET001", source, "project",
+                "Asset", "ASSET001", "assets_progress", "",
+                ["D:/image.png"],
+            )
+        with self.assertRaisesRegex(ValueError, "do not accept snapshots"):
+            controller.set_process_and_context(
+                "assets_progress", "assets_progress"
+            )
+        self.assertFalse(controller.start_dcc_scene_checkin(
+            {"source": source, "process": "assets_progress"}, {},
+            "prepare_checkin",
+        ))
+
     def test_sequence_process_payload_disables_versionless(self):
         class Pipeline:
             pipeline = {"model": {}}
@@ -219,6 +271,8 @@ class DropPlateTest(unittest.TestCase):
         controller._is_revision = False
         controller._update_versionless = True
         controller._keep_file_name = False
+        controller._dcc_scene_payload = None
+        controller._prepared_virtual_snapshot = None
         controller._generate_previews = True
         controller.files = SimpleNamespace(_records=[])
 
@@ -257,6 +311,8 @@ class DropPlateTest(unittest.TestCase):
         controller._is_revision = False
         controller._update_versionless = True
         controller._keep_file_name = False
+        controller._dcc_scene_payload = None
+        controller._prepared_virtual_snapshot = None
         controller._generate_previews = False
 
         with tempfile.TemporaryDirectory() as directory:
@@ -377,6 +433,12 @@ class DropPlateTest(unittest.TestCase):
         target = Operations()._checkin_target_for_node(process)
         self.assertEqual(target["process"], "model")
         self.assertEqual(target["context"], "model")
+        self.assertFalse(target["keepPublishProcessCollapsed"])
+        self.assertTrue(
+            Operations()._checkin_target_for_node(root)[
+                "keepPublishProcessCollapsed"
+            ]
+        )
 
     def test_selected_snapshot_version_is_used_only_for_a_revision(self):
         class Checkin:
@@ -401,6 +463,7 @@ class DropPlateTest(unittest.TestCase):
             "context": "publish",
             "description": "",
             "version": 6,
+            "keepPublishProcessCollapsed": True,
         }
         operations = Operations()
 
@@ -413,6 +476,11 @@ class DropPlateTest(unittest.TestCase):
         self.assertEqual(
             operations._checkin_controller.requests[1]["snapshot_version"],
             6,
+        )
+        self.assertTrue(
+            operations._checkin_controller.requests[0][
+                "keep_publish_process_collapsed"
+            ]
         )
 
     def test_item_drop_opens_commit_queue_and_queues_immediately(self):
@@ -993,6 +1061,10 @@ class DropPlateTest(unittest.TestCase):
         )
 
         self.assertEqual(len(queue.payloads), 1)
+        self.assertTrue(queue.payloads[0][0]["groupCheckin"])
+        self.assertEqual(queue.payloads[0][0]["checkinType"], "file")
+        self.assertFalse(queue.payloads[0][0]["updateVersionless"])
+        self.assertFalse(queue.payloads[0][0]["onlyVersionless"])
         self.assertEqual(
             [entry["path"] for entry in queue.payloads[0][0]["files"]],
             ["D:/plate/one.png", "D:/plate/two.png"],

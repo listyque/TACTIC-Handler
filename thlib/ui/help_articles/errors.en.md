@@ -13,6 +13,12 @@ order: 20
 Expand the stacktrace to use the remaining window height, select its text, or copy the complete
 stacktrace with one action.
 
+The request is shown as Python with syntax highlighting and separate lines for arguments.
+Multiline values (including server-side scripts) appear in their own code blocks with real
+line breaks; `request_text_N` in the call identifies the corresponding block, not a modified
+server argument. Scroll long code vertically or horizontally, or select and copy its text.
+The original complete request remains unchanged in Debug Log.
+
 ## Usage notes
 
 - Connection failures explain that the TACTIC server is unreachable and suggest checking its
@@ -59,3 +65,8 @@ on Windows, a native process dump into the local `log` directory. The files star
 and can be inspected after the process ends. Handler then starts a separate native system message
 with the dump path and closes the unrecoverable process. Knowledge Base article edits are checkpointed
 separately, so reopening the project restores the latest local article draft.
+
+Long request and stacktrace lines wrap to the viewport in the error window and Debug Log.
+This avoids rendering one enormous off-screen line after a large group check-in fails.
+Wrapping changes only the display: keyboard selection/copy, Copy stacktrace, Copy runtime command
+and the structured session log retain the complete original diagnostic text.

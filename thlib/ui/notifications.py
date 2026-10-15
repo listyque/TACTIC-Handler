@@ -4,6 +4,7 @@ import time
 import uuid
 
 from PySide6.QtCore import QDateTime, QObject, Property, QTimer, Qt, Signal, Slot
+from PySide6.QtWidgets import QApplication
 
 from .activity import activity_timestamp_labels
 from .ui_performance import measure_ui
@@ -33,8 +34,9 @@ class NotificationController(QObject):
             "notificationId", "kind", "message", "detail", "progress",
             "dismissible", "action", "actionData", "dedupeKey",
             "sourceType", "sourceTitle", "previewUrl", "avatarText",
-            "avatarColor", "sourceIcon",
-        ))
+            "avatarColor", "sourceIcon", "replyOpen", "replySending",
+            "replyError",
+        ), identity_role="notificationId")
         self.history = RecordListModel(self._history_roles, identity_role="notificationId")
         self.filtered_history = RecordListModel(self._history_roles, identity_role="notificationId")
         self._history_records = []
@@ -75,6 +77,9 @@ class NotificationController(QObject):
                 lambda: self._controller_error("tasks", tasks.error)
             )
         if messages:
+            if hasattr(messages, "quickReplySent"):
+                messages.quickReplySent.connect(self.dismiss_id)
+                messages.quickReplyFailed.connect(self._quick_reply_failed)
             rich_notification = getattr(
                 messages, "newMessageNotification", None
             )
@@ -89,6 +94,10 @@ class NotificationController(QObject):
     @Property(int, notify=changed)
     def count(self):
         return len(self.model._records)
+
+    @Property(bool, notify=changed)
+    def replyEditing(self):
+        return any(record.get("replyOpen") for record in self.model._records)
 
     @Property(str, notify=changed)
     def historyGroup(self):
@@ -163,14 +172,14 @@ class NotificationController(QObject):
         } else "info"
         message = str(message or "").strip()
         if not message:
-            return
+            return False
         now = time.monotonic()
         signature = str(dedupe_key or f"{kind}:{message}")
         if (
             signature in self._active_signatures
             or now - self._recent.get(signature, 0.0) < 5.0
         ):
-            return
+            return False
         self._recent[signature] = now
         self._recent = {
             key: stamp for key, stamp in self._recent.items()
@@ -192,6 +201,9 @@ class NotificationController(QObject):
             "avatarText": str(avatar_text or ""),
             "avatarColor": str(avatar_color or ""),
             "sourceIcon": str(source_icon or ""),
+            "replyOpen": False,
+            "replySending": False,
+            "replyError": "",
         }
         self._append_history({
             "notificationId": record["notificationId"],
@@ -203,20 +215,20 @@ class NotificationController(QObject):
         })
         records = list(self.model._records)
         records.append(record)
-        while len(records) > 3:
-            removed = records.pop(0)
-            self._stop_timer(removed["notificationId"])
+        self._limit_active(records)
         self.model.replace(records)
         self._sync_active_signatures()
         self._start_timer(
             record["notificationId"],
-            8000 if source_type in {"message", "activity"}
+            15000 if source_type == "message"
+            else 8000 if source_type == "activity"
             else 5000 if kind in {"error", "warning"} else 3200,
         )
         self.changed.emit()
+        return True
 
     def _new_message(self, conversation_id, title, excerpt):
-        self._push(
+        if self._push(
             "info",
             str(title or "Messages"),
             excerpt,
@@ -226,13 +238,14 @@ class NotificationController(QObject):
             source_type="message",
             source_title="Messages",
             source_icon="comments",
-        )
+        ):
+            QApplication.beep()
 
     @Slot("QVariantMap")
     def _new_message_notification(self, payload):
         payload = dict(payload or {})
         conversation_id = str(payload.get("conversationId") or "")
-        self._push(
+        if self._push(
             "info",
             str(payload.get("senderTitle") or "Messages"),
             str(payload.get("excerpt") or "New attachment"),
@@ -251,7 +264,8 @@ class NotificationController(QObject):
             avatar_text=str(payload.get("initials") or ""),
             avatar_color=str(payload.get("avatarColor") or ""),
             source_icon="comments",
-        )
+        ):
+            QApplication.beep()
 
     @Slot("QVariantMap")
     def _new_activity(self, payload):
@@ -367,14 +381,26 @@ class NotificationController(QObject):
             "avatarText": "",
             "avatarColor": "",
             "sourceIcon": "sync",
+            "replyOpen": False,
+            "replySending": False,
+            "replyError": "",
         }
         if row >= 0:
             records[row] = record
         else:
             records.append(record)
-            records = records[-3:]
+            self._limit_active(records)
         self.model.replace(records)
         self.changed.emit()
+
+    def _limit_active(self, records):
+        while len(records) > 3:
+            removable = next(
+                (index for index, item in enumerate(records)
+                 if not item.get("replyOpen")), len(records) - 1
+            )
+            removed = records.pop(removable)
+            self._stop_timer(removed["notificationId"])
 
     def _loading_changed(self):
         if self._application.loading:
@@ -426,6 +452,61 @@ class NotificationController(QObject):
             self.dismiss_id(
                 self.model._records[row]["notificationId"]
             )
+
+    @Slot(int)
+    def begin_reply(self, row):
+        if not 0 <= row < len(self.model._records):
+            return
+        record = self.model._records[row]
+        if (
+            record.get("sourceType") != "message"
+            or not record.get("actionData") or not self._messages
+        ):
+            return
+        self._stop_timer(record["notificationId"])
+        self.model.set_value(row, "replyOpen", True)
+        self.changed.emit()
+
+    @Slot(int)
+    def cancel_reply(self, row):
+        if not 0 <= row < len(self.model._records):
+            return
+        record = self.model._records[row]
+        if not record.get("replyOpen") or record.get("replySending"):
+            return
+        self.model.set_value(row, "replyOpen", False)
+        self.model.set_value(row, "replyError", "")
+        self._start_timer(record["notificationId"], 15000)
+        self.changed.emit()
+
+    @Slot(int, str, result=bool)
+    def send_reply(self, row, text):
+        if not 0 <= row < len(self.model._records):
+            return False
+        record = self.model._records[row]
+        body = str(text or "").strip()
+        if (
+            record.get("sourceType") != "message"
+            or record.get("replySending") or not body
+            or not self._messages
+        ):
+            return False
+        accepted = self._messages.send_quick_reply(
+            record["notificationId"], record["actionData"], body
+        )
+        if accepted:
+            self.model.set_value(row, "replySending", True)
+            self.model.set_value(row, "replyError", "")
+        else:
+            self.model.set_value(row, "replyError", "Unable to send message")
+        return accepted
+
+    def _quick_reply_failed(self, notification_id, message):
+        for row, record in enumerate(self.model._records):
+            if record["notificationId"] == notification_id:
+                self.model.set_value(row, "replySending", False)
+                self.model.set_value(row, "replyError", str(message or "Unable to send message"))
+                break
 
     @Slot(int)
     def activate(self, row):

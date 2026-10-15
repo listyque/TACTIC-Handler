@@ -134,3 +134,24 @@ Verify manually with an isolated TACTIC project:
 - cancellation at each advertised safe boundary;
 - row reorder and drag feedback at narrow and wide dock sizes;
 - refresh of an open nested snapshot/file panel after success.
+
+
+## Optional native server execution
+
+The transient `serverQueue` property defaults to false and is exposed through the shared
+Commit Queue switch. Legacy executor ordering and payloads remain unchanged. Enabled mode
+uses `thlib.server_checkin_queue` for bounded multipart transport; `CommitQueueController`
+owns upload cancellation, one shared status worker, a timer, cursors and completion signals.
+The server uses its native persistent queue and BrowserCheckinCmd; it owns versions,
+naming, grants, triggers and repository transactions. This does not introduce changelists
+or parallel snapshot workers.
+
+Accepted batches and their original primitive operation payloads are cached in
+`cache/commit_queue/server_batches.json` with the existing configuration API, without tickets.
+Interrupted uploads keep stable batch/chunk identities and are resumed as a whole batch.
+Accepted operations cannot be removed or resubmitted until an authoritative terminal state.
+Restored accepted work polls the original server/account even if local sources are absent;
+a server/account switch pauses observation of other sessions. Completion refreshes are
+combined per parent/context per response page. Move cleanup runs in the commit pool only
+after saved source checksums are known. Shutdown stops the timer and local upload; it does
+not cancel accepted server work. Late status callbacks cannot restart the timer.

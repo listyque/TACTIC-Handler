@@ -13,23 +13,36 @@ Rectangle {
     required property bool rowHovered
     required property bool scheduled
     required property bool progressSupported
-    property real edgeResizeRadius: 12
     property bool editing: false
     property int editProgress: progress
     readonly property int displayProgress: editing ? editProgress : progress
 
     visible: progressSupported && scheduled && barWidth >= 36
         && (rowHovered || progressPointer.pressed)
-    x: Math.max(7, Math.min(
-        barWidth - 7, barWidth * displayProgress / 100
+    x: Math.max(18, Math.min(
+        barWidth - 18, barWidth * displayProgress / 100
     )) - width / 2
     anchors.verticalCenter: parent.verticalCenter
-    width: 10
-    height: 10
-    radius: 5
-    color: theme.primaryText
-    border.width: 2
-    border.color: theme.surfaceContainer
+    width: 18
+    height: 22
+    radius: 6
+    color: theme.surfaceContainerHighest
+    border.width: 1
+    border.color: theme.primaryText
+
+    Row {
+        anchors.centerIn: parent
+        spacing: 3
+        Repeater {
+            model: 2
+            Rectangle {
+                width: 2
+                height: 9
+                radius: 1
+                color: root.theme.primaryText
+            }
+        }
+    }
 
     onProgressChanged: {
         if (!editing)
@@ -39,17 +52,11 @@ Rectangle {
     MouseArea {
         id: progressPointer
         anchors.fill: parent
-        anchors.margins: -5
+        anchors.margins: -2
         cursorShape: Qt.SizeHorCursor
         preventStealing: true
 
         onPressed: function(mouse) {
-            const mapped = mapToItem(root.parent, mouse.x, mouse.y)
-            if (mapped.x <= root.edgeResizeRadius
-                    || mapped.x >= root.barWidth - root.edgeResizeRadius) {
-                mouse.accepted = false
-                return
-            }
             root.editProgress = root.progress
             root.editing = true
             mouse.accepted = true

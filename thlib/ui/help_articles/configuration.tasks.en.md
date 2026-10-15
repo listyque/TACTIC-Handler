@@ -5,8 +5,8 @@ order: 37
 ---
 # Tasks configuration
 
-> Tasks configuration defines the initial Task workspace presentation and the default Task Browser
-> columns. Saved project or workspace state takes priority when it already exists.
+> Tasks configuration defines the initial Task workspace presentation. Saved project or workspace
+> state takes priority when it already exists.
 
 ## Task workspace defaults
 
@@ -21,9 +21,9 @@ order: 37
 
 ## Task table columns
 
-Each row controls one column. The checkbox shows or hides it; required columns such as **Object**
-cannot be hidden. The numeric field sets width from 40 to 480 device-independent pixels. The two
-arrow buttons move the column left or right in display order.
+In **Configuration → Tasks**, choose each Task Browser column's visibility, width (40–480 pixels),
+and order. Object always remains visible. Use **Apply** or **Save** to keep changes; **Reset**
+discards the current draft. **Configure columns** in the task table opens this page directly.
 
 Dock and window geometry is restored separately for each workspace. Task scope, filters, collapsed
 groups, calendar position, and selected task resume per project. Checked tasks and unsaved edits are

@@ -23,6 +23,7 @@ from thlib.ui.application_runtime import (
 from thlib.ui.checkin_out import CheckinOutController
 from thlib.ui.cache_controller import ServerCacheController
 from thlib.ui.columns_editor import ColumnsEditorController
+from thlib.ui.file_workspace import FileWorkspaceController
 from thlib.ui.commit_queue import CommitQueueController
 from thlib.ui.communication import CommunicationController
 from thlib.ui.communication_feed import (
@@ -57,6 +58,7 @@ from thlib.ui.notifications import NotificationController
 from thlib.ui.pointer import PointerController
 from thlib.ui.process_filter_editor import ProcessFilterEditorController
 from thlib.ui.project_editor import ProjectEditorController
+from thlib.ui.project_creation import ProjectCreationController
 from thlib.ui.quick_filter_editor import QuickFilterEditorController
 from thlib.ui.repository_editor import RepositoryEditorController
 from thlib.ui.repository_sync_editor import RepositorySyncEditorController
@@ -259,6 +261,7 @@ class CollaborationBundle:
 class DeliveryBundle:
     columns_editor: ColumnsEditorController
     commit_queue: CommitQueueController
+    file_workspace: FileWorkspaceController
     checkin_out: CheckinOutController
     naming_editor: NamingEditorController
     dcc_options: DccOptionsController
@@ -301,6 +304,7 @@ class DeliveryBundle:
             "notificationGroupedHistoryModel": self.notifications.filtered_history,
             "checkinOutController": self.checkin_out,
             "dccOptionsController": self.dcc_options,
+            "fileWorkspaceController": self.file_workspace,
             "commitQueueController": self.commit_queue,
             "commitQueueModel": self.commit_queue.model,
             "namingEditorController": self.naming_editor,
@@ -329,6 +333,7 @@ class EditorBundle:
     repository_sync: RepositorySyncEditorController
     sobject: SObjectEditorController
     project: ProjectEditorController
+    project_creation: ProjectCreationController
     links: SObjectLinkController
 
     def qml_bindings(self) -> dict[str, Any]:
@@ -347,6 +352,7 @@ class EditorBundle:
             "sobjectEditorController": self.sobject,
             "sobjectFieldModel": self.sobject.model,
             "projectEditorController": self.project,
+            "projectCreationController": self.project_creation,
             "sobjectLinkController": self.links,
             "linkAvailableModel": self.links.available_model,
             "linkCurrentModel": self.links.linked_model,
@@ -402,8 +408,11 @@ def _build_collaboration(
     controller = core.controller
     tasks = task_bundle.tasks
     server_updates = ServerUpdateService(controller)
+    controller.signing_out.connect(server_updates.stop)
+    controller.attach_server_clock(server_updates.clock)
     emoji_catalog = EmojiCatalog(project_root)
     users = UserController(controller)
+    controller.attach_user_controller(users)
     layout_presets = WorkspaceLayoutPresetController(
         controller, users, controller.dock_model,
     )
@@ -415,6 +424,7 @@ def _build_collaboration(
         controller, users, layout_presets=layout_presets,
     )
     administration = AdministrationController(controller, users, previews=skey_previews)
+    administration.attach_sidebar_editor(sidebar_editor)
     sidebar_editor.groupManagementRequested.connect(administration.show_groups)
     administration.groupsChanged.connect(sidebar_editor.refresh_security_groups)
     quick_filter_editor = QuickFilterEditorController(controller, users)
@@ -481,6 +491,8 @@ def _build_collaboration(
         skey_previews=skey_previews,
         clock=server_updates.clock,
     )
+    controller.signing_out.connect(messages._reset_session)
+    controller.authentication_changed.connect(messages.sync_authentication)
     knowledge.schemaInitialized.connect(
         messages.apply_schema_initialization
     )
@@ -503,6 +515,12 @@ def _build_collaboration(
     )
     users.attach_activity_feed(activity_feed)
     messages.visibilityChanged.connect(server_updates.set_messages_visible)
+    communication.visibilityChanged.connect(server_updates.set_notes_visible)
+    controller.section_state_changed.connect(lambda: server_updates.set_search_type(
+        controller._current_section().search_type if controller._current_section() else ""))
+    server_updates.set_search_type(controller._current_section().search_type if controller._current_section() else "")
+    activity_feed.notificationsEnabledChanged.connect(lambda: server_updates.set_activity_notifications(activity_feed.notificationsEnabled))
+    server_updates.set_activity_notifications(activity_feed.notificationsEnabled)
     activity_feed.visibilityChanged.connect(server_updates.set_activity_enabled)
     tasks.advancedVisibilityChanged.connect(server_updates.set_tasks_visible)
     server_updates.batchReady.connect(core.server_cache.apply_server_batch)
@@ -518,8 +536,9 @@ def _build_collaboration(
     )
     server_updates.batchReady.connect(users.apply_server_batch)
     server_updates.batchReady.connect(quick_filter_editor.apply_server_batch)
-    users.heartbeatIntervalChanged.connect(server_updates.set_presence_interval)
-    server_updates.set_presence_interval(users.heartbeat_interval)
+    server_updates.connectionChecked.connect(
+        controller.server_updates_connection_checked
+    )
     server_updates.errorRaised.connect(
         lambda message, stacktrace: core.debug_log.raise_error(
             message,
@@ -569,9 +588,21 @@ def _build_delivery(
 ) -> DeliveryBundle:
     controller = core.controller
     columns_editor = ColumnsEditorController(controller, task_bundle.tasks)
+    controller.columnsEditorRequested.connect(
+        collaboration.administration.open_columns_editor
+    )
     commit_queue = CommitQueueController(
         window_model=controller.window_model,
     )
+    file_workspace = FileWorkspaceController(controller)
+    controller.file_workspace = file_workspace
+    file_workspace.stateChanged.connect(
+        lambda: collaboration.server_updates.set_checkin_active(commit_queue.busy or file_workspace.busy)
+    )
+    commit_queue.stateChanged.connect(
+        lambda: collaboration.server_updates.set_checkin_active(commit_queue.busy)
+    )
+    collaboration.server_updates.set_checkin_active(commit_queue.busy)
     checkin_out = CheckinOutController(controller, commit_queue)
     collaboration.administration.typesEditor.attach_checkin_controller(checkin_out, commit_queue)
     collaboration.administration.schemaTypeEditor.attach_checkin_controller(checkin_out, commit_queue)
@@ -586,11 +617,15 @@ def _build_delivery(
     controller.dcc_options = dcc_options
     server_presets = ServerPresetsController(controller.workspace_state)
     screenshot = ScreenshotController(core.debug_log, commit_queue)
-    script_editor = ScriptEditorController(controller, core.debug_log)
+    script_editor = ScriptEditorController(
+        controller, core.debug_log, users=collaboration.users
+    )
     collaboration.server_updates.batchReady.connect(
         script_editor.apply_server_batch
     )
-    update = UpdateController(core.debug_log)
+    update = UpdateController(controller, core.debug_log)
+    controller.authentication_changed.connect(update.sync_authentication)
+    controller.server_state_changed.connect(update.sync_authentication)
     handler_server = HandlerServerController(
         project_root,
         core.debug_log,
@@ -661,6 +696,7 @@ def _build_delivery(
     return DeliveryBundle(
         columns_editor=columns_editor,
         commit_queue=commit_queue,
+        file_workspace=file_workspace,
         checkin_out=checkin_out,
         naming_editor=naming_editor,
         dcc_options=dcc_options,
@@ -721,6 +757,7 @@ class ConfigurationBridge:
             "snapshotShowAll": controller.snapshot_browser_show_all,
             "snapshotShowMore": controller.snapshot_browser_show_more,
             "snapshotContentMode": controller.snapshot_browser_content_mode,
+            "snapshotImageMode": controller.snapshot_browser_image_mode,
             "snapshotOrientation": controller.snapshot_browser_orientation,
             "commitQueueAutoClean": self.delivery.commit_queue.autoClean,
         }
@@ -736,6 +773,9 @@ class ConfigurationBridge:
                 controller.toggle_snapshot_browser_option(option)
         controller.set_snapshot_browser_content_mode(
             str(values.get("snapshotContentMode") or "both")
+        )
+        controller.set_snapshot_browser_image_mode(
+            str(values.get("snapshotImageMode") or "fit")
         )
         controller.set_snapshot_browser_orientation(
             str(values.get("snapshotOrientation") or "horizontal")
@@ -767,23 +807,21 @@ class ConfigurationBridge:
         self.core.server_cache.apply_configuration(values)
         self.core.controller.apply_workspace_cache_configuration(values)
 
-    def connection_values(self) -> dict[str, int]:
+    def connection_values(self) -> dict[str, Any]:
         return {
-            "pingInterval": self.core.controller.ping_interval,
             "serverUpdateInterval": self.collaboration.server_updates.poll_interval,
-            "presenceHeartbeatInterval": self.collaboration.users.heartbeat_interval,
+            "serverUpdateMode": self.collaboration.server_updates.update_mode,
+            "serverUpdateBatchDelay": self.collaboration.server_updates.batch_delay,
+            "updateSearchKey": self.delivery.update.sourceSearchKey,
         }
 
     def apply_connection(self, values: dict[str, Any]) -> None:
-        self.core.controller.set_ping_interval(
-            int(values.get("pingInterval", 0))
-        )
         self.collaboration.server_updates.set_poll_interval(
             int(values.get("serverUpdateInterval", 30))
         )
-        self.collaboration.users.set_heartbeat_interval(
-            int(values.get("presenceHeartbeatInterval", 120))
-        )
+        self.collaboration.server_updates.set_update_mode(str(values.get("serverUpdateMode", "poll")))
+        self.collaboration.server_updates.set_batch_delay(int(values.get("serverUpdateBatchDelay", 200)))
+        self.delivery.update.set_source(values.get("updateSearchKey", ""))
 
 
 def _build_editors(
@@ -811,6 +849,10 @@ def _build_editors(
         appearance_values=settings.appearance_values,
         apply_appearance_configuration=settings.apply_appearance,
         checkin_values=settings.checkin_values,
+        dcc_runtime_values=delivery.handler_server.selected_scene_info,
+    )
+    delivery.handler_server.stateChanged.connect(
+        configuration.refresh_dcc_runtime
     )
     repository = RepositoryEditorController(
         delivery.checkin_out,
@@ -860,6 +902,11 @@ def _build_editors(
         controller.notify,
     )
     controller.projectEditRequested.connect(project.begin_session)
+    project_creation = ProjectCreationController(controller)
+    controller.window_model.windowVisibilityChanged.connect(
+        project_creation.window_visibility_changed
+    )
+    controller.signing_out.connect(project_creation.shutdown)
     links = SObjectLinkController(
         controller.sobject_link_context,
         controller.notify,
@@ -875,6 +922,7 @@ def _build_editors(
         repository_sync=repository_sync,
         sobject=sobject,
         project=project,
+        project_creation=project_creation,
         links=links,
     )
 
@@ -996,6 +1044,7 @@ def build_application_runtime(
     lifecycle = LifecycleRegistry()
     lifecycle.add_services(
         (
+            editors.project_creation,
             collaboration.server_updates,
             collaboration.administration,
             delivery.naming_editor,
@@ -1018,6 +1067,7 @@ def build_application_runtime(
             delivery.script_triggers,
             delivery.handler_server,
             delivery.notifications,
+            delivery.file_workspace,
             delivery.commit_queue,
             core.controller,
             core.debug_log,
@@ -1032,6 +1082,7 @@ def build_application_runtime(
         server_updates=collaboration.server_updates,
         watch_folders=delivery.watch_folders,
         script_editor=delivery.script_editor,
+        update=delivery.update,
         bindings=bindings,
         lifecycle=lifecycle,
         bundles=(core, tasks, collaboration, delivery, editors),

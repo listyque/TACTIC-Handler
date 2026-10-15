@@ -33,6 +33,7 @@ Item {
     function formValues() {
         return {
             "closeToTray": closeToTray.checked,
+            "autoStartHandlerServer": autoStartHandlerServer.checked,
             "serverThreads": serverThreads.value,
             "localThreads": localThreads.value,
             "debugLogLevels": enabledDiagnosticLevels(),
@@ -45,6 +46,9 @@ Item {
         loadingValues = true
         closeToTray.checked = values.closeToTray === undefined
             ? true : Boolean(values.closeToTray)
+        autoStartHandlerServer.checked =
+            values.autoStartHandlerServer === undefined
+            ? true : Boolean(values.autoStartHandlerServer)
         serverThreads.value = Number(values.serverThreads || 4)
         localThreads.value = Number(values.localThreads || 4)
         const selectedLevels = values.debugLogLevels || ["ERROR", "CRITICAL"]
@@ -112,6 +116,29 @@ Item {
                         objectName: "closeToTraySwitch"
                         theme: root.theme
                         text: ""
+                        onToggled: root.updateValues()
+                    }
+                }
+            }
+
+            ConfigurationSection {
+                Layout.fillWidth: true
+                theme: root.theme
+                title: qsTr("DCC connections")
+                description: qsTr("Control the local server used by DCC clients.")
+                iconName: "server"
+
+                Controls.SettingsRow {
+                    theme: root.theme
+                    title: qsTr("Start Handler Server automatically")
+                    description: qsTr("Launch the local DCC server when TACTIC Handler starts. Disable this if you only use the standalone app; manual start remains available. Takes effect next launch.")
+                    showDivider: false
+                    Controls.Switch {
+                        id: autoStartHandlerServer
+                        objectName: "autoStartHandlerServerSwitch"
+                        theme: root.theme
+                        text: ""
+                        Accessible.name: qsTr("Start Handler Server automatically")
                         onToggled: root.updateValues()
                     }
                 }

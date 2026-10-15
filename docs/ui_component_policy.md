@@ -124,6 +124,10 @@ on shared behavior and semantics, not on reducing line count.
 - The same state transition uses the same duration and easing everywhere.
 - Symmetric outer margins and equal spacing are required in both narrow and
   wide layouts.
+- `DockWorkspaceFooter` leaves bottom corners square in native `Qt.Dialog` windows:
+  the operating-system frame owns their outer corners. Embedded workspace footers
+  retain their rounded defaults. Verify the shared control and Project Editor at
+  narrow and wide sizes with `tests.test_project_creation`.
 
 ## Responsive layout
 

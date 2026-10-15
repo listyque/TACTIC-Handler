@@ -373,23 +373,25 @@ class UiStructureTests(unittest.TestCase):
         self.assertTrue((QML / "AttachmentStagingPanel.qml").exists())
         self.assertTrue((QML / "AttachmentComposerControls.qml").exists())
 
-    def test_tools_menu_routes_available_tool_windows(self):
+    def test_tools_menu_and_standalone_columns_window_are_removed(self):
         actions = [
             item for item in DEFAULT_MENUS["tools"]
             if item.get("command")
         ]
         commands = [item["command"] for item in actions]
 
-        self.assertEqual(commands, [
-            "tool_columns_editor",
-            "tool_update",
-            "tool_create_update",
-        ])
-        self.assertEqual(TOOL_WINDOWS, {
-            "tool_columns_editor": "columns_editor",
-            "tool_update": "update",
-            "tool_create_update": "create_update",
-        })
+        self.assertEqual(commands, [])
+        self.assertEqual(TOOL_WINDOWS, {})
+
+        configuration_commands = {
+            item.get("command") for item in DEFAULT_MENUS["configuration"]
+        }
+        self.assertNotIn("show_tools", configuration_commands)
+        self.assertIn("show_update", configuration_commands)
+        self.assertNotIn(
+            "columns_editor",
+            {window.window_id for window in FloatingWindowModel._defaults()},
+        )
 
     def test_tools_menu_only_contains_surfaces_without_another_entrypoint(self):
         commands = [
@@ -824,6 +826,12 @@ class UiStructureTests(unittest.TestCase):
         self.assertIn(
             "resultsViewMenu.openBelow(", source
         )
+        result_actions = source[
+            source.index("id: searchTabActionsMenu"):
+            source.index("id: resultsViewMenu")
+        ]
+        self.assertIn('"children": resultsViewMenu.actions', result_actions)
+        self.assertNotIn('"title": "Refresh current results"', result_actions)
 
         tag_block = header[
             header.index("id: tagCloudButton"):
@@ -833,10 +841,12 @@ class UiStructureTests(unittest.TestCase):
             header.index("id: quickFilterButton"):
             header.index("id: searchGear")
         ]
-        self.assertIn("visible: true", tag_block)
+        self.assertIn("visible: !root.compactTabActions", tag_block)
         self.assertIn("visible: true", quick_filter_block)
         self.assertNotIn("id: searchOverflowButton", header)
         self.assertNotIn("id: searchOverflowMenu", source)
+        self.assertIn("id: searchHeaderOverflowMenu", source)
+        self.assertIn('"title": "Workspace panels"', source)
 
     def test_tag_popup_has_a_bounded_scrollable_viewport(self):
         source = (QML / "SearchWorkspaceView.qml").read_text(
@@ -995,7 +1005,8 @@ class UiStructureTests(unittest.TestCase):
         self.assertIn("DockContentRegistry", host)
         self.assertNotIn("TaskDockView", host)
         self.assertNotIn("CommunicationView", host)
-        self.assertIn("model: visibleDockModel", host)
+        self.assertIn("model: root.workspaceActive ? visibleDockModel : 0", host)
+        self.assertIn("active: root.workspaceActive", host)
         self.assertIn("model: detachedDockModel", host)
         self.assertIn("&& dockDelegate.stackActive", host)
         self.assertIn(
@@ -1151,7 +1162,7 @@ class UiStructureTests(unittest.TestCase):
         self.assertIn("self._reload_if_in_use", columns_init)
         self.assertNotIn("self.reload()", presets_init)
         self.assertIn(
-            "columnsEditorController.begin_session()",
+            "columnsEditorController.load_definition_catalog(projectCode)",
             (QML / "ColumnsEditorView.qml").read_text(encoding="utf-8"),
         )
         self.assertIn(
@@ -1316,6 +1327,22 @@ class UiStructureTests(unittest.TestCase):
             if forbidden.search(path.read_text(encoding="utf-8")):
                 offenders.append(path.name)
         self.assertEqual(offenders, [])
+
+    def test_all_split_views_use_the_shared_resize_grip(self):
+        for path in QML.glob('*.qml'):
+            source = path.read_text(encoding='utf-8')
+            self.assertEqual(
+                len(re.findall(r'\bSplitView\s*\{', source)),
+                source.count('handle: Controls.SplitterHandle {'),
+                path.name,
+            )
+        for filename in (
+            'CommitQueueView.qml',
+            'SearchResultsPane.qml',
+            'SnapshotBrowser.qml',
+        ):
+            source = (QML / filename).read_text(encoding='utf-8')
+            self.assertIn('Controls.ResizeGripVisual {', source, filename)
 
     def test_knowledge_base_uses_the_shared_dock_footer_surface(self):
         knowledge = (QML / "KnowledgeBaseView.qml").read_text(

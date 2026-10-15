@@ -60,6 +60,8 @@ DISPLAY_WIDGETS = (
 
 def width(value) -> int:
     try:
+        if isinstance(value, str):
+            value = value.strip().removesuffix("px")
         return max(48, min(640, int(value or 160)))
     except (TypeError, ValueError):
         return 160

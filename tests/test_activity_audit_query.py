@@ -79,6 +79,55 @@ class _SearchKey:
 
 
 class ActivityAuditQueryTests(unittest.TestCase):
+    def test_direct_page_cutoff_prunes_older_audit_queries(self):
+        _Search.instances = []
+        _Search.rows = {
+            "sthpw/note": [{
+                "id": 1, "code": "NOTE001", "login": "artist",
+                "timestamp": "2026-08-25 12:00:00",
+                "project_code": "demo", "search_type": "demo/asset",
+                "search_code": "ASSET001",
+            }, {
+                "id": 2, "code": "NOTE002", "login": "artist",
+                "timestamp": "2026-08-25 11:00:00",
+                "project_code": "demo", "search_type": "demo/asset",
+                "search_code": "ASSET001",
+            }],
+            "sthpw/transaction_log": [],
+            "sthpw/sobject_log": [],
+            "sthpw/change_timestamp": [],
+            "demo/asset": [{
+                "id": 10, "code": "ASSET001", "name": "Bathroom",
+            }],
+        }
+        pyasm = types.ModuleType("pyasm")
+        search = types.ModuleType("pyasm.search")
+        search.Search = _Search
+        search.SearchKey = _SearchKey
+
+        with patch.dict(sys.modules, {
+            "pyasm": pyasm,
+            "pyasm.search": search,
+        }):
+            records = tactic_query.query_user_recent_activity(
+                project_code="demo", kinds=("note", "create", "change"),
+                limit=2,
+            )
+
+        self.assertEqual(len(records), 2)
+        for search_type in (
+                "sthpw/transaction_log", "sthpw/change_timestamp"):
+            query = next(
+                item for item in _Search.instances
+                if item.search_type == search_type
+            )
+            self.assertTrue(any(
+                args[:2] == (
+                    "timestamp", "2026-08-25 11:00:00",
+                ) and kwargs.get("op") == ">="
+                for args, kwargs in query.filters
+            ))
+
     def test_excluded_login_is_removed_from_pages_and_calendar_counts(self):
         _Search.instances = []
         _Search.rows = {
@@ -331,7 +380,8 @@ class ActivityAuditQueryTests(unittest.TestCase):
 
         class _Schema:
             @staticmethod
-            def get():
+            def get(project_code=None):
+                self.assertEqual(project_code, "demo")
                 return _Schema()
 
             @staticmethod
@@ -928,7 +978,8 @@ class ActivityAuditQueryTests(unittest.TestCase):
 
         class _Schema:
             @staticmethod
-            def get():
+            def get(project_code=None):
+                self.assertEqual(project_code, "demo")
                 return _Schema()
 
             @staticmethod

@@ -45,6 +45,7 @@ _CHECKIN_CONTROLS = {
     "checkinMethod": ("QComboBox", "checkinMethodComboBox", 4),
     "checkoutMethod": ("QComboBox", "checkoutMethodComboBox", 1),
     "updateVersionless": ("QCheckBox", "updateVersionlessCheckBox", True),
+    "versionlessMode": ("QComboBox", "versionlessModeComboBox", 0),
     "generatePreviews": ("QCheckBox", "generatePreviewsCheckBox", True),
     "confirmSaving": ("QCheckBox", "askBeforeSaveCheckBox", True),
     "confirmRevision": ("QCheckBox", "askReplaceRevisionCheckBox", True),
@@ -62,10 +63,10 @@ _CHECKIN_CONTROLS = {
     "minimumFramePadding": ("QSpinBox", "minFramesPaddingSpinBox", 3),
 }
 
-
 def normalize_dcc_preferences(application: str, values: dict) -> dict:
     return normalize_dcc_values(
-        dcc_configuration_fields(application), values
+        (field for field in dcc_configuration_fields(application)
+         if not field.get("runtime_key")), values
     )
 
 
@@ -141,6 +142,7 @@ class ConfigurationController(QObject):
         appearance_values=None,
         apply_appearance_configuration=None,
         checkin_values=None,
+        dcc_runtime_values=None,
     ) -> None:
         super().__init__(parent)
         self._apply_server_configuration = apply_server_configuration
@@ -151,6 +153,7 @@ class ConfigurationController(QObject):
         self._apply_appearance_configuration = apply_appearance_configuration
         self._flush_search_cache = flush_search_cache
         self._checkin_runtime_values = checkin_values
+        self._dcc_runtime_values = dcc_runtime_values
         self._apply_checkin_configuration = apply_checkin_configuration
         self._task_values = task_values
         self._apply_task_configuration = apply_task_configuration
@@ -188,9 +191,18 @@ class ConfigurationController(QObject):
     def _server_values(self) -> dict:
         from thlib.environment import env_server
 
+        query_settings = env_read_config(
+            filename="server_query", unique_id="ui_conf",
+            long_abs_path=True, scope="installation",
+        ) or {}
+        server_url = str(env_server.get_server() or "")
         values = {
-            "serverUrl": str(env_server.get_server() or ""),
+            "serverUrl": server_url,
             "presetName": str(env_server.get_cur_srv_preset() or ""),
+            "rpcTransport": env_server.get_rpc_transport(),
+            "queryMode": (query_settings.get("modes") or {}).get(
+                server_url.rstrip("/"), "local"
+            ),
         }
         if self._background_values:
             values.update(dict(self._background_values()))
@@ -256,37 +268,39 @@ class ConfigurationController(QObject):
         return result
 
     def _checkin_values(self) -> dict:
-        from thlib.environment import cfg_controls
+        from thlib.environment import cfg_controls, env_server
 
         values = self._controls_values(
             cfg_controls.get_checkin() or {}, _CHECKIN_CONTROLS
         )
         if self._checkin_runtime_values:
             values.update(dict(self._checkin_runtime_values()))
-        return self._normalize_checkin(values)
+        values = self._normalize_checkin(values)
+        values["teamLocalRepository"] = env_server.is_team_local_repository()
+        return values
 
     @staticmethod
     def _normalize_server(values: dict) -> dict:
         from thlib.ui.server_address import normalize_tactic_server_url
 
         server_url = normalize_tactic_server_url(values.get("serverUrl"))
-        ping_interval = int(values.get("pingInterval", 0))
-        if ping_interval not in {0, 10, 60}:
-            ping_interval = 0
         update_interval = int(values.get("serverUpdateInterval", 30))
         if update_interval not in {5, 10, 30, 60}:
             update_interval = 30
-        heartbeat_interval = int(
-            values.get("presenceHeartbeatInterval", 120)
-        )
-        if heartbeat_interval not in {30, 60, 120, 300}:
-            heartbeat_interval = 120
+        batch_delay = values.get("serverUpdateBatchDelay", 200)
+        if type(batch_delay) is not int or batch_delay not in {100, 200, 500, 1000}:
+            batch_delay = 200
         return {
+            "serverUpdateBatchDelay": batch_delay,
             "serverUrl": server_url,
             "presetName": str(values.get("presetName") or "").strip(),
-            "pingInterval": ping_interval,
+            "rpcTransport": values.get("rpcTransport", "xmlrpc"),
             "serverUpdateInterval": update_interval,
-            "presenceHeartbeatInterval": heartbeat_interval,
+            "serverUpdateMode": "sse" if values.get("serverUpdateMode") == "sse" else "poll",
+            "updateSearchKey": str(values.get("updateSearchKey") or "").strip(),
+            "queryMode": (
+                "plugin" if values.get("queryMode") == "plugin" else "local"
+            ),
         }
 
     @staticmethod
@@ -301,6 +315,9 @@ class ConfigurationController(QObject):
         }
         return {
             "closeToTray": bool(values.get("closeToTray", True)),
+            "autoStartHandlerServer": bool(
+                values.get("autoStartHandlerServer", True)
+            ),
             "serverThreads": _thread_count(values.get("serverThreads", 4)),
             "localThreads": _thread_count(values.get("localThreads", 4)),
             "debugLogLevels": [
@@ -470,6 +487,10 @@ class ConfigurationController(QObject):
             content_mode if content_mode in {"both", "preview", "files"}
             else "both"
         )
+        image_mode = str(values.get("snapshotImageMode") or "fit")
+        normalized["snapshotImageMode"] = (
+            image_mode if image_mode in {"fit", "fill"} else "fit"
+        )
         orientation = str(
             values.get("snapshotOrientation") or "horizontal"
         )
@@ -488,6 +509,8 @@ class ConfigurationController(QObject):
 
         if not is_valid_tactic_server_url(values.get("serverUrl")):
             return "Enter a valid TACTIC server address."
+        if values.get("rpcTransport", "xmlrpc") not in ("xmlrpc", "json"):
+            return "Select XML-RPC or JSON (TACTIC Stream)"
         if not str(values.get("presetName") or ""):
             return "Select a server preset."
         return ""
@@ -549,7 +572,19 @@ class ConfigurationController(QObject):
             values = dict(self._original_values[page_id])
         else:
             values = self._values_for_page(page_id)
+        if page_id in self._dcc_pages and self._dcc_runtime_values:
+            application = self._dcc_pages[page_id]["application"]
+            runtime = self._dcc_runtime_values(application) or {}
+            for field in dcc_configuration_fields(application):
+                if field.get("runtime_key"):
+                    values[field["key"]] = str(
+                        runtime.get(field["runtime_key"]) or ""
+                    )
         return values
+
+    def refresh_dcc_runtime(self) -> None:
+        if self._current_page in self._dcc_pages:
+            self.pageReset.emit(self._current_page)
 
     @Slot(str, result="QVariantMap")
     def page_schema(self, page_id: str) -> dict:
@@ -562,9 +597,18 @@ class ConfigurationController(QObject):
         preset = dict(
             env_server.get_server_preset(str(preset_name or "")) or {}
         )
+        server_url = str(preset.get("server") or "")
+        query_settings = env_read_config(
+            filename="server_query", unique_id="ui_conf",
+            long_abs_path=True, scope="installation",
+        ) or {}
         values = {
-            "serverUrl": str(preset.get("server") or ""),
+            "serverUrl": server_url,
             "presetName": str(preset_name or ""),
+            "rpcTransport": preset.get("rpc_transport", "xmlrpc"),
+            "queryMode": (query_settings.get("modes") or {}).get(
+                server_url.rstrip("/"), "local"
+            ),
         }
         if self._background_values:
             values.update(dict(self._background_values()))
@@ -585,6 +629,9 @@ class ConfigurationController(QObject):
             normalized = self._normalize_server(values)
         elif page_id == "checkin_preferences":
             normalized = self._normalize_checkin(values)
+            normalized["teamLocalRepository"] = bool(
+                values.get("teamLocalRepository")
+            )
         elif page_id == "global_preferences":
             normalized = self._normalize_global(values)
         elif page_id == "appearance":
@@ -625,7 +672,18 @@ class ConfigurationController(QObject):
                 self._notify("Select an existing server preset")
                 return False
             self._apply_server_configuration(
-                server_url, preset_name, False
+                server_url, preset_name, False, values["rpcTransport"]
+            )
+            query_settings = env_read_config(
+                filename="server_query", unique_id="ui_conf",
+                long_abs_path=True, scope="installation",
+            ) or {}
+            modes = dict(query_settings.get("modes") or {})
+            modes[server_url.rstrip("/")] = values["queryMode"]
+            env_write_config(
+                {"modes": modes}, filename="server_query",
+                unique_id="ui_conf", long_abs_path=True,
+                scope="installation",
             )
             if self._apply_background_configuration:
                 self._apply_background_configuration(dict(values))
@@ -723,6 +781,7 @@ class ConfigurationController(QObject):
             tc.server_fast_ping_predefined,
             values["serverUrl"],
             proxy,
+            values["rpcTransport"],
         )
         self._server_test_worker = worker
         worker.result.connect(self._server_test_result)
@@ -781,8 +840,8 @@ class ConfigurationController(QObject):
     def apply_current(self) -> bool:
         return self._apply_page(self._current_page)
 
-    @Slot()
-    def save_and_close(self) -> None:
+    @Slot(result=bool)
+    def save_all(self) -> bool:
         page_order = (
             "server",
             "appearance",
@@ -795,8 +854,13 @@ class ConfigurationController(QObject):
         )
         for page_id in page_order:
             if not self._apply_page(page_id):
-                return
-        self.closeAllowed.emit()
+                return False
+        return True
+
+    @Slot()
+    def save_and_close(self) -> None:
+        if self.save_all():
+            self.closeAllowed.emit()
 
     @Slot()
     def reset_current(self) -> None:

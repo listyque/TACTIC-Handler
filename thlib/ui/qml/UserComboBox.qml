@@ -197,7 +197,7 @@ Controls.ComboBox {
             control.cancelOpeningTransaction()
         }
         settledClosePolicy: QtControls.Popup.CloseOnEscape
-            | QtControls.Popup.CloseOnPressOutside
+            | QtControls.Popup.CloseOnPressOutsideParent
         y: control.height + 4
         width: Math.min(
             Math.max(control.width, 250, control.preferredPopupWidth + 44),

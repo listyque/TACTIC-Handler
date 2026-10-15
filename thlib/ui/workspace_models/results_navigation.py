@@ -28,6 +28,7 @@ class NavigationMixin:
         return result
 
     def show_card_level(self, node_id: str = "") -> None:
+        self._rows_projection = "cards"
         if not node_id:
             self._replace_visible_items(list(self._roots))
             return
@@ -36,14 +37,24 @@ class NavigationMixin:
             self._replace_visible_items(list(node.children))
 
     def show_tree_rows(self) -> None:
+        self._rows_projection = "tree"
         self._replace_visible_items(self._flatten())
 
+    def _project_visible_rows(
+        self, rows: list[WorkspaceNode]
+    ) -> list[WorkspaceNode]:
+        if self._rows_projection == "table":
+            return [
+                node for node in rows
+                if node.node_type in {"group", "sobject"}
+            ]
+        return list(rows)
+
     def show_table_rows(self) -> None:
+        self._rows_projection = "table"
         organized = self.organized_flatten()
         rows = organized if organized is not None else self._roots
-        self._replace_visible_items([
-            node for node in rows if node.node_type == "sobject"
-        ])
+        self._replace_visible_items(self._project_visible_rows(rows))
 
     def _visible_children(self, node: WorkspaceNode) -> list[WorkspaceNode]:
         result: list[WorkspaceNode] = []
@@ -123,7 +134,9 @@ class NavigationMixin:
         if node.node_type == "group":
             node.expanded = not node.expanded
             node.restore_expanded = node.expanded
-            self._replace_visible_items(self._flatten())
+            self._replace_visible_items(
+                self._project_visible_rows(self._flatten())
+            )
             row = self._row_by_node_id.get(node_id, -1)
             if row >= 0:
                 model_index = self.index(row, 0)
@@ -255,6 +268,7 @@ class NavigationMixin:
         depth: int,
         accent: str,
         parent_id: str,
+        reveal_result: bool = True,
     ) -> tuple[list[WorkspaceNode], str]:
         expanded_contexts = {
             str(node.context or "")
@@ -277,7 +291,7 @@ class NavigationMixin:
             )
             should_expand = (
                 str(node.context or "") in expanded_contexts
-                or target_context
+                or (reveal_result and target_context)
             )
             if should_expand and node.has_children and not node.loaded:
                 self._load_snapshot_versions(node, register=False)
@@ -305,6 +319,7 @@ class NavigationMixin:
         snapshot_code: str = "",
         root_node_id: str = "",
         update_versionless: bool = False,
+        keep_publish_process_collapsed: bool = False,
     ) -> tuple[str, dict]:
         """Prepare fresh snapshot branches without mutating Qt model rows."""
         process = str(process or "publish")
@@ -351,6 +366,7 @@ class NavigationMixin:
                         root.depth + 1,
                         root.accent,
                         root.node_id,
+                        not keep_publish_process_collapsed,
                     )
                 )
 
@@ -372,6 +388,7 @@ class NavigationMixin:
                         process_node.depth + 1,
                         process_node.accent,
                         process_node.node_id,
+                        not keep_publish_process_collapsed,
                     )
                 )
                 process_branches.append({
@@ -461,7 +478,9 @@ class NavigationMixin:
             self._unregister_snapshot_tree(child)
         self._nodes.pop(node.node_id, None)
 
-    def apply_snapshot_branch_refresh(self, refresh: dict) -> str:
+    def apply_snapshot_branch_refresh(
+        self, refresh: dict, keep_publish_process_collapsed: bool = False,
+    ) -> str:
         """Publish prepared snapshot branches and return the row to reveal."""
         reveal_node_id = ""
         changed = False
@@ -524,14 +543,18 @@ class NavigationMixin:
                     if child not in old_snapshots
                 ]
                 snapshots = list(branch.get("snapshots") or [])
+                expanded = (
+                    process_node.expanded
+                    or not keep_publish_process_collapsed
+                )
                 process_node = replace(
                     process_node,
                     children=retained + snapshots,
                     source=branch.get("processObject"),
                     child_count=len(retained) + len(snapshots),
                     has_children=bool(retained or snapshots),
-                    expanded=True,
-                    restore_expanded=True,
+                    expanded=expanded,
+                    restore_expanded=expanded,
                 )
                 parent.children = [
                     process_node
@@ -541,12 +564,13 @@ class NavigationMixin:
                 self._nodes[process_node.node_id] = process_node
                 for child in snapshots:
                     self._register_tree(child)
-                ancestor = parent
-                while ancestor is not None and ancestor is not root:
-                    ancestor.expanded = True
-                    ancestor.restore_expanded = True
-                    changed_node_ids.add(ancestor.node_id)
-                    ancestor = self._nodes.get(ancestor.parent_id)
+                if not keep_publish_process_collapsed:
+                    ancestor = parent
+                    while ancestor is not None and ancestor is not root:
+                        ancestor.expanded = True
+                        ancestor.restore_expanded = True
+                        changed_node_ids.add(ancestor.node_id)
+                        ancestor = self._nodes.get(ancestor.parent_id)
                 changed = True
 
             root.expanded = True

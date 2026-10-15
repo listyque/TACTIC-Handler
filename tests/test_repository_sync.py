@@ -408,7 +408,7 @@ class RepositorySyncTests(unittest.TestCase):
             )
 
             with patch(
-                "thlib.ui.repository_sync.urllib.request.urlopen"
+                "thlib.repository_download.UrllibTransport.open"
             ) as urlopen:
                 handle = controller.schedule_file_object(
                     file_object, process="preview", auto_start=True,
@@ -1177,10 +1177,37 @@ class RepositorySyncTests(unittest.TestCase):
                 ),
             )
 
-            self.assertTrue(File.is_local_current(fresh))
-            self.assertFalse(File.is_local_current(stale_size))
-            self.assertFalse(File.is_local_current(stale_time))
-            self.assertFalse(File.is_local_current(locally_changed))
+            with patch(
+                "thlib.tactic_classes.env_server.is_team_local_repository",
+                return_value=False,
+            ):
+                self.assertTrue(File.is_local_current(fresh))
+                self.assertFalse(File.is_local_current(stale_size))
+                self.assertFalse(File.is_local_current(stale_time))
+                self.assertFalse(File.is_local_current(locally_changed))
+
+    def test_team_repository_accepts_existing_file_with_source_mtime(self):
+        with TemporaryDirectory() as directory:
+            path = os.path.join(directory, "preview.jpg")
+            with open(path, "wb") as stream:
+                stream.write(b"same")
+            source_mtime = os.path.getmtime(path)
+            from datetime import datetime
+
+            current = _FilePaths(
+                directory, expected_size=4,
+                server_timestamp=datetime.fromtimestamp(source_mtime + 60),
+            )
+            wrong_size = _FilePaths(
+                directory, expected_size=5,
+                server_timestamp=current.server_timestamp,
+            )
+            with patch(
+                "thlib.tactic_classes.env_server.is_team_local_repository",
+                return_value=True,
+            ):
+                self.assertTrue(File.is_local_current(current))
+                self.assertFalse(File.is_local_current(wrong_size))
 
     def test_prepare_repo_failure_is_reported_by_worker(self):
         file_object = Mock()
@@ -1233,7 +1260,7 @@ class RepositorySyncTests(unittest.TestCase):
             )
 
             with patch(
-                "thlib.ui.repository_sync.urllib.request.urlopen"
+                "thlib.repository_download.UrllibTransport.open"
             ) as urlopen:
                 DownloadRunnable(task, signals).run()
 
@@ -1280,7 +1307,7 @@ class RepositorySyncTests(unittest.TestCase):
             )
 
             with patch(
-                "thlib.ui.repository_sync.urllib.request.urlopen",
+                "thlib.repository_download.UrllibTransport.open",
                 return_value=Response(b"new!"),
             ) as urlopen:
                 DownloadRunnable(task, signals).run()
@@ -1329,7 +1356,7 @@ class RepositorySyncTests(unittest.TestCase):
             )
 
             with patch(
-                "thlib.ui.repository_sync.urllib.request.urlopen",
+                "thlib.repository_download.UrllibTransport.open",
                 return_value=Response(b"new!"),
             ) as urlopen:
                 DownloadRunnable(task, signals).run()
@@ -1376,7 +1403,7 @@ class RepositorySyncTests(unittest.TestCase):
 
             with (
                 patch(
-                    "thlib.ui.repository_sync.urllib.request.urlopen",
+                    "thlib.repository_download.UrllibTransport.open",
                     return_value=Response(b"tiny"),
                 ),
                 patch(
@@ -1425,7 +1452,7 @@ class RepositorySyncTests(unittest.TestCase):
             signals.finished.connect(lambda _task_id, result: finished.append(result))
 
             with patch(
-                "thlib.ui.repository_sync.urllib.request.urlopen",
+                "thlib.repository_download.UrllibTransport.open",
                 return_value=Response(expected),
             ):
                 DownloadRunnable(task, signals).run()

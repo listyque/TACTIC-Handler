@@ -2,11 +2,12 @@ pragma ComponentBehavior: Bound
 
 import QtQuick
 import QtQuick.Controls
+import QtQuick.Layouts
 import "controls" as Controls
+import "SearchTableColumnLayout.js" as TableColumnLayout
 
 Item {
     id: root
-
     required property var theme
     required property var controller
     required property var resultModel
@@ -14,38 +15,44 @@ Item {
     property var userModel: null
     property bool presentationActive: false
     property var widthOverrides: ({})
-    property real rowHeight: 68
+    property bool autoFitColumns: false
+    property real rowHeight: 58
+    property bool automaticRowHeight: false
+    property var hoveredTaskCell: null
+    readonly property bool selectedTaskPreviewActive: hoveredTaskCell !== null
+        && controller.selected_result_node_ids.indexOf(hoveredTaskCell.nodeId) >= 0
     readonly property var columns: columnsController
         ? columnsController.visibleColumns : []
-    readonly property bool columnsBusy: columnsController
-        ? Boolean(columnsController.busy) : false
-    readonly property bool columnsDirty: columnsController
-        ? Boolean(columnsController.dirty) : false
+    readonly property real availableColumnWidth: Math.max(0,
+        rows.width - selectionColumnWidth - actionColumnWidth)
+    readonly property var effectiveColumns:
+        TableColumnLayout.visibleColumns(columns, availableColumnWidth,
+                                         widthOverrides)
+    readonly property var fitWidthOverrides: autoFitColumns
+        ? TableColumnLayout.fittedWidths(effectiveColumns,
+            availableColumnWidth, widthOverrides) : ({})
+    readonly property bool columnsBusy:
+        Boolean(columnsController && columnsController.busy)
+    readonly property bool columnsDirty:
+        Boolean(columnsController && columnsController.dirty)
     readonly property string columnsError: columnsController
         ? String(columnsController.error || "") : ""
-    readonly property bool hasThumbnailColumn: {
-        for (let index = 0; index < columns.length; ++index) {
-            if (String(columns[index].kind || "") === "thumbnail")
-                return true
-        }
-        return false
-    }
-    readonly property real headerHeight: 34
+    readonly property bool hasThumbnailColumn:
+        TableColumnLayout.hasKind(effectiveColumns, "thumbnail")
+    readonly property real thumbnailColumnWidth:
+        TableColumnLayout.widthForKind(effectiveColumns, "thumbnail",
+                                       widthOverrides, fitWidthOverrides)
+    readonly property real effectiveRowHeight: automaticRowHeight
+        ? Math.max(rowHeight, thumbnailColumnWidth) : rowHeight
+    readonly property real headerHeight: 37
     readonly property real selectionColumnWidth: 40
-    readonly property real actionColumnWidth: 40
-    readonly property real columnsWidth: {
-        let width = 0
-        for (let index = 0; index < columns.length; ++index)
-            width += columnWidth(columns[index])
-        return width
-    }
-    readonly property real tableWidth: Math.max(
-        rows.width,
-        selectionColumnWidth + columnsWidth + actionColumnWidth
-    )
+    readonly property real actionColumnWidth: 64
+    readonly property real columnsWidth: TableColumnLayout.totalWidth(
+        effectiveColumns, widthOverrides, fitWidthOverrides)
+    readonly property real tableWidth: Math.max(rows.width,
+        selectionColumnWidth + columnsWidth + actionColumnWidth)
     readonly property real contentY: rows.contentY
     readonly property int count: rows.count
-
     signal actionMenuRequested(
         string nodeId,
         var actions,
@@ -59,7 +66,6 @@ Item {
         string panel,
         var anchorItem
     )
-
     function displayText(value) {
         return value === undefined || value === null ? "" : String(value)
     }
@@ -74,15 +80,12 @@ Item {
     }
 
     function columnWidth(column) {
-        const name = String(column.name || "")
-        const override = widthOverrides[name]
-        return Math.max(48, Math.min(
-            640,
-            Number(override !== undefined ? override : column.width || 160)
-        ))
+        return TableColumnLayout.resolvedWidth(
+            column, widthOverrides, fitWidthOverrides)
     }
 
     function setWidthOverride(name, width) {
+        autoFitColumns = false
         const next = Object.assign({}, widthOverrides)
         next[String(name || "")] = Math.max(48, Math.min(640, width))
         widthOverrides = next
@@ -104,11 +107,11 @@ Item {
     }
 
     function openColumnsEditor(row, target) {
-        if (row !== undefined && row >= 0)
-            columnsController.request_column_focus(
-                Number(row), String(target || "definition")
-            )
-        controller.open_window("columns_editor")
+        columnsController.request_column_focus(
+            row === undefined ? -1 : Number(row),
+            String(target || "definition")
+        )
+        controller.open_columns_editor()
     }
 
     function requestActionMenu(nodeId, anchorItem, x, y, below) {
@@ -151,19 +154,64 @@ Item {
         }
     }
 
+    Item {
+        id: scrollBarFrame
+        anchors.fill: parent
+        anchors.margins: 8
+        anchors.topMargin: taskDraftActions.visible ? taskDraftActions.height + 12 : 8
+    }
+
+    Loader {
+        id: taskDraftActions
+        objectName: "tableTaskDraftActions"
+        anchors.top: parent.top
+        anchors.right: parent.right
+        anchors.margins: 8
+        active: Number(root.columnsController.dirtyTaskCount || 0) > 0
+        visible: active
+        sourceComponent: RowLayout {
+        spacing: 8
+
+        Label {
+            text: Number(root.columnsController.dirtyTaskCount || 0) + qsTr(" unsaved")
+            color: root.theme.secondaryText
+            font.family: root.theme.fontFamily
+            font.pointSize: Controls.Typography.label
+        }
+        Controls.CompactIconButton {
+            objectName: "discardTableTaskChanges"
+            theme: root.theme
+            iconName: "undo"
+            toolTip: qsTr("Reset task changes")
+            enabled: !root.columnsBusy
+            onClicked: root.columnsController.discard_task_changes()
+        }
+        Controls.CompactIconButton {
+            objectName: "saveTableTaskChanges"
+            theme: root.theme
+            iconName: "save"
+            iconColor: root.theme.action
+            toolTip: qsTr("Save task changes")
+            enabled: !root.columnsBusy
+            onClicked: root.columnsController.save_task_changes()
+        }
+        }
+    }
+
     ListView {
         id: rows
         objectName: "searchResultsTableView"
         anchors.fill: parent
         anchors.margins: 8
-        anchors.rightMargin: 18
-        anchors.bottomMargin: 18
+        anchors.topMargin: scrollBarFrame.y
+        anchors.rightMargin: 8 + verticalBar.reservedExtent + 4
+        anchors.bottomMargin: 8 + horizontalBar.reservedExtent + 4
         opacity: initialTablePresentation.ready ? 1 : 0
         model: root.resultModel
         clip: true
         spacing: 0
         reuseItems: true
-        cacheBuffer: Math.max(80, root.rowHeight * 1.5)
+        cacheBuffer: Math.max(80, root.effectiveRowHeight * 1.5)
         currentIndex: -1
         keyNavigationEnabled: false
         boundsBehavior: Flickable.StopAtBounds
@@ -198,7 +246,7 @@ Item {
         function openCurrent() {
             const item = itemAtIndex(currentIndex)
             if (item)
-                root.controller.handle_item_double_click(item.nodeId, 0)
+                item.activate(0)
         }
 
         onContentYChanged: requestMoreFromScroll()
@@ -225,7 +273,15 @@ Item {
                 selectRow(count - 1, event.modifiers)
                 event.accepted = true
             } else if (event.key === Qt.Key_Space) {
-                selectRow(currentIndex < 0 ? 0 : currentIndex, event.modifiers)
+                if (currentIndex < 0)
+                    selectRow(0, event.modifiers)
+                else {
+                    const item = itemAtIndex(currentIndex)
+                    if (item && item.isGroup)
+                        item.activate(event.modifiers)
+                    else
+                        selectRow(currentIndex, event.modifiers)
+                }
                 event.accepted = true
             } else if (
                 event.key === Qt.Key_Return || event.key === Qt.Key_Enter
@@ -242,17 +298,20 @@ Item {
             theme: root.theme
             controller: root.controller
             columnsController: root.columnsController
-            columns: root.columns
+            columns: root.effectiveColumns
             selectedIds: root.controller.selected_result_node_ids
             columnsBusy: root.columnsBusy
             columnsError: root.columnsError
             rowCount: rows.count
             rowHeight: root.rowHeight
+            automaticRowHeight: root.automaticRowHeight
             viewportContentX: rows.contentX
             viewportWidth: rows.width
             selectionColumnWidth: root.selectionColumnWidth
             actionColumnWidth: root.actionColumnWidth
             columnWidthProvider: root.columnWidth
+            autoFitColumns: root.autoFitColumns
+            onAutoFitRequested: root.autoFitColumns = !root.autoFitColumns
             onWidthPreviewRequested: (name, width) =>
                 root.setWidthOverride(name, width)
             onWidthClearRequested: name => root.clearWidthOverride(name)
@@ -260,7 +319,11 @@ Item {
                 root.commitColumnWidth(column, width)
             onColumnsEditorRequested: (row, target) =>
                 root.openColumnsEditor(row, target)
-            onRowHeightRequested: height => root.rowHeight = height
+            onRowHeightRequested: function(height) {
+                root.automaticRowHeight = height <= 0
+                if (height > 0)
+                    root.rowHeight = height
+            }
             onSelectAllRequested: selected => {
                 if (!selected) {
                     root.controller.clear_result_selection()
@@ -291,17 +354,21 @@ Item {
             required property string previewUrl
             required property bool previewRequested
             required property bool previewRevealed
+            required property bool expanded
+            required property int childCount
             property bool viewPooled: false
+            readonly property bool isGroup: nodeType === "group"
             readonly property bool selected:
-                root.controller.selected_result_node_ids.indexOf(nodeId) >= 0
+                !isGroup
+                && root.controller.selected_result_node_ids.indexOf(nodeId) >= 0
             readonly property bool inVerticalViewport:
                 y + height >= rows.contentY
                 && y <= rows.contentY + rows.height
             readonly property bool previewActive:
                 root.presentationActive && root.hasThumbnailColumn
-                && inVerticalViewport && !viewPooled
+                && !isGroup && inVerticalViewport && !viewPooled
             readonly property var nativeCells:
-                root.columnsController
+                !isGroup && root.columnsController
                     ? root.columnsController.row_cells(
                         searchKey, root.columnsController.cellRevision
                     ) : ({})
@@ -309,10 +376,11 @@ Item {
                 0, rows.contentX + rows.width - root.actionColumnWidth
             )
             width: root.tableWidth
-            height: root.rowHeight
+            height: isGroup ? 38 : root.effectiveRowHeight
             focus: ListView.isCurrentItem && rows.activeFocus
-            Accessible.role: Accessible.ListItem
-            Accessible.name: title
+            Accessible.role: isGroup ? Accessible.Button : Accessible.ListItem
+            Accessible.name: isGroup
+                ? title + " · " + childCount : title
             Accessible.selected: selected
 
             function cellRecord(columnName) {
@@ -331,9 +399,18 @@ Item {
             }
 
             function selectWithModifiers(modifiers) {
+                if (isGroup)
+                    return
                 root.controller.select_result_node(
                     nodeId, searchKey, nodeType, modifiers, false
                 )
+            }
+
+            function activate(modifiers) {
+                if (isGroup)
+                    root.controller.toggle_result_node(nodeId)
+                else
+                    root.controller.handle_item_double_click(nodeId, modifiers)
             }
 
             function requestPreviewIfNeeded() {
@@ -351,38 +428,19 @@ Item {
                 requestPreviewIfNeeded()
             }
 
-            Rectangle {
+            Controls.ItemSurface {
+                id: rowSurface
+                objectName: "searchResultTableRowSurface"
                 anchors.fill: parent
-                color: resultRow.selected
-                    ? root.theme.contentSelection
-                    : rowHover.hovered
-                        ? root.theme.rowHover
+                theme: root.theme
+                selected: resultRow.selected
+                normalColor: rowHover.hovered
+                    ? root.theme.rowHover
+                    : resultRow.isGroup
+                        ? root.theme.surfaceContainerHigh
                         : root.theme.surfaceContainerLow
-                Behavior on color {
-                    enabled: !rows.moving
-                    ColorAnimation {
-                        duration: resultRow.selected
-                            ? root.theme.clickMotionFast
-                            : root.theme.hoverMotionFast
-                        easing.type: Easing.OutCubic
-                    }
-                }
-            }
-            Rectangle {
-                anchors.left: parent.left
-                anchors.verticalCenter: parent.verticalCenter
-                width: 3
-                height: parent.height - 14
-                radius: width / 2
-                color: root.theme.action
-                opacity: resultRow.selected ? 1 : 0.78
-            }
-            Rectangle {
-                anchors.left: parent.left
-                anchors.right: parent.right
-                anchors.bottom: parent.bottom
-                height: 1
-                color: root.theme.separator
+                railVisible: false
+                animateStateChanges: !rows.moving
             }
             Rectangle {
                 anchors.fill: parent
@@ -400,6 +458,11 @@ Item {
                 onClicked: function(mouse) {
                     rows.currentIndex = resultRow.index
                     rows.forceActiveFocus()
+                    if (resultRow.isGroup) {
+                        if (mouse.button === Qt.LeftButton)
+                            resultRow.activate(mouse.modifiers)
+                        return
+                    }
                     root.controller.select_result_node(
                         resultRow.nodeId,
                         resultRow.searchKey,
@@ -422,11 +485,8 @@ Item {
                     }
                 }
                 onDoubleClicked: function(mouse) {
-                    if (mouse.button === Qt.LeftButton) {
-                        root.controller.handle_item_double_click(
-                            resultRow.nodeId, mouse.modifiers
-                        )
-                    }
+                    if (mouse.button === Qt.LeftButton && !resultRow.isGroup)
+                        resultRow.activate(mouse.modifiers)
                 }
             }
 
@@ -435,9 +495,10 @@ Item {
                 anchors.leftMargin: root.selectionColumnWidth
                 anchors.top: parent.top
                 anchors.bottom: parent.bottom
+                visible: !resultRow.isGroup
 
                 Repeater {
-                    model: root.columns
+                    model: resultRow.isGroup ? [] : root.effectiveColumns
                     delegate: Item {
                         id: cellDelegate
                         required property int index
@@ -468,6 +529,7 @@ Item {
                                 && !cellDelegate.editing
 
                             sourceComponent: TacticTableCellDisplay {
+                                id: taskCellDisplay
                                 theme: root.theme
                                 controller: root.controller
                                 columnsController: root.columnsController
@@ -488,6 +550,15 @@ Item {
                                     cellDelegate.modelData.displayOptions || ({})
                                 effectsEnabled: !rows.moving
                                 scrolling: rows.moving
+                                selectedTaskPreviewActive: resultRow.selected
+                                    && resultRow.inVerticalViewport && !resultRow.viewPooled
+                                    && root.selectedTaskPreviewActive
+                                onTaskPreviewHoverChanged: hovered => {
+                                    if (hovered)
+                                        root.hoveredTaskCell = taskCellDisplay
+                                    else if (root.hoveredTaskCell === taskCellDisplay)
+                                        root.hoveredTaskCell = null
+                                }
                                 onProcessCountMenuRequested:
                                     function(panel, anchorItem) {
                                     root.processCountMenuRequested(
@@ -495,14 +566,6 @@ Item {
                                     )
                                 }
                             }
-                        }
-                        Rectangle {
-                            anchors.right: parent.right
-                            anchors.verticalCenter: parent.verticalCenter
-                            width: 1
-                            height: parent.height - 16
-                            color: root.theme.separator
-                            opacity: 0.45
                         }
                         Loader {
                             id: inlineEditorLoader
@@ -535,29 +598,77 @@ Item {
                 }
             }
 
+            Loader {
+                id: groupRowLoader
+                x: rows.contentX + 12
+                anchors.verticalCenter: parent.verticalCenter
+                width: Math.max(0, rows.width - 24)
+                height: parent.height
+                active: resultRow.isGroup
+
+                sourceComponent: Row {
+                    objectName: "searchResultTableGroupRow"
+                    width: groupRowLoader.width
+                    spacing: 8
+
+                    Controls.MaterialIcon {
+                        anchors.verticalCenter: parent.verticalCenter
+                        name: resultRow.expanded
+                            ? "expand_more" : "chevron_right"
+                        size: 20
+                        color: root.theme.secondaryText
+                    }
+                    Label {
+                        objectName: "searchResultTableGroupTitle"
+                        anchors.verticalCenter: parent.verticalCenter
+                        width: Math.max(0, parent.width - 72)
+                        text: resultRow.title
+                        elide: Text.ElideRight
+                        color: root.theme.primaryText
+                        font.family: root.theme.fontFamily
+                        font.pointSize: Controls.Typography.body
+                        font.weight: Font.DemiBold
+                    }
+                    Label {
+                        anchors.verticalCenter: parent.verticalCenter
+                        text: resultRow.childCount
+                        color: root.theme.secondaryText
+                        font.family: root.theme.fontFamily
+                        font.pointSize: Controls.Typography.caption
+                    }
+                }
+            }
+
             HoverHandler {
                 id: rowHover
                 cursorShape: Qt.PointingHandCursor
             }
             Rectangle {
+                objectName: "tableSelectionSurface"
+                border.width: 0
                 x: rows.contentX
                 width: root.selectionColumnWidth
-                height: parent.height
+                height: parent.height - 1
                 z: 4
-                color: resultRow.selected
-                    ? root.theme.contentSelection
-                    : rowHover.hovered
-                        ? root.theme.rowHover
-                        : root.theme.surfaceContainerLow
-                border.width: 1
-                border.color: root.theme.separator
+                color: rowSurface.interactionColor
+                visible: !resultRow.isGroup
+
+                Rectangle {
+                    anchors.left: parent.left
+                    anchors.verticalCenter: parent.verticalCenter
+                    width: 3
+                    height: parent.height - 14
+                    radius: width / 2
+                    color: resultRow.accent || root.theme.action
+                    opacity: resultRow.selected ? 1 : 0.82
+                }
 
                 Controls.CheckBox {
                     objectName: "tableSelection_" + resultRow.nodeId
                     anchors.centerIn: parent
                     width: 28
                     height: 28
-                    compact: true
+                    leftPadding: 4
                     theme: root.theme
                     checked: resultRow.selected
                     Accessible.name: qsTr("Select row") + " "
@@ -572,17 +683,14 @@ Item {
                 }
             }
             Rectangle {
+                objectName: "tableActionSurface"
+                border.width: 0
                 x: resultRow.actionX
                 width: root.actionColumnWidth
-                height: parent.height
+                height: parent.height - 1
                 z: 3
-                color: resultRow.selected
-                    ? root.theme.contentSelection
-                    : rowHover.hovered
-                        ? root.theme.rowHover
-                        : root.theme.surfaceContainerLow
-                border.width: 1
-                border.color: root.theme.separator
+                color: rowSurface.interactionColor
+                visible: !resultRow.isGroup
             }
             Controls.CompactIconButton {
                 id: rowActions
@@ -594,6 +702,7 @@ Item {
                 iconName: "more_vert"
                 opacity: rowHover.hovered || resultRow.selected ? 1 : 0.35
                 toolTip: qsTr("Item actions")
+                visible: !resultRow.isGroup
                 Accessible.name: qsTr("Item actions")
                 onClicked: {
                     rows.currentIndex = resultRow.index
@@ -615,11 +724,14 @@ Item {
         ScrollBar.vertical: Controls.ScrollBar {
             id: verticalBar
             objectName: "tableVerticalScrollBar"
+            parent: scrollBarFrame
             theme: root.theme
             flickableTarget: rows
         }
         ScrollBar.horizontal: Controls.ScrollBar {
+            id: horizontalBar
             objectName: "tableHorizontalScrollBar"
+            parent: scrollBarFrame
             theme: root.theme
             flickableTarget: rows
         }
@@ -632,13 +744,14 @@ Item {
         enabled: root.presentationActive && rows.visible
     }
 
-    Column {
+    Loader {
         objectName: "tableColumnsEmptyState"
         anchors.centerIn: parent
         width: Math.min(420, Math.max(180, parent.width - 48))
-        spacing: 10
-        visible: root.columns.length === 0 && !root.columnsBusy
-
+        active: root.columns.length === 0 && !root.columnsBusy
+        visible: active
+        sourceComponent: Column {
+            spacing: 10
         Controls.EmptyState {
             width: parent.width
             height: 112
@@ -661,6 +774,7 @@ Item {
                 else
                     root.openColumnsEditor()
             }
+        }
         }
     }
 

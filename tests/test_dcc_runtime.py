@@ -150,6 +150,7 @@ class DccRuntimeTests(unittest.TestCase):
                 _menus=SimpleNamespace(actions=lambda _menu_id: []),
                 _dcc_bridge=bridge,
                 can_administer=False,
+                can_manage_tools=True,
             )
             self.assertIn(
                 "dcc_tool:show_viewer",

@@ -2,12 +2,13 @@
 
 from concurrent.futures import ThreadPoolExecutor
 import json
+import sys
 from tempfile import TemporaryDirectory
-from types import SimpleNamespace
+from types import ModuleType, SimpleNamespace
 import unittest
 from unittest.mock import Mock, patch
 
-from thlib import server_cache, tactic_classes as tc
+from thlib import server_cache, tactic_classes as tc, tactic_query
 from thlib.environment import env_inst, env_mode, env_server
 from thlib.ui.controller import ApplicationController
 from thlib.ui.models import NavigationModel
@@ -57,6 +58,58 @@ class ProjectMetadataTests(unittest.TestCase):
         self.rpc.return_value = json.dumps(payload)
         return project.query_search_types(force=True)
 
+    def test_builtin_catalog_uses_native_types_but_skips_missing_tables(self):
+        class CatalogReached(Exception):
+            pass
+
+        project = Mock()
+        project.get_search_types.side_effect = CatalogReached
+        biz = ModuleType('pyasm.biz')
+        biz.Project = SimpleNamespace(get_by_code=lambda _code: project)
+        biz.Pipeline = Mock()
+        search = ModuleType('pyasm.search')
+        search.Search = Mock()
+        search.SearchKey = Mock()
+        search.WidgetDbConfig = Mock()
+        widget = ModuleType('pyasm.widget')
+        widget.WidgetConfigView = Mock()
+        pyasm = ModuleType('pyasm')
+        pyasm.biz = biz
+        pyasm.search = search
+        pyasm.widget = widget
+        with patch.dict(sys.modules, {
+            'pyasm': pyasm,
+            'pyasm.biz': biz,
+            'pyasm.search': search,
+            'pyasm.widget': widget,
+        }):
+            for code in ('sthpw', 'admin'):
+                with self.subTest(project=code):
+                    with self.assertRaises(CatalogReached):
+                        tactic_query.query_search_types_extended(code)
+            self.assertEqual(project.get_search_types.call_count, 2)
+            for call in project.get_search_types.call_args_list:
+                self.assertEqual(call.kwargs, {
+                    'include_sthpw': True,
+                    'include_config': True,
+                    'include_multi_project': True,
+                })
+            missing = Mock()
+            valid = Mock()
+            missing.get_data.return_value = {}
+            missing.get_column_info.side_effect = AssertionError(
+                'A registered Search Type without a table must be skipped'
+            )
+            valid.get_data.return_value = {}
+            valid.get_column_info.side_effect = CatalogReached
+            project.get_search_types.side_effect = None
+            project.get_search_types.return_value = [missing, valid]
+            project.has_table.side_effect = lambda stype: stype is valid
+            with self.assertRaises(CatalogReached):
+                tactic_query.query_search_types_extended('sthpw')
+            missing.get_column_info.assert_not_called()
+            valid.get_column_info.assert_called_once()
+
     def test_views_exist_before_metadata_loading_without_an_implicit_rpc(self):
         project = self.project('sthpw')
         views = project.get_config_views()
@@ -79,6 +132,54 @@ class ProjectMetadataTests(unittest.TestCase):
                 entries = NavigationModel.build_project_entries(project, login)
                 self.assertEqual([entry.key for entry in entries], ['sthpw/login@users'])
                 self.assertEqual(entries[0].title, 'Users')
+
+    def test_all_projects_show_all_types_without_sidebar_configuration(self):
+        payload = metadata(with_views=False)
+        payload['stypes'].append({
+            'code': 'sthpw/message', 'title': 'Messages API', 'color': '#654321',
+            'table_name': 'message', 'column_info': {},
+        })
+        login = SimpleNamespace(check_security=lambda **_: 'allow')
+        for code in ('sthpw', 'admin', 'demo'):
+            with self.subTest(project=code):
+                project = self.project(code)
+                self.load(project, payload)
+                entries = NavigationModel.build_project_entries(project, login)
+                expected = ['sthpw/login', 'sthpw/message']
+                self.assertEqual([entry.search_type for entry in entries], expected)
+                self.assertTrue(all(entry.available for entry in entries))
+                self.assertEqual(entries[1].title, 'Messages API')
+
+    def test_configured_sidebar_does_not_add_unrequested_types(self):
+        payload = metadata()
+        payload['stypes'].append({
+            'code': 'sthpw/message', 'title': 'Messages', 'color': '#654321',
+            'table_name': 'message', 'column_info': {},
+        })
+        project = self.project('admin')
+        self.load(project, payload)
+        login = SimpleNamespace(check_security=lambda **_: 'allow')
+
+        entries = NavigationModel.build_project_entries(project, login)
+
+        self.assertEqual([entry.search_type for entry in entries], [
+            'sthpw/login',
+        ])
+        self.assertEqual(entries[0].key, 'sthpw/login@users')
+
+    def test_builtin_catalog_does_not_reopen_denied_sidebar_link(self):
+        payload = metadata()
+        payload['stypes'].append({
+            'code': 'sthpw/message', 'title': 'Messages', 'color': '#654321',
+            'table_name': 'message', 'column_info': {},
+        })
+        project = self.project('admin')
+        self.load(project, payload)
+        login = SimpleNamespace(check_security=lambda **_: 'deny')
+
+        entries = NavigationModel.build_project_entries(project, login)
+
+        self.assertEqual(entries, [])
 
     def test_sthpw_preserves_native_schema_and_pipelines(self):
         project = self.project('sthpw')
@@ -151,22 +252,28 @@ class ProjectMetadataTests(unittest.TestCase):
         self.addCleanup(controller.shutdown)
         changed = Mock()
         controller.project_changed.connect(changed)
-        for code in ('admin', 'sthpw'):
-            with self.subTest(project=code):
-                project = self.project(code)
-                env_inst.projects[code] = project
-                self.rpc.return_value = json.dumps(metadata(with_views=False))
-                with ThreadPoolExecutor(max_workers=1) as pool:
-                    prepared = pool.submit(
-                        controller._prepare_project_selection, code, code,
-                    ).result(timeout=5)
-                controller._apply_selected_project(*prepared)
-                self.assertEqual(controller._current_project_code, code)
-                self.assertIs(controller.workspace_state._project, project)
-                self.assertEqual(controller.workspace_state.search_type_model.records(),
-                                 [{'label': 'sthpw/login'}])
-                self.assertEqual(controller.navigation_model.rowCount(), 0)
-                changed.assert_called_with(code, code)
+        login = SimpleNamespace(check_security=lambda **_: 'allow')
+        with patch.object(env_inst, 'get_current_login_object', return_value=login):
+            for code in ('admin', 'sthpw'):
+                with self.subTest(project=code):
+                    project = self.project(code)
+                    env_inst.projects[code] = project
+                    self.rpc.return_value = json.dumps(metadata(with_views=False))
+                    with ThreadPoolExecutor(max_workers=1) as pool:
+                        prepared = pool.submit(
+                            controller._prepare_project_selection, code, code,
+                        ).result(timeout=5)
+                    controller._apply_selected_project(*prepared)
+                    self.assertEqual(controller._current_project_code, code)
+                    self.assertIs(controller.workspace_state._project, project)
+                    self.assertEqual(controller.workspace_state.search_type_model.records(),
+                                     [{'label': 'sthpw/login'}])
+                    self.assertEqual(controller.navigation_model.rowCount(), 1)
+                    self.assertEqual(
+                        controller.navigation_model.entry('sthpw/login@sthpw/login').search_type,
+                        'sthpw/login',
+                    )
+                    changed.assert_called_with(code, code)
         self.assertEqual(self.rpc.call_count, 2)
 
 

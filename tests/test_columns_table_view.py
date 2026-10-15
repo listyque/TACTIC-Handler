@@ -18,7 +18,7 @@ from PySide6.QtCore import (
     QObject, QPointF, Property, QMetaObject, Qt, QUrl, Signal, Slot,
 )
 from PySide6.QtGui import QGuiApplication, QInputMethodEvent
-from PySide6.QtQml import QQmlComponent, QQmlEngine
+from PySide6.QtQml import QQmlComponent, QQmlEngine, QQmlProperty
 from PySide6.QtQuick import QQuickItem, QQuickWindow
 from PySide6.QtTest import QTest
 
@@ -225,9 +225,17 @@ class _Application(QObject):
         self.debug_log = None
         self.notifications = []
         self.sort_modes = []
+        self.search_cache_saves = 0
+        self.tab = SimpleNamespace(
+            stype=self.stype, sobjects=[], view_mode="table",
+            table_view="table",
+        )
 
     def _current_tab(self):
-        return SimpleNamespace(stype=self.stype, sobjects=[], view_mode="table")
+        return self.tab
+
+    def _save_search_cache(self):
+        self.search_cache_saves += 1
 
     def _notify(self, message):
         self.notifications.append(message)
@@ -301,6 +309,7 @@ class _TableController(QObject):
         self.actions = []
         self.double_clicks = []
         self.opened_windows = []
+        self.columns_editor_requests = 0
         self.select_all_calls = 0
         self.preview_requests = []
         self.revealed_previews = []
@@ -310,6 +319,9 @@ class _TableController(QObject):
         self.clear_selection_calls = 0
         self.field_updates = []
         self._result_sort_mode = "name_asc"
+        self._result_group_mode = "none"
+        self.group_modes = []
+        self.toggled_nodes = []
 
     @Property("QVariantList", notify=selected_node_changed)
     def selected_result_node_ids(self):
@@ -326,6 +338,20 @@ class _TableController(QObject):
     @Property(str, constant=True)
     def result_sort_mode(self):
         return self._result_sort_mode
+
+    @Property(str, notify=selected_node_changed)
+    def result_group_mode(self):
+        return self._result_group_mode
+
+    @Slot(str)
+    def set_result_group_mode(self, mode):
+        self._result_group_mode = mode
+        self.group_modes.append(mode)
+        self.selected_node_changed.emit()
+
+    @Slot(str)
+    def toggle_result_node(self, node_id):
+        self.toggled_nodes.append(node_id)
 
     @Slot(str, str, str, int, bool)
     def select_result_node(self, *args):
@@ -365,18 +391,21 @@ class _TableController(QObject):
             return []
         return [
             {
-                "title": "Rig", "process": "rig", "badgeCount": 1,
+                "title": "Rigging", "process": "rig", "badgeCount": 1,
+                "accent": "#42a5f5",
             },
             {
                 "title": "Localized publish", "process": "publish",
-                "badgeCount": 2,
+                "badgeCount": 2, "accent": "#66bb6a",
             },
             {
                 "title": "Localized publish context",
                 "process": "publish/context", "badgeCount": 3,
+                "accent": "#ab47bc",
             },
             {
-                "title": "Model", "process": "model", "badgeCount": 1,
+                "title": "Modeling", "process": "model", "badgeCount": 1,
+                "accent": "#ffa726",
             },
         ]
 
@@ -388,6 +417,10 @@ class _TableController(QObject):
     @Slot(str)
     def open_window(self, window_id):
         self.opened_windows.append(window_id)
+
+    @Slot()
+    def open_columns_editor(self):
+        self.columns_editor_requests += 1
 
     @Slot()
     def select_all_result_siblings(self):
@@ -425,15 +458,23 @@ class _TableColumns(QObject):
         self.apply_calls = 0
         self.reload_calls = 0
         self.sort_calls = []
+        self.group_calls = []
         self.focus_requests = []
         self.remove_calls = []
         self.move_calls = []
         self.editor_requests = []
         self.task_edits = []
+        self.task_save_calls = 0
+        self._dirty_task_count = 0
         self._dirty = False
         self._busy = False
         self._error = ""
         self._cell_revision = 0
+        self.selected_table_views = []
+        self.saved_table_views = []
+        self._table_views = [{
+            "view": "table", "title": "table", "current": True,
+        }]
         self._columns = [
             {
                 "row": 2, "name": "preview", "label": "Preview",
@@ -493,14 +534,52 @@ class _TableColumns(QObject):
                 "sortable": False,
             },
         ]
+        for column in self._columns:
+            column["hideOrder"] = 0
 
     @Property("QVariantList", notify=stateChanged)
     def visibleColumns(self):
         return self._columns
 
+    @Property("QVariantList", notify=stateChanged)
+    def tableViews(self):
+        return self._table_views
+
+    @Property(str, notify=stateChanged)
+    def currentTableView(self):
+        return next((
+            str(record["view"]) for record in self._table_views
+            if record.get("current")
+        ), "table")
+
+    @Slot(int, result=bool)
+    def select_table_view(self, row):
+        self.selected_table_views.append(row)
+        return True
+
+    @Slot(str, result=bool)
+    def save_table_view_as(self, title):
+        self.saved_table_views.append(title)
+        return True
+
     @Property(bool, notify=stateChanged)
     def busy(self):
         return self._busy
+
+    @Property(int, notify=stateChanged)
+    def dirtyTaskCount(self):
+        return self._dirty_task_count
+
+    @Slot()
+    def save_task_changes(self):
+        self.task_save_calls += 1
+        self._dirty_task_count = 0
+        self.stateChanged.emit()
+
+    @Slot()
+    def discard_task_changes(self):
+        self._dirty_task_count = 0
+        self.stateChanged.emit()
 
     @Property(bool, notify=stateChanged)
     def dirty(self):
@@ -581,6 +660,10 @@ class _TableColumns(QObject):
     def sort_column(self, row, descending):
         self.sort_calls.append((row, descending))
 
+    @Slot(int)
+    def group_column(self, row):
+        self.group_calls.append(row)
+
     @Slot(int, str)
     def request_column_focus(self, row, target):
         self.focus_requests.append((row, target))
@@ -622,7 +705,10 @@ class _TableColumns(QObject):
                         "context": "model", "status": "In Progress",
                         "statusColor": "#4f8cff", "assigned": "artist",
                         "assignedLabel": "Artist", "hasTask": True,
-                        "bidStart": "", "bidEnd": "",
+                        "bidStart": "2026-09-01", "bidEnd": "2026-09-03",
+                        "bidStartLabel": "1 Sep", "bidEndLabel": "3 Sep",
+                        "bidStartFull": "1 September 2026",
+                        "bidEndFull": "3 September 2026",
                     },
                     {
                         "taskSearchKey": "", "taskCode": "",
@@ -663,6 +749,221 @@ class _TableColumns(QObject):
 
 
 class ColumnsTableViewTests(unittest.TestCase):
+    def test_group_collapse_reuses_existing_task_cards(self):
+        from tests.profile_result_table import benchmark
+
+        result = benchmark(self.app, width=1800, height=1600, grouped=True)
+        # A header/object slot change may create one row's five cards, not
+        # rebuild all 85 visible cards on every group click.
+        self.assertLessEqual(max(result["groupClicks"]["collapse"]["newCards"]), 5)
+        self.assertEqual(result["groupClicks"]["expand"]["newCards"][1:], [0] * 5)
+
+    def test_table_projection_indexes_targets_once_per_batch(self):
+        identity_reads = []
+        workflow_targets = []
+
+        def key(index):
+            identity_reads.append(index)
+            return str(index)
+
+        targets = [SimpleNamespace(get_search_key=lambda i=i: key(i))
+                   for i in range(40)]
+        application = _Application(_SType())
+        application._current_tab = lambda: SimpleNamespace(sobjects=targets)
+        tasks = SimpleNamespace(
+            _process_choices_for=lambda target: workflow_targets.append(target) or [],
+        )
+        controller = ColumnsEditorController(application, tasks)
+        controller._table_widgets = {
+            "tasks": table_widgets.TacticTaskTableWidget(),
+            "name": table_widgets.TacticSimpleTableWidget(),
+        }
+        payload = {"rows": {str(i): {"tasks": {"tasks": []}}
+                            for i in range(40)}}
+        payload["rows"]["39"] = {"name": {"text": "No task column"}}
+        payload["rows"]["missing"] = {"tasks": {"tasks": []}}
+        rows = controller._map_rows(payload)
+        self.assertEqual(identity_reads, list(range(40)))
+        self.assertEqual(workflow_targets, targets[:39])
+        self.assertEqual(rows["39"]["name"]["text"], "No task column")
+        self.assertEqual(rows["missing"]["tasks"]["tasks"], [])
+
+    def test_column_grouping_uses_rendered_table_values(self):
+        application = _Application(_SType())
+        model = WorkspaceItemModel()
+        model.replace_nodes([
+            WorkspaceNode(
+                node_id="asset1", node_type="sobject", search_key="asset1",
+                code="A1", title="Tree",
+            ),
+            WorkspaceNode(
+                node_id="asset2", node_type="sobject", search_key="asset2",
+                code="A2", title="Car",
+            ),
+        ])
+        application.workspace_model = model
+        application.group_modes = []
+
+        def set_group_mode(mode):
+            application.group_modes.append(mode)
+            model.set_organization(group_mode=mode)
+
+        application.set_result_group_mode = set_group_mode
+        controller = ColumnsEditorController(application)
+        controller.model._records = [{"name": "assets_category_code"}]
+        controller._cells = {
+            "asset1": {
+                "assets_category_code": {"text": "Environment"},
+            },
+            "asset2": {
+                "assets_category_code": {"text": "Vehicle"},
+            },
+        }
+
+        controller.group_column(0)
+
+        self.assertEqual(
+            application.group_modes, ["column:assets_category_code"]
+        )
+        self.assertEqual(
+            [group.title for group in model._root_groups],
+            ["Environment", "Vehicle"],
+        )
+
+    def test_saved_table_fields_patch_rows_without_refresh(self):
+        from unittest.mock import Mock
+        from thlib.ui.controllers.item_editing import ItemEditingMixin
+
+        key = "demo/asset?code=ASSET001"
+        model = WorkspaceItemModel()
+        node = WorkspaceNode(node_id=key, node_type="sobject", search_key=key, code="ASSET001",
+                             title="Oak", values={"description": "old"})
+        model.replace_nodes([node])
+        resets = []
+        model.modelReset.connect(lambda: resets.append(True))
+        signal = Mock()
+        owner = SimpleNamespace(
+            _selected_update_started_at=0,
+            _selected_update_triggers={"request": ("object.update", {
+                "project_code": "demo", "values_by_search_key": {key: {"description": "new"}},
+            })},
+            _set_loading=Mock(), _notify=Mock(), _transaction_metrics=lambda *args: "",
+            _current_tab=lambda: SimpleNamespace(view_mode="table"),
+            _current_project_code="demo", workspace_model=model,
+            item_fields_updated=signal, refresh_current=Mock(),
+        )
+        ItemEditingMixin._selected_update_result(owner, (
+            [{"__search_key__": key, "description": "server value"}],
+            ("request", 1, "description"),
+        ))
+        owner.refresh_current.assert_not_called()
+        signal.emit.assert_called_once_with("demo", [key])
+        self.assertEqual(resets, [])
+        self.assertIs(model.node_for(key), node)
+        self.assertEqual(node.subtitle, "server value")
+
+    def test_changed_table_rows_are_queried_without_clearing_other_cells(self):
+        application = _Application(_SType())
+        application._current_project_code = "demo"
+        application._current_tab = lambda: SimpleNamespace(view_mode="table", sobjects=[])
+        controller = ColumnsEditorController(application)
+        controller._stype_code = "demo/asset"
+        controller._table_widgets = {"name": table_widgets.TacticSimpleTableWidget()}
+        controller._data_types = {"name": "varchar"}
+        controller._cells = {"edited": {"name": {"text": "old"}},
+                             "untouched": {"name": {"text": "keep"}}}
+        untouched = controller._cells["untouched"]
+        from thlib.environment import env_inst
+        with patch.object(env_inst, "server_pool", _Pool()), patch(
+            "thlib.tactic_classes.get_table_layout",
+            return_value={"rows": {"edited": {"name": {"text": "new"}}}},
+        ) as query:
+            controller._refresh_changed_rows("demo", ["edited"])
+        self.assertEqual(query.call_args.kwargs["search_keys"], ["edited"])
+        self.assertIs(controller._cells["untouched"], untouched)
+        self.assertEqual(controller.cell("edited", "name")["text"], "new")
+
+    def test_table_dates_use_shared_pretty_and_full_labels(self):
+        from thlib.ui.activity import activity_timestamp_labels
+
+        raw = "2024-03-27 00:01:02.977310"
+        types = ["timestamp without time zone", "timestamp(6)", "date", "datetime"]
+        owner = SimpleNamespace(
+            _data_types={name: name for name in types},
+            _table_widgets={name: table_widgets.TacticSimpleTableWidget() for name in types},
+            _add_task_workflow_rows=lambda *args: None,
+            _current_tab=lambda: None,
+            _tasks_controller=None,
+        )
+        payload = {"rows": {"asset": {name: {"text": raw} for name in types}}}
+        pretty, full = activity_timestamp_labels(raw)
+        self.assertTrue(pretty)
+        self.assertTrue(full)
+        rows = ColumnsEditorController._map_rows(owner, payload)
+        for cell in rows["asset"].values():
+            self.assertEqual(cell["text"], pretty)
+            self.assertEqual(cell["tooltip"], full)
+            self.assertNotIn("977310", cell["tooltip"])
+        self.assertEqual(payload["rows"]["asset"]["date"]["text"], raw)
+        payload["rows"]["asset"]["date"]["text"] = ""
+        self.assertEqual(ColumnsEditorController._map_rows(owner, payload)["asset"]["date"]["text"], "")
+
+        engine = QQmlEngine()
+        warnings = []
+        engine.warnings.connect(lambda errors: warnings.extend(errors))
+        theme_component = QQmlComponent(engine, QUrl.fromLocalFile(str(QML / "Theme.qml")))
+        theme = theme_component.createWithInitialProperties({"dark": True})
+        component = QQmlComponent(engine, QUrl.fromLocalFile(str(QML / "TacticTableCellDisplay.qml")))
+        item = component.createWithInitialProperties({
+            "theme": theme, "controller": None, "columnsController": None,
+            "userModel": None, "nodeId": "asset", "kind": "text",
+            "cell": rows["asset"]["date"], "textValue": pretty,
+            "columnIndex": 0, "previewActive": False, "previewUrl": "",
+            "previewRevealed": False, "title": "", "accent": "",
+            "comments": 0, "tasks": 0, "displayOptions": {},
+            "width": 240, "height": 64,
+        })
+        self.assertIsNotNone(item, component.errors())
+        window = QQuickWindow()
+        item.setParentItem(window.contentItem())
+        window.resize(240, 64)
+        window.show()
+        try:
+            tooltips = [child for child in item.findChildren(QObject)
+                        if child.property("text") == full]
+            self.assertTrue(tooltips)
+            tooltips[0].setProperty("delay", 0)
+            QTest.mouseMove(window, QPointF(100, 32).toPoint())
+            QTest.qWait(30)
+            self.assertTrue(tooltips[0].property("visible"))
+            self.assertIn(pretty, [child.property("text") for child in _visual_items(item)])
+            self.assertEqual(warnings, [])
+        finally:
+            window.close()
+            item.setParentItem(None)
+            item.deleteLater()
+            window.deleteLater()
+
+    def test_table_alias_reuses_full_input_field_choices(self):
+        payload = _layout_payload()
+        column = payload["columns"][1]
+        column["actionOptions"] = {"column": "category_code"}
+        source = payload["inputWidgets"][1]
+        source["name"] = "category_code"
+        owner = SimpleNamespace(
+            _internal=set(), _protected=set(),
+            _view_tree=ColumnsEditorController._view_tree,
+            _width=ColumnsEditorController._width,
+            _hide_order=ColumnsEditorController._hide_order,
+        )
+        stype = SimpleNamespace(get_columns_info=lambda: {})
+        result = ColumnsEditorController._build_records(owner, stype, payload)
+        editor = result[-1]["custom"]
+        self.assertEqual(editor["values"], ["oak", "pine"])
+        self.assertEqual(editor["labels"], ["Oak", "Pine"])
+        self.assertEqual(editor["action_options"]["column"], "category_code")
+        self.assertEqual(source["name"], "category_code")
+
     @classmethod
     def setUpClass(cls):
         cls.app = gui_test_application()
@@ -1202,6 +1503,7 @@ class ColumnsTableViewTests(unittest.TestCase):
             self.assertFalse(controller.model._records[2]["displayVisible"])
             self.assertEqual(controller.model._records[0]["cellKind"], "link")
             self.assertTrue(controller.visibleColumns[0]["sortable"])
+            self.assertEqual(controller.visibleColumns[0]["hideOrder"], 0)
             controller.move(0, 1)
             self.assertEqual(
                 [record["name"] for record in controller.model._records],
@@ -1220,6 +1522,7 @@ class ColumnsTableViewTests(unittest.TestCase):
             )
             controller.set_label(0, "Asset code")
             controller.set_width(0, 144)
+            controller.set_hide_order(0, 2)
             controller.set_visible(1, False)
             controller.set_visible(2, True)
             self.assertTrue(controller.apply())
@@ -1234,11 +1537,100 @@ class ColumnsTableViewTests(unittest.TestCase):
         )
         self.assertEqual(elements[0].get("title"), "Asset code")
         self.assertEqual(elements[0].get("width"), "144")
+        self.assertEqual(elements[0].get("th_hide_order"), "2")
         self.assertEqual(
             elements[0].find("./display/option").text, "keep"
         )
         self.assertEqual(elements[-1].get("internal"), "keep")
         self.assertFalse(controller.dirty)
+
+    def test_table_view_presets_are_native_and_selected_per_tab(self):
+        stype = _SType()
+        application = _Application(stype)
+        preset_xml = TABLE_XML.replace(
+            "<table>",
+            '<th_table_review layout="TableLayoutWdg">',
+        ).replace("</table>", "</th_table_review>").replace(
+            '<config marker="keep">',
+            '<config marker="keep" th_table_view_title="Review">',
+        )
+        stype.project.views.config_dict.append({
+            "code": "WIDGET003", "view": "th_table_review", "login": "",
+            "search_type": "demo/asset", "config": preset_xml,
+        })
+        stype.project.views.config_dict.append({
+            "code": "WIDGET999", "view": "th_table_other", "login": "",
+            "search_type": "demo/shot",
+            "config": preset_xml.replace(
+                "th_table_review", "th_table_other"
+            ),
+        })
+        requested_views = []
+
+        def get_table_layout(_search_type, **kwargs):
+            view = kwargs.get("view", "table")
+            requested_views.append(view)
+            payload = _layout_payload()
+            payload["view"] = view
+            config = next(
+                record["config"]
+                for record in stype.project.views.config_dict
+                if record["view"] == view
+            )
+            payload["databaseViews"][view] = {
+                "code": "WIDGET", "config": config,
+            }
+            return payload
+
+        def save_widget_config(_search_type, view, **kwargs):
+            return {
+                "code": "WIDGET004", "view": view,
+                "config": kwargs["config_xml"],
+            }
+
+        from thlib.environment import env_inst
+        with (
+            patch(
+                "thlib.tactic_classes.get_table_layout",
+                side_effect=get_table_layout,
+            ),
+            patch(
+                "thlib.tactic_classes.save_widget_config",
+                side_effect=save_widget_config,
+            ),
+            patch.object(env_inst, "server_pool", _Pool()),
+        ):
+            controller = ColumnsEditorController(application)
+            controller.reload()
+            review_row = next(
+                row for row, record in enumerate(controller.tableViews)
+                if record["view"] == "th_table_review"
+            )
+            self.assertNotIn(
+                "th_table_other",
+                [record["view"] for record in controller.tableViews],
+            )
+            self.assertTrue(controller.select_table_view(review_row))
+            self.assertEqual(application.tab.table_view, "th_table_review")
+            self.assertEqual(controller.currentTableView, "th_table_review")
+            self.assertTrue(controller.save_table_view_as("Lighting Review"))
+            first_tab = application.tab
+            application.tab = SimpleNamespace(
+                stype=stype, sobjects=[], view_mode="table",
+                table_view="table",
+            )
+            controller.reload()
+            self.assertEqual(controller.currentTableView, "table")
+            self.assertEqual(
+                first_tab.table_view, "th_table_lighting_review"
+            )
+
+        self.assertEqual(
+            first_tab.table_view, "th_table_lighting_review"
+        )
+        self.assertIn("th_table_review", requested_views)
+        self.assertIn("th_table_lighting_review", requested_views)
+        self.assertGreaterEqual(application.search_cache_saves, 2)
 
     def test_task_workflow_adds_empty_process_and_creates_it_on_edit(self):
         target_key = "demo/asset?code=ASSET001"
@@ -1308,7 +1700,7 @@ class ColumnsTableViewTests(unittest.TestCase):
             "taskCode": "TASK001", "process": "model",
             "status": "In Progress", "assigned": "artist",
         }]}}
-        controller._add_task_workflow_rows(target_key, cells)
+        controller._add_task_workflow_rows(target, cells)
 
         self.assertEqual(
             [record["process"] for record in cells["tasks"]["tasks"]],
@@ -1328,8 +1720,10 @@ class ColumnsTableViewTests(unittest.TestCase):
             self.assertTrue(controller.set_task_value(
                 "asset", "", "rig", "status", "Ready"
             ))
+            self.assertTrue(controller.save_task_changes())
         self.assertIn("created task identity", controller.error)
         self.assertFalse(rig["hasTask"])
+        self.assertEqual(controller.dirtyTaskCount, 1)
 
         with (
             patch.object(env_inst, "server_pool", _Pool()),
@@ -1345,6 +1739,7 @@ class ColumnsTableViewTests(unittest.TestCase):
             self.assertTrue(controller.set_task_value(
                 "asset", "", "rig", "status", "Ready"
             ))
+            self.assertTrue(controller.save_task_changes())
 
         insert.assert_called_once()
         created = cells["tasks"]["tasks"][1]
@@ -1369,6 +1764,7 @@ class ColumnsTableViewTests(unittest.TestCase):
                 "asset", created["taskSearchKey"], "rig",
                 "assigned", "artist",
             ))
+            self.assertTrue(controller.save_task_changes())
 
         server_start.assert_called_once_with(project="demo")
         self.assertEqual(updates, [(
@@ -1380,6 +1776,40 @@ class ColumnsTableViewTests(unittest.TestCase):
         )])
         self.assertEqual(created["assigned"], "artist")
         self.assertEqual(created["assignedLabel"], "Artist")
+
+        updates.clear()
+        with (
+            patch.object(env_inst, "server_pool", _Pool()),
+            patch(
+                "thlib.tactic_classes.server_start",
+                return_value=SimpleNamespace(
+                    update=lambda *args, **kwargs:
+                    updates.append((args, kwargs)) or {}
+                ),
+            ),
+            patch("thlib.server_cache.invalidate_domains"),
+        ):
+            self.assertTrue(controller.set_task_value(
+                "asset", created["taskSearchKey"], "rig",
+                "bid_start_date", "2026-09-01 09:00:00",
+            ))
+            self.assertTrue(controller.set_task_value(
+                "asset", created["taskSearchKey"], "rig",
+                "bid_end_date", "2026-09-03 18:00:00",
+            ))
+            draft = controller.row_cells(target_key)["tasks"]["tasks"][1]
+            self.assertEqual(draft["bidStart"], "2026-09-01 09:00:00")
+            self.assertEqual(draft["bidEnd"], "2026-09-03 18:00:00")
+            self.assertTrue(draft["bidStartLabel"])
+            self.assertTrue(draft["bidEndLabel"])
+            self.assertTrue(controller.save_task_changes())
+
+        self.assertEqual(updates[0][0][1], {
+            "bid_start_date": "2026-09-01 09:00:00",
+            "bid_end_date": "2026-09-03 18:00:00",
+        })
+        self.assertEqual(created["bidStart"], "2026-09-01 09:00:00")
+        self.assertEqual(created["bidEnd"], "2026-09-03 18:00:00")
 
     def test_task_workflow_edits_every_selected_sobject(self):
         class Target:
@@ -1478,6 +1908,24 @@ class ColumnsTableViewTests(unittest.TestCase):
                 "asset1", "sthpw/task?code=TASK001",
                 "rig", "status", "Ready",
             ))
+            self.assertEqual(batches, [])
+            insert.assert_not_called()
+            self.assertEqual(controller.dirtyTaskCount, 3)
+            self.assertTrue(controller.set_task_value(
+                "asset1", "sthpw/task?code=TASK001", "rig", "status", "Pending",
+            ))
+            self.assertEqual(controller.dirtyTaskCount, 0)
+            self.assertTrue(controller.set_task_value(
+                "asset1", "sthpw/task?code=TASK001", "rig", "status", "Ready",
+            ))
+            self.assertEqual(controller.row_cells("demo/asset?code=ASSET001")["tasks"]["tasks"][0]["status"], "Ready")
+            self.assertEqual(records["demo/asset?code=ASSET001"]["tasks"]["tasks"][0]["status"], "Pending")
+            controller.discard_task_changes()
+            self.assertEqual(controller.dirtyTaskCount, 0)
+            self.assertTrue(controller.set_task_value(
+                "asset1", "sthpw/task?code=TASK001", "rig", "status", "Ready",
+            ))
+            self.assertTrue(controller.save_task_changes())
 
         self.assertEqual(batches, [{
             "data": {
@@ -1511,6 +1959,8 @@ class ColumnsTableViewTests(unittest.TestCase):
                 "asset1", "sthpw/task?code=TASK001",
                 "rig", "status", "Pending",
             ))
+            self.assertEqual(batches, [])
+            self.assertTrue(controller.save_task_changes())
         self.assertEqual(batches, [{
             "data": {
                 "sthpw/task?code=TASK002": {"status": "Pending"},
@@ -1535,7 +1985,6 @@ class ColumnsTableViewTests(unittest.TestCase):
             )
             for code, title in (
                 ("demo/asset", "Assets"),
-                ("demo/shot", "Shots"),
                 ("demo/note", "Notes"),
             )
         }
@@ -1551,8 +2000,10 @@ class ColumnsTableViewTests(unittest.TestCase):
         ])
         updates = []
         server = SimpleNamespace(
-            query=lambda *_args: list(
-                application.stype.project.views.config_dict
+            query=lambda search_type, *_args, **_kwargs: (
+                [{"code": "demo/shot", "title": "Shot Registry"}]
+                if search_type == "sthpw/search_object"
+                else list(application.stype.project.views.config_dict)
             ),
             build_search_key=lambda _stype, code, **_kwargs:
                 f"config/widget_config?code={code}",
@@ -1567,13 +2018,18 @@ class ColumnsTableViewTests(unittest.TestCase):
             ),
             patch("thlib.tactic_classes.server_start", return_value=server),
             patch.object(env_inst, "server_pool", _Pool()),
+            patch.object(
+                env_inst, "get_project_by_code",
+                return_value=application.stype.project,
+            ),
         ):
             controller = ColumnsEditorController(application)
             controller.reload()
-            controller.load_definition_catalog()
+            controller.load_definition_catalog("demo")
             catalog = controller.definitionCatalog
             self.assertEqual(len(catalog), 3)
-            self.assertTrue(catalog[0]["current"])
+            self.assertEqual(catalog[0]["searchType"], "demo/asset")
+            self.assertNotIn("current", catalog[0])
             self.assertEqual(
                 {record["searchType"] for record in catalog},
                 {"demo/asset", "demo/shot"},
@@ -1581,9 +2037,9 @@ class ColumnsTableViewTests(unittest.TestCase):
             self.assertEqual(
                 controller.definitionCatalogSearchTypes,
                 [
-                    {"value": "demo/asset", "label": "demo/asset (Assets)"},
-                    {"value": "demo/note", "label": "demo/note (Notes)"},
-                    {"value": "demo/shot", "label": "demo/shot (Shots)"},
+                    {"value": "demo/asset", "label": "Assets · demo/asset"},
+                    {"value": "demo/note", "label": "Notes · demo/note"},
+                    {"value": "demo/shot", "label": "Shot Registry · demo/shot"},
                 ],
             )
             next_stype = _SType()
@@ -1592,40 +2048,44 @@ class ColumnsTableViewTests(unittest.TestCase):
             application.stype = next_stype
             controller.reload()
             catalog = controller.definitionCatalog
-            self.assertEqual(catalog[0]["searchType"], "demo/shot")
-            self.assertTrue(catalog[0]["current"])
+            self.assertEqual(catalog[0]["searchType"], "demo/asset")
             row = next(
                 record["row"] for record in catalog
                 if record["code"] == "WIDGET003"
             )
-            simple_rows = controller.catalog_simple_rows(
-                '<config><table marker="old"><element name="code">'
-                'Code</element></table></config>'
+            source = (
+                '<config marker="keep"><!--keep--><table marker="keep">'
+                '<element name="code" title="Code" hidden="false" '
+                'width="146px" custom="keep"><display class="LinkWdg">'
+                '<option>keep</option></display></element></table>'
+                '<other value="keep"/></config>'
             )
-            self.assertIn(
-                ("attribute", "marker", "old"),
-                {
-                    (entry["kind"], entry["name"], entry["value"])
-                    for entry in simple_rows
-                },
-            )
-            updated = controller.update_catalog_simple_value(
-                '<config><table marker="old"/></config>',
-                "0", "attribute", "marker", "new",
-            )
-            self.assertEqual(
-                ElementTree.fromstring(updated).find("table").get("marker"),
-                "new",
-            )
-            updated = controller.update_catalog_simple_value(
-                '<config><table><element name="code">Code</element>'
-                '</table></config>',
-                "0/0", "text", "# text", "Name",
-            )
-            self.assertEqual(
-                ElementTree.fromstring(updated).find("table/element").text,
-                "Name",
-            )
+            wizard = controller.catalog_wizard(source)
+            self.assertTrue(wizard["supported"])
+            self.assertEqual(wizard["view"], "table")
+            self.assertEqual(wizard["elements"], [{
+                "path": "1/0", "name": "code", "title": "Code",
+                "visible": True, "width": 146, "widget": "LinkWdg",
+            }])
+            for field, value in (
+                ("title", "Asset code"),
+                ("visible", "false"),
+                ("width", "208"),
+                ("widget", "link"),
+            ):
+                source = controller.update_catalog_wizard(
+                    source, "1/0", field, value
+                )
+            tree = ElementTree.fromstring(source)
+            element = tree.find("table/element")
+            self.assertEqual(element.get("title"), "Asset code")
+            self.assertEqual(element.get("hidden"), "true")
+            self.assertEqual(element.get("width"), "208")
+            self.assertEqual(element.get("custom"), "keep")
+            self.assertEqual(element.find("display").get("widget"), "link")
+            self.assertEqual(element.findtext("display/option"), "keep")
+            self.assertEqual(tree.find("other").get("value"), "keep")
+            self.assertIn("<!--keep-->", source)
             self.assertFalse(controller.save_catalog_xml(row, "<config>"))
             self.assertTrue(controller.save_catalog_xml(
                 row, "<config><table/></config>"
@@ -1640,6 +2100,84 @@ class ColumnsTableViewTests(unittest.TestCase):
             application.stype.project.views.config_dict[2]["config"],
             "<config><table/></config>",
         )
+
+    def test_catalog_unknown_write_requires_readback_and_local_start_failure_is_safe(self):
+        application = _Application(_SType())
+        controller = ColumnsEditorController(application)
+        records = application.stype.project.views.config_dict
+        controller._set_definition_catalog('demo', application.stype.project, records, {})
+        controller._catalog_saving = True
+        controller._failed(({'exception': 'Connection lost after write'}, None))
+        self.assertTrue(controller.catalogUncertain)
+        with patch.object(controller, '_run') as run:
+            self.assertFalse(controller.save_catalog_xml(0, '<config/>'))
+            run.assert_not_called()
+        controller._set_definition_catalog('demo', application.stype.project, records, {})
+        self.assertFalse(controller.catalogUncertain)
+        with patch.object(controller, '_run', return_value=False):
+            self.assertFalse(controller.save_catalog_xml(0, '<config/>'))
+        self.assertFalse(controller.catalogUncertain)
+        self.assertFalse(controller._catalog_saving)
+
+    def test_definition_catalog_uses_selected_admin_project_not_search_tab(self):
+        application = _Application(_SType())
+        other_project = _Project()
+        records = {
+            "demo": [{
+                "code": "DEMO001", "view": "table",
+                "search_type": "demo/asset", "config": "<config/>",
+            }],
+            "other": [{
+                "code": "OTHER001", "view": "table",
+                "search_type": "other/shot", "config": "<config/>",
+            }],
+        }
+        queried = []
+
+        def server_start(*, project):
+            queried.append(project)
+            return SimpleNamespace(
+                query=lambda *_args, **_kwargs: records[project]
+            )
+
+        from thlib.environment import env_inst
+        with (
+            patch.object(env_inst, "server_pool", _Pool()),
+            patch.object(
+                env_inst, "get_project_by_code",
+                side_effect=lambda code: {
+                    "demo": application.stype.project,
+                    "other": other_project,
+                }[code],
+            ),
+            patch("thlib.tactic_classes.server_start", side_effect=server_start),
+        ):
+            controller = ColumnsEditorController(application)
+            with patch.object(
+                controller, "_current_stype",
+                side_effect=AssertionError("catalog must not use search tab"),
+            ):
+                controller.load_definition_catalog("other")
+                stale_request = controller._catalog_request_id
+                self.assertEqual(queried, ["other"])
+                self.assertEqual(
+                    controller.definitionCatalog[0]["searchType"],
+                    "other/shot",
+                )
+                controller.load_definition_catalog("demo")
+                controller._definition_catalog_loaded_from_server((
+                    stale_request, "other", other_project, records["other"], {}
+                ))
+                self.assertEqual(queried, ["other", "demo"])
+                self.assertEqual(
+                    controller.definitionCatalog[0]["searchType"],
+                    "demo/asset",
+                )
+                self.assertEqual(application._current_project_code, "demo")
+                with patch.object(controller, "_run", return_value=True) as run:
+                    controller.reload_definition_catalog("other")
+                    controller.load_definition_catalog("other")
+                    self.assertEqual(run.call_count, 1)
 
     def test_columns_editor_reloads_context_after_worker_finishes(self):
         application = _Application(_SType())
@@ -1658,6 +2196,7 @@ class ColumnsTableViewTests(unittest.TestCase):
             next_stype = _SType()
             next_stype.get_code = lambda: "demo/shot"
             application.stype = next_stype
+            application.tab.stype = next_stype
             worker = object()
             controller._workers.add(worker)
             controller._busy = True
@@ -1667,6 +2206,7 @@ class ColumnsTableViewTests(unittest.TestCase):
         self.assertEqual(controller._stype_code, "demo/shot")
 
     def test_columns_editor_resolves_native_edit_widget_payload(self):
+        from xmlrpc.client import Fault
         application = _Application(_SType())
         sobject = SimpleNamespace(
             get_search_key=lambda: "demo/asset?code=ASSET001"
@@ -1687,16 +2227,18 @@ class ColumnsTableViewTests(unittest.TestCase):
             ),
             patch(
                 "thlib.tactic_classes.execute_procedure_serverside",
-                return_value={
+                side_effect=[Fault(1, "('count of sudo: ', 0)"), {
                     "InputWidgets": _layout_payload()["inputWidgets"]
-                },
+                }],
             ) as execute,
+            patch("thlib.request_retry.time.sleep"),
             patch.object(env_inst, "server_pool", _Pool()),
         ):
             controller = ColumnsEditorController(application)
             controller.reload()
 
         args = execute.call_args.args[1]["args"]
+        self.assertEqual(execute.call_count, 2)
         self.assertEqual(args["view"], "edit")
         self.assertEqual(
             args["search_key"], "demo/asset?code=ASSET001"
@@ -1908,6 +2450,721 @@ class ColumnsTableViewTests(unittest.TestCase):
         model.show_table_rows()
         self.assertEqual([node.node_type for node in model._items], ["sobject"])
 
+    def test_notes_are_centered_in_tall_table_cells(self):
+        engine = QQmlEngine()
+        theme_component = QQmlComponent(
+            engine, QUrl.fromLocalFile(str(QML / "Theme.qml"))
+        )
+        theme = theme_component.createWithInitialProperties({"dark": True})
+        component = QQmlComponent(
+            engine, QUrl.fromLocalFile(str(QML / "TacticTableCellDisplay.qml"))
+        )
+        cell = component.createWithInitialProperties({
+            "theme": theme,
+            "controller": _TableController(),
+            "columnsController": _TableColumns(),
+            "userModel": RecordListModel(("login",)),
+            "nodeId": "asset",
+            "kind": "notes",
+            "cell": {},
+            "textValue": "",
+            "columnIndex": 0,
+            "previewActive": False,
+            "previewUrl": "",
+            "previewRevealed": False,
+            "title": "Asset",
+            "accent": "",
+            "comments": 7,
+            "tasks": 0,
+            "displayOptions": {},
+            "width": 180,
+            "height": 180,
+        })
+        self.assertIsNotNone(
+            cell, [error.toString() for error in component.errors()]
+        )
+        window = QQuickWindow()
+        cell.setParentItem(window.contentItem())
+        window.resize(180, 180)
+        window.show()
+        QTest.qWait(20)
+        note_list = cell.findChild(QQuickItem, "tableNoteList")
+        self.assertAlmostEqual(
+            note_list.y(), (cell.height() - note_list.height()) / 2, delta=1
+        )
+        note_record = next(
+            item for item in _visual_items(cell)
+            if item.objectName() == "tableNoteRecord_0"
+        )
+        self.assertEqual(note_record.property("processTitle"), "Rigging")
+        self.assertEqual(note_record.property("accentColor").name(), "#42a5f5")
+        cell.setHeight(58)
+        QTest.qWait(1)
+        self.assertEqual(note_list.y(), 4)
+        self.assertGreater(note_list.property("contentHeight"), note_list.height())
+        window.close()
+        window.deleteLater()
+
+    def test_table_preview_width_sizes_row_and_task_content_fits(self):
+        engine = QQmlEngine()
+        controller = _TableController()
+        theme_component = QQmlComponent(
+            engine, QUrl.fromLocalFile(str(QML / "Theme.qml"))
+        )
+        theme = theme_component.createWithInitialProperties({"dark": True})
+        model = WorkspaceItemModel()
+        model.replace_nodes([WorkspaceNode(
+            node_id="asset", node_type="sobject",
+            search_key="demo/asset?code=ASSET001", code="ASSET001",
+            title="Tree", preview_source=object(),
+        )])
+        columns = _TableColumns()
+        users = RecordListModel((
+            "login", "displayName", "initials", "avatarUrl",
+            "avatarColor", "email", "primaryGroup",
+        ))
+        component = QQmlComponent(
+            engine, QUrl.fromLocalFile(str(QML / "SearchResultTable.qml"))
+        )
+        table = component.createWithInitialProperties({
+            "theme": theme,
+            "controller": controller,
+            "columnsController": columns,
+            "resultModel": model,
+            "userModel": users,
+            "presentationActive": True,
+            "widthOverrides": {"preview": 128},
+            "width": 900,
+            "height": 240,
+        })
+        self.assertIsNotNone(
+            table, [error.toString() for error in component.errors()]
+        )
+        window = QQuickWindow()
+        table.setParentItem(window.contentItem())
+        window.resize(900, 240)
+        window.show()
+        try:
+            QTest.qWait(50)
+            actions = table.findChild(QQuickItem, "tableTaskDraftActions")
+            self.assertFalse(actions.isVisible())
+            columns._dirty_task_count = 3
+            columns.stateChanged.emit()
+            QTest.qWait(20)
+            self.assertTrue(actions.isVisible())
+            save = table.findChild(QQuickItem, "saveTableTaskChanges")
+            QTest.mouseClick(window, Qt.LeftButton, Qt.NoModifier,
+                             save.mapToScene(QPointF(save.width() / 2, save.height() / 2)).toPoint())
+            self.assertEqual(columns.task_save_calls, 1)
+            self.assertFalse(actions.isVisible())
+            table.setProperty("widthOverrides", {"preview": 128})
+            rows = table.findChild(QQuickItem, "searchResultsTableView")
+            QMetaObject.invokeMethod(rows, "forceLayout")
+            QTest.qWait(100)
+            self.assertEqual(table.property("effectiveRowHeight"), 58)
+            header = table.findChild(QObject, "searchResultTableHeader")
+            header_surface = table.findChild(QQuickItem, "tableHeaderSurface")
+            self.assertEqual(header_surface.height(), 34)
+            self.assertEqual(header_surface.property("radius"), theme.property("itemRadius"))
+            self.assertEqual(header_surface.property("color"), theme.property("surfaceContainer"))
+            for item in _visual_items(table):
+                if item.objectName() in {"tableSelectionSurface", "tableActionSurface"}:
+                    self.assertEqual(QQmlProperty(item, "border.width").read(), 0)
+            header.rowHeightRequested.emit(0)
+            QTest.qWait(20)
+            named = {
+                item.objectName(): item for item in _visual_items(table)
+                if item.objectName()
+            }
+            self.assertEqual(named["searchResultTableRow"].height(), 128)
+            self.assertEqual(named["tableCellPreview"].width(), 120)
+            preview = named["tableCellPreview"]
+            self.assertTrue(preview.property("round"))
+            self.assertEqual(preview.property("fillMode"), 2)  # PreserveAspectCrop
+            self.assertEqual(preview.width(), preview.height())
+            header = table.findChild(QObject, "searchResultTableHeader")
+            header.rowHeightRequested.emit(52)
+            QTest.qWait(20)
+            self.assertEqual(preview.width(), 44)
+            self.assertEqual(preview.height(), 44)
+            self.assertAlmostEqual(
+                preview.x() + preview.width() / 2,
+                preview.parentItem().width() / 2,
+            )
+            self.assertEqual(
+                next(
+                    item for item in _visual_items(table)
+                    if item.objectName() == "searchResultTableRow"
+                ).height(),
+                52,
+            )
+            header.rowHeightRequested.emit(0)
+            QTest.qWait(20)
+            self.assertEqual(
+                next(
+                    item for item in _visual_items(table)
+                    if item.objectName() == "searchResultTableRow"
+                ).height(),
+                128,
+            )
+            table.setProperty("automaticRowHeight", False)
+            table.setProperty("rowHeight", 68)
+            table.setProperty("widthOverrides", {"preview": 64})
+            QMetaObject.invokeMethod(rows, "forceLayout")
+            QTest.qWait(20)
+            named = {
+                item.objectName(): item for item in _visual_items(table)
+                if item.objectName()
+            }
+            self.assertEqual(named["searchResultTableRow"].height(), 68)
+            table.setProperty("rowHeight", 52)
+            table.setProperty(
+                "widthOverrides", {"preview": 48, "tasks": 170}
+            )
+            QMetaObject.invokeMethod(rows, "forceLayout")
+            QTest.qWait(100)
+            named = {
+                item.objectName(): item for item in _visual_items(table)
+                if item.objectName()
+            }
+            self.assertEqual(named["searchResultTableRow"].height(), 52)
+            status = named["tableTaskStatus_0"]
+            assignee = named["tableTaskAssignee_0"]
+            avatar = assignee.findChild(QQuickItem, "taskTableCellAvatar")
+            self.assertLessEqual(status.y() + status.height(), assignee.y())
+            self.assertLessEqual(avatar.height(), assignee.height() - 4)
+            status_width = status.width()
+            QTest.mouseMove(
+                window,
+                status.mapToScene(QPointF(
+                    status.width() / 2, status.height() / 2
+                )).toPoint(),
+            )
+            QTest.qWait(20)
+            self.assertEqual(status.width(), status_width)
+            self.assertFalse(status.property("editorLoaded"))
+            row = named["searchResultTableRow"]
+            preview_cell = named["tableCellPreview"]
+            QTest.mouseMove(
+                window,
+                preview_cell.mapToScene(QPointF(
+                    preview_cell.width() / 2, preview_cell.height() / 2
+                )).toPoint(),
+            )
+            QTest.qWait(550)
+            task_cell = next(
+                item for item in _visual_items(table)
+                if item.objectName() == "tableTaskCell"
+            )
+            task_preview = task_cell.findChild(
+                QObject, "tableTaskCardsPreview"
+            )
+            self.assertIsNotNone(task_preview)
+            self.assertFalse(task_preview.property("opened"))
+            QTest.mouseMove(
+                window,
+                task_cell.mapToScene(QPointF(
+                    10, task_cell.height() / 2
+                )).toPoint(),
+            )
+            QTest.qWait(550)
+            self.assertTrue(task_preview.property("opened"))
+            QTest.mouseMove(
+                window,
+                preview_cell.mapToScene(QPointF(
+                    preview_cell.width() / 2, preview_cell.height() / 2
+                )).toPoint(),
+            )
+            QTest.qWait(550)
+            self.assertFalse(task_preview.property("opened"))
+            QTest.mouseMove(window, QPointF(890, 230).toPoint())
+            # Multi-selection expands only the selected workflows together.
+            model.replace_nodes([
+                WorkspaceNode(
+                    node_id=node_id, node_type="sobject",
+                    search_key="demo/asset?code=" + node_id,
+                    code=node_id, title=node_id,
+                )
+                for node_id in ("asset", "asset2", "asset3")
+            ])
+            controller._selected = ["asset", "asset2"]
+            controller.selected_node_changed.emit()
+            QMetaObject.invokeMethod(rows, "forceLayout")
+            QTest.qWait(100)
+            task_cells = {
+                item.property("nodeId"): item for item in _visual_items(table)
+                if item.objectName() == "tableTaskCell"
+            }
+            self.assertEqual(set(task_cells), {"asset", "asset2", "asset3"})
+            QTest.mouseMove(window, task_cells["asset"].mapToScene(
+                QPointF(10, task_cells["asset"].height() / 2)).toPoint())
+            QTest.qWait(650)
+            for node_id, cell in task_cells.items():
+                self.assertEqual(
+                    cell.findChild(QObject, "tableTaskCardsPreview").property("opened"),
+                    node_id in controller._selected, node_id,
+                )
+            # Leaving for another cell in the same selected row closes all.
+            QTest.mouseMove(window, QPointF(65, task_cells["asset"].mapToScene(
+                QPointF(0, task_cells["asset"].height() / 2)).y()).toPoint())
+            QTest.qWait(550)
+            for cell in task_cells.values():
+                self.assertFalse(cell.findChild(
+                    QObject, "tableTaskCardsPreview").property("opened"))
+            model.set_organization(group_mode="column:code")
+            model.show_table_rows()
+            QMetaObject.invokeMethod(rows, "positionViewAtBeginning")
+            QMetaObject.invokeMethod(rows, "forceLayout")
+            QTest.qWait(80)
+            group_title = next((
+                item for item in _visual_items(table)
+                if item.objectName() == "searchResultTableGroupTitle"
+            ), None)
+            self.assertIsNotNone(
+                group_title,
+                [item.objectName() for item in _visual_items(table)
+                 if item.objectName()],
+            )
+            self.assertIn(group_title.property("text"), {"asset", "asset2", "asset3"})
+        finally:
+            window.close()
+            table.setParentItem(None)
+            table.deleteLater()
+            window.deleteLater()
+
+    def test_task_cell_reflows_into_overflow_and_reveals_dates(self):
+        engine = QQmlEngine()
+        warnings = []
+        engine.warnings.connect(
+            lambda errors: warnings.extend(
+                error.toString() for error in errors
+            )
+        )
+        theme_component = QQmlComponent(
+            engine, QUrl.fromLocalFile(str(QML / "Theme.qml"))
+        )
+        theme = theme_component.createWithInitialProperties({"dark": True})
+        columns = _TableColumns()
+        controller = _TableController()
+        users = RecordListModel((
+            "login", "displayName", "initials", "avatarUrl",
+            "avatarColor", "email", "primaryGroup",
+        ))
+        component = QQmlComponent(
+            engine, QUrl.fromLocalFile(str(QML / "TacticTaskCell.qml"))
+        )
+        cell = component.createWithInitialProperties({
+            "theme": theme,
+            "controller": controller,
+            "columnsController": columns,
+            "userModel": users,
+            "nodeId": "asset",
+            "records": columns.cell("asset", "tasks")["tasks"],
+            "taskCount": 1,
+            "width": 280,
+            "height": 90,
+        })
+        self.assertIsNotNone(
+            cell, [error.toString() for error in component.errors()]
+        )
+        window = QQuickWindow()
+        cell.setParentItem(window.contentItem())
+        window.resize(300, 120)
+        window.show()
+        try:
+            QTest.qWait(30)
+            named = {
+                item.objectName(): item for item in _visual_items(cell)
+                if item.objectName()
+            }
+            first_card = named["tableTaskRecord_0"]
+            dates = named["tableTaskDates_0"]
+            menu = named["tableCellTasks"]
+            self.assertEqual(first_card.width(), 107)
+            self.assertTrue(dates.isVisible())
+            self.assertFalse(menu.isVisible())
+
+            self.assertIsNone(cell.findChild(QObject, "tableTaskDateEditor"))
+
+            QTest.mouseClick(
+                window, Qt.LeftButton, Qt.NoModifier,
+                dates.mapToScene(QPointF(
+                    dates.width() / 2, dates.height() / 2
+                )).toPoint(),
+            )
+            QTest.qWait(300)
+            date_editor = cell.findChild(QObject, "tableTaskDateEditor")
+            self.assertIsNotNone(date_editor)
+            self.assertTrue(date_editor.property("opened"), warnings)
+            start_editor = date_editor.findChild(
+                QObject, "tableTaskStartDateEditor"
+            )
+            self.assertIsNotNone(start_editor)
+            start_editor.setProperty("text", "2026-09-02 10:00:00")
+            QMetaObject.invokeMethod(start_editor, "editingFinished")
+            QTest.qWait(20)
+            self.assertIn((
+                "asset", "sthpw/task?code=TASK001", "model",
+                "bid_start_date", "2026-09-02 10:00:00",
+            ), columns.task_edits)
+            QMetaObject.invokeMethod(date_editor, "close")
+            QTest.qWait(300)
+            self.assertIsNone(cell.findChild(QObject, "tableTaskDateEditor"))
+
+            cell.setProperty("width", 150)
+            QTest.qWait(20)
+            named = {
+                item.objectName(): item for item in _visual_items(cell)
+                if item.objectName()
+            }
+            first_card = named["tableTaskRecord_0"]
+            menu = named["tableCellTasks"]
+            self.assertTrue(menu.isVisible())
+            self.assertEqual(menu.property("iconName"), "tasks")
+            self.assertEqual(menu.property("count"), 1)
+            self.assertLessEqual(
+                first_card.x() + first_card.width(), menu.x()
+            )
+            self.assertAlmostEqual(
+                menu.x() + menu.width() / 2,
+                (
+                    first_card.x() + first_card.width() + cell.width()
+                ) / 2,
+                delta=1,
+            )
+            QTest.mouseClick(
+                window, Qt.LeftButton, Qt.NoModifier,
+                menu.mapToScene(QPointF(
+                    menu.width() / 2, menu.height() / 2
+                )).toPoint(),
+            )
+            QTest.qWait(20)
+            self.assertEqual(
+                controller.process_details[-1], ("asset", "tasks", "")
+            )
+            preview = cell.findChild(QObject, "tableTaskCardsPreview")
+            self.assertIsNotNone(preview)
+            self.assertFalse(preview.property("opened"))
+            QTest.qWait(20)
+            QTest.mouseMove(window, QPointF(290, 110).toPoint())
+            QTest.qWait(20)
+
+            QTest.mouseMove(
+                window,
+                cell.mapToScene(QPointF(10, cell.height() / 2)).toPoint(),
+            )
+            QTest.qWait(550)
+            self.assertTrue(
+                preview.property("opened"),
+                (cell.property("hoverActive"), warnings),
+            )
+            preview_surface = preview.property("contentItem").property("item")
+            popup_cards = [
+                item.objectName() for item in _visual_items(preview_surface)
+                if item.objectName().startswith("tableTaskRecord_")
+            ]
+            self.assertEqual(
+                popup_cards, ["tableTaskRecord_1", "tableTaskRecord_0"]
+            )
+            inline_cards = cell.findChild(QQuickItem, "tableInlineTaskCards")
+            self.assertEqual(inline_cards.opacity(), 0)
+            expanded_card = next(item for item in _visual_items(preview_surface)
+                                 if item.objectName() == "tableTaskRecord_0")
+            self.assertLess(
+                expanded_card.mapToScene(QPointF()).y(),
+                cell.mapToScene(QPointF(0, cell.height())).y(),
+            )
+            QTest.mouseMove(window, QPointF(290, 110).toPoint())
+            QTest.qWait(400)
+            self.assertFalse(preview.property("opened"))
+            self.assertEqual(inline_cards.opacity(), 1)
+
+            cell.setProperty("width", 100)
+            QTest.qWait(20)
+            self.assertEqual(cell.property("visibleCardCount"), 0)
+            self.assertAlmostEqual(
+                menu.x() + menu.width() / 2, cell.width() / 2, delta=1
+            )
+
+            # A recycled row updates the existing cards instead of rebuilding
+            # every editor/avatar. An open editor must not follow another task.
+            cell.setProperty("width", 280)
+            QTest.qWait(20)
+            named = {item.objectName(): item for item in _visual_items(cell)
+                     if item.objectName()}
+            first_card = named["tableTaskRecord_0"]
+            status_cell = named["tableTaskStatus_0"]
+            status_cell.setProperty("editRequested", True)
+            QTest.qWait(50)
+            self.assertTrue(status_cell.property("editorLoaded"))
+            records = columns.cell("asset", "tasks")["tasks"]
+            records[0].update(taskCode="TASK002", taskSearchKey="sthpw/task?code=TASK002",
+                              status="Complete", assigned="supervisor",
+                              assignedLabel="Supervisor")
+            cell.setProperty("records", records)
+            cell.setProperty("nodeId", "asset2")
+            QTest.qWait(50)
+            named = {item.objectName(): item for item in _visual_items(cell)
+                     if item.objectName()}
+            self.assertIs(named["tableTaskRecord_0"], first_card)
+            self.assertIs(named["tableTaskStatus_0"], status_cell)
+            self.assertFalse(status_cell.property("editorLoaded"))
+            self.assertEqual(status_cell.property("displayText"), "Complete")
+            status_cell.setProperty("editRequested", True)
+            QTest.qWait(50)
+            editor = next(item for item in _visual_items(cell)
+                          if item.objectName() == "tableTaskStatusEditor_0")
+            editor.setProperty("currentIndex", 0)
+            editor.activated.emit(0)
+            self.assertEqual(columns.task_edits[-1], (
+                "asset2", "sthpw/task?code=TASK002", "model", "status", "Pending",
+            ))
+            QMetaObject.invokeMethod(status_cell, "resetEditor")
+            QTest.qWait(20)
+            self.assertEqual(warnings, [])
+        finally:
+            window.close()
+            cell.setParentItem(None)
+            cell.deleteLater()
+            window.deleteLater()
+
+    def test_table_columns_hide_by_priority_and_auto_fit_remaining_width(self):
+        engine = QQmlEngine()
+        theme_component = QQmlComponent(
+            engine, QUrl.fromLocalFile(str(QML / "Theme.qml"))
+        )
+        theme = theme_component.createWithInitialProperties({"dark": True})
+        model = WorkspaceItemModel()
+        model.replace_nodes([WorkspaceNode(
+            node_id="asset", node_type="sobject", search_key="asset",
+            code="ASSET001", title="Tree",
+        )])
+        columns = _TableColumns()
+        columns._columns = [
+            {
+                "row": 0, "name": "code", "label": "Code",
+                "width": 160, "dataType": "varchar", "sortable": True,
+                "hideOrder": 0,
+            },
+            {
+                "row": 1, "name": "notes", "label": "Notes",
+                "width": 160, "dataType": "varchar", "sortable": True,
+                "hideOrder": 2,
+            },
+            {
+                "row": 2, "name": "category", "label": "Category",
+                "width": 160, "dataType": "varchar", "sortable": True,
+                "hideOrder": 1,
+            },
+        ]
+        component = QQmlComponent(
+            engine, QUrl.fromLocalFile(str(QML / "SearchResultTable.qml"))
+        )
+        table = component.createWithInitialProperties({
+            "theme": theme,
+            "controller": _TableController(),
+            "columnsController": columns,
+            "resultModel": model,
+            "width": 430,
+            "height": 180,
+        })
+        self.assertIsNotNone(
+            table, [error.toString() for error in component.errors()]
+        )
+        window = QQuickWindow()
+        table.setParentItem(window.contentItem())
+        window.resize(430, 180)
+        window.show()
+        try:
+            rows = table.findChild(QQuickItem, "searchResultsTableView")
+            QMetaObject.invokeMethod(rows, "forceLayout")
+            QTest.qWait(40)
+            named = {
+                item.objectName(): item for item in _visual_items(table)
+                if item.objectName()
+            }
+            self.assertIn("tableColumnContextArea_code", named)
+            self.assertNotIn("tableColumnContextArea_category", named)
+            table.setWidth(650)
+            window.resize(650, 180)
+            QMetaObject.invokeMethod(rows, "forceLayout")
+            QTest.qWait(40)
+            named = {
+                item.objectName(): item for item in _visual_items(table)
+                if item.objectName()
+            }
+            self.assertIn("tableColumnContextArea_category", named)
+            label = named["tableColumnHeaderLabel_code"]
+            self.assertEqual(label.property("text"), "CODE")
+            button = named["autoFitTableColumnsButton"]
+            QTest.mouseClick(
+                window, Qt.LeftButton, Qt.NoModifier,
+                button.mapToScene(QPointF(
+                    button.width() / 2, button.height() / 2
+                )).toPoint(),
+            )
+            QTest.qWait(20)
+            self.assertTrue(table.property("autoFitColumns"))
+            self.assertGreater(
+                named["tableColumnContextArea_code"].parentItem().width(),
+                160,
+            )
+        finally:
+            window.close()
+            table.setParentItem(None)
+            table.deleteLater()
+            window.deleteLater()
+
+    def test_table_header_sorts_and_groups_by_column(self):
+        engine = QQmlEngine()
+        theme_component = QQmlComponent(
+            engine, QUrl.fromLocalFile(str(QML / "Theme.qml"))
+        )
+        theme = theme_component.createWithInitialProperties({"dark": True})
+        model = WorkspaceItemModel()
+        model.replace_nodes([WorkspaceNode(
+            node_id="asset", node_type="sobject", search_key="asset",
+            code="ASSET001", title="Tree",
+        )])
+        controller = _TableController()
+        columns = _TableColumns()
+        component = QQmlComponent(
+            engine, QUrl.fromLocalFile(str(QML / "SearchResultTable.qml"))
+        )
+        table = component.createWithInitialProperties({
+            "theme": theme,
+            "controller": controller,
+            "columnsController": columns,
+            "resultModel": model,
+            "width": 900,
+            "height": 180,
+        })
+        self.assertIsNotNone(
+            table, [error.toString() for error in component.errors()]
+        )
+        window = QQuickWindow()
+        table.setParentItem(window.contentItem())
+        window.resize(900, 180)
+        window.show()
+        try:
+            QTest.qWait(40)
+            area = next(
+                item for item in _visual_items(table)
+                if item.objectName() == "tableColumnContextArea_code"
+            )
+            QTest.mouseClick(
+                window, Qt.RightButton, Qt.NoModifier,
+                area.mapToScene(QPointF(
+                    area.width() / 2, area.height() / 2
+                )).toPoint(),
+            )
+            QTest.qWait(200)
+            menu = table.findChild(QObject, "tableColumnContextMenu")
+            actions = menu.property("actions").toVariant()
+            commands = {
+                action.get("command") for action in actions
+                if isinstance(action, dict) and action.get("command")
+            }
+            self.assertTrue({
+                "sort:ascending", "sort:descending", "group", "ungroup",
+            }.issubset(commands))
+            self.assertIn(
+                "Sort A to Z",
+                [action.get("title") for action in actions
+                 if isinstance(action, dict)],
+            )
+            controller.set_result_group_mode("column:code")
+            QTest.qWait(20)
+            group_indicator = next(
+                item for item in _visual_items(table)
+                if item.objectName() == "tableColumnGroupIndicator_code"
+            )
+            self.assertTrue(group_indicator.isVisible())
+            menu.triggered.emit("sort:descending")
+            menu.triggered.emit("group")
+            menu.triggered.emit("ungroup")
+            menu.triggered.emit("edit_definition")
+            self.assertEqual(columns.sort_calls[-1], (0, True))
+            self.assertEqual(columns.group_calls[-1], 0)
+            self.assertEqual(controller.group_modes[-1], "none")
+            self.assertEqual(columns.focus_requests[-1], (0, "edit_definition"))
+        finally:
+            window.close()
+            table.setParentItem(None)
+            table.deleteLater()
+            window.deleteLater()
+
+    def test_table_view_preset_menu_selects_current_tab_view(self):
+        engine = QQmlEngine()
+        warnings = []
+        engine.warnings.connect(
+            lambda errors: warnings.extend(
+                error.toString() for error in errors
+            )
+        )
+        theme_component = QQmlComponent(
+            engine, QUrl.fromLocalFile(str(QML / "Theme.qml"))
+        )
+        theme = theme_component.createWithInitialProperties({"dark": True})
+        columns = _TableColumns()
+        columns._table_views.append({
+            "view": "th_table_review", "title": "Review",
+            "current": False,
+        })
+        component = QQmlComponent(
+            engine, QUrl.fromLocalFile(str(QML / "SearchResultTable.qml"))
+        )
+        controller = _TableController()
+        result_model = WorkspaceItemModel()
+        table = component.createWithInitialProperties({
+            "theme": theme,
+            "controller": controller,
+            "columnsController": columns,
+            "resultModel": result_model,
+            "width": 720,
+            "height": 180,
+        })
+        self.assertIsNotNone(
+            table, [error.toString() for error in component.errors()]
+        )
+        window = QQuickWindow()
+        table.setParentItem(window.contentItem())
+        window.resize(720, 180)
+        window.show()
+        try:
+            QTest.qWait(30)
+            button = table.findChild(
+                QQuickItem, "configureTableColumnsButton"
+            )
+            button.clicked.emit()
+            QTest.qWait(20)
+            menu = table.findChild(QObject, "tableViewPresetsMenu") \
+                or window.findChild(QObject, "tableViewPresetsMenu")
+            self.assertIsNotNone(menu, warnings)
+            actions = menu.property("actions").toVariant()
+            commands = [
+                action.get("command") for action in actions
+                if isinstance(action, dict) and action.get("command")
+            ]
+            self.assertIn("select:1", commands)
+            self.assertIn("save_as", commands)
+            menu.triggered.emit("select:1")
+            QTest.qWait(20)
+            self.assertEqual(columns.selected_table_views, [1])
+            button.clicked.emit()
+            QTest.qWait(20)
+            menu = table.findChild(QObject, "tableViewPresetsMenu") \
+                or window.findChild(QObject, "tableViewPresetsMenu")
+            menu.triggered.emit("configure")
+            self.assertEqual(columns.focus_requests, [(-1, "definition")])
+            self.assertEqual(controller.columns_editor_requests, 1)
+            self.assertEqual(warnings, [])
+        finally:
+            window.close()
+            table.setParentItem(None)
+            table.deleteLater()
+            window.deleteLater()
+
     def test_result_table_instantiates_real_qml_with_both_scrollbars(self):
         engine = QQmlEngine()
         warnings = []
@@ -1969,6 +3226,42 @@ class ColumnsTableViewTests(unittest.TestCase):
             QTest.qWait(50)
             self.assertEqual(rows.property("count"), 1)
             self.assertGreater(rows.property("contentWidth"), rows.width())
+            vertical = table.findChild(QQuickItem, "tableVerticalScrollBar")
+            horizontal = table.findChild(QQuickItem, "tableHorizontalScrollBar")
+            for width in (300, 1100):
+                table.setWidth(width)
+                window.resize(width, 160)
+                QTest.qWait(20)
+                self.assertGreaterEqual(
+                    vertical.mapToScene(QPointF()).x(),
+                    rows.mapToScene(QPointF(rows.width(), 0)).x() + 4,
+                )
+                self.assertGreaterEqual(
+                    horizontal.mapToScene(QPointF()).y(),
+                    rows.mapToScene(QPointF(0, rows.height())).y() + 4,
+                )
+                button = table.findChild(QQuickItem, "configureTableColumnsButton")
+                self.assertTrue(button.isVisible())
+                self.assertTrue(button.isEnabled())
+                center = button.mapToScene(QPointF(button.width() / 2, button.height() / 2))
+                self.assertLess(center.x() + button.width() / 2, vertical.mapToScene(QPointF()).x())
+                button.clicked.emit()
+                QTest.qWait(20)
+                menu = table.findChild(QObject, "tableViewPresetsMenu") \
+                    or window.findChild(QObject, "tableViewPresetsMenu")
+                self.assertIsNotNone(menu, warnings)
+                menu.triggered.emit("configure")
+                QTest.qWait(20)
+                self.assertEqual(
+                    table_controller.columns_editor_requests,
+                    1 if width == 300 else 2,
+                )
+            table.setWidth(300)
+            window.resize(300, 160)
+            QMetaObject.invokeMethod(rows, "forceLayout")
+            QTest.qWait(40)
+            table_controller.opened_windows.clear()
+            self.assertEqual(warnings, [])
             self.assertIsNotNone(
                 table.findChild(QObject, "tableVerticalScrollBar")
             )
@@ -1983,7 +3276,7 @@ class ColumnsTableViewTests(unittest.TestCase):
                 if item.objectName():
                     named_items.setdefault(item.objectName(), item)
             self.assertLessEqual(len(_visual_items(table)), 250)
-            self.assertIn("Asset name", texts)
+            self.assertIn("ASSET NAME", texts)
             self.assertIn("ASSET001", texts)
             self.assertIsNotNone(
                 named_items.get("searchResultTableHeader")
@@ -2087,8 +3380,14 @@ class ColumnsTableViewTests(unittest.TestCase):
                     Path(screenshot_dir) / "search-table-tasks.png"
                 ))
             task_card = named_items["tableTaskRecord_0"]
-            self.assertLessEqual(task_card.width(), 95)
-            self.assertLessEqual(task_card.height(), 62)
+            self.assertLessEqual(task_card.width(), 107)
+            self.assertLessEqual(task_card.height(), 88)
+            task_dates = named_items["tableTaskDates_0"]
+            self.assertTrue(task_dates.isVisible())
+            self.assertIn("1 Sep – 3 Sep", {
+                str(item.property("text")) for item in _visual_items(task_dates)
+                if item.property("text") is not None
+            })
             task_header = named_items["tableTaskHeader_0"]
             QTest.mouseClick(
                 window, Qt.LeftButton, Qt.NoModifier,
@@ -2135,6 +3434,12 @@ class ColumnsTableViewTests(unittest.TestCase):
                     "status", "Complete",
                 ),
             )
+            assignee_cell = next(item for item in _visual_items(table)
+                                 if item.objectName() == "tableTaskAssignee_0")
+            QTest.mouseClick(window, Qt.LeftButton, Qt.NoModifier,
+                             assignee_cell.mapToScene(QPointF(assignee_cell.width()/2, assignee_cell.height()/2)).toPoint())
+            assignee_cell.setProperty("editRequested", True)
+            QTest.qWait(50)
             assignee_editor = next((
                 item for item in _visual_items(table)
                 if item.objectName() == "tableTaskAssigneeEditor_0"
@@ -2166,8 +3471,8 @@ class ColumnsTableViewTests(unittest.TestCase):
                 str(item.property("text")) for item in _visual_items(table)
                 if item.property("text") is not None
             }
-            self.assertIn("publish (2)", note_texts)
-            self.assertIn("publish/context (3)", note_texts)
+            self.assertIn("Localized publish", note_texts)
+            self.assertIn("Localized publish context", note_texts)
             self.assertNotIn("Notes (2)", note_texts)
             self.assertGreater(
                 named_items["tableNoteList"].property("contentHeight"),
@@ -2204,7 +3509,14 @@ class ColumnsTableViewTests(unittest.TestCase):
                 if item.objectName()
             }
             for kind in ("explorer", "file_list", "metadata", "delete"):
-                button = named_items["tableCellAction_" + kind]
+                column_name = 'files' if kind == 'file_list' else kind
+                header = next(item for item in _visual_items(table)
+                              if item.objectName() == 'tableColumnHeaderLabel_' + column_name)
+                relative = header.mapToItem(rows, QPointF(header.width()/2, 0)).x()
+                rows.setProperty("contentX", max(0, min(rows.property("contentWidth")-rows.width(), rows.property("contentX")+relative-rows.width()/2)))
+                QTest.qWait(20)
+                button = next(item for item in _visual_items(table)
+                              if item.objectName() == 'tableCellAction_' + kind)
                 QTest.mouseClick(
                     window, Qt.LeftButton, Qt.NoModifier,
                     button.mapToScene(QPointF(
@@ -2282,7 +3594,7 @@ class ColumnsTableViewTests(unittest.TestCase):
             self.assertTrue({
                 "sort:ascending", "sort:descending", "edit_definition",
                 "columns", "remove", "row_height:52",
-                "row_height:68", "row_height:84",
+                "row_height:68", "row_height:84", "row_height:0",
             }.issubset({
                 action.get("command") for action in column_actions
                 if isinstance(action, dict) and action.get("command")
@@ -2296,9 +3608,7 @@ class ColumnsTableViewTests(unittest.TestCase):
             self.assertEqual(
                 columns.focus_requests[-1], (0, "edit_definition")
             )
-            self.assertEqual(
-                table_controller.opened_windows[-1], "columns_editor"
-            )
+            self.assertEqual(table_controller.columns_editor_requests, 3)
             column_menu.close()
             QTest.qWait(250)
 
@@ -2339,9 +3649,11 @@ class ColumnsTableViewTests(unittest.TestCase):
                     configure.width() / 2, configure.height() / 2
                 )).toPoint(),
             )
-            self.assertEqual(
-                table_controller.opened_windows[-1], "columns_editor"
-            )
+            menu = table.findChild(QObject, "tableViewPresetsMenu") or window.findChild(QObject, "tableViewPresetsMenu")
+            menu.triggered.emit("configure")
+            self.assertEqual(table_controller.columns_editor_requests, 4)
+            menu.close()
+            QTest.qWait(20)
             rows.forceActiveFocus()
             QTest.keyClick(window, Qt.Key_Return)
             QTest.keyClick(window, Qt.Key_A, Qt.ControlModifier)
@@ -2394,47 +3706,105 @@ class ColumnsTableViewTests(unittest.TestCase):
             table.deleteLater()
             window.deleteLater()
 
-    def test_definition_editor_has_simple_editsobject_and_xml_modes(self):
+    def test_unsupported_definition_message_is_centered_in_editor(self):
+        engine = QQmlEngine()
+        theme_component = QQmlComponent(
+            engine, QUrl.fromLocalFile(str(QML / "Theme.qml"))
+        )
+        theme = theme_component.createWithInitialProperties({"dark": True})
+        component = QQmlComponent(engine)
+        component.setData(b'''import QtQuick
+import "tactic_frame" as Frame
+import "tactic_frame/features/administration/columns/columns.ui.mjs" as UI
+import "tactic_frame/features/administration/columns/columns.state.mjs" as State
+Item {
+    id: root
+    required property var theme
+    Frame.FrameView {
+        anchors.fill: parent; theme: root.theme
+        scene: UI.describe({ready:true,canWrite:false,records:[],typeOptions:[],selected:{identity:"fixture",view:"archive_assets"},wizard:{supported:false},elements:[],element:{},widgetOptions:[],xml:"<config/>"},Object.assign(State.initial(),{editing:true}),width,height,"en")
+        models: ({definitions:[],columns:[]})
+    }
+}
+''', QUrl.fromLocalFile(str(QML / "_FrameColumnsEmptyTest.qml")))
+        editor = component.createWithInitialProperties({"theme":theme})
+        self.assertIsNotNone(
+            editor, [error.toString() for error in component.errors()]
+        )
+        window = QQuickWindow()
+        editor.setParentItem(window.contentItem())
+        window.show()
+        try:
+            for width in (520, 1100):
+                window.resize(width, 700)
+                editor.setWidth(width)
+                editor.setHeight(700)
+                QTest.qWait(30)
+                empty = next((item for item in _visual_items(editor) if item.objectName() == "definitionCatalogWizardEmpty"),None)
+                self.assertIsNotNone(empty)
+                panel = next(item for item in _visual_items(editor) if item.objectName() == "definitionEditorPanel")
+                center = empty.mapToItem(
+                    panel, QPointF(empty.width() / 2, empty.height() / 2)
+                )
+                self.assertAlmostEqual(
+                    center.x(), panel.width() / 2, delta=1,
+                    msg=(
+                        f"editor={editor.width()} empty={empty.width()} "
+                        f"parent={empty.parentItem().width()} "
+                        f"root={empty.parentItem().parentItem().width()}"
+                    ),
+                )
+        finally:
+            window.close()
+            editor.setParentItem(None)
+            editor.deleteLater()
+            window.deleteLater()
+            engine.deleteLater()
+
+    def test_administration_columns_editor_uses_project_catalog_only(self):
         application = _Application(_SType())
-        application.stype.project.get_stypes = lambda: {
-            code: SimpleNamespace(
-                get_code=lambda value=code: value,
-                get_pretty_name=lambda value=title: value,
-            )
-            for code, title in (
-                ("demo/asset", "Assets"),
-                ("demo/shot", "Shots"),
-                ("demo/note", "Notes"),
-            )
-        }
         application.stype.project.views.config_dict.append({
             "code": "WIDGET003", "view": "table", "login": "artist",
+            "search_type": "demo/shot", "config": (
+                '<config><table><element name="code" title="Code"/>'
+                '<element name="name" title="Name"/></table></config>'
+            ),
+        })
+        application.stype.project.views.config_dict.append({
+            "code": "WIDGET004", "view": "table", "login": "",
             "search_type": "demo/shot", "config": "<config><table/></config>",
         })
-        catalog_updates = []
-        catalog_server = SimpleNamespace(
-            query=lambda *_args: list(
-                application.stype.project.views.config_dict
+        updates = []
+        server = SimpleNamespace(
+            query=lambda search_type, *_args, **_kwargs: (
+                [
+                    {"code": "demo/asset", "title": "Assets"},
+                    {"code": "demo/shot", "title": "Shots"},
+                ] if search_type == "sthpw/search_object" else list(
+                    application.stype.project.views.config_dict
+                )
             ),
             build_search_key=lambda _stype, code, **_kwargs:
                 f"config/widget_config?code={code}",
             insert_update=lambda key, data, **kwargs:
-                catalog_updates.append((key, data, kwargs)),
+                updates.append((key, data, kwargs)),
         )
         from thlib.environment import env_inst
         with (
-            patch(
-                "thlib.tactic_classes.get_table_layout",
-                return_value=_layout_payload(),
-            ),
-            patch(
-                "thlib.tactic_classes.server_start",
-                return_value=catalog_server,
-            ),
+            patch("thlib.tactic_classes.server_start", return_value=server),
             patch.object(env_inst, "server_pool", _Pool()),
+            patch.object(
+                env_inst, "get_project_by_code",
+                return_value=application.stype.project,
+            ),
         ):
             controller = ColumnsEditorController(application)
-            controller.reload()
+            controller._stype_code = "demo/shot"
+            controller._view = "table"
+            controller._database_views = {"table": {"code": "WIDGET003"}}
+            controller.model.replace([
+                {"name": "code"}, {"name": "name"},
+            ])
             controller.request_column_focus(1, "definition")
             engine = QQmlEngine()
             warnings = []
@@ -2446,9 +3816,6 @@ class ColumnsTableViewTests(unittest.TestCase):
             engine.rootContext().setContextProperty(
                 "columnsEditorController", controller
             )
-            engine.rootContext().setContextProperty(
-                "columnsEditorModel", controller.model
-            )
             theme_component = QQmlComponent(
                 engine, QUrl.fromLocalFile(str(QML / "Theme.qml"))
             )
@@ -2457,83 +3824,87 @@ class ColumnsTableViewTests(unittest.TestCase):
                 engine, QUrl.fromLocalFile(str(QML / "ColumnsEditorView.qml"))
             )
             editor = component.createWithInitialProperties({
-                "theme": theme, "width": 820, "height": 560,
+                "theme": theme, "projectCode": "demo",
+                "width": 1100, "height": 700,
             })
             self.assertIsNotNone(
                 editor, [error.toString() for error in component.errors()]
             )
             window = QQuickWindow()
             editor.setParentItem(window.contentItem())
-            window.resize(820, 560)
+            window.resize(1100, 700)
             window.show()
             try:
-                screenshot_dir = os.environ.get(
-                    "DEFINITION_EDITOR_SCREENSHOT_DIR"
-                )
                 QTest.qWait(60)
-                simple_editor = editor.findChild(
-                    QObject, "tacticDefinitionSimpleEditor"
-                )
-                self.assertIsNotNone(simple_editor)
-                self.assertIsNone(editor.findChild(
-                    QObject, "tacticElementDefinitionXml"
+                catalog = next((item for item in _visual_items(editor) if item.objectName() == "definitionCatalogList"), None)
+                self.assertIsNotNone(catalog, warnings)
+                self.assertEqual(catalog.property("count"), 2)
+                self.assertEqual(editor.property("ui").toVariant()["searchType"], "demo/shot")
+                self.assertEqual(editor.property("selectedCatalog")["code"], "WIDGET003")
+                self.assertFalse(controller.focusPending)
+                self.assertIsNone(next((item for item in _visual_items(editor) if item.objectName() == "tableViewSelectorPanel"), None))
+                self.assertFalse(any(
+                    item.objectName() in (
+                        "segmentedButtonSegment_current",
+                        "segmentedButtonSegment_catalog",
+                        "segmentedButtonSegment_all",
+                    )
+                    for item in _visual_items(editor)
                 ))
-                self.assertEqual(editor.property("selectedName"), "custom")
-                controller.move(1, -1)
-                QTest.qWait(20)
-                self.assertEqual(editor.property("selectedRow"), 0)
-                self.assertEqual(editor.property("selectedName"), "custom")
-                pending = [editor]
-                code_row = None
-                while pending:
-                    item = pending.pop()
-                    if item.objectName() == "tacticColumnRow_code":
-                        code_row = item
-                        break
-                    pending.extend(item.childItems())
-                self.assertIsNotNone(code_row)
+                search_type_filter = next((item for item in _visual_items(editor) if item.objectName() == "definitionCatalogSearchTypeFilter"), None)
+                self.assertIsNotNone(search_type_filter)
+                self.assertTrue(search_type_filter.isVisible())
+                self.assertEqual(search_type_filter.property("count"), 3)
+                self.assertEqual(
+                    search_type_filter.property("currentText"),
+                    "Shots · demo/shot",
+                )
+                self.assertEqual(
+                    search_type_filter.property("currentValue"), "demo/shot"
+                )
+                self.assertEqual(
+                    [row["label"] for row in
+                     controller.definitionCatalogSearchTypes],
+                    ["Assets · demo/asset", "Shots · demo/shot"],
+                )
                 QTest.mouseClick(
                     window, Qt.LeftButton, Qt.NoModifier,
-                    code_row.mapToScene(QPointF(
-                        code_row.width() / 2, code_row.height() / 2
+                    search_type_filter.mapToScene(QPointF(
+                        search_type_filter.width() / 2,
+                        search_type_filter.height() / 2,
                     )).toPoint(),
                 )
+                QTest.qWait(30)
+                popup = search_type_filter.findChild(QObject, "comboBoxPopup")
+                self.assertIsNotNone(popup)
+                self.assertTrue(popup.property("visible"))
+                popup.close()
+                search_type_filter.setProperty("currentIndex", 2)
+                search_type_filter.activated.emit(2)
                 QTest.qWait(20)
-                self.assertEqual(editor.property("selectedName"), "code")
-
-                edit_mode = next((
-                    item for item in _visual_items(editor)
-                    if item.objectName()
-                    == "segmentedButtonSegment_edit_definition"
-                ), None)
-                self.assertIsNotNone(edit_mode)
-                QTest.mouseClick(
-                    window, Qt.LeftButton, Qt.NoModifier,
-                    edit_mode.mapToScene(QPointF(
-                        edit_mode.width() / 2, edit_mode.height() / 2
-                    )).toPoint(),
+                self.assertEqual(catalog.property("count"), 2)
+                self.assertEqual(
+                    editor.property("selectedCatalog")["searchType"],
+                    "demo/shot",
                 )
+                search_type_filter.setProperty("currentIndex", 0)
+                search_type_filter.activated.emit(0)
                 QTest.qWait(20)
-                self.assertEqual(
-                    editor.property("definitionTarget"), "edit_definition"
-                )
-                self.assertIsNotNone(editor.findChild(
-                    QObject, "tacticEditIncluded"
-                ))
-                input_widget = editor.findChild(
-                    QObject, "tacticInputWidget"
-                )
-                self.assertIsNotNone(input_widget)
-                self.assertEqual(
-                    input_widget.property("currentValue"),
-                    "pyasm.widget.input_wdg.TextWdg",
-                )
-
-                xml_mode = next((
+                controller.request_column_focus(1, "definition")
+                QTest.qWait(20)
+                self.assertEqual(editor.property("ui").toVariant()["searchType"], "demo/shot")
+                self.assertEqual(editor.property("selectedCatalog")["code"], "WIDGET003")
+                self.assertEqual(editor.property("ui").toVariant()["path"], "0/1")
+                self.assertFalse(controller.focusPending)
+                output = os.environ.get("COLUMNS_SCREENSHOTS")
+                if output:
+                    Path(output).mkdir(parents=True, exist_ok=True)
+                    window.grabWindow().save(str(Path(output) / "columns_wide.png"))
+                controller._stype_code = ""
+                xml_mode = next(
                     item for item in _visual_items(editor)
-                    if item.objectName() == "segmentedButtonSegment_xml"
-                ), None)
-                self.assertIsNotNone(xml_mode)
+                    if item.objectName() == "definitionCatalogMode_xml"
+                )
                 QTest.mouseClick(
                     window, Qt.LeftButton, Qt.NoModifier,
                     xml_mode.mapToScene(QPointF(
@@ -2541,195 +3912,68 @@ class ColumnsTableViewTests(unittest.TestCase):
                     )).toPoint(),
                 )
                 QTest.qWait(20)
-                xml_editor = editor.findChild(
-                    QObject, "tacticElementDefinitionXml"
-                )
+                xml_editor = next((item for item in _visual_items(editor) if item.objectName() == "definitionCatalogXml"), None)
                 self.assertIsNotNone(xml_editor)
-                self.assertIn(
-                    '<element name="code"', xml_editor.property("text")
+                window.requestActivate()
+                QTest.qWait(20)
+                xml_editor.focusEditor()
+                QTest.keyClick(window, Qt.Key_A, Qt.ControlModifier)
+                for character in '<config><table marker="advanced"/></config>':
+                    QTest.keyClick(window, character)
+                QTest.qWait(20)
+                save = next((item for item in _visual_items(editor) if item.objectName() == "adminSaveDocument"), None)
+                self.assertTrue(save.isEnabled())
+                QTest.mouseClick(
+                    window, Qt.LeftButton, Qt.NoModifier,
+                    save.mapToScene(QPointF(
+                        save.width() / 2, save.height() / 2
+                    )).toPoint(),
                 )
-                selector = editor.findChild(
-                    QQuickItem, "tableViewSelectorPanel"
+                QTest.qWait(30)
+                confirm = next(item for item in _visual_items(editor) if item.objectName() == "adminConfirmSave")
+                QTest.mouseClick(window, Qt.LeftButton, Qt.NoModifier, confirm.mapToScene(QPointF(confirm.width()/2,confirm.height()/2)).toPoint())
+                QTest.qWait(30)
+                self.assertEqual(len(updates), 1)
+                self.assertEqual(
+                    updates[0][1]["config"],
+                    '<config><table marker="advanced"/></config>',
                 )
-                definition = editor.findChild(
-                    QQuickItem, "elementDefinitionPanel"
+                editor.setProperty("catalogXmlText", "<config/>")
+                revert = next((item for item in _visual_items(editor) if item.objectName() == "adminDiscardDocument"), None)
+                self.assertTrue(revert.isEnabled())
+                QTest.mouseClick(
+                    window, Qt.LeftButton, Qt.NoModifier,
+                    revert.mapToScene(QPointF(
+                        revert.width() / 2, revert.height() / 2,
+                    )).toPoint(),
                 )
-                self.assertIsNotNone(selector)
-                self.assertIsNotNone(definition)
-                self.assertGreater(definition.x(), selector.x())
-                self.assertLessEqual(selector.x() + selector.width(), 820)
-                self.assertLessEqual(definition.x() + definition.width(), 820)
+                QTest.qWait(30)
+                confirm = next(item for item in _visual_items(editor) if item.objectName() == "adminConfirmSave")
+                QTest.mouseClick(window, Qt.LeftButton, Qt.NoModifier, confirm.mapToScene(QPointF(confirm.width()/2,confirm.height()/2)).toPoint())
+                QTest.qWait(30)
+                self.assertEqual(
+                    editor.property("catalogXmlText"),
+                    editor.property("catalogXmlOriginal"),
+                )
+                catalog_panel = next((item for item in _visual_items(editor) if item.objectName() == "definitionCatalogPanel"), None)
+                catalog_editor = next((item for item in _visual_items(editor) if item.objectName() == "definitionEditorPanel"), None)
+                self.assertGreater(catalog_editor.mapToScene(QPointF()).x(), catalog_panel.mapToScene(QPointF()).x())
                 editor.setWidth(520)
                 editor.setHeight(680)
                 window.resize(520, 680)
                 QTest.qWait(30)
-                self.assertGreater(definition.y(), selector.y())
-                self.assertLessEqual(selector.x() + selector.width(), 520)
-                self.assertLessEqual(
-                    definition.x() + definition.width(), 520
-                )
-
-                editor.setWidth(820)
-                editor.setHeight(560)
-                window.resize(820, 560)
-                QTest.qWait(30)
-                advanced_mode = next((
-                    item for item in _visual_items(editor)
-                    if item.objectName()
-                    == "segmentedButtonSegment_catalog"
-                ), None)
-                self.assertIsNotNone(advanced_mode)
-                QTest.mouseClick(
-                    window, Qt.LeftButton, Qt.NoModifier,
-                    advanced_mode.mapToScene(QPointF(
-                        advanced_mode.width() / 2,
-                        advanced_mode.height() / 2,
-                    )).toPoint(),
-                )
-                QTest.qWait(30)
-                catalog = editor.findChild(
-                    QObject, "definitionCatalogList"
-                )
-                self.assertIsNotNone(catalog)
-                self.assertEqual(catalog.property("count"), 1)
-                catalog_simple = editor.findChild(
-                    QObject, "definitionCatalogSimpleList"
-                )
-                self.assertIsNotNone(catalog_simple)
-                self.assertIsNone(editor.findChild(
-                    QObject, "definitionCatalogXml"
-                ))
-                catalog_xml_mode = next((
-                    item for item in _visual_items(editor)
-                    if item.objectName() == "catalogEditorMode_xml"
-                ), None)
-                self.assertIsNotNone(catalog_xml_mode)
-                QTest.mouseClick(
-                    window, Qt.LeftButton, Qt.NoModifier,
-                    catalog_xml_mode.mapToScene(QPointF(
-                        catalog_xml_mode.width() / 2,
-                        catalog_xml_mode.height() / 2,
-                    )).toPoint(),
-                )
-                QTest.qWait(20)
-                catalog_xml = editor.findChild(
-                    QObject, "definitionCatalogXml"
-                )
-                self.assertIsNotNone(catalog_xml)
-                self.assertIn("<table>", catalog_xml.property("text"))
-                all_types = next((
-                    item for item in _visual_items(editor)
-                    if item.objectName() == "segmentedButtonSegment_all"
-                ), None)
-                self.assertIsNotNone(all_types)
-                QTest.mouseClick(
-                    window, Qt.LeftButton, Qt.NoModifier,
-                    all_types.mapToScene(QPointF(
-                        all_types.width() / 2, all_types.height() / 2,
-                    )).toPoint(),
-                )
-                QTest.qWait(30)
-                self.assertEqual(catalog.property("count"), 2)
-                search_type_filter = editor.findChild(
-                    QObject, "definitionCatalogSearchTypeFilter"
-                )
-                self.assertIsNotNone(search_type_filter)
-                self.assertTrue(search_type_filter.isVisible())
-                self.assertEqual(search_type_filter.property("count"), 4)
-                editor.setProperty("catalogSearchType", "demo/note")
-                QTest.qWait(20)
-                self.assertEqual(catalog.property("count"), 0)
-                self.assertEqual(
-                    editor.property("selectedCatalogIdentity"), ""
-                )
-                editor.setProperty("catalogSearchType", "demo/shot")
-                QTest.qWait(20)
-                self.assertEqual(catalog.property("count"), 1)
-                self.assertEqual(
-                    editor.property("catalogRows").toVariant()[0][
-                        "searchType"
-                    ],
-                    "demo/shot",
-                )
-                self.assertEqual(
-                    search_type_filter.property("currentValue"), "demo/shot"
-                )
-                editor.setProperty("catalogSearchType", "demo/asset")
-                QTest.qWait(20)
-                editor.setProperty("catalogSearchType", "")
-                QTest.qWait(20)
-                self.assertEqual(
-                    {record["searchType"] for record in
-                     editor.property("catalogRows").toVariant()},
-                    {"demo/asset", "demo/shot"},
-                )
-                catalog_xml.setProperty(
-                    "text", '<config><table marker="advanced"/></config>'
-                )
-                QTest.qWait(20)
-                save_catalog = editor.findChild(
-                    QQuickItem, "saveDefinitionCatalogXml"
-                )
-                self.assertTrue(save_catalog.isEnabled())
-                QTest.mouseClick(
-                    window, Qt.LeftButton, Qt.NoModifier,
-                    save_catalog.mapToScene(QPointF(
-                        save_catalog.width() / 2,
-                        save_catalog.height() / 2,
-                    )).toPoint(),
-                )
-                QTest.qWait(30)
-                self.assertEqual(catalog_updates, [(
-                    "config/widget_config?code=WIDGET001",
-                    {
-                        "config":
-                            '<config><table marker="advanced"/></config>'
-                    },
-                    {"triggers": False},
-                )])
-                catalog_simple_mode = next((
-                    item for item in _visual_items(editor)
-                    if item.objectName() == "catalogEditorMode_simple"
-                ), None)
-                self.assertIsNotNone(catalog_simple_mode)
-                QTest.mouseClick(
-                    window, Qt.LeftButton, Qt.NoModifier,
-                    catalog_simple_mode.mapToScene(QPointF(
-                        catalog_simple_mode.width() / 2,
-                        catalog_simple_mode.height() / 2,
-                    )).toPoint(),
-                )
-                QTest.qWait(20)
-                self.assertIsNotNone(editor.findChild(
-                    QObject, "definitionCatalogSimpleList"
-                ))
-                self.assertFalse(editor.property("catalogDirty"))
-                catalog_panel = editor.findChild(
-                    QQuickItem, "definitionCatalogPanel"
-                )
-                catalog_xml_panel = editor.findChild(
-                    QQuickItem, "definitionCatalogXmlPanel"
-                )
-                self.assertGreater(catalog_xml_panel.x(), catalog_panel.x())
-                if screenshot_dir:
-                    window.grabWindow().save(str(
-                        Path(screenshot_dir) / "definitions-all-wide.png"
-                    ))
-                editor.setWidth(520)
-                editor.setHeight(680)
-                window.resize(520, 680)
-                QTest.qWait(30)
-                self.assertGreater(catalog_xml_panel.y(), catalog_panel.y())
-                if screenshot_dir:
-                    window.grabWindow().save(str(
-                        Path(screenshot_dir) / "definitions-all-narrow.png"
-                    ))
+                self.assertIsNone(next((item for item in _visual_items(editor) if item.objectName() == "definitionCatalogPanel"), None))
+                self.assertIsNotNone(next((item for item in _visual_items(editor) if item.objectName() == "columnsBack"), None))
+                if output:
+                    window.grabWindow().save(str(Path(output) / "columns_narrow.png"))
                 self.assertEqual(warnings, [])
             finally:
                 window.close()
                 editor.setParentItem(None)
                 editor.deleteLater()
                 window.deleteLater()
+                controller.shutdown()
+                engine.deleteLater()
 
 
 if __name__ == "__main__":

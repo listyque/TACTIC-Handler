@@ -78,6 +78,9 @@ class NamingEditorController(QObject):
         self._preview_file = ""
         self._preview_status = ""
         self._pending_code = ""
+        self._presentation_dirty = False
+        self._write_uncertain = False
+        self._saving = False
 
     @Property(QObject, constant=True)
     def rulesModel(self):
@@ -109,7 +112,26 @@ class NamingEditorController(QObject):
 
     @Property(bool, notify=stateChanged)
     def dirty(self) -> bool:
-        return bool(self._editor) and self._editable(self._editor) != self._original
+        return self._write_uncertain or self._presentation_dirty or bool(self._editor) and self._editable(self._editor) != self._original
+
+    @Property('QVariantList', notify=stateChanged)
+    def frameRules(self):
+        return [{'identity': str(row.get('code') or index), 'document': self._editable(row), 'index': index}
+                for index, row in enumerate(self._records)]
+
+    @Property(bool, notify=stateChanged)
+    def canWrite(self):
+        return bool(self._target.get('searchType')) and (not self._type_mode or self._application.can_manage_tools)
+
+    @Property(bool, notify=stateChanged)
+    def writeUncertain(self):
+        return self._write_uncertain
+
+    @Slot(bool)
+    def set_presentation_dirty(self, value):
+        if self._presentation_dirty != bool(value):
+            self._presentation_dirty = bool(value)
+            self.stateChanged.emit()
 
     @Property("QVariantMap", notify=stateChanged)
     def currentObject(self) -> dict:
@@ -195,10 +217,13 @@ class NamingEditorController(QObject):
     def begin_search_type(self, project_code: str, search_type: str, title: str) -> bool:
         """Use the selected Search Type as the naming owner, even without rules."""
         if (self._closed or not project_code or not search_type
-                or not self._application.can_administer):
+                or not self._application.can_manage_tools):
             return False
         if (self._type_mode and self._target.get('projectCode') == project_code
                 and self._target.get('searchType') == search_type):
+            if title and self._target.get('title') != title:
+                self._target['title'] = title
+                self.stateChanged.emit()
             self._application.window_model.close_window('naming_editor')
             return True
         if self.busy or self.dirty:
@@ -311,6 +336,7 @@ class NamingEditorController(QObject):
             env_inst.server_pool.start()
         worker = env_inst.server_pool.add_task(callback)
         if worker is None:
+            self._saving = False
             self._worker_failed(self.tr('Server worker pool is unavailable'))
             return
         self._worker = worker
@@ -347,13 +373,14 @@ class NamingEditorController(QObject):
     def server_changed(self) -> None:
         identity = (self._application.server_url, self._application.server_user)
         if identity == self._server_identity and (
-                not self._type_mode or self._application.can_administer):
+                not self._type_mode or self._application.can_manage_tools):
             return
         self._server_identity = identity
         self._generation += 1
         self._release_worker(cancel=True)
         self._busy = False
         self._requested_operation_id = ""
+        self._write_uncertain = self._presentation_dirty = self._saving = False
         self._target = self._editor = self._original = {}
         self._object_data = self._project_data = {}
         self._records = []
@@ -417,6 +444,8 @@ class NamingEditorController(QObject):
         self._busy = False
         self._object_data = dict(payload.get("object") or {})
         self._project_data = dict(payload.get("project") or {})
+        self._write_uncertain = False
+        self._presentation_dirty = False
         self._records = [
             self._normalize_record(record)
             for record in payload.get("records") or []
@@ -433,10 +462,14 @@ class NamingEditorController(QObject):
                 index for index, record in enumerate(self._records)
                 if record.get("code") == self._pending_code
             ), -1)
+            saved_message = self.tr("Naming rule saved.") if self._pending_code else ""
             self._pending_code = ""
             if row < 0:
                 row = self._best_rule_row()
             self._select(row)
+            if saved_message:
+                self._message = saved_message
+                self.stateChanged.emit()
         else:
             self._selected_row = -1
             self._editor = {}
@@ -449,7 +482,10 @@ class NamingEditorController(QObject):
     def _worker_failed(self, error) -> None:
         self._worker = None
         self._busy = False
-        self._error = _error_text(error)
+        if self._saving:
+            self._write_uncertain = True
+            self._saving = False
+        self._error = self.tr("The save result is unknown. Refresh before trying again.") if self._write_uncertain else _error_text(error)
         debug_log = getattr(self._application, "debug_log", None)
         if debug_log:
             debug_log.raise_error(
@@ -592,6 +628,9 @@ class NamingEditorController(QObject):
 
     @Slot()
     def reset(self) -> None:
+        if self._busy or self._write_uncertain:
+            return
+        self._presentation_dirty = False
         if self._is_new:
             if self._records:
                 self._select(self._best_rule_row())
@@ -793,9 +832,9 @@ class NamingEditorController(QObject):
 
     @Slot(result=bool)
     def save(self) -> bool:
-        if self._closed or self._busy or not self._editor:
+        if self._closed or self._busy or self._write_uncertain or self._presentation_dirty or not self._editor:
             return False
-        if self._type_mode and not self._application.can_administer:
+        if self._type_mode and not self._application.can_manage_tools:
             return False
         error = self._validation_error()
         if error:
@@ -826,6 +865,7 @@ class NamingEditorController(QObject):
             )
             return {"generation": generation, "code": code}
 
+        self._saving = True
         self._start_worker(operation, self._rule_saved)
         return True
 
@@ -833,6 +873,9 @@ class NamingEditorController(QObject):
     def _rule_saved(self, payload) -> None:
         if int(payload.get("generation") or -1) != self._generation:
             return
+        self._saving = False
+        self._write_uncertain = False
+        self._presentation_dirty = False
         code = str(payload.get("code") or self._editor.get("code") or "")
         self._worker = None
         self._busy = False

@@ -8,6 +8,10 @@ order: 9
 > A Search tab is an independent query with its own conditions, result view, sorting, grouping,
 > loaded pages, and scroll position.
 
+On a fresh launch, the workspace contains only Search. Open the main menu and choose a Search Type
+to begin. Closing the last Search Type leaves the workspace empty instead of reopening the previous
+type. Other panels can be opened from the workspace panel menu when needed.
+
 ## How a query is assembled
 
 A query can be built in layers. Every layer eventually appears as a condition in **Advanced
@@ -41,6 +45,9 @@ Advanced Search.
 | **Help** | Opens this topic. |
 | **Workspace panels** | Opens the panel menu for the current workspace. |
 
+In a narrow dock, Search keeps its width. **More search actions** holds Refresh, Script shelf,
+Tags, Help, and Workspace panels; Quick filters stay beside the field.
+
 ### Text search and suggestions
 
 1. Start typing; suggestions appear after a short delay.
@@ -71,14 +78,23 @@ remain. Clearing the field likewise removes only the text part of the query.
 | **Search filters and presets** | Opens Advanced Search, Filter Processes, and Saved Search actions. |
 | **Click a tab** | Activates that tab. |
 | **Drag a tab** | Changes tab order. |
-| **Tab close button** | Closes a closable tab. |
+| **Tab close button** | Closes a closable tab. In a narrow dock it stays on the active tab; activate another tab first or use All search tabs to close it. |
 | **Middle-click a tab** | Quickly closes a closable tab. |
 | **All search tabs** | Appears when space runs out and lists every tab; activate or close one from the menu. |
 | **Sort items** | Sorts by name A-Z, name Z-A, recently updated, or oldest updated. |
 | **Group items** | Uses no grouping, SObject status, pipeline, or an available task status for a process. |
 | **Change search results view** | Selects Continuous tree, Cards, Table, Compact rows, Versions on the right, or Versions at the bottom. |
-| **Result actions** | In a narrow dock, combines Sort, Group, and View in one menu. |
-| **Recently closed search tabs** | Restores a closed tab or clears history. The badge is the number of restorable tabs. |
+| **Result actions** | In a narrow dock, opens Search filters and presets, Sort, Group, and View. |
+| **Recently closed search tabs** | Appears when there are restorable tabs; restores one or clears history. The badge shows their count. |
+
+In a narrow dock, tab titles use compact widths and long names are available in **All search tabs**.
+
+### Table views
+
+In Table mode, **Table views** lists the server-side table layouts available for the current
+Search Type. Choosing one affects only the current Search tab. **Save current as new view** copies
+the current columns, order, widths, and visibility into a named TACTIC table view; the new view is
+then selected for that tab. Each tab remembers its own choice.
 
 ### Search filters and presets menu
 
@@ -86,7 +102,7 @@ remain. Clearing the field likewise removes only the text part of the query.
 | --- | --- |
 | **Advanced Search** | Opens every condition for the current tab. |
 | **Filter Processes** | Chooses which process and child branches are shown in the result tree. |
-| **Saved search** | Loads the selected server preset into the current tab and executes it immediately. |
+| **Saved search** | Loads a search saved in TACTIC Handler into the current tab and executes it immediately. Native TACTIC web searches are not listed. |
 | **Refresh saved searches** | Fetches the preset list again from the TACTIC server. |
 
 In **Filter Processes**, tree checkboxes control visibility, **Save** applies changes, **Save and
@@ -281,6 +297,7 @@ guess or rewrite it.
 
 A Saved Search is stored on the TACTIC server and carries the complete card set, including `AND`,
 `OR`, and `**Expression`.
+Only searches saved by TACTIC Handler appear here; native TACTIC web searches remain separate.
 
 | Button or action | What it does |
 | --- | --- |
@@ -328,3 +345,13 @@ Each tab independently keeps:
 
 Closing or hiding the window does not discard the last position. Switching Search tabs preserves
 loaded panel content and editor state.
+
+## Server search counters
+
+Note and task-branch counters use native grouped searches instead of loading every note. Server privacy rules and parent/process counts stay authoritative. Custom Note classes keep their original row evaluation and getters. The original TACTIC uses its native Select; TACTIC Stream uses validated physical-column grouped counts without granting raw SQL access.
+
+With TACTIC Stream, identical scripts of up to 65,536 characters can reuse immutable compiled code across requests. Each worker retains at most 32 entries; larger scripts keep their request-local cache. Each execution still reads the current saved/file source, checks access and creates fresh globals and inputs. Search result data and permission decisions are not cached by this optimization. Restart Handler and Stream after installing the paired update.
+
+## Refreshing selected details
+
+Handler refresh receives the current result page and the selected object’s tasks, notes, status history and snapshot files in one search response. If the selection is absent from the page, details follow the first result. Other objects keep lightweight previews until selected or expanded. **Refresh snapshots** still explicitly reads fresh server data; permission checks and cache invalidation remain active. Stream’s browser uses its native search and inspector commands rather than Handler’s Python procedure.

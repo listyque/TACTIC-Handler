@@ -28,6 +28,7 @@ from ..repository_sync import RepositorySyncController
 from ..search_contract import (
     is_result_sort_mode,
     normalize_records,
+    parse_column_group_mode,
     parse_column_sort_mode,
 )
 from ..tel_filters import (
@@ -85,7 +86,7 @@ class ViewStateMixin:
         return self._quick_filter_runtime.records
 
     def _set_server_state(self, state: str, message: str) -> None:
-        if state != "online":
+        if state in {"authentication", "unconfigured", "connecting"}:
             self._administration_identity = None
         self._server_state = state
         self._server_message = message
@@ -350,7 +351,8 @@ class ViewStateMixin:
             }
             if not process or process not in known:
                 return
-        if mode not in {"none", "status", "pipeline", "task_status"}:
+        if mode not in {"none", "status", "pipeline", "task_status"} \
+                and not parse_column_group_mode(mode):
             return
         if tab.group_mode == mode and tab.task_group_process == process:
             return

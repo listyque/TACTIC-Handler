@@ -9,7 +9,6 @@
 - [QML rendering and lifecycle performance](qml_performance.md)
 - [Approved UI complexity review: implementation and checks](ui_review_implementation.md)
 - [Popup architecture](popup_architecture.md)
-- [Tools menu](tools_menu.md)
 - [User UI contract](user_ui_contract.md)
 
 ## Server data and integrations

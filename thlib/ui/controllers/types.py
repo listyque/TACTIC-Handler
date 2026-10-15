@@ -51,6 +51,7 @@ class SearchTabSession:
     viewport_restore_pending: bool = False
     card_path: list[str] = field(default_factory=list)
     view_mode: str = "continious"
+    table_view: str = "table"
     sort_mode: str = "name_asc"
     group_mode: str = "none"
     task_group_process: str = ""
@@ -76,6 +77,7 @@ class SearchTabSession:
     pending_snapshot_code: str = ""
     pending_snapshot_process: str = ""
     pending_detail_process: str = ""
+    detail_process_override: str = ""
     details_node_id: str = ""
     details_payload: tuple | None = None
     details_versions: list = field(default_factory=list)

@@ -104,7 +104,7 @@ class SchemaConnectionEditor(QObject):
         from thlib.environment import env_inst
 
         graph = self.graph
-        if graph._closed or not graph._application.can_administer:
+        if graph._closed or not graph._application.can_manage_tools:
             return
         endpoints = tuple(dict.fromkeys(name for name in (self.edge.get('from'), self.edge.get('to'))
                                        if name and name != '*' and name not in graph.document.get('newTypes', {})))
@@ -234,7 +234,7 @@ class SchemaConnectionEditor(QObject):
                 'from_col': foreign_key, 'to_col': key}))
         owner.document.setdefault('newTypes', {})[name] = {
             'original': copy.deepcopy(original), 'createColumns': create_columns}
-        owner._selected_node, owner._selected_edge = name, -1
+        owner._selected_node, owner._selected_nodes, owner._selected_edge = name, [name], -1
         owner._changed()
 
     @Slot(str)
@@ -254,7 +254,7 @@ class SchemaConnectionEditor(QObject):
         node = owner._graph.node(self.instance)
         owner._graph.set_attributes(self.instance, dict(node.attrib, name=name))
         owner.document['newTypes'][name] = owner.document['newTypes'].pop(self.instance)
-        owner._selected_node, owner._selected_edge = name, -1
+        owner._selected_node, owner._selected_nodes, owner._selected_edge = name, [name], -1
         owner._changed()
 
     @Slot()
@@ -269,7 +269,7 @@ class SchemaConnectionEditor(QObject):
             owner.document.setdefault('createColumns', []).append(self.edge_key(original))
         owner._graph.remove_node(name)
         owner._graph.root.append(ET.Element('connect', original))
-        owner._selected_node, owner._selected_edge = '', len(owner._graph.edges()) - 1
+        owner._selected_node, owner._selected_nodes, owner._selected_edge = '', [], len(owner._graph.edges()) - 1
         owner._changed()
 
     def reconcile(self) -> None:

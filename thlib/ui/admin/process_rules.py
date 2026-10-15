@@ -39,7 +39,7 @@ class ProcessRulesEditor(AdminDocumentEditor):
     @Slot()
     def open(self) -> None:
         graph = self._workflow
-        if self._closed or self.busy or not self._application.can_administer:
+        if self._closed or self.busy or not self._application.can_manage_tools:
             return
         if graph.dirty or graph.busy:
             graph.fail(self.tr('Save the workflow before editing process dependencies'))
@@ -120,8 +120,9 @@ class ProcessRulesEditor(AdminDocumentEditor):
             self._request('load', self.identity, item_offset=max(0, offset))
 
     @Slot()
-    def reload(self) -> None:
-        if not self.dirty and not self.busy and self.identity:
+    @Slot(bool)
+    def reload(self, force=False) -> None:
+        if (force or not self.dirty) and not self.busy and self.identity:
             self._request('load', self.identity)
 
     @Slot(str)

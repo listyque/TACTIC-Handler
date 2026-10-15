@@ -84,10 +84,14 @@ def load_task_field_catalog(
                     "view": "insert",
                 },
                 "search_type": "sthpw/task",
+                "project": project_code,
             },
             project=project_code,
         )
         widgets = list((edit or {}).get("InputWidgets") or [])
+        status = next((item for item in widgets if item.get("name") == "status"), None)
+        if status:
+            result["statusChoices"] = _choices(status)
         priority = next((
             item for item in widgets
             if str(dict(item or {}).get("name") or "") == "priority"

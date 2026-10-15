@@ -112,6 +112,8 @@ architecture, interaction, visual, and verification requirements.
   that overlap after translation or font changes.
 - Do not compensate for a cramped layout with one isolated margin. Set shared
   spacing or paired margins on the owning container.
+- Never elide a control label when the containing surface has room to show it
+  in full; size the control for the longest supported translation first.
 - Use one named responsive state per component and shared breakpoints. Primary
   actions remain visible; secondary actions move to a semantic overflow menu
   rather than disappearing unpredictably.

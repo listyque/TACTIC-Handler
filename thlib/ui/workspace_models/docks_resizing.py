@@ -60,6 +60,8 @@ class ResizingMixin:
 
     def _minimum_host_pixel_size(self) -> tuple[float, float]:
         """Return the space required by the current visible dock tree."""
+        if self._maximized_panel:
+            return self._minimum_panel_pixel_size(self._panels[self._index_for(self._maximized_panel)])
         visible = [
             panel for panel in self._panels
             if panel.visible and not panel.detached
@@ -226,6 +228,8 @@ class ResizingMixin:
             self, host_width: float, host_height: float,
     ) -> None:
         """Project usable geometry without overwriting preferred ratios."""
+        if self._maximized_panel:
+            return
         if host_width <= 1.0 or host_height <= 1.0:
             return
         panels = self._visible_docked_panels()

@@ -26,6 +26,7 @@ _RESULT_SORT_MODES = frozenset({
 _COLUMN_SORT_MODE = re.compile(
     r"column:([A-Za-z_][A-Za-z0-9_]*):(asc|desc)"
 )
+_COLUMN_GROUP_MODE = re.compile(r"column:([A-Za-z_][A-Za-z0-9_]*)")
 
 
 def parse_column_sort_mode(mode: str) -> tuple[str, bool] | None:
@@ -33,6 +34,11 @@ def parse_column_sort_mode(mode: str) -> tuple[str, bool] | None:
     if not match:
         return None
     return match.group(1), match.group(2) == "desc"
+
+
+def parse_column_group_mode(mode: str) -> str | None:
+    match = _COLUMN_GROUP_MODE.fullmatch(str(mode or ""))
+    return match.group(1) if match else None
 
 
 def is_result_sort_mode(mode: str) -> bool:

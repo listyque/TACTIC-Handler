@@ -1,11 +1,12 @@
 import unittest
 
 from thlib.ui.workspace_models.docks import DockPanelModel
+from tests.dock_layout_fixture import three_column_settings
 
 
 class DockResizingTests(unittest.TestCase):
     def setUp(self):
-        self.model = DockPanelModel({})
+        self.model = DockPanelModel(three_column_settings())
 
     def panel(self, panel_id):
         return next(
@@ -163,7 +164,9 @@ class DockResizingTests(unittest.TestCase):
         self.resize_work(0.90, host_width=1600, host_height=900)
         self.assertAlmostEqual(self.panel("notes").x, 1.0 - 400 / 1600)
 
-        self.model.reset_layout()
+        self.model.apply_layout(
+            DockPanelModel(three_column_settings()).capture_layout()
+        )
         self.model.close_panel("notes")
         self.resize_work(0.90, host_width=1600, host_height=900)
         self.assertAlmostEqual(
@@ -199,6 +202,22 @@ class DockResizingTests(unittest.TestCase):
             1600, 900,
         )
         self.assertEqual(len(save_calls), 1)
+
+    def test_each_shared_divider_has_one_handle_owner(self):
+        results = self.panel("results")
+        tasks = self.panel("tasks")
+        notes = self.panel("notes")
+
+        self.assertTrue(self.model._can_resize_edge(results, "right"))
+        self.assertFalse(self.model._can_resize_edge(tasks, "left"))
+        self.assertTrue(self.model._can_resize_edge(tasks, "right"))
+        self.assertFalse(self.model._can_resize_edge(notes, "left"))
+
+        self.model.place_panel("drop_plate", "snapshot", "bottom")
+        self.assertTrue(self.model._can_resize_edge(notes, "bottom"))
+        self.assertFalse(self.model._can_resize_edge(
+            self.panel("drop_plate"), "top"
+        ))
 
 
 if __name__ == "__main__":

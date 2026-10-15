@@ -14,6 +14,8 @@ Item {
     function formValues() {
         return {
             "serverUrl": serverAddress.text,
+            "rpcTransport": rpcTransport.currentIndex === 1 ? "json" : "xmlrpc",
+            "teamLocalRepository": teamLocalRepository.checked,
             "siteEnabled": siteEnabled.checked,
             "siteName": siteName.text,
             "proxyEnabled": proxyEnabled.checked,
@@ -28,6 +30,8 @@ Item {
         loadedPresetName = serverPresetsController.selected_name
         const values = serverPresetsController.selected_values
         serverAddress.text = values.serverUrl || ""
+        rpcTransport.currentIndex = values.rpcTransport === "json" ? 1 : 0
+        teamLocalRepository.checked = Boolean(values.teamLocalRepository)
         storedUser.text = values.storedUser || qsTr("No account saved")
         storedTicket.text = values.hasTicket
             ? qsTr("Ticket stored") : qsTr("No ticket")
@@ -297,12 +301,33 @@ Item {
                                 }
                                 Controls.TextField {
                                     id: serverAddress
+                                    objectName: "serverPresetAddress"
                                     theme: root.theme
                                     Layout.fillWidth: true
                                     enabled: serverPresetsController
                                         .selected_name.length > 0
                                     placeholderText: qsTr("http://server")
-                                    onTextEdited: root.pushValues()
+                                    onTextEdited: {
+                                        if (text.trim().toLowerCase()
+                                                === "http://127.0.0.1:9123")
+                                            teamLocalRepository.checked = true
+                                        root.pushValues()
+                                    }
+                                }
+
+                                Label {
+                                    text: qsTr("API transport")
+                                    color: root.theme.secondaryText
+                                    font.pointSize: Controls.Typography.body
+                                }
+                                Controls.ComboBox {
+                                    id: rpcTransport
+                                    objectName: "serverPresetRpcTransport"
+                                    theme: root.theme
+                                    Layout.fillWidth: true
+                                    enabled: serverPresetsController.selected_name.length > 0
+                                    model: [qsTr("XML-RPC"), qsTr("JSON (TACTIC Stream)")]
+                                    onActivated: root.pushValues()
                                 }
 
                                 Label {
@@ -331,6 +356,22 @@ Item {
                             Label {
                                 Layout.fillWidth: true
                                 text: qsTr("Sign-in is changed only through Generate ticket; the preset editor never asks for a TACTIC password.")
+                                color: root.theme.secondaryText
+                                font.pointSize: Controls.Typography.caption
+                                wrapMode: Text.WordWrap
+                            }
+
+                            Controls.CheckBox {
+                                id: teamLocalRepository
+                                objectName: "teamLocalRepositoryCheckBox"
+                                theme: root.theme
+                                text: qsTr("TACTIC TEAM Mode (local repository)")
+                                enabled: serverPresetsController.selected_name.length > 0
+                                onToggled: root.pushValues()
+                            }
+                            Label {
+                                Layout.fillWidth: true
+                                text: qsTr("Use when TACTIC and Handler share local storage. If paths differ, sync them in Repository configuration. Preview, check-in, and check-out methods are locked to local access.")
                                 color: root.theme.secondaryText
                                 font.pointSize: Controls.Typography.caption
                                 wrapMode: Text.WordWrap

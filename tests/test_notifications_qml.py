@@ -2,12 +2,13 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
+import tempfile
 import unittest
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 from PySide6.QtCore import QObject, QPointF, Property, Qt, QUrl, Signal, Slot
-from PySide6.QtGui import QGuiApplication
+from PySide6.QtGui import QColor, QGuiApplication, QImage
 from PySide6.QtQuick import QQuickItem, QQuickWindow
 from PySide6.QtQml import QQmlComponent, QQmlEngine, QQmlExpression
 from PySide6.QtTest import QTest
@@ -25,7 +26,8 @@ TOAST_ROLES = (
     "notificationId", "kind", "message", "detail", "progress",
     "dismissible", "action", "actionData", "dedupeKey",
     "sourceType", "sourceTitle", "previewUrl", "avatarText",
-    "avatarColor", "sourceIcon",
+    "avatarColor", "sourceIcon", "replyOpen", "replySending",
+    "replyError",
 )
 
 
@@ -38,10 +40,18 @@ class _NotificationController(QObject):
         self.clear_calls = 0
         self.dismiss_calls = []
         self.activate_calls = []
+        self.reply_calls = []
+        self.model = None
 
     @Property(int, notify=changed)
     def count(self):
         return 1
+
+    @Property(bool, notify=changed)
+    def replyEditing(self):
+        return bool(self.model and any(
+            record.get("replyOpen") for record in self.model._records
+        ))
 
     @Property(str, notify=changed)
     def historyGroup(self):
@@ -63,6 +73,21 @@ class _NotificationController(QObject):
     @Slot(int)
     def activate(self, index):
         self.activate_calls.append(index)
+
+    @Slot(int)
+    def begin_reply(self, index):
+        self.model.set_value(index, "replyOpen", True)
+        self.changed.emit()
+
+    @Slot(int)
+    def cancel_reply(self, index):
+        self.model.set_value(index, "replyOpen", False)
+        self.changed.emit()
+
+    @Slot(int, str, result=bool)
+    def send_reply(self, index, body):
+        self.reply_calls.append((index, body))
+        return True
 
 
 def _history_record(index):
@@ -286,6 +311,11 @@ class NotificationsQmlTests(unittest.TestCase):
             engine.deleteLater()
 
     def test_custom_toast_shows_message_source_avatar_and_excerpt(self):
+        image_dir = tempfile.TemporaryDirectory()
+        image_path = Path(image_dir.name) / "avatar.png"
+        image = QImage(46, 46, QImage.Format.Format_ARGB32)
+        image.fill(QColor("#ff0000"))
+        self.assertTrue(image.save(str(image_path)))
         engine = QQmlEngine()
         engine.addImportPath(str(QML))
         controller = _NotificationController()
@@ -301,11 +331,15 @@ class NotificationsQmlTests(unittest.TestCase):
             "dedupeKey": "message-1",
             "sourceType": "message",
             "sourceTitle": "Lighting",
-            "previewUrl": "",
+            "previewUrl": QUrl.fromLocalFile(str(image_path)).toString(),
             "avatarText": "SS",
             "avatarColor": "#78909c",
             "sourceIcon": "comments",
+            "replyOpen": False,
+            "replySending": False,
+            "replyError": "",
         }])
+        controller.model = model
         engine.rootContext().setContextProperty(
             "notificationController", controller
         )
@@ -341,7 +375,7 @@ class NotificationsQmlTests(unittest.TestCase):
                 content_item, "notificationDetail"
             )
             avatar = self._visual_item(
-                content_item, "notificationAvatarText"
+                content_item, "notificationAvatar"
             )
 
             self.assertTrue(toast.isVisible())
@@ -350,6 +384,9 @@ class NotificationsQmlTests(unittest.TestCase):
             )
             self.assertTrue(
                 toast.flags() & Qt.WindowType.WindowStaysOnTopHint
+            )
+            self.assertTrue(
+                toast.flags() & Qt.WindowType.WindowDoesNotAcceptFocus
             )
             available = toast.screen().availableGeometry()
             self.assertAlmostEqual(
@@ -372,7 +409,59 @@ class NotificationsQmlTests(unittest.TestCase):
                 detail.property("text"),
                 "The lighting render is ready for review.",
             )
-            self.assertEqual(avatar.property("text"), "SS")
+            self.assertEqual(avatar.property("fallbackText"), "SS")
+            self.assertTrue(avatar.property("round"))
+            mask = self._visual_item(content_item, "previewMaskLoader")
+            self.assertIsNotNone(mask)
+            self.assertFalse(mask.property("active"))
+            rendered = toast.grabWindow()
+            avatar_origin = avatar.mapToScene(QPointF(0, 0))
+            self.assertEqual(
+                rendered.pixelColor(
+                    int(avatar_origin.x() + avatar.width() / 2),
+                    int(avatar_origin.y() + avatar.height() / 2),
+                ),
+                QColor("#ff0000"),
+            )
+
+            reply_button = self._visual_item(
+                content_item, "notificationReplyButton"
+            )
+            reply_point = reply_button.mapToScene(
+                QPointF(reply_button.width() / 2, reply_button.height() / 2)
+            ).toPoint()
+            QTest.mouseClick(toast, Qt.MouseButton.LeftButton,
+                             Qt.KeyboardModifier.NoModifier, reply_point)
+            QTest.qWait(30)
+            self.assertTrue(controller.replyEditing)
+            self.assertFalse(
+                toast.flags() & Qt.WindowType.WindowDoesNotAcceptFocus
+            )
+            field = self._visual_item(content_item, "notificationReplyField")
+            self.assertTrue(field.isVisible())
+            self.assertTrue(field.property("activeFocus"))
+            toast.setWidth(320)
+            QTest.qWait(30)
+            send_button = self._visual_item(
+                content_item, "notificationSendReplyButton"
+            )
+            for item in (field, send_button):
+                origin = item.mapToScene(QPointF(0, 0))
+                self.assertGreaterEqual(origin.x(), 0)
+                self.assertLessEqual(origin.x() + item.width(), toast.width() + 1)
+            field.setProperty("text", "Will review it now")
+            send_point = send_button.mapToScene(
+                QPointF(send_button.width() / 2, send_button.height() / 2)
+            ).toPoint()
+            QTest.mouseClick(toast, Qt.MouseButton.LeftButton,
+                             Qt.KeyboardModifier.NoModifier, send_point)
+            self.assertEqual(controller.reply_calls, [(0, "Will review it now")])
+            field.forceActiveFocus()
+            QTest.keyClick(toast, Qt.Key.Key_Return)
+            self.assertEqual(controller.reply_calls, [
+                (0, "Will review it now"), (0, "Will review it now"),
+            ])
+            controller.cancel_reply(0)
 
             model.replace([{
                 "notificationId": "activity-1",
@@ -390,6 +479,9 @@ class NotificationsQmlTests(unittest.TestCase):
                 "avatarText": "AA",
                 "avatarColor": "#5c6bc0",
                 "sourceIcon": "snapshot",
+                "replyOpen": False,
+                "replySending": False,
+                "replyError": "",
             }])
             QTest.qWait(80)
             self.assertEqual(
@@ -401,7 +493,7 @@ class NotificationsQmlTests(unittest.TestCase):
                 detail.property("text"),
                 "Published Robot in process render.",
             )
-            self.assertEqual(avatar.property("text"), "AA")
+            self.assertEqual(avatar.property("fallbackText"), "AA")
             available = toast.screen().availableGeometry()
             self.assertAlmostEqual(
                 toast.x(), available.x() + available.width()
@@ -430,6 +522,7 @@ class NotificationsQmlTests(unittest.TestCase):
             toast.deleteLater()
             theme.deleteLater()
             engine.deleteLater()
+            image_dir.cleanup()
 
 
 if __name__ == "__main__":

@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import datetime
 import html
 import json
 import traceback
@@ -8,8 +7,9 @@ import uuid
 
 from PySide6.QtCore import QObject, Property, QTimer, Qt, QUrl, Signal, Slot
 
-from thlib.environment import env_read_config, env_write_config
+from thlib.environment import env_read_config, env_server, env_write_config
 from .composer_drafts import ComposerDrafts
+from .communication_permissions import can_change_published_text
 from .activity import activity_timestamp_labels
 from .skey_previews import display_html_without_skeys
 from .rich_text import linkify_plain_text
@@ -69,9 +69,12 @@ class CommunicationController(QObject):
         self._process_count_request_id = ""
         self._process = "publish"
         self._process_choices = []
+        self._related_tasks = {"state": "", "items": [], "objectCount": 0}
+        self._related_tasks_request_id = ""
         self._process_tasks = []
         self._selected_task_code = ""
         self._loaded_task_context = None
+        self._selection_payload = None
         self._pending_task_context = None
         self._request_context = None
         self._preferred_tasks = {}
@@ -194,6 +197,10 @@ class CommunicationController(QObject):
     def processChoices(self):
         return list(self._process_choices)
 
+    @Property("QVariantMap", notify=stateChanged)
+    def relatedTasks(self):
+        return dict(self._related_tasks)
+
     @Property(str, notify=stateChanged)
     def processLabel(self):
         return next((
@@ -271,12 +278,21 @@ class CommunicationController(QObject):
             if not value or value in known:
                 return
             known.add(value)
+            progress = process_type == "progress"
             choices.append({
                 "label": str(label or value.replace("_", " ").title()),
                 "value": value,
                 "type": str(process_type or ""),
                 "color": str(color or ""),
                 "count": int(note_counts.get(value) or 0),
+                "approved": (
+                    int(sobject.get_progress_count(value, "approved_count") or 0)
+                    if progress else 0
+                ),
+                "total": (
+                    int(sobject.get_progress_count(value, "total_count") or 0)
+                    if progress else 0
+                ),
             })
 
         if sobject:
@@ -636,20 +652,6 @@ class CommunicationController(QObject):
         self.refresh()
 
     def _selection_changed(self):
-        self._request_id = uuid.uuid4().hex
-        self._process_count_request_id = uuid.uuid4().hex
-        self._busy = False
-        self._loading = False
-        self._worker = None
-        self._notes.clear()
-        self._files.clear()
-        self._preview_files.clear()
-        self._process_tasks = []
-        self._selected_task_code = ""
-        self._loaded_task_context = None
-        self._request_context = None
-        self._note_records = []
-        self._task_status_records.clear()
         sobject = self._workspace._selected_sobject
         try:
             current_key = str(sobject.get_search_key() or "") if sobject else ""
@@ -664,10 +666,63 @@ class CommunicationController(QObject):
         )
         if pending_for_target and pending[1]:
             selected_process = pending[1]
-        if selected_process:
-            self._process = selected_process
-        else:
-            self._process = "publish"
+        selected_process = selected_process or "publish"
+        payload = (
+            str(getattr(self._application, "_current_project_code", "") or ""),
+            current_key,
+            selected_process,
+            tuple(sorted(
+                (
+                    (str(item.get_search_key() or ""), dict(item.get_info() or {}))
+                    for item in (
+                        *self._workspace._task_sobjects,
+                        *self._workspace._note_sobjects,
+                    )
+                ),
+                key=lambda item: item[0],
+            )),
+            self._workspace._notes_loaded,
+            self._workspace._notes_process,
+        )
+        if (
+            payload == self._selection_payload
+            and not pending_for_target
+            and self._process == selected_process
+            and (
+                self._loading
+                or (
+                    self._loaded_task_context
+                    and self._loaded_task_context[:2]
+                    == (current_key, selected_process)
+                )
+            )
+        ):
+            if self._visible:
+                selected_object = self._object_record(sobject)
+                if selected_object != self._selected_object:
+                    self._selected_object = selected_object
+                    self.stateChanged.emit()
+            else:
+                self._selection_presentation_dirty = True
+            return
+        self._selection_payload = payload
+        self._request_id = uuid.uuid4().hex
+        self._process_count_request_id = uuid.uuid4().hex
+        self._related_tasks_request_id = uuid.uuid4().hex
+        self._related_tasks = {"state": "", "items": [], "objectCount": 0}
+        self._busy = False
+        self._loading = False
+        self._worker = None
+        self._notes.clear()
+        self._files.clear()
+        self._preview_files.clear()
+        self._process_tasks = []
+        self._selected_task_code = ""
+        self._loaded_task_context = None
+        self._request_context = None
+        self._note_records = []
+        self._task_status_records.clear()
+        self._process = selected_process
         if pending_for_target:
             self._selected_task_code = pending[2]
         self._activate_draft_context()
@@ -714,6 +769,7 @@ class CommunicationController(QObject):
             self._refresh_pending_task_context()
 
     def _use_workspace_history(self):
+        self._refresh_related_tasks()
         if not getattr(self._workspace, "_notes_loaded", False):
             return False
         loaded_process = getattr(self._workspace, "_notes_process", None)
@@ -774,6 +830,137 @@ class CommunicationController(QObject):
                 expected_token=cache_token,
             )
         return result
+
+    @staticmethod
+    def _load_related_tasks(sobject, process):
+        import thlib.tactic_classes as tc
+        from .workflow_data import process_task_configuration
+
+        stype = sobject.get_stype()
+        pipeline = (stype.get_pipeline() or {}).get(sobject.get_pipeline_code())
+        config = process_task_configuration(pipeline, process)
+        related_type = str(config.get("search_type") or "")
+        if not related_type:
+            return {"state": "unconfigured", "items": [], "objectCount": 0}
+        project = sobject.get_project()
+        try:
+            child_stype = project.get_search_type(related_type)
+        except KeyError:
+            child_stype = None
+        if child_stype is None:
+            return {"state": "missingType", "items": [], "objectCount": 0,
+                    "searchType": related_type}
+        schema = stype.get_schema()
+        path = "child"
+        if not schema or not schema.get_child(
+            child_stype.get_code(), stype.get_code()
+        ):
+            child_schema = child_stype.get_schema()
+            if child_schema and child_schema.get_parent(
+                stype.get_code(), child_stype.get_code()
+            ):
+                path = "parent"
+            else:
+                return {"state": "unrelated", "items": [], "objectCount": 0,
+                        "searchType": related_type}
+        related, _info = sobject.get_related_sobjects(child_stype, path=path)
+        objects = (
+            list(related.values()) if isinstance(related, dict)
+            else list(related)
+        )
+        parents = {
+            str(item.get_code()): {
+                "title": str(item.get_title() or item.get_code()),
+                "searchKey": str(item.get_search_key() or ""),
+            }
+            for item in objects
+        }
+        if not parents:
+            return {"state": "ready", "items": [], "objectCount": 0,
+                    "searchType": related_type, "parentKeys": []}
+        result = tc.get_sobjects(
+            "sthpw/task",
+            filters=[
+                ("search_code", "in", "|".join(parents)),
+                ("project_code", project.get_code()),
+            ],
+            project_code=project.get_code(), include_snapshots=False,
+        )
+        tasks = result[0] if result else {}
+        items = []
+        for task in tasks.values():
+            info = task.get_info() or {}
+            parent = parents.get(str(info.get("search_code") or ""))
+            task_type = str(info.get("search_type") or "").split("?", 1)[0]
+            if not parent or task_type != related_type:
+                continue
+            items.append({
+                "parentTitle": parent["title"],
+                "parentKey": parent["searchKey"],
+                "process": str(info.get("process") or ""),
+                "status": str(info.get("status") or ""),
+                "assigned": str(info.get("assigned") or ""),
+            })
+        items.sort(key=lambda item: (item["parentTitle"], item["process"]))
+        return {"state": "ready", "items": items,
+                "objectCount": len(parents), "searchType": related_type,
+                "parentKeys": [
+                    parent["searchKey"] for parent in parents.values()
+                ]}
+
+    def _refresh_related_tasks(self, force=False):
+        sobject = self._workspace._selected_sobject
+        choice = next((item for item in self._process_choices
+                       if item["value"] == self._process), {})
+        if not self._visible or not sobject or choice.get("type") != "progress":
+            return
+        if self._related_tasks["state"] and not force:
+            return
+        request_id = uuid.uuid4().hex
+        self._related_tasks_request_id = request_id
+        self._related_tasks = {"state": "loading", "items": [], "objectCount": 0}
+        self.stateChanged.emit()
+        from thlib.environment import env_inst
+        worker = env_inst.server_pool.add_task(
+            self._load_related_tasks, sobject, self._process,
+        )
+        worker.result.connect(
+            lambda result: self._related_tasks_ready(request_id, result),
+            Qt.ConnectionType.QueuedConnection,
+        )
+        worker.error.connect(
+            lambda error: self._related_tasks_failed(request_id, error),
+            Qt.ConnectionType.QueuedConnection,
+        )
+        worker.start()
+
+    def _related_tasks_ready(self, request_id, result):
+        if request_id != self._related_tasks_request_id:
+            return
+        self._related_tasks = result
+        self.stateChanged.emit()
+        if result.get("state") == "ready" and self._tasks_controller:
+            self._tasks_controller.use_related_objects(
+                result.get("parentKeys") or []
+            )
+
+    def _related_tasks_failed(self, request_id, error):
+        if request_id != self._related_tasks_request_id:
+            return
+        self._related_tasks = {"state": "error", "items": [], "objectCount": 0}
+        self.stateChanged.emit()
+        payload = error[0] if isinstance(error, tuple) and error else error
+        stacktrace = ""
+        if isinstance(payload, dict):
+            stacktrace = str(payload.get("stacktrace") or "")
+            payload = payload.get("exception") or payload.get("message")
+        debug_log = getattr(self._application, "debug_log", None)
+        if debug_log:
+            debug_log.log(
+                "ERROR", payload or "Unable to load related tasks",
+                group="communication/tasks/related", source="Controller",
+                stacktrace=stacktrace, caller=2,
+            )
 
     def _refresh_process_counts(self, sobject, bypass_cache=False):
         processes = [choice["value"] for choice in self._process_choices]
@@ -860,6 +1047,8 @@ class CommunicationController(QObject):
             self._loaded_task_context = None
             self._note_records = []
             self._task_status_records.clear()
+            self._related_tasks_request_id = uuid.uuid4().hex
+            self._related_tasks = {"state": "", "items": [], "objectCount": 0}
             self._activate_draft_context()
             self.stateChanged.emit()
             if not self._use_workspace_history():
@@ -904,6 +1093,7 @@ class CommunicationController(QObject):
         sobject = self._workspace._selected_sobject
         if not self._visible or not sobject or self._busy:
             return
+        self._refresh_related_tasks(force=bypass_cache)
         request_id = uuid.uuid4().hex
         self._request_id = request_id
         self._busy = True
@@ -930,6 +1120,7 @@ class CommunicationController(QObject):
 
     @Slot()
     def refresh(self):
+        self._refresh_related_tasks(force=True)
         self._refresh(False)
 
     @Slot()
@@ -1140,11 +1331,11 @@ class CommunicationController(QObject):
         latest_edit = edit_history[-1] if edit_history else {}
         search_key = str(note.get_search_key() or "")
         attachments = self._attachment_records(note)
-        from thlib.environment import env_server
         author = str(info.get("login") or "")
         user = self._user_record(author)
         timestamp = str(info.get("timestamp") or "")
         pretty, simple = self._timestamp_values(note, timestamp)
+        can_change = self._can_change_note_info(info)
         parent_type = str(info.get("search_type") or "").split("?", 1)[0]
         search_code = str(info.get("search_code") or "")
         task_codes = set()
@@ -1192,9 +1383,31 @@ class CommunicationController(QObject):
             "editedBy": str(latest_edit.get("editedBy") or ""),
             "editedAt": str(latest_edit.get("editedAt") or ""),
             "editHistory": edit_history,
-            "canEdit": author == str(env_server.get_user() or ""),
-            "canDelete": author == str(env_server.get_user() or ""),
+            "canEdit": can_change,
+            "canDelete": can_change,
         }
+
+    def _can_change_note_info(self, info) -> bool:
+        return can_change_published_text(
+            str(info.get("login") or ""),
+            info.get("timestamp"),
+            str(env_server.get_user() or ""),
+            bool(getattr(self._application, "can_manage_tools", False)),
+            self._clock,
+        )
+
+    @Slot(int, result=bool)
+    def can_change_note(self, row: int) -> bool:
+        records = self._workspace.note_model._records
+        if not 0 <= row < len(records):
+            return False
+        record = records[row]
+        note = self._notes.get(record.get("searchKey"))
+        return bool(
+            record.get("entryType") == "note"
+            and note is not None
+            and self._can_change_note_info(note.get_info() or {})
+        )
 
     def _status_color(self, task, status):
         status_color = "#ffffff"
@@ -1585,7 +1798,7 @@ class CommunicationController(QObject):
             self._set_error("A note cannot be empty.")
             return False
         record = self._workspace.note_model._records[row]
-        if record.get("entryType") != "note" or not record.get("canEdit"):
+        if not self.can_change_note(row):
             return False
         if body == str(record.get("body") or ""):
             return True
@@ -1595,28 +1808,11 @@ class CommunicationController(QObject):
             return False
 
         def operation():
-            from thlib.environment import env_server
-            info = note.get_info() or {}
-            raw_metadata = info.get("metadata") or {}
-            if isinstance(raw_metadata, dict):
-                metadata = dict(raw_metadata)
-            else:
-                try:
-                    metadata = json.loads(raw_metadata)
-                except (TypeError, ValueError):
-                    metadata = {}
-            history = list(metadata.get("editHistory") or [])
-            history.append({
-                "body": str(info.get("note") or ""),
-                "editedBy": str(env_server.get_user() or ""),
-                "editedAt": datetime.datetime.now(datetime.UTC).strftime(
-                    "%Y-%m-%d %H:%M:%S"
-                ),
-            })
-            metadata["editHistory"] = history
-            note.set_value("note", body)
-            note.set_value("metadata", metadata)
-            return note.commit(triggers=True)
+            import thlib.tactic_classes as tc
+            return tc.change_note(
+                note.get_search_key(), "edit", body,
+                project_code=self._target_project_code(note) or None,
+            )
 
         self._run(operation)
         return True
@@ -1645,12 +1841,20 @@ class CommunicationController(QObject):
         if self._busy or not 0 <= row < len(self._workspace.note_model._records):
             return
         record = self._workspace.note_model._records[row]
-        if record.get("entryType") != "note" or not record.get("canDelete"):
+        if not self.can_change_note(row):
             return
         note = self._notes.get(record.get("searchKey"))
         if not note:
             return
-        self._run(note.delete_sobject)
+
+        def operation():
+            import thlib.tactic_classes as tc
+            return tc.change_note(
+                note.get_search_key(), "delete",
+                project_code=self._target_project_code(note) or None,
+            )
+
+        self._run(operation)
 
     @Slot(str)
     def download_attachment(self, token):

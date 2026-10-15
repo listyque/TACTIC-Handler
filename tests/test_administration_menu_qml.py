@@ -41,7 +41,7 @@ def inspect_menu():
             controller._set_server_state('authentication', 'Test signed out')
             assert not has_admin(), 'Administration remained visible after signing out'
             controller._set_server_state('online', 'Test supervisor session')
-            assert not has_admin(), 'Supervisor received an administration menu entry'
+            assert has_admin(), 'Privileged user lost the administration menu entry'
     except Exception:
         failures.append(traceback.format_exc())
     finally:

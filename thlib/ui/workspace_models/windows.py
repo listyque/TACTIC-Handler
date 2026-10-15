@@ -53,6 +53,19 @@ class FloatingWindowModel(QAbstractListModel):
     ContentSourceRole = Qt.UserRole + 12
     ContentPropertiesRole = Qt.UserRole + 13
     ParentWindowRole = Qt.UserRole + 14
+    _field_roles = {
+        "window_id": (IdRole, ContentPropertiesRole, ParentWindowRole),
+        "title": (TitleRole,),
+        "kind": (KindRole, ContentSourceRole, ContentPropertiesRole),
+        "x": (XRole,),
+        "y": (YRole,),
+        "width": (WidthRole,),
+        "height": (HeightRole,),
+        "visible": (VisibleRole,),
+        "z": (ZRole,),
+        "blocking": (BlockingRole,),
+        "geometry_mode": (GeometryModeRole,),
+    }
     helpTopicChanged = Signal()
     layoutReset = Signal()
     windowVisibilityChanged = Signal(str, bool)
@@ -60,12 +73,13 @@ class FloatingWindowModel(QAbstractListModel):
     # These editors are valid only for an explicitly prepared item/relation.
     # Restore their geometry, but never restore them open with stale context.
     _context_required_windows = frozenset({
-        "link_sobjects", "watch_folder_editor",
+        "link_sobjects", "watch_folder_editor", "file_changelist",
         "process_filter_editor", "repository_sync_editor",
         "quick_filter_editor",
         "ingest_files",
-        "sidebar_search_preview", "administration", "schema_search_type", "process_dependencies",
+        "sidebar_search_preview", "administration", "schema_search_type", "process_dependencies", "raw_cell",
         "project_wizard",
+        "project_templates",
         "project_editor",
         "delete_sobject",
         "duplicate_sobject",
@@ -86,14 +100,15 @@ class FloatingWindowModel(QAbstractListModel):
             page["id"] for page in dcc_configuration_pages()
         )
     _content_sources = {
+        "file_changelist": "FileWorkspaceChangelistView.qml",
         "configuration": "ConfigurationView.qml",
         "project_wizard": "ProjectWizardView.qml",
+        "project_templates": "ProjectTemplatesView.qml",
         "project_editor": "ProjectEditorView.qml",
         "sobject_info": "SObjectInfoView.qml",
         "process_filter_editor": "ProcessFilterEditorView.qml",
         "quick_filter_editor": "QuickFilterEditorView.qml",
         "advanced_search": "AdvancedSearchView.qml",
-        "columns_editor": "ColumnsEditorView.qml",
         "naming_editor": "NamingEditorView.qml",
         "server_presets": "ServerPresetsView.qml",
         "screenshot_maker": "ScreenshotMakerView.qml",
@@ -107,15 +122,15 @@ class FloatingWindowModel(QAbstractListModel):
         "error": "ErrorDialog.qml",
         "repository_sync": "RepositorySyncView.qml",
         "repository_sync_editor": "RepositorySyncEditorView.qml",
-        "commit_queue": "CommitQueueView.qml",
+        "commit_queue": "CommitWorkspaceView.qml",
         "ingest_files": "IngestFilesView.qml",
         "messages": "MessagesView.qml",
         "notifications": "NotificationsView.qml",
         "activity_feed": "ActivityFeedView.qml",
         "user_profile": "UserProfileView.qml",
-        "sidebar_editor": "SidebarEditorView.qml",
         "administration": "AdministrationView.qml",
         "schema_search_type": "AdminSchemaTypeView.qml",
+        "raw_cell": "RawCellEditorView.qml",
         "process_dependencies": "AdminProcessRulesView.qml",
         "sidebar_search_preview": "SidebarSearchPreview.qml",
         "tasks_workspace": "TasksWorkspaceView.qml",
@@ -150,6 +165,7 @@ class FloatingWindowModel(QAbstractListModel):
             FloatingWindow("server", "Server Settings", "server", .23, .16, .54, .62),
             FloatingWindow("project", "Project Settings", "project", .22, .15, .56, .64),
             FloatingWindow("project_wizard", "Create Project", "project_wizard", .22, .14, .56, .70, blocking=True),
+            FloatingWindow("project_templates", "Project Templates", "project_templates", .24, .16, .52, .66, blocking=True),
             FloatingWindow("project_editor", "Edit Project", "project_editor", .22, .14, .56, .70, blocking=True),
             FloatingWindow("checkin_preferences", "Check-in Options", "checkin_preferences", .19, .12, .62, .72),
             FloatingWindow("global_preferences", "Global Settings", "global_preferences", .26, .20, .48, .48),
@@ -163,7 +179,6 @@ class FloatingWindowModel(QAbstractListModel):
             FloatingWindow("sobject_info", "SObject Report", "sobject_info", .12, .09, .76, .80),
             FloatingWindow("process_filter_editor", "Filter Processes", "process_filter_editor", .37, .25, .26, .50, blocking=True),
             FloatingWindow("quick_filter_editor", "Quick filters", "quick_filter_editor", .24, .12, .52, .72, blocking=True),
-            FloatingWindow("columns_editor", "Columns Editor", "columns_editor", .26, .16, .48, .58),
             FloatingWindow("naming_editor", "Naming Editor", "naming_editor", .22, .12, .56, .68),
             FloatingWindow("server_presets", "Server Presets", "server_presets", .20, .14, .60, .66),
             FloatingWindow("screenshot_maker", "Screenshot Maker", "screenshot_maker", .18, .12, .64, .70),
@@ -183,8 +198,8 @@ class FloatingWindowModel(QAbstractListModel):
             FloatingWindow("activity_feed", "Activity Feed", "activity_feed", .18, .12, .64, .70),
             FloatingWindow("user_profile", "User Profile", "user_profile", .18, .12, .64, .72),
             FloatingWindow("users", "Users", "user_profile", .12, .08, .76, .82),
-            FloatingWindow("sidebar_editor", "Sidebar Editor", "sidebar_editor", .10, .08, .80, .82, blocking=True),
             FloatingWindow("administration", "Administration", "administration", .08, .06, .84, .86, blocking=True),
+            FloatingWindow("raw_cell", "Cell editor", "raw_cell", 240, 140, 640, 440, blocking=True, geometry_mode="absolute"),
             FloatingWindow("schema_search_type", "New Search Type", "schema_search_type", .20, .12, .60, .76, blocking=True),
             FloatingWindow("process_dependencies", "Process dependencies", "process_dependencies", .16, .10, .68, .80, blocking=True),
             FloatingWindow("sidebar_search_preview", "Search preview", "sidebar_search_preview", .08, .06, .84, .86, blocking=True),
@@ -199,6 +214,7 @@ class FloatingWindowModel(QAbstractListModel):
             FloatingWindow("milestone_manager", "Project Milestones", "milestone_manager", .24, .16, .52, .62),
             FloatingWindow("link_sobjects", "Link SObjects", "link_sobjects", .22, .16, .56, .64),
             FloatingWindow("watch_folders", "Watch Folders", "watch_folders", .16, .13, .68, .70, blocking=True),
+            FloatingWindow("file_changelist", "Changelist", "file_changelist", .17, .06, .66, .88, blocking=True),
             FloatingWindow("watch_folder_editor", "Watch Folder", "watch_folder_editor", .25, .20, .50, .50, blocking=True),
             FloatingWindow("delete_sobject", "Delete SObject", "delete_sobject", .20, .12, .60, .72, blocking=True),
             FloatingWindow(
@@ -260,7 +276,7 @@ class FloatingWindowModel(QAbstractListModel):
 
     @staticmethod
     def _content_properties(window: FloatingWindow) -> dict[str, object]:
-        if window.kind == "configuration":
+        if window.kind in {"configuration", "file_changelist"}:
             return {"windowId": window.window_id}
         if window.kind in FloatingWindowModel._configuration_page_ids():
             return {"pageId": window.kind}
@@ -296,16 +312,40 @@ class FloatingWindowModel(QAbstractListModel):
     def _row(self, window_id: str) -> int | None:
         return next((row for row, window in enumerate(self._windows) if window.window_id == window_id), None)
 
-    def _replace(self, window_id: str, **changes) -> None:
+    def _replace(
+        self,
+        window_id: str,
+        *,
+        parent_changed: bool = False,
+        **changes,
+    ) -> None:
         row = self._row(window_id)
         if row is None:
             return
         previous = self._windows[row]
-        self._windows[row] = replace(previous, **changes)
+        changed_fields = {
+            name for name, value in changes.items()
+            if getattr(previous, name) != value
+        }
+        if not changed_fields and not parent_changed:
+            return
+        current = replace(previous, **changes)
+        self._windows[row] = current
         model_index = self.index(row, 0)
-        self.dataChanged.emit(model_index, model_index)
-        self._save()
-        current = self._windows[row]
+        changed_roles = {
+            role
+            for name in changed_fields
+            for role in self._field_roles.get(name, ())
+        }
+        if parent_changed:
+            changed_roles.add(self.ParentWindowRole)
+        self.dataChanged.emit(
+            model_index,
+            model_index,
+            sorted(changed_roles),
+        )
+        if changed_fields:
+            self._save()
         if previous.visible != current.visible:
             self.windowVisibilityChanged.emit(
                 current.window_id, current.visible
@@ -328,9 +368,14 @@ class FloatingWindowModel(QAbstractListModel):
                 if not ancestor:
                     self.show_child_window(window_id, window.window_id)
                     return
-        self._parent_windows.pop(window_id, None)
+        parent_changed = self._parent_windows.pop(window_id, None) is not None
         self._z_counter += 1
-        self._replace(window_id, visible=True, z=self._z_counter)
+        self._replace(
+            window_id,
+            visible=True,
+            z=self._z_counter,
+            parent_changed=parent_changed,
+        )
 
     @Slot(str, str)
     def show_child_window(self, window_id: str, parent_id: str) -> None:
@@ -342,9 +387,15 @@ class FloatingWindowModel(QAbstractListModel):
             if ancestor == window_id:
                 raise ValueError("A window cannot own itself or an ancestor")
             ancestor = self._parent_windows.get(ancestor, "")
+        parent_changed = self._parent_windows.get(window_id) != parent_id
         self._parent_windows[window_id] = parent_id
         self._z_counter += 1
-        self._replace(window_id, visible=True, z=self._z_counter)
+        self._replace(
+            window_id,
+            visible=True,
+            z=self._z_counter,
+            parent_changed=parent_changed,
+        )
 
     @Property(str, notify=helpTopicChanged)
     def helpTopic(self) -> str:

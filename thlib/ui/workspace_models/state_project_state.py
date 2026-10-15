@@ -23,7 +23,9 @@ class ProjectStateMixin:
         from thlib.environment import env_inst, env_server
         self._project = project
         self._loaded_stype = _STYPE_NOT_LOADED
-        stypes = project.get_stypes() or {}
+        stypes = {code: stype for code, stype in (project.get_stypes() or {}).items()
+                  if stype.get_info().get('__record_read__', {}).get('available') is not False
+                  and stype.get_info().get('__record_read__', {}).get('project_mode') in (None, project.get_type())} if project else {}
         self.search_type_model.replace([
             {"label": code} for code in sorted(stypes)
         ])
@@ -42,7 +44,7 @@ class ProjectStateMixin:
             {"label": preset}
             for preset in env_server.get_server_presets().get("presets_list", [])
         ])
-        watch_settings = _watch_folder_settings(project)
+        watch_settings = _watch_folder_settings(project) if project else {}
         watch_keys = list(watch_settings.get("assets_skeys") or [])
         def watch_value(name, index, default=""):
             values = list(watch_settings.get(name) or [])

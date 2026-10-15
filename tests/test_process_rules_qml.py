@@ -56,6 +56,11 @@ class ProcessRulesQmlTests(unittest.TestCase):
         return item
 
     def click(self, name):
+        if name.startswith('segmentedButtonSegment_'):
+            value={'notifications':'notification','triggers':'trigger','objects':'objects'}[name[len('segmentedButtonSegment_'):]]
+            try:self.item('adminDependencyPages_'+value)
+            except StopIteration:self.choose('adminDependencyPages',value);return
+            name='adminDependencyPages_'+value
         self.fixture.fixture.click(self.window, self.reveal(name))
 
     def enter(self, name, text):
@@ -70,24 +75,23 @@ class ProcessRulesQmlTests(unittest.TestCase):
         model = combo.property('model')
         if hasattr(model, 'toVariant'):
             model = model.toVariant()
-        index = next(index for index, row in enumerate(model) if (row.get('identity') if isinstance(row, dict) else row) == value)
+        index = next(index for index, row in enumerate(model) if row['value'] == value)
         combo.forceActiveFocus()
-        QTest.keyClick(self.window, Qt.Key_Home)
-        for _ in range(index):
+        for _ in range((index-combo.property('currentIndex')) % len(model)):
             QTest.keyClick(self.window, Qt.Key_Down)
-        frame(self.window)
+            frame(self.window)
 
     def test_modal_opens_and_process_rule_uses_native_task_status_choices(self):
         self.assertEqual(self.window.modality(), Qt.WindowModal)
         self.click('adminAddProcessRule')
         self.enter('adminRule_title', 'Render complete')
-        self.choose('adminRuleSourceStatus', 'Done')
+        self.choose('adminRule_srcStatus', 'Done')
         self.click('adminRuleTarget_review')
         self.choose('adminRuleTargetStatus_review', 'Approved')
         self.assertEqual(self.editor.selectedRule['title'], 'Render complete')
         self.assertEqual(self.editor.selectedRule['srcStatus'], 'Done')
         self.assertEqual(self.editor.selectedRule['targets'], [{'process': 'review', 'status': 'Approved'}])
-        self.click('segmentedButtonSegment_global')
+        self.choose('adminRule_scope','global')
         self.assertEqual(self.editor.selectedRule['scope'], 'global')
         with patch.object(self.editor, '_request') as save:
             self.click('adminSaveDocument')
@@ -103,7 +107,7 @@ class ProcessRulesQmlTests(unittest.TestCase):
         self.enter('adminRule_subject', 'Review ready')
         self.enter('adminRule_mailTo', '{$LOGIN}')
         self.enter('adminRule_body', 'Ready for review')
-        self.click('adminRuleTicket')
+        self.click('adminRule_loginTicket')
         self.assertEqual(self.editor.selectedRule['kind'], 'notification')
         self.assertEqual(self.editor.selectedRule['body'], 'Ready for review')
         self.assertEqual(self.editor.selectedRule['mailTo'], '{$LOGIN}')
@@ -132,10 +136,10 @@ class ProcessRulesQmlTests(unittest.TestCase):
         self.click('adminAddProcessRule')
         for width, height in ((860, 600), (1400, 940)):
             self.window.resize(width, height)
-            for action, name in [('task_create', 'adminRuleOutput_review'), ('task_date', 'adminRuleDate'),
-                                 ('python_class', 'adminRule_classPath'), ('custom_script', 'adminRuleScript'),
+            for action, name in [('task_create', 'adminRuleOutput_review'), ('task_date', 'adminRule_column'),
+                                 ('python_class', 'adminRule_classPath'), ('custom_script', 'adminRule_scriptPath'),
                                  ('parent_status', 'adminRule_targetStatus'), ('task_status', 'adminRuleTarget_review')]:
-                self.choose('adminRuleAction', action)
+                self.choose('adminRule_action', action)
                 item = self.reveal(name)
                 origin = item.mapToScene(QPointF())
                 self.assertGreaterEqual(origin.x(), 0, name)
@@ -169,10 +173,7 @@ class ProcessRulesQmlTests(unittest.TestCase):
         with patch.object(self.editor, '_request') as request:
             self.click('adminRemoveProcessRule')
             self.assertEqual(len(self.editor.document['rules']), 1)
-            ok_text = QCoreApplication.translate('QQuickDialogButtonBox', 'OK')
-            button = next(item for item in sidebar_fixture.SidebarEditorQmlTests.descendants(self.window.contentItem())
-                          if item.isVisible() and item.inherits('QQuickAbstractButton') and item.property('text') == ok_text)
-            self.fixture.fixture.click(self.window, button)
+            self.click('adminConfirmSave')
             self.assertEqual(self.editor.document['rules'], [])
             self.assertTrue(self.editor.dirty)
             request.assert_not_called()

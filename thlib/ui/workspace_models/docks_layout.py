@@ -86,6 +86,8 @@ class LayoutMixin:
     @Slot(str)
     def close_panel(self, panel_id: str) -> None:
         row = self._index_for(panel_id)
+        if self._maximized_panel == panel_id:
+            self.maximize_panel(panel_id)
         if row is not None and self._panels[row].closable:
             was_docked = (
                 not self._panels[row].detached
@@ -116,6 +118,8 @@ class LayoutMixin:
 
     @Slot(str)
     def show_panel(self, panel_id: str) -> None:
+        if self._maximized_panel and self._maximized_panel != panel_id:
+            self.maximize_panel(self._maximized_panel)
         row = self._index_for(panel_id)
         if row is None:
             return

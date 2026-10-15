@@ -192,6 +192,8 @@ Item {
         }
     }
     Loader {
+        objectName: "compactIconButtonToolTipLoader"
+        anchors.fill: parent
         active: root.pointerHovered
             && root.toolTip.length > 0
             && !root.theme.suppressToolTips

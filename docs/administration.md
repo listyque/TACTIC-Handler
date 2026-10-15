@@ -1,15 +1,16 @@
 # Administration
 
 Administration is a native modal window, separate from Configuration preferences.
-Open it from the application menu or **Manage groups and members** in Sidebar
-Editor. The latter always selects Groups and uses Sidebar Editor as its native
-modal parent. `FloatingWindowModel` and `WindowHost` own that transient relation.
+Open it from the application menu. Sidebar Editor is a section of this window;
+**Manage groups and members** switches to the Groups section without opening another window.
 
-Both entry points are hidden for non-administrators, including supervisors.
+Administration is available to administrators and supervisors, but hidden from regular users.
 The normal bootstrap returns the authenticated session's native
-`Environment.get_security().is_admin()` result. `ApplicationController` owns the
-in-memory permission and server/login identity; cached login metadata cannot grant
-access. Menu opening does not query TACTIC. Signing out, losing the connection or
+`Environment.get_security().is_admin()` result for administrators. Supervisor
+membership is read from the authenticated login's groups. `ApplicationController`
+owns the in-memory administrator permission and server/login identity; cached
+administrator metadata cannot grant access. Menu opening does not query TACTIC.
+Signing out, losing the connection or
 changing identity removes access and closes/cancels the administration editors.
 Direct entry-point calls are guarded as well; server checks remain authoritative.
 The main menu refreshes on session-state changes: its initial signed-out snapshot
@@ -29,6 +30,29 @@ parents errors (and their Debug Log/Help tools) to the topmost open modal, inste
 of creating a sibling modal that Windows can block. Dismissing an error leaves
 the editor usable and retains its draft.
 
+## Tactic Frame ownership
+
+All ten sections and their nested editors use local Tactic Frame UI/state modules:
+Search Types, Project schema, Workflow, Columns, Raw database, Layouts, Sidebar,
+Users, Groups and Access rules. `AdministrationView.qml` owns the shared shell;
+controllers retain native permissions, requests, revisions and storage. Existing
+editor instances survive section switches, including unsaved hidden drafts. Close
+reveals the first draft requiring attention. Project changes are blocked while
+an editor or a child operation owns the current context.
+
+The independent Stream and Handler bundles each contain their own `.mjs` files.
+Neither imports or builds the sibling checkout. See `shared_ui_contract.md` for
+module ownership, synchronization and paired-input checks. The Layout Editor is
+native QML, including XML authoring and preview; it has no WebEngine dependency.
+Its Open view command uses the system browser without putting a ticket in the URL.
+Layout preview/save requires the server layout-authoring API. Saves require an
+exact checked draft and explicit confirmation; an unknown result requires readback.
+
+Workflow links from Search Types or schema navigate to the main Workflow section.
+Opening the same pipeline retains its draft. Schema's Search Type creator remains
+a child editor: cancellation discards its unsaved form, not a type already created
+on the server. See the EN/RU Administration and Item Layout help articles for users.
+
 ## Sections and native storage
 
 | Section | Operations | TACTIC owner |
@@ -37,9 +61,13 @@ the editor usable and retains its draft.
 | Project schema | Create Search Types, add registered nodes, connect child to parent, edit connection attributes and XML | `sthpw/schema.schema`, native `Schema` |
 | Workflow | Create project pipelines, edit nodes, dependencies, action scripts, command classes and subpipelines | `sthpw/pipeline.pipeline`, `config/process.workflow`, `config/trigger`, `config/custom_script` |
 | Search Types / Naming | Create/duplicate/edit the selected type's rules and preview file/directory templates in the existing embedded editor | Selected project's `config/naming`, filtered by `search_type` |
+| Sidebar Editor | Edit project navigation, item access, saved searches and layout defaults | Selected project's `SideBarWdg` views and group access rules |
 | Users | Create accounts, edit profile/contact/account fields and passwords, add/remove group memberships, retire/reactivate | `sthpw/login`, native `Login.create`, `set_password`, `add_to_group`, `remove_from_group`, `retire`, `reactivate` |
 | Groups | Create groups, edit descriptions, add/remove members | `sthpw/login_group`, native Login membership operations |
 | Access rules | Group access level, project scope, subgroups, native XML rules | `sthpw/login_group.access_rules`, native `AccessManager` |
+| Columns | Views, column/widget options, wizard and table preview | Selected project's `config/widget_config` |
+| Raw database | Typed row/cell edits, NULL/DEFAULT, paging, CSV and guarded destructive actions | Native search types and database write API |
+| Layouts | XML layout tree, templates, grid and element settings, checked preview and confirmed save | Selected project's `config/widget_config`, layout-authoring API |
 
 ## Search Type naming
 
@@ -238,6 +266,14 @@ for the shared scrollbar. Russian interface terminology uses “Серч-тай�
   Canvas/inspector navigation finishes the focused field before changing the
   selected process or unloading its form, so estimates entered without Tab/Enter
   stay with the original node. A real pointer-input regression covers this.
+  The JSON inspector rejects renaming a saved process identifier before modifying
+  its draft; display labels and unsaved process names remain editable. The workflow
+  endpoint also distinguishes moving an existing XML process code to a new name
+  from changing the code. Native dependency updates resolve records by name, so
+  treating a rename as deletion plus creation would lose process identity.
+  Rule validation permits unchanged legacy destination statuses and outputs for
+  the same action, but validates each newly supplied reference. API round-trip
+  tests cover this alongside the inspector's real keyboard and pointer input.
 - Access rules has category tabs and a permission table. A checkbox chooses one
   native access level, not an independent permission flag. Higher native levels
   include lower levels. Row details offer server targets and the full native
@@ -530,6 +566,15 @@ picker. `schema_request` exposes one project entry and rejects loading or saving
 parent/other-project documents. Native inheritance stays intact. API regression
 tests cover the catalog, project boundary and parent XML preservation; QML tests
 switch Schema/Workflow in narrow and wide windows to verify the header.
+
+For `admin` and `sthpw`, the same endpoint reads the predefined system document
+through native `Schema.get(project_code=...)`, reports `canWrite=False` for list
+and load, and rejects save before any writes. A persisted schema row cannot
+override that native definition. The existing canvas, inspector, Technical XML,
+and header action guards consume `canWrite`; navigation and copying remain
+available. `test_builtin_system_schemas_use_native_definition_read_only` and the
+native-window read-only schema regression cover this boundary.
+
 Implicit/inherited endpoints are displayed without inserting artificial
 definitions into XML. Registered types can be added to position them locally.
 

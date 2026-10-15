@@ -30,6 +30,7 @@ from PySide6.QtQuickControls2 import QQuickStyle
 from PySide6.QtTest import QSignalSpy, QTest
 
 from thlib.environment import env_mode
+from thlib.ui.columns_editor import ColumnsEditorController
 from thlib.ui.controller import ApplicationController
 from thlib.ui.controllers.types import SearchTabSession, SectionSession
 from thlib.ui.filter_editor import FilterEditorController
@@ -178,6 +179,8 @@ class ProcessMenuLatencyTests(unittest.TestCase):
         self.enterContext(patch.object(env_mode, "current_path", directory))
         self.controller = _MeasuredController()
         self.addCleanup(self.controller.shutdown)
+        self.columns = ColumnsEditorController(self.controller)
+        self.addCleanup(self.columns.shutdown)
         self.controller._current_project_code = "demo"
         tab = SearchTabSession(tab_id="assets", title="Assets", loaded=True)
         section = SectionSession(
@@ -230,8 +233,7 @@ class ProcessMenuLatencyTests(unittest.TestCase):
         )
         users = UserController(self.controller)
         filters = FilterEditorController(
-            self.controller.workspace_state.filter_model,
-            lambda: [], lambda: [], lambda *_: None,
+            lambda: [], lambda: [], lambda *_: [], lambda *_: None,
         )
         editor = QuickFilterEditorController(self.controller, users)
         shelf_host = _ShelfHost(shelf)
@@ -249,6 +251,7 @@ class ProcessMenuLatencyTests(unittest.TestCase):
             "userPickerModel": users.users, "userListModel": users.users,
             "windowModel": self.controller.window_model,
             "dockModel": self.controller.dock_model,
+            "columnsEditorController": self.columns,
         }
         for name, value in bindings.items():
             engine.rootContext().setContextProperty(name, value)
@@ -394,9 +397,14 @@ class ProcessMenuLatencyTests(unittest.TestCase):
 
     def test_overflow_tab_cross_closes_that_tab(self):
         section = self.controller._current_section()
-        section.tabs.append(SearchTabSession(
-            tab_id="extra", title="Extra long search tab", loaded=True,
-        ))
+        section.tabs.extend(
+            SearchTabSession(tab_id=key, title=title, loaded=True)
+            for key, title in (
+                ("extra", "Extra long search tab"),
+                ("extra-two", "Another long search tab"),
+                ("extra-three", "Third long search tab"),
+            )
+        )
         self.controller.workspace_state.set_tabs([
             {
                 "entryKey": tab.tab_id, "title": tab.title,
@@ -439,7 +447,7 @@ class ProcessMenuLatencyTests(unittest.TestCase):
                 "Extra long search tab", [tab.title for tab in section.tabs],
             )
 
-    def test_compact_result_actions_open_sort_and_group_submenus(self):
+    def test_compact_result_actions_open_submenus_without_duplicate_refresh(self):
         with self.scene(width=430, animated=False) as (window, view):
             button = view.findChild(
                 QQuickItem, "searchTabActionsOverflowButton",
@@ -451,6 +459,11 @@ class ProcessMenuLatencyTests(unittest.TestCase):
             QCoreApplication.processEvents()
 
             menu = view.findChild(QObject, "searchTabActionsMenu")
+            self.assertNotIn("Refresh current results", [
+                item.property("text")
+                for item in visual_items(menu.property("contentItem"))
+                if item.objectName() == "actionMenuTitleLabel"
+            ])
 
             def open_submenu(title):
                 target = next(
@@ -473,6 +486,7 @@ class ProcessMenuLatencyTests(unittest.TestCase):
             for title, child_title in (
                 ("Sort items", "Name A-Z"),
                 ("Group items", "No grouping"),
+                ("Change search results view", "Continuous tree"),
             ):
                 submenu = open_submenu(title)
                 self.assertTrue(submenu.property("opened"))
@@ -485,7 +499,7 @@ class ProcessMenuLatencyTests(unittest.TestCase):
                 QCoreApplication.processEvents()
 
     def test_refresh_precedes_the_search_field(self):
-        for width in (430, 900):
+        for width in (430, 560, 900):
             with self.subTest(width=width), self.scene(
                     width=width, animated=False) as (_window, view):
                 refresh = view.findChild(QQuickItem, "searchRefreshButton")
@@ -496,11 +510,104 @@ class ProcessMenuLatencyTests(unittest.TestCase):
                 self.assertLessEqual(
                     refresh_position.x() + refresh.width(), field_position.x(),
                 )
-                self.assertAlmostEqual(
-                    refresh_position.y() + refresh.height() / 2,
-                    field_position.y() + field.height() / 2,
-                    delta=1,
-                )
+                if width < 720:
+                    self.assertFalse(refresh.isVisible())
+                    self.assertGreaterEqual(field.width(), 230)
+                else:
+                    self.assertTrue(refresh.isVisible())
+                    self.assertAlmostEqual(
+                        refresh_position.y() + refresh.height() / 2,
+                        field_position.y() + field.height() / 2,
+                        delta=1,
+                    )
+
+    def test_narrow_search_overflow_and_tabs_keep_room_for_titles(self):
+        self.enterContext(patch.object(self.controller, "_sync_search_tabs"))
+        self.controller.workspace_state.set_tabs([
+            {
+                "entryKey": key, "title": title, "closable": True,
+                "current": key == "assets",
+            }
+            for key, title in (
+                ("assets", "An especially long active search tab title"),
+                ("shots", "Another long search tab title"),
+                ("episodes", "Episodes"),
+            )
+        ])
+        with self.scene(width=430, animated=False) as (window, view):
+            for name in (
+                "scriptShelfButton", "searchTagButton",
+                "searchWorkspaceHelpButton",
+            ):
+                self.assertFalse(view.findChild(QQuickItem, name).isVisible())
+            self.assertTrue(view.findChild(
+                QQuickItem, "searchQuickFilterButton"
+            ).isVisible())
+            active_tab = next((
+                item for item in visual_items(view)
+                if item.objectName() == "searchTabDelegate_assets"
+            ), None)
+            self.assertIsNotNone(active_tab)
+            self.assertLessEqual(active_tab.width(), 180)
+            self.assertTrue(view.findChild(
+                QQuickItem, "searchTabsOverflowButton"
+            ).isVisible())
+
+            button = view.findChild(QQuickItem, "searchHeaderOverflowButton")
+            point = button.mapToScene(QPointF(
+                button.width() / 2, button.height() / 2,
+            )).toPoint()
+            QTest.mouseClick(window, Qt.LeftButton, Qt.NoModifier, point)
+            QCoreApplication.processEvents()
+            menu = view.findChild(QObject, "searchHeaderOverflowMenu")
+            titles = [
+                item.property("text")
+                for item in visual_items(menu.property("contentItem"))
+                if item.objectName() == "actionMenuTitleLabel"
+            ]
+            for title in ("Refresh current results", "Tags", "Help", "Workspace panels"):
+                self.assertIn(title, titles)
+            requested = QSignalSpy(view.requestDockMenu)
+            panels = next(
+                item for item in visual_items(menu.property("contentItem"))
+                if item.objectName() == "actionMenuPrimaryTarget"
+                and item.isVisible()
+                and item.parentItem().property("modelData").toVariant().get(
+                    "title"
+                ) == "Workspace panels"
+            )
+            point = panels.mapToScene(QPointF(
+                panels.width() / 2, panels.height() / 2,
+            )).toPoint()
+            QTest.mouseClick(panels.window(), Qt.LeftButton, Qt.NoModifier, point)
+            frame(window)
+            self.assertEqual(requested.count(), 1)
+
+    def test_narrow_tab_filters_open_from_result_actions(self):
+        with self.scene(width=430, animated=False) as (window, view):
+            button = view.findChild(QQuickItem, "searchTabActionsOverflowButton")
+            point = button.mapToScene(QPointF(
+                button.width() / 2, button.height() / 2,
+            )).toPoint()
+            QTest.mouseClick(window, Qt.LeftButton, Qt.NoModifier, point)
+            QCoreApplication.processEvents()
+            menu = view.findChild(QObject, "searchTabActionsMenu")
+            filters = next(
+                item for item in visual_items(menu.property("contentItem"))
+                if item.objectName() == "actionMenuPrimaryTarget"
+                and item.isVisible()
+                and item.parentItem().property("modelData").toVariant().get(
+                    "title"
+                ) == "Search filters and presets"
+            )
+            point = filters.mapToScene(QPointF(
+                filters.width() / 2, filters.height() / 2,
+            )).toPoint()
+            QTest.mouseClick(filters.window(), Qt.LeftButton, Qt.NoModifier, point)
+            frame(window)
+            self.assertTrue(view.findChild(
+                QObject, "searchResultFiltersMenu"
+            ).property("opened"))
 
     def test_context_task_picker_drills_in_without_closing_popup(self):
         with self.scene(width=900, animated=False) as (window, view):

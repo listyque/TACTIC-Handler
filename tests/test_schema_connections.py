@@ -30,7 +30,8 @@ class SchemaConnectionDraftTests(unittest.TestCase):
         self.directory = self.enterContext(tempfile.TemporaryDirectory(prefix='schema-connections-'))
         self.enterContext(patch.object(env_mode, 'current_path', self.directory))
         self.enterContext(patch('socket.create_connection', side_effect=AssertionError('Schema tests must run offline')))
-        self.editor = GraphEditor(SimpleNamespace(can_administer=True, debug_log=None), 'schema')
+        self.editor = GraphEditor(SimpleNamespace(
+            can_administer=True, can_manage_tools=True, debug_log=None), 'schema')
         self.addCleanup(self.editor.shutdown)
         self.editor._project = 'demo'
         self.editor._can_write = True

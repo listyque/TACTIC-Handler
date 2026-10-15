@@ -36,12 +36,13 @@ Controls.ScrollablePopup {
                     font.weight: Font.DemiBold
                 }
                 QuickFilterChip {
+                    objectName: "taskQuickFilterAllChip"
                     theme: root.theme
                 Layout.preferredHeight: 28
                     text: qsTr("ALL")
-                    checked: tasksController.activeQuickFilterCount === 0
+                    checked: !tasksController.advancedFiltersActive
                     onClicked: {
-                        tasksController.clear_quick_filters()
+                        tasksController.reset_filters()
                         root.close()
                     }
                 }

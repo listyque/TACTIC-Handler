@@ -5,6 +5,9 @@ import json
 import os
 from pathlib import Path
 import uuid
+import threading
+import time
+from collections import Counter
 
 from PySide6.QtCore import (
     QAbstractListModel,
@@ -13,11 +16,13 @@ from PySide6.QtCore import (
     Property,
     Qt,
     QUrl,
+    QTimer,
     Signal,
     Slot,
 )
 
 from thlib.environment import env_read_config, env_write_config
+from thlib.checkin_operation import apply_checkin_type_options, versionless_allowed
 
 
 class CommitQueueModel(QAbstractListModel):
@@ -31,7 +36,7 @@ class CommitQueueModel(QAbstractListModel):
         "mode", "sourceFiles", "versionedPaths", "versionlessPaths",
         "previewFiles", "previewUrls", "previewCount", "previewUrl",
         "futureFileName", "previewExtension", "fileSummary",
-        "versionLabel", "snapshotInfoChips",
+        "versionLabel", "snapshotInfoChips", "versionlessAllowed",
         "status", "selected", "error", "canEdit", "summary",
         "checked", "progress", "stage", "canCommit",
     )
@@ -66,9 +71,14 @@ class CommitQueueModel(QAbstractListModel):
         return self._records[index.row()].get(name) if name else None
 
     def append(self, record: dict) -> None:
+        self.append_records([record])
+
+    def append_records(self, records: list[dict]) -> None:
+        if not records:
+            return
         row = len(self._records)
-        self.beginInsertRows(QModelIndex(), row, row)
-        self._records.append(dict(record))
+        self.beginInsertRows(QModelIndex(), row, row + len(records) - 1)
+        self._records.extend(dict(record) for record in records)
         self.endInsertRows()
         self.contentChanged.emit()
 
@@ -111,7 +121,9 @@ class CommitQueueModel(QAbstractListModel):
 class CommitQueueController(QObject):
     stateChanged = Signal()
     duplicateChanged = Signal()
+    progressChanged = Signal()
     operationCompleted = Signal("QVariantMap")
+    presentationRefreshRequested = Signal("QVariantMap")
 
     _editable = {
         "context", "description", "version", "repository", "mode",
@@ -146,10 +158,36 @@ class CommitQueueController(QObject):
         self._selected_id = ""
         self._active_id = ""
         self._batch_ids: list[str] = []
+        self._pending_refreshes = {}
+        self._dirty_projects = set()
         self._executor = None
+        self._server_queue = False
+        self._server_closed = False
+        self._server_batches = env_read_config(filename="server_batches",unique_id="cache/commit_queue",long_abs_path=True) or {}
+        if not isinstance(self._server_batches,dict):
+            self._server_batches = {}
+        for batch in self._server_batches.values():
+            if not batch.get('submitted'):
+                batch['uploadError'] = batch.get('uploadError') or 'Upload interrupted; resume the original batch'
+        self._server_cursors = {}
+        self._server_cleanup_ids = set()
+        self._server_worker = None
+        self._server_poll_worker = None
+        self._server_uploading = False
+        self._server_progress = {}
+        self._server_progress_started = time.monotonic()
+        self._server_last_activity = self._server_progress_started
+        self._server_progress_error = ''
+        self._server_progress_timer = QTimer(self)
+        self._server_progress_timer.setInterval(1000)
+        self._server_progress_timer.timeout.connect(self.progressChanged)
+        self._server_cancel_event = threading.Event()
+        self._server_timer = QTimer(self)
+        self._server_timer.setSingleShot(True)
+        self._server_timer.timeout.connect(self._poll_server_queue)
         self._apply_to_checked = False
         self._auto_clean = bool(
-            self._settings.get("commitQueue/autoClean", False)
+            self._settings.get("commitQueue/autoClean", True)
         )
         self._advanced_options_expanded = bool(self._settings.get(
             "commitQueue/advancedOptionsExpanded", False
@@ -163,17 +201,31 @@ class CommitQueueController(QObject):
         self._files_panel_height = max(
             100.0, min(360.0, files_panel_height)
         )
+        try:
+            splitter_ratio = float(self._settings.get("commitQueue/splitterRatio", 0.36))
+        except (TypeError, ValueError):
+            splitter_ratio = 0.36
+        self._splitter_ratio = max(0.15, min(0.85, splitter_ratio))
         self._duplicate_pending = None
         self._duplicate_queue = []
         self._validation_generation = {}
+        self._pending_validations = {}
+        self._validation_inflight = set()
+        self._save_timer = QTimer(self)
+        self._save_timer.setSingleShot(True)
+        self._save_timer.setInterval(100)
+        self._save_timer.timeout.connect(self._save)
         self._deferred_validation_ids = set()
         self.model.contentChanged.connect(self.stateChanged)
         self._restore()
+        if self._server_batches:
+            self._server_timer.start(1000)
 
     def attach_executor(self, executor) -> None:
         self._executor = executor
         executor.preparationChanged.connect(self._operation_changed)
         executor.operationFinished.connect(self._operation_finished)
+        executor.operationResult.connect(self._operation_result)
         executor.preparedValidationFinished.connect(
             self._prepared_validation_finished
         )
@@ -182,12 +234,14 @@ class CommitQueueController(QObject):
             application.server_state_changed.connect(
                 self._validate_deferred_operations
             )
+        for operation_id,payload in self._operations.items():
+            if (payload.get('_serverQueue') or {}).get('state') == 'complete' and payload.get('mode') == 'move' and not payload.get('_serverMoveCleaned'):
+                self._finish_server_move(operation_id)
         operation_ids = set(self._operations)
         if application is not None and application.server_state != "online":
             self._deferred_validation_ids.update(operation_ids)
         else:
-            for operation_id in operation_ids:
-                self._request_validation(operation_id)
+            self._request_validations(operation_ids)
 
     @Slot()
     def _validate_deferred_operations(self) -> None:
@@ -198,8 +252,7 @@ class CommitQueueController(QObject):
             return
         operation_ids = list(self._deferred_validation_ids)
         self._deferred_validation_ids.clear()
-        for operation_id in operation_ids:
-            self._request_validation(operation_id)
+        self._request_validations(operation_ids)
 
     @Property(int, notify=stateChanged)
     def count(self) -> int:
@@ -279,6 +332,20 @@ class CommitQueueController(QObject):
             return
         self._files_panel_height = value
         self._settings["commitQueue/filesPanelHeight"] = value
+        self._write_settings()
+        self.stateChanged.emit()
+
+    @Property(float, notify=stateChanged)
+    def splitterRatio(self) -> float:
+        return self._splitter_ratio
+
+    @Slot(float)
+    def set_splitter_ratio(self, value: float) -> None:
+        value = max(0.15, min(0.85, float(value)))
+        if abs(value - self._splitter_ratio) < 0.002:
+            return
+        self._splitter_ratio = value
+        self._settings["commitQueue/splitterRatio"] = value
         self._write_settings()
         self.stateChanged.emit()
 
@@ -448,6 +515,7 @@ class CommitQueueController(QObject):
             "version": version,
             "updateVersionless": bool(payload.get("updateVersionless")),
             "onlyVersionless": bool(payload.get("onlyVersionless")),
+            "versionlessAllowed": versionless_allowed(payload),
             "keepFileName": bool(payload.get("keepFileName")),
             "generatePreviews": bool(payload.get("generatePreviews")),
             "explicitFilename": str(payload.get("explicitFilename") or ""),
@@ -570,49 +638,45 @@ class CommitQueueController(QObject):
         self.stateChanged.emit()
 
     def add_prepared(self, payload: dict, title: str) -> str:
-        safe_payload = deepcopy(payload)
-        self._assign_sole_repository(safe_payload)
-        identity = self._identity(safe_payload)
-        existing_id = next(
-            (
-                operation_id
-                for operation_id, operation in self._operations.items()
-                if self._identity(operation) == identity
-            ),
-            "",
-        )
-        if existing_id:
-            pending = {
-                "existingId": existing_id,
-                "payload": safe_payload,
-                "title": str(title or "sObject"),
-                "description": (
-                    "The same files are already prepared for this object "
-                    "and context."
-                ),
-            }
-            if self._duplicate_pending is None:
-                self._duplicate_pending = pending
-            else:
-                self._duplicate_queue.append(pending)
-            self._select_id(existing_id)
+        return self.add_prepared_many([(payload, title)])[0]
+
+    def add_prepared_many(self, entries: list[tuple[dict, str]]) -> list[str]:
+        identities = {self._identity(payload): operation_id
+                      for operation_id, payload in self._operations.items()}
+        ids, records = [], []
+        duplicate = False
+        for payload, title in entries:
+            safe_payload = deepcopy(payload)
+            apply_checkin_type_options(safe_payload)
+            self._assign_sole_repository(safe_payload)
+            identity = self._identity(safe_payload)
+            existing_id = identities.get(identity)
+            if existing_id:
+                pending = dict(existingId=existing_id, payload=safe_payload,
+                               title=str(title or 'sObject'),
+                               description='The same files are already prepared for this object and context.')
+                if self._duplicate_pending is None:
+                    self._duplicate_pending = pending
+                else:
+                    self._duplicate_queue.append(pending)
+                ids.append(existing_id)
+                duplicate = True
+                continue
+            operation_id = uuid.uuid4().hex
+            identities[identity] = operation_id
+            self._operations[operation_id] = safe_payload
+            self._current_session_ids.add(operation_id)
+            records.append(self._record(operation_id, safe_payload, title))
+            ids.append(operation_id)
+        self.model.append_records(records)
+        if ids:
+            self._select_id(ids[-1])
+        if records:
+            self._save()
+            self._request_validations([record['operationId'] for record in records])
+        if duplicate:
             self.duplicateChanged.emit()
-            return existing_id
-        operation_id = uuid.uuid4().hex
-        self._operations[operation_id] = safe_payload
-        self._current_session_ids.add(operation_id)
-        record = self._record(operation_id, safe_payload, title)
-        row = self._row_for_id(operation_id)
-        if row >= 0:
-            old = self.model._records[row]
-            record["checked"] = old.get("checked", True)
-            self.model.replace_row(row, record)
-        else:
-            self.model.append(record)
-        self._select_id(operation_id)
-        self._save()
-        self._request_validation(operation_id)
-        return operation_id
+        return ids
 
     @Slot(str)
     def resolve_duplicate(self, decision: str) -> None:
@@ -689,7 +753,8 @@ class CommitQueueController(QObject):
         if not 0 <= row < len(self.model._records):
             return
         operation_id = self.model._records[row]["operationId"]
-        if operation_id == self._active_id:
+        reference = self._operations.get(operation_id, {}).get("_serverQueue") or {}
+        if operation_id == self._active_id or (reference and reference.get("state") not in ("complete", "error", "terminated")):
             return
         self._operations.pop(operation_id, None)
         self._current_session_ids.discard(operation_id)
@@ -704,7 +769,7 @@ class CommitQueueController(QObject):
                 )
             else:
                 self.stateChanged.emit()
-        self._save()
+        self._save_timer.start()
 
     def _discard_duplicate_references(self, operation_id: str) -> None:
         changed = False
@@ -731,10 +796,15 @@ class CommitQueueController(QObject):
         for row in range(len(self.model._records) - 1, -1, -1):
             if self.model._records[row]["operationId"] != self._active_id:
                 self.remove_row(row)
+        if not self.busy and not self._server_batches:
+            self._server_progress.clear()
+            self._server_progress_error = ''
+            self._server_progress_timer.stop()
+            self.progressChanged.emit()
 
     @Slot(int, int)
     def move_row(self, source: int, target: int) -> None:
-        if self._active_id:
+        if self.busy:
             return
         if self.model.move_row(source, target):
             self._save()
@@ -742,7 +812,7 @@ class CommitQueueController(QObject):
 
     @Slot(int)
     def move_selected(self, offset: int) -> None:
-        if self._active_id:
+        if self.busy:
             return
         source = self.selectedRow
         target = source + int(offset)
@@ -873,6 +943,7 @@ class CommitQueueController(QObject):
                 target_operation["updateVersionless"] = False
             if field == "onlyVersionless" and value:
                 target_operation["updateVersionless"] = True
+            apply_checkin_type_options(target_operation)
             if field == "contextAsFilename" and value:
                 context_branch = self._context_branch(
                     str(target_operation.get("process") or ""),
@@ -918,7 +989,7 @@ class CommitQueueController(QObject):
 
     @Property(bool, notify=stateChanged)
     def busy(self) -> bool:
-        return bool(self._active_id)
+        return bool(self._active_id or self._batch_ids or self._server_uploading or self._server_cleanup_ids or self._server_pending())
 
     @Property(bool, notify=stateChanged)
     def hasCompleted(self) -> bool:
@@ -947,25 +1018,55 @@ class CommitQueueController(QObject):
         self.model.replace_row(row, record)
 
     def _request_validation(self, operation_id: str) -> None:
-        if not self._executor or operation_id == self._active_id:
+        self._request_validations([operation_id])
+
+    def _request_validations(self, operation_ids) -> None:
+        if not self._executor or self._server_closed:
             return
-        payload = self._operations.get(operation_id)
-        row = self._row_for_id(operation_id)
-        if not payload or row < 0:
+        for operation_id in operation_ids:
+            payload = self._operations.get(operation_id)
+            if not payload or operation_id == self._active_id or payload.get('_serverQueue'):
+                continue
+            generation = self._validation_generation.get(operation_id, 0) + 1
+            self._validation_generation[operation_id] = generation
+            if self._server_queue:
+                self._pending_validations.pop(operation_id, None)
+                supported = bool(payload.get('files')) and not bool(payload.get('dccScene'))
+                self._set_record(operation_id, status='Prepared' if supported else 'Invalid', stage='server naming',
+                                 canCommit=supported, error='' if supported else 'DCC scenes require the legacy mode')
+                continue
+            self._pending_validations[operation_id] = f'{operation_id}:{generation}'
+            self._set_record(operation_id, status='Validating', stage='naming', error='', canCommit=False)
+        self._start_validation_chunk()
+
+    def _start_validation_chunk(self) -> None:
+        if self._validation_inflight or not self._executor or self._server_closed:
             return
-        generation = self._validation_generation.get(operation_id, 0) + 1
-        self._validation_generation[operation_id] = generation
-        request_id = f"{operation_id}:{generation}"
-        self._set_record(
-            operation_id, status="Validating", stage="naming",
-            error="", canCommit=False,
-        )
-        self._executor.validate_prepared_operation(request_id, payload)
+        operations = []
+        for operation_id in list(self._pending_validations):
+            request_id = self._pending_validations.pop(operation_id)
+            payload = self._operations.get(operation_id)
+            if payload and operation_id != self._active_id:
+                operations.append((request_id, deepcopy(payload)))
+                if len(operations) == 50:
+                    break
+        if not operations:
+            return
+        self._validation_inflight.update(request_id for request_id, payload in operations)
+        if len(operations) == 1:
+            self._executor.validate_prepared_operation(*operations[0])
+        else:
+            self._executor.validate_prepared_operations(operations)
 
     @Slot(str, bool, "QVariantMap", str)
     def _prepared_validation_finished(
         self, request_id: str, success: bool, result: dict, error: str
     ) -> None:
+        self._validation_inflight.discard(request_id)
+        if not self._validation_inflight:
+            self._start_validation_chunk()
+        if self._server_closed:
+            return
         operation_id, separator, generation_text = request_id.rpartition(":")
         if not separator:
             return
@@ -973,7 +1074,7 @@ class CommitQueueController(QObject):
             generation = int(generation_text)
         except ValueError:
             return
-        if self._validation_generation.get(operation_id) != generation:
+        if self._server_queue or self._validation_generation.get(operation_id) != generation:
             return
         row = self._row_for_id(operation_id)
         if row < 0 or operation_id == self._active_id:
@@ -1007,10 +1108,20 @@ class CommitQueueController(QObject):
                 error=str(error or "Naming validation failed"),
                 canCommit=False, canEdit=True,
             )
-        self._save()
+        self._save_timer.start()
         self.stateChanged.emit()
 
     def _start_ids(self, operation_ids: list[str]) -> None:
+        if self.busy:
+            return
+        for operation_id in operation_ids:
+            payload = self._operations.get(operation_id) or {}
+            if (payload.get('_serverQueue') or {}).get('state') in ('error','terminated'):
+                payload.pop('_serverQueue',None)
+                self._set_record(operation_id,canCommit=True,canEdit=True)
+        if self._server_queue:
+            self._start_server_ids(operation_ids)
+            return
         if self._active_id or not self._executor:
             return
         self._batch_ids = [
@@ -1027,6 +1138,7 @@ class CommitQueueController(QObject):
 
     def _start_next(self) -> None:
         if self._active_id or not self._batch_ids:
+            self._flush_refreshes()
             self._save()
             self.stateChanged.emit()
             return
@@ -1042,9 +1154,7 @@ class CommitQueueController(QObject):
             progress=0.0, error="", canEdit=False,
         )
         execution_payload = deepcopy(payload)
-        execution_payload["_refreshTreeOnComplete"] = (
-            operation_id in self._current_session_ids
-        )
+        execution_payload["_refreshTreeOnComplete"] = False
         if not self._executor.start_prepared_operation(execution_payload):
             self._set_record(
                 operation_id, status="Failed", stage="failed",
@@ -1052,6 +1162,7 @@ class CommitQueueController(QObject):
             )
             self._active_id = ""
             self._batch_ids.clear()
+            self._flush_refreshes()
         self._save()
         self.stateChanged.emit()
 
@@ -1075,6 +1186,10 @@ class CommitQueueController(QObject):
 
     @Slot()
     def retry_current(self) -> None:
+        if self.serverResumeAvailable:
+            reference = self._operations[self._selected_id]['_serverQueue']
+            self._send_server_batches([self._server_batches[reference['batch_id']]])
+            return
         row = self.selectedRow
         if row < 0 or self.model._records[row].get("status") != "Failed":
             return
@@ -1082,9 +1197,14 @@ class CommitQueueController(QObject):
 
     @Slot()
     def cancel(self) -> None:
+        if self._server_batches:
+            self._server_cancel_event.set()
+            if not self._server_uploading:
+                self._cancel_server_batches()
         self._batch_ids.clear()
         if self._active_id and self._executor:
             self._executor.cancel_checkin()
+        self._flush_refreshes()
         self.stateChanged.emit()
 
     @Slot()
@@ -1092,6 +1212,8 @@ class CommitQueueController(QObject):
         for row in range(len(self.model._records) - 1, -1, -1):
             if self.model._records[row].get("status") == "Completed":
                 self.remove_row(row)
+        if not self.count:
+            self.clear()
 
     @Slot()
     def _operation_changed(self) -> None:
@@ -1112,6 +1234,41 @@ class CommitQueueController(QObject):
             error=self._executor.operationError,
             canEdit=status in {"Failed", "Cancelled"},
         )
+
+    @Slot(object)
+    def _operation_result(self, snapshot) -> None:
+        payload = self._operations.get(self._active_id)
+        if payload is not None:
+            from thlib.tactic_classes import split_search_key
+
+            project = split_search_key(payload['searchKey']).get('project_code') or ''
+            self._remember_refresh(self._active_id, payload, snapshot, project)
+
+    def _remember_refresh(self, operation_id, payload, snapshot, project) -> None:
+        self._dirty_projects.add(project)
+        key = (payload['searchKey'], payload['context'])
+        previous = self._pending_refreshes.get(key)
+        reveal = operation_id in self._current_session_ids or bool(previous and previous[2])
+        self._pending_refreshes[key] = (deepcopy(payload), deepcopy(snapshot), reveal)
+
+    def _flush_refreshes(self, *, force=False) -> None:
+        if not force and self.busy:
+            return
+        from thlib import server_cache
+
+        projects, self._dirty_projects = self._dirty_projects, set()
+        refreshes, self._pending_refreshes = self._pending_refreshes, {}
+        for project in projects:
+            server_cache.invalidate_domains(
+                ('snapshots', 'relations', 'search', 'activity'), project,
+            )
+        if self._server_closed:
+            return
+        application = getattr(self._executor, '_application', None)
+        for payload, snapshot, reveal in refreshes.values():
+            if application is not None and reveal:
+                application.refresh_checkin_result(payload, snapshot)
+            self.presentationRefreshRequested.emit(payload)
 
     @Slot(bool, str)
     def _operation_finished(self, succeeded: bool, error: str) -> None:
@@ -1141,12 +1298,14 @@ class CommitQueueController(QObject):
             self._close_finished_auto_clean_queue()
         else:
             self._batch_ids.clear()
+            self._flush_refreshes()
             self.stateChanged.emit()
 
     def _close_finished_auto_clean_queue(self) -> None:
         if (
                 not self._auto_clean
                 or self._active_id
+                or self._server_uploading
                 or self._batch_ids
                 or self.model._records
                 or self._window_model is None
@@ -1155,9 +1314,13 @@ class CommitQueueController(QObject):
         self._window_model.close_window("commit_queue")
 
     def _save(self) -> None:
+        self._save_timer.stop()
+        env_write_config(self._server_batches,filename="server_batches",unique_id="cache/commit_queue",long_abs_path=True)
         entries = []
         for record in self.model._records:
-            if record.get("status") == "Completed":
+            if record.get("status") == "Completed" and not (
+                    self._operations.get(record['operationId'],{}).get('mode') == 'move'
+                    and not self._operations.get(record['operationId'],{}).get('_serverMoveCleaned')):
                 continue
             operation_id = record["operationId"]
             payload = self._operations.get(operation_id)
@@ -1190,6 +1353,8 @@ class CommitQueueController(QObject):
             payload = entry.get("payload") if isinstance(entry, dict) else None
             if not isinstance(payload, dict):
                 continue
+            if not payload.get("_serverQueue"):
+                apply_checkin_type_options(payload)
             repaired_repository = (
                 self._assign_sole_repository(payload)
                 or repaired_repository
@@ -1207,7 +1372,11 @@ class CommitQueueController(QObject):
                 if file_record.get("path")
                 and not Path(str(file_record["path"])).is_file()
             ), "")
-            if missing:
+            if payload.get('_serverQueue'):
+                state = payload['_serverQueue'].get('state','pending')
+                record.update(status={'complete':'Completed','error':'Failed','terminated':'Cancelled'}.get(state,'Queued'),
+                              stage='server ' + state,canCommit=state in ('error','terminated'),canEdit=False)
+            elif missing:
                 record["status"] = "Missing files"
                 record["error"] = f"Source file is unavailable: {missing}"
                 record["canCommit"] = False
@@ -1218,11 +1387,393 @@ class CommitQueueController(QObject):
             self._save()
 
     def shutdown(self) -> None:
+        self._server_closed = True
+        self._pending_validations.clear()
+        self._save_timer.stop()
+        self._server_timer.stop()
+        self._server_progress_timer.stop()
+        self._server_cancel_event.set()
+        # Closing the client does not cancel accepted server work.
+        self._flush_refreshes(force=True)
         self._batch_ids.clear()
         if self._active_id and self._executor:
             self._executor.cancel_checkin()
         self._save()
         self._write_settings()
+
+    @Property('QVariantMap', notify=progressChanged)
+    def serverProgress(self) -> dict:
+        batches = list(self._server_progress.values())
+        if not batches and not self._server_batches:
+            return {}
+        result = {key: sum(batch.get(key, 0) for batch in batches) for key in (
+            'totalOperations', 'totalFiles', 'filesDone', 'totalBytes', 'bytesDone',
+            'completed', 'failed', 'cancelled', 'running')}
+        if not batches:
+            result['totalOperations'] = sum(len(batch['operations']) for batch in self._server_batches.values())
+        active = next((batch for batch in batches if batch.get('phase') != 'uploaded'), {})
+        result['phase'] = active.get('phase', 'preparing') if self._server_uploading else (
+            'committing' if self._server_pending() else 'finished')
+        result['filename'] = active.get('filename', '') if self._server_uploading else ''
+        result['totalsKnown'] = bool(batches) and all(batch.get('phase') in ('uploading', 'uploaded') for batch in batches)
+        result['error'] = self._server_progress_error
+        result['uploadInterrupted'] = any(batch.get('uploadError') for batch in self._server_batches.values())
+        result['elapsed'] = int(time.monotonic() - self._server_progress_started)
+        result['idleSeconds'] = int(time.monotonic() - self._server_last_activity)
+        result['busy'] = self.busy
+        return result
+
+    @Property(bool, notify=stateChanged)
+    def serverQueue(self) -> bool:
+        return self._server_queue
+
+    @Slot(bool)
+    def set_server_queue(self, value: bool) -> None:
+        if self.busy:
+            return
+        self._server_queue = bool(value)
+        self._request_validations(list(self._operations))
+        self.stateChanged.emit()
+
+    @Property(bool, notify=stateChanged)
+    def serverResumeAvailable(self) -> bool:
+        payload = self._operations.get(self._selected_id) or {}
+        reference = payload.get('_serverQueue') or {}
+        batch = self._server_batches.get(reference.get('batch_id')) or {}
+        return bool(batch.get('uploadError')) and not self._server_uploading
+
+    def _server_pending(self) -> bool:
+        return any(self._operations.get(row['operationId'], {}).get('_serverQueue')
+                   and row.get('status') not in ('Completed','Failed','Cancelled')
+                   for row in self.model._records)
+
+    def _start_server_ids(self, operation_ids: list[str]) -> None:
+        if self.busy:
+            return
+        from thlib.environment import env_server
+        from thlib.tactic_classes import split_search_key
+        grouped = {}
+        for operation_id in operation_ids:
+            row = self._row_for_id(operation_id)
+            if row < 0 or not self.model._records[row].get('canCommit'):
+                continue
+            payload = self.operation(operation_id)
+            project = split_search_key(payload['searchKey'].removeprefix('skey://'))['project_code']
+            grouped.setdefault(project, []).append(dict(operation_id=operation_id,payload=deepcopy(payload)))
+        if not grouped:
+            return
+        self._server_progress = {}
+        self._server_progress_started = time.monotonic()
+        self._server_last_activity = self._server_progress_started
+        batches = []
+        for project, operations in grouped.items():
+            batch_id = uuid.uuid4().hex
+            batch = dict(batch_id=batch_id,project=project,operations=operations,
+                         server=str(env_server.get_server()),user=str(env_server.get_user()),
+                         submitted=False,uploadError='')
+            self._server_batches[batch_id] = batch
+            batches.append(batch)
+            for operation in operations:
+                operation_id = operation['operation_id']
+                self._operations[operation_id]['_serverQueue'] = dict(batch_id=batch_id,project=project)
+                self._set_record(operation_id,status='Queued',stage='uploading to server',canEdit=False,canCommit=False,error='')
+        self._save()
+        self._send_server_batches(batches)
+
+    def _send_server_batches(self, batches: list[dict]) -> None:
+        from thlib.environment import env_inst, env_server
+        from thlib.server_checkin_queue import submit_batches
+        if self._server_closed or not batches or any(batch['server'] != str(env_server.get_server()) or batch['user'] != str(env_server.get_user()) for batch in batches):
+            return
+        self._server_uploading = True
+        self._server_cancel_event.clear()
+        self._server_progress_error = ''
+        self._server_progress_timer.start()
+        for batch in batches:
+            self._server_progress.setdefault(batch['batch_id'], {})['totalOperations'] = len(batch['operations'])
+            self._server_progress[batch['batch_id']].update(phase='hooks', filename='')
+            batch['uploadError'] = ''
+        self.stateChanged.emit()
+        hooks = getattr(self._executor,'_script_triggers',None)
+        prepared = [operation for batch in batches for operation in batch['operations'] if not operation.get('before_hook_done')]
+
+        def before_next(index=0):
+            if self._server_closed:
+                return
+            if self._server_cancel_event.is_set():
+                self._server_uploading = False
+                self._cancel_server_batches()
+                self.stateChanged.emit()
+                return
+            if index % 50 == 0:
+                self._server_last_activity = time.monotonic()
+                self.progressChanged.emit()
+            if hooks is not None and index < len(prepared):
+                def ready(success, error):
+                    if self._server_closed:
+                        return
+                    if not success:
+                        self._server_submission_failed(error or 'Before check-in hook failed')
+                        return
+                    prepared[index]['before_hook_done'] = True
+                    self._save_timer.start()
+                    QTimer.singleShot(0, lambda:before_next(index + 1))
+                context = self._executor._trigger_context(prepared[index]['payload'])
+                hooks.run_before('snapshot.save',context,ready)
+                return
+            for operation in prepared:
+                operation['before_hook_done'] = True
+            self._save()
+            worker = env_inst.commit_pool.add_task(submit_batches,str(env_server.get_server()),str(env_server.get_ticket()),
+                                                 deepcopy(batches),cancel_event=self._server_cancel_event)
+            if worker is None:
+                self._server_submission_failed('Check-in worker pool is unavailable')
+                return
+            self._server_worker = worker
+            worker.result.connect(self._server_submitted,Qt.ConnectionType.QueuedConnection)
+            worker.error.connect(self._server_submission_failed,Qt.ConnectionType.QueuedConnection)
+            worker.connect_progress(self._server_chunk_progress)
+            worker.start()
+            self._server_timer.start(1)
+            self.stateChanged.emit()
+        before_next()
+
+    @Slot(object)
+    def _server_chunk_progress(self, value) -> None:
+        if self._server_closed:
+            return
+        _position, info = value
+        batch_id = info.get('batch_id')
+        if batch_id:
+            self._server_progress.setdefault(batch_id, {}).update(info)
+            self._server_last_activity = time.monotonic()
+            self.progressChanged.emit()
+        if not self._server_timer.isActive() and self._server_poll_worker is None:
+            self._server_timer.start(1000)
+
+    @Slot(object)
+    def _server_submitted(self, result) -> None:
+        if self._server_closed:
+            return
+        self._server_worker = None
+        self._server_uploading = False
+        self.progressChanged.emit()
+        for value in result or []:
+            batch = self._server_batches.get(value.get('batch_id'))
+            if batch:
+                batch['submitted'] = True
+                batch['uploadError'] = ''
+        self._save()
+        self.stateChanged.emit()
+        if self._server_cancel_event.is_set():
+            self._cancel_server_batches()
+        else:
+            self._server_timer.start(1)
+
+    @Slot(object)
+    def _server_submission_failed(self, error) -> None:
+        if self._server_closed:
+            return
+        self._server_worker = None
+        self._server_uploading = False
+        message = self._executor._worker_error_text(error) if self._executor else str(error)
+        self._server_progress_error = message
+        self._flush_refreshes(force=True)
+        self.progressChanged.emit()
+        for batch in self._server_batches.values():
+            if batch.get('submitted'):
+                continue
+            batch['uploadError'] = message
+            for operation in batch['operations']:
+                operation_id = operation['operation_id']
+                row = self._row_for_id(operation_id)
+                if row >= 0 and self.model._records[row]['status'] != 'Completed':
+                    self._set_record(operation_id,status='Failed',stage='upload interrupted',error=message,canEdit=False,canCommit=False)
+        self._save()
+        self.stateChanged.emit()
+        if self._server_cancel_event.is_set():
+            self._cancel_server_batches()
+        else:
+            self._server_timer.start(1000)
+
+    @Slot()
+    def _poll_server_queue(self) -> None:
+        if self._server_closed or self._server_poll_worker is not None or not self._server_batches:
+            return
+        from thlib.environment import env_inst, env_server
+        from thlib.server_checkin_queue import request
+        batches = [dict(batch_id=batch['batch_id'],project=batch['project']) for batch in self._server_batches.values()
+                   if batch['server'] == str(env_server.get_server()) and batch['user'] == str(env_server.get_user())]
+        if not batches or not env_server.get_ticket():
+            self._server_timer.start(3000)
+            return
+        worker = env_inst.server_pool.add_task(request,str(env_server.get_server()),str(env_server.get_ticket()),batches[0]['project'],
+                                              'updates',dict(batches=batches,cursors=dict(self._server_cursors)))
+        if worker is None:
+            self._server_timer.start(3000)
+            return
+        self._server_poll_session = (str(env_server.get_server()),str(env_server.get_user()))
+        self._server_poll_worker = worker
+        worker.result.connect(self._server_updates,Qt.ConnectionType.QueuedConnection)
+        worker.error.connect(self._server_updates_failed,Qt.ConnectionType.QueuedConnection)
+        worker.start()
+
+    @Slot(object)
+    def _server_updates(self, result) -> None:
+        if self._server_closed:
+            return
+        self._server_poll_worker = None
+        from thlib.environment import env_server
+        if getattr(self,'_server_poll_session',None) not in (None,(str(env_server.get_server()),str(env_server.get_user()))):
+            self._server_timer.start(3000)
+            return
+        if not isinstance(result,dict):
+            self._server_timer.start(3000)
+            return
+        for row in self.model._records:
+            payload = self._operations.get(row['operationId']) or {}
+            reference = payload.get('_serverQueue') or {}
+            if row.get('stage') == 'waiting for server' and reference.get('batch_id') in (result.get('checkinCursors') or {}):
+                self._set_record(row['operationId'],stage='server ' + reference.get('state','pending'),error='')
+        for event in result.get('checkins') or []:
+            operation_id = event['operation_id']
+            batch = self._server_batches.get(event['batch_id'])
+            if batch:
+                for operation in batch['operations']:
+                    if operation['operation_id'] == operation_id:
+                        operation['server_state'] = event['state']
+                        break
+            payload = self._operations.get(operation_id)
+            if payload is None or (payload.get('_serverQueue') or {}).get('batch_id') != event['batch_id']:
+                continue
+            state = event['state']
+            status = {'staging':'Queued','pending':'Queued','locked':'Running','complete':'Completed','error':'Failed','terminated':'Cancelled'}.get(state,'Queued')
+            row = self._row_for_id(operation_id)
+            was_complete = row >= 0 and self.model._records[row]['status'] == 'Completed'
+            payload['_serverQueue']['state'] = state
+            self._set_record(operation_id,status=status,stage='server ' + state,error=event.get('error',''),
+                             progress=1.0 if state == 'complete' else 0.0,canCommit=state in ('error','terminated'),canEdit=False)
+            if state == 'complete' and not was_complete:
+                payload['_serverSnapshot'] = event['snapshot']
+                payload['_serverSourceHashes'] = event.get('source_checksums') or {}
+                self._remember_refresh(
+                    operation_id, payload, event['snapshot'],
+                    payload['_serverQueue']['project'],
+                )
+                hooks = getattr(self._executor,'_script_triggers',None)
+                if hooks is not None:
+                    hooks.run_after('snapshot.save',self._executor._trigger_context(payload))
+                self.operationCompleted.emit(deepcopy(payload))
+        self._server_cursors.update(result.get('checkinCursors') or {})
+        for batch_id,batch in list(self._server_batches.items()):
+            counts = Counter(operation.get('server_state', 'staging') for operation in batch['operations'])
+            self._server_progress.setdefault(batch_id, {}).update(
+                totalOperations=len(batch['operations']), completed=counts['complete'],
+                failed=counts['error'], cancelled=counts['terminated'], running=counts['locked'])
+            if not self._server_uploading and all(operation.get('server_state') in ('pending','locked','complete','error','terminated') for operation in batch['operations']):
+                batch['submitted'] = True
+                batch['uploadError'] = ''
+            if batch.get('submitted') and not self._server_uploading:
+                for operation in batch['operations']:
+                    row = self._row_for_id(operation['operation_id'])
+                    payload = self._operations.get(operation['operation_id']) or {}
+                    if row >= 0 and self.model._records[row]['status'] == 'Completed':
+                        if payload.get('mode') == 'move' and not payload.get('_serverMoveCleaned'):
+                            self._finish_server_move(operation['operation_id'])
+                        elif self._auto_clean:
+                            self.remove_row(row)
+                if all(self._row_for_id(operation['operation_id']) < 0 or self.model._records[self._row_for_id(operation['operation_id'])]['status'] in ('Completed','Failed','Cancelled') for operation in batch['operations']):
+                    self._server_batches.pop(batch_id)
+                    self._server_cursors.pop(batch_id,None)
+        self._flush_refreshes()
+        self._server_progress_error = ''
+        if result.get('checkins'):
+            self._server_last_activity = time.monotonic()
+        self.progressChanged.emit()
+        self._save()
+        self.stateChanged.emit()
+        if not self.busy:
+            self._server_progress_timer.stop()
+        if self._server_batches:
+            self._server_timer.start(20 if result.get('checkinsHasMore') else 1000)
+        self._close_finished_auto_clean_queue()
+
+    @Slot(object)
+    def _server_updates_failed(self, error, *, from_cancel=False) -> None:
+        if self._server_closed:
+            return
+        if not from_cancel:
+            self._server_poll_worker = None
+        # A failed status read says nothing about whether the server committed.
+        self._server_progress_error = 'status unavailable'
+        self._flush_refreshes(force=True)
+        self.progressChanged.emit()
+        message = self._executor._worker_error_text(error) if self._executor else str(error)
+        for row in self.model._records:
+            payload = self._operations.get(row['operationId']) or {}
+            if payload.get('_serverQueue') and row['status'] in ('Queued','Running'):
+                self._set_record(row['operationId'],stage='waiting for server',error=message)
+        self.stateChanged.emit()
+        self._server_timer.start(3000)
+
+    def _cancel_server_batches(self) -> None:
+        from thlib.environment import env_inst, env_server
+        from thlib.server_checkin_queue import request
+        for batch in self._server_batches.values():
+            if batch['server'] != str(env_server.get_server()) or batch['user'] != str(env_server.get_user()):
+                continue
+            worker = env_inst.server_pool.add_task(request,batch['server'],str(env_server.get_ticket()),batch['project'],
+                                                  'cancel',dict(batch_id=batch['batch_id']))
+            if worker is not None:
+                worker.result.connect(lambda result,b=batch:self._server_cancelled(b,result),Qt.ConnectionType.QueuedConnection)
+                worker.error.connect(lambda error:self._server_updates_failed(error,from_cancel=True),Qt.ConnectionType.QueuedConnection)
+                worker.start()
+
+    def _server_cancelled(self, batch: dict, result: dict) -> None:
+        if self._server_closed:
+            return
+        batch['submitted'] = True
+        batch['uploadError'] = ''
+        for operation in batch['operations']:
+            row = self._row_for_id(operation['operation_id'])
+            state = (result.get('states') or {}).get(operation['operation_id'],'terminated')
+            if row >= 0 and state == 'terminated':
+                self._operations[operation['operation_id']]['_serverQueue']['state'] = state
+                self._set_record(operation['operation_id'],status='Cancelled',stage='cancelled',error='',canCommit=True)
+            elif row >= 0 and state == 'locked':
+                self._set_record(operation['operation_id'],status='Running',stage='server locked',canCommit=False)
+        self._save()
+        self._server_timer.start(1)
+
+    def _finish_server_move(self, operation_id: str) -> None:
+        if operation_id in self._server_cleanup_ids:
+            return
+        from thlib.environment import env_inst
+        from thlib.server_checkin_queue import remove_committed_sources
+        payload = self._operations[operation_id]
+        worker = env_inst.commit_pool.add_task(remove_committed_sources,deepcopy(payload))
+        if worker is None:
+            return
+        self._server_cleanup_ids.add(operation_id)
+        self.stateChanged.emit()
+        worker.result.connect(lambda _result:self._server_move_finished(operation_id),Qt.ConnectionType.QueuedConnection)
+        worker.error.connect(lambda error:self._server_move_finished(operation_id,self._executor._worker_error_text(error)),Qt.ConnectionType.QueuedConnection)
+        worker.start()
+
+    def _server_move_finished(self, operation_id: str, error: str = '') -> None:
+        self._server_cleanup_ids.discard(operation_id)
+        payload = self._operations.get(operation_id)
+        if payload:
+            payload['_serverMoveCleaned'] = True
+            self._set_record(operation_id,error=error)
+            if self._auto_clean and not error:
+                self.remove_row(self._row_for_id(operation_id))
+        self._save()
+        self.stateChanged.emit()
+        if not self._server_closed:
+            self._flush_refreshes()
+            self._close_finished_auto_clean_queue()
+
 
     def _write_settings(self) -> None:
         env_write_config(

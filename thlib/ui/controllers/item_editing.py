@@ -207,11 +207,15 @@ class ItemEditingMixin:
                 env_inst.server_pool.start()
 
             def update_multiple():
+                from thlib import server_cache
                 server = tc.server_start(project=project_code)
-                return (server.update_multiple(
-                    data=data,
-                    triggers=True,
-                ),)
+                result = tc.update_multiple_compatible(
+                    server, data=data, triggers=True,
+                )
+                server_cache.invalidate_domains(
+                    ("search", "tasks", "activity"), project_code,
+                )
+                return (result,)
 
             worker = env_inst.server_pool.add_task(update_multiple)
             worker.add_result_data((request_id, count, label))
@@ -289,7 +293,24 @@ class ItemEditingMixin:
         triggers = getattr(self, "_script_triggers", None)
         if trigger and triggers is not None:
             triggers.run_after(*trigger)
-        self.refresh_current()
+        tab = self._current_tab()
+        if trigger and tab and getattr(tab, "view_mode", "") == "table":
+            context = trigger[1]
+            project = str(context.get("project_code") or "")
+            if project != self._current_project_code:
+                return
+            changes = {
+                key: dict(values)
+                for key, values in context["values_by_search_key"].items()
+            }
+            for record in server_result if isinstance(server_result, list) else []:
+                key = record.get("__search_key__") if isinstance(record, dict) else None
+                if key in changes:
+                    changes[key].update(record)
+            self.workspace_model.update_item_fields(changes)
+            self.item_fields_updated.emit(project, list(changes))
+        else:
+            self.refresh_current()
 
     @Slot(object)
     def _selected_update_error(self, error) -> None:

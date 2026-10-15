@@ -46,6 +46,7 @@ class SearchRuntimeMixin:
         limit: int,
         offset: int,
         sort_mode: str,
+        details_search_key: str = "",
     ) -> str:
         order_bys = result_order_bys(sort_mode)
         return json.dumps(
@@ -56,6 +57,8 @@ class SearchRuntimeMixin:
                 "limit": limit,
                 "offset": offset,
                 "snapshots": True,
+                "details": True,
+                "detailsSearchKey": details_search_key,
                 "progress": True,
             },
             ensure_ascii=False,
@@ -83,6 +86,7 @@ class SearchRuntimeMixin:
         offset: int,
         sort_mode: str = "name_asc",
         bypass_cache: bool = False,
+        details_search_key: str = "",
     ):
         import thlib.tactic_classes as tc
         from thlib import server_cache
@@ -101,6 +105,7 @@ class SearchRuntimeMixin:
             limit,
             offset,
             sort_mode,
+            details_search_key,
         )
         if bypass_cache:
             server_cache.invalidate_domains(("search",), project_code)
@@ -131,6 +136,8 @@ class SearchRuntimeMixin:
                     ),
                     include_progress=True,
                     include_total_count=False,
+                    include_details=True,
+                    details_search_key=details_search_key,
                     return_payload=True,
                     **kwargs,
                 )
@@ -146,11 +153,8 @@ class SearchRuntimeMixin:
         except Exception as error:
             message = str(error).lower()
             if not (
-                "include_progress" in message
-                or (
-                    "unexpected" in message
-                    and ("argument" in message or "keyword" in message)
-                )
+                "unexpected keyword argument" in message
+                and any(name in message for name in ("include_progress", "return_payload"))
             ):
                 raise
             result = tc.get_sobjects(search_type, **kwargs)
@@ -171,7 +175,65 @@ class SearchRuntimeMixin:
         stype = SearchRuntimeMixin._search_stype(
             search_type, project_code
         )
-        return list(sobjects.values()), info, stype
+        objects = list(sobjects.values())
+        SearchRuntimeMixin._resolve_category_labels(
+            objects, stype, project_code, bypass_cache
+        )
+        return objects, info, stype
+
+    @staticmethod
+    def _resolve_category_labels(sobjects, stype, project_code, refresh=False):
+        """Resolve configured select labels inside the search worker."""
+        if not stype or not sobjects:
+            return
+        from thlib import server_cache
+        from thlib.tactic_classes import server_start
+
+        columns = {
+            column for sobject in sobjects for column in sobject.get_info()
+            if column == "category" or column.endswith("_category_code")
+        }
+        if not columns:
+            return
+        definition = stype.get_definition("edit_definition", bs=True)
+        if not definition:
+            return
+        for element in definition.find_all("element"):
+            column = element.get("name")
+            if column not in columns:
+                continue
+            display = element.find("display")
+            if display is None:
+                continue
+            key = "category-labels:" + json.dumps(
+                [stype.get_code(), column, str(display)], ensure_ascii=False
+            )
+            labels = None if refresh else server_cache.read_entry(
+                "reference", key, project_code
+            )
+            if labels is None:
+                token = server_cache.token("reference", project_code)
+                options = []
+                for name in ("values", "labels"):
+                    expression = display.find(name + "_expr")
+                    literal = display.find(name)
+                    if expression is not None and expression.text.strip():
+                        values = server_start(project=project_code).eval(
+                            expression.text.strip(), single=False
+                        )
+                        options.append(values or [])
+                    else:
+                        options.append(literal.text.split("|") if literal else [])
+                labels = dict(zip(*options))
+                server_cache.write_entry(
+                    "reference", key, labels, project_code,
+                    expected_token=token,
+                )
+            for sobject in sobjects:
+                record = sobject.get_info()
+                value = record.get(column)
+                if value and value in labels:
+                    record.setdefault("__category_labels__", {})[column] = labels[value]
 
     @staticmethod
     def _query_saved_projection(
@@ -250,6 +312,14 @@ class SearchRuntimeMixin:
         self.result_count_changed.emit()
         self.paging_state_changed.emit()
         self.page_changed.emit(self._current_page_key, self._current_page_title)
+
+    def _clear_result_state(self) -> None:
+        self._result_count = 0
+        self._current_page_key = ""
+        self._current_page_title = ""
+        self.result_count_changed.emit()
+        self.paging_state_changed.emit()
+        self.page_changed.emit("", "")
 
     def _restore_cached_tab(self, tab: SearchTabSession) -> None:
         section = self._current_section()
@@ -402,6 +472,7 @@ class SearchRuntimeMixin:
             offset=request_offset,
             sort_mode=tab.sort_mode,
             bypass_cache=bypass_cache,
+            details_search_key=getattr(self, "_selected_detail_key", "") if is_current else "",
         )
         if worker is None:
             tab.loading = False

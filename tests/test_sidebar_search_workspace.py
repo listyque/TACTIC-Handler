@@ -41,6 +41,10 @@ class SidebarSearchWorkspaceTests(unittest.TestCase):
                 <display class="LinkWdg"/><search_type>demo/asset</search_type>
                 <search_view>link_search:ready:demo/asset</search_view>
                 </element></config>""",
+        }, {
+            "code": "CONFIG2", "search_type": "SideBarWdg",
+            "view": "tactic_handler",
+            "config": "<config><element name='my_tasks'/></config>",
         }]))
         self.sidebar.select_entry(0)
         self.filters = QuickFilterEditorController(self.application, self.users)

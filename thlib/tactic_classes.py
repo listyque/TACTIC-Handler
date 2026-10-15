@@ -8,11 +8,17 @@ import io
 import shutil
 import urllib
 from urllib.parse import urlparse, parse_qsl
+from xmlrpc.client import Fault as XMLRPCFault
 import collections
 import copy
 import json
+import hashlib
 import datetime
+import threading
+from functools import lru_cache
+from pathlib import Path
 from decimal import Decimal, InvalidOperation
+from xml.etree import ElementTree
 from thlib.tactic_xml import parse_tactic_xml
 import time
 import thlib.proxy as proxy
@@ -24,7 +30,7 @@ from thlib.side.client.tactic_client_lib.tactic_server_stub import TacticServerS
 
 
 def server_auth(host, project=None, login=None, password=None, site=None, get_ticket=False):
-    server = TacticServerStub(protocol='xmlrpc', setup=False)
+    server = TacticServerStub(protocol=env_server.get_rpc_transport(), setup=False)
     server.set_transport(proxy.UrllibTransport())
     if env_server.get_proxy()['enabled']:
         server.transport.enable_proxy()
@@ -37,12 +43,15 @@ def server_auth(host, project=None, login=None, password=None, site=None, get_ti
 
     ticket = env_server.get_ticket()
 
-    if not ticket or get_ticket:
+    if not ticket and not get_ticket:
+        raise PermissionError("TACTIC session is signed out")
+
+    if get_ticket:
         ticket = server.get_ticket(login, password, site)
         if isinstance(ticket, dict):
             if ticket.get('exception'):
                 return server
-        else:
+        elif not get_ticket:
             env_server.set_ticket(ticket)
 
     server.set_ticket(ticket)
@@ -62,6 +71,37 @@ def server_start(get_ticket=False, project=None):
         get_ticket=get_ticket,
     )
     return server
+
+
+def update_multiple_compatible(server, data, triggers=True):
+    """Update records without mixing TACTIC code and id search keys."""
+    batches = {}
+    for search_key, values in dict(data or {}).items():
+        key = str(search_key or "")
+        parsed = urlparse(key[7:] if key.startswith("skey://") else key)
+        query = dict(parse_qsl(parsed.query, keep_blank_values=True))
+        identity = (
+            "id" if "id" in query and "code" not in query
+            else "code" if "code" in query and "id" not in query
+            else key
+        )
+        batch_key = (parsed.path, query.get("project", ""), identity)
+        batches.setdefault(batch_key, {})[key] = dict(values or {})
+
+    results = []
+    for batch in batches.values():
+        results.append(server.update_multiple(
+            data=batch, triggers=triggers
+        ))
+    if len(results) == 1:
+        return results[0]
+    merged = []
+    for result in results:
+        if isinstance(result, (list, tuple)):
+            merged.extend(result)
+        elif result is not None:
+            merged.append(result)
+    return merged
 
 
 def generate_new_ticket(explicit_username=None, parent=None):
@@ -150,8 +190,9 @@ def server_ping():
         return False
 
 
-def server_fast_ping_predefined(server_url, proxy_dict=None):
-    server = TacticServerStub.get(protocol='xmlrpc', setup=False)
+def server_fast_ping_predefined(server_url, proxy_dict=None, rpc_transport='xmlrpc'):
+    server = TacticServerStub(protocol=rpc_transport, setup=False)
+    proxy_dict = proxy_dict or {}
 
     if proxy_dict.get('enabled'):
 
@@ -176,7 +217,7 @@ def server_fast_ping_predefined(server_url, proxy_dict=None):
 
 
 def server_fast_ping():
-    server = TacticServerStub.get(protocol='xmlrpc', setup=False)
+    server = TacticServerStub(protocol=env_server.get_rpc_transport(), setup=False)
     if env_server.get_proxy()['enabled']:
         transport = proxy.UrllibTransport()
         server.set_transport(transport)
@@ -462,6 +503,8 @@ class SObject(object):
         # OUTPUT VARS
         self.process = {}
         self.tasks_sobjects = None
+        self._details_cache_token = None
+        self._snapshot_cache_token = None
         self.task_summaries = {}
         self.notes_sobjects = None
         self.snapshots_sobjects = None
@@ -510,6 +553,11 @@ class SObject(object):
         from thlib import server_cache
 
         project_code = str(self.project.get_code() or '')
+        if (not force and not filters
+                and self.info.get('__snapshots_complete__')
+                and order_bys in (None, [], ['timestamp desc'])
+                and self._snapshot_cache_token == server_cache.token('snapshots', project_code)):
+            return
         cache_key = json.dumps({
             'target': self.get_search_key(),
             'orderBys': list(order_bys or []),
@@ -538,6 +586,8 @@ class SObject(object):
                     'snapshots', cache_key, snapshot_dict, project_code,
                     expected_token=cache_token,
                 )
+        self.info['__snapshots_complete__'] = not filters
+        self._snapshot_cache_token = cache_token
         self.process = {}
         self.init_snapshots(snapshot_dict)
 
@@ -1591,6 +1641,15 @@ class Pipeline(object):
         # what if we have duplicated processes?
         for process in self.info['stypes_processes']:
             if process['process'] == process_code:
+                workflow = process.get('workflow')
+                if isinstance(workflow, str):
+                    try:
+                        workflow = json.loads(workflow)
+                    except ValueError:
+                        workflow = {}
+                    if not isinstance(workflow, dict):
+                        workflow = {}
+                    return dict(process, workflow=workflow)
                 return process
 
     def get_all_pipeline_names(self):
@@ -2279,6 +2338,11 @@ class File(SObject, object):
         if expected_size > 0 and local_stat.st_size != expected_size:
             return False
 
+        # In TEAM the repository file is the source, not a downloaded copy.
+        # Its mtime may predate the TACTIC file row created at check-in.
+        if env_server.is_team_local_repository():
+            return True
+
         try:
             server_timestamp = self.get_timestamp(obj=True)
             server_mtime = (
@@ -2336,7 +2400,7 @@ class File(SObject, object):
 
         full_abs_path = self.prepare_repo(dest_path)
 
-        with urllib.urlopen(self.get_full_web_path()) as download:
+        with proxy.UrllibTransport().open(self.get_full_web_path()) as download:
             with open(full_abs_path, "wb") as downloaded_file:
                 downloaded_file.write(download.read())
 
@@ -2504,6 +2568,11 @@ class TacticProcedureError(RuntimeError):
         lines = [line.strip() for line in self.server_traceback.splitlines()
                  if line.strip()]
         summary = lines[-1] if lines else 'Unknown server error'
+        if 'No module named' in summary and 'tactic_handler_queries' in summary:
+            summary += (
+                '. Install the query plugin on this TACTIC server '
+                'or select Local in Configuration > Server'
+            )
         super(TacticProcedureError, self).__init__(
             'TACTIC procedure {0} failed: {1}'.format(
                 self.procedure, summary
@@ -2511,16 +2580,153 @@ class TacticProcedureError(RuntimeError):
         )
 
 
+@lru_cache(maxsize=1)
+def _query_source_sha256():
+    from server_plugin.build_plugin import server_source
+
+    return hashlib.sha256(server_source()).hexdigest()
+
+
+_PLUGIN_DEPLOY_LOCK = threading.Lock()
+_BOOTSTRAP_QUERY_NAMES = frozenset({
+    'get_projects_and_logins',
+    'query_search_types_extended',
+})
+
+
+def _plugin_needs_deploy(error):
+    message = error.faultString
+    missing = 'No module named' in message and 'tactic_handler_queries' in message
+    outdated = 'query plugin is out of date' in message.lower()
+    return missing or outdated
+
+
+def _execute_plugin_command(server, command_args):
+    from server_plugin.build_plugin import MODULE_NAME
+
+    command = MODULE_NAME + '.command.QueryCommand'
+    try:
+        return server.execute_cmd(command, args=command_args)
+    except XMLRPCFault as error:
+        if not _plugin_needs_deploy(error):
+            raise
+    # ponytail: one process-wide lock; coordinate across clients only if
+    # concurrent installations on the same TACTIC server become a real issue.
+    with _PLUGIN_DEPLOY_LOCK:
+        try:
+            return server.execute_cmd(command, args=command_args)
+        except XMLRPCFault as error:
+            if not _plugin_needs_deploy(error):
+                raise
+            from server_plugin.deploy import deploy
+
+            try:
+                deploy(server)
+            except XMLRPCFault as install_error:
+                if (
+                    'administrator access is required'
+                    in install_error.faultString.lower()
+                ):
+                    raise PermissionError(
+                        'Installing the TACTIC query plugin requires an '
+                        'administrator ticket. Select Local in '
+                        'Configuration > Server or ask an administrator '
+                        'to install it.'
+                    ) from install_error
+                raise RuntimeError(
+                    'Installing the TACTIC query plugin failed: '
+                    + install_error.faultString
+                ) from install_error
+            # TACTIC workers may see a newly installed package after their
+            # Python importer notices the changed plugin directory.
+            last_error = error
+            for delay in (0, 0.25, 0.75):
+                if delay:
+                    time.sleep(delay)
+                try:
+                    return server.execute_cmd(command, args=command_args)
+                except XMLRPCFault as retry_error:
+                    if not _plugin_needs_deploy(retry_error):
+                        raise
+                    if 'No module named' not in retry_error.faultString:
+                        raise
+                    last_error = retry_error
+            raise RuntimeError(
+                'The query plugin files are installed, but TACTIC workers '
+                'still cannot import the new module. Restart the TACTIC '
+                'service, or select Local in Configuration > Server.'
+            ) from last_error
+
+
 def execute_procedure_serverside(func, kwargs, project=None, return_dict=True, server=None):
     # This is for TACTIC 4.7 compatibility
-    if kwargs.get('code'):
+    query_settings = env_read_config(
+        filename='server_query', unique_id='ui_conf',
+        long_abs_path=True, scope='installation',
+    ) or {}
+    query_modes = query_settings.get('modes') or {}
+    server_url = str(env_server.get_server() or '').rstrip('/')
+    use_plugin = (query_modes.get(server_url) == 'plugin'
+            and getattr(func, '__module__', None) == tq.__name__
+            and not kwargs.get('code'))
+    fallback_error = None
+    bootstrap_query = (
+        func.__name__ in _BOOTSTRAP_QUERY_NAMES
+        or (func.__name__ == 'query_server_updates' and not any(
+            kwargs.get(name, True) for name in (
+                'include_activity', 'include_messages',
+                'include_reactions', 'include_presence',
+                'heartbeat_presence',
+            )
+        ))
+    )
+    code = None
+    if use_plugin:
+        command_args = {
+            'procedure': func.__name__,
+            'arguments': kwargs,
+            'source_sha256': _query_source_sha256(),
+        }
+    elif kwargs.get('code'):
         code = kwargs
     else:
         code = tq.prepare_serverside_script(func, kwargs, shrink=False, catch_traceback=False)
     if not server:
         server = server_start(project=project)
-    code['_debug_args'] = False
-    result = server.execute_python_script('', kwargs=code)
+    if use_plugin:
+        try:
+            result = _execute_plugin_command(server, command_args)
+        except XMLRPCFault as error:
+            if bootstrap_query and _plugin_needs_deploy(error):
+                use_plugin = False
+                fallback_error = error
+            else:
+                dl.exception(
+                    error.faultString,
+                    group_id='exceptions/{0}'.format(func.__name__),
+                )
+                raise TacticProcedureError(
+                    func.__name__, error.faultString, project=project
+                ) from error
+        except (PermissionError, RuntimeError) as error:
+            if (not bootstrap_query
+                    or not isinstance(error.__cause__, XMLRPCFault)):
+                raise
+            use_plugin = False
+            fallback_error = error
+    if not use_plugin:
+        if fallback_error is not None:
+            dl.warning(
+                'Using the bootstrap script for {0} because the query '
+                'plugin is unavailable: {1}'.format(func.__name__, fallback_error),
+                group_id='server/bootstrap_plugin_fallback',
+            )
+        if code is None:
+            code = tq.prepare_serverside_script(
+                func, kwargs, shrink=False, catch_traceback=False
+            )
+        code['_debug_args'] = False
+        result = server.execute_python_script('', kwargs=code)
 
     if isinstance(result['info'], dict):
         if result['info'].get('spt_ret_val'):
@@ -2711,6 +2917,9 @@ def query_work_hour_report(report_key, project_code, start_day=None,
 
 
 def get_all_projects_and_logins(force=False, cache_only=False):
+    session = (
+        env_server.get_server(), env_server.get_user(), env_server.get_ticket()
+    )
 
     if env_mode.get_mode() == 'api_server':
         use_cache = False
@@ -2730,8 +2939,6 @@ def get_all_projects_and_logins(force=False, cache_only=False):
                 return collections.OrderedDict()
             return get_all_projects_and_logins(True)
     if projects_and_users is None:
-        if use_cache and force:
-            server_cache.invalidate_domains(('reference',), 'sthpw')
         cache_token = (
             server_cache.token('reference', 'sthpw') if use_cache else None
         )
@@ -2758,8 +2965,6 @@ def get_all_projects_and_logins(force=False, cache_only=False):
         project_sobject.init_snapshots(project.get('__snapshots__') or [])
         projects_dict[project.get('code')] = project_sobject
 
-    env_inst.projects = projects_dict
-
     logins_dict = collections.OrderedDict()
     login_groups_list = []
     login_in_groups_list = []
@@ -2775,7 +2980,11 @@ def get_all_projects_and_logins(force=False, cache_only=False):
         login_sobject.init_snapshots(login.get('__snapshots__') or [])
         logins_dict[login.get('code')] = login_sobject
 
-    env_inst.logins = logins_dict
+    if session == (
+        env_server.get_server(), env_server.get_user(), env_server.get_ticket()
+    ):
+        env_inst.projects = projects_dict
+        env_inst.logins = logins_dict
 
     return projects_dict
 
@@ -2926,6 +3135,13 @@ def get_chat_conversations():
     )
 
 
+def get_application_update_snapshots(search_key):
+    return execute_procedure_serverside(
+        tq.query_application_update_snapshots,
+        {'search_key': search_key}, project='sthpw',
+    )
+
+
 def create_chat_conversation(recipients, title=''):
     return execute_procedure_serverside(
         tq.create_chat_conversation,
@@ -2986,6 +3202,18 @@ def delete_chat_message(message_log_code):
         tq.delete_chat_message,
         {'message_log_code': message_log_code},
         project='sthpw',
+    )
+
+
+def change_note(note_search_key, action, body='', project_code=None):
+    return execute_procedure_serverside(
+        tq.change_note,
+        {
+            'note_search_key': note_search_key,
+            'action': action,
+            'body': body,
+        },
+        project=project_code,
     )
 
 
@@ -3221,6 +3449,8 @@ def hydrate_sobjects_payload(
     this function preserves the native SObject/File/Snapshot API and avoids
     serializing live QObject-adjacent object graphs.
     """
+    from thlib import server_cache
+
     sobjects_list = copy.deepcopy(payload or {})
     if not isinstance(sobjects_list, dict):
         return (collections.OrderedDict(), {}) if include_info else collections.OrderedDict()
@@ -3257,6 +3487,7 @@ def hydrate_sobjects_payload(
 
         if include_snapshots:
             native.init_snapshots(sobject.get('__snapshots__') or [])
+            native._snapshot_cache_token = server_cache.token('snapshots', project_code)
         if include_info:
             if object_type == Task.SEARCH_TYPE:
                 process = str(sobject.get('process') or 'publish')
@@ -3286,11 +3517,19 @@ def hydrate_sobjects_payload(
             native.set_status_log(sobject.get('__status_log__') or [])
         if include_progress:
             native.set_progress_counts(sobject.get('__progress__') or {})
+        if '__details__' in sobject:
+            native._details_cache_token = server_cache.token('search', project_code)
+            tasks, notes = get_tasks_and_notes(
+                sobject=native, process=None, include_all_tasks=True,
+                payload=sobject['__details__'],
+            )
+            native.tasks_sobjects = (tasks, {})
+            native.notes_sobjects = (notes, {})
 
     return (sobjects, info) if include_info else sobjects
 
 
-def get_sobjects(search_type, filters=[], order_bys=[], project_code=None, limit=None, offset=None, get_all_snapshots=False, check_snapshots_updates=False, include_info=True, include_snapshots=True, compressed_return=True, include_status_log=False, include_progress=False, include_total_count=True, snapshot_timestamps=None, return_payload=False):
+def get_sobjects(search_type, filters=[], order_bys=[], project_code=None, limit=None, offset=None, get_all_snapshots=False, check_snapshots_updates=False, include_info=True, include_snapshots=True, compressed_return=True, include_status_log=False, include_progress=False, include_total_count=True, snapshot_timestamps=None, return_payload=False, include_details=False, details_search_key=None):
     """
     Filters snapshot by search codes, and sobjects codes
     :param search_type: search_type or search_key (if using search_type project_code should to be provided)
@@ -3298,7 +3537,7 @@ def get_sobjects(search_type, filters=[], order_bys=[], project_code=None, limit
     :return: tuple : (dict, dict) of sObjects objects
     """
 
-    filters = json.dumps(filters, ensure_ascii=False).encode('utf-8')
+    filters = json.dumps(filters, ensure_ascii=False)
 
     kwargs = {
         'search_type': search_type,
@@ -3316,6 +3555,8 @@ def get_sobjects(search_type, filters=[], order_bys=[], project_code=None, limit
         'include_progress': include_progress,
         'include_total_count': include_total_count,
         'snapshot_timestamps': snapshot_timestamps or [],
+        'include_details': include_details,
+        'details_search_key': details_search_key,
     }
     if not project_code:
         if search_type.startswith('sthpw'):
@@ -3378,22 +3619,81 @@ def get_table_layout(search_type, search_keys=None, view='table',
 
 def save_widget_config(search_type, view, config_xml=None,
                        element_xml=None, project_code=None):
+    """Save one native widget_config row without the Python-script RPC."""
     if not project_code:
         project_code = (
             'sthpw' if search_type.startswith('sthpw')
             else split_search_key(search_type)['project_code']
         )
-    return execute_procedure_serverside(
-        tq.save_widget_config,
-        {
-            'search_type': search_type,
-            'view': str(view or 'table'),
-            'config_xml': config_xml,
-            'element_xml': element_xml,
-            'project_code': project_code,
-        },
-        project=project_code,
-    )
+    view = str(view or 'table')
+    base_search_type = str(search_type or '').split('?', 1)[0]
+    server = server_start(project=project_code)
+    record = server.query(
+        'config/widget_config',
+        [('search_type', base_search_type), ('view', view)],
+        ['code', 'config'],
+        single=True,
+    ) or {}
+
+    def parse_xml(value):
+        parser = ElementTree.XMLParser(target=ElementTree.TreeBuilder(
+            insert_comments=True, insert_pis=True,
+        ))
+        return ElementTree.fromstring(str(value or ''), parser=parser)
+
+    if element_xml:
+        source = str(record.get('config') or '<config><%s/></config>' % view)
+        root = parse_xml(source)
+        view_node = root if root.tag == view else root.find('.//%s' % view)
+        if view_node is None:
+            view_node = ElementTree.SubElement(root, view)
+        element = parse_xml(element_xml)
+        element_name = element.get('name') if element.tag == 'element' else ''
+        if not element_name:
+            raise ValueError('Widget element requires a name')
+        matches = [
+            (index, child) for index, child in enumerate(view_node)
+            if child.tag == 'element' and child.get('name') == element_name
+        ]
+        insert_at = matches[0][0] if matches else len(view_node)
+        for _index, child in reversed(matches):
+            view_node.remove(child)
+        view_node.insert(insert_at, element)
+    elif config_xml:
+        root = parse_xml(config_xml)
+        view_node = root if root.tag == view else root.find('.//%s' % view)
+        if view_node is None:
+            raise ValueError('Widget config requires a <%s> view' % view)
+    else:
+        raise ValueError('Widget config XML is required')
+
+    element_names = [
+        child.get('name') for child in view_node
+        if child.tag == 'element' and child.get('name')
+    ]
+    if len(element_names) != len(set(element_names)):
+        raise ValueError('Widget view contains duplicate elements')
+    output_xml = ElementTree.tostring(root, encoding='unicode')
+
+    if record:
+        search_key = record.get('__search_key__') or server.build_search_key(
+            'config/widget_config', record['code'], project_code=project_code,
+        )
+        server.insert_update(search_key, {'config': output_xml}, triggers=False)
+        code = str(record.get('code') or '')
+    else:
+        created = server.insert('config/widget_config', {
+            'search_type': base_search_type,
+            'view': view,
+            'config': output_xml,
+        }, triggers=False) or {}
+        code = str(created.get('code') or '')
+    return {
+        'code': code,
+        'searchType': base_search_type,
+        'view': view,
+        'config': output_xml,
+    }
 
 def get_group_sobjects(search_type, project_code=None, groups_list=[]):
 
@@ -3835,6 +4135,25 @@ def get_virtual_snapshot(search_key, context, files_dict, snapshot_type='file', 
     return virtual_snapshot
 
 
+def get_virtual_snapshots(operations: list[dict]) -> list[dict]:
+    if not 1 <= len(operations) <= 50:
+        raise ValueError('Naming preview requires between 1 and 50 operations')
+    projects = {}
+    results = [None] * len(operations)
+    for index, arguments in enumerate(operations):
+        project = split_search_key(arguments['search_key'])['project_code']
+        values = dict(arguments, files_dict=json.dumps(arguments['files_dict']))
+        projects.setdefault(project, []).append((index, values))
+    for project, items in projects.items():
+        values = execute_procedure_serverside(tq.get_virtual_snapshots_extended,
+            {'operations': [arguments for index, arguments in items]}, project=project, return_dict=True)
+        if not isinstance(values, list) or len(values) != len(items):
+            raise ValueError('Naming preview returned an incomplete batch')
+        for (index, arguments), value in zip(items, values):
+            results[index] = value
+    return results
+
+
 def checkin_snapshot(search_key, context, snapshot_type=None, is_revision=False, description=None, version=None,
                      update_versionless=True, only_versionless=False, keep_file_name=False, repo_name=None, virtual_snapshot=None,
                      files_dict=None, mode=None, create_icon=False, files_objects=None, progress_signal=None):
@@ -3924,6 +4243,21 @@ def checkin_snapshot(search_key, context, snapshot_type=None, is_revision=False,
     server = server_start(project=project_code['project_code'])
 
     if mode == 'upload':
+        server_dirs = server.get_base_dirs()
+        server_path = (
+            server_dirs.get(repo_name.get('name'))
+            if isinstance(server_dirs, dict) else None
+        )
+        if isinstance(server_path, str):
+            try:
+                shared_repository = os.path.samefile(repo, server_path)
+            except (OSError, ValueError):
+                shared_repository = False
+            if shared_repository:
+                # The file is already staged at TACTIC's final destination.
+                mode = kwargs['mode'] = 'inplace'
+
+    if mode == 'upload':
         # Every queue operation owns its transaction so a failed or cancelled
         # snapshot cannot roll back unrelated operations in the queue.
         s = gf.time_it()
@@ -3958,27 +4292,20 @@ def checkin_snapshot(search_key, context, snapshot_type=None, is_revision=False,
             server.finish(u'Upload Checkin from Tactic Handler by: {}. Finished.'.format(env_inst.get_current_login()))
         gf.time_it(s, message='Transaction End: ')
     elif mode in ['inplace', 'preallocate']:
-        server.start('Inplace Checkin', u'Inplace Checkin from Tactic Handler by: {}'.format(env_inst.get_current_login()))
-        try:
-            result = execute_procedure_serverside(
-                tq.create_snapshot_extended,
-                kwargs,
-                project=project_code['project_code'],
-                return_dict=False,
-                server=server,
+        # One server Command owns the rows, repository undo and history.
+        kwargs['transaction_title'] = 'Inplace Checkin'
+        kwargs['transaction_description'] = (
+            u'Inplace Checkin from Tactic Handler by: {}. Finished.'.format(
+                env_inst.get_current_login()
             )
-        except Exception:
-            abort = getattr(server, 'abort', None)
-            if callable(abort):
-                try:
-                    abort()
-                except Exception as abort_error:
-                    dl.exception(
-                        abort_error, group_id='exceptions/checkin_abort'
-                    )
-            raise
-        else:
-            server.finish(u'Inplace Checkin from Tactic Handler by: {}. Finished.'.format(env_inst.get_current_login()))
+        )
+        result = execute_procedure_serverside(
+            tq.create_snapshot_extended,
+            kwargs,
+            project=project_code['project_code'],
+            return_dict=False,
+            server=server,
+        )
     else:
         raise ValueError('Unsupported check-in mode: {0}'.format(mode))
 

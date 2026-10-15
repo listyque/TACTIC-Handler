@@ -37,6 +37,8 @@ from thlib.request_retry import (
     transient_error_reporting_deferred,
 )
 from .request_metrics import request_metrics
+from .debug_request import request_code_blocks
+from .script_editor_features import PythonSyntaxHighlighter
 
 
 LEVELS = (
@@ -234,6 +236,7 @@ class DebugLogController(QObject):
         self._error_message = ""
         self._error_stacktrace = ""
         self._error_command = ""
+        self._request_highlighters = {}
         self._retry_worker = None
         self._last_error_signature = ""
         self._last_error_group = ""
@@ -1207,6 +1210,25 @@ class DebugLogController(QObject):
     @Property(str, notify=error_changed)
     def error_command(self) -> str:
         return self._error_command
+
+    @Property("QVariantList", notify=error_changed)
+    def error_request_blocks(self) -> list[dict[str, str]]:
+        return request_code_blocks(self._error_command)
+
+    @Slot(QObject, "QVariantMap")
+    def attach_request_document(
+        self, quick_document: QObject, colors: dict[str, str],
+    ) -> None:
+        document = quick_document.textDocument()
+        identity = id(document)
+        highlighter = self._request_highlighters.get(identity)
+        if highlighter is not None:
+            highlighter.set_colors(colors)
+            return
+        self._request_highlighters[identity] = PythonSyntaxHighlighter(document, colors)
+        document.destroyed.connect(
+            lambda: self._request_highlighters.pop(identity, None)
+        )
 
     @Slot(result=bool)
     def copy_error_stacktrace(self) -> bool:

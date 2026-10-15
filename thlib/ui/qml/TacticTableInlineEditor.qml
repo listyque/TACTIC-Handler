@@ -4,6 +4,7 @@ import QtQuick
 
 Item {
     id: root
+    clip: true
 
     required property var theme
     required property var controller
@@ -15,6 +16,8 @@ Item {
     property bool editing: false
     property bool discarding: false
     property var descriptor: ({})
+    readonly property bool textPanel: descriptor.fieldType === "multiline"
+        || descriptor.submitName === "description" || columnName === "description"
 
     signal selectRequested()
     signal focusTableRequested()
@@ -80,12 +83,13 @@ Item {
         anchors.verticalCenter: parent.verticalCenter
         anchors.margins: 4
         height: Math.max(parent.height - 8, 0)
-        active: root.editing
+        active: root.editing && !root.textPanel
 
         sourceComponent: SObjectValueEditor {
             theme: root.theme
             compact: true
             autoActivate: true
+            commitTextOnFinish: true
             editorMode: "edit"
             fieldName: String(root.descriptor.fieldName || "")
             fieldType: String(root.descriptor.fieldType || "string")
@@ -95,6 +99,17 @@ Item {
             readOnlyField: false
             onValueEdited: value => root.commit(value)
             onCancelRequested: root.cancel()
+        }
+    }
+
+    Loader {
+        anchors.fill: parent
+        active: root.editing && root.textPanel
+        sourceComponent: TableTextEditor {
+            theme: root.theme
+            value: String(root.descriptor.fieldValue ?? "")
+            onSaved: value => root.commit(value)
+            onCancelled: if (root.editing) root.cancel()
         }
     }
 }

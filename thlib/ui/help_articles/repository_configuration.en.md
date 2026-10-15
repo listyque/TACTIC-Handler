@@ -17,10 +17,12 @@ used; **Loading** means server repository definitions are still being read.
 | Control | What it does |
 | --- | --- |
 | **Open Repository Editor** | Opens all repository definitions for editing. |
-| **Check paths** | Tests every enabled path for the current platform and updates each status. It does not create missing directories. |
+| **Check paths** | Creates missing directories for enabled current-platform paths, then checks access and updates each status. Creation failures show the filesystem error. Blank paths are rejected. |
 | **Active repositories** | Lists enabled repositories, their native TACTIC codes, current-platform paths, default marker, and last path-check result. |
 
 ## Repository Editor fields
+
+Local is disabled by default for new repository settings. Existing saved enablement is preserved.
 
 | Field | Meaning |
 | --- | --- |

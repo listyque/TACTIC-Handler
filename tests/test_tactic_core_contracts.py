@@ -3,6 +3,7 @@ from types import ModuleType
 import unittest
 from unittest.mock import Mock, patch
 from xmlrpc.client import Fault
+from xml.etree import ElementTree
 
 import thlib.tactic_classes as tc
 import thlib.tactic_query as tq
@@ -111,6 +112,87 @@ class TacticCoreContractTests(unittest.TestCase):
                 )
 
         server.execute_python_script.assert_called_once()
+
+    def test_removed_server_procedure_cannot_execute_neighboring_code(self):
+        server = Mock()
+
+        def removed_procedure():
+            return None
+
+        with self.assertRaisesRegex(
+                RuntimeError, "removed_procedure no longer exists"):
+            tc.execute_procedure_serverside(
+                removed_procedure, {}, project="demo", server=server
+            )
+
+        server.execute_python_script.assert_not_called()
+
+    def test_widget_config_save_uses_direct_rpc_and_preserves_native_xml(self):
+        server = Mock()
+        server.query.return_value = {
+            "code": "WIDGET001",
+            "__search_key__": "config/widget_config?code=WIDGET001",
+            "config": (
+                '<config marker="keep"><!--keep--><definition>'
+                '<element name="code" custom="keep"><display widget="link">'
+                '<option>keep</option></display></element>'
+                '</definition><other value="keep"/></config>'
+            ),
+        }
+
+        with patch.object(tc, "server_start", return_value=server):
+            result = tc.save_widget_config(
+                "demo/asset?project=demo",
+                "definition",
+                element_xml=(
+                    '<element name="code" title="Asset code">'
+                    '<display widget="format"/></element>'
+                ),
+                project_code="demo",
+            )
+
+        server.execute_python_script.assert_not_called()
+        server.insert_update.assert_called_once()
+        search_key, values = server.insert_update.call_args.args
+        self.assertEqual(
+            search_key, "config/widget_config?code=WIDGET001"
+        )
+        self.assertEqual(server.insert_update.call_args.kwargs, {
+            "triggers": False
+        })
+        self.assertIn("<!--keep-->", values["config"])
+        root = ElementTree.fromstring(values["config"])
+        element = root.find("definition/element")
+        self.assertEqual(element.get("title"), "Asset code")
+        self.assertEqual(element.find("display").get("widget"), "format")
+        self.assertEqual(root.find("other").get("value"), "keep")
+        self.assertEqual(result["searchType"], "demo/asset")
+        self.assertEqual(result["config"], values["config"])
+
+    def test_widget_config_full_save_never_executes_server_python(self):
+        server = Mock()
+        server.query.return_value = {
+            "code": "WIDGET001",
+            "__search_key__": "config/widget_config?code=WIDGET001",
+            "config": "<config><table/></config>",
+        }
+        xml = (
+            '<config marker="keep"><table><element name="code"/>'
+            '</table><other value="keep"/></config>'
+        )
+
+        with patch.object(tc, "server_start", return_value=server):
+            result = tc.save_widget_config(
+                "demo/asset", "table", config_xml=xml,
+                project_code="demo",
+            )
+
+        server.execute_python_script.assert_not_called()
+        saved = server.insert_update.call_args.args[1]["config"]
+        root = ElementTree.fromstring(saved)
+        self.assertEqual(root.get("marker"), "keep")
+        self.assertEqual(root.find("other").get("value"), "keep")
+        self.assertEqual(result["config"], saved)
 
     def test_server_traceback_raises_structured_error(self):
         server = Mock()

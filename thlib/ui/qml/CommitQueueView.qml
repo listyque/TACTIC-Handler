@@ -82,27 +82,41 @@ Item {
         topDividerVisible: false
         color: root.theme.workspace
     }
+    CommitQueueProgress {
+        id: queueProgress
+        anchors.top: parent.top
+        anchors.left: parent.left
+        anchors.right: parent.right
+        anchors.margins: 10
+        theme: root.theme
+        progress: commitQueueController.serverProgress
+    }
     SplitView {
         id: mainSplit
-        anchors.fill: parent
+        anchors.top: queueProgress.visible ? queueProgress.bottom : parent.top
+        anchors.bottom: parent.bottom
+        anchors.left: parent.left
+        anchors.right: parent.right
         anchors.margins: 10
         orientation: Qt.Horizontal
-        handle: Rectangle {
-            implicitWidth: 10
-            color: "transparent"
-            Rectangle {
-                anchors.centerIn: parent
-                width: 1
-                height: Math.max(0, parent.height - 18)
-                color: root.theme.outlineVariant
+        onResizingChanged: {
+            if (!resizing && width > 10) {
+                commitQueueController.set_splitter_ratio(filesDock.width / (width - 10))
+                filesDock.SplitView.preferredWidth = Qt.binding(function() {
+                    return (mainSplit.width - 10) * commitQueueController.splitterRatio
+                })
             }
+        }
+        handle: Controls.SplitterHandle {
+            theme: root.theme
         }
         Rectangle {
             id: filesDock
             objectName: "commitQueueFilesDock"
-            SplitView.preferredWidth: Math.max(300, Math.min(360, root.width * 0.36))
-            SplitView.minimumWidth: 270
-            SplitView.maximumWidth: Math.max(380, root.width * 0.52)
+            SplitView.preferredWidth: (mainSplit.width - 10) * commitQueueController.splitterRatio
+            SplitView.minimumWidth: Math.min(270, mainSplit.width * 0.45)
+            SplitView.maximumWidth: Math.max(SplitView.minimumWidth,
+                mainSplit.width - detailsPanel.SplitView.minimumWidth - 10)
             readonly property bool compactActions: width < 410
             color: root.theme.panelDeep
             radius: root.theme.surfaceRadius
@@ -118,7 +132,7 @@ Item {
                     objectName: "commitQueueToolbar"
                     Layout.fillWidth: true
                     Layout.minimumWidth: 0
-                    Layout.preferredHeight: 46
+                    Layout.preferredHeight: implicitHeight
                     Layout.leftMargin: 7
                     Layout.rightMargin: 5
                     spacing: 0
@@ -163,23 +177,6 @@ Item {
                             Accessible.name: toolTip
                             onClicked: windowModel.open_help("commit_queue")
                         }
-                        Controls.Switch {
-                            id: autoCleanSwitch
-                            objectName: "commitQueueAutoCleanSwitch"
-                            theme: root.theme
-                            text: qsTr("Auto-clean")
-                            Accessible.name: qsTr("Auto-clean")
-                            checked: commitQueueController.autoClean
-                            enabled: !commitQueueController.busy
-                            onToggled: commitQueueController.set_auto_clean(checked)
-
-                            Controls.ToolTip {
-                                theme: root.theme
-                                visible: autoCleanSwitch.hovered
-                                    && !root.theme.suppressToolTips
-                                text: qsTr("Auto-clean")
-                            }
-                        }
                         Controls.CompactIconButton {
                             objectName: "commitQueueMoveUpButton"
                             theme: root.theme
@@ -216,13 +213,43 @@ Item {
                             theme: root.theme
                             iconName: "delete_forever"
                             toolTip: qsTr("Clear queue")
-                            visible: commitQueueController.count > 0
-                            enabled: commitQueueController.count > 0
-                                && !commitQueueController.busy
+                            visible: commitQueueController.count > 0 || queueProgress.visible
+                            enabled: visible && !commitQueueController.busy
                             onClicked: clearQueueConfirmation.open()
                         }
                     }
+                    Controls.Switch {
+                        id: autoCleanSwitch
+                        objectName: "commitQueueAutoCleanSwitch"
+                        theme: root.theme
+                        text: qsTr("Auto-clean")
+                        Accessible.name: qsTr("Auto-clean")
+                        checked: commitQueueController.autoClean
+                        enabled: !commitQueueController.busy
+                        onToggled: commitQueueController.set_auto_clean(checked)
 
+                        Controls.ToolTip {
+                            theme: root.theme
+                            visible: autoCleanSwitch.hovered
+                                && !root.theme.suppressToolTips
+                            text: qsTr("Auto-clean")
+                        }
+                    }
+
+                }
+
+                Controls.Switch {
+                    objectName: "commitQueueServerSwitch"
+                    Layout.leftMargin: 10
+                    Layout.rightMargin: 8
+                    theme: root.theme
+                    text: qsTr("Server queue")
+                    checked: commitQueueController.serverQueue
+                    enabled: !commitQueueController.busy
+                    Accessible.name: text
+                    ToolTip.visible: hovered
+                    ToolTip.text: qsTr("Send files in chunks. The server checks in and reports results for the whole batch. Legacy mode is the default.")
+                    onToggled: commitQueueController.set_server_queue(checked)
                 }
 
                 Rectangle {
@@ -426,13 +453,13 @@ Item {
                         && filesDock.record.sourceFiles.length > 0)
                         && commitQueueController.selectedRow >= 0
 
-                    Rectangle {
+                    Controls.ResizeGripVisual {
+                        objectName: "commitQueueFilesGripVisual"
                         anchors.centerIn: parent
-                        width: 34
-                        height: 2
-                        radius: 1
-                        color: filesResizeMouse.containsMouse
-                            ? root.theme.action : root.theme.outlineVariant
+                        theme: root.theme
+                        vertical: false
+                        hovered: filesResizeMouse.containsMouse
+                        pressed: filesResizeMouse.pressed
                     }
                     MouseArea {
                         id: filesResizeMouse
@@ -618,7 +645,7 @@ Item {
             id: detailsPanel
             objectName: "commitQueueDetailsPanel"
             SplitView.fillWidth: true
-            SplitView.minimumWidth: 410
+            SplitView.minimumWidth: Math.min(320, mainSplit.width * 0.5)
             readonly property bool compactActions: width < 620
             readonly property bool hasSelection:
                 commitQueueController.selectedRow >= 0
@@ -723,6 +750,9 @@ Item {
                                 anchors.margins: 8
                                 spacing: 8
                                 Controls.CheckBox {
+                                    objectName: "commitQueueApplyToChecked"
+                                    Layout.fillWidth: true
+                                    Layout.minimumWidth: Math.min(implicitWidth, batchEditContent.width)
                                     theme: root.theme
                                     checked: commitQueueController.applyToChecked
                                     enabled: !commitQueueController.busy
@@ -731,6 +761,8 @@ Item {
                                 }
                                 Label {
                                     Layout.fillWidth: true
+                                    Layout.minimumWidth: 0
+                                    visible: !detailsPanel.compactActions
                                     text: qsTr("The current item and all ")
                                         + commitQueueController.checkedCount
                                         + qsTr(" checked rows receive every change made below.")
@@ -971,8 +1003,10 @@ Item {
                                     Controls.CheckBox {
                                         theme: root.theme
                                         Layout.fillWidth: true
+                                        objectName: "commitQueueUpdateVersionless"
                                         text: qsTr("Update versionless")
                                         enabled: Boolean(detailsPanel.record.canEdit)
+                                            && Boolean(detailsPanel.record.versionlessAllowed)
                                             && !detailsPanel.record.keepFileName
                                         checked: Boolean(detailsPanel.record.updateVersionless)
                                         onClicked: commitQueueController.update_selected("updateVersionless", checked)
@@ -980,8 +1014,10 @@ Item {
                                     Controls.CheckBox {
                                         theme: root.theme
                                         Layout.fillWidth: true
+                                        objectName: "commitQueueOnlyVersionless"
                                         text: qsTr("Commit versionless only")
                                         enabled: Boolean(detailsPanel.record.canEdit)
+                                            && Boolean(detailsPanel.record.versionlessAllowed)
                                         checked: Boolean(detailsPanel.record.onlyVersionless)
                                         onClicked: commitQueueController.update_selected("onlyVersionless", checked)
                                     }
@@ -1217,6 +1253,8 @@ Item {
                     }
                 }
 
+
+
                 Rectangle {
                     objectName: "commitQueueActionFooter"
                     Layout.fillWidth: true
@@ -1253,8 +1291,8 @@ Item {
                             toolTip: qsTr("Retry")
                             icon.name: "refresh"
                             compact: detailsPanel.compactActions
-                            visible: detailsPanel.record.status === "Failed"
-                            enabled: !commitQueueController.busy
+                            visible: detailsPanel.record.status === "Failed" || commitQueueController.serverResumeAvailable
+                            enabled: !commitQueueController.busy || commitQueueController.serverResumeAvailable
                             onClicked: commitQueueController.retry_current()
                         }
                         Controls.Button {
@@ -1273,7 +1311,7 @@ Item {
                             text: qsTr("Commit all")
                             toolTip: qsTr("Commit all")
                             icon.name: "publish"
-                            compact: false
+                            compact: detailsPanel.width < 410
                             highlighted: enabled
                             enabled: commitQueueController.hasReady
                                 && !commitQueueController.busy

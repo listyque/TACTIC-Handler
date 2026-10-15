@@ -78,6 +78,8 @@ Window {
                 ? localizedTitle
                 : String(debugLog.error_title || qsTr("Application Error"))
         }
+        if (root.kind === "file_changelist")
+            return windowContentLoader.item?.windowTitle || qsTr("Changelist #%1").arg(fileWorkspaceController.view_data.change.number || fileWorkspaceController.view_data.change.code || "")
         if (root.kind !== "watch_folder_editor")
             return qsTr(root.windowTitle)
         const target = String(watchFoldersController.editor.title || "")
@@ -111,21 +113,52 @@ Window {
         const ownerHeight = root.ownerWindow && root.ownerWindow.height > 0
             ? root.ownerWindow.height : 700
 
+        const desiredWidth = relative
+            ? root.windowWidth * ownerWidth : root.windowWidth
+        const desiredHeight = relative
+            ? root.windowHeight * ownerHeight : root.windowHeight
+        const desiredX = relative
+            ? ownerX + root.windowX * ownerWidth : root.windowX
+        const desiredY = relative
+            ? ownerY + root.windowY * ownerHeight : root.windowY
+        let targetScreen = root.ownerWindow && root.ownerWindow.screen
+            ? root.ownerWindow.screen : root.screen
+        for (const candidate of Qt.application.screens) {
+            if (desiredX >= candidate.virtualX
+                    && desiredX < candidate.virtualX + candidate.width
+                    && desiredY >= candidate.virtualY
+                    && desiredY < candidate.virtualY + candidate.height) {
+                targetScreen = candidate
+                break
+            }
+        }
+        const screenWidth = Math.min(
+            targetScreen.width, targetScreen.desktopAvailableWidth
+        )
+        const screenHeight = Math.min(
+            targetScreen.height, targetScreen.desktopAvailableHeight
+        )
+
         root.restoringGeometry = true
         root.width = Math.max(
             root.minimumWidth,
-            relative ? root.windowWidth * ownerWidth : root.windowWidth
+            Math.min(desiredWidth, screenWidth)
         )
         root.height = Math.max(
             root.minimumHeight,
-            relative ? root.windowHeight * ownerHeight : root.windowHeight
+            Math.min(desiredHeight, screenHeight)
         )
-        root.x = relative ? ownerX + root.windowX * ownerWidth : root.windowX
-        root.y = relative ? ownerY + root.windowY * ownerHeight : root.windowY
+        root.x = Math.max(targetScreen.virtualX, Math.min(
+            desiredX, targetScreen.virtualX + screenWidth - root.width
+        ))
+        root.y = Math.max(targetScreen.virtualY, Math.min(
+            desiredY, targetScreen.virtualY + screenHeight - root.height
+        ))
         root.restoringGeometry = false
         root.geometryReady = true
 
-        if (relative)
+        if (relative || root.x !== desiredX || root.y !== desiredY
+                || root.width !== desiredWidth || root.height !== desiredHeight)
             Qt.callLater(root.saveGeometry)
     }
 
@@ -210,6 +243,8 @@ Window {
             debugLog.dismiss_error()
         else if (root.kind === "configuration")
             configurationController.request_close()
+        else if (root.kind === "administration" && windowContentLoader.item)
+            windowContentLoader.item.dispatch({type: "close"})
         else if (root.kind === "schema_search_type")
             administrationController.schemaTypeEditor.discard()
         else if (root.kind === "process_dependencies")

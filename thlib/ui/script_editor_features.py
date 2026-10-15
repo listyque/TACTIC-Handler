@@ -11,7 +11,9 @@ from functools import lru_cache
 from pathlib import Path
 
 from PySide6.QtCore import QRegularExpression
-from PySide6.QtGui import QColor, QFont, QSyntaxHighlighter, QTextCharFormat
+from PySide6.QtGui import (
+    QColor, QFont, QSyntaxHighlighter, QTextCharFormat, QTextFormat,
+)
 
 
 _STDLIB_MODULES = frozenset({
@@ -45,9 +47,10 @@ def _format(foreground=None, background=None, *, bold=False, italic=False):
 class PythonSyntaxHighlighter(QSyntaxHighlighter):
     """Theme-aware Python highlighter with search and occurrence overlays."""
 
-    def __init__(self, document, colors=None):
+    def __init__(self, document, colors=None, *, code_blocks_only=False):
         super().__init__(document)
         self._colors = dict(colors or {})
+        self._code_blocks_only = bool(code_blocks_only)
         self._selected_word = ""
         self._search = ""
         self._search_options = {}
@@ -157,11 +160,12 @@ class PythonSyntaxHighlighter(QSyntaxHighlighter):
 
     def _highlight_multiline(self, text, delimiter, state):
         start = 0
-        if self.previousBlockState() != state:
+        continuing = self.previousBlockState() == state
+        if not continuing:
             start_match = delimiter.match(text)
             start = start_match.capturedStart() if start_match.hasMatch() else -1
         while start >= 0:
-            end_match = delimiter.match(text, start + 3)
+            end_match = delimiter.match(text, start if continuing else start + 3)
             if not end_match.hasMatch():
                 self.setCurrentBlockState(state)
                 self.setFormat(start, len(text) - start, self._string_format)
@@ -170,12 +174,43 @@ class PythonSyntaxHighlighter(QSyntaxHighlighter):
             self.setFormat(start, length, self._string_format)
             next_match = delimiter.match(text, start + length)
             start = next_match.capturedStart() if next_match.hasMatch() else -1
+            continuing = False
 
     def highlightBlock(self, text):  # noqa: N802 - Qt virtual method
         if self.currentBlock().blockNumber() == 0:
-            self._module_names = _imported_display_names(
-                self.document().toPlainText()
-            )
+            if self._code_blocks_only:
+                block = self.document().begin()
+                lines = []
+                while block.isValid():
+                    formatting = block.blockFormat()
+                    language = str(formatting.property(
+                        QTextFormat.Property.BlockCodeLanguage
+                    ) or "").casefold()
+                    lines.append(
+                        block.text()
+                        if formatting.hasProperty(
+                            QTextFormat.Property.BlockCodeFence
+                        ) and language in {"", "py", "python", "python3"}
+                        else ""
+                    )
+                    block = block.next()
+                source = "\n".join(lines)
+            else:
+                source = self.document().toPlainText()
+            self._module_names = _imported_display_names(source)
+        if self._code_blocks_only:
+            formatting = self.currentBlock().blockFormat()
+            language = str(formatting.property(
+                QTextFormat.Property.BlockCodeLanguage
+            ) or "").casefold()
+            if (
+                not formatting.hasProperty(
+                    QTextFormat.Property.BlockCodeFence
+                )
+                or language not in {"", "py", "python", "python3"}
+            ):
+                self.setCurrentBlockState(0)
+                return
         if self._module_names:
             modules = QRegularExpression(
                 r"\b(?:" + "|".join(

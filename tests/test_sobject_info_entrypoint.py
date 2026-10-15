@@ -1,4 +1,5 @@
 import unittest
+from datetime import datetime, timezone
 from types import SimpleNamespace
 from unittest.mock import patch
 
@@ -11,6 +12,7 @@ class _ItemActionsHarness(ItemActionsMixin):
     def __init__(self, node, selected_ids=None):
         self.node = node
         self.tab = SimpleNamespace(selected_node_ids=list(selected_ids or []))
+        self.server_user = "artist"
 
     def _node_for_any(self, _node_id):
         return self.node
@@ -26,6 +28,7 @@ class _ItemActionsHarness(ItemActionsMixin):
 class _ItemOperationsHarness(ItemOperationsMixin):
     def __init__(self, node):
         self.node = node
+        self.server_user = "artist"
         self.tab = SimpleNamespace(selected_node_id="other-node")
         self.selected = []
         self.opened = []
@@ -57,7 +60,13 @@ def _sobject_node():
         node_id="child-sobject",
         node_type="sobject",
         search_key="demo/asset?code=ASSET001",
-        source=SimpleNamespace(get_all_processes=lambda: {}),
+        source=SimpleNamespace(
+            get_all_processes=lambda: {},
+            get_info=lambda: {
+                "login": "artist",
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+            },
+        ),
         preview_url="",
         children=[],
         watch_state="none",
@@ -136,6 +145,14 @@ class SObjectInfoEntrypointTests(unittest.TestCase):
         self.assertIn("folder_versions", commands)
         self.assertFalse(actions[-1].get("separator", False))
 
+    def test_progress_process_has_no_snapshot_actions(self):
+        node = _process_node()
+        node.subtitle = "progress"
+        controller = _ItemActionsHarness(node)
+
+        self.assertEqual(controller.item_menu_actions(node.node_id), [])
+        self.assertEqual(controller.item_quick_actions(node.node_id), [])
+
     def test_regular_sobject_menu_exposes_info(self):
         node = _sobject_node()
         actions = _ItemActionsHarness(node).item_menu_actions(node.node_id)
@@ -170,6 +187,48 @@ class SObjectInfoEntrypointTests(unittest.TestCase):
             by_command["delete_selected"]["titleArgs"], [2]
         )
 
+    def test_sobject_delete_is_hidden_and_direct_action_rejected_for_foreign_or_old(self):
+        node = _sobject_node()
+        controller = _ItemOperationsHarness(node)
+        controller.workspace_model = SimpleNamespace(node_for=lambda _id: node)
+        calls = []
+        controller.sobject_delete = SimpleNamespace(
+            begin=lambda sources, context: calls.append((sources, context))
+        )
+        for info in (
+            {"login": "other", "timestamp": datetime.now(timezone.utc).isoformat()},
+            {"login": "artist", "timestamp": "2020-01-01 00:00:00"},
+            {"login": "artist"},
+        ):
+            node.source.get_info = lambda info=info: info
+            actions = _ItemActionsHarness(node).item_menu_actions(node.node_id)
+            self.assertNotIn("delete", {
+                action.get("command") for action in actions
+            })
+            controller.invoke_item_action("delete", node.node_id)
+        self.assertEqual(calls, [])
+        self.assertEqual(len(controller.messages), 3)
+
+    def test_multi_selection_cannot_delete_when_one_object_is_foreign(self):
+        own = _sobject_node()
+        foreign = _sobject_node()
+        foreign.node_id = "foreign"
+        foreign.source.get_info = lambda: {
+            "login": "other",
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+        }
+
+        class MixedSelection(_ItemActionsHarness):
+            def _node_for_any(self, node_id):
+                return foreign if node_id == "foreign" else own
+
+        actions = MixedSelection(
+            own, [own.node_id, foreign.node_id]
+        ).item_menu_actions(own.node_id)
+        self.assertNotIn("delete_selected", {
+            action.get("command") for action in actions
+        })
+
     def test_info_action_selects_clicked_object_before_opening_report(self):
         node = _sobject_node()
         controller = _ItemOperationsHarness(node)
@@ -194,6 +253,20 @@ class SObjectInfoEntrypointTests(unittest.TestCase):
         self.assertEqual(
             controller.loaded, ["demo/shot?code=SHOT001"]
         )
+        self.assertEqual(controller.opened, ["sobject_info"])
+
+    def test_table_detail_opens_current_target_without_selection_delay(self):
+        node = _sobject_node()
+        controller = _ItemOperationsHarness(node)
+
+        controller.invoke_table_widget_action(
+            "sobject_detail",
+            node.node_id,
+            {"targetSearchKey": node.search_key},
+        )
+
+        self.assertEqual(controller.selected, [])
+        self.assertEqual(controller.loaded, [node.search_key])
         self.assertEqual(controller.opened, ["sobject_info"])
 
     def test_table_checkin_prepares_configured_process(self):
@@ -238,6 +311,7 @@ class SObjectInfoEntrypointTests(unittest.TestCase):
         for kind in ("file_list", "metadata"):
             controller = _ItemOperationsHarness(node)
             controller.invoke_table_widget_action(kind, node.node_id, {})
+            self.assertEqual(controller.loaded, [node.search_key])
             self.assertEqual(controller.opened, ["sobject_info"])
 
     def test_table_delete_widget_reuses_dependency_editor(self):

@@ -124,6 +124,7 @@ class WorkspaceItemModel(
         self._process_ignore: dict = {}
         self._sort_mode = "name_asc"
         self._group_mode = "none"
+        self._rows_projection = "tree"
         self._task_group_process = ""
         self._task_group_records: dict[str, list] = {}
         self._task_group_loaded_codes: set[str] = set()
@@ -137,6 +138,7 @@ class WorkspaceItemModel(
         self._seen_activity_events: set[str] = set()
         self._seen_activity_event_order: list[str] = []
         self._knowledge_index: dict[str, tuple[str, ...]] = {}
+        self._clock = None
         self._projection_revision = 0
         self._role_attributes = {
             self.SearchKeyRole: "search_key",
@@ -184,3 +186,25 @@ class WorkspaceItemModel(
             self.CommentsUpdatedRole: "comments_updated",
             self.TasksUpdatedRole: "tasks_updated",
         }
+
+    def set_clock(self, clock) -> None:
+        if self._clock is clock:
+            return
+        if self._clock is not None:
+            self._clock.changed.disconnect(self._refresh_snapshot_timestamps)
+        self._clock = clock
+        if clock is not None:
+            clock.changed.connect(self._refresh_snapshot_timestamps)
+        self._refresh_snapshot_timestamps()
+
+    def _refresh_snapshot_timestamps(self) -> None:
+        for node in self._nodes.values():
+            if node.node_type != "snapshot" or not node.timestamp:
+                continue
+            pretty, full = self._snapshot_timestamp_values(node.timestamp)
+            if (pretty, full) == (node.timestamp_pretty, node.timestamp_simple):
+                continue
+            node.timestamp_pretty, node.timestamp_simple = pretty, full
+            self._emit_node_roles(
+                node, [self.TimestampPrettyRole, self.TimestampSimpleRole]
+            )

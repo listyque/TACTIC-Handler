@@ -59,7 +59,7 @@ class CommitQueueTest(unittest.TestCase):
             self.queue.resolve_duplicate("add")
             self.assertEqual(self.queue.count, 2)
 
-    def test_only_current_session_operations_request_tree_reveal(self):
+    def test_queued_operations_defer_tree_reveal(self):
         class Executor:
             def __init__(self):
                 self.payloads = []
@@ -102,7 +102,7 @@ class CommitQueueTest(unittest.TestCase):
 
             current_queue._start_next()
 
-            self.assertTrue(current_executor.payloads[0][
+            self.assertFalse(current_executor.payloads[0][
                 "_refreshTreeOnComplete"
             ])
 
@@ -329,15 +329,26 @@ class CommitQueueTest(unittest.TestCase):
         class Executor:
             operationState = "completed"
 
+        self.assertTrue(self.queue.autoClean)
         with tempfile.NamedTemporaryFile(suffix=".txt") as source:
             operation_id = self.queue.add_prepared(payload(source.name), "Asset")
             self.queue._executor = Executor()
             self.queue._active_id = operation_id
-            self.queue.set_auto_clean(True)
             self.queue._operation_finished(True, "")
 
         self.assertEqual(self.queue.count, 0)
-        self.assertTrue(self.queue._settings["commitQueue/autoClean"])
+
+    def test_auto_clean_respects_a_saved_off_switch(self):
+        with patch(
+            "thlib.ui.commit_queue.env_read_config",
+            side_effect=lambda **kwargs: (
+                {"commitQueue/autoClean": False}
+                if kwargs.get("filename") == "ui_commit_queue" else []
+            ),
+        ):
+            queue = CommitQueueController()
+
+        self.assertFalse(queue.autoClean)
 
     def test_auto_clean_closes_window_only_after_whole_batch_succeeds(self):
         class Executor:
@@ -461,6 +472,7 @@ class CommitQueueTest(unittest.TestCase):
                 self._application = application
                 self.preparationChanged = LocalSignal()
                 self.operationFinished = LocalSignal()
+                self.operationResult = LocalSignal()
                 self.preparedValidationFinished = LocalSignal()
                 self.validations = []
 

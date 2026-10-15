@@ -1,6 +1,7 @@
 import os
 import unittest
 from pathlib import Path
+from tempfile import TemporaryDirectory
 from types import SimpleNamespace
 from unittest.mock import patch
 
@@ -9,8 +10,9 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 from PySide6.QtCore import (
     QObject, QPoint, Property, Qt, QUrl, Signal, Slot,
 )
-from PySide6.QtGui import QGuiApplication
+from PySide6.QtGui import QColor, QGuiApplication, QImage
 from PySide6.QtQml import QQmlComponent, QQmlEngine
+from PySide6.QtQuick import QQuickItem
 from PySide6.QtTest import QTest
 
 from thlib.ui.controllers.item_operations import ItemOperationsMixin
@@ -223,6 +225,11 @@ class _SnapshotMenuController(QObject):
         lambda self: self._content_mode,
         notify=snapshotBrowserChanged,
     )
+    snapshot_browser_image_mode = Property(
+        str,
+        lambda self: self._image_mode,
+        notify=snapshotBrowserChanged,
+    )
     snapshot_browser_orientation = Property(
         str, lambda _self: "horizontal", constant=True,
     )
@@ -233,7 +240,9 @@ class _SnapshotMenuController(QObject):
     def __init__(self):
         super().__init__()
         self.invocations = []
+        self.quality_requests = []
         self._content_mode = "both"
+        self._image_mode = "fit"
 
     @Slot(result="QVariantList")
     def snapshot_browser_actions(self):
@@ -259,6 +268,15 @@ class _SnapshotMenuController(QObject):
     def set_snapshot_browser_content_mode(self, mode):
         self._content_mode = mode
         self.snapshotBrowserChanged.emit()
+
+    @Slot(str)
+    def set_snapshot_browser_image_mode(self, mode):
+        self._image_mode = mode
+        self.snapshotBrowserChanged.emit()
+
+    @Slot(str)
+    def request_snapshot_preview_quality(self, token):
+        self.quality_requests.append(token)
 
     @Slot(str)
     def set_snapshot_browser_orientation(self, _orientation):
@@ -390,6 +408,70 @@ ApplicationWindow {
             window.close()
             window.deleteLater()
             QTest.qWait(10)
+
+    def test_preview_quality_uses_fill_geometry_and_physical_pixels(self):
+        qml_dir = Path(__file__).resolve().parents[1] / "thlib" / "ui" / "qml"
+        with TemporaryDirectory() as directory:
+            image_path = Path(directory) / "web-preview.png"
+            image = QImage(100, 50, QImage.Format_RGB32)
+            image.fill(QColor("red"))
+            self.assertTrue(image.save(str(image_path)))
+
+            engine = QQmlEngine()
+            engine.addImportPath(str(qml_dir))
+            component = QQmlComponent(engine)
+            component.setData(
+                b'''import QtQuick
+import QtQuick.Controls
+ApplicationWindow {
+    width: 60
+    height: 60
+    visible: true
+    Theme { id: theme; dark: true }
+    SnapshotPreviewLayers {
+        objectName: "qualityPreviewLayers"
+        anchors.fill: parent
+        theme: theme
+        currentToken: "preview-token"
+        devicePixelRatio: 1
+    }
+}
+''',
+                QUrl.fromLocalFile(str(qml_dir / "_SnapshotQualityTest.qml")),
+            )
+            window = component.create()
+            self.assertIsNotNone(
+                window,
+                "\n".join(error.toString() for error in component.errors()),
+            )
+            try:
+                layers = window.findChild(QObject, "qualityPreviewLayers")
+                requests = []
+                layers.qualityRequested.connect(requests.append)
+                layers.setProperty(
+                    "currentUrl", QUrl.fromLocalFile(str(image_path))
+                )
+                QTest.qWait(50)
+
+                self.assertEqual(requests, [])
+                layers.setProperty("viewMode", "fill")
+                QTest.qWait(20)
+                self.assertEqual(requests, ["preview-token"])
+
+                layers.setProperty("currentQualityRequested", True)
+                layers.setProperty("viewMode", "fit")
+                layers.setProperty("devicePixelRatio", 2)
+                layers.setProperty("currentQualityRequested", False)
+                window.setWidth(61)
+                QTest.qWait(20)
+                self.assertEqual(
+                    requests, ["preview-token", "preview-token"]
+                )
+            finally:
+                window.close()
+                window.deleteLater()
+                engine.deleteLater()
+                QTest.qWait(10)
 
     def test_card_preview_prefers_native_web_derivative(self):
         icon_file = _File("ICON", "file:///icon.png")
@@ -858,6 +940,68 @@ ApplicationWindow {
         )
         self.assertEqual(previews[1]["url"], "file:///selected.png")
 
+    def test_large_snapshot_preview_requests_original_only_once(self):
+        state = WorkspaceState()
+        original = _File("FILE00001", "file:///original.png")
+        web = _File("FILE00002", "file:///web.png")
+        original.get_web_preview = lambda: web
+        snapshot = _Snapshot("SNAPSHOT00001", original, [original])
+
+        with patch.object(
+            state._preview_helper,
+            "_preview_url",
+            side_effect=lambda file_object: file_object.url,
+        ) as preview_url:
+            state._build_snapshot_browser_models([
+                _Node("snapshot", snapshot),
+            ])
+            token = state.snapshot_preview_model.get(0)["token"]
+            state.request_snapshot_preview_quality(token)
+            state.request_snapshot_preview_quality(token)
+
+        record = state.snapshot_preview_model.get(0)
+        self.assertEqual(record["url"], "file:///web.png")
+        self.assertEqual(record["qualityUrl"], "file:///original.png")
+        self.assertTrue(record["qualityRequested"])
+        self.assertEqual(preview_url.call_count, 2)
+
+    def test_downloaded_quality_preview_replaces_web_without_model_reset(self):
+        state = WorkspaceState()
+        original = _File("FILE00001", "")
+        web = _File("FILE00002", "file:///web.png")
+        original.get_web_preview = lambda: web
+        snapshot = _Snapshot("SNAPSHOT00001", original, [original])
+        quality_token = "pending-preview:quality-task"
+        quality_path = "C:/repository/original.png"
+
+        with patch.object(
+            state._preview_helper,
+            "_preview_url",
+            side_effect=lambda file_object: (
+                web.url if file_object is web else quality_token
+            ),
+        ):
+            state._build_snapshot_browser_models([
+                _Node("snapshot", snapshot),
+            ])
+            token = state.snapshot_preview_model.get(0)["token"]
+            state.request_snapshot_preview_quality(token)
+
+        state._preview_helper._pending_preview_paths[quality_token] = (
+            quality_path
+        )
+        resets = []
+        state.snapshot_preview_model.contentReplaced.connect(
+            lambda: resets.append(True)
+        )
+        state.localize_preview(quality_path)
+
+        record = state.snapshot_preview_model.get(0)
+        self.assertTrue(record["qualityUrl"].startswith(
+            "file:///C:/repository/original.png?ready="
+        ))
+        self.assertEqual(resets, [])
+
     def test_task_projection_loads_full_snapshot_data_once_when_needed(self):
         class Source:
             def __init__(self):
@@ -967,6 +1111,15 @@ ApplicationWindow {
         try:
             QTest.qWait(30)
             preview = window.findChild(QObject, "snapshotPreviewArea")
+            preview_viewport = window.findChild(
+                QObject, "snapshotPreviewViewport"
+            )
+            incoming_preview = window.findChild(
+                QObject, "snapshotIncomingPreview"
+            )
+            image_mode = window.findChild(
+                QQuickItem, "snapshotPreviewImageMode"
+            )
             files = window.findChild(QObject, "snapshotFilesPanel")
             files_view = window.findChild(QObject, "snapshotFilesView")
             splitter = window.findChild(QObject, "snapshotSplitterHandle")
@@ -974,10 +1127,53 @@ ApplicationWindow {
                 QObject, "snapshotBrowserOptionsMenu"
             )
             self.assertIsNotNone(settings_menu)
+            self.assertIsNotNone(preview_viewport)
+            self.assertIsNotNone(incoming_preview)
+            self.assertIsNotNone(image_mode)
+            pending = list(image_mode.childItems())
+            fill_button = None
+            while pending:
+                candidate = pending.pop()
+                if candidate.objectName() == "segmentedButtonSegment_fill":
+                    fill_button = candidate
+                    break
+                pending.extend(candidate.childItems())
+            self.assertIsNotNone(fill_button)
+            self.assertEqual(preview_viewport.property("x"), 0)
+            self.assertEqual(preview_viewport.property("y"), 0)
+            self.assertEqual(
+                preview_viewport.property("width"), preview.property("width")
+            )
+            self.assertEqual(
+                preview_viewport.property("height"), preview.property("height")
+            )
+            self.assertFalse(incoming_preview.property("readyBorderEnabled"))
+            fit_mode = incoming_preview.property("fillMode")
             self.assertTrue(preview.property("visible"))
             self.assertTrue(files.property("visible"))
             self.assertTrue(splitter.property("visible"))
+            grip = splitter.findChild(QObject, "snapshotSplitterGripVisual")
+            self.assertIsNotNone(grip)
+            browser = window.findChild(QObject, "snapshotBrowser")
+            expected_size = (3, 40) if browser.property("sideBySide") else (40, 3)
+            self.assertEqual(
+                (grip.property("width"), grip.property("height")),
+                expected_size,
+            )
             self.assertEqual(files_view.property("count"), 1)
+
+            fill_point = fill_button.mapToScene(QPoint(
+                int(fill_button.property("width") / 2),
+                int(fill_button.property("height") / 2),
+            )).toPoint()
+            QTest.mouseClick(
+                window, Qt.LeftButton, Qt.NoModifier, fill_point
+            )
+            QTest.qWait(20)
+            self.assertEqual(controller._image_mode, "fill")
+            self.assertNotEqual(
+                incoming_preview.property("fillMode"), fit_mode
+            )
 
             settings_menu.triggered.emit("content_preview")
             QTest.qWait(20)
@@ -992,6 +1188,7 @@ ApplicationWindow {
             self.assertFalse(preview.property("visible"))
             self.assertTrue(files.property("visible"))
             self.assertFalse(splitter.property("visible"))
+            self.assertFalse(image_mode.property("visible"))
             self.assertEqual(files_view.property("count"), 1)
             self.assertGreater(files.property("height"), 400)
 
@@ -1022,6 +1219,7 @@ ApplicationWindow {
         class Harness(CommandsMixin, SearchTabsMixin):
             def __init__(self):
                 self._snapshot_browser_content_mode = "both"
+                self._snapshot_browser_image_mode = "fit"
                 self._snapshot_browser_show_all = False
                 self._snapshot_browser_show_more = False
                 self._snapshot_browser_orientation = "horizontal"

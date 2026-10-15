@@ -14,30 +14,7 @@ def action(title: str, icon: str, command: str) -> dict:
 SEPARATOR = {"separator": True}
 
 
-def tool_action(
-        title: str,
-        icon: str,
-        command: str = "",
-        status: str = "",
-        enabled: bool = True) -> dict:
-    return {
-        "title": title,
-        "icon": icon,
-        "command": command,
-        "status": status,
-        "enabled": enabled,
-    }
-
-
-def tool_header(title: str) -> dict:
-    return {"title": title, "header": True}
-
-
-TOOL_WINDOWS = {
-    "tool_columns_editor": "columns_editor",
-    "tool_update": "update",
-    "tool_create_update": "create_update",
-}
+TOOL_WINDOWS = {}
 
 
 DEFAULT_MENUS = {
@@ -51,11 +28,6 @@ DEFAULT_MENUS = {
     "configuration": [
         action("Configuration", "settings", "open_configuration"),
         action("Administration", "security", "show_administration"),
-        action(
-            "Tools",
-            "dashboard_customize",
-            "show_tools",
-        ),
         action("Save Preferences", "save", "save_preferences"),
         action("Reload Cache", "refresh", "reload_cache"),
         action("Current view to All Tabs", "layers", "apply_view_to_all_tabs"),
@@ -76,22 +48,11 @@ DEFAULT_MENUS = {
         action("Watch Folders", "folder_special", "show_watch_folders"),
         action("TACTIC Handler Server", "hub", "show_handler_server"),
         action("Help", "help", "show_help"),
+        action("Update", "download", "show_update"),
         SEPARATOR,
         action("Exit", "logout", "exit"),
     ],
-    "tools": [
-        tool_header("Editors"),
-        tool_action("Columns Editor", "view_column", "tool_columns_editor"),
-        SEPARATOR,
-        tool_header("Integrations and Service Tools"),
-        tool_action("Update", "download", "tool_update", "Experimental"),
-        tool_action(
-            "Create Update",
-            "archive",
-            "tool_create_update",
-            "Experimental",
-        ),
-    ],
+    "tools": [],
     "result_filters": [
         action("Advanced Search", "advanced-search", "advanced_search"),
         action("Filter Processes", "filter-alt", "filter_processes"),

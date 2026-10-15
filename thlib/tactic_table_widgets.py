@@ -104,6 +104,13 @@ class TacticMetadataTableWidget(TacticBaseTableWidget):
     cell_kind = "metadata"
 
 
+class TacticStructuredTableWidget(TacticBaseTableWidget):
+    cell_kind = "structured"
+
+    def get_cell_kind(self, data_type="text"):
+        return self.cell_kind
+
+
 class TacticDeleteTableWidget(TacticBaseTableWidget):
     cell_kind = "delete"
 
@@ -184,6 +191,20 @@ table_classes = {
         TacticDeleteTableWidget,
     ],
 }
+
+table_classes["tactic"].extend([
+    "ArrayTableElementWdg", "pyasm.widget.ArrayTableElementWdg",
+    "pyasm.widget.table_element_wdg.ArrayTableElementWdg",
+    "XmlWdg", "pyasm.widget.XmlWdg", "pyasm.widget.table_element_wdg.XmlWdg",
+    "tactic.ui.table.JsonElementWdg", "tactic.ui.table.json_element_wdg.JsonElementWdg",
+    "tactic.ui.table.SnapshotVersionElementWdg",
+    "tactic.ui.table.snapshot_element_wdg.SnapshotVersionElementWdg",
+])
+table_classes["handler"].extend(
+    [TacticBaseTableWidget] * 3 + [TacticStructuredTableWidget] * 5
+    + [TacticBaseTableWidget] * 2
+)
+
 
 _table_widget_classes = dict(zip(
     table_classes["tactic"], table_classes["handler"]

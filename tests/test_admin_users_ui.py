@@ -59,6 +59,12 @@ class AdminUsersUiTests(unittest.TestCase):
             self.window.contentItem()) if item.objectName() == name and item.isVisible())
 
     def click(self, name):
+        if name.startswith('adminSection_'):
+            pickers=[item for item in windows_fixture.SidebarEditorQmlTests.descendants(self.window.contentItem()) if item.objectName()=='administrationSectionSelector' and item.isVisible()]
+            if pickers:
+                picker=pickers[0];rows=picker.property('model');rows=rows.toVariant() if hasattr(rows,'toVariant') else rows
+                index=next(index for index,row in enumerate(rows) if row['value']==name[13:])
+                self.fixture.choose_combo_option(self.window,picker,index);return
         self.fixture.click(self.window, self.item(name))
 
     def type_text(self, name, text):
@@ -77,8 +83,8 @@ class AdminUsersUiTests(unittest.TestCase):
         self.type_text('adminUserSearch', 'artist79@')
         self.assertEqual(self.item('adminUsersList').property('count'), 1)
         row = self.item('adminUser_user_79')
-        self.assertTrue(row.property('retired'))
-        retired_identity = self.item('userIdentityAvatar_user_79').parentItem()
+        self.assertEqual(self.editor.usersModel.records()[0]['retired'], True)
+        retired_identity = self.item('directoryIdentityAvatar_user_79').parentItem()
         self.assertEqual(retired_identity.opacity(), 0.5)
         self.assertTrue(row.isEnabled())
         row.forceActiveFocus()
@@ -100,6 +106,7 @@ class AdminUsersUiTests(unittest.TestCase):
         self.editor.discard()
         self.click('adminShowRetiredUsers')
         self.assertEqual(self.item('adminUsersList').property('count'), 0)
+        self.assertTrue(self.item('adminUsersEmpty').isVisible())
         self.fixture.fixture.fixture.rpc.assert_not_called()
 
     def test_mouse_keyboard_edit_keeps_focus_and_does_not_change_session_or_profile(self):
@@ -115,6 +122,7 @@ class AdminUsersUiTests(unittest.TestCase):
         self.assertEqual(self.fixture.users.profile, selected_profile)
         self.assertFalse(self.item('adminUser_user_0').isEnabled())
         self.click('adminDiscardDocument')
+        self.click('adminConfirmSave')
         self.assertEqual(self.editor.document['first_name'], '')
         self.assertFalse(self.editor.dirty)
         self.fixture.fixture.fixture.rpc.assert_not_called()
@@ -166,6 +174,7 @@ class AdminUsersUiTests(unittest.TestCase):
         self.assertEqual(self.fixture.users.login, login)
         self.assertEqual(self.fixture.users.profile, selected_profile)
         self.click('adminDiscardDocument')
+        self.click('adminConfirmSave')
         self.assertEqual(self.editor.document['groups'], ['Artists', 'Lighting'])
         self.assertTrue(self.item('userGroupMembership_Artists').property('checked'))
         self.assertFalse(self.item('userGroupMembership_Rigging').property('checked'))
@@ -236,6 +245,27 @@ class AdminUsersUiTests(unittest.TestCase):
             Path(output).mkdir(parents=True, exist_ok=True)
             self.assertTrue(self.window.grabWindow().save(str(Path(output) / 'groups_avatar.png')))
 
+    def test_unknown_save_blocks_retry_until_confirmed_reload(self):
+        self.editor.set_field('first_name', 'Pending')
+        self.editor._saving = True
+        self.editor.fail('Connection lost after submission')
+        frame(self.window)
+        self.assertTrue(self.editor.uncertain)
+        self.assertFalse(self.item('adminSaveDocument').isEnabled())
+        with patch.object(self.editor, '_request') as request:
+            self.editor.save()
+            request.assert_not_called()
+            self.click('adminReloadDocument')
+            request.assert_not_called()
+            self.click('adminCancelSave')
+            self.assertEqual(self.editor.document['first_name'], 'Pending')
+            self.click('adminReloadDocument')
+            self.click('adminConfirmSave')
+            request.assert_called_once_with('list')
+        self.assertTrue(self.editor.uncertain)
+        self.editor._catalog_loaded()
+        self.assertFalse(self.editor.uncertain)
+
     def test_worker_uses_captured_field_deltas_and_native_profile_write(self):
         from thlib import tactic_classes as tc
         original = copy.deepcopy(self.editor.document)
@@ -248,7 +278,7 @@ class AdminUsersUiTests(unittest.TestCase):
             result = self.editor._execute_request({'action': 'save', 'identity': 'user_0',
                                                    'document': draft}, 'sthpw', original)
         mutate.assert_called_once_with('user_0', values={'first_name': 'Alex'},
-                                       password='', require_admin=True)
+                                       password='')
         self.assertEqual(result['document']['password'], '')
         self.assertEqual(result['document']['first_name'], 'Alex')
 
@@ -289,7 +319,7 @@ class AdminUsersUiTests(unittest.TestCase):
             result = operation[0]()
             worker.result.emit(result)
             frame(self.window)
-        mutate.assert_called_once_with('user_0', values={}, password='', require_admin=True,
+        mutate.assert_called_once_with('user_0', values={}, password='',
                                        groups=['Lighting', 'Rigging'])
         self.assertFalse(self.editor.busy)
         self.assertFalse(self.editor.dirty)
@@ -326,13 +356,12 @@ class AdminUsersUiTests(unittest.TestCase):
         self.click('adminUserManageGroups')
         for width, height in ((900, 620), (1400, 940)):
             frame(self.window, lambda: self.window.resize(width, height))
-            form = self.item('adminUserForm')
-            bar = self.item('adminUserFormScrollBar')
+            form = self.item('adminUserGroupsList')
+            bar = self.item('adminUserGroupsScrollBar')
             self.assertGreater(form.property('contentHeight'), form.height())
             self.assertGreater(bar.property('reservedExtent'), 0)
             first = self.item('userGroupMembership_Artists')
-            row = first.parentItem().parentItem()
-            self.assertLessEqual(row.width(), form.width() - bar.property('reservedExtent') - 4)
+            self.assertLessEqual(first.width(), form.width() - bar.property('reservedExtent') - 4)
             point = bar.mapToScene(QPointF(bar.width() / 2, bar.height() - 8)).toPoint()
             QTest.mouseClick(self.window, Qt.LeftButton, pos=point)
             frame(self.window)
@@ -362,6 +391,7 @@ class AdminUsersUiTests(unittest.TestCase):
         logins = {row['identity']: Login(dict(row['document']), groups, memberships)
                   for row in self.editor.catalog[:2]}
         self.admin._catalog = {'groups': [], 'memberships': [], 'users': []}
+        self.admin._group_catalog_loaded = False
         self.admin.groups.clear()
         self.editor._metadata['groups'] = {'user_0': ['Rigging'], 'user_1': ['Artists']}
         with patch.object(env_inst, 'logins', logins), patch.object(

@@ -16,9 +16,12 @@ Item {
     property bool menuIsNew: false
     property var expandedTaskDetails: ({})
     property real footerHorizontalOverflow: 0
+    readonly property bool initialPresentationReady: initialTaskTablePresentation.ready
     signal columnContextRequested(
         var sourceItem, string columnKey, string columnLabel
     )
+    signal columnsPressed()
+    signal columnsRequested(var sourceItem)
     signal taskDeleteRequested(string taskCode, bool checkedTasks)
 
     function columnRecord(key) {
@@ -199,7 +202,7 @@ Item {
         GridLayout {
             anchors.fill: parent
             anchors.leftMargin: 5
-            anchors.rightMargin: 7
+            anchors.rightMargin: headerColumnsButton.width + 12
             columns: root.actionColumn + 1
             columnSpacing: root.tableColumnSpacing
             rowSpacing: 0
@@ -314,12 +317,20 @@ Item {
                 Layout.maximumWidth: root.supervisorColumnWidth
                 text: qsTr("SUPERVISOR")
             }
-            Item {
-                Layout.column: root.actionColumn
-                Layout.preferredWidth: 30
-                Layout.minimumWidth: 30
-                Layout.maximumWidth: 30
-            }
+        }
+        Controls.CompactIconButton {
+            id: headerColumnsButton
+            objectName: "taskTableColumnsButton"
+            anchors.right: parent.right
+            anchors.rightMargin: 7
+            anchors.verticalCenter: parent.verticalCenter
+            theme: root.theme
+            iconName: "view_column"
+            backgroundColor: root.theme.surfaceContainerHigh
+            toolTip: qsTr("Choose visible task columns")
+            Accessible.name: qsTr("Choose visible task columns")
+            onPressed: root.columnsPressed()
+            onClicked: root.columnsRequested(this)
         }
     }
     Controls.SmoothListView {
@@ -574,6 +585,7 @@ Item {
                         && !taskDelegate.selected ? 0.72 : 1
                     Behavior on color {
                         enabled: !taskList.interactionMoving
+                            && (taskDelegate.selected || taskDelegate.checked)
                         ColorAnimation {
                             duration: taskDelegate.selected
                                     || taskDelegate.checked
@@ -756,15 +768,17 @@ Item {
                         actionField: true
                         showAccent: true
                         accentColor: taskDelegate.statusColor
-                        displayText: taskDelegate.statusLabel
-                            || taskDelegate.status
-                            || qsTr("No status")
+                        displayText: taskDelegate.status
+                            ? (taskDelegate.statusLabel || taskDelegate.status)
+                            : qsTr("No status")
                         Layout.preferredWidth: root.statusColumnWidth
                         Layout.minimumWidth: root.statusColumnWidth
                         Layout.preferredHeight: 29
                         editorComponent: Component {
                             Controls.ComboBox {
                                 objectName: "taskStatusEditor"
+                                instantHover: true
+                                hoverHighlighted: taskDelegate.editorsActive
                                 readonly property var editorRecord: {
                                     const revision = taskDelegate.process
                                         + taskDelegate.status
@@ -778,6 +792,9 @@ Item {
                                 textRole: "label"
                                 valueRole: "value"
                                 colorRole: "color"
+                                currentColorFallback: String(
+                                    taskDelegate.statusColor || root.theme.action)
+                                translateDisplayText: false
                                 currentIndex: root.choiceIndex(
                                     editorRecord.statusChoices,
                                     taskDelegate.status
@@ -818,6 +835,8 @@ Item {
                         editorComponent: Component {
                             UserComboBox {
                                 objectName: "taskAssigneeEditor"
+                                instantHover: true
+                                hoverHighlighted: taskDelegate.editorsActive
                                 readonly property var editorRecord: {
                                     const revision = taskDelegate.process
                                         + taskDelegate.assigned
@@ -953,6 +972,8 @@ Item {
                         editorComponent: Component {
                             Controls.ComboBox {
                                 objectName: "taskPriorityEditor"
+                                instantHover: true
+                                hoverHighlighted: taskDelegate.editorsActive
                                 readonly property var editorRecord: {
                                     const revision = taskDelegate.priority
                                     return advancedTaskTableModel.get(
@@ -968,6 +989,9 @@ Item {
                                     : tasksController.taskPriorityChoices
                                 textRole: "label"
                                 valueRole: "value"
+                                colorRole: "color"
+                                currentColorFallback: String(
+                                    taskDelegate.priorityColor || root.theme.action)
                                 currentIndex: root.choiceIndex(
                                     model,
                                     taskDelegate.priority
@@ -1002,6 +1026,8 @@ Item {
                         editorComponent: Component {
                             Controls.ComboBox {
                                 objectName: "taskMilestoneEditor"
+                                instantHover: true
+                                hoverHighlighted: taskDelegate.editorsActive
                                 readonly property var editorRecord: {
                                     const revision = taskDelegate.milestoneCode
                                     return advancedTaskTableModel.get(
@@ -1052,6 +1078,8 @@ Item {
                         editorComponent: Component {
                             UserComboBox {
                                 objectName: "taskSupervisorEditor"
+                                instantHover: true
+                                hoverHighlighted: taskDelegate.editorsActive
                                 readonly property var editorRecord: {
                                     const revision = taskDelegate.process
                                         + taskDelegate.supervisor

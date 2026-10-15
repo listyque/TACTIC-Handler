@@ -1,8 +1,11 @@
 from __future__ import annotations
 
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 import unittest
+from unittest.mock import patch
 
+from thlib.ui.server_clock import ServerClock
 from thlib.ui.workspace_models.results import WorkspaceItemModel
 
 
@@ -32,7 +35,7 @@ class WorkspaceSnapshotItemTests(unittest.TestCase):
             ],
         )
 
-    def test_snapshot_uses_native_pretty_and_simple_timestamp_values(self):
+    def test_snapshot_uses_shared_pretty_and_simple_timestamp_values(self):
         class Snapshot:
             timestamp_calls = []
 
@@ -71,27 +74,94 @@ class WorkspaceSnapshotItemTests(unittest.TestCase):
 
         model = WorkspaceItemModel()
         snapshot = Snapshot()
-        node = model._make_snapshot_node(
-            snapshot,
-            process_name="publish",
-            context_name="publish",
-            depth=1,
-            accent="#607d8b",
-            parent_id="asset:1",
-        )
+        with patch(
+            "thlib.ui.activity.activity_timestamp_labels",
+            return_value=("2 hours ago", "2026 August 23 10:52:28"),
+        ) as labels:
+            node = model._make_snapshot_node(
+                snapshot,
+                process_name="publish",
+                context_name="publish",
+                depth=1,
+                accent="#607d8b",
+                parent_id="asset:1",
+            )
 
         self.assertEqual(node.timestamp, "2026-08-23 10:52:28")
         self.assertEqual(node.timestamp_pretty, "2 hours ago")
         self.assertEqual(node.timestamp_simple, "2026 August 23 10:52:28")
-        self.assertEqual(
-            Snapshot.timestamp_calls,
-            [{"pretty": True}, {"simple": True}],
-        )
+        labels.assert_called_once_with("2026-08-23 10:52:28", None)
+        self.assertEqual(Snapshot.timestamp_calls, [])
         self.assertEqual(
             model.roleNames()[model.TimestampPrettyRole], b"timestampPretty"
         )
         self.assertEqual(
             model.roleNames()[model.TimestampSimpleRole], b"timestampSimple"
+        )
+
+    def test_snapshot_date_corrects_after_server_clock_synchronizes(self):
+        client_now = datetime.now(timezone.utc)
+        server_now = client_now + timedelta(hours=2)
+        raw_timestamp = server_now.strftime("%Y-%m-%d %H:%M:%S")
+
+        class Snapshot:
+            @staticmethod
+            def get_snapshot():
+                return {
+                    "code": "SNAPSHOT00002",
+                    "version": 1,
+                    "timestamp": raw_timestamp,
+                }
+
+            @staticmethod
+            def get_search_key():
+                return "sthpw/snapshot?code=SNAPSHOT00002"
+
+            @staticmethod
+            def get_files_objects():
+                return []
+
+            @staticmethod
+            def get_timestamp(**_options):
+                return "3 h ago"
+
+            @staticmethod
+            def is_latest():
+                return True
+
+            @staticmethod
+            def is_versionless():
+                return False
+
+        clock = ServerClock()
+        model = WorkspaceItemModel()
+        model.set_clock(clock)
+        node = model._make_snapshot_node(
+            Snapshot(), "publish", "publish", 1, "#607d8b", "asset:1"
+        )
+        model.replace_nodes([node])
+        index = model.index(0, 0)
+        changes = []
+        model.dataChanged.connect(lambda _first, _last, roles: changes.append(roles))
+
+        self.assertNotEqual(model.data(index, model.TimestampPrettyRole), "3 h ago")
+        self.assertTrue(clock.observe(
+            {
+                "utcStarted": server_now.isoformat(),
+                "utcEnded": (server_now + timedelta(milliseconds=50)).isoformat(),
+                "localEnded": (server_now + timedelta(milliseconds=50))
+                .replace(tzinfo=None).isoformat(),
+            },
+            client_now.timestamp(),
+            client_now.timestamp() + 0.1,
+            session="test",
+        ))
+
+        self.assertEqual(model.data(index, model.TimestampPrettyRole), "Just now")
+        local_time = clock.presentation_datetime(raw_timestamp).strftime("%H:%M:%S")
+        self.assertIn(local_time, model.data(index, model.TimestampSimpleRole))
+        self.assertIn(
+            [model.TimestampPrettyRole, model.TimestampSimpleRole], changes
         )
 
     def test_snapshot_size_uses_legacy_two_decimal_precision(self):

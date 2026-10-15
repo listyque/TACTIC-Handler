@@ -28,6 +28,7 @@ from ..menu_schema import MenuRegistry
 from ..quick_filters import QuickFilterCatalog
 from ..repository_sync import RepositorySyncController
 from ..search_contract import create_search_tab
+from ..sobject_delete import can_delete_recent_sobject
 from ..models import NavigationModel, ProjectModel
 from ..workspace import (
     DockPanelModel,
@@ -194,6 +195,7 @@ class ItemOperationsMixin:
             "context": context,
             "description": description,
             "version": version,
+            "keepPublishProcessCollapsed": selected.node_type == "sobject",
         }
 
     def _begin_item_checkin(self, node, save_revision: bool = False) -> bool:
@@ -208,20 +210,27 @@ class ItemOperationsMixin:
         if not checkin or not drop_plate or not target:
             self._notify("The selected item cannot be prepared for check-in")
             return False
-        checkin.prepare_workspace_target(
-            search_key=target["searchKey"],
-            source=target["source"],
-            project_code=target["projectCode"],
-            title=target["title"],
-            code=target["code"],
-            process=target["process"],
-            context=target["context"],
-            description=target["description"],
-            save_revision=save_revision,
-            snapshot_version=target["version"] if save_revision else None,
-            checkin_type=target.get("checkinType", ""),
-            transfer_mode=target.get("transferMode", ""),
-        )
+        try:
+            checkin.prepare_workspace_target(
+                search_key=target["searchKey"],
+                source=target["source"],
+                project_code=target["projectCode"],
+                title=target["title"],
+                code=target["code"],
+                process=target["process"],
+                context=target["context"],
+                description=target["description"],
+                save_revision=save_revision,
+                snapshot_version=target["version"] if save_revision else None,
+                checkin_type=target.get("checkinType", ""),
+                transfer_mode=target.get("transferMode", ""),
+                keep_publish_process_collapsed=target.get(
+                    "keepPublishProcessCollapsed", False,
+                ),
+            )
+        except ValueError as error:
+            self._notify(str(error))
+            return False
         return True
 
     def _finish_table_checkin(self, source) -> None:
@@ -583,6 +592,8 @@ class ItemOperationsMixin:
                 0,
                 False,
             )
+        if tab and node.node_type == "sobject":
+            tab.detail_process_override = process
         process_changed = process != self._selected_detail_process
         if process_changed:
             self._selected_detail_process = process
@@ -1401,14 +1412,23 @@ class ItemOperationsMixin:
                 if command == "delete_selected" and self._current_tab()
                 else [node_id]
             )
-            selected_sources = [
-                selected.source
+            selected_nodes = [
+                self.workspace_model.node_for(selected_id)
                 for selected_id in selected_ids
-                if (
-                    (selected := self.workspace_model.node_for(selected_id))
-                    and selected.source
-                )
             ]
+            if not selected_nodes or any(
+                selected is None or selected.source is None
+                or not can_delete_recent_sobject(
+                    selected.source, getattr(self, "server_user", ""),
+                    getattr(self, "_server_clock", None),
+                )
+                for selected in selected_nodes
+            ):
+                self._notify(
+                    "Only your objects created within the last hour can be deleted"
+                )
+                return
+            selected_sources = [selected.source for selected in selected_nodes]
             delete_controller = getattr(self, "sobject_delete", None)
             if delete_controller is None:
                 self._notify("Delete SObject editor is unavailable")
@@ -1453,19 +1473,9 @@ class ItemOperationsMixin:
             return
         values = dict(values or {})
         target_key = str(values.get("targetSearchKey") or node.search_key)
-        if kind == "sobject_detail":
-            if target_key == node.search_key:
-                self.invoke_item_action("sobject_info", node_id)
-            else:
-                self.select_sobject(target_key)
-                self.open_window("sobject_info")
-            return
-        if kind in {"file_list", "metadata"}:
-            if target_key != node.search_key:
-                self.select_sobject(target_key)
-                self.open_window("sobject_info")
-            else:
-                self.invoke_item_action("sobject_info", node_id)
+        if kind in {"sobject_detail", "file_list", "metadata"}:
+            self.select_sobject(target_key)
+            self.open_window("sobject_info")
             return
         if kind == "delete":
             if values.get("available") is not False:

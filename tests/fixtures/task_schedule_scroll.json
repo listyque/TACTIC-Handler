@@ -1,0 +1,1889 @@
+{
+  "records": [
+    {
+      "taskCode": "sthpw/task?id=1",
+      "parentKey": "cg/assets?code=ASSET",
+      "parentTitle": "Robot body",
+      "process": "model",
+      "processLabel": "Modeling",
+      "status": "In progress",
+      "statusColor": "#56a7b3",
+      "assigned": "alice",
+      "assignedLabel": "Alice Artist",
+      "start": "2026-10-02 09:13:00",
+      "end": "2026-10-07 17:20:00",
+      "progress": 35,
+      "groupKey": "model",
+      "group": "Modeling"
+    },
+    {
+      "taskCode": "sthpw/task?id=2",
+      "parentKey": "cg/assets?code=ASSET2",
+      "parentTitle": "Robot textures",
+      "process": "texture",
+      "processLabel": "Texturing",
+      "status": "Review",
+      "statusColor": "#a06bb4",
+      "assigned": "alice",
+      "assignedLabel": "Alice Artist",
+      "start": "2026-10-05 10:14:00",
+      "end": "2026-10-12 18:30:00",
+      "progress": 65,
+      "groupKey": "texture",
+      "group": "Texturing"
+    },
+    {
+      "taskCode": "sthpw/task?id=3",
+      "parentKey": "cg/assets?code=ASSET3",
+      "parentTitle": "Final render",
+      "process": "render",
+      "processLabel": "Rendering",
+      "status": "Waiting",
+      "statusColor": "#d5bd51",
+      "assigned": "bob",
+      "assignedLabel": "Bob Supervisor",
+      "start": "2026-12-25 09:00:00",
+      "end": "2026-12-30 18:00:00",
+      "progress": 0,
+      "groupKey": "render",
+      "group": "Rendering"
+    },
+    {
+      "taskCode": "sthpw/task?id=4",
+      "parentKey": "cg/assets?code=ASSET4",
+      "parentTitle": "Set dressing",
+      "process": "model",
+      "processLabel": "Modeling",
+      "status": "Waiting",
+      "assigned": "",
+      "assignedLabel": "Not assigned",
+      "start": "",
+      "end": "",
+      "progress": 0,
+      "groupKey": "model",
+      "group": "Modeling"
+    }
+  ],
+  "gantt": {
+    "rangeStart": "2026-09-21",
+    "rangeEnd": "2027-01-10",
+    "days": 112,
+    "todayDay": 21,
+    "scheduled": 3,
+    "unscheduled": 1,
+    "ticks": [
+      {
+        "date": "2026-09-21",
+        "label": "21 Sep",
+        "offsetDay": 0,
+        "major": false
+      },
+      {
+        "date": "2026-09-28",
+        "label": "28 Sep",
+        "offsetDay": 7,
+        "major": false
+      },
+      {
+        "date": "2026-10-05",
+        "label": "05 Oct",
+        "offsetDay": 14,
+        "major": false
+      },
+      {
+        "date": "2026-10-12",
+        "label": "12 Oct",
+        "offsetDay": 21,
+        "major": false
+      },
+      {
+        "date": "2026-10-19",
+        "label": "19 Oct",
+        "offsetDay": 28,
+        "major": false
+      },
+      {
+        "date": "2026-10-26",
+        "label": "26 Oct",
+        "offsetDay": 35,
+        "major": false
+      },
+      {
+        "date": "2026-11-02",
+        "label": "02 Nov",
+        "offsetDay": 42,
+        "major": false
+      },
+      {
+        "date": "2026-11-09",
+        "label": "09 Nov",
+        "offsetDay": 49,
+        "major": false
+      },
+      {
+        "date": "2026-11-16",
+        "label": "16 Nov",
+        "offsetDay": 56,
+        "major": false
+      },
+      {
+        "date": "2026-11-23",
+        "label": "23 Nov",
+        "offsetDay": 63,
+        "major": false
+      },
+      {
+        "date": "2026-11-30",
+        "label": "30 Nov",
+        "offsetDay": 70,
+        "major": false
+      },
+      {
+        "date": "2026-12-07",
+        "label": "07 Dec",
+        "offsetDay": 77,
+        "major": false
+      },
+      {
+        "date": "2026-12-14",
+        "label": "14 Dec",
+        "offsetDay": 84,
+        "major": false
+      },
+      {
+        "date": "2026-12-21",
+        "label": "21 Dec",
+        "offsetDay": 91,
+        "major": false
+      },
+      {
+        "date": "2026-12-28",
+        "label": "28 Dec",
+        "offsetDay": 98,
+        "major": false
+      },
+      {
+        "date": "2027-01-04",
+        "label": "04 Jan",
+        "offsetDay": 105,
+        "major": false
+      }
+    ],
+    "tickSets": {
+      "days": [
+        {
+          "date": "2026-09-21",
+          "label": "21 Sep",
+          "offsetDay": 0,
+          "spanDays": 1,
+          "major": false
+        },
+        {
+          "date": "2026-09-22",
+          "label": "22 Sep",
+          "offsetDay": 1,
+          "spanDays": 1,
+          "major": false
+        },
+        {
+          "date": "2026-09-23",
+          "label": "23 Sep",
+          "offsetDay": 2,
+          "spanDays": 1,
+          "major": false
+        },
+        {
+          "date": "2026-09-24",
+          "label": "24 Sep",
+          "offsetDay": 3,
+          "spanDays": 1,
+          "major": false
+        },
+        {
+          "date": "2026-09-25",
+          "label": "25 Sep",
+          "offsetDay": 4,
+          "spanDays": 1,
+          "major": false
+        },
+        {
+          "date": "2026-09-26",
+          "label": "26 Sep",
+          "offsetDay": 5,
+          "spanDays": 1,
+          "major": false
+        },
+        {
+          "date": "2026-09-27",
+          "label": "27 Sep",
+          "offsetDay": 6,
+          "spanDays": 1,
+          "major": false
+        },
+        {
+          "date": "2026-09-28",
+          "label": "28 Sep",
+          "offsetDay": 7,
+          "spanDays": 1,
+          "major": false
+        },
+        {
+          "date": "2026-09-29",
+          "label": "29 Sep",
+          "offsetDay": 8,
+          "spanDays": 1,
+          "major": false
+        },
+        {
+          "date": "2026-09-30",
+          "label": "30 Sep",
+          "offsetDay": 9,
+          "spanDays": 1,
+          "major": false
+        },
+        {
+          "date": "2026-10-01",
+          "label": "01 Oct",
+          "offsetDay": 10,
+          "spanDays": 1,
+          "major": true
+        },
+        {
+          "date": "2026-10-02",
+          "label": "02 Oct",
+          "offsetDay": 11,
+          "spanDays": 1,
+          "major": false
+        },
+        {
+          "date": "2026-10-03",
+          "label": "03 Oct",
+          "offsetDay": 12,
+          "spanDays": 1,
+          "major": false
+        },
+        {
+          "date": "2026-10-04",
+          "label": "04 Oct",
+          "offsetDay": 13,
+          "spanDays": 1,
+          "major": false
+        },
+        {
+          "date": "2026-10-05",
+          "label": "05 Oct",
+          "offsetDay": 14,
+          "spanDays": 1,
+          "major": false
+        },
+        {
+          "date": "2026-10-06",
+          "label": "06 Oct",
+          "offsetDay": 15,
+          "spanDays": 1,
+          "major": false
+        },
+        {
+          "date": "2026-10-07",
+          "label": "07 Oct",
+          "offsetDay": 16,
+          "spanDays": 1,
+          "major": false
+        },
+        {
+          "date": "2026-10-08",
+          "label": "08 Oct",
+          "offsetDay": 17,
+          "spanDays": 1,
+          "major": false
+        },
+        {
+          "date": "2026-10-09",
+          "label": "09 Oct",
+          "offsetDay": 18,
+          "spanDays": 1,
+          "major": false
+        },
+        {
+          "date": "2026-10-10",
+          "label": "10 Oct",
+          "offsetDay": 19,
+          "spanDays": 1,
+          "major": false
+        },
+        {
+          "date": "2026-10-11",
+          "label": "11 Oct",
+          "offsetDay": 20,
+          "spanDays": 1,
+          "major": false
+        },
+        {
+          "date": "2026-10-12",
+          "label": "12 Oct",
+          "offsetDay": 21,
+          "spanDays": 1,
+          "major": false
+        },
+        {
+          "date": "2026-10-13",
+          "label": "13 Oct",
+          "offsetDay": 22,
+          "spanDays": 1,
+          "major": false
+        },
+        {
+          "date": "2026-10-14",
+          "label": "14 Oct",
+          "offsetDay": 23,
+          "spanDays": 1,
+          "major": false
+        },
+        {
+          "date": "2026-10-15",
+          "label": "15 Oct",
+          "offsetDay": 24,
+          "spanDays": 1,
+          "major": false
+        },
+        {
+          "date": "2026-10-16",
+          "label": "16 Oct",
+          "offsetDay": 25,
+          "spanDays": 1,
+          "major": false
+        },
+        {
+          "date": "2026-10-17",
+          "label": "17 Oct",
+          "offsetDay": 26,
+          "spanDays": 1,
+          "major": false
+        },
+        {
+          "date": "2026-10-18",
+          "label": "18 Oct",
+          "offsetDay": 27,
+          "spanDays": 1,
+          "major": false
+        },
+        {
+          "date": "2026-10-19",
+          "label": "19 Oct",
+          "offsetDay": 28,
+          "spanDays": 1,
+          "major": false
+        },
+        {
+          "date": "2026-10-20",
+          "label": "20 Oct",
+          "offsetDay": 29,
+          "spanDays": 1,
+          "major": false
+        },
+        {
+          "date": "2026-10-21",
+          "label": "21 Oct",
+          "offsetDay": 30,
+          "spanDays": 1,
+          "major": false
+        },
+        {
+          "date": "2026-10-22",
+          "label": "22 Oct",
+          "offsetDay": 31,
+          "spanDays": 1,
+          "major": false
+        },
+        {
+          "date": "2026-10-23",
+          "label": "23 Oct",
+          "offsetDay": 32,
+          "spanDays": 1,
+          "major": false
+        },
+        {
+          "date": "2026-10-24",
+          "label": "24 Oct",
+          "offsetDay": 33,
+          "spanDays": 1,
+          "major": false
+        },
+        {
+          "date": "2026-10-25",
+          "label": "25 Oct",
+          "offsetDay": 34,
+          "spanDays": 1,
+          "major": false
+        },
+        {
+          "date": "2026-10-26",
+          "label": "26 Oct",
+          "offsetDay": 35,
+          "spanDays": 1,
+          "major": false
+        },
+        {
+          "date": "2026-10-27",
+          "label": "27 Oct",
+          "offsetDay": 36,
+          "spanDays": 1,
+          "major": false
+        },
+        {
+          "date": "2026-10-28",
+          "label": "28 Oct",
+          "offsetDay": 37,
+          "spanDays": 1,
+          "major": false
+        },
+        {
+          "date": "2026-10-29",
+          "label": "29 Oct",
+          "offsetDay": 38,
+          "spanDays": 1,
+          "major": false
+        },
+        {
+          "date": "2026-10-30",
+          "label": "30 Oct",
+          "offsetDay": 39,
+          "spanDays": 1,
+          "major": false
+        },
+        {
+          "date": "2026-10-31",
+          "label": "31 Oct",
+          "offsetDay": 40,
+          "spanDays": 1,
+          "major": false
+        },
+        {
+          "date": "2026-11-01",
+          "label": "01 Nov",
+          "offsetDay": 41,
+          "spanDays": 1,
+          "major": true
+        },
+        {
+          "date": "2026-11-02",
+          "label": "02 Nov",
+          "offsetDay": 42,
+          "spanDays": 1,
+          "major": false
+        },
+        {
+          "date": "2026-11-03",
+          "label": "03 Nov",
+          "offsetDay": 43,
+          "spanDays": 1,
+          "major": false
+        },
+        {
+          "date": "2026-11-04",
+          "label": "04 Nov",
+          "offsetDay": 44,
+          "spanDays": 1,
+          "major": false
+        },
+        {
+          "date": "2026-11-05",
+          "label": "05 Nov",
+          "offsetDay": 45,
+          "spanDays": 1,
+          "major": false
+        },
+        {
+          "date": "2026-11-06",
+          "label": "06 Nov",
+          "offsetDay": 46,
+          "spanDays": 1,
+          "major": false
+        },
+        {
+          "date": "2026-11-07",
+          "label": "07 Nov",
+          "offsetDay": 47,
+          "spanDays": 1,
+          "major": false
+        },
+        {
+          "date": "2026-11-08",
+          "label": "08 Nov",
+          "offsetDay": 48,
+          "spanDays": 1,
+          "major": false
+        },
+        {
+          "date": "2026-11-09",
+          "label": "09 Nov",
+          "offsetDay": 49,
+          "spanDays": 1,
+          "major": false
+        },
+        {
+          "date": "2026-11-10",
+          "label": "10 Nov",
+          "offsetDay": 50,
+          "spanDays": 1,
+          "major": false
+        },
+        {
+          "date": "2026-11-11",
+          "label": "11 Nov",
+          "offsetDay": 51,
+          "spanDays": 1,
+          "major": false
+        },
+        {
+          "date": "2026-11-12",
+          "label": "12 Nov",
+          "offsetDay": 52,
+          "spanDays": 1,
+          "major": false
+        },
+        {
+          "date": "2026-11-13",
+          "label": "13 Nov",
+          "offsetDay": 53,
+          "spanDays": 1,
+          "major": false
+        },
+        {
+          "date": "2026-11-14",
+          "label": "14 Nov",
+          "offsetDay": 54,
+          "spanDays": 1,
+          "major": false
+        },
+        {
+          "date": "2026-11-15",
+          "label": "15 Nov",
+          "offsetDay": 55,
+          "spanDays": 1,
+          "major": false
+        },
+        {
+          "date": "2026-11-16",
+          "label": "16 Nov",
+          "offsetDay": 56,
+          "spanDays": 1,
+          "major": false
+        },
+        {
+          "date": "2026-11-17",
+          "label": "17 Nov",
+          "offsetDay": 57,
+          "spanDays": 1,
+          "major": false
+        },
+        {
+          "date": "2026-11-18",
+          "label": "18 Nov",
+          "offsetDay": 58,
+          "spanDays": 1,
+          "major": false
+        },
+        {
+          "date": "2026-11-19",
+          "label": "19 Nov",
+          "offsetDay": 59,
+          "spanDays": 1,
+          "major": false
+        },
+        {
+          "date": "2026-11-20",
+          "label": "20 Nov",
+          "offsetDay": 60,
+          "spanDays": 1,
+          "major": false
+        },
+        {
+          "date": "2026-11-21",
+          "label": "21 Nov",
+          "offsetDay": 61,
+          "spanDays": 1,
+          "major": false
+        },
+        {
+          "date": "2026-11-22",
+          "label": "22 Nov",
+          "offsetDay": 62,
+          "spanDays": 1,
+          "major": false
+        },
+        {
+          "date": "2026-11-23",
+          "label": "23 Nov",
+          "offsetDay": 63,
+          "spanDays": 1,
+          "major": false
+        },
+        {
+          "date": "2026-11-24",
+          "label": "24 Nov",
+          "offsetDay": 64,
+          "spanDays": 1,
+          "major": false
+        },
+        {
+          "date": "2026-11-25",
+          "label": "25 Nov",
+          "offsetDay": 65,
+          "spanDays": 1,
+          "major": false
+        },
+        {
+          "date": "2026-11-26",
+          "label": "26 Nov",
+          "offsetDay": 66,
+          "spanDays": 1,
+          "major": false
+        },
+        {
+          "date": "2026-11-27",
+          "label": "27 Nov",
+          "offsetDay": 67,
+          "spanDays": 1,
+          "major": false
+        },
+        {
+          "date": "2026-11-28",
+          "label": "28 Nov",
+          "offsetDay": 68,
+          "spanDays": 1,
+          "major": false
+        },
+        {
+          "date": "2026-11-29",
+          "label": "29 Nov",
+          "offsetDay": 69,
+          "spanDays": 1,
+          "major": false
+        },
+        {
+          "date": "2026-11-30",
+          "label": "30 Nov",
+          "offsetDay": 70,
+          "spanDays": 1,
+          "major": false
+        },
+        {
+          "date": "2026-12-01",
+          "label": "01 Dec",
+          "offsetDay": 71,
+          "spanDays": 1,
+          "major": true
+        },
+        {
+          "date": "2026-12-02",
+          "label": "02 Dec",
+          "offsetDay": 72,
+          "spanDays": 1,
+          "major": false
+        },
+        {
+          "date": "2026-12-03",
+          "label": "03 Dec",
+          "offsetDay": 73,
+          "spanDays": 1,
+          "major": false
+        },
+        {
+          "date": "2026-12-04",
+          "label": "04 Dec",
+          "offsetDay": 74,
+          "spanDays": 1,
+          "major": false
+        },
+        {
+          "date": "2026-12-05",
+          "label": "05 Dec",
+          "offsetDay": 75,
+          "spanDays": 1,
+          "major": false
+        },
+        {
+          "date": "2026-12-06",
+          "label": "06 Dec",
+          "offsetDay": 76,
+          "spanDays": 1,
+          "major": false
+        },
+        {
+          "date": "2026-12-07",
+          "label": "07 Dec",
+          "offsetDay": 77,
+          "spanDays": 1,
+          "major": false
+        },
+        {
+          "date": "2026-12-08",
+          "label": "08 Dec",
+          "offsetDay": 78,
+          "spanDays": 1,
+          "major": false
+        },
+        {
+          "date": "2026-12-09",
+          "label": "09 Dec",
+          "offsetDay": 79,
+          "spanDays": 1,
+          "major": false
+        },
+        {
+          "date": "2026-12-10",
+          "label": "10 Dec",
+          "offsetDay": 80,
+          "spanDays": 1,
+          "major": false
+        },
+        {
+          "date": "2026-12-11",
+          "label": "11 Dec",
+          "offsetDay": 81,
+          "spanDays": 1,
+          "major": false
+        },
+        {
+          "date": "2026-12-12",
+          "label": "12 Dec",
+          "offsetDay": 82,
+          "spanDays": 1,
+          "major": false
+        },
+        {
+          "date": "2026-12-13",
+          "label": "13 Dec",
+          "offsetDay": 83,
+          "spanDays": 1,
+          "major": false
+        },
+        {
+          "date": "2026-12-14",
+          "label": "14 Dec",
+          "offsetDay": 84,
+          "spanDays": 1,
+          "major": false
+        },
+        {
+          "date": "2026-12-15",
+          "label": "15 Dec",
+          "offsetDay": 85,
+          "spanDays": 1,
+          "major": false
+        },
+        {
+          "date": "2026-12-16",
+          "label": "16 Dec",
+          "offsetDay": 86,
+          "spanDays": 1,
+          "major": false
+        },
+        {
+          "date": "2026-12-17",
+          "label": "17 Dec",
+          "offsetDay": 87,
+          "spanDays": 1,
+          "major": false
+        },
+        {
+          "date": "2026-12-18",
+          "label": "18 Dec",
+          "offsetDay": 88,
+          "spanDays": 1,
+          "major": false
+        },
+        {
+          "date": "2026-12-19",
+          "label": "19 Dec",
+          "offsetDay": 89,
+          "spanDays": 1,
+          "major": false
+        },
+        {
+          "date": "2026-12-20",
+          "label": "20 Dec",
+          "offsetDay": 90,
+          "spanDays": 1,
+          "major": false
+        },
+        {
+          "date": "2026-12-21",
+          "label": "21 Dec",
+          "offsetDay": 91,
+          "spanDays": 1,
+          "major": false
+        },
+        {
+          "date": "2026-12-22",
+          "label": "22 Dec",
+          "offsetDay": 92,
+          "spanDays": 1,
+          "major": false
+        },
+        {
+          "date": "2026-12-23",
+          "label": "23 Dec",
+          "offsetDay": 93,
+          "spanDays": 1,
+          "major": false
+        },
+        {
+          "date": "2026-12-24",
+          "label": "24 Dec",
+          "offsetDay": 94,
+          "spanDays": 1,
+          "major": false
+        },
+        {
+          "date": "2026-12-25",
+          "label": "25 Dec",
+          "offsetDay": 95,
+          "spanDays": 1,
+          "major": false
+        },
+        {
+          "date": "2026-12-26",
+          "label": "26 Dec",
+          "offsetDay": 96,
+          "spanDays": 1,
+          "major": false
+        },
+        {
+          "date": "2026-12-27",
+          "label": "27 Dec",
+          "offsetDay": 97,
+          "spanDays": 1,
+          "major": false
+        },
+        {
+          "date": "2026-12-28",
+          "label": "28 Dec",
+          "offsetDay": 98,
+          "spanDays": 1,
+          "major": false
+        },
+        {
+          "date": "2026-12-29",
+          "label": "29 Dec",
+          "offsetDay": 99,
+          "spanDays": 1,
+          "major": false
+        },
+        {
+          "date": "2026-12-30",
+          "label": "30 Dec",
+          "offsetDay": 100,
+          "spanDays": 1,
+          "major": false
+        },
+        {
+          "date": "2026-12-31",
+          "label": "31 Dec",
+          "offsetDay": 101,
+          "spanDays": 1,
+          "major": false
+        },
+        {
+          "date": "2027-01-01",
+          "label": "01 Jan",
+          "offsetDay": 102,
+          "spanDays": 1,
+          "major": true
+        },
+        {
+          "date": "2027-01-02",
+          "label": "02 Jan",
+          "offsetDay": 103,
+          "spanDays": 1,
+          "major": false
+        },
+        {
+          "date": "2027-01-03",
+          "label": "03 Jan",
+          "offsetDay": 104,
+          "spanDays": 1,
+          "major": false
+        },
+        {
+          "date": "2027-01-04",
+          "label": "04 Jan",
+          "offsetDay": 105,
+          "spanDays": 1,
+          "major": false
+        },
+        {
+          "date": "2027-01-05",
+          "label": "05 Jan",
+          "offsetDay": 106,
+          "spanDays": 1,
+          "major": false
+        },
+        {
+          "date": "2027-01-06",
+          "label": "06 Jan",
+          "offsetDay": 107,
+          "spanDays": 1,
+          "major": false
+        },
+        {
+          "date": "2027-01-07",
+          "label": "07 Jan",
+          "offsetDay": 108,
+          "spanDays": 1,
+          "major": false
+        },
+        {
+          "date": "2027-01-08",
+          "label": "08 Jan",
+          "offsetDay": 109,
+          "spanDays": 1,
+          "major": false
+        },
+        {
+          "date": "2027-01-09",
+          "label": "09 Jan",
+          "offsetDay": 110,
+          "spanDays": 1,
+          "major": false
+        },
+        {
+          "date": "2027-01-10",
+          "label": "10 Jan",
+          "offsetDay": 111,
+          "spanDays": 1,
+          "major": false
+        }
+      ],
+      "weeks": [
+        {
+          "date": "2026-09-21",
+          "label": "21 Sep",
+          "offsetDay": 0,
+          "spanDays": 7,
+          "major": false
+        },
+        {
+          "date": "2026-09-28",
+          "label": "28 Sep",
+          "offsetDay": 7,
+          "spanDays": 7,
+          "major": false
+        },
+        {
+          "date": "2026-10-05",
+          "label": "05 Oct",
+          "offsetDay": 14,
+          "spanDays": 7,
+          "major": true
+        },
+        {
+          "date": "2026-10-12",
+          "label": "12 Oct",
+          "offsetDay": 21,
+          "spanDays": 7,
+          "major": false
+        },
+        {
+          "date": "2026-10-19",
+          "label": "19 Oct",
+          "offsetDay": 28,
+          "spanDays": 7,
+          "major": false
+        },
+        {
+          "date": "2026-10-26",
+          "label": "26 Oct",
+          "offsetDay": 35,
+          "spanDays": 7,
+          "major": false
+        },
+        {
+          "date": "2026-11-02",
+          "label": "02 Nov",
+          "offsetDay": 42,
+          "spanDays": 7,
+          "major": true
+        },
+        {
+          "date": "2026-11-09",
+          "label": "09 Nov",
+          "offsetDay": 49,
+          "spanDays": 7,
+          "major": false
+        },
+        {
+          "date": "2026-11-16",
+          "label": "16 Nov",
+          "offsetDay": 56,
+          "spanDays": 7,
+          "major": false
+        },
+        {
+          "date": "2026-11-23",
+          "label": "23 Nov",
+          "offsetDay": 63,
+          "spanDays": 7,
+          "major": false
+        },
+        {
+          "date": "2026-11-30",
+          "label": "30 Nov",
+          "offsetDay": 70,
+          "spanDays": 7,
+          "major": false
+        },
+        {
+          "date": "2026-12-07",
+          "label": "07 Dec",
+          "offsetDay": 77,
+          "spanDays": 7,
+          "major": true
+        },
+        {
+          "date": "2026-12-14",
+          "label": "14 Dec",
+          "offsetDay": 84,
+          "spanDays": 7,
+          "major": false
+        },
+        {
+          "date": "2026-12-21",
+          "label": "21 Dec",
+          "offsetDay": 91,
+          "spanDays": 7,
+          "major": false
+        },
+        {
+          "date": "2026-12-28",
+          "label": "28 Dec",
+          "offsetDay": 98,
+          "spanDays": 7,
+          "major": false
+        },
+        {
+          "date": "2027-01-04",
+          "label": "04 Jan",
+          "offsetDay": 105,
+          "spanDays": 7,
+          "major": true
+        }
+      ],
+      "months": [
+        {
+          "date": "2026-10-01",
+          "label": "Oct 2026",
+          "offsetDay": 10,
+          "spanDays": 31,
+          "major": false
+        },
+        {
+          "date": "2026-11-01",
+          "label": "Nov 2026",
+          "offsetDay": 41,
+          "spanDays": 30,
+          "major": false
+        },
+        {
+          "date": "2026-12-01",
+          "label": "Dec 2026",
+          "offsetDay": 71,
+          "spanDays": 31,
+          "major": false
+        },
+        {
+          "date": "2027-01-01",
+          "label": "Jan 2027",
+          "offsetDay": 102,
+          "spanDays": 31,
+          "major": true
+        }
+      ],
+      "quarters": [
+        {
+          "date": "2026-09-21",
+          "label": "Q3 2026",
+          "offsetDay": 0,
+          "spanDays": 90,
+          "major": false
+        },
+        {
+          "date": "2026-10-01",
+          "label": "Q4 2026",
+          "offsetDay": 10,
+          "spanDays": 90,
+          "major": false
+        },
+        {
+          "date": "2027-01-01",
+          "label": "Q1 2027",
+          "offsetDay": 102,
+          "spanDays": 90,
+          "major": true
+        }
+      ]
+    },
+    "weekends": [
+      {
+        "offsetDay": 5,
+        "durationDays": 2
+      },
+      {
+        "offsetDay": 12,
+        "durationDays": 2
+      },
+      {
+        "offsetDay": 19,
+        "durationDays": 2
+      },
+      {
+        "offsetDay": 26,
+        "durationDays": 2
+      },
+      {
+        "offsetDay": 33,
+        "durationDays": 2
+      },
+      {
+        "offsetDay": 40,
+        "durationDays": 2
+      },
+      {
+        "offsetDay": 47,
+        "durationDays": 2
+      },
+      {
+        "offsetDay": 54,
+        "durationDays": 2
+      },
+      {
+        "offsetDay": 61,
+        "durationDays": 2
+      },
+      {
+        "offsetDay": 68,
+        "durationDays": 2
+      },
+      {
+        "offsetDay": 75,
+        "durationDays": 2
+      },
+      {
+        "offsetDay": 82,
+        "durationDays": 2
+      },
+      {
+        "offsetDay": 89,
+        "durationDays": 2
+      },
+      {
+        "offsetDay": 96,
+        "durationDays": 2
+      },
+      {
+        "offsetDay": 103,
+        "durationDays": 2
+      },
+      {
+        "offsetDay": 110,
+        "durationDays": 2
+      }
+    ],
+    "overview": [
+      {
+        "startDay": 11,
+        "durationDays": 6,
+        "color": "#56a7b3",
+        "warning": true
+      },
+      {
+        "startDay": 14,
+        "durationDays": 8,
+        "color": "#a06bb4",
+        "warning": true
+      },
+      {
+        "startDay": 95,
+        "durationDays": 6,
+        "color": "#d5bd51",
+        "warning": false
+      }
+    ],
+    "milestones": [
+      {
+        "code": "MILESTONE",
+        "label": "Delivery",
+        "dueDate": "2026-10-12",
+        "offsetDay": 21,
+        "completion": 50,
+        "taskCount": 2
+      }
+    ],
+    "warnings": 3,
+    "records": [
+      {
+        "taskCode": "sthpw/task?id=1",
+        "parentKey": "cg/assets?code=ASSET",
+        "parentTitle": "Robot body",
+        "process": "model",
+        "processLabel": "Modeling",
+        "status": "In progress",
+        "statusColor": "#56a7b3",
+        "assigned": "alice",
+        "assignedLabel": "Alice Artist",
+        "start": "2026-10-02 09:13:00",
+        "end": "2026-10-07 17:20:00",
+        "progress": 35,
+        "groupKey": "model",
+        "group": "Modeling",
+        "ganttScheduled": true,
+        "ganttStartDay": 11,
+        "ganttDurationDays": 6,
+        "ganttStartLabel": "2026-10-02",
+        "ganttEndLabel": "2026-10-07",
+        "ganttIssue": "",
+        "ganttColor": "#56a7b3",
+        "ganttSection": "scheduled",
+        "ganttSectionFirst": true,
+        "ganttWarning": "Task is overdue\nAssignee has overlapping tasks",
+        "ganttGroupStartDay": 11,
+        "ganttGroupDurationDays": 6,
+        "ganttGroupProgress": 35,
+        "groupFirst": true,
+        "groupCount": 1
+      },
+      {
+        "taskCode": "sthpw/task?id=2",
+        "parentKey": "cg/assets?code=ASSET2",
+        "parentTitle": "Robot textures",
+        "process": "texture",
+        "processLabel": "Texturing",
+        "status": "Review",
+        "statusColor": "#a06bb4",
+        "assigned": "alice",
+        "assignedLabel": "Alice Artist",
+        "start": "2026-10-05 10:14:00",
+        "end": "2026-10-12 18:30:00",
+        "progress": 65,
+        "groupKey": "texture",
+        "group": "Texturing",
+        "ganttScheduled": true,
+        "ganttStartDay": 14,
+        "ganttDurationDays": 8,
+        "ganttStartLabel": "2026-10-05",
+        "ganttEndLabel": "2026-10-12",
+        "ganttIssue": "",
+        "ganttColor": "#a06bb4",
+        "ganttSection": "scheduled",
+        "ganttSectionFirst": false,
+        "ganttWarning": "Assignee has overlapping tasks",
+        "ganttGroupStartDay": 14,
+        "ganttGroupDurationDays": 8,
+        "ganttGroupProgress": 65,
+        "groupFirst": true,
+        "groupCount": 1
+      },
+      {
+        "taskCode": "sthpw/task?id=3",
+        "parentKey": "cg/assets?code=ASSET3",
+        "parentTitle": "Final render",
+        "process": "render",
+        "processLabel": "Rendering",
+        "status": "Waiting",
+        "statusColor": "#d5bd51",
+        "assigned": "bob",
+        "assignedLabel": "Bob Supervisor",
+        "start": "2026-12-25 09:00:00",
+        "end": "2026-12-30 18:00:00",
+        "progress": 0,
+        "groupKey": "render",
+        "group": "Rendering",
+        "ganttScheduled": true,
+        "ganttStartDay": 95,
+        "ganttDurationDays": 6,
+        "ganttStartLabel": "2026-12-25",
+        "ganttEndLabel": "2026-12-30",
+        "ganttIssue": "",
+        "ganttColor": "#d5bd51",
+        "ganttSection": "scheduled",
+        "ganttSectionFirst": false,
+        "ganttWarning": "",
+        "ganttGroupStartDay": 95,
+        "ganttGroupDurationDays": 6,
+        "ganttGroupProgress": 0,
+        "groupFirst": true,
+        "groupCount": 1
+      },
+      {
+        "taskCode": "sthpw/task?id=4",
+        "parentKey": "cg/assets?code=ASSET4",
+        "parentTitle": "Set dressing",
+        "process": "model",
+        "processLabel": "Modeling",
+        "status": "Waiting",
+        "assigned": "",
+        "assignedLabel": "Not assigned",
+        "start": "",
+        "end": "",
+        "progress": 0,
+        "groupKey": "model",
+        "group": "Modeling",
+        "ganttScheduled": false,
+        "ganttStartDay": 0,
+        "ganttDurationDays": 0,
+        "ganttStartLabel": "",
+        "ganttEndLabel": "",
+        "ganttIssue": "Start and deadline are not set",
+        "ganttColor": "",
+        "ganttSection": "unscheduled",
+        "ganttSectionFirst": true,
+        "ganttWarning": "",
+        "ganttGroupStartDay": 0,
+        "ganttGroupDurationDays": 0,
+        "ganttGroupProgress": 0,
+        "groupFirst": true,
+        "groupCount": 1
+      }
+    ]
+  },
+  "calendar": [
+    {
+      "date": "2026-09-28",
+      "day": 28,
+      "inMonth": false,
+      "today": false,
+      "taskCount": 0,
+      "overdueCount": 0,
+      "tasks": [],
+      "milestoneCount": 0,
+      "milestones": [],
+      "selected": false
+    },
+    {
+      "date": "2026-09-29",
+      "day": 29,
+      "inMonth": false,
+      "today": false,
+      "taskCount": 0,
+      "overdueCount": 0,
+      "tasks": [],
+      "milestoneCount": 0,
+      "milestones": [],
+      "selected": false
+    },
+    {
+      "date": "2026-09-30",
+      "day": 30,
+      "inMonth": false,
+      "today": false,
+      "taskCount": 0,
+      "overdueCount": 0,
+      "tasks": [],
+      "milestoneCount": 0,
+      "milestones": [],
+      "selected": false
+    },
+    {
+      "date": "2026-10-01",
+      "day": 1,
+      "inMonth": true,
+      "today": false,
+      "taskCount": 0,
+      "overdueCount": 0,
+      "tasks": [],
+      "milestoneCount": 0,
+      "milestones": [],
+      "selected": false
+    },
+    {
+      "date": "2026-10-02",
+      "day": 2,
+      "inMonth": true,
+      "today": false,
+      "taskCount": 0,
+      "overdueCount": 0,
+      "tasks": [],
+      "milestoneCount": 0,
+      "milestones": [],
+      "selected": false
+    },
+    {
+      "date": "2026-10-03",
+      "day": 3,
+      "inMonth": true,
+      "today": false,
+      "taskCount": 0,
+      "overdueCount": 0,
+      "tasks": [],
+      "milestoneCount": 0,
+      "milestones": [],
+      "selected": false
+    },
+    {
+      "date": "2026-10-04",
+      "day": 4,
+      "inMonth": true,
+      "today": false,
+      "taskCount": 0,
+      "overdueCount": 0,
+      "tasks": [],
+      "milestoneCount": 0,
+      "milestones": [],
+      "selected": false
+    },
+    {
+      "date": "2026-10-05",
+      "day": 5,
+      "inMonth": true,
+      "today": false,
+      "taskCount": 0,
+      "overdueCount": 0,
+      "tasks": [],
+      "milestoneCount": 0,
+      "milestones": [],
+      "selected": false
+    },
+    {
+      "date": "2026-10-06",
+      "day": 6,
+      "inMonth": true,
+      "today": false,
+      "taskCount": 0,
+      "overdueCount": 0,
+      "tasks": [],
+      "milestoneCount": 0,
+      "milestones": [],
+      "selected": false
+    },
+    {
+      "date": "2026-10-07",
+      "day": 7,
+      "inMonth": true,
+      "today": false,
+      "taskCount": 1,
+      "overdueCount": 0,
+      "tasks": [
+        {
+          "taskCode": "sthpw/task?id=1",
+          "parentKey": "cg/assets?code=ASSET",
+          "parentTitle": "Robot body",
+          "process": "model",
+          "processLabel": "Modeling",
+          "status": "In progress",
+          "statusColor": "#56a7b3",
+          "assignedLabel": "Alice Artist",
+          "dueState": "scheduled",
+          "selected": false
+        }
+      ],
+      "milestoneCount": 0,
+      "milestones": [],
+      "selected": false
+    },
+    {
+      "date": "2026-10-08",
+      "day": 8,
+      "inMonth": true,
+      "today": false,
+      "taskCount": 0,
+      "overdueCount": 0,
+      "tasks": [],
+      "milestoneCount": 0,
+      "milestones": [],
+      "selected": false
+    },
+    {
+      "date": "2026-10-09",
+      "day": 9,
+      "inMonth": true,
+      "today": false,
+      "taskCount": 0,
+      "overdueCount": 0,
+      "tasks": [],
+      "milestoneCount": 0,
+      "milestones": [],
+      "selected": false
+    },
+    {
+      "date": "2026-10-10",
+      "day": 10,
+      "inMonth": true,
+      "today": false,
+      "taskCount": 0,
+      "overdueCount": 0,
+      "tasks": [],
+      "milestoneCount": 0,
+      "milestones": [],
+      "selected": false
+    },
+    {
+      "date": "2026-10-11",
+      "day": 11,
+      "inMonth": true,
+      "today": false,
+      "taskCount": 0,
+      "overdueCount": 0,
+      "tasks": [],
+      "milestoneCount": 0,
+      "milestones": [],
+      "selected": false
+    },
+    {
+      "date": "2026-10-12",
+      "day": 12,
+      "inMonth": true,
+      "today": true,
+      "taskCount": 1,
+      "overdueCount": 0,
+      "tasks": [
+        {
+          "taskCode": "sthpw/task?id=2",
+          "parentKey": "cg/assets?code=ASSET2",
+          "parentTitle": "Robot textures",
+          "process": "texture",
+          "processLabel": "Texturing",
+          "status": "Review",
+          "statusColor": "#a06bb4",
+          "assignedLabel": "Alice Artist",
+          "dueState": "scheduled",
+          "selected": false
+        }
+      ],
+      "milestoneCount": 1,
+      "milestones": [
+        {
+          "code": "MILESTONE",
+          "label": "Delivery",
+          "completion": 50,
+          "taskCount": 2
+        }
+      ],
+      "selected": false
+    },
+    {
+      "date": "2026-10-13",
+      "day": 13,
+      "inMonth": true,
+      "today": false,
+      "taskCount": 0,
+      "overdueCount": 0,
+      "tasks": [],
+      "milestoneCount": 0,
+      "milestones": [],
+      "selected": false
+    },
+    {
+      "date": "2026-10-14",
+      "day": 14,
+      "inMonth": true,
+      "today": false,
+      "taskCount": 0,
+      "overdueCount": 0,
+      "tasks": [],
+      "milestoneCount": 0,
+      "milestones": [],
+      "selected": false
+    },
+    {
+      "date": "2026-10-15",
+      "day": 15,
+      "inMonth": true,
+      "today": false,
+      "taskCount": 0,
+      "overdueCount": 0,
+      "tasks": [],
+      "milestoneCount": 0,
+      "milestones": [],
+      "selected": false
+    },
+    {
+      "date": "2026-10-16",
+      "day": 16,
+      "inMonth": true,
+      "today": false,
+      "taskCount": 0,
+      "overdueCount": 0,
+      "tasks": [],
+      "milestoneCount": 0,
+      "milestones": [],
+      "selected": false
+    },
+    {
+      "date": "2026-10-17",
+      "day": 17,
+      "inMonth": true,
+      "today": false,
+      "taskCount": 0,
+      "overdueCount": 0,
+      "tasks": [],
+      "milestoneCount": 0,
+      "milestones": [],
+      "selected": false
+    },
+    {
+      "date": "2026-10-18",
+      "day": 18,
+      "inMonth": true,
+      "today": false,
+      "taskCount": 0,
+      "overdueCount": 0,
+      "tasks": [],
+      "milestoneCount": 0,
+      "milestones": [],
+      "selected": false
+    },
+    {
+      "date": "2026-10-19",
+      "day": 19,
+      "inMonth": true,
+      "today": false,
+      "taskCount": 0,
+      "overdueCount": 0,
+      "tasks": [],
+      "milestoneCount": 0,
+      "milestones": [],
+      "selected": false
+    },
+    {
+      "date": "2026-10-20",
+      "day": 20,
+      "inMonth": true,
+      "today": false,
+      "taskCount": 0,
+      "overdueCount": 0,
+      "tasks": [],
+      "milestoneCount": 0,
+      "milestones": [],
+      "selected": false
+    },
+    {
+      "date": "2026-10-21",
+      "day": 21,
+      "inMonth": true,
+      "today": false,
+      "taskCount": 0,
+      "overdueCount": 0,
+      "tasks": [],
+      "milestoneCount": 0,
+      "milestones": [],
+      "selected": false
+    },
+    {
+      "date": "2026-10-22",
+      "day": 22,
+      "inMonth": true,
+      "today": false,
+      "taskCount": 0,
+      "overdueCount": 0,
+      "tasks": [],
+      "milestoneCount": 0,
+      "milestones": [],
+      "selected": false
+    },
+    {
+      "date": "2026-10-23",
+      "day": 23,
+      "inMonth": true,
+      "today": false,
+      "taskCount": 0,
+      "overdueCount": 0,
+      "tasks": [],
+      "milestoneCount": 0,
+      "milestones": [],
+      "selected": false
+    },
+    {
+      "date": "2026-10-24",
+      "day": 24,
+      "inMonth": true,
+      "today": false,
+      "taskCount": 0,
+      "overdueCount": 0,
+      "tasks": [],
+      "milestoneCount": 0,
+      "milestones": [],
+      "selected": false
+    },
+    {
+      "date": "2026-10-25",
+      "day": 25,
+      "inMonth": true,
+      "today": false,
+      "taskCount": 0,
+      "overdueCount": 0,
+      "tasks": [],
+      "milestoneCount": 0,
+      "milestones": [],
+      "selected": false
+    },
+    {
+      "date": "2026-10-26",
+      "day": 26,
+      "inMonth": true,
+      "today": false,
+      "taskCount": 0,
+      "overdueCount": 0,
+      "tasks": [],
+      "milestoneCount": 0,
+      "milestones": [],
+      "selected": false
+    },
+    {
+      "date": "2026-10-27",
+      "day": 27,
+      "inMonth": true,
+      "today": false,
+      "taskCount": 0,
+      "overdueCount": 0,
+      "tasks": [],
+      "milestoneCount": 0,
+      "milestones": [],
+      "selected": false
+    },
+    {
+      "date": "2026-10-28",
+      "day": 28,
+      "inMonth": true,
+      "today": false,
+      "taskCount": 0,
+      "overdueCount": 0,
+      "tasks": [],
+      "milestoneCount": 0,
+      "milestones": [],
+      "selected": false
+    },
+    {
+      "date": "2026-10-29",
+      "day": 29,
+      "inMonth": true,
+      "today": false,
+      "taskCount": 0,
+      "overdueCount": 0,
+      "tasks": [],
+      "milestoneCount": 0,
+      "milestones": [],
+      "selected": false
+    },
+    {
+      "date": "2026-10-30",
+      "day": 30,
+      "inMonth": true,
+      "today": false,
+      "taskCount": 0,
+      "overdueCount": 0,
+      "tasks": [],
+      "milestoneCount": 0,
+      "milestones": [],
+      "selected": false
+    },
+    {
+      "date": "2026-10-31",
+      "day": 31,
+      "inMonth": true,
+      "today": false,
+      "taskCount": 0,
+      "overdueCount": 0,
+      "tasks": [],
+      "milestoneCount": 0,
+      "milestones": [],
+      "selected": false
+    },
+    {
+      "date": "2026-11-01",
+      "day": 1,
+      "inMonth": false,
+      "today": false,
+      "taskCount": 0,
+      "overdueCount": 0,
+      "tasks": [],
+      "milestoneCount": 0,
+      "milestones": [],
+      "selected": false
+    },
+    {
+      "date": "2026-11-02",
+      "day": 2,
+      "inMonth": false,
+      "today": false,
+      "taskCount": 0,
+      "overdueCount": 0,
+      "tasks": [],
+      "milestoneCount": 0,
+      "milestones": [],
+      "selected": false
+    },
+    {
+      "date": "2026-11-03",
+      "day": 3,
+      "inMonth": false,
+      "today": false,
+      "taskCount": 0,
+      "overdueCount": 0,
+      "tasks": [],
+      "milestoneCount": 0,
+      "milestones": [],
+      "selected": false
+    },
+    {
+      "date": "2026-11-04",
+      "day": 4,
+      "inMonth": false,
+      "today": false,
+      "taskCount": 0,
+      "overdueCount": 0,
+      "tasks": [],
+      "milestoneCount": 0,
+      "milestones": [],
+      "selected": false
+    },
+    {
+      "date": "2026-11-05",
+      "day": 5,
+      "inMonth": false,
+      "today": false,
+      "taskCount": 0,
+      "overdueCount": 0,
+      "tasks": [],
+      "milestoneCount": 0,
+      "milestones": [],
+      "selected": false
+    },
+    {
+      "date": "2026-11-06",
+      "day": 6,
+      "inMonth": false,
+      "today": false,
+      "taskCount": 0,
+      "overdueCount": 0,
+      "tasks": [],
+      "milestoneCount": 0,
+      "milestones": [],
+      "selected": false
+    },
+    {
+      "date": "2026-11-07",
+      "day": 7,
+      "inMonth": false,
+      "today": false,
+      "taskCount": 0,
+      "overdueCount": 0,
+      "tasks": [],
+      "milestoneCount": 0,
+      "milestones": [],
+      "selected": false
+    },
+    {
+      "date": "2026-11-08",
+      "day": 8,
+      "inMonth": false,
+      "today": false,
+      "taskCount": 0,
+      "overdueCount": 0,
+      "tasks": [],
+      "milestoneCount": 0,
+      "milestones": [],
+      "selected": false
+    }
+  ]
+}

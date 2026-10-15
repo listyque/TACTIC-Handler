@@ -106,8 +106,8 @@ class HelpControllerTests(unittest.TestCase):
         for topic_id, controls in {
             "server_configuration": (
                 "Адрес сервера", "Проверить", "Создать тикет",
-                "Проверка соединения", "Обновления сервера",
-                "Пульс присутствия",
+                "Выполнение запросов", "Обновления сервера",
+                "Редактировать пресеты и маршрутизацию",
             ),
             "configuration.checkin": (
                 "Доставка превью", "Метод Check-in", "Метод Check-out",

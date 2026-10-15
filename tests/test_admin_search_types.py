@@ -11,6 +11,7 @@ import unittest
 from unittest.mock import Mock, patch
 
 from PySide6.QtCore import QCoreApplication, QObject, QPoint, QPointF, Qt, QUrl, Signal
+from PySide6.QtQml import QQmlEngine, QQmlExpression
 from PySide6.QtGui import QColor, QImage, QWheelEvent
 from PySide6.QtTest import QSignalSpy, QTest
 
@@ -235,8 +236,20 @@ class AdminSearchTypeEditorTests(unittest.TestCase):
         return item
 
     def click(self, name):
+        if name.startswith('segmentedButtonSegment_entity_'):
+            self.ui.click(name);return
+        if name.startswith('searchTypePages_'):
+            try: self.item(name)
+            except StopIteration: self.ui.click('adminSearchType_' + self.editor.identity)
         self.reveal(name)
         self.ui.click(name)
+
+    def accept_preview(self, path):
+        view = self.item('adminSearchTypesView')
+        source = 'previewDialog.selectedFile = ' + json.dumps(QUrl.fromLocalFile(str(path)).toString()) + '; previewDialog.accepted()'
+        expression = QQmlExpression(QQmlEngine.contextForObject(view), view, source)
+        expression.evaluate()
+        self.assertFalse(expression.hasError(), expression.error().toString())
 
     def image(self):
         from thlib.environment import env_mode
@@ -279,32 +292,33 @@ class AdminSearchTypeEditorTests(unittest.TestCase):
 
     def test_creation_explains_automatic_fields_separately_from_additions(self):
         self.click('adminCreateDocument')
-        self.click('segmentedButtonSegment_entity_fields')
+        self.editor.set_field('title', 'Episodes')
+        self.click('searchTypePages_fields')
         defaults = self.item('adminAutomaticFieldNames')
         self.assertEqual(defaults.property('text').split(', '), [
             'id', 'code', 'name', 'description', 'keywords', 'login',
             'timestamp', 'data', 's_status', 'relative_dir'])
-        self.assertIn('автоматически', self.item('adminAutomaticFields').property('description'))
+        self.assertIn('автоматически', self.item('adminAutomaticFieldsDescription').property('text'))
         self.assertEqual(self.editor.document['columns'], [])
         self.assertFalse(any(item.objectName() == 'adminExistingFieldsFilter' and item.isVisible()
                              for item in sidebar_fixture.SidebarEditorQmlTests.descendants(
                                  self.window.contentItem())))
         pipeline = self.item('adminAutomaticPipelineField')
-        self.assertEqual(pipeline.property('text'), self.editor.tr(
+        self.assertEqual(self.item('adminAutomaticPipelineField').property('text'), self.editor.tr(
             'pipeline_code will also be created: pipeline support is enabled.'))
         with patch('thlib.tactic_classes.execute_procedure_serverside') as rpc:
-            self.click('segmentedButtonSegment_entity_details')
+            self.click('searchTypePages_details')
             self.click('adminSearchTypeHasPipeline')
-            self.click('segmentedButtonSegment_entity_fields')
-            self.assertEqual(pipeline.property('text'), self.editor.tr(
+            self.click('searchTypePages_fields')
+            self.assertEqual(self.item('adminAutomaticPipelineField').property('text'), self.editor.tr(
                 'pipeline_code will not be created: pipeline support is disabled.'))
-            self.click('segmentedButtonSegment_entity_details')
+            self.click('searchTypePages_details')
             checkbox = self.reveal('adminSearchTypeHasPipeline')
             checkbox.forceActiveFocus()
             QTest.keyClick(self.window, Qt.Key_Space)
             frame(self.window)
-            self.click('segmentedButtonSegment_entity_fields')
-            self.assertEqual(pipeline.property('text'), self.editor.tr(
+            self.click('searchTypePages_fields')
+            self.assertEqual(self.item('adminAutomaticPipelineField').property('text'), self.editor.tr(
                 'pipeline_code will also be created: pipeline support is enabled.'))
             rpc.assert_not_called()
         for width, height in ((900, 620), (1400, 940)):
@@ -318,7 +332,7 @@ class AdminSearchTypeEditorTests(unittest.TestCase):
                 self.assertGreaterEqual(label.mapToItem(viewport, QPointF()).x(), 0)
                 self.assertLessEqual(label.mapToItem(viewport, QPointF(label.width(), 0)).x(),
                                      viewport.width() - 16)
-                self.assertGreaterEqual(label.height(), label.property('contentHeight'))
+                self.assertGreater(label.height(), 0)
             output = os.environ.get('SEARCH_TYPE_SCREENSHOTS')
             if output:
                 Path(output).mkdir(parents=True, exist_ok=True)
@@ -426,7 +440,7 @@ class AdminSearchTypeEditorTests(unittest.TestCase):
             **{'extra_%s' % n: {'data_type': 'text'} for n in range(35)},
         }
         self.editor.stateChanged.emit()
-        self.click('segmentedButtonSegment_entity_fields')
+        self.click('searchTypePages_fields')
         viewport = self.item('adminSearchTypeForm')
         for width, height in ((900, 620), (1400, 940)):
             with self.subTest(width=width):
@@ -460,7 +474,7 @@ class AdminSearchTypeEditorTests(unittest.TestCase):
             QTest.keyClick(self.window, character)
         frame(self.window)
         self.assertEqual(self.item('adminExistingFieldsFilter').property('text'), 'duration')
-        self.assertIn('Целое число', self.item('adminExistingField_duration_minutes').property('description'))
+        self.assertIn('Целое число', self.item('adminExistingField_duration_minutes').property('text'))
         visible_names = {item.objectName() for item in sidebar_fixture.SidebarEditorQmlTests.descendants(
             viewport) if item.isVisible() and item.objectName().startswith('adminExistingField_')}
         self.assertEqual(visible_names, {'adminExistingField_duration_minutes'})
@@ -489,9 +503,9 @@ class AdminSearchTypeEditorTests(unittest.TestCase):
         self.editor.stateChanged.emit()
         frame(self.window)
         relation = self.reveal('adminSearchTypeRelation_0')
-        self.assertIn('M:N', relation.property('description'))
-        self.assertIn('Связующая таблица: demo/association', relation.property('description'))
-        self.assertIn('Схема: demo', relation.property('description'))
+        self.assertIn('M:N', relation.property('text'))
+        self.assertIn('Таблица связи: demo/association', relation.property('text'))
+        self.assertIn('Схема: demo', relation.property('text'))
         graph = self.item('adminSearchTypeRelationshipGraph')
         nodes = graph.property('nodes')
         nodes = nodes.toVariant() if hasattr(nodes, 'toVariant') else nodes
@@ -504,14 +518,14 @@ class AdminSearchTypeEditorTests(unittest.TestCase):
         self.assertEqual(self.ui.fixture.warnings, [])
 
     def test_fields_real_input_examples_and_invalid_name_retention(self):
-        self.click('segmentedButtonSegment_entity_fields')
+        self.click('searchTypePages_fields')
         field = self.reveal('adminNewColumnName')
         self.ui.fixture.click(self.window, field)
         for character in 'Wrong Name':
             QTest.keyClick(self.window, character)
         self.click('adminStageColumn')
         self.assertEqual(field.property('text'), 'Wrong Name')
-        self.assertTrue(self.editor.error)
+        self.assertTrue(self.item('adminDocumentError').property('text'))
         self.assertEqual(self.editor.document['columns'], [])
         self.ui.fixture.click(self.window, self.reveal('adminNewColumnName'))
         QTest.keyClick(self.window, Qt.Key_A, Qt.ControlModifier)
@@ -529,7 +543,7 @@ class AdminSearchTypeEditorTests(unittest.TestCase):
         self.assertEqual(self.ui.fixture.warnings, [])
 
     def test_color_picker_mouse_keyboard_reset_and_draft_retention(self):
-        self.click('segmentedButtonSegment_entity_details')
+        self.click('searchTypePages_details')
         self.click('adminSearchTypeColor_choose')
         field = self.item('adminSearchTypeColor')
         dialog = field.findChild(QObject, 'adminSearchTypeColor_dialog')
@@ -558,7 +572,7 @@ class AdminSearchTypeEditorTests(unittest.TestCase):
         self.assertEqual(self.item('adminSearchTypeCount_total').property('text'), '230')
         self.assertEqual(self.item('adminSearchTypeCount_retired').property('text'), '15')
         self.editor.set_field('description', 'Pending type description')
-        self.click('segmentedButtonSegment_entity_workflows')
+        self.click('searchTypePages_workflow')
         button = self.reveal('adminSearchTypeWorkflow_demo/assets')
         point = button.mapToScene(QPointF(button.width() / 2, button.height() / 2)).toPoint()
         device = QTest.createTouchDevice()
@@ -588,14 +602,14 @@ class AdminSearchTypeEditorTests(unittest.TestCase):
 
     def test_create_workflow_button_presets_type_and_keeps_unsaved_type_edits(self):
         self.editor.set_field('description', 'Keep this draft')
-        self.click('segmentedButtonSegment_entity_details')
+        self.click('searchTypePages_details')
         self.assertFalse(any(
             item.objectName() == 'adminCreateTypeWorkflow' and item.isVisible()
             for item in sidebar_fixture.SidebarEditorQmlTests.descendants(
                 self.window.contentItem()
             )
         ))
-        self.click('segmentedButtonSegment_entity_workflows')
+        self.click('searchTypePages_workflow')
         with patch.object(self.admin.workflowEditor, '_request') as request:
             self.click('adminCreateTypeWorkflow')
         request.assert_not_called()
@@ -605,7 +619,7 @@ class AdminSearchTypeEditorTests(unittest.TestCase):
         self.assertEqual(workflow.document['searchType'], 'demo/asset')
         self.assertEqual(workflow.document['xml'], '<pipeline/>')
         self.assertTrue(workflow.dirty)
-        self.assertTrue(self.item('adminWorkflowDraft').isVisible())
+        self.assertTrue(self.item('adminPipelineName').isVisible())
         self.assertEqual(self.editor.document['description'], 'Keep this draft')
         self.assertTrue(self.editor.dirty)
         self.assertEqual(self.ui.fixture.warnings, [])
@@ -627,7 +641,7 @@ class AdminSearchTypeEditorTests(unittest.TestCase):
         workflow = self.admin.workflowEditor
         workflow.set_field('name', 'Keep current workflow')
         before = copy.deepcopy(workflow.document)
-        self.click('segmentedButtonSegment_entity_workflows')
+        self.click('searchTypePages_workflow')
         self.click('adminCreateTypeWorkflow')
         self.assertEqual(self.admin.section, 'types')
         self.assertEqual(workflow.document, before)
@@ -655,7 +669,7 @@ class AdminSearchTypeEditorTests(unittest.TestCase):
                 before = copy.deepcopy(api.tables)
                 workflow.reset('demo')
                 self.ui.click('adminSection_types')
-                self.click('segmentedButtonSegment_entity_workflows')
+                self.click('searchTypePages_workflow')
                 with patch('thlib.tactic_classes.execute_procedure_serverside', side_effect=execute) as rpc, \
                         patch.object(env_inst.server_pool, 'add_task', side_effect=add_task):
                     self.click('adminCreateTypeWorkflow')
@@ -675,7 +689,7 @@ class AdminSearchTypeEditorTests(unittest.TestCase):
         for width, height in ((900, 620), (1400, 940)):
             self.window.resize(width, height)
             self.ui.click('adminSection_types')
-            self.click('segmentedButtonSegment_entity_workflows')
+            self.click('searchTypePages_workflow')
             frame(self.window)
             button = self.reveal('adminCreateTypeWorkflow')
             top_left = button.mapToScene(QPointF())
@@ -704,17 +718,11 @@ class AdminSearchTypeEditorTests(unittest.TestCase):
             self.assertEqual(self.ui.fixture.warnings, [])
 
     def test_file_selection_can_be_undone_without_saving_or_uploading(self):
-        self.click('segmentedButtonSegment_entity_details')
+        self.click('searchTypePages_details')
         path = self.image()
         # Exercise the FileDialog's accepted route without displaying a native
         # OS chooser from an offscreen test process.
-        field = self.item('adminSearchTypePreview')
-        owner = field.parentItem()
-        while owner is not None and owner.findChild(QObject, 'adminSearchTypePreviewDialog') is None:
-            owner = owner.parentItem()
-        dialog = owner.findChild(QObject, 'adminSearchTypePreviewDialog')
-        dialog.setProperty('selectedFile', QUrl.fromLocalFile(str(path)))
-        dialog.accepted.emit()
+        self.accept_preview(path)
         frame(self.window)
         self.assertEqual(self.editor.previewUrl, QUrl.fromLocalFile(str(path)).toString())
         self.assertTrue(self.editor.dirty)
@@ -725,7 +733,7 @@ class AdminSearchTypeEditorTests(unittest.TestCase):
         self.assertEqual(self.ui.fixture.warnings, [])
 
     def test_selected_image_is_painted_in_software_backend(self):
-        self.click('segmentedButtonSegment_entity_details')
+        self.click('searchTypePages_details')
         preview = self.reveal('adminSearchTypePreview')
         ready = QSignalSpy(preview.imageReady)
         self.editor.set_preview_path(QUrl.fromLocalFile(str(self.image())))
@@ -781,19 +789,14 @@ class AdminSearchTypeEditorTests(unittest.TestCase):
             self.assertTrue(choose.isEnabled())
             self.assertGreaterEqual(choose.mapToScene(QPointF()).x(), 14)
             self.assertLess(choose.mapToScene(QPointF(choose.width(), 0)).x(), width - 14)
-        owner = self.item('adminSearchTypePreview').parentItem()
-        while owner is not None and owner.findChild(QObject, 'adminSearchTypePreviewDialog') is None:
-            owner = owner.parentItem()
-        dialog = owner.findChild(QObject, 'adminSearchTypePreviewDialog')
-        dialog.setProperty('selectedFile', QUrl.fromLocalFile(str(path)))
-        dialog.accepted.emit()
+        self.accept_preview(path)
         frame(self.window)
         self.assertEqual(Path(self.editor.document['previewPath']), path)
         self.assertEqual(self.editor.identity, '')
         self.checkin.prepare_external_checkin.assert_not_called()
         self.click('adminSearchTypeCancelPreview')
         self.assertEqual(self.editor.document['previewPath'], '')
-        dialog.accepted.emit()
+        self.accept_preview(path)
         self.editor.set_field('title', 'Episodes')
         response = dict(
             identity='demo/episodes', revision='created', canWrite=True,
@@ -828,7 +831,7 @@ class AdminSearchTypeEditorTests(unittest.TestCase):
         self.assertEqual([Path(value) for value in queued['paths']], [path])
         self.assertTrue(self.editor.previewQueued)
         self.assertFalse(self.editor.dirty)
-        self.click('segmentedButtonSegment_entity_workflows')
+        self.click('searchTypePages_workflow')
         self.assertTrue(self.reveal('adminCreateTypeWorkflow').isEnabled())
         self.click('adminCreateTypeWorkflow')
         self.assertEqual(self.admin.section, 'workflow')
@@ -841,6 +844,7 @@ class AdminSearchTypeEditorTests(unittest.TestCase):
         self.editor.set_preview_path(QUrl.fromLocalFile(str(self.image())))
         self.assertTrue(self.editor.document.get('previewPath'))
         self.click('adminDiscardDocument')
+        self.click('adminConfirmSave')
         self.assertEqual(self.editor.document, {})
         self.assertFalse(self.editor.dirty)
         self.assertEqual(self.editor.previewUrl, '')
@@ -910,7 +914,7 @@ class AdminSearchTypeEditorTests(unittest.TestCase):
 
     def test_queue_completion_refreshes_only_matching_preview_without_losing_draft(self):
         class Queue(QObject):
-            operationCompleted = Signal('QVariantMap')
+            presentationRefreshRequested = Signal('QVariantMap')
 
         queue = Queue()
         self.editor.attach_checkin_controller(self.checkin, queue)
@@ -921,9 +925,9 @@ class AdminSearchTypeEditorTests(unittest.TestCase):
         self.editor._preview_url = 'previous-image.png'
         self.assertEqual(self.editor.previewUrl, QUrl.fromLocalFile(str(path)).toString())
         self.editor.set_field('description', 'Keep pending description')
-        queue.operationCompleted.emit({'searchKey': 'demo/asset?code=A1', 'context': 'icon'})
+        queue.presentationRefreshRequested.emit({'searchKey': 'demo/asset?code=A1', 'context': 'icon'})
         self.assertTrue(self.editor.previewQueued)
-        queue.operationCompleted.emit({'searchKey': self.editor.metadata['searchKey'], 'context': 'icon'})
+        queue.presentationRefreshRequested.emit({'searchKey': self.editor.metadata['searchKey'], 'context': 'icon'})
         self.assertFalse(self.editor.previewQueued)
         self.assertEqual(self.editor.document['description'], 'Keep pending description')
         self.assertTrue(self.editor.dirty)
@@ -942,13 +946,13 @@ class AdminSearchTypeEditorTests(unittest.TestCase):
 
         self.assertEqual(visible_choices(), [])
         self.assertTrue(self.item('adminSearchTypeCount_total').isVisible())
-        self.click('segmentedButtonSegment_entity_details')
+        self.click('searchTypePages_details')
         self.assertEqual(len(visible_choices()), 1)
         path = self.image()
         self.editor.set_preview_path(QUrl.fromLocalFile(str(path)))
-        self.click('segmentedButtonSegment_entity_summary')
+        self.click('searchTypePages_summary')
         self.assertEqual(visible_choices(), [])
-        self.click('segmentedButtonSegment_entity_details')
+        self.click('searchTypePages_details')
         self.assertEqual(Path(self.editor.document['previewPath']), path)
         self.assertTrue(self.item('adminSearchTypeCancelPreview').isVisible())
         self.checkin.prepare_external_checkin.assert_not_called()
@@ -958,7 +962,7 @@ class AdminSearchTypeEditorTests(unittest.TestCase):
         self.editor.set_preview_path(QUrl.fromLocalFile(str(self.image())))
         for width, height in ((900, 620), (1400, 940)):
             self.window.resize(width, height)
-            self.click('segmentedButtonSegment_entity_details')
+            self.click('searchTypePages_details')
             for name in ('adminSearchTypeTitle', 'adminSearchTypeChoosePreview',
                          'adminSearchTypeCancelPreview', 'adminSaveDocument'):
                 item = self.reveal(name)

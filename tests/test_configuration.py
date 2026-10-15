@@ -2,8 +2,11 @@ from __future__ import annotations
 
 from pathlib import Path
 from types import SimpleNamespace
+from types import ModuleType
+from tempfile import TemporaryDirectory
+import sys
 import unittest
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 from thlib.ui.configuration import (
     ConfigurationController,
@@ -16,13 +19,208 @@ from thlib.ui.controllers.commands import CommandsMixin
 from thlib.ui.repository_editor import RepositoryEditorController
 from thlib.ui.workspace_models.state import WorkspaceState
 from thlib.ui.workspace_models.windows import FloatingWindowModel
-from thlib.environment import env_tactic
+from thlib.environment import env_mode, env_tactic
 
 
 QML = Path(__file__).resolve().parents[1] / "thlib" / "ui" / "qml"
 
 
 class ConfigurationTests(unittest.TestCase):
+    def test_repository_check_creates_missing_folders_and_rejects_empty_paths(self):
+        with TemporaryDirectory() as directory:
+            target = Path(directory) / 'repo' / 'assets'
+            result = RepositoryEditorController._check_paths({'base': str(target), 'empty': ''})
+            self.assertTrue(target.is_dir())
+            self.assertTrue(result['base']['ok'])
+            self.assertFalse(result['empty']['ok'])
+            self.assertEqual(RepositoryEditorController._check_paths({'base': str(target)})['base']['text'], 'Available')
+
+    def test_repository_check_reports_creation_error_without_aborting_other_paths(self):
+        with TemporaryDirectory() as directory:
+            blocker = Path(directory) / 'file'
+            blocker.touch()
+            result = RepositoryEditorController._check_paths({'bad': str(blocker / 'repo'), 'good': str(Path(directory) / 'repo')})
+            self.assertFalse(result['bad']['ok'])
+            self.assertTrue(result['good']['ok'])
+
+    def test_new_repository_defaults_disable_local(self):
+        from thlib.ui.repository_editor import _empty_base_dirs
+        for key in ('win32_local_repo_dir', 'linux_local_repo_dir'):
+            self.assertFalse(_empty_base_dirs()[key][4])
+        defaults = {key: '' for key in _empty_base_dirs()}
+        with patch.object(env_tactic, 'base_dirs', {}), patch.object(env_tactic, 'get_default_base_dirs', return_value=defaults), patch.object(env_tactic, 'save_base_dirs'), patch('thlib.environment.env_read_config', return_value=None):
+            actual = env_tactic.get_base_dirs()
+            for key in ('win32_local_repo_dir', 'linux_local_repo_dir'):
+                self.assertFalse(actual[key][4])
+
+        saved = _empty_base_dirs()
+        saved['win32_local_repo_dir'][4] = True
+        with patch.object(env_tactic, 'base_dirs', {}), patch('thlib.environment.env_read_config', return_value=saved):
+            self.assertTrue(env_tactic.get_base_dirs()['win32_local_repo_dir'][4])
+
+    def test_handler_server_autostart_defaults_on_and_can_be_disabled(self):
+        from thlib.environment import env_inst
+
+        probe = SimpleNamespace(_settings={})
+        self.assertTrue(CommandsMixin.handler_server_autostart_enabled(probe))
+        probe.debug_log = None
+        probe._write_settings = Mock()
+        probe._notify = Mock()
+        with patch.object(env_inst, "set_thread_counts"):
+            CommandsMixin.apply_global_configuration(
+                probe, {"autoStartHandlerServer": False},
+            )
+        self.assertFalse(CommandsMixin.handler_server_autostart_enabled(probe))
+        probe._write_settings.assert_called_once()
+
+        source = (QML.parent / "application.py").read_text(encoding="utf-8")
+        self.assertIn("if controller.handler_server_autostart_enabled():", source)
+
+    def test_save_all_keeps_configuration_open(self):
+        applied = []
+        controller = ConfigurationController(
+            lambda *_args: None, self.fail,
+            global_values=lambda: {"autoStartHandlerServer": True},
+            apply_global_configuration=lambda values: applied.append(values),
+        )
+        controller._original_values["global_preferences"] = {
+            "autoStartHandlerServer": True,
+        }
+        controller.update_page("global_preferences", {
+            "autoStartHandlerServer": False,
+        })
+        closed = []
+        controller.closeAllowed.connect(lambda: closed.append(True))
+
+        self.assertTrue(controller.save_all())
+        self.assertEqual(applied[0]["autoStartHandlerServer"], False)
+        self.assertFalse(controller.dirty)
+        self.assertEqual(closed, [])
+
+    def test_server_repository_alias_map_keeps_default_handler_path(self):
+        source = {"asset_base_dir": {
+            "default": "D:/tactic/assets", "local": "D:/shared/assets",
+        }}
+        server = SimpleNamespace(get_base_dirs=lambda: source)
+        with (
+            patch("thlib.tactic_classes.server_start", return_value=server),
+            patch("thlib.environment.env_write_config"),
+            patch.object(env_tactic, "default_base_dirs", None),
+        ):
+            self.assertEqual(
+                env_tactic.query_base_dirs()["asset_base_dir"],
+                "D:/tactic/assets",
+            )
+
+    def test_online_web_base_dir_comes_from_server(self):
+        local_dirs = {"web_base_dir": ["", "Web", [], "web", False]}
+        with (
+            patch.object(env_mode, "status", False),
+            patch.object(env_tactic, "base_dirs", local_dirs),
+            patch.object(env_tactic, "query_base_dirs", return_value={
+                "web_base_dir": "/assets",
+            }) as query,
+            patch.object(env_tactic, "get_base_dirs", return_value=local_dirs),
+            patch.object(env_tactic, "save_base_dirs") as save,
+            patch.object(env_tactic, "get_custom_dirs"),
+        ):
+            env_mode.set_online()
+            query.assert_called_once_with()
+            self.assertEqual(local_dirs["web_base_dir"][0], "/assets")
+            save.assert_called_once_with()
+
+    def test_team_repository_sync_updates_selected_alias_and_platform_path(self):
+        from thlib.tactic_query import set_team_repository_path
+
+        config = ModuleType("pyasm.common")
+        security = SimpleNamespace(
+            is_admin=lambda: True,
+            get_group_names=lambda: [],
+        )
+        config.Environment = SimpleNamespace(get_security=lambda: security)
+        values = {"default": "D:/old", "review": "D:/review"}
+        writes = []
+        config.Config = SimpleNamespace(
+            get_dict_value=lambda *_args: dict(values),
+            get_value=lambda *_args: "D:/old",
+            set_value=lambda *_args: writes.append(_args),
+            save_config=lambda: writes.append("saved"),
+            reload_config=lambda: writes.append("reloaded"),
+        )
+        with (
+            TemporaryDirectory() as directory,
+            patch.dict(sys.modules, {"pyasm.common": config}),
+        ):
+            self.assertEqual(set_team_repository_path(directory, "base"), "updated")
+            self.assertEqual(writes[0][2]["default"], directory)
+            self.assertEqual(writes[0][2]["review"], "D:/review")
+            self.assertEqual(writes[1:], ["saved", "reloaded"])
+            security.is_admin = lambda: False
+            with self.assertRaises(PermissionError):
+                set_team_repository_path(directory, "base")
+            security.get_group_names = lambda: ["project_supervisor"]
+            self.assertEqual(set_team_repository_path(directory, "base"), "updated")
+            with self.assertRaises(ValueError):
+                set_team_repository_path(directory, "../invalid")
+            writes.clear()
+            self.assertEqual(set_team_repository_path(directory, "local"), "updated")
+            self.assertEqual(writes[0][2]["local"], directory)
+            self.assertEqual(writes[0][2]["review"], "D:/review")
+            self.assertEqual(
+                writes[1][1],
+                "win32_local_repo_dir" if sys.platform == "win32"
+                else "linux_local_repo_dir",
+            )
+            values["default"] = directory
+            writes.clear()
+            self.assertEqual(
+                set_team_repository_path(directory, "base"), "unchanged"
+            )
+            self.assertEqual(writes, [])
+
+    def test_team_local_mode_forces_transfer_choices_in_shared_config(self):
+        from thlib.environment import cfg_controls, env_server
+        from thlib.ui.checkin_out import CheckinOutController
+        from thlib.ui.message_attachments import AttachmentUploadController
+        from thlib.ui.repository_sync import RepositorySyncController
+
+        saved = ConfigurationController._store_controls({}, {
+            "previewsThroughHttp": True,
+            "checkinMethod": 4,
+            "checkoutMethod": 1,
+        }, {key: _CHECKIN_CONTROLS[key] for key in (
+            "previewsThroughHttp", "checkinMethod", "checkoutMethod"
+        )})
+        controller = ConfigurationController(lambda *_args: None, self.fail)
+        with (
+            patch.object(env_server, "is_team_local_repository", return_value=True),
+            patch.object(cfg_controls, "checkin", saved),
+            patch.object(cfg_controls, "set_checkin") as set_checkin,
+        ):
+            values = controller._checkin_values()
+            self.assertEqual(
+                (values["previewsThroughHttp"], values["checkinMethod"],
+                 values["checkoutMethod"]),
+                (False, 1, 0),
+            )
+            self.assertFalse(RepositorySyncController.previews_through_http_enabled())
+            self.assertEqual(CheckinOutController._checkin_mode(None), "inplace")
+            self.assertEqual(AttachmentUploadController._checkin_mode(), "inplace")
+            controller._original_values["checkin_preferences"] = values
+            controller.update_page("checkin_preferences", {
+                **values, "verifyRepositoryMd5": True,
+            })
+            self.assertTrue(controller._apply_page("checkin_preferences"))
+
+        stored = ConfigurationController._controls_values(
+            set_checkin.call_args.args[0], _CHECKIN_CONTROLS
+        )
+        self.assertEqual(
+            (stored["previewsThroughHttp"], stored["checkinMethod"],
+             stored["checkoutMethod"]),
+            (0, 1, 0),
+        )
+
     def test_all_task_sort_choices_survive_configuration_normalization(self):
         for sort_mode in ("priority", "milestone", "supervisor"):
             with self.subTest(sort_mode=sort_mode):
@@ -35,6 +233,18 @@ class ConfigurationTests(unittest.TestCase):
                 self.assertEqual(values["quickViewMode"], "compact")
                 self.assertEqual(values["workspaceSurface"], "browser")
 
+    def test_task_column_draft_is_normalized_for_configuration_save(self):
+        values = ConfigurationController._normalize_tasks({
+            "columns": [{
+                "key": "status", "label": "Status", "width": 900,
+                "visible": False, "required": False,
+            }],
+        })
+        self.assertEqual(values["columns"], [{
+            "key": "status", "label": "Status", "width": 480,
+            "visible": False, "required": False, "order": 0,
+        }])
+
     def test_checkin_runtime_preferences_use_their_existing_owners(self):
         calls = []
         controller = SimpleNamespace(
@@ -42,6 +252,7 @@ class ConfigurationTests(unittest.TestCase):
             snapshot_browser_show_all=False,
             snapshot_browser_show_more=True,
             snapshot_browser_content_mode="both",
+            snapshot_browser_image_mode="fit",
             snapshot_browser_orientation="horizontal",
             set_loading_mode=lambda value: calls.append(("loading", value)),
             toggle_snapshot_browser_option=lambda value: calls.append(
@@ -49,6 +260,9 @@ class ConfigurationTests(unittest.TestCase):
             ),
             set_snapshot_browser_content_mode=lambda value: calls.append(
                 ("snapshot-content", value)
+            ),
+            set_snapshot_browser_image_mode=lambda value: calls.append(
+                ("snapshot-image", value)
             ),
             set_snapshot_browser_orientation=lambda value: calls.append(
                 ("snapshot-orientation", value)
@@ -89,6 +303,7 @@ class ConfigurationTests(unittest.TestCase):
             "snapshotShowAll": False,
             "snapshotShowMore": True,
             "snapshotContentMode": "both",
+            "snapshotImageMode": "fit",
             "snapshotOrientation": "horizontal",
             "commitQueueAutoClean": False,
         })
@@ -97,6 +312,7 @@ class ConfigurationTests(unittest.TestCase):
             "snapshotShowAll": True,
             "snapshotShowMore": True,
             "snapshotContentMode": "files",
+            "snapshotImageMode": "fill",
             "snapshotOrientation": "vertical",
             "commitQueueAutoClean": True,
         })
@@ -105,6 +321,7 @@ class ConfigurationTests(unittest.TestCase):
         self.assertIn(("snapshot-toggle", "all"), calls)
         self.assertNotIn(("snapshot-toggle", "more"), calls)
         self.assertIn(("snapshot-content", "files"), calls)
+        self.assertIn(("snapshot-image", "fill"), calls)
         self.assertIn(("snapshot-orientation", "vertical"), calls)
         self.assertIn(("auto-clean", True), calls)
 
@@ -155,7 +372,7 @@ class ConfigurationTests(unittest.TestCase):
             "thlib.ui.configuration.env_read_config", return_value=saved
         ):
             values = read_dcc_preferences("maya")
-        self.assertEqual(values, saved["maya"] | {"current_workdir": ""})
+        self.assertEqual(values, saved["maya"])
 
     def test_dcc_preferences_have_one_generic_owner(self):
         with patch(
@@ -173,6 +390,7 @@ class ConfigurationTests(unittest.TestCase):
             })
 
         stored = write_config.call_args.args[0]["maya"]
+        self.assertNotIn("current_workdir", stored)
         self.assertEqual(stored["scene_type"], "mayaAscii")
         self.assertFalse(stored["focus_after_open"])
         self.assertTrue(stored["create_maya_dirs"])
@@ -185,6 +403,27 @@ class ConfigurationTests(unittest.TestCase):
         self.assertIn("root.schema.sections", dcc_page)
         self.assertNotIn("create_maya_dirs", checkin_page)
         self.assertNotIn("create_playblast", checkin_page)
+
+    def test_maya_workspace_is_live_read_only_configuration(self):
+        scene = {"project": "D:/maya/project"}
+        with patch("thlib.ui.configuration.env_read_config", return_value={}):
+            controller = ConfigurationController(
+                lambda *_args: None, lambda _message: None,
+                dcc_runtime_values=lambda application: (
+                    scene if application == "maya" else {}
+                ),
+            )
+            controller.begin_session()
+            self.assertEqual(
+                controller.page_values("dcc.maya")["current_workdir"],
+                "D:/maya/project",
+            )
+            scene["project"] = "D:/maya/next"
+            self.assertEqual(
+                controller.page_values("dcc.maya")["current_workdir"],
+                "D:/maya/next",
+            )
+            self.assertFalse(controller.dirty)
 
     def test_current_repository_defaults_to_only_active_repository(self):
         repositories = [("base", {
@@ -411,6 +650,7 @@ class ConfigurationTests(unittest.TestCase):
             "snapshotShowAll": True,
             "snapshotShowMore": True,
             "snapshotContentMode": "files",
+            "snapshotImageMode": "fill",
             "snapshotOrientation": "vertical",
             "commitQueueAutoClean": True,
         })
@@ -418,6 +658,7 @@ class ConfigurationTests(unittest.TestCase):
         self.assertTrue(normalized["snapshotShowAll"])
         self.assertTrue(normalized["snapshotShowMore"])
         self.assertEqual(normalized["snapshotContentMode"], "files")
+        self.assertEqual(normalized["snapshotImageMode"], "fill")
         self.assertEqual(normalized["snapshotOrientation"], "vertical")
         self.assertTrue(normalized["commitQueueAutoClean"])
         stored = ConfigurationController._store_controls(
@@ -542,7 +783,7 @@ class ConfigurationTests(unittest.TestCase):
             [window.window_id for window in FloatingWindowModel._defaults()],
         )
 
-    def test_project_creation_wizard_is_native_modal_placeholder(self):
+    def test_project_creation_wizard_is_native_modal(self):
         wizard = next(
             window for window in FloatingWindowModel._defaults()
             if window.window_id == "project_wizard"

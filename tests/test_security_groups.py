@@ -13,6 +13,7 @@ from thlib.ui import security_store
 class SecurityStoreTests(unittest.TestCase):
     def setUp(self):
         self.tables = {
+            'sthpw/sobject_log': [],
             'sthpw/login_group': [dict(code='G1', login_group='artists',
                                       description='Artists', access_rules='<rules/>')],
             'sthpw/login': [dict(login=name, password='must-not-be-returned')
@@ -67,6 +68,18 @@ class SecurityStoreTests(unittest.TestCase):
             def add_filters(self, name, values):
                 self.filters.append((name, values))
 
+            def add_column(self, *_, **__):
+                pass
+
+            def add_group_by(self, *_):
+                pass
+
+            def add_order_by(self, *_):
+                pass
+
+            def add_limit(self, *_):
+                pass
+
             def get_sobjects(self):
                 return [NativeObject(self.table, row) for row in fixture.tables[self.table]
                         if all(row.get(name) in values for name, values in self.filters)
@@ -84,9 +97,27 @@ class SecurityStoreTests(unittest.TestCase):
             Environment=SimpleNamespace(get_security=lambda: SimpleNamespace(
                 is_admin=lambda: self.server.get_login() == 'admin')))}))
 
+    def revision(self, code):
+        rows = json.loads(security_store.query_security_groups())['groups']
+        return next(row['revision'] for row in rows if row['code'] == code)
+
+    def save(self, code, name, description, additions, removals):
+        return security_store.save_security_group(code, name, description, additions, removals,
+                                                  self.revision(code) if code else '')
+
+    def test_revision_conflict_and_invalid_payload_do_not_write(self):
+        revision = self.revision('G1')
+        self.save('G1', 'artists', 'Concurrent update', [], [])
+        original = deepcopy(self.tables)
+        with self.assertRaisesRegex(ValueError, 'changed'):
+            security_store.save_security_group('G1', 'artists', 'Stale', [], [], revision)
+        with self.assertRaisesRegex(ValueError, 'Invalid group members'):
+            security_store.save_security_group('G1', 'artists', '', 'alice', [], revision)
+        self.assertEqual(self.tables, original)
+
     def test_link_unlink_is_idempotent_and_does_not_remove_concurrent_member(self):
         for _ in range(2):
-            security_store.save_security_group('G1', 'artists', 'New description', ['bob'], ['alice'])
+            self.save('G1', 'artists', 'New description', ['bob'], ['alice'])
         self.assertEqual(self.calls, [('add', 'bob', 'artists'), ('remove', 'alice', 'artists')])
         self.assertEqual({row['login'] for row in self.tables['sthpw/login_in_group']},
                          {'bob', 'charlie'})
@@ -94,24 +125,31 @@ class SecurityStoreTests(unittest.TestCase):
 
     def test_create_and_retry_keep_one_group(self):
         for _ in range(2):
-            security_store.save_security_group('', 'lighting', 'Lighting team', ['bob'], [])
+            self.save('', 'lighting', 'Lighting team', ['bob'], [])
         self.assertEqual(len(self.tables['sthpw/login_group']), 2)
         self.assertEqual(self.calls, [('add', 'bob', 'lighting')])
 
     def test_create_does_not_modify_an_existing_group_with_the_same_name(self):
         original = deepcopy(self.tables)
         with self.assertRaises(ValueError):
-            security_store.save_security_group('', 'artists', 'Artists', ['bob'], [])
+            self.save('', 'artists', 'Artists', ['bob'], [])
         self.assertEqual(self.tables, original)
 
     def test_missing_user_and_unprivileged_requests_fail_before_writes(self):
         original = deepcopy(self.tables)
         with self.assertRaises(ValueError):
-            security_store.save_security_group('G1', 'artists', 'Changed', ['missing'], [])
+            self.save('G1', 'artists', 'Changed', ['missing'], [])
         self.server.get_login = lambda: 'bob'
         with self.assertRaises(PermissionError):
-            security_store.save_security_group('G1', 'artists', 'Changed', [], ['alice'])
+            self.save('G1', 'artists', 'Changed', [], ['alice'])
         self.assertEqual(self.tables, original)
+
+    def test_supervisor_can_manage_groups(self):
+        self.server.get_login = lambda: 'bob'
+        self.tables['sthpw/login_in_group'].append(
+            dict(login='bob', login_group='supervisor'))
+        self.save('G1', 'artists', 'Updated', [], [])
+        self.assertEqual(self.tables['sthpw/login_group'][0]['description'], 'Updated')
 
     def test_catalog_never_returns_login_passwords(self):
         payload = json.loads(security_store.query_security_groups())
@@ -122,7 +160,7 @@ class SecurityStoreTests(unittest.TestCase):
         self.tables['sthpw/login'][0]['s_status'] = 'retired'
         payload = json.loads(security_store.query_security_groups())
         self.assertTrue(payload['users'][0]['retired'])
-        security_store.save_security_group('G1', 'artists', 'Artists', [], ['alice'])
+        self.save('G1', 'artists', 'Artists', [], ['alice'])
         self.assertEqual(self.calls, [('remove', 'alice', 'artists')])
 
 

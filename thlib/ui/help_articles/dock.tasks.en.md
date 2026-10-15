@@ -56,3 +56,8 @@ exact stored value. In long lists, scroll first and let the view settle before r
 - A save conflict leaves the local edit visible so it can be reviewed or discarded.
 - Delete is shown only when the current account and task state permit it.
 - An unavailable user, status or field is server configuration data and is never invented by the UI.
+
+## Project tasks without object selection
+
+In full Task Manager, + also works when no object is selected. It creates a task owned only by the current project; no asset, shot or other work object is needed. The task uses the standard task status workflow and initially assigns the current user, so it appears in My tasks. Edit and save it using the existing task controls, then open Task Inspector as usual. In a Perforce-like file project, select it under Link tasks to changelist in the submit dialog. With an object selected, + keeps creating a task for that object.
+

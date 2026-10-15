@@ -21,15 +21,16 @@ Item {
     property bool applyingCommand: false
     property string bufferKey: ""
     property real fontPointSize: Typography.body
+    property bool readOnly: false
     property int historyLimit: 120
     property var histories: ({})
     property int historyRevision: 0
     readonly property int lineNumberCount: Math.max(1, editor.lineCount)
-    readonly property bool canUndo: historyRevision >= 0 && historyCanUndo()
-    readonly property bool canRedo: historyRevision >= 0 && historyCanRedo()
+    readonly property bool canUndo: !readOnly && historyRevision >= 0 && historyCanUndo()
+    readonly property bool canRedo: !readOnly && historyRevision >= 0 && historyCanRedo()
     readonly property bool canCopy: editor.selectedText.length > 0
-    readonly property bool canCut: canCopy
-    readonly property bool canPaste: editor.canPaste
+    readonly property bool canCut: !readOnly && canCopy
+    readonly property bool canPaste: !readOnly && editor.canPaste
     readonly property bool editorActiveFocus: editor.activeFocus
     signal textEdited()
     signal runRequested()
@@ -87,6 +88,7 @@ Item {
     }
 
     function showFind(replaceMode) {
+        replaceMode = replaceMode && !readOnly
         if (searchVisible && replaceVisible === replaceMode) {
             closeFind()
             return
@@ -140,6 +142,8 @@ Item {
     }
 
     function replaceCurrent() {
+        if (readOnly)
+            return
         if (!replaceVisible || !findField.text.length)
             return
         const matches = controller.search_matches(
@@ -164,6 +168,8 @@ Item {
     }
 
     function replaceAll() {
+        if (readOnly)
+            return
         const matches = controller.search_matches(
             editor.text, findField.text, searchOptions())
         if (!matches.length)
@@ -183,6 +189,8 @@ Item {
     }
 
     function applyCommand(command) {
+        if (readOnly)
+            return
         const result = controller.apply_editor_command(
             command, editor.text, editor.selectionStart, editor.selectionEnd)
         applyingCommand = true
@@ -195,6 +203,8 @@ Item {
     }
 
     function replaceText(value) {
+        if (readOnly)
+            return
         applyingCommand = true
         editor.text = String(value || "")
         editor.cursorPosition = 0
@@ -316,6 +326,8 @@ Item {
     }
 
     function applyHistoryIndex(index) {
+        if (readOnly)
+            return
         const state = currentHistory()
         if (!state || index < 0 || index > state.entries.length)
             return
@@ -398,11 +410,15 @@ Item {
     }
 
     function cutSelection() {
+        if (readOnly)
+            return
         editor.cut()
         editor.forceActiveFocus()
     }
 
     function pasteClipboard() {
+        if (readOnly)
+            return
         editor.paste()
         editor.forceActiveFocus()
     }
@@ -426,6 +442,8 @@ Item {
     }
 
     function acceptCompletion(suffix) {
+        if (readOnly)
+            return false
         if (!completionPopup.visible || completionItems.length === 0)
             return false
         const item = completionItems[completionIndex]
@@ -449,6 +467,8 @@ Item {
     }
 
     function insertIndentSpaces() {
+        if (readOnly)
+            return
         const lineStart = editor.text.lastIndexOf(
             "\n", Math.max(0, editor.cursorPosition - 1)) + 1
         const column = editor.cursorPosition - lineStart
@@ -707,6 +727,7 @@ Item {
                 Controls.TextArea {
                     id: editor
                     objectName: "scriptEditorSourceText"
+                    readOnly: root.readOnly
                     theme: root.theme
                     font.family: "Consolas"
                     font.pointSize: root.fontPointSize

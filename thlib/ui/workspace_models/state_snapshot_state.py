@@ -132,6 +132,7 @@ class SnapshotStateMixin:
                 except (AttributeError, KeyError, TypeError):
                     pass
                 url = self._preview_helper._preview_url(candidate)
+                using_original = candidate is file_object and bool(url)
                 if not url:
                     try:
                         url = self._preview_helper._preview_url(
@@ -152,10 +153,32 @@ class SnapshotStateMixin:
                     "token": token,
                     "title": title,
                     "url": url,
+                    "qualityUrl": "",
+                    "qualityRequested": using_original,
                     "kind": kind,
                     "snapshotNodeId": node.node_id,
                 })
         return records
+
+    def request_snapshot_preview_quality(self, token: str) -> None:
+        for row, record in enumerate(self._snapshot_preview_records):
+            if record.get("token") != token:
+                continue
+            if record.get("qualityRequested"):
+                return
+            quality_url = self._preview_helper._preview_url(
+                self._snapshot_file_objects.get(token)
+            )
+            values = {
+                "qualityUrl": (
+                    quality_url if quality_url != record.get("url") else ""
+                ),
+                "qualityRequested": True,
+            }
+            record.update(values)
+            if getattr(self, "_snapshot_presentation_visible", True):
+                self.snapshot_preview_model.update_record(row, values)
+            return
 
     def _build_snapshot_browser_models(
         self, snapshot_nodes, priority_preview_nodes=None,
@@ -292,16 +315,23 @@ class SnapshotStateMixin:
         )
         all_pending = dict(pending_paths or {})
         all_pending.update(self._preview_helper._pending_preview_paths)
-        for record in self._snapshot_preview_records:
-            pending = all_pending.get(
-                str(record.get("url") or "")
-            )
-            if pending and str(Path(pending).resolve()) == local_path:
-                record["url"] = ready_url
-        for record in self._snapshot_records:
+        changed_preview_rows = []
+        for row, record in enumerate(self._snapshot_preview_records):
+            changed = False
+            for role in ("url", "qualityUrl"):
+                pending = all_pending.get(str(record.get(role) or ""))
+                if pending and str(Path(pending).resolve()) == local_path:
+                    record[role] = ready_url
+                    changed = True
+            if changed:
+                changed_preview_rows.append(row)
+        changed_snapshot_rows = []
+        for row, record in enumerate(self._snapshot_records):
+            changed = False
             pending = all_pending.get(str(record.get("previewUrl") or ""))
             if pending and str(Path(pending).resolve()) == local_path:
                 record["previewUrl"] = ready_url
+                changed = True
             items = list(record.get("previewItems") or [])
             items_changed = False
             for item in items:
@@ -311,7 +341,16 @@ class SnapshotStateMixin:
                     items_changed = True
             if items_changed:
                 record["previewItems"] = items
-        self._publish_snapshot_presentation()
+                changed = True
+            if changed:
+                changed_snapshot_rows.append(row)
+        if getattr(self, "_snapshot_presentation_visible", True):
+            for row in changed_preview_rows:
+                self.snapshot_preview_model.update_record(
+                    row, self._snapshot_preview_records[row]
+                )
+            if changed_snapshot_rows:
+                self.snapshot_model.replace(self._snapshot_records)
         self._preview_helper._pending_preview_paths = {
             token: path
             for token, path in self._preview_helper._pending_preview_paths.items()
@@ -320,11 +359,17 @@ class SnapshotStateMixin:
 
     def fail_preview(self, task_id: str) -> None:
         token = f"pending-preview:{task_id}"
-        for record in self._snapshot_preview_records:
-            if record.get("url") != token:
+        for row, record in enumerate(self._snapshot_preview_records):
+            values = {
+                role: ""
+                for role in ("url", "qualityUrl")
+                if record.get(role) == token
+            }
+            if not values:
                 continue
-            record["url"] = ""
-        self._publish_snapshot_presentation()
+            record.update(values)
+            if getattr(self, "_snapshot_presentation_visible", True):
+                self.snapshot_preview_model.update_record(row, values)
         self._preview_helper._pending_preview_paths.pop(token, None)
 
     def snapshot_file_for(self, token: str):

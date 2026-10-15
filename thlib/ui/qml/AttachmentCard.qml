@@ -13,6 +13,7 @@ Rectangle {
     property bool local: false
     property bool compact: false
     property bool animatePreview: true
+    property bool webPreview: false
     property string activationLabel: root.local
         ? qsTr("Open attachment") : qsTr("Download attachment")
     property string activationIcon: root.local ? "open_in_new" : "download"
@@ -27,9 +28,16 @@ Rectangle {
         "JPG", "JPEG", "PNG", "WEBP", "GIF", "BMP", "TIF", "TIFF",
         "TGA", "EXR", "HDR", "SVG", "HEIC", "AVIF"
     ].indexOf(String(root.extension || "").toUpperCase()) >= 0
+    readonly property real imageWidth: root.webPreview
+        && imagePreview.sourcePixelWidth > 0
+        ? Math.min(Math.max(0, width - 16), imagePreview.sourcePixelWidth)
+        : Math.max(0, width - 16)
+    readonly property real imageHeight: Math.min(360,
+        imageWidth * (imagePreview.sourcePixelWidth > 0
+            ? imagePreview.sourcePixelHeight / imagePreview.sourcePixelWidth : 0.56))
 
     implicitHeight: !root.compact && imageAttachment
-        ? Math.min(310, Math.max(220, width * 0.68))
+        ? imageHeight + 65
         : 64
     activeFocusOnTab: enabled
     Accessible.role: Accessible.Button
@@ -157,8 +165,12 @@ Rectangle {
         spacing: 7
 
         Controls.ItemPreview {
-            Layout.fillWidth: true
-            Layout.fillHeight: true
+            id: imagePreview
+            objectName: "attachmentImagePreview"
+            Layout.fillWidth: !root.webPreview
+            Layout.preferredWidth: root.imageWidth
+            Layout.preferredHeight: root.imageHeight
+            Layout.alignment: Qt.AlignHCenter
             theme: root.theme
             source: root.imageAttachment ? root.previewUrl : ""
             fallbackIcon: "image"
@@ -168,6 +180,8 @@ Rectangle {
             outlined: true
             previewSize: 180
             fillMode: Image.PreserveAspectFit
+            decodeAtItemSize: !root.webPreview
+            preserveDecodeAspect: true
             animateAppearance: root.animatePreview
         }
 

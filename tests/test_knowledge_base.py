@@ -3,12 +3,13 @@ from __future__ import annotations
 import os
 import json
 from copy import deepcopy
-from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from functools import partial
+from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 import sys
 import tempfile
-from threading import Thread
 import time
+from threading import Thread
 from types import ModuleType
 import unittest
 from unittest.mock import patch
@@ -24,12 +25,12 @@ if os.name == "nt":
     )
 
 from PySide6.QtCore import (
-    QByteArray, QBuffer, QCoreApplication, QEvent, QIODevice, QObject, QPoint,
+    QCoreApplication, QEvent, QObject, QPoint,
     QPointF, Property, Qt, QUrl, Signal, Slot,
     qInstallMessageHandler,
 )
 from PySide6.QtGui import (
-    QFont, QGuiApplication, QImage, QTextCursor, QTextDocument,
+    QFont, QGuiApplication, QImage, QTextCursor, QTextDocument, QTextFormat,
 )
 from PySide6.QtQml import QQmlComponent, QQmlEngine
 from PySide6.QtQuick import QQuickItem, QQuickWindow
@@ -137,8 +138,9 @@ class _KnowledgeStub(QObject):
         self.save_calls = 0
         self.save_draft_calls = 0
         self.unlinked_object_keys = []
-        self.display_width_requests = []
         self.image_source_candidates = {}
+        self.editor_image_errors = []
+        self._rich_text_document = RichTextDocumentController(self)
 
     @Property(bool, notify=stateChanged)
     def initialized(self): return True
@@ -166,6 +168,9 @@ class _KnowledgeStub(QObject):
 
     @Property(QObject, constant=True)
     def uploadedAttachmentModel(self): return self._uploaded_attachments
+
+    @Property(QObject, constant=True)
+    def richTextDocument(self): return self._rich_text_document
 
     @Property(bool, notify=stateChanged)
     def organizationDirty(self): return self._organization_dirty
@@ -199,15 +204,6 @@ class _KnowledgeStub(QObject):
         self.article_open_acknowledgements += 1
         self.stateChanged.emit()
 
-    @Property(str, notify=stateChanged)
-    def displayHtml(self):
-        return rich_html_from_markdown(self._document["contentMarkdown"])
-
-    @Slot(float, result=str)
-    def display_html_for_width(self, maximum_width):
-        self.display_width_requests.append(float(maximum_width))
-        return rich_html_from_markdown(self._document["contentMarkdown"])
-
     @Property("QVariantMap", notify=stateChanged)
     def document(self): return dict(self._document)
 
@@ -215,16 +211,21 @@ class _KnowledgeStub(QObject):
     def editorMarkdown(self):
         return str(self._document.get("contentMarkdown") or "")
 
+    @Property(str, notify=editorDocumentChanged)
+    def editorHtml(self):
+        return rich_html_from_markdown(self.editorMarkdown) or "<p></p>"
+
     @Property("QVariantMap", notify=editorDocumentChanged)
     def editorImageSources(self):
         return {
-            str(record.get("webUrl") or ""): str(
-                record.get("previewUrl") or ""
-            )
-            for record in self._uploaded_attachments.records()
-            if str(record.get("webUrl") or "")
-            and str(record.get("previewUrl") or "")
+            source: candidates[0]
+            for source, candidates in self.image_source_candidates.items()
+            if candidates
         }
+
+    @Slot(str)
+    def report_editor_image_error(self, source):
+        self.editor_image_errors.append(str(source))
 
     @Property(int, notify=stateChanged)
     def readingMinutes(self): return 3
@@ -272,46 +273,6 @@ class _KnowledgeStub(QObject):
 
     @Property(int, notify=stateChanged)
     def viewerReadingMinutes(self): return 3
-
-    @Slot(float, result=str)
-    def viewer_html_for_width(self, maximum_width):
-        self.display_width_requests.append(float(maximum_width))
-        return rich_html_from_markdown(
-            self.viewerDocument.get("contentMarkdown") or ""
-        )
-
-    @Slot(float, result="QVariantList")
-    def viewer_blocks_for_width(self, maximum_width):
-        self.display_width_requests.append(float(maximum_width))
-        blocks = rich_text_blocks(
-            rich_html_from_markdown(
-                self.viewerDocument.get("contentMarkdown") or ""
-            ),
-            maximum_width,
-        )
-        for block in blocks:
-            if block.get("kind") == "image":
-                source = str(block.get("source") or "")
-                block["sources"] = list(
-                    self.image_source_candidates.get(source, [source])
-                )
-        return blocks
-
-    @Slot(result="QVariantList")
-    def viewer_blocks(self):
-        self.display_width_requests.append("intrinsic")
-        blocks = rich_text_blocks(
-            rich_html_from_markdown(
-                self.viewerDocument.get("contentMarkdown") or ""
-            )
-        )
-        for block in blocks:
-            if block.get("kind") == "image":
-                source = str(block.get("source") or "")
-                block["sources"] = list(
-                    self.image_source_candidates.get(source, [source])
-                )
-        return blocks
 
     @Slot(result=bool)
     def load_history(self):
@@ -776,6 +737,35 @@ class KnowledgeBaseTests(unittest.TestCase):
         self.assertIsNotNone(text_style)
         self.assertIsNotNone(style_menu)
         self.assertIsNotNone(list_menu)
+        decoration_repeater = view.findChild(
+            QObject, "knowledgeBlockDecorationRepeater"
+        )
+        code_language = visual_child(
+            view, "knowledgeEditorCodeLanguage-0"
+        )
+        self.assertIsNotNone(decoration_repeater)
+        self.assertEqual(decoration_repeater.property("count"), 1)
+        self.assertIsNotNone(code_language)
+        self.assertEqual(code_language.property("text"), "Python")
+        code_block = next(
+            block for block in (
+                rich_text._live_document().findBlockByNumber(index)
+                for index in range(
+                    rich_text._live_document().blockCount()
+                )
+            )
+            if block.blockFormat().hasProperty(
+                QTextFormat.BlockCodeFence
+            )
+        )
+        syntax_colors = {
+            value.format.foreground().color().name()
+            for value in code_block.layout().formats()
+            if value.format.foreground().style() != Qt.NoBrush
+        }
+        self.assertIn(
+            theme.property("syntaxFunction").name(), syntax_colors
+        )
         self.assertEqual(
             {
                 action.get("command")
@@ -783,7 +773,7 @@ class KnowledgeBaseTests(unittest.TestCase):
                 if action.get("command")
             },
             {f"heading:{level}" for level in range(7)} | {
-                "quote", "pullquote", "code-block", "small-text", "divider",
+                "quote", "pullquote", "code-block", "small-text",
             },
         )
         self.assertEqual(
@@ -798,6 +788,62 @@ class KnowledgeBaseTests(unittest.TestCase):
         )
         self.assertIsNotNone(table_action)
         self.assertEqual(table_action.property("iconName"), "table-view")
+        divider_action = visual_child(
+            toolbar, "knowledgeToolbarAction-divider"
+        )
+        quote_action = visual_child(
+            toolbar, "knowledgeToolbarAction-quote"
+        )
+        small_text_action = visual_child(
+            toolbar, "knowledgeToolbarAction-small-text"
+        )
+        self.assertIsNotNone(divider_action)
+        self.assertTrue(divider_action.property("visible"))
+        self.assertTrue(quote_action.property("visible"))
+        self.assertTrue(small_text_action.property("visible"))
+        mode_switch = visual_child(toolbar, "knowledgeContentMode")
+        alignment_actions = [
+            visual_child(toolbar, f"knowledgeToolbarAction-{alignment}")
+            for alignment in ("left", "center", "right")
+        ]
+        separators = [
+            visual_child(toolbar, f"knowledgeToolbarSeparator-{group}")
+            for group in ("history", "text", "blocks", "mode")
+        ]
+        self.assertIsNotNone(mode_switch)
+        self.assertTrue(all(action is not None for action in alignment_actions))
+        self.assertTrue(all(separator is not None for separator in separators))
+        self.assertTrue(all(
+            separator.property("visible") for separator in separators
+        ))
+        view.setWidth(1024)
+        QTest.qWait(20)
+        self.assertTrue(all(
+            action.property("visible") for action in alignment_actions
+        ))
+        wide_mode_position = mode_switch.mapToItem(toolbar, QPointF(0, 0))
+        self.assertLessEqual(
+            wide_mode_position.x() + mode_switch.width(),
+            toolbar.width() + 0.5,
+        )
+        view.setWidth(620)
+        QTest.qWait(20)
+        self.assertTrue(divider_action.property("visible"))
+        self.assertFalse(quote_action.property("visible"))
+        self.assertFalse(small_text_action.property("visible"))
+        self.assertFalse(any(
+            action.property("visible") for action in alignment_actions
+        ))
+        self.assertTrue(mode_switch.property("iconOnly"))
+        mode_position = mode_switch.mapToItem(toolbar, QPointF(0, 0))
+        self.assertLessEqual(
+            mode_position.x() + mode_switch.width(),
+            toolbar.width() + 0.5,
+        )
+        view.setWidth(900)
+        QTest.qWait(20)
+        self.assertTrue(quote_action.property("visible"))
+        self.assertTrue(small_text_action.property("visible"))
         markdown_point = markdown_mode.mapToScene(QPointF(
             markdown_mode.width() / 2,
             markdown_mode.height() / 2,
@@ -917,6 +963,60 @@ class KnowledgeBaseTests(unittest.TestCase):
         self.application.processEvents()
         self.assertEqual(rich_text.formatState["heading"], 0)
 
+        editor.forceActiveFocus()
+        QTest.keyClick(window, Qt.Key_End, Qt.ControlModifier)
+        QTest.qWait(120)
+        style_menu.triggered.emit("code-block")
+        self.application.processEvents()
+        block_panel = view.findChild(QObject, "knowledgeBlockInsertPanel")
+        block_text = view.findChild(QObject, "knowledgeBlockText")
+        block_apply = visual_child(view, "knowledgeBlockApply")
+        self.assertTrue(block_panel.property("visible"))
+        block_text.setProperty(
+            "text", "import hashlib\nimport time\n\nvalue = 4"
+        )
+        apply_point = block_apply.mapToScene(QPointF(
+            block_apply.width() / 2,
+            block_apply.height() / 2,
+        ))
+        QTest.mouseClick(
+            window, Qt.LeftButton, pos=apply_point.toPoint()
+        )
+        self.application.processEvents()
+        self.assertFalse(block_panel.property("visible"))
+        self.assertIn(
+            "```python\nimport hashlib\nimport time\n\nvalue = 4\n```",
+            rich_text.markdown(),
+            rich_text.html(),
+        )
+
+        editor.forceActiveFocus()
+        QTest.keyClick(window, Qt.Key_End, Qt.ControlModifier)
+        QTest.qWait(120)
+        style_menu.triggered.emit("pullquote")
+        self.application.processEvents()
+        self.assertTrue(block_panel.property("visible"))
+        block_text.setProperty("text", "Important callout")
+        block_apply.clicked.emit()
+        self.application.processEvents()
+        self.assertIn(
+            "> Important callout {align=center}", rich_text.markdown()
+        )
+        decorations = sorted(
+            (
+                visual_child(
+                    view, f"knowledgeEditorBlockDecoration-{index}"
+                )
+                for index in range(decoration_repeater.property("count"))
+            ),
+            key=lambda item: item.y(),
+        )
+        for previous, current in zip(decorations, decorations[1:]):
+            self.assertLessEqual(
+                previous.y() + previous.height() + 1,
+                current.y(),
+            )
+
         table_point = table_action.mapToScene(QPointF(
             table_action.width() / 2,
             table_action.height() / 2,
@@ -927,12 +1027,42 @@ class KnowledgeBaseTests(unittest.TestCase):
         self.application.processEvents()
         self.assertIn("| --- | --- | --- |", rich_text.markdown())
 
+        document.clear()
+        editor.setProperty("cursorPosition", 0)
+        editor.forceActiveFocus()
+        self.application.processEvents()
+        divider_point = divider_action.mapToScene(QPointF(
+            divider_action.width() / 2,
+            divider_action.height() / 2,
+        ))
+        QTest.mouseClick(
+            window, Qt.LeftButton, pos=divider_point.toPoint()
+        )
+        self.application.processEvents()
+        self.assertEqual(rich_text.markdown(), "---")
+        self.assertEqual(document.blockCount(), 3)
+        self.assertEqual(document.lastBlock().text(), "")
+        caret_rect = editor.positionToRectangle(
+            document.lastBlock().position()
+        )
+        caret_point = editor.mapToScene(QPointF(
+            caret_rect.x() + 2,
+            caret_rect.y() + caret_rect.height() / 2,
+        ))
+        QTest.mouseClick(
+            window, Qt.LeftButton, pos=caret_point.toPoint()
+        )
+        QTest.keyClick(window, Qt.Key_A)
+        self.application.processEvents()
+        self.assertEqual(rich_text.markdown(), "---\n\na")
+
         window.hide()
         view.setParentItem(None)
         view.deleteLater()
         window.deleteLater()
         theme.deleteLater()
         engine.deleteLater()
+        QCoreApplication.sendPostedEvents(None, QEvent.DeferredDelete)
         self.application.processEvents()
 
     def test_native_document_bridge_formats_without_web_engine(self):
@@ -1020,8 +1150,8 @@ class KnowledgeBaseTests(unittest.TestCase):
         bridge.set_quote("pull")
         self.assertEqual(bridge.markdown(), "> Quoted {align=center}")
         self.assertTrue(bridge.formatState["pullQuote"])
-        self.assertIn("background-color", bridge.html())
-        self.assertIn(
+        self.assertNotIn("background-color", bridge.html())
+        self.assertNotIn(
             "background-color", rich_html_from_markdown("> Reopened")
         )
         bridge.set_quote("pull")
@@ -1037,12 +1167,44 @@ class KnowledgeBaseTests(unittest.TestCase):
         document.setPlainText("Code")
         bridge.sync_selection(4, 0, 4)
         bridge.set_code_block()
-        self.assertEqual(bridge.markdown(), "```\nCode\n```")
+        self.assertEqual(bridge.markdown(), "```python\nCode\n```")
         self.assertTrue(bridge.formatState["codeBlock"])
-        self.assertIn("background-color", bridge.html())
+        self.assertNotIn("background-color", bridge.html())
         bridge.set_code_block()
         self.assertFalse(bridge.formatState["codeBlock"])
         self.assertEqual(bridge.markdown(), "Code")
+
+        document.clear()
+        bridge.sync_selection(0, 0, 0)
+        bridge.insert_code_block(
+            "import hashlib\nimport time\n\nvalue = 4", "python"
+        )
+        self.assertEqual(
+            bridge.markdown(),
+            "```python\nimport hashlib\nimport time\n\nvalue = 4\n```",
+        )
+        self.assertEqual(bridge.blockDecorations, [{
+            "kind": "code",
+            "language": "python",
+            "start": 0,
+            "end": len("import hashlib\nimport time\n\nvalue = 4") - 1,
+        }])
+
+        document.clear()
+        bridge.sync_selection(0, 0, 0)
+        bridge.insert_quote("Important", "quote")
+        self.assertEqual(bridge.markdown(), "> Important")
+        self.assertEqual(bridge.blockDecorations[0]["kind"], "quote")
+
+        document.setPlainText("Before")
+        cursor = QTextCursor(document)
+        cursor.movePosition(QTextCursor.End)
+        cursor.insertBlock()
+        cursor.insertBlock()
+        cursor.insertText("After")
+        self.assertEqual(
+            bridge.markdown(), "Before\n\n<br />\n\nAfter"
+        )
 
         font = QFont(document.defaultFont())
         font.setPointSizeF(11.0)
@@ -1077,11 +1239,41 @@ class KnowledgeBaseTests(unittest.TestCase):
         bridge.sync_selection(0, 0, 0)
         bridge.insert_divider()
         self.assertEqual(bridge.markdown(), "---")
+        self.assertEqual(document.blockCount(), 3)
+        self.assertEqual(document.lastBlock().text(), "")
 
         document.clear()
         bridge.sync_selection(0, 0, 0)
         bridge.insert_table()
         self.assertIn("| --- | --- | --- |", bridge.markdown())
+
+    def test_extra_markdown_blank_lines_survive_visual_round_trip(self):
+        compact = (
+            "Before\n\n"
+            "![Board](https://example.invalid/board.png)"
+            "{width=160 height=90}\n\n"
+            "```python\nfirst = 1\n\nsecond = 2\n```\n\n"
+            "> After"
+        )
+        spaced = compact.replace("\n\n![", "\n\n\n![").replace(
+            "90}\n\n```", "90}\n\n\n```"
+        ).replace("```\n\n> After", "```\n\n\n> After")
+        document = QTextDocument()
+        document.setTextWidth(500)
+        bridge = RichTextDocumentController()
+        bridge.attach(document)
+
+        bridge.load_markdown(compact, {})
+        compact_height = document.size().height()
+        bridge.load_markdown(spaced, {})
+        spaced_height = document.size().height()
+        serialized = bridge.markdown()
+
+        self.assertEqual(serialized.count("<br />"), 3)
+        self.assertIn("first = 1\n\nsecond = 2", serialized)
+        self.assertGreater(spaced_height, compact_height + 30)
+        bridge.load_markdown(serialized, {})
+        self.assertEqual(bridge.markdown(), serialized)
 
     def test_existing_link_can_be_discovered_and_edited_atomically(self):
         document = QTextDocument()
@@ -1139,177 +1331,48 @@ class KnowledgeBaseTests(unittest.TestCase):
         self.assertTrue(bridge.resize_selected_image(32.0, 640.0))
         self.assertIn('width="32"', bridge.html())
 
-    def test_editor_image_preview_keeps_the_permanent_storage_url(self):
+    def test_editor_image_uses_isolated_preview_and_stores_original(self):
         document = QTextDocument()
         bridge = RichTextDocumentController()
         bridge.attach(document)
         permanent = "https://example.test/article/original.png"
-        preview = "https://example.test/article/preview.png"
+        preview = "file:///tmp/article-preview.jpg"
+        markdown = (
+            f'![Board]({permanent} "Board")'
+            "{width=320 height=180}"
+        )
 
-        bridge.insert_image(permanent, "Board", 320.0, preview)
-
-        self.assertIn(preview, document.toHtml())
-        stored = bridge.html()
-        self.assertIn(permanent, stored)
-        self.assertNotIn(preview, stored)
-
-        reopened = QTextDocument()
-        reopened.setHtml(stored)
-        reopened_bridge = RichTextDocumentController()
-        reopened_bridge.attach(reopened)
-        self.assertTrue(reopened_bridge.apply_image_display_sources({
+        self.assertTrue(bridge.load_markdown(markdown, {
             permanent: preview,
         }))
-        self.assertIn(preview, reopened.toHtml())
-        self.assertIn(permanent, reopened_bridge.html())
+        self.application.processEvents()
+        self.assertNotIn(permanent, document.toHtml())
+        self.assertIn("data:image/png", document.toHtml())
+        self.assertEqual(bridge.imageOverlays[0]["source"], preview)
+        stored = bridge.html()
+        self.assertIn(permanent, stored)
 
-    def test_editor_loads_image_preview_before_creating_the_document(self):
-        class RecordingDocument(QTextDocument):
-            def __init__(self):
-                super().__init__()
-                self.loaded_markdown = ""
+        overlay_changes = QSignalSpy(bridge.imageOverlaysChanged)
+        bridge.sync_selection(0, 0, 0)
+        bridge.set_image_natural_size(permanent, 1280.0, 720.0)
+        self.application.processEvents()
+        self.assertEqual(overlay_changes.count(), 0)
 
-            def setMarkdown(self, markdown, *args):
-                self.loaded_markdown = str(markdown)
-                return super().setMarkdown(markdown, *args)
-
-        document = RecordingDocument()
-        bridge = RichTextDocumentController()
-        bridge.attach(document)
-        permanent = "https://example.test/article/original.png"
-        preview = "https://example.test/article/preview.png"
-
-        self.assertTrue(bridge.load_markdown(
-            f'![Board]({permanent} "Original")'
-            "{width=320 height=180}",
-            {permanent: preview},
-        ))
-
-        self.assertIn(preview, document.loaded_markdown)
-        self.assertNotIn(permanent, document.loaded_markdown)
-        self.assertIn(permanent, bridge.html())
-        self.assertNotIn(preview, bridge.html())
-        bridge.detach()
-
-    def test_pending_preview_never_reaches_the_rich_text_document(self):
+    def test_toolbar_format_state_does_not_reenter_the_live_document(self):
         document = QTextDocument()
+        document.setHtml("<p><b>Bold</b> text</p>")
         bridge = RichTextDocumentController()
         bridge.attach(document)
-        permanent = "https://example.test/article/original.png"
+        bridge.sync_selection(2, 2, 2)
 
-        self.assertTrue(bridge.load_markdown(
-            f"![Board]({permanent}){{width=320 height=180}}",
-            {permanent: "pending-preview:attachment-token"},
-        ))
+        with patch.object(
+            bridge,
+            "_cursor",
+            side_effect=AssertionError("QML binding reentered QTextDocument"),
+        ):
+            self.assertTrue(bridge.formatState["bold"])
 
-        self.assertNotIn("pending-preview:", document.toHtml())
-        self.assertIn(permanent, document.toHtml())
-
-    def test_remote_editor_image_renders_inside_the_text_document(self):
-        expected = QImage(640, 373, QImage.Format_ARGB32)
-        expected.fill(Qt.red)
-        payload = QByteArray()
-        buffer = QBuffer(payload)
-        self.assertTrue(buffer.open(QIODevice.WriteOnly))
-        self.assertTrue(expected.save(buffer, "PNG"))
-        buffer.close()
-        payload_bytes = bytes(payload)
-
-        class ImageHandler(BaseHTTPRequestHandler):
-            def do_GET(self):
-                self.send_response(200)
-                self.send_header("Content-Type", "image/png")
-                self.send_header("Content-Length", str(len(payload_bytes)))
-                self.end_headers()
-                self.wfile.write(payload_bytes)
-
-            def log_message(self, _format, *_args):
-                pass
-
-        server = ThreadingHTTPServer(("127.0.0.1", 0), ImageHandler)
-        thread = Thread(target=server.serve_forever, daemon=True)
-        thread.start()
-
-        engine = QQmlEngine()
-        component = QQmlComponent(engine)
-        component.setData(b"""
-            import QtQuick
-            Item {
-                id: root
-                property var documentController
-                property alias textDocument: editor.textDocument
-                width: 640
-                height: 480
-                TextEdit {
-                    id: editor
-                    width: parent.width
-                    height: Math.max(parent.height, contentHeight + 24)
-                    leftPadding: 13
-                    topPadding: 12
-                    textFormat: TextEdit.RichText
-                    wrapMode: TextEdit.Wrap
-                }
-            }
-        """, QUrl.fromLocalFile(str(
-            self.qml / "_RemoteImageEditorTest.qml"
-        )))
-        editor = component.create()
-        self.assertIsNotNone(editor, "\n".join(
-            error.toString() for error in component.errors()
-        ))
-        window = QQuickWindow()
-        window.resize(640, 480)
-        editor.setParentItem(window.contentItem())
-        window.show()
-        self.assertTrue(QTest.qWaitForWindowExposed(window))
-        bridge = RichTextDocumentController(engine)
-        bridge.attach(editor.property("textDocument"))
-        editor.setProperty("documentController", bridge)
-        document = bridge._live_document()
-        self.assertIsNotNone(document)
-        permanent = "https://tactic.test/article/original.png"
-        preview = f"http://127.0.0.1:{server.server_port}/preview.png"
-        try:
-            self.assertTrue(bridge.load_markdown(
-                f"![Board]({permanent})"
-                "{width=320 height=180 fit=content}",
-                {permanent: preview},
-            ))
-            image_format = next(bridge._image_cursors(document))[1]
-            self.assertEqual(str(image_format.name()), preview)
-            deadline = time.monotonic() + 3.0
-            resource = None
-            while (
-                not isinstance(resource, QImage) or resource.isNull()
-            ) and time.monotonic() < deadline:
-                QTest.qWait(10)
-                resource = document.resource(
-                    QTextDocument.ImageResource, QUrl(preview)
-                )
-            self.assertIsInstance(resource, QImage)
-            self.assertFalse(resource.isNull())
-            QTest.qWait(50)
-            capture = window.grabWindow()
-            self.assertTrue(any(
-                capture.pixelColor(x, y).red() > 200
-                and capture.pixelColor(x, y).green() < 30
-                and capture.pixelColor(x, y).blue() < 30
-                for y in range(capture.height())
-                for x in range(capture.width())
-            ))
-            self.assertIn(permanent, bridge.html())
-            self.assertIn("max-width: 100%", bridge.html())
-            self.assertNotIn(preview, bridge.html())
-        finally:
-            bridge.detach()
-            window.hide()
-            editor.setParentItem(None)
-            editor.deleteLater()
-            window.deleteLater()
-            engine.deleteLater()
-            server.shutdown()
-            server.server_close()
-            thread.join(timeout=2)
+        bridge.detach()
 
     def test_native_image_is_inserted_at_the_synced_text_caret(self):
         document = QTextDocument()
@@ -1351,26 +1414,12 @@ class KnowledgeBaseTests(unittest.TestCase):
             image_center.x(), image_center.y(), 560.0
         ))
         self.assertEqual(bridge.selectedImagePosition, image_position)
-
-    def test_late_image_resource_refreshes_selected_geometry(self):
-        document = QTextDocument()
-        source = QUrl("https://example.com/late-preview.png")
-        bridge = RichTextDocumentController()
-        bridge.attach(document)
-        bridge.insert_image(source.toString(), "Late preview", 320.0)
-
-        self.assertEqual(bridge.selectedImageHeight, 0.0)
-        document.addResource(
-            QTextDocument.ImageResource,
-            source,
-            QImage(640, 360, QImage.Format_ARGB32),
-        )
-        document.markContentsDirty(0, document.characterCount())
-        self.application.processEvents()
-
-        self.assertEqual(bridge.selectedImageWidth, 320.0)
-        self.assertEqual(bridge.selectedImageHeight, 180.0)
-        self.assertEqual(bridge.selectedImageRect.height(), 180.0)
+        self.assertTrue(bridge.image_at_point(
+            image_center.x(), image_center.y()
+        ))
+        self.assertFalse(bridge.image_at_point(
+            image_center.x(), bridge.selectedImageRect.top() - 1
+        ))
 
     def test_native_image_move_preserves_fragment_and_is_undoable(self):
         document = QTextDocument()
@@ -1472,14 +1521,46 @@ class KnowledgeBaseTests(unittest.TestCase):
         self.assertNotIn("max-width:", document.toHtml())
 
     def test_editor_image_frame_survives_unrelated_controller_updates(self):
+        temporary = tempfile.TemporaryDirectory()
+        self.addCleanup(temporary.cleanup)
+
+        class MissingImageHandler(SimpleHTTPRequestHandler):
+            def log_message(self, format, *args):
+                pass
+
+            def do_GET(self):
+                self.send_response(404)
+                self.send_header("Content-Length", "0")
+                self.end_headers()
+
+        server = ThreadingHTTPServer(
+            ("127.0.0.1", 0),
+            partial(MissingImageHandler, directory=temporary.name),
+        )
+        server_thread = Thread(target=server.serve_forever, daemon=True)
+        server_thread.start()
+        self.addCleanup(server.server_close)
+        self.addCleanup(server_thread.join, 2.0)
+        self.addCleanup(server.shutdown)
+
         engine = QQmlEngine()
         controller = _KnowledgeStub()
         controller._editing = True
+        storage_source = (
+            f"http://127.0.0.1:{server.server_port}/missing.png"
+        )
         controller._document["contentMarkdown"] = markdown_from_rich_html(
             '<p><a href="https://example.test/old">Old label</a></p>'
-            '<p><img src="https://example.com/large.png" '
-            'width="320" height="180"></p><p>Body text</p>'
+            f'<p><img src="{storage_source}" width="320" '
+            'height="180"></p><p>Body text</p>'
         )
+        preview_path = Path(temporary.name) / "large-preview.png"
+        preview_image = QImage(320, 180, QImage.Format_ARGB32)
+        preview_image.fill(Qt.red)
+        self.assertTrue(preview_image.save(str(preview_path)))
+        controller.image_source_candidates[
+            storage_source
+        ] = [QUrl.fromLocalFile(str(preview_path)).toString()]
         attachments = _AttachmentStub()
         attachment_model = RecordListModel((
             "token", "title", "path", "size", "fileType", "previewUrl",
@@ -1520,6 +1601,36 @@ class KnowledgeBaseTests(unittest.TestCase):
         self.assertTrue(QTest.qWaitForWindowExposed(window))
         self.application.processEvents()
 
+        editor_images = []
+        pending_items = list(view.childItems())
+        while pending_items:
+            child = pending_items.pop()
+            if child.objectName().startswith("knowledgeEditorImage-"):
+                editor_images.append(child)
+            pending_items.extend(child.childItems())
+        image_repeater = view.findChild(
+            QObject, "knowledgeEditorImageRepeater"
+        )
+        self.assertEqual(
+            len(editor_images), 1,
+            "overlays=" + repr(rich_text.imageOverlays)
+            + " repeater=" + repr(
+                image_repeater.property("count")
+                if image_repeater is not None else None
+            ),
+        )
+        deadline = time.monotonic() + 1.0
+        while (
+            not editor_images[0].property("imageReady")
+            and time.monotonic() < deadline
+        ):
+            QTest.qWait(10)
+        self.assertTrue(editor_images[0].property("imageReady"))
+        self.assertEqual(
+            editor_images[0].property("imageSource").toString(),
+            QUrl.fromLocalFile(str(preview_path)).toString(),
+        )
+
         editor = view.findChild(QObject, "knowledgeRichTextEditor")
         frame = view.findChild(QObject, "knowledgeSelectedImageFrame")
         resize_handle = view.findChild(
@@ -1542,6 +1653,41 @@ class KnowledgeBaseTests(unittest.TestCase):
         self.assertIsNotNone(link_target)
         self.assertIsNotNone(link_label)
         self.assertIsNotNone(link_apply)
+
+        document = rich_text._live_document()
+        text_block = document.begin()
+        text_line = text_block.layout().lineAt(0)
+        line_end_x = text_line.cursorToX(len(text_block.text()))
+        if isinstance(line_end_x, tuple):
+            line_end_x = line_end_x[0]
+        line_end = editor.mapToScene(QPointF(
+            text_block.layout().position().x() + line_end_x + 3,
+            document.documentLayout().blockBoundingRect(
+                text_block
+            ).center().y(),
+        ))
+        image_center = editor_images[0].mapToScene(QPointF(
+            editor_images[0].width() / 2,
+            editor_images[0].height() / 2,
+        ))
+        QTest.mouseMove(window, image_center.toPoint())
+        self.application.processEvents()
+        self.assertEqual(window.cursor().shape(), Qt.OpenHandCursor)
+        QTest.mouseMove(window, line_end.toPoint())
+        self.application.processEvents()
+        self.assertEqual(window.cursor().shape(), Qt.IBeamCursor)
+        QTest.mouseClick(
+            window, Qt.LeftButton, pos=line_end.toPoint()
+        )
+        self.application.processEvents()
+        self.assertFalse(rich_text.imageSelected)
+        self.assertEqual(
+            editor.property("cursorPosition"),
+            text_block.position() + len(text_block.text()),
+        )
+        editor.setProperty("focus", False)
+        self.application.processEvents()
+
         fit_calls = len(rich_text.image_fit_calls)
         view.setProperty("resizeActive", True)
         for width in (820, 760, 700, 900):
@@ -1680,13 +1826,33 @@ class KnowledgeBaseTests(unittest.TestCase):
         temporary = tempfile.TemporaryDirectory()
         self.addCleanup(temporary.cleanup)
         image_path = Path(temporary.name) / "editor-resize.png"
-        source_image = QImage(330, 320, QImage.Format_ARGB32)
+        source_image = QImage(1100, 1067, QImage.Format_ARGB32)
         source_image.fill(0xFFFF00FF)
         self.assertTrue(source_image.save(str(image_path)))
 
+        class ImageHandler(SimpleHTTPRequestHandler):
+            def log_message(self, format, *args):
+                pass
+
+        server = ThreadingHTTPServer(
+            ("127.0.0.1", 0),
+            partial(ImageHandler, directory=temporary.name),
+        )
+        server_thread = Thread(target=server.serve_forever, daemon=True)
+        server_thread.start()
+        self.addCleanup(server.server_close)
+        self.addCleanup(server_thread.join, 2.0)
+        self.addCleanup(server.shutdown)
+        preview_path = Path(temporary.name) / "preview.png"
+        preview_image = QImage(64, 64, QImage.Format_ARGB32)
+        preview_image.fill(0xFF0000FF)
+        self.assertTrue(preview_image.save(str(preview_path)))
+
         controller = _KnowledgeStub()
         controller._editing = True
-        remote_source = "https://example.invalid/editor-resize.png"
+        remote_source = (
+            f"http://127.0.0.1:{server.server_port}/editor-resize.png"
+        )
         controller._document["contentMarkdown"] = markdown_from_rich_html(
             (
                 '<p>Before image</p>'
@@ -1701,10 +1867,12 @@ class KnowledgeBaseTests(unittest.TestCase):
             "title": "editor-resize.png",
             "extension": "PNG",
             "sizeText": "2 KB",
-            "previewUrl": QUrl.fromLocalFile(str(image_path)).toString(),
+            "previewUrl": QUrl.fromLocalFile(str(preview_path)).toString(),
             "webUrl": remote_source,
             "isImage": True,
         }])
+        preview_source = QUrl.fromLocalFile(str(preview_path)).toString()
+        controller.image_source_candidates[remote_source] = [preview_source]
         attachments = _AttachmentStub()
         attachment_model = RecordListModel((
             "token", "title", "path", "size", "fileType", "previewUrl",
@@ -1745,6 +1913,26 @@ class KnowledgeBaseTests(unittest.TestCase):
         window.show()
         self.assertTrue(QTest.qWaitForWindowExposed(window))
         QTest.qWait(80)
+
+        live_document = rich_text._live_document()
+        live_image = next(rich_text._image_cursors(live_document))[1]
+        self.assertTrue(str(live_image.name()).startswith("data:image/png"))
+        self.assertEqual(
+            rich_text.imageOverlays[0]["source"], preview_source
+        )
+        self.assertIn(remote_source, rich_text.markdown())
+
+        library = view.findChild(QQuickItem, "knowledgeAttachmentLibrary")
+        self.assertFalse(library.isVisible())
+        pending = list(library.childItems())
+        previews = []
+        while pending:
+            child = pending.pop()
+            pending.extend(child.childItems())
+            if child.objectName() == "previewSourceImage":
+                previews.append(child)
+        self.assertEqual(len(previews), 1)
+        self.assertTrue(previews[0].property("source").isEmpty())
 
         def rendered_image_bounds():
             deadline = time.monotonic() + 3.0
@@ -1789,11 +1977,11 @@ class KnowledgeBaseTests(unittest.TestCase):
         )).toPoint()
         QTest.mousePress(window, Qt.LeftButton, pos=handle_point)
         QTest.mouseMove(
-            window, handle_point + QPoint(-287, 0), delay=30
+            window, handle_point + QPoint(-287, 80), delay=0
         )
         QTest.mouseRelease(
             window, Qt.LeftButton,
-            pos=handle_point + QPoint(-287, 0),
+            pos=handle_point + QPoint(-287, 80),
         )
         self.application.processEvents()
         self.assertAlmostEqual(rich_text.selectedImageWidth, 273.0, delta=2)
@@ -1810,6 +1998,16 @@ class KnowledgeBaseTests(unittest.TestCase):
         QTest.mouseClick(window, Qt.LeftButton, pos=image_point)
         self.application.processEvents()
         self.assertTrue(rich_text.imageSelected)
+        selected_capture = window.grabWindow()
+        selected_color = selected_capture.pixelColor(
+            round((after[0] + after[2]) / 2),
+            round((after[1] + after[3]) / 2),
+        )
+        self.assertGreater(
+            selected_color.red(), 245, selected_color.getRgb()
+        )
+        self.assertLess(selected_color.green(), 10)
+        self.assertGreater(selected_color.blue(), 245)
         image_frame = view.findChild(
             QObject, "knowledgeSelectedImageFrame"
         )
@@ -1913,6 +2111,31 @@ class KnowledgeBaseTests(unittest.TestCase):
         self.assertEqual(blocks[2]["alt"], "Board")
         self.assertIn("tail", blocks[3]["plainText"])
 
+    def test_article_view_groups_and_highlights_semantic_text_blocks(self):
+        blocks = rich_text_blocks(rich_html_from_markdown(
+            "> Quoted\n\n"
+            "> Pull quote {align=center}\n\n"
+            "```python\nimport hashlib\nimport time\n\nvalue = 4\n```"
+        ))
+
+        self.assertEqual(
+            [block["kind"] for block in blocks],
+            ["quote", "pull-quote", "code"],
+        )
+        self.assertEqual(blocks[2]["language"], "python")
+        self.assertEqual(
+            blocks[2]["plainText"],
+            "import hashlib\nimport time\n\nvalue = 4",
+        )
+        roles = {
+            segment["text"]: segment["role"]
+            for segment in blocks[2]["syntaxSegments"]
+            if segment["role"]
+        }
+        self.assertEqual(roles["import"], "keyword")
+        self.assertEqual(roles["hashlib"], "module")
+        self.assertEqual(roles["4"], "number")
+
     def test_article_view_uses_small_plain_blocks_until_markup_is_needed(self):
         blocks = rich_text_blocks(
             '<h2 style="margin-left: 0px">'
@@ -1953,7 +2176,7 @@ class KnowledgeBaseTests(unittest.TestCase):
         )
         self.assertTrue(all(block["lightweight"] for block in blocks))
 
-    def test_plain_numbered_list_qml_rows_do_not_use_rich_text_layout(self):
+    def test_article_view_uses_the_native_markdown_list_document(self):
         def visual_child(item, object_name):
             pending = list(item.childItems())
             while pending:
@@ -1990,26 +2213,19 @@ class KnowledgeBaseTests(unittest.TestCase):
         ))
         self.application.processEvents()
 
-        first = visual_child(view, "knowledgeArticleTextContent-0")
-        second = visual_child(view, "knowledgeArticleTextContent-1")
-        first_marker = visual_child(view, "knowledgeArticleListMarker-0")
-        second_marker = visual_child(view, "knowledgeArticleListMarker-1")
-        self.assertIsNotNone(first)
-        self.assertIsNotNone(second)
-        self.assertIsNotNone(first_marker)
-        self.assertIsNotNone(second_marker)
-        self.assertFalse(first.property("richText"))
-        self.assertFalse(second.property("richText"))
-        self.assertEqual(first.property("text"), "First item")
-        self.assertEqual(second.property("text"), "Second item")
-        self.assertEqual(first_marker.property("text"), "1.")
-        self.assertEqual(second_marker.property("text"), "2.")
+        article_text = visual_child(view, "knowledgeArticleText")
+        self.assertIsNotNone(article_text)
+        self.assertEqual(
+            controller.richTextDocument.markdown(),
+            "1. First item\n2. Second item",
+        )
+        self.assertIn("First item", article_text.property("text"))
+        self.assertIn("Second item", article_text.property("text"))
 
         view.setProperty("contentWidth", 280.0)
         view.setWidth(280.0)
         self.application.processEvents()
-        self.assertLessEqual(first.width(), 242.0)
-        self.assertLessEqual(second.width(), 242.0)
+        self.assertLessEqual(article_text.width(), 280.0)
 
         view.deleteLater()
         theme.deleteLater()
@@ -2025,6 +2241,352 @@ class KnowledgeBaseTests(unittest.TestCase):
         self.assertEqual(blocks[0]["width"], 1200.0)
         self.assertEqual(blocks[0]["height"], 675.0)
         self.assertTrue(blocks[0]["contentWidth"])
+
+    def test_article_view_renders_quote_and_code_surfaces(self):
+        def visual_child(item, object_name):
+            pending = list(item.childItems())
+            while pending:
+                child = pending.pop()
+                if child.objectName() == object_name:
+                    return child
+                pending.extend(child.childItems())
+            return None
+
+        controller = _KnowledgeStub()
+        controller._document["contentMarkdown"] = (
+            "> Quoted\n\n"
+            "> Pull quote {align=center}\n\n"
+            "```python\nimport hashlib\nvalue = 4\n```"
+        )
+        engine = QQmlEngine()
+        self.configure_icon_context(engine.rootContext())
+        theme_component = QQmlComponent(
+            engine, QUrl.fromLocalFile(str(self.qml / "Theme.qml"))
+        )
+        theme = theme_component.createWithInitialProperties({"dark": True})
+        component = QQmlComponent(
+            engine,
+            QUrl.fromLocalFile(str(
+                self.qml / "KnowledgeArticleContent.qml"
+            )),
+        )
+        view = component.createWithInitialProperties({
+            "theme": theme,
+            "controller": controller,
+            "contentWidth": 500.0,
+            "width": 500.0,
+        })
+        self.assertIsNotNone(view, "\n".join(
+            error.toString() for error in component.errors()
+        ))
+        self.application.processEvents()
+
+        quote_surface = visual_child(
+            view, "knowledgeEditorBlockDecoration-0"
+        )
+        pull_quote_surface = visual_child(
+            view, "knowledgeEditorBlockDecoration-1"
+        )
+        code_surface = visual_child(
+            view, "knowledgeEditorBlockDecoration-2"
+        )
+        code_header = visual_child(view, "knowledgeCodeHeader-2")
+        code_language = visual_child(
+            view, "knowledgeEditorCodeLanguage-2"
+        )
+        quote_mark = visual_child(view, "knowledgeQuoteMark-0")
+        code_text = visual_child(view, "knowledgeArticleText")
+        for item in (
+            quote_surface, pull_quote_surface, code_surface,
+            code_header, code_language, quote_mark, code_text,
+        ):
+            self.assertIsNotNone(item)
+            self.assertTrue(item.property("visible"))
+        self.assertGreater(code_surface.property("height"), 50)
+        self.assertEqual(code_language.property("text"), "Python")
+        code_block = controller.richTextDocument._live_document().begin()
+        while (
+            code_block.isValid()
+            and not code_block.blockFormat().hasProperty(
+                QTextFormat.BlockCodeFence
+            )
+        ):
+            code_block = code_block.next()
+        syntax_colors = {
+            text_range.format.foreground().color().name()
+            for text_range in code_block.layout().formats()
+            if text_range.format.foreground().style() != Qt.NoBrush
+        }
+        self.assertIn(
+            theme.property("syntaxKeyword").name(), syntax_colors
+        )
+        self.assertIn("Consolas", code_text.property("text"))
+
+        view.deleteLater()
+        theme.deleteLater()
+        engine.deleteLater()
+        QCoreApplication.sendPostedEvents(None, QEvent.DeferredDelete)
+        self.application.processEvents()
+
+    def test_visual_editor_and_reader_share_one_rendered_document(self):
+        def visual_children(item):
+            pending = list(item.childItems())
+            children = []
+            while pending:
+                child = pending.pop()
+                children.append(child)
+                pending.extend(child.childItems())
+            return children
+
+        def visual_child(item, object_name):
+            return next(
+                (child for child in visual_children(item)
+                 if child.objectName() == object_name),
+                None,
+            )
+
+        def geometry(item):
+            return tuple(round(value, 2) for value in (
+                item.x(), item.y(), item.width(), item.height(),
+            ))
+
+        temporary = tempfile.TemporaryDirectory()
+        self.addCleanup(temporary.cleanup)
+        image_path = Path(temporary.name) / "wysiwyg.png"
+        image = QImage(960, 540, QImage.Format_ARGB32)
+        image.fill(Qt.blue)
+        self.assertTrue(image.save(str(image_path)))
+        local_source = QUrl.fromLocalFile(str(image_path)).toString()
+        remote_source = "https://example.invalid/wysiwyg.png"
+        markdown = (
+            "Article **body**\n\n\n"
+            f"![Board]({remote_source}){{width=480}}\n\n\n"
+            "```python\nimport hashlib\nvalue = 4\n```\n\n\n"
+            "> Quote\n\n> Pull quote {align=center}"
+        )
+
+        editor_controller = _KnowledgeStub()
+        reader_controller = _KnowledgeStub()
+        for controller in (editor_controller, reader_controller):
+            controller._document["contentMarkdown"] = markdown
+            controller.image_source_candidates[remote_source] = [
+                local_source
+            ]
+        editor_controller._editing = True
+
+        engine = QQmlEngine()
+        context = engine.rootContext()
+        self.configure_icon_context(context)
+        context.setContextProperty(
+            "knowledgeAttachments", _AttachmentStub()
+        )
+        context.setContextProperty(
+            "knowledgeAttachmentDraftModel", RecordListModel((
+                "token", "title", "path", "size", "fileType",
+                "previewUrl", "status", "progress", "error",
+                "snapshotKey", "uploadTarget",
+            ))
+        )
+        context.setContextProperty(
+            "knowledgeRichText", editor_controller.richTextDocument
+        )
+        context.setContextProperty("skeyPreviewResolver", _PreviewStub())
+        theme_component = QQmlComponent(
+            engine, QUrl.fromLocalFile(str(self.qml / "Theme.qml"))
+        )
+        theme = theme_component.createWithInitialProperties({"dark": True})
+
+        editor_component = QQmlComponent(
+            engine,
+            QUrl.fromLocalFile(str(
+                self.qml / "KnowledgeArticleEditor.qml"
+            )),
+        )
+        editor_view = editor_component.createWithInitialProperties({
+            "theme": theme,
+            "controller": editor_controller,
+            "width": 900,
+            "height": 900,
+        })
+        self.assertIsNotNone(editor_view, "\n".join(
+            error.toString() for error in editor_component.errors()
+        ))
+        editor_window = QQuickWindow()
+        editor_window.resize(900, 900)
+        editor_view.setParentItem(editor_window.contentItem())
+        editor_window.show()
+        QTest.qWait(150)
+        editor_text = visual_child(
+            editor_view, "knowledgeRichTextEditor"
+        )
+        self.assertIsNotNone(editor_text)
+
+        reader_component = QQmlComponent(
+            engine,
+            QUrl.fromLocalFile(str(
+                self.qml / "KnowledgeArticleContent.qml"
+            )),
+        )
+        reader_view = reader_component.createWithInitialProperties({
+            "theme": theme,
+            "controller": reader_controller,
+            "contentWidth": editor_text.width(),
+            "width": editor_text.width(),
+        })
+        self.assertIsNotNone(reader_view, "\n".join(
+            error.toString() for error in reader_component.errors()
+        ))
+        reader_window = QQuickWindow()
+        reader_window.resize(round(editor_text.width()), 900)
+        reader_view.setParentItem(reader_window.contentItem())
+        reader_window.show()
+        QTest.qWait(200)
+        reader_text = visual_child(reader_view, "knowledgeArticleText")
+        self.assertIsNotNone(reader_text)
+        editor_surface = visual_child(editor_view, "knowledgeEditorSurface")
+        self.assertIsNotNone(editor_surface)
+        self.assertEqual(
+            editor_surface.property("color"), reader_view.property("color")
+        )
+
+        editor_font = editor_text.property("font")
+        reader_font = reader_text.property("font")
+        self.assertEqual(editor_font.family(), reader_font.family())
+        self.assertEqual(editor_font.pointSizeF(), reader_font.pointSizeF())
+        for name in (
+            "leftPadding", "rightPadding", "topPadding", "bottomPadding",
+            "color", "selectionColor", "selectedTextColor",
+        ):
+            self.assertEqual(
+                editor_text.property(name), reader_text.property(name), name
+            )
+        self.assertAlmostEqual(
+            editor_text.property("contentHeight"),
+            reader_text.property("contentHeight"),
+            places=2,
+        )
+        self.assertEqual(
+            editor_controller.richTextDocument.html(),
+            reader_controller.richTextDocument.html(),
+        )
+        self.assertEqual(
+            editor_controller.richTextDocument.markdown().count("<br />"),
+            3,
+        )
+        self.assertEqual(
+            editor_controller.richTextDocument.blockDecorations,
+            reader_controller.richTextDocument.blockDecorations,
+        )
+
+        editor_blocks = sorted(
+            (child for child in visual_children(editor_view)
+             if child.objectName().startswith(
+                 "knowledgeEditorBlockDecoration-")),
+            key=lambda child: child.objectName(),
+        )
+        reader_blocks = sorted(
+            (child for child in visual_children(reader_view)
+             if child.objectName().startswith(
+                 "knowledgeEditorBlockDecoration-")),
+            key=lambda child: child.objectName(),
+        )
+        self.assertEqual(len(editor_blocks), 3)
+        self.assertEqual(len(reader_blocks), 3)
+        self.assertEqual(
+            [(geometry(item), item.property("color"),
+              item.property("radius")) for item in editor_blocks],
+            [(geometry(item), item.property("color"),
+              item.property("radius")) for item in reader_blocks],
+        )
+
+        editor_image = next(
+            child for child in visual_children(editor_view)
+            if child.objectName().startswith("knowledgeEditorImage-")
+        )
+        reader_image = next(
+            child for child in visual_children(reader_view)
+            if child.objectName().startswith("knowledgeArticleImage-")
+        )
+        self.assertTrue(editor_image.property("imageReady"))
+        self.assertTrue(reader_image.property("imageReady"))
+        self.assertEqual(geometry(editor_image), geometry(reader_image))
+        self.assertEqual(
+            editor_image.property("imageSource"),
+            reader_image.property("imageSource"),
+        )
+        before_mode_switch = {
+            "contentHeight": editor_text.property("contentHeight"),
+            "blocks": [geometry(item) for item in editor_blocks],
+            "image": geometry(editor_image),
+        }
+        layout_revision = (
+            editor_controller.richTextDocument.layoutRevision
+        )
+        toolbar = visual_child(
+            editor_view, "knowledgeRichTextToolbar"
+        )
+        markdown_mode = visual_child(
+            toolbar, "knowledgeContentMode-markdown"
+        )
+        visual_mode = visual_child(
+            toolbar, "knowledgeContentMode-visual"
+        )
+        for _cycle in range(3):
+            for mode_button, expected_mode in (
+                (markdown_mode, "markdown"),
+                (visual_mode, "visual"),
+            ):
+                point = mode_button.mapToScene(QPointF(
+                    mode_button.width() / 2, mode_button.height() / 2,
+                ))
+                QTest.mouseClick(
+                    editor_window, Qt.LeftButton, pos=point.toPoint()
+                )
+                QTest.qWait(80)
+                self.assertEqual(
+                    editor_view.property("contentMode"), expected_mode
+                )
+        self.assertGreater(
+            editor_controller.richTextDocument.layoutRevision,
+            layout_revision,
+        )
+        switched_blocks = sorted(
+            (child for child in visual_children(editor_view)
+             if child.objectName().startswith(
+                 "knowledgeEditorBlockDecoration-")),
+            key=lambda child: child.objectName(),
+        )
+        switched_image = next(
+            child for child in visual_children(editor_view)
+            if child.objectName().startswith("knowledgeEditorImage-")
+        )
+        self.assertEqual({
+            "contentHeight": editor_text.property("contentHeight"),
+            "blocks": [geometry(item) for item in switched_blocks],
+            "image": geometry(switched_image),
+        }, before_mode_switch)
+        for item, block in zip(
+            switched_blocks,
+            editor_controller.richTextDocument.blockDecorations,
+        ):
+            end_rect = editor_text.positionToRectangle(block["end"])
+            self.assertGreaterEqual(
+                item.y() + item.height() + 1,
+                end_rect.y() + end_rect.height(),
+            )
+
+        for window, view in (
+            (reader_window, reader_view),
+            (editor_window, editor_view),
+        ):
+            window.hide()
+            view.setParentItem(None)
+            view.deleteLater()
+            window.deleteLater()
+        theme.deleteLater()
+        engine.deleteLater()
+        QCoreApplication.sendPostedEvents(None, QEvent.DeferredDelete)
+        self.application.processEvents()
 
     def test_native_article_image_uses_fallback_and_tracks_content_width(self):
         def visual_child(item, object_name):
@@ -2043,18 +2605,13 @@ class KnowledgeBaseTests(unittest.TestCase):
         source_image.fill(Qt.red)
         self.assertTrue(source_image.save(str(image_path)))
         local_source = QUrl.fromLocalFile(str(image_path)).toString()
-        missing_source = QUrl.fromLocalFile(
-            str(Path(temporary.name) / "missing.png")
-        ).toString()
 
         controller = _KnowledgeStub()
         remote_source = "https://example.invalid/article.png"
         controller._document["contentMarkdown"] = (
             f"![Board]({remote_source}){{width=1200 height=675}}"
         )
-        controller.image_source_candidates[remote_source] = [
-            missing_source, local_source,
-        ]
+        controller.image_source_candidates[remote_source] = [local_source]
         engine = QQmlEngine()
         self.configure_icon_context(engine.rootContext())
         theme_component = QQmlComponent(
@@ -2083,18 +2640,21 @@ class KnowledgeBaseTests(unittest.TestCase):
         QTest.qWait(100)
 
         article_image = visual_child(view, "knowledgeArticleImage-0")
-        image_block = visual_child(view, "knowledgeArticleImageBlock-0")
+        image_block = article_image
         self.assertIsNotNone(article_image)
         self.assertIsNotNone(image_block)
         if not image_block.property("imageReady"):
             QTest.qWait(250)
         self.assertTrue(image_block.property("imageReady"))
         self.assertEqual(
-            image_block.property("activeImageSource"), local_source
+            image_block.property("imageSource").toString(), local_source
         )
-        self.assertEqual(article_image.property("sourceSize").width(), 1280)
-        self.assertEqual(article_image.property("sourceSize").height(), 1280)
-        self.assertFalse(article_image.property("mipmap"))
+        self.assertEqual(
+            article_image.property("imageSourceSize").width(), 1280
+        )
+        self.assertEqual(
+            article_image.property("imageSourceSize").height(), 1280
+        )
         self.assertLessEqual(article_image.width(), 500.0)
         self.assertAlmostEqual(
             article_image.height() / article_image.width(),
@@ -2111,7 +2671,7 @@ class KnowledgeBaseTests(unittest.TestCase):
         self.application.processEvents()
         self.assertEqual(controller.opened_links, [remote_source])
 
-        decoded_size = article_image.property("sourceSize")
+        decoded_size = article_image.property("imageSourceSize")
         for width in range(500, 279, -11):
             view.setProperty("contentWidth", float(width))
             view.setWidth(float(width))
@@ -2120,14 +2680,16 @@ class KnowledgeBaseTests(unittest.TestCase):
         resized_article_image = visual_child(
             view, "knowledgeArticleImage-0"
         )
-        self.assertIs(resized_article_image, article_image)
         self.assertEqual(
-            resized_article_image.property("sourceSize"), decoded_size
+            resized_article_image.property("imageSourceSize"), decoded_size
         )
+        if not resized_article_image.property("imageReady"):
+            QTest.qWait(250)
+        self.assertTrue(resized_article_image.property("imageReady"))
         self.assertEqual(
-            resized_article_image.property("source").toString(), local_source
+            resized_article_image.property("imageSource").toString(),
+            local_source,
         )
-        self.assertTrue(image_block.property("imageReady"))
         self.assertLessEqual(resized_article_image.width(), 280.0)
 
         controller._document["contentMarkdown"] = ""
@@ -2136,27 +2698,29 @@ class KnowledgeBaseTests(unittest.TestCase):
         controller._document["contentMarkdown"] = "Restored article"
         controller.stateChanged.emit()
         self.application.processEvents()
-        restored_text = visual_child(view, "knowledgeArticleTextContent-0")
+        restored_text = visual_child(view, "knowledgeArticleText")
         self.assertIsNotNone(restored_text)
         self.assertIn("Restored article", restored_text.property("text"))
-        self.assertFalse(restored_text.property("richText"))
 
         window.hide()
         view.setParentItem(None)
         view.deleteLater()
         window.deleteLater()
         theme.deleteLater()
+        engine.deleteLater()
+        QCoreApplication.sendPostedEvents(None, QEvent.DeferredDelete)
         self.application.processEvents()
 
-    def test_article_resize_reuses_multiple_bounded_image_textures(self):
-        def visual_child(item, object_name):
+    def test_article_resize_refits_shared_document_images_once(self):
+        def article_images(item):
             pending = list(item.childItems())
+            matches = []
             while pending:
                 child = pending.pop()
-                if child.objectName() == object_name:
-                    return child
+                if child.objectName().startswith("knowledgeArticleImage-"):
+                    matches.append(child)
                 pending.extend(child.childItems())
-            return None
+            return sorted(matches, key=lambda child: child.objectName())
 
         temporary = tempfile.TemporaryDirectory()
         self.addCleanup(temporary.cleanup)
@@ -2206,29 +2770,25 @@ class KnowledgeBaseTests(unittest.TestCase):
         window.show()
         QTest.qWait(200)
 
-        images = [
-            visual_child(view, f"knowledgeArticleImage-{index * 2 + 1}")
-            for index in range(3)
-        ]
-        blocks = [
-            visual_child(view, f"knowledgeArticleImageBlock-{index * 2 + 1}")
-            for index in range(3)
-        ]
-        self.assertTrue(all(images))
-        self.assertTrue(all(blocks))
-        if not all(block.property("imageReady") for block in blocks):
+        images = article_images(view)
+        self.assertEqual(len(images), 3)
+        if not all(image.property("imageReady") for image in images):
             QTest.qWait(400)
-        self.assertTrue(all(block.property("imageReady") for block in blocks))
+        self.assertTrue(all(
+            image.property("imageReady") for image in images
+        ))
 
-        source_sizes = [image.property("sourceSize") for image in images]
-        sources = [image.property("source").toString() for image in images]
-        source_changes = [QSignalSpy(image.sourceChanged) for image in images]
-        status_changes = [QSignalSpy(image.statusChanged) for image in images]
+        source_sizes = [
+            image.property("imageSourceSize") for image in images
+        ]
+        sources = [
+            image.property("imageSource").toString() for image in images
+        ]
         for image, source_size in zip(images, source_sizes):
             self.assertEqual(source_size.width(), 1280)
             self.assertEqual(source_size.height(), 1280)
-            self.assertFalse(image.property("mipmap"))
 
+        view.setProperty("resizeActive", True)
         for width in range(900, 419, -13):
             view.setProperty("contentWidth", float(width))
             view.setWidth(float(width))
@@ -2237,19 +2797,19 @@ class KnowledgeBaseTests(unittest.TestCase):
         view.setProperty("contentWidth", 420.0)
         view.setWidth(420.0)
         window.resize(420, 700)
+        view.setProperty("resizeActive", False)
+        QTest.qWait(100)
         self.application.processEvents()
 
-        for index, image in enumerate(images):
-            self.assertIs(
-                visual_child(
-                    view, f"knowledgeArticleImage-{index * 2 + 1}"
-                ),
-                image,
+        resized_images = article_images(view)
+        self.assertEqual(len(resized_images), 3)
+        for index, image in enumerate(resized_images):
+            self.assertEqual(
+                image.property("imageSourceSize"), source_sizes[index]
             )
-            self.assertEqual(image.property("sourceSize"), source_sizes[index])
-            self.assertEqual(image.property("source").toString(), sources[index])
-            self.assertEqual(source_changes[index].count(), 0)
-            self.assertEqual(status_changes[index].count(), 0)
+            self.assertEqual(
+                image.property("imageSource").toString(), sources[index]
+            )
             self.assertLessEqual(image.width(), 420.0)
 
         window.hide()
@@ -2258,6 +2818,7 @@ class KnowledgeBaseTests(unittest.TestCase):
         window.deleteLater()
         theme.deleteLater()
         engine.deleteLater()
+        QCoreApplication.sendPostedEvents(None, QEvent.DeferredDelete)
         self.application.processEvents()
 
     def test_deleted_text_document_is_released_before_formatting(self):
@@ -2699,6 +3260,44 @@ class KnowledgeBaseTests(unittest.TestCase):
         self.assertEqual(
             controller.document["contentMarkdown"], "Unsaved body"
         )
+
+    def test_clean_checkpoint_keeps_editing_but_explicit_navigation_exits(self):
+        controller = KnowledgeController(
+            _ApplicationStub(),
+            attachments=_AttachmentStub(),
+            rich_text_document=RichTextDocumentController(),
+        )
+        controller._identity = "DOC1"
+        controller._document = {"kind": "article", "contentMarkdown": "Text"}
+        controller._original = deepcopy(controller._document)
+        controller._can_edit = True
+        controller.begin_edit()
+        state = QSignalSpy(controller.stateChanged)
+
+        self.assertFalse(controller.checkpoint_current_draft())
+        self.assertTrue(controller.editing)
+        self.assertFalse(controller.localDraft)
+        self.assertEqual(state.count(), 0)
+
+        self.assertFalse(controller.stash_current_draft())
+        self.assertFalse(controller.editing)
+        self.assertEqual(state.count(), 1)
+
+    def test_editor_image_failure_is_reported_once_without_closing_editor(self):
+        controller = KnowledgeController(
+            _ApplicationStub(),
+            attachments=_AttachmentStub(),
+            rich_text_document=RichTextDocumentController(),
+        )
+        controller._editing = True
+        state = QSignalSpy(controller.stateChanged)
+
+        controller.report_editor_image_error("https://example.test/bad.png")
+        controller.report_editor_image_error("https://example.test/bad.png")
+
+        self.assertTrue(controller.editing)
+        self.assertIn("still editable", controller.error)
+        self.assertEqual(state.count(), 1)
 
     def test_article_checkpoint_persists_and_restores_local_draft(self):
         class ConfigQueue:
@@ -3439,20 +4038,17 @@ class KnowledgeBaseTests(unittest.TestCase):
                 'width="900"></p>'
             ),
         }
-        image_block = controller.viewer_blocks_for_width(500.0)[0]
-        self.assertEqual(image_block["kind"], "image")
-        self.assertEqual(image_block["width"], 500.0)
-        self.assertEqual(image_block["sources"], [
+        self.assertEqual(
+            controller.editorImageSources[
+                "http://tactic/assets/demo/guide.png"
+            ],
             "http://tactic/assets/demo/guide_web.png",
-            "http://tactic/assets/demo/guide.png",
-        ])
-
+        )
         controller.copy_attachment_web_url(records[0]["token"])
         self.assertEqual(
             QGuiApplication.clipboard().text(),
             "http://tactic/assets/demo/guide.png",
         )
-
     def test_attachment_library_stays_compact_and_confirms_copy_link(self):
         def visual_child(item, object_name):
             pending = list(item.childItems())
@@ -3720,7 +4316,7 @@ class KnowledgeBaseTests(unittest.TestCase):
             view, "knowledgeViewerAttachment-0"
         )
         article_text = visual_child(
-            view, "knowledgeArticleTextContent-0"
+            view, "knowledgeArticleText"
         )
         self.assertIsNotNone(attachment_list)
         self.assertIsNotNone(reference_list)
@@ -4019,45 +4615,6 @@ class KnowledgeBaseTests(unittest.TestCase):
         })
 
         self.assertEqual(controller.tableOfContents, outline)
-
-    def test_controller_normalizes_legacy_html_before_opening_editor(self):
-        controller = KnowledgeController(
-            _ApplicationStub(),
-            attachments=_AttachmentStub(),
-            rich_text_document=RichTextDocumentController(),
-        )
-        legacy_html = (
-            '<table><tr><td><table><tr><td>'
-            '<p><strong>Welcome to Niki</strong></p>'
-            '<p><img src="https://example.test/board.png" '
-            'width="152" height="147"></p>'
-            '<h2><img src="https://example.test/guide.png" '
-            'width="208" height="121"><br>Guide</h2>'
-            '</td></tr></table></td></tr></table>'
-        )
-
-        controller._load_ready({
-            "identity": "4",
-            "searchKey": "skey://demo/th_knowledge_article?id=4",
-            "revision": "revision-1",
-            "document": {
-                "title": "Niki",
-                "description": "",
-                "kind": "article",
-                "contentMarkdown": legacy_html,
-                "contentText": "",
-                "parentCode": "",
-                "sortOrder": 0,
-            },
-            "attachmentSnapshots": [],
-        })
-
-        markdown = controller.document["contentMarkdown"]
-        self.assertNotIn("<table", markdown)
-        self.assertEqual(markdown.count("!["), 2)
-        self.assertIn("**Welcome to Niki**", markdown)
-        self.assertIn("##", markdown)
-        self.assertIn("Welcome to Niki", controller.document["contentText"])
 
     def test_knowledge_qml_creates_at_narrow_and_wide_sizes(self):
         def visual_child(item, object_name):
@@ -4395,6 +4952,10 @@ class KnowledgeBaseTests(unittest.TestCase):
                 self.assertIsNotNone(attachment_library)
                 self.assertFalse(attachment_library.property("visible"))
                 self.assertIsNotNone(editor_surface)
+                self.assertEqual(
+                    editor_surface.property("color"),
+                    theme.property("workspace"),
+                )
                 window = QQuickWindow()
                 window.resize(width, 760)
                 view.setParentItem(window.contentItem())
@@ -4417,6 +4978,18 @@ class KnowledgeBaseTests(unittest.TestCase):
                 )
                 self.assertLess(article_loader.x(), initial_article_x)
                 self.assertGreater(article_loader.width(), initial_article_width)
+
+                view.setWidth(430)
+                window.resize(430, 760)
+                QTest.qWait(20)
+                self.assertFalse(navigation_panel.property("visible"))
+                self.assertTrue(article_loader.property("visible"))
+
+                view.setWidth(width)
+                window.resize(width, 760)
+                QTest.qWait(20)
+                self.assertFalse(navigation_panel.property("visible"))
+                self.assertTrue(navigation_toggle.property("visible"))
 
                 navigation_toggle.forceActiveFocus()
                 QTest.keyClick(window, Qt.Key_Space)
@@ -4789,7 +5362,6 @@ class KnowledgeBaseTests(unittest.TestCase):
         article = article_loader.property("item")
         self.assertIsNotNone(article)
         article_pointer = shiboken6.getCppPointer(article)[0]
-
         view.setVisible(False)
         self.application.processEvents()
         self.assertTrue(shiboken6.isValid(article))
@@ -4813,7 +5385,6 @@ class KnowledgeBaseTests(unittest.TestCase):
         self.assertIsNotNone(editor)
         editor_pointer = shiboken6.getCppPointer(editor)[0]
         self.assertNotEqual(editor_pointer, article_pointer)
-
         view.setVisible(False)
         self.application.processEvents()
         self.assertTrue(shiboken6.isValid(editor))
@@ -5152,9 +5723,36 @@ class KnowledgeBaseTests(unittest.TestCase):
         self.application.processEvents()
         self.assertEqual(controller.identity, "DOC0001")
         self.assertEqual(controller.document["title"], "Niki")
-        self.assertEqual(controller.displayHtml, "")
+        self.assertEqual(
+            controller.viewerDocument.get("contentMarkdown") or "", ""
+        )
         viewer_back = visual_child(view, "knowledgeViewerBack")
         self.assertIsNotNone(viewer_back)
+        self.assertFalse(viewer_back.property("visible"))
+        navigation_toggle = visual_child(view, "knowledgeToggleNavigation")
+        toggle_point = navigation_toggle.mapToScene(QPointF(
+            navigation_toggle.width() / 2, navigation_toggle.height() / 2,
+        ))
+        QTest.mouseClick(
+            window, Qt.LeftButton, pos=toggle_point.toPoint()
+        )
+        self.application.processEvents()
+        self.assertTrue(viewer_back.property("visible"))
+        navigation_panel = visual_child(view, "knowledgeNavigation")
+        article_loader = visual_child(view, "knowledgeArticleLoader")
+        self.assertFalse(navigation_panel.property("visible"))
+        back_point = viewer_back.mapToScene(QPointF(
+            viewer_back.width() / 2, viewer_back.height() / 2,
+        ))
+        QTest.mouseClick(
+            window, Qt.LeftButton, pos=back_point.toPoint()
+        )
+        self.application.processEvents()
+        self.assertTrue(navigation_panel.property("visible"))
+        self.assertFalse(article_loader.property("visible"))
+        view.setProperty("navigationExpanded", True)
+        view.setProperty("navigationPage", False)
+        self.application.processEvents()
         self.assertFalse(viewer_back.property("visible"))
         self.assertIsNotNone(
             visual_child(view, "knowledgeViewerKindIcon")
@@ -5163,7 +5761,46 @@ class KnowledgeBaseTests(unittest.TestCase):
 
         pending_requests.pop(0)()
         self.application.processEvents()
-        self.assertIn("Character notes", controller.displayHtml)
+        self.assertIn(
+            "Character notes",
+            controller.viewerDocument.get("contentMarkdown") or "",
+        )
+
+        edit_button = visual_child(view, "knowledgeEdit")
+        QTest.mouseClick(window, Qt.LeftButton, pos=edit_button.mapToScene(
+            QPointF(edit_button.width() / 2, edit_button.height() / 2)
+        ).toPoint())
+        self.application.processEvents()
+        editor_view = visual_child(view, "knowledgeArticleEditor")
+        editor = visual_child(view, "knowledgeRichTextEditor")
+        self.assertIsNotNone(editor)
+        # Use the exact serialized content as the published baseline, so a
+        # formatting-only notification does not count as an actual edit.
+        controller.set_content(rich_text.markdown())
+        controller._original = deepcopy(controller._document)
+        self.assertFalse(controller.dirty)
+        for position in (QPointF(30, 20), QPointF(80, 95), QPointF(180, 210)):
+            QTest.mouseClick(
+                window, Qt.LeftButton,
+                pos=editor.mapToScene(position).toPoint(),
+            )
+            self.application.processEvents()
+            # Flush the same checkpoint the debounce timer invokes, including
+            # a harmless QTextDocument textChanged after caret/format changes.
+            editor.textChanged.emit()
+            editor_view.checkpointDraft()
+            self.application.processEvents()
+            self.assertTrue(controller.editing)
+            self.assertIs(visual_child(view, "knowledgeArticleEditor"), editor_view)
+            self.assertFalse(controller.localDraft)
+        cancel_button = visual_child(view, "knowledgeCancelAction")
+        self.assertIsNotNone(cancel_button)
+        QTest.mouseClick(window, Qt.LeftButton, pos=cancel_button.mapToScene(
+            QPointF(cancel_button.width() / 2, cancel_button.height() / 2)
+        ).toPoint())
+        self.application.processEvents()
+        self.assertFalse(controller.editing)
+        self.assertIsNotNone(visual_child(view, "knowledgeEdit"))
 
         create_article = visual_child(view, "knowledgeCreateArticle")
         create_section = visual_child(view, "knowledgeCreateSection")
@@ -5283,7 +5920,7 @@ class KnowledgeBaseTests(unittest.TestCase):
         self.assertTrue(compact_mode.property("visible"))
         self.assertEqual(
             bool(compact_mode.property("iconOnly")),
-            editor_toolbar.width() < 460,
+            editor_toolbar.width() < 760,
         )
         self.assertAlmostEqual(
             compact_style.mapToItem(
@@ -6106,8 +6743,6 @@ class KnowledgeBaseTests(unittest.TestCase):
             + article_scrollbar.property("reservedExtent"),
             article_scroll.width(),
         )
-        self.assertTrue(controller.display_width_requests)
-        self.assertEqual(controller.display_width_requests, ["intrinsic"])
         first_article_block = visual_child(view, "knowledgeArticleText")
         self.assertIsNotNone(first_article_block)
         linked_y = linked_header.mapToScene(QPointF(0, 0)).y()
@@ -6199,15 +6834,10 @@ class KnowledgeBaseTests(unittest.TestCase):
 
         first_article_block = visual_child(view, "knowledgeArticleText")
         self.assertIsNotNone(first_article_block)
-        block_requests_before_resize = len(controller.display_width_requests)
         for width in range(893, 559, -7):
             view.setWidth(width)
             window.resize(width, 620)
             self.application.processEvents()
-        self.assertEqual(
-            len(controller.display_width_requests),
-            block_requests_before_resize,
-        )
         self.assertIs(
             visual_child(view, "knowledgeArticleText"),
             first_article_block,

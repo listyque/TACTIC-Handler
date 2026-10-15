@@ -21,6 +21,7 @@ Controls.EditorPanel {
     signal workflowsRequested()
     signal createSearchTypeRequested()
     signal deleteSearchTypeRequested()
+    signal collapseRequested()
 
     function searchTypeOnCanvas(identity) {
         return root.controller.nodes.some(node => node.identity === identity && !node.referenceOnly)
@@ -52,6 +53,14 @@ Controls.EditorPanel {
     iconName: "tune"
     padding: 12
     actions: [
+        Controls.CompactIconButton {
+            objectName: "adminToggleGraphProperties"
+            theme: root.theme
+            iconName: "chevron-right"
+            toolTip: qsTr("Hide properties")
+            Accessible.name: toolTip
+            onClicked: root.collapseRequested()
+        },
         Controls.Button {
             objectName: "adminSchemaNodeWorkflows"
             theme: root.theme
@@ -110,7 +119,7 @@ Controls.EditorPanel {
         currentValue: root.page
         model: [
             {value: "selection", label: "Selection", icon: "edit"},
-            {value: "add_node", label: "Add node", icon: "add"}
+            {value: "add_node", label: "Add node", icon: "add", enabled: root.controller.canWrite}
         ]
         onActivated: value => {
             root.forceActiveFocus()
@@ -125,7 +134,7 @@ Controls.EditorPanel {
         visible: !root.workflow || root.page === "add_node" || (root.selection && !root.nodeSelected)
         clip: true
         contentWidth: width
-        contentHeight: propertyForm.implicitHeight + 4
+        contentHeight: propertyForm.height + 4
         boundsBehavior: Flickable.StopAtBounds
 
         Connections {
@@ -135,6 +144,8 @@ Controls.EditorPanel {
         ColumnLayout {
             id: propertyForm
             width: Math.max(0, propertyScroll.width - propertyBar.reservedExtent - 4)
+            height: root.page === "add_node" && !root.workflow
+                ? Math.max(implicitHeight, propertyScroll.height - 4) : implicitHeight
             spacing: 14
 
             Controls.EmptyState {
@@ -142,12 +153,15 @@ Controls.EditorPanel {
                 theme: root.theme
                 iconName: root.workflow ? "process" : "schema"
                 title: qsTr("Select a node or a connection")
-                message: qsTr("Its details appear here. Use Add node to extend the canvas.")
+                message: root.controller.canWrite
+                    ? qsTr("Its details appear here. Use Add node to extend the canvas.")
+                    : qsTr("Its details appear here.")
                 preferredHeight: 180
             }
             ColumnLayout {
                 Layout.fillWidth: true
                 visible: root.page === "add_node"
+                Layout.fillHeight: true
                 spacing: 10
                 enabled: root.controller.canWrite
 
@@ -217,7 +231,9 @@ Controls.EditorPanel {
                     id: searchTypes
                     objectName: "adminGraphAvailableTypes"
                     Layout.fillWidth: true
-                    Layout.preferredHeight: Math.min(260, Math.max(90, count * (root.theme.controlHeight + 24)))
+                    Layout.fillHeight: true
+                    Layout.minimumHeight: 90
+                    Layout.preferredHeight: 90
                     visible: !root.workflow
                     clip: true
                     spacing: 4

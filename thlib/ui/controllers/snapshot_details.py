@@ -416,7 +416,19 @@ class SnapshotDetailsMixin:
             and callable(getattr(sobject, "get_project", None))
             and sobject.get_project() is not None
         )
-        if use_combined_query:
+        if "__details__" in sobject.info:
+            from thlib import server_cache
+
+            if (force_snapshot_refresh or sobject._details_cache_token
+                    != server_cache.token("search", sobject.project.get_code())):
+                sobject.info.pop("__details__", None)
+        if "__details__" in sobject.info:
+            tasks = values(sobject.tasks_sobjects)
+            notes = [
+                note for note in values(sobject.notes_sobjects)
+                if not process or note.info.get("process") == process
+            ]
+        elif use_combined_query:
             from thlib import tactic_classes as tc
 
             tasks_data, notes_data = tc.get_tasks_and_notes(

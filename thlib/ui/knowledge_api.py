@@ -69,6 +69,15 @@ def knowledge_request(
 
     def available_columns(value):
         try:
+            sql_factory = getattr(
+                SearchType, "get_sql_by_search_type", None
+            )
+            if callable(sql_factory):
+                sql = sql_factory(value)
+                table_exists = getattr(sql, "table_exists", None)
+                table = str(value).rsplit("/", 1)[-1]
+                if callable(table_exists) and not table_exists(table):
+                    return None
             return set(SearchType.get_columns(value) or [])
         except AttributeError as error:
             if "undefined" not in str(error).casefold():

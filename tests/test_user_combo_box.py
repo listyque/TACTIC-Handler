@@ -6,7 +6,13 @@ import unittest
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
-from PySide6.QtCore import QObject, QPoint, QPointF, Qt, QUrl
+from PySide6.QtCore import (
+    QObject,
+    QPoint,
+    QPointF,
+    Qt,
+    QUrl,
+)
 from PySide6.QtGui import QColor, QGuiApplication
 from PySide6.QtQml import QQmlComponent, QQmlEngine
 from PySide6.QtQuick import QQuickItem

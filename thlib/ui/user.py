@@ -21,7 +21,6 @@ from thlib.ui.user_identity import (
 
 class UserController(QObject):
     stateChanged = Signal()
-    heartbeatIntervalChanged = Signal(int)
     profileSaved = Signal()
     avatarQueued = Signal()
     avatarsChanged = Signal()
@@ -30,12 +29,6 @@ class UserController(QObject):
         super().__init__(parent or application)
         self._application = application
         self._settings = application._settings
-        self._heartbeat_interval = int(
-            self._settings.get("network/presenceHeartbeatInterval", 120)
-            or 120
-        )
-        if self._heartbeat_interval not in {30, 60, 120, 300}:
-            self._heartbeat_interval = 120
         self._selected_login = ""
         self._directory_visible = False
         self._profile = {}
@@ -106,23 +99,6 @@ class UserController(QObject):
         if self._tasks_controller is controller:
             return
         self._tasks_controller = controller
-
-    @Property(int, notify=stateChanged)
-    def heartbeat_interval(self) -> int:
-        return self._heartbeat_interval
-
-    @Slot(int)
-    def set_heartbeat_interval(self, seconds: int) -> None:
-        seconds = int(seconds)
-        if seconds not in {30, 60, 120, 300}:
-            return
-        if self._heartbeat_interval == seconds:
-            return
-        self._heartbeat_interval = seconds
-        self._settings["network/presenceHeartbeatInterval"] = seconds
-        self._application._write_settings()
-        self.heartbeatIntervalChanged.emit(seconds)
-        self.stateChanged.emit()
 
     def attach_checkin_controller(self, controller) -> None:
         self._checkin_controller = controller
@@ -672,18 +648,32 @@ class UserController(QObject):
         self._rebuild()
         self.refresh()
 
+    def _clear_related(self) -> None:
+        self.activity.clear()
+        self._task_summary = self._empty_task_summary()
+        self._work_hour_summary = self._empty_work_hour_summary()
+        self._can_view_work_hours = False
+        self._task_status_summary = []
+        self._task_process_summary = []
+
     @Slot()
     def refresh(self) -> None:
         login = self._selected_login or self._current_login()
         project_code = self._application._current_project_code
+        if not project_code:
+            self._clear_related()
+            self._loaded_scope = None
+            self.stateChanged.emit()
+            return
         if (
-                not login or not project_code
-                or self._application.server_state != "online"):
+                not login or self._application.server_state != "online"):
             return
         scope = (str(login), str(project_code))
         if self._busy:
             if scope != self._loading_scope:
                 self._queued_refresh = True
+                self._clear_related()
+                self.stateChanged.emit()
             return
         from thlib.environment import env_inst
         if env_inst.server_pool.is_stopped:
@@ -692,12 +682,7 @@ class UserController(QObject):
         self._request_id = request_id
         self._loading_scope = scope
         if scope != self._loaded_scope:
-            self.activity.clear()
-            self._task_summary = self._empty_task_summary()
-            self._work_hour_summary = self._empty_work_hour_summary()
-            self._can_view_work_hours = False
-            self._task_status_summary = []
-            self._task_process_summary = []
+            self._clear_related()
         self._busy = True
         self._error = ""
         self._activity_error = ""
@@ -759,6 +744,9 @@ class UserController(QObject):
                 style = cls._workflow_task_style(value, project)
                 records.append({
                     "label": str(value.get("label") or "Unspecified"),
+                    "value": str(value.get(
+                        "status" if color_key == "statusColor" else "process"
+                    ) or ""),
                     "count": int(value.get("count") or 0),
                     "color": str(style.get(color_key) or ""),
                 })
@@ -871,6 +859,11 @@ class UserController(QObject):
 
     def _loaded(self, request_id: str, result) -> None:
         if request_id != self._request_id:
+            return
+        if self._loading_scope != (
+                str(self._selected_login or self._current_login()),
+                str(self._application._current_project_code or "")):
+            self._finish()
             return
         values = result[0] if isinstance(result, tuple) else result
         values = dict(values or {})

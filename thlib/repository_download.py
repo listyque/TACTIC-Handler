@@ -9,9 +9,12 @@ from pathlib import Path
 import threading
 import time
 import traceback
+import urllib.error
 import urllib.request
 import urllib.parse
 import uuid
+
+from thlib.proxy import UrllibTransport
 
 FILE_TIME_TOLERANCE_SECONDS = 2.0
 
@@ -143,6 +146,7 @@ class DownloadOperation:
             partial = destination.with_name(destination.name + "." + uuid.uuid4().hex + ".part")
             destination.parent.mkdir(parents=True, exist_ok=True)
 
+            transport = UrllibTransport()
             last_error = None
             last_traceback = ""
             for attempt in range(1, self.retries + 2):
@@ -166,7 +170,7 @@ class DownloadOperation:
                         ),
                         headers={"User-Agent": "TACTIC-Handler/RepositorySync"},
                     )
-                    with urllib.request.urlopen(request, timeout=15) as response:
+                    with transport.open(request, timeout=15) as response:
                         header_size = int(
                             response.headers.get("Content-Length") or 0
                         )
@@ -236,6 +240,8 @@ class DownloadOperation:
                         partial.unlink(missing_ok=True)
                     except OSError:
                         pass
+                    if isinstance(error, urllib.error.HTTPError) and error.code == 404:
+                        break
                     if attempt <= self.retries:
                         time.sleep(min(0.35 * 2 ** (attempt - 1), 1.5))
             self.signals.failed.emit(

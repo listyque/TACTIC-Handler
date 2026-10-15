@@ -8,11 +8,14 @@ Item {
     required property var theme
     property var items: []
     property int maximumItems: 0
+    property bool dense: false
+    property real maximumWidth: 0
     signal completionRequested(string searchType)
 
     implicitWidth: content.implicitWidth
-    implicitHeight: 24
-    width: implicitWidth
+    implicitHeight: root.dense ? 20 : 24
+    width: root.maximumWidth > 0
+        ? Math.min(implicitWidth, root.maximumWidth) : implicitWidth
     height: implicitHeight
 
     Row {
@@ -38,6 +41,8 @@ Item {
                 objectName: "completionChip_" + index
                 height: root.height
                 theme: root.theme
+                dense: root.dense
+                maximumWidth: root.maximumWidth
                 text: description
                 iconName: "donut-small"
                 accentColor: String(modelData.color || root.theme.action)

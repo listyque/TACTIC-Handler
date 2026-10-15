@@ -55,6 +55,9 @@ objects, and attachment staging context into a project-local draft persisted
 through the shared configuration write queue. While the editor is dirty, it
 checkpoints the current document without blocking the UI, so a process crash or
 forced restart can restore recent work.
+Checkpoints with no content changes also leave the editor open; only explicit
+save, cancel, or navigation actions exit editing. The controller regression
+and real-QML mouse test cover this no-op checkpoint path.
 That draft remains in the navigation tree with a Local draft badge and opens
 back into the editor without a server request. A new page follows the same
 path and does not create a TACTIC row until Save as draft, Publish, or the
@@ -102,18 +105,28 @@ article.
 
 The editor stores one canonical Markdown body and exposes it through Visual and
 Markdown source modes. Switching modes synchronizes the same draft; there is no
-parallel HTML field or persistent migration layer. Rows left by the former
-rich-text editor are normalized in memory at the server-result boundary before
-the viewer or editor sees them. Opening alone does not write data; the next
-explicit save stores the normalized Markdown. The visual mode supports headings,
+parallel HTML field or migration layer. The visual mode supports headings,
 emphasis, lists, alignment, links, remote image URLs, and article attachments.
 The compact formatting row exposes text styles through one `Aa` menu, list
 types through one list menu, and keeps the Visual/Markdown switch visible.
 Character-format buttons reflect the current selection or caret position. With
-no selection they stay active as typing modes until toggled off; block actions
-apply quotes or fenced code to the selected paragraphs, while Divider inserts
-one horizontal rule at the caret. Selecting the active heading, quote, code, or
-small-text style again returns the affected text to the normal style.
+no selection they stay active as typing modes until toggled off. Quote, pull
+quote, and code actions open one insertion panel prefilled from the current
+selection. Code insertion stores the selected language on one contiguous
+Markdown fence; Python blocks reuse the script editor's syntax palette. The
+visual editor and reader render quotes with explicit quotation treatment and
+code with one framed surface and language header. Divider inserts one
+horizontal rule at the caret. Visual mode uses the reader's workspace
+background, typography, semantic surfaces, spacing, and article width; only
+the caret, selection, and editing controls distinguish it from the saved
+article.
+CommonMark deliberately ignores repeated blank lines between block elements.
+Before Qt parses an article, the document bridge temporarily replaces only
+those extra lines with private markers, removes the markers into empty
+`QTextBlock`s after parsing, and serializes them as standalone `<br />` rows.
+Fenced-code contents are excluded from this preprocessing. This preserves
+author-entered vertical spacing through Markdown, Visual, reader, and save
+round trips without storing private marker characters.
 Narrow editors move secondary actions into an accessible overflow menu instead
 of wrapping the toolbar. With article
 metadata and attachments closed, the body expands to the remaining editor
@@ -160,17 +173,16 @@ from other users' catalogs and from the Search Object link index.
 
 Uploaded images, video, and other files are TACTIC snapshots attached to the
 article. The attachment library derives file and preview URLs through the
-native `Snapshot` and `File` APIs. Each file exposes an image preview when the
-format supports one, and rendering tries that lightweight preview before the
-full attachment. The same library inserts an image by its permanent web URL
-or inserts a normal file link. The live editor renders an available bounded
-preview while retaining that permanent URL as the image's storage identity;
-saving, drafting, and reopening never replace the article link with the preview
-URL. As in the original editor workflow, the lightweight preview is the image
-resource of the live `QTextDocument`; its private storage property retains the
-permanent URL used when Markdown is generated. This keeps painting, caret
-placement, selection, movement, and resizing in one text layout instead of
-creating a second QML image tree whose geometry depends on that layout. A
+native `Snapshot` and `File` APIs. Compact attachment cards use previews when
+available. The reader and visual editor prefer the bounded preview and retain
+the original as a fallback. The same library inserts the permanent URL or a
+normal file link, and saving, drafting, and reopening preserve that original
+URL in Markdown. The live `QTextDocument` owns only a transparent placeholder
+with the image dimensions; a bounded asynchronous QML image paints over those
+document coordinates. This prevents a malformed or decoder-hostile file from
+blocking `TextEdit` layout while preserving caret placement, selection,
+movement, and resizing. A QML regression verifies preview rendering, original
+URL round trips, and resize geometry without recreating the image delegate. A
 labeled Copy link action copies the permanent URL and changes to Copied as
 immediate feedback without a timeout. The reader
 hides linked-object previews and attachment cards by default; its paperclip
@@ -218,16 +230,14 @@ away from the editor. In the reader, each inline image is an accessible action:
 clicking or pressing Enter or Space opens the original safe HTTP/HTTPS source,
 while rendering may still use a local or generated preview fallback.
 
-The reader renders stored Markdown to safe rich text and separates it into
-native text and image blocks. Top-level paragraphs, headings, individual list
-items, and image runs are independent layout units. Plain paragraphs, headings,
-and list items use `TextEdit.PlainText`; list markers are lightweight native QML
-text. Links or actual inline formatting use the rich-text engine only for that
-small block. Images are asynchronous cached `Image`
-items with a bounded decode size, and their decode source is independent from
-live dock width. Resizing therefore reflows the affected blocks without
-reparsing the article, replacing delegates, reloading images, or scaling the
-complete dock as a bitmap.
+The reader and visual editor attach the same Markdown conversion controller to
+native `TextEdit` documents and use the same typography, block decorations,
+spacing, background, and image overlays. This is the WYSIWYG contract: at the
+same content width, viewing and editing have identical document geometry and
+paint. A real QML regression test compares both surfaces, their document HTML,
+block rectangles, and image rectangles. Images remain asynchronous cached QML
+items with a bounded decode size over transparent document placeholders, so a
+remote or malformed image never enters `QTextDocument` resource loading.
 
 ## Linked Search Objects
 
@@ -285,11 +295,24 @@ loads article content. Hiding the dock keeps its current request, catalog,
 article, and editor state; project changes and shutdown still cancel owned work,
 and stale completions are ignored. Search runs asynchronously with a short
 debounce. Lists and article bodies use the shared persistent scrollbar. The
-reader sanitizes and splits an article into native blocks only when the article
-or its attachment candidates change. Resizing reflows those retained blocks
-without calling Python or replacing their delegates. The editor finds images
-through QText block fragments rather than scanning every document character
-during width fitting.
+reader and editor reflow the same retained native document; resizing only
+refits its image fragments and does not parse a second presentation model. The
+shared controller finds images through QText block fragments rather than
+scanning every document character during width fitting.
+
+Shared `ItemPreview` suspends image loading and its `OpacityMask` whenever it
+is invisible, including visibility inherited from a collapsed attachment panel
+or a compact card's hidden full-size layout. Qt Layouts can probe such layouts
+with near-`DBL_MAX` widths. Rendering a hidden mask with that width overflows
+Qt's texture size and traps its render thread in a zero-doubling loop, blocking
+the main window even after the inline article image has loaded successfully.
+`ItemPreviewLifecycleTests.test_hidden_preview_does_not_render_unbounded_layout_size_hints`
+replays the dump dimensions and hide/show transitions; run it with
+`QT_QPA_PLATFORM=windows`, `QT_QUICK_BACKEND=rhi`, `QSG_RHI_BACKEND=opengl`,
+and `QSG_RENDER_LOOP=threaded` to cover the native rendering boundary as well
+as the default software tests. The editor image-resize test also checks that
+the inline image renders while the hidden attachment preview is unloaded.
+
 A load or save that reaches the server after another client deleted the entry
 returns a structured missing-entry result instead of an XML-RPC fault. Stale
 loads refresh the catalog and preserve a still-valid selection; stale saves

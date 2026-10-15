@@ -18,22 +18,10 @@ ColumnLayout {
 
     spacing: 12
 
-    RowLayout {
+    Controls.SectionLabel {
         Layout.fillWidth: true
-
-        Controls.SectionLabel {
-            Layout.fillWidth: true
-            theme: root.theme
-            text: qsTr("PROJECT TASKS")
-        }
-        Label {
-            text: qsTr("%1 tasks").arg(
-                root.userController.taskSummary.total || 0
-            )
-            color: root.theme.secondaryText
-            font.family: root.theme.fontFamily
-            font.pointSize: Controls.Typography.label
-        }
+        theme: root.theme
+        text: qsTr("PROJECT TASKS")
     }
 
     GridLayout {
@@ -43,6 +31,12 @@ ColumnLayout {
 
         Repeater {
             model: [{
+                "key": "total",
+                "label": qsTr("Total")
+            }, {
+                "key": "completed",
+                "label": qsTr("Completed tasks")
+            }, {
                 "key": "incomplete",
                 "label": qsTr("Incomplete")
             }, {
@@ -55,14 +49,17 @@ ColumnLayout {
 
             delegate: ColumnLayout {
                 required property var modelData
+                objectName: "profileTaskMetric_" + modelData.key
 
                 Layout.fillWidth: true
                 spacing: 1
 
                 Label {
-                    text: Number(
-                        root.userController.taskSummary[modelData.key] || 0
-                    )
+                    text: modelData.key === "completed"
+                        ? Math.max(0,
+                            Number(root.userController.taskSummary.total || 0)
+                            - Number(root.userController.taskSummary.incomplete || 0))
+                        : Number(root.userController.taskSummary[modelData.key] || 0)
                     color: modelData.key === "overdue" && Number(text) > 0
                         ? root.theme.error : root.theme.primaryText
                     font.family: root.theme.fontFamily
@@ -97,10 +94,15 @@ ColumnLayout {
             model: root.userController.taskStatusSummary
             delegate: Controls.SummaryChip {
                 required property var modelData
+                objectName: "profileStatusChip"
                 theme: root.theme
                 label: modelData.label || qsTr("Unspecified")
                 count: Number(modelData.count || 0)
                 accent: modelData.color || root.theme.action
+                clickable: !!root.userController.profile.login
+                onClicked: root.tasksController.open_for_user_filter(
+                    root.userController.profile.login, "status", modelData.value
+                )
             }
         }
     }
@@ -117,10 +119,15 @@ ColumnLayout {
             model: root.userController.taskProcessSummary
             delegate: Controls.SummaryChip {
                 required property var modelData
+                objectName: "profileProcessChip"
                 theme: root.theme
                 label: modelData.label || qsTr("Unspecified")
                 count: Number(modelData.count || 0)
                 accent: modelData.color || root.theme.action
+                clickable: !!root.userController.profile.login
+                onClicked: root.tasksController.open_for_user_filter(
+                    root.userController.profile.login, "process", modelData.value
+                )
             }
         }
     }

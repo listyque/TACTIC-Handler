@@ -28,6 +28,8 @@ Item {
     property bool editorPopupOpen: false
     property bool editorResident: false
     property bool editorPressPending: false
+    property string editorIdentity: ""
+    readonly property real avatarSize: Math.max(0, Math.min(22, height - 4))
 
     readonly property bool editorLoaded: editorLoader.active
 
@@ -40,6 +42,17 @@ Item {
 
     function scheduleEditorRelease() {
         releaseCoordinator.schedule(root)
+    }
+
+    function resetEditor() {
+        const editor = editorLoader.item
+        if (editor && editor.popup)
+            editor.popup.close()
+        cancelEditorRelease()
+        editRequested = false
+        editorPopupOpen = false
+        editorResident = false
+        editorPressPending = false
     }
 
     function releaseEditorIfIdle() {
@@ -78,35 +91,27 @@ Item {
         }
     }
     onScrollingChanged: {
-        if (scrolling) {
-            cancelEditorRelease()
-            editRequested = false
-            editorPopupOpen = false
-            editorResident = false
-            editorPressPending = false
-        }
+        if (scrolling)
+            resetEditor()
     }
     onEditingAllowedChanged: {
-        if (!editingAllowed) {
-            cancelEditorRelease()
-            editRequested = false
-            editorPopupOpen = false
-            editorResident = false
-            editorPressPending = false
-        }
+        if (!editingAllowed)
+            resetEditor()
     }
+    onEditorIdentityChanged: resetEditor()
 
     Component.onDestruction: cancelEditorRelease()
 
     Rectangle {
         anchors.fill: parent
+        clip: true
         visible: !editorLoader.active
         radius: root.actionField
             ? Math.min(height / 2, root.theme.itemRadius)
             : root.theme.fieldRadius
         color: !root.editingAllowed
             ? root.theme.surfaceContainerLow
-            : cellHover.hovered
+            : root.editorActive || cellHover.hovered
                 ? root.theme.surfaceContainerHigh
                 : root.theme.surfaceContainerLow
         border.width: root.actionField ? 0 : 1
@@ -119,10 +124,11 @@ Item {
             spacing: 7
 
             Loader {
+                objectName: "taskTableCellAvatar"
                 active: root.showAvatar
                 visible: active
-                Layout.preferredWidth: active ? 22 : 0
-                Layout.preferredHeight: active ? 22 : 0
+                Layout.preferredWidth: active ? root.avatarSize : 0
+                Layout.preferredHeight: active ? root.avatarSize : 0
                 sourceComponent: UserAvatar {
                     theme: root.theme
                     userModel: root.userModel
@@ -130,7 +136,7 @@ Item {
                     effectsEnabled: !root.scrolling
                     avatarUrl: root.avatarSource
                     initials: root.avatarInitials
-                    previewSize: 22
+                    previewSize: root.avatarSize
                 }
             }
             Loader {

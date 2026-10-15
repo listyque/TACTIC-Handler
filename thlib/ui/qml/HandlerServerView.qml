@@ -83,6 +83,7 @@ Item {
             Layout.fillWidth: true
             Layout.fillHeight: true
             orientation: Qt.Horizontal
+            handle: Controls.SplitterHandle { theme: root.theme }
 
             Rectangle {
                 SplitView.preferredWidth: 250

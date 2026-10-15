@@ -163,6 +163,45 @@ class ThemeQmlTests(unittest.TestCase):
         finally:
             theme.deleteLater()
 
+    def test_animation_durations_are_two_and_a_half_times_shorter(self):
+        engine = QQmlEngine()
+        component = QQmlComponent(
+            engine, QUrl.fromLocalFile(str(self.qml / "Theme.qml"))
+        )
+        baselines = {
+            "fluent": (60, 90, 120, 160, 220),
+            "md3": (70, 120, 140, 180, 260),
+            "material5": (90, 150, 190, 240, 320),
+        }
+        names = (
+            "baseMotionInstant", "baseMotionFast", "baseMotionMedium",
+            "baseMotionSlow", "baseMotionExtended",
+        )
+        for style, durations in baselines.items():
+            theme = component.createWithInitialProperties({
+                "dark": True, "styleName": style,
+            })
+            self.assertIsNotNone(
+                theme,
+                "\n".join(error.toString() for error in component.errors()),
+            )
+            try:
+                for name, duration in zip(names, durations):
+                    self.assertEqual(
+                        theme.property(name), round(duration / 2.5),
+                        f"{style}.{name}",
+                    )
+                self.assertEqual(
+                    theme.property("popupMotionSlow"),
+                    theme.property("baseMotionSlow"),
+                )
+                self.assertEqual(
+                    theme.property("clickMotionFast"),
+                    theme.property("baseMotionFast"),
+                )
+            finally:
+                theme.deleteLater()
+
     def test_content_selection_text_uses_its_own_background_contrast(self):
         engine = QQmlEngine()
         component = QQmlComponent(

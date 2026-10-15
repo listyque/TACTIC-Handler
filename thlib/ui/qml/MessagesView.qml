@@ -24,6 +24,7 @@ Item {
     property string actionMessageId: ""
     property string actionMessageBody: ""
     property bool actionMessageCanEdit: false
+    property bool actionMessageCanDelete: false
     property bool actionMessagePinned: false
     property var actionMessageEditHistory: []
     property var actionMessageAnchor: null
@@ -44,13 +45,19 @@ Item {
     }
 
     function beginConversationPresentation(conversationId) {
-        messages.cancelScrollAnimation()
+        messages.cancelWheelScroll()
         messages.currentIndex = -1
         root.pendingPresentationConversationId = String(conversationId || "")
         root.messagePresentationReady = false
     }
 
     function finishConversationPresentation() {
+        // Model notifications precede ListView's delegate layout. Position
+        // the new conversation only after that update, while it is concealed.
+        Qt.callLater(root.completeConversationPresentation)
+    }
+
+    function completeConversationPresentation() {
         const conversationId = String(messagesController.conversationId || "")
         if (!conversationId.length) {
             root.pendingPresentationConversationId = ""
@@ -59,10 +66,19 @@ Item {
         }
         if (root.pendingPresentationConversationId !== conversationId)
             return
+        if (messages.count === 0 && messagesController.busy)
+            return
+        messages.revealLatestOnce()
         root.pendingPresentationConversationId = ""
-        messages.settleAtLatest()
         root.messagePresentationReady = true
         messages.presented = true
+    }
+
+    function revealLatestMessage() {
+        if (root.visible && root.hostWindow && root.hostWindow.visible
+                && root.hostWindow.active && root.messagePresentationReady
+                && messages && messages.current)
+            messages.revealLatestOnce()
     }
 
     function openBelow(source, popup) {
@@ -73,15 +89,15 @@ Item {
         const row = messagesController.message_index(messageId)
         if (row < 0)
             return
-        messages.positionViewAtIndex(row, ListView.Center)
-        messages.currentIndex = row
+        messages.focusMessage(row)
         focusClearTimer.restart()
     }
 
     function prepareMessageActions(messageRow, anchorItem) {
         root.actionMessageId = messageRow.messageId
         root.actionMessageBody = messageRow.body
-        root.actionMessageCanEdit = messageRow.canEdit
+        root.actionMessageCanEdit = messagesController.can_change_message(messageRow.messageId)
+        root.actionMessageCanDelete = root.actionMessageCanEdit
         root.actionMessagePinned = messageRow.pinned
         root.actionMessageEditHistory = messageRow.editHistory
         root.actionMessageAnchor = anchorItem || null
@@ -202,19 +218,28 @@ Item {
             root.activateConversationDraft(conversationId)
             root.pendingPresentationConversationId = ""
             root.messagePresentationReady = true
-            messages.cancelScrollAnimation()
+            messages.cancelWheelScroll()
             if (!messages.presented) {
-                messages.positionCachedAtLatest()
-                messages.presented = true
+                root.beginConversationPresentation(conversationId)
+                root.finishConversationPresentation()
             }
+            Qt.callLater(root.revealLatestMessage)
         }
 
         function onConversationLoaded() {
             root.finishConversationPresentation()
+            Qt.callLater(root.revealLatestMessage)
+        }
+
+        function onVisibilityChanged(visible) {
+            if (visible)
+                Qt.callLater(root.revealLatestMessage)
         }
 
         function onMessageFocusRequested(messageId) {
-            root.jumpToMessage(String(messageId || ""))
+            Qt.callLater(function() {
+                root.jumpToMessage(String(messageId || ""))
+            })
         }
 
         function onReplyStarted() {
@@ -781,14 +806,14 @@ Item {
         modal: true
         anchors.centerIn: Overlay.overlay
         width: Math.min(420, root.width - 40)
-        title: qsTr("Clear notes?")
+        title: qsTr("Clear favorites?")
         standardButtons: Dialog.NoButton
 
         contentItem: ColumnLayout {
             spacing: 12
             Label {
                 Layout.fillWidth: true
-                text: qsTr("All messages in your personal notes will be cleared. The Notes chat itself will remain.")
+                text: qsTr("All messages in Favorites will be cleared. Favorites itself will remain.")
                 color: root.theme.primaryText
                 font.family: root.theme.fontFamily
                 font.pointSize: Controls.Typography.body
@@ -941,7 +966,7 @@ Item {
                             spacing: 2
                             Label {
                                 Layout.fillWidth: true
-                                text: title
+                                text: isPersonalNotes ? qsTr("Favorites") : title
                                 color: root.theme.primaryText
                                 font.family: root.theme.fontFamily
                                 font.pointSize: Controls.Typography.body
@@ -1287,6 +1312,7 @@ Item {
 
     ActionMenu {
         id: chatActions
+        objectName: "chatActionsMenu"
         theme: root.theme
         parent: Overlay.overlay
         preferredWidth: 230
@@ -1306,7 +1332,7 @@ Item {
             {"separator": true},
             {
                 "title": messagesController.selectedConversation.canClearPersonal
-                    ? "Clear notes" : "Delete chat",
+                    ? "Clear favorites" : "Delete chat",
                 "icon": messagesController.selectedConversation.canClearPersonal
                     ? "delete-sweep" : "delete",
                 "command": messagesController.selectedConversation.canClearPersonal
@@ -1372,16 +1398,16 @@ Item {
             },
             {
                 "title": "Edit message", "icon": "edit", "command": "edit",
-                "enabled": root.actionMessageCanEdit
+                "visible": root.actionMessageCanEdit
             },
             {
                 "title": "Edit history", "icon": "history", "command": "history",
                 "enabled": root.actionMessageEditHistory.length > 0
             },
-            {"separator": true},
+            {"separator": true, "visible": root.actionMessageCanDelete},
             {
                 "title": "Delete message", "icon": "delete", "command": "delete",
-                "enabled": messagesController.canDeleteMessages
+                "visible": root.actionMessageCanDelete
             }
         ]
         onTriggered: command => {
@@ -1463,9 +1489,8 @@ Item {
         anchors.fill: parent
         anchors.margins: 12
         orientation: Qt.Horizontal
-        handle: Rectangle {
-            implicitWidth: 8
-            color: "transparent"
+        handle: Controls.SplitterHandle {
+            theme: root.theme
         }
 
         MessagesConversationList {
@@ -1480,6 +1505,10 @@ Item {
             }
             onConversationSelected: index =>
                 messagesController.select_conversation(index)
+            onConversationContextRequested: (index, source, x, y) => {
+                messagesController.select_conversation(index)
+                chatActions.openAt(source, x, y)
+            }
         }
         Rectangle {
             objectName: "messagesTimelinePane"
@@ -1496,6 +1525,7 @@ Item {
                 spacing: 10
 
                 Rectangle {
+                    objectName: "messagesChatHeader"
                     Layout.fillWidth: true
                     Layout.preferredHeight: 58
                     radius: 9
@@ -1534,7 +1564,8 @@ Item {
                             Label {
                                 Layout.fillWidth: true
                                 text: messagesController.conversationId.length
-                                    ? messagesController.selectedConversation.title
+                                    ? (messagesController.selectedConversation.isPersonalNotes
+                                        ? qsTr("Favorites") : messagesController.selectedConversation.title)
                                     : qsTr("Select a conversation")
                                 color: root.theme.primaryText
                                 font.family: root.theme.fontFamily
@@ -1662,6 +1693,7 @@ Item {
                         }
                         Controls.CompactIconButton {
                             id: chatActionsButton
+                            objectName: "chatActionsButton"
                             visible: messagesController.conversationId.length > 0
                             theme: root.theme
                             iconName: "more-vert"
@@ -1669,6 +1701,8 @@ Item {
                             onClicked: chatActions.toggleBelow(chatActionsButton)
                         }
                         Item {
+                            objectName: "chatBusySlot"
+                            visible: messagesController.busy
                             Layout.preferredWidth: 20
                             Layout.preferredHeight: 20
                             Controls.BusyIndicator {
@@ -1893,10 +1927,9 @@ Item {
 
                 Item {
                     id: messageViewport
+                    objectName: "messageViewport"
                     Layout.fillWidth: true
                     Layout.fillHeight: true
-                    Layout.leftMargin: 12
-                    Layout.rightMargin: 12
                     Layout.topMargin: 10
                     Layout.bottomMargin: 10
                     clip: true
@@ -1914,6 +1947,10 @@ Item {
                         onCurrentChanged: {
                             if (current)
                                 root.messages = conversationTimeline
+                            else {
+                                conversationTimeline.cancelWheelScroll()
+                                conversationTimeline.cancelFlick()
+                            }
                         }
                         Component.onCompleted: {
                             if (current)
@@ -2105,7 +2142,7 @@ Item {
             if (String(conversationId || "")
                     !== String(messagesController.conversationId || ""))
                 return
-            messages.scrollToLatest()
+            Qt.callLater(root.revealLatestMessage)
         }
     }
 }

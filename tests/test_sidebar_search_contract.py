@@ -548,7 +548,7 @@ class SidebarSearchContractTests(unittest.TestCase):
             ["ARCHIVE"],
         )
 
-    def test_plain_search_type_picker_sees_every_saved_search(self):
+    def test_plain_search_type_picker_only_sees_handler_searches(self):
         rows = [
             {
                 "code": "PLAIN",
@@ -578,6 +578,7 @@ class SidebarSearchContractTests(unittest.TestCase):
                 "code": "TACTIC_NATIVE",
                 "view": "link_search:native:planner_view",
                 "title": "TACTIC native search",
+                "category": "search_filter",
                 "config": SEARCH_CONFIG,
             },
             {
@@ -594,6 +595,23 @@ class SidebarSearchContractTests(unittest.TestCase):
             [preset["code"] for preset in presets],
             ["PLAIN", "ARCHIVE", "PROGRESS"],
         )
+
+    def test_search_query_excludes_native_tactic_views_from_menu(self):
+        import thlib.tactic_classes as tc
+        from thlib.ui.search_presets import query_search_presets
+
+        rows = [
+            {"code": "HANDLER", "view": "link_search:my_assets:demo/assets",
+             "title": "My assets", "config": SEARCH_CONFIG},
+            {"code": "TACTIC", "view": "link_search:planner:planner_view",
+             "title": "Planner", "category": "search_filter",
+             "config": SEARCH_CONFIG},
+        ]
+        server = SimpleNamespace(query=lambda *_args: rows)
+        with patch.object(tc, "server_start", return_value=server):
+            presets = query_search_presets("demo", "demo/assets")
+
+        self.assertEqual([preset["code"] for preset in presets], ["HANDLER"])
 
     def test_scoped_picker_does_not_include_plain_presets(self):
         rows = [

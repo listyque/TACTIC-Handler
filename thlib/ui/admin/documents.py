@@ -50,6 +50,13 @@ class GraphDocument:
                            'nodeY': float(node.get('ypos', str(40 + index // 3 * 130))),
                            'kind': node.get('type') or self.tag,
                            'color': node.get('color') or '', 'referenceOnly': False})
+        # Old generated schemas put every node at (0, 0); spread the view only.
+        coincident = len(result) > 1 and len({(row['nodeX'], row['nodeY']) for row in result}) == 1
+        unset = sum((row['nodeX'], row['nodeY']) == (0, 0) for row in result) > 1
+        if self.mode == 'schema' and (coincident or unset):
+            for index, row in enumerate(result):
+                if coincident or (row['nodeX'], row['nodeY']) == (0, 0):
+                    row['nodeX'], row['nodeY'] = 40 + index % 3 * 240, 40 + index // 3 * 130
         # Existing documents may contain dangling links. Keep them inspectable
         # and repairable without silently creating processes or dropping XML.
         names = {row['identity'] for row in result}

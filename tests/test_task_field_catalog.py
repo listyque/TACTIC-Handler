@@ -1,12 +1,23 @@
 import unittest
+from unittest.mock import patch
 
 from thlib.ui.task_workspace.field_catalog import (
     _choices,
     _ensure_empty_choice,
+    load_task_field_catalog,
 )
 
 
 class TaskFieldCatalogTests(unittest.TestCase):
+    def test_task_edit_view_receives_project_in_server_arguments(self):
+        with patch(
+            "thlib.tactic_classes.execute_procedure_serverside",
+            return_value={"InputWidgets": []},
+        ) as execute:
+            load_task_field_catalog("demo", include_milestones=False)
+
+        self.assertEqual(execute.call_args.args[1]["project"], "demo")
+
     def test_priority_choices_from_display_values(self):
         self.assertEqual(
             _choices({

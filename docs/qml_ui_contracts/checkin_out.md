@@ -76,6 +76,19 @@ must remain in Python.
 - Naming preview runs asynchronously through `env_inst.server_pool` and
   `tc.get_virtual_snapshot()`. Request identity prevents an old result from
   updating a new target or option set.
+- Ordinary check-ins resolve naming again in their preparation worker immediately
+  before transfer, so queued previews cannot reuse an earlier version filename.
+  DCC scene-save destinations retain their prepared naming. Snapshot version
+  lookups filter the resolved native sObject, supporting both code and id keys.
+- Procedure source parsing uses a bounded cache keyed by exact source text and
+  path; the source is read again on every call, including bundled `.source`
+  files. Arguments and naming scripts remain per operation. XML-RPC transports
+  lazily reuse their own HTTP opener, rebuild it when host/proxy/auth changes,
+  and close responses on success or parser failure. Repository downloads use
+  the same explicit transport API instead of a process-wide urllib opener.
+  `tests/test_checkin_client_caches.py` covers source changes with unchanged
+  timestamps, distinct arguments, bundled source, proxy/auth changes, worker
+  isolation, error cleanup, and single-attempt mutating requests.
 - The prepared payload is validated before it can be executed or sent to Commit
   Queue.
 - Public `skey://` links are accepted at the executor boundary, but the scheme
@@ -163,6 +176,11 @@ must remain in Python.
 - Preview discovery also carries a per-node request generation. Refreshing a
   stable versionless node invalidates the previous generation, so a preview
   worker started before the check-in cannot overwrite the refreshed image.
+
+Prepared inplace/preallocated files use one `create_snapshot_extended` RPC. The local SDK
+`start` names its enclosing server Command, which owns commit, history and rollback.
+Fresh naming remains a separate request before staging; HTTP upload keeps the client
+transaction. No mutating request is retried to recover a lost response.
 
 ## Manual acceptance
 

@@ -24,7 +24,7 @@ class AdministrationNamingTests(unittest.TestCase):
 
     def setUp(self):
         self.application = SimpleNamespace(
-            can_administer=True, debug_log=None, window_model=Mock(),
+            can_administer=True, can_manage_tools=True, debug_log=None, window_model=Mock(),
             _notify=Mock(), server_url='server', server_user='admin')
         self.checkin = SimpleNamespace(currentObject={}, process='publish', context='publish',
                                        processes=[], contexts=[])
@@ -103,6 +103,7 @@ class AdministrationNamingTests(unittest.TestCase):
 
     def test_non_admin_cannot_enter_type_naming(self):
         self.application.can_administer = False
+        self.application.can_manage_tools = False
         self.assertFalse(self.editor.begin_search_type('demo', 'demo/asset', 'Assets'))
         self.server.query.assert_not_called()
 
@@ -133,6 +134,23 @@ class AdministrationNamingTests(unittest.TestCase):
         self.assertEqual(self.editor.previewContext, 'render/review')
         self.server.query.assert_any_call('config/naming', [('search_type', 'demo/shot')],
                                           order_bys=['context', 'code'])
+
+    def test_uncertain_write_blocks_retries_and_context_changes_until_readback(self):
+        self.begin_type()
+        self.editor.set_field('file_naming', 'pending.{ext}')
+        with patch.object(self.editor, '_start_worker'):
+            self.assertTrue(self.editor.save())
+        self.editor._worker_failed(ValueError('Response lost'))
+        self.assertTrue(self.editor.writeUncertain)
+        self.assertTrue(self.editor.dirty)
+        self.assertFalse(self.editor.save())
+        self.assertFalse(self.editor.begin_search_type('demo', 'demo/shot', 'Shots'))
+        self.editor.reset()
+        self.assertEqual(self.editor.selectedRule['file_naming'], 'pending.{ext}')
+        self.editor.reload()
+        self.assertFalse(self.editor.writeUncertain)
+        self.assertFalse(self.editor.dirty)
+        self.assertEqual(self.editor.selectedRule['file_naming'], '{sobject.name}_v{version}.{ext}')
 
     def test_server_change_disconnects_requests_and_rejects_queued_results_and_errors(self):
         from thlib.environment import env_inst
@@ -192,7 +210,8 @@ class AdministrationNamingQmlTests(unittest.TestCase):
                                       side_effect=lambda work, done: done(work())))
         self.window = self.ui.window
         self.ui.click('adminSection_types')
-        self.ui.click('segmentedButtonSegment_entity_naming')
+        self.ui.click('adminSearchType_demo/asset')
+        self.ui.click('searchTypePages_naming')
         frame(self.window)
 
     def item(self, name):
@@ -210,8 +229,8 @@ class AdministrationNamingQmlTests(unittest.TestCase):
                                           order_bys=['context', 'code'])
         self.click('namingCreate')
         self.editor.set_field('file_naming', 'draft.{ext}')
-        self.click('segmentedButtonSegment_entity_details')
-        self.click('segmentedButtonSegment_entity_naming')
+        self.click('searchTypePages_details')
+        self.click('searchTypePages_naming')
         self.assertEqual(self.editor.selectedRule['file_naming'], 'draft.{ext}')
         self.assertEqual(self.server.query.call_count, 2)
         self.assertTrue(self.ui.admin.projectLocked)
@@ -224,28 +243,33 @@ class AdministrationNamingQmlTests(unittest.TestCase):
         self.assertTrue(self.item('namingSearchType').property('readOnly'))
         self.server.insert.return_value = {'code': 'N1'}
         self.window.requestActivate()
-        save = self.item('namingSave')
+        save = self.item('adminSaveDocument')
         save.forceActiveFocus()
         frame(self.window)
         QTest.keyClick(self.window, Qt.Key_Space)
         frame(self.window)
+        self.click('adminConfirmSave')
         self.assertEqual(self.server.insert.call_count, 1)
         self.assertEqual(self.server.insert.call_args.args[1]['search_type'], 'demo/asset')
         self.assertFalse(self.editor.dirty)
         self.assertFalse(self.fixture.application.window_model.is_window_visible('naming_editor'))
 
     def test_selecting_another_type_without_rules_changes_the_owner(self):
-        self.click('segmentedButtonSegment_entity_summary')
+        self.window.resize(1600, 940)
+        frame(self.window)
         types = self.ui.admin.typesEditor
         types._catalog.append({'identity': 'demo/shot', 'label': 'Shots', 'projectLocal': True})
         types.stateChanged.emit()
+        self.assertTrue(self.item('adminSearchTypesList').isVisible())
 
         def loaded(_action, identity):
             self.ui.seed(types, identity, {'title': 'Shots', 'description': '', 'columns': [], 'color': ''}, {})
 
         with patch.object(types, '_request', side_effect=loaded):
             self.click('adminSearchType_demo/shot')
-        self.click('segmentedButtonSegment_entity_naming')
+        self.click('searchTypePages_naming')
+        self.assertTrue(self.item('namingCreate').isVisible())
+        self.assertTrue(self.item('adminSearchTypesList').isVisible())
         self.assertEqual(self.editor.currentObject['searchType'], 'demo/shot')
         self.assertEqual(self.item('namingTargetTitle').property('text'), 'Shots')
         self.assertEqual(self.editor.rulesModel.rowCount(), 0)
@@ -259,7 +283,8 @@ class AdministrationNamingQmlTests(unittest.TestCase):
         for width, height in ((900, 620), (1500, 940)):
             self.window.resize(width, height)
             frame(self.window)
-            for name in ('namingCreate', 'namingReload', 'namingSave', 'namingReset', 'namingFieldsScroll'):
+            # On narrow screens the shared catalog becomes a Back page.
+            for name in ('namingCreate', 'adminReloadDocument', 'adminSaveDocument', 'adminDiscardDocument', 'namingFieldsScroll'):
                 item = self.item(name)
                 point = item.mapToScene(QPointF())
                 self.assertGreaterEqual(point.x(), 0, name)
@@ -282,7 +307,7 @@ class AdministrationNamingQmlTests(unittest.TestCase):
             if scroll.property('moving'):
                 self.assertTrue(stopped.wait(2000))
             frame(self.window)
-            bar = self.fixture.item(self.window, 'namingFieldsBar')
+            bar = self.fixture.item(self.window, 'namingFieldsScrollBar')
             self.assertEqual(bar.isVisible(), scroll.property('contentHeight') > scroll.height())
             if scroll.property('contentHeight') > scroll.height():
                 self.assertGreater(scroll.property('contentY'), 0)

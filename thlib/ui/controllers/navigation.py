@@ -31,6 +31,7 @@ from ..search_contract import (
     filters_from_records,
     is_result_sort_mode,
     normalize_records,
+    parse_column_group_mode,
 )
 from ..tel_filters import quick_selection_from_records
 from ..models import NavigationModel, ProjectModel
@@ -198,6 +199,7 @@ class NavigationMixin:
                         "list_content_y_valid": tab.list_content_y_valid,
                         "tile_content_y_valid": tab.tile_content_y_valid,
                         "view_mode": tab.view_mode,
+                        "table_view": tab.table_view,
                         "sort_mode": tab.sort_mode,
                         "group_mode": tab.group_mode,
                         "task_group_process": tab.task_group_process,
@@ -339,6 +341,7 @@ class NavigationMixin:
                         "splitted_horizontal", "tiles", "table"
                     } else self._default_view_mode
                 ),
+                table_view=str(record.get("table_view") or "table"),
                 sort_mode=(
                     str(record.get("sort_mode") or "name_asc")
                     if is_result_sort_mode(
@@ -349,7 +352,9 @@ class NavigationMixin:
                     str(record.get("group_mode") or "none")
                     if str(record.get("group_mode") or "none") in {
                         "none", "status", "pipeline", "task_status"
-                    } else "none"
+                    } or parse_column_group_mode(
+                        str(record.get("group_mode") or "none")
+                    ) else "none"
                 ),
                 task_group_process=str(record.get("task_group_process") or ""),
                 splitter_ratio=restored_splitter_ratio(
@@ -827,6 +832,7 @@ class NavigationMixin:
             return model
         model = WorkspaceItemModel()
         model.setParent(self)
+        model.set_clock(getattr(self, "_server_clock", None))
         model.repository_sync = getattr(self, "repository_sync", None)
         model.set_knowledge_index(
             getattr(self, "_knowledge_link_index", {})
@@ -1101,8 +1107,7 @@ class NavigationMixin:
             else:
                 self.workspace_model.clear()
                 self.workspace_state.clear_selection()
-                self._result_count = 0
-                self.result_count_changed.emit()
+                self._clear_result_state()
         finally:
             if prehidden and incoming is not None and incoming_tab is not None:
                 self._apply_tab_workspace_layout(incoming, incoming_tab)

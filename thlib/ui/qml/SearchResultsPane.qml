@@ -327,11 +327,13 @@ Rectangle {
                             anchors.centerIn: parent
                             spacing: 5
                             Controls.MaterialIcon {
+                                anchors.verticalCenter: parent.verticalCenter
                                 name: modelData.icon
                                 size: 13
                                 color: root.theme.action
                             }
                             Label {
+                                anchors.verticalCenter: parent.verticalCenter
                                 text: modelData.depth === 0
                                     ? qsTr("Search results") : modelData.title
                                 color: root.theme.primaryText
@@ -560,12 +562,16 @@ Rectangle {
         y: root.splitBottom ? root.activeResultHeight : 0
         width: root.splitRight ? thickness : root.width
         height: root.splitBottom ? thickness : root.height
-        color: dividerMouse.containsMouse || dividerMouse.pressed
-            ? root.theme.action : root.theme.separator
-        opacity: dividerMouse.containsMouse || dividerMouse.pressed
-            ? 0.72 : 0.55
-        Behavior on color { ColorAnimation { duration: theme.hoverMotionFast } }
-        Behavior on opacity { NumberAnimation { duration: theme.hoverMotionFast } }
+        color: "transparent"
+
+        Controls.ResizeGripVisual {
+            objectName: "resultsSplitterGripVisual"
+            anchors.centerIn: parent
+            theme: root.theme
+            vertical: root.splitRight
+            hovered: dividerMouse.containsMouse
+            pressed: dividerMouse.pressed
+        }
 
         MouseArea {
             id: dividerMouse

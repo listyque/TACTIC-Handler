@@ -16,7 +16,12 @@ def search_types_request(action: str, project_code: str, identity: str = '',
     from tactic_client_lib import TacticServerStub
 
     if not Environment.get_security().is_admin():
-        raise PermissionError('TACTIC administrator access is required')
+        memberships = Search('sthpw/login_in_group')
+        memberships.add_filter('login', server.get_login())  # noqa: F821 - injected by execute_python_script
+        if not any(group == 'admin' or 'supervisor' in group for group in (
+                str(row.get_value('login_group') or '').lower()
+                for row in memberships.get_sobjects())):
+            raise PermissionError('TACTIC administrator or supervisor access is required')
     if not project_code or Project.get_project_code() != project_code:
         raise ValueError('Select a project before editing Search Types')
     if action not in ('list', 'load', 'save'):
@@ -267,13 +272,22 @@ def search_types_request(action: str, project_code: str, identity: str = '',
     # to produce a summary. System types without s_status have no retired rows.
     summary = {}
     if table_available:
-        objects = Search(identity)
-        objects.set_show_retired(True)
-        total = objects.get_count()
-        retired = 0
-        if 's_status' in column_info:
-            objects.add_filter('s_status', 'retired')
-            retired = objects.get_count()
+        from contextlib import nullcontext
+        scope = nullcontext()
+        if identity.startswith('file_project/'):
+            from pyasm.security.security import _require_admin
+            from pyasm.biz.file_project import access
+            _require_admin()
+            scope = access(project_code)
+        # Administrator schema summaries use the native file-domain read scope.
+        with scope:
+            objects = Search(identity)
+            objects.set_show_retired(True)
+            total = objects.get_count()
+            retired = 0
+            if 's_status' in column_info:
+                objects.add_filter('s_status', 'retired')
+                retired = objects.get_count()
         summary.update(total=total, active=total - retired, retired=retired, fields=len(column_info))
     pipelines = Search('sthpw/pipeline')
     pipelines.add_filter('search_type', identity)

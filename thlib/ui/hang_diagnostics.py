@@ -29,11 +29,14 @@ class UiHangWatchdog(QObject):
         self._timeout_seconds = max(1.0, float(timeout_seconds))
         self._last_tick = time.monotonic()
         self._tick_generation = 0
+        self._suspect_generation = -1
         self._reported_generation = -1
         self._stop = threading.Event()
         self._thread: threading.Thread | None = None
         self._timer = QTimer(self)
-        self._timer.setInterval(1000)
+        self._timer.setInterval(max(
+            50, min(1000, int(self._timeout_seconds * 250))
+        ))
         self._timer.timeout.connect(self._tick)
 
     def start(self) -> None:
@@ -65,9 +68,15 @@ class UiHangWatchdog(QObject):
         while not self._stop.wait(interval):
             blocked_for = time.monotonic() - self._last_tick
             if blocked_for < self._timeout_seconds:
+                self._suspect_generation = -1
                 continue
             generation = self._tick_generation
             if generation == self._reported_generation:
+                continue
+            if generation != self._suspect_generation:
+                # Give the Qt thread one more heartbeat interval after wake or
+                # machine resume before treating elapsed wall time as a hang.
+                self._suspect_generation = generation
                 continue
             self._reported_generation = generation
             trace_path, dump_path = self._write_dump(blocked_for)

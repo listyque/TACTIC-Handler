@@ -359,8 +359,8 @@ Item {
                                         }
                                         onClicked: {
                                             root.messageMenuRow = timelineRow.index
-                                            root.messageMenuCanEdit = timelineRow.canEdit
-                                            root.messageMenuCanDelete = timelineRow.canDelete
+                                            root.messageMenuCanEdit = communicationController.can_change_note(timelineRow.index)
+                                            root.messageMenuCanDelete = root.messageMenuCanEdit
                                             root.pendingEditRow = timelineRow.index
                                             root.pendingEditText = timelineRow.body
                                             root.pendingDeleteRow = timelineRow.index

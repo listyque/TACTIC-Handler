@@ -99,7 +99,7 @@ Item {
         }
     }
 
-    ListModel { id: taskColumnSettings }
+    ListModel { id: taskColumnSettings; objectName: "taskColumnSettings" }
 
     ScrollView {
         id: taskPreferencesScroll
@@ -259,7 +259,7 @@ Item {
                         required property int columnWidth
                         required property bool columnVisible
                         required property bool required
-
+                        objectName: "taskPreferenceColumn_" + key
                         Layout.fillWidth: true
                         Layout.preferredHeight: 44
                         radius: root.theme.itemRadius
@@ -272,64 +272,65 @@ Item {
                             spacing: 7
 
                             Controls.CheckBox {
+                                objectName: "taskPreferenceColumnVisible_" + taskColumnRow.key
                                 theme: root.theme
                                 checked: taskColumnRow.columnVisible
                                 enabled: !taskColumnRow.required
+                                Accessible.name: qsTr("Show") + " " + qsTr(taskColumnRow.label)
                                 onToggled: {
                                     if (root.loadingValues)
                                         return
                                     taskColumnSettings.setProperty(
-                                        taskColumnRow.index,
-                                        "columnVisible", checked
+                                        taskColumnRow.index, "columnVisible", checked
                                     )
                                     root.updateValues()
                                 }
                             }
                             Label {
                                 Layout.fillWidth: true
-                                text: taskColumnRow.label
+                                text: qsTr(taskColumnRow.label)
                                 color: root.theme.primaryText
                                 font.pointSize: Controls.Typography.body
                                 elide: Text.ElideRight
                             }
                             Controls.SpinBox {
+                                objectName: "taskPreferenceColumnWidth_" + taskColumnRow.key
                                 theme: root.theme
                                 Layout.preferredWidth: 118
                                 from: 40
                                 to: 480
                                 stepSize: 4
                                 value: taskColumnRow.columnWidth
-                                onValueModified: {
+                                Accessible.name: qsTr("Width") + ": " + qsTr(taskColumnRow.label)
+                                onRealValueEdited: value => {
                                     taskColumnSettings.setProperty(
-                                        taskColumnRow.index,
-                                        "columnWidth", value
+                                        taskColumnRow.index, "columnWidth", Math.round(value)
                                     )
                                     root.updateValues()
                                 }
                             }
                             Controls.CompactIconButton {
+                                objectName: "taskPreferenceColumnLeft_" + taskColumnRow.key
                                 theme: root.theme
                                 iconName: "arrow_upward"
                                 toolTip: qsTr("Move column left")
                                 enabled: taskColumnRow.index > 0
                                 onClicked: {
                                     taskColumnSettings.move(
-                                        taskColumnRow.index,
-                                        taskColumnRow.index - 1, 1
+                                        taskColumnRow.index, taskColumnRow.index - 1, 1
                                     )
                                     root.updateValues()
                                 }
                             }
                             Controls.CompactIconButton {
+                                objectName: "taskPreferenceColumnRight_" + taskColumnRow.key
                                 theme: root.theme
                                 iconName: "arrow_downward"
                                 toolTip: qsTr("Move column right")
-                                enabled: taskColumnRow.index
-                                    < taskColumnSettings.count - 1
+                                enabled: taskColumnRow.index < taskColumnSettings.count - 1
                                 onClicked: {
                                     taskColumnSettings.move(
-                                        taskColumnRow.index,
-                                        taskColumnRow.index + 1, 1
+                                        taskColumnRow.index, taskColumnRow.index + 1, 1
                                     )
                                     root.updateValues()
                                 }

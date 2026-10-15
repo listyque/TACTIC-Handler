@@ -2,11 +2,12 @@ from __future__ import annotations
 
 from collections import OrderedDict
 import unittest
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 from PySide6.QtCore import QObject, Signal
 
 from thlib.ui.request_metrics import request_metrics
+from thlib.ui.controllers.connection import ConnectionMixin
 from thlib.ui.server_updates import ServerUpdateService
 from thlib.ui.skey_previews import SearchKeyPreviewResolver
 from thlib.ui.task_workspace.store import TaskWorkspaceStore
@@ -48,6 +49,66 @@ class _Task:
 
 
 class ControllerScenarioTests(unittest.TestCase):
+    def test_logout_discards_previous_identity_and_cancels_authentication(self):
+        from thlib.environment import env_inst, env_server
+
+        controller = Mock()
+        controller._sessions = {"old": object()}
+        controller._authentication_request_id = "old-request"
+        authentication_worker = controller._authentication_worker
+        controller._cancel_authentication = lambda: (
+            ConnectionMixin._cancel_authentication(controller)
+        )
+        events = []
+        controller.signing_out.emit.side_effect = lambda: events.append("stop")
+
+        with (
+            patch.object(env_inst, "logins", {"old": object()}),
+            patch.object(env_inst, "projects", {"old": object()}),
+            patch.object(env_server, "set_ticket") as set_ticket,
+            patch.object(env_server, "set_user") as set_user,
+            patch.object(env_server, "save_defaults"),
+        ):
+            set_ticket.side_effect = lambda _value: events.append("clear")
+            ConnectionMixin.logout(controller)
+            self.assertEqual(env_inst.logins, {})
+            self.assertEqual(env_inst.projects, {})
+
+        set_ticket.assert_called_once_with(None)
+        set_user.assert_called_once_with(None)
+        authentication_worker.cancel.assert_called_once_with()
+        self.assertEqual(events, ["stop", "clear"])
+        self.assertEqual(controller._authentication_request_id, "")
+
+    def test_late_authentication_result_cannot_restore_signed_out_session(self):
+        controller = Mock()
+        controller._authentication_request_id = ""
+        controller._authentication_worker = None
+
+        ConnectionMixin._authentication_result_for(
+            controller, "cancelled-request", ("old-user", "old-ticket")
+        )
+
+        controller._authentication_result.assert_not_called()
+
+    def test_window_geometry_only_invalidates_geometry_roles(self):
+        model = FloatingWindowModel(MemorySettings())
+        changed_roles = []
+        model.dataChanged.connect(
+            lambda _first, _last, roles: changed_roles.append(set(roles))
+        )
+
+        model.set_geometry("messages", 25, 30, 900, 700)
+
+        self.assertEqual(changed_roles, [{
+            model.XRole,
+            model.YRole,
+            model.WidthRole,
+            model.HeightRole,
+            model.GeometryModeRole,
+        }])
+        self.assertNotIn(model.ContentPropertiesRole, changed_roles[0])
+
     def test_help_routes_topics_through_one_reused_native_window(self):
         model = FloatingWindowModel(MemorySettings())
         changed_topics = []

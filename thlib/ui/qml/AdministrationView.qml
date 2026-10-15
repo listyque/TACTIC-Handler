@@ -1,192 +1,327 @@
+pragma ComponentBehavior: Bound
 import QtQuick
-import QtQuick.Controls
-import QtQuick.Layouts
-import "controls" as Controls
+import "tactic_frame" as Frame
+import "tactic_frame/features/administration/administration.ui.mjs" as UI
+import "tactic_frame/features/administration/administration.state.mjs" as State
 
 Item {
     id: root
+    objectName: "administrationFrameShell"
     required property var theme
     readonly property var controller: administrationController
-    readonly property bool workflowVisible: controller.section === "workflow"
-    readonly property var sections: [
-        {key: "types", title: qsTr("Search Types"), icon: "sobject", description: qsTr("Entities and fields")},
-        {key: "schema", title: qsTr("Project schema"), icon: "schema", description: qsTr("Relationships between entities")},
-        {key: "workflow", title: qsTr("Workflow"), icon: "workflow", description: qsTr("Processes, dependencies and scripts")},
-        {key: "users", title: qsTr("Users"), icon: "person", description: qsTr("Profiles and accounts")},
-        {key: "groups", title: qsTr("Groups"), icon: "groups", description: qsTr("Members and group management")},
-        {key: "rules", title: qsTr("Access rules"), icon: "security", description: qsTr("Projects, entities, processes and interface")}
-    ]
-
-    Rectangle { anchors.fill: parent; color: root.theme.workspace }
-    RowLayout {
-        anchors.fill: parent
-        anchors.margins: 14
-        spacing: 12
-        Controls.EditorPanel {
-            Layout.preferredWidth: 224
-            Layout.fillHeight: true
-            theme: root.theme
-            title: qsTr("Administration")
-            description: qsTr("Server management")
-            iconName: "security"
-
-            Controls.SectionLabel {
-                Layout.fillWidth: true
-                theme: root.theme
-                text: qsTr("Project")
-            }
-            Controls.ComboBox {
-                id: projectSelector
-                objectName: "administrationProjectSelector"
-                Layout.fillWidth: true
-                theme: root.theme
-                model: projectModel.allProjects
-                textRole: "title"
-                valueRole: "projectCode"
-                translateDisplayText: false
-                currentIndex: projectSelector.model.findIndex(project => project.projectCode === root.controller.project)
-                displayText: currentIndex < 0 ? (root.controller.project || qsTr("Select a project")) : currentText
-                enabled: !root.controller.projectLocked
-                onActivated: root.controller.select_project(String(currentValue))
-            }
-            Rectangle { Layout.fillWidth: true; implicitHeight: 1; color: root.theme.outlineVariant }
-            Controls.ResponsiveFlow {
-                Layout.fillWidth: true
-                visible: root.workflowVisible
-                minimumCellWidth: root.theme.controlHeight
-                preferredCellWidth: root.theme.controlHeight
-                maximumColumns: 3
-                spacing: 4
-                Repeater {
-                    model: root.sections
-                    delegate: Controls.CompactIconButton {
-                        required property var modelData
-                        objectName: "adminSection_" + modelData.key
-                        theme: root.theme
-                        width: parent.cellWidth()
-                        height: root.theme.controlHeight
-                        iconName: modelData.icon
-                        toolTip: modelData.title
-                        backgroundColor: root.controller.section === modelData.key ? root.theme.selected : "transparent"
-                        iconColor: root.controller.section === modelData.key ? root.theme.action : root.theme.primaryText
-                        onClicked: root.controller.select_section(modelData.key)
-                    }
-                }
-            }
-            ListView {
-                id: navigation
-                objectName: "administrationNavigation"
-                Layout.fillWidth: true
-                Layout.fillHeight: true
-                visible: !root.workflowVisible
-                clip: true
-                spacing: 4
-                model: root.sections
-                boundsBehavior: Flickable.StopAtBounds
-                delegate: Controls.EditorListItem {
-                    required property var modelData
-                    objectName: "adminSection_" + modelData.key
-                    width: navigation.width - navigationBar.reservedExtent - 4
-                    theme: root.theme
-                    text: modelData.title
-                    description: modelData.description
-                    iconName: modelData.icon
-                    selected: root.controller.section === modelData.key
-                    onClicked: root.controller.select_section(modelData.key)
-                }
-                ScrollBar.vertical: Controls.ScrollBar {
-                    id: navigationBar
-                    theme: root.theme
-                    flickableTarget: navigation
-                }
-            }
-            AdminWorkflowList {
-                Layout.fillWidth: true
-                Layout.fillHeight: true
-                visible: root.workflowVisible
-                theme: root.theme
-                controller: root.controller.workflowEditor
-            }
-            Label {
-                Layout.fillWidth: true
-                visible: root.controller.section !== "groups" && text.length > 0
-                text: root.controller.busy ? qsTr("Refreshing server metadata…") : root.controller.error
-                color: root.controller.error ? root.theme.error : root.theme.secondaryText
-                font.pointSize: Controls.Typography.label
-                wrapMode: Text.Wrap
+    readonly property bool framePage: ["groups", "users", "rules", "raw", "sidebar", "columns", "types", "schema", "workflow", "layouts"].includes(controller.section)
+    readonly property bool columnsVisible: controller.section === "columns"
+    property var ui: State.initial()
+    property bool columnsDirty: false
+    readonly property string language: typeof localizationController !== "undefined" ? localizationController.current_language : "en"
+    readonly property var frameModel: ({section: controller.section, project: controller.project,
+        projects: projectModel.allProjects.map(row => ({value: row.projectCode, label: row.title})),
+        locked: controller.projectLocked || columnsDirty, busy: controller.busy,
+        drafts: UI.sections.filter(row => root.sectionDirty(row.id)).map(row => row.id)})
+    function sectionDirty(section) {
+        if (section === "groups") return controller.dirty || controller.groupUncertain
+        if (section === "types" && controller.namingEditor && (controller.namingEditor.dirty || controller.namingEditor.writeUncertain)) return true
+        if (section === "workflow" && (controller.workflowEditor.rulesEditor.dirty || controller.workflowEditor.rulesEditor.writeUncertain)) return true
+        if (section === "columns") return columnsDirty
+        if (section === "sidebar") return sidebarEditorController.dirty
+        const editor = {types: controller.typesEditor, schema: controller.schemaEditor,
+            workflow: controller.workflowEditor, rules: controller.securityEditor,
+            users: controller.usersEditor, raw: controller.rawEditor, layouts: controller.layoutEditor}[section]
+        return !!editor && (editor.dirty || editor.writeUncertain)
+    }
+    function dispatch(event) {
+        const result = State.transition(ui, frameModel, event)
+        ui = result.ui
+        for (const command of result.commands) {
+            switch (command.type) {
+            case "section": controller.select_section(command.value); break
+            case "project": controller.select_project(command.value); break
+            case "help": windowModel.open_help(command.topic); break
+            case "close": windowModel.close_window("administration"); break
             }
         }
+    }
+    property var contentHost: null
+    readonly property var groupsView: contentHost ? contentHost.groups : null
+    readonly property var savePage: {
+        switch (controller.section) {
+        case "raw": return contentHost ? contentHost.raw : null
+        case "types": return contentHost ? contentHost.types : null
+        case "schema": return contentHost ? contentHost.schema : null
+        case "workflow": return contentHost ? contentHost.workflow : null
+        case "rules": return contentHost ? contentHost.rules : null
+        case "users": return contentHost ? contentHost.users : null
+        case "groups": return groupsView
+        case "columns": return contentHost ? contentHost.columns : null
+        case "sidebar": return contentHost ? contentHost.sidebar : null
+        case "layouts": return contentHost ? contentHost.layouts : null
+        default: return null
+        }
+    }
+    readonly property bool documentPage: ["raw", "types", "schema", "workflow", "rules", "users", "layouts"]
+        .includes(controller.section)
+    readonly property bool headerCreateVisible: controller.section === "groups"
+        || (documentPage && !!savePage && !!savePage.allowCreate)
+    readonly property bool headerCreateEnabled: controller.section === "groups"
+        ? Boolean(groupsView && groupsView.canCreateGroup) : Boolean(savePage && savePage.canCreateDocument)
+    readonly property bool headerReloadVisible: controller.section === "groups"
+        || controller.section === "columns"
+        || (documentPage && !!savePage && !!savePage.allowReload)
+    readonly property bool headerReloadEnabled: controller.section === "groups"
+        ? Boolean(groupsView && groupsView.canReloadGroup)
+        : controller.section === "columns"
+            ? Boolean(savePage && savePage.canReloadCatalog)
+            : Boolean(savePage && savePage.canReloadDocument)
+    readonly property bool namingActive: controller.section === "types"
+        && !!savePage && savePage.namingPage
+    readonly property var saveController: {
+        if (namingActive)
+            return controller.namingEditor
+        if (controller.section === "groups")
+            return controller
+        if (controller.section === "columns")
+            return columnsEditorController
+        if (controller.section === "sidebar")
+            return sidebarEditorController
+        return savePage ? savePage.controller : null
+    }
+    readonly property bool saveDirty: controller.section === "columns"
+        ? Boolean(savePage && savePage.catalogDirty)
+        : Boolean(saveController && saveController.dirty)
+    readonly property bool saveBusy: Boolean(saveController && saveController.busy)
+    readonly property bool saveCanWrite: {
+        if (!controller.canManage || !savePage || !saveController)
+            return false
+        if (namingActive)
+            return !!savePage.namingView
+                && !!saveController.currentObject.searchType
+        if (controller.section === "groups")
+            return Boolean(controller.canManage)
+        if (controller.section === "columns")
+            return !!savePage.selectedCatalog.identity
+        if (controller.section === "sidebar")
+            return Boolean(saveController.canEdit)
+        return Boolean(saveController.canWrite)
+    }
+    readonly property string saveButtonName: namingActive ? "namingSave"
+        : controller.section === "groups" ? "saveSecurityGroup"
+        : controller.section === "columns" ? "saveDefinitionCatalogXml"
+        : controller.section === "sidebar" ? "sidebarSaveButton"
+        : "adminSaveDocument"
+
+    function saveCurrent() {
+        if (!controller.canManage || !savePage || !saveCanWrite
+                || !saveDirty || saveBusy)
+            return
+        if (namingActive)
+            savePage.namingView.requestSave()
+        else if (controller.section === "groups")
+            groupsView.requestSave()
+        else
+            savePage.requestSave()
+    }
+
+    function discardCurrent() {
+        if (!controller.canManage || !savePage || !saveDirty || saveBusy)
+            return
+        if (namingActive) savePage.namingView.discardChanges()
+        else savePage.discardChanges()
+    }
+
+    function createCurrent() {
+        if (!headerCreateEnabled) return
+        if (controller.section === "groups") groupsView.createGroup()
+        else savePage.createDocument()
+    }
+
+    function reloadCurrent() {
+        if (!headerReloadEnabled) return
+        if (controller.section === "groups") groupsView.reloadGroup()
+        else if (controller.section === "columns") savePage.reloadCatalog()
+        else savePage.reloadDocument()
+    }
+
+
+    Frame.FrameView {
+        anchors.fill: parent
+        theme: root.theme
+        scene: UI.describe(root.frameModel, root.ui, width, height, root.language)
+        models: ({sections: UI.sections})
+        describeRow: (list, record) => UI.row(list, record, root.frameModel, root.ui, root.language)
+        views: ({toolbar: toolbarPort, content: contentPort})
+        onEvent: action => root.dispatch(action)
+    }
+    Component {
+        id: toolbarPort
+        Frame.FrameView {
+            objectName: "administrationHeaderSaveBar"
+            theme: root.theme
+            scene: root.savePage && typeof root.savePage.toolbarScene === "function" ? root.savePage.toolbarScene(width) : ({nodes: []})
+            onEvent: action => root.savePage.dispatch(action)
+        }
+    }
+    Component {
+        id: contentPort
         Item {
-            Layout.fillWidth: true
-            Layout.fillHeight: true
-            Layout.minimumWidth: 0
-            SecurityGroupsView {
-                anchors.fill: parent
-                visible: root.controller.section === "groups"
-                theme: root.theme
-                controller: root.controller
-                groupsModel: administrationGroupModel
-                membersModel: administrationMemberModel
-            }
-            Loader {
-                anchors.fill: parent
-                visible: root.controller.section === "types"
-                active: false
-                onVisibleChanged: if (visible) active = true
-                Component.onCompleted: if (visible) active = true
-                sourceComponent: AdminSearchTypesView {
-                    theme: root.theme
-                    controller: root.controller.typesEditor
-                    namingController: root.controller.namingEditor
-                    projectCode: root.controller.project
-                    onOpenWorkflowRequested: identity => root.controller.open_type_workflow(identity)
-                    onCreateWorkflowRequested: root.controller.create_type_workflow(root.controller.typesEditor)
-                }
-            }
-            Loader {
-                anchors.fill: parent
-                visible: root.controller.section === "schema"
-                active: false
-                onVisibleChanged: if (visible) active = true
-                Component.onCompleted: if (visible) active = true
-                sourceComponent: AdminGraphView {
-                    id: schemaView
-                    theme: root.theme
-                    controller: root.controller.schemaEditor
-                    onCreateSearchTypeRequested: (x, y) => root.controller.schemaTypeEditor.open(x, y)
-                    onNodeWorkflowsRequested: root.controller.open_schema_node_workflows()
-                    onDeleteSearchTypeRequested: identity => {
-                        if (root.controller.prepare_schema_node_deletion(identity)) schemaView.showDeleteConfirmation()
+            Component.onCompleted: root.contentHost = this
+            Component.onDestruction: root.contentHost = null
+            readonly property var groups: groupsView
+            readonly property var raw: rawLoader.item
+            readonly property var types: typesLoader.item
+            readonly property var schema: schemaLoader.item
+            readonly property var workflow: workflowLoader.item
+            readonly property var rules: rulesLoader.item
+            readonly property var users: usersLoader.item
+            readonly property var columns: columnsLoader.item
+            readonly property var layouts: layoutsLoader.item
+            readonly property var sidebar: sidebarLoader.item
+                    SecurityGroupsView {
+                        id: groupsView
+                        anchors.fill: parent
+                        visible: root.controller.section === "groups"
+                        theme: root.theme
+                        controller: root.controller
+                        groupsModel: administrationGroupModel
+                        membersModel: administrationMemberModel
+                        language: typeof localizationController !== "undefined" ? localizationController.current_language : "en"
+                        saveActionsInHeader: true
                     }
-                }
-            }
-            Loader {
-                anchors.fill: parent
-                visible: root.controller.section === "workflow"
-                active: false
-                onVisibleChanged: if (visible) active = true
-                Component.onCompleted: if (visible) active = true
-                sourceComponent: AdminGraphView { theme: root.theme; controller: root.controller.workflowEditor }
-            }
-            Loader {
-                anchors.fill: parent
-                visible: root.controller.section === "rules"
-                active: false
-                onVisibleChanged: if (visible) active = true
-                Component.onCompleted: if (visible) active = true
-                sourceComponent: AdminSecurityView { theme: root.theme; controller: root.controller.securityEditor }
-            }
-            Loader {
-                anchors.fill: parent
-                visible: root.controller.section === "users"
-                active: false
-                onVisibleChanged: if (visible) active = true
-                Component.onCompleted: if (visible) active = true
-                sourceComponent: AdminUsersView {
-                    theme: root.theme
-                    controller: root.controller.usersEditor
-                }
-            }
+                    Loader {
+                        id: rawLoader
+                        anchors.fill: parent
+                        visible: root.controller.section === "raw"
+                        active: false
+                        onVisibleChanged: if (visible) active = true
+                        Component.onCompleted: if (visible) active = true
+                        sourceComponent: AdminRawDatabaseView {
+                            language: typeof localizationController !== "undefined" ? localizationController.current_language : "en"
+                            theme: root.theme
+                            controller: root.controller.rawEditor
+                            saveActionsInHeader: true
+                        }
+                    }
+                    Loader {
+                        id: typesLoader
+                        anchors.fill: parent
+                        visible: root.controller.section === "types"
+                        active: false
+                        onVisibleChanged: if (visible) active = true
+                        Component.onCompleted: if (visible) active = true
+                        sourceComponent: AdminSearchTypesView {
+                            theme: root.theme
+                            controller: root.controller.typesEditor
+                            namingController: root.controller.namingEditor
+                            projectCode: root.controller.project
+                            saveActionsInHeader: true
+                            onOpenWorkflowRequested: identity => root.controller.open_type_workflow(identity)
+                            onCreateWorkflowRequested: root.controller.create_type_workflow(root.controller.typesEditor)
+                        }
+                    }
+                    Loader {
+                        id: schemaLoader
+                        anchors.fill: parent
+                        visible: root.controller.section === "schema"
+                        active: false
+                        onVisibleChanged: if (visible) active = true
+                        Component.onCompleted: if (visible) active = true
+                        sourceComponent: AdminGraphView {
+                            id: schemaView
+                            theme: root.theme
+                            controller: root.controller.schemaEditor
+                            saveActionsInHeader: true
+                            onCreateSearchTypeRequested: (x, y) => root.controller.schemaTypeEditor.open(x, y)
+                            onNodeWorkflowsRequested: root.controller.open_schema_node_workflows()
+                            onDeleteSearchTypeRequested: identity => {
+                                if (root.controller.prepare_schema_node_deletion(identity)) schemaView.showDeleteConfirmation()
+                            }
+                        }
+                    }
+                    Loader {
+                        id: workflowLoader
+                        anchors.fill: parent
+                        visible: root.controller.section === "workflow"
+                        active: false
+                        onVisibleChanged: if (visible) active = true
+                        Component.onCompleted: if (visible) active = true
+                        sourceComponent: AdminGraphView {
+                            theme: root.theme
+                            controller: root.controller.workflowEditor
+                            saveActionsInHeader: true
+                        }
+                    }
+                    Loader {
+                        id: rulesLoader
+                        anchors.fill: parent
+                        visible: root.controller.section === "rules"
+                        active: false
+                        onVisibleChanged: if (visible) active = true
+                        Component.onCompleted: if (visible) active = true
+                        sourceComponent: AdminSecurityView {
+                            language: typeof localizationController !== "undefined" ? localizationController.current_language : "en"
+                            theme: root.theme
+                            controller: root.controller.securityEditor
+                            saveActionsInHeader: true
+                        }
+                    }
+                    Loader {
+                        id: usersLoader
+                        anchors.fill: parent
+                        visible: root.controller.section === "users"
+                        active: false
+                        onVisibleChanged: if (visible) active = true
+                        Component.onCompleted: if (visible) active = true
+                        sourceComponent: AdminUsersView {
+                            theme: root.theme
+                            controller: root.controller.usersEditor
+                            language: typeof localizationController !== "undefined" ? localizationController.current_language : "en"
+                            saveActionsInHeader: true
+                        }
+                    }
+                    Loader {
+                        id: columnsLoader
+                        anchors.fill: parent
+                        visible: root.columnsVisible
+                        active: false
+                        onVisibleChanged: if (visible) active = true
+                        Component.onCompleted: if (visible) active = true
+                        sourceComponent: ColumnsEditorView {
+                            objectName: "administrationColumnsEditor"
+                            theme: root.theme
+                            projectCode: root.controller.project
+                            canWrite: root.controller.canManage
+                            saveActionsInHeader: true
+                            onCatalogDirtyChanged:
+                                root.columnsDirty = catalogDirty
+                        }
+                    }
+                    Loader {
+                        id: layoutsLoader
+                        anchors.fill: parent
+                        visible: root.controller.section === "layouts"
+                        active: false
+                        onVisibleChanged: if (visible) active = true
+                        Component.onCompleted: if (visible) active = true
+                        sourceComponent: LayoutEditorView {
+                            objectName: "administrationLayoutEditor"
+                            theme: root.theme
+                            controller: root.controller.layoutEditor
+                            language: typeof localizationController !== "undefined" ? localizationController.current_language : "en"
+                            saveActionsInHeader: true
+                        }
+                    }
+                    Loader {
+                        id: sidebarLoader
+                        anchors.fill: parent
+                        visible: root.controller.section === "sidebar"
+                        active: false
+                        onVisibleChanged: if (visible) active = true
+                        Component.onCompleted: if (visible) active = true
+                        sourceComponent: SidebarEditorView {
+                            objectName: "administrationSidebarEditor"
+                            theme: root.theme
+                            saveActionsInHeader: true
+                        }
+                    }
         }
     }
 }

@@ -44,6 +44,7 @@ schema and dependency editors discard or request closure through their own owner
 | **Server Settings** | Opens the server connection page directly: URL, proxy, ticket, test and server updates. |
 | **Project Settings** | Opens the active project's server-provided configuration page. |
 | **Create Project** · modal | Collects project identity, type and initial setup, validates them, then creates through TACTIC. |
+| **Project Templates** · child modal | Opens from Manage templates in Create Project. Installs ZIP packages on the server, downloads installed archives, and deletes packages after confirmation without removing existing projects. Closing returns to the creation wizard. |
 | **Edit Project** · modal | Edits the prepared project only; closing does not silently apply changes. |
 | **Check-in Options** | Opens check-in/check-out, naming, transfer, preview and sequence options directly. |
 | **Global Settings** | Opens account-wide behavior, communication, update and notification options. |
@@ -60,9 +61,9 @@ native windows.
 | **SObject Report** | Readable report for the selected object's values, relations, tasks and snapshots. It refreshes when opened. |
 | **Filter Processes** · modal | Selects processes for the prepared Search or sidebar context; Apply returns the selection, Cancel restores the incoming one. |
 | **Quick filters** · modal | Creates, orders and edits reusable filters for one Search Type. Its script/tree selector uses the prepared Search context. |
-| **Columns Editor** | Chooses and orders result columns for the current Search Type and view. |
+| **Columns Editor** | Chooses and orders result columns in the Columns Editor section of Administration. Advanced mode lists saved TACTIC definitions: Wizard uses a compact column list and edits one native TACTIC element at a time, while XML mode changes the exact structure and custom options. |
 | **Advanced Search** | Builds field, relation, AND/OR and TEL rules for the active Search tab. |
-| **Sidebar Editor** · modal | Builds shared sidebar tabs, links, saved searches, scripts and workspace layouts, with an explicit XML apply path. |
+| **Sidebar Editor** · Administration section | Builds shared sidebar tabs, links, saved searches, scripts and workspace layouts, with an explicit XML apply path. |
 | **Search preview** · modal | Runs a sidebar saved-search draft without replacing the user's real Search tabs. |
 | **Add SObject** | Creates an object of the prepared Search Type from server-defined fields. It requires fresh context and does not reopen on restart. |
 | **Duplicate SObject** | Reviews target name, related data and options before creating a distinct copy. |
@@ -105,6 +106,9 @@ Task Inspector, Task Calendar, Timesheet and report surfaces are docks. They hav
 | **DCC Action Options** | Shows the option fields declared by the selected DCC for the prepared native action. |
 | **TACTIC Handler Server** | Local clients, capabilities, manual JSON commands, request results and transport diagnostics. |
 
+Tools, UI responsiveness, and the TACTIC Handler Server window are available only to administrators
+and supervisors. The Handler Server still starts automatically for other users.
+
 The options window is generated from the selected DCC manifest. It does not change the process-wide
 application environment. DCC actions always target the explicitly selected client ID.
 
@@ -114,12 +118,15 @@ application environment. DCC actions always target the explicitly selected clien
 | --- | --- |
 | **Messages** | Conversations, replies, forwarding, reactions and attachments. It remains prepared while hidden for fast reopening. |
 | **Notifications** | Unread and recent application notifications with links back to their source. |
-| **Activity Feed** | Auditable project activity with category, user, date and continuous-history filters. |
+| **Activity Feed** | Auditable project activity with category, user, date and continuous-history filters. Open it using the history icon (a clock with a backward arrow). |
 | **User Profile** | The selected user's profile, project task summary and permitted weekly work totals. |
 | **Users** | Searchable user directory using the same profile surface in directory mode. |
 
+Profile task counters show total, finished, unfinished and deadlines for the selected user in the current project. They use the task pipeline status's **Behave as** mapping: Complete and Approved are finished. Without a mapping, only native Complete/Approved statuses count as finished. Completion percentages do not determine these counters; finished tasks are excluded from overdue and due-this-week counts. Click a status or process badge to open that user's tasks with the matching filter.
+
 Opening another user's profile never replaces the signed-in identity in the main top bar. Chat
-messages remain in Messages; Activity Feed shows non-chat audit events.
+messages remain in Messages; Activity Feed shows non-chat audit events. Long or multiline event
+values are compacted to 80 characters and can be expanded inside their activity card.
 
 ## Administration
 
@@ -161,3 +168,11 @@ without appearing behind the window that triggered them.
 - Right-click moves a shared context menu to the current pointer and current item.
 - Long popup menus scroll inside a bounded surface with a visible shared scrollbar.
 - A selector opened inside a popup replaces only the previous child selector, not its parent panel.
+
+### Cell editor
+
+Cell editor opens one RAW Database value in a blocking native window. Finish or cancel the edit before returning to its owner.
+
+### Changelist
+
+Changelist shows the selected change description, files, shelves and linked tasks. Open it from the changelist tree; its contents belong to that change.

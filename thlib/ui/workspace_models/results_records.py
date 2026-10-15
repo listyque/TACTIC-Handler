@@ -14,8 +14,52 @@ from .results_types import WorkspaceNode, WorkspaceProjection
 
 
 class RecordsMixin:
+    @staticmethod
+    def _sobject_subtitle(stype, info: dict) -> str:
+        pipeline_code = str(info.get("pipeline_code") or "")
+        pipeline_label = pipeline_code
+        if stype is not None and pipeline_code:
+            try:
+                pipeline = (stype.get_pipeline() or {}).get(pipeline_code)
+                pipeline_info = pipeline.get_info() if pipeline else {}
+                pipeline_label = str(
+                    pipeline_info.get("name")
+                    or pipeline_info.get("title")
+                    or pipeline_code
+                )
+            except (AttributeError, KeyError, TypeError):
+                pass
+        category_column = "category" if info.get("category") else next((
+            column for column, value in info.items()
+            if str(column).endswith("_category_code") and value
+        ), "")
+        category = str(
+            (info.get("__category_labels__") or {}).get(category_column)
+            or info.get(category_column) or ""
+        )
+        return " · ".join(filter(None, (
+            str(info.get("description") or ""),
+            pipeline_label,
+            category,
+        )))
+
     def set_process_ignore(self, value: dict | None) -> None:
         self._process_ignore = dict(value or {})
+
+    def update_item_fields(self, changes: dict) -> None:
+        """Patch edited rows without resetting selection, expansion or previews."""
+        for node in self._nodes.values():
+            values = changes.get(node.search_key)
+            if values is None:
+                continue
+            node.values.update(values)
+            if node.source is not None:
+                node.source.get_info().update(values)
+                node.title = str(node.source.get_title() or node.code)
+            node.subtitle = self._sobject_subtitle(self._stype, node.values)
+            node.status = str(node.values.get("status") or node.values.get("state") or "")
+            node.chips = self._build_info_items(self._stype, node.values)
+            self._emit_node_roles(node, [])
 
     def update_description(self, search_key: str, value: str) -> None:
         node = next((
@@ -36,12 +80,8 @@ class RecordsMixin:
                 if info is not None:
                     info["description"] = description
                     if node.node_type == "sobject":
-                        node.subtitle = " · ".join(
-                            str(info[key])
-                            for key in (
-                                "description", "pipeline_code", "category"
-                            )
-                            if info.get(key)
+                        node.subtitle = self._sobject_subtitle(
+                            self._stype, info
                         )
             except (AttributeError, KeyError, TypeError):
                 pass
@@ -671,11 +711,7 @@ class RecordsMixin:
                 if not str(key).startswith("__")
                 and isinstance(value, (str, int, float, bool, type(None)))
             }
-            subtitle = " · ".join(
-                str(info[key])
-                for key in ("description", "pipeline_code", "category")
-                if info.get(key)
-            )
+            subtitle = self._sobject_subtitle(stype, info)
             info_items = self._build_info_items(stype, info)
             records.append(WorkspaceNode(
                 node_id=search_key,

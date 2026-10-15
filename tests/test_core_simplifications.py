@@ -2,9 +2,15 @@ import datetime
 import unittest
 
 from thlib.color_hash import color_hash
-from thlib.global_functions import html_to_hex, hex_to_html, natural_sort_key
+from thlib.global_functions import (
+    html_to_hex, hex_to_html, natural_sort_key, parce_timestamp,
+)
 from thlib.tactic_xml import parse_tactic_xml
-from thlib.time_presentation import get_pretty_datetime
+from thlib.time_presentation import (
+    get_compact_date,
+    get_full_date,
+    get_pretty_datetime,
+)
 from thlib.ui.checkin_out import CheckinOutController
 
 
@@ -46,6 +52,25 @@ class CoreSimplificationTests(unittest.TestCase):
             get_pretty_datetime(now - datetime.timedelta(minutes=3), now=now),
             "3 min ago",
         )
+
+    def test_tactic_timestamp_is_utc_even_without_timezone_suffix(self):
+        parsed = parce_timestamp("2026-09-04 12:00:00")
+        self.assertEqual(
+            parsed.astimezone(datetime.timezone.utc),
+            datetime.datetime(2026, 9, 4, 12, tzinfo=datetime.timezone.utc),
+        )
+        self.assertIsNotNone(parsed.tzinfo)
+        self.assertEqual(
+            parce_timestamp(datetime.datetime(2026, 9, 4, 12)), parsed
+        )
+
+    def test_task_dates_use_localized_display_labels(self):
+        compact = get_compact_date("2026-09-01 10:30:00")
+        full = get_full_date("2026-09-01")
+        self.assertTrue(compact)
+        self.assertNotEqual(compact, "2026-09-01")
+        self.assertIn("2026", full)
+        self.assertEqual(get_compact_date("invalid"), "")
 
     def test_dcc_only_actions_require_the_selected_thin_client(self):
         target = type("Target", (), {

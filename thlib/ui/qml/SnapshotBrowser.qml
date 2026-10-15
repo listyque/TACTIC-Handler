@@ -111,49 +111,15 @@ Item {
         topDividerVisible: false
         color: root.theme.panelDeep
     }
-    Rectangle {
+    SnapshotBrowserToolbar {
         id: toolbar
         anchors.top: parent.top
         width: parent.width
-        height: 46
-        color: root.theme.panel
-
-        RowLayout {
-            anchors.fill: parent
-            anchors.leftMargin: 10
-            anchors.rightMargin: 8
-            spacing: 6
-
-            Controls.CompactIconButton {
-                id: settingsButton
-                Layout.preferredWidth: 36
-                Layout.preferredHeight: 36
-                theme: root.theme
-                round: true
-                backgroundColor: root.theme.surfaceContainerHigh
-                iconName: "more_vert"
-                iconSize: 16
-                toolTip: qsTr("Snapshot Browser options")
-                onPressed: settingsMenu.sourceWasOpen = settingsMenu.opened
-                onClicked: settingsMenu.refreshAndToggleBelow(settingsButton)
-            }
-            Item { Layout.fillWidth: true }
-            RefreshIconButton {
-                Layout.preferredWidth: 36
-                Layout.preferredHeight: 36
-                theme: root.theme
-                backgroundColor: root.theme.surfaceContainerHigh
-                iconSize: 16
-                toolTip: qsTr("Refresh snapshots")
-                onClicked: appController.refresh_snapshot_browser()
-            }
-        }
-        Rectangle {
-            anchors.bottom: parent.bottom
-            width: parent.width
-            height: 1
-            color: root.theme.separator
-        }
+        theme: root.theme
+        controller: appController
+        onOptionsPressed: settingsMenu.sourceWasOpen = settingsMenu.opened
+        onOptionsRequested: sourceItem =>
+            settingsMenu.refreshAndToggleBelow(sourceItem)
     }
 
     Item {
@@ -162,15 +128,17 @@ Item {
         anchors.left: parent.left
         anchors.right: parent.right
         anchors.bottom: parent.bottom
-        anchors.margins: 10
+        anchors.margins: root.showFilesPanel ? 10 : 0
 
-        Rectangle {
+        Item {
             id: previewArea
             objectName: "snapshotPreviewArea"
             visible: root.showPreviewPanel
             property string currentUrl: ""
             property string currentTitle: "Preview"
             property string currentToken: ""
+            property string currentQualityUrl: ""
+            property bool currentQualityRequested: false
             property int currentIndex: 0
             property string outgoingUrl: ""
             property int transitionDirection: 1
@@ -187,6 +155,8 @@ Item {
                     currentUrl = ""
                     currentTitle = "Preview"
                     currentToken = ""
+                    currentQualityUrl = ""
+                    currentQualityRequested = false
                     settlePreviewLayers()
                     return
                 }
@@ -196,13 +166,15 @@ Item {
                 var nextDirection = Number(direction || 0)
                 if (nextDirection === 0)
                     nextDirection = nextIndex >= currentIndex ? 1 : -1
-                outgoingUrl = currentUrl
+                outgoingUrl = previewLayers.activeUrl
                 transitionDirection = nextDirection
                 currentIndex = nextIndex
                 var record = snapshotPreviewModel.get(nextIndex)
                 currentUrl = record.url || ""
                 currentTitle = record.title || "Preview"
                 currentToken = record.token || ""
+                currentQualityUrl = record.qualityUrl || ""
+                currentQualityRequested = Boolean(record.qualityRequested)
                 if (shouldAnimate
                         && outgoingUrl !== ""
                         && outgoingUrl !== currentUrl) {
@@ -224,10 +196,6 @@ Item {
                 : root.sideBySide
                     ? browserArea.height
                     : Math.max(0, root.splitterPosition - 4)
-            radius: 12
-            color: root.theme.surfaceContainerLow
-            border.color: root.theme.outline
-            border.width: 1
             clip: true
             focus: true
             Keys.onLeftPressed: {
@@ -243,9 +211,8 @@ Item {
 
             Item {
                 id: previewViewport
+                objectName: "snapshotPreviewViewport"
                 anchors.fill: parent
-                anchors.margins: 6
-                anchors.bottomMargin: snapshotPreviewModel.count() > 1 ? 22 : 6
                 clip: true
 
                 SnapshotPreviewLayers {
@@ -254,9 +221,18 @@ Item {
                     theme: root.theme
                     currentUrl: root.showPreviewPanel
                         ? previewArea.currentUrl : ""
+                    currentQualityUrl: root.showPreviewPanel
+                        ? previewArea.currentQualityUrl : ""
+                    currentQualityRequested:
+                        previewArea.currentQualityRequested
+                    currentToken: root.showPreviewPanel
+                        ? previewArea.currentToken : ""
                     outgoingUrl: root.showPreviewPanel
                         ? previewArea.outgoingUrl : ""
                     transitionDirection: previewArea.transitionDirection
+                    viewMode: appController.snapshot_browser_image_mode
+                    onQualityRequested: token =>
+                        appController.request_snapshot_preview_quality(token)
                 }
             }
 
@@ -748,20 +724,13 @@ Item {
             width: root.sideBySide ? 8 : browserArea.width
             height: root.sideBySide ? browserArea.height : 8
 
-            Rectangle {
+            Controls.ResizeGripVisual {
+                objectName: "snapshotSplitterGripVisual"
                 anchors.centerIn: parent
-                width: root.sideBySide
-                    ? (splitMouse.containsMouse || splitMouse.pressed ? 3 : 2)
-                    : Math.max(36, Math.min(72, parent.width * 0.14))
-                height: root.sideBySide
-                    ? Math.max(36, Math.min(72, parent.height * 0.14))
-                    : (splitMouse.containsMouse || splitMouse.pressed ? 3 : 2)
-                radius: 2
-                color: splitMouse.pressed
-                    ? root.theme.action : root.theme.outlineVariant
-                Behavior on width { NumberAnimation { duration: theme.hoverMotionFast } }
-                Behavior on height { NumberAnimation { duration: theme.hoverMotionFast } }
-                Behavior on color { ColorAnimation { duration: theme.hoverMotionFast } }
+                theme: root.theme
+                vertical: root.sideBySide
+                hovered: splitMouse.containsMouse
+                pressed: splitMouse.pressed
             }
             MouseArea {
                 id: splitMouse

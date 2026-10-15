@@ -18,6 +18,7 @@ Item {
     property bool editorBusy: false
     property bool compact: false
     property bool autoActivate: false
+    property bool commitTextOnFinish: false
     signal valueEdited(var value)
     signal cancelRequested()
     signal previewRequested()
@@ -81,6 +82,8 @@ Item {
 
         anchors.fill: parent
         sourceComponent: {
+            if (root.fieldType === "tags" || root.fieldName === "keywords")
+                return tagsEditor
             if (root.fieldType === "multiline")
                 return multilineEditor
             if (root.fieldType === "bool")
@@ -101,6 +104,43 @@ Item {
             if (root.fieldType === "unsupported")
                 return unsupportedEditor
             return textEditor
+        }
+    }
+
+    Component {
+        id: tagsEditor
+
+        Controls.Button {
+            id: tagsButton
+            objectName: "sobjectTagsEditorButton"
+            clip: true
+            theme: root.theme
+            enabled: !root.readOnlyField && !root.editorBusy
+            text: tagsButton.editing
+                ? "" : String(root.fieldValue || "") || qsTr("Edit tags")
+            toolTip: qsTr("Edit tags")
+            property bool editing: false
+            function beginEditing() {
+                if (enabled) editing = true
+            }
+            onClicked: beginEditing()
+            Loader {
+                anchors.fill: parent
+                active: tagsButton.editing
+                sourceComponent: TableTextEditor {
+                    theme: root.theme
+                    value: String(root.fieldValue ?? "")
+                    tagsMode: true
+                    onSaved: value => {
+                        root.valueEdited(value)
+                        tagsButton.editing = false
+                    }
+                    onCancelled: {
+                        tagsButton.editing = false
+                        root.cancelRequested()
+                    }
+                }
+            }
         }
     }
 
@@ -136,7 +176,8 @@ Item {
                 root.cancelRequested()
                 event.accepted = true
             }
-            onTextEdited: root.valueEdited(text)
+            onTextEdited: if (!root.commitTextOnFinish) root.valueEdited(text)
+            onEditingFinished: if (root.commitTextOnFinish) root.valueEdited(text)
         }
     }
 

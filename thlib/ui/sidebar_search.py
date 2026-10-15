@@ -187,7 +187,7 @@ class SidebarSearchMixin:
                 str(self.selectedEntry.get("searchView") or ""))
             self._filter_editor.sync_search_session()
         self.stateChanged.emit()
-        self._application.window_model.show_child_window("sidebar_search_preview", "sidebar_editor")
+        self._application.window_model.show_child_window("sidebar_search_preview", "administration")
 
     def _close_search_preview(self) -> None:
         context = self._preview_context

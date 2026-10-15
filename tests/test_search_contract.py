@@ -1042,6 +1042,7 @@ class SearchContractTests(unittest.TestCase):
             list_content_y=412.5,
             list_content_y_valid=True,
             view_mode="splitted_vertical",
+            table_view="th_table_review",
             sort_mode="updated_desc",
             group_mode="status",
             splitter_ratio=0.37,
@@ -1055,6 +1056,7 @@ class SearchContractTests(unittest.TestCase):
         cached = controller._load_search_cache("demo")[source.entry_key]
         cached_tab = cached["tabs"][0]
         self.assertEqual(cached_tab["workspace_layout"], layout)
+        self.assertEqual(cached_tab["table_view"], "th_table_review")
         restored = SectionSession(
             entry_key=source.entry_key,
             title=source.title,
@@ -1077,6 +1079,7 @@ class SearchContractTests(unittest.TestCase):
         self.assertEqual(restored_tab.list_content_y, 412.5)
         self.assertTrue(restored_tab.list_content_y_valid)
         self.assertEqual(restored_tab.view_mode, "splitted_vertical")
+        self.assertEqual(restored_tab.table_view, "th_table_review")
         self.assertEqual(restored_tab.sort_mode, "updated_desc")
         self.assertEqual(restored_tab.group_mode, "status")
         self.assertEqual(restored_tab.splitter_ratio, 0.37)

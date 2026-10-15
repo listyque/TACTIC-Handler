@@ -109,6 +109,21 @@ class SearchTabsMixin:
         self.snapshot_browser_changed.emit()
 
     @Slot(str)
+    def set_snapshot_browser_image_mode(self, mode: str) -> None:
+        if mode not in {"fit", "fill"}:
+            return
+        if self._snapshot_browser_image_mode == mode:
+            return
+        self._snapshot_browser_image_mode = mode
+        self._settings["snapshotBrowser/imageMode"] = mode
+        self._write_settings()
+        self.snapshot_browser_changed.emit()
+
+    @Slot(str)
+    def request_snapshot_preview_quality(self, token: str) -> None:
+        self.workspace_state.request_snapshot_preview_quality(token)
+
+    @Slot(str)
     def set_snapshot_browser_orientation(self, orientation: str) -> None:
         if orientation not in {"horizontal", "vertical"}:
             return

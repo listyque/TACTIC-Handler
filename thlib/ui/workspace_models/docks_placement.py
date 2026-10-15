@@ -272,6 +272,14 @@ class PlacementMixin:
         self.minimumHostSizeChanged.emit()
         self._save()
 
+    @Slot(str)
+    def maximize_panel(self, panel_id: str) -> None:
+        row = self._index_for(panel_id)
+        if row is None or not self._panels[row].visible or self._panels[row].detached:
+            return
+        self._maximized_panel = '' if self._maximized_panel == panel_id else panel_id
+        self._notify_layout_structure_changed()
+
     @Slot()
     def reset_layout(self) -> None:
         previous_visibility = {
@@ -279,6 +287,7 @@ class PlacementMixin:
         }
         self.beginResetModel()
         self._panels = self._defaults()
+        self._maximized_panel = ""
         self._layout_root = default_layout()
         self._z_counter = max(panel.z for panel in self._panels)
         self.endResetModel()

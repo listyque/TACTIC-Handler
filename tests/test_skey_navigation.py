@@ -1,7 +1,9 @@
 import unittest
+from copy import deepcopy
 from types import SimpleNamespace
 
 from thlib.ui.controllers.item_operations import ItemOperationsMixin
+from thlib.ui.controllers.navigation import NavigationMixin
 from thlib.ui.controllers.search_suggestions import SearchSuggestionsMixin
 from thlib.ui.controllers.types import SearchTabSession, SectionSession
 from thlib.ui.models import NavigationEntry, NavigationModel
@@ -26,6 +28,21 @@ class _NavigationHarness(SearchSuggestionsMixin):
 
     def _current_section(self):
         return self._sessions.get(self._current_section_key)
+
+    def _current_tab(self):
+        section = self._current_section()
+        if section is None:
+            return None
+        return next(
+            (tab for tab in section.tabs if tab.tab_id == section.current_tab_id),
+            None,
+        )
+
+    def _capture_current_workspace_layout(self):
+        tab = self._current_tab()
+        dock_model = getattr(self, "dock_model", None)
+        if tab is not None and dock_model is not None:
+            tab.workspace_layout = deepcopy(dock_model.capture_layout())
 
     @staticmethod
     def _visible_sobjects(tab, _section=None):
@@ -338,6 +355,37 @@ class SearchKeyNavigationTests(unittest.TestCase):
         self.assertEqual(tab.navigation_target, "ASSET001")
         self.assertEqual(tab.extra_filters, [("code", "=", "ASSET001")])
         self.assertEqual(section.base_filters, ())
+
+    def test_created_object_navigation_keeps_current_dock_layout(self):
+        controller = _NavigationHarness()
+        section = _section("demo/asset@assets")
+        controller._sessions[section.entry_key] = section
+        controller._current_section_key = section.entry_key
+        live_layout = {"panels": [{"id": "results", "size": 410}]}
+        applied = []
+        controller.dock_model = SimpleNamespace(
+            capture_layout=lambda: deepcopy(live_layout),
+            apply_layout=lambda layout: applied.append(layout) or True,
+        )
+        section.layout_preset = "task_layout"
+        controller._workspace_layout_presets = SimpleNamespace(
+            apply_assigned=lambda _preset: self.fail(
+                "Object navigation must not apply the section layout preset"
+            )
+        )
+        original_tab = section.tabs[0]
+
+        new_tab = controller._prepare_search_key_tab(
+            section, "New Asset", "ASSET002", {"type": "sobject"}
+        )
+
+        self.assertEqual(original_tab.workspace_layout, live_layout)
+        self.assertEqual(new_tab.workspace_layout, live_layout)
+        self.assertIsNot(new_tab.workspace_layout, original_tab.workspace_layout)
+        NavigationMixin._apply_tab_workspace_layout(
+            controller, section, new_tab
+        )
+        self.assertEqual(applied, [live_layout])
 
     def test_navigation_tab_preserves_requested_notes_process(self):
         controller = _NavigationHarness()

@@ -88,6 +88,9 @@ class ResultTreeMixin:
             or "publish"
         )
         snapshot_code = str(snapshot.get("code") or "")
+        keep_publish_process_collapsed = bool(
+            payload.get("_keepPublishProcessCollapsed", False)
+        )
         section = self._current_section()
         tab = self._current_tab()
         if not search_key or section is None or tab is None:
@@ -122,6 +125,7 @@ class ResultTreeMixin:
                 model,
                 search_key,
                 owner.node_id,
+                keep_publish_process_collapsed,
             )
             model.set_search_key_loading(search_key, True)
             worker = env_inst.server_pool.add_task(
@@ -135,6 +139,7 @@ class ResultTreeMixin:
                     payload.get("updateVersionless")
                     or payload.get("onlyVersionless")
                 ),
+                keep_publish_process_collapsed,
             )
             if worker is None:
                 raise RuntimeError("Server worker pool is not available")
@@ -166,7 +171,14 @@ class ResultTreeMixin:
         )
         if request is None:
             return
-        section_key, tab_id, model, expected_key, owner_node_id = request
+        (
+            section_key,
+            tab_id,
+            model,
+            expected_key,
+            owner_node_id,
+            keep_publish_process_collapsed,
+        ) = request
         if str(search_key or "") != expected_key:
             model.set_search_key_loading(expected_key, False, notify=False)
             return
@@ -183,7 +195,9 @@ class ResultTreeMixin:
             return
 
         model.set_search_key_loading(expected_key, False)
-        reveal_node_id = model.apply_snapshot_branch_refresh(refresh)
+        reveal_node_id = model.apply_snapshot_branch_refresh(
+            refresh, keep_publish_process_collapsed,
+        )
         tab = self._current_tab()
         if tab is not None:
             tab.workspace_roots = list(model._roots)
@@ -208,7 +222,14 @@ class ResultTreeMixin:
         request = self._checkin_tree_refresh_requests.pop(request_id, None)
         if request is None:
             return
-        section_key, tab_id, model, search_key, owner_node_id = request
+        (
+            section_key,
+            tab_id,
+            model,
+            search_key,
+            owner_node_id,
+            _keep_collapsed,
+        ) = request
         current = self._current_tree_keeps_checkin_parent(
             section_key,
             tab_id,

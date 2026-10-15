@@ -14,7 +14,7 @@ Window {
     flags: Qt.FramelessWindowHint
         | Qt.Tool
         | Qt.WindowStaysOnTopHint
-        | Qt.WindowDoesNotAcceptFocus
+        | (root.controller.replyEditing ? 0 : Qt.WindowDoesNotAcceptFocus)
         | Qt.NoDropShadowWindowHint
     modality: Qt.NonModal
     transientParent: null
@@ -45,6 +45,10 @@ Window {
             placeAtBottomRight()
     }
     onScreenChanged: placeAtBottomRight()
+    onFlagsChanged: {
+        if (root.controller.replyEditing)
+            root.requestActivate()
+    }
     Component.onCompleted: placeAtBottomRight()
 
     Connections {

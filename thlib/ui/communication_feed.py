@@ -23,6 +23,7 @@ from PySide6.QtCore import (
 
 from thlib.environment import env_read_config, env_write_config
 from .composer_drafts import ComposerDrafts
+from .communication_permissions import can_change_published_text
 from .workspace_models.records import RecordListModel
 from .activity import (
     JOURNAL_ACTIVITY_KINDS,
@@ -104,9 +105,22 @@ def _chat_data(bypass_cache=False):
     cached = None if bypass_cache else server_cache.read_entry(
         "messages", cache_key, "sthpw",
     )
-    if isinstance(cached, dict):
+    if isinstance(cached, dict) and (
+        not cached.get("initialized", True)
+        or any(row.get("isPersonalNotes") for row in cached.get("conversations") or [])
+    ):
         return cached
     result = tc.get_chat_conversations()
+    if (
+        isinstance(result, dict)
+        and result.get("initialized", True)
+        and not any(
+            row.get("isPersonalNotes")
+            for row in result.get("conversations") or []
+        )
+    ):
+        tc.create_chat_conversation([])
+        result = tc.get_chat_conversations()
     if cache_token is not None and isinstance(result, dict):
         server_cache.write_entry(
             "messages", cache_key, result, "sthpw",
@@ -118,6 +132,7 @@ def _chat_data(bypass_cache=False):
 class MessagesController(QObject):
     CONVERSATION_CACHE_LIMIT = 12
     MESSAGE_GROUP_WINDOW_SECONDS = 5 * 60
+    ACTIVE_CONVERSATION_POLL_MS = 5000
     stateChanged = Signal()
     schemaInitialized = Signal()
     messageSent = Signal()
@@ -132,6 +147,8 @@ class MessagesController(QObject):
     replyStarted = Signal()
     forwardStarted = Signal()
     messageSentForConversation = Signal(str)
+    quickReplySent = Signal(str)
+    quickReplyFailed = Signal(str, str)
     messageAppendedForConversation = Signal(str)
     visibilityChanged = Signal(bool)
     draftChanged = Signal()
@@ -162,6 +179,13 @@ class MessagesController(QObject):
         self._settings_flush_timer.setSingleShot(True)
         self._settings_flush_timer.setInterval(750)
         self._settings_flush_timer.timeout.connect(self._write_settings)
+        self._active_poll_timer = QTimer(self)
+        self._active_poll_timer.setInterval(
+            self.ACTIVE_CONVERSATION_POLL_MS
+        )
+        self._active_poll_timer.timeout.connect(
+            self._poll_active_conversation
+        )
         draft_state = dict(env_read_config(
             filename="drafts",
             unique_id="cache/messages",
@@ -252,6 +276,7 @@ class MessagesController(QObject):
         self._pending_edits = {}
         self._pending_reactions = {}
         self._reaction_workers = {}
+        self._quick_reply_workers = {}
         self._files = {}
         self._preview_files = {}
         self._open_after_download = set()
@@ -261,6 +286,7 @@ class MessagesController(QObject):
         self._seen_server_message_order = []
         self._notification_cursors = {}
         self._notification_session = None
+        self._auth_session = None
         application.project_changed.connect(self._project_changed)
         application.repository_sync.file_download_done.connect(
             self._attachment_downloaded
@@ -347,6 +373,7 @@ class MessagesController(QObject):
 
     @Slot()
     def shutdown(self):
+        self._active_poll_timer.stop()
         if self._settings_flush_timer.isActive():
             self._settings_flush_timer.stop()
             self._write_settings()
@@ -512,6 +539,8 @@ class MessagesController(QObject):
 
     @Slot()
     def load(self):
+        if getattr(self._application, "authentication_required", False):
+            return
         if self._busy:
             self._pending_refresh = True
             return
@@ -522,7 +551,86 @@ class MessagesController(QObject):
         self._run(_chat_data, self._conversations_ready)
 
     @Slot()
+    def sync_authentication(self):
+        """Load unread conversation summaries for the signed-in user."""
+        from thlib.environment import env_inst, env_server
+
+        ticket = str(env_server.get_ticket() or "")
+        if not ticket or not env_inst.logins:
+            self._reset_session()
+            return
+        if getattr(self._application, "authentication_required", False):
+            self._active_poll_timer.stop()
+            self._pending_refresh = False
+            self._pending_history_load = None
+            return
+        self._sync_active_polling()
+        session = (*self._current_session(), ticket)
+        if session != self._auth_session:
+            self._reset_session()
+            self._auth_session = session
+            self.refresh()
+            return
+        self.load()
+
+    def _reset_session(self):
+        self._active_poll_timer.stop()
+        if self.attachments:
+            self.attachments.cancel()
+        workers = (
+            self._worker, self._history_worker, self._read_worker,
+            *(entry[1] for entry in self._reaction_workers.values()),
+            *(entry[0] for entry in self._quick_reply_workers.values()),
+            *self._download_workers.values(),
+        )
+        for worker in workers:
+            if worker is not None:
+                try:
+                    worker.cancel()
+                except RuntimeError:
+                    pass
+        self._request_id = ""
+        self._history_request_id = ""
+        self._worker = self._history_worker = self._read_worker = None
+        self._busy = self._history_busy = self._sending = False
+        self._pending_refresh = False
+        self._pending_history_load = None
+        self._schema_refresh_pending = False
+        self._message_search = ""
+        self._pending_message_focus = ""
+        self._follow_latest_after_history = ""
+        self._forward_selection.clear()
+        self._pending_body = ""
+        self._pending_draft_context = ""
+        self._pending_send = {}
+        self._pending_edits.clear()
+        self._pending_reactions.clear()
+        self._reaction_workers.clear()
+        self._quick_reply_workers.clear()
+        self._download_workers.clear()
+        self._open_after_download.clear()
+        self._conversation_preview_files.clear()
+        self._conversation_cache.clear()
+        self._dirty_conversations.clear()
+        self._conversation_id = ""
+        self._conversation_opened = False
+        self._notification_session = None
+        self._auth_session = None
+        self._notification_cursors.clear()
+        self._seen_server_messages.clear()
+        self._seen_server_message_order.clear()
+        self._initialized = self._can_initialize = False
+        self._can_create_group = self._can_delete_messages = False
+        self._error = ""
+        self.conversations.clear()
+        self._clear_active_history()
+        self._activate_draft_context("")
+        self.stateChanged.emit()
+
+    @Slot()
     def refresh(self):
+        if getattr(self._application, "authentication_required", False):
+            return
         if self._busy:
             self._pending_refresh = True
             return
@@ -623,8 +731,8 @@ class MessagesController(QObject):
             except (AttributeError, RuntimeError):
                 pass
             self._history_worker = None
-        self._conversation_cache.clear()
-        self._sync_message_surfaces()
+        # Cached models also own the retained QML timelines. Mark server data
+        # stale without destroying the reader's position in inactive chats.
         self._dirty_conversations.update(
             str(record.get("conversationId") or "")
             for record in self.conversations._records
@@ -641,7 +749,8 @@ class MessagesController(QObject):
             str(env_server.get_user() or ""),
         )
         previous_session = self._notification_session
-        if session != previous_session:
+        session_changed = session != previous_session
+        if session_changed:
             self._notification_session = session
             self._notification_cursors.clear()
             self._seen_server_messages.clear()
@@ -670,6 +779,7 @@ class MessagesController(QObject):
             self._conversation_opened = False
             self._activate_draft_context("")
             self._clear_active_history()
+            self._sync_active_polling()
             self._finish()
             return
         self._can_create_group = bool((value or {}).get("canCreateGroup"))
@@ -695,6 +805,30 @@ class MessagesController(QObject):
             record["selected"] = record.get("conversationId") == selected
             record.update(self._conversation_profile(record))
         self.conversations.replace(records)
+        if session_changed and self._notifications_enabled:
+            for record in records:
+                sender = str(record.get("lastSender") or "")
+                conversation_id = str(record.get("conversationId") or "")
+                if (
+                    int(record.get("unread") or 0) <= 0
+                    or not conversation_id
+                    or sender.casefold() == session[1].casefold()
+                    or (
+                        self._visible
+                        and conversation_id == selected
+                    )
+                ):
+                    continue
+                excerpt = str(
+                    self._message_content_preview(
+                        record.get("lastMessage"),
+                        empty_text="New message",
+                    ).get("summary") or "New message"
+                )[:160]
+                title = str(record.get("title") or sender or "Messages")
+                self._publish_message_notification(
+                    conversation_id, title, sender, excerpt
+                )
         self._finish()
         if selected and any(record.get("conversationId") == selected for record in records):
             switching_history = self._loaded_conversation_id != selected
@@ -734,6 +868,7 @@ class MessagesController(QObject):
             self._activate_draft_context("", session)
             self._clear_active_history()
             self.stateChanged.emit()
+        self._sync_active_polling()
 
     @staticmethod
     def _conversation_settings_key(session):
@@ -788,12 +923,18 @@ class MessagesController(QObject):
     @staticmethod
     def _complete_history_counts(records):
         records = list(records or [])
-        return {
+        summary = {
             "messageCount": len(records),
             "attachmentCount": sum(
                 len(record.get("attachments") or []) for record in records
             ),
         }
+        if not records:
+            summary.update(
+                lastMessage="", lastSender="", lastTimestamp="",
+                lastMessageSummary="", lastMessageLinkedCount=0,
+            )
+        return summary
 
     def _reconcile_complete_history_counts(self, conversation_id, records):
         """Replace a stale chat summary once the complete history is known."""
@@ -807,7 +948,7 @@ class MessagesController(QObject):
             if str(record.get("conversationId") or "") != conversation_id:
                 continue
             for role, value in counts.items():
-                if int(record.get(role) or 0) != value:
+                if record.get(role) != value:
                     self.conversations.set_value(row, role, value)
             break
 
@@ -1053,6 +1194,26 @@ class MessagesController(QObject):
             ),
         }
 
+    def _publish_message_notification(
+            self, conversation_id, title, sender, excerpt):
+        title = str(title or sender or "Messages")
+        excerpt = str(excerpt or "New message")[:160]
+        self.newMessage.emit(conversation_id, title, excerpt)
+        sender_profile = self._message_profile(sender)
+        self.newMessageNotification.emit({
+            "conversationId": conversation_id,
+            "conversationTitle": title,
+            "senderLogin": sender,
+            "senderTitle": str(
+                sender_profile.get("senderDisplay") or sender
+                or "Removed user"
+            ),
+            "excerpt": excerpt,
+            "avatarUrl": str(sender_profile.get("avatarUrl") or ""),
+            "initials": str(sender_profile.get("initials") or ""),
+            "avatarColor": str(sender_profile.get("senderColor") or ""),
+        })
+
     @staticmethod
     def _delivery_record(value):
         delivery = dict(value or {})
@@ -1281,6 +1442,7 @@ class MessagesController(QObject):
         self._cache_current_history()
         self._conversation_id = conversation_id
         self._conversation_opened = True
+        self._sync_active_polling()
         self._remember_conversation(conversation_id)
         self._activate_draft_context(conversation_id)
         self._message_search = ""
@@ -1303,10 +1465,13 @@ class MessagesController(QObject):
         if restored:
             self.conversationRestored.emit(conversation_id)
             self.conversationLoaded.emit()
-            if self._visible:
-                self._mark_read()
+        if restored and self._visible:
+            self._mark_read()
         if needs_reload:
-            self._load_messages(reset=True, background=restored)
+            self._load_messages(
+                reset=True, background=restored,
+                bypass_cache=conversation_id in self._dirty_conversations,
+            )
 
     @Slot(str)
     def open_conversation(self, conversation_id):
@@ -1325,6 +1490,7 @@ class MessagesController(QObject):
             self.conversationChanging.emit(conversation_id)
             self._conversation_id = conversation_id
             self._conversation_opened = True
+            self._sync_active_polling()
             self._activate_draft_context(conversation_id)
             self._clear_active_history()
             self.stateChanged.emit()
@@ -1448,10 +1614,7 @@ class MessagesController(QObject):
     @Slot(str, result=bool)
     def delete_message(self, message_id):
         message_id = str(message_id or "")
-        can_delete = self._can_delete_messages or bool(
-            self.selectedConversation.get("canClearPersonal")
-        )
-        if self._busy or not can_delete or not message_id:
+        if self._busy or not self.can_change_message(message_id):
             return False
 
         def operation():
@@ -1469,7 +1632,7 @@ class MessagesController(QObject):
             item for item in self.messages._records
             if item.get("messageId") == message_id
         ), {})
-        if self._busy or not message or not record.get("canEdit"):
+        if self._busy or not message or not self.can_change_message(message_id):
             return False
         original_body = str(record.get("body") or "")
         edit_history = list(record.get("editHistory") or [])
@@ -1734,6 +1897,7 @@ class MessagesController(QObject):
         deleted_draft_context = self._composer.context
         self._conversation_id = ""
         self._conversation_opened = False
+        self._sync_active_polling()
         self._activate_draft_context("")
         self._composer.clear(deleted_draft_context)
         self._conversation_cache.pop(deleted_id, None)
@@ -1754,6 +1918,7 @@ class MessagesController(QObject):
         value = result[0] if isinstance(result, tuple) and len(result) == 1 else result
         self._conversation_id = str((value or {}).get("conversationId") or "")
         self._conversation_opened = bool(self._conversation_id)
+        self._sync_active_polling()
         self._remember_conversation(self._conversation_id)
         self._activate_draft_context(self._conversation_id)
         self._finish()
@@ -1761,6 +1926,8 @@ class MessagesController(QObject):
 
     def _load_messages(
             self, reset=False, background=False, bypass_cache=False):
+        if getattr(self._application, "authentication_required", False):
+            return
         if not self._conversation_id:
             return
         conversation_id = self._conversation_id
@@ -1774,6 +1941,14 @@ class MessagesController(QObject):
         offset = 0 if reset else self._offset
         page_size = self._page_size
         search_text = self._message_search
+        refresh_loaded = (
+            reset and background
+            and self._loaded_conversation_id == conversation_id
+        )
+        retained_ids = {
+            _message_identity(record.get("messageId"))
+            for record in self.messages._records
+        } if refresh_loaded else set()
 
         def operation():
             import json
@@ -1782,6 +1957,7 @@ class MessagesController(QObject):
 
             cache_key = json.dumps(
                 {
+                    "format": 2,
                     "conversation": conversation_id,
                     "offset": offset,
                     "limit": page_size + 1,
@@ -1789,23 +1965,36 @@ class MessagesController(QObject):
                 },
                 ensure_ascii=False, separators=(",", ":"), sort_keys=True,
             )
-            if bypass_cache:
-                server_cache.invalidate_domains(("messages",), "sthpw")
             cache_token = server_cache.token("messages", "sthpw")
             cached = None if bypass_cache else server_cache.read_entry(
                 "messages", cache_key, "sthpw",
             )
-            if isinstance(cached, dict):
-                return cached
-            result = tc.get_chat_history(
+            result = cached if isinstance(cached, dict) else tc.get_chat_history(
                 conversation_id, limit=page_size + 1, offset=offset,
                 search_text=search_text,
             )
-            if cache_token is not None and isinstance(result, dict):
+            if cached is None and cache_token is not None and isinstance(result, dict):
                 server_cache.write_entry(
                     "messages", cache_key, result, "sthpw",
                     expected_token=cache_token,
                 )
+            # Catch up to the retained history after a burst of new messages.
+            # Ordinary polls still request just the latest page.
+            fetch_size = page_size
+            while retained_ids and isinstance(result, dict):
+                rows = list(result.get("messages") or [])
+                if len(rows) <= fetch_size or any(
+                    _message_identity(row.get("__search_key__") or row.get("code"))
+                    in retained_ids for row in rows[:fetch_size]
+                ):
+                    break
+                fetch_size *= 2
+                result = tc.get_chat_history(
+                    conversation_id, limit=fetch_size + 1, offset=0,
+                    search_text=search_text,
+                )
+            if fetch_size != page_size and isinstance(result, dict):
+                result = dict(result, historyPageSize=fetch_size)
             return result
 
         from thlib.environment import env_inst
@@ -2137,6 +2326,7 @@ class MessagesController(QObject):
                     "size": int(file_object.get_file_size() or 0),
                     "extension": str(file_object.get_ext() or "").upper(),
                     "previewUrl": preview_url,
+                    "hasWebPreview": bool(preview_object and preview_object.get_type() == "web"),
                     "local": bool(file_object.is_exists()),
                     "snapshotCode": str(snapshot.get_code() or ""),
                 })
@@ -2208,7 +2398,7 @@ class MessagesController(QObject):
             "attachmentCount": len(attachments),
             "timePretty": time_pretty,
             "timeSimple": time_simple,
-            "canEdit": sender == current or self._can_delete_messages,
+            "canEdit": self._can_change_message(sender, timestamp, current),
             "edited": bool(edit_history),
             "editedBy": str(last_edit.get("editedBy") or ""),
             "editedAt": str(last_edit.get("editedAt") or ""),
@@ -2225,6 +2415,29 @@ class MessagesController(QObject):
         record.update(self._delivery_record(info.get("__delivery__") or {}))
         record.update(self._message_profile(sender))
         return record
+
+    def _can_change_message(self, sender, timestamp, current=None) -> bool:
+        if current is None:
+            from thlib.environment import env_server
+            current = str(env_server.get_user() or "")
+        return can_change_published_text(
+            sender, timestamp, current,
+            bool(
+                self._can_delete_messages
+                or getattr(self._application, "can_manage_tools", False)
+            ),
+            self._clock,
+        )
+
+    @Slot(str, result=bool)
+    def can_change_message(self, message_id: str) -> bool:
+        record = next((
+            item for item in self.messages._records
+            if item.get("messageId") == str(message_id or "")
+        ), None)
+        return bool(record and self._can_change_message(
+            record.get("sender"), record.get("timestamp")
+        ))
 
     @staticmethod
     def _message_epoch(value):
@@ -2285,8 +2498,9 @@ class MessagesController(QObject):
         rows = list((value or {}).get("messages") or [])
         self._pinned_message = dict((value or {}).get("pinnedMessage") or {})
         pin_history = list((value or {}).get("pinHistory") or [])
-        self._has_more = len(rows) > self._page_size
-        rows = rows[:self._page_size]
+        page_size = int((value or {}).get("historyPageSize") or self._page_size)
+        has_more = len(rows) > page_size
+        rows = rows[:page_size]
         last_cleared = ""
         for record in self.conversations._records:
             if record.get("conversationId") == self._conversation_id:
@@ -2298,6 +2512,24 @@ class MessagesController(QObject):
             for info in reversed(rows)
         ]
         existing = [] if reset else list(self.messages._records)
+        if (
+            reset and self._history_background and has_more
+            and self._loaded_conversation_id == conversation_id
+        ):
+            refreshed_ids = {
+                _message_identity(record["messageId"]) for record in records
+            }
+            for record in self.messages._records:
+                if _message_identity(record["messageId"]) in refreshed_ids:
+                    break
+                existing.append(record)
+            else:
+                existing = []
+            if existing:
+                has_more = self._has_more
+            records = existing + records
+            existing = []
+        self._has_more = has_more
         preview_messages = records + existing
         self._pinned_message = self._pin_preview(
             self._pinned_message, preview_messages
@@ -2319,7 +2551,7 @@ class MessagesController(QObject):
         )
         if follow_latest:
             self._follow_latest_after_history = ""
-        self._offset = offset + len(rows)
+        self._offset = len(history_records)
         self._loaded_conversation_id = conversation_id
         self._loaded_server_timestamp = self._conversation_timestamp(
             conversation_id
@@ -2381,6 +2613,7 @@ class MessagesController(QObject):
         if value == self._visible:
             return
         self._visible = value
+        self._sync_active_polling()
         self.visibilityChanged.emit(value)
         if (
             self._visible
@@ -2392,9 +2625,43 @@ class MessagesController(QObject):
         if self._visible and self._timestamp_presentation_dirty:
             self._refresh_timestamp_presentation()
         if self._visible and self._conversation_opened:
+            if (
+                self._loaded_conversation_id != self._conversation_id
+                or self._conversation_id in self._dirty_conversations
+                or self._loaded_server_timestamp < self._conversation_timestamp()
+            ):
+                self._load_messages(reset=True, background=True, bypass_cache=True)
             self._mark_read()
 
+    def _sync_active_polling(self):
+        should_poll = bool(
+            not getattr(self._application, "authentication_required", False)
+            and self._visible
+            and self._conversation_opened
+            and self._conversation_id
+        )
+        if should_poll and not self._active_poll_timer.isActive():
+            self._active_poll_timer.start()
+        elif not should_poll:
+            self._active_poll_timer.stop()
+
+    def _poll_active_conversation(self):
+        if (
+            not self._visible
+            or not self._conversation_opened
+            or not self._conversation_id
+            or self._history_busy
+        ):
+            return
+        self._load_messages(
+            reset=True,
+            background=True,
+            bypass_cache=True,
+        )
+
     def _mark_read(self):
+        if getattr(self._application, "authentication_required", False):
+            return
         conversation = self.selectedConversation
         if (
             self._read_worker
@@ -2429,16 +2696,18 @@ class MessagesController(QObject):
             return
         self._read_worker = worker
         worker.result.connect(
-            lambda result: self._read_ready(conversation_id, timestamp, result),
+            lambda result: self._read_ready(worker, conversation_id, timestamp, result),
             Qt.ConnectionType.QueuedConnection,
         )
         worker.error.connect(
-            lambda error: self._read_failed(error),
+            lambda error: self._read_failed(worker, error),
             Qt.ConnectionType.QueuedConnection,
         )
         worker.start()
 
-    def _read_ready(self, conversation_id, timestamp, _result):
+    def _read_ready(self, worker, conversation_id, timestamp, _result):
+        if worker is not self._read_worker:
+            return
         self._read_worker = None
         if conversation_id != self._conversation_id:
             return
@@ -2453,7 +2722,9 @@ class MessagesController(QObject):
                 self.messages.set_value(row, "unread", False)
         self.stateChanged.emit()
 
-    def _read_failed(self, error):
+    def _read_failed(self, worker, error):
+        if worker is not self._read_worker:
+            return
         self._read_worker = None
         message, stacktrace = _worker_error(error)
         debug_log = getattr(self._application, "debug_log", None)
@@ -2475,6 +2746,7 @@ class MessagesController(QObject):
             "conversationId": self._conversation_id,
             "body": body,
             "replyTo": str(self._reply_target.get("messageId") or ""),
+            "attachmentCount": self.attachments.count if has_attachments else 0,
         }
         self._pending_draft_context = self._composer.context
         if has_attachments:
@@ -2494,11 +2766,96 @@ class MessagesController(QObject):
         self._send_payload([])
         return True
 
+    @Slot(str, str, str, result=bool)
+    def send_quick_reply(self, notification_id, conversation_id, body):
+        """Send from a toast without replacing the selected chat or its draft."""
+        from thlib.environment import env_inst, env_server
+
+        notification_id = str(notification_id or "")
+        conversation_id = str(conversation_id or "")
+        body = str(body or "").strip()
+        if (
+            not notification_id or not conversation_id or not body
+            or not env_server.get_ticket()
+            or notification_id in self._quick_reply_workers
+        ):
+            return False
+        session = self._current_session()
+
+        def operation():
+            import thlib.tactic_classes as tc
+
+            return self._cache_message_mutation(
+                tc.send_chat_message(conversation_id, body)
+            )
+
+        if env_inst.server_pool.is_stopped:
+            env_inst.server_pool.start()
+        worker = env_inst.server_pool.add_task(operation)
+        if worker is None:
+            return False
+        self._quick_reply_workers[notification_id] = (worker, session)
+        worker.result.connect(
+            lambda result: self._quick_reply_ready(
+                notification_id, worker, session, result
+            ),
+            Qt.ConnectionType.QueuedConnection,
+        )
+        worker.error.connect(
+            lambda error: self._quick_reply_failed(
+                notification_id, worker, session, error
+            ),
+            Qt.ConnectionType.QueuedConnection,
+        )
+        worker.start()
+        return True
+
+    def _quick_reply_ready(self, notification_id, worker, session, result):
+        if self._quick_reply_workers.get(notification_id) != (worker, session):
+            return
+        self._quick_reply_workers.pop(notification_id, None)
+        if session != self._current_session():
+            return
+        value = result[0] if isinstance(result, tuple) and len(result) == 1 else result
+        message = dict((value or {}).get("message") or {})
+        self._remember_server_message(str(
+            message.get("__search_key__") or message.get("code") or ""
+        ))
+        self.quickReplySent.emit(notification_id)
+        self.refresh()
+
+    def _quick_reply_failed(self, notification_id, worker, session, error):
+        if self._quick_reply_workers.get(notification_id) != (worker, session):
+            return
+        self._quick_reply_workers.pop(notification_id, None)
+        if session == self._current_session():
+            message, stacktrace = _worker_error(error)
+            debug_log = getattr(self._application, "debug_log", None)
+            if debug_log:
+                debug_log.log(
+                    "ERROR", message, stacktrace=stacktrace,
+                    group="communication/messages/quick-reply",
+                    source="MessagesController",
+                )
+            self.quickReplyFailed.emit(notification_id, message)
+
     def _attachments_uploaded(self, snapshot_keys):
+        if not self._sending:
+            return
+        snapshot_keys = list(snapshot_keys or [])
+        expected = int(self._pending_send.get("attachmentCount") or 0)
+        if len(snapshot_keys) != expected or not all(snapshot_keys):
+            self._attachments_failed(
+                "Attachment upload did not complete; the message was not sent",
+                "",
+            )
+            return
         self._busy = False
-        self._send_payload(list(snapshot_keys or []))
+        self._send_payload(snapshot_keys)
 
     def _attachments_failed(self, message, stacktrace):
+        if not self._sending:
+            return
         self._busy = False
         self._sending = False
         self._sending_conversation_id = ""
@@ -2788,6 +3145,8 @@ class MessagesController(QObject):
                 )
 
     def _attachment_authorized(self, worker_id, token, open_after, result):
+        if worker_id not in self._download_workers:
+            return
         self._download_workers.pop(worker_id, None)
         value = result[0] if isinstance(result, tuple) and len(result) == 1 else result
         if not bool((value or {}).get("allowed")):
@@ -2813,6 +3172,8 @@ class MessagesController(QObject):
             self.stateChanged.emit()
 
     def _attachment_authorization_failed(self, worker_id, error):
+        if worker_id not in self._download_workers:
+            return
         self._download_workers.pop(worker_id, None)
         self._error, stacktrace = _worker_error(error)
         debug_log = getattr(self._application, "debug_log", None)
@@ -3022,7 +3383,6 @@ class MessagesController(QObject):
                 or sender.casefold() == current
                 or initial
                 or not self._notifications_enabled
-                or (last_known and timestamp and timestamp <= last_known)
                 or (
                     self._visible
                     and self._conversation_opened
@@ -3030,29 +3390,12 @@ class MessagesController(QObject):
                 )
             ):
                 continue
-            self.newMessage.emit(
+            self._publish_message_notification(
                 conversation_id,
-                str(conversation.get("title") or sender or "Messages"),
-                notification_excerpt[:160],
+                conversation.get("title") or sender,
+                sender,
+                notification_excerpt,
             )
-            sender_profile = self._message_profile(sender)
-            self.newMessageNotification.emit({
-                "conversationId": conversation_id,
-                "conversationTitle": str(
-                    conversation.get("title") or "Messages"
-                ),
-                "senderLogin": sender,
-                "senderTitle": str(
-                    sender_profile.get("senderDisplay") or sender
-                    or "Removed user"
-                ),
-                "excerpt": notification_excerpt,
-                "avatarUrl": str(sender_profile.get("avatarUrl") or ""),
-                "initials": str(sender_profile.get("initials") or ""),
-                "avatarColor": str(
-                    sender_profile.get("senderColor") or ""
-                ),
-            })
         if records_changed:
             conversation_records.sort(
                 key=lambda record: (

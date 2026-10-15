@@ -112,7 +112,7 @@ Item {
     }
     Component {
         id: commitQueueContent
-        CommitQueueView { theme: root.theme }
+        CommitWorkspaceView { theme: root.theme }
     }
     Component {
         id: databaseEditorContent

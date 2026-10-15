@@ -1,11 +1,14 @@
 from __future__ import annotations
 
 import os
+import sys
 import tempfile
 import time
 import unittest
 from pathlib import Path
 from unittest.mock import patch
+
+from PySide6.QtCore import QProcess
 
 from tests.qt_application import gui_test_application
 from thlib.ui.handler_server_controller import HandlerServerController
@@ -113,6 +116,96 @@ class HandlerServerControllerTests(unittest.TestCase):
             or "Cannot read property" in str(record.get("detail") or "")
             for record in self.controller.results._records
         ))
+
+    def test_compiled_application_starts_server_through_own_entrypoint(self):
+        with patch.object(sys.modules["__main__"], "__compiled__", object(),
+                          create=True), patch.object(self.controller._server, "start"):
+            self.controller.start_server()
+
+        self.assertEqual(self.controller._server.program(), sys.executable)
+        self.assertEqual(self.controller._server.arguments(), [
+            "--handler-server", "--host", "127.0.0.1", "--port", "0",
+        ])
+
+    def test_process_start_failure_does_not_report_a_second_timeout(self):
+        self.controller._startup_timer.start()
+        self.controller._server_error(QProcess.ProcessError.FailedToStart)
+
+        self.assertFalse(self.controller._startup_timer.isActive())
+
+    def test_application_entrypoint_dispatches_handler_server(self):
+        from thlib.ui import application
+
+        with patch.object(sys, "argv", [
+            "TACTIC-Handler.exe", "--handler-server", "--port", "0",
+        ]), patch("handler_server.launcher.main", return_value=17) as server_main:
+            self.assertEqual(application.main(), 17)
+
+        server_main.assert_called_once_with(["--port", "0"])
+
+    def test_application_entrypoint_starts_server_without_configuration(self):
+        process = QProcess()
+        process.setProcessChannelMode(QProcess.ProcessChannelMode.MergedChannels)
+        process.setProgram(sys.executable)
+        process.setArguments([
+            str(Path(__file__).resolve().parents[1] / "launch.py"),
+            "--handler-server", "--port", "0",
+        ])
+        process.start()
+        try:
+            self.assertTrue(process.waitForStarted(3000), process.errorString())
+            output = ""
+            deadline = time.monotonic() + 8
+            while "HANDLER_SERVER_READY " not in output and time.monotonic() < deadline:
+                process.waitForReadyRead(1000)
+                output += bytes(process.readAllStandardOutput()).decode(
+                    "utf-8", errors="replace"
+                )
+            self.assertIn("HANDLER_SERVER_READY ", output)
+        finally:
+            process.kill()
+            process.waitForFinished(3000)
+
+    def test_maya_connection_reads_workspace_without_opening_client_menu(self):
+        class ClientStub:
+            connected = True
+            client_id = "handler"
+
+            def __init__(self):
+                self.commands = []
+
+            def send_command(self, target, action, payload, timeout):
+                self.commands.append((target, action))
+                return "request-" + action
+
+            def stop(self, wait=True):
+                pass
+
+            def shutdown_server(self):
+                pass
+
+        client = ClientStub()
+        self.controller._client = client
+        self.controller._replace_clients([{
+            "client_id": "maya-1", "application_type": "maya",
+            "process_id": 1,
+            "capabilities": ["get_application_info", "get_current_scene"],
+        }])
+
+        self.assertIn(("maya-1", "get_current_scene"), client.commands)
+        self.controller._handle_response({
+            "type": "result", "request_id": "request-get_current_scene",
+            "success": True, "payload": {
+                "path": "D:/maya/project/scenes/shot.ma",
+                "project": "D:/maya/project",
+            },
+        })
+        self.assertEqual(
+            self.controller.selected_scene_info("maya")["project"],
+            "D:/maya/project",
+        )
+        self.controller._remove_client("maya-1")
+        self.assertEqual(self.controller.selected_scene_info("maya"), {})
 
     def test_unexpected_exit_does_not_wait_and_finishes_pending_commands(self):
         class ClientStub:

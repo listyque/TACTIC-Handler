@@ -85,15 +85,8 @@ Item {
             Layout.fillHeight: true
             orientation: Qt.Horizontal
 
-            handle: Rectangle {
-                implicitWidth: 6
-                color: "transparent"
-                Rectangle {
-                    anchors.centerIn: parent
-                    width: 1
-                    height: Math.max(0, parent.height - 16)
-                    color: root.theme.outlineVariant
-                }
+            handle: Controls.SplitterHandle {
+                theme: root.theme
             }
 
             Rectangle {

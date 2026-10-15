@@ -7,6 +7,9 @@ import unittest
 from unittest.mock import patch
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
+os.environ.setdefault("QT_QUICK_CONTROLS_STYLE", "Material")
+os.environ.setdefault("QT_QUICK_BACKEND", "software")
+os.environ.setdefault("QSG_RENDER_LOOP", "basic")
 
 from PySide6.QtCore import (
     QMetaObject,
@@ -78,6 +81,185 @@ class CommitQueueLayoutTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.app = QGuiApplication.instance() or QGuiApplication([])
+        from PySide6.QtGui import QFontDatabase
+        fonts = Path(os.environ.get('WINDIR', 'C:/Windows')) / 'Fonts'
+        for name in ('segoeui.ttf', 'segoeuib.ttf'):
+            if (fonts / name).is_file():
+                QFontDatabase.addApplicationFont(str(fonts / name))
+
+    def test_splitter_drag_persists_and_actions_fit_when_panels_shrink(self):
+        from PySide6.QtCore import QPoint, Qt
+        from thlib.environment import env_mode, env_write_config
+        from test_commit_queue import payload
+
+        translator = CatalogTranslator(QML.parent / 'translations/ru.json')
+        self.app.installTranslator(translator)
+        self.addCleanup(self.app.removeTranslator, translator)
+        with tempfile.TemporaryDirectory() as directory, patch.object(env_mode, 'current_path', directory):
+            source = Path(directory) / 'source.txt'
+            source.write_bytes(b'content')
+            controller = CommitQueueController()
+            controller._server_queue = True
+            ids = controller.add_prepared_many([(payload(source, str(i)), str(i)) for i in range(3)])
+            controller._set_record(ids[0], status='Completed')
+            controller._set_record(ids[2], status='Failed', error='test failure')
+            engine = QQmlEngine()
+            warnings = []
+            engine.warnings.connect(lambda items: warnings.extend(item.toString() for item in items))
+            context = engine.rootContext()
+            from thlib.ui.icon_font import qml_icon_bindings
+            bindings = qml_icon_bindings(ROOT, engine)
+            for name, value in bindings.items():
+                context.setContextProperty(name, value)
+            context.setContextProperty('commitQueueController', controller)
+            context.setContextProperty('commitQueueModel', controller.model)
+            hosts = [_ScreenshotController(engine), _NamingEditorController(engine), _WindowModel(engine)]
+            for name, host in zip(('screenshotController', 'namingEditorController', 'windowModel'), hosts):
+                context.setContextProperty(name, host)
+            theme_component = QQmlComponent(engine, QUrl.fromLocalFile(str(QML / 'Theme.qml')))
+            theme = theme_component.createWithInitialProperties({'dark': True})
+            component = QQmlComponent(engine, QUrl.fromLocalFile(str(QML / 'CommitQueueView.qml')))
+            view = component.createWithInitialProperties({'theme': theme})
+            self.assertIsNotNone(view, [e.toString() for e in component.errors()])
+            window = QQuickWindow()
+            view.setParentItem(window.contentItem())
+            window.show()
+            restored = None
+            try:
+                files = view.findChild(QObject, 'commitQueueFilesDock')
+                details = view.findChild(QObject, 'commitQueueDetailsPanel')
+                left_actions = ('commitQueueHelpButton', 'commitQueueAutoCleanSwitch',
+                    'commitQueueMoveUpButton', 'commitQueueMoveDownButton',
+                    'commitQueueClearCompletedButton', 'commitQueueClearButton', 'commitQueueServerSwitch')
+                right_actions = ('commitQueuePrimarySendButton', 'commitQueueSendOverflowButton',
+                    'commitQueueApplyToChecked')
+                for width in (1280, 760, 640):
+                    window.resize(width, 640); view.setWidth(width); view.setHeight(640)
+                    QTest.qWait(30)
+                    for preferred_ratio in (0.15, 0.85):
+                        controller.set_splitter_ratio(preferred_ratio)
+                        QTest.qWait(30)
+                        for pane, names in ((files, left_actions), (details, right_actions)):
+                            edge = pane.mapToItem(view, QPointF(pane.width(), pane.height()))
+                            self.assertLessEqual(edge.x(), width, pane.objectName())
+                            self.assertLessEqual(edge.y(), 640, pane.objectName())
+                            for name in names:
+                                item = view.findChild(QObject, name)
+                                self.assertTrue(item.property('visible'), name)
+                                position = item.mapToItem(pane, QPointF(0, 0))
+                                self.assertGreaterEqual(position.x(), -0.1, (width, name))
+                                self.assertLessEqual(position.x() + item.width(), pane.width() + 0.1, (width, name))
+                                self.assertGreaterEqual(position.y(), -0.1, (width, name))
+                                self.assertLessEqual(position.y() + item.height(), pane.height() + 0.1, (width, name))
+                controller.set_splitter_ratio(0.36)
+                window.resize(1280, 640); view.setWidth(1280); QTest.qWait(30)
+                handle = view.findChild(QObject, 'splitterGripVisual').parentItem()
+                center = handle.mapToItem(view, QPointF(handle.width()/2, handle.height()/2))
+                start = QPoint(round(center.x()), round(center.y()))
+                finish = start + QPoint(120, 0)
+                before = files.width()
+                with patch('thlib.ui.commit_queue.env_write_config', wraps=env_write_config) as writes:
+                    QTest.mousePress(window, Qt.MouseButton.LeftButton, Qt.KeyboardModifier.NoModifier, start)
+                    QTest.mouseMove(window, finish, 20)
+                    self.app.processEvents()
+                    self.assertGreater(files.width(), before + 60)
+                    self.assertEqual(writes.call_count, 0)
+                    QTest.mouseRelease(window, Qt.MouseButton.LeftButton, Qt.KeyboardModifier.NoModifier, finish)
+                    self.app.processEvents()
+                    self.assertEqual(writes.call_count, 1)
+                dragged = files.width()
+                ratio = controller.splitterRatio
+                self.assertAlmostEqual(ratio, dragged / (view.width() - 30), places=2)
+                window.resize(760,640);view.setWidth(760);QTest.qWait(30)
+                self.assertLessEqual(details.mapToItem(view,QPointF(details.width(),0)).x(),760)
+                self.assertEqual(controller.splitterRatio, ratio)
+                window.resize(1280,640);view.setWidth(1280);QTest.qWait(30)
+                self.assertAlmostEqual(files.width(), dragged, delta=2)
+                view.setParentItem(None);view.deleteLater()
+                self.app.sendPostedEvents(None, QEvent.DeferredDelete)
+                controller.shutdown()
+                restored = CommitQueueController()
+                self.assertEqual(restored.splitterRatio, ratio)
+                context.setContextProperty('commitQueueController', restored)
+                context.setContextProperty('commitQueueModel', restored.model)
+                view = component.createWithInitialProperties({'theme':theme})
+                view.setParentItem(window.contentItem());view.setWidth(1280);view.setHeight(640)
+                QTest.qWait(30)
+                self.assertAlmostEqual(view.findChild(QObject,'commitQueueFilesDock').width(), dragged, delta=2)
+                self.assertFalse(warnings, warnings)
+            finally:
+                if restored is not None:
+                    restored.shutdown()
+                else:
+                    controller.shutdown()
+                window.close();view.deleteLater();window.deleteLater()
+                controller.deleteLater()
+                if restored is not None:
+                    restored.deleteLater()
+                theme.deleteLater();engine.deleteLater()
+                self.app.sendPostedEvents(None, QEvent.DeferredDelete)
+                self.app.processEvents()
+
+    def test_special_checkins_disable_versionless_controls_and_regular_file_keeps_them(self):
+        from PySide6.QtCore import QPoint, Qt
+        from test_commit_queue import payload
+        from test_checkin_versionless_policy import SPECIAL
+
+        with tempfile.TemporaryDirectory() as directory, patch(
+            'thlib.ui.commit_queue.env_read_config', return_value={}
+        ), patch('thlib.ui.commit_queue.env_write_config'):
+            source = Path(directory) / 'source.txt'
+            source.write_bytes(b'content')
+            controller = CommitQueueController()
+            controller.set_advanced_options_expanded(True)
+            engine = QQmlEngine()
+            engine.addImportPath(str(QML))
+            context = engine.rootContext()
+            objects = {'commitQueueController': controller, 'commitQueueModel': controller.model,
+                       'screenshotController': _ScreenshotController(engine),
+                       'namingEditorController': _NamingEditorController(engine),
+                       'windowModel': _WindowModel(engine)}
+            for name, obj in objects.items():
+                context.setContextProperty(name, obj)
+            theme_component = QQmlComponent(engine, QUrl.fromLocalFile(str(QML / 'Theme.qml')))
+            theme = theme_component.createWithInitialProperties({'dark': True})
+            component = QQmlComponent(engine, QUrl.fromLocalFile(str(QML / 'CommitQueueView.qml')))
+            view = component.createWithInitialProperties({'theme': theme})
+            self.assertIsNotNone(view, str(component.errors()))
+            window = QQuickWindow()
+            window.resize(1280, 1400)
+            view.setParentItem(window.contentItem())
+            view.setWidth(1280)
+            view.setHeight(1400)
+            window.show()
+            try:
+                for index, options in enumerate(SPECIAL + [dict(checkinType='file')]):
+                    identity = controller.add_prepared(dict(payload(source), **options, context=str(index)), 'Asset')
+                    controller.select_row(index)
+                    QTest.qWait(30)
+                    for name, field in (('commitQueueUpdateVersionless', 'updateVersionless'),
+                                        ('commitQueueOnlyVersionless', 'onlyVersionless')):
+                        control = view.findChild(QQuickItem, name)
+                        self.assertIsNotNone(control)
+                        allowed = index == len(SPECIAL)
+                        self.assertEqual(control.isEnabled(), allowed)
+                        before = bool(controller.operation(identity).get(field))
+                        point = control.mapToItem(view, QPointF(control.width()/2, control.height()/2))
+                        QTest.mouseClick(window, Qt.LeftButton, Qt.NoModifier,
+                                         QPoint(round(point.x()), round(point.y())))
+                        self.app.processEvents()
+                        after = bool(controller.operation(identity).get(field))
+                        self.assertEqual(after, not before if allowed else False)
+            finally:
+                controller.shutdown()
+                window.hide()
+                view.setParentItem(None)
+                view.deleteLater()
+                window.deleteLater()
+                theme.deleteLater()
+                engine.deleteLater()
+                self.app.sendPostedEvents(None, QEvent.DeferredDelete)
+                self.app.processEvents()
 
     def test_narrow_split_panels_keep_their_content_inside_bounds(self):
         translator = CatalogTranslator(
@@ -218,6 +400,12 @@ class CommitQueueLayoutTests(unittest.TestCase):
                 self.assertFalse(welcome.property("visible"))
                 self.assertTrue(editor.property("visible"))
                 self.assertTrue(files_panel.property("visible"))
+                grip = view.findChild(QObject, "commitQueueFilesGripVisual")
+                self.assertIsNotNone(grip)
+                self.assertEqual(
+                    (grip.property("width"), grip.property("height")),
+                    (40, 3),
+                )
                 self.assertTrue(
                     view.findChild(
                         QObject, "commitQueueClearButton"

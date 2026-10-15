@@ -94,7 +94,9 @@ class PresentationMixin:
                 continue
 
             try:
-                value = edit_labels.get(column, {}).get(raw_value, raw_value)
+                value = (info.get("__category_labels__") or {}).get(
+                    column, edit_labels.get(column, {}).get(raw_value, raw_value)
+                )
             except TypeError:
                 value = raw_value
             text_value = str(value)
@@ -215,6 +217,7 @@ class PresentationMixin:
                 "command": "add_related",
                 "icon": "add",
                 "tip": "Add new Related sObject",
+                "persistent": True,
                 # A non-zero child count is information, not an active/toggled
                 # state.  The count is rendered separately by the row.
                 "active": False,
@@ -224,6 +227,7 @@ class PresentationMixin:
                     "command": "link_related",
                     "icon": "link",
                     "tip": "Link sObjects Interface",
+                    "persistent": True,
                     "active": False,
                 })
             node.controls_cache = controls
@@ -340,13 +344,15 @@ class PresentationMixin:
         changed_rows = []
         for row, node in enumerate(self._items):
             changed = False
+            # A visible delegate retries immediately when requested becomes
+            # false; keep failure terminal until an explicit preview refresh.
             if node.preview_url == token:
                 node.preview_url = ""
-                node.preview_requested = False
+                node.preview_requested = True
                 changed = True
             if node.card_preview_url == token:
                 node.card_preview_url = ""
-                node.card_preview_requested = False
+                node.card_preview_requested = True
                 changed = True
             if changed:
                 changed_rows.append(row)
@@ -355,7 +361,10 @@ class PresentationMixin:
             index = self.index(row, 0)
             self.dataChanged.emit(
                 index, index,
-                [self.PreviewUrlRole, self.CardPreviewUrlRole],
+                [
+                    self.PreviewUrlRole, self.CardPreviewUrlRole,
+                    self.PreviewRequestedRole, self.CardPreviewRequestedRole,
+                ],
             )
 
     def begin_preview_request(self, node_id: str):

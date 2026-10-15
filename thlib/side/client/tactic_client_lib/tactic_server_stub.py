@@ -55,7 +55,7 @@ class TacticServerStub(object):
         @keyparam:
             login - login_code
             setup - if set to True, it runs the protocol set-up
-            protocol - xmlrpc or local. it defaults to xmlrpc
+            protocol - xmlrpc, json (TACTIC Stream), or local. defaults to xmlrpc
             server - tactic server
             project - targeted project
             ticket - login ticket key
@@ -221,6 +221,16 @@ class TacticServerStub(object):
         # TODO: Not implmeneted: This is needed for isolation of transactions
         #if self.transaction_ticket:
         #    url = '%s%s' % (url, self.transaction_ticket)
+
+        if self.protocol == "json":
+            from .json_transport import JsonServerProxy
+
+            base_url = self.server_name.rstrip("/")
+            if not base_url.startswith(("http://", "https://")):
+                base_url = "http://" + base_url
+            self.server = JsonServerProxy(base_url, self.transport)
+            self.has_server = True
+            return
 
         if url.startswith("https:"):
             # Python 2.7.9 made ssl certificates required and will not allow
@@ -1782,7 +1792,8 @@ class TacticServerStub(object):
                 pass
 
 
-        f = urllib.request.urlopen(url)
+        open_request = getattr(self.transport, "open", urllib.request.urlopen)
+        f = open_request(url)
         file = open(to_path, "wb")
         file.write( f.read() )
         file.close()
@@ -4003,7 +4014,7 @@ class TacticServerStub(object):
             return
 
 
-        elif protocol =='xmlrpc':
+        elif protocol in ('xmlrpc', 'json'):
             # get the env variables
             env_user = os.environ.get('TACTIC_USER')
             env_password = os.environ.get('TACTIC_PASSWORD')

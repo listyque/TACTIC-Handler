@@ -3,10 +3,12 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
+from datetime import datetime, timezone
 from urllib.parse import parse_qsl, urlparse
 
 from PySide6.QtCore import QObject, Property, Signal, Slot
 
+from thlib.global_functions import parce_timestamp
 from thlib.ui.workspace_models.records import RecordListModel
 
 
@@ -108,6 +110,28 @@ def _source_info(source) -> dict:
     except (AttributeError, KeyError, TypeError):
         info = getattr(source, "info", None)
     return dict(info or {})
+
+
+def can_delete_recent_sobject(source, login: str, clock=None, *, now=None) -> bool:
+    """Allow deletion only during the creator's first hour."""
+    try:
+        info = dict(source) if isinstance(source, Mapping) else _source_info(source)
+    except (TypeError, ValueError):
+        return False
+    if not login or str(info.get("login") or "").strip() != login:
+        return False
+    try:
+        timestamp = info.get("timestamp")
+        created = (
+            clock.presentation_datetime(timestamp)
+            if clock is not None else parce_timestamp(timestamp)
+        )
+        if created is None:
+            return False
+        age = ((now or datetime.now(timezone.utc)) - created).total_seconds()
+    except (TypeError, ValueError, OverflowError):
+        return False
+    return 0 <= age < 3600
 
 
 def _status_log_transition(info: Mapping) -> str:
@@ -441,6 +465,11 @@ class SObjectDeleteController(QObject):
         if not unique:
             self._application._notify("Selected item is no longer available")
             return False
+        if context == "items" and not self._can_delete_targets(unique):
+            self._application._notify(
+                "Only your objects created within the last hour can be deleted"
+            )
+            return False
         self._generation += 1
         generation = self._generation
         self._sources = unique
@@ -592,9 +621,25 @@ class SObjectDeleteController(QObject):
                     seen.add(search_key)
         return selected
 
+    def _can_delete_targets(self, sources) -> bool:
+        return bool(sources) and all(
+            can_delete_recent_sobject(
+                source,
+                getattr(self._application, "server_user", ""),
+                getattr(self._application, "_server_clock", None),
+            )
+            for source in sources
+        )
+
     @Slot()
     def confirm_delete(self) -> None:
         if self._busy or self._deleting or not self._ready:
+            return
+        if self._context == "items" and not self._can_delete_targets(self._sources):
+            self._error = self.tr(
+                "Only your objects created within the last hour can be deleted"
+            )
+            self.stateChanged.emit()
             return
         search_keys = [_search_key(source) for source in self._sources]
         for search_key in self._selected_explicit_search_keys():
@@ -639,6 +684,13 @@ class SObjectDeleteController(QObject):
     def _confirm_delete_now(
         self, search_keys: list[str], dependency_data: dict,
     ) -> None:
+        if self._context == "items" and not self._can_delete_targets(self._sources):
+            self._deleting = False
+            self._error = self.tr(
+                "Only your objects created within the last hour can be deleted"
+            )
+            self.stateChanged.emit()
+            return
         self._generation += 1
         generation = self._generation
         self._deleting = True

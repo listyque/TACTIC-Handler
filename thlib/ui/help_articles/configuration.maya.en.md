@@ -12,7 +12,7 @@ order: 38
 
 | Setting | What it controls |
 | --- | --- |
-| **Current work directory** | Read-only workspace directory currently reported by Maya. **No work directory selected** means the integration has not supplied one. |
+| **Current work directory** | Read-only project root reported by the selected Maya client when it connects. It updates when Handler reads the scene again and clears when that client disconnects. **No work directory selected** means no workspace has been reported. |
 | **Maya saving format** | Default Maya ASCII or Maya Binary format offered when Maya prepares a scene for check-in. It does not convert an already opened scene by itself. |
 | **Create Maya directories** | Prepares the standard Maya project folder structure when the check-in workflow requests it. |
 | **Create playblast** | Prepares a Maya playblast image for the snapshot when the source workflow supports a playblast. |

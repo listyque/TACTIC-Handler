@@ -66,6 +66,47 @@ class ResultOrganizationTests(unittest.TestCase):
         self.assertNotIn("Bush", [node.title for node in model._items])
         self.assertNotIn("Tree", [node.title for node in model._items])
 
+    def test_table_groups_by_any_column_and_keeps_group_rows(self):
+        model = WorkspaceItemModel()
+        model.set_organization(group_mode="column:category")
+        model.replace_nodes([
+            _node("1", "Tree", category="Environment"),
+            _node("2", "Car", category="Vehicle"),
+            _node("3", "Rock", category="Environment"),
+        ])
+        model.show_table_rows()
+
+        groups = [node for node in model._items if node.node_type == "group"]
+        self.assertEqual(
+            [group.title for group in groups], ["Environment", "Vehicle"]
+        )
+        self.assertEqual(
+            [node.node_type for node in model._items],
+            ["group", "sobject", "sobject", "group", "sobject"],
+        )
+
+        model.toggle_node(groups[0].node_id)
+        self.assertEqual(
+            [node.node_type for node in model._items],
+            ["group", "group", "sobject"],
+        )
+
+    def test_table_grouping_prefers_rendered_column_values(self):
+        model = WorkspaceItemModel()
+        nodes = [
+            _node("1", "Tree", assets_category_code="objects/environment"),
+            _node("2", "Car", assets_category_code="objects/vehicle"),
+        ]
+        nodes[0].values["assets_category_code"] = "Environment"
+        nodes[1].values["assets_category_code"] = "Vehicle"
+        model.set_organization(group_mode="column:assets_category_code")
+        model.replace_nodes(nodes)
+
+        self.assertEqual(
+            [group.title for group in model._root_groups],
+            ["Environment", "Vehicle"],
+        )
+
     def test_task_grouping_uses_first_workflow_status_without_duplicates(self):
         model = WorkspaceItemModel()
         nodes = [_node("A", "Asset A"), _node("B", "Asset B")]
@@ -97,6 +138,41 @@ class ResultOrganizationTests(unittest.TestCase):
         self.assertEqual(len(objects), 2)
         self.assertEqual(len({node.node_id for node in objects}), 2)
         self.assertEqual(groups[1].accent, "#222222")
+
+    def test_permission_fault_with_progress_in_traceback_is_not_retried(self):
+        from xmlrpc.client import Fault
+        import thlib.tactic_classes as tc
+        from thlib import server_cache
+
+        error = Fault(403, "query_sobjects(include_progress=True): Permission denied")
+        with (
+            patch.object(server_cache, "invalidate_domains"),
+            patch.object(tc, "get_snapshots_updates_list", return_value=[]),
+            patch.object(tc, "get_sobjects", side_effect=error) as query,
+        ):
+            with self.assertRaises(Fault) as caught:
+                SearchRuntimeMixin._query_sobjects(
+                    "registered/depot", "project", (), [], 20, 0, bypass_cache=True)
+        self.assertIs(caught.exception, error)
+        query.assert_called_once()
+
+    def test_old_server_without_progress_keyword_retries_once(self):
+        import thlib.tactic_classes as tc
+        from thlib import server_cache
+
+        with (
+            patch.object(server_cache, "invalidate_domains"),
+            patch.object(tc, "get_snapshots_updates_list", return_value=[]),
+            patch.object(tc, "get_sobjects", side_effect=[
+                TypeError("query_sobjects() got an unexpected keyword argument 'include_progress'"),
+                ({}, {}),
+            ]) as query,
+            patch.object(tc.env_inst, "get_project_by_code", return_value=None),
+        ):
+            SearchRuntimeMixin._query_sobjects(
+                "registered/depot", "project", (), [], 20, 0, bypass_cache=True)
+        self.assertEqual(query.call_count, 2)
+        self.assertNotIn("include_progress", query.call_args.kwargs)
 
     def test_server_query_defaults_to_legacy_name_order(self):
         import thlib.tactic_classes as tc

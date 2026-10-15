@@ -71,6 +71,7 @@ class TaskServerFilterTests(unittest.TestCase):
                 self.table = search_type.split("/")[-1]
                 self.search_type_obj = SimpleNamespace(get_table=lambda: self.table)
                 self.groups, self.columns, self.group_by, self.order = [[]], [], [], []
+                self.order_by = True
                 self.limit, self.offset = 0, 0
                 self.quoted_mode = None
 
@@ -149,8 +150,12 @@ class TaskServerFilterTests(unittest.TestCase):
                 sql = 'SELECT %s FROM "%s"' % ("COUNT(*)" if count else ",".join(columns) or "*", self.table)
                 if self.groups[0]:
                     sql += " WHERE " + " AND ".join(self.groups[0])
-                if self.group_by:
-                    sql += " GROUP BY " + ",".join(self.group_by)
+                group_by = list(self.group_by)
+                if group_by and self.table == "task" and self.order_by:
+                    # Native TACTIC adds these default orders to GROUP BY.
+                    group_by.extend(("search_type", "search_code"))
+                if group_by:
+                    sql += " GROUP BY " + ",".join(group_by)
                 if not count:
                     if self.order:
                         orderings.append((self.table, list(self.order)))
@@ -262,6 +267,11 @@ class TaskServerFilterTests(unittest.TestCase):
                 self.assertEqual(sum(item["count"] for item in first["facets"][name]), 24)
         self.assertEqual(first["facets"]["supervisor"], [
             {"key": "", "title": "", "count": 24, "accent": ""},
+        ])
+
+    def test_process_facet_has_one_option_per_process(self):
+        self.assertEqual(self.page()["facets"]["process"], [
+            {"key": "model", "title": "model", "count": 24, "accent": ""},
         ])
 
     def test_parent_text_is_literal_and_order_is_global(self):

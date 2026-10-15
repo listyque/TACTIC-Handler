@@ -6,6 +6,7 @@ Item {
     id: root
     required property var theme
     property string token: ""
+    readonly property bool canEdit: scriptEditorController.canEdit
     property bool applyingEditorState: false
     property bool editorReady: false
     property bool layoutReady: false
@@ -85,6 +86,8 @@ Item {
     }
 
     function runCurrent(wholeScript) {
+        if (!canEdit)
+            return
         const runnable = language.currentIndex >= 0
             && language.model[language.currentIndex].runnable !== false
         if (!runnable)
@@ -106,6 +109,8 @@ Item {
     }
 
     function saveCurrent() {
+        if (!canEdit)
+            return
         syncEditorState()
         scriptEditorController.save_current_script(
             token, folder.text, scriptTitle.text,
@@ -212,11 +217,13 @@ Item {
 
     Shortcut {
         sequence: "F5"
+        enabled: root.canEdit
         onActivated: root.runCurrent(true)
     }
 
     Shortcut {
         sequences: [StandardKey.Save]
+        enabled: root.canEdit
         onActivated: root.saveCurrent()
     }
 
@@ -245,15 +252,8 @@ Item {
         anchors.fill: parent
         anchors.margins: 8
         orientation: Qt.Horizontal
-        handle: Rectangle {
-            implicitWidth: 6
-            color: "transparent"
-            Rectangle {
-                anchors.centerIn: parent
-                width: 1
-                height: Math.max(0, parent.height - 18)
-                color: root.theme.outlineVariant
-            }
+        handle: Controls.SplitterHandle {
+            theme: root.theme
         }
 
         Item {
@@ -289,6 +289,7 @@ Item {
                         Controls.CompactIconButton {
                             theme: root.theme
                             iconName: "add"
+                            visible: root.canEdit
                             toolTip: qsTr("New script")
                             onClicked: {
                                 root.syncEditorState()
@@ -298,6 +299,7 @@ Item {
                         Controls.CompactIconButton {
                             theme: root.theme
                             iconName: "save"
+                            visible: root.canEdit
                             toolTip: qsTr("Save current script to server")
                             enabled: !scriptEditorController.busy
                             onClicked: root.saveCurrent()
@@ -310,6 +312,7 @@ Item {
                         Controls.TextField {
                             id: folder
                             theme: root.theme
+                            readOnly: !root.canEdit
                             Layout.fillWidth: true
                             Layout.minimumWidth: 72
                             Layout.preferredHeight: 30
@@ -325,6 +328,7 @@ Item {
                         Controls.TextField {
                             id: scriptTitle
                             theme: root.theme
+                            readOnly: !root.canEdit
                             Layout.fillWidth: true
                             Layout.minimumWidth: 88
                             Layout.preferredHeight: 30
@@ -335,6 +339,7 @@ Item {
                         Controls.ComboBox {
                             id: language
                             theme: root.theme
+                            enabled: root.canEdit
                             Layout.preferredWidth: 132
                             Layout.preferredHeight: 30
                             model: scriptEditorController.languageOptions
@@ -348,6 +353,7 @@ Item {
                         Controls.CompactIconButton {
                             objectName: "scriptTriggerEditorButton"
                             theme: root.theme
+                            visible: root.canEdit
                             iconName: "bolt"
                             iconColor: root.theme.action
                             toolTip: qsTr("Script triggers")
@@ -483,8 +489,9 @@ Item {
                     Layout.maximumWidth: parent.width
                     Layout.fillHeight: true
                     orientation: Qt.Vertical
-                    handle: Item {
-                        implicitHeight: 6
+                    handle: Controls.SplitterHandle {
+                        theme: root.theme
+                        vertical: false
                     }
 
                     Rectangle {
@@ -707,6 +714,7 @@ Item {
                                         id: historyButton
                                         objectName: "scriptEditorHistoryButton"
                                         theme: root.theme
+                                        visible: root.canEdit
                                         iconName: "history"
                                         toolTip: qsTr("Edit history")
                                         onClicked: {
@@ -716,6 +724,7 @@ Item {
                                     }
                                     ScriptSavedHistoryButton {
                                         theme: root.theme
+                                        visible: root.canEdit
                                         controller: scriptEditorController
                                         sourceEditor: source
                                         scriptToken: root.token
@@ -764,6 +773,7 @@ Item {
                                     Controls.CompactIconButton {
                                         theme: root.theme
                                         iconName: "play-selection"
+                                        visible: root.canEdit
                                         enabled: source.selectedText.length > 0
                                             && !scriptEditorController.busy
                                         toolTip: qsTr(
@@ -794,6 +804,7 @@ Item {
                             Controls.ScriptCodeEditor {
                                 id: source
                                 objectName: "scriptEditorCodeEditor"
+                                readOnly: !root.canEdit
                                 Layout.fillWidth: true
                                 Layout.fillHeight: true
                                 theme: root.theme
@@ -819,6 +830,7 @@ Item {
                     Controls.Button {
                         theme: root.theme
                         text: qsTr("Run Script")
+                        visible: root.canEdit
                         icon.name: "play_arrow"
                         highlighted: true
                         enabled: !scriptEditorController.busy
@@ -837,6 +849,7 @@ Item {
                         id: runMode
                         objectName: "scriptEditorExecutionTarget"
                         theme: root.theme
+                        enabled: root.canEdit
                         Layout.minimumWidth: 130
                         Layout.preferredWidth: 220
                         model: scriptEditorController.runModeOptions
@@ -1047,6 +1060,7 @@ Item {
             Controls.Button {
                 theme: root.theme
                 text: qsTr("Save all")
+                visible: root.canEdit
                 icon.name: "save"
                 highlighted: true
                 onClicked: {

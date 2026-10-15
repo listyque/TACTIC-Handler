@@ -1,7 +1,9 @@
 import QtQuick
+import "controls" as Controls
 
 Item {
     id: root
+    objectName: "dockResizeEdge_" + edge
     required property var panel
     property string edge: "right"
     property int edgeCursor: edge === "left" || edge === "right"
@@ -13,20 +15,13 @@ Item {
     readonly property bool verticalEdge:
         edge === "left" || edge === "right"
 
-    Rectangle {
+    Controls.ResizeGripVisual {
+        objectName: "dockResizeGripVisual"
         anchors.centerIn: parent
-        width: root.verticalEdge ? 2 : Math.min(34, parent.width)
-        height: root.verticalEdge ? Math.min(34, parent.height) : 2
-        radius: 1
-        color: handle.pressed
-            ? root.panel.theme.action : root.panel.theme.outlineVariant
-        opacity: handle.pressed ? 1 : handle.containsMouse ? 0.85 : 0.28
-        Behavior on opacity {
-            NumberAnimation { duration: root.panel.theme.hoverMotionFast; easing.type: Easing.OutCubic }
-        }
-        Behavior on color {
-            ColorAnimation { duration: root.panel.theme.hoverMotionFast; easing.type: Easing.OutCubic }
-        }
+        theme: root.panel.theme
+        vertical: root.verticalEdge
+        hovered: handle.containsMouse
+        pressed: handle.pressed
     }
 
     MouseArea {

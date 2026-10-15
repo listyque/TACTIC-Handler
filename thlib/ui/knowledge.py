@@ -12,12 +12,7 @@ from PySide6.QtGui import QDesktopServices, QGuiApplication
 
 from .knowledge_api import knowledge_request
 from .activity import activity_timestamp_labels
-from .rich_text import (
-    fit_rich_html_images,
-    headings_from_html,
-    markdown_from_rich_html,
-    rich_text_blocks,
-)
+from .rich_text import headings_from_html
 from .rich_text_document import (
     plain_text_from_markdown,
     rich_html_from_markdown,
@@ -40,13 +35,6 @@ _HISTORY_ROLES = (
     "revisionId", "timestampPretty", "timestampFull", "actor",
     "actorDisplay", "summary", "current", "selected",
 )
-
-_LEGACY_HTML_DOCUMENT = re.compile(
-    r"^\s*<(?:!doctype\s+html|html|body|table|div|p|h[1-6]|"
-    r"blockquote|pre|ol|ul)(?:\s|>)",
-    re.IGNORECASE,
-)
-
 
 class KnowledgeController(QObject):
     stateChanged = Signal()
@@ -135,6 +123,7 @@ class KnowledgeController(QObject):
         self._pending_delete_identity = ""
         self._attachment_snapshot_keys: dict[str, str] = {}
         self._image_source_candidates: dict[str, list[str]] = {}
+        self._failed_editor_image_sources: set[str] = set()
         self._closed = False
         self._search_timer = QTimer(self)
         self._search_timer.setSingleShot(True)
@@ -164,23 +153,6 @@ class KnowledgeController(QObject):
                 self._sobject_deletion_finished
             )
 
-    def _trace_editor(self, stage: str, details: str = "") -> None:
-        debug_log = getattr(self._application, "debug_log", None)
-        if debug_log is None:
-            return
-        debug_log.log(
-            "LOG",
-            f"Knowledge editor: {stage}",
-            group="knowledge/editor",
-            source="Knowledge controller",
-            details=details,
-            caller=2,
-        )
-
-    @Slot(str)
-    def trace_editor(self, stage: str) -> None:
-        self._trace_editor(str(stage or "qml.unknown"))
-
     @Property(QObject, constant=True)
     def navigationModel(self):
         return self.navigation
@@ -188,6 +160,10 @@ class KnowledgeController(QObject):
     @Property(QObject, constant=True)
     def uploadedAttachmentModel(self):
         return self.uploaded_attachments
+
+    @Property(QObject, constant=True)
+    def richTextDocument(self):
+        return self.rich_text_document
 
     @Property(QObject, constant=True)
     def historyModel(self):
@@ -287,33 +263,41 @@ class KnowledgeController(QObject):
         """Canonical Markdown loaded when the active article is replaced."""
         return str(self._document.get("contentMarkdown") or "")
 
+    @Property(str, notify=editorDocumentChanged)
+    def editorHtml(self) -> str:
+        """HTML loaded by the visual editor for the active Markdown article."""
+        return rich_html_from_markdown(self.editorMarkdown) or "<p></p>"
+
     @Property("QVariantMap", notify=editorDocumentChanged)
-    def editorImageSources(self) -> dict:
-        """Map permanent article URLs to lightweight editor previews."""
+    def editorImageSources(self) -> dict[str, str]:
+        """Bounded preview sources used by the editable document."""
         return {
-            str(record.get("webUrl") or ""): str(
-                record.get("previewUrl") or ""
-            )
-            for record in self.uploaded_attachments.records()
-            if str(record.get("webUrl") or "")
-            and str(record.get("previewUrl") or "")
+            source: candidates[0]
+            for source, candidates in self._image_source_candidates.items()
+            if candidates
         }
 
-    @Property(str, notify=stateChanged)
-    def displayHtml(self) -> str:
-        return rich_html_from_markdown(
-            str(self._document.get("contentMarkdown") or "")
+    @Slot(str)
+    def report_editor_image_error(self, source: str) -> None:
+        source = str(source or "").strip()
+        if not source or source in self._failed_editor_image_sources:
+            return
+        self._failed_editor_image_sources.add(source)
+        self._error = self.tr(
+            "An article image could not be loaded. "
+            "The rest of the article is still editable."
         )
-
-    @Slot(float, result=str)
-    def display_html_for_width(self, maximum_width: float) -> str:
-        return fit_rich_html_images(
-            rich_html_from_markdown(
-                str(self._document.get("contentMarkdown") or "")
-            ),
-            maximum_width,
-            linkify=True,
-        )
+        debug_log = getattr(self._application, "debug_log", None)
+        if debug_log is not None:
+            debug_log.log(
+                "ERROR",
+                self._error,
+                group="knowledge/editor",
+                source="KnowledgeController",
+                details=f"image_source={source}",
+                caller=2,
+            )
+        self.stateChanged.emit()
 
     @Property(int, notify=stateChanged)
     def readingMinutes(self) -> int:
@@ -332,17 +316,7 @@ class KnowledgeController(QObject):
 
     @staticmethod
     def _normalized_document(document) -> dict:
-        """Project old rich-text rows into the current Markdown contract."""
-        normalized = deepcopy(document or {})
-        source = str(normalized.get("contentMarkdown") or "")
-        if (
-            normalized.get("kind") == "article"
-            and _LEGACY_HTML_DOCUMENT.match(source)
-        ):
-            markdown = markdown_from_rich_html(source)
-            normalized["contentMarkdown"] = markdown
-            normalized["contentText"] = plain_text_from_markdown(markdown)
-        return normalized
+        return deepcopy(document or {})
 
     @Property("QVariantMap", notify=stateChanged)
     def articleMetadata(self) -> dict:
@@ -426,47 +400,6 @@ class KnowledgeController(QObject):
     @Property(int, notify=stateChanged)
     def viewerReadingMinutes(self) -> int:
         return self._reading_minutes(self.viewerDocument)
-
-    @Slot(float, result=str)
-    def viewer_html_for_width(self, maximum_width: float) -> str:
-        document = self.viewerDocument
-        return fit_rich_html_images(
-            rich_html_from_markdown(
-                str(document.get("contentMarkdown") or "")
-            ),
-            maximum_width,
-            linkify=True,
-        )
-
-    @Slot(float, result="QVariantList")
-    def viewer_blocks_for_width(self, maximum_width: float) -> list[dict]:
-        return self._viewer_blocks(maximum_width)
-
-    @Slot(result="QVariantList")
-    def viewer_blocks(self) -> list[dict]:
-        """Return intrinsic article blocks for retained responsive delegates."""
-        return self._viewer_blocks(None)
-
-    def _viewer_blocks(
-        self,
-        maximum_width: float | None,
-    ) -> list[dict]:
-        document = self.viewerDocument
-        blocks = rich_text_blocks(
-            rich_html_from_markdown(
-                str(document.get("contentMarkdown") or "")
-            ),
-            maximum_width,
-        )
-        for block in blocks:
-            if block.get("kind") != "image":
-                continue
-            source = str(block.get("source") or "")
-            candidates = self._image_source_candidates.get(source, [])
-            block["sources"] = list(dict.fromkeys(
-                [*candidates, source]
-            ))
-        return blocks
 
     def _user_display_name(self, login) -> str:
         login = str(login or "").strip()
@@ -928,9 +861,10 @@ class KnowledgeController(QObject):
             return False
         identity = self._identity
         if not self.dirty and identity not in self._local_drafts:
-            self._editing = False
-            self._creating = False
-            self.stateChanged.emit()
+            if not keep_editing:
+                self._editing = False
+                self._creating = False
+                self.stateChanged.emit()
             return False
         previous = self._local_drafts.get(identity) or {}
         base_record = previous.get("baseCatalogRecord")
@@ -1282,6 +1216,7 @@ class KnowledgeController(QObject):
         self._document = self._normalized_document(
             result.get("document") or {}
         )
+        self._failed_editor_image_sources.clear()
         self._article_metadata = deepcopy(
             result.get("articleMetadata") or {}
         )
@@ -1335,6 +1270,7 @@ class KnowledgeController(QObject):
         self._document = self._normalized_document(
             result.get("document") or {}
         )
+        self._failed_editor_image_sources.clear()
         self._article_metadata = deepcopy(
             result.get("articleMetadata") or {}
         )
@@ -1398,6 +1334,7 @@ class KnowledgeController(QObject):
         self._search_key = ""
         self._revision = ""
         self._document = {}
+        self._failed_editor_image_sources.clear()
         self._article_metadata = {}
         self._document_complete = False
         self._table_of_contents = []
@@ -2050,25 +1987,14 @@ class KnowledgeController(QObject):
 
     @Slot()
     def begin_edit(self) -> None:
-        self._trace_editor(
-            "controller.begin_edit.enter",
-            f"identity={self._identity} can_edit={self._can_edit} "
-            f"busy={self._busy} content_chars="
-            f"{len(str(self._document.get('contentMarkdown') or ''))}",
-        )
         if not self._can_edit or not self._identity or self._busy:
-            self._trace_editor("controller.begin_edit.rejected")
             return
         self._history_preview = {}
-        self._trace_editor("controller.history.refresh.begin")
         self._refresh_history_model()
-        self._trace_editor("controller.history.refresh.end")
         self._editing = True
         self._creating = False
         self._error = ""
-        self._trace_editor("controller.state_changed.emit.begin")
         self.stateChanged.emit()
-        self._trace_editor("controller.state_changed.emit.end")
 
     @Slot(str, "QVariant")
     def set_field(self, name: str, value) -> None:

@@ -67,7 +67,6 @@ class _AuthController(ConnectionMixin):
         self._settings = _Settings()
         self._search_cache = {}
         self.search_cache_writes = 0
-        self._ping_timer = Mock()
         self._section_state_save_timer = Mock()
         self._search_cache_save_timer = Mock()
         self._active_request_id = "active"
@@ -95,12 +94,18 @@ class _AuthController(ConnectionMixin):
         self._authentication_dialog_visible = False
         self._authentication_error = ""
         self._login_name = ""
+        self._config_identity = "artist"
         self._authentication_started_at = 0.0
         self._bootstrap_worker = None
         self._bootstrap_request_id = ""
         self._bootstrap_started_at = 0.0
+        self._project_catalog_worker = None
+        self._project_catalog_request_id = ""
+        self._authentication_worker = None
         self.debug_log = None
+        self.signing_out = _SignalStub()
         self.authentication_changed = _SignalStub()
+        self.restart_requested = _SignalStub()
         self.server_state_changed = _SignalStub()
         self.notification_changed = _SignalStub()
         self.project_changed = _SignalStub()
@@ -508,10 +513,12 @@ class LoginConfigurationTests(unittest.TestCase):
         self.assertIsNone(controller._bootstrap_worker)
         project_worker.start.assert_called_once_with()
 
-    def test_new_login_reloads_presets_but_keeps_personal_workspace(self):
+    def test_new_login_restarts_without_copying_previous_workspace(self):
         from thlib.environment import env_server
 
         controller = _AuthController()
+        controller._config_identity = "first-user"
+        controller._config_write_queue = Mock()
         personal_layout = {"root": {"ratio": 0.61}}
         controller._search_cache = {
             "bootstrapIdentity": "http://server|first-user",
@@ -529,39 +536,37 @@ class LoginConfigurationTests(unittest.TestCase):
             },
         }
         with (
-            patch.object(env_server, "set_ticket"),
-            patch.object(env_server, "save_defaults"),
-        ):
-            controller.logout()
-        with (
-            patch.object(env_server, "set_user"),
-            patch.object(env_server, "set_ticket"),
-            patch.object(env_server, "save_defaults"),
-            patch.object(
-                controller,
-                "_bootstrap_cache_identity",
-                return_value="http://server|second-user",
-            ),
+            patch.object(env_server, "set_user") as set_user,
+            patch.object(env_server, "set_ticket") as set_ticket,
+            patch.object(env_server, "save_defaults") as save_defaults,
         ):
             controller._authentication_result((
                 "second-user", "second-ticket",
             ))
 
         section = controller._search_cache["demo"]["sections"][0]
-        self.assertFalse(section["sidebar_presets_initialized"])
+        self.assertTrue(section["sidebar_presets_initialized"])
         self.assertEqual(
             [tab["tab_id"] for tab in section["tabs"]],
-            ["base", "mine"],
+            ["base", "mine", "saved"],
         )
         self.assertEqual(
             section["tabs"][0]["workspace_layout"], personal_layout
         )
         self.assertEqual(
             controller._search_cache["bootstrapIdentity"],
-            "http://server|second-user",
+            "http://server|first-user",
         )
-        self.assertEqual(controller.search_cache_writes, 1)
-        self.assertEqual(controller.bootstraps, 1)
+        self.assertEqual(controller.search_cache_writes, 0)
+        self.assertEqual(controller.bootstraps, 0)
+        controller._config_write_queue.flush.assert_called_once_with()
+        self.assertEqual(controller.restart_requested.calls, [()])
+        self.assertEqual(
+            [call.args for call in set_user.call_args_list],
+            [("second-user",), ("first-user",)],
+        )
+        set_ticket.assert_called_once_with("second-ticket")
+        save_defaults.assert_called_once_with()
 
     def test_server_normalization_keeps_supported_polling_defaults(self):
         values = ConfigurationController._normalize_server({
@@ -569,12 +574,32 @@ class LoginConfigurationTests(unittest.TestCase):
             "presetName": "studio",
             "userName": "artist",
             "serverUpdateInterval": 99,
+            "pingInterval": 60,
             "presenceHeartbeatInterval": 99,
         })
         self.assertNotIn("userName", values)
         self.assertEqual(values["serverUrl"], "http://tactic.example")
+        self.assertEqual(values["serverUpdateBatchDelay"], 200)
         self.assertEqual(values["serverUpdateInterval"], 30)
-        self.assertEqual(values["presenceHeartbeatInterval"], 120)
+        self.assertNotIn("pingInterval", values)
+        self.assertNotIn("presenceHeartbeatInterval", values)
+
+    def test_transport_choice_is_a_validated_server_draft(self):
+        from thlib.environment import env_server
+
+        with patch.object(env_server, "defaults", {}):
+            self.assertEqual(env_server.get_rpc_transport(), "xmlrpc")
+            env_server.set_rpc_transport("json")
+            self.assertEqual(env_server.get_rpc_transport(), "json")
+            with self.assertRaises(ValueError):
+                env_server.set_rpc_transport("invalid")
+            self.assertEqual(env_server.get_rpc_transport(), "json")
+        selected = ConfigurationController._normalize_server({
+            "serverUrl": "http://server", "presetName": "studio", "rpcTransport": "json",
+        })
+        self.assertEqual(selected["rpcTransport"], "json")
+        self.assertEqual(ConfigurationController._server_validation_error(selected), "")
+        self.assertTrue(ConfigurationController._server_validation_error({**selected, "rpcTransport": "invalid"}))
 
     def test_bare_tactic_host_is_normalized_to_http(self):
         values = ConfigurationController._normalize_server({
@@ -600,7 +625,6 @@ class LoginConfigurationTests(unittest.TestCase):
             "serverUrl": "http://tactic.example",
             "presetName": "studio",
             "serverUpdateInterval": 30,
-            "presenceHeartbeatInterval": 120,
         })
         controller._pending_values["server"] = values
         controller._dirty_pages.add("server")
@@ -619,7 +643,7 @@ class LoginConfigurationTests(unittest.TestCase):
         set_site.assert_not_called()
         set_proxy.assert_not_called()
         self.assertEqual(
-            applied, [("http://tactic.example", "studio", False)]
+            applied, [("http://tactic.example", "studio", False, "xmlrpc")]
         )
         self.assertNotIn("userName", controller._original_values["server"])
         self.assertNotIn("proxyPassword", controller._original_values["server"])
@@ -638,6 +662,60 @@ class LoginConfigurationTests(unittest.TestCase):
         self.assertEqual(closed, [True])
 
 class ServerPresetEditorTests(unittest.TestCase):
+    def test_team_local_repository_is_saved_with_selected_preset(self):
+        from thlib.environment import cfg_controls, env_server
+
+        workspace = _WorkspaceState()
+        workspace.server_preset_model = _Model()
+        controller = ServerPresetsController(workspace)
+        controller._active_name = "default"
+        controller._drafts = {
+            "default": {
+                "server": "http://127.0.0.1:9123",
+                "site": {},
+                "proxy": {},
+            },
+        }
+        controller._replace(["default"], "default")
+        controller.update_selected({
+            **controller.selected_values,
+            "teamLocalRepository": True,
+        })
+
+        with (
+            patch.object(env_server, "defaults", {}),
+            patch.object(env_server, "get_cur_srv_preset", return_value="default"),
+            patch.object(env_server, "server_presets", {
+                "presets_list": ["default"], "current": "default",
+            }),
+            patch.object(env_server, "server_presets_defaults", {}),
+            patch.object(env_server, "save_server_presets_defaults"),
+            patch.object(cfg_controls, "checkin", {}),
+            patch.object(cfg_controls, "set_checkin") as set_checkin,
+            patch("thlib.environment.env_write_config") as write_config,
+        ):
+            self.assertTrue(controller.save())
+            self.assertTrue(env_server.is_team_local_repository())
+
+        self.assertTrue(controller.selected_values["teamLocalRepository"])
+        preset_write = next(
+            call for call in write_config.call_args_list
+            if call.kwargs.get("filename") == "default"
+        )
+        self.assertTrue(preset_write.args[0]["team_local_repository"])
+        from thlib.global_functions import get_value_from_config
+
+        checkin = set_checkin.call_args.args[0]
+        self.assertEqual(
+            get_value_from_config(checkin, "getPreviewsThroughHttpCheckbox"), 0
+        )
+        self.assertEqual(
+            get_value_from_config(checkin, "checkinMethodComboBox"), 1
+        )
+        self.assertEqual(
+            get_value_from_config(checkin, "checkoutMethodComboBox"), 0
+        )
+
     def test_editor_loads_and_saves_native_preset_routing(self):
         from thlib.environment import env_mode, env_server
 
@@ -720,6 +798,7 @@ class ServerPresetEditorTests(unittest.TestCase):
             **controller.selected_values,
             "serverUrl": "studio.example",
             "proxyPassword": "",
+            "rpcTransport": "json",
         })
         with (
             patch("thlib.environment.env_write_config") as write_config,
@@ -735,6 +814,7 @@ class ServerPresetEditorTests(unittest.TestCase):
         )
         saved = studio_write.args[0]
         self.assertEqual(saved["server"], "http://studio.example")
+        self.assertEqual(saved["rpc_transport"], "json")
         self.assertEqual(saved["proxy"]["pass"], "stored-secret")
         self.assertEqual(
             studio_write.kwargs["unique_id"],

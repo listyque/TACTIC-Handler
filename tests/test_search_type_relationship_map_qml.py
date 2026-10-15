@@ -41,7 +41,7 @@ class SearchTypeRelationshipMapQmlTests(unittest.TestCase):
         self.theme = self.theme_component.createWithInitialProperties({'dark': True})
         self.component = QQmlComponent(
             self.engine,
-            QUrl.fromLocalFile(str(QML / 'AdminSearchTypeRelationshipMap.qml')),
+            QUrl.fromLocalFile(str(QML / 'tactic_frame/controls/graph/FrameGraph.qml')),
         )
         graph_data = {
             'center': 'demo/asset',
@@ -56,7 +56,7 @@ class SearchTypeRelationshipMapQmlTests(unittest.TestCase):
             ],
         }
         self.owner = self.component.createWithInitialProperties({
-            'theme': self.theme, 'graphData': graph_data, 'width': 900, 'height': 480,
+            'theme': self.theme, 'node': dict(graph_data,id='adminSearchTypeRelationshipGraph',label='Relationship map',width=900,height=480,readOnly=True,selectionEnabled=False), 'width': 900, 'height': 480,
         })
         self.assertIsNotNone(
             self.owner, [error.toString() for error in self.component.errors()])
@@ -66,7 +66,7 @@ class SearchTypeRelationshipMapQmlTests(unittest.TestCase):
         self.addCleanup(self.close_view)
         self.window.show()
         frame(self.window)
-        self.graph = self.item('adminSearchTypeRelationshipGraph')
+        self.graph = self.owner
 
     def close_view(self):
         self.window.close()
@@ -96,25 +96,29 @@ class SearchTypeRelationshipMapQmlTests(unittest.TestCase):
             with self.subTest(width=width):
                 self.window.resize(width, 480)
                 self.owner.setWidth(width)
+                node = self.owner.property('node')
+                node = node.toVariant() if hasattr(node, 'toVariant') else node
+                self.owner.setProperty('node', dict(node, width=width))
                 frame(self.window)
-                reset = self.item('adminSearchTypeRelationshipReset')
+                reset = self.item('graphReset')
                 self.assertGreaterEqual(reset.mapToScene(QPointF()).x(), 0)
                 self.assertLessEqual(
                     reset.mapToScene(QPointF(reset.width(), 0)).x(), width)
         self.assertTrue(self.graph.property('readOnly'))
         self.assertFalse(self.graph.property('selectionEnabled'))
-        selected = QSignalSpy(self.graph.nodesSelected)
+        meta = self.graph.metaObject()
+        selected = QSignalSpy(self.graph, meta.method(meta.indexOfSignal('event(QVariant)')))
         QTest.mouseClick(
             self.window, Qt.LeftButton, pos=self.center(self.item('graphNode_demo/asset')))
         frame(self.window)
         self.assertEqual(selected.count(), 0)
 
-        zoom_in = self.item('adminSearchTypeRelationshipZoomIn')
+        zoom_in = self.item('graphZoomIn')
         QTest.mouseClick(self.window, Qt.LeftButton, pos=self.center(zoom_in))
         frame(self.window)
-        self.assertGreater(self.graph.property('zoom'), 1)
+        self.assertGreater(self.graph.property('ui').toVariant()['zoom'], 1)
 
-        canvas = self.item('adminGraphCanvas')
+        canvas = self.item('adminSearchTypeRelationshipGraphViewport')
         origin = (canvas.property('contentX'), canvas.property('contentY'))
         start = self.center(canvas)
         QTest.mousePress(self.window, Qt.MiddleButton, pos=start)

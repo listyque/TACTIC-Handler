@@ -13,6 +13,7 @@ order: 34
 | Setting | What it controls |
 | --- | --- |
 | **Close to system tray** | Keeps TACTIC Handler running when the main window close button is pressed. Disable it when closing the main window should exit the process. |
+| **Start Handler Server automatically** | Starts the local DCC connection server with TACTIC Handler. Enabled by default; disable it if you use only the standalone app. This affects the next launch and does not disable manual start. |
 | **Activity feed notifications** | Shows a bottom-right notification when another user creates an activity event. It applies immediately and does not disable Activity Feed updates. |
 | **Message notifications** | Shows a bottom-right notification for a new message when that conversation is not open. It applies immediately and does not stop message refresh. |
 
