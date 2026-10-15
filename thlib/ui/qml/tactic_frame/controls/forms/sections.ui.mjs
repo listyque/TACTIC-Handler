@@ -75,7 +75,7 @@ export function sections(fields, width, language, enabled, style) {
                 : translate(heading.title, language);
             nodes.push(
                 label(heading.id, rect(1, contentY, width - 2, 20), title, {
-                    fontSize: 14,
+                    fontRole: 'bodyLarge',
                     weight: 600
                 })
             );
@@ -88,7 +88,10 @@ export function sections(fields, width, language, enabled, style) {
                         heading.id + 'Description',
                         rect(1, contentY, width - 2, height),
                         description,
-                        Object.assign({}, muted, { fontSize: 11, wrap: true })
+                        Object.assign({}, muted, {
+                            fontRole: 'caption',
+                            wrap: true
+                        })
                     )
                 );
                 contentY += height + 8;
@@ -150,7 +153,7 @@ export function sections(fields, width, language, enabled, style) {
                     field.id + 'Label',
                     rect(20, rowY + 10, textWidth, 18),
                     properties.label,
-                    { fontSize: 13, weight: 600 }
+                    { fontRole: 'body', weight: 600 }
                 )
             );
             if (description)
@@ -159,7 +162,10 @@ export function sections(fields, width, language, enabled, style) {
                         field.id + 'Description',
                         rect(20, rowY + 31, textWidth, descriptionHeight),
                         description,
-                        Object.assign({}, muted, { fontSize: 11, wrap: true })
+                        Object.assign({}, muted, {
+                            fontRole: 'caption',
+                            wrap: true
+                        })
                     )
                 );
             const controlY = stacked

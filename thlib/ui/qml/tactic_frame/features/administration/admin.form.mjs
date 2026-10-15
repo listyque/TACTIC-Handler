@@ -19,7 +19,7 @@ export function form(fields, width, language, enabled) {
                     rect(0, y, width, 28),
                     field.dataLabel ? field.title : tr(field.title),
                     {
-                        fontSize: 15,
+                        fontRole: 'section',
                         weight: 600,
                         role: 'heading',
                         level: 2

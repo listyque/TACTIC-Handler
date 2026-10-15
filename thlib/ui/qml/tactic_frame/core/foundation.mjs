@@ -10,6 +10,20 @@ export const typography = {
 
 export const fontFamily = 'Segoe UI';
 
+// Frame geometry and resolved text sizes use logical pixels in both engines.
+// Legacy house controls keep the point-based API above until Frame supplies a font.
+export const textStyles = Object.freeze({
+    caption: 11,
+    secondary: 12,
+    body: 13,
+    bodyLarge: 14,
+    section: 15,
+    title: 16,
+    heading: 17,
+    display: 18,
+    hero: 24
+});
+
 // House-control geometry comes from Handler; hosts supply native input and paint.
 export const controls = {
     button: {

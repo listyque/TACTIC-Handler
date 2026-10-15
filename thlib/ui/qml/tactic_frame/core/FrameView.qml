@@ -1,6 +1,7 @@
 pragma ComponentBehavior: Bound
 import QtQuick
 import ".."
+import "frame.mjs" as Contract
 import QtQuick.Controls
 import "../../controls" as Controls
 import "../.." as TH
@@ -17,10 +18,20 @@ Item {
     property var describeCell: null
     property bool interactive: true
     signal event(var action)
+    property bool ready: false
     property var effectiveTheme: theme
     onThemeChanged: if (theme)
         effectiveTheme = theme
 
+    // Replace the inherited font as a whole, including its size unit.
+    function controlFont(definition): font {
+        return Qt.font({
+            family: definition.monospace ? "Consolas" : effectiveTheme.fontFamily,
+            pixelSize: definition.fontSize,
+            weight: definition.weight,
+            strikeout: !!definition.strike
+        });
+    }
     function color(role): color {
         if (!role)
             return "transparent";
@@ -68,7 +79,9 @@ Item {
         return true;
     }
     function sync() {
-        const nodes = scene && scene.nodes ? scene.nodes : [];
+        if (!ready)
+            return;
+        const nodes = Contract.validateScene(scene, models, views);
         for (let index = 0; index < nodes.length; index++) {
             const definition = nodes[index];
             let existing = index;
@@ -127,7 +140,14 @@ Item {
         return null;
     }
     onSceneChanged: sync()
-    Component.onCompleted: sync()
+    Component.onCompleted: {
+        ready = true;
+        sync();
+    }
+    onModelsChanged: if (ready)
+        Contract.validateScene(scene, models, views)
+    onViewsChanged: if (ready)
+        Contract.validateScene(scene, models, views)
     ListModel {
         id: items
         dynamicRoles: true
@@ -139,6 +159,7 @@ Item {
             id: wrapper
             required property var definition
             readonly property var node: definition
+            readonly property var frameRecordKey: node.recordKey
             readonly property var control: loader.item
             x: node.x
             y: node.y
@@ -210,7 +231,7 @@ Item {
                     case "Preview":
                         return previewBrick;
                     case "List":
-                        return listBrick;
+                        return wrapper.node.fields.length ? listBrick : arrayListBrick;
                     case "Scroll":
                         return scrollBrick;
                     case "Choice":
@@ -239,7 +260,8 @@ Item {
                 Component {
                     id: boxBrick
                     Rectangle {
-                        objectName: wrapper.node.id
+                        // Virtual row wrappers are private and may repeat across lists.
+                        objectName: wrapper.node.recordKey === undefined ? wrapper.node.id : ""
                         color: root.color(wrapper.node.background)
                         border.width: wrapper.node.border ? wrapper.node.borderWidth || 1 : 0
                         border.color: root.color(wrapper.node.border)
@@ -278,10 +300,7 @@ Item {
                         text: wrapper.node.text
                         textFormat: Text.PlainText
                         color: root.color(wrapper.node.color)
-                        font.family: wrapper.node.monospace ? "Consolas" : root.effectiveTheme.fontFamily
-                        font.pixelSize: wrapper.node.fontSize
-                        font.weight: wrapper.node.weight
-                        font.strikeout: !!wrapper.node.strike
+                        font: root.controlFont(wrapper.node)
                         verticalAlignment: Text.AlignVCenter
                         horizontalAlignment: wrapper.node.align === "center" ? Text.AlignHCenter : Text.AlignLeft
                         wrapMode: wrapper.node.wrap ? Text.WordWrap : Text.NoWrap
@@ -344,8 +363,7 @@ Item {
                         compact: !!wrapper.node.iconOnly
                         icon.name: wrapper.node.icon || ""
                         toolTip: wrapper.node.text
-                        font.pixelSize: wrapper.node.fontSize
-                        font.weight: wrapper.node.radio ? wrapper.node.selected ? 600 : 500 : 600
+                        font: root.controlFont(wrapper.node)
                         Accessible.role: wrapper.node.radio ? Accessible.RadioButton : Accessible.Button
                         Accessible.checkable: !!wrapper.node.radio
                         Accessible.checked: !!wrapper.node.selected
@@ -471,6 +489,7 @@ Item {
                 Component {
                     id: fieldBrick
                     Controls.TextField {
+                        id: fieldControl
                         objectName: wrapper.node.id
                         theme: root.effectiveTheme
                         text: wrapper.node.text
@@ -478,10 +497,9 @@ Item {
                         readOnly: !!wrapper.node.readOnly
                         horizontalAlignment: wrapper.node.align === "center" ? TextInput.AlignHCenter : TextInput.AlignLeft
                         tableCell: !!wrapper.node.tableCell
-                        font.strikeout: !!wrapper.node.strike
                         Keys.priority: Keys.BeforeItem
                         Keys.onPressed: event => {
-                            event.accepted = event.modifiers === Qt.NoModifier && root.keyboard(event.key, wrapper.node);
+                            event.accepted = !fieldControl.inputMethodComposing && event.modifiers === Qt.NoModifier && root.keyboard(event.key, wrapper.node);
                         }
                         TapHandler {
                             enabled: !!wrapper.node.activateAction
@@ -492,7 +510,7 @@ Item {
                         placeholderText: wrapper.node.placeholder || ""
                         maximumLength: wrapper.node.maxLength || 32767
                         Accessible.name: wrapper.node.label || ""
-                        font.pixelSize: wrapper.node.fontSize
+                        font: root.controlFont(wrapper.node)
                         onActiveFocusChanged: if (activeFocus)
                             root.reveal(this)
                         onEditingFinished: root.send(wrapper.node.commitAction, text)
@@ -506,8 +524,7 @@ Item {
                         objectName: wrapper.node.id
                         enabled: !!wrapper.node.enabled
                         padding: 0
-                        font.family: root.effectiveTheme.fontFamily
-                        font.pixelSize: wrapper.node.fontSize
+                        font: root.controlFont(wrapper.node)
                         property alias text: editor.text
                         property alias readOnly: editor.readOnly
                         property alias color: editor.color
@@ -533,8 +550,7 @@ Item {
                             Component.onCompleted: text = modelText
                             placeholderText: wrapper.node.placeholder || ""
                             color: root.color(wrapper.node.color)
-                            font.pixelSize: wrapper.node.fontSize
-                            font.family: wrapper.node.monospace ? "Consolas" : root.effectiveTheme.fontFamily
+                            font: root.controlFont(wrapper.node)
                             Accessible.name: wrapper.node.label || ""
                             background: null
                             onActiveFocusChanged: if (activeFocus)
@@ -582,7 +598,7 @@ Item {
                         currentIndex: (wrapper.node.options || []).findIndex(item => item.value === wrapper.node.value)
                         displayText: currentIndex < 0 ? String(wrapper.node.value ?? "") : currentText
                         Accessible.name: wrapper.node.label || ""
-                        font.pixelSize: wrapper.node.fontSize
+                        font: root.controlFont(wrapper.node)
                         onActiveFocusChanged: if (activeFocus)
                             root.reveal(this)
                         onActivated: root.send(wrapper.node.action, currentValue)
@@ -668,55 +684,34 @@ Item {
                     }
                 }
                 Component {
+                    id: arrayListBrick
+                    FrameArrayList {
+                        theme: root.effectiveTheme
+                        node: wrapper.node
+                        sourceRows: root.models[wrapper.node.source]
+                        models: root.models
+                        views: root.views
+                        describeRow: root.describeRow
+                        describeCell: root.describeCell
+                        interactiveContent: root.interactive
+                        onEvent: action => root.event(action)
+                    }
+                }
+                Component {
                     id: listBrick
                     ListView {
                         id: list
                         property var sourceRows: root.models[wrapper.node.source]
                         objectName: wrapper.node.id
-                        model: wrapper.node.fields.length ? sourceRows : records
+                        model: sourceRows
                         clip: true
                         spacing: 4
                         reuseItems: true
                         boundsBehavior: Flickable.StopAtBounds
-                        function synchronize() {
-                            if (wrapper.node.fields.length)
-                                return;
-                            const rows = sourceRows || [];
-                            for (let index = 0; index < rows.length; index++) {
-                                const record = rows[index], value = record && wrapper.node.keyField ? record[wrapper.node.keyField] : index, key = String(value === undefined || value === null ? index : value), signature = JSON.stringify(record);
-                                let current = index;
-                                while (current < records.count && records.get(current).key !== key)
-                                    current++;
-                                if (current === records.count)
-                                    records.insert(index, {
-                                        key,
-                                        record,
-                                        signature
-                                    });
-                                else {
-                                    if (current !== index)
-                                        records.move(current, index, 1);
-                                    if (records.get(index).signature !== signature) {
-                                        records.setProperty(index, "record", record);
-                                        records.setProperty(index, "signature", signature);
-                                    }
-                                }
-                            }
-                            if (records.count > rows.length)
-                                records.remove(rows.length, records.count - rows.length);
-                        }
-                        onSourceRowsChanged: synchronize()
-                        Component.onCompleted: synchronize()
-                        ListModel {
-                            id: records
-                            dynamicRoles: true
-                        }
                         delegate: FrameBranch {
                             required property var model
                             required property int index
                             readonly property var record: {
-                                if (!wrapper.node.fields.length)
-                                    return model.record;
                                 const value = {};
                                 for (const field of wrapper.node.fields)
                                     value[field] = model[field];

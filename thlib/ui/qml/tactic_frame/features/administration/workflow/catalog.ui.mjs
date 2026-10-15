@@ -34,6 +34,7 @@ export function records(model, ui, language) {
                 (row) => row.identity === key
             ) || {};
         out.push({
+            key: 'group:' + key,
             identity: 'group:' + key,
             group: true,
             searchType: key,
@@ -52,6 +53,7 @@ export function records(model, ui, language) {
                 model.document.searchType === key
             )
                 out.push({
+                    key: 'draft:' + key,
                     identity: '',
                     label: tr('New workflow'),
                     searchType: key
@@ -64,6 +66,11 @@ export function records(model, ui, language) {
                         (a.label || a.identity).localeCompare(
                             b.label || b.identity
                         )
+                    )
+                    .map((row) =>
+                        Object.assign({}, row, {
+                            key: 'pipeline:' + row.identity
+                        })
                     )
             );
         }
@@ -244,7 +251,7 @@ export function panel(model, ui, bounds, language, narrow = false) {
             }),
             node('List', 'adminWorkflowCatalog', rect(8, 88, w - 16, h - 96), {
                 source: 'graphPipelines',
-                keyField: 'identity',
+                keyField: 'key',
                 rowHeight: 42,
                 scrollbarId: 'adminWorkflowCatalogScrollBar'
             })

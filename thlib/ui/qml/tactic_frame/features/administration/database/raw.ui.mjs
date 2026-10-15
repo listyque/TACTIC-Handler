@@ -1,24 +1,10 @@
+import { button } from '../../../core/frame.mjs';
 import { node } from '../../../core/frame.mjs';
 import { rect, label, muted, notices, toolbar } from '../admin.document.mjs';
 import { translate } from '../../../core/strings.mjs';
 import { permissions } from './raw.state.mjs';
 export { toolbar, translate };
 
-const button = (id, bounds, text, icon, action, enabled, extra) =>
-    node(
-        'Button',
-        id,
-        bounds,
-        Object.assign(
-            {
-                text,
-                icon,
-                action,
-                enabled
-            },
-            extra || {}
-        )
-    );
 export function cellText(row, name) {
     const mode =
         (row.modes || {})[name] || (row.key == null ? 'default' : 'value');
@@ -474,7 +460,7 @@ export function cellDescribe(model, ui, width, height, language) {
             rect(narrow ? 42 : 0, 0, inner - (narrow ? 42 : 100), 38),
             tr('Cell editor'),
             {
-                fontSize: 17
+                fontRole: 'heading'
             }
         ),
         button(

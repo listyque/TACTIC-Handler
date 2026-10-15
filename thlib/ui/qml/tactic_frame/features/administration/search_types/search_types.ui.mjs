@@ -1,3 +1,4 @@
+import { button } from '../../../core/frame.mjs';
 import { node } from '../../../core/frame.mjs';
 import {
     rect,
@@ -15,21 +16,6 @@ import {
     fieldTypes,
     removalReasons
 } from './search_types.fields.mjs';
-const button = (id, bounds, text, icon, action, enabled, extra) =>
-    node(
-        'Button',
-        id,
-        bounds,
-        Object.assign(
-            {
-                text,
-                icon,
-                action,
-                enabled
-            },
-            extra || {}
-        )
-    );
 export function records(model, ui) {
     const query = ui.query.toLowerCase();
     return model.catalog.filter(
@@ -145,7 +131,7 @@ export function describe(model, ui, width, height, language) {
                 rect(12, 8, left - 24, 28),
                 tr('Search Types'),
                 {
-                    fontSize: 15,
+                    fontRole: 'section',
                     weight: 600
                 }
             ),
@@ -399,7 +385,7 @@ function content(model, ui, width, height, language, edit, navigate) {
             label(id, rect(0, y, width, 28), title, {
                 role: 'heading',
                 level: 2,
-                fontSize: 15,
+                fontRole: 'section',
                 weight: 600
             })
         );
@@ -840,7 +826,7 @@ function content(model, ui, width, height, language, edit, navigate) {
                             : meta.summary[row[0]]
                     ),
                     {
-                        fontSize: 24,
+                        fontRole: 'hero',
                         weight: 600
                     }
                 ),
@@ -1108,7 +1094,7 @@ function content(model, ui, width, height, language, edit, navigate) {
                 rect(0, y, width, 32),
                 doc.title || '',
                 {
-                    fontSize: 18,
+                    fontRole: 'display',
                     weight: 600,
                     color: doc.color || 'action'
                 }

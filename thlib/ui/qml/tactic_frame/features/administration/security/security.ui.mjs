@@ -1,3 +1,4 @@
+import { button } from '../../../core/frame.mjs';
 import { node } from '../../../core/frame.mjs';
 import {
     rect,
@@ -123,21 +124,6 @@ export function models(model, ui, language) {
             .filter((target) => contains(target.label, ui.targetQuery))
     };
 }
-const button = (id, bounds, text, icon, action, enabled, extra) =>
-    node(
-        'Button',
-        id,
-        bounds,
-        Object.assign(
-            {
-                text,
-                icon,
-                action,
-                enabled
-            },
-            extra || {}
-        )
-    );
 const list = (id, bounds, source, rowHeight, keyField) =>
     node('List', id, bounds, {
         source,
@@ -484,7 +470,7 @@ function editor(nodes, model, ui, bounds, language, edit, back) {
                 rect(12, y, inner, 28),
                 title(attrs, model, language),
                 {
-                    fontSize: 15,
+                    fontRole: 'section',
                     weight: 600
                 }
             )
@@ -892,7 +878,7 @@ export function row(listNode, record, model, ui, language) {
                     {
                         radio: true,
                         selected: record.access === value,
-                        fontSize: 11
+                        fontRole: 'caption'
                     }
                 )
             )

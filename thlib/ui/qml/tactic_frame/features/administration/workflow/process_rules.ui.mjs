@@ -1,3 +1,4 @@
+import { button } from '../../../core/frame.mjs';
 import { node } from '../../../core/frame.mjs';
 import {
     rect,
@@ -10,21 +11,6 @@ import {
 } from '../admin.document.mjs';
 import { form } from '../admin.form.mjs';
 import { translate } from '../../../core/strings.mjs';
-const button = (id, bounds, text, icon, action, enabled, extra) =>
-    node(
-        'Button',
-        id,
-        bounds,
-        Object.assign(
-            {
-                text,
-                icon,
-                action,
-                enabled
-            },
-            extra || {}
-        )
-    );
 export function toolbar(model, ui, width, language) {
     const result = documentToolbar(model, ui, width, language),
         tr = (text) => translate(text, language);

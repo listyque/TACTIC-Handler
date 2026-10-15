@@ -162,7 +162,7 @@ export function describe(model, ui, width, height, language) {
                 rect(20, 15, g.nav - 60, 28),
                 'Administration',
                 {
-                    fontSize: 17,
+                    fontRole: 'heading',
                     weight: 600
                 }
             ),
@@ -171,7 +171,7 @@ export function describe(model, ui, width, height, language) {
                 rect(20, 43, g.nav - 28, 20),
                 'TACTIC · ADMIN',
                 {
-                    fontSize: 11,
+                    fontRole: 'caption',
                     color: 'secondaryText'
                 }
             )
@@ -309,7 +309,7 @@ export function describe(model, ui, width, height, language) {
             ),
             current.title,
             {
-                fontSize: 18,
+                fontRole: 'display',
                 weight: 600
             }
         ),
@@ -323,7 +323,7 @@ export function describe(model, ui, width, height, language) {
             ),
             ui.error && model.locked ? ui.error : current.description,
             {
-                fontSize: 12,
+                fontRole: 'secondary',
                 color: ui.error && model.locked ? 'error' : 'secondaryText'
             }
         )
@@ -451,7 +451,7 @@ export function row(list, record, model, ui, language) {
                 rect(46, 36, w - 58, 24),
                 {
                     text: tr(record.description),
-                    fontSize: 12,
+                    fontRole: 'secondary',
                     color: 'secondaryText'
                 }
             )

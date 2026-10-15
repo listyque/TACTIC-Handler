@@ -109,7 +109,7 @@ const label = (id, rect, text, extra) =>
         )
     );
 const muted = {
-    fontSize: 12,
+    fontRole: 'secondary',
     color: 'secondaryText'
 };
 const profileFields = [
@@ -262,7 +262,7 @@ function identity(record, x, y, width, size, prefix) {
             title,
             {
                 weight: 600,
-                fontSize: size > 40 ? 15 : 13,
+                fontRole: size > 40 ? 'section' : 'body',
                 opacity: record.retired ? 0.5 : 1
             }
         ),
@@ -388,7 +388,7 @@ export function describe(model, ui, width, height, language) {
             box(44, 12, catalogWidth - 58, 24),
             tr('User directory'),
             {
-                fontSize: 15,
+                fontRole: 'section',
                 weight: 600
             }
         ),

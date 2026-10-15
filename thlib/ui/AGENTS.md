@@ -214,3 +214,10 @@ accessibility requirements specific to UI work:
   state branches or handlers into dense one-line statements. Use the pinned
   Frame formatter and its check mode from the Stream development checkout;
   neither product may import that checkout at runtime.
+
+- For Frame changes run the focused platform gate from the Stream development
+  checkout: `tools/frame_foundation/check_platform.py --handler-root <handler>`.
+  Keep formatting, module/guide copies, actual input/IME, virtualized editors,
+  resize disposal, ordinary window smoke and independent packaging checked.
+  Releases also require affected workflows and fresh original/native/browser
+  comparisons. Static inventory and matching declarations are not readiness.

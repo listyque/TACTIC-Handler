@@ -1,3 +1,4 @@
+import { button } from '../../../core/frame.mjs';
 import { node } from '../../../core/frame.mjs';
 import {
     rect,
@@ -11,21 +12,6 @@ import {
 import { form } from '../admin.form.mjs';
 import { translate } from '../../../core/strings.mjs';
 export { toolbar };
-const button = (id, bounds, text, icon, action, enabled, extra) =>
-    node(
-        'Button',
-        id,
-        bounds,
-        Object.assign(
-            {
-                text,
-                icon,
-                action,
-                enabled
-            },
-            extra || {}
-        )
-    );
 const list = (id, bounds, source, rowHeight) =>
     node('List', id, bounds, {
         source,
@@ -403,7 +389,7 @@ function editor(nodes, model, ui, bounds, language, edit, back) {
             rect(12, y, width - 164, 38),
             entry.title || tr('Selected element'),
             {
-                fontSize: 15,
+                fontRole: 'section',
                 weight: 600
             }
         )
@@ -510,7 +496,7 @@ function editor(nodes, model, ui, bounds, language, edit, back) {
                     rect(12, y, inner, 28),
                     tr('Who can see this item'),
                     {
-                        fontSize: 15,
+                        fontRole: 'section',
                         weight: 600,
                         role: 'heading',
                         level: 2

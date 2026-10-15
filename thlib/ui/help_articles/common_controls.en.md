@@ -122,3 +122,9 @@ loaded panel and its current working state.
 In narrow graph panels the zoom percentage gives way to the four graph actions.
 If necessary, the actions wrap to another row; zoom, reset and center selection
 remain reachable. The automatic layout action keeps its own space.
+
+In editable Administration lists, sorting keeps the active text field, caret and
+selection with its record. Input-method composition stays in the editor until
+committed; Enter during composition does not submit the form. If the edited
+record is removed, its text is never assigned to the next row. Scrolling and
+resizing retain a valid viewport when the list becomes shorter or empty.

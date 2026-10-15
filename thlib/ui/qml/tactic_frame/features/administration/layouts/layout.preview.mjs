@@ -440,7 +440,7 @@ export function describe(
                         wrap: true,
                         color,
                         weight,
-                        fontSize: item.kind === 'title' ? 15 : 13,
+                        fontRole: item.kind === 'title' ? 'section' : 'body',
                         align:
                             item.align === 'center'
                                 ? 'center'

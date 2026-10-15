@@ -1,3 +1,4 @@
+import { button } from '../../../core/frame.mjs';
 import { node } from '../../../core/frame.mjs';
 import {
     rect,
@@ -10,21 +11,6 @@ import {
 } from '../admin.document.mjs';
 import { form } from '../admin.form.mjs';
 import { translate } from '../../../core/strings.mjs';
-const button = (id, bounds, text, icon, action, enabled, extra) =>
-    node(
-        'Button',
-        id,
-        bounds,
-        Object.assign(
-            {
-                text,
-                icon,
-                action,
-                enabled
-            },
-            extra || {}
-        )
-    );
 export function toolbar(model, ui, width, language) {
     const tr = (text) => translate(text, language),
         actions = documentToolbar(model, ui, width, language),
@@ -136,7 +122,7 @@ export function describe(model, ui, width, height, language) {
                         rect(12, 8, left - 24, 28),
                         tr('Naming rules'),
                         {
-                            fontSize: 15,
+                            fontRole: 'section',
                             weight: 600
                         }
                     ),
@@ -216,7 +202,7 @@ export function describe(model, ui, width, height, language) {
             rect(12, top, w, 26),
             model.targetTitle || model.searchType || tr('Naming editor'),
             {
-                fontSize: 15,
+                fontRole: 'section',
                 weight: 600
             }
         ),

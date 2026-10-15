@@ -1,3 +1,4 @@
+import { button } from '../../../core/frame.mjs';
 import { node } from '../../../core/frame.mjs';
 import {
     rect,
@@ -13,21 +14,6 @@ import { translate } from '../../../core/strings.mjs';
 import * as Document from './layout.document.mjs';
 import * as Preview from './layout.preview.mjs';
 import { pending } from './layout.state.mjs';
-const button = (id, bounds, text, icon, action, enabled, extra) =>
-    node(
-        'Button',
-        id,
-        bounds,
-        Object.assign(
-            {
-                text,
-                icon,
-                action,
-                enabled
-            },
-            extra || {}
-        )
-    );
 export const labels = {
     group: 'Group',
     view: 'Reusable view',
@@ -669,7 +655,7 @@ export function describe(model, ui, width, height, language) {
             rect(0, y, width, 28),
             tr('Build your own view'),
             {
-                fontSize: 16,
+                fontRole: 'title',
                 weight: 600
             }
         ),

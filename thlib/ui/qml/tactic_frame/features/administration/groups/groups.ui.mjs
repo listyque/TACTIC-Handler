@@ -83,7 +83,7 @@ const label = (id, rect, text, properties) =>
     );
 const muted = {
     color: 'secondaryText',
-    fontSize: 12
+    fontRole: 'secondary'
 };
 
 export function toolbarWidth(hostWidth) {
@@ -299,7 +299,7 @@ export function describe(model, ui, width, height, language) {
             box(44, 12, catalogWidth - 58, 24),
             tr('Groups'),
             {
-                fontSize: 15,
+                fontRole: 'section',
                 weight: 600
             }
         ),
@@ -339,7 +339,7 @@ export function describe(model, ui, width, height, language) {
             box(44, 10, docWidth - 58, 24),
             model.draft ? model.draft.name || tr('New group') : tr('Group'),
             {
-                fontSize: 15,
+                fontRole: 'section',
                 weight: 600
             }
         )

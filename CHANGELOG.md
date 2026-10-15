@@ -3,6 +3,13 @@
 Each completed change receives a new version and a dated entry below.
 Versions use `major.minor.build.revision`; routine updates increment `revision`.
 
+## 0.6.0.97 - 2026-10-15
+
+- Harden the Frame preparation contract: named pixel typography roles, validated scene bindings, unique record keys and finite viewport geometry. Replace inherited fonts as complete values to remove point/pixel conflicts without changing deployed Frame sizes.
+- Virtualize array-backed native lists by visible keyed rows; keep native role models direct. Preserve editor identity, caret, selection, drafts and IME preedit across record reorder, and clamp empty/shrinking views.
+- Batch all observed browser sizes without losing another target's delivery; cancel pending work on unobserve/dispose. Preserve composition semantics and escaped control lookup across engines.
+- Inventory registered windows, docks, source surfaces and dynamic entry owners; document explicit platform boundaries and remaining migration work. Verify original/current list timings, native/browser input, smoke and independent packaging.
+
 ## 0.6.0.96 - 2026-10-15
 
 - Organize portable Frame modules into core, controls, shell and Administration domains; move native Administration and window/dock adapters into matching folders while retaining public QML type names. Format source and keep stable LF endings for independent product copies.

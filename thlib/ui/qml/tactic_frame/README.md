@@ -78,6 +78,87 @@ owned by each product's existing bundler configuration.
 
 ## Sync and verification
 
+The preparation contract is executable in `core/frame.mjs`. `node` checks
+control kinds, stable nonempty IDs, finite logical-pixel bounds and named font
+roles. Resolved `kind`, ID, geometry and `fontSize` cannot be overridden through
+the properties object. `validateScene` checks sibling identity, action types,
+required list/grid sources, cell geometry, child containers and named Views at
+the renderer boundary. An intentionally absent View requires `optional: true`.
+Qt sequence wrappers are accepted without copying them into JavaScript arrays.
+
+Frame typography uses the named logical-pixel `foundation.textStyles` roles.
+Descriptions set `fontRole`; renderers consume the resolved `fontSize`. Existing
+Frame sizes are preserved: caption 11, secondary 12, body 13, bodyLarge 14,
+section 15, title 16, heading 17, display 18 and hero 24. Qt supplies one complete
+QFont so a base control's point-size binding cannot compete with a pixel size.
+The older `foundation.typography` point API remains for unported house-control
+consumers; do not mix its units into a Frame description. Original-wide visual
+normalization is a separate migration acceptance step, not an implicit redesign.
+
+### Collection and input ownership
+
+- Inline-edit list records have unique string or finite numeric keys. Keys are normalized
+  to strings for cross-host identity; `1` and `'1'` collide. Display labels,
+  array indexes and empty server IDs do not substitute for presentation keys.
+  For example, the unsaved Workflow row has `key: 'draft:<type>'` while its
+  server identity remains empty.
+- Action-only positional XML/tree lists retain their feature-owned reorder and
+  focus rules. An XML path or navigation index identifies a document position;
+  it is not an immutable entity identity that the renderer can infer.
+- Array sources are immutable snapshots. `recordIndex` validates identity once
+  per source replacement; `virtualRange` limits materialized rows to the viewport
+  plus overscan. Empty/shrinking sources clamp the range and scroll offset.
+- Native role-model lists use `fields` to consume the existing controller model
+  directly. The model owns its signals, selection and resets. Use this path for
+  large production data; do not copy all model records into scene nodes.
+- The array adapter preserves a visible editor by key and reanchors the viewport
+  when that editor moves. Caret, selection and preedit remain in the same control.
+  Scrolling a row out or removing it can destroy its delegate, so persistent
+  drafts and selections belong to the feature state/controller, never the row.
+- Scrolling refreshes the visible rows without reindexing the array. Browser resize deliveries
+  merge per target until the next frame; unobserve/disconnect discard pending
+  targets. Hidden/disposed features must release their observers and callbacks.
+- Both engines keep IME preedit local until commit. Enter while composing does
+  not trigger a Frame command. Browser text fields use Vue's native text directive
+  while retaining their existing string-valued events. Control lookup escapes
+  names instead of assuming that IDs are valid CSS identifiers.
+
+### Product boundaries
+
+Pure descriptions/state never perform requests or retain Qt objects, DOM nodes,
+timers or observers. Adapters own these resources and publish plain presentation
+data. Server authorization and uncertain-write handling remain with their current
+owners. Client capabilities and viewport/input mode are separate from ACL.
+
+Only genuinely shared modules belong in this mirrored directory. Product-only
+Frame descriptions stay under that product's feature directory and import its
+local core. Native QML/Python user scripts keep their existing execution path;
+Frame does not translate arbitrary script-created QML into Vue.
+
+Contract checks are `frontend/tests/frame_contract.mjs`,
+`frame_renderer_contract.mjs <handler-checkout>` and `frame_resize.mjs`.
+`tests.test_frame_platform` in Handler and `frame_platform.mjs` in Stream exercise
+real controls, 10,000 records, stable editors, composition and multiple scales.
+`tools/frame_foundation/inventory.py --handler-root <path>` generates a source
+inventory with hashes and entry owners. Static inventory and matching kind
+registrations do not prove runtime readiness; source-driven/script/plugin UI
+requires its actual runtime inputs. Existing Administration tests and paired
+captures remain part of the regression gate.
+
+Run the focused gate with:
+
+```
+python tools/frame_foundation/check_platform.py --handler-root <handler-checkout>
+```
+
+It checks formatting, copy/guide consistency, contract/renderer registrations,
+resize disposal, inventory discovery, actual native input at three scales,
+browser composition/scroll races, the ordinary window smoke and independent
+wheel packaging. Logs and source fingerprints are written to
+`tools/frame_foundation/output/platform/gate.json`; changed sources invalidate
+the result. The gate isolates settings and terminates its own child process tree
+on timeout. Full Administration and original-reference release checks are separate.
+
 `tools/sync_tactic_frame.py --handler-root <path> --check` recursively checks
 module paths, contents and the manifest. `--copy-from stream` is an explicit
 maintenance operation, never a product build step.
