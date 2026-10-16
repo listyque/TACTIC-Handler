@@ -1,5 +1,74 @@
 // Shared Frame labels from the existing Handler/Stream EN/RU catalogs.
 const russian = {
+    'A view with this name already exists':
+        'Представление с таким именем уже существует',
+    'Actions on hover': 'Действия при наведении',
+    'Applies to every process with this name in the project, including other pipelines.':
+        'Действует для всех процессов с этим именем в проекте, включая другие pipeline.',
+    'Apply or discard the pending text before continuing':
+        'Примените или сбросьте введённый текст перед продолжением',
+    'Attributes must be a JSON object with string values':
+        'Атрибуты должны быть объектом JSON со строковыми значениями',
+    'Checking objects and dependencies…': 'Проверка объектов и зависимостей…',
+    'Choose which actual task date to set.':
+        'Выберите, какую фактическую дату задачи изменить.',
+    'Conditions are checked as XML before saving.':
+        'Перед сохранением проверяется XML условий.',
+    'Database table unavailable': 'Таблица базы данных недоступна',
+    'Enter a whole number within the allowed range':
+        'Введите целое число в допустимом диапазоне',
+    'Explain why this rule is needed.': 'Объясните назначение этого правила.',
+    'Filter the source task status, or listen to any status.':
+        'Выберите исходный статус задачи или отслеживайте любой статус.',
+    'Invalid JSON. Check quotes, commas and braces.':
+        'Некорректный JSON. Проверьте кавычки, запятые и скобки.',
+    'Invalid layout template': 'Некорректный шаблон компоновки',
+    'Invalid view name': 'Некорректное имя представления',
+    'Mobile actions': 'Мобильные действия',
+    'Native action parameters. TACTIC expressions are supported by notifications.':
+        'Штатные параметры действия. В уведомлениях поддерживаются выражения TACTIC.',
+    'No Search Objects': 'Нет Search Objects',
+    'Node positions must be finite':
+        'Координаты узлов должны быть конечными числами',
+    'Notification message with optional TACTIC expressions.':
+        'Текст уведомления; можно использовать выражения TACTIC.',
+    'Object information': 'Сведения об объекте',
+    'Process settings must be a JSON object':
+        'Параметры процесса должны быть объектом JSON',
+    'Related and child objects': 'Связанные и дочерние объекты',
+    'Save or discard changes before continuing':
+        'Сохраните или сбросьте изменения перед продолжением',
+    'Save the workflow before editing process dependencies':
+        'Сохраните рабочий процесс перед редактированием зависимостей',
+    'Schema changed on the server. Reload before deleting a Search Type.':
+        'Схема изменилась на сервере. Обновите её перед удалением Search Type.',
+    'Select a SObject layout configuration':
+        'Выберите конфигурацию компоновки SObject',
+    'Source status': 'Исходный статус',
+    'Tasks and notes': 'Задачи и заметки',
+    'The database table is absent. No table is created by reading columns.':
+        'Таблица базы данных отсутствует. Чтение колонок не создаёт таблицу.',
+    'The deletion result is unknown. Close this review and reload the schema before trying again.':
+        'Результат удаления неизвестен. Закройте это окно и обновите схему перед повторной попыткой.',
+    'The native event template replaces the subject and body when saved.':
+        'При сохранении штатный шаблон события заменит тему и текст.',
+    'The native event that starts this rule.':
+        'Штатное событие, запускающее это правило.',
+    'The native notification handler may include a login ticket.':
+        'Штатный обработчик уведомлений может включать тикет входа.',
+    'The readable name of this rule.': 'Понятное имя этого правила.',
+    'This process is referenced by a connection. Add the missing process or remove its connections before saving.':
+        'На этот процесс ссылается связь. Добавьте отсутствующий процесс или удалите его связи перед сохранением.',
+    'Use a lowercase table name with letters, digits and underscores':
+        'Используйте строчные латинские буквы, цифры и подчёркивания в имени таблицы',
+    'Use inherited': 'Наследовать',
+    Assignment: 'Назначение',
+    Body: 'Текст',
+    Depth: 'Глубина',
+    Editor: 'Редактор',
+    Select: 'Выбрать',
+    'Invalid column move': 'Некорректное перемещение колонки',
+    'The column cannot be moved further.': 'Колонку нельзя переместить дальше.',
     Guide: 'Руководство',
     Reference: 'Справочник',
     'Help topics': 'Разделы справки',

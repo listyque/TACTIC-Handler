@@ -398,7 +398,7 @@ ApplicationWindow {
             frame(self.window)
             self.assertEqual(surface.property("baseColor"), theme.property("contentSelection"))
             self.assertEqual(title.property("color"), theme.property("primaryText"))
-            self.assertEqual(self.item("sidebarEntryIcon_0").property("accent"), "#e35062")
+            self.assertEqual(self.item("sidebarEntryIcon_0").property("accent").name(), "#e35062")
             colors.append(surface.property("baseColor"))
         self.assertNotEqual(colors[0], colors[1])
         row.forceActiveFocus()
@@ -409,7 +409,7 @@ ApplicationWindow {
     def test_drawer_edit_button_uses_pencil_and_accepts_touch(self):
         self.scene()
         drawer = self.item("testDrawer")
-        drawer.setProperty("opened", True)
+        drawer.open()
         frame(self.window)
         spy = QSignalSpy(drawer.editSidebarRequested)
         button = self.item("editSidebarButton")
@@ -434,10 +434,10 @@ ApplicationWindow {
         device = QTest.createTouchDevice()
         for width in (640, 1200):
             self.window.resize(width, 600)
-            drawer.setProperty("opened", True)
+            drawer.open()
             frame(self.window)
             rows = [item for item in self.descendants(drawer)
-                    if item.metaObject().className().startswith("SidebarTreeRow")]
+                    if item.property("rowType") is not None and item.isVisible()]
             unconfigured = next(row for row in rows if row.property("title") == 'Column Manager')
             search = next(row for row in rows if row.property("title") == 'Naming')
             before = selected.count()
@@ -463,7 +463,10 @@ ApplicationWindow {
             if width == 640:
                 self.click(search)
             else:
+                self.window.requestActivate()
                 search.forceActiveFocus()
+                frame(self.window)
+                self.assertTrue(search.hasActiveFocus())
                 QTest.keyClick(self.window, Qt.Key_Space)
                 frame(self.window)
             self.assertEqual(selected.count(), before + 1)
@@ -486,10 +489,10 @@ ApplicationWindow {
 
         for width in (640, 1200):
             self.window.resize(width, 600)
-            drawer.setProperty('opened', True)
+            drawer.open()
             frame(self.window)
             row = next(item for item in self.descendants(drawer)
-                       if item.metaObject().className().startswith('SidebarTreeRow')
+                       if item.property("rowType") is not None and item.isVisible()
                        and item.property('title') == 'Admin Items')
             self.assertTrue(row.property('interactive'))
             if width == 640:

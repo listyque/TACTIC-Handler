@@ -689,7 +689,19 @@ class ColumnsEditorController(QObject):
                 raise ValueError(self.tr(
                     "Definition XML path no longer points to a column."
                 ))
-            if field == "title":
+            if field == "move":
+                if str(value) not in {"-1", "1"}:
+                    raise ValueError("Invalid column move")
+                parent_path = "/".join(str(path).split("/")[:-1])
+                parent = self._catalog_xml_node(root, parent_path)
+                elements = [child for child in parent if child.tag == "element"]
+                target_index = elements.index(node) + int(value)
+                if target_index < 0 or target_index >= len(elements):
+                    raise ValueError("The column cannot be moved further.")
+                target = elements[target_index]
+                parent.remove(node)
+                parent.insert(list(parent).index(target) + (int(value) > 0), node)
+            elif field == "title":
                 title = str(value or "").strip()
                 if not title:
                     raise ValueError(self.tr("Column label cannot be empty."))

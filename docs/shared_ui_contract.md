@@ -168,7 +168,7 @@ EN/RU, dark/light, 1100/800/360 px. Проверены настоящие кли
 
 Рабочие экраны используют `raw.ui/state.mjs`, `sidebar.ui/state.mjs` и
 `columns.ui/state.mjs`. Вложенный Cell editor также описан в raw-модулях.
-`admin.form.mjs` задаёт общие строки формы; `admin.document.mjs` — действия
+`controls/forms/sections.ui.mjs` задаёт общие строки формы; `admin.document.mjs` — действия
 над черновиком и подтверждения. Numeric row состоит из тех же Field/Button,
 а Switch, IconChoice и Splitter используют house controls каждого клиента.
 Независимые DefinitionCatalogEditor/DefinitionCatalogWizard QML удалены.
@@ -192,7 +192,7 @@ readback. Нативная модель Grid публикует стабильн
 Project schema, Workflow, Columns Editor, Raw database, Layout Editor и Sidebar.
 В том же слое находятся Naming, зависимости процессов, удаление Search Type,
 создание типа из схемы и общий каркас окна. В TH и TS поставляются отдельные
-физические копии 37 `.mjs`; запуск, сборка и обновление продукта не требуют
+физические копии модулей Frame; запуск, сборка и обновление продукта не требуют
 второго checkout. Общая оболочка — `administration.ui/state.mjs`, не два
 независимых окна в одинаковом контейнере.
 

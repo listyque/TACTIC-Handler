@@ -480,7 +480,7 @@ Item {
                         leftPadding: 0
                         rightPadding: 0
                         indicatorOffset: wrapper.node.indicatorX || 0
-                        Accessible.name: text
+                        Accessible.name: text || wrapper.node.label || ""
                         Accessible.description: wrapper.node.description || ""
                         Accessible.ignored: !root.interactive
                         Keys.onLeftPressed: event => {
@@ -507,13 +507,27 @@ Item {
                             cornerRadius: 10
                             inset: 0
                         }
-                        contentItem: FrameBranch {
-                            theme: root.effectiveTheme
-                            scene: ({
-                                    nodes: wrapper.node.children
-                                })
-                            interactive: false
-                            enabled: false
+                        contentItem: Item {
+                            Label {
+                                objectName: "frameCheckBoxCaption_" + checkControl.objectName
+                                anchors.fill: parent
+                                visible: !wrapper.node.children || !wrapper.node.children.length
+                                leftPadding: checkControl.indicatorOffset + checkControl.indicator.width + checkControl.spacing
+                                text: checkControl.text
+                                font: checkControl.font
+                                color: checkControl.enabled ? root.effectiveTheme.primaryText : root.effectiveTheme.disabledText
+                                verticalAlignment: Text.AlignVCenter
+                                elide: Text.ElideRight
+                            }
+                            FrameBranch {
+                                anchors.fill: parent
+                                theme: root.effectiveTheme
+                                scene: ({
+                                        nodes: wrapper.node.children
+                                    })
+                                interactive: false
+                                enabled: false
+                            }
                         }
                         onToggled: root.send(wrapper.node.action, checked)
                     }

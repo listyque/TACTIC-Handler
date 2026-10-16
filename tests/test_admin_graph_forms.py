@@ -11,6 +11,7 @@ from unittest.mock import patch
 from PySide6.QtCore import QCoreApplication, QObject, QPoint, QPointF, Qt
 from PySide6.QtGui import QGuiApplication, QWheelEvent
 from PySide6.QtTest import QSignalSpy, QTest
+from shiboken6 import isValid
 
 import tests.test_administration_qml as administration_fixture
 import tests.test_sidebar_editor_qml as sidebar_fixture
@@ -53,6 +54,9 @@ class AdminGraphFormsTests(unittest.TestCase):
         return item
 
     def click(self, name):
+        if isinstance(name, str) and name.startswith('adminSection_'):
+            self.fixture.click(name)
+            return
         self.fixture.fixture.click(self.window, self.reveal(name))
 
     def choose(self, name, value):
@@ -61,12 +65,16 @@ class AdminGraphFormsTests(unittest.TestCase):
         model = combo.property('model')
         if hasattr(model, 'toVariant'):
             model = model.toVariant()
-        index = next(index for index, row in enumerate(model) if row['identity'] == value)
-        QTest.keyClick(self.window, Qt.Key_Home)
-        for _ in range(index):
-            QTest.keyClick(self.window, Qt.Key_Down)
-        frame(self.window)
-        self.assertEqual(combo.property('currentValue'), value)
+        index = next(index for index, row in enumerate(model) if row.get('identity', row.get('value')) == value)
+        current = combo.property('currentIndex')
+        key = Qt.Key_Down if index > current else Qt.Key_Up
+        for _ in range(abs(index - current)):
+            combo = self.reveal(name)
+            combo.forceActiveFocus(Qt.TabFocusReason)
+            QTest.keyClick(self.window, key)
+            frame(self.window)
+        if isValid(combo):
+            self.assertEqual(combo.property("currentValue"), value)
 
     def color_dialog_button(self, label):
         label = QCoreApplication.translate('QQuickDialogButtonBox', label)

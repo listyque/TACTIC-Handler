@@ -15,6 +15,13 @@ Neither product imports the other checkout at runtime.
 | `features/support/help` | Help composition, filtering, navigation and document positions | Core and controls |
 | `features/administration/<section>` | A section's UI and state | Shared admin helpers and its own domain |
 
+Administration uses `controls/forms/sections.ui.mjs` for settings rows, headings,
+captions, switches and width steppers. Do not reintroduce a second form geometry
+helper inside a feature. Plain CheckBox text and custom membership/cell contents
+are both supported by the native renderers. Column moves keep the selected name
+while recalculating its XML path; document controllers retain the XML and write
+revision owners.
+
 `shell` currently owns window geometry, main-toolbar positions and dock-header
 composition, shared docking zones and previews. The neutral navigation row is
 under `controls/lists`; document metrics are under `core/foundation`. Hosts retain

@@ -9,7 +9,7 @@ import {
     policy,
     sectionSelector
 } from '../admin.document.mjs';
-import { form } from '../admin.form.mjs';
+import { sections as form } from '../../../controls/forms/sections.ui.mjs';
 import { translate } from '../../../core/strings.mjs';
 export function toolbar(model, ui, width, language) {
     const tr = (text) => translate(text, language),

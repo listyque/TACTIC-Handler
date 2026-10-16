@@ -508,3 +508,15 @@ require the server's layout-authoring API.
 Creating a Search Type from the schema is a separate owned editor. Closing that
 creator cancels its unsaved draft; it does not undo a type already created on the
 server. Canvas changes remain separate and require saving the schema.
+
+The configuration forms use the common compact settings rows. Search Type filters
+**Only current project** and **Hide config types** have visible clickable captions.
+In **Columns Editor → Wizard**, **Move up/Move down** change the native element
+order and keep the moved column selected. Save and confirm, then reload to read
+the server result; comments and custom XML options are retained. Column width,
+visibility and widget edits use the same draft. An unknown save result still
+requires reloading before another write.
+
+Complete a numeric, coordinate or instance-table-name edit with **Enter** or **Tab**.
+Invalid buffered values remain available for correction. Advanced XML/JSON has its
+own **Apply** action; Save does not silently replace an unapplied source draft.

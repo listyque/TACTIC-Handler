@@ -9,7 +9,7 @@ import {
     policy,
     sectionSelector
 } from '../admin.document.mjs';
-import { form } from '../admin.form.mjs';
+import { sections as form } from '../../../controls/forms/sections.ui.mjs';
 import { translate } from '../../../core/strings.mjs';
 import * as Document from './layout.document.mjs';
 import * as Preview from './layout.preview.mjs';

@@ -210,7 +210,7 @@ Item {
         }
     }
 
-    component NavigationEntry: Item {
+    component NavigationEntry: FocusScope {
         id: entry
         required property int index
         required property string entryKey
@@ -233,6 +233,7 @@ Item {
         }
         SidebarTreeRow {
             id: sidebarRow
+            focus: true
             anchors.fill: parent
             theme: root.theme
             rowType: entry.entryType

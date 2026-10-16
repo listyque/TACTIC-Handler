@@ -3,6 +3,12 @@
 Each completed change receives a new version and a dated entry below.
 Versions use `major.minor.build.revision`; routine updates increment `revision`.
 
+## 0.6.0.107 - 2026-10-17
+
+- Close Frame B03 Administration review against the tracked pre-Frame Handler archive. Keep independent native and browser products, existing controllers, command/revision/ACL owners and explicit capabilities.
+- Restore visible plain-checkbox captions, reuse the existing compact settings sections throughout Administration, and restore Columns Wizard up/down ordering without losing comments, custom XML or the selected column. Complete missing Russian labels and diagnostics.
+- Keep native drawer keyboard focus inside its activating row when ListView selection changes. Refresh native graph/connection/type-creation and navigation scenarios to exercise actual current controls, owned popup windows, drafts and confirmations. Document editing and save/readback behavior in EN/RU Help.
+
 ## 0.6.0.106 - 2026-10-16
 
 - Deliver Frame B02's reusable control kit and 144 neutral executable examples with Stream: grouped source atlas, native/offline catalogs and explicit boundaries between primitives, neutral composites, infrastructure and domain forms. Keep independently shipped modules and existing controller/script APIs; no browser engine or runtime UI translator.

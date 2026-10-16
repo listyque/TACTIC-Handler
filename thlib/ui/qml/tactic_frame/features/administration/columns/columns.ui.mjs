@@ -9,7 +9,8 @@ import {
     tabs,
     policy
 } from '../admin.document.mjs';
-import { form } from '../admin.form.mjs';
+import { sections as form } from '../../../controls/forms/sections.ui.mjs';
+import { pending } from './columns.state.mjs';
 import { translate } from '../../../core/strings.mjs';
 export { toolbar };
 const list = (id, bounds, source, rowHeight) =>
@@ -298,13 +299,39 @@ function editor(nodes, model, ui, bounds, language, edit, back) {
                 ),
                 label(
                     'definitionLayoutLabel',
-                    rect(width / 2, y, width / 2 - 12, 22),
+                    rect(width / 2, y, Math.max(1, width / 2 - 100), 22),
                     model.wizard.layout
                         ? tr('Layout: ') + model.wizard.layout
                         : model.wizard.view,
                     muted
                 )
             );
+            const selectedIndex = model.elements.findIndex(
+                (row) => row.path === model.element.path
+            );
+            for (const [offset, title, icon, x] of [
+                [-1, 'Move up', 'arrow-up', width - 88],
+                [1, 'Move down', 'arrow-down', width - 50]
+            ])
+                children.push(
+                    node(
+                        'Button',
+                        offset < 0
+                            ? 'definitionColumnUp'
+                            : 'definitionColumnDown',
+                        rect(x, y - 4, 34, 28),
+                        {
+                            text: tr(title),
+                            icon,
+                            iconOnly: true,
+                            enabled:
+                                edit &&
+                                !pending(ui) &&
+                                !!model.elements[selectedIndex + offset],
+                            action: { type: 'move', value: offset }
+                        }
+                    )
+                );
             y += 30;
             const stacked = width < 720,
                 columnWidth = stacked

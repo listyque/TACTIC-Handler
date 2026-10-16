@@ -104,6 +104,7 @@ export function sections(fields, width, language, enabled, style) {
         for (let index = 0; index < group.fields.length; index++) {
             const field = group.fields[index];
             const properties = fieldProperties(field, language, enabled);
+            if (field.kind === 'CheckBox') properties.text = '';
             const controlHeight = field.height || sizing.controlHeight;
             if (field.kind === 'ChoiceGrid') {
                 const grid = choices(
@@ -172,14 +173,87 @@ export function sections(fields, width, language, enabled, style) {
                 ? rowY + 10 + textHeight + 8
                 : rowY + (rowHeight - controlHeight) / 2;
             const controlX = width - 20 - controlWidth;
-            children.push(
-                node(
-                    field.kind || 'Field',
-                    field.id,
-                    rect(controlX, controlY, controlWidth, controlHeight),
-                    properties
-                )
-            );
+            if (field.kind === 'Number') {
+                children.push(
+                    node(
+                        'Box',
+                        field.id,
+                        rect(controlX, controlY, controlWidth, controlHeight),
+                        {
+                            background: 'surfaceContainerHigh',
+                            border: 'outlineVariant',
+                            radius: 10,
+                            children: [
+                                node(
+                                    'Button',
+                                    field.id + 'Decrease',
+                                    rect(0, 0, 34, controlHeight),
+                                    {
+                                        text: translate(
+                                            'Decrease width',
+                                            language
+                                        ),
+                                        icon: 'chevron-down',
+                                        iconOnly: true,
+                                        enabled:
+                                            enabled && field.value > field.min,
+                                        action: {
+                                            type: 'step',
+                                            value: -field.step
+                                        }
+                                    }
+                                ),
+                                node(
+                                    'Field',
+                                    field.id + 'Input',
+                                    rect(
+                                        34,
+                                        0,
+                                        controlWidth - 68,
+                                        controlHeight
+                                    ),
+                                    Object.assign({}, properties, {
+                                        tableCell: true,
+                                        align: 'center'
+                                    })
+                                ),
+                                node(
+                                    'Button',
+                                    field.id + 'Increase',
+                                    rect(
+                                        controlWidth - 34,
+                                        0,
+                                        34,
+                                        controlHeight
+                                    ),
+                                    {
+                                        text: translate(
+                                            'Increase width',
+                                            language
+                                        ),
+                                        icon: 'chevron-up',
+                                        iconOnly: true,
+                                        enabled:
+                                            enabled && field.value < field.max,
+                                        action: {
+                                            type: 'step',
+                                            value: field.step
+                                        }
+                                    }
+                                )
+                            ]
+                        }
+                    )
+                );
+            } else
+                children.push(
+                    node(
+                        field.kind || 'Field',
+                        field.id,
+                        rect(controlX, controlY, controlWidth, controlHeight),
+                        properties
+                    )
+                );
             rowY += rowHeight;
             if (
                 index < group.fields.length - 1 &&

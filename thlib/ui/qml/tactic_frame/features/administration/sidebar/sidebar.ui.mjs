@@ -10,7 +10,7 @@ import {
     notices,
     tabs
 } from '../admin.document.mjs';
-import { form } from '../admin.form.mjs';
+import { sections as form } from '../../../controls/forms/sections.ui.mjs';
 import { translate } from '../../../core/strings.mjs';
 export { toolbar };
 const list = (id, bounds, source, rowHeight) =>

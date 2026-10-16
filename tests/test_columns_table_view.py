@@ -3761,6 +3761,26 @@ Item {
             window.deleteLater()
             engine.deleteLater()
 
+    def test_catalog_reorder_preserves_custom_xml_and_rejects_out_of_bounds_moves(self):
+        controller = ColumnsEditorController(_Application(_SType()))
+        source = ('<config custom="kept"><!--keep--><table custom="view">'
+                  '<element name="code" custom="field"><display widget="text"><option>keep</option></display></element>'
+                  '<!--between--><extension value="kept"/><element name="name"/>'
+                  '</table><other value="kept"/></config>')
+        rows = controller.catalog_wizard(source)['elements']
+        moved = controller.update_catalog_wizard(source, rows[0]['path'], 'move', '1')
+        self.assertEqual([row['name'] for row in controller.catalog_wizard(moved)['elements']], ['name', 'code'])
+        for fragment in ('<!--keep-->', '<!--between-->', 'custom="kept"', 'custom="field"',
+                         '<option>keep</option>', '<extension value="kept"/>', '<other value="kept"/>'):
+            self.assertIn(fragment, moved)
+        code = controller.catalog_wizard(moved)['elements'][1]
+        restored = controller.update_catalog_wizard(moved, code['path'], 'move', '-1')
+        self.assertEqual([row['name'] for row in controller.catalog_wizard(restored)['elements']], ['code', 'name'])
+        first = controller.catalog_wizard(restored)['elements'][0]
+        for offset in ('-1', '0', '2', 'wrong'):
+            self.assertEqual(controller.update_catalog_wizard(restored, first['path'], 'move', offset), '')
+        self.assertIn('custom="field"', restored)
+
     def test_administration_columns_editor_uses_project_catalog_only(self):
         application = _Application(_SType())
         application.stype.project.views.config_dict.append({

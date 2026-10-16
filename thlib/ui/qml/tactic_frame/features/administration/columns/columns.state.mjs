@@ -28,6 +28,11 @@ export function completed(ui, command, model) {
     if (command.type === 'column') next.path = command.path;
     if (command.type === 'mode') next.mode = command.value;
     if (command.type === 'back') next.editing = false;
+    if (command.type === 'change' && command.field === 'move')
+        next.path = (
+            model.elements.find((row) => row.name === command.name) ||
+            model.element
+        ).path;
     return next;
 }
 export function transition(ui, model, event) {
@@ -116,6 +121,24 @@ export function transition(ui, model, event) {
                     value: event.value
                 });
             break;
+        case 'move': {
+            const index = model.elements.findIndex(
+                (row) => row.path === model.element.path
+            );
+            if (
+                allow.editable &&
+                !pending(ui) &&
+                (event.value === -1 || event.value === 1) &&
+                model.elements[index + event.value]
+            )
+                commands.push({
+                    type: 'change',
+                    field: 'move',
+                    value: event.value,
+                    name: model.element.name
+                });
+            break;
+        }
         case 'step':
             if (allow.editable)
                 commands.push({

@@ -340,6 +340,21 @@ class AdminSearchTypeEditorTests(unittest.TestCase):
         self.assertEqual(self.editor.document['columns'], [])
         self.assertEqual(self.ui.fixture.warnings, [])
 
+    def test_catalog_filter_captions_are_painted_and_clickable(self):
+        for name in ('adminSearchTypesProjectOnly', 'adminSearchTypesHideConfig'):
+            check = self.item(name)
+            caption = self.item('frameCheckBoxCaption_' + name)
+            self.assertTrue(caption.isVisible())
+            self.assertEqual(caption.property('text'), check.property('text'))
+            self.assertGreater(caption.width() - caption.property('leftPadding'), 100)
+            self.assertGreater(caption.property('contentHeight'), 0)
+            before = check.property('checked')
+            point = caption.mapToScene(QPointF(caption.width() - 20, caption.height() / 2))
+            QTest.mouseClick(self.window, Qt.LeftButton, pos=point.toPoint())
+            frame(self.window)
+            self.assertNotEqual(check.property('checked'), before)
+        self.assertEqual(self.ui.fixture.warnings, [])
+
     def test_project_checkbox_filters_locally_and_retains_draft(self):
         self.editor._catalog = [
             dict(identity='library/asset', label='Assets', namespace='library', projectLocal=True,

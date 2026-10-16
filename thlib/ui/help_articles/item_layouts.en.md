@@ -8,10 +8,12 @@ order: 39
 > Open **Administration → Layout Editor**. Start from a template, arrange one
 > card or row, check the result, then save your view. Ordinary layouts need no XML.
 
-Handler and Stream use the same editor and renderer. Handler hosts them inside
-its administration window through Qt WebEngine and requires a TACTIC Stream
-server supporting layouts. Custom views open in that interface. Standard views
-and the original SObject Item remain separate.
+Handler and Stream share the Tactic Frame editor structure and rules. Handler
+renders the editor with native QML controls; Stream uses Vue controls. Validation
+and saving require a server with the layout-authoring API. Handler's **Open view
+in browser** opens the system browser without a ticket in the URL; sign in there
+normally. Stream opens custom views in its workspace. Standard views and the
+original SObject Item remain separate.
 
 ## 1. Choose a starting point
 

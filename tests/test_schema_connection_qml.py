@@ -8,6 +8,7 @@ from unittest.mock import patch
 
 from PySide6.QtCore import QObject, QPointF, Qt, Signal
 from PySide6.QtTest import QTest
+from PySide6.QtGui import QGuiApplication
 
 import tests.test_admin_graph_forms as graph_fixture
 import tests.test_schema_connections as api_fixture
@@ -28,30 +29,42 @@ class SchemaConnectionQmlTests(unittest.TestCase):
         self.ui.click('adminSection_schema')
         self.ui.click('graphEdge_0')
 
+    def options(self, name):
+        rows = self.ui.item(name).property('model')
+        return rows.toVariant() if hasattr(rows, 'toVariant') else rows
+
     def test_real_column_choices_keyboard_touch_and_reversal(self):
-        self.assertEqual(self.ui.item('schemaColumn_from').property('text'), 'shot_code')
-        self.assertEqual(self.ui.item('schemaColumn_to').property('text'), 'code')
+        self.assertEqual(self.ui.item('adminSchema_from_col').property('text'), 'shot_code')
+        self.assertEqual(self.ui.item('adminSchema_to_col').property('text'), 'code')
         with patch.object(self.editor, '_request') as save:
-            self.ui.enter('schemaColumn_from', 'shot_id')
-            parent_id = self.ui.reveal('schemaColumnChoice_to_id')
-            parent_id.forceActiveFocus()
-            QTest.keyClick(self.window, Qt.Key_Space)
-            frame(self.window)
+            self.ui.enter('adminSchema_from_col', 'shot_id')
+            self.ui.choose('adminSchemaChoose_to_col', 'id')
             self.assertEqual(self.editor.selectedAttributes['from_col'], 'shot_id')
             self.assertEqual(self.editor.selectedAttributes['to_col'], 'id')
-            self.ui.click('schemaCreateColumns')
+            self.ui.click('adminSchemaCreateColumns')
             self.assertTrue(self.editor.connectionEditor.createColumns)
-            self.ui.click('schemaReverseConnection')
+            self.ui.click('adminSchemaReverse')
             self.assertEqual(self.editor.selectedAttributes['from'], 'demo/shot')
             self.assertEqual(self.editor.selectedAttributes['from_col'], 'id')
             self.assertTrue(self.editor.connectionEditor.createColumns)
-            row = self.ui.reveal('schemaColumnChoice_from_code')
-            point = row.mapToScene(QPointF(row.width() / 2, row.height() / 2)).toPoint()
+            chooser = self.ui.reveal('adminSchemaChoose_from_col')
+            point = chooser.mapToScene(QPointF(chooser.width() / 2, chooser.height() / 2)).toPoint()
             device = QTest.createTouchDevice()
             sequence = QTest.touchEvent(self.window, device, autoCommit=False)
             sequence.press(0, point, self.window).commit()
-            frame(self.window)
+            QTest.qWait(20)
             sequence.release(0, point, self.window).commit()
+            QTest.qWait(80)
+            popup_window = next(window for window in QGuiApplication.allWindows() if window.isVisible()
+                                and any(item.objectName() == 'comboBoxPopupList' and item.isVisible()
+                                        for item in graph_fixture.sidebar_fixture.SidebarEditorQmlTests.descendants(window.contentItem())))
+            popup_list = next(item for item in graph_fixture.sidebar_fixture.SidebarEditorQmlTests.descendants(popup_window.contentItem())
+                              if item.objectName() == 'comboBoxPopupList' and item.isVisible())
+            popup_window.requestActivate()
+            popup_list.forceActiveFocus()
+            QTest.keyClick(popup_window, Qt.Key_Up)
+            frame(popup_window)
+            QTest.keyClick(popup_window, Qt.Key_Return)
             frame(self.window)
             self.assertEqual(self.editor.selectedAttributes['from_col'], 'code')
             save.assert_not_called()
@@ -59,33 +72,34 @@ class SchemaConnectionQmlTests(unittest.TestCase):
 
     def test_many_to_many_preview_and_confirmation_do_not_create_before_save(self):
         with patch.object(self.editor, '_request') as request:
-            self.ui.click('segmentedButtonSegment_many_to_many')
+            self.ui.choose('adminSchemaRelationship', 'many_to_many')
             identity = self.editor.selectedNode
             self.assertEqual(identity, 'demo/asset_in_shot')
             self.assertTrue(self.ui.item('graphNode_' + identity).isVisible())
             self.assertEqual(len(self.editor.nodes), 3)
-            viewport = self.ui.item('adminGraphPropertiesViewport')
-            attributes = self.ui.item('adminSelectionAttributesEditor')
-            self.assertLess(attributes.mapToItem(viewport, QPointF()).y(), viewport.height() - 50,
-                            'Empty endpoint lists must not leave blank space above the instance JSON')
+            viewport = self.ui.item('adminGraphPropertiesScroll')
+            attributes = self.ui.reveal('graph_attributesEditor')
+            self.assertLessEqual(attributes.mapToItem(viewport, QPointF(0, attributes.height())).y(), viewport.height())
             output = os.environ.get('SCHEMA_CONNECTION_SCREENSHOTS')
             if output:
                 path = Path(output)
                 path.mkdir(parents=True, exist_ok=True)
                 self.window.grabWindow().save(str(path / 'instance.png'))
-            self.ui.click('schemaInstanceLink_demo/shot')
-            self.ui.click('schemaColumnChoice_to_id')
+            self.ui.click('schemaInstanceLink_1')
+            self.ui.choose('adminSchemaChoose_to_col', 'id')
             self.assertEqual(self.editor.selectedAttributes['to_col'], 'id')
-            self.ui.enter('schemaInstanceTableName', 'asset_shots')
+            self.ui.enter('adminSchemaInstanceName', 'asset_shots')
+            QTest.keyClick(self.window, Qt.Key_Tab)
+            frame(self.window)
             self.ui.click('adminSaveDocument')
-            self.assertIn('demo/asset_shots', self.ui.item('adminConfirmationText').property('text'))
+            self.assertIn('demo/asset_shots', self.ui.item('adminConfirmationDetails').property('text'))
             request.assert_not_called()
             self.ui.click('adminCancelSave')
             request.assert_not_called()
-            self.ui.click('schemaRestoreDirect')
+            self.ui.click('adminSchemaRestoreDirect')
             self.assertEqual(len(self.editor.nodes), 2)
             self.assertEqual(self.editor.edges[0]['custom'], 'edge')
-            self.ui.click('segmentedButtonSegment_many_to_many')
+            self.ui.choose('adminSchemaRelationship', 'many_to_many')
             self.ui.click('adminSaveDocument')
             self.ui.click('adminConfirmSave')
             request.assert_called_once_with('save', 'demo')
@@ -105,12 +119,12 @@ class SchemaConnectionQmlTests(unittest.TestCase):
                 pass
 
         worker = Worker()
-        self.ui.enter('schemaColumn_from', 'new_shot_key')
-        self.ui.click('schemaCreateColumns')
+        self.ui.enter('adminSchema_from_col', 'new_shot_key')
+        self.ui.click('adminSchemaCreateColumns')
         with patch.object(env_inst.server_pool, 'add_task', return_value=worker) as add_task:
-            self.ui.click('schemaRefreshColumns')
+            self.ui.click('adminSchemaRefreshColumns')
             self.assertTrue(self.editor.connectionEditor.loading)
-            self.assertFalse(self.ui.item('schemaRefreshColumns').isEnabled())
+            self.assertFalse(self.ui.item('adminSchemaRefreshColumns').isEnabled())
             worker.result.emit({
                 'demo/asset': {'table': 'asset', 'database': 'demo', 'tableAvailable': True,
                                'columns': [{'name': 'code', 'type': 'varchar'}, {'name': 'shot_code', 'type': 'varchar'}]},
@@ -119,7 +133,7 @@ class SchemaConnectionQmlTests(unittest.TestCase):
             frame(self.window)
             add_task.assert_called_once()
         self.assertFalse(self.editor.connectionEditor.loading)
-        self.assertEqual(self.ui.item('schemaColumn_from').property('text'), 'new_shot_key')
+        self.assertEqual(self.ui.item('adminSchema_from_col').property('text'), 'new_shot_key')
         self.assertTrue(self.editor.connectionEditor.createColumns)
         self.assertEqual(self.ui.fixture.fixture.warnings, [])
 
@@ -131,19 +145,18 @@ class SchemaConnectionQmlTests(unittest.TestCase):
         for width, height in ((900, 620), (1400, 940)):
             self.window.resize(width, height)
             frame(self.window)
-            for name in ('schemaRelationshipType', 'schemaCreateColumns', 'schemaColumn_from', 'schemaColumn_to'):
+            for name in ('adminSchemaRelationship', 'adminSchemaCreateColumns', 'adminSchema_from_col', 'adminSchema_to_col'):
                 self.ui.reveal(name)
                 self.ui.assert_inside(name)
-            for side in ('from', 'to'):
-                viewport = self.ui.reveal('schemaColumnList_' + side)
-                self.assertLessEqual(viewport.height(), 180)
-                self.assertGreater(viewport.property('contentHeight'), viewport.height())
-                row = self.ui.item('schemaColumnChoice_' + side + '_code')
-                self.assertLessEqual(row.width(), viewport.width() - 16)
-                bar = next(item for item in graph_fixture.sidebar_fixture.SidebarEditorQmlTests.descendants(viewport)
-                           if item.inherits('QQuickScrollBar'))
-                self.assertTrue(bar.isVisible())
-            self.ui.item('adminGraphPropertiesViewport').setProperty('contentY', 0)
+            for side in ('from_col', 'to_col'):
+                chooser = self.ui.reveal('adminSchemaChoose_' + side)
+                options = chooser.property('model')
+                options = options.toVariant() if hasattr(options, 'toVariant') else options
+                self.assertGreater(len(options), 40)
+                self.ui.choose('adminSchemaChoose_' + side, 'attribute_39')
+                self.assertEqual(self.editor.selectedAttributes[side], 'attribute_39')
+                self.assertLessEqual(chooser.width(), self.ui.item('adminGraphPropertiesScroll').width() - 16)
+            self.ui.item('adminGraphPropertiesScroll').setProperty('contentY', 0)
             frame(self.window)
             output = os.environ.get('SCHEMA_CONNECTION_SCREENSHOTS')
             if output:
@@ -178,23 +191,23 @@ class SchemaConnectionQmlTests(unittest.TestCase):
         with patch.object(env_inst.server_pool, 'add_task', side_effect=Worker) as requests, \
                 patch('thlib.tactic_classes.execute_procedure_serverside', side_effect=lambda endpoint, args, **_:
                       json.loads(endpoint(**args))):
-            self.ui.click('schemaRefreshColumns')
+            self.ui.click('adminSchemaRefreshColumns')
             frame(self.window)
             self.assertFalse(self.editor.connectionEditor.loading)
             self.assertEqual(self.editor.connectionEditor.error, '')
-            self.assertTrue(self.ui.item('schemaColumnChoice_to_id').isVisible())
+            self.assertIn('id', [row['value'] for row in self.options('adminSchemaChoose_to_col')])
             for width, height in ((900, 620), (1400, 940)):
                 with self.subTest(width=width):
                     self.window.resize(width, height)
                     frame(self.window)
-                    notice = self.ui.reveal('schemaMissingTable_from')
-                    self.assertIn('demo.asset', notice.property('text'))
+                    notice = self.ui.reveal('schemaAbsent_from_colDescription')
+                    self.assertEqual(self.editor.connectionEditor.columnCatalog['demo/asset']['table'], 'asset')
                     self.assertIn('отсутствует', notice.property('text'))
                     self.assertGreater(notice.height(), 0)
-                    self.ui.assert_inside('schemaMissingTable_from')
-                    viewport = self.ui.item('adminGraphPropertiesViewport')
+                    self.ui.assert_inside('schemaAbsent_from_colDescription')
+                    viewport = self.ui.item('adminGraphPropertiesScroll')
                     self.assertLessEqual(notice.mapToItem(viewport, QPointF(notice.width(), 0)).x(),
-                                         viewport.width() - 16)
+                                         self.ui.item('adminGraphPropertiesScrollBar').mapToItem(viewport, QPointF()).x())
                     output = os.environ.get('SCHEMA_CONNECTION_SCREENSHOTS')
                     if output:
                         path = Path(output)
@@ -205,15 +218,15 @@ class SchemaConnectionQmlTests(unittest.TestCase):
             self.assertEqual(api.fixture.calls, [])
             self.ui.click('graphNode_demo/shot')
             self.ui.click('graphEdge_0')
-            self.assertTrue(self.ui.item('schemaMissingTable_from').isVisible())
+            self.assertTrue(self.ui.item('schemaAbsent_from_colDescription').isVisible())
             requests.assert_called_once()
             api.fixture.tables['demo/asset'] = []
-            self.ui.click('schemaRefreshColumns')
+            self.ui.click('adminSchemaRefreshColumns')
             frame(self.window)
-            self.assertTrue(self.ui.item('schemaColumnChoice_from_code').isVisible())
+            self.assertIn('code', [row['value'] for row in self.options('adminSchemaChoose_from_col')])
             self.assertTrue(self.editor.connectionEditor.columnCatalog['demo/asset']['tableAvailable'])
             with self.assertRaises(StopIteration):
-                self.ui.item('schemaMissingTable_from')
+                self.ui.item('schemaAbsent_from_colDescription')
             self.assertEqual(requests.call_count, 2)
         self.assertEqual(self.ui.fixture.fixture.warnings, [])
 

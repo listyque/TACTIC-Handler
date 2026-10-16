@@ -2,7 +2,6 @@ import { sections } from '../../../controls/forms/sections.ui.mjs';
 import { node, rect, label, muted, button } from '../../../core/frame.mjs';
 import { translate } from '../../../core/strings.mjs';
 import { policy, sectionSelector } from '../admin.document.mjs';
-import { form } from '../admin.form.mjs';
 import * as Process from './process.ui.mjs';
 const own = (object, key) => Object.prototype.hasOwnProperty.call(object, key);
 export function inspector(model, ui, width, language) {
@@ -16,9 +15,8 @@ export function inspector(model, ui, width, language) {
         selectedEdge = (model.edges || [])[model.selectedEdge],
         referenceOnly = !!(selectedNode && selectedNode.referenceOnly);
     let contentY = 0;
-    function addForm(fields, enabled, sectioned) {
-        const build = sectioned ? sections : form;
-        const body = build(
+    function addForm(fields, enabled) {
+        const body = sections(
             fields,
             contentWidth,
             language,
