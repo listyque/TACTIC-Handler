@@ -1,3 +1,4 @@
+pragma ComponentBehavior: Bound
 import QtQuick
 import "../.."
 import QtQuick.Controls
@@ -56,6 +57,70 @@ Item {
         else if (subject.length === 0)
             subject = qsTr("Object");
         return qsTr("Tasks for:") + " " + subject;
+    }
+
+    component DockDelegate: Item {
+        id: dockDelegate
+        property alias panel: dockPanel
+        objectName: "dockDelegate_" + panelId
+        required property string panelId
+        required property string title
+        required property string kind
+        required property real panelX
+        required property real panelY
+        required property real panelWidth
+        required property real panelHeight
+        required property bool panelVisible
+        required property bool closable
+        required property int stackOrder
+        required property string dockArea
+        required property bool canResizeLeft
+        required property bool canResizeRight
+        required property bool canResizeTop
+        required property bool canResizeBottom
+        required property bool detached
+        required property bool stackActive
+        required property var stackPanels
+        required property int stackSize
+        readonly property Component panelContentComponent: kind === "results" ? dockContents.results : kind === "snapshot" ? dockContents.snapshot : kind === "tasks" ? dockContents.tasks : kind === "task_calendar" ? dockContents.taskCalendar : kind === "timesheet" ? dockContents.timesheet : kind === "work_reports" ? dockContents.workReports : kind === "cost_reports" ? dockContents.costReports : kind === "notes" ? dockContents.notes : kind === "drop_plate" ? dockContents.dropPlate : kind === "advanced_search" ? dockContents.advancedSearch : kind === "repo_sync_queue" ? dockContents.repoSync : kind === "commit_queue" ? dockContents.commitQueue : kind === "watch_folders" ? dockContents.watchFolders : kind === "db_table" ? dockContents.databaseEditor : kind === "knowledge" ? dockContents.knowledge : dockContents.description
+        DockPanel {
+            id: dockPanel
+            host: root
+            theme: root.theme
+            panelId: dockDelegate.panelId
+            title: dockDelegate.kind === "tasks" ? (tasksController.workspaceSurface === "browser" ? root.tasksDockTitle() : (tasksController.hasTarget ? qsTr("Tasks for:") + " " + tasksController.targetTitle : qsTr("Tasks"))) : dockDelegate.kind === "description" ? root.descriptionDockTitle : dockDelegate.title
+            descriptionTitle: root.descriptionDockTitle
+            kind: dockDelegate.kind
+            panelX: dockDelegate.panelX
+            panelY: dockDelegate.panelY
+            panelWidth: dockDelegate.panelWidth
+            panelHeight: dockDelegate.panelHeight
+            modelVisible: dockDelegate.panelVisible && dockDelegate.stackActive && !dockDelegate.detached
+            panelOpen: dockDelegate.panelVisible && dockDelegate.stackActive && !dockDelegate.detached
+            stackActive: dockDelegate.stackActive
+            closable: dockDelegate.closable
+            stackOrder: dockDelegate.stackOrder
+            dockArea: dockDelegate.dockArea
+            canResizeLeft: dockDelegate.canResizeLeft
+            canResizeRight: dockDelegate.canResizeRight
+            canResizeTop: dockDelegate.canResizeTop
+            canResizeBottom: dockDelegate.canResizeBottom
+            stackPanels: dockDelegate.stackPanels
+            stackSize: dockDelegate.stackSize
+            contentComponent: dockDelegate.panelContentComponent
+        }
+    }
+
+    function focusDockTab(identity) {
+        for (let index = 0; index < dockRepeater.count; index++) {
+            const item = dockRepeater.itemAt(index) as DockDelegate;
+            const panel = item ? item.panel : null;
+            if (!panel)
+                continue;
+            const center = panel.stackPanels.some(record => record.panelId === "results");
+            if (panel.focusTab(identity || (center ? panel.panelId : "")))
+                return;
+        }
     }
 
     function rootSnapZoneAt(pointerX, pointerY) {
@@ -284,55 +349,7 @@ Item {
         Repeater {
             id: dockRepeater
             model: root.workspaceActive ? visibleDockModel : 0
-            delegate: Item {
-                id: dockDelegate
-                objectName: "dockDelegate_" + panelId
-                required property string panelId
-                required property string title
-                required property string kind
-                required property real panelX
-                required property real panelY
-                required property real panelWidth
-                required property real panelHeight
-                required property bool panelVisible
-                required property bool closable
-                required property int stackOrder
-                required property string dockArea
-                required property bool canResizeLeft
-                required property bool canResizeRight
-                required property bool canResizeTop
-                required property bool canResizeBottom
-                required property bool detached
-                required property bool stackActive
-                required property var stackPanels
-                required property int stackSize
-                readonly property Component panelContentComponent: kind === "results" ? dockContents.results : kind === "snapshot" ? dockContents.snapshot : kind === "tasks" ? dockContents.tasks : kind === "task_calendar" ? dockContents.taskCalendar : kind === "timesheet" ? dockContents.timesheet : kind === "work_reports" ? dockContents.workReports : kind === "cost_reports" ? dockContents.costReports : kind === "notes" ? dockContents.notes : kind === "drop_plate" ? dockContents.dropPlate : kind === "advanced_search" ? dockContents.advancedSearch : kind === "repo_sync_queue" ? dockContents.repoSync : kind === "commit_queue" ? dockContents.commitQueue : kind === "watch_folders" ? dockContents.watchFolders : kind === "db_table" ? dockContents.databaseEditor : kind === "knowledge" ? dockContents.knowledge : dockContents.description
-                DockPanel {
-                    host: root
-                    theme: root.theme
-                    panelId: dockDelegate.panelId
-                    title: dockDelegate.kind === "tasks" ? (tasksController.workspaceSurface === "browser" ? root.tasksDockTitle() : (tasksController.hasTarget ? qsTr("Tasks for:") + " " + tasksController.targetTitle : qsTr("Tasks"))) : dockDelegate.kind === "description" ? root.descriptionDockTitle : dockDelegate.title
-                    descriptionTitle: root.descriptionDockTitle
-                    kind: dockDelegate.kind
-                    panelX: dockDelegate.panelX
-                    panelY: dockDelegate.panelY
-                    panelWidth: dockDelegate.panelWidth
-                    panelHeight: dockDelegate.panelHeight
-                    modelVisible: dockDelegate.panelVisible && dockDelegate.stackActive && !dockDelegate.detached
-                    panelOpen: dockDelegate.panelVisible && dockDelegate.stackActive && !dockDelegate.detached
-                    stackActive: dockDelegate.stackActive
-                    closable: dockDelegate.closable
-                    stackOrder: dockDelegate.stackOrder
-                    dockArea: dockDelegate.dockArea
-                    canResizeLeft: dockDelegate.canResizeLeft
-                    canResizeRight: dockDelegate.canResizeRight
-                    canResizeTop: dockDelegate.canResizeTop
-                    canResizeBottom: dockDelegate.canResizeBottom
-                    stackPanels: dockDelegate.stackPanels
-                    stackSize: dockDelegate.stackSize
-                    contentComponent: dockDelegate.panelContentComponent
-                }
-            }
+            delegate: DockDelegate {}
         }
     }
 

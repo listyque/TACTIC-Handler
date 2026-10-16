@@ -1313,7 +1313,8 @@ class UiStructureTests(unittest.TestCase):
         footer_control = (
             QML / "controls" / "DockWorkspaceFooter.qml"
         ).read_text(encoding="utf-8")
-        self.assertIn("readonly property real cornerRadius: Math.max(", footer_control)
+        self.assertIn("readonly property real cornerRadius: frameSurface.radius", footer_control)
+        self.assertIn("Surface.footer(", footer_control)
         self.assertIn("radius: cornerRadius", footer_control)
 
     def test_project_qml_uses_shared_controls_for_common_primitives(self):

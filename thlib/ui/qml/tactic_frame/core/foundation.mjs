@@ -15,6 +15,7 @@ export const fontFamily = 'Segoe UI';
 // Frame geometry and resolved text sizes use logical pixels in both engines.
 // Legacy house controls keep the point-based API above until Frame supplies a font.
 export const textStyles = Object.freeze({
+    menuHeading: 10,
     caption: 11,
     secondary: 12,
     body: 13,

@@ -3,6 +3,12 @@
 Each completed change receives a new version and a dated entry below.
 Versions use `major.minor.build.revision`; routine updates increment `revision`.
 
+## 0.6.0.101 - 2026-10-16
+
+- Complete shared dock keyboard navigation/reorder/close and transfer focus through the stable host after delegates change. Share footer height, divider and corners while preserving native dialog framing.
+- Move main user, configuration and connection menus to a shipped action catalog and shared Frame row composition. Preserve MenuRegistry replacement/extensions, native popup lifecycle, platform-only actions and existing command/settings/authentication owners.
+- Add native mouse/touch/key checks, script extension and update-state checks, paired original/current/browser menu/footer comparisons, and private-server browser command/error/session workflows. Keep full navigation/project/session migration and unverified control families open.
+
 ## 0.6.0.100 - 2026-10-16
 
 - Execute dock tree projection, recursive minimum constraints and floating-edge sizing from the same portable Frame module as Stream. Preserve preferred split ratios, native Python state ownership, detached-window capability and saved layout format.

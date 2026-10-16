@@ -83,6 +83,7 @@ class FrameHelpTests(unittest.TestCase):
         self.assertGreater(saved, 0)
         self.windows.helpRequested.emit('overview'); frame(self.window)
         self.windows.helpRequested.emit('windows'); frame(self.window)
+        self.wait_for('!documentPane.restoring')
         self.assertAlmostEqual(self.evaluate('documentPane.contentItem.contentY'), saved, delta=1)
         self.window.hide(); QCoreApplication.processEvents()
         from unittest.mock import patch

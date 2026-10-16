@@ -1,4 +1,6 @@
+pragma ComponentBehavior: Bound
 import QtQuick
+import QtQuick.Window
 import "../.."
 import QtQuick.Controls
 import QtQuick.Layouts
@@ -7,6 +9,7 @@ import "../../tactic_frame/controls/tabs/tab_layout.mjs" as TabLayout
 import "../../tactic_frame/shell/dock_chrome.ui.mjs" as DockChrome
 import "../../tactic_frame/shell/dock.placement.mjs" as Placement
 import "../../tactic_frame/shell/dock.layout.mjs" as DockLayout
+import "../../tactic_frame/shell/dock.keys.mjs" as DockKeys
 
 Item {
     id: root
@@ -47,6 +50,163 @@ Item {
         enabled: root.tabDragging
         context: Qt.WindowShortcut
         onActivated: root.cancelTabDrag()
+    }
+
+    component StackTab: Item {
+        id: stackTab
+        required property var modelData
+        required property int index
+        objectName: "dockTab_" + root.panelId + "_" + record.panelId
+        activeFocusOnTab: record.active
+        Accessible.role: Accessible.PageTab
+        Accessible.name: tabLabel.titleText
+        Accessible.selected: record.active
+        Keys.onPressed: event => root.tabKey(record.panelId, event)
+        property var record: modelData
+        property int targetIndex: index
+        property bool hovered: tabHover.hovered
+        width: TabLayout.dockTabWidth(tabLabel.implicitWidth, stackTabBar.width, root.stackSize)
+        height: stackTabsRow.height
+        z: (tabDrag.active && tabDrag.epoch === root.tabDragEpoch) ? 10 : 1
+        transform: Translate {
+            x: (tabDrag.active && tabDrag.epoch === root.tabDragEpoch) ? tabDrag.translation.x : 0
+        }
+
+        Rectangle {
+            anchors.fill: parent
+            color: root.theme.action
+            opacity: (tabDrag.active && tabDrag.epoch === root.tabDragEpoch) ? TabLayout.dockTab.draggingOpacity : stackTab.record.active ? TabLayout.dockTab.selectedOpacity : stackTab.hovered ? TabLayout.dockTab.hoveredOpacity : 0
+        }
+        Rectangle {
+            anchors.bottom: parent.bottom
+            anchors.horizontalCenter: parent.horizontalCenter
+            width: stackTab.record.active ? Math.max(TabLayout.dockTab.indicatorMinimum, parent.width - TabLayout.dockTab.indicatorInset * 2) : 0
+            height: TabLayout.dockTab.indicatorThickness
+            radius: height / 2
+            color: root.theme.action
+            opacity: stackTab.record.active ? 1 : 0
+        }
+        RowLayout {
+            anchors.fill: parent
+            anchors.leftMargin: 10
+            anchors.rightMargin: 4
+            spacing: 6
+            Controls.MaterialIcon {
+                name: root.panelIcon(stackTab.record.kind)
+                size: 14
+                color: stackTab.record.active ? root.theme.action : root.theme.secondaryText
+            }
+            DockTitleLabel {
+                id: tabLabel
+                Layout.fillWidth: true
+                theme: root.theme
+                titleText: root.localizedPanelTitle(stackTab.record.kind, stackTab.record.kind === "description" ? root.descriptionTitle : stackTab.record.title)
+                active: stackTab.record.active
+            }
+        }
+        HoverHandler {
+            id: tabHover
+            cursorShape: Qt.PointingHandCursor
+        }
+        Controls.ActivationHandler {
+            onActivated: dockModel.activate_stack_panel(stackTab.record.panelId)
+        }
+        DragHandler {
+            id: tabDrag
+            property int epoch: -1
+            target: null
+            acceptedButtons: Qt.LeftButton
+            dragThreshold: TabLayout.dockTab.dragThreshold
+            onTranslationChanged: {
+                const centers = [];
+                for (let itemIndex = 0; itemIndex < stackTabRepeater.count; ++itemIndex) {
+                    const item = stackTabRepeater.itemAt(itemIndex);
+                    centers.push(item.x + item.width / 2);
+                }
+                stackTab.targetIndex = DockLayout.tabTarget(centers, index, translation.x);
+            }
+            onActiveChanged: {
+                root.tabDragging = active;
+                if (active)
+                    epoch = root.tabDragEpoch;
+            }
+            onGrabChanged: (transition, point) => {
+                if (transition !== PointerDevice.UngrabExclusive || epoch !== root.tabDragEpoch)
+                    return;
+                const identity = stackTab.record.panelId;
+                const destination = stackTab.targetIndex;
+                const position = index;
+                stackTab.targetIndex = position;
+                if (Math.abs(translation.y) > titleBar.height) {
+                    dockModel.float_panel_inside(identity);
+                } else if (destination !== position) {
+                    dockModel.reorder_stack_panel(identity, destination);
+                }
+            }
+        }
+    }
+
+    function focusTab(identity) {
+        if (!root.visible || !root.stackActive)
+            return false;
+        for (let index = 0; index < stackTabRepeater.count; index++) {
+            const item = stackTabRepeater.itemAt(index) as StackTab;
+            if (!item.visible || item.record.panelId !== identity)
+                continue;
+            item.forceActiveFocus(Qt.TabFocusReason);
+            stackTabsFlick.contentX = Math.max(0, Math.min(item.x, stackTabsFlick.contentWidth - stackTabsFlick.width));
+            return true;
+        }
+        if (root.panelId !== identity)
+            return false;
+        root.forceActiveFocus(Qt.TabFocusReason);
+        return true;
+    }
+    function closeDock(identity) {
+        const records = root.stackPanels.map(record => ({
+                    id: record.panelId,
+                    closable: record.closable
+                }));
+        const next = DockKeys.neighbor(records, identity);
+        let focus = root.Window.window ? root.Window.window.activeFocusItem : null;
+        while (focus && focus !== root)
+            focus = focus.parent;
+        const restore = focus === root;
+        const owner = root.host;
+        dockModel.close_panel(identity);
+        if (next)
+            dockModel.activate_stack_panel(next);
+        if (restore)
+            Qt.callLater(() => owner.focusDockTab(next));
+    }
+    function tabKey(identity, event) {
+        const names = {};
+        names[Qt.Key_Left] = "ArrowLeft";
+        names[Qt.Key_Right] = "ArrowRight";
+        names[Qt.Key_Home] = "Home";
+        names[Qt.Key_End] = "End";
+        names[Qt.Key_Delete] = "Delete";
+        names[Qt.Key_Return] = "Enter";
+        names[Qt.Key_Enter] = "Enter";
+        names[Qt.Key_Space] = " ";
+        const records = root.stackPanels.map(record => ({
+                    id: record.panelId,
+                    closable: record.closable
+                }));
+        const command = DockKeys.action(records, identity, names[event.key] || "", !!(event.modifiers & Qt.ControlModifier) && !!(event.modifiers & Qt.ShiftModifier));
+        if (!command)
+            return;
+        event.accepted = true;
+        if (command.type === "close") {
+            root.closeDock(identity);
+            return;
+        }
+        const owner = root.host;
+        if (command.type === "reorder")
+            dockModel.reorder_stack_panel(identity, command.target);
+        else
+            dockModel.activate_stack_panel(command.id);
+        Qt.callLater(() => owner.focusDockTab(command.id));
     }
 
     function syncPanelContent() {
@@ -508,7 +668,7 @@ Item {
                 iconColor: root.theme.secondaryText
                 backgroundColor: root.theme.surfaceContainerHigh
                 toolTip: qsTr("Close ") + root.localizedPanelTitle(root.kind, root.title)
-                onClicked: dockModel.close_panel(root.panelId)
+                onClicked: root.closeDock(root.panelId)
             }
         }
 
@@ -554,92 +714,7 @@ Item {
                 Repeater {
                     id: stackTabRepeater
                     model: root.stackPanels
-                    delegate: Item {
-                        id: stackTab
-                        objectName: "dockTab_" + root.panelId + "_" + record.panelId
-                        property var record: modelData
-                        property int targetIndex: index
-                        property bool hovered: tabHover.hovered
-                        width: TabLayout.dockTabWidth(tabLabel.implicitWidth, stackTabBar.width, root.stackSize)
-                        height: stackTabsRow.height
-                        z: (tabDrag.active && tabDrag.epoch === root.tabDragEpoch) ? 10 : 1
-                        transform: Translate {
-                            x: (tabDrag.active && tabDrag.epoch === root.tabDragEpoch) ? tabDrag.translation.x : 0
-                        }
-
-                        Rectangle {
-                            anchors.fill: parent
-                            color: root.theme.action
-                            opacity: (tabDrag.active && tabDrag.epoch === root.tabDragEpoch) ? TabLayout.dockTab.draggingOpacity : stackTab.record.active ? TabLayout.dockTab.selectedOpacity : stackTab.hovered ? TabLayout.dockTab.hoveredOpacity : 0
-                        }
-                        Rectangle {
-                            anchors.bottom: parent.bottom
-                            anchors.horizontalCenter: parent.horizontalCenter
-                            width: stackTab.record.active ? Math.max(TabLayout.dockTab.indicatorMinimum, parent.width - TabLayout.dockTab.indicatorInset * 2) : 0
-                            height: TabLayout.dockTab.indicatorThickness
-                            radius: height / 2
-                            color: root.theme.action
-                            opacity: stackTab.record.active ? 1 : 0
-                        }
-                        RowLayout {
-                            anchors.fill: parent
-                            anchors.leftMargin: 10
-                            anchors.rightMargin: 4
-                            spacing: 6
-                            Controls.MaterialIcon {
-                                name: root.panelIcon(stackTab.record.kind)
-                                size: 14
-                                color: stackTab.record.active ? root.theme.action : root.theme.secondaryText
-                            }
-                            DockTitleLabel {
-                                id: tabLabel
-                                Layout.fillWidth: true
-                                theme: root.theme
-                                titleText: root.localizedPanelTitle(stackTab.record.kind, stackTab.record.kind === "description" ? root.descriptionTitle : stackTab.record.title)
-                                active: stackTab.record.active
-                            }
-                        }
-                        HoverHandler {
-                            id: tabHover
-                            cursorShape: Qt.PointingHandCursor
-                        }
-                        Controls.ActivationHandler {
-                            onActivated: dockModel.activate_stack_panel(stackTab.record.panelId)
-                        }
-                        DragHandler {
-                            id: tabDrag
-                            property int epoch: -1
-                            target: null
-                            acceptedButtons: Qt.LeftButton
-                            dragThreshold: TabLayout.dockTab.dragThreshold
-                            onTranslationChanged: {
-                                const centers = [];
-                                for (let itemIndex = 0; itemIndex < stackTabRepeater.count; ++itemIndex) {
-                                    const item = stackTabRepeater.itemAt(itemIndex);
-                                    centers.push(item.x + item.width / 2);
-                                }
-                                stackTab.targetIndex = DockLayout.tabTarget(centers, index, translation.x);
-                            }
-                            onActiveChanged: {
-                                root.tabDragging = active;
-                                if (active)
-                                    epoch = root.tabDragEpoch;
-                            }
-                            onGrabChanged: (transition, point) => {
-                                if (transition !== PointerDevice.UngrabExclusive || epoch !== root.tabDragEpoch)
-                                    return;
-                                const identity = stackTab.record.panelId;
-                                const destination = stackTab.targetIndex;
-                                const position = index;
-                                stackTab.targetIndex = position;
-                                if (Math.abs(translation.y) > titleBar.height) {
-                                    dockModel.float_panel_inside(identity);
-                                } else if (destination !== position) {
-                                    dockModel.reorder_stack_panel(identity, destination);
-                                }
-                            }
-                        }
-                    }
+                    delegate: StackTab {}
                 }
             }
         }

@@ -5,6 +5,7 @@ import QtQuick.Layouts
 import QtQuick.Window
 import "controls" as Controls
 import "tactic_frame/shell/main_toolbar.ui.mjs" as MainToolbar
+import "tactic_frame/shell/main.menus.mjs" as MainMenus
 
 ApplicationWindow {
     id: window
@@ -88,77 +89,18 @@ ApplicationWindow {
     property string projectTitle: appController.current_project_title
     readonly property bool workspaceAccessible: appController.server_state === "online" && appController.has_ticket && !appController.authentication_required
     readonly property bool serverConfigured: appController.server_url.indexOf("http://") === 0 || appController.server_url.indexOf("https://") === 0
-    function userActionsWithMessageBadge(actions, unreadCount) {
-        return actions.map(action => {
-            const copy = Object.assign({}, action);
-            if (copy.command === "show_messages")
-                copy.badgeCount = unreadCount;
-            return copy;
-        });
-    }
-    property var userMenuActions: window.userActionsWithMessageBadge(appController.menu_actions("user"), messagesController.unreadCount)
+    property var menuContext: ({
+            platform: "native",
+            canAdminister: true,
+            unread: messagesController.unreadCount,
+            updateMode: serverUpdateService.update_mode,
+            pollInterval: serverUpdateService.poll_interval
+        })
+    property var userMenuRecords: appController.menu_actions("user")
+    property var userMenuActions: MainMenus.compose(userMenuRecords, menuContext)
     property var configMenuActions: appController.menu_actions("configuration")
-    property var connectionMenuActions: [
-        {
-            "title": "Connection",
-            "header": true
-        },
-        {
-            "title": "Ping now",
-            "icon": "sync",
-            "command": "ping_now"
-        },
-        {
-            "separator": true
-        },
-        {
-            "title": "Server updates",
-            "header": true
-        },
-        {
-            "title": "Messages, reactions, activity, tasks and presence",
-            "status": serverUpdateService.update_mode === "sse" ? "Server push (SSE)" : "One batched server request",
-            "icon": "dynamic_feed",
-            "enabled": false
-        },
-        {
-            "title": "Periodic checks",
-            "icon": "schedule",
-            "command": "update_mode_poll",
-            "checked": serverUpdateService.update_mode === "poll"
-        },
-        {
-            "title": "Server push (SSE)",
-            "icon": "dynamic_feed",
-            "command": "update_mode_sse",
-            "checked": serverUpdateService.update_mode === "sse"
-        }
-    ].concat(serverUpdateService.update_mode === "poll" ? [
-        {
-            "title": "Every 5 seconds",
-            "icon": "schedule",
-            "command": "updates_5",
-            "checked": serverUpdateService.poll_interval === 5
-        },
-        {
-            "title": "Every 10 seconds",
-            "icon": "schedule",
-            "command": "updates_10",
-            "checked": serverUpdateService.poll_interval === 10
-        },
-        {
-            "title": "Every 30 seconds",
-            "icon": "schedule",
-            "command": "updates_30",
-            "checked": serverUpdateService.poll_interval === 30
-        },
-        {
-            "title": "Every 60 seconds",
-            "icon": "schedule",
-            "command": "updates_60",
-            "checked": serverUpdateService.poll_interval === 60
-        }
-    ] : [])
+    property var connectionMenuRecords: appController.menu_actions("connection")
+    property var connectionMenuActions: MainMenus.compose(connectionMenuRecords, menuContext)
     color: theme.workspace
 
     WindowSizing {
@@ -1043,6 +985,8 @@ ApplicationWindow {
     }
     ActionMenu {
         id: userMenu
+        onAboutToShow: window.userMenuRecords = appController.menu_actions("user")
+        frameComposition: true
         parent: Overlay.overlay
         theme: theme
         actions: window.userMenuActions
@@ -1050,13 +994,16 @@ ApplicationWindow {
     }
     ActionMenu {
         id: configMenu
+        frameComposition: true
         parent: Overlay.overlay
         theme: theme
-        actions: window.configMenuActions
+        actions: MainMenus.compose(window.configMenuActions, window.menuContext)
         onTriggered: command => appController.invoke(command)
     }
     ActionMenu {
         id: connectionMenu
+        onAboutToShow: window.connectionMenuRecords = appController.menu_actions("connection")
+        frameComposition: true
         parent: Overlay.overlay
         theme: theme
         preferredWidth: 330

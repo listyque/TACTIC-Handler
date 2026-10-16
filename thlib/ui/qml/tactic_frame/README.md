@@ -18,7 +18,14 @@ Neither product imports the other checkout at runtime.
 `shell` currently owns window geometry, main-toolbar positions and dock-header
 composition, shared docking zones and previews. The neutral navigation row is
 under `controls/lists`; document metrics are under `core/foundation`. Hosts retain
-native input, application commands, lifecycle and persistence. Dock trees and complete main-window menus are not migrated yet.
+native input, application commands, lifecycle and persistence. Dock projection,
+keyboard decisions and footer corners live in `shell/dock.*`. Main menus use the
+shipped `shell/main.menus.json` catalog, `shell/main.menus.mjs` predicates and
+`controls/menus/action.ui.mjs` rows. The JSON catalog is data, not a second UI
+language or a runtime link between repositories. Native `MenuRegistry` loads
+its own catalog and keeps procedural replacement/extension; popup ownership,
+command dispatch and server state remain with existing hosts. Project/session
+composition and the complete navigation container are still pending.
 
 Lists default to a four-pixel row gap; `rowGap` preserves a different existing
 spacing, such as Help's three pixels. `listRowHeight` is shared by both adapters,
@@ -94,7 +101,7 @@ Qt sequence wrappers are accepted without copying them into JavaScript arrays.
 
 Frame typography uses the named logical-pixel `foundation.textStyles` roles.
 Descriptions set `fontRole`; renderers consume the resolved `fontSize`. Existing
-Frame sizes are preserved: caption 11, secondary 12, body 13, bodyLarge 14,
+Frame sizes are preserved: menuHeading 10, caption 11, secondary 12, body 13, bodyLarge 14,
 section 15, title 16, heading 17, display 18 and hero 24. Qt supplies one complete
 QFont so a base control's point-size binding cannot compete with a pixel size.
 The older `foundation.typography` point API remains for unported house-control

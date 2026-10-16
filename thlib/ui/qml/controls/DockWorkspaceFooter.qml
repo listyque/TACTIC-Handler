@@ -1,5 +1,6 @@
 import QtQuick
 import QtQuick.Window
+import "../tactic_frame/shell/dock.surface.mjs" as Surface
 
 Rectangle {
     id: root
@@ -9,21 +10,25 @@ Rectangle {
     property bool roundTopRight: false
     // Native dialog frames own their exterior corners; rounding the content
     // a second time exposes a strip of the window background underneath.
-    readonly property bool nativeDialog: Window.window !== null
-        && (Window.window.flags & Qt.WindowType_Mask) === Qt.Dialog
+    readonly property bool nativeDialog: Window.window !== null && (Window.window.flags & Qt.WindowType_Mask) === Qt.Dialog
     property bool roundBottomLeft: !nativeDialog
     property bool roundBottomRight: !nativeDialog
     property bool topDividerVisible: true
-    readonly property real cornerRadius: Math.max(
-        0, theme.surfaceRadius - 1
-    )
+    readonly property real cornerRadius: frameSurface.radius
 
-    implicitHeight: theme.dockWorkspaceFooterHeight
+    readonly property var frameSurface: Surface.footer(theme.surfaceRadius, nativeDialog, {
+        topLeft: roundTopLeft,
+        topRight: roundTopRight,
+        bottomLeft: roundBottomLeft,
+        bottomRight: roundBottomRight,
+        divider: topDividerVisible
+    })
+    implicitHeight: frameSurface.height
     radius: cornerRadius
-    topLeftRadius: roundTopLeft ? cornerRadius : 0
-    topRightRadius: roundTopRight ? cornerRadius : 0
-    bottomLeftRadius: roundBottomLeft ? cornerRadius : 0
-    bottomRightRadius: roundBottomRight ? cornerRadius : 0
+    topLeftRadius: frameSurface.topLeft
+    topRightRadius: frameSurface.topRight
+    bottomLeftRadius: frameSurface.bottomLeft
+    bottomRightRadius: frameSurface.bottomRight
     color: theme.surfaceContainer
     antialiasing: true
 
@@ -33,7 +38,7 @@ Rectangle {
         anchors.left: parent.left
         anchors.right: parent.right
         anchors.top: parent.top
-        height: 1
+        height: root.frameSurface.divider
         color: root.theme.outlineVariant
         z: 100
     }

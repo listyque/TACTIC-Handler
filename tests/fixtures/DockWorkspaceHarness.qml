@@ -18,6 +18,17 @@ ApplicationWindow {
     }
     Item {
         id: workspace
+        function focusDockTab(identity) {
+            for (let index = 0; index < panels.count; index++) {
+                const item = panels.itemAt(index);
+                const panel = item ? item : null;
+                if (!panel)
+                    continue;
+                const center = panel.stackPanels.some(record => record.panelId === "results");
+                if (panel.focusTab(identity || (center ? panel.panelId : "")))
+                    return;
+            }
+        }
         anchors.fill: parent
         function beginDockDrag(id) {
         }
@@ -34,6 +45,7 @@ ApplicationWindow {
         function endDockResize() {
         }
         Repeater {
+            id: panels
             model: dockModel
             delegate: TH.DockPanel {
                 required property var model

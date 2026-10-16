@@ -6,6 +6,9 @@ menu at runtime without editing a QML component.
 
 from __future__ import annotations
 
+import json
+from pathlib import Path
+
 
 def action(title: str, icon: str, command: str) -> dict:
     return {"title": title, "icon": icon, "command": command}
@@ -18,40 +21,6 @@ TOOL_WINDOWS = {}
 
 
 DEFAULT_MENUS = {
-    "user": [
-        action("My Profile", "account_circle", "show_user_profile"),
-        action("Users", "users", "show_users"),
-        action("Messages", "comment", "show_messages"),
-        SEPARATOR,
-        action("Sign Out", "logout", "sign_out"),
-    ],
-    "configuration": [
-        action("Configuration", "settings", "open_configuration"),
-        action("Administration", "security", "show_administration"),
-        action("Save Preferences", "save", "save_preferences"),
-        action("Reload Cache", "refresh", "reload_cache"),
-        action("Current view to All Tabs", "layers", "apply_view_to_all_tabs"),
-        action(
-            "Reset workspace layout",
-            "restart-alt",
-            "reset_workspace_layout",
-        ),
-        SEPARATOR,
-        action("Script Editor", "code", "open_script_editor"),
-        action("Debug Log", "bug_report", "show_debug_log"),
-        action("UI responsiveness", "ui-performance", "show_ui_performance"),
-        action(
-            "Repository Sync Queue",
-            "repository-sync",
-            "show_repository_sync",
-        ),
-        action("Watch Folders", "folder_special", "show_watch_folders"),
-        action("TACTIC Handler Server", "hub", "show_handler_server"),
-        action("Help", "help", "show_help"),
-        action("Update", "download", "show_update"),
-        SEPARATOR,
-        action("Exit", "logout", "exit"),
-    ],
     "tools": [],
     "result_filters": [
         action("Advanced Search", "advanced-search", "advanced_search"),
@@ -131,9 +100,24 @@ DEFAULT_MENUS = {
 }
 
 
+# Each product ships its own catalog; runtime replacements still belong to this registry.
+_catalog = json.loads(
+    (Path(__file__).parent / "qml/tactic_frame/shell/main.menus.json").read_text(
+        encoding="utf-8"
+    )
+)
+for _name, _actions in _catalog.items():
+    DEFAULT_MENUS[_name] = [
+        dict(item) for item in _actions if item.get("platform", "native") == "native"
+    ]
+
+
 class MenuRegistry:
     def __init__(self) -> None:
-        self._menus = {name: [dict(item) for item in items] for name, items in DEFAULT_MENUS.items()}
+        self._menus = {
+            name: [dict(item) for item in items]
+            for name, items in DEFAULT_MENUS.items()
+        }
 
     def actions(self, menu_id: str) -> list[dict]:
         return [dict(item) for item in self._menus.get(menu_id, ())]

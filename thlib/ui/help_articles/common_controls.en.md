@@ -146,3 +146,18 @@ Use arrows in the Sidebar Editor tree to select rows and expand or collapse
 sections; Home and End select the first and last visible rows. Editing guards
 remain active. A responsive view decides whether its splitter is useful on a
 phone; narrow width alone does not disable a visible splitter.
+
+## Dock tabs and main menus
+
+With a dock tab focused, Left/Right select its neighbour; Home/End select the
+first/last visible tab. Enter or Space activates it. Delete closes a closable
+panel; Search stays open. Ctrl+Shift+Left/Right reorders visible tabs without
+removing hidden slots. Focus follows the surviving tab or panel header.
+
+User, settings and connection menus share row spacing, icons, badges and
+checks. Arrow keys move between available actions; Home/End reach the first
+and last action, Enter/Space activate, and Escape closes the menu and returns
+focus to its trigger. Connection offers periodic polling or server push; the
+interval choices appear in polling mode. Disabled rows cannot execute actions.
+Desktop-only commands stay with their client; browser API documentation opens
+in a separate browser tab. Menu availability does not grant server privileges.

@@ -1,5 +1,8 @@
+pragma ComponentBehavior: Bound
 import "tactic_frame/core/foundation.mjs" as Foundation
 import QtQuick
+import "tactic_frame/core" as Frame
+import "tactic_frame/controls/menus/action.ui.mjs" as MenuRow
 import QtQuick.Controls
 import QtQuick.Layouts
 import "controls" as Controls
@@ -12,49 +15,81 @@ Item {
     readonly property bool actionEnabled: modelData.enabled !== false
     readonly property bool hasAccent: !!modelData.accent
     readonly property color actionAccent: hasAccent ? modelData.accent : menu.theme.action
+    readonly property color avatarAccent: modelData.avatarColor || actionAccent
     readonly property alias primaryTarget: primaryActionTarget
     visible: modelData.visible !== false
     width: parent.width
     height: visible ? menu.actionHeight(modelData) : 0
+    TextMetrics {
+        id: badgeMetrics
+        text: Number(actionRow.modelData.badgeCount || 0) > 99 ? "99+" : String(Number(actionRow.modelData.badgeCount || 0))
+        font: Qt.font({
+            family: actionRow.menu.theme.fontFamily,
+            pixelSize: 11,
+            weight: Font.Bold
+        })
+    }
+    Frame.FrameBranch {
+        active: actionRow.menu.frameComposition
+        anchors.fill: parent
+        visible: actionRow.menu.frameComposition
+        interactive: false
+        theme: actionRow.menu.theme
+        scene: actionRow.menu.frameComposition ? MenuRow.row(Object.assign({}, actionRow.modelData, {
+            accent: actionRow.hasAccent ? String(actionRow.actionAccent) : undefined,
+            avatarColor: String(actionRow.avatarAccent),
+            title: actionRow.modelData.translate === false ? String(actionRow.modelData.title || "") : actionRow.menu.translate(actionRow.modelData.title || "", actionRow.modelData.titleArgs),
+            status: actionRow.modelData.statusTranslate === false ? actionRow.modelData.status : actionRow.menu.translate(actionRow.modelData.status || "")
+        }), actionRow.width, {
+            extent: actionRow.menu.theme.compactControlHeight,
+            badgeTextWidth: badgeMetrics.advanceWidth,
+            radius: actionRow.menu.theme.itemRadius,
+            hovered: actionRow.menu.hoveredAction === actionRow,
+            pressed: primaryActionTarget.pressed,
+            focused: !actionRow.menu.hoveredAction && primaryActionTarget.activeFocus
+        }) : ({
+                nodes: []
+            })
+    }
     Rectangle {
-        visible: !!modelData.separator
+        visible: !actionRow.menu.frameComposition && !!actionRow.modelData.separator
         anchors.verticalCenter: parent.verticalCenter
         width: parent.width
         height: 1
-        color: menu.theme.separator
+        color: actionRow.menu.theme.separator
     }
     Rectangle {
         objectName: "actionMenuRowSurface"
-        radius: menu.processPickerStyle ? 7 : menu.theme.itemRadius
-        visible: !modelData.separator && !modelData.header
+        radius: actionRow.menu.processPickerStyle ? 7 : actionRow.menu.theme.itemRadius
+        visible: !actionRow.menu.frameComposition && !actionRow.modelData.separator && !actionRow.modelData.header
         anchors.fill: parent
-        color: menu.processPickerStyle ? primaryActionTarget.pressed ? menu.theme.surfaceContainerHighest : primaryActionTarget.hovered ? menu.theme.surfaceContainerHigh : menu.theme.blend(menu.surfaceColor, menu.theme.primaryText, menu.theme.dark ? 0.05 : 0.08) : actionRow.hasAccent && !!modelData.checked ? actionRow.actionAccent : menu.theme.primaryText
-        opacity: menu.processPickerStyle ? 1 : actionRow.hasAccent && !!modelData.checked ? 0.14 : primaryActionTarget.pressed ? 0.12 : menu.hoveredAction === actionRow ? 0.08 : !menu.hoveredAction && primaryActionTarget.activeFocus ? 0.10 : 0
-        border.width: menu.processPickerStyle ? 1 : 0
-        border.color: menu.processPickerStyle ? menu.theme.blend(menu.surfaceColor, menu.theme.primaryText, menu.theme.dark ? 0.10 : 0.15) : menu.theme.outlineVariant
+        color: actionRow.menu.processPickerStyle ? primaryActionTarget.pressed ? actionRow.menu.theme.surfaceContainerHighest : primaryActionTarget.hovered ? actionRow.menu.theme.surfaceContainerHigh : actionRow.menu.theme.blend(actionRow.menu.surfaceColor, actionRow.menu.theme.primaryText, actionRow.menu.theme.dark ? 0.05 : 0.08) : actionRow.hasAccent && !!actionRow.modelData.checked ? actionRow.actionAccent : actionRow.menu.theme.primaryText
+        opacity: actionRow.menu.processPickerStyle ? 1 : actionRow.hasAccent && !!actionRow.modelData.checked ? 0.14 : primaryActionTarget.pressed ? 0.12 : actionRow.menu.hoveredAction === actionRow ? 0.08 : !actionRow.menu.hoveredAction && primaryActionTarget.activeFocus ? 0.10 : 0
+        border.width: actionRow.menu.processPickerStyle ? 1 : 0
+        border.color: actionRow.menu.processPickerStyle ? actionRow.menu.theme.blend(actionRow.menu.surfaceColor, actionRow.menu.theme.primaryText, actionRow.menu.theme.dark ? 0.10 : 0.15) : actionRow.menu.theme.outlineVariant
         Behavior on opacity {
             NumberAnimation {
-                duration: primaryActionTarget.pressed ? menu.theme.clickMotionFast : primaryActionTarget.hovered ? menu.theme.hoverMotionFast : menu.theme.hoverMotionMedium
+                duration: primaryActionTarget.pressed ? actionRow.menu.theme.clickMotionFast : primaryActionTarget.hovered ? actionRow.menu.theme.hoverMotionFast : actionRow.menu.theme.hoverMotionMedium
                 easing.type: Easing.OutCubic
             }
         }
     }
     RowLayout {
-        visible: !modelData.separator
+        visible: !actionRow.menu.frameComposition && !actionRow.modelData.separator
         anchors.fill: parent
         anchors.leftMargin: 10
         anchors.rightMargin: 8
         spacing: 9
         Rectangle {
             objectName: "actionMenuAccentMarker"
-            visible: !modelData.header && actionRow.hasAccent && !modelData.accentIcon
-            Layout.preferredWidth: menu.processPickerStyle ? 11 : modelData.compactAccent ? 12 : 24
+            visible: !actionRow.modelData.header && actionRow.hasAccent && !actionRow.modelData.accentIcon
+            Layout.preferredWidth: actionRow.menu.processPickerStyle ? 11 : actionRow.modelData.compactAccent ? 12 : 24
             Layout.preferredHeight: Layout.preferredWidth
             radius: width / 2
-            color: modelData.compactAccent ? "transparent" : Qt.rgba(actionRow.actionAccent.r, actionRow.actionAccent.g, actionRow.actionAccent.b, 0.16)
+            color: actionRow.modelData.compactAccent ? "transparent" : Qt.rgba(actionRow.actionAccent.r, actionRow.actionAccent.g, actionRow.actionAccent.b, 0.16)
             Rectangle {
                 anchors.centerIn: parent
-                width: menu.processPickerStyle ? 11 : modelData.compactAccent ? 8 : 10
+                width: actionRow.menu.processPickerStyle ? 11 : actionRow.modelData.compactAccent ? 8 : 10
                 height: width
                 radius: width / 2
                 color: actionRow.actionAccent
@@ -62,22 +97,22 @@ Item {
         }
         Controls.MaterialIcon {
             objectName: "actionMenuIcon"
-            visible: !modelData.header && !!modelData.icon && !modelData.avatarUrl && !modelData.initials
-            name: modelData.icon || "info"
-            size: menu.processPickerStyle ? 15 : 16
-            color: modelData.accentIcon && actionRow.hasAccent ? actionRow.actionAccent : menu.theme.secondaryText
-            forceSolid: !!modelData.accentIcon
+            visible: !actionRow.modelData.header && !!actionRow.modelData.icon && !actionRow.modelData.avatarUrl && !actionRow.modelData.initials
+            name: actionRow.modelData.icon || "info"
+            size: actionRow.menu.processPickerStyle ? 15 : 16
+            color: actionRow.modelData.accentIcon && actionRow.hasAccent ? actionRow.actionAccent : actionRow.menu.theme.secondaryText
+            forceSolid: !!actionRow.modelData.accentIcon
         }
         Controls.ItemPreview {
             objectName: "actionMenuAvatar"
-            visible: !modelData.header && (!!modelData.avatarUrl || !!modelData.initials)
-            Layout.preferredWidth: menu.processPickerStyle ? 22 : 26
+            visible: !actionRow.modelData.header && (!!actionRow.modelData.avatarUrl || !!actionRow.modelData.initials)
+            Layout.preferredWidth: actionRow.menu.processPickerStyle ? 22 : 26
             Layout.preferredHeight: Layout.preferredWidth
-            theme: menu.theme
-            source: modelData.avatarUrl || ""
+            theme: actionRow.menu.theme
+            source: actionRow.modelData.avatarUrl || ""
             fallbackIcon: "person"
-            fallbackText: modelData.initials || ""
-            accent: modelData.avatarColor || actionRow.actionAccent
+            fallbackText: actionRow.modelData.initials || ""
+            accent: actionRow.modelData.avatarColor || actionRow.actionAccent
             round: true
             outlined: true
             animateAppearance: false
@@ -89,58 +124,58 @@ Item {
             Label {
                 objectName: "actionMenuTitleLabel"
                 Layout.fillWidth: true
-                text: modelData.translate === false ? String(modelData.title || "") : menu.translate(modelData.title || "", modelData.titleArgs)
-                color: modelData.header || !actionRow.actionEnabled ? menu.processPickerStyle && modelData.header ? menu.theme.disabledText : menu.theme.secondaryText : actionRow.hasAccent && !!modelData.checked ? actionRow.actionAccent : menu.theme.primaryText
-                font.family: menu.theme.fontFamily
-                font.pixelSize: menu.processPickerStyle ? 11 : modelData.header ? 10 : 12
-                font.weight: modelData.header ? Font.DemiBold : Font.Normal
+                text: actionRow.modelData.translate === false ? String(actionRow.modelData.title || "") : actionRow.menu.translate(actionRow.modelData.title || "", actionRow.modelData.titleArgs)
+                color: actionRow.modelData.header || !actionRow.actionEnabled ? actionRow.menu.processPickerStyle && actionRow.modelData.header ? actionRow.menu.theme.disabledText : actionRow.menu.theme.secondaryText : actionRow.hasAccent && !!actionRow.modelData.checked ? actionRow.actionAccent : actionRow.menu.theme.primaryText
+                font.family: actionRow.menu.theme.fontFamily
+                font.pixelSize: actionRow.menu.processPickerStyle ? 11 : actionRow.modelData.header ? 10 : 12
+                font.weight: actionRow.modelData.header ? Font.DemiBold : Font.Normal
                 elide: Text.ElideRight
             }
             Label {
-                visible: !!modelData.status && !modelData.header
+                visible: !!actionRow.modelData.status && !actionRow.modelData.header
                 Layout.fillWidth: true
-                text: modelData.statusTranslate === false ? String(modelData.status || "") : menu.translate(modelData.status || "")
-                color: modelData.status === "Experimental" ? menu.theme.action : menu.theme.secondaryText
-                font.family: menu.theme.fontFamily
+                text: actionRow.modelData.statusTranslate === false ? String(actionRow.modelData.status || "") : actionRow.menu.translate(actionRow.modelData.status || "")
+                color: actionRow.modelData.status === "Experimental" ? actionRow.menu.theme.action : actionRow.menu.theme.secondaryText
+                font.family: actionRow.menu.theme.fontFamily
                 font.pixelSize: Foundation.textStyles.secondary
                 elide: Text.ElideRight
             }
         }
         Rectangle {
             objectName: "actionMenuBadge"
-            readonly property int countValue: Number(modelData.badgeCount || 0)
-            visible: modelData.badgeCount !== undefined && (countValue > 0 || !!modelData.showZeroBadge)
-            Layout.preferredWidth: Math.max(menu.processPickerStyle ? 20 : 18, menuBadgeLabel.implicitWidth + 8)
-            Layout.preferredHeight: menu.processPickerStyle ? 20 : 18
+            readonly property int countValue: Number(actionRow.modelData.badgeCount || 0)
+            visible: actionRow.modelData.badgeCount !== undefined && (countValue > 0 || !!actionRow.modelData.showZeroBadge)
+            Layout.preferredWidth: Math.max(actionRow.menu.processPickerStyle ? 20 : 18, menuBadgeLabel.implicitWidth + 8)
+            Layout.preferredHeight: actionRow.menu.processPickerStyle ? 20 : 18
             radius: height / 2
-            color: modelData.badgeUpdated === true ? menu.theme.error : menu.processPickerStyle ? menu.theme.blend(menu.theme.surfaceContainerHigh, menu.theme.primaryText, menu.theme.dark ? 0.12 : 0.06) : modelData.badgeUpdated === false ? menu.theme.secondaryText : menu.theme.error
+            color: actionRow.modelData.badgeUpdated === true ? actionRow.menu.theme.error : actionRow.menu.processPickerStyle ? actionRow.menu.theme.blend(actionRow.menu.theme.surfaceContainerHigh, actionRow.menu.theme.primaryText, actionRow.menu.theme.dark ? 0.12 : 0.06) : actionRow.modelData.badgeUpdated === false ? actionRow.menu.theme.secondaryText : actionRow.menu.theme.error
             Label {
                 id: menuBadgeLabel
                 anchors.centerIn: parent
                 text: parent.countValue > 99 ? "99+" : String(parent.countValue)
-                color: menu.processPickerStyle ? menu.theme.primaryText : menu.theme.selectedText
-                font.family: menu.theme.fontFamily
-                font.pixelSize: menu.processPickerStyle ? 10 : 11
+                color: actionRow.menu.processPickerStyle ? actionRow.menu.theme.primaryText : actionRow.menu.theme.selectedText
+                font.family: actionRow.menu.theme.fontFamily
+                font.pixelSize: actionRow.menu.processPickerStyle ? 10 : 11
                 font.weight: Font.Bold
             }
         }
         Controls.MaterialIcon {
-            visible: !!modelData.checked
+            visible: !!actionRow.modelData.checked
             name: "check_circle"
             size: 18
-            color: actionRow.hasAccent ? actionRow.actionAccent : menu.theme.action
+            color: actionRow.hasAccent ? actionRow.actionAccent : actionRow.menu.theme.action
         }
         Controls.MaterialIcon {
-            visible: !!modelData.children || !!modelData.submenuPopup
+            visible: !!actionRow.modelData.children || !!actionRow.modelData.submenuPopup
             name: "chevron-right"
             size: 16
-            color: menu.theme.secondaryText
+            color: actionRow.menu.theme.secondaryText
         }
         Controls.MaterialIcon {
-            visible: !!modelData.secondaryCommand
-            name: modelData.secondaryIcon || "update"
+            visible: !!actionRow.modelData.secondaryCommand
+            name: actionRow.modelData.secondaryIcon || "update"
             size: 15
-            color: secondaryActionTarget.hovered ? menu.theme.action : menu.theme.secondaryText
+            color: secondaryActionTarget.hovered ? actionRow.menu.theme.action : actionRow.menu.theme.secondaryText
         }
     }
     Controls.PopupAction {
@@ -150,29 +185,29 @@ Item {
         anchors.top: parent.top
         anchors.bottom: parent.bottom
         anchors.right: parent.right
-        anchors.rightMargin: modelData.secondaryCommand ? 30 : 0
-        enabled: !modelData.separator && !modelData.header && actionRow.actionEnabled
+        anchors.rightMargin: actionRow.modelData.secondaryCommand ? 30 : 0
+        enabled: !actionRow.modelData.separator && !actionRow.modelData.header && actionRow.actionEnabled
         hoverEnabled: true
         onHoveredChanged: {
             if (hovered)
-                menu.hoverAction(actionRow);
-            else if (menu.hoveredAction === actionRow)
-                menu.hoveredAction = null;
+                actionRow.menu.hoverAction(actionRow);
+            else if (actionRow.menu.hoveredAction === actionRow)
+                actionRow.menu.hoveredAction = null;
         }
         focusPolicy: Qt.StrongFocus
-        Keys.onRightPressed: menu.openSubmenu(actionRow)
+        Keys.onRightPressed: actionRow.menu.openSubmenu(actionRow)
         Keys.onLeftPressed: event => {
-            if (menu.parentMenu)
-                menu.close();
+            if (actionRow.menu.parentMenu)
+                actionRow.menu.close();
             else
                 event.accepted = false;
         }
-        Keys.onDownPressed: menu.focusRelativeAction(1)
-        Keys.onUpPressed: menu.focusRelativeAction(-1)
-        Accessible.name: modelData.translate === false ? String(modelData.title || "") : menu.translate(modelData.title || "", modelData.titleArgs)
+        Keys.onDownPressed: actionRow.menu.focusRelativeAction(1)
+        Keys.onUpPressed: actionRow.menu.focusRelativeAction(-1)
+        Accessible.name: actionRow.modelData.translate === false ? String(actionRow.modelData.title || "") : actionRow.menu.translate(actionRow.modelData.title || "", actionRow.modelData.titleArgs)
         onActiveFocusChanged: {
             if (activeFocus)
-                menu.revealAction(actionRow);
+                actionRow.menu.revealAction(actionRow);
         }
         background: null
         contentItem: null
@@ -181,12 +216,12 @@ Item {
                 actionRipple.burst(width / 2, height / 2);
         }
         onClicked: {
-            if (modelData.toggleAdvanced)
-                menu.toggleAdvanced();
-            else if (modelData.children || modelData.submenuPopup)
-                menu.openSubmenu(actionRow);
+            if (actionRow.modelData.toggleAdvanced)
+                actionRow.menu.toggleAdvanced();
+            else if (actionRow.modelData.children || actionRow.modelData.submenuPopup)
+                actionRow.menu.openSubmenu(actionRow);
             else
-                menu.dispatchAction(modelData.command, false, !!modelData.keepOpen);
+                actionRow.menu.dispatchAction(actionRow.modelData.command, false, !!actionRow.modelData.keepOpen);
         }
         HoverHandler {
             enabled: primaryActionTarget.enabled
@@ -195,15 +230,15 @@ Item {
     }
     Controls.MaterialRipple {
         id: actionRipple
-        theme: menu.theme
-        visible: !modelData.separator && !modelData.header
-        color: menu.theme.ripple
+        theme: actionRow.menu.theme
+        visible: !actionRow.modelData.separator && !actionRow.modelData.header
+        color: actionRow.menu.theme.ripple
         shapeRadius: 10
     }
     Controls.PopupAction {
         id: secondaryActionTarget
         objectName: "actionMenuSecondaryTarget"
-        visible: !modelData.separator && !modelData.header && !!modelData.secondaryCommand
+        visible: !actionRow.modelData.separator && !actionRow.modelData.header && !!actionRow.modelData.secondaryCommand
         anchors.top: parent.top
         anchors.bottom: parent.bottom
         anchors.right: parent.right
@@ -211,20 +246,20 @@ Item {
         enabled: visible && actionRow.actionEnabled
         hoverEnabled: true
         focusPolicy: Qt.StrongFocus
-        Accessible.name: modelData.secondaryToolTip ? menu.translate(modelData.secondaryToolTip) : menu.translate("Sync updates only")
+        Accessible.name: actionRow.modelData.secondaryToolTip ? actionRow.menu.translate(actionRow.modelData.secondaryToolTip) : actionRow.menu.translate("Sync updates only")
         background: null
         contentItem: null
         onClicked: {
-            menu.dispatchAction(modelData.secondaryCommand, true, !!modelData.secondaryKeepOpen);
+            actionRow.menu.dispatchAction(actionRow.modelData.secondaryCommand, true, !!actionRow.modelData.secondaryKeepOpen);
         }
         HoverHandler {
             enabled: secondaryActionTarget.enabled
             cursorShape: Qt.PointingHandCursor
         }
         Controls.ToolTip {
-            theme: menu.theme
-            visible: secondaryActionTarget.hovered && !menu.theme.suppressToolTips
-            text: modelData.secondaryToolTip ? menu.translate(modelData.secondaryToolTip) : menu.translate("Sync updates only")
+            theme: actionRow.menu.theme
+            visible: secondaryActionTarget.hovered && !actionRow.menu.theme.suppressToolTips
+            text: actionRow.modelData.secondaryToolTip ? actionRow.menu.translate(actionRow.modelData.secondaryToolTip) : actionRow.menu.translate("Sync updates only")
             delay: 400
         }
     }

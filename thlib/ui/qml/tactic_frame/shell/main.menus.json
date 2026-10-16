@@ -1,0 +1,237 @@
+{
+  "user": [
+    {
+      "title": "My Profile",
+      "icon": "account_circle",
+      "command": "show_user_profile"
+    },
+    {
+      "title": "Users",
+      "icon": "users",
+      "command": "show_users"
+    },
+    {
+      "title": "Messages",
+      "icon": "comment",
+      "command": "show_messages"
+    },
+    {
+      "separator": true
+    },
+    {
+      "title": "Sign Out",
+      "icon": "logout",
+      "command": "sign_out"
+    }
+  ],
+  "configuration": [
+    {
+      "title": "Configuration",
+      "icon": "settings",
+      "command": "open_configuration"
+    },
+    {
+      "title": "Administration",
+      "icon": "security",
+      "command": "show_administration",
+      "admin": true,
+      "desktop": true
+    },
+    {
+      "title": "Save Preferences",
+      "icon": "save",
+      "command": "save_preferences",
+      "desktop": true
+    },
+    {
+      "title": "Reload Cache",
+      "icon": "refresh",
+      "command": "reload_cache"
+    },
+    {
+      "title": "Current view to All Tabs",
+      "icon": "layers",
+      "command": "apply_view_to_all_tabs",
+      "desktop": true
+    },
+    {
+      "title": "Reset workspace layout",
+      "icon": "restart-alt",
+      "command": "reset_workspace_layout",
+      "desktop": true
+    },
+    {
+      "separator": true
+    },
+    {
+      "title": "Script Editor",
+      "icon": "code",
+      "command": "open_script_editor",
+      "desktop": true
+    },
+    {
+      "title": "Debug Log",
+      "icon": "bug_report",
+      "command": "show_debug_log",
+      "desktop": true
+    },
+    {
+      "title": "UI responsiveness",
+      "icon": "ui-performance",
+      "command": "show_ui_performance",
+      "desktop": true
+    },
+    {
+      "title": "Repository Sync Queue",
+      "icon": "repository-sync",
+      "command": "show_repository_sync",
+      "platform": "native"
+    },
+    {
+      "title": "Watch Folders",
+      "icon": "folder_special",
+      "command": "show_watch_folders",
+      "platform": "native"
+    },
+    {
+      "title": "TACTIC Handler Server",
+      "icon": "hub",
+      "command": "show_handler_server",
+      "platform": "native",
+      "admin": true
+    },
+    {
+      "title": "Script Shelf",
+      "icon": "code",
+      "command": "open_script_shelf",
+      "platform": "stream",
+      "desktop": true
+    },
+    {
+      "title": "Commit Queue",
+      "icon": "queue",
+      "command": "show_commit_queue",
+      "platform": "stream"
+    },
+    {
+      "title": "Weekly timesheet",
+      "icon": "clock",
+      "command": "show_work_hours",
+      "platform": "stream",
+      "admin": true
+    },
+    {
+      "title": "Task Manager",
+      "icon": "tasks",
+      "command": "show_tasks",
+      "platform": "stream",
+      "admin": true
+    },
+    {
+      "title": "Create project",
+      "icon": "add",
+      "command": "create_project",
+      "platform": "stream",
+      "admin": true,
+      "desktop": true
+    },
+    {
+      "title": "Help",
+      "icon": "help",
+      "command": "show_help"
+    },
+    {
+      "title": "Update",
+      "icon": "download",
+      "command": "show_update",
+      "platform": "native"
+    },
+    {
+      "separator": true
+    },
+    {
+      "title": "Exit",
+      "icon": "logout",
+      "command": "exit",
+      "platform": "native"
+    },
+    {
+      "separator": true
+    },
+    {
+      "title": "Mobile guide",
+      "icon": "help",
+      "command": "mobile_help",
+      "platform": "stream",
+      "phone": true
+    },
+    {
+      "title": "API documentation \u2197",
+      "icon": "book-open",
+      "command": "api_docs",
+      "href": "/docs",
+      "platform": "stream",
+      "desktop": true
+    }
+  ],
+  "connection": [
+    {
+      "title": "Connection",
+      "header": true
+    },
+    {
+      "title": "Ping now",
+      "icon": "sync",
+      "command": "ping_now"
+    },
+    {
+      "separator": true
+    },
+    {
+      "title": "Server updates",
+      "header": true
+    },
+    {
+      "title": "Messages, reactions, activity, tasks and presence",
+      "icon": "dynamic-feed",
+      "command": "update_summary",
+      "enabled": false
+    },
+    {
+      "title": "Chat updates require an initialized messages schema.",
+      "command": "schema_notice",
+      "enabled": false,
+      "platform": "stream"
+    },
+    {
+      "title": "Periodic checks",
+      "icon": "schedule",
+      "command": "update_mode_poll"
+    },
+    {
+      "title": "Server push (SSE)",
+      "icon": "dynamic-feed",
+      "command": "update_mode_sse"
+    },
+    {
+      "title": "Every 5 seconds",
+      "icon": "schedule",
+      "command": "updates_5"
+    },
+    {
+      "title": "Every 10 seconds",
+      "icon": "schedule",
+      "command": "updates_10"
+    },
+    {
+      "title": "Every 30 seconds",
+      "icon": "schedule",
+      "command": "updates_30"
+    },
+    {
+      "title": "Every 60 seconds",
+      "icon": "schedule",
+      "command": "updates_60"
+    }
+  ]
+}

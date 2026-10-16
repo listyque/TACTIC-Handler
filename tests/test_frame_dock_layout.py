@@ -79,6 +79,45 @@ class FrameDockLayoutTests(unittest.TestCase):
         self.assertTrue(self.model.apply_layout(configuration))
         frame(self.window)
 
+    def test_keyboard_activation_reorder_close_keeps_visible_focus(self):
+        self.tabs()
+        self.item("dockTab_notes_notes").forceActiveFocus()
+        QTest.keyClick(self.window, Qt.Key_End)
+        frame(self.window)
+        self.assertEqual(
+            self.window.activeFocusItem().objectName(), "dockTab_snapshot_snapshot"
+        )
+        QTest.keyClick(self.window, Qt.Key_Left, Qt.ControlModifier | Qt.ShiftModifier)
+        frame(self.window)
+        self.assertEqual(
+            self.window.activeFocusItem().objectName(), "dockTab_snapshot_snapshot"
+        )
+        self.assertEqual(
+            stack_for_panel(self.model._layout_root, "snapshot").panel_ids,
+            ("results", "snapshot", "description", "notes"),
+        )
+        QTest.keyClick(self.window, Qt.Key_Delete)
+        frame(self.window)
+        self.assertEqual(
+            self.window.activeFocusItem().objectName(), "dockTab_notes_notes"
+        )
+        QTest.keyClick(self.window, Qt.Key_Home)
+        frame(self.window)
+        self.assertEqual(
+            self.window.activeFocusItem().objectName(), "dockTab_results_results"
+        )
+        before = self.model.capture_layout()
+        QTest.keyClick(self.window, Qt.Key_Delete)
+        frame(self.window)
+        self.assertEqual(self.model.capture_layout(), before)
+        QTest.keyClick(self.window, Qt.Key_End)
+        frame(self.window)
+        QTest.keyClick(self.window, Qt.Key_Delete)
+        frame(self.window)
+        self.assertEqual(
+            self.window.activeFocusItem().objectName(), "dockPanel_results"
+        )
+
     def drag_tab(self):
         source = self.item("dockTab_notes_snapshot")
         target = self.item("dockTab_notes_results")
