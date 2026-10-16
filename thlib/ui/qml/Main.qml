@@ -971,6 +971,7 @@ ApplicationWindow {
     ProjectChooser {
         id: projectChooser
         model: projectModel
+        selectedCode: appController.current_project_code
         theme: theme
         onProjectSelected: code => appController.select_project(code)
     }

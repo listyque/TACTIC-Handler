@@ -11,6 +11,7 @@
     "controls/lists/tree.ui.mjs": "4870ac2429dfd65ab060904ee78df074982c77e745a03e60d5a147e80c72c2b8",
     "controls/menus/action.ui.mjs": "6ebc0d404f2ec64ec8e9452e098cebd716496fa59246790865dc7d00d45e4854",
     "controls/tabs/tab_layout.mjs": "9e84706b1493eb390e4a5455ef44eb5cf1badb1976db29b43b3eee0983ce70f2",
+    "controls/tabs/workspace.ui.mjs": "6e0118011686e3bc92e637fbec3b8a7c70b45574aa56c419cf17e8dd1be5fa41",
     "core/foundation.mjs": "e2829359f12695471cb0cba6e7dc2a7d608725b63dc2b91688e51cd5d69f661b",
     "core/frame.mjs": "d41d2c5c5670d357ea0b9565499222daa9e20161d2c5a8b76fdde15270bba650",
     "core/icons.mjs": "9bce31c6bec5a55c171bb34dd5d576561f4df58bf0f944719a141c190310271d",
@@ -61,6 +62,7 @@
     "shell/main.menus.mjs": "fc2ed99935bf0afe187b1c8f5cdd33b47da73bc89ef8c6ddb84ed8e2f1d68b1c",
     "shell/main_toolbar.ui.mjs": "7de67b65ef5bdcaf18aa94b1582c8b2e62b357ca87711afdd5e09b67b8d8eb48",
     "shell/navigation.ui.mjs": "9de9a9f68977b8f1e9efc77295f03e9edaa14f80c6dc3264b57f8cb80f59d359",
+    "shell/projects.ui.mjs": "53689eef944b5374d74109b161008313a9e391f68066d1ca6a176e65971849af",
     "shell/window.geometry.mjs": "8469a62e2a3ab57ded751f8d9a01485501bddc9d0a6c2329bc68e56684665562",
     "shell/window.sizing.mjs": "92db49cbd1993ee177cd16bdac4c616269d3904dd7f5c169c559e11eeb4d5c36"
   }

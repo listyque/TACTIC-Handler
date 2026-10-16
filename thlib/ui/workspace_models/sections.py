@@ -63,6 +63,13 @@ class SectionTabModel(QAbstractListModel):
             self.GlyphRole: item.glyph,
         }.get(role)
 
+    @Slot(result="QVariantList")
+    def keyboard_rows(self) -> list[dict]:
+        return [
+            {"id": item.entry_key, "current": item.current, "closable": True}
+            for item in self._items
+        ]
+
     def replace(self, items: list[SectionTab]) -> None:
         items = list(items)
         same_rows = (

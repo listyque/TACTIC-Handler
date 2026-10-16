@@ -26,8 +26,13 @@ language or a runtime link between repositories. Native `MenuRegistry` loads
 its own catalog and keeps procedural replacement/extension; popup ownership,
 command dispatch and server state remain with existing hosts. The complete drawer container uses `shell/navigation.ui.mjs`: header/list geometry,
 keyboard decisions (including off-screen rows) and armed hover dismissal. Hosts
-keep scroll and real input; project/session and section/search-tab composition
-remain pending.
+keep scroll and real input. `shell/projects.ui.mjs` now supplies project popup,
+header, category grid and expanded-card composition; the project catalog remains
+its existing owner. `controls/tabs/workspace.ui.mjs` supplies search-tab paint,
+rail metrics and keyboard decisions. Tab nodes opt into property-specific motion
+using existing theme timing tokens; hosts retain animation preferences, focus,
+real input, drag and persisted state. Full section-rail paint/gestures and overall
+session closure remain pending.
 
 Lists default to a four-pixel row gap; `rowGap` preserves a different existing
 spacing, such as Help's three pixels. `listRowHeight` is shared by both adapters,

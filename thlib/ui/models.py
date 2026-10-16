@@ -606,7 +606,7 @@ class ProjectModel(QAbstractListModel):
         grouped: dict[str, list[dict]] = {}
         for project in self._entries:
             values = self.details(project)
-            category = values["category"] or "No Category"
+            category = values["category"]
             grouped.setdefault(category, []).append(values)
         return [
             {"title": title, "projects": projects}

@@ -359,3 +359,7 @@ Handler refresh receives the current result page and the selected object’s tas
 ## Navigation input
 
 Opening navigation keeps its scroll position and focuses the panel. Arrow keys enter the available rows. Use Up/Down, Home/End to move, Right/Left to expand/collapse a section or enter/leave it, and Enter/Space to open a view. Hidden/unavailable items and separators are skipped. Escape, the close button or the shaded workspace closes the panel and returns focus to the opener. Mouse auto-close is armed only after entering the panel; moving more than 120 pixels beyond its right edge then closes it. Touch does not trigger hover dismissal.
+
+## Tab keyboard controls
+
+On a search tab, Left/Right and Home/End select another tab. Delete closes a closable tab; Ctrl+Shift+Left/Right changes its position. Focus follows the selected surviving tab after closing or reordering. On the vertical section rail, Up/Down and Home/End move focus; Enter/Space activates the focused section. Delete closes a closable section and Ctrl+Shift+Up/Down reorders it. Existing tab history, context menus, loaded results and saved workspace state keep their existing behavior.

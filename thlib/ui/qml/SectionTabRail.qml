@@ -3,6 +3,7 @@ import QtQuick.Controls
 import Qt5Compat.GraphicalEffects
 import "controls" as Controls
 import "tactic_frame/controls/tabs/tab_layout.mjs" as TabLayout
+import "tactic_frame/controls/tabs/workspace.ui.mjs" as Workspace
 
 Item {
     id: root
@@ -14,11 +15,12 @@ Item {
 
     property bool hoverLatched: false
     property int revealedIndex: -1
+    property int focusedIndex: -1
     readonly property bool expanded: hoverLatched || rail.dragSourceIndex >= 0
-    readonly property real reservedWidth: 48
+    readonly property real reservedWidth: Workspace.dimensions.railWidth
 
     function updateHoverState() {
-        const active = panelHover.hovered || rail.hoveredIndex >= 0 || rail.dragSourceIndex >= 0;
+        const active = root.focusedIndex >= 0 || panelHover.hovered || rail.hoveredIndex >= 0 || rail.dragSourceIndex >= 0;
         if (active) {
             collapseTimer.stop();
             hoverLatched = true;
@@ -29,10 +31,10 @@ Item {
 
     Timer {
         id: collapseTimer
-        interval: 350
+        interval: Workspace.dimensions.revealDelay
         repeat: false
         onTriggered: {
-            if (panelHover.hovered || rail.hoveredIndex >= 0 || rail.dragSourceIndex >= 0)
+            if (root.focusedIndex >= 0 || panelHover.hovered || rail.hoveredIndex >= 0 || rail.dragSourceIndex >= 0)
                 return;
             root.hoverLatched = false;
             root.revealedIndex = -1;
@@ -94,13 +96,46 @@ Item {
             interactive: false
             anchors.topMargin: 7
             anchors.bottomMargin: 7
-            spacing: 3
+            spacing: Workspace.dimensions.rowSpacing
             clip: false
             model: root.model
 
-            delegate: Item {
+            delegate: Controls.WorkspaceTabInput {
                 id: tab
                 objectName: "sectionTabDelegate"
+                identity: entryKey
+                label: title
+                selected: current
+                vertical: true
+                recordsProvider: () => root.model.keyboard_rows()
+                onActiveFocusChanged: {
+                    if (activeFocus) {
+                        root.focusedIndex = index;
+                        root.revealedIndex = index;
+                    } else if (root.focusedIndex === index)
+                        root.focusedIndex = -1;
+                    root.updateHoverState();
+                }
+                Keys.onSpacePressed: root.selected(entryKey)
+                Keys.onReturnPressed: root.selected(entryKey)
+                onCommand: action => {
+                    const owner = root, view = rail, id = action.id || tab.entryKey;
+                    if (action.type === "close")
+                        owner.closed(id);
+                    else if (action.type === "reorder")
+                        owner.reordered(action.source, action.target);
+                    Qt.callLater(() => {
+                        const rows = owner.model.keyboard_rows();
+                        let target = rows.findIndex(row => row.id === id);
+                        if (target < 0)
+                            target = Math.max(0, rows.findIndex(row => row.current));
+                        view.positionViewAtIndex(target, ListView.Contain);
+                        view.forceLayout();
+                        const item = view.itemAtIndex(target);
+                        if (item)
+                            item.forceActiveFocus();
+                    });
+                }
                 required property int index
                 required property string entryKey
                 required property string title
@@ -108,9 +143,9 @@ Item {
                 required property bool current
                 required property string glyph
                 property int dragTargetIndex: index
-                property bool hovered: tabHover.hovered || tabMouse.containsMouse || closeButton.pointerHovered
+                property bool hovered: tabHover.hovered || tabMouse.containsMouse || closeButton.pointerHovered || closeButton.activeFocus
                 property bool revealed: index === root.revealedIndex && (root.hoverLatched || hovered || tabDrag.active)
-                property real expandedWidth: Math.min(320, Math.max(260, titleLabel.implicitWidth + 112))
+                property real expandedWidth: Workspace.sectionWidth(titleLabel.implicitWidth)
                 onHoveredChanged: {
                     if (hovered) {
                         rail.hoveredIndex = index;
@@ -128,7 +163,7 @@ Item {
                 property real displacedY: TabLayout.displacedTabOffset(index, rail.dragSourceIndex, rail.dragTargetIndex, height + rail.spacing)
 
                 width: revealed ? expandedWidth : root.reservedWidth
-                height: 42
+                height: Workspace.dimensions.rowHeight
                 z: tabDrag.active ? 10 : revealed ? 5 : 1
                 Behavior on width {
                     NumberAnimation {
@@ -272,6 +307,7 @@ Item {
                     acceptedButtons: Qt.LeftButton | Qt.MiddleButton
                     cursorShape: Qt.PointingHandCursor
                     onClicked: function (mouse) {
+                        tab.forceActiveFocus(Qt.MouseFocusReason);
                         if (mouse.button === Qt.MiddleButton)
                             root.closed(tab.entryKey);
                         else

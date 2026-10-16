@@ -1148,10 +1148,18 @@ Item {
     }
 }''', QUrl.fromLocalFile(str(QML / "SearchTabMotionHarness.qml")))
         window, view = self._show(component, {"theme": self.theme})
-        indicator = view.findChild(
-            QQuickItem, "workspaceTabSelectionIndicator"
-        )
-        label = view.findChild(QQuickItem, "workspaceTabSelectionLabel")
+        def find_visual(parent, name):
+            if parent.objectName() == name:
+                return parent
+            for child in parent.childItems():
+                found = find_visual(child, name)
+                if found is not None:
+                    return found
+            return None
+
+        # Recycled Frame delegates belong to the visual tree, not QObject children.
+        indicator = find_visual(view, "workspaceTabSelectionIndicator")
+        label = find_visual(view, "workspaceTabSelectionLabel")
         self.assertIsNotNone(indicator, self.warnings)
         self.assertIsNotNone(label, self.warnings)
 

@@ -15,6 +15,7 @@ CheckBox 1.0 CheckBox.qml
 Switch 1.0 Switch.qml
 TabButton 1.0 TabButton.qml
 WorkspaceTabVisual 1.0 WorkspaceTabVisual.qml
+WorkspaceTabInput 1.0 WorkspaceTabInput.qml
 SegmentedButton 1.0 SegmentedButton.qml
 DateField 1.0 DateField.qml
 Dialog 1.0 Dialog.qml

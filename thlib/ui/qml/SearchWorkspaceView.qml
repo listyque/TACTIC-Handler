@@ -518,9 +518,16 @@ Item {
                 cacheBuffer: 10000
                 model: workspaceTabsModel
 
-                delegate: Item {
+                delegate: WorkspaceSearchTabInput {
                     id: searchTab
                     objectName: "searchTabDelegate_" + entryKey
+                    identity: entryKey
+                    label: title
+                    selected: current
+                    owner: workspaceState
+                    tabsModel: workspaceTabsModel
+                    tabHost: searchTabsView
+                    rowIndex: index
                     required property int index
                     required property string entryKey
                     required property string title
@@ -636,6 +643,7 @@ Item {
                         cursorShape: Qt.PointingHandCursor
                         onPressed: mouse => tabVisual.burst(mouse.x, mouse.y)
                         onClicked: mouse => {
+                            searchTab.forceActiveFocus(Qt.MouseFocusReason);
                             if (mouse.button === Qt.MiddleButton) {
                                 if (searchTab.closable)
                                     workspaceState.close_tab(searchTab.index);

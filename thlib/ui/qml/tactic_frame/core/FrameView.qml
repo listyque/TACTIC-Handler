@@ -163,6 +163,23 @@ Item {
             readonly property var node: definition
             readonly property var frameRecordKey: node.recordKey
             readonly property var control: loader.item
+            function duration(property): int {
+                return node.motion && node.motion[property] && !root.effectiveTheme.suppressTransientMotion ? root.effectiveTheme[node.motion[property]] : 0;
+            }
+            Behavior on x {
+                enabled: wrapper.duration('x') > 0
+                NumberAnimation {
+                    duration: wrapper.duration('x')
+                    easing.type: Easing.OutCubic
+                }
+            }
+            Behavior on width {
+                enabled: wrapper.duration('width') > 0
+                NumberAnimation {
+                    duration: wrapper.duration('width')
+                    easing.type: Easing.OutCubic
+                }
+            }
             x: node.x
             y: node.y
             width: node.width
@@ -212,6 +229,13 @@ Item {
                 id: loader
                 anchors.fill: parent
                 opacity: wrapper.node.opacity
+                Behavior on opacity {
+                    enabled: wrapper.duration('opacity') > 0
+                    NumberAnimation {
+                        duration: wrapper.duration('opacity')
+                        easing.type: Easing.OutCubic
+                    }
+                }
                 function brick(kind) {
                     switch (kind) {
                     case "Box":
@@ -306,11 +330,18 @@ Item {
                         text: wrapper.node.text
                         textFormat: Text.PlainText
                         color: root.color(wrapper.node.color)
+                        Behavior on color {
+                            enabled: wrapper.duration('color') > 0
+                            ColorAnimation {
+                                duration: wrapper.duration('color')
+                            }
+                        }
                         font: root.controlFont(wrapper.node)
                         verticalAlignment: Text.AlignVCenter
                         horizontalAlignment: wrapper.node.align === "center" ? Text.AlignHCenter : Text.AlignLeft
                         wrapMode: wrapper.node.wrap ? Text.WordWrap : Text.NoWrap
-                        elide: wrapper.node.wrap ? Text.ElideNone : Text.ElideRight
+                        maximumLineCount: wrapper.node.maxLines || 2147483647
+                        elide: wrapper.node.elide === false ? Text.ElideNone : wrapper.node.maxLines ? Text.ElideRight : wrapper.node.wrap ? Text.ElideNone : Text.ElideRight
                     }
                 }
                 Component {
@@ -584,6 +615,7 @@ Item {
                         fallbackIcon: wrapper.node.icon || "person"
                         accent: root.color(wrapper.node.accent || "action")
                         round: wrapper.node.round !== false
+                        cornerRadius: wrapper.node.radius === undefined ? (round ? width / 2 : 4) : wrapper.node.radius
                         outlined: wrapper.node.outlined !== false
                         animateAppearance: false
                         previewSize: wrapper.node.width

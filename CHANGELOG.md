@@ -3,6 +3,12 @@
 Each completed change receives a new version and a dated entry below.
 Versions use `major.minor.build.revision`; routine updates increment `revision`.
 
+## 0.6.0.103 - 2026-10-16
+
+- Share project chooser header, category grid and expanded cards with Stream using Frame; preserve native discovery/ACLs, filters, previews and project/session ownership. Reserve scrollbar space, highlight the active project and translate missing categories without translating server data.
+- Share search-tab paint, selection motion and keyboard decisions. Preserve house-control input and the existing workspace activation/close/reorder owner; retain focus after delegate changes. Share section-rail dimensions and manual-activation keyboard rules while leaving its full paint/gesture migration explicitly pending.
+- Add native/browser input and archived/native/browser project/card/tab comparisons, phone and inline chooser checks, EN/RU help and required platform verification at three scales. Ship independent copies; no embedded browser or additional runtime dependency.
+
 ## 0.6.0.102 - 2026-10-16
 
 - Compose the navigation drawer from the shared Frame module: measured original header/list geometry, native house buttons/scrolling, keyboard decisions and hover-exit threshold. Keep the independent shipped copy, script sidebar definitions, controller state and saved formats.

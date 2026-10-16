@@ -67,3 +67,9 @@ triggers. Handler remains responsible for file synchronization and TACTIC check-
 - Open **Debug Log**, select the startup or connection group and copy the session path.
 - Verify server address, VPN/proxy, active ticket and repository configuration separately.
 - For Maya, inspect `maya.status()` and Maya's Script Editor output.
+
+## Project cards and keyboard
+
+The project selector groups available projects by category. Active projects are shown by default; Retired, Templates and Built-in reveal their respective groups. Each card shows a preview, lifecycle, description, category and type; the current project is outlined. A missing category is translated, but server project/category names remain unchanged.
+
+Focus a card and use the arrows or Home/End to move through visible projects; Enter/Space opens it. Escape closes the selector. Lists scroll independently with a reserved scrollbar gutter. Stream rearranges the same cards into two or one columns on a narrow screen.

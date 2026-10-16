@@ -94,15 +94,18 @@ class SectionTabRailQmlTests(unittest.TestCase):
                 {icon.property("name") for icon in icons},
                 {"assets", "movie"},
             )
+            observed_widths = []
+            tabs[1].widthChanged.connect(lambda: observed_widths.append(tabs[1].width()))
             QTest.mouseMove(window, QPoint(5, 70))
             QTest.qWait(60)
 
             self.assertGreater(tabs[1].property("width"), 48.0)
-            self.assertLess(tabs[1].property("width"), 260.0)
             self.assertEqual(panel.property("width"), 48.0)
             self.assertEqual(panel.property("x"), 0.0)
 
             QTest.qWait(240)
+            # Observe real frames; the current motion token may finish before 60 ms.
+            self.assertTrue(any(48 < value < 260 for value in observed_widths))
 
             self.assertEqual(panel.property("width"), 48.0)
             self.assertEqual(panel.property("x"), 0.0)

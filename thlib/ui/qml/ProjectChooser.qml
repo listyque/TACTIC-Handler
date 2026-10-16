@@ -1,7 +1,11 @@
+pragma ComponentBehavior: Bound
+
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
 import "controls" as Controls
+import "tactic_frame" as Frame
+import "tactic_frame/shell/projects.ui.mjs" as Projects
 
 // QML counterpart of Ui_projectsChooserWidget + Ui_projectItemWidget:
 // categorized, three-column project cards with Ui_projectLinkWidget previews.
@@ -11,11 +15,23 @@ Controls.Popup {
     objectName: "projectChooser"
     surfaceRadius: theme.dialogRadius
     property double lastClosedAt: 0
+    property string selectedCode: ""
+    readonly property var popupSize: Projects.popup(parent.width, parent.height)
+    readonly property var heading: Projects.header(width, model.visibleCount, model.totalCount, (text, values) => {
+        if (text === "{visible} of {total} projects shown")
+            return qsTr("%1 of %2 projects shown").arg(values.visible).arg(values.total);
+        return qsTranslate("ProjectChooser", text);
+    })
+    readonly property var headerChrome: ({
+            width: width,
+            height: heading.height,
+            nodes: heading.nodes.filter(item => item.kind !== "View")
+        })
     signal projectSelected(string code)
 
     parent: Overlay.overlay
-    width: Math.max(520, Math.min(800, parent.width - 40))
-    height: Math.max(400, Math.min(680, parent.height - 72))
+    width: popupSize.width
+    height: popupSize.height
     modal: false
     dim: true
     focus: true
@@ -23,28 +39,46 @@ Controls.Popup {
     settledClosePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
     onClosed: lastClosedAt = Date.now()
 
+    function moveProject(code, key) {
+        const groups = Array.from(root.model.groups);
+        const target = Projects.keyTarget(groups.reduce((codes, group) => codes.concat(Array.from(group.projects).map(project => project.code)), []), code, key, 3);
+        if (!target)
+            return false;
+        const index = groups.findIndex(group => group.projects.some(project => project.code === target));
+        categories.positionViewAtIndex(index, ListView.Contain);
+        categories.forceLayout();
+        const group = categories.itemAtIndex(index) as ProjectCategory;
+        if (group)
+            group.focusProject(target);
+        return true;
+    }
+
     function toggle(sourceItem) {
-        root.protectOpeningFrom(sourceItem)
+        root.protectOpeningFrom(sourceItem);
         if (root.openingInputGuardActive) {
-            root.sourceWasOpen = false
-            return
+            root.sourceWasOpen = false;
+            return;
         }
         if (root.sourceWasOpen || root.opened) {
-            root.close()
+            root.close();
         } else {
-            root.openCenteredIn(root.parent)
+            root.openCenteredIn(root.parent);
         }
-        root.sourceWasOpen = false
+        root.sourceWasOpen = false;
     }
 
     enter: Transition {
         enabled: root.animationsEnabled
         NumberAnimation {
-            property: "opacity"; from: 0; to: 1
+            property: "opacity"
+            from: 0
+            to: 1
             duration: root.theme.popupMotionMedium
         }
         NumberAnimation {
-            property: "scale"; from: 0.97; to: 1
+            property: "scale"
+            from: 0.97
+            to: 1
             duration: root.theme.popupMotionSlow
             easing.type: Easing.OutCubic
         }
@@ -52,11 +86,15 @@ Controls.Popup {
     exit: Transition {
         enabled: root.animationsEnabled
         NumberAnimation {
-            property: "opacity"; from: 1; to: 0
+            property: "opacity"
+            from: 1
+            to: 0
             duration: root.theme.popupMotionFast
         }
         NumberAnimation {
-            property: "scale"; from: 1; to: 0.985
+            property: "scale"
+            from: 1
+            to: 0.985
             duration: root.theme.popupMotionFast
         }
     }
@@ -64,30 +102,12 @@ Controls.Popup {
         spacing: 0
         Item {
             Layout.fillWidth: true
-            Layout.preferredHeight: 132
-            ColumnLayout {
-                objectName: "projectChooserTitle"
-                anchors.left: parent.left
-                anchors.leftMargin: 20
-                anchors.top: parent.top
-                anchors.topMargin: 14
-                anchors.right: closeButton.left
-                anchors.rightMargin: 10
-                spacing: 1
-                Label {
-                    text: qsTr("Projects")
-                    color: root.theme.primaryText
-                    font.family: root.theme.fontFamily
-                    font.pixelSize: 18
-                    font.weight: Font.DemiBold
-                }
-                Label {
-                    text: qsTr("%1 of %2 projects shown")
-                        .arg(root.model.visibleCount).arg(root.model.totalCount)
-                    color: root.theme.secondaryText
-                    font.family: root.theme.fontFamily
-                    font.pointSize: Controls.Typography.bodyLarge
-                }
+            Layout.preferredHeight: root.heading.height - 1
+            Frame.FrameView {
+                anchors.fill: parent
+                theme: root.theme
+                scene: root.headerChrome
+                interactive: false
             }
             Controls.ProjectFilterToggles {
                 id: filtersRow
@@ -132,55 +152,12 @@ Controls.Popup {
             clip: true
             spacing: 4
             model: root.model.groups
-            ScrollBar.vertical: Controls.ScrollBar { theme: root.theme }
-
-            delegate: Item {
-                id: categoryDelegate
-                required property var modelData
-                width: categories.width
-                height: categoryColumn.implicitHeight
-
-                Column {
-                    id: categoryColumn
-                    width: parent.width
-                    spacing: 6
-                    Item {
-                        width: parent.width
-                        height: 42
-                        Label {
-                            anchors.left: parent.left
-                            anchors.leftMargin: 8
-                            anchors.verticalCenter: parent.verticalCenter
-                            text: (categoryDelegate.modelData.title
-                                || qsTr("No Category"))
-                                + "  ·  " + categoryDelegate.modelData.projects.length
-                            color: root.theme.primaryText
-                            font.family: root.theme.fontFamily
-                            font.pixelSize: 14
-                            font.weight: Font.DemiBold
-                        }
-                    }
-                    Flow {
-                        width: parent.width
-                        spacing: 8
-                        Repeater {
-                            model: categoryDelegate.modelData.projects
-                            delegate: Controls.ProjectCard {
-                                id: projectCard
-                                required property var modelData
-                                width: Math.floor((categoryColumn.width - 16) / 3)
-                                details: modelData
-                                theme: root.theme
-                                compact: false
-                                onClicked: {
-                                    root.projectSelected(modelData.code)
-                                    root.close()
-                                }
-                            }
-                        }
-                    }
-                }
+            rightMargin: Projects.dimensions.gutter
+            ScrollBar.vertical: Controls.ScrollBar {
+                theme: root.theme
             }
+
+            delegate: ProjectCategory {}
             Label {
                 anchors.centerIn: parent
                 visible: categories.count === 0
@@ -188,6 +165,64 @@ Controls.Popup {
                 color: root.theme.secondaryText
                 font.family: root.theme.fontFamily
                 font.pixelSize: 12
+            }
+        }
+    }
+    component ProjectCategory: Item {
+        id: categoryDelegate
+        required property var modelData
+        function focusProject(code) {
+            const index = modelData.projects.findIndex(project => project.code === code);
+            const item = cards.itemAt(index);
+            if (item)
+                item.forceActiveFocus();
+        }
+        width: categories.width - categories.rightMargin
+        height: categoryColumn.implicitHeight
+
+        Column {
+            id: categoryColumn
+            width: parent.width
+            spacing: 6
+            Frame.FrameView {
+                width: parent.width
+                height: 42
+                theme: root.theme
+                interactive: false
+                scene: Projects.categoryHeader(width, categoryDelegate.modelData.title, categoryDelegate.modelData.projects.length, text => qsTranslate("ProjectChooser", text))
+            }
+            Flow {
+                width: parent.width
+                spacing: 8
+                Repeater {
+                    id: cards
+                    model: categoryDelegate.modelData.projects
+                    delegate: Controls.ProjectCard {
+                        id: projectCard
+                        required property var modelData
+                        width: Projects.category(categoryColumn.width, categoryDelegate.modelData.projects.length).cardWidth
+                        selected: modelData.code === root.selectedCode
+                        details: modelData
+                        theme: root.theme
+                        compact: false
+                        Keys.onPressed: event => {
+                            const keys = {
+                                [Qt.Key_Left]: "ArrowLeft",
+                                [Qt.Key_Right]: "ArrowRight",
+                                [Qt.Key_Up]: "ArrowUp",
+                                [Qt.Key_Down]: "ArrowDown",
+                                [Qt.Key_Home]: "Home",
+                                [Qt.Key_End]: "End"
+                            };
+                            if (keys[event.key])
+                                event.accepted = root.moveProject(projectCard.modelData.code, keys[event.key]);
+                        }
+                        onClicked: {
+                            root.projectSelected(modelData.code);
+                            root.close();
+                        }
+                    }
+                }
             }
         }
     }
