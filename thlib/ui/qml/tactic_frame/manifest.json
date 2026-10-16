@@ -8,7 +8,7 @@
     "controls/forms/sections.ui.mjs": "eeefd6524ed505ba499b6f9b0daa0e06ec094463a51e5a75aae630d540c26275",
     "controls/graph/graph.state.mjs": "1d2d265661a2c53e9a0abef84b71faf1ef1907f2647c76260906b9bab3a0bd82",
     "controls/graph/graph.ui.mjs": "c81cc08509da40cdf68b215c38ef9adf59827f272ba9e4636034afeecb6b9470",
-    "controls/lists/tree.ui.mjs": "b1f3f16438de667c11f0f76684d3aa4b7c3cf2bdc9a9658e97dfe8012eeb690b",
+    "controls/lists/tree.ui.mjs": "4870ac2429dfd65ab060904ee78df074982c77e745a03e60d5a147e80c72c2b8",
     "controls/menus/action.ui.mjs": "6ebc0d404f2ec64ec8e9452e098cebd716496fa59246790865dc7d00d45e4854",
     "controls/tabs/tab_layout.mjs": "9e84706b1493eb390e4a5455ef44eb5cf1badb1976db29b43b3eee0983ce70f2",
     "core/foundation.mjs": "e2829359f12695471cb0cba6e7dc2a7d608725b63dc2b91688e51cd5d69f661b",
@@ -60,6 +60,7 @@
     "shell/main.menus.json": "a548c13143892486bbb4ca2186bdc0186607774a76d327d7f6272d0fe4a7e4bd",
     "shell/main.menus.mjs": "fc2ed99935bf0afe187b1c8f5cdd33b47da73bc89ef8c6ddb84ed8e2f1d68b1c",
     "shell/main_toolbar.ui.mjs": "7de67b65ef5bdcaf18aa94b1582c8b2e62b357ca87711afdd5e09b67b8d8eb48",
+    "shell/navigation.ui.mjs": "9de9a9f68977b8f1e9efc77295f03e9edaa14f80c6dc3264b57f8cb80f59d359",
     "shell/window.geometry.mjs": "8469a62e2a3ab57ded751f8d9a01485501bddc9d0a6c2329bc68e56684665562",
     "shell/window.sizing.mjs": "92db49cbd1993ee177cd16bdac4c616269d3904dd7f5c169c559e11eeb4d5c36"
   }

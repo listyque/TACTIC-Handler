@@ -40,7 +40,11 @@ export function navigationRow(width, record, state = {}) {
             rect(12, 4, Math.max(0, width - 24), height - 8),
             {
                 background: selected ? 'action' : 'primaryText',
-                opacity: state.pressed ? 0.12 : state.hovered ? 0.08 : 0,
+                opacity: state.pressed
+                    ? 0.12
+                    : state.hovered || state.focused
+                      ? 0.08
+                      : 0,
                 radius
             }
         ),

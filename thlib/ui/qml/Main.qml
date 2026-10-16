@@ -935,6 +935,7 @@ ApplicationWindow {
         NavigationDrawer {
             id: drawer
             model: navigationModel
+            selectedKey: appController.current_section_key
             theme: theme
             sidebarEditingAvailable: userController.canManageUsers
             onEditSidebarRequested: appController.invoke("show_sidebar_editor")

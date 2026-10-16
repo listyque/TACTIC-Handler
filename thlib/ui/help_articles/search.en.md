@@ -355,3 +355,7 @@ With TACTIC Stream, identical scripts of up to 65,536 characters can reuse immut
 ## Refreshing selected details
 
 Handler refresh receives the current result page and the selected object’s tasks, notes, status history and snapshot files in one search response. If the selection is absent from the page, details follow the first result. Other objects keep lightweight previews until selected or expanded. **Refresh snapshots** still explicitly reads fresh server data; permission checks and cache invalidation remain active. Stream’s browser uses its native search and inspector commands rather than Handler’s Python procedure.
+
+## Navigation input
+
+Opening navigation keeps its scroll position and focuses the panel. Arrow keys enter the available rows. Use Up/Down, Home/End to move, Right/Left to expand/collapse a section or enter/leave it, and Enter/Space to open a view. Hidden/unavailable items and separators are skipped. Escape, the close button or the shaded workspace closes the panel and returns focus to the opener. Mouse auto-close is armed only after entering the panel; moving more than 120 pixels beyond its right edge then closes it. Touch does not trigger hover dismissal.

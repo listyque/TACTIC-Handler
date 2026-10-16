@@ -386,6 +386,22 @@ class NavigationModel(QAbstractListModel):
             index = self.index(row, 0)
             self.dataChanged.emit(index, index)
 
+    @Slot(result="QVariantList")
+    def navigation_rows(self) -> list[dict]:
+        """Include off-screen rows for keyboard navigation of recycled delegates."""
+        return [
+            {
+                "id": str(row),
+                "kind": entry.entry_type,
+                "depth": entry.depth,
+                "visible": entry.visible,
+                "enabled": entry.available,
+                "expanded": entry.expanded,
+                "hasChildren": entry.entry_type == "section",
+            }
+            for row, entry in enumerate(self._entries)
+        ]
+
     @Slot(int)
     def toggle_section(self, row: int) -> None:
         if not 0 <= row < len(self._entries):

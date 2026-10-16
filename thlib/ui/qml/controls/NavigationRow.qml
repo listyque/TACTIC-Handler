@@ -30,6 +30,7 @@ Item {
     }, {
         selected: selected,
         hovered: hover.hovered,
+        focused: activeFocus,
         pressed: activation.pressed,
         radius: theme.itemRadius
     })

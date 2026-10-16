@@ -3,6 +3,12 @@
 Each completed change receives a new version and a dated entry below.
 Versions use `major.minor.build.revision`; routine updates increment `revision`.
 
+## 0.6.0.102 - 2026-10-16
+
+- Compose the navigation drawer from the shared Frame module: measured original header/list geometry, native house buttons/scrolling, keyboard decisions and hover-exit threshold. Keep the independent shipped copy, script sidebar definitions, controller state and saved formats.
+- Arm mouse dismissal only after entering the panel, keep touch unaffected, follow the active controller section, and restore focus on close. Navigate off-screen/recycled rows while skipping unavailable/hidden items and separators; ListView no longer overrides the shared arrow-key policy.
+- Add real native mouse/touch/keyboard tests and archived/native/browser drawer comparisons. Preserve Stream phone navigation slots and explicitly keep project chooser, section/search-tab and remaining session composition pending.
+
 ## 0.6.0.101 - 2026-10-16
 
 - Complete shared dock keyboard navigation/reorder/close and transfer focus through the stable host after delegates change. Share footer height, divider and corners while preserving native dialog framing.

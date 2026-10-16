@@ -1,7 +1,10 @@
+pragma ComponentBehavior: Bound
+
 import QtQuick
 import QtQuick.Controls
-import QtQuick.Layouts
 import "controls" as Controls
+import "tactic_frame" as Frame
+import "tactic_frame/shell/navigation.ui.mjs" as Navigation
 
 Item {
     id: root
@@ -11,10 +14,27 @@ Item {
     property string selectedKey: "overview"
     property bool opened: false
     property bool sidebarEditingAvailable: false
-    readonly property real drawerWidth: Math.min(360, Math.max(280, width - 56))
-    readonly property real autoCloseDistance: 120
+    property bool pointerEntered: false
+    property Item opener: null
+    readonly property var scene: Navigation.describe({
+        width: width,
+        height: height,
+        editable: sidebarEditingAvailable
+    }, text => qsTranslate("NavigationDrawer", text))
+    readonly property var positions: {
+        const result = {};
+        for (const item of scene.nodes)
+            result[item.id] = item;
+        return result;
+    }
+    readonly property var chrome: ({
+            width: scene.width,
+            height: scene.height,
+            nodes: scene.nodes.filter(item => item.kind !== "View")
+        })
+    readonly property real drawerWidth: scene.width
     signal selected(string key, string title, string command)
-    signal editSidebarRequested()
+    signal editSidebarRequested
 
     anchors.fill: parent
     z: 100
@@ -22,14 +42,60 @@ Item {
     focus: visible
 
     function open() {
-        opened = true
-        forceActiveFocus()
+        if (opened)
+            return;
+        opener = root.Window.window.activeFocusItem;
+        pointerEntered = false;
+        opened = true;
+        forceActiveFocus();
     }
-    function close() {
-        opened = false
+    function close(restoreFocus = true) {
+        if (!opened)
+            return;
+        opened = false;
+        if (restoreFocus && opener && opener.visible)
+            opener.forceActiveFocus();
     }
 
+    function focusRow(row) {
+        list.currentIndex = row;
+        list.positionViewAtIndex(row, ListView.Contain);
+        list.forceLayout();
+        const item = list.itemAtIndex(row) as NavigationEntry;
+        if (item)
+            item.focusRow();
+    }
+
+    function navigateKey(key) {
+        const rows = root.model.navigation_rows();
+        const active = root.activeFocus ? "" : String(list.currentIndex);
+        const result = Navigation.move(rows, active, key);
+        if (!result)
+            return false;
+        const row = Number(result.id);
+        if (result.type === "expand" || result.type === "collapse")
+            root.model.toggle_section(row);
+        else
+            root.focusRow(row);
+        return true;
+    }
+
+    function handleKey(event) {
+        const keys = {
+            [Qt.Key_Down]: "ArrowDown",
+            [Qt.Key_Up]: "ArrowUp",
+            [Qt.Key_Left]: "ArrowLeft",
+            [Qt.Key_Right]: "ArrowRight",
+            [Qt.Key_Home]: "Home",
+            [Qt.Key_End]: "End"
+        };
+        if (!keys[event.key])
+            return;
+        root.navigateKey(keys[event.key]);
+        event.accepted = true;
+    }
     Keys.onEscapePressed: close()
+    Keys.onPressed: event => root.handleKey(event)
 
     Rectangle {
         id: scrim
@@ -47,12 +113,11 @@ Item {
             anchors.fill: parent
             enabled: root.opened
             hoverEnabled: true
-            cursorShape: enabled
-                ? Qt.PointingHandCursor : Qt.ArrowCursor
+            cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
             preventStealing: true
             onPositionChanged: mouse => {
-                if (mouse.x > root.drawerWidth + root.autoCloseDistance)
-                    root.close()
+                if (Navigation.shouldClose(root.pointerEntered, "mouse", mouse.x, root.drawerWidth))
+                    root.close();
             }
             onWheel: wheel => wheel.accepted = true
             onClicked: root.close()
@@ -81,165 +146,128 @@ Item {
             onWheel: wheel => wheel.accepted = true
         }
 
-        ColumnLayout {
+        HoverHandler {
+            onHoveredChanged: if (hovered)
+                root.pointerEntered = true
+        }
+        Frame.FrameView {
             anchors.fill: parent
+            theme: root.theme
+            scene: root.chrome
+            interactive: false
+        }
+        Controls.CompactIconButton {
+            id: editSidebarButton
+            objectName: "editSidebarButton"
+            visible: root.sidebarEditingAvailable
+            x: root.positions.navigationEdit.x
+            y: root.positions.navigationEdit.y
+            width: root.positions.navigationEdit.width
+            height: root.positions.navigationEdit.height
+            theme: root.theme
+            iconName: "edit"
+            round: true
+            toolTip: qsTr("Edit project sidebar")
+            onClicked: {
+                root.close(false);
+                root.editSidebarRequested();
+            }
+        }
+        Controls.CompactIconButton {
+            objectName: "navigationCloseButton"
+            x: root.positions.navigationClose.x
+            y: root.positions.navigationClose.y
+            width: root.positions.navigationClose.width
+            height: root.positions.navigationClose.height
+            theme: root.theme
+            iconName: "close"
+            round: true
+            toolTip: qsTr("Close navigation")
+            onClicked: root.close()
+        }
+
+        Controls.SmoothListView {
+            id: list
+            theme: root.theme
+            objectName: "navigationList"
+            x: root.positions.navigationContent.x
+            y: root.positions.navigationContent.y
+            width: root.positions.navigationContent.width
+            height: root.positions.navigationContent.height
+            clip: true
             spacing: 0
+            rightMargin: navigationScrollBar.reservedExtent
+            boundsBehavior: Flickable.StopAtBounds
+            model: root.model
 
-            Item {
-                Layout.fillWidth: true
-                Layout.preferredHeight: 76
+            delegate: NavigationEntry {}
 
-                WheelHandler {
-                    target: null
-                    blocking: true
-                    onWheel: event => event.accepted = true
-                }
-
-                Column {
-                    anchors.left: parent.left
-                    anchors.leftMargin: 20
-                    anchors.verticalCenter: parent.verticalCenter
-                    anchors.right: editSidebarButton.visible
-                        ? editSidebarButton.left : closeButton.left
-                    anchors.rightMargin: 12
-                    spacing: 1
-                    Label {
-                        width: parent.width
-                        text: qsTr("Navigation")
-                        color: root.theme.primaryText
-                        font.family: root.theme.fontFamily
-                        font.pixelSize: 18
-                        font.weight: Font.DemiBold
-                        elide: Text.ElideRight
-                    }
-                    Label {
-                        width: parent.width
-                        text: qsTr("Project workspace")
-                        color: root.theme.secondaryText
-                        font.family: root.theme.fontFamily
-                        font.pointSize: Controls.Typography.bodyLarge
-                        elide: Text.ElideRight
-                    }
-                }
-                Controls.CompactIconButton {
-                    id: editSidebarButton
-                    objectName: "editSidebarButton"
-                    visible: root.sidebarEditingAvailable
-                    anchors.top: parent.top
-                    anchors.right: closeButton.left
-                    anchors.topMargin: 8
-                    anchors.rightMargin: 2
-                    width: 40
-                    height: 40
-                    theme: root.theme
-                    iconName: "edit"
-                    round: true
-                    toolTip: qsTr("Edit project sidebar")
-                    onClicked: {
-                        root.close()
-                        root.editSidebarRequested()
-                    }
-                }
-                Controls.CompactIconButton {
-                    id: closeButton
-                    anchors.top: parent.top
-                    anchors.right: parent.right
-                    anchors.topMargin: 8
-                    anchors.rightMargin: 8
-                    width: 40
-                    height: 40
-                    theme: root.theme
-                    iconName: "close"
-                    round: true
-                    toolTip: qsTr("Close navigation")
-                    onClicked: root.close()
-                }
-            }
-
-            Rectangle {
-                Layout.fillWidth: true
-                Layout.leftMargin: 16
-                Layout.rightMargin: 16
-                Layout.preferredHeight: 1
-                color: root.theme.separator
-            }
-
-            Controls.SmoothListView {
+            ScrollBar.vertical: Controls.ScrollBar {
+                id: navigationScrollBar
                 theme: root.theme
-                id: list
-                Layout.fillWidth: true
-                Layout.fillHeight: true
-                Layout.topMargin: 8
-                Layout.bottomMargin: 8
-                clip: true
-                spacing: 0
-                rightMargin: navigationScrollBar.reservedExtent
-                boundsBehavior: Flickable.StopAtBounds
-                model: root.model
+                flickableTarget: list
+            }
+        }
+    }
 
-                delegate: Item {
-                    id: entry
-                    required property int index
-                    required property string entryKey
-                    required property string title
-                    required property string glyph
-                    required property string command
-                    required property int badge
-                    required property bool available
-                    required property string entryType
-                    required property int entryDepth
-                    required property string accent
-                    required property bool expanded
-                    required property bool entryVisible
+    component NavigationEntry: Item {
+        id: entry
+        required property int index
+        required property string entryKey
+        required property string title
+        required property string glyph
+        required property string command
+        required property int badge
+        required property bool available
+        required property string entryType
+        required property int entryDepth
+        required property string accent
+        required property bool expanded
+        required property bool entryVisible
 
-                    width: Math.max(0, list.width - list.rightMargin)
-                    height: !entryVisible ? 0
-                        : sidebarRow.implicitHeight
-                    visible: entryVisible
-                    SidebarTreeRow {
-                        id: sidebarRow
-                        anchors.fill: parent
-                        theme: root.theme
-                        rowType: entry.entryType
-                        title: entry.title
-                        glyph: entry.glyph
-                        depth: entry.entryDepth
-                        accent: entry.accent
-                        expanded: entry.expanded
-                        selected: entry.entryType === "link"
-                            && entry.entryKey === root.selectedKey
-                        badge: entry.badge
-                        dimmed: !entry.available
-                        interactive: entry.available && entry.entryType !== "separator"
-                        Accessible.description: entry.available ? "" : unavailableHint.text
-                        onActivated: {
-                            if (entry.entryType === "section") {
-                                root.model.toggle_section(entry.index)
-                            } else {
-                                root.selected(entry.entryKey, entry.title, entry.command)
-                                root.close()
-                            }
-                        }
-                    }
-                    HoverHandler {
-                        id: unavailableHover
-                        enabled: !entry.available && entry.entryType === "link"
-                    }
-                    Controls.ToolTip {
-                        id: unavailableHint
-                        objectName: "sidebarUnavailableHint"
-                        theme: root.theme
-                        visible: unavailableHover.hovered
-                        text: qsTr("This sidebar item has no Search Type. Configure it in Sidebar Editor.")
-                    }
-                }
-
-                ScrollBar.vertical: Controls.ScrollBar {
-                    id: navigationScrollBar
-                    theme: root.theme
-                    flickableTarget: list
+        width: Math.max(0, list.width - list.rightMargin)
+        height: !entryVisible ? 0 : sidebarRow.implicitHeight
+        visible: entryVisible
+        function focusRow() {
+            sidebarRow.forceActiveFocus();
+        }
+        SidebarTreeRow {
+            id: sidebarRow
+            anchors.fill: parent
+            theme: root.theme
+            rowType: entry.entryType
+            title: entry.title
+            glyph: entry.glyph
+            depth: entry.entryDepth
+            accent: entry.accent
+            expanded: entry.expanded
+            selected: entry.entryType === "link" && entry.entryKey === root.selectedKey
+            badge: entry.badge
+            dimmed: !entry.available
+            interactive: entry.available && entry.entryType !== "separator"
+            Keys.onPressed: event => root.handleKey(event)
+            Accessible.description: entry.available ? "" : unavailableHint.text
+            onActiveFocusChanged: if (activeFocus)
+                list.currentIndex = entry.index
+            onActivated: {
+                if (entry.entryType === "section") {
+                    root.model.toggle_section(entry.index);
+                } else {
+                    root.selected(entry.entryKey, entry.title, entry.command);
+                    root.close();
                 }
             }
+        }
+        HoverHandler {
+            id: unavailableHover
+            enabled: !entry.available && entry.entryType === "link"
+        }
+        Controls.ToolTip {
+            id: unavailableHint
+            objectName: "sidebarUnavailableHint"
+            theme: root.theme
+            visible: unavailableHover.hovered
+            text: qsTr("This sidebar item has no Search Type. Configure it in Sidebar Editor.")
         }
     }
 
@@ -251,11 +279,19 @@ Item {
         opacity: root.opened ? 1 : 0
         gradient: Gradient {
             orientation: Gradient.Horizontal
-            GradientStop { position: 0; color: root.theme.popupShadow }
-            GradientStop { position: 1; color: "transparent" }
+            GradientStop {
+                position: 0
+                color: root.theme.popupShadow
+            }
+            GradientStop {
+                position: 1
+                color: "transparent"
+            }
         }
         Behavior on opacity {
-            NumberAnimation { duration: theme.motionMedium }
+            NumberAnimation {
+                duration: theme.motionMedium
+            }
         }
     }
 }
