@@ -12,6 +12,24 @@ export const typography = {
 
 export const fontFamily = 'Segoe UI';
 
+export function fontLineHeight(pixelSize) {
+    return Math.ceil(pixelSize * 1.328125);
+}
+
+// Segoe UI, Qt Label at 96 logical DPI with vertical hinting; both hosts use these line boxes.
+export const lineHeights = Object.freeze({
+    menuHeading: 14,
+    caption: 15,
+    secondary: 16,
+    body: 18,
+    bodyLarge: 19,
+    section: 20,
+    title: 22,
+    heading: 23,
+    display: 24,
+    hero: 32
+});
+
 // Frame geometry and resolved text sizes use logical pixels in both engines.
 // Legacy house controls keep the point-based API above until Frame supplies a font.
 export const textStyles = Object.freeze({
@@ -90,6 +108,110 @@ export const controls = {
         radius: 5
     },
     switch: { width: 42, height: 24, thumb: 18, inset: 3, spacing: 10 },
+    search: {
+        padding: 38,
+        iconInset: 12,
+        iconSize: 18,
+        clearInset: 4,
+        clearExtent: 30,
+        clearIconSize: 17,
+        popupMinimumWidth: 240,
+        popupPadding: 4,
+        popupGap: 6,
+        rowHeight: 34
+    },
+    number: { indicatorWidth: 34, iconSize: 14 },
+    feedback: { progressHeight: 4, busyExtent: 24 },
+    slider: { height: 26, track: 4, thumb: 16, thumbBorder: 2, padding: 6 },
+    identity: { avatarSize: 40, spacing: 12, textSpacing: 3 },
+    summaryChip: {
+        height: 30,
+        compactHeight: 24,
+        spacing: 7,
+        padding: 10,
+        compactPadding: 8,
+        dot: 8
+    },
+    filterChip: {
+        height: 32,
+        emphasisHeight: 12,
+        iconSize: 11,
+        emphasisIconSize: 4,
+        emphasisFontSize: 11
+    },
+    loadingOverlay: {
+        spacing: 10,
+        surfaceOpacity: 0.88,
+        minimumWidth: 180,
+        maximumWidth: 420,
+        horizontalMargin: 40
+    },
+    statusChip: {
+        height: 24,
+        denseHeight: 20,
+        spacing: 5,
+        padding: 8,
+        densePadding: 5,
+        iconSize: 13,
+        denseIconSize: 11
+    },
+    reactionChip: {
+        height: 28,
+        padding: 8,
+        spacing: 5,
+        emojiSize: 18,
+        tintOpacity: 0.18,
+        checkedTintOpacity: 0.34
+    },
+    editorPanel: {
+        padding: 14,
+        spacing: 12,
+        contentSpacing: 10,
+        headerSpacing: 10,
+        textSpacing: 3,
+        actionsSpacing: 6,
+        iconSize: 20
+    },
+    formField: {
+        padding: 14,
+        labelWidth: 220,
+        columnSpacing: 20,
+        rowSpacing: 12,
+        iconExtent: 34,
+        iconSize: 17,
+        labelSpacing: 11,
+        textSpacing: 2,
+        editorSpacing: 5,
+        compactBreakpoint: 700
+    },
+    editorListItem: {
+        padding: 12,
+        spacing: 10,
+        iconSize: 19,
+        textSpacing: 4,
+        minimumExtraHeight: 12
+    },
+    emptyState: {
+        height: 140,
+        iconSize: 30,
+        spacing: 8,
+        maximumWidth: 440,
+        horizontalMargin: 24
+    },
+    dropTarget: {
+        margin: 6,
+        borderWidth: 2,
+        iconSize: 30,
+        spacing: 8,
+        textSize: 12,
+        surfaceOpacity: 0.94
+    },
+    imagePicker: {
+        previewSize: 112,
+        minimumActionsWidth: 290,
+        columnSpacing: 16,
+        rowSpacing: 12
+    },
     splitter: {
         extent: 10,
         thickness: 3,
@@ -375,6 +497,7 @@ export const cssRoles = {
     selected: '--selected',
     selectedText: '--on-selected',
     contentSelection: '--content-selection',
+    contentSelectionText: '--on-content-selection',
     contentAccent: '--content-accent',
     primaryText: '--on-surface',
     secondaryText: '--muted',
@@ -395,6 +518,7 @@ export const cssRoles = {
     outline: '--outline',
     outlineVariant: '--outline-variant',
     error: '--error',
+    errorContainer: '--error-container',
     onError: '--on-error',
     ripple: '--ripple-color',
     popupShadow: '--shadow-color',
@@ -432,6 +556,14 @@ export function cssVariables(style, dark, base, accent, preferences) {
     }
     result['--control-text-size'] = textStyles.body + 'px';
     result['--control-compact-text-size'] = textStyles.secondary + 'px';
+    for (const role of Object.keys(textStyles)) {
+        const name = role.replace(
+            /[A-Z]/g,
+            (letter) => '-' + letter.toLowerCase()
+        );
+        result['--font-' + name + '-size'] = textStyles[role] + 'px';
+        result['--font-' + name + '-line-height'] = lineHeights[role] + 'px';
+    }
     const states = {
         field: {
             idle: fieldVisual(),

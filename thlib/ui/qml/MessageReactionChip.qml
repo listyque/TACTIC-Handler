@@ -1,3 +1,4 @@
+import "tactic_frame/core/foundation.mjs" as Foundation
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
@@ -11,27 +12,21 @@ Item {
     property int count: 0
     property bool checked: false
     property string toolTip: ""
-    signal clicked()
+    signal clicked
 
-    implicitWidth: reactionRow.implicitWidth + 16
-    implicitHeight: 28
+    implicitWidth: reactionRow.implicitWidth + Foundation.controls.reactionChip.padding * 2
+    implicitHeight: Foundation.controls.reactionChip.height
 
     Rectangle {
         id: surface
         anchors.fill: parent
         radius: height / 2
-        color: Qt.tint(
-            root.theme.surfaceContainerHighest,
-            Qt.rgba(
-                root.theme.cyan.r,
-                root.theme.cyan.g,
-                root.theme.cyan.b,
-                root.checked ? 0.34 : 0.18
-            )
-        )
+        color: Qt.tint(root.theme.surfaceContainerHighest, Qt.rgba(root.theme.cyan.r, root.theme.cyan.g, root.theme.cyan.b, root.checked ? Foundation.controls.reactionChip.checkedTintOpacity : Foundation.controls.reactionChip.tintOpacity))
 
         Behavior on color {
-            ColorAnimation { duration: root.theme.clickMotionFast }
+            ColorAnimation {
+                duration: root.theme.clickMotionFast
+            }
         }
 
         Controls.MaterialRipple {
@@ -45,12 +40,15 @@ Item {
     RowLayout {
         id: reactionRow
         anchors.centerIn: parent
-        spacing: 5
+        anchors.alignWhenCentered: false
+        spacing: Foundation.controls.reactionChip.spacing
 
         Text {
+            Layout.preferredWidth: Foundation.controls.reactionChip.emojiSize
+            horizontalAlignment: Text.AlignHCenter
             text: root.emoji
             font.family: root.theme.emojiFontFamily
-            font.pixelSize: 18
+            font.pixelSize: Foundation.controls.reactionChip.emojiSize
             renderType: Text.NativeRendering
         }
 
@@ -59,7 +57,8 @@ Item {
             text: root.count
             color: root.theme.primaryText
             font.family: root.theme.fontFamily
-            font.pointSize: Controls.Typography.body
+            font.hintingPreference: Font.PreferVerticalHinting
+            font.pixelSize: Foundation.textStyles.body
             font.weight: Font.DemiBold
         }
     }
@@ -68,13 +67,17 @@ Item {
         id: reactionHover
         cursorShape: Qt.PointingHandCursor
     }
-    Controls.ActivationHandler {
-        cursorShape: Qt.PointingHandCursor
-        onPressedChanged: {
-            if (pressed)
-                ripple.burst(point.position.x, point.position.y)
-        }
-        onActivated: root.clicked()
+    Controls.PopupAction {
+        objectName: "reactionChipAction"
+        anchors.fill: parent
+        background: Item {}
+        contentItem: Item {}
+        Accessible.name: root.toolTip || root.emoji + " " + root.count
+        Accessible.checkable: true
+        Accessible.checked: root.checked
+        onPressedChanged: if (pressed)
+            ripple.burst(pressX, pressY)
+        onClicked: root.clicked()
     }
 
     Controls.ToolTip {

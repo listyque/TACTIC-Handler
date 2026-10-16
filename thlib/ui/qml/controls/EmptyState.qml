@@ -1,3 +1,4 @@
+import "../tactic_frame/core/foundation.mjs" as Foundation
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
@@ -10,13 +11,14 @@ Item {
     property string iconName: "info"
     property string title: ""
     property string message: ""
-    property real preferredHeight: 140
-    property real maximumContentWidth: 440
-    property real horizontalViewportMargin: 24
-    readonly property real availableViewportWidth:
-        parent && parent.width > 0
-            ? Math.max(0, parent.width - horizontalViewportMargin * 2)
-            : maximumContentWidth
+    property bool error: false
+    property string actionText: ""
+    property string actionIcon: ""
+    signal actionRequested
+    property real preferredHeight: Foundation.controls.emptyState.height
+    property real maximumContentWidth: Foundation.controls.emptyState.maximumWidth
+    property real horizontalViewportMargin: Foundation.controls.emptyState.horizontalMargin
+    readonly property real availableViewportWidth: parent && parent.width > 0 ? Math.max(0, parent.width - horizontalViewportMargin * 2) : maximumContentWidth
 
     implicitWidth: maximumContentWidth
     implicitHeight: preferredHeight
@@ -31,13 +33,13 @@ Item {
     ColumnLayout {
         anchors.centerIn: parent
         width: root.width
-        spacing: 8
+        spacing: Foundation.controls.emptyState.spacing
 
         Controls.MaterialIcon {
             Layout.alignment: Qt.AlignHCenter
             name: root.iconName
-            size: 30
-            color: root.theme.secondaryText
+            size: Foundation.controls.emptyState.iconSize
+            color: root.error ? root.theme.error : root.theme.secondaryText
         }
 
         Label {
@@ -46,13 +48,12 @@ Item {
             visible: root.title.length > 0
             Layout.alignment: Qt.AlignHCenter
             Layout.fillWidth: true
-            Layout.maximumWidth: Math.min(
-                root.maximumContentWidth, Math.max(0, root.width)
-            )
+            Layout.maximumWidth: Math.min(root.maximumContentWidth, Math.max(0, root.width))
             text: root.title
             color: root.theme.primaryText
             font.family: root.theme.fontFamily
-            font.pointSize: Controls.Typography.bodyLarge
+            font.hintingPreference: Font.PreferVerticalHinting
+            font.pixelSize: Foundation.textStyles.bodyLarge
             font.weight: Font.DemiBold
             horizontalAlignment: Text.AlignHCenter
             wrapMode: Text.Wrap
@@ -64,15 +65,22 @@ Item {
             visible: root.message.length > 0
             Layout.alignment: Qt.AlignHCenter
             Layout.fillWidth: true
-            Layout.maximumWidth: Math.min(
-                root.maximumContentWidth, Math.max(0, root.width)
-            )
+            Layout.maximumWidth: Math.min(root.maximumContentWidth, Math.max(0, root.width))
             text: root.message
             color: root.theme.secondaryText
             font.family: root.theme.fontFamily
-            font.pointSize: Controls.Typography.body
+            font.hintingPreference: Font.PreferVerticalHinting
+            font.pixelSize: Foundation.textStyles.body
             horizontalAlignment: Text.AlignHCenter
             wrapMode: Text.Wrap
+        }
+        Controls.Button {
+            visible: root.actionText.length > 0
+            Layout.alignment: Qt.AlignHCenter
+            theme: root.theme
+            text: root.actionText
+            icon.name: root.actionIcon
+            onClicked: root.actionRequested()
         }
     }
 }

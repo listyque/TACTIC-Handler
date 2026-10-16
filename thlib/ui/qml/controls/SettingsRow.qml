@@ -1,7 +1,7 @@
+import "../tactic_frame/core/foundation.mjs" as Foundation
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
-import "." as Controls
 
 Item {
     id: root
@@ -12,9 +12,7 @@ Item {
     property bool showDivider: true
     property int controlAlignment: Qt.AlignVCenter
     default property alias controlData: accessory.data
-    readonly property bool stackControl: width > 0
-        && accessory.implicitWidth > 0
-        && width - 8 - settingLayout.columnSpacing - accessory.implicitWidth < 210
+    readonly property bool stackControl: width > 0 && accessory.implicitWidth > 0 && width - 8 - settingLayout.columnSpacing - accessory.implicitWidth < 210
 
     Layout.fillWidth: true
     implicitHeight: Math.max(54, settingLayout.implicitHeight + 20)
@@ -40,9 +38,9 @@ Item {
             Label {
                 Layout.fillWidth: true
                 text: root.title
-                color: root.enabled
-                    ? root.theme.primaryText : root.theme.disabledText
+                color: root.enabled ? root.theme.primaryText : root.theme.disabledText
                 font.family: root.theme.fontFamily
+                font.hintingPreference: Font.PreferVerticalHinting
                 font.pixelSize: 13
                 font.weight: Font.DemiBold
                 elide: Text.ElideRight
@@ -52,10 +50,10 @@ Item {
                 visible: root.description.length > 0
                 Layout.fillWidth: true
                 text: root.description
-                color: root.enabled
-                    ? root.theme.secondaryText : root.theme.disabledText
+                color: root.enabled ? root.theme.secondaryText : root.theme.disabledText
                 font.family: root.theme.fontFamily
-                font.pointSize: Controls.Typography.caption
+                font.hintingPreference: Font.PreferVerticalHinting
+                font.pixelSize: Foundation.textStyles.caption
                 wrapMode: Text.WordWrap
             }
         }
@@ -65,9 +63,7 @@ Item {
             Layout.row: root.stackControl ? 1 : 0
             Layout.column: root.stackControl ? 0 : 1
             Layout.fillWidth: root.stackControl
-            Layout.alignment: root.stackControl
-                ? Qt.AlignRight
-                : root.controlAlignment | Qt.AlignRight
+            Layout.alignment: root.stackControl ? Qt.AlignRight : root.controlAlignment | Qt.AlignRight
             spacing: 8
 
             Item {

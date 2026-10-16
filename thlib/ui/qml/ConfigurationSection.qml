@@ -1,7 +1,7 @@
+import "tactic_frame/core/foundation.mjs" as Foundation
 import QtQuick
 import QtQuick.Layouts
 import QtQuick.Controls
-import "controls" as Controls
 
 Rectangle {
     id: root
@@ -27,6 +27,7 @@ Rectangle {
             text: root.title
             color: root.theme.primaryText
             font.family: root.theme.fontFamily
+            font.hintingPreference: Font.PreferVerticalHinting
             font.pixelSize: 14
             font.weight: Font.DemiBold
         }
@@ -39,7 +40,8 @@ Rectangle {
             text: root.description
             color: root.theme.secondaryText
             font.family: root.theme.fontFamily
-            font.pointSize: Controls.Typography.caption
+            font.hintingPreference: Font.PreferVerticalHinting
+            font.pixelSize: Foundation.textStyles.caption
             wrapMode: Text.WordWrap
         }
 

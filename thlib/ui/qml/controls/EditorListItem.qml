@@ -1,3 +1,4 @@
+import "../tactic_frame/core/foundation.mjs" as Foundation
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
@@ -14,8 +15,8 @@ Controls.PopupAction {
     property bool wrapTitle: false
     property color accent: theme.action
 
-    implicitHeight: Math.max(theme.controlHeight + 12, content.implicitHeight + 20)
-    padding: 12
+    implicitHeight: Math.max(theme.controlHeight + Foundation.controls.editorListItem.minimumExtraHeight, content.implicitHeight + 20)
+    padding: Foundation.controls.editorListItem.padding
     Accessible.name: text
     Accessible.description: description
 
@@ -35,24 +36,25 @@ Controls.PopupAction {
     }
     contentItem: RowLayout {
         id: content
-        spacing: 10
+        spacing: Foundation.controls.editorListItem.spacing
         Controls.MaterialIcon {
             visible: root.iconName.length > 0
             name: root.iconName
-            size: 19
+            size: Foundation.controls.editorListItem.iconSize
             color: root.enabled ? root.accent : root.theme.disabledText
         }
         ColumnLayout {
             Layout.fillWidth: true
             Layout.minimumWidth: 0
-            spacing: 4
+            spacing: Foundation.controls.editorListItem.textSpacing
             Label {
                 Layout.fillWidth: true
                 text: root.text
                 color: root.enabled ? root.theme.primaryText : root.theme.disabledText
                 font.family: root.theme.fontFamily
-                font.pointSize: Controls.Typography.body
-                font.weight: root.selected ? Font.DemiBold : Font.Medium
+                font.hintingPreference: Font.PreferVerticalHinting
+                font.pixelSize: Foundation.textStyles.body
+                font.weight: root.selected ? Font.DemiBold : Font.Normal
                 wrapMode: root.wrapTitle ? Text.Wrap : Text.NoWrap
                 maximumLineCount: root.wrapTitle ? 3 : 1
                 elide: Text.ElideRight
@@ -63,7 +65,8 @@ Controls.PopupAction {
                 text: root.description
                 color: root.theme.secondaryText
                 font.family: root.theme.fontFamily
-                font.pointSize: Controls.Typography.label
+                font.hintingPreference: Font.PreferVerticalHinting
+                font.pixelSize: Foundation.textStyles.secondary
                 wrapMode: Text.WordWrap
                 maximumLineCount: 2
                 elide: Text.ElideRight

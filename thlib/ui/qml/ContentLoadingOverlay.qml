@@ -1,3 +1,4 @@
+import "tactic_frame/core/foundation.mjs" as Foundation
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
@@ -7,16 +8,16 @@ Item {
     id: root
 
     required property var theme
-    property string message: "Loading…"
+    property string message: qsTr("Loading…")
     property bool cancellable: false
-    signal cancelRequested()
+    signal cancelRequested
 
     opacity: visible ? 1 : 0
 
     Rectangle {
         anchors.fill: parent
         color: root.theme.workspace
-        opacity: 0.88
+        opacity: Foundation.controls.loadingOverlay.surfaceOpacity
     }
 
     MouseArea {
@@ -27,8 +28,8 @@ Item {
 
     ColumnLayout {
         anchors.centerIn: parent
-        width: Math.min(420, Math.max(180, root.width - 40))
-        spacing: 10
+        width: Math.min(Foundation.controls.loadingOverlay.maximumWidth, Math.max(Foundation.controls.loadingOverlay.minimumWidth, root.width - Foundation.controls.loadingOverlay.horizontalMargin))
+        spacing: Foundation.controls.loadingOverlay.spacing
 
         Controls.BusyIndicator {
             uiTheme: root.theme

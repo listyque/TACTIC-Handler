@@ -1,3 +1,4 @@
+import "../tactic_frame/core/foundation.mjs" as Foundation
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
@@ -15,13 +16,13 @@ GridLayout {
     property string fallbackText: ""
     property string dialogTitle: qsTr("Choose preview image")
     property color accent: theme.action
-    property real previewSize: 112
-    readonly property bool compact: width < previewSize + 290
+    property real previewSize: Foundation.controls.imagePicker.previewSize
+    readonly property bool compact: width < previewSize + Foundation.controls.imagePicker.minimumActionsWidth
     signal selectionRequested(url image)
 
     columns: compact ? 1 : 2
-    columnSpacing: 16
-    rowSpacing: 12
+    columnSpacing: Foundation.controls.imagePicker.columnSpacing
+    rowSpacing: Foundation.controls.imagePicker.rowSpacing
 
     Controls.ItemPreview {
         objectName: root.objectNamePrefix + "Preview"
@@ -42,6 +43,7 @@ GridLayout {
         Layout.minimumWidth: 0
         Label {
             Layout.fillWidth: true
+            visible: root.statusText.length > 0
             text: root.statusText
             color: root.theme.primaryText
             font.family: root.theme.fontFamily

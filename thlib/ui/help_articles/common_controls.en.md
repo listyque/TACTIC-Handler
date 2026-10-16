@@ -29,6 +29,24 @@ a valid date. Unchanged record dates retain their original time zone and precisi
 > field to clear its query. Escape clears ordinary searches; suggestion fields keep their own keyboard
 > navigation.
 
+## Numeric values and choice controls
+
+Segmented choices use one Tab stop: Left/Right move between available options,
+and Home/End select the first/last available choice. Disabled options are skipped.
+
+Numeric fields accept your interface language's decimal and thousands separators.
+Up/Down and the arrow buttons respect the field's step and limits. Invalid input
+reverts to the current value; read-only fields retain selection/copy without
+changing the value. Changing language reformats the same numeric value.
+
+Suggestion searches accept the highlighted result with Enter; Escape dismisses
+the suggestions. Clearing the query is a separate action. Search and user-list
+filtering retain selected records hidden by the filter.
+
+A loading image shows progress; an unreadable image remains unselected and shows
+an error. Selected photo borders stay visible over the image. Lists create only
+the visible rows and retain selected values during scrolling and resizing.
+
 ## Main controls
 
 Search fields support suggestions and tags. Tabs isolate work contexts.

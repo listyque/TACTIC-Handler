@@ -152,6 +152,7 @@ Item {
                             text: userRow.displayName || userRow.login
                             color: userRow.chosen ? root.theme.selectedText : userRow.selectable ? root.theme.primaryText : root.theme.disabledText
                             font.family: root.theme.fontFamily
+                            font.hintingPreference: Font.PreferVerticalHinting
                             font.pixelSize: Foundation.textStyles.body
                             font.weight: Font.DemiBold
                             elide: Text.ElideRight
@@ -161,6 +162,7 @@ Item {
                             text: userRow.login + (userRow.groups.length > 0 ? "  ·  " + userRow.groups.join(", ") : "")
                             color: userRow.chosen ? root.theme.selectedText : userRow.selectable ? root.theme.secondaryText : root.theme.disabledText
                             font.family: root.theme.fontFamily
+                            font.hintingPreference: Font.PreferVerticalHinting
                             font.pixelSize: Foundation.textStyles.caption
                             elide: Text.ElideRight
                         }

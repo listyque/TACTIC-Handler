@@ -127,6 +127,7 @@ Rectangle {
         text: root.lifecycleText
         font: Qt.font({
             family: root.theme.fontFamily,
+            hintingPreference: Font.PreferVerticalHinting,
             pixelSize: 11,
             weight: Font.DemiBold
         })
@@ -136,6 +137,7 @@ Rectangle {
         text: root.details.description || qsTr("No project description")
         font: Qt.font({
             family: root.theme.fontFamily,
+            hintingPreference: Font.PreferVerticalHinting,
             pixelSize: 12
         })
     }
@@ -144,6 +146,7 @@ Rectangle {
         text: qsTr("Category")
         font: Qt.font({
             family: root.theme.fontFamily,
+            hintingPreference: Font.PreferVerticalHinting,
             pixelSize: 11
         })
     }

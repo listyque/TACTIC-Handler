@@ -3,6 +3,12 @@
 Each completed change receives a new version and a dated entry below.
 Versions use `major.minor.build.revision`; routine updates increment `revision`.
 
+## 0.6.0.106 - 2026-10-16
+
+- Deliver Frame B02's reusable control kit and 144 neutral executable examples with Stream: grouped source atlas, native/offline catalogs and explicit boundaries between primitives, neutral composites, infrastructure and domain forms. Keep independently shipped modules and existing controller/script APIs; no browser engine or runtime UI translator.
+- Align pixel typography, icon slots, preview selection borders, numeric/segmented controls, fields, chips, identity, neutral headers and feedback. Extract reusable SearchField suggestions while retaining TacticSearchField's controller, debounce and result-opening behavior. Preserve native scaled-integer SpinBox APIs and external model/locale bindings. Correct native OpenGL crop/contain masks and selected preview borders; export the shared error-container role to CSS.
+- Skip disabled ComboBox options during keyboard selection, prevent repeated PopupAction releases from duplicating an action, and measure hidden sizing chips before painting. Exercise actual input, recreation/disabled/readonly lifetimes and three scales. Keep original/current/Main/project comparisons and explicit font/compositor/system-dialog limits; document behavior in EN/RU Help.
+
 ## 0.6.0.105 - 2026-10-16
 
 - Close Frame B01 root composition: Main.qml and Stream App.vue consume the same toolbar/section-rail/dock-host skeleton from independent local copies. Preserve public dock identity, expanded native rail input, all existing workspace controllers and saved formats; no embedded browser or second state store.

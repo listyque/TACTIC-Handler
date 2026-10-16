@@ -1,3 +1,4 @@
+import "tactic_frame/controls/display/chips.mjs" as Chips
 import QtQuick
 import QtQuick.Controls
 import "controls" as Controls
@@ -12,16 +13,18 @@ Controls.PopupAction {
     property bool subtle: false
     property real cornerRadius: height / 2
     property real emphasis: 0
+    readonly property var geometry: Chips.filterGeometry(emphasis)
     property real maximumChipWidth: 10000
-    readonly property real desiredContentWidth:
-        chipLabel.implicitWidth
-        + (iconName.length > 0 ? 16 : 0)
-        + (showAccentMarker ? 13 : 0)
+    readonly property real desiredContentWidth: chipMetrics.advanceWidth + (iconName.length > 0 ? geometry.iconSize + 5 : 0) + (showAccentMarker ? 13 : 0)
 
-    implicitWidth: Math.min(
-        maximumChipWidth, desiredContentWidth + 24
-    )
-    implicitHeight: 32 + Math.round(Math.max(0, emphasis) * 12)
+    TextMetrics {
+        id: chipMetrics
+        font: chipLabel.font
+        text: root.text
+    }
+
+    implicitWidth: Math.min(maximumChipWidth, desiredContentWidth + 24)
+    implicitHeight: geometry.height
     hoverEnabled: true
     checkable: false
     padding: 0
@@ -31,19 +34,19 @@ Controls.PopupAction {
         id: chipSurface
         radius: root.cornerRadius
         antialiasing: true
-        color: root.checked
-            ? root.subtle
-                ? Qt.rgba(root.accent.r, root.accent.g, root.accent.b, 0.16)
-                : root.accent
-            : "transparent"
+        color: root.checked ? root.subtle ? Qt.rgba(root.accent.r, root.accent.g, root.accent.b, 0.16) : root.accent : "transparent"
         border.width: 1
         border.color: root.checked ? root.accent : root.theme.outline
 
         Behavior on color {
-            ColorAnimation { duration: theme.clickMotionFast }
+            ColorAnimation {
+                duration: theme.clickMotionFast
+            }
         }
         Behavior on border.color {
-            ColorAnimation { duration: theme.clickMotionFast }
+            ColorAnimation {
+                duration: theme.clickMotionFast
+            }
         }
 
         Controls.MaterialRipple {
@@ -59,12 +62,8 @@ Controls.PopupAction {
             id: chipContent
 
             anchors.centerIn: parent
-            width: Math.min(
-                root.desiredContentWidth,
-                Math.max(0, parent.width - 20)
-            )
-            spacing: root.iconName.length > 0
-                || root.showAccentMarker ? 5 : 0
+            width: Math.min(root.desiredContentWidth, Math.max(0, parent.width - 20))
+            spacing: root.iconName.length > 0 || root.showAccentMarker ? 5 : 0
 
             Rectangle {
                 id: accentMarker
@@ -82,31 +81,18 @@ Controls.PopupAction {
                 anchors.verticalCenter: parent.verticalCenter
                 visible: root.iconName.length > 0
                 name: root.iconName
-                size: 11 + Math.round(Math.max(0, root.emphasis) * 4)
-                color: root.checked && root.subtle
-                    ? root.accent
-                    : root.checked
-                        ? root.theme.selectedText
-                        : root.theme.secondaryText
+                size: root.geometry.iconSize
+                color: root.checked && root.subtle ? root.accent : root.checked ? root.theme.selectedText : root.theme.secondaryText
             }
             Label {
                 id: chipLabel
                 anchors.verticalCenter: parent.verticalCenter
-                width: Math.min(
-                    implicitWidth,
-                    Math.max(0, chipContent.width
-                        - (root.iconName.length > 0 ? 16 : 0)
-                        - (root.showAccentMarker ? 13 : 0))
-                )
+                width: Math.min(implicitWidth, Math.max(0, chipContent.width - (root.iconName.length > 0 ? root.geometry.iconSize + 5 : 0) - (root.showAccentMarker ? 13 : 0)))
                 text: root.text
-                color: root.checked
-                    ? root.subtle
-                        ? root.theme.primaryText
-                        : root.theme.selectedText
-                    : root.theme.primaryText
+                color: root.checked ? root.subtle ? root.theme.primaryText : root.theme.selectedText : root.theme.primaryText
                 font.family: root.theme.fontFamily
-                font.pointSize: Controls.Typography.body
-                    + Math.round(Math.max(0, root.emphasis) * 8)
+                font.hintingPreference: Font.PreferVerticalHinting
+                font.pixelSize: root.geometry.fontSize
                 font.weight: Font.DemiBold
                 elide: Text.ElideRight
             }
@@ -115,7 +101,6 @@ Controls.PopupAction {
 
     onPressedChanged: {
         if (pressed)
-            chipRipple.burst(width / 2, height / 2)
+            chipRipple.burst(width / 2, height / 2);
     }
-
 }

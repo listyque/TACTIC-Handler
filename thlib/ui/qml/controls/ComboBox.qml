@@ -55,9 +55,21 @@ QtControls.ComboBox {
         if (!roleName || index < 0 || !control.model)
             return "";
         if (control.model.get)
-            return control.model.get(index)[roleName] || "";
+            return control.model.get(index)[roleName] ?? "";
         const value = control.model[index];
         return value && value[roleName] !== undefined ? value[roleName] : "";
+    }
+
+    function optionEnabled(index) {
+        return index >= 0 && index < count && optionValue(index, "enabled") !== false && optionValue(index, "disabled") !== true;
+    }
+    function nextEnabled(index, step) {
+        for (let offset = 1; offset <= count; ++offset) {
+            const candidate = (index + offset * step + count * 2) % count;
+            if (optionEnabled(candidate))
+                return candidate;
+        }
+        return -1;
     }
 
     function beginOpeningTransaction(duration) {
@@ -146,13 +158,13 @@ QtControls.ComboBox {
         if (control.count <= 0)
             return;
         const current = optionsList.currentIndex >= 0 ? optionsList.currentIndex : Math.max(0, control.currentIndex);
-        optionsList.currentIndex = (current + step + control.count) % control.count;
+        optionsList.currentIndex = nextEnabled(current, step);
         optionsList.positionViewAtIndex(optionsList.currentIndex, ListView.Contain);
     }
 
     function activatePopupHighlight() {
         const index = optionsList.currentIndex;
-        if (index < 0 || index >= control.count)
+        if (!optionEnabled(index))
             return;
         control.cancelOpeningTransaction();
         control.currentIndex = index;
@@ -211,9 +223,11 @@ QtControls.ComboBox {
             if (event.key === Qt.Key_Down || event.key === Qt.Key_Up) {
                 if (!control.editable && control.count > 0) {
                     const step = event.key === Qt.Key_Down ? 1 : -1;
-                    const nextIndex = (Math.max(0, control.currentIndex) + step + control.count) % control.count;
-                    control.currentIndex = nextIndex;
-                    control.activated(nextIndex);
+                    const nextIndex = control.nextEnabled(control.currentIndex < 0 ? (step > 0 ? -1 : 0) : control.currentIndex, step);
+                    if (nextIndex >= 0) {
+                        control.currentIndex = nextIndex;
+                        control.activated(nextIndex);
+                    }
                     event.accepted = true;
                 }
                 return;
@@ -345,6 +359,7 @@ QtControls.ComboBox {
 
         width: Math.max(0, optionsList.width - optionsScrollBar.reservedExtent - 4)
         height: 34
+        enabled: control.optionEnabled(index)
         leftPadding: 12
         rightPadding: 10
         highlighted: optionsList.currentIndex === index
@@ -373,7 +388,7 @@ QtControls.ComboBox {
             Label {
                 Layout.fillWidth: true
                 text: control.translateDisplayText ? qsTr(control.textAt(option.index)) : control.textAt(option.index)
-                color: control.theme.primaryText
+                color: option.enabled ? control.theme.primaryText : control.theme.disabledText
                 font: control.font
                 verticalAlignment: Text.AlignVCenter
                 elide: Text.ElideRight
@@ -408,7 +423,7 @@ QtControls.ComboBox {
             optionsPopup.preparePositionAtItem(control, 0, control.height + 4);
         }
         onOpened: {
-            optionsList.currentIndex = control.currentIndex >= 0 ? control.currentIndex : (control.count > 0 ? 0 : -1);
+            optionsList.currentIndex = control.optionEnabled(control.currentIndex) ? control.currentIndex : control.nextEnabled(-1, 1);
         }
         onClosed: {
             control.handlePopupClosed();

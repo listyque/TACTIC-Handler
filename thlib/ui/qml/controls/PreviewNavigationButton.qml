@@ -7,7 +7,7 @@ Item {
     required property var theme
     property string iconName: "chevron_right"
     property string toolTip: ""
-    signal clicked()
+    signal clicked
 
     implicitWidth: 40
     implicitHeight: 84
@@ -38,21 +38,20 @@ Item {
         cursorShape: Qt.PointingHandCursor
     }
 
-    Controls.ActivationHandler {
-        enabled: root.enabled
-        cursorShape: Qt.PointingHandCursor
-        onPressedChanged: {
-            if (pressed)
-                ripple.burst(point.position.x, point.position.y)
-        }
-        onActivated: root.clicked()
+    Controls.PopupAction {
+        objectName: "previewNavigationAction"
+        anchors.fill: parent
+        background: Item {}
+        contentItem: Item {}
+        Accessible.name: root.toolTip || root.iconName
+        onPressedChanged: if (pressed)
+            ripple.burst(pressX, pressY)
+        onClicked: root.clicked()
     }
 
     Controls.ToolTip {
         theme: root.theme
-        visible: pointer.hovered
-            && root.toolTip.length > 0
-            && !root.theme.suppressToolTips
+        visible: pointer.hovered && root.toolTip.length > 0 && !root.theme.suppressToolTips
         text: root.toolTip
     }
 }

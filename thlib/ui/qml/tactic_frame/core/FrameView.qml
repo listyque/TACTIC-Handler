@@ -398,6 +398,7 @@ Item {
                         enabled: !!wrapper.node.enabled
                         highlighted: !!wrapper.node.highlighted
                         destructive: !!wrapper.node.destructive
+                        tonal: !!wrapper.node.tonal
                         compact: !!wrapper.node.iconOnly
                         icon.name: wrapper.node.icon || ""
                         toolTip: wrapper.node.text
@@ -466,6 +467,8 @@ Item {
                     id: checkBrick
                     Controls.CheckBox {
                         id: checkControl
+                        compact: !!wrapper.node.compact
+                        prominent: !!wrapper.node.prominent
                         objectName: wrapper.node.id
                         theme: root.effectiveTheme
                         text: wrapper.node.text
@@ -618,6 +621,8 @@ Item {
                         round: wrapper.node.round !== false
                         cornerRadius: wrapper.node.radius === undefined ? (round ? width / 2 : 4) : wrapper.node.radius
                         outlined: wrapper.node.outlined !== false
+                        selected: !!wrapper.node.selected
+                        loading: !!wrapper.node.loading
                         animateAppearance: false
                         previewSize: wrapper.node.width
                         fillMode: wrapper.node.fit === "contain" ? Image.PreserveAspectFit : Image.PreserveAspectCrop
@@ -672,6 +677,7 @@ Item {
                         model: wrapper.node.options || []
                         textRole: "label"
                         valueRole: "value"
+                        iconRole: "icon"
                         translateDisplayText: false
                         enabled: !!wrapper.node.enabled
                         currentIndex: (wrapper.node.options || []).findIndex(item => item.value === wrapper.node.value)
@@ -823,14 +829,14 @@ Item {
                         id: scrollView
                         objectName: wrapper.node.id
                         clip: true
-                        contentWidth: width
+                        contentWidth: Math.max(width, wrapper.node.contentWidth || width)
                         contentHeight: wrapper.node.contentHeight
                         property var resetKey: wrapper.node.resetKey
                         onResetKeyChanged: contentY = 0
                         boundsBehavior: Flickable.StopAtBounds
                         FrameBranch {
                             id: scrollContent
-                            width: scrollView.width
+                            width: scrollView.contentWidth
                             height: scrollView.contentHeight
                             theme: root.effectiveTheme
                             scene: ({
@@ -842,6 +848,10 @@ Item {
                             describeCell: root.describeCell
                             interactive: root.interactive
                             onEvent: action => root.event(action)
+                        }
+                        ScrollBar.horizontal: Controls.ScrollBar {
+                            theme: root.effectiveTheme
+                            flickableTarget: scrollView
                         }
                         function focusControl(name) {
                             return scrollContent.focusControl(name);

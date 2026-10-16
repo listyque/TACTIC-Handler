@@ -1,3 +1,4 @@
+import "../tactic_frame/core/foundation.mjs" as Foundation
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
@@ -30,7 +31,8 @@ RowLayout {
             text: root.label
             color: root.theme.secondaryText
             font.family: root.theme.fontFamily
-            font.pointSize: Controls.Typography.caption
+            font.hintingPreference: Font.PreferVerticalHinting
+            font.pixelSize: Foundation.textStyles.caption
             elide: Text.ElideRight
         }
 
@@ -39,7 +41,8 @@ RowLayout {
             text: root.value
             color: root.theme.primaryText
             font.family: root.theme.fontFamily
-            font.pointSize: Controls.Typography.body
+            font.hintingPreference: Font.PreferVerticalHinting
+            font.pixelSize: Foundation.textStyles.body
             elide: Text.ElideMiddle
         }
     }

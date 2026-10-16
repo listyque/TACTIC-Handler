@@ -1,5 +1,4 @@
 import QtQuick
-import QtQuick.Controls
 import Qt5Compat.GraphicalEffects
 import "." as Controls
 
@@ -10,13 +9,14 @@ Item {
     property string fallbackIcon: "image"
     property string fallbackText: ""
     property color accent: theme.contentAccent
-    readonly property color fallbackColor:
-        theme.readableText(Qt.darker(accent, round ? 1.35 : 1.65))
+    readonly property color fallbackColor: theme.readableText(Qt.darker(accent, round ? 1.35 : 1.65))
     property bool round: false
     property real cornerRadius: round ? width / 2 : 4
     property bool outlined: false
     property bool readyBorderEnabled: true
     property bool selected: false
+    property bool loading: false
+    readonly property int previewBorderWidth: outlined || (readyBorderEnabled && sourceImage.status === Image.Ready) ? 1 : 0
     // Views explicitly deactivate pooled delegates so decoded images and
     // scene-graph textures are released instead of accumulating while the
     // user scrolls through an infinite result set.
@@ -29,51 +29,39 @@ Item {
     property int fillMode: Image.PreserveAspectCrop
     property bool animateAppearance: true
     property string _appearanceAnimationSource: ""
-    readonly property bool appearanceAnimationEnabled:
-        root.animateAppearance
-        && !root.theme.suppressTransientMotion
-        && root._appearanceAnimationSource === String(root.source)
+    readonly property bool appearanceAnimationEnabled: root.animateAppearance && !root.theme.suppressTransientMotion && root._appearanceAnimationSource === String(root.source)
     // Small delegates save memory by decoding to their rendered size.  Large
     // viewers can disable this so geometry changes only rescale the already
     // decoded texture instead of re-requesting the same source on every pixel
     // of a dock resize.
     property bool decodeAtItemSize: true
     property bool preserveDecodeAspect: false
-    signal imageReady()
-    signal appearanceCompleted()
-    readonly property bool pending:
-        String(root.source).indexOf("pending-preview:") === 0
+    signal imageReady
+    signal appearanceCompleted
+    readonly property bool pending: root.loading || String(root.source).indexOf("pending-preview:") === 0
     readonly property bool supportedSource: root.isSupportedSource(root.source)
-    readonly property bool maskEnabled:
-        root.active && root.visible
-        && GraphicsInfo.api !== GraphicsInfo.Software
-        && (root.effectsEnabled || root.cornerRadius > 0)
-    readonly property real sourcePixelWidth:
-        sourceImage.status === Image.Ready ? sourceImage.sourceSize.width : 0
-    readonly property real sourcePixelHeight:
-        sourceImage.status === Image.Ready ? sourceImage.sourceSize.height : 0
+    readonly property bool maskEnabled: root.active && root.visible && GraphicsInfo.api !== GraphicsInfo.Software && (root.effectsEnabled || root.cornerRadius > 0)
+    readonly property real sourcePixelWidth: sourceImage.status === Image.Ready ? sourceImage.sourceSize.width : 0
+    readonly property real sourcePixelHeight: sourceImage.status === Image.Ready ? sourceImage.sourceSize.height : 0
 
     function isSupportedSource(value) {
-        const text = String(value || "")
+        const text = String(value || "");
         if (!text || text.indexOf("pending-preview:") === 0)
-            return false
+            return false;
         if (text.toLowerCase().indexOf("file:") !== 0)
-            return true
-        return /\.(apng|avif|bmp|gif|ico|jpe?g|png|svg|tga|tiff?|webp)(?:[?#].*)?$/i.test(text)
+            return true;
+        return /\.(apng|avif|bmp|gif|ico|jpe?g|png|svg|tga|tiff?|webp)(?:[?#].*)?$/i.test(text);
     }
 
     function captureAppearanceIntent() {
-        const value = String(root.source || "")
-        root._appearanceAnimationSource = value.length > 0
-            && root.animateAppearance
-            && !root.theme.suppressTransientMotion
-            ? value : ""
+        const value = String(root.source || "");
+        root._appearanceAnimationSource = value.length > 0 && root.animateAppearance && !root.theme.suppressTransientMotion ? value : "";
     }
 
     onSourceChanged: captureAppearanceIntent()
     onAnimateAppearanceChanged: {
         if (!animateAppearance)
-            _appearanceAnimationSource = ""
+            _appearanceAnimationSource = "";
     }
     Component.onCompleted: captureAppearanceIntent()
 
@@ -84,58 +72,53 @@ Item {
         anchors.fill: parent
         radius: root.cornerRadius
         color: Qt.darker(root.accent, root.round ? 1.35 : 1.65)
-        border.width: root.outlined || (
-            root.readyBorderEnabled && sourceImage.status === Image.Ready
-        ) ? 1 : 0
-        border.color: root.selected ? root.selectedBorderColor : root.theme.border
         antialiasing: true
     }
 
-    Image {
-        id: sourceImage
-        objectName: "previewSourceImage"
+    // Mask the rendered item so Image.fillMode survives the texture-provider shortcut.
+    Item {
+        id: previewImageLayer
         anchors.fill: parent
-        // Hidden layouts can probe near-DBL_MAX widths while calculating size
-        // hints. A mask still renders its invisible source, and Qt's texture
-        // sizing loop hangs when that width overflows. Do not load or mask a
-        // preview until its presentation is visible.
-        source: !root.active || !root.visible || root.pending || !root.supportedSource
-            ? "" : root.source
-        visible: root.active && !root.maskEnabled
-            && status === Image.Ready
-        fillMode: root.fillMode
-        asynchronous: true
-        cache: true
-        // Search Tabs reuse delegate slots. Keep the already rendered texture
-        // until the cached replacement is ready instead of flashing the
-        // fallback between two local preview sources.
-        retainWhileLoading: true
-        smooth: true
-        // The image is already decoded at its render size. A mip chain adds
-        // roughly one third more texture memory without improving thumbnails.
-        mipmap: false
-        sourceSize: root.decodeAtItemSize
-            ? Qt.size(
-                Math.max(64, Math.round(root.width * Screen.devicePixelRatio)),
-                root.preserveDecodeAspect ? -1
-                    : Math.max(64, Math.round(root.height * Screen.devicePixelRatio))
-            )
-            : Qt.size(-1, -1)
-        onStatusChanged: {
-            if (status !== Image.Ready)
-                return
-            // Persist first-reveal state as soon as this exact source is
-            // decoded. Waiting for the fade to finish lets a recycled view
-            // delegate report completion for a different model row.
-            root.imageReady()
-            if (!root.animateAppearance)
-                root.appearanceCompleted()
+        anchors.margins: root.previewBorderWidth
+        visible: root.active && sourceImage.status === Image.Ready
+        Image {
+            id: sourceImage
+            objectName: "previewSourceImage"
+            anchors.fill: parent
+            // Hidden layouts can probe near-DBL_MAX widths while calculating size
+            // hints. A mask still renders its invisible source, and Qt's texture
+            // sizing loop hangs when that width overflows. Do not load or mask a
+            // preview until its presentation is visible.
+            source: !root.active || !root.visible || root.pending || !root.supportedSource ? "" : root.source
+            visible: root.active && status === Image.Ready
+            fillMode: root.fillMode
+            asynchronous: true
+            cache: true
+            // Search Tabs reuse delegate slots. Keep the already rendered texture
+            // until the cached replacement is ready instead of flashing the
+            // fallback between two local preview sources.
+            retainWhileLoading: true
+            smooth: true
+            // The image is already decoded at its render size. A mip chain adds
+            // roughly one third more texture memory without improving thumbnails.
+            mipmap: false
+            sourceSize: root.decodeAtItemSize ? Qt.size(Math.max(64, Math.round(root.width * Screen.devicePixelRatio)), root.preserveDecodeAspect ? -1 : Math.max(64, Math.round(root.height * Screen.devicePixelRatio))) : Qt.size(-1, -1)
+            onStatusChanged: {
+                if (status !== Image.Ready)
+                    return;
+                // Persist first-reveal state as soon as this exact source is
+                // decoded. Waiting for the fade to finish lets a recycled view
+                // delegate report completion for a different model row.
+                root.imageReady();
+                if (!root.animateAppearance)
+                    root.appearanceCompleted();
+            }
         }
     }
 
     Loader {
         objectName: "previewMaskLoader"
-        anchors.fill: parent
+        anchors.fill: previewImageLayer
         // A missing, pending, or still-decoding source is represented by the
         // fallback tree. Creating an OpacityMask before there is an image to
         // mask adds an offscreen render pass to every idle delegate for no
@@ -144,7 +127,7 @@ Item {
         opacity: sourceImage.status === Image.Ready ? 1 : 0
         onLoaded: {
             if (sourceImage.status === Image.Ready)
-                root.appearanceCompleted()
+                root.appearanceCompleted();
         }
         Behavior on opacity {
             enabled: root.appearanceAnimationEnabled
@@ -153,30 +136,42 @@ Item {
                 easing.type: Easing.OutCubic
                 onStopped: {
                     if (sourceImage.status === Image.Ready)
-                        root.appearanceCompleted()
+                        root.appearanceCompleted();
                 }
             }
         }
         sourceComponent: OpacityMask {
             anchors.fill: parent
-            source: sourceImage
+            source: ShaderEffectSource {
+                sourceItem: previewImageLayer
+                hideSource: true
+                live: true
+            }
             // Caching the effect duplicates every preview in another texture.
             // Static Image textures are already cached by Qt's image pipeline.
             cached: false
             maskSource: Rectangle {
-                width: root.width
-                height: root.height
-                radius: root.cornerRadius
+                width: sourceImage.width
+                height: sourceImage.height
+                radius: Math.max(0, root.cornerRadius - root.previewBorderWidth)
                 antialiasing: true
             }
         }
     }
 
+    Rectangle {
+        anchors.fill: parent
+        color: "transparent"
+        radius: root.cornerRadius
+        border.width: root.previewBorderWidth
+        border.color: root.selected ? root.selectedBorderColor : root.theme.border
+        antialiasing: true
+    }
+
     Loader {
         anchors.centerIn: parent
-        active: root.active && !root.pending
-            && sourceImage.status !== Image.Ready
-            && root.fallbackText.length === 0
+        anchors.alignWhenCentered: false
+        active: root.active && !root.pending && sourceImage.status !== Image.Ready && root.fallbackText.length === 0
         sourceComponent: Controls.MaterialIcon {
             name: root.fallbackIcon
             size: root.previewSize > 40 ? 22 : 16
@@ -185,19 +180,20 @@ Item {
     }
     Loader {
         anchors.centerIn: parent
-        active: root.active && !root.pending
-            && sourceImage.status !== Image.Ready
-            && root.fallbackText.length > 0
+        anchors.alignWhenCentered: false
+        active: root.active && !root.pending && sourceImage.status !== Image.Ready && root.fallbackText.length > 0
         sourceComponent: Text {
             text: root.fallbackText
             color: root.fallbackColor
             font.family: root.theme.fontFamily
+            font.hintingPreference: Font.PreferVerticalHinting
             font.pixelSize: root.previewSize > 40 ? 10 : 8
             font.weight: Font.DemiBold
         }
     }
     Loader {
         anchors.centerIn: parent
+        anchors.alignWhenCentered: false
         width: Math.min(24, root.width * 0.45)
         height: width
         active: root.active && root.pending

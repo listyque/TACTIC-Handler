@@ -30,6 +30,7 @@ Item {
                 ? qsTr("UNGROUPED") : root.title.toUpperCase()
             color: root.theme.secondaryText
             font.family: root.theme.fontFamily
+            font.hintingPreference: Font.PreferVerticalHinting
             font.pixelSize: root.compact ? 8 : 9
             font.weight: Font.DemiBold
             elide: Text.ElideRight

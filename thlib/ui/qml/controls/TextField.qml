@@ -26,6 +26,7 @@ Basic.TextField {
     implicitHeight: theme.controlHeight
     leftPadding: tableCell ? 8 : Foundation.controls.field.padding
     rightPadding: tableCell ? 8 : Foundation.controls.field.padding
+    passwordCharacter: "\u2022"
     selectByMouse: true
     persistentSelection: true
     color: enabled ? theme.primaryText : theme.disabledText

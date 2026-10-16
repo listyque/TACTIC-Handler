@@ -24,12 +24,9 @@ Item {
                 id: swatch
                 required property var modelData
 
-                readonly property bool selected:
-                    root.currentValue === String(modelData.value || "")
-                readonly property color previewColor: root.darkPreview
-                    ? modelData.dark : modelData.light
-                readonly property color previewBase: root.darkPreview
-                    ? modelData.darkBase : modelData.lightBase
+                readonly property bool selected: root.currentValue === String(modelData.value || "")
+                readonly property color previewColor: root.darkPreview ? modelData.dark : modelData.light
+                readonly property color previewBase: root.darkPreview ? modelData.darkBase : modelData.lightBase
                 width: 36
                 height: 36
 
@@ -37,14 +34,9 @@ Item {
                     id: surface
                     anchors.fill: parent
                     radius: root.theme.iconButtonRadius + 4
-                    color: pointer.containsMouse
-                        ? root.theme.blend(
-                            swatch.previewBase, swatch.previewColor, 0.08
-                        ) : swatch.previewBase
-                    border.width: swatch.selected
-                        || pointer.containsMouse ? 2 : 1
-                    border.color: swatch.selected || pointer.containsMouse
-                        ? swatch.previewColor : root.theme.outlineVariant
+                    color: pointer.hovered || pointer.visualFocus ? root.theme.blend(swatch.previewBase, swatch.previewColor, 0.08) : swatch.previewBase
+                    border.width: swatch.selected || pointer.hovered || pointer.visualFocus ? 2 : 1
+                    border.color: swatch.selected || pointer.hovered || pointer.visualFocus ? swatch.previewColor : root.theme.outlineVariant
 
                     Rectangle {
                         anchors.centerIn: parent
@@ -58,9 +50,7 @@ Item {
                             visible: swatch.selected
                             name: "check"
                             size: 15
-                            color: root.theme.readableText(
-                                swatch.previewColor
-                            )
+                            color: root.theme.readableText(swatch.previewColor)
                             forceSolid: true
                         }
                     }
@@ -68,33 +58,28 @@ Item {
                     Controls.MaterialRipple {
                         id: ripple
                         theme: root.theme
-                        color: Qt.rgba(
-                            swatch.previewColor.r,
-                            swatch.previewColor.g,
-                            swatch.previewColor.b,
-                            0.28
-                        )
+                        color: Qt.rgba(swatch.previewColor.r, swatch.previewColor.g, swatch.previewColor.b, 0.28)
                         shapeRadius: surface.radius
                     }
                 }
 
-                MouseArea {
+                Controls.PopupAction {
                     id: pointer
                     anchors.fill: parent
                     hoverEnabled: true
-                    cursorShape: Qt.PointingHandCursor
-                    onPressed: function(mouse) {
-                        ripple.burst(mouse.x, mouse.y)
-                    }
-                    onClicked: root.activated(
-                        String(swatch.modelData.value || "")
-                    )
+                    background: Item {}
+                    contentItem: Item {}
+                    Accessible.name: qsTr(String(swatch.modelData.label || ""))
+                    Accessible.checkable: true
+                    Accessible.checked: swatch.selected
+                    onPressedChanged: if (pressed)
+                        ripple.burst(pressX, pressY)
+                    onClicked: root.activated(String(swatch.modelData.value || ""))
                 }
 
                 Loader {
                     anchors.fill: parent
-                    active: pointer.containsMouse
-                        && !root.theme.suppressToolTips
+                    active: (pointer.hovered || pointer.visualFocus) && !root.theme.suppressToolTips
                     sourceComponent: Controls.ToolTip {
                         theme: root.theme
                         visible: true

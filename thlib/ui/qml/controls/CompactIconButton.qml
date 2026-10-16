@@ -143,6 +143,7 @@ Item {
                 text: root.badgeCount > 99 ? "99+" : String(root.badgeCount)
                 color: root.theme.selectedText
                 font.family: root.theme.fontFamily
+                font.hintingPreference: Font.PreferVerticalHinting
                 font.pixelSize: Foundation.textStyles.caption
                 font.weight: Font.Bold
             }

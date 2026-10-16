@@ -13,11 +13,46 @@ Item {
     property bool loadingRequested: false
     readonly property bool showLoading: loading && loadingRequested
     signal activated(int modifiers)
+    property int pendingActivationKey: 0
+    activeFocusOnTab: enabled && hasChildren && !loading
+    Accessible.role: Accessible.Button
+    Accessible.name: expanded ? qsTr("Collapse item") : qsTr("Expand item")
+    Accessible.onPressAction: activate(Qt.NoModifier)
+    onActiveFocusChanged: if (!activeFocus)
+        pendingActivationKey = 0
+    onEnabledChanged: if (!enabled)
+        pendingActivationKey = 0
+    function activate(modifiers) {
+        if (!enabled || !hasChildren || loading)
+            return;
+        loadingRequested = true;
+        activated(modifiers);
+        Qt.callLater(function () {
+            if (!root.loading)
+                root.loadingRequested = false;
+        });
+    }
+    Keys.onPressed: event => {
+        if (![Qt.Key_Space, Qt.Key_Return, Qt.Key_Enter].includes(event.key))
+            return;
+        event.accepted = true;
+        if (!event.isAutoRepeat)
+            pendingActivationKey = event.key;
+    }
+    Keys.onReleased: event => {
+        if (event.key !== pendingActivationKey)
+            return;
+        event.accepted = true;
+        if (event.isAutoRepeat)
+            return;
+        pendingActivationKey = 0;
+        activate(event.modifiers);
+    }
 
     onIdentityChanged: loadingRequested = false
     onLoadingChanged: {
         if (!loading)
-            loadingRequested = false
+            loadingRequested = false;
     }
 
     MaterialIcon {
@@ -31,7 +66,9 @@ Item {
         rotation: root.expanded ? 90 : 0
 
         Behavior on opacity {
-            NumberAnimation { duration: root.theme.motionFast }
+            NumberAnimation {
+                duration: root.theme.motionFast
+            }
         }
         Behavior on rotation {
             NumberAnimation {
@@ -62,17 +99,15 @@ Item {
         anchors.fill: parent
         enabled: root.hasChildren
         hoverEnabled: true
-        cursorShape: root.showLoading
-            ? Qt.BusyCursor : Qt.PointingHandCursor
-        onClicked: function(mouse) {
-            if (root.loading)
-                return
-            root.loadingRequested = true
-            root.activated(mouse.modifiers)
-            Qt.callLater(function() {
-                if (!root.loading)
-                    root.loadingRequested = false
-            })
+        cursorShape: root.showLoading ? Qt.BusyCursor : Qt.PointingHandCursor
+        onClicked: mouse => {
+            root.forceActiveFocus(Qt.MouseFocusReason);
+            root.activate(mouse.modifiers);
         }
+    }
+    ToolTip {
+        theme: root.theme
+        visible: pointer.containsMouse && !root.theme.suppressToolTips
+        text: root.Accessible.name
     }
 }

@@ -1,19 +1,21 @@
+import "../tactic_frame/core/foundation.mjs" as Foundation
 import QtQuick
 import QtQuick.Controls.Basic as Basic
-import "." as Controls
 
 Basic.Slider {
     id: control
 
     required property var theme
 
-    implicitHeight: 20
+    opacity: enabled ? 1 : 0.5
+    stepSize: 1
+    implicitHeight: Foundation.controls.slider.height
 
     background: Rectangle {
         x: control.leftPadding
         y: control.topPadding + control.availableHeight / 2 - height / 2
         width: control.availableWidth
-        height: 4
+        height: Foundation.controls.slider.track
         radius: 2
         color: control.theme.surfaceContainerHighest
 
@@ -26,17 +28,18 @@ Basic.Slider {
     }
 
     handle: Rectangle {
-        x: control.leftPadding + control.visualPosition
-            * (control.availableWidth - width)
+        x: control.leftPadding + control.visualPosition * (control.availableWidth - width)
         y: control.topPadding + control.availableHeight / 2 - height / 2
-        implicitWidth: 16
-        implicitHeight: 16
+        implicitWidth: Foundation.controls.slider.thumb
+        implicitHeight: Foundation.controls.slider.thumb
         radius: width / 2
         color: control.pressed ? control.theme.selected : control.theme.action
-        border.width: 2
+        border.width: Foundation.controls.slider.thumbBorder
         border.color: control.theme.panelRaised
         Behavior on color {
-            ColorAnimation { duration: control.theme.clickMotionFast }
+            ColorAnimation {
+                duration: control.theme.clickMotionFast
+            }
         }
     }
 

@@ -1,3 +1,4 @@
+import "../tactic_frame/core/foundation.mjs" as Foundation
 import QtQuick
 import QtQuick.Controls
 import "." as Controls
@@ -12,37 +13,46 @@ Rectangle {
     property bool showDot: true
     property bool showCount: true
     property bool clickable: false
-    signal clicked()
+    property bool compact: false
+    property string iconName: ""
+    signal clicked
 
-    implicitWidth: content.implicitWidth + 20
-    implicitHeight: 30
+    implicitWidth: content.implicitWidth + (compact ? Foundation.controls.summaryChip.compactPadding : Foundation.controls.summaryChip.padding) * 2
+    implicitHeight: compact ? Foundation.controls.summaryChip.compactHeight : Foundation.controls.summaryChip.height
     radius: height / 2
-    color: clickable && chipAction.hovered
-        ? theme.rowHover : theme.surfaceContainerHigh
-    border.width: 1
-    border.color: clickable && chipAction.activeFocus
-        ? theme.action : theme.outlineVariant
+    color: clickable && chipAction.hovered ? theme.rowHover : theme.surfaceContainerHigh
+    border.width: compact ? 0 : 1
+    border.color: clickable && chipAction.activeFocus ? theme.action : theme.outlineVariant
 
     Row {
         id: content
 
         anchors.centerIn: parent
-        spacing: 7
+        anchors.alignWhenCentered: false
+        spacing: Foundation.controls.summaryChip.spacing
 
+        Controls.MaterialIcon {
+            visible: root.iconName.length > 0
+            anchors.verticalCenter: parent.verticalCenter
+            name: root.iconName
+            size: root.compact ? 14 : 16
+            color: root.compact ? root.accent : root.theme.primaryText
+        }
         Rectangle {
             visible: root.showDot
             anchors.verticalCenter: parent.verticalCenter
-            width: 8
-            height: 8
+            width: Foundation.controls.summaryChip.dot
+            height: Foundation.controls.summaryChip.dot
             radius: width / 2
             color: root.accent
         }
         Label {
             anchors.verticalCenter: parent.verticalCenter
             text: root.label
-            color: root.theme.primaryText
+            color: root.compact ? root.accent : root.theme.primaryText
             font.family: root.theme.fontFamily
-            font.pointSize: Controls.Typography.label
+            font.hintingPreference: Font.PreferVerticalHinting
+            font.pixelSize: root.compact ? Foundation.textStyles.caption : Foundation.textStyles.secondary
         }
         Label {
             visible: root.showCount
@@ -50,7 +60,8 @@ Rectangle {
             text: root.count
             color: root.accent
             font.family: root.theme.fontFamily
-            font.pointSize: Controls.Typography.label
+            font.hintingPreference: Font.PreferVerticalHinting
+            font.pixelSize: root.compact ? Foundation.textStyles.caption : Foundation.textStyles.secondary
             font.weight: Font.DemiBold
         }
     }

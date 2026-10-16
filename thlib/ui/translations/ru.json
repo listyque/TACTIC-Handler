@@ -4797,5 +4797,12 @@
   "Switch workspace": "Переключить рабочее пространство",
   "Delete Search Type from project": "Удалить серч-тайп из проекта",
   "Move section up": "Переместить раздел вверх",
-  "Move section down": "Переместить раздел вниз"
+  "Move section down": "Переместить раздел вниз",
+  "Increase value": "Увеличить значение",
+  "Decrease value": "Уменьшить значение",
+  "Collapse item": "Свернуть элемент",
+  "Expand item": "Развернуть элемент",
+  "No records yet": "Записей пока нет",
+  "Invalid value": "Некорректное значение",
+  "Unsupported file type": "Неподдерживаемый тип файла"
 }

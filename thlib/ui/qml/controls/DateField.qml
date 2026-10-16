@@ -84,6 +84,7 @@ Item {
         objectName: "dateFieldTextInput"
         anchors.fill: parent
         theme: root.theme
+        placeholderText: root.includeTime ? "YYYY-MM-DD HH:mm" : "YYYY-MM-DD"
         rightPadding: calendarButton.width + 9
         color: !activeFocus && text.length > 0 ? "transparent" : enabled ? root.theme.primaryText : root.theme.disabledText
         onTextEdited: root.textEdited(text)

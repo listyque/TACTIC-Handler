@@ -74,3 +74,6 @@ GraphPort 1.0 GraphPort.qml
 DocumentPane 1.0 DocumentPane.qml
 
 NavigationRow 1.0 NavigationRow.qml
+ProgressBar 1.0 feedback/ProgressBar.qml
+
+SearchSuggestionsPopup 1.0 forms/SearchSuggestionsPopup.qml

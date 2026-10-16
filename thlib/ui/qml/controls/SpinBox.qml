@@ -1,6 +1,6 @@
+import "../tactic_frame/controls/forms/number.mjs" as Numbers
 import "../tactic_frame/core/foundation.mjs" as Foundation
 import QtQuick
-import QtQuick.Controls
 import QtQuick.Controls as QtControls
 import "." as Controls
 
@@ -9,66 +9,73 @@ QtControls.SpinBox {
 
     required property var theme
     property int decimals: 0
+    property string language: typeof localizationController !== "undefined" ? localizationController.current_language : Qt.locale().name.indexOf("ru") === 0 ? "ru" : "en"
+    readonly property bool errorState: !spinInput.acceptableInput
+    property bool readOnly: false
     readonly property int valueScale: Math.pow(10, Math.max(0, decimals))
     readonly property real realValue: value / valueScale
-    readonly property string formattedValue: textFromValue(value, locale)
+    readonly property string formattedValue: displayText
+    locale: Qt.locale(language === "ru" ? "ru_RU" : "en_US")
     signal realValueEdited(real value)
 
     function scaledValue(realValue) {
         return Math.round(Number(realValue || 0) * valueScale);
     }
 
+    onValueModified: realValueEdited(realValue)
+    function restoreFormattedText() {
+        spinInput.text = Qt.binding(function () {
+            return control.displayText;
+        });
+    }
     function commitTextValue() {
-        const parsed = valueFromText(spinInput.text, locale);
-        value = Math.max(from, Math.min(to, parsed));
-        spinInput.text = formattedValue;
-        realValueEdited(realValue);
+        if (!enabled || readOnly || !editable)
+            return;
+        spinInput.editingFinished();
     }
 
     textFromValue: function (value, locale) {
-        if (control.decimals <= 0)
-            return Number(value).toLocaleString(locale, "f", 0);
-        let text = Number(value / control.valueScale).toLocaleString(locale, "f", control.decimals);
-        return text.replace(/([,.]\d*?)0+$/, "$1").replace(/[,.]$/, "");
+        return Numbers.format(value / control.valueScale, control.decimals, control.language);
     }
     valueFromText: function (text, locale) {
-        const number = Number.fromLocaleString(locale, text);
-        return Math.round((isNaN(number) ? 0 : number) * control.valueScale);
+        const number = Numbers.parse(text, control.decimals, control.language);
+        return number === null ? control.value : Math.round(number * control.valueScale);
     }
 
     implicitHeight: theme.controlHeight
     editable: true
-    leftPadding: 34
-    rightPadding: 34
+    leftPadding: Foundation.controls.number.indicatorWidth
+    rightPadding: Foundation.controls.number.indicatorWidth
     font: Qt.font({
         family: theme.fontFamily,
         hintingPreference: Font.PreferVerticalHinting,
         pixelSize: Foundation.textStyles.body
     })
 
-    DoubleValidator {
-        id: decimalValidator
-        bottom: control.from / control.valueScale
-        top: control.to / control.valueScale
-        decimals: control.decimals
-        notation: DoubleValidator.StandardNotation
+    RegularExpressionValidator {
+        id: numberValidator
+        regularExpression: new RegExp(Numbers.pattern(control.decimals, control.language))
     }
 
     contentItem: TextInput {
         id: spinInput
         objectName: "spinBoxTextInput"
-        text: control.formattedValue
+        text: control.displayText
         color: control.enabled ? control.theme.primaryText : control.theme.disabledText
         selectionColor: control.theme.action
         selectedTextColor: control.theme.selectedText
         font: control.font
         horizontalAlignment: Text.AlignHCenter
         verticalAlignment: Text.AlignVCenter
-        readOnly: !control.editable
+        readOnly: !control.editable || control.readOnly
         selectByMouse: true
-        validator: control.decimals > 0 ? decimalValidator : control.validator
+        validator: numberValidator
         inputMethodHints: Qt.ImhFormattedNumbersOnly
-        onEditingFinished: control.commitTextValue()
+        onEditingFinished: Qt.callLater(control.restoreFormattedText)
+        Keys.onEscapePressed: event => {
+            control.restoreFormattedText();
+            event.accepted = true;
+        }
 
         HoverHandler {
             objectName: "spinBoxCursorHandler"
@@ -79,35 +86,42 @@ QtControls.SpinBox {
     up.indicator: Controls.CompactIconButton {
         x: control.width - width
         height: control.height
-        width: 34
+        width: Foundation.controls.number.indicatorWidth
         theme: control.theme
+        toolTip: qsTr("Increase value")
         iconName: "chevron-up"
-        iconSize: 14
+        iconSize: Foundation.controls.number.iconSize
         round: true
-        enabled: control.enabled && control.value < control.to
+        enabled: control.enabled && !control.readOnly && control.value < control.to
         onClicked: {
-            control.value = Math.min(control.to, control.value + control.stepSize);
+            control.increase();
             control.realValueEdited(control.realValue);
         }
     }
     down.indicator: Controls.CompactIconButton {
         height: control.height
-        width: 34
+        width: Foundation.controls.number.indicatorWidth
         theme: control.theme
+        toolTip: qsTr("Decrease value")
         iconName: "chevron-down"
-        iconSize: 14
+        iconSize: Foundation.controls.number.iconSize
         round: true
-        enabled: control.enabled && control.value > control.from
+        enabled: control.enabled && !control.readOnly && control.value > control.from
         onClicked: {
-            control.value = Math.max(control.from, control.value - control.stepSize);
+            control.decrease();
             control.realValueEdited(control.realValue);
         }
+    }
+
+    Keys.onPressed: event => {
+        if (readOnly && (event.key === Qt.Key_Up || event.key === Qt.Key_Down))
+            event.accepted = true;
     }
 
     background: Rectangle {
         radius: control.theme.fieldRadius
         color: control.theme.surfaceContainerHigh
         border.width: control.activeFocus ? 2 : 1
-        border.color: control.activeFocus ? control.theme.action : control.theme.outline
+        border.color: control.errorState ? control.theme.error : control.activeFocus ? control.theme.action : control.theme.outline
     }
 }

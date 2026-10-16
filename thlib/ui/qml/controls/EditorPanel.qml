@@ -1,3 +1,4 @@
+import "../tactic_frame/core/foundation.mjs" as Foundation
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
@@ -11,7 +12,7 @@ Rectangle {
     property string description: ""
     property string iconName: ""
     property bool fillContentHeight: true
-    property real padding: 14
+    property real padding: Foundation.controls.editorPanel.padding
     property alias actions: headerActions.data
     default property alias contentData: body.data
 
@@ -25,28 +26,29 @@ Rectangle {
         id: layout
         anchors.fill: parent
         anchors.margins: root.padding
-        spacing: 12
+        spacing: Foundation.controls.editorPanel.spacing
 
         RowLayout {
             Layout.fillWidth: true
             visible: root.title.length > 0 || headerActions.children.length > 0
-            spacing: 10
+            spacing: Foundation.controls.editorPanel.headerSpacing
             Controls.MaterialIcon {
                 visible: root.iconName.length > 0
                 name: root.iconName
-                size: 20
+                size: Foundation.controls.editorPanel.iconSize
                 color: root.theme.action
             }
             ColumnLayout {
                 Layout.fillWidth: true
                 Layout.minimumWidth: 0
-                spacing: 3
+                spacing: Foundation.controls.editorPanel.textSpacing
                 Label {
                     Layout.fillWidth: true
                     text: root.title
                     color: root.theme.primaryText
                     font.family: root.theme.fontFamily
-                    font.pointSize: Controls.Typography.bodyLarge
+                    font.hintingPreference: Font.PreferVerticalHinting
+                    font.pixelSize: Foundation.textStyles.bodyLarge
                     font.weight: Font.DemiBold
                     wrapMode: Text.WordWrap
                 }
@@ -56,18 +58,23 @@ Rectangle {
                     text: root.description
                     color: root.theme.secondaryText
                     font.family: root.theme.fontFamily
-                    font.pointSize: Controls.Typography.label
+                    font.hintingPreference: Font.PreferVerticalHinting
+                    font.pixelSize: Foundation.textStyles.secondary
                     wrapMode: Text.WordWrap
                 }
             }
-            RowLayout { id: headerActions; spacing: 6 }
+            RowLayout {
+                id: headerActions
+                visible: children.length > 0
+                spacing: Foundation.controls.editorPanel.actionsSpacing
+            }
         }
         ColumnLayout {
             id: body
             Layout.fillWidth: true
             Layout.fillHeight: root.fillContentHeight
             Layout.minimumWidth: 0
-            spacing: 10
+            spacing: Foundation.controls.editorPanel.contentSpacing
         }
     }
 }
