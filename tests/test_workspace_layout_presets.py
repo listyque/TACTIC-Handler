@@ -125,6 +125,7 @@ class WorkspaceLayoutPresetTests(unittest.TestCase):
         application = SimpleNamespace(
             _registry=registry,
             navigation_model=NavigationModel(),
+            can_administer=True,
         )
         users = SimpleNamespace(canManageUsers=True)
         controller = SidebarEditorController(application, users)
@@ -262,7 +263,7 @@ class WorkspaceLayoutPresetTests(unittest.TestCase):
     def test_sidebar_assignment_writes_native_display_data(self):
         controller = self._sidebar_controller([{
             "search_type": "SideBarWdg",
-            "view": "definition",
+            "view": "project_view",
             "config": (
                 "<config><element name='assets' title='Assets'>"
                 "<display class='LinkWdg'/>"
@@ -270,6 +271,7 @@ class WorkspaceLayoutPresetTests(unittest.TestCase):
                 "</element></config>"
             ),
         }])
+        controller.set_sidebar_source("tactic")
         controller.select_entry(0)
 
         controller.update_selected(

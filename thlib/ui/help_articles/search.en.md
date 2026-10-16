@@ -369,3 +369,11 @@ On a search tab, Left/Right and Home/End select another tab. Delete closes a clo
 On desktop, hover a section to reveal its name and Close button. Leaving the rail collapses the reveal after 350 ms; touch uses no hover. A first tap selects the section once. Drag an expanded row vertically to reorder it; Escape cancels the drag. Closing a row does not also select it.
 
 Right click, Shift+F10 on a focused section, or a 500 ms touch hold opens Move section up/down and Close tab. Movement is disabled at the corresponding list boundary. Names and custom section colors remain project data. These operations use the same existing workspace state and saved layout. Stream retains its compact phone navigation instead of forcing the desktop rail onto a narrow screen.
+
+## Workspace lifetime
+
+Dock positions, splits, stacks and the active panel are restored from the existing saved workspace. Closing a dock hides it; reopen it through **Workspace panels** without replacing its loaded editor. Search tabs retain their own layout, selection and editor context. Escape cancels an unfinished move or resize.
+
+Stream shows one panel at a time on a phone. Returning to desktop preserves its dock arrangement; returning to phone restores the chosen phone panel and staged edits, even when that dock is hidden on desktop. Handler keeps its native desktop layout.
+
+Signing out or an expired session suspends background reads. A late reply from the previous login cannot restore its identity, permissions or workspace after another user signs in. A delayed sign-out reply cannot close the newer session. Unsaved edits still use the existing save/discard guards; signing out is not a way to persist a draft.

@@ -35,9 +35,19 @@ real input and persisted state. `controls/tabs/section.ui.mjs` now supplies the
 section rail panel, surfaces, badges, labels, close bounds, action records and
 vertical drag target decisions. Hosts keep real pointer grabs, focus, scrolling,
 popup lifetime and command dispatch; no second section/session model is created.
-Frame previews use contrast against their actual darkened accent. Browser colors
-are a computed projection of the existing appearance owner. Overall workspace
-session/layout closure remains pending.
+`shell/workspace.ui.mjs` supplies the whole root composition: toolbar, section
+rail and dock host, including the browser phone grid. Main.qml and App.vue use
+these bounds directly; native desktop keeps its expanded rail input area.
+ItemPreview owns fallback contrast against its actual darkened accent in all
+browser call sites, including the account avatar. Colors remain a projection of
+the existing appearance owner. Session, saved layouts and phone panel selection
+retain their original owners; late authentication/logout results cannot publish
+into a newer browser session. Queued background reads check cancellation before
+starting. B01 acceptance lives in `tools/frame_workspace` (whole-root comparison),
+`tools/frame_navigation/check_workflows.py` (session races) and
+`tests/test_workbench.py` (real desktop/phone persistence and mutations), all tied
+to the required platform gate. Screen contents and full control-family parity
+remain the following batches.
 
 Lists default to a four-pixel row gap; `rowGap` preserves a different existing
 spacing, such as Help's three pixels. `listRowHeight` is shared by both adapters,

@@ -6,9 +6,12 @@ import QtQuick.Window
 import "controls" as Controls
 import "tactic_frame/shell/main_toolbar.ui.mjs" as MainToolbar
 import "tactic_frame/shell/main.menus.mjs" as MainMenus
+import "tactic_frame/shell/workspace.ui.mjs" as WorkspaceShell
 
 ApplicationWindow {
     id: window
+    readonly property var workspaceComposition: WorkspaceShell.describe(width, height)
+    readonly property var workspacePositions: WorkspaceShell.positions(workspaceComposition)
     // The native desktop frame already reserves its title bar. Qt's automatic
     // safe-area padding can briefly move the whole workspace during resizing.
     topPadding: 0
@@ -898,10 +901,11 @@ ApplicationWindow {
 
     Item {
         id: workspaceLayer
-        anchors.top: topAppBar.bottom
-        anchors.left: parent.left
-        anchors.right: parent.right
-        anchors.bottom: parent.bottom
+        objectName: "mainWorkspaceLayer"
+        x: 0
+        y: window.workspacePositions.mainDockHost.y
+        width: window.width
+        height: window.workspacePositions.mainDockHost.height
         opacity: 1
         SectionTabRail {
             id: sectionRail
@@ -916,11 +920,10 @@ ApplicationWindow {
         }
         DockHost {
             id: workspace
-            anchors.top: parent.top
-            anchors.left: parent.left
-            anchors.leftMargin: sectionRail.reservedWidth
-            anchors.right: parent.right
-            anchors.bottom: parent.bottom
+            x: window.workspacePositions.mainDockHost.x
+            y: 0
+            width: window.workspacePositions.mainDockHost.width
+            height: window.workspacePositions.mainDockHost.height
             theme: theme
             pageTitle: window.pageTitle
             projectTitle: window.projectTitle

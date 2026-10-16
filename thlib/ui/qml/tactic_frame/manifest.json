@@ -65,6 +65,7 @@
     "shell/navigation.ui.mjs": "9de9a9f68977b8f1e9efc77295f03e9edaa14f80c6dc3264b57f8cb80f59d359",
     "shell/projects.ui.mjs": "53689eef944b5374d74109b161008313a9e391f68066d1ca6a176e65971849af",
     "shell/window.geometry.mjs": "8469a62e2a3ab57ded751f8d9a01485501bddc9d0a6c2329bc68e56684665562",
-    "shell/window.sizing.mjs": "92db49cbd1993ee177cd16bdac4c616269d3904dd7f5c169c559e11eeb4d5c36"
+    "shell/window.sizing.mjs": "92db49cbd1993ee177cd16bdac4c616269d3904dd7f5c169c559e11eeb4d5c36",
+    "shell/workspace.ui.mjs": "2fedc716275a3f79ea25d7e431a3cb63012f6103581cda11266ab14b2c7cc5f1"
   }
 }

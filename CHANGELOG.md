@@ -3,6 +3,13 @@
 Each completed change receives a new version and a dated entry below.
 Versions use `major.minor.build.revision`; routine updates increment `revision`.
 
+## 0.6.0.105 - 2026-10-16
+
+- Close Frame B01 root composition: Main.qml and Stream App.vue consume the same toolbar/section-rail/dock-host skeleton from independent local copies. Preserve public dock identity, expanded native rail input, all existing workspace controllers and saved formats; no embedded browser or second state store.
+- Verify integrated dock/tab/layout restore, draft retention, project/account transitions and native lifecycle. Extend the platform gate with native workspace tests and disposable-server desktop/phone/session journeys. Correct an obsolete layout-preset test fixture to use the actual project_view root.
+- Capture the real original/current Main window and browser in three themes and both languages, compare host/control geometry, background and avatar contrast, and exercise actual menu input. Keep native compositor and phone hardware limits explicit; screen contents and the full control kit remain later batches. Document workspace/session behavior in EN/RU Help.
+- Stream counterpart fixes superseded bootstrap/sign-in/logout replies, cancellation of queued background reads, phone panel retention across desktop widths and shared preview contrast. Native session workers retain their existing cancellation owners.
+
 ## 0.6.0.104 - 2026-10-16
 
 - Compose the complete vertical section rail from the shared Frame module: panel, surfaces, badges, labels, close bounds, context records and vertical drag targets. Preserve the existing section/workspace model, commands, scroll, saved formats and native input.
