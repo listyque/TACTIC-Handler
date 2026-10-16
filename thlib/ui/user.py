@@ -954,6 +954,14 @@ class UserController(QObject):
                 or ((groups is not None or group_access_levels is not None)
                     and not self.canManageUsers)):
             return False
+        if groups is not None:
+            groups = [str(value or "") for value in groups if value]
+        if group_access_levels is not None:
+            group_access_levels = {
+                str(code or "").strip(): str(level or "").strip()
+                for code, level in dict(group_access_levels).items()
+                if str(code or "").strip()
+            }
         from thlib.environment import env_inst
         if env_inst.server_pool.is_stopped:
             env_inst.server_pool.start()
@@ -1046,7 +1054,9 @@ class UserController(QObject):
         return True
 
     @Slot("QVariantMap", result=bool)
-    def save_profile(self, values: dict) -> bool:
+    @Slot("QVariantMap", "QVariantList", "QVariantMap", result=bool)
+    def save_profile(self, values: dict, groups=None, access_levels=None) -> bool:
+        """Commit both editor pages through the existing profile mutation."""
         payload = dict(values or {})
         password = str(payload.pop("password", "") or "")
         allowed = {
@@ -1061,7 +1071,10 @@ class UserController(QObject):
         payload = {
             key: value for key, value in payload.items() if key in allowed
         }
-        return self._start_profile_mutation(payload, password=password)
+        return self._start_profile_mutation(
+            payload, password=password, groups=groups,
+            group_access_levels=access_levels,
+        )
 
     @Slot("QVariantList", result=bool)
     def save_groups(self, groups: list) -> bool:
@@ -1071,15 +1084,8 @@ class UserController(QObject):
 
     @Slot("QVariantList", "QVariantMap", result=bool)
     def save_group_settings(self, groups: list, access_levels: dict) -> bool:
-        normalized_levels = {
-            str(code or "").strip(): str(level or "").strip()
-            for code, level in dict(access_levels or {}).items()
-            if str(code or "").strip()
-        }
         return self._start_profile_mutation(
-            {},
-            groups=[str(value or "") for value in (groups or []) if value],
-            group_access_levels=normalized_levels,
+            {}, groups=groups or [], group_access_levels=access_levels or {},
         )
 
     def _profile_mutated(

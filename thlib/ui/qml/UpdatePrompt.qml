@@ -1,6 +1,7 @@
 import QtQuick
-import QtQuick.Controls
 import "controls" as Controls
+import "tactic_frame" as Frame
+import "tactic_frame/controls/feedback/confirmation.ui.mjs" as Confirmation
 
 Item {
     id: root
@@ -11,8 +12,8 @@ Item {
     Connections {
         target: root.controller
         function onUpdateAvailable(version) {
-            prompt.releaseVersion = version
-            prompt.open()
+            prompt.releaseVersion = version;
+            prompt.open();
         }
     }
 
@@ -25,31 +26,26 @@ Item {
         anchors.centerIn: parent
         width: Math.min(420, root.width - 24)
         title: qsTr("Update available")
-        contentItem: Label {
-            width: Math.max(0, prompt.width - 40)
-            text: qsTr("Version %1 is available. Install it now?")
-                .arg(prompt.releaseVersion)
-            color: root.theme.primaryText
-            wrapMode: Text.WordWrap
-        }
-        footer: DialogButtonBox {
-            background: Item {}
-            Controls.Button {
-                theme: root.theme
-                text: qsTr("Later")
-                DialogButtonBox.buttonRole: DialogButtonBox.RejectRole
-            }
-            Controls.Button {
-                objectName: "installUpdateButton"
-                theme: root.theme
-                text: qsTr("Install update")
-                highlighted: true
-                DialogButtonBox.buttonRole: DialogButtonBox.AcceptRole
+        height: 310
+        contentItem: Frame.FrameView {
+            implicitHeight: 210
+            theme: root.theme
+            scene: Confirmation.describe({
+                message: qsTr("Version %1 is available. Install it now?").arg(prompt.releaseVersion),
+                accept: "Install update",
+                reject: "Later",
+                acceptId: "installUpdateButton"
+            }, width, height, typeof localizationController === "undefined" ? "en" : localizationController.current_language)
+            onEvent: action => {
+                if (action.type === "accept")
+                    prompt.accept();
+                else
+                    prompt.reject();
             }
         }
         onAccepted: {
-            root.controller.install_selected()
-            root.windows.show_window("update")
+            root.controller.install_selected();
+            root.windows.show_window("update");
         }
     }
 }

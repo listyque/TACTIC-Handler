@@ -188,7 +188,7 @@ class DebugLogController(QObject):
         "line", "group", "source", "command", "stacktrace", "duration",
         "sizeKb", "thread", "details", "selected",
     )
-    GROUP_ROLES = ("label", "key", "count", "depth", "selected")
+    GROUP_ROLES = ("identity", "label", "key", "count", "depth", "selected")
     SESSION_ROLES = ("label", "path", "modified", "sizeKb", "current")
 
     def __init__(self, root_path: Path) -> None:
@@ -618,6 +618,8 @@ class DebugLogController(QObject):
             "depth": path.count("/") + 1,
             "selected": self._group_filter == path,
         } for path, count in sorted(group_counts.items()))
+        for record in records:
+            record["identity"] = str(record["depth"]) + ":" + record["key"]
         self.groups_model.replace(records)
 
     @Slot(str)
@@ -645,6 +647,43 @@ class DebugLogController(QObject):
             self._levels.discard(level)
         self._apply_filters()
         self.state_changed.emit()
+
+    @Property("QVariantMap", notify=state_changed)
+    def presentation(self) -> dict:
+        """Project existing filter/session state for the shared native view."""
+        sessions = [{"value": "", "label": "Live session"}]
+        active = ""
+        for index, row in enumerate(self.sessions_model._records):
+            if not row.get("current"):
+                value = str(index)
+                sessions.append({"value": value, "label": row["label"]})
+                if row["path"] == self._viewing_session_path:
+                    active = value
+        if self._viewing_session_path and not active:
+            active = "file"
+            sessions.append({"value": active, "label": self.active_session_label})
+        return {
+            "search": self._search,
+            "group": self._group_filter,
+            "enabled": list(self._levels),
+            "levels": list(LEVELS),
+            "selectedId": self._selected_event_id,
+            "historyId": active,
+            "sessions": sessions,
+            "groups": [{"value": row["key"], "label": row["label"], "count": row["count"]}
+                       for row in self.groups_model._records],
+            "count": len(self._all_entries),
+            "visibleCount": self.entries_model.rowCount(),
+            "entry": self.selected_entry,
+            "canDownload": False,
+        }
+
+    @Slot(int)
+    def select_event(self, event_id: int) -> None:
+        for index, record in enumerate(self.entries_model._records):
+            if record["eventId"] == event_id:
+                self.select_entry(index)
+                return
 
     @Slot(int)
     def select_entry(self, row: int) -> None:
@@ -719,6 +758,21 @@ class DebugLogController(QObject):
     @Property(int, notify=state_changed)
     def entry_count(self) -> int:
         return len(self._all_entries)
+
+    @Slot()
+    def inspect_selected(self) -> None:
+        record = self._selected_record()
+        if not record or self._error_visible:
+            return
+        self._dispose_retry_worker()
+        self._error_type = ""
+        self._error_kind = str(record.get("level") or "")
+        self._error_title = "Event details"
+        self._error_message = str(record.get("message") or "")
+        self._error_stacktrace = str(record.get("stacktrace") or "")
+        self._error_command = str(record.get("command") or "")
+        self._error_visible = True
+        self.error_changed.emit()
 
     @Slot()
     def copy_selected(self) -> None:

@@ -73,3 +73,10 @@ triggers. Handler remains responsible for file synchronization and TACTIC check-
 The project selector groups available projects by category. Active projects are shown by default; Retired, Templates and Built-in reveal their respective groups. Each card shows a preview, lifecycle, description, category and type; the current project is outlined. A missing category is translated, but server project/category names remain unchanged.
 
 Focus a card and use the arrows or Home/End to move through visible projects; Enter/Space opens it. Escape closes the selector. Lists scroll independently with a reserved scrollbar gutter. Stream rearranges the same cards into two or one columns on a narrow screen.
+
+
+## Profile and account editor
+
+My Profile shows identity, groups, task counters, work-hour totals permitted by the server and recent activity. Users adds the searchable directory; search matches login, name, email and groups. Task/status/process buttons open tasks for the viewed account. Narrow windows keep the same details and a directory/back transition.
+
+The child editor includes profile and account fields, address, a new password, avatar and group/access settings when permitted. Leave the new password empty to retain the current one. Cancel/Escape asks before discarding a changed draft; Keep editing preserves it. Save commits both editor pages through the existing account operation and revision checks; switching Profile/Groups does not discard the other page. An unknown write result disables another Save until Reload from server; entered passwords are cleared after submission or close. Server permissions decide which fields/actions are available. Handler immediately queues an avatar for an existing account; discarding text changes does not undo an already uploaded avatar. Stream submits its selected avatar with Save.

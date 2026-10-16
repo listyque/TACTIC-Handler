@@ -110,7 +110,9 @@ class LoginLocalizationQmlTests(unittest.TestCase):
 
         try:
             QTest.qWait(30)
-            message = dialog.findChild(QObject, "loginAuthenticationMessage")
+            from tests import test_sidebar_editor_qml as sidebar_fixture
+            message = next((item for item in sidebar_fixture.SidebarEditorQmlTests.descendants(dialog.contentItem())
+                            if item.objectName() == "signInError"), None)
             self.assertIsNotNone(message)
             expected_messages = {
                 "Enter your TACTIC login and password to generate a ticket.":
@@ -134,6 +136,8 @@ class LoginLocalizationQmlTests(unittest.TestCase):
                 with self.subTest(source=source):
                     controller.set_error(source)
                     QTest.qWait(2)
+                    message = next(item for item in sidebar_fixture.SidebarEditorQmlTests.descendants(dialog.contentItem())
+                                   if item.objectName() == "signInError")
                     self.assertEqual(message.property("text"), expected)
         finally:
             controller.cancel_authentication()

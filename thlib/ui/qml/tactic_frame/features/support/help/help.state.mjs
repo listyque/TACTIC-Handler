@@ -1,4 +1,5 @@
 // Help presentation only. Article loading and file operations belong to adapters.
+import { revealListOffset } from '../../../core/frame.mjs';
 export function initial() {
     return {
         selected: 'overview',
@@ -28,18 +29,7 @@ export function offset(model, id) {
 }
 
 export function revealOffset(offset, index, height, count) {
-    const rowHeight = 61;
-    const top = index * rowHeight;
-    const desired =
-        top < offset
-            ? top
-            : top + rowHeight > offset + height
-              ? top + rowHeight - height
-              : offset;
-    return Math.max(
-        0,
-        Math.min(desired, Math.max(0, count * rowHeight - height))
-    );
+    return revealListOffset(offset, index, height, count, 61);
 }
 
 export function topicFromLink(link) {

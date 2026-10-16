@@ -6,6 +6,7 @@ Item {
     required property var theme
     required property string contentSource
     property var contentProperties: ({})
+    property alias contentItem: contentLoader.item
     property bool componentReady: false
 
     function loadContent() {

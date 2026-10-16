@@ -201,3 +201,8 @@ Cell editor opens one RAW Database value in a blocking native window. Finish or 
 ### Changelist
 
 Changelist shows the selected change description, files, shelves and linked tasks. Open it from the changelist tree; its contents belong to that change.
+
+
+## Support window ownership
+
+Help, Debug Log, UI responsiveness and profile remain independently reopenable tool windows. Profile editing and installation confirmation are owned dialogs. Escape first closes the active child; unsaved or busy profile edits guard closing the parent. Signing out removes account-owned browser state while Help and Debug Log remain available on sign-in. Local file pickers, native title bars and portable installers remain platform operations.

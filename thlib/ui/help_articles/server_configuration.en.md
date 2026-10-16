@@ -116,3 +116,10 @@ This block completes optional SSE delivery and its controls in both clients. Win
 
 
 Early disconnects before the first SSE frame (including header-send failure) remove the subscription at the response boundary. Both ASGI disconnect paths are checked. Browser and Handler explicitly label their connections; other callers appear as Unknown client. These labels remain informational.
+
+
+## Sign-in and client capabilities
+
+Help and Debug Log remain available before sign-in. Enter submits only a complete login/password pair while no authentication is pending. Handler keeps its existing server presets, ticket generation and proxy/site routing; preset edits are applied through the existing Configuration owner. Stream signs in to the current browser origin and does not expose native server-preset routing. Password entry is cleared when its sign-in window closes.
+
+Handler updates keep the existing release controller, changelog, portable-install eligibility, cancellation and install confirmation. Maintainers retain Ctrl-double-click on the current version to open release creation. The browser does not install native client ZIPs. Connection menus and session expiry retain the existing shell owners; a shared layout never grants permissions or retries an unknown mutation.

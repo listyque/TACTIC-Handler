@@ -17,7 +17,13 @@ Rectangle {
     property string iconName: ""
     signal clicked
 
-    implicitWidth: content.implicitWidth + (compact ? Foundation.controls.summaryChip.compactPadding : Foundation.controls.summaryChip.padding) * 2
+    function focusEditor() {
+        chipAction.forceActiveFocus();
+    }
+
+    readonly property real horizontalPadding: compact ? Foundation.controls.summaryChip.compactPadding : Foundation.controls.summaryChip.padding
+    readonly property real auxiliaryWidth: (iconName.length ? (compact ? 14 : 16) + content.spacing : 0) + (showDot ? Foundation.controls.summaryChip.dot + content.spacing : 0) + (showCount ? countText.implicitWidth + content.spacing : 0)
+    implicitWidth: caption.implicitWidth + auxiliaryWidth + horizontalPadding * 2
     implicitHeight: compact ? Foundation.controls.summaryChip.compactHeight : Foundation.controls.summaryChip.height
     radius: height / 2
     color: clickable && chipAction.hovered ? theme.rowHover : theme.surfaceContainerHigh
@@ -47,7 +53,11 @@ Rectangle {
             color: root.accent
         }
         Label {
+            id: caption
+            width: Math.min(implicitWidth, Math.max(0, root.width - root.horizontalPadding * 2 - root.auxiliaryWidth))
+            elide: Text.ElideRight
             anchors.verticalCenter: parent.verticalCenter
+            textFormat: Text.PlainText
             text: root.label
             color: root.compact ? root.accent : root.theme.primaryText
             font.family: root.theme.fontFamily
@@ -55,6 +65,7 @@ Rectangle {
             font.pixelSize: root.compact ? Foundation.textStyles.caption : Foundation.textStyles.secondary
         }
         Label {
+            id: countText
             visible: root.showCount
             anchors.verticalCenter: parent.verticalCenter
             text: root.count
@@ -73,7 +84,7 @@ Rectangle {
         visible: root.clickable
         background: Item {}
         contentItem: Item {}
-        Accessible.name: root.label + " " + root.count
+        Accessible.name: root.label + (root.showCount ? " " + root.count : "")
         onClicked: root.clicked()
     }
 }

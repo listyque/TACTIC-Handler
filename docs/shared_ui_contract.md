@@ -10,7 +10,65 @@ JavaScript-объектов; `.mjs` — стандартное расширен�
 `AGENTS.md`, `UI_ARCHITECTURE.md` и компонентную политику Handler. Уже работающие
 экраны не переписываются целиком без отдельной задачи.
 
+Current foundation work is tracked in `shared_ui_foundation_plan.md`. The
+Administration comparisons below are a previous checkpoint, not proof of
+original-Handler parity. New acceptance compares archived Handler → Frame
+Handler → Frame Stream, preserving explicit platform capabilities. Source
+layout and readability rules are in `src/tactic_stream/shared_ui/README.md`.
+Support/identity/connection composition and existing command owners are mapped in
+`docs/frame_support.md`; native file/update capabilities and browser session
+storage remain explicit. Historical original-UI reports are checkpoints, not
+fresh acceptance evidence after a renderer changes.
+
 ## Единственные владельцы
+
+### Контрол, инфраструктура и форма
+
+Классифицировать по ответственности, а не по папке, имени, размеру файла или
+количеству вложенных элементов. **Базовый набор состоит из примитивов и
+нейтральных составных контролов.** Составной контрол не становится формой
+только потому, что внутри несколько кнопок и полей.
+
+| Уровень | Ответственность | Примеры |
+| --- | --- | --- |
+| Примитив | Одно значение, действие или визуальный сигнал; нейтральные свойства и события | Button, CheckBox, TextField, Icon |
+| Базовый составной контрол | Переиспользуемое взаимодействие; получает готовые данные, выдаёт события | ComboBox, SearchField с очисткой, DateField с календарём, UserPicker, TabRail, Menu, SettingRow |
+| Инфраструктура | Ввод, рендеринг, размещение и жизненный цикл | ActivationHandler, FrameView, popup coordinator, window/dock host |
+| Форма / предметный фрагмент | Конкретный сценарий, его данные, проверки и операции | Groups editor, TaskInspector, Task Calendar, ProjectCard, ProcessSelectionTree |
+
+Проверка границы: можно ли использовать компонент в другом сценарии, передав
+нейтральные данные и обработчики, без проекта, Search Type, task code, ACL или
+предметного контроллера? Если нет — это форма или её фрагмент. Отсутствие прямого
+HTTP-запроса само по себе не делает компонент базовым: знание предметной модели
+тоже относится к сценарию. Текст Send и состояние sending у кнопки не равны
+знанию message id и операции отправки сообщения.
+
+Контрол владеет локальным вводом, фокусом, раскрытием и отображением ошибки.
+Форма владеет предметной валидацией, черновиком, загрузкой, сохранением,
+подтверждениями и обработкой результата. Picker получает пользователей, но не
+меняет членство группы; календарь выбирает дату, но не загружает расписание
+задач. Общая шапка содержит слоты действий; TaskWorkspaceModeSwitcher вызывает
+команды задач и остаётся предметным фрагментом.
+
+Расположение не переопределяет этот контракт: QML ProjectCard,
+ProjectFilterToggles и ProcessSelectionTree сейчас находятся в controls/, но
+это предметные компоненты. SettingRow — базовая композиция, ConfigurationPage —
+форма. Не создавать новый базовый тип на каждую форму, и не переносить предметные
+команды в общий контрол ради повторного использования внешнего вида.
+
+Полный индекс и очередь разборов воспроизводятся командой
+`python tools/frame_controls/elements.py --handler-root <checkout-ТХ>`:
+`tools/frame_controls/output/ui-elements.html`. Реестр семейств и вариантов —
+`tools/frame_controls/element_catalog.json`. Статическое присутствие, парный
+снимок и проверенное поведение — отдельные признаки; состояние «на разбор»
+нельзя считать готовностью. Каталог из 372 состояний покрывает только текущую
+выборку, а не всю библиотеку. B02 расширяет её 144 самостоятельными примерами:
+`controls/catalog/variants.mjs`, рабочий `tools/frame_controls/output/catalog.html`
+и парный `output/variants/index.html`. Команды, владельцы и границы проверки —
+[`frame_control_catalog.md`](frame_control_catalog.md). Число примеров и число
+состояний по-прежнему не являются числом базовых типов.
+
+### Владение общими правилами
 
 | Что | Где определяется | Что запрещено в адаптерах |
 | --- | --- | --- |

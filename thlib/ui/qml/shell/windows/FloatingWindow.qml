@@ -35,6 +35,7 @@ Window {
     transientParent: ownerWindow
     modality: root.windowBlocking ? Qt.WindowModal : Qt.NonModal
     flags: Qt.Dialog | Qt.WindowTitleHint | Qt.WindowSystemMenuHint | Qt.WindowMinMaxButtonsHint | Qt.WindowCloseButtonHint
+    readonly property var contentView: windowContentLoader.item ? windowContentLoader.item.contentItem : null
     readonly property bool availableWhileSignedOut: kind === "configuration" || kind === "server_presets" || kind === "repository_editor" || kind === "help" || kind === "error" || kind === "debug_log"
     readonly property bool contentRequested: windowVisible && (workspaceEnabled || availableWhileSignedOut)
     readonly property bool keepWorkspaceWarm: kind === "help" || workspaceEnabled && ["tasks_workspace", "messages", "activity_feed", "notifications"].indexOf(kind) >= 0
@@ -71,7 +72,7 @@ Window {
             return localizedTitle.length > 0 ? localizedTitle : String(debugLog.error_title || qsTr("Application Error"));
         }
         if (root.kind === "file_changelist")
-            return windowContentLoader.item?.windowTitle || qsTr("Changelist #%1").arg(fileWorkspaceController.view_data.change.number || fileWorkspaceController.view_data.change.code || "");
+            return root.contentView?.windowTitle || qsTr("Changelist #%1").arg(fileWorkspaceController.view_data.change.number || fileWorkspaceController.view_data.change.code || "");
         if (root.kind !== "watch_folder_editor")
             return qsTr(root.windowTitle);
         const target = String(watchFoldersController.editor.title || "");
@@ -210,10 +211,12 @@ Window {
             debugLog.dismiss_error();
         else if (root.kind === "configuration")
             configurationController.request_close();
-        else if (root.kind === "administration" && windowContentLoader.item)
-            windowContentLoader.item.dispatch({
+        else if (root.kind === "administration" && root.contentView)
+            root.contentView.dispatch({
                 type: "close"
             });
+        else if (root.kind === "user_profile" && root.contentView && !root.contentView.requestClose())
+            return;
         else if (root.kind === "schema_search_type")
             administrationController.schemaTypeEditor.discard();
         else if (root.kind === "process_dependencies")

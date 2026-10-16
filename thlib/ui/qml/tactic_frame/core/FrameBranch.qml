@@ -20,6 +20,9 @@ Loader {
     function focusControl(name) {
         return loadedView() ? loadedView().focusControl(name) : false;
     }
+    function focusListRow(id, row, controlId) {
+        return loadedView() ? loadedView().focusListRow(id, row, controlId) : false;
+    }
     function focusGrid(id, row, column, name) {
         return loadedView() ? loadedView().focusGrid(id, row, column, name) : false;
     }

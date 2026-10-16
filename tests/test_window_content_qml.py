@@ -40,6 +40,7 @@ class WindowContentTests(unittest.TestCase):
                     loader = host.childItems()[0]
                     item = loader.property('item')
                     self.assertIsNotNone(item, warnings)
+                    self.assertEqual(host.property('contentItem'), item)
                     self.assertEqual(item.width(), 400)
                     self.assertEqual(item.height(), 200)
             self.assertEqual(warnings, [])

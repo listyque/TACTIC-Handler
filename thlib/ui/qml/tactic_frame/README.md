@@ -13,6 +13,10 @@ Neither product imports the other checkout at runtime.
 | `shell` | Window/dock/workspace composition | Core and controls |
 | `features/administration` | Administration shell, forms and document guards | Core and controls |
 | `features/support/help` | Help composition, filtering, navigation and document positions | Core and controls |
+| `features/support/diagnostics` | Debug sessions, event details, measurements and selection | Core and controls |
+| `features/support/identity` | Profile composition, account editor and local draft decisions | Core and controls |
+| `features/support/connection` | Sign-in, native presets and release composition | Core and controls |
+| `features/support/feedback` | Error inspection and contextual actions | Core and controls |
 | `features/administration/<section>` | A section's UI and state | Shared admin helpers and its own domain |
 
 Administration uses `controls/forms/sections.ui.mjs` for settings rows, headings,
@@ -59,6 +63,11 @@ remain the following batches.
 Lists default to a four-pixel row gap; `rowGap` preserves a different existing
 spacing, such as Help's three pixels. `listRowHeight` is shared by both adapters,
 and validation rejects a negative gap or one that consumes the entire row.
+`revealListOffset` keeps keyboard selection visible before a virtualized row gains
+focus. `SummaryChip` maps directly to each product's existing house control.
+Short confirmations live in `controls/feedback`; authentication, ACL, mutations,
+retry workers and installers never move into a portable description. B04's owner
+map, capability differences and verification commands are in `docs/frame_support.md`.
 
 ## One screen
 

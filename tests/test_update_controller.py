@@ -17,6 +17,7 @@ if os.name == 'nt':
         'QT_QPA_FONTDIR', str(Path(os.environ.get('WINDIR', 'C:/Windows')) / 'Fonts'),
     )
 
+from shiboken6 import isValid
 from PySide6.QtCore import QEvent, QObject, QPoint, QPointF, Qt, QUrl
 from PySide6.QtGui import QGuiApplication, QWheelEvent
 from PySide6.QtQml import QQmlComponent, QQmlEngine
@@ -28,6 +29,7 @@ from thlib.ui.localization import CatalogTranslator
 from thlib.ui.icon_font import qml_icon_bindings
 from thlib.environment import env_mode
 from tests.profile_ui_responsiveness import frame
+from tests import test_sidebar_editor_qml as sidebar_fixture
 from thlib import tactic_query
 
 
@@ -109,6 +111,9 @@ class UpdateControllerTests(unittest.TestCase):
             controller._show_releases(releases)
             self.assertEqual(announced, ["1.0.0.1"])
 
+    def find(self, view, name):
+        return next(item for item in sidebar_fixture.SidebarEditorQmlTests.descendants(view) if item.objectName() == name)
+
     def make_view(self, controller, create_mode=False):
         engine = QQmlEngine()
         warnings = []
@@ -169,9 +174,6 @@ class UpdateControllerTests(unittest.TestCase):
             pending.extend(item.childItems())
         changelog_tab = items['updatePage_changelog']
         updates_tab = items['updatePage_updates']
-        scroll = view.findChild(QObject, 'updateChangelogScroll')
-        body = view.findChild(QObject, 'updateChangelogText')
-        scrollbar = view.findChild(QObject, 'updateChangelogScrollbar')
 
         for width in (460, 980):
             window.resize(width, 520)
@@ -182,6 +184,9 @@ class UpdateControllerTests(unittest.TestCase):
             )).toPoint()
             frame(window, lambda: QTest.mouseClick(window, Qt.LeftButton, pos=point))
             self.assertEqual(view.property('currentPage'), 'changelog')
+            scroll = self.find(view, 'updateChangelogScroll')
+            body = self.find(scroll, 'documentBody')
+            scrollbar = self.find(scroll, 'documentScrollbar')
             self.assertTrue(body.isVisible())
             self.assertIn(controller.currentVersion, body.property('text'))
             self.assertTrue(scrollbar.property('hasOverflow'))
@@ -215,25 +220,26 @@ class UpdateControllerTests(unittest.TestCase):
                 flickable.property('contentHeight'), flickable.property('height'),
                 flickable.property('interactive'), wheel.isAccepted(), point,
             ))
-            updates_tab.setProperty('focus', True)
+            updates_tab.forceActiveFocus()
             frame(window, lambda: QTest.keyClick(window, Qt.Key_Space))
             self.assertEqual(view.property('currentPage'), 'updates')
-            self.assertFalse(body.isVisible())
+            self.assertTrue(not isValid(body) or not body.isVisible())
 
     def test_generator_prefills_current_version_and_changelog_notes(self):
         controller = self.make_controller()
         controller._application.can_manage_tools = True
         window, view = self.make_view(controller, create_mode=True)
         self.assertEqual(
-            view.findChild(QObject, 'updateRevision').property('value'),
+            int(self.find(view, 'update_revision').property('text')),
             int(controller.currentVersion.split('.')[-1]),
         )
         self.assertEqual(
-            view.findChild(QObject, 'updateChanges').property('text'),
+            self.find(view, 'updateChanges').property('text'),
             controller.currentChanges,
         )
-        scrollbar = view.findChild(QObject, 'updateChangesScrollbar')
-        button = view.findChild(QObject, 'createUpdateArchiveButton')
+        area = self.find(view, 'updateChanges')
+        scrollbar = next(item for item in sidebar_fixture.SidebarEditorQmlTests.descendants(area) if item.property('orientation') == Qt.Vertical and item.property('hasOverflow') is not None)
+        button = self.find(view, 'createUpdateArchiveButton')
         for width in (460, 980):
             window.resize(width, 520)
             view.setSize(window.size())
@@ -296,7 +302,7 @@ class UpdateControllerTests(unittest.TestCase):
         view.setSize(window.size())
         window.show()
         QTest.qWait(40)
-        label = view.findChild(QObject, "currentVersionLabel")
+        label = self.find(view, "currentVersionLabel")
         self.assertIsNotNone(label)
 
         QTest.mouseDClick(

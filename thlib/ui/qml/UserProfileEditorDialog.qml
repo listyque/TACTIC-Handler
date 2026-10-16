@@ -1,429 +1,215 @@
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Dialogs
-import QtQuick.Layouts
 import "controls" as Controls
+import "tactic_frame" as Frame
+import "tactic_frame/features/support/identity/profile.editor.ui.mjs" as UI
+import "tactic_frame/features/support/identity/profile.editor.state.mjs" as State
 
 Controls.Dialog {
     id: root
-
     required property var controller
     property string mode: "profile"
-    property var selectedGroups: []
-    property var groupAccessLevels: ({})
+    property var draft: null
+    property var original: null
     property bool awaitingSave: false
     property bool creating: false
+    property bool confirmClose: false
+    property bool uncertain: false
     property url pendingAvatarUrl: ""
     property bool uploadAvatarAfterCreate: false
-
-    title: creating ? qsTr("Add user")
-        : mode === "groups" ? qsTr("Edit group membership")
-        : qsTr("Edit user profile")
-    width: 680
-    height: 690
-    closePolicy: Popup.CloseOnEscape
-
-    function setGroupSelected(code, selected) {
-        const value = String(code || "")
-        const next = selectedGroups.slice()
-        const index = next.indexOf(value)
-        if (selected && index < 0)
-            next.push(value)
-        else if (!selected && index >= 0)
-            next.splice(index, 1)
-        selectedGroups = next
-    }
-
-    function setGroupAccessLevel(code, value) {
-        const next = Object.assign({}, groupAccessLevels)
-        next[String(code || "")] = String(value || "").trim()
-        groupAccessLevels = next
-    }
-
+    readonly property bool dirty: State.dirty(draft, original, String(pendingAvatarUrl).length > 0)
+    readonly property string language: typeof localizationController === "undefined" ? "en" : localizationController.current_language
+    readonly property var frameModel: ({
+            draft,
+            mode,
+            creating,
+            confirmClose,
+            uncertain,
+            canManage: controller.canManageUsers,
+            saving: controller.editingBusy,
+            error: qsTr(controller.editingError),
+            displayName: controller.profile.displayName || "",
+            avatarName: String(pendingAvatarUrl) ? qsTr("Avatar selected") : ""
+        })
+    title: creating ? qsTr("Add user") : mode === "groups" ? qsTr("Edit group membership") : qsTr("Edit user profile")
+    width: Math.min(680, parent ? parent.width - 24 : 680)
+    height: Math.min(690, parent ? parent.height - 24 : 690)
+    padding: 0
+    headerPadding: 20
+    modal: true
+    closePolicy: Popup.NoAutoClose
     function loadProfile() {
-        const profile = creating ? {} : (controller.profile || {})
-        loginField.text = String(profile.login || "")
-        firstNameField.text = String(profile.firstName || "")
-        lastNameField.text = String(profile.lastName || "")
-        displayNameField.text = String(profile.displayName || "")
-        emailField.text = String(profile.email || "")
-        phoneField.text = String(profile.phoneNumber || "")
-        addressField.text = String(profile.address || "")
-        departmentField.text = String(profile.department || "")
-        passwordField.clear()
-        upnField.text = String(profile.upn || "")
-        namespaceField.text = String(profile.namespace || "")
-        statusField.text = String(profile.status || "")
-        projectField.text = String(profile.accountProject || "")
-        licenseField.text = String(profile.licenseType || "")
-        wageField.text = String(profile.hourlyWage || "")
-    }
-
-    function loadGroups() {
-        const values = []
-        const levels = {}
-        for (let index = 0; index < userGroupModel.count(); ++index) {
-            const record = userGroupModel.get(index)
-            if (record.member)
-                values.push(String(record.code || ""))
-            levels[String(record.code || "")] = String(
-                record.accessLevel || ""
-            )
-        }
-        selectedGroups = values
-        groupAccessLevels = levels
-    }
-
-    function openForProfile() {
-        creating = false
-        mode = "profile"
-        awaitingSave = false
-        uploadAvatarAfterCreate = false
-        pendingAvatarUrl = ""
-        loadProfile()
-        loadGroups()
-        open()
-    }
-
-    function openForGroups() {
-        creating = false
-        mode = "groups"
-        awaitingSave = false
-        uploadAvatarAfterCreate = false
-        pendingAvatarUrl = ""
-        loadGroups()
-        open()
-    }
-
-    function openForCreate() {
-        creating = true
-        mode = "profile"
-        awaitingSave = false
-        uploadAvatarAfterCreate = false
-        pendingAvatarUrl = ""
-        selectedGroups = []
-        loadProfile()
-        open()
-        Qt.callLater(() => loginField.forceActiveFocus())
-    }
-
-    function save() {
+        const profile = creating ? {} : controller.profile;
+        const fields = {
+            login: "login",
+            first_name: "firstName",
+            last_name: "lastName",
+            display_name: "displayName",
+            department: "department",
+            email: "email",
+            phone_number: "phoneNumber",
+            address: "address",
+            upn: "upn",
+            namespace: "namespace",
+            s_status: "status",
+            project_code: "accountProject",
+            license_type: "licenseType",
+            hourly_wage: "hourlyWage"
+        };
         const values = {
-            "login": loginField.text,
-            "first_name": firstNameField.text,
-            "last_name": lastNameField.text,
-            "display_name": displayNameField.text,
-            "email": emailField.text,
-            "phone_number": phoneField.text,
-            "address": addressField.text,
-            "department": departmentField.text,
-            "password": passwordField.text,
-            "upn": upnField.text,
-            "namespace": namespaceField.text,
-            "s_status": statusField.text,
-            "project_code": projectField.text,
-            "license_type": licenseField.text,
-            "hourly_wage": wageField.text
+            password: "",
+            groups: [],
+            accessLevels: {}
+        };
+        for (const key of Object.keys(fields))
+            values[key] = String(profile[fields[key]] || "");
+        for (let index = 0; index < userGroupModel.count(); index++) {
+            const group = userGroupModel.get(index);
+            if (!creating && group.member)
+                values.groups.push(group.code);
+            values.accessLevels[group.code] = String(group.accessLevel || "");
         }
-        uploadAvatarAfterCreate = creating && String(pendingAvatarUrl).length > 0
-        awaitingSave = creating
-            ? controller.create_user(values, selectedGroups)
-            : mode === "groups"
-            ? controller.save_group_settings(
-                selectedGroups, groupAccessLevels
-            )
-            : controller.save_profile(values)
-        if (awaitingSave)
-            passwordField.clear()
+        draft = State.begin(values);
+        original = draft;
+        pendingAvatarUrl = "";
+        confirmClose = false;
+        uncertain = false;
+        awaitingSave = false;
     }
-
+    function openForProfile() {
+        creating = false;
+        mode = "profile";
+        loadProfile();
+        open();
+    }
+    function openForGroups() {
+        creating = false;
+        mode = "groups";
+        loadProfile();
+        open();
+    }
+    function openForCreate() {
+        creating = true;
+        mode = "profile";
+        loadProfile();
+        open();
+        Qt.callLater(() => frame.focusControl("profileField_login"));
+    }
+    function requestClose(force) {
+        const decision = State.closeDecision({
+            saving: controller.editingBusy,
+            dirty,
+            uncertain
+        }, force);
+        if (decision === "busy")
+            return;
+        if (decision === "confirm") {
+            confirmClose = true;
+            return;
+        }
+        draft = null;
+        pendingAvatarUrl = "";
+        original = null;
+        close();
+    }
+    function save() {
+        if (controller.editingBusy || uncertain)
+            return;
+        const values = Object.assign({}, draft);
+        delete values.groups;
+        delete values.accessLevels;
+        uploadAvatarAfterCreate = creating && String(pendingAvatarUrl).length > 0;
+        const membershipChanged = JSON.stringify(draft.groups) !== JSON.stringify(original.groups) || JSON.stringify(draft.accessLevels) !== JSON.stringify(original.accessLevels);
+        if (creating)
+            awaitingSave = controller.create_user(values, draft.groups);
+        else if (controller.canManageUsers && membershipChanged)
+            awaitingSave = controller.save_profile(values, draft.groups, draft.accessLevels);
+        else
+            awaitingSave = controller.save_profile(values);
+        if (awaitingSave)
+            draft = State.submitted(draft);
+    }
+    function dispatch(action) {
+        if (["field", "group", "access"].indexOf(action.type) >= 0)
+            draft = State.edit(draft, action);
+        else if (action.type === "mode")
+            mode = State.page(frameModel, action.value);
+        else if (action.type === "avatar")
+            avatarDialog.open();
+        else if (action.type === "save")
+            save();
+        else if (action.type === "close")
+            requestClose(false);
+        else if (action.type === "discard")
+            requestClose(true);
+        else if (action.type === "keep")
+            confirmClose = false;
+        else if (action.type === "reload") {
+            requestClose(true);
+            controller.refresh();
+        }
+    }
+    onClosed: {
+        awaitingSave = false;
+        original = null;
+        confirmClose = false;
+        uncertain = false;
+        draft = null;
+        pendingAvatarUrl = "";
+    }
     Connections {
         target: root.controller
         function onProfileSaved() {
             if (root.awaitingSave) {
                 if (root.uploadAvatarAfterCreate)
-                    root.controller.queue_avatar(root.pendingAvatarUrl)
-                root.awaitingSave = false
-                root.close()
+                    root.controller.queue_avatar(root.pendingAvatarUrl);
+                root.awaitingSave = false;
+                root.requestClose(true);
+            }
+        }
+        function onStateChanged() {
+            if (root.awaitingSave && !root.controller.editingBusy && root.controller.editingError) {
+                root.awaitingSave = false;
+                root.uncertain = true;
             }
         }
     }
-
     FileDialog {
         id: avatarDialog
         title: qsTr("Choose avatar image")
-        fileMode: FileDialog.OpenFile
         nameFilters: [qsTr("Images (*.jpg *.jpeg *.png *.webp)")]
         onAccepted: {
-            if (root.creating) {
-                root.pendingAvatarUrl = selectedFile
-            } else if (root.controller.queue_avatar(selectedFile)) {
-                root.pendingAvatarUrl = selectedFile
-            }
+            if (root.creating || root.controller.queue_avatar(selectedFile))
+                root.pendingAvatarUrl = selectedFile;
         }
     }
-
-    contentItem: ColumnLayout {
-        spacing: 12
-
-        RowLayout {
-            Layout.fillWidth: true
-            spacing: 12
-
-            Controls.ItemPreview {
-                Layout.preferredWidth: 54
-                Layout.preferredHeight: 54
-                theme: root.theme
-                source: String(root.pendingAvatarUrl).length
-                    ? root.pendingAvatarUrl
-                    : root.controller.profile.avatarUrl || ""
-                fallbackIcon: "person"
-                fallbackText: root.creating ? "?"
-                    : root.controller.profile.initials || "?"
-                previewSize: 54
-                round: true
-                outlined: true
-                animateAppearance: false
-                accent: root.creating
-                    ? root.theme.action
-                    : root.controller.profile.avatarColor || root.theme.action
-            }
-            ColumnLayout {
-                Layout.fillWidth: true
-                spacing: 2
-                Label {
-                    Layout.fillWidth: true
-                    text: root.creating ? qsTr("New user")
-                        : root.controller.profile.displayName || qsTr("User")
-                    color: root.theme.primaryText
-                    font.family: root.theme.fontFamily
-                    font.pixelSize: 13
-                    font.weight: Font.DemiBold
-                    elide: Text.ElideRight
-                }
-                Label {
-                    text: root.creating ? loginField.text
-                        : root.controller.profile.login || ""
-                    color: root.theme.secondaryText
-                    font.family: root.theme.fontFamily
-                    font.pointSize: Controls.Typography.label
-                }
-            }
-            Controls.Button {
-                theme: root.theme
-                visible: root.mode === "profile"
-                text: qsTr("CHANGE AVATAR")
-                icon.name: "image-edit"
-                onClicked: avatarDialog.open()
-            }
-        }
-
-        Controls.SegmentedButton {
-            visible: root.controller.canManageUsers
-            Layout.fillWidth: true
+    Component {
+        id: avatarComponent
+        Controls.ItemPreview {
             theme: root.theme
-            model: [
-                {"label": qsTr("Profile"), "value": "profile", "icon": "person"},
-                {"label": qsTr("Groups"), "value": "groups", "icon": "groups"}
-            ]
-            currentValue: root.mode
-            onActivated: value => {
-                root.mode = value
-                if (!root.creating) {
-                    if (value === "groups")
-                        root.loadGroups()
-                    else
-                        root.loadProfile()
-                }
-            }
-        }
-
-        ScrollView {
-            id: editorScroll
-
-            Layout.fillWidth: true
-            Layout.fillHeight: true
-            clip: true
-            contentWidth: availableWidth
-            contentHeight: editorContent.implicitHeight
-            ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
-            ScrollBar.vertical: Controls.ScrollBar {
-                id: editorScrollBar
-                objectName: "userProfileEditorScrollBar"
-                theme: root.theme
-                flickableTarget: editorScroll
-            }
-
-            ColumnLayout {
-                id: editorContent
-
-                width: editorScroll.availableWidth - editorScrollBar.reservedExtent - 4
-                spacing: 10
-
-                GridLayout {
-                    visible: root.mode === "profile"
-                    Layout.fillWidth: true
-                    columns: 2
-                    columnSpacing: 10
-                    rowSpacing: 10
-
-                    Controls.TextField {
-                        id: loginField
-                        visible: root.creating
-                        Layout.fillWidth: true
-                        Layout.columnSpan: 2
-                        theme: root.theme
-                        placeholderText: qsTr("Login")
-                    }
-
-                    Controls.TextField {
-                        id: firstNameField
-                        Layout.fillWidth: true
-                        theme: root.theme
-                        placeholderText: qsTr("First name")
-                    }
-                    Controls.TextField {
-                        id: lastNameField
-                        Layout.fillWidth: true
-                        theme: root.theme
-                        placeholderText: qsTr("Last name")
-                    }
-                    Controls.TextField {
-                        id: displayNameField
-                        Layout.fillWidth: true
-                        theme: root.theme
-                        placeholderText: qsTr("Display name")
-                    }
-                    Controls.TextField {
-                        id: departmentField
-                        Layout.fillWidth: true
-                        theme: root.theme
-                        placeholderText: qsTr("Department")
-                    }
-                    Controls.TextField {
-                        id: emailField
-                        Layout.fillWidth: true
-                        theme: root.theme
-                        placeholderText: qsTr("Email")
-                    }
-                    Controls.TextField {
-                        id: phoneField
-                        Layout.fillWidth: true
-                        theme: root.theme
-                        placeholderText: qsTr("Phone number")
-                    }
-                    Controls.TextField {
-                        id: addressField
-                        Layout.fillWidth: true
-                        Layout.columnSpan: 2
-                        theme: root.theme
-                        placeholderText: qsTr("Address")
-                    }
-                    Controls.TextField {
-                        id: passwordField
-                        Layout.fillWidth: true
-                        Layout.columnSpan: 2
-                        theme: root.theme
-                        placeholderText: qsTr("New password — leave empty to keep current")
-                        echoMode: TextInput.Password
-                    }
-
-                    Label {
-                        visible: root.controller.canManageUsers
-                        Layout.columnSpan: 2
-                        text: qsTr("ACCOUNT SETTINGS")
-                        color: root.theme.secondaryText
-                        font.family: root.theme.fontFamily
-                        font.pointSize: Controls.Typography.label
-                        font.weight: Font.DemiBold
-                    }
-                    Controls.TextField {
-                        id: upnField
-                        visible: root.controller.canManageUsers
-                        Layout.fillWidth: true
-                        theme: root.theme
-                        placeholderText: qsTr("UPN")
-                    }
-                    Controls.TextField {
-                        id: namespaceField
-                        visible: root.controller.canManageUsers
-                        Layout.fillWidth: true
-                        theme: root.theme
-                        placeholderText: qsTr("Namespace")
-                    }
-                    Controls.TextField {
-                        id: statusField
-                        visible: root.controller.canManageUsers
-                        Layout.fillWidth: true
-                        theme: root.theme
-                        placeholderText: qsTr("Account status")
-                    }
-                    Controls.TextField {
-                        id: projectField
-                        visible: root.controller.canManageUsers
-                        Layout.fillWidth: true
-                        theme: root.theme
-                        placeholderText: qsTr("Project code")
-                    }
-                    Controls.TextField {
-                        id: licenseField
-                        visible: root.controller.canManageUsers
-                        Layout.fillWidth: true
-                        theme: root.theme
-                        placeholderText: qsTr("License type")
-                    }
-                    Controls.TextField {
-                        id: wageField
-                        visible: root.controller.canManageUsers
-                        Layout.fillWidth: true
-                        theme: root.theme
-                        placeholderText: qsTr("Hourly wage")
-                        validator: DoubleValidator { bottom: 0 }
-                    }
-                }
-
-                UserGroupMembershipEditor {
-                    visible: root.mode === "groups"
-                    Layout.fillWidth: true
-                    theme: root.theme
-                    model: userGroupModel
-                    selectedGroups: root.selectedGroups
-                    showAccessLevels: !root.creating
-                    accessLevels: root.groupAccessLevels
-                    onGroupToggled: (code, selected) => root.setGroupSelected(code, selected)
-                    onAccessLevelEdited: (code, value) => root.setGroupAccessLevel(code, value)
-                }
-            }
-        }
-
-        Label {
-            visible: root.controller.editingError.length > 0
-            Layout.fillWidth: true
-            text: root.controller.editingError
-            color: root.theme.error
-            font.family: root.theme.fontFamily
-            font.pointSize: Controls.Typography.label
-            wrapMode: Text.WordWrap
+            source: String(root.pendingAvatarUrl) || root.controller.profile.avatarUrl || ""
+            fallbackText: root.creating ? "?" : root.controller.profile.initials || "?"
+            previewSize: 54
+            round: true
+            outlined: true
+            accent: root.controller.profile.avatarColor || root.theme.action
         }
     }
-
-    footer: Controls.DialogActions {
+    contentItem: Frame.FrameView {
+        id: frame
+        implicitHeight: 540
+        implicitWidth: 640
         theme: root.theme
-        Controls.Button {
-            objectName: "userProfileEditorCancel"
-            theme: root.theme
-            text: qsTr("Cancel")
-            enabled: !root.controller.editingBusy
-            onClicked: root.reject()
-        }
-        Controls.Button {
-            objectName: "userProfileEditorSave"
-            theme: root.theme
-            text: root.creating ? qsTr("Create") : qsTr("Save")
-            icon.name: "save"
-            highlighted: true
-            enabled: !root.controller.editingBusy
-            onClicked: root.save()
-        }
+        scene: UI.describe(root.frameModel, width, height, root.language)
+        models: ({
+                groups: userGroupModel
+            })
+        views: ({
+                avatar: avatarComponent
+            })
+        describeRow: (list, record) => UI.groupRow(root.frameModel, record, list.width - 16, root.language)
+        onEvent: action => root.dispatch(action)
+        Keys.onEscapePressed: root.requestClose(false)
     }
 }

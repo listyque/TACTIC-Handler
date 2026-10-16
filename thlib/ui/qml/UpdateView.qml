@@ -1,338 +1,160 @@
 import QtQuick
 import QtQuick.Controls
-import QtQuick.Layouts
 import "controls" as Controls
+import "tactic_frame" as Frame
+import "tactic_frame/features/support/connection/updates.ui.mjs" as UI
+import "tactic_frame/controls/feedback/confirmation.ui.mjs" as Confirmation
+
 Item {
     id: root
     required property var theme
     required property bool createMode
     property bool versionInitialized: false
     property string currentPage: "updates"
-
+    property var draft: ({
+            major: "0",
+            minor: "0",
+            build: "0",
+            revision: "0",
+            changes: "",
+            misc: ""
+        })
+    readonly property string language: typeof localizationController === "undefined" ? "en" : localizationController.current_language
+    readonly property var frameModel: ({
+            createMode,
+            page: currentPage,
+            draft,
+            busy: updateController.busy,
+            error: qsTr(updateController.error),
+            stage: qsTr(updateController.stage),
+            progress: updateController.progress,
+            cancelable: updateController.cancelable,
+            portable: updateController.portable,
+            canInstall: updateController.canInstall,
+            count: updateModel.count(),
+            configured: !!updateController.sourceSearchKey
+        })
     function syncVersion() {
-        if (!createMode || versionInitialized
-                || !updateController.currentVersion)
-            return
-        const parts = updateController.currentVersion.split(".")
-        if (parts.length === 4) {
-            major.value = Number(parts[0])
-            minor.value = Number(parts[1])
-            build.value = Number(parts[2])
-            revision.value = Number(parts[3])
-            changes.text = updateController.currentChanges
-            versionInitialized = true
+        if (!createMode || versionInitialized || !updateController.currentVersion)
+            return;
+        const values = updateController.currentVersion.split(".");
+        if (values.length === 4) {
+            draft = ({
+                    major: values[0],
+                    minor: values[1],
+                    build: values[2],
+                    revision: values[3],
+                    changes: updateController.currentChanges,
+                    misc: ""
+                });
+            versionInitialized = true;
         }
     }
-
-    Component.onCompleted: root.syncVersion()
-    onVisibleChanged: if (visible) updateController.load()
-    Rectangle { anchors.fill: parent; color: root.theme.panelDeep }
-    ColumnLayout {
+    function dispatch(action) {
+        if (action.type === "refresh")
+            updateController.load();
+        else if (action.type === "page")
+            currentPage = action.value;
+        else if (action.type === "field") {
+            const next = Object.assign({}, draft);
+            next[action.key] = action.value;
+            draft = next;
+        } else if (action.type === "versionStep")
+            draft = UI.stepVersion(draft, action.key, action.delta);
+        else if (action.type === "cancel")
+            updateController.cancel();
+        else if (action.type === "select") {
+            for (let index = 0; index < updateModel.count(); index++) {
+                const record = updateModel.get(index);
+                if (record.archive === action.archive && record.version === action.version) {
+                    updateController.select(index);
+                    break;
+                }
+            }
+        } else if (action.type === "install" && updateController.canInstall)
+            updateConfirmation.open();
+        else if (action.type === "create" && !updateController.busy) {
+            const values = UI.versionValues(draft);
+            if (values)
+                updateController.create_update(values[0], values[1], values[2], values[3], draft.changes, draft.misc);
+        }
+    }
+    Component.onCompleted: syncVersion()
+    onVisibleChanged: if (visible)
+        updateController.load()
+    Rectangle {
         anchors.fill: parent
-        anchors.margins: 14
-        spacing: 10
-        RowLayout {
-            Layout.fillWidth: true
-            Rectangle {
-                Layout.preferredWidth: 42
-                Layout.preferredHeight: 42
-                radius: 14
-                color: root.theme.secondaryContainer
-                Controls.MaterialIcon {
-                    anchors.centerIn: parent
-                    name: root.createMode ? "inventory_2" : "system_update"
-                    size: 21
-                    color: root.theme.action
-                }
-            }
-            ColumnLayout {
-                Layout.fillWidth: true
-                Label {
-                    text: root.createMode
-                        ? qsTr("Create update") : qsTr("Application updates")
-                    color: root.theme.primaryText
-                    font.pixelSize: 15
-                    font.weight: Font.DemiBold
-                }
-                Label {
-                    id: currentVersionLabel
-                    objectName: "currentVersionLabel"
-                    text: qsTr("Current version  ") + (updateController.currentVersion || "—")
-                    color: root.theme.secondaryText
-                    font.pointSize: Controls.Typography.label
-                    MouseArea {
-                        anchors.fill: parent
-                        acceptedButtons: Qt.LeftButton
-                        onDoubleClicked: mouse => {
-                            if (mouse.modifiers & Qt.ControlModifier)
-                                updateController.open_generator()
-                        }
-                    }
-                }
-            }
-            RefreshIconButton {
-                theme: root.theme
-                visible: root.createMode || root.currentPage === "updates"
-                toolTip: qsTr("Check TACTIC update snapshots")
-                enabled: !updateController.busy
-                onClicked: updateController.load()
-            }
-        }
-
-        Controls.SegmentedButton {
-            objectName: "updatePages"
-            visible: !root.createMode
-            Layout.fillWidth: true
-            theme: root.theme
-            currentValue: root.currentPage
-            segmentObjectNamePrefix: "updatePage_"
-            model: [
-                {"value": "updates", "label": qsTr("Available updates"),
-                 "icon": "system_update"},
-                {"value": "changelog", "label": qsTr("Changelog"),
-                 "icon": "history"}
-            ]
-            onActivated: value => root.currentPage = value
-        }
-
-        GridLayout {
-            visible: root.createMode
-            Layout.fillWidth: true
-            columns: 4
-            rowSpacing: 5
-            columnSpacing: 8
-            Label { text: qsTr("Major"); color: root.theme.secondaryText; font.pointSize: Controls.Typography.label }
-            Label { text: qsTr("Minor"); color: root.theme.secondaryText; font.pointSize: Controls.Typography.label }
-            Label { text: qsTr("Build"); color: root.theme.secondaryText; font.pointSize: Controls.Typography.label }
-            Label { text: qsTr("Revision"); color: root.theme.secondaryText; font.pointSize: Controls.Typography.label }
-            Controls.SpinBox { id: major; theme: root.theme; Layout.fillWidth: true; from: 0; to: 999 }
-            Controls.SpinBox { id: minor; theme: root.theme; Layout.fillWidth: true; from: 0; to: 999 }
-            Controls.SpinBox { id: build; theme: root.theme; Layout.fillWidth: true; from: 0; to: 999 }
-            Controls.SpinBox { id: revision; objectName: "updateRevision"; theme: root.theme; Layout.fillWidth: true; from: 0; to: 999 }
-        }
-        ScrollView {
-            id: changesScroll
-            objectName: "updateChangesScroll"
-            visible: root.createMode
-            Layout.fillWidth: true
-            Layout.preferredHeight: 76
-            clip: true
-            rightPadding: 14
-            ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
-            ScrollBar.vertical: Controls.ScrollBar {
-                objectName: "updateChangesScrollbar"
-                theme: root.theme
-                flickableTarget: changesScroll
-            }
-            Controls.TextArea {
-                id: changes
-                objectName: "updateChanges"
-                theme: root.theme
-                width: changesScroll.availableWidth
-                placeholderText: qsTr("Changes")
-            }
-        }
-        Controls.TextArea {
-            id: misc
-            theme: root.theme
-            visible: root.createMode
-            Layout.fillWidth: true
-            Layout.preferredHeight: 62
-            placeholderText: qsTr("Additional information")
-        }
-
-        ListView {
-            id: versions
-            visible: root.createMode || root.currentPage === "updates"
-            Layout.fillWidth: true
-            Layout.fillHeight: true
-            model: updateModel
-            clip: true
-            spacing: 5
-            rightMargin: 14
-            delegate: Rectangle {
-                required property int index
-                required property string version
-                required property string date
-                required property string changes
-                required property string misc
-                required property bool selected
-                width: Math.max(0, versions.width - versions.rightMargin)
-                height: 72
-                radius: 13
-                color: selected ? root.theme.secondaryContainer
-                    : root.theme.surfaceContainerLow
-                border.width: 1
-                border.color: selected ? root.theme.action
-                    : root.theme.outlineVariant
-                ColumnLayout {
-                    anchors.fill: parent
-                    anchors.margins: 9
-                    spacing: 2
-                    RowLayout {
-                        Layout.fillWidth: true
-                        Label {
-                            text: version
-                            color: root.theme.primaryText
-                            font.pointSize: Controls.Typography.bodyLarge
-                            font.weight: Font.DemiBold
-                        }
-                        Item { Layout.fillWidth: true }
-                        Label { text: date; color: root.theme.secondaryText; font.pointSize: Controls.Typography.caption }
-                    }
-                    Label {
-                        Layout.fillWidth: true
-                        text: changes || misc || qsTr("No release notes")
-                        color: root.theme.secondaryText
-                        font.pointSize: Controls.Typography.label
-                        elide: Text.ElideRight
-                    }
-                }
-                MouseArea {
-                    anchors.fill: parent
-                    hoverEnabled: true
-                    cursorShape: Qt.PointingHandCursor
-                    onClicked: updateController.select(parent.index)
-                }
-            }
-            ScrollBar.vertical: Controls.ScrollBar {
-                theme: root.theme
-                flickableTarget: versions
-            }
-            Label {
-                anchors.centerIn: parent
-                visible: versions.count === 0 && !updateController.busy
-                text: updateController.sourceSearchKey.length
-                    ? qsTr("No release ZIP snapshots found")
-                    : qsTr("Configure an update sObject in Server configuration")
-                color: root.theme.secondaryText
-                font.pointSize: Controls.Typography.body
-            }
-        }
-
-        ScrollView {
-            id: changelogScroll
-            objectName: "updateChangelogScroll"
-            visible: !root.createMode && root.currentPage === "changelog"
-            Layout.fillWidth: true
-            Layout.fillHeight: true
-            contentWidth: availableWidth
-            clip: true
-            rightPadding: 14
-            ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
-            ScrollBar.vertical: Controls.ScrollBar {
-                objectName: "updateChangelogScrollbar"
-                theme: root.theme
-                flickableTarget: changelogScroll
-            }
-            Controls.SelectableText {
-                objectName: "updateChangelogText"
-                theme: root.theme
-                width: changelogScroll.availableWidth
-                height: contentHeight
-                text: updateController.changelog
-                textFormat: TextEdit.MarkdownText
-                wrapMode: TextEdit.WordWrap
-            }
-        }
-
-        ColumnLayout {
-            Layout.fillWidth: true
-            visible: (root.createMode || root.currentPage === "updates")
-                && (updateController.busy || updateController.error.length > 0
-                    || updateController.stage.length > 0)
-            ProgressBar {
-                Layout.fillWidth: true
-                visible: updateController.busy
-                from: 0
-                to: 1
-                value: updateController.progress
-                indeterminate: updateController.busy
-                    && updateController.progress <= 0
-            }
-            Label {
-                Layout.fillWidth: true
-                text: updateController.error || updateController.stage
-                color: updateController.error ? root.theme.red
-                    : root.theme.secondaryText
-                font.pointSize: Controls.Typography.label
-                wrapMode: Text.WordWrap
-            }
-        }
+        color: root.theme.panelDeep
+    }
+    Frame.FrameView {
+        anchors.fill: parent
+        theme: root.theme
+        scene: UI.describe(root.frameModel, root.width, root.height, root.language)
+        models: ({
+                releases: updateModel
+            })
+        views: ({
+                version: versionComponent,
+                changelog: changelogComponent
+            })
+        describeRow: (list, record) => UI.row(record, list.width - 16)
+        onEvent: action => root.dispatch(action)
+    }
+    Component {
+        id: versionComponent
         Label {
-            Layout.fillWidth: true
-            visible: !root.createMode && root.currentPage === "updates"
-                && !updateController.portable
-            text: qsTr("Automatic installation requires a portable build")
+            objectName: "currentVersionLabel"
+            text: qsTr("Current version  ") + (updateController.currentVersion || "—")
             color: root.theme.secondaryText
-            wrapMode: Text.WordWrap
-        }
-        RowLayout {
-            Layout.fillWidth: true
-            Controls.Button {
-                theme: root.theme
-                visible: updateController.cancelable
-                text: qsTr("Cancel")
-                icon.name: "stop"
-                onClicked: updateController.cancel()
-            }
-            Item { Layout.fillWidth: true }
-            Controls.Button {
-                objectName: "createUpdateArchiveButton"
-                theme: root.theme
-                visible: root.createMode
-                text: qsTr("Create archive")
-                icon.name: "archive"
-                highlighted: true
-                enabled: !updateController.busy
-                onClicked: updateController.create_update(
-                    major.value, minor.value, build.value, revision.value,
-                    changes.text, misc.text)
-            }
-            Controls.Button {
-                theme: root.theme
-                visible: !root.createMode && root.currentPage === "updates"
-                text: qsTr("Install selected version")
-                icon.name: "restart_alt"
-                highlighted: true
-                enabled: updateController.canInstall
-                onClicked: updateConfirmation.open()
+            font.pixelSize: 12
+            font.family: root.theme.fontFamily
+            elide: Text.ElideRight
+            MouseArea {
+                anchors.fill: parent
+                onDoubleClicked: mouse => {
+                    if (mouse.modifiers & Qt.ControlModifier)
+                        updateController.open_generator();
+                }
             }
         }
     }
-
+    Component {
+        id: changelogComponent
+        Controls.DocumentPane {
+            objectName: "updateChangelogScroll"
+            theme: root.theme
+            documentKey: "changelog"
+            text: updateController.changelog
+            presented: root.visible && root.currentPage === "changelog"
+        }
+    }
     Controls.Dialog {
         id: updateConfirmation
         theme: root.theme
         modal: true
         anchors.centerIn: parent
-        width: Math.min(410, root.width - 24)
+        width: Math.min(440, root.width - 24)
+        height: 340
         title: qsTr("Install selected version?")
-        contentItem: Label {
-            width: Math.max(0, updateConfirmation.width - 48)
-            text: qsTr("TACTIC-Handler will close, install this version, then reopen. Your saved workspace and settings are preserved. The previous version remains available for rollback.")
-            color: root.theme.primaryText
-            wrapMode: Text.WordWrap
-        }
-        footer: DialogButtonBox {
-            background: Item {}
-            Controls.Button {
-                theme: root.theme
-                text: qsTr("Install and restart")
-                highlighted: true
-                DialogButtonBox.buttonRole: DialogButtonBox.AcceptRole
-            }
-            Controls.Button {
-                theme: root.theme
-                text: qsTr("Cancel")
-                flat: true
-                DialogButtonBox.buttonRole: DialogButtonBox.RejectRole
+        contentItem: Frame.FrameView {
+            implicitHeight: 240
+            theme: root.theme
+            scene: Confirmation.describe({
+                message: qsTr("TACTIC-Handler will close, install this version, then reopen. Your saved workspace and settings are preserved. The previous version remains available for rollback."),
+                accept: "Install and restart",
+                busy: updateController.busy
+            }, width, height, root.language)
+            onEvent: action => {
+                updateConfirmation.close();
+                if (action.type === "accept" && updateController.canInstall)
+                    updateController.install_selected();
             }
         }
-        onAccepted: updateController.install_selected()
     }
     Connections {
         target: updateController
-        function onStateChanged() { root.syncVersion() }
+        function onStateChanged() {
+            root.syncVersion();
+        }
     }
 }

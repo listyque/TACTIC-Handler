@@ -49,7 +49,7 @@ def probe():
         engine = QQmlEngine()
         engine.addImportPath(str(qml))
         context = engine.rootContext()
-        for name, value in [('debugLog', log), ('debugEntryModel', log.entries_model),
+        for name, value in [('debugLog', log), ('debugLogModel', log.entries_model),
                             ('debugGroupModel', log.groups_model), ('debugSessionModel', log.sessions_model)]:
             context.setContextProperty(name, value)
         theme_component = QQmlComponent(engine, QUrl.fromLocalFile(str(qml / 'Theme.qml')))
@@ -110,8 +110,8 @@ def probe():
             QTest.keyClick(window, Qt.Key.Key_A, Qt.KeyboardModifier.ControlModifier)
             QTest.keyClick(window, Qt.Key.Key_C, Qt.KeyboardModifier.ControlModifier)
             assert app.clipboard().text() == source
-            button = view.findChild(QObject, 'copyErrorStacktrace')
-            body = view.findChild(QObject, 'errorBodyFlickable')
+            button = next(item for item in descendants(view) if item.objectName() == 'copyErrorStacktrace')
+            body = next(item for item in descendants(view) if item.objectName() == 'errorBodyFlickable')
             position = button.mapToScene(QPointF(button.width()/2, button.height()/2))
             body.setProperty('contentY', body.property('contentY') + position.y() - body.height()/2)
             app.processEvents()

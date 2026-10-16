@@ -1,148 +1,71 @@
 import QtQuick
-import QtQuick.Controls
-import QtQuick.Layouts
-import "controls" as Controls
+import "tactic_frame" as Frame
+import "tactic_frame/features/support/diagnostics/performance.ui.mjs" as UI
 
 Item {
     id: root
     required property var theme
     property var selectedSample: ({})
-
-    function milliseconds(value) {
-        return value >= 0 ? Number(value).toFixed(1) + " " + qsTr("ms") : "—"
+    readonly property string language: typeof localizationController === "undefined" ? "en" : localizationController.current_language
+    readonly property var frameModel: ({
+            recording: uiPerformance.recording,
+            summary: uiPerformance.summary,
+            selectedId: selectedSample.sampleId || 0,
+            selected: selectedSample,
+            browserFrames: false
+        })
+    function row(list, record) {
+        return UI.row(frameModel, record, list.width - 16, language);
     }
-    function actionText(value) {
-        return value.indexOf("Search tab: ") === 0
-            ? qsTr("Search tab") + ": " + value.slice(12) : qsTr(value)
+    function dispatch(action) {
+        if (action.type === "record")
+            uiPerformance.set_recording(!uiPerformance.recording);
+        else if (action.type === "copy")
+            uiPerformance.copy_results();
+        else if (action.type === "clear") {
+            selectedSample = ({});
+            uiPerformance.clear();
+        } else if (action.type === "sample")
+            selectedSample = action.record;
+        else if (action.type === "sampleKey") {
+            const rows = [];
+            for (let index = 0; index < uiPerformance.summary.count; index++)
+                rows.push(uiPerformanceModel.get(index));
+            const target = UI.selection(rows, action.id, action.key);
+            if (target) {
+                selectedSample = target;
+                frame.focusListRow("uiPerformanceSamples", rows.findIndex(record => record.sampleId === target.sampleId), "sample_" + target.sampleId);
+            }
+        }
     }
-
-    Rectangle { anchors.fill: parent; color: root.theme.workspace }
-
-    ColumnLayout {
+    Connections {
+        target: uiPerformance
+        function onChanged() {
+            if (!root.selectedSample.sampleId)
+                return;
+            for (let index = 0; index < uiPerformance.summary.count; index++) {
+                const record = uiPerformanceModel.get(index);
+                if (record.sampleId === root.selectedSample.sampleId) {
+                    root.selectedSample = record;
+                    return;
+                }
+            }
+            root.selectedSample = ({});
+        }
+    }
+    Rectangle {
         anchors.fill: parent
-        anchors.margins: 16
-        spacing: 10
-
-        RowLayout {
-            Layout.fillWidth: true
-            Label {
-                Layout.fillWidth: true
-                text: qsTr("UI responsiveness")
-                color: root.theme.primaryText
-                font.family: root.theme.fontFamily
-                font.pointSize: Controls.Typography.bodyLarge
-            }
-            Controls.Button {
-                objectName: "pauseUiMeasurements"
-                theme: root.theme
-                text: uiPerformance.recording ? qsTr("Pause measurements") : qsTr("Resume measurements")
-                onClicked: uiPerformance.set_recording(!uiPerformance.recording)
-            }
-            Controls.CompactIconButton {
-                objectName: "copyUiMeasurements"
-                theme: root.theme
-                iconName: "content-copy"
-                toolTip: qsTr("Copy measurements")
-                onClicked: uiPerformance.copy_results()
-            }
-            Controls.CompactIconButton {
-                objectName: "clearUiMeasurements"
-                theme: root.theme
-                iconName: "delete"
-                toolTip: qsTr("Clear measurements")
-                onClicked: uiPerformance.clear()
-            }
-        }
-        Label {
-            Layout.fillWidth: true
-            wrapMode: Text.WordWrap
-            text: qsTr("Target: a visible response within 50 ms. Input measures the next frame of the clicked window; controller rows measure work and its ready frame. A frame is not proof that asynchronous loading has finished.")
-            color: root.theme.secondaryText
-            font.family: root.theme.fontFamily
-            font.pointSize: Controls.Typography.body
-        }
-        Label {
-            Layout.fillWidth: true
-            text: qsTr("Samples: %1 · Frames over 50 ms: %2 · p95: %3 · Maximum: %4")
-                .arg(uiPerformance.summary.count).arg(uiPerformance.summary.overBudget)
-                .arg(root.milliseconds(uiPerformance.summary.p95))
-                .arg(root.milliseconds(uiPerformance.summary.maximum))
-            color: root.theme.primaryText
-            font.family: root.theme.fontFamily
-            font.pointSize: Controls.Typography.body
-            wrapMode: Text.WordWrap
-        }
-        RowLayout {
-            Layout.fillWidth: true
-            Layout.rightMargin: 22
-            Label { Layout.fillWidth: true; text: qsTr("Action / window"); color: root.theme.secondaryText }
-            Label { Layout.preferredWidth: 96; text: qsTr("Handler"); color: root.theme.secondaryText }
-            Label { Layout.preferredWidth: 96; text: qsTr("First frame"); color: root.theme.secondaryText }
-            Label { Layout.preferredWidth: 96; text: qsTr("Ready frame"); color: root.theme.secondaryText }
-        }
-        Controls.SmoothListView {
-            id: samples
-            theme: root.theme
-            objectName: "uiPerformanceSamples"
-            Layout.fillWidth: true
-            Layout.fillHeight: true
-            clip: true
-            spacing: 4
-            model: uiPerformanceModel
-            delegate: Rectangle {
-                id: row
-                required property string action
-                required property string window
-                required property real handlerMs
-                required property real frameMs
-                required property real readyMs
-                required property string details
-                required property string status
-                required property bool slow
-                width: samples.width - 22
-                height: 54
-                radius: 6
-                color: root.theme.panel
-                border.width: row.slow ? 1 : 0
-                border.color: root.theme.red
-                RowLayout {
-                    anchors.fill: parent
-                    anchors.margins: 8
-                    ColumnLayout {
-                        Layout.fillWidth: true
-                        spacing: 2
-                        Label { Layout.fillWidth: true; text: root.actionText(row.action); elide: Text.ElideRight; color: root.theme.primaryText }
-                        Label { Layout.fillWidth: true; text: row.window || qsTr(row.status); elide: Text.ElideRight; color: root.theme.secondaryText }
-                    }
-                    Label { Layout.preferredWidth: 96; text: root.milliseconds(row.handlerMs); color: root.theme.primaryText }
-                    Label { Layout.preferredWidth: 96; text: root.milliseconds(row.frameMs); color: row.frameMs > 50 ? root.theme.red : root.theme.primaryText }
-                    Label { Layout.preferredWidth: 88; text: root.milliseconds(row.readyMs); color: root.theme.primaryText }
-                }
-                Controls.ActivationHandler {
-                    onActivated: root.selectedSample = {"action": row.action, "details": row.details, "status": row.status}
-                }
-            }
-            ScrollBar.vertical: Controls.ScrollBar { theme: root.theme }
-        }
-        Flickable {
-            Layout.fillWidth: true
-            Layout.preferredHeight: 95
-            clip: true
-            contentHeight: detailText.height
-            contentWidth: width
-            Controls.TextArea {
-                id: detailText
-                objectName: "uiMeasurementDetails"
-                width: parent.width - 20
-                height: Math.max(95, implicitHeight)
-                readOnly: true
-                selectByMouse: true
-                wrapMode: TextEdit.Wrap
-                text: (root.selectedSample.action || qsTr("Select a measurement for details"))
-                    + "\n" + (root.selectedSample.details || "")
-                theme: root.theme
-            }
-            ScrollBar.vertical: Controls.ScrollBar { theme: root.theme }
-        }
+        color: root.theme.workspace
+    }
+    Frame.FrameView {
+        id: frame
+        anchors.fill: parent
+        theme: root.theme
+        scene: UI.describe(root.frameModel, root.width, root.height, root.language)
+        models: ({
+                samples: uiPerformanceModel
+            })
+        describeRow: root.row
+        onEvent: action => root.dispatch(action)
     }
 }

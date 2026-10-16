@@ -78,3 +78,10 @@ JSON calls to `/admin/rpc` and XML-RPC calls to `/tactic/{project}/Api/` use the
 Other browser endpoints, such as `/admin/search-configuration/query`, do not pass through `/admin/rpc`. Their HTTP access records are separate. Requests rejected before API dispatch also do not have a method block.
 
 This logging does not switch Handler's transport. Handler continues using XML-RPC, including connections to Legacy TACTIC.
+
+
+## Shared support window
+
+Debug Log is available from sign-in as well as the application menu. Level buttons filter the view; recording levels remain in Configuration. Use Arrow Up/Down or Home/End in the event list: off-screen records are revealed before focus moves. Open Event Details to inspect the complete message, command and traceback; inspecting a stored event does not repeat its operation. Escape closes this child before Debug Log.
+
+Open a JSONL session, search it, return to the live session and export it without changing the saved file. Handler copies a local session path; Stream downloads JSONL and stores history in this browser. Signing out in Stream closes owned details, clears local history and rejects an import still completing for the previous session. Long commands and results remain complete and can scroll horizontally.

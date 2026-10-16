@@ -10,6 +10,7 @@ Basic.Dialog {
     required property var theme
     property bool translateTitle: true
     property bool draggable: false
+    property real headerPadding: leftPadding
 
     modal: false
     spacing: 12
@@ -60,8 +61,8 @@ Basic.Dialog {
             anchors.left: parent.left
             anchors.right: parent.right
             anchors.verticalCenter: parent.verticalCenter
-            anchors.leftMargin: control.leftPadding
-            anchors.rightMargin: control.rightPadding
+            anchors.leftMargin: control.headerPadding
+            anchors.rightMargin: control.headerPadding
             text: control.translateTitle ? qsTr(control.title) : control.title
             color: control.theme.primaryText
             font.family: control.theme.fontFamily

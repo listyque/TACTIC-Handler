@@ -4,7 +4,7 @@ import { textStyles } from './foundation.mjs';
 
 /** @typedef {{x:number, y:number, width:number, height:number}} Bounds Logical pixels. */
 /** @typedef {{type:string, [key:string]:unknown}} Action UI event or adapter command. */
-/** @typedef {'Box'|'Label'|'Icon'|'Button'|'Action'|'CheckBox'|'Field'|'Area'|'Preview'|'List'|'Scroll'|'Choice'|'Grid'|'IconChoice'|'Splitter'|'Switch'|'Graph'|'View'|'ColorChoice'|'Code'|'DateChoice'|'UserChoice'} ControlKind */
+/** @typedef {'Box'|'Label'|'Icon'|'Button'|'Action'|'CheckBox'|'Field'|'Area'|'Preview'|'List'|'Scroll'|'Choice'|'Grid'|'IconChoice'|'Splitter'|'Switch'|'Graph'|'View'|'ColorChoice'|'Code'|'DateChoice'|'UserChoice'|'SummaryChip'} ControlKind */
 /** @typedef {Bounds & {kind:ControlKind, id:string, children:FrameNode[], fontRole:keyof typeof textStyles, fontSize:number, action:Action|null, [key:string]:unknown}} FrameNode */
 /** @typedef {{nodes:FrameNode[]}} Scene */
 
@@ -30,7 +30,8 @@ export const controlKinds = Object.freeze([
     'Graph',
     'View',
     'ColorChoice',
-    'Code'
+    'Code',
+    'SummaryChip'
 ]);
 
 export function rect(x, y, width, height) {
@@ -40,6 +41,28 @@ export function rect(x, y, width, height) {
         width: Math.max(0, width),
         height: Math.max(0, height)
     };
+}
+
+export function revealListOffset(
+    offset,
+    index,
+    height,
+    count,
+    rowHeight,
+    rowGap = 0
+) {
+    const top = index * rowHeight,
+        bottom = top + rowHeight - rowGap;
+    const desired =
+        top < offset
+            ? top
+            : bottom > offset + height
+              ? bottom - height
+              : offset;
+    return Math.max(
+        0,
+        Math.min(desired, Math.max(0, count * rowHeight - rowGap - height))
+    );
 }
 
 export function label(id, bounds, text, extra) {

@@ -3,6 +3,11 @@
 Each completed change receives a new version and a dated entry below.
 Versions use `major.minor.build.revision`; routine updates increment `revision`.
 
+## 0.6.0.108 - 2026-10-17
+
+- Move Debug Log, UI responsiveness, profile/editor, sign-in, presets and update/error/confirmation composition to independent Tactic Frame modules. Keep existing authentication, logging, profile ACL/revisions, updater and native file owners; Help and connection menus retain their established Frame contracts.
+- Preserve full diagnostics and off-screen keyboard focus, password clearing, dirty/unknown-write guards and owned child closure. Save both profile-editor pages through one existing mutation rather than skip the hidden page. Retain native preset/ZIP capabilities and browser current-origin/history differences explicitly. Add real Qt/browser workflows and original/current paired evidence across themes, languages and widths; update EN/RU Help.
+
 ## 0.6.0.107 - 2026-10-17
 
 - Close Frame B03 Administration review against the tracked pre-Frame Handler archive. Keep independent native and browser products, existing controllers, command/revision/ACL owners and explicit capabilities.

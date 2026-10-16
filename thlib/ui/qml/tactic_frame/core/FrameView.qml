@@ -115,6 +115,14 @@ Item {
         }
         return false;
     }
+    function focusListRow(id, row, controlId) {
+        for (let index = 0; index < repeater.count; index++) {
+            const wrapper = root.wrapperAt(index), control = wrapper ? wrapper.control : null;
+            if (control && control.focusListRow && control.focusListRow(id, row, controlId))
+                return true;
+        }
+        return false;
+    }
     function focusGrid(id, row, column, name) {
         for (let index = 0; index < repeater.count; index++) {
             const control = root.wrapperAt(index).control;
@@ -254,6 +262,8 @@ Item {
                         return fieldBrick;
                     case "Area":
                         return areaBrick;
+                    case "SummaryChip":
+                        return summaryChipBrick;
                     case "Preview":
                         return previewBrick;
                     case "List":
@@ -314,6 +324,9 @@ Item {
                         }
                         function focusControl(name) {
                             return boxContent.focusControl(name);
+                        }
+                        function focusListRow(id, row, controlId) {
+                            return boxContent.focusListRow(id, row, controlId);
                         }
                         function focusGrid(id, row, column, name) {
                             return boxContent.focusGrid(id, row, column, name);
@@ -434,7 +447,7 @@ Item {
                         Accessible.name: text
                         Accessible.description: description
                         Accessible.role: wrapper.node.role === "treeitem" ? Accessible.TreeItem : wrapper.node.role === "checkbox" ? Accessible.CheckBox : Accessible.Button
-                        Accessible.selectable: wrapper.node.role === "treeitem"
+                        Accessible.selectable: wrapper.node.role === "treeitem" || wrapper.node.role === "option"
                         Accessible.selected: !!wrapper.node.selected
                         checked: wrapper.node.checked || false
                         Accessible.checkable: wrapper.node.role === "checkbox"
@@ -572,7 +585,7 @@ Item {
                         enabled: !!wrapper.node.enabled
                         padding: 0
                         font: root.controlFont(wrapper.node)
-                        contentWidth: availableWidth - 12
+                        contentWidth: wrapper.node.wrap === false ? Math.max(availableWidth - 12, editor.contentWidth + editor.leftPadding + editor.rightPadding) : availableWidth - 12
                         contentHeight: editor.height
                         property alias text: editor.text
                         property alias readOnly: editor.readOnly
@@ -587,7 +600,7 @@ Item {
                             border.color: wrapper.node.error ? root.effectiveTheme.error : editor.activeFocus ? root.effectiveTheme.action : root.effectiveTheme.outline
                         }
                         Item {
-                            width: area.availableWidth - 12
+                            width: area.contentWidth
                             height: editor.height
                             Controls.TextArea {
                                 id: editor
@@ -595,6 +608,7 @@ Item {
                                 height: Math.max(area.height, implicitHeight)
                                 theme: root.effectiveTheme
                                 readOnly: !!wrapper.node.readOnly
+                                wrapMode: wrapper.node.wrap === false ? TextEdit.NoWrap : TextEdit.Wrap
                                 textFormat: TextEdit.PlainText
                                 property string modelText: wrapper.node.text
                                 onModelTextChanged: if (text !== modelText)
@@ -620,7 +634,28 @@ Item {
                             theme: root.effectiveTheme
                             flickableTarget: area.contentItem
                         }
-                        ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
+                        ScrollBar.horizontal: Controls.ScrollBar {
+                            theme: root.effectiveTheme
+                            policy: wrapper.node.wrap === false ? ScrollBar.AsNeeded : ScrollBar.AlwaysOff
+                            flickableTarget: area.contentItem
+                        }
+                    }
+                }
+                Component {
+                    id: summaryChipBrick
+                    Controls.SummaryChip {
+                        objectName: wrapper.node.id
+                        theme: root.effectiveTheme
+                        label: wrapper.node.text
+                        count: wrapper.node.count || 0
+                        accent: root.color(wrapper.node.accent || "action")
+                        iconName: wrapper.node.icon || ""
+                        compact: !!wrapper.node.compact
+                        clickable: !!wrapper.node.action
+                        enabled: !!wrapper.node.enabled
+                        showCount: wrapper.node.showCount !== false
+                        showDot: wrapper.node.showDot !== false
+                        onClicked: root.send(wrapper.node.action)
                     }
                 }
                 Component {
@@ -802,10 +837,25 @@ Item {
                     ListView {
                         id: list
                         property var sourceRows: root.models[wrapper.node.source]
+                        Accessible.name: wrapper.node.label || ""
                         objectName: wrapper.node.id
                         model: sourceRows
+                        function focusControl(name) {
+                            for (const item of contentItem.children)
+                                if (item.focusControl && item.focusControl(name))
+                                    return true;
+                            return false;
+                        }
+                        function focusListRow(id, row, controlId) {
+                            if (id !== wrapper.node.id || row < 0 || row >= count)
+                                return false;
+                            contentY = Contract.revealListOffset(contentY, row, height, count, wrapper.node.rowHeight, wrapper.node.rowGap === undefined ? 4 : wrapper.node.rowGap);
+                            forceLayout();
+                            Qt.callLater(() => root.focusControl(controlId));
+                            return true;
+                        }
                         clip: true
-                        spacing: 4
+                        spacing: wrapper.node.rowGap === undefined ? 4 : wrapper.node.rowGap
                         reuseItems: true
                         boundsBehavior: Flickable.StopAtBounds
                         delegate: FrameBranch {
@@ -869,6 +919,9 @@ Item {
                         }
                         function focusControl(name) {
                             return scrollContent.focusControl(name);
+                        }
+                        function focusListRow(id, row, controlId) {
+                            return scrollContent.focusListRow(id, row, controlId);
                         }
                         function focusGrid(id, row, column, name) {
                             return scrollContent.focusGrid(id, row, column, name);

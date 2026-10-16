@@ -75,7 +75,9 @@ class UpdatePromptQmlTests(unittest.TestCase):
                 dialog = prompt.findChild(QObject, "availableUpdateDialog")
                 self.assertIsNotNone(dialog)
                 self.assertTrue(dialog.property("visible"))
-                button = dialog.findChild(QQuickItem, "installUpdateButton")
+                from tests import test_sidebar_editor_qml as sidebar_fixture
+                button = next((item for item in sidebar_fixture.SidebarEditorQmlTests.descendants(window.contentItem())
+                               if item.objectName() == "installUpdateButton"), None)
                 self.assertIsNotNone(button)
                 point = button.mapToScene(QPointF(
                     button.width() / 2, button.height() / 2,

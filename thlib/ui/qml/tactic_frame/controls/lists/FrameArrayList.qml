@@ -81,6 +81,16 @@ Flickable {
     function focusControl(name) {
         return body.focusControl(name);
     }
+    function focusListRow(id, row, controlId) {
+        if (id !== node.id)
+            return body.focusListRow(id, row, controlId);
+        if (row < 0 || row >= count)
+            return false;
+        contentY = Contract.revealListOffset(contentY, row, height, count, node.rowHeight, node.rowGap === undefined ? 4 : node.rowGap);
+        refreshScene();
+        Qt.callLater(() => body.focusControl(controlId));
+        return true;
+    }
     function focusGrid(id, row, column, name) {
         return body.focusGrid(id, row, column, name);
     }
