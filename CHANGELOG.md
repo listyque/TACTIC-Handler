@@ -3,6 +3,12 @@
 Each completed change receives a new version and a dated entry below.
 Versions use `major.minor.build.revision`; routine updates increment `revision`.
 
+## 0.6.0.104 - 2026-10-16
+
+- Compose the complete vertical section rail from the shared Frame module: panel, surfaces, badges, labels, close bounds, context records and vertical drag targets. Preserve the existing section/workspace model, commands, scroll, saved formats and native input.
+- Fix native drag targeting of collapsed neighbors; cancel with Escape, window deactivation or model removal/reset. Preserve the immediate first mouse click/tap while the close control is still appearing. Add right-click, Shift+F10 and 500 ms touch-hold actions using the existing shared menu rows; resolve section identity again before applying a command.
+- Extend archived/native/browser comparisons with actual colors and coherent focus/hover. Stream now matches native preview contrast and unknown-icon fallback. Include section input at three scales, real touch/drag/menu checks and matching EN/RU help. Workspace session/layout closure remains separate.
+
 ## 0.6.0.103 - 2026-10-16
 
 - Share project chooser header, category grid and expanded cards with Stream using Frame; preserve native discovery/ACLs, filters, previews and project/session ownership. Reserve scrollbar space, highlight the active project and translate missing categories without translating server data.

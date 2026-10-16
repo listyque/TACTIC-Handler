@@ -31,8 +31,13 @@ header, category grid and expanded-card composition; the project catalog remains
 its existing owner. `controls/tabs/workspace.ui.mjs` supplies search-tab paint,
 rail metrics and keyboard decisions. Tab nodes opt into property-specific motion
 using existing theme timing tokens; hosts retain animation preferences, focus,
-real input, drag and persisted state. Full section-rail paint/gestures and overall
-session closure remain pending.
+real input and persisted state. `controls/tabs/section.ui.mjs` now supplies the
+section rail panel, surfaces, badges, labels, close bounds, action records and
+vertical drag target decisions. Hosts keep real pointer grabs, focus, scrolling,
+popup lifetime and command dispatch; no second section/session model is created.
+Frame previews use contrast against their actual darkened accent. Browser colors
+are a computed projection of the existing appearance owner. Overall workspace
+session/layout closure remains pending.
 
 Lists default to a four-pixel row gap; `rowGap` preserves a different existing
 spacing, such as Help's three pixels. `listRowHeight` is shared by both adapters,

@@ -363,3 +363,9 @@ Opening navigation keeps its scroll position and focuses the panel. Arrow keys e
 ## Tab keyboard controls
 
 On a search tab, Left/Right and Home/End select another tab. Delete closes a closable tab; Ctrl+Shift+Left/Right changes its position. Focus follows the selected surviving tab after closing or reordering. On the vertical section rail, Up/Down and Home/End move focus; Enter/Space activates the focused section. Delete closes a closable section and Ctrl+Shift+Up/Down reorders it. Existing tab history, context menus, loaded results and saved workspace state keep their existing behavior.
+
+## Vertical section rail
+
+On desktop, hover a section to reveal its name and Close button. Leaving the rail collapses the reveal after 350 ms; touch uses no hover. A first tap selects the section once. Drag an expanded row vertically to reorder it; Escape cancels the drag. Closing a row does not also select it.
+
+Right click, Shift+F10 on a focused section, or a 500 ms touch hold opens Move section up/down and Close tab. Movement is disabled at the corresponding list boundary. Names and custom section colors remain project data. These operations use the same existing workspace state and saved layout. Stream retains its compact phone navigation instead of forcing the desktop rail onto a narrow screen.

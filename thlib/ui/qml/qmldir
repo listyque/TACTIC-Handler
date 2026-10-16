@@ -60,3 +60,5 @@ DockTitleLabel 1.0 shell/docks/DockTitleLabel.qml
 HelpView 1.0 features/support/help/HelpView.qml
 
 WorkspaceSearchTabInput 1.0 features/search/WorkspaceSearchTabInput.qml
+
+ActionMenu 1.0 ActionMenu.qml

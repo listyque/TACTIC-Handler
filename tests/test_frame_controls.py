@@ -330,19 +330,25 @@ class FrameControlsTests(unittest.TestCase):
     def test_disabling_a_picker_owner_closes_its_native_window(self):
         for name in ("dateFieldCalendarButton", "user", "icon"):
             self.window.setProperty("status", "idle")
+            frame(self.window)
             button = self.item(name)
+            self.assertTrue(button.isEnabled(), name)
             QTest.mouseClick(
                 self.window,
                 Qt.LeftButton,
                 pos=button.mapToScene(button.boundingRect().center()).toPoint(),
             )
             frame(self.window)
-            self.native_windows = self.app.allWindows()
-            popups = [
-                window
-                for window in self.native_windows
-                if window is not self.window and window.isVisible()
-            ]
+            for _ in range(20):
+                self.native_windows = self.app.allWindows()
+                popups = [
+                    window
+                    for window in self.native_windows
+                    if window is not self.window and window.isVisible()
+                ]
+                if popups:
+                    break
+                QTest.qWait(20)
             self.assertEqual(len(popups), 1, name)
             self.window.setProperty("status", "disabled")
             frame(self.window)

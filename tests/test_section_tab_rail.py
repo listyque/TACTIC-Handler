@@ -86,8 +86,9 @@ class SectionTabRailQmlTests(unittest.TestCase):
             self.assertEqual(panel.property("x"), 0.0)
             self.assertEqual(panel.property("y"), 0.0)
             self.assertEqual(panel.property("height"), 515.0)
-            self.assertEqual(panel.property("radius"), 0.0)
-            self.assertGreater(panel.property("bottomRightRadius"), 4.0)
+            background = self._visual_children(rail, "sectionRailBackground")[0]
+            self.assertEqual(background.property("radius"), 0.0)
+            self.assertGreater(background.property("bottomRightRadius"), 4.0)
             self.assertEqual(len(tabs), 2)
             self.assertEqual(len(surfaces), 2)
             self.assertEqual(

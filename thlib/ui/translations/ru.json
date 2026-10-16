@@ -4795,5 +4795,7 @@
   "Choose a local file for the article.": "Выберите локальный файл для статьи.",
   "Could not save the article: ": "Не удалось сохранить статью: ",
   "Switch workspace": "Переключить рабочее пространство",
-  "Delete Search Type from project": "Удалить серч-тайп из проекта"
+  "Delete Search Type from project": "Удалить серч-тайп из проекта",
+  "Move section up": "Переместить раздел вверх",
+  "Move section down": "Переместить раздел вниз"
 }

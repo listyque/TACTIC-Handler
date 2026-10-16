@@ -296,6 +296,7 @@ Item {
                         border.width: wrapper.node.border ? wrapper.node.borderWidth || 1 : 0
                         border.color: root.color(wrapper.node.border)
                         radius: wrapper.node.radius === undefined ? root.effectiveTheme.surfaceRadius : wrapper.node.radius
+                        bottomRightRadius: wrapper.node.bottomRightRadius === undefined ? radius : wrapper.node.bottomRightRadius
                         clip: true
                         FrameBranch {
                             id: boxContent
