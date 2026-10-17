@@ -14,6 +14,7 @@ Neither product imports the other checkout at runtime.
 | `features/configuration` | Configuration shell, explained settings, native/web repository and server fields | Core and controls |
 | `features/projects` | Project catalogue, four-step creation, modal editor and templates | Core, controls and configuration settings/shell |
 | `features/search` | Query cards, presets, tag/quick headers and editors, process visibility, menus, paging and card geometry | Core and controls; query and mutation owners stay outside descriptions |
+| `features/table` | Table geometry/paint, column and view menus, typed cells, inline editor and widget catalogue | Core and controls; queries, XML revisions and writes stay with existing owners |
 | `features/administration` | Administration shell, forms and document guards | Core and controls |
 | `features/support/help` | Help composition, filtering, navigation and document positions | Core and controls |
 | `features/support/diagnostics` | Debug sessions, event details, measurements and selection | Core and controls |

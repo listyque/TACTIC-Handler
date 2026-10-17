@@ -3,11 +3,14 @@ pragma ComponentBehavior: Bound
 import QtQuick
 import QtQuick.Controls
 import "controls" as Controls
+import "tactic_frame/features/table/menus.ui.mjs" as TableMenus
+import "tactic_frame/features/table/host.ui.mjs" as TableHost
 
 Rectangle {
     id: root
 
     required property var theme
+    readonly property string language: typeof localizationController === "undefined" ? "en" : localizationController.current_language
     required property var controller
     required property var columnsController
     required property var columns
@@ -34,178 +37,98 @@ Rectangle {
     signal columnsEditorRequested(int row, string target)
     signal selectAllRequested(bool selected)
     signal rowHeightRequested(real height)
-    signal autoFitRequested()
+    signal autoFitRequested
 
     function columnWidth(column) {
-        return Number(columnWidthProvider(column))
+        return Number(columnWidthProvider(column));
     }
 
     function columnIndexAtSceneX(sceneX) {
-        const contentX = mapFromItem(null, sceneX, 0).x
-            - selectionColumnWidth
-        let left = 0
+        const contentX = mapFromItem(null, sceneX, 0).x - selectionColumnWidth;
+        let left = 0;
         for (let index = 0; index < columns.length; ++index) {
-            const width = columnWidth(columns[index])
+            const width = columnWidth(columns[index]);
             if (contentX < left + width / 2)
-                return index
-            left += width
+                return index;
+            left += width;
         }
-        return Math.max(0, columns.length - 1)
+        return Math.max(0, columns.length - 1);
     }
 
     function updateColumnDrag(sourceIndex, sceneX) {
-        draggedColumn = sourceIndex
-        dropColumn = columnIndexAtSceneX(sceneX)
+        draggedColumn = sourceIndex;
+        dropColumn = columnIndexAtSceneX(sceneX);
     }
 
     function finishColumnDrag() {
-        const sourceIndex = draggedColumn
-        const targetIndex = dropColumn
-        draggedColumn = -1
-        dropColumn = -1
-        if (
-            columnsBusy || sourceIndex < 0 || targetIndex < 0
-            || sourceIndex === targetIndex
-        )
-            return
-        const source = columns[sourceIndex]
-        const target = columns[targetIndex]
-        columnsController.move(
-            Number(source.row), Number(target.row) - Number(source.row)
-        )
-        columnsController.apply()
+        const sourceIndex = draggedColumn;
+        const targetIndex = dropColumn;
+        draggedColumn = -1;
+        dropColumn = -1;
+        if (columnsBusy || sourceIndex < 0 || targetIndex < 0 || sourceIndex === targetIndex)
+            return;
+        const source = columns[sourceIndex];
+        const target = columns[targetIndex];
+        columnsController.move(Number(source.row), Number(target.row) - Number(source.row));
+        columnsController.apply();
     }
 
     function moveColumn(sourceIndex, offset) {
         if (!columns.length)
-            return
-        draggedColumn = sourceIndex
-        dropColumn = Math.max(
-            0, Math.min(columns.length - 1, sourceIndex + offset)
-        )
-        finishColumnDrag()
+            return;
+        draggedColumn = sourceIndex;
+        dropColumn = Math.max(0, Math.min(columns.length - 1, sourceIndex + offset));
+        finishColumnDrag();
     }
 
     function contextActions() {
-        const column = columnContext || ({})
-        if (column.row === undefined)
-            return []
-        const label = String(column.label || column.name || "")
-        const dataType = String(column.dataType || "").toLowerCase()
-        const dateSort = ["date", "datetime", "time"].indexOf(dataType) >= 0
-        const sortMode = String(controller.result_sort_mode || "")
-        const groupMode = String(controller.result_group_mode || "")
-        const modePrefix = "column:" + String(column.name || "") + ":"
-        const columnGroupMode = "column:" + String(column.name || "")
-        const actions = [{
-            "title": label + " · Column",
-            "header": true,
-            "translate": false
-        }]
-        if (Boolean(column.sortable)) {
-            actions.push({
-                "title": dateSort ? "Sort oldest first" : "Sort A to Z",
-                "icon": "sort-ascending",
-                "command": "sort:ascending",
-                "checked": sortMode === modePrefix + "asc"
-            })
-            actions.push({
-                "title": dateSort ? "Sort newest first" : "Sort Z to A",
-                "icon": "sort-descending",
-                "command": "sort:descending",
-                "checked": sortMode === modePrefix + "desc"
-            })
-            actions.push({"separator": true})
-        }
-        actions.push({
-            "title": "Group by this column",
-            "icon": "group-items",
-            "command": "group",
-            "checked": groupMode === columnGroupMode
-        })
-        actions.push({
-            "title": "Remove grouping",
-            "icon": "ungroup-items",
-            "command": "ungroup",
-            "enabled": groupMode !== "none"
-        })
-        actions.push({"separator": true})
-        actions.push({
-            "title": "Edit Column Definition",
-            "icon": "edit",
-            "command": "edit_definition"
-        })
-        actions.push({
-            "title": "Column Manager",
-            "icon": "view-column",
-            "command": "columns"
-        })
-        actions.push({"separator": true})
-        actions.push({
-            "title": "Remove Column",
-            "icon": "visibility-off",
-            "command": "remove",
-            "enabled": columnsController.visibleColumns.length > 1
-                && !columnsBusy,
-            "status": columnsController.visibleColumns.length > 1
-                ? "" : qsTr("At least one column must remain visible")
-        })
-        actions.push({"separator": true})
-        actions.push({"title": "Row height", "header": true})
-        actions.push({
-            "title": "Fit to Preview", "command": "row_height:0",
-            "checked": automaticRowHeight
-        })
-        actions.push({
-            "title": "Compact rows", "command": "row_height:52",
-            "checked": !automaticRowHeight && rowHeight === 52
-        })
-        actions.push({
-            "title": "Comfortable rows", "command": "row_height:68",
-            "checked": !automaticRowHeight && rowHeight === 68
-        })
-        actions.push({
-            "title": "Large rows", "command": "row_height:84",
-            "checked": !automaticRowHeight && rowHeight === 84
-        })
-        return actions
+        const column = columnContext || ({});
+        return TableMenus.columnActions({
+            column: column,
+            count: columns.length,
+            index: columns.findIndex(item => item.name === column.name),
+            busy: columnsBusy,
+            editable: true,
+            sorted: String(controller.result_sort_mode || "").indexOf("column:" + column.name + ":") === 0,
+            direction: String(controller.result_sort_mode || "").endsWith(":desc") ? "desc" : "asc",
+            group: String(controller.result_group_mode || "none"),
+            rowHeight: rowHeight,
+            automaticRowHeight: automaticRowHeight
+        }, root.language);
     }
 
     function currentTableViewTitle() {
-        const views = columnsController ? columnsController.tableViews || [] : []
+        const views = columnsController ? columnsController.tableViews || [] : [];
         for (let index = 0; index < views.length; ++index) {
-            if (
-                Boolean(views[index].current)
-                && String(views[index].view || "") === "table"
-            )
-                return qsTr("Default table")
+            if (Boolean(views[index].current) && String(views[index].view || "") === "table")
+                return qsTr("Default table");
             if (Boolean(views[index].current))
-                return String(views[index].title || views[index].view || "")
+                return String(views[index].title || views[index].view || "");
         }
-        return qsTr("Default table")
+        return qsTr("Default table");
     }
 
     function openTableViewPresetMenu(anchor) {
         if (!tableViewPresetMenu) {
-            const component = Qt.createComponent(
-                Qt.resolvedUrl("TableViewPresetMenu.qml")
-            )
+            const component = Qt.createComponent(Qt.resolvedUrl("TableViewPresetMenu.qml"));
             if (component.status !== Component.Ready)
-                return
+                return;
             tableViewPresetMenu = component.createObject(root, {
                 "theme": root.theme,
                 "columnsController": root.columnsController
-            })
-            tableViewPresetMenu.configureRequested.connect(function() {
-                root.columnsEditorRequested(-1, "definition")
-            })
-            tableViewPresetMenu.closeRequested.connect(function() {
-                const menu = root.tableViewPresetMenu
-                root.tableViewPresetMenu = null
-                Qt.callLater(function() { menu.destroy() })
-            })
+            });
+            tableViewPresetMenu.configureRequested.connect(function () {
+                root.columnsEditorRequested(-1, "definition");
+            });
+            tableViewPresetMenu.closeRequested.connect(function () {
+                const menu = root.tableViewPresetMenu;
+                root.tableViewPresetMenu = null;
+                Qt.callLater(function () {
+                    menu.destroy();
+                });
+            });
         }
-        tableViewPresetMenu.openBelow(anchor)
+        tableViewPresetMenu.openBelow(anchor);
     }
 
     objectName: "searchResultTableHeader"
@@ -218,7 +141,7 @@ Rectangle {
         width: root.viewportWidth
         height: root.height - 3
         radius: root.radius
-        color: root.theme.surfaceContainer
+        color: root.theme[TableHost.paint.header]
     }
 
     Row {
@@ -236,9 +159,7 @@ Rectangle {
                 id: headerCell
                 required property int index
                 required property var modelData
-                readonly property bool grouped:
-                    String(root.controller.result_group_mode || "")
-                        === "column:" + String(modelData.name || "")
+                readonly property bool grouped: String(root.controller.result_group_mode || "") === "column:" + String(modelData.name || "")
                 width: root.columnWidth(modelData)
                 height: parent.height
 
@@ -249,26 +170,20 @@ Rectangle {
                     visible: root.draggedColumn === headerCell.index
                 }
                 Label {
-                    objectName: "tableColumnHeaderLabel_"
-                        + String(headerCell.modelData.name || "")
+                    objectName: "tableColumnHeaderLabel_" + String(headerCell.modelData.name || "")
                     anchors.fill: parent
                     leftPadding: headerCell.index === 0 ? 14 : 10
                     verticalAlignment: Text.AlignVCenter
-                    text: String(
-                        headerCell.modelData.label
-                        || headerCell.modelData.name || ""
-                    ).toUpperCase()
+                    text: String(headerCell.modelData.label || headerCell.modelData.name || "").toUpperCase()
                     elide: Text.ElideRight
-                    color: headerCell.grouped
-                        ? root.theme.action : root.theme.secondaryText
+                    color: headerCell.grouped ? root.theme.action : root.theme[TableHost.paint.headerText]
                     font.family: root.theme.fontFamily
                     font.pointSize: Controls.Typography.caption
                     font.weight: Font.DemiBold
                     rightPadding: headerCell.grouped ? 30 : 12
                 }
                 Controls.MaterialIcon {
-                    objectName: "tableColumnGroupIndicator_"
-                        + String(headerCell.modelData.name || "")
+                    objectName: "tableColumnGroupIndicator_" + String(headerCell.modelData.name || "")
                     anchors.right: parent.right
                     anchors.rightMargin: 14
                     anchors.verticalCenter: parent.verticalCenter
@@ -279,72 +194,59 @@ Rectangle {
                     Accessible.ignored: true
                 }
                 MouseArea {
-                    objectName: "tableColumnContextArea_"
-                        + String(headerCell.modelData.name || "")
+                    objectName: "tableColumnContextArea_" + String(headerCell.modelData.name || "")
                     anchors.fill: parent
                     anchors.rightMargin: 10
+                    enabled: !root.columnsBusy
                     acceptedButtons: Qt.LeftButton | Qt.RightButton
-                    cursorShape: root.draggedColumn === headerCell.index
-                        ? Qt.ClosedHandCursor : Qt.OpenHandCursor
+                    cursorShape: root.draggedColumn === headerCell.index ? Qt.ClosedHandCursor : Qt.OpenHandCursor
                     preventStealing: true
                     activeFocusOnTab: true
                     Accessible.role: Accessible.Button
-                    Accessible.name: qsTr("Move column") + " "
-                        + String(headerCell.modelData.label || "")
-                    Accessible.description: headerCell.grouped
-                        ? qsTr("Group by this column") : ""
+                    Accessible.name: qsTr("Move column") + " " + String(headerCell.modelData.label || "")
+                    Accessible.description: headerCell.grouped ? qsTr("Group by this column") : ""
                     property real pressSceneX: 0
                     property bool leftPressed: false
 
-                    onPressed: function(mouse) {
-                        leftPressed = mouse.button === Qt.LeftButton
+                    onPressed: function (mouse) {
+                        leftPressed = mouse.button === Qt.LeftButton;
                         if (leftPressed)
-                            pressSceneX = mapToItem(null, mouse.x, mouse.y).x
+                            pressSceneX = mapToItem(null, mouse.x, mouse.y).x;
                     }
-                    onPositionChanged: function(mouse) {
+                    onPositionChanged: function (mouse) {
                         if (!leftPressed)
-                            return
-                        const sceneX = mapToItem(null, mouse.x, mouse.y).x
-                        if (
-                            root.draggedColumn < 0
-                            && Math.abs(sceneX - pressSceneX) < 6
-                        )
-                            return
-                        root.updateColumnDrag(headerCell.index, sceneX)
+                            return;
+                        const sceneX = mapToItem(null, mouse.x, mouse.y).x;
+                        if (root.draggedColumn < 0 && Math.abs(sceneX - pressSceneX) < 6)
+                            return;
+                        root.updateColumnDrag(headerCell.index, sceneX);
                     }
                     onReleased: {
-                        leftPressed = false
+                        leftPressed = false;
                         if (root.draggedColumn >= 0)
-                            root.finishColumnDrag()
+                            root.finishColumnDrag();
                     }
                     onCanceled: {
-                        leftPressed = false
-                        if (root.draggedColumn === headerCell.index)
-                            root.finishColumnDrag()
+                        leftPressed = false;
+                        root.draggedColumn = -1;
+                        root.dropColumn = -1;
                     }
-                    onClicked: function(mouse) {
+                    onClicked: function (mouse) {
                         if (mouse.button === Qt.RightButton) {
-                            root.columnContext = headerCell.modelData
-                            columnContextMenu.openBelow(headerCell)
+                            root.columnContext = headerCell.modelData;
+                            columnContextMenu.openBelow(headerCell);
                         }
                     }
-                    Keys.onPressed: function(event) {
-                        if (
-                            event.key !== Qt.Key_Left
-                            && event.key !== Qt.Key_Right
-                        )
-                            return
-                        root.moveColumn(
-                            headerCell.index,
-                            event.key === Qt.Key_Right ? 1 : -1
-                        )
-                        event.accepted = true
+                    Keys.onPressed: function (event) {
+                        if (event.key !== Qt.Key_Left && event.key !== Qt.Key_Right)
+                            return;
+                        root.moveColumn(headerCell.index, event.key === Qt.Key_Right ? 1 : -1);
+                        event.accepted = true;
                     }
                 }
                 MouseArea {
                     id: resizeHandle
-                    objectName: "tableColumnResize_"
-                        + String(headerCell.modelData.name || "")
+                    objectName: "tableColumnResize_" + String(headerCell.modelData.name || "")
                     anchors.right: parent.right
                     anchors.top: parent.top
                     anchors.bottom: parent.bottom
@@ -355,60 +257,43 @@ Rectangle {
                     preventStealing: true
                     activeFocusOnTab: true
                     Accessible.role: Accessible.Slider
-                    Accessible.name: qsTr("Resize column") + " "
-                        + String(headerCell.modelData.label || "")
+                    Accessible.name: qsTr("Resize column") + " " + String(headerCell.modelData.label || "")
                     property real pressSceneX: 0
                     property real startWidth: 0
                     property bool changed: false
 
-                    onPressed: function(mouse) {
-                        pressSceneX = mapToItem(null, mouse.x, mouse.y).x
-                        startWidth = root.columnWidth(headerCell.modelData)
-                        changed = false
+                    onPressed: function (mouse) {
+                        pressSceneX = mapToItem(null, mouse.x, mouse.y).x;
+                        startWidth = root.columnWidth(headerCell.modelData);
+                        changed = false;
                     }
-                    onPositionChanged: function(mouse) {
+                    onPositionChanged: function (mouse) {
                         if (!pressed)
-                            return
-                        const sceneX = mapToItem(null, mouse.x, mouse.y).x
-                        const nextWidth = startWidth + sceneX - pressSceneX
-                        root.widthPreviewRequested(
-                            String(headerCell.modelData.name || ""), nextWidth
-                        )
-                        changed = true
+                            return;
+                        const sceneX = mapToItem(null, mouse.x, mouse.y).x;
+                        const nextWidth = startWidth + sceneX - pressSceneX;
+                        root.widthPreviewRequested(String(headerCell.modelData.name || ""), nextWidth);
+                        changed = true;
                     }
                     onReleased: {
                         if (changed) {
-                            root.widthCommitRequested(
-                                headerCell.modelData,
-                                root.columnWidth(headerCell.modelData)
-                            )
+                            root.widthCommitRequested(headerCell.modelData, root.columnWidth(headerCell.modelData));
                         }
                     }
                     onCanceled: {
                         if (changed) {
-                            root.widthClearRequested(
-                                String(headerCell.modelData.name || "")
-                            )
+                            root.widthClearRequested(String(headerCell.modelData.name || ""));
                         }
                     }
-                    Keys.onPressed: function(event) {
-                        if (
-                            event.key !== Qt.Key_Left
-                            && event.key !== Qt.Key_Right
-                        )
-                            return
-                        const direction = event.key === Qt.Key_Right ? 1 : -1
-                        const step = event.modifiers & Qt.ShiftModifier ? 16 : 8
-                        const nextWidth = root.columnWidth(
-                            headerCell.modelData
-                        ) + direction * step
-                        root.widthPreviewRequested(
-                            String(headerCell.modelData.name || ""), nextWidth
-                        )
-                        root.widthCommitRequested(
-                            headerCell.modelData, nextWidth
-                        )
-                        event.accepted = true
+                    Keys.onPressed: function (event) {
+                        if (event.key !== Qt.Key_Left && event.key !== Qt.Key_Right)
+                            return;
+                        const direction = event.key === Qt.Key_Right ? 1 : -1;
+                        const step = event.modifiers & Qt.ShiftModifier ? 16 : 8;
+                        const nextWidth = root.columnWidth(headerCell.modelData) + direction * step;
+                        root.widthPreviewRequested(String(headerCell.modelData.name || ""), nextWidth);
+                        root.widthCommitRequested(headerCell.modelData, nextWidth);
+                        event.accepted = true;
                     }
                 }
             }
@@ -418,11 +303,10 @@ Rectangle {
     Rectangle {
         visible: root.draggedColumn >= 0 && root.dropColumn >= 0
         x: {
-            const target = headerRepeater.itemAt(root.dropColumn)
+            const target = headerRepeater.itemAt(root.dropColumn);
             if (!target)
-                return root.selectionColumnWidth
-            return root.selectionColumnWidth + target.x
-                + (root.draggedColumn < root.dropColumn ? target.width : 0)
+                return root.selectionColumnWidth;
+            return root.selectionColumnWidth + target.x + (root.draggedColumn < root.dropColumn ? target.width : 0);
         }
         anchors.top: parent.top
         anchors.bottom: parent.bottom
@@ -439,7 +323,7 @@ Rectangle {
         anchors.bottomMargin: 3
         width: root.selectionColumnWidth
         z: 5
-        color: root.theme.surfaceContainer
+        color: root.theme[TableHost.paint.header]
         radius: root.radius
 
         Controls.CheckBox {
@@ -449,17 +333,14 @@ Rectangle {
             height: 28
             leftPadding: 4
             theme: root.theme
-            checked: root.rowCount > 0
-                && root.selectedIds.length >= root.rowCount
+            checkState: root.selectedIds.length === 0 ? Qt.Unchecked : root.rowCount > 0 && root.selectedIds.length >= root.rowCount ? Qt.Checked : Qt.PartiallyChecked
             Accessible.name: qsTr("Select all rows")
             onClicked: root.selectAllRequested(checked)
         }
     }
 
     Item {
-        x: Math.max(
-            0, root.viewportContentX + root.viewportWidth - width
-        )
+        x: Math.max(0, root.viewportContentX + root.viewportWidth - width)
         anchors.top: parent.top
         anchors.bottom: parent.bottom
         anchors.bottomMargin: 3
@@ -467,7 +348,7 @@ Rectangle {
 
         Rectangle {
             anchors.fill: parent
-            color: root.theme.surfaceContainer
+            color: root.theme[TableHost.paint.header]
             radius: root.radius
         }
         Controls.BusyIndicator {
@@ -486,12 +367,9 @@ Rectangle {
             Controls.CompactIconButton {
                 objectName: "autoFitTableColumnsButton"
                 theme: root.theme
-                backgroundColor: root.autoFitColumns
-                    ? root.theme.secondaryContainer
-                    : root.theme.surfaceContainerHigh
+                backgroundColor: root.autoFitColumns ? root.theme.secondaryContainer : root.theme.surfaceContainerHigh
                 iconName: "fit-width"
-                iconColor: root.autoFitColumns
-                    ? root.theme.action : root.theme.secondaryText
+                iconColor: root.autoFitColumns ? root.theme.action : root.theme[TableHost.paint.headerText]
                 toolTip: qsTr("Auto Fit columns")
                 Accessible.name: qsTr("Auto Fit columns")
                 onClicked: root.autoFitRequested()
@@ -500,14 +378,9 @@ Rectangle {
                 objectName: "configureTableColumnsButton"
                 theme: root.theme
                 backgroundColor: root.theme.surfaceContainerHigh
-                iconName: root.columnsError.length > 0
-                    ? "error" : "view_column"
-                iconColor: root.columnsError.length > 0
-                    ? root.theme.error : root.theme.secondaryText
-                toolTip: root.columnsError.length > 0
-                    ? root.columnsError
-                    : qsTr("Table view: %1")
-                        .arg(root.currentTableViewTitle())
+                iconName: root.columnsError.length > 0 ? "error" : "view_column"
+                iconColor: root.columnsError.length > 0 ? root.theme.error : root.theme[TableHost.paint.headerText]
+                toolTip: root.columnsError.length > 0 ? root.columnsError : qsTr("Table view: %1").arg(root.currentTableViewTitle())
                 Accessible.name: qsTr("Table views and columns")
                 onClicked: root.openTableViewPresetMenu(this)
             }
@@ -522,23 +395,25 @@ Rectangle {
         preferredWidth: 280
         actions: root.contextActions()
         onTriggered: command => {
-            const row = Number(root.columnContext.row)
+            const row = Number(root.columnContext.row);
             if (command === "sort:ascending")
-                root.columnsController.sort_column(row, false)
+                root.columnsController.sort_column(row, false);
             else if (command === "sort:descending")
-                root.columnsController.sort_column(row, true)
+                root.columnsController.sort_column(row, true);
             else if (command === "group")
-                root.columnsController.group_column(row)
+                root.columnsController.group_column(row);
             else if (command === "ungroup")
-                root.controller.set_result_group_mode("none")
+                root.controller.set_result_group_mode("none");
             else if (command === "edit_definition")
-                root.columnsEditorRequested(row, "edit_definition")
+                root.columnsEditorRequested(row, "edit_definition");
             else if (command === "columns")
-                root.columnsEditorRequested(-1, "definition")
+                root.columnsEditorRequested(-1, "definition");
+            else if (command === "left" || command === "right")
+                root.moveColumn(root.columns.findIndex(item => item.name === root.columnContext.name), command === "left" ? -1 : 1);
             else if (command === "remove")
-                root.columnsController.remove_column(row)
+                root.columnsController.remove_column(row);
             else if (command.indexOf("row_height:") === 0)
-                root.rowHeightRequested(Number(command.split(":")[1]))
+                root.rowHeightRequested(Number(command.split(":")[1]));
         }
     }
 }

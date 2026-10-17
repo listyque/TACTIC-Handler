@@ -1,6 +1,8 @@
 """Lossless XML helpers for TACTIC table and EditSObject definitions."""
 
 from copy import deepcopy
+import json
+from pathlib import Path
 from xml.etree import ElementTree
 
 
@@ -40,21 +42,13 @@ INPUT_LABELS = {
     "PasswordWdg": "Password",
 }
 
-DISPLAY_WIDGETS = (
-    ("", "Automatic"),
-    ("format", "Format"),
-    ("expression", "Expression"),
-    ("link", "Link"),
-    ("pyasm.widget.ThumbWdg", "Thumbnail"),
-    ("tactic.ui.widget.DiscussionElementWdg", "Notes"),
-    ("tactic.ui.table.SObjectDetailElementWdg", "SObject details"),
-    ("tactic.ui.table.CheckinButtonElementWdg", "Check-in"),
-    ("tactic.ui.table.TaskElementWdg", "Tasks"),
-    ("tactic.ui.table.TaskCompletionWdg", "Task completion"),
-    ("tactic.ui.table.ExploreElementWdg", "Explorer"),
-    ("tactic.ui.table.SObjectFilesElementWdg", "Files"),
-    ("tactic.ui.table.MetadataElementWdg", "Metadata"),
-    ("tactic.ui.table.DeleteElementWdg", "Delete"),
+DISPLAY_WIDGETS = tuple(
+    (row["value"], row["label"])
+    for row in json.loads(
+        (
+            Path(__file__).parent / "qml/tactic_frame/features/table/widgets.json"
+        ).read_text(encoding="utf-8")
+    )
 )
 
 
@@ -89,17 +83,14 @@ def edit_source(item: dict) -> dict | None:
     return {**options, "class_name": class_name, "kwargs": options}
 
 
-def set_widget(
-    display: ElementTree.Element, widget, *, is_input: bool = False
-) -> None:
+def set_widget(display: ElementTree.Element, widget, *, is_input: bool = False) -> None:
     display.attrib.pop("widget", None)
     display.attrib.pop("class", None)
     widget = str(widget or "").strip()
     if not widget:
         return
     attribute = (
-        "class" if is_input or "." in widget or widget.endswith("Wdg")
-        else "widget"
+        "class" if is_input or "." in widget or widget.endswith("Wdg") else "widget"
     )
     display.set(attribute, widget)
 
@@ -150,7 +141,8 @@ def element_form(
         if target == "edit_definition":
             widget = (
                 edit_source.get("class_name")
-                or record["editClass"] or record["editWidget"]
+                or record["editClass"]
+                or record["editWidget"]
             )
         else:
             widget = record["widgetClass"] or record["widgetKey"]
@@ -197,16 +189,22 @@ def update_element(
     if target != "edit_definition":
         return element
     set_option(
-        display, "required", "true" if flag(form.get("required")) else "false",
+        display,
+        "required",
+        "true" if flag(form.get("required")) else "false",
         keep_empty=True,
     )
     set_option(
-        display, "read_only", "true" if flag(form.get("readOnly")) else "false",
+        display,
+        "read_only",
+        "true" if flag(form.get("readOnly")) else "false",
         keep_empty=True,
     )
     if str(widget or "").endswith("SelectWdg"):
         set_option(
-            display, "empty", "true" if flag(form.get("empty")) else "false",
+            display,
+            "empty",
+            "true" if flag(form.get("empty")) else "false",
             keep_empty=True,
         )
     for option_name, form_name in (
@@ -227,7 +225,8 @@ def edit_view_xml(
 ) -> str:
     root = (
         ElementTree.fromstring(source)
-        if str(source or "").strip() else ElementTree.Element("config")
+        if str(source or "").strip()
+        else ElementTree.Element("config")
     )
     edit = root if root.tag == "edit" else root.find(".//edit")
     if edit is None:
@@ -236,13 +235,9 @@ def edit_view_xml(
     if not source or not elements:
         for record in records:
             if record["editVisible"]:
-                ElementTree.SubElement(
-                    edit, "element", {"name": record["name"]}
-                )
+                ElementTree.SubElement(edit, "element", {"name": record["name"]})
         elements = list(edit.findall("element"))
-    matching = [
-        element for element in elements if element.get("name") == element_name
-    ]
+    matching = [element for element in elements if element.get("name") == element_name]
     if included and not matching:
         ElementTree.SubElement(edit, "element", {"name": element_name})
     elif not included:
@@ -262,10 +257,7 @@ def definition_element(
             for node in view_node.findall("element"):
                 if node.get("name") == record["name"]:
                     return deepcopy(node)
-    source = (
-        record["editXml"]
-        if target == "edit_definition" else record["displayXml"]
-    )
+    source = record["editXml"] if target == "edit_definition" else record["displayXml"]
     if source:
         node = ElementTree.fromstring(source)
         if node.tag == "element":

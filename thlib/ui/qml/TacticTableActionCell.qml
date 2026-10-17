@@ -1,35 +1,30 @@
 import QtQuick
+import "tactic_frame/features/table/cells.ui.mjs" as Cells
 import "controls" as Controls
 
 Item {
     id: root
 
     required property var theme
+    readonly property string language: typeof localizationController === "undefined" ? "en" : localizationController.current_language
     required property string kind
     required property var cell
-    signal clicked()
+    signal clicked
 
-    readonly property var presentation: ({
-        "sobject_detail": ["search", qsTr("Open details")],
-        "checkin": ["upload", qsTr("Check-in")],
-        "explorer": ["folder-open", qsTr("Open folder")],
-        "file_list": ["inventory-2", qsTr("Open files")],
-        "metadata": ["description", qsTr("Open metadata")],
-        "delete": ["delete", qsTr("Delete sObject")]
-    })[kind] || ["info", ""]
+    readonly property var presentation: Cells.action(kind, root.language) || ({
+            icon: "info",
+            label: ""
+        })
 
     Controls.CompactIconButton {
-        objectName: root.kind === "checkin" ? "tableCellCheckin"
-            : root.kind === "sobject_detail" ? "tableCellSObjectDetail"
-            : "tableCellAction_" + root.kind
+        objectName: root.kind === "checkin" ? "tableCellCheckin" : root.kind === "sobject_detail" ? "tableCellSObjectDetail" : "tableCellAction_" + root.kind
         anchors.centerIn: parent
         theme: root.theme
         round: true
-        iconName: root.presentation[0]
-        iconColor: root.kind === "delete"
-            ? root.theme.error : root.theme.action
+        iconName: root.presentation.icon
+        iconColor: root.kind === "delete" ? root.theme.error : root.theme.action
         enabled: root.cell.available !== false
-        toolTip: root.presentation[1]
+        toolTip: root.presentation.label
         onClicked: root.clicked()
     }
 }

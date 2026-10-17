@@ -1,6 +1,7 @@
 pragma ComponentBehavior: Bound
 
 import QtQuick
+import "tactic_frame/features/table/cells.ui.mjs" as Cells
 import QtQuick.Controls
 import "controls" as Controls
 
@@ -19,43 +20,18 @@ Item {
     property bool scrolling: false
     property bool selectedPreviewActive: false
     property bool hoverPreviewEnabled: true
-    readonly property int cardSpacing: 4
-    readonly property int cardWidth: 107
-    readonly property int menuWidth: 32
+    readonly property var cellLayout: Cells.taskLayout(recordCount, width, height)
+    readonly property int cardSpacing: Cells.metrics.taskGap
+    readonly property int cardWidth: Cells.metrics.taskWidth
+    readonly property int menuWidth: Cells.metrics.taskMenu
     readonly property int recordCount: records ? records.length : 0
-    readonly property int fullCardCount: Math.max(
-        0, Math.floor(
-            (width + cardSpacing) / (cardWidth + cardSpacing)
-        )
-    )
-    readonly property bool showMenuButton:
-        recordCount === 0 || recordCount > fullCardCount
-    readonly property int visibleCardCount: Math.max(
-        0, Math.min(
-            recordCount,
-            showMenuButton ? fullCardCount : recordCount,
-            Math.floor(
-                (width - (showMenuButton ? menuWidth : 0) + cardSpacing)
-                    / (cardWidth + cardSpacing)
-            )
-        )
-    )
-    readonly property real visibleCardsWidth: Math.max(
-        0,
-        visibleCardCount * cardWidth
-            + Math.max(0, visibleCardCount - 1) * cardSpacing
-    )
-    readonly property int effectiveCount: Math.max(
-        taskCount, records ? records.filter(
-            record => Boolean(record.hasTask)
-        ).length : 0
-    )
-    readonly property real previewCardsWidth: Math.max(
-        cardWidth,
-        recordCount * cardWidth + Math.max(0, recordCount - 1) * cardSpacing
-    )
-    readonly property bool pointerHovered:
-        cellHover.hovered || taskPreview.contentHovered
+    readonly property int fullCardCount: Math.max(0, Math.floor((width + cardSpacing) / (cardWidth + cardSpacing)))
+    readonly property bool showMenuButton: cellLayout.overflow
+    readonly property int visibleCardCount: cellLayout.visible
+    readonly property real visibleCardsWidth: cellLayout.visibleWidth
+    readonly property int effectiveCount: Math.max(taskCount, records ? records.filter(record => Boolean(record.hasTask)).length : 0)
+    readonly property real previewCardsWidth: cellLayout.previewWidth
+    readonly property bool pointerHovered: cellHover.hovered || taskPreview.contentHovered
     readonly property bool hoverActive: selectedPreviewActive || pointerHovered
     signal previewHoverChanged(bool hovered)
     onPointerHoveredChanged: previewHoverChanged(pointerHovered)
@@ -63,43 +39,38 @@ Item {
 
     function openTaskPreview(pinned) {
         if (recordCount <= 0)
-            return
-        previewOpenTimer.stop()
-        previewCloseTimer.stop()
-        taskPreview.pinned = Boolean(pinned)
-        taskPreview.reopenAtItem(
-            root, -taskPreview.leftPadding, -taskPreview.topPadding, false
-        )
+            return;
+        previewOpenTimer.stop();
+        previewCloseTimer.stop();
+        taskPreview.pinned = Boolean(pinned);
+        taskPreview.reopenAtItem(root, -taskPreview.leftPadding, -taskPreview.topPadding, false);
     }
 
     function openTaskManager() {
-        previewOpenTimer.stop()
-        previewCloseTimer.stop()
-        taskPreview.close()
-        controller.open_process_details(nodeId, "tasks", "")
+        previewOpenTimer.stop();
+        previewCloseTimer.stop();
+        taskPreview.close();
+        controller.open_process_details(nodeId, "tasks", "");
     }
 
     function schedulePreviewClose() {
         if (!hoverActive && !taskPreview.contentHovered && !taskPreview.pinned)
-            previewCloseTimer.restart()
+            previewCloseTimer.restart();
     }
 
     onHoverActiveChanged: {
-        if (
-            hoverActive && hoverPreviewEnabled && showMenuButton
-            && recordCount > 0 && !scrolling && !taskPreview.visible
-        ) {
-            previewCloseTimer.stop()
-            previewOpenTimer.restart()
+        if (hoverActive && hoverPreviewEnabled && showMenuButton && recordCount > 0 && !scrolling && !taskPreview.visible) {
+            previewCloseTimer.stop();
+            previewOpenTimer.restart();
         } else {
-            previewOpenTimer.stop()
-            schedulePreviewClose()
+            previewOpenTimer.stop();
+            schedulePreviewClose();
         }
     }
     onScrollingChanged: {
         if (scrolling) {
-            previewOpenTimer.stop()
-            taskPreview.close()
+            previewOpenTimer.stop();
+            taskPreview.close();
         }
     }
 
@@ -130,10 +101,7 @@ Item {
     Controls.ItemCountActionButton {
         id: taskButton
         objectName: "tableCellTasks"
-        x: Math.round(
-            root.visibleCardsWidth
-                + (root.width - root.visibleCardsWidth - width) / 2
-        )
+        x: Math.round(root.visibleCardsWidth + (root.width - root.visibleCardsWidth - width) / 2)
         anchors.verticalCenter: parent.verticalCenter
         visible: root.showMenuButton
         opacity: taskPreview.visible ? 0 : 1
@@ -151,12 +119,8 @@ Item {
         id: previewOpenTimer
         interval: 260
         onTriggered: {
-            if (
-                root.hoverActive && root.hoverPreviewEnabled
-                && root.showMenuButton && root.recordCount > 0
-                && !root.scrolling
-            )
-                root.openTaskPreview(false)
+            if (root.hoverActive && root.hoverPreviewEnabled && root.showMenuButton && root.recordCount > 0 && !root.scrolling)
+                root.openTaskPreview(false);
         }
     }
 
@@ -164,11 +128,8 @@ Item {
         id: previewCloseTimer
         interval: 180
         onTriggered: {
-            if (
-                !root.hoverActive && !taskPreview.contentHovered
-                && !taskPreview.pinned
-            )
-                taskPreview.close()
+            if (!root.hoverActive && !taskPreview.contentHovered && !taskPreview.pinned)
+                taskPreview.close();
         }
     }
 
@@ -182,27 +143,21 @@ Item {
         modal: false
         focus: false
         padding: 8
-        width: Math.min(
-            root.previewCardsWidth + leftPadding + rightPadding,
-            parent && parent.width > 0
-                ? Math.max(180, parent.width - 8)
-                : root.previewCardsWidth + leftPadding + rightPadding
-        )
-        height: root.height + topPadding + bottomPadding
-            + (root.previewCardsWidth > availableWidth ? 16 : 0)
+        width: Math.min(root.previewCardsWidth + leftPadding + rightPadding, parent && parent.width > 0 ? Math.max(180, parent.width - 8) : root.previewCardsWidth + leftPadding + rightPadding)
+        height: root.height + topPadding + bottomPadding + (root.previewCardsWidth > availableWidth ? 16 : 0)
         settledClosePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
         property bool pinned: false
         property bool contentHovered: false
 
         onContentHoveredChanged: {
             if (contentHovered)
-                previewCloseTimer.stop()
+                previewCloseTimer.stop();
             else
-                root.schedulePreviewClose()
+                root.schedulePreviewClose();
         }
         onClosed: {
-            pinned = false
-            contentHovered = false
+            pinned = false;
+            contentHovered = false;
         }
 
         contentItem: Loader {
@@ -213,8 +168,7 @@ Item {
                 id: previewSurface
 
                 HoverHandler {
-                    onHoveredChanged:
-                        taskPreview.contentHovered = hovered
+                    onHoveredChanged: taskPreview.contentHovered = hovered
                 }
                 TapHandler {
                     onTapped: taskPreview.pinned = true
@@ -226,8 +180,7 @@ Item {
                     anchors.right: parent.right
                     anchors.top: parent.top
                     anchors.bottom: parent.bottom
-                    anchors.bottomMargin: previewBar.hasOverflow
-                        ? previewBar.reservedExtent + 4 : 0
+                    anchors.bottomMargin: previewBar.hasOverflow ? previewBar.reservedExtent + 4 : 0
                     clip: true
                     contentWidth: root.previewCardsWidth
                     contentHeight: height

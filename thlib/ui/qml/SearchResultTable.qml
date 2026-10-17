@@ -4,7 +4,8 @@ import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
 import "controls" as Controls
-import "SearchTableColumnLayout.js" as TableColumnLayout
+import "tactic_frame/features/table/columns.mjs" as TableColumnLayout
+import "tactic_frame/features/table/host.ui.mjs" as TableHost
 
 Item {
     id: root
@@ -19,130 +20,95 @@ Item {
     property real rowHeight: 58
     property bool automaticRowHeight: false
     property var hoveredTaskCell: null
-    readonly property bool selectedTaskPreviewActive: hoveredTaskCell !== null
-        && controller.selected_result_node_ids.indexOf(hoveredTaskCell.nodeId) >= 0
-    readonly property var columns: columnsController
-        ? columnsController.visibleColumns : []
-    readonly property real availableColumnWidth: Math.max(0,
-        rows.width - selectionColumnWidth - actionColumnWidth)
-    readonly property var effectiveColumns:
-        TableColumnLayout.visibleColumns(columns, availableColumnWidth,
-                                         widthOverrides)
-    readonly property var fitWidthOverrides: autoFitColumns
-        ? TableColumnLayout.fittedWidths(effectiveColumns,
-            availableColumnWidth, widthOverrides) : ({})
-    readonly property bool columnsBusy:
-        Boolean(columnsController && columnsController.busy)
-    readonly property bool columnsDirty:
-        Boolean(columnsController && columnsController.dirty)
-    readonly property string columnsError: columnsController
-        ? String(columnsController.error || "") : ""
-    readonly property bool hasThumbnailColumn:
-        TableColumnLayout.hasKind(effectiveColumns, "thumbnail")
-    readonly property real thumbnailColumnWidth:
-        TableColumnLayout.widthForKind(effectiveColumns, "thumbnail",
-                                       widthOverrides, fitWidthOverrides)
-    readonly property real effectiveRowHeight: automaticRowHeight
-        ? Math.max(rowHeight, thumbnailColumnWidth) : rowHeight
-    readonly property real headerHeight: 37
-    readonly property real selectionColumnWidth: 40
-    readonly property real actionColumnWidth: 64
-    readonly property real columnsWidth: TableColumnLayout.totalWidth(
-        effectiveColumns, widthOverrides, fitWidthOverrides)
-    readonly property real tableWidth: Math.max(rows.width,
-        selectionColumnWidth + columnsWidth + actionColumnWidth)
+    readonly property bool selectedTaskPreviewActive: hoveredTaskCell !== null && controller.selected_result_node_ids.indexOf(hoveredTaskCell.nodeId) >= 0
+    readonly property var columns: columnsController ? columnsController.visibleColumns : []
+    readonly property real availableColumnWidth: Math.max(0, rows.width - selectionColumnWidth - actionColumnWidth)
+    readonly property var tableLayout: TableHost.describe({
+        columns: columns,
+        overrides: widthOverrides,
+        autoFit: autoFitColumns,
+        rowHeight: rowHeight,
+        automaticRowHeight: automaticRowHeight
+    }, rows.width)
+    readonly property var effectiveColumns: tableLayout.columns
+    readonly property var fitWidthOverrides: tableLayout.fitted
+    readonly property bool columnsBusy: Boolean(columnsController && columnsController.busy)
+    readonly property bool columnsDirty: Boolean(columnsController && columnsController.dirty)
+    readonly property string columnsError: columnsController ? String(columnsController.error || "") : ""
+    readonly property bool hasThumbnailColumn: TableColumnLayout.hasKind(effectiveColumns, "thumbnail")
+    readonly property real thumbnailColumnWidth: TableColumnLayout.widthForKind(effectiveColumns, "thumbnail", widthOverrides, fitWidthOverrides)
+    readonly property real effectiveRowHeight: tableLayout.rowHeight
+    readonly property real headerHeight: TableHost.metrics.header
+    readonly property real selectionColumnWidth: TableHost.metrics.selection
+    readonly property real actionColumnWidth: TableHost.metrics.actions
+    readonly property real columnsWidth: TableColumnLayout.totalWidth(effectiveColumns, widthOverrides, fitWidthOverrides)
+    readonly property real tableWidth: tableLayout.width
     readonly property real contentY: rows.contentY
     readonly property int count: rows.count
-    signal actionMenuRequested(
-        string nodeId,
-        var actions,
-        var anchorItem,
-        real localX,
-        real localY,
-        bool below
-    )
-    signal processCountMenuRequested(
-        string nodeId,
-        string panel,
-        var anchorItem
-    )
+    signal actionMenuRequested(string nodeId, var actions, var anchorItem, real localX, real localY, bool below)
+    signal processCountMenuRequested(string nodeId, string panel, var anchorItem)
     function displayText(value) {
-        return value === undefined || value === null ? "" : String(value)
+        return value === undefined || value === null ? "" : String(value);
     }
 
     function initials(value) {
-        const parts = String(value || "").trim().split(/\s+/)
+        const parts = String(value || "").trim().split(/\s+/);
         if (!parts.length || !parts[0])
-            return "?"
-        return String(
-            parts[0][0] + (parts.length > 1 ? parts[1][0] : "")
-        ).toUpperCase()
+            return "?";
+        return String(parts[0][0] + (parts.length > 1 ? parts[1][0] : "")).toUpperCase();
     }
 
     function columnWidth(column) {
-        return TableColumnLayout.resolvedWidth(
-            column, widthOverrides, fitWidthOverrides)
+        return TableColumnLayout.resolvedWidth(column, widthOverrides, fitWidthOverrides);
     }
 
     function setWidthOverride(name, width) {
-        autoFitColumns = false
-        const next = Object.assign({}, widthOverrides)
-        next[String(name || "")] = Math.max(48, Math.min(640, width))
-        widthOverrides = next
+        autoFitColumns = false;
+        const next = Object.assign({}, widthOverrides);
+        next[String(name || "")] = TableHost.boundedWidth(width);
+        widthOverrides = next;
     }
 
     function clearWidthOverride(name) {
-        const next = Object.assign({}, widthOverrides)
-        delete next[String(name || "")]
-        widthOverrides = next
+        const next = Object.assign({}, widthOverrides);
+        delete next[String(name || "")];
+        widthOverrides = next;
     }
 
     function commitColumnWidth(column, width) {
         if (!columnsController || columnsBusy)
-            return
-        columnsController.set_width(
-            Number(column.row), Math.round(Math.max(48, Math.min(640, width)))
-        )
-        columnsController.apply()
+            return;
+        columnsController.set_width(Number(column.row), Math.round(TableHost.boundedWidth(width)));
+        columnsController.apply();
     }
 
     function openColumnsEditor(row, target) {
-        columnsController.request_column_focus(
-            row === undefined ? -1 : Number(row),
-            String(target || "definition")
-        )
-        controller.open_columns_editor()
+        columnsController.request_column_focus(row === undefined ? -1 : Number(row), String(target || "definition"));
+        controller.open_columns_editor();
     }
 
     function requestActionMenu(nodeId, anchorItem, x, y, below) {
-        actionMenuRequested(
-            nodeId,
-            controller.item_menu_actions(nodeId),
-            anchorItem,
-            x,
-            y,
-            below
-        )
+        actionMenuRequested(nodeId, controller.item_menu_actions(nodeId), anchorItem, x, y, below);
     }
 
     function restoreContentY(value, valid) {
         if (valid)
-            rows.contentY = Math.max(rows.originY, Number(value || 0))
+            rows.contentY = Math.max(rows.originY, Number(value || 0));
     }
 
     function positionViewAtIndex(row) {
-        rows.positionViewAtIndex(row, ListView.Contain)
+        rows.positionViewAtIndex(row, ListView.Contain);
     }
 
     onVisibleChanged: {
         if (visible && columnsController) {
-            widthOverrides = ({})
-            columnsController.begin_session()
+            widthOverrides = ({});
+            columnsController.begin_session();
         }
     }
     Component.onCompleted: {
         if (visible && columnsController)
-            columnsController.begin_session()
+            columnsController.begin_session();
     }
 
     Connections {
@@ -150,7 +116,7 @@ Item {
 
         function onStateChanged() {
             if (!root.columnsBusy && !root.columnsDirty)
-                root.widthOverrides = ({})
+                root.widthOverrides = ({});
         }
     }
 
@@ -170,31 +136,31 @@ Item {
         active: Number(root.columnsController ? root.columnsController.dirtyTaskCount || 0 : 0) > 0
         visible: active
         sourceComponent: RowLayout {
-        spacing: 8
+            spacing: 8
 
-        Label {
-            text: Number(root.columnsController ? root.columnsController.dirtyTaskCount || 0 : 0) + qsTr(" unsaved")
-            color: root.theme.secondaryText
-            font.family: root.theme.fontFamily
-            font.pointSize: Controls.Typography.label
-        }
-        Controls.CompactIconButton {
-            objectName: "discardTableTaskChanges"
-            theme: root.theme
-            iconName: "undo"
-            toolTip: qsTr("Reset task changes")
-            enabled: !root.columnsBusy
-            onClicked: root.columnsController.discard_task_changes()
-        }
-        Controls.CompactIconButton {
-            objectName: "saveTableTaskChanges"
-            theme: root.theme
-            iconName: "save"
-            iconColor: root.theme.action
-            toolTip: qsTr("Save task changes")
-            enabled: !root.columnsBusy
-            onClicked: root.columnsController.save_task_changes()
-        }
+            Label {
+                text: Number(root.columnsController ? root.columnsController.dirtyTaskCount || 0 : 0) + qsTr(" unsaved")
+                color: root.theme.secondaryText
+                font.family: root.theme.fontFamily
+                font.pointSize: Controls.Typography.label
+            }
+            Controls.CompactIconButton {
+                objectName: "discardTableTaskChanges"
+                theme: root.theme
+                iconName: "undo"
+                toolTip: qsTr("Reset task changes")
+                enabled: !root.columnsBusy
+                onClicked: root.columnsController.discard_task_changes()
+            }
+            Controls.CompactIconButton {
+                objectName: "saveTableTaskChanges"
+                theme: root.theme
+                iconName: "save"
+                iconColor: root.theme.action
+                toolTip: qsTr("Save task changes")
+                enabled: !root.columnsBusy
+                onClicked: root.columnsController.save_task_changes()
+            }
         }
     }
 
@@ -222,72 +188,61 @@ Item {
         focus: root.visible
 
         function requestMoreFromScroll() {
-            if (
-                !atYEnd || !root.controller.has_more
-                || root.controller.loading_mode !== "infinite"
-                || !verticalBar.takePaginationPermit(false)
-            )
-                return
-            root.controller.load_more()
+            if (!atYEnd || !root.controller.has_more || root.controller.loading_mode !== "infinite" || !verticalBar.takePaginationPermit(false))
+                return;
+            root.controller.load_more();
         }
 
         function selectRow(index, modifiers) {
             if (count <= 0)
-                return
-            currentIndex = Math.max(0, Math.min(count - 1, index))
-            positionViewAtIndex(currentIndex, ListView.Contain)
-            Qt.callLater(function() {
-                const item = rows.itemAtIndex(rows.currentIndex)
+                return;
+            currentIndex = Math.max(0, Math.min(count - 1, index));
+            positionViewAtIndex(currentIndex, ListView.Contain);
+            Qt.callLater(function () {
+                const item = rows.itemAtIndex(rows.currentIndex);
                 if (item)
-                    item.selectWithModifiers(modifiers)
-            })
+                    item.selectWithModifiers(modifiers);
+            });
         }
 
         function openCurrent() {
-            const item = itemAtIndex(currentIndex)
+            const item = itemAtIndex(currentIndex);
             if (item)
-                item.activate(0)
+                item.activate(0);
         }
 
         onContentYChanged: requestMoreFromScroll()
 
-        Keys.onPressed: function(event) {
-            if (
-                event.key === Qt.Key_A
-                && (event.modifiers & Qt.ControlModifier)
-            ) {
-                root.controller.select_all_result_siblings()
-                event.accepted = true
+        Keys.onPressed: function (event) {
+            if (event.key === Qt.Key_A && (event.modifiers & Qt.ControlModifier)) {
+                root.controller.select_all_result_siblings();
+                event.accepted = true;
             } else if (event.key === Qt.Key_Up) {
-                selectRow(currentIndex < 0 ? 0 : currentIndex - 1,
-                          event.modifiers)
-                event.accepted = true
+                selectRow(currentIndex < 0 ? 0 : currentIndex - 1, event.modifiers);
+                event.accepted = true;
             } else if (event.key === Qt.Key_Down) {
-                selectRow(currentIndex < 0 ? 0 : currentIndex + 1,
-                          event.modifiers)
-                event.accepted = true
+                selectRow(currentIndex < 0 ? 0 : currentIndex + 1, event.modifiers);
+                event.accepted = true;
             } else if (event.key === Qt.Key_Home) {
-                selectRow(0, event.modifiers)
-                event.accepted = true
+                selectRow(0, event.modifiers);
+                event.accepted = true;
             } else if (event.key === Qt.Key_End) {
-                selectRow(count - 1, event.modifiers)
-                event.accepted = true
+                selectRow(count - 1, event.modifiers);
+                event.accepted = true;
             } else if (event.key === Qt.Key_Space) {
                 if (currentIndex < 0)
-                    selectRow(0, event.modifiers)
+                    selectRow(0, event.modifiers);
                 else {
-                    const item = itemAtIndex(currentIndex)
+                    const item = itemAtIndex(currentIndex);
                     if (item && item.isGroup)
-                        item.activate(event.modifiers)
+                        item.activate(event.modifiers);
                     else
-                        selectRow(currentIndex, event.modifiers)
+                        selectRow(currentIndex, event.modifiers);
                 }
-                event.accepted = true
-            } else if (
-                event.key === Qt.Key_Return || event.key === Qt.Key_Enter
-            ) {
-                openCurrent()
-                event.accepted = true
+                event.accepted = true;
+            } else if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter) {
+                openCurrent();
+                event.accepted = true;
             }
         }
 
@@ -302,7 +257,7 @@ Item {
             selectedIds: root.controller.selected_result_node_ids
             columnsBusy: root.columnsBusy
             columnsError: root.columnsError
-            rowCount: rows.count
+            rowCount: root.resultModel.selectableCount
             rowHeight: root.rowHeight
             automaticRowHeight: root.automaticRowHeight
             viewportContentX: rows.contentX
@@ -312,28 +267,25 @@ Item {
             columnWidthProvider: root.columnWidth
             autoFitColumns: root.autoFitColumns
             onAutoFitRequested: root.autoFitColumns = !root.autoFitColumns
-            onWidthPreviewRequested: (name, width) =>
-                root.setWidthOverride(name, width)
+            onWidthPreviewRequested: (name, width) => root.setWidthOverride(name, width)
             onWidthClearRequested: name => root.clearWidthOverride(name)
-            onWidthCommitRequested: (column, width) =>
-                root.commitColumnWidth(column, width)
-            onColumnsEditorRequested: (row, target) =>
-                root.openColumnsEditor(row, target)
-            onRowHeightRequested: function(height) {
-                root.automaticRowHeight = height <= 0
+            onWidthCommitRequested: (column, width) => root.commitColumnWidth(column, width)
+            onColumnsEditorRequested: (row, target) => root.openColumnsEditor(row, target)
+            onRowHeightRequested: function (height) {
+                root.automaticRowHeight = height <= 0;
                 if (height > 0)
-                    root.rowHeight = height
+                    root.rowHeight = height;
             }
             onSelectAllRequested: selected => {
                 if (!selected) {
-                    root.controller.clear_result_selection()
+                    root.controller.clear_result_selection();
                 } else if (rows.currentIndex < 0) {
-                    rows.selectRow(0, 0)
-                    Qt.callLater(function() {
-                        root.controller.select_all_result_siblings()
-                    })
+                    rows.selectRow(0, 0);
+                    Qt.callLater(function () {
+                        root.controller.select_all_result_siblings();
+                    });
                 } else {
-                    root.controller.select_all_result_siblings()
+                    root.controller.select_all_result_siblings();
                 }
             }
         }
@@ -358,64 +310,56 @@ Item {
             required property int childCount
             property bool viewPooled: false
             readonly property bool isGroup: nodeType === "group"
-            readonly property bool selected:
-                !isGroup
-                && root.controller.selected_result_node_ids.indexOf(nodeId) >= 0
-            readonly property bool inVerticalViewport:
-                y + height >= rows.contentY
-                && y <= rows.contentY + rows.height
-            readonly property bool previewActive:
-                root.presentationActive && root.hasThumbnailColumn
-                && !isGroup && inVerticalViewport && !viewPooled
-            readonly property var nativeCells:
-                !isGroup && root.columnsController
-                    ? root.columnsController.row_cells(
-                        searchKey, root.columnsController.cellRevision
-                    ) : ({})
-            readonly property real actionX: Math.max(
-                0, rows.contentX + rows.width - root.actionColumnWidth
-            )
+            readonly property bool selected: !isGroup && root.controller.selected_result_node_ids.indexOf(nodeId) >= 0
+            readonly property bool inVerticalViewport: y + height >= rows.contentY && y <= rows.contentY + rows.height
+            readonly property bool previewActive: root.presentationActive && root.hasThumbnailColumn && !isGroup && inVerticalViewport && !viewPooled
+            readonly property var nativeCells: !isGroup && root.columnsController ? root.columnsController.row_cells(searchKey, root.columnsController.cellRevision) : ({})
+            readonly property real actionX: Math.max(0, rows.contentX + rows.width - root.actionColumnWidth)
             width: root.tableWidth
-            height: isGroup ? 38 : root.effectiveRowHeight
+            height: isGroup ? TableHost.metrics.group : root.effectiveRowHeight
             focus: ListView.isCurrentItem && rows.activeFocus
             Accessible.role: isGroup ? Accessible.Button : Accessible.ListItem
-            Accessible.name: isGroup
-                ? title + " · " + childCount : title
+            Accessible.name: isGroup ? title + " · " + childCount : title
             Accessible.selected: selected
 
             function cellRecord(columnName) {
-                const nativeCell = nativeCells
-                    ? nativeCells[columnName] : undefined
+                const nativeCell = nativeCells ? nativeCells[columnName] : undefined;
                 if (nativeCell && nativeCell.text !== undefined)
-                    return nativeCell
-                const value = values ? values[columnName] : undefined
+                    return nativeCell;
+                const value = values ? values[columnName] : undefined;
                 if (value !== undefined && value !== null)
-                    return {"text": String(value)}
+                    return {
+                        "text": String(value)
+                    };
                 if (columnName === "code")
-                    return {"text": itemCode}
+                    return {
+                        "text": itemCode
+                    };
                 if (columnName === "name" || columnName === "title")
-                    return {"text": title}
-                return {"text": ""}
+                    return {
+                        "text": title
+                    };
+                return {
+                    "text": ""
+                };
             }
 
             function selectWithModifiers(modifiers) {
                 if (isGroup)
-                    return
-                root.controller.select_result_node(
-                    nodeId, searchKey, nodeType, modifiers, false
-                )
+                    return;
+                root.controller.select_result_node(nodeId, searchKey, nodeType, modifiers, false);
             }
 
             function activate(modifiers) {
                 if (isGroup)
-                    root.controller.toggle_result_node(nodeId)
+                    root.controller.toggle_result_node(nodeId);
                 else
-                    root.controller.handle_item_double_click(nodeId, modifiers)
+                    root.controller.handle_item_double_click(nodeId, modifiers);
             }
 
             function requestPreviewIfNeeded() {
                 if (previewActive && !previewRequested && !previewUrl)
-                    root.controller.request_item_preview(nodeId)
+                    root.controller.request_item_preview(nodeId);
             }
 
             Component.onCompleted: requestPreviewIfNeeded()
@@ -424,8 +368,8 @@ Item {
             onPreviewRequestedChanged: requestPreviewIfNeeded()
             ListView.onPooled: viewPooled = true
             ListView.onReused: {
-                viewPooled = false
-                requestPreviewIfNeeded()
+                viewPooled = false;
+                requestPreviewIfNeeded();
             }
 
             Controls.ItemSurface {
@@ -434,11 +378,7 @@ Item {
                 anchors.fill: parent
                 theme: root.theme
                 selected: resultRow.selected
-                normalColor: rowHover.hovered
-                    ? root.theme.rowHover
-                    : resultRow.isGroup
-                        ? root.theme.surfaceContainerHigh
-                        : root.theme.surfaceContainerLow
+                normalColor: rowHover.hovered ? root.theme.rowHover : resultRow.isGroup ? root.theme.surfaceContainerHigh : root.theme.surfaceContainerLow
                 railVisible: false
                 animateStateChanges: !rows.moving
             }
@@ -451,42 +391,27 @@ Item {
 
             MouseArea {
                 anchors.fill: parent
-                acceptedButtons: Qt.LeftButton | Qt.RightButton
-                    | Qt.MiddleButton
+                acceptedButtons: Qt.LeftButton | Qt.RightButton | Qt.MiddleButton
                 cursorShape: Qt.PointingHandCursor
 
-                onClicked: function(mouse) {
-                    rows.currentIndex = resultRow.index
-                    rows.forceActiveFocus()
+                onClicked: function (mouse) {
+                    rows.currentIndex = resultRow.index;
+                    rows.forceActiveFocus();
                     if (resultRow.isGroup) {
                         if (mouse.button === Qt.LeftButton)
-                            resultRow.activate(mouse.modifiers)
-                        return
+                            resultRow.activate(mouse.modifiers);
+                        return;
                     }
-                    root.controller.select_result_node(
-                        resultRow.nodeId,
-                        resultRow.searchKey,
-                        resultRow.nodeType,
-                        mouse.modifiers,
-                        mouse.button === Qt.RightButton && resultRow.selected
-                    )
+                    root.controller.select_result_node(resultRow.nodeId, resultRow.searchKey, resultRow.nodeType, mouse.modifiers, mouse.button === Qt.RightButton && resultRow.selected);
                     if (mouse.button === Qt.RightButton) {
-                        root.requestActionMenu(
-                            resultRow.nodeId,
-                            resultRow,
-                            mouse.x,
-                            mouse.y,
-                            false
-                        )
+                        root.requestActionMenu(resultRow.nodeId, resultRow, mouse.x, mouse.y, false);
                     } else if (mouse.button === Qt.MiddleButton) {
-                        root.controller.invoke_item_action(
-                            "new_tab", resultRow.nodeId
-                        )
+                        root.controller.invoke_item_action("new_tab", resultRow.nodeId);
                     }
                 }
-                onDoubleClicked: function(mouse) {
+                onDoubleClicked: function (mouse) {
                     if (mouse.button === Qt.LeftButton && !resultRow.isGroup)
-                        resultRow.activate(mouse.modifiers)
+                        resultRow.activate(mouse.modifiers);
                 }
             }
 
@@ -504,19 +429,12 @@ Item {
                         required property int index
                         required property var modelData
                         property bool editing: false
-                        readonly property var cell: resultRow.cellRecord(
-                            String(modelData.name || "")
-                        )
-                        readonly property string kind: String(
-                            cell.kind || modelData.kind || "text"
-                        )
-                        readonly property string textValue:
-                            root.displayText(cell.text)
+                        readonly property var cell: resultRow.cellRecord(String(modelData.name || ""))
+                        readonly property string kind: String(cell.kind || modelData.kind || "text")
+                        readonly property string textValue: root.displayText(cell.text)
                         readonly property bool inHorizontalViewport: {
-                            const left = x + root.selectionColumnWidth
-                            return left + width >= rows.contentX
-                                && left <= rows.contentX + rows.width
-                                    - root.actionColumnWidth
+                            const left = x + root.selectionColumnWidth;
+                            return left + width >= rows.contentX && left <= rows.contentX + rows.width - root.actionColumnWidth;
                         }
                         width: root.columnWidth(modelData)
                         height: resultRow.height
@@ -525,8 +443,7 @@ Item {
                         Loader {
                             id: cellDisplay
                             anchors.fill: parent
-                            active: cellDelegate.inHorizontalViewport
-                                && !cellDelegate.editing
+                            active: cellDelegate.inHorizontalViewport && !cellDelegate.editing
 
                             sourceComponent: TacticTableCellDisplay {
                                 id: taskCellDisplay
@@ -546,24 +463,18 @@ Item {
                                 accent: resultRow.accent
                                 comments: resultRow.comments
                                 tasks: resultRow.tasks
-                                displayOptions:
-                                    cellDelegate.modelData.displayOptions || ({})
+                                displayOptions: cellDelegate.modelData.displayOptions || ({})
                                 effectsEnabled: !rows.moving
                                 scrolling: rows.moving
-                                selectedTaskPreviewActive: resultRow.selected
-                                    && resultRow.inVerticalViewport && !resultRow.viewPooled
-                                    && root.selectedTaskPreviewActive
+                                selectedTaskPreviewActive: resultRow.selected && resultRow.inVerticalViewport && !resultRow.viewPooled && root.selectedTaskPreviewActive
                                 onTaskPreviewHoverChanged: hovered => {
                                     if (hovered)
-                                        root.hoveredTaskCell = taskCellDisplay
+                                        root.hoveredTaskCell = taskCellDisplay;
                                     else if (root.hoveredTaskCell === taskCellDisplay)
-                                        root.hoveredTaskCell = null
+                                        root.hoveredTaskCell = null;
                                 }
-                                onProcessCountMenuRequested:
-                                    function(panel, anchorItem) {
-                                    root.processCountMenuRequested(
-                                        resultRow.nodeId, panel, anchorItem
-                                    )
+                                onProcessCountMenuRequested: function (panel, anchorItem) {
+                                    root.processCountMenuRequested(resultRow.nodeId, panel, anchorItem);
                                 }
                             }
                         }
@@ -571,25 +482,20 @@ Item {
                             id: inlineEditorLoader
                             anchors.fill: parent
                             z: 4
-                            active: Boolean(cellDelegate.modelData.editable)
-                                && (cellDelegate.inHorizontalViewport
-                                    || cellDelegate.editing)
+                            active: Boolean(cellDelegate.modelData.editable) && (cellDelegate.inHorizontalViewport || cellDelegate.editing)
 
                             sourceComponent: TacticTableInlineEditor {
                                 theme: root.theme
                                 controller: root.controller
                                 columnsController: root.columnsController
                                 nodeId: resultRow.nodeId
-                                columnName: String(
-                                    cellDelegate.modelData.name || ""
-                                )
+                                columnName: String(cellDelegate.modelData.name || "")
                                 editable: true
                                 pooled: resultRow.viewPooled
-                                onEditingChanged:
-                                    cellDelegate.editing = editing
+                                onEditingChanged: cellDelegate.editing = editing
                                 onSelectRequested: {
-                                    rows.currentIndex = resultRow.index
-                                    resultRow.selectWithModifiers(0)
+                                    rows.currentIndex = resultRow.index;
+                                    resultRow.selectWithModifiers(0);
                                 }
                                 onFocusTableRequested: rows.forceActiveFocus()
                             }
@@ -613,8 +519,7 @@ Item {
 
                     Controls.MaterialIcon {
                         anchors.verticalCenter: parent.verticalCenter
-                        name: resultRow.expanded
-                            ? "expand_more" : "chevron_right"
+                        name: resultRow.expanded ? "expand_more" : "chevron_right"
                         size: 20
                         color: root.theme.secondaryText
                     }
@@ -671,15 +576,8 @@ Item {
                     leftPadding: 4
                     theme: root.theme
                     checked: resultRow.selected
-                    Accessible.name: qsTr("Select row") + " "
-                        + resultRow.title
-                    onClicked: root.controller.select_result_node(
-                        resultRow.nodeId,
-                        resultRow.searchKey,
-                        resultRow.nodeType,
-                        Qt.ControlModifier,
-                        false
-                    )
+                    Accessible.name: qsTr("Select row") + " " + resultRow.title
+                    onClicked: root.controller.select_result_node(resultRow.nodeId, resultRow.searchKey, resultRow.nodeType, Qt.ControlModifier, false)
                 }
             }
             Rectangle {
@@ -705,18 +603,9 @@ Item {
                 visible: !resultRow.isGroup
                 Accessible.name: qsTr("Item actions")
                 onClicked: {
-                    rows.currentIndex = resultRow.index
-                    root.controller.select_result_node(
-                        resultRow.nodeId,
-                        resultRow.searchKey,
-                        resultRow.nodeType,
-                        0,
-                        resultRow.selected
-                    )
-                    root.requestActionMenu(
-                        resultRow.nodeId, rowActions,
-                        0, rowActions.height, true
-                    )
+                    rows.currentIndex = resultRow.index;
+                    root.controller.select_result_node(resultRow.nodeId, resultRow.searchKey, resultRow.nodeType, 0, resultRow.selected);
+                    root.requestActionMenu(resultRow.nodeId, rowActions, 0, rowActions.height, true);
                 }
             }
         }
@@ -752,29 +641,25 @@ Item {
         visible: active
         sourceComponent: Column {
             spacing: 10
-        Controls.EmptyState {
-            width: parent.width
-            height: 112
-            theme: root.theme
-            iconName: root.columnsError.length > 0 ? "error" : "table_view"
-            title: root.columnsError.length > 0
-                ? qsTr("Table unavailable") : qsTr("No table columns")
-            message: root.columnsError.length > 0
-                ? root.columnsError
-                : qsTr("This TACTIC table view has no visible columns.")
-        }
-        Controls.Button {
-            anchors.horizontalCenter: parent.horizontalCenter
-            theme: root.theme
-            text: root.columnsError.length > 0
-                ? qsTr("Retry") : qsTr("Configure columns")
-            onClicked: {
-                if (root.columnsError.length > 0)
-                    root.columnsController.reload()
-                else
-                    root.openColumnsEditor()
+            Controls.EmptyState {
+                width: parent.width
+                height: 112
+                theme: root.theme
+                iconName: root.columnsError.length > 0 ? "error" : "table_view"
+                title: root.columnsError.length > 0 ? qsTr("Table unavailable") : qsTr("No table columns")
+                message: root.columnsError.length > 0 ? root.columnsError : qsTr("This TACTIC table view has no visible columns.")
             }
-        }
+            Controls.Button {
+                anchors.horizontalCenter: parent.horizontalCenter
+                theme: root.theme
+                text: root.columnsError.length > 0 ? qsTr("Retry") : qsTr("Configure columns")
+                onClicked: {
+                    if (root.columnsError.length > 0)
+                        root.columnsController.reload();
+                    else
+                        root.openColumnsEditor();
+                }
+            }
         }
     }
 

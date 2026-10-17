@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from PySide6.QtCore import QAbstractListModel, Qt
+from PySide6.QtCore import QAbstractListModel, Qt, Signal, Property
 
 from .results_types import WorkspaceNode
 from .results_records import RecordsMixin
@@ -14,13 +14,20 @@ from .results_organization import OrganizationMixin
 
 
 class WorkspaceItemModel(
-        RecordsMixin,
-        PresentationMixin,
-        TreeStateMixin,
-        LoadingMixin,
-        OrganizationMixin,
-        NavigationMixin,
-        QAbstractListModel):
+    RecordsMixin,
+    PresentationMixin,
+    TreeStateMixin,
+    LoadingMixin,
+    OrganizationMixin,
+    NavigationMixin,
+    QAbstractListModel,
+):
+    selectableCountChanged = Signal()
+
+    @Property(int, notify=selectableCountChanged)
+    def selectableCount(self):
+        return sum(node.node_type == "sobject" for node in self._items)
+
     SearchKeyRole = Qt.UserRole + 1
 
     CodeRole = Qt.UserRole + 2
@@ -115,6 +122,9 @@ class WorkspaceItemModel(
 
     def __init__(self) -> None:
         super().__init__()
+        self.modelReset.connect(self.selectableCountChanged)
+        self.rowsInserted.connect(self.selectableCountChanged)
+        self.rowsRemoved.connect(self.selectableCountChanged)
         self._roots: list[WorkspaceNode] = []
         self._root_groups: list[WorkspaceNode] = []
         self._items: list[WorkspaceNode] = []

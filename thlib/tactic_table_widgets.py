@@ -1,5 +1,7 @@
-"""Qt-facing counterparts for TACTIC table display widgets."""
+"""Qt counterparts for the independently shipped Frame table widget catalogue."""
 
+import json
+from pathlib import Path
 from thlib.tactic_widgets import TacticBaseWidget
 
 
@@ -7,7 +9,10 @@ class TacticBaseTableWidget(TacticBaseWidget):
     cell_kind = "text"
 
     def get_cell_kind(self, data_type="text"):
-        if str(data_type or "").lower() in {"bool", "boolean"}:
+        if self.cell_kind == "text" and str(data_type or "").lower() in {
+            "bool",
+            "boolean",
+        }:
             return "boolean"
         return self.cell_kind
 
@@ -28,11 +33,18 @@ class TacticRawTableWidget(TacticBaseTableWidget):
 
 
 class TacticFormatTableWidget(TacticBaseTableWidget):
-    pass
+    def get_cell_kind(self, data_type="text"):
+        if self.options_dict.get("displayOptions", {}).get("format") == "Checkbox":
+            return "boolean"
+        return super().get_cell_kind(data_type)
 
 
 class TacticExpressionTableWidget(TacticBaseTableWidget):
-    pass
+    def get_cell_kind(self, data_type="text"):
+        mode = self.options_dict.get("displayOptions", {}).get("mode")
+        return (
+            mode if mode in ("boolean", "check") else super().get_cell_kind(data_type)
+        )
 
 
 class TacticLinkTableWidget(TacticBaseTableWidget):
@@ -73,8 +85,10 @@ class TacticTaskTableWidget(TacticBaseTableWidget):
                     "status": parts[1],
                     "assigned": parts[2],
                 }
-                for value in str(cell["text"] or "").split(",") if value
-                for parts in [value.split(":", 2)] if len(parts) == 3
+                for value in str(cell["text"] or "").split(",")
+                if value
+                for parts in [value.split(":", 2)]
+                if len(parts) == 3
             ]
         return cell
 
@@ -115,100 +129,76 @@ class TacticDeleteTableWidget(TacticBaseTableWidget):
     cell_kind = "delete"
 
 
-table_classes = {
-    "tactic": [
-        "tactic.ui.common.SimpleTableElementWdg",
-        "tactic.ui.common.base_table_element_wdg.SimpleTableElementWdg",
-        "tactic.ui.common.RawTableElementWdg",
-        "tactic.ui.common.base_table_element_wdg.RawTableElementWdg",
-        "tactic.ui.table.FormatElementWdg",
-        "tactic.ui.table.format_element_wdg.FormatElementWdg",
-        "tactic.ui.table.ExpressionElementWdg",
-        "tactic.ui.table.expression_element_wdg.ExpressionElementWdg",
-        "tactic.ui.table.ExpressionValueElementWdg",
-        "tactic.ui.table.expression_element_wdg.ExpressionValueElementWdg",
-        "tactic.ui.table.LinkElementWdg",
-        "tactic.ui.table.link_element_wdg.LinkElementWdg",
-        "ThumbWdg",
-        "pyasm.widget.ThumbWdg",
-        "pyasm.widget.file_wdg.ThumbWdg",
-        "tactic.ui.widget.DiscussionElementWdg",
-        "tactic.ui.widget.discussion_wdg.DiscussionElementWdg",
-        "tactic.ui.table.SObjectDetailElementWdg",
-        "tactic.ui.table.sobject_detail_wdg.SObjectDetailElementWdg",
-        "tactic.ui.table.CheckinButtonElementWdg",
-        "tactic.ui.table.table_element_wdg.CheckinButtonElementWdg",
-        "tactic.ui.table.TaskElementWdg",
-        "tactic.ui.table.task_element_wdg.TaskElementWdg",
-        "tactic.ui.table.TaskCompletionWdg",
-        "tactic.ui.table.statistic_wdg.TaskCompletionWdg",
-        "tactic.ui.table.ExploreElementWdg",
-        "tactic.ui.table.ExplorerElementWdg",
-        "tactic.ui.table.ExplorerTableElementWdg",
-        "tactic.ui.table.explorer_wdg.ExplorerElementWdg",
-        "tactic.ui.table.SObjectFilesElementWdg",
-        "tactic.ui.table.sobject_summary_wdg.SObjectFilesElementWdg",
-        "tactic.ui.table.MetadataElementWdg",
-        "tactic.ui.table.metadata_element_wdg.MetadataElementWdg",
-        "tactic.ui.table.DeleteElementWdg",
-        "tactic.ui.table.delete_element_wdg.DeleteElementWdg",
-    ],
-    "handler": [
-        TacticSimpleTableWidget,
-        TacticSimpleTableWidget,
-        TacticRawTableWidget,
-        TacticRawTableWidget,
-        TacticFormatTableWidget,
-        TacticFormatTableWidget,
-        TacticExpressionTableWidget,
-        TacticExpressionTableWidget,
-        TacticExpressionTableWidget,
-        TacticExpressionTableWidget,
-        TacticLinkTableWidget,
-        TacticLinkTableWidget,
-        TacticThumbTableWidget,
-        TacticThumbTableWidget,
-        TacticThumbTableWidget,
-        TacticNotesTableWidget,
-        TacticNotesTableWidget,
-        TacticSObjectDetailTableWidget,
-        TacticSObjectDetailTableWidget,
-        TacticCheckinTableWidget,
-        TacticCheckinTableWidget,
-        TacticTaskTableWidget,
-        TacticTaskTableWidget,
-        TacticCompletionTableWidget,
-        TacticCompletionTableWidget,
-        TacticExplorerTableWidget,
-        TacticExplorerTableWidget,
-        TacticExplorerTableWidget,
-        TacticExplorerTableWidget,
-        TacticFileListTableWidget,
-        TacticFileListTableWidget,
-        TacticMetadataTableWidget,
-        TacticMetadataTableWidget,
-        TacticDeleteTableWidget,
-        TacticDeleteTableWidget,
-    ],
+class TacticLockedTableWidget(TacticBaseTableWidget):
+    cell_kind = "locked"
+
+
+class TacticGroupedCompletionTableWidget(TacticBaseTableWidget):
+    cell_kind = "group_completion"
+
+
+class TacticSelectionTableWidget(TacticBaseTableWidget):
+    cell_kind = "selection"
+
+
+class TacticTaskSummaryTableWidget(TacticTaskTableWidget):
+    cell_kind = "task_summary"
+
+
+class TacticFieldsTableWidget(TacticBaseTableWidget):
+    cell_kind = "fields"
+
+
+class TacticStatusFlagTableWidget(TacticBaseTableWidget):
+    cell_kind = "status_flag"
+
+
+class TacticUnsupportedTableWidget(TacticBaseTableWidget):
+    cell_kind = "unsupported"
+
+    def get_cell_kind(self, data_type="text"):
+        return self.cell_kind
+
+
+_adapters = {
+    "value": TacticSimpleTableWidget,
+    "raw": TacticRawTableWidget,
+    "formatted": TacticFormatTableWidget,
+    "expression": TacticExpressionTableWidget,
+    "link": TacticLinkTableWidget,
+    "preview": TacticThumbTableWidget,
+    "notes": TacticNotesTableWidget,
+    "details": TacticSObjectDetailTableWidget,
+    "checkin": TacticCheckinTableWidget,
+    "tasks": TacticTaskTableWidget,
+    "completion": TacticCompletionTableWidget,
+    "explorer": TacticExplorerTableWidget,
+    "files": TacticFileListTableWidget,
+    "metadata": TacticMetadataTableWidget,
+    "structured": TacticStructuredTableWidget,
+    "delete": TacticDeleteTableWidget,
+    "lock": TacticLockedTableWidget,
+    "groupCompletion": TacticGroupedCompletionTableWidget,
+    "selection": TacticSelectionTableWidget,
+    "taskSummary": TacticTaskSummaryTableWidget,
+    "fields": TacticFieldsTableWidget,
+    "flag": TacticStatusFlagTableWidget,
 }
-
-table_classes["tactic"].extend([
-    "ArrayTableElementWdg", "pyasm.widget.ArrayTableElementWdg",
-    "pyasm.widget.table_element_wdg.ArrayTableElementWdg",
-    "XmlWdg", "pyasm.widget.XmlWdg", "pyasm.widget.table_element_wdg.XmlWdg",
-    "tactic.ui.table.JsonElementWdg", "tactic.ui.table.json_element_wdg.JsonElementWdg",
-    "tactic.ui.table.SnapshotVersionElementWdg",
-    "tactic.ui.table.snapshot_element_wdg.SnapshotVersionElementWdg",
-])
-table_classes["handler"].extend(
-    [TacticBaseTableWidget] * 3 + [TacticStructuredTableWidget] * 5
-    + [TacticBaseTableWidget] * 2
+_catalog = json.loads(
+    (
+        Path(__file__).parent / "ui/qml/tactic_frame/features/table/widgets.json"
+    ).read_text(encoding="utf-8")
 )
-
-
-_table_widget_classes = dict(zip(
-    table_classes["tactic"], table_classes["handler"]
-))
+_table_widget_classes = {
+    alias: _adapters[entry["adapter"]]
+    for entry in _catalog
+    for alias in entry["aliases"]
+    if alias
+}
+table_classes = {
+    "tactic": list(_table_widget_classes),
+    "handler": [widget.__name__ for widget in _table_widget_classes.values()],
+}
 
 
 def get_widget_class(tactic_class=""):
@@ -217,10 +207,10 @@ def get_widget_class(tactic_class=""):
 
 def create_widget(options_dict=None):
     options = dict(options_dict or {})
-    class_name = str(
-        options.get("resolvedClass") or options.get("displayClass") or ""
+    class_name = str(options.get("resolvedClass") or options.get("displayClass") or "")
+    widget_class = get_widget_class(class_name) or (
+        TacticUnsupportedTableWidget if class_name else TacticBaseTableWidget
     )
-    widget_class = get_widget_class(class_name) or TacticBaseTableWidget
     widget = widget_class(options)
     widget.set_class_name(class_name)
     return widget

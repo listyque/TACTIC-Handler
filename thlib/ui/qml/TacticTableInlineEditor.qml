@@ -1,6 +1,10 @@
 pragma ComponentBehavior: Bound
 
 import QtQuick
+import QtQuick.Controls
+import "controls" as Controls
+import "features/table" as Table
+import "tactic_frame/features/table/inline.ui.mjs" as InlineUI
 
 Item {
     id: root
@@ -16,49 +20,49 @@ Item {
     property bool editing: false
     property bool discarding: false
     property var descriptor: ({})
-    readonly property bool textPanel: descriptor.fieldType === "multiline"
-        || descriptor.submitName === "description" || columnName === "description"
+    readonly property string editorMode: descriptor.fieldType === "multiline" || descriptor.submitName === "description" || columnName === "description" ? "multiline" : descriptor.fieldType === "enum" || ["status", "process", "pipeline", "project"].indexOf(descriptor.fieldType) >= 0 ? "select" : descriptor.fieldType === "bool" ? "bool" : ["date", "datetime", "color", "user", "time"].indexOf(descriptor.fieldType) >= 0 ? descriptor.fieldType : "text"
+    readonly property bool textPanel: InlineUI.explicitSave(editorMode)
+    readonly property bool tagsEditor: descriptor.fieldType === "tags" || descriptor.fieldName === "keywords"
 
-    signal selectRequested()
-    signal focusTableRequested()
+    signal selectRequested
+    signal focusTableRequested
 
     function beginEditing() {
-        if (!root.columnsController
-                || typeof root.columnsController.cell_editor !== "function")
-            return
-        const nextDescriptor = root.columnsController.cell_editor(
-            root.nodeId, root.columnName
-        )
+        if (!root.columnsController || typeof root.columnsController.cell_editor !== "function")
+            return;
+        const nextDescriptor = root.columnsController.cell_editor(root.nodeId, root.columnName);
         if (!nextDescriptor || !nextDescriptor.fieldType)
-            return
-        root.selectRequested()
-        root.discarding = false
-        root.descriptor = nextDescriptor
-        root.editing = true
+            return;
+        root.selectRequested();
+        root.discarding = false;
+        root.descriptor = nextDescriptor;
+        root.editing = true;
     }
 
     function commit(value) {
         if (!root.editing || root.discarding)
-            return
-        const current = root.descriptor
-        root.editing = false
+            return;
+        const current = root.descriptor;
+        root.editing = false;
         if (String(value ?? "") === String(current.fieldValue ?? ""))
-            return
-        const changes = ({})
-        changes[String(current.submitName || root.columnName)] = value
-        root.controller.update_selected_item_fields(root.nodeId, changes)
+            return;
+        const changes = ({});
+        changes[String(current.submitName || root.columnName)] = value;
+        root.controller.update_selected_item_fields(root.nodeId, changes);
     }
 
     function cancel() {
-        root.discarding = true
-        root.editing = false
-        root.focusTableRequested()
-        Qt.callLater(function() { root.discarding = false })
+        root.discarding = true;
+        root.editing = false;
+        root.focusTableRequested();
+        Qt.callLater(function () {
+            root.discarding = false;
+        });
     }
 
     onPooledChanged: {
         if (pooled)
-            cancel()
+            cancel();
     }
 
     MouseArea {
@@ -70,8 +74,8 @@ Item {
         cursorShape: Qt.IBeamCursor
         onClicked: mouse => mouse.accepted = false
         onDoubleClicked: mouse => {
-            mouse.accepted = true
-            root.beginEditing()
+            mouse.accepted = true;
+            root.beginEditing();
         }
     }
 
@@ -85,7 +89,23 @@ Item {
         height: Math.max(parent.height - 8, 0)
         active: root.editing && !root.textPanel
 
-        sourceComponent: SObjectValueEditor {
+        sourceComponent: root.tagsEditor ? legacyTagsEditor : inlineEditor
+    }
+
+    Component {
+        id: inlineEditor
+        Table.ValueEditor {
+            theme: root.theme
+            descriptor: root.descriptor
+            mode: root.editorMode
+            controlHeight: Math.max(36, root.height - 8)
+            onSaved: value => root.commit(value)
+            onCancelled: root.cancel()
+        }
+    }
+    Component {
+        id: legacyTagsEditor
+        SObjectValueEditor {
             theme: root.theme
             compact: true
             autoActivate: true
@@ -105,11 +125,33 @@ Item {
     Loader {
         anchors.fill: parent
         active: root.editing && root.textPanel
-        sourceComponent: TableTextEditor {
-            theme: root.theme
-            value: String(root.descriptor.fieldValue ?? "")
-            onSaved: value => root.commit(value)
-            onCancelled: if (root.editing) root.cancel()
+        sourceComponent: Item {
+            Component.onCompleted: Qt.callLater(function () {
+                popup.openBelowItem(root, true, 4);
+            })
+            Controls.ScrollablePopup {
+                id: popup
+                parent: Overlay.overlay
+                theme: root.theme
+                preferredSurfaceWidth: root.editorMode === "multiline" ? 620 : Math.max(300, root.width)
+                maximumSurfaceHeight: 520
+                settledClosePolicy: Popup.CloseOnEscape
+                onClosed: if (root.editing)
+                    root.cancel()
+                Table.ValueEditor {
+                    theme: root.theme
+                    width: parent.width
+                    height: implicitHeight
+                    descriptor: root.descriptor
+                    mode: root.editorMode
+                    count: Math.max(1, root.controller.selected_result_node_ids.length)
+                    onSaved: value => {
+                        root.commit(value);
+                        popup.close();
+                    }
+                    onCancelled: popup.close()
+                }
+            }
         }
     }
 }

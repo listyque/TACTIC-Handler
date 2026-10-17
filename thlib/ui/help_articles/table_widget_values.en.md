@@ -43,3 +43,6 @@ order: 35
 Arrays convert || to comma-space; NULL is empty. XML decompresses native zlib: values for display only and preserves invalid text with a diagnostic. JSON uses sorted keys, two-space indentation and the configured height. Snapshot versions show No version / Latest / Current / padded positive numbers; NULL now shows No version. No display operation changes a record or executes text as HTML/JS.
 
 The Columns Editor keeps the existing native edit contract and permissions. The server procedure uses get_cell_value when available and equivalent source-value computation on original servers. The two transports are tested; this is not a claim of complete legacy/widget/table migration.
+
+
+[B07 typed cells and limitations](table_widgets_b07.en.md)

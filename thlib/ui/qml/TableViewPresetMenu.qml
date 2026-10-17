@@ -3,53 +3,28 @@ pragma ComponentBehavior: Bound
 import QtQuick
 import QtQuick.Controls
 import "controls" as Controls
+import "tactic_frame/features/table/menus.ui.mjs" as TableMenus
 
 Item {
     id: root
 
     required property var theme
+    readonly property string language: typeof localizationController === "undefined" ? "en" : localizationController.current_language
     required property var columnsController
 
-    signal configureRequested()
-    signal closeRequested()
+    signal configureRequested
+    signal closeRequested
 
     width: 0
     height: 0
 
     function actions() {
-        const views = columnsController.tableViews || []
-        const values = [{"title": "Table views", "header": true}]
-        for (let index = 0; index < views.length; ++index) {
-            const view = views[index]
-            values.push({
-                "title": String(view.view || "") === "table"
-                    ? qsTr("Default table")
-                    : String(view.title || view.view || ""),
-                "icon": "table-view",
-                "command": "select:" + index,
-                "checked": Boolean(view.current),
-                "translate": false
-            })
-        }
-        values.push({"separator": true})
-        values.push({
-            "title": "Configure columns",
-            "icon": "view-column",
-            "command": "configure",
-            "enabled": !columnsController.busy
-        })
-        values.push({
-            "title": "Save current as new view…",
-            "icon": "add",
-            "command": "save_as",
-            "enabled": !columnsController.busy
-        })
-        return values
+        return TableMenus.viewActions(columnsController.tableViews || [], !columnsController.busy, root.language);
     }
 
     function openBelow(anchor) {
-        presetMenu.actions = actions()
-        presetMenu.openBelow(anchor)
+        presetMenu.actions = actions();
+        presetMenu.openBelow(anchor);
     }
 
     ActionMenu {
@@ -60,17 +35,15 @@ Item {
         preferredWidth: 280
         onTriggered: command => {
             if (command === "save_as") {
-                viewName.clear()
-                saveDialog.open()
-                viewName.forceActiveFocus()
+                viewName.clear();
+                saveDialog.open();
+                viewName.forceActiveFocus();
             } else if (command === "configure") {
-                root.configureRequested()
-                root.closeRequested()
+                root.configureRequested();
+                root.closeRequested();
             } else if (command.indexOf("select:") === 0) {
-                root.columnsController.select_table_view(
-                    Number(command.split(":")[1])
-                )
-                root.closeRequested()
+                root.columnsController.select_table_view(Number(command.split(":")[1]));
+                root.closeRequested();
             }
         }
     }
@@ -85,8 +58,7 @@ Item {
         modal: true
         title: qsTr("Save table view")
         onClosed: root.closeRequested()
-        onAccepted:
-            root.columnsController.save_table_view_as(viewName.text)
+        onAccepted: root.columnsController.save_table_view_as(viewName.text)
         contentItem: Controls.TextField {
             id: viewName
             width: 342
@@ -95,7 +67,7 @@ Item {
             Accessible.name: qsTr("View name")
             Keys.onReturnPressed: {
                 if (text.trim().length > 0)
-                    saveDialog.accept()
+                    saveDialog.accept();
             }
         }
         footer: DialogButtonBox {

@@ -3,6 +3,12 @@
 Each completed change receives a new version and a dated entry below.
 Versions use `major.minor.build.revision`; routine updates increment `revision`.
 
+## 0.6.0.111 - 2026-10-17
+
+- Share Table View geometry/paint, column/view menus, typed inline editor composition and task-cell rules with Stream. Retain native ListView, search sessions, existing XML revision, edit and task mutation owners; ship an independent Frame copy.
+- Add typed completion/lock/file/due/subcontext/selection/metadata cell adapters and one explicit 37-class catalogue. Keep unknown classes/options unsupported. Fix boolean action classification, cancelled column drag, group selection count, completion padding and unassigned task labels.
+- Add real Qt/browser input and paired production-component checks. This is a B07 checkpoint, not completion: 40 usable classes in shipped/CG widget configs still need full workflows, including nested tables and specialized legacy action/forms.
+
 ## 0.6.0.110 - 2026-10-17
 
 - Move search conditions/suggestions, presets, tag/quick-filter headers and editor parts, process visibility, menus, paging and result-card geometry to independent Frame search descriptions. Keep existing query, revision, ACL, mutation and native operation owners; use an Advanced Search dock in both products.

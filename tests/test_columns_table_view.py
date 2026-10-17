@@ -3322,9 +3322,8 @@ class ColumnsTableViewTests(unittest.TestCase):
             )
             value_editor = inline_loader.property("item")
             self.assertIsNotNone(value_editor, warnings)
-            inline_text = value_editor.findChild(
-                QObject, "sobjectValueTextEditor"
-            )
+            inline_text = next((item for item in _visual_items(value_editor)
+                if item.objectName() == "tableInlineValue"), None)
             self.assertIsNotNone(inline_text, warnings)
             QTest.keyClick(window, Qt.Key_A, Qt.ControlModifier)
             text_input = QInputMethodEvent()

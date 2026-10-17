@@ -8118,8 +8118,111 @@ def query_table_layout(search_type, search_keys=None, view='table',
             if sobject.get_value(name) is None:
                 return {'text': '', 'error': ''}
             return {'text': widget.get_text_value()}
-        if class_name.endswith('.TaskElementWdg'):
-            return {'tasks': task_cell_records(widget)}
+        if class_name.endswith(('.ProjectWdg', '.RecipientElementWdg', '.SearchTypeHasTableElementWdg', '.RelatedElementWdg', '.PreferenceDescriptionWdg')):
+            native = getattr(widget, 'get_cell_value', None)
+            if native:
+                return native()
+            if class_name.endswith('.ProjectWdg'):
+                from pyasm.common import Environment
+                exists = sobject.database_exists()
+                version = sobject.get_value('last_version_update')
+                current = str(version or '') >= str(Environment.get_release_version())
+                return {'text': 'Exists: %s\nVersion: %s' % (exists, version or ''),
+                    'entries': [{'title': 'Exists', 'value': 'Yes' if exists else 'No', 'translate': True,
+                                 'color': 'green' if exists else 'error'},
+                                {'title': 'Version', 'value': str(version or ''), 'translateTitle': True,
+                                 'color': 'green' if current else 'error'}]}
+            if class_name.endswith('.RecipientElementWdg'):
+                entries = [{'title': row.get_value('type'), 'value': row.get_value('login')} for row in widget.get_logins()]
+                return {'text': '\n'.join('%s: %s' % (row['title'], row['value']) for row in entries), 'entries': entries}
+            if class_name.endswith('.SearchTypeHasTableElementWdg'):
+                from pyasm.biz import Project
+                from pyasm.search import DbContainer
+                database = sobject.get_value('database')
+                project = Project.get() if database == '{project}' else Project.get_by_code(database)
+                if not project:
+                    return {'text': 'Project does not exist', 'label': 'Project does not exist', 'good': False}
+                table = sobject.get_table()
+                if not table:
+                    return {'text': '', 'good': None}
+                found = project.database_exists() and DbContainer.get(project.get_project_db_resource()).table_exists(table)
+                return {'text': 'Exists' if found else 'Does not exist', 'label': 'Exists' if found else 'Does not exist', 'good': bool(found)}
+            if class_name.endswith('.RelatedElementWdg'):
+                result = widget.data.get(sobject.get_id())
+                if not result:
+                    return {'text': ''}
+                expression = options.get('expression')
+                value = Search.eval(expression, result) if expression else result.get_value(options.get('column') or column['name'], no_exception=True)
+                return {'text': '' if value is None else str(value)}
+            hints = {'Debug': 'If set to [true], you can view the Debug Widget at the bottom left corner of your page.',
+                     'Filter': 'If set to [multi], It generally applies to filters in the filter box for Artist Tab.',
+                     'Quick Text': 'A list of | separated phrases a user can pick from to enter into the note area of Note Sheet.'}
+            return {'text': sobject.get_description(), 'tooltip': hints.get(sobject.get_value('title'), '')}
+        if class_name.endswith('.DiscussionWdg'):
+            native = getattr(widget, 'get_cell_value', None)
+            if native:
+                return native()
+            counts = {}
+            for note in widget.get_notes():
+                if not note.get_parent_id():
+                    process = note.get_process() or 'publish'
+                    counts[process] = counts.get(process, 0) + 1
+            parent = widget.parent
+            return {'text': str(sum(counts.values())), 'count': sum(counts.values()),
+                'search_key': SearchKey.get_by_sobject(parent, use_id=False) if parent else '',
+                'process': widget.process, 'contexts': widget.contexts or [],
+                'processes': [{'process': process, 'count': count} for process, count in counts.items()]}
+        if class_name.endswith('.CheckboxColWdg'):
+            return {'text': '', 'search_key': SearchKey.get_by_sobject(sobject, use_id=False)}
+        if class_name.endswith('.SearchTypeElementWdg'):
+            from pyasm.search import SearchType, SearchException
+            try:
+                title = SearchType.get(sobject.get_value(column['name'])).get_title()
+            except SearchException:
+                title = '--'
+            return {'text': str(title)}
+        if class_name.endswith((
+                '.SnapshotLockedElementWdg', '.SnapshotFileElementWdg',
+                '.MilestoneCompletionWdg', '.TaskGroupCompletionWdg',
+                '.TaskDaysDueElementWdg', '.SubContextElementWdg')):
+            native = getattr(widget, 'get_cell_value', None)
+            if native:
+                return native()
+            if class_name.endswith('.SnapshotLockedElementWdg'):
+                locked = bool(widget.is_locked_dict.get(widget.get_key(sobject)))
+                return {'text': 'Locked' if locked else '', 'checked': locked}
+            if class_name.endswith('.SnapshotFileElementWdg'):
+                import os
+                from urllib.parse import urlsplit
+                path = sobject.get_web_path_by_type()
+                filename = os.path.basename(path)
+                if sobject.get_value('snapshot_type') == 'sequence':
+                    filename = '%s (%s)' % (filename, sobject.get_file_range().get_display())
+                url = urlsplit(path)
+                safe = not any(char.isspace() or ord(char) < 32 for char in path) and '\\' not in path and (
+                    url.scheme.lower() in ('http', 'https') or not url.scheme and path.startswith('/') and not path.startswith('//'))
+                return {'text': filename, 'href': path if safe else ''}
+            if class_name.endswith('.SubContextElementWdg'):
+                return {'text': widget._get_subcontext()}
+            if class_name.endswith('.MilestoneCompletionWdg'):
+                return {'text': widget.get_text_value(), 'completion': widget.get_completion(sobject)}
+            if class_name.endswith('.TaskGroupCompletionWdg'):
+                widget.calculate(sobject)
+                groups = []
+                for group in widget.group_list:
+                    label = group.get('label')
+                    if not label:
+                        continue
+                    values = widget.completion_dict.get(label) or []
+                    percent = widget.get_group_completion(values)
+                    groups.append({'label': label, 'completion': percent,
+                        'count': len(values), 'text': '%s: %s%%' % (label, percent)})
+                return {'text': '\n'.join(group['text'] for group in groups), 'groups': groups}
+            text = widget.get_text_value()
+            return {'text': text, 'urgency': widget.mode}
+        if class_name.endswith(('.TaskElementWdg', '.TaskSummaryElementWdg')):
+            records = task_cell_records(widget)
+            return {'tasks': records, 'text': ','.join(':'.join((task.get('context', ''), task.get('status', ''), task.get('assigned', ''))) for task in records), 'summaryMode': options.get('mode') or 'default'}
         if class_name.endswith('.SObjectDetailElementWdg'):
             target = sobject
             if str(options.get('use_parent') or '').lower() == 'true':
@@ -8275,7 +8378,11 @@ def query_table_layout(search_type, search_keys=None, view='table',
         name = column['name']
         column['sortable'] = False
         try:
-            widget = config.get_display_widget(name)
+            if column.get('displayClass') in ('TextWdg', 'pyasm.widget.TextWdg', 'pyasm.widget.input_wdg.TextWdg'):
+                from tactic.ui.common import SimpleTableElementWdg
+                widget = SimpleTableElementWdg(name=name, **(column.get('displayOptions') or {}))
+            else:
+                widget = config.get_display_widget(name)
             widget.set_sobjects(sobjects)
             widget.preprocess()
             widgets[name] = widget
@@ -8283,7 +8390,7 @@ def query_table_layout(search_type, search_keys=None, view='table',
                 widget.__class__.__module__, widget.__class__.__name__
             )
             if (
-                column['resolvedClass'].endswith('.TaskElementWdg')
+                column['resolvedClass'].endswith(('.TaskElementWdg', '.TaskSummaryElementWdg'))
                 and not column['attributes'].get('width')
             ):
                 column['width'] = widget.get_width()
@@ -8301,31 +8408,19 @@ def query_table_layout(search_type, search_keys=None, view='table',
         for column in columns:
             name = column['name']
             error = widget_errors.get(name, '')
-            value = None
+            value, projected = None, {}
             widget = widgets.get(name)
             if widget:
                 try:
                     widget.set_current_index(index)
-                    value = widget.get_text_value()
+                    projected = action_cell_values(column.get('resolvedClass') or '', column, sobject, widget)
+                    value = projected.get('text', '') if projected else widget.get_text_value()
                 except Exception as widget_error:
                     error = str(widget_error)
             if value is None:
                 value = sobject.get_value(name, no_exception=True)
-            text = '' if value is None else str(value)
-            cell = {
-                'text': text,
-                'error': error,
-            }
-            if widget:
-                try:
-                    cell.update(action_cell_values(
-                        column.get('resolvedClass') or '',
-                        column,
-                        sobject,
-                        widget,
-                    ))
-                except Exception as widget_error:
-                    cell['error'] = str(widget_error)
+            cell = {'text': '' if value is None else str(value), 'error': error}
+            cell.update(projected)
             cells[name] = cell
         rows[search_key] = cells
 

@@ -1,0 +1,384 @@
+[
+  {
+    "value": "",
+    "label": "Automatic",
+    "class": "tactic.ui.common.base_table_element_wdg.SimpleTableElementWdg",
+    "aliases": [
+      "TextWdg",
+      "",
+      "pyasm.widget.TextWdg",
+      "tactic.ui.common.SimpleTableElementWdg",
+      "tactic.ui.common.base_table_element_wdg.SimpleTableElementWdg",
+      "SimpleTableElementWdg",
+      "pyasm.widget.SimpleTableElementWdg",
+      "pyasm.widget.table_element_wdg.SimpleTableElementWdg",
+      "pyasm.widget.input_wdg.TextWdg"
+    ],
+    "adapter": "value"
+  },
+  {
+    "value": "format",
+    "label": "Format",
+    "class": "tactic.ui.table.format_element_wdg.FormatElementWdg",
+    "aliases": [
+      "tactic.ui.table.FormatElementWdg",
+      "tactic.ui.table.format_element_wdg.FormatElementWdg"
+    ],
+    "adapter": "formatted"
+  },
+  {
+    "value": "expression",
+    "label": "Expression",
+    "class": "tactic.ui.table.expression_element_wdg.ExpressionElementWdg",
+    "aliases": [
+      "tactic.ui.table.ExpressionElementWdg",
+      "tactic.ui.table.expression_element_wdg.ExpressionElementWdg"
+    ],
+    "adapter": "expression"
+  },
+  {
+    "value": "link",
+    "label": "Link",
+    "class": "tactic.ui.table.link_element_wdg.LinkElementWdg",
+    "aliases": [
+      "tactic.ui.table.LinkElementWdg",
+      "tactic.ui.table.link_element_wdg.LinkElementWdg"
+    ],
+    "adapter": "link"
+  },
+  {
+    "value": "pyasm.widget.ThumbWdg",
+    "label": "Thumbnail",
+    "class": "pyasm.widget.file_wdg.ThumbWdg",
+    "aliases": [
+      "ThumbWdg",
+      "pyasm.widget.ThumbWdg",
+      "pyasm.widget.file_wdg.ThumbWdg"
+    ],
+    "adapter": "preview"
+  },
+  {
+    "value": "tactic.ui.widget.DiscussionElementWdg",
+    "label": "Notes",
+    "class": "tactic.ui.widget.discussion_wdg.DiscussionElementWdg",
+    "aliases": [
+      "tactic.ui.widget.DiscussionElementWdg",
+      "tactic.ui.widget.discussion_wdg.DiscussionElementWdg"
+    ],
+    "adapter": "notes"
+  },
+  {
+    "value": "tactic.ui.table.SObjectDetailElementWdg",
+    "label": "SObject details",
+    "class": "tactic.ui.table.sobject_detail_wdg.SObjectDetailElementWdg",
+    "aliases": [
+      "tactic.ui.table.SObjectDetailElementWdg",
+      "tactic.ui.table.sobject_detail_wdg.SObjectDetailElementWdg"
+    ],
+    "adapter": "details"
+  },
+  {
+    "value": "tactic.ui.table.CheckinButtonElementWdg",
+    "label": "Check-in",
+    "class": "tactic.ui.table.table_element_wdg.CheckinButtonElementWdg",
+    "aliases": [
+      "tactic.ui.table.CheckinButtonElementWdg",
+      "tactic.ui.table.table_element_wdg.CheckinButtonElementWdg"
+    ],
+    "adapter": "checkin"
+  },
+  {
+    "value": "tactic.ui.table.TaskElementWdg",
+    "label": "Tasks",
+    "class": "tactic.ui.table.task_element_wdg.TaskElementWdg",
+    "aliases": [
+      "tactic.ui.table.TaskElementWdg",
+      "tactic.ui.table.task_element_wdg.TaskElementWdg"
+    ],
+    "adapter": "tasks"
+  },
+  {
+    "value": "tactic.ui.table.TaskCompletionWdg",
+    "label": "Task completion",
+    "class": "tactic.ui.table.statistic_wdg.TaskCompletionWdg",
+    "aliases": [
+      "tactic.ui.table.TaskCompletionWdg",
+      "tactic.ui.table.statistic_wdg.TaskCompletionWdg"
+    ],
+    "adapter": "completion"
+  },
+  {
+    "value": "tactic.ui.table.ExploreElementWdg",
+    "label": "Explorer",
+    "class": "tactic.ui.table.explorer_wdg.ExplorerElementWdg",
+    "aliases": [
+      "tactic.ui.table.ExploreElementWdg",
+      "tactic.ui.table.ExplorerElementWdg",
+      "tactic.ui.table.explorer_wdg.ExplorerElementWdg"
+    ],
+    "adapter": "explorer"
+  },
+  {
+    "value": "tactic.ui.table.SObjectFilesElementWdg",
+    "label": "Files",
+    "class": "tactic.ui.table.sobject_summary_wdg.SObjectFilesElementWdg",
+    "aliases": [
+      "tactic.ui.table.SObjectFilesElementWdg",
+      "tactic.ui.table.sobject_summary_wdg.SObjectFilesElementWdg"
+    ],
+    "adapter": "files"
+  },
+  {
+    "value": "tactic.ui.table.MetadataElementWdg",
+    "label": "Metadata",
+    "class": "tactic.ui.table.metadata_element_wdg.MetadataElementWdg",
+    "aliases": [
+      "tactic.ui.table.MetadataElementWdg",
+      "tactic.ui.table.metadata_element_wdg.MetadataElementWdg"
+    ],
+    "adapter": "metadata"
+  },
+  {
+    "value": "tactic.ui.table.DeleteElementWdg",
+    "label": "Delete",
+    "class": "tactic.ui.table.delete_element_wdg.DeleteElementWdg",
+    "aliases": [
+      "tactic.ui.table.DeleteElementWdg",
+      "tactic.ui.table.delete_element_wdg.DeleteElementWdg"
+    ],
+    "adapter": "delete"
+  },
+  {
+    "value": "ArrayTableElementWdg",
+    "label": "Array",
+    "class": "pyasm.widget.table_element_wdg.ArrayTableElementWdg",
+    "aliases": [
+      "ArrayTableElementWdg",
+      "pyasm.widget.ArrayTableElementWdg",
+      "pyasm.widget.table_element_wdg.ArrayTableElementWdg"
+    ],
+    "adapter": "value"
+  },
+  {
+    "value": "XmlWdg",
+    "label": "XML",
+    "class": "pyasm.widget.table_element_wdg.XmlWdg",
+    "aliases": [
+      "XmlWdg",
+      "pyasm.widget.XmlWdg",
+      "pyasm.widget.table_element_wdg.XmlWdg"
+    ],
+    "adapter": "structured"
+  },
+  {
+    "value": "tactic.ui.table.JsonElementWdg",
+    "label": "JSON",
+    "class": "tactic.ui.table.json_element_wdg.JsonElementWdg",
+    "aliases": [
+      "tactic.ui.table.JsonElementWdg",
+      "tactic.ui.table.json_element_wdg.JsonElementWdg"
+    ],
+    "adapter": "structured"
+  },
+  {
+    "value": "tactic.ui.table.SnapshotVersionElementWdg",
+    "label": "Snapshot version",
+    "class": "tactic.ui.table.snapshot_element_wdg.SnapshotVersionElementWdg",
+    "aliases": [
+      "tactic.ui.table.SnapshotVersionElementWdg",
+      "tactic.ui.table.snapshot_element_wdg.SnapshotVersionElementWdg"
+    ],
+    "adapter": "value"
+  },
+  {
+    "value": "tactic.ui.table.SnapshotLockedElementWdg",
+    "label": "Snapshot lock",
+    "class": "tactic.ui.table.snapshot_element_wdg.SnapshotLockedElementWdg",
+    "aliases": [
+      "tactic.ui.table.SnapshotLockedElementWdg",
+      "tactic.ui.table.snapshot_element_wdg.SnapshotLockedElementWdg"
+    ],
+    "adapter": "lock"
+  },
+  {
+    "value": "tactic.ui.table.SnapshotFileElementWdg",
+    "label": "Snapshot file",
+    "class": "tactic.ui.table.snapshot_element_wdg.SnapshotFileElementWdg",
+    "aliases": [
+      "tactic.ui.table.SnapshotFileElementWdg",
+      "tactic.ui.table.snapshot_element_wdg.SnapshotFileElementWdg"
+    ],
+    "adapter": "link"
+  },
+  {
+    "value": "tactic.ui.table.MilestoneCompletionWdg",
+    "label": "Milestone completion",
+    "class": "tactic.ui.table.statistic_wdg.MilestoneCompletionWdg",
+    "aliases": [
+      "tactic.ui.table.MilestoneCompletionWdg",
+      "tactic.ui.table.statistic_wdg.MilestoneCompletionWdg"
+    ],
+    "adapter": "completion"
+  },
+  {
+    "value": "tactic.ui.table.TaskGroupCompletionWdg",
+    "label": "Task group completion",
+    "class": "tactic.ui.table.statistic_wdg.TaskGroupCompletionWdg",
+    "aliases": [
+      "tactic.ui.table.TaskGroupCompletionWdg",
+      "tactic.ui.table.statistic_wdg.TaskGroupCompletionWdg"
+    ],
+    "adapter": "groupCompletion"
+  },
+  {
+    "value": "tactic.ui.table.TaskDaysDueElementWdg",
+    "label": "Days until due",
+    "class": "tactic.ui.table.statistic_wdg.TaskDaysDueElementWdg",
+    "aliases": [
+      "tactic.ui.table.TaskDaysDueElementWdg",
+      "tactic.ui.table.statistic_wdg.TaskDaysDueElementWdg"
+    ],
+    "adapter": "value"
+  },
+  {
+    "value": "tactic.ui.table.SubContextElementWdg",
+    "label": "Subcontext",
+    "class": "tactic.ui.table.subcontext_wdg.SubContextElementWdg",
+    "aliases": [
+      "tactic.ui.table.SubContextElementWdg",
+      "tactic.ui.table.subcontext_wdg.SubContextElementWdg"
+    ],
+    "adapter": "value"
+  },
+  {
+    "value": "tactic.ui.table.TaskSummaryElementWdg",
+    "label": "Task summary",
+    "class": "tactic.ui.table.task_element_wdg.TaskSummaryElementWdg",
+    "aliases": [
+      "TaskSummaryElementWdg",
+      "tactic.ui.table.TaskSummaryElementWdg",
+      "tactic.ui.table.task_element_wdg.TaskSummaryElementWdg"
+    ],
+    "adapter": "taskSummary"
+  },
+  {
+    "value": "pyasm.widget.CheckboxColWdg",
+    "label": "Row selection",
+    "class": "pyasm.widget.table_element_wdg.CheckboxColWdg",
+    "aliases": [
+      "CheckboxColWdg",
+      "pyasm.widget.CheckboxColWdg",
+      "pyasm.widget.table_element_wdg.CheckboxColWdg"
+    ],
+    "adapter": "selection"
+  },
+  {
+    "value": "pyasm.widget.SearchTypeElementWdg",
+    "label": "Search Type title",
+    "class": "pyasm.widget.table_element_wdg.SearchTypeElementWdg",
+    "aliases": [
+      "SearchTypeElementWdg",
+      "pyasm.widget.SearchTypeElementWdg",
+      "pyasm.widget.table_element_wdg.SearchTypeElementWdg"
+    ],
+    "adapter": "value"
+  },
+  {
+    "value": "pyasm.widget.statistic_wdg.TaskCompletionWdg",
+    "label": "Legacy task completion (integer)",
+    "class": "pyasm.widget.statistic_wdg.TaskCompletionWdg",
+    "aliases": [
+      "pyasm.widget.statistic_wdg.TaskCompletionWdg",
+      "pyasm.widget.TaskCompletionWdg",
+      "TaskCompletionWdg"
+    ],
+    "adapter": "completion"
+  },
+  {
+    "value": "tactic.ui.app.search_type_element_wdg.SearchTypeHasTableElementWdg",
+    "label": "Table availability",
+    "class": "tactic.ui.app.search_type_element_wdg.SearchTypeHasTableElementWdg",
+    "aliases": [
+      "tactic.ui.app.SearchTypeHasTableElementWdg",
+      "tactic.ui.app.search_type_element_wdg.SearchTypeHasTableElementWdg"
+    ],
+    "adapter": "flag"
+  },
+  {
+    "value": "tactic.ui.common.base_table_element_wdg.RawTableElementWdg",
+    "label": "Raw value",
+    "class": "tactic.ui.common.base_table_element_wdg.RawTableElementWdg",
+    "aliases": [
+      "tactic.ui.common.RawTableElementWdg",
+      "tactic.ui.common.base_table_element_wdg.RawTableElementWdg"
+    ],
+    "adapter": "raw"
+  },
+  {
+    "value": "tactic.ui.table.explorer_wdg.ExplorerTableElementWdg",
+    "label": "Folder",
+    "class": "tactic.ui.table.explorer_wdg.ExplorerTableElementWdg",
+    "aliases": ["tactic.ui.table.ExplorerTableElementWdg"],
+    "adapter": "explorer"
+  },
+  {
+    "value": "tactic.ui.table.expression_element_wdg.ExpressionValueElementWdg",
+    "label": "Expression value",
+    "class": "tactic.ui.table.expression_element_wdg.ExpressionValueElementWdg",
+    "aliases": [
+      "tactic.ui.table.ExpressionValueElementWdg",
+      "tactic.ui.table.expression_element_wdg.ExpressionValueElementWdg"
+    ],
+    "adapter": "expression"
+  },
+  {
+    "value": "tactic.ui.table.preference_wdg.PreferenceDescriptionWdg",
+    "label": "Preference description",
+    "class": "tactic.ui.table.preference_wdg.PreferenceDescriptionWdg",
+    "aliases": [
+      "tactic.ui.table.PreferenceDescriptionWdg",
+      "tactic.ui.table.preference_wdg.PreferenceDescriptionWdg"
+    ],
+    "adapter": "value"
+  },
+  {
+    "value": "tactic.ui.table.project_wdg.ProjectWdg",
+    "label": "Project database",
+    "class": "tactic.ui.table.project_wdg.ProjectWdg",
+    "aliases": [
+      "tactic.ui.table.ProjectWdg",
+      "tactic.ui.table.project_wdg.ProjectWdg"
+    ],
+    "adapter": "fields"
+  },
+  {
+    "value": "tactic.ui.table.related_element_wdg.RelatedElementWdg",
+    "label": "Related value",
+    "class": "tactic.ui.table.related_element_wdg.RelatedElementWdg",
+    "aliases": [
+      "tactic.ui.table.RelatedElementWdg",
+      "tactic.ui.table.related_element_wdg.RelatedElementWdg"
+    ],
+    "adapter": "value"
+  },
+  {
+    "value": "tactic.ui.table.table_element_wdg.RecipientElementWdg",
+    "label": "Notification recipients",
+    "class": "tactic.ui.table.table_element_wdg.RecipientElementWdg",
+    "aliases": [
+      "tactic.ui.table.RecipientElementWdg",
+      "tactic.ui.table.table_element_wdg.RecipientElementWdg"
+    ],
+    "adapter": "fields"
+  },
+  {
+    "value": "tactic.ui.widget.discussion_wdg.DiscussionWdg",
+    "label": "Discussion",
+    "class": "tactic.ui.widget.discussion_wdg.DiscussionWdg",
+    "aliases": [
+      "tactic.ui.widget.DiscussionWdg",
+      "tactic.ui.widget.discussion_wdg.DiscussionWdg"
+    ],
+    "adapter": "notes"
+  }
+]

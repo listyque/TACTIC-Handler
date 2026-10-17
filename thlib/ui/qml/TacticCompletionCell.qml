@@ -18,6 +18,7 @@ Item {
     Accessible.description: text || Number(boundedPercent).toFixed(1) + "%"
 
     Rectangle {
+        objectName: "tableCellCompletionTrack"
         anchors.left: parent.left
         anchors.right: parent.right
         anchors.verticalCenter: parent.verticalCenter
